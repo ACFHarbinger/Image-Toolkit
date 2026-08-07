@@ -141,7 +141,7 @@ anyway, ahead of the gate; see the "Gate 5 exception" note in the
 [Engine Architecture Roadmap](roadmaps/engine_architecture.md) for the full
 rationale. This is a scope decision, not evidence Krita has proven
 insufficient — the Krita plugin remains the primary, actively-developed
-host. Twelve slices are implemented, all In review: the first (issue #25 —
+host. Thirteen slices are implemented, all In review: the first (issue #25 —
 a PySide6 canvas + layer-stack foundation in the existing `gui/` workspace
 member, backed by a new pure-numpy `src/editor/` package), the second
 (issue #26 — a brush paint tool: pure-numpy circular stamping in
@@ -176,11 +176,14 @@ the seventh slice's fixed-weight in-memory behavior when no project is
 bound), the eleventh (issue #35 — attaching canvas documents
 themselves into a bound project via `attach_editor_document`/a new
 `Project.editor_document_assets` list, whenever Save Document targets a
-path inside the bound project's directory), and the twelfth (issue #36
+path inside the bound project's directory), the twelfth (issue #36
 — Project Documents/Project Bibles combo boxes plus Open Selected
 Document/Load Selected Bible buttons, so a bound project's already-
 attached assets can be reopened/reloaded without re-navigating a file
-dialog each time). The likely long-term architecture is still a C++ engine, GPU-backed
+dialog each time), and the thirteenth (issue #37 — a soft/anti-aliased
+brush hardness option, `stamp_dot_soft`/`stamp_line_soft` alongside the
+existing hard `stamp_dot`/`stamp_line`, defaulting to fully hard so
+prior behavior is unchanged). The likely long-term architecture is still a C++ engine, GPU-backed
 canvas, and isolated Python research/model workers; its staged boundary and
 migration gates are defined in the same document. Browser support is not a
 justification for choosing the desktop architecture.

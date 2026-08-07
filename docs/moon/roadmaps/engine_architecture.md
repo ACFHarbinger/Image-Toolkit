@@ -348,3 +348,29 @@ file-dialog Bind Style Bible flow uses (extracted into a shared
 asset path (no re-attach needed). Pure refactor-and-extend of existing
 behavior -- the file-dialog-driven Open Document/Bind Style Bible flows
 are unchanged and still work with no project bound.
+
+**Thirteenth slice (issue #37, In review pending a manual desktop-app
+check): soft/anti-aliased brush hardness.** Fulfills the note left in
+the second slice's own docstring since it landed: "a softer brush is a
+later slice on the same `stamp_*` contract." `src/editor/brush.py` adds
+`_circular_falloff(radius, hardness)` -- per-pixel coverage in
+`[0, 1]`: fully opaque within `hardness * radius` of the center, then
+linearly fading to transparent at `radius`; `hardness=1.0` is
+pixel-identical to the existing hard `_circular_mask`.
+`_clip_region` is generalized to take a brush coverage array directly
+(bool or float) instead of always computing the hard circular mask
+internally, so hard and soft stamping share one clipping
+implementation. `_blend_color_over_weighted` is the soft-brush
+counterpart of `_blend_color_over`, scaling the stamped color's alpha
+per-pixel by the coverage array before straight-alpha "over" blending.
+New `stamp_dot_soft`/`stamp_line_soft` mirror the existing hard
+`stamp_dot`/`stamp_line` signatures plus a `hardness: float` parameter.
+Mask painting (`stamp_mask_dot`/`stamp_mask_line`) is unchanged and has
+no soft variant -- alpha-blending a mask against itself has no useful
+meaning, so a soft mask edit isn't a well-defined concept yet.
+`LayerCanvas` gains `set_brush_hardness`/`brush_hardness` (default
+`1.0`, unchanged prior behavior) and dispatches to the soft stamping
+functions only when hardness `< 1.0`, keeping the hard-brush path
+byte-identical to before for the default case. `ReferenceColoringTab`
+adds a Hardness spin box (`0.0`-`1.0`, step `0.05`) next to the
+existing brush Size control.

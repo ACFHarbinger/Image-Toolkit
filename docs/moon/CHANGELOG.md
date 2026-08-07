@@ -38,15 +38,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `engine_architecture.md`'s "Gate 5 exception (2026-08-07)" note for the
   full rationale — this is a scope decision, not evidence Krita has proven
   insufficient. The Krita plugin remains the primary, actively-developed
-  host. Twelve slices — canvas + layer-stack foundation, brush paint
+  host. Thirteen slices — canvas + layer-stack foundation, brush paint
   tool (issue #26), undo/redo (issue #27), non-destructive layer masks
   (issue #28), line-art segmentation (issue #29), style-bible palette
   application (issue #30), region-to-material correspondence assignment
   (issue #31), canvas document save/load (issue #32), canvas document
   recovery-revision rotation (issue #33), binding a portable project for
   `SignalWeights` correction learning (issue #34), attaching canvas
-  documents into a bound project (issue #35), and browsing/reopening
-  project-bound assets (issue #36) — are all In review pending a manual
+  documents into a bound project (issue #35), browsing/reopening
+  project-bound assets (issue #36), and a soft/anti-aliased brush
+  hardness option (issue #37) — are all In review pending a manual
   desktop-app check (see the `### Added` entries below).
 
 ### Fixed
@@ -413,6 +414,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `gui` tests (526 core + 192 gui total); Ruff and mypy clean. Needs a
   manual desktop launch to confirm visually — see issue #36's testing
   comment.
+- **Standalone editor thirteenth slice (issue #37, In review):
+  soft/anti-aliased brush hardness.** Fulfills the note left in the
+  second slice's own docstring since it landed: "a softer brush is a
+  later slice on the same `stamp_*` contract." `src/editor/brush.py`
+  adds `_circular_falloff(radius, hardness)` — per-pixel coverage in
+  `[0, 1]`: fully opaque within `hardness * radius` of the center, then
+  linearly fading to transparent at `radius`; `hardness=1.0` is
+  pixel-identical to the existing hard `_circular_mask`. `_clip_region`
+  is generalized to take a brush coverage array directly (bool or
+  float) instead of always computing the hard circular mask internally,
+  so hard and soft stamping share one clipping implementation.
+  `_blend_color_over_weighted` is the soft-brush counterpart of
+  `_blend_color_over`, scaling the stamped color's alpha per-pixel by
+  the coverage array before straight-alpha "over" blending. New
+  `stamp_dot_soft`/`stamp_line_soft` mirror the existing hard
+  `stamp_dot`/`stamp_line` signatures plus a `hardness: float`
+  parameter. Mask painting is unchanged and has no soft variant —
+  alpha-blending a mask against itself has no useful meaning.
+  `LayerCanvas` gains `set_brush_hardness`/`brush_hardness` (default
+  `1.0`, unchanged prior behavior) and dispatches to the soft stamping
+  functions only when hardness `< 1.0`, keeping the hard-brush path
+  byte-identical to before for the default case. `ReferenceColoringTab`
+  adds a Hardness spin box (`0.0`–`1.0`, step `0.05`) next to the
+  existing brush Size control. Verification: 8 new core `editor` tests,
+  6 new headless-Qt `gui` tests (533 core + 197 gui total); Ruff and
+  mypy clean. Needs a manual desktop launch to confirm visually — see
+  issue #37's testing comment.
 - **Milestone 4 first slice (issue #24): deterministic confidence scoring
   and correction learning for assisted correspondence.** Portable contract
   only, no Docker UI yet, following the same sequencing every prior

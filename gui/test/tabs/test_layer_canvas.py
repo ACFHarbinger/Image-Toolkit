@@ -110,6 +110,65 @@ def test_brush_color_and_radius_setters(q_app):
     assert canvas.brush_radius() == 0
 
 
+def test_brush_hardness_setter_clamps_to_unit_range(q_app):
+    canvas = LayerCanvas()
+    assert canvas.brush_hardness() == 1.0  # default: fully hard, unchanged prior behavior
+    canvas.set_brush_hardness(0.4)
+    assert canvas.brush_hardness() == 0.4
+    canvas.set_brush_hardness(-1.0)
+    assert canvas.brush_hardness() == 0.0
+    canvas.set_brush_hardness(5.0)
+    assert canvas.brush_hardness() == 1.0
+
+
+def test_paint_dot_soft_hardness_fades_the_edge(q_app):
+    canvas = LayerCanvas()
+    stack = LayerStack(21, 21)
+    stack.add_layer("base", "Base")
+    canvas.set_layer_stack(stack)
+    canvas.set_active_layer_id("base")
+    canvas.set_brush_color((255, 0, 0, 255))
+    canvas.set_brush_radius(8)
+    canvas.set_brush_hardness(0.0)
+    canvas._paint_dot_at_pixel(10, 10)
+    layer = stack.layer("base")
+    assert layer.pixels[10, 10].tolist() == [255, 0, 0, 255]  # center: fully opaque
+    assert 0 < layer.pixels[10, 17, 3] < 255  # near the edge: fading
+    assert layer.pixels[10, 19].tolist() == [0, 0, 0, 0]  # outside radius: untouched
+
+
+def test_paint_line_soft_hardness_paints_a_faded_stroke(q_app):
+    canvas = LayerCanvas()
+    stack = LayerStack(20, 20)
+    stack.add_layer("base", "Base")
+    canvas.set_layer_stack(stack)
+    canvas.set_active_layer_id("base")
+    canvas.set_brush_color((0, 0, 255, 255))
+    canvas.set_brush_radius(2)
+    canvas.set_brush_hardness(0.5)
+    canvas._paint_line_at_pixel(1, 10, 15, 10)
+    row_alpha = stack.layer("base").pixels[10, 1:16, 3]
+    assert (row_alpha > 0).all()
+
+
+def test_mask_mode_ignores_brush_hardness(q_app):
+    """Mask painting stays hard-edged (direct overwrite) regardless of
+    brush hardness -- soft masks aren't a supported concept yet."""
+    canvas = LayerCanvas()
+    stack = LayerStack(10, 10)
+    layer = stack.add_layer("base", "Base")
+    stack.add_mask("base")
+    canvas.set_layer_stack(stack)
+    canvas.set_active_layer_id("base")
+    canvas.set_mask_mode(True)
+    canvas.set_brush_radius(2)
+    canvas.set_brush_hardness(0.0)
+    canvas.set_mask_intensity(200)
+    canvas._paint_dot_at_pixel(5, 5)
+    assert layer.mask[5, 5] == 200
+    assert layer.mask[5, 6] == 200  # within radius: still a hard, uniform overwrite
+
+
 def test_paint_dot_at_pixel_requires_an_active_layer(q_app):
     canvas = LayerCanvas()
     stack = LayerStack(10, 10)

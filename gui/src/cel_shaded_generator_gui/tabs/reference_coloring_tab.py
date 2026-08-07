@@ -34,7 +34,12 @@ untracked. Once a project is bound, its already-attached documents and
 style bibles populate the Project Documents/Project Bibles combos so
 they can be reopened/reloaded without re-navigating a file dialog each
 time -- the same convenience the Krita Character Colors Docker's own
-bible dropdown gives its lesson-flow projects.
+bible dropdown gives its lesson-flow projects. A Hardness spin box
+(default 1.0, a fully hard edge -- unchanged behavior from before this
+option existed) switches the color brush between the original hard-edged
+stamping and a soft, falloff-edged one (``editor.brush``'s
+``stamp_dot_soft``/``stamp_line_soft``); mask painting always stays
+hard-edged.
 
 New feature, not code motion.
 """
@@ -80,6 +85,7 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QColorDialog,
     QComboBox,
+    QDoubleSpinBox,
     QFileDialog,
     QHBoxLayout,
     QInputDialog,
@@ -97,6 +103,7 @@ from ..elements.layer_list_panel import LayerListPanel
 _DEFAULT_WIDTH = 1200
 _DEFAULT_HEIGHT = 1600
 _DEFAULT_BRUSH_RADIUS = 4
+_DEFAULT_BRUSH_HARDNESS = 1.0
 
 
 class ReferenceColoringTab(QWidget):
@@ -154,6 +161,13 @@ class ReferenceColoringTab(QWidget):
         self._brush_radius_spin.valueChanged.connect(self._on_brush_radius_changed)
         self._canvas.set_brush_radius(_DEFAULT_BRUSH_RADIUS)
 
+        self._brush_hardness_spin = QDoubleSpinBox(self)
+        self._brush_hardness_spin.setRange(0.0, 1.0)
+        self._brush_hardness_spin.setSingleStep(0.05)
+        self._brush_hardness_spin.setValue(_DEFAULT_BRUSH_HARDNESS)
+        self._brush_hardness_spin.valueChanged.connect(self._canvas.set_brush_hardness)
+        self._canvas.set_brush_hardness(_DEFAULT_BRUSH_HARDNESS)
+
         self._undo_button = QPushButton("Undo", self)
         self._redo_button = QPushButton("Redo", self)
         self._undo_button.clicked.connect(self._undo)
@@ -202,6 +216,8 @@ class ReferenceColoringTab(QWidget):
         controls.addWidget(self._brush_color_button)
         controls.addWidget(QLabel("Size:", self))
         controls.addWidget(self._brush_radius_spin)
+        controls.addWidget(QLabel("Hardness:", self))
+        controls.addWidget(self._brush_hardness_spin)
         controls.addWidget(self._undo_button)
         controls.addWidget(self._redo_button)
         controls.addWidget(self._edit_mask_checkbox)

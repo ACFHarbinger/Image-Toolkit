@@ -21,6 +21,13 @@ instead), using ``editor.brush``'s mask-specific overwrite stamping
 (``stamp_mask_dot``/``stamp_mask_line``) instead of the alpha-blended
 color stamping.
 
+``set_brush_hardness`` (default ``1.0``, a fully hard edge -- unchanged
+behavior from before this option existed) selects between the hard
+(``stamp_dot``/``stamp_line``) and soft, falloff-edged
+(``stamp_dot_soft``/``stamp_line_soft``) color brush; mask painting
+always stays hard-edged, since a soft mask edit has no direct-overwrite
+equivalent worth adding yet.
+
 New feature, not code motion.
 """
 
@@ -32,7 +39,9 @@ from editor import (
     Layer,
     LayerStack,
     stamp_dot,
+    stamp_dot_soft,
     stamp_line,
+    stamp_line_soft,
     stamp_mask_dot,
     stamp_mask_line,
 )
@@ -44,6 +53,7 @@ _MIN_SCALE = 0.05
 _MAX_SCALE = 40.0
 _DEFAULT_BRUSH_COLOR = (0, 0, 0, 255)
 _DEFAULT_BRUSH_RADIUS = 4
+_DEFAULT_BRUSH_HARDNESS = 1.0
 
 
 def rgba_array_to_qpixmap(arr: np.ndarray) -> QPixmap:
@@ -71,6 +81,7 @@ class LayerCanvas(QGraphicsView):
         self._active_layer_id: str | None = None
         self._brush_color = _DEFAULT_BRUSH_COLOR
         self._brush_radius = _DEFAULT_BRUSH_RADIUS
+        self._brush_hardness = _DEFAULT_BRUSH_HARDNESS
         self._painting = False
         self._last_point: tuple[int, int] | None = None
         self._history: EditHistory | None = None
@@ -134,6 +145,12 @@ class LayerCanvas(QGraphicsView):
     def brush_radius(self) -> int:
         return self._brush_radius
 
+    def set_brush_hardness(self, hardness: float) -> None:
+        self._brush_hardness = max(0.0, min(1.0, hardness))
+
+    def brush_hardness(self) -> float:
+        return self._brush_hardness
+
     def set_history(self, history: EditHistory | None) -> None:
         self._history = history
 
@@ -173,7 +190,12 @@ class LayerCanvas(QGraphicsView):
         if self._mask_mode and layer.mask is not None:
             stamp_mask_dot(layer.mask, x, y, self._brush_radius, self._mask_intensity)
         elif not self._mask_mode:
-            stamp_dot(layer.pixels, x, y, self._brush_radius, self._brush_color)
+            if self._brush_hardness < 1.0:
+                stamp_dot_soft(
+                    layer.pixels, x, y, self._brush_radius, self._brush_color, self._brush_hardness
+                )
+            else:
+                stamp_dot(layer.pixels, x, y, self._brush_radius, self._brush_color)
         self.refresh()
 
     def _paint_line_at_pixel(self, x0: int, y0: int, x1: int, y1: int) -> None:
@@ -185,7 +207,19 @@ class LayerCanvas(QGraphicsView):
                 layer.mask, x0, y0, x1, y1, self._brush_radius, self._mask_intensity
             )
         elif not self._mask_mode:
-            stamp_line(layer.pixels, x0, y0, x1, y1, self._brush_radius, self._brush_color)
+            if self._brush_hardness < 1.0:
+                stamp_line_soft(
+                    layer.pixels,
+                    x0,
+                    y0,
+                    x1,
+                    y1,
+                    self._brush_radius,
+                    self._brush_color,
+                    self._brush_hardness,
+                )
+            else:
+                stamp_line(layer.pixels, x0, y0, x1, y1, self._brush_radius, self._brush_color)
         self.refresh()
 
     def _scene_point_to_pixel(self, event) -> tuple[int, int]:

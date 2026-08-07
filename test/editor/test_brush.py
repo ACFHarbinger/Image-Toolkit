@@ -1,7 +1,14 @@
 import numpy as np
 import pytest
 
-from editor import stamp_dot, stamp_line, stamp_mask_dot, stamp_mask_line
+from editor import (
+    stamp_dot,
+    stamp_dot_soft,
+    stamp_line,
+    stamp_line_soft,
+    stamp_mask_dot,
+    stamp_mask_line,
+)
 
 
 def _blank(width=10, height=10):
@@ -133,3 +140,55 @@ def test_stamp_mask_line_paints_a_continuous_stroke_without_gaps():
     stamp_mask_line(mask, 2, 10, 17, 10, 2, 128)
     row = mask[10, 2:18]
     assert (row == 128).all()
+
+
+def test_stamp_dot_soft_at_full_hardness_matches_stamp_dot():
+    hard = _blank()
+    stamp_dot(hard, 5, 5, 3, (255, 0, 0, 255))
+    soft = _blank()
+    stamp_dot_soft(soft, 5, 5, 3, (255, 0, 0, 255), hardness=1.0)
+    assert (hard == soft).all()
+
+
+def test_stamp_dot_soft_center_is_fully_opaque_edge_fades():
+    pixels = _blank(21, 21)
+    stamp_dot_soft(pixels, 10, 10, 8, (255, 0, 0, 255), hardness=0.0)
+    assert pixels[10, 10].tolist() == [255, 0, 0, 255]  # center: full coverage
+    edge_alpha = pixels[10, 17, 3]  # near the radius edge
+    assert 0 < edge_alpha < 255  # partially transparent, not hard-edged
+    assert pixels[10, 19].tolist() == [0, 0, 0, 0]  # outside radius: untouched
+
+
+def test_stamp_dot_soft_hardness_widens_the_fully_opaque_core():
+    pixels = _blank(21, 21)
+    stamp_dot_soft(pixels, 10, 10, 8, (255, 0, 0, 255), hardness=0.75)
+    assert pixels[10, 15].tolist() == [255, 0, 0, 255]  # within the hard core (0.75 * 8 = 6)
+    assert 0 < pixels[10, 17, 3] < 255  # still fading between the core and the edge
+
+
+def test_stamp_dot_soft_off_canvas_is_a_no_op():
+    pixels = _blank(4, 4)
+    stamp_dot_soft(pixels, -10, -10, 1, (10, 20, 30, 255), hardness=0.5)
+    assert (pixels == 0).all()
+
+
+def test_stamp_dot_soft_rejects_out_of_range_hardness():
+    with pytest.raises(ValueError, match="hardness"):
+        stamp_dot_soft(_blank(), 0, 0, 1, (0, 0, 0, 255), hardness=1.5)
+    with pytest.raises(ValueError, match="hardness"):
+        stamp_dot_soft(_blank(), 0, 0, 1, (0, 0, 0, 255), hardness=-0.1)
+
+
+def test_stamp_line_soft_single_point_behaves_like_stamp_dot_soft():
+    a = _blank()
+    stamp_line_soft(a, 5, 5, 5, 5, 2, (0, 255, 0, 255), hardness=0.5)
+    b = _blank()
+    stamp_dot_soft(b, 5, 5, 2, (0, 255, 0, 255), hardness=0.5)
+    assert (a == b).all()
+
+
+def test_stamp_line_soft_paints_a_continuous_stroke():
+    pixels = _blank(20, 20)
+    stamp_line_soft(pixels, 2, 10, 17, 10, 2, (0, 0, 255, 255), hardness=0.5)
+    row_alpha = pixels[10, 2:18, 3]
+    assert (row_alpha > 0).all()

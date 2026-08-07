@@ -54,6 +54,13 @@ def test_brush_radius_spin_updates_canvas(q_app):
     assert tab.canvas().brush_radius() == 12
 
 
+def test_brush_hardness_spin_defaults_to_fully_hard_and_updates_canvas(q_app):
+    tab = ReferenceColoringTab()
+    assert tab.canvas().brush_hardness() == 1.0
+    tab._brush_hardness_spin.setValue(0.3)
+    assert tab.canvas().brush_hardness() == 0.3
+
+
 def test_layer_selection_wires_canvas_active_layer(q_app):
     tab = ReferenceColoringTab()
     stack = LayerStack(4, 4)

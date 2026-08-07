@@ -1,6 +1,13 @@
 """Deterministic, Qt-free layer-stack model for the standalone editor."""
 
-from .brush import stamp_dot, stamp_line, stamp_mask_dot, stamp_mask_line
+from .brush import (
+    stamp_dot,
+    stamp_dot_soft,
+    stamp_line,
+    stamp_line_soft,
+    stamp_mask_dot,
+    stamp_mask_line,
+)
 from .correspondence_tools import (
     adjacency_agreement_by_material,
     assign_region_correspondence,
@@ -21,7 +28,9 @@ __all__ = [
     "LayerMeta",
     "LayerStack",
     "stamp_dot",
+    "stamp_dot_soft",
     "stamp_line",
+    "stamp_line_soft",
     "stamp_mask_dot",
     "stamp_mask_line",
     "EditHistory",
