@@ -115,6 +115,27 @@ def test_character_variation_lesson_is_fully_authored():
     assert all((CONTENT / path).is_file() for path in lesson["media"])
 
 
+@pytest.mark.parametrize(
+    "filename,exercise_id,prerequisite",
+    [
+        ("cel_value_grouping.json", "anime-head-cel-values", "anime-head-variation"),
+        ("comprehensive_review.json", "anime-head-review", "anime-head-cel-values"),
+    ],
+)
+def test_final_lessons_are_fully_authored(filename, exercise_id, prerequisite):
+    lesson = json.loads((CONTENT / filename).read_text(encoding="utf-8"))
+    assert lesson["exercise_id"] == exercise_id
+    assert lesson["prerequisite_ids"] == [prerequisite]
+    assert len(lesson["learning_objectives"]) >= 6
+    assert len(lesson["theory"]) >= 5
+    assert len(lesson["steps"]) >= 9
+    assert len(lesson["guided_drills"]) >= 4
+    assert len(lesson["common_mistakes"]) >= 7
+    assert len(lesson["completion_criteria"]) >= 8
+    assert len(lesson["self_review_questions"]) >= 7
+    assert all((CONTENT / path).is_file() for path in lesson["media"])
+
+
 def test_lesson_loader_orders_navigation_and_renders_full_content():
     module = _module()
     lessons = module.load_lessons(CONTENT)
@@ -126,6 +147,8 @@ def test_lesson_loader_orders_navigation_and_renders_full_content():
         "anime-head-features",
         "anime-head-asymmetry",
         "anime-head-variation",
+        "anime-head-cel-values",
+        "anime-head-review",
     ]
     rendered = module.render_lesson_text(lessons[1])
     assert "Learning objectives" in rendered

@@ -77,6 +77,30 @@ VARIATION_EXERCISE_VIEWS = (
     "05 Selected Front Identity Reconstruction",
     "06 Selected Right Three-Quarter Identity Check",
 )
+VALUE_EXERCISE_ID = "anime-head-cel-values"
+VALUE_EXERCISE_WIDTH = 2600
+VALUE_EXERCISE_HEIGHT = 1800
+VALUE_EXERCISE_TITLE = "Cel-Shaded Value Grouping — Light and Form Sheet"
+VALUE_EXERCISE_VIEWS = (
+    "01 Light Statement and Plane Map",
+    "02 Front Two-Value Mask",
+    "03 Front Cast-Shadow Audit",
+    "04 Restrained Three-Value Pass",
+    "05 Right Three-Quarter Two-Value Transfer",
+    "06 Front and Turned Lighting Consistency",
+)
+CAPSTONE_EXERCISE_ID = "anime-head-review"
+CAPSTONE_EXERCISE_WIDTH = 3200
+CAPSTONE_EXERCISE_HEIGHT = 2000
+CAPSTONE_EXERCISE_TITLE = "Anime Head Learning Capstone — Review and Revision Sheet"
+CAPSTONE_EXERCISE_VIEWS = (
+    "01 Brief and Identity Specification",
+    "02 Front Construction",
+    "03 Right Three-Quarter Construction",
+    "04 Expression Asymmetry and Value Pass",
+    "05 Tutor Review and Correction Pass",
+    "06 Final Comparison and Self-Review",
+)
 
 
 def create_exercise_document(application):
@@ -334,6 +358,58 @@ def create_variation_exercise_document(application):
     return document
 
 
+def _create_six_stage_document(application, width, height, title, views, layout_name):
+    window = application.activeWindow()
+    if window is None:
+        raise RuntimeError("Krita needs an active window before creating an exercise")
+    document = application.createDocument(
+        width, height, title, "RGBA", "U8", "", EXERCISE_RESOLUTION
+    )
+    if document is None:
+        raise RuntimeError("Krita could not create the six-stage exercise document")
+    root = document.rootNode()
+    feedback = document.createNode("Tutor Feedback (locked)", "grouplayer")
+    layout = document.createNode(layout_name, "vectorlayer")
+    work_layers = [document.createNode(name, "paintlayer") for name in views]
+    if feedback is None or layout is None or any(node is None for node in work_layers):
+        raise RuntimeError("Krita could not create the six-stage exercise layers")
+    layout.addShapesFromSvg(_six_cell_layout_svg(views, width, height))
+    layout.setLocked(True)
+    feedback.setLocked(True)
+    root.addChildNode(feedback, None)
+    feedback.addChildNode(layout, None)
+    above = feedback
+    for node in work_layers:
+        root.addChildNode(node, above)
+        above = node
+    window.addView(document)
+    document.setActiveNode(work_layers[0])
+    document.setModified(False)
+    return document
+
+
+def create_value_exercise_document(application):
+    return _create_six_stage_document(
+        application,
+        VALUE_EXERCISE_WIDTH,
+        VALUE_EXERCISE_HEIGHT,
+        VALUE_EXERCISE_TITLE,
+        VALUE_EXERCISE_VIEWS,
+        "Tutor Cel-Value Layout (locked)",
+    )
+
+
+def create_capstone_exercise_document(application):
+    return _create_six_stage_document(
+        application,
+        CAPSTONE_EXERCISE_WIDTH,
+        CAPSTONE_EXERCISE_HEIGHT,
+        CAPSTONE_EXERCISE_TITLE,
+        CAPSTONE_EXERCISE_VIEWS,
+        "Tutor Capstone Layout (locked)",
+    )
+
+
 def create_exercise_project(
     application, engine_client, directory, attempt_id, exercise_id=FRONT_EXERCISE_ID
 ):
@@ -355,6 +431,10 @@ def create_exercise_project(
         document = create_asymmetry_exercise_document(application)
     elif exercise_id == VARIATION_EXERCISE_ID:
         document = create_variation_exercise_document(application)
+    elif exercise_id == VALUE_EXERCISE_ID:
+        document = create_value_exercise_document(application)
+    elif exercise_id == CAPSTONE_EXERCISE_ID:
+        document = create_capstone_exercise_document(application)
     else:
         raise ValueError("the selected lesson has no exercise template yet")
     artwork = root / "artwork"
@@ -486,19 +566,22 @@ def _asymmetry_layout_svg():
     )
 
 
-def _six_cell_layout_svg(labels):
+def _six_cell_layout_svg(labels, width=2600, height=1800):
     cells = []
+    column_width = width / 3
+    row_height = height / 2
     for index, label in enumerate(labels):
         column, row = index % 3, index // 3
-        x, y = 50 + column * 850, 120 + row * 830
+        x, y = 50 + column * column_width, 120 + row * row_height
         short = label[3:].upper()
         cells.append(
-            f'<rect x="{x}" y="{y}" width="800" height="720" rx="18" '
+            f'<rect x="{x}" y="{y}" width="{column_width - 70}" '
+            f'height="{row_height - 180}" rx="18" '
             'fill="none" stroke="#8090a0" stroke-width="5" stroke-dasharray="18 14"/>'
-            f'<text x="{x + 400}" y="{y - 28}" text-anchor="middle" '
+            f'<text x="{x + (column_width - 70) / 2}" y="{y - 28}" text-anchor="middle" '
             f'font-family="sans-serif" font-size="25" fill="#506070">{short}</text>'
         )
     return (
-        '<svg xmlns="http://www.w3.org/2000/svg" width="2600" height="1800" '
-        'viewBox="0 0 2600 1800">' + "".join(cells) + "</svg>"
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" '
+        f'viewBox="0 0 {width} {height}">' + "".join(cells) + "</svg>"
     )

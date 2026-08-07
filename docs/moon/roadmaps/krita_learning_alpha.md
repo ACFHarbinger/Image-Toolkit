@@ -169,14 +169,12 @@ remain deferred in Review.
 
 - 🔄 Curriculum v1 content: the versioned core catalog now defines all nine
   primary anime head-and-face exercises plus four focused remedial exercises.
-  The front-construction, head-orientation, and cranial-volume/jaw-variation
-  lessons are fully authored. Head orientation includes spatial theory, seven
+  All nine primary lessons are now fully authored. Head orientation includes spatial theory, seven
   construction stages, three drills, five diagnosed common mistakes, measurable
   completion criteria, self-review, and delayed repetition. The third lesson
   separates stable cranial mass from controlled jaw variables, age/design
   tendencies, and perspective effects with the same instructional depth and two
-  original SVGs. Remaining lessons and rich media remain; each lesson will be
-  authored fully rather than stubbed. The
+  original SVGs. Rich-media expansion and calibration remain. The
   existing docker now provides an ordered selector, Previous/Next navigation,
   and selectable scalable SVG diagrams for authored lessons without locking
   later content.
@@ -238,6 +236,18 @@ remain deferred in Review.
   selected front compares with baseline and selected turned directly with front.
   Card adherence and retention remain numeric while card revision is auditable
   artist-confirmation evidence. Identity correction previews remain future work.
+- 🔄 Cel-value curriculum/template: lesson eight is fully authored around an
+  explicit light statement, plane-facing map, two-value grouping, form/cast
+  causes, subordinate third values, identity preservation, and front-to-turned
+  lighting consistency. Two offline diagrams and a 2600 × 1800 six-layer sheet
+  cover the plane map, masks, cast-shadow audit, third-value pass, turned transfer,
+  and consistency. Its dedicated mask/lighting review remains future work.
+- 🔄 Comprehensive capstone: lesson nine integrates brief, portable identity
+  card, front/turned construction, expression, controlled asymmetry, cel values,
+  review decisions, prioritized correction, compatible comparison, and delayed
+  repetition. Two diagrams and a 3200 × 2000 six-layer sheet preserve initial,
+  correction, and final evidence. Reviews never auto-complete it; every preview
+  remains an explicit artist decision and checklist completion stays manual.
 - 🔄 Head-orientation exercise template: the docker creates a 2600 × 1600
   landscape rotation sheet with five labeled work areas and separate layers for
   left profile, left three-quarter, front, right three-quarter, and right

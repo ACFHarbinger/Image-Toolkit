@@ -187,6 +187,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   drills, seven diagnosed mistakes, eight completion checks, and seven self-
   review prompts target generic-face convergence and decoration dependence. Two
   original SVGs accompany a 2600 × 1800 six-layer identity model sheet.
+  Fully authored lessons eight and nine, completing the nine-lesson content
+  sequence. Cel-Shaded Value Grouping teaches explicit light statements,
+  plane-facing decisions, two-value masks, form/cast causes, restrained third
+  values, and front-to-turned consistency through five theory sections, nine
+  stages, four drills, and two original diagrams. Its 2600 × 1800 six-layer
+  sheet separates plane map, front masks/audit, third-value pass, turned transfer,
+  and consistency. The Comprehensive Capstone integrates brief, identity card,
+  construction, expression, controlled asymmetry, lighting, review decisions,
+  prioritized correction, comparison, and delayed repetition. Two capstone SVGs
+  and a 3200 × 2000 six-layer sheet preserve initial evidence, correction pass,
+  and final self-review; completion remains explicitly artist-controlled.
   Added project schema v5 portable identity cards. Each card holds five to eight
   unique normalized numeric anchors plus required descriptions, is editable with
   monotonic revisions, and has independently configurable revision-history

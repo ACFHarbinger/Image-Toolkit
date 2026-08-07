@@ -294,6 +294,40 @@ def test_creates_character_variation_identity_model_sheet():
     assert "SELECTED RIGHT THREE-QUARTER IDENTITY CHECK" in layout.svg
 
 
+def test_creates_cel_value_grouping_sheet():
+    adapter = _load_adapter()
+    application = ApplicationStub()
+    document = adapter.create_value_exercise_document(application)
+    assert application.created_with[:3] == (
+        2600,
+        1800,
+        "Cel-Shaded Value Grouping — Light and Form Sheet",
+    )
+    assert len(document.root.children) == 7
+    assert document.root.children[0][0].children[0][0].locked
+    assert "LIGHT STATEMENT AND PLANE MAP" in document.root.children[0][0].children[0][0].svg
+
+
+def test_creates_comprehensive_capstone_sheet():
+    adapter = _load_adapter()
+    application = ApplicationStub()
+    document = adapter.create_capstone_exercise_document(application)
+    assert application.created_with[:3] == (
+        3200,
+        2000,
+        "Anime Head Learning Capstone — Review and Revision Sheet",
+    )
+    assert [node.name for node, _ in document.root.children][1:] == [
+        "01 Brief and Identity Specification",
+        "02 Front Construction",
+        "03 Right Three-Quarter Construction",
+        "04 Expression Asymmetry and Value Pass",
+        "05 Tutor Review and Correction Pass",
+        "06 Final Comparison and Self-Review",
+    ]
+    assert document.active.name == "01 Brief and Identity Specification"
+
+
 def test_portable_project_requires_empty_directory(tmp_path):
     adapter = _load_adapter()
     (tmp_path / "unrelated").write_text("keep", encoding="utf-8")

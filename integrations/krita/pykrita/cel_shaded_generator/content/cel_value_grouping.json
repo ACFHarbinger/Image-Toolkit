@@ -1,0 +1,68 @@
+{
+  "id":"anime-head-cel-values","exercise_id":"anime-head-cel-values","version":"1.0.0","method_id":"anime-head-construction-v1","schema_version":1,
+  "title":"Anime Head Construction: Cel-Shaded Value Grouping",
+  "summary":"Translate constructed head planes into clear two- and three-value cel shading under an explicit light statement, preserving readable form, identity, and expression without airbrushed ambiguity.",
+  "estimated_minutes":65,"prerequisite_ids":["anime-head-variation"],
+  "media":["diagrams/cel-value-decision-tree.svg","diagrams/cel-light-turn-consistency.svg"],
+  "learning_objectives":[
+    "State light direction and hardness before placing shadows.",
+    "Group head planes into one readable light family and one shadow family.",
+    "Place terminators from cranial, facial, muzzle, jaw, ear, and hair form changes.",
+    "Add a third accent value without fragmenting the two-value design.",
+    "Preserve identity and expression when shadow shapes cross features.",
+    "Carry one lighting setup from front into three-quarter view."
+  ],
+  "theory":[
+    {"title":"Value grouping is a design decision","explanation":"Cel shading simplifies continuous illumination into intentionally grouped shapes. Begin with light versus shadow; local color and detail must not break the large read. Squint or thumbnail the image to test the grouping."},
+    {"title":"Form turns create terminators","explanation":"The shadow boundary responds to changes in surface orientation across cranium, forehead, eye socket, nose wedge, muzzle, cheek, jaw, ears, and neck. It is not a decorative zigzag and should agree with the constructed volume."},
+    {"title":"Cast and form shadows have different causes","explanation":"Form shadow occurs where a surface turns away; cast shadow occurs where one form blocks light from another. Nose, hair, upper lid, chin, and ear rim can cast shadows. Label the cause before stylizing the shape."},
+    {"title":"Two values establish clarity","explanation":"Solve the entire head with flat light and flat shadow before highlights, bounce light, blush, or gradients. If the form is unreadable in two values, extra values usually decorate rather than repair it."},
+    {"title":"A third value is subordinate","explanation":"Use a third value for a small deep accent, controlled highlight, or material separation. Keep its area subordinate and attach it to a clear cause so the primary light/shadow grouping remains dominant."}
+  ],
+  "steps":[
+    {"title":"1. Construct the unlit head","explanation":"Draw a selected character in front view with visible cranial, facial, muzzle, jaw, ear, and hair-mass planes. Preserve the identity card and one mild expression."},
+    {"title":"2. Declare the light","explanation":"Draw a light arrow and write front/side/top bias plus hard or moderately soft boundary. Do not move the light to justify each preferred shadow shape."},
+    {"title":"3. Mark plane-facing decisions","explanation":"Label major planes as facing toward, grazing, or facing away from the light. Resolve uncertain boundaries from construction before painting values."},
+    {"title":"4. Design the two-value mask","explanation":"Fill all shadow-family planes with one flat value. Merge nearby fragments when they describe one larger form and preserve important feature readability."},
+    {"title":"5. Separate cast shadows","explanation":"Identify shadows cast by nose, lids, hair, chin, and ear rim. Check their direction against the same light arrow and distinguish them from form terminators."},
+    {"title":"6. Audit silhouette and identity","explanation":"View the mask small and in grayscale. Confirm cranial volume, face direction, eye/mouth expression, and identity anchors survive the grouping."},
+    {"title":"7. Add one third-value role","explanation":"Choose deep accent or highlight. Limit it to structurally justified regions and compare against the unchanged two-value version."},
+    {"title":"8. Transfer lighting into three-quarter view","explanation":"Reconstruct the selected head and same light in three-quarter view. Recalculate plane facing and cast shadows rather than copying front-view patches."},
+    {"title":"9. Run cause and consistency checks","explanation":"Point to the form or occluder causing every major boundary. Remove unexplained islands and confirm both views share one light setup and character identity."}
+  ],
+  "guided_drills":[
+    {"title":"Two-value head thumbnails","repetitions":12,"instructions":"Shade twelve small constructed heads under four declared light directions using only white and one shadow value."},
+    {"title":"Terminator cause tracing","repetitions":8,"instructions":"Trace eight shadow boundaries and annotate the cranial/facial plane turn or casting form responsible for each segment."},
+    {"title":"Third-value restraint","repetitions":5,"instructions":"Duplicate one two-value design five times and test small deep-accent or highlight placements; retain only versions whose large grouping stays readable."},
+    {"title":"Front-to-turn lighting pairs","repetitions":3,"instructions":"Shade three matching front/three-quarter pairs under one fixed light arrow and label projection-driven changes."}
+  ],
+  "common_mistakes":[
+    {"symptom":"Shadow shapes look random but stylish.","cause":"No light statement or form-plane explanation exists.","correction":"Declare the light and trace every boundary to a form turn or casting object."},
+    {"symptom":"The face becomes spotted.","cause":"Small local details split the large light and shadow families.","correction":"Merge islands into larger groups and restore only identity-critical separations."},
+    {"symptom":"The nose shadow points against other shadows.","cause":"Cast direction was designed independently.","correction":"Project the nose shadow from the same light vector used on hair, chin, and ears."},
+    {"symptom":"A gradient replaces the cel terminator.","cause":"Soft blending hid an unresolved plane decision.","correction":"Return to a hard two-value mask and soften only after the boundary is structurally placed."},
+    {"symptom":"Third values overpower the head.","cause":"Accent area competes with the main shadow family.","correction":"Reduce and consolidate the third value until two-value readability dominates."},
+    {"symptom":"Lighting changes the character's identity.","cause":"Shadows erase key eye, jaw, mouth, or asymmetry relationships.","correction":"Redesign boundaries around identity anchors without contradicting the light."},
+    {"symptom":"Front and turned views use different lights.","cause":"Shadow patches were copied for appeal rather than recalculated from planes.","correction":"Keep one arrow and recompute plane-facing and occlusion in the turned construction."}
+  ],
+  "completion_criteria":[
+    "A light direction and boundary hardness are explicitly declared.",
+    "A complete flat two-value front mask reads at thumbnail size.",
+    "Major form and cast shadows have named causes.",
+    "Identity and expression remain readable through the shadow design.",
+    "A third value is subordinate and structurally justified.",
+    "A matching three-quarter head uses the same light setup.",
+    "Turned shadow changes follow planes and occlusion rather than copied patches.",
+    "Unexplained shadow islands have been removed or justified."
+  ],
+  "self_review_questions":[
+    "Can I state the light without looking at the arrow?",
+    "Does the head read using only two values at thumbnail size?",
+    "What form or occluder causes each major boundary?",
+    "Did local detail fragment a larger value family?",
+    "Does the third value remain subordinate?",
+    "Are identity and expression anchors still readable?",
+    "Do both views demonstrably share one lighting setup?"
+  ],
+  "practice_prompt":"Complete the six-area cel-value sheet: light statement and plane map, front two-value mask, front cast-shadow audit, restrained three-value pass, three-quarter two-value transfer, and final front/turned consistency comparison."
+}
