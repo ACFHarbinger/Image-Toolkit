@@ -87,6 +87,7 @@ def handle_request(request: dict[str, Any]) -> dict[str, Any]:
                 attempt_id=payload["attempt_id"],
                 review_id=payload["review_id"],
                 decision=SuggestionDecision(payload["decision"]),
+                rationale=payload.get("rationale"),
             )
         except KeyError as error:
             raise ValueError("review-decision request is incomplete") from error

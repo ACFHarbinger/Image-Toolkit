@@ -256,6 +256,11 @@ remain deferred in Review.
   repetition. Two diagrams and a 3200 × 2000 six-layer sheet preserve initial,
   correction, and final evidence. Reviews never auto-complete it; every preview
   remains an explicit artist decision and checklist completion stays manual.
+  Schema v6 requires a written rationale for every accepted, rejected, or
+  deferred capstone suggestion. The existing progress view aggregates capstone
+  attempt/review/pending counts while retaining each latest rubric, version,
+  measurement set, decision, and rationale; it deliberately has no overall
+  artist score. Live host confirmation remains.
 - 🔄 Head-orientation exercise template: the docker creates a 2600 × 1600
   landscape rotation sheet with five labeled work areas and separate layers for
   left profile, left three-quarter, front, right three-quarter, and right

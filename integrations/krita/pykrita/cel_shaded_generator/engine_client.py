@@ -126,7 +126,9 @@ class EngineClient:
             {"directory": directory, "attempt_id": attempt_id, "review": review},
         )
 
-    def decide_attempt_review(self, request_id, directory, attempt_id, review_id, decision):
+    def decide_attempt_review(
+        self, request_id, directory, attempt_id, review_id, decision, rationale=None
+    ):
         return self._execute(
             request_id,
             "decide_attempt_review",
@@ -135,6 +137,7 @@ class EngineClient:
                 "attempt_id": attempt_id,
                 "review_id": review_id,
                 "decision": decision,
+                "rationale": rationale,
             },
         )
 

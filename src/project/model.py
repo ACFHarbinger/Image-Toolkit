@@ -10,7 +10,7 @@ from pathlib import PurePosixPath
 from typing import Any
 from uuid import uuid4
 
-CURRENT_SCHEMA_VERSION = 5
+CURRENT_SCHEMA_VERSION = 6
 
 
 def migrate_project_payload(payload: dict[str, Any]) -> dict[str, Any]:
@@ -24,7 +24,7 @@ def migrate_project_payload(payload: dict[str, Any]) -> dict[str, Any]:
     version = migrated.get("schema_version", 0)
     if version == CURRENT_SCHEMA_VERSION:
         return migrated
-    if version not in (0, 1, 2, 3, 4):
+    if version not in (0, 1, 2, 3, 4, 5):
         raise ValueError(f"unsupported project schema version: {version}")
     if version == 0:
         migrated["consent"] = {
@@ -40,6 +40,7 @@ def migrate_project_payload(payload: dict[str, Any]) -> dict[str, Any]:
         for attempt in exercise.get("attempts", []):
             attempt.setdefault("reviews", [])
             for review in attempt["reviews"]:
+                review.setdefault("suggestion_decision_rationale", None)
                 review.setdefault("artist_feedback", None)
                 if review["artist_feedback"] is not None:
                     review["artist_feedback"].setdefault("revision", 1)
@@ -162,6 +163,7 @@ class SuggestionDecision(StrEnum):
     PENDING = "pending"
     ACCEPTED = "accepted"
     REJECTED = "rejected"
+    DEFERRED = "deferred"
 
 
 class AdviceRating(StrEnum):
@@ -198,6 +200,7 @@ class ReviewRecord:
     measurements: dict[str, float]
     explanations: list[str]
     suggestion_decision: SuggestionDecision = SuggestionDecision.PENDING
+    suggestion_decision_rationale: str | None = None
     artist_feedback: AdviceFeedback | None = None
     artist_feedback_history: list[AdviceFeedback] = field(default_factory=list)
 
@@ -230,13 +233,16 @@ class ReviewRecord:
         except (KeyError, TypeError) as error:
             raise ValueError("review payload is incomplete") from error
 
-    def decide(self, decision: SuggestionDecision) -> bool:
+    def decide(self, decision: SuggestionDecision, rationale: str | None = None) -> bool:
         """Finalize a pending decision; repeated identical decisions are idempotent."""
         if self.suggestion_decision is decision:
             return False
         if self.suggestion_decision is not SuggestionDecision.PENDING:
             raise ValueError("a finalized suggestion decision cannot be changed")
+        if rationale is not None and not rationale.strip():
+            raise ValueError("decision rationale must be absent or non-empty")
         self.suggestion_decision = decision
+        self.suggestion_decision_rationale = rationale
         return True
 
     def report_feedback(self, feedback: AdviceFeedback, policy: FeedbackPolicy) -> bool:

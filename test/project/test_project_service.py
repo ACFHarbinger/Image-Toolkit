@@ -90,6 +90,54 @@ def test_records_and_decides_privacy_safe_review(tmp_path):
     assert not hasattr(review, "redlines")
 
 
+def test_capstone_requires_rationale_and_dashboard_retains_rubrics(tmp_path):
+    artwork = tmp_path / "artwork/attempt-001.kra"
+    artwork.parent.mkdir()
+    artwork.write_bytes(b"document")
+    create_exercise_project(
+        tmp_path,
+        title="Capstone",
+        attempt_id="capstone-1",
+        exercise_id="anime-head-review",
+    )
+    for review_id, rubric_id in (("r1", "construction"), ("r2", "cel-values")):
+        record_attempt_review(
+            tmp_path,
+            attempt_id="capstone-1",
+            review_payload={
+                "id": review_id,
+                "exercise_version": "1",
+                "method_id": "method",
+                "rubric_id": rubric_id,
+                "rubric_version": "1",
+                "measurements": {"rubric_consistency": 0.8},
+                "explanations": ["Review explanation."],
+            },
+        )
+    with pytest.raises(ValueError, match="require an artist rationale"):
+        decide_attempt_review(
+            tmp_path,
+            attempt_id="capstone-1",
+            review_id="r1",
+            decision=SuggestionDecision.ACCEPTED,
+        )
+    assert decide_attempt_review(
+        tmp_path,
+        attempt_id="capstone-1",
+        review_id="r1",
+        decision=SuggestionDecision.DEFERRED,
+        rationale="I need another construction pass before choosing.",
+    )
+    snapshot = project_progress_snapshot(tmp_path)
+    dashboard = snapshot["capstone_dashboard"]
+    assert dashboard["pending_decision_count"] == 1
+    assert {item["rubric_id"] for item in dashboard["rubrics"]} == {
+        "construction",
+        "cel-values",
+    }
+    assert dashboard["rubrics"][1]["measurements"] == {"rubric_consistency": 0.8}
+
+
 def test_records_advice_feedback_with_idempotent_retry_and_recovery(tmp_path):
     artwork = tmp_path / "artwork/attempt-001.kra"
     artwork.parent.mkdir()
@@ -212,9 +260,15 @@ def test_progress_snapshot_and_explicit_clear_disable_policy(tmp_path):
             "note_character_limit": 2000,
         },
         "identity_card_policy": {"retain_revision_history": False},
-        "identity_card": None,
-        "exercises": [],
-    }
+            "identity_card": None,
+            "exercises": [],
+            "capstone_dashboard": {
+                "attempt_count": 0,
+                "review_count": 0,
+                "pending_decision_count": 0,
+                "rubrics": [],
+            },
+        }
     assert configure_progress_retention(tmp_path, enabled=True)
     assert not configure_progress_retention(tmp_path, enabled=True)
 

@@ -75,3 +75,29 @@ def test_raw_values_can_be_hidden_and_disabled_retention_is_explicit():
     assert module.format_progress({"retain_learning_progress": False}) == (
         "Learning-progress retention is disabled for this project."
     )
+
+
+def test_capstone_dashboard_preserves_each_rubric_and_pending_count():
+    snapshot = _snapshot() | {
+        "capstone_dashboard": {
+            "attempt_count": 1,
+            "review_count": 2,
+            "pending_decision_count": 1,
+            "rubrics": [
+                {
+                    "rubric_id": "construction",
+                    "rubric_version": "1",
+                    "suggestion_decision": "accepted",
+                },
+                {
+                    "rubric_id": "cel-values",
+                    "rubric_version": "1",
+                    "suggestion_decision": "pending",
+                },
+            ],
+        }
+    }
+    rendered = _module().format_progress(snapshot)
+    assert "Capstone: 2 reviews · 1 pending decisions" in rendered
+    assert "construction @ 1: accepted" in rendered
+    assert "cel-values @ 1: pending" in rendered

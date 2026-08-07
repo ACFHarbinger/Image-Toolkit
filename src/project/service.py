@@ -75,6 +75,7 @@ def decide_attempt_review(
     attempt_id: str,
     review_id: str,
     decision: SuggestionDecision,
+    rationale: str | None = None,
 ) -> bool:
     """Persist one final decision with recovery history."""
     root = Path(directory)
@@ -83,7 +84,9 @@ def decide_attempt_review(
     matching = [review for review in attempt.reviews if review.id == review_id]
     if len(matching) != 1:
         raise ValueError("review does not uniquely identify a persisted attempt review")
-    changed = matching[0].decide(decision)
+    if attempt.exercise_id == "anime-head-review" and (rationale is None or not rationale.strip()):
+        raise ValueError("capstone suggestion decisions require an artist rationale")
+    changed = matching[0].decide(decision, rationale)
     if changed:
         save_project(root, project)
     return changed
@@ -148,6 +151,10 @@ def project_progress_snapshot(directory: str | Path) -> dict:
                                 "method_id": review.method_id,
                                 "rubric_id": review.rubric_id,
                                 "rubric_version": review.rubric_version,
+                                "suggestion_decision": review.suggestion_decision.value,
+                                "suggestion_decision_rationale": (
+                                    review.suggestion_decision_rationale
+                                ),
                                 "measurements": dict(review.measurements),
                                 "artist_feedback": (
                                     {
@@ -166,6 +173,39 @@ def project_progress_snapshot(directory: str | Path) -> dict:
                 ],
             }
             for exercise in project.progress.exercises
+        ],
+        "capstone_dashboard": _capstone_dashboard(project),
+    }
+
+
+def _capstone_dashboard(project: Project) -> dict:
+    """Aggregate capstone state while retaining each underlying rubric."""
+    attempts = [
+        attempt
+        for exercise in project.progress.exercises
+        if exercise.exercise_id == "anime-head-review"
+        for attempt in exercise.attempts
+    ]
+    reviews = [review for attempt in attempts for review in attempt.reviews]
+    latest_by_rubric = {}
+    for review in reviews:
+        latest_by_rubric[(review.rubric_id, review.rubric_version)] = review
+    return {
+        "attempt_count": len(attempts),
+        "review_count": len(reviews),
+        "pending_decision_count": sum(
+            review.suggestion_decision is SuggestionDecision.PENDING for review in reviews
+        ),
+        "rubrics": [
+            {
+                "rubric_id": review.rubric_id,
+                "rubric_version": review.rubric_version,
+                "method_id": review.method_id,
+                "measurements": dict(review.measurements),
+                "suggestion_decision": review.suggestion_decision.value,
+                "suggestion_decision_rationale": review.suggestion_decision_rationale,
+            }
+            for _, review in sorted(latest_by_rubric.items())
         ],
     }
 

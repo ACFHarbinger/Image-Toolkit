@@ -94,6 +94,8 @@ class LearningDocker(DockWidget):
         accept_button.clicked.connect(self._accept_preview)
         reject_button = QPushButton("Reject Preview", container)
         reject_button.clicked.connect(self._reject_preview)
+        defer_button = QPushButton("Defer Preview Decision", container)
+        defer_button.clicked.connect(self._defer_preview)
         helpful_button = QPushButton("Advice: Helpful", container)
         helpful_button.clicked.connect(lambda checked=False: self._report_feedback("helpful"))
         unhelpful_button = QPushButton("Advice: Unhelpful", container)
@@ -180,6 +182,7 @@ class LearningDocker(DockWidget):
         layout.addWidget(value_review_button)
         layout.addWidget(accept_button)
         layout.addWidget(reject_button)
+        layout.addWidget(defer_button)
         layout.addWidget(helpful_button)
         layout.addWidget(unhelpful_button)
         layout.addWidget(incorrect_button)
@@ -1113,6 +1116,17 @@ class LearningDocker(DockWidget):
                 "Decision could not be saved: review project state is missing."
             )
             return False
+        rationale = None
+        lesson = self._lessons[self._lesson_selector.currentIndex()]
+        if lesson["exercise_id"] == "anime-head-review":
+            rationale, accepted = QInputDialog.getMultiLineText(
+                self,
+                "Capstone Decision Rationale",
+                "Explain why you accepted, rejected, or deferred this suggestion:",
+            )
+            if not accepted or not rationale.strip():
+                self._action_status.setText("Capstone decisions require a rationale.")
+                return False
         try:
             EngineClient().decide_attempt_review(
                 "decide-" + self._review_id,
@@ -1120,11 +1134,27 @@ class LearningDocker(DockWidget):
                 self._attempt_id,
                 self._review_id,
                 decision,
+                rationale,
             )
         except (RuntimeError, ValueError) as error:
             self._action_status.setText(f"Decision could not be saved: {error}")
             return False
         return True
+
+    def _defer_preview(self) -> None:
+        if self._preview_layer is None:
+            self._action_status.setText("There is no pending tutor preview to defer.")
+            return
+        if not self._persist_decision("deferred"):
+            return
+        try:
+            reject_preview(self._preview_layer)
+        except (RuntimeError, ValueError) as error:
+            self._action_status.setText("Decision saved, but preview cleanup failed: " + str(error))
+            return
+        self._preview_layer = None
+        self._pending_decision = None
+        self._action_status.setText("Preview decision deferred with its rationale recorded.")
 
     def _configure_shortcuts(self) -> None:
         current = load_config()["shortcuts"]

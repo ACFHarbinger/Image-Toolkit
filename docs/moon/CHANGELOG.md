@@ -31,6 +31,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   front/turned consistency, and optional third-value subordination, combined
   with manual light-direction and hardness confirmation. Only scalar results
   are persisted; sampled pixels and colors are discarded.
+- Added project schema v6 capstone accountability. Accepted, rejected, and
+  deferred capstone suggestions require a non-empty artist rationale; older
+  decisions remain compatible through deterministic migration. The progress
+  snapshot and existing docker now expose an aggregate capstone dashboard that
+  retains the latest measurements and decision state for every underlying
+  rubric instead of collapsing the artist into one score.
 - Began A3 issue #12 with a versioned offline curriculum graph containing nine
   primary anime head-and-face exercises and four targeted remedial exercises.
   Deterministic prerequisites select the next unlocked exercise; normalized

@@ -15,6 +15,24 @@ def format_progress(snapshot, show_raw_measurements=True):
     ]
     reviews = [review for attempt in attempts for review in attempt.get("reviews", [])]
     lines = [f"Attempts: {len(attempts)} · Reviews: {len(reviews)}"]
+    dashboard = snapshot.get("capstone_dashboard", {})
+    if dashboard.get("attempt_count", 0):
+        lines.append(
+            "Capstone: "
+            + str(dashboard["review_count"])
+            + " reviews · "
+            + str(dashboard["pending_decision_count"])
+            + " pending decisions"
+        )
+        for rubric in dashboard.get("rubrics", []):
+            lines.append(
+                "• "
+                + rubric["rubric_id"]
+                + " @ "
+                + rubric["rubric_version"]
+                + ": "
+                + rubric["suggestion_decision"]
+            )
     recommended = snapshot.get("recommended_exercise_id")
     if recommended:
         lines.append("Recommended next: " + recommended.replace("-", " "))

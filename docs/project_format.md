@@ -21,7 +21,7 @@ project-relative path. This active document is not artwork *history* and does
 not enable historical artwork retention. The creator refuses unrelated files
 or an existing manifest rather than merging into an ambiguous directory.
 
-Schema version 4 separates three concerns:
+Schema version 6 separates three concerns:
 
 - project identity, user-selected autosave policy, and privacy consent;
 - project-local exercises, attempts, feedback, and metrics, which travel with
@@ -41,10 +41,12 @@ present, and a separate action re-enables future retention.
 
 Each attempt may contain privacy-safe review records: stable review and method
 versions, rubric identity/version, numeric measurements, explanations, and one
-`pending`, `accepted`, or `rejected` suggestion decision. Redline geometry,
-preview-layer metadata, and pixels are intentionally not copied into the
-manifest. Decisions are final after acceptance/rejection and repeated identical
-actions are idempotent. Review identifiers must be unique within an attempt.
+`pending`, `accepted`, `rejected`, or `deferred` suggestion decision and its
+optional rationale. Capstone decisions require a non-empty rationale for every
+accepted, rejected, or deferred suggestion. Redline geometry, preview-layer
+metadata, and pixels are intentionally not copied into the manifest. Decisions
+are final after acceptance/rejection/deferral and repeated identical actions are
+idempotent. Review identifiers must be unique within an attempt.
 Each review may also contain an editable artist rating (`helpful`, `unhelpful`,
 `incorrect`, or `not_applicable`) and an optional non-empty free-text note.
 Ratings and notes stay in the portable project and an identical retry is
@@ -64,8 +66,8 @@ integration and should use content-addressed or copy-on-write storage rather
 than duplicating large files for every manifest snapshot.
 
 Readers reject unknown schema versions. The pre-release version-0 manifest and
-version-1, version-2, and version-3 project formats have explicit deterministic
-migrations to version 4; they preserve existing progress, add empty
+version-1 through version-5 project formats have explicit deterministic
+migrations to version 6; they preserve existing progress, add empty
 review/feedback/history fields where required, and enable project-local progress
 for manifests that already contained it. Version-1 learner
 profiles migrate without inventing aggregate data. Every future version must
