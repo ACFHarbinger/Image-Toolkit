@@ -7,9 +7,11 @@ import sys
 from typing import Any
 
 from project import (
+    AdviceRating,
     SuggestionDecision,
     create_exercise_project,
     decide_attempt_review,
+    record_advice_feedback,
     record_attempt_review,
 )
 
@@ -67,6 +69,18 @@ def handle_request(request: dict[str, Any]) -> dict[str, Any]:
             )
         except KeyError as error:
             raise ValueError("review-decision request is incomplete") from error
+        return _success(request_id, {"changed": changed})
+    if operation == "record_advice_feedback":
+        try:
+            changed = record_advice_feedback(
+                payload["directory"],
+                attempt_id=payload["attempt_id"],
+                review_id=payload["review_id"],
+                rating=AdviceRating(payload["rating"]),
+                note=payload.get("note"),
+            )
+        except KeyError as error:
+            raise ValueError("advice-feedback request is incomplete") from error
         return _success(request_id, {"changed": changed})
     if operation != "review_front_head":
         raise ValueError("unsupported engine operation")

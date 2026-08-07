@@ -3,10 +3,12 @@
 import pytest
 
 from project import (
+    AdviceRating,
     SuggestionDecision,
     create_exercise_project,
     decide_attempt_review,
     load_project,
+    record_advice_feedback,
     record_attempt_review,
 )
 
@@ -64,3 +66,48 @@ def test_records_and_decides_privacy_safe_review(tmp_path):
     review = load_project(tmp_path).progress.exercises[0].attempts[0].reviews[0]
     assert review.suggestion_decision is SuggestionDecision.ACCEPTED
     assert not hasattr(review, "redlines")
+
+
+def test_records_advice_feedback_with_idempotent_retry_and_recovery(tmp_path):
+    artwork = tmp_path / "artwork/attempt-001.kra"
+    artwork.parent.mkdir()
+    artwork.write_bytes(b"document")
+    create_exercise_project(tmp_path, title="Head", attempt_id="attempt-1")
+    record_attempt_review(
+        tmp_path,
+        attempt_id="attempt-1",
+        review_payload={
+            "id": "review-1",
+            "exercise_version": "1",
+            "method_id": "method",
+            "rubric_id": "rubric",
+            "rubric_version": "1",
+            "measurements": {"axis": 0.8},
+            "explanations": ["Straighten the axis."],
+        },
+    )
+
+    assert record_advice_feedback(
+        tmp_path,
+        attempt_id="attempt-1",
+        review_id="review-1",
+        rating=AdviceRating.HELPFUL,
+        note="The axis example helped.",
+    )
+    assert not record_advice_feedback(
+        tmp_path,
+        attempt_id="attempt-1",
+        review_id="review-1",
+        rating=AdviceRating.HELPFUL,
+        note="The axis example helped.",
+    )
+    review = load_project(tmp_path).progress.exercises[0].attempts[0].reviews[0]
+    assert review.artist_feedback is not None
+    assert review.artist_feedback.rating is AdviceRating.HELPFUL
+    with pytest.raises(ValueError, match="cannot be replaced"):
+        record_advice_feedback(
+            tmp_path,
+            attempt_id="attempt-1",
+            review_id="review-1",
+            rating=AdviceRating.INCORRECT,
+        )

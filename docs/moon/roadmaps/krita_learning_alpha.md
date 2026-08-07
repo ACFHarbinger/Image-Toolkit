@@ -151,9 +151,12 @@ not evidence of pedagogical validity.
   shortcuts are opt-in and atomically persisted; none is assigned by default
   because Tab belongs to Krita. Failed decision persistence retains a same-action
   retry state and blocks the opposite decision. Owner review remains in #11.
-- 🔄 Save, reload, migration, and failure recovery: portable schema v2 persists
+- 🔄 Save, reload, migration, and failure recovery: portable schema v3 persists
   privacy-safe review versions, measurements, explanations, and final decisions
-  with deterministic v0/v1 migration and recovery coverage. The Krita adapter
+  plus one final structured advice rating and optional local note, with
+  deterministic v0/v1/v2 migration and recovery coverage. Project-local
+  learning retention is a setting enabled by default; artwork history and
+  global aggregation remain independently disabled by default. The Krita adapter
   now binds an empty directory to `project.json` plus
   `artwork/attempt-001.kra`, and engine operations atomically record the review
   and decision. Automated implementation is complete; live verification is
@@ -167,6 +170,8 @@ remain deferred in Review.
 - 🔄 Curriculum v1 content: the versioned core catalog now defines all nine
   primary anime head-and-face exercises plus four focused remedial exercises.
   Rich locally packaged lesson media and Krita presentation remain.
+- ✅ Prerequisites control only the recommended next exercise. All lesson
+  content remains browsable so the tutor never turns progression into a lock.
 - 🔄 Rubrics for all supported views: stable normalized dimensions now cover
   axes, jaw/chin structure, perspective compression, feature placement, and
   value grouping. Only the front-view deterministic evaluator is calibrated.
@@ -181,7 +186,8 @@ remain deferred in Review.
 - 🔄 Feedback reporting for incorrect or unhelpful advice: the private summary
   distinguishes helpful, unhelpful, incorrect, not-applicable, and unrated
   reviews, rejects contradictory classifications, and creates no aggregate
-  artist score. Persistence and the Krita controls remain.
+  artist score. Schema v3 persists one final classification and optional note
+  directly in each portable project with atomic recovery. Krita controls remain.
 
 ### A4 — evaluator assistance and alpha study
 

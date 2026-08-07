@@ -5,6 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 
 from .model import (
+    AdviceFeedback,
+    AdviceRating,
     Attempt,
     ExerciseProgress,
     Project,
@@ -78,6 +80,27 @@ def decide_attempt_review(
     if len(matching) != 1:
         raise ValueError("review does not uniquely identify a persisted attempt review")
     changed = matching[0].decide(decision)
+    if changed:
+        save_project(root, project)
+    return changed
+
+
+def record_advice_feedback(
+    directory: str | Path,
+    *,
+    attempt_id: str,
+    review_id: str,
+    rating: AdviceRating,
+    note: str | None = None,
+) -> bool:
+    """Persist one structured advice rating and optional local note."""
+    root = Path(directory)
+    project = load_project(root)
+    attempt = _find_attempt(project, attempt_id)
+    matching = [review for review in attempt.reviews if review.id == review_id]
+    if len(matching) != 1:
+        raise ValueError("review does not uniquely identify a persisted attempt review")
+    changed = matching[0].report_feedback(AdviceFeedback(rating, note))
     if changed:
         save_project(root, project)
     return changed

@@ -59,6 +59,54 @@ def test_protocol_creates_portable_exercise_project(tmp_path):
     assert (tmp_path / "project.json").is_file()
 
 
+def test_protocol_records_project_local_advice_feedback(tmp_path):
+    artwork = tmp_path / "artwork/attempt-001.kra"
+    artwork.parent.mkdir()
+    artwork.write_bytes(b"document")
+    handle_request(
+        {
+            "protocol_version": 1,
+            "request_id": "create-1",
+            "operation": "create_exercise_project",
+            "payload": {
+                "directory": str(tmp_path),
+                "title": "Anime head practice",
+                "attempt_id": "attempt-1",
+            },
+        }
+    )
+    review = handle_request(_request())["result"]
+    handle_request(
+        {
+            "protocol_version": 1,
+            "request_id": "store-review",
+            "operation": "record_attempt_review",
+            "payload": {
+                "directory": str(tmp_path),
+                "attempt_id": "attempt-1",
+                "review": review,
+            },
+        }
+    )
+
+    response = handle_request(
+        {
+            "protocol_version": 1,
+            "request_id": "feedback-1",
+            "operation": "record_advice_feedback",
+            "payload": {
+                "directory": str(tmp_path),
+                "attempt_id": "attempt-1",
+                "review_id": review["id"],
+                "rating": "helpful",
+                "note": "The construction-axis explanation helped.",
+            },
+        }
+    )
+
+    assert response["result"]["changed"] is True
+
+
 @pytest.mark.parametrize(
     "change",
     [

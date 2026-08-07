@@ -8,6 +8,8 @@ import os
 import pytest
 
 from project import (
+    AdviceFeedback,
+    AdviceRating,
     Attempt,
     Consent,
     ExerciseProgress,
@@ -56,6 +58,9 @@ def test_head_face_attempt_round_trips(tmp_path):
                                     measurements={"jaw_symmetry": 0.78},
                                     explanations=["Compare the large jaw widths."],
                                     suggestion_decision=SuggestionDecision.ACCEPTED,
+                                    artist_feedback=AdviceFeedback(
+                                        AdviceRating.HELPFUL, "The jaw-width explanation helped."
+                                    ),
                                 )
                             ],
                             artwork_asset="assets/attempt-1.kra",
@@ -203,6 +208,7 @@ def test_legacy_migration_is_deterministic_and_privacy_preserving():
     assert first["consent"] == {
         "retain_artwork_in_history": False,
         "contribute_to_global_profile": False,
+        "retain_learning_progress": True,
     }
     assert Project.from_dict(first).autosave.recovery_revisions == 5
     assert legacy["schema_version"] == 0
@@ -220,9 +226,58 @@ def test_version_one_migration_adds_review_records_without_artwork(tmp_path):
         ]
     }
     migrated = migrate_project_payload(payload)
-    assert migrated["schema_version"] == 2
+    assert migrated["schema_version"] == 3
     assert migrated["progress"]["exercises"][0]["attempts"][0]["reviews"] == []
     assert migrate_project_payload(payload) == migrated
+
+
+def test_version_two_migration_enables_existing_project_progress_and_feedback_slot():
+    payload = Project(title="Version two").to_dict()
+    payload["schema_version"] = 2
+    del payload["consent"]["retain_learning_progress"]
+    payload["progress"] = {
+        "exercises": [
+            {
+                "exercise_id": "head",
+                "attempts": [
+                    {
+                        "exercise_id": "head",
+                        "id": "a",
+                        "started_at": "time",
+                        "reviews": [
+                            {
+                                "id": "r",
+                                "exercise_version": "1",
+                                "method_id": "method",
+                                "rubric_id": "rubric",
+                                "rubric_version": "1",
+                                "measurements": {},
+                                "explanations": [],
+                            }
+                        ],
+                    }
+                ],
+            }
+        ]
+    }
+
+    migrated = migrate_project_payload(payload)
+
+    assert migrated["schema_version"] == 3
+    assert migrated["consent"]["retain_learning_progress"] is True
+    review = migrated["progress"]["exercises"][0]["attempts"][0]["reviews"][0]
+    assert review["artist_feedback"] is None
+
+
+def test_learning_progress_retention_defaults_enabled_but_can_be_disabled():
+    assert Project(title="Learning").consent.retain_learning_progress is True
+    project = Project(
+        title="No progress",
+        consent=Consent(retain_learning_progress=False),
+        progress=ProjectProgress([ExerciseProgress("head", [Attempt("head")])]),
+    )
+    with pytest.raises(ValueError, match="retention is disabled"):
+        project.to_dict()
 
 
 def test_global_profile_is_a_separate_opt_in_file(tmp_path):

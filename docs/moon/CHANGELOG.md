@@ -32,6 +32,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Advice feedback is counted as helpful, unhelpful, incorrect, not applicable,
   or unrated; contradictory classifications, duplicate reports, and references
   to unknown reviews are rejected rather than silently normalized.
+  Applied the owner decisions for A3 persistence: project-local learning
+  retention is a user setting enabled by default; prerequisites recommend the
+  next exercise without locking any lesson; and advice ratings plus optional
+  notes live in the portable project. Schema v3 adds deterministic v0/v1/v2
+  migration, atomic/recoverable feedback persistence, an idempotent engine
+  operation, and refusal to overwrite an existing report. Artwork history and
+  global aggregation remain independently disabled by default.
 - Opened A3 issue #12 at In Progress P0/XL for versioned curriculum progression,
   deterministic weakness-to-remediation routing, comparable repeated-attempt
   metrics, and a private local progress view while A2 issues #10/#11 remain in

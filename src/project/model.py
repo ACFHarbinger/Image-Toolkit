@@ -10,7 +10,7 @@ from pathlib import PurePosixPath
 from typing import Any
 from uuid import uuid4
 
-CURRENT_SCHEMA_VERSION = 2
+CURRENT_SCHEMA_VERSION = 3
 
 
 def migrate_project_payload(payload: dict[str, Any]) -> dict[str, Any]:
@@ -24,7 +24,7 @@ def migrate_project_payload(payload: dict[str, Any]) -> dict[str, Any]:
     version = migrated.get("schema_version", 0)
     if version == CURRENT_SCHEMA_VERSION:
         return migrated
-    if version not in (0, 1):
+    if version not in (0, 1, 2):
         raise ValueError(f"unsupported project schema version: {version}")
     if version == 0:
         migrated["consent"] = {
@@ -39,6 +39,9 @@ def migrate_project_payload(payload: dict[str, Any]) -> dict[str, Any]:
     for exercise in migrated.get("progress", {}).get("exercises", []):
         for attempt in exercise.get("attempts", []):
             attempt.setdefault("reviews", [])
+            for review in attempt["reviews"]:
+                review.setdefault("artist_feedback", None)
+    migrated.setdefault("consent", {}).setdefault("retain_learning_progress", True)
     migrated["schema_version"] = CURRENT_SCHEMA_VERSION
     return migrated
 
@@ -57,6 +60,7 @@ class Consent:
 
     retain_artwork_in_history: bool = False
     contribute_to_global_profile: bool = False
+    retain_learning_progress: bool = True
 
 
 @dataclass(slots=True)
@@ -87,6 +91,25 @@ class SuggestionDecision(StrEnum):
     REJECTED = "rejected"
 
 
+class AdviceRating(StrEnum):
+    HELPFUL = "helpful"
+    UNHELPFUL = "unhelpful"
+    INCORRECT = "incorrect"
+    NOT_APPLICABLE = "not_applicable"
+
+
+@dataclass(slots=True)
+class AdviceFeedback:
+    """One explicit artist judgment stored with its reviewed attempt."""
+
+    rating: AdviceRating
+    note: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.note is not None and not self.note.strip():
+            raise ValueError("advice feedback note must be absent or non-empty")
+
+
 @dataclass(slots=True)
 class ReviewRecord:
     """Privacy-safe review result persisted without artwork pixels."""
@@ -99,6 +122,7 @@ class ReviewRecord:
     measurements: dict[str, float]
     explanations: list[str]
     suggestion_decision: SuggestionDecision = SuggestionDecision.PENDING
+    artist_feedback: AdviceFeedback | None = None
 
     def __post_init__(self) -> None:
         for label, value in (
@@ -136,6 +160,15 @@ class ReviewRecord:
         if self.suggestion_decision is not SuggestionDecision.PENDING:
             raise ValueError("a finalized suggestion decision cannot be changed")
         self.suggestion_decision = decision
+        return True
+
+    def report_feedback(self, feedback: AdviceFeedback) -> bool:
+        """Store feedback once; an identical retry is idempotent."""
+        if self.artist_feedback == feedback:
+            return False
+        if self.artist_feedback is not None:
+            raise ValueError("advice feedback cannot be replaced")
+        self.artist_feedback = feedback
         return True
 
 
@@ -204,6 +237,8 @@ class Project:
                         item.redline_asset for item in attempt.feedback
                     ):
                         raise ValueError("artwork history requires explicit retention consent")
+        if not self.consent.retain_learning_progress and self.progress.exercises:
+            raise ValueError("learning progress retention is disabled for this project")
         for exercise in self.progress.exercises:
             for attempt in exercise.attempts:
                 review_ids = [review.id for review in attempt.reviews]
@@ -231,7 +266,15 @@ class Project:
                             | {
                                 "suggestion_decision": SuggestionDecision(
                                     item.get("suggestion_decision", "pending")
-                                )
+                                ),
+                                "artist_feedback": (
+                                    AdviceFeedback(
+                                        AdviceRating(item["artist_feedback"]["rating"]),
+                                        item["artist_feedback"].get("note"),
+                                    )
+                                    if item.get("artist_feedback") is not None
+                                    else None
+                                ),
                             }
                         )
                     )
