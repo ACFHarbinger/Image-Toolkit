@@ -2,14 +2,21 @@
 ``docs/moon/roadmaps/engine_architecture.md``'s gate-5 exception).
 
 Owns the only structural mutations a ``LayerStack`` gets: add, remove,
-reorder, visibility toggle, and mask add/remove. Emits ``layers_changed``
-after every mutation so a bound canvas (``layer_canvas.py``) knows to
-re-render, and ``layer_selected`` whenever the current selection changes so
-a canvas can paint onto the right layer -- never touches the canvas
-directly, keeping this panel reusable without one. If bound with
-``set_history``, records an undo checkpoint immediately before each
-structural mutation. A layer with a mask shows a "(mask)" suffix in the
-list so its state is visible without selecting it.
+reorder, visibility toggle, mask add/remove, and per-layer opacity/blend
+mode. Emits ``layers_changed`` after every mutation so a bound canvas
+(``layer_canvas.py``) knows to re-render, and ``layer_selected`` whenever
+the current selection changes so a canvas can paint onto the right layer
+-- never touches the canvas directly, keeping this panel reusable without
+one. If bound with ``set_history``, records an undo checkpoint immediately
+before each structural mutation. A layer with a mask shows a "(mask)"
+suffix in the list so its state is visible without selecting it.
+
+Opacity/Blend mode were already part of ``LayerStack``'s compositing
+(``LayerMeta.opacity``/``blend_mode``, both used by ``composite()`` since
+the first slice) but had no UI until now -- the spin box/combo below the
+list reflect the *selected* layer's current values, updating whenever the
+selection changes, and edit that layer's ``LayerMeta`` in place when
+changed.
 
 New feature, not code motion.
 """
@@ -18,11 +25,14 @@ from __future__ import annotations
 
 import uuid
 
-from editor import EditHistory, LayerStack
+from editor import VALID_BLEND_MODES, EditHistory, Layer, LayerStack
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QComboBox,
+    QDoubleSpinBox,
     QHBoxLayout,
+    QLabel,
     QListWidget,
     QListWidgetItem,
     QPushButton,
@@ -52,12 +62,23 @@ class LayerListPanel(QWidget):
         self._add_mask_button = QPushButton("Add Mask", self)
         self._remove_mask_button = QPushButton("Remove Mask", self)
 
+        self._opacity_spin = QDoubleSpinBox(self)
+        self._opacity_spin.setRange(0.0, 1.0)
+        self._opacity_spin.setSingleStep(0.05)
+        self._opacity_spin.setValue(1.0)
+        self._opacity_spin.setEnabled(False)
+        self._blend_mode_combo = QComboBox(self)
+        self._blend_mode_combo.addItems(VALID_BLEND_MODES)
+        self._blend_mode_combo.setEnabled(False)
+
         self._add_button.clicked.connect(self._add_layer)
         self._remove_button.clicked.connect(self._remove_selected_layer)
         self._up_button.clicked.connect(lambda: self._move_selected_layer(-1))
         self._down_button.clicked.connect(lambda: self._move_selected_layer(1))
         self._add_mask_button.clicked.connect(self._add_mask_to_selected_layer)
         self._remove_mask_button.clicked.connect(self._remove_mask_from_selected_layer)
+        self._opacity_spin.valueChanged.connect(self._on_opacity_changed)
+        self._blend_mode_combo.currentTextChanged.connect(self._on_blend_mode_changed)
         self._list.itemChanged.connect(self._on_item_changed)
         self._list.currentItemChanged.connect(self._on_current_item_changed)
 
@@ -67,15 +88,22 @@ class LayerListPanel(QWidget):
         mask_buttons = QHBoxLayout()
         for button in (self._add_mask_button, self._remove_mask_button):
             mask_buttons.addWidget(button)
+        blend_controls = QHBoxLayout()
+        blend_controls.addWidget(QLabel("Opacity:", self))
+        blend_controls.addWidget(self._opacity_spin)
+        blend_controls.addWidget(QLabel("Blend:", self))
+        blend_controls.addWidget(self._blend_mode_combo)
 
         layout = QVBoxLayout(self)
         layout.addWidget(self._list)
         layout.addLayout(buttons)
         layout.addLayout(mask_buttons)
+        layout.addLayout(blend_controls)
 
     def set_layer_stack(self, layer_stack: LayerStack | None) -> None:
         self._layer_stack = layer_stack
         self._refresh_list()
+        self._refresh_opacity_and_blend_controls(self.selected_layer_id())
 
     def layer_stack(self) -> LayerStack | None:
         return self._layer_stack
@@ -87,6 +115,7 @@ class LayerListPanel(QWidget):
         """Re-sync the list from the bound ``LayerStack``'s current state
         (e.g. after an external mutation such as an undo/redo)."""
         self._refresh_list()
+        self._refresh_opacity_and_blend_controls(self.selected_layer_id())
 
     def selected_layer_id(self) -> str | None:
         item = self._list.currentItem()
@@ -195,9 +224,51 @@ class LayerListPanel(QWidget):
             self.layers_changed.emit()
 
     def _on_current_item_changed(self, current, _previous) -> None:
-        self.layer_selected.emit(
-            current.data(Qt.ItemDataRole.UserRole) if current is not None else None
-        )
+        layer_id = current.data(Qt.ItemDataRole.UserRole) if current is not None else None
+        self.layer_selected.emit(layer_id)
+        self._refresh_opacity_and_blend_controls(layer_id)
+
+    def _selected_layer(self) -> Layer | None:
+        layer_id = self.selected_layer_id()
+        if self._layer_stack is None or layer_id is None:
+            return None
+        return self._layer_stack.layer(layer_id)
+
+    def _refresh_opacity_and_blend_controls(self, layer_id: str | None) -> None:
+        """Reflect ``layer_id``'s current opacity/blend mode in the spin
+        box/combo, blocking their signals so this sync doesn't itself
+        trigger a mutation."""
+        layer = self._layer_stack.layer(layer_id) if self._layer_stack and layer_id else None
+        self._opacity_spin.blockSignals(True)
+        self._blend_mode_combo.blockSignals(True)
+        if layer is None:
+            self._opacity_spin.setEnabled(False)
+            self._blend_mode_combo.setEnabled(False)
+        else:
+            self._opacity_spin.setEnabled(True)
+            self._opacity_spin.setValue(layer.meta.opacity)
+            self._blend_mode_combo.setEnabled(True)
+            self._blend_mode_combo.setCurrentText(layer.meta.blend_mode)
+        self._opacity_spin.blockSignals(False)
+        self._blend_mode_combo.blockSignals(False)
+
+    def _on_opacity_changed(self, value: float) -> None:
+        layer = self._selected_layer()
+        if layer is None:
+            return
+        if self._history is not None:
+            self._history.record()
+        layer.meta.opacity = value
+        self.layers_changed.emit()
+
+    def _on_blend_mode_changed(self, blend_mode: str) -> None:
+        layer = self._selected_layer()
+        if layer is None or not blend_mode:
+            return
+        if self._history is not None:
+            self._history.record()
+        layer.meta.blend_mode = blend_mode
+        self.layers_changed.emit()
 
 
 __all__ = ["LayerListPanel"]

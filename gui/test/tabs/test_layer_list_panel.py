@@ -256,3 +256,84 @@ def test_remove_mask_records_history_checkpoint(q_app):
     assert stack.layer("only").mask is None
     history.undo()
     assert stack.layer("only").mask is not None
+
+
+def test_opacity_and_blend_controls_disabled_without_a_selection(q_app):
+    panel = LayerListPanel()
+    assert panel._opacity_spin.isEnabled() is False
+    assert panel._blend_mode_combo.isEnabled() is False
+
+
+def test_selecting_a_layer_reflects_its_opacity_and_blend_mode(q_app):
+    stack = LayerStack(2, 2)
+    layer = stack.add_layer("only", "Only")
+    layer.meta.opacity = 0.4
+    layer.meta.blend_mode = "multiply"
+    panel = LayerListPanel()
+    panel.set_layer_stack(stack)
+
+    panel._select_layer("only")
+
+    assert panel._opacity_spin.isEnabled() is True
+    assert panel._opacity_spin.value() == 0.4
+    assert panel._blend_mode_combo.isEnabled() is True
+    assert panel._blend_mode_combo.currentText() == "multiply"
+
+
+def test_opacity_spin_updates_the_selected_layer_and_emits(q_app):
+    stack = LayerStack(2, 2)
+    stack.add_layer("only", "Only")
+    panel = LayerListPanel()
+    panel.set_layer_stack(stack)
+    panel._select_layer("only")
+    seen = []
+    panel.layers_changed.connect(lambda: seen.append(True))
+
+    panel._opacity_spin.setValue(0.3)
+
+    assert stack.layer("only").meta.opacity == 0.3
+    assert seen == [True]
+
+
+def test_blend_mode_combo_updates_the_selected_layer_and_emits(q_app):
+    stack = LayerStack(2, 2)
+    stack.add_layer("only", "Only")
+    panel = LayerListPanel()
+    panel.set_layer_stack(stack)
+    panel._select_layer("only")
+    seen = []
+    panel.layers_changed.connect(lambda: seen.append(True))
+
+    panel._blend_mode_combo.setCurrentText("multiply")
+
+    assert stack.layer("only").meta.blend_mode == "multiply"
+    assert seen == [True]
+
+
+def test_opacity_change_records_history_checkpoint(q_app):
+    stack = LayerStack(2, 2)
+    stack.add_layer("only", "Only")
+    panel = LayerListPanel()
+    panel.set_layer_stack(stack)
+    history = EditHistory(stack)
+    panel.set_history(history)
+    panel._select_layer("only")
+
+    panel._opacity_spin.setValue(0.2)
+    assert stack.layer("only").meta.opacity == 0.2
+    history.undo()
+    assert stack.layer("only").meta.opacity == 1.0
+
+
+def test_deselecting_disables_and_resets_opacity_and_blend_controls(q_app):
+    stack = LayerStack(2, 2)
+    stack.add_layer("only", "Only")
+    panel = LayerListPanel()
+    panel.set_layer_stack(stack)
+    panel._select_layer("only")
+    assert panel._opacity_spin.isEnabled() is True
+
+    panel._list.setCurrentItem(None)
+
+    assert panel._opacity_spin.isEnabled() is False
+    assert panel._blend_mode_combo.isEnabled() is False

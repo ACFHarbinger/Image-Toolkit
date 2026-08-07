@@ -17,7 +17,7 @@ from .correspondence_tools import (
 )
 from .document_io import load_document, save_document
 from .history import EditHistory
-from .layer_stack import Layer, LayerMeta, LayerStack
+from .layer_stack import VALID_BLEND_MODES, Layer, LayerMeta, LayerStack
 from .palette_tools import PALETTE_ROLES, apply_palette_color_to_region, resolve_palette_color
 from .segmentation_tools import (
     close_line_gaps_in_layer,
@@ -29,6 +29,7 @@ __all__ = [
     "Layer",
     "LayerMeta",
     "LayerStack",
+    "VALID_BLEND_MODES",
     "erase_dot",
     "erase_line",
     "stamp_dot",

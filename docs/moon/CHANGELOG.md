@@ -38,7 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `engine_architecture.md`'s "Gate 5 exception (2026-08-07)" note for the
   full rationale — this is a scope decision, not evidence Krita has proven
   insufficient. The Krita plugin remains the primary, actively-developed
-  host. Fourteen slices — canvas + layer-stack foundation, brush paint
+  host. Fifteen slices — canvas + layer-stack foundation, brush paint
   tool (issue #26), undo/redo (issue #27), non-destructive layer masks
   (issue #28), line-art segmentation (issue #29), style-bible palette
   application (issue #30), region-to-material correspondence assignment
@@ -47,9 +47,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `SignalWeights` correction learning (issue #34), attaching canvas
   documents into a bound project (issue #35), browsing/reopening
   project-bound assets (issue #36), a soft/anti-aliased brush hardness
-  option (issue #37), and an eraser tool (issue #38) — are all In
-  review pending a manual desktop-app check (see the `### Added`
-  entries below).
+  option (issue #37), an eraser tool (issue #38), and per-layer
+  opacity/blend mode UI (issue #39) — are all In review pending a
+  manual desktop-app check (see the `### Added` entries below).
 
 ### Fixed
 
@@ -466,6 +466,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `editor` tests, 7 new headless-Qt `gui` tests (541 core + 204 gui
   total); Ruff and mypy clean. Needs a manual desktop launch to confirm
   visually — see issue #38's testing comment.
+- **Standalone editor fifteenth slice (issue #39, In review): per-layer
+  opacity and blend mode UI.** `LayerMeta.opacity`/`blend_mode` have
+  been part of `LayerStack.composite()` since the very first slice
+  (issue #25), but there was never any UI to set either — every layer
+  was stuck at opacity 1.0 and blend mode "normal". `LayerListPanel`
+  gains an Opacity spin box (`0.0`–`1.0`, step `0.05`) and a Blend Mode
+  combo (populated from `editor.VALID_BLEND_MODES`, newly exported from
+  `editor/__init__.py`), shown below the existing mask buttons. Both
+  reflect the *selected* layer's current values — updated on every
+  selection change, on `set_layer_stack`, and on `refresh()` (so
+  undo/redo stays in sync) — and are disabled when nothing is selected.
+  Changing either edits the selected layer's `LayerMeta` in place,
+  records an undo checkpoint first (reusing `LayerStack.save_state()`/
+  `load_state()`, which already round-trip opacity/blend mode, so
+  undo/redo needed no changes), and emits the existing `layers_changed`
+  signal so the bound canvas re-renders. Verification: 6 new headless-Qt
+  `gui` tests (541 core + 210 gui total); Ruff and mypy clean. Needs a
+  manual desktop launch to confirm visually — see issue #39's testing
+  comment.
 - **Milestone 4 first slice (issue #24): deterministic confidence scoring
   and correction learning for assisted correspondence.** Portable contract
   only, no Docker UI yet, following the same sequencing every prior

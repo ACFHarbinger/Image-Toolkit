@@ -396,3 +396,20 @@ color-stamping functions. Mask mode ignores the Eraser tool selection
 and keeps its own direct-overwrite mask painting either way.
 `ReferenceColoringTab` adds an Eraser radio button next to the
 existing Pan/Brush ones.
+
+**Fifteenth slice (issue #39, In review pending a manual desktop-app
+check): per-layer opacity and blend mode UI.** `LayerMeta.opacity`/
+`blend_mode` have been part of `LayerStack.composite()` since the very
+first slice (issue #25), but there was never any UI to set either --
+every layer was stuck at opacity 1.0 and blend mode "normal".
+`LayerListPanel` gains an Opacity spin box (`0.0`-`1.0`, step `0.05`)
+and a Blend Mode combo (populated from `editor.VALID_BLEND_MODES`,
+newly exported from `editor/__init__.py`), shown below the existing
+mask buttons. Both reflect the *selected* layer's current values --
+updated on every selection change, on `set_layer_stack`, and on
+`refresh()` (so undo/redo stays in sync) -- and are disabled when
+nothing is selected. Changing either edits the selected layer's
+`LayerMeta` in place, records an undo checkpoint first (reusing
+`LayerStack.save_state()`/`load_state()`, which already round-trip
+opacity/blend mode, so undo/redo needed no changes), and emits the
+existing `layers_changed` signal so the bound canvas re-renders.
