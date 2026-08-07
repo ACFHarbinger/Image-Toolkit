@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 
-from .model import Evidence, EvidenceSource, Review
+from .model import Evidence, EvidenceSource, Redline, Review, Suggestion
 
 
 def review_feature_study(landmarks, feature, view, review_id):
@@ -18,7 +18,7 @@ def review_feature_study(landmarks, feature, view, review_id):
         scores, raw = _review_front_ears(landmarks)
     else:
         scores, raw = _review_turned_ear(landmarks)
-    return _review(review_id, feature, scores, raw)
+    return _review(review_id, feature, scores, raw, points=landmarks, view=view)
 
 
 def review_feature_set(front, turned, review_id):
@@ -192,11 +192,21 @@ def _review_turned_ear(points):
     return scores, {"near_ear_height": height, "near_ear_attachment_span": attachment}
 
 
-def _review(review_id, feature, scores, raw, rubric=None):
+def _review(review_id, feature, scores, raw, rubric=None, points=None, view=None):
     failed = [key for key, score in scores.items() if score < 0.70]
     explanations = [_principle(key) for key in failed] or [
         "The confirmed landmarks meet the provisional feature-construction checks."
     ]
+    redlines = _feature_redlines(feature, view, points, failed) if points is not None else []
+    suggestions = (
+        [
+            Suggestion(
+                "feature-study-guides", "Preview feature construction guides", "Tutor — Preview"
+            )
+        ]
+        if redlines
+        else []
+    )
     return Review(
         id=review_id,
         exercise_id="anime-head-features",
@@ -206,8 +216,120 @@ def _review(review_id, feature, scores, raw, rubric=None):
         rubric_version="1.0.0",
         evidence=[Evidence((0, 0, 1, 1), EvidenceSource.GEOMETRY, 1.0, key) for key in failed],
         explanations=explanations,
+        redlines=redlines,
+        suggestions=suggestions,
         measurements=scores | raw,
         targeted_exercise_ids=["anime-head-features"] if failed else [],
+    )
+
+
+def _feature_redlines(feature, view, points, failed):
+    if feature == "nose":
+        return _nose_redlines(points, view, failed)
+    if feature == "mouth":
+        return _mouth_redlines(points, view, failed)
+    return _ear_redlines(points, view, failed)
+
+
+def _nose_redlines(points, view, failed):
+    guides = []
+    axis_x = _axis_x(points, points["tip"][1])
+    if "nose_axis_alignment" in failed:
+        guides.append(_guide("nose-tip axis", points["tip"], (axis_x, points["tip"][1])))
+    if "nose_base_level" in failed:
+        mean_y = (points["base_left"][1] + points["base_right"][1]) / 2
+        guides.append(
+            _guide(
+                "nose-base level",
+                (points["base_left"][0], mean_y),
+                (points["base_right"][0], mean_y),
+            )
+        )
+    if "nose_perspective_compression" in failed:
+        left = abs(axis_x - points["base_left"][0])
+        target = 1.0 if view == "front" else 0.68
+        guides.append(
+            _guide(
+                "nose-base projection",
+                (axis_x, points["base_right"][1]),
+                (min(1.0, axis_x + left * target), points["base_right"][1]),
+            )
+        )
+    if "muzzle_support" in failed:
+        guides.append(_guide("muzzle support", points["muzzle_left"], points["muzzle_right"]))
+    return guides
+
+
+def _mouth_redlines(points, view, failed):
+    guides = []
+    axis_x = _axis_x(points, points["mouth_center"][1])
+    if "mouth_axis_alignment" in failed:
+        guides.append(
+            _guide("mouth center", points["mouth_center"], (axis_x, points["mouth_center"][1]))
+        )
+    if "mouth_corner_coherence" in failed:
+        mean_y = (points["corner_left"][1] + points["corner_right"][1]) / 2
+        guides.append(
+            _guide(
+                "mouth-corner relationship",
+                (points["corner_left"][0], mean_y),
+                (points["corner_right"][0], mean_y),
+            )
+        )
+    if "mouth_perspective_wrap" in failed:
+        left = abs(axis_x - points["corner_left"][0])
+        target = 1.0 if view == "front" else 0.72
+        guides.append(
+            _guide(
+                "mouth wrap",
+                (axis_x, points["corner_right"][1]),
+                (min(1.0, axis_x + left * target), points["corner_right"][1]),
+            )
+        )
+    if "mouth_within_muzzle" in failed:
+        guides.append(_guide("muzzle boundary", points["muzzle_left"], points["muzzle_right"]))
+    return guides
+
+
+def _ear_redlines(points, view, failed):
+    guides = []
+    if view == "front":
+        if "ear_height_balance" in failed or "ear_level_balance" in failed:
+            guides.extend(
+                [
+                    _guide("ear-top comparison", points["left_top"], points["right_top"]),
+                    _guide("ear-bottom comparison", points["left_bottom"], points["right_bottom"]),
+                ]
+            )
+        if "ear_attachment_balance" in failed:
+            guides.append(
+                _guide(
+                    "ear attachments",
+                    points["right_attach_top"],
+                    points["right_attach_bottom"],
+                )
+            )
+        if "ear_bowl_balance" in failed:
+            guides.append(_guide("ear bowl", points["right_outer"], points["right_inner"]))
+    else:
+        if "near_ear_attachment" in failed or "ear_side_plane_alignment" in failed:
+            guides.append(
+                _guide(
+                    "near-ear attachment", points["near_attach_top"], points["near_attach_bottom"]
+                )
+            )
+        if "near_ear_bowl" in failed:
+            guides.append(_guide("near-ear bowl", points["near_outer"], points["near_inner"]))
+        if "far_ear_occlusion_evidence" in failed:
+            guides.append(_guide("far-ear occlusion", points["skull_edge"], points["far_evidence"]))
+    return guides
+
+
+def _guide(name, start, end):
+    return Redline(
+        "Tutor — " + name,
+        [start, end],
+        "Use this provisional relationship as a comparison before simplifying the feature.",
     )
 
 

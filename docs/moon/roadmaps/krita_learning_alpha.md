@@ -205,8 +205,10 @@ remain deferred in Review.
   the near ear while far-ear input is only occlusion evidence. After all six
   studies, an optional combined review compares nose, mouth, ear, and expression
   retention across views. Raw and normalized results support compatible retry
-  comparisons. Feature-specific correction previews remain future work rather
-  than reusing eye/head geometry.
+  comparisons. Failed dimensions now generate feature-specific guides for axes,
+  bases/corners, projection, muzzle support, bilateral ear structure, near-ear
+  attachment, and far-ear occlusion evidence. A row-major transform confines
+  each preview to the confirmed matrix cell and reuses Accept/Reject persistence.
 - 🔄 Controlled-asymmetry curriculum/template: lesson six is fully authored
   around a corrected symmetric control, explicit cause labels, one-variable
   strength ladders, expression isolation, and front-to-three-quarter transfer.

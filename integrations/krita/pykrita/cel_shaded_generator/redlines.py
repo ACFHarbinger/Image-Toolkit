@@ -25,6 +25,23 @@ def map_review_redlines_to_sheet(review, cell_index, cell_count=5):
     return mapped
 
 
+def map_review_redlines_to_matrix(review, cell_index, columns=3, rows=2):
+    """Map cell-local geometry into a row-major exercise matrix."""
+    if not isinstance(cell_index, int) or not 0 <= cell_index < columns * rows:
+        raise ValueError("exercise matrix cell is invalid")
+    column, row = cell_index % columns, cell_index // columns
+    mapped = dict(review)
+    mapped["redlines"] = []
+    for redline in review.get("redlines", []):
+        item = dict(redline)
+        item["geometry"] = [
+            [(column + point[0]) / columns, (row + point[1]) / rows]
+            for point in redline.get("geometry", [])
+        ]
+        mapped["redlines"].append(item)
+    return mapped
+
+
 def render_review_redlines(document, review):
     """Add one tutor-owned raster layer; never write to an artist layer."""
     width = document.width()

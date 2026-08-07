@@ -150,6 +150,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   studies and compares nose, mouth, ear, and mouth-expression retention across
   the turn. Raw measurements and normalized dimensions persist and participate
   in version-compatible retry comparison.
+  Added feature-specific correction previews for failed nose/muzzle, mouth, and
+  ear dimensions. Guides cover facial-axis placement, base/corner relationships,
+  perspective wrap/compression, muzzle support, bilateral ear bounds and bowls,
+  near-ear attachment, and far-ear occlusion evidence. A row-major mapper places
+  every guide only inside the confirmed cell of the 3 × 2 feature matrix, and
+  previews reuse explicit Accept/Reject persistence.
   Fully authored lesson six, Controlled Asymmetry. It requires a corrected
   symmetric control before introducing anatomical/design or expression
   imbalance, teaches cause classification and strength ladders, and separates

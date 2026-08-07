@@ -55,6 +55,16 @@ def test_maps_selected_head_redlines_into_only_its_sheet_cell():
         module.map_review_redlines_to_sheet(review, 5)
 
 
+def test_maps_feature_redlines_into_row_major_matrix_cell():
+    module = _module()
+    review = {"redlines": [{"geometry": [[0.0, 0.0], [1.0, 1.0]]}]}
+    mapped = module.map_review_redlines_to_matrix(review, 4)
+    assert mapped["redlines"][0]["geometry"] == [
+        [1 / 3, 1 / 2],
+        [2 / 3, 1.0],
+    ]
+
+
 class LayerStub:
     def __init__(self, name, remove_result=True):
         self._name = name

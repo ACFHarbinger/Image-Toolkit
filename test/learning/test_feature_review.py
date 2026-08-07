@@ -80,3 +80,13 @@ def test_combined_review_includes_expression_and_all_feature_families():
     assert "mouth_design_retention" in review.measurements
     assert "ear_design_retention" in review.measurements
     assert "feature_expression_consistency" in review.measurements
+
+
+def test_failed_feature_study_emits_reversible_preview_guides():
+    mouth = _mouth()
+    mouth["mouth_center"] = (0.75, 0.62)
+    mouth["corner_right"] = (0.95, 0.78)
+    review = review_feature_study(mouth, "mouth", "front", "mouth-2")
+    assert review.redlines
+    assert review.suggestions[0].id == "feature-study-guides"
+    assert all(redline.explanation for redline in review.redlines)

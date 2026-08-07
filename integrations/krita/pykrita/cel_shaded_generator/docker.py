@@ -38,6 +38,7 @@ from .orientation_landmarks import (
 from .progress_view import format_progress
 from .redlines import (
     accept_preview,
+    map_review_redlines_to_matrix,
     map_review_redlines_to_sheet,
     reject_preview,
     render_review_redlines,
@@ -452,6 +453,13 @@ class LearningDocker(DockWidget):
             ):
                 renderable_review = map_review_redlines_to_sheet(
                     review, self._orientation_crop_index, cell_count=4
+                )
+            elif (
+                lesson["exercise_id"] == "anime-head-features"
+                and self._orientation_crop_index is not None
+            ):
+                renderable_review = map_review_redlines_to_matrix(
+                    review, self._orientation_crop_index
                 )
             elif (
                 lesson["exercise_id"]
