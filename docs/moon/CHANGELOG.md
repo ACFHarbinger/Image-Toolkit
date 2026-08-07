@@ -2,6 +2,19 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S352 — 2026-08-07 (Feature critique and controlled-asymmetry lesson)
+
+Advanced Cel-Shaded-Generator A3 issue #12 with specialized nose, mouth,
+bilateral-front-ear, and turned-ear landmark/rubric workflows (`a1aee5c`). Front
+ears remain independently measurable; turned review fully evaluates the near
+ear and treats far-ear input as optional occlusion evidence. An optional combined
+review compares all three feature families and expression across front/turned
+studies. Fully authored Controlled Asymmetry (`f0b7a68`) with two diagrams and a
+2600 × 1800 six-stage Krita sheet separating symmetric control, corrected drift,
+design/expression differences, symmetric turn, and transferred asymmetry.
+Verification: 277 tests, Ruff and mypy clean. A3 remains undeployed; A2 #10/#11
+stay in Review.
+
 ## S351 — 2026-08-07 (Eye previews and authored feature-placement matrix)
 
 Advanced Cel-Shaded-Generator A3 issue #12 with conservative cell-local eye
