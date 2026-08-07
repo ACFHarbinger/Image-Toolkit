@@ -2,6 +2,10 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S326 — 2026-08-07 (Cel-Shaded-Generator A1 complete)
+
+Completed Cel-Shaded-Generator A1 and issue #9 (`85b32f4`) with a stack-neutral, non-executing local model-package manifest and validator. It verifies registry identity, schema, declared entrypoint, safe relative paths, regular non-symlink artifacts, exact byte sizes, configurable resource limits, and SHA-256 content while allowing extensible formats and keeping integrity distinct from provenance and runtime safety. The phase roadmap now records A1 complete and Phase 1 in progress. Verification: 153 core tests, Ruff, mypy, and strict MkDocs all pass. Created A2 issue #10 and moved it to In Progress at P0/L in Project 12; A1 is closed and Done.
+
 ## S325 — 2026-08-07 (Live Krita tutor docker confirmed)
 
 Completed Cel-Shaded-Generator's A1 live discovery check: the owner enabled the plugin in Krita 5.3.2.1's Python Plugin Manager, restarted Krita, and displayed the Cel-Shaded Learning Tutor docker. The check exposed an onboarding detail rather than a plugin defect: Krita disables every docker menu action while its start screen has no open document; creating a document enables them. Cel-Shaded-Generator `0a36e1c` records the verified behavior. Issue #9 remains In Progress only for model-package content validation.
