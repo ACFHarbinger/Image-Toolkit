@@ -2,6 +2,18 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S346 — 2026-08-07 (Five-view orientation exercise template)
+
+Advanced Cel-Shaded-Generator A3 issue #12 (`922cbae`) with a portable
+`anime-head-orientation` exercise: a 2600 × 1600 landscape sheet, locked SVG
+five-cell layout, and separate named layers for both profiles, both
+three-quarter views, and front. The front layer starts active. Explicit front
+completion immediately changes the engine recommendation to orientation while
+manual navigation remains untouched. The plugin explicitly refuses to apply
+the front rubric to turned heads; one-selected-head orientation review remains
+for its own landmark/rubric contract. Verification: 237 tests, Ruff and mypy
+clean. A3 remains undeployed and A2 #10/#11 stay in deferred Review.
+
 ## S345 — 2026-08-07 (Unlocked lesson navigation and explicit completion)
 
 Advanced Cel-Shaded-Generator A3 issue #12 (`48724aa`) with an ordered lesson
