@@ -2,7 +2,7 @@
 
 import numpy as np
 import pytest
-from cel_shaded_generator.features.preference_log import read_preferences
+from features.preference_log import read_preferences
 
 from cel_shaded_generator_gui.components.manga_preference_dialog import MangaPreferenceDialog
 

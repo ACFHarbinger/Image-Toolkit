@@ -69,7 +69,7 @@ and [benchmarks](docs/BENCHMARKS.md) before changing their respective areas.
 
 | Path | Purpose |
 | --- | --- |
-| `src/cel_shaded_generator/` | Storage-neutral core and execution boundary |
+| `src/` | Storage-neutral top-level core packages and execution boundary |
 | `gui/src/cel_shaded_generator_gui/` | PySide6 demonstration client |
 | `test/`, `gui/test/` | Core and headless GUI tests |
 | `benchmark/` | Deterministic goldens and explicit performance runner |

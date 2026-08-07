@@ -5,7 +5,7 @@ A ``QThread`` subclass overriding ``run()`` (not ``QObject`` + ``moveToThread``)
 -- the JPype-JVM-safe pattern this codebase already uses for every other
 background worker (see e.g. ``gui/src/helpers/web/media_loader_worker.py``).
 The solve itself (~1-4s for a full page, see
-``backend/src/cel_shaded_generator/colorization.py``/``screentone.py``) is pure NumPy/
+``src/colorization/colorization.py``/``screentone.py``) is pure NumPy/
 SciPy/OpenCV, so it carries none of the native-Qt-subsystem crash risk that
 pattern guards against -- but running it on the GUI thread would still
 freeze the UI for the whole solve, so it's threaded regardless.
@@ -16,24 +16,20 @@ from __future__ import annotations
 from collections.abc import Callable
 
 import numpy as np
-from cel_shaded_generator import (
-    IsolatedRunner,
-    JobRequest,
-    Operation,
-    colorize_reference,
-    colorize_scribble,
-    colorize_scribble_screentone,
-)
-from cel_shaded_generator.temporal.quadtree import colorize_region_incremental
+from colorization.colorization import colorize_scribble
+from colorization.optimal_transport import colorize_reference
+from colorization.screentone import colorize_scribble_screentone
+from execution import IsolatedRunner, JobRequest, Operation
 from PySide6.QtCore import QThread, Signal
+from temporal.quadtree import colorize_region_incremental
 
 
 class ColorizeWorker(QThread):
     """Runs a ``colorize_fn(gray, scribble_rgb, scribble_mask,
     max_solve_dim=...) -> np.ndarray`` off the UI thread. Defaults to
-    :func:`cel_shaded_generator.colorize_scribble` (the Levin solver) so
+    :func:`colorization.colorization.colorize_scribble` (the Levin solver) so
     existing single-mode call sites don't need to change; pass a different
-    ``colorize_fn`` (e.g. :func:`cel_shaded_generator.colorize_scribble_screentone`)
+    ``colorize_fn`` (e.g. :func:`colorization.screentone.colorize_scribble_screentone`)
     to run a different colorization mode through the same worker."""
 
     finished_ok = Signal(np.ndarray)
@@ -95,7 +91,7 @@ class ReferenceColorizeWorker(QThread):
     scribble mask concept applies here), so a shared class would need an
     awkward variadic-args escape hatch for no real benefit -- the run()
     bodies are already this short. Defaults to
-    :func:`cel_shaded_generator.colorize_reference` (the Optimal-Transport
+    :func:`colorization.optimal_transport.colorize_reference` (the Optimal-Transport
     solver)."""
 
     finished_ok = Signal(np.ndarray)
@@ -135,7 +131,7 @@ class ReferenceColorizeWorker(QThread):
 
 
 class IncrementalColorizeWorker(QThread):
-    """Runs :func:`cel_shaded_generator.temporal.quadtree.colorize_region_incremental`
+    """Runs :func:`temporal.quadtree.colorize_region_incremental`
     off the UI thread -- the "live preview" counterpart to
     :class:`ColorizeWorker` (roadmap §5.2, issue #191). Re-solves only the
     quadtree-expanded window around the latest completed stroke and

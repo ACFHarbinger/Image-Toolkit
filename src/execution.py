@@ -90,15 +90,13 @@ def adaptive_timeout(request: JobRequest, maximum_seconds: float) -> float:
 
 
 def _dispatch(request: JobRequest) -> Any:
-    from cel_shaded_generator import (
-        arap_deform,
-        colorize_reference,
-        colorize_scribble,
-        colorize_scribble_screentone,
-        colorize_scribble_sequence,
-        graph_cut_temporal_refine,
-    )
-    from cel_shaded_generator.temporal.quadtree import colorize_region_incremental
+    from colorization.colorization import colorize_scribble
+    from colorization.graph_cut import graph_cut_temporal_refine
+    from colorization.optimal_transport import colorize_reference
+    from colorization.screentone import colorize_scribble_screentone
+    from rigging.arap import arap_deform
+    from temporal.quadtree import colorize_region_incremental
+    from temporal.temporal import colorize_scribble_sequence
 
     if request.operation == Operation.SCRIBBLE_COLORIZE:
         return colorize_scribble(**request.inputs, **request.options)

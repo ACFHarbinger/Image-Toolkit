@@ -4,12 +4,25 @@ from __future__ import annotations
 
 import sys
 
-import cel_shaded_generator
-from cel_shaded_generator.runtime import NATIVE_COMPUTE_LOCK
+import colorization
+import features
+import learning
+import project
+import rigging
+import temporal
+from runtime import NATIVE_COMPUTE_LOCK
 
 
-def test_public_package_uses_stable_namespace() -> None:
-    assert cel_shaded_generator.__name__ == "cel_shaded_generator"
+def test_flattened_packages_use_top_level_namespaces() -> None:
+    packages = (colorization, features, learning, project, rigging, temporal)
+    assert {package.__name__ for package in packages} == {
+        "colorization",
+        "features",
+        "learning",
+        "project",
+        "rigging",
+        "temporal",
+    }
     assert "manga" not in sys.modules
 
 

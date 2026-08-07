@@ -2,9 +2,9 @@
 
 The uv workspace builds two distributions:
 
-| Distribution | Import | Responsibility |
+| Distribution | Imports | Responsibility |
 | --- | --- | --- |
-| `cel-shaded-generator` | `cel_shaded_generator` | Core algorithms, projects, isolated jobs |
+| `cel-shaded-generator` | `colorization`, `features`, `learning`, `project`, `rigging`, `temporal`, `execution`, `runtime` | Core algorithms, projects, isolated jobs |
 | `cel-shaded-generator-gui` | `cel_shaded_generator_gui` | PySide6 demonstration application |
 
 The GUI declares the core distribution as a dependency. The core never imports

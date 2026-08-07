@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 import pytest
 
-from cel_shaded_generator.colorization.screentone import (
+from colorization.screentone import (
     build_texture_affinity_system,
     colorize_scribble_screentone,
 )

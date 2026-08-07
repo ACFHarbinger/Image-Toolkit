@@ -6,7 +6,7 @@ import sys
 
 import pytest
 
-from cel_shaded_generator.learning.engine_protocol import handle_request
+from learning.engine_protocol import handle_request
 
 
 def _request():
@@ -75,7 +75,7 @@ def test_protocol_rejects_unknown_or_incomplete_requests(change):
 
 def test_module_cli_reads_and_writes_one_json_message():
     completed = subprocess.run(
-        [sys.executable, "-m", "cel_shaded_generator.learning.engine_protocol"],
+        [sys.executable, "-m", "learning.engine_protocol"],
         input=json.dumps(_request()),
         text=True,
         capture_output=True,
@@ -89,7 +89,7 @@ def test_module_cli_reads_and_writes_one_json_message():
 
 def test_module_cli_returns_structured_error_without_traceback():
     completed = subprocess.run(
-        [sys.executable, "-m", "cel_shaded_generator.learning.engine_protocol"],
+        [sys.executable, "-m", "learning.engine_protocol"],
         input="not json",
         text=True,
         capture_output=True,

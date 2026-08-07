@@ -39,7 +39,7 @@ def _landmarks():
 def test_client_calls_real_engine_module_without_shell():
     module = _load_client()
     client = module.EngineClient(
-        [sys.executable, "-m", "cel_shaded_generator.learning.engine_protocol"]
+        [sys.executable, "-m", "learning.engine_protocol"]
     )
     result = client.review_front_head("attempt-1", _landmarks())
     assert result["id"] == "attempt-1"

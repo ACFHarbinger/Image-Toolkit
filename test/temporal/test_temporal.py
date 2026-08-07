@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 import pytest
 
-from cel_shaded_generator.temporal.temporal import build_levin_system_3d, colorize_scribble_sequence
+from temporal.temporal import build_levin_system_3d, colorize_scribble_sequence
 
 
 def _uniform_gray_stack(t=5, h=40, w=40, value=200):

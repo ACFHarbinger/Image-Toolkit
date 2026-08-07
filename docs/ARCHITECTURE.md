@@ -9,18 +9,19 @@ yet the planned Krita learning alpha or a production drawing application.
 
 | Package | Location | Responsibility |
 | --- | --- | --- |
-| `cel_shaded_generator` | `src/cel_shaded_generator/` | UI-independent algorithms and runtime coordination |
+| `colorization`, `features`, `learning`, `project`, `rigging`, `temporal` | `src/` | UI-independent domain packages |
+| `execution`, `runtime` | `src/` | Isolated-job boundary and native-compute coordination |
 | `cel_shaded_generator_gui` | `gui/src/cel_shaded_generator_gui/` | Standalone Qt demonstration client |
 | Tests | `test/`, `gui/test/` | Algorithm invariants, UI behavior, and package boundaries |
 
 Both distributions form a `uv` workspace. The GUI declares the core
-distribution as a workspace dependency and imports it through its installed
-package name. Neither package imports Image-Toolkit internals.
+distribution as a workspace dependency and imports its top-level domain
+packages. Neither distribution imports Image-Toolkit internals.
 
 ## Integration boundary
 
 Image-Toolkit adds the two source roots to its import path and imports the same
-public package names. This is an adapter owned by Image-Toolkit, not a runtime
+public module names. This is an adapter owned by Image-Toolkit, not a runtime
 service consumed by Cel-Shaded-Generator.
 
 Built-in heavy numerical calls cross a serializable `JobRequest`/`Operation`

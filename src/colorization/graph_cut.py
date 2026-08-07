@@ -87,8 +87,8 @@ import cv2
 import maxflow
 import numpy as np
 
-from ..features.gabor import gabor_feature_bank
-from ..runtime import NATIVE_COMPUTE_LOCK
+from features.gabor import gabor_feature_bank
+from runtime import NATIVE_COMPUTE_LOCK
 
 __all__ = ["build_temporal_coherence_graph", "graph_cut_temporal_refine"]
 

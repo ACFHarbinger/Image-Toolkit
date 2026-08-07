@@ -29,7 +29,7 @@ import numpy as np
 from scipy import sparse
 from scipy.sparse.linalg import splu
 
-from ..runtime import NATIVE_COMPUTE_LOCK
+from runtime import NATIVE_COMPUTE_LOCK
 
 __all__ = ["colorize_scribble", "build_levin_system"]
 

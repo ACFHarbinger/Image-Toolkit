@@ -39,8 +39,8 @@ import cv2
 import numpy as np
 from skimage.segmentation import slic
 
-from ..features.gabor import gabor_feature_bank
-from ..runtime import NATIVE_COMPUTE_LOCK
+from features.gabor import gabor_feature_bank
+from runtime import NATIVE_COMPUTE_LOCK
 
 __all__ = ["sinkhorn", "colorize_reference"]
 

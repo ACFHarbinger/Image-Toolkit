@@ -56,7 +56,7 @@ from scipy import sparse
 from scipy.sparse.linalg import splu
 from scipy.spatial import Delaunay
 
-from ..runtime import NATIVE_COMPUTE_LOCK
+from runtime import NATIVE_COMPUTE_LOCK
 
 __all__ = ["generate_mesh", "arap_deform"]
 

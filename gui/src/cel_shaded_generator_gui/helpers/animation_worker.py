@@ -3,8 +3,8 @@
 
 A ``QThread`` subclass overriding ``run()`` -- the same JPype-JVM-safe
 pattern :class:`cel_shaded_generator_gui.helpers.colorize_worker.ColorizeWorker` already
-uses. Runs :func:`cel_shaded_generator.colorize_scribble_sequence` (issue #192)
-and, optionally, a follow-up :func:`cel_shaded_generator.graph_cut_temporal_refine`
+uses. Runs :func:`temporal.temporal.colorize_scribble_sequence` (issue #192)
+and, optionally, a follow-up :func:`colorization.graph_cut.graph_cut_temporal_refine`
 pass (issue #193) off the UI thread so a multi-frame solve (tens of seconds
 for even a short sequence, per ``temporal.py``'s own docstring) doesn't
 freeze the GUI.
@@ -13,7 +13,7 @@ freeze the GUI.
 from __future__ import annotations
 
 import numpy as np
-from cel_shaded_generator import IsolatedRunner, JobRequest, Operation
+from execution import IsolatedRunner, JobRequest, Operation
 from PySide6.QtCore import QThread, Signal
 
 

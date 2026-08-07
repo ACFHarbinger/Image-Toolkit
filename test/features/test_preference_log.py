@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from cel_shaded_generator.features.preference_log import log_preference, read_preferences
+from features.preference_log import log_preference, read_preferences
 
 
 class TestLogPreference:

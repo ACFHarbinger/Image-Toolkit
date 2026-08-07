@@ -26,7 +26,7 @@ dependencies = [
 ]
 
 [project.scripts]
-cel-shaded-generator-engine = "cel_shaded_generator.learning.engine_protocol:main"
+cel-shaded-generator-engine = "learning.engine_protocol:main"
 
 [project.optional-dependencies]
 dev = [
@@ -54,6 +54,9 @@ ignore_missing_imports = true
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools]
+py-modules = ["execution", "runtime"]
 
 [tool.uv.workspace]
 members = ["gui"]

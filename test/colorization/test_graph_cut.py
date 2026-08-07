@@ -1,12 +1,12 @@
 import numpy as np
 import pytest
 
-from cel_shaded_generator.colorization.graph_cut import (
+from colorization.graph_cut import (
     _frame_chroma,
     build_temporal_coherence_graph,
     graph_cut_temporal_refine,
 )
-from cel_shaded_generator.features.gabor import gabor_feature_bank
+from features.gabor import gabor_feature_bank
 
 
 def _uniform_gray_stack(t=3, h=40, w=40, value=150):

@@ -8,7 +8,7 @@ from threading import Event
 import numpy as np
 import pytest
 
-from cel_shaded_generator.execution import (
+from execution import (
     IsolatedRunner,
     JobCancelled,
     JobRequest,

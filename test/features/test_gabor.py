@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from cel_shaded_generator.features.gabor import gabor_feature_bank
+from features.gabor import gabor_feature_bank
 
 
 def _dotted_vs_flat_image(h=60, w=60):

@@ -2,7 +2,7 @@
 
 import pytest
 
-from cel_shaded_generator.project import (
+from project import (
     SuggestionDecision,
     create_exercise_project,
     decide_attempt_review,

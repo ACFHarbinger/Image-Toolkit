@@ -55,8 +55,9 @@ new algorithms.
   documentation with the real project state.
 - ✅ Replace the placeholder architecture document with the real current and
   target boundaries.
-- ✅ Adopt conventional `cel_shaded_generator` and
-  `cel_shaded_generator_gui` packages; remove dynamic alias bootstrapping.
+- ✅ Adopt conventional installable packages and remove dynamic alias
+  bootstrapping. The core domain packages are flattened directly under `src/`;
+  the GUI retains its distinct `cel_shaded_generator_gui` client namespace.
 - ✅ Remove imports from `backend.src.*` and the parent `gui.src.*` package.
 - ✅ Make the current GUI an explicit workspace client of the core package.
 - ✅ Run core and headless GUI tests in CI, build both wheels, and smoke-test

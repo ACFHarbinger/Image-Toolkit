@@ -1,8 +1,8 @@
 import numpy as np
 import pytest
 
-from cel_shaded_generator.colorization.colorization import colorize_scribble
-from cel_shaded_generator.temporal.quadtree import build_quadtree, colorize_region_incremental
+from colorization.colorization import colorize_scribble
+from temporal.quadtree import build_quadtree, colorize_region_incremental
 
 
 def _uniform_gray(h=128, w=128, value=220):

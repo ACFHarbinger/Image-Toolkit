@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Flattened the core source tree by moving every package and module from
+  `src/cel_shaded_generator/` directly into `src/`. Core callers now import
+  the top-level domain packages (`colorization`, `learning`, `project`, and
+  peers), while the distribution name remains `cel-shaded-generator`. Updated
+  the engine entry point, GUI, Krita engine diagnostics, benchmarks, tests, and
+  architecture documentation. The independent Krita plugin identifier remains
+  `cel_shaded_generator` for host compatibility.
+
 ### Added
 
 - Opened A3 issue #12 at In Progress P0/XL for versioned curriculum progression,

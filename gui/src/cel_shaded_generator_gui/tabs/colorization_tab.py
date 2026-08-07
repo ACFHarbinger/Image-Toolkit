@@ -1,10 +1,10 @@
 """Manga Colorization tab (roadmap §6.1, issue #195).
 
-Exercises the scribble colorizers (backend/src/cel_shaded_generator/colorization.py issue
+Exercises the scribble colorizers (`src/colorization/colorization.py` issue
 #186, screentone.py issue #187) end-to-end through the layered canvas editor
 (issue #190): load a grayscale/line-art page, paint colored scribbles, run
 the selected solver off the UI thread, and view the result. A third mode,
-Reference / Optimal-Transport (backend/src/cel_shaded_generator/optimal_transport.py, issue
+Reference / Optimal-Transport (`src/colorization/optimal_transport.py`, issue
 #188), is also wired up -- it needs a second image (a colored reference
 sheet) instead of scribbles, so it has its own "Load Reference…" button
 (enabled only in that mode) and its own worker
@@ -29,8 +29,9 @@ New feature, not code motion.
 
 from __future__ import annotations
 
-from cel_shaded_generator import colorize_reference, colorize_scribble, colorize_scribble_screentone
-from cel_shaded_generator.temporal.quadtree import build_quadtree
+from colorization.colorization import colorize_scribble
+from colorization.optimal_transport import colorize_reference
+from colorization.screentone import colorize_scribble_screentone
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QStandardItemModel
 from PySide6.QtWidgets import (
@@ -46,6 +47,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from temporal.quadtree import build_quadtree
 
 from ..elements import MangaCanvasEditor, qimage_to_rgb_array
 from ..helpers import ColorizeWorker, IncrementalColorizeWorker, ReferenceColorizeWorker

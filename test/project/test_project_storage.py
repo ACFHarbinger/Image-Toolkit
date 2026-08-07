@@ -7,7 +7,7 @@ import os
 
 import pytest
 
-from cel_shaded_generator.project import (
+from project import (
     Attempt,
     Consent,
     ExerciseProgress,
@@ -164,7 +164,7 @@ def test_failed_atomic_replace_preserves_existing_manifest(tmp_path, monkeypatch
             raise OSError("simulated replace failure")
         return real_replace(source, destination)
 
-    monkeypatch.setattr("cel_shaded_generator.project.storage.os.replace", fail_replace)
+    monkeypatch.setattr("project.storage.os.replace", fail_replace)
     with pytest.raises(OSError, match="simulated replace failure"):
         save_project(tmp_path, Project(title="Replacement"))
 

@@ -14,16 +14,11 @@ from typing import Any
 
 import numpy as np
 
-from cel_shaded_generator import (
-    JobRequest,
-    Operation,
-    PersistentIsolatedRunner,
-    arap_deform,
-    colorize_reference,
-    colorize_scribble,
-    colorize_scribble_sequence,
-    generate_mesh,
-)
+from colorization.colorization import colorize_scribble
+from colorization.optimal_transport import colorize_reference
+from execution import JobRequest, Operation, PersistentIsolatedRunner
+from rigging.arap import arap_deform, generate_mesh
+from temporal.temporal import colorize_scribble_sequence
 
 ROOT = Path(__file__).resolve().parent
 GOLDENS = ROOT / "goldens"

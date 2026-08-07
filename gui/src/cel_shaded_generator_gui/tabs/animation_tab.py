@@ -4,7 +4,7 @@ Exercises the spatio-temporal animation solvers end-to-end through the
 existing layered canvas editor (issue #190): load a sequence of grayscale
 line-art frames, scribble colors onto a couple of "key" frames (e.g. frame 0
 and the last frame -- unscribbled frames get their color solved as part of
-the same combined system, see ``backend/src/cel_shaded_generator/temporal.py``'s own
+the same combined system, see ``src/temporal/temporal.py``'s own
 docstring), run the 3D quadratic-cost temporal propagation solver
 (``colorize_scribble_sequence()``, issue #192) off the UI thread, optionally
 follow up with the graph-cut temporal-coherence refinement pass

@@ -34,8 +34,9 @@ import numpy as np
 from scipy import sparse
 from scipy.sparse.linalg import splu
 
-from ..features.gabor import gabor_feature_bank
-from ..runtime import NATIVE_COMPUTE_LOCK
+from features.gabor import gabor_feature_bank
+from runtime import NATIVE_COMPUTE_LOCK
+
 from .colorization import _neighbor_offsets
 
 __all__ = ["build_texture_affinity_system", "colorize_scribble_screentone"]

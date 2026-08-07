@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from cel_shaded_generator.learning import (
+from learning import (
     Exercise,
     LearningCatalog,
     Lesson,

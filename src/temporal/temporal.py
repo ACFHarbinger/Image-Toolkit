@@ -40,8 +40,8 @@ import numpy as np
 from scipy import sparse
 from scipy.sparse.linalg import splu
 
-from ..colorization.colorization import _VAR_EPS
-from ..runtime import NATIVE_COMPUTE_LOCK
+from colorization.colorization import _VAR_EPS
+from runtime import NATIVE_COMPUTE_LOCK
 
 __all__ = ["colorize_scribble_sequence", "build_levin_system_3d"]
 
@@ -61,7 +61,7 @@ def build_levin_system_3d(
 ) -> sparse.csr_matrix:
     """Build the sparse ``(I - W)`` affinity system for 3D (t, y, x) Levin
     colorization -- the direct temporal generalization of
-    :func:`cel_shaded_generator.colorization.build_levin_system`.
+    :func:`colorization.colorization.build_levin_system`.
 
     Args:
         y_stack: TxHxW float array, luminance normalized to [0, 1].
@@ -180,7 +180,7 @@ def colorize_scribble_sequence(
             :func:`build_levin_system_3d`).
         t_rad: temporal affinity neighborhood radius.
         max_solve_dim: same role as
-            :func:`cel_shaded_generator.colorization.colorize_scribble`'s
+            :func:`colorization.colorization.colorize_scribble`'s
             parameter of the same name -- caps the spatial (not temporal)
             solve resolution; chrominance is upsampled back per-frame.
             Pass 0 to disable and always solve at full resolution.

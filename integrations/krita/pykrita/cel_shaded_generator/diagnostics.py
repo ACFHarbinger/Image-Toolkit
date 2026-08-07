@@ -33,7 +33,7 @@ def diagnose(krita_version: str, package_dir: str | Path | None = None) -> Diagn
     """Inspect versions, packaged content, and core visibility without network I/O."""
     root = Path(package_dir) if package_dir else Path(__file__).parent
     content_available = (root / "content" / "lesson.json").is_file()
-    core_available = importlib.util.find_spec("cel_shaded_generator") is not None
+    core_available = importlib.util.find_spec("learning") is not None
     parsed_krita = _major_minor(krita_version)
     krita_ok = parsed_krita is not None and parsed_krita >= MINIMUM_KRITA
     python_ok = sys.version_info[:2] >= MINIMUM_PYTHON

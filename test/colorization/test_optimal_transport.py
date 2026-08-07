@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 import pytest
 
-from cel_shaded_generator.colorization.optimal_transport import colorize_reference, sinkhorn
+from colorization.optimal_transport import colorize_reference, sinkhorn
 
 
 def _split_target(h=60, w=60, left_value=200, right_value=60):

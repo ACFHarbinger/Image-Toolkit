@@ -2,7 +2,7 @@
 
 import pytest
 
-from cel_shaded_generator.learning import (
+from learning import (
     Evidence,
     EvidenceSource,
     Lesson,

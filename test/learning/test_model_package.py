@@ -5,7 +5,7 @@ import json
 
 import pytest
 
-from cel_shaded_generator.learning import (
+from learning import (
     LocalModel,
     ModelPackageLimits,
     validate_model_package,

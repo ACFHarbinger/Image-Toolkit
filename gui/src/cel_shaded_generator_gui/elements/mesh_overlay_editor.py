@@ -1,6 +1,6 @@
 """Mesh overlay editor for ARAP rigging (roadmap §3.3, issue #194).
 
-The remaining half of §3.3's scope after `backend/src/cel_shaded_generator/arap.py` shipped
+The remaining half of §3.3's scope after `src/rigging/arap.py` shipped
 the deterministic algorithmic core: a rigging UI to actually drive it. This
 widget lets a user load an image, paint a binary mask over the region to
 puppeteer (reusing the same freehand-paint mechanism as
@@ -24,11 +24,11 @@ from __future__ import annotations
 import atexit
 
 import numpy as np
-from cel_shaded_generator.execution import JobRequest, Operation, PersistentIsolatedRunner
-from cel_shaded_generator.rigging.arap import generate_mesh
+from execution import JobRequest, Operation, PersistentIsolatedRunner
 from PySide6.QtCore import QPointF, QRectF, Qt, Signal
 from PySide6.QtGui import QBrush, QColor, QImage, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import QGraphicsItem, QGraphicsPixmapItem, QGraphicsScene, QGraphicsView
+from rigging.arap import generate_mesh
 
 from .canvas_editor import qimage_alpha_to_mask
 

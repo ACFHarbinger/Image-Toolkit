@@ -6,12 +6,13 @@ import json
 import sys
 from typing import Any
 
-from ..project import (
+from project import (
     SuggestionDecision,
     create_exercise_project,
     decide_attempt_review,
     record_attempt_review,
 )
+
 from .head_review import FrontHeadLandmarks, review_front_head
 
 ENGINE_PROTOCOL_VERSION = 1

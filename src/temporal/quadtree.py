@@ -32,7 +32,7 @@ from collections.abc import Callable
 
 import numpy as np
 
-from ..colorization.colorization import colorize_scribble
+from colorization.colorization import colorize_scribble
 
 __all__ = ["build_quadtree", "colorize_region_incremental"]
 
@@ -127,7 +127,7 @@ def colorize_region_incremental(
     compositing it into an already-solved ``prev_result``.
 
     This is the incremental counterpart to a full-page
-    :func:`cel_shaded_generator.colorization.colorize_scribble` (or
+    :func:`colorization.colorization.colorize_scribble` (or
     ``colorize_scribble_screentone``/``colorize_reference`` via
     ``colorize_fn``) call: it solves a small window instead of the whole
     image, then pastes that window's output into ``prev_result``. Every

@@ -4,7 +4,7 @@ Exercises the ARAP mesh-deformation backend end-to-end through a rigging
 UI: load a static panel image, paint a binary mask over the region to
 puppeteer (reusing the same freehand-paint interaction as
 ``MangaCanvasEditor``'s scribble layer, via ``MeshOverlayEditor``), generate
-a triangle mesh over that mask (``backend/src/cel_shaded_generator/arap.py``'s
+a triangle mesh over that mask (``src/rigging/arap.py``'s
 ``generate_mesh()``), then drag any mesh vertex to pose it -- every drag
 re-solves ``arap_deform()`` in real time (synchronously on the GUI thread;
 see ``MeshOverlayEditor``'s own module docstring for why an async QThread
@@ -84,7 +84,7 @@ class MangaPuppeteeringTab(QWidget):
         self.grid_step_spin.setValue(16)
         self.grid_step_spin.setToolTip(
             "Mesh vertex spacing in pixels "
-            "(cel_shaded_generator.rigging.arap.generate_mesh). "
+            "(rigging.arap.generate_mesh). "
             "Smaller = finer mesh, more triangles to solve for."
         )
         toolbar.addWidget(self.grid_step_spin)

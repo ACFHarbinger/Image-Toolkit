@@ -7,7 +7,7 @@ collection should start as soon as any generative colorization mode ships
 (the Manga Colorization Tab's three working modes -- Scribble, Screentone,
 Reference/Optimal-Transport -- already qualify), rather than being
 retrofitted once the training loop exists. Every vote is appended to a
-local JSON-lines log via `backend/src/cel_shaded_generator/preference_log.py`, immediately
+local JSON-lines log via `src/features/preference_log.py`, immediately
 readable by a future training script.
 
 New feature, not code motion.
@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-from cel_shaded_generator.features.preference_log import log_preference
+from features.preference_log import log_preference
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QDialog, QHBoxLayout, QLabel, QPushButton, QVBoxLayout
 

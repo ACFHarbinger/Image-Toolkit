@@ -2,7 +2,7 @@
 
 import pytest
 
-from cel_shaded_generator.learning import FrontHeadLandmarks, review_front_head
+from learning import FrontHeadLandmarks, review_front_head
 
 
 def _landmarks(**changes):
