@@ -2,6 +2,18 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S344 — 2026-08-07 (Editable advice feedback and authored orientation lesson)
+
+Advanced Cel-Shaded-Generator A3 issue #12 with editable project advice
+feedback (`6cc6b85`) and the fully authored head-orientation lesson (`f1d350e`).
+Schema v4 supports optional edit-history retention, monotonic revisions, and a
+configurable 1–100,000-character note limit defaulting to 2,000; the existing
+docker exposes the four ratings, note editor, and policy settings. The new
+lesson teaches spatial rotation through complete theory, staged construction,
+drills, diagnosed mistakes, completion criteria, and self-review rather than a
+placeholder outline. Verification: 232 tests, Ruff and mypy clean. These A3
+changes remain undeployed while A2 #10/#11 stay in deferred Review.
+
 ## S343 — 2026-08-07 (Krita private project-progress section)
 
 Advanced Cel-Shaded-Generator A3 issue #12 (`13e6b52`) with a Project Progress
