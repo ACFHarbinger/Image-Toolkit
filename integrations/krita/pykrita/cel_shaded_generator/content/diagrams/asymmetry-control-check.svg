@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="650" viewBox="0 0 1200 650">
+  <rect width="1200" height="650" fill="#20252b"/>
+  <g fill="none" stroke="#91a4b7" stroke-width="5"><ellipse cx="240" cy="330" rx="155" ry="220"/><path d="M240 110 L240 550 M100 300 L380 300" stroke="#6fc4df" stroke-dasharray="15 10"/><path d="M145 300 Q190 255 230 300 M250 300 Q295 255 335 300 M175 420 Q240 450 305 420"/>
+  <ellipse cx="600" cy="330" rx="155" ry="220"/><path d="M600 110 L600 550 M460 300 L740 300" stroke="#6fc4df" stroke-dasharray="15 10"/><path d="M505 300 Q550 245 590 295 M610 300 Q655 255 695 300 M535 420 Q600 455 665 400" stroke="#f2c66d"/>
+  <ellipse cx="960" cy="330" rx="155" ry="220"/><path d="M995 115 Q1040 330 995 545 M810 315 Q960 250 1110 295" stroke="#6fc4df" stroke-dasharray="15 10"/><path d="M850 310 Q910 250 960 300 M985 295 Q1030 260 1065 290 M910 420 Q975 450 1020 395" stroke="#f2c66d"/></g>
+  <g fill="#e8edf2" font-family="sans-serif" font-size="28" text-anchor="middle"><text x="240" y="70">1. CONTROL</text><text x="600" y="70">2. ONE AUTHORED CHANGE</text><text x="960" y="70">3. TRANSFER THROUGH TURN</text></g>
+</svg>

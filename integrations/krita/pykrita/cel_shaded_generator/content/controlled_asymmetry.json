@@ -1,0 +1,153 @@
+{
+  "id": "anime-head-asymmetry",
+  "exercise_id": "anime-head-asymmetry",
+  "version": "1.0.0",
+  "method_id": "anime-head-construction-v1",
+  "schema_version": 1,
+  "title": "Anime Head Construction: Controlled Asymmetry",
+  "summary": "Begin from a stable symmetric construction, then introduce purposeful anatomical, design, expression, and perspective differences without losing the head's volume or the character's identity.",
+  "estimated_minutes": 60,
+  "prerequisite_ids": ["anime-head-features"],
+  "media": [
+    "diagrams/asymmetry-cause-map.svg",
+    "diagrams/asymmetry-control-check.svg"
+  ],
+  "learning_objectives": [
+    "Distinguish accidental drift from anatomical, design, expression, and perspective asymmetry.",
+    "Construct a symmetric control before making an intentional deviation.",
+    "Change one asymmetry variable at a time and preserve cranial, jaw, and feature anchors.",
+    "Use expression asymmetry to support a readable emotion without deforming unrelated features.",
+    "Carry a chosen asymmetry into three-quarter view while separating it from perspective compression.",
+    "Audit whether an asymmetry improves life, appeal, expression, or identity enough to justify it."
+  ],
+  "theory": [
+    {
+      "title": "Symmetry is the control, not the final destination",
+      "explanation": "A symmetric construction exposes centerline, spacing, level, and proportional errors clearly. Build that control first. Purposeful asymmetry becomes meaningful only when you can identify which stable relationship it departs from and why."
+    },
+    {
+      "title": "Asymmetry has different causes",
+      "explanation": "Anatomical asymmetry can distinguish eye height, jaw turn, or ear placement; design asymmetry includes scars, hair, accessories, and deliberately unequal shapes; expression asymmetry changes lid, brow, cheek, or mouth tension; perspective asymmetry comes from projection and occlusion. Do not diagnose one category using another category's correction."
+    },
+    {
+      "title": "Small differences read strongly on faces",
+      "explanation": "Faces are highly sensitive to unequal eye height, corner angle, and jaw width. Begin with subtle changes and compare against the control. A large difference is not automatically more expressive; it may overpower the intended identity."
+    },
+    {
+      "title": "Intent needs stable evidence",
+      "explanation": "Keep cranial mass, facial axis, eye-line cross-contour, jaw attachments, nose/muzzle projection, and feature order visible. These anchors show whether a difference was authored on one coherent head or arose because the underlying construction drifted."
+    },
+    {
+      "title": "Rotation transforms both design and asymmetry",
+      "explanation": "A slightly higher eyebrow or uneven mouth corner must still wrap with the head. Perspective will add its own near/far differences. Label the chosen invariant asymmetry before rotating so it is not doubled, erased, or assigned to the wrong side."
+    }
+  ],
+  "steps": [
+    {
+      "title": "1. Draw the symmetric control",
+      "explanation": "Construct a neutral front head with visible cranial ball, centerline, eye line, jaw, eyes, muzzle, mouth, and ears. Correct obvious drift before treating any imbalance as character."
+    },
+    {
+      "title": "2. Identify accidental asymmetry",
+      "explanation": "Measure eye heights and widths, inner-corner gaps, jaw attachments, chin alignment, mouth center, and ear bounds. Mark differences that have no stated purpose and correct them on a duplicate control."
+    },
+    {
+      "title": "3. Add one anatomical/design asymmetry",
+      "explanation": "Choose one subtle persistent difference, such as a slightly higher brow ridge, narrower eye opening, jaw turn, scar, or unequal ear angle. Record the side, magnitude, and identity purpose while holding other anchors stable."
+    },
+    {
+      "title": "4. Add expression asymmetry separately",
+      "explanation": "On another duplicate, choose a unilateral brow lift, lid tension, cheek lift, or mouth-corner change supporting happy, determined, sad, surprised, or skeptical expression. Avoid moving the nose base, chin, and ear attachments as collateral damage."
+    },
+    {
+      "title": "5. Compare subtle and exaggerated versions",
+      "explanation": "Draw the same intended difference at two strengths. Ask when the emotion or identity becomes clearer and when the head begins to look structurally broken. Keep the milder successful version as the design target."
+    },
+    {
+      "title": "6. Rotate the symmetric control",
+      "explanation": "Build the corresponding right-three-quarter head without the authored asymmetry. Mark which unequal image distances arise solely from perspective, especially far-eye, far-jaw, and far-ear compression."
+    },
+    {
+      "title": "7. Transfer the chosen asymmetry",
+      "explanation": "Apply the selected persistent or expressive difference to the turned head. Preserve its imagined-form side and purpose while allowing projection to change its visible magnitude."
+    },
+    {
+      "title": "8. Run cause and identity audits",
+      "explanation": "For each unequal relationship, label anatomical/design, expression, perspective, or accidental. Remove differences without a defensible cause. Confirm that the front and turned heads still read as the same character."
+    }
+  ],
+  "guided_drills": [
+    {
+      "title": "Accidental-drift diagnosis",
+      "repetitions": 6,
+      "instructions": "Make or inspect six quick front heads. Mark every asymmetry, classify its likely cause, and correct only those without a purposeful cause."
+    },
+    {
+      "title": "One-variable strength ladder",
+      "repetitions": 4,
+      "instructions": "Choose brow, lid, mouth corner, or jaw turn. Draw neutral control plus subtle, medium, and exaggerated versions while holding other landmarks stable."
+    },
+    {
+      "title": "Expression half-face control",
+      "repetitions": 5,
+      "instructions": "Practice happy, determined, sad, surprised, and skeptical expression using one asymmetric action each. Name which structures must remain unchanged."
+    },
+    {
+      "title": "Front-to-turn asymmetry transfer",
+      "repetitions": 3,
+      "instructions": "Create three front/right-three-quarter pairs. Label the authored asymmetry and all separate perspective asymmetries before comparing identity."
+    }
+  ],
+  "common_mistakes": [
+    {
+      "symptom": "Every construction error is defended as intentional asymmetry.",
+      "cause": "No corrected symmetric control exists for comparison.",
+      "correction": "Build and verify the control first, then reintroduce one named difference."
+    },
+    {
+      "symptom": "One raised brow drags the eye, ear, and jaw upward.",
+      "cause": "Expression was applied by shifting an entire side of the head.",
+      "correction": "Isolate brow/lid action while preserving cranial, eye-line, ear, and jaw anchors."
+    },
+    {
+      "symptom": "The face looks injured rather than alive.",
+      "cause": "The magnitude exceeded what the intended expression or design could justify.",
+      "correction": "Compare subtle and exaggerated versions and retain the smallest clear difference."
+    },
+    {
+      "symptom": "The authored asymmetry switches sides after rotation.",
+      "cause": "Image-left/image-right was confused with the character's anatomical side.",
+      "correction": "Label the character side before turning and track it through the facial axis."
+    },
+    {
+      "symptom": "Perspective compression doubles the chosen asymmetry.",
+      "cause": "Design and projection differences were added as if they were the same quantity.",
+      "correction": "Construct the symmetric turn first, then layer the authored difference onto that baseline."
+    },
+    {
+      "symptom": "The front and turned heads no longer share identity.",
+      "cause": "Multiple eye, jaw, mouth, and ear relationships changed simultaneously.",
+      "correction": "Return to one controlled variable and preserve the previously recorded character proportions."
+    }
+  ],
+  "completion_criteria": [
+    "A corrected symmetric front control exists before authored asymmetry.",
+    "Accidental differences are identified and corrected rather than rationalized.",
+    "One anatomical/design asymmetry has a named side, magnitude, and purpose.",
+    "One expression asymmetry changes only relevant feature relationships.",
+    "Subtle and exaggerated versions demonstrate an intentional strength choice.",
+    "A symmetric three-quarter control separates perspective effects from design effects.",
+    "The selected asymmetry remains on the correct character side after rotation.",
+    "Every retained unequal relationship is labeled by cause and both views retain identity."
+  ],
+  "self_review_questions": [
+    "What is the symmetric control for this difference?",
+    "Can I name the cause and purpose of every retained asymmetry?",
+    "Did an expressive change move unrelated structural anchors?",
+    "Is the magnitude the smallest one that communicates clearly?",
+    "Did I distinguish character-left/right from image-left/right?",
+    "Which inequalities come only from perspective?",
+    "Do both views still depict the same character and intention?"
+  ],
+  "practice_prompt": "Complete the six-area controlled-asymmetry sheet: symmetric control, corrected accidental drift, one persistent design asymmetry, one expression asymmetry, symmetric three-quarter control, and the selected asymmetry transferred into the turn. Label cause, side, strength, and purpose."
+}

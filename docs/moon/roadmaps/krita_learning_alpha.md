@@ -207,6 +207,14 @@ remain deferred in Review.
   retention across views. Raw and normalized results support compatible retry
   comparisons. Feature-specific correction previews remain future work rather
   than reusing eye/head geometry.
+- 🔄 Controlled-asymmetry curriculum/template: lesson six is fully authored
+  around a corrected symmetric control, explicit cause labels, one-variable
+  strength ladders, expression isolation, and front-to-three-quarter transfer.
+  It distinguishes anatomical/design, expression, perspective, and accidental
+  asymmetry and tracks character-side identity through rotation. Two offline
+  diagrams and a 2600 × 1800 six-layer sheet separate control, corrected drift,
+  persistent design, expression, symmetric turn, and transferred asymmetry.
+  Its measurement/review contract remains future work.
 - 🔄 Head-orientation exercise template: the docker creates a 2600 × 1600
   landscape rotation sheet with five labeled work areas and separate layers for
   left profile, left three-quarter, front, right three-quarter, and right

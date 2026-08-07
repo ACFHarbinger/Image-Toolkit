@@ -150,6 +150,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   studies and compares nose, mouth, ear, and mouth-expression retention across
   the turn. Raw measurements and normalized dimensions persist and participate
   in version-compatible retry comparison.
+  Fully authored lesson six, Controlled Asymmetry. It requires a corrected
+  symmetric control before introducing anatomical/design or expression
+  imbalance, teaches cause classification and strength ladders, and separates
+  authored differences from perspective during three-quarter transfer. Five
+  theory sections, eight stages, four drills, six diagnosed mistakes, eight
+  completion checks, and seven self-review prompts emphasize preserving identity
+  and rejecting unexplained drift. Two original SVGs accompany a 2600 × 1800
+  six-layer Krita sheet for control, correction, design/expression variants,
+  symmetric turn, and transferred asymmetry.
 - Opened A3 issue #12 at In Progress P0/XL for versioned curriculum progression,
   deterministic weakness-to-remediation routing, comparable repeated-attempt
   metrics, and a private local progress view while A2 issues #10/#11 remain in

@@ -53,6 +53,18 @@ FEATURE_EXERCISE_VIEWS = (
     "05 Right Three-Quarter Mouth Construction",
     "06 Right Three-Quarter Ear Construction",
 )
+ASYMMETRY_EXERCISE_ID = "anime-head-asymmetry"
+ASYMMETRY_EXERCISE_WIDTH = 2600
+ASYMMETRY_EXERCISE_HEIGHT = 1800
+ASYMMETRY_EXERCISE_TITLE = "Controlled Asymmetry — Cause and Transfer Sheet"
+ASYMMETRY_EXERCISE_VIEWS = (
+    "01 Symmetric Front Control",
+    "02 Corrected Accidental Drift",
+    "03 Persistent Design Asymmetry",
+    "04 Expression Asymmetry",
+    "05 Symmetric Right Three-Quarter Control",
+    "06 Transferred Right Three-Quarter Asymmetry",
+)
 
 
 def create_exercise_document(application):
@@ -236,6 +248,43 @@ def create_feature_exercise_document(application):
     return document
 
 
+def create_asymmetry_exercise_document(application):
+    """Create a six-stage sheet separating intentional asymmetry from drift."""
+    window = application.activeWindow()
+    if window is None:
+        raise RuntimeError("Krita needs an active window before creating an exercise")
+    document = application.createDocument(
+        ASYMMETRY_EXERCISE_WIDTH,
+        ASYMMETRY_EXERCISE_HEIGHT,
+        ASYMMETRY_EXERCISE_TITLE,
+        "RGBA",
+        "U8",
+        "",
+        EXERCISE_RESOLUTION,
+    )
+    if document is None:
+        raise RuntimeError("Krita could not create the asymmetry exercise document")
+    root = document.rootNode()
+    feedback = document.createNode("Tutor Feedback (locked)", "grouplayer")
+    layout = document.createNode("Tutor Asymmetry Layout (locked)", "vectorlayer")
+    work_layers = [document.createNode(name, "paintlayer") for name in ASYMMETRY_EXERCISE_VIEWS]
+    if feedback is None or layout is None or any(node is None for node in work_layers):
+        raise RuntimeError("Krita could not create the asymmetry exercise layers")
+    layout.addShapesFromSvg(_asymmetry_layout_svg())
+    layout.setLocked(True)
+    feedback.setLocked(True)
+    root.addChildNode(feedback, None)
+    feedback.addChildNode(layout, None)
+    above = feedback
+    for node in work_layers:
+        root.addChildNode(node, above)
+        above = node
+    window.addView(document)
+    document.setActiveNode(work_layers[0])
+    document.setModified(False)
+    return document
+
+
 def create_exercise_project(
     application, engine_client, directory, attempt_id, exercise_id=FRONT_EXERCISE_ID
 ):
@@ -253,6 +302,8 @@ def create_exercise_project(
         document = create_eye_exercise_document(application)
     elif exercise_id == FEATURE_EXERCISE_ID:
         document = create_feature_exercise_document(application)
+    elif exercise_id == ASYMMETRY_EXERCISE_ID:
+        document = create_asymmetry_exercise_document(application)
     else:
         raise ValueError("the selected lesson has no exercise template yet")
     artwork = root / "artwork"
@@ -356,4 +407,29 @@ def _feature_matrix_layout_svg():
     return (
         '<svg xmlns="http://www.w3.org/2000/svg" width="2400" height="1800" '
         'viewBox="0 0 2400 1800">' + "".join(cells) + "</svg>"
+    )
+
+
+def _asymmetry_layout_svg():
+    labels = (
+        "SYMMETRIC CONTROL",
+        "CORRECTED DRIFT",
+        "DESIGN ASYMMETRY",
+        "EXPRESSION ASYMMETRY",
+        "SYMMETRIC 3/4 CONTROL",
+        "TRANSFERRED 3/4 ASYMMETRY",
+    )
+    cells = []
+    for index, label in enumerate(labels):
+        column, row = index % 3, index // 3
+        x, y = 50 + column * 850, 120 + row * 830
+        cells.append(
+            f'<rect x="{x}" y="{y}" width="800" height="720" rx="18" '
+            'fill="none" stroke="#8090a0" stroke-width="5" stroke-dasharray="18 14"/>'
+            f'<text x="{x + 400}" y="{y - 28}" text-anchor="middle" '
+            f'font-family="sans-serif" font-size="29" fill="#506070">{label}</text>'
+        )
+    return (
+        '<svg xmlns="http://www.w3.org/2000/svg" width="2600" height="1800" '
+        'viewBox="0 0 2600 1800">' + "".join(cells) + "</svg>"
     )

@@ -244,6 +244,31 @@ def test_creates_equal_nose_mouth_ear_feature_matrix():
     assert document.active.name == "01 Front Nose and Muzzle Construction"
 
 
+def test_creates_six_stage_controlled_asymmetry_sheet():
+    adapter = _load_adapter()
+    application = ApplicationStub()
+    document = adapter.create_asymmetry_exercise_document(application)
+
+    assert application.created_with[:3] == (
+        2600,
+        1800,
+        "Controlled Asymmetry — Cause and Transfer Sheet",
+    )
+    assert [node.name for node, _ in document.root.children] == [
+        "Tutor Feedback (locked)",
+        "01 Symmetric Front Control",
+        "02 Corrected Accidental Drift",
+        "03 Persistent Design Asymmetry",
+        "04 Expression Asymmetry",
+        "05 Symmetric Right Three-Quarter Control",
+        "06 Transferred Right Three-Quarter Asymmetry",
+    ]
+    layout = document.root.children[0][0].children[0][0]
+    assert layout.locked
+    assert "SYMMETRIC CONTROL" in layout.svg
+    assert "TRANSFERRED 3/4 ASYMMETRY" in layout.svg
+
+
 def test_portable_project_requires_empty_directory(tmp_path):
     adapter = _load_adapter()
     (tmp_path / "unrelated").write_text("keep", encoding="utf-8")
