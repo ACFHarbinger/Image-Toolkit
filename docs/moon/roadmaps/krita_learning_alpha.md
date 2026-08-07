@@ -109,6 +109,8 @@ not evidence of pedagogical validity.
 
 ### A1 — plugin skeleton and local data model
 
+**Status: complete.** The next implementation milestone is A2.
+
 - ✅ Krita 5.2+ and Python 3.10+ documented for Kubuntu. The inspected Krita
   5.2.11 Snap omits Python plugin support and is explicitly rejected. The
   checksum-verified official Krita 5.3.2.1 AppImage contains `pykrita`, Scripter,
@@ -120,8 +122,9 @@ not evidence of pedagogical validity.
   atomic catalog persistence, deterministic v0 migration, and future-version
   rejection.
 - ✅ Opt-in settings contracts for progress, artwork retention, and model use.
-- 🔄 Local model registry with built-in/community/unverified labels and atomic
-  persistence; model-package content validation remains.
+- ✅ Local model registry with built-in/community/unverified labels, atomic
+  persistence, and non-executing manifest, path, size, symlink, and SHA-256
+  validation. Integrity and provenance remain explicitly separate.
 
 ### A2 — lesson and overlay vertical slice
 

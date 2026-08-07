@@ -38,7 +38,7 @@ desktop editor, but it must earn that expansion with a polished narrow alpha.
 | Phase | Outcome | Status |
 | --- | --- | --- |
 | 0 | Truthful, installable standalone foundation | Complete |
-| 1 | Krita anime head-and-face learning alpha | Next |
+| 1 | Krita anime head-and-face learning alpha | In progress (A1 complete) |
 | 2 | Reference-consistent character coloring | Planned |
 | 3 | Anime frame-by-frame animation assistance | Deferred |
 | 4 | 2D and 3D game-asset workflows | Deferred |

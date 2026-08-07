@@ -19,10 +19,20 @@ from .model import (
     Suggestion,
     TutorSettings,
 )
+from .model_package import (
+    MODEL_PACKAGE_SCHEMA_VERSION,
+    Artifact,
+    ModelPackageLimits,
+    ModelPackageManifest,
+    ValidatedModelPackage,
+    validate_model_package,
+)
 from .storage import load_catalog, save_catalog
 
 __all__ = [
     "LEARNING_SCHEMA_VERSION",
+    "MODEL_PACKAGE_SCHEMA_VERSION",
+    "Artifact",
     "ArtistFeedback",
     "AutomationLevel",
     "Evidence",
@@ -32,6 +42,8 @@ __all__ = [
     "LearningCatalog",
     "LocalModel",
     "ModelRegistry",
+    "ModelPackageLimits",
+    "ModelPackageManifest",
     "ModelTrust",
     "Redline",
     "Review",
@@ -39,6 +51,8 @@ __all__ = [
     "RubricDimension",
     "Suggestion",
     "TutorSettings",
+    "ValidatedModelPackage",
     "load_catalog",
     "save_catalog",
+    "validate_model_package",
 ]

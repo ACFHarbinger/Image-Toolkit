@@ -39,6 +39,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   confirmation subsequently passed. The discovery check also established that
   Krita disables every docker action on its start screen until a document is
   open; onboarding must explain or avoid this otherwise confusing state.
+  Completed A1 with a stack-neutral local model-package manifest and bounded,
+  non-executing integrity validator. It checks registry identity, schema,
+  entrypoint declaration, safe relative paths, regular non-symlink artifacts,
+  byte sizes, configurable resource limits, and SHA-256 content while allowing
+  extensible custom format names. Documentation keeps integrity distinct from
+  built-in/community/unverified provenance and future runtime safety.
 - Completed Phase 0 issue #8 and the standalone-foundation phase: replaced the
   template README, contributor/agent guidance, documentation landing page,
   development/testing/dependency/troubleshooting/module guides, glossary,
