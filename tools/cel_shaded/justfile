@@ -1,0 +1,24 @@
+# tools/cel_shaded/justfile
+# Krita plugin lifecycle for the Cel-Shaded-Generator submodule.
+# install.py refuses to overwrite an existing install, so pulling submodule
+# updates requires uninstall + install again — krita-reinstall does both.
+
+set shell := ["bash", "-c"]
+set unstable := true
+set working-directory := '../..'
+
+krita_root := "submodules/Cel-Shaded-Generator"
+
+# Install the Cel-Shaded-Generator Krita plugin (close Krita first)
+krita-install:
+    @echo "🎨 Installing Cel-Shaded-Generator Krita plugin..."
+    cd {{krita_root}} && uv run python integrations/krita/install.py install --engine .venv/bin/cel-shaded-generator-engine
+
+# Uninstall the Cel-Shaded-Generator Krita plugin (close Krita first)
+krita-uninstall:
+    @echo "🗑️  Uninstalling Cel-Shaded-Generator Krita plugin..."
+    cd {{krita_root}} && uv run python integrations/krita/install.py uninstall
+
+# Reinstall the plugin — use after pulling submodule updates (close Krita first)
+krita-reinstall: krita-uninstall krita-install
+    @echo "✅ Cel-Shaded-Generator Krita plugin reinstalled."
