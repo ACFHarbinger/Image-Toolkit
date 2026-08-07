@@ -2,6 +2,18 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S343 — 2026-08-07 (Krita private project-progress section)
+
+Advanced Cel-Shaded-Generator A3 issue #12 (`13e6b52`) with a Project Progress
+section in the existing tutor docker. A bounded engine snapshot presents only
+portable review metadata; the docker shows attempts, reviews, compatible
+improvement/decline trends, and raw normalized measurements, which are visible
+by default through an atomic display setting. Artists can keep retention,
+explicitly clear-and-disable it, or re-enable it; the engine refuses implicit
+history deletion. Headless formatter, client, settings, service, privacy, and
+recovery coverage bring the suite to 228 tests with Ruff and mypy clean. Live
+Krita presentation remains deferred; A2 #10/#11 stay unchanged in Review.
+
 ## S342 — 2026-08-07 (Portable advice feedback and progress policy)
 
 Advanced Cel-Shaded-Generator A3 issue #12 (`832d5cd`) with the owner's
