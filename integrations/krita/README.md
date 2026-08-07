@@ -1,7 +1,9 @@
-# Krita plugin (A1 pre-alpha)
+# Krita plugin (A2 pre-alpha)
 
-The plugin requires Krita 5.2+ with Python 3.10+ and contains an English-only
-offline placeholder lesson. Artwork review is not implemented yet.
+The plugin requires Krita 5.2+ with Python 3.10+ and contains the first
+English-only offline head-construction lesson plus exercise-document creation.
+Landmark entry, redline rendering, and the complete review interaction are not
+implemented yet.
 
 **Do not use the Krita Snap.** Revision 109 (5.2.11) was inspected on Kubuntu
 and omits Krita's Python plugin subsystem: no Python Plugin Manager, `pykrita`,
@@ -30,6 +32,9 @@ The default target is `~/.local/share/krita/pykrita`. Use `--root PATH` only for
 a different verified Krita user-data directory.
 
 The docker reports whether packaged content and the standalone core are visible.
-The AppImage's embedded Python should not be coupled to a repository virtual
-environment. A2 must use an explicit local engine transport rather than editing
-`sys.path` or assuming host visibility.
+The AppImage's embedded Python is not coupled to a repository virtual
+environment. The review boundary is a versioned, bounded, one-request JSON
+process protocol exposed by `cel-shaded-generator-engine`; the plugin client
+uses an explicit executable path or `CEL_SHADED_GENERATOR_ENGINE`, never
+`sys.path`, a shell, or arbitrary operation names. UI configuration of that
+path is still pending.

@@ -27,6 +27,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `Tutor Feedback` group, and activates the construction layer. Headless stubs
   verify exact document arguments, layer order/lock state, active layer, view
   attachment, and the missing-window failure path; live verification remains.
+  Added the explicit local engine boundary promised in A1: the standalone
+  `cel-shaded-generator-engine` handles one bounded, versioned JSON review
+  request over standard streams, while a dependency-free Krita client enforces
+  executable discovery, a five-second timeout, bounded messages, matching
+  protocol/request identifiers, structured errors, and no shell invocation.
+  Unknown operations and malformed requests are rejected without traceback
+  leakage. Landmark UI and user-facing executable configuration remain.
 - Started alpha A1 issue #9: added a Krita 5.2/Snap plugin skeleton with a
   right-default lesson docker, packaged English-only offline placeholder lesson,
   and scoped install/uninstall tool that refuses unknown overwrites.

@@ -137,7 +137,10 @@ not evidence of pedagogical validity.
   feedback layers. Live host verification remains.
 - 🔄 Manual landmark placement and deterministic review; the host-neutral core
   now validates normalized artist-confirmed landmarks and measures centerline,
-  eye-line, chin centering, and jaw symmetry. Krita placement UI remains.
+  eye-line, chin centering, and jaw symmetry. A versioned bounded JSON process
+  protocol and defensive Krita client now cross the AppImage/engine boundary
+  without imports or shell execution; Krita placement UI and engine-path
+  settings remain.
 - Structured redline layers and configurable accept/reject interaction.
 - Save, reload, migration, and failure recovery tests.
 
