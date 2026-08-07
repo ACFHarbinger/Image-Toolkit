@@ -56,6 +56,22 @@ and user corrections.
 5. Optional generative proposals through the local model registry.
 6. Batch chapter workflow with review queue and recoverable checkpoints.
 
+## C4 — deterministic manual correspondence baseline
+
+Issue #18 is In progress. The first slice is a standalone
+`CorrespondenceSet`/`RegionCorrespondence` contract (`src/colorization/correspondence.py`),
+deliberately portable like the C1 style bible: it stores region/material/role
+identifiers and optional panel identity only, never pixels, embeddings, or
+inferred identity. A region cannot resolve to two different materials within
+the same panel context; that ambiguity is refused rather than guessed.
+Explicit propagation copies an accepted assignment onto artist-selected target
+regions only — it never discovers regions on its own — and refuses to
+overwrite a target that already carries a competing assignment. Saves are
+atomic with bounded JSON recovery, matching the style-bible persistence
+pattern. Project binding (mirroring C2's style-bible attach/detach), the
+engine/Docker operations, and the live-Krita manual-assignment/preview/
+accept-reject checklist remain outstanding before C4 can move to Review.
+
 ## C1 — portable style-bible foundation
 
 The format is a standalone contract first and a project asset second. It stores

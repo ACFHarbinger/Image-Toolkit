@@ -19,6 +19,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Started C4 issue #18 with a standalone `CorrespondenceSet`/`RegionCorrespondence`
+  contract (`src/colorization/correspondence.py`). Region/material/role
+  assignments are portable and pixel-free, mirroring the C1 style-bible
+  contract. Competing assignments for the same region within a panel context
+  are refused rather than guessed. Explicit propagation copies an accepted
+  assignment onto artist-selected target regions only, never discovers
+  regions automatically, and refuses to overwrite a target with a competing
+  assignment. Saves are atomic with bounded JSON recovery. Verification: 348
+  tests pass; Ruff and core mypy are clean. Project binding, engine/Docker
+  operations, and the live-Krita checklist remain before Review.
 - Advanced C2 issue #16 with project schema-v9 style-bible bindings. Validated
   attach/detach operations accept only existing regular non-symlink project
   assets, validate referenced views, remain idempotent, and never delete files.
