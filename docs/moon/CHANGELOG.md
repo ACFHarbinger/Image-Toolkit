@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Opened A3 issue #12 at In Progress P0/XL for versioned curriculum progression,
+  deterministic weakness-to-remediation routing, comparable repeated-attempt
+  metrics, and a private local progress view while A2 issues #10/#11 remain in
+  owner-deferred Review.
 - Moved the deployed A2 lesson/landmark/review/redline slice (#10) to deferred
   owner review with exact live instructions and an explicit status rule: all
   expected behaviors moves it to Done; any failure returns it to In Progress

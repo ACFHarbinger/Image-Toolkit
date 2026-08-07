@@ -161,6 +161,9 @@ not evidence of pedagogical validity.
 
 ### A3 — curriculum and adaptive remediation
 
+**Status: in progress — issue #12.** Core work proceeds while A2 owner checks
+remain deferred in Review.
+
 - Curriculum v1 content.
 - Rubrics for all supported views.
 - Weakness-to-remedial-exercise routing.
