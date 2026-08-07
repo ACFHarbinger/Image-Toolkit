@@ -2,6 +2,17 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S360 — 2026-08-07 (Sequential fresh capstone review dispatch)
+
+Completed Cel-Shaded-Generator A3's headless fresh capstone dispatcher
+(`6640b85`). “Run Next Capstone Review” now opens the correct rubric-specific
+landmark flow immediately and advances after a persisted decision/rationale.
+Multi-rubric layers run sequentially in structural-leverage order rather than
+sharing incompatible landmark sets. Dedicated capstone front/turned form/cast
+and optional-third-value layers support the lighting stage. Cancellation leaves
+recoverable pending state. Verification: 309 tests, Ruff and core mypy clean.
+A3 remains undeployed pending live confirmation; #10/#11 stay in Review.
+
 ## S359 — 2026-08-07 (Compatible capstone evidence import)
 
 Advanced Cel-Shaded-Generator A3 #12 with schema-v8 compatible prior-review
