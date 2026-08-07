@@ -13,6 +13,7 @@ from .diagnostics import diagnose
 from .engine_client import EngineClient
 from .exercise import create_exercise_document
 from .landmark_dialog import LandmarkDialog
+from .redlines import render_review_redlines
 
 
 class LearningDocker(DockWidget):
@@ -115,7 +116,20 @@ class LearningDocker(DockWidget):
         if not explanations:
             self._action_status.setText("Review completed without an explanation; report this bug.")
             return
-        self._action_status.setText("Review\n• " + "\n• ".join(explanations))
+        document = Krita.instance().activeDocument()
+        try:
+            layer = render_review_redlines(document, review) if document is not None else None
+        except (RuntimeError, TypeError, ValueError) as error:
+            self._action_status.setText(
+                "Review completed, but redlines could not be rendered: " + str(error)
+            )
+            return
+        suffix = (
+            "\nNo correction layer was needed."
+            if layer is None
+            else "\nRedlines added on a locked tutor layer."
+        )
+        self._action_status.setText("Review\n• " + "\n• ".join(explanations) + suffix)
 
     def canvasChanged(self, canvas) -> None:  # noqa: N802
         """Krita callback; this shell does not inspect the canvas."""

@@ -1,0 +1,94 @@
+"""Render normalized review redlines into a separate Krita 5.x paint layer."""
+
+from __future__ import annotations
+
+FEEDBACK_GROUP_NAME = "Tutor Feedback (locked)"
+REDLINE_LAYER_PREFIX = "Tutor Redlines — "
+REDLINE_BGRA = (123, 79, 255, 220)
+
+
+def render_review_redlines(document, review):
+    """Add one tutor-owned raster layer; never write to an artist layer."""
+    width = document.width()
+    height = document.height()
+    if width <= 0 or height <= 0:
+        raise ValueError("active document has invalid dimensions")
+    redlines = review.get("redlines")
+    if not isinstance(redlines, list):
+        raise ValueError("review redlines are missing")
+    if not redlines:
+        return None
+    pixels = rasterize_redlines(width, height, redlines)
+    group = document.nodeByName(FEEDBACK_GROUP_NAME)
+    if group is None:
+        raise RuntimeError("exercise is missing its Tutor Feedback group")
+    layer = document.createNode(REDLINE_LAYER_PREFIX + review["id"][:8], "paintlayer")
+    if layer is None:
+        raise RuntimeError("Krita could not create the tutor redline layer")
+    from PyQt5.QtCore import QByteArray
+
+    group.setLocked(False)
+    try:
+        if not group.addChildNode(layer, None):
+            raise RuntimeError("Krita could not attach the tutor redline layer")
+        if not layer.setPixelData(QByteArray(pixels), 0, 0, width, height):
+            group.removeChildNode(layer)
+            raise RuntimeError("Krita could not write tutor redline pixels")
+        layer.setLocked(True)
+    finally:
+        group.setLocked(True)
+    document.refreshProjection()
+    return layer
+
+
+def rasterize_redlines(width, height, redlines):
+    """Return transparent U8 RGBA/BGRA bytes with bounded line geometry."""
+    if width <= 0 or height <= 0 or width * height > 100_000_000:
+        raise ValueError("redline canvas dimensions are invalid or too large")
+    pixels = bytearray(width * height * 4)
+    for redline in redlines:
+        geometry = redline.get("geometry") if isinstance(redline, dict) else None
+        if not isinstance(geometry, list) or len(geometry) < 2:
+            raise ValueError("redline geometry needs at least two points")
+        points = [_pixel_point(point, width, height) for point in geometry]
+        for start, end in zip(points, points[1:], strict=False):
+            _draw_line(pixels, width, height, start, end)
+    return bytes(pixels)
+
+
+def _pixel_point(point, width, height):
+    if (
+        not isinstance(point, (list, tuple))
+        or len(point) != 2
+        or any(not isinstance(value, (int, float)) or not 0 <= value <= 1 for value in point)
+    ):
+        raise ValueError("redline points must use normalized coordinates")
+    return round(point[0] * (width - 1)), round(point[1] * (height - 1))
+
+
+def _draw_line(pixels, width, height, start, end):
+    x0, y0 = start
+    x1, y1 = end
+    dx = abs(x1 - x0)
+    sx = 1 if x0 < x1 else -1
+    dy = -abs(y1 - y0)
+    sy = 1 if y0 < y1 else -1
+    error = dx + dy
+    while True:
+        _draw_dot(pixels, width, height, x0, y0)
+        if x0 == x1 and y0 == y1:
+            break
+        doubled = 2 * error
+        if doubled >= dy:
+            error += dy
+            x0 += sx
+        if doubled <= dx:
+            error += dx
+            y0 += sy
+
+
+def _draw_dot(pixels, width, height, x, y):
+    for py in range(max(0, y - 2), min(height, y + 3)):
+        for px in range(max(0, x - 2), min(width, x + 3)):
+            offset = (py * width + px) * 4
+            pixels[offset : offset + 4] = bytes(REDLINE_BGRA)

@@ -74,9 +74,10 @@ def test_client_converts_timeout_to_actionable_failure(monkeypatch):
         module.EngineClient(["engine"]).review_front_head("attempt-1", _landmarks())
 
 
-def test_client_requires_explicitly_discoverable_engine(monkeypatch):
+def test_client_requires_explicitly_discoverable_engine(monkeypatch, tmp_path):
     module = _load_client()
     monkeypatch.delenv("CEL_SHADED_GENERATOR_ENGINE", raising=False)
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
     monkeypatch.setattr(module.shutil, "which", lambda name: None)
     with pytest.raises(RuntimeError, match="was not found"):
         module.EngineClient()

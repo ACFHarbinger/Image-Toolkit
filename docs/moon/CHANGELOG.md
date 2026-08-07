@@ -48,6 +48,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   landmarks with a unique request identifier and displays returned explanations.
   Missing landmarks, engine/configuration failures, and empty explanations are
   actionable UI states. Artwork remains unchanged; redline rendering is next.
+  Added Krita 5.x redline rendering without relying on Krita 6-only painting
+  methods. Validated normalized geometry is bounded and rasterized as transparent
+  U8 BGRA into a newly created, locked tutor-owned layer; the locked feedback
+  group is opened only for the scoped insertion and always relocked. Failed
+  writes remove their partial layer. Artist construction/artwork layers are
+  never selected or written. Live host verification remains.
 - Started alpha A1 issue #9: added a Krita 5.2/Snap plugin skeleton with a
   right-default lesson docker, packaged English-only offline placeholder lesson,
   and scoped install/uninstall tool that refuses unknown overwrites.

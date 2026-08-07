@@ -143,7 +143,10 @@ not evidence of pedagogical validity.
   ordered points with undo/reset and derives normalized review landmarks without
   private canvas internals. Atomic XDG engine configuration and review submission
   now display the returned explanations; redline rendering remains.
-- Structured redline layers and configurable accept/reject interaction.
+- 🔄 Structured redline layers and configurable accept/reject interaction. The
+  Krita 5.x adapter rasterizes validated normalized geometry into a new locked
+  tutor-owned paint layer without touching artwork; live verification and
+  suggestion accept/reject remain.
 - Save, reload, migration, and failure recovery tests.
 
 ### A3 — curriculum and adaptive remediation
