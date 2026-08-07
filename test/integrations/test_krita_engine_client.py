@@ -80,3 +80,18 @@ def test_client_requires_explicitly_discoverable_engine(monkeypatch):
     monkeypatch.setattr(module.shutil, "which", lambda name: None)
     with pytest.raises(RuntimeError, match="was not found"):
         module.EngineClient()
+
+
+def test_client_discovers_valid_xdg_engine_configuration(monkeypatch, tmp_path):
+    module = _load_client()
+    engine = tmp_path / "engine"
+    engine.write_text("#!/bin/sh\n", encoding="utf-8")
+    engine.chmod(0o700)
+    config = tmp_path / "cel-shaded-generator/krita.json"
+    config.parent.mkdir()
+    config.write_text(
+        json.dumps({"schema_version": 1, "engine_executable": str(engine)}), encoding="utf-8"
+    )
+    monkeypatch.delenv("CEL_SHADED_GENERATOR_ENGINE", raising=False)
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    assert module.EngineClient().command == (str(engine),)

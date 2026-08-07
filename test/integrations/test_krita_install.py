@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from integrations.krita.install import default_root, install, uninstall
+from integrations.krita.install import configure_engine, default_root, install, uninstall
 
 
 def test_install_and_uninstall_are_scoped(tmp_path):
@@ -67,3 +67,21 @@ def test_packaged_lesson_is_a_complete_offline_beginner_sequence():
     assert len(lesson["steps"]) == 5
     assert len(lesson["completion_criteria"]) == 5
     assert "memory" in lesson["practice_prompt"].lower()
+
+
+def test_engine_configuration_is_explicit_and_atomic(tmp_path):
+    engine = tmp_path / "engine"
+    engine.write_text("#!/bin/sh\n", encoding="utf-8")
+    engine.chmod(0o700)
+    config = tmp_path / "config/krita.json"
+    assert configure_engine(engine, config) == config
+    payload = json.loads(config.read_text(encoding="utf-8"))
+    assert payload == {"schema_version": 1, "engine_executable": str(engine.resolve())}
+    assert not config.with_suffix(".json.tmp").exists()
+
+
+def test_engine_configuration_rejects_non_executable(tmp_path):
+    engine = tmp_path / "engine"
+    engine.write_text("not executable", encoding="utf-8")
+    with pytest.raises(ValueError, match="executable"):
+        configure_engine(engine, tmp_path / "krita.json")

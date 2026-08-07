@@ -42,6 +42,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Also corrected the live-deployment process check after its command-line search
   could match the checking shell itself; exact process-name inspection confirmed
   Krita was closed and the seven-file plugin was safely reinstalled.
+  Completed the first end-to-end explanation path: installation can atomically
+  record one explicit executable in XDG configuration, the plugin validates and
+  discovers it without shell arguments, and the tutor submits collected
+  landmarks with a unique request identifier and displays returned explanations.
+  Missing landmarks, engine/configuration failures, and empty explanations are
+  actionable UI states. Artwork remains unchanged; redline rendering is next.
 - Started alpha A1 issue #9: added a Krita 5.2/Snap plugin skeleton with a
   right-default lesson docker, packaged English-only offline placeholder lesson,
   and scoped install/uninstall tool that refuses unknown overwrites.

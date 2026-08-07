@@ -6,6 +6,7 @@ import json
 import os
 import shutil
 import subprocess
+from pathlib import Path
 
 ENGINE_PROTOCOL_VERSION = 1
 MAX_MESSAGE_BYTES = 1024 * 1024
@@ -67,6 +68,21 @@ class EngineClient:
         configured = os.environ.get("CEL_SHADED_GENERATOR_ENGINE")
         if configured:
             return (configured,)
+        config_home = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
+        config_path = config_home / "cel-shaded-generator" / "krita.json"
+        if config_path.is_file():
+            try:
+                payload = json.loads(config_path.read_text(encoding="utf-8"))
+            except (OSError, UnicodeError, json.JSONDecodeError) as error:
+                raise RuntimeError("local review engine configuration is invalid") from error
+            if not isinstance(payload, dict):
+                raise RuntimeError("local review engine configuration is unsupported")
+            executable = payload.get("engine_executable")
+            if payload.get("schema_version") != 1 or not isinstance(executable, str):
+                raise RuntimeError("local review engine configuration is unsupported")
+            if not Path(executable).is_file() or not os.access(executable, os.X_OK):
+                raise RuntimeError("configured local review engine is not executable")
+            return (executable,)
         executable = shutil.which("cel-shaded-generator-engine")
         if executable:
             return (executable,)

@@ -14,7 +14,8 @@ which stores user plugins under `~/.local/share/krita/pykrita`.
 Install from the repository root while Krita is closed:
 
 ```bash
-uv run python integrations/krita/install.py install
+uv run python integrations/krita/install.py install \
+  --engine .venv/bin/cel-shaded-generator-engine
 ```
 
 Restart Krita, enable **Cel-Shaded Learning Tutor** under
@@ -37,4 +38,6 @@ environment. The review boundary is a versioned, bounded, one-request JSON
 process protocol exposed by `cel-shaded-generator-engine`; the plugin client
 uses an explicit executable path or `CEL_SHADED_GENERATOR_ENGINE`, never
 `sys.path`, a shell, or arbitrary operation names. UI configuration of that
-path is still pending.
+path is still pending. The installer records the explicitly supplied executable
+atomically at `${XDG_CONFIG_HOME:-~/.config}/cel-shaded-generator/krita.json`;
+uninstalling the plugin deliberately preserves this reusable user setting.

@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import json
+import uuid
 from pathlib import Path
 
 from krita import DockWidget, Krita
 from PyQt5.QtWidgets import QLabel, QPushButton, QScrollArea, QVBoxLayout, QWidget
 
 from .diagnostics import diagnose
+from .engine_client import EngineClient
 from .exercise import create_exercise_document
 from .landmark_dialog import LandmarkDialog
 
@@ -48,6 +50,8 @@ class LearningDocker(DockWidget):
         create_button.clicked.connect(self._create_exercise)
         landmark_button = QPushButton("Place Review Landmarks", container)
         landmark_button.clicked.connect(self._place_landmarks)
+        review_button = QPushButton("Request Deterministic Review", container)
+        review_button.clicked.connect(self._request_review)
         self._landmarks = None
         self._action_status = QLabel(
             "Create an unsaved 1600 × 2000 exercise with separate construction, artwork, "
@@ -64,6 +68,7 @@ class LearningDocker(DockWidget):
         layout.addWidget(practice)
         layout.addWidget(create_button)
         layout.addWidget(landmark_button)
+        layout.addWidget(review_button)
         layout.addWidget(self._action_status)
         layout.addWidget(status)
         layout.addWidget(diagnostics)
@@ -96,6 +101,21 @@ class LearningDocker(DockWidget):
             "Nine landmarks recorded from the current projection. Engine review and redline "
             "rendering are the next step; artwork was not modified."
         )
+
+    def _request_review(self) -> None:
+        if self._landmarks is None:
+            self._action_status.setText("Place all nine review landmarks first.")
+            return
+        try:
+            review = EngineClient().review_front_head(str(uuid.uuid4()), self._landmarks)
+        except (RuntimeError, ValueError) as error:
+            self._action_status.setText(f"Review unavailable: {error}")
+            return
+        explanations = review.get("explanations", [])
+        if not explanations:
+            self._action_status.setText("Review completed without an explanation; report this bug.")
+            return
+        self._action_status.setText("Review\n• " + "\n• ".join(explanations))
 
     def canvasChanged(self, canvas) -> None:  # noqa: N802
         """Krita callback; this shell does not inspect the canvas."""

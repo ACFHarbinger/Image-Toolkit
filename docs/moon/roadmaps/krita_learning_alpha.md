@@ -141,7 +141,8 @@ not evidence of pedagogical validity.
   protocol and defensive Krita client now cross the AppImage/engine boundary
   without imports or shell execution. A projection-snapshot editor collects nine
   ordered points with undo/reset and derives normalized review landmarks without
-  private canvas internals; engine-path settings and review submission remain.
+  private canvas internals. Atomic XDG engine configuration and review submission
+  now display the returned explanations; redline rendering remains.
 - Structured redline layers and configurable accept/reject interaction.
 - Save, reload, migration, and failure recovery tests.
 
