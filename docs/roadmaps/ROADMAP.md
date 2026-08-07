@@ -10,9 +10,10 @@
 > reference the old in-repo paths as a record of what was true at the time.
 
 **Current submodule integration (S313, 2026-08-06):** Cel-Shaded-Generator
-Phase 0 is underway. Its core and GUI are independently installable packages
-named `cel_shaded_generator` and `cel_shaded_generator_gui`; Image Toolkit now
-consumes those stable public namespaces directly instead of manufacturing the
+Phase 0 is complete. Its core and GUI are independently installable
+distributions; the core exposes top-level domain packages directly from its
+flattened `src/`, while the GUI retains `cel_shaded_generator_gui`. Image
+Toolkit consumes those public modules directly instead of manufacturing the
 temporary `manga` and `manga_gui` aliases. Product planning and implementation
 details remain owned by the [standalone roadmap](https://github.com/ACFHarbinger/Cel-Shaded-Generator/blob/main/docs/moon/ROADMAP.md).
 The first storage contract now uses portable project folders, bounded atomic

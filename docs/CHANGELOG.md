@@ -2,6 +2,16 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S340 — 2026-08-07 (Cel-Shaded-Generator core source flattening)
+
+Completed Cel-Shaded-Generator issue #13 (`86c6e3b`) by moving every core
+module and domain package from `src/cel_shaded_generator/` directly into
+`src/`. Engine, GUI, Krita diagnostics, benchmarks, tests, packaging, and
+current architecture documentation now use the top-level namespaces. The
+separate Krita plugin and GUI identifiers remain stable. Verification: 201
+core tests, 103 headless GUI tests, Ruff and mypy clean, and both distributions
+build successfully.
+
 ## S322 — 2026-08-07 (Live Krita Snap plugin installation)
 
 Installed the Cel-Shaded-Generator A1 plugin into the owner's live Krita 5.2.11 Snap user directory using the scoped installer. Exact-file verification caught test-generated Python cache artifacts in the first installation; Cel-Shaded-Generator `58343c0` now excludes `__pycache__`, `.pyc`, and `.pyo`, adds regression coverage, and was used to cleanly uninstall/reinstall the live plugin. Six adapter tests pass and the installed package contains only its five intended source/content files. Krita restart, Plugin Manager enablement, and visible-docker confirmation remain for the owner-facing discovery check.

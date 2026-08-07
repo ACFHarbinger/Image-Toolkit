@@ -1,12 +1,12 @@
 """Registers Python packages supplied by repository submodules.
 
-Anime-Stitch-Pipeline still exposes flattened source roots, so it is loaded
-under collision-proof aliases. Cel-Shaded-Generator owns conventional wrapped
-packages and is imported by those stable public names:
+Anime-Stitch-Pipeline exposes flattened source roots and is loaded under
+collision-proof aliases. Cel-Shaded-Generator also exposes a flattened core
+source root; its top-level domain packages are imported directly:
 
     asp_backend  -> submodules/Anime-Stitch-Pipeline/backend/src
     asp_gui      -> submodules/Anime-Stitch-Pipeline/gui/src
-    cel_shaded_generator     -> submodules/Cel-Shaded-Generator/src
+    colorization/learning/... -> submodules/Cel-Shaded-Generator/src
     cel_shaded_generator_gui -> submodules/Cel-Shaded-Generator/gui/src
 """
 
