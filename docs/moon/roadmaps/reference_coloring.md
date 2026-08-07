@@ -77,9 +77,15 @@ Krita confirmation and stronger undo/reconciliation evidence remain. Accepted
 colors remain separate editable `Color — <canonical-id> — <role>` layers inside
 one `Character Colors` group. Any material-mask overlap blocks preview and
 reports per-material conflict pixels instead of silently applying z-order.
+Materials may be split into named variants (`Material — hair — front`,
+`Material — hair — back`) that share one canonical palette; variants are unioned
+before conflict checks. Reference labels, controlled view types, and notes are
+editable. Accepted layers carry the style-bible ID in host metadata when
+available.
 Existing
 bibles reopen prefilled for editing, including aliases, optional accent roles,
-and preserved reference views; labels and controlled view types are editable.
+and preserved reference views; labels, controlled view types, and notes are
+editable.
 Schema v2 deterministically migrates v1 references to `other` without guessing.
 Absent accents are not offered as preview roles.
 Failed layer creation/write/removal is visible and cleans partial previews.

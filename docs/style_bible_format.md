@@ -54,4 +54,8 @@ active mask overlaps another semantic mask, with conflict pixel counts shown to
 the artist instead of silently resolving ambiguity by layer order. Accepting
 renames the preview to `Color — <canonical-id> — <role>` and unlocks that
 separate editable layer; rejecting removes it. Neither action recolors the mask
-or source artwork.
+or source artwork. A material may be split into variants such as
+`Material — hair — front` and `Material — hair — back`; variants share the
+canonical palette and are unioned for conflict checks. Accepted layers carry the
+style-bible ID in Krita node metadata when the host supports it, while their
+visible names remain portable and authoritative.

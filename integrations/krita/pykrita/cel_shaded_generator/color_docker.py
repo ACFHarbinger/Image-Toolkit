@@ -24,6 +24,7 @@ from .color_masks import (
     MASK_GROUP_NAME,
     PREVIEW_PREFIX,
     material_mask_name,
+    material_mask_parts,
     overlapping_materials,
     palette_preview_bgra,
 )
@@ -116,8 +117,16 @@ class CharacterColorsDocker(DockWidget):
         )
         if not accepted:
             return
+        notes = self._text("Reference", "Reference notes (optional):", allow_empty=True)
+        if notes is None:
+            return
         self._references.append(
-            {"asset_path": result["asset_path"], "label": label, "view_type": view_type}
+            {
+                "asset_path": result["asset_path"],
+                "label": label,
+                "view_type": view_type,
+                **({"notes": notes} if notes else {}),
+            }
         )
         self._status.setText("Imported project reference: " + result["asset_path"])
 
@@ -252,11 +261,11 @@ class CharacterColorsDocker(DockWidget):
         if document is None or bible is None:
             return
         node = document.activeNode()
-        name = node.name() if node is not None else ""
-        if not name.startswith("Material — "):
+        try:
+            material_id, _variant = material_mask_parts(node)
+        except ValueError:
             self._status.setText("Select a Material — <canonical-id> mask layer.")
             return
-        material_id = name[len("Material — ") :]
         material = next((item for item in bible["materials"] if item["id"] == material_id), None)
         if material is None:
             self._status.setText("Active mask does not exist in the selected bible.")
@@ -282,14 +291,14 @@ class CharacterColorsDocker(DockWidget):
         mask_group = find_named_node(document.rootNode(), MASK_GROUP_NAME)
         masks = {}
         for item in bible["materials"]:
-            mask = find_named_node(mask_group, material_mask_name(item["id"]))
-            if mask is None:
+            mask_buffers = self._mask_buffers(mask_group, item["id"], width, height)
+            if not mask_buffers:
                 continue
-            mask_raw = bytes(mask.pixelData(0, 0, width, height))
-            if len(mask_raw) != width * height * 4:
-                self._status.setText("Krita returned an unexpected material-mask buffer.")
-                return
-            masks[item["id"]] = mask_raw[3::4]
+            union = bytearray(width * height)
+            for alpha in mask_buffers:
+                for index, value in enumerate(alpha):
+                    union[index] = max(union[index], value)
+            masks[item["id"]] = bytes(union)
         try:
             conflicts = overlapping_materials(material_id, masks)
         except ValueError as error:
@@ -317,6 +326,9 @@ class CharacterColorsDocker(DockWidget):
             self._status.setText("Krita could not write the color preview safely.")
             return
         preview.setLocked(True)
+        set_property = getattr(preview, "setProperty", None)
+        if callable(set_property):
+            set_property("cel_shaded_generator.style_bible_id", bible["id"])
         self._preview = preview
         document.refreshProjection()
         self._status.setText("Preview created; source mask and artwork are unchanged.")
@@ -372,4 +384,35 @@ class CharacterColorsDocker(DockWidget):
         )
         if not accepted:
             return None
-        return {**reference, "label": label, "view_type": view_type}
+        notes = self._text(
+            "Reference",
+            "Reference notes (optional):",
+            reference.get("notes") or "",
+            allow_empty=True,
+        )
+        if notes is None:
+            return None
+        edited = {**reference, "label": label, "view_type": view_type}
+        if notes:
+            edited["notes"] = notes
+        else:
+            edited.pop("notes", None)
+        return edited
+
+    @staticmethod
+    def _mask_buffers(root, material_id, width, height):
+        if root is None:
+            return []
+        buffers = []
+        for node in root.childNodes():
+            try:
+                node_material, _variant = material_mask_parts(node)
+            except (AttributeError, ValueError):
+                node_material = None
+            if node_material == material_id:
+                raw = bytes(node.pixelData(0, 0, width, height))
+                if len(raw) != width * height * 4:
+                    raise ValueError("Krita returned an unexpected material-mask buffer.")
+                buffers.append(raw[3::4])
+            buffers.extend(CharacterColorsDocker._mask_buffers(node, material_id, width, height))
+        return buffers

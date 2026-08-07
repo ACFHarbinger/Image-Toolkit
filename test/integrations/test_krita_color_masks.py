@@ -25,7 +25,10 @@ class Node:
 def test_material_mask_contract_is_canonical():
     module = _module()
     assert module.material_mask_name("hair") == "Material — hair"
+    assert module.material_mask_name("hair", "back") == "Material — hair — back"
     assert module.selected_material_id(Node("Material — hair")) == "hair"
+    assert module.selected_material_id(Node("Material — hair — back")) == "hair"
+    assert module.material_mask_parts(Node("Material — hair — back")) == ("hair", "back")
     with pytest.raises(ValueError, match="named material mask"):
         module.selected_material_id(Node("Hair mask"))
 

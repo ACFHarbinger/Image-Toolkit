@@ -40,7 +40,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Accepted colors are unlocked, per-material layers grouped under `Character
   Colors`. Preview now blocks ambiguous overlapping semantic masks and reports
   conflict pixel counts. Style-bible schema v2 adds editable controlled reference
-  view types and deterministically migrates v1 references to `other`.
+  view types and deterministically migrates v1 references to `other`. Materials
+  can be split into named mask variants that share a canonical palette; reference
+  notes are editable, and accepted layers record the bible ID in Krita metadata
+  where supported.
 - Started reference-coloring C1 issue #15 with a standalone version-1 character
   style-bible contract. It validates canonical semantic materials, unambiguous
   aliases, uppercase sRGB local/light/shadow/optional-accent roles, safe relative

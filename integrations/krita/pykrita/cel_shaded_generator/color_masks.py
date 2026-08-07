@@ -7,19 +7,33 @@ ACCEPTED_PREFIX = "Color — "
 PREVIEW_PREFIX = "Color Preview — "
 
 
-def material_mask_name(material_id):
+def material_mask_name(material_id, variant=None):
     if not isinstance(material_id, str) or not material_id:
         raise ValueError("material id must not be empty")
-    return MASK_PREFIX + material_id
+    if variant is not None and (not isinstance(variant, str) or not variant.strip()):
+        raise ValueError("mask variant must not be empty")
+    return MASK_PREFIX + material_id + (" — " + variant.strip() if variant else "")
 
 
 def selected_material_id(node):
     if node is None:
         raise ValueError("select a named material mask layer")
     name = node.name() if callable(getattr(node, "name", None)) else node.name
+    suffix = name[len(MASK_PREFIX) :] if name.startswith(MASK_PREFIX) else ""
+    if not suffix:
+        raise ValueError("active layer is not a named material mask")
+    return suffix.split(" — ", 1)[0]
+
+
+def material_mask_parts(node):
+    """Return ``(material_id, variant)`` from a canonical mask-layer name."""
+    if node is None:
+        raise ValueError("select a named material mask layer")
+    name = node.name() if callable(getattr(node, "name", None)) else node.name
     if not name.startswith(MASK_PREFIX) or not name[len(MASK_PREFIX) :]:
         raise ValueError("active layer is not a named material mask")
-    return name[len(MASK_PREFIX) :]
+    parts = name[len(MASK_PREFIX) :].split(" — ", 1)
+    return parts[0], parts[1] if len(parts) == 2 else None
 
 
 def palette_preview_bgra(alpha_bytes, color):
