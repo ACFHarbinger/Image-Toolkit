@@ -2,6 +2,19 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S347 — 2026-08-07 (Selected-head orientation critique)
+
+Advanced Cel-Shaded-Generator A3 issue #12 (`cbc6069`) with dedicated profile
+and three-quarter review contracts. The active named sheet layer selects one
+candidate head and cell, explicit confirmation precedes a cropped landmark
+dialog, and each view family has specialized prompts. Deterministic geometry
+reports centerline placement, depth/far-side compression, chin alignment,
+cross-contour consistency, jaw attachment, and cranial volume plus raw evidence;
+compatible retries participate in direction comparisons. The front workflow
+remains separate. Verification: 250 tests, Ruff and mypy clean. Thresholds are
+provisional pending real beginner drawings; A3 remains undeployed and A2
+#10/#11 stay in deferred Review.
+
 ## S346 — 2026-08-07 (Five-view orientation exercise template)
 
 Advanced Cel-Shaded-Generator A3 issue #12 (`922cbae`) with a portable
