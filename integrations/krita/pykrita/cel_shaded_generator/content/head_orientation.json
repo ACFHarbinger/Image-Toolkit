@@ -1,0 +1,127 @@
+{
+  "id": "anime-head-orientation",
+  "version": "1.0.0",
+  "method_id": "anime-head-construction-v1",
+  "schema_version": 1,
+  "title": "Anime Head Construction: Front, Profile, and Three-Quarter Views",
+  "summary": "Turn the simple cranial mass in space before drawing features. This lesson treats the centerline and eye-line as cross-contours that describe orientation, not as flat symbols placed on a circle.",
+  "estimated_minutes": 45,
+  "prerequisite_ids": [
+    "anime-head-front-construction"
+  ],
+  "learning_objectives": [
+    "Distinguish rotation around the vertical axis from tilt and up/down pitch.",
+    "Wrap the centerline and eye-line around a cranial volume in front, profile, and three-quarter views.",
+    "Compress the far side of a turned head without shrinking the whole cranium.",
+    "Place the jaw and chin as a connected form under the cranium rather than as a flat mask.",
+    "Diagnose a view from construction evidence before adding facial features."
+  ],
+  "theory": [
+    {
+      "title": "Think sphere first, face second",
+      "explanation": "Begin with a ball-like cranial mass. The face attaches to its front and lower portion; it is not painted across the entire sphere. Turning the head changes how much of the front and side planes are visible, but the cranial volume remains coherent."
+    },
+    {
+      "title": "Centerline as a cross-contour",
+      "explanation": "In a front view the facial centerline appears nearly straight and divides the visible face evenly. As the head turns, it curves toward the far contour and leaves less visible space on the far side. In profile it approaches the front silhouette. This shift is the clearest early indicator of rotation."
+    },
+    {
+      "title": "Eye-line describes pitch and tilt",
+      "explanation": "The eye-line wraps around the volume and should cross the centerline coherently. A level head has a level eye-line in front view. Tilting the head rotates both guides together. Looking up or down bends the eye-line around the form and changes how much of the top or underside is visible. This lesson practices level pitch first."
+    },
+    {
+      "title": "Near side and far side",
+      "explanation": "In a three-quarter view, the far side occupies less visible width because it turns away. Compress the spacing between centerline and far contour; do not simply make the far half a smaller copy. The near jaw contour is usually longer and more exposed, while the far jaw turns into the chin sooner."
+    }
+  ],
+  "steps": [
+    {
+      "title": "1. Warm up with five cranial balls",
+      "explanation": "Draw five loose, similarly sized circles or slightly egg-shaped cranial masses. Use your shoulder and elbow where possible. Do not erase individual wobbles; draw a second light pass to clarify the intended volume. The goal is repeatable volume, not geometric perfection."
+    },
+    {
+      "title": "2. Establish the front-view control",
+      "explanation": "On the first ball, draw a vertical centerline through the middle and a horizontal eye-line crossing it. Attach a balanced jaw and centered chin. This is the control construction against which the turned views will be compared."
+    },
+    {
+      "title": "3. Turn the centerline for a three-quarter view",
+      "explanation": "On the second ball, place the centerline between the middle and one outer contour. Curve it gently around the cranial volume. Keep a narrow far-side interval and a wider near-side interval. Label the near and far sides before continuing."
+    },
+    {
+      "title": "4. Wrap the eye-line around the same volume",
+      "explanation": "Draw the eye-line so it crosses the turned centerline and continues toward both contours. For this level-pitch exercise, keep its overall direction approximately horizontal while allowing a shallow wrap. Check that the two guides describe one orientation rather than contradicting each other."
+    },
+    {
+      "title": "5. Attach an asymmetric-in-view jaw",
+      "explanation": "Drop the near jaw from the near side of the cranium and let the far jaw turn toward the chin sooner. Place the chin on the continuation of the facial centerline, not at the horizontal center of the page-facing silhouette. The drawing may look unequal while remaining structurally correct in perspective."
+    },
+    {
+      "title": "6. Construct the profile limit",
+      "explanation": "On the third ball, move the facial centerline close to the front contour. Indicate the brow-to-muzzle front plane with a simple wedge and attach the jaw beneath it. Keep the back of the cranium visible; a common profile error is cutting away the skull behind the ear region."
+    },
+    {
+      "title": "7. Mirror the turn and compare",
+      "explanation": "Use the fourth and fifth balls for the opposite three-quarter and profile views. Compare cranial size, centerline placement, far-side compression, and chin alignment across all five constructions. Correct the large spatial relationships before adding any eyes, nose, mouth, ears, or hair."
+    }
+  ],
+  "guided_drills": [
+    {
+      "title": "Centerline-only rotation ladder",
+      "repetitions": 7,
+      "instructions": "Draw seven equal cranial balls. Move the centerline progressively from left profile through front to right profile. Add no jaw or features. The spacing should change gradually rather than jump between memorized symbols."
+    },
+    {
+      "title": "Front–three-quarter–profile triplets",
+      "repetitions": 3,
+      "instructions": "Construct three triplets at small size. Keep pitch level and compare the visible front-plane width in each view. Pause after every triplet and identify one spatial inconsistency before drawing the next."
+    },
+    {
+      "title": "Delayed comparison",
+      "repetitions": 2,
+      "instructions": "Draw one three-quarter construction from memory, hide or move away from it for five minutes, then repeat the same prompt. Compare only after completing both attempts; do not trace or repair the second from the first."
+    }
+  ],
+  "common_mistakes": [
+    {
+      "symptom": "The face looks pasted onto the side of a circle.",
+      "cause": "The guides were drawn as flat straight lines without wrapping around the cranial volume.",
+      "correction": "Redraw only the ball and cross-contours. Make the centerline approach the far contour gradually and let the eye-line cross the same volume."
+    },
+    {
+      "symptom": "The far side is as wide as the near side in a three-quarter view.",
+      "cause": "The construction preserves front-view symmetry after rotation.",
+      "correction": "Measure the visible intervals from centerline to each contour. Deliberately compress the far interval before attaching the jaw."
+    },
+    {
+      "symptom": "The chin drifts toward the middle of the silhouette.",
+      "cause": "The chin was centered on the page-facing outline instead of the facial axis.",
+      "correction": "Extend the turned centerline through the lower face and place the chin on that continuation."
+    },
+    {
+      "symptom": "The profile skull looks too small behind the face.",
+      "cause": "The cranial ball was cut away when the facial wedge was added.",
+      "correction": "Restore the back and upper cranial mass first, then attach the front plane and jaw without shrinking the ball."
+    },
+    {
+      "symptom": "The head appears tilted when only a turn was intended.",
+      "cause": "The centerline and eye-line rotate inconsistently.",
+      "correction": "For this drill, keep the overall eye-line level. Change horizontal rotation through centerline placement and far-side compression, not by slanting one guide."
+    }
+  ],
+  "completion_criteria": [
+    "A front, left three-quarter, right three-quarter, left profile, and right profile construction are visible.",
+    "Every head has a cranial mass, centerline, eye-line, jaw, and chin before facial details.",
+    "Three-quarter views show visibly narrower far-side spacing than near-side spacing.",
+    "Each chin follows its facial centerline rather than the midpoint of the visible silhouette.",
+    "Profile constructions retain sufficient cranial volume behind the facial plane.",
+    "The artist can point to one corrected inconsistency and explain which construction relationship caused it."
+  ],
+  "self_review_questions": [
+    "Can I identify the intended view from the guides alone?",
+    "Do the centerline and eye-line describe the same rotation?",
+    "Is the far side compressed in the three-quarter views?",
+    "Does the chin continue the facial axis?",
+    "Did I preserve the cranium when adding the profile face and jaw?"
+  ],
+  "practice_prompt": "Construct a five-view rotation sheet—front, both three-quarter views, and both profiles—using only cranial masses, centerlines, eye-lines, jaws, and chins. Then repeat one three-quarter view from memory after a short break. Do not trace the first attempt."
+}

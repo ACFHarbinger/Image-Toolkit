@@ -169,7 +169,11 @@ remain deferred in Review.
 
 - 🔄 Curriculum v1 content: the versioned core catalog now defines all nine
   primary anime head-and-face exercises plus four focused remedial exercises.
-  Rich locally packaged lesson media and Krita presentation remain.
+  The front-construction and head-orientation lessons are fully authored. Head
+  orientation includes spatial theory, seven construction stages, three drills,
+  five diagnosed common mistakes, measurable completion criteria, self-review,
+  and delayed repetition. Remaining lessons, rich media, and multi-lesson Krita
+  navigation remain; each lesson will be authored fully rather than stubbed.
 - ✅ Prerequisites control only the recommended next exercise. All lesson
   content remains browsable so the tutor never turns progression into a lock.
 - 🔄 Rubrics for all supported views: stable normalized dimensions now cover

@@ -53,6 +53,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   docker now offers all four rating actions, an optional note editor, and policy
   controls. Deterministic v3 migration and atomic engine operations cover both
   current-only and retained-history modes.
+  Fully authored the second offline curriculum lesson, head orientation, instead
+  of adding shallow placeholders across the remaining sequence. It teaches the
+  cranial ball, cross-contour center/eye-lines, near/far-side compression, jaw
+  attachment, and profile cranial preservation through four theory sections,
+  seven staged steps, three repetition drills, five cause-and-correction mistake
+  diagnoses, six completion criteria, and five self-review prompts. Packaged
+  content tests enforce stable identity/version and minimum instructional depth.
 - Opened A3 issue #12 at In Progress P0/XL for versioned curriculum progression,
   deterministic weakness-to-remediation routing, comparable repeated-attempt
   metrics, and a private local progress view while A2 issues #10/#11 remain in
