@@ -258,7 +258,7 @@ Apply the same registry/interface pattern to compositing strategies (hard-partit
 
 ## 5.4 Logging and Diagnostics
 
-**Partial — Options A and B shipped, see ROADMAP.md items 1.13 and 2.13.** Confirmed: `backend/src/app.py::_setup_logging()` sets up a `RotatingFileHandler` + console handler (Option A), and a per-run pipeline execution trace JSON is written under `~/.image-toolkit/traces/` (Option B). Options C (GUI log panel — see §2.17 in gui_ux.md, also shipped), D (structlog), E (Sentry), F (OpenTelemetry), G (Rerun.io) remain open/not done.
+**Partial — Options A and B shipped, see ROADMAP.md items 1.13 and 2.13.** Confirmed: `backend/src/app.py::_setup_logging()` sets up a `RotatingFileHandler` + console handler (Option A), and a per-run pipeline execution trace JSON is written to `PipelineTrace` via `trace.py` (Option B). Options C (GUI log panel — see §2.17 in gui_ux.md, also shipped), D (structlog), E (Sentry), F (OpenTelemetry), G (Rerun.io) remain open/not done.
 
 **Pain point (original framing):** Pipeline logs to stdout with `print()` statements. Diagnosing failures requires replaying the entire run. No structured log format for automated analysis.
 
@@ -472,7 +472,7 @@ Run `cargo audit` in CI to detect CVEs in Rust crate dependencies.
 
 ## 5.8 Model Wrapper Abstraction Layer (`backend/src/models/`)
 
-**✅ Shipped — see ROADMAP.md item 4.2 (A+B+C) and A.3 (D).** Confirmed: `ModelWrapper` class exists at `backend/src/models/core/base.py` (moved from the `backend/src/models/base.py` path this section assumes); `@lazy_load` decorator and `ModelRegistry` also shipped per ROADMAP 4.2; the "Relocated Nested Imports" comment blocks (Option D) were removed per ROADMAP A.3.
+**✅ Shipped — see ROADMAP.md item 4.2 (A+B+C) and A.3 (D).** Confirmed: `ModelWrapper` class exists at `backend/src/models/core/base.py` (moved from the `backend/src/models/base.py` path this section assumes) and properly inherits from `ABC` (completed §5.8A); `@lazy_load` decorator and `ModelRegistry` also shipped per ROADMAP 4.2; the "Relocated Nested Imports" comment blocks (Option D) were removed per ROADMAP A.3.
 
 **Pain point (original framing):** Every model wrapper (`LoFTRWrapper`, `ALIKEDLightGlueWrapper`, `RoMaWrapper`, `BiRefNetWrapper`, `BaSiCWrapper`, etc.) independently reimplements the same lifecycle boilerplate: CUDA device selection in `__init__`, a `torch.cuda.empty_cache()` + `gc.collect()` `unload()` body, a `logger = logging.getLogger(__name__)` line at module level, and a `# --- Relocated Nested Imports ---` comment block. Adding a new model requires copying this scaffolding by hand.
 
