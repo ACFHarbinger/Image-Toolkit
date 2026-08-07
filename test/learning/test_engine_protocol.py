@@ -221,6 +221,38 @@ def test_protocol_reviews_front_and_turned_design_pair():
     assert response["result"]["rubric_id"] == "anime-head-volume-jaw-pair"
 
 
+def test_protocol_reviews_selected_eye_study():
+    landmarks = {
+        "centerline_top": [0.5, 0.1],
+        "chin": [0.5, 0.9],
+        "eye_line_left": [0.15, 0.4],
+        "eye_line_right": [0.85, 0.4],
+        "left_inner": [0.42, 0.4],
+        "left_outer": [0.2, 0.4],
+        "right_inner": [0.58, 0.4],
+        "right_outer": [0.8, 0.4],
+        "left_upper_peak": [0.31, 0.34],
+        "left_lower_peak": [0.31, 0.46],
+        "right_upper_peak": [0.69, 0.34],
+        "right_lower_peak": [0.69, 0.46],
+        "left_iris_top": [0.31, 0.35],
+        "left_iris_bottom": [0.31, 0.45],
+        "right_iris_top": [0.69, 0.35],
+        "right_iris_bottom": [0.69, 0.45],
+    }
+    response = handle_request(
+        {
+            "protocol_version": 1,
+            "request_id": "eye-review-1",
+            "operation": "review_eye_pair",
+            "payload": {"view": "front", "stage": "style_expression", "landmarks": landmarks},
+        }
+    )
+    assert response["result"]["exercise_id"] == "anime-head-eyes"
+    assert response["result"]["rubric_id"] == "anime-head-eyes-style_expression"
+    assert "expression_consistency" in response["result"]["measurements"]
+
+
 @pytest.mark.parametrize(
     "change",
     [

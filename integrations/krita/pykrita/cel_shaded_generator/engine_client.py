@@ -43,6 +43,13 @@ class EngineClient:
             },
         )
 
+    def review_eye_pair(self, request_id, view, stage, landmarks):
+        return self._execute(
+            request_id,
+            "review_eye_pair",
+            {"view": view, "stage": stage, "landmarks": landmarks},
+        )
+
     def create_exercise_project(
         self, request_id, directory, title, attempt_id, exercise_id="anime-head-front-construction"
     ):

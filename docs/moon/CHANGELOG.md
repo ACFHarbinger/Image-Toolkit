@@ -115,6 +115,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   separates neutral front structure, stylized front expression, neutral turned
   structure, and stylized turned expression into four named layers beneath a
   locked vector layout.
+  Added the dedicated selected-eye-study review path. The active named layer
+  chooses front/right-three-quarter view, structure/style-expression stage, and
+  one of the four sheet cells; explicit confirmation precedes a cropped 16-point
+  landmark session. Structure review measures eye-line adherence, axis-relative
+  spacing, and projected scale. Style/expression review additionally measures
+  lid-opening rhythm and iris-exposure consistency. Raw widths/openings and
+  normalized scores persist through the bounded engine and can participate in
+  version-compatible retry comparisons. Thresholds are provisional, and this
+  slice intentionally emits explanations rather than pretending its first-pass
+  geometry can author useful eye redlines.
 - Opened A3 issue #12 at In Progress P0/XL for versioned curriculum progression,
   deterministic weakness-to-remediation routing, comparable repeated-attempt
   metrics, and a private local progress view while A2 issues #10/#11 remain in

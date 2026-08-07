@@ -27,6 +27,7 @@ from .curriculum_content import adjacent_index, load_lessons, render_lesson_text
 from .diagnostics import diagnose
 from .engine_client import EngineClient
 from .exercise import create_exercise_project
+from .eye_landmarks import EyeLandmarkCollector, selected_eye_view
 from .landmark_dialog import LandmarkDialog
 from .orientation_landmarks import (
     OrientationLandmarkCollector,
@@ -122,6 +123,7 @@ class LearningDocker(DockWidget):
         self._orientation_view = None
         self._orientation_crop_index = None
         self._design_variant_id = None
+        self._eye_stage = None
         self._pair_landmarks = {}
         self._preview_layer = None
         self._project_directory = None
@@ -185,6 +187,7 @@ class LearningDocker(DockWidget):
         self._orientation_view = None
         self._orientation_crop_index = None
         self._design_variant_id = None
+        self._eye_stage = None
         self._pair_landmarks = {}
         self._lesson_title.setText(lesson["title"])
         self._lesson_body.setText(render_lesson_text(lesson))
@@ -280,6 +283,7 @@ class LearningDocker(DockWidget):
         title = None
         self._orientation_view = None
         self._design_variant_id = None
+        self._eye_stage = None
         if lesson["exercise_id"] == "anime-head-orientation":
             try:
                 view, crop_index = selected_orientation_view(document.activeNode())
@@ -323,6 +327,27 @@ class LearningDocker(DockWidget):
             if view != "front":
                 collector = OrientationLandmarkCollector(view)
             title = "Place " + view.replace("_", " ").title() + " Design Landmarks"
+        elif lesson["exercise_id"] == "anime-head-eyes":
+            try:
+                view, stage, crop_index = selected_eye_view(document.activeNode())
+            except (AttributeError, ValueError) as error:
+                self._action_status.setText(f"Select one eye exercise layer: {error}")
+                return
+            confirmation = QMessageBox.question(
+                self,
+                "Confirm Selected Eye Study",
+                "Review only the active eye exercise layer?",
+                QMessageBox.Yes | QMessageBox.Cancel,
+                QMessageBox.Cancel,
+            )
+            if confirmation != QMessageBox.Yes:
+                self._action_status.setText("Selected eye-study review cancelled.")
+                return
+            self._orientation_view = view
+            self._orientation_crop_index = crop_index
+            self._eye_stage = stage
+            collector = EyeLandmarkCollector()
+            title = "Place " + stage.replace("_", " ").title() + " Eye Landmarks"
         dialog = LandmarkDialog(
             document,
             self,
@@ -340,19 +365,22 @@ class LearningDocker(DockWidget):
             if self._design_variant_id != "selected_variant":
                 self._pair_landmarks["variant_id"] = self._design_variant_id
         self._action_status.setText(
-            "Nine landmarks recorded from the current projection. Engine review and redline "
-            "rendering are the next step; artwork was not modified."
+            "Review landmarks recorded from the current projection. The artwork was not modified."
         )
 
     def _request_review(self) -> None:
         lesson = self._lessons[self._lesson_selector.currentIndex()]
         if self._landmarks is None:
-            self._action_status.setText("Place all nine review landmarks first.")
+            self._action_status.setText("Place all required review landmarks first.")
             return
         try:
             client = EngineClient()
             request_id = str(uuid.uuid4())
-            if lesson["exercise_id"] in {
+            if lesson["exercise_id"] == "anime-head-eyes":
+                review = client.review_eye_pair(
+                    request_id, self._orientation_view, self._eye_stage, self._landmarks
+                )
+            elif lesson["exercise_id"] in {
                 "anime-head-orientation",
                 "anime-head-volume-jaw",
             } and self._orientation_view not in (None, "front"):

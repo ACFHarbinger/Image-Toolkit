@@ -14,6 +14,7 @@ from .curriculum import (
     recommend_remediation,
 )
 from .design_review import review_cranial_jaw_pair
+from .eye_review import EyePairLandmarks, review_eye_pair
 from .head_review import FrontHeadLandmarks, FrontHeadReviewThresholds, review_front_head
 from .model import (
     LEARNING_SCHEMA_VERSION,
@@ -65,6 +66,7 @@ __all__ = [
     "CurriculumStep",
     "Evidence",
     "EvidenceSource",
+    "EyePairLandmarks",
     "Exercise",
     "FeedbackSummary",
     "FrontHeadLandmarks",
@@ -99,6 +101,7 @@ __all__ = [
     "validate_model_package",
     "review_front_head",
     "review_cranial_jaw_pair",
+    "review_eye_pair",
     "review_profile_head",
     "review_three_quarter_head",
 ]

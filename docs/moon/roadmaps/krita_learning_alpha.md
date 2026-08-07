@@ -185,8 +185,12 @@ remain deferred in Review.
   and cross-contours before stylized lids and expression. Two offline diagrams
   and a 2400 × 1600 four-layer Krita sheet separate front structure, front
   style/expression, turned structure, and turned style/expression. Its dedicated
-  manual-landmark and deterministic review contract remains the next slice;
-  existing head rubrics are not silently reused for eye critique.
+  active-layer workflow uses explicit confirmation and a cropped 16-landmark
+  session. Separate versioned structure and style/expression rubrics measure
+  cross-contour adherence, centerline-based spacing, projected scale, eyelid
+  rhythm, and iris-exposure consistency with auditable raw values. Thresholds
+  remain provisional, and geometry-derived eye redlines remain future work;
+  existing head rubrics are never silently reused.
 - 🔄 Head-orientation exercise template: the docker creates a 2600 × 1600
   landscape rotation sheet with five labeled work areas and separate layers for
   left profile, left three-quarter, front, right three-quarter, and right

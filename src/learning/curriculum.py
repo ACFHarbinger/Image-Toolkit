@@ -29,6 +29,10 @@ NORMALIZED_SCORE_IDS = {
     "lower_face_length_retention",
     "jaw_character_retention",
     "perspective_adjustment",
+    "eye_spacing_balance",
+    "eye_projected_scale",
+    "eyelid_rhythm_consistency",
+    "expression_consistency",
 }
 
 

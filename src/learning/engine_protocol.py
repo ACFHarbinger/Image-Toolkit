@@ -21,6 +21,7 @@ from project import (
 
 from .curriculum import build_curriculum_v1, next_primary_exercise
 from .design_review import review_cranial_jaw_pair
+from .eye_review import EyePairLandmarks, review_eye_pair
 from .head_review import FrontHeadLandmarks, review_front_head
 from .orientation_review import (
     OrientationView,
@@ -172,6 +173,15 @@ def handle_request(request: dict[str, Any]) -> dict[str, Any]:
             raise ValueError("cranial/jaw pair review is incomplete") from error
         except TypeError as error:
             raise ValueError("cranial/jaw pair review has invalid landmarks") from error
+        return _success(request_id, review.to_dict())
+    if operation == "review_eye_pair":
+        try:
+            eye_landmarks = EyePairLandmarks(**payload["landmarks"])
+            review = review_eye_pair(eye_landmarks, payload["view"], payload["stage"], request_id)
+        except KeyError as error:
+            raise ValueError("eye review request is incomplete") from error
+        except TypeError as error:
+            raise ValueError("eye review has invalid landmarks") from error
         return _success(request_id, review.to_dict())
     if operation != "review_front_head":
         raise ValueError("unsupported engine operation")
