@@ -277,6 +277,13 @@ remain deferred in Review.
   setting that defaults off; rationale content never enters the global learner
   profile. Existing-docker policy and edit controls are implemented headlessly;
   live confirmation remains.
+  Schema v8 permits compatible earlier-lesson evidence imports without mutating
+  the source. Each import records source attempt/review provenance, creates a new
+  capstone-local review, and requires a fresh decision/rationale. “Run Next
+  Capstone Review” confirms and selects the exact drawing layer inside six
+  rubric-oriented groups, offers compatible evidence when available, and
+  otherwise prepares that layer for fresh collection. Automated fresh landmark
+  dispatch for every rubric and live confirmation remain.
 - 🔄 Head-orientation exercise template: the docker creates a 2600 × 1600
   landscape rotation sheet with five labeled work areas and separate layers for
   left profile, left three-quarter, front, right three-quarter, and right

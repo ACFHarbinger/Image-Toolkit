@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 from datetime import UTC, datetime
 from pathlib import Path
+from uuid import uuid4
 
 from .model import (
     AdviceFeedback,
@@ -134,6 +136,52 @@ def revise_capstone_decision_rationale(
     return changed
 
 
+def import_compatible_capstone_review(
+    directory: str | Path,
+    *,
+    target_attempt_id: str,
+    source_attempt_id: str,
+    source_review_id: str,
+    decision: SuggestionDecision,
+    rationale: str,
+) -> ReviewRecord:
+    """Copy compatible prior evidence into a capstone with a fresh judgment."""
+    root = Path(directory)
+    project = load_project(root)
+    target = _find_attempt(project, target_attempt_id)
+    source = _find_attempt(project, source_attempt_id)
+    if target.exercise_id != "anime-head-review" or source.id == target.id:
+        raise ValueError("review import requires a distinct source and capstone target")
+    matching = [review for review in source.reviews if review.id == source_review_id]
+    if len(matching) != 1:
+        raise ValueError("source review does not uniquely identify prior evidence")
+    source_review = matching[0]
+    required = {rubric_id for _, _, rubric_id in CAPSTONE_RUBRICS}
+    if source_review.rubric_id not in required:
+        raise ValueError("source review rubric is not part of the capstone")
+    existing = [review for review in target.reviews if review.rubric_id == source_review.rubric_id]
+    if existing and any(
+        (review.method_id, review.rubric_version, review.exercise_version)
+        != (source_review.method_id, source_review.rubric_version, source_review.exercise_version)
+        for review in existing
+    ):
+        raise ValueError("source review is incompatible with existing capstone evidence")
+    imported = deepcopy(source_review)
+    imported.id = "capstone-import-" + str(uuid4())
+    imported.source_attempt_id = source.id
+    imported.source_review_id = source_review.id
+    imported.suggestion_decision = SuggestionDecision.PENDING
+    imported.suggestion_decision_rationale = None
+    imported.suggestion_decision_rationale_updated_at = None
+    imported.suggestion_decision_rationale_history.clear()
+    imported.artist_feedback = None
+    imported.artist_feedback_history.clear()
+    imported.decide(decision, rationale, _timestamp())
+    target.reviews.append(imported)
+    save_project(root, project)
+    return imported
+
+
 def configure_capstone_policy(directory: str | Path, *, retain_rationale_history: bool) -> bool:
     """Configure independent project-local rationale revision retention."""
     root = Path(directory)
@@ -249,6 +297,21 @@ def _capstone_dashboard(project: Project) -> dict:
         for attempt in exercise.attempts
     ]
     reviews = [review for attempt in attempts for review in attempt.reviews]
+    import_candidates = [
+        {
+            "attempt_id": attempt.id,
+            "review_id": review.id,
+            "rubric_id": review.rubric_id,
+            "method_id": review.method_id,
+            "rubric_version": review.rubric_version,
+            "exercise_version": review.exercise_version,
+        }
+        for exercise in project.progress.exercises
+        if exercise.exercise_id != "anime-head-review"
+        for attempt in exercise.attempts
+        for review in attempt.reviews
+        if review.rubric_id in {item[2] for item in CAPSTONE_RUBRICS}
+    ]
     latest_by_rubric = {}
     for review in reviews:
         latest_by_rubric[(review.rubric_id, review.rubric_version)] = review
@@ -295,6 +358,8 @@ def _capstone_dashboard(project: Project) -> dict:
                     {"text": item.text, "revised_at": item.revised_at}
                     for item in review.suggestion_decision_rationale_history
                 ],
+                "source_attempt_id": review.source_attempt_id,
+                "source_review_id": review.source_review_id,
             }
             for _, review in sorted(latest_by_rubric.items())
         ],
@@ -302,6 +367,7 @@ def _capstone_dashboard(project: Project) -> dict:
         "next_stage": next_stage,
         "ready_for_manual_completion": bool(stages)
         and all(stage["status"] == "complete" for stage in stages),
+        "import_candidates": import_candidates,
     }
 
 

@@ -21,7 +21,7 @@ project-relative path. This active document is not artwork *history* and does
 not enable historical artwork retention. The creator refuses unrelated files
 or an existing manifest rather than merging into an ambiguous directory.
 
-Schema version 7 separates three concerns:
+Schema version 8 separates three concerns:
 
 - project identity, user-selected autosave policy, and privacy consent;
 - project-local exercises, attempts, feedback, and metrics, which travel with
@@ -52,6 +52,11 @@ Final capstone decisions remain immutable, but their rationale text is editable.
 timestamped text revisions remain in the portable project and defaults off;
 disabling it clears older rationale revisions. Rationale text/history never
 enters the separate aggregate-only learner profile.
+Compatible earlier-lesson evidence may be copied into a capstone attempt. The
+copy receives a new review identifier, retains `source_attempt_id` and
+`source_review_id` provenance, clears unrelated feedback/history, and requires a
+fresh capstone accept/reject/defer decision plus rationale. The source record is
+never moved or modified.
 Each review may also contain an editable artist rating (`helpful`, `unhelpful`,
 `incorrect`, or `not_applicable`) and an optional non-empty free-text note.
 Ratings and notes stay in the portable project and an identical retry is
@@ -71,8 +76,8 @@ integration and should use content-addressed or copy-on-write storage rather
 than duplicating large files for every manifest snapshot.
 
 Readers reject unknown schema versions. The pre-release version-0 manifest and
-version-1 through version-6 project formats have explicit deterministic
-migrations to version 7; they preserve existing progress, add empty
+version-1 through version-7 project formats have explicit deterministic
+migrations to version 8; they preserve existing progress, add empty
 review/feedback/history fields where required, and enable project-local progress
 for manifests that already contained it. Version-1 learner
 profiles migrate without inventing aggregate data. Every future version must

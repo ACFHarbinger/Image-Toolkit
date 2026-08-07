@@ -19,6 +19,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added schema v8 compatible capstone-evidence import and a “Run Next Capstone
+  Review” Docker action. The action confirms and selects the exact nested rubric
+  layer, offers the latest compatible prior review, and otherwise leaves the
+  layer ready for fresh evidence. Imports preserve source attempt/review
+  provenance, create a new capstone-local ID, and require a new decision and
+  rationale rather than inheriting an earlier judgment.
+- Reorganized the capstone template into six rubric-oriented layer groups while
+  preserving its named drawing layers and locked tutor layout.
 - Added project schema v7 and existing-docker controls for editable capstone
   rationales. Editing text never changes the accepted/rejected/deferred decision.
   An independent project setting retains timestamped prior rationale revisions

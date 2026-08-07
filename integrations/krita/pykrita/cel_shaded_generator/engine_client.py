@@ -162,6 +162,29 @@ class EngineClient:
             },
         )
 
+    def import_compatible_capstone_review(
+        self,
+        request_id,
+        directory,
+        target_attempt_id,
+        source_attempt_id,
+        source_review_id,
+        decision,
+        rationale,
+    ):
+        return self._execute(
+            request_id,
+            "import_compatible_capstone_review",
+            {
+                "directory": directory,
+                "target_attempt_id": target_attempt_id,
+                "source_attempt_id": source_attempt_id,
+                "source_review_id": source_review_id,
+                "decision": decision,
+                "rationale": rationale,
+            },
+        )
+
     def configure_capstone_policy(self, request_id, directory, retain_rationale_history):
         return self._execute(
             request_id,

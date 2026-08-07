@@ -4,6 +4,9 @@ import pytest
 
 from project import (
     AdviceRating,
+    Attempt,
+    ExerciseProgress,
+    ReviewRecord,
     SuggestionDecision,
     configure_capstone_policy,
     configure_feedback_policy,
@@ -11,11 +14,13 @@ from project import (
     configure_progress_retention,
     create_exercise_project,
     decide_attempt_review,
+    import_compatible_capstone_review,
     load_project,
     project_progress_snapshot,
     record_advice_feedback,
     record_attempt_review,
     revise_capstone_decision_rationale,
+    save_project,
     set_attempt_completion,
     upsert_identity_card,
 )
@@ -154,6 +159,53 @@ def test_capstone_requires_rationale_and_dashboard_retains_rubrics(tmp_path):
     assert revised.suggestion_decision_rationale_history[0].revised_at
 
 
+def test_capstone_import_copies_compatible_evidence_with_new_judgment(tmp_path):
+    artwork = tmp_path / "artwork/attempt-001.kra"
+    artwork.parent.mkdir()
+    artwork.write_bytes(b"document")
+    create_exercise_project(
+        tmp_path,
+        title="Capstone import",
+        attempt_id="capstone-1",
+        exercise_id="anime-head-review",
+    )
+    project = load_project(tmp_path)
+    source_review = ReviewRecord(
+        "source-review",
+        "1.0.0",
+        "anime-head-construction-v1",
+        "anime-head-front-structure",
+        "1.0.0",
+        {"head_axis_consistency": 0.8},
+        ["Prior lesson evidence."],
+    )
+    project.progress.exercises.append(
+        ExerciseProgress(
+            "anime-head-front-construction",
+            [
+                Attempt(
+                    "anime-head-front-construction", id="source-attempt", reviews=[source_review]
+                )
+            ],
+        )
+    )
+    save_project(tmp_path, project)
+
+    imported = import_compatible_capstone_review(
+        tmp_path,
+        target_attempt_id="capstone-1",
+        source_attempt_id="source-attempt",
+        source_review_id="source-review",
+        decision=SuggestionDecision.ACCEPTED,
+        rationale="This recent compatible construction still represents my current method.",
+    )
+    assert imported.id != source_review.id
+    assert imported.source_attempt_id == "source-attempt"
+    assert imported.source_review_id == "source-review"
+    assert imported.suggestion_decision is SuggestionDecision.ACCEPTED
+    assert imported.measurements == source_review.measurements
+
+
 def test_records_advice_feedback_with_idempotent_retry_and_recovery(tmp_path):
     artwork = tmp_path / "artwork/attempt-001.kra"
     artwork.parent.mkdir()
@@ -287,6 +339,7 @@ def test_progress_snapshot_and_explicit_clear_disable_policy(tmp_path):
             "collection_stages": [],
             "next_stage": None,
             "ready_for_manual_completion": False,
+            "import_candidates": [],
         },
     }
     assert configure_progress_retention(tmp_path, enabled=True)

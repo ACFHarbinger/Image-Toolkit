@@ -101,6 +101,14 @@ CAPSTONE_EXERCISE_VIEWS = (
     "05 Tutor Review and Correction Pass",
     "06 Final Comparison and Self-Review",
 )
+CAPSTONE_RUBRIC_GROUPS = (
+    "01 Brief and Identity",
+    "02 Front Structure Rubric",
+    "03 Turned Structure and Identity Rubrics",
+    "04 Expression Asymmetry and Cel-Value Rubrics",
+    "05 Tutor Correction Evidence",
+    "06 Final Comparison and Self-Review",
+)
 
 
 def create_exercise_document(application):
@@ -400,14 +408,44 @@ def create_value_exercise_document(application):
 
 
 def create_capstone_exercise_document(application):
-    return _create_six_stage_document(
-        application,
+    """Create grouped capstone layers so each rubric has an explicit home."""
+    window = application.activeWindow()
+    if window is None:
+        raise RuntimeError("Krita needs an active window before creating an exercise")
+    document = application.createDocument(
         CAPSTONE_EXERCISE_WIDTH,
         CAPSTONE_EXERCISE_HEIGHT,
         CAPSTONE_EXERCISE_TITLE,
-        CAPSTONE_EXERCISE_VIEWS,
-        "Tutor Capstone Layout (locked)",
+        "RGBA",
+        "U8",
+        "",
+        EXERCISE_RESOLUTION,
     )
+    root = document.rootNode()
+    feedback = document.createNode("Tutor Feedback (locked)", "grouplayer")
+    layout = document.createNode("Tutor Capstone Layout (locked)", "vectorlayer")
+    groups = [document.createNode(name, "grouplayer") for name in CAPSTONE_RUBRIC_GROUPS]
+    work_layers = [document.createNode(name, "paintlayer") for name in CAPSTONE_EXERCISE_VIEWS]
+    if any(node is None for node in (feedback, layout, *groups, *work_layers)):
+        raise RuntimeError("Krita could not create the capstone layers")
+    layout.addShapesFromSvg(
+        _six_cell_layout_svg(
+            CAPSTONE_EXERCISE_VIEWS, CAPSTONE_EXERCISE_WIDTH, CAPSTONE_EXERCISE_HEIGHT
+        )
+    )
+    layout.setLocked(True)
+    feedback.setLocked(True)
+    root.addChildNode(feedback, None)
+    feedback.addChildNode(layout, None)
+    above = feedback
+    for group, work_layer in zip(groups, work_layers, strict=True):
+        root.addChildNode(group, above)
+        group.addChildNode(work_layer, None)
+        above = group
+    window.addView(document)
+    document.setActiveNode(work_layers[0])
+    document.setModified(False)
+    return document
 
 
 def create_exercise_project(

@@ -90,6 +90,8 @@ class LearningDocker(DockWidget):
         feature_set_button.clicked.connect(self._request_feature_set_review)
         value_review_button = QPushButton("Review Binary Cel-Value Masks", container)
         value_review_button.clicked.connect(self._request_value_review)
+        capstone_next_button = QPushButton("Run Next Capstone Review", container)
+        capstone_next_button.clicked.connect(self._run_next_capstone_review)
         accept_button = QPushButton("Accept Preview", container)
         accept_button.clicked.connect(self._accept_preview)
         reject_button = QPushButton("Reject Preview", container)
@@ -185,6 +187,7 @@ class LearningDocker(DockWidget):
         layout.addWidget(pair_review_button)
         layout.addWidget(feature_set_button)
         layout.addWidget(value_review_button)
+        layout.addWidget(capstone_next_button)
         layout.addWidget(accept_button)
         layout.addWidget(reject_button)
         layout.addWidget(defer_button)
@@ -571,6 +574,101 @@ class LearningDocker(DockWidget):
             return
         self._review_id = review["id"]
         self._action_status.setText(" ".join(review["explanations"]))
+        self._refresh_progress()
+
+    def _run_next_capstone_review(self) -> None:
+        if self._project_directory is None or self._attempt_id is None:
+            self._action_status.setText("Open the bound capstone project first.")
+            return
+        document = Krita.instance().activeDocument()
+        if document is None:
+            self._action_status.setText("Open the capstone document first.")
+            return
+        try:
+            snapshot = EngineClient().project_progress_snapshot(
+                str(uuid.uuid4()), self._project_directory
+            )
+        except (RuntimeError, ValueError) as error:
+            self._action_status.setText("Capstone plan unavailable: " + str(error))
+            return
+        dashboard = snapshot.get("capstone_dashboard", {})
+        stage = dashboard.get("next_stage")
+        if stage is None:
+            self._action_status.setText(
+                "All required capstone rubrics are resolved; completion remains your decision."
+            )
+            return
+        layer = find_named_node(document.rootNode(), stage["layer_name"])
+        if layer is None:
+            self._action_status.setText(
+                "Required capstone layer was not found: " + stage["layer_name"]
+            )
+            return
+        confirmation = QMessageBox.question(
+            self,
+            "Confirm Next Capstone Review",
+            "Select “" + stage["layer_name"] + "” for " + stage["stage_id"].replace("_", " ") + "?",
+            QMessageBox.Yes | QMessageBox.Cancel,
+            QMessageBox.Cancel,
+        )
+        if confirmation != QMessageBox.Yes:
+            return
+        document.setActiveNode(layer)
+        candidates = [
+            item
+            for item in dashboard.get("import_candidates", [])
+            if item["rubric_id"] == stage["rubric_id"]
+        ]
+        if not candidates:
+            self._action_status.setText(
+                "Required layer selected. No compatible prior evidence exists; "
+                "place fresh landmarks."
+            )
+            return
+        use_import = QMessageBox.question(
+            self,
+            "Import Compatible Evidence?",
+            "Compatible prior evidence exists. Import the latest review instead of "
+            "collecting fresh evidence?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No,
+        )
+        if use_import != QMessageBox.Yes:
+            self._action_status.setText("Required layer selected for fresh capstone evidence.")
+            return
+        decision, accepted = QInputDialog.getItem(
+            self,
+            "Capstone Import Decision",
+            "Decision for this imported evidence:",
+            ["accepted", "rejected", "deferred"],
+            0,
+            False,
+        )
+        if not accepted:
+            return
+        rationale, accepted = QInputDialog.getMultiLineText(
+            self,
+            "Capstone Import Rationale",
+            "Explain why this earlier evidence remains applicable:",
+        )
+        if not accepted or not rationale.strip():
+            self._action_status.setText("Import cancelled: a rationale is required.")
+            return
+        source = candidates[-1]
+        try:
+            EngineClient().import_compatible_capstone_review(
+                str(uuid.uuid4()),
+                self._project_directory,
+                self._attempt_id,
+                source["attempt_id"],
+                source["review_id"],
+                decision,
+                rationale,
+            )
+        except (RuntimeError, ValueError) as error:
+            self._action_status.setText("Could not import capstone evidence: " + str(error))
+            return
+        self._action_status.setText("Compatible evidence imported with new capstone rationale.")
         self._refresh_progress()
 
     def _request_review(self) -> None:

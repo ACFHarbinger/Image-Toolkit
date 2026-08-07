@@ -326,6 +326,14 @@ def test_creates_comprehensive_capstone_sheet():
         "Anime Head Learning Capstone — Review and Revision Sheet",
     )
     assert [node.name for node, _ in document.root.children][1:] == [
+        "01 Brief and Identity",
+        "02 Front Structure Rubric",
+        "03 Turned Structure and Identity Rubrics",
+        "04 Expression Asymmetry and Cel-Value Rubrics",
+        "05 Tutor Correction Evidence",
+        "06 Final Comparison and Self-Review",
+    ]
+    assert [group.children[0][0].name for group, _ in document.root.children[1:]] == [
         "01 Brief and Identity Specification",
         "02 Front Construction",
         "03 Right Three-Quarter Construction",

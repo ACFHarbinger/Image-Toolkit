@@ -15,6 +15,7 @@ from project import (
     configure_progress_retention,
     create_exercise_project,
     decide_attempt_review,
+    import_compatible_capstone_review,
     project_progress_snapshot,
     record_advice_feedback,
     record_attempt_review,
@@ -117,6 +118,19 @@ def handle_request(request: dict[str, Any]) -> dict[str, Any]:
         except KeyError as error:
             raise ValueError("rationale-revision request is incomplete") from error
         return _success(request_id, {"changed": changed})
+    if operation == "import_compatible_capstone_review":
+        try:
+            imported = import_compatible_capstone_review(
+                payload["directory"],
+                target_attempt_id=payload["target_attempt_id"],
+                source_attempt_id=payload["source_attempt_id"],
+                source_review_id=payload["source_review_id"],
+                decision=SuggestionDecision(payload["decision"]),
+                rationale=payload["rationale"],
+            )
+        except KeyError as error:
+            raise ValueError("capstone-import request is incomplete") from error
+        return _success(request_id, {"review_id": imported.id})
     if operation == "configure_capstone_policy":
         try:
             changed = configure_capstone_policy(

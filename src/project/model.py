@@ -10,7 +10,7 @@ from pathlib import PurePosixPath
 from typing import Any
 from uuid import uuid4
 
-CURRENT_SCHEMA_VERSION = 7
+CURRENT_SCHEMA_VERSION = 8
 
 
 def migrate_project_payload(payload: dict[str, Any]) -> dict[str, Any]:
@@ -24,7 +24,7 @@ def migrate_project_payload(payload: dict[str, Any]) -> dict[str, Any]:
     version = migrated.get("schema_version", 0)
     if version == CURRENT_SCHEMA_VERSION:
         return migrated
-    if version not in (0, 1, 2, 3, 4, 5, 6):
+    if version not in (0, 1, 2, 3, 4, 5, 6, 7):
         raise ValueError(f"unsupported project schema version: {version}")
     if version == 0:
         migrated["consent"] = {
@@ -43,6 +43,8 @@ def migrate_project_payload(payload: dict[str, Any]) -> dict[str, Any]:
                 review.setdefault("suggestion_decision_rationale", None)
                 review.setdefault("suggestion_decision_rationale_updated_at", None)
                 review.setdefault("suggestion_decision_rationale_history", [])
+                review.setdefault("source_attempt_id", None)
+                review.setdefault("source_review_id", None)
                 review.setdefault("artist_feedback", None)
                 if review["artist_feedback"] is not None:
                     review["artist_feedback"].setdefault("revision", 1)
@@ -227,6 +229,8 @@ class ReviewRecord:
     suggestion_decision_rationale: str | None = None
     suggestion_decision_rationale_updated_at: str | None = None
     suggestion_decision_rationale_history: list[RationaleRevision] = field(default_factory=list)
+    source_attempt_id: str | None = None
+    source_review_id: str | None = None
     artist_feedback: AdviceFeedback | None = None
     artist_feedback_history: list[AdviceFeedback] = field(default_factory=list)
 
