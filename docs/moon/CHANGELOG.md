@@ -2,6 +2,18 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S355 — 2026-08-07 (Identity previews, cel-value analysis, capstone accountability)
+
+Advanced Cel-Shaded-Generator A3 issue #12 with selected-pair identity-retention
+previews (`21b9fcb`); explicit alpha-only front/turned/optional-third-value mask
+layers and a bounded deterministic Krita review (`2435ec9`); and schema-v6
+capstone decisions plus a rubric-preserving dashboard (`005c481`). The mask
+review combines artist-confirmed light direction/hardness with area,
+fragmentation, island, edge-complexity, and cross-view measurements while
+persisting no pixels. Capstone accept/reject/defer decisions require rationale
+and are never collapsed into a global artist score. Verification: 305 tests,
+Ruff and core mypy clean. A3 remains undeployed; A2 #10/#11 stay in Review.
+
 ## S354 — 2026-08-07 (Asymmetry previews, identity cards, complete curriculum)
 
 Advanced Cel-Shaded-Generator A3 issue #12 with control-derived reversible
