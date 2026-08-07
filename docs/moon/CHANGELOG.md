@@ -105,6 +105,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   character retention plus chin alignment and perspective adjustment. It saves
   the auditable raw ratios and normalized dimensions in the portable project;
   provisional thresholds remain subject to beginner-drawing calibration.
+  Fully authored lesson four, Eye Placement and Perspective, as a front-to-
+  three-quarter beginner progression. It establishes simplified eyeballs and
+  sockets before stylized lids, separates structural placement from style and
+  expression, and teaches deliberate spacing, far-eye wrapping/compression, and
+  expression retention through five theory sections, eight stages, three drills,
+  six diagnosed mistakes, seven completion checks, and six self-review prompts.
+  Two original offline SVGs support the lesson. Its 2400 × 1600 Krita template
+  separates neutral front structure, stylized front expression, neutral turned
+  structure, and stylized turned expression into four named layers beneath a
+  locked vector layout.
 - Opened A3 issue #12 at In Progress P0/XL for versioned curriculum progression,
   deterministic weakness-to-remediation routing, comparable repeated-attempt
   metrics, and a private local progress view while A2 issues #10/#11 remain in

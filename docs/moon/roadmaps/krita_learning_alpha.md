@@ -180,6 +180,13 @@ remain deferred in Review.
   existing docker now provides an ordered selector, Previous/Next navigation,
   and selectable scalable SVG diagrams for authored lessons without locking
   later content.
+- 🔄 Eye-placement curriculum/template: lesson four is fully authored as a
+  beginner front-to-three-quarter progression, beginning with eyeballs, sockets,
+  and cross-contours before stylized lids and expression. Two offline diagrams
+  and a 2400 × 1600 four-layer Krita sheet separate front structure, front
+  style/expression, turned structure, and turned style/expression. Its dedicated
+  manual-landmark and deterministic review contract remains the next slice;
+  existing head rubrics are not silently reused for eye critique.
 - 🔄 Head-orientation exercise template: the docker creates a 2600 × 1600
   landscape rotation sheet with five labeled work areas and separate layers for
   left profile, left three-quarter, front, right three-quarter, and right

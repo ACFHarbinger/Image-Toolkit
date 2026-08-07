@@ -31,6 +31,16 @@ VOLUME_JAW_VIEWS = (
     "04 Broad Angular Front Construction",
     "05 Selected Variant Right Three-Quarter Construction",
 )
+EYE_EXERCISE_ID = "anime-head-eyes"
+EYE_EXERCISE_WIDTH = 2400
+EYE_EXERCISE_HEIGHT = 1600
+EYE_EXERCISE_TITLE = "Eye Placement and Perspective — Front-to-Turned Sheet"
+EYE_EXERCISE_VIEWS = (
+    "01 Neutral Front Eye Structure",
+    "02 Stylized Front Expression",
+    "03 Neutral Right Three-Quarter Eye Structure",
+    "04 Stylized Right Three-Quarter Expression",
+)
 
 
 def create_exercise_document(application):
@@ -140,6 +150,43 @@ def create_volume_jaw_exercise_document(application):
     return document
 
 
+def create_eye_exercise_document(application):
+    """Create four separate front-to-turned eye-construction work areas."""
+    window = application.activeWindow()
+    if window is None:
+        raise RuntimeError("Krita needs an active window before creating an exercise")
+    document = application.createDocument(
+        EYE_EXERCISE_WIDTH,
+        EYE_EXERCISE_HEIGHT,
+        EYE_EXERCISE_TITLE,
+        "RGBA",
+        "U8",
+        "",
+        EXERCISE_RESOLUTION,
+    )
+    if document is None:
+        raise RuntimeError("Krita could not create the eye exercise document")
+    root = document.rootNode()
+    feedback = document.createNode("Tutor Feedback (locked)", "grouplayer")
+    layout = document.createNode("Tutor Eye Progression Layout (locked)", "vectorlayer")
+    work_layers = [document.createNode(name, "paintlayer") for name in EYE_EXERCISE_VIEWS]
+    if feedback is None or layout is None or any(node is None for node in work_layers):
+        raise RuntimeError("Krita could not create the eye exercise layers")
+    layout.addShapesFromSvg(_four_cell_eye_layout_svg())
+    layout.setLocked(True)
+    feedback.setLocked(True)
+    root.addChildNode(feedback, None)
+    feedback.addChildNode(layout, None)
+    above = feedback
+    for node in work_layers:
+        root.addChildNode(node, above)
+        above = node
+    window.addView(document)
+    document.setActiveNode(work_layers[0])
+    document.setModified(False)
+    return document
+
+
 def create_exercise_project(
     application, engine_client, directory, attempt_id, exercise_id=FRONT_EXERCISE_ID
 ):
@@ -153,6 +200,8 @@ def create_exercise_project(
         document = create_orientation_exercise_document(application)
     elif exercise_id == VOLUME_JAW_EXERCISE_ID:
         document = create_volume_jaw_exercise_document(application)
+    elif exercise_id == EYE_EXERCISE_ID:
+        document = create_eye_exercise_document(application)
     else:
         raise ValueError("the selected lesson has no exercise template yet")
     artwork = root / "artwork"
@@ -210,4 +259,26 @@ def _five_cell_layout_svg(width, labels):
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="1600" '
         f'viewBox="0 0 {width} 1600">' + "".join(cells) + "</svg>"
+    )
+
+
+def _four_cell_eye_layout_svg():
+    labels = (
+        "1. FRONT STRUCTURE",
+        "2. FRONT STYLE + EXPRESSION",
+        "3. 3/4 STRUCTURE",
+        "4. 3/4 STYLE + EXPRESSION",
+    )
+    cells = []
+    for index, label in enumerate(labels):
+        x = 30 + index * 600
+        cells.append(
+            f'<rect x="{x}" y="120" width="540" height="1360" rx="18" '
+            'fill="none" stroke="#8090a0" stroke-width="5" stroke-dasharray="18 14"/>'
+            f'<text x="{x + 270}" y="82" text-anchor="middle" '
+            f'font-family="sans-serif" font-size="28" fill="#506070">{label}</text>'
+        )
+    return (
+        '<svg xmlns="http://www.w3.org/2000/svg" width="2400" height="1600" '
+        'viewBox="0 0 2400 1600">' + "".join(cells) + "</svg>"
     )

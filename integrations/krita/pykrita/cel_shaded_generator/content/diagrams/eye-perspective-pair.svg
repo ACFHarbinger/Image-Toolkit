@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="620" viewBox="0 0 1200 620">
+  <rect width="1200" height="620" fill="#20252b"/>
+  <g fill="none" stroke-width="6">
+    <path d="M100 320 Q300 250 500 320" stroke="#6fc4df"/><path d="M150 320 Q230 245 310 320 Q230 385 150 320 M330 320 Q410 245 490 320 Q410 385 330 320" stroke="#e8edf2"/>
+    <path d="M690 340 Q890 235 1080 300" stroke="#6fc4df"/><path d="M710 332 Q810 245 900 320 Q810 390 710 332 M925 318 Q985 270 1030 305 Q985 350 925 318" stroke="#e8edf2"/>
+    <path d="M300 120 L300 500 M885 115 Q930 305 895 500" stroke="#f2c66d" stroke-dasharray="16 12"/>
+  </g>
+  <g fill="#e8edf2" font-family="sans-serif" font-size="30" text-anchor="middle"><text x="300" y="75">FRONT: ORGANIZE THE PAIR</text><text x="885" y="75">TURN: WRAP + COMPRESS</text></g>
+  <g fill="#a9bac9" font-family="sans-serif" font-size="23" text-anchor="middle"><text x="300" y="570">Centers and corners relate to the axis</text><text x="885" y="570">Far width compresses; identity remains</text></g>
+</svg>

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="620" viewBox="0 0 1200 620">
+  <rect width="1200" height="620" fill="#20252b"/>
+  <g fill="none" stroke="#91a4b7" stroke-width="5">
+    <circle cx="205" cy="315" r="125"/><path d="M80 315 Q205 205 330 315 Q205 420 80 315"/>
+    <circle cx="600" cy="315" r="125"/><path d="M475 315 Q600 215 725 315 Q600 395 475 315"/>
+    <path d="M870 315 Q995 225 1120 315" stroke="#f2c66d" stroke-width="15"/>
+    <path d="M885 322 Q995 390 1105 322" stroke="#91a4b7"/>
+  </g>
+  <g fill="#e8edf2" font-family="sans-serif" font-size="30" text-anchor="middle">
+    <text x="205" y="85">1. BALL + SOCKET</text><text x="600" y="85">2. WRAPPED LIDS</text><text x="995" y="85">3. STYLIZED RHYTHM</text>
+  </g>
+  <g fill="#a9bac9" font-family="sans-serif" font-size="23" text-anchor="middle">
+    <text x="205" y="560">Explain the form first</text><text x="600" y="560">Place corners on the eye line</text><text x="995" y="560">Simplify without flattening</text>
+  </g>
+</svg>

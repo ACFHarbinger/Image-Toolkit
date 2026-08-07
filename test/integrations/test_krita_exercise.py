@@ -190,6 +190,32 @@ def test_creates_five_area_cranial_and_jaw_design_sheet():
     assert document.active.name == "01 Neutral Front Construction"
 
 
+def test_creates_four_area_eye_progression_sheet():
+    adapter = _load_adapter()
+    application = ApplicationStub()
+
+    document = adapter.create_eye_exercise_document(application)
+
+    assert application.created_with[:3] == (
+        2400,
+        1600,
+        "Eye Placement and Perspective — Front-to-Turned Sheet",
+    )
+    assert [node.name for node, _ in document.root.children] == [
+        "Tutor Feedback (locked)",
+        "01 Neutral Front Eye Structure",
+        "02 Stylized Front Expression",
+        "03 Neutral Right Three-Quarter Eye Structure",
+        "04 Stylized Right Three-Quarter Expression",
+    ]
+    layout = document.root.children[0][0].children[0][0]
+    assert layout.name == "Tutor Eye Progression Layout (locked)"
+    assert layout.locked
+    assert "FRONT STRUCTURE" in layout.svg
+    assert "3/4 STYLE + EXPRESSION" in layout.svg
+    assert document.active.name == "01 Neutral Front Eye Structure"
+
+
 def test_portable_project_requires_empty_directory(tmp_path):
     adapter = _load_adapter()
     (tmp_path / "unrelated").write_text("keep", encoding="utf-8")

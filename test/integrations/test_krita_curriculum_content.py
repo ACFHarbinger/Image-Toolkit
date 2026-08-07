@@ -58,6 +58,20 @@ def test_cranial_volume_jaw_lesson_is_fully_authored():
     assert all((CONTENT / path).is_file() for path in lesson["media"])
 
 
+def test_eye_placement_lesson_is_fully_authored():
+    lesson = json.loads((CONTENT / "eye_placement.json").read_text(encoding="utf-8"))
+    assert lesson["exercise_id"] == "anime-head-eyes"
+    assert lesson["prerequisite_ids"] == ["anime-head-volume-jaw"]
+    assert len(lesson["learning_objectives"]) >= 6
+    assert len(lesson["theory"]) >= 5
+    assert len(lesson["steps"]) >= 8
+    assert len(lesson["guided_drills"]) >= 3
+    assert len(lesson["common_mistakes"]) >= 6
+    assert len(lesson["completion_criteria"]) >= 7
+    assert len(lesson["self_review_questions"]) >= 6
+    assert all((CONTENT / path).is_file() for path in lesson["media"])
+
+
 def test_lesson_loader_orders_navigation_and_renders_full_content():
     module = _module()
     lessons = module.load_lessons(CONTENT)
@@ -65,6 +79,7 @@ def test_lesson_loader_orders_navigation_and_renders_full_content():
         "anime-head-front-construction",
         "anime-head-orientation",
         "anime-head-volume-jaw",
+        "anime-head-eyes",
     ]
     rendered = module.render_lesson_text(lessons[1])
     assert "Learning objectives" in rendered
