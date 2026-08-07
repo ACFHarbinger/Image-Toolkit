@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
-import json
 import uuid
 from pathlib import Path
 
 from krita import DockWidget, Krita
-from PyQt5.QtGui import QKeySequence
+from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QKeySequence, QPixmap
 from PyQt5.QtWidgets import (
     QCheckBox,
+    QComboBox,
     QFileDialog,
     QInputDialog,
     QLabel,
@@ -22,6 +23,7 @@ from PyQt5.QtWidgets import (
     QWidget,
 )
 
+from .curriculum_content import adjacent_index, load_lessons, render_lesson_text
 from .diagnostics import diagnose
 from .engine_client import EngineClient
 from .exercise import create_exercise_project
@@ -38,31 +40,28 @@ class LearningDocker(DockWidget):
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("Cel-Shaded Learning Tutor")
-        lesson_path = Path(__file__).parent / "content" / "lesson.json"
-        lesson = json.loads(lesson_path.read_text(encoding="utf-8"))
+        self._lessons = load_lessons(Path(__file__).parent / "content")
         scroll = QScrollArea(self)
         scroll.setWidgetResizable(True)
         container = QWidget(scroll)
         layout = QVBoxLayout(container)
-        title = QLabel(lesson["title"], container)
-        title.setWordWrap(True)
-        body = QLabel(lesson["summary"], container)
-        body.setWordWrap(True)
-        layout.addWidget(title)
-        layout.addWidget(body)
-        for step in lesson["steps"]:
-            heading = QLabel(step["title"], container)
-            explanation = QLabel(step["explanation"], container)
-            heading.setWordWrap(True)
-            explanation.setWordWrap(True)
-            layout.addWidget(heading)
-            layout.addWidget(explanation)
-        checklist = QLabel(
-            "Completion checklist\n• " + "\n• ".join(lesson["completion_criteria"]), container
-        )
-        checklist.setWordWrap(True)
-        practice = QLabel("Practice\n" + lesson["practice_prompt"], container)
-        practice.setWordWrap(True)
+        self._lesson_selector = QComboBox(container)
+        self._lesson_selector.addItems([lesson["title"] for lesson in self._lessons])
+        self._lesson_selector.currentIndexChanged.connect(self._select_lesson)
+        previous_lesson = QPushButton("Previous Lesson", container)
+        previous_lesson.clicked.connect(lambda checked=False: self._navigate_lesson(-1))
+        next_lesson = QPushButton("Next Lesson", container)
+        next_lesson.clicked.connect(lambda checked=False: self._navigate_lesson(1))
+        self._lesson_title = QLabel(container)
+        self._lesson_title.setWordWrap(True)
+        self._lesson_body = QLabel(container)
+        self._lesson_body.setWordWrap(True)
+        self._diagram_selector = QComboBox(container)
+        self._diagram_selector.currentIndexChanged.connect(self._select_diagram)
+        self._lesson_diagram = QLabel(container)
+        self._lesson_diagram.setAlignment(Qt.AlignCenter)
+        self._lesson_complete = QCheckBox("I completed this exercise checklist", container)
+        self._lesson_complete.toggled.connect(self._set_lesson_completion)
         create_button = QPushButton("Create Exercise Document", container)
         create_button.clicked.connect(self._create_exercise)
         landmark_button = QPushButton("Place Review Landmarks", container)
@@ -125,8 +124,14 @@ class LearningDocker(DockWidget):
         report = diagnose(Krita.instance().version())
         diagnostics = QLabel("Diagnostics: " + " ".join(report.messages), container)
         diagnostics.setWordWrap(True)
-        layout.addWidget(checklist)
-        layout.addWidget(practice)
+        layout.addWidget(self._lesson_selector)
+        layout.addWidget(previous_lesson)
+        layout.addWidget(next_lesson)
+        layout.addWidget(self._lesson_title)
+        layout.addWidget(self._lesson_body)
+        layout.addWidget(self._diagram_selector)
+        layout.addWidget(self._lesson_diagram)
+        layout.addWidget(self._lesson_complete)
         layout.addWidget(create_button)
         layout.addWidget(landmark_button)
         layout.addWidget(review_button)
@@ -153,8 +158,83 @@ class LearningDocker(DockWidget):
         scroll.setWidget(container)
         self.setWidget(scroll)
         self._apply_shortcuts(config["shortcuts"])
+        self._select_lesson(0)
+
+    def _select_lesson(self, index) -> None:
+        if not 0 <= index < len(self._lessons):
+            return
+        lesson = self._lessons[index]
+        self._lesson_title.setText(lesson["title"])
+        self._lesson_body.setText(render_lesson_text(lesson))
+        self._diagram_selector.blockSignals(True)
+        self._diagram_selector.clear()
+        self._diagram_selector.addItems(
+            [Path(path).stem.replace("-", " ").title() for path in lesson.get("media", [])]
+        )
+        self._diagram_selector.blockSignals(False)
+        self._diagram_selector.setVisible(bool(lesson.get("media")))
+        self._lesson_diagram.setVisible(bool(lesson.get("media")))
+        self._select_diagram(0)
+        self._lesson_complete.blockSignals(True)
+        self._lesson_complete.setChecked(False)
+        self._lesson_complete.blockSignals(False)
+        self._lesson_complete.setEnabled(False)
+        if self._project_directory is not None:
+            self._refresh_progress()
+
+    def _select_diagram(self, index) -> None:
+        lesson = self._lessons[self._lesson_selector.currentIndex()]
+        media = lesson.get("media", [])
+        if not 0 <= index < len(media):
+            self._lesson_diagram.clear()
+            return
+        path = Path(__file__).parent / "content" / media[index]
+        image = QPixmap(str(path))
+        if image.isNull():
+            self._lesson_diagram.setText("The packaged diagram could not be displayed.")
+            return
+        self._lesson_diagram.setPixmap(image.scaledToWidth(520, Qt.SmoothTransformation))
+
+    def _navigate_lesson(self, offset) -> None:
+        index = adjacent_index(self._lesson_selector.currentIndex(), len(self._lessons), offset)
+        self._lesson_selector.setCurrentIndex(index)
+
+    def _set_lesson_completion(self, completed) -> None:
+        if self._project_directory is None or self._attempt_id is None:
+            return
+        lesson = self._lessons[self._lesson_selector.currentIndex()]
+        if lesson["exercise_id"] != "anime-head-front-construction":
+            self._action_status.setText(
+                "This lesson is browsable, but its project template is not available yet."
+            )
+            return
+        try:
+            EngineClient().set_attempt_completion(
+                "completion-" + str(uuid.uuid4()),
+                self._project_directory,
+                self._attempt_id,
+                bool(completed),
+            )
+        except (RuntimeError, ValueError) as error:
+            self._action_status.setText(f"Could not update exercise completion: {error}")
+            self._lesson_complete.blockSignals(True)
+            self._lesson_complete.setChecked(not completed)
+            self._lesson_complete.blockSignals(False)
+            return
+        state = "complete" if completed else "incomplete"
+        self._action_status.setText(
+            f"Exercise explicitly marked {state}; review results did not change it automatically."
+        )
+        self._refresh_progress()
 
     def _create_exercise(self) -> None:
+        lesson = self._lessons[self._lesson_selector.currentIndex()]
+        if lesson["exercise_id"] != "anime-head-front-construction":
+            self._action_status.setText(
+                "This lesson is available to study, but only the front-construction exercise "
+                "template is implemented in the current alpha."
+            )
+            return
         directory = QFileDialog.getExistingDirectory(
             self, "Choose an Empty Portable Project Directory"
         )
@@ -250,6 +330,23 @@ class LearningDocker(DockWidget):
         policy = snapshot.get("feedback_policy", {})
         self._feedback_history.setChecked(policy.get("retain_revision_history", False))
         self._feedback_note_limit.setValue(policy.get("note_character_limit", 2000))
+        selected_exercise = self._lessons[self._lesson_selector.currentIndex()]["exercise_id"]
+        selected_attempt = next(
+            (
+                attempt
+                for exercise in snapshot.get("exercises", [])
+                if exercise.get("exercise_id") == selected_exercise
+                for attempt in exercise.get("attempts", [])
+                if attempt.get("attempt_id") == self._attempt_id
+            ),
+            None,
+        )
+        self._lesson_complete.blockSignals(True)
+        self._lesson_complete.setChecked(
+            selected_attempt is not None and selected_attempt.get("completed_at") is not None
+        )
+        self._lesson_complete.blockSignals(False)
+        self._lesson_complete.setEnabled(selected_attempt is not None)
 
     def _set_raw_measurements(self, enabled) -> None:
         try:

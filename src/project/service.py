@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from pathlib import Path
 
 from .model import (
@@ -122,6 +123,7 @@ def project_progress_snapshot(directory: str | Path) -> dict:
                 "attempts": [
                     {
                         "attempt_id": attempt.id,
+                        "completed_at": attempt.completed_at,
                         "reviews": [
                             {
                                 "review_id": review.id,
@@ -189,6 +191,22 @@ def configure_feedback_policy(
                     review.artist_feedback_history.clear()
     project.feedback_policy = policy
     project.validate()
+    save_project(root, project)
+    return True
+
+
+def set_attempt_completion(directory: str | Path, *, attempt_id: str, completed: bool) -> bool:
+    """Explicitly mark or unmark one attempt; reviews never call this implicitly."""
+    if not isinstance(completed, bool):
+        raise ValueError("attempt completion setting must be boolean")
+    root = Path(directory)
+    project = load_project(root)
+    attempt = _find_attempt(project, attempt_id)
+    if completed and attempt.completed_at is not None:
+        return False
+    if not completed and attempt.completed_at is None:
+        return False
+    attempt.completed_at = datetime.now(UTC).isoformat() if completed else None
     save_project(root, project)
     return True
 

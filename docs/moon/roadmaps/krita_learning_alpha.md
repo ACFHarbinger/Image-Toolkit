@@ -173,9 +173,15 @@ remain deferred in Review.
   orientation includes spatial theory, seven construction stages, three drills,
   five diagnosed common mistakes, measurable completion criteria, self-review,
   and delayed repetition. Remaining lessons, rich media, and multi-lesson Krita
-  navigation remain; each lesson will be authored fully rather than stubbed.
+  content remain; each lesson will be authored fully rather than stubbed. The
+  existing docker now provides an ordered selector, Previous/Next navigation,
+  and selectable scalable SVG diagrams for authored lessons without locking
+  later content.
 - ✅ Prerequisites control only the recommended next exercise. All lesson
   content remains browsable so the tutor never turns progression into a lock.
+- ✅ Completion is an explicit, reversible artist action after consulting the
+  checklist. Review evidence is shown separately and never auto-completes an
+  exercise; repeated identical marks are idempotent and atomically persisted.
 - 🔄 Rubrics for all supported views: stable normalized dimensions now cover
   axes, jaw/chin structure, perspective compression, feature placement, and
   value grouping. Only the front-view deterministic evaluator is calibrated.

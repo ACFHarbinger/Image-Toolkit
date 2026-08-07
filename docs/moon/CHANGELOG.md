@@ -60,6 +60,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   seven staged steps, three repetition drills, five cause-and-correction mistake
   diagnoses, six completion criteria, and five self-review prompts. Packaged
   content tests enforce stable identity/version and minimum instructional depth.
+  Added multi-lesson navigation to the existing docker with an ordered selector
+  plus Previous/Next buttons; boundaries stop at the first/last lesson and no
+  prerequisite locks browsing. Two original scalable offline SVGs visualize
+  cross-contours and the five-view rotation ladder and are selectable in the
+  lesson. Completion is an explicit reversible checkbox persisted through the
+  bounded engine; reviews never complete an exercise automatically.
 - Opened A3 issue #12 at In Progress P0/XL for versioned curriculum progression,
   deterministic weakness-to-remediation routing, comparable repeated-attempt
   metrics, and a private local progress view while A2 issues #10/#11 remain in

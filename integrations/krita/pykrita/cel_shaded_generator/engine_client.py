@@ -98,6 +98,17 @@ class EngineClient:
             },
         )
 
+    def set_attempt_completion(self, request_id, directory, attempt_id, completed):
+        return self._execute(
+            request_id,
+            "set_attempt_completion",
+            {
+                "directory": directory,
+                "attempt_id": attempt_id,
+                "completed": completed,
+            },
+        )
+
     def _execute(self, request_id, operation, payload):
         request = {
             "protocol_version": ENGINE_PROTOCOL_VERSION,

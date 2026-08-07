@@ -26,6 +26,7 @@ from .service import (
     project_progress_snapshot,
     record_advice_feedback,
     record_attempt_review,
+    set_attempt_completion,
 )
 from .storage import load_profile, load_project, save_profile, save_project
 
@@ -57,4 +58,5 @@ __all__ = [
     "record_attempt_review",
     "record_advice_feedback",
     "project_progress_snapshot",
+    "set_attempt_completion",
 ]

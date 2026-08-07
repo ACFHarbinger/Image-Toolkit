@@ -16,6 +16,7 @@ from project import (
     project_progress_snapshot,
     record_advice_feedback,
     record_attempt_review,
+    set_attempt_completion,
 )
 
 from .head_review import FrontHeadLandmarks, review_front_head
@@ -110,6 +111,16 @@ def handle_request(request: dict[str, Any]) -> dict[str, Any]:
             )
         except KeyError as error:
             raise ValueError("feedback-policy request is incomplete") from error
+        return _success(request_id, {"changed": changed})
+    if operation == "set_attempt_completion":
+        try:
+            changed = set_attempt_completion(
+                payload["directory"],
+                attempt_id=payload["attempt_id"],
+                completed=payload["completed"],
+            )
+        except KeyError as error:
+            raise ValueError("attempt-completion request is incomplete") from error
         return _success(request_id, {"changed": changed})
     if operation != "review_front_head":
         raise ValueError("unsupported engine operation")

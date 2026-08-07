@@ -13,6 +13,7 @@ from project import (
     project_progress_snapshot,
     record_advice_feedback,
     record_attempt_review,
+    set_attempt_completion,
 )
 
 
@@ -196,3 +197,19 @@ def test_progress_snapshot_and_explicit_clear_disable_policy(tmp_path):
     }
     assert configure_progress_retention(tmp_path, enabled=True)
     assert not configure_progress_retention(tmp_path, enabled=True)
+
+
+def test_attempt_completion_is_explicit_reversible_and_idempotent(tmp_path):
+    artwork = tmp_path / "artwork/attempt-001.kra"
+    artwork.parent.mkdir()
+    artwork.write_bytes(b"document")
+    create_exercise_project(tmp_path, title="Head", attempt_id="attempt-1")
+
+    assert set_attempt_completion(tmp_path, attempt_id="attempt-1", completed=True)
+    snapshot = project_progress_snapshot(tmp_path)
+    assert snapshot["exercises"][0]["attempts"][0]["completed_at"] is not None
+    assert not set_attempt_completion(tmp_path, attempt_id="attempt-1", completed=True)
+    assert set_attempt_completion(tmp_path, attempt_id="attempt-1", completed=False)
+    assert (
+        project_progress_snapshot(tmp_path)["exercises"][0]["attempts"][0]["completed_at"] is None
+    )

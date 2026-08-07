@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 320" role="img" aria-labelledby="title desc">
+  <title id="title">Centerline and eye-line cross-contours</title>
+  <desc id="desc">Front, three-quarter, and profile cranial balls with construction guides.</desc>
+  <rect width="900" height="320" fill="#f7f4ed"/>
+  <g fill="none" stroke="#30343b" stroke-width="6" stroke-linecap="round">
+    <circle cx="150" cy="140" r="95"/><path d="M150 45v225M55 140h190"/>
+    <circle cx="450" cy="140" r="95"/><path d="M485 51c-40 50-40 132 0 218M357 140c55-18 128-18 184 0"/>
+    <circle cx="750" cy="140" r="95"/><path d="M830 88c-24 42-24 102 0 144M660 140c58-26 125-26 180 0"/>
+  </g>
+  <g fill="#30343b" font-family="sans-serif" font-size="24" text-anchor="middle">
+    <text x="150" y="300">Front</text><text x="450" y="300">Three-quarter</text><text x="750" y="300">Profile limit</text>
+  </g>
+  <g fill="#d45555"><circle cx="150" cy="140" r="8"/><circle cx="485" cy="140" r="8"/><circle cx="830" cy="140" r="8"/></g>
+</svg>

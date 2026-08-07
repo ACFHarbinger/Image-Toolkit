@@ -1,11 +1,16 @@
 {
   "id": "anime-head-orientation",
+  "exercise_id": "anime-head-orientation",
   "version": "1.0.0",
   "method_id": "anime-head-construction-v1",
   "schema_version": 1,
   "title": "Anime Head Construction: Front, Profile, and Three-Quarter Views",
   "summary": "Turn the simple cranial mass in space before drawing features. This lesson treats the centerline and eye-line as cross-contours that describe orientation, not as flat symbols placed on a circle.",
   "estimated_minutes": 45,
+  "media": [
+    "diagrams/head-orientation-cross-contours.svg",
+    "diagrams/head-orientation-five-view.svg"
+  ],
   "prerequisite_ids": [
     "anime-head-front-construction"
   ],
