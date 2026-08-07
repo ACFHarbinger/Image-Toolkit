@@ -2,6 +2,10 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S330 — 2026-08-07 (Isolated Krita review-engine protocol)
+
+Advanced Cel-Shaded-Generator A2 issue #10 (`9b00a80`) with the explicit AppImage-to-engine boundary promised by A1. The standalone `cel-shaded-generator-engine` accepts one bounded, versioned JSON review request over standard streams; the dependency-free Krita client uses no shell and enforces executable discovery, a five-second timeout, bounded input/output, matching protocol and request identifiers, structured errors, and an operation allowlist. Malformed input produces no traceback leakage. The full suite is now 172 passing tests with clean Ruff and mypy. Landmark UI and user-facing engine-path configuration remain.
+
 ## S329 — 2026-08-07 (Layered Krita exercise creation)
 
 Advanced Cel-Shaded-Generator A2 issue #10 (`f849b8e`) with a tested Krita exercise-document adapter and tutor action. It creates a new unsaved 1600 × 2000 RGBA document without modifying existing work, separates construction and artwork paint layers, reserves a locked tutor-feedback group, selects the construction layer, and reports host failures in the docker. Exact document arguments, layer ordering/locking, view attachment, active layer, and missing-window behavior are covered by headless stubs. Full verification: 161 tests, Ruff and mypy clean. Live deployment waits for Krita to close.
