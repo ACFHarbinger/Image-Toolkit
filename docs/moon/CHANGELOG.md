@@ -2,6 +2,17 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S353 — 2026-08-07 (Feature previews, asymmetry review, identity variation)
+
+Advanced Cel-Shaded-Generator A3 issue #12 with reversible matrix-local nose,
+mouth, and ear correction previews (`1df8159`); intent-aware controlled-
+asymmetry comparison (`112c354`) requiring cause, character side, strength, and
+purpose on authored layers; and fully authored Character Variation and Identity
+Retention (`d9e4e9c`). Lesson seven includes two diagrams and a 2600 × 1800
+six-layer model sheet testing undecorated variants, a structural identity card,
+and fresh front/turned reconstruction. Verification: 286 tests, Ruff and mypy
+clean. A3 remains undeployed; A2 #10/#11 stay in Review.
+
 ## S352 — 2026-08-07 (Feature critique and controlled-asymmetry lesson)
 
 Advanced Cel-Shaded-Generator A3 issue #12 with specialized nose, mouth,
