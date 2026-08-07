@@ -36,6 +36,7 @@ def test_review_combines_confirmation_geometry_consistency_and_optional_third_va
     assert review.measurements["front_cast_shadow_area_ratio"] == 0
     assert "third_value_to_primary_ratio" in review.measurements
     assert {item.source.value for item in review.evidence} == {"artist_confirmation", "heuristic"}
+    assert any("descriptive evidence" in item for item in review.explanations)
 
 
 def test_mask_input_is_strictly_bounded_and_binary():

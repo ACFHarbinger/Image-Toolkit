@@ -345,6 +345,28 @@ def build_curriculum_v1() -> Curriculum:
             "Value grouping practice",
             "Reduce references to two value shapes.",
         ),
+        (
+            "cel-value-mask-consolidation",
+            "Shadow-family consolidation",
+            "Merge unexplained fragments while retaining separately caused form and cast shadows.",
+        ),
+        (
+            "cel-value-island-audit",
+            "Shadow-island cause audit",
+            "Label every isolated shadow by turning form or occluder, then remove "
+            "unjustified islands.",
+        ),
+        (
+            "cel-value-light-transfer",
+            "Front-to-turned light transfer",
+            "Recalculate one declared light on a front/turned pair without copying "
+            "image-space patches.",
+        ),
+        (
+            "cel-value-third-value-restraint",
+            "Third-value restraint",
+            "Reduce the optional accent until the underlying two-value grouping remains dominant.",
+        ),
     )
     exercises = tuple(
         Exercise(

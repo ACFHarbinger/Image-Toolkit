@@ -28,6 +28,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   expression/asymmetry, and cel-value grouping as missing, pending-decision, or
   complete; names the exact capstone layer for the next review; and only reports
   readiness for the artist's manual completion after every rubric is resolved.
+- Expanded cel-value explanations with descriptive front/turned occupancy,
+  consistency limitations, and cause-oriented island guidance. Four concrete
+  remedial exercises now match every evaluator route: family consolidation,
+  island-cause audit, front-to-turned light transfer, and third-value restraint.
 - Added identity-retention correction previews to the selected front/turned
   character-variation review. Failed cranial, feature-span, ear-height,
   lower-face, and identity-card checks now produce provisional tutor-owned

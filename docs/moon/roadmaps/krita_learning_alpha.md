@@ -252,7 +252,11 @@ remain deferred in Review.
   measurements remain auditable while their union supplies the large-family
   read. Empty form masks are rejected; intentionally empty cast masks are valid.
   Pixels and colors are discarded; only scalar measurements persist. Spatial
-  light-cause review and beginner calibration remain future work.
+  light-cause review and beginner calibration remain future work. Explanations
+  explicitly distinguish descriptive occupancy/consistency evidence from a
+  universal target, and evaluator failures now route to four authored remedial
+  prompts: consolidation, island-cause audit, light transfer, or third-value
+  restraint.
 - 🔄 Comprehensive capstone: lesson nine integrates brief, portable identity
   card, front/turned construction, expression, controlled asymmetry, cel values,
   review decisions, prioritized correction, compatible comparison, and delayed

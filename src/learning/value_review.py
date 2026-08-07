@@ -106,6 +106,12 @@ def review_value_masks(
         "fragments, small islands, boundary complexity, and front/turned consistency.",
         "Form and cast shadows were measured separately, then combined to audit the "
         "large shadow-family read. An empty cast mask is valid; an empty form mask is not.",
+        f"The combined shadow occupies {front.shadow_area_ratio:.0%} of the front mask and "
+        f"{turned.shadow_area_ratio:.0%} of the turned mask. This is descriptive evidence, "
+        "not a preferred universal light-to-shadow ratio.",
+        f"Front/turned geometric consistency is {consistency:.2f}. This compares area, "
+        "fragmentation, and boundary complexity; it cannot prove that the declared light "
+        "caused every boundary.",
     ]
     targeted = []
     if max(front.fragmentation, turned.fragmentation) > 0.35:
@@ -115,6 +121,10 @@ def review_value_masks(
         )
     if max(front.isolated_islands, turned.isolated_islands) > 0.10:
         targeted.append("cel-value-island-audit")
+        explanations.append(
+            "Small disconnected islands occupy more than 10% of a shadow family. Name each "
+            "island's form or occluder before deciding whether to merge or retain it."
+        )
     if consistency < 0.70:
         targeted.append("cel-value-light-transfer")
         explanations.append(

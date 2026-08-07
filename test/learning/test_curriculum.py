@@ -36,7 +36,13 @@ def test_curriculum_v1_has_stable_complete_primary_sequence() -> None:
     assert curriculum.id == "anime-head-and-face-v1"
     assert curriculum.version == "1.0.0"
     assert len(curriculum.steps) == 9
-    assert len(curriculum.exercises) == 13
+    assert len(curriculum.exercises) == 17
+    assert {
+        "cel-value-mask-consolidation",
+        "cel-value-island-audit",
+        "cel-value-light-transfer",
+        "cel-value-third-value-restraint",
+    }.issubset({exercise.id for exercise in curriculum.exercises})
     assert next_primary_exercise(curriculum, set()) == "anime-head-front-construction"
 
     completed = {step.exercise_id for step in curriculum.steps[:4]}
