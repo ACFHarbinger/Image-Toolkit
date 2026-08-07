@@ -19,6 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Moved A3 issue #12 to deferred In Review after completing its headless
+  integration. The issue now carries a ten-step live Krita checklist covering
+  grouped layers, imports, fresh sequential dispatch, form/cast masks, decisions,
+  rationale history, cancellation recovery, dashboard behavior, offline use,
+  and artist-layer isolation, with explicit pass-to-Done/fail-to-In-Progress
+  rules. The candidate remains undeployed.
 - Completed fresh “Run Next Capstone Review” dispatch in structural-leverage
   order: front structure; turned structure; identity retention; expression/
   asymmetry; then cel values. Confirmation opens the rubric-specific landmark

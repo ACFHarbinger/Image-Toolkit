@@ -355,6 +355,11 @@ remain deferred in Review.
 Tracked by GitHub issue #14; it remains in Backlog until A3 integration and the
 deferred A2 live checks are ready for evidence collection.
 
+A3 headless integration is complete and issue #12 is now in deferred Review
+with an exact pass-to-Done/fail-to-In-Progress live checklist. The candidate is
+not deployed. A4 begins only after the relevant live checks are intentionally
+scheduled; it does not reinterpret untested headless behavior as accepted.
+
 - Optional local landmark model with confidence visualization.
 - RTX 4080 12 GB as the deployment ceiling for the default model; the RTX 3090
   Ti 24 GB may be used for development but not as the minimum requirement.
