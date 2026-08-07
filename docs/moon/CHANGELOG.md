@@ -66,6 +66,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   cross-contours and the five-view rotation ladder and are selectable in the
   lesson. Completion is an explicit reversible checkbox persisted through the
   bounded engine; reviews never complete an exercise automatically.
+  Added the orientation exercise template as a true portable
+  `anime-head-orientation` attempt: a 2600 × 1600 landscape document with a
+  locked SVG five-cell layout and separate named construction layers for both
+  profiles, both three-quarter views, and front. The middle/front layer starts
+  active. Completing the front exercise now makes orientation the immediately
+  recommended next lesson in the engine snapshot without changing manual
+  navigation. Orientation review remains deliberately unimplemented until its
+  one-head-at-a-time landmark/rubric contract exists; the front rubric is not
+  misapplied to turned heads.
 - Opened A3 issue #12 at In Progress P0/XL for versioned curriculum progression,
   deterministic weakness-to-remediation routing, comparable repeated-attempt
   metrics, and a private local progress view while A2 issues #10/#11 remain in

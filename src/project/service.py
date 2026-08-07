@@ -27,6 +27,7 @@ def create_exercise_project(
     title: str,
     document_asset: str = "artwork/attempt-001.kra",
     attempt_id: str,
+    exercise_id: str = FRONT_HEAD_EXERCISE_ID,
 ) -> Project:
     """Create one manifest in an existing empty project directory."""
     root = Path(directory).expanduser().resolve()
@@ -39,15 +40,13 @@ def create_exercise_project(
             raise ValueError("project directory must be empty except for its new exercise document")
     if (root / MANIFEST_NAME).exists():
         raise FileExistsError("project manifest already exists")
+    if not exercise_id.strip():
+        raise ValueError("exercise id must not be empty")
     project = Project(
         title=title,
         document_asset=document_asset,
         progress=ProjectProgress(
-            [
-                ExerciseProgress(
-                    FRONT_HEAD_EXERCISE_ID, [Attempt(FRONT_HEAD_EXERCISE_ID, id=attempt_id)]
-                )
-            ]
+            [ExerciseProgress(exercise_id, [Attempt(exercise_id, id=attempt_id)])]
         ),
     )
     save_project(root, project)

@@ -21,12 +21,16 @@ class NodeStub:
         self.kind = kind
         self.locked = False
         self.children = []
+        self.svg = None
 
     def setLocked(self, locked):  # noqa: N802
         self.locked = locked
 
     def addChildNode(self, node, above):  # noqa: N802
         self.children.append((node, above))
+
+    def addShapesFromSvg(self, svg):  # noqa: N802
+        self.svg = svg
 
 
 class DocumentStub:
@@ -108,10 +112,14 @@ def test_refuses_creation_without_active_krita_window():
 
 
 class EngineStub:
-    def create_exercise_project(self, request_id, directory, title, attempt_id):
+    def create_exercise_project(self, request_id, directory, title, attempt_id, exercise_id):
         assert request_id == "create-attempt-1"
         assert title == Path(directory).name
-        return {"project_id": "project-1", "attempt_id": attempt_id}
+        return {
+            "project_id": "project-1",
+            "attempt_id": attempt_id,
+            "exercise_id": exercise_id,
+        }
 
 
 def test_creates_saved_portable_project_binding(tmp_path):
@@ -121,7 +129,38 @@ def test_creates_saved_portable_project_binding(tmp_path):
         application, EngineStub(), tmp_path, "attempt-1"
     )
     assert document.saved_as == str(tmp_path / "artwork/attempt-001.kra")
-    assert result == {"project_id": "project-1", "attempt_id": "attempt-1"}
+    assert result == {
+        "project_id": "project-1",
+        "attempt_id": "attempt-1",
+        "exercise_id": "anime-head-front-construction",
+    }
+
+
+def test_creates_landscape_five_view_orientation_sheet():
+    adapter = _load_adapter()
+    application = ApplicationStub()
+
+    document = adapter.create_orientation_exercise_document(application)
+
+    assert application.created_with[:3] == (
+        2600,
+        1600,
+        "Anime Head Orientation — Five-View Rotation Sheet",
+    )
+    assert [node.name for node, _ in document.root.children] == [
+        "Tutor Feedback (locked)",
+        "01 Left Profile Construction",
+        "02 Left Three-Quarter Construction",
+        "03 Front Construction",
+        "04 Right Three-Quarter Construction",
+        "05 Right Profile Construction",
+    ]
+    feedback = document.root.children[0][0]
+    layout = feedback.children[0][0]
+    assert layout.name == "Tutor Rotation Layout (locked)"
+    assert layout.locked
+    assert "LEFT PROFILE" in layout.svg
+    assert document.active.name == "03 Front Construction"
 
 
 def test_portable_project_requires_empty_directory(tmp_path):

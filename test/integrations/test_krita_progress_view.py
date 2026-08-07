@@ -59,12 +59,14 @@ def _snapshot():
 
 
 def test_progress_defaults_to_plain_trends_and_raw_normalized_values():
-    rendered = _module().format_progress(_snapshot())
+    snapshot = _snapshot() | {"recommended_exercise_id": "anime-head-orientation"}
+    rendered = _module().format_progress(snapshot)
     assert "Attempts: 1 · Reviews: 2" in rendered
     assert "Improved: head axis consistency" in rendered
     assert "Needs attention: jaw symmetry" in rendered
     assert "head axis consistency: 0.70" in rendered
     assert "raw angle" not in rendered
+    assert "Recommended next: anime head orientation" in rendered
 
 
 def test_raw_values_can_be_hidden_and_disabled_retention_is_explicit():

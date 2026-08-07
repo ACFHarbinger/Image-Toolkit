@@ -107,6 +107,55 @@ def test_protocol_records_project_local_advice_feedback(tmp_path):
     assert response["result"]["changed"] is True
 
 
+def test_completed_front_attempt_recommends_orientation_without_locking(tmp_path):
+    artwork = tmp_path / "artwork/attempt-001.kra"
+    artwork.parent.mkdir()
+    artwork.write_bytes(b"document")
+    handle_request(
+        {
+            "protocol_version": 1,
+            "request_id": "create-1",
+            "operation": "create_exercise_project",
+            "payload": {
+                "directory": str(tmp_path),
+                "title": "Anime head practice",
+                "attempt_id": "attempt-1",
+            },
+        }
+    )
+    before = handle_request(
+        {
+            "protocol_version": 1,
+            "request_id": "progress-1",
+            "operation": "project_progress_snapshot",
+            "payload": {"directory": str(tmp_path)},
+        }
+    )
+    assert before["result"]["recommended_exercise_id"] == "anime-head-front-construction"
+
+    handle_request(
+        {
+            "protocol_version": 1,
+            "request_id": "complete-1",
+            "operation": "set_attempt_completion",
+            "payload": {
+                "directory": str(tmp_path),
+                "attempt_id": "attempt-1",
+                "completed": True,
+            },
+        }
+    )
+    after = handle_request(
+        {
+            "protocol_version": 1,
+            "request_id": "progress-2",
+            "operation": "project_progress_snapshot",
+            "payload": {"directory": str(tmp_path)},
+        }
+    )
+    assert after["result"]["recommended_exercise_id"] == "anime-head-orientation"
+
+
 @pytest.mark.parametrize(
     "change",
     [

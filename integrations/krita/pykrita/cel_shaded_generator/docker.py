@@ -202,12 +202,6 @@ class LearningDocker(DockWidget):
     def _set_lesson_completion(self, completed) -> None:
         if self._project_directory is None or self._attempt_id is None:
             return
-        lesson = self._lessons[self._lesson_selector.currentIndex()]
-        if lesson["exercise_id"] != "anime-head-front-construction":
-            self._action_status.setText(
-                "This lesson is browsable, but its project template is not available yet."
-            )
-            return
         try:
             EngineClient().set_attempt_completion(
                 "completion-" + str(uuid.uuid4()),
@@ -229,12 +223,6 @@ class LearningDocker(DockWidget):
 
     def _create_exercise(self) -> None:
         lesson = self._lessons[self._lesson_selector.currentIndex()]
-        if lesson["exercise_id"] != "anime-head-front-construction":
-            self._action_status.setText(
-                "This lesson is available to study, but only the front-construction exercise "
-                "template is implemented in the current alpha."
-            )
-            return
         directory = QFileDialog.getExistingDirectory(
             self, "Choose an Empty Portable Project Directory"
         )
@@ -244,7 +232,7 @@ class LearningDocker(DockWidget):
         attempt_id = str(uuid.uuid4())
         try:
             _, result = create_exercise_project(
-                Krita.instance(), EngineClient(), directory, attempt_id
+                Krita.instance(), EngineClient(), directory, attempt_id, lesson["exercise_id"]
             )
         except (OSError, RuntimeError, TypeError, ValueError) as error:
             self._action_status.setText(f"Could not create exercise: {error}")
@@ -252,12 +240,21 @@ class LearningDocker(DockWidget):
         self._project_directory = directory
         self._attempt_id = result["attempt_id"]
         self._action_status.setText(
-            "Portable project created. Draw light construction on ‘Construction Guides’; "
-            "reserve ‘Artwork’ for deliberate lines. Krita saves to artwork/attempt-001.kra."
+            "Portable project created for “"
+            + lesson["title"]
+            + "”. Draw on the named construction layer; tutor layout/feedback layers stay "
+            "locked. Krita saves to artwork/attempt-001.kra."
         )
         self._refresh_progress()
 
     def _place_landmarks(self) -> None:
+        lesson = self._lessons[self._lesson_selector.currentIndex()]
+        if lesson["exercise_id"] != "anime-head-front-construction":
+            self._action_status.setText(
+                "Orientation review will evaluate one selected head at a time, but its "
+                "landmark rubric is not implemented yet. The front rubric was not reused."
+            )
+            return
         document = Krita.instance().activeDocument()
         if document is None:
             self._action_status.setText("Open or create an exercise document first.")
@@ -273,6 +270,12 @@ class LearningDocker(DockWidget):
         )
 
     def _request_review(self) -> None:
+        lesson = self._lessons[self._lesson_selector.currentIndex()]
+        if lesson["exercise_id"] != "anime-head-front-construction":
+            self._action_status.setText(
+                "Orientation review is not available until its selected-head rubric is calibrated."
+            )
+            return
         if self._landmarks is None:
             self._action_status.setText("Place all nine review landmarks first.")
             return

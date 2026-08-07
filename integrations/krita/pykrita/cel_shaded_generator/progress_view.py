@@ -15,6 +15,9 @@ def format_progress(snapshot, show_raw_measurements=True):
     ]
     reviews = [review for attempt in attempts for review in attempt.get("reviews", [])]
     lines = [f"Attempts: {len(attempts)} · Reviews: {len(reviews)}"]
+    recommended = snapshot.get("recommended_exercise_id")
+    if recommended:
+        lines.append("Recommended next: " + recommended.replace("-", " "))
     if not reviews:
         lines.append("Complete a review to see improvement trends.")
         return "\n".join(lines)

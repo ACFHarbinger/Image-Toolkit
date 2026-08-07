@@ -31,6 +31,22 @@ def test_creates_portable_manifest_around_new_krita_document(tmp_path):
     assert not loaded.consent.retain_artwork_in_history
 
 
+def test_creates_orientation_project_with_its_own_stable_exercise_id(tmp_path):
+    artwork = tmp_path / "artwork/attempt-001.kra"
+    artwork.parent.mkdir()
+    artwork.write_bytes(b"krita document placeholder")
+    create_exercise_project(
+        tmp_path,
+        title="Rotation sheet",
+        attempt_id="orientation-1",
+        exercise_id="anime-head-orientation",
+    )
+
+    exercise = load_project(tmp_path).progress.exercises[0]
+    assert exercise.exercise_id == "anime-head-orientation"
+    assert exercise.attempts[0].exercise_id == "anime-head-orientation"
+
+
 def test_refuses_unrelated_files_or_existing_manifest(tmp_path):
     (tmp_path / "unrelated.txt").write_text("keep", encoding="utf-8")
     with pytest.raises(ValueError, match="must be empty"):

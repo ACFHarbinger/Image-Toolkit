@@ -19,6 +19,7 @@ from project import (
     set_attempt_completion,
 )
 
+from .curriculum import build_curriculum_v1, next_primary_exercise
 from .head_review import FrontHeadLandmarks, review_front_head
 
 ENGINE_PROTOCOL_VERSION = 1
@@ -43,6 +44,7 @@ def handle_request(request: dict[str, Any]) -> dict[str, Any]:
                 title=payload["title"],
                 document_asset=payload.get("document_asset", "artwork/attempt-001.kra"),
                 attempt_id=payload["attempt_id"],
+                exercise_id=payload.get("exercise_id", "anime-head-front-construction"),
             )
         except KeyError as error:
             raise ValueError("project request is incomplete") from error
@@ -91,6 +93,14 @@ def handle_request(request: dict[str, Any]) -> dict[str, Any]:
             snapshot = project_progress_snapshot(payload["directory"])
         except KeyError as error:
             raise ValueError("progress request is incomplete") from error
+        completed_ids = {
+            exercise["exercise_id"]
+            for exercise in snapshot["exercises"]
+            if any(attempt["completed_at"] is not None for attempt in exercise["attempts"])
+        }
+        snapshot["recommended_exercise_id"] = next_primary_exercise(
+            build_curriculum_v1(), completed_ids
+        )
         return _success(request_id, snapshot)
     if operation == "configure_progress_retention":
         try:

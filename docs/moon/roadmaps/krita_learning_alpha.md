@@ -177,11 +177,20 @@ remain deferred in Review.
   existing docker now provides an ordered selector, Previous/Next navigation,
   and selectable scalable SVG diagrams for authored lessons without locking
   later content.
+- 🔄 Head-orientation exercise template: the docker creates a 2600 × 1600
+  landscape rotation sheet with five labeled work areas and separate layers for
+  left profile, left three-quarter, front, right three-quarter, and right
+  profile. The locked vector layout is separate from artist layers. Review of
+  one selected head at a time still needs orientation-specific landmarks and
+  rubric calibration; the front evaluator is not silently reused.
 - ✅ Prerequisites control only the recommended next exercise. All lesson
   content remains browsable so the tutor never turns progression into a lock.
 - ✅ Completion is an explicit, reversible artist action after consulting the
   checklist. Review evidence is shown separately and never auto-completes an
   exercise; repeated identical marks are idempotent and atomically persisted.
+- ✅ Completing the front attempt changes the engine's recommended next
+  exercise to head orientation immediately. This recommendation is displayed in
+  Project Progress and does not change the manually selected lesson.
 - 🔄 Rubrics for all supported views: stable normalized dimensions now cover
   axes, jaw/chin structure, perspective compression, feature placement, and
   value grouping. Only the front-view deterministic evaluator is calibrated.

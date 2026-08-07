@@ -25,7 +25,9 @@ class EngineClient:
     def review_front_head(self, request_id, landmarks):
         return self._execute(request_id, "review_front_head", {"landmarks": landmarks})
 
-    def create_exercise_project(self, request_id, directory, title, attempt_id):
+    def create_exercise_project(
+        self, request_id, directory, title, attempt_id, exercise_id="anime-head-front-construction"
+    ):
         return self._execute(
             request_id,
             "create_exercise_project",
@@ -34,6 +36,7 @@ class EngineClient:
                 "title": title,
                 "document_asset": "artwork/attempt-001.kra",
                 "attempt_id": attempt_id,
+                "exercise_id": exercise_id,
             },
         )
 
