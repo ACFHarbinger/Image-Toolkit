@@ -29,6 +29,7 @@ from project import (
     configure_progress_retention,
     configure_study_consent,
     create_exercise_project,
+    create_project,
     decide_attempt_review,
     detach_correspondence_set,
     detach_style_bible,
@@ -96,6 +97,46 @@ def test_project_document_asset_must_remain_portable(tmp_path, asset):
         create_exercise_project(
             tmp_path, title="Head", document_asset=asset, attempt_id="attempt-1"
         )
+
+
+def test_create_project_makes_a_bare_manifest_with_no_exercise(tmp_path):
+    project = create_project(tmp_path, title="Standalone editor doc")
+    loaded = load_project(tmp_path)
+    assert loaded == project
+    assert loaded.title == "Standalone editor doc"
+    assert loaded.document_asset is None
+    assert loaded.progress.exercises == []
+
+
+def test_create_project_refuses_nonempty_directory(tmp_path):
+    (tmp_path / "unrelated.txt").write_text("keep", encoding="utf-8")
+    with pytest.raises(ValueError, match="must be empty"):
+        create_project(tmp_path, title="Head")
+
+
+def test_create_project_refuses_a_directory_that_already_has_a_project(tmp_path):
+    create_project(tmp_path, title="First")
+    with pytest.raises(ValueError, match="must be empty"):
+        create_project(tmp_path, title="Second")
+
+
+def test_create_project_can_bind_a_style_bible_and_correspondence_set(tmp_path):
+    create_project(tmp_path, title="Standalone editor doc")
+    bible = CharacterStyleBible(
+        "aiko",
+        "Aiko",
+        "TV cel",
+        [StyleMaterial("hair", "Hair", MaterialPalette("#332233", "#665566", "#110F18"))],
+    )
+    bible_asset = upsert_project_style_bible(tmp_path, payload=bible.to_dict())
+    correspondence_set = CorrespondenceSet(id="editor-correspondence", style_bible_id="aiko")
+    correspondence_asset = upsert_project_correspondence_set(
+        tmp_path, payload=correspondence_set.to_dict()
+    )
+
+    loaded = load_project(tmp_path)
+    assert bible_asset in loaded.style_bible_assets
+    assert correspondence_asset in loaded.correspondence_set_assets
 
 
 def test_records_and_decides_privacy_safe_review(tmp_path):

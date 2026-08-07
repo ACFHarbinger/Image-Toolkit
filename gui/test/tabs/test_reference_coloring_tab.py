@@ -471,3 +471,109 @@ def test_save_then_open_document_round_trips_correspondence_and_regions(
     assert correspondence_set is not None
     assert correspondence_set.correspondences[0].region_id == "layer-1-region-1"
     assert correspondence_set.correspondences[0].material_id == "hair"
+
+
+def _stub_text_input(monkeypatch, text):
+    from PySide6.QtWidgets import QInputDialog
+
+    monkeypatch.setattr(QInputDialog, "getText", staticmethod(lambda *a, **k: (text, True)))
+
+
+def test_new_project_creates_and_binds_a_bare_project(q_app, monkeypatch, tmp_path):
+    tab = ReferenceColoringTab()
+    _stub_existing_directory(monkeypatch, tmp_path)
+    _stub_text_input(monkeypatch, "My Project")
+
+    tab._new_project()
+
+    assert tab.project_directory() == str(tmp_path)
+    assert (tmp_path / "project.json").exists()
+    assert "Created and bound project" in tab._status.text()
+
+
+def test_new_project_cancelled_title_is_a_no_op(q_app, monkeypatch, tmp_path):
+    from PySide6.QtWidgets import QInputDialog
+
+    tab = ReferenceColoringTab()
+    _stub_existing_directory(monkeypatch, tmp_path)
+    monkeypatch.setattr(QInputDialog, "getText", staticmethod(lambda *a, **k: ("", False)))
+
+    tab._new_project()
+
+    assert tab.project_directory() is None
+    assert not (tmp_path / "project.json").exists()
+
+
+def test_bind_project_requires_an_existing_manifest(q_app, monkeypatch, tmp_path):
+    tab = ReferenceColoringTab()
+    _stub_existing_directory(monkeypatch, tmp_path)
+
+    tab._bind_project()
+
+    assert tab.project_directory() is None
+    assert "no project manifest" in tab._status.text()
+
+
+def test_bind_project_binds_an_existing_project(q_app, monkeypatch, tmp_path):
+    from project import create_project
+
+    create_project(tmp_path, title="Existing")
+    tab = ReferenceColoringTab()
+    _stub_existing_directory(monkeypatch, tmp_path)
+
+    tab._bind_project()
+
+    assert tab.project_directory() == str(tmp_path)
+    assert "Bound project" in tab._status.text()
+
+
+def test_bind_style_bible_attaches_to_bound_project(q_app, monkeypatch, tmp_path):
+    from project import create_project, load_project
+
+    project_dir = tmp_path / "project"
+    project_dir.mkdir()
+    create_project(project_dir, title="Existing")
+    tab = ReferenceColoringTab()
+    _stub_existing_directory(monkeypatch, project_dir)
+    tab._bind_project()
+
+    _bind_bible(tab, monkeypatch, tmp_path / "bibles")
+
+    assert tab._bible_asset_path == "style-bibles/aiko.json"
+    assert tab._bible_asset_path in load_project(project_dir).style_bible_assets
+
+
+def test_suggest_and_assign_correspondence_use_project_learned_weights(
+    q_app, monkeypatch, tmp_path
+):
+    from project import load_project
+
+    project_dir = tmp_path / "project"
+    project_dir.mkdir()
+    tab = ReferenceColoringTab()
+    _new_canvas(tab, monkeypatch)
+    _add_touching_region_layers(tab)
+    _stub_existing_directory(monkeypatch, project_dir)
+    _stub_text_input(monkeypatch, "Editor Project")
+    tab._new_project()
+    _bind_bible(tab, monkeypatch, tmp_path / "bibles")
+
+    tab._layer_panel.select_layer("layer-1-region-1")
+    tab._material_combo.setCurrentIndex(0)  # hair
+    tab._suggest_material()  # ranks via the project's SignalWeights, populates candidates
+    tab._assign_correspondence()
+
+    project = load_project(project_dir)
+    assert project.correspondence_set_assets  # persisted into the project
+    # Two ranked candidates (hair, skin) and a chosen id among them is
+    # enough for one multiplicative-weights update, per
+    # record_correspondence_choice's own no-op rule.
+    assert project.signal_weights.update_count == 1
+
+    tab._layer_panel.select_layer("layer-1-region-2")
+    tab._material_combo.setCurrentIndex(1)  # skin
+    tab._suggest_material()
+    tab._assign_correspondence()
+
+    updated_project = load_project(project_dir)
+    assert updated_project.signal_weights.update_count == 2

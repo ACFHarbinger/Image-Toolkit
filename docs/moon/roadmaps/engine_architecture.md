@@ -274,3 +274,34 @@ directory `load_document` can read directly, so recovering one is a
 manual copy for now. No `ReferenceColoringTab` changes were needed: Save
 Document already calls `save_document` with the new default, so rotation
 is automatic and transparent.
+
+**Tenth slice (issue #34, In review pending a manual desktop-app
+check): bind a portable project for `SignalWeights` correction
+learning.** Owner-directed follow-up to the seventh/eighth/ninth slices:
+bind the standalone editor's correspondence assignment into a portable
+`project` (`src/project`, the same package the Krita tutor's lesson flow
+uses) so it benefits from `SignalWeights` correction learning, the same
+way the Krita Character Colors Docker's milestone-4 workflow (#24) does
+-- closing the gap the seventh slice's notes left open. New
+`project.create_project(directory, *, title)` in
+`src/project/service.py`: a bare project manifest with no
+exercise/attempt. `create_exercise_project` is the Krita tutor's own
+entry point and always seeds a lesson attempt; hosts that only need to
+bind style bibles/correspondence sets (the standalone editor) have no
+attempt to seed, and `Project.progress`/`document_asset` were already
+optional in the schema -- this is the same manifest shape without the
+tutor-specific defaults. `ReferenceColoringTab` gains **New
+Project**/**Bind Project** buttons. Once a project is bound: **Bind
+Style Bible** also attaches the bible into the project
+(`upsert_project_style_bible`, tracked as `_bible_asset_path`);
+**Suggest Material** ranks via `project.rank_correspondence_materials`
+(using the project's learned `SignalWeights`) instead of the fixed
+0.5/0.5 local weights, keeping the ranked candidates; **Assign
+Correspondence** persists the updated correspondence set into the
+project (`upsert_project_correspondence_set`) and reports the artist's
+choice to `record_correspondence_choice`, so `SignalWeights` learn from
+it. Without a bound project, everything behaves exactly as before
+(in-memory, fixed weights) -- purely additive, no behavior change for
+the unbound case. Not in scope: binding the canvas document itself (the
+`.npy`-per-layer format from #32/#33) into the project's asset model --
+that stays a separate lightweight format for now.

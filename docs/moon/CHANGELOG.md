@@ -38,13 +38,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `engine_architecture.md`'s "Gate 5 exception (2026-08-07)" note for the
   full rationale — this is a scope decision, not evidence Krita has proven
   insufficient. The Krita plugin remains the primary, actively-developed
-  host. Nine slices — canvas + layer-stack foundation, brush paint tool
+  host. Ten slices — canvas + layer-stack foundation, brush paint tool
   (issue #26), undo/redo (issue #27), non-destructive layer masks
   (issue #28), line-art segmentation (issue #29), style-bible palette
   application (issue #30), region-to-material correspondence assignment
-  (issue #31), canvas document save/load (issue #32), and canvas
-  document recovery-revision rotation (issue #33) — are all In review
-  pending a manual desktop-app check (see the `### Added` entries below).
+  (issue #31), canvas document save/load (issue #32), canvas document
+  recovery-revision rotation (issue #33), and binding a portable project
+  for `SignalWeights` correction learning (issue #34) — are all In
+  review pending a manual desktop-app check (see the `### Added` entries
+  below).
 
 ### Fixed
 
@@ -332,6 +334,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   calls `save_document` with the new default. Verification: 4 new core
   `editor` tests (520 core + 178 gui total); Ruff and mypy clean. Needs a
   manual desktop launch to confirm visually — see issue #33's testing
+  comment.
+- **Standalone editor tenth slice (issue #34, In review): bind a
+  portable project for `SignalWeights` correction learning.**
+  Owner-directed follow-up to the seventh/eighth/ninth slices: bind the
+  standalone editor's correspondence assignment into a portable
+  `project` (`src/project`, the same package the Krita tutor's lesson
+  flow uses) so it benefits from `SignalWeights` correction learning,
+  the same way the Krita Character Colors Docker's milestone-4 workflow
+  (#24) does. New `project.create_project(directory, *, title)` in
+  `src/project/service.py`: a bare project manifest with no
+  exercise/attempt — `create_exercise_project` is the Krita tutor's own
+  entry point and always seeds a lesson attempt, but hosts that only
+  need to bind style bibles/correspondence sets (the standalone editor)
+  have no attempt to seed, and `Project.progress`/`document_asset` were
+  already optional in the schema, so this is the same manifest shape
+  without the tutor-specific defaults. `ReferenceColoringTab` gains New
+  Project/Bind Project buttons. Once a project is bound: Bind Style
+  Bible also attaches the bible into the project
+  (`upsert_project_style_bible`); Suggest Material ranks via
+  `project.rank_correspondence_materials` (the project's learned
+  `SignalWeights`) instead of the fixed 0.5/0.5 local weights; Assign
+  Correspondence persists the updated correspondence set into the
+  project (`upsert_project_correspondence_set`) and reports the choice
+  to `record_correspondence_choice` so `SignalWeights` learn from it.
+  Without a bound project, everything behaves exactly as before —
+  purely additive. Not in scope: binding the canvas document itself
+  (the `.npy`-per-layer format from #32/#33) into the project's asset
+  model. Verification: 4 new core `project` tests, 6 new headless-Qt
+  `gui` tests (524 core + 184 gui total); Ruff and mypy clean. Needs a
+  manual desktop launch to confirm visually — see issue #34's testing
   comment.
 - **Milestone 4 first slice (issue #24): deterministic confidence scoring
   and correction learning for assisted correspondence.** Portable contract

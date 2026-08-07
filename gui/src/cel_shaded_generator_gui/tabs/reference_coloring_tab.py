@@ -16,11 +16,17 @@ palette roles, and assign+rank region-to-material correspondences
 same way the Krita Character Colors Docker's confidence-ranked material
 dropdown does) so later segmented regions can suggest a default material
 from already-assigned neighbors, and save/load a canvas document to a plain
-directory so work survives closing the app. Assignment stays in-memory
-until an explicit Save Document -- there is no autosave or Krita-style
-project binding yet for the standalone editor, so unlike the Krita
-docker's flow there is no ``SignalWeights`` correction-learning step;
-suggestions always start from the same fixed 0.5/0.5 weights.
+directory so work survives closing the app. A canvas document's pixels
+still live in the plain ``.npy``-directory format from slice 8 -- only
+correspondence assignment optionally binds into a portable ``project``
+(``src/project``, the same package the Krita tutor's lesson flow uses).
+When a project is bound and a style bible attached to it, Suggest
+Material/Assign Correspondence delegate to ``project.rank_correspondence_materials``/
+``record_correspondence_choice`` instead of the fixed-weight local path,
+so suggestions improve from the project's learned ``SignalWeights`` the
+same way the Krita Character Colors Docker's milestone-4 workflow does.
+Without a bound project, correspondence assignment stays in-memory with
+fixed 0.5/0.5 weights, as before.
 
 New feature, not code motion.
 """
@@ -51,6 +57,14 @@ from editor import (
     save_document,
     segment_layer_into_regions,
 )
+from project import (
+    create_project,
+    rank_correspondence_materials,
+    record_correspondence_choice,
+    upsert_project_correspondence_set,
+    upsert_project_style_bible,
+)
+from project.storage import MANIFEST_NAME
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -85,6 +99,9 @@ class ReferenceColoringTab(QWidget):
         self._style_bible: CharacterStyleBible | None = None
         self._correspondence_set: CorrespondenceSet | None = None
         self._region_layer_ids: list[str] = []
+        self._project_directory: str | None = None
+        self._bible_asset_path: str | None = None
+        self._last_ranked_candidates: list[dict] | None = None
         self._status = QLabel("No canvas yet. Click New Canvas to begin.", self)
         self._status.setWordWrap(True)
         self._new_canvas_button = QPushButton("New Canvas", self)
@@ -93,6 +110,10 @@ class ReferenceColoringTab(QWidget):
         self._save_document_button.clicked.connect(self._save_document)
         self._open_document_button = QPushButton("Open Document", self)
         self._open_document_button.clicked.connect(self._open_document)
+        self._new_project_button = QPushButton("New Project", self)
+        self._new_project_button.clicked.connect(self._new_project)
+        self._bind_project_button = QPushButton("Bind Project", self)
+        self._bind_project_button.clicked.connect(self._bind_project)
 
         self._canvas = LayerCanvas(self)
         self._layer_panel = LayerListPanel(self)
@@ -157,6 +178,8 @@ class ReferenceColoringTab(QWidget):
         controls.addWidget(self._new_canvas_button)
         controls.addWidget(self._save_document_button)
         controls.addWidget(self._open_document_button)
+        controls.addWidget(self._new_project_button)
+        controls.addWidget(self._bind_project_button)
         controls.addWidget(self._pan_tool)
         controls.addWidget(self._brush_tool)
         controls.addWidget(QLabel("Color:", self))
@@ -275,6 +298,40 @@ class ReferenceColoringTab(QWidget):
         )
         self._update_status()
 
+    def _new_project(self) -> None:
+        """Create a bare portable ``project`` manifest (no exercise/attempt --
+        that's the Krita tutor's own entry point) in a chosen empty folder,
+        and bind this tab to it. A bound project's learned ``SignalWeights``
+        make Suggest Material/Assign Correspondence improve over time,
+        unlike the fixed-weight in-memory path used without one."""
+        directory = QFileDialog.getExistingDirectory(self, "New Project (choose an empty folder)")
+        if not directory:
+            return
+        title, accepted = QInputDialog.getText(self, "New Project", "Title:")
+        if not accepted or not title.strip():
+            return
+        try:
+            create_project(directory, title=title)
+        except (OSError, ValueError) as error:
+            self._status.setText(f"Could not create project: {error}")
+            return
+        self._project_directory = directory
+        self._bible_asset_path = None
+        self._status.setText(f"Created and bound project at {directory}.")
+
+    def _bind_project(self) -> None:
+        """Bind this tab to an existing project directory (one already
+        created here, or by the Krita tutor's own project flow)."""
+        directory = QFileDialog.getExistingDirectory(self, "Bind Project")
+        if not directory:
+            return
+        if not (Path(directory) / MANIFEST_NAME).is_file():
+            self._status.setText("Selected directory has no project manifest.")
+            return
+        self._project_directory = directory
+        self._bible_asset_path = None
+        self._status.setText(f"Bound project at {directory}.")
+
     def _update_status(self) -> None:
         layer_stack = self._canvas.layer_stack()
         if layer_stack is None:
@@ -340,6 +397,14 @@ class ReferenceColoringTab(QWidget):
         except (OSError, ValueError):
             self._style_bible = None
             return
+        self._bible_asset_path = None
+        if self._project_directory is not None:
+            try:
+                self._bible_asset_path = upsert_project_style_bible(
+                    self._project_directory, payload=self._style_bible.to_dict()
+                )
+            except (OSError, ValueError) as error:
+                self._status.setText(f"Could not attach bible to project: {error}")
         self._material_combo.clear()
         for material in self._style_bible.materials:
             self._material_combo.addItem(material.label, material.id)
@@ -376,7 +441,12 @@ class ReferenceColoringTab(QWidget):
         """Rank the bound bible's materials for the selected region layer and
         select the top candidate in the Material combo, without assigning
         anything -- the artist still confirms via Apply Palette Color and/or
-        Assign Correspondence."""
+        Assign Correspondence. When a project is bound with this bible
+        attached, ranking uses the project's learned ``SignalWeights``
+        (``project.rank_correspondence_materials``) instead of the fixed
+        0.5/0.5 local weights, and the candidates are kept so a following
+        Assign Correspondence can report the choice back for correction
+        learning."""
         layer_stack = self._canvas.layer_stack()
         layer_id = self._layer_panel.selected_layer_id()
         if layer_stack is None or layer_id is None or self._style_bible is None:
@@ -384,7 +454,16 @@ class ReferenceColoringTab(QWidget):
         pairs = region_adjacency_for_regions(layer_stack, self._region_layer_ids)
         correspondence_set = self._correspondence_set or self._empty_correspondence_set()
         agreements = adjacency_agreement_by_material(layer_id, pairs, correspondence_set)
-        ranked = rank_material_candidates(layer_id, self._style_bible, agreements)
+        if self._project_directory is not None and self._bible_asset_path is not None:
+            ranked = rank_correspondence_materials(
+                self._project_directory,
+                bible_asset_path=self._bible_asset_path,
+                region_id=layer_id,
+                adjacency_agreements=agreements,
+            )
+        else:
+            ranked = rank_material_candidates(layer_id, self._style_bible, agreements)
+        self._last_ranked_candidates = ranked or None
         if not ranked:
             return
         top = ranked[0]
@@ -400,7 +479,12 @@ class ReferenceColoringTab(QWidget):
         """Record the currently selected Material/Role as this region's
         correspondence, so future ``_suggest_material`` calls can use it as
         an adjacency signal for neighboring regions. Never recolors
-        anything itself -- use Apply Palette Color for that."""
+        anything itself -- use Apply Palette Color for that. When a
+        project is bound, the updated correspondence set is also persisted
+        into it, and -- if Suggest Material was called first for this
+        region -- the choice is reported to
+        ``project.record_correspondence_choice`` so the project's
+        ``SignalWeights`` learn from it."""
         layer_id = self._layer_panel.selected_layer_id()
         material = self._selected_material()
         role = self._role_combo.currentText()
@@ -419,6 +503,15 @@ class ReferenceColoringTab(QWidget):
             self._status.setText(str(error))
             return
         self._correspondence_set = updated
+        if self._project_directory is not None:
+            upsert_project_correspondence_set(self._project_directory, payload=updated.to_dict())
+            if self._last_ranked_candidates:
+                record_correspondence_choice(
+                    self._project_directory,
+                    chosen_material_id=material.id,
+                    candidates=self._last_ranked_candidates,
+                )
+        self._last_ranked_candidates = None
         self._status.setText(f"Assigned region '{layer_id}' to {material.id}/{role}.")
 
     def _empty_correspondence_set(self) -> CorrespondenceSet:
@@ -429,6 +522,9 @@ class ReferenceColoringTab(QWidget):
 
     def correspondence_set(self) -> CorrespondenceSet | None:
         return self._correspondence_set
+
+    def project_directory(self) -> str | None:
+        return self._project_directory
 
     def _undo(self) -> None:
         if self._history is None or not self._history.undo():

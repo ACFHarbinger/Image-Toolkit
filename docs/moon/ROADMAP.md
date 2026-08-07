@@ -141,7 +141,7 @@ anyway, ahead of the gate; see the "Gate 5 exception" note in the
 [Engine Architecture Roadmap](roadmaps/engine_architecture.md) for the full
 rationale. This is a scope decision, not evidence Krita has proven
 insufficient — the Krita plugin remains the primary, actively-developed
-host. Nine slices are implemented, all In review: the first (issue #25 —
+host. Ten slices are implemented, all In review: the first (issue #25 —
 a PySide6 canvas + layer-stack foundation in the existing `gui/` workspace
 member, backed by a new pure-numpy `src/editor/` package), the second
 (issue #26 — a brush paint tool: pure-numpy circular stamping in
@@ -165,11 +165,15 @@ correction learning yet), the eighth (issue #32 — canvas document
 save/load: `.npy`-per-layer plus a manifest, with the correspondence set
 and region-layer bookkeeping saved alongside via Save Document/Open
 Document buttons, so a canvas now survives closing the app; still no
-`src/project` integration), and the ninth (issue #33 — bounded
+`src/project` integration), the ninth (issue #33 — bounded
 recovery-revision rotation for canvas documents on save, matching
 `colorization.correspondence`/`colorization.style_bible`'s existing
-`.recovery/` contract for their own JSON assets). The likely long-term
-architecture is still a C++ engine, GPU-backed
+`.recovery/` contract for their own JSON assets), and the tenth
+(issue #34 — binding a portable `project` for `SignalWeights`
+correction learning: New Project/Bind Project buttons, plus
+project-aware Suggest Material/Assign Correspondence that fall back to
+the seventh slice's fixed-weight in-memory behavior when no project is
+bound). The likely long-term architecture is still a C++ engine, GPU-backed
 canvas, and isolated Python research/model workers; its staged boundary and
 migration gates are defined in the same document. Browser support is not a
 justification for choosing the desktop architecture.

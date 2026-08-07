@@ -72,6 +72,29 @@ CAPSTONE_RUBRICS = (
 )
 
 
+def create_project(directory: str | Path, *, title: str) -> Project:
+    """Create a bare project manifest in an existing empty directory, with
+    no exercise/attempt.
+
+    ``create_exercise_project`` is the Krita tutor's entry point and always
+    seeds one lesson attempt; hosts that only need to bind style bibles and
+    correspondence sets -- and benefit from a project's learned
+    ``SignalWeights`` for correspondence-suggestion correction learning --
+    without going through the tutor's lesson flow (e.g. the standalone
+    editor) have no attempt to seed. ``Project.progress``/``document_asset``
+    are already optional in the schema; this is the same manifest shape,
+    just without the tutor-specific defaults.
+    """
+    root = Path(directory).expanduser().resolve()
+    if not root.is_dir():
+        raise ValueError("project directory must already exist")
+    if any(root.iterdir()):
+        raise ValueError("project directory must be empty")
+    project = Project(title=title)
+    save_project(root, project)
+    return project
+
+
 def create_exercise_project(
     directory: str | Path,
     *,
