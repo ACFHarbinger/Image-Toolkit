@@ -11,11 +11,13 @@ from PyQt5.QtGui import QKeySequence
 from PyQt5.QtWidgets import (
     QCheckBox,
     QFileDialog,
+    QInputDialog,
     QLabel,
     QMessageBox,
     QPushButton,
     QScrollArea,
     QShortcut,
+    QSpinBox,
     QVBoxLayout,
     QWidget,
 )
@@ -71,6 +73,16 @@ class LearningDocker(DockWidget):
         accept_button.clicked.connect(self._accept_preview)
         reject_button = QPushButton("Reject Preview", container)
         reject_button.clicked.connect(self._reject_preview)
+        helpful_button = QPushButton("Advice: Helpful", container)
+        helpful_button.clicked.connect(lambda checked=False: self._report_feedback("helpful"))
+        unhelpful_button = QPushButton("Advice: Unhelpful", container)
+        unhelpful_button.clicked.connect(lambda checked=False: self._report_feedback("unhelpful"))
+        incorrect_button = QPushButton("Advice: Incorrect", container)
+        incorrect_button.clicked.connect(lambda checked=False: self._report_feedback("incorrect"))
+        not_applicable_button = QPushButton("Advice: Not Applicable", container)
+        not_applicable_button.clicked.connect(
+            lambda checked=False: self._report_feedback("not_applicable")
+        )
         shortcut_button = QPushButton("Configure Shortcuts", container)
         shortcut_button.clicked.connect(self._configure_shortcuts)
         progress_heading = QLabel("Project Progress", container)
@@ -82,6 +94,13 @@ class LearningDocker(DockWidget):
         self._raw_measurements = QCheckBox("Show raw normalized measurements", container)
         self._raw_measurements.setChecked(config["show_raw_measurements"])
         self._raw_measurements.toggled.connect(self._set_raw_measurements)
+        self._feedback_history = QCheckBox("Keep advice-feedback edit history", container)
+        self._feedback_note_limit = QSpinBox(container)
+        self._feedback_note_limit.setRange(1, 100000)
+        self._feedback_note_limit.setValue(2000)
+        self._feedback_note_limit.setSuffix(" note characters")
+        save_feedback_settings = QPushButton("Save Feedback Settings", container)
+        save_feedback_settings.clicked.connect(self._save_feedback_policy)
         refresh_progress_button = QPushButton("Refresh Progress", container)
         refresh_progress_button.clicked.connect(self._refresh_progress)
         enable_progress_button = QPushButton("Enable Project Progress", container)
@@ -113,10 +132,17 @@ class LearningDocker(DockWidget):
         layout.addWidget(review_button)
         layout.addWidget(accept_button)
         layout.addWidget(reject_button)
+        layout.addWidget(helpful_button)
+        layout.addWidget(unhelpful_button)
+        layout.addWidget(incorrect_button)
+        layout.addWidget(not_applicable_button)
         layout.addWidget(shortcut_button)
         layout.addWidget(progress_heading)
         layout.addWidget(self._progress_text)
         layout.addWidget(self._raw_measurements)
+        layout.addWidget(self._feedback_history)
+        layout.addWidget(self._feedback_note_limit)
+        layout.addWidget(save_feedback_settings)
         layout.addWidget(refresh_progress_button)
         layout.addWidget(enable_progress_button)
         layout.addWidget(disable_progress_button)
@@ -221,6 +247,9 @@ class LearningDocker(DockWidget):
             self._progress_text.setText(f"Progress unavailable: {error}")
             return
         self._progress_text.setText(rendered)
+        policy = snapshot.get("feedback_policy", {})
+        self._feedback_history.setChecked(policy.get("retain_revision_history", False))
+        self._feedback_note_limit.setValue(policy.get("note_character_limit", 2000))
 
     def _set_raw_measurements(self, enabled) -> None:
         try:
@@ -228,6 +257,52 @@ class LearningDocker(DockWidget):
         except ValueError as error:
             self._action_status.setText(f"Could not save progress display setting: {error}")
             return
+        self._refresh_progress()
+
+    def _report_feedback(self, rating) -> None:
+        if None in (self._project_directory, self._attempt_id, self._review_id):
+            self._action_status.setText("Request and save a project review before rating advice.")
+            return
+        note, accepted = QInputDialog.getMultiLineText(
+            self,
+            "Advice Feedback",
+            f"Optional note (maximum {self._feedback_note_limit.value()} characters):",
+        )
+        if not accepted:
+            self._action_status.setText("Advice feedback was not changed.")
+            return
+        note = note.strip() or None
+        try:
+            result = EngineClient().record_advice_feedback(
+                "feedback-" + str(uuid.uuid4()),
+                self._project_directory,
+                self._attempt_id,
+                self._review_id,
+                rating,
+                note,
+            )
+        except (RuntimeError, ValueError) as error:
+            self._action_status.setText(f"Could not save advice feedback: {error}")
+            return
+        state = "updated" if result.get("changed") else "unchanged"
+        self._action_status.setText(f"Advice feedback {state}: {rating.replace('_', ' ')}.")
+        self._refresh_progress()
+
+    def _save_feedback_policy(self) -> None:
+        if self._project_directory is None:
+            self._action_status.setText("Create or bind a portable project first.")
+            return
+        try:
+            EngineClient().configure_feedback_policy(
+                "feedback-policy-" + str(uuid.uuid4()),
+                self._project_directory,
+                self._feedback_history.isChecked(),
+                self._feedback_note_limit.value(),
+            )
+        except (RuntimeError, ValueError) as error:
+            self._action_status.setText(f"Could not save feedback settings: {error}")
+            return
+        self._action_status.setText("Project advice-feedback settings updated.")
         self._refresh_progress()
 
     def _disable_progress(self) -> None:

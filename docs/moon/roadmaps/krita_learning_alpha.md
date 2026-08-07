@@ -151,10 +151,10 @@ not evidence of pedagogical validity.
   shortcuts are opt-in and atomically persisted; none is assigned by default
   because Tab belongs to Krita. Failed decision persistence retains a same-action
   retry state and blocks the opposite decision. Owner review remains in #11.
-- 🔄 Save, reload, migration, and failure recovery: portable schema v3 persists
+- 🔄 Save, reload, migration, and failure recovery: portable schema v4 persists
   privacy-safe review versions, measurements, explanations, and final decisions
   plus one final structured advice rating and optional local note, with
-  deterministic v0/v1/v2 migration and recovery coverage. Project-local
+  deterministic v0/v1/v2/v3 migration and recovery coverage. Project-local
   learning retention is a setting enabled by default; artwork history and
   global aggregation remain independently disabled by default. The Krita adapter
   now binds an empty directory to `project.json` plus
@@ -189,8 +189,11 @@ remain deferred in Review.
 - 🔄 Feedback reporting for incorrect or unhelpful advice: the private summary
   distinguishes helpful, unhelpful, incorrect, not-applicable, and unrated
   reviews, rejects contradictory classifications, and creates no aggregate
-  artist score. Schema v3 persists one final classification and optional note
-  directly in each portable project with atomic recovery. Krita controls remain.
+  artist score. Schema v4 persists an editable classification and optional note
+  directly in each portable project with atomic recovery. Revision-history
+  retention is configurable and defaults off; the note limit is configurable
+  from 1 to 100,000 characters and defaults to 2,000. Rating/note controls and
+  policy settings now live in the existing docker; live confirmation remains.
 - 🔄 Retention controls live in the existing tutor docker. Users may keep
   retention enabled, explicitly clear history and disable it, or re-enable it;
   a project with history cannot be disabled through the engine without the

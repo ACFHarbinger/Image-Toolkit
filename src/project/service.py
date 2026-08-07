@@ -9,6 +9,7 @@ from .model import (
     AdviceRating,
     Attempt,
     ExerciseProgress,
+    FeedbackPolicy,
     Project,
     ProjectProgress,
     ReviewRecord,
@@ -100,7 +101,7 @@ def record_advice_feedback(
     matching = [review for review in attempt.reviews if review.id == review_id]
     if len(matching) != 1:
         raise ValueError("review does not uniquely identify a persisted attempt review")
-    changed = matching[0].report_feedback(AdviceFeedback(rating, note))
+    changed = matching[0].report_feedback(AdviceFeedback(rating, note), project.feedback_policy)
     if changed:
         save_project(root, project)
     return changed
@@ -111,6 +112,10 @@ def project_progress_snapshot(directory: str | Path) -> dict:
     project = load_project(Path(directory))
     return {
         "retain_learning_progress": project.consent.retain_learning_progress,
+        "feedback_policy": {
+            "retain_revision_history": project.feedback_policy.retain_revision_history,
+            "note_character_limit": project.feedback_policy.note_character_limit,
+        },
         "exercises": [
             {
                 "exercise_id": exercise.exercise_id,
@@ -129,6 +134,7 @@ def project_progress_snapshot(directory: str | Path) -> dict:
                                     {
                                         "rating": review.artist_feedback.rating.value,
                                         "note": review.artist_feedback.note,
+                                        "revision": review.artist_feedback.revision,
                                     }
                                     if review.artist_feedback is not None
                                     else None
@@ -160,6 +166,29 @@ def configure_progress_retention(
             raise ValueError("existing learning progress must be explicitly cleared")
         project.progress = ProjectProgress()
     project.consent.retain_learning_progress = enabled
+    save_project(root, project)
+    return True
+
+
+def configure_feedback_policy(
+    directory: str | Path,
+    *,
+    retain_revision_history: bool,
+    note_character_limit: int,
+) -> bool:
+    """Update feedback editing policy and discard history when retention is disabled."""
+    root = Path(directory)
+    project = load_project(root)
+    policy = FeedbackPolicy(retain_revision_history, note_character_limit)
+    if project.feedback_policy == policy:
+        return False
+    if not retain_revision_history:
+        for exercise in project.progress.exercises:
+            for attempt in exercise.attempts:
+                for review in attempt.reviews:
+                    review.artist_feedback_history.clear()
+    project.feedback_policy = policy
+    project.validate()
     save_project(root, project)
     return True
 

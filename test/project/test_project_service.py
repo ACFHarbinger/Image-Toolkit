@@ -5,6 +5,7 @@ import pytest
 from project import (
     AdviceRating,
     SuggestionDecision,
+    configure_feedback_policy,
     configure_progress_retention,
     create_exercise_project,
     decide_attempt_review,
@@ -106,13 +107,71 @@ def test_records_advice_feedback_with_idempotent_retry_and_recovery(tmp_path):
     review = load_project(tmp_path).progress.exercises[0].attempts[0].reviews[0]
     assert review.artist_feedback is not None
     assert review.artist_feedback.rating is AdviceRating.HELPFUL
-    with pytest.raises(ValueError, match="cannot be replaced"):
+    assert record_advice_feedback(
+        tmp_path,
+        attempt_id="attempt-1",
+        review_id="review-1",
+        rating=AdviceRating.INCORRECT,
+    )
+    revised = load_project(tmp_path).progress.exercises[0].attempts[0].reviews[0]
+    assert revised.artist_feedback is not None
+    assert revised.artist_feedback.rating is AdviceRating.INCORRECT
+    assert revised.artist_feedback.revision == 2
+    assert revised.artist_feedback_history == []
+
+
+def test_feedback_revision_history_and_note_limit_are_project_settings(tmp_path):
+    artwork = tmp_path / "artwork/attempt-001.kra"
+    artwork.parent.mkdir()
+    artwork.write_bytes(b"document")
+    create_exercise_project(tmp_path, title="Head", attempt_id="attempt-1")
+    record_attempt_review(
+        tmp_path,
+        attempt_id="attempt-1",
+        review_payload={
+            "id": "review-1",
+            "exercise_version": "1",
+            "method_id": "method",
+            "rubric_id": "rubric",
+            "rubric_version": "1",
+        },
+    )
+    assert configure_feedback_policy(
+        tmp_path, retain_revision_history=True, note_character_limit=12
+    )
+    record_advice_feedback(
+        tmp_path,
+        attempt_id="attempt-1",
+        review_id="review-1",
+        rating=AdviceRating.HELPFUL,
+        note="Useful",
+    )
+    record_advice_feedback(
+        tmp_path,
+        attempt_id="attempt-1",
+        review_id="review-1",
+        rating=AdviceRating.UNHELPFUL,
+        note="Needs detail",
+    )
+    review = load_project(tmp_path).progress.exercises[0].attempts[0].reviews[0]
+    assert [item.rating for item in review.artist_feedback_history] == [AdviceRating.HELPFUL]
+    assert review.artist_feedback is not None and review.artist_feedback.revision == 2
+    with pytest.raises(ValueError, match="12-character limit"):
         record_advice_feedback(
             tmp_path,
             attempt_id="attempt-1",
             review_id="review-1",
             rating=AdviceRating.INCORRECT,
+            note="This is much too long",
         )
+
+    assert configure_feedback_policy(
+        tmp_path, retain_revision_history=False, note_character_limit=12
+    )
+    assert (
+        load_project(tmp_path).progress.exercises[0].attempts[0].reviews[0].artist_feedback_history
+        == []
+    )
 
 
 def test_progress_snapshot_and_explicit_clear_disable_policy(tmp_path):
@@ -129,6 +188,10 @@ def test_progress_snapshot_and_explicit_clear_disable_policy(tmp_path):
     assert configure_progress_retention(tmp_path, enabled=False, clear_existing=True)
     assert project_progress_snapshot(tmp_path) == {
         "retain_learning_progress": False,
+        "feedback_policy": {
+            "retain_revision_history": False,
+            "note_character_limit": 2000,
+        },
         "exercises": [],
     }
     assert configure_progress_retention(tmp_path, enabled=True)

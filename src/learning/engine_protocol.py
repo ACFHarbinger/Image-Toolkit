@@ -9,6 +9,7 @@ from typing import Any
 from project import (
     AdviceRating,
     SuggestionDecision,
+    configure_feedback_policy,
     configure_progress_retention,
     create_exercise_project,
     decide_attempt_review,
@@ -99,6 +100,16 @@ def handle_request(request: dict[str, Any]) -> dict[str, Any]:
             )
         except KeyError as error:
             raise ValueError("progress-retention request is incomplete") from error
+        return _success(request_id, {"changed": changed})
+    if operation == "configure_feedback_policy":
+        try:
+            changed = configure_feedback_policy(
+                payload["directory"],
+                retain_revision_history=payload["retain_revision_history"],
+                note_character_limit=payload["note_character_limit"],
+            )
+        except KeyError as error:
+            raise ValueError("feedback-policy request is incomplete") from error
         return _success(request_id, {"changed": changed})
     if operation != "review_front_head":
         raise ValueError("unsupported engine operation")

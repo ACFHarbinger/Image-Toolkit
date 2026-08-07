@@ -46,6 +46,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Retention controls let the artist keep data, explicitly clear-and-disable, or
   re-enable it; the engine refuses implicit clearing. Headless formatter,
   settings, client, service, privacy, and recovery tests cover the boundary.
+  Made advice feedback editable per owner direction. Portable schema v4 gives
+  every revision a monotonic number, keeps or discards prior edits according to
+  a per-project history setting (off by default), and enforces a configurable
+  1–100,000 character note limit with a 2,000-character default. The existing
+  docker now offers all four rating actions, an optional note editor, and policy
+  controls. Deterministic v3 migration and atomic engine operations cover both
+  current-only and retained-history modes.
 - Opened A3 issue #12 at In Progress P0/XL for versioned curriculum progression,
   deterministic weakness-to-remediation routing, comparable repeated-attempt
   metrics, and a private local progress view while A2 issues #10/#11 remain in

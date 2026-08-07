@@ -70,6 +70,34 @@ class EngineClient:
             },
         )
 
+    def record_advice_feedback(
+        self, request_id, directory, attempt_id, review_id, rating, note=None
+    ):
+        return self._execute(
+            request_id,
+            "record_advice_feedback",
+            {
+                "directory": directory,
+                "attempt_id": attempt_id,
+                "review_id": review_id,
+                "rating": rating,
+                "note": note,
+            },
+        )
+
+    def configure_feedback_policy(
+        self, request_id, directory, retain_revision_history, note_character_limit
+    ):
+        return self._execute(
+            request_id,
+            "configure_feedback_policy",
+            {
+                "directory": directory,
+                "retain_revision_history": retain_revision_history,
+                "note_character_limit": note_character_limit,
+            },
+        )
+
     def _execute(self, request_id, operation, payload):
         request = {
             "protocol_version": ENGINE_PROTOCOL_VERSION,

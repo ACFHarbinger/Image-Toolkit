@@ -10,7 +10,7 @@ from pathlib import PurePosixPath
 from typing import Any
 from uuid import uuid4
 
-CURRENT_SCHEMA_VERSION = 3
+CURRENT_SCHEMA_VERSION = 4
 
 
 def migrate_project_payload(payload: dict[str, Any]) -> dict[str, Any]:
@@ -24,7 +24,7 @@ def migrate_project_payload(payload: dict[str, Any]) -> dict[str, Any]:
     version = migrated.get("schema_version", 0)
     if version == CURRENT_SCHEMA_VERSION:
         return migrated
-    if version not in (0, 1, 2):
+    if version not in (0, 1, 2, 3):
         raise ValueError(f"unsupported project schema version: {version}")
     if version == 0:
         migrated["consent"] = {
@@ -41,7 +41,14 @@ def migrate_project_payload(payload: dict[str, Any]) -> dict[str, Any]:
             attempt.setdefault("reviews", [])
             for review in attempt["reviews"]:
                 review.setdefault("artist_feedback", None)
+                if review["artist_feedback"] is not None:
+                    review["artist_feedback"].setdefault("revision", 1)
+                review.setdefault("artist_feedback_history", [])
     migrated.setdefault("consent", {}).setdefault("retain_learning_progress", True)
+    migrated.setdefault(
+        "feedback_policy",
+        {"retain_revision_history": False, "note_character_limit": 2000},
+    )
     migrated["schema_version"] = CURRENT_SCHEMA_VERSION
     return migrated
 
@@ -76,6 +83,23 @@ class AutosavePolicy:
 
 
 @dataclass(slots=True)
+class FeedbackPolicy:
+    """Project-local policy for editable advice reports."""
+
+    retain_revision_history: bool = False
+    note_character_limit: int = 2000
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.retain_revision_history, bool):
+            raise ValueError("feedback revision-history setting must be boolean")
+        if (
+            not isinstance(self.note_character_limit, int)
+            or not 1 <= self.note_character_limit <= 100_000
+        ):
+            raise ValueError("feedback note limit must be between 1 and 100000 characters")
+
+
+@dataclass(slots=True)
 class Feedback:
     """One tutor observation attached to an exercise attempt."""
 
@@ -104,10 +128,13 @@ class AdviceFeedback:
 
     rating: AdviceRating
     note: str | None = None
+    revision: int = 1
 
     def __post_init__(self) -> None:
         if self.note is not None and not self.note.strip():
             raise ValueError("advice feedback note must be absent or non-empty")
+        if self.revision < 1:
+            raise ValueError("advice feedback revision must be positive")
 
 
 @dataclass(slots=True)
@@ -123,6 +150,7 @@ class ReviewRecord:
     explanations: list[str]
     suggestion_decision: SuggestionDecision = SuggestionDecision.PENDING
     artist_feedback: AdviceFeedback | None = None
+    artist_feedback_history: list[AdviceFeedback] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         for label, value in (
@@ -162,12 +190,25 @@ class ReviewRecord:
         self.suggestion_decision = decision
         return True
 
-    def report_feedback(self, feedback: AdviceFeedback) -> bool:
-        """Store feedback once; an identical retry is idempotent."""
+    def report_feedback(self, feedback: AdviceFeedback, policy: FeedbackPolicy) -> bool:
+        """Create or revise feedback according to the project-local history policy."""
+        if feedback.note is not None and len(feedback.note) > policy.note_character_limit:
+            raise ValueError(
+                f"advice feedback note exceeds the {policy.note_character_limit}-character limit"
+            )
         if self.artist_feedback == feedback:
             return False
         if self.artist_feedback is not None:
-            raise ValueError("advice feedback cannot be replaced")
+            if (
+                self.artist_feedback.rating is feedback.rating
+                and self.artist_feedback.note == feedback.note
+            ):
+                return False
+            if policy.retain_revision_history:
+                self.artist_feedback_history.append(self.artist_feedback)
+            else:
+                self.artist_feedback_history.clear()
+            feedback.revision = self.artist_feedback.revision + 1
         self.artist_feedback = feedback
         return True
 
@@ -213,6 +254,7 @@ class Project:
     document_asset: str | None = None
     consent: Consent = field(default_factory=Consent)
     autosave: AutosavePolicy = field(default_factory=AutosavePolicy)
+    feedback_policy: FeedbackPolicy = field(default_factory=FeedbackPolicy)
     progress: ProjectProgress = field(default_factory=ProjectProgress)
 
     def to_dict(self) -> dict[str, Any]:
@@ -244,6 +286,23 @@ class Project:
                 review_ids = [review.id for review in attempt.reviews]
                 if len(review_ids) != len(set(review_ids)):
                     raise ValueError("review identifiers must be unique within an attempt")
+                for review in attempt.reviews:
+                    entries = review.artist_feedback_history + (
+                        [review.artist_feedback] if review.artist_feedback is not None else []
+                    )
+                    if any(
+                        item.note is not None
+                        and len(item.note) > self.feedback_policy.note_character_limit
+                        for item in entries
+                    ):
+                        raise ValueError("stored advice feedback exceeds the configured note limit")
+                    if (
+                        not self.feedback_policy.retain_revision_history
+                        and review.artist_feedback_history
+                    ):
+                        raise ValueError(
+                            "feedback history exists while revision retention is disabled"
+                        )
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> Project:
@@ -254,6 +313,7 @@ class Project:
             raise ValueError(f"unsupported project schema version: {version}")
         consent = Consent(**payload.get("consent", {}))
         autosave = AutosavePolicy(**payload.get("autosave", {}))
+        feedback_policy = FeedbackPolicy(**payload.get("feedback_policy", {}))
         exercises = []
         for raw_exercise in payload.get("progress", {}).get("exercises", []):
             attempts = []
@@ -271,10 +331,19 @@ class Project:
                                     AdviceFeedback(
                                         AdviceRating(item["artist_feedback"]["rating"]),
                                         item["artist_feedback"].get("note"),
+                                        item["artist_feedback"].get("revision", 1),
                                     )
                                     if item.get("artist_feedback") is not None
                                     else None
                                 ),
+                                "artist_feedback_history": [
+                                    AdviceFeedback(
+                                        AdviceRating(history["rating"]),
+                                        history.get("note"),
+                                        history.get("revision", 1),
+                                    )
+                                    for history in item.get("artist_feedback_history", [])
+                                ],
                             }
                         )
                     )
@@ -293,6 +362,7 @@ class Project:
             document_asset=payload.get("document_asset"),
             consent=consent,
             autosave=autosave,
+            feedback_policy=feedback_policy,
             progress=ProjectProgress(exercises),
         )
         project.validate()
@@ -316,7 +386,7 @@ class LearnerProfile:
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> LearnerProfile:
         """Validate and deserialize a learner profile."""
-        if payload.get("schema_version") == 1:
+        if payload.get("schema_version") in (1, 2, 3):
             payload = payload | {"schema_version": CURRENT_SCHEMA_VERSION}
         profile = cls(**payload)
         profile.to_dict()

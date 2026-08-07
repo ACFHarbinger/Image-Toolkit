@@ -9,6 +9,7 @@ from .model import (
     Consent,
     ExerciseProgress,
     Feedback,
+    FeedbackPolicy,
     LearnerProfile,
     Project,
     ProjectProgress,
@@ -18,6 +19,7 @@ from .model import (
 )
 from .service import (
     FRONT_HEAD_EXERCISE_ID,
+    configure_feedback_policy,
     configure_progress_retention,
     create_exercise_project,
     decide_attempt_review,
@@ -36,6 +38,7 @@ __all__ = [
     "Consent",
     "ExerciseProgress",
     "Feedback",
+    "FeedbackPolicy",
     "FRONT_HEAD_EXERCISE_ID",
     "LearnerProfile",
     "Project",
@@ -49,6 +52,7 @@ __all__ = [
     "save_project",
     "create_exercise_project",
     "configure_progress_retention",
+    "configure_feedback_policy",
     "decide_attempt_review",
     "record_attempt_review",
     "record_advice_feedback",
