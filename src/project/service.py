@@ -34,6 +34,8 @@ from .model import (
     Project,
     ProjectProgress,
     ReviewRecord,
+    StudyConsent,
+    StudySession,
     SuggestionDecision,
 )
 from .storage import MANIFEST_NAME, load_project, save_project
@@ -417,6 +419,28 @@ def project_progress_snapshot(directory: str | Path) -> dict:
             _correspondence_set_summary(Path(directory), path)
             for path in project.correspondence_set_assets
         ],
+        "study": {
+            "consent": {
+                "opted_in": project.study_consent.opted_in,
+                "consent_version": project.study_consent.consent_version,
+                "consented_at": project.study_consent.consented_at,
+            },
+            "sessions": [
+                {
+                    "session_id": session.id,
+                    "baseline_attempt_id": session.baseline_attempt_id,
+                    "remedial_exercise_id": session.remedial_exercise_id,
+                    "redraw_attempt_id": session.redraw_attempt_id,
+                    "explanation_rating": (
+                        session.explanation_rating.value
+                        if session.explanation_rating is not None
+                        else None
+                    ),
+                    "completed_at": session.completed_at,
+                }
+                for session in project.study_sessions
+            ],
+        },
         "exercises": [
             {
                 "exercise_id": exercise.exercise_id,
@@ -632,6 +656,91 @@ def set_attempt_completion(directory: str | Path, *, attempt_id: str, completed:
     attempt.completed_at = datetime.now(UTC).isoformat() if completed else None
     save_project(root, project)
     return True
+
+
+def configure_study_consent(
+    directory: str | Path, *, opted_in: bool, clear_existing: bool = False
+) -> bool:
+    """Change beginner-study opt-in, requiring an explicit purge when withdrawing.
+
+    This only records an artist's own consent choice for roadmap A4 (issue
+    #14), which the roadmap itself gates on live checks being intentionally
+    scheduled; recording consent does not start or claim any evaluation.
+    """
+    if not isinstance(opted_in, bool) or not isinstance(clear_existing, bool):
+        raise ValueError("study-consent options must be boolean")
+    root = Path(directory)
+    project = load_project(root)
+    if project.study_consent.opted_in == opted_in:
+        return False
+    if not opted_in and project.study_sessions:
+        if not clear_existing:
+            raise ValueError("existing study sessions must be explicitly cleared")
+        project.study_sessions = []
+    project.study_consent = StudyConsent(
+        opted_in=opted_in,
+        consent_version=project.study_consent.consent_version,
+        consented_at=_timestamp() if opted_in else None,
+    )
+    save_project(root, project)
+    return True
+
+
+def record_study_session(
+    directory: str | Path,
+    *,
+    baseline_attempt_id: str,
+    remedial_exercise_id: str | None = None,
+    redraw_attempt_id: str | None = None,
+    explanation_rating: AdviceRating | None = None,
+    completed: bool = False,
+) -> StudySession:
+    """Create or update the one study session tied to a baseline attempt.
+
+    Requires explicit study consent. Sessions accumulate fields as the
+    baseline/review/remedial/redraw protocol progresses; identifiers are
+    validated against attempts that already exist in the project.
+    """
+    root = Path(directory)
+    project = load_project(root)
+    if not project.study_consent.opted_in:
+        raise ValueError("study sessions require explicit study consent")
+    _find_attempt(project, baseline_attempt_id)
+    if redraw_attempt_id is not None:
+        _find_attempt(project, redraw_attempt_id)
+    existing = next(
+        (
+            session
+            for session in project.study_sessions
+            if session.baseline_attempt_id == baseline_attempt_id
+        ),
+        None,
+    )
+    session = StudySession(
+        id=existing.id if existing is not None else "study-" + str(uuid4()),
+        baseline_attempt_id=baseline_attempt_id,
+        remedial_exercise_id=(
+            remedial_exercise_id
+            or (existing.remedial_exercise_id if existing is not None else None)
+        ),
+        redraw_attempt_id=(
+            redraw_attempt_id or (existing.redraw_attempt_id if existing is not None else None)
+        ),
+        explanation_rating=(
+            explanation_rating
+            or (existing.explanation_rating if existing is not None else None)
+        ),
+        completed_at=(
+            _timestamp()
+            if completed
+            else (existing.completed_at if existing is not None else None)
+        ),
+    )
+    if existing is not None:
+        project.study_sessions.remove(existing)
+    project.study_sessions.append(session)
+    save_project(root, project)
+    return session
 
 
 def _find_attempt(project: Project, attempt_id: str) -> Attempt:

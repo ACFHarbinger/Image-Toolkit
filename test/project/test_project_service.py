@@ -24,6 +24,7 @@ from project import (
     configure_feedback_policy,
     configure_identity_card_policy,
     configure_progress_retention,
+    configure_study_consent,
     create_exercise_project,
     decide_attempt_review,
     detach_correspondence_set,
@@ -36,6 +37,7 @@ from project import (
     propagate_project_correspondence,
     record_advice_feedback,
     record_attempt_review,
+    record_study_session,
     revise_capstone_decision_rationale,
     save_project,
     set_attempt_completion,
@@ -362,6 +364,10 @@ def test_progress_snapshot_and_explicit_clear_disable_policy(tmp_path):
         },
         "style_bibles": [],
         "correspondence_sets": [],
+        "study": {
+            "consent": {"opted_in": False, "consent_version": 1, "consented_at": None},
+            "sessions": [],
+        },
     }
     assert configure_progress_retention(tmp_path, enabled=True)
     assert not configure_progress_retention(tmp_path, enabled=True)
@@ -518,6 +524,86 @@ def test_upsert_and_propagate_project_correspondence_set(tmp_path):
 
     with pytest.raises(ValueError, match="not bound"):
         project_correspondence_set_payload(tmp_path, asset_path="correspondence/missing.json")
+
+
+def test_configure_study_consent_requires_explicit_clear_on_withdrawal(tmp_path):
+    artwork = tmp_path / "artwork/attempt-001.kra"
+    artwork.parent.mkdir()
+    artwork.write_bytes(b"document")
+    project = create_exercise_project(tmp_path, title="Study", attempt_id="attempt-1")
+
+    assert configure_study_consent(tmp_path, opted_in=True)
+    assert not configure_study_consent(tmp_path, opted_in=True)
+    assert load_project(tmp_path).study_consent.opted_in
+
+    record_study_session(tmp_path, baseline_attempt_id=project.progress.exercises[0].attempts[0].id)
+    with pytest.raises(ValueError, match="explicitly cleared"):
+        configure_study_consent(tmp_path, opted_in=False)
+    assert configure_study_consent(tmp_path, opted_in=False, clear_existing=True)
+    reloaded = load_project(tmp_path)
+    assert not reloaded.study_consent.opted_in
+    assert reloaded.study_sessions == []
+
+
+def test_record_study_session_requires_consent_and_known_attempts(tmp_path):
+    artwork = tmp_path / "artwork/attempt-001.kra"
+    artwork.parent.mkdir()
+    artwork.write_bytes(b"document")
+    create_exercise_project(tmp_path, title="Study", attempt_id="attempt-1")
+
+    with pytest.raises(ValueError, match="explicit study consent"):
+        record_study_session(tmp_path, baseline_attempt_id="attempt-1")
+
+    configure_study_consent(tmp_path, opted_in=True)
+    with pytest.raises(ValueError, match="attempt identifier"):
+        record_study_session(tmp_path, baseline_attempt_id="missing")
+
+
+def test_record_study_session_accumulates_protocol_fields(tmp_path):
+    artwork = tmp_path / "artwork/attempt-001.kra"
+    artwork.parent.mkdir()
+    artwork.write_bytes(b"document")
+    create_exercise_project(tmp_path, title="Study", attempt_id="attempt-1")
+    configure_study_consent(tmp_path, opted_in=True)
+
+    first = record_study_session(tmp_path, baseline_attempt_id="attempt-1")
+    assert first.remedial_exercise_id is None
+    assert first.completed_at is None
+
+    second = record_study_session(
+        tmp_path,
+        baseline_attempt_id="attempt-1",
+        remedial_exercise_id="anime-head-front-remedial",
+    )
+    assert second.id == first.id
+    assert second.remedial_exercise_id == "anime-head-front-remedial"
+
+    completed = record_study_session(
+        tmp_path,
+        baseline_attempt_id="attempt-1",
+        explanation_rating=AdviceRating.HELPFUL,
+        completed=True,
+    )
+    assert completed.id == first.id
+    assert completed.remedial_exercise_id == "anime-head-front-remedial"
+    assert completed.explanation_rating is AdviceRating.HELPFUL
+    assert completed.completed_at is not None
+
+    project = load_project(tmp_path)
+    assert len(project.study_sessions) == 1
+
+    snapshot = project_progress_snapshot(tmp_path)
+    assert snapshot["study"]["consent"]["opted_in"] is True
+    assert snapshot["study"]["sessions"] == [
+        {
+            "session_id": completed.id,
+            "baseline_attempt_id": "attempt-1",
+            "remedial_exercise_id": "anime-head-front-remedial",
+            "redraw_attempt_id": None,
+            "explanation_rating": "helpful",
+            "completed_at": completed.completed_at,
+        }
+    ]
 
 
 def test_identity_card_edits_and_optional_history_are_portable(tmp_path):

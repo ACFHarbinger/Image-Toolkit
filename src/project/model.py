@@ -10,7 +10,7 @@ from pathlib import PurePosixPath
 from typing import Any
 from uuid import uuid4
 
-CURRENT_SCHEMA_VERSION = 10
+CURRENT_SCHEMA_VERSION = 11
 
 
 def migrate_project_payload(payload: dict[str, Any]) -> dict[str, Any]:
@@ -24,7 +24,7 @@ def migrate_project_payload(payload: dict[str, Any]) -> dict[str, Any]:
     version = migrated.get("schema_version", 0)
     if version == CURRENT_SCHEMA_VERSION:
         return migrated
-    if version not in (0, 1, 2, 3, 4, 5, 6, 7, 8, 9):
+    if version not in (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10):
         raise ValueError(f"unsupported project schema version: {version}")
     if version == 0:
         migrated["consent"] = {
@@ -60,6 +60,8 @@ def migrate_project_payload(payload: dict[str, Any]) -> dict[str, Any]:
     migrated.setdefault("identity_card_history", [])
     migrated.setdefault("style_bible_assets", [])
     migrated.setdefault("correspondence_set_assets", [])
+    migrated.setdefault("study_consent", {})
+    migrated.setdefault("study_sessions", [])
     migrated["schema_version"] = CURRENT_SCHEMA_VERSION
     return migrated
 
@@ -204,6 +206,55 @@ class AdviceFeedback:
             raise ValueError("advice feedback note must be absent or non-empty")
         if self.revision < 1:
             raise ValueError("advice feedback revision must be positive")
+
+
+@dataclass(slots=True)
+class StudyConsent:
+    """Explicit, revocable opt-in for the beginner alpha study protocol.
+
+    Roadmap A4 (issue #14) is gated on live checks being intentionally
+    scheduled; this record only stores an artist's explicit choice to
+    participate once that happens. It never opts a project in implicitly.
+    """
+
+    opted_in: bool = False
+    consent_version: int = 1
+    consented_at: str | None = None
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.opted_in, bool):
+            raise ValueError("study-consent opt-in must be boolean")
+        if self.consent_version < 1:
+            raise ValueError("study-consent version must be positive")
+        if self.opted_in and (self.consented_at is None or not self.consented_at.strip()):
+            raise ValueError("opted-in consent requires a consent timestamp")
+        if not self.opted_in and self.consented_at is not None:
+            raise ValueError("withdrawn consent must not retain a consent timestamp")
+
+
+@dataclass(slots=True)
+class StudySession:
+    """One baseline/review/remedial/redraw protocol instance (roadmap A4).
+
+    Stores only attempt/exercise identifiers and an explanation-usefulness
+    rating -- never a global artist score, matching the roadmap's rule that
+    comparisons are per-rubric and never ranked.
+    """
+
+    id: str
+    baseline_attempt_id: str
+    remedial_exercise_id: str | None = None
+    redraw_attempt_id: str | None = None
+    explanation_rating: AdviceRating | None = None
+    completed_at: str | None = None
+
+    def __post_init__(self) -> None:
+        if not self.id.strip() or not self.baseline_attempt_id.strip():
+            raise ValueError("study-session id and baseline attempt id must not be empty")
+        if self.remedial_exercise_id is not None and not self.remedial_exercise_id.strip():
+            raise ValueError("study-session remedial exercise id must be absent or non-empty")
+        if self.redraw_attempt_id is not None and not self.redraw_attempt_id.strip():
+            raise ValueError("study-session redraw attempt id must be absent or non-empty")
 
 
 @dataclass(frozen=True, slots=True)
@@ -381,6 +432,8 @@ class Project:
     identity_card_history: list[IdentityCard] = field(default_factory=list)
     style_bible_assets: list[str] = field(default_factory=list)
     correspondence_set_assets: list[str] = field(default_factory=list)
+    study_consent: StudyConsent = field(default_factory=StudyConsent)
+    study_sessions: list[StudySession] = field(default_factory=list)
     progress: ProjectProgress = field(default_factory=ProjectProgress)
 
     def to_dict(self) -> dict[str, Any]:
@@ -451,6 +504,22 @@ class Project:
                         raise ValueError(
                             "feedback history exists while revision retention is disabled"
                         )
+        if not self.study_consent.opted_in and self.study_sessions:
+            raise ValueError("study sessions exist while study consent is not opted in")
+        session_ids = [session.id for session in self.study_sessions]
+        if len(session_ids) != len(set(session_ids)):
+            raise ValueError("study-session identifiers must be unique")
+        known_attempt_ids = {
+            attempt.id for exercise in self.progress.exercises for attempt in exercise.attempts
+        }
+        for session in self.study_sessions:
+            if session.baseline_attempt_id not in known_attempt_ids:
+                raise ValueError("study-session baseline attempt id is unknown")
+            if (
+                session.redraw_attempt_id is not None
+                and session.redraw_attempt_id not in known_attempt_ids
+            ):
+                raise ValueError("study-session redraw attempt id is unknown")
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> Project:
@@ -529,6 +598,22 @@ class Project:
             identity_card_history=[item for item in identity_card_history if item is not None],
             style_bible_assets=list(payload.get("style_bible_assets", [])),
             correspondence_set_assets=list(payload.get("correspondence_set_assets", [])),
+            study_consent=StudyConsent(**payload.get("study_consent", {})),
+            study_sessions=[
+                StudySession(
+                    **(
+                        item
+                        | {
+                            "explanation_rating": (
+                                AdviceRating(item["explanation_rating"])
+                                if item.get("explanation_rating") is not None
+                                else None
+                            )
+                        }
+                    )
+                )
+                for item in payload.get("study_sessions", [])
+            ],
             progress=ProjectProgress(exercises),
         )
         project.validate()

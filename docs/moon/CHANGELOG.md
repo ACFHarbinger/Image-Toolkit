@@ -19,6 +19,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Opened A4-prep issue #20: a versioned consented study-session schema for
+  roadmap A4 (issue #14), which itself remains **Backlog** until live checks
+  are intentionally scheduled — this is data-model infrastructure only, not
+  the start of the alpha study. Project schema v11 adds `StudyConsent`
+  (explicit, revocable, project-local opt-in; opted-in requires a consent
+  timestamp, withdrawn consent must not retain one) and `StudySession`
+  (baseline attempt id, optional remedial exercise id, optional redraw
+  attempt id, optional explanation-usefulness rating reusing the existing
+  `AdviceRating` enum, optional completion timestamp — no global artist
+  score). `configure_study_consent` mirrors `configure_progress_retention`'s
+  explicit-clear-on-withdrawal rule; `record_study_session` accumulates one
+  session per baseline attempt as the protocol progresses and validates
+  attempt ids against the project. Privacy-safe progress snapshots include a
+  `study` section. Wired through the engine protocol and Krita
+  `EngineClient`; no Docker/UI surface exists yet, so no live check applies
+  and #20 is **Done**. Verification: 388 tests pass; Ruff and core mypy are
+  clean.
 - Advanced G1 issue #19 with dust-speck filtering: `filter_small_regions`
   clears labeled regions below an artist-chosen minimum area, implemented
   identically in both the numpy engine module and the pure-Python Krita

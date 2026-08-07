@@ -15,6 +15,7 @@ from project import (
     configure_feedback_policy,
     configure_identity_card_policy,
     configure_progress_retention,
+    configure_study_consent,
     create_exercise_project,
     decide_attempt_review,
     detach_correspondence_set,
@@ -27,6 +28,7 @@ from project import (
     propagate_project_correspondence,
     record_advice_feedback,
     record_attempt_review,
+    record_study_session,
     revise_capstone_decision_rationale,
     set_attempt_completion,
     upsert_identity_card,
@@ -245,6 +247,33 @@ def handle_request(request: dict[str, Any]) -> dict[str, Any]:
         except KeyError as error:
             raise ValueError("progress-retention request is incomplete") from error
         return _success(request_id, {"changed": changed})
+    if operation == "configure_study_consent":
+        try:
+            changed = configure_study_consent(
+                payload["directory"],
+                opted_in=payload["opted_in"],
+                clear_existing=payload.get("clear_existing", False),
+            )
+        except KeyError as error:
+            raise ValueError("study-consent request is incomplete") from error
+        return _success(request_id, {"changed": changed})
+    if operation == "record_study_session":
+        try:
+            session = record_study_session(
+                payload["directory"],
+                baseline_attempt_id=payload["baseline_attempt_id"],
+                remedial_exercise_id=payload.get("remedial_exercise_id"),
+                redraw_attempt_id=payload.get("redraw_attempt_id"),
+                explanation_rating=(
+                    AdviceRating(payload["explanation_rating"])
+                    if payload.get("explanation_rating") is not None
+                    else None
+                ),
+                completed=payload.get("completed", False),
+            )
+        except KeyError as error:
+            raise ValueError("study-session request is incomplete") from error
+        return _success(request_id, {"session_id": session.id})
     if operation == "upsert_identity_card":
         try:
             changed = upsert_identity_card(

@@ -360,6 +360,16 @@ with an exact pass-to-Done/fail-to-In-Progress live checklist. The candidate is
 not deployed. A4 begins only after the relevant live checks are intentionally
 scheduled; it does not reinterpret untested headless behavior as accepted.
 
+A4-prep issue #20 built only the data-model infrastructure the study will
+need once that gate opens, mirroring how C1's portable contract preceded
+C3's Docker: project schema v11 adds a `StudyConsent`/`StudySession` record
+(explicit revocable opt-in; a session per baseline attempt accumulating
+remedial exercise, redraw attempt, and an explanation-usefulness rating as
+the baseline/review/remedial/redraw protocol progresses, reusing the
+existing `AdviceRating` enum rather than inventing a ranking). No Docker/UI
+surface exists yet, so #20 needed no live check and is Done. Issue #14
+itself remains **Backlog** until live checks are intentionally scheduled.
+
 - Optional local landmark model with confidence visualization.
 - RTX 4080 12 GB as the deployment ceiling for the default model; the RTX 3090
   Ti 24 GB may be used for development but not as the minimum requirement.

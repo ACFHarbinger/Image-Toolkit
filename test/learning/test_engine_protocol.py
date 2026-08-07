@@ -82,6 +82,61 @@ def test_protocol_creates_portable_exercise_project(tmp_path):
     assert (tmp_path / "project.json").is_file()
 
 
+def test_protocol_configures_study_consent_and_records_a_session(tmp_path):
+    artwork = tmp_path / "artwork/attempt-001.kra"
+    artwork.parent.mkdir()
+    artwork.write_bytes(b"document")
+    handle_request(
+        {
+            "protocol_version": 1,
+            "request_id": "create-1",
+            "operation": "create_exercise_project",
+            "payload": {
+                "directory": str(tmp_path),
+                "title": "Study",
+                "document_asset": "artwork/attempt-001.kra",
+                "attempt_id": "attempt-1",
+            },
+        }
+    )
+    consent = handle_request(
+        {
+            "protocol_version": 1,
+            "request_id": "consent-1",
+            "operation": "configure_study_consent",
+            "payload": {"directory": str(tmp_path), "opted_in": True},
+        }
+    )
+    assert consent["result"]["changed"] is True
+
+    session = handle_request(
+        {
+            "protocol_version": 1,
+            "request_id": "session-1",
+            "operation": "record_study_session",
+            "payload": {
+                "directory": str(tmp_path),
+                "baseline_attempt_id": "attempt-1",
+                "explanation_rating": "helpful",
+                "completed": True,
+            },
+        }
+    )
+    assert session["ok"]
+    assert session["result"]["session_id"]
+
+    snapshot = handle_request(
+        {
+            "protocol_version": 1,
+            "request_id": "snapshot-1",
+            "operation": "project_progress_snapshot",
+            "payload": {"directory": str(tmp_path)},
+        }
+    )
+    assert snapshot["result"]["study"]["consent"]["opted_in"] is True
+    assert snapshot["result"]["study"]["sessions"][0]["explanation_rating"] == "helpful"
+
+
 def test_protocol_authors_binds_and_propagates_correspondence(tmp_path):
     artwork = tmp_path / "artwork/attempt-001.kra"
     artwork.parent.mkdir()

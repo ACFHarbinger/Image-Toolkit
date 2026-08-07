@@ -19,6 +19,8 @@ from project import (
     Project,
     ProjectProgress,
     ReviewRecord,
+    StudyConsent,
+    StudySession,
     SuggestionDecision,
     load_profile,
     load_project,
@@ -140,6 +142,65 @@ def test_privacy_defaults_reject_artwork_history():
         project.to_dict()
 
 
+def test_study_consent_requires_timestamp_only_when_opted_in():
+    with pytest.raises(ValueError, match="requires a consent timestamp"):
+        StudyConsent(opted_in=True)
+    with pytest.raises(ValueError, match="must not retain a consent timestamp"):
+        StudyConsent(opted_in=False, consented_at="2026-08-08T00:00:00+00:00")
+    StudyConsent(opted_in=True, consented_at="2026-08-08T00:00:00+00:00")
+
+
+def test_study_sessions_require_opted_in_consent():
+    attempt = Attempt("head", id="attempt-1")
+    project = Project(
+        title="Study",
+        progress=ProjectProgress([ExerciseProgress("head", [attempt])]),
+        study_sessions=[StudySession("study-1", "attempt-1")],
+    )
+    with pytest.raises(ValueError, match="consent is not opted in"):
+        project.to_dict()
+
+
+def test_study_sessions_validate_known_attempt_ids():
+    attempt = Attempt("head", id="attempt-1")
+    consent = StudyConsent(opted_in=True, consented_at="2026-08-08T00:00:00+00:00")
+    project = Project(
+        title="Study",
+        study_consent=consent,
+        progress=ProjectProgress([ExerciseProgress("head", [attempt])]),
+        study_sessions=[StudySession("study-1", "missing-attempt")],
+    )
+    with pytest.raises(ValueError, match="baseline attempt id is unknown"):
+        project.to_dict()
+
+    project.study_sessions = [StudySession("study-1", "attempt-1", redraw_attempt_id="missing")]
+    with pytest.raises(ValueError, match="redraw attempt id is unknown"):
+        project.to_dict()
+
+    project.study_sessions = [StudySession("study-1", "attempt-1")]
+    project.to_dict()
+
+
+def test_study_session_round_trips_with_explanation_rating(tmp_path):
+    attempt = Attempt("head", id="attempt-1")
+    project = Project(
+        title="Study",
+        study_consent=StudyConsent(opted_in=True, consented_at="2026-08-08T00:00:00+00:00"),
+        progress=ProjectProgress([ExerciseProgress("head", [attempt])]),
+        study_sessions=[
+            StudySession(
+                "study-1",
+                "attempt-1",
+                remedial_exercise_id="anime-head-front-remedial",
+                redraw_attempt_id=None,
+                explanation_rating=AdviceRating.HELPFUL,
+            )
+        ],
+    )
+    save_project(tmp_path, project)
+    assert load_project(tmp_path) == project
+
+
 def test_defaults_keep_multiple_recovery_revisions():
     project = Project(title="Recovery")
     assert project.autosave.enabled
@@ -227,7 +288,7 @@ def test_version_one_migration_adds_review_records_without_artwork(tmp_path):
         ]
     }
     migrated = migrate_project_payload(payload)
-    assert migrated["schema_version"] == 10
+    assert migrated["schema_version"] == 11
     assert migrated["progress"]["exercises"][0]["attempts"][0]["reviews"] == []
     assert migrate_project_payload(payload) == migrated
 
@@ -264,7 +325,7 @@ def test_version_two_migration_enables_existing_project_progress_and_feedback_sl
 
     migrated = migrate_project_payload(payload)
 
-    assert migrated["schema_version"] == 10
+    assert migrated["schema_version"] == 11
     assert migrated["consent"]["retain_learning_progress"] is True
     review = migrated["progress"]["exercises"][0]["attempts"][0]["reviews"][0]
     assert review["artist_feedback"] is None
@@ -277,7 +338,7 @@ def test_version_three_migration_adds_editable_feedback_policy():
 
     migrated = migrate_project_payload(payload)
 
-    assert migrated["schema_version"] == 10
+    assert migrated["schema_version"] == 11
     assert migrated["feedback_policy"] == {
         "retain_revision_history": False,
         "note_character_limit": 2000,
@@ -294,7 +355,7 @@ def test_version_four_migration_adds_identity_card_defaults():
 
     migrated = migrate_project_payload(payload)
 
-    assert migrated["schema_version"] == 10
+    assert migrated["schema_version"] == 11
     assert migrated["identity_card_policy"] == {"retain_revision_history": False}
     assert migrated["identity_card"] is None
     assert migrated["identity_card_history"] == []
@@ -330,7 +391,7 @@ def test_version_five_migration_adds_decision_rationale():
     }
     migrated = migrate_project_payload(payload)
     review = migrated["progress"]["exercises"][0]["attempts"][0]["reviews"][0]
-    assert migrated["schema_version"] == 10
+    assert migrated["schema_version"] == 11
     assert review["suggestion_decision_rationale"] is None
 
 
@@ -339,7 +400,7 @@ def test_version_six_migration_adds_capstone_rationale_policy_and_history():
     payload["schema_version"] = 6
     del payload["capstone_policy"]
     migrated = migrate_project_payload(payload)
-    assert migrated["schema_version"] == 10
+    assert migrated["schema_version"] == 11
     assert migrated["capstone_policy"] == {"retain_rationale_history": False}
 
 
@@ -347,7 +408,7 @@ def test_version_seven_migration_adds_review_import_provenance():
     payload = Project(title="Version seven").to_dict()
     payload["schema_version"] = 7
     migrated = migrate_project_payload(payload)
-    assert migrated["schema_version"] == 10
+    assert migrated["schema_version"] == 11
 
 
 def test_version_eight_migration_adds_style_bible_assets():
@@ -355,7 +416,7 @@ def test_version_eight_migration_adds_style_bible_assets():
     payload["schema_version"] = 8
     del payload["style_bible_assets"]
     migrated = migrate_project_payload(payload)
-    assert migrated["schema_version"] == 10
+    assert migrated["schema_version"] == 11
     assert migrated["style_bible_assets"] == []
 
 
@@ -364,8 +425,19 @@ def test_version_nine_migration_adds_correspondence_set_assets():
     payload["schema_version"] = 9
     del payload["correspondence_set_assets"]
     migrated = migrate_project_payload(payload)
-    assert migrated["schema_version"] == 10
+    assert migrated["schema_version"] == 11
     assert migrated["correspondence_set_assets"] == []
+
+
+def test_version_ten_migration_adds_study_consent_and_sessions():
+    payload = Project(title="Version ten").to_dict()
+    payload["schema_version"] = 10
+    del payload["study_consent"]
+    del payload["study_sessions"]
+    migrated = migrate_project_payload(payload)
+    assert migrated["schema_version"] == 11
+    assert migrated["study_consent"] == {}
+    assert migrated["study_sessions"] == []
 
 
 def test_learning_progress_retention_defaults_enabled_but_can_be_disabled():

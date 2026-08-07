@@ -283,6 +283,40 @@ class EngineClient:
             },
         )
 
+    def configure_study_consent(self, request_id, directory, opted_in, clear_existing=False):
+        return self._execute(
+            request_id,
+            "configure_study_consent",
+            {
+                "directory": directory,
+                "opted_in": opted_in,
+                "clear_existing": clear_existing,
+            },
+        )
+
+    def record_study_session(
+        self,
+        request_id,
+        directory,
+        baseline_attempt_id,
+        remedial_exercise_id=None,
+        redraw_attempt_id=None,
+        explanation_rating=None,
+        completed=False,
+    ):
+        return self._execute(
+            request_id,
+            "record_study_session",
+            {
+                "directory": directory,
+                "baseline_attempt_id": baseline_attempt_id,
+                "remedial_exercise_id": remedial_exercise_id,
+                "redraw_attempt_id": redraw_attempt_id,
+                "explanation_rating": explanation_rating,
+                "completed": completed,
+            },
+        )
+
     def record_advice_feedback(
         self, request_id, directory, attempt_id, review_id, rating, note=None
     ):
