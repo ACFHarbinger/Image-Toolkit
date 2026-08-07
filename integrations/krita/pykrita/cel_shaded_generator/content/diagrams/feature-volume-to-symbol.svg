@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="650" viewBox="0 0 1200 650">
+  <rect width="1200" height="650" fill="#20252b"/>
+  <g fill="none" stroke="#91a4b7" stroke-width="5">
+    <path d="M130 220 L300 175 L385 290 L225 350 Z M225 350 Q300 385 375 350"/>
+    <path d="M500 320 Q610 260 720 320 Q610 380 500 320 M610 270 L610 370"/>
+    <ellipse cx="950" cy="315" rx="105" ry="155"/><ellipse cx="950" cy="320" rx="55" ry="95"/><path d="M900 235 Q980 275 920 390"/>
+  </g>
+  <g fill="none" stroke="#f2c66d" stroke-width="14"><path d="M285 245 L320 285 L290 305"/><path d="M545 320 Q610 350 675 320"/><path d="M925 245 Q995 300 935 395"/></g>
+  <g fill="#e8edf2" font-family="sans-serif" font-size="29" text-anchor="middle"><text x="260" y="70">MUZZLE → NOSE MARK</text><text x="610" y="70">SURFACE → MOUTH LINE</text><text x="950" y="70">CUP → EAR FOLDS</text></g>
+  <g fill="#a9bac9" font-family="sans-serif" font-size="23" text-anchor="middle"><text x="260" y="590">Project before simplifying</text><text x="610" y="590">Center, corners, opening</text><text x="950" y="590">Attach, rim, bowl</text></g>
+</svg>

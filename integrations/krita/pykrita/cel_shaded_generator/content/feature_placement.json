@@ -1,0 +1,162 @@
+{
+  "id": "anime-head-features",
+  "exercise_id": "anime-head-features",
+  "version": "1.0.0",
+  "method_id": "anime-head-construction-v1",
+  "schema_version": 1,
+  "title": "Anime Head Construction: Nose, Mouth, and Ear Placement",
+  "summary": "Place and simplify the nose, mouth, and ears as related forms on a constructed head. Build muzzle and ear volume before anime symbols, then preserve height, projection, wrapping, and expression from front view into three-quarter perspective.",
+  "estimated_minutes": 65,
+  "prerequisite_ids": ["anime-head-eyes"],
+  "media": [
+    "diagrams/feature-volume-to-symbol.svg",
+    "diagrams/feature-front-to-turn.svg"
+  ],
+  "learning_objectives": [
+    "Construct a simple muzzle/nose wedge before reducing it to anime marks.",
+    "Place the mouth on a curved muzzle surface and separate its center, corners, and opening.",
+    "Construct the ear as an attached tilted form with deliberate height, angle, and depth.",
+    "Relate all three features to the facial centerline, eye line, brow, and chin instead of memorized page coordinates.",
+    "Transform feature placement and visibility into three-quarter perspective without changing the character design.",
+    "Apply neutral, happy, determined, sad, and surprised expressions through structural relationships rather than isolated symbols."
+  ],
+  "theory": [
+    {
+      "title": "The muzzle is a small projecting form",
+      "explanation": "Treat the nose base and mouth region as a shallow wedge or rounded muzzle attached to the facial plane. The nose projects from it and the mouth wraps around it. Even when anime style reduces the nose to a dot or short stroke, the hidden form explains why that mark moves during a turn."
+    },
+    {
+      "title": "The mouth wraps; it is not a flat dash",
+      "explanation": "Mark the mouth center on the facial axis, then place corners along a curved surface. In three-quarter view the far half compresses and may partially disappear. Opening, lip separation, and corner lift describe expression independently of the decorative line style."
+    },
+    {
+      "title": "The ear is a full construction problem",
+      "explanation": "Build the ear as a tilted oval or shallow cup attached to the side plane, not as a C symbol pasted onto the silhouette. Its top, bottom, attachment axis, inner bowl, and rim respond to head tilt and turn. Hairstyles may cover it later, but hidden construction still controls believable placement."
+    },
+    {
+      "title": "Landmarks define relationships, not universal fractions",
+      "explanation": "Eye line, brow, nose base, mouth center, chin, and ear bounds form a proportional chain. Classical fractions are useful neutral estimates, while anime designs shorten noses, alter muzzle length, and resize ears. Record deviations as design choices so they remain consistent across views."
+    },
+    {
+      "title": "Expression coordinates several features",
+      "explanation": "Neutral establishes the control. Happy lifts mouth corners and cheeks; determined tightens the mouth and changes brow/lid rhythm; sad raises inner brows and may soften or lower corners; surprised opens eyes and mouth while often raising brows. The nose and ear usually remain structurally stable, providing anchors against expressive distortion."
+    }
+  ],
+  "steps": [
+    {
+      "title": "1. Establish the front control head",
+      "explanation": "Construct cranium, jaw, centerline, eye line, side planes, and the eye pair. Add light brow, nose-base, mouth-center, and chin guides. Keep all feature marks provisional."
+    },
+    {
+      "title": "2. Build the front muzzle and nose",
+      "explanation": "Block a shallow muzzle wedge centered on the facial axis. Mark nose bridge direction, base width, tip projection, and nostril plane. Reduce it to the chosen anime marks only after the form reads."
+    },
+    {
+      "title": "3. Wrap the front mouth",
+      "explanation": "Place mouth center, both corners, and upper/lower opening around the muzzle. Test a neutral line, then show how corner height and opening create one expression without moving the mouth off-axis."
+    },
+    {
+      "title": "4. Construct both front ears",
+      "explanation": "Place top and bottom bounds using the brow/eye/nose region as references, then draw attachment axes, rims, bowls, and simplified inner folds. Compare height, angle, and distance from the skull separately; do not hide errors with hair."
+    },
+    {
+      "title": "5. Rotate the head and rebuild guides",
+      "explanation": "Construct a right-three-quarter head with curved centerline, eye line, brow, nose-base, mouth-center, and ear-level cross-contours. Establish the side plane and far-side compression before drawing symbols."
+    },
+    {
+      "title": "6. Turn the muzzle and nose",
+      "explanation": "Shift the nose tip with the facial axis, show the near plane, compress the far nostril spacing, and preserve muzzle length. Simplify only after the projecting wedge agrees with the turn."
+    },
+    {
+      "title": "7. Turn the mouth around the muzzle",
+      "explanation": "Keep the mouth center on the curved facial axis, lengthen the visible near half relative to the far half, and preserve the selected corner/opening relationships. Do not slide the whole mouth toward the silhouette."
+    },
+    {
+      "title": "8. Turn and attach the ears",
+      "explanation": "Construct the near ear as a tilted cup on the side plane and the far ear only if visible. Preserve designed height while changing projected width and overlap. Carry rim/bowl logic into the turn before simplifying inner folds."
+    },
+    {
+      "title": "9. Apply and audit one expression",
+      "explanation": "Choose neutral, happy, determined, sad, or surprised. Coordinate eyes, brows, mouth corners, and opening while keeping nose/muzzle and ear attachments stable. Audit nose, mouth, and ears separately, then inspect the whole expression."
+    }
+  ],
+  "guided_drills": [
+    {
+      "title": "Muzzle-to-mark ladder",
+      "repetitions": 10,
+      "instructions": "Draw five front and five three-quarter muzzle wedges. On each, reduce the same nose volume to progressively fewer anime marks without changing its placement."
+    },
+    {
+      "title": "Mouth wrap and expression row",
+      "repetitions": 5,
+      "instructions": "Use one constructed muzzle to draw neutral, happy, determined, sad, and surprised mouth relationships. Label center, corners, and opening before line styling."
+    },
+    {
+      "title": "Ear construction ladder",
+      "repetitions": 12,
+      "instructions": "Draw six front/side attachments and six three-quarter ears. Mark top, bottom, attachment axis, rim, bowl, and one simplified inner fold on every repetition."
+    },
+    {
+      "title": "Full front-to-turn feature pair",
+      "repetitions": 3,
+      "instructions": "Construct three front/right-three-quarter head pairs with matching nose, mouth, ear design, and expression. Write one correction for each feature family."
+    }
+  ],
+  "common_mistakes": [
+    {
+      "symptom": "The nose mark floats when the head turns.",
+      "cause": "A symbol was copied without a muzzle wedge, bridge direction, or tip projection.",
+      "correction": "Rebuild the projecting form on the facial axis, then place the simplified mark on its visible plane."
+    },
+    {
+      "symptom": "The mouth slides toward the near cheek.",
+      "cause": "The whole line was translated instead of wrapped around a centered muzzle.",
+      "correction": "Anchor the mouth center to the curved facial axis and compress only the far half."
+    },
+    {
+      "symptom": "Expression changes the character's muzzle length.",
+      "cause": "Mouth opening and corner motion were confused with moving the nose base or chin.",
+      "correction": "Hold nose base, muzzle projection, and chin stable while changing corners and opening."
+    },
+    {
+      "symptom": "The ears look pasted onto the outline.",
+      "cause": "Only a C-shaped contour was drawn without an attachment axis, rim, or bowl.",
+      "correction": "Draw the tilted cup intersecting the side plane, then simplify the internal anatomy."
+    },
+    {
+      "symptom": "The near ear becomes enormous in three-quarter view.",
+      "cause": "Proximity was exaggerated without comparing designed height and cranial scale.",
+      "correction": "Preserve ear height relative to the head and change projected width/overlap more conservatively."
+    },
+    {
+      "symptom": "Both ears remain equally visible during a turn.",
+      "cause": "Front-view symmetry was retained instead of applying occlusion and far-side compression.",
+      "correction": "Use the side plane and skull silhouette to determine how much of the far attachment remains visible."
+    },
+    {
+      "symptom": "Polished feature symbols disagree with the head construction.",
+      "cause": "Line style was refined before checking feature guides and hidden volumes.",
+      "correction": "Reduce the drawing to axes, muzzle, mouth corners, and ear cups; fix placement before restoring polish."
+    }
+  ],
+  "completion_criteria": [
+    "Front and right-three-quarter heads retain visible construction and feature-level guides.",
+    "A muzzle/nose volume exists before simplified anime nose marks in both views.",
+    "Mouth center, corners, and opening wrap around the muzzle and transform into perspective.",
+    "Both front ears and the visible turned ears show bounds, attachment axis, rim, and bowl evidence.",
+    "Nose, mouth, and ear designs remain identifiable across the view change.",
+    "One named expression coordinates eyes, brows, and mouth without moving structural anchors.",
+    "The artist records at least one separate correction for nose, mouth, and ears.",
+    "Far-side compression and occlusion are visible rather than replaced by front symmetry."
+  ],
+  "self_review_questions": [
+    "Can I reconstruct the muzzle form from the simplified nose marks?",
+    "Does the mouth center remain on the facial axis while its far half compresses?",
+    "Did expression change corners/opening rather than the entire lower-face structure?",
+    "Are ear top, bottom, angle, and attachment deliberate in both views?",
+    "Does the near ear preserve designed scale rather than expanding arbitrarily?",
+    "Did I allow the skull to occlude or compress the far ear?",
+    "Can I identify one structural decision and one stylistic decision for each feature family?"
+  ],
+  "practice_prompt": "Complete the six-area feature matrix: front and right-three-quarter constructions for nose/muzzle, mouth, and ear. Then combine them into one matching head pair using neutral, happy, determined, sad, or surprised expression. Keep volume and placement evidence visible before stylized marks."
+}

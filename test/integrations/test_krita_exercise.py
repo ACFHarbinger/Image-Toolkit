@@ -216,6 +216,34 @@ def test_creates_four_area_eye_progression_sheet():
     assert document.active.name == "01 Neutral Front Eye Structure"
 
 
+def test_creates_equal_nose_mouth_ear_feature_matrix():
+    adapter = _load_adapter()
+    application = ApplicationStub()
+
+    document = adapter.create_feature_exercise_document(application)
+
+    assert application.created_with[:3] == (
+        2400,
+        1800,
+        "Nose, Mouth, and Ear Placement — Front-to-Turned Matrix",
+    )
+    assert [node.name for node, _ in document.root.children] == [
+        "Tutor Feedback (locked)",
+        "01 Front Nose and Muzzle Construction",
+        "02 Front Mouth Construction",
+        "03 Front Ear Construction",
+        "04 Right Three-Quarter Nose and Muzzle Construction",
+        "05 Right Three-Quarter Mouth Construction",
+        "06 Right Three-Quarter Ear Construction",
+    ]
+    layout = document.root.children[0][0].children[0][0]
+    assert layout.name == "Tutor Feature Matrix Layout (locked)"
+    assert layout.locked
+    assert "NOSE + MUZZLE" in layout.svg
+    assert "RIGHT THREE-QUARTER" in layout.svg
+    assert document.active.name == "01 Front Nose and Muzzle Construction"
+
+
 def test_portable_project_requires_empty_directory(tmp_path):
     adapter = _load_adapter()
     (tmp_path / "unrelated").write_text("keep", encoding="utf-8")

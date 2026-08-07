@@ -41,6 +41,18 @@ EYE_EXERCISE_VIEWS = (
     "03 Neutral Right Three-Quarter Eye Structure",
     "04 Stylized Right Three-Quarter Expression",
 )
+FEATURE_EXERCISE_ID = "anime-head-features"
+FEATURE_EXERCISE_WIDTH = 2400
+FEATURE_EXERCISE_HEIGHT = 1800
+FEATURE_EXERCISE_TITLE = "Nose, Mouth, and Ear Placement — Front-to-Turned Matrix"
+FEATURE_EXERCISE_VIEWS = (
+    "01 Front Nose and Muzzle Construction",
+    "02 Front Mouth Construction",
+    "03 Front Ear Construction",
+    "04 Right Three-Quarter Nose and Muzzle Construction",
+    "05 Right Three-Quarter Mouth Construction",
+    "06 Right Three-Quarter Ear Construction",
+)
 
 
 def create_exercise_document(application):
@@ -187,6 +199,43 @@ def create_eye_exercise_document(application):
     return document
 
 
+def create_feature_exercise_document(application):
+    """Create equal front/turned practice areas for nose, mouth, and ears."""
+    window = application.activeWindow()
+    if window is None:
+        raise RuntimeError("Krita needs an active window before creating an exercise")
+    document = application.createDocument(
+        FEATURE_EXERCISE_WIDTH,
+        FEATURE_EXERCISE_HEIGHT,
+        FEATURE_EXERCISE_TITLE,
+        "RGBA",
+        "U8",
+        "",
+        EXERCISE_RESOLUTION,
+    )
+    if document is None:
+        raise RuntimeError("Krita could not create the feature exercise document")
+    root = document.rootNode()
+    feedback = document.createNode("Tutor Feedback (locked)", "grouplayer")
+    layout = document.createNode("Tutor Feature Matrix Layout (locked)", "vectorlayer")
+    work_layers = [document.createNode(name, "paintlayer") for name in FEATURE_EXERCISE_VIEWS]
+    if feedback is None or layout is None or any(node is None for node in work_layers):
+        raise RuntimeError("Krita could not create the feature exercise layers")
+    layout.addShapesFromSvg(_feature_matrix_layout_svg())
+    layout.setLocked(True)
+    feedback.setLocked(True)
+    root.addChildNode(feedback, None)
+    feedback.addChildNode(layout, None)
+    above = feedback
+    for node in work_layers:
+        root.addChildNode(node, above)
+        above = node
+    window.addView(document)
+    document.setActiveNode(work_layers[0])
+    document.setModified(False)
+    return document
+
+
 def create_exercise_project(
     application, engine_client, directory, attempt_id, exercise_id=FRONT_EXERCISE_ID
 ):
@@ -202,6 +251,8 @@ def create_exercise_project(
         document = create_volume_jaw_exercise_document(application)
     elif exercise_id == EYE_EXERCISE_ID:
         document = create_eye_exercise_document(application)
+    elif exercise_id == FEATURE_EXERCISE_ID:
+        document = create_feature_exercise_document(application)
     else:
         raise ValueError("the selected lesson has no exercise template yet")
     artwork = root / "artwork"
@@ -281,4 +332,28 @@ def _four_cell_eye_layout_svg():
     return (
         '<svg xmlns="http://www.w3.org/2000/svg" width="2400" height="1600" '
         'viewBox="0 0 2400 1600">' + "".join(cells) + "</svg>"
+    )
+
+
+def _feature_matrix_layout_svg():
+    columns = ("NOSE + MUZZLE", "MOUTH", "EAR")
+    cells = []
+    for row, view in enumerate(("FRONT", "RIGHT THREE-QUARTER")):
+        y = 120 + row * 830
+        cells.append(
+            f'<text x="45" y="{y + 380}" font-family="sans-serif" font-size="30" '
+            f'fill="#506070" transform="rotate(-90 45 {y + 380})">{view}</text>'
+        )
+        for column, feature in enumerate(columns):
+            x = 90 + column * 770
+            cells.append(
+                f'<rect x="{x}" y="{y}" width="710" height="720" rx="18" '
+                'fill="none" stroke="#8090a0" stroke-width="5" '
+                'stroke-dasharray="18 14"/>'
+                f'<text x="{x + 355}" y="{y - 25}" text-anchor="middle" '
+                f'font-family="sans-serif" font-size="30" fill="#506070">{feature}</text>'
+            )
+    return (
+        '<svg xmlns="http://www.w3.org/2000/svg" width="2400" height="1800" '
+        'viewBox="0 0 2400 1800">' + "".join(cells) + "</svg>"
     )

@@ -194,6 +194,14 @@ remain deferred in Review.
   opening, and iris exposure into only the confirmed quarter-sheet cell. They
   reuse explicit Accept/Reject and warn that targets are comparisons rather than
   tracing mandates; existing head rubrics are never silently reused.
+- 🔄 Feature-placement curriculum/template: lesson five is fully authored as a
+  front-to-three-quarter nose, mouth, and ear progression. Muzzle volume precedes
+  anime nose marks; mouth center/corners/opening wrap around that volume; ears
+  receive equal treatment as attached cups with bounds, axes, rims, bowls,
+  projection, and occlusion. Two offline diagrams and a 2400 × 1800 six-layer
+  Krita matrix give each feature family equal front/turned practice space.
+  Dedicated per-feature landmarks, rubrics, and correction previews remain the
+  next implementation slice rather than reusing eye/head evidence.
 - 🔄 Head-orientation exercise template: the docker creates a 2600 × 1600
   landscape rotation sheet with five labeled work areas and separate layers for
   left profile, left three-quarter, front, right three-quarter, and right

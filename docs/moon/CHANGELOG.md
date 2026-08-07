@@ -132,6 +132,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reuses the explicit Accept/Reject persistence contract. Projected-width text
   explicitly labels its provisional target as a comparison rather than a tracing
   mandate.
+  Fully authored lesson five, Nose, Mouth, and Ear Placement, as another
+  front-to-three-quarter progression. It begins with muzzle/nose projection,
+  mouth wrapping, and attached ear-cup construction before anime simplification;
+  ears receive equal stages, drill space, diagnoses, and completion evidence.
+  Five theory sections, nine stages, four drills, seven diagnosed mistakes,
+  eight completion checks, and seven self-review prompts include neutral, happy,
+  determined, sad, and surprised expression coordination. Two original offline
+  SVGs accompany a 2400 × 1800 Krita matrix with separate front/turned layers
+  for nose+muzzle, mouth, and ear beneath a locked vector layout.
 - Opened A3 issue #12 at In Progress P0/XL for versioned curriculum progression,
   deterministic weakness-to-remediation routing, comparable repeated-attempt
   metrics, and a private local progress view while A2 issues #10/#11 remain in
