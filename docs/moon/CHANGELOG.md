@@ -38,10 +38,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `engine_architecture.md`'s "Gate 5 exception (2026-08-07)" note for the
   full rationale — this is a scope decision, not evidence Krita has proven
   insufficient. The Krita plugin remains the primary, actively-developed
-  host. Five slices — canvas + layer-stack foundation, brush paint tool
+  host. Six slices — canvas + layer-stack foundation, brush paint tool
   (issue #26), undo/redo (issue #27), non-destructive layer masks
-  (issue #28), and line-art segmentation (issue #29) — are all In review
-  pending a manual desktop-app check (see the `### Added` entries below).
+  (issue #28), line-art segmentation (issue #29), and style-bible palette
+  application (issue #30) — are all In review pending a manual desktop-app
+  check (see the `### Added` entries below).
 
 ### Fixed
 
@@ -226,6 +227,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   UI. Verification: 11 new core `editor` tests, 4 new headless-Qt `gui`
   tests (497 core + 162 gui total); Ruff and mypy clean. Needs a manual
   desktop launch to confirm visually — see issue #29's testing comment.
+- **Standalone editor sixth slice (issue #30, In review): style-bible
+  palette application.** New `src/editor/palette_tools.py` reuses
+  `colorization.style_bible` (roadmap milestone 2, issue #15) directly,
+  the same way #29 reused `colorization.segmentation`. `resolve_palette_color`
+  parses a material palette's `#RRGGBB` role into an RGB int tuple, raising
+  for an unsupported role or an absent accent — matching the Krita
+  Character Colors Docker's existing "absent accents are not offered as
+  preview roles" rule rather than silently substituting another role.
+  `apply_palette_color_to_region` recolors a layer's currently-opaque
+  pixels to that color in place, leaving its alpha/shape untouched — the
+  same "shape from segmentation/painting, color from the bible" split the
+  Krita Docker's material masks use. `ReferenceColoringTab` adds Bind
+  Style Bible (file dialog), a Material combo box, a Role combo box
+  (dynamically excludes "accent" when absent), and an Apply Palette Color
+  button operating on the selected layer — works on any layer, not only
+  region layers from #29; there is no forced connection between the two
+  slices yet. Still no correspondence-assignment (a persisted,
+  propagatable region-to-material binding) or adjacency-suggested
+  defaults; this is a direct "pick a material+role, click apply" action,
+  not milestone 4's ranked-suggestion workflow. Verification: 7 new core
+  `editor` tests, 6 new headless-Qt `gui` tests (504 core + 168 gui
+  total); Ruff and mypy clean. Needs a manual desktop launch to confirm
+  visually — see issue #30's testing comment.
 - **Milestone 4 first slice (issue #24): deterministic confidence scoring
   and correction learning for assisted correspondence.** Portable contract
   only, no Docker UI yet, following the same sequencing every prior

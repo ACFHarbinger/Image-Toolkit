@@ -174,3 +174,25 @@ correspondence workflow, not yet wired into any button.
 `ReferenceColoringTab` adds Close Line Gaps (with a Max gap spin box) and
 Segment Regions (with a Min region area spin box) buttons operating on the
 selected layer. Still no palette-preview or correspondence-assignment UI.
+
+**Sixth slice (issue #30, In review pending a manual desktop-app check):
+style-bible palette application.** `src/editor/palette_tools.py` reuses
+`colorization.style_bible` (roadmap milestone 2, issue #15) directly, the
+same way #29 reused `colorization.segmentation`. `resolve_palette_color`
+parses a material palette's `#RRGGBB` role into an RGB int tuple, raising
+for an unsupported role or an absent accent -- matching the Krita
+Character Colors Docker's existing "absent accents are not offered as
+preview roles" rule rather than silently substituting another role.
+`apply_palette_color_to_region` recolors a layer's currently-opaque pixels
+to that color in place, leaving its alpha/shape untouched -- the same
+"shape from segmentation/painting, color from the bible" split the Krita
+Docker's material masks use. `ReferenceColoringTab` adds Bind Style Bible
+(file dialog), a Material combo box, a Role combo box (dynamically
+excludes "accent" when absent), and an Apply Palette Color button
+operating on the selected layer -- works on any layer, not only ones
+`segment_layer_into_regions` created; there is no forced connection
+between the two slices yet. Still no correspondence-assignment (a
+persisted, propagatable region-to-material binding) or
+adjacency-suggested defaults; this is a direct "pick a material+role,
+click apply" action, not milestone 4's ranked-suggestion workflow.
+Connecting the two remains a possible later slice.

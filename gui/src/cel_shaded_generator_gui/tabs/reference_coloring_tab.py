@@ -1,17 +1,20 @@
 """Standalone Reference Coloring editor tab -- canvas + layer stack
-foundation, a brush paint tool, undo/redo, non-destructive layer masks, and
-line-art segmentation (roadmap: standalone editor, gate-5 exception; see
-``docs/moon/roadmaps/engine_architecture.md``).
+foundation, a brush paint tool, undo/redo, non-destructive layer masks,
+line-art segmentation, and palette application (roadmap: standalone
+editor, gate-5 exception; see ``docs/moon/roadmaps/engine_architecture.md``).
 
 Create a blank canvas of a chosen size, add/remove/reorder/show-hide
 layers, select a layer and paint on it with a solid-color circular brush,
 undo/redo any of the above, attach a mask to a layer to paint which of its
-pixels show through, and segment a line-art layer's enclosed regions into
+pixels show through, segment a line-art layer's enclosed regions into
 distinctly colored region layers (reusing the same deterministic
 ``colorization.segmentation`` algorithm the Line Art Segmentation Krita
-Docker uses). No palette-preview UI yet -- that is a later slice built on
-top of this same ``editor.LayerStack``/``LayerCanvas``/``LayerListPanel``/
-``editor.brush``/``editor.EditHistory``/``editor.segmentation_tools``
+Docker uses), and bind a portable style bible (``colorization.style_bible``,
+reused the same way) to recolor a region layer with one of its materials'
+palette roles. No correspondence-assignment/adjacency-suggestion UI yet --
+that is a later slice built on top of this same
+``editor.LayerStack``/``LayerCanvas``/``LayerListPanel``/``editor.brush``/
+``editor.EditHistory``/``editor.segmentation_tools``/``editor.palette_tools``
 foundation, mirroring how the Krita Dockers built on Krita's own layer
 model.
 
@@ -20,9 +23,12 @@ New feature, not code motion.
 
 from __future__ import annotations
 
+from colorization.style_bible import CharacterStyleBible, load_style_bible
 from editor import (
+    PALETTE_ROLES,
     EditHistory,
     LayerStack,
+    apply_palette_color_to_region,
     close_line_gaps_in_layer,
     segment_layer_into_regions,
 )
@@ -30,6 +36,8 @@ from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QCheckBox,
     QColorDialog,
+    QComboBox,
+    QFileDialog,
     QHBoxLayout,
     QInputDialog,
     QLabel,
@@ -55,6 +63,7 @@ class ReferenceColoringTab(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._history: EditHistory | None = None
+        self._style_bible: CharacterStyleBible | None = None
         self._status = QLabel("No canvas yet. Click New Canvas to begin.", self)
         self._status.setWordWrap(True)
         self._new_canvas_button = QPushButton("New Canvas", self)
@@ -106,6 +115,14 @@ class ReferenceColoringTab(QWidget):
         self._segment_button = QPushButton("Segment Regions", self)
         self._segment_button.clicked.connect(self._segment_regions)
 
+        self._bind_bible_button = QPushButton("Bind Style Bible", self)
+        self._bind_bible_button.clicked.connect(self._bind_style_bible)
+        self._material_combo = QComboBox(self)
+        self._material_combo.currentIndexChanged.connect(self._refresh_role_combo)
+        self._role_combo = QComboBox(self)
+        self._apply_palette_button = QPushButton("Apply Palette Color", self)
+        self._apply_palette_button.clicked.connect(self._apply_palette_color)
+
         controls = QHBoxLayout()
         controls.addWidget(self._new_canvas_button)
         controls.addWidget(self._pan_tool)
@@ -127,8 +144,18 @@ class ReferenceColoringTab(QWidget):
         controls.addWidget(self._segment_button)
         controls.addStretch(1)
 
+        palette_controls = QHBoxLayout()
+        palette_controls.addWidget(self._bind_bible_button)
+        palette_controls.addWidget(QLabel("Material:", self))
+        palette_controls.addWidget(self._material_combo)
+        palette_controls.addWidget(QLabel("Role:", self))
+        palette_controls.addWidget(self._role_combo)
+        palette_controls.addWidget(self._apply_palette_button)
+        palette_controls.addStretch(1)
+
         right = QVBoxLayout()
         right.addLayout(controls)
+        right.addLayout(palette_controls)
         right.addWidget(self._layer_panel)
         right.addWidget(self._status)
 
@@ -212,6 +239,49 @@ class ReferenceColoringTab(QWidget):
             self._canvas.refresh()
             self._update_status()
 
+    def _bind_style_bible(self) -> None:
+        path, _selected_filter = QFileDialog.getOpenFileName(
+            self, "Bind Style Bible", "", "Style Bible (*.json)"
+        )
+        if not path:
+            return
+        try:
+            self._style_bible = load_style_bible(path)
+        except (OSError, ValueError):
+            self._style_bible = None
+            return
+        self._material_combo.clear()
+        for material in self._style_bible.materials:
+            self._material_combo.addItem(material.label, material.id)
+        self._refresh_role_combo()
+
+    def _refresh_role_combo(self) -> None:
+        self._role_combo.clear()
+        material = self._selected_material()
+        if material is None:
+            return
+        for role in PALETTE_ROLES:
+            if role != "accent" or material.palette.accent is not None:
+                self._role_combo.addItem(role)
+
+    def _selected_material(self):
+        if self._style_bible is None or self._material_combo.currentIndex() < 0:
+            return None
+        material_id = self._material_combo.currentData()
+        return next((item for item in self._style_bible.materials if item.id == material_id), None)
+
+    def _apply_palette_color(self) -> None:
+        layer_stack = self._canvas.layer_stack()
+        layer_id = self._layer_panel.selected_layer_id()
+        material = self._selected_material()
+        role = self._role_combo.currentText()
+        if layer_stack is None or layer_id is None or material is None or not role:
+            return
+        if self._history is not None:
+            self._history.record()
+        if apply_palette_color_to_region(layer_stack, layer_id, material.palette, role):
+            self._canvas.refresh()
+
     def _undo(self) -> None:
         if self._history is None or not self._history.undo():
             return
@@ -234,6 +304,9 @@ class ReferenceColoringTab(QWidget):
 
     def history(self) -> EditHistory | None:
         return self._history
+
+    def style_bible(self) -> CharacterStyleBible | None:
+        return self._style_bible
 
 
 __all__ = ["ReferenceColoringTab"]

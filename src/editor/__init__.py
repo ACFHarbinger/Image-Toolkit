@@ -3,6 +3,7 @@
 from .brush import stamp_dot, stamp_line, stamp_mask_dot, stamp_mask_line
 from .history import EditHistory
 from .layer_stack import Layer, LayerMeta, LayerStack
+from .palette_tools import PALETTE_ROLES, apply_palette_color_to_region, resolve_palette_color
 from .segmentation_tools import (
     close_line_gaps_in_layer,
     region_adjacency_for_regions,
@@ -21,4 +22,7 @@ __all__ = [
     "close_line_gaps_in_layer",
     "segment_layer_into_regions",
     "region_adjacency_for_regions",
+    "PALETTE_ROLES",
+    "resolve_palette_color",
+    "apply_palette_color_to_region",
 ]

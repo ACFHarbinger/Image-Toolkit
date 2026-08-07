@@ -189,3 +189,102 @@ def test_close_line_gaps_button_bridges_a_gap_and_enables_segmentation(q_app, mo
 
     tab._segment_regions()
     assert len(tab.canvas().layer_stack().layers()) == 2
+
+
+def _write_bible(tmp_path, accent=None):
+    from colorization.style_bible import (
+        CharacterStyleBible,
+        MaterialPalette,
+        StyleMaterial,
+        save_style_bible,
+    )
+
+    bible = CharacterStyleBible(
+        "aiko",
+        "Aiko",
+        "TV cel",
+        [
+            StyleMaterial(
+                "hair", "Hair", MaterialPalette("#332233", "#665566", "#110F18", accent)
+            ),
+            StyleMaterial("skin", "Skin", MaterialPalette("#EEDDCC", "#FFEEDD", "#AA8866")),
+        ],
+    )
+    path = tmp_path / "aiko.json"
+    save_style_bible(path, bible)
+    return path
+
+
+def _bind_bible(tab, monkeypatch, tmp_path, accent=None):
+    from PySide6.QtWidgets import QFileDialog
+
+    path = _write_bible(tmp_path, accent=accent)
+    monkeypatch.setattr(
+        QFileDialog, "getOpenFileName", staticmethod(lambda *a, **k: (str(path), ""))
+    )
+    tab._bind_style_bible()
+
+
+def test_bind_style_bible_populates_material_and_role_combos(q_app, monkeypatch, tmp_path):
+    tab = ReferenceColoringTab()
+    _bind_bible(tab, monkeypatch, tmp_path)
+    assert tab.style_bible() is not None
+    assert tab._material_combo.count() == 2
+    assert [tab._role_combo.itemText(i) for i in range(tab._role_combo.count())] == [
+        "local",
+        "light",
+        "shadow",
+    ]
+
+
+def test_bind_style_bible_role_combo_includes_accent_when_present(q_app, monkeypatch, tmp_path):
+    tab = ReferenceColoringTab()
+    _bind_bible(tab, monkeypatch, tmp_path, accent="#FF00FF")
+    assert "accent" in [tab._role_combo.itemText(i) for i in range(tab._role_combo.count())]
+
+
+def test_bind_style_bible_cancelled_dialog_is_a_no_op(q_app, monkeypatch):
+    from PySide6.QtWidgets import QFileDialog
+
+    tab = ReferenceColoringTab()
+    monkeypatch.setattr(QFileDialog, "getOpenFileName", staticmethod(lambda *a, **k: ("", "")))
+    tab._bind_style_bible()
+    assert tab.style_bible() is None
+
+
+def test_apply_palette_color_recolors_selected_layer(q_app, monkeypatch, tmp_path):
+    tab = ReferenceColoringTab()
+    _new_canvas(tab, monkeypatch)
+    _bind_bible(tab, monkeypatch, tmp_path)
+    tab._material_combo.setCurrentIndex(0)  # hair
+    tab._role_combo.setCurrentText("light")
+    layer = tab.canvas().layer_stack().layer("layer-1")
+    layer.pixels[0, 0] = [1, 2, 3, 255]
+
+    tab._apply_palette_color()
+
+    assert layer.pixels[0, 0].tolist() == [0x66, 0x55, 0x66, 255]
+
+
+def test_apply_palette_color_records_history(q_app, monkeypatch, tmp_path):
+    tab = ReferenceColoringTab()
+    _new_canvas(tab, monkeypatch)
+    _bind_bible(tab, monkeypatch, tmp_path)
+    tab._material_combo.setCurrentIndex(0)
+    tab._role_combo.setCurrentText("light")
+    layer = tab.canvas().layer_stack().layer("layer-1")
+    layer.pixels[0, 0] = [1, 2, 3, 255]
+
+    tab._apply_palette_color()
+    assert layer.pixels[0, 0, :3].tolist() == [0x66, 0x55, 0x66]
+    tab._undo()
+    assert tab.canvas().layer_stack().layer("layer-1").pixels[0, 0, :3].tolist() == [1, 2, 3]
+
+
+def test_apply_palette_color_without_a_bible_is_a_no_op(q_app, monkeypatch):
+    tab = ReferenceColoringTab()
+    _new_canvas(tab, monkeypatch)
+    layer = tab.canvas().layer_stack().layer("layer-1")
+    layer.pixels[0, 0] = [1, 2, 3, 255]
+    tab._apply_palette_color()
+    assert layer.pixels[0, 0].tolist() == [1, 2, 3, 255]
