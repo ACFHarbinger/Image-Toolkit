@@ -68,7 +68,7 @@ The portable-project binding is implemented. Next slices should provide a Krita
 material/palette editor, then apply named palettes to explicit region masks
 before attempting learned correspondence.
 
-C3 issue #17 is In Progress with the approved boundary: a separate Character
+C3 issue #17 is In Review with the approved boundary: a separate Character
 Colors Docker, `Material Masks/Material — <canonical-id>` alpha layers, and
 collision-safe project-local reference copies. The first headless slice authors
 and binds bibles through the engine, creates missing semantic masks, and previews
@@ -91,5 +91,6 @@ Absent accents are not offered as preview roles.
 Failed layer creation/write/removal is visible and cleans partial previews.
 The headless semantic workflow gate is complete: variant unioning, conflict
 blocking, preview ownership, and accepted-layer naming are covered without a
-Krita process. The remaining gate is manual host acceptance only.
+Krita process. The remaining gate is manual host acceptance only; a pass moves
+the issue to Done and any failure returns it to In Progress.
 Learned correspondence is still a later milestone.
