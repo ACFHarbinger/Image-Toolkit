@@ -19,6 +19,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Began A3 issue #12 with a versioned offline curriculum graph containing nine
+  primary anime head-and-face exercises and four targeted remedial exercises.
+  Deterministic prerequisites select the next unlocked exercise; normalized
+  rubric weaknesses route to focused practice with the observed score,
+  threshold, and pedagogical reason. Missing evidence is not treated as
+  failure, ties have stable priority, and repeated attempts are compared only
+  across identical exercise/method/rubric versions. The comparison reports
+  per-dimension improvement, no change, or decline without a global artist
+  score or ranking.
 - Opened A3 issue #12 at In Progress P0/XL for versioned curriculum progression,
   deterministic weakness-to-remediation routing, comparable repeated-attempt
   metrics, and a private local progress view while A2 issues #10/#11 remain in

@@ -164,10 +164,19 @@ not evidence of pedagogical validity.
 **Status: in progress — issue #12.** Core work proceeds while A2 owner checks
 remain deferred in Review.
 
-- Curriculum v1 content.
-- Rubrics for all supported views.
-- Weakness-to-remedial-exercise routing.
-- Progress dashboard comparing attempts without ranking the artist globally.
+- 🔄 Curriculum v1 content: the versioned core catalog now defines all nine
+  primary anime head-and-face exercises plus four focused remedial exercises.
+  Rich locally packaged lesson media and Krita presentation remain.
+- 🔄 Rubrics for all supported views: stable normalized dimensions now cover
+  axes, jaw/chin structure, perspective compression, feature placement, and
+  value grouping. Only the front-view deterministic evaluator is calibrated.
+- ✅ Deterministic prerequisite progression and explainable
+  weakness-to-remedial-exercise routing, including stable tie-breaking and
+  explicit treatment of missing evidence as unknown rather than failure.
+- 🔄 Progress dashboard comparing attempts without ranking the artist globally:
+  the core now reports improved, unchanged, and declined dimensions only for
+  matching exercise, method, and rubric versions. Project persistence and the
+  local UI remain.
 - Feedback reporting for incorrect or unhelpful advice.
 
 ### A4 — evaluator assistance and alpha study

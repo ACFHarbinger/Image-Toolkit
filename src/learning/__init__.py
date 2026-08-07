@@ -1,5 +1,18 @@
 """Versioned contracts for lessons, reviews, settings, and local models."""
 
+from .curriculum import (
+    CURRICULUM_ID,
+    CURRICULUM_VERSION,
+    AttemptComparison,
+    Curriculum,
+    CurriculumStep,
+    RemediationRecommendation,
+    RemediationRule,
+    build_curriculum_v1,
+    compare_attempts,
+    next_primary_exercise,
+    recommend_remediation,
+)
 from .head_review import FrontHeadLandmarks, FrontHeadReviewThresholds, review_front_head
 from .model import (
     LEARNING_SCHEMA_VERSION,
@@ -31,11 +44,16 @@ from .model_package import (
 from .storage import load_catalog, save_catalog
 
 __all__ = [
+    "CURRICULUM_ID",
+    "CURRICULUM_VERSION",
     "LEARNING_SCHEMA_VERSION",
     "MODEL_PACKAGE_SCHEMA_VERSION",
     "Artifact",
+    "AttemptComparison",
     "ArtistFeedback",
     "AutomationLevel",
+    "Curriculum",
+    "CurriculumStep",
     "Evidence",
     "EvidenceSource",
     "Exercise",
@@ -49,13 +67,19 @@ __all__ = [
     "ModelPackageManifest",
     "ModelTrust",
     "Redline",
+    "RemediationRecommendation",
+    "RemediationRule",
     "Review",
     "Rubric",
     "RubricDimension",
     "Suggestion",
     "TutorSettings",
     "ValidatedModelPackage",
+    "build_curriculum_v1",
+    "compare_attempts",
     "load_catalog",
+    "next_primary_exercise",
+    "recommend_remediation",
     "save_catalog",
     "validate_model_package",
     "review_front_head",
