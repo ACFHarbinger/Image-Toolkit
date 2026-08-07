@@ -28,6 +28,15 @@ behavior from before this option existed) selects between the hard
 always stays hard-edged, since a soft mask edit has no direct-overwrite
 equivalent worth adding yet.
 
+``"eraser"`` is a third explicit tool alongside ``"pan"``/``"brush"``
+(same ``NoDrag`` drag mode and mouse-event handling as ``"brush"``,
+sharing the same brush radius/hardness controls) that reduces the
+active layer's alpha (``editor.brush.erase_dot``/``erase_line``)
+instead of blending a new color over it. Mask mode ignores the Eraser
+tool selection and keeps painting the mask by direct overwrite, same as
+it always has -- a mask already has its own "erase" via a zero mask
+intensity.
+
 New feature, not code motion.
 """
 
@@ -38,6 +47,8 @@ from editor import (
     EditHistory,
     Layer,
     LayerStack,
+    erase_dot,
+    erase_line,
     stamp_dot,
     stamp_dot_soft,
     stamp_line,
@@ -115,7 +126,7 @@ class LayerCanvas(QGraphicsView):
     # Tool / paint configuration
     # ------------------------------------------------------------------
     def set_tool(self, tool: str) -> None:
-        if tool not in ("pan", "brush"):
+        if tool not in ("pan", "brush", "eraser"):
             raise ValueError(f"unsupported tool: {tool}")
         self._tool = tool
         self.setDragMode(
@@ -190,7 +201,9 @@ class LayerCanvas(QGraphicsView):
         if self._mask_mode and layer.mask is not None:
             stamp_mask_dot(layer.mask, x, y, self._brush_radius, self._mask_intensity)
         elif not self._mask_mode:
-            if self._brush_hardness < 1.0:
+            if self._tool == "eraser":
+                erase_dot(layer.pixels, x, y, self._brush_radius, self._brush_hardness)
+            elif self._brush_hardness < 1.0:
                 stamp_dot_soft(
                     layer.pixels, x, y, self._brush_radius, self._brush_color, self._brush_hardness
                 )
@@ -207,7 +220,11 @@ class LayerCanvas(QGraphicsView):
                 layer.mask, x0, y0, x1, y1, self._brush_radius, self._mask_intensity
             )
         elif not self._mask_mode:
-            if self._brush_hardness < 1.0:
+            if self._tool == "eraser":
+                erase_line(
+                    layer.pixels, x0, y0, x1, y1, self._brush_radius, self._brush_hardness
+                )
+            elif self._brush_hardness < 1.0:
                 stamp_line_soft(
                     layer.pixels,
                     x0,
@@ -227,7 +244,7 @@ class LayerCanvas(QGraphicsView):
         return int(round(point.x())), int(round(point.y()))
 
     def mousePressEvent(self, event) -> None:
-        if self._tool == "brush" and event.button() == Qt.MouseButton.LeftButton:
+        if self._tool in ("brush", "eraser") and event.button() == Qt.MouseButton.LeftButton:
             if self._history is not None and self._can_paint():
                 self._history.record()
             self._painting = True
@@ -237,7 +254,7 @@ class LayerCanvas(QGraphicsView):
             super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event) -> None:
-        if self._tool == "brush" and self._painting and self._last_point is not None:
+        if self._tool in ("brush", "eraser") and self._painting and self._last_point is not None:
             point = self._scene_point_to_pixel(event)
             self._paint_line_at_pixel(*self._last_point, *point)
             self._last_point = point
@@ -245,7 +262,7 @@ class LayerCanvas(QGraphicsView):
             super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event) -> None:
-        if self._tool == "brush" and event.button() == Qt.MouseButton.LeftButton:
+        if self._tool in ("brush", "eraser") and event.button() == Qt.MouseButton.LeftButton:
             self._painting = False
             self._last_point = None
         else:

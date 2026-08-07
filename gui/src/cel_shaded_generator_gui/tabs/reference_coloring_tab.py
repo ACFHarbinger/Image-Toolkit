@@ -39,7 +39,11 @@ bible dropdown gives its lesson-flow projects. A Hardness spin box
 option existed) switches the color brush between the original hard-edged
 stamping and a soft, falloff-edged one (``editor.brush``'s
 ``stamp_dot_soft``/``stamp_line_soft``); mask painting always stays
-hard-edged.
+hard-edged. A third Pan/Brush/Eraser radio option adds an Eraser tool
+sharing the same Size/Hardness controls, reducing the active layer's
+alpha (``editor.brush.erase_dot``/``erase_line``) instead of painting a
+new color; mask mode ignores the Eraser selection and keeps its own
+direct-overwrite mask painting either way.
 
 New feature, not code motion.
 """
@@ -146,9 +150,11 @@ class ReferenceColoringTab(QWidget):
 
         self._pan_tool = QRadioButton("Pan", self)
         self._brush_tool = QRadioButton("Brush", self)
+        self._eraser_tool = QRadioButton("Eraser", self)
         self._pan_tool.setChecked(True)
         self._pan_tool.toggled.connect(self._on_tool_toggled)
         self._brush_tool.toggled.connect(self._on_tool_toggled)
+        self._eraser_tool.toggled.connect(self._on_tool_toggled)
 
         self._brush_color_button = QPushButton(self)
         self._brush_color = QColor(0, 0, 0)
@@ -212,6 +218,7 @@ class ReferenceColoringTab(QWidget):
         controls.addWidget(self._bind_project_button)
         controls.addWidget(self._pan_tool)
         controls.addWidget(self._brush_tool)
+        controls.addWidget(self._eraser_tool)
         controls.addWidget(QLabel("Color:", self))
         controls.addWidget(self._brush_color_button)
         controls.addWidget(QLabel("Size:", self))
@@ -434,7 +441,13 @@ class ReferenceColoringTab(QWidget):
         )
 
     def _on_tool_toggled(self) -> None:
-        self._canvas.set_tool("brush" if self._brush_tool.isChecked() else "pan")
+        if self._brush_tool.isChecked():
+            tool = "brush"
+        elif self._eraser_tool.isChecked():
+            tool = "eraser"
+        else:
+            tool = "pan"
+        self._canvas.set_tool(tool)
 
     def _pick_brush_color(self) -> None:
         color = QColorDialog.getColor(self._brush_color, self, "Brush Color")

@@ -48,6 +48,25 @@ def test_selecting_brush_radio_switches_canvas_tool(q_app):
     assert tab.canvas().tool() == "pan"
 
 
+def test_selecting_eraser_radio_switches_canvas_tool(q_app):
+    tab = ReferenceColoringTab()
+    tab._eraser_tool.setChecked(True)
+    assert tab.canvas().tool() == "eraser"
+    tab._pan_tool.setChecked(True)
+    assert tab.canvas().tool() == "pan"
+
+
+def test_eraser_tool_erases_via_the_tab(q_app, monkeypatch):
+    tab = ReferenceColoringTab()
+    _new_canvas(tab, monkeypatch)
+    layer = tab.canvas().layer_stack().layer("layer-1")
+    layer.pixels[:, :] = [1, 2, 3, 255]
+    tab._eraser_tool.setChecked(True)
+    tab._brush_radius_spin.setValue(1)
+    tab._canvas._paint_dot_at_pixel(5, 5)
+    assert layer.pixels[5, 5, 3] == 0
+
+
 def test_brush_radius_spin_updates_canvas(q_app):
     tab = ReferenceColoringTab()
     tab._brush_radius_spin.setValue(12)

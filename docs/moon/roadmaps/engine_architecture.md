@@ -374,3 +374,25 @@ functions only when hardness `< 1.0`, keeping the hard-brush path
 byte-identical to before for the default case. `ReferenceColoringTab`
 adds a Hardness spin box (`0.0`-`1.0`, step `0.05`) next to the
 existing brush Size control.
+
+**Fourteenth slice (issue #38, In review pending a manual desktop-app
+check): eraser tool.** A natural raster-editor primitive still missing
+after the brush (second slice) and its soft/hardness variant
+(thirteenth slice). `src/editor/brush.py` adds `_erase_alpha(region,
+weight)` -- reduces `region`'s alpha channel in place by a `[0, 1]`
+coverage array (`new_alpha = alpha * (1 - weight)`); RGB is left
+untouched. This needs its own compositing rather than reusing
+`stamp_*` with a transparent color, since an "over" blend with a fully
+transparent top color is a no-op, not an erase. New `erase_dot`/
+`erase_line` share the same circular/falloff coverage
+(`_circular_mask`/`_circular_falloff`) as the existing hard/soft brush,
+with a `hardness` parameter mirroring `stamp_dot_soft`/`stamp_line_soft`.
+Mask painting is unaffected and has no eraser variant -- painting a
+mask to 0 already *is* erasing it. `LayerCanvas` accepts `"eraser"` as
+a third explicit tool (alongside `"pan"`/`"brush"`), sharing the Brush
+tool's `NoDrag` mouse handling and the existing brush radius/hardness
+controls, but calling `erase_dot`/`erase_line` instead of the
+color-stamping functions. Mask mode ignores the Eraser tool selection
+and keeps its own direct-overwrite mask painting either way.
+`ReferenceColoringTab` adds an Eraser radio button next to the
+existing Pan/Brush ones.

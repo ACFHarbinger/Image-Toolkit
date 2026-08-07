@@ -14,11 +14,17 @@ deterministic stamp that is still testable pixel-for-pixel.
 same straight-alpha "over" compositing: fully opaque within
 ``hardness * radius`` of the center, then linearly fading to fully
 transparent at the edge (``hardness=1.0`` degenerates to the exact same
-coverage as the hard brush). ``stamp_mask_dot``/``stamp_mask_line`` paint
-an HxW uint8 mask by direct overwrite instead -- alpha-blending a mask
-against itself has no useful meaning, so painting a mask always just sets
-the covered pixels to the given intensity (255 reveals, 0 hides); masks
-have no soft variant for the same reason.
+coverage as the hard brush). ``erase_dot``/``erase_line`` share the same
+circular/falloff coverage but reduce ``pixels``' existing alpha instead of
+blending a new color over it -- the standard raster-editor eraser
+semantic, and the reason it needs its own compositing rather than reusing
+``stamp_*`` with a transparent color (an "over" blend with a fully
+transparent top color is a no-op, not an erase). ``stamp_mask_dot``/
+``stamp_mask_line`` paint an HxW uint8 mask by direct overwrite instead --
+alpha-blending a mask against itself has no useful meaning, so painting a
+mask always just sets the covered pixels to the given intensity (255
+reveals, 0 hides); masks have no soft variant or eraser for the same
+reason -- painting a mask to 0 already *is* erasing it.
 """
 
 from __future__ import annotations
@@ -26,6 +32,8 @@ from __future__ import annotations
 import numpy as np
 
 __all__ = [
+    "erase_dot",
+    "erase_line",
     "stamp_dot",
     "stamp_dot_soft",
     "stamp_line",
@@ -124,6 +132,21 @@ def _blend_color_over_weighted(
     new_alpha = np.clip(out_alpha[:, :, 0] * 255.0, 0, 255).astype(np.uint8)
     region[:, :, :3][painted] = new_rgb[painted]
     region[:, :, 3][painted] = new_alpha[painted]
+
+
+def _erase_alpha(region: np.ndarray, weight: np.ndarray) -> None:
+    """Reduce ``region``'s alpha channel in place by ``weight`` (a
+    ``[0, 1]`` coverage array, bool or float): ``new_alpha = alpha * (1 -
+    weight)``. RGB is left untouched -- irrelevant once alpha reaches
+    zero, and a partially erased soft edge should keep revealing the same
+    color underneath, not a different one."""
+    coverage = weight.astype(np.float64)
+    erased = coverage > 0
+    if not erased.any():
+        return
+    alpha = region[:, :, 3].astype(np.float64)
+    new_alpha = np.clip(alpha * (1.0 - coverage), 0, 255).astype(np.uint8)
+    region[:, :, 3][erased] = new_alpha[erased]
 
 
 def _validate_pixels(pixels: np.ndarray) -> None:
@@ -247,6 +270,40 @@ def stamp_line_soft(
     count = max(1, int(distance / spacing) + 1)
     for x, y in zip(np.linspace(x0, x1, count), np.linspace(y0, y1, count), strict=True):
         stamp_dot_soft(pixels, int(round(x)), int(round(y)), radius, color, hardness)
+
+
+def erase_dot(pixels: np.ndarray, cx: int, cy: int, radius: int, hardness: float) -> None:
+    """Reduce the alpha of ``pixels`` within a circular brush of ``radius``
+    centered at ``(cx, cy)``, in place -- the eraser counterpart of
+    :func:`stamp_dot`/:func:`stamp_dot_soft`. ``hardness=1.0`` erases
+    fully and uniformly within the radius (matching :func:`stamp_dot`'s
+    hard edge); lower values fade the erase toward the edge, same as
+    :func:`stamp_dot_soft`. Silently clips to the canvas bounds; a circle
+    entirely off-canvas is a no-op."""
+    _validate_pixels(pixels)
+    _validate_radius(radius)
+    _validate_hardness(hardness)
+    brush = _circular_mask(radius) if hardness >= 1.0 else _circular_falloff(radius, hardness)
+    clip = _clip_region(pixels.shape[:2], cx, cy, radius, brush)
+    if clip is None:
+        return
+    coverage_slice, y0, y1, x0, x1 = clip
+    _erase_alpha(pixels[y0:y1, x0:x1], coverage_slice)
+
+
+def erase_line(
+    pixels: np.ndarray, x0: int, y0: int, x1: int, y1: int, radius: int, hardness: float
+) -> None:
+    """Stamp overlapping erase dots along the segment from ``(x0, y0)`` to
+    ``(x1, y1)``, mirroring :func:`stamp_line` for :func:`erase_dot`."""
+    if x0 == x1 and y0 == y1:
+        erase_dot(pixels, x0, y0, radius, hardness)
+        return
+    distance = float(np.hypot(x1 - x0, y1 - y0))
+    spacing = max(1, radius // 2 or 1)
+    count = max(1, int(distance / spacing) + 1)
+    for x, y in zip(np.linspace(x0, x1, count), np.linspace(y0, y1, count), strict=True):
+        erase_dot(pixels, int(round(x)), int(round(y)), radius, hardness)
 
 
 def stamp_mask_dot(mask_buffer: np.ndarray, cx: int, cy: int, radius: int, intensity: int) -> None:

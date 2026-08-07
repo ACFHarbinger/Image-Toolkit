@@ -97,7 +97,16 @@ def test_set_tool_switches_drag_mode(q_app):
 def test_set_tool_rejects_unknown_tool(q_app):
     canvas = LayerCanvas()
     with pytest.raises(ValueError, match="unsupported tool"):
-        canvas.set_tool("eraser")
+        canvas.set_tool("lasso")
+
+
+def test_set_tool_accepts_eraser(q_app):
+    canvas = LayerCanvas()
+    canvas.set_tool("eraser")
+    assert canvas.tool() == "eraser"
+    from PySide6.QtWidgets import QGraphicsView
+
+    assert canvas.dragMode() == QGraphicsView.DragMode.NoDrag
 
 
 def test_brush_color_and_radius_setters(q_app):
@@ -202,6 +211,66 @@ def test_paint_line_at_pixel_paints_the_active_layer(q_app):
     canvas._paint_line_at_pixel(1, 5, 8, 5)
     assert stack.layer("base").pixels[5, 1, 3] > 0
     assert stack.layer("base").pixels[5, 8, 3] > 0
+
+
+def test_eraser_tool_paint_dot_reduces_alpha_instead_of_painting_color(q_app):
+    canvas = LayerCanvas()
+    stack = LayerStack(10, 10)
+    layer = stack.add_layer("base", "Base")
+    layer.pixels[:, :] = [10, 20, 30, 255]
+    canvas.set_layer_stack(stack)
+    canvas.set_active_layer_id("base")
+    canvas.set_tool("eraser")
+    canvas.set_brush_radius(1)
+    canvas._paint_dot_at_pixel(5, 5)
+    assert layer.pixels[5, 5, 3] == 0
+    assert layer.pixels[5, 5, :3].tolist() == [10, 20, 30]  # rgb untouched
+    assert layer.pixels[0, 0, 3] == 255  # outside the erase radius
+
+
+def test_eraser_tool_paint_line_clears_a_continuous_stroke(q_app):
+    canvas = LayerCanvas()
+    stack = LayerStack(10, 10)
+    layer = stack.add_layer("base", "Base")
+    layer.pixels[:, :] = [10, 20, 30, 255]
+    canvas.set_layer_stack(stack)
+    canvas.set_active_layer_id("base")
+    canvas.set_tool("eraser")
+    canvas.set_brush_radius(1)
+    canvas._paint_line_at_pixel(1, 5, 8, 5)
+    assert layer.pixels[5, 1, 3] == 0
+    assert layer.pixels[5, 8, 3] == 0
+
+
+def test_eraser_tool_ignores_brush_color(q_app):
+    canvas = LayerCanvas()
+    stack = LayerStack(10, 10)
+    layer = stack.add_layer("base", "Base")
+    layer.pixels[:, :] = [1, 2, 3, 200]
+    canvas.set_layer_stack(stack)
+    canvas.set_active_layer_id("base")
+    canvas.set_brush_color((255, 0, 0, 255))
+    canvas.set_tool("eraser")
+    canvas.set_brush_radius(0)
+    canvas._paint_dot_at_pixel(5, 5)
+    assert layer.pixels[5, 5, :3].tolist() == [1, 2, 3]  # not painted red
+    assert layer.pixels[5, 5, 3] == 0
+
+
+def test_mouse_paint_flow_treats_eraser_like_brush(q_app):
+    canvas = LayerCanvas()
+    stack = LayerStack(10, 10)
+    layer = stack.add_layer("base", "Base")
+    layer.pixels[:, :] = [1, 2, 3, 255]
+    canvas.set_layer_stack(stack)
+    canvas.set_active_layer_id("base")
+    canvas.set_tool("eraser")
+    canvas.set_brush_radius(1)
+    canvas._scene_point_to_pixel = lambda event: (5, 5)
+
+    canvas.mousePressEvent(_FakeMousePressEvent(5, 5))
+    canvas.mouseReleaseEvent(_FakeMousePressEvent(5, 5))
+    assert layer.pixels[5, 5, 3] == 0
 
 
 def test_mouse_paint_flow_via_private_pixel_hooks(q_app):

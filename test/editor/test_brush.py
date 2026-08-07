@@ -2,6 +2,8 @@ import numpy as np
 import pytest
 
 from editor import (
+    erase_dot,
+    erase_line,
     stamp_dot,
     stamp_dot_soft,
     stamp_line,
@@ -192,3 +194,69 @@ def test_stamp_line_soft_paints_a_continuous_stroke():
     stamp_line_soft(pixels, 2, 10, 17, 10, 2, (0, 0, 255, 255), hardness=0.5)
     row_alpha = pixels[10, 2:18, 3]
     assert (row_alpha > 0).all()
+
+
+def _painted(width=10, height=10, color=(255, 0, 0, 255)):
+    pixels = _blank(width, height)
+    pixels[:, :] = color
+    return pixels
+
+
+def test_erase_dot_hard_clears_alpha_within_radius():
+    pixels = _painted()
+    erase_dot(pixels, 5, 5, 2, hardness=1.0)
+    assert pixels[5, 5, 3] == 0
+    assert pixels[5, 3, 3] == 0  # within radius
+    assert pixels[5, 2, 3] == 255  # outside radius, untouched
+
+
+def test_erase_dot_hard_leaves_rgb_untouched():
+    pixels = _painted(color=(10, 20, 30, 255))
+    erase_dot(pixels, 5, 5, 1, hardness=1.0)
+    assert pixels[5, 5, :3].tolist() == [10, 20, 30]
+    assert pixels[5, 5, 3] == 0
+
+
+def test_erase_dot_soft_fades_the_edge():
+    pixels = _painted(21, 21)
+    erase_dot(pixels, 10, 10, 8, hardness=0.0)
+    assert pixels[10, 10, 3] == 0  # center: fully erased
+    edge_alpha = pixels[10, 17, 3]
+    assert 0 < edge_alpha < 255  # partial erase near the edge
+    assert pixels[10, 19, 3] == 255  # outside radius: untouched
+
+
+def test_erase_dot_soft_partial_coverage_scales_alpha_proportionally():
+    pixels = _blank(21, 21)
+    pixels[:, :] = [1, 2, 3, 200]
+    erase_dot(pixels, 10, 10, 8, hardness=0.0)
+    edge_alpha = float(pixels[10, 17, 3])
+    # A soft edge pixel's alpha should scale down by its own coverage
+    # fraction, not jump straight to zero the way a hard erase would.
+    assert 0 < edge_alpha < 200
+
+
+def test_erase_dot_off_canvas_is_a_no_op():
+    pixels = _painted(4, 4)
+    erase_dot(pixels, -10, -10, 1, hardness=1.0)
+    assert (pixels[:, :, 3] == 255).all()
+
+
+def test_erase_dot_rejects_out_of_range_hardness():
+    with pytest.raises(ValueError, match="hardness"):
+        erase_dot(_blank(), 0, 0, 1, hardness=1.5)
+
+
+def test_erase_line_single_point_behaves_like_erase_dot():
+    a = _painted()
+    erase_line(a, 5, 5, 5, 5, 2, hardness=1.0)
+    b = _painted()
+    erase_dot(b, 5, 5, 2, hardness=1.0)
+    assert (a == b).all()
+
+
+def test_erase_line_clears_a_continuous_stroke():
+    pixels = _painted(20, 20)
+    erase_line(pixels, 2, 10, 17, 10, 2, hardness=1.0)
+    row_alpha = pixels[10, 2:18, 3]
+    assert (row_alpha == 0).all()

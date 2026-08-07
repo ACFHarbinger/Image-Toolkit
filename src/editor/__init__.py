@@ -1,6 +1,8 @@
 """Deterministic, Qt-free layer-stack model for the standalone editor."""
 
 from .brush import (
+    erase_dot,
+    erase_line,
     stamp_dot,
     stamp_dot_soft,
     stamp_line,
@@ -27,6 +29,8 @@ __all__ = [
     "Layer",
     "LayerMeta",
     "LayerStack",
+    "erase_dot",
+    "erase_line",
     "stamp_dot",
     "stamp_dot_soft",
     "stamp_line",

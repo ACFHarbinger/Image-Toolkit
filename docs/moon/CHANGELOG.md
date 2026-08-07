@@ -38,7 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `engine_architecture.md`'s "Gate 5 exception (2026-08-07)" note for the
   full rationale — this is a scope decision, not evidence Krita has proven
   insufficient. The Krita plugin remains the primary, actively-developed
-  host. Thirteen slices — canvas + layer-stack foundation, brush paint
+  host. Fourteen slices — canvas + layer-stack foundation, brush paint
   tool (issue #26), undo/redo (issue #27), non-destructive layer masks
   (issue #28), line-art segmentation (issue #29), style-bible palette
   application (issue #30), region-to-material correspondence assignment
@@ -46,9 +46,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   recovery-revision rotation (issue #33), binding a portable project for
   `SignalWeights` correction learning (issue #34), attaching canvas
   documents into a bound project (issue #35), browsing/reopening
-  project-bound assets (issue #36), and a soft/anti-aliased brush
-  hardness option (issue #37) — are all In review pending a manual
-  desktop-app check (see the `### Added` entries below).
+  project-bound assets (issue #36), a soft/anti-aliased brush hardness
+  option (issue #37), and an eraser tool (issue #38) — are all In
+  review pending a manual desktop-app check (see the `### Added`
+  entries below).
 
 ### Fixed
 
@@ -441,6 +442,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   6 new headless-Qt `gui` tests (533 core + 197 gui total); Ruff and
   mypy clean. Needs a manual desktop launch to confirm visually — see
   issue #37's testing comment.
+- **Standalone editor fourteenth slice (issue #38, In review): eraser
+  tool.** A natural raster-editor primitive still missing after the
+  brush (second slice) and its soft/hardness variant (thirteenth
+  slice). `src/editor/brush.py` adds `_erase_alpha(region, weight)` —
+  reduces `region`'s alpha channel in place by a `[0, 1]` coverage
+  array (`new_alpha = alpha * (1 - weight)`); RGB is left untouched.
+  This needs its own compositing rather than reusing `stamp_*` with a
+  transparent color, since an "over" blend with a fully transparent top
+  color is a no-op, not an erase. New `erase_dot`/`erase_line` share
+  the same circular/falloff coverage (`_circular_mask`/
+  `_circular_falloff`) as the existing hard/soft brush, with a
+  `hardness` parameter mirroring `stamp_dot_soft`/`stamp_line_soft`.
+  Mask painting is unaffected and has no eraser variant — painting a
+  mask to 0 already *is* erasing it. `LayerCanvas` accepts `"eraser"`
+  as a third explicit tool (alongside `"pan"`/`"brush"`), sharing the
+  Brush tool's `NoDrag` mouse handling and the existing brush
+  radius/hardness controls, but calling `erase_dot`/`erase_line`
+  instead of the color-stamping functions. Mask mode ignores the
+  Eraser tool selection and keeps its own direct-overwrite mask
+  painting either way. `ReferenceColoringTab` adds an Eraser radio
+  button next to the existing Pan/Brush ones. Verification: 8 new core
+  `editor` tests, 7 new headless-Qt `gui` tests (541 core + 204 gui
+  total); Ruff and mypy clean. Needs a manual desktop launch to confirm
+  visually — see issue #38's testing comment.
 - **Milestone 4 first slice (issue #24): deterministic confidence scoring
   and correction learning for assisted correspondence.** Portable contract
   only, no Docker UI yet, following the same sequencing every prior
