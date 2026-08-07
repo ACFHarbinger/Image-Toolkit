@@ -94,6 +94,31 @@ class EngineClient:
             },
         )
 
+    def review_value_masks(
+        self,
+        request_id,
+        front_mask,
+        turned_mask,
+        width,
+        height,
+        light_direction,
+        boundary_hardness,
+        third_value_mask=None,
+    ):
+        return self._execute(
+            request_id,
+            "review_value_masks",
+            {
+                "front_mask": front_mask,
+                "turned_mask": turned_mask,
+                "width": width,
+                "height": height,
+                "light_direction": light_direction,
+                "boundary_hardness": boundary_hardness,
+                "third_value_mask": third_value_mask,
+            },
+        )
+
     def record_attempt_review(self, request_id, directory, attempt_id, review):
         return self._execute(
             request_id,

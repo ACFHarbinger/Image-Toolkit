@@ -46,6 +46,7 @@ from .redlines import (
 )
 from .settings import load_config, save_shortcuts, save_show_raw_measurements
 from .shortcut_dialog import ShortcutDialog
+from .value_masks import MASK_SIDE, find_named_node, sampled_alpha_mask
 from .variation_landmarks import VariationLandmarkCollector, selected_variation_stage
 
 
@@ -87,6 +88,8 @@ class LearningDocker(DockWidget):
         pair_review_button.clicked.connect(self._request_pair_review)
         feature_set_button = QPushButton("Review Complete Front / Turned Feature Set", container)
         feature_set_button.clicked.connect(self._request_feature_set_review)
+        value_review_button = QPushButton("Review Binary Cel-Value Masks", container)
+        value_review_button.clicked.connect(self._request_value_review)
         accept_button = QPushButton("Accept Preview", container)
         accept_button.clicked.connect(self._accept_preview)
         reject_button = QPushButton("Reject Preview", container)
@@ -174,6 +177,7 @@ class LearningDocker(DockWidget):
         layout.addWidget(review_button)
         layout.addWidget(pair_review_button)
         layout.addWidget(feature_set_button)
+        layout.addWidget(value_review_button)
         layout.addWidget(accept_button)
         layout.addWidget(reject_button)
         layout.addWidget(helpful_button)
@@ -476,6 +480,77 @@ class LearningDocker(DockWidget):
         self._action_status.setText(
             "Review landmarks recorded from the current projection. The artwork was not modified."
         )
+
+    def _request_value_review(self) -> None:
+        lesson = self._lessons[self._lesson_selector.currentIndex()]
+        if lesson["exercise_id"] != "anime-head-cel-values":
+            self._action_status.setText("Select the cel-value lesson before reviewing masks.")
+            return
+        document = Krita.instance().activeDocument()
+        if document is None or self._project_directory is None or self._attempt_id is None:
+            self._action_status.setText("Open the bound cel-value exercise project first.")
+            return
+        direction, accepted = QInputDialog.getItem(
+            self,
+            "Confirm Light Direction",
+            "Declared light direction:",
+            ["top left", "top", "top right", "left", "right"],
+            0,
+            False,
+        )
+        if not accepted:
+            return
+        hardness, accepted = QInputDialog.getItem(
+            self,
+            "Confirm Boundary",
+            "Declared boundary hardness:",
+            ["hard", "moderate"],
+            0,
+            False,
+        )
+        if not accepted:
+            return
+        root = document.rootNode()
+        front = find_named_node(root, "02 Front Binary Shadow Mask")
+        third = find_named_node(root, "04 Optional Third-Value Accent Mask")
+        turned = find_named_node(root, "05 Right Three-Quarter Binary Shadow Mask")
+        if front is None or turned is None:
+            self._action_status.setText("The required named binary mask layers were not found.")
+            return
+        try:
+            front_mask = sampled_alpha_mask(front, 1, document.width(), document.height())
+            turned_mask = sampled_alpha_mask(turned, 4, document.width(), document.height())
+            third_mask = (
+                sampled_alpha_mask(third, 3, document.width(), document.height())
+                if third is not None
+                else None
+            )
+            if third_mask is not None and not any(third_mask):
+                third_mask = None
+            request_id = str(uuid.uuid4())
+            client = EngineClient()
+            review = client.review_value_masks(
+                request_id,
+                front_mask,
+                turned_mask,
+                MASK_SIDE,
+                MASK_SIDE,
+                direction.replace(" ", "_"),
+                hardness,
+                third_mask,
+            )
+            client.record_attempt_review(
+                "record-" + review["id"],
+                self._project_directory,
+                self._attempt_id,
+                review,
+            )
+        except (AttributeError, RuntimeError, ValueError) as error:
+            self._action_status.setText("Value-mask review unavailable: " + str(error))
+            return
+        self._review_id = review["id"]
+        self._action_status.setText(" ".join(review["explanations"]))
+        self._refresh_progress()
 
     def _request_review(self) -> None:
         lesson = self._lessons[self._lesson_selector.currentIndex()]

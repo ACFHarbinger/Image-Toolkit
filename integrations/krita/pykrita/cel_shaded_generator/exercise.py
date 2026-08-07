@@ -83,10 +83,10 @@ VALUE_EXERCISE_HEIGHT = 1800
 VALUE_EXERCISE_TITLE = "Cel-Shaded Value Grouping — Light and Form Sheet"
 VALUE_EXERCISE_VIEWS = (
     "01 Light Statement and Plane Map",
-    "02 Front Two-Value Mask",
+    "02 Front Binary Shadow Mask",
     "03 Front Cast-Shadow Audit",
-    "04 Restrained Three-Value Pass",
-    "05 Right Three-Quarter Two-Value Transfer",
+    "04 Optional Third-Value Accent Mask",
+    "05 Right Three-Quarter Binary Shadow Mask",
     "06 Front and Turned Lighting Consistency",
 )
 CAPSTONE_EXERCISE_ID = "anime-head-review"

@@ -306,6 +306,14 @@ def test_creates_cel_value_grouping_sheet():
     assert len(document.root.children) == 7
     assert document.root.children[0][0].children[0][0].locked
     assert "LIGHT STATEMENT AND PLANE MAP" in document.root.children[0][0].children[0][0].svg
+    assert [node.name for node, _ in document.root.children][1:] == [
+        "01 Light Statement and Plane Map",
+        "02 Front Binary Shadow Mask",
+        "03 Front Cast-Shadow Audit",
+        "04 Optional Third-Value Accent Mask",
+        "05 Right Three-Quarter Binary Shadow Mask",
+        "06 Front and Turned Lighting Consistency",
+    ]
 
 
 def test_creates_comprehensive_capstone_sheet():

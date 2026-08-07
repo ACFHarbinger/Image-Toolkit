@@ -38,6 +38,27 @@ def test_protocol_returns_versioned_review():
     assert response["result"]["rubric_version"] == "1.0.0"
 
 
+def test_protocol_reviews_binary_value_masks_without_persisting_pixels():
+    mask = [int(2 <= x < 6 and 2 <= y < 6) for y in range(8) for x in range(8)]
+    response = handle_request(
+        {
+            "protocol_version": 1,
+            "request_id": "value-1",
+            "operation": "review_value_masks",
+            "payload": {
+                "front_mask": mask,
+                "turned_mask": mask,
+                "width": 8,
+                "height": 8,
+                "light_direction": "top_left",
+                "boundary_hardness": "hard",
+            },
+        }
+    )
+    assert response["result"]["measurements"]["front_turned_consistency"] == 1
+    assert "front_mask" not in response["result"]
+
+
 def test_protocol_creates_portable_exercise_project(tmp_path):
     artwork = tmp_path / "artwork/attempt-001.kra"
     artwork.parent.mkdir()

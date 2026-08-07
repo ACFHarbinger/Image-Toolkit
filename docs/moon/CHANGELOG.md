@@ -24,6 +24,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   lower-face, and identity-card checks now produce provisional tutor-owned
   guides mapped only into the reviewed sheet cell; variants remain descriptive
   and never receive corrective ranking.
+- Added the first dedicated cel-value review. The template now uses explicit
+  front, turned, and optional third-value mask layers where transparency means
+  light and painted alpha means shadow/accent. A local 64×64 sample measures
+  area balance, connected fragmentation, isolated islands, edge complexity,
+  front/turned consistency, and optional third-value subordination, combined
+  with manual light-direction and hardness confirmation. Only scalar results
+  are persisted; sampled pixels and colors are discarded.
 - Began A3 issue #12 with a versioned offline curriculum graph containing nine
   primary anime head-and-face exercises and four targeted remedial exercises.
   Deterministic prerequisites select the next unlocked exercise; normalized

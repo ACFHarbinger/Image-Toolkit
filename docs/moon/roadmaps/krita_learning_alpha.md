@@ -243,7 +243,13 @@ remain deferred in Review.
   causes, subordinate third values, identity preservation, and front-to-turned
   lighting consistency. Two offline diagrams and a 2600 × 1800 six-layer sheet
   cover the plane map, masks, cast-shadow audit, third-value pass, turned transfer,
-  and consistency. Its dedicated mask/lighting review remains future work.
+  and consistency. The first dedicated review reads explicit alpha-only front
+  and turned binary-shadow layers plus an optional third-value accent layer,
+  after the artist confirms light direction and boundary hardness. Bounded
+  local analysis reports area balance, fragmentation, isolated islands, edge
+  complexity, front/turned consistency, and subordinate third-value area.
+  Pixels and colors are discarded; only scalar measurements persist. Spatial
+  light-cause review and beginner calibration remain future work.
 - 🔄 Comprehensive capstone: lesson nine integrates brief, portable identity
   card, front/turned construction, expression, controlled asymmetry, cel values,
   review decisions, prioritized correction, compatible comparison, and delayed

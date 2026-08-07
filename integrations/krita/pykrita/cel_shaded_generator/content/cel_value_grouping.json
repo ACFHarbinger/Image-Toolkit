@@ -23,11 +23,11 @@
     {"title":"1. Construct the unlit head","explanation":"Draw a selected character in front view with visible cranial, facial, muzzle, jaw, ear, and hair-mass planes. Preserve the identity card and one mild expression."},
     {"title":"2. Declare the light","explanation":"Draw a light arrow and write front/side/top bias plus hard or moderately soft boundary. Do not move the light to justify each preferred shadow shape."},
     {"title":"3. Mark plane-facing decisions","explanation":"Label major planes as facing toward, grazing, or facing away from the light. Resolve uncertain boundaries from construction before painting values."},
-    {"title":"4. Design the two-value mask","explanation":"Fill all shadow-family planes with one flat value. Merge nearby fragments when they describe one larger form and preserve important feature readability."},
+    {"title":"4. Design the two-value mask","explanation":"On the named Front Binary Shadow Mask layer, leave light transparent and paint every shadow-family pixel opaque; color is ignored. Merge nearby fragments when they describe one larger form and preserve important feature readability."},
     {"title":"5. Separate cast shadows","explanation":"Identify shadows cast by nose, lids, hair, chin, and ear rim. Check their direction against the same light arrow and distinguish them from form terminators."},
     {"title":"6. Audit silhouette and identity","explanation":"View the mask small and in grayscale. Confirm cranial volume, face direction, eye/mouth expression, and identity anchors survive the grouping."},
-    {"title":"7. Add one third-value role","explanation":"Choose deep accent or highlight. Limit it to structurally justified regions and compare against the unchanged two-value version."},
-    {"title":"8. Transfer lighting into three-quarter view","explanation":"Reconstruct the selected head and same light in three-quarter view. Recalculate plane facing and cast shadows rather than copying front-view patches."},
+    {"title":"7. Add one third-value role","explanation":"Optionally paint an opaque accent on the named Optional Third-Value Accent Mask layer. Keep light transparent, limit the accent to structurally justified regions, and compare against the unchanged two-value version."},
+    {"title":"8. Transfer lighting into three-quarter view","explanation":"On the named Right Three-Quarter Binary Shadow Mask layer, leave light transparent and paint shadow opaque under the same light. Recalculate plane facing and cast shadows rather than copying front-view patches."},
     {"title":"9. Run cause and consistency checks","explanation":"Point to the form or occluder causing every major boundary. Remove unexplained islands and confirm both views share one light setup and character identity."}
   ],
   "guided_drills":[
