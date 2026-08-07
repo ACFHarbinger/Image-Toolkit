@@ -147,15 +147,17 @@ not evidence of pedagogical validity.
 - 🔄 Structured redline layers and configurable accept/reject interaction. The
   Krita 5.x adapter rasterizes validated normalized geometry into a new locked
   tutor-owned preview without touching artwork. Explicit idempotent buttons
-  accept it as a locked reference or reject only the owned preview; no shortcut
-  is assigned by default because Tab belongs to Krita. Persistence, shortcut
-  configuration, undo semantics, and live verification remain in issue #11.
+  accept it as a locked reference or reject only the owned preview. Unique
+  shortcuts are opt-in and atomically persisted; none is assigned by default
+  because Tab belongs to Krita. Failed decision persistence retains a same-action
+  retry state and blocks the opposite decision. Owner review remains in #11.
 - 🔄 Save, reload, migration, and failure recovery: portable schema v2 persists
   privacy-safe review versions, measurements, explanations, and final decisions
   with deterministic v0/v1 migration and recovery coverage. The Krita adapter
   now binds an empty directory to `project.json` plus
   `artwork/attempt-001.kra`, and engine operations atomically record the review
-  and decision. Live verification remains.
+  and decision. Automated implementation is complete; live verification is
+  owner-deferred in issues #10 and #11.
 
 ### A3 — curriculum and adaptive remediation
 

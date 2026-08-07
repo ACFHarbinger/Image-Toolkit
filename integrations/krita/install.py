@@ -4,12 +4,23 @@
 from __future__ import annotations
 
 import argparse
-import json
 import os
 import shutil
 from pathlib import Path
 
 PLUGIN_NAME = "cel_shaded_generator"
+
+
+def _load_settings_module():
+    import importlib.util
+
+    path = Path(__file__).parent / "pykrita" / PLUGIN_NAME / "settings.py"
+    spec = importlib.util.spec_from_file_location("cel_shaded_generator_krita_settings", path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError("could not load packaged Krita settings")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def default_root() -> Path:
@@ -19,8 +30,7 @@ def default_root() -> Path:
 
 def default_config_path() -> Path:
     """Return the plugin's XDG-compatible host configuration path."""
-    config_home = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
-    return config_home / "cel-shaded-generator" / "krita.json"
+    return _load_settings_module().default_config_path()
 
 
 def configure_engine(engine: Path, config_path: Path | None = None) -> Path:
@@ -28,15 +38,9 @@ def configure_engine(engine: Path, config_path: Path | None = None) -> Path:
     resolved = engine.expanduser().resolve()
     if not resolved.is_file() or not os.access(resolved, os.X_OK):
         raise ValueError("engine must be an existing executable file")
-    target = config_path or default_config_path()
-    target.parent.mkdir(parents=True, exist_ok=True)
-    temporary = target.with_suffix(target.suffix + ".tmp")
-    temporary.write_text(
-        json.dumps({"schema_version": 1, "engine_executable": str(resolved)}, indent=2) + "\n",
-        encoding="utf-8",
+    return _load_settings_module().merge_engine_executable(
+        resolved, config_path or default_config_path()
     )
-    temporary.replace(target)
-    return target
 
 
 def install(root: Path) -> None:

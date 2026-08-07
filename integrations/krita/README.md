@@ -41,3 +41,7 @@ uses an explicit executable path or `CEL_SHADED_GENERATOR_ENGINE`, never
 path is still pending. The installer records the explicitly supplied executable
 atomically at `${XDG_CONFIG_HOME:-~/.config}/cel-shaded-generator/krita.json`;
 uninstalling the plugin deliberately preserves this reusable user setting.
+Review, Accept, and Reject shortcuts default to unassigned. Configure them from
+the tutor docker; values must be valid and unique, are saved atomically beside
+the engine path, and only become active after the artist explicitly assigns
+them. This avoids silently taking Krita's Tab canvas-only binding.

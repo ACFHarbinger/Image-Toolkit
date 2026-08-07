@@ -7,13 +7,24 @@ import uuid
 from pathlib import Path
 
 from krita import DockWidget, Krita
-from PyQt5.QtWidgets import QFileDialog, QLabel, QPushButton, QScrollArea, QVBoxLayout, QWidget
+from PyQt5.QtGui import QKeySequence
+from PyQt5.QtWidgets import (
+    QFileDialog,
+    QLabel,
+    QPushButton,
+    QScrollArea,
+    QShortcut,
+    QVBoxLayout,
+    QWidget,
+)
 
 from .diagnostics import diagnose
 from .engine_client import EngineClient
 from .exercise import create_exercise_project
 from .landmark_dialog import LandmarkDialog
 from .redlines import accept_preview, reject_preview, render_review_redlines
+from .settings import load_config, save_shortcuts
+from .shortcut_dialog import ShortcutDialog
 
 
 class LearningDocker(DockWidget):
@@ -57,11 +68,15 @@ class LearningDocker(DockWidget):
         accept_button.clicked.connect(self._accept_preview)
         reject_button = QPushButton("Reject Preview", container)
         reject_button.clicked.connect(self._reject_preview)
+        shortcut_button = QPushButton("Configure Shortcuts", container)
+        shortcut_button.clicked.connect(self._configure_shortcuts)
         self._landmarks = None
         self._preview_layer = None
         self._project_directory = None
         self._attempt_id = None
         self._review_id = None
+        self._pending_decision = None
+        self._shortcuts = {}
         self._action_status = QLabel(
             "Create an unsaved 1600 × 2000 exercise with separate construction, artwork, "
             "and tutor-feedback layers.",
@@ -80,12 +95,14 @@ class LearningDocker(DockWidget):
         layout.addWidget(review_button)
         layout.addWidget(accept_button)
         layout.addWidget(reject_button)
+        layout.addWidget(shortcut_button)
         layout.addWidget(self._action_status)
         layout.addWidget(status)
         layout.addWidget(diagnostics)
         layout.addStretch(1)
         scroll.setWidget(container)
         self.setWidget(scroll)
+        self._apply_shortcuts(load_config()["shortcuts"])
 
     def _create_exercise(self) -> None:
         directory = QFileDialog.getExistingDirectory(
@@ -157,6 +174,7 @@ class LearningDocker(DockWidget):
             )
             return
         self._preview_layer = layer if review.get("suggestions") else None
+        self._pending_decision = None
         suffix = (
             "\nNo correction layer was needed."
             if layer is None
@@ -168,29 +186,44 @@ class LearningDocker(DockWidget):
         if self._preview_layer is None:
             self._action_status.setText("There is no pending tutor preview to accept.")
             return
-        try:
-            changed = accept_preview(self._preview_layer)
-        except (RuntimeError, ValueError) as error:
-            self._action_status.setText(f"Could not accept preview: {error}")
+        if self._pending_decision not in (None, "accepted"):
+            self._action_status.setText(
+                "A rejected decision is awaiting persistence; retry Reject."
+            )
             return
-        if changed:
-            if not self._persist_decision("accepted"):
+        if self._pending_decision is None:
+            try:
+                accept_preview(self._preview_layer)
+            except (RuntimeError, ValueError) as error:
+                self._action_status.setText(f"Could not accept preview: {error}")
                 return
-            self._action_status.setText("Preview accepted as a locked tutor reference layer.")
+            self._pending_decision = "accepted"
+        if not self._persist_decision("accepted"):
+            return
+        self._action_status.setText("Preview accepted as a locked tutor reference layer.")
+        self._pending_decision = None
         self._preview_layer = None
 
     def _reject_preview(self) -> None:
         if self._preview_layer is None:
             self._action_status.setText("There is no pending tutor preview to reject.")
             return
-        try:
-            reject_preview(self._preview_layer)
-        except (RuntimeError, ValueError) as error:
-            self._action_status.setText(f"Could not reject preview: {error}")
+        if self._pending_decision not in (None, "rejected"):
+            self._action_status.setText(
+                "An accepted decision is awaiting persistence; retry Accept."
+            )
             return
-        self._preview_layer = None
+        if self._pending_decision is None:
+            try:
+                reject_preview(self._preview_layer)
+            except (RuntimeError, ValueError) as error:
+                self._action_status.setText(f"Could not reject preview: {error}")
+                return
+            self._pending_decision = "rejected"
         if not self._persist_decision("rejected"):
             return
+        self._pending_decision = None
+        self._preview_layer = None
         self._action_status.setText("Preview rejected and removed; artist layers were unchanged.")
 
     def _persist_decision(self, decision) -> bool:
@@ -211,6 +244,35 @@ class LearningDocker(DockWidget):
             self._action_status.setText(f"Decision could not be saved: {error}")
             return False
         return True
+
+    def _configure_shortcuts(self) -> None:
+        current = load_config()["shortcuts"]
+        dialog = ShortcutDialog(current, self)
+        if dialog.exec_() != dialog.Accepted:
+            return
+        try:
+            save_shortcuts(dialog.shortcuts())
+        except ValueError as error:
+            self._action_status.setText(f"Could not save shortcuts: {error}")
+            return
+        self._apply_shortcuts(dialog.shortcuts())
+        self._action_status.setText("Tutor shortcuts updated. Empty actions remain unassigned.")
+
+    def _apply_shortcuts(self, shortcuts) -> None:
+        for shortcut in self._shortcuts.values():
+            shortcut.setEnabled(False)
+            shortcut.deleteLater()
+        self._shortcuts = {}
+        handlers = {
+            "review": self._request_review,
+            "accept": self._accept_preview,
+            "reject": self._reject_preview,
+        }
+        for action, sequence in shortcuts.items():
+            if sequence:
+                shortcut = QShortcut(QKeySequence(sequence), self)
+                shortcut.activated.connect(handlers[action])
+                self._shortcuts[action] = shortcut
 
     def canvasChanged(self, canvas) -> None:  # noqa: N802
         """Krita callback; this shell does not inspect the canvas."""

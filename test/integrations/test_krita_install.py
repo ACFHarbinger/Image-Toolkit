@@ -76,7 +76,11 @@ def test_engine_configuration_is_explicit_and_atomic(tmp_path):
     config = tmp_path / "config/krita.json"
     assert configure_engine(engine, config) == config
     payload = json.loads(config.read_text(encoding="utf-8"))
-    assert payload == {"schema_version": 1, "engine_executable": str(engine.resolve())}
+    assert payload == {
+        "schema_version": 1,
+        "engine_executable": str(engine.resolve()),
+        "shortcuts": {"review": "", "accept": "", "reject": ""},
+    }
     assert not config.with_suffix(".json.tmp").exists()
 
 

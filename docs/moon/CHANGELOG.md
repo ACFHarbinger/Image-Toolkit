@@ -34,6 +34,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   create the manifest, append a privacy-safe review to its stable attempt, and
   persist final decisions with recovery rotation. Unrelated/non-empty targets,
   traversal, missing/ambiguous attempts, and duplicate reviews are refused.
+  Completed #11's configurable interaction boundary: Review, Accept, and Reject
+  shortcuts default empty, must be valid and unique, and are atomically saved
+  without replacing the configured engine. Reconfiguration replaces old Qt
+  bindings cleanly. If a layer decision succeeds but manifest persistence fails,
+  the same action becomes an explicit retry and the opposite action is blocked;
+  no failure is reported as success. Accept retains only a tutor reference and
+  never applies pixels to artist artwork, so this slice creates no accepted
+  artwork mutation requiring an undo command.
 - Started A2 issue #10 by replacing the placeholder lesson with a five-stage,
   locally packaged beginner sequence covering cranial mass, centerline,
   eye-line, jaw/chin construction, structural checking, completion criteria,
