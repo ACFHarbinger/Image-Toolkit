@@ -96,7 +96,15 @@ region layers a reviewer renames become the region ids C4's **Assign Region
 Correspondence** action reads by layer name. Segmentation now takes an artist-chosen minimum region area and discards
 dust-speck regions below it (`filter_small_regions`, implemented in both the
 numpy engine module and the pure-Python Krita adapter), reporting the
-discard count.
+discard count. `_report_adjacency` and Character Colors' adjacency-suggested
+defaults (C4.1) now share one `region_labels_and_names` scan in
+`segmentation_masks.py` rather than two independent copies; `_segment_regions`
+buckets pixels into per-region buffers in one pass instead of rescanning the
+full label array once per region. Issue #23 (Backlog) tracks a real but
+deferred finding from the same review: every Docker action across the
+plugin runs synchronously on Krita's UI thread, freezing it during heavy
+work; fixing this needs a plugin-wide async architecture decision, not a
+scoped patch to one Docker.
 
 ## Milestone 6 — batch chapter workflow
 
