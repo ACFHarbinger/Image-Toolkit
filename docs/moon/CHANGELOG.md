@@ -2,6 +2,16 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S340 — 2026-08-07 (Cel-Shaded-Generator core source flattening)
+
+Completed Cel-Shaded-Generator issue #13 (`86c6e3b`) by moving every core
+module and domain package from `src/cel_shaded_generator/` directly into
+`src/`. Engine, GUI, Krita diagnostics, benchmarks, tests, packaging, and
+current architecture documentation now use the top-level namespaces. The
+separate Krita plugin and GUI identifiers remain stable. Verification: 201
+core tests, 103 headless GUI tests, Ruff and mypy clean, and both distributions
+build successfully.
+
 ## S339 — 2026-08-07 (Adaptive curriculum milestone started)
 
 Opened Cel-Shaded-Generator A3 issue #12 at In Progress P0/XL and recorded it in `c497f65`. A3 covers versioned curriculum progression, deterministic and explainable weakness-to-remediation routing, compatible repeated-attempt comparison, and a private local progress view. A2 issues #10 and #11 remain in owner-deferred Review with explicit test instructions and pass-to-Done/fail-to-In-Progress rules; continued headless A3 work does not block on drawing tests.
