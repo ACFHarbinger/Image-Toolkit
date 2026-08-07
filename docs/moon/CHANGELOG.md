@@ -36,7 +36,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   KDE's published value, confirmed it bundles `pykrita`, Scripter, and the plugin
   importer, installed a desktop launcher and the plugin's six intended files,
   and completed a clean startup probe. Interactive enablement and visible-docker
-  confirmation remain.
+  confirmation subsequently passed. The discovery check also established that
+  Krita disables every docker action on its start screen until a document is
+  open; onboarding must explain or avoid this otherwise confusing state.
 - Completed Phase 0 issue #8 and the standalone-foundation phase: replaced the
   template README, contributor/agent guidance, documentation landing page,
   development/testing/dependency/troubleshooting/module guides, glossary,
