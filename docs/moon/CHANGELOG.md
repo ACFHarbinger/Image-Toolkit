@@ -2,6 +2,18 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S345 — 2026-08-07 (Unlocked lesson navigation and explicit completion)
+
+Advanced Cel-Shaded-Generator A3 issue #12 (`48724aa`) with an ordered lesson
+selector plus Previous/Next navigation in the existing tutor docker. Lessons
+remain browsable regardless of prerequisites. The fully authored orientation
+lesson includes two original selectable SVG diagrams for cross-contours and a
+five-view rotation ladder. Checklist completion is an explicit reversible
+artist action persisted through the bounded engine; review results remain
+supporting evidence and never auto-complete an exercise. Verification: 234
+tests, Ruff and mypy clean. A3 remains undeployed while A2 #10/#11 stay in
+deferred Review.
+
 ## S344 — 2026-08-07 (Editable advice feedback and authored orientation lesson)
 
 Advanced Cel-Shaded-Generator A3 issue #12 with editable project advice
