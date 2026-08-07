@@ -19,6 +19,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Completed G1 issue #19's Docker slice with a new, separate Line Art
+  Segmentation Docker. A pure-Python, numpy-free `segmentation_masks.py`
+  adapter mirrors `colorization/segmentation.py`'s algorithm on flat Krita
+  layer byte buffers in-process (the engine's small JSON-RPC transport is
+  unsuited to full-resolution pixel payloads, matching the existing
+  `color_masks.py`/`value_masks.py` precedent). **Close Line Art Gaps**,
+  **Segment Regions into Layers**, and **Report Region Adjacency** create
+  inspectable, renamable layers directly; renamed region layers become the
+  region ids C4's Assign Region Correspondence action reads. Verification:
+  373 tests pass; Ruff and core mypy are clean. G1 moves to **In review**
+  pending the live-Krita checklist; no deployment occurred.
 - Opened G1 issue #19 for reference-coloring roadmap milestone 1
   (segmentation and gap-repair tools), previously untouched. Started the
   deterministic baseline in `src/colorization/segmentation.py`:

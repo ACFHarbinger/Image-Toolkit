@@ -4,6 +4,7 @@ from krita import DockWidgetFactory, DockWidgetFactoryBase, Krita
 
 from .color_docker import CharacterColorsDocker
 from .docker import LearningDocker
+from .segmentation_docker import SegmentationDocker
 
 Krita.instance().addDockWidgetFactory(
     DockWidgetFactory(
@@ -17,5 +18,12 @@ Krita.instance().addDockWidgetFactory(
         "cel_shaded_generator_character_colors_docker",
         DockWidgetFactoryBase.DockRight,
         CharacterColorsDocker,
+    )
+)
+Krita.instance().addDockWidgetFactory(
+    DockWidgetFactory(
+        "cel_shaded_generator_segmentation_docker",
+        DockWidgetFactoryBase.DockRight,
+        SegmentationDocker,
     )
 )

@@ -42,11 +42,11 @@ and user corrections.
 
 ## Milestones
 
-1. 🔄 Editable segmentation and gap-repair tools in Krita. G1 issue #19
-   started the deterministic baseline: bounded gap closing, single-radius
-   trapped-ball-style region segmentation, and a region-adjacency graph.
-   Krita Docker wiring (mask-layer creation, gap-closing preview, region
-   review) remains.
+1. 🔄 Editable segmentation and gap-repair tools in Krita. G1 issue #19 (In
+   review) implements the deterministic baseline plus a Line Art
+   Segmentation Docker: bounded gap closing, single-radius trapped-ball-style
+   region segmentation into renamable layers, and a region-adjacency report.
+   Only the live-Krita checklist remains.
 2. 🔄 Versioned character style-bible format and palette application.
    Issue #15 implements the standalone foundation: semantic materials,
    unambiguous aliases, explicit local/light/shadow/optional-accent sRGB roles,
@@ -62,21 +62,31 @@ and user corrections.
 
 ## G1 — segmentation and gap-repair baseline
 
-Issue #19 is In progress. `src/colorization/segmentation.py` provides the
-deterministic first pass named in milestone 1: `close_line_gaps` bridges
-hand-drawn ink gaps up to a bounded pixel radius via morphological closing;
-`segment_regions` flood-fills the gap-closed background into labeled
-regions, excluding any region that still touches the canvas border (not yet
-enclosed by a drawn boundary); `region_adjacency` returns the touching-label
-pairs the roadmap's region-adjacency-graph avenue calls for; and
-`region_statistics` reports per-region area, centroid, and bounding box for
-later Krita review tooling. The fill is deliberately single-radius rather
-than the roadmap's full multi-radius trapped-ball technique — documented in
-the module as the first-pass narrowing, upgradeable later without changing
-the label/adjacency/statistics contract downstream callers use. Krita Docker
-wiring (creating mask layers from labels, previewing gap closing, reviewing
-regions) is a separate follow-up slice with its own live-Krita checklist,
-mirroring how C1's standalone contract preceded C3's Docker.
+Issue #19 is In review pending the live-Krita checklist.
+`src/colorization/segmentation.py` provides the deterministic algorithm
+baseline named in milestone 1: `close_line_gaps` bridges hand-drawn ink gaps
+up to a bounded pixel radius via morphological closing; `segment_regions`
+flood-fills the gap-closed background into labeled regions, excluding any
+region that still touches the canvas border (not yet enclosed by a drawn
+boundary); `region_adjacency` returns the touching-label pairs the roadmap's
+region-adjacency-graph avenue calls for; and `region_statistics` reports
+per-region area, centroid, and bounding box. The fill is deliberately
+single-radius rather than the roadmap's full multi-radius trapped-ball
+technique — documented in the module as the first-pass narrowing, upgradeable
+later without changing the label/adjacency/statistics contract downstream
+callers use.
+
+A new **Line Art Segmentation** Docker (separate from Character Colors,
+mirroring how C3 got its own Docker) exposes the same algorithm through a
+pure-Python, numpy-free `segmentation_masks.py` adapter — the engine's small
+JSON-RPC transport is unsuited to full-resolution pixel payloads, so this
+mirrors `color_masks.py`/`value_masks.py`'s existing pattern of operating on
+Krita layer bytes in-process rather than round-tripping through the engine
+subprocess. **Close Line Art Gaps**, **Segment Regions into Layers**, and
+**Report Region Adjacency** create inspectable/renamable layers directly;
+region layers a reviewer renames become the region ids C4's **Assign Region
+Correspondence** action reads by layer name. Only the live-Krita checklist
+remains before G1 can move to Done.
 
 ## C4 — deterministic manual correspondence baseline
 

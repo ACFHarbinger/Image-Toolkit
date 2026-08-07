@@ -76,9 +76,9 @@ until their existing live tutor checklists are performed.
 
 The Character Colors Docker also carries the C4 deterministic manual
 correspondence baseline: **Assign Region Correspondence**, **Propagate
-Correspondence to Regions**, and **Preview Region Correspondence Color**. This
-is still In progress; portable persistence, engine operations, and headless
-tests are complete, but no live Krita review has happened yet.
+Correspondence to Regions**, and **Preview Region Correspondence Color**.
+Portable persistence, engine operations, and headless tests are complete,
+but no live Krita review has happened yet.
 
 For a live review, bind a portable project with a bound style bible. Draw or
 select any paint layer representing a target-drawing region (its name becomes
@@ -102,3 +102,35 @@ reject). A second preview cannot be created until the first is resolved.
 Project status rule: keep issue #18 in **In review** until all the above
 checks pass, then move it to **Done**. If any expected behavior fails, document
 the step and move it back to **In progress**.
+
+## Line-art segmentation review checklist (G1, issue #19)
+
+The separate **Line Art Segmentation** Docker carries the G1 deterministic
+gap-closing and region-segmentation baseline: **Close Line Art Gaps**,
+**Segment Regions into Layers**, and **Report Region Adjacency**. This is
+still In progress; the pure-Python host-neutral algorithm and its headless
+tests are complete, but no live Krita review has happened yet.
+
+For a live review, open a document with a line-art layer (opaque ink,
+transparent elsewhere) that encloses at least two regions, with one small
+intentional gap in a dividing line. Select the line-art layer and choose
+**Close Line Art Gaps** with a gap radius that covers the intentional gap.
+Expected: a new locked-looking layer named `Line Art — Gap Closed (radius
+N)` appears under a `Line Art` group with the gap visibly bridged; the
+source line-art layer is unchanged.
+
+Select the gap-closed layer and choose **Segment Regions into Layers**.
+Expected: a `Regions` group appears containing one white-on-transparent
+layer per enclosed region, named `Region — <n>`; a region that touches the
+canvas border must **not** appear, since it is not yet enclosed. Rename a
+couple of region layers to meaningful ids (this is what the Character
+Colors Docker's **Assign Region Correspondence** action reads).
+
+With the `Regions` group present, choose **Report Region Adjacency** (active
+document, no specific layer needed). Expected: the status bar reports the
+correct count of touching region pairs by name. Regions that do not share a
+border must not appear in the report.
+
+Project status rule: keep issue #19 in **In review** until all the above
+checks pass, then move it to **Done**. If any expected behavior fails,
+document the step and move it back to **In progress**.
