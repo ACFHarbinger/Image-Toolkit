@@ -2,6 +2,17 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S362 — 2026-08-07 (Portable character style-bible foundation)
+
+Started reference-consistent coloring Phase 2 while keeping tutor #10/#11/#12
+frozen in Review. C1 #15 delivered a standalone versioned semantic material and
+cel-palette contract with atomic bounded recovery (`e79776c`). C2 #16 bound
+validated bibles/reference views into portable schema-v9 projects with safe
+relative non-symlink assets, attach/detach engine operations, migration, and
+pixel-free summaries (`79ee7d6`). Verification: 325 tests, Ruff and core mypy
+clean. Strict MkDocs could not start because the optional `mkdocstrings` plugin
+is absent in the current environment; dependencies were not changed implicitly.
+
 ## S361 — 2026-08-07 (A3 moved to deferred review)
 
 Moved Cel-Shaded-Generator A3 issue #12 to In Review after completing its
