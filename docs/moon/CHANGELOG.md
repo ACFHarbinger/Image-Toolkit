@@ -2,6 +2,16 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S366 — 2026-08-07 (Editable Character Colors workflow)
+
+Advanced Cel-Shaded-Generator C3 #17 with prefilled editing of existing style
+bibles (`57b9ef9`). Canonical materials, aliases, local/light/shadow/optional-
+accent roles, and references are preserved and editable; absent accents are not
+offered. Preview create/write/remove failures are explicit and clean partial
+state. Verification remains 328 tests with Ruff/core mypy clean. C3 stays In
+Progress for headless Docker contract coverage and live acceptance instructions;
+nothing is deployed and tutor #10/#11/#12 remain frozen in Review.
+
 ## S365 — 2026-08-07 (Character Colors Krita authoring foundation)
 
 Advanced Cel-Shaded-Generator C3 #17 (`3d44257`) with a separate Character
