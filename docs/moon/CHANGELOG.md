@@ -2,6 +2,10 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S335 — 2026-08-07 (Explicit Krita preview decisions)
+
+Started Cel-Shaded-Generator issue #11 (`5adb14e`) while leaving #10's deployed slice unchanged in owner-deferred review. Suggested redlines now use a distinct tutor-owned preview identity; explicit idempotent Accept retains one as a locked reference, while Reject removes only a pending owned preview and refuses unrelated layers. No accept shortcut is assigned by default, avoiding Krita's Tab canvas-only conflict. Verification: 186 tests, Ruff and mypy clean. Persistence, user-configurable shortcuts, and verified undo semantics remain; this slice is not deployed into the review build yet.
+
 ## S334 — 2026-08-07 (Deferred A2 owner-review gate)
 
 Moved Cel-Shaded-Generator issue #10 to In Review at the owner's request and added exact deferred live-test instructions plus the board rule: all expected behaviors closes/moves it to Done; any failure documents the step and returns it to In Progress. Created issue #11 at In Progress P0/L for suggestion accept/reject and review persistence so continued development does not silently change the deployed slice under review. Cel-Shaded-Generator `a3482d9` records the split in its roadmap and changelog.
