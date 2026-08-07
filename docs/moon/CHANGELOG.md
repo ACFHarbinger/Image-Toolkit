@@ -27,6 +27,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Opened C3 issue #17 in Backlog for offline Krita style-bible authoring and
   explicit per-material palette-role application. Learned correspondence and
   deployment over the reviewed tutor candidate are explicitly out of scope.
+  Moved C3 to In Progress and added the separate Character Colors Docker plus
+  host-neutral authoring contracts. External references copy atomically into
+  `references/` with sanitized content-hash filenames; style bibles validate,
+  save, and bind through the engine. `Material Masks/Material — <canonical-id>`
+  alpha layers drive local/light/shadow previews in separate locked color layers
+  with explicit accept/reject. Source masks, line art, and artwork are unchanged.
 - Started reference-coloring C1 issue #15 with a standalone version-1 character
   style-bible contract. It validates canonical semantic materials, unambiguous
   aliases, uppercase sRGB local/light/shadow/optional-accent roles, safe relative

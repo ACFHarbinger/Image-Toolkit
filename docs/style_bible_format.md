@@ -41,3 +41,10 @@ Portable project schema v9 binds bibles through an ordered safe-relative asset
 list. Binding validates the bible and referenced views in place; it does not copy
 or embed them. Detaching removes only the manifest reference. This makes moving
 the whole project directory sufficient to preserve the relationship.
+
+The Character Colors Krita adapter copies external references into
+`references/<sanitized-stem>-<sha256-prefix>.<ext>` using an atomic write. An
+identical source is idempotent. Semantic masks live under `Material Masks` and
+use `Material — <canonical-id>` names; alpha is the region definition. Palette
+previews are separate layers, so neither the mask nor source artwork is recolored
+until the artist explicitly accepts the proposed layer.

@@ -24,6 +24,7 @@ from project import (
     decide_attempt_review,
     detach_style_bible,
     import_compatible_capstone_review,
+    import_reference_asset,
     load_project,
     project_progress_snapshot,
     record_advice_feedback,
@@ -32,6 +33,7 @@ from project import (
     save_project,
     set_attempt_completion,
     upsert_identity_card,
+    upsert_project_style_bible,
 )
 
 
@@ -406,6 +408,29 @@ def test_style_bible_binding_rejects_missing_escape_and_symlink(tmp_path):
     link.symlink_to(outside)
     with pytest.raises(ValueError, match="non-symlink"):
         attach_style_bible(tmp_path, asset_path="style-bibles/link.json")
+
+
+def test_import_reference_and_upsert_bible_are_portable_and_idempotent(tmp_path):
+    artwork = tmp_path / "artwork/attempt-001.kra"
+    artwork.parent.mkdir()
+    artwork.write_bytes(b"document")
+    create_exercise_project(tmp_path, title="Color project", attempt_id="attempt-1")
+    external = tmp_path.parent / "Aiko Front!.PNG"
+    external.write_bytes(b"image bytes")
+    reference = import_reference_asset(tmp_path, source_path=str(external))
+    assert reference.startswith("references/Aiko-Front-") and reference.endswith(".png")
+    assert import_reference_asset(tmp_path, source_path=str(external)) == reference
+    bible = CharacterStyleBible(
+        "aiko",
+        "Aiko",
+        "TV cel",
+        [StyleMaterial("hair", "Hair", MaterialPalette("#332233", "#665566", "#110F18"))],
+        [ReferenceView("front", "Front", reference)],
+    )
+    assert upsert_project_style_bible(tmp_path, payload=bible.to_dict()) == (
+        "style-bibles/aiko.json"
+    )
+    assert load_project(tmp_path).style_bible_assets == ["style-bibles/aiko.json"]
 
 
 def test_identity_card_edits_and_optional_history_are_portable(tmp_path):

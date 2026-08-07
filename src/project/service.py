@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
+import os
+import re
+import shutil
 from copy import deepcopy
 from datetime import UTC, datetime
+from hashlib import sha256
 from pathlib import Path, PurePosixPath
+from tempfile import NamedTemporaryFile
 from uuid import uuid4
 
-from colorization import load_style_bible
+from colorization import CharacterStyleBible, load_style_bible, save_style_bible
 
 from .model import (
     AdviceFeedback,
@@ -226,6 +231,62 @@ def detach_style_bible(directory: str | Path, *, asset_path: str) -> bool:
     project.style_bible_assets.remove(relative)
     save_project(root, project)
     return True
+
+
+def upsert_project_style_bible(directory: str | Path, *, payload: dict) -> str:
+    """Validate, atomically save, and attach one project-local style bible."""
+    root = Path(directory).resolve()
+    bible = CharacterStyleBible.from_dict(payload)
+    relative = f"style-bibles/{bible.id}.json"
+    for reference in bible.reference_views:
+        _resolve_project_asset(root, reference.asset_path)
+    save_style_bible(root / relative, bible)
+    attach_style_bible(root, asset_path=relative)
+    return relative
+
+
+def import_reference_asset(directory: str | Path, *, source_path: str) -> str:
+    """Copy an external reference into the project with a content-safe name."""
+    root = Path(directory).resolve()
+    source = Path(source_path).expanduser()
+    if source.is_symlink() or not source.is_file():
+        raise ValueError("reference source must be a regular non-symlink file")
+    extension = source.suffix.lower()
+    if extension not in {".png", ".jpg", ".jpeg", ".webp", ".tif", ".tiff"}:
+        raise ValueError("reference source must use a supported raster-image extension")
+    digest = _file_digest(source)
+    safe_stem = re.sub(r"[^A-Za-z0-9._-]+", "-", source.stem).strip("-._") or "reference"
+    relative = f"references/{safe_stem}-{digest[:12]}{extension}"
+    destination = root / relative
+    if destination.exists():
+        if _file_digest(destination) != digest:
+            raise ValueError("reference destination collision has different content")
+        return relative
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    temporary: Path | None = None
+    try:
+        with NamedTemporaryFile("wb", dir=destination.parent, delete=False) as output:
+            with source.open("rb") as input_file:
+                shutil.copyfileobj(input_file, output)
+            output.flush()
+            os.fsync(output.fileno())
+            temporary = Path(output.name)
+        os.replace(temporary, destination)
+    except BaseException:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
+        raise
+    return relative
+
+
+def project_style_bible_payload(directory: str | Path, *, asset_path: str) -> dict:
+    """Return one bound, validated bible to a constrained local host."""
+    root = Path(directory).resolve()
+    project = load_project(root)
+    if asset_path not in project.style_bible_assets:
+        raise ValueError("style bible is not bound to this project")
+    _, path = _resolve_project_asset(root, asset_path)
+    return load_style_bible(path).to_dict()
 
 
 def record_advice_feedback(
@@ -537,3 +598,11 @@ def _style_bible_summary(root: Path, asset_path: str) -> dict:
         "material_count": len(bible.materials),
         "reference_view_count": len(bible.reference_views),
     }
+
+
+def _file_digest(path: Path) -> str:
+    digest = sha256()
+    with path.open("rb") as handle:
+        for block in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()

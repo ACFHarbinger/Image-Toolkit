@@ -68,7 +68,11 @@ The portable-project binding is implemented. Next slices should provide a Krita
 material/palette editor, then apply named palettes to explicit region masks
 before attempting learned correspondence.
 
-C3 issue #17 is in Backlog pending owner confirmation of the Docker boundary,
-mask-layer convention, and reference-asset import behavior. Its proposed scope
-is deterministic authoring and per-material preview/accept/reject only; learned
-correspondence remains a later milestone.
+C3 issue #17 is In Progress with the approved boundary: a separate Character
+Colors Docker, `Material Masks/Material — <canonical-id>` alpha layers, and
+collision-safe project-local reference copies. The first headless slice authors
+and binds bibles through the engine, creates missing semantic masks, and previews
+one explicit palette role as a separate locked layer with accept/reject. Live
+Krita confirmation, editing existing bibles without re-entering fields, aliases,
+optional accent UI, and stronger undo/reconciliation evidence remain. Learned
+correspondence is still a later milestone.

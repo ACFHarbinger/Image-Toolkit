@@ -33,12 +33,15 @@ from .service import (
     decide_attempt_review,
     detach_style_bible,
     import_compatible_capstone_review,
+    import_reference_asset,
     project_progress_snapshot,
+    project_style_bible_payload,
     record_advice_feedback,
     record_attempt_review,
     revise_capstone_decision_rationale,
     set_attempt_completion,
     upsert_identity_card,
+    upsert_project_style_bible,
 )
 from .storage import load_profile, load_project, save_profile, save_project
 
@@ -77,10 +80,13 @@ __all__ = [
     "decide_attempt_review",
     "detach_style_bible",
     "import_compatible_capstone_review",
+    "import_reference_asset",
     "record_attempt_review",
     "record_advice_feedback",
     "revise_capstone_decision_rationale",
     "project_progress_snapshot",
+    "project_style_bible_payload",
     "set_attempt_completion",
+    "upsert_project_style_bible",
     "upsert_identity_card",
 ]

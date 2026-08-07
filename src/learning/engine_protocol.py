@@ -18,12 +18,15 @@ from project import (
     decide_attempt_review,
     detach_style_bible,
     import_compatible_capstone_review,
+    import_reference_asset,
     project_progress_snapshot,
+    project_style_bible_payload,
     record_advice_feedback,
     record_attempt_review,
     revise_capstone_decision_rationale,
     set_attempt_completion,
     upsert_identity_card,
+    upsert_project_style_bible,
 )
 
 from .asymmetry_review import review_asymmetry_comparison
@@ -165,6 +168,30 @@ def handle_request(request: dict[str, Any]) -> dict[str, Any]:
         except KeyError as error:
             raise ValueError("style-bible binding request is incomplete") from error
         return _success(request_id, {"changed": changed})
+    if operation == "upsert_project_style_bible":
+        try:
+            asset_path = upsert_project_style_bible(
+                payload["directory"], payload=payload["style_bible"]
+            )
+        except KeyError as error:
+            raise ValueError("style-bible authoring request is incomplete") from error
+        return _success(request_id, {"asset_path": asset_path})
+    if operation == "import_reference_asset":
+        try:
+            asset_path = import_reference_asset(
+                payload["directory"], source_path=payload["source_path"]
+            )
+        except KeyError as error:
+            raise ValueError("reference-import request is incomplete") from error
+        return _success(request_id, {"asset_path": asset_path})
+    if operation == "project_style_bible_payload":
+        try:
+            bible = project_style_bible_payload(
+                payload["directory"], asset_path=payload["asset_path"]
+            )
+        except KeyError as error:
+            raise ValueError("style-bible read request is incomplete") from error
+        return _success(request_id, bible)
     if operation == "configure_progress_retention":
         try:
             changed = configure_progress_retention(

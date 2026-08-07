@@ -162,6 +162,27 @@ class EngineClient:
             {"directory": directory, "asset_path": asset_path},
         )
 
+    def upsert_project_style_bible(self, request_id, directory, style_bible):
+        return self._execute(
+            request_id,
+            "upsert_project_style_bible",
+            {"directory": directory, "style_bible": style_bible},
+        )
+
+    def import_reference_asset(self, request_id, directory, source_path):
+        return self._execute(
+            request_id,
+            "import_reference_asset",
+            {"directory": directory, "source_path": source_path},
+        )
+
+    def project_style_bible_payload(self, request_id, directory, asset_path):
+        return self._execute(
+            request_id,
+            "project_style_bible_payload",
+            {"directory": directory, "asset_path": asset_path},
+        )
+
     def revise_capstone_decision_rationale(
         self, request_id, directory, attempt_id, review_id, rationale
     ):
