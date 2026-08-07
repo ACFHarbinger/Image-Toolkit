@@ -2,6 +2,10 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S325 — 2026-08-07 (Live Krita tutor docker confirmed)
+
+Completed Cel-Shaded-Generator's A1 live discovery check: the owner enabled the plugin in Krita 5.3.2.1's Python Plugin Manager, restarted Krita, and displayed the Cel-Shaded Learning Tutor docker. The check exposed an onboarding detail rather than a plugin defect: Krita disables every docker menu action while its start screen has no open document; creating a document enables them. Cel-Shaded-Generator `0a36e1c` records the verified behavior. Issue #9 remains In Progress only for model-package content validation.
+
 ## S324 — 2026-08-07 (Verified Krita AppImage deployment)
 
 Installed the official Krita 5.3.2.1 Linux AppImage under the owner's user applications after verifying its SHA-256 against KDE's published value. Confirmed that this build contains `pykrita`, Scripter, and the plugin importer, installed a desktop launcher and the Cel-Shaded-Generator plugin's six intended files, and completed a clean X11 startup probe. Cel-Shaded-Generator `e15250b` records the deployment in the A1 roadmap and changelog. Interactive plugin enablement and visible-docker confirmation remain, so issue #9 stays In Progress.
