@@ -2,6 +2,10 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S364 — 2026-08-07 (Implement Issue #16 Quantitative Seam Diagnosis)
+
+Implemented quantitative seam-photometric diagnosis tooling in `backend/benchmark/diagnose_seams.py`. The tool analyzes borderline fallback datasets (test87, test10, test71, test69, test25, test16, test11) to compute metrics such as seam-crossing luminance/color gradient profiles and per-frame gain deltas, producing non-visual numerical output as requested in Issue #16.
+
 ## S363 — 2026-08-07 (Krita style-bible authoring scope)
 
 Opened Cel-Shaded-Generator C3 issue #17 in Backlog and recorded its deterministic
