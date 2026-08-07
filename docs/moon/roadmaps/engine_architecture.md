@@ -325,3 +325,26 @@ safety are validated here. `ReferenceColoringTab`'s Save Document now
 attaches the saved directory as a project asset whenever it's saved
 inside a bound project's own directory; saving elsewhere still works
 exactly as before, just untracked by the project manifest.
+
+**Twelfth slice (issue #36, In review pending a manual desktop-app
+check): browse and reopen project-bound assets.** UX follow-up to the
+tenth/eleventh slices: once a project is bound, its already-attached
+canvas documents and style bibles had no way to be reopened/reloaded
+except by re-navigating a raw file dialog to the exact subpath each
+time -- the same convenience gap the Krita Character Colors Docker's own
+bible dropdown (`_refresh_bibles`) already solves for its lesson-flow
+projects. `ReferenceColoringTab` gains two combo boxes, **Project
+Documents** and **Project Bibles**, populated from the bound project's
+`editor_document_assets`/`style_bible_assets` (`project.load_project`)
+whenever a project is created/bound, or a new document/bible gets
+attached. Two new buttons: **Open Selected Document** reopens the
+selected `Project Documents` entry via the same path the file-dialog
+Open Document flow uses (extracted into a shared
+`_load_document_from_path` helper), no dialog needed; **Load Selected
+Bible** loads the selected `Project Bibles` entry via the same path the
+file-dialog Bind Style Bible flow uses (extracted into a shared
+`_apply_loaded_style_bible` helper), no dialog needed, and sets
+`_bible_asset_path` directly since it's already a project-relative
+asset path (no re-attach needed). Pure refactor-and-extend of existing
+behavior -- the file-dialog-driven Open Document/Bind Style Bible flows
+are unchanged and still work with no project bound.

@@ -30,7 +30,11 @@ plain ``.npy``-directory format from slice 8) inside a bound project's
 own directory also attaches it as a project asset
 (``project.attach_editor_document``), so the project manifest tracks
 which canvas documents belong to it; saving elsewhere still works, just
-untracked.
+untracked. Once a project is bound, its already-attached documents and
+style bibles populate the Project Documents/Project Bibles combos so
+they can be reopened/reloaded without re-navigating a file dialog each
+time -- the same convenience the Krita Character Colors Docker's own
+bible dropdown gives its lesson-flow projects.
 
 New feature, not code motion.
 """
@@ -64,6 +68,7 @@ from editor import (
 from project import (
     attach_editor_document,
     create_project,
+    load_project,
     rank_correspondence_materials,
     record_correspondence_choice,
     upsert_project_correspondence_set,
@@ -119,6 +124,12 @@ class ReferenceColoringTab(QWidget):
         self._new_project_button.clicked.connect(self._new_project)
         self._bind_project_button = QPushButton("Bind Project", self)
         self._bind_project_button.clicked.connect(self._bind_project)
+        self._project_document_combo = QComboBox(self)
+        self._open_project_document_button = QPushButton("Open Selected Document", self)
+        self._open_project_document_button.clicked.connect(self._open_project_document)
+        self._project_bible_combo = QComboBox(self)
+        self._load_project_bible_button = QPushButton("Load Selected Bible", self)
+        self._load_project_bible_button.clicked.connect(self._load_project_bible)
 
         self._canvas = LayerCanvas(self)
         self._layer_panel = LayerListPanel(self)
@@ -215,9 +226,19 @@ class ReferenceColoringTab(QWidget):
         palette_controls.addWidget(self._assign_correspondence_button)
         palette_controls.addStretch(1)
 
+        project_asset_controls = QHBoxLayout()
+        project_asset_controls.addWidget(QLabel("Project Documents:", self))
+        project_asset_controls.addWidget(self._project_document_combo)
+        project_asset_controls.addWidget(self._open_project_document_button)
+        project_asset_controls.addWidget(QLabel("Project Bibles:", self))
+        project_asset_controls.addWidget(self._project_bible_combo)
+        project_asset_controls.addWidget(self._load_project_bible_button)
+        project_asset_controls.addStretch(1)
+
         right = QVBoxLayout()
         right.addLayout(controls)
         right.addLayout(palette_controls)
+        right.addLayout(project_asset_controls)
         right.addWidget(self._layer_panel)
         right.addWidget(self._status)
 
@@ -274,6 +295,7 @@ class ReferenceColoringTab(QWidget):
             if relative is not None:
                 attach_editor_document(self._project_directory, asset_path=relative)
                 attached_note = " (attached to bound project)"
+                self._refresh_project_asset_combos()
         self._status.setText(f"Saved document to {directory}{attached_note}.")
 
     def _relative_to_project(self, path: Path) -> str | None:
@@ -297,7 +319,17 @@ class ReferenceColoringTab(QWidget):
         directory = QFileDialog.getExistingDirectory(self, "Open Document")
         if not directory:
             return
-        source = Path(directory)
+        self._load_document_from_path(Path(directory))
+
+    def _open_project_document(self) -> None:
+        """Reopen a document already attached to the bound project, picked
+        from Project Documents, without a file dialog."""
+        if self._project_directory is None or self._project_document_combo.currentIndex() < 0:
+            return
+        relative = self._project_document_combo.currentData()
+        self._load_document_from_path(Path(self._project_directory) / relative)
+
+    def _load_document_from_path(self, source: Path) -> None:
         try:
             layer_stack = load_document(source)
         except (OSError, ValueError) as error:
@@ -344,6 +376,7 @@ class ReferenceColoringTab(QWidget):
             return
         self._project_directory = directory
         self._bible_asset_path = None
+        self._refresh_project_asset_combos()
         self._status.setText(f"Created and bound project at {directory}.")
 
     def _bind_project(self) -> None:
@@ -357,7 +390,22 @@ class ReferenceColoringTab(QWidget):
             return
         self._project_directory = directory
         self._bible_asset_path = None
+        self._refresh_project_asset_combos()
         self._status.setText(f"Bound project at {directory}.")
+
+    def _refresh_project_asset_combos(self) -> None:
+        """Repopulate Project Documents/Project Bibles from the bound
+        project's current asset lists (relative path as both label and
+        data), so they can be reopened/reloaded without a file dialog."""
+        self._project_document_combo.clear()
+        self._project_bible_combo.clear()
+        if self._project_directory is None:
+            return
+        project = load_project(self._project_directory)
+        for asset in project.editor_document_assets:
+            self._project_document_combo.addItem(asset, asset)
+        for asset in project.style_bible_assets:
+            self._project_bible_combo.addItem(asset, asset)
 
     def _update_status(self) -> None:
         layer_stack = self._canvas.layer_stack()
@@ -420,20 +468,38 @@ class ReferenceColoringTab(QWidget):
         if not path:
             return
         try:
-            self._style_bible = load_style_bible(path)
+            bible = load_style_bible(path)
         except (OSError, ValueError):
-            self._style_bible = None
             return
-        self._bible_asset_path = None
+        self._apply_loaded_style_bible(bible)
         if self._project_directory is not None:
             try:
                 self._bible_asset_path = upsert_project_style_bible(
-                    self._project_directory, payload=self._style_bible.to_dict()
+                    self._project_directory, payload=bible.to_dict()
                 )
+                self._refresh_project_asset_combos()
             except (OSError, ValueError) as error:
                 self._status.setText(f"Could not attach bible to project: {error}")
+
+    def _load_project_bible(self) -> None:
+        """Load a style bible already attached to the bound project, picked
+        from Project Bibles, without a file dialog."""
+        if self._project_directory is None or self._project_bible_combo.currentIndex() < 0:
+            return
+        relative = self._project_bible_combo.currentData()
+        try:
+            bible = load_style_bible(Path(self._project_directory) / relative)
+        except (OSError, ValueError) as error:
+            self._status.setText(f"Could not load bible: {error}")
+            return
+        self._apply_loaded_style_bible(bible)
+        self._bible_asset_path = relative
+
+    def _apply_loaded_style_bible(self, bible: CharacterStyleBible) -> None:
+        self._style_bible = bible
+        self._bible_asset_path = None
         self._material_combo.clear()
-        for material in self._style_bible.materials:
+        for material in bible.materials:
             self._material_combo.addItem(material.label, material.id)
         self._refresh_role_combo()
 

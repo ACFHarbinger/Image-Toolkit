@@ -625,3 +625,88 @@ def test_save_document_without_bound_project_never_attaches(q_app, monkeypatch, 
     tab._save_document()
 
     assert "attached to bound project" not in tab._status.text()
+
+
+def test_project_asset_combos_populate_after_save_and_bind_bible(q_app, monkeypatch, tmp_path):
+    project_dir = tmp_path / "project"
+    project_dir.mkdir()
+    tab = ReferenceColoringTab()
+    _new_canvas(tab, monkeypatch)
+    _stub_existing_directory(monkeypatch, project_dir)
+    _stub_text_input(monkeypatch, "Editor Project")
+    tab._new_project()
+    assert tab._project_document_combo.count() == 0
+    assert tab._project_bible_combo.count() == 0
+
+    document_dir = project_dir / "canvas" / "main"
+    _stub_existing_directory(monkeypatch, document_dir)
+    tab._save_document()
+    assert [
+        tab._project_document_combo.itemText(i) for i in range(tab._project_document_combo.count())
+    ] == ["canvas/main"]
+
+    _bind_bible(tab, monkeypatch, tmp_path / "bibles")
+    assert tab._project_bible_combo.count() == 1
+    assert tab._project_bible_combo.itemData(0) == "style-bibles/aiko.json"
+
+
+def test_open_project_document_reopens_without_a_file_dialog(q_app, monkeypatch, tmp_path):
+    project_dir = tmp_path / "project"
+    project_dir.mkdir()
+    tab = ReferenceColoringTab()
+    _new_canvas(tab, monkeypatch)
+    layer = tab.canvas().layer_stack().layer("layer-1")
+    layer.pixels[1, 1] = [9, 8, 7, 255]
+    _stub_existing_directory(monkeypatch, project_dir)
+    _stub_text_input(monkeypatch, "Editor Project")
+    tab._new_project()
+    document_dir = project_dir / "canvas" / "main"
+    _stub_existing_directory(monkeypatch, document_dir)
+    tab._save_document()
+
+    fresh_tab = ReferenceColoringTab()
+    _stub_existing_directory(monkeypatch, project_dir)
+    fresh_tab._bind_project()
+    fresh_tab._project_document_combo.setCurrentIndex(0)
+
+    fresh_tab._open_project_document()
+
+    assert fresh_tab.canvas().layer_stack().layer("layer-1").pixels[1, 1].tolist() == [
+        9,
+        8,
+        7,
+        255,
+    ]
+
+
+def test_open_project_document_without_selection_is_a_no_op(q_app):
+    tab = ReferenceColoringTab()
+    tab._open_project_document()
+    assert tab.canvas().layer_stack() is None
+
+
+def test_load_project_bible_loads_without_a_file_dialog(q_app, monkeypatch, tmp_path):
+    project_dir = tmp_path / "project"
+    project_dir.mkdir()
+    tab = ReferenceColoringTab()
+    _stub_existing_directory(monkeypatch, project_dir)
+    _stub_text_input(monkeypatch, "Editor Project")
+    tab._new_project()
+    _bind_bible(tab, monkeypatch, tmp_path / "bibles")
+
+    fresh_tab = ReferenceColoringTab()
+    _stub_existing_directory(monkeypatch, project_dir)
+    fresh_tab._bind_project()
+    fresh_tab._project_bible_combo.setCurrentIndex(0)
+
+    fresh_tab._load_project_bible()
+
+    assert fresh_tab.style_bible() is not None
+    assert fresh_tab.style_bible().id == "aiko"
+    assert fresh_tab._material_combo.count() == 2
+
+
+def test_load_project_bible_without_selection_is_a_no_op(q_app):
+    tab = ReferenceColoringTab()
+    tab._load_project_bible()
+    assert tab.style_bible() is None

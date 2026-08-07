@@ -38,15 +38,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `engine_architecture.md`'s "Gate 5 exception (2026-08-07)" note for the
   full rationale — this is a scope decision, not evidence Krita has proven
   insufficient. The Krita plugin remains the primary, actively-developed
-  host. Eleven slices — canvas + layer-stack foundation, brush paint
+  host. Twelve slices — canvas + layer-stack foundation, brush paint
   tool (issue #26), undo/redo (issue #27), non-destructive layer masks
   (issue #28), line-art segmentation (issue #29), style-bible palette
   application (issue #30), region-to-material correspondence assignment
   (issue #31), canvas document save/load (issue #32), canvas document
   recovery-revision rotation (issue #33), binding a portable project for
-  `SignalWeights` correction learning (issue #34), and attaching canvas
-  documents into a bound project (issue #35) — are all In review pending
-  a manual desktop-app check (see the `### Added` entries below).
+  `SignalWeights` correction learning (issue #34), attaching canvas
+  documents into a bound project (issue #35), and browsing/reopening
+  project-bound assets (issue #36) — are all In review pending a manual
+  desktop-app check (see the `### Added` entries below).
 
 ### Fixed
 
@@ -387,6 +388,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Verification: 4 new core `project` tests, 3 new headless-Qt `gui`
   tests (526 core + 187 gui total); Ruff and mypy clean. Needs a manual
   desktop launch to confirm visually — see issue #35's testing comment.
+- **Standalone editor twelfth slice (issue #36, In review): browse and
+  reopen project-bound assets.** UX follow-up to the tenth/eleventh
+  slices: once a project is bound, its already-attached canvas
+  documents and style bibles had no way to be reopened/reloaded except
+  by re-navigating a raw file dialog to the exact subpath each time —
+  the same convenience gap the Krita Character Colors Docker's own
+  bible dropdown (`_refresh_bibles`) already solves for its lesson-flow
+  projects. `ReferenceColoringTab` gains two combo boxes, Project
+  Documents and Project Bibles, populated from the bound project's
+  `editor_document_assets`/`style_bible_assets` (`project.load_project`)
+  whenever a project is created/bound, or a new document/bible gets
+  attached. Two new buttons: Open Selected Document reopens the
+  selected Project Documents entry via the same path the file-dialog
+  Open Document flow uses (extracted into a shared
+  `_load_document_from_path` helper), no dialog needed; Load Selected
+  Bible loads the selected Project Bibles entry via the same path the
+  file-dialog Bind Style Bible flow uses (extracted into a shared
+  `_apply_loaded_style_bible` helper), no dialog needed, and sets
+  `_bible_asset_path` directly since it's already a project-relative
+  asset path. Pure refactor-and-extend of existing behavior — the
+  file-dialog-driven Open Document/Bind Style Bible flows are unchanged
+  and still work with no project bound. Verification: 5 new headless-Qt
+  `gui` tests (526 core + 192 gui total); Ruff and mypy clean. Needs a
+  manual desktop launch to confirm visually — see issue #36's testing
+  comment.
 - **Milestone 4 first slice (issue #24): deterministic confidence scoring
   and correction learning for assisted correspondence.** Portable contract
   only, no Docker UI yet, following the same sequencing every prior
