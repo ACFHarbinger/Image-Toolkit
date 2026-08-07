@@ -173,6 +173,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   controls and corrected drift keep labels optional. Labels persist as explicit
   artist-confirmation evidence while numeric retention, side, and strength
   measures remain compatible with progress comparisons.
+  Fully authored lesson seven, Character Variation and Identity Retention. It
+  separates identity anchors from declared proportion, feature-shape, age/style,
+  and shape-language axes; tests an undecorated lineup; requires a five-to-eight
+  anchor identity card; and reconstructs the selected character in front and
+  three-quarter views without tracing. Five theory sections, nine stages, four
+  drills, seven diagnosed mistakes, eight completion checks, and seven self-
+  review prompts target generic-face convergence and decoration dependence. Two
+  original SVGs accompany a 2600 × 1800 six-layer identity model sheet.
 - Opened A3 issue #12 at In Progress P0/XL for versioned curriculum progression,
   deterministic weakness-to-remediation routing, comparable repeated-attempt
   metrics, and a private local progress view while A2 issues #10/#11 remain in

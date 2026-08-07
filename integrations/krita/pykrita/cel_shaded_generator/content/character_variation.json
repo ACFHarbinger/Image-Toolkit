@@ -1,0 +1,162 @@
+{
+  "id": "anime-head-variation",
+  "exercise_id": "anime-head-variation",
+  "version": "1.0.0",
+  "method_id": "anime-head-construction-v1",
+  "schema_version": 1,
+  "title": "Anime Head Construction: Character Variation and Identity Retention",
+  "summary": "Generate meaningfully different anime character heads through controlled proportion, feature-shape, age, and style variables while defining and preserving the small set of relationships that makes each selected character recognizable across views.",
+  "estimated_minutes": 70,
+  "prerequisite_ids": ["anime-head-asymmetry"],
+  "media": [
+    "diagrams/identity-anchor-variable-map.svg",
+    "diagrams/variation-to-model-sheet.svg"
+  ],
+  "learning_objectives": [
+    "Separate identity anchors from variables deliberately changed to generate a new design.",
+    "Use proportion, feature shape, age cues, and shape language as independent variation axes.",
+    "Create a readable lineup without relying on hair, costume, color, or accessories.",
+    "Record a concise identity specification for a selected character.",
+    "Preserve that specification from front into three-quarter view and mild expression.",
+    "Diagnose generic-face convergence, uncontrolled drift, and over-reliance on decorative identifiers."
+  ],
+  "theory": [
+    {
+      "title": "Identity is a relationship system",
+      "explanation": "Recognition usually depends on a cluster of relationships: cranial-to-jaw proportion, face length, eye spacing and shape, nose/muzzle projection, mouth placement, ear design, and chosen asymmetries. No single measurement must carry the entire character. Record the cluster rather than memorizing a contour."
+    },
+    {
+      "title": "Anchors and variables have different jobs",
+      "explanation": "Within one selected character, anchors should remain stable across views and expressions. During character generation, variation axes are intentionally changed to create alternatives. A measurement cannot be both fixed and freely varied in the same comparison; state which role it has first."
+    },
+    {
+      "title": "Shape language coordinates choices",
+      "explanation": "Rounded, tapered, angular, broad, compact, and elongated tendencies can coordinate cranium, jaw, eyes, nose, mouth, and ears without making every feature identical. Shape language is a bias across forms, not a command to turn the entire face into one geometric icon."
+    },
+    {
+      "title": "Age and style are multivariable controls",
+      "explanation": "Age readings emerge from cranial-to-face proportion, lower-face length, feature scale, soft tissue, jaw turn, and line simplification. Style affects what is omitted, exaggerated, or flattened. Change these as named bundles while avoiding stereotypes or treating one recipe as biologically universal."
+    },
+    {
+      "title": "A model sheet tests identity, not drawing duplication",
+      "explanation": "The goal is not pixel-identical views. A successful model sheet preserves imagined-form relationships while projection and expression legitimately alter the image. Front and three-quarter drawings should look like the same person observed differently, not traced symbols moved around a page."
+    }
+  ],
+  "steps": [
+    {
+      "title": "1. Build an undecorated baseline",
+      "explanation": "Construct a neutral front head without hair, costume, color, scars, or accessories. Record cranium, jaw, face length, eye pair, muzzle, mouth, and ears. This baseline exposes whether identity comes from facial construction."
+    },
+    {
+      "title": "2. Write the baseline relationship card",
+      "explanation": "Describe cranial-to-lower-face balance, jaw width/taper, eye spacing/shape, nose projection, mouth height/width, ear height/angle, and any controlled asymmetry. Use comparative language and a few normalized measurements rather than vague labels alone."
+    },
+    {
+      "title": "3. Generate a proportion variant",
+      "explanation": "Change two coordinated large-scale relationships, such as lower-face length plus jaw width, while holding feature shapes stable. Label the variables and verify that the result reads as a new design rather than a perspective error."
+    },
+    {
+      "title": "4. Generate a feature-shape variant",
+      "explanation": "Return to baseline proportions and change eye rhythm plus one supporting nose, mouth, or ear shape. Keep placement coherent. This separates feature design from moving features to arbitrary locations."
+    },
+    {
+      "title": "5. Generate an age/style variant",
+      "explanation": "Choose a named age tendency and simplification level. Coordinate cranial balance, lower-face length, feature scale, jaw turn, and line omission while documenting which choices are design conventions rather than universal anatomy."
+    },
+    {
+      "title": "6. Compare the undecorated lineup",
+      "explanation": "Hide identifying decoration and place all heads at comparable scale and orientation. Check silhouette, internal proportions, feature rhythm, and negative space. Strengthen designs that collapse into the same generic face."
+    },
+    {
+      "title": "7. Select and define one character",
+      "explanation": "Choose the most useful design and write five to eight identity anchors. Include at least one large proportion, one eye relationship, one lower-face relationship, one ear/nose/mouth relationship, and any persistent asymmetry."
+    },
+    {
+      "title": "8. Reconstruct the selected front model",
+      "explanation": "Redraw the selected character from the written identity card rather than tracing. Compare the new front drawing with the selected variant and revise either the drawing or ambiguous specification."
+    },
+    {
+      "title": "9. Transfer identity into three-quarter view",
+      "explanation": "Construct the selected character in right-three-quarter view. Transform anchors through perspective, then apply a mild expression without changing persistent identity. Annotate which image differences are projection and which relationships remain invariant."
+    }
+  ],
+  "guided_drills": [
+    {
+      "title": "Undecorated silhouette lineup",
+      "repetitions": 8,
+      "instructions": "Draw eight small heads using four coordinated shape-language biases. Omit hair and accessories; require each pair to differ through cranium, jaw, and feature relationships."
+    },
+    {
+      "title": "One-axis variation rows",
+      "repetitions": 4,
+      "instructions": "Create rows for proportion, eye rhythm, muzzle/mouth, and ear design. Change the named axis across four heads while holding the other recorded anchors stable."
+    },
+    {
+      "title": "Identity card reconstruction",
+      "repetitions": 3,
+      "instructions": "Write a five-to-eight-anchor card, hide the source, and reconstruct the character. Revise any wording that failed to reproduce a recognizable relationship."
+    },
+    {
+      "title": "Front-to-turn identity pairs",
+      "repetitions": 3,
+      "instructions": "Draw three selected characters in front and right-three-quarter views without hair or color. Circle anchors retained and label perspective-only changes."
+    }
+  ],
+  "common_mistakes": [
+    {
+      "symptom": "Every design becomes the same face with different hair.",
+      "cause": "Facial construction was held generic while decoration carried all identity.",
+      "correction": "Remove hair and vary coordinated cranial, jaw, eye, muzzle, mouth, and ear relationships."
+    },
+    {
+      "symptom": "Variants look like camera-angle mistakes.",
+      "cause": "Orientation changed while proportions were supposedly being compared.",
+      "correction": "Return the lineup to one front construction and change only declared design variables."
+    },
+    {
+      "symptom": "Changing one feature breaks the entire face.",
+      "cause": "Placement, shape, scale, and surrounding proportions were changed simultaneously.",
+      "correction": "Name the variation axis and coordinate only the supporting relationships it requires."
+    },
+    {
+      "symptom": "The age variant relies on one stereotyped cue.",
+      "cause": "Age was reduced to eye size, wrinkles, or jaw width alone.",
+      "correction": "Use a documented bundle of proportional and stylistic tendencies and allow individual variation."
+    },
+    {
+      "symptom": "The identity card cannot reproduce the character.",
+      "cause": "It contains vague adjectives or decorative facts instead of structural relationships.",
+      "correction": "Replace vague labels with comparative proportions, placements, shapes, and persistent asymmetry."
+    },
+    {
+      "symptom": "The three-quarter view becomes a different character.",
+      "cause": "Perspective compression replaced rather than transformed identity anchors.",
+      "correction": "Construct the turn first, then verify each written anchor in imagined-form terms."
+    },
+    {
+      "symptom": "The model sheet looks traced and lifeless.",
+      "cause": "Image-space distances were copied instead of reconstructing forms in each view.",
+      "correction": "Redraw from the identity card and permit legitimate projection and expression differences."
+    }
+  ],
+  "completion_criteria": [
+    "An undecorated baseline and three declared variation families are present.",
+    "Proportion, feature-shape, and age/style variants name what changed and what remained stable.",
+    "The lineup remains distinguishable without hair, costume, color, or accessories.",
+    "A selected character has a five-to-eight-anchor structural identity card.",
+    "A fresh front reconstruction follows the card without tracing.",
+    "The selected three-quarter reconstruction preserves the identity-anchor system.",
+    "Perspective-only changes are labeled separately from design anchors.",
+    "A mild expression changes temporary relationships without erasing persistent identity."
+  ],
+  "self_review_questions": [
+    "Which relationships make each undecorated head distinct?",
+    "Did I declare every variation axis before changing it?",
+    "Does shape language coordinate forms without turning them into one icon?",
+    "Could another artist reconstruct the selected character from the identity card?",
+    "Which anchor was hardest to preserve without tracing?",
+    "Did projection transform rather than replace the selected design?",
+    "Does the character remain recognizable under mild expression?"
+  ],
+  "practice_prompt": "Complete the six-area identity sheet: undecorated baseline, proportion variant, feature-shape variant, age/style variant, selected front reconstruction, and selected right-three-quarter identity check. Write a five-to-eight-anchor identity card and label every variation versus invariant relationship."
+}

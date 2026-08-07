@@ -269,6 +269,31 @@ def test_creates_six_stage_controlled_asymmetry_sheet():
     assert "TRANSFERRED 3/4 ASYMMETRY" in layout.svg
 
 
+def test_creates_character_variation_identity_model_sheet():
+    adapter = _load_adapter()
+    application = ApplicationStub()
+    document = adapter.create_variation_exercise_document(application)
+
+    assert application.created_with[:3] == (
+        2600,
+        1800,
+        "Character Variation and Identity Retention — Model Sheet",
+    )
+    assert [node.name for node, _ in document.root.children] == [
+        "Tutor Feedback (locked)",
+        "01 Undecorated Identity Baseline",
+        "02 Proportion Variant",
+        "03 Feature Shape Variant",
+        "04 Age and Style Variant",
+        "05 Selected Front Identity Reconstruction",
+        "06 Selected Right Three-Quarter Identity Check",
+    ]
+    layout = document.root.children[0][0].children[0][0]
+    assert layout.locked
+    assert "UNDECORATED IDENTITY BASELINE" in layout.svg
+    assert "SELECTED RIGHT THREE-QUARTER IDENTITY CHECK" in layout.svg
+
+
 def test_portable_project_requires_empty_directory(tmp_path):
     adapter = _load_adapter()
     (tmp_path / "unrelated").write_text("keep", encoding="utf-8")

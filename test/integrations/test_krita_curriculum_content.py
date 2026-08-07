@@ -101,6 +101,20 @@ def test_controlled_asymmetry_lesson_is_fully_authored():
     assert all((CONTENT / path).is_file() for path in lesson["media"])
 
 
+def test_character_variation_lesson_is_fully_authored():
+    lesson = json.loads((CONTENT / "character_variation.json").read_text(encoding="utf-8"))
+    assert lesson["exercise_id"] == "anime-head-variation"
+    assert lesson["prerequisite_ids"] == ["anime-head-asymmetry"]
+    assert len(lesson["learning_objectives"]) >= 6
+    assert len(lesson["theory"]) >= 5
+    assert len(lesson["steps"]) >= 9
+    assert len(lesson["guided_drills"]) >= 4
+    assert len(lesson["common_mistakes"]) >= 7
+    assert len(lesson["completion_criteria"]) >= 8
+    assert len(lesson["self_review_questions"]) >= 7
+    assert all((CONTENT / path).is_file() for path in lesson["media"])
+
+
 def test_lesson_loader_orders_navigation_and_renders_full_content():
     module = _module()
     lessons = module.load_lessons(CONTENT)
@@ -111,6 +125,7 @@ def test_lesson_loader_orders_navigation_and_renders_full_content():
         "anime-head-eyes",
         "anime-head-features",
         "anime-head-asymmetry",
+        "anime-head-variation",
     ]
     rendered = module.render_lesson_text(lessons[1])
     assert "Learning objectives" in rendered
