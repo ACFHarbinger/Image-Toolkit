@@ -31,6 +31,7 @@ from .color_masks import (
     union_alpha_buffers,
 )
 from .engine_client import EngineClient
+from .segmentation_masks import REGION_GROUP_NAME, REGION_PREFIX, region_adjacency_bytes
 from .value_masks import find_named_node
 
 
@@ -448,7 +449,14 @@ class CharacterColorsDocker(DockWidget):
         if not accepted:
             return
         source_id = choice.split(" ", 1)[0]
-        targets_text = self._text("Propagate Correspondence", "Comma-separated target region ids:")
+        source_entry = next(item for item in entries if item["id"] == source_id)
+        document = Krita.instance().activeDocument()
+        suggested = self._adjacent_region_names(document, source_entry["region_id"])
+        targets_text = self._text(
+            "Propagate Correspondence",
+            "Comma-separated target region ids (adjacency-suggested; edit as needed):",
+            ", ".join(suggested),
+        )
         if targets_text is None:
             return
         target_region_ids = [item.strip() for item in targets_text.split(",") if item.strip()]
@@ -632,6 +640,48 @@ class CharacterColorsDocker(DockWidget):
         else:
             edited.pop("notes", None)
         return edited
+
+    @staticmethod
+    def _adjacent_region_names(document, region_id):
+        """Suggest (never auto-apply) propagation targets from G1's Regions group.
+
+        Reads the currently segmented ``Regions`` group the same way the Line
+        Art Segmentation Docker's Report Region Adjacency action does, and
+        returns the names of regions touching ``region_id``. Returns an empty
+        list rather than raising if no Regions group exists, since manual
+        typed target ids remain fully supported without one.
+        """
+        if document is None:
+            return []
+        group = find_named_node(document.rootNode(), REGION_GROUP_NAME)
+        if group is None:
+            return []
+        width, height = document.width(), document.height()
+        labels = [0] * (width * height)
+        names = {}
+        source_label = None
+        for label, node in enumerate(group.childNodes(), start=1):
+            if not node.name().startswith(REGION_PREFIX):
+                continue
+            name = node.name()[len(REGION_PREFIX) :]
+            names[label] = name
+            if name == region_id:
+                source_label = label
+            raw = bytes(node.pixelData(0, 0, width, height))
+            if len(raw) != width * height * 4:
+                continue
+            for index in range(width * height):
+                if raw[index * 4 + 3] > 0:
+                    labels[index] = label
+        if source_label is None:
+            return []
+        adjacent = set()
+        for left, right in region_adjacency_bytes(labels, width, height):
+            if left == source_label:
+                adjacent.add(right)
+            elif right == source_label:
+                adjacent.add(left)
+        return sorted(names[label] for label in adjacent if label in names)
 
     @staticmethod
     def _mask_buffers(root, material_id, width, height):

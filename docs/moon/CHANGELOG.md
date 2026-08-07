@@ -75,6 +75,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Opened C4.1 issue #21: **Propagate Correspondence to Regions** now suggests
+  (never auto-applies) target region ids by reading G1's `Regions` group the
+  same way Report Region Adjacency does, pre-filling the target field with
+  the names of regions touching the source assignment's region. Falls back
+  to an empty, fully-manual default when no `Regions` group exists, so this
+  is additive over C4's existing typed-target flow, not a new dependency on
+  G1. Both underlying features (G1 segmentation/adjacency, C4 correspondence/
+  propagation) are independently live-verified, so this connects two
+  already-proven pieces rather than building on unvalidated ground.
+  `CharacterColorsDocker._adjacent_region_names` is headlessly tested against
+  a fake Krita node/document. Verification: 396 tests pass; Ruff and core
+  mypy are clean. In review pending the live-Krita checklist.
 - Opened A4-prep issue #20: a versioned consented study-session schema for
   roadmap A4 (issue #14), which itself remains **Backlog** until live checks
   are intentionally scheduled — this is data-model infrastructure only, not
