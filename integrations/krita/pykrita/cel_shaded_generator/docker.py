@@ -522,6 +522,13 @@ class LearningDocker(DockWidget):
                     review, self._orientation_crop_index
                 )
             elif (
+                lesson["exercise_id"] == "anime-head-asymmetry"
+                and self._orientation_crop_index is not None
+            ):
+                renderable_review = map_review_redlines_to_matrix(
+                    review, self._orientation_crop_index
+                )
+            elif (
                 lesson["exercise_id"]
                 in {
                     "anime-head-orientation",

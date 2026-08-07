@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 
-from .model import Evidence, EvidenceSource, Review
+from .model import Evidence, EvidenceSource, Redline, Review, Suggestion
 
 REQUIRED_KEYS = {
     "cranium_center",
@@ -75,6 +75,7 @@ def review_asymmetry_comparison(control, candidate, stage, intent, review_id):
         f"candidate_to_control_{key}_ratio": candidate_metrics[key] / control_metrics[key]
         for key in ("radius", "lower_face", "eye_span", "jaw_span", "mouth_span", "ear_height")
     }
+    redlines = _comparison_redlines(control, candidate, failed, turned)
     return Review(
         id=review_id,
         exercise_id="anime-head-asymmetry",
@@ -87,9 +88,101 @@ def review_asymmetry_comparison(control, candidate, stage, intent, review_id):
             *[Evidence((0, 0, 1, 1), EvidenceSource.GEOMETRY, 1.0, key) for key in failed],
         ],
         explanations=explanations,
+        redlines=redlines,
+        suggestions=(
+            [
+                Suggestion(
+                    "asymmetry-comparison-guides",
+                    "Preview control-comparison guides",
+                    "Tutor — Preview",
+                )
+            ]
+            if redlines
+            else []
+        ),
         measurements=scores | raw,
         targeted_exercise_ids=["anime-head-asymmetry"] if failed else [],
     )
+
+
+def _comparison_redlines(control, candidate, failed, turned):
+    guides = []
+    radius = math.dist(control["cranium_center"], control["cranium_edge"])
+    if "asymmetry_cranial_retention" in failed:
+        direction = _unit(candidate["cranium_center"], candidate["cranium_edge"])
+        target = (
+            candidate["cranium_center"][0] + direction[0] * radius,
+            candidate["cranium_center"][1] + direction[1] * radius,
+        )
+        guides.append(
+            _guide("control cranial radius", candidate["cranium_center"], _bounded(target))
+        )
+    target_scale = 0.78 if turned else 1.0
+    comparisons = (
+        ("asymmetry_eye_span_retention", "left_eye_center", "right_eye_center", "eye span"),
+        ("asymmetry_jaw_span_retention", "jaw_left", "jaw_right", "jaw span"),
+        ("asymmetry_mouth_span_retention", "mouth_left", "mouth_right", "mouth span"),
+    )
+    for dimension, left_key, right_key, label in comparisons:
+        if dimension in failed:
+            control_span = math.dist(control[left_key], control[right_key]) * target_scale
+            direction = _unit(candidate[left_key], candidate[right_key])
+            target = (
+                candidate[left_key][0] + direction[0] * control_span,
+                candidate[left_key][1] + direction[1] * control_span,
+            )
+            guides.append(
+                _guide("control-relative " + label, candidate[left_key], _bounded(target))
+            )
+    if "asymmetry_ear_height_retention" in failed:
+        control_height = (
+            math.dist(control["left_ear_top"], control["left_ear_bottom"])
+            + math.dist(control["right_ear_top"], control["right_ear_bottom"])
+        ) / 2
+        direction = _unit(candidate["right_ear_top"], candidate["right_ear_bottom"])
+        target = (
+            candidate["right_ear_top"][0] + direction[0] * control_height,
+            candidate["right_ear_top"][1] + direction[1] * control_height,
+        )
+        guides.append(
+            _guide("control-relative ear height", candidate["right_ear_top"], _bounded(target))
+        )
+    if "asymmetry_lower_face_retention" in failed:
+        guides.append(
+            _guide("lower-face relationship", candidate["cranium_center"], candidate["chin"])
+        )
+    if "asymmetry_side_consistency" in failed:
+        guides.append(
+            _guide(
+                "declared-side comparison",
+                candidate["left_eye_center"],
+                candidate["right_eye_center"],
+            )
+        )
+    if "asymmetry_strength_control" in failed:
+        guides.append(
+            _guide("declared-strength comparison", control["mouth_left"], candidate["mouth_left"])
+        )
+    return guides
+
+
+def _unit(start, end):
+    distance = math.dist(start, end)
+    if distance <= 0:
+        raise ValueError("comparison guide endpoints must be distinct")
+    return (end[0] - start[0]) / distance, (end[1] - start[1]) / distance
+
+
+def _guide(name, start, end):
+    return Redline(
+        "Tutor — " + name,
+        [start, end],
+        "Compare this provisional candidate relationship with its explicit symmetric control.",
+    )
+
+
+def _bounded(point):
+    return max(0.0, min(1.0, point[0])), max(0.0, min(1.0, point[1]))
 
 
 def _relationships(points):

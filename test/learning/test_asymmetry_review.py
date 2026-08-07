@@ -53,3 +53,15 @@ def test_control_stage_allows_missing_intent():
 def test_authored_stage_rejects_missing_intent_fields():
     with pytest.raises(ValueError, match="required"):
         review_asymmetry_comparison(_landmarks(), _landmarks(), "design", None, "review-3")
+
+
+def test_failed_comparison_emits_control_relative_preview_guides():
+    candidate = _landmarks(0.08)
+    candidate["cranium_edge"] = (0.95, 0.3)
+    candidate["mouth_right"] = (0.9, 0.67)
+    review = review_asymmetry_comparison(
+        _landmarks(), candidate, "expression", _intent(), "review-4"
+    )
+    assert review.redlines
+    assert review.suggestions[0].id == "asymmetry-comparison-guides"
+    assert all(redline.explanation for redline in review.redlines)

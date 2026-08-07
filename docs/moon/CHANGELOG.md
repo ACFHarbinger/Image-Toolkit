@@ -173,6 +173,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   controls and corrected drift keep labels optional. Labels persist as explicit
   artist-confirmation evidence while numeric retention, side, and strength
   measures remain compatible with progress comparisons.
+  Added controlled-asymmetry correction previews. Failed cranial, lower-face,
+  eye, jaw, mouth, ear, declared-side, and strength dimensions generate
+  candidate-local guides derived from the explicitly recorded symmetric control.
+  Turned comparisons apply their perspective target before drawing the guide.
+  A 3 × 2 matrix transform confines previews to the confirmed study layer and
+  reuses Accept/Reject persistence.
   Fully authored lesson seven, Character Variation and Identity Retention. It
   separates identity anchors from declared proportion, feature-shape, age/style,
   and shape-language axes; tests an undecorated lineup; requires a five-to-eight

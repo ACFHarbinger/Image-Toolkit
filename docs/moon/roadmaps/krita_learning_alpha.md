@@ -221,7 +221,10 @@ remain deferred in Review.
   Intent cause, character side, strength, and purpose are mandatory for design,
   expression, and transfer layers and optional for controls/corrected drift.
   Labels persist as artist-confirmation evidence; numeric retention, side, and
-  strength dimensions support compatible retries. Correction previews remain.
+  strength dimensions support compatible retries. Failed dimensions now emit
+  control-derived cranial, feature-span, ear-height, side, and strength guides;
+  turned candidates use perspective-adjusted targets. Previews stay within the
+  confirmed 3 × 2 cell and reuse Accept/Reject persistence.
 - 🔄 Character-variation curriculum/template: lesson seven is fully authored
   around explicit identity anchors versus declared proportion, feature-shape,
   age/style, and shape-language variables. It tests an undecorated lineup,
