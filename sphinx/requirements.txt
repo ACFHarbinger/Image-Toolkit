@@ -1,0 +1,5 @@
+sphinx>=7.3
+sphinx-autoapi>=3.3
+furo>=2024.1.29
+myst-nb>=1.1
+sphinx-copybutton>=0.5.2
