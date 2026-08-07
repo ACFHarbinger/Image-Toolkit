@@ -1,5 +1,6 @@
 """Versioned contracts for lessons, reviews, settings, and local models."""
 
+from .asymmetry_review import review_asymmetry_comparison
 from .curriculum import (
     CURRICULUM_ID,
     CURRICULUM_VERSION,
@@ -102,6 +103,7 @@ __all__ = [
     "validate_model_package",
     "review_front_head",
     "review_cranial_jaw_pair",
+    "review_asymmetry_comparison",
     "review_eye_pair",
     "review_feature_set",
     "review_feature_study",

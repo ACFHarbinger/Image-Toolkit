@@ -23,6 +23,7 @@ from PyQt5.QtWidgets import (
     QWidget,
 )
 
+from .asymmetry_landmarks import AsymmetryLandmarkCollector, selected_asymmetry_stage
 from .curriculum_content import adjacent_index, load_lessons, render_lesson_text
 from .diagnostics import diagnose
 from .engine_client import EngineClient
@@ -130,6 +131,9 @@ class LearningDocker(DockWidget):
         self._eye_stage = None
         self._feature_id = None
         self._feature_landmarks = {}
+        self._asymmetry_stage = None
+        self._asymmetry_intent = None
+        self._asymmetry_landmarks = {}
         self._pair_landmarks = {}
         self._preview_layer = None
         self._project_directory = None
@@ -197,6 +201,9 @@ class LearningDocker(DockWidget):
         self._eye_stage = None
         self._feature_id = None
         self._feature_landmarks = {}
+        self._asymmetry_stage = None
+        self._asymmetry_intent = None
+        self._asymmetry_landmarks = {}
         self._pair_landmarks = {}
         self._lesson_title.setText(lesson["title"])
         self._lesson_body.setText(render_lesson_text(lesson))
@@ -294,6 +301,8 @@ class LearningDocker(DockWidget):
         self._design_variant_id = None
         self._eye_stage = None
         self._feature_id = None
+        self._asymmetry_stage = None
+        self._asymmetry_intent = None
         if lesson["exercise_id"] == "anime-head-orientation":
             try:
                 view, crop_index = selected_orientation_view(document.activeNode())
@@ -379,6 +388,31 @@ class LearningDocker(DockWidget):
             self._orientation_crop_index = crop_index
             collector = FeatureLandmarkCollector(feature, view)
             title = "Place " + feature.title() + " Review Landmarks"
+        elif lesson["exercise_id"] == "anime-head-asymmetry":
+            try:
+                stage, crop_index, requires_intent = selected_asymmetry_stage(document.activeNode())
+            except (AttributeError, ValueError) as error:
+                self._action_status.setText(f"Select one controlled-asymmetry layer: {error}")
+                return
+            intent = self._collect_asymmetry_intent() if requires_intent else None
+            if requires_intent and intent is None:
+                self._action_status.setText("Intent labeling cancelled; no landmarks were changed.")
+                return
+            confirmation = QMessageBox.question(
+                self,
+                "Confirm Asymmetry Study",
+                "Record only the active controlled-asymmetry layer?",
+                QMessageBox.Yes | QMessageBox.Cancel,
+                QMessageBox.Cancel,
+            )
+            if confirmation != QMessageBox.Yes:
+                self._action_status.setText("Controlled-asymmetry review cancelled.")
+                return
+            self._asymmetry_stage = stage
+            self._asymmetry_intent = intent
+            self._orientation_crop_index = crop_index
+            collector = AsymmetryLandmarkCollector()
+            title = "Place Controlled-Asymmetry Comparison Landmarks"
         dialog = LandmarkDialog(
             document,
             self,
@@ -397,6 +431,11 @@ class LearningDocker(DockWidget):
                 self._pair_landmarks["variant_id"] = self._design_variant_id
         elif lesson["exercise_id"] == "anime-head-features":
             self._feature_landmarks[(self._orientation_view, self._feature_id)] = self._landmarks
+        elif lesson["exercise_id"] == "anime-head-asymmetry":
+            self._asymmetry_landmarks[self._asymmetry_stage] = {
+                "landmarks": self._landmarks,
+                "intent": self._asymmetry_intent,
+            }
         self._action_status.setText(
             "Review landmarks recorded from the current projection. The artwork was not modified."
         )
@@ -416,6 +455,27 @@ class LearningDocker(DockWidget):
             elif lesson["exercise_id"] == "anime-head-features":
                 review = client.review_feature_study(
                     request_id, self._feature_id, self._orientation_view, self._landmarks
+                )
+            elif lesson["exercise_id"] == "anime-head-asymmetry":
+                if self._asymmetry_stage == "front_control":
+                    self._action_status.setText(
+                        "Symmetric front control recorded. Select a later layer to compare it."
+                    )
+                    return
+                control_stage = (
+                    "turned_control" if self._asymmetry_stage == "transferred" else "front_control"
+                )
+                if control_stage not in self._asymmetry_landmarks:
+                    self._action_status.setText(
+                        "Record the required symmetric control landmarks before comparison."
+                    )
+                    return
+                review = client.review_asymmetry_comparison(
+                    request_id,
+                    self._asymmetry_landmarks[control_stage]["landmarks"],
+                    self._landmarks,
+                    self._asymmetry_stage,
+                    self._asymmetry_intent,
                 )
             elif lesson["exercise_id"] in {
                 "anime-head-orientation",
@@ -587,6 +647,51 @@ class LearningDocker(DockWidget):
             "Front / turned feature consistency review\n• " + "\n• ".join(explanations)
         )
         self._refresh_progress()
+
+    def _collect_asymmetry_intent(self):
+        cause_label, accepted = QInputDialog.getItem(
+            self,
+            "Asymmetry Cause",
+            "What causes the intended difference?",
+            ["Anatomical / design", "Expression"],
+            0,
+            False,
+        )
+        if not accepted:
+            return None
+        side_label, accepted = QInputDialog.getItem(
+            self,
+            "Character Side",
+            "Which character side carries the intended difference?",
+            ["Character left", "Character right", "Bilateral"],
+            0,
+            False,
+        )
+        if not accepted:
+            return None
+        strength, accepted = QInputDialog.getItem(
+            self,
+            "Asymmetry Strength",
+            "Choose the intended strength.",
+            ["Subtle", "Medium", "Exaggerated"],
+            0,
+            False,
+        )
+        if not accepted:
+            return None
+        purpose, accepted = QInputDialog.getText(
+            self,
+            "Asymmetry Purpose",
+            "State what this difference should communicate or preserve.",
+        )
+        if not accepted or not purpose.strip():
+            return None
+        return {
+            "cause": cause_label.lower().replace(" / ", "_"),
+            "side": side_label.lower().replace(" ", "_"),
+            "strength": strength.lower(),
+            "purpose": purpose.strip(),
+        }
         self._refresh_progress()
 
     def _refresh_progress(self) -> None:

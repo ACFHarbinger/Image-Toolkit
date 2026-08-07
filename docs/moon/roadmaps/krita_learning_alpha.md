@@ -216,7 +216,12 @@ remain deferred in Review.
   asymmetry and tracks character-side identity through rotation. Two offline
   diagrams and a 2600 × 1800 six-layer sheet separate control, corrected drift,
   persistent design, expression, symmetric turn, and transferred asymmetry.
-  Its measurement/review contract remains future work.
+  A shared 14-point contract compares every later study directly with its front
+  control, except transferred asymmetry uses the symmetric turned control.
+  Intent cause, character side, strength, and purpose are mandatory for design,
+  expression, and transfer layers and optional for controls/corrected drift.
+  Labels persist as artist-confirmation evidence; numeric retention, side, and
+  strength dimensions support compatible retries. Correction previews remain.
 - 🔄 Head-orientation exercise template: the docker creates a 2600 × 1600
   landscape rotation sheet with five labeled work areas and separate layers for
   left profile, left three-quarter, front, right three-quarter, and right

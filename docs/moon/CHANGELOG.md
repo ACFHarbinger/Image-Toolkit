@@ -165,6 +165,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and rejecting unexplained drift. Two original SVGs accompany a 2600 × 1800
   six-layer Krita sheet for control, correction, design/expression variants,
   symmetric turn, and transferred asymmetry.
+  Added the controlled-asymmetry comparison workflow. All six layers use a
+  shared 14-point relationship set. Later layers compare directly against the
+  front symmetric control, except transferred three-quarter asymmetry compares
+  against the symmetric three-quarter control. Design, expression, and transfer
+  layers require cause, character side, strength, and free-text purpose labels;
+  controls and corrected drift keep labels optional. Labels persist as explicit
+  artist-confirmation evidence while numeric retention, side, and strength
+  measures remain compatible with progress comparisons.
 - Opened A3 issue #12 at In Progress P0/XL for versioned curriculum progression,
   deterministic weakness-to-remediation routing, comparable repeated-attempt
   metrics, and a private local progress view while A2 issues #10/#11 remain in

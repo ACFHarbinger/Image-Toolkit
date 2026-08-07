@@ -75,6 +75,13 @@ class EngineClient:
             },
         )
 
+    def review_asymmetry_comparison(self, request_id, control, candidate, stage, intent):
+        return self._execute(
+            request_id,
+            "review_asymmetry_comparison",
+            {"control": control, "candidate": candidate, "stage": stage, "intent": intent},
+        )
+
     def record_attempt_review(self, request_id, directory, attempt_id, review):
         return self._execute(
             request_id,

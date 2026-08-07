@@ -19,6 +19,7 @@ from project import (
     set_attempt_completion,
 )
 
+from .asymmetry_review import review_asymmetry_comparison
 from .curriculum import build_curriculum_v1, next_primary_exercise
 from .design_review import review_cranial_jaw_pair
 from .eye_review import EyePairLandmarks, review_eye_pair
@@ -197,6 +198,18 @@ def handle_request(request: dict[str, Any]) -> dict[str, Any]:
             review = review_feature_set(payload["front"], payload["turned"], request_id)
         except KeyError as error:
             raise ValueError("combined feature review request is incomplete") from error
+        return _success(request_id, review.to_dict())
+    if operation == "review_asymmetry_comparison":
+        try:
+            review = review_asymmetry_comparison(
+                payload["control"],
+                payload["candidate"],
+                payload["stage"],
+                payload.get("intent"),
+                request_id,
+            )
+        except KeyError as error:
+            raise ValueError("controlled-asymmetry review request is incomplete") from error
         return _success(request_id, review.to_dict())
     if operation != "review_front_head":
         raise ValueError("unsupported engine operation")

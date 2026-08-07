@@ -13,6 +13,7 @@ class EvidenceSource(StrEnum):
     GEOMETRY = "geometry"
     HEURISTIC = "heuristic"
     MODEL = "model"
+    ARTIST_CONFIRMATION = "artist_confirmation"
 
 
 class AutomationLevel(StrEnum):

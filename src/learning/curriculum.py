@@ -53,6 +53,14 @@ NORMALIZED_SCORE_IDS = {
     "mouth_design_retention",
     "ear_design_retention",
     "feature_expression_consistency",
+    "asymmetry_cranial_retention",
+    "asymmetry_lower_face_retention",
+    "asymmetry_eye_span_retention",
+    "asymmetry_jaw_span_retention",
+    "asymmetry_mouth_span_retention",
+    "asymmetry_ear_height_retention",
+    "asymmetry_side_consistency",
+    "asymmetry_strength_control",
 }
 
 
