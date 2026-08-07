@@ -206,3 +206,57 @@ def test_mouse_press_does_not_record_without_an_active_layer(q_app):
     canvas.mousePressEvent(_FakeMousePressEvent(3, 3))
 
     assert history.can_undo() is False
+
+
+def test_mask_mode_setters(q_app):
+    canvas = LayerCanvas()
+    assert canvas.mask_mode() is False
+    canvas.set_mask_mode(True)
+    assert canvas.mask_mode() is True
+    assert canvas.mask_intensity() == 255
+    canvas.set_mask_intensity(500)
+    assert canvas.mask_intensity() == 255
+    canvas.set_mask_intensity(-5)
+    assert canvas.mask_intensity() == 0
+
+
+def test_mask_mode_paints_the_mask_not_the_pixels(q_app):
+    canvas = LayerCanvas()
+    stack = LayerStack(10, 10)
+    stack.add_layer("base", "Base")
+    stack.add_mask("base")
+    canvas.set_layer_stack(stack)
+    canvas.set_active_layer_id("base")
+    canvas.set_mask_mode(True)
+    canvas.set_mask_intensity(0)
+    canvas.set_brush_radius(1)
+    canvas._paint_dot_at_pixel(5, 5)
+    assert stack.layer("base").mask[5, 5] == 0
+    assert stack.layer("base").pixels[5, 5].tolist() == [0, 0, 0, 0]
+
+
+def test_mask_mode_is_a_no_op_without_a_mask_on_the_active_layer(q_app):
+    canvas = LayerCanvas()
+    stack = LayerStack(10, 10)
+    stack.add_layer("base", "Base")
+    canvas.set_layer_stack(stack)
+    canvas.set_active_layer_id("base")
+    canvas.set_mask_mode(True)
+    canvas._paint_dot_at_pixel(5, 5)
+    assert stack.layer("base").mask is None
+    assert stack.layer("base").pixels[5, 5].tolist() == [0, 0, 0, 0]
+
+
+def test_mask_mode_line_painting(q_app):
+    canvas = LayerCanvas()
+    stack = LayerStack(10, 10)
+    stack.add_layer("base", "Base")
+    stack.add_mask("base")
+    canvas.set_layer_stack(stack)
+    canvas.set_active_layer_id("base")
+    canvas.set_mask_mode(True)
+    canvas.set_mask_intensity(128)
+    canvas.set_brush_radius(1)
+    canvas._paint_line_at_pixel(2, 5, 7, 5)
+    assert stack.layer("base").mask[5, 2] == 128
+    assert stack.layer("base").mask[5, 7] == 128

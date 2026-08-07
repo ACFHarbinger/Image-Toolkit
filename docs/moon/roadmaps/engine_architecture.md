@@ -130,3 +130,24 @@ visibility-toggle and gained a public `refresh()` to re-sync after an
 external mutation. `ReferenceColoringTab` creates one `EditHistory` per
 canvas and adds Undo/Redo buttons. Still no masks, segmentation, or
 palette-preview UI.
+
+**Fourth slice (issue #28, In review pending a manual desktop-app check):
+non-destructive layer masks.** `Layer.mask` is an optional HxW uint8
+grayscale buffer (`None` when absent), validated to match the layer's
+pixel size. `LayerStack.add_mask`/`remove_mask` attach/detach a
+fully-opaque mask; `composite()` multiplies each layer's alpha by
+`mask / 255` before blending when present, the standard non-destructive
+mask convention every mainstream raster editor uses. `save_state()`/
+`load_state()` round-trip the mask too, so undo/redo (#27) covers mask
+edits for free without any changes there. `src/editor/brush.py` adds
+`stamp_mask_dot`/`stamp_mask_line` -- grayscale variants sharing the RGBA
+brush's circular-clipping logic (extracted into `_clip_region`) but
+overwriting to a given intensity directly rather than alpha-blending
+(blending a mask against itself has no useful meaning).
+`LayerCanvas.set_mask_mode(True)` redirects Brush strokes to the active
+layer's mask, and is a no-op on a maskless layer rather than silently
+falling back to painting color. `LayerListPanel` gained Add Mask/Remove
+Mask buttons and a `(mask)` list-item suffix; `ReferenceColoringTab` gained
+an Edit Mask checkbox and a Mask value spin box. Still no segmentation or
+palette-preview UI; masks here are a general raster-editor primitive, not
+yet tied to the Krita-side semantic "material mask" concept.

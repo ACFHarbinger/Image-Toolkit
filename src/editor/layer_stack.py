@@ -45,10 +45,16 @@ class LayerMeta:
 
 @dataclass
 class Layer:
-    """One layer: its metadata plus an HxWx4 uint8 straight-alpha RGBA buffer."""
+    """One layer: its metadata, an HxWx4 uint8 straight-alpha RGBA buffer,
+    and an optional HxW uint8 grayscale mask (``None`` when the layer has
+    no mask). Where present, the mask non-destructively attenuates the
+    layer's effective alpha during compositing -- 255 leaves a pixel fully
+    as painted, 0 hides it, matching the standard non-destructive
+    layer-mask convention every mainstream raster/paint editor uses."""
 
     meta: LayerMeta
     pixels: np.ndarray = field(repr=False)
+    mask: np.ndarray | None = field(default=None, repr=False)
 
     def __post_init__(self) -> None:
         if (
@@ -58,6 +64,13 @@ class Layer:
             or self.pixels.dtype != np.uint8
         ):
             raise ValueError("layer pixels must be an HxWx4 uint8 RGBA array")
+        if self.mask is not None and (
+            not isinstance(self.mask, np.ndarray)
+            or self.mask.ndim != 2
+            or self.mask.dtype != np.uint8
+            or self.mask.shape != self.pixels.shape[:2]
+        ):
+            raise ValueError("layer mask must be an HxW uint8 array matching the layer's size")
 
 
 def _blend_normal(base: np.ndarray, top: np.ndarray, opacity: float) -> np.ndarray:
@@ -142,31 +155,69 @@ class LayerStack:
         """Bottom-to-top ordered snapshot of the current layers."""
         return list(self._layers)
 
+    def add_mask(self, layer_id: str) -> bool:
+        """Attach a fully-opaque (255, i.e. "reveal everything") mask to
+        ``layer_id``. Returns ``False`` if the layer doesn't exist or
+        already has a mask -- never silently replaces an existing one."""
+        layer = self.layer(layer_id)
+        if layer is None or layer.mask is not None:
+            return False
+        layer.mask = np.full((self.height, self.width), 255, dtype=np.uint8)
+        return True
+
+    def remove_mask(self, layer_id: str) -> bool:
+        layer = self.layer(layer_id)
+        if layer is None or layer.mask is None:
+            return False
+        layer.mask = None
+        return True
+
     def composite(self) -> np.ndarray:
         """Flatten every visible layer bottom-to-top into one HxWx4 uint8 RGBA array."""
         result = np.zeros((self.height, self.width, 4), dtype=np.uint8)
         for layer in self._layers:
             if not layer.meta.visible or layer.meta.opacity <= 0:
                 continue
-            result = _BLEND_FUNCS[layer.meta.blend_mode](result, layer.pixels, layer.meta.opacity)
+            pixels = layer.pixels
+            if layer.mask is not None:
+                pixels = pixels.copy()
+                pixels[:, :, 3] = (
+                    pixels[:, :, 3].astype(np.uint16) * layer.mask.astype(np.uint16) // 255
+                ).astype(np.uint8)
+            result = _BLEND_FUNCS[layer.meta.blend_mode](result, pixels, layer.meta.opacity)
         return result
 
-    def save_state(self) -> list[tuple[str, str, bool, float, str, np.ndarray]]:
+    def save_state(
+        self,
+    ) -> list[tuple[str, str, bool, float, str, np.ndarray, np.ndarray | None]]:
         """A deep, order-preserving copy of every layer's full state, opaque
         to callers -- pass it back to :meth:`load_state` to restore it.
         Backs ``editor.history.EditHistory``'s undo/redo."""
         return [
-            (layer.meta.id, layer.meta.name, layer.meta.visible, layer.meta.opacity,
-             layer.meta.blend_mode, layer.pixels.copy())
+            (
+                layer.meta.id,
+                layer.meta.name,
+                layer.meta.visible,
+                layer.meta.opacity,
+                layer.meta.blend_mode,
+                layer.pixels.copy(),
+                None if layer.mask is None else layer.mask.copy(),
+            )
             for layer in self._layers
         ]
 
-    def load_state(self, state: list[tuple[str, str, bool, float, str, np.ndarray]]) -> None:
+    def load_state(
+        self, state: list[tuple[str, str, bool, float, str, np.ndarray, np.ndarray | None]]
+    ) -> None:
         """Replace every layer with a deep copy of ``state`` (from an earlier
         :meth:`save_state`), in place -- callers keep the same ``LayerStack``
         identity across an undo/redo, so nothing needs to rebind to a new
         object."""
         self._layers = [
-            Layer(LayerMeta(layer_id, name, visible, opacity, blend_mode), pixels.copy())
-            for layer_id, name, visible, opacity, blend_mode, pixels in state
+            Layer(
+                LayerMeta(layer_id, name, visible, opacity, blend_mode),
+                pixels.copy(),
+                None if mask is None else mask.copy(),
+            )
+            for layer_id, name, visible, opacity, blend_mode, pixels, mask in state
         ]

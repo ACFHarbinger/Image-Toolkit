@@ -116,3 +116,26 @@ def test_undo_before_any_canvas_exists_is_a_no_op(q_app):
     tab._undo()
     tab._redo()
     assert tab.history() is None
+
+
+def test_edit_mask_checkbox_toggles_canvas_mask_mode(q_app):
+    tab = ReferenceColoringTab()
+    assert tab.canvas().mask_mode() is False
+    tab._edit_mask_checkbox.setChecked(True)
+    assert tab.canvas().mask_mode() is True
+    tab._edit_mask_checkbox.setChecked(False)
+    assert tab.canvas().mask_mode() is False
+
+
+def test_mask_value_spin_updates_canvas_intensity(q_app):
+    tab = ReferenceColoringTab()
+    tab._mask_value_spin.setValue(64)
+    assert tab.canvas().mask_intensity() == 64
+
+
+def test_layer_panels_mask_buttons_reach_the_bound_layer_stack(q_app, monkeypatch):
+    tab = ReferenceColoringTab()
+    _new_canvas(tab, monkeypatch)
+    tab.layer_panel()._add_mask_to_selected_layer()
+    assert tab.canvas().layer_stack().layer("layer-1").mask is not None
+    assert "1 layer" in tab._status.text()

@@ -2,12 +2,14 @@
 ``docs/moon/roadmaps/engine_architecture.md``'s gate-5 exception).
 
 Owns the only structural mutations a ``LayerStack`` gets: add, remove,
-reorder, and visibility toggle. Emits ``layers_changed`` after every
-mutation so a bound canvas (``layer_canvas.py``) knows to re-render, and
-``layer_selected`` whenever the current selection changes so a canvas can
-paint onto the right layer -- never touches the canvas directly, keeping
-this panel reusable without one. If bound with ``set_history``, records an
-undo checkpoint immediately before each structural mutation.
+reorder, visibility toggle, and mask add/remove. Emits ``layers_changed``
+after every mutation so a bound canvas (``layer_canvas.py``) knows to
+re-render, and ``layer_selected`` whenever the current selection changes so
+a canvas can paint onto the right layer -- never touches the canvas
+directly, keeping this panel reusable without one. If bound with
+``set_history``, records an undo checkpoint immediately before each
+structural mutation. A layer with a mask shows a "(mask)" suffix in the
+list so its state is visible without selecting it.
 
 New feature, not code motion.
 """
@@ -47,21 +49,29 @@ class LayerListPanel(QWidget):
         self._remove_button = QPushButton("Remove Layer", self)
         self._up_button = QPushButton("Move Up", self)
         self._down_button = QPushButton("Move Down", self)
+        self._add_mask_button = QPushButton("Add Mask", self)
+        self._remove_mask_button = QPushButton("Remove Mask", self)
 
         self._add_button.clicked.connect(self._add_layer)
         self._remove_button.clicked.connect(self._remove_selected_layer)
         self._up_button.clicked.connect(lambda: self._move_selected_layer(-1))
         self._down_button.clicked.connect(lambda: self._move_selected_layer(1))
+        self._add_mask_button.clicked.connect(self._add_mask_to_selected_layer)
+        self._remove_mask_button.clicked.connect(self._remove_mask_from_selected_layer)
         self._list.itemChanged.connect(self._on_item_changed)
         self._list.currentItemChanged.connect(self._on_current_item_changed)
 
         buttons = QHBoxLayout()
         for button in (self._add_button, self._remove_button, self._up_button, self._down_button):
             buttons.addWidget(button)
+        mask_buttons = QHBoxLayout()
+        for button in (self._add_mask_button, self._remove_mask_button):
+            mask_buttons.addWidget(button)
 
         layout = QVBoxLayout(self)
         layout.addWidget(self._list)
         layout.addLayout(buttons)
+        layout.addLayout(mask_buttons)
 
     def set_layer_stack(self, layer_stack: LayerStack | None) -> None:
         self._layer_stack = layer_stack
@@ -93,7 +103,8 @@ class LayerListPanel(QWidget):
             # Top layer first in the list, matching every layer-based editor's
             # stacking convention (the list reads top-to-bottom like the canvas).
             for layer in reversed(self._layer_stack.layers()):
-                item = QListWidgetItem(layer.meta.name)
+                label = layer.meta.name + (" (mask)" if layer.mask is not None else "")
+                item = QListWidgetItem(label)
                 item.setData(Qt.ItemDataRole.UserRole, layer.meta.id)
                 item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
                 item.setCheckState(
@@ -143,6 +154,28 @@ class LayerListPanel(QWidget):
         self._refresh_list()
         self._select_layer(layer_id)
         self.layers_changed.emit()
+
+    def _add_mask_to_selected_layer(self) -> None:
+        layer_id = self.selected_layer_id()
+        if self._layer_stack is None or layer_id is None:
+            return
+        if self._history is not None:
+            self._history.record()
+        if self._layer_stack.add_mask(layer_id):
+            self._refresh_list()
+            self._select_layer(layer_id)
+            self.layers_changed.emit()
+
+    def _remove_mask_from_selected_layer(self) -> None:
+        layer_id = self.selected_layer_id()
+        if self._layer_stack is None or layer_id is None:
+            return
+        if self._history is not None:
+            self._history.record()
+        if self._layer_stack.remove_mask(layer_id):
+            self._refresh_list()
+            self._select_layer(layer_id)
+            self.layers_changed.emit()
 
     def _select_layer(self, layer_id: str) -> None:
         for row in range(self._list.count()):

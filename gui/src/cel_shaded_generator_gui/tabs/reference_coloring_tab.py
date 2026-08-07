@@ -1,11 +1,13 @@
 """Standalone Reference Coloring editor tab -- canvas + layer stack
-foundation, a brush paint tool, and undo/redo (roadmap: standalone editor,
-gate-5 exception; see ``docs/moon/roadmaps/engine_architecture.md``).
+foundation, a brush paint tool, undo/redo, and non-destructive layer masks
+(roadmap: standalone editor, gate-5 exception; see
+``docs/moon/roadmaps/engine_architecture.md``).
 
 Create a blank canvas of a chosen size, add/remove/reorder/show-hide
 layers, select a layer and paint on it with a solid-color circular brush,
-and undo/redo any of the above. No masks, segmentation, or palette-preview
-UI yet -- those are later slices built on top of this same
+undo/redo any of the above, and attach a mask to a layer to paint which of
+its pixels show through. No segmentation or palette-preview UI yet -- those
+are later slices built on top of this same
 ``editor.LayerStack``/``LayerCanvas``/``LayerListPanel``/``editor.brush``/
 ``editor.EditHistory`` foundation, mirroring how the Krita Dockers built on
 Krita's own layer model.
@@ -18,6 +20,7 @@ from __future__ import annotations
 from editor import EditHistory, LayerStack
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
+    QCheckBox,
     QColorDialog,
     QHBoxLayout,
     QInputDialog,
@@ -77,6 +80,13 @@ class ReferenceColoringTab(QWidget):
         self._undo_button.clicked.connect(self._undo)
         self._redo_button.clicked.connect(self._redo)
 
+        self._edit_mask_checkbox = QCheckBox("Edit Mask", self)
+        self._edit_mask_checkbox.toggled.connect(self._canvas.set_mask_mode)
+        self._mask_value_spin = QSpinBox(self)
+        self._mask_value_spin.setRange(0, 255)
+        self._mask_value_spin.setValue(255)
+        self._mask_value_spin.valueChanged.connect(self._canvas.set_mask_intensity)
+
         controls = QHBoxLayout()
         controls.addWidget(self._new_canvas_button)
         controls.addWidget(self._pan_tool)
@@ -87,6 +97,9 @@ class ReferenceColoringTab(QWidget):
         controls.addWidget(self._brush_radius_spin)
         controls.addWidget(self._undo_button)
         controls.addWidget(self._redo_button)
+        controls.addWidget(self._edit_mask_checkbox)
+        controls.addWidget(QLabel("Mask value:", self))
+        controls.addWidget(self._mask_value_spin)
         controls.addStretch(1)
 
         right = QVBoxLayout()

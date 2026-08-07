@@ -1,11 +1,15 @@
 import numpy as np
 import pytest
 
-from editor import stamp_dot, stamp_line
+from editor import stamp_dot, stamp_line, stamp_mask_dot, stamp_mask_line
 
 
 def _blank(width=10, height=10):
     return np.zeros((height, width, 4), dtype=np.uint8)
+
+
+def _blank_mask(width=10, height=10):
+    return np.zeros((height, width), dtype=np.uint8)
 
 
 def test_stamp_dot_paints_a_filled_circle():
@@ -82,3 +86,50 @@ def test_stamp_line_diagonal_reaches_both_endpoints():
     stamp_line(pixels, 1, 1, 15, 15, 1, (0, 200, 0, 255))
     assert pixels[1, 1, 3] > 0
     assert pixels[15, 15, 3] > 0
+
+
+def test_stamp_mask_dot_overwrites_to_intensity():
+    mask = _blank_mask()
+    mask[:, :] = 255
+    stamp_mask_dot(mask, 5, 5, 1, 0)
+    assert mask[5, 5] == 0
+    assert mask[5, 3] == 255  # outside radius, untouched
+
+
+def test_stamp_mask_dot_clips_to_bounds():
+    mask = _blank_mask(4, 4)
+    stamp_mask_dot(mask, 0, 0, 2, 200)
+    assert mask[0, 0] == 200
+
+
+def test_stamp_mask_dot_entirely_off_canvas_is_a_no_op():
+    mask = _blank_mask(4, 4)
+    stamp_mask_dot(mask, -10, -10, 1, 200)
+    assert (mask == 0).all()
+
+
+def test_stamp_mask_dot_rejects_wrong_shaped_buffer():
+    with pytest.raises(ValueError, match="mask buffer"):
+        stamp_mask_dot(_blank(), 0, 0, 1, 255)
+
+
+def test_stamp_mask_dot_rejects_out_of_range_intensity():
+    with pytest.raises(ValueError, match="intensity"):
+        stamp_mask_dot(_blank_mask(), 0, 0, 1, 256)
+    with pytest.raises(ValueError, match="intensity"):
+        stamp_mask_dot(_blank_mask(), 0, 0, 1, -1)
+
+
+def test_stamp_mask_line_single_point_behaves_like_stamp_mask_dot():
+    a = _blank_mask()
+    stamp_mask_line(a, 5, 5, 5, 5, 1, 200)
+    b = _blank_mask()
+    stamp_mask_dot(b, 5, 5, 1, 200)
+    assert (a == b).all()
+
+
+def test_stamp_mask_line_paints_a_continuous_stroke_without_gaps():
+    mask = _blank_mask(20, 20)
+    stamp_mask_line(mask, 2, 10, 17, 10, 2, 128)
+    row = mask[10, 2:18]
+    assert (row == 128).all()

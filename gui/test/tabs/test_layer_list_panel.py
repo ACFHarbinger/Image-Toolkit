@@ -192,3 +192,67 @@ def test_refresh_re_syncs_list_from_layer_stack(q_app):
     assert panel._list.count() == 1
     panel.refresh()
     assert panel._list.count() == 2
+
+
+def test_add_mask_button_attaches_a_mask_and_labels_the_item(q_app):
+    stack = LayerStack(2, 2)
+    stack.add_layer("only", "Only")
+    panel = LayerListPanel()
+    panel.set_layer_stack(stack)
+    panel._select_layer("only")
+    panel._add_mask_to_selected_layer()
+    assert stack.layer("only").mask is not None
+    assert panel._list.item(0).text() == "Only (mask)"
+
+
+def test_add_mask_button_without_selection_is_a_no_op(q_app):
+    stack = LayerStack(2, 2)
+    stack.add_layer("only", "Only")
+    panel = LayerListPanel()
+    panel.set_layer_stack(stack)
+    panel._list.setCurrentRow(-1)
+    panel._add_mask_to_selected_layer()
+    assert stack.layer("only").mask is None
+
+
+def test_remove_mask_button_detaches_it_and_relabels(q_app):
+    stack = LayerStack(2, 2)
+    stack.add_layer("only", "Only")
+    stack.add_mask("only")
+    panel = LayerListPanel()
+    panel.set_layer_stack(stack)
+    panel._select_layer("only")
+    panel._remove_mask_from_selected_layer()
+    assert stack.layer("only").mask is None
+    assert panel._list.item(0).text() == "Only"
+
+
+def test_add_mask_records_history_checkpoint(q_app):
+    stack = LayerStack(2, 2)
+    stack.add_layer("only", "Only")
+    panel = LayerListPanel()
+    panel.set_layer_stack(stack)
+    history = EditHistory(stack)
+    panel.set_history(history)
+
+    panel._select_layer("only")
+    panel._add_mask_to_selected_layer()
+    assert stack.layer("only").mask is not None
+    history.undo()
+    assert stack.layer("only").mask is None
+
+
+def test_remove_mask_records_history_checkpoint(q_app):
+    stack = LayerStack(2, 2)
+    stack.add_layer("only", "Only")
+    stack.add_mask("only")
+    panel = LayerListPanel()
+    panel.set_layer_stack(stack)
+    history = EditHistory(stack)
+    panel.set_history(history)
+
+    panel._select_layer("only")
+    panel._remove_mask_from_selected_layer()
+    assert stack.layer("only").mask is None
+    history.undo()
+    assert stack.layer("only").mask is not None

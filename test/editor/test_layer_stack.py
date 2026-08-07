@@ -162,3 +162,87 @@ def test_save_state_is_a_deep_copy_not_a_live_view():
     layer.pixels[:, :, :] = [9, 9, 9, 255]
     stack.load_state(state)
     assert stack.layer("base").pixels[0, 0].tolist() == [1, 2, 3, 255]
+
+
+def test_add_mask_creates_a_fully_opaque_mask():
+    stack = LayerStack(3, 2)
+    stack.add_layer("base", "Base")
+    assert stack.add_mask("base") is True
+    mask = stack.layer("base").mask
+    assert mask.shape == (2, 3)
+    assert mask.dtype == np.uint8
+    assert (mask == 255).all()
+
+
+def test_add_mask_is_false_for_missing_layer_or_existing_mask():
+    stack = LayerStack(2, 2)
+    stack.add_layer("base", "Base")
+    assert stack.add_mask("missing") is False
+    assert stack.add_mask("base") is True
+    assert stack.add_mask("base") is False
+
+
+def test_remove_mask_clears_it():
+    stack = LayerStack(2, 2)
+    stack.add_layer("base", "Base")
+    stack.add_mask("base")
+    assert stack.remove_mask("base") is True
+    assert stack.layer("base").mask is None
+    assert stack.remove_mask("base") is False
+    assert stack.remove_mask("missing") is False
+
+
+def test_layer_rejects_mismatched_mask_shape():
+    with pytest.raises(ValueError, match="mask"):
+        Layer(
+            LayerMeta("base", "Base"),
+            np.zeros((2, 2, 4), dtype=np.uint8),
+            np.zeros((3, 3), dtype=np.uint8),
+        )
+
+
+def test_composite_attenuates_alpha_by_mask():
+    stack = LayerStack(1, 1)
+    layer = stack.add_layer("base", "Base")
+    layer.pixels[:, :, :] = [255, 0, 0, 255]
+    stack.add_mask("base")
+    layer.mask[:, :] = 128
+    composite = stack.composite()
+    assert composite[0, 0, 3] == pytest.approx(128, abs=1)
+
+
+def test_composite_fully_hides_layer_where_mask_is_zero():
+    stack = LayerStack(1, 1)
+    layer = stack.add_layer("base", "Base")
+    layer.pixels[:, :, :] = [255, 0, 0, 255]
+    stack.add_mask("base")
+    layer.mask[:, :] = 0
+    composite = stack.composite()
+    assert composite[0, 0, 3] == 0
+
+
+def test_composite_without_a_mask_is_unaffected():
+    stack = LayerStack(1, 1)
+    layer = stack.add_layer("base", "Base")
+    layer.pixels[:, :, :] = [255, 0, 0, 255]
+    composite = stack.composite()
+    assert composite[0, 0].tolist() == [255, 0, 0, 255]
+
+
+def test_save_state_and_load_state_round_trip_a_mask():
+    stack = LayerStack(2, 2)
+    layer = stack.add_layer("base", "Base")
+    stack.add_mask("base")
+    layer.mask[:, :] = 64
+    state = stack.save_state()
+    layer.mask[:, :] = 200
+    stack.load_state(state)
+    assert (stack.layer("base").mask == 64).all()
+
+
+def test_save_state_round_trips_a_missing_mask_as_none():
+    stack = LayerStack(2, 2)
+    stack.add_layer("base", "Base")
+    state = stack.save_state()
+    stack.load_state(state)
+    assert stack.layer("base").mask is None

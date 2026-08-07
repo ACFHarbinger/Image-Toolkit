@@ -38,9 +38,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `engine_architecture.md`'s "Gate 5 exception (2026-08-07)" note for the
   full rationale — this is a scope decision, not evidence Krita has proven
   insufficient. The Krita plugin remains the primary, actively-developed
-  host. Three slices — canvas + layer-stack foundation, brush paint tool
-  (issue #26), and undo/redo (issue #27) — are all In review pending a
-  manual desktop-app check (see the `### Added` entries below).
+  host. Four slices — canvas + layer-stack foundation, brush paint tool
+  (issue #26), undo/redo (issue #27), and non-destructive layer masks
+  (issue #28) — are all In review pending a manual desktop-app check (see
+  the `### Added` entries below).
 
 ### Fixed
 
@@ -179,6 +180,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `load_state`, 10 for `EditHistory`), 10 new headless-Qt `gui` tests
   (470 core + 146 gui total); Ruff and mypy clean. Needs a manual desktop
   launch to confirm visually — see issue #27's testing comment.
+- **Standalone editor fourth slice (issue #28, In review): non-destructive
+  layer masks.** `Layer.mask` is an optional HxW uint8 grayscale buffer
+  (`None` when absent), validated to match the layer's pixel size.
+  `LayerStack.add_mask`/`remove_mask` attach/detach a fully-opaque mask;
+  `composite()` multiplies each layer's alpha by `mask / 255` before
+  blending when present — the standard non-destructive mask convention
+  every mainstream raster editor uses. `save_state()`/`load_state()`
+  round-trip the mask too, so undo/redo (#27) covers mask edits for free
+  with no changes there. `src/editor/brush.py` adds `stamp_mask_dot`/
+  `stamp_mask_line` — grayscale variants sharing the RGBA brush's circular
+  clipping logic (extracted into `_clip_region`) but overwriting to a
+  given intensity directly rather than alpha-blending, since blending a
+  mask against itself has no useful meaning. `LayerCanvas.set_mask_mode
+  (True)` redirects Brush strokes to the active layer's mask, and is a
+  no-op on a maskless layer rather than silently falling back to painting
+  color. `LayerListPanel` gained Add Mask/Remove Mask buttons and a
+  `(mask)` list-item suffix; `ReferenceColoringTab` gained an Edit Mask
+  checkbox and a Mask value spin box. Still no segmentation UI; masks here
+  are a general raster-editor primitive, not yet tied to the Krita-side
+  semantic "material mask" concept. Verification: 12 new core `editor`
+  tests, 10 new headless-Qt `gui` tests (486 core + 158 gui total); Ruff
+  and mypy clean. Needs a manual desktop launch to confirm visually — see
+  issue #28's testing comment.
 - **Milestone 4 first slice (issue #24): deterministic confidence scoring
   and correction learning for assisted correspondence.** Portable contract
   only, no Docker UI yet, following the same sequencing every prior

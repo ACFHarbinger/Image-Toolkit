@@ -3,14 +3,23 @@ composite, with a brush paint tool (standalone-editor paint-tools slice;
 see ``docs/moon/roadmaps/engine_architecture.md``'s gate-5 exception).
 
 The layer list panel (``layer_list_panel.py``) still owns add/remove/
-reorder/visibility; this widget owns turning the composite into a pixmap,
-mouse-wheel zoom / hand-drag pan, and now painting onto whichever layer is
-the bound "active" one, via ``editor.brush``'s pure-numpy stamping. Pan and
-Brush are separate explicit tools (``set_tool``) rather than overloading
-left-click, since ``QGraphicsView.DragMode.ScrollHandDrag`` already claims
-left-click-drag for panning. If bound with ``set_history``, records one
-undo checkpoint per stroke, at the moment the mouse is pressed -- not per
-dot -- so a whole stroke undoes as a single step.
+reorder/visibility/mask add-remove; this widget owns turning the composite
+into a pixmap, mouse-wheel zoom / hand-drag pan, and now painting onto
+whichever layer is the bound "active" one, via ``editor.brush``'s
+pure-numpy stamping. Pan and Brush are separate explicit tools
+(``set_tool``) rather than overloading left-click, since
+``QGraphicsView.DragMode.ScrollHandDrag`` already claims left-click-drag
+for panning. If bound with ``set_history``, records one undo checkpoint per
+stroke, at the moment the mouse is pressed -- not per dot -- so a whole
+stroke undoes as a single step.
+
+``set_mask_mode(True)`` redirects Brush-tool strokes from the active
+layer's RGBA pixels to its mask (if it has one -- painting is a no-op on a
+maskless layer rather than silently falling back to painting color, so an
+artist expecting to edit a mask never accidentally paints the layer
+instead), using ``editor.brush``'s mask-specific overwrite stamping
+(``stamp_mask_dot``/``stamp_mask_line``) instead of the alpha-blended
+color stamping.
 
 New feature, not code motion.
 """
@@ -18,7 +27,15 @@ New feature, not code motion.
 from __future__ import annotations
 
 import numpy as np
-from editor import EditHistory, LayerStack, stamp_dot, stamp_line
+from editor import (
+    EditHistory,
+    Layer,
+    LayerStack,
+    stamp_dot,
+    stamp_line,
+    stamp_mask_dot,
+    stamp_mask_line,
+)
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QImage, QPainter, QPixmap
 from PySide6.QtWidgets import QGraphicsPixmapItem, QGraphicsScene, QGraphicsView
@@ -57,6 +74,8 @@ class LayerCanvas(QGraphicsView):
         self._painting = False
         self._last_point: tuple[int, int] | None = None
         self._history: EditHistory | None = None
+        self._mask_mode = False
+        self._mask_intensity = 255
 
     def set_layer_stack(self, layer_stack: LayerStack | None) -> None:
         self._layer_stack = layer_stack
@@ -118,27 +137,55 @@ class LayerCanvas(QGraphicsView):
     def set_history(self, history: EditHistory | None) -> None:
         self._history = history
 
+    def set_mask_mode(self, enabled: bool) -> None:
+        self._mask_mode = bool(enabled)
+
+    def mask_mode(self) -> bool:
+        return self._mask_mode
+
+    def set_mask_intensity(self, intensity: int) -> None:
+        self._mask_intensity = max(0, min(255, intensity))
+
+    def mask_intensity(self) -> int:
+        return self._mask_intensity
+
     # ------------------------------------------------------------------
     # Painting
     # ------------------------------------------------------------------
-    def _active_layer_pixels(self) -> np.ndarray | None:
+    def _active_layer(self) -> Layer | None:
         if self._layer_stack is None or self._active_layer_id is None:
             return None
-        layer = self._layer_stack.layer(self._active_layer_id)
-        return None if layer is None else layer.pixels
+        return self._layer_stack.layer(self._active_layer_id)
+
+    def _can_paint(self) -> bool:
+        """Whether the current tool/target combination has somewhere to
+        paint -- ``False`` in mask mode on a layer with no mask, rather
+        than silently redirecting the stroke onto the layer's color."""
+        layer = self._active_layer()
+        if layer is None:
+            return False
+        return layer.mask is not None if self._mask_mode else True
 
     def _paint_dot_at_pixel(self, x: int, y: int) -> None:
-        pixels = self._active_layer_pixels()
-        if pixels is None:
+        layer = self._active_layer()
+        if layer is None or not self._can_paint():
             return
-        stamp_dot(pixels, x, y, self._brush_radius, self._brush_color)
+        if self._mask_mode and layer.mask is not None:
+            stamp_mask_dot(layer.mask, x, y, self._brush_radius, self._mask_intensity)
+        elif not self._mask_mode:
+            stamp_dot(layer.pixels, x, y, self._brush_radius, self._brush_color)
         self.refresh()
 
     def _paint_line_at_pixel(self, x0: int, y0: int, x1: int, y1: int) -> None:
-        pixels = self._active_layer_pixels()
-        if pixels is None:
+        layer = self._active_layer()
+        if layer is None or not self._can_paint():
             return
-        stamp_line(pixels, x0, y0, x1, y1, self._brush_radius, self._brush_color)
+        if self._mask_mode and layer.mask is not None:
+            stamp_mask_line(
+                layer.mask, x0, y0, x1, y1, self._brush_radius, self._mask_intensity
+            )
+        elif not self._mask_mode:
+            stamp_line(layer.pixels, x0, y0, x1, y1, self._brush_radius, self._brush_color)
         self.refresh()
 
     def _scene_point_to_pixel(self, event) -> tuple[int, int]:
@@ -147,7 +194,7 @@ class LayerCanvas(QGraphicsView):
 
     def mousePressEvent(self, event) -> None:
         if self._tool == "brush" and event.button() == Qt.MouseButton.LeftButton:
-            if self._history is not None and self._active_layer_pixels() is not None:
+            if self._history is not None and self._can_paint():
                 self._history.record()
             self._painting = True
             self._last_point = self._scene_point_to_pixel(event)

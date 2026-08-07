@@ -1,28 +1,51 @@
-"""Deterministic circular-brush stamping onto a layer's pixel buffer
-(standalone-editor paint-tools slice; see
+"""Deterministic circular-brush stamping onto a layer's pixel buffer or
+mask (standalone-editor paint-tools slice; see
 ``docs/moon/roadmaps/engine_architecture.md``'s gate-5 exception).
 
 Pure numpy, no Qt -- mirrors ``layer_stack.py``'s split between "what the
 data is / how it changes" (here) and "how it gets on screen" (the
 ``LayerCanvas`` widget in ``cel_shaded_generator_gui``, which maps mouse
 events to pixel coordinates and calls into this module). A hard-edged
-circular brush with straight-alpha "over" compositing, deliberately not
-anti-aliased -- the simplest deterministic stamp that is still testable
-pixel-for-pixel; a softer/anti-aliased brush is a later slice on the same
-``stamp_dot``/``stamp_line`` contract.
+circular brush, deliberately not anti-aliased -- the simplest deterministic
+stamp that is still testable pixel-for-pixel; a softer/anti-aliased brush
+is a later slice on the same ``stamp_*`` contract.
+
+``stamp_dot``/``stamp_line`` paint HxWx4 RGBA layer pixels with
+straight-alpha "over" compositing. ``stamp_mask_dot``/``stamp_mask_line``
+paint an HxW uint8 mask by direct overwrite instead -- alpha-blending a
+mask against itself has no useful meaning, so painting a mask always just
+sets the covered pixels to the given intensity (255 reveals, 0 hides).
 """
 
 from __future__ import annotations
 
 import numpy as np
 
-__all__ = ["stamp_dot", "stamp_line"]
+__all__ = ["stamp_dot", "stamp_line", "stamp_mask_dot", "stamp_mask_line"]
 
 
 def _circular_mask(radius: int) -> np.ndarray:
     offsets = np.arange(-radius, radius + 1)
     yy, xx = np.meshgrid(offsets, offsets, indexing="ij")
     return (xx**2 + yy**2) <= radius**2
+
+
+def _clip_region(
+    shape2d: tuple[int, int], cx: int, cy: int, radius: int
+) -> tuple[np.ndarray, int, int, int, int] | None:
+    """The circular brush mask clipped to ``shape2d``'s bounds, plus the
+    matching pixel-array slice bounds ``(y0, y1, x0, x1)``. ``None`` if the
+    circle falls entirely off-canvas."""
+    height, width = shape2d
+    mask = _circular_mask(radius)
+    diameter = mask.shape[0]
+    x0, y0 = cx - radius, cy - radius
+    img_x0, img_x1 = max(0, x0), min(width, x0 + diameter)
+    img_y0, img_y1 = max(0, y0), min(height, y0 + diameter)
+    if img_x0 >= img_x1 or img_y0 >= img_y1:
+        return None
+    mask_slice = mask[img_y0 - y0 : img_y1 - y0, img_x0 - x0 : img_x1 - x0]
+    return mask_slice, img_y0, img_y1, img_x0, img_x1
 
 
 def _blend_color_over(
@@ -57,9 +80,28 @@ def _validate_pixels(pixels: np.ndarray) -> None:
         raise ValueError("pixels must be an HxWx4 uint8 RGBA array")
 
 
+def _validate_mask_buffer(mask_buffer: np.ndarray) -> None:
+    if (
+        not isinstance(mask_buffer, np.ndarray)
+        or mask_buffer.ndim != 2
+        or mask_buffer.dtype != np.uint8
+    ):
+        raise ValueError("mask buffer must be an HxW uint8 array")
+
+
 def _validate_color(color: tuple[int, int, int, int]) -> None:
     if len(color) != 4 or not all(isinstance(c, int) and 0 <= c <= 255 for c in color):
         raise ValueError("color must be an (r, g, b, a) tuple of ints in [0, 255]")
+
+
+def _validate_radius(radius: int) -> None:
+    if not isinstance(radius, int) or radius < 0:
+        raise ValueError("radius must be a non-negative integer")
+
+
+def _validate_intensity(intensity: int) -> None:
+    if not isinstance(intensity, int) or not 0 <= intensity <= 255:
+        raise ValueError("intensity must be an int in [0, 255]")
 
 
 def stamp_dot(
@@ -70,19 +112,12 @@ def stamp_dot(
     bounds; a circle entirely off-canvas is a no-op."""
     _validate_pixels(pixels)
     _validate_color(color)
-    if not isinstance(radius, int) or radius < 0:
-        raise ValueError("radius must be a non-negative integer")
-    height, width = pixels.shape[:2]
-    mask = _circular_mask(radius)
-    diameter = mask.shape[0]
-    x0, y0 = cx - radius, cy - radius
-    img_x0, img_x1 = max(0, x0), min(width, x0 + diameter)
-    img_y0, img_y1 = max(0, y0), min(height, y0 + diameter)
-    if img_x0 >= img_x1 or img_y0 >= img_y1:
+    _validate_radius(radius)
+    clip = _clip_region(pixels.shape[:2], cx, cy, radius)
+    if clip is None:
         return
-    mask_slice = mask[img_y0 - y0 : img_y1 - y0, img_x0 - x0 : img_x1 - x0]
-    region = pixels[img_y0:img_y1, img_x0:img_x1]
-    _blend_color_over(region, mask_slice, color)
+    mask_slice, y0, y1, x0, x1 = clip
+    _blend_color_over(pixels[y0:y1, x0:x1], mask_slice, color)
 
 
 def stamp_line(
@@ -105,3 +140,34 @@ def stamp_line(
     count = max(1, int(distance / spacing) + 1)
     for x, y in zip(np.linspace(x0, x1, count), np.linspace(y0, y1, count), strict=True):
         stamp_dot(pixels, int(round(x)), int(round(y)), radius, color)
+
+
+def stamp_mask_dot(mask_buffer: np.ndarray, cx: int, cy: int, radius: int, intensity: int) -> None:
+    """Set every pixel of ``mask_buffer`` within ``radius`` of ``(cx, cy)``
+    to ``intensity`` in place (255 fully reveals the layer, 0 fully hides
+    it). Direct overwrite, not alpha-blended -- blending a mask against
+    itself has no useful meaning."""
+    _validate_mask_buffer(mask_buffer)
+    _validate_intensity(intensity)
+    _validate_radius(radius)
+    clip = _clip_region(mask_buffer.shape, cx, cy, radius)
+    if clip is None:
+        return
+    mask_slice, y0, y1, x0, x1 = clip
+    region = mask_buffer[y0:y1, x0:x1]
+    region[mask_slice] = intensity
+
+
+def stamp_mask_line(
+    mask_buffer: np.ndarray, x0: int, y0: int, x1: int, y1: int, radius: int, intensity: int
+) -> None:
+    """Stamp overlapping mask dots along the segment from ``(x0, y0)`` to
+    ``(x1, y1)``, mirroring :func:`stamp_line`."""
+    if x0 == x1 and y0 == y1:
+        stamp_mask_dot(mask_buffer, x0, y0, radius, intensity)
+        return
+    distance = float(np.hypot(x1 - x0, y1 - y0))
+    spacing = max(1, radius // 2 or 1)
+    count = max(1, int(distance / spacing) + 1)
+    for x, y in zip(np.linspace(x0, x1, count), np.linspace(y0, y1, count), strict=True):
+        stamp_mask_dot(mask_buffer, int(round(x)), int(round(y)), radius, intensity)
