@@ -2,6 +2,10 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S362 — 2026-08-07 (Decoupling gui/)
+
+- Fixed Issue #3: Decoupled gui/src/elements/_thumbnail_file_picker.py from Image-Toolkit by making AppSettings and persist_splitter imports optional. Removed continue-on-error: true in lint-test-gui job in CI.
+
 ## S361 — 2026-08-07 (A3 moved to deferred review)
 
 Moved Cel-Shaded-Generator A3 issue #12 to In Review after completing its
