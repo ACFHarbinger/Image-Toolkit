@@ -2,6 +2,10 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S331 — 2026-08-07 (Krita manual landmark editor)
+
+Advanced Cel-Shaded-Generator A2 issue #10 (`d5729f5`) with a manual nine-point landmark editor over a public document-projection snapshot. Because Krita's public Python Canvas API exposes no screen-to-image conversion, the adapter avoids private Qt canvas internals; it labels ordered markers, supports undo/reset/cancel, normalizes coordinates, derives cranial radius, and leaves artwork unchanged. Full verification: 176 tests, Ruff and mypy clean. Corrected a false-positive process check that had matched its own shell command, confirmed Krita was closed using its exact process name, and safely deployed the current nine-file plugin.
+
 ## S330 — 2026-08-07 (Isolated Krita review-engine protocol)
 
 Advanced Cel-Shaded-Generator A2 issue #10 (`9b00a80`) with the explicit AppImage-to-engine boundary promised by A1. The standalone `cel-shaded-generator-engine` accepts one bounded, versioned JSON review request over standard streams; the dependency-free Krita client uses no shell and enforces executable discovery, a five-second timeout, bounded input/output, matching protocol and request identifiers, structured errors, and an operation allowlist. Malformed input produces no traceback leakage. The full suite is now 172 passing tests with clean Ruff and mypy. Landmark UI and user-facing engine-path configuration remain.
