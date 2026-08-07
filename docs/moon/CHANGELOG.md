@@ -2,6 +2,10 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S334 — 2026-08-07 (Deferred A2 owner-review gate)
+
+Moved Cel-Shaded-Generator issue #10 to In Review at the owner's request and added exact deferred live-test instructions plus the board rule: all expected behaviors closes/moves it to Done; any failure documents the step and returns it to In Progress. Created issue #11 at In Progress P0/L for suggestion accept/reject and review persistence so continued development does not silently change the deployed slice under review. Cel-Shaded-Generator `a3482d9` records the split in its roadmap and changelog.
+
 ## S333 — 2026-08-07 (Krita 5.x review redline layers)
 
 Advanced Cel-Shaded-Generator A2 issue #10 (`e41af94`) with Krita 5.x-compatible redline rendering. The adapter avoids Krita 6-only painting methods: it validates and bounds normalized engine geometry, rasterizes transparent U8 BGRA corrections, and writes only to a new locked tutor-owned layer inside the always-relocked feedback group; a failed write removes its partial layer. Artist layers are never selected or modified. Verification: 184 tests, Ruff and mypy clean. With exact process-name confirmation that Krita was closed, the updated plugin and configured engine were safely redeployed. Live redline verification remains.
