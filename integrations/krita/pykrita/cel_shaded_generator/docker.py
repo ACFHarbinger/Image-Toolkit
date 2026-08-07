@@ -9,8 +9,10 @@ from pathlib import Path
 from krita import DockWidget, Krita
 from PyQt5.QtGui import QKeySequence
 from PyQt5.QtWidgets import (
+    QCheckBox,
     QFileDialog,
     QLabel,
+    QMessageBox,
     QPushButton,
     QScrollArea,
     QShortcut,
@@ -22,8 +24,9 @@ from .diagnostics import diagnose
 from .engine_client import EngineClient
 from .exercise import create_exercise_project
 from .landmark_dialog import LandmarkDialog
+from .progress_view import format_progress
 from .redlines import accept_preview, reject_preview, render_review_redlines
-from .settings import load_config, save_shortcuts
+from .settings import load_config, save_shortcuts, save_show_raw_measurements
 from .shortcut_dialog import ShortcutDialog
 
 
@@ -70,6 +73,21 @@ class LearningDocker(DockWidget):
         reject_button.clicked.connect(self._reject_preview)
         shortcut_button = QPushButton("Configure Shortcuts", container)
         shortcut_button.clicked.connect(self._configure_shortcuts)
+        progress_heading = QLabel("Project Progress", container)
+        self._progress_text = QLabel(
+            "Create a portable exercise project to view progress.", container
+        )
+        self._progress_text.setWordWrap(True)
+        config = load_config()
+        self._raw_measurements = QCheckBox("Show raw normalized measurements", container)
+        self._raw_measurements.setChecked(config["show_raw_measurements"])
+        self._raw_measurements.toggled.connect(self._set_raw_measurements)
+        refresh_progress_button = QPushButton("Refresh Progress", container)
+        refresh_progress_button.clicked.connect(self._refresh_progress)
+        enable_progress_button = QPushButton("Enable Project Progress", container)
+        enable_progress_button.clicked.connect(self._enable_progress)
+        disable_progress_button = QPushButton("Disable & Clear Project Progress", container)
+        disable_progress_button.clicked.connect(self._disable_progress)
         self._landmarks = None
         self._preview_layer = None
         self._project_directory = None
@@ -96,13 +114,19 @@ class LearningDocker(DockWidget):
         layout.addWidget(accept_button)
         layout.addWidget(reject_button)
         layout.addWidget(shortcut_button)
+        layout.addWidget(progress_heading)
+        layout.addWidget(self._progress_text)
+        layout.addWidget(self._raw_measurements)
+        layout.addWidget(refresh_progress_button)
+        layout.addWidget(enable_progress_button)
+        layout.addWidget(disable_progress_button)
         layout.addWidget(self._action_status)
         layout.addWidget(status)
         layout.addWidget(diagnostics)
         layout.addStretch(1)
         scroll.setWidget(container)
         self.setWidget(scroll)
-        self._apply_shortcuts(load_config()["shortcuts"])
+        self._apply_shortcuts(config["shortcuts"])
 
     def _create_exercise(self) -> None:
         directory = QFileDialog.getExistingDirectory(
@@ -125,6 +149,7 @@ class LearningDocker(DockWidget):
             "Portable project created. Draw light construction on ‘Construction Guides’; "
             "reserve ‘Artwork’ for deliberate lines. Krita saves to artwork/attempt-001.kra."
         )
+        self._refresh_progress()
 
     def _place_landmarks(self) -> None:
         document = Krita.instance().activeDocument()
@@ -181,6 +206,73 @@ class LearningDocker(DockWidget):
             else "\nA locked tutor preview was added; explicitly accept or reject it."
         )
         self._action_status.setText("Review\n• " + "\n• ".join(explanations) + suffix)
+        self._refresh_progress()
+
+    def _refresh_progress(self) -> None:
+        if self._project_directory is None:
+            self._progress_text.setText("Create a portable exercise project to view progress.")
+            return
+        try:
+            snapshot = EngineClient().project_progress_snapshot(
+                "progress-" + str(uuid.uuid4()), self._project_directory
+            )
+            rendered = format_progress(snapshot, self._raw_measurements.isChecked())
+        except (RuntimeError, TypeError, ValueError) as error:
+            self._progress_text.setText(f"Progress unavailable: {error}")
+            return
+        self._progress_text.setText(rendered)
+
+    def _set_raw_measurements(self, enabled) -> None:
+        try:
+            save_show_raw_measurements(bool(enabled))
+        except ValueError as error:
+            self._action_status.setText(f"Could not save progress display setting: {error}")
+            return
+        self._refresh_progress()
+
+    def _disable_progress(self) -> None:
+        if self._project_directory is None:
+            self._action_status.setText("Create or bind a portable project first.")
+            return
+        choice = QMessageBox.warning(
+            self,
+            "Clear Learning Progress?",
+            "Choose Yes to permanently clear this project's review history and disable "
+            "learning-progress retention. Choose Cancel to keep it enabled.",
+            QMessageBox.Yes | QMessageBox.Cancel,
+            QMessageBox.Cancel,
+        )
+        if choice != QMessageBox.Yes:
+            self._action_status.setText("Learning-progress retention remains enabled.")
+            return
+        try:
+            EngineClient().configure_progress_retention(
+                "retention-" + str(uuid.uuid4()),
+                self._project_directory,
+                False,
+                clear_existing=True,
+            )
+        except (RuntimeError, ValueError) as error:
+            self._action_status.setText(f"Could not change progress retention: {error}")
+            return
+        self._action_status.setText(
+            "Project learning progress was permanently cleared and retention disabled."
+        )
+        self._refresh_progress()
+
+    def _enable_progress(self) -> None:
+        if self._project_directory is None:
+            self._action_status.setText("Create or bind a portable project first.")
+            return
+        try:
+            EngineClient().configure_progress_retention(
+                "retention-" + str(uuid.uuid4()), self._project_directory, True
+            )
+        except (RuntimeError, ValueError) as error:
+            self._action_status.setText(f"Could not change progress retention: {error}")
+            return
+        self._action_status.setText("Project learning-progress retention is enabled.")
+        self._refresh_progress()
 
     def _accept_preview(self) -> None:
         if self._preview_layer is None:

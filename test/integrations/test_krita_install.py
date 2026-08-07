@@ -80,6 +80,7 @@ def test_engine_configuration_is_explicit_and_atomic(tmp_path):
         "schema_version": 1,
         "engine_executable": str(engine.resolve()),
         "shortcuts": {"review": "", "accept": "", "reject": ""},
+        "show_raw_measurements": True,
     }
     assert not config.with_suffix(".json.tmp").exists()
 

@@ -18,7 +18,11 @@ def default_config_path():
 def load_config(path=None):
     target = Path(path) if path is not None else default_config_path()
     if not target.exists():
-        return {"schema_version": CONFIG_SCHEMA_VERSION, "shortcuts": _empty_shortcuts()}
+        return {
+            "schema_version": CONFIG_SCHEMA_VERSION,
+            "shortcuts": _empty_shortcuts(),
+            "show_raw_measurements": True,
+        }
     try:
         payload = json.loads(target.read_text(encoding="utf-8"))
     except (OSError, UnicodeError, json.JSONDecodeError) as error:
@@ -29,6 +33,10 @@ def load_config(path=None):
     if not isinstance(shortcuts, dict):
         raise ValueError("Krita tutor shortcuts must be an object")
     payload["shortcuts"] = _validate_shortcuts(shortcuts)
+    show_raw = payload.get("show_raw_measurements", True)
+    if not isinstance(show_raw, bool):
+        raise ValueError("raw-measurement display setting must be boolean")
+    payload["show_raw_measurements"] = show_raw
     return payload
 
 
@@ -44,6 +52,16 @@ def merge_engine_executable(executable, path=None):
     target = Path(path) if path is not None else default_config_path()
     payload = load_config(target)
     payload["engine_executable"] = str(executable)
+    _atomic_write(target, payload)
+    return target
+
+
+def save_show_raw_measurements(enabled, path=None):
+    if not isinstance(enabled, bool):
+        raise ValueError("raw-measurement display setting must be boolean")
+    target = Path(path) if path is not None else default_config_path()
+    payload = load_config(target)
+    payload["show_raw_measurements"] = enabled
     _atomic_write(target, payload)
     return target
 

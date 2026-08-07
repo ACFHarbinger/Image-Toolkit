@@ -34,3 +34,20 @@ def test_duplicate_shortcuts_are_rejected_without_replacing_config(tmp_path):
     with pytest.raises(ValueError, match="unique"):
         module.save_shortcuts({"review": "Tab", "accept": "tab", "reject": ""}, config)
     assert config.read_text(encoding="utf-8") == original
+
+
+def test_raw_measurements_default_visible_and_setting_preserves_other_config(tmp_path):
+    module = _module()
+    config = tmp_path / "krita.json"
+    assert module.load_config(config)["show_raw_measurements"] is True
+    module.merge_engine_executable("/engine", config)
+    module.save_show_raw_measurements(False, config)
+    payload = module.load_config(config)
+    assert payload["show_raw_measurements"] is False
+    assert payload["engine_executable"] == "/engine"
+
+
+def test_raw_measurement_setting_must_be_boolean(tmp_path):
+    module = _module()
+    with pytest.raises(ValueError, match="must be boolean"):
+        module.save_show_raw_measurements("yes", tmp_path / "krita.json")

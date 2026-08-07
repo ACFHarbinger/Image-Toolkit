@@ -9,8 +9,10 @@ from typing import Any
 from project import (
     AdviceRating,
     SuggestionDecision,
+    configure_progress_retention,
     create_exercise_project,
     decide_attempt_review,
+    project_progress_snapshot,
     record_advice_feedback,
     record_attempt_review,
 )
@@ -81,6 +83,22 @@ def handle_request(request: dict[str, Any]) -> dict[str, Any]:
             )
         except KeyError as error:
             raise ValueError("advice-feedback request is incomplete") from error
+        return _success(request_id, {"changed": changed})
+    if operation == "project_progress_snapshot":
+        try:
+            snapshot = project_progress_snapshot(payload["directory"])
+        except KeyError as error:
+            raise ValueError("progress request is incomplete") from error
+        return _success(request_id, snapshot)
+    if operation == "configure_progress_retention":
+        try:
+            changed = configure_progress_retention(
+                payload["directory"],
+                enabled=payload["enabled"],
+                clear_existing=payload.get("clear_existing", False),
+            )
+        except KeyError as error:
+            raise ValueError("progress-retention request is incomplete") from error
         return _success(request_id, {"changed": changed})
     if operation != "review_front_head":
         raise ValueError("unsupported engine operation")

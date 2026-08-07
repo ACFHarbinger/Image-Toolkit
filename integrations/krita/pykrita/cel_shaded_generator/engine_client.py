@@ -56,6 +56,20 @@ class EngineClient:
             },
         )
 
+    def project_progress_snapshot(self, request_id, directory):
+        return self._execute(request_id, "project_progress_snapshot", {"directory": directory})
+
+    def configure_progress_retention(self, request_id, directory, enabled, clear_existing=False):
+        return self._execute(
+            request_id,
+            "configure_progress_retention",
+            {
+                "directory": directory,
+                "enabled": enabled,
+                "clear_existing": clear_existing,
+            },
+        )
+
     def _execute(self, request_id, operation, payload):
         request = {
             "protocol_version": ENGINE_PROTOCOL_VERSION,

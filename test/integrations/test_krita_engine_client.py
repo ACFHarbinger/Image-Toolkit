@@ -38,9 +38,7 @@ def _landmarks():
 
 def test_client_calls_real_engine_module_without_shell():
     module = _load_client()
-    client = module.EngineClient(
-        [sys.executable, "-m", "learning.engine_protocol"]
-    )
+    client = module.EngineClient([sys.executable, "-m", "learning.engine_protocol"])
     result = client.review_front_head("attempt-1", _landmarks())
     assert result["id"] == "attempt-1"
     assert result["evidence"] == []
@@ -96,3 +94,23 @@ def test_client_discovers_valid_xdg_engine_configuration(monkeypatch, tmp_path):
     monkeypatch.delenv("CEL_SHADED_GENERATOR_ENGINE", raising=False)
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
     assert module.EngineClient().command == (str(engine),)
+
+
+def test_client_requests_progress_without_importing_engine(monkeypatch):
+    module = _load_client()
+    response = {
+        "protocol_version": 1,
+        "request_id": "progress-1",
+        "ok": True,
+        "result": {"retain_learning_progress": True, "exercises": []},
+    }
+    captured = {}
+
+    def run(*args, **kwargs):
+        captured.update(json.loads(kwargs["input"]))
+        return SimpleNamespace(stdout=json.dumps(response).encode(), returncode=0)
+
+    monkeypatch.setattr(module.subprocess, "run", run)
+    result = module.EngineClient(["engine"]).project_progress_snapshot("progress-1", "/p")
+    assert result["retain_learning_progress"] is True
+    assert captured["operation"] == "project_progress_snapshot"

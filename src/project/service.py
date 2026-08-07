@@ -106,6 +106,64 @@ def record_advice_feedback(
     return changed
 
 
+def project_progress_snapshot(directory: str | Path) -> dict:
+    """Return privacy-safe project progress for constrained local hosts."""
+    project = load_project(Path(directory))
+    return {
+        "retain_learning_progress": project.consent.retain_learning_progress,
+        "exercises": [
+            {
+                "exercise_id": exercise.exercise_id,
+                "attempts": [
+                    {
+                        "attempt_id": attempt.id,
+                        "reviews": [
+                            {
+                                "review_id": review.id,
+                                "exercise_version": review.exercise_version,
+                                "method_id": review.method_id,
+                                "rubric_id": review.rubric_id,
+                                "rubric_version": review.rubric_version,
+                                "measurements": dict(review.measurements),
+                                "artist_feedback": (
+                                    {
+                                        "rating": review.artist_feedback.rating.value,
+                                        "note": review.artist_feedback.note,
+                                    }
+                                    if review.artist_feedback is not None
+                                    else None
+                                ),
+                            }
+                            for review in attempt.reviews
+                        ],
+                    }
+                    for attempt in exercise.attempts
+                ],
+            }
+            for exercise in project.progress.exercises
+        ],
+    }
+
+
+def configure_progress_retention(
+    directory: str | Path, *, enabled: bool, clear_existing: bool = False
+) -> bool:
+    """Change project retention, requiring an explicit purge when disabling."""
+    if not isinstance(enabled, bool) or not isinstance(clear_existing, bool):
+        raise ValueError("progress-retention options must be boolean")
+    root = Path(directory)
+    project = load_project(root)
+    if project.consent.retain_learning_progress == enabled:
+        return False
+    if not enabled and project.progress.exercises:
+        if not clear_existing:
+            raise ValueError("existing learning progress must be explicitly cleared")
+        project.progress = ProjectProgress()
+    project.consent.retain_learning_progress = enabled
+    save_project(root, project)
+    return True
+
+
 def _find_attempt(project: Project, attempt_id: str) -> Attempt:
     matching = [
         attempt

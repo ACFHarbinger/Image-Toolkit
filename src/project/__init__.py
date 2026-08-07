@@ -18,8 +18,10 @@ from .model import (
 )
 from .service import (
     FRONT_HEAD_EXERCISE_ID,
+    configure_progress_retention,
     create_exercise_project,
     decide_attempt_review,
+    project_progress_snapshot,
     record_advice_feedback,
     record_attempt_review,
 )
@@ -46,7 +48,9 @@ __all__ = [
     "save_profile",
     "save_project",
     "create_exercise_project",
+    "configure_progress_retention",
     "decide_attempt_review",
     "record_attempt_review",
     "record_advice_feedback",
+    "project_progress_snapshot",
 ]

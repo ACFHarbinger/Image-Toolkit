@@ -36,6 +36,8 @@ Project-local learning-progress retention is a visible user setting enabled by
 default for learning projects. Disabling it requires the project to contain no
 exercise history; an application must therefore offer an explicit purge before
 turning retention off rather than claiming that retained data disappeared.
+The Krita docker offers Cancel or permanent clear-and-disable when history is
+present, and a separate action re-enables future retention.
 
 Each attempt may contain privacy-safe review records: stable review and method
 versions, rubric identity/version, numeric measurements, explanations, and one

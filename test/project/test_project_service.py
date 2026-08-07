@@ -5,9 +5,11 @@ import pytest
 from project import (
     AdviceRating,
     SuggestionDecision,
+    configure_progress_retention,
     create_exercise_project,
     decide_attempt_review,
     load_project,
+    project_progress_snapshot,
     record_advice_feedback,
     record_attempt_review,
 )
@@ -111,3 +113,23 @@ def test_records_advice_feedback_with_idempotent_retry_and_recovery(tmp_path):
             review_id="review-1",
             rating=AdviceRating.INCORRECT,
         )
+
+
+def test_progress_snapshot_and_explicit_clear_disable_policy(tmp_path):
+    artwork = tmp_path / "artwork/attempt-001.kra"
+    artwork.parent.mkdir()
+    artwork.write_bytes(b"document")
+    create_exercise_project(tmp_path, title="Head", attempt_id="attempt-1")
+    snapshot = project_progress_snapshot(tmp_path)
+    assert snapshot["retain_learning_progress"] is True
+    assert snapshot["exercises"][0]["attempts"][0]["attempt_id"] == "attempt-1"
+
+    with pytest.raises(ValueError, match="explicitly cleared"):
+        configure_progress_retention(tmp_path, enabled=False)
+    assert configure_progress_retention(tmp_path, enabled=False, clear_existing=True)
+    assert project_progress_snapshot(tmp_path) == {
+        "retain_learning_progress": False,
+        "exercises": [],
+    }
+    assert configure_progress_retention(tmp_path, enabled=True)
+    assert not configure_progress_retention(tmp_path, enabled=True)

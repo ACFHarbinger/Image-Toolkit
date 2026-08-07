@@ -182,12 +182,19 @@ remain deferred in Review.
   the core now reports improved, unchanged, and declined dimensions only for
   matching exercise, method, and rubric versions. It also reports retry count,
   unrated advice, and the number of incompatible pairs it intentionally skipped.
-  Project persistence and the local UI remain.
+  Project persistence is complete. The existing tutor docker now shows attempts,
+  reviews, latest compatible improvement/decline trends, and optionally raw
+  normalized values. Raw values default visible and the preference is atomic.
+  Live host presentation remains unverified.
 - 🔄 Feedback reporting for incorrect or unhelpful advice: the private summary
   distinguishes helpful, unhelpful, incorrect, not-applicable, and unrated
   reviews, rejects contradictory classifications, and creates no aggregate
   artist score. Schema v3 persists one final classification and optional note
   directly in each portable project with atomic recovery. Krita controls remain.
+- 🔄 Retention controls live in the existing tutor docker. Users may keep
+  retention enabled, explicitly clear history and disable it, or re-enable it;
+  a project with history cannot be disabled through the engine without the
+  explicit clear flag. Live host confirmation remains.
 
 ### A4 — evaluator assistance and alpha study
 

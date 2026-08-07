@@ -39,6 +39,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   migration, atomic/recoverable feedback persistence, an idempotent engine
   operation, and refusal to overwrite an existing report. Artwork history and
   global aggregation remain independently disabled by default.
+  Added the first A3 progress UI to the existing tutor docker. A bounded engine
+  snapshot exposes only portable review metadata; the docker presents attempts,
+  reviews, compatible improvement/decline trends, and raw normalized values.
+  Raw values are visible by default through an atomic display preference.
+  Retention controls let the artist keep data, explicitly clear-and-disable, or
+  re-enable it; the engine refuses implicit clearing. Headless formatter,
+  settings, client, service, privacy, and recovery tests cover the boundary.
 - Opened A3 issue #12 at In Progress P0/XL for versioned curriculum progression,
   deterministic weakness-to-remediation routing, comparable repeated-attempt
   metrics, and a private local progress view while A2 issues #10/#11 remain in
