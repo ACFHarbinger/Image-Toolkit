@@ -2,6 +2,18 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S367 — 2026-08-07 (Conflict-safe Character Colors)
+
+Advanced Cel-Shaded-Generator C3 #17 with conflict-safe semantic palette
+application and style-bible schema v2 (`e0f2edc`). Material-mask overlaps now
+block preview with per-material pixel counts. Accepted proposals become separate
+editable `Color — <material> — <role>` layers under `Character Colors` while
+source masks and artwork remain unchanged. Reference labels and controlled view
+types are editable; v1 references migrate deterministically to `other` and
+future schemas remain rejected. Verification: 333 tests, Ruff and core mypy
+clean. C3 remains In Progress and undeployed pending live Krita acceptance;
+tutor #10/#11/#12 remain frozen in Review.
+
 ## S366 — 2026-08-07 (Editable Character Colors workflow)
 
 Advanced Cel-Shaded-Generator C3 #17 with prefilled editing of existing style
