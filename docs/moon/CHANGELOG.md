@@ -2,6 +2,15 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S363 — 2026-08-07 (Krita style-bible authoring scope)
+
+Opened Cel-Shaded-Generator C3 issue #17 in Backlog and recorded its deterministic
+Krita authoring/palette-application boundary in `32f50dc`. It awaits owner choices
+on Docker placement, semantic mask conventions, and reference-asset import.
+Learned correspondence and deployment over the frozen tutor review candidate
+remain explicitly out of scope. Project 12 keeps #2 In Progress, #10/#11/#12 In
+Review, #14/#17 Backlog, and completed C1/C2 #15/#16 Done.
+
 ## S362 — 2026-08-07 (Portable character style-bible foundation)
 
 Started reference-consistent coloring Phase 2 while keeping tutor #10/#11/#12
