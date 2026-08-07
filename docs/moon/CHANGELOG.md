@@ -2,6 +2,16 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S365 — 2026-08-07 (Character Colors Krita authoring foundation)
+
+Advanced Cel-Shaded-Generator C3 #17 (`3d44257`) with a separate Character
+Colors Docker. External references copy atomically into portable content-hash
+paths; bibles author/validate/bind through the engine; canonical material alpha
+masks drive explicit local/light/shadow previews in separate locked layers with
+accept/reject. The frozen learning Docker is unchanged and nothing is deployed.
+Verification: 328 tests, Ruff and core mypy clean. C3 stays In Progress for
+existing-bible editing, aliases/accent UI, and undo/reconciliation evidence.
+
 ## S364 — 2026-08-07 (Consolidate documentation toolchains)
 
 Consolidated documentation toolchains for Anime-Stitch-Pipeline backlog Issue #4. Retained MkDocs (for the portal) and Sphinx (for Python API autodoc). Deleted the hand-built Vue 3 site `docs/website/`, Structurizr, and TypeDoc configurations. Removed their respective build steps from `.github/workflows/docs.yml`.
