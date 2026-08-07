@@ -164,7 +164,7 @@ class TutorSettings:
     allow_optional_models: bool = False
     automation_level: AutomationLevel = AutomationLevel.SUGGEST
     review_shortcut: str = "Ctrl+Shift+R"
-    accept_shortcut: str = "Tab"
+    accept_shortcut: str = ""
     reject_shortcut: str = "Esc"
 
 

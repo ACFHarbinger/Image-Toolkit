@@ -146,8 +146,10 @@ not evidence of pedagogical validity.
   now display the returned explanations; redline rendering remains.
 - 🔄 Structured redline layers and configurable accept/reject interaction. The
   Krita 5.x adapter rasterizes validated normalized geometry into a new locked
-  tutor-owned paint layer without touching artwork; live verification and
-  suggestion accept/reject remain.
+  tutor-owned preview without touching artwork. Explicit idempotent buttons
+  accept it as a locked reference or reject only the owned preview; no shortcut
+  is assigned by default because Tab belongs to Krita. Persistence, shortcut
+  configuration, undo semantics, and live verification remain in issue #11.
 - Save, reload, migration, and failure recovery tests.
 
 ### A3 — curriculum and adaptive remediation

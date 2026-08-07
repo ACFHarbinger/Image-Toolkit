@@ -4,6 +4,8 @@ from __future__ import annotations
 
 FEEDBACK_GROUP_NAME = "Tutor Feedback (locked)"
 REDLINE_LAYER_PREFIX = "Tutor Redlines — "
+PREVIEW_LAYER_PREFIX = "Tutor Preview — "
+ACCEPTED_LAYER_PREFIX = "Tutor Accepted — "
 REDLINE_BGRA = (123, 79, 255, 220)
 
 
@@ -22,7 +24,9 @@ def render_review_redlines(document, review):
     group = document.nodeByName(FEEDBACK_GROUP_NAME)
     if group is None:
         raise RuntimeError("exercise is missing its Tutor Feedback group")
-    layer = document.createNode(REDLINE_LAYER_PREFIX + review["id"][:8], "paintlayer")
+    is_preview = bool(review.get("suggestions"))
+    prefix = PREVIEW_LAYER_PREFIX if is_preview else REDLINE_LAYER_PREFIX
+    layer = document.createNode(prefix + review["id"][:8], "paintlayer")
     if layer is None:
         raise RuntimeError("Krita could not create the tutor redline layer")
     from PyQt5.QtCore import QByteArray
@@ -39,6 +43,29 @@ def render_review_redlines(document, review):
         group.setLocked(True)
     document.refreshProjection()
     return layer
+
+
+def accept_preview(layer):
+    """Retain one owned preview as accepted feedback; repeated calls are harmless."""
+    name = layer.name()
+    if name.startswith(ACCEPTED_LAYER_PREFIX):
+        return False
+    if not name.startswith(PREVIEW_LAYER_PREFIX):
+        raise ValueError("refusing to accept a layer not owned as a tutor preview")
+    layer.setName(ACCEPTED_LAYER_PREFIX + name[len(PREVIEW_LAYER_PREFIX) :])
+    layer.setLocked(True)
+    return True
+
+
+def reject_preview(layer):
+    """Remove only an owned pending preview; repeated calls are harmless."""
+    if layer is None:
+        return False
+    if not layer.name().startswith(PREVIEW_LAYER_PREFIX):
+        raise ValueError("refusing to reject a layer not owned as a tutor preview")
+    if not layer.remove():
+        raise RuntimeError("Krita could not remove the tutor preview")
+    return True
 
 
 def rasterize_redlines(width, height, redlines):

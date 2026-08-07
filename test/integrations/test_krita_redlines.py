@@ -40,3 +40,42 @@ def test_rejects_invalid_engine_geometry(redlines):
 def test_rejects_unbounded_canvas_allocation():
     with pytest.raises(ValueError, match="too large"):
         _module().rasterize_redlines(20_000, 20_000, [])
+
+
+class LayerStub:
+    def __init__(self, name, remove_result=True):
+        self._name = name
+        self.locked = False
+        self.remove_result = remove_result
+        self.removed = False
+
+    def name(self):
+        return self._name
+
+    def setName(self, name):  # noqa: N802
+        self._name = name
+
+    def setLocked(self, locked):  # noqa: N802
+        self.locked = locked
+
+    def remove(self):
+        self.removed = self.remove_result
+        return self.remove_result
+
+
+def test_accept_preview_is_owned_and_idempotent():
+    module = _module()
+    layer = LayerStub(module.PREVIEW_LAYER_PREFIX + "review")
+    assert module.accept_preview(layer)
+    assert layer.name() == module.ACCEPTED_LAYER_PREFIX + "review"
+    assert layer.locked
+    assert not module.accept_preview(layer)
+
+
+def test_reject_preview_removes_only_owned_pending_layer():
+    module = _module()
+    layer = LayerStub(module.PREVIEW_LAYER_PREFIX + "review")
+    assert module.reject_preview(layer)
+    assert layer.removed
+    with pytest.raises(ValueError, match="not owned"):
+        module.reject_preview(LayerStub("Artwork"))

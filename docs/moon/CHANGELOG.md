@@ -14,6 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   expected behaviors moves it to Done; any failure returns it to In Progress
   with the failing step. Created #11 at In Progress for suggestion decisions
   and persistence so new work does not change the reviewed slice silently.
+  Began #11 with an explicit preview decision lifecycle. Suggested redlines use
+  a distinct tutor-owned preview name; Accept idempotently retains the layer as
+  a locked tutor reference, while Reject removes only a pending owned preview
+  and refuses unrelated layers. The default accept shortcut is now unassigned
+  rather than stealing Krita's Tab canvas-only action. Persistence, configurable
+  shortcuts, and verified undo behavior remain.
 - Started A2 issue #10 by replacing the placeholder lesson with a five-stage,
   locally packaged beginner sequence covering cranial mass, centerline,
   eye-line, jaw/chin construction, structural checking, completion criteria,

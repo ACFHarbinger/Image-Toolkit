@@ -45,6 +45,7 @@ def test_privacy_sensitive_settings_default_off():
     assert not settings.retain_progress
     assert not settings.retain_artwork
     assert not settings.allow_optional_models
+    assert settings.accept_shortcut == ""
 
 
 def test_model_registry_requires_explicit_unique_records():

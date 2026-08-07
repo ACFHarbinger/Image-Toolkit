@@ -13,7 +13,7 @@ from .diagnostics import diagnose
 from .engine_client import EngineClient
 from .exercise import create_exercise_document
 from .landmark_dialog import LandmarkDialog
-from .redlines import render_review_redlines
+from .redlines import accept_preview, reject_preview, render_review_redlines
 
 
 class LearningDocker(DockWidget):
@@ -53,7 +53,12 @@ class LearningDocker(DockWidget):
         landmark_button.clicked.connect(self._place_landmarks)
         review_button = QPushButton("Request Deterministic Review", container)
         review_button.clicked.connect(self._request_review)
+        accept_button = QPushButton("Accept Preview", container)
+        accept_button.clicked.connect(self._accept_preview)
+        reject_button = QPushButton("Reject Preview", container)
+        reject_button.clicked.connect(self._reject_preview)
         self._landmarks = None
+        self._preview_layer = None
         self._action_status = QLabel(
             "Create an unsaved 1600 × 2000 exercise with separate construction, artwork, "
             "and tutor-feedback layers.",
@@ -70,6 +75,8 @@ class LearningDocker(DockWidget):
         layout.addWidget(create_button)
         layout.addWidget(landmark_button)
         layout.addWidget(review_button)
+        layout.addWidget(accept_button)
+        layout.addWidget(reject_button)
         layout.addWidget(self._action_status)
         layout.addWidget(status)
         layout.addWidget(diagnostics)
@@ -124,12 +131,38 @@ class LearningDocker(DockWidget):
                 "Review completed, but redlines could not be rendered: " + str(error)
             )
             return
+        self._preview_layer = layer if review.get("suggestions") else None
         suffix = (
             "\nNo correction layer was needed."
             if layer is None
-            else "\nRedlines added on a locked tutor layer."
+            else "\nA locked tutor preview was added; explicitly accept or reject it."
         )
         self._action_status.setText("Review\n• " + "\n• ".join(explanations) + suffix)
+
+    def _accept_preview(self) -> None:
+        if self._preview_layer is None:
+            self._action_status.setText("There is no pending tutor preview to accept.")
+            return
+        try:
+            changed = accept_preview(self._preview_layer)
+        except (RuntimeError, ValueError) as error:
+            self._action_status.setText(f"Could not accept preview: {error}")
+            return
+        if changed:
+            self._action_status.setText("Preview accepted as a locked tutor reference layer.")
+        self._preview_layer = None
+
+    def _reject_preview(self) -> None:
+        if self._preview_layer is None:
+            self._action_status.setText("There is no pending tutor preview to reject.")
+            return
+        try:
+            reject_preview(self._preview_layer)
+        except (RuntimeError, ValueError) as error:
+            self._action_status.setText(f"Could not reject preview: {error}")
+            return
+        self._preview_layer = None
+        self._action_status.setText("Preview rejected and removed; artist layers were unchanged.")
 
     def canvasChanged(self, canvas) -> None:  # noqa: N802
         """Krita callback; this shell does not inspect the canvas."""
