@@ -123,6 +123,10 @@ Implemented Issue #15: Fixed the `_refine_masks_with_clicks` dimension mismatch 
 
 - Fixed Issue #3: Decoupled gui/src/elements/_thumbnail_file_picker.py from Image-Toolkit by making AppSettings and persist_splitter imports optional. Removed continue-on-error: true in lint-test-gui job in CI.
 
+## S362.4 — 2026-08-07 (Phase 0.4(d) SI-FID Metric Implementation)
+
+Implemented Phase 0.4(d) from the Anime-Stitch-Pipeline backlog by introducing the SI-FID (Scale-Invariant Fréchet Inception Distance) metric for non-GT tests. Created `backend/benchmark/evaluation/si_fid.py` in the submodule with an inception-based PyTorch implementation for calculating a reference-free Frechet distance from patches. Integrated this score directly into `bench_anime_stitch.py` so that tests without a Ground Truth correctly calculate and emit `si_fid` within `gt_metrics_asp` and `gt_metrics_sim`, satisfying the architectural requirement for a reference-free signal.
+
 ## S361 — 2026-08-07 (A3 moved to deferred review)
 
 Moved Cel-Shaded-Generator A3 issue #12 to In Review after completing its
