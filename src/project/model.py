@@ -10,7 +10,7 @@ from pathlib import PurePosixPath
 from typing import Any
 from uuid import uuid4
 
-CURRENT_SCHEMA_VERSION = 6
+CURRENT_SCHEMA_VERSION = 7
 
 
 def migrate_project_payload(payload: dict[str, Any]) -> dict[str, Any]:
@@ -24,7 +24,7 @@ def migrate_project_payload(payload: dict[str, Any]) -> dict[str, Any]:
     version = migrated.get("schema_version", 0)
     if version == CURRENT_SCHEMA_VERSION:
         return migrated
-    if version not in (0, 1, 2, 3, 4, 5):
+    if version not in (0, 1, 2, 3, 4, 5, 6):
         raise ValueError(f"unsupported project schema version: {version}")
     if version == 0:
         migrated["consent"] = {
@@ -41,6 +41,8 @@ def migrate_project_payload(payload: dict[str, Any]) -> dict[str, Any]:
             attempt.setdefault("reviews", [])
             for review in attempt["reviews"]:
                 review.setdefault("suggestion_decision_rationale", None)
+                review.setdefault("suggestion_decision_rationale_updated_at", None)
+                review.setdefault("suggestion_decision_rationale_history", [])
                 review.setdefault("artist_feedback", None)
                 if review["artist_feedback"] is not None:
                     review["artist_feedback"].setdefault("revision", 1)
@@ -51,6 +53,7 @@ def migrate_project_payload(payload: dict[str, Any]) -> dict[str, Any]:
         {"retain_revision_history": False, "note_character_limit": 2000},
     )
     migrated.setdefault("identity_card_policy", {"retain_revision_history": False})
+    migrated.setdefault("capstone_policy", {"retain_rationale_history": False})
     migrated.setdefault("identity_card", None)
     migrated.setdefault("identity_card_history", [])
     migrated["schema_version"] = CURRENT_SCHEMA_VERSION
@@ -112,6 +115,17 @@ class IdentityCardPolicy:
     def __post_init__(self) -> None:
         if not isinstance(self.retain_revision_history, bool):
             raise ValueError("identity-card revision-history setting must be boolean")
+
+
+@dataclass(slots=True)
+class CapstonePolicy:
+    """Project-local retention choice for edited capstone rationales."""
+
+    retain_rationale_history: bool = False
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.retain_rationale_history, bool):
+            raise ValueError("capstone rationale-history setting must be boolean")
 
 
 @dataclass(slots=True)
@@ -188,6 +202,16 @@ class AdviceFeedback:
             raise ValueError("advice feedback revision must be positive")
 
 
+@dataclass(frozen=True, slots=True)
+class RationaleRevision:
+    text: str
+    revised_at: str
+
+    def __post_init__(self) -> None:
+        if not self.text.strip() or not self.revised_at.strip():
+            raise ValueError("rationale revision text and timestamp must not be empty")
+
+
 @dataclass(slots=True)
 class ReviewRecord:
     """Privacy-safe review result persisted without artwork pixels."""
@@ -201,6 +225,8 @@ class ReviewRecord:
     explanations: list[str]
     suggestion_decision: SuggestionDecision = SuggestionDecision.PENDING
     suggestion_decision_rationale: str | None = None
+    suggestion_decision_rationale_updated_at: str | None = None
+    suggestion_decision_rationale_history: list[RationaleRevision] = field(default_factory=list)
     artist_feedback: AdviceFeedback | None = None
     artist_feedback_history: list[AdviceFeedback] = field(default_factory=list)
 
@@ -233,7 +259,12 @@ class ReviewRecord:
         except (KeyError, TypeError) as error:
             raise ValueError("review payload is incomplete") from error
 
-    def decide(self, decision: SuggestionDecision, rationale: str | None = None) -> bool:
+    def decide(
+        self,
+        decision: SuggestionDecision,
+        rationale: str | None = None,
+        updated_at: str | None = None,
+    ) -> bool:
         """Finalize a pending decision; repeated identical decisions are idempotent."""
         if self.suggestion_decision is decision:
             return False
@@ -243,6 +274,34 @@ class ReviewRecord:
             raise ValueError("decision rationale must be absent or non-empty")
         self.suggestion_decision = decision
         self.suggestion_decision_rationale = rationale
+        self.suggestion_decision_rationale_updated_at = (
+            updated_at if rationale is not None else None
+        )
+        return True
+
+    def revise_rationale(self, rationale: str, updated_at: str, policy: CapstonePolicy) -> bool:
+        """Edit rationale text without changing the finalized artist decision."""
+        if self.suggestion_decision is SuggestionDecision.PENDING:
+            raise ValueError("a pending suggestion has no final rationale to revise")
+        if not rationale.strip() or not updated_at.strip():
+            raise ValueError("rationale and revision timestamp must not be empty")
+        if rationale == self.suggestion_decision_rationale:
+            return False
+        if (
+            policy.retain_rationale_history
+            and self.suggestion_decision_rationale is not None
+            and self.suggestion_decision_rationale_updated_at is not None
+        ):
+            self.suggestion_decision_rationale_history.append(
+                RationaleRevision(
+                    self.suggestion_decision_rationale,
+                    self.suggestion_decision_rationale_updated_at,
+                )
+            )
+        else:
+            self.suggestion_decision_rationale_history.clear()
+        self.suggestion_decision_rationale = rationale
+        self.suggestion_decision_rationale_updated_at = updated_at
         return True
 
     def report_feedback(self, feedback: AdviceFeedback, policy: FeedbackPolicy) -> bool:
@@ -311,6 +370,7 @@ class Project:
     autosave: AutosavePolicy = field(default_factory=AutosavePolicy)
     feedback_policy: FeedbackPolicy = field(default_factory=FeedbackPolicy)
     identity_card_policy: IdentityCardPolicy = field(default_factory=IdentityCardPolicy)
+    capstone_policy: CapstonePolicy = field(default_factory=CapstonePolicy)
     identity_card: IdentityCard | None = None
     identity_card_history: list[IdentityCard] = field(default_factory=list)
     progress: ProjectProgress = field(default_factory=ProjectProgress)
@@ -341,6 +401,14 @@ class Project:
             raise ValueError("learning progress retention is disabled for this project")
         if not self.identity_card_policy.retain_revision_history and self.identity_card_history:
             raise ValueError("identity-card history exists while revision retention is disabled")
+        if not self.capstone_policy.retain_rationale_history:
+            if any(
+                review.suggestion_decision_rationale_history
+                for exercise in self.progress.exercises
+                for attempt in exercise.attempts
+                for review in attempt.reviews
+            ):
+                raise ValueError("rationale history exists while retention is disabled")
         for exercise in self.progress.exercises:
             for attempt in exercise.attempts:
                 review_ids = [review.id for review in attempt.reviews]
@@ -375,6 +443,7 @@ class Project:
         autosave = AutosavePolicy(**payload.get("autosave", {}))
         feedback_policy = FeedbackPolicy(**payload.get("feedback_policy", {}))
         identity_card_policy = IdentityCardPolicy(**payload.get("identity_card_policy", {}))
+        capstone_policy = CapstonePolicy(**payload.get("capstone_policy", {}))
         identity_card = _identity_card_from_payload(payload.get("identity_card"))
         identity_card_history = [
             _identity_card_from_payload(item) for item in payload.get("identity_card_history", [])
@@ -409,6 +478,12 @@ class Project:
                                     )
                                     for history in item.get("artist_feedback_history", [])
                                 ],
+                                "suggestion_decision_rationale_history": [
+                                    RationaleRevision(**history)
+                                    for history in item.get(
+                                        "suggestion_decision_rationale_history", []
+                                    )
+                                ],
                             }
                         )
                     )
@@ -429,6 +504,7 @@ class Project:
             autosave=autosave,
             feedback_policy=feedback_policy,
             identity_card_policy=identity_card_policy,
+            capstone_policy=capstone_policy,
             identity_card=identity_card,
             identity_card_history=[item for item in identity_card_history if item is not None],
             progress=ProjectProgress(exercises),

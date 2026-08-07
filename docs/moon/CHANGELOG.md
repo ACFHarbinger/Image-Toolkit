@@ -19,6 +19,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added project schema v7 and existing-docker controls for editable capstone
+  rationales. Editing text never changes the accepted/rejected/deferred decision.
+  An independent project setting retains timestamped prior rationale revisions
+  and defaults off; disabling it clears history. Rationale content stays in the
+  portable project and is excluded from the aggregate-only learner profile.
 - Split cel-value form and cast evidence into four explicit named masks: front
   form/cast and turned form/cast. The reviewer retains category-specific scalar
   measurements and derives combined shadow-family readability/consistency.

@@ -272,6 +272,11 @@ remain deferred in Review.
   identifies missing versus pending-decision evidence, and names the next exact
   capstone layer. It never marks the exercise complete. Direct one-action host
   collection and live confirmation remain.
+  Schema v7 makes rationale text editable without changing the final decision.
+  Timestamped prior text revisions use an independent project-local retention
+  setting that defaults off; rationale content never enters the global learner
+  profile. Existing-docker policy and edit controls are implemented headlessly;
+  live confirmation remains.
 - 🔄 Head-orientation exercise template: the docker creates a 2600 × 1600
   landscape rotation sheet with five labeled work areas and separate layers for
   left profile, left three-quarter, front, right three-quarter, and right

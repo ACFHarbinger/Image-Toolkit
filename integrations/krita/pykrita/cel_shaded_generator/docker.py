@@ -129,6 +129,11 @@ class LearningDocker(DockWidget):
         edit_identity_card.clicked.connect(self._edit_identity_card)
         save_identity_policy = QPushButton("Save Identity Card History Setting", container)
         save_identity_policy.clicked.connect(self._save_identity_card_policy)
+        self._rationale_history = QCheckBox("Keep capstone rationale edit history", container)
+        save_rationale_policy = QPushButton("Save Rationale History Setting", container)
+        save_rationale_policy.clicked.connect(self._save_capstone_policy)
+        edit_rationale = QPushButton("Edit Current Capstone Rationale", container)
+        edit_rationale.clicked.connect(self._edit_capstone_rationale)
         refresh_progress_button = QPushButton("Refresh Progress", container)
         refresh_progress_button.clicked.connect(self._refresh_progress)
         enable_progress_button = QPushButton("Enable Project Progress", container)
@@ -197,6 +202,9 @@ class LearningDocker(DockWidget):
         layout.addWidget(self._identity_history)
         layout.addWidget(edit_identity_card)
         layout.addWidget(save_identity_policy)
+        layout.addWidget(self._rationale_history)
+        layout.addWidget(save_rationale_policy)
+        layout.addWidget(edit_rationale)
         layout.addWidget(refresh_progress_button)
         layout.addWidget(enable_progress_button)
         layout.addWidget(disable_progress_button)
@@ -960,6 +968,9 @@ class LearningDocker(DockWidget):
         policy = snapshot.get("feedback_policy", {})
         self._feedback_history.setChecked(policy.get("retain_revision_history", False))
         self._feedback_note_limit.setValue(policy.get("note_character_limit", 2000))
+        self._rationale_history.setChecked(
+            snapshot.get("capstone_policy", {}).get("retain_rationale_history", False)
+        )
         selected_exercise = self._lessons[self._lesson_selector.currentIndex()]["exercise_id"]
         selected_attempt = next(
             (
@@ -977,6 +988,47 @@ class LearningDocker(DockWidget):
         )
         self._lesson_complete.blockSignals(False)
         self._lesson_complete.setEnabled(selected_attempt is not None)
+
+    def _save_capstone_policy(self) -> None:
+        if self._project_directory is None:
+            self._action_status.setText("Create a portable project before changing history.")
+            return
+        try:
+            EngineClient().configure_capstone_policy(
+                str(uuid.uuid4()),
+                self._project_directory,
+                self._rationale_history.isChecked(),
+            )
+        except (RuntimeError, ValueError) as error:
+            self._action_status.setText("Could not save rationale policy: " + str(error))
+            return
+        self._action_status.setText("Capstone rationale-history setting saved.")
+        self._refresh_progress()
+
+    def _edit_capstone_rationale(self) -> None:
+        if None in (self._project_directory, self._attempt_id, self._review_id):
+            self._action_status.setText("Select a persisted capstone review first.")
+            return
+        rationale, accepted = QInputDialog.getMultiLineText(
+            self,
+            "Edit Capstone Rationale",
+            "Revise the rationale without changing its final decision:",
+        )
+        if not accepted or not rationale.strip():
+            return
+        try:
+            EngineClient().revise_capstone_decision_rationale(
+                str(uuid.uuid4()),
+                self._project_directory,
+                self._attempt_id,
+                self._review_id,
+                rationale,
+            )
+        except (RuntimeError, ValueError) as error:
+            self._action_status.setText("Could not revise rationale: " + str(error))
+            return
+        self._action_status.setText("Capstone rationale revised; the decision was unchanged.")
+        self._refresh_progress()
 
     def _set_raw_measurements(self, enabled) -> None:
         try:

@@ -9,6 +9,7 @@ from .model import (
     AdviceFeedback,
     AdviceRating,
     Attempt,
+    CapstonePolicy,
     ExerciseProgress,
     FeedbackPolicy,
     IdentityAnchor,
@@ -109,10 +110,45 @@ def decide_attempt_review(
         raise ValueError("review does not uniquely identify a persisted attempt review")
     if attempt.exercise_id == "anime-head-review" and (rationale is None or not rationale.strip()):
         raise ValueError("capstone suggestion decisions require an artist rationale")
-    changed = matching[0].decide(decision, rationale)
+    changed = matching[0].decide(decision, rationale, _timestamp() if rationale else None)
     if changed:
         save_project(root, project)
     return changed
+
+
+def revise_capstone_decision_rationale(
+    directory: str | Path, *, attempt_id: str, review_id: str, rationale: str
+) -> bool:
+    """Revise only capstone rationale text, preserving the final decision."""
+    root = Path(directory)
+    project = load_project(root)
+    attempt = _find_attempt(project, attempt_id)
+    if attempt.exercise_id != "anime-head-review":
+        raise ValueError("decision rationales are editable only for capstone attempts")
+    matching = [review for review in attempt.reviews if review.id == review_id]
+    if len(matching) != 1:
+        raise ValueError("review does not uniquely identify a persisted attempt review")
+    changed = matching[0].revise_rationale(rationale, _timestamp(), project.capstone_policy)
+    if changed:
+        save_project(root, project)
+    return changed
+
+
+def configure_capstone_policy(directory: str | Path, *, retain_rationale_history: bool) -> bool:
+    """Configure independent project-local rationale revision retention."""
+    root = Path(directory)
+    project = load_project(root)
+    policy = CapstonePolicy(retain_rationale_history)
+    if project.capstone_policy == policy:
+        return False
+    if not retain_rationale_history:
+        for exercise in project.progress.exercises:
+            for attempt in exercise.attempts:
+                for review in attempt.reviews:
+                    review.suggestion_decision_rationale_history.clear()
+    project.capstone_policy = policy
+    save_project(root, project)
+    return True
 
 
 def record_advice_feedback(
@@ -147,6 +183,9 @@ def project_progress_snapshot(directory: str | Path) -> dict:
         },
         "identity_card_policy": {
             "retain_revision_history": project.identity_card_policy.retain_revision_history,
+        },
+        "capstone_policy": {
+            "retain_rationale_history": project.capstone_policy.retain_rationale_history,
         },
         "identity_card": (
             {
@@ -249,6 +288,13 @@ def _capstone_dashboard(project: Project) -> dict:
                 "measurements": dict(review.measurements),
                 "suggestion_decision": review.suggestion_decision.value,
                 "suggestion_decision_rationale": review.suggestion_decision_rationale,
+                "suggestion_decision_rationale_updated_at": (
+                    review.suggestion_decision_rationale_updated_at
+                ),
+                "suggestion_decision_rationale_history": [
+                    {"text": item.text, "revised_at": item.revised_at}
+                    for item in review.suggestion_decision_rationale_history
+                ],
             }
             for _, review in sorted(latest_by_rubric.items())
         ],
@@ -362,3 +408,7 @@ def _find_attempt(project: Project, attempt_id: str) -> Attempt:
     if len(matching) != 1:
         raise ValueError("attempt identifier is missing or ambiguous")
     return matching[0]
+
+
+def _timestamp() -> str:
+    return datetime.now(UTC).isoformat()

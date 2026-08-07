@@ -9,6 +9,7 @@ from typing import Any
 from project import (
     AdviceRating,
     SuggestionDecision,
+    configure_capstone_policy,
     configure_feedback_policy,
     configure_identity_card_policy,
     configure_progress_retention,
@@ -17,6 +18,7 @@ from project import (
     project_progress_snapshot,
     record_advice_feedback,
     record_attempt_review,
+    revise_capstone_decision_rationale,
     set_attempt_completion,
     upsert_identity_card,
 )
@@ -103,6 +105,26 @@ def handle_request(request: dict[str, Any]) -> dict[str, Any]:
             )
         except KeyError as error:
             raise ValueError("advice-feedback request is incomplete") from error
+        return _success(request_id, {"changed": changed})
+    if operation == "revise_capstone_decision_rationale":
+        try:
+            changed = revise_capstone_decision_rationale(
+                payload["directory"],
+                attempt_id=payload["attempt_id"],
+                review_id=payload["review_id"],
+                rationale=payload["rationale"],
+            )
+        except KeyError as error:
+            raise ValueError("rationale-revision request is incomplete") from error
+        return _success(request_id, {"changed": changed})
+    if operation == "configure_capstone_policy":
+        try:
+            changed = configure_capstone_policy(
+                payload["directory"],
+                retain_rationale_history=payload["retain_rationale_history"],
+            )
+        except KeyError as error:
+            raise ValueError("capstone-policy request is incomplete") from error
         return _success(request_id, {"changed": changed})
     if operation == "project_progress_snapshot":
         try:

@@ -148,6 +148,30 @@ class EngineClient:
     def project_progress_snapshot(self, request_id, directory):
         return self._execute(request_id, "project_progress_snapshot", {"directory": directory})
 
+    def revise_capstone_decision_rationale(
+        self, request_id, directory, attempt_id, review_id, rationale
+    ):
+        return self._execute(
+            request_id,
+            "revise_capstone_decision_rationale",
+            {
+                "directory": directory,
+                "attempt_id": attempt_id,
+                "review_id": review_id,
+                "rationale": rationale,
+            },
+        )
+
+    def configure_capstone_policy(self, request_id, directory, retain_rationale_history):
+        return self._execute(
+            request_id,
+            "configure_capstone_policy",
+            {
+                "directory": directory,
+                "retain_rationale_history": retain_rationale_history,
+            },
+        )
+
     def configure_progress_retention(self, request_id, directory, enabled, clear_existing=False):
         return self._execute(
             request_id,

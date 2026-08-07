@@ -5,6 +5,7 @@ import pytest
 from project import (
     AdviceRating,
     SuggestionDecision,
+    configure_capstone_policy,
     configure_feedback_policy,
     configure_identity_card_policy,
     configure_progress_retention,
@@ -14,6 +15,7 @@ from project import (
     project_progress_snapshot,
     record_advice_feedback,
     record_attempt_review,
+    revise_capstone_decision_rationale,
     set_attempt_completion,
     upsert_identity_card,
 )
@@ -139,6 +141,18 @@ def test_capstone_requires_rationale_and_dashboard_retains_rubrics(tmp_path):
     assert dashboard["next_stage"]["stage_id"] == "front_structure"
     assert dashboard["ready_for_manual_completion"] is False
 
+    assert configure_capstone_policy(tmp_path, retain_rationale_history=True)
+    assert revise_capstone_decision_rationale(
+        tmp_path,
+        attempt_id="capstone-1",
+        review_id="r1",
+        rationale="After another pass, I still need more construction evidence.",
+    )
+    revised = load_project(tmp_path).progress.exercises[0].attempts[0].reviews[0]
+    assert revised.suggestion_decision is SuggestionDecision.DEFERRED
+    assert len(revised.suggestion_decision_rationale_history) == 1
+    assert revised.suggestion_decision_rationale_history[0].revised_at
+
 
 def test_records_advice_feedback_with_idempotent_retry_and_recovery(tmp_path):
     artwork = tmp_path / "artwork/attempt-001.kra"
@@ -262,6 +276,7 @@ def test_progress_snapshot_and_explicit_clear_disable_policy(tmp_path):
             "note_character_limit": 2000,
         },
         "identity_card_policy": {"retain_revision_history": False},
+        "capstone_policy": {"retain_rationale_history": False},
         "identity_card": None,
         "exercises": [],
         "capstone_dashboard": {
