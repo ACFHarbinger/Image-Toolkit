@@ -7,6 +7,12 @@ because nothing headless previously exercised the Docker modules themselves
 (only their pure-Python host-neutral helper modules are unit tested). This
 test imports each Docker module against a minimal stub ``krita``/``PyQt5``
 so the missing-override class of bug is caught before it ships again.
+
+It also imports the plugin's ``__init__.py`` entry point itself -- the exact
+path Krita's plugin loader takes -- against the same stub, so an import-time
+failure there (a bad sibling import, a typo in a registered class name) is
+caught headlessly too, complementing the per-class ``canvasChanged`` check
+above (which catches instantiation-time failures instead).
 """
 
 import importlib.util
@@ -23,6 +29,14 @@ _DOCKER_MODULES = [
 ]
 
 
+class _StubKritaInstance:
+    def __init__(self):
+        self.registered_factories = []
+
+    def addDockWidgetFactory(self, factory):  # noqa: N802
+        self.registered_factories.append(factory)
+
+
 def _install_stub_krita_modules(monkeypatch):
     krita_module = types.ModuleType("krita")
 
@@ -32,12 +46,25 @@ def _install_stub_krita_modules(monkeypatch):
                 "DockWidget.canvasChanged() is abstract and must be overridden"
             )
 
+    class DockWidgetFactory:
+        def __init__(self, factory_id, dock_position, docker_class):
+            self.factory_id = factory_id
+            self.dock_position = dock_position
+            self.docker_class = docker_class
+
+    class DockWidgetFactoryBase:
+        DockRight = "DockRight"
+
+    krita_instance = _StubKritaInstance()
+
     class Krita:
         @staticmethod
         def instance():
-            raise NotImplementedError("stub Krita.instance() is not used at import time")
+            return krita_instance
 
     krita_module.DockWidget = DockWidget
+    krita_module.DockWidgetFactory = DockWidgetFactory
+    krita_module.DockWidgetFactoryBase = DockWidgetFactoryBase
     krita_module.Krita = Krita
 
     qtcore = types.ModuleType("PyQt5.QtCore")
@@ -80,14 +107,16 @@ def _install_stub_krita_modules(monkeypatch):
     monkeypatch.setitem(sys.modules, "PyQt5.QtCore", qtcore)
     monkeypatch.setitem(sys.modules, "PyQt5.QtGui", qtgui)
     monkeypatch.setitem(sys.modules, "PyQt5.QtWidgets", qtwidgets)
-    return DockWidget
+    return DockWidget, krita_instance
+
+
+def _package_dir():
+    return Path(__file__).parents[2] / "integrations/krita/pykrita/cel_shaded_generator"
 
 
 def _load(filename, monkeypatch):
-    dock_widget = _install_stub_krita_modules(monkeypatch)
-    package_dir = (
-        Path(__file__).parents[2] / "integrations/krita/pykrita/cel_shaded_generator"
-    )
+    dock_widget, krita_instance = _install_stub_krita_modules(monkeypatch)
+    package_dir = _package_dir()
     package_name = "cel_shaded_generator"
     package = types.ModuleType(package_name)
     package.__path__ = [str(package_dir)]
@@ -99,12 +128,12 @@ def _load(filename, monkeypatch):
     module = importlib.util.module_from_spec(spec)
     monkeypatch.setitem(sys.modules, module_name, module)
     spec.loader.exec_module(module)
-    return module, dock_widget
+    return module, dock_widget, krita_instance
 
 
 @pytest.mark.parametrize("filename", _DOCKER_MODULES)
 def test_docker_overrides_canvas_changed(filename, monkeypatch):
-    module, dock_widget = _load(filename, monkeypatch)
+    module, dock_widget, _krita_instance = _load(filename, monkeypatch)
     docker_classes = [
         value
         for value in vars(module).values()
@@ -115,4 +144,29 @@ def test_docker_overrides_canvas_changed(filename, monkeypatch):
         assert "canvasChanged" in docker_class.__dict__, (
             f"{docker_class.__name__} does not override canvasChanged(); Krita's "
             "DockWidget requires every subclass to override it"
+        )
+
+
+def test_plugin_entry_point_registers_every_docker(monkeypatch):
+    """Import __init__.py itself -- the exact path Krita's plugin loader takes."""
+    dock_widget, krita_instance = _install_stub_krita_modules(monkeypatch)
+    package_dir = _package_dir()
+    package_name = "cel_shaded_generator"
+
+    spec = importlib.util.spec_from_file_location(
+        package_name, package_dir / "__init__.py", submodule_search_locations=[str(package_dir)]
+    )
+    assert spec is not None and spec.loader is not None
+    package = importlib.util.module_from_spec(spec)
+    monkeypatch.setitem(sys.modules, package_name, package)
+    spec.loader.exec_module(package)
+
+    assert len(krita_instance.registered_factories) == 3
+    registered_classes = {
+        factory.docker_class for factory in krita_instance.registered_factories
+    }
+    for docker_class in registered_classes:
+        assert issubclass(docker_class, dock_widget)
+        assert "canvasChanged" in docker_class.__dict__, (
+            f"{docker_class.__name__} is registered but does not override canvasChanged()"
         )

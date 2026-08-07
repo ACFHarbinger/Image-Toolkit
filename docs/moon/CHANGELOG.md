@@ -37,6 +37,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   uninstall + install, documented via new `just krita-install` /
   `krita-uninstall` / `krita-reinstall` recipes in the parent Image-Toolkit
   repo. Verification: 391 tests pass; Ruff and core mypy are clean.
+- Hardened the regression test above with a second check that imports the
+  plugin's `__init__.py` entry point itself — the exact path Krita's plugin
+  loader takes — against the same stub, asserting all three Dockers register
+  and each registered class overrides `canvasChanged`. This catches
+  import-time failures (a bad sibling import, a typo in a registered class
+  name) that the per-file check couldn't, since that only exercises
+  instantiation-time behavior. Verified it fails on an injected bad import
+  and passes once reverted. Verification: 392 tests pass; Ruff and core mypy
+  are clean.
 
 ### Added
 
