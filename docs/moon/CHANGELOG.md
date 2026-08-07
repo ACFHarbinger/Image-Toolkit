@@ -2,6 +2,17 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S361 — 2026-08-07 (A3 moved to deferred review)
+
+Moved Cel-Shaded-Generator A3 issue #12 to In Review after completing its
+headless integration and recorded the gate in `b7b5903`. Its ten-step live
+Krita checklist covers grouped layers, compatible imports, sequential fresh
+dispatch, form/cast masks, decisions and rationale revisions, cancellation,
+dashboard behavior, offline use, and artist-layer isolation. All-pass moves the
+issue to Done; any failure documents the step and returns it to In Progress.
+The candidate remains undeployed. #10/#11 also remain in Review; A4 #14 stays
+in Backlog.
+
 ## S360 — 2026-08-07 (Sequential fresh capstone review dispatch)
 
 Completed Cel-Shaded-Generator A3's headless fresh capstone dispatcher
