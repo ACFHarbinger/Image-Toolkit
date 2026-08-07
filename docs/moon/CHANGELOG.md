@@ -87,6 +87,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `CharacterColorsDocker._adjacent_region_names` is headlessly tested against
   a fake Krita node/document. Verification: 396 tests pass; Ruff and core
   mypy are clean. In review pending the live-Krita checklist.
+- Advanced C4.1 issue #21: **Assign Region Correspondence**'s material
+  dropdown now defaults to the material of an adjacent region, but only when
+  adjacent regions unanimously agree on exactly one material —
+  disagreement, no adjacency, or a suggested material no longer in the bible
+  all fall back to the prior default (first material in the dropdown).
+  `_suggested_material_index` is headlessly tested for all of those cases.
+  Verification: 400 tests pass; Ruff and core mypy are clean. Still In
+  review pending the live-Krita checklist.
 - Opened A4-prep issue #20: a versioned consented study-session schema for
   roadmap A4 (issue #14), which itself remains **Backlog** until live checks
   are intentionally scheduled — this is data-model infrastructure only, not

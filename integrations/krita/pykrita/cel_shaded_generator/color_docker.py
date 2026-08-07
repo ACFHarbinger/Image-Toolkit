@@ -378,12 +378,17 @@ class CharacterColorsDocker(DockWidget):
         except ValueError as error:
             self._status.setText("Could not derive a region id: " + str(error))
             return
+        correspondence_set = self._correspondence_set(bible["id"])
+        material_ids = [item["id"] for item in bible["materials"]]
+        default_material_index = self._suggested_material_index(
+            document, region_id, correspondence_set, material_ids
+        )
         material_id, accepted = QInputDialog.getItem(
             self,
             "Region Correspondence",
             "Canonical material:",
-            [item["id"] for item in bible["materials"]],
-            0,
+            material_ids,
+            default_material_index,
             False,
         )
         if not accepted:
@@ -403,7 +408,6 @@ class CharacterColorsDocker(DockWidget):
         )
         if panel_id is None:
             return
-        correspondence_set = self._correspondence_set(bible["id"])
         entry = {
             "id": "correspondence-" + uuid.uuid4().hex[:8],
             "region_id": region_id,
@@ -682,6 +686,29 @@ class CharacterColorsDocker(DockWidget):
             elif right == source_label:
                 adjacent.add(left)
         return sorted(names[label] for label in adjacent if label in names)
+
+    @classmethod
+    def _suggested_material_index(cls, document, region_id, correspondence_set, material_ids):
+        """Default the material dropdown to an adjacent region's material.
+
+        Only suggests when adjacent already-assigned regions agree on
+        exactly one material; ambiguous or absent adjacency falls back to
+        index 0, leaving the artist's own explicit choice as the default.
+        Never assigns anything itself -- the dropdown remains editable.
+        """
+        adjacent = set(cls._adjacent_region_names(document, region_id))
+        if not adjacent:
+            return 0
+        adjacent_materials = {
+            item["material_id"]
+            for item in correspondence_set.get("correspondences", [])
+            if item["region_id"] in adjacent
+        }
+        if len(adjacent_materials) == 1:
+            (material_id,) = adjacent_materials
+            if material_id in material_ids:
+                return material_ids.index(material_id)
+        return 0
 
     @staticmethod
     def _mask_buffers(root, material_id, width, height):

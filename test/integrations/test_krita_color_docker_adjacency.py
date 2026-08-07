@@ -164,3 +164,74 @@ def test_returns_empty_for_unknown_source_region(monkeypatch):
 def test_returns_empty_for_none_document(monkeypatch):
     docker = _load_color_docker(monkeypatch)
     assert docker._adjacent_region_names(None, "region-a") == []
+
+
+def _regions_document():
+    width, height = 4, 4
+    labels = [
+        1, 1, 2, 2,
+        1, 1, 2, 2,
+        0, 0, 0, 0,
+        3, 3, 0, 0,
+    ]
+    return _document_with_regions(
+        labels, width, height, {1: "region-a", 2: "region-b", 3: "region-c"}
+    )
+
+
+def test_suggests_the_material_of_a_uniquely_adjacent_assignment(monkeypatch):
+    docker = _load_color_docker(monkeypatch)
+    document = _regions_document()
+    correspondence_set = {
+        "correspondences": [{"id": "c1", "region_id": "region-b", "material_id": "hair"}]
+    }
+    index = docker._suggested_material_index(
+        document, "region-a", correspondence_set, ["skin", "hair", "eyes"]
+    )
+    assert index == 1
+
+
+def test_falls_back_to_index_zero_without_adjacency(monkeypatch):
+    docker = _load_color_docker(monkeypatch)
+    document = _regions_document()
+    correspondence_set = {"correspondences": []}
+    assert docker._suggested_material_index(
+        document, "region-a", correspondence_set, ["skin", "hair"]
+    ) == 0
+    assert docker._suggested_material_index(
+        document, "region-c", correspondence_set, ["skin", "hair"]
+    ) == 0
+
+
+def test_falls_back_to_index_zero_when_adjacent_materials_disagree(monkeypatch):
+    docker = _load_color_docker(monkeypatch)
+    width, height = 3, 3
+    # region-b (3) sits between region-a (1) and region-c (2), touching both.
+    labels = [
+        1, 3, 2,
+        1, 3, 2,
+        1, 3, 2,
+    ]
+    document = _document_with_regions(
+        labels, width, height, {1: "region-a", 2: "region-c", 3: "region-b"}
+    )
+    correspondence_set = {
+        "correspondences": [
+            {"id": "c1", "region_id": "region-a", "material_id": "skin"},
+            {"id": "c2", "region_id": "region-c", "material_id": "hair"},
+        ]
+    }
+    assert docker._suggested_material_index(
+        document, "region-b", correspondence_set, ["skin", "hair", "eyes"]
+    ) == 0
+
+
+def test_ignores_suggested_material_not_in_bible(monkeypatch):
+    docker = _load_color_docker(monkeypatch)
+    document = _regions_document()
+    correspondence_set = {
+        "correspondences": [{"id": "c1", "region_id": "region-b", "material_id": "unknown"}]
+    }
+    assert docker._suggested_material_index(
+        document, "region-a", correspondence_set, ["skin", "hair"]
+    ) == 0

@@ -130,20 +130,30 @@ single-owned-preview machinery as C3's palette-role preview (refactored into
 a shared `_create_preview_layer` helper). The manual-assignment/propagation/
 preview/accept-reject checklist passed live in Krita.
 
-### C4.1 — adjacency-suggested propagation targets
+### C4.1 — adjacency-suggested defaults
 
 Issue #21 is In review pending the live-Krita checklist. Now that both G1
 (segmentation/adjacency) and C4 (correspondence/propagation) are
-independently verified, **Propagate Correspondence to Regions** reads G1's
-`Regions` group the same way the Line Art Segmentation Docker's Report
-Region Adjacency action does, and pre-fills the target-region-ids field with
-the names of regions touching the source assignment's region — a suggestion
-the artist can edit, extend, or clear before confirming, never an automatic
-apply. Falls back to an empty (fully manual) default when no `Regions`
-group exists, so this is additive and never a required dependency on G1.
-`CharacterColorsDocker._adjacent_region_names` is headlessly tested against
-a fake Krita node/document (touching-only suggestion, no-group fallback,
-unknown-source fallback).
+independently verified, the Character Colors Docker connects them in two
+places, neither ever auto-applying anything:
+
+- **Propagate Correspondence to Regions** reads G1's `Regions` group the
+  same way the Line Art Segmentation Docker's Report Region Adjacency action
+  does, and pre-fills the target-region-ids field with the names of regions
+  touching the source assignment's region — a suggestion the artist can
+  edit, extend, or clear before confirming.
+- **Assign Region Correspondence**'s material dropdown now defaults to the
+  material already assigned to an adjacent region, but only when adjacent
+  regions unanimously agree on exactly one material; disagreement, no
+  adjacency, or a suggested material no longer in the bible all fall back to
+  the first material in the dropdown, same as before this issue.
+
+Both fall back to prior behavior when no `Regions` group exists, so this
+remains additive and never a required dependency on G1.
+`CharacterColorsDocker._adjacent_region_names` and `_suggested_material_index`
+are headlessly tested against a fake Krita node/document (touching-only
+suggestion, no-group fallback, unknown-source fallback, unanimous vs.
+disagreeing adjacent materials, unknown suggested material).
 
 The format is a standalone contract first and a project asset second. It stores
 artist-authored semantic color facts, not image pixels, embeddings, inferred
