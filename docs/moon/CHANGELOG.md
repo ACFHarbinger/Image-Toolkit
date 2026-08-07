@@ -27,6 +27,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   empty review lists, repeated identical decisions are idempotent, reversals and
   duplicate review IDs are rejected, and recovery tests retain the prior pending
   revision. Krita project-folder binding remains.
+  Bound Krita exercises to the approved portable layout: an explicitly selected
+  empty directory receives `artwork/attempt-001.kra` and an atomic root
+  `project.json`. The active document has a safe relative `document_asset` and
+  remains distinct from opt-in artwork history. Versioned engine operations
+  create the manifest, append a privacy-safe review to its stable attempt, and
+  persist final decisions with recovery rotation. Unrelated/non-empty targets,
+  traversal, missing/ambiguous attempts, and duplicate reviews are refused.
 - Started A2 issue #10 by replacing the placeholder lesson with a five-stage,
   locally packaged beginner sequence covering cranial mass, centerline,
   eye-line, jaw/chin construction, structural checking, completion criteria,

@@ -23,15 +23,49 @@ class EngineClient:
         self.timeout_seconds = timeout_seconds
 
     def review_front_head(self, request_id, landmarks):
+        return self._execute(request_id, "review_front_head", {"landmarks": landmarks})
+
+    def create_exercise_project(self, request_id, directory, title, attempt_id):
+        return self._execute(
+            request_id,
+            "create_exercise_project",
+            {
+                "directory": directory,
+                "title": title,
+                "document_asset": "artwork/attempt-001.kra",
+                "attempt_id": attempt_id,
+            },
+        )
+
+    def record_attempt_review(self, request_id, directory, attempt_id, review):
+        return self._execute(
+            request_id,
+            "record_attempt_review",
+            {"directory": directory, "attempt_id": attempt_id, "review": review},
+        )
+
+    def decide_attempt_review(self, request_id, directory, attempt_id, review_id, decision):
+        return self._execute(
+            request_id,
+            "decide_attempt_review",
+            {
+                "directory": directory,
+                "attempt_id": attempt_id,
+                "review_id": review_id,
+                "decision": decision,
+            },
+        )
+
+    def _execute(self, request_id, operation, payload):
         request = {
             "protocol_version": ENGINE_PROTOCOL_VERSION,
             "request_id": request_id,
-            "operation": "review_front_head",
-            "payload": {"landmarks": landmarks},
+            "operation": operation,
+            "payload": payload,
         }
         encoded = json.dumps(request, separators=(",", ":")).encode("utf-8")
         if len(encoded) > MAX_MESSAGE_BYTES:
-            raise ValueError("review request exceeds 1 MiB")
+            raise ValueError("engine request exceeds 1 MiB")
         try:
             completed = subprocess.run(
                 self.command,

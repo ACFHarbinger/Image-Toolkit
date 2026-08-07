@@ -38,6 +38,27 @@ def test_protocol_returns_versioned_review():
     assert response["result"]["rubric_version"] == "1.0.0"
 
 
+def test_protocol_creates_portable_exercise_project(tmp_path):
+    artwork = tmp_path / "artwork/attempt-001.kra"
+    artwork.parent.mkdir()
+    artwork.write_bytes(b"document")
+    request = {
+        "protocol_version": 1,
+        "request_id": "create-1",
+        "operation": "create_exercise_project",
+        "payload": {
+            "directory": str(tmp_path),
+            "title": "Anime head practice",
+            "document_asset": "artwork/attempt-001.kra",
+            "attempt_id": "attempt-1",
+        },
+    }
+    response = handle_request(request)
+    assert response["ok"]
+    assert response["result"]["attempt_id"] == "attempt-1"
+    assert (tmp_path / "project.json").is_file()
+
+
 @pytest.mark.parametrize(
     "change",
     [

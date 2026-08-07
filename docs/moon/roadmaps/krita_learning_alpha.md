@@ -152,8 +152,10 @@ not evidence of pedagogical validity.
   configuration, undo semantics, and live verification remain in issue #11.
 - 🔄 Save, reload, migration, and failure recovery: portable schema v2 persists
   privacy-safe review versions, measurements, explanations, and final decisions
-  with deterministic v0/v1 migration and recovery coverage. Krita project-folder
-  binding remains.
+  with deterministic v0/v1 migration and recovery coverage. The Krita adapter
+  now binds an empty directory to `project.json` plus
+  `artwork/attempt-001.kra`, and engine operations atomically record the review
+  and decision. Live verification remains.
 
 ### A3 — curriculum and adaptive remediation
 

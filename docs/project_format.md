@@ -5,6 +5,22 @@ truth is `project.json`; artwork and redline files are relative assets beside
 it. An application-managed index may make projects searchable later, but it
 must always be rebuildable and is never authoritative.
 
+The Krita alpha binds a newly created project directory as follows:
+
+```text
+my-head-practice/
+├── project.json
+├── artwork/
+│   └── attempt-001.kra
+└── .recovery/
+    └── project.1.json
+```
+
+`document_asset` points to the active `artwork/attempt-001.kra` using a safe
+project-relative path. This active document is not artwork *history* and does
+not enable historical artwork retention. The creator refuses unrelated files
+or an existing manifest rather than merging into an ambiguous directory.
+
 Schema version 2 separates three concerns:
 
 - project identity, user-selected autosave policy, and privacy consent;
@@ -23,6 +39,9 @@ versions, rubric identity/version, numeric measurements, explanations, and one
 preview-layer metadata, and pixels are intentionally not copied into the
 manifest. Decisions are final after acceptance/rejection and repeated identical
 actions are idempotent. Review identifiers must be unique within an attempt.
+The local engine creates the manifest after Krita saves the initial document,
+then atomically appends review records and decisions to the matching stable
+attempt identifier; each changed save rotates the bounded recovery history.
 
 Writes use a temporary file in the destination directory, flush it to disk,
 then atomically replace the manifest. Autosave defaults to ten recoverable

@@ -6,6 +6,12 @@ import json
 import sys
 from typing import Any
 
+from ..project import (
+    SuggestionDecision,
+    create_exercise_project,
+    decide_attempt_review,
+    record_attempt_review,
+)
 from .head_review import FrontHeadLandmarks, review_front_head
 
 ENGINE_PROTOCOL_VERSION = 1
@@ -19,10 +25,51 @@ def handle_request(request: dict[str, Any]) -> dict[str, Any]:
     request_id = request.get("request_id")
     if not isinstance(request_id, str) or not request_id.strip():
         raise ValueError("request_id must be a non-empty string")
-    if request.get("operation") != "review_front_head":
-        raise ValueError("unsupported engine operation")
+    operation = request.get("operation")
     payload = request.get("payload")
-    if not isinstance(payload, dict) or not isinstance(payload.get("landmarks"), dict):
+    if not isinstance(payload, dict):
+        raise ValueError("engine request payload must be an object")
+    if operation == "create_exercise_project":
+        try:
+            project = create_exercise_project(
+                payload["directory"],
+                title=payload["title"],
+                document_asset=payload.get("document_asset", "artwork/attempt-001.kra"),
+                attempt_id=payload["attempt_id"],
+            )
+        except KeyError as error:
+            raise ValueError("project request is incomplete") from error
+        result = {"project_id": project.id, "attempt_id": payload["attempt_id"]}
+        return {
+            "protocol_version": ENGINE_PROTOCOL_VERSION,
+            "request_id": request_id,
+            "ok": True,
+            "result": result,
+        }
+    if operation == "record_attempt_review":
+        try:
+            review_record = record_attempt_review(
+                payload["directory"],
+                attempt_id=payload["attempt_id"],
+                review_payload=payload["review"],
+            )
+        except KeyError as error:
+            raise ValueError("record-review request is incomplete") from error
+        return _success(request_id, {"review_id": review_record.id})
+    if operation == "decide_attempt_review":
+        try:
+            changed = decide_attempt_review(
+                payload["directory"],
+                attempt_id=payload["attempt_id"],
+                review_id=payload["review_id"],
+                decision=SuggestionDecision(payload["decision"]),
+            )
+        except KeyError as error:
+            raise ValueError("review-decision request is incomplete") from error
+        return _success(request_id, {"changed": changed})
+    if operation != "review_front_head":
+        raise ValueError("unsupported engine operation")
+    if not isinstance(payload.get("landmarks"), dict):
         raise ValueError("review request must contain landmark data")
     try:
         landmarks = FrontHeadLandmarks(**payload["landmarks"])
@@ -37,6 +84,15 @@ def handle_request(request: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _success(request_id: str, result: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "protocol_version": ENGINE_PROTOCOL_VERSION,
+        "request_id": request_id,
+        "ok": True,
+        "result": result,
+    }
+
+
 def main() -> int:
     """Read one bounded JSON request from stdin and emit one JSON response."""
     raw = sys.stdin.buffer.read(MAX_REQUEST_BYTES + 1)
@@ -47,7 +103,7 @@ def main() -> int:
         if not isinstance(request, dict):
             raise ValueError("engine request root must be an object")
         response = handle_request(request)
-    except (UnicodeError, json.JSONDecodeError, ValueError) as error:
+    except (OSError, UnicodeError, json.JSONDecodeError, ValueError) as error:
         request_id = (
             request.get("request_id") if isinstance(locals().get("request"), dict) else None
         )

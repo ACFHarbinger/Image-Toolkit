@@ -34,6 +34,7 @@ class DocumentStub:
         self.root = NodeStub("root", "root")
         self.active = None
         self.modified = True
+        self.saved_as = None
 
     def rootNode(self):  # noqa: N802
         return self.root
@@ -46,6 +47,11 @@ class DocumentStub:
 
     def setModified(self, modified):  # noqa: N802
         self.modified = modified
+
+    def saveAs(self, path):  # noqa: N802
+        self.saved_as = path
+        Path(path).write_bytes(b"document")
+        return True
 
 
 class WindowStub:
@@ -99,3 +105,27 @@ def test_refuses_creation_without_active_krita_window():
     adapter = _load_adapter()
     with pytest.raises(RuntimeError, match="active window"):
         adapter.create_exercise_document(ApplicationStub(window=False))
+
+
+class EngineStub:
+    def create_exercise_project(self, request_id, directory, title, attempt_id):
+        assert request_id == "create-attempt-1"
+        assert title == Path(directory).name
+        return {"project_id": "project-1", "attempt_id": attempt_id}
+
+
+def test_creates_saved_portable_project_binding(tmp_path):
+    adapter = _load_adapter()
+    application = ApplicationStub()
+    document, result = adapter.create_exercise_project(
+        application, EngineStub(), tmp_path, "attempt-1"
+    )
+    assert document.saved_as == str(tmp_path / "artwork/attempt-001.kra")
+    assert result == {"project_id": "project-1", "attempt_id": "attempt-1"}
+
+
+def test_portable_project_requires_empty_directory(tmp_path):
+    adapter = _load_adapter()
+    (tmp_path / "unrelated").write_text("keep", encoding="utf-8")
+    with pytest.raises(ValueError, match="empty"):
+        adapter.create_exercise_project(ApplicationStub(), EngineStub(), tmp_path, "attempt-1")

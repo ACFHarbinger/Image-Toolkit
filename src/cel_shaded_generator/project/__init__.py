@@ -14,6 +14,12 @@ from .model import (
     SuggestionDecision,
     migrate_project_payload,
 )
+from .service import (
+    FRONT_HEAD_EXERCISE_ID,
+    create_exercise_project,
+    decide_attempt_review,
+    record_attempt_review,
+)
 from .storage import load_profile, load_project, save_profile, save_project
 
 __all__ = [
@@ -23,6 +29,7 @@ __all__ = [
     "Consent",
     "ExerciseProgress",
     "Feedback",
+    "FRONT_HEAD_EXERCISE_ID",
     "LearnerProfile",
     "Project",
     "ProjectProgress",
@@ -33,4 +40,7 @@ __all__ = [
     "load_project",
     "save_profile",
     "save_project",
+    "create_exercise_project",
+    "decide_attempt_review",
+    "record_attempt_review",
 ]

@@ -6,6 +6,7 @@ from copy import deepcopy
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
+from pathlib import PurePosixPath
 from typing import Any
 from uuid import uuid4
 
@@ -176,6 +177,7 @@ class Project:
     schema_version: int = CURRENT_SCHEMA_VERSION
     created_at: str = field(default_factory=_now)
     updated_at: str = field(default_factory=_now)
+    document_asset: str | None = None
     consent: Consent = field(default_factory=Consent)
     autosave: AutosavePolicy = field(default_factory=AutosavePolicy)
     progress: ProjectProgress = field(default_factory=ProjectProgress)
@@ -191,6 +193,10 @@ class Project:
             raise ValueError(f"unsupported project schema version: {self.schema_version}")
         if not self.title.strip():
             raise ValueError("project title must not be empty")
+        if self.document_asset is not None:
+            path = PurePosixPath(self.document_asset)
+            if path.is_absolute() or ".." in path.parts or "\\" in self.document_asset:
+                raise ValueError("project document asset must be a safe relative path")
         if not self.consent.retain_artwork_in_history:
             for exercise in self.progress.exercises:
                 for attempt in exercise.attempts:
@@ -241,6 +247,7 @@ class Project:
             schema_version=version,
             created_at=payload["created_at"],
             updated_at=payload["updated_at"],
+            document_asset=payload.get("document_asset"),
             consent=consent,
             autosave=autosave,
             progress=ProjectProgress(exercises),

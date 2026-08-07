@@ -7,11 +7,11 @@ import uuid
 from pathlib import Path
 
 from krita import DockWidget, Krita
-from PyQt5.QtWidgets import QLabel, QPushButton, QScrollArea, QVBoxLayout, QWidget
+from PyQt5.QtWidgets import QFileDialog, QLabel, QPushButton, QScrollArea, QVBoxLayout, QWidget
 
 from .diagnostics import diagnose
 from .engine_client import EngineClient
-from .exercise import create_exercise_document
+from .exercise import create_exercise_project
 from .landmark_dialog import LandmarkDialog
 from .redlines import accept_preview, reject_preview, render_review_redlines
 
@@ -59,6 +59,9 @@ class LearningDocker(DockWidget):
         reject_button.clicked.connect(self._reject_preview)
         self._landmarks = None
         self._preview_layer = None
+        self._project_directory = None
+        self._attempt_id = None
+        self._review_id = None
         self._action_status = QLabel(
             "Create an unsaved 1600 × 2000 exercise with separate construction, artwork, "
             "and tutor-feedback layers.",
@@ -85,14 +88,25 @@ class LearningDocker(DockWidget):
         self.setWidget(scroll)
 
     def _create_exercise(self) -> None:
+        directory = QFileDialog.getExistingDirectory(
+            self, "Choose an Empty Portable Project Directory"
+        )
+        if not directory:
+            self._action_status.setText("Project creation cancelled.")
+            return
+        attempt_id = str(uuid.uuid4())
         try:
-            create_exercise_document(Krita.instance())
-        except (RuntimeError, TypeError) as error:
+            _, result = create_exercise_project(
+                Krita.instance(), EngineClient(), directory, attempt_id
+            )
+        except (OSError, RuntimeError, TypeError, ValueError) as error:
             self._action_status.setText(f"Could not create exercise: {error}")
             return
+        self._project_directory = directory
+        self._attempt_id = result["attempt_id"]
         self._action_status.setText(
-            "Exercise created. Draw light construction on ‘Construction Guides’; reserve "
-            "‘Artwork’ for deliberate lines. Save the document when ready."
+            "Portable project created. Draw light construction on ‘Construction Guides’; "
+            "reserve ‘Artwork’ for deliberate lines. Krita saves to artwork/attempt-001.kra."
         )
 
     def _place_landmarks(self) -> None:
@@ -123,6 +137,17 @@ class LearningDocker(DockWidget):
         if not explanations:
             self._action_status.setText("Review completed without an explanation; report this bug.")
             return
+        if self._project_directory is None or self._attempt_id is None:
+            self._action_status.setText("Review completed, but no portable project is bound.")
+            return
+        try:
+            EngineClient().record_attempt_review(
+                "record-" + review["id"], self._project_directory, self._attempt_id, review
+            )
+        except (RuntimeError, ValueError) as error:
+            self._action_status.setText(f"Review completed but could not be saved: {error}")
+            return
+        self._review_id = review["id"]
         document = Krita.instance().activeDocument()
         try:
             layer = render_review_redlines(document, review) if document is not None else None
@@ -149,6 +174,8 @@ class LearningDocker(DockWidget):
             self._action_status.setText(f"Could not accept preview: {error}")
             return
         if changed:
+            if not self._persist_decision("accepted"):
+                return
             self._action_status.setText("Preview accepted as a locked tutor reference layer.")
         self._preview_layer = None
 
@@ -162,7 +189,28 @@ class LearningDocker(DockWidget):
             self._action_status.setText(f"Could not reject preview: {error}")
             return
         self._preview_layer = None
+        if not self._persist_decision("rejected"):
+            return
         self._action_status.setText("Preview rejected and removed; artist layers were unchanged.")
+
+    def _persist_decision(self, decision) -> bool:
+        if None in (self._project_directory, self._attempt_id, self._review_id):
+            self._action_status.setText(
+                "Decision could not be saved: review project state is missing."
+            )
+            return False
+        try:
+            EngineClient().decide_attempt_review(
+                "decide-" + self._review_id,
+                self._project_directory,
+                self._attempt_id,
+                self._review_id,
+                decision,
+            )
+        except (RuntimeError, ValueError) as error:
+            self._action_status.setText(f"Decision could not be saved: {error}")
+            return False
+        return True
 
     def canvasChanged(self, canvas) -> None:  # noqa: N802
         """Krita callback; this shell does not inspect the canvas."""
