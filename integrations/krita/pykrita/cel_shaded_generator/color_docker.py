@@ -12,6 +12,7 @@ from PyQt5.QtWidgets import (
     QFileDialog,
     QInputDialog,
     QLabel,
+    QLineEdit,
     QPushButton,
     QVBoxLayout,
     QWidget,
@@ -101,37 +102,81 @@ class CharacterColorsDocker(DockWidget):
         if self._project_directory is None:
             self._status.setText("Bind a portable project first.")
             return
-        bible_id = self._text("Style Bible", "Lowercase kebab-case bible ID:")
-        character = self._text("Style Bible", "Character name:")
-        style = self._text("Style Bible", "Style name:")
+        existing = self._selected_bible() if self._bibles.count() else None
+        bible_id = self._text(
+            "Style Bible",
+            "Lowercase kebab-case bible ID:",
+            existing["id"] if existing else "",
+        )
+        character = self._text(
+            "Style Bible", "Character name:", existing["character_name"] if existing else ""
+        )
+        style = self._text("Style Bible", "Style name:", existing["style_name"] if existing else "")
         if None in (bible_id, character, style):
             return
         count, accepted = QInputDialog.getInt(
-            self, "Materials", "Number of semantic materials:", 1, 1, 50, 1
+            self,
+            "Materials",
+            "Number of semantic materials:",
+            len(existing["materials"]) if existing else 1,
+            1,
+            50,
+            1,
         )
         if not accepted:
             return
         materials = []
         for index in range(count):
-            material_id = self._text("Material", f"Material {index + 1} canonical ID:")
-            label = self._text("Material", f"Material {index + 1} label:")
-            local = self._text("Palette", "Local color (#RRGGBB):")
-            light = self._text("Palette", "Light color (#RRGGBB):")
-            shadow = self._text("Palette", "Shadow color (#RRGGBB):")
+            prior = (
+                existing["materials"][index]
+                if existing and index < len(existing["materials"])
+                else None
+            )
+            material_id = self._text(
+                "Material", f"Material {index + 1} canonical ID:", prior["id"] if prior else ""
+            )
+            label = self._text(
+                "Material", f"Material {index + 1} label:", prior["label"] if prior else ""
+            )
+            aliases = self._text(
+                "Material",
+                "Comma-separated aliases (optional):",
+                ", ".join(prior.get("aliases", [])) if prior else "",
+                allow_empty=True,
+            )
+            local = self._text(
+                "Palette", "Local color (#RRGGBB):", prior["palette"]["local"] if prior else ""
+            )
+            light = self._text(
+                "Palette", "Light color (#RRGGBB):", prior["palette"]["light"] if prior else ""
+            )
+            shadow = self._text(
+                "Palette", "Shadow color (#RRGGBB):", prior["palette"]["shadow"] if prior else ""
+            )
+            accent = self._text(
+                "Palette",
+                "Optional accent color (#RRGGBB or empty):",
+                prior["palette"].get("accent") or "" if prior else "",
+                allow_empty=True,
+            )
             if None in (material_id, label, local, light, shadow):
                 return
+            palette = {"local": local, "light": light, "shadow": shadow}
+            if accent:
+                palette["accent"] = accent
             materials.append(
                 {
                     "id": material_id,
                     "label": label,
-                    "aliases": [],
-                    "palette": {"local": local, "light": light, "shadow": shadow},
+                    "aliases": [item.strip() for item in aliases.split(",") if item.strip()],
+                    "palette": palette,
                 }
             )
-        references = [
+        references = list(existing.get("reference_views", [])) if existing else []
+        references.extend(
             {"id": f"reference-{index + 1}", "label": Path(path).stem, "asset_path": path}
-            for index, path in enumerate(self._references)
-        ]
+            for index, path in enumerate(self._references, start=len(references))
+        )
         payload = {
             "id": bible_id,
             "character_name": character,
@@ -185,7 +230,12 @@ class CharacterColorsDocker(DockWidget):
             self._status.setText("Active mask does not exist in the selected bible.")
             return
         role, accepted = QInputDialog.getItem(
-            self, "Palette Role", "Preview role:", list(material["palette"]), 0, False
+            self,
+            "Palette Role",
+            "Preview role:",
+            [key for key, value in material["palette"].items() if value is not None],
+            0,
+            False,
         )
         if not accepted:
             return
@@ -196,8 +246,13 @@ class CharacterColorsDocker(DockWidget):
             return
         pixels = palette_preview_bgra(raw[3::4], material["palette"][role])
         preview = document.createNode(PREVIEW_PREFIX + material_id + " — " + role, "paintlayer")
-        document.rootNode().addChildNode(preview, None)
-        preview.setPixelData(QByteArray(pixels), 0, 0, width, height)
+        if preview is None or not document.rootNode().addChildNode(preview, None):
+            self._status.setText("Krita could not create the color preview layer.")
+            return
+        if not preview.setPixelData(QByteArray(pixels), 0, 0, width, height):
+            preview.remove()
+            self._status.setText("Krita could not write the color preview safely.")
+            return
         preview.setLocked(True)
         self._preview = preview
         document.refreshProjection()
@@ -214,7 +269,9 @@ class CharacterColorsDocker(DockWidget):
     def _reject_preview(self):
         if self._preview is None:
             return
-        self._preview.remove()
+        if not self._preview.remove():
+            self._status.setText("Krita could not remove the owned color preview.")
+            return
         self._preview = None
         self._status.setText("Color preview rejected; artist layers were unchanged.")
 
@@ -229,6 +286,9 @@ class CharacterColorsDocker(DockWidget):
             self._status.setText("Could not load style bible: " + str(error))
             return None
 
-    def _text(self, title, prompt):
-        value, accepted = QInputDialog.getText(self, title, prompt)
-        return value.strip() if accepted and value.strip() else None
+    def _text(self, title, prompt, default="", allow_empty=False):
+        value, accepted = QInputDialog.getText(self, title, prompt, QLineEdit.Normal, default)
+        if not accepted:
+            return None
+        value = value.strip()
+        return value if value or allow_empty else None

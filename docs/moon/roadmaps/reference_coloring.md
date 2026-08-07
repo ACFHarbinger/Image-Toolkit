@@ -73,6 +73,8 @@ Colors Docker, `Material Masks/Material — <canonical-id>` alpha layers, and
 collision-safe project-local reference copies. The first headless slice authors
 and binds bibles through the engine, creates missing semantic masks, and previews
 one explicit palette role as a separate locked layer with accept/reject. Live
-Krita confirmation, editing existing bibles without re-entering fields, aliases,
-optional accent UI, and stronger undo/reconciliation evidence remain. Learned
-correspondence is still a later milestone.
+Krita confirmation and stronger undo/reconciliation evidence remain. Existing
+bibles reopen prefilled for editing, including aliases, optional accent roles,
+and preserved reference views; absent accents are not offered as preview roles.
+Failed layer creation/write/removal is visible and cleans partial previews.
+Learned correspondence is still a later milestone.

@@ -33,6 +33,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   save, and bind through the engine. `Material Masks/Material — <canonical-id>`
   alpha layers drive local/light/shadow previews in separate locked color layers
   with explicit accept/reject. Source masks, line art, and artwork are unchanged.
+  Existing bibles now reopen with prefilled identity, materials, aliases, palette
+  roles, optional accents, and references rather than requiring re-entry.
+  Unavailable accent roles are omitted from preview choices. Preview creation,
+  pixel writes, and owned-layer removal now fail visibly and clean partial state.
 - Started reference-coloring C1 issue #15 with a standalone version-1 character
   style-bible contract. It validates canonical semantic materials, unambiguous
   aliases, uppercase sRGB local/light/shadow/optional-accent roles, safe relative
