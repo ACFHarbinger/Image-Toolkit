@@ -38,13 +38,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `engine_architecture.md`'s "Gate 5 exception (2026-08-07)" note for the
   full rationale — this is a scope decision, not evidence Krita has proven
   insufficient. The Krita plugin remains the primary, actively-developed
-  host. Eight slices — canvas + layer-stack foundation, brush paint tool
+  host. Nine slices — canvas + layer-stack foundation, brush paint tool
   (issue #26), undo/redo (issue #27), non-destructive layer masks
   (issue #28), line-art segmentation (issue #29), style-bible palette
   application (issue #30), region-to-material correspondence assignment
-  (issue #31), and canvas document save/load (issue #32) — are all In
-  review pending a manual desktop-app check (see the `### Added` entries
-  below).
+  (issue #31), canvas document save/load (issue #32), and canvas
+  document recovery-revision rotation (issue #33) — are all In review
+  pending a manual desktop-app check (see the `### Added` entries below).
 
 ### Fixed
 
@@ -309,6 +309,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `editor` tests, 7 new headless-Qt `gui` tests (516 core + 178 gui
   total); Ruff and mypy clean. Needs a manual desktop launch to confirm
   visually — see issue #32's testing comment.
+- **Standalone editor ninth slice (issue #33, In review): canvas
+  document recovery-revision rotation.** The eighth slice gave the
+  canvas document no protection against an accidental overwrite — Save
+  Document into an existing folder silently discarded the previous
+  state, unlike `colorization.correspondence`/`colorization.style_bible`'s
+  own bounded `_rotate_recovery` contract on their JSON assets.
+  `document_io.save_document` gained a `recovery_revisions` keyword
+  (default 10, validated to `1..100` matching `CorrespondenceSet`/
+  `CharacterStyleBible`'s own bound): whenever a document already exists
+  at the target directory, its prior on-disk state — the whole
+  directory, manifest plus every layer's `.npy` files, since a document
+  is multiple files rather than the single JSON file `_rotate_recovery`
+  handles elsewhere — rotates into `<directory>/.recovery/1..
+  recovery_revisions` before the new save overwrites it; the oldest
+  revision is evicted past the bound. A first save into an empty
+  directory creates no `.recovery/`. No restore API, matching the
+  existing scope of `colorization.correspondence`/
+  `colorization.style_bible`'s own rotation — each `.recovery/<n>/` is
+  itself a valid document directory `load_document` can read directly.
+  No `ReferenceColoringTab` changes were needed — Save Document already
+  calls `save_document` with the new default. Verification: 4 new core
+  `editor` tests (520 core + 178 gui total); Ruff and mypy clean. Needs a
+  manual desktop launch to confirm visually — see issue #33's testing
+  comment.
 - **Milestone 4 first slice (issue #24): deterministic confidence scoring
   and correction learning for assisted correspondence.** Portable contract
   only, no Docker UI yet, following the same sequencing every prior

@@ -245,9 +245,32 @@ canvas, so the seventh slice's correspondence assignments and the fifth
 slice's region tracking survive a save/reload round trip. Open Document
 resets undo/redo history to the freshly loaded canvas; the bound style
 bible, if any, is left as-is, since a document does not carry its own
-bible reference. Not in scope: autosave, recovery revisions for the
-canvas document itself (the correspondence set gets those for free from
-`colorization.correspondence`, the canvas array files do not yet), or
-integration with `src/project`'s learning-progress project model -- the
-standalone editor still has no `SignalWeights`/project binding, so
-correction learning (#24/#31) remains unavailable here.
+bible reference. Not in scope as of this slice: autosave, recovery
+revisions for the canvas document itself (the correspondence set already
+got those for free from `colorization.correspondence`), or integration
+with `src/project`'s learning-progress project model -- the standalone
+editor still has no `SignalWeights`/project binding, so correction
+learning (#24/#31) remains unavailable here.
+
+**Ninth slice (issue #33, In review pending a manual desktop-app
+check): canvas document recovery-revision rotation.** The eighth slice
+gave the canvas document no protection against an accidental overwrite --
+Save Document into an existing folder silently discarded the previous
+state, unlike `colorization.correspondence`/`colorization.style_bible`'s
+own bounded `_rotate_recovery` contract on their JSON assets.
+`document_io.save_document` gained a `recovery_revisions` keyword
+(default 10, validated to `1..100` matching `CorrespondenceSet`/
+`CharacterStyleBible`'s own bound): whenever a document already exists at
+the target directory, its prior on-disk state -- the whole directory,
+manifest plus every layer's `.npy` files, since a document is multiple
+files rather than the single JSON file `_rotate_recovery` handles
+elsewhere -- rotates into `<directory>/.recovery/1..recovery_revisions`
+before the new save overwrites it; the oldest revision is evicted past
+the bound. A first save into an empty directory creates no `.recovery/`,
+since there is nothing to protect yet. No restore API, matching the
+existing scope of `colorization.correspondence`/`colorization.style_bible`'s
+own rotation -- each `.recovery/<n>/` is itself a valid document
+directory `load_document` can read directly, so recovering one is a
+manual copy for now. No `ReferenceColoringTab` changes were needed: Save
+Document already calls `save_document` with the new default, so rotation
+is automatic and transparent.

@@ -77,3 +77,46 @@ def test_load_document_rejects_unsupported_schema_version(tmp_path):
     )
     with pytest.raises(ValueError, match="unsupported document schema version"):
         load_document(tmp_path)
+
+
+def test_save_document_first_save_creates_no_recovery_directory(tmp_path):
+    save_document(tmp_path, LayerStack(2, 2))
+    assert not (tmp_path / ".recovery").exists()
+
+
+def test_save_document_second_save_snapshots_prior_state_into_recovery(tmp_path):
+    stack = _stack_with_two_layers()
+    save_document(tmp_path, stack)
+
+    changed = LayerStack(4, 3)
+    changed.add_layer("layer-only", "Only")
+    save_document(tmp_path, changed)
+
+    snapshot = tmp_path / ".recovery" / "1"
+    assert snapshot.exists()
+    snapshot_stack = load_document(snapshot)
+    assert [layer.meta.id for layer in snapshot_stack.layers()] == ["layer-1", "layer-2"]
+
+    current = load_document(tmp_path)
+    assert [layer.meta.id for layer in current.layers()] == ["layer-only"]
+
+
+def test_save_document_rotates_bounded_recovery_revisions(tmp_path):
+    for index in range(4):
+        stack = LayerStack(2, 2)
+        stack.add_layer(f"layer-{index}", f"Layer {index}")
+        save_document(tmp_path, stack, recovery_revisions=2)
+
+    recovery = tmp_path / ".recovery"
+    assert sorted(item.name for item in recovery.iterdir()) == ["1", "2"]
+    # slot 1 holds the save immediately before the most recent (index 2),
+    # slot 2 the one before that (index 1) -- index 0's snapshot was evicted.
+    assert [layer.meta.id for layer in load_document(recovery / "1").layers()] == ["layer-2"]
+    assert [layer.meta.id for layer in load_document(recovery / "2").layers()] == ["layer-1"]
+
+
+def test_save_document_rejects_invalid_recovery_revisions(tmp_path):
+    with pytest.raises(ValueError, match="recovery revisions"):
+        save_document(tmp_path, LayerStack(2, 2), recovery_revisions=0)
+    with pytest.raises(ValueError, match="recovery revisions"):
+        save_document(tmp_path, LayerStack(2, 2), recovery_revisions=101)
