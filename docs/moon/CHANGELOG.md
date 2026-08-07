@@ -2,6 +2,14 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S372 — 2026-08-07 (Character mask variant authoring)
+
+Advanced C3 issue #17 with a Docker action for creating named material-mask
+variants (`5b04edb`). Variants share a canonical style-bible palette, refuse
+duplicate names, and remain covered by union-before-overlap checks. Verification:
+336 tests, Ruff and core mypy clean. #17 remains In review pending live Krita
+acceptance; no deployment occurred.
+
 ## S371 — 2026-08-07 (Offline C3 review checklist)
 
 Published the Character Colors live-review procedure in the Krita integration
