@@ -139,8 +139,9 @@ not evidence of pedagogical validity.
   now validates normalized artist-confirmed landmarks and measures centerline,
   eye-line, chin centering, and jaw symmetry. A versioned bounded JSON process
   protocol and defensive Krita client now cross the AppImage/engine boundary
-  without imports or shell execution; Krita placement UI and engine-path
-  settings remain.
+  without imports or shell execution. A projection-snapshot editor collects nine
+  ordered points with undo/reset and derives normalized review landmarks without
+  private canvas internals; engine-path settings and review submission remain.
 - Structured redline layers and configurable accept/reject interaction.
 - Save, reload, migration, and failure recovery tests.
 

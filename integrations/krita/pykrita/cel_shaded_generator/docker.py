@@ -10,6 +10,7 @@ from PyQt5.QtWidgets import QLabel, QPushButton, QScrollArea, QVBoxLayout, QWidg
 
 from .diagnostics import diagnose
 from .exercise import create_exercise_document
+from .landmark_dialog import LandmarkDialog
 
 
 class LearningDocker(DockWidget):
@@ -45,6 +46,9 @@ class LearningDocker(DockWidget):
         practice.setWordWrap(True)
         create_button = QPushButton("Create Exercise Document", container)
         create_button.clicked.connect(self._create_exercise)
+        landmark_button = QPushButton("Place Review Landmarks", container)
+        landmark_button.clicked.connect(self._place_landmarks)
+        self._landmarks = None
         self._action_status = QLabel(
             "Create an unsaved 1600 × 2000 exercise with separate construction, artwork, "
             "and tutor-feedback layers.",
@@ -59,6 +63,7 @@ class LearningDocker(DockWidget):
         layout.addWidget(checklist)
         layout.addWidget(practice)
         layout.addWidget(create_button)
+        layout.addWidget(landmark_button)
         layout.addWidget(self._action_status)
         layout.addWidget(status)
         layout.addWidget(diagnostics)
@@ -75,6 +80,21 @@ class LearningDocker(DockWidget):
         self._action_status.setText(
             "Exercise created. Draw light construction on ‘Construction Guides’; reserve "
             "‘Artwork’ for deliberate lines. Save the document when ready."
+        )
+
+    def _place_landmarks(self) -> None:
+        document = Krita.instance().activeDocument()
+        if document is None:
+            self._action_status.setText("Open or create an exercise document first.")
+            return
+        dialog = LandmarkDialog(document, self)
+        if dialog.exec_() != dialog.Accepted:
+            self._action_status.setText("Landmark placement cancelled; no review was requested.")
+            return
+        self._landmarks = dialog.landmarks()
+        self._action_status.setText(
+            "Nine landmarks recorded from the current projection. Engine review and redline "
+            "rendering are the next step; artwork was not modified."
         )
 
     def canvasChanged(self, canvas) -> None:  # noqa: N802

@@ -34,6 +34,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   protocol/request identifiers, structured errors, and no shell invocation.
   Unknown operations and malformed requests are rejected without traceback
   leakage. Landmark UI and user-facing executable configuration remain.
+  Added manual landmark placement over a public `Document.thumbnail()` snapshot.
+  The public Python Canvas API has no screen-to-image mapping, so the adapter
+  deliberately avoids private Qt canvas internals. The ordered nine-point flow
+  labels markers, supports undo/reset/cancel, normalizes coordinates, derives
+  cranial radius, and does not modify artwork. Review submission remains.
+  Also corrected the live-deployment process check after its command-line search
+  could match the checking shell itself; exact process-name inspection confirmed
+  Krita was closed and the seven-file plugin was safely reinstalled.
 - Started alpha A1 issue #9: added a Krita 5.2/Snap plugin skeleton with a
   right-default lesson docker, packaged English-only offline placeholder lesson,
   and scoped install/uninstall tool that refuses unknown overwrites.
