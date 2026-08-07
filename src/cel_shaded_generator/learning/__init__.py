@@ -1,5 +1,6 @@
 """Versioned contracts for lessons, reviews, settings, and local models."""
 
+from .head_review import FrontHeadLandmarks, FrontHeadReviewThresholds, review_front_head
 from .model import (
     LEARNING_SCHEMA_VERSION,
     ArtistFeedback,
@@ -38,6 +39,8 @@ __all__ = [
     "Evidence",
     "EvidenceSource",
     "Exercise",
+    "FrontHeadLandmarks",
+    "FrontHeadReviewThresholds",
     "Lesson",
     "LearningCatalog",
     "LocalModel",
@@ -55,4 +58,5 @@ __all__ = [
     "load_catalog",
     "save_catalog",
     "validate_model_package",
+    "review_front_head",
 ]

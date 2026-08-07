@@ -15,6 +15,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and three non-traced practice attempts. The Krita docker now scrolls long
   explanations and checklists instead of clipping them; adapter coverage checks
   the versioned method and minimum instructional structure.
+  Added the first deterministic review service over explicit normalized
+  landmarks. Balanced and deliberately flawed fixtures exercise raw axis-angle,
+  chin-offset, and jaw-asymmetry measurements, provisional rubric scores,
+  geometry-only evidence, actionable explanations, separate redline geometry,
+  preview suggestions, and targeted practice routing. It performs no pixel or
+  model analysis; Krita landmark placement and layer rendering remain.
 - Started alpha A1 issue #9: added a Krita 5.2/Snap plugin skeleton with a
   right-default lesson docker, packaged English-only offline placeholder lesson,
   and scoped install/uninstall tool that refuses unknown overwrites.

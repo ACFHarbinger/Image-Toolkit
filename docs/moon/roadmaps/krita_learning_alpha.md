@@ -130,9 +130,13 @@ not evidence of pedagogical validity.
 
 **Status: in progress — issue #10.**
 
-- One front-view construction lesson with locally packaged explanations.
+- 🔄 One front-view construction lesson with locally packaged explanations;
+  the five-stage beginner lesson is deployed, with exercise-document creation
+  still pending.
 - Exercise template creation in Krita.
-- Manual landmark placement and deterministic review.
+- 🔄 Manual landmark placement and deterministic review; the host-neutral core
+  now validates normalized artist-confirmed landmarks and measures centerline,
+  eye-line, chin centering, and jaw symmetry. Krita placement UI remains.
 - Structured redline layers and configurable accept/reject interaction.
 - Save, reload, migration, and failure recovery tests.
 
