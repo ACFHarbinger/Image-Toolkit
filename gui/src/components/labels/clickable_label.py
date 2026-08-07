@@ -1,3 +1,4 @@
+from gui.src.components.labels.metadata_overlay import MetadataOverlay
 import contextlib
 import os
 from typing import Callable, Optional
@@ -37,6 +38,7 @@ class ClickableLabel(QLabel):
         # Hover highlight (GUI/UX §2.24A)
         self._hovered = False
         self.setAttribute(Qt.WidgetAttribute.WA_Hover)
+        self._metadata_overlay = MetadataOverlay(self.path, self)
 
         self.customContextMenuRequested.connect(self._emit_right_click_signal)
 
@@ -72,11 +74,16 @@ class ClickableLabel(QLabel):
     def enterEvent(self, event):
         self._hovered = True
         self.update()
+        if hasattr(self, '_metadata_overlay'):
+            self._metadata_overlay.resize(self.size())
+            self._metadata_overlay.show()
         super().enterEvent(event)
 
     def leaveEvent(self, event):
         self._hovered = False
         self.update()
+        if hasattr(self, '_metadata_overlay'):
+            self._metadata_overlay.hide()
         super().leaveEvent(event)
 
     def paintEvent(self, event):
