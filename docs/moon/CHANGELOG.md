@@ -2,6 +2,14 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S370 — 2026-08-07 (C3 moved to Review)
+
+Moved Cel-Shaded-Generator C3 issue #17 to Project 12 **In review** after the
+headless semantic workflow gate completed. The issue now contains the live
+Krita checklist and explicit pass-to-Done/fail-to-In-Progress rules; no drawing
+session or deployment was performed. Tutor issues #10/#11/#12 remain in Review
+with their existing acceptance instructions.
+
 ## S369 — 2026-08-07 (C3 headless semantic workflow gate)
 
 Completed Cel-Shaded-Generator C3's headless semantic workflow gate
