@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from backend.src.core.vault_manager import VaultManager
+from gui.src.components.widgets.toast_widget import ToastManager
 from gui.src.windows.settings.app_settings import AppSettings
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QGuiApplication, QImageReader
@@ -70,6 +71,7 @@ class MainWindow(
         # Store the authenticated vault manager instance
         self.vault_manager = vault_manager
         self.enable_manager = enable_manager
+        self.toast_manager = ToastManager(self)
 
         self.setWindowTitle("Image Database and Edit Toolkit")
         self.setMinimumWidth(800)
@@ -194,4 +196,10 @@ class MainWindow(
         self.settings_window = None
 
 
-__all__ = ["MainWindow", "show_main_status", "show_tray_notification"]
+
+    def show_toast(self, message: str, toast_type: str = "info", duration_ms: int = 2500):
+        """Show a floating toast notification (GUI/UX §2.10A)."""
+        self.toast_manager.show_toast(message, toast_type, duration_ms)
+
+__all__ =  ["MainWindow", "show_main_status", "show_tray_notification"]
+

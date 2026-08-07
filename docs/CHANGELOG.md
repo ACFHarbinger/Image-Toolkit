@@ -2,6 +2,10 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S356 — 2026-08-07 (GUI Quick Wins: Floating Toast and Metadata Overlay)
+
+Implemented §2.10A Floating Toast Notification Widget in `gui/src/components/widgets/toast_widget.py`, allowing queued, non-blocking toast notifications in `MainWindow`. Integrated it with the global `show_toast_notification` helper. Also implemented §2.14B Thumbnail Hover Metadata Overlay in `gui/src/components/labels/metadata_overlay.py` with integration into both `ClickableLabel` and `DraggableLabel` to show basename, image dimensions, and file size on hover. Added comprehensive test coverage for both widgets.
+
 ## S355 — 2026-08-07 (Architecture improvements: PipelineTrace and ModelWrapper ABC)
 
 Implemented §5.4B `PipelineTrace` JSON logging for the `AnimeStitchPipeline` in `backend/src/animation/core/pipeline/trace.py` with full serialization, duration, and error capture tested. Fixed §5.8A by making `ModelWrapper` inherit from `ABC` in `backend/src/models/core/base.py`. Both changes verified via `pytest` and marked complete in architecture documentation and roadmaps.
