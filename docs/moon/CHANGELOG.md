@@ -2,7 +2,6 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
-<<<<<<< HEAD
 ## S373 — 2026-08-07 (C4 correspondence baseline scoped)
 
 Created Cel-Shaded-Generator issue #18 for the next reference-coloring
