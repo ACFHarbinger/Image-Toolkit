@@ -2,6 +2,10 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S337 — 2026-08-07 (Portable Krita exercise binding)
+
+Advanced Cel-Shaded-Generator issue #11 (`ce5bf74`) with the approved portable binding. Krita saves the active document as `artwork/attempt-001.kra` inside an explicitly selected empty directory; the engine atomically creates root `project.json`, then appends privacy-safe reviews and final decisions to the stable attempt with bounded recovery rotation. The active document is distinct from opt-in historical artwork retention. Unsafe relative paths, unrelated/non-empty directories, existing manifests, missing/ambiguous attempts, and duplicate reviews are refused. Verification: 199 tests, Ruff and mypy clean. #10 remains frozen in deferred Review; #11 stays In Progress for shortcut configuration and undo/reconciliation evidence, and is not deployed yet.
+
 ## S336 — 2026-08-07 (Portable tutor review decisions)
 
 Advanced Cel-Shaded-Generator issue #11 (`2f5251b`) with portable project schema v2 review persistence. Attempts now retain stable review/method/rubric versions, numeric measurements, explanations, and final pending/accepted/rejected decisions while deliberately excluding redline geometry, preview metadata, and pixels. Deterministic v0/v1 migrations add empty review lists, identical repeated decisions are idempotent, reversals and duplicate review IDs are rejected, and recovery snapshots preserve the prior pending state. Verification: 190 tests, Ruff and mypy clean. Krita project-folder binding remains; #10 stays frozen in owner-deferred Review and this change is not deployed into it.
