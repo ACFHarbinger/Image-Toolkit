@@ -2,6 +2,10 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S364 — 2026-08-07 (Consolidate documentation toolchains)
+
+Consolidated documentation toolchains for Anime-Stitch-Pipeline backlog Issue #4. Retained MkDocs (for the portal) and Sphinx (for Python API autodoc). Deleted the hand-built Vue 3 site `docs/website/`, Structurizr, and TypeDoc configurations. Removed their respective build steps from `.github/workflows/docs.yml`.
+
 ## S363 — 2026-08-07 (Krita style-bible authoring scope)
 
 Opened Cel-Shaded-Generator C3 issue #17 in Backlog and recorded its deterministic
