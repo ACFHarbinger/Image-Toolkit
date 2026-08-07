@@ -378,10 +378,9 @@ class CharacterColorsDocker(DockWidget):
         except ValueError as error:
             self._status.setText("Could not derive a region id: " + str(error))
             return
-        correspondence_set = self._correspondence_set(bible["id"])
         material_ids = [item["id"] for item in bible["materials"]]
         default_material_index = self._suggested_material_index(
-            document, region_id, correspondence_set, material_ids
+            document, region_id, self._correspondence_set(bible["id"]), material_ids
         )
         material_id, accepted = QInputDialog.getItem(
             self,
@@ -416,6 +415,10 @@ class CharacterColorsDocker(DockWidget):
         }
         if panel_id:
             entry["panel_id"] = panel_id
+        # Re-read rather than reuse the set loaded before the three modal
+        # dialogs above: a stale in-memory copy would silently discard any
+        # write that landed on disk while those dialogs were open.
+        correspondence_set = self._correspondence_set(bible["id"])
         correspondence_set["correspondences"].append(entry)
         try:
             EngineClient().upsert_project_correspondence_set(
@@ -654,6 +657,17 @@ class CharacterColorsDocker(DockWidget):
         returns the names of regions touching ``region_id``. Returns an empty
         list rather than raising if no Regions group exists, since manual
         typed target ids remain fully supported without one.
+
+        Performance note: like Report Region Adjacency, this does a
+        pure-Python per-pixel scan of every region layer's alpha (no numpy
+        dependency, matching this Krita-boundary module's existing
+        constraint) -- O(width * height * region count) per call. Assign
+        Region Correspondence now pays this cost on every click rather than
+        only on Propagate's less-frequent calls; on a large canvas with many
+        regions this may add noticeable latency. Not yet session-cached
+        pending a decision on the staleness tradeoff a cache would introduce
+        (a repainted region's alpha changing without its layer being
+        renamed).
         """
         if document is None:
             return []

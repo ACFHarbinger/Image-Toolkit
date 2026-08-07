@@ -75,6 +75,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Ran a proactive high-effort code review of C4.1's changes to
+  `color_docker.py` and fixed one real issue it found: `_assign_correspondence`
+  loaded the correspondence set before three sequential modal dialogs
+  (material, role, panel id) instead of immediately before the append+save,
+  widening the window in which a concurrent write to the same
+  `correspondence/<bible-id>.json` could be silently discarded by the
+  eventual unconditional overwrite. Now re-reads fresh immediately before
+  mutating and saving, same timing as before C4.1's material-default
+  suggestion was added. The review's second finding (the adjacency scan's
+  pure-Python per-pixel cost, previously paid only by the less-frequent
+  Propagate action, now also runs on every Assign click) is documented in
+  `_adjacent_region_names`'s docstring rather than fixed with a session
+  cache — a cache's staleness tradeoff (a repainted region's alpha changing
+  without its layer being renamed) needs a product decision, not a rushed
+  fix. Verification: 400 tests pass; Ruff and core mypy are clean.
 - Opened C4.1 issue #21: **Propagate Correspondence to Regions** now suggests
   (never auto-applies) target region ids by reading G1's `Regions` group the
   same way Report Region Adjacency does, pre-filling the target field with
