@@ -2,6 +2,18 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S341 — 2026-08-07 (Adaptive curriculum and private progress core)
+
+Advanced Cel-Shaded-Generator A3 issue #12 with deterministic curriculum and
+progress contracts (`70ae059`, `3b20338`). The offline v1 catalog defines nine
+primary anime head-and-face exercises, four remedial exercises, explicit
+prerequisites, normalized rubric dimensions, explainable weakness routing, and
+stable tie behavior. Comparable attempts report per-dimension direction only
+when exercise/method/rubric versions match; incompatible pairs are disclosed,
+not silently compared. Private summaries count retries and explicit advice
+feedback without producing a global artist score. Verification: 218 tests,
+Ruff and mypy clean. A2 issues #10/#11 remain in owner-deferred Review.
+
 ## S340 — 2026-08-07 (Cel-Shaded-Generator core source flattening)
 
 Completed Cel-Shaded-Generator issue #13 (`86c6e3b`) by moving every core
