@@ -2,6 +2,17 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S359 — 2026-08-07 (Compatible capstone evidence import)
+
+Advanced Cel-Shaded-Generator A3 #12 with schema-v8 compatible prior-review
+imports, six nested rubric-oriented capstone layer groups, and a confirmed “Run
+Next Capstone Review” action (`8ce185c`). Imports copy rather than alias evidence,
+retain source attempt/review provenance, clear unrelated feedback/history, and
+require a fresh capstone decision/rationale. Declining import leaves the exact
+required layer selected for fresh evidence. Verification: 309 tests, Ruff and
+core mypy clean. Automated fresh-review dispatch across every rubric remains;
+A3 stays undeployed and #10/#11 remain in deferred Review.
+
 ## S358 — 2026-08-07 (Editable capstone rationale history)
 
 Advanced Cel-Shaded-Generator A3 #12 with schema-v7 editable capstone rationale
