@@ -2,6 +2,18 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S342 — 2026-08-07 (Portable advice feedback and progress policy)
+
+Advanced Cel-Shaded-Generator A3 issue #12 (`832d5cd`) with the owner's
+retention and progression decisions. Portable project schema v3 makes local
+learning-progress retention a user setting enabled by default while artwork
+history and global aggregation remain independently disabled. Prerequisites
+recommend rather than lock lessons. Each review can atomically retain one final
+helpful/unhelpful/incorrect/not-applicable rating and optional note; identical
+retries are idempotent and replacements are refused. Deterministic v0/v1/v2
+migrations and engine/service recovery coverage bring the suite to 222 tests;
+Ruff and mypy remain clean.
+
 ## S341 — 2026-08-07 (Adaptive curriculum and private progress core)
 
 Advanced Cel-Shaded-Generator A3 issue #12 with deterministic curriculum and
