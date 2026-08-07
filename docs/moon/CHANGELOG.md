@@ -37,6 +37,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   snapshot and existing docker now expose an aggregate capstone dashboard that
   retains the latest measurements and decision state for every underlying
   rubric instead of collapsing the artist into one score.
+- Opened A4 issue #14 in Backlog for real-beginner threshold calibration,
+  explanation-quality evaluation, compatible repeated-attempt measurement,
+  offline Kubuntu/Krita acceptance, and RTX 4080 12 GB latency/VRAM gates. This
+  evidence phase is separated from A3 feature construction.
 - Began A3 issue #12 with a versioned offline curriculum graph containing nine
   primary anime head-and-face exercises and four targeted remedial exercises.
   Deterministic prerequisites select the next unlocked exercise; normalized

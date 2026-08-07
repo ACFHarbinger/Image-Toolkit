@@ -324,6 +324,9 @@ remain deferred in Review.
 
 ### A4 — evaluator assistance and alpha study
 
+Tracked by GitHub issue #14; it remains in Backlog until A3 integration and the
+deferred A2 live checks are ready for evidence collection.
+
 - Optional local landmark model with confidence visualization.
 - RTX 4080 12 GB as the deployment ceiling for the default model; the RTX 3090
   Ti 24 GB may be used for development but not as the minimum requirement.
