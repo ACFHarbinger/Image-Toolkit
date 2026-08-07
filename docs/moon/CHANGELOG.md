@@ -2,6 +2,14 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S373 — 2026-08-07 (C4 correspondence baseline scoped)
+
+Created Cel-Shaded-Generator issue #18 for the next reference-coloring
+milestone: deterministic manual material correspondence and explicitly accepted
+propagation. The issue requires portable provenance, ambiguity refusal, recovery
+tests, and artist-layer isolation; ML, generative filling, and deployment are
+out of scope. C3 #17 remains In review pending live Krita validation.
+
 ## S372 — 2026-08-07 (Character mask variant authoring)
 
 Advanced C3 issue #17 with a Docker action for creating named material-mask
