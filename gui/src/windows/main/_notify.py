@@ -28,4 +28,13 @@ def show_main_status(message: str, timeout_ms: int = 3000) -> None:
             return
 
 
-__all__ = ["show_tray_notification", "show_main_status"]
+
+def show_toast_notification(message: str, toast_type: str = "info", duration_ms: int = 2500) -> None:
+    """Post a floating toast notification to the MainWindow from anywhere (§2.10A)."""
+    for w in QApplication.topLevelWidgets():
+        if hasattr(w, "show_toast"):
+            w.show_toast(message, toast_type, duration_ms)
+            return
+
+__all__ = ["show_tray_notification", "show_main_status", "show_toast_notification"]
+

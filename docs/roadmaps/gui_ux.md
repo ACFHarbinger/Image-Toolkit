@@ -446,13 +446,13 @@ Two related additions. First, Session Recovery Level gained a fourth option, "Cu
 
 ---
 
-## 2.10 In-App Toast Notification System ✅ Partial (2026-06-10 — §C shipped) {: #210-in-app-toast-notification-system }
+## 2.10 In-App Toast Notification System ✅ Partial (2026-06-10 — §C shipped, 2026-08-07 — §A shipped) {: #210-in-app-toast-notification-system }
 
 **Pain point:** Every operation result — file saved, cache cleared, duplicate found, export finished — triggers a blocking `QMessageBox` that interrupts the user's workflow. For background operations (slideshow daemon ticks, RLHF auto-score, WebDriver status) there is no non-blocking feedback path at all.
 
 ### Options
 
-**A — Custom overlay toast widget [Quick Win]**
+**A — Custom overlay toast widget [Quick Win] ✅ (2026-08-07)**
 A borderless, semi-transparent `QLabel` anchored to a corner of `MainWindow`. Shown via a `QPropertyAnimation` on opacity (0→1→0 over ~2.5s). Queued: multiple toasts stack vertically. No third-party dependency.
 - Implementation: `QFrame` with `WindowStaysOnTopHint | FramelessWindowHint`; `QPropertyAnimation("windowOpacity")`; `QTimer.singleShot(2000, self.close)`.
 - Pros: Zero new dependencies. Full visual control.
