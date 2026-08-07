@@ -44,7 +44,7 @@ and user corrections.
 
 1. Editable segmentation and gap-repair tools in Krita.
 2. 🔄 Versioned character style-bible format and palette application.
-   Issue #15 implements the standalone v1 foundation: semantic materials,
+   Issue #15 implements the standalone foundation: semantic materials,
    unambiguous aliases, explicit local/light/shadow/optional-accent sRGB roles,
    safe relative reference views, strict future-version refusal, atomic writes,
    and bounded recovery. C2 issue #16 adds portable project schema-v9 bindings,
@@ -72,9 +72,15 @@ C3 issue #17 is In Progress with the approved boundary: a separate Character
 Colors Docker, `Material Masks/Material — <canonical-id>` alpha layers, and
 collision-safe project-local reference copies. The first headless slice authors
 and binds bibles through the engine, creates missing semantic masks, and previews
-one explicit palette role as a separate locked layer with accept/reject. Live
-Krita confirmation and stronger undo/reconciliation evidence remain. Existing
+one explicit palette role as a separate locked preview with accept/reject. Live
+Krita confirmation and stronger undo/reconciliation evidence remain. Accepted
+colors remain separate editable `Color — <canonical-id> — <role>` layers inside
+one `Character Colors` group. Any material-mask overlap blocks preview and
+reports per-material conflict pixels instead of silently applying z-order.
+Existing
 bibles reopen prefilled for editing, including aliases, optional accent roles,
-and preserved reference views; absent accents are not offered as preview roles.
+and preserved reference views; labels and controlled view types are editable.
+Schema v2 deterministically migrates v1 references to `other` without guessing.
+Absent accents are not offered as preview roles.
 Failed layer creation/write/removal is visible and cleans partial previews.
 Learned correspondence is still a later milestone.

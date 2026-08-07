@@ -9,6 +9,7 @@ from colorization.style_bible import (
     ReferenceView,
     StyleMaterial,
     load_style_bible,
+    migrate_style_bible_payload,
     save_style_bible,
 )
 
@@ -89,9 +90,33 @@ def test_duplicate_or_ambiguous_material_names_are_rejected():
 
 def test_unknown_or_future_schema_is_rejected():
     payload = _bible().to_dict()
-    payload["schema_version"] = 2
+    payload["schema_version"] = 3
     with pytest.raises(ValueError, match="unsupported"):
         CharacterStyleBible.from_dict(payload)
     payload = _bible().to_dict() | {"embedding": [1, 2, 3]}
     with pytest.raises(ValueError, match="unknown fields"):
         CharacterStyleBible.from_dict(payload)
+
+
+def test_schema_v1_reference_views_migrate_deterministically():
+    payload = _bible().to_dict()
+    payload["schema_version"] = 1
+    del payload["reference_views"][0]["view_type"]
+    first = migrate_style_bible_payload(payload)
+    second = migrate_style_bible_payload(payload)
+    assert first == second
+    assert first["reference_views"][0]["view_type"] == "other"
+    assert CharacterStyleBible.from_dict(payload).reference_views[0].view_type == "other"
+
+
+def test_reference_view_type_uses_controlled_vocabulary():
+    with pytest.raises(ValueError, match="not supported"):
+        ReferenceView("front", "Front", "references/front.png", view_type="hero-shot")
+
+
+def test_schema_v1_migration_rejects_malformed_reference_entries():
+    payload = _bible().to_dict()
+    payload["schema_version"] = 1
+    payload["reference_views"] = ["not-an-object"]
+    with pytest.raises(ValueError, match="malformed"):
+        migrate_style_bible_payload(payload)

@@ -2,6 +2,8 @@
 
 MASK_GROUP_NAME = "Material Masks"
 MASK_PREFIX = "Material — "
+ACCEPTED_GROUP_NAME = "Character Colors"
+ACCEPTED_PREFIX = "Color — "
 PREVIEW_PREFIX = "Color Preview — "
 
 
@@ -35,3 +37,22 @@ def palette_preview_bgra(alpha_bytes, color):
         offset = index * 4
         pixels[offset : offset + 4] = bytes((blue, green, red, alpha))
     return bytes(pixels)
+
+
+def overlapping_materials(active_id, masks):
+    """Return other material IDs whose alpha intersects the active mask."""
+    if active_id not in masks:
+        raise ValueError("active material mask is missing")
+    active = masks[active_id]
+    if not isinstance(active, (bytes, bytearray)):
+        raise ValueError("material masks must be bytes")
+    conflicts = {}
+    for material_id, alpha in masks.items():
+        if not isinstance(alpha, (bytes, bytearray)) or len(alpha) != len(active):
+            raise ValueError("material masks must be equal-length byte buffers")
+        if material_id == active_id:
+            continue
+        count = sum(bool(left and right) for left, right in zip(active, alpha, strict=True))
+        if count:
+            conflicts[material_id] = count
+    return conflicts

@@ -18,7 +18,15 @@ from PyQt5.QtWidgets import (
     QWidget,
 )
 
-from .color_masks import MASK_GROUP_NAME, PREVIEW_PREFIX, material_mask_name, palette_preview_bgra
+from .color_masks import (
+    ACCEPTED_GROUP_NAME,
+    ACCEPTED_PREFIX,
+    MASK_GROUP_NAME,
+    PREVIEW_PREFIX,
+    material_mask_name,
+    overlapping_materials,
+    palette_preview_bgra,
+)
 from .engine_client import EngineClient
 from .value_masks import find_named_node
 
@@ -95,7 +103,22 @@ class CharacterColorsDocker(DockWidget):
         except (RuntimeError, ValueError) as error:
             self._status.setText("Could not import reference: " + str(error))
             return
-        self._references.append(result["asset_path"])
+        label = self._text("Reference", "Reference label:", Path(source).stem)
+        if label is None:
+            return
+        view_type, accepted = QInputDialog.getItem(
+            self,
+            "Reference",
+            "Reference view type:",
+            self._reference_view_types(),
+            0,
+            False,
+        )
+        if not accepted:
+            return
+        self._references.append(
+            {"asset_path": result["asset_path"], "label": label, "view_type": view_type}
+        )
         self._status.setText("Imported project reference: " + result["asset_path"])
 
     def _author_bible(self):
@@ -172,11 +195,20 @@ class CharacterColorsDocker(DockWidget):
                     "palette": palette,
                 }
             )
-        references = list(existing.get("reference_views", [])) if existing else []
-        references.extend(
-            {"id": f"reference-{index + 1}", "label": Path(path).stem, "asset_path": path}
-            for index, path in enumerate(self._references, start=len(references))
-        )
+        references = []
+        for reference in existing.get("reference_views", []) if existing else []:
+            edited = self._edit_reference(reference)
+            if edited is None:
+                return
+            references.append(edited)
+        used_reference_ids = {reference["id"] for reference in references}
+        for reference in self._references:
+            number = 1
+            while f"reference-{number}" in used_reference_ids:
+                number += 1
+            reference_id = f"reference-{number}"
+            used_reference_ids.add(reference_id)
+            references.append({"id": reference_id, **reference})
         payload = {
             "id": bible_id,
             "character_name": character,
@@ -184,7 +216,7 @@ class CharacterColorsDocker(DockWidget):
             "materials": materials,
             "reference_views": references,
             "recovery_revisions": 10,
-            "schema_version": 1,
+            "schema_version": 2,
         }
         try:
             EngineClient().upsert_project_style_bible(
@@ -229,6 +261,9 @@ class CharacterColorsDocker(DockWidget):
         if material is None:
             self._status.setText("Active mask does not exist in the selected bible.")
             return
+        if self._preview is not None:
+            self._status.setText("Accept or reject the current color preview first.")
+            return
         role, accepted = QInputDialog.getItem(
             self,
             "Palette Role",
@@ -244,9 +279,37 @@ class CharacterColorsDocker(DockWidget):
         if len(raw) != width * height * 4:
             self._status.setText("Krita returned an unexpected mask buffer.")
             return
+        mask_group = find_named_node(document.rootNode(), MASK_GROUP_NAME)
+        masks = {}
+        for item in bible["materials"]:
+            mask = find_named_node(mask_group, material_mask_name(item["id"]))
+            if mask is None:
+                continue
+            mask_raw = bytes(mask.pixelData(0, 0, width, height))
+            if len(mask_raw) != width * height * 4:
+                self._status.setText("Krita returned an unexpected material-mask buffer.")
+                return
+            masks[item["id"]] = mask_raw[3::4]
+        try:
+            conflicts = overlapping_materials(material_id, masks)
+        except ValueError as error:
+            self._status.setText("Could not compare material masks: " + str(error))
+            return
+        if conflicts:
+            details = ", ".join(
+                f"{conflict_id} ({count} px)" for conflict_id, count in conflicts.items()
+            )
+            self._status.setText("Mask overlaps must be corrected: " + details + ".")
+            return
         pixels = palette_preview_bgra(raw[3::4], material["palette"][role])
         preview = document.createNode(PREVIEW_PREFIX + material_id + " — " + role, "paintlayer")
-        if preview is None or not document.rootNode().addChildNode(preview, None):
+        color_group = find_named_node(document.rootNode(), ACCEPTED_GROUP_NAME)
+        if color_group is None:
+            color_group = document.createNode(ACCEPTED_GROUP_NAME, "grouplayer")
+            if color_group is None or not document.rootNode().addChildNode(color_group, None):
+                self._status.setText("Krita could not create the Character Colors group.")
+                return
+        if preview is None or not color_group.addChildNode(preview, None):
             self._status.setText("Krita could not create the color preview layer.")
             return
         if not preview.setPixelData(QByteArray(pixels), 0, 0, width, height):
@@ -261,10 +324,10 @@ class CharacterColorsDocker(DockWidget):
     def _accept_preview(self):
         if self._preview is None:
             return
-        self._preview.setName(self._preview.name().replace(PREVIEW_PREFIX, "Color Accepted — ", 1))
-        self._preview.setLocked(True)
+        self._preview.setName(self._preview.name().replace(PREVIEW_PREFIX, ACCEPTED_PREFIX, 1))
+        self._preview.setLocked(False)
         self._preview = None
-        self._status.setText("Color preview accepted as a separate locked layer.")
+        self._status.setText("Color accepted as a separate editable Character Colors layer.")
 
     def _reject_preview(self):
         if self._preview is None:
@@ -292,3 +355,21 @@ class CharacterColorsDocker(DockWidget):
             return None
         value = value.strip()
         return value if value or allow_empty else None
+
+    @staticmethod
+    def _reference_view_types():
+        return ["front", "profile", "three-quarter", "expression", "costume-detail", "other"]
+
+    def _edit_reference(self, reference):
+        label = self._text("Reference", "Reference label:", reference["label"])
+        if label is None:
+            return None
+        choices = self._reference_view_types()
+        current = reference.get("view_type", "other")
+        index = choices.index(current) if current in choices else choices.index("other")
+        view_type, accepted = QInputDialog.getItem(
+            self, "Reference", "Reference view type:", choices, index, False
+        )
+        if not accepted:
+            return None
+        return {**reference, "label": label, "view_type": view_type}

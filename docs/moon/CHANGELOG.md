@@ -37,6 +37,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   roles, optional accents, and references rather than requiring re-entry.
   Unavailable accent roles are omitted from preview choices. Preview creation,
   pixel writes, and owned-layer removal now fail visibly and clean partial state.
+  Accepted colors are unlocked, per-material layers grouped under `Character
+  Colors`. Preview now blocks ambiguous overlapping semantic masks and reports
+  conflict pixel counts. Style-bible schema v2 adds editable controlled reference
+  view types and deterministically migrates v1 references to `other`.
 - Started reference-coloring C1 issue #15 with a standalone version-1 character
   style-bible contract. It validates canonical semantic materials, unambiguous
   aliases, uppercase sRGB local/light/shadow/optional-accent roles, safe relative

@@ -33,3 +33,20 @@ def test_material_mask_contract_is_canonical():
 def test_palette_preview_uses_mask_alpha_and_krita_bgra_order():
     pixels = _module().palette_preview_bgra(bytes((0, 128, 255)), "#A1B2C3")
     assert pixels == bytes((0xC3, 0xB2, 0xA1, 0, 0xC3, 0xB2, 0xA1, 128, 0xC3, 0xB2, 0xA1, 255))
+
+
+def test_overlapping_materials_reports_each_ambiguous_pixel_count():
+    conflicts = _module().overlapping_materials(
+        "hair",
+        {
+            "hair": bytes((0, 255, 255, 0)),
+            "skin": bytes((0, 0, 128, 0)),
+            "eyes": bytes((0, 255, 0, 0)),
+        },
+    )
+    assert conflicts == {"skin": 1, "eyes": 1}
+
+
+def test_overlapping_materials_rejects_incomparable_buffers():
+    with pytest.raises(ValueError, match="equal-length"):
+        _module().overlapping_materials("hair", {"hair": b"\x00", "skin": b""})

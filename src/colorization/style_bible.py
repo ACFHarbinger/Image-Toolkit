@@ -10,7 +10,10 @@ from pathlib import Path, PurePosixPath
 from tempfile import NamedTemporaryFile
 from typing import Any
 
-STYLE_BIBLE_SCHEMA_VERSION = 1
+STYLE_BIBLE_SCHEMA_VERSION = 2
+REFERENCE_VIEW_TYPES = frozenset(
+    {"front", "profile", "three-quarter", "expression", "costume-detail", "other"}
+)
 _IDENTIFIER = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 _COLOR = re.compile(r"^#[0-9A-F]{6}$")
 
@@ -52,6 +55,7 @@ class ReferenceView:
     label: str
     asset_path: str
     notes: str | None = None
+    view_type: str = "other"
 
     def __post_init__(self) -> None:
         _validate_identifier(self.id, "reference view")
@@ -67,6 +71,8 @@ class ReferenceView:
             raise ValueError("reference asset must be a safe project-relative POSIX path")
         if self.notes is not None and not self.notes.strip():
             raise ValueError("reference notes must be absent or non-empty")
+        if self.view_type not in REFERENCE_VIEW_TYPES:
+            raise ValueError("reference view type is not supported")
 
 
 @dataclass(slots=True)
@@ -105,6 +111,7 @@ class CharacterStyleBible:
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> CharacterStyleBible:
+        payload = migrate_style_bible_payload(payload)
         allowed = {
             "id",
             "character_name",
@@ -134,12 +141,32 @@ class CharacterStyleBible:
                     ReferenceView(**item) for item in payload.get("reference_views", [])
                 ],
                 recovery_revisions=payload.get("recovery_revisions", 10),
-                schema_version=payload.get("schema_version", 0),
+                schema_version=payload["schema_version"],
             )
         except (KeyError, TypeError) as error:
             raise ValueError("style-bible payload is incomplete or malformed") from error
         bible.validate()
         return bible
+
+
+def migrate_style_bible_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    """Return a schema-v2 copy, upgrading the supported v1 representation."""
+    if not isinstance(payload, dict):
+        raise ValueError("style-bible payload must be an object")
+    version = payload.get("schema_version", 0)
+    if version == STYLE_BIBLE_SCHEMA_VERSION:
+        return dict(payload)
+    if version != 1:
+        raise ValueError(f"unsupported style-bible schema version: {version}")
+    migrated = dict(payload)
+    references = payload.get("reference_views", [])
+    if not isinstance(references, list) or any(not isinstance(item, dict) for item in references):
+        raise ValueError("style-bible payload is incomplete or malformed")
+    migrated["reference_views"] = [
+        dict(item, view_type=item.get("view_type", "other")) for item in references
+    ]
+    migrated["schema_version"] = STYLE_BIBLE_SCHEMA_VERSION
+    return migrated
 
 
 def save_style_bible(path: str | Path, bible: CharacterStyleBible) -> Path:

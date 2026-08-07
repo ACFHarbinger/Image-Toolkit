@@ -1,6 +1,6 @@
 # Character style-bible format
 
-The version-1 style bible is a standalone JSON document for deterministic,
+The version-2 style bible is a standalone JSON document for deterministic,
 offline character-color consistency. It is intentionally independent of Krita,
 the current Python solvers, and any future C++ or ML engine.
 
@@ -20,7 +20,9 @@ Each bible contains:
 - unique human aliases resolving to exactly one canonical material;
 - uppercase `#RRGGBB` sRGB local, light, and shadow colors plus an optional
   accent;
-- zero or more artist-labelled reference views using safe relative POSIX paths;
+- zero or more artist-labelled reference views using safe relative POSIX paths
+  and a controlled `front`, `profile`, `three-quarter`, `expression`,
+  `costume-detail`, or `other` view type;
 - a bounded recovery count, defaulting to ten.
 
 The manifest stores no pixels, embeddings, inferred identity, segmentation,
@@ -33,9 +35,10 @@ replacement, the previous valid bible rotates into `.recovery/`. Readers reject
 unknown schema versions, unknown root fields, malformed colors, ambiguous
 aliases, duplicate identities, and unsafe reference paths rather than guessing.
 
-Version 1 has no legacy migration because no earlier style-bible format was
-released. Every future writable version must add a deterministic migration and
-retain future-version refusal.
+Version 2 deterministically migrates version-1 references to the conservative
+`other` view type; it does not infer metadata from filenames. Every future
+writable version must add a deterministic migration and retain future-version
+refusal.
 
 Portable project schema v9 binds bibles through an ordered safe-relative asset
 list. Binding validates the bible and referenced views in place; it does not copy
@@ -46,5 +49,9 @@ The Character Colors Krita adapter copies external references into
 `references/<sanitized-stem>-<sha256-prefix>.<ext>` using an atomic write. An
 identical source is idempotent. Semantic masks live under `Material Masks` and
 use `Material — <canonical-id>` names; alpha is the region definition. Palette
-previews are separate layers, so neither the mask nor source artwork is recolored
-until the artist explicitly accepts the proposed layer.
+previews are locked layers under `Character Colors`. Preview is blocked when the
+active mask overlaps another semantic mask, with conflict pixel counts shown to
+the artist instead of silently resolving ambiguity by layer order. Accepting
+renames the preview to `Color — <canonical-id> — <role>` and unlocks that
+separate editable layer; rejecting removes it. Neither action recolors the mask
+or source artwork.
