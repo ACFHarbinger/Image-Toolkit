@@ -2,6 +2,10 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S338 — 2026-08-07 (Krita A2 follow-up ready for deferred review)
+
+Completed Cel-Shaded-Generator issue #11's automated implementation (`6c41577`): Review/Accept/Reject shortcuts are explicitly opt-in, valid, unique, atomically persisted, and preserve engine configuration; old Qt bindings are replaced on reconfiguration. A failed manifest decision save retains a same-action retry state and blocks the opposite action, preventing silent reconciliation drift. Accept retains only a locked tutor reference and never applies pixels to artist artwork. Verification: 201 tests, Ruff and mypy clean. With Krita confirmed closed, deployed the combined #10/#11 candidate and an engine configuration containing no default shortcuts. #10 remains In Review; #11 moves to In Review with a deferred pass/fail checklist.
+
 ## S337 — 2026-08-07 (Portable Krita exercise binding)
 
 Advanced Cel-Shaded-Generator issue #11 (`ce5bf74`) with the approved portable binding. Krita saves the active document as `artwork/attempt-001.kra` inside an explicitly selected empty directory; the engine atomically creates root `project.json`, then appends privacy-safe reviews and final decisions to the stable attempt with bounded recovery rotation. The active document is distinct from opt-in historical artwork retention. Unsafe relative paths, unrelated/non-empty directories, existing manifests, missing/ambiguous attempts, and duplicate reviews are refused. Verification: 199 tests, Ruff and mypy clean. #10 remains frozen in deferred Review; #11 stays In Progress for shortcut configuration and undo/reconciliation evidence, and is not deployed yet.
