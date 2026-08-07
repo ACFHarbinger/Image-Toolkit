@@ -33,6 +33,19 @@ def format_progress(snapshot, show_raw_measurements=True):
                 + ": "
                 + rubric["suggestion_decision"]
             )
+        next_stage = dashboard.get("next_stage")
+        if next_stage is not None:
+            lines.append(
+                "Next capstone review: "
+                + next_stage["stage_id"].replace("_", " ")
+                + " on “"
+                + next_stage["layer_name"]
+                + "” ("
+                + next_stage["status"].replace("_", " ")
+                + ")"
+            )
+        elif dashboard.get("ready_for_manual_completion"):
+            lines.append("All capstone rubrics are collected; completion remains manual.")
     recommended = snapshot.get("recommended_exercise_id")
     if recommended:
         lines.append("Recommended next: " + recommended.replace("-", " "))

@@ -136,6 +136,8 @@ def test_capstone_requires_rationale_and_dashboard_retains_rubrics(tmp_path):
         "cel-values",
     }
     assert dashboard["rubrics"][1]["measurements"] == {"rubric_consistency": 0.8}
+    assert dashboard["next_stage"]["stage_id"] == "front_structure"
+    assert dashboard["ready_for_manual_completion"] is False
 
 
 def test_records_advice_feedback_with_idempotent_retry_and_recovery(tmp_path):
@@ -260,15 +262,18 @@ def test_progress_snapshot_and_explicit_clear_disable_policy(tmp_path):
             "note_character_limit": 2000,
         },
         "identity_card_policy": {"retain_revision_history": False},
-            "identity_card": None,
-            "exercises": [],
-            "capstone_dashboard": {
-                "attempt_count": 0,
-                "review_count": 0,
-                "pending_decision_count": 0,
-                "rubrics": [],
-            },
-        }
+        "identity_card": None,
+        "exercises": [],
+        "capstone_dashboard": {
+            "attempt_count": 0,
+            "review_count": 0,
+            "pending_decision_count": 0,
+            "rubrics": [],
+            "collection_stages": [],
+            "next_stage": None,
+            "ready_for_manual_completion": False,
+        },
+    }
     assert configure_progress_retention(tmp_path, enabled=True)
     assert not configure_progress_retention(tmp_path, enabled=True)
 

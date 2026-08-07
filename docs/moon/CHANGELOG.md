@@ -23,6 +23,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   form/cast and turned form/cast. The reviewer retains category-specific scalar
   measurements and derives combined shadow-family readability/consistency.
   Empty form masks are rejected as incomplete; empty cast masks are valid.
+- Added a resumable capstone collection plan to the rubric-preserving progress
+  dashboard. It tracks front structure, turned structure, identity retention,
+  expression/asymmetry, and cel-value grouping as missing, pending-decision, or
+  complete; names the exact capstone layer for the next review; and only reports
+  readiness for the artist's manual completion after every rubric is resolved.
 - Added identity-retention correction previews to the selected front/turned
   character-variation review. Failed cranial, feature-span, ear-height,
   lower-face, and identity-card checks now produce provisional tutor-owned

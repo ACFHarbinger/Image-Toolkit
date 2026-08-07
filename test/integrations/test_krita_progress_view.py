@@ -95,9 +95,16 @@ def test_capstone_dashboard_preserves_each_rubric_and_pending_count():
                     "suggestion_decision": "pending",
                 },
             ],
+            "next_stage": {
+                "stage_id": "turned_structure",
+                "layer_name": "03 Right Three-Quarter Construction",
+                "status": "missing",
+            },
         }
     }
     rendered = _module().format_progress(snapshot)
     assert "Capstone: 2 reviews · 1 pending decisions" in rendered
     assert "construction @ 1: accepted" in rendered
     assert "cel-values @ 1: pending" in rendered
+    assert "Next capstone review: turned structure" in rendered
+    assert "03 Right Three-Quarter Construction" in rendered

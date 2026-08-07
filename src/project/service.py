@@ -22,6 +22,29 @@ from .model import (
 from .storage import MANIFEST_NAME, load_project, save_project
 
 FRONT_HEAD_EXERCISE_ID = "anime-head-front-construction"
+CAPSTONE_RUBRICS = (
+    ("front_structure", "02 Front Construction", "anime-head-front-structure"),
+    (
+        "turned_structure",
+        "03 Right Three-Quarter Construction",
+        "anime-head-orientation-structure",
+    ),
+    (
+        "identity_retention",
+        "03 Right Three-Quarter Construction",
+        "anime-head-variation-selected_turned",
+    ),
+    (
+        "expression_asymmetry",
+        "04 Expression Asymmetry and Value Pass",
+        "anime-head-asymmetry-expression",
+    ),
+    (
+        "cel_value_grouping",
+        "04 Expression Asymmetry and Value Pass",
+        "anime-head-cel-value-mask",
+    ),
+)
 
 
 def create_exercise_project(
@@ -190,6 +213,28 @@ def _capstone_dashboard(project: Project) -> dict:
     latest_by_rubric = {}
     for review in reviews:
         latest_by_rubric[(review.rubric_id, review.rubric_version)] = review
+    stages = []
+    for stage_id, layer_name, rubric_id in CAPSTONE_RUBRICS if attempts else ():
+        matching = [review for review in reviews if review.rubric_id == rubric_id]
+        latest = matching[-1] if matching else None
+        stages.append(
+            {
+                "stage_id": stage_id,
+                "layer_name": layer_name,
+                "rubric_id": rubric_id,
+                "status": (
+                    "missing"
+                    if latest is None
+                    else (
+                        "pending_decision"
+                        if latest.suggestion_decision is SuggestionDecision.PENDING
+                        else "complete"
+                    )
+                ),
+                "review_id": latest.id if latest is not None else None,
+            }
+        )
+    next_stage = next((stage for stage in stages if stage["status"] != "complete"), None)
     return {
         "attempt_count": len(attempts),
         "review_count": len(reviews),
@@ -207,6 +252,10 @@ def _capstone_dashboard(project: Project) -> dict:
             }
             for _, review in sorted(latest_by_rubric.items())
         ],
+        "collection_stages": stages,
+        "next_stage": next_stage,
+        "ready_for_manual_completion": bool(stages)
+        and all(stage["status"] == "complete" for stage in stages),
     }
 
 

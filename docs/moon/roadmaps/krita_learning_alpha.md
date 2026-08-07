@@ -263,7 +263,11 @@ remain deferred in Review.
   deferred capstone suggestion. The existing progress view aggregates capstone
   attempt/review/pending counts while retaining each latest rubric, version,
   measurement set, decision, and rationale; it deliberately has no overall
-  artist score. Live host confirmation remains.
+  artist score. A resumable collection plan now covers front structure, turned
+  structure, identity retention, expression/asymmetry, and cel-value grouping,
+  identifies missing versus pending-decision evidence, and names the next exact
+  capstone layer. It never marks the exercise complete. Direct one-action host
+  collection and live confirmation remain.
 - 🔄 Head-orientation exercise template: the docker creates a 2600 × 1600
   landscape rotation sheet with five labeled work areas and separate layers for
   left profile, left three-quarter, front, right three-quarter, and right
