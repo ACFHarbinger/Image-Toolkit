@@ -5,10 +5,11 @@ from __future__ import annotations
 from copy import deepcopy
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
+from enum import StrEnum
 from typing import Any
 from uuid import uuid4
 
-CURRENT_SCHEMA_VERSION = 1
+CURRENT_SCHEMA_VERSION = 2
 
 
 def migrate_project_payload(payload: dict[str, Any]) -> dict[str, Any]:
@@ -22,18 +23,22 @@ def migrate_project_payload(payload: dict[str, Any]) -> dict[str, Any]:
     version = migrated.get("schema_version", 0)
     if version == CURRENT_SCHEMA_VERSION:
         return migrated
-    if version != 0:
+    if version not in (0, 1):
         raise ValueError(f"unsupported project schema version: {version}")
-    migrated["schema_version"] = 1
-    migrated["consent"] = {
-        "retain_artwork_in_history": migrated.pop("keep_artwork_history", False),
-        "contribute_to_global_profile": False,
-    }
-    migrated["autosave"] = {
-        "enabled": True,
-        "recovery_revisions": migrated.pop("recovery_revisions", 10),
-    }
-    migrated["progress"] = {"exercises": migrated.pop("exercises", [])}
+    if version == 0:
+        migrated["consent"] = {
+            "retain_artwork_in_history": migrated.pop("keep_artwork_history", False),
+            "contribute_to_global_profile": False,
+        }
+        migrated["autosave"] = {
+            "enabled": True,
+            "recovery_revisions": migrated.pop("recovery_revisions", 10),
+        }
+        migrated["progress"] = {"exercises": migrated.pop("exercises", [])}
+    for exercise in migrated.get("progress", {}).get("exercises", []):
+        for attempt in exercise.get("attempts", []):
+            attempt.setdefault("reviews", [])
+    migrated["schema_version"] = CURRENT_SCHEMA_VERSION
     return migrated
 
 
@@ -75,6 +80,64 @@ class Feedback:
     redline_asset: str | None = None
 
 
+class SuggestionDecision(StrEnum):
+    PENDING = "pending"
+    ACCEPTED = "accepted"
+    REJECTED = "rejected"
+
+
+@dataclass(slots=True)
+class ReviewRecord:
+    """Privacy-safe review result persisted without artwork pixels."""
+
+    id: str
+    exercise_version: str
+    method_id: str
+    rubric_id: str
+    rubric_version: str
+    measurements: dict[str, float]
+    explanations: list[str]
+    suggestion_decision: SuggestionDecision = SuggestionDecision.PENDING
+
+    def __post_init__(self) -> None:
+        for label, value in (
+            ("review id", self.id),
+            ("exercise version", self.exercise_version),
+            ("method id", self.method_id),
+            ("rubric id", self.rubric_id),
+            ("rubric version", self.rubric_version),
+        ):
+            if not value.strip():
+                raise ValueError(f"{label} must not be empty")
+        if not all(isinstance(value, (int, float)) for value in self.measurements.values()):
+            raise ValueError("review measurements must be numeric")
+
+    @classmethod
+    def from_review_payload(cls, payload: dict[str, Any]) -> ReviewRecord:
+        """Extract only privacy-safe fields from an engine review response."""
+        try:
+            return cls(
+                id=payload["id"],
+                exercise_version=payload["exercise_version"],
+                method_id=payload["method_id"],
+                rubric_id=payload["rubric_id"],
+                rubric_version=payload["rubric_version"],
+                measurements=dict(payload.get("measurements", {})),
+                explanations=list(payload.get("explanations", [])),
+            )
+        except (KeyError, TypeError) as error:
+            raise ValueError("review payload is incomplete") from error
+
+    def decide(self, decision: SuggestionDecision) -> bool:
+        """Finalize a pending decision; repeated identical decisions are idempotent."""
+        if self.suggestion_decision is decision:
+            return False
+        if self.suggestion_decision is not SuggestionDecision.PENDING:
+            raise ValueError("a finalized suggestion decision cannot be changed")
+        self.suggestion_decision = decision
+        return True
+
+
 @dataclass(slots=True)
 class Attempt:
     """One completed or in-progress exercise attempt."""
@@ -85,6 +148,7 @@ class Attempt:
     completed_at: str | None = None
     metrics: dict[str, float] = field(default_factory=dict)
     feedback: list[Feedback] = field(default_factory=list)
+    reviews: list[ReviewRecord] = field(default_factory=list)
     artwork_asset: str | None = None
 
 
@@ -134,6 +198,11 @@ class Project:
                         item.redline_asset for item in attempt.feedback
                     ):
                         raise ValueError("artwork history requires explicit retention consent")
+        for exercise in self.progress.exercises:
+            for attempt in exercise.attempts:
+                review_ids = [review.id for review in attempt.reviews]
+                if len(review_ids) != len(set(review_ids)):
+                    raise ValueError("review identifiers must be unique within an attempt")
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> Project:
@@ -149,7 +218,22 @@ class Project:
             attempts = []
             for raw_attempt in raw_exercise.get("attempts", []):
                 feedback = [Feedback(**item) for item in raw_attempt.get("feedback", [])]
-                attempts.append(Attempt(**(raw_attempt | {"feedback": feedback})))
+                reviews = [
+                    ReviewRecord(
+                        **(
+                            item
+                            | {
+                                "suggestion_decision": SuggestionDecision(
+                                    item.get("suggestion_decision", "pending")
+                                )
+                            }
+                        )
+                    )
+                    for item in raw_attempt.get("reviews", [])
+                ]
+                attempts.append(
+                    Attempt(**(raw_attempt | {"feedback": feedback, "reviews": reviews}))
+                )
             exercises.append(ExerciseProgress(raw_exercise["exercise_id"], attempts))
         project = cls(
             title=payload["title"],
@@ -182,6 +266,8 @@ class LearnerProfile:
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> LearnerProfile:
         """Validate and deserialize a learner profile."""
+        if payload.get("schema_version") == 1:
+            payload = payload | {"schema_version": CURRENT_SCHEMA_VERSION}
         profile = cls(**payload)
         profile.to_dict()
         return profile

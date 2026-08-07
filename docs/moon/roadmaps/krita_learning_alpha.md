@@ -150,7 +150,10 @@ not evidence of pedagogical validity.
   accept it as a locked reference or reject only the owned preview; no shortcut
   is assigned by default because Tab belongs to Krita. Persistence, shortcut
   configuration, undo semantics, and live verification remain in issue #11.
-- Save, reload, migration, and failure recovery tests.
+- 🔄 Save, reload, migration, and failure recovery: portable schema v2 persists
+  privacy-safe review versions, measurements, explanations, and final decisions
+  with deterministic v0/v1 migration and recovery coverage. Krita project-folder
+  binding remains.
 
 ### A3 — curriculum and adaptive remediation
 

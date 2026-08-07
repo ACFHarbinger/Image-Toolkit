@@ -15,6 +15,8 @@ from cel_shaded_generator.project import (
     LearnerProfile,
     Project,
     ProjectProgress,
+    ReviewRecord,
+    SuggestionDecision,
     load_profile,
     load_project,
     migrate_project_payload,
@@ -44,6 +46,18 @@ def test_head_face_attempt_round_trips(tmp_path):
                                     redline_asset="assets/review-1.png",
                                 )
                             ],
+                            reviews=[
+                                ReviewRecord(
+                                    id="review-1",
+                                    exercise_version="1.0.0",
+                                    method_id="anime-head-construction-v1",
+                                    rubric_id="anime-head-front-structure",
+                                    rubric_version="1.0.0",
+                                    measurements={"jaw_symmetry": 0.78},
+                                    explanations=["Compare the large jaw widths."],
+                                    suggestion_decision=SuggestionDecision.ACCEPTED,
+                                )
+                            ],
                             artwork_asset="assets/attempt-1.kra",
                         )
                     ],
@@ -55,6 +69,57 @@ def test_head_face_attempt_round_trips(tmp_path):
     save_project(tmp_path, project)
 
     assert load_project(tmp_path) == project
+
+
+def test_review_decision_is_idempotent_and_cannot_be_reversed():
+    review = ReviewRecord("r", "1", "method", "rubric", "1", {}, [])
+    assert review.decide(SuggestionDecision.REJECTED)
+    assert not review.decide(SuggestionDecision.REJECTED)
+    with pytest.raises(ValueError, match="cannot be changed"):
+        review.decide(SuggestionDecision.ACCEPTED)
+
+
+def test_review_payload_excludes_redline_geometry_and_suggestions():
+    review = ReviewRecord.from_review_payload(
+        {
+            "id": "r",
+            "exercise_version": "1",
+            "method_id": "method",
+            "rubric_id": "rubric",
+            "rubric_version": "1",
+            "measurements": {"axis": 0.8},
+            "explanations": ["Straighten the guide."],
+            "redlines": [{"geometry": [[0, 0], [1, 1]]}],
+            "suggestions": [{"preview_layer_name": "preview"}],
+        }
+    )
+    assert review.measurements == {"axis": 0.8}
+    assert not hasattr(review, "redlines")
+    assert not hasattr(review, "suggestions")
+
+
+def test_review_decision_save_has_recoverable_pending_revision(tmp_path):
+    review = ReviewRecord("r", "1", "method", "rubric", "1", {}, ["Try again."])
+    attempt = Attempt("head", reviews=[review])
+    project = Project(
+        title="Review recovery",
+        progress=ProjectProgress([ExerciseProgress("head", [attempt])]),
+    )
+    save_project(tmp_path, project)
+    review.decide(SuggestionDecision.ACCEPTED)
+    save_project(tmp_path, project)
+
+    assert (
+        load_project(tmp_path).progress.exercises[0].attempts[0].reviews[0].suggestion_decision
+        is SuggestionDecision.ACCEPTED
+    )
+    recovered = Project.from_dict(
+        json.loads((tmp_path / ".recovery/project.1.json").read_text(encoding="utf-8"))
+    )
+    assert (
+        recovered.progress.exercises[0].attempts[0].reviews[0].suggestion_decision
+        is SuggestionDecision.PENDING
+    )
 
 
 def test_privacy_defaults_reject_artwork_history():
@@ -141,6 +206,23 @@ def test_legacy_migration_is_deterministic_and_privacy_preserving():
     }
     assert Project.from_dict(first).autosave.recovery_revisions == 5
     assert legacy["schema_version"] == 0
+
+
+def test_version_one_migration_adds_review_records_without_artwork(tmp_path):
+    payload = Project(title="Version one").to_dict()
+    payload["schema_version"] = 1
+    payload["progress"] = {
+        "exercises": [
+            {
+                "exercise_id": "head",
+                "attempts": [{"exercise_id": "head", "id": "a", "started_at": "time"}],
+            }
+        ]
+    }
+    migrated = migrate_project_payload(payload)
+    assert migrated["schema_version"] == 2
+    assert migrated["progress"]["exercises"][0]["attempts"][0]["reviews"] == []
+    assert migrate_project_payload(payload) == migrated
 
 
 def test_global_profile_is_a_separate_opt_in_file(tmp_path):

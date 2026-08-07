@@ -5,7 +5,7 @@ truth is `project.json`; artwork and redline files are relative assets beside
 it. An application-managed index may make projects searchable later, but it
 must always be rebuildable and is never authoritative.
 
-Schema version 1 separates three concerns:
+Schema version 2 separates three concerns:
 
 - project identity, user-selected autosave policy, and privacy consent;
 - project-local exercises, attempts, feedback, and metrics, which travel with
@@ -17,6 +17,13 @@ Artwork paths in attempt history and feedback redlines are rejected unless the
 project explicitly enables artwork-history retention. Contribution to the
 global profile is independently opt-in and defaults off.
 
+Each attempt may contain privacy-safe review records: stable review and method
+versions, rubric identity/version, numeric measurements, explanations, and one
+`pending`, `accepted`, or `rejected` suggestion decision. Redline geometry,
+preview-layer metadata, and pixels are intentionally not copied into the
+manifest. Decisions are final after acceptance/rejection and repeated identical
+actions are idempotent. Review identifiers must be unique within an attempt.
+
 Writes use a temporary file in the destination directory, flush it to disk,
 then atomically replace the manifest. Autosave defaults to ten recoverable
 manifest revisions under `.recovery/`; users may change the bound or disable
@@ -24,8 +31,9 @@ autosave. Binary asset versioning will be added with the drawing-document
 integration and should use content-addressed or copy-on-write storage rather
 than duplicating large files for every manifest snapshot.
 
-Readers reject unknown schema versions. The pre-release version-0 manifest has
-an explicit deterministic migration to version 1 whose defaults preserve
-privacy. Every future version must likewise add a tested migration before it
-becomes writable; opening a newer version with older software never rewrites or
-downgrades it.
+Readers reject unknown schema versions. The pre-release version-0 manifest and
+version-1 project format have explicit deterministic migrations to version 2;
+both preserve privacy and add empty review collections. Version-1 learner
+profiles migrate without inventing aggregate data. Every future version must
+likewise add a tested migration before it becomes writable; opening a newer
+version with older software never rewrites or downgrades it.

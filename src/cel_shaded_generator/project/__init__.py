@@ -10,6 +10,8 @@ from .model import (
     LearnerProfile,
     Project,
     ProjectProgress,
+    ReviewRecord,
+    SuggestionDecision,
     migrate_project_payload,
 )
 from .storage import load_profile, load_project, save_profile, save_project
@@ -24,6 +26,8 @@ __all__ = [
     "LearnerProfile",
     "Project",
     "ProjectProgress",
+    "ReviewRecord",
+    "SuggestionDecision",
     "migrate_project_payload",
     "load_profile",
     "load_project",

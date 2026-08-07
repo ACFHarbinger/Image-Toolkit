@@ -20,6 +20,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and refuses unrelated layers. The default accept shortcut is now unassigned
   rather than stealing Krita's Tab canvas-only action. Persistence, configurable
   shortcuts, and verified undo behavior remain.
+  Added portable project schema v2 review records containing only stable
+  identities/versions, numeric measurements, explanations, and a final
+  pending/accepted/rejected decision. Engine redline geometry, preview metadata,
+  and pixels are deliberately excluded. Deterministic v0/v1 migrations add
+  empty review lists, repeated identical decisions are idempotent, reversals and
+  duplicate review IDs are rejected, and recovery tests retain the prior pending
+  revision. Krita project-folder binding remains.
 - Started A2 issue #10 by replacing the placeholder lesson with a five-stage,
   locally packaged beginner sequence covering cranial mass, centerline,
   eye-line, jaw/chin construction, structural checking, completion criteria,
