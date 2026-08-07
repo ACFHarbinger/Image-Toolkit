@@ -174,3 +174,6 @@ class SegmentationDocker(DockWidget):
             self._status.setText("Krita returned an unexpected line-art buffer.")
             return None
         return bytes(1 if raw[index * 4 + 3] > 0 else 0 for index in range(width * height))
+
+    def canvasChanged(self, canvas) -> None:  # noqa: N802
+        """Krita callback; this docker does not inspect the canvas."""

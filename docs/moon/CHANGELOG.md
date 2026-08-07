@@ -17,6 +17,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   architecture documentation. The independent Krita plugin identifier remains
   `cel_shaded_generator` for host compatibility.
 
+### Fixed
+
+- **Live-discovered bug (issues #17/#18/#19):** the Character Colors and Line
+  Art Segmentation Dockers failed to load in Krita at all —
+  `NotImplementedError: DockWidget.canvasChanged() is abstract and must be
+  overridden`. Krita's PyKrita binding requires every `DockWidget` subclass
+  to override `canvasChanged()`; both new Dockers were missing the same
+  no-op override the original tutor Docker already had, so only the tutor
+  Docker appeared in Settings → Dockers. Added the missing override to both.
+  Also added a headless regression test
+  (`test_krita_docker_canvas_changed.py`) that imports every Docker module
+  against a minimal stub `krita`/`PyQt5` and asserts each `DockWidget`
+  subclass defines `canvasChanged` in its own class body — verified it fails
+  without the fix and passes with it, closing the gap that let this ship
+  undetected (only the Dockers' pure-Python helper modules had headless
+  tests before). Also added an `install.py` refuses-to-overwrite discovery:
+  reinstalling after pulling submodule updates requires explicit
+  uninstall + install, documented via new `just krita-install` /
+  `krita-uninstall` / `krita-reinstall` recipes in the parent Image-Toolkit
+  repo. Verification: 391 tests pass; Ruff and core mypy are clean.
+
 ### Added
 
 - Opened A4-prep issue #20: a versioned consented study-session schema for

@@ -20,14 +20,23 @@ uv run python integrations/krita/install.py install \
 
 Restart Krita, enable **Cel-Shaded Learning Tutor** under
 **Settings → Configure Krita → Python Plugin Manager**, restart if requested,
-then show it through **Settings → Dockers → Cel-Shaded Learning Tutor**. Krita
-places it on the right initially; it remains freely dockable.
+then show it through **Settings → Dockers**, where it now also lists
+**Character Colors** and **Line Art Segmentation**. Krita places dockers on
+the right initially; they remain freely dockable.
 
 Remove only this plugin with:
 
 ```bash
 uv run python integrations/krita/install.py uninstall
 ```
+
+`install` refuses to overwrite an existing installation, so it never
+auto-updates: after pulling submodule changes, reinstall explicitly
+(uninstall, then install again) or the live plugin stays frozen at whatever
+state it was last installed at — including missing entire Dockers added
+since. From the parent Image-Toolkit repo root this is one command:
+`just krita-reinstall` (see `justfile` there for `krita-install`/
+`krita-uninstall` too).
 
 The default target is `~/.local/share/krita/pykrita`. Use `--root PATH` only for
 a different verified Krita user-data directory.

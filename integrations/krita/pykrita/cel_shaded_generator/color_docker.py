@@ -645,3 +645,6 @@ class CharacterColorsDocker(DockWidget):
                 buffers.append(raw[3::4])
             buffers.extend(CharacterColorsDocker._mask_buffers(node, material_id, width, height))
         return buffers
+
+    def canvasChanged(self, canvas) -> None:  # noqa: N802
+        """Krita callback; this docker does not inspect the canvas."""
