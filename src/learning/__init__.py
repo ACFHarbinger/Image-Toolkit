@@ -41,6 +41,7 @@ from .model_package import (
     ValidatedModelPackage,
     validate_model_package,
 )
+from .progress import FeedbackSummary, ProgressSummary, summarize_progress
 from .storage import load_catalog, save_catalog
 
 __all__ = [
@@ -57,6 +58,7 @@ __all__ = [
     "Evidence",
     "EvidenceSource",
     "Exercise",
+    "FeedbackSummary",
     "FrontHeadLandmarks",
     "FrontHeadReviewThresholds",
     "Lesson",
@@ -66,6 +68,7 @@ __all__ = [
     "ModelPackageLimits",
     "ModelPackageManifest",
     "ModelTrust",
+    "ProgressSummary",
     "Redline",
     "RemediationRecommendation",
     "RemediationRule",
@@ -81,6 +84,7 @@ __all__ = [
     "next_primary_exercise",
     "recommend_remediation",
     "save_catalog",
+    "summarize_progress",
     "validate_model_package",
     "review_front_head",
 ]

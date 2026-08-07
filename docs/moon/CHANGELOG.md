@@ -27,7 +27,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   failure, ties have stable priority, and repeated attempts are compared only
   across identical exercise/method/rubric versions. The comparison reports
   per-dimension improvement, no change, or decline without a global artist
-  score or ranking.
+  score or ranking. Added a private progress-summary contract exposing attempts,
+  retries, comparable changes, and deliberately skipped incompatible pairs.
+  Advice feedback is counted as helpful, unhelpful, incorrect, not applicable,
+  or unrated; contradictory classifications, duplicate reports, and references
+  to unknown reviews are rejected rather than silently normalized.
 - Opened A3 issue #12 at In Progress P0/XL for versioned curriculum progression,
   deterministic weakness-to-remediation routing, comparable repeated-attempt
   metrics, and a private local progress view while A2 issues #10/#11 remain in

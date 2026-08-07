@@ -175,9 +175,13 @@ remain deferred in Review.
   explicit treatment of missing evidence as unknown rather than failure.
 - 🔄 Progress dashboard comparing attempts without ranking the artist globally:
   the core now reports improved, unchanged, and declined dimensions only for
-  matching exercise, method, and rubric versions. Project persistence and the
-  local UI remain.
-- Feedback reporting for incorrect or unhelpful advice.
+  matching exercise, method, and rubric versions. It also reports retry count,
+  unrated advice, and the number of incompatible pairs it intentionally skipped.
+  Project persistence and the local UI remain.
+- 🔄 Feedback reporting for incorrect or unhelpful advice: the private summary
+  distinguishes helpful, unhelpful, incorrect, not-applicable, and unrated
+  reviews, rejects contradictory classifications, and creates no aggregate
+  artist score. Persistence and the Krita controls remain.
 
 ### A4 — evaluator assistance and alpha study
 
