@@ -2,6 +2,10 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S355 — 2026-08-07 (Architecture improvements: PipelineTrace and ModelWrapper ABC)
+
+Implemented §5.4B `PipelineTrace` JSON logging for the `AnimeStitchPipeline` in `backend/src/animation/core/pipeline/trace.py` with full serialization, duration, and error capture tested. Fixed §5.8A by making `ModelWrapper` inherit from `ABC` in `backend/src/models/core/base.py`. Both changes verified via `pytest` and marked complete in architecture documentation and roadmaps.
+
 ## S354 — 2026-08-07 (Asymmetry previews, identity cards, complete curriculum)
 
 Advanced Cel-Shaded-Generator A3 issue #12 with control-derived reversible

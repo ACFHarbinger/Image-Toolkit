@@ -29,7 +29,7 @@ import functools
 import gc
 import logging
 import weakref
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 from typing import List, Optional
 from backend.src.constants.models import _F
 
@@ -46,7 +46,7 @@ def lazy_load(method: _F) -> _F:
     return _wrapper  # type: ignore[return-value]
 
 
-class ModelWrapper:
+class ModelWrapper(ABC):
     """
     Abstract base class for PyTorch model wrappers.
 
