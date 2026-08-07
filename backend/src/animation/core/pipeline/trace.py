@@ -19,15 +19,17 @@ class PipelineTrace:
     started_at: str
     stages: List[StageEntry] = field(default_factory=list)
 
+    def __post_init__(self):
+        self._stage_starts = {}
+
     def begin_stage(self, index: int, name: str) -> None:
-        # We store the start time but we don't calculate duration until end_stage
-        # So we can keep a temporary record of start times if needed, or simply
-        # append a StageEntry with dummy duration/status that will be updated.
-        now = datetime.utcnow().isoformat() + "Z"
+        now_dt = datetime.utcnow()
+        self._stage_starts[index] = now_dt
+        now_str = now_dt.isoformat() + "Z"
         entry = StageEntry(
             stage_index=index,
             stage_name=name,
-            started_at=now,
+            started_at=now_str,
             duration_ms=0.0,
             status="skipped", # Will be updated
             error=None
@@ -39,11 +41,10 @@ class PipelineTrace:
         for entry in reversed(self.stages):
             if entry.stage_index == index:
                 now = datetime.utcnow()
-                # Parse started_at
-                try:
-                    start_time = datetime.fromisoformat(entry.started_at.replace("Z", ""))
+                start_time = self._stage_starts.get(index)
+                if start_time:
                     delta = (now - start_time).total_seconds() * 1000
-                except ValueError:
+                else:
                     delta = 0.0
 
                 entry.duration_ms = delta
