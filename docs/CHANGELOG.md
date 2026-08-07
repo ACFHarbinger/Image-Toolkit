@@ -2,6 +2,10 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S357 — 2026-08-07 (ASP Phase 6.3 bundled samples)
+
+Implemented ASP Phase 6.3 bundled synthetic sample projects (`test_scroll_gradient`, `test_scroll_pattern`) for the HybridStitch onboarding wizard. Provides non-explicit, simple test sequences to learn the tool. Integrated the samples directly into the onboarding wizard and documented them.
+
 ## S356 — 2026-08-07 (GUI Quick Wins: Floating Toast and Metadata Overlay)
 
 Implemented §2.10A Floating Toast Notification Widget in `gui/src/components/widgets/toast_widget.py`, allowing queued, non-blocking toast notifications in `MainWindow`. Integrated it with the global `show_toast_notification` helper. Also implemented §2.14B Thumbnail Hover Metadata Overlay in `gui/src/components/labels/metadata_overlay.py` with integration into both `ClickableLabel` and `DraggableLabel` to show basename, image dimensions, and file size on hover. Added comprehensive test coverage for both widgets.
