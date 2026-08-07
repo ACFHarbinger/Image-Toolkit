@@ -2,6 +2,18 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S350 — 2026-08-07 (Eye-placement lesson, template, and critique)
+
+Advanced Cel-Shaded-Generator A3 issue #12 with a fully authored beginner Eye
+Placement and Perspective lesson plus two original offline diagrams (`54c7626`).
+Its 2400 × 1600 Krita sheet separates front/turned structure and stylized
+expression into four named layers beneath a locked layout. A dedicated review
+path (`c9ce531`) binds only the confirmed active layer to a cropped 16-landmark
+session and separate structure or style/expression rubric. It reports auditable
+eye-line, spacing, projected-scale, lid-rhythm, and iris-exposure measurements;
+thresholds remain provisional and eye redlines are not yet claimed. Verification:
+265 tests, Ruff and mypy clean. A3 remains undeployed; A2 #10/#11 stay in Review.
+
 ## S349 — 2026-08-07 (Cranial/jaw design sheet and paired critique)
 
 Advanced Cel-Shaded-Generator A3 issue #12 (`79c6478`) with lesson three's
