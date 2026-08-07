@@ -10,7 +10,7 @@ from pathlib import PurePosixPath
 from typing import Any
 from uuid import uuid4
 
-CURRENT_SCHEMA_VERSION = 4
+CURRENT_SCHEMA_VERSION = 5
 
 
 def migrate_project_payload(payload: dict[str, Any]) -> dict[str, Any]:
@@ -24,7 +24,7 @@ def migrate_project_payload(payload: dict[str, Any]) -> dict[str, Any]:
     version = migrated.get("schema_version", 0)
     if version == CURRENT_SCHEMA_VERSION:
         return migrated
-    if version not in (0, 1, 2, 3):
+    if version not in (0, 1, 2, 3, 4):
         raise ValueError(f"unsupported project schema version: {version}")
     if version == 0:
         migrated["consent"] = {
@@ -49,6 +49,9 @@ def migrate_project_payload(payload: dict[str, Any]) -> dict[str, Any]:
         "feedback_policy",
         {"retain_revision_history": False, "note_character_limit": 2000},
     )
+    migrated.setdefault("identity_card_policy", {"retain_revision_history": False})
+    migrated.setdefault("identity_card", None)
+    migrated.setdefault("identity_card_history", [])
     migrated["schema_version"] = CURRENT_SCHEMA_VERSION
     return migrated
 
@@ -97,6 +100,52 @@ class FeedbackPolicy:
             or not 1 <= self.note_character_limit <= 100_000
         ):
             raise ValueError("feedback note limit must be between 1 and 100000 characters")
+
+
+@dataclass(slots=True)
+class IdentityCardPolicy:
+    """Project-local edit-history choice for the selected character specification."""
+
+    retain_revision_history: bool = False
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.retain_revision_history, bool):
+            raise ValueError("identity-card revision-history setting must be boolean")
+
+
+@dataclass(slots=True)
+class IdentityAnchor:
+    """One normalized structural relationship plus its artist-facing explanation."""
+
+    key: str
+    value: float
+    description: str
+
+    def __post_init__(self) -> None:
+        if not self.key.strip() or not self.description.strip():
+            raise ValueError("identity-anchor key and description must not be empty")
+        if not isinstance(self.value, (int, float)) or not 0 <= self.value <= 1:
+            raise ValueError("identity-anchor value must be normalized between zero and one")
+
+
+@dataclass(slots=True)
+class IdentityCard:
+    """Editable five-to-eight-anchor identity specification for one selected character."""
+
+    name: str
+    anchors: list[IdentityAnchor]
+    revision: int = 1
+
+    def __post_init__(self) -> None:
+        if not self.name.strip():
+            raise ValueError("identity-card name must not be empty")
+        if not 5 <= len(self.anchors) <= 8:
+            raise ValueError("identity card requires five to eight anchors")
+        keys = [anchor.key for anchor in self.anchors]
+        if len(keys) != len(set(keys)):
+            raise ValueError("identity-anchor keys must be unique")
+        if self.revision < 1:
+            raise ValueError("identity-card revision must be positive")
 
 
 @dataclass(slots=True)
@@ -255,6 +304,9 @@ class Project:
     consent: Consent = field(default_factory=Consent)
     autosave: AutosavePolicy = field(default_factory=AutosavePolicy)
     feedback_policy: FeedbackPolicy = field(default_factory=FeedbackPolicy)
+    identity_card_policy: IdentityCardPolicy = field(default_factory=IdentityCardPolicy)
+    identity_card: IdentityCard | None = None
+    identity_card_history: list[IdentityCard] = field(default_factory=list)
     progress: ProjectProgress = field(default_factory=ProjectProgress)
 
     def to_dict(self) -> dict[str, Any]:
@@ -281,6 +333,8 @@ class Project:
                         raise ValueError("artwork history requires explicit retention consent")
         if not self.consent.retain_learning_progress and self.progress.exercises:
             raise ValueError("learning progress retention is disabled for this project")
+        if not self.identity_card_policy.retain_revision_history and self.identity_card_history:
+            raise ValueError("identity-card history exists while revision retention is disabled")
         for exercise in self.progress.exercises:
             for attempt in exercise.attempts:
                 review_ids = [review.id for review in attempt.reviews]
@@ -314,6 +368,11 @@ class Project:
         consent = Consent(**payload.get("consent", {}))
         autosave = AutosavePolicy(**payload.get("autosave", {}))
         feedback_policy = FeedbackPolicy(**payload.get("feedback_policy", {}))
+        identity_card_policy = IdentityCardPolicy(**payload.get("identity_card_policy", {}))
+        identity_card = _identity_card_from_payload(payload.get("identity_card"))
+        identity_card_history = [
+            _identity_card_from_payload(item) for item in payload.get("identity_card_history", [])
+        ]
         exercises = []
         for raw_exercise in payload.get("progress", {}).get("exercises", []):
             attempts = []
@@ -363,10 +422,23 @@ class Project:
             consent=consent,
             autosave=autosave,
             feedback_policy=feedback_policy,
+            identity_card_policy=identity_card_policy,
+            identity_card=identity_card,
+            identity_card_history=[item for item in identity_card_history if item is not None],
             progress=ProjectProgress(exercises),
         )
         project.validate()
         return project
+
+
+def _identity_card_from_payload(payload):
+    if payload is None:
+        return None
+    return IdentityCard(
+        name=payload["name"],
+        anchors=[IdentityAnchor(**item) for item in payload["anchors"]],
+        revision=payload.get("revision", 1),
+    )
 
 
 @dataclass(slots=True)

@@ -46,6 +46,7 @@ from .redlines import (
 )
 from .settings import load_config, save_shortcuts, save_show_raw_measurements
 from .shortcut_dialog import ShortcutDialog
+from .variation_landmarks import VariationLandmarkCollector, selected_variation_stage
 
 
 class LearningDocker(DockWidget):
@@ -118,6 +119,11 @@ class LearningDocker(DockWidget):
         self._feedback_note_limit.setSuffix(" note characters")
         save_feedback_settings = QPushButton("Save Feedback Settings", container)
         save_feedback_settings.clicked.connect(self._save_feedback_policy)
+        self._identity_history = QCheckBox("Keep identity-card edit history", container)
+        edit_identity_card = QPushButton("Create / Edit Identity Card", container)
+        edit_identity_card.clicked.connect(self._edit_identity_card)
+        save_identity_policy = QPushButton("Save Identity Card History Setting", container)
+        save_identity_policy.clicked.connect(self._save_identity_card_policy)
         refresh_progress_button = QPushButton("Refresh Progress", container)
         refresh_progress_button.clicked.connect(self._refresh_progress)
         enable_progress_button = QPushButton("Enable Project Progress", container)
@@ -134,6 +140,9 @@ class LearningDocker(DockWidget):
         self._asymmetry_stage = None
         self._asymmetry_intent = None
         self._asymmetry_landmarks = {}
+        self._variation_stage = None
+        self._variation_landmarks = {}
+        self._identity_card = None
         self._pair_landmarks = {}
         self._preview_layer = None
         self._project_directory = None
@@ -178,6 +187,9 @@ class LearningDocker(DockWidget):
         layout.addWidget(self._feedback_history)
         layout.addWidget(self._feedback_note_limit)
         layout.addWidget(save_feedback_settings)
+        layout.addWidget(self._identity_history)
+        layout.addWidget(edit_identity_card)
+        layout.addWidget(save_identity_policy)
         layout.addWidget(refresh_progress_button)
         layout.addWidget(enable_progress_button)
         layout.addWidget(disable_progress_button)
@@ -204,6 +216,8 @@ class LearningDocker(DockWidget):
         self._asymmetry_stage = None
         self._asymmetry_intent = None
         self._asymmetry_landmarks = {}
+        self._variation_stage = None
+        self._variation_landmarks = {}
         self._pair_landmarks = {}
         self._lesson_title.setText(lesson["title"])
         self._lesson_body.setText(render_lesson_text(lesson))
@@ -303,6 +317,7 @@ class LearningDocker(DockWidget):
         self._feature_id = None
         self._asymmetry_stage = None
         self._asymmetry_intent = None
+        self._variation_stage = None
         if lesson["exercise_id"] == "anime-head-orientation":
             try:
                 view, crop_index = selected_orientation_view(document.activeNode())
@@ -413,6 +428,26 @@ class LearningDocker(DockWidget):
             self._orientation_crop_index = crop_index
             collector = AsymmetryLandmarkCollector()
             title = "Place Controlled-Asymmetry Comparison Landmarks"
+        elif lesson["exercise_id"] == "anime-head-variation":
+            try:
+                stage, crop_index = selected_variation_stage(document.activeNode())
+            except (AttributeError, ValueError) as error:
+                self._action_status.setText(f"Select one character-variation layer: {error}")
+                return
+            confirmation = QMessageBox.question(
+                self,
+                "Confirm Identity Study",
+                "Record only the active character-variation layer?",
+                QMessageBox.Yes | QMessageBox.Cancel,
+                QMessageBox.Cancel,
+            )
+            if confirmation != QMessageBox.Yes:
+                self._action_status.setText("Character-variation review cancelled.")
+                return
+            self._variation_stage = stage
+            self._orientation_crop_index = crop_index
+            collector = VariationLandmarkCollector()
+            title = "Place Identity Comparison Landmarks"
         dialog = LandmarkDialog(
             document,
             self,
@@ -436,6 +471,8 @@ class LearningDocker(DockWidget):
                 "landmarks": self._landmarks,
                 "intent": self._asymmetry_intent,
             }
+        elif lesson["exercise_id"] == "anime-head-variation":
+            self._variation_landmarks[self._variation_stage] = self._landmarks
         self._action_status.setText(
             "Review landmarks recorded from the current projection. The artwork was not modified."
         )
@@ -476,6 +513,32 @@ class LearningDocker(DockWidget):
                     self._landmarks,
                     self._asymmetry_stage,
                     self._asymmetry_intent,
+                )
+            elif lesson["exercise_id"] == "anime-head-variation":
+                if self._variation_stage == "baseline":
+                    self._action_status.setText(
+                        "Identity baseline recorded. Select a variant or reconstruction to compare."
+                    )
+                    return
+                if self._identity_card is None:
+                    self._action_status.setText(
+                        "Create the portable five-to-eight-anchor identity card first."
+                    )
+                    return
+                baseline_stage = (
+                    "selected_front" if self._variation_stage == "selected_turned" else "baseline"
+                )
+                if baseline_stage not in self._variation_landmarks:
+                    self._action_status.setText(
+                        "Record the required identity baseline landmarks before comparison."
+                    )
+                    return
+                review = client.review_identity_comparison(
+                    request_id,
+                    self._variation_landmarks[baseline_stage],
+                    self._landmarks,
+                    self._variation_stage,
+                    self._identity_card,
                 )
             elif lesson["exercise_id"] in {
                 "anime-head-orientation",
@@ -699,6 +762,91 @@ class LearningDocker(DockWidget):
             "strength": strength.lower(),
             "purpose": purpose.strip(),
         }
+
+    def _edit_identity_card(self) -> None:
+        if self._project_directory is None:
+            self._action_status.setText(
+                "Create a portable project before editing its identity card."
+            )
+            return
+        name, accepted = QInputDialog.getText(self, "Identity Card", "Selected character name:")
+        if not accepted or not name.strip():
+            return
+        count, accepted = QInputDialog.getInt(
+            self, "Identity Card", "Number of structural anchors (5–8):", 6, 5, 8
+        )
+        if not accepted:
+            return
+        available = [
+            "cranial_radius",
+            "lower_face",
+            "eye_span",
+            "jaw_span",
+            "mouth_span",
+            "ear_height",
+            "custom_anchor_1",
+            "custom_anchor_2",
+        ]
+        anchors = []
+        for index in range(count):
+            key, accepted = QInputDialog.getItem(
+                self,
+                "Identity Anchor",
+                f"Anchor {index + 1} normalized relationship:",
+                available,
+                0,
+                False,
+            )
+            if not accepted:
+                return
+            available.remove(key)
+            value, accepted = QInputDialog.getDouble(
+                self,
+                "Identity Anchor",
+                "Normalized target value (0–1):",
+                0.5,
+                0.0,
+                1.0,
+                3,
+            )
+            if not accepted:
+                return
+            description, accepted = QInputDialog.getText(
+                self,
+                "Identity Anchor",
+                "Describe why this relationship matters to identity:",
+            )
+            if not accepted or not description.strip():
+                return
+            anchors.append({"key": key, "value": value, "description": description.strip()})
+        try:
+            client = EngineClient()
+            client.upsert_identity_card(
+                str(uuid.uuid4()), self._project_directory, name.strip(), anchors
+            )
+            snapshot = client.project_progress_snapshot(str(uuid.uuid4()), self._project_directory)
+        except (RuntimeError, ValueError) as error:
+            self._action_status.setText(f"Could not save identity card: {error}")
+            return
+        self._identity_card = snapshot["identity_card"]
+        self._action_status.setText(
+            f"Identity card saved at revision {self._identity_card['revision']}."
+        )
+
+    def _save_identity_card_policy(self) -> None:
+        if self._project_directory is None:
+            self._action_status.setText("Create a portable project before changing card history.")
+            return
+        try:
+            EngineClient().configure_identity_card_policy(
+                str(uuid.uuid4()),
+                self._project_directory,
+                self._identity_history.isChecked(),
+            )
+        except (RuntimeError, ValueError) as error:
+            self._action_status.setText(f"Could not save identity-card policy: {error}")
+            return
+        self._action_status.setText("Identity-card history setting saved for this project.")
         self._refresh_progress()
 
     def _refresh_progress(self) -> None:

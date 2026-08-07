@@ -6,6 +6,7 @@ from project import (
     AdviceRating,
     SuggestionDecision,
     configure_feedback_policy,
+    configure_identity_card_policy,
     configure_progress_retention,
     create_exercise_project,
     decide_attempt_review,
@@ -14,6 +15,7 @@ from project import (
     record_advice_feedback,
     record_attempt_review,
     set_attempt_completion,
+    upsert_identity_card,
 )
 
 
@@ -209,10 +211,40 @@ def test_progress_snapshot_and_explicit_clear_disable_policy(tmp_path):
             "retain_revision_history": False,
             "note_character_limit": 2000,
         },
+        "identity_card_policy": {"retain_revision_history": False},
+        "identity_card": None,
         "exercises": [],
     }
     assert configure_progress_retention(tmp_path, enabled=True)
     assert not configure_progress_retention(tmp_path, enabled=True)
+
+
+def test_identity_card_edits_and_optional_history_are_portable(tmp_path):
+    artwork = tmp_path / "artwork/attempt-001.kra"
+    artwork.parent.mkdir()
+    artwork.write_bytes(b"document")
+    create_exercise_project(tmp_path, title="Identity", attempt_id="attempt-1")
+    anchors = [
+        {"key": key, "value": 0.4 + index * 0.05, "description": key + " anchor"}
+        for index, key in enumerate(
+            ["cranial_radius", "lower_face", "eye_span", "jaw_span", "mouth_span"]
+        )
+    ]
+    assert upsert_identity_card(tmp_path, name="Aiko", anchors=anchors)
+    assert not upsert_identity_card(tmp_path, name="Aiko", anchors=anchors)
+    first = project_progress_snapshot(tmp_path)["identity_card"]
+    assert first["revision"] == 1
+    assert first["anchors"][0]["description"] == "cranial_radius anchor"
+
+    assert configure_identity_card_policy(tmp_path, retain_revision_history=True)
+    changed = [dict(item) for item in anchors]
+    changed[0]["value"] = 0.7
+    assert upsert_identity_card(tmp_path, name="Aiko", anchors=changed)
+    project = load_project(tmp_path)
+    assert project.identity_card.revision == 2
+    assert len(project.identity_card_history) == 1
+    assert configure_identity_card_policy(tmp_path, retain_revision_history=False)
+    assert load_project(tmp_path).identity_card_history == []
 
 
 def test_attempt_completion_is_explicit_reversible_and_idempotent(tmp_path):

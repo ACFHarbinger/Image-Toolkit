@@ -82,6 +82,18 @@ class EngineClient:
             {"control": control, "candidate": candidate, "stage": stage, "intent": intent},
         )
 
+    def review_identity_comparison(self, request_id, baseline, candidate, stage, identity_card):
+        return self._execute(
+            request_id,
+            "review_identity_comparison",
+            {
+                "baseline": baseline,
+                "candidate": candidate,
+                "stage": stage,
+                "identity_card": identity_card,
+            },
+        )
+
     def record_attempt_review(self, request_id, directory, attempt_id, review):
         return self._execute(
             request_id,
@@ -140,6 +152,23 @@ class EngineClient:
                 "directory": directory,
                 "retain_revision_history": retain_revision_history,
                 "note_character_limit": note_character_limit,
+            },
+        )
+
+    def upsert_identity_card(self, request_id, directory, name, anchors):
+        return self._execute(
+            request_id,
+            "upsert_identity_card",
+            {"directory": directory, "name": name, "anchors": anchors},
+        )
+
+    def configure_identity_card_policy(self, request_id, directory, retain_revision_history):
+        return self._execute(
+            request_id,
+            "configure_identity_card_policy",
+            {
+                "directory": directory,
+                "retain_revision_history": retain_revision_history,
             },
         )
 

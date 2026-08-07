@@ -187,6 +187,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   drills, seven diagnosed mistakes, eight completion checks, and seven self-
   review prompts target generic-face convergence and decoration dependence. Two
   original SVGs accompany a 2600 × 1800 six-layer identity model sheet.
+  Added project schema v5 portable identity cards. Each card holds five to eight
+  unique normalized numeric anchors plus required descriptions, is editable with
+  monotonic revisions, and has independently configurable revision-history
+  retention defaulting off. The docker authors cards and policy through bounded
+  engine operations. Every variation compares descriptively with the undecorated
+  baseline; selected front reconstruction compares with baseline; selected
+  turned reconstruction compares directly with selected front. Identity-card
+  adherence and version-compatible retention measurements stay numeric, while
+  the card name/revision is recorded as artist-confirmation evidence.
 - Opened A3 issue #12 at In Progress P0/XL for versioned curriculum progression,
   deterministic weakness-to-remediation routing, comparable repeated-attempt
   metrics, and a private local progress view while A2 issues #10/#11 remain in

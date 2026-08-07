@@ -61,6 +61,19 @@ NORMALIZED_SCORE_IDS = {
     "asymmetry_ear_height_retention",
     "asymmetry_side_consistency",
     "asymmetry_strength_control",
+    "identity_cranial_retention",
+    "identity_lower_face_retention",
+    "identity_eye_span_retention",
+    "identity_jaw_span_retention",
+    "identity_mouth_span_retention",
+    "identity_ear_height_retention",
+    "identity_card_adherence",
+    "identity_cranial_radius_variation_magnitude",
+    "identity_lower_face_variation_magnitude",
+    "identity_eye_span_variation_magnitude",
+    "identity_jaw_span_variation_magnitude",
+    "identity_mouth_span_variation_magnitude",
+    "identity_ear_height_variation_magnitude",
 }
 
 

@@ -11,6 +11,9 @@ from .model import (
     Attempt,
     ExerciseProgress,
     FeedbackPolicy,
+    IdentityAnchor,
+    IdentityCard,
+    IdentityCardPolicy,
     Project,
     ProjectProgress,
     ReviewRecord,
@@ -116,6 +119,21 @@ def project_progress_snapshot(directory: str | Path) -> dict:
             "retain_revision_history": project.feedback_policy.retain_revision_history,
             "note_character_limit": project.feedback_policy.note_character_limit,
         },
+        "identity_card_policy": {
+            "retain_revision_history": project.identity_card_policy.retain_revision_history,
+        },
+        "identity_card": (
+            {
+                "name": project.identity_card.name,
+                "anchors": [
+                    {"key": item.key, "value": item.value, "description": item.description}
+                    for item in project.identity_card.anchors
+                ],
+                "revision": project.identity_card.revision,
+            }
+            if project.identity_card is not None
+            else None
+        ),
         "exercises": [
             {
                 "exercise_id": exercise.exercise_id,
@@ -190,6 +208,41 @@ def configure_feedback_policy(
                     review.artist_feedback_history.clear()
     project.feedback_policy = policy
     project.validate()
+    save_project(root, project)
+    return True
+
+
+def upsert_identity_card(directory: str | Path, *, name: str, anchors: list[dict]) -> bool:
+    """Create or revise the portable selected-character identity card."""
+    root = Path(directory)
+    project = load_project(root)
+    card = IdentityCard(name, [IdentityAnchor(**item) for item in anchors])
+    if project.identity_card is not None:
+        if (
+            project.identity_card.name == card.name
+            and project.identity_card.anchors == card.anchors
+        ):
+            return False
+        if project.identity_card_policy.retain_revision_history:
+            project.identity_card_history.append(project.identity_card)
+        else:
+            project.identity_card_history.clear()
+        card.revision = project.identity_card.revision + 1
+    project.identity_card = card
+    save_project(root, project)
+    return True
+
+
+def configure_identity_card_policy(directory: str | Path, *, retain_revision_history: bool) -> bool:
+    """Update identity-card history retention and discard history when disabled."""
+    root = Path(directory)
+    project = load_project(root)
+    policy = IdentityCardPolicy(retain_revision_history)
+    if project.identity_card_policy == policy:
+        return False
+    if not retain_revision_history:
+        project.identity_card_history.clear()
+    project.identity_card_policy = policy
     save_project(root, project)
     return True
 

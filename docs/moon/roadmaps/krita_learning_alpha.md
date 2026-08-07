@@ -231,8 +231,13 @@ remain deferred in Review.
   five-to-eight-anchor identity card, fresh front reconstruction, and selected
   three-quarter identity transfer without tracing. Two offline diagrams and a
   2600 × 1800 six-layer model sheet cover baseline, three variation families,
-  selected front reconstruction, and turned identity check. Its identity-card
-  persistence and comparison-review contract remain future work.
+  selected front reconstruction, and turned identity check. Schema v5 stores an
+  editable five-to-eight-anchor card in each portable project: every anchor has
+  a normalized value and required description, with independent edit-history
+  retention off by default. Variants compare descriptively with baseline;
+  selected front compares with baseline and selected turned directly with front.
+  Card adherence and retention remain numeric while card revision is auditable
+  artist-confirmation evidence. Identity correction previews remain future work.
 - 🔄 Head-orientation exercise template: the docker creates a 2600 × 1600
   landscape rotation sheet with five labeled work areas and separate layers for
   left profile, left three-quarter, front, right three-quarter, and right

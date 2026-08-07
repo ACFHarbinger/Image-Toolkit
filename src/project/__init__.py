@@ -10,6 +10,9 @@ from .model import (
     ExerciseProgress,
     Feedback,
     FeedbackPolicy,
+    IdentityAnchor,
+    IdentityCard,
+    IdentityCardPolicy,
     LearnerProfile,
     Project,
     ProjectProgress,
@@ -20,6 +23,7 @@ from .model import (
 from .service import (
     FRONT_HEAD_EXERCISE_ID,
     configure_feedback_policy,
+    configure_identity_card_policy,
     configure_progress_retention,
     create_exercise_project,
     decide_attempt_review,
@@ -27,6 +31,7 @@ from .service import (
     record_advice_feedback,
     record_attempt_review,
     set_attempt_completion,
+    upsert_identity_card,
 )
 from .storage import load_profile, load_project, save_profile, save_project
 
@@ -40,6 +45,9 @@ __all__ = [
     "ExerciseProgress",
     "Feedback",
     "FeedbackPolicy",
+    "IdentityAnchor",
+    "IdentityCard",
+    "IdentityCardPolicy",
     "FRONT_HEAD_EXERCISE_ID",
     "LearnerProfile",
     "Project",
@@ -54,9 +62,11 @@ __all__ = [
     "create_exercise_project",
     "configure_progress_retention",
     "configure_feedback_policy",
+    "configure_identity_card_policy",
     "decide_attempt_review",
     "record_attempt_review",
     "record_advice_feedback",
     "project_progress_snapshot",
     "set_attempt_completion",
+    "upsert_identity_card",
 ]

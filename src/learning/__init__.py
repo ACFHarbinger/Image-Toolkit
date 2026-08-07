@@ -54,6 +54,7 @@ from .orientation_review import (
 )
 from .progress import FeedbackSummary, ProgressSummary, summarize_progress
 from .storage import load_catalog, save_catalog
+from .variation_review import review_identity_comparison
 
 __all__ = [
     "CURRICULUM_ID",
@@ -109,4 +110,5 @@ __all__ = [
     "review_feature_study",
     "review_profile_head",
     "review_three_quarter_head",
+    "review_identity_comparison",
 ]

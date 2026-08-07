@@ -10,6 +10,7 @@ from project import (
     AdviceRating,
     SuggestionDecision,
     configure_feedback_policy,
+    configure_identity_card_policy,
     configure_progress_retention,
     create_exercise_project,
     decide_attempt_review,
@@ -17,6 +18,7 @@ from project import (
     record_advice_feedback,
     record_attempt_review,
     set_attempt_completion,
+    upsert_identity_card,
 )
 
 from .asymmetry_review import review_asymmetry_comparison
@@ -32,6 +34,7 @@ from .orientation_review import (
     review_profile_head,
     review_three_quarter_head,
 )
+from .variation_review import review_identity_comparison
 
 ENGINE_PROTOCOL_VERSION = 1
 MAX_REQUEST_BYTES = 1024 * 1024
@@ -123,6 +126,23 @@ def handle_request(request: dict[str, Any]) -> dict[str, Any]:
         except KeyError as error:
             raise ValueError("progress-retention request is incomplete") from error
         return _success(request_id, {"changed": changed})
+    if operation == "upsert_identity_card":
+        try:
+            changed = upsert_identity_card(
+                payload["directory"], name=payload["name"], anchors=payload["anchors"]
+            )
+        except KeyError as error:
+            raise ValueError("identity-card request is incomplete") from error
+        return _success(request_id, {"changed": changed})
+    if operation == "configure_identity_card_policy":
+        try:
+            changed = configure_identity_card_policy(
+                payload["directory"],
+                retain_revision_history=payload["retain_revision_history"],
+            )
+        except KeyError as error:
+            raise ValueError("identity-card policy request is incomplete") from error
+        return _success(request_id, {"changed": changed})
     if operation == "configure_feedback_policy":
         try:
             changed = configure_feedback_policy(
@@ -210,6 +230,18 @@ def handle_request(request: dict[str, Any]) -> dict[str, Any]:
             )
         except KeyError as error:
             raise ValueError("controlled-asymmetry review request is incomplete") from error
+        return _success(request_id, review.to_dict())
+    if operation == "review_identity_comparison":
+        try:
+            review = review_identity_comparison(
+                payload["baseline"],
+                payload["candidate"],
+                payload["stage"],
+                payload["identity_card"],
+                request_id,
+            )
+        except KeyError as error:
+            raise ValueError("identity-comparison request is incomplete") from error
         return _success(request_id, review.to_dict())
     if operation != "review_front_head":
         raise ValueError("unsupported engine operation")
