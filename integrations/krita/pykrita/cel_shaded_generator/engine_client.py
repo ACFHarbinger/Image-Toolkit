@@ -373,6 +373,28 @@ class EngineClient:
             },
         )
 
+    def add_chapter_page(self, request_id, directory, document_asset, panel_id, notes=None):
+        return self._execute(
+            request_id,
+            "add_chapter_page",
+            {
+                "directory": directory,
+                "document_asset": document_asset,
+                "panel_id": panel_id,
+                "notes": notes,
+            },
+        )
+
+    def set_chapter_page_status(self, request_id, directory, page_id, status, notes=None):
+        return self._execute(
+            request_id,
+            "set_chapter_page_status",
+            {"directory": directory, "page_id": page_id, "status": status, "notes": notes},
+        )
+
+    def next_pending_chapter_page(self, request_id, directory):
+        return self._execute(request_id, "next_pending_chapter_page", {"directory": directory})
+
     def _execute(self, request_id, operation, payload):
         request = {
             "protocol_version": ENGINE_PROTOCOL_VERSION,

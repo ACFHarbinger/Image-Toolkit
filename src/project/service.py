@@ -26,11 +26,13 @@ from .model import (
     AdviceRating,
     Attempt,
     CapstonePolicy,
+    ChapterPage,
     ExerciseProgress,
     FeedbackPolicy,
     IdentityAnchor,
     IdentityCard,
     IdentityCardPolicy,
+    PageStatus,
     Project,
     ProjectProgress,
     ReviewRecord,
@@ -441,6 +443,26 @@ def project_progress_snapshot(directory: str | Path) -> dict:
                 for session in project.study_sessions
             ],
         },
+        "chapter": {
+            "pages": [
+                {
+                    "page_id": page.id,
+                    "document_asset": page.document_asset,
+                    "panel_id": page.panel_id,
+                    "status": page.status.value,
+                    "notes": page.notes,
+                }
+                for page in project.chapter_pages
+            ],
+            "next_pending_page_id": next(
+                (
+                    page.id
+                    for page in project.chapter_pages
+                    if page.status != PageStatus.ACCEPTED
+                ),
+                None,
+            ),
+        },
         "exercises": [
             {
                 "exercise_id": exercise.exercise_id,
@@ -741,6 +763,63 @@ def record_study_session(
     project.study_sessions.append(session)
     save_project(root, project)
     return session
+
+
+def add_chapter_page(
+    directory: str | Path, *, document_asset: str, panel_id: str, notes: str | None = None
+) -> ChapterPage:
+    """Append one page to the project's batch-chapter review queue.
+
+    Execution-agnostic (roadmap milestone 6): this only records queue
+    position and starting status. Whatever later segments/corresponds the
+    page -- an interactive Krita session today, an offline batch tool in a
+    later slice -- reports back through `set_chapter_page_status`.
+    """
+    root = Path(directory).resolve()
+    relative, _ = _resolve_project_asset(root, document_asset)
+    project = load_project(root)
+    page = ChapterPage(
+        id="page-" + str(uuid4()), document_asset=relative, panel_id=panel_id, notes=notes
+    )
+    project.chapter_pages.append(page)
+    save_project(root, project)
+    return page
+
+
+def set_chapter_page_status(
+    directory: str | Path, *, page_id: str, status: PageStatus, notes: str | None = None
+) -> bool:
+    """Explicitly set one page's review status; repeated identical calls are idempotent.
+
+    Any status may follow any other -- the artist stays in control of the
+    queue rather than a fixed state machine enforcing one path through it.
+    """
+    root = Path(directory)
+    project = load_project(root)
+    page = _find_chapter_page(project, page_id)
+    changed_notes = notes is not None and notes != page.notes
+    if page.status == status and not changed_notes:
+        return False
+    page.status = status
+    if notes is not None:
+        page.notes = notes
+    save_project(root, project)
+    return True
+
+
+def next_pending_chapter_page(directory: str | Path) -> ChapterPage | None:
+    """Return the first not-yet-accepted page in queue order, or None if done."""
+    project = load_project(Path(directory))
+    return next(
+        (page for page in project.chapter_pages if page.status != PageStatus.ACCEPTED), None
+    )
+
+
+def _find_chapter_page(project: Project, page_id: str) -> ChapterPage:
+    matching = [page for page in project.chapter_pages if page.id == page_id]
+    if len(matching) != 1:
+        raise ValueError("chapter-page identifier is missing or ambiguous")
+    return matching[0]
 
 
 def _find_attempt(project: Project, attempt_id: str) -> Attempt:

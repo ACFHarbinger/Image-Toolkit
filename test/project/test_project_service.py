@@ -16,8 +16,10 @@ from project import (
     AdviceRating,
     Attempt,
     ExerciseProgress,
+    PageStatus,
     ReviewRecord,
     SuggestionDecision,
+    add_chapter_page,
     attach_correspondence_set,
     attach_style_bible,
     configure_capstone_policy,
@@ -32,6 +34,7 @@ from project import (
     import_compatible_capstone_review,
     import_reference_asset,
     load_project,
+    next_pending_chapter_page,
     project_correspondence_set_payload,
     project_progress_snapshot,
     propagate_project_correspondence,
@@ -41,6 +44,7 @@ from project import (
     revise_capstone_decision_rationale,
     save_project,
     set_attempt_completion,
+    set_chapter_page_status,
     upsert_identity_card,
     upsert_project_correspondence_set,
     upsert_project_style_bible,
@@ -368,6 +372,7 @@ def test_progress_snapshot_and_explicit_clear_disable_policy(tmp_path):
             "consent": {"opted_in": False, "consent_version": 1, "consented_at": None},
             "sessions": [],
         },
+        "chapter": {"pages": [], "next_pending_page_id": None},
     }
     assert configure_progress_retention(tmp_path, enabled=True)
     assert not configure_progress_retention(tmp_path, enabled=True)
@@ -603,6 +608,73 @@ def test_record_study_session_accumulates_protocol_fields(tmp_path):
             "explanation_rating": "helpful",
             "completed_at": completed.completed_at,
         }
+    ]
+
+
+def test_add_chapter_page_validates_and_binds_existing_assets(tmp_path):
+    artwork = tmp_path / "artwork/attempt-001.kra"
+    artwork.parent.mkdir()
+    artwork.write_bytes(b"document")
+    create_exercise_project(tmp_path, title="Chapter", attempt_id="attempt-1")
+    pages_dir = tmp_path / "pages"
+    pages_dir.mkdir()
+    (pages_dir / "01.kra").write_bytes(b"page one")
+
+    with pytest.raises(ValueError, match="existing regular"):
+        add_chapter_page(tmp_path, document_asset="pages/missing.kra", panel_id="panel-1")
+
+    page = add_chapter_page(tmp_path, document_asset="pages/01.kra", panel_id="panel-1")
+    assert page.status is PageStatus.PENDING
+    assert page.document_asset == "pages/01.kra"
+    assert load_project(tmp_path).chapter_pages == [page]
+
+
+def test_chapter_page_status_transitions_are_explicit_and_idempotent(tmp_path):
+    artwork = tmp_path / "artwork/attempt-001.kra"
+    artwork.parent.mkdir()
+    artwork.write_bytes(b"document")
+    create_exercise_project(tmp_path, title="Chapter", attempt_id="attempt-1")
+    pages_dir = tmp_path / "pages"
+    pages_dir.mkdir()
+    (pages_dir / "01.kra").write_bytes(b"page one")
+    page = add_chapter_page(tmp_path, document_asset="pages/01.kra", panel_id="panel-1")
+
+    assert set_chapter_page_status(tmp_path, page_id=page.id, status=PageStatus.IN_PROGRESS)
+    assert not set_chapter_page_status(tmp_path, page_id=page.id, status=PageStatus.IN_PROGRESS)
+    assert set_chapter_page_status(
+        tmp_path, page_id=page.id, status=PageStatus.IN_PROGRESS, notes="Retry hair region."
+    )
+    reloaded = load_project(tmp_path).chapter_pages[0]
+    assert reloaded.status is PageStatus.IN_PROGRESS
+    assert reloaded.notes == "Retry hair region."
+
+    with pytest.raises(ValueError, match="missing or ambiguous"):
+        set_chapter_page_status(tmp_path, page_id="missing", status=PageStatus.ACCEPTED)
+
+
+def test_next_pending_chapter_page_follows_queue_order(tmp_path):
+    artwork = tmp_path / "artwork/attempt-001.kra"
+    artwork.parent.mkdir()
+    artwork.write_bytes(b"document")
+    create_exercise_project(tmp_path, title="Chapter", attempt_id="attempt-1")
+    pages_dir = tmp_path / "pages"
+    pages_dir.mkdir()
+    for name in ("01.kra", "02.kra", "03.kra"):
+        (pages_dir / name).write_bytes(b"page")
+    first = add_chapter_page(tmp_path, document_asset="pages/01.kra", panel_id="panel-1")
+    second = add_chapter_page(tmp_path, document_asset="pages/02.kra", panel_id="panel-2")
+    add_chapter_page(tmp_path, document_asset="pages/03.kra", panel_id="panel-3")
+
+    assert next_pending_chapter_page(tmp_path).id == first.id
+    set_chapter_page_status(tmp_path, page_id=first.id, status=PageStatus.ACCEPTED)
+    assert next_pending_chapter_page(tmp_path).id == second.id
+
+    snapshot = project_progress_snapshot(tmp_path)
+    assert snapshot["chapter"]["next_pending_page_id"] == second.id
+    assert [page["status"] for page in snapshot["chapter"]["pages"]] == [
+        "accepted",
+        "pending",
+        "pending",
     ]
 
 

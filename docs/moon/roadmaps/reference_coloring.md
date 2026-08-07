@@ -62,7 +62,10 @@ and user corrections.
    same Character Colors Docker.
 4. Assisted correspondence with confidence and correction learning.
 5. Optional generative proposals through the local model registry.
-6. Batch chapter workflow with review queue and recoverable checkpoints.
+6. 🔄 Batch chapter workflow with review queue and recoverable checkpoints.
+   Issue #22 started the portable schema: `ChapterPage`/`PageStatus` plus
+   `add_chapter_page`/`set_chapter_page_status`/`next_pending_chapter_page`.
+   Krita Docker/queue-navigation UI and the offline batch-tool path remain.
 
 ## G1 — segmentation and gap-repair baseline
 
@@ -93,6 +96,37 @@ Correspondence** action reads by layer name. Segmentation now takes an artist-ch
 dust-speck regions below it (`filter_small_regions`, implemented in both the
 numpy engine module and the pure-Python Krita adapter), reporting the
 discard count.
+
+## Milestone 6 — batch chapter workflow
+
+Issue #22 is In progress. A chapter is a project-scoped ordered list of
+pages (`ChapterPage`: id, a safe relative `document_asset`, the existing
+`RegionCorrespondence` `panel_id` field so every page's correspondences
+share one `CorrespondenceSet` without regions colliding across pages, a
+review `PageStatus` of pending/in_progress/reviewed/accepted, and optional
+notes). Deliberately execution-agnostic: this only tracks queue position
+and status, never how a page reached it, so the same schema serves both an
+artist working through pages interactively in Krita today and a future
+offline batch tool without rework. Per the owner's explicit scoping
+decisions: no cross-page correspondence inference (every page's
+`CorrespondenceSet` stays independent, matching C4's existing per-panel
+design exactly); status transitions are artist-controlled rather than a
+fixed state machine, matching the "artist remains in control" principle.
+
+`add_chapter_page` validates the document asset exists (safe relative path,
+existing regular non-symlink file, same `_resolve_project_asset` check style
+bibles and correspondence sets already use) and appends to the queue.
+`set_chapter_page_status` is explicit and idempotent, matching
+`set_attempt_completion`'s pattern. `next_pending_chapter_page` returns the
+first not-yet-accepted page in queue order -- the actual "resume where you
+left off" mechanic a review queue needs. Project schema v12 adds
+`chapter_pages` with unique-id/unique-asset/unique-panel-id validation.
+Privacy-safe `project_progress_snapshot` includes a `chapter` section (page
+list plus the next pending page id). Wired through the engine protocol and
+Krita `EngineClient`; no Docker/UI surface exists yet, matching every prior
+milestone's "portable contract first" sequencing (C1 before C3's Docker, C4
+before its Docker). The Krita queue-navigation UI and the offline
+batch-tool execution path are separate future slices.
 
 ## C4 — deterministic manual correspondence baseline
 

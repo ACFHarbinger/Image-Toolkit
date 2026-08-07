@@ -75,6 +75,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Opened milestone-6 issue #22: a portable, execution-agnostic batch
+  chapter-workflow schema. Project schema v12 adds `ChapterPage`
+  (id, safe relative document asset, the existing `RegionCorrespondence`
+  `panel_id` field so every page's correspondences share one
+  `CorrespondenceSet` without colliding across pages, a `PageStatus` of
+  pending/in_progress/reviewed/accepted, optional notes) with unique-id/
+  unique-asset/unique-panel-id validation. `add_chapter_page` validates the
+  document asset exists; `set_chapter_page_status` is explicit and
+  idempotent; `next_pending_chapter_page` returns the first not-yet-accepted
+  page in queue order. No cross-page correspondence inference and no fixed
+  status state machine, per explicit scoping decisions. Privacy-safe
+  `project_progress_snapshot` includes a `chapter` section. Wired through
+  the engine protocol and Krita `EngineClient`; no Docker/UI surface exists
+  yet (Krita queue navigation and an offline batch-tool execution path are
+  separate future slices), so no live check applies to this slice.
+  Verification: 408 tests pass; Ruff and core mypy are clean.
+
 - Ran a proactive high-effort code review of C4.1's changes to
   `color_docker.py` and fixed one real issue it found: `_assign_correspondence`
   loaded the correspondence set before three sequential modal dialogs

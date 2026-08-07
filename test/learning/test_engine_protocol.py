@@ -82,6 +82,89 @@ def test_protocol_creates_portable_exercise_project(tmp_path):
     assert (tmp_path / "project.json").is_file()
 
 
+def test_protocol_adds_and_advances_chapter_pages(tmp_path):
+    artwork = tmp_path / "artwork/attempt-001.kra"
+    artwork.parent.mkdir()
+    artwork.write_bytes(b"document")
+    handle_request(
+        {
+            "protocol_version": 1,
+            "request_id": "create-1",
+            "operation": "create_exercise_project",
+            "payload": {
+                "directory": str(tmp_path),
+                "title": "Chapter",
+                "document_asset": "artwork/attempt-001.kra",
+                "attempt_id": "attempt-1",
+            },
+        }
+    )
+    pages_dir = tmp_path / "pages"
+    pages_dir.mkdir()
+    (pages_dir / "01.kra").write_bytes(b"page one")
+
+    add = handle_request(
+        {
+            "protocol_version": 1,
+            "request_id": "add-1",
+            "operation": "add_chapter_page",
+            "payload": {
+                "directory": str(tmp_path),
+                "document_asset": "pages/01.kra",
+                "panel_id": "panel-1",
+            },
+        }
+    )
+    assert add["ok"]
+    page_id = add["result"]["page_id"]
+
+    queued = handle_request(
+        {
+            "protocol_version": 1,
+            "request_id": "next-1",
+            "operation": "next_pending_chapter_page",
+            "payload": {"directory": str(tmp_path)},
+        }
+    )
+    assert queued["result"]["page_id"] == page_id
+    assert queued["result"]["status"] == "pending"
+
+    status = handle_request(
+        {
+            "protocol_version": 1,
+            "request_id": "status-1",
+            "operation": "set_chapter_page_status",
+            "payload": {
+                "directory": str(tmp_path),
+                "page_id": page_id,
+                "status": "accepted",
+            },
+        }
+    )
+    assert status["result"]["changed"] is True
+
+    empty_queue = handle_request(
+        {
+            "protocol_version": 1,
+            "request_id": "next-2",
+            "operation": "next_pending_chapter_page",
+            "payload": {"directory": str(tmp_path)},
+        }
+    )
+    assert empty_queue["result"] == {"page_id": None}
+
+    snapshot = handle_request(
+        {
+            "protocol_version": 1,
+            "request_id": "snapshot-1",
+            "operation": "project_progress_snapshot",
+            "payload": {"directory": str(tmp_path)},
+        }
+    )
+    assert snapshot["result"]["chapter"]["pages"][0]["status"] == "accepted"
+    assert snapshot["result"]["chapter"]["next_pending_page_id"] is None
+
+
 def test_protocol_configures_study_consent_and_records_a_session(tmp_path):
     artwork = tmp_path / "artwork/attempt-001.kra"
     artwork.parent.mkdir()

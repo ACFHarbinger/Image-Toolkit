@@ -11,11 +11,13 @@ from project import (
     AdviceFeedback,
     AdviceRating,
     Attempt,
+    ChapterPage,
     Consent,
     ExerciseProgress,
     Feedback,
     FeedbackPolicy,
     LearnerProfile,
+    PageStatus,
     Project,
     ProjectProgress,
     ReviewRecord,
@@ -201,6 +203,49 @@ def test_study_session_round_trips_with_explanation_rating(tmp_path):
     assert load_project(tmp_path) == project
 
 
+def test_chapter_page_rejects_invalid_fields():
+    with pytest.raises(ValueError, match="must not be empty"):
+        ChapterPage("", "pages/01.kra", "panel-1")
+    with pytest.raises(ValueError, match="panel id must not be empty"):
+        ChapterPage("page-1", "pages/01.kra", "")
+    with pytest.raises(ValueError, match="safe relative"):
+        ChapterPage("page-1", "../escape.kra", "panel-1")
+    with pytest.raises(ValueError, match="notes must be absent or non-empty"):
+        ChapterPage("page-1", "pages/01.kra", "panel-1", notes="  ")
+
+
+def test_chapter_pages_require_unique_ids_assets_and_panels():
+    page = ChapterPage("page-1", "pages/01.kra", "panel-1")
+    duplicate_id = ChapterPage("page-1", "pages/02.kra", "panel-2")
+    with pytest.raises(ValueError, match="chapter-page identifiers must be unique"):
+        Project(title="Chapter", chapter_pages=[page, duplicate_id]).to_dict()
+
+    duplicate_asset = ChapterPage("page-2", "pages/01.kra", "panel-2")
+    with pytest.raises(ValueError, match="document assets must be unique"):
+        Project(title="Chapter", chapter_pages=[page, duplicate_asset]).to_dict()
+
+    duplicate_panel = ChapterPage("page-2", "pages/02.kra", "panel-1")
+    with pytest.raises(ValueError, match="panel ids must be unique"):
+        Project(title="Chapter", chapter_pages=[page, duplicate_panel]).to_dict()
+
+
+def test_chapter_page_round_trips_with_status_and_notes(tmp_path):
+    project = Project(
+        title="Chapter",
+        chapter_pages=[
+            ChapterPage(
+                "page-1",
+                "pages/01.kra",
+                "panel-1",
+                status=PageStatus.REVIEWED,
+                notes="Double-check the hair highlight.",
+            )
+        ],
+    )
+    save_project(tmp_path, project)
+    assert load_project(tmp_path) == project
+
+
 def test_defaults_keep_multiple_recovery_revisions():
     project = Project(title="Recovery")
     assert project.autosave.enabled
@@ -288,7 +333,7 @@ def test_version_one_migration_adds_review_records_without_artwork(tmp_path):
         ]
     }
     migrated = migrate_project_payload(payload)
-    assert migrated["schema_version"] == 11
+    assert migrated["schema_version"] == 12
     assert migrated["progress"]["exercises"][0]["attempts"][0]["reviews"] == []
     assert migrate_project_payload(payload) == migrated
 
@@ -325,7 +370,7 @@ def test_version_two_migration_enables_existing_project_progress_and_feedback_sl
 
     migrated = migrate_project_payload(payload)
 
-    assert migrated["schema_version"] == 11
+    assert migrated["schema_version"] == 12
     assert migrated["consent"]["retain_learning_progress"] is True
     review = migrated["progress"]["exercises"][0]["attempts"][0]["reviews"][0]
     assert review["artist_feedback"] is None
@@ -338,7 +383,7 @@ def test_version_three_migration_adds_editable_feedback_policy():
 
     migrated = migrate_project_payload(payload)
 
-    assert migrated["schema_version"] == 11
+    assert migrated["schema_version"] == 12
     assert migrated["feedback_policy"] == {
         "retain_revision_history": False,
         "note_character_limit": 2000,
@@ -355,7 +400,7 @@ def test_version_four_migration_adds_identity_card_defaults():
 
     migrated = migrate_project_payload(payload)
 
-    assert migrated["schema_version"] == 11
+    assert migrated["schema_version"] == 12
     assert migrated["identity_card_policy"] == {"retain_revision_history": False}
     assert migrated["identity_card"] is None
     assert migrated["identity_card_history"] == []
@@ -391,7 +436,7 @@ def test_version_five_migration_adds_decision_rationale():
     }
     migrated = migrate_project_payload(payload)
     review = migrated["progress"]["exercises"][0]["attempts"][0]["reviews"][0]
-    assert migrated["schema_version"] == 11
+    assert migrated["schema_version"] == 12
     assert review["suggestion_decision_rationale"] is None
 
 
@@ -400,7 +445,7 @@ def test_version_six_migration_adds_capstone_rationale_policy_and_history():
     payload["schema_version"] = 6
     del payload["capstone_policy"]
     migrated = migrate_project_payload(payload)
-    assert migrated["schema_version"] == 11
+    assert migrated["schema_version"] == 12
     assert migrated["capstone_policy"] == {"retain_rationale_history": False}
 
 
@@ -408,7 +453,7 @@ def test_version_seven_migration_adds_review_import_provenance():
     payload = Project(title="Version seven").to_dict()
     payload["schema_version"] = 7
     migrated = migrate_project_payload(payload)
-    assert migrated["schema_version"] == 11
+    assert migrated["schema_version"] == 12
 
 
 def test_version_eight_migration_adds_style_bible_assets():
@@ -416,7 +461,7 @@ def test_version_eight_migration_adds_style_bible_assets():
     payload["schema_version"] = 8
     del payload["style_bible_assets"]
     migrated = migrate_project_payload(payload)
-    assert migrated["schema_version"] == 11
+    assert migrated["schema_version"] == 12
     assert migrated["style_bible_assets"] == []
 
 
@@ -425,7 +470,7 @@ def test_version_nine_migration_adds_correspondence_set_assets():
     payload["schema_version"] = 9
     del payload["correspondence_set_assets"]
     migrated = migrate_project_payload(payload)
-    assert migrated["schema_version"] == 11
+    assert migrated["schema_version"] == 12
     assert migrated["correspondence_set_assets"] == []
 
 
@@ -435,9 +480,18 @@ def test_version_ten_migration_adds_study_consent_and_sessions():
     del payload["study_consent"]
     del payload["study_sessions"]
     migrated = migrate_project_payload(payload)
-    assert migrated["schema_version"] == 11
+    assert migrated["schema_version"] == 12
     assert migrated["study_consent"] == {}
     assert migrated["study_sessions"] == []
+
+
+def test_version_eleven_migration_adds_chapter_pages():
+    payload = Project(title="Version eleven").to_dict()
+    payload["schema_version"] = 11
+    del payload["chapter_pages"]
+    migrated = migrate_project_payload(payload)
+    assert migrated["schema_version"] == 12
+    assert migrated["chapter_pages"] == []
 
 
 def test_learning_progress_retention_defaults_enabled_but_can_be_disabled():

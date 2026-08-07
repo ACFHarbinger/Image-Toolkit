@@ -8,7 +8,9 @@ from typing import Any
 
 from project import (
     AdviceRating,
+    PageStatus,
     SuggestionDecision,
+    add_chapter_page,
     attach_correspondence_set,
     attach_style_bible,
     configure_capstone_policy,
@@ -22,6 +24,7 @@ from project import (
     detach_style_bible,
     import_compatible_capstone_review,
     import_reference_asset,
+    next_pending_chapter_page,
     project_correspondence_set_payload,
     project_progress_snapshot,
     project_style_bible_payload,
@@ -31,6 +34,7 @@ from project import (
     record_study_session,
     revise_capstone_decision_rationale,
     set_attempt_completion,
+    set_chapter_page_status,
     upsert_identity_card,
     upsert_project_correspondence_set,
     upsert_project_style_bible,
@@ -274,6 +278,45 @@ def handle_request(request: dict[str, Any]) -> dict[str, Any]:
         except KeyError as error:
             raise ValueError("study-session request is incomplete") from error
         return _success(request_id, {"session_id": session.id})
+    if operation == "add_chapter_page":
+        try:
+            page = add_chapter_page(
+                payload["directory"],
+                document_asset=payload["document_asset"],
+                panel_id=payload["panel_id"],
+                notes=payload.get("notes"),
+            )
+        except KeyError as error:
+            raise ValueError("chapter-page request is incomplete") from error
+        return _success(request_id, {"page_id": page.id})
+    if operation == "set_chapter_page_status":
+        try:
+            changed = set_chapter_page_status(
+                payload["directory"],
+                page_id=payload["page_id"],
+                status=PageStatus(payload["status"]),
+                notes=payload.get("notes"),
+            )
+        except KeyError as error:
+            raise ValueError("chapter-page status request is incomplete") from error
+        return _success(request_id, {"changed": changed})
+    if operation == "next_pending_chapter_page":
+        try:
+            page = next_pending_chapter_page(payload["directory"])
+        except KeyError as error:
+            raise ValueError("chapter-page queue request is incomplete") from error
+        return _success(
+            request_id,
+            {
+                "page_id": page.id,
+                "document_asset": page.document_asset,
+                "panel_id": page.panel_id,
+                "status": page.status.value,
+                "notes": page.notes,
+            }
+            if page is not None
+            else {"page_id": None},
+        )
     if operation == "upsert_identity_card":
         try:
             changed = upsert_identity_card(

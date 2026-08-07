@@ -10,7 +10,7 @@ from pathlib import PurePosixPath
 from typing import Any
 from uuid import uuid4
 
-CURRENT_SCHEMA_VERSION = 11
+CURRENT_SCHEMA_VERSION = 12
 
 
 def migrate_project_payload(payload: dict[str, Any]) -> dict[str, Any]:
@@ -24,7 +24,7 @@ def migrate_project_payload(payload: dict[str, Any]) -> dict[str, Any]:
     version = migrated.get("schema_version", 0)
     if version == CURRENT_SCHEMA_VERSION:
         return migrated
-    if version not in (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10):
+    if version not in (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11):
         raise ValueError(f"unsupported project schema version: {version}")
     if version == 0:
         migrated["consent"] = {
@@ -62,6 +62,7 @@ def migrate_project_payload(payload: dict[str, Any]) -> dict[str, Any]:
     migrated.setdefault("correspondence_set_assets", [])
     migrated.setdefault("study_consent", {})
     migrated.setdefault("study_sessions", [])
+    migrated.setdefault("chapter_pages", [])
     migrated["schema_version"] = CURRENT_SCHEMA_VERSION
     return migrated
 
@@ -257,6 +258,50 @@ class StudySession:
             raise ValueError("study-session redraw attempt id must be absent or non-empty")
 
 
+class PageStatus(StrEnum):
+    PENDING = "pending"
+    IN_PROGRESS = "in_progress"
+    REVIEWED = "reviewed"
+    ACCEPTED = "accepted"
+
+
+@dataclass(slots=True)
+class ChapterPage:
+    """One page in a batch chapter review queue (roadmap milestone 6).
+
+    Execution-agnostic: a page may be segmented/assigned interactively in
+    Krita or, in a later slice, by an offline batch tool -- this record only
+    tracks queue position and review status, never how a page reached it.
+    Each page is independently segmented and corresponded (no cross-page
+    correspondence inference); ``panel_id`` is the existing
+    ``RegionCorrespondence`` panel-scoping field, letting every page in one
+    chapter share a single correspondence set without regions colliding
+    across pages.
+    """
+
+    id: str
+    document_asset: str
+    panel_id: str
+    status: PageStatus = PageStatus.PENDING
+    notes: str | None = None
+
+    def __post_init__(self) -> None:
+        if not self.id.strip():
+            raise ValueError("chapter-page id must not be empty")
+        if not self.panel_id.strip():
+            raise ValueError("chapter-page panel id must not be empty")
+        path = PurePosixPath(self.document_asset)
+        if (
+            not self.document_asset.strip()
+            or path.is_absolute()
+            or ".." in path.parts
+            or "\\" in self.document_asset
+        ):
+            raise ValueError("chapter-page document asset must be a safe relative POSIX path")
+        if self.notes is not None and not self.notes.strip():
+            raise ValueError("chapter-page notes must be absent or non-empty")
+
+
 @dataclass(frozen=True, slots=True)
 class RationaleRevision:
     text: str
@@ -434,6 +479,7 @@ class Project:
     correspondence_set_assets: list[str] = field(default_factory=list)
     study_consent: StudyConsent = field(default_factory=StudyConsent)
     study_sessions: list[StudySession] = field(default_factory=list)
+    chapter_pages: list[ChapterPage] = field(default_factory=list)
     progress: ProjectProgress = field(default_factory=ProjectProgress)
 
     def to_dict(self) -> dict[str, Any]:
@@ -520,6 +566,15 @@ class Project:
                 and session.redraw_attempt_id not in known_attempt_ids
             ):
                 raise ValueError("study-session redraw attempt id is unknown")
+        page_ids = [page.id for page in self.chapter_pages]
+        if len(page_ids) != len(set(page_ids)):
+            raise ValueError("chapter-page identifiers must be unique")
+        page_assets = [page.document_asset for page in self.chapter_pages]
+        if len(page_assets) != len(set(page_assets)):
+            raise ValueError("chapter-page document assets must be unique")
+        page_panel_ids = [page.panel_id for page in self.chapter_pages]
+        if len(page_panel_ids) != len(set(page_panel_ids)):
+            raise ValueError("chapter-page panel ids must be unique")
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> Project:
@@ -613,6 +668,10 @@ class Project:
                     )
                 )
                 for item in payload.get("study_sessions", [])
+            ],
+            chapter_pages=[
+                ChapterPage(**(item | {"status": PageStatus(item["status"])}))
+                for item in payload.get("chapter_pages", [])
             ],
             progress=ProjectProgress(exercises),
         )
