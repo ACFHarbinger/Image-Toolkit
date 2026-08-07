@@ -6,6 +6,7 @@ from .correspondence_tools import (
     assign_region_correspondence,
     rank_material_candidates,
 )
+from .document_io import load_document, save_document
 from .history import EditHistory
 from .layer_stack import Layer, LayerMeta, LayerStack
 from .palette_tools import PALETTE_ROLES, apply_palette_color_to_region, resolve_palette_color
@@ -33,4 +34,6 @@ __all__ = [
     "adjacency_agreement_by_material",
     "rank_material_candidates",
     "assign_region_correspondence",
+    "save_document",
+    "load_document",
 ]

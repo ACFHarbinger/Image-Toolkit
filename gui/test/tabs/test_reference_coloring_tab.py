@@ -392,3 +392,82 @@ def test_suggest_material_without_canvas_is_a_no_op(q_app):
     tab = ReferenceColoringTab()
     tab._suggest_material()
     assert tab.correspondence_set() is None
+
+
+def _stub_existing_directory(monkeypatch, path):
+    from PySide6.QtWidgets import QFileDialog
+
+    monkeypatch.setattr(
+        QFileDialog, "getExistingDirectory", staticmethod(lambda *a, **k: str(path))
+    )
+
+
+def test_save_document_writes_canvas_to_directory(q_app, monkeypatch, tmp_path):
+    tab = ReferenceColoringTab()
+    _new_canvas(tab, monkeypatch)
+    layer = tab.canvas().layer_stack().layer("layer-1")
+    layer.pixels[0, 0] = [9, 8, 7, 255]
+    _stub_existing_directory(monkeypatch, tmp_path)
+
+    tab._save_document()
+
+    assert (tmp_path / "manifest.json").exists()
+    assert "Saved document" in tab._status.text()
+
+
+def test_save_document_without_canvas_is_a_no_op(q_app, monkeypatch, tmp_path):
+    tab = ReferenceColoringTab()
+    _stub_existing_directory(monkeypatch, tmp_path)
+    tab._save_document()
+    assert not (tmp_path / "manifest.json").exists()
+
+
+def test_open_document_restores_canvas_and_resets_history(q_app, monkeypatch, tmp_path):
+    tab = ReferenceColoringTab()
+    _new_canvas(tab, monkeypatch)
+    layer = tab.canvas().layer_stack().layer("layer-1")
+    layer.pixels[2, 3] = [1, 2, 3, 255]
+    _stub_existing_directory(monkeypatch, tmp_path)
+    tab._save_document()
+
+    fresh_tab = ReferenceColoringTab()
+    _stub_existing_directory(monkeypatch, tmp_path)
+    fresh_tab._open_document()
+
+    loaded_layer = fresh_tab.canvas().layer_stack().layer("layer-1")
+    assert loaded_layer.pixels[2, 3].tolist() == [1, 2, 3, 255]
+    assert fresh_tab.history() is not None
+    assert fresh_tab.canvas().active_layer_id() == "layer-1"
+
+
+def test_open_document_reports_error_for_missing_manifest(q_app, monkeypatch, tmp_path):
+    tab = ReferenceColoringTab()
+    _stub_existing_directory(monkeypatch, tmp_path)
+    tab._open_document()
+    assert "Could not open document" in tab._status.text()
+
+
+def test_save_then_open_document_round_trips_correspondence_and_regions(
+    q_app, monkeypatch, tmp_path
+):
+    tab = ReferenceColoringTab()
+    _new_canvas(tab, monkeypatch)
+    _add_touching_region_layers(tab)
+    _bind_bible(tab, monkeypatch, tmp_path / "bibles")
+    tab._layer_panel.select_layer("layer-1-region-1")
+    tab._material_combo.setCurrentIndex(0)  # hair
+    tab._assign_correspondence()
+
+    document_dir = tmp_path / "doc"
+    _stub_existing_directory(monkeypatch, document_dir)
+    tab._save_document()
+
+    fresh_tab = ReferenceColoringTab()
+    _stub_existing_directory(monkeypatch, document_dir)
+    fresh_tab._open_document()
+
+    assert fresh_tab._region_layer_ids == ["layer-1-region-1", "layer-1-region-2"]
+    correspondence_set = fresh_tab.correspondence_set()
+    assert correspondence_set is not None
+    assert correspondence_set.correspondences[0].region_id == "layer-1-region-1"
+    assert correspondence_set.correspondences[0].material_id == "hair"

@@ -222,8 +222,32 @@ candidates for the selected region layer and pre-selects the top one in
 the existing Material combo, never assigns anything) and an **Assign
 Correspondence** button (records the current Material/Role as that
 region's correspondence in an in-memory `CorrespondenceSet` tracked by
-the tab). Assignment stays in-memory for the editing session only -- no
-project persistence for the standalone editor yet, so nothing here is
-saved to disk or shareable across sessions. Applying the suggested
-material's palette color remains a separate explicit action (Apply
-Palette Color, #30) rather than automatic.
+the tab). Assignment stayed in-memory for the editing session only as of
+this slice -- the eighth slice below adds disk persistence. Applying the
+suggested material's palette color remains a separate explicit action
+(Apply Palette Color, #30) rather than automatic.
+
+**Eighth slice (issue #32, In review pending a manual desktop-app
+check): canvas document save/load.** Every prior slice was in-memory
+only -- closing the app discarded all work. New `src/editor/document_io.py`
+adds `save_document`/`load_document`: one `.npy` file per layer's pixel
+buffer (and mask, when present) plus a `manifest.json` describing layer
+order, identity, and flags. Deliberately `.npy` rather than PNG --
+`src/editor/` has a strict "pure numpy, no Qt" boundary with no
+image-codec dependency (`layer_stack.py`, `brush.py`), and adding one
+(Pillow/Qt) just to persist arrays this module already owns as numpy
+would be new surface for no real benefit. `ReferenceColoringTab` gains
+**Save Document**/**Open Document** buttons (directory picker). Save
+Document also writes the tab's in-memory `CorrespondenceSet` via the
+already-existing `colorization.correspondence.save_correspondence_set`
+and its region-layer-id bookkeeping (`region_layers.json`) alongside the
+canvas, so the seventh slice's correspondence assignments and the fifth
+slice's region tracking survive a save/reload round trip. Open Document
+resets undo/redo history to the freshly loaded canvas; the bound style
+bible, if any, is left as-is, since a document does not carry its own
+bible reference. Not in scope: autosave, recovery revisions for the
+canvas document itself (the correspondence set gets those for free from
+`colorization.correspondence`, the canvas array files do not yet), or
+integration with `src/project`'s learning-progress project model -- the
+standalone editor still has no `SignalWeights`/project binding, so
+correction learning (#24/#31) remains unavailable here.

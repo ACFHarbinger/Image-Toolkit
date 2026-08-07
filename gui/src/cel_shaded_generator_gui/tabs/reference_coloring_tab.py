@@ -15,20 +15,27 @@ palette roles, and assign+rank region-to-material correspondences
 (``colorization.correspondence``/``colorization.confidence``, reused the
 same way the Krita Character Colors Docker's confidence-ranked material
 dropdown does) so later segmented regions can suggest a default material
-from already-assigned neighbors. Assignment here is in-memory for the
-editing session only -- there is no project persistence yet for the
-standalone editor, so unlike the Krita docker's flow there is no
-``SignalWeights`` correction-learning step; suggestions always start from
-the same fixed 0.5/0.5 weights.
+from already-assigned neighbors, and save/load a canvas document to a plain
+directory so work survives closing the app. Assignment stays in-memory
+until an explicit Save Document -- there is no autosave or Krita-style
+project binding yet for the standalone editor, so unlike the Krita
+docker's flow there is no ``SignalWeights`` correction-learning step;
+suggestions always start from the same fixed 0.5/0.5 weights.
 
 New feature, not code motion.
 """
 
 from __future__ import annotations
 
+import json
 import uuid
+from pathlib import Path
 
-from colorization.correspondence import CorrespondenceSet
+from colorization.correspondence import (
+    CorrespondenceSet,
+    load_correspondence_set,
+    save_correspondence_set,
+)
 from colorization.style_bible import CharacterStyleBible, load_style_bible
 from editor import (
     PALETTE_ROLES,
@@ -38,8 +45,10 @@ from editor import (
     apply_palette_color_to_region,
     assign_region_correspondence,
     close_line_gaps_in_layer,
+    load_document,
     rank_material_candidates,
     region_adjacency_for_regions,
+    save_document,
     segment_layer_into_regions,
 )
 from PySide6.QtGui import QColor
@@ -80,6 +89,10 @@ class ReferenceColoringTab(QWidget):
         self._status.setWordWrap(True)
         self._new_canvas_button = QPushButton("New Canvas", self)
         self._new_canvas_button.clicked.connect(self._new_canvas)
+        self._save_document_button = QPushButton("Save Document", self)
+        self._save_document_button.clicked.connect(self._save_document)
+        self._open_document_button = QPushButton("Open Document", self)
+        self._open_document_button.clicked.connect(self._open_document)
 
         self._canvas = LayerCanvas(self)
         self._layer_panel = LayerListPanel(self)
@@ -142,6 +155,8 @@ class ReferenceColoringTab(QWidget):
 
         controls = QHBoxLayout()
         controls.addWidget(self._new_canvas_button)
+        controls.addWidget(self._save_document_button)
+        controls.addWidget(self._open_document_button)
         controls.addWidget(self._pan_tool)
         controls.addWidget(self._brush_tool)
         controls.addWidget(QLabel("Color:", self))
@@ -203,6 +218,61 @@ class ReferenceColoringTab(QWidget):
         self._layer_panel.set_layer_stack(layer_stack)
         self._layer_panel.set_history(self._history)
         self._layer_panel.select_layer("layer-1")
+        self._update_status()
+
+    def _save_document(self) -> None:
+        """Write the current canvas, plus any in-memory correspondence
+        assignments and region-layer bookkeeping, to a chosen directory."""
+        layer_stack = self._canvas.layer_stack()
+        if layer_stack is None:
+            return
+        directory = QFileDialog.getExistingDirectory(self, "Save Document")
+        if not directory:
+            return
+        destination = Path(directory)
+        save_document(destination, layer_stack)
+        if self._correspondence_set is not None:
+            save_correspondence_set(destination / "correspondence.json", self._correspondence_set)
+        if self._region_layer_ids:
+            (destination / "region_layers.json").write_text(
+                json.dumps(self._region_layer_ids), encoding="utf-8"
+            )
+        self._status.setText(f"Saved document to {directory}.")
+
+    def _open_document(self) -> None:
+        """Replace the current canvas with a document previously written by
+        Save Document, resetting undo/redo history and region/correspondence
+        bookkeeping to match. The bound style bible, if any, is left as-is:
+        a document does not carry its own bible reference."""
+        directory = QFileDialog.getExistingDirectory(self, "Open Document")
+        if not directory:
+            return
+        source = Path(directory)
+        try:
+            layer_stack = load_document(source)
+        except (OSError, ValueError) as error:
+            self._status.setText(f"Could not open document: {error}")
+            return
+        self._history = EditHistory(layer_stack)
+        self._canvas.set_layer_stack(layer_stack)
+        self._canvas.set_history(self._history)
+        self._layer_panel.set_layer_stack(layer_stack)
+        self._layer_panel.set_history(self._history)
+        layers = layer_stack.layers()
+        if layers:
+            self._layer_panel.select_layer(layers[0].meta.id)
+        region_layers_path = source / "region_layers.json"
+        self._region_layer_ids = (
+            json.loads(region_layers_path.read_text(encoding="utf-8"))
+            if region_layers_path.exists()
+            else []
+        )
+        correspondence_path = source / "correspondence.json"
+        self._correspondence_set = (
+            load_correspondence_set(correspondence_path)
+            if correspondence_path.exists()
+            else None
+        )
         self._update_status()
 
     def _update_status(self) -> None:

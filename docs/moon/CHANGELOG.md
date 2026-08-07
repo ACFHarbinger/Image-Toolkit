@@ -38,12 +38,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `engine_architecture.md`'s "Gate 5 exception (2026-08-07)" note for the
   full rationale — this is a scope decision, not evidence Krita has proven
   insufficient. The Krita plugin remains the primary, actively-developed
-  host. Seven slices — canvas + layer-stack foundation, brush paint tool
+  host. Eight slices — canvas + layer-stack foundation, brush paint tool
   (issue #26), undo/redo (issue #27), non-destructive layer masks
   (issue #28), line-art segmentation (issue #29), style-bible palette
-  application (issue #30), and region-to-material correspondence
-  assignment (issue #31) — are all In review pending a manual desktop-app
-  check (see the `### Added` entries below).
+  application (issue #30), region-to-material correspondence assignment
+  (issue #31), and canvas document save/load (issue #32) — are all In
+  review pending a manual desktop-app check (see the `### Added` entries
+  below).
 
 ### Fixed
 
@@ -283,6 +284,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `gui` tests (511 core + 173 gui total); Ruff and mypy clean. Needs a
   manual desktop launch to confirm visually — see issue #31's testing
   comment.
+- **Standalone editor eighth slice (issue #32, In review): canvas
+  document save/load.** Every prior slice was in-memory only — closing
+  the app discarded all work. New `src/editor/document_io.py` adds
+  `save_document`/`load_document`: one `.npy` file per layer's pixel
+  buffer (and mask, when present) plus a `manifest.json` describing layer
+  order, identity, and flags. Deliberately `.npy` rather than PNG —
+  `src/editor/` has a strict "pure numpy, no Qt" boundary with no
+  image-codec dependency, and adding one (Pillow/Qt) just to persist
+  arrays this module already owns as numpy would be new surface for no
+  real benefit. `ReferenceColoringTab` gains Save Document/Open Document
+  buttons (directory picker). Save Document also writes the tab's
+  in-memory `CorrespondenceSet` via the already-existing
+  `colorization.correspondence.save_correspondence_set` and its
+  region-layer-id bookkeeping (`region_layers.json`) alongside the
+  canvas, so the seventh slice's correspondence assignments and the
+  fifth slice's region tracking survive a save/reload round trip. Open
+  Document resets undo/redo history to the freshly loaded canvas; the
+  bound style bible, if any, is left as-is. Not in scope: autosave,
+  recovery revisions for the canvas document itself, or integration with
+  `src/project`'s learning-progress project model — the standalone
+  editor still has no `SignalWeights`/project binding, so correction
+  learning (#24/#31) remains unavailable here. Verification: 5 new core
+  `editor` tests, 7 new headless-Qt `gui` tests (516 core + 178 gui
+  total); Ruff and mypy clean. Needs a manual desktop launch to confirm
+  visually — see issue #32's testing comment.
 - **Milestone 4 first slice (issue #24): deterministic confidence scoring
   and correction learning for assisted correspondence.** Portable contract
   only, no Docker UI yet, following the same sequencing every prior
