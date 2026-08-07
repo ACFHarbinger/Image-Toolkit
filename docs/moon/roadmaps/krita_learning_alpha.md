@@ -288,7 +288,13 @@ remain deferred in Review.
   dialogs rather than pretending their landmark contracts are interchangeable.
   Dedicated capstone form/cast/optional-third-value mask layers support the last
   stage. A finalized decision automatically advances; cancellation preserves a
-  pending review when already saved. Live confirmation remains.
+  pending review when already saved. A proactive code review found that
+  cancelling the inline decision or rationale dialog left the rendered
+  preview layer orphaned with no supported way to resolve it (the review
+  record was preserved, but not the preview); fixed by assigning the
+  preview to the dock's own Accept/Reject Preview buttons as a fallback,
+  and by adding the file's usual `try`/`except` guards around the
+  save/decide calls. Live confirmation remains.
 - 🔄 Head-orientation exercise template: the docker creates a 2600 × 1600
   landscape rotation sheet with five labeled work areas and separate layers for
   left profile, left three-quarter, front, right three-quarter, and right

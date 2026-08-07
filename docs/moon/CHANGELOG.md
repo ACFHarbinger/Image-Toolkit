@@ -32,6 +32,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Ran a proactive high-effort code review of `docker.py` (the original tutor
+  Docker, A1; largest and oldest Docker file, still backing the
+  deferred-In-Review A2/A3 checklists #10/#11/#12) and fixed two related
+  bugs it found in `_finalize_fresh_capstone_review`:
+  - It called `EngineClient.record_attempt_review`/`decide_attempt_review`
+    with no `try`/`except`, unlike every other analogous call site in this
+    file (`_request_review`, `_run_next_capstone_review`). A `ValueError`
+    from either (e.g. a stale attempt id after project state changed) would
+    propagate unhandled out of the Qt slot instead of surfacing a status
+    message like the rest of the dock does.
+  - The rendered preview layer was never assigned to `self._preview_layer`.
+    If the artist cancelled the inline decision or rationale dialog, the
+    locked preview layer was left in the document with no supported way to
+    accept, reject, or remove it — and since the review had already been
+    persisted as pending, re-running the capstone flow would create another
+    orphaned preview on each retry.
+  Now wraps every risky call in `try`/`except` matching the file's existing
+  convention, and assigns `self._preview_layer`/`self._review_id` right
+  after rendering so the dock's own Accept/Reject Preview buttons can always
+  resolve the preview if either dialog is cancelled. Also extracted the
+  light-direction/boundary-hardness confirmation dialogs -- previously
+  independently duplicated between the lesson and capstone cel-value review
+  flows -- into one shared `_confirm_light_and_hardness` helper (both flows'
+  mask-sampling logic differs in real ways and was left untouched).
+  Verification: 411 tests pass; Ruff and core mypy are clean. `docker.py`
+  has no logic-level unit tests of its own (only the canvasChanged/
+  entry-point regression tests cover it structurally), so this fix and
+  refactor are unverified beyond that until the still-pending A2/A3 live
+  checklists (#10/#11/#12) run.
 - **Live-discovered bug (issues #17/#18/#19):** the Character Colors and Line
   Art Segmentation Dockers failed to load in Krita at all —
   `NotImplementedError: DockWidget.canvasChanged() is abstract and must be

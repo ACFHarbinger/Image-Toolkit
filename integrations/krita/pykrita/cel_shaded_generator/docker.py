@@ -504,26 +504,10 @@ class LearningDocker(DockWidget):
         if document is None or self._project_directory is None or self._attempt_id is None:
             self._action_status.setText("Open the bound cel-value exercise project first.")
             return
-        direction, accepted = QInputDialog.getItem(
-            self,
-            "Confirm Light Direction",
-            "Declared light direction:",
-            ["top left", "top", "top right", "left", "right"],
-            0,
-            False,
-        )
-        if not accepted:
+        confirmed = self._confirm_light_and_hardness("Confirm Light Direction")
+        if confirmed is None:
             return
-        hardness, accepted = QInputDialog.getItem(
-            self,
-            "Confirm Boundary",
-            "Declared boundary hardness:",
-            ["hard", "moderate"],
-            0,
-            False,
-        )
-        if not accepted:
-            return
+        direction, hardness = confirmed
         root = document.rootNode()
         front_form = find_named_node(root, "02 Front Form-Shadow Mask")
         front_cast = find_named_node(root, "03 Front Cast-Shadow Mask")
@@ -746,6 +730,31 @@ class LearningDocker(DockWidget):
             raise ValueError("landmark collection was cancelled")
         return dialog.landmarks()
 
+    def _confirm_light_and_hardness(self, title):
+        """Shared light-direction/boundary-hardness confirmation.
+
+        Used by both the lesson cel-value review and the capstone cel-value
+        review, which previously carried independent copies of these two
+        dialogs. Returns ``(direction, hardness)``, or ``None`` if either
+        dialog is cancelled.
+        """
+        direction, accepted = QInputDialog.getItem(
+            self,
+            title,
+            "Declared light direction:",
+            ["top left", "top", "top right", "left", "right"],
+            0,
+            False,
+        )
+        if not accepted:
+            return None
+        hardness, accepted = QInputDialog.getItem(
+            self, "Confirm Boundary", "Declared boundary hardness:", ["hard", "moderate"], 0, False
+        )
+        if not accepted:
+            return None
+        return direction, hardness
+
     def _capstone_value_review(self, document):
         names = (
             "Capstone Front Form-Shadow Mask",
@@ -757,21 +766,10 @@ class LearningDocker(DockWidget):
         nodes = [find_named_node(document.rootNode(), name) for name in names]
         if any(node is None for node in nodes):
             raise ValueError("capstone value-mask layers are missing")
-        direction, accepted = QInputDialog.getItem(
-            self,
-            "Confirm Capstone Light",
-            "Declared light direction:",
-            ["top left", "top", "top right", "left", "right"],
-            0,
-            False,
-        )
-        if not accepted:
-            raise ValueError("light confirmation was cancelled")
-        hardness, accepted = QInputDialog.getItem(
-            self, "Confirm Boundary", "Boundary hardness:", ["hard", "moderate"], 0, False
-        )
-        if not accepted:
-            raise ValueError("boundary confirmation was cancelled")
+        confirmed = self._confirm_light_and_hardness("Confirm Capstone Light")
+        if confirmed is None:
+            raise ValueError("light or boundary confirmation was cancelled")
+        direction, hardness = confirmed
         masks = [sampled_alpha_mask(node, 3, document.width(), document.height()) for node in nodes]
         third = masks[4] if any(masks[4]) else None
         return EngineClient().review_value_masks(
@@ -789,12 +787,29 @@ class LearningDocker(DockWidget):
 
     def _finalize_fresh_capstone_review(self, review, document, crop_index) -> None:
         client = EngineClient()
-        client.record_attempt_review(
-            "record-" + review["id"], self._project_directory, self._attempt_id, review
-        )
-        preview = render_review_redlines(
-            document, map_review_redlines_to_matrix(review, crop_index)
-        )
+        try:
+            client.record_attempt_review(
+                "record-" + review["id"], self._project_directory, self._attempt_id, review
+            )
+        except (RuntimeError, ValueError) as error:
+            self._action_status.setText(f"Capstone review could not be saved: {error}")
+            return
+        try:
+            preview = render_review_redlines(
+                document, map_review_redlines_to_matrix(review, crop_index)
+            )
+        except (RuntimeError, TypeError, ValueError) as error:
+            self._action_status.setText(
+                "Review saved, but redlines could not be rendered: " + str(error)
+            )
+            self._refresh_progress()
+            return
+        # Fall back to the dock's own Accept/Reject buttons (self._preview_layer /
+        # self._review_id / _accept_preview / _reject_preview) if the artist
+        # cancels either dialog below, so a rendered preview is never orphaned
+        # with no supported way to resolve it.
+        self._preview_layer = preview
+        self._review_id = review["id"]
         decision, accepted = QInputDialog.getItem(
             self,
             "Capstone Review Decision",
@@ -804,29 +819,51 @@ class LearningDocker(DockWidget):
             False,
         )
         if not accepted:
-            self._action_status.setText("Review saved with a pending decision.")
+            self._action_status.setText(
+                "Review saved with a pending decision; use Accept/Reject Preview to resolve it."
+            )
             self._refresh_progress()
             return
         rationale, accepted = QInputDialog.getMultiLineText(
             self, "Capstone Decision Rationale", "Explain this decision:"
         )
         if not accepted or not rationale.strip():
-            self._action_status.setText("Review saved; a rationale is required to finalize it.")
+            self._action_status.setText(
+                "Review saved; a rationale is required to finalize it. Use "
+                "Accept/Reject Preview to resolve the pending preview."
+            )
             self._refresh_progress()
             return
-        client.decide_attempt_review(
-            "decide-" + review["id"],
-            self._project_directory,
-            self._attempt_id,
-            review["id"],
-            decision,
-            rationale,
-        )
+        try:
+            client.decide_attempt_review(
+                "decide-" + review["id"],
+                self._project_directory,
+                self._attempt_id,
+                review["id"],
+                decision,
+                rationale,
+            )
+        except (RuntimeError, ValueError) as error:
+            self._action_status.setText(
+                f"Decision could not be saved: {error}. Use Accept/Reject Preview to retry."
+            )
+            self._refresh_progress()
+            return
         if preview is not None:
-            if decision == "accepted":
-                accept_preview(preview)
-            else:
-                reject_preview(preview)
+            try:
+                if decision == "accepted":
+                    accept_preview(preview)
+                else:
+                    reject_preview(preview)
+            except (RuntimeError, ValueError) as error:
+                self._action_status.setText(
+                    f"Decision saved, but the preview layer could not be resolved: {error}. "
+                    "Use Accept/Reject Preview to retry."
+                )
+                self._refresh_progress()
+                return
+        self._preview_layer = None
+        self._review_id = None
         self._action_status.setText("Capstone review finalized; advancing to the next rubric.")
         self._refresh_progress()
         self._run_next_capstone_review()
