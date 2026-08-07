@@ -1,23 +1,31 @@
 """Standalone Reference Coloring editor tab -- canvas + layer stack
-foundation, a brush paint tool, undo/redo, and non-destructive layer masks
-(roadmap: standalone editor, gate-5 exception; see
+foundation, a brush paint tool, undo/redo, non-destructive layer masks, and
+line-art segmentation (roadmap: standalone editor, gate-5 exception; see
 ``docs/moon/roadmaps/engine_architecture.md``).
 
 Create a blank canvas of a chosen size, add/remove/reorder/show-hide
 layers, select a layer and paint on it with a solid-color circular brush,
-undo/redo any of the above, and attach a mask to a layer to paint which of
-its pixels show through. No segmentation or palette-preview UI yet -- those
-are later slices built on top of this same
-``editor.LayerStack``/``LayerCanvas``/``LayerListPanel``/``editor.brush``/
-``editor.EditHistory`` foundation, mirroring how the Krita Dockers built on
-Krita's own layer model.
+undo/redo any of the above, attach a mask to a layer to paint which of its
+pixels show through, and segment a line-art layer's enclosed regions into
+distinctly colored region layers (reusing the same deterministic
+``colorization.segmentation`` algorithm the Line Art Segmentation Krita
+Docker uses). No palette-preview UI yet -- that is a later slice built on
+top of this same ``editor.LayerStack``/``LayerCanvas``/``LayerListPanel``/
+``editor.brush``/``editor.EditHistory``/``editor.segmentation_tools``
+foundation, mirroring how the Krita Dockers built on Krita's own layer
+model.
 
 New feature, not code motion.
 """
 
 from __future__ import annotations
 
-from editor import EditHistory, LayerStack
+from editor import (
+    EditHistory,
+    LayerStack,
+    close_line_gaps_in_layer,
+    segment_layer_into_regions,
+)
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -87,6 +95,17 @@ class ReferenceColoringTab(QWidget):
         self._mask_value_spin.setValue(255)
         self._mask_value_spin.valueChanged.connect(self._canvas.set_mask_intensity)
 
+        self._max_gap_spin = QSpinBox(self)
+        self._max_gap_spin.setRange(0, 50)
+        self._max_gap_spin.setValue(2)
+        self._close_gaps_button = QPushButton("Close Line Gaps", self)
+        self._close_gaps_button.clicked.connect(self._close_line_gaps)
+
+        self._min_region_area_spin = QSpinBox(self)
+        self._min_region_area_spin.setRange(0, 1_000_000)
+        self._segment_button = QPushButton("Segment Regions", self)
+        self._segment_button.clicked.connect(self._segment_regions)
+
         controls = QHBoxLayout()
         controls.addWidget(self._new_canvas_button)
         controls.addWidget(self._pan_tool)
@@ -100,6 +119,12 @@ class ReferenceColoringTab(QWidget):
         controls.addWidget(self._edit_mask_checkbox)
         controls.addWidget(QLabel("Mask value:", self))
         controls.addWidget(self._mask_value_spin)
+        controls.addWidget(QLabel("Max gap:", self))
+        controls.addWidget(self._max_gap_spin)
+        controls.addWidget(self._close_gaps_button)
+        controls.addWidget(QLabel("Min region area:", self))
+        controls.addWidget(self._min_region_area_spin)
+        controls.addWidget(self._segment_button)
         controls.addStretch(1)
 
         right = QVBoxLayout()
@@ -161,6 +186,31 @@ class ReferenceColoringTab(QWidget):
 
     def _on_brush_radius_changed(self, value: int) -> None:
         self._canvas.set_brush_radius(value)
+
+    def _close_line_gaps(self) -> None:
+        layer_stack = self._canvas.layer_stack()
+        layer_id = self._layer_panel.selected_layer_id()
+        if layer_stack is None or layer_id is None:
+            return
+        if self._history is not None:
+            self._history.record()
+        if close_line_gaps_in_layer(layer_stack, layer_id, self._max_gap_spin.value()):
+            self._canvas.refresh()
+
+    def _segment_regions(self) -> None:
+        layer_stack = self._canvas.layer_stack()
+        layer_id = self._layer_panel.selected_layer_id()
+        if layer_stack is None or layer_id is None:
+            return
+        if self._history is not None:
+            self._history.record()
+        new_ids = segment_layer_into_regions(
+            layer_stack, layer_id, min_region_area=self._min_region_area_spin.value()
+        )
+        if new_ids:
+            self._layer_panel.refresh()
+            self._canvas.refresh()
+            self._update_status()
 
     def _undo(self) -> None:
         if self._history is None or not self._history.undo():

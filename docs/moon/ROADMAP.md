@@ -141,17 +141,20 @@ anyway, ahead of the gate; see the "Gate 5 exception" note in the
 [Engine Architecture Roadmap](roadmaps/engine_architecture.md) for the full
 rationale. This is a scope decision, not evidence Krita has proven
 insufficient — the Krita plugin remains the primary, actively-developed
-host. Four slices are implemented, all In review: the first (issue #25 —
+host. Five slices are implemented, all In review: the first (issue #25 —
 a PySide6 canvas + layer-stack foundation in the existing `gui/` workspace
 member, backed by a new pure-numpy `src/editor/` package), the second
 (issue #26 — a brush paint tool: pure-numpy circular stamping in
 `src/editor/brush.py`, a Pan/Brush tool switch, and color/size controls),
 the third (issue #27 — snapshot-based undo/redo in
 `src/editor/history.py`, one checkpoint per stroke or structural mutation),
-and the fourth (issue #28 — non-destructive per-layer grayscale masks that
+the fourth (issue #28 — non-destructive per-layer grayscale masks that
 attenuate compositing, with their own Add/Remove Mask controls and a
-mask-painting brush mode). No segmentation UI yet. The likely long-term
-architecture is still a C++ engine, GPU-backed
+mask-painting brush mode), and the fifth (issue #29 — line-art gap closing
+and region segmentation, reusing `colorization.segmentation` directly
+rather than reimplementing it, unlike the Krita plugin's numpy-free
+mirror). No palette-preview or correspondence-assignment UI yet. The
+likely long-term architecture is still a C++ engine, GPU-backed
 canvas, and isolated Python research/model workers; its staged boundary and
 migration gates are defined in the same document. Browser support is not a
 justification for choosing the desktop architecture.

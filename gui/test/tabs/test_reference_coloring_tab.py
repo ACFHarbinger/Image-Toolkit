@@ -139,3 +139,53 @@ def test_layer_panels_mask_buttons_reach_the_bound_layer_stack(q_app, monkeypatc
     tab.layer_panel()._add_mask_to_selected_layer()
     assert tab.canvas().layer_stack().layer("layer-1").mask is not None
     assert "1 layer" in tab._status.text()
+
+
+def _paint_ring(tab, monkeypatch, size=10):
+    _new_canvas(tab, monkeypatch, size=size)
+    layer = tab.canvas().layer_stack().layer("layer-1")
+    layer.pixels[2, 2:8, :] = [0, 0, 0, 255]
+    layer.pixels[7, 2:8, :] = [0, 0, 0, 255]
+    layer.pixels[2:8, 2, :] = [0, 0, 0, 255]
+    layer.pixels[2:8, 7, :] = [0, 0, 0, 255]
+
+
+def test_segment_regions_button_adds_a_region_layer(q_app, monkeypatch):
+    tab = ReferenceColoringTab()
+    _paint_ring(tab, monkeypatch)
+    tab._segment_regions()
+    layer_stack = tab.canvas().layer_stack()
+    assert len(layer_stack.layers()) == 2
+    assert "2 layer" in tab._status.text()
+    assert tab.layer_panel()._list.count() == 2
+
+
+def test_segment_regions_button_records_history(q_app, monkeypatch):
+    tab = ReferenceColoringTab()
+    _paint_ring(tab, monkeypatch)
+    tab._segment_regions()
+    assert len(tab.canvas().layer_stack().layers()) == 2
+    tab._undo()
+    assert len(tab.canvas().layer_stack().layers()) == 1
+
+
+def test_segment_regions_button_without_a_canvas_is_a_no_op(q_app):
+    tab = ReferenceColoringTab()
+    tab._segment_regions()
+    assert tab.history() is None
+
+
+def test_close_line_gaps_button_bridges_a_gap_and_enables_segmentation(q_app, monkeypatch):
+    tab = ReferenceColoringTab()
+    _paint_ring(tab, monkeypatch)
+    layer = tab.canvas().layer_stack().layer("layer-1")
+    layer.pixels[2, 4, :] = [0, 0, 0, 0]  # punch a 1px gap
+    tab._segment_regions()
+    assert len(tab.canvas().layer_stack().layers()) == 1  # leaks to the border, no region
+
+    tab._max_gap_spin.setValue(1)
+    tab._close_line_gaps()
+    assert layer.pixels[2, 4, 3] == 255
+
+    tab._segment_regions()
+    assert len(tab.canvas().layer_stack().layers()) == 2

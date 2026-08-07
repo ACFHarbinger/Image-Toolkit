@@ -38,10 +38,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `engine_architecture.md`'s "Gate 5 exception (2026-08-07)" note for the
   full rationale — this is a scope decision, not evidence Krita has proven
   insufficient. The Krita plugin remains the primary, actively-developed
-  host. Four slices — canvas + layer-stack foundation, brush paint tool
-  (issue #26), undo/redo (issue #27), and non-destructive layer masks
-  (issue #28) — are all In review pending a manual desktop-app check (see
-  the `### Added` entries below).
+  host. Five slices — canvas + layer-stack foundation, brush paint tool
+  (issue #26), undo/redo (issue #27), non-destructive layer masks
+  (issue #28), and line-art segmentation (issue #29) — are all In review
+  pending a manual desktop-app check (see the `### Added` entries below).
 
 ### Fixed
 
@@ -203,6 +203,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tests, 10 new headless-Qt `gui` tests (486 core + 158 gui total); Ruff
   and mypy clean. Needs a manual desktop launch to confirm visually — see
   issue #28's testing comment.
+- **Standalone editor fifth slice (issue #29, In review): line-art
+  segmentation.** New `src/editor/segmentation_tools.py` reuses
+  `colorization.segmentation` (roadmap milestone 1, issue #19) directly
+  rather than reimplementing it — the standalone GUI package already
+  depends on numpy, unlike the Krita plugin's `segmentation_masks.py`,
+  which has to mirror the same algorithm in pure Python for Krita's "no
+  numpy" boundary constraint. `close_line_gaps_in_layer` bridges small
+  gaps in a layer's painted ink (its alpha channel) in place.
+  `segment_layer_into_regions` segments a layer's painted ink into
+  enclosed background regions, each becoming a new, distinctly colored
+  layer stacked directly above the source; never mutates the source
+  layer, and regions leaking to the canvas border are correctly excluded.
+  `region_adjacency_for_regions` computes adjacency pairs from region
+  layers' current alpha masks (not a re-derivation from the original line
+  art), a building block for a possible later slice connecting the
+  standalone editor to something like milestone 4's confidence-ranked
+  correspondence workflow — not yet wired into any button.
+  `ReferenceColoringTab` adds Close Line Gaps (Max gap spin box) and
+  Segment Regions (Min region area spin box) buttons operating on the
+  selected layer. Still no palette-preview or correspondence-assignment
+  UI. Verification: 11 new core `editor` tests, 4 new headless-Qt `gui`
+  tests (497 core + 162 gui total); Ruff and mypy clean. Needs a manual
+  desktop launch to confirm visually — see issue #29's testing comment.
 - **Milestone 4 first slice (issue #24): deterministic confidence scoring
   and correction learning for assisted correspondence.** Portable contract
   only, no Docker UI yet, following the same sequencing every prior

@@ -151,3 +151,26 @@ Mask buttons and a `(mask)` list-item suffix; `ReferenceColoringTab` gained
 an Edit Mask checkbox and a Mask value spin box. Still no segmentation or
 palette-preview UI; masks here are a general raster-editor primitive, not
 yet tied to the Krita-side semantic "material mask" concept.
+
+**Fifth slice (issue #29, In review pending a manual desktop-app check):
+line-art segmentation.** `src/editor/segmentation_tools.py` reuses
+`colorization.segmentation` (roadmap milestone 1, issue #19) directly
+rather than reimplementing it -- unlike the Krita plugin's
+`segmentation_masks.py`, which mirrors the same algorithm in pure Python
+for Krita's "no numpy" boundary constraint, the standalone GUI package
+already depends on numpy, so there is nothing to mirror.
+`close_line_gaps_in_layer` bridges small gaps in a layer's painted ink (its
+alpha channel) in place. `segment_layer_into_regions` segments a layer's
+painted ink into enclosed background regions, each becoming a new,
+distinctly colored layer stacked directly above the source; it never
+mutates the source layer, and regions that leak to the canvas border are
+correctly excluded (matching `colorization.segmentation.segment_regions`'s
+existing contract). `region_adjacency_for_regions` computes adjacency
+pairs from region layers' *current* alpha masks (not a re-derivation from
+the original line art), so it reflects any manual repainting since
+segmentation -- a building block for a possible later slice connecting the
+standalone editor to something like milestone 4's confidence-ranked
+correspondence workflow, not yet wired into any button.
+`ReferenceColoringTab` adds Close Line Gaps (with a Max gap spin box) and
+Segment Regions (with a Min region area spin box) buttons operating on the
+selected layer. Still no palette-preview or correspondence-assignment UI.
