@@ -2,6 +2,15 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S356 — 2026-08-07 (Tutor alpha calibration issue)
+
+Opened Cel-Shaded-Generator A4 issue #14 in Project 12 Backlog and recorded it
+in the submodule roadmap (`8fc3977`). A4 separates real-beginner threshold and
+explanation-quality calibration, compatible repeated-attempt evaluation,
+offline Kubuntu/Krita acceptance, and RTX 4080 12 GB latency/VRAM evidence from
+the remaining A3 implementation work. #12 remains In Progress; #10/#11 remain
+in deferred Review.
+
 ## S355 — 2026-08-07 (Identity previews, cel-value analysis, capstone accountability)
 
 Advanced Cel-Shaded-Generator A3 issue #12 with selected-pair identity-retention
