@@ -38,8 +38,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `engine_architecture.md`'s "Gate 5 exception (2026-08-07)" note for the
   full rationale — this is a scope decision, not evidence Krita has proven
   insufficient. The Krita plugin remains the primary, actively-developed
-  host. The first slice — a canvas + layer-stack foundation — is In review
-  pending a manual desktop-app check (see the `### Added` entry below).
+  host. The first slice (canvas + layer-stack foundation) and second slice
+  (issue #26, brush paint tool) are both In review pending a manual
+  desktop-app check (see the `### Added` entries below).
 
 ### Fixed
 
@@ -133,6 +134,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Verification: 15 new core `editor` tests, 21 new headless-Qt `gui` tests
   (445 core + 120 gui total); Ruff and mypy clean. Needs a manual desktop
   launch to confirm visually — see issue #25's testing comment.
+- **Standalone editor second slice (issue #26, In review): brush paint
+  tool.** New `src/editor/brush.py`: `stamp_dot`/`stamp_line` — pure numpy,
+  no Qt, a hard-edged circular brush composited with straight-alpha "over"
+  onto a layer's HxWx4 uint8 buffer, deliberately not anti-aliased so it
+  stays simple and pixel-exact-testable; `stamp_line` steps overlapping
+  dots along a segment so a fast drag paints a continuous stroke rather
+  than isolated dots. `LayerCanvas` gained an explicit `set_tool("pan" |
+  "brush")` switch (rather than overloading left-click, since
+  `ScrollHandDrag` already claims left-click-drag for panning),
+  `set_active_layer_id`/`set_brush_color`/`set_brush_radius`, and real
+  mouse press/move/release painting in Brush mode. `LayerListPanel` now
+  emits a `layer_selected` signal (plus a public `select_layer(id)`) so the
+  canvas always knows which layer to paint onto, and auto-selects newly
+  added layers. `ReferenceColoringTab` adds Pan/Brush radio buttons, a
+  `QColorDialog` color-swatch button, and a brush-size spin box. Still no
+  masks, segmentation, undo/redo, or palette-preview UI — later slices
+  build on this same foundation. Verification: 26 new core `editor` tests
+  (11 for the brush math, 15 already counted for the layer stack), 16 new
+  headless-Qt `gui` tests (459 core + 136 gui total); Ruff and mypy clean.
+  Needs a manual desktop launch to confirm visually — see issue #26's
+  testing comment.
 - **Milestone 4 first slice (issue #24): deterministic confidence scoring
   and correction learning for assisted correspondence.** Portable contract
   only, no Docker UI yet, following the same sequencing every prior

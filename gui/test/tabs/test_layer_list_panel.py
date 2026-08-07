@@ -99,3 +99,37 @@ def test_setting_none_layer_stack_clears_list(q_app):
     panel.set_layer_stack(None)
     assert panel._list.count() == 0
     assert panel.selected_layer_id() is None
+
+
+def test_selecting_a_row_emits_layer_selected(q_app):
+    stack = LayerStack(2, 2)
+    stack.add_layer("bottom", "Bottom")
+    stack.add_layer("top", "Top")
+    panel = LayerListPanel()
+    panel.set_layer_stack(stack)
+    seen = []
+    panel.layer_selected.connect(seen.append)
+    panel._list.setCurrentRow(1)
+    assert seen[-1] == "bottom"
+
+
+def test_select_layer_selects_by_id_and_emits(q_app):
+    stack = LayerStack(2, 2)
+    stack.add_layer("bottom", "Bottom")
+    stack.add_layer("top", "Top")
+    panel = LayerListPanel()
+    panel.set_layer_stack(stack)
+    seen = []
+    panel.layer_selected.connect(seen.append)
+    panel.select_layer("bottom")
+    assert panel.selected_layer_id() == "bottom"
+    assert seen[-1] == "bottom"
+
+
+def test_add_layer_auto_selects_the_new_layer(q_app):
+    stack = LayerStack(2, 2)
+    panel = LayerListPanel()
+    panel.set_layer_stack(stack)
+    panel._add_layer()
+    new_id = stack.layers()[0].meta.id
+    assert panel.selected_layer_id() == new_id

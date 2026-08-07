@@ -1,12 +1,14 @@
 """Zoomable/pannable canvas that renders an ``editor.LayerStack``'s
-composite (standalone-editor first slice; see
-``docs/moon/roadmaps/engine_architecture.md``'s gate-5 exception).
+composite, with a brush paint tool (standalone-editor paint-tools slice;
+see ``docs/moon/roadmaps/engine_architecture.md``'s gate-5 exception).
 
-Read-only display for this slice -- no paint tools yet. The layer list panel
-(``layer_list_panel.py``) is what mutates the bound ``LayerStack``; this
-widget's only job is turning its current composite into a pixmap and
-supporting mouse-wheel zoom / hand-drag pan, matching the roadmap's "canvas +
-layer stack foundation" scope.
+The layer list panel (``layer_list_panel.py``) still owns add/remove/
+reorder/visibility; this widget owns turning the composite into a pixmap,
+mouse-wheel zoom / hand-drag pan, and now painting onto whichever layer is
+the bound "active" one, via ``editor.brush``'s pure-numpy stamping. Pan and
+Brush are separate explicit tools (``set_tool``) rather than overloading
+left-click, since ``QGraphicsView.DragMode.ScrollHandDrag`` already claims
+left-click-drag for panning.
 
 New feature, not code motion.
 """
@@ -14,13 +16,15 @@ New feature, not code motion.
 from __future__ import annotations
 
 import numpy as np
-from editor import LayerStack
+from editor import LayerStack, stamp_dot, stamp_line
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QImage, QPainter, QPixmap
 from PySide6.QtWidgets import QGraphicsPixmapItem, QGraphicsScene, QGraphicsView
 
 _MIN_SCALE = 0.05
 _MAX_SCALE = 40.0
+_DEFAULT_BRUSH_COLOR = (0, 0, 0, 255)
+_DEFAULT_BRUSH_RADIUS = 4
 
 
 def rgba_array_to_qpixmap(arr: np.ndarray) -> QPixmap:
@@ -32,18 +36,24 @@ def rgba_array_to_qpixmap(arr: np.ndarray) -> QPixmap:
 
 class LayerCanvas(QGraphicsView):
     """Displays a ``LayerStack``'s live composite; zoom with the wheel, pan
-    by dragging."""
+    or paint depending on the active tool."""
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self._scene = QGraphicsScene(self)
         self.setScene(self._scene)
         self.setRenderHint(QPainter.RenderHint.Antialiasing)
-        self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
         self._pixmap_item = QGraphicsPixmapItem()
         self._scene.addItem(self._pixmap_item)
         self._layer_stack: LayerStack | None = None
         self._scale = 1.0
+        self._tool = "pan"
+        self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
+        self._active_layer_id: str | None = None
+        self._brush_color = _DEFAULT_BRUSH_COLOR
+        self._brush_radius = _DEFAULT_BRUSH_RADIUS
+        self._painting = False
+        self._last_point: tuple[int, int] | None = None
 
     def set_layer_stack(self, layer_stack: LayerStack | None) -> None:
         self._layer_stack = layer_stack
@@ -67,6 +77,90 @@ class LayerCanvas(QGraphicsView):
 
     def current_scale(self) -> float:
         return self._scale
+
+    # ------------------------------------------------------------------
+    # Tool / paint configuration
+    # ------------------------------------------------------------------
+    def set_tool(self, tool: str) -> None:
+        if tool not in ("pan", "brush"):
+            raise ValueError(f"unsupported tool: {tool}")
+        self._tool = tool
+        self.setDragMode(
+            QGraphicsView.DragMode.ScrollHandDrag
+            if tool == "pan"
+            else QGraphicsView.DragMode.NoDrag
+        )
+
+    def tool(self) -> str:
+        return self._tool
+
+    def set_active_layer_id(self, layer_id: str | None) -> None:
+        self._active_layer_id = layer_id
+
+    def active_layer_id(self) -> str | None:
+        return self._active_layer_id
+
+    def set_brush_color(self, color: tuple[int, int, int, int]) -> None:
+        self._brush_color = color
+
+    def brush_color(self) -> tuple[int, int, int, int]:
+        return self._brush_color
+
+    def set_brush_radius(self, radius: int) -> None:
+        self._brush_radius = max(0, radius)
+
+    def brush_radius(self) -> int:
+        return self._brush_radius
+
+    # ------------------------------------------------------------------
+    # Painting
+    # ------------------------------------------------------------------
+    def _active_layer_pixels(self) -> np.ndarray | None:
+        if self._layer_stack is None or self._active_layer_id is None:
+            return None
+        layer = self._layer_stack.layer(self._active_layer_id)
+        return None if layer is None else layer.pixels
+
+    def _paint_dot_at_pixel(self, x: int, y: int) -> None:
+        pixels = self._active_layer_pixels()
+        if pixels is None:
+            return
+        stamp_dot(pixels, x, y, self._brush_radius, self._brush_color)
+        self.refresh()
+
+    def _paint_line_at_pixel(self, x0: int, y0: int, x1: int, y1: int) -> None:
+        pixels = self._active_layer_pixels()
+        if pixels is None:
+            return
+        stamp_line(pixels, x0, y0, x1, y1, self._brush_radius, self._brush_color)
+        self.refresh()
+
+    def _scene_point_to_pixel(self, event) -> tuple[int, int]:
+        point = self.mapToScene(event.pos())
+        return int(round(point.x())), int(round(point.y()))
+
+    def mousePressEvent(self, event) -> None:
+        if self._tool == "brush" and event.button() == Qt.MouseButton.LeftButton:
+            self._painting = True
+            self._last_point = self._scene_point_to_pixel(event)
+            self._paint_dot_at_pixel(*self._last_point)
+        else:
+            super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event) -> None:
+        if self._tool == "brush" and self._painting and self._last_point is not None:
+            point = self._scene_point_to_pixel(event)
+            self._paint_line_at_pixel(*self._last_point, *point)
+            self._last_point = point
+        else:
+            super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event) -> None:
+        if self._tool == "brush" and event.button() == Qt.MouseButton.LeftButton:
+            self._painting = False
+            self._last_point = None
+        else:
+            super().mouseReleaseEvent(event)
 
     def wheelEvent(self, event) -> None:
         if self._layer_stack is None:

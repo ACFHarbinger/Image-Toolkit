@@ -99,3 +99,16 @@ to an add/remove/reorder/show-hide `LayerListPanel`. No paint tools, masks,
 segmentation, or palette preview yet — those are later slices built on this
 same foundation, the same way every Krita Docker was built on Krita's own
 layer model.
+
+**Second slice (issue #26, In review pending a manual desktop-app check):
+brush paint tool.** `src/editor/brush.py` adds `stamp_dot`/`stamp_line` —
+pure numpy, no Qt, a hard-edged circular brush composited with straight
+alpha "over", deliberately not anti-aliased so it stays simple and
+pixel-exact-testable; a softer brush is a later slice on the same contract.
+`LayerCanvas` gained an explicit Pan/Brush tool switch (`set_tool`) rather
+than overloading left-click, since `QGraphicsView.DragMode.ScrollHandDrag`
+already claims left-click-drag for panning; painting targets whichever
+layer `LayerListPanel` reports as selected (`layer_selected` signal, new).
+`ReferenceColoringTab` adds Pan/Brush radio buttons, a color-swatch button
+(`QColorDialog`), and a brush-size spin box. Still no masks, segmentation,
+or palette-preview UI — those remain later slices on this same foundation.

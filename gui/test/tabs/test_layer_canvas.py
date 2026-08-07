@@ -63,3 +63,96 @@ def test_wheel_event_is_a_no_op_without_a_layer_stack(q_app):
     canvas = LayerCanvas()
     canvas.wheelEvent(_FakeWheelEvent(120))
     assert canvas.current_scale() == 1.0
+
+
+def test_default_tool_is_pan(q_app):
+    canvas = LayerCanvas()
+    assert canvas.tool() == "pan"
+
+
+def test_set_tool_switches_drag_mode(q_app):
+    from PySide6.QtWidgets import QGraphicsView
+
+    canvas = LayerCanvas()
+    canvas.set_tool("brush")
+    assert canvas.tool() == "brush"
+    assert canvas.dragMode() == QGraphicsView.DragMode.NoDrag
+    canvas.set_tool("pan")
+    assert canvas.dragMode() == QGraphicsView.DragMode.ScrollHandDrag
+
+
+def test_set_tool_rejects_unknown_tool(q_app):
+    canvas = LayerCanvas()
+    with pytest.raises(ValueError, match="unsupported tool"):
+        canvas.set_tool("eraser")
+
+
+def test_brush_color_and_radius_setters(q_app):
+    canvas = LayerCanvas()
+    canvas.set_brush_color((10, 20, 30, 255))
+    assert canvas.brush_color() == (10, 20, 30, 255)
+    canvas.set_brush_radius(9)
+    assert canvas.brush_radius() == 9
+    canvas.set_brush_radius(-5)
+    assert canvas.brush_radius() == 0
+
+
+def test_paint_dot_at_pixel_requires_an_active_layer(q_app):
+    canvas = LayerCanvas()
+    stack = LayerStack(10, 10)
+    stack.add_layer("base", "Base")
+    canvas.set_layer_stack(stack)
+    # No active layer bound yet -- painting must be a no-op, not a crash.
+    canvas._paint_dot_at_pixel(5, 5)
+    assert (stack.layer("base").pixels == 0).all()
+
+
+def test_paint_dot_at_pixel_paints_the_active_layer(q_app):
+    canvas = LayerCanvas()
+    stack = LayerStack(10, 10)
+    stack.add_layer("base", "Base")
+    canvas.set_layer_stack(stack)
+    canvas.set_active_layer_id("base")
+    canvas.set_brush_color((255, 0, 0, 255))
+    canvas.set_brush_radius(1)
+    canvas._paint_dot_at_pixel(5, 5)
+    assert stack.layer("base").pixels[5, 5].tolist() == [255, 0, 0, 255]
+
+
+def test_paint_line_at_pixel_paints_the_active_layer(q_app):
+    canvas = LayerCanvas()
+    stack = LayerStack(10, 10)
+    stack.add_layer("base", "Base")
+    canvas.set_layer_stack(stack)
+    canvas.set_active_layer_id("base")
+    canvas.set_brush_color((0, 255, 0, 255))
+    canvas.set_brush_radius(1)
+    canvas._paint_line_at_pixel(1, 5, 8, 5)
+    assert stack.layer("base").pixels[5, 1, 3] > 0
+    assert stack.layer("base").pixels[5, 8, 3] > 0
+
+
+def test_mouse_paint_flow_via_private_pixel_hooks(q_app):
+    """Exercises the same press/move/release bookkeeping mousePressEvent/
+    mouseMoveEvent/mouseReleaseEvent use, without fighting
+    QGraphicsView.mapToScene's viewport/scene coordinate mapping in a
+    headless test -- mirrors MangaCanvasEditor's existing test pattern of
+    calling the pixel-space paint methods directly."""
+    canvas = LayerCanvas()
+    stack = LayerStack(10, 10)
+    stack.add_layer("base", "Base")
+    canvas.set_layer_stack(stack)
+    canvas.set_active_layer_id("base")
+    canvas.set_tool("brush")
+    canvas.set_brush_radius(1)
+
+    canvas._painting = True
+    canvas._last_point = (2, 2)
+    canvas._paint_dot_at_pixel(2, 2)
+    point = (6, 2)
+    canvas._paint_line_at_pixel(*canvas._last_point, *point)
+    canvas._last_point = point
+    canvas._painting = False
+
+    assert stack.layer("base").pixels[2, 2, 3] > 0
+    assert stack.layer("base").pixels[2, 6, 3] > 0

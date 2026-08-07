@@ -143,11 +143,13 @@ rationale. This is a scope decision, not evidence Krita has proven
 insufficient — the Krita plugin remains the primary, actively-developed
 host. The first slice (issue #25, In review — a PySide6 canvas +
 layer-stack foundation in the existing `gui/` workspace member, backed by a
-new pure-numpy `src/editor/` package) is implemented; no paint tools,
-masks, or segmentation UI yet. The
-likely long-term architecture is still a C++ engine, GPU-backed canvas, and
-isolated Python research/model workers; its staged boundary and migration
-gates are defined in the same document. Browser support is not a
+new pure-numpy `src/editor/` package) and second slice (issue #26, In
+review — a brush paint tool: pure-numpy circular stamping in
+`src/editor/brush.py`, a Pan/Brush tool switch, and color/size controls in
+the Reference Coloring tab) are both implemented; no masks or segmentation
+UI yet. The likely long-term architecture is still a C++ engine, GPU-backed
+canvas, and isolated Python research/model workers; its staged boundary and
+migration gates are defined in the same document. Browser support is not a
 justification for choosing the desktop architecture.
 
 ## Deferred clients

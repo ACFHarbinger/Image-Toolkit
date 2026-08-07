@@ -1,10 +1,12 @@
 """Layer-list panel for the standalone editor's layer-stack foundation (see
 ``docs/moon/roadmaps/engine_architecture.md``'s gate-5 exception).
 
-Owns the only mutations a ``LayerStack`` gets in this first slice: add,
-remove, reorder, and visibility toggle. Emits ``layers_changed`` after every
-mutation so a bound canvas (``layer_canvas.py``) knows to re-render; never
-touches the canvas directly, keeping this panel reusable without one.
+Owns the only structural mutations a ``LayerStack`` gets: add, remove,
+reorder, and visibility toggle. Emits ``layers_changed`` after every
+mutation so a bound canvas (``layer_canvas.py``) knows to re-render, and
+``layer_selected`` whenever the current selection changes so a canvas can
+paint onto the right layer -- never touches the canvas directly, keeping
+this panel reusable without one.
 
 New feature, not code motion.
 """
@@ -30,6 +32,7 @@ class LayerListPanel(QWidget):
     """Add/remove/reorder/toggle-visibility controls over a bound ``LayerStack``."""
 
     layers_changed = Signal()
+    layer_selected = Signal(object)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -48,6 +51,7 @@ class LayerListPanel(QWidget):
         self._up_button.clicked.connect(lambda: self._move_selected_layer(-1))
         self._down_button.clicked.connect(lambda: self._move_selected_layer(1))
         self._list.itemChanged.connect(self._on_item_changed)
+        self._list.currentItemChanged.connect(self._on_current_item_changed)
 
         buttons = QHBoxLayout()
         for button in (self._add_button, self._remove_button, self._up_button, self._down_button):
@@ -67,6 +71,10 @@ class LayerListPanel(QWidget):
     def selected_layer_id(self) -> str | None:
         item = self._list.currentItem()
         return item.data(Qt.ItemDataRole.UserRole) if item is not None else None
+
+    def select_layer(self, layer_id: str) -> None:
+        """Select ``layer_id`` in the list, emitting ``layer_selected``."""
+        self._select_layer(layer_id)
 
     def _refresh_list(self) -> None:
         self._list.blockSignals(True)
@@ -91,6 +99,7 @@ class LayerListPanel(QWidget):
         count = len(self._layer_stack.layers())
         self._layer_stack.add_layer(layer_id, f"Layer {count + 1}")
         self._refresh_list()
+        self._select_layer(layer_id)
         self.layers_changed.emit()
 
     def _remove_selected_layer(self) -> None:
@@ -133,6 +142,11 @@ class LayerListPanel(QWidget):
         visible = item.checkState() == Qt.CheckState.Checked
         if self._layer_stack.set_visibility(layer_id, visible):
             self.layers_changed.emit()
+
+    def _on_current_item_changed(self, current, _previous) -> None:
+        self.layer_selected.emit(
+            current.data(Qt.ItemDataRole.UserRole) if current is not None else None
+        )
 
 
 __all__ = ["LayerListPanel"]

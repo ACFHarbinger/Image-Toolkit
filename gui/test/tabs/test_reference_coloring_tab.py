@@ -33,3 +33,45 @@ def test_layer_panel_mutation_refreshes_canvas_and_status(q_app):
     tab._layer_panel._add_layer()
     assert len(stack.layers()) == 1
     assert "1 layer" in tab._status.text()
+
+
+def test_default_tool_is_pan(q_app):
+    tab = ReferenceColoringTab()
+    assert tab.canvas().tool() == "pan"
+
+
+def test_selecting_brush_radio_switches_canvas_tool(q_app):
+    tab = ReferenceColoringTab()
+    tab._brush_tool.setChecked(True)
+    assert tab.canvas().tool() == "brush"
+    tab._pan_tool.setChecked(True)
+    assert tab.canvas().tool() == "pan"
+
+
+def test_brush_radius_spin_updates_canvas(q_app):
+    tab = ReferenceColoringTab()
+    tab._brush_radius_spin.setValue(12)
+    assert tab.canvas().brush_radius() == 12
+
+
+def test_layer_selection_wires_canvas_active_layer(q_app):
+    tab = ReferenceColoringTab()
+    stack = LayerStack(4, 4)
+    stack.add_layer("only", "Only")
+    tab._canvas.set_layer_stack(stack)
+    tab._layer_panel.set_layer_stack(stack)
+    tab._layer_panel.select_layer("only")
+    assert tab.canvas().active_layer_id() == "only"
+
+
+def test_new_canvas_default_layer_is_selected_and_paintable(q_app, monkeypatch):
+    from PySide6.QtWidgets import QInputDialog
+
+    monkeypatch.setattr(QInputDialog, "getInt", staticmethod(lambda *a, **k: (10, True)))
+    tab = ReferenceColoringTab()
+    tab._new_canvas()
+    assert tab.canvas().active_layer_id() == "layer-1"
+    tab._canvas.set_brush_color((255, 0, 0, 255))
+    tab._canvas.set_brush_radius(0)
+    tab._canvas._paint_dot_at_pixel(5, 5)
+    assert tab.canvas().layer_stack().layer("layer-1").pixels[5, 5].tolist() == [255, 0, 0, 255]
