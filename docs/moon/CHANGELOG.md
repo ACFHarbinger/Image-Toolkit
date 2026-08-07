@@ -2,6 +2,10 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S328 — 2026-08-07 (Deterministic front-head review core)
+
+Advanced Cel-Shaded-Generator A2 issue #10 (`1a23944`) with a host-neutral deterministic reviewer for artist-confirmed normalized landmarks. It measures centerline and eye-line deviation, chin offset, and jaw asymmetry; returns provisional rubric scores, geometry-only evidence, actionable explanations, separate redline geometry, preview suggestions, and remedial routing; and performs no pixel or model analysis. Balanced and intentionally flawed fixtures bring the core suite to 159 passing tests with clean Ruff and mypy. The updated five-stage lesson was also scoped-uninstalled/reinstalled into the live Krita plugin directory with matching source/deployment checksums.
+
 ## S327 — 2026-08-07 (Krita A2 guided lesson started)
 
 Started Cel-Shaded-Generator A2 issue #10 (`d4ef412`) with the learner-visible lesson slice: replaced placeholder content with a five-stage offline beginner sequence for the cranial circle, centerline, eye-line, jaw/chin, and structural self-check; added completion criteria and three independent practice attempts; and made the Krita docker scroll its full explanations and checklist. Nine focused adapter tests pass. A live reinstall awaits a closed Krita process, while deterministic geometry review proceeds independently.
