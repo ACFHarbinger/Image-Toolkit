@@ -28,7 +28,11 @@ from .diagnostics import diagnose
 from .engine_client import EngineClient
 from .exercise import create_exercise_project
 from .landmark_dialog import LandmarkDialog
-from .orientation_landmarks import OrientationLandmarkCollector, selected_orientation_view
+from .orientation_landmarks import (
+    OrientationLandmarkCollector,
+    selected_design_view,
+    selected_orientation_view,
+)
 from .progress_view import format_progress
 from .redlines import (
     accept_preview,
@@ -74,6 +78,8 @@ class LearningDocker(DockWidget):
         landmark_button.clicked.connect(self._place_landmarks)
         review_button = QPushButton("Request Deterministic Review", container)
         review_button.clicked.connect(self._request_review)
+        pair_review_button = QPushButton("Review Front / Turned Design Pair", container)
+        pair_review_button.clicked.connect(self._request_pair_review)
         accept_button = QPushButton("Accept Preview", container)
         accept_button.clicked.connect(self._accept_preview)
         reject_button = QPushButton("Reject Preview", container)
@@ -115,6 +121,8 @@ class LearningDocker(DockWidget):
         self._landmarks = None
         self._orientation_view = None
         self._orientation_crop_index = None
+        self._design_variant_id = None
+        self._pair_landmarks = {}
         self._preview_layer = None
         self._project_directory = None
         self._attempt_id = None
@@ -143,6 +151,7 @@ class LearningDocker(DockWidget):
         layout.addWidget(create_button)
         layout.addWidget(landmark_button)
         layout.addWidget(review_button)
+        layout.addWidget(pair_review_button)
         layout.addWidget(accept_button)
         layout.addWidget(reject_button)
         layout.addWidget(helpful_button)
@@ -175,6 +184,8 @@ class LearningDocker(DockWidget):
         self._landmarks = None
         self._orientation_view = None
         self._orientation_crop_index = None
+        self._design_variant_id = None
+        self._pair_landmarks = {}
         self._lesson_title.setText(lesson["title"])
         self._lesson_body.setText(render_lesson_text(lesson))
         self._diagram_selector.blockSignals(True)
@@ -268,6 +279,7 @@ class LearningDocker(DockWidget):
         crop_index = None
         title = None
         self._orientation_view = None
+        self._design_variant_id = None
         if lesson["exercise_id"] == "anime-head-orientation":
             try:
                 view, crop_index = selected_orientation_view(document.activeNode())
@@ -289,6 +301,28 @@ class LearningDocker(DockWidget):
             if view != "front":
                 collector = OrientationLandmarkCollector(view)
             title = "Place " + view.replace("_", " ").title() + " Review Landmarks"
+        elif lesson["exercise_id"] == "anime-head-volume-jaw":
+            try:
+                view, crop_index, variant_id = selected_design_view(document.activeNode())
+            except (AttributeError, ValueError) as error:
+                self._action_status.setText(f"Select one cranial/jaw work layer: {error}")
+                return
+            confirmation = QMessageBox.question(
+                self,
+                "Confirm Selected Design",
+                "Review only the active cranial/jaw construction layer?",
+                QMessageBox.Yes | QMessageBox.Cancel,
+                QMessageBox.Cancel,
+            )
+            if confirmation != QMessageBox.Yes:
+                self._action_status.setText("Selected-design review cancelled.")
+                return
+            self._orientation_view = view
+            self._orientation_crop_index = crop_index
+            self._design_variant_id = variant_id
+            if view != "front":
+                collector = OrientationLandmarkCollector(view)
+            title = "Place " + view.replace("_", " ").title() + " Design Landmarks"
         dialog = LandmarkDialog(
             document,
             self,
@@ -300,6 +334,11 @@ class LearningDocker(DockWidget):
             self._action_status.setText("Landmark placement cancelled; no review was requested.")
             return
         self._landmarks = dialog.landmarks()
+        if lesson["exercise_id"] == "anime-head-volume-jaw":
+            key = "front" if self._orientation_view == "front" else "turned"
+            self._pair_landmarks[key] = self._landmarks
+            if self._design_variant_id != "selected_variant":
+                self._pair_landmarks["variant_id"] = self._design_variant_id
         self._action_status.setText(
             "Nine landmarks recorded from the current projection. Engine review and redline "
             "rendering are the next step; artwork was not modified."
@@ -313,10 +352,10 @@ class LearningDocker(DockWidget):
         try:
             client = EngineClient()
             request_id = str(uuid.uuid4())
-            if lesson["exercise_id"] == "anime-head-orientation" and self._orientation_view not in (
-                None,
-                "front",
-            ):
+            if lesson["exercise_id"] in {
+                "anime-head-orientation",
+                "anime-head-volume-jaw",
+            } and self._orientation_view not in (None, "front"):
                 review = client.review_orientation_head(
                     request_id, self._orientation_view, self._landmarks
                 )
@@ -344,7 +383,11 @@ class LearningDocker(DockWidget):
         try:
             renderable_review = review
             if (
-                lesson["exercise_id"] == "anime-head-orientation"
+                lesson["exercise_id"]
+                in {
+                    "anime-head-orientation",
+                    "anime-head-volume-jaw",
+                }
                 and self._orientation_crop_index is not None
             ):
                 renderable_review = map_review_redlines_to_sheet(
@@ -368,6 +411,51 @@ class LearningDocker(DockWidget):
             else "\nA locked tutor preview was added; explicitly accept or reject it."
         )
         self._action_status.setText("Review\n• " + "\n• ".join(explanations) + suffix)
+
+    def _request_pair_review(self) -> None:
+        lesson = self._lessons[self._lesson_selector.currentIndex()]
+        if lesson["exercise_id"] != "anime-head-volume-jaw":
+            self._action_status.setText("Paired review is available in the cranial/jaw lesson.")
+            return
+        missing = {"front", "turned", "variant_id"} - self._pair_landmarks.keys()
+        if missing:
+            self._action_status.setText(
+                "Place landmarks on one front variant and the turned variant before paired review."
+            )
+            return
+        if self._project_directory is None or self._attempt_id is None:
+            self._action_status.setText("Create a portable exercise project before paired review.")
+            return
+        try:
+            client = EngineClient()
+            review = client.review_cranial_jaw_pair(
+                str(uuid.uuid4()),
+                self._pair_landmarks["variant_id"],
+                self._pair_landmarks["front"],
+                self._pair_landmarks["turned"],
+            )
+            client.record_attempt_review(
+                "record-" + review["id"],
+                self._project_directory,
+                self._attempt_id,
+                review,
+            )
+        except (RuntimeError, ValueError) as error:
+            self._action_status.setText(f"Paired review unavailable: {error}")
+            return
+        explanations = review.get("explanations", [])
+        if not explanations:
+            self._action_status.setText(
+                "Paired review completed without an explanation; report this bug."
+            )
+            return
+        self._review_id = review["id"]
+        self._preview_layer = None
+        self._pending_decision = None
+        self._action_status.setText(
+            "Front / turned consistency review\n• " + "\n• ".join(explanations)
+        )
+        self._refresh_progress()
         self._refresh_progress()
 
     def _refresh_progress(self) -> None:

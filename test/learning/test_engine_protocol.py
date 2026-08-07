@@ -183,6 +183,44 @@ def test_protocol_reviews_one_selected_three_quarter_head():
     assert response["result"]["rubric_id"] == "anime-head-orientation-structure"
 
 
+def test_protocol_reviews_front_and_turned_design_pair():
+    response = handle_request(
+        {
+            "protocol_version": 1,
+            "request_id": "pair-review-1",
+            "operation": "review_cranial_jaw_pair",
+            "payload": {
+                "variant_id": "neutral",
+                "front_landmarks": {
+                    "cranium_center": [0.5, 0.35],
+                    "cranium_radius": 0.25,
+                    "centerline_top": [0.5, 0.1],
+                    "centerline_bottom": [0.5, 0.6],
+                    "eye_line_left": [0.3, 0.4],
+                    "eye_line_right": [0.7, 0.4],
+                    "jaw_left": [0.36, 0.65],
+                    "jaw_right": [0.64, 0.65],
+                    "chin": [0.5, 0.82],
+                },
+                "turned_landmarks": {
+                    "cranium_center": [0.5, 0.35],
+                    "cranium_radius": 0.25,
+                    "centerline_top": [0.56, 0.1],
+                    "chin": [0.56, 0.82],
+                    "eye_line_left": [0.3, 0.4],
+                    "eye_line_right": [0.7, 0.4],
+                    "left_contour": [0.38, 0.4],
+                    "right_contour": [0.7, 0.4],
+                    "jaw_left": [0.4, 0.65],
+                    "jaw_right": [0.62, 0.65],
+                },
+            },
+        }
+    )
+    assert response["result"]["exercise_id"] == "anime-head-volume-jaw"
+    assert response["result"]["rubric_id"] == "anime-head-volume-jaw-pair"
+
+
 @pytest.mark.parametrize(
     "change",
     [

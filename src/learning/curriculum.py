@@ -25,6 +25,10 @@ NORMALIZED_SCORE_IDS = {
     "cross_contour_consistency",
     "jaw_attachment",
     "cranial_volume",
+    "cranial_volume_retention",
+    "lower_face_length_retention",
+    "jaw_character_retention",
+    "perspective_adjustment",
 }
 
 

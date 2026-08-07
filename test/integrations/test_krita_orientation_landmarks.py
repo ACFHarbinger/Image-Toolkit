@@ -34,6 +34,18 @@ def test_active_named_layer_selects_view_and_sheet_cell():
         module.selected_orientation_view(SimpleNamespace(name="Artwork"))
 
 
+def test_active_design_layer_selects_view_cell_and_variant():
+    module = _module()
+    assert module.selected_design_view(
+        SimpleNamespace(name="03 Long Tapered Front Construction")
+    ) == ("front", 2, "long_tapered")
+    assert module.selected_design_view(
+        SimpleNamespace(name="05 Selected Variant Right Three-Quarter Construction")
+    ) == ("right_three_quarter", 4, "selected_variant")
+    with pytest.raises(ValueError, match="not one of"):
+        module.selected_design_view(SimpleNamespace(name="Artwork"))
+
+
 @pytest.mark.parametrize(
     "view, kind, expected_key",
     [

@@ -190,6 +190,15 @@ remain deferred in Review.
   still require calibration with real beginner drawings; front orientation uses
   the separately calibrated front workflow rather than pretending all views
   share evidence.
+- 🔄 Cranial-volume/jaw design exercise: the docker creates a 2800 × 1600
+  landscape sheet with four front-design columns and a fifth right
+  three-quarter reconstruction area. Each work area is a separate named layer
+  beneath a locked vector layout. The active layer alone controls individual
+  review. After recording one chosen front design and the turned reconstruction,
+  the artist may explicitly request a separate paired consistency review for
+  cranial mass, lower-face length, jaw character, chin alignment, and appropriate
+  perspective adjustment. Raw ratios and normalized scores remain auditable;
+  thresholds are provisional until beginner drawings calibrate them.
 - ✅ Orientation review geometry is returned in selected-head coordinates and
   mapped into only the confirmed sheet cell before rasterization. Failed rubric
   dimensions produce tutor-owned preview guides that reuse the explicit

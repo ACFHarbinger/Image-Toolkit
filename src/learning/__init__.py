@@ -13,6 +13,7 @@ from .curriculum import (
     next_primary_exercise,
     recommend_remediation,
 )
+from .design_review import review_cranial_jaw_pair
 from .head_review import FrontHeadLandmarks, FrontHeadReviewThresholds, review_front_head
 from .model import (
     LEARNING_SCHEMA_VERSION,
@@ -97,6 +98,7 @@ __all__ = [
     "summarize_progress",
     "validate_model_package",
     "review_front_head",
+    "review_cranial_jaw_pair",
     "review_profile_head",
     "review_three_quarter_head",
 ]

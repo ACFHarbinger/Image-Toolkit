@@ -97,6 +97,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   diagnoses, six completion criteria, five self-review questions, and a final
   labeled variation sheet. Two original SVGs compare four jaw designs and show
   the pinched-cranium failure against a preserved cranium plus attached jaw.
+  Added its practical 2800 × 1600 design-sheet workflow with four named front
+  variant layers, one selected-variant right-three-quarter layer, and a locked
+  five-area SVG layout. Individual review follows only the explicitly confirmed
+  active layer. An optional separate paired review compares artist-confirmed
+  front and turned landmarks for cranial-volume, lower-face-length, and jaw-
+  character retention plus chin alignment and perspective adjustment. It saves
+  the auditable raw ratios and normalized dimensions in the portable project;
+  provisional thresholds remain subject to beginner-drawing calibration.
 - Opened A3 issue #12 at In Progress P0/XL for versioned curriculum progression,
   deterministic weakness-to-remediation routing, comparable repeated-attempt
   metrics, and a private local progress view while A2 issues #10/#11 remain in

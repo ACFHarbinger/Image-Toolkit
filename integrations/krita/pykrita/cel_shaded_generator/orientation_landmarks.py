@@ -11,6 +11,17 @@ VIEW_LAYERS = {
     "04 Right Three-Quarter Construction": ("right_three_quarter", 3),
     "05 Right Profile Construction": ("right_profile", 4),
 }
+DESIGN_LAYERS = {
+    "01 Neutral Front Construction": ("front", 0, "neutral"),
+    "02 Youthful Soft Front Construction": ("front", 1, "youthful_soft"),
+    "03 Long Tapered Front Construction": ("front", 2, "long_tapered"),
+    "04 Broad Angular Front Construction": ("front", 3, "broad_angular"),
+    "05 Selected Variant Right Three-Quarter Construction": (
+        "right_three_quarter",
+        4,
+        "selected_variant",
+    ),
+}
 
 THREE_QUARTER_PROMPTS = (
     ("cranium_center", "Click the center of the cranial mass."),
@@ -46,6 +57,15 @@ def selected_orientation_view(active_node):
     if name not in VIEW_LAYERS:
         raise ValueError("active layer is not one of the five orientation construction layers")
     return VIEW_LAYERS[name]
+
+
+def selected_design_view(active_node):
+    if active_node is None:
+        raise ValueError("select one named cranial/jaw construction layer")
+    name = active_node.name() if callable(getattr(active_node, "name", None)) else active_node.name
+    if name not in DESIGN_LAYERS:
+        raise ValueError("active layer is not one of the five cranial/jaw construction layers")
+    return DESIGN_LAYERS[name]
 
 
 class OrientationLandmarkCollector:

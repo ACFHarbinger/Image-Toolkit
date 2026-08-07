@@ -163,6 +163,33 @@ def test_creates_landscape_five_view_orientation_sheet():
     assert document.active.name == "03 Front Construction"
 
 
+def test_creates_five_area_cranial_and_jaw_design_sheet():
+    adapter = _load_adapter()
+    application = ApplicationStub()
+
+    document = adapter.create_volume_jaw_exercise_document(application)
+
+    assert application.created_with[:3] == (
+        2800,
+        1600,
+        "Cranial Volume and Jaw Variation — Design Sheet",
+    )
+    assert [node.name for node, _ in document.root.children] == [
+        "Tutor Feedback (locked)",
+        "01 Neutral Front Construction",
+        "02 Youthful Soft Front Construction",
+        "03 Long Tapered Front Construction",
+        "04 Broad Angular Front Construction",
+        "05 Selected Variant Right Three-Quarter Construction",
+    ]
+    layout = document.root.children[0][0].children[0][0]
+    assert layout.name == "Tutor Variation Layout (locked)"
+    assert layout.locked
+    assert "NEUTRAL FRONT" in layout.svg
+    assert "SELECTED VARIANT RIGHT THREE-QUARTER" in layout.svg
+    assert document.active.name == "01 Neutral Front Construction"
+
+
 def test_portable_project_requires_empty_directory(tmp_path):
     adapter = _load_adapter()
     (tmp_path / "unrelated").write_text("keep", encoding="utf-8")

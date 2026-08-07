@@ -20,6 +20,7 @@ from project import (
 )
 
 from .curriculum import build_curriculum_v1, next_primary_exercise
+from .design_review import review_cranial_jaw_pair
 from .head_review import FrontHeadLandmarks, review_front_head
 from .orientation_review import (
     OrientationView,
@@ -161,6 +162,16 @@ def handle_request(request: dict[str, Any]) -> dict[str, Any]:
                 raise ValueError("front orientation uses the front review operation")
         except TypeError as error:
             raise ValueError("orientation review has invalid landmark fields") from error
+        return _success(request_id, review.to_dict())
+    if operation == "review_cranial_jaw_pair":
+        try:
+            front = FrontHeadLandmarks(**payload["front_landmarks"])
+            turned = ThreeQuarterLandmarks(**payload["turned_landmarks"])
+            review = review_cranial_jaw_pair(front, turned, request_id, payload["variant_id"])
+        except KeyError as error:
+            raise ValueError("cranial/jaw pair review is incomplete") from error
+        except TypeError as error:
+            raise ValueError("cranial/jaw pair review has invalid landmarks") from error
         return _success(request_id, review.to_dict())
     if operation != "review_front_head":
         raise ValueError("unsupported engine operation")

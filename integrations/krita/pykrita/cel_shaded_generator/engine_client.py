@@ -32,6 +32,17 @@ class EngineClient:
             {"view": view, "landmarks": landmarks},
         )
 
+    def review_cranial_jaw_pair(self, request_id, variant_id, front_landmarks, turned_landmarks):
+        return self._execute(
+            request_id,
+            "review_cranial_jaw_pair",
+            {
+                "variant_id": variant_id,
+                "front_landmarks": front_landmarks,
+                "turned_landmarks": turned_landmarks,
+            },
+        )
+
     def create_exercise_project(
         self, request_id, directory, title, attempt_id, exercise_id="anime-head-front-construction"
     ):
