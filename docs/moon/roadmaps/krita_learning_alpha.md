@@ -128,7 +128,8 @@ not evidence of pedagogical validity.
 
 ### A2 — lesson and overlay vertical slice
 
-**Status: in progress — issue #10.**
+**Status:** deployed lesson/review slice is in owner-deferred review in issue
+#10; suggestion decisions and persistence continue in issue #11.
 
 - 🔄 One front-view construction lesson with locally packaged explanations;
   the five-stage beginner lesson is deployed.

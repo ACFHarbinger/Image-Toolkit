@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Moved the deployed A2 lesson/landmark/review/redline slice (#10) to deferred
+  owner review with exact live instructions and an explicit status rule: all
+  expected behaviors moves it to Done; any failure returns it to In Progress
+  with the failing step. Created #11 at In Progress for suggestion decisions
+  and persistence so new work does not change the reviewed slice silently.
 - Started A2 issue #10 by replacing the placeholder lesson with a five-stage,
   locally packaged beginner sequence covering cranial mass, centerline,
   eye-line, jaw/chin construction, structural checking, completion criteria,
