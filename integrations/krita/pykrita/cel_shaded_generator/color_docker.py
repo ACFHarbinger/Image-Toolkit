@@ -31,7 +31,7 @@ from .color_masks import (
     union_alpha_buffers,
 )
 from .engine_client import EngineClient
-from .segmentation_masks import REGION_GROUP_NAME, REGION_PREFIX, region_adjacency_bytes
+from .segmentation_masks import region_adjacency_bytes, region_labels_and_names
 from .value_masks import find_named_node
 
 
@@ -671,26 +671,11 @@ class CharacterColorsDocker(DockWidget):
         """
         if document is None:
             return []
-        group = find_named_node(document.rootNode(), REGION_GROUP_NAME)
-        if group is None:
+        scan = region_labels_and_names(document)
+        if scan is None:
             return []
-        width, height = document.width(), document.height()
-        labels = [0] * (width * height)
-        names = {}
-        source_label = None
-        for label, node in enumerate(group.childNodes(), start=1):
-            if not node.name().startswith(REGION_PREFIX):
-                continue
-            name = node.name()[len(REGION_PREFIX) :]
-            names[label] = name
-            if name == region_id:
-                source_label = label
-            raw = bytes(node.pixelData(0, 0, width, height))
-            if len(raw) != width * height * 4:
-                continue
-            for index in range(width * height):
-                if raw[index * 4 + 3] > 0:
-                    labels[index] = label
+        labels, names, width, height = scan
+        source_label = next((label for label, name in names.items() if name == region_id), None)
         if source_label is None:
             return []
         adjacent = set()

@@ -14,6 +14,7 @@ from .segmentation_masks import (
     close_line_gaps_bytes,
     filter_small_regions,
     region_adjacency_bytes,
+    region_labels_and_names,
     segment_regions_bytes,
 )
 from .value_masks import find_named_node
@@ -114,17 +115,23 @@ class SegmentationDocker(DockWidget):
             if group is None or not root.addChildNode(group, None):
                 self._status.setText("Krita could not create the Regions group.")
                 return
+        # One pass over labels bucketing into per-region buffers, rather than
+        # one full rescan of labels per region (O(w*h + regions) instead of
+        # O(w*h * regions)).
+        pixel_buffers = {region_id: bytearray(width * height * 4) for region_id in region_ids}
+        for index, value in enumerate(labels):
+            buffer = pixel_buffers.get(value)
+            if buffer is not None:
+                offset = index * 4
+                buffer[offset : offset + 4] = b"\xff\xff\xff\xff"
         for region_id in region_ids:
             layer = document.createNode(f"{REGION_PREFIX}{region_id}", "paintlayer")
             if layer is None or not group.addChildNode(layer, None):
                 self._status.setText("Krita could not create a region layer.")
                 return
-            pixels = bytearray(width * height * 4)
-            for index, value in enumerate(labels):
-                if value == region_id:
-                    offset = index * 4
-                    pixels[offset : offset + 4] = bytes((255, 255, 255, 255))
-            if not layer.setPixelData(QByteArray(bytes(pixels)), 0, 0, width, height):
+            if not layer.setPixelData(
+                QByteArray(bytes(pixel_buffers[region_id])), 0, 0, width, height
+            ):
                 layer.remove()
                 self._status.setText("Krita could not write a region layer safely.")
                 return
@@ -143,24 +150,11 @@ class SegmentationDocker(DockWidget):
         if document is None:
             self._status.setText("Open a document with segmented region layers first.")
             return
-        group = find_named_node(document.rootNode(), REGION_GROUP_NAME)
-        if group is None:
+        scan = region_labels_and_names(document)
+        if scan is None:
             self._status.setText(f"No '{REGION_GROUP_NAME}' group found; segment regions first.")
             return
-        width, height = document.width(), document.height()
-        labels = [0] * (width * height)
-        names = {}
-        for region_id, node in enumerate(group.childNodes(), start=1):
-            if not node.name().startswith(REGION_PREFIX):
-                continue
-            names[region_id] = node.name()[len(REGION_PREFIX) :]
-            raw = bytes(node.pixelData(0, 0, width, height))
-            if len(raw) != width * height * 4:
-                self._status.setText("Krita returned an unexpected region-layer buffer.")
-                return
-            for index in range(width * height):
-                if raw[index * 4 + 3] > 0:
-                    labels[index] = region_id
+        labels, names, width, height = scan
         pairs = region_adjacency_bytes(labels, width, height)
         if not pairs:
             self._status.setText("No adjacent region pairs found.")

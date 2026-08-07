@@ -11,10 +11,45 @@ Docker can act on pixel data in-process without an engine round trip.
 
 from __future__ import annotations
 
+from .value_masks import find_named_node
+
 REGION_GROUP_NAME = "Regions"
 REGION_PREFIX = "Region — "
 LINE_ART_GROUP_NAME = "Line Art"
 GAP_CLOSED_PREFIX = "Line Art — Gap Closed"
+
+
+def region_labels_and_names(document):
+    """Scan a document's ``Regions`` group into a label array plus id/name map.
+
+    Shared by the Line Art Segmentation Docker's Report Region Adjacency
+    action and the Character Colors Docker's adjacency-suggested defaults,
+    so both read the group exactly the same way rather than maintaining two
+    independent copies of this scan that could silently diverge. Duck-typed
+    against Krita's Document/Node API (``rootNode``, ``childNodes``,
+    ``name``, ``pixelData``, ``width``, ``height``), the same way
+    ``value_masks.find_named_node`` is, so this module still has no ``krita``
+    import. Returns ``None`` if the document has no ``Regions`` group. A
+    region layer with an unexpected pixel-buffer size is skipped rather than
+    aborting the scan for every other region.
+    """
+    group = find_named_node(document.rootNode(), REGION_GROUP_NAME)
+    if group is None:
+        return None
+    width, height = document.width(), document.height()
+    labels = [0] * (width * height)
+    names = {}
+    for label, node in enumerate(group.childNodes(), start=1):
+        if not node.name().startswith(REGION_PREFIX):
+            continue
+        names[label] = node.name()[len(REGION_PREFIX) :]
+        raw = bytes(node.pixelData(0, 0, width, height))
+        if len(raw) != width * height * 4:
+            continue
+        for index in range(width * height):
+            if raw[index * 4 + 3] > 0:
+                labels[index] = label
+    return labels, names, width, height
 
 
 def close_line_gaps_bytes(ink_bytes, width, height, max_gap_px):

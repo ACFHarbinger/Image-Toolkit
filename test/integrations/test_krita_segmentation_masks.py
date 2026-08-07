@@ -1,16 +1,25 @@
 import importlib.util
+import sys
+import types
 from pathlib import Path
 
 import pytest
 
 
 def _module():
-    path = (
-        Path(__file__).parents[2]
-        / "integrations/krita/pykrita/cel_shaded_generator/segmentation_masks.py"
+    package_dir = Path(__file__).parents[2] / "integrations/krita/pykrita/cel_shaded_generator"
+    package_name = "cel_shaded_generator"
+    if package_name not in sys.modules:
+        package = types.ModuleType(package_name)
+        package.__path__ = [str(package_dir)]
+        sys.modules[package_name] = package
+
+    module_name = f"{package_name}.segmentation_masks"
+    spec = importlib.util.spec_from_file_location(
+        module_name, package_dir / "segmentation_masks.py"
     )
-    spec = importlib.util.spec_from_file_location("segmentation_masks", path)
     module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
     spec.loader.exec_module(module)
     return module
 

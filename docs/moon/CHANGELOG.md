@@ -75,6 +75,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Ran a proactive high-effort code review dedicated to `segmentation_docker.py`
+  (previously only reviewed jointly with `color_docker.py`) and fixed two of
+  its three findings:
+  - **Deduplication**: `_report_adjacency` (Line Art Segmentation) and
+    `_adjacent_region_names` (Character Colors) independently scanned a
+    document's `Regions` group into the same `labels`/`names` structure,
+    risking silent divergence if one copy were patched and not the other.
+    Extracted into a shared `region_labels_and_names` in
+    `segmentation_masks.py`; both Dockers now call it. Standardized on the
+    more lenient of the two prior behaviors for a malformed region-layer
+    buffer (skip that region, keep reporting the rest, rather than aborting
+    the whole scan).
+  - **Algorithmic complexity**: `_segment_regions` rescanned the entire
+    label array once per surviving region to build each region layer's
+    pixel buffer (O(width × height × region count)). Now buckets every
+    pixel into its region's buffer in one pass (O(width × height + region
+    count)).
+  - **Not fixed, flagged instead**: the review also confirmed that
+    `close_line_gaps_bytes`/`segment_regions_bytes`/`region_adjacency_bytes`
+    run synchronously on Krita's UI thread inside button-click handlers --
+    freezing the Krita event loop for the duration with no progress
+    indicator or cancellation, standard PyQt guidance against, and also the
+    explicit "all heavy computations must run off the main thread
+    (QThread/QRunnable)" rule the parent Image-Toolkit monorepo states for
+    its own GUI code (this submodule keeps its own, separate AGENTS.md and
+    is not bound by that repo's rules, but the underlying UX problem is real
+    regardless of which document states it). This is not a regression from
+    this session's work -- every Docker action across all four Dockers that
+    calls `EngineClient()` synchronously (dozens of call sites since A1) has
+    the identical property, since none of this plugin's Docker code has ever
+    used QThread/QRunnable. Fixing `segmentation_docker.py` alone would
+    leave the plugin in a worse, inconsistent state (one Docker threaded,
+    the rest not) for a cost this session's scope did not budget. This
+    needs an owner decision on a plugin-wide async architecture, not a
+    scoped patch.
+  Verification: 411 tests pass; Ruff and core mypy are clean.
 - Advanced milestone-6 issue #22 with a new **Chapter Queue** Docker (same
   one-concern-per-Docker pattern as Character Colors and Line Art
   Segmentation): **Bind Portable Project**, **Add Page to Chapter**,
