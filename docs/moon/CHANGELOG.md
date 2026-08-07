@@ -21,6 +21,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   geometry-only evidence, actionable explanations, separate redline geometry,
   preview suggestions, and targeted practice routing. It performs no pixel or
   model analysis; Krita landmark placement and layer rendering remain.
+  Added the exercise-document adapter and tutor action: it creates a new,
+  deliberately unsaved 1600 × 2000 RGBA document without modifying an existing
+  document, separates `Construction Guides` and `Artwork`, reserves a locked
+  `Tutor Feedback` group, and activates the construction layer. Headless stubs
+  verify exact document arguments, layer order/lock state, active layer, view
+  attachment, and the missing-window failure path; live verification remains.
 - Started alpha A1 issue #9: added a Krita 5.2/Snap plugin skeleton with a
   right-default lesson docker, packaged English-only offline placeholder lesson,
   and scoped install/uninstall tool that refuses unknown overwrites.

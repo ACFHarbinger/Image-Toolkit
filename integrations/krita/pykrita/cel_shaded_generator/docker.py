@@ -6,9 +6,10 @@ import json
 from pathlib import Path
 
 from krita import DockWidget, Krita
-from PyQt5.QtWidgets import QLabel, QScrollArea, QVBoxLayout, QWidget
+from PyQt5.QtWidgets import QLabel, QPushButton, QScrollArea, QVBoxLayout, QWidget
 
 from .diagnostics import diagnose
+from .exercise import create_exercise_document
 
 
 class LearningDocker(DockWidget):
@@ -42,6 +43,14 @@ class LearningDocker(DockWidget):
         checklist.setWordWrap(True)
         practice = QLabel("Practice\n" + lesson["practice_prompt"], container)
         practice.setWordWrap(True)
+        create_button = QPushButton("Create Exercise Document", container)
+        create_button.clicked.connect(self._create_exercise)
+        self._action_status = QLabel(
+            "Create an unsaved 1600 × 2000 exercise with separate construction, artwork, "
+            "and tutor-feedback layers.",
+            container,
+        )
+        self._action_status.setWordWrap(True)
         status = QLabel("Review and redlining arrive in the next A2 slice.", container)
         status.setWordWrap(True)
         report = diagnose(Krita.instance().version())
@@ -49,11 +58,24 @@ class LearningDocker(DockWidget):
         diagnostics.setWordWrap(True)
         layout.addWidget(checklist)
         layout.addWidget(practice)
+        layout.addWidget(create_button)
+        layout.addWidget(self._action_status)
         layout.addWidget(status)
         layout.addWidget(diagnostics)
         layout.addStretch(1)
         scroll.setWidget(container)
         self.setWidget(scroll)
+
+    def _create_exercise(self) -> None:
+        try:
+            create_exercise_document(Krita.instance())
+        except (RuntimeError, TypeError) as error:
+            self._action_status.setText(f"Could not create exercise: {error}")
+            return
+        self._action_status.setText(
+            "Exercise created. Draw light construction on ‘Construction Guides’; reserve "
+            "‘Artwork’ for deliberate lines. Save the document when ready."
+        )
 
     def canvasChanged(self, canvas) -> None:  # noqa: N802
         """Krita callback; this shell does not inspect the canvas."""

@@ -131,9 +131,10 @@ not evidence of pedagogical validity.
 **Status: in progress — issue #10.**
 
 - 🔄 One front-view construction lesson with locally packaged explanations;
-  the five-stage beginner lesson is deployed, with exercise-document creation
-  still pending.
-- Exercise template creation in Krita.
+  the five-stage beginner lesson is deployed.
+- 🔄 Exercise template creation in Krita; the tested adapter creates an unsaved
+  1600 × 2000 document with separate construction, artwork, and locked tutor
+  feedback layers. Live host verification remains.
 - 🔄 Manual landmark placement and deterministic review; the host-neutral core
   now validates normalized artist-confirmed landmarks and measures centerline,
   eye-line, chin centering, and jaw symmetry. Krita placement UI remains.
