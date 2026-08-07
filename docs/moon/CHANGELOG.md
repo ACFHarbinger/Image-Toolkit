@@ -2,6 +2,17 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S357 — 2026-08-07 (Form/cast review and guided capstone collection)
+
+Advanced Cel-Shaded-Generator A3 #12 with separate front/turned form/cast mask
+evidence (`daafd9e`), a resumable five-rubric capstone collection plan
+(`4a301c3`), and clearer descriptive value explanations plus four concrete
+remedial exercises (`a5de14c`). Empty form masks are rejected while empty cast
+masks remain valid; combined readability is derived without losing category
+measurements. The capstone names the next unresolved rubric and exact layer but
+never auto-completes. Verification: 306 tests, Ruff and core mypy clean. A3
+remains undeployed; #10/#11 remain in deferred Review.
+
 ## S356 — 2026-08-07 (Tutor alpha calibration issue)
 
 Opened Cel-Shaded-Generator A4 issue #14 in Project 12 Backlog and recorded it
