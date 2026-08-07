@@ -42,7 +42,11 @@ and user corrections.
 
 ## Milestones
 
-1. Editable segmentation and gap-repair tools in Krita.
+1. 🔄 Editable segmentation and gap-repair tools in Krita. G1 issue #19
+   started the deterministic baseline: bounded gap closing, single-radius
+   trapped-ball-style region segmentation, and a region-adjacency graph.
+   Krita Docker wiring (mask-layer creation, gap-closing preview, region
+   review) remains.
 2. 🔄 Versioned character style-bible format and palette application.
    Issue #15 implements the standalone foundation: semantic materials,
    unambiguous aliases, explicit local/light/shadow/optional-accent sRGB roles,
@@ -56,9 +60,27 @@ and user corrections.
 5. Optional generative proposals through the local model registry.
 6. Batch chapter workflow with review queue and recoverable checkpoints.
 
+## G1 — segmentation and gap-repair baseline
+
+Issue #19 is In progress. `src/colorization/segmentation.py` provides the
+deterministic first pass named in milestone 1: `close_line_gaps` bridges
+hand-drawn ink gaps up to a bounded pixel radius via morphological closing;
+`segment_regions` flood-fills the gap-closed background into labeled
+regions, excluding any region that still touches the canvas border (not yet
+enclosed by a drawn boundary); `region_adjacency` returns the touching-label
+pairs the roadmap's region-adjacency-graph avenue calls for; and
+`region_statistics` reports per-region area, centroid, and bounding box for
+later Krita review tooling. The fill is deliberately single-radius rather
+than the roadmap's full multi-radius trapped-ball technique — documented in
+the module as the first-pass narrowing, upgradeable later without changing
+the label/adjacency/statistics contract downstream callers use. Krita Docker
+wiring (creating mask layers from labels, previewing gap closing, reviewing
+regions) is a separate follow-up slice with its own live-Krita checklist,
+mirroring how C1's standalone contract preceded C3's Docker.
+
 ## C4 — deterministic manual correspondence baseline
 
-Issue #18 is In progress. The first slice is a standalone
+Issue #18 is In review pending the live-Krita checklist. The first slice is a standalone
 `CorrespondenceSet`/`RegionCorrespondence` contract (`src/colorization/correspondence.py`),
 deliberately portable like the C1 style bible: it stores region/material/role
 identifiers and optional panel identity only, never pixels, embeddings, or

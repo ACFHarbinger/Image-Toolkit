@@ -19,6 +19,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Opened G1 issue #19 for reference-coloring roadmap milestone 1
+  (segmentation and gap-repair tools), previously untouched. Started the
+  deterministic baseline in `src/colorization/segmentation.py`:
+  `close_line_gaps` (bounded morphological gap closing on line art),
+  `segment_regions` (single-radius trapped-ball-style flood fill into
+  labeled regions, excluding border-touching non-enclosed background),
+  `region_adjacency` (touching-label pairs), and `region_statistics`
+  (area/centroid/bounding box per region). Verification: 364 tests pass;
+  Ruff and core mypy are clean. Krita Docker wiring is a follow-up slice.
 - Completed C4 issue #18's headless slice with a Character Colors Docker
   action set: **Assign Region Correspondence**, **Propagate Correspondence to
   Regions**, and **Preview Region Correspondence Color**. A new host-neutral
