@@ -177,6 +177,16 @@ class LayerStack:
         layer.meta.name = name.strip()
         return True
 
+    def clear_layer(self, layer_id: str) -> bool:
+        """Clear a layer's pixels and mask while retaining its metadata."""
+        layer = self.layer(layer_id)
+        if layer is None:
+            return False
+        layer.pixels.fill(0)
+        if layer.mask is not None:
+            layer.mask.fill(0)
+        return True
+
     def layers(self) -> list[Layer]:
         """Bottom-to-top ordered snapshot of the current layers."""
         return list(self._layers)

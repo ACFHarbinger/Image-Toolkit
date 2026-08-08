@@ -523,6 +523,15 @@ source is unchanged, and undo to confirm both the copy and its edits disappear.
 If those checks pass, close the issue; otherwise return it to In progress with
 the failing layer state.
 
+**Twenty-fourth slice (issue #56, In review pending a manual desktop-app
+check): clear a selected layer.** `LayerStack.clear_layer` zeroes the selected
+RGBA buffer and optional mask without changing any layer metadata. The layer
+panel exposes Clear Layer and records one undo checkpoint before the mutation.
+Manual review must clear a painted, masked layer, confirm the canvas becomes
+transparent, then undo and confirm both pixels and mask return. If metadata or
+compositing changes unexpectedly, return the issue to In progress; otherwise
+close it after the check.
+
 **Twenty-third slice (issue #55, In review pending a manual desktop-app
 check): rename a selected layer.** `LayerStack.rename_layer` validates and
 updates only the selected layer's name; the layer panel exposes Rename Layer

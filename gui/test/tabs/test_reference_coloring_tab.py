@@ -84,6 +84,31 @@ def test_rename_selected_layer_updates_list_and_is_undoable(q_app, monkeypatch):
     assert stack.layer("source").meta.name == "Source"
 
 
+def test_clear_selected_layer_clears_pixels_and_mask_and_is_undoable(q_app):
+    from editor import EditHistory
+
+    tab = ReferenceColoringTab()
+    stack = LayerStack(2, 2)
+    layer = stack.add_layer("source", "Source")
+    layer.pixels[:, :] = [1, 2, 3, 255]
+    stack.add_mask("source")
+    layer.mask[:, :] = 77
+    tab._canvas.set_layer_stack(stack)
+    tab._layer_panel.set_layer_stack(stack)
+    history = EditHistory(stack)
+    tab._canvas.set_history(history)
+    tab._layer_panel.set_history(history)
+    tab._layer_panel.select_layer("source")
+
+    tab._layer_panel._clear_selected_layer()
+
+    assert (layer.pixels == 0).all()
+    assert (layer.mask == 0).all()
+    tab._undo()
+    assert layer.pixels[0, 0].tolist() == [1, 2, 3, 255]
+    assert layer.mask[0, 0] == 77
+
+
 def test_default_tool_is_pan(q_app):
     tab = ReferenceColoringTab()
     assert tab.canvas().tool() == "pan"

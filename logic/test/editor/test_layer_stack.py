@@ -279,3 +279,18 @@ def test_rename_layer_updates_name_and_rejects_blank_names():
     with pytest.raises(ValueError, match="layer name"):
         stack.rename_layer("base", "   ")
     assert stack.rename_layer("missing", "Ignored") is False
+
+
+def test_clear_layer_zeroes_pixels_and_mask_but_keeps_metadata():
+    stack = LayerStack(2, 2)
+    layer = stack.add_layer("base", "Base")
+    layer.pixels[:, :] = [1, 2, 3, 4]
+    stack.add_mask("base")
+    layer.mask[:, :] = 77
+    layer.meta.opacity = 0.4
+    assert stack.clear_layer("base")
+    assert (layer.pixels == 0).all()
+    assert (layer.mask == 0).all()
+    assert layer.meta.name == "Base"
+    assert layer.meta.opacity == 0.4
+    assert stack.clear_layer("missing") is False

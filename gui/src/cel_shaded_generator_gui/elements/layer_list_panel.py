@@ -2,7 +2,7 @@
 ``docs/moon/roadmaps/engine_architecture.md``'s gate-5 exception).
 
 Owns the only structural mutations a ``LayerStack`` gets: add, duplicate,
-rename, remove,
+rename, clear, remove,
 reorder, visibility toggle, mask add/remove, and per-layer opacity/blend
 mode. Emits ``layers_changed`` after every mutation so a bound canvas
 (``layer_canvas.py``) knows to re-render, and ``layer_selected`` whenever
@@ -60,6 +60,7 @@ class LayerListPanel(QWidget):
         self._add_button = QPushButton("Add Layer", self)
         self._duplicate_button = QPushButton("Duplicate Layer", self)
         self._rename_button = QPushButton("Rename Layer", self)
+        self._clear_button = QPushButton("Clear Layer", self)
         self._remove_button = QPushButton("Remove Layer", self)
         self._up_button = QPushButton("Move Up", self)
         self._down_button = QPushButton("Move Down", self)
@@ -78,6 +79,7 @@ class LayerListPanel(QWidget):
         self._add_button.clicked.connect(self._add_layer)
         self._duplicate_button.clicked.connect(self._duplicate_selected_layer)
         self._rename_button.clicked.connect(self._rename_selected_layer)
+        self._clear_button.clicked.connect(self._clear_selected_layer)
         self._remove_button.clicked.connect(self._remove_selected_layer)
         self._up_button.clicked.connect(lambda: self._move_selected_layer(-1))
         self._down_button.clicked.connect(lambda: self._move_selected_layer(1))
@@ -93,6 +95,7 @@ class LayerListPanel(QWidget):
             self._add_button,
             self._duplicate_button,
             self._rename_button,
+            self._clear_button,
             self._remove_button,
             self._up_button,
             self._down_button,
@@ -208,6 +211,15 @@ class LayerListPanel(QWidget):
         self._refresh_list()
         self._select_layer(layer.meta.id)
         self.layers_changed.emit()
+
+    def _clear_selected_layer(self) -> None:
+        layer = self._selected_layer()
+        if self._layer_stack is None or layer is None:
+            return
+        if self._history is not None:
+            self._history.record()
+        if self._layer_stack.clear_layer(layer.meta.id):
+            self.layers_changed.emit()
 
     def _move_selected_layer(self, direction: int) -> None:
         """``direction`` is -1 (up the list / toward the top of the stack) or
