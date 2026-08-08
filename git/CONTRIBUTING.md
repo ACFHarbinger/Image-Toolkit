@@ -362,7 +362,7 @@ git push --force-with-lease origin your-branch
 1. **Ensure tests pass**:
 
    ```bash
-   python main.py test_suite
+   pytest
    ```
 
 2. **Check code style**:
@@ -460,13 +460,13 @@ Add screenshots for UI changes.
 
 ```bash
 # All tests
-python main.py test_suite
+pytest
 
 # Specific module
-python main.py test_suite --module test_models
+pytest backend/test/models/
 
 # With coverage
-uv run pytest --cov=logic/src --cov-report=html
+uv run pytest --cov=backend/src --cov=gui/src --cov-report=html
 
 # Fast tests only
 uv run pytest -m "not slow"
@@ -751,7 +751,7 @@ Include:
 ## Environment
 
 - OS: Ubuntu 24.04
-- Python: 3.9.18
+- Python: 3.11.9
 - PyTorch: 2.2.2
 - CUDA: 11.8
 - Commit: abc1234
@@ -759,16 +759,16 @@ Include:
 ## Steps to Reproduce
 
 1. Run `uv sync`
-2. Run `python main.py train_lightning model=am env.num_loc=50`
-3. Wait for epoch 5
+2. Run `python backend/main.py convert --output_format png --input_path ./images --input_formats webp`
+3. Wait for the batch to finish
 
 ## Expected Behavior
 
-Training should complete successfully.
+Conversion should complete successfully.
 
 ## Actual Behavior
 
-Training crashes with CUDA OOM error.
+Conversion crashes with a CUDA OOM error (during a model-backed step, e.g. upscaling).
 
 ## Stack Trace
 ```

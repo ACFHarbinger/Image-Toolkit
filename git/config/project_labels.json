@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema#",
+  "description": "Canonical label taxonomy for Image-Toolkit. Consumed by sync_backlog.py to validate/create labels and by agent_tools.py to route tickets to Project V2 fields. Component/priority names mirror the dropdown options in .github/ISSUE_TEMPLATE/{bug_agent,feature_agent}.yml (\"Core: C++ Base\", \"Tier 1: Core Engine\", etc.) so tickets filed via either path share one taxonomy.",
+  "components": [
+    { "name": "component:cpp-base",        "color": "00599C", "description": "base/ C++ core (image processing, crawling, sync)" },
+    { "name": "component:python-backend",  "color": "3776AB", "description": "backend/ Python orchestrator (DB, ML, web wrappers)" },
+    { "name": "component:pyside6-gui",     "color": "41CD52", "description": "gui/ PySide6 desktop interface" },
+    { "name": "component:tauri-desktop",   "color": "FFC131", "description": "frontend/ React + Tauri desktop shell" },
+    { "name": "component:mobile",          "color": "3DDC84", "description": "app/ Android (Kotlin) and iOS (Swift) clients" },
+    { "name": "component:dev-tools",       "color": "5319E7", "description": "dev/ developer-assistant tool (see docs/moon/roadmaps/developer_tools.md)" },
+    { "name": "component:ci-automation",   "color": "C5DEF5", "description": "GitHub Actions, bots, and repo automation" },
+    { "name": "component:docs",            "color": "BFD4F2", "description": "Documentation and ADRs" }
+  ],
+  "priority": [
+    { "name": "priority:tier1-core-engine",       "color": "B60205", "description": "Tier 1: Core Engine -- foundational, blocks other work" },
+    { "name": "priority:tier2-qa-prototype",      "color": "D93F0B", "description": "Tier 2: QA Prototype -- validates an approach before productionizing" },
+    { "name": "priority:tier3-production-app",    "color": "FBCA04", "description": "Tier 3: Production App -- user-facing feature work" },
+    { "name": "priority:tier4-backburner",        "color": "C2E0C6", "description": "Tier 4: Backburner -- planned, not urgent" }
+  ],
+  "status": [
+    { "name": "status:backlog",     "color": "EDEDED", "description": "Not yet assessed by agent or maintainer" },
+    { "name": "status:ready",       "color": "0E8A16", "description": "Scoped and ready for work" },
+    { "name": "status:in-progress", "color": "1D76DB", "description": "Actively being worked on" },
+    { "name": "status:in-review",   "color": "5319E7", "description": "PR open, awaiting review" },
+    { "name": "status:done",        "color": "0E8A16", "description": "Merged and verified" }
+  ],
+  "agent": [
+    { "name": "agent:generated",     "color": "E4E669", "description": "Ticket authored by sync_backlog.py from roadmap/changelog" },
+    { "name": "agent:needs-human",   "color": "D93F0B", "description": "Agent flagged ambiguity requiring maintainer input" }
+  ]
+}
