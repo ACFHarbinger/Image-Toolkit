@@ -20,16 +20,16 @@ export const submoduleSites: SubmoduleSite[] = [
   },
   {
     slug: "anime-stitch-pipeline",
-    title: "Anime-Stitch-Pipeline",
+    title: "ASP",
     description: "Anime panorama stitching engine (ASP).",
     url: "https://acfharbinger.github.io/Anime-Stitch-Pipeline/app/",
     repo: "https://github.com/ACFHarbinger/Anime-Stitch-Pipeline",
   },
   {
     slug: "recommendation-engine",
-    title: "Recommendation-Engine",
+    title: "CRE",
     description: "Local-first hybrid vector recommendation engine.",
-    url: "https://acfharbinger.github.io/Recommendation-Engine/app/",
-    repo: "https://github.com/ACFHarbinger/Recommendation-Engine",
+    url: "https://acfharbinger.github.io/Content-Recommendation-Engine/app/",
+    repo: "https://github.com/ACFHarbinger/Content-Recommendation-Engine",
   },
 ];
