@@ -15,26 +15,26 @@ gui-manager:
     @echo "🛠️ Starting Image-Toolkit with Manager integration..."
     source .venv/bin/activate && python main.py gui --enable-manager
 
-# --- Anime-Stitch-Pipeline (standalone, not the full Image-Toolkit app) ---
+# --- ASP (standalone, not the full Image-Toolkit app) ---
 
 # Launch just the ASP stitch tab in its own PySide6 window
 asp-gui:
-    @echo "🐍 Starting Anime-Stitch-Pipeline Desktop App..."
-    source .venv/bin/activate && cd submodules/Anime-Stitch-Pipeline/gui && python launch.py
+    @echo "🐍 Starting ASP Desktop App..."
+    source .venv/bin/activate && cd submodules/ASP/gui && python launch.py
 
-# Launch the ASP Tauri cross-platform UI (scaffold — see submodules/Anime-Stitch-Pipeline/frontend/README.md)
+# Launch the ASP Tauri cross-platform UI (scaffold — see submodules/ASP/frontend/README.md)
 asp-web:
-    @echo "🦀 Starting Anime-Stitch-Pipeline Tauri App..."
-    cd submodules/Anime-Stitch-Pipeline/frontend && npm run tauri:dev
+    @echo "🦀 Starting ASP Tauri App..."
+    cd submodules/ASP/frontend && npm run tauri:dev
 
-# --- Cel-Shaded-Generator (standalone, not the full Image-Toolkit app) ---
+# --- CSG (standalone, not the full Image-Toolkit app) ---
 
 # Launch just the Manga Colorization/Animation/Puppeteering tabs in their own PySide6 window
 manga-gui:
-    @echo "🐍 Starting Cel-Shaded-Generator Desktop App..."
-    source .venv/bin/activate && cd submodules/Cel-Shaded-Generator/gui && python launch.py
+    @echo "🐍 Starting CSG Desktop App..."
+    source .venv/bin/activate && cd submodules/CSG/gui && python launch.py
 
-# Launch the Manga Tauri cross-platform UI (scaffold — see submodules/Cel-Shaded-Generator/frontend/README.md)
+# Launch the Manga Tauri cross-platform UI (scaffold — see submodules/CSG/frontend/README.md)
 manga-web:
-    @echo "🦀 Starting Cel-Shaded-Generator Tauri App..."
-    cd submodules/Cel-Shaded-Generator/frontend && npm run tauri:dev
+    @echo "🦀 Starting CSG Tauri App..."
+    cd submodules/CSG/frontend && npm run tauri:dev

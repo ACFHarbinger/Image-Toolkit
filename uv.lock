@@ -6930,7 +6930,7 @@ wheels = [
 [[package]]
 name = "recommendation-engine"
 version = "0.2.0"
-source = { editable = "submodules/Recommendation-Engine" }
+source = { editable = "submodules/CRE" }
 dependencies = [
     { name = "anthropic" },
     { name = "click" },

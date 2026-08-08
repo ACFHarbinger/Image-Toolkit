@@ -1,13 +1,13 @@
 [project]
 name = "image-toolkit-workspace"
 version = "0.1.0"
-description = "Root workspace manifest for Image-Toolkit. Python modules: backend/ (see backend/pyproject.toml), gui/ (see gui/pyproject.toml), and the submodules/Recommendation-Engine/ git submodule (see submodules/Recommendation-Engine/pyproject.toml)."
+description = "Root workspace manifest for Image-Toolkit. Python modules: backend/ (see backend/pyproject.toml), gui/ (see gui/pyproject.toml), and the submodules/CRE/ git submodule (see submodules/CRE/pyproject.toml)."
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = []
 
 [tool.uv.workspace]
-members = ["backend", "gui", "submodules/Recommendation-Engine"]
+members = ["backend", "gui", "submodules/CRE"]
 
 [dependency-groups]
 # CI runs `uv sync --group dev` from the workspace root, so the group must be
@@ -41,13 +41,13 @@ venvPath = "."              # The directory containing the venv
 venv = ".venv"              # The name of the venv folder
 type_checking_mode = "basic"
 include = ["gui", "backend"]
-extraPaths = ["submodules/Recommendation-Engine"]
+extraPaths = ["submodules/CRE"]
 
 # Ignore rules (Migration of your pyright/pylance ignores)
 ignore = ["**/__init__.py"]
 
 [tool.pyright]
-extraPaths = ["submodules/Recommendation-Engine"]
+extraPaths = ["submodules/CRE"]
 
 [tool.ruff]
 src = ["backend/src", "gui/src"]
@@ -106,10 +106,10 @@ markers = [
     "forked: run test in isolated subprocess",
 ]
 # §3.12A — pytest-xdist parallel execution (opt-in).
-# ASP tests now live in submodules/Anime-Stitch-Pipeline/backend/test/
-# Serial run (default):   pytest submodules/Anime-Stitch-Pipeline/backend/test/
-# Parallel, no GPU tests: pytest submodules/Anime-Stitch-Pipeline/backend/test/ -n auto --dist=worksteal --skip-gpu
-# Parallel, with GPU:     pytest submodules/Anime-Stitch-Pipeline/backend/test/ -n auto --dist=worksteal
+# ASP tests now live in submodules/ASP/backend/test/
+# Serial run (default):   pytest submodules/ASP/backend/test/
+# Parallel, no GPU tests: pytest submodules/ASP/backend/test/ -n auto --dist=worksteal --skip-gpu
+# Parallel, with GPU:     pytest submodules/ASP/backend/test/ -n auto --dist=worksteal
 #   (GPU tests run @forked, each in its own subprocess — safe but serial)
 # addopts is intentionally empty; parallel execution is never forced.
 

@@ -146,17 +146,17 @@ pybind11_add_module(base
     src/bindings.cpp
 
     # Animation / Anime Stitch Pipeline sources (Phase 1–6, complete) — these
-    # live in the Anime-Stitch-Pipeline submodule; compiled here so they
+    # live in the ASP submodule; compiled here so they
     # still link into the single `base` native extension.
-    ../submodules/Anime-Stitch-Pipeline/base/src/matching.cpp
-    ../submodules/Anime-Stitch-Pipeline/base/src/bundle_adjust.cpp
-    ../submodules/Anime-Stitch-Pipeline/base/src/validation.cpp
-    ../submodules/Anime-Stitch-Pipeline/base/src/canvas.cpp
-    ../submodules/Anime-Stitch-Pipeline/base/src/seam.cpp
-    ../submodules/Anime-Stitch-Pipeline/base/src/compositing.cpp
-    ../submodules/Anime-Stitch-Pipeline/base/src/exposure.cpp
-    ../submodules/Anime-Stitch-Pipeline/base/src/frame_selection.cpp
-    ../submodules/Anime-Stitch-Pipeline/base/src/fg_register.cpp
+    ../submodules/ASP/base/src/matching.cpp
+    ../submodules/ASP/base/src/bundle_adjust.cpp
+    ../submodules/ASP/base/src/validation.cpp
+    ../submodules/ASP/base/src/canvas.cpp
+    ../submodules/ASP/base/src/seam.cpp
+    ../submodules/ASP/base/src/compositing.cpp
+    ../submodules/ASP/base/src/exposure.cpp
+    ../submodules/ASP/base/src/frame_selection.cpp
+    ../submodules/ASP/base/src/fg_register.cpp
 
     # Image I/O + filesystem (Phase 2)
     src/image/image_batch.cpp

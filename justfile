@@ -359,13 +359,13 @@ comfyui *args: helper::_print_header
 comfyui-stop: helper::_print_header
     just repository::comfyui-stop
 
-# --- Cel-Shaded-Generator Krita plugin ---
+# --- CSG Krita plugin ---
 
-# Install the Cel-Shaded-Generator Krita plugin (close Krita first)
+# Install the CSG Krita plugin (close Krita first)
 krita-install: helper::_print_header
     just cel_shaded::krita-install
 
-# Uninstall the Cel-Shaded-Generator Krita plugin (close Krita first)
+# Uninstall the CSG Krita plugin (close Krita first)
 krita-uninstall: helper::_print_header
     just cel_shaded::krita-uninstall
 

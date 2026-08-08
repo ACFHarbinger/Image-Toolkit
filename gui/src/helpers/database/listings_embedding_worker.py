@@ -4,7 +4,7 @@
 ``run()``, not ``QObject`` + ``moveToThread`` (JPype-JVM-safe pattern).
 
 Reuses the BGE-M3 ``Embedder`` already built and tested for the standalone
-``Recommendation-Engine`` sub-project (``submodules/Recommendation-Engine/
+``CRE`` sub-project (``submodules/CRE/
 src/data/embedder.py``) instead of loading a second copy of the model or
 inventing a new embedding pathway -- same principle DB.7's image side used
 (reusing the Similarity tab's existing open_clip embedder).
@@ -52,7 +52,7 @@ class ListingsEmbeddingWorker(QThread):
             except ImportError as exc:
                 self.error.emit(
                     "BGE-M3 embedder unavailable (FlagEmbedding not "
-                    f"installed, or Recommendation-Engine not present): {exc}"
+                    f"installed, or CRE not present): {exc}"
                 )
                 return
 

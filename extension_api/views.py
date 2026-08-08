@@ -178,7 +178,7 @@ class SimilarView(CorsAPIView):
     populates ``embeddings`` with real image vectors and wires up a
     "find similar" action — has no shipped marker (unlike DB.1-DB.4) and
     nothing in the codebase calls ``base.database``'s ``knn`` primitive
-    outside its own unit test. The standalone ``Recommendation-Engine``
+    outside its own unit test. The standalone ``CRE``
     submodule's BGE-M3/SQLite store is a different domain (media
     listings/entities, not this library's images) and isn't wired to it
     either.

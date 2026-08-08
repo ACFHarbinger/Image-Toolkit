@@ -44,16 +44,16 @@ endif()
 # ---------------------------------------------------------------------------
 add_library(base_impl STATIC
     # Animation / Anime Stitch Pipeline sources — live in the
-    # Anime-Stitch-Pipeline submodule, compiled here for the test binary.
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/Anime-Stitch-Pipeline/base/src/matching.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/Anime-Stitch-Pipeline/base/src/bundle_adjust.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/Anime-Stitch-Pipeline/base/src/validation.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/Anime-Stitch-Pipeline/base/src/canvas.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/Anime-Stitch-Pipeline/base/src/seam.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/Anime-Stitch-Pipeline/base/src/compositing.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/Anime-Stitch-Pipeline/base/src/exposure.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/Anime-Stitch-Pipeline/base/src/frame_selection.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/Anime-Stitch-Pipeline/base/src/fg_register.cpp
+    # ASP submodule, compiled here for the test binary.
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/ASP/base/src/matching.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/ASP/base/src/bundle_adjust.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/ASP/base/src/validation.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/ASP/base/src/canvas.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/ASP/base/src/seam.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/ASP/base/src/compositing.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/ASP/base/src/exposure.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/ASP/base/src/frame_selection.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/ASP/base/src/fg_register.cpp
 
     # Image I/O + filesystem (Phase 2)
     ${CMAKE_CURRENT_SOURCE_DIR}/../src/image/image_batch.cpp
@@ -112,13 +112,13 @@ endif()
 # Test executable
 # ---------------------------------------------------------------------------
 add_executable(base_tests
-    # Animation tests — live in the Anime-Stitch-Pipeline submodule.
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/Anime-Stitch-Pipeline/base/tests/test_seam.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/Anime-Stitch-Pipeline/base/tests/test_compositing.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/Anime-Stitch-Pipeline/base/tests/test_bundle_adjust.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/Anime-Stitch-Pipeline/base/tests/test_matching.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/Anime-Stitch-Pipeline/base/tests/test_validation.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/Anime-Stitch-Pipeline/base/tests/test_fuzz.cpp
+    # Animation tests — live in the ASP submodule.
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/ASP/base/tests/test_seam.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/ASP/base/tests/test_compositing.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/ASP/base/tests/test_bundle_adjust.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/ASP/base/tests/test_matching.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/ASP/base/tests/test_validation.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../submodules/ASP/base/tests/test_fuzz.cpp
 
     # Image I/O + filesystem tests (Phase 2)
     image/test_image_batch.cpp

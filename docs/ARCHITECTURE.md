@@ -26,7 +26,7 @@ flowchart TD
         MODELS["models/\n(PyTorch ML)"]
         DB["image_database.py\n(pgvector)"]
         VAULT["vault_manager.py\n(JPype / JVM)"]
-        RECENG["Recommendation-Engine/\n(SQLite + cosine RRF)"]
+        RECENG["CRE/\n(SQLite + cosine RRF)"]
     end
 
     subgraph CppCore["C++ Core  ·  base/"]
@@ -98,7 +98,7 @@ flowchart TD
 | No `QWebEngineView` | Chromium Vulkan/GBM init conflicts with JPype JVM RTTI |
 | `QPixmap` only on main thread; workers emit `QImage` | Qt threading contract |
 | C++ core is a shared library loaded at runtime | pybind11/CMake; built as a Python extension module (`.so`) via `just build-base` |
-| No SQLite in the main app (PostgreSQL + pgvector only) | `Recommendation-Engine/` uses SQLite as a standalone sub-project |
+| No SQLite in the main app (PostgreSQL + pgvector only) | `CRE/` uses SQLite as a standalone sub-project |
 
 ---
 

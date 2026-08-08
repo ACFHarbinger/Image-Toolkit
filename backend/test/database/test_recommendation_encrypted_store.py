@@ -1,9 +1,9 @@
-"""Tests for EncryptedSQLiteStore (DB.7 follow-up) -- Recommendation-Engine's
+"""Tests for EncryptedSQLiteStore (DB.7 follow-up) -- CRE's
 storage layer swapped onto an encrypted base.database.Database handle
 instead of a plaintext sqlite3 file, with the retrieval/scoring algorithm
 above it left completely untouched.
 
-Mirrors submodules/Recommendation-Engine/tests/test_store.py's coverage of
+Mirrors submodules/CRE/tests/test_store.py's coverage of
 SQLiteStore, against the same public API.
 """
 
@@ -14,16 +14,16 @@ import pytest
 
 base = pytest.importorskip("base")
 
-_RE_DIR = Path(__file__).resolve().parents[3] / "submodules" / "Recommendation-Engine"
+_RE_DIR = Path(__file__).resolve().parents[3] / "submodules" / "CRE"
 
 # backend/test/conftest.py (loaded for every test under backend/test/,
 # including this one) already does `import src.constants as udef`, binding
 # sys.modules["src"] to Image Toolkit's OWN backend/src -- the exact same
-# bare top-level name Recommendation-Engine's package uses for itself. That
+# bare top-level name CRE's package uses for itself. That
 # collision doesn't exist at runtime (recommendation_worker.py's
 # _ensure_re_on_path() works fine there, since the app never imports this
 # conftest.py) -- it's test-collection-only. Temporarily evict the cached
-# "src"/"src.*" modules so Recommendation-Engine's own "src" package is
+# "src"/"src.*" modules so CRE's own "src" package is
 # what actually gets imported here, then restore Image Toolkit's originals
 # afterward so no other test in this session is affected.
 _saved_src_modules = {
@@ -38,7 +38,7 @@ if str(_RE_DIR) not in sys.path:
 from src.core.schema import EmbeddedItem, MediaItem  # noqa: E402  # pyrefly: ignore [missing-import]
 from src.data.store import EncryptedSQLiteStore  # noqa: E402  # pyrefly: ignore [missing-import]
 
-# Evict Recommendation-Engine's "src.*" entries in turn and restore Image
+# Evict CRE's "src.*" entries in turn and restore Image
 # Toolkit's originals -- everything this test file needs from RE's "src"
 # package is already bound to the local names imported above.
 for name in list(sys.modules):
