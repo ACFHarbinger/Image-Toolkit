@@ -7,7 +7,7 @@ This is the substrate every later editor feature (masks, segmentation
 review, palette preview, region-correspondence assignment) will sit on top
 of, mirroring how Krita's own layer model underpins every existing Docker in
 this same project. Pure numpy, no Qt/PySide -- the standalone GUI package
-(``cel_shaded_generator_gui``) owns turning a ``LayerStack`` into pixels on
+(``csg_gui``) owns turning a ``LayerStack`` into pixels on
 screen; this module owns what a layer stack *is* and how it composites.
 """
 

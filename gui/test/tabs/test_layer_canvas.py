@@ -1,8 +1,7 @@
 import pytest
+from csg_gui.elements.layer_canvas import LayerCanvas
 from editor import EditHistory, LayerStack
 from PySide6.QtCore import QPoint, Qt
-
-from cel_shaded_generator_gui.elements.layer_canvas import LayerCanvas
 
 pytestmark = pytest.mark.gui
 

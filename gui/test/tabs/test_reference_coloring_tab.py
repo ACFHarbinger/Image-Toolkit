@@ -1,7 +1,6 @@
 import pytest
+from csg_gui.tabs.reference_coloring_tab import ReferenceColoringTab
 from editor import LayerStack
-
-from cel_shaded_generator_gui.tabs.reference_coloring_tab import ReferenceColoringTab
 
 pytestmark = pytest.mark.gui
 

@@ -1,8 +1,7 @@
 """Tests for the standalone GUI composition boundary."""
 
+from csg_gui.app import build_window
 from PySide6.QtWidgets import QTabWidget
-
-from cel_shaded_generator_gui.app import build_window
 
 
 def test_build_window_composes_four_workspaces(q_app):

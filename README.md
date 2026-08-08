@@ -70,7 +70,7 @@ and [benchmarks](docs/BENCHMARKS.md) before changing their respective areas.
 | Path | Purpose |
 | --- | --- |
 | `logic/src/` | Storage-neutral top-level core packages and execution boundary |
-| `gui/src/cel_shaded_generator_gui/` | PySide6 demonstration client |
+| `gui/src/` | Flattened PySide6 demonstration client, imported as `csg_gui` |
 | `logic/test/`, `gui/test/` | Core and headless GUI tests |
 | `logic/benchmark/` | Deterministic goldens and explicit performance runner |
 | `logic/validation/` | Module-graph, LoC, and import-hygiene dev tooling |

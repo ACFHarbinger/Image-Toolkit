@@ -1,9 +1,8 @@
 import numpy as np
 import pytest
+from csg_gui.elements.mesh_overlay_editor import MeshOverlayEditor
 from PySide6.QtCore import QPointF
 from PySide6.QtGui import QColor, QImage
-
-from cel_shaded_generator_gui.elements.mesh_overlay_editor import MeshOverlayEditor
 
 pytestmark = pytest.mark.gui
 

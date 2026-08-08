@@ -4,7 +4,7 @@ mask (standalone-editor paint-tools slice; see
 
 Pure numpy, no Qt -- mirrors ``layer_stack.py``'s split between "what the
 data is / how it changes" (here) and "how it gets on screen" (the
-``LayerCanvas`` widget in ``cel_shaded_generator_gui``, which maps mouse
+``LayerCanvas`` widget in ``csg_gui``, which maps mouse
 events to pixel coordinates and calls into this module).
 
 ``stamp_dot``/``stamp_line`` paint HxWx4 RGBA layer pixels with a

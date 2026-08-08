@@ -2,10 +2,9 @@ from unittest.mock import patch
 
 import numpy as np
 import pytest
+from csg_gui.tabs.animation_tab import MangaAnimationTab
 from PySide6.QtCore import QPointF
 from PySide6.QtGui import QColor, QImage
-
-from cel_shaded_generator_gui.tabs.animation_tab import MangaAnimationTab
 
 pytestmark = pytest.mark.gui
 
@@ -36,7 +35,7 @@ class TestMangaAnimationTab:
         tab = MangaAnimationTab()
         paths = _make_frame_files(tmp_path, n=4)
 
-        with patch("cel_shaded_generator_gui.tabs.animation_tab.QFileDialog") as mock_dialog:
+        with patch("csg_gui.tabs.animation_tab.QFileDialog") as mock_dialog:
             mock_dialog.getOpenFileNames.return_value = (paths, "")
             tab._browse_frames()
 
@@ -50,9 +49,9 @@ class TestMangaAnimationTab:
         tab = MangaAnimationTab()
         paths = _make_frame_files(tmp_path, n=1)
 
-        with patch("cel_shaded_generator_gui.tabs.animation_tab.QFileDialog") as mock_dialog:
+        with patch("csg_gui.tabs.animation_tab.QFileDialog") as mock_dialog:
             mock_dialog.getOpenFileNames.return_value = (paths, "")
-            with patch("cel_shaded_generator_gui.tabs.animation_tab.QMessageBox") as mock_box:
+            with patch("csg_gui.tabs.animation_tab.QMessageBox") as mock_box:
                 tab._browse_frames()
                 mock_box.information.assert_called_once()
         assert tab._frames == []
@@ -62,9 +61,9 @@ class TestMangaAnimationTab:
         p1 = _save_frame(tmp_path / "a.png", w=20, h=20)
         p2 = _save_frame(tmp_path / "b.png", w=30, h=30)
 
-        with patch("cel_shaded_generator_gui.tabs.animation_tab.QFileDialog") as mock_dialog:
+        with patch("csg_gui.tabs.animation_tab.QFileDialog") as mock_dialog:
             mock_dialog.getOpenFileNames.return_value = ([p1, p2], "")
-            with patch("cel_shaded_generator_gui.tabs.animation_tab.QMessageBox") as mock_box:
+            with patch("csg_gui.tabs.animation_tab.QMessageBox") as mock_box:
                 tab._browse_frames()
                 mock_box.warning.assert_called_once()
         assert tab._frames == []
@@ -72,7 +71,7 @@ class TestMangaAnimationTab:
     def test_switching_frames_commits_and_restores_scribbles(self, q_app, tmp_path):
         tab = MangaAnimationTab()
         paths = _make_frame_files(tmp_path, n=3)
-        with patch("cel_shaded_generator_gui.tabs.animation_tab.QFileDialog") as mock_dialog:
+        with patch("csg_gui.tabs.animation_tab.QFileDialog") as mock_dialog:
             mock_dialog.getOpenFileNames.return_value = (paths, "")
             tab._browse_frames()
 
@@ -95,7 +94,7 @@ class TestMangaAnimationTab:
     def test_clear_current_scribbles_removes_from_store(self, q_app, tmp_path):
         tab = MangaAnimationTab()
         paths = _make_frame_files(tmp_path, n=2)
-        with patch("cel_shaded_generator_gui.tabs.animation_tab.QFileDialog") as mock_dialog:
+        with patch("csg_gui.tabs.animation_tab.QFileDialog") as mock_dialog:
             mock_dialog.getOpenFileNames.return_value = (paths, "")
             tab._browse_frames()
 
@@ -109,7 +108,7 @@ class TestMangaAnimationTab:
 
     def test_pen_color_and_width_update_canvas(self, q_app):
         tab = MangaAnimationTab()
-        with patch("cel_shaded_generator_gui.tabs.animation_tab.QColorDialog") as mock_dialog:
+        with patch("csg_gui.tabs.animation_tab.QColorDialog") as mock_dialog:
             mock_dialog.getColor.return_value = QColor(7, 8, 9)
             tab._pick_pen_color()
         assert tab.canvas.pen_color().getRgb()[:3] == (7, 8, 9)
@@ -119,25 +118,25 @@ class TestMangaAnimationTab:
 
     def test_colorize_without_frames_shows_info(self, q_app):
         tab = MangaAnimationTab()
-        with patch("cel_shaded_generator_gui.tabs.animation_tab.QMessageBox") as mock_box:
+        with patch("csg_gui.tabs.animation_tab.QMessageBox") as mock_box:
             tab._run_colorize()
             mock_box.information.assert_called_once()
 
     def test_colorize_without_scribbles_shows_info(self, q_app, tmp_path):
         tab = MangaAnimationTab()
         paths = _make_frame_files(tmp_path, n=2)
-        with patch("cel_shaded_generator_gui.tabs.animation_tab.QFileDialog") as mock_dialog:
+        with patch("csg_gui.tabs.animation_tab.QFileDialog") as mock_dialog:
             mock_dialog.getOpenFileNames.return_value = (paths, "")
             tab._browse_frames()
 
-        with patch("cel_shaded_generator_gui.tabs.animation_tab.QMessageBox") as mock_box:
+        with patch("csg_gui.tabs.animation_tab.QMessageBox") as mock_box:
             tab._run_colorize()
             mock_box.information.assert_called_once()
 
     def test_run_colorize_starts_worker_with_correct_data(self, q_app, tmp_path):
         tab = MangaAnimationTab()
         paths = _make_frame_files(tmp_path, n=3, w=15, h=15)
-        with patch("cel_shaded_generator_gui.tabs.animation_tab.QFileDialog") as mock_dialog:
+        with patch("csg_gui.tabs.animation_tab.QFileDialog") as mock_dialog:
             mock_dialog.getOpenFileNames.return_value = (paths, "")
             tab._browse_frames()
 
@@ -160,7 +159,7 @@ class TestMangaAnimationTab:
         # coverage (args, button state, .start() called) is the right bar
         # here regardless.
         with patch(
-            "cel_shaded_generator_gui.tabs.animation_tab.AnimationColorizeWorker"
+            "csg_gui.tabs.animation_tab.AnimationColorizeWorker"
         ) as mock_worker_cls:
             mock_worker = mock_worker_cls.return_value
             tab._run_colorize()
@@ -182,7 +181,7 @@ class TestMangaAnimationTab:
         real graph-cut-refine background solve is avoided in tests)."""
         tab = MangaAnimationTab()
         paths = _make_frame_files(tmp_path, n=2, w=10, h=10)
-        with patch("cel_shaded_generator_gui.tabs.animation_tab.QFileDialog") as mock_dialog:
+        with patch("csg_gui.tabs.animation_tab.QFileDialog") as mock_dialog:
             mock_dialog.getOpenFileNames.return_value = (paths, "")
             tab._browse_frames()
 
@@ -190,7 +189,7 @@ class TestMangaAnimationTab:
         tab.chk_refine.setChecked(True)
 
         with patch(
-            "cel_shaded_generator_gui.tabs.animation_tab.AnimationColorizeWorker"
+            "csg_gui.tabs.animation_tab.AnimationColorizeWorker"
         ) as mock_worker_cls:
             mock_worker = mock_worker_cls.return_value
             tab._run_colorize()
@@ -211,7 +210,7 @@ class TestMangaAnimationTab:
 
     def test_on_colorize_error_shows_critical(self, q_app):
         tab = MangaAnimationTab()
-        with patch("cel_shaded_generator_gui.tabs.animation_tab.QMessageBox") as mock_box:
+        with patch("csg_gui.tabs.animation_tab.QMessageBox") as mock_box:
             tab._on_colorize_error("boom")
             mock_box.critical.assert_called_once()
         assert "failed" in tab.status_label.text().lower()
@@ -226,7 +225,7 @@ class TestMangaAnimationTab:
 
     def test_export_without_result_shows_info(self, q_app):
         tab = MangaAnimationTab()
-        with patch("cel_shaded_generator_gui.tabs.animation_tab.QMessageBox") as mock_box:
+        with patch("csg_gui.tabs.animation_tab.QMessageBox") as mock_box:
             tab._export_result()
             mock_box.information.assert_called_once()
 
@@ -237,7 +236,7 @@ class TestMangaAnimationTab:
 
         out_dir = tmp_path / "export"
         out_dir.mkdir()
-        with patch("cel_shaded_generator_gui.tabs.animation_tab.QFileDialog") as mock_dialog:
+        with patch("csg_gui.tabs.animation_tab.QFileDialog") as mock_dialog:
             mock_dialog.getExistingDirectory.return_value = str(out_dir)
             tab._export_result()
 

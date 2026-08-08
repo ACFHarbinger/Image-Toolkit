@@ -11,7 +11,7 @@ yet the planned Krita learning alpha or a production drawing application.
 | --- | --- | --- |
 | `colorization`, `features`, `learning`, `project`, `rigging`, `temporal` | `logic/src/` | UI-independent domain packages |
 | `execution`, `runtime` | `logic/src/` | Isolated-job boundary and native-compute coordination |
-| `cel_shaded_generator_gui` | `gui/src/cel_shaded_generator_gui/` | Standalone Qt demonstration client |
+| `csg_gui` | `gui/src/` | Flattened standalone Qt demonstration client |
 | Tests | `logic/test/`, `gui/test/` | Algorithm invariants, UI behavior, and package boundaries |
 
 Both distributions form a `uv` workspace. The GUI declares the core

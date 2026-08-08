@@ -4,12 +4,11 @@ from __future__ import annotations
 
 import sys
 
+from csg_gui.tabs.animation_tab import MangaAnimationTab
+from csg_gui.tabs.colorization_tab import MangaColorizationTab
+from csg_gui.tabs.puppeteering_tab import MangaPuppeteeringTab
+from csg_gui.tabs.reference_coloring_tab import ReferenceColoringTab
 from PySide6.QtWidgets import QApplication, QMainWindow, QTabWidget
-
-from cel_shaded_generator_gui.tabs.animation_tab import MangaAnimationTab
-from cel_shaded_generator_gui.tabs.colorization_tab import MangaColorizationTab
-from cel_shaded_generator_gui.tabs.puppeteering_tab import MangaPuppeteeringTab
-from cel_shaded_generator_gui.tabs.reference_coloring_tab import ReferenceColoringTab
 
 
 def build_window() -> QMainWindow:

@@ -79,7 +79,6 @@ import uuid
 from pathlib import Path
 
 import numpy as np
-
 from colorization.correspondence import (
     CorrespondenceSet,
     load_correspondence_set,
@@ -113,7 +112,6 @@ from project import (
     upsert_project_style_bible,
 )
 from project.storage import MANIFEST_NAME
-
 from PySide6.QtGui import QColor, QImage
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -415,7 +413,7 @@ class ReferenceColoringTab(QWidget):
             rgba.strides[0],
             QImage.Format.Format_RGBA8888,
         )
-        if not image.copy().save(path, "PNG"):
+        if not image.copy().save(path, b"PNG"):
             self._status.setText(f"Could not export PNG to {path}.")
             return
         self._status.setText(f"Exported composite PNG to {path}.")

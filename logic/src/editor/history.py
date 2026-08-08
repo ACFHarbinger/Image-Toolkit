@@ -11,7 +11,7 @@ possible later refinement if per-action snapshot memory ever proves too
 costly, but every layer-stack mutation in this project remains cheap enough
 (bounded canvas sizes, no infinite-undo requirement) that it is not yet
 justified. Pure Python/numpy, no Qt -- ``ReferenceColoringTab`` in
-``cel_shaded_generator_gui`` owns Undo/Redo buttons and wires them to this.
+``csg_gui`` owns Undo/Redo buttons and wires them to this.
 """
 
 from __future__ import annotations

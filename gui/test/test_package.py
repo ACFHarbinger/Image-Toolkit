@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import sys
 
-import cel_shaded_generator_gui
-from cel_shaded_generator_gui.platform import IMAGE_FILE_DIALOG_FILTER
+import csg_gui
+from csg_gui.platform import IMAGE_FILE_DIALOG_FILTER
 
 
 def test_gui_uses_stable_namespace() -> None:
-    assert cel_shaded_generator_gui.__name__ == "cel_shaded_generator_gui"
+    assert csg_gui.__name__ == "csg_gui"
     assert "manga_gui" not in sys.modules
 
 

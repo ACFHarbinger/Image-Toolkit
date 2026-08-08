@@ -23,7 +23,7 @@ dependencies = [
 ]
 
 [project.scripts]
-cel-shaded-generator = "cel_shaded_generator_gui.app:main"
+cel-shaded-generator = "csg_gui.app:main"
 
 [project.optional-dependencies]
 dev = [
@@ -44,8 +44,17 @@ select = ["E", "F", "I", "UP", "B"]
 python_version = "3.11"
 ignore_missing_imports = true
 
-[tool.setuptools.packages.find]
-where = ["src"]
+[tool.setuptools]
+# The GUI source tree is intentionally flattened (matching ASP's submodule
+# layout), while the installed/imported package keeps a collision-proof name.
+package-dir = { csg_gui = "src" }
+packages = [
+    "csg_gui",
+    "csg_gui.components",
+    "csg_gui.elements",
+    "csg_gui.helpers",
+    "csg_gui.tabs",
+]
 
 [tool.uv.sources]
 cel-shaded-generator = { workspace = true }

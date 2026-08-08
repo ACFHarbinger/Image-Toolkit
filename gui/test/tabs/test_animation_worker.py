@@ -2,8 +2,7 @@ from unittest.mock import patch
 
 import numpy as np
 import pytest
-
-from cel_shaded_generator_gui.helpers.animation_worker import AnimationColorizeWorker
+from csg_gui.helpers.animation_worker import AnimationColorizeWorker
 
 pytestmark = pytest.mark.gui
 
@@ -46,7 +45,7 @@ class TestAnimationColorizeWorker:
         worker.finished_ok.connect(lambda arr: received.append(arr))
 
         fake_result = np.zeros((3, 10, 10, 3), dtype=np.uint8)
-        with patch("cel_shaded_generator_gui.helpers.animation_worker.IsolatedRunner") as cls:
+        with patch("csg_gui.helpers.animation_worker.IsolatedRunner") as cls:
             cls.return_value.run.return_value = fake_result
             worker.run()
 
@@ -62,7 +61,7 @@ class TestAnimationColorizeWorker:
         worker.finished_ok.connect(lambda arr: received.append(arr))
 
         refined_result = np.ones((3, 10, 10, 3), dtype=np.uint8)
-        with patch("cel_shaded_generator_gui.helpers.animation_worker.IsolatedRunner") as cls:
+        with patch("csg_gui.helpers.animation_worker.IsolatedRunner") as cls:
             cls.return_value.run.return_value = refined_result
             worker.run()
 
@@ -77,7 +76,7 @@ class TestAnimationColorizeWorker:
         errors = []
         worker.error.connect(lambda msg: errors.append(msg))
 
-        with patch("cel_shaded_generator_gui.helpers.animation_worker.IsolatedRunner") as cls:
+        with patch("csg_gui.helpers.animation_worker.IsolatedRunner") as cls:
             cls.return_value.run.side_effect = ValueError("boom")
             worker.run()
 
