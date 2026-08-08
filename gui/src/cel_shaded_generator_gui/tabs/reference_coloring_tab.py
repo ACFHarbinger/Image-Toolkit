@@ -50,7 +50,13 @@ mirroring the Krita Character Colors Docker's own Propagate
 Correspondence action (milestone C4.1, issue #21) via
 ``colorization.correspondence.CorrespondenceSet.propagate`` directly --
 this was the one milestone C4.1 capability the standalone editor's
-correspondence slices (issues #31/#34) never brought over.
+correspondence slices (issues #31/#34) never brought over. Detach
+Selected Document/Detach Selected Bible remove a Project Documents/
+Project Bibles entry from the bound project's manifest (never the
+underlying files, matching ``project.detach_editor_document``/
+``detach_style_bible``'s own "detach never deletes" contract) --
+``project.attach_editor_document``/``upsert_project_style_bible`` wired
+attaching in slices 11/12, but nothing ever wired the reverse.
 
 New feature, not code motion.
 """
@@ -85,6 +91,8 @@ from editor import (
 from project import (
     attach_editor_document,
     create_project,
+    detach_editor_document,
+    detach_style_bible,
     load_project,
     rank_correspondence_materials,
     record_correspondence_choice,
@@ -146,9 +154,13 @@ class ReferenceColoringTab(QWidget):
         self._project_document_combo = QComboBox(self)
         self._open_project_document_button = QPushButton("Open Selected Document", self)
         self._open_project_document_button.clicked.connect(self._open_project_document)
+        self._detach_project_document_button = QPushButton("Detach Selected Document", self)
+        self._detach_project_document_button.clicked.connect(self._detach_project_document)
         self._project_bible_combo = QComboBox(self)
         self._load_project_bible_button = QPushButton("Load Selected Bible", self)
         self._load_project_bible_button.clicked.connect(self._load_project_bible)
+        self._detach_project_bible_button = QPushButton("Detach Selected Bible", self)
+        self._detach_project_bible_button.clicked.connect(self._detach_project_bible)
 
         self._canvas = LayerCanvas(self)
         self._layer_panel = LayerListPanel(self)
@@ -264,9 +276,11 @@ class ReferenceColoringTab(QWidget):
         project_asset_controls.addWidget(QLabel("Project Documents:", self))
         project_asset_controls.addWidget(self._project_document_combo)
         project_asset_controls.addWidget(self._open_project_document_button)
+        project_asset_controls.addWidget(self._detach_project_document_button)
         project_asset_controls.addWidget(QLabel("Project Bibles:", self))
         project_asset_controls.addWidget(self._project_bible_combo)
         project_asset_controls.addWidget(self._load_project_bible_button)
+        project_asset_controls.addWidget(self._detach_project_bible_button)
         project_asset_controls.addStretch(1)
 
         right = QVBoxLayout()
@@ -534,6 +548,33 @@ class ReferenceColoringTab(QWidget):
             return
         self._apply_loaded_style_bible(bible)
         self._bible_asset_path = relative
+
+    def _detach_project_document(self) -> None:
+        """Remove the selected Project Documents entry from the bound
+        project's manifest; the document directory and its files are
+        never deleted, matching ``project.detach_editor_document``."""
+        if self._project_directory is None or self._project_document_combo.currentIndex() < 0:
+            return
+        relative = self._project_document_combo.currentData()
+        detach_editor_document(self._project_directory, asset_path=relative)
+        self._refresh_project_asset_combos()
+        self._status.setText(f"Detached document '{relative}' from the bound project.")
+
+    def _detach_project_bible(self) -> None:
+        """Remove the selected Project Bibles entry from the bound
+        project's manifest; the bible file is never deleted, matching
+        ``project.detach_style_bible``. If the detached bible is the one
+        currently loaded, ``Suggest Material`` falls back to the
+        fixed-weight local ranking (no attached bible left to look up
+        the project's learned ``SignalWeights`` against)."""
+        if self._project_directory is None or self._project_bible_combo.currentIndex() < 0:
+            return
+        relative = self._project_bible_combo.currentData()
+        detach_style_bible(self._project_directory, asset_path=relative)
+        if self._bible_asset_path == relative:
+            self._bible_asset_path = None
+        self._refresh_project_asset_combos()
+        self._status.setText(f"Detached bible '{relative}' from the bound project.")
 
     def _apply_loaded_style_bible(self, bible: CharacterStyleBible) -> None:
         self._style_bible = bible

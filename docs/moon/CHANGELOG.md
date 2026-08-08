@@ -38,7 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `engine_architecture.md`'s "Gate 5 exception (2026-08-07)" note for the
   full rationale — this is a scope decision, not evidence Krita has proven
   insufficient. The Krita plugin remains the primary, actively-developed
-  host. Sixteen slices — canvas + layer-stack foundation, brush paint
+  host. Seventeen slices — canvas + layer-stack foundation, brush paint
   tool (issue #26), undo/redo (issue #27), non-destructive layer masks
   (issue #28), line-art segmentation (issue #29), style-bible palette
   application (issue #30), region-to-material correspondence assignment
@@ -48,9 +48,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   documents into a bound project (issue #35), browsing/reopening
   project-bound assets (issue #36), a soft/anti-aliased brush hardness
   option (issue #37), an eraser tool (issue #38), per-layer
-  opacity/blend mode UI (issue #39), and propagating correspondence to
-  explicit target regions (issue #40) — are all In review pending a
-  manual desktop-app check (see the `### Added` entries below).
+  opacity/blend mode UI (issue #39), propagating correspondence to
+  explicit target regions (issue #40), and detaching project
+  documents/bibles (issue #49) — are all In review pending a manual
+  desktop-app check (see the `### Added` entries below).
 
 ### Fixed
 
@@ -507,6 +508,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tests, 8 new headless-Qt `gui` tests (543 core + 217 gui total);
   Ruff and mypy clean. Needs a manual desktop launch to confirm
   visually — see issue #40's testing comment.
+- **Standalone editor seventeenth slice (issue #49, In review): detach
+  project documents/bibles.** Closes a gap the eleventh/twelfth slices
+  left open: `project.attach_editor_document`/`upsert_project_style_bible`
+  wired the attach side of Project Documents/Project Bibles, and
+  `project.detach_editor_document`/`detach_style_bible` already existed
+  in `src/project/service.py`, but nothing in the standalone editor
+  ever called them. `ReferenceColoringTab` adds Detach Selected
+  Document/Detach Selected Bible buttons next to the existing Project
+  Documents/Project Bibles combos. Both remove only the manifest
+  binding — the underlying document directory or bible file is never
+  deleted, matching those functions' own "detach never deletes"
+  contract. Detaching the currently-loaded bible also clears
+  `_bible_asset_path`, so a subsequent Suggest Material falls back to
+  the fixed-weight local ranking (seventh slice's behavior) instead of
+  looking up a `SignalWeights` entry for a bible the project no longer
+  tracks. Verification: 4 new headless-Qt `gui` tests (543 core + 221
+  gui total); Ruff and mypy clean. Needs a manual desktop launch to
+  confirm visually — see issue #49's testing comment.
 - **Milestone 4 first slice (issue #24): deterministic confidence scoring
   and correction learning for assisted correspondence.** Portable contract
   only, no Docker UI yet, following the same sequencing every prior

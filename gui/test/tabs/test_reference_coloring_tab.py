@@ -864,3 +864,67 @@ def test_propagate_correspondence_without_canvas_is_a_no_op(q_app):
     tab = ReferenceColoringTab()
     tab._propagate_correspondence()
     assert tab.correspondence_set() is None
+
+
+def test_detach_project_document_removes_entry_without_deleting_files(
+    q_app, monkeypatch, tmp_path
+):
+    from project import load_project
+
+    project_dir = tmp_path / "project"
+    project_dir.mkdir()
+    tab = ReferenceColoringTab()
+    _new_canvas(tab, monkeypatch)
+    _stub_existing_directory(monkeypatch, project_dir)
+    _stub_text_input(monkeypatch, "Editor Project")
+    tab._new_project()
+    document_dir = project_dir / "canvas" / "main"
+    _stub_existing_directory(monkeypatch, document_dir)
+    tab._save_document()
+    assert tab._project_document_combo.count() == 1
+
+    tab._project_document_combo.setCurrentIndex(0)
+    tab._detach_project_document()
+
+    assert tab._project_document_combo.count() == 0
+    assert load_project(project_dir).editor_document_assets == []
+    assert (document_dir / "manifest.json").exists()  # files untouched
+    assert "Detached document" in tab._status.text()
+
+
+def test_detach_project_document_without_selection_is_a_no_op(q_app):
+    tab = ReferenceColoringTab()
+    tab._detach_project_document()
+    assert tab._project_document_combo.count() == 0
+
+
+def test_detach_project_bible_removes_entry_and_clears_active_asset_path(
+    q_app, monkeypatch, tmp_path
+):
+    from project import load_project
+
+    project_dir = tmp_path / "project"
+    project_dir.mkdir()
+    tab = ReferenceColoringTab()
+    _stub_existing_directory(monkeypatch, project_dir)
+    _stub_text_input(monkeypatch, "Editor Project")
+    tab._new_project()
+    _bind_bible(tab, monkeypatch, tmp_path / "bibles")
+    assert tab._bible_asset_path == "style-bibles/aiko.json"
+    bible_path = project_dir / "style-bibles" / "aiko.json"
+    assert bible_path.exists()
+
+    tab._project_bible_combo.setCurrentIndex(0)
+    tab._detach_project_bible()
+
+    assert tab._project_bible_combo.count() == 0
+    assert load_project(project_dir).style_bible_assets == []
+    assert bible_path.exists()  # file untouched
+    assert tab._bible_asset_path is None
+    assert "Detached bible" in tab._status.text()
+
+
+def test_detach_project_bible_without_selection_is_a_no_op(q_app):
+    tab = ReferenceColoringTab()
+    tab._detach_project_bible()
+    assert tab._project_bible_combo.count() == 0

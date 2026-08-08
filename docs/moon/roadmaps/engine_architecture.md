@@ -435,3 +435,19 @@ overwritten). Persists to the bound project (if any) the same way
 Assign Correspondence does. Never recolors anything itself, matching
 the existing "assignment vs. recoloring are separate actions" split
 from the seventh slice.
+
+**Seventeenth slice (issue #49, In review pending a manual desktop-app
+check): detach project documents/bibles.** Closes a gap the
+eleventh/twelfth slices left open: `project.attach_editor_document`/
+`upsert_project_style_bible` wired the attach side of Project
+Documents/Project Bibles, and `project.detach_editor_document`/
+`detach_style_bible` already existed in `src/project/service.py`, but
+nothing in the standalone editor ever called them. `ReferenceColoringTab`
+adds Detach Selected Document/Detach Selected Bible buttons next to the
+existing Project Documents/Project Bibles combos. Both remove only the
+manifest binding -- the underlying document directory or bible file is
+never deleted, matching those functions' own "detach never deletes"
+contract. Detaching the currently-loaded bible also clears
+`_bible_asset_path`, so a subsequent Suggest Material falls back to the
+fixed-weight local ranking (seventh slice's behavior) instead of looking
+up a `SignalWeights` entry for a bible the project no longer tracks.
