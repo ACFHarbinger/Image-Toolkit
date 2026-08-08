@@ -49,7 +49,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `engine_architecture.md`'s "Gate 5 exception (2026-08-07)" note for the
   full rationale — this is a scope decision, not evidence Krita has proven
   insufficient. The Krita plugin remains the primary, actively-developed
-  host. Nineteen slices — canvas + layer-stack foundation, brush paint
+  host. Twenty-one slices — canvas + layer-stack foundation, brush paint
   tool (issue #26), undo/redo (issue #27), non-destructive layer masks
   (issue #28), line-art segmentation (issue #29), style-bible palette
   application (issue #30), region-to-material correspondence assignment
@@ -65,7 +65,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   correspondence set on bind (issue #50), and resetting the
   correspondence set/region-layer bookkeeping on New Canvas (issue #51),
   and composite PNG export (issue #52) — are all In review pending a manual
-  desktop-app check
+  desktop-app check (see the `### Added` entries below).
   (see the `### Added` entries below).
 
 ### Fixed
@@ -141,6 +141,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   core mypy are clean.
 
 ### Added
+
+- **Standalone editor image-layer import (issue #53, In review).** The
+  Reference Coloring tab now imports PNG/JPEG/BMP/WebP images as a new
+  editable RGBA layer when dimensions match the current canvas. The operation
+  records one undo checkpoint, selects the imported layer, and rejects missing,
+  unreadable, or dimension-mismatched images without mutating the document.
+  Manual desktop verification remains pending.
 
 - **Standalone editor composite PNG export (issue #52, In review).** The
   Reference Coloring tab now exposes **Export PNG**, flattening the current

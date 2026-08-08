@@ -499,3 +499,15 @@ RGBA PNG. Export never mutates the editable stack or its document sidecars.
 The Qt test covers dimensions, pixel values, and status reporting; a manual
 desktop check must still confirm the resulting PNG opens correctly in an image
 viewer and visually matches the canvas.
+
+**Twenty-first slice (issue #53, In review pending a manual desktop-app
+check): import an image as an editable layer.** ReferenceColoringTab adds
+Import Image Layer beside the document/export actions. It accepts common
+Qt-readable raster formats, converts them to RGBA, requires dimensions to
+match the current canvas, and appends the pixels as a newly named layer. The
+mutation records one undo checkpoint, selects the new layer, and refreshes the
+canvas; invalid or mismatched input leaves the stack untouched. Manual review
+must import a transparent image, confirm alpha and pixels match, undo the
+import, and confirm a dimension mismatch reports an error without adding a
+layer. If all checks pass, the issue can be closed; otherwise return it to In
+progress with the failing image and dimensions.

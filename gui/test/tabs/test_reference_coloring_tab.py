@@ -482,6 +482,53 @@ def test_export_png_without_canvas_is_a_no_op(q_app, monkeypatch):
     assert "No canvas" in tab._status.text()
 
 
+def test_import_image_layer_preserves_rgba_and_is_undoable(q_app, monkeypatch, tmp_path):
+    from PySide6.QtGui import QColor, QImage
+    from PySide6.QtWidgets import QFileDialog
+
+    tab = ReferenceColoringTab()
+    _new_canvas(tab, monkeypatch, size=2)
+    source = tmp_path / "reference.png"
+    image = QImage(2, 2, QImage.Format.Format_RGBA8888)
+    image.fill(QColor(0, 0, 0, 0))
+    image.setPixelColor(1, 0, QColor(10, 20, 30, 128))
+    assert image.save(str(source), "PNG")
+    monkeypatch.setattr(
+        QFileDialog,
+        "getOpenFileName",
+        staticmethod(lambda *a, **k: (str(source), "")),
+    )
+
+    tab._import_image_layer()
+
+    layer = tab.canvas().layer_stack().layers()[-1]
+    assert layer.meta.name == "reference"
+    assert layer.pixels[0, 1].tolist() == [10, 20, 30, 128]
+    assert tab.canvas().active_layer_id() == layer.meta.id
+    tab._undo()
+    assert len(tab.canvas().layer_stack().layers()) == 1
+
+
+def test_import_image_layer_rejects_dimension_mismatch(q_app, monkeypatch, tmp_path):
+    from PySide6.QtGui import QImage
+    from PySide6.QtWidgets import QFileDialog
+
+    tab = ReferenceColoringTab()
+    _new_canvas(tab, monkeypatch, size=2)
+    source = tmp_path / "wrong.png"
+    assert QImage(3, 2, QImage.Format.Format_RGBA8888).save(str(source), "PNG")
+    monkeypatch.setattr(
+        QFileDialog,
+        "getOpenFileName",
+        staticmethod(lambda *a, **k: (str(source), "")),
+    )
+
+    tab._import_image_layer()
+
+    assert len(tab.canvas().layer_stack().layers()) == 1
+    assert "dimensions must match" in tab._status.text()
+
+
 def test_save_document_without_canvas_is_a_no_op(q_app, monkeypatch, tmp_path):
     tab = ReferenceColoringTab()
     _stub_existing_directory(monkeypatch, tmp_path)

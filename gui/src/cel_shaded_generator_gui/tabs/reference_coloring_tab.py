@@ -163,6 +163,8 @@ class ReferenceColoringTab(QWidget):
         self._open_document_button.clicked.connect(self._open_document)
         self._export_png_button = QPushButton("Export PNG", self)
         self._export_png_button.clicked.connect(self._export_png)
+        self._import_layer_button = QPushButton("Import Image Layer", self)
+        self._import_layer_button.clicked.connect(self._import_image_layer)
         self._new_project_button = QPushButton("New Project", self)
         self._new_project_button.clicked.connect(self._new_project)
         self._bind_project_button = QPushButton("Bind Project", self)
@@ -253,6 +255,7 @@ class ReferenceColoringTab(QWidget):
         controls.addWidget(self._save_document_button)
         controls.addWidget(self._open_document_button)
         controls.addWidget(self._export_png_button)
+        controls.addWidget(self._import_layer_button)
         controls.addWidget(self._new_project_button)
         controls.addWidget(self._bind_project_button)
         controls.addWidget(self._pan_tool)
@@ -416,6 +419,47 @@ class ReferenceColoringTab(QWidget):
             self._status.setText(f"Could not export PNG to {path}.")
             return
         self._status.setText(f"Exported composite PNG to {path}.")
+
+    def _import_image_layer(self) -> None:
+        """Import an image as a new editable layer on the current canvas."""
+        layer_stack = self._canvas.layer_stack()
+        if layer_stack is None:
+            self._status.setText("No canvas yet. Click New Canvas to begin.")
+            return
+        path, _selected_filter = QFileDialog.getOpenFileName(
+            self,
+            "Import Image Layer",
+            "",
+            "Images (*.png *.jpg *.jpeg *.bmp *.webp)",
+        )
+        if not path:
+            return
+        image = QImage(path)
+        if image.isNull():
+            self._status.setText(f"Could not open image: {path}")
+            return
+        image = image.convertToFormat(QImage.Format.Format_RGBA8888)
+        if image.width() != layer_stack.width or image.height() != layer_stack.height:
+            self._status.setText(
+                "Imported image dimensions must match the current canvas "
+                f"({layer_stack.width}x{layer_stack.height})."
+            )
+            return
+        if self._history is not None:
+            self._history.record()
+        layer_id = "layer-" + uuid.uuid4().hex[:8]
+        layer_name = Path(path).stem or "Imported Image"
+        layer = layer_stack.add_layer(layer_id, layer_name)
+        bytes_per_line = image.bytesPerLine()
+        pixels = np.frombuffer(
+            bytes(image.constBits()), dtype=np.uint8, count=image.height() * bytes_per_line
+        ).reshape(image.height(), bytes_per_line)[:, : image.width() * 4]
+        layer.pixels = pixels.reshape(image.height(), image.width(), 4).copy()
+        self._layer_panel.refresh()
+        self._layer_panel.select_layer(layer_id)
+        self._canvas.refresh()
+        self._update_status()
+        self._status.setText(f"Imported image layer '{layer_name}'.")
 
     def _open_project_document(self) -> None:
         """Reopen a document already attached to the bound project, picked
