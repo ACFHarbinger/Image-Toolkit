@@ -213,6 +213,24 @@ capstone templates complete the practical sequence. Verification: 296 tests,
 Ruff and mypy clean. A3 remains undeployed pending later review/calibration work;
 A2 #10/#11 stay in Review.
 
+*The three entries below (S354.1–S354.3) ran as a parallel Image-Toolkit-side
+session alongside the CSG/Krita work above and were originally logged only in
+`docs/CHANGELOG.md`, a generated mirror of this file that had stopped syncing;
+recovered and merged in here (2026-08-08) once the drift was found, numbered
+by their true commit order rather than renumbering S355 onward.*
+
+## S354.1 — 2026-08-07 (ASP Phase 6.3 bundled samples)
+
+Implemented ASP Phase 6.3 bundled synthetic sample projects (`test_scroll_gradient`, `test_scroll_pattern`) for the HybridStitch onboarding wizard. Provides non-explicit, simple test sequences to learn the tool. Integrated the samples directly into the onboarding wizard and documented them.
+
+## S354.2 — 2026-08-07 (GUI Quick Wins: Floating Toast and Metadata Overlay)
+
+Implemented §2.10A Floating Toast Notification Widget in `gui/src/components/widgets/toast_widget.py`, allowing queued, non-blocking toast notifications in `MainWindow`. Integrated it with the global `show_toast_notification` helper. Also implemented §2.14B Thumbnail Hover Metadata Overlay in `gui/src/components/labels/metadata_overlay.py` with integration into both `ClickableLabel` and `DraggableLabel` to show basename, image dimensions, and file size on hover. Added comprehensive test coverage for both widgets.
+
+## S354.3 — 2026-08-07 (Architecture improvements: PipelineTrace and ModelWrapper ABC)
+
+Implemented §5.4B `PipelineTrace` JSON logging for the `AnimeStitchPipeline` in `backend/src/animation/core/pipeline/trace.py` with full serialization, duration, and error capture tested. Fixed §5.8A by making `ModelWrapper` inherit from `ABC` in `backend/src/models/core/base.py`. Both changes verified via `pytest` and marked complete in architecture documentation and roadmaps.
+
 ## S353 — 2026-08-07 (Feature previews, asymmetry review, identity variation)
 
 Advanced CSG A3 issue #12 with reversible matrix-local nose,
