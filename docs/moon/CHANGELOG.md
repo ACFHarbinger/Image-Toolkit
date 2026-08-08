@@ -49,7 +49,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `engine_architecture.md`'s "Gate 5 exception (2026-08-07)" note for the
   full rationale — this is a scope decision, not evidence Krita has proven
   insufficient. The Krita plugin remains the primary, actively-developed
-  host. Twenty-one slices — canvas + layer-stack foundation, brush paint
+  host. Twenty-two slices — canvas + layer-stack foundation, brush paint
   tool (issue #26), undo/redo (issue #27), non-destructive layer masks
   (issue #28), line-art segmentation (issue #29), style-bible palette
   application (issue #30), region-to-material correspondence assignment
@@ -141,6 +141,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   core mypy are clean.
 
 ### Added
+
+- **Standalone editor layer duplication (issue #54, In review).** The layer
+  panel now duplicates the selected layer immediately above its source,
+  deep-copying RGBA pixels, masks, visibility, opacity, and blend mode. The
+  copy receives a fresh id, is selected for continued editing, and records one
+  undo checkpoint. Manual desktop verification remains pending.
 
 - **Standalone editor image-layer import (issue #53, In review).** The
   Reference Coloring tab now imports PNG/JPEG/BMP/WebP images as a new

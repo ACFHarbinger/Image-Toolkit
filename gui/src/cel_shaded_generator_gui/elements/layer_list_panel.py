@@ -1,7 +1,8 @@
 """Layer-list panel for the standalone editor's layer-stack foundation (see
 ``docs/moon/roadmaps/engine_architecture.md``'s gate-5 exception).
 
-Owns the only structural mutations a ``LayerStack`` gets: add, remove,
+Owns the only structural mutations a ``LayerStack`` gets: add, duplicate,
+remove,
 reorder, visibility toggle, mask add/remove, and per-layer opacity/blend
 mode. Emits ``layers_changed`` after every mutation so a bound canvas
 (``layer_canvas.py``) knows to re-render, and ``layer_selected`` whenever
@@ -56,6 +57,7 @@ class LayerListPanel(QWidget):
         self._list.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
 
         self._add_button = QPushButton("Add Layer", self)
+        self._duplicate_button = QPushButton("Duplicate Layer", self)
         self._remove_button = QPushButton("Remove Layer", self)
         self._up_button = QPushButton("Move Up", self)
         self._down_button = QPushButton("Move Down", self)
@@ -72,6 +74,7 @@ class LayerListPanel(QWidget):
         self._blend_mode_combo.setEnabled(False)
 
         self._add_button.clicked.connect(self._add_layer)
+        self._duplicate_button.clicked.connect(self._duplicate_selected_layer)
         self._remove_button.clicked.connect(self._remove_selected_layer)
         self._up_button.clicked.connect(lambda: self._move_selected_layer(-1))
         self._down_button.clicked.connect(lambda: self._move_selected_layer(1))
@@ -83,7 +86,13 @@ class LayerListPanel(QWidget):
         self._list.currentItemChanged.connect(self._on_current_item_changed)
 
         buttons = QHBoxLayout()
-        for button in (self._add_button, self._remove_button, self._up_button, self._down_button):
+        for button in (
+            self._add_button,
+            self._duplicate_button,
+            self._remove_button,
+            self._up_button,
+            self._down_button,
+        ):
             buttons.addWidget(button)
         mask_buttons = QHBoxLayout()
         for button in (self._add_mask_button, self._remove_mask_button):
@@ -163,6 +172,22 @@ class LayerListPanel(QWidget):
         if self._layer_stack.remove_layer(layer_id):
             self._refresh_list()
             self.layers_changed.emit()
+
+    def _duplicate_selected_layer(self) -> None:
+        layer = self._selected_layer()
+        if self._layer_stack is None or layer is None:
+            return
+        if self._history is not None:
+            self._history.record()
+        layer_id = "layer-" + uuid.uuid4().hex[:8]
+        duplicate = self._layer_stack.duplicate_layer(
+            layer.meta.id, layer_id, f"{layer.meta.name} copy"
+        )
+        if duplicate is None:
+            return
+        self._refresh_list()
+        self._select_layer(layer_id)
+        self.layers_changed.emit()
 
     def _move_selected_layer(self, direction: int) -> None:
         """``direction`` is -1 (up the list / toward the top of the stack) or

@@ -511,3 +511,14 @@ must import a transparent image, confirm alpha and pixels match, undo the
 import, and confirm a dimension mismatch reports an error without adding a
 layer. If all checks pass, the issue can be closed; otherwise return it to In
 progress with the failing image and dimensions.
+
+**Twenty-second slice (issue #54, In review pending a manual desktop-app
+check): duplicate a selected layer.** `LayerStack.duplicate_layer` and the
+layer panel's Duplicate Layer action insert a deep copy immediately above the
+source. Pixel buffers and masks are independent copies; visibility, opacity,
+blend mode, and ordering are retained. The duplicate gets a fresh id and is
+selected, while the mutation records one undo checkpoint. Manual review must
+duplicate a masked/partially transparent layer, edit the copy to confirm the
+source is unchanged, and undo to confirm both the copy and its edits disappear.
+If those checks pass, close the issue; otherwise return it to In progress with
+the failing layer state.

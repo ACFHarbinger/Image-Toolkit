@@ -133,6 +133,22 @@ class LayerStack:
                 return True
         return False
 
+    def duplicate_layer(self, layer_id: str, new_id: str, new_name: str) -> Layer | None:
+        """Insert a deep copy of ``layer_id`` immediately above the source."""
+        source = self.layer(layer_id)
+        if source is None:
+            return None
+        source_index = next(
+            index for index, layer in enumerate(self._layers) if layer.meta.id == layer_id
+        )
+        duplicate = self.add_layer(new_id, new_name, index=source_index + 1)
+        duplicate.meta.visible = source.meta.visible
+        duplicate.meta.opacity = source.meta.opacity
+        duplicate.meta.blend_mode = source.meta.blend_mode
+        duplicate.pixels = source.pixels.copy()
+        duplicate.mask = None if source.mask is None else source.mask.copy()
+        return duplicate
+
     def reorder_layer(self, layer_id: str, index: int) -> bool:
         for position, layer in enumerate(self._layers):
             if layer.meta.id == layer_id:

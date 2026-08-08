@@ -246,3 +246,26 @@ def test_save_state_round_trips_a_missing_mask_as_none():
     state = stack.save_state()
     stack.load_state(state)
     assert stack.layer("base").mask is None
+
+
+def test_duplicate_layer_copies_pixels_metadata_and_mask_above_source():
+    stack = LayerStack(2, 2)
+    source = stack.add_layer("base", "Base")
+    source.pixels[0, 1] = [1, 2, 3, 4]
+    source.meta.visible = False
+    source.meta.opacity = 0.4
+    source.meta.blend_mode = "multiply"
+    stack.add_mask("base")
+    source.mask[0, 1] = 77
+
+    duplicate = stack.duplicate_layer("base", "copy", "Base copy")
+
+    assert duplicate is not None
+    assert [layer.meta.id for layer in stack.layers()] == ["base", "copy"]
+    assert duplicate.meta.visible is False
+    assert duplicate.meta.opacity == 0.4
+    assert duplicate.meta.blend_mode == "multiply"
+    assert duplicate.pixels is not source.pixels
+    assert duplicate.mask is not source.mask
+    assert duplicate.pixels[0, 1].tolist() == [1, 2, 3, 4]
+    assert duplicate.mask[0, 1] == 77

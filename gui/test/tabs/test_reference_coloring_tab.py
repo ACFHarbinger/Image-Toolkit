@@ -35,6 +35,27 @@ def test_layer_panel_mutation_refreshes_canvas_and_status(q_app):
     assert "1 layer" in tab._status.text()
 
 
+def test_duplicate_selected_layer_copies_pixels_and_selects_copy(q_app):
+    tab = ReferenceColoringTab()
+    stack = LayerStack(2, 2)
+    source = stack.add_layer("source", "Source")
+    source.pixels[0, 1] = [1, 2, 3, 255]
+    stack.add_mask("source")
+    source.mask[0, 1] = 77
+    tab._canvas.set_layer_stack(stack)
+    tab._layer_panel.set_layer_stack(stack)
+    tab._layer_panel.set_history(None)
+    tab._layer_panel.select_layer("source")
+
+    tab._layer_panel._duplicate_selected_layer()
+
+    duplicate = stack.layers()[-1]
+    assert duplicate.meta.name == "Source copy"
+    assert duplicate.pixels[0, 1].tolist() == [1, 2, 3, 255]
+    assert duplicate.mask[0, 1] == 77
+    assert tab._layer_panel.selected_layer_id() == duplicate.meta.id
+
+
 def test_default_tool_is_pan(q_app):
     tab = ReferenceColoringTab()
     assert tab.canvas().tool() == "pan"
