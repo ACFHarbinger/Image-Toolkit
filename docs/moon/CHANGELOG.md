@@ -63,8 +63,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   explicit target regions (issue #40), detaching project
   documents/bibles (issue #49), loading a bound project's existing
   correspondence set on bind (issue #50), and resetting the
-  correspondence set/region-layer bookkeeping on New Canvas
-  (issue #51) — are all In review pending a manual desktop-app check
+  correspondence set/region-layer bookkeeping on New Canvas (issue #51),
+  and composite PNG export (issue #52) — are all In review pending a manual
+  desktop-app check
   (see the `### Added` entries below).
 
 ### Fixed
@@ -140,6 +141,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   core mypy are clean.
 
 ### Added
+
+- **Standalone editor composite PNG export (issue #52, In review).** The
+  Reference Coloring tab now exposes **Export PNG**, flattening the current
+  visible `LayerStack` through its existing mask, opacity, and blend-mode
+  compositor into a transparent RGBA PNG. Export is a copy operation: it does
+  not alter editable layers or document sidecars. Headless coverage verifies
+  pixel values and dimensions; manual desktop verification remains pending.
 
 - **Standalone editor first slice (issue #25, In review): canvas + layer
   stack foundation.** New `src/editor/` core package: `LayerStack`/`Layer`/

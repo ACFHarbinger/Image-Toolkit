@@ -441,6 +441,47 @@ def test_save_document_writes_canvas_to_directory(q_app, monkeypatch, tmp_path):
     assert "Saved document" in tab._status.text()
 
 
+def test_export_png_writes_flattened_rgba_composite(q_app, monkeypatch, tmp_path):
+    from PySide6.QtGui import QImage
+    from PySide6.QtWidgets import QFileDialog
+
+    tab = ReferenceColoringTab()
+    _new_canvas(tab, monkeypatch, size=2)
+    layer = tab.canvas().layer_stack().layer("layer-1")
+    layer.pixels[0, 0] = [10, 20, 30, 255]
+    destination = tmp_path / "composite.png"
+    monkeypatch.setattr(
+        QFileDialog,
+        "getSaveFileName",
+        staticmethod(lambda *a, **k: (str(destination), "")),
+    )
+
+    tab._export_png()
+
+    image = QImage(str(destination)).convertToFormat(QImage.Format.Format_RGBA8888)
+    assert image.size().width() == 2
+    assert image.size().height() == 2
+    assert image.pixelColor(0, 0).getRgb() == (10, 20, 30, 255)
+    assert "Exported composite PNG" in tab._status.text()
+
+
+def test_export_png_without_canvas_is_a_no_op(q_app, monkeypatch):
+    from PySide6.QtWidgets import QFileDialog
+
+    called = False
+
+    def fail_if_called(*_args, **_kwargs):
+        nonlocal called
+        called = True
+        return ("", "")
+
+    monkeypatch.setattr(QFileDialog, "getSaveFileName", staticmethod(fail_if_called))
+    tab = ReferenceColoringTab()
+    tab._export_png()
+    assert not called
+    assert "No canvas" in tab._status.text()
+
+
 def test_save_document_without_canvas_is_a_no_op(q_app, monkeypatch, tmp_path):
     tab = ReferenceColoringTab()
     _stub_existing_directory(monkeypatch, tmp_path)

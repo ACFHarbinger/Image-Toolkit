@@ -78,6 +78,8 @@ import json
 import uuid
 from pathlib import Path
 
+import numpy as np
+
 from colorization.correspondence import (
     CorrespondenceSet,
     load_correspondence_set,
@@ -111,7 +113,8 @@ from project import (
     upsert_project_style_bible,
 )
 from project.storage import MANIFEST_NAME
-from PySide6.QtGui import QColor
+
+from PySide6.QtGui import QColor, QImage
 from PySide6.QtWidgets import (
     QCheckBox,
     QColorDialog,
@@ -158,6 +161,8 @@ class ReferenceColoringTab(QWidget):
         self._save_document_button.clicked.connect(self._save_document)
         self._open_document_button = QPushButton("Open Document", self)
         self._open_document_button.clicked.connect(self._open_document)
+        self._export_png_button = QPushButton("Export PNG", self)
+        self._export_png_button.clicked.connect(self._export_png)
         self._new_project_button = QPushButton("New Project", self)
         self._new_project_button.clicked.connect(self._new_project)
         self._bind_project_button = QPushButton("Bind Project", self)
@@ -247,6 +252,7 @@ class ReferenceColoringTab(QWidget):
         controls.addWidget(self._new_canvas_button)
         controls.addWidget(self._save_document_button)
         controls.addWidget(self._open_document_button)
+        controls.addWidget(self._export_png_button)
         controls.addWidget(self._new_project_button)
         controls.addWidget(self._bind_project_button)
         controls.addWidget(self._pan_tool)
@@ -386,6 +392,30 @@ class ReferenceColoringTab(QWidget):
         if not directory:
             return
         self._load_document_from_path(Path(directory))
+
+    def _export_png(self) -> None:
+        """Export the visible composite as an RGBA PNG without changing the document."""
+        layer_stack = self._canvas.layer_stack()
+        if layer_stack is None:
+            self._status.setText("No canvas yet. Click New Canvas to begin.")
+            return
+        path, _selected_filter = QFileDialog.getSaveFileName(
+            self, "Export Composite PNG", "", "PNG image (*.png)"
+        )
+        if not path:
+            return
+        rgba = np.ascontiguousarray(layer_stack.composite())
+        image = QImage(
+            rgba.data,
+            layer_stack.width,
+            layer_stack.height,
+            rgba.strides[0],
+            QImage.Format.Format_RGBA8888,
+        )
+        if not image.copy().save(path, "PNG"):
+            self._status.setText(f"Could not export PNG to {path}.")
+            return
+        self._status.setText(f"Exported composite PNG to {path}.")
 
     def _open_project_document(self) -> None:
         """Reopen a document already attached to the bound project, picked

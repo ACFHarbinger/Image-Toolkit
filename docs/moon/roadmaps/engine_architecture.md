@@ -489,3 +489,13 @@ regions that don't exist on the new layer stack at all.
 `ReferenceColoringTab._new_canvas` now resets both fields, matching
 what `_load_document_from_path` already does when opening a real
 document (load fresh state, or `None`/`[]` if the document has none).
+
+**Twentieth slice (issue #52, In review pending a manual desktop-app
+check): composite PNG export.** The standalone editor now has an Export PNG
+action beside Save/Open Document. It flattens the visible `LayerStack` through
+the existing compositor, preserving transparency and the effects of masks,
+per-layer opacity, and normal/multiply blend modes, then writes a standard
+RGBA PNG. Export never mutates the editable stack or its document sidecars.
+The Qt test covers dimensions, pixel values, and status reporting; a manual
+desktop check must still confirm the resulting PNG opens correctly in an image
+viewer and visually matches the canvas.
