@@ -4,7 +4,7 @@
 
 ## S373 — 2026-08-07 (C4 correspondence baseline scoped)
 
-Created Cel-Shaded-Generator issue #18 for the next reference-coloring
+Created CSG issue #18 for the next reference-coloring
 milestone: deterministic manual material correspondence and explicitly accepted
 propagation. The issue requires portable provenance, ambiguity refusal, recovery
 tests, and artist-layer isolation; ML, generative filling, and deployment are
@@ -29,7 +29,7 @@ review. Verification: 335 tests, Ruff and core mypy clean.
 
 ## S370 — 2026-08-07 (C3 moved to Review)
 
-Moved Cel-Shaded-Generator C3 issue #17 to Project 12 **In review** after the
+Moved CSG C3 issue #17 to Project 12 **In review** after the
 headless semantic workflow gate completed. The issue now contains the live
 Krita checklist and explicit pass-to-Done/fail-to-In-Progress rules; no drawing
 session or deployment was performed. Tutor issues #10/#11/#12 remain in Review
@@ -37,7 +37,7 @@ with their existing acceptance instructions.
 
 ## S369 — 2026-08-07 (C3 headless semantic workflow gate)
 
-Completed Cel-Shaded-Generator C3's headless semantic workflow gate
+Completed CSG C3's headless semantic workflow gate
 (`b7c17bc`). Variant alpha buffers are unioned through a tested host-neutral
 operation before overlap blocking; malformed and partial buffers are handled
 explicitly. The Docker now depends on that contract rather than embedding raster
@@ -46,7 +46,7 @@ to Review for later live Krita acceptance; no deployment occurred.
 
 ## S368 — 2026-08-07 (Character Color mask variants)
 
-Advanced Cel-Shaded-Generator C3 #17 with multi-layer material variants,
+Advanced CSG C3 #17 with multi-layer material variants,
 editable reference notes, and optional Krita node metadata (`68a2422`). Layers
 such as `Material — hair — front` and `Material — hair — back` share the
 canonical material palette; all variants are unioned before overlap checks.
@@ -57,7 +57,7 @@ live Krita acceptance gates.
 
 ## S367 — 2026-08-07 (Conflict-safe Character Colors)
 
-Advanced Cel-Shaded-Generator C3 #17 with conflict-safe semantic palette
+Advanced CSG C3 #17 with conflict-safe semantic palette
 application and style-bible schema v2 (`e0f2edc`). Material-mask overlaps now
 block preview with per-material pixel counts. Accepted proposals become separate
 editable `Color — <material> — <role>` layers under `Character Colors` while
@@ -69,7 +69,7 @@ tutor #10/#11/#12 remain frozen in Review.
 
 ## S366 — 2026-08-07 (Editable Character Colors workflow)
 
-Advanced Cel-Shaded-Generator C3 #17 with prefilled editing of existing style
+Advanced CSG C3 #17 with prefilled editing of existing style
 bibles (`57b9ef9`). Canonical materials, aliases, local/light/shadow/optional-
 accent roles, and references are preserved and editable; absent accents are not
 offered. Preview create/write/remove failures are explicit and clean partial
@@ -79,7 +79,7 @@ nothing is deployed and tutor #10/#11/#12 remain frozen in Review.
 
 ## S365 — 2026-08-07 (Character Colors Krita authoring foundation)
 
-Advanced Cel-Shaded-Generator C3 #17 (`3d44257`) with a separate Character
+Advanced CSG C3 #17 (`3d44257`) with a separate Character
 Colors Docker. External references copy atomically into portable content-hash
 paths; bibles author/validate/bind through the engine; canonical material alpha
 masks drive explicit local/light/shadow previews in separate locked layers with
@@ -89,11 +89,11 @@ existing-bible editing, aliases/accent UI, and undo/reconciliation evidence.
 
 ## S364 — 2026-08-07 (Consolidate documentation toolchains)
 
-Consolidated documentation toolchains for Anime-Stitch-Pipeline backlog Issue #4. Retained MkDocs (for the portal) and Sphinx (for Python API autodoc). Deleted the hand-built Vue 3 site `docs/website/`, Structurizr, and TypeDoc configurations. Removed their respective build steps from `.github/workflows/docs.yml`.
+Consolidated documentation toolchains for ASP backlog Issue #4. Retained MkDocs (for the portal) and Sphinx (for Python API autodoc). Deleted the hand-built Vue 3 site `docs/website/`, Structurizr, and TypeDoc configurations. Removed their respective build steps from `.github/workflows/docs.yml`.
 
 ## S363 — 2026-08-07 (Krita style-bible authoring scope)
 
-Opened Cel-Shaded-Generator C3 issue #17 in Backlog and recorded its deterministic
+Opened CSG C3 issue #17 in Backlog and recorded its deterministic
 Krita authoring/palette-application boundary in `32f50dc`. It awaits owner choices
 on Docker placement, semantic mask conventions, and reference-asset import.
 Learned correspondence and deployment over the frozen tutor review candidate
@@ -125,11 +125,11 @@ Implemented Issue #15: Fixed the `_refine_masks_with_clicks` dimension mismatch 
 
 ## S362.4 — 2026-08-07 (Phase 0.4(d) SI-FID Metric Implementation)
 
-Implemented Phase 0.4(d) from the Anime-Stitch-Pipeline backlog by introducing the SI-FID (Scale-Invariant Fréchet Inception Distance) metric for non-GT tests. Created `backend/benchmark/evaluation/si_fid.py` in the submodule with an inception-based PyTorch implementation for calculating a reference-free Frechet distance from patches. Integrated this score directly into `bench_anime_stitch.py` so that tests without a Ground Truth correctly calculate and emit `si_fid` within `gt_metrics_asp` and `gt_metrics_sim`, satisfying the architectural requirement for a reference-free signal.
+Implemented Phase 0.4(d) from the ASP backlog by introducing the SI-FID (Scale-Invariant Fréchet Inception Distance) metric for non-GT tests. Created `backend/benchmark/evaluation/si_fid.py` in the submodule with an inception-based PyTorch implementation for calculating a reference-free Frechet distance from patches. Integrated this score directly into `bench_anime_stitch.py` so that tests without a Ground Truth correctly calculate and emit `si_fid` within `gt_metrics_asp` and `gt_metrics_sim`, satisfying the architectural requirement for a reference-free signal.
 
 ## S361 — 2026-08-07 (A3 moved to deferred review)
 
-Moved Cel-Shaded-Generator A3 issue #12 to In Review after completing its
+Moved CSG A3 issue #12 to In Review after completing its
 headless integration and recorded the gate in `b7b5903`. Its ten-step live
 Krita checklist covers grouped layers, compatible imports, sequential fresh
 dispatch, form/cast masks, decisions and rationale revisions, cancellation,
@@ -140,7 +140,7 @@ in Backlog.
 
 ## S360 — 2026-08-07 (Sequential fresh capstone review dispatch)
 
-Completed Cel-Shaded-Generator A3's headless fresh capstone dispatcher
+Completed CSG A3's headless fresh capstone dispatcher
 (`6640b85`). “Run Next Capstone Review” now opens the correct rubric-specific
 landmark flow immediately and advances after a persisted decision/rationale.
 Multi-rubric layers run sequentially in structural-leverage order rather than
@@ -151,7 +151,7 @@ A3 remains undeployed pending live confirmation; #10/#11 stay in Review.
 
 ## S359 — 2026-08-07 (Compatible capstone evidence import)
 
-Advanced Cel-Shaded-Generator A3 #12 with schema-v8 compatible prior-review
+Advanced CSG A3 #12 with schema-v8 compatible prior-review
 imports, six nested rubric-oriented capstone layer groups, and a confirmed “Run
 Next Capstone Review” action (`8ce185c`). Imports copy rather than alias evidence,
 retain source attempt/review provenance, clear unrelated feedback/history, and
@@ -162,7 +162,7 @@ A3 stays undeployed and #10/#11 remain in deferred Review.
 
 ## S358 — 2026-08-07 (Editable capstone rationale history)
 
-Advanced Cel-Shaded-Generator A3 #12 with schema-v7 editable capstone rationale
+Advanced CSG A3 #12 with schema-v7 editable capstone rationale
 text and existing-docker controls (`87e5dc5`). Final accept/reject/defer decisions
 remain immutable. An independent project setting, default off, controls whether
 timestamped prior rationale revisions are retained; disabling it clears history.
@@ -172,7 +172,7 @@ undeployed; #10/#11 remain in deferred Review.
 
 ## S357 — 2026-08-07 (Form/cast review and guided capstone collection)
 
-Advanced Cel-Shaded-Generator A3 #12 with separate front/turned form/cast mask
+Advanced CSG A3 #12 with separate front/turned form/cast mask
 evidence (`daafd9e`), a resumable five-rubric capstone collection plan
 (`4a301c3`), and clearer descriptive value explanations plus four concrete
 remedial exercises (`a5de14c`). Empty form masks are rejected while empty cast
@@ -183,7 +183,7 @@ remains undeployed; #10/#11 remain in deferred Review.
 
 ## S356 — 2026-08-07 (Tutor alpha calibration issue)
 
-Opened Cel-Shaded-Generator A4 issue #14 in Project 12 Backlog and recorded it
+Opened CSG A4 issue #14 in Project 12 Backlog and recorded it
 in the submodule roadmap (`8fc3977`). A4 separates real-beginner threshold and
 explanation-quality calibration, compatible repeated-attempt evaluation,
 offline Kubuntu/Krita acceptance, and RTX 4080 12 GB latency/VRAM evidence from
@@ -192,7 +192,7 @@ in deferred Review.
 
 ## S355 — 2026-08-07 (Identity previews, cel-value analysis, capstone accountability)
 
-Advanced Cel-Shaded-Generator A3 issue #12 with selected-pair identity-retention
+Advanced CSG A3 issue #12 with selected-pair identity-retention
 previews (`21b9fcb`); explicit alpha-only front/turned/optional-third-value mask
 layers and a bounded deterministic Krita review (`2435ec9`); and schema-v6
 capstone decisions plus a rubric-preserving dashboard (`005c481`). The mask
@@ -204,7 +204,7 @@ Ruff and core mypy clean. A3 remains undeployed; A2 #10/#11 stay in Review.
 
 ## S354 — 2026-08-07 (Asymmetry previews, identity cards, complete curriculum)
 
-Advanced Cel-Shaded-Generator A3 issue #12 with control-derived reversible
+Advanced CSG A3 issue #12 with control-derived reversible
 asymmetry previews (`102478c`); schema-v5 portable editable identity cards and
 baseline/variant/selected-pair comparison (`c804615`); and fully authored cel-
 value plus comprehensive-capstone lessons (`602b0f3`). All nine primary lessons
@@ -215,7 +215,7 @@ A2 #10/#11 stay in Review.
 
 ## S353 — 2026-08-07 (Feature previews, asymmetry review, identity variation)
 
-Advanced Cel-Shaded-Generator A3 issue #12 with reversible matrix-local nose,
+Advanced CSG A3 issue #12 with reversible matrix-local nose,
 mouth, and ear correction previews (`1df8159`); intent-aware controlled-
 asymmetry comparison (`112c354`) requiring cause, character side, strength, and
 purpose on authored layers; and fully authored Character Variation and Identity
@@ -226,7 +226,7 @@ clean. A3 remains undeployed; A2 #10/#11 stay in Review.
 
 ## S352 — 2026-08-07 (Feature critique and controlled-asymmetry lesson)
 
-Advanced Cel-Shaded-Generator A3 issue #12 with specialized nose, mouth,
+Advanced CSG A3 issue #12 with specialized nose, mouth,
 bilateral-front-ear, and turned-ear landmark/rubric workflows (`a1aee5c`). Front
 ears remain independently measurable; turned review fully evaluates the near
 ear and treats far-ear input as optional occlusion evidence. An optional combined
@@ -239,7 +239,7 @@ stay in Review.
 
 ## S351 — 2026-08-07 (Eye previews and authored feature-placement matrix)
 
-Advanced Cel-Shaded-Generator A3 issue #12 with conservative cell-local eye
+Advanced CSG A3 issue #12 with conservative cell-local eye
 correction previews (`25b9d8b`) for cross-contour placement, spacing, projected
 width, lid rhythm, and iris exposure. Guides are principle-linked, provisional,
 and reuse explicit Accept/Reject. Fully authored lesson five (`a3f5da9`) for
@@ -250,7 +250,7 @@ Ruff and mypy clean. A3 remains undeployed; A2 #10/#11 stay in Review.
 
 ## S350 — 2026-08-07 (Eye-placement lesson, template, and critique)
 
-Advanced Cel-Shaded-Generator A3 issue #12 with a fully authored beginner Eye
+Advanced CSG A3 issue #12 with a fully authored beginner Eye
 Placement and Perspective lesson plus two original offline diagrams (`54c7626`).
 Its 2400 × 1600 Krita sheet separates front/turned structure and stylized
 expression into four named layers beneath a locked layout. A dedicated review
@@ -262,7 +262,7 @@ thresholds remain provisional and eye redlines are not yet claimed. Verification
 
 ## S349 — 2026-08-07 (Cranial/jaw design sheet and paired critique)
 
-Advanced Cel-Shaded-Generator A3 issue #12 (`79c6478`) with lesson three's
+Advanced CSG A3 issue #12 (`79c6478`) with lesson three's
 practical 2800 × 1600 Krita exercise: four separate front-design layers, a
 fifth selected-variant three-quarter layer, and a locked SVG layout. Individual
 review follows only the explicitly confirmed active layer. An optional paired
@@ -274,7 +274,7 @@ Ruff and mypy clean. Thresholds remain provisional; A3 stays undeployed and A2
 
 ## S348 — 2026-08-07 (Orientation redlines and authored cranial/jaw lesson)
 
-Advanced Cel-Shaded-Generator A3 issue #12 with cell-local orientation tutor
+Advanced CSG A3 issue #12 with cell-local orientation tutor
 previews (`260152f`) and the fully authored Cranial Volume and Jaw Variation
 lesson (`2f3f9ed`). Failed orientation dimensions now emit principle-linked
 guides mapped only into the confirmed sheet cell and reuse explicit
@@ -286,7 +286,7 @@ stay in deferred Review.
 
 ## S347 — 2026-08-07 (Selected-head orientation critique)
 
-Advanced Cel-Shaded-Generator A3 issue #12 (`cbc6069`) with dedicated profile
+Advanced CSG A3 issue #12 (`cbc6069`) with dedicated profile
 and three-quarter review contracts. The active named sheet layer selects one
 candidate head and cell, explicit confirmation precedes a cropped landmark
 dialog, and each view family has specialized prompts. Deterministic geometry
@@ -299,7 +299,7 @@ provisional pending real beginner drawings; A3 remains undeployed and A2
 
 ## S346 — 2026-08-07 (Five-view orientation exercise template)
 
-Advanced Cel-Shaded-Generator A3 issue #12 (`922cbae`) with a portable
+Advanced CSG A3 issue #12 (`922cbae`) with a portable
 `anime-head-orientation` exercise: a 2600 × 1600 landscape sheet, locked SVG
 five-cell layout, and separate named layers for both profiles, both
 three-quarter views, and front. The front layer starts active. Explicit front
@@ -311,7 +311,7 @@ clean. A3 remains undeployed and A2 #10/#11 stay in deferred Review.
 
 ## S345 — 2026-08-07 (Unlocked lesson navigation and explicit completion)
 
-Advanced Cel-Shaded-Generator A3 issue #12 (`48724aa`) with an ordered lesson
+Advanced CSG A3 issue #12 (`48724aa`) with an ordered lesson
 selector plus Previous/Next navigation in the existing tutor docker. Lessons
 remain browsable regardless of prerequisites. The fully authored orientation
 lesson includes two original selectable SVG diagrams for cross-contours and a
@@ -323,7 +323,7 @@ deferred Review.
 
 ## S344 — 2026-08-07 (Editable advice feedback and authored orientation lesson)
 
-Advanced Cel-Shaded-Generator A3 issue #12 with editable project advice
+Advanced CSG A3 issue #12 with editable project advice
 feedback (`6cc6b85`) and the fully authored head-orientation lesson (`f1d350e`).
 Schema v4 supports optional edit-history retention, monotonic revisions, and a
 configurable 1–100,000-character note limit defaulting to 2,000; the existing
@@ -335,7 +335,7 @@ changes remain undeployed while A2 #10/#11 stay in deferred Review.
 
 ## S343 — 2026-08-07 (Krita private project-progress section)
 
-Advanced Cel-Shaded-Generator A3 issue #12 (`13e6b52`) with a Project Progress
+Advanced CSG A3 issue #12 (`13e6b52`) with a Project Progress
 section in the existing tutor docker. A bounded engine snapshot presents only
 portable review metadata; the docker shows attempts, reviews, compatible
 improvement/decline trends, and raw normalized measurements, which are visible
@@ -347,7 +347,7 @@ Krita presentation remains deferred; A2 #10/#11 stay unchanged in Review.
 
 ## S342 — 2026-08-07 (Portable advice feedback and progress policy)
 
-Advanced Cel-Shaded-Generator A3 issue #12 (`832d5cd`) with the owner's
+Advanced CSG A3 issue #12 (`832d5cd`) with the owner's
 retention and progression decisions. Portable project schema v3 makes local
 learning-progress retention a user setting enabled by default while artwork
 history and global aggregation remain independently disabled. Prerequisites
@@ -359,7 +359,7 @@ Ruff and mypy remain clean.
 
 ## S341 — 2026-08-07 (Adaptive curriculum and private progress core)
 
-Advanced Cel-Shaded-Generator A3 issue #12 with deterministic curriculum and
+Advanced CSG A3 issue #12 with deterministic curriculum and
 progress contracts (`70ae059`, `3b20338`). The offline v1 catalog defines nine
 primary anime head-and-face exercises, four remedial exercises, explicit
 prerequisites, normalized rubric dimensions, explainable weakness routing, and
@@ -369,9 +369,9 @@ not silently compared. Private summaries count retries and explicit advice
 feedback without producing a global artist score. Verification: 218 tests,
 Ruff and mypy clean. A2 issues #10/#11 remain in owner-deferred Review.
 
-## S340 — 2026-08-07 (Cel-Shaded-Generator core source flattening)
+## S340 — 2026-08-07 (CSG core source flattening)
 
-Completed Cel-Shaded-Generator issue #13 (`86c6e3b`) by moving every core
+Completed CSG issue #13 (`86c6e3b`) by moving every core
 module and domain package from `src/cel_shaded_generator/` directly into
 `src/`. Engine, GUI, Krita diagnostics, benchmarks, tests, packaging, and
 current architecture documentation now use the top-level namespaces. The
@@ -381,129 +381,129 @@ build successfully.
 
 ## S339 — 2026-08-07 (Adaptive curriculum milestone started)
 
-Opened Cel-Shaded-Generator A3 issue #12 at In Progress P0/XL and recorded it in `c497f65`. A3 covers versioned curriculum progression, deterministic and explainable weakness-to-remediation routing, compatible repeated-attempt comparison, and a private local progress view. A2 issues #10 and #11 remain in owner-deferred Review with explicit test instructions and pass-to-Done/fail-to-In-Progress rules; continued headless A3 work does not block on drawing tests.
+Opened CSG A3 issue #12 at In Progress P0/XL and recorded it in `c497f65`. A3 covers versioned curriculum progression, deterministic and explainable weakness-to-remediation routing, compatible repeated-attempt comparison, and a private local progress view. A2 issues #10 and #11 remain in owner-deferred Review with explicit test instructions and pass-to-Done/fail-to-In-Progress rules; continued headless A3 work does not block on drawing tests.
 
 ## S338 — 2026-08-07 (Krita A2 follow-up ready for deferred review)
 
-Completed Cel-Shaded-Generator issue #11's automated implementation (`6c41577`): Review/Accept/Reject shortcuts are explicitly opt-in, valid, unique, atomically persisted, and preserve engine configuration; old Qt bindings are replaced on reconfiguration. A failed manifest decision save retains a same-action retry state and blocks the opposite action, preventing silent reconciliation drift. Accept retains only a locked tutor reference and never applies pixels to artist artwork. Verification: 201 tests, Ruff and mypy clean. With Krita confirmed closed, deployed the combined #10/#11 candidate and an engine configuration containing no default shortcuts. #10 remains In Review; #11 moves to In Review with a deferred pass/fail checklist.
+Completed CSG issue #11's automated implementation (`6c41577`): Review/Accept/Reject shortcuts are explicitly opt-in, valid, unique, atomically persisted, and preserve engine configuration; old Qt bindings are replaced on reconfiguration. A failed manifest decision save retains a same-action retry state and blocks the opposite action, preventing silent reconciliation drift. Accept retains only a locked tutor reference and never applies pixels to artist artwork. Verification: 201 tests, Ruff and mypy clean. With Krita confirmed closed, deployed the combined #10/#11 candidate and an engine configuration containing no default shortcuts. #10 remains In Review; #11 moves to In Review with a deferred pass/fail checklist.
 
 ## S337 — 2026-08-07 (Portable Krita exercise binding)
 
-Advanced Cel-Shaded-Generator issue #11 (`ce5bf74`) with the approved portable binding. Krita saves the active document as `artwork/attempt-001.kra` inside an explicitly selected empty directory; the engine atomically creates root `project.json`, then appends privacy-safe reviews and final decisions to the stable attempt with bounded recovery rotation. The active document is distinct from opt-in historical artwork retention. Unsafe relative paths, unrelated/non-empty directories, existing manifests, missing/ambiguous attempts, and duplicate reviews are refused. Verification: 199 tests, Ruff and mypy clean. #10 remains frozen in deferred Review; #11 stays In Progress for shortcut configuration and undo/reconciliation evidence, and is not deployed yet.
+Advanced CSG issue #11 (`ce5bf74`) with the approved portable binding. Krita saves the active document as `artwork/attempt-001.kra` inside an explicitly selected empty directory; the engine atomically creates root `project.json`, then appends privacy-safe reviews and final decisions to the stable attempt with bounded recovery rotation. The active document is distinct from opt-in historical artwork retention. Unsafe relative paths, unrelated/non-empty directories, existing manifests, missing/ambiguous attempts, and duplicate reviews are refused. Verification: 199 tests, Ruff and mypy clean. #10 remains frozen in deferred Review; #11 stays In Progress for shortcut configuration and undo/reconciliation evidence, and is not deployed yet.
 
 ## S336 — 2026-08-07 (Portable tutor review decisions)
 
-Advanced Cel-Shaded-Generator issue #11 (`2f5251b`) with portable project schema v2 review persistence. Attempts now retain stable review/method/rubric versions, numeric measurements, explanations, and final pending/accepted/rejected decisions while deliberately excluding redline geometry, preview metadata, and pixels. Deterministic v0/v1 migrations add empty review lists, identical repeated decisions are idempotent, reversals and duplicate review IDs are rejected, and recovery snapshots preserve the prior pending state. Verification: 190 tests, Ruff and mypy clean. Krita project-folder binding remains; #10 stays frozen in owner-deferred Review and this change is not deployed into it.
+Advanced CSG issue #11 (`2f5251b`) with portable project schema v2 review persistence. Attempts now retain stable review/method/rubric versions, numeric measurements, explanations, and final pending/accepted/rejected decisions while deliberately excluding redline geometry, preview metadata, and pixels. Deterministic v0/v1 migrations add empty review lists, identical repeated decisions are idempotent, reversals and duplicate review IDs are rejected, and recovery snapshots preserve the prior pending state. Verification: 190 tests, Ruff and mypy clean. Krita project-folder binding remains; #10 stays frozen in owner-deferred Review and this change is not deployed into it.
 
 ## S335 — 2026-08-07 (Explicit Krita preview decisions)
 
-Started Cel-Shaded-Generator issue #11 (`5adb14e`) while leaving #10's deployed slice unchanged in owner-deferred review. Suggested redlines now use a distinct tutor-owned preview identity; explicit idempotent Accept retains one as a locked reference, while Reject removes only a pending owned preview and refuses unrelated layers. No accept shortcut is assigned by default, avoiding Krita's Tab canvas-only conflict. Verification: 186 tests, Ruff and mypy clean. Persistence, user-configurable shortcuts, and verified undo semantics remain; this slice is not deployed into the review build yet.
+Started CSG issue #11 (`5adb14e`) while leaving #10's deployed slice unchanged in owner-deferred review. Suggested redlines now use a distinct tutor-owned preview identity; explicit idempotent Accept retains one as a locked reference, while Reject removes only a pending owned preview and refuses unrelated layers. No accept shortcut is assigned by default, avoiding Krita's Tab canvas-only conflict. Verification: 186 tests, Ruff and mypy clean. Persistence, user-configurable shortcuts, and verified undo semantics remain; this slice is not deployed into the review build yet.
 
 ## S334 — 2026-08-07 (Deferred A2 owner-review gate)
 
-Moved Cel-Shaded-Generator issue #10 to In Review at the owner's request and added exact deferred live-test instructions plus the board rule: all expected behaviors closes/moves it to Done; any failure documents the step and returns it to In Progress. Created issue #11 at In Progress P0/L for suggestion accept/reject and review persistence so continued development does not silently change the deployed slice under review. Cel-Shaded-Generator `a3482d9` records the split in its roadmap and changelog.
+Moved CSG issue #10 to In Review at the owner's request and added exact deferred live-test instructions plus the board rule: all expected behaviors closes/moves it to Done; any failure documents the step and returns it to In Progress. Created issue #11 at In Progress P0/L for suggestion accept/reject and review persistence so continued development does not silently change the deployed slice under review. CSG `a3482d9` records the split in its roadmap and changelog.
 
 ## S333 — 2026-08-07 (Krita 5.x review redline layers)
 
-Advanced Cel-Shaded-Generator A2 issue #10 (`e41af94`) with Krita 5.x-compatible redline rendering. The adapter avoids Krita 6-only painting methods: it validates and bounds normalized engine geometry, rasterizes transparent U8 BGRA corrections, and writes only to a new locked tutor-owned layer inside the always-relocked feedback group; a failed write removes its partial layer. Artist layers are never selected or modified. Verification: 184 tests, Ruff and mypy clean. With exact process-name confirmation that Krita was closed, the updated plugin and configured engine were safely redeployed. Live redline verification remains.
+Advanced CSG A2 issue #10 (`e41af94`) with Krita 5.x-compatible redline rendering. The adapter avoids Krita 6-only painting methods: it validates and bounds normalized engine geometry, rasterizes transparent U8 BGRA corrections, and writes only to a new locked tutor-owned layer inside the always-relocked feedback group; a failed write removes its partial layer. Artist layers are never selected or modified. Verification: 184 tests, Ruff and mypy clean. With exact process-name confirmation that Krita was closed, the updated plugin and configured engine were safely redeployed. Live redline verification remains.
 
 ## S332 — 2026-08-07 (End-to-end landmark review explanations)
 
-Advanced Cel-Shaded-Generator A2 issue #10 (`22f629d`) through the first end-to-end review path. The installer atomically records an explicitly selected engine executable in XDG configuration; the dependency-free plugin validates/discovers it, submits the nine normalized landmarks under a unique request identifier, and displays deterministic explanations while leaving artwork unchanged. Missing landmarks, engine/configuration failures, and incomplete results are actionable UI states. Verification: 179 tests, Ruff and mypy clean. With Krita confirmed closed by exact process name, the plugin and engine configuration were deployed and a real configured-engine review smoke test passed. Redline layer rendering remains.
+Advanced CSG A2 issue #10 (`22f629d`) through the first end-to-end review path. The installer atomically records an explicitly selected engine executable in XDG configuration; the dependency-free plugin validates/discovers it, submits the nine normalized landmarks under a unique request identifier, and displays deterministic explanations while leaving artwork unchanged. Missing landmarks, engine/configuration failures, and incomplete results are actionable UI states. Verification: 179 tests, Ruff and mypy clean. With Krita confirmed closed by exact process name, the plugin and engine configuration were deployed and a real configured-engine review smoke test passed. Redline layer rendering remains.
 
 ## S331 — 2026-08-07 (Krita manual landmark editor)
 
-Advanced Cel-Shaded-Generator A2 issue #10 (`d5729f5`) with a manual nine-point landmark editor over a public document-projection snapshot. Because Krita's public Python Canvas API exposes no screen-to-image conversion, the adapter avoids private Qt canvas internals; it labels ordered markers, supports undo/reset/cancel, normalizes coordinates, derives cranial radius, and leaves artwork unchanged. Full verification: 176 tests, Ruff and mypy clean. Corrected a false-positive process check that had matched its own shell command, confirmed Krita was closed using its exact process name, and safely deployed the current nine-file plugin.
+Advanced CSG A2 issue #10 (`d5729f5`) with a manual nine-point landmark editor over a public document-projection snapshot. Because Krita's public Python Canvas API exposes no screen-to-image conversion, the adapter avoids private Qt canvas internals; it labels ordered markers, supports undo/reset/cancel, normalizes coordinates, derives cranial radius, and leaves artwork unchanged. Full verification: 176 tests, Ruff and mypy clean. Corrected a false-positive process check that had matched its own shell command, confirmed Krita was closed using its exact process name, and safely deployed the current nine-file plugin.
 
 ## S330 — 2026-08-07 (Isolated Krita review-engine protocol)
 
-Advanced Cel-Shaded-Generator A2 issue #10 (`9b00a80`) with the explicit AppImage-to-engine boundary promised by A1. The standalone `cel-shaded-generator-engine` accepts one bounded, versioned JSON review request over standard streams; the dependency-free Krita client uses no shell and enforces executable discovery, a five-second timeout, bounded input/output, matching protocol and request identifiers, structured errors, and an operation allowlist. Malformed input produces no traceback leakage. The full suite is now 172 passing tests with clean Ruff and mypy. Landmark UI and user-facing engine-path configuration remain.
+Advanced CSG A2 issue #10 (`9b00a80`) with the explicit AppImage-to-engine boundary promised by A1. The standalone `cel-shaded-generator-engine` accepts one bounded, versioned JSON review request over standard streams; the dependency-free Krita client uses no shell and enforces executable discovery, a five-second timeout, bounded input/output, matching protocol and request identifiers, structured errors, and an operation allowlist. Malformed input produces no traceback leakage. The full suite is now 172 passing tests with clean Ruff and mypy. Landmark UI and user-facing engine-path configuration remain.
 
 ## S329 — 2026-08-07 (Layered Krita exercise creation)
 
-Advanced Cel-Shaded-Generator A2 issue #10 (`f849b8e`) with a tested Krita exercise-document adapter and tutor action. It creates a new unsaved 1600 × 2000 RGBA document without modifying existing work, separates construction and artwork paint layers, reserves a locked tutor-feedback group, selects the construction layer, and reports host failures in the docker. Exact document arguments, layer ordering/locking, view attachment, active layer, and missing-window behavior are covered by headless stubs. Full verification: 161 tests, Ruff and mypy clean. Live deployment waits for Krita to close.
+Advanced CSG A2 issue #10 (`f849b8e`) with a tested Krita exercise-document adapter and tutor action. It creates a new unsaved 1600 × 2000 RGBA document without modifying existing work, separates construction and artwork paint layers, reserves a locked tutor-feedback group, selects the construction layer, and reports host failures in the docker. Exact document arguments, layer ordering/locking, view attachment, active layer, and missing-window behavior are covered by headless stubs. Full verification: 161 tests, Ruff and mypy clean. Live deployment waits for Krita to close.
 
 ## S328 — 2026-08-07 (Deterministic front-head review core)
 
-Advanced Cel-Shaded-Generator A2 issue #10 (`1a23944`) with a host-neutral deterministic reviewer for artist-confirmed normalized landmarks. It measures centerline and eye-line deviation, chin offset, and jaw asymmetry; returns provisional rubric scores, geometry-only evidence, actionable explanations, separate redline geometry, preview suggestions, and remedial routing; and performs no pixel or model analysis. Balanced and intentionally flawed fixtures bring the core suite to 159 passing tests with clean Ruff and mypy. The updated five-stage lesson was also scoped-uninstalled/reinstalled into the live Krita plugin directory with matching source/deployment checksums.
+Advanced CSG A2 issue #10 (`1a23944`) with a host-neutral deterministic reviewer for artist-confirmed normalized landmarks. It measures centerline and eye-line deviation, chin offset, and jaw asymmetry; returns provisional rubric scores, geometry-only evidence, actionable explanations, separate redline geometry, preview suggestions, and remedial routing; and performs no pixel or model analysis. Balanced and intentionally flawed fixtures bring the core suite to 159 passing tests with clean Ruff and mypy. The updated five-stage lesson was also scoped-uninstalled/reinstalled into the live Krita plugin directory with matching source/deployment checksums.
 
 ## S327 — 2026-08-07 (Krita A2 guided lesson started)
 
-Started Cel-Shaded-Generator A2 issue #10 (`d4ef412`) with the learner-visible lesson slice: replaced placeholder content with a five-stage offline beginner sequence for the cranial circle, centerline, eye-line, jaw/chin, and structural self-check; added completion criteria and three independent practice attempts; and made the Krita docker scroll its full explanations and checklist. Nine focused adapter tests pass. A live reinstall awaits a closed Krita process, while deterministic geometry review proceeds independently.
+Started CSG A2 issue #10 (`d4ef412`) with the learner-visible lesson slice: replaced placeholder content with a five-stage offline beginner sequence for the cranial circle, centerline, eye-line, jaw/chin, and structural self-check; added completion criteria and three independent practice attempts; and made the Krita docker scroll its full explanations and checklist. Nine focused adapter tests pass. A live reinstall awaits a closed Krita process, while deterministic geometry review proceeds independently.
 
-## S326 — 2026-08-07 (Cel-Shaded-Generator A1 complete)
+## S326 — 2026-08-07 (CSG A1 complete)
 
-Completed Cel-Shaded-Generator A1 and issue #9 (`85b32f4`) with a stack-neutral, non-executing local model-package manifest and validator. It verifies registry identity, schema, declared entrypoint, safe relative paths, regular non-symlink artifacts, exact byte sizes, configurable resource limits, and SHA-256 content while allowing extensible formats and keeping integrity distinct from provenance and runtime safety. The phase roadmap now records A1 complete and Phase 1 in progress. Verification: 153 core tests, Ruff, mypy, and strict MkDocs all pass. Created A2 issue #10 and moved it to In Progress at P0/L in Project 12; A1 is closed and Done.
+Completed CSG A1 and issue #9 (`85b32f4`) with a stack-neutral, non-executing local model-package manifest and validator. It verifies registry identity, schema, declared entrypoint, safe relative paths, regular non-symlink artifacts, exact byte sizes, configurable resource limits, and SHA-256 content while allowing extensible formats and keeping integrity distinct from provenance and runtime safety. The phase roadmap now records A1 complete and Phase 1 in progress. Verification: 153 core tests, Ruff, mypy, and strict MkDocs all pass. Created A2 issue #10 and moved it to In Progress at P0/L in Project 12; A1 is closed and Done.
 
 ## S325 — 2026-08-07 (Live Krita tutor docker confirmed)
 
-Completed Cel-Shaded-Generator's A1 live discovery check: the owner enabled the plugin in Krita 5.3.2.1's Python Plugin Manager, restarted Krita, and displayed the Cel-Shaded Learning Tutor docker. The check exposed an onboarding detail rather than a plugin defect: Krita disables every docker menu action while its start screen has no open document; creating a document enables them. Cel-Shaded-Generator `0a36e1c` records the verified behavior. Issue #9 remains In Progress only for model-package content validation.
+Completed CSG's A1 live discovery check: the owner enabled the plugin in Krita 5.3.2.1's Python Plugin Manager, restarted Krita, and displayed the Cel-Shaded Learning Tutor docker. The check exposed an onboarding detail rather than a plugin defect: Krita disables every docker menu action while its start screen has no open document; creating a document enables them. CSG `0a36e1c` records the verified behavior. Issue #9 remains In Progress only for model-package content validation.
 
 ## S324 — 2026-08-07 (Verified Krita AppImage deployment)
 
-Installed the official Krita 5.3.2.1 Linux AppImage under the owner's user applications after verifying its SHA-256 against KDE's published value. Confirmed that this build contains `pykrita`, Scripter, and the plugin importer, installed a desktop launcher and the Cel-Shaded-Generator plugin's six intended files, and completed a clean X11 startup probe. Cel-Shaded-Generator `e15250b` records the deployment in the A1 roadmap and changelog. Interactive plugin enablement and visible-docker confirmation remain, so issue #9 stays In Progress.
+Installed the official Krita 5.3.2.1 Linux AppImage under the owner's user applications after verifying its SHA-256 against KDE's published value. Confirmed that this build contains `pykrita`, Scripter, and the plugin importer, installed a desktop launcher and the CSG plugin's six intended files, and completed a clean X11 startup probe. CSG `e15250b` records the deployment in the A1 roadmap and changelog. Interactive plugin enablement and visible-docker confirmation remain, so issue #9 stays In Progress.
 
 ## S323 — 2026-08-07 (Corrected Krita packaging target)
 
-Corrected the S322 deployment assumption after the expected Python Plugin Manager was absent. Inspection of the installed Krita 5.2.11 Snap showed that the build omits Krita's Python plugin subsystem entirely, so files copied into its user-data directory are inert. Cel-Shaded-Generator `ecea1bf` now targets the standard Linux/AppImage resource directory, rejects Snap destinations with an actionable error, documents the official AppImage requirement, and adds regression tests. The eight focused integration tests and Ruff checks pass. A1 remains In Progress pending installation and visible-docker verification in a Python-enabled Krita AppImage.
+Corrected the S322 deployment assumption after the expected Python Plugin Manager was absent. Inspection of the installed Krita 5.2.11 Snap showed that the build omits Krita's Python plugin subsystem entirely, so files copied into its user-data directory are inert. CSG `ecea1bf` now targets the standard Linux/AppImage resource directory, rejects Snap destinations with an actionable error, documents the official AppImage requirement, and adds regression tests. The eight focused integration tests and Ruff checks pass. A1 remains In Progress pending installation and visible-docker verification in a Python-enabled Krita AppImage.
 
 ## S322 — 2026-08-07 (Live Krita Snap plugin installation)
 
-Installed the Cel-Shaded-Generator A1 plugin into the owner's live Krita 5.2.11 Snap user directory using the scoped installer. Exact-file verification caught test-generated Python cache artifacts in the first installation; Cel-Shaded-Generator `58343c0` now excludes `__pycache__`, `.pyc`, and `.pyo`, adds regression coverage, and was used to cleanly uninstall/reinstall the live plugin. Six adapter tests pass and the installed package contains only its five intended source/content files. Krita restart, Plugin Manager enablement, and visible-docker confirmation remain for the owner-facing discovery check.
+Installed the CSG A1 plugin into the owner's live Krita 5.2.11 Snap user directory using the scoped installer. Exact-file verification caught test-generated Python cache artifacts in the first installation; CSG `58343c0` now excludes `__pycache__`, `.pyc`, and `.pyo`, adds regression coverage, and was used to cleanly uninstall/reinstall the live plugin. Six adapter tests pass and the installed package contains only its five intended source/content files. Krita restart, Plugin Manager enablement, and visible-docker confirmation remain for the owner-facing discovery check.
 
 ## S321 — 2026-08-07 (Krita Snap diagnostics and atomic tutor catalog)
 
-Advanced Cel-Shaded-Generator A1 issue #9 (`c6dc188`, `2278222`): the Krita docker now reports offline compatibility for Krita/Python versions, packaged content, and standalone-core visibility, with documented install/enable/uninstall steps verified against Krita 5.2.11 Snap. Added atomic persistence for versioned lessons, exercises, rubrics, privacy/automation settings, and the trust-labeled local model registry, including deterministic privacy-preserving v0 migration and future-version rejection. Full verification: 142 core and 103 GUI tests; Ruff and mypy clean. A1 remains In Progress for model-package validation and a live-Krita installation check.
+Advanced CSG A1 issue #9 (`c6dc188`, `2278222`): the Krita docker now reports offline compatibility for Krita/Python versions, packaged content, and standalone-core visibility, with documented install/enable/uninstall steps verified against Krita 5.2.11 Snap. Added atomic persistence for versioned lessons, exercises, rubrics, privacy/automation settings, and the trust-labeled local model registry, including deterministic privacy-preserving v0 migration and future-version rejection. Full verification: 142 core and 103 GUI tests; Ruff and mypy clean. A1 remains In Progress for model-package validation and a live-Krita installation check.
 
 ## S320 — 2026-08-06 (Krita learning-alpha plugin skeleton)
 
-Started Cel-Shaded-Generator A1 issue #9 (`5543bbb`) against the owner's installed Krita 5.2.11 Snap: added a discoverable Python plugin package, right-default dockable lesson shell, English-only offline front-view head-construction placeholder content, manual, and scoped Snap-aware installer/uninstaller that refuses unknown overwrites. Two installer tests verify repeatable, unrelated-file-preserving behavior. The alpha epic #1 and A1 are In Progress.
+Started CSG A1 issue #9 (`5543bbb`) against the owner's installed Krita 5.2.11 Snap: added a discoverable Python plugin package, right-default dockable lesson shell, English-only offline front-view head-construction placeholder content, manual, and scoped Snap-aware installer/uninstaller that refuses unknown overwrites. Two installer tests verify repeatable, unrelated-file-preserving behavior. The alpha epic #1 and A1 are In Progress.
 
-## S319 — 2026-08-06 (Cel-Shaded-Generator standalone foundation complete)
+## S319 — 2026-08-06 (CSG standalone foundation complete)
 
-Completed Cel-Shaded-Generator Phase 0 and issue #8 (`d274ed0`) by replacing the remaining template-era README, contributor/agent instructions, documentation landing page, development/testing/dependency/troubleshooting/module guides, glossary, Sphinx identity, and placeholder C4 model with truthful standalone-product documentation. The historical polyglot ADR is explicitly superseded. Fixed MkDocs ingesting `docs/website/node_modules`, corrected ADR navigation and out-of-root links, and verified a strict Material/Mkdocstrings build. Documented lint/type commands pass; the roadmap now marks the Krita anime head-and-face learning alpha as Next.
+Completed CSG Phase 0 and issue #8 (`d274ed0`) by replacing the remaining template-era README, contributor/agent instructions, documentation landing page, development/testing/dependency/troubleshooting/module guides, glossary, Sphinx identity, and placeholder C4 model with truthful standalone-product documentation. The historical polyglot ADR is explicitly superseded. Fixed MkDocs ingesting `docs/website/node_modules`, corrected ADR navigation and out-of-root links, and verified a strict Material/Mkdocstrings build. Documented lint/type commands pass; the roadmap now marks the Krita anime head-and-face learning alpha as Next.
 
-## S318 — 2026-08-06 (Cel-Shaded-Generator native crash containment complete)
+## S318 — 2026-08-06 (CSG native crash containment complete)
 
-Completed Cel-Shaded-Generator issue #6 (`ae01b14`): built-in ordinary/screentone/reference/incremental colorization and temporal/graph-refined animation Qt workers now execute in fresh spawned processes, while interactive ARAP uses the restartable persistent worker from S317. Crash, EOF, cancellation, adaptive timeout, forced termination, next-job recovery, privacy-safe rotating diagnostics, and measured overhead are covered. The process-local lock remains defense in depth inside workers. Arbitrary third-party Python callables retain an explicit in-process compatibility fallback until a future versioned plugin operation registry exists. Verification: 129 core and 103 GUI tests, Ruff and mypy clean.
+Completed CSG issue #6 (`ae01b14`): built-in ordinary/screentone/reference/incremental colorization and temporal/graph-refined animation Qt workers now execute in fresh spawned processes, while interactive ARAP uses the restartable persistent worker from S317. Crash, EOF, cancellation, adaptive timeout, forced termination, next-job recovery, privacy-safe rotating diagnostics, and measured overhead are covered. The process-local lock remains defense in depth inside workers. Arbitrary third-party Python callables retain an explicit in-process compatibility fallback until a future versioned plugin operation registry exists. Verification: 129 core and 103 GUI tests, Ruff and mypy clean.
 
 ## S317 — 2026-08-06 (Persistent isolated ARAP interaction)
 
-Cel-Shaded-Generator added a lazily started, restartable persistent worker and routed Qt ARAP mesh dragging through it (`0dd8381`, `fbaa525`). Healthy requests reuse the process; crash or timeout discards it and the next request starts a replacement. The anonymized CPU baseline measured ~311 ms cold startup, then 8.78 ms isolated versus 8.75 ms direct (~0.04 ms steady-state overhead), validating persistence for interactive dragging while retaining fresh workers for batch work. Core coverage is 129 passing tests and GUI coverage remains 103; batch Qt routing keeps issue #6 In Progress.
+CSG added a lazily started, restartable persistent worker and routed Qt ARAP mesh dragging through it (`0dd8381`, `fbaa525`). Healthy requests reuse the process; crash or timeout discards it and the next request starts a replacement. The anonymized CPU baseline measured ~311 ms cold startup, then 8.78 ms isolated versus 8.75 ms direct (~0.04 ms steady-state overhead), validating persistence for interactive dragging while retaining fresh workers for batch work. Core coverage is 129 passing tests and GUI coverage remains 103; batch Qt routing keeps issue #6 In Progress.
 
-## S316 — 2026-08-06 (Cel-Shaded-Generator native-worker containment core)
+## S316 — 2026-08-06 (CSG native-worker containment core)
 
-Started Cel-Shaded-Generator Phase 0 crash containment (`19e7cf3`, `ce6d9cf`, `d405c7f`, `5077e57`, `57964e7`): a stable GUI-independent request contract now executes native-heavy jobs in fresh spawned processes with hard-crash/EOF detection, termination on adaptive user-capped timeout or cancellation, and automatic recovery on the next request. Optional local JSONL diagnostics are allowlisted to operation, array dimensions, timing, outcome, and caught stack trace, excluding artwork pixels and request filenames. Timeout/cancellation cleanup escalates from SIGTERM to a bounded forced kill so hostile native code cannot hang the host. Diagnostics default to the XDG state directory with seven-day or 20 MiB rotation and a five-minute timeout cap. Seven containment tests bring the core suite to 125 passing; GUI routing and process-overhead measurement remain, so issue #6 stays In Progress.
+Started CSG Phase 0 crash containment (`19e7cf3`, `ce6d9cf`, `d405c7f`, `5077e57`, `57964e7`): a stable GUI-independent request contract now executes native-heavy jobs in fresh spawned processes with hard-crash/EOF detection, termination on adaptive user-capped timeout or cancellation, and automatic recovery on the next request. Optional local JSONL diagnostics are allowlisted to operation, array dimensions, timing, outcome, and caught stack trace, excluding artwork pixels and request filenames. Timeout/cancellation cleanup escalates from SIGTERM to a bounded forced kill so hostile native code cannot hang the host. Diagnostics default to the XDG state directory with seven-day or 20 MiB rotation and a five-minute timeout cap. Seven containment tests bring the core suite to 125 passing; GUI routing and process-overhead measurement remain, so issue #6 stays In Progress.
 
-## S315 — 2026-08-06 (Cel-Shaded-Generator engine regression baselines)
+## S315 — 2026-08-06 (CSG engine regression baselines)
 
-Added Cel-Shaded-Generator's first evidence-driven engine baseline (`98bc265`): deterministic synthetic fixtures and directly committed goldens cover scribble/reference colorization, temporal propagation, and ARAP; a machine-readable report captures anonymized broad hardware classes, warmed latency, Python-tracked peak memory, and correctness tolerances. A manual benchmark workflow keeps timing noise out of ordinary CI while the 120-test core suite enforces the goldens. Temporal propagation is currently the largest fixture workload, but the baseline does not yet justify a C++ rewrite; real-art perceptual fixtures and native/GPU-memory capture remain incremental requirements as relevant workloads land.
+Added CSG's first evidence-driven engine baseline (`98bc265`): deterministic synthetic fixtures and directly committed goldens cover scribble/reference colorization, temporal propagation, and ARAP; a machine-readable report captures anonymized broad hardware classes, warmed latency, Python-tracked peak memory, and correctness tolerances. A manual benchmark workflow keeps timing noise out of ordinary CI while the 120-test core suite enforces the goldens. Temporal propagation is currently the largest fixture workload, but the baseline does not yet justify a C++ rewrite; real-art perceptual fixtures and native/GPU-memory capture remain incremental requirements as relevant workloads land.
 
-## S314 — 2026-08-06 (Cel-Shaded-Generator portable learning-project format)
+## S314 — 2026-08-06 (CSG portable learning-project format)
 
-Advanced Cel-Shaded-Generator Phase 0 with a versioned, offline project and learning-progress contract (`9bffebf`). Portable project folders now retain their own exercise attempts, feedback, and metrics; artwork-history paths require explicit consent. Autosave defaults to ten bounded atomic recovery manifests, with user-selectable retention, while opt-in cross-project aggregates live in a separate global learner profile. A deterministic privacy-preserving v0→v1 migration and interrupted-write coverage bring the core suite to 119 passing tests; the GUI remains at 103 passing tests.
+Advanced CSG Phase 0 with a versioned, offline project and learning-progress contract (`9bffebf`). Portable project folders now retain their own exercise attempts, feedback, and metrics; artwork-history paths require explicit consent. Autosave defaults to ten bounded atomic recovery manifests, with user-selectable retention, while opt-in cross-project aggregates live in a separate global learner profile. A deterministic privacy-preserving v0→v1 migration and interrupted-write coverage bring the core suite to 119 passing tests; the GUI remains at 103 passing tests.
 
-## S313 — 2026-08-06 (Cel-Shaded-Generator standalone package boundary)
+## S313 — 2026-08-06 (CSG standalone package boundary)
 
-Replaced Cel-Shaded-Generator's temporary, host-created `manga` and `manga_gui` module aliases with independently installable `cel_shaded_generator` and `cel_shaded_generator_gui` packages. The submodule now owns its runtime lock and GUI platform helpers instead of importing Image Toolkit internals, declares the GUI-to-core dependency explicitly in its uv workspace, builds both distributions, and runs both test suites in its own CI. The migration is covered by 111 core tests and 102 GUI tests, clean Ruff checks, and successful wheel/sdist builds.
+Replaced CSG's temporary, host-created `manga` and `manga_gui` module aliases with independently installable `cel_shaded_generator` and `cel_shaded_generator_gui` packages. The submodule now owns its runtime lock and GUI platform helpers instead of importing Image Toolkit internals, declares the GUI-to-core dependency explicitly in its uv workspace, builds both distributions, and runs both test suites in its own CI. The migration is covered by 111 core tests and 102 GUI tests, clean Ruff checks, and successful wheel/sdist builds.
 
-Image Toolkit's submodule bootstrap now adds the two normal source roots and imports their stable public namespaces; its Manga tab compatibility exports remain intact for callers. This keeps Image Toolkit an optional host rather than a hidden runtime requirement and establishes the boundary needed for the Krita plugin and eventual standalone C++-engine application. A subsequent submodule slice added the installed `cel-shaded-generator` desktop command and clean-wheel GUI construction smoke test, bringing coverage to 111 core and 103 GUI tests with clean product Ruff and mypy gates. Cel-Shaded-Generator commits: `b7d2f89`, `9c4a450`, and `1a7c0bd`.
+Image Toolkit's submodule bootstrap now adds the two normal source roots and imports their stable public namespaces; its Manga tab compatibility exports remain intact for callers. This keeps Image Toolkit an optional host rather than a hidden runtime requirement and establishes the boundary needed for the Krita plugin and eventual standalone C++-engine application. A subsequent submodule slice added the installed `cel-shaded-generator` desktop command and clean-wheel GUI construction smoke test, bringing coverage to 111 core and 103 GUI tests with clean product Ruff and mypy gates. CSG commits: `b7d2f89`, `9c4a450`, and `1a7c0bd`.
 
 ## S312 — 2026-08-06 (Vue docs sites for all three submodules, cross-linked and homogeneously styled)
 
-Moved `moon/`, `reports/` (ASP only), and `research/` into `docs/` for all three submodules (Anime-Stitch-Pipeline, Cel-Shaded-Generator, Recommendation-Engine — the last never had a `docs/mkdocs.yml` at all, added one), extending each repo's own MkDocs nav with Roadmap/Changelog/Research sections at the new locations.
+Moved `moon/`, `reports/` (ASP only), and `research/` into `docs/` for all three submodules (ASP, CSG, CRE — the last never had a `docs/mkdocs.yml` at all, added one), extending each repo's own MkDocs nav with Roadmap/Changelog/Research sections at the new locations.
 
-Built `docs/website/` in each submodule — copied verbatim from Image-Toolkit's own site (same Vue app, components, and CSS, only the site name/description/branding differ) so all four sites are visually homogeneous. Each site's "Related Projects" sidebar section (`src/submodules.ts` + `SubmodulePage.vue`) embeds the other three via iframe at `/submodules/<slug>`, with an "Open in new tab"/"Source" fallback since cross-origin embeds aren't guaranteed to load; added a `404.html` SPA fallback (`scripts/spa-fallback.mjs`) so GitHub Pages serves Vue Router's history-mode deep links correctly. `docs/mkdocs.yml`'s Roadmaps/Research nav entries for all three submodules now point at their deployed `gh-pages` sites (previously raw GitHub blob URLs, and Recommendation-Engine wasn't referenced from here at all before this).
+Built `docs/website/` in each submodule — copied verbatim from Image-Toolkit's own site (same Vue app, components, and CSS, only the site name/description/branding differ) so all four sites are visually homogeneous. Each site's "Related Projects" sidebar section (`src/submodules.ts` + `SubmodulePage.vue`) embeds the other three via iframe at `/submodules/<slug>`, with an "Open in new tab"/"Source" fallback since cross-origin embeds aren't guaranteed to load; added a `404.html` SPA fallback (`scripts/spa-fallback.mjs`) so GitHub Pages serves Vue Router's history-mode deep links correctly. `docs/mkdocs.yml`'s Roadmaps/Research nav entries for all three submodules now point at their deployed `gh-pages` sites (previously raw GitHub blob URLs, and CRE wasn't referenced from here at all before this).
 
-Wired each submodule's own `.github/workflows/docs.yml` (+ Forgejo/Gitea/GitLab mirrors, the last a new `.gitlab-ci.yml` `pages` job for Recommendation-Engine, which had no GitLab CI at all) to build and fold `docs/website/dist/` into `site/app/` before the existing deploy step, mirroring Image-Toolkit's own `gh-pages`-branch wiring from S311.
+Wired each submodule's own `.github/workflows/docs.yml` (+ Forgejo/Gitea/GitLab mirrors, the last a new `.gitlab-ci.yml` `pages` job for CRE, which had no GitLab CI at all) to build and fold `docs/website/dist/` into `site/app/` before the existing deploy step, mirroring Image-Toolkit's own `gh-pages`-branch wiring from S311.
 
-Brought Recommendation-Engine's repo-infrastructure scaffolding up to parity with the other two submodules: added `.gitlab/`, `.gitea/`, `.forgejo/` (mirroring its actual `.github/` — issue templates, PR template, CI), `.devcontainer/`, `.dockerignore`, `.gitattributes`, `.pre-commit-config.yaml`, `.python-version`, `CLAUDE.md`, `GEMINI.md`.
+Brought CRE's repo-infrastructure scaffolding up to parity with the other two submodules: added `.gitlab/`, `.gitea/`, `.forgejo/` (mirroring its actual `.github/` — issue templates, PR template, CI), `.devcontainer/`, `.dockerignore`, `.gitattributes`, `.pre-commit-config.yaml`, `.python-version`, `CLAUDE.md`, `GEMINI.md`.
 
-Found and fixed real bugs along the way, unrelated to this session's own earlier work but surfaced by touching these files again: Anime-Stitch-Pipeline's and Cel-Shaded-Generator's `.gitlab/.gitlab-ci.yml`, GitLab issue/MR templates, and `.devcontainer/` still referenced the polyglot template's removed rust/typescript/kotlin/go/java directories — missed when the `base`/`backend`/`gui` rename+flatten (S310) landed, since that work only touched `.github`/`.forgejo`/`.gitea`. Also fixed broken relative markdown links in both Cel-Shaded-Generator's and Recommendation-Engine's roadmap files that were never updated for the `moon`/`research` → `docs/moon`/`docs/research` move (off-by-one directory depth).
+Found and fixed real bugs along the way, unrelated to this session's own earlier work but surfaced by touching these files again: ASP's and CSG's `.gitlab/.gitlab-ci.yml`, GitLab issue/MR templates, and `.devcontainer/` still referenced the polyglot template's removed rust/typescript/kotlin/go/java directories — missed when the `base`/`backend`/`gui` rename+flatten (S310) landed, since that work only touched `.github`/`.forgejo`/`.gitea`. Also fixed broken relative markdown links in both CSG's and CRE's roadmap files that were never updated for the `moon`/`research` → `docs/moon`/`docs/research` move (off-by-one directory depth).
 
 ## S311 — 2026-08-06 (docs/research/ move + Vue documentation website + gh-pages deploy)
 
-Moved the two remaining `research/` reports (Analytics & Codebase Visualization, Image Generation — the ASP-specific reports already live in the Anime-Stitch-Pipeline submodule) into `docs/research/`; fixed `docs/hooks.py`'s now-dead `merged_reports` redirect table and pointed its research sync at the new in-place location; `docs/mkdocs.yml`'s Research nav links the two ASP-specific reports at the submodule instead of a sync target that no longer exists locally.
+Moved the two remaining `research/` reports (Analytics & Codebase Visualization, Image Generation — the ASP-specific reports already live in the ASP submodule) into `docs/research/`; fixed `docs/hooks.py`'s now-dead `merged_reports` redirect table and pointed its research sync at the new in-place location; `docs/mkdocs.yml`'s Research nav links the two ASP-specific reports at the submodule instead of a sync target that no longer exists locally.
 
 Built `docs/website/` — a Vue 3 + Vite single-page documentation site that renders every `docs/**/*.md` and `docs/**/*.ipynb` directly (no separate content pipeline): `scripts/generate-nav.mjs` parses `docs/mkdocs.yml`'s `nav:` tree (the same source of truth the Material/mkdocs build uses) into a generated sidebar/search index at build time, `useDocs.ts` bundles every doc via `import.meta.glob`, and `useMarkdown.ts` renders with `markdown-it` (syntax highlighting, live Mermaid diagrams, GitHub-flavored anchors). Ships instant search (⌘K palette), collapsible nav, light/dark theme, a right-hand table of contents, and a lightweight Jupyter notebook renderer (markdown + code cells, PNG/HTML/text outputs — static, not re-executed).
 
@@ -511,7 +511,7 @@ Wired into `.github/workflows/docs.yml` (mirrored in `.forgejo`/`.gitea`): a new
 
 ## S310 — 2026-08-06 (ASP: base/backend/gui rename, flattened src/, mobile/frontend scaffolds)
 
-Renamed the Anime-Stitch-Pipeline submodule's directories to match Image-Toolkit's own convention (`cpp/` → `base/`, `python/` → `backend/`) and removed the redundant single-child `animation/` wrapper throughout: `base/src/`, `base/tests/`, `backend/src/`, and `backend/test/` now have direct children (`core/ rendering/ alignment/ flow/ ingestion/ hitl/ evaluation/ models/ cli/`) instead of everything nested one level deeper. Split the PySide6 desktop GUI out of `backend/src/animation/gui/` into its own top-level `gui/` module, similarly flattened. Did the equivalent for Cel-Shaded-Generator: `src/manga/` → `src/{colorization,temporal,rigging,features}/`, GUI split into its own top-level `gui/`.
+Renamed the ASP submodule's directories to match Image-Toolkit's own convention (`cpp/` → `base/`, `python/` → `backend/`) and removed the redundant single-child `animation/` wrapper throughout: `base/src/`, `base/tests/`, `backend/src/`, and `backend/test/` now have direct children (`core/ rendering/ alignment/ flow/ ingestion/ hitl/ evaluation/ models/ cli/`) instead of everything nested one level deeper. Split the PySide6 desktop GUI out of `backend/src/animation/gui/` into its own top-level `gui/` module, similarly flattened. Did the equivalent for CSG: `src/manga/` → `src/{colorization,temporal,rigging,features}/`, GUI split into its own top-level `gui/`.
 
 Since flattening removes the collision-proofing a wrapper directory provided (both submodules — and both GUI trees — would otherwise expose bare, colliding top-level names like `core`/`tabs` on Image-Toolkit's shared `sys.path`), added `_submodule_bootstrap.py`: registers each package under a fixed alias (`asp_backend`, `asp_gui`, `manga`, `manga_gui`) via `importlib` instead of a plain `sys.path.insert`, mirrored into each submodule's own test `conftest.py` for standalone CI. Found and fixed ~50 relative imports in both GUI trees that were illegally reaching across into Image-Toolkit's own foreign `gui.src.constants/styles/windows/components` packages via dot-relative syntax (not legal Python — relative imports can't cross top-level package boundaries); converted to absolute imports. Also moved the AnimeStitchNet training pipeline (`stitch_net.py`, `stitch_dataset.py`, `stitch_trainer.py`, `stitch_losses.py`) and four ASP-exclusive matcher wrappers into the submodule — missed in the original S309 extraction.
 
@@ -519,7 +519,7 @@ Added `frontend/` (Tauri v2 + Vite/TS scaffold) and `app/ios/`+`app/android/` (S
 
 ## S309 — 2026-08-06 (Extracted ASP and Manga Colorization & Animation into submodules)
 
-Moved the full Anime Stitch Pipeline (ASP) vertical slice — `base/src/animation` (C++), `backend/src/animation`, `backend/test/animation`, the benchmark evaluation dashboard (`backend/benchmark/evaluation`), ASP benchmark scripts, the stitch GUI tab/elements/helpers/dialogs, QML mockups, roadmap, research, and `.agent` workflow/rule/skill/prompt/cache files — into the `Anime-Stitch-Pipeline` submodule. Did the same for Manga Colorization & Animation — `backend/src/manga`, `backend/test/manga`, the colorization/animation/puppeteering GUI tabs, canvas editor, mesh overlay editor, preference dialog, workers, and roadmap — into the `Cel-Shaded-Generator` submodule. Both submodules were first pruned from the polyglot `dev-repo-template` scaffold down to only the languages they actually use (ASP: Python + C++; Manga: Python only, flattened to a top-level `src`/`test` layout since it's single-language). Image-Toolkit now imports both via `sys.path` injection of each submodule's source root as top-level `animation`/`manga` packages (`__main__.py`, `main.py`, `backend/test/conftest.py`, `gui/test/conftest.py`); `gui/src/tabs/__init__.py`, `gui/src/components/dialogs/__init__.py`, and `gui/src/tabs/models/delta/__init__.py` now re-export `StitchTab`/`StitchTabBackend`, `BatchStitchDialog`, `StitchTrainTab`, and the three Manga tabs from the submodules instead of local subpackages. `base/CMakeLists.txt` and `base/tests/CMakeLists.txt` now compile the ASP `.cpp` sources directly from `submodules/Anime-Stitch-Pipeline/cpp/`, so they still link into the single `base` native extension. See `docs/moon/ROADMAP.md` for the pointer to each submodule's own roadmap/changelog going forward.
+Moved the full Anime Stitch Pipeline (ASP) vertical slice — `base/src/animation` (C++), `backend/src/animation`, `backend/test/animation`, the benchmark evaluation dashboard (`backend/benchmark/evaluation`), ASP benchmark scripts, the stitch GUI tab/elements/helpers/dialogs, QML mockups, roadmap, research, and `.agent` workflow/rule/skill/prompt/cache files — into the `ASP` submodule. Did the same for Manga Colorization & Animation — `backend/src/manga`, `backend/test/manga`, the colorization/animation/puppeteering GUI tabs, canvas editor, mesh overlay editor, preference dialog, workers, and roadmap — into the `CSG` submodule. Both submodules were first pruned from the polyglot `dev-repo-template` scaffold down to only the languages they actually use (ASP: Python + C++; Manga: Python only, flattened to a top-level `src`/`test` layout since it's single-language). Image-Toolkit now imports both via `sys.path` injection of each submodule's source root as top-level `animation`/`manga` packages (`__main__.py`, `main.py`, `backend/test/conftest.py`, `gui/test/conftest.py`); `gui/src/tabs/__init__.py`, `gui/src/components/dialogs/__init__.py`, and `gui/src/tabs/models/delta/__init__.py` now re-export `StitchTab`/`StitchTabBackend`, `BatchStitchDialog`, `StitchTrainTab`, and the three Manga tabs from the submodules instead of local subpackages. `base/CMakeLists.txt` and `base/tests/CMakeLists.txt` now compile the ASP `.cpp` sources directly from `submodules/ASP/cpp/`, so they still link into the single `base` native extension. See `docs/moon/ROADMAP.md` for the pointer to each submodule's own roadmap/changelog going forward.
 
 ## S308 — 2026-08-05 (Manga: ARAP rigging UI + real-time GUI wiring, closing issue #194)
 
@@ -865,15 +865,15 @@ Closes `docs/moon/roadmaps/gui_ux.md` §2.28 (Option A: in-memory search across 
 
 Tests: `gui/test/core/test_global_search.py` (3, new), `gui/test/image/test_gallery_classes.py` (+4 `jump_to_path` cases). All scoped GUI suites green.
 
-## S280 — 2026-08-01 (Unified Database roadmap complete: real tag-chip widgets + full Recommendation-Engine encryption absorption — issues #65, #66, #127)
+## S280 — 2026-08-01 (Unified Database roadmap complete: real tag-chip widgets + full CRE encryption absorption — issues #65, #66, #127)
 
 Closes out `docs/moon/roadmaps/unified_database.md` — all ten phases (DB.1–DB.10) now shipped.
 
 **Real tag-chip widgets (issue #127, closing DB.8's last item)**: `TagChipWidget`/`TagChipGroup` (`gui/src/components/tag_chip_widget.py`) had been built at some point and sat completely unused. New `TagChipEditor` composite (removable chips + a single autocomplete-backed add-input) replaces the plain `QLineEdit`s in the Series Listings detail panel's Genres/Tags fields — plus a new reusable `FlowLayout` (Qt has no builtin one, and a plain single-row `TagChipGroup` would overflow horizontally for a real tag list). Exposes the same `setText()`/`text()` string contract the old `QLineEdit` did, so no other call site needed to change. Entities have no tags/genres concept in this schema, so no equivalent change there.
 
-**Full Recommendation-Engine storage absorption (issue #65), reversing two earlier rounds' "too large" conclusion**: that conclusion was correct for porting the hybrid dense+sparse+RRF *retrieval algorithm*, but conflated it with the separate, much smaller question of where `SQLiteStore` physically stores its rows. A re-investigation drew that distinction explicitly, and it held: `SQLiteStore`'s SQL turned out fully portable (no JSON1, no FTS5, no `ATTACH`, no custom functions). New `EncryptedSQLiteStore` (same public API, injected already-open connection instead of opening its own file) now stores recommendation data inside `library.db` itself via the already-open unified session — closing the plaintext-sidecar gap DB.1 locked in as decision #2, without touching the retrieval algorithm at all. `SQLiteStore` itself untouched, purely additive.
+**Full CRE storage absorption (issue #65), reversing two earlier rounds' "too large" conclusion**: that conclusion was correct for porting the hybrid dense+sparse+RRF *retrieval algorithm*, but conflated it with the separate, much smaller question of where `SQLiteStore` physically stores its rows. A re-investigation drew that distinction explicitly, and it held: `SQLiteStore`'s SQL turned out fully portable (no JSON1, no FTS5, no `ATTACH`, no custom functions). New `EncryptedSQLiteStore` (same public API, injected already-open connection instead of opening its own file) now stores recommendation data inside `library.db` itself via the already-open unified session — closing the plaintext-sidecar gap DB.1 locked in as decision #2, without touching the retrieval algorithm at all. `SQLiteStore` itself untouched, purely additive.
 
-Tests: 8 new (`TestTagChipEditor`, `gui/test/core/test_tag_vocabulary_and_search.py`); 15 new (`backend/test/database/test_recommendation_encrypted_store.py`, mirroring `Recommendation-Engine`'s own test coverage). `backend/test/database/` at 103/103; `Recommendation-Engine`'s own suite (14 tests) and all touched GUI suites green.
+Tests: 8 new (`TestTagChipEditor`, `gui/test/core/test_tag_vocabulary_and_search.py`); 15 new (`backend/test/database/test_recommendation_encrypted_store.py`, mirroring `CRE`'s own test coverage). `backend/test/database/` at 103/103; `CRE`'s own suite (14 tests) and all touched GUI suites green.
 
 ## S279 — 2026-08-01 (DB.9 complete; DB.8d finished; DB.7 gap precisely documented — issues #65, #66, #67)
 
@@ -883,7 +883,7 @@ Three more parallel work streams, following S276/S277/S278. DB.9 is now fully fe
 
 **DB.8d (issue #66) — video-directory-import half finished**: the "one review dialog" UI the roadmap asked for already existed (`_DirectoryImportDialog`), but violated the roadmap's explicit "then a single transaction" requirement — it saved each detected series independently, so a partial failure mid-import could leave the DB and the UI's in-memory state out of sync. Fixed to one transaction for the whole batch, with the `media_groups` pre-fill DB.8d asked for (exact-name-match auto-link to an existing image group). Combined with the image-group half shipped earlier, DB.8d is now fully shipped.
 
-**DB.7 (issue #65) — Recommendation-Engine gap precisely documented, not fixed**: re-investigated as a storage-location question rather than an algorithm-porting one. Confirmed `rec_engine.db` is genuinely plaintext SQLite next to the encrypted `library.db` — a real, specific violation of DB.1's "no plaintext sidecars" decision. Both ways to close it hit already-known blockers (adding a SQLCipher driver to Recommendation-Engine's own dependencies risks the JVM-SIGSEGV crash class documented elsewhere in this project; routing through `base.database` is the algorithm-porting rewrite already correctly ruled too large). No code changed; the finding replaces a vague "too large" deferral with a concrete, actionable one in the roadmap's risk register.
+**DB.7 (issue #65) — CRE gap precisely documented, not fixed**: re-investigated as a storage-location question rather than an algorithm-porting one. Confirmed `rec_engine.db` is genuinely plaintext SQLite next to the encrypted `library.db` — a real, specific violation of DB.1's "no plaintext sidecars" decision. Both ways to close it hit already-known blockers (adding a SQLCipher driver to CRE's own dependencies risks the JVM-SIGSEGV crash class documented elsewhere in this project; routing through `base.database` is the algorithm-porting rewrite already correctly ruled too large). No code changed; the finding replaces a vague "too large" deferral with a concrete, actionable one in the roadmap's risk register.
 
 Tests: 15 new (6 backend `update_cell` tests, 9 GUI edit-mode/filter tests) for DB.9; 5 new (`test_directory_import_transaction.py`) for DB.8d. `backend/test/database/` at 88/88; all touched GUI suites green.
 
@@ -915,7 +915,7 @@ Three more parallel work streams, following directly on S276.
 
 Three DB.X phases pushed forward in one round via parallel work streams, then integrated and verified together (full `backend/test/database/` + relevant scoped GUI suites green).
 
-**DB.7 (issue #65) — listings semantic search**: reused the real, working BGE-M3 embedder already in this codebase (`submodules/Recommendation-Engine/src/data/embedder.py`, `FlagEmbedding`) rather than adding a new model. `MediaRepo`/`EntityRepo` gained embedding bookkeeping mirroring `ImageRepo`'s; `SearchRepo` gained `semantic_media_search`/`semantic_entity_search`. New `ListingsEmbeddingWorker`/`ListingsSemanticSearchWorker`; both listings subtabs gained "🧠 Search by Meaning" + "⚙️ Build Search Index" controls. Along the way, found and fixed a genuine pre-existing bug: `recommendation_worker.py`'s `_RE_DIR` pointed at a nonexistent path (`Recommendation-Engine` instead of `submodules/Recommendation-Engine`) — the existing recommendation feature was silently broken in this checkout before this fix. Full Recommendation-Engine storage absorption investigated and explicitly deferred (its hybrid dense+sparse+RRF+watch-history scoring doesn't map onto the simple vector store this round built on).
+**DB.7 (issue #65) — listings semantic search**: reused the real, working BGE-M3 embedder already in this codebase (`submodules/CRE/src/data/embedder.py`, `FlagEmbedding`) rather than adding a new model. `MediaRepo`/`EntityRepo` gained embedding bookkeeping mirroring `ImageRepo`'s; `SearchRepo` gained `semantic_media_search`/`semantic_entity_search`. New `ListingsEmbeddingWorker`/`ListingsSemanticSearchWorker`; both listings subtabs gained "🧠 Search by Meaning" + "⚙️ Build Search Index" controls. Along the way, found and fixed a genuine pre-existing bug: `recommendation_worker.py`'s `_RE_DIR` pointed at a nonexistent path (`CRE` instead of `submodules/CRE`) — the existing recommendation feature was silently broken in this checkout before this fix. Full CRE storage absorption investigated and explicitly deferred (its hybrid dense+sparse+RRF+watch-history scoring doesn't map onto the simple vector store this round built on).
 
 **DB.8 (issue #66) — cross-domain link DAL + detail-panel UI**: `MediaRepo`/`EntityRepo` gained `link_group`/`unlink_group`/`get_linked_groups`/`get_media_for_group`/`suggest_group_matches` and `link_image`/`unlink_image`/`get_linked_images`/`get_entities_for_image` over the existing `media_groups`/`entity_images` M2M tables. The Series Listings detail panel gained a "Linked Image Groups" chip row + picker dialog; the entity detail panel gained a "Linked Images" thumbnail gallery strip. Also exposed `TagRepo.merge_tags()` (existed since DB.3, never reachable) on the facade with a new "🔀 Merge Into…" tag-merge tool in Management. The Search-tab cross-tab "View Images" jump was investigated and correctly deferred — it needs new tab-reference plumbing between `ListingsTab` and `MainWindow`, not just reuse of existing wiring.
 
@@ -970,7 +970,7 @@ Second slice of DB.7, following S273's embedding-backfill infrastructure:
   `gui/test/database/test_database_tab.py`) covering dispatch shape,
   empty-query/no-db guards, and the relevance-order-preservation fix;
   backend suite unchanged at 62/62 green.
-- Still deferred: listings BGE-M3 embeddings + Recommendation-Engine
+- Still deferred: listings BGE-M3 embeddings + CRE
   absorption (its own separate sub-project), and multi-group/subgroup
   semantic prefiltering (a real, small API gap in `semantic_image_search`
   vs. structured search's list-based filters) — see the roadmap.
@@ -997,7 +997,7 @@ First slice of DB.7 (Semantic Search & CBIR) from `docs/moon/roadmaps/unified_da
   wired to the worker, matching the existing Vacuum/Reindex button
   pattern.
 - Text→image search UI, "Find similar" context action, and the listings
-  BGE-M3/Recommendation-Engine absorption are explicitly deferred — see
+  BGE-M3/CRE absorption are explicitly deferred — see
   the roadmap for the full breakdown of what's shipped vs. pending.
 - Tests: 2 new (`test_image_embedding_backfill_bookkeeping`,
   `test_semantic_search_facade_surface`); 62/62 `backend/test/database/`
@@ -1614,7 +1614,7 @@ Implemented GitHub issue #75 / roadmap §5.7 Option B (Dependabot).
 
 Implemented GitHub issue #51 / roadmap §7.8.
 
-- **Verified the embedding index isn't there before building anything.** §7.8's spec assumes an app-side BGE-M3/CLIP embedding index (Qdrant/pgvector). Checked the Unified DB roadmap's [DB.7 Semantic Search & CBIR](roadmaps/unified_database.md#db7-semantic-search--cbir): unlike DB.1–DB.4 it carries no shipped marker and is still `:::planned` in that doc's dependency graph. The C++ `base.database` module does have a working, unit-tested cosine-`knn` primitive (`base/src/database/database.cpp`) and an `embeddings` table (`backend/src/database/unified/schema.sql`), but nothing outside `test_base_database.py` ever calls it — no embedding worker populates it for any real image, and no app-side "find similar" action exists. The standalone `Recommendation-Engine` submodule's BGE-M3/SQLite store is a different domain (media listings/entities) and isn't wired to the image library either. Per §7.8's own explicit fallback clause ("degrade to pHash-only §7.6 when no embedding index exists"), implemented the pHash-degraded path — the roadmap-sanctioned outcome, not a shortfall.
+- **Verified the embedding index isn't there before building anything.** §7.8's spec assumes an app-side BGE-M3/CLIP embedding index (Qdrant/pgvector). Checked the Unified DB roadmap's [DB.7 Semantic Search & CBIR](roadmaps/unified_database.md#db7-semantic-search--cbir): unlike DB.1–DB.4 it carries no shipped marker and is still `:::planned` in that doc's dependency graph. The C++ `base.database` module does have a working, unit-tested cosine-`knn` primitive (`base/src/database/database.cpp`) and an `embeddings` table (`backend/src/database/unified/schema.sql`), but nothing outside `test_base_database.py` ever calls it — no embedding worker populates it for any real image, and no app-side "find similar" action exists. The standalone `CRE` submodule's BGE-M3/SQLite store is a different domain (media listings/entities) and isn't wired to the image library either. Per §7.8's own explicit fallback clause ("degrade to pHash-only §7.6 when no embedding index exists"), implemented the pHash-degraded path — the roadmap-sanctioned outcome, not a shortfall.
 - **Backend**: `SimilarView` (`extension_api/views.py`) + `POST /api/extension/similar/` (`extension_api/urls.py`), same `BridgeTokenPermission`/CORS handling as `DupCheckView`/`IngestView`. Accepts `{url|data_b64, top_k=12}` (clamped 1-100), returns `{results: [{path, score, hamming, width, height, thumb_b64}], scanned, cold_scan, method: "phash"}` — `score = 1 - hamming/64`. Extended `DirPhashIndex` (`backend/src/core/dir_phash_index.py`) with `query_topk`/`query_topk_bytes`: its existing `query`/`query_bytes` only return threshold-filtered matches (dup-check's binary duplicate/not-duplicate use case), so a ranking-only, always-returns-up-to-k method was added for the always-ranked top-K use case, sharing the same underlying `_scored()` Hamming-distance sweep.
 - **Extension**: new context-menu item **"Find similar in my library"** (`background.ts`, alongside the existing dup-check/ingest menu items); `bridge.ts::findSimilar()` client function; results render in the options popup's new "Find Similar" panel (`options.html`/`options.ts`), reusing the §7.6 duplicate-check row renderer — generalized into a shared `renderThumbResults()` helper parameterized by a `labelFor` callback rather than building a second grid from scratch.
 - **Tests**: 5 new cases in `backend/test/core/test_dir_phash_index.py` (top-K ranking ignores threshold, respects `k`, bytes variant, undecodable) — 14/14 passing. 9 new cases in `extension_api/tests.py::TestSimilar` (auth, 409/400 paths, ranked ordering + score math, `top_k` clamping/default, always-returns-results-even-when-far behavior distinguishing it from dup-check) — 23/23 `extension_api` tests passing. Extension side: `npm run typecheck` (`tsc --noEmit`) clean after `npm install`.
@@ -1766,7 +1766,7 @@ Attempted the fix specified in GitHub issue #22 / roadmap §1.3: the first Graph
 
 Ahead of creating GitHub issues from the project's roadmaps, audited and corrected five files for stale "done"/"not done" claims — verified against the actual codebase, not just cross-referencing other roadmap docs (which are themselves sometimes stale).
 
-- **`docs/moon/ROADMAP.md`**: the "Phase 0 — ASP Foreground Assembly" and "Phase ML — ASP ML-Driven Modernisation" sections described the pre-S200-trim ASP architecture and linked to `the Anime-Stitch-Pipeline submodule's moon/ROADMAP.md` anchors that no longer exist. Replaced both with a pointer to `https://github.com/ACFHarbinger/Anime-Stitch-Pipeline/blob/main/moon/ROADMAP.md` as the sole authoritative ASP source. Also corrected items that claimed removed functionality was still done: **2.5** (RLHF quality gate — confirmed deleted in the S200 trim via `git log --diff-filter=D`), **3.3** (Poisson blending — superseded by Laplacian-pyramid blend, `_poisson_seam_blend` no longer exists), **3.4** (SRStitcher diffusion border fill — no longer exists anywhere in the repo), **5.7/5.9/6.1/6.3** (all depend on the deleted RLHF/ToonCrafter apparatus — annotated with what's actually gone), and **3.13/3.14** (stale pre-trim test count of 827 corrected to the current 675, re-verified via `pytest --collect-only`).
+- **`docs/moon/ROADMAP.md`**: the "Phase 0 — ASP Foreground Assembly" and "Phase ML — ASP ML-Driven Modernisation" sections described the pre-S200-trim ASP architecture and linked to `the ASP submodule's moon/ROADMAP.md` anchors that no longer exist. Replaced both with a pointer to `https://github.com/ACFHarbinger/Anime-Stitch-Pipeline/blob/main/moon/ROADMAP.md` as the sole authoritative ASP source. Also corrected items that claimed removed functionality was still done: **2.5** (RLHF quality gate — confirmed deleted in the S200 trim via `git log --diff-filter=D`), **3.3** (Poisson blending — superseded by Laplacian-pyramid blend, `_poisson_seam_blend` no longer exists), **3.4** (SRStitcher diffusion border fill — no longer exists anywhere in the repo), **5.7/5.9/6.1/6.3** (all depend on the deleted RLHF/ToonCrafter apparatus — annotated with what's actually gone), and **3.13/3.14** (stale pre-trim test count of 827 corrected to the current 675, re-verified via `pytest --collect-only`).
 - **`docs/moon/roadmaps/new_features.md` §4.11**: corrected the claim that `StitchRewardModel` still exists "with random weights" — it was deleted in the same trim. Rewrote the status to say the RLHF foundation would need to be rebuilt from scratch, kept original text for historical reference.
 - **`docs/moon/roadmaps/gui_ux.md` §2.9 / `ROADMAP.md` item 2.16**: the widely-repeated claim "all seven settings sub-items wired" was itself wrong. Verified line-by-line against `main_window.py::_apply_startup_preferences()`: A/B/C/D/E are genuinely wired, but **F (log_level/file_logging_enabled) is not wired at all** (`app.py::_setup_logging()` runs before vault load and only reads a `--verbose` CLI flag) and **G is half-wired** (`restore_last_dir` works; `recent_dirs_count` is saved as a hardcoded literal `10` and every consumer hardcodes `max_entries=10`, ignoring the preference entirely). Corrected to "5 of 7 done."
 - **`docs/moon/roadmaps/architecture.md` and `docs/moon/roadmaps/performance.md`**: both are largely "Options A/B/C/D" brainstorm documents where most items had already shipped without the file being updated. Went section by section, cross-referenced against `docs/moon/ROADMAP.md`'s ✅ markers, and spot-checked directly in the codebase (actual classes/functions, not just trusting ROADMAP.md either). Marked 13 architecture.md sections and 6 performance.md sections as shipped/partial with specific file/class citations; updated performance.md's Effort×Impact matrix with strikethrough+✅ per its own existing convention. One item (performance.md §3.6, DynamicImage move semantics) could not be confirmed either way post-Rust→C++-migration — flagged "⚠ Unverified" rather than guessed, since `cv::Mat`'s reference-counted copy semantics may make the original problem moot rather than solved.
@@ -5441,7 +5441,7 @@ Migrates all functionality from `backend/ui/benchmark_dashboard.py` (Streamlit) 
 | **`bench_import.py` §1.10E** (`backend/src/animation/rlhf/`) | New module with `parse_bench_json(path)` (handles full suite doc, single-dataset dict, bare list), `resolve_anime_path(dataset)` (primary `anime_path` with `paths.anime_stitch` fallback), `suggested_rating(metrics_asp)` (composite CV score → 0–10 scale: `coverage×0.35 + sharpness_norm×0.25 + (1−ghosting)×0.20 + seam_coh×0.20`), `verdict_label(dataset)`. Exported from `rlhf/__init__.py`. |
 | **`StitchFeedbackTab` import group** (`stitch_feedback_tab.py`) | New "Import from Benchmark JSON" group above the image loader: "Load JSON…" button → populates `QListWidget` with verdict/fallback/rlhf-flag badges per dataset; per-dataset metrics preview panel (sharpness, coverage, ghosting, seam_coh, ssim, suggested rating); "Import Selected →" button loads the panorama image and pre-fills the rating slider from `suggested_rating()`. |
 | **21 new tests** (`test_bench_import.py`) | Covers `parse_bench_json` (5 cases), `resolve_anime_path` (4 cases), `suggested_rating` (6 cases), `verdict_label` (7 parametrised cases). |
-| **the Anime-Stitch-Pipeline submodule's moon/ROADMAP.md matrix updated** | Removed 23 stale "pending" entries (items shipped in Sessions 6–118 but never pruned). Added §1.10E done entry. Updated §2.1, §2.4, §2.7 headings with shipped-session tags. |
+| **the ASP submodule's moon/ROADMAP.md matrix updated** | Removed 23 stale "pending" entries (items shipped in Sessions 6–118 but never pruned). Added §1.10E done entry. Updated §2.1, §2.4, §2.7 headings with shipped-session tags. |
 
 ### Test results
 

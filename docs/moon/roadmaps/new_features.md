@@ -489,7 +489,7 @@ checkpoints/session-review UI in `stitch_tab.py`/`stitch_worker.py` still exist 
 "final output quality rating" at checkpoint 5, but nothing currently consumes that rating to train a reward
 model — there is no reward model left to train. This item is **not done**; it would need the RLHF
 foundation rescoped and rebuilt from scratch (a reward model, a training loop, and a reason to have one)
-before any of the UI options below are worth building. The current `the Anime-Stitch-Pipeline submodule's moon/ROADMAP.md` roadmap has no equivalent item.
+before any of the UI options below are worth building. The current `the ASP submodule's moon/ROADMAP.md` roadmap has no equivalent item.
 
 **Pain point (original framing, now describing removed infrastructure):** The `StitchRewardModel` in `bench_anime_stitch.py` (§1.10A, S29) uses random weights until feedback is collected. There is no UI for users to rate stitching outputs so the reward model can learn meaningful preferences. Without rated outputs, the RLHF loop cannot close and the reward model never improves.
 

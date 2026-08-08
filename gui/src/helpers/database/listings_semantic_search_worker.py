@@ -48,7 +48,7 @@ class ListingsSemanticSearchWorker(BaseQRunnableWorker):
         except ImportError as exc:
             self.signals.error.emit(
                 "BGE-M3 embedder unavailable (FlagEmbedding not "
-                f"installed, or Recommendation-Engine not present): {exc}"
+                f"installed, or CRE not present): {exc}"
             )
             return
 

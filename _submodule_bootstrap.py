@@ -1,13 +1,14 @@
 """Registers Python packages supplied by repository submodules.
 
-Anime-Stitch-Pipeline exposes flattened source roots and is loaded under
-collision-proof aliases. Cel-Shaded-Generator also exposes a flattened core
-source root; its top-level domain packages are imported directly:
+ASP (Anime-Stitch-Pipeline) exposes flattened source roots and is loaded
+under collision-proof aliases. CSG (Cel-Shaded-Generator) also exposes a
+flattened core source root; its top-level domain packages are imported
+directly:
 
-    asp_backend  -> submodules/Anime-Stitch-Pipeline/backend/src
-    asp_gui      -> submodules/Anime-Stitch-Pipeline/gui/src
-    colorization/learning/... -> submodules/Cel-Shaded-Generator/src
-    cel_shaded_generator_gui -> submodules/Cel-Shaded-Generator/gui/src
+    asp_backend  -> submodules/ASP/backend/src
+    asp_gui      -> submodules/ASP/gui/src
+    colorization/learning/... -> submodules/CSG/src
+    cel_shaded_generator_gui -> submodules/CSG/gui/src
 """
 
 from __future__ import annotations
@@ -17,13 +18,13 @@ import os
 import sys
 
 _ALIASES = {
-    "asp_backend": ("Anime-Stitch-Pipeline", "backend", "src"),
-    "asp_gui": ("Anime-Stitch-Pipeline", "gui", "src"),
+    "asp_backend": ("ASP", "backend", "src"),
+    "asp_gui": ("ASP", "gui", "src"),
 }
 
 _PACKAGE_ROOTS = (
-    ("Cel-Shaded-Generator", "src"),
-    ("Cel-Shaded-Generator", "gui", "src"),
+    ("CSG", "src"),
+    ("CSG", "gui", "src"),
 )
 
 

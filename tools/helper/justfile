@@ -97,7 +97,7 @@ help:
     @echo "  just comfyui                   Start ComfyUI headlessly"
     @echo "  just comfyui-stop              Stop running ComfyUI"
     @echo ""
-    @echo "{{bold}}Cel-Shaded-Generator Krita plugin{{reset}}"
+    @echo "{{bold}}CSG Krita plugin{{reset}}"
     @echo "  just krita-install              Install the Krita plugin"
     @echo "  just krita-uninstall            Uninstall the Krita plugin"
     @echo "  just krita-reinstall            Reinstall after pulling submodule updates"

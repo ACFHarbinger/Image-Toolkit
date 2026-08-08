@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 def _ensure_re_on_path() -> None:
-    """Add Recommendation-Engine/ to sys.path so ``from src.X import Y`` works."""
+    """Add CRE/ to sys.path so ``from src.X import Y`` works."""
     path = str(RECOMMENDATION_ENGINE_DIR)
     if path not in sys.path:
         sys.path.insert(0, path)

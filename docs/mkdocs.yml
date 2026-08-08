@@ -179,18 +179,18 @@ nav:
       - Documentation: roadmaps/documentation.md
       - ASP Pipeline (submodule): https://acfharbinger.github.io/Anime-Stitch-Pipeline/app/moon/ROADMAP
       - Manga Colorization & Animation (submodule): https://acfharbinger.github.io/Cel-Shaded-Generator/app/moon/ROADMAP
-      - Recommendation Engine (submodule): https://acfharbinger.github.io/Recommendation-Engine/app/moon/ROADMAP
+      - Recommendation Engine (submodule): https://acfharbinger.github.io/Content-Recommendation-Engine/app/moon/ROADMAP
   - Research:
       - Analytics & Codebase Visualisation: research/analytics.md
       - Image Generation Research: research/image_generation.md
       - ASP Comprehensive Research (submodule): https://acfharbinger.github.io/Anime-Stitch-Pipeline/app/research/ASP_Comprehensive_Research_Report
       - Image Stitching Research (submodule): https://acfharbinger.github.io/Anime-Stitch-Pipeline/app/research/Image_Stitching_Research
       - Manga & Animation Research (submodule): https://acfharbinger.github.io/Cel-Shaded-Generator/app/research/Manga%20Colorization%20and%20Animation%20Research
-      - Recommendation Engine Research (submodule): https://acfharbinger.github.io/Recommendation-Engine/app/research/Building%20a%20Smart%20Recommendation%20Engine
+      - Recommendation Engine Research (submodule): https://acfharbinger.github.io/Content-Recommendation-Engine/app/research/Building%20a%20Smart%20Recommendation%20Engine
   - Submodules:
-      - Anime-Stitch-Pipeline: https://acfharbinger.github.io/Anime-Stitch-Pipeline/app/
-      - Cel-Shaded-Generator: https://acfharbinger.github.io/Cel-Shaded-Generator/app/
-      - Recommendation-Engine: https://acfharbinger.github.io/Recommendation-Engine/app/
+      - ASP: https://acfharbinger.github.io/Anime-Stitch-Pipeline/app/
+      - CSG: https://acfharbinger.github.io/Cel-Shaded-Generator/app/
+      - CRE: https://acfharbinger.github.io/Content-Recommendation-Engine/app/
   - Changelog: CHANGELOG.md
 
 # Hooks — symlink docs/moon/ and research/ content into docs/ at build time

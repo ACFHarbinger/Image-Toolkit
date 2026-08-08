@@ -19,7 +19,7 @@ warnings.filterwarnings(
 
 # Ensure that your root directory is on the path if needed
 sys.path.insert(0, os.path.dirname(__file__))
-# Register ASP's collision-proof aliases and Cel-Shaded-Generator's ordinary,
+# Register ASP's collision-proof aliases and CSG's ordinary,
 # independently installable package roots.
 from _submodule_bootstrap import register_submodule_packages  # noqa: E402
 
