@@ -2,7 +2,28 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
-## S373 — 2026-08-07 (C4 correspondence baseline scoped)
+## S374 — 2026-08-08 (Purged committed MkDocs build output, moved generated
+output to build/gen)
+
+Removed a full generated MkDocs Material static site (readme/, structurizr/index.html,
+api/{kotlin,python,rest-api,rust,sphinx,typescript}/, database/unified_schema/,
+tutorials/*/index.html, and the theme's generated assets/ bundle — CSS/JS,
+lunr search, and the stock favicon.png) that had been committed directly to
+`main` by old/broken deploy commits, even though current CI only deploys the
+built site to the separate `gh-pages` branch via `peaceiris/actions-gh-pages`.
+`assets/` mixed this generated bundle with real, load-bearing files
+(`assets/images/image_toolkit_icon.{png,ico}`, referenced by `README.md` and
+`backend/src/app.py`'s tray icon; `assets/api/*.enc`, `assets/secrets/*`) —
+verified each surviving file's real usage before keeping it. Also removed two
+stray generated dev-tool outputs, `docs/module_graph.html` and
+`docs/loc_report.md` (`just module-graph`/`just loc-report`), that had been
+committed with no reference in `docs/mkdocs.yml`'s nav. `docs/mkdocs.yml`'s
+`site_dir` now points at `build/gen/site` (was `../site`, which nothing
+actually `.gitignore`d — the `/**/build` rule already covers `build/gen/`);
+`.github`/`.forgejo`/`.gitea` `docs.yml` and the `loc-report`/`module-graph`
+`just` recipes updated to match. GitLab's `docs-mkdocs` job keeps its
+`--site-dir public` override unchanged — GitLab Pages requires that literal
+directory name. No functional code changed.
 
 Created CSG issue #18 for the next reference-coloring
 milestone: deterministic manual material correspondence and explicitly accepted

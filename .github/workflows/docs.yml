@@ -91,7 +91,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: docs-site
-          path: site/
+          path: build/gen/site/
           retention-days: 7
 
   # ── Job 2: C++ base doc-build ────────────────────────────────────────────
@@ -204,7 +204,7 @@ jobs:
             --to html \
             --execute \
             --ExecutePreprocessor.timeout=120 \
-            --output-dir site/notebooks/ \
+            --output-dir build/gen/site/notebooks/ \
             docs/notebooks/benchmark_analysis.ipynb
         continue-on-error: true
         # CPU-safe; may exit early if no benchmark results exist in CI.
@@ -216,7 +216,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: notebooks-html
-          path: site/notebooks/
+          path: build/gen/site/notebooks/
           retention-days: 14
 
   # ── Job 6: Kotlin docs (Dokka GFM) ─────────────────────────────────────
@@ -301,7 +301,7 @@ jobs:
         # continue-on-error because the Rust extension may not build here.
 
       - name: Build Sphinx HTML
-        run: sphinx-build -b html docs/sphinx site/sphinx-api -W --keep-going
+        run: sphinx-build -b html docs/sphinx build/gen/site/sphinx-api -W --keep-going
         env:
           PYTHONPATH: .
         continue-on-error: true
@@ -313,7 +313,7 @@ jobs:
         if: always()
         with:
           name: sphinx-api-docs
-          path: site/sphinx-api/
+          path: build/gen/site/sphinx-api/
           retention-days: 14
 
   # ── Job 8: Weekly notebook execution (schedule trigger only) ────────────
@@ -352,14 +352,14 @@ jobs:
 
       - name: Execute CPU-safe notebooks
         run: |
-          mkdir -p site/notebooks/weekly
+          mkdir -p build/gen/site/notebooks/weekly
           for nb in docs/notebooks/benchmark_analysis.ipynb; do
             echo "Executing $nb …"
             jupyter nbconvert \
               --to html \
               --execute \
               --ExecutePreprocessor.timeout=300 \
-              --output-dir site/notebooks/weekly/ \
+              --output-dir build/gen/site/notebooks/weekly/ \
               "$nb" \
             || echo "WARN: $nb failed — check for API drift"
           done
@@ -371,7 +371,7 @@ jobs:
         if: always()
         with:
           name: weekly-notebooks-${{ github.run_id }}
-          path: site/notebooks/weekly/
+          path: build/gen/site/notebooks/weekly/
           retention-days: 30
 
   # ── Job 9: OpenAPI spec generation (drf-spectacular) ────────────────────
@@ -473,7 +473,7 @@ jobs:
             mkdocs-jupyter
 
       - name: Build MkDocs site (strict)
-        run: uv run mkdocs build --config-file docs/mkdocs.yml --strict --site-dir site/
+        run: uv run mkdocs build --config-file docs/mkdocs.yml --strict --site-dir build/gen/site/
         env:
           PYTHONPATH: .
 
@@ -481,7 +481,7 @@ jobs:
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.REPO_PROJECT_TOKEN }}
-          publish_dir: ./site
+          publish_dir: ./build/gen/site
           destination_dir: pr-preview/${{ github.event.pull_request.number }}
           keep_files: true
           # keep_files: true — preserves the root gh-pages site (main branch deploy)
@@ -571,7 +571,7 @@ jobs:
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.REPO_PROJECT_TOKEN }}
-          publish_dir: ./site
+          publish_dir: ./build/gen/site
 
   # ── Job 12: Remove PR preview subdirectory on PR close ──────────────────
   cleanup:

@@ -53,7 +53,7 @@ val_imports_exclude := "true"
 val_imports_html := ""
 val_cov_sort := "coverage"
 val_cov_limit := "40"
-val_graph_html := "module_graph.html"
+val_graph_html := "build/gen/module_graph.html"
 val_graph_depth := "10"
 val_dep_file := "backend/controllers/backend_dispatch.py"
 val_dep_name := "dispatch_command"
@@ -426,7 +426,7 @@ check-loc max="500" exceptions="docs/loc_exceptions.txt": helper::_print_header
     just validation::check-loc '{{max}}' '{{exceptions}}'
 
 # Generate Markdown LoC report
-loc-report output="docs/loc_report.md" limit="50": helper::_print_header
+loc-report output="build/gen/loc_report.md" limit="50": helper::_print_header
     just validation::loc-report '{{output}}' '{{limit}}'
 
 # Tree view of lines of code and comments
