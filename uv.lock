@@ -24,7 +24,7 @@ members = [
     "image-toolkit-backend",
     "image-toolkit-gui",
     "image-toolkit-workspace",
-    "recommendation-engine",
+    "content-recommendation-engine",
 ]
 
 [[package]]
@@ -6928,7 +6928,7 @@ wheels = [
 ]
 
 [[package]]
-name = "recommendation-engine"
+name = "content-recommendation-engine"
 version = "0.2.0"
 source = { editable = "submodules/CRE" }
 dependencies = [
