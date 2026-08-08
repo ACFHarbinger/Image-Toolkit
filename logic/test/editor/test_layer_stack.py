@@ -294,3 +294,17 @@ def test_clear_layer_zeroes_pixels_and_mask_but_keeps_metadata():
     assert layer.meta.name == "Base"
     assert layer.meta.opacity == 0.4
     assert stack.clear_layer("missing") is False
+
+
+def test_merge_down_flattens_selected_layer_and_removes_it():
+    stack = LayerStack(1, 1)
+    lower = stack.add_layer("lower", "Lower")
+    lower.pixels[0, 0] = [255, 0, 0, 255]
+    upper = stack.add_layer("upper", "Upper")
+    upper.pixels[0, 0] = [0, 0, 255, 128]
+
+    assert stack.merge_down("upper")
+    assert [layer.meta.id for layer in stack.layers()] == ["lower"]
+    assert stack.layer("lower").pixels[0, 0].tolist() == [127, 0, 128, 255]
+    assert stack.layer("lower").mask is None
+    assert stack.merge_down("lower") is False

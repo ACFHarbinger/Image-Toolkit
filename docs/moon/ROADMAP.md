@@ -141,7 +141,7 @@ anyway, ahead of the gate; see the "Gate 5 exception" note in the
 [Engine Architecture Roadmap](roadmaps/engine_architecture.md) for the full
 rationale. This is a scope decision, not evidence Krita has proven
 insufficient — the Krita plugin remains the primary, actively-developed
-host. Twenty-four slices are implemented, all In review: the first (issue #25 —
+host. Twenty-five slices are implemented, all In review: the first (issue #25 —
 a PySide6 canvas + layer-stack foundation in the existing `gui/` workspace
 member, backed by a new pure-numpy `logic/src/editor/` package), the second
 (issue #26 — a brush paint tool: pure-numpy circular stamping in
@@ -212,7 +212,9 @@ stack placement into a newly selected undoable layer), and the twenty-third
 (issue #55 — Rename Layer changes the selected layer's name without altering
 pixels and is undoable), and the twenty-fourth (issue #56 — Clear Layer
 zeroes selected pixels and masks in one undoable mutation while retaining
-layer metadata).
+layer metadata), and the twenty-fifth (issue #57 — Merge Down flattens the
+selected layer with the one below through the existing compositor and is
+undoable).
 The likely long-term architecture is still a C++ engine, GPU-backed
 canvas, and isolated Python research/model workers; its staged boundary and
 migration gates are defined in the same document. Browser support is not a

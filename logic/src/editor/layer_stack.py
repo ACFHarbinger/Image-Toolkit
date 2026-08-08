@@ -187,6 +187,30 @@ class LayerStack:
             layer.mask.fill(0)
         return True
 
+    def merge_down(self, layer_id: str) -> bool:
+        """Flatten a layer with the layer immediately below it."""
+        index = next(
+            (i for i, layer in enumerate(self._layers) if layer.meta.id == layer_id), None
+        )
+        if index is None or index == 0:
+            return False
+        lower = self._layers[index - 1]
+        upper = self._layers[index]
+        isolated = LayerStack(self.width, self.height)
+        for source in (lower, upper):
+            target = isolated.add_layer(source.meta.id, source.meta.name)
+            target.meta.visible = source.meta.visible
+            target.meta.opacity = source.meta.opacity
+            target.meta.blend_mode = source.meta.blend_mode
+            target.pixels = source.pixels.copy()
+            target.mask = None if source.mask is None else source.mask.copy()
+        lower.pixels = isolated.composite()
+        lower.mask = None
+        lower.meta.opacity = 1.0
+        lower.meta.blend_mode = "normal"
+        del self._layers[index]
+        return True
+
     def layers(self) -> list[Layer]:
         """Bottom-to-top ordered snapshot of the current layers."""
         return list(self._layers)

@@ -109,6 +109,29 @@ def test_clear_selected_layer_clears_pixels_and_mask_and_is_undoable(q_app):
     assert layer.mask[0, 0] == 77
 
 
+def test_merge_selected_layer_down_is_undoable(q_app):
+    from editor import EditHistory
+
+    tab = ReferenceColoringTab()
+    stack = LayerStack(1, 1)
+    lower = stack.add_layer("lower", "Lower")
+    lower.pixels[0, 0] = [255, 0, 0, 255]
+    upper = stack.add_layer("upper", "Upper")
+    upper.pixels[0, 0] = [0, 0, 255, 128]
+    tab._canvas.set_layer_stack(stack)
+    tab._layer_panel.set_layer_stack(stack)
+    history = EditHistory(stack)
+    tab._canvas.set_history(history)
+    tab._layer_panel.set_history(history)
+    tab._layer_panel.select_layer("upper")
+
+    tab._layer_panel._merge_selected_layer_down()
+
+    assert [layer.meta.id for layer in stack.layers()] == ["lower"]
+    tab._undo()
+    assert [layer.meta.id for layer in stack.layers()] == ["lower", "upper"]
+
+
 def test_default_tool_is_pan(q_app):
     tab = ReferenceColoringTab()
     assert tab.canvas().tool() == "pan"

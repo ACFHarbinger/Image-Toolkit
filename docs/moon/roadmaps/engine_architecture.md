@@ -532,6 +532,16 @@ transparent, then undo and confirm both pixels and mask return. If metadata or
 compositing changes unexpectedly, return the issue to In progress; otherwise
 close it after the check.
 
+**Twenty-fifth slice (issue #57, In review pending a manual desktop-app
+check): merge the selected layer down.** `LayerStack.merge_down` composites the
+selected layer with its immediate lower neighbor using the existing mask,
+opacity, visibility, and blend-mode rules, stores the flattened pixels on the
+lower layer, and removes the selected layer. The panel records one undo
+checkpoint; merging the bottom layer is a no-op. Manual review must merge
+semi-transparent and masked content, confirm the visible result matches the
+pre-merge canvas, then undo and confirm both original layers return. If the
+result differs, return the issue to In progress with the layer settings.
+
 **Twenty-third slice (issue #55, In review pending a manual desktop-app
 check): rename a selected layer.** `LayerStack.rename_layer` validates and
 updates only the selected layer's name; the layer panel exposes Rename Layer

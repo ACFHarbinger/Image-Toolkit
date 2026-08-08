@@ -2,7 +2,7 @@
 ``docs/moon/roadmaps/engine_architecture.md``'s gate-5 exception).
 
 Owns the only structural mutations a ``LayerStack`` gets: add, duplicate,
-rename, clear, remove,
+rename, clear, merge-down, remove,
 reorder, visibility toggle, mask add/remove, and per-layer opacity/blend
 mode. Emits ``layers_changed`` after every mutation so a bound canvas
 (``layer_canvas.py``) knows to re-render, and ``layer_selected`` whenever
@@ -61,6 +61,7 @@ class LayerListPanel(QWidget):
         self._duplicate_button = QPushButton("Duplicate Layer", self)
         self._rename_button = QPushButton("Rename Layer", self)
         self._clear_button = QPushButton("Clear Layer", self)
+        self._merge_down_button = QPushButton("Merge Down", self)
         self._remove_button = QPushButton("Remove Layer", self)
         self._up_button = QPushButton("Move Up", self)
         self._down_button = QPushButton("Move Down", self)
@@ -80,6 +81,7 @@ class LayerListPanel(QWidget):
         self._duplicate_button.clicked.connect(self._duplicate_selected_layer)
         self._rename_button.clicked.connect(self._rename_selected_layer)
         self._clear_button.clicked.connect(self._clear_selected_layer)
+        self._merge_down_button.clicked.connect(self._merge_selected_layer_down)
         self._remove_button.clicked.connect(self._remove_selected_layer)
         self._up_button.clicked.connect(lambda: self._move_selected_layer(-1))
         self._down_button.clicked.connect(lambda: self._move_selected_layer(1))
@@ -96,6 +98,7 @@ class LayerListPanel(QWidget):
             self._duplicate_button,
             self._rename_button,
             self._clear_button,
+            self._merge_down_button,
             self._remove_button,
             self._up_button,
             self._down_button,
@@ -219,6 +222,16 @@ class LayerListPanel(QWidget):
         if self._history is not None:
             self._history.record()
         if self._layer_stack.clear_layer(layer.meta.id):
+            self.layers_changed.emit()
+
+    def _merge_selected_layer_down(self) -> None:
+        layer_id = self.selected_layer_id()
+        if self._layer_stack is None or layer_id is None:
+            return
+        if self._history is not None:
+            self._history.record()
+        if self._layer_stack.merge_down(layer_id):
+            self._refresh_list()
             self.layers_changed.emit()
 
     def _move_selected_layer(self, direction: int) -> None:

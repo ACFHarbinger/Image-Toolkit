@@ -49,7 +49,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `engine_architecture.md`'s "Gate 5 exception (2026-08-07)" note for the
   full rationale — this is a scope decision, not evidence Krita has proven
   insufficient. The Krita plugin remains the primary, actively-developed
-  host. Twenty-four slices — canvas + layer-stack foundation, brush paint
+  host. Twenty-five slices — canvas + layer-stack foundation, brush paint
   tool (issue #26), undo/redo (issue #27), non-destructive layer masks
   (issue #28), line-art segmentation (issue #29), style-bible palette
   application (issue #30), region-to-material correspondence assignment
@@ -141,6 +141,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   core mypy are clean.
 
 ### Added
+
+- **Standalone editor Merge Down (issue #57, In review).** The layer panel
+  now flattens the selected layer with the one below using the existing
+  compositor, including visibility, masks, opacity, and blend mode effects.
+  The lower layer remains as the destination, the selected layer is removed,
+  and the mutation is one undoable operation. Manual desktop verification
+  remains pending.
 
 - **Standalone editor layer clearing (issue #56, In review).** The layer panel
   now clears the selected layer's RGBA pixels and optional mask in one
