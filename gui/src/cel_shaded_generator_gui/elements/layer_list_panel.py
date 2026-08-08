@@ -2,7 +2,7 @@
 ``docs/moon/roadmaps/engine_architecture.md``'s gate-5 exception).
 
 Owns the only structural mutations a ``LayerStack`` gets: add, duplicate,
-remove,
+rename, remove,
 reorder, visibility toggle, mask add/remove, and per-layer opacity/blend
 mode. Emits ``layers_changed`` after every mutation so a bound canvas
 (``layer_canvas.py``) knows to re-render, and ``layer_selected`` whenever
@@ -33,6 +33,7 @@ from PySide6.QtWidgets import (
     QComboBox,
     QDoubleSpinBox,
     QHBoxLayout,
+    QInputDialog,
     QLabel,
     QListWidget,
     QListWidgetItem,
@@ -58,6 +59,7 @@ class LayerListPanel(QWidget):
 
         self._add_button = QPushButton("Add Layer", self)
         self._duplicate_button = QPushButton("Duplicate Layer", self)
+        self._rename_button = QPushButton("Rename Layer", self)
         self._remove_button = QPushButton("Remove Layer", self)
         self._up_button = QPushButton("Move Up", self)
         self._down_button = QPushButton("Move Down", self)
@@ -75,6 +77,7 @@ class LayerListPanel(QWidget):
 
         self._add_button.clicked.connect(self._add_layer)
         self._duplicate_button.clicked.connect(self._duplicate_selected_layer)
+        self._rename_button.clicked.connect(self._rename_selected_layer)
         self._remove_button.clicked.connect(self._remove_selected_layer)
         self._up_button.clicked.connect(lambda: self._move_selected_layer(-1))
         self._down_button.clicked.connect(lambda: self._move_selected_layer(1))
@@ -89,6 +92,7 @@ class LayerListPanel(QWidget):
         for button in (
             self._add_button,
             self._duplicate_button,
+            self._rename_button,
             self._remove_button,
             self._up_button,
             self._down_button,
@@ -187,6 +191,22 @@ class LayerListPanel(QWidget):
             return
         self._refresh_list()
         self._select_layer(layer_id)
+        self.layers_changed.emit()
+
+    def _rename_selected_layer(self) -> None:
+        layer = self._selected_layer()
+        if self._layer_stack is None or layer is None:
+            return
+        name, accepted = QInputDialog.getText(
+            self, "Rename Layer", "Name:", text=layer.meta.name
+        )
+        if not accepted or not name.strip() or name.strip() == layer.meta.name:
+            return
+        if self._history is not None:
+            self._history.record()
+        self._layer_stack.rename_layer(layer.meta.id, name)
+        self._refresh_list()
+        self._select_layer(layer.meta.id)
         self.layers_changed.emit()
 
     def _move_selected_layer(self, direction: int) -> None:

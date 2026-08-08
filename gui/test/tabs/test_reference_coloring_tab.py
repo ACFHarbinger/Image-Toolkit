@@ -56,6 +56,34 @@ def test_duplicate_selected_layer_copies_pixels_and_selects_copy(q_app):
     assert tab._layer_panel.selected_layer_id() == duplicate.meta.id
 
 
+def test_rename_selected_layer_updates_list_and_is_undoable(q_app, monkeypatch):
+    from PySide6.QtWidgets import QInputDialog
+
+    tab = ReferenceColoringTab()
+    stack = LayerStack(2, 2)
+    stack.add_layer("source", "Source")
+    tab._canvas.set_layer_stack(stack)
+    tab._layer_panel.set_layer_stack(stack)
+    from editor import EditHistory
+
+    edit_history = EditHistory(stack)
+    tab._canvas.set_history(edit_history)
+    tab._layer_panel.set_history(edit_history)
+    tab._layer_panel.select_layer("source")
+    monkeypatch.setattr(
+        QInputDialog,
+        "getText",
+        staticmethod(lambda *a, **k: ("Renamed", True)),
+    )
+
+    tab._layer_panel._rename_selected_layer()
+
+    assert stack.layer("source").meta.name == "Renamed"
+    assert tab._layer_panel.selected_layer_id() == "source"
+    tab._undo()
+    assert stack.layer("source").meta.name == "Source"
+
+
 def test_default_tool_is_pan(q_app):
     tab = ReferenceColoringTab()
     assert tab.canvas().tool() == "pan"

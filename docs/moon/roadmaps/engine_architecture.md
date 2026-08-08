@@ -522,3 +522,13 @@ duplicate a masked/partially transparent layer, edit the copy to confirm the
 source is unchanged, and undo to confirm both the copy and its edits disappear.
 If those checks pass, close the issue; otherwise return it to In progress with
 the failing layer state.
+
+**Twenty-third slice (issue #55, In review pending a manual desktop-app
+check): rename a selected layer.** `LayerStack.rename_layer` validates and
+updates only the selected layer's name; the layer panel exposes Rename Layer
+through a text dialog, refreshes the list, and records one undo checkpoint.
+Pixels, masks, ordering, visibility, opacity, and blend mode are untouched.
+Manual review must rename a painted/imported layer, confirm its pixels and
+compositing are unchanged, then undo and confirm the old name returns. A blank
+or cancelled name must leave the layer unchanged; otherwise return the issue
+to In progress with the failing input.

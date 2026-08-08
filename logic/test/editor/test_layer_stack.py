@@ -269,3 +269,13 @@ def test_duplicate_layer_copies_pixels_metadata_and_mask_above_source():
     assert duplicate.mask is not source.mask
     assert duplicate.pixels[0, 1].tolist() == [1, 2, 3, 4]
     assert duplicate.mask[0, 1] == 77
+
+
+def test_rename_layer_updates_name_and_rejects_blank_names():
+    stack = LayerStack(1, 1)
+    stack.add_layer("base", "Base")
+    assert stack.rename_layer("base", "Renamed")
+    assert stack.layer("base").meta.name == "Renamed"
+    with pytest.raises(ValueError, match="layer name"):
+        stack.rename_layer("base", "   ")
+    assert stack.rename_layer("missing", "Ignored") is False

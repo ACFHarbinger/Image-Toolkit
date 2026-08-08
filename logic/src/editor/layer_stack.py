@@ -167,6 +167,16 @@ class LayerStack:
     def layer(self, layer_id: str) -> Layer | None:
         return next((layer for layer in self._layers if layer.meta.id == layer_id), None)
 
+    def rename_layer(self, layer_id: str, name: str) -> bool:
+        """Rename a layer, rejecting missing or blank names."""
+        layer = self.layer(layer_id)
+        if layer is None:
+            return False
+        if not isinstance(name, str) or not name.strip():
+            raise ValueError("layer name must not be empty")
+        layer.meta.name = name.strip()
+        return True
+
     def layers(self) -> list[Layer]:
         """Bottom-to-top ordered snapshot of the current layers."""
         return list(self._layers)
