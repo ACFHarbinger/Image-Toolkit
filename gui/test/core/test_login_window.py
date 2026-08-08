@@ -1,9 +1,10 @@
 from unittest.mock import MagicMock
 
 import pytest
-from gui.src.windows.main.login_window import LoginWindow
 from PySide6.QtCore import QEvent, Qt
 from PySide6.QtGui import QKeyEvent
+
+from gui.src.windows.authentication.login_window import LoginWindow
 
 pytestmark = pytest.mark.gui
 
@@ -60,8 +61,8 @@ class TestLoginWindowCryptoAutoLoad:
         window = LoginWindow()
 
         with (
-            patch("gui.src.windows.main.login_window.udef.SECRETS_DIR", template_dir),
-            patch("gui.src.windows.main.login_window.udef.LOCAL_SECRETS_DIR", target_dir),
+            patch("gui.src.windows.authentication.login_window.udef.SECRETS_DIR", template_dir),
+            patch("gui.src.windows.authentication.login_window.udef.LOCAL_SECRETS_DIR", target_dir),
         ):
             window._copy_template_crypto_files()
 
@@ -118,10 +119,10 @@ class TestLoginWindowPreferenceProfile:
 
         # Patch udef, VaultManager, and QInputDialog.getItem to return "Default"
         with (
-            patch("gui.src.windows.main.login_window.udef.update_cryptographic_values"),
-            patch("gui.src.windows.main.login_window.VaultManager", return_value=mock_vault),
-            patch("gui.src.windows.main.login_window.QInputDialog.getItem") as mock_get_item,
-            patch("gui.src.windows.main.login_window.QMessageBox.information"),
+            patch("gui.src.windows.authentication.login_window.udef.update_cryptographic_values"),
+            patch("gui.src.windows.authentication.login_window.VaultManager", return_value=mock_vault),
+            patch("gui.src.windows.authentication.login_window.QInputDialog.getItem") as mock_get_item,
+            patch("gui.src.windows.authentication.login_window.QMessageBox.information"),
         ):
             # Test selecting "Default"
             mock_get_item.return_value = ("Default", True)
@@ -190,10 +191,10 @@ class TestLoginWindowPreferenceProfile:
 
         # Patch udef, VaultManager, and QInputDialog.getItem to return "Previous Profile"
         with (
-            patch("gui.src.windows.main.login_window.udef.update_cryptographic_values"),
-            patch("gui.src.windows.main.login_window.VaultManager", return_value=mock_vault),
-            patch("gui.src.windows.main.login_window.QInputDialog.getItem") as mock_get_item,
-            patch("gui.src.windows.main.login_window.QMessageBox.information"),
+            patch("gui.src.windows.authentication.login_window.udef.update_cryptographic_values"),
+            patch("gui.src.windows.authentication.login_window.VaultManager", return_value=mock_vault),
+            patch("gui.src.windows.authentication.login_window.QInputDialog.getItem") as mock_get_item,
+            patch("gui.src.windows.authentication.login_window.QMessageBox.information"),
         ):
             # Test selecting "Previous Profile"
             mock_get_item.return_value = ("Previous Profile", True)
@@ -213,7 +214,7 @@ class TestGuestMode:
         window.close = MagicMock()
 
         with (
-            patch("gui.src.windows.main.login_window.QMessageBox.information"),
+            patch("gui.src.windows.authentication.login_window.QMessageBox.information"),
         ):
             window.attempt_guest_login()
             # Should have authenticated anonymously — no warning expected
@@ -260,7 +261,7 @@ class TestGuestMode:
         window.login_successful.connect(mock_listener)
 
         with (
-            patch("gui.src.windows.main.login_window.QMessageBox.information") as mock_info,
+            patch("gui.src.windows.authentication.login_window.QMessageBox.information") as mock_info,
         ):
             window.attempt_guest_login()
 

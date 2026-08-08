@@ -41,13 +41,10 @@ venvPath = "."              # The directory containing the venv
 venv = ".venv"              # The name of the venv folder
 type_checking_mode = "basic"
 include = ["gui", "backend"]
-extraPaths = ["submodules/CRE"]
+extraPaths = ["gui/src", "backend/src", "submodules/CRE/src", "submodules/ASP/backend/src", "submodules/CSG/logic/src"]
 
 # Ignore rules (Migration of your pyright/pylance ignores)
 ignore = ["**/__init__.py"]
-
-[tool.pyright]
-extraPaths = ["submodules/CRE"]
 
 [tool.ruff]
 src = ["backend/src", "gui/src"]
