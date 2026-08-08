@@ -63,7 +63,11 @@ set in this editor's usage (always saved under the same fixed id), so
 there is nothing to pick from a combo the way documents/bibles need;
 without this, reopening an existing project silently lost its
 correspondence assignments until the artist re-triggered a save via
-Assign/Propagate Correspondence.
+Assign/Propagate Correspondence. New Canvas now also resets the
+in-memory correspondence set and region-layer bookkeeping -- previously
+they lingered from whatever document had been open before, so a fresh
+blank canvas could inherit an unrelated document's region-to-material
+correspondences on its next Save Document.
 
 New feature, not code motion.
 """
@@ -304,6 +308,11 @@ class ReferenceColoringTab(QWidget):
         root.addWidget(right_container, stretch=1)
 
     def _new_canvas(self) -> None:
+        """Replace the current canvas with a blank one, resetting undo/redo
+        history and region/correspondence bookkeeping to match -- otherwise
+        a correspondence set or region-layer list loaded from a previously
+        opened document would silently linger and get attached to the new,
+        unrelated canvas on the next Save Document."""
         width, accepted = QInputDialog.getInt(
             self, "New Canvas", "Width (px):", _DEFAULT_WIDTH, 1, 16384
         )
@@ -322,6 +331,8 @@ class ReferenceColoringTab(QWidget):
         self._layer_panel.set_layer_stack(layer_stack)
         self._layer_panel.set_history(self._history)
         self._layer_panel.select_layer("layer-1")
+        self._region_layer_ids = []
+        self._correspondence_set = None
         self._update_status()
 
     def _save_document(self) -> None:

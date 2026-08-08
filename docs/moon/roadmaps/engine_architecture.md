@@ -473,3 +473,19 @@ just makes an existing one available immediately, mirroring what Open
 Document already does for a document's own sidecar
 `correspondence.json`. Binding a different project correctly clears any
 previously-loaded correspondence set rather than carrying it over.
+
+**Nineteenth slice (issue #51, In review pending a manual desktop-app
+check): New Canvas resets correspondence set and region-layer
+bookkeeping.** Closes a gap directly adjacent to the seventeenth/
+eighteenth slices' correspondence-lifecycle audit: `_new_canvas`
+replaced the layer stack and undo/redo history for a fresh blank
+canvas, but never reset `_correspondence_set` or `_region_layer_ids`.
+Those two fields carried over from whatever document or project bind
+had populated them previously, so a brand-new, unrelated canvas could
+silently inherit a prior document's region-to-material correspondence
+assignments and region-layer ids -- the next Save Document on that new
+canvas would then write a stale `correspondence.json` describing
+regions that don't exist on the new layer stack at all.
+`ReferenceColoringTab._new_canvas` now resets both fields, matching
+what `_load_document_from_path` already does when opening a real
+document (load fresh state, or `None`/`[]` if the document has none).

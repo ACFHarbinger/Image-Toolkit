@@ -38,7 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `engine_architecture.md`'s "Gate 5 exception (2026-08-07)" note for the
   full rationale — this is a scope decision, not evidence Krita has proven
   insufficient. The Krita plugin remains the primary, actively-developed
-  host. Eighteen slices — canvas + layer-stack foundation, brush paint
+  host. Nineteen slices — canvas + layer-stack foundation, brush paint
   tool (issue #26), undo/redo (issue #27), non-destructive layer masks
   (issue #28), line-art segmentation (issue #29), style-bible palette
   application (issue #30), region-to-material correspondence assignment
@@ -50,9 +50,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   option (issue #37), an eraser tool (issue #38), per-layer
   opacity/blend mode UI (issue #39), propagating correspondence to
   explicit target regions (issue #40), detaching project
-  documents/bibles (issue #49), and loading a bound project's existing
-  correspondence set on bind (issue #50) — are all In review pending a
-  manual desktop-app check (see the `### Added` entries below).
+  documents/bibles (issue #49), loading a bound project's existing
+  correspondence set on bind (issue #50), and resetting the
+  correspondence set/region-layer bookkeeping on New Canvas
+  (issue #51) — are all In review pending a manual desktop-app check
+  (see the `### Added` entries below).
 
 ### Fixed
 
@@ -550,6 +552,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   over. Verification: 3 new headless-Qt `gui` tests (543 core + 224 gui
   total); Ruff and mypy clean. Needs a manual desktop launch to confirm
   visually — see issue #50's testing comment.
+- **Standalone editor nineteenth slice (issue #51, In review): New
+  Canvas resets correspondence set and region-layer bookkeeping.**
+  Closes a gap directly adjacent to the seventeenth/eighteenth slices'
+  correspondence-lifecycle audit: `_new_canvas` replaced the layer
+  stack and undo/redo history for a fresh blank canvas, but never
+  reset `_correspondence_set` or `_region_layer_ids`. Those two fields
+  carried over from whatever document or project bind had populated
+  them previously, so a brand-new, unrelated canvas could silently
+  inherit a prior document's region-to-material correspondence
+  assignments and region-layer ids — the next Save Document on that new
+  canvas would then write a stale `correspondence.json` describing
+  regions that don't exist on the new layer stack at all.
+  `ReferenceColoringTab._new_canvas` now resets both fields, matching
+  what `_load_document_from_path` already does when opening a real
+  document (load fresh state, or `None`/`[]` if the document has none).
+  Verification: 1 new headless-Qt `gui` test (543 core + 225 gui total);
+  Ruff and mypy clean. Needs a manual desktop launch to confirm visually
+  — see issue #51's testing comment.
 - **Milestone 4 first slice (issue #24): deterministic confidence scoring
   and correction learning for assisted correspondence.** Portable contract
   only, no Docker UI yet, following the same sequencing every prior

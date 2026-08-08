@@ -991,3 +991,25 @@ def test_binding_a_different_project_clears_the_previous_correspondence_set(
     tab._new_project()
 
     assert tab.correspondence_set() is None
+
+
+def test_new_canvas_resets_correspondence_set_and_region_layers(q_app, monkeypatch, tmp_path):
+    project_dir = tmp_path / "project"
+    project_dir.mkdir()
+    tab = ReferenceColoringTab()
+    _new_canvas(tab, monkeypatch)
+    _add_touching_region_layers(tab)
+    _stub_existing_directory(monkeypatch, project_dir)
+    _stub_text_input(monkeypatch, "Editor Project")
+    tab._new_project()
+    _bind_bible(tab, monkeypatch, tmp_path / "bibles")
+    tab._layer_panel.select_layer("layer-1-region-1")
+    tab._material_combo.setCurrentIndex(0)
+    tab._assign_correspondence()
+    assert tab.correspondence_set() is not None
+    assert tab._region_layer_ids == ["layer-1-region-1", "layer-1-region-2"]
+
+    _new_canvas(tab, monkeypatch)
+
+    assert tab.correspondence_set() is None
+    assert tab._region_layer_ids == []
