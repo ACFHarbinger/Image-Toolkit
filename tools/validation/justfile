@@ -14,7 +14,7 @@ check-loc max="500" exceptions="docs/loc_exceptions.txt":
     uv run python backend/validation/count_loc.py backend/src gui/src --max-code-lines {{max}} --exceptions-file {{exceptions}} --fail-over
 
 # Generate Markdown LoC report
-loc-report output="docs/loc_report.md" limit="50":
+loc-report output="build/gen/loc_report.md" limit="50":
     uv run python backend/validation/count_loc.py backend/src gui/src --sort code --limit {{limit}} --markdown-out {{output}}
 
 # Tree view of lines of code and comments
@@ -64,7 +64,7 @@ check-type-coverage sort="coverage" limit="40":
 
 # Generate interactive module-level import graph covering backend/src + gui/src
 # together (so cross-boundary edges/violations are visible), opens in browser
-module-graph html="docs/module_graph.html" depth="10":
+module-graph html="build/gen/module_graph.html" depth="10":
     uv run python backend/validation/visualize_module_graph.py ./backend/src ./gui/src \
         --exclude .venv venv node_modules \
         --html {{html}} --depth {{depth}}

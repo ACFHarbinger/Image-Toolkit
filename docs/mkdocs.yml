@@ -8,7 +8,7 @@ repo_name: ACFPeacekeeper/Image-Toolkit
 edit_uri: edit/main/docs/
 
 docs_dir: .
-site_dir: ../site
+site_dir: ../build/gen/site
 exclude_docs: |
   hooks.py
   sphinx/conf.py
