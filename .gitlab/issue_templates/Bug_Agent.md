@@ -1,4 +1,4 @@
-This template produces a machine-parsable issue. Every field below is consumed verbatim by backend/scripts/github/sync\_backlog.py and backend/scripts/github/agent\_tools.py — do not rename options.
+This template produces a machine-parsable issue. Every field below is consumed verbatim by git/scripts/sync\_backlog.py and git/scripts/agent\_tools.py — do not rename options.
 
 ### **Component**
 

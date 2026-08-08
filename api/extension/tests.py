@@ -19,12 +19,12 @@ def _png_bytes(seed=0, size=(64, 64)) -> bytes:
     return buf.getvalue()
 
 
-@override_settings(ROOT_URLCONF="extension_api.test_urls")
+@override_settings(ROOT_URLCONF="api.extension.test_urls")
 class BridgeTestCase(SimpleTestCase):
     """Common setup: isolated bridge dir (token/config/index) in a temp path.
 
     ``ROOT_URLCONF`` is overridden to a minimal test-only urlconf
-    (``extension_api/test_urls.py``) that mounts only this app's URLs —
+    (``api/extension/test_urls.py``) that mounts only this app's URLs —
     the project's real ``api.urls`` also includes ``tasks.urls``, which is
     independently broken (pre-existing, unrelated to this app) and would
     make every ``Client`` request here fail at import time otherwise. See
@@ -43,13 +43,13 @@ class BridgeTestCase(SimpleTestCase):
         # Redirect token/config/index storage away from the real home dir
         patches = [
             mock.patch(
-                "extension_api.bridge_config.TOKEN_PATH", self.tmp / "token.txt"
+                "api.extension.bridge_config.TOKEN_PATH", self.tmp / "token.txt"
             ),
             mock.patch(
-                "extension_api.bridge_config.CONFIG_PATH", self.tmp / "config.json"
+                "api.extension.bridge_config.CONFIG_PATH", self.tmp / "config.json"
             ),
             mock.patch(
-                "extension_api.bridge_config.BRIDGE_DIR", self.tmp
+                "api.extension.bridge_config.BRIDGE_DIR", self.tmp
             ),
             mock.patch(
                 "backend.src.core.dir_phash_index.DEFAULT_DB_PATH",
@@ -63,7 +63,7 @@ class BridgeTestCase(SimpleTestCase):
             p.start()
             self.addCleanup(p.stop)
 
-        from extension_api.bridge_config import get_token, save_config
+        from api.extension.bridge_config import get_token, save_config
 
         self.token = get_token()
         save_config({"dup_root": str(self.images_dir), "recursive": True, "threshold": 10})
@@ -118,7 +118,7 @@ class TestDupCheck(BridgeTestCase):
         self.assertEqual(resp.status_code, 403)
 
     def test_409_when_root_unconfigured(self):
-        from extension_api.bridge_config import save_config
+        from api.extension.bridge_config import save_config
 
         save_config({"dup_root": ""})
         resp = self._post({"data_b64": base64.b64encode(_png_bytes()).decode()})
@@ -213,7 +213,7 @@ class TestIngest(BridgeTestCase):
         self.assertEqual(resp.status_code, 201)
 
     def test_409_when_no_dirs_configured(self):
-        from extension_api.bridge_config import save_config
+        from api.extension.bridge_config import save_config
 
         save_config({"dup_root": "", "ingest_dir": ""})
         resp = self._post({"data_b64": base64.b64encode(_png_bytes()).decode()})
@@ -287,7 +287,7 @@ class TestSimilar(BridgeTestCase):
         self.assertEqual(resp.status_code, 403)
 
     def test_409_when_root_unconfigured(self):
-        from extension_api.bridge_config import save_config
+        from api.extension.bridge_config import save_config
 
         save_config({"dup_root": ""})
         resp = self._post({"data_b64": base64.b64encode(_png_bytes()).decode()})
@@ -370,7 +370,7 @@ class TestPhashSnapshot(BridgeTestCase):
         self.assertEqual(resp.status_code, 403)
 
     def test_409_when_root_unconfigured(self):
-        from extension_api.bridge_config import save_config
+        from api.extension.bridge_config import save_config
 
         save_config({"dup_root": ""})
         resp = self._get()

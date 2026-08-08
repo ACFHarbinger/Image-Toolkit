@@ -2,10 +2,18 @@
 """Django's command-line utility for administrative tasks."""
 import os
 import sys
+from pathlib import Path
 
 
 def main():
     """Run administrative tasks."""
+    # This file lives in api/, so sys.path[0] (the script's own directory)
+    # would be api/ rather than the repo root -- import api.settings needs
+    # the repo root on sys.path so "api" itself is importable.
+    repo_root = Path(__file__).resolve().parent.parent
+    if str(repo_root) not in sys.path:
+        sys.path.insert(0, str(repo_root))
+
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "api.settings")
     try:
         from django.core.management import execute_from_command_line  # pyrefly: ignore [untyped-import]

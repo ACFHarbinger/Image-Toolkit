@@ -34,8 +34,12 @@ sync-backlog:
   script:
     - pip install uv
     - uv sync --frozen --extra ci --no-install-project
-    - uv run python backend/scripts/github/sync_backlog.py
-  # Note: Configure GH_PROJECT_TOKEN and GEMINI_API_KEY in GitLab CI/CD Settings -> Variables
+    # sync_backlog.py imports agent_tools via a relative import, so it must
+    # run as the `git.scripts` package (cwd at the repo root) rather than
+    # as a bare script -- same reasoning as git/hooks/post-commit's
+    # check_commit_ref.py invocation.
+    - uv run python -m git.scripts.sync_backlog
+  # Note: Configure GITHUB_TOKEN and GEMINI_API_KEY in GitLab CI/CD Settings -> Variables
 
 # ==========================================
 # STAGE: TEST (CI & Benchmark)
