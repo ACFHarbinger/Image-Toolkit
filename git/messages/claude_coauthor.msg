@@ -1,2 +1,2 @@
 
-Co-Authored-By: Claude <noreply@anthropic.com>
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
