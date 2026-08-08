@@ -12,6 +12,7 @@ from .brush import (
 )
 from .correspondence_tools import (
     adjacency_agreement_by_material,
+    adjacent_region_ids,
     assign_region_correspondence,
     rank_material_candidates,
 )
@@ -46,6 +47,7 @@ __all__ = [
     "resolve_palette_color",
     "apply_palette_color_to_region",
     "adjacency_agreement_by_material",
+    "adjacent_region_ids",
     "rank_material_candidates",
     "assign_region_correspondence",
     "save_document",

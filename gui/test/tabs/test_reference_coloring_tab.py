@@ -736,3 +736,131 @@ def test_load_project_bible_without_selection_is_a_no_op(q_app):
     tab = ReferenceColoringTab()
     tab._load_project_bible()
     assert tab.style_bible() is None
+
+
+def _stub_text_dialog(monkeypatch, text, accepted=True):
+    from PySide6.QtWidgets import QInputDialog
+
+    monkeypatch.setattr(
+        QInputDialog, "getText", staticmethod(lambda *a, **k: (text, accepted))
+    )
+
+
+def test_propagate_correspondence_extends_to_explicit_target(q_app, monkeypatch, tmp_path):
+    tab = ReferenceColoringTab()
+    _new_canvas(tab, monkeypatch)
+    _add_touching_region_layers(tab)
+    _bind_bible(tab, monkeypatch, tmp_path)
+    tab._layer_panel.select_layer("layer-1-region-1")
+    tab._material_combo.setCurrentIndex(0)  # hair
+    tab._assign_correspondence()
+
+    _stub_text_dialog(monkeypatch, "layer-1-region-2")
+    tab._layer_panel.select_layer("layer-1-region-1")
+    tab._propagate_correspondence()
+
+    correspondence_set = tab.correspondence_set()
+    assert {item.region_id: item.material_id for item in correspondence_set.correspondences} == {
+        "layer-1-region-1": "hair",
+        "layer-1-region-2": "hair",
+    }
+    assert "Propagated to 1 region" in tab._status.text()
+
+
+def test_propagate_correspondence_prefills_adjacency_suggested_targets(
+    q_app, monkeypatch, tmp_path
+):
+    from PySide6.QtWidgets import QInputDialog
+
+    tab = ReferenceColoringTab()
+    _new_canvas(tab, monkeypatch)
+    _add_touching_region_layers(tab)
+    _bind_bible(tab, monkeypatch, tmp_path)
+    tab._layer_panel.select_layer("layer-1-region-1")
+    tab._material_combo.setCurrentIndex(0)  # hair
+    tab._assign_correspondence()
+
+    seen_kwargs = {}
+
+    def _fake_get_text(*args, **kwargs):
+        seen_kwargs.update(kwargs)
+        return ("", False)
+
+    monkeypatch.setattr(QInputDialog, "getText", staticmethod(_fake_get_text))
+    tab._layer_panel.select_layer("layer-1-region-1")
+    tab._propagate_correspondence()
+
+    assert seen_kwargs.get("text") == "layer-1-region-2"
+
+
+def test_propagate_correspondence_without_existing_entry_is_a_no_op(q_app, monkeypatch, tmp_path):
+    tab = ReferenceColoringTab()
+    _new_canvas(tab, monkeypatch)
+    _add_touching_region_layers(tab)
+    _bind_bible(tab, monkeypatch, tmp_path)
+    # Assign a different region so a correspondence set exists, but
+    # layer-1-region-1 itself still has no entry to propagate.
+    tab._layer_panel.select_layer("layer-1-region-2")
+    tab._material_combo.setCurrentIndex(0)  # hair
+    tab._assign_correspondence()
+    tab._layer_panel.select_layer("layer-1-region-1")
+
+    tab._propagate_correspondence()
+
+    assert "no existing correspondence" in tab._status.text()
+
+
+def test_propagate_correspondence_without_any_correspondence_set_is_a_no_op(
+    q_app, monkeypatch, tmp_path
+):
+    tab = ReferenceColoringTab()
+    _new_canvas(tab, monkeypatch)
+    _add_touching_region_layers(tab)
+    _bind_bible(tab, monkeypatch, tmp_path)
+    tab._layer_panel.select_layer("layer-1-region-1")
+
+    tab._propagate_correspondence()
+
+    assert tab.correspondence_set() is None
+
+
+def test_propagate_correspondence_cancelled_dialog_is_a_no_op(q_app, monkeypatch, tmp_path):
+    tab = ReferenceColoringTab()
+    _new_canvas(tab, monkeypatch)
+    _add_touching_region_layers(tab)
+    _bind_bible(tab, monkeypatch, tmp_path)
+    tab._layer_panel.select_layer("layer-1-region-1")
+    tab._material_combo.setCurrentIndex(0)
+    tab._assign_correspondence()
+
+    _stub_text_dialog(monkeypatch, "layer-1-region-2", accepted=False)
+    tab._layer_panel.select_layer("layer-1-region-1")
+    tab._propagate_correspondence()
+
+    assert len(tab.correspondence_set().correspondences) == 1
+
+
+def test_propagate_correspondence_reports_conflicting_target(q_app, monkeypatch, tmp_path):
+    tab = ReferenceColoringTab()
+    _new_canvas(tab, monkeypatch)
+    _add_touching_region_layers(tab)
+    _bind_bible(tab, monkeypatch, tmp_path)
+    tab._layer_panel.select_layer("layer-1-region-1")
+    tab._material_combo.setCurrentIndex(0)  # hair
+    tab._assign_correspondence()
+    tab._layer_panel.select_layer("layer-1-region-2")
+    tab._material_combo.setCurrentIndex(1)  # skin
+    tab._assign_correspondence()
+
+    _stub_text_dialog(monkeypatch, "layer-1-region-2")
+    tab._layer_panel.select_layer("layer-1-region-1")
+    tab._propagate_correspondence()
+
+    assert len(tab.correspondence_set().correspondences) == 2
+    assert "competing" in tab._status.text()
+
+
+def test_propagate_correspondence_without_canvas_is_a_no_op(q_app):
+    tab = ReferenceColoringTab()
+    tab._propagate_correspondence()
+    assert tab.correspondence_set() is None

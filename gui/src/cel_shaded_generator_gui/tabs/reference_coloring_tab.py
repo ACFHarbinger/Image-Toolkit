@@ -43,7 +43,14 @@ hard-edged. A third Pan/Brush/Eraser radio option adds an Eraser tool
 sharing the same Size/Hardness controls, reducing the active layer's
 alpha (``editor.brush.erase_dot``/``erase_line``) instead of painting a
 new color; mask mode ignores the Eraser selection and keeps its own
-direct-overwrite mask painting either way.
+direct-overwrite mask painting either way. Propagate Correspondence
+extends an existing region's correspondence onto explicit target
+regions the artist lists (adjacency-suggested, never auto-applied),
+mirroring the Krita Character Colors Docker's own Propagate
+Correspondence action (milestone C4.1, issue #21) via
+``colorization.correspondence.CorrespondenceSet.propagate`` directly --
+this was the one milestone C4.1 capability the standalone editor's
+correspondence slices (issues #31/#34) never brought over.
 
 New feature, not code motion.
 """
@@ -65,6 +72,7 @@ from editor import (
     EditHistory,
     LayerStack,
     adjacency_agreement_by_material,
+    adjacent_region_ids,
     apply_palette_color_to_region,
     assign_region_correspondence,
     close_line_gaps_in_layer,
@@ -209,6 +217,8 @@ class ReferenceColoringTab(QWidget):
         self._suggest_material_button.clicked.connect(self._suggest_material)
         self._assign_correspondence_button = QPushButton("Assign Correspondence", self)
         self._assign_correspondence_button.clicked.connect(self._assign_correspondence)
+        self._propagate_correspondence_button = QPushButton("Propagate Correspondence", self)
+        self._propagate_correspondence_button.clicked.connect(self._propagate_correspondence)
 
         controls = QHBoxLayout()
         controls.addWidget(self._new_canvas_button)
@@ -247,6 +257,7 @@ class ReferenceColoringTab(QWidget):
         palette_controls.addWidget(self._apply_palette_button)
         palette_controls.addWidget(self._suggest_material_button)
         palette_controls.addWidget(self._assign_correspondence_button)
+        palette_controls.addWidget(self._propagate_correspondence_button)
         palette_controls.addStretch(1)
 
         project_asset_controls = QHBoxLayout()
@@ -635,6 +646,59 @@ class ReferenceColoringTab(QWidget):
                 )
         self._last_ranked_candidates = None
         self._status.setText(f"Assigned region '{layer_id}' to {material.id}/{role}.")
+
+    def _propagate_correspondence(self) -> None:
+        """Extend the selected region's existing correspondence onto
+        explicit target regions, mirroring the Krita Character Colors
+        Docker's Propagate Correspondence action (milestone C4.1, issue
+        #21). Adjacency suggests targets (pre-filling the prompt) but
+        never auto-applies -- only regions the artist explicitly lists
+        (and confirms) are ever assigned. Never recolors anything itself."""
+        layer_stack = self._canvas.layer_stack()
+        source_region_id = self._layer_panel.selected_layer_id()
+        if layer_stack is None or source_region_id is None or self._correspondence_set is None:
+            return
+        source = next(
+            (
+                item
+                for item in self._correspondence_set.correspondences
+                if item.region_id == source_region_id
+            ),
+            None,
+        )
+        if source is None:
+            self._status.setText(
+                f"'{source_region_id}' has no existing correspondence to propagate."
+            )
+            return
+        pairs = region_adjacency_for_regions(layer_stack, self._region_layer_ids)
+        suggested = sorted(adjacent_region_ids(source_region_id, pairs))
+        targets_text, accepted = QInputDialog.getText(
+            self,
+            "Propagate Correspondence",
+            "Comma-separated target region ids (adjacency-suggested; edit as needed):",
+            text=", ".join(suggested),
+        )
+        if not accepted:
+            return
+        target_region_ids = [item.strip() for item in targets_text.split(",") if item.strip()]
+        if not target_region_ids:
+            self._status.setText("Enter at least one explicit target region id.")
+            return
+        try:
+            propagated = self._correspondence_set.propagate(
+                source.id, target_region_ids, lambda: "correspondence-" + uuid.uuid4().hex[:8]
+            )
+        except ValueError as error:
+            self._status.setText(str(error))
+            return
+        self._correspondence_set = propagated
+        if self._project_directory is not None:
+            upsert_project_correspondence_set(self._project_directory, payload=propagated.to_dict())
+        self._status.setText(
+            f"Propagated to {len(target_region_ids)} region(s); set now has "
+            f"{len(propagated.correspondences)} correspondence(s)."
+        )
 
     def _empty_correspondence_set(self) -> CorrespondenceSet:
         assert self._style_bible is not None

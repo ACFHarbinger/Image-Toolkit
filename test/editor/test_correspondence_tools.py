@@ -4,6 +4,7 @@ from colorization.correspondence import CorrespondenceSet, RegionCorrespondence
 from colorization.style_bible import CharacterStyleBible, MaterialPalette, StyleMaterial
 from editor import (
     adjacency_agreement_by_material,
+    adjacent_region_ids,
     assign_region_correspondence,
     rank_material_candidates,
 )
@@ -25,6 +26,15 @@ def _correspondence_set(*correspondences):
     return CorrespondenceSet(
         id="editor-correspondence", style_bible_id="aiko", correspondences=list(correspondences)
     )
+
+
+def test_adjacent_region_ids_finds_both_directions():
+    pairs = {("region-x", "region-a"), ("region-b", "region-x"), ("region-a", "region-b")}
+    assert adjacent_region_ids("region-x", pairs) == {"region-a", "region-b"}
+
+
+def test_adjacent_region_ids_empty_without_adjacency():
+    assert adjacent_region_ids("region-x", set()) == set()
 
 
 def test_adjacency_agreement_by_material_scores_partial_agreement():

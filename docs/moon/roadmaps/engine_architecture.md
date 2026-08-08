@@ -413,3 +413,25 @@ nothing is selected. Changing either edits the selected layer's
 `LayerStack.save_state()`/`load_state()`, which already round-trip
 opacity/blend mode, so undo/redo needed no changes), and emits the
 existing `layers_changed` signal so the bound canvas re-renders.
+
+**Sixteenth slice (issue #40, In review pending a manual desktop-app
+check): propagate correspondence to explicit target regions.** Closes
+a gap the seventh/tenth slices left open: the Krita Character Colors
+Docker's Propagate Correspondence action (milestone C4.1, issue #21)
+was never brought over to the standalone editor, even though the
+underlying `colorization.correspondence.CorrespondenceSet.propagate`
+it uses was already available. `src/editor/correspondence_tools.py`
+extracts `adjacent_region_ids(region_id, adjacency_pairs)` out of
+`adjacency_agreement_by_material` (same logic, now reusable) and
+exports it. `ReferenceColoringTab` adds a Propagate Correspondence
+button: takes the selected region layer's existing correspondence
+entry as the source, suggests (pre-fills, never auto-applies) adjacent
+regions as targets via `adjacent_region_ids`, prompts for an explicit
+comma-separated target list the artist can edit, and calls
+`CorrespondenceSet.propagate` directly -- mirroring the Krita docker's
+own flow exactly, including its conflict handling (a target already
+assigned to a different material is reported, never silently
+overwritten). Persists to the bound project (if any) the same way
+Assign Correspondence does. Never recolors anything itself, matching
+the existing "assignment vs. recoloring are separate actions" split
+from the seventh slice.

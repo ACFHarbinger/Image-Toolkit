@@ -141,7 +141,7 @@ anyway, ahead of the gate; see the "Gate 5 exception" note in the
 [Engine Architecture Roadmap](roadmaps/engine_architecture.md) for the full
 rationale. This is a scope decision, not evidence Krita has proven
 insufficient — the Krita plugin remains the primary, actively-developed
-host. Fifteen slices are implemented, all In review: the first (issue #25 —
+host. Sixteen slices are implemented, all In review: the first (issue #25 —
 a PySide6 canvas + layer-stack foundation in the existing `gui/` workspace
 member, backed by a new pure-numpy `src/editor/` package), the second
 (issue #26 — a brush paint tool: pure-numpy circular stamping in
@@ -188,7 +188,10 @@ eraser tool, `erase_dot`/`erase_line`, sharing the brush's radius/
 hardness controls but reducing alpha instead of painting a color), and
 the fifteenth (issue #39 — per-layer opacity/blend mode UI in
 `LayerListPanel`, exposing `LayerMeta` fields `composite()` has used
-since the first slice but that never had any UI control).
+since the first slice but that never had any UI control), and the
+sixteenth (issue #40 — a Propagate Correspondence button bringing the
+Krita Character Colors Docker's milestone C4.1 propagation action to
+the standalone editor, via `CorrespondenceSet.propagate` directly).
 The likely long-term architecture is still a C++ engine, GPU-backed
 canvas, and isolated Python research/model workers; its staged boundary and
 migration gates are defined in the same document. Browser support is not a

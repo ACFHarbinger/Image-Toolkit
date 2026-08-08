@@ -38,7 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `engine_architecture.md`'s "Gate 5 exception (2026-08-07)" note for the
   full rationale — this is a scope decision, not evidence Krita has proven
   insufficient. The Krita plugin remains the primary, actively-developed
-  host. Fifteen slices — canvas + layer-stack foundation, brush paint
+  host. Sixteen slices — canvas + layer-stack foundation, brush paint
   tool (issue #26), undo/redo (issue #27), non-destructive layer masks
   (issue #28), line-art segmentation (issue #29), style-bible palette
   application (issue #30), region-to-material correspondence assignment
@@ -47,8 +47,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `SignalWeights` correction learning (issue #34), attaching canvas
   documents into a bound project (issue #35), browsing/reopening
   project-bound assets (issue #36), a soft/anti-aliased brush hardness
-  option (issue #37), an eraser tool (issue #38), and per-layer
-  opacity/blend mode UI (issue #39) — are all In review pending a
+  option (issue #37), an eraser tool (issue #38), per-layer
+  opacity/blend mode UI (issue #39), and propagating correspondence to
+  explicit target regions (issue #40) — are all In review pending a
   manual desktop-app check (see the `### Added` entries below).
 
 ### Fixed
@@ -485,6 +486,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `gui` tests (541 core + 210 gui total); Ruff and mypy clean. Needs a
   manual desktop launch to confirm visually — see issue #39's testing
   comment.
+- **Standalone editor sixteenth slice (issue #40, In review):
+  propagate correspondence to explicit target regions.** Closes a gap
+  the seventh/tenth slices left open: the Krita Character Colors
+  Docker's Propagate Correspondence action (milestone C4.1, issue #21)
+  was never brought over to the standalone editor, even though the
+  underlying `colorization.correspondence.CorrespondenceSet.propagate`
+  it uses was already available. `src/editor/correspondence_tools.py`
+  extracts `adjacent_region_ids(region_id, adjacency_pairs)` out of
+  `adjacency_agreement_by_material` (same logic, now reusable) and
+  exports it. `ReferenceColoringTab` adds a Propagate Correspondence
+  button: takes the selected region layer's existing correspondence
+  entry as the source, suggests (pre-fills, never auto-applies)
+  adjacent regions as targets via `adjacent_region_ids`, prompts for an
+  explicit comma-separated target list the artist can edit, and calls
+  `CorrespondenceSet.propagate` directly — mirroring the Krita docker's
+  own flow exactly, including its conflict handling. Persists to the
+  bound project (if any) the same way Assign Correspondence does.
+  Never recolors anything itself. Verification: 2 new core `editor`
+  tests, 8 new headless-Qt `gui` tests (543 core + 217 gui total);
+  Ruff and mypy clean. Needs a manual desktop launch to confirm
+  visually — see issue #40's testing comment.
 - **Milestone 4 first slice (issue #24): deterministic confidence scoring
   and correction learning for assisted correspondence.** Portable contract
   only, no Docker UI yet, following the same sequencing every prior

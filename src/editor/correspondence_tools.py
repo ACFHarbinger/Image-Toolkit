@@ -30,9 +30,22 @@ _DEFAULT_NAME_WEIGHT = 0.5
 
 __all__ = [
     "adjacency_agreement_by_material",
+    "adjacent_region_ids",
     "rank_material_candidates",
     "assign_region_correspondence",
 ]
+
+
+def adjacent_region_ids(region_id: str, adjacency_pairs: set[tuple[str, str]]) -> set[str]:
+    """The other region ids ``region_id`` appears paired with in
+    ``adjacency_pairs`` (e.g.
+    ``segmentation_tools.region_adjacency_for_regions``'s return value).
+    """
+    return {
+        other
+        for left, right in adjacency_pairs
+        for other in ((right,) if left == region_id else (left,) if right == region_id else ())
+    }
 
 
 def adjacency_agreement_by_material(
@@ -49,11 +62,7 @@ def adjacency_agreement_by_material(
     out of all adjacent regions. Returns an empty dict (every material
     scores zero) when ``region_id`` has no adjacency information.
     """
-    adjacent_ids = {
-        other
-        for left, right in adjacency_pairs
-        for other in ((right,) if left == region_id else (left,) if right == region_id else ())
-    }
+    adjacent_ids = adjacent_region_ids(region_id, adjacency_pairs)
     if not adjacent_ids:
         return {}
     assigned = {item.region_id: item.material_id for item in correspondence_set.correspondences}
