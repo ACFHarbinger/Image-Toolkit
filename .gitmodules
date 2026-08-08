@@ -16,12 +16,9 @@
 [submodule "vendor/BiRefNet"]
 	path = vendor/BiRefNet
 	url = https://github.com/ACFHarbinger/BiRefNet.git
-[submodule "submodules/ComfyUI"]
+[submodule "vendor/ComfyUI"]
 	path = vendor/ComfyUI
 	url = https://github.com/ACFHarbinger/ComfyUI.git
-[submodule "submodules/Recommendation-Engine"]
-	path = submodules/Recommendation-Engine
-	url = https://github.com/ACFHarbinger/Recommendation-Engine.git
 [submodule "vendor/Hugin"]
 	path = vendor/Hugin
 	url = https://github.com/ACFHarbinger/Hugin.git
@@ -31,9 +28,14 @@
 [submodule "vendor/Overmix"]
 	path = vendor/Overmix
 	url = https://github.com/ACFHarbinger/Overmix.git
+
+# Personal Submodules
+[submodule "submodules/Content-Recommendation-Engine"]
+	path = submodules/CRE
+	url = https://github.com/ACFHarbinger/Content-Recommendation-Engine.git
 [submodule "submodules/Cel-Shaded-Generator"]
-	path = submodules/Cel-Shaded-Generator
+	path = submodules/CSG
 	url = https://github.com/ACFHarbinger/Cel-Shaded-Generator.git
 [submodule "submodules/Anime-Stitch-Pipeline"]
-	path = submodules/Anime-Stitch-Pipeline
+	path = submodules/ASP
 	url = https://github.com/ACFHarbinger/Anime-Stitch-Pipeline.git
