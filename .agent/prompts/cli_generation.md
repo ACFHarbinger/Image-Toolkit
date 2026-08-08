@@ -9,6 +9,6 @@ Based on the `README.md` and `GEMINI.md` instructions, generate the exact CLI co
 2. Target format: **PNG**.
 3. Input source: `/home/user/photos`.
 4. Input filter: Only **WebP** files.
-5. Use the `main.py` entry point.
+5. Use the `backend/main.py` entry point.
 
 Output only the bash command.

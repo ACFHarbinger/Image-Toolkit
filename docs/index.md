@@ -67,7 +67,7 @@ graph TD
 npm run dev
 
 # Python PySide6 desktop GUI
-source .venv/bin/activate && python main.py
+source .venv/bin/activate && python backend/main.py
 
 # Hydra CLI (training, embedding, ComfyUI)
 python -m backend.dispatcher command=train

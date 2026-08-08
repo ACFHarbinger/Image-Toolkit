@@ -27,7 +27,7 @@ commit message:
 # Legacy alias for 'gui' — run Python/PySide6 app directly
 python args="":
     @echo "🐍 Starting Python/PySide6 app..."
-    source .venv/bin/activate && python main.py {{args}}
+    source .venv/bin/activate && python backend/main.py {{args}}
 
 # Print help menu of available commands
 help:

@@ -43,7 +43,7 @@ pytest -s backend/test/
 source .venv/bin/activate
 
 # Launch the full app (visual check required):
-python main.py
+python backend/main.py
 ```
 
 Check:
@@ -86,7 +86,7 @@ just test-base-cpp
 pytest
 
 # 4. Quick smoke-test the app
-python main.py &
+python backend/main.py &
 sleep 5
 kill %1
 ```

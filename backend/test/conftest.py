@@ -33,8 +33,9 @@ build_base = os.path.join(repo_root, "build", "base")
 if os.path.exists(build_base) and build_base not in sys.path:
     sys.path.insert(0, build_base)
 # ASP and Manga Colorization & Animation live in their own submodules;
-# see _submodule_bootstrap.py for why this isn't a plain sys.path.insert.
-from _submodule_bootstrap import register_submodule_packages
+# see git/scripts/_submodule_bootstrap.py for why this isn't a plain
+# sys.path.insert.
+from git.scripts._submodule_bootstrap import register_submodule_packages
 
 register_submodule_packages(repo_root)
 

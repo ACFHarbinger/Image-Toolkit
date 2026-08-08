@@ -342,7 +342,7 @@ def get_main_parser():
     add_stitch_args(subparsers.add_parser(
         "stitch",
         help="Stitch frames into a panorama (single or batch mode). \n"
-             "Example: python main.py stitch --batch-dir ./sequences/ --resume",
+             "Example: python backend/main.py stitch --batch-dir ./sequences/ --resume",
     ))
     subparsers.add_parser("slideshow", help="Start slideshow daemon")
 

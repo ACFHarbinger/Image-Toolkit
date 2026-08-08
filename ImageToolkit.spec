@@ -12,7 +12,7 @@ pyside_path = os.path.dirname(PySide6.__file__)
 pathex=['/backend', '/gui']
 
 a = Analysis(
-    ['__main__.py'],  # Your main entry point file
+    ['gui/__main__.py'],  # Your main entry point file
     pathex=['/backend', '/gui'],
 
     binaries=[],
