@@ -41,7 +41,7 @@ def on_pre_build(config: dict) -> None:
     _sync_dir(ROOT, DOCS, only=["README.md"], rename={"README.md": "readme.md"})
     _sync_dir(ROOT / "frontend", DOCS / "api" / "typescript", only=["README.md"], rename={"README.md": "readme.md"})
     _sync_dir(
-        DOCS / "research",
+        DOCS / "moon" / "research",
         DOCS / "research",
         rename={
             "Analytics and Codebase Visualization Research.md": "analytics.md",

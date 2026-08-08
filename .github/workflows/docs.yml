@@ -7,7 +7,7 @@ on:
       - "docs/**"
       - "docs/moon/roadmaps/**"
       - "docs/moon/ROADMAP.md"
-      - "docs/research/**"
+      - "docs/moon/research/**"
       - "backend/src/**/*.py"
       - "base/src/math/**/*.rs"
       - "frontend/src/**/*.ts"
