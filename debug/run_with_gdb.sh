@@ -27,7 +27,7 @@
 #
 # Usage:
 #   IMAGE_TOOLKIT_TELEMETRY=1 debug/run_with_gdb.sh
-#   debug/run_with_gdb.sh --no-dropdown            # extra args forwarded to main.py
+#   debug/run_with_gdb.sh --no-dropdown            # extra args forwarded to backend/main.py
 #
 # Output: an all-thread backtrace, written to
 #   ~/.image-toolkit/telemetry/gdb-backtrace-<timestamp>.txt
@@ -83,7 +83,7 @@ gdb -q -batch \
     -ex "set confirm off" \
     -ex "handle SIGSEGV nostop noprint pass" \
     -ex "handle SIGABRT stop print" \
-    -ex "run main.py $*" \
+    -ex "run backend/main.py $*" \
     -ex "echo \n===== SIGABRT CAUGHT -- ALL-THREAD BACKTRACE =====\n" \
     -ex "thread apply all bt full" \
     -ex "echo \n===== RE-DELIVERING SIGNAL TO THE JVM'S OWN HANDLER (for hs_err_pid*.log) =====\n" \

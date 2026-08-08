@@ -17,10 +17,10 @@ DIRECTION="horizontal"
 GRID_SIZE=()
 SPACING=0
 if [ ${#GRID_SIZE[@]} -eq 0 ]; then
-    python main.py merge --direction "$DIRECTION" --input_path "${IN_PATHS[@]}" \
+    python backend/main.py merge --direction "$DIRECTION" --input_path "${IN_PATHS[@]}" \
     --output_path "$OUT_PATH" --input_formats "${IN_FORMATS[@]}" --spacing "$SPACING"
 else
-    python main.py merge --direction "$DIRECTION" --input_path "${IN_PATHS[@]}" \
+    python backend/main.py merge --direction "$DIRECTION" --input_path "${IN_PATHS[@]}" \
     --output_path "$OUT_PATH" --input_formats "${IN_FORMATS[@]}" \
     --spacing "$SPACING" --grid_size "${GRID_SIZE[@]}"
 fi

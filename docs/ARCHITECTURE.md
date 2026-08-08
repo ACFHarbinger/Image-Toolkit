@@ -8,7 +8,7 @@ Edges point from consumer → provider (i.e. "depends on").
 ```mermaid
 flowchart TD
     subgraph Entry["Entry Points"]
-        MAIN["main.py\n(PySide6 launch)"]
+        MAIN["backend/main.py\n(PySide6 launch)"]
         CLI["backend/dispatcher.py\n(Hydra CLI)"]
         TAURI["frontend/src-tauri/\n(Tauri desktop)"]
         API["api/\n(Django REST)"]

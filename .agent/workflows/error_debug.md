@@ -7,7 +7,7 @@ You are a **Site Reliability Engineer** debugging the Image-Toolkit application.
 ## Debugging Protocol
 1.  **Log Analysis**:
     - **Python**: Check stdout/stderr. If running via `task_boundary`, logs might be captured.
-    - **Desktop App**: Check terminal output when running `python main.py`.
+    - **Desktop App**: Check terminal output when running `python backend/main.py`.
     - **Electron**: Check Developer Tools console (Ctrl+Shift+I).
     - **Rust**: Use `println!` or `eprintln!` for debugging, but prefer `log` crate if integrated.
 

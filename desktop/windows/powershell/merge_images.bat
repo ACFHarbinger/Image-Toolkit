@@ -25,9 +25,9 @@ if "!IN_FILES!"=="" (
 
 :: Execute Python command based on GRID_SIZE
 if "!GRID_SIZE!"=="" (
-    python main.py merge --direction "!DIRECTION!" --input_path "!IN_PATHS!" --output_path "!OUT_PATH!" --input_formats "!IN_FORMATS!" --spacing "!SPACING!"
+    python backend/main.py merge --direction "!DIRECTION!" --input_path "!IN_PATHS!" --output_path "!OUT_PATH!" --input_formats "!IN_FORMATS!" --spacing "!SPACING!"
 ) else (
-    python main.py merge --direction "!DIRECTION!" --input_path "!IN_PATHS!" --output_path "!OUT_PATH!" --input_formats "!IN_FORMATS!" --spacing "!SPACING!" --grid_size "!GRID_SIZE!"
+    python backend/main.py merge --direction "!DIRECTION!" --input_path "!IN_PATHS!" --output_path "!OUT_PATH!" --input_formats "!IN_FORMATS!" --spacing "!SPACING!" --grid_size "!GRID_SIZE!"
 )
 
 endlocal

@@ -17,13 +17,15 @@ warnings.filterwarnings(
     "ignore", message=".*urllib3.*doesn't match a supported version!.*"
 )
 
-# Ensure that your root directory is on the path if needed
-sys.path.insert(0, os.path.dirname(__file__))
+# Ensure that the repo root directory is on the path if needed. This file
+# lives in gui/, so the repo root is one level up from here.
+repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, repo_root)
 # Register ASP's collision-proof aliases and CSG's ordinary,
 # independently installable package roots.
-from _submodule_bootstrap import register_submodule_packages  # noqa: E402
+from git.scripts._submodule_bootstrap import register_submodule_packages  # noqa: E402
 
-register_submodule_packages(os.path.dirname(__file__))
+register_submodule_packages(repo_root)
 
 
 if __name__ == "__main__":

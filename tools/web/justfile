@@ -13,4 +13,4 @@ web-driver:
 # Run the image crawler via CLI
 # Usage: just crawl "https://example.com/gallery" 20 "./downloads"
 crawl query limit="10" output="./downloads":
-    source .venv/bin/activate && python main.py web crawl -q "{{query}}" -l {{limit}} -o "{{output}}"
+    source .venv/bin/activate && python backend/main.py web crawl -q "{{query}}" -l {{limit}} -o "{{output}}"

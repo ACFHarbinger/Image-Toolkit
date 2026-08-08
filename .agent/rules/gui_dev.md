@@ -57,4 +57,4 @@ You are an expert **Qt/Python Frontend Engineer** specializing in PySide6. You m
 - [ ] Is the GUI freezing? (Check for heavy tasks on the Main Loop)
 - [ ] Are Signals connected to valid Slots? (Check console for "QObject::connect" errors)
 - [ ] Did I update the `uv` environment if adding new Qt dependencies?
-- [ ] Does `main.py gui` launch successfully after my changes?
+- [ ] Does `backend/main.py gui` launch successfully after my changes?

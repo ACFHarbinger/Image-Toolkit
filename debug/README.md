@@ -101,7 +101,7 @@ more Python print statements."*
 IMAGE_TOOLKIT_TELEMETRY=1 debug/run_with_gdb.sh
 ```
 
-Runs `main.py` under `gdb -batch`, stopping **only on SIGABRT** — glibc's
+Runs `backend/main.py` under `gdb -batch`, stopping **only on SIGABRT** — glibc's
 malloc-corruption abort, the `corrupted size vs. prev_size` crash this tool
 exists for — and dumping an all-thread backtrace (`thread apply all bt full`)
 to `~/.image-toolkit/telemetry/gdb-backtrace-<timestamp>.txt`, then
@@ -128,7 +128,7 @@ already-unstripped CPython build, not the system one debug-symbol packages
 would target.
 
 Requires `gdb` installed (`sudo apt install gdb` on Debian/Ubuntu). Extra
-arguments are forwarded to `main.py` (e.g.
+arguments are forwarded to `backend/main.py` (e.g.
 `debug/run_with_gdb.sh --no-dropdown`).
 
 The script also raises the core-dump size limit (`ulimit -c unlimited`)

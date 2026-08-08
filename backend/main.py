@@ -51,15 +51,18 @@ with contextlib.suppress(OSError):
 with contextlib.suppress(OSError):
     ctypes.CDLL("/usr/lib/x86_64-linux-gnu/libfontconfig.so.1")
 
-# Ensure that your root directory is on the path if needed
-sys.path.insert(0, os.path.dirname(__file__))
+# Ensure that the repo root directory is on the path if needed. This file
+# lives in backend/, so the repo root is one level up from here.
+repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, repo_root)
 # ASP and Manga Colorization & Animation live in their own submodules;
-# see _submodule_bootstrap.py for why this isn't a plain sys.path.insert.
+# see git/scripts/_submodule_bootstrap.py for why this isn't a plain
+# sys.path.insert.
 # Must run before any backend/gui import below -- gui.src.windows.settings.
 # app_config imports asp_backend at module load time.
-from _submodule_bootstrap import register_submodule_packages  # noqa: E402
+from git.scripts._submodule_bootstrap import register_submodule_packages  # noqa: E402
 
-register_submodule_packages(os.path.dirname(__file__))
+register_submodule_packages(repo_root)
 
 from backend.controllers.backend_dispatch import dispatch_command  # noqa: E402
 from backend.controllers.cli.arg_parser import parse_params  # noqa: E402

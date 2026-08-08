@@ -249,7 +249,7 @@ python -m backend.dispatcher command=comfyui comfyui.port=8188 comfyui.listen=12
 python -m backend.dispatcher command=train training.batch_size=16 training.epochs=50
 
 # Batch image conversion via the main CLI
-python main.py convert --output_format png --input_path /path/to/images --input_formats webp avif
+python backend/main.py convert --output_format png --input_path /path/to/images --input_formats webp avif
 ```
 
 Config files live in `backend/config/`. Override any key with `key=value` on the command line. `backend/config/asp_config.toml` configures the Anime Stitch Pipeline — see `backend/src/animation/config.py` for the schema.
@@ -266,7 +266,7 @@ The legacy Qt-based desktop application provides a full feature set including th
 source .venv/bin/activate
 
 # Launch the GUI
-python main.py
+python backend/main.py
 
 # Or via the justfile
 just python
@@ -712,7 +712,7 @@ The compiled application will be in:
 
 ```bash
 source .venv/bin/activate
-python main.py
+python backend/main.py
 # or: make python-dev
 ```
 
@@ -910,12 +910,12 @@ After installing PostgreSQL, you can use the `psql -U postgres -d img_db` comman
 
 You can either convert a single image at a time:
 ```bash
-python main.py convert --output_format png --input_path <path_to_img> --output_path <path_new_img>
+python backend/main.py convert --output_format png --input_path <path_to_img> --output_path <path_new_img>
 ```
 
 or batch convert all images in a directory that match one (or more) image formats:
 ```bash
-python main.py convert --output_format png --input_path <path_to_dir> --input_formats webp avif --output_path <path_new_dir>
+python backend/main.py convert --output_format png --input_path <path_to_dir> --input_formats webp avif --output_path <path_new_dir>
 ```
 
 **Note:** If no `--output_path` argument is given, the new image will have the same name (or the images will be generated in the same directory, in the case of batch conversion), just with a different file extension.

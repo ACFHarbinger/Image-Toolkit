@@ -19,12 +19,12 @@ The project mission is to provide a unified environment for managing massive ima
 | :--- | :--- |
 | **Sync Environment** | `bash desktop/linux/scripts/setup_env.sh` |
 | **Activate Venv** | `source .venv/bin/activate` |
-| **Launch Desktop App** | `python main.py` |
+| **Launch Desktop App** | `python backend/main.py` |
 | **Frontend Dev** | `npm run start-all` |
 | **Frontend Build** | `npm run start-electron` |
 | **Mobile Build** | `./gradlew assembleDebug` |
-| **Single Conversion** | `python main.py convert --output_format png --input_path <path>` |
-| **Batch Conversion** | `python main.py convert --output_format png --input_path <dir> --input_formats webp` |
+| **Single Conversion** | `python backend/main.py convert --output_format png --input_path <path>` |
+| **Batch Conversion** | `python backend/main.py convert --output_format png --input_path <dir> --input_formats webp` |
 | **Helper Conversion** | `bash desktop/linux/cli/convert_images.sh` |
 | **Build Desktop App** | `pyinstaller --clean ImageToolkit.spec` |
 | **Run Python Tests** | `pytest` |

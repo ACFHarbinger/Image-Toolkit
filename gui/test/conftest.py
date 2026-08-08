@@ -43,8 +43,9 @@ project_root = Path(__file__).resolve().parent.parent.parent
 # to resolve 'gui' as a package within Image-Toolkit/.
 sys.path.insert(0, str(project_root))
 # ASP and Manga Colorization & Animation live in their own submodules;
-# see _submodule_bootstrap.py for why this isn't a plain sys.path.insert.
-from _submodule_bootstrap import register_submodule_packages  # noqa: E402
+# see git/scripts/_submodule_bootstrap.py for why this isn't a plain
+# sys.path.insert.
+from git.scripts._submodule_bootstrap import register_submodule_packages  # noqa: E402
 
 register_submodule_packages(str(project_root))
 
