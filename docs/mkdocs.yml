@@ -8,7 +8,7 @@ repo_name: ACFHarbinger/Cel-Shaded-Generator
 edit_uri: edit/main/docs/
 
 docs_dir: .
-site_dir: ../site
+site_dir: ../build/gen/site
 exclude_docs: |
   sphinx/conf.py
   website/node_modules/**
