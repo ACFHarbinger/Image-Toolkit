@@ -28,7 +28,7 @@ urlpatterns = [
     # Route all API endpoints starting with 'api/' to the tasks app
     path("api/", include("tasks.urls")),
     # Browser-extension bridge (§7.5A)
-    path("api/extension/", include("extension_api.urls")),
+    path("api/extension/", include("api.extension.urls")),
     # OpenAPI schema + interactive docs (§4.5)
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),

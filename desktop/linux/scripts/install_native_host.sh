@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Installs the §7.5B native-messaging host (extension_api/native_host.py)
+# Installs the §7.5B native-messaging host (api/extension/native_host.py)
 # for one or more browsers, per the roadmap's Phase B plan.
 #
 # A native messaging host can only ever be launched by an extension ID that
@@ -42,7 +42,7 @@ if [ ! -x "$LAUNCHER" ]; then
 set -e
 cd "$TOOLKIT_ROOT"
 source .venv/bin/activate
-exec python -m extension_api.native_host
+exec python -m api.extension.native_host
 LAUNCHER_EOF
     chmod +x "$LAUNCHER"
     echo "[install_native_host] Wrote launcher: $LAUNCHER"

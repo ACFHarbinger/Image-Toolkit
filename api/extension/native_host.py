@@ -48,7 +48,7 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from extension_api import bridge_handlers  # noqa: E402
+from api.extension import bridge_handlers  # noqa: E402
 
 _LOG_PATH = Path.home() / ".image-toolkit" / "extension-bridge" / "native_host.log"
 

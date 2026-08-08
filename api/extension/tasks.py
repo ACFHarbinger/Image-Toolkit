@@ -49,7 +49,7 @@ def _with_suffix(name_hint: str, suffix: str, ext: str) -> str:
     return f"{stem}{suffix}{ext}"
 
 
-@shared_task(bind=True, name="extension_api.cv_bg_remove")
+@shared_task(bind=True, name="api.extension.cv_bg_remove")
 def cv_bg_remove_task(
     self, data_b64: str, filename_hint: str = "image.png"
 ) -> Dict[str, Any]:
@@ -88,7 +88,7 @@ def cv_bg_remove_task(
         return {"status": "error", "message": str(exc)}
 
 
-@shared_task(bind=True, name="extension_api.cv_upscale")
+@shared_task(bind=True, name="api.extension.cv_upscale")
 def cv_upscale_task(
     self,
     data_b64: str,

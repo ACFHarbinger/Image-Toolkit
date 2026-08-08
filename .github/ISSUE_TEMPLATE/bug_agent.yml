@@ -7,8 +7,8 @@ body:
     attributes:
       value: |
         This template produces a machine-parsable issue. Every field below is
-        consumed verbatim by `backend/scripts/github/sync_backlog.py` and
-        `backend/scripts/github/agent_tools.py` — do not rename options.
+        consumed verbatim by `git/scripts/sync_backlog.py` and
+        `git/scripts/agent_tools.py` — do not rename options.
 
   - type: dropdown
     id: component

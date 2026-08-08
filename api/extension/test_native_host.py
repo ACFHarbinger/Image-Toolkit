@@ -9,8 +9,8 @@ without touching the real `~/.image-toolkit/` directory.
 import io
 import struct
 
-from extension_api import native_host
-from extension_api.tests import BridgeTestCase, _png_bytes
+from api.extension import native_host
+from api.extension.tests import BridgeTestCase, _png_bytes
 
 
 class TestFraming(BridgeTestCase):
@@ -87,7 +87,7 @@ class TestDispatch(BridgeTestCase):
         from unittest import mock
 
         with mock.patch(
-            "extension_api.bridge_handlers.handle_ping",
+            "api.extension.bridge_handlers.handle_ping",
             side_effect=RuntimeError("boom"),
         ):
             resp = native_host.dispatch({"action": "ping"})

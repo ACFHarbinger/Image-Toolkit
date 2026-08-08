@@ -6,7 +6,7 @@
  * - **"http"** (§7.5A, default): token-authenticated localhost Django
  *   endpoints under `/api/extension/`.
  * - **"native"** (§7.5B): `runtime.sendNativeMessage` to the
- *   `extension_api/native_host.py` process, installed per-browser via
+ *   `api/extension/native_host.py` process, installed per-browser via
  *   `desktop/linux/scripts/install_native_host.sh`. No token — the
  *   browser's own native-messaging host-manifest allowlist is the security
  *   boundary instead.
@@ -241,7 +241,7 @@ export function getPhashSnapshot(): Promise<PhashSnapshotResult> {
 // These two are HTTP-only: unlike ping/dup-check/ingest/similar/
 // phash-snapshot, they're backed by a job-id + polling flow (BiRefNet /
 // Real-ESRGAN inference is genuinely long-running, queued via the app's
-// Celery task queue — see extension_api/tasks.py), which doesn't map onto
+// Celery task queue — see api/extension/tasks.py), which doesn't map onto
 // native messaging's single-request/single-response call without a second
 // design pass. If `settings.bridgeTransport` is `"native"`, these still go
 // over HTTP directly (`bridgeFetch`, not `bridgeCall`) — the HTTP bridge

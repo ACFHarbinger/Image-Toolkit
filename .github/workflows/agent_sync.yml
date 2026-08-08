@@ -39,10 +39,14 @@ jobs:
         run: uv sync --frozen --extra ci --no-install-project
 
       - name: Run backlog sync
-        run: uv run python backend/scripts/github/sync_backlog.py
+        # sync_backlog.py imports agent_tools via a relative import, so it
+        # must run as the `git.scripts` package (cwd at the repo root)
+        # rather than as a bare script -- same reasoning as
+        # git/hooks/post-commit's check_commit_ref.py invocation.
+        run: cd "$GITHUB_WORKSPACE" && uv run python -m git.scripts.sync_backlog
         env:
           PYTHONPATH: .
-          GH_PROJECT_TOKEN: ${{ secrets.REPO_PROJECT_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.REPO_PROJECT_TOKEN }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_SHA: ${{ github.sha }}

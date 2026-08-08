@@ -6,7 +6,7 @@ OpenAPI 3.1 schema from the view and serializer definitions.
 
 ## Interactive playgrounds (local server)
 
-When running the local Django server (`uv run python manage.py runserver`), three
+When running the local Django server (`uv run python api/manage.py runserver`), three
 interactive API explorers are available:
 
 | URL | Tool | Notes |
@@ -25,10 +25,10 @@ when endpoints change.
 source .venv/bin/activate
 
 # Write the spec to a file
-python manage.py spectacular --file openapi.yaml
+python api/manage.py spectacular --file openapi.yaml
 
 # Or validate the spec in one step
-python manage.py spectacular --validate --fail-on-warn
+python api/manage.py spectacular --validate --fail-on-warn
 ```
 
 ## Response format
@@ -112,9 +112,9 @@ they are wired.
 2. Add the view to `tasks/views.py` — annotate with `@extend_schema(tags=[...], summary=..., request=..., responses={202: _TASK_QUEUED, 400: _VALIDATION_ERROR})`.
 3. Wire the URL in `tasks/urls.py`.
 4. Add the Celery task body to `tasks/tasks.py`.
-5. Run `python manage.py spectacular --validate` to verify the schema is valid.
+5. Run `python api/manage.py spectacular --validate` to verify the schema is valid.
 
 !!! tip "Schema drift detection"
-    Add `python manage.py spectacular --validate --fail-on-warn` as a CI step in
+    Add `python api/manage.py spectacular --validate --fail-on-warn` as a CI step in
     `.github/workflows/docs.yml` to catch any undocumented endpoints or missing
     `@extend_schema` decorators automatically.

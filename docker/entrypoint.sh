@@ -21,7 +21,7 @@ fi
 # --- Django migrations (only where RUN_MIGRATIONS=1) -------------------------
 if [[ "${RUN_MIGRATIONS:-0}" == "1" ]]; then
     echo "entrypoint: applying Django migrations..."
-    python manage.py migrate --noinput || echo "entrypoint: migrate failed (continuing)"
+    python api/manage.py migrate --noinput || echo "entrypoint: migrate failed (continuing)"
 fi
 
 exec "$@"
