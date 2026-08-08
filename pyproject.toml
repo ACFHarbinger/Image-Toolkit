@@ -7,7 +7,7 @@ requires-python = ">=3.11"
 dependencies = []
 
 [tool.uv.workspace]
-members = ["backend", "gui", "submodules/CRE"]
+members = ["backend", "gui", "submodules/ASP", "submodules/CRE", "submodules/CSG", "git"]
 
 [dependency-groups]
 # CI runs `uv sync --group dev` from the workspace root, so the group must be
