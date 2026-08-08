@@ -35,7 +35,7 @@ def test_installer_refuses_to_overwrite_existing_plugin(tmp_path):
 
 def test_installer_excludes_python_cache_artifacts(tmp_path):
     source_cache = (
-        Path(__file__).parents[2] / "integrations/krita/pykrita/cel_shaded_generator/__pycache__"
+        Path(__file__).parents[3] / "integrations/krita/pykrita/cel_shaded_generator/__pycache__"
     )
     source_cache.mkdir(exist_ok=True)
     (source_cache / "generated.pyc").write_bytes(b"cache")
@@ -58,7 +58,7 @@ def test_snap_target_is_rejected(tmp_path):
 
 def test_packaged_lesson_is_a_complete_offline_beginner_sequence():
     path = (
-        Path(__file__).parents[2]
+        Path(__file__).parents[3]
         / "integrations/krita/pykrita/cel_shaded_generator/content/lesson.json"
     )
     lesson = json.loads(path.read_text(encoding="utf-8"))

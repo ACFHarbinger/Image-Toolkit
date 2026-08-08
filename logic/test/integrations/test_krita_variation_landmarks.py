@@ -9,7 +9,7 @@ import pytest
 
 
 def _module():
-    package = Path(__file__).parents[2] / "integrations/krita/pykrita/cel_shaded_generator"
+    package = Path(__file__).parents[3] / "integrations/krita/pykrita/cel_shaded_generator"
     package_module = ModuleType("cel_shaded_generator")
     package_module.__path__ = [str(package)]
     sys.modules["cel_shaded_generator"] = package_module

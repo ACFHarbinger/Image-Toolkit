@@ -4,7 +4,7 @@
 | --- | --- |
 | Attempt | One learner's in-progress or completed exercise submission. |
 | Cel shading | Discrete tone/color regions creating a drawn appearance. |
-| Core | The Qt-independent top-level packages and modules installed from `src/`. |
+| Core | The Qt-independent top-level packages and modules installed from `logic/src/`. |
 | Golden | A committed expected array used for regression checking. |
 | Learner profile | Optional private cross-project aggregate statistics. |
 | Native job | Numerical work executed behind process isolation. |

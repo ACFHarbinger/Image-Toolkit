@@ -6,7 +6,7 @@ from pathlib import Path
 
 def _module():
     path = (
-        Path(__file__).parents[2]
+        Path(__file__).parents[3]
         / "integrations/krita/pykrita/cel_shaded_generator/progress_view.py"
     )
     spec = importlib.util.spec_from_file_location("krita_progress_view", path)

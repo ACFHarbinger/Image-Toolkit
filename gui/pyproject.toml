@@ -52,6 +52,6 @@ cel-shaded-generator = { workspace = true }
 
 [tool.pytest.ini_options]
 testpaths = ["test"]
-pythonpath = ["src", "../src"]
+pythonpath = ["src", "../logic/src"]
 addopts = "-ra"
 markers = ["gui: headless Qt GUI test"]

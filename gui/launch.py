@@ -11,7 +11,7 @@ import sys
 from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
-for source_root in (_REPO_ROOT / "src", _REPO_ROOT / "gui" / "src"):
+for source_root in (_REPO_ROOT / "logic" / "src", _REPO_ROOT / "gui" / "src"):
     source = str(source_root)
     if source not in sys.path:
         sys.path.insert(0, source)

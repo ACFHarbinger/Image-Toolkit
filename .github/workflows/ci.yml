@@ -18,9 +18,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
       - run: uv sync --all-packages --all-extras --dev
-      - run: uv run ruff check src test
-      - run: uv run mypy src
-      - run: uv run pytest test -v --cov=src --cov-report=xml
+      - run: uv run ruff check logic/src logic/test
+      - run: cd logic && uv run mypy src
+      - run: uv run pytest logic/test -v --cov=logic/src --cov-report=xml
       - run: uv build --all-packages
       - name: Smoke-test built wheels in a clean environment
         run: |
@@ -44,5 +44,5 @@ jobs:
       - uses: astral-sh/setup-uv@v5
       - run: uv sync --all-packages --all-extras --dev
       - run: uv run --package cel-shaded-generator-gui ruff check gui
-      - run: uv run --package cel-shaded-generator-gui mypy gui/src
+      - run: cd gui && uv run mypy src
       - run: uv run --package cel-shaded-generator-gui pytest gui/test -v

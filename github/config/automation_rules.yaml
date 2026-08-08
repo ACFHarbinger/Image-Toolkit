@@ -55,7 +55,7 @@ commit_ref:
   patterns:
     - '(?i)\b(fixes|closes|refs|relates-to)\s*:?\s*#(\d+)\b'
     - '(?i)\bDRT-(\d+)\b'
-  # If no ticket reference is found on a commit touching src/, warn but do not block.
+  # If no ticket reference is found on a commit touching logic/src/, warn but do not block.
   block_commit_on_missing_ref: false
 
 notifications:

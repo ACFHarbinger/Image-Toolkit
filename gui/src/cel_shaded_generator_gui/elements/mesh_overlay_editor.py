@@ -1,6 +1,6 @@
 """Mesh overlay editor for ARAP rigging (roadmap §3.3, issue #194).
 
-The remaining half of §3.3's scope after `src/rigging/arap.py` shipped
+The remaining half of §3.3's scope after `logic/src/rigging/arap.py` shipped
 the deterministic algorithmic core: a rigging UI to actually drive it. This
 widget lets a user load an image, paint a binary mask over the region to
 puppeteer (reusing the same freehand-paint mechanism as

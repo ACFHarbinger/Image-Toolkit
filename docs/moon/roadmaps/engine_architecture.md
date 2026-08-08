@@ -91,7 +91,7 @@ tabs/elements inside that same package rather than a third Qt-binding
 dependency.
 
 **First slice (issue #25, In review pending a manual desktop-app check):**
-a canvas + layer-stack foundation — `src/editor/`'s
+a canvas + layer-stack foundation — `logic/src/editor/`'s
 `LayerStack` (pure numpy, no Qt, mirrors the "portable contract first"
 pattern every other milestone in this project uses) plus a
 `ReferenceColoringTab` in `gui/` wiring a zoomable/pannable `LayerCanvas`
@@ -101,7 +101,7 @@ same foundation, the same way every Krita Docker was built on Krita's own
 layer model.
 
 **Second slice (issue #26, In review pending a manual desktop-app check):
-brush paint tool.** `src/editor/brush.py` adds `stamp_dot`/`stamp_line` —
+brush paint tool.** `logic/src/editor/brush.py` adds `stamp_dot`/`stamp_line` —
 pure numpy, no Qt, a hard-edged circular brush composited with straight
 alpha "over", deliberately not anti-aliased so it stays simple and
 pixel-exact-testable; a softer brush is a later slice on the same contract.
@@ -114,7 +114,7 @@ layer `LayerListPanel` reports as selected (`layer_selected` signal, new).
 or palette-preview UI — those remain later slices on this same foundation.
 
 **Third slice (issue #27, In review pending a manual desktop-app check):
-undo/redo.** `src/editor/history.py` adds `EditHistory`, a snapshot-based
+undo/redo.** `logic/src/editor/history.py` adds `EditHistory`, a snapshot-based
 undo/redo stack bound to one `LayerStack` — callers call `record()`
 immediately before a discrete mutation, and `undo()`/`redo()` restore or
 reapply the full prior state, bounded by a `max_depth` that evicts the
@@ -139,7 +139,7 @@ fully-opaque mask; `composite()` multiplies each layer's alpha by
 `mask / 255` before blending when present, the standard non-destructive
 mask convention every mainstream raster editor uses. `save_state()`/
 `load_state()` round-trip the mask too, so undo/redo (#27) covers mask
-edits for free without any changes there. `src/editor/brush.py` adds
+edits for free without any changes there. `logic/src/editor/brush.py` adds
 `stamp_mask_dot`/`stamp_mask_line` -- grayscale variants sharing the RGBA
 brush's circular-clipping logic (extracted into `_clip_region`) but
 overwriting to a given intensity directly rather than alpha-blending
@@ -153,7 +153,7 @@ palette-preview UI; masks here are a general raster-editor primitive, not
 yet tied to the Krita-side semantic "material mask" concept.
 
 **Fifth slice (issue #29, In review pending a manual desktop-app check):
-line-art segmentation.** `src/editor/segmentation_tools.py` reuses
+line-art segmentation.** `logic/src/editor/segmentation_tools.py` reuses
 `colorization.segmentation` (roadmap milestone 1, issue #19) directly
 rather than reimplementing it -- unlike the Krita plugin's
 `segmentation_masks.py`, which mirrors the same algorithm in pure Python
@@ -176,7 +176,7 @@ Segment Regions (with a Min region area spin box) buttons operating on the
 selected layer. Still no palette-preview or correspondence-assignment UI.
 
 **Sixth slice (issue #30, In review pending a manual desktop-app check):
-style-bible palette application.** `src/editor/palette_tools.py` reuses
+style-bible palette application.** `logic/src/editor/palette_tools.py` reuses
 `colorization.style_bible` (roadmap milestone 2, issue #15) directly, the
 same way #29 reused `colorization.segmentation`. `resolve_palette_color`
 parses a material palette's `#RRGGBB` role into an RGB int tuple, raising
@@ -199,7 +199,7 @@ Connecting the two remains a possible later slice.
 
 **Seventh slice (issue #31, In review pending a manual desktop-app
 check): region-to-material correspondence assignment.** New
-`src/editor/correspondence_tools.py` reuses `colorization.correspondence`
+`logic/src/editor/correspondence_tools.py` reuses `colorization.correspondence`
 and `colorization.confidence` directly, the same way #29/#30 reused
 `colorization.segmentation`/`colorization.style_bible`, connecting the
 fifth slice's region adjacency (#29) to the sixth slice's palette
@@ -229,11 +229,11 @@ suggested material's palette color remains a separate explicit action
 
 **Eighth slice (issue #32, In review pending a manual desktop-app
 check): canvas document save/load.** Every prior slice was in-memory
-only -- closing the app discarded all work. New `src/editor/document_io.py`
+only -- closing the app discarded all work. New `logic/src/editor/document_io.py`
 adds `save_document`/`load_document`: one `.npy` file per layer's pixel
 buffer (and mask, when present) plus a `manifest.json` describing layer
 order, identity, and flags. Deliberately `.npy` rather than PNG --
-`src/editor/` has a strict "pure numpy, no Qt" boundary with no
+`logic/src/editor/` has a strict "pure numpy, no Qt" boundary with no
 image-codec dependency (`layer_stack.py`, `brush.py`), and adding one
 (Pillow/Qt) just to persist arrays this module already owns as numpy
 would be new surface for no real benefit. `ReferenceColoringTab` gains
@@ -248,7 +248,7 @@ bible, if any, is left as-is, since a document does not carry its own
 bible reference. Not in scope as of this slice: autosave, recovery
 revisions for the canvas document itself (the correspondence set already
 got those for free from `colorization.correspondence`), or integration
-with `src/project`'s learning-progress project model -- the standalone
+with `logic/src/project`'s learning-progress project model -- the standalone
 editor still has no `SignalWeights`/project binding, so correction
 learning (#24/#31) remains unavailable here.
 
@@ -279,12 +279,12 @@ is automatic and transparent.
 check): bind a portable project for `SignalWeights` correction
 learning.** Owner-directed follow-up to the seventh/eighth/ninth slices:
 bind the standalone editor's correspondence assignment into a portable
-`project` (`src/project`, the same package the Krita tutor's lesson flow
+`project` (`logic/src/project`, the same package the Krita tutor's lesson flow
 uses) so it benefits from `SignalWeights` correction learning, the same
 way the Krita Character Colors Docker's milestone-4 workflow (#24) does
 -- closing the gap the seventh slice's notes left open. New
 `project.create_project(directory, *, title)` in
-`src/project/service.py`: a bare project manifest with no
+`logic/src/project/service.py`: a bare project manifest with no
 exercise/attempt. `create_exercise_project` is the Krita tutor's own
 entry point and always seeds a lesson attempt; hosts that only need to
 bind style bibles/correspondence sets (the standalone editor) have no
@@ -309,11 +309,11 @@ project's asset model -- the eleventh slice below closes that gap.
 **Eleventh slice (issue #35, In review pending a manual desktop-app
 check): attach canvas documents into a bound project.** Follow-up to
 the tenth slice: the canvas pixel document itself was explicitly left
-out of the project's asset model there. `src/project/model.py` bumps
+out of the project's asset model there. `logic/src/project/model.py` bumps
 `CURRENT_SCHEMA_VERSION` to 14, adds `Project.editor_document_assets:
 list[str]` with the same uniqueness/safe-relative-path validation
 `style_bible_assets`/`correspondence_set_assets` already get, and a
-migration default (`[]`) for older manifests. `src/project/service.py`
+migration default (`[]`) for older manifests. `logic/src/project/service.py`
 adds `attach_editor_document`/`detach_editor_document`: unlike
 `attach_style_bible`/`attach_correspondence_set`, the asset is a
 directory (`editor.document_io.save_document`'s `manifest.json` + per-
@@ -352,7 +352,7 @@ are unchanged and still work with no project bound.
 **Thirteenth slice (issue #37, In review pending a manual desktop-app
 check): soft/anti-aliased brush hardness.** Fulfills the note left in
 the second slice's own docstring since it landed: "a softer brush is a
-later slice on the same `stamp_*` contract." `src/editor/brush.py` adds
+later slice on the same `stamp_*` contract." `logic/src/editor/brush.py` adds
 `_circular_falloff(radius, hardness)` -- per-pixel coverage in
 `[0, 1]`: fully opaque within `hardness * radius` of the center, then
 linearly fading to transparent at `radius`; `hardness=1.0` is
@@ -378,7 +378,7 @@ existing brush Size control.
 **Fourteenth slice (issue #38, In review pending a manual desktop-app
 check): eraser tool.** A natural raster-editor primitive still missing
 after the brush (second slice) and its soft/hardness variant
-(thirteenth slice). `src/editor/brush.py` adds `_erase_alpha(region,
+(thirteenth slice). `logic/src/editor/brush.py` adds `_erase_alpha(region,
 weight)` -- reduces `region`'s alpha channel in place by a `[0, 1]`
 coverage array (`new_alpha = alpha * (1 - weight)`); RGB is left
 untouched. This needs its own compositing rather than reusing
@@ -420,7 +420,7 @@ a gap the seventh/tenth slices left open: the Krita Character Colors
 Docker's Propagate Correspondence action (milestone C4.1, issue #21)
 was never brought over to the standalone editor, even though the
 underlying `colorization.correspondence.CorrespondenceSet.propagate`
-it uses was already available. `src/editor/correspondence_tools.py`
+it uses was already available. `logic/src/editor/correspondence_tools.py`
 extracts `adjacent_region_ids(region_id, adjacency_pairs)` out of
 `adjacency_agreement_by_material` (same logic, now reusable) and
 exports it. `ReferenceColoringTab` adds a Propagate Correspondence

@@ -5,7 +5,7 @@ A ``QThread`` subclass overriding ``run()`` (not ``QObject`` + ``moveToThread``)
 -- the JPype-JVM-safe pattern this codebase already uses for every other
 background worker (see e.g. ``gui/src/helpers/web/media_loader_worker.py``).
 The solve itself (~1-4s for a full page, see
-``src/colorization/colorization.py``/``screentone.py``) is pure NumPy/
+``logic/src/colorization/colorization.py``/``screentone.py``) is pure NumPy/
 SciPy/OpenCV, so it carries none of the native-Qt-subsystem crash risk that
 pattern guards against -- but running it on the GUI thread would still
 freeze the UI for the whole solve, so it's threaded regardless.

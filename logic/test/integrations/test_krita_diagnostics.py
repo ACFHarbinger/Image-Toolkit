@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 
 MODULE_PATH = (
-    Path(__file__).parents[2] / "integrations/krita/pykrita/cel_shaded_generator/diagnostics.py"
+    Path(__file__).parents[3] / "integrations/krita/pykrita/cel_shaded_generator/diagnostics.py"
 )
 SPEC = importlib.util.spec_from_file_location("krita_plugin_diagnostics", MODULE_PATH)
 assert SPEC is not None and SPEC.loader is not None

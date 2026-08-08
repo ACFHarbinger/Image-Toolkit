@@ -3,7 +3,7 @@
 Run the core and GUI suites separately:
 
 ```bash
-uv run pytest test
+uv run pytest logic/test
 QT_QPA_PLATFORM=offscreen uv run --package cel-shaded-generator-gui pytest gui/test
 ```
 
@@ -17,6 +17,6 @@ Native execution changes must test crash, timeout, cancellation, and next-job
 recovery when applicable. Project-format changes require round-trip, migration,
 privacy-default, and interrupted-write coverage.
 
-Deterministic golden regressions live under `benchmark/goldens/`; performance
+Deterministic golden regressions live under `logic/benchmark/goldens/`; performance
 measurements are explicit and do not run as timing gates in ordinary CI. See
 [BENCHMARKS.md](BENCHMARKS.md).

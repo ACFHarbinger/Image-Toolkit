@@ -9,10 +9,10 @@ yet the planned Krita learning alpha or a production drawing application.
 
 | Package | Location | Responsibility |
 | --- | --- | --- |
-| `colorization`, `features`, `learning`, `project`, `rigging`, `temporal` | `src/` | UI-independent domain packages |
-| `execution`, `runtime` | `src/` | Isolated-job boundary and native-compute coordination |
+| `colorization`, `features`, `learning`, `project`, `rigging`, `temporal` | `logic/src/` | UI-independent domain packages |
+| `execution`, `runtime` | `logic/src/` | Isolated-job boundary and native-compute coordination |
 | `cel_shaded_generator_gui` | `gui/src/cel_shaded_generator_gui/` | Standalone Qt demonstration client |
-| Tests | `test/`, `gui/test/` | Algorithm invariants, UI behavior, and package boundaries |
+| Tests | `logic/test/`, `gui/test/` | Algorithm invariants, UI behavior, and package boundaries |
 
 Both distributions form a `uv` workspace. The GUI declares the core
 distribution as a workspace dependency and imports its top-level domain

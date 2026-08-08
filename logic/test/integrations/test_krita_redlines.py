@@ -7,7 +7,7 @@ import pytest
 
 
 def _module():
-    path = Path(__file__).parents[2] / "integrations/krita/pykrita/cel_shaded_generator/redlines.py"
+    path = Path(__file__).parents[3] / "integrations/krita/pykrita/cel_shaded_generator/redlines.py"
     spec = importlib.util.spec_from_file_location("krita_redlines", path)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)

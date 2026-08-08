@@ -13,7 +13,7 @@ This directory is a **merge** of the `validation/` and `docs/` subdirectories fo
 ## Usage
 
 ```bash
-cd python
+cd logic
 uv run python validation/check_circular_imports.py src
 uv run python validation/count_loc.py src
 uv run python validation/docs/check_docstrings.py src

@@ -9,11 +9,11 @@ preferred.
 
 ```bash
 uv sync --all-packages --all-extras --dev
-uv run ruff check src test
+uv run ruff check logic/src logic/test
 uv run --package cel-shaded-generator-gui ruff check gui
-uv run mypy src
-uv run --package cel-shaded-generator-gui mypy gui/src
-uv run pytest test
+(cd logic && uv run mypy src)
+(cd gui && uv run mypy src)
+uv run pytest logic/test
 QT_QPA_PLATFORM=offscreen uv run --package cel-shaded-generator-gui pytest gui/test
 ```
 

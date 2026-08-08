@@ -3,13 +3,13 @@
 The deterministic baseline covers every current engine area: scribble and
 reference colorization, temporal propagation, and ARAP deformation. Synthetic
 fixtures avoid licensing ambiguity and run without CUDA. Small expected arrays
-are committed directly under `benchmark/goldens/`.
+are committed directly under `logic/benchmark/goldens/`.
 
-Run the correctness tests with `uv run pytest test/benchmark`. Capture a local
-performance report with:
+Run the correctness tests with `uv run pytest logic/test/benchmark`. Capture a
+local performance report with:
 
 ```bash
-uv run python benchmark/run_baseline.py \
+uv run python logic/benchmark/run_baseline.py \
   --repeats 5 \
   --hardware-class "Desktop CPU; RTX 3090 Ti class (unused)"
 ```

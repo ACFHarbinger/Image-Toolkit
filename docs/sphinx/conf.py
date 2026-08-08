@@ -28,7 +28,7 @@ extensions = [
 ]
 
 # ── sphinx-autoapi ────────────────────────────────────────────────────────────
-autoapi_dirs = [str(REPO_ROOT / "python" / "src")]
+autoapi_dirs = [str(REPO_ROOT / "logic" / "src")]
 autoapi_type = "python"
 autoapi_options = [
     "members",

@@ -7,13 +7,26 @@ method. The standalone Linux editor and C++ engine mature afterward.
 
 ## Boundaries
 
-- `src/cel_shaded_generator/`: storage-neutral core; never import Qt or
-  Image-Toolkit.
-- `gui/src/cel_shaded_generator_gui/`: PySide6 demonstration client.
-- `test/`, `gui/test/`: core and headless GUI tests.
-- `benchmark/`: deterministic goldens and explicitly invoked measurements.
+- `logic/`: the storage-neutral core workspace member (its own
+  `logic/pyproject.toml`, package name `cel-shaded-generator`), never
+  imports Qt or Image-Toolkit:
+  - `logic/src/`: top-level domain packages (`colorization`, `editor`,
+    `learning`, `project`, etc.) plus the `execution`/`runtime` worker
+    boundary modules.
+  - `logic/test/`: core tests.
+  - `logic/benchmark/`: deterministic goldens and explicitly invoked
+    performance measurements.
+  - `logic/validation/`: module-graph, LoC, and import-hygiene dev tooling.
+- `gui/`: the PySide6 demonstration client workspace member (its own
+  `gui/pyproject.toml`, package name `cel-shaded-generator-gui`), depends
+  on `logic/` via the uv workspace.
+- `integrations/krita/`: the Krita plugin bridge; imports the `logic/`
+  package but is not installed as part of it.
 - `docs/moon/`: authoritative roadmap and changelog.
 - `frontend/`, `app/`: deferred scaffolds, not active products.
+- The root `pyproject.toml` holds only `[tool.uv.workspace]` (members
+  `gui`, `logic`) and a shared `[dependency-groups] dev` group; it is not
+  itself an installable package.
 
 The core and GUI are independently installable distributions in one uv
 workspace. Image-Toolkit is an optional host. Built-in native-heavy operations
@@ -24,13 +37,22 @@ persistent restartable worker and batch work uses fresh workers.
 
 ```bash
 uv sync --all-packages --all-extras --dev
-uv run ruff check src test
+uv run ruff check logic/src logic/test
 uv run --package cel-shaded-generator-gui ruff check gui
-uv run mypy src
-uv run --package cel-shaded-generator-gui mypy gui/src
-uv run pytest test
+uv run pytest logic/test
 QT_QPA_PLATFORM=offscreen uv run --package cel-shaded-generator-gui pytest gui/test
 uv build --all-packages
+```
+
+`mypy` discovers its `[tool.mypy]` config by walking up from the current
+directory, not from the checked path, so it must be run from inside each
+workspace member rather than with a root-relative path (running
+`uv run mypy logic/src` from the repository root finds no config and
+misresolves cross-package imports):
+
+```bash
+(cd logic && uv run mypy src)
+(cd gui && uv run mypy src)
 ```
 
 ## Product constraints

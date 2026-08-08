@@ -8,7 +8,7 @@ import pytest
 
 def _collector_type():
     path = (
-        Path(__file__).parents[2] / "integrations/krita/pykrita/cel_shaded_generator/landmarks.py"
+        Path(__file__).parents[3] / "integrations/krita/pykrita/cel_shaded_generator/landmarks.py"
     )
     spec = importlib.util.spec_from_file_location("krita_landmarks", path)
     assert spec is not None and spec.loader is not None

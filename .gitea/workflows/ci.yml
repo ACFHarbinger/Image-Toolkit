@@ -17,10 +17,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
-      - run: uv sync --group dev
-      - run: uv run ruff check .
+      - run: uv sync --all-packages --all-extras --dev
+      - run: uv run ruff check logic/src logic/test
       - run: uv run mypy src
-      - run: uv run pytest test -v --cov=src --cov-report=xml
+        working-directory: logic
+      - run: uv run pytest logic/test -v --cov=logic/src --cov-report=xml
       - uses: codecov/codecov-action@v4
         with:
           files: coverage.xml
@@ -31,8 +32,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
-      - run: uv sync --group dev
-        working-directory: gui
+      - run: uv sync --all-packages --all-extras --dev
       - run: uv run ruff check .
         working-directory: gui
       - run: uv run mypy src

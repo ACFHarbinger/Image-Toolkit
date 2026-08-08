@@ -51,14 +51,14 @@ shows only an offline placeholder lesson and diagnostics.
 ## Verify and build
 
 ```bash
-uv run ruff check src test
+uv run ruff check logic/src logic/test
 uv run --package cel-shaded-generator-gui ruff check gui
-uv run mypy src
+uv run mypy logic/src
 uv run --package cel-shaded-generator-gui mypy gui/src
-uv run pytest test
+uv run pytest logic/test
 QT_QPA_PLATFORM=offscreen uv run --package cel-shaded-generator-gui pytest gui/test
 uv build --all-packages
-uv run python benchmark/run_baseline.py --repeats 5
+uv run python logic/benchmark/run_baseline.py --repeats 5
 ```
 
 Read [development](docs/DEVELOPMENT.md), [testing](docs/TESTING.md),
@@ -69,10 +69,11 @@ and [benchmarks](docs/BENCHMARKS.md) before changing their respective areas.
 
 | Path | Purpose |
 | --- | --- |
-| `src/` | Storage-neutral top-level core packages and execution boundary |
+| `logic/src/` | Storage-neutral top-level core packages and execution boundary |
 | `gui/src/cel_shaded_generator_gui/` | PySide6 demonstration client |
-| `test/`, `gui/test/` | Core and headless GUI tests |
-| `benchmark/` | Deterministic goldens and explicit performance runner |
+| `logic/test/`, `gui/test/` | Core and headless GUI tests |
+| `logic/benchmark/` | Deterministic goldens and explicit performance runner |
+| `logic/validation/` | Module-graph, LoC, and import-hygiene dev tooling |
 | `docs/moon/` | Product roadmap and changelog |
 | `frontend/`, `app/` | Deferred scaffolds; not working clients |
 

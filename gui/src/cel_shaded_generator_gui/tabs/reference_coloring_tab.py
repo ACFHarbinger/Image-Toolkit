@@ -17,7 +17,7 @@ same way the Krita Character Colors Docker's confidence-ranked material
 dropdown does) so later segmented regions can suggest a default material
 from already-assigned neighbors, and save/load a canvas document to a plain
 directory so work survives closing the app. Correspondence assignment
-optionally binds into a portable ``project`` (``src/project``, the same
+optionally binds into a portable ``project`` (``logic/src/project``, the same
 package the Krita tutor's lesson flow uses). When a project is bound and
 a style bible attached to it, Suggest Material/Assign Correspondence
 delegate to ``project.rank_correspondence_materials``/

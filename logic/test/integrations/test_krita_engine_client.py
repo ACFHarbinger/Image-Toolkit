@@ -12,7 +12,7 @@ import pytest
 
 def _load_client():
     path = (
-        Path(__file__).parents[2]
+        Path(__file__).parents[3]
         / "integrations/krita/pykrita/cel_shaded_generator/engine_client.py"
     )
     spec = importlib.util.spec_from_file_location("krita_engine_client", path)

@@ -1,8 +1,23 @@
 version: 2
 updates:
-  # src/ Python dependencies
+  # root workspace dev-tooling dependencies
   - package-ecosystem: "pip"
     directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "python"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+
+  # logic/ (cel-shaded-generator core) Python dependencies
+  - package-ecosystem: "pip"
+    directory: "/logic"
     schedule:
       interval: "weekly"
       day: "monday"

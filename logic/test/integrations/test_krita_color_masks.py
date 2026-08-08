@@ -6,7 +6,7 @@ import pytest
 
 def _module():
     path = (
-        Path(__file__).parents[2] / "integrations/krita/pykrita/cel_shaded_generator/color_masks.py"
+        Path(__file__).parents[3] / "integrations/krita/pykrita/cel_shaded_generator/color_masks.py"
     )
     spec = importlib.util.spec_from_file_location("color_masks", path)
     module = importlib.util.module_from_spec(spec)

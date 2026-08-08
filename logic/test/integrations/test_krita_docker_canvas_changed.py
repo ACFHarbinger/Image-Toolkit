@@ -112,7 +112,7 @@ def _install_stub_krita_modules(monkeypatch):
 
 
 def _package_dir():
-    return Path(__file__).parents[2] / "integrations/krita/pykrita/cel_shaded_generator"
+    return Path(__file__).parents[3] / "integrations/krita/pykrita/cel_shaded_generator"
 
 
 def _load(filename, monkeypatch):

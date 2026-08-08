@@ -6,7 +6,7 @@ on:
     branches: [main]
     paths:
       - "docs/**"
-      - "validation/docs/**"
+      - "logic/validation/docs/**"
       - "mkdocs.yml"
 
 permissions:

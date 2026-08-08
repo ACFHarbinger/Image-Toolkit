@@ -15,10 +15,10 @@ lint-test-src:
   image: python:3.12
   script:
     - pip install uv
-    - uv sync --group dev
-    - uv run ruff check .
-    - uv run mypy src
-    - uv run pytest test -v --cov=src --cov-report=xml
+    - uv sync --all-packages --all-extras --dev
+    - uv run ruff check logic/src logic/test
+    - cd logic && uv run mypy src && cd ..
+    - uv run pytest logic/test -v --cov=logic/src --cov-report=xml
   coverage: '/TOTAL.*\s+(\d+%)$/'
   artifacts:
     reports:
@@ -31,8 +31,8 @@ lint-test-gui:
   image: python:3.12
   script:
     - pip install uv
+    - uv sync --all-packages --all-extras --dev
     - cd gui
-    - uv sync --group dev
     - uv run ruff check .
     - uv run mypy src
 
@@ -73,7 +73,7 @@ pages:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
       changes:
         - "docs/**/*"
-        - "validation/docs/**/*"
+        - "logic/validation/docs/**/*"
         - "mkdocs.yml"
   script:
     - apt-get update && apt-get install -y --no-install-recommends nodejs npm

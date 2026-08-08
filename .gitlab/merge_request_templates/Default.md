@@ -6,7 +6,7 @@
 
 ## Affected Module(s)
 
-- [ ] `src/` (colorization / temporal / rigging / features solvers)
+- [ ] `logic/src/` (colorization / temporal / rigging / features solvers)
 - [ ] `gui/` (PySide6 desktop UI)
 - [ ] `frontend/` (Tauri, unimplemented scaffold)
 - [ ] `app/` (iOS/Android, unimplemented scaffold)

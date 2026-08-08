@@ -9,7 +9,7 @@ import pytest
 
 def _module():
     path = (
-        Path(__file__).parents[2]
+        Path(__file__).parents[3]
         / "integrations/krita/pykrita/cel_shaded_generator/orientation_landmarks.py"
     )
     spec = importlib.util.spec_from_file_location("krita_orientation_landmarks", path)

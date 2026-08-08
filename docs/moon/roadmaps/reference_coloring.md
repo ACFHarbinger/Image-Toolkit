@@ -74,7 +74,7 @@ and user corrections.
 ## G1 — segmentation and gap-repair baseline
 
 Issue #19 is **Done** — the live Krita checklist passed.
-`src/colorization/segmentation.py` provides the deterministic algorithm
+`logic/src/colorization/segmentation.py` provides the deterministic algorithm
 baseline named in milestone 1: `close_line_gaps` bridges hand-drawn ink gaps
 up to a bounded pixel radius via morphological closing; `segment_regions`
 flood-fills the gap-closed background into labeled regions, excluding any
@@ -157,7 +157,7 @@ execution path remains a separate future slice on the same schema.
 ## C4 — deterministic manual correspondence baseline
 
 Issue #18 is **Done** — the live Krita checklist passed. The first slice is a standalone
-`CorrespondenceSet`/`RegionCorrespondence` contract (`src/colorization/correspondence.py`),
+`CorrespondenceSet`/`RegionCorrespondence` contract (`logic/src/colorization/correspondence.py`),
 deliberately portable like the C1 style bible: it stores region/material/role
 identifiers and optional panel identity only, never pixels, embeddings, or
 inferred identity. A region cannot resolve to two different materials within

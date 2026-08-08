@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-CONTENT = Path(__file__).parents[2] / "integrations/krita/pykrita/cel_shaded_generator/content"
+CONTENT = Path(__file__).parents[3] / "integrations/krita/pykrita/cel_shaded_generator/content"
 
 
 def _module():

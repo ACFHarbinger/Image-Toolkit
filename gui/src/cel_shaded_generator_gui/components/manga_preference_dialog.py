@@ -7,7 +7,7 @@ collection should start as soon as any generative colorization mode ships
 (the Manga Colorization Tab's three working modes -- Scribble, Screentone,
 Reference/Optimal-Transport -- already qualify), rather than being
 retrofitted once the training loop exists. Every vote is appended to a
-local JSON-lines log via `src/features/preference_log.py`, immediately
+local JSON-lines log via `logic/src/features/preference_log.py`, immediately
 readable by a future training script.
 
 New feature, not code motion.

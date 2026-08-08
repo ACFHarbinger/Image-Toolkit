@@ -56,7 +56,7 @@ new algorithms.
 - ✅ Replace the placeholder architecture document with the real current and
   target boundaries.
 - ✅ Adopt conventional installable packages and remove dynamic alias
-  bootstrapping. The core domain packages are flattened directly under `src/`;
+  bootstrapping. The core domain packages are flattened directly under `logic/src/`;
   the GUI retains its distinct `cel_shaded_generator_gui` client namespace.
 - ✅ Remove imports from `backend.src.*` and the parent `gui.src.*` package.
 - ✅ Make the current GUI an explicit workspace client of the core package.
@@ -143,11 +143,11 @@ rationale. This is a scope decision, not evidence Krita has proven
 insufficient — the Krita plugin remains the primary, actively-developed
 host. Sixteen slices are implemented, all In review: the first (issue #25 —
 a PySide6 canvas + layer-stack foundation in the existing `gui/` workspace
-member, backed by a new pure-numpy `src/editor/` package), the second
+member, backed by a new pure-numpy `logic/src/editor/` package), the second
 (issue #26 — a brush paint tool: pure-numpy circular stamping in
-`src/editor/brush.py`, a Pan/Brush tool switch, and color/size controls),
+`logic/src/editor/brush.py`, a Pan/Brush tool switch, and color/size controls),
 the third (issue #27 — snapshot-based undo/redo in
-`src/editor/history.py`, one checkpoint per stroke or structural mutation),
+`logic/src/editor/history.py`, one checkpoint per stroke or structural mutation),
 the fourth (issue #28 — non-destructive per-layer grayscale masks that
 attenuate compositing, with their own Add/Remove Mask controls and a
 mask-painting brush mode), the fifth (issue #29 — line-art gap closing
@@ -165,7 +165,7 @@ correction learning yet), the eighth (issue #32 — canvas document
 save/load: `.npy`-per-layer plus a manifest, with the correspondence set
 and region-layer bookkeeping saved alongside via Save Document/Open
 Document buttons, so a canvas now survives closing the app; still no
-`src/project` integration), the ninth (issue #33 — bounded
+`logic/src/project` integration), the ninth (issue #33 — bounded
 recovery-revision rotation for canvas documents on save, matching
 `colorization.correspondence`/`colorization.style_bible`'s existing
 `.recovery/` contract for their own JSON assets), the tenth

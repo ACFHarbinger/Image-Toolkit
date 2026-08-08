@@ -1,10 +1,10 @@
 """Manga Colorization tab (roadmap §6.1, issue #195).
 
-Exercises the scribble colorizers (`src/colorization/colorization.py` issue
+Exercises the scribble colorizers (`logic/src/colorization/colorization.py` issue
 #186, screentone.py issue #187) end-to-end through the layered canvas editor
 (issue #190): load a grayscale/line-art page, paint colored scribbles, run
 the selected solver off the UI thread, and view the result. A third mode,
-Reference / Optimal-Transport (`src/colorization/optimal_transport.py`, issue
+Reference / Optimal-Transport (`logic/src/colorization/optimal_transport.py`, issue
 #188), is also wired up -- it needs a second image (a colored reference
 sheet) instead of scribbles, so it has its own "Load Reference…" button
 (enabled only in that mode) and its own worker
