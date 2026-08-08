@@ -5,7 +5,7 @@ import sys
 import threading
 from pathlib import Path
 
-from gui.src.windows.main import LoginWindow, MainWindow
+from gui.src.windows import LoginWindow, MainWindow
 from PySide6.QtCore import QTimer
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
