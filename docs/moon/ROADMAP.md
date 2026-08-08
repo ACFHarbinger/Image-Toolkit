@@ -12,7 +12,7 @@
 **Current submodule integration (S313, 2026-08-06):** CSG
 Phase 0 is complete. Its core and GUI are independently installable
 distributions; the core exposes top-level domain packages directly from its
-flattened `src/`, while the GUI retains `cel_shaded_generator_gui`. Image
+flattened `src/`, while the flattened GUI is loaded as `csg_gui`. Image
 Toolkit consumes those public modules directly instead of manufacturing the
 temporary `manga` and `manga_gui` aliases. Product planning and implementation
 details remain owned by the [standalone roadmap](https://github.com/ACFHarbinger/Cel-Shaded-Generator/blob/main/docs/moon/ROADMAP.md).

@@ -7,8 +7,8 @@ directly:
 
     asp_backend  -> submodules/ASP/backend/src
     asp_gui      -> submodules/ASP/gui/src
-    colorization/learning/... -> submodules/CSG/src
-    cel_shaded_generator_gui -> submodules/CSG/gui/src
+    colorization/learning/... -> submodules/CSG/logic/src
+    csg_gui     -> submodules/CSG/gui/src
 """
 
 from __future__ import annotations
@@ -20,11 +20,11 @@ import sys
 _ALIASES = {
     "asp_backend": ("ASP", "backend", "src"),
     "asp_gui": ("ASP", "gui", "src"),
+    "csg_gui": ("CSG", "gui", "src"),
 }
 
 _PACKAGE_ROOTS = (
-    ("CSG", "src"),
-    ("CSG", "gui", "src"),
+    ("CSG", "logic", "src"),
 )
 
 
