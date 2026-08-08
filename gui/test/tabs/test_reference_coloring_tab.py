@@ -928,3 +928,66 @@ def test_detach_project_bible_without_selection_is_a_no_op(q_app):
     tab = ReferenceColoringTab()
     tab._detach_project_bible()
     assert tab._project_bible_combo.count() == 0
+
+
+def test_binding_a_project_loads_its_existing_correspondence_set(q_app, monkeypatch, tmp_path):
+    project_dir = tmp_path / "project"
+    project_dir.mkdir()
+    tab = ReferenceColoringTab()
+    _new_canvas(tab, monkeypatch)
+    _add_touching_region_layers(tab)
+    _stub_existing_directory(monkeypatch, project_dir)
+    _stub_text_input(monkeypatch, "Editor Project")
+    tab._new_project()
+    _bind_bible(tab, monkeypatch, tmp_path / "bibles")
+    tab._layer_panel.select_layer("layer-1-region-1")
+    tab._material_combo.setCurrentIndex(0)  # hair
+    tab._assign_correspondence()
+    assert tab.correspondence_set() is not None
+
+    fresh_tab = ReferenceColoringTab()
+    _stub_existing_directory(monkeypatch, project_dir)
+    fresh_tab._bind_project()
+
+    correspondence_set = fresh_tab.correspondence_set()
+    assert correspondence_set is not None
+    assert correspondence_set.correspondences[0].region_id == "layer-1-region-1"
+    assert correspondence_set.correspondences[0].material_id == "hair"
+
+
+def test_binding_a_project_without_a_correspondence_set_leaves_it_none(
+    q_app, monkeypatch, tmp_path
+):
+    project_dir = tmp_path / "project"
+    project_dir.mkdir()
+    tab = ReferenceColoringTab()
+    _stub_existing_directory(monkeypatch, project_dir)
+    _stub_text_input(monkeypatch, "Editor Project")
+    tab._new_project()
+    assert tab.correspondence_set() is None
+
+
+def test_binding_a_different_project_clears_the_previous_correspondence_set(
+    q_app, monkeypatch, tmp_path
+):
+    first_project = tmp_path / "first"
+    first_project.mkdir()
+    tab = ReferenceColoringTab()
+    _new_canvas(tab, monkeypatch)
+    _add_touching_region_layers(tab)
+    _stub_existing_directory(monkeypatch, first_project)
+    _stub_text_input(monkeypatch, "First Project")
+    tab._new_project()
+    _bind_bible(tab, monkeypatch, tmp_path / "bibles")
+    tab._layer_panel.select_layer("layer-1-region-1")
+    tab._material_combo.setCurrentIndex(0)
+    tab._assign_correspondence()
+    assert tab.correspondence_set() is not None
+
+    second_project = tmp_path / "second"
+    second_project.mkdir()
+    _stub_existing_directory(monkeypatch, second_project)
+    _stub_text_input(monkeypatch, "Second Project")
+    tab._new_project()
+
+    assert tab.correspondence_set() is None

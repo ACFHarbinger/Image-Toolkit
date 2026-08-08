@@ -451,3 +451,25 @@ contract. Detaching the currently-loaded bible also clears
 `_bible_asset_path`, so a subsequent Suggest Material falls back to the
 fixed-weight local ranking (seventh slice's behavior) instead of looking
 up a `SignalWeights` entry for a bible the project no longer tracks.
+
+**Eighteenth slice (issue #50, In review pending a manual desktop-app
+check): load a project's existing correspondence set on bind.** Closes
+a gap surfaced while auditing project-asset symmetry after the
+seventeenth slice: New Project/Bind Project populated Project
+Documents/Project Bibles from the project's asset lists, but never
+loaded the project's own bound correspondence set into memory --
+reopening an existing project silently lost its correspondence
+assignments until the artist re-triggered a save via Assign/Propagate
+Correspondence. `ReferenceColoringTab._refresh_project_asset_combos`
+(already the "sync tab state to bound project" call site both New
+Project and Bind Project use) now also loads the project's
+correspondence set, if any, via
+`colorization.correspondence.load_correspondence_set`. Unlike
+documents/bibles, a project has at most one correspondence set in this
+editor's usage (always saved under the same fixed id via
+`upsert_project_correspondence_set`), so there is nothing to pick from
+a combo the way documents/bibles need -- binding or creating a project
+just makes an existing one available immediately, mirroring what Open
+Document already does for a document's own sidecar
+`correspondence.json`. Binding a different project correctly clears any
+previously-loaded correspondence set rather than carrying it over.

@@ -141,7 +141,7 @@ anyway, ahead of the gate; see the "Gate 5 exception" note in the
 [Engine Architecture Roadmap](roadmaps/engine_architecture.md) for the full
 rationale. This is a scope decision, not evidence Krita has proven
 insufficient — the Krita plugin remains the primary, actively-developed
-host. Seventeen slices are implemented, all In review: the first (issue #25 —
+host. Eighteen slices are implemented, all In review: the first (issue #25 —
 a PySide6 canvas + layer-stack foundation in the existing `gui/` workspace
 member, backed by a new pure-numpy `logic/src/editor/` package), the second
 (issue #26 — a brush paint tool: pure-numpy circular stamping in
@@ -194,7 +194,12 @@ Krita Character Colors Docker's milestone C4.1 propagation action to
 the standalone editor, via `CorrespondenceSet.propagate` directly), and
 the seventeenth (issue #49 — Detach Selected Document/Detach Selected
 Bible buttons, the missing reverse of the attach side slices 11/12
-wired, using `project.detach_editor_document`/`detach_style_bible`).
+wired, using `project.detach_editor_document`/`detach_style_bible`), and
+the eighteenth (issue #50 — loading a bound project's existing
+correspondence set on bind, so reopening a project no longer silently
+loses its correspondence assignments until the next Assign/Propagate
+Correspondence save, via `colorization.correspondence.load_correspondence_set`
+in `ReferenceColoringTab._refresh_project_asset_combos`).
 The likely long-term architecture is still a C++ engine, GPU-backed
 canvas, and isolated Python research/model workers; its staged boundary and
 migration gates are defined in the same document. Browser support is not a

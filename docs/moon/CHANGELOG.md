@@ -38,7 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `engine_architecture.md`'s "Gate 5 exception (2026-08-07)" note for the
   full rationale — this is a scope decision, not evidence Krita has proven
   insufficient. The Krita plugin remains the primary, actively-developed
-  host. Seventeen slices — canvas + layer-stack foundation, brush paint
+  host. Eighteen slices — canvas + layer-stack foundation, brush paint
   tool (issue #26), undo/redo (issue #27), non-destructive layer masks
   (issue #28), line-art segmentation (issue #29), style-bible palette
   application (issue #30), region-to-material correspondence assignment
@@ -49,9 +49,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   project-bound assets (issue #36), a soft/anti-aliased brush hardness
   option (issue #37), an eraser tool (issue #38), per-layer
   opacity/blend mode UI (issue #39), propagating correspondence to
-  explicit target regions (issue #40), and detaching project
-  documents/bibles (issue #49) — are all In review pending a manual
-  desktop-app check (see the `### Added` entries below).
+  explicit target regions (issue #40), detaching project
+  documents/bibles (issue #49), and loading a bound project's existing
+  correspondence set on bind (issue #50) — are all In review pending a
+  manual desktop-app check (see the `### Added` entries below).
 
 ### Fixed
 
@@ -526,6 +527,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tracks. Verification: 4 new headless-Qt `gui` tests (543 core + 221
   gui total); Ruff and mypy clean. Needs a manual desktop launch to
   confirm visually — see issue #49's testing comment.
+- **Standalone editor eighteenth slice (issue #50, In review): load a
+  project's existing correspondence set on bind.** Closes a gap
+  surfaced while auditing project-asset symmetry after the seventeenth
+  slice: New Project/Bind Project populated Project Documents/Project
+  Bibles from the project's asset lists, but never loaded the project's
+  own bound correspondence set into memory — reopening an existing
+  project silently lost its correspondence assignments until the artist
+  re-triggered a save via Assign/Propagate Correspondence.
+  `ReferenceColoringTab._refresh_project_asset_combos` (already the
+  "sync tab state to bound project" call site both New Project and Bind
+  Project use) now also loads the project's correspondence set, if any,
+  via `colorization.correspondence.load_correspondence_set`. Unlike
+  documents/bibles, a project has at most one correspondence set in
+  this editor's usage (always saved under the same fixed id via
+  `upsert_project_correspondence_set`), so there is nothing to pick
+  from a combo the way documents/bibles need — binding or creating a
+  project just makes an existing one available immediately, mirroring
+  what Open Document already does for a document's own sidecar
+  `correspondence.json`. Binding a different project correctly clears
+  any previously-loaded correspondence set rather than carrying it
+  over. Verification: 3 new headless-Qt `gui` tests (543 core + 224 gui
+  total); Ruff and mypy clean. Needs a manual desktop launch to confirm
+  visually — see issue #50's testing comment.
 - **Milestone 4 first slice (issue #24): deterministic confidence scoring
   and correction learning for assisted correspondence.** Portable contract
   only, no Docker UI yet, following the same sequencing every prior

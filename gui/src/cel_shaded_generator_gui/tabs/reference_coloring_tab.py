@@ -56,7 +56,14 @@ Project Bibles entry from the bound project's manifest (never the
 underlying files, matching ``project.detach_editor_document``/
 ``detach_style_bible``'s own "detach never deletes" contract) --
 ``project.attach_editor_document``/``upsert_project_style_bible`` wired
-attaching in slices 11/12, but nothing ever wired the reverse.
+attaching in slices 11/12, but nothing ever wired the reverse. Binding
+or creating a project also loads its own bound correspondence set (if
+any) into memory immediately -- a project has at most one correspondence
+set in this editor's usage (always saved under the same fixed id), so
+there is nothing to pick from a combo the way documents/bibles need;
+without this, reopening an existing project silently lost its
+correspondence assignments until the artist re-triggered a save via
+Assign/Propagate Correspondence.
 
 New feature, not code motion.
 """
@@ -444,9 +451,17 @@ class ReferenceColoringTab(QWidget):
     def _refresh_project_asset_combos(self) -> None:
         """Repopulate Project Documents/Project Bibles from the bound
         project's current asset lists (relative path as both label and
-        data), so they can be reopened/reloaded without a file dialog."""
+        data), so they can be reopened/reloaded without a file dialog.
+        Also loads the project's own bound correspondence set (if any)
+        into memory -- unlike documents/bibles, a project has at most one
+        correspondence set in this editor's usage (always saved under the
+        same fixed id), so there is nothing to pick from a combo; binding
+        or creating a project should just make an existing one available
+        immediately, the same way Open Document already does for a
+        document's own sidecar correspondence.json."""
         self._project_document_combo.clear()
         self._project_bible_combo.clear()
+        self._correspondence_set = None
         if self._project_directory is None:
             return
         project = load_project(self._project_directory)
@@ -454,6 +469,14 @@ class ReferenceColoringTab(QWidget):
             self._project_document_combo.addItem(asset, asset)
         for asset in project.style_bible_assets:
             self._project_bible_combo.addItem(asset, asset)
+        if project.correspondence_set_assets:
+            asset_path = project.correspondence_set_assets[0]
+            try:
+                self._correspondence_set = load_correspondence_set(
+                    Path(self._project_directory) / asset_path
+                )
+            except (OSError, ValueError):
+                self._correspondence_set = None
 
     def _update_status(self) -> None:
         layer_stack = self._canvas.layer_stack()
