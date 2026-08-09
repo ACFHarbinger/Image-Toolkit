@@ -132,6 +132,12 @@ class _KDEWallpaperMixin:
             style_name, WALLPAPER_STYLES["KDE"]["Scaled, Keep Proportions"]
         )
         target_plugin = _KDEWallpaperMixin.get_best_video_plugin()
+        logger.info(
+            "[WallpaperManager] style_name=%r video_mode_active=%s target_plugin=%r",
+            style_name,
+            video_mode_active,
+            target_plugin,
+        )
         if video_mode_active and not target_plugin:
             raise RuntimeError(
                 "No supported KDE video wallpaper plugin found. Please install a plugin such as 'Smart Video Wallpaper Reborn' to enable video wallpaper support."
@@ -152,8 +158,16 @@ class _KDEWallpaperMixin:
             #    file_uri = "file://" + file_uri
 
             ext = Path(path).suffix.lower()
+            takes_video_branch = ext in SUPPORTED_VIDEO_FORMATS and video_mode_active
+            logger.info(
+                "[WallpaperManager] monitor=%s ext=%r video_branch=%s path=%r",
+                i,
+                ext,
+                takes_video_branch,
+                path,
+            )
 
-            if ext in SUPPORTED_VIDEO_FORMATS and video_mode_active:
+            if takes_video_branch:
                 is_smarter = target_plugin == "smartervideowallpaper"
                 video_key = (
                     "VideoWallpaperBackgroundVideo" if is_smarter else "VideoUrls"
@@ -180,6 +194,7 @@ class _KDEWallpaperMixin:
                             {"d.writeConfig('overridePause', true);" if is_smarter else ""}
                             d.writeConfig("{video_key}", "{file_uri}");
                             d.reloadConfig();
+                            print("OK: monitor {i} switched to '" + d.wallpaperPlugin + "', wrote {video_key}='{file_uri}'.");
                         }}
                     }} else {{
                         print("ERROR: monitor {i} has no valid KDE desktop/screen.");
@@ -199,6 +214,8 @@ class _KDEWallpaperMixin:
             result = evaluate_kde_script_with_fallback(qdbus, full_script)
         except Exception as e:
             raise RuntimeError(f"KDE method failed: {e}") from e
+
+        logger.info("[WallpaperManager] evaluateScript raw result: %r", result)
 
         # evaluateScript() over D-Bus returns exit code 0 for any successful
         # D-Bus round-trip, even when the JS itself threw or one of our own
