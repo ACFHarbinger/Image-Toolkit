@@ -2,7 +2,7 @@
 # PostgreSQL (pgvector) and Redis.
 #
 # Usage (from the repo root):
-#   docker compose -f docker/docker-compose.yml up --build
+#   docker compose -f infra/global/docker/docker-compose.yml up --build
 #
 # Build context is the repository root so the Dockerfile can COPY the whole
 # backend tree and build the C++ base extension.
@@ -39,8 +39,8 @@ services:
 
   backend:
     build:
-      context: ..
-      dockerfile: docker/Dockerfile
+      context: ../../..
+      dockerfile: infra/global/docker/Dockerfile
     environment:
       DB_HOST: db
       DB_PORT: "5432"
@@ -62,8 +62,8 @@ services:
 
   worker:
     build:
-      context: ..
-      dockerfile: docker/Dockerfile
+      context: ../../..
+      dockerfile: infra/global/docker/Dockerfile
     command: ["celery", "-A", "api", "worker", "--loglevel=info"]
     environment:
       DB_HOST: db

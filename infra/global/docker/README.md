@@ -19,7 +19,7 @@ apps and are **not** containerized here.
 From the repository root:
 
 ```bash
-docker compose -f docker/docker-compose.yml up --build
+docker compose -f infra/global/docker/docker-compose.yml up --build
 ```
 
 - Web API: http://localhost:8000
