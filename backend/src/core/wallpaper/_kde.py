@@ -164,28 +164,25 @@ class _KDEWallpaperMixin:
                 {{
                     var d = desktops()[{i}];
                     if (d && d.screen >= 0) {{
-                        if (d.wallpaperPlugin !== "{target_plugin}") d.wallpaperPlugin = "{target_plugin}";
-                        d.currentConfigGroup = Array("Wallpaper", d.wallpaperPlugin, "General");
-
-                        // DEBUG: Log the values being written
-                        // console.log("[ImageToolkit] Setting Video FillMode to: {video_fill_mode} for monitor {i}");
-
-                        d.writeConfig("FillMode", {video_fill_mode});
-                        d.writeConfig("fillMode", {video_fill_mode});
-                        {"d.writeConfig('overridePause', true);" if is_smarter else ""}
-
-                        d.writeConfig("{video_key}", "{file_uri}");
-
-                        // Plasma 6 uses the same Qt AspectRatioMode for org.kde.image
-                        var imageFillMode = {video_fill_mode};
-
-                        d.currentConfigGroup = Array("Wallpaper", "org.kde.image", "General");
-                        d.writeConfig("FillMode", imageFillMode);
-                        d.writeConfig("Color", "#00000000");
-
-                        // IMPORTANT: Restore the config group to the active plugin before reloading
-                        d.currentConfigGroup = Array("Wallpaper", d.wallpaperPlugin, "General");
-                        d.reloadConfig();
+                        d.wallpaperPlugin = "{target_plugin}";
+                        if (d.wallpaperPlugin !== "{target_plugin}") {{
+                            // The plugin switch didn't take (e.g. the plugin isn't actually
+                            // registered with Plasma despite being found on disk). Bail out
+                            // WITHOUT touching org.kde.image's config below — previously this
+                            // fell through and blanked org.kde.image's Color to transparent
+                            // black, which is what actually renders when the plugin switch
+                            // silently fails, producing a black screen instead of the video.
+                            print("ERROR: monitor {i} failed to switch to video wallpaper plugin '{target_plugin}' (still on '" + d.wallpaperPlugin + "').");
+                        }} else {{
+                            d.currentConfigGroup = Array("Wallpaper", "{target_plugin}", "General");
+                            d.writeConfig("FillMode", {video_fill_mode});
+                            d.writeConfig("fillMode", {video_fill_mode});
+                            {"d.writeConfig('overridePause', true);" if is_smarter else ""}
+                            d.writeConfig("{video_key}", "{file_uri}");
+                            d.reloadConfig();
+                        }}
+                    }} else {{
+                        print("ERROR: monitor {i} has no valid KDE desktop/screen.");
                     }}
                 }}
                 """
@@ -199,9 +196,19 @@ class _KDEWallpaperMixin:
             return
         full_script = "".join(script_parts)
         try:
-            evaluate_kde_script_with_fallback(qdbus, full_script)
+            result = evaluate_kde_script_with_fallback(qdbus, full_script)
         except Exception as e:
             raise RuntimeError(f"KDE method failed: {e}") from e
+
+        # evaluateScript() over D-Bus returns exit code 0 for any successful
+        # D-Bus round-trip, even when the JS itself threw or one of our own
+        # print("ERROR: ...") diagnostics fired — the qdbus/D-Bus layer never
+        # raises for that. Without this check, a failed plugin switch (see
+        # the video branch above) silently reported Success: True while
+        # showing a black screen instead of the video.
+        errors = [line for line in (result or "").splitlines() if line.startswith("ERROR:")]
+        if errors:
+            raise RuntimeError("KDE wallpaper script reported errors: " + "; ".join(errors))
 
     @staticmethod
     def _set_wallpaper_kde_plasma_apply(

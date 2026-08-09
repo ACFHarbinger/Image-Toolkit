@@ -205,6 +205,49 @@ class TestWallpaperManager:
                 qdbus="qdbus",
             )
 
+    @patch("src.core.wallpaper.manager.platform.system", return_value="Linux")
+    @patch(
+        "src.core.wallpaper._kde.Path.exists",
+        # get_best_video_plugin() finds the reborn plugin dir on disk...
+        return_value=True,
+    )
+    @patch("src.core.wallpaper._kde.subprocess.run")
+    def test_apply_wallpaper_linux_kde_video_plugin_switch_silently_fails(
+        self, mock_run, mock_exists, mock_platform, mock_base, mock_monitor
+    ):
+        """Regression test: when the KDE video wallpaper plugin is found on
+        disk but the ``d.wallpaperPlugin = "..."`` assignment doesn't
+        actually take effect inside Plasma's scripting engine (the JS runs
+        without throwing — evaluateScript() over D-Bus always exits 0), the
+        old code fell through and unconditionally blanked org.kde.image's
+        Color to transparent black, producing a black screen while
+        WallpaperWorker still reported Success: True. It must now raise
+        instead of silently "succeeding".
+        """
+        # First call: get_kde_desktops(). Second call: the actual video
+        # wallpaper script — its `print("ERROR: ...")` diagnostic is what
+        # the (mocked) Plasma shell's evaluateScript would return when the
+        # plugin switch didn't take, since currentConfigGroup change never
+        # got applied to a *different* plugin.
+        mock_base.evaluate_kde_script.side_effect = [
+            "0:0:0:0",
+            "ERROR: monitor 0 failed to switch to video wallpaper plugin "
+            "'luisbocanegra.smart.video.wallpaper.reborn' (still on 'org.kde.image').",
+        ]
+
+        with pytest.raises(RuntimeError, match="KDE wallpaper script reported errors"):
+            WallpaperManager.apply_wallpaper(
+                path_map={"0": "/path/to/video.mp4"},
+                monitors=[mock_monitor],
+                style_name="SmartVideoWallpaper::Fill",
+                qdbus="qdbus",
+            )
+
+        # And critically: a video-mode failure must NOT fall back to
+        # plasma-apply-wallpaperimage (which can't render video and would
+        # just trade one misleading "success" for another).
+        mock_run.assert_not_called()
+
 
 # Helper to check winreg calls simpler
 def winreg_set_value_ex_called_with(mock_winreg, result_key):

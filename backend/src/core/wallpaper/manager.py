@@ -91,6 +91,19 @@ class WallpaperManager(_WindowsWallpaperMixin, _KDEWallpaperMixin, _GNOMEWallpap
                         mapped_path_map, style_name, qdbus
                     )
                 except Exception as e:
+                    # plasma-apply-wallpaperimage only understands static
+                    # images — feeding it a video file for a failed
+                    # SmartVideoWallpaper attempt doesn't produce a video
+                    # background (it may even report success on a file it
+                    # can't actually render), which just trades one
+                    # misleading "Success: True" for another. Only fall
+                    # back for non-video styles, where the tool is actually
+                    # applicable.
+                    if style_name.startswith("SmartVideoWallpaper"):
+                        logging.error(
+                            f"KDE video wallpaper setting failed (no static-image fallback applies): {e}"
+                        )
+                        raise
                     logging.warning(
                         f"KDE DBus wallpaper setting failed, trying fallback: {e}"
                     )
