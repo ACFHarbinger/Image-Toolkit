@@ -2,6 +2,21 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S375 — 2026-08-09 (Rebuilt docs/website as the full interactive documentation portal)
+
+Reversed S364's removal (2026-08-07) and rebuilt `docs/website/` as a Vite + Vue 3 + TypeScript
+SPA — this time as the deployed gh-pages site itself, not a partial build. MkDocs (`docs/mkdocs.
+yml`) and Sphinx are retained but validation-only (`mkdocs build --strict` runs in CI as a link/
+nav-integrity gate; nothing MkDocs-built is published anymore). The site combines a documentation
+portal (every `mkdocs.yml` nav page, rendered client-side) with an interactive engineering hub
+(module explorer, submodule ecosystem, roadmap/benchmarks) and three framework islands doing real
+work: a static Astro k-NN visualization, a live React island mounting `frontend/src/components/
+common/*` directly (also documented via Storybook), and an Aurelia 2 k-means convergence
+simulation. TypeDoc + `typedoc-plugin-markdown` now generates `docs/api/typescript/` from
+`frontend/src/math/`, restoring the TypeScript API reference nav entry. `.github/workflows/docs.
+yml` gained a `docs-website` CI job and the `deploy`/`preview` jobs now publish `docs/website/
+dist/` instead of the MkDocs build. See `docs/website/APP.md` for the full rationale.
+
 ## S374 — 2026-08-08 (Purged committed MkDocs build output, moved generated
 output to build/gen)
 
