@@ -5,7 +5,7 @@
 # and the Tauri frontend are NOT containerized here (they are desktop apps).
 #
 # Build context is the repository ROOT (see docker/docker-compose.yml:
-#   build: { context: .., dockerfile: docker/Dockerfile }).
+#   build: { context: .., dockerfile: infra/global/docker/Dockerfile }).
 
 # ---------------------------------------------------------------------------
 # Stage 1 — builder: system toolchain + Python deps + C++ base extension
