@@ -7,7 +7,7 @@ Description: Serverless Backend stack for the Image Toolkit.
 
 Resources:
   # DynamoDB Database Table
-  Image_toolkitTable:
+  ImageToolkitTable:
     Type: AWS::Serverless::SimpleTable
     Properties:
       PrimaryKey:
@@ -18,7 +18,7 @@ Resources:
         WriteCapacityUnits: 5
 
   # Lambda Function
-  Image_toolkitFunction:
+  ImageToolkitFunction:
     Type: AWS::Serverless::Function
     Properties:
       Handler: handler.lambda_handler
@@ -26,10 +26,10 @@ Resources:
       CodeUri: ./src
       Environment:
         Variables:
-          TABLE_NAME: !Ref Image_toolkitTable
+          TABLE_NAME: !Ref ImageToolkitTable
       Policies:
         - DynamoDBCrudPolicy:
-            TableName: !Ref Image_toolkitTable
+            TableName: !Ref ImageToolkitTable
       Events:
         ApiEvent:
           Type: Api
