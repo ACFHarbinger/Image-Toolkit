@@ -46,3 +46,19 @@ export interface BenchmarkStat {
   value: string;
   detail: string;
 }
+
+export interface BenchmarkSuite {
+  suite: string;
+  runner: string;
+  location: string;
+  output: string;
+  ciJob: string;
+}
+
+export interface RoadmapCard {
+  slug: string;
+  title: string;
+  summary: string;
+  path: string;
+  docSource: string;
+}

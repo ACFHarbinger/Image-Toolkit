@@ -1,0 +1,37 @@
+---
+import VectorFlowField from "../VectorFlowField.astro";
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Vector flow field — Image-Toolkit</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: transparent;
+      }
+      body {
+        padding: 0.25rem;
+      }
+    </style>
+    <script>
+      // Mirror the host page's theme into this iframe document so the
+      // (currentColor-driven) island doesn't default to the light palette
+      // inside a dark-mode host — see VectorFlowFieldWrapper.vue, which
+      // posts theme changes down via postMessage.
+      window.addEventListener("message", (e) => {
+        if (e.data?.type === "image-toolkit-theme") {
+          document.documentElement.setAttribute("data-theme", e.data.theme);
+        }
+      });
+    </script>
+  </head>
+  <body>
+    <VectorFlowField seed={2024} pointCount={140} queryCount={5} k={6} />
+  </body>
+</html>
