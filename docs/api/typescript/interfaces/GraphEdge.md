@@ -1,6 +1,6 @@
 # Interface: GraphEdge
 
-Defined in: [graph.ts:15](https://github.com/ACFHarbinger/Image-Toolkit/blob/9190541af071250910b565c74fabdf538a60aa6c/frontend/src/math/graph.ts#L15)
+Defined in: [graph.ts:15](https://github.com/ACFHarbinger/Image-Toolkit/blob/c83b0f03024b40295257ca9a82367a60fe0f1ce2/frontend/src/math/graph.ts#L15)
 
 ## Properties
 
@@ -8,7 +8,7 @@ Defined in: [graph.ts:15](https://github.com/ACFHarbinger/Image-Toolkit/blob/919
 
 > **source**: `string`
 
-Defined in: [graph.ts:16](https://github.com/ACFHarbinger/Image-Toolkit/blob/9190541af071250910b565c74fabdf538a60aa6c/frontend/src/math/graph.ts#L16)
+Defined in: [graph.ts:16](https://github.com/ACFHarbinger/Image-Toolkit/blob/c83b0f03024b40295257ca9a82367a60fe0f1ce2/frontend/src/math/graph.ts#L16)
 
 ***
 
@@ -16,7 +16,7 @@ Defined in: [graph.ts:16](https://github.com/ACFHarbinger/Image-Toolkit/blob/919
 
 > **target**: `string`
 
-Defined in: [graph.ts:17](https://github.com/ACFHarbinger/Image-Toolkit/blob/9190541af071250910b565c74fabdf538a60aa6c/frontend/src/math/graph.ts#L17)
+Defined in: [graph.ts:17](https://github.com/ACFHarbinger/Image-Toolkit/blob/c83b0f03024b40295257ca9a82367a60fe0f1ce2/frontend/src/math/graph.ts#L17)
 
 ***
 
@@ -24,4 +24,4 @@ Defined in: [graph.ts:17](https://github.com/ACFHarbinger/Image-Toolkit/blob/919
 
 > `optional` **weight?**: `number`
 
-Defined in: [graph.ts:18](https://github.com/ACFHarbinger/Image-Toolkit/blob/9190541af071250910b565c74fabdf538a60aa6c/frontend/src/math/graph.ts#L18)
+Defined in: [graph.ts:18](https://github.com/ACFHarbinger/Image-Toolkit/blob/c83b0f03024b40295257ca9a82367a60fe0f1ce2/frontend/src/math/graph.ts#L18)

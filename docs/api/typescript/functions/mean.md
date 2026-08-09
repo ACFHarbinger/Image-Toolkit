@@ -2,7 +2,7 @@
 
 > **mean**(`xs`): `number`
 
-Defined in: [stats.ts:20](https://github.com/ACFHarbinger/Image-Toolkit/blob/9190541af071250910b565c74fabdf538a60aa6c/frontend/src/math/stats.ts#L20)
+Defined in: [stats.ts:20](https://github.com/ACFHarbinger/Image-Toolkit/blob/c83b0f03024b40295257ca9a82367a60fe0f1ce2/frontend/src/math/stats.ts#L20)
 
 Arithmetic mean of a number array.
 

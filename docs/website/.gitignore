@@ -1,9 +1,12 @@
 node_modules/
 dist/
 tsconfig.tsbuildinfo
+.astro/
 src/nav.generated.ts
-public/astro-island/
-public/storybook/
+public/astro-island/*
+!public/astro-island/index.html
+public/storybook/*
+!public/storybook/index.html
 docs-generated/
 .storybook/dist/
 storybook-dist/

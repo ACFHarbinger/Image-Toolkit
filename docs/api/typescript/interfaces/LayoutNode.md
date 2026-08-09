@@ -1,6 +1,6 @@
 # Interface: LayoutNode
 
-Defined in: [graph.ts:113](https://github.com/ACFHarbinger/Image-Toolkit/blob/9190541af071250910b565c74fabdf538a60aa6c/frontend/src/math/graph.ts#L113)
+Defined in: [graph.ts:113](https://github.com/ACFHarbinger/Image-Toolkit/blob/c83b0f03024b40295257ca9a82367a60fe0f1ce2/frontend/src/math/graph.ts#L113)
 
 ## Properties
 
@@ -8,7 +8,7 @@ Defined in: [graph.ts:113](https://github.com/ACFHarbinger/Image-Toolkit/blob/91
 
 > **id**: `string`
 
-Defined in: [graph.ts:114](https://github.com/ACFHarbinger/Image-Toolkit/blob/9190541af071250910b565c74fabdf538a60aa6c/frontend/src/math/graph.ts#L114)
+Defined in: [graph.ts:114](https://github.com/ACFHarbinger/Image-Toolkit/blob/c83b0f03024b40295257ca9a82367a60fe0f1ce2/frontend/src/math/graph.ts#L114)
 
 ***
 
@@ -16,7 +16,7 @@ Defined in: [graph.ts:114](https://github.com/ACFHarbinger/Image-Toolkit/blob/91
 
 > **x**: `number`
 
-Defined in: [graph.ts:115](https://github.com/ACFHarbinger/Image-Toolkit/blob/9190541af071250910b565c74fabdf538a60aa6c/frontend/src/math/graph.ts#L115)
+Defined in: [graph.ts:115](https://github.com/ACFHarbinger/Image-Toolkit/blob/c83b0f03024b40295257ca9a82367a60fe0f1ce2/frontend/src/math/graph.ts#L115)
 
 ***
 
@@ -24,4 +24,4 @@ Defined in: [graph.ts:115](https://github.com/ACFHarbinger/Image-Toolkit/blob/91
 
 > **y**: `number`
 
-Defined in: [graph.ts:116](https://github.com/ACFHarbinger/Image-Toolkit/blob/9190541af071250910b565c74fabdf538a60aa6c/frontend/src/math/graph.ts#L116)
+Defined in: [graph.ts:116](https://github.com/ACFHarbinger/Image-Toolkit/blob/c83b0f03024b40295257ca9a82367a60fe0f1ce2/frontend/src/math/graph.ts#L116)

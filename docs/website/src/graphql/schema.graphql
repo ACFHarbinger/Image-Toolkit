@@ -1,0 +1,43 @@
+# Schema stub for a possible future docs/content GraphQL API (e.g. serving
+# nav.generated.ts + module/roadmap/benchmark constants from a real backend
+# instead of build-time TS constants). Not wired to a resolver or client
+# yet — src/graphql/fragments/ is where query fragments would live once one
+# exists.
+
+type ModuleCard {
+  slug: String!
+  title: String!
+  tagline: String!
+  description: String!
+  stack: [String!]!
+  path: String!
+  docSource: String
+  layer: ModuleLayer!
+}
+
+enum ModuleLayer {
+  ENGINE
+  INTERFACE
+  DATA
+  SECURITY
+}
+
+type NavPage {
+  title: String!
+  path: String!
+  source: String!
+}
+
+type SubmoduleSite {
+  slug: String!
+  title: String!
+  description: String!
+  url: String!
+  repo: String!
+}
+
+type Query {
+  modules: [ModuleCard!]!
+  navPages: [NavPage!]!
+  submodules: [SubmoduleSite!]!
+}

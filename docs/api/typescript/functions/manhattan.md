@@ -2,7 +2,7 @@
 
 > **manhattan**(`a`, `b`): `number`
 
-Defined in: [distance.ts:45](https://github.com/ACFHarbinger/Image-Toolkit/blob/9190541af071250910b565c74fabdf538a60aa6c/frontend/src/math/distance.ts#L45)
+Defined in: [distance.ts:45](https://github.com/ACFHarbinger/Image-Toolkit/blob/c83b0f03024b40295257ca9a82367a60fe0f1ce2/frontend/src/math/distance.ts#L45)
 
 Manhattan (L1 / city-block) distance.
 
