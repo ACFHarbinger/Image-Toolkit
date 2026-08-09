@@ -2,7 +2,7 @@
 
 > **RGB** = \[`number`, `number`, `number`\]
 
-Defined in: [colormap.ts:7](https://github.com/ACFHarbinger/Image-Toolkit/blob/9190541af071250910b565c74fabdf538a60aa6c/frontend/src/math/colormap.ts#L7)
+Defined in: [colormap.ts:7](https://github.com/ACFHarbinger/Image-Toolkit/blob/c83b0f03024b40295257ca9a82367a60fe0f1ce2/frontend/src/math/colormap.ts#L7)
 
 Perceptually-uniform colormaps for analytics visualisations.
 

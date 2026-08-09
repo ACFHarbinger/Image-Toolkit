@@ -2,7 +2,7 @@
 
 > **lerp2**(`a`, `b`, `t`): [`Vec2`](/api/typescript/type-aliases/Vec2)
 
-Defined in: [linalg.ts:55](https://github.com/ACFHarbinger/Image-Toolkit/blob/9190541af071250910b565c74fabdf538a60aa6c/frontend/src/math/linalg.ts#L55)
+Defined in: [linalg.ts:55](https://github.com/ACFHarbinger/Image-Toolkit/blob/c83b0f03024b40295257ca9a82367a60fe0f1ce2/frontend/src/math/linalg.ts#L55)
 
 Linear interpolation between two 2D vectors.
 

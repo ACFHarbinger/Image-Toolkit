@@ -1,6 +1,6 @@
 # Class: Graph
 
-Defined in: [graph.ts:21](https://github.com/ACFHarbinger/Image-Toolkit/blob/9190541af071250910b565c74fabdf538a60aa6c/frontend/src/math/graph.ts#L21)
+Defined in: [graph.ts:21](https://github.com/ACFHarbinger/Image-Toolkit/blob/c83b0f03024b40295257ca9a82367a60fe0f1ce2/frontend/src/math/graph.ts#L21)
 
 ## Constructors
 
@@ -8,7 +8,7 @@ Defined in: [graph.ts:21](https://github.com/ACFHarbinger/Image-Toolkit/blob/919
 
 > **new Graph**(`directed?`): `Graph`
 
-Defined in: [graph.ts:26](https://github.com/ACFHarbinger/Image-Toolkit/blob/9190541af071250910b565c74fabdf538a60aa6c/frontend/src/math/graph.ts#L26)
+Defined in: [graph.ts:26](https://github.com/ACFHarbinger/Image-Toolkit/blob/c83b0f03024b40295257ca9a82367a60fe0f1ce2/frontend/src/math/graph.ts#L26)
 
 #### Parameters
 
@@ -26,7 +26,7 @@ Defined in: [graph.ts:26](https://github.com/ACFHarbinger/Image-Toolkit/blob/919
 
 > `readonly` **adj**: `Map`\<`string`, [`GraphEdge`](/api/typescript/interfaces/GraphEdge)[]\>
 
-Defined in: [graph.ts:23](https://github.com/ACFHarbinger/Image-Toolkit/blob/9190541af071250910b565c74fabdf538a60aa6c/frontend/src/math/graph.ts#L23)
+Defined in: [graph.ts:23](https://github.com/ACFHarbinger/Image-Toolkit/blob/c83b0f03024b40295257ca9a82367a60fe0f1ce2/frontend/src/math/graph.ts#L23)
 
 ***
 
@@ -34,7 +34,7 @@ Defined in: [graph.ts:23](https://github.com/ACFHarbinger/Image-Toolkit/blob/919
 
 > `readonly` **directed**: `boolean`
 
-Defined in: [graph.ts:24](https://github.com/ACFHarbinger/Image-Toolkit/blob/9190541af071250910b565c74fabdf538a60aa6c/frontend/src/math/graph.ts#L24)
+Defined in: [graph.ts:24](https://github.com/ACFHarbinger/Image-Toolkit/blob/c83b0f03024b40295257ca9a82367a60fe0f1ce2/frontend/src/math/graph.ts#L24)
 
 ***
 
@@ -42,7 +42,7 @@ Defined in: [graph.ts:24](https://github.com/ACFHarbinger/Image-Toolkit/blob/919
 
 > `readonly` **nodes**: `Map`\<`string`, [`GraphNode`](/api/typescript/interfaces/GraphNode)\>
 
-Defined in: [graph.ts:22](https://github.com/ACFHarbinger/Image-Toolkit/blob/9190541af071250910b565c74fabdf538a60aa6c/frontend/src/math/graph.ts#L22)
+Defined in: [graph.ts:22](https://github.com/ACFHarbinger/Image-Toolkit/blob/c83b0f03024b40295257ca9a82367a60fe0f1ce2/frontend/src/math/graph.ts#L22)
 
 ## Accessors
 
@@ -52,7 +52,7 @@ Defined in: [graph.ts:22](https://github.com/ACFHarbinger/Image-Toolkit/blob/919
 
 > **get** **nodeCount**(): `number`
 
-Defined in: [graph.ts:54](https://github.com/ACFHarbinger/Image-Toolkit/blob/9190541af071250910b565c74fabdf538a60aa6c/frontend/src/math/graph.ts#L54)
+Defined in: [graph.ts:54](https://github.com/ACFHarbinger/Image-Toolkit/blob/c83b0f03024b40295257ca9a82367a60fe0f1ce2/frontend/src/math/graph.ts#L54)
 
 ##### Returns
 
@@ -64,7 +64,7 @@ Defined in: [graph.ts:54](https://github.com/ACFHarbinger/Image-Toolkit/blob/919
 
 > **addEdge**(`edge`): `void`
 
-Defined in: [graph.ts:35](https://github.com/ACFHarbinger/Image-Toolkit/blob/9190541af071250910b565c74fabdf538a60aa6c/frontend/src/math/graph.ts#L35)
+Defined in: [graph.ts:35](https://github.com/ACFHarbinger/Image-Toolkit/blob/c83b0f03024b40295257ca9a82367a60fe0f1ce2/frontend/src/math/graph.ts#L35)
 
 #### Parameters
 
@@ -82,7 +82,7 @@ Defined in: [graph.ts:35](https://github.com/ACFHarbinger/Image-Toolkit/blob/919
 
 > **addNode**(`node`): `void`
 
-Defined in: [graph.ts:30](https://github.com/ACFHarbinger/Image-Toolkit/blob/9190541af071250910b565c74fabdf538a60aa6c/frontend/src/math/graph.ts#L30)
+Defined in: [graph.ts:30](https://github.com/ACFHarbinger/Image-Toolkit/blob/c83b0f03024b40295257ca9a82367a60fe0f1ce2/frontend/src/math/graph.ts#L30)
 
 #### Parameters
 
@@ -100,7 +100,7 @@ Defined in: [graph.ts:30](https://github.com/ACFHarbinger/Image-Toolkit/blob/919
 
 > **neighbors**(`id`): [`GraphEdge`](/api/typescript/interfaces/GraphEdge)[]
 
-Defined in: [graph.ts:46](https://github.com/ACFHarbinger/Image-Toolkit/blob/9190541af071250910b565c74fabdf538a60aa6c/frontend/src/math/graph.ts#L46)
+Defined in: [graph.ts:46](https://github.com/ACFHarbinger/Image-Toolkit/blob/c83b0f03024b40295257ca9a82367a60fe0f1ce2/frontend/src/math/graph.ts#L46)
 
 #### Parameters
 
@@ -118,7 +118,7 @@ Defined in: [graph.ts:46](https://github.com/ACFHarbinger/Image-Toolkit/blob/919
 
 > **nodeIds**(): `string`[]
 
-Defined in: [graph.ts:50](https://github.com/ACFHarbinger/Image-Toolkit/blob/9190541af071250910b565c74fabdf538a60aa6c/frontend/src/math/graph.ts#L50)
+Defined in: [graph.ts:50](https://github.com/ACFHarbinger/Image-Toolkit/blob/c83b0f03024b40295257ca9a82367a60fe0f1ce2/frontend/src/math/graph.ts#L50)
 
 #### Returns
 
