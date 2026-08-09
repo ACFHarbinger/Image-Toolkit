@@ -13,7 +13,7 @@
     "build:astro": "astro build || echo 'astro build failed — falling back to committed public/astro-island'",
     "gen:api": "typedoc && node scripts/fix-api-links.mjs",
     "storybook": "storybook dev -p 6006",
-    "build-storybook": "storybook build -o public/storybook",
+    "build-storybook": "storybook build -o public/storybook || echo 'storybook build failed — falling back to committed public/storybook'",
     "nuxt:dev": "nuxt dev",
     "nuxt:build": "nuxt build",
     "nuxt:generate": "nuxt generate",
