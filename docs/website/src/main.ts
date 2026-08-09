@@ -3,6 +3,7 @@ import App from "./frameworks/vue/App.vue";
 import router from "./router";
 import { directivesPlugin } from "./frameworks/vue/directives";
 import { VuexProvider } from "./libraries/vuex/store/VuexProvider";
+import "./styles/tailwind.css";
 import "./styles/theme.css";
 import "./styles/markdown.css";
 import "./styles/hub.css";
