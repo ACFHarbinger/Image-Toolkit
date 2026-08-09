@@ -62,7 +62,7 @@
     "eslint-plugin-vue": "^10.10.0",
     "globals": "^17.9.0",
     "happy-dom": "^20.11.2",
-    "js-yaml": "^4.1.0",
+    "js-yaml": "^5.2.2",
     "jsdom": "^29.1.1",
     "postcss": "^8.5.26",
     "storybook": "^10.5.7",
