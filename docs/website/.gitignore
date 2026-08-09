@@ -1,0 +1,13 @@
+node_modules/
+dist/
+tsconfig.tsbuildinfo
+src/nav.generated.ts
+public/astro-island/
+public/storybook/
+docs-generated/
+.storybook/dist/
+storybook-dist/
+*.local
+.nuxt/
+.output/
+.next/
