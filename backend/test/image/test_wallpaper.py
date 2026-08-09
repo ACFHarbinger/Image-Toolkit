@@ -248,6 +248,37 @@ class TestWallpaperManager:
         # just trade one misleading "success" for another).
         mock_run.assert_not_called()
 
+    @patch("src.core.wallpaper.manager.platform.system", return_value="Linux")
+    @patch("src.core.wallpaper._kde.Path.exists", return_value=True)
+    def test_apply_wallpaper_linux_kde_video_writes_file_uri(
+        self, mock_exists, mock_platform, mock_base, mock_monitor
+    ):
+        """Regression test: VideoUrls/VideoWallpaperBackgroundVideo are
+        QUrl-typed config keys and need an actual file:// URI. Writing a
+        bare filesystem path there (as the code used to, mirroring
+        org.kde.image's "Image" key, which *does* want a raw path) let
+        writeConfig()/reloadConfig() succeed with no error while the video
+        plugin had nothing resolvable to play — a black screen with
+        Success: True, confirmed live via the plugin-switch/write
+        diagnostics added in 35c0e0f1 (which showed the switch and write
+        both succeeding, ruling out the earlier hypothesis).
+        """
+        mock_base.evaluate_kde_script.side_effect = [
+            "0:0:0:0",
+            "OK: monitor 0 switched.",
+        ]
+
+        WallpaperManager.apply_wallpaper(
+            path_map={"0": "/path/to/video.mp4"},
+            monitors=[mock_monitor],
+            style_name="SmartVideoWallpaper::Fill",
+            qdbus="qdbus",
+        )
+
+        script = mock_base.evaluate_kde_script.call_args_list[-1][0][1]
+        assert 'writeConfig("VideoUrls", "file:///path/to/video.mp4")' in script
+        assert 'writeConfig("VideoUrls", "/path/to/video.mp4")' not in script
+
 
 # Helper to check winreg calls simpler
 def winreg_set_value_ex_called_with(mock_winreg, result_key):

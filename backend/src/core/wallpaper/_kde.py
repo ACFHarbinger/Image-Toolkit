@@ -153,9 +153,19 @@ class _KDEWallpaperMixin:
                 continue
 
             # KDE Plasma 6 (and some 5 versions) prefers raw paths for org.kde.image
-            file_uri = str(Path(path).resolve())
-            # if not file_uri.startswith("file://"):
-            #    file_uri = "file://" + file_uri
+            resolved_path = Path(path).resolve()
+            file_uri = str(resolved_path)
+            # Unlike org.kde.image's "Image" key above, the video wallpaper
+            # plugins' "VideoUrls"/"VideoWallpaperBackgroundVideo" keys are
+            # QUrl-typed (QML MediaPlayer.source-style) and need an actual
+            # file:// URI, not a bare filesystem path — a raw "/home/..."
+            # string has no URI scheme, so QUrl parsing of it is
+            # inconsistent across Qt/plugin versions and can silently
+            # resolve to "nothing to play" (i.e. a black background) even
+            # though writeConfig() itself never errors. as_uri() also
+            # percent-encodes spaces/special characters that a naive
+            # "file://" + path concatenation would leave broken.
+            video_file_uri = resolved_path.as_uri()
 
             ext = Path(path).suffix.lower()
             takes_video_branch = ext in SUPPORTED_VIDEO_FORMATS and video_mode_active
@@ -192,9 +202,9 @@ class _KDEWallpaperMixin:
                             d.writeConfig("FillMode", {video_fill_mode});
                             d.writeConfig("fillMode", {video_fill_mode});
                             {"d.writeConfig('overridePause', true);" if is_smarter else ""}
-                            d.writeConfig("{video_key}", "{file_uri}");
+                            d.writeConfig("{video_key}", "{video_file_uri}");
                             d.reloadConfig();
-                            print("OK: monitor {i} switched to '" + d.wallpaperPlugin + "', wrote {video_key}='{file_uri}'.");
+                            print("OK: monitor {i} switched to '" + d.wallpaperPlugin + "', wrote {video_key}='{video_file_uri}'.");
                         }}
                     }} else {{
                         print("ERROR: monitor {i} has no valid KDE desktop/screen.");
