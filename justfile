@@ -501,6 +501,22 @@ python *args: helper::_print_header
 
 # --- AI Tools ---
 
+# --- Shorthands ---
+# Note: none of these share a name with a `mod` above (just forbids that);
+# use the module directly (e.g. `just build::debug`) for anything not listed here.
+
 # Loop the Claude Code agent on a stateful context
-loop-agent prompt=agent_prompt: helper::_print_header
-    just agent::loop-agent '{{prompt}}'
+loop-claude prompt="Continue implementing the studio, updating the ROADMAP and CHANGELOG, and commiting your work": helper::_print_header
+    just agent::loop-claude "{{prompt}}"
+
+# Loop the Grok agent on a stateful context
+loop-grok prompt="Continue implementing the studio, updating the ROADMAP and CHANGELOG, and commiting your work": helper::_print_header
+    just agent::loop-grok "{{prompt}}"
+
+# Loop the Gemini agent on a stateful context
+loop-gemini prompt="Continue implementing the studio, updating the ROADMAP and CHANGELOG, and commiting your work": helper::_print_header
+    just agent::loop-gemini "{{prompt}}"
+
+# Loop the ChatGPT agent on a stateful context
+loop-chatgpt prompt="Continue implementing the studio, updating the ROADMAP and CHANGELOG, and commiting your work": helper::_print_header
+    just agent::loop-chatgpt "{{prompt}}"
