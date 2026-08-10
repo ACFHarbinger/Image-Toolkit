@@ -1,0 +1,272 @@
+.ratings-dashboard {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 4rem;
+  color: var(--dash-text, #e5e7eb);
+}
+
+.dash-disclaimer {
+  opacity: 0.8;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  max-width: 70ch;
+}
+
+.dash-disclaimer-inline {
+  opacity: 0.7;
+  font-size: 0.85rem;
+  margin-top: -0.5rem;
+}
+
+.dash-banner {
+  background: rgba(139, 92, 246, 0.08);
+  border: 1px solid rgba(139, 92, 246, 0.25);
+  border-radius: 0.75rem;
+  padding: 1rem 1.25rem;
+  margin: 1.5rem 0;
+}
+
+.dash-note {
+  opacity: 0.75;
+  font-size: 0.85rem;
+  margin: 0.35rem 0 0;
+}
+
+.dash-error {
+  color: #f87171;
+}
+
+.dash-empty {
+  opacity: 0.6;
+  font-style: italic;
+}
+
+.dash-section {
+  margin-top: 2.5rem;
+}
+
+.dash-stat-row {
+  display: flex;
+  gap: 2rem;
+  flex-wrap: wrap;
+  margin: 1rem 0 1.5rem;
+}
+
+.dash-stat {
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-value {
+  font-size: 1.8rem;
+  font-weight: 700;
+}
+
+.stat-label {
+  font-size: 0.8rem;
+  opacity: 0.65;
+}
+
+.dash-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.histogram h4 {
+  margin: 0 0 0.5rem;
+  font-size: 0.9rem;
+  opacity: 0.8;
+}
+
+.histogram .bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+  height: 100px;
+}
+
+.bar-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+}
+
+.bar-track {
+  width: 100%;
+  height: 70px;
+  display: flex;
+  align-items: flex-end;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 0.25rem;
+  overflow: hidden;
+}
+
+.bar-fill {
+  width: 100%;
+  background: linear-gradient(180deg, #8b5cf6, #5b8cff);
+}
+
+.bar-label {
+  font-size: 0.75rem;
+  opacity: 0.6;
+  margin-top: 0.25rem;
+}
+
+.bar-count {
+  font-size: 0.7rem;
+  opacity: 0.45;
+}
+
+.defect-breakdown {
+  margin-bottom: 1.5rem;
+}
+
+.defect-breakdown h4 {
+  font-size: 0.9rem;
+  opacity: 0.8;
+  margin-bottom: 0.5rem;
+}
+
+.defect-breakdown ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.defect-breakdown li {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-radius: 999px;
+  padding: 0.25rem 0.7rem;
+  font-size: 0.8rem;
+}
+
+.defect-name {
+  text-transform: capitalize;
+}
+
+.defect-count {
+  opacity: 0.7;
+  font-weight: 600;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 0.5rem 0.6rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  vertical-align: top;
+}
+
+.notes-cell {
+  max-width: 32ch;
+  opacity: 0.8;
+}
+
+.trend-chart {
+  width: 100%;
+  height: 160px;
+  margin-bottom: 1.5rem;
+}
+
+.trend-line {
+  fill: none;
+  stroke-width: 2;
+}
+
+.trend-line.asp {
+  stroke: #8b5cf6;
+}
+
+.trend-line.simple {
+  stroke: #34d399;
+}
+
+.trend-legend {
+  font-size: 10px;
+}
+
+.trend-legend.asp {
+  fill: #8b5cf6;
+}
+
+.trend-legend.simple {
+  fill: #34d399;
+}
+
+/* Dashboard shares the visual language of the landing page while keeping the
+   evidence dense and legible. */
+.ratings-dashboard {
+  max-width: 1180px;
+  padding-top: 7rem;
+}
+.ratings-dashboard header {
+  padding: 3rem 0 1rem;
+  border-bottom: 1px solid #ffffff13;
+}
+.ratings-dashboard h1,
+.ratings-dashboard h2 {
+  letter-spacing: -.045em;
+}
+.ratings-dashboard h1 {
+  max-width: 760px;
+  font-size: clamp(2.7rem, 6vw, 5.5rem);
+  line-height: .94;
+  font-weight: 600;
+}
+.ratings-dashboard h2 {
+  font-size: clamp(1.7rem, 3vw, 2.7rem);
+  font-weight: 500;
+}
+.dash-banner,
+.histogram,
+.defect-breakdown,
+.table-wrap,
+.dash-section > .trend-chart {
+  background: linear-gradient(145deg, #ffffff0a, #ffffff02);
+  border: 1px solid #ffffff14;
+  border-radius: 3px;
+}
+.dash-banner,
+.histogram,
+.defect-breakdown {
+  padding: 1.25rem;
+}
+.dash-grid-2 { gap: 1rem; }
+.dash-stat-row { gap: 0; border-block: 1px solid #ffffff13; }
+.dash-stat { flex: 1; min-width: 150px; padding: 1.1rem 1.4rem; border-right: 1px solid #ffffff13; }
+.dash-stat:first-child { padding-left: 0; }
+.dash-stat:last-child { border-right: 0; }
+.stat-value { color: #7ce7dc; font: 500 1.55rem 'DM Mono', monospace; }
+.stat-label { color: #918e99; }
+.table-wrap { border-radius: 3px; }
+th { color: #efb76e; font: 500 .7rem 'DM Mono', monospace; letter-spacing: .08em; text-transform: uppercase; }
+td, th { border-color: #ffffff12; }
+.bar-track { background: #ffffff0a; }
+.bar-fill { background: linear-gradient(180deg, #7ce7dc, #9a8cff); }
+.trend-line.asp { stroke: #efb76e; }
+.trend-legend.asp { fill: #efb76e; }
+@media (max-width: 680px) {
+  .dash-grid-2 { grid-template-columns: 1fr; }
+  .dash-stat { border-right: 0; border-bottom: 1px solid #ffffff13; padding-left: 0; }
+  .dash-stat:last-child { border-bottom: 0; }
+}

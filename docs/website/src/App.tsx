@@ -2,11 +2,15 @@ import { BrowserRouter, Routes, Route, Link, useLocation } from "react-router-do
 import { Aperture } from "lucide-react";
 import Home from "./pages/Home";
 import RatingsDashboard from "./pages/RatingsDashboard";
+import Docs from "./pages/Docs";
+import Pipeline from "./pages/Pipeline";
 import "./App.css";
 
 function Nav() {
   const { pathname } = useLocation();
   const onDash = pathname.startsWith("/dashboard");
+  const onDocs = pathname.startsWith("/docs");
+  const onPipeline = pathname.startsWith("/pipeline");
 
   return (
     <nav className="site-nav" aria-label="Primary">
@@ -22,14 +26,18 @@ function Nav() {
         </Link>
 
         <div className="nav-links">
-          <Link to="/" className={!onDash ? "active" : undefined}>
+          <Link to="/" className={!onDash && !onDocs && !onPipeline ? "active" : undefined}>
             Home
           </Link>
           <Link to="/dashboard" className={onDash ? "active" : undefined}>
             Quality
           </Link>
-          <a href="#pipeline">Pipeline</a>
-          <a href="#docs">Docs</a>
+          <Link to="/pipeline" className={onPipeline ? "active" : undefined}>
+            Pipeline
+          </Link>
+          <Link to="/docs" className={onDocs ? "active" : undefined}>
+            Docs
+          </Link>
         </div>
 
         <Link to="/dashboard" className="nav-cta">
@@ -50,6 +58,9 @@ export default function App() {
             <Route path="/" element={<Home />} />
             <Route path="/dashboard" element={<RatingsDashboard />} />
             <Route path="/dashboard/ratings" element={<RatingsDashboard />} />
+            <Route path="/pipeline" element={<Pipeline />} />
+            <Route path="/docs" element={<Docs />} />
+            <Route path="/docs/:fileId" element={<Docs />} />
           </Routes>
         </main>
       </div>

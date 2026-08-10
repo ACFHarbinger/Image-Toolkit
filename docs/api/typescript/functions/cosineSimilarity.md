@@ -2,7 +2,7 @@
 
 > **cosineSimilarity**(`a`, `b`): `number`
 
-Defined in: [distance.ts:70](https://github.com/ACFHarbinger/Image-Toolkit/blob/c83b0f03024b40295257ca9a82367a60fe0f1ce2/frontend/src/math/distance.ts#L70)
+Defined in: [distance.ts:70](https://github.com/ACFHarbinger/Image-Toolkit/blob/151030dce5d66210a825506a38d724662270bc79/frontend/src/math/distance.ts#L70)
 
 Cosine similarity ∈ [−1, 1].
 Returns 0 for zero vectors (no meaningful angle).

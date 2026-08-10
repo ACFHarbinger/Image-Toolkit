@@ -2,7 +2,7 @@
 
 > **normN**(`v`): `number`[]
 
-Defined in: [linalg.ts:97](https://github.com/ACFHarbinger/Image-Toolkit/blob/c83b0f03024b40295257ca9a82367a60fe0f1ce2/frontend/src/math/linalg.ts#L97)
+Defined in: [linalg.ts:97](https://github.com/ACFHarbinger/Image-Toolkit/blob/151030dce5d66210a825506a38d724662270bc79/frontend/src/math/linalg.ts#L97)
 
 ## Parameters
 
