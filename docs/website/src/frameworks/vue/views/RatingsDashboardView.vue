@@ -28,6 +28,9 @@ const loading = ref(true);
 const error = ref<string | null>(null);
 const evaluations = ref<EvaluationsFile>({});
 const sourceLabel = ref<string>("(none loaded)");
+const autoRuns = ref<any[]>([]);
+const autoMeta = ref<any>(null);
+const humanSummary = ref<any>(null);
 
 const entries = computed(() => Object.entries(evaluations.value));
 const reviewed = computed(() => entries.value.filter(([, e]) => e.reviewed || e.asp != null));
@@ -60,6 +63,11 @@ function mean(scores: (number | undefined)[]): string {
   return (v.reduce((a, b) => a + b, 0) / v.length).toFixed(2);
 }
 
+function fmt(n: number | null | undefined, digits = 2): string {
+  if (n == null || Number.isNaN(n)) return "—";
+  return Number(n).toFixed(digits);
+}
+
 async function tryLoad(url: string): Promise<EvaluationsFile | null> {
   try {
     const res = await fetch(url);
@@ -89,8 +97,19 @@ onMounted(async () => {
   evaluations.value = loaded || {};
   if (!Object.keys(evaluations.value).length) {
     error.value =
-      "No evaluation JSON found under public/data/. Run just asp-benchmark-assess, then copy the latest data/benchmarks/asp_evaluations_*.json to docs/website/public/data/asp_evaluations.json";
+      "No evaluation JSON found under public/data/. Run just asp-benchmark-assess, then: node docs/website/scripts/generate-dashboard-data.mjs";
   }
+  try {
+    const br = await fetch("/data/benchmark_results.json");
+    if (br.ok) {
+      const body = await br.json();
+      autoRuns.value = Array.isArray(body.runs) ? body.runs : [];
+    }
+    const hs = await fetch("/data/human_ratings_summary.json");
+    if (hs.ok) humanSummary.value = await hs.json();
+    const dm = await fetch("/data/dashboard_meta.json");
+    if (dm.ok) autoMeta.value = await dm.json();
+  } catch { /* optional */ }
   loading.value = false;
 });
 </script>
@@ -102,12 +121,19 @@ onMounted(async () => {
       <h1>Benchmark ratings dashboard</h1>
       <p class="lede">
         Human structural-coherence scores (0–4) and comparator preferences over the ASP corpus.
-        Automated metrics alone do not measure torn anatomy or misordered content — this board
-        tracks the human rating pass and (soon) time-series benchmark JSON.
+        Automated metrics alone do not measure torn anatomy or misordered content — human scores
+        and automated multi-run trends are shown separately.
       </p>
+      <aside v-if="humanSummary?.summary?.narrative_hint" class="alert">
+        <strong>Live rating signal:</strong> {{ humanSummary.summary.narrative_hint }}
+        <template v-if="autoMeta?.notes?.length">
+          — {{ autoMeta.notes[autoMeta.notes.length - 1] }}
+        </template>
+      </aside>
       <div class="actions">
         <router-link class="btn" to="/">← Hub</router-link>
         <code class="cmd">just asp-benchmark-assess</code>
+        <code class="cmd">node docs/website/scripts/generate-dashboard-data.mjs</code>
       </div>
     </header>
 
@@ -218,11 +244,56 @@ onMounted(async () => {
       </section>
     </template>
 
+    <section v-if="autoRuns.length" class="panel">
+      <h2>Automated benchmark runs (over time)</h2>
+      <p class="muted">
+        Aggregated from <code>anime_stitch_*.json</code> via
+        <code>node docs/website/scripts/generate-dashboard-data.mjs</code>.
+        These metrics are <em>not</em> human coherence — sharpness/ghosting can
+        favor ASP while human raters still prefer SCANS on structure.
+      </p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Run</th>
+              <th>Timestamp</th>
+              <th>N</th>
+              <th>Fallback</th>
+              <th>SSIM</th>
+              <th>Sharp ASP</th>
+              <th>Sharp Simple</th>
+              <th>Ghost ASP</th>
+              <th>Ghost Simple</th>
+              <th>ASP better*</th>
+              <th>Simple better*</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="r in autoRuns" :key="r.id">
+              <td><code>{{ r.id }}</code></td>
+              <td>{{ r.timestamp || "—" }}</td>
+              <td>{{ r.summary?.total_datasets ?? "—" }}</td>
+              <td>{{ r.summary?.datasets_fallback ?? "—" }}</td>
+              <td>{{ fmt(r.summary?.avg_ssim, 3) }}</td>
+              <td>{{ fmt(r.summary?.avg_sharpness_asp, 1) }}</td>
+              <td>{{ fmt(r.summary?.avg_sharpness_simple, 1) }}</td>
+              <td>{{ fmt(r.summary?.avg_ghosting_asp, 1) }}</td>
+              <td>{{ fmt(r.summary?.avg_ghosting_simple, 1) }}</td>
+              <td>{{ r.summary?.verdict_counts?.asp_better ?? "—" }}</td>
+              <td>{{ r.summary?.verdict_counts?.simple_better ?? "—" }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="muted">* Automated metric verdicts, not human preference.</p>
+    </section>
+
     <footer class="dash-foot">
       <p>
-        Next: multi-file time series (all <code>asp_evaluations_*.json</code>), metric-vs-human disagreement
-        plots, and React/2D–3D islands for PMF-level visual parity. Coord:
-        <code>.agent/cache/AGENT_BUS.md</code>
+        Next: metric-vs-human disagreement plots and React/2D islands (PMF parity).
+        Coord: <code>.agent/cache/AGENT_BUS.md</code>. ASP quality discussion:
+        <code>.agent/reports/grok/asp_human_rating_signal_20260810.md</code>
       </p>
     </footer>
   </div>
@@ -248,6 +319,19 @@ onMounted(async () => {
   max-width: 62ch;
   line-height: 1.55;
   opacity: 0.9;
+}
+.alert {
+  margin-top: 1rem;
+  padding: 0.85rem 1rem;
+  border-radius: 0.65rem;
+  border: 1px solid rgba(255, 120, 80, 0.45);
+  background: rgba(255, 80, 40, 0.1);
+  line-height: 1.45;
+  max-width: 70ch;
+}
+.muted {
+  opacity: 0.75;
+  font-size: 0.9rem;
 }
 .actions {
   display: flex;

@@ -1,0 +1,114 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-08-10T08:16:19.659Z",
+  "source": "submodules/ASP/data/benchmarks/asp_evaluations_20260810.json",
+  "summary": {
+    "total_keys": 4,
+    "reviewed": 4,
+    "mean_asp": 2.25,
+    "mean_simple": 3.5,
+    "preference_counts": {
+      "simple": 4
+    },
+    "preference_simple_share": 1,
+    "narrative_hint": "Human ratings currently prefer OpenCV SCANS (simple) more often than ASP."
+  },
+  "evaluations": {
+    "asp_test01": {
+      "asp": 3,
+      "bboxes": [],
+      "confidence": 2,
+      "defects": [
+        "crop_loss"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 3
+        },
+        "simple": {
+          "coherence": 4
+        }
+      },
+      "edges": [],
+      "notes": "SCANS cropped out part of the top of the image, and the ASP cropped out both the top and bottom",
+      "preference": "simple",
+      "reviewed": true,
+      "simple": 4,
+      "updated_at": "2026-08-10T09:03:23"
+    },
+    "asp_test02": {
+      "asp": 2,
+      "bboxes": [],
+      "confidence": 3,
+      "defects": [
+        "banding",
+        "color_shift",
+        "ghosting",
+        "seam_line"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 2
+        },
+        "simple": {
+          "coherence": 3
+        }
+      },
+      "edges": [],
+      "notes": "SCANS has dark ghosting, but ASP has terrible issues with the slight yellow light at the top right infecting the entire image, and visible seam lines, specially over the character",
+      "preference": "simple",
+      "reviewed": true,
+      "simple": 3,
+      "updated_at": "2026-08-10T09:07:51"
+    },
+    "asp_test03": {
+      "asp": 3,
+      "bboxes": [],
+      "confidence": 3,
+      "defects": [
+        "banding",
+        "seam_line"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 3
+        },
+        "simple": {
+          "coherence": 4
+        }
+      },
+      "edges": [],
+      "notes": "ASP again has issues with banding and drastically different colors at the seam lines, while SCANS is simply perfect in this test case",
+      "preference": "simple",
+      "reviewed": true,
+      "simple": 4,
+      "updated_at": "2026-08-10T09:08:46"
+    },
+    "asp_test04": {
+      "asp": 1,
+      "bboxes": [],
+      "confidence": 3,
+      "defects": [
+        "banding",
+        "color_shift",
+        "ghosting",
+        "misordered_content",
+        "seam_line",
+        "torn_anatomy"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 1
+        },
+        "simple": {
+          "coherence": 3
+        }
+      },
+      "edges": [],
+      "notes": "",
+      "preference": "simple",
+      "simple": 3,
+      "updated_at": "2026-08-10T09:14:46"
+    }
+  }
+}
