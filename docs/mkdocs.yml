@@ -132,11 +132,13 @@ nav:
   - Home: index.md
   - Getting Started:
       - Quick Start: readme.md
+      - Development: DEVELOPMENT.md
       - Architecture: ARCHITECTURE.md
       - C4 Architecture Model:
           - Overview: STRUCTURIZR.md
           - Exporting & Rendering: structurizr/README.md
       - Troubleshooting: TROUBLESHOOTING.md
+      - Glossary: GLOSSARY.md
   - Tutorials:
       - Overview: tutorials/index.md
       - System Tools: tutorials/system_tools.md
@@ -166,6 +168,8 @@ nav:
       - CLIP Embedding Walkthrough: notebooks/clip_embedding_walkthrough.ipynb
   - Operations:
       - Benchmarks: BENCHMARKS.md
+      - Testing: TESTING.md
+      - Security: SECURITY.md
       - Dependency Policy: DEPENDENCY_POLICY.md
       - Documentation Standards: DOCUMENTATION_STANDARDS.md
   - Roadmaps:
