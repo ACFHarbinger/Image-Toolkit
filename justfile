@@ -178,9 +178,13 @@ test-cpp: helper::_print_header
 benchmark-save: helper::_print_header
     just benchmark::benchmark-save
 
-# Launch benchmark analysis dashboard
+# Launch Streamlit IT performance dashboard
 benchmark-dashboard: helper::_print_header
     just benchmark::benchmark-dashboard
+
+# Aggregate ASP automated runs + human ratings into docs/website/public/data/
+dashboard-data: helper::_print_header
+    just benchmark::dashboard-data
 
 # Run the ASP benchmark on all datasets (asp_test01 … asp_test96)
 asp-benchmark: helper::_print_header

@@ -35,6 +35,12 @@ benchmark-dashboard:
     @echo "Dashboard will open at http://localhost:8501"
     source .venv/bin/activate && streamlit run backend/ui/benchmark_dashboard.py
 
+# Aggregate ASP automated runs + human ratings into docs/website/public/data/
+# for the ratings dashboard (/dashboard/ratings).
+dashboard-data:
+    @echo "📦 Generating docs website dashboard JSON..."
+    node docs/website/scripts/generate-dashboard-data.mjs
+
 # --- ASP quality benchmark (submodules/ASP) ---
 
 # Full corpus run. Script path (not -m backend.benchmark.*) avoids colliding
