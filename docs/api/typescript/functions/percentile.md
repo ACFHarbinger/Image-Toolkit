@@ -2,7 +2,7 @@
 
 > **percentile**(`xs`, `p`): `number`
 
-Defined in: [stats.ts:87](https://github.com/ACFHarbinger/Image-Toolkit/blob/c83b0f03024b40295257ca9a82367a60fe0f1ce2/frontend/src/math/stats.ts#L87)
+Defined in: [stats.ts:87](https://github.com/ACFHarbinger/Image-Toolkit/blob/151030dce5d66210a825506a38d724662270bc79/frontend/src/math/stats.ts#L87)
 
 Nearest-rank percentile (R-1 method).
 

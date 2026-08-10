@@ -1,5 +1,4 @@
 import { defineConfig } from "vite";
-import vue from "@vitejs/plugin-vue";
 import react from "@vitejs/plugin-react";
 
 // Deployed as the entire gh-pages site (see .github/workflows/docs.yml), i.e.
@@ -9,13 +8,10 @@ const base = process.env.SITE_BASE || "/";
 
 export default defineConfig({
   base,
-  plugins: [
-    vue(),
-    // The React island (src/frameworks/react/) is mounted client-side into
-    // a Vue-owned DOM node via ReactDOM.createRoot — this plugin only
-    // transforms its .tsx files; it never touches .vue SFCs.
-    react({ include: /frameworks\/react\/.*\.tsx?$/ }),
-  ],
+  // The active documentation experience is now the React application. The
+  // previous Vue portal remains archived in docs/website_old while the React
+  // cutover is stabilized.
+  plugins: [react()],
   server: {
     fs: {
       // Allow importing markdown from the repo root (three levels up from
