@@ -35,6 +35,7 @@ const { activeHubTab: activeTab, selectHubTab: setActiveTab } = useAppStore();
       </p>
       <div class="hero-actions">
         <router-link to="/docs" class="btn btn-primary">Read the docs</router-link>
+        <router-link to="/dashboard/ratings" class="btn btn-secondary">Ratings dashboard</router-link>
         <a class="btn btn-secondary" href="https://github.com/ACFHarbinger/Image-Toolkit" target="_blank" rel="noopener noreferrer">
           View on GitHub ↗
         </a>

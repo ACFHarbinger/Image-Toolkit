@@ -39,6 +39,31 @@ just test-base-cpp
 python benchmark/generate_report.py
 ```
 
+### ASP evaluator and submodule commands
+
+The human coherence evaluator remains available from the Image-Toolkit root:
+
+```bash
+# Open the PySide6 N-way benchmark evaluator
+just asp-benchmark-assess
+
+# Open the optional FiftyOne triage surface
+just asp-triage
+
+# Forward a command to the ASP submodule's own root Justfile
+just asp-just --list
+just asp-just bench::help
+```
+
+`just asp-benchmark-assess` delegates to the ASP submodule's
+`backend/src/cli/eval_dispatch.py` through the benchmark module's explicit
+submodule bootstrap. The legacy `backend/controllers/bench_eval_dispatch.py`
+compatibility path, when present, forwards to that same implementation. The
+evaluator's human ratings are written to the ASP evaluation data described in
+the ASP submodule documentation; they are not interchangeable with automated
+SSIM, sharpness, seam, or pose metrics. The new `asp-just` wrapper is only a
+routing convenience and does not duplicate the submodule's recipes.
+
 ### Individual Benchmark Suites
 
 ```bash

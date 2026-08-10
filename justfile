@@ -217,6 +217,12 @@ asp-benchmark-clean: helper::_print_header
 asp-benchmark-assess *ARGS: helper::_print_header
     just benchmark::asp-benchmark-assess {{ARGS}}
 
+# Forward arbitrary arguments to the ASP submodule's root Justfile. This keeps
+# the submodule's own task surface reachable after the ASP repository split.
+# Examples: `just asp-just --list`, `just asp-just bench::help`.
+asp-just *ARGS: helper::_print_header
+    just --justfile submodules/ASP/justfile {{ARGS}}
+
 # Corpus-level triage of the ASP evaluations in FiftyOne (optional extra)
 asp-triage *ARGS: helper::_print_header
     just benchmark::asp-triage {{ARGS}}

@@ -9,6 +9,11 @@ const router = createAppRouter({
       component: () => import("./frameworks/vue/views/HomeView.vue"),
     },
     {
+      path: "/dashboard/ratings",
+      name: "ratings-dashboard",
+      component: () => import("./frameworks/vue/views/RatingsDashboardView.vue"),
+    },
+    {
       path: "/:pathMatch(.*)*",
       name: "doc",
       component: () => import("./frameworks/vue/views/DocPage.vue"),
