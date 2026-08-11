@@ -47,6 +47,11 @@ The human coherence evaluator remains available from the Image-Toolkit root:
 # Open the PySide6 N-way benchmark evaluator
 just asp-benchmark-assess
 
+# The inspector's “Load Evaluation…” button can resume any previous
+# asp_evaluations_*.json file and continues at its first unrated dataset.
+# The same can be selected non-interactively with:
+just asp-benchmark-assess --out data/benchmarks/asp_evaluations_20260810.json
+
 # Open the optional FiftyOne triage surface
 just asp-triage
 
