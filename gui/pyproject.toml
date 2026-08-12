@@ -13,7 +13,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-py-modules = ["hie_editor_tab", "hie_tab", "main", "viewport"]
+py-modules = ["hie_tab", "main", "viewport"]
 
 [tool.pytest.ini_options]
 testpaths = ["test"]

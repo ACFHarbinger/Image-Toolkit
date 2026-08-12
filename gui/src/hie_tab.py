@@ -1,4 +1,10 @@
-"""Embeddable HIE editor tab backed by the shared middleware contracts."""
+"""Embeddable HIE editor tab backed by the shared middleware contracts.
+
+Also exports `HieEditorTab`, an alias of `HieTab` used by host tab
+registries (Image-Toolkit desktop, settings relaunch lists, etc.) — see
+the alias definition at the bottom of this file for why it's a plain
+alias rather than a separate subclass.
+"""
 
 from __future__ import annotations
 
@@ -263,3 +269,11 @@ class HieTab(QWidget):
         """Report an operation status without clearing the canvas."""
         self.operation_status_label.setText(message)
         self.status_changed.emit(message)
+
+
+#: `HieEditorTab` was a trivial subclass with no added behavior (only a
+#: docstring), used purely to give the tab a host-registry-friendly name
+#: (Image-Toolkit desktop, settings relaunch lists, etc.) — a plain alias is
+#: behaviorally identical (including `isinstance(x, HieTab)`) and avoids the
+#: two classes drifting out of sync.
+HieEditorTab = HieTab

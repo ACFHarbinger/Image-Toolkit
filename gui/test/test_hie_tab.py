@@ -1,7 +1,6 @@
 """Unit tests for HieTab / HieEditorTab PySide6 components."""
 
-from hie_editor_tab import HieEditorTab
-from hie_tab import HieTab
+from hie_tab import HieEditorTab, HieTab
 from PIL import Image
 
 
