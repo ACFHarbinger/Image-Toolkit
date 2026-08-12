@@ -6,6 +6,7 @@ Extracted from ``image_crawler_tab.py`` -- pure code motion, no logic change.
 from __future__ import annotations
 
 import os
+import sys
 
 from PySide6.QtCore import QProcess
 
@@ -20,14 +21,27 @@ class _WebDriverMixin:
                 "🌐 Preparing Managed WebDriver (this may take a few seconds)..."
             )
 
-            # Use the virtual environment python to run the management script
-            # Assumes the app is launched from project root where .venv exists
-            python_exe = os.path.abspath(".venv/bin/python3")
-            script_path = os.path.abspath("scripts/manage_webdriver.py")
+            # Dynamic resolution of project root and script path
+            project_root = os.path.abspath(
+                os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "..")
+            )
+            script_candidates = [
+                os.path.join(project_root, "backend", "scripts", "manage_webdriver.py"),
+                os.path.join(project_root, "scripts", "manage_webdriver.py"),
+                os.path.abspath("backend/scripts/manage_webdriver.py"),
+                os.path.abspath("scripts/manage_webdriver.py"),
+            ]
+            script_path = next(
+                (p for p in script_candidates if os.path.exists(p)), script_candidates[0]
+            )
 
-            if not os.path.exists(python_exe):
-                # Fallback to system python if venv not found (though AGENTS.md says it should be there)
-                python_exe = "python3"
+            python_candidates = [
+                os.path.join(project_root, ".venv", "bin", "python3"),
+                os.path.abspath(".venv/bin/python3"),
+            ]
+            python_exe = next(
+                (p for p in python_candidates if os.path.exists(p)), sys.executable
+            )
 
             self.webdriver_process.start(python_exe, [script_path, "start"])
             if not self.webdriver_process.waitForStarted(10000):
