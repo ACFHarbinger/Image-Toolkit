@@ -8,6 +8,9 @@ from ..document import Document, DocumentHistory
 from .acceptance import AcceptedProposal, ProposalAcceptanceService
 from .defaults import build_default_pipeline
 from .orchestrator import PipelineProposal, ProposalPipeline
+from .restoration import RestorationPipeline
+from ..jobs import RestorationResult
+from ..jobs.base import JobHandle
 
 
 class PipelineSession:
@@ -18,9 +21,11 @@ class PipelineSession:
         document: Document,
         *,
         pipeline: ProposalPipeline | None = None,
+        restoration: RestorationPipeline | None = None,
     ) -> None:
         self.history = DocumentHistory(document)
         self.pipeline = pipeline if pipeline is not None else build_default_pipeline()
+        self.restoration = restoration if restoration is not None else RestorationPipeline()
         self._acceptance = ProposalAcceptanceService()
 
     @property
@@ -35,3 +40,16 @@ class PipelineSession:
         """Explicitly accept a proposal and record it in undoable history."""
         _, record = self._acceptance.accept(self.history, proposal)
         return record
+
+    def submit_restoration(
+        self,
+        operation: str,
+        input_ref: str,
+        *,
+        backend: str = "pillow",
+        options: dict[str, Any] | None = None,
+    ) -> JobHandle[RestorationResult]:
+        """Submit a cancellable restoration preview for the active editor session."""
+        return self.restoration.submit(
+            operation, input_ref, backend=backend, options=options
+        )
