@@ -6,7 +6,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-from ..models import ModelUnavailable
+from models import ModelUnavailable
 from .base import CancelToken, JobHandle, JobProgress, ReportFn, submit_job
 
 

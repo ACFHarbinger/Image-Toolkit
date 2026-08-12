@@ -1,4 +1,4 @@
-from hie_middleware.contracts import EditRequest, OperationResult
+from contracts import EditRequest, OperationResult
 
 
 def test_contracts_are_serializable():

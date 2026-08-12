@@ -3,7 +3,7 @@ import time
 
 import pytest
 
-from hie_middleware.jobs import (
+from jobs import (
     Correspondence,
     JobStatus,
     LayerColorStats,
@@ -14,8 +14,8 @@ from hie_middleware.jobs import (
     call_hie_pso,
     submit_job,
 )
-from hie_middleware.jobs.base import JobCancelled, JobProgress
-from hie_middleware.logic_bridge.solvers import HAVE_NATIVE_HIE
+from jobs.base import JobCancelled, JobProgress
+from logic_bridge.solvers import HAVE_NATIVE_HIE
 
 
 # ─── Job contract (base.py) ────────────────────────────────────────────────
@@ -281,6 +281,6 @@ def test_alignment_gnc_recovers_pure_translation():
 
 
 def test_alignment_gnc_raises_without_native_extension(monkeypatch):
-    monkeypatch.setattr("hie_middleware.jobs.exact_dp.HAVE_NATIVE_HIE", False)
+    monkeypatch.setattr("jobs.exact_dp.HAVE_NATIVE_HIE", False)
     with pytest.raises(RuntimeError):
         call_hie_alignment_gnc([Correspondence(0.0, 0.0, 1.0, 1.0)])

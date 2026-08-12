@@ -2,7 +2,7 @@ from PIL import Image, ImageDraw
 
 import pytest
 
-from hie_middleware.jobs import generate_restoration_report
+from jobs import generate_restoration_report
 
 
 def _sharp_image(size=(48, 48)):

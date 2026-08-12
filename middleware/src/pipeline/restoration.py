@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..jobs import (
+from jobs import (
     RestorationResult,
     cpu_deblur_runner,
     cpu_masked_inpainting_runner,
@@ -12,8 +12,8 @@ from ..jobs import (
     opencv_masked_inpainting_runner,
     submit_restoration_job,
 )
-from ..jobs.base import JobHandle
-from ..jobs.restoration import RestorationRunner
+from jobs.base import JobHandle
+from jobs.restoration import RestorationRunner
 
 
 class RestorationPipeline:

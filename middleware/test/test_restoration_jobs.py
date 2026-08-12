@@ -1,8 +1,8 @@
 import pytest
 
-from hie_middleware.jobs import JobProgress, JobStatus, submit_restoration_job
-from hie_middleware.models import ModelUnavailable
-from hie_middleware.pipeline import RestorationPipeline
+from jobs import JobProgress, JobStatus, submit_restoration_job
+from models import ModelUnavailable
+from pipeline import RestorationPipeline
 
 
 def test_restoration_job_uses_injected_runner_and_reports_output():

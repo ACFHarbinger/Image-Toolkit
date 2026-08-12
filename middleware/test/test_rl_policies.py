@@ -1,7 +1,7 @@
 """Unit tests for GlobalTonePolicy and CropCompositionPolicy RL agents."""
 
 import pytest
-from hie_middleware.policies import (
+from policies import (
     CropCompositionAgentPolicy,
     CropCompositionPolicy,
     GlobalToneAgentPolicy,

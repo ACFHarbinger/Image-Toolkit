@@ -1,10 +1,10 @@
 import pytest
 
-from hie_middleware.models import (
+from models import (
     DeblurAdapter, MattingAdapter, ModelUnavailable, SuperResolutionAdapter,
     WatermarkRemovalAdapter,
 )
-from hie_middleware.policies import BrushAssistantPolicy, CropCompositionPolicy, GlobalTonePolicy
+from policies import BrushAssistantPolicy, CropCompositionPolicy, GlobalTonePolicy
 
 
 def test_matting_adapter_reports_optional_runtime_without_importing_heavy_deps():

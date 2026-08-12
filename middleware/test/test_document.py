@@ -1,6 +1,6 @@
 import pytest
 
-from hie_middleware.document import (
+from document import (
     Document, DocumentHistory, DocumentSchemaError, Frame, FrameSequence,
     Layer, Modifier, ModifierEdge,
 )

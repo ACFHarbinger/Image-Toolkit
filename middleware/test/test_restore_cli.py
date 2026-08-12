@@ -2,7 +2,7 @@ import json
 
 from PIL import Image
 
-from hie_middleware.restore_cli import build_parser, main
+from restore_cli import build_parser, main
 
 
 def test_restore_cli_parses_deblur_and_inpaint_commands():

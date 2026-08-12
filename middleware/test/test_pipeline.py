@@ -1,9 +1,9 @@
 import pytest
 
-from hie_middleware.models import MattingAdapter, ModelUnavailable
-from hie_middleware.policies import BrushAssistantPolicy
-from hie_middleware.document import Document, DocumentHistory, FrameSequence
-from hie_middleware.pipeline import (
+from models import MattingAdapter, ModelUnavailable
+from policies import BrushAssistantPolicy
+from document import Document, DocumentHistory, FrameSequence
+from pipeline import (
     PipelineUnavailable,
     ProposalAcceptanceService,
     ProposalPipeline,

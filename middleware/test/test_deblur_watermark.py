@@ -1,7 +1,7 @@
 """Unit tests for DeblurAdapter and WatermarkRemovalAdapter model contracts."""
 
 import pytest
-from hie_middleware.models import (
+from models import (
     DeblurAdapter,
     DeblurModel,
     ModelUnavailable,

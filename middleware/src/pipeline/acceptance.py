@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from ..document import Document, DocumentHistory
+from document import Document, DocumentHistory
 from .orchestrator import PipelineProposal
 
 

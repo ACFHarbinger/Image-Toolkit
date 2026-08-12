@@ -1,4 +1,4 @@
-"""Tests for `hie_middleware.policies.brush_env.HIEBrushEnv`.
+"""Tests for `policies.brush_env.HIEBrushEnv`.
 
 `gymnasium` (and `numpy`) are optional dependencies (the `rl` extra) — the
 import-time contract (module always importable, `HIEBrushEnv()` raises a
@@ -9,7 +9,7 @@ unconditionally; everything that constructs a real environment is gated on
 
 import pytest
 
-from hie_middleware.policies.brush_env import HAVE_GYMNASIUM, TOOLS, HIEBrushEnv
+from policies.brush_env import HAVE_GYMNASIUM, TOOLS, HIEBrushEnv
 
 requires_gymnasium = pytest.mark.skipif(
     not HAVE_GYMNASIUM, reason="gymnasium/numpy not installed (optional 'rl' extra)"

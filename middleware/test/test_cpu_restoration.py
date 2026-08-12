@@ -1,6 +1,6 @@
 from PIL import Image, ImageDraw
 
-from hie_middleware.jobs import (
+from jobs import (
     JobStatus,
     cpu_deblur_preview,
     cpu_deblur_runner,
@@ -9,7 +9,7 @@ from hie_middleware.jobs import (
     opencv_deblur_runner,
     submit_restoration_job,
 )
-from hie_middleware.jobs.cpu_restoration import validate_inpainting_mask
+from jobs.cpu_restoration import validate_inpainting_mask
 import pytest
 
 
@@ -53,7 +53,7 @@ def test_opencv_deblur_runner_writes_preview_when_uv_extra_is_installed(tmp_path
 
 def test_opencv_inpainting_runner_writes_preview_when_uv_extra_is_installed(tmp_path):
     pytest.importorskip("cv2")
-    from hie_middleware.jobs import opencv_masked_inpainting_runner
+    from jobs import opencv_masked_inpainting_runner
 
     source = tmp_path / "owned.png"
     mask = tmp_path / "logo-mask.png"

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 
-from ..jobs import JobHandle, JobProgress, call_hie_de, call_hie_pso, submit_job
-from ..logic_bridge.solvers import HAVE_NATIVE_HIE, native_de_solve, native_pso_solve
+from jobs import JobHandle, JobProgress, call_hie_de, call_hie_pso, submit_job
+from logic_bridge.solvers import HAVE_NATIVE_HIE, native_de_solve, native_pso_solve
 
 Bounds = Sequence[tuple[float, float]]
 ObjectiveFn = Callable[[list[float]], float]

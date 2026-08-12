@@ -10,8 +10,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from ..models import ModelAdapter, ModelProposal
-from ..policies import Policy, PolicyProposal
+from models import ModelAdapter, ModelProposal
+from policies import Policy, PolicyProposal
 
 
 class PipelineUnavailable(RuntimeError):

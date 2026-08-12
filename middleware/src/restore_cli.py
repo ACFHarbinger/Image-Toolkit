@@ -6,7 +6,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from .jobs import (
+from jobs import (
     cpu_deblur_runner,
     cpu_masked_inpainting_runner,
     generate_restoration_report,
@@ -14,7 +14,7 @@ from .jobs import (
     opencv_deblur_runner,
     submit_restoration_job,
 )
-from .jobs.cpu_restoration import validate_inpainting_mask
+from jobs.cpu_restoration import validate_inpainting_mask
 
 
 def build_parser() -> argparse.ArgumentParser:

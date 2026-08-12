@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..document import Document, DocumentHistory
+from document import Document, DocumentHistory
 from .acceptance import AcceptedProposal, ProposalAcceptanceService
 from .defaults import build_default_pipeline
 from .orchestrator import PipelineProposal, ProposalPipeline
 from .restoration import RestorationPipeline
-from ..jobs import RestorationResult
-from ..jobs.base import JobHandle
+from jobs import RestorationResult
+from jobs.base import JobHandle
 
 
 class PipelineSession:

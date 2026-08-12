@@ -37,7 +37,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
-from ..logic_bridge.solvers import (
+from logic_bridge.solvers import (
     HAVE_NATIVE_HIE,
     native_solve_alignment_gnc,
     native_solve_color_harmonization,

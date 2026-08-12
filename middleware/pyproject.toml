@@ -19,11 +19,17 @@ rl = [
 ]
 
 [project.scripts]
-hie-restore = "hie_middleware.restore_cli:main"
+hie-restore = "restore_cli:main"
 
 [build-system]
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = ["contracts", "document", "ipc", "ipc_service", "restore_cli"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["test"]

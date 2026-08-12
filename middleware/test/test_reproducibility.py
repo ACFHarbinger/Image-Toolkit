@@ -9,7 +9,7 @@ per the document model's determinism goals (see
 hie_phase1_implementation_20260812.md's "reproducible cache keys").
 """
 
-from hie_middleware.jobs import call_hie_de, call_hie_pso
+from jobs import call_hie_de, call_hie_pso
 
 
 def _quadratic(p: list[float]) -> float:

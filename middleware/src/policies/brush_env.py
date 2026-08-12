@@ -213,7 +213,7 @@ else:
     class HIEBrushEnv:  # type: ignore[no-redef]
         """Placeholder used when `gymnasium` isn't installed.
 
-        Importing `hie_middleware.policies.brush_env` always succeeds
+        Importing `policies.brush_env` always succeeds
         (matches this package's dependency-light contract convention, e.g.
         `models/base.py`'s docstring); only *constructing* `HIEBrushEnv`
         requires the optional `gymnasium`/`numpy` dependencies (the `rl`

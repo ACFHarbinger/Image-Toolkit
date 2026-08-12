@@ -1,4 +1,4 @@
-"""Tests for `hie_middleware.logic_bridge.solvers` — the thin `base.hie` adapter.
+"""Tests for `logic_bridge.solvers` — the thin `base.hie` adapter.
 
 Previously untested: `HAVE_NATIVE_HIE`'s fallback-unavailable error path is
 exercised unconditionally; the native-path assertions run only when the
@@ -10,8 +10,8 @@ import importlib.util
 
 import pytest
 
-from hie_middleware.jobs.exact_dp import Correspondence, SeamPixel
-from hie_middleware.logic_bridge.solvers import (
+from jobs.exact_dp import Correspondence, SeamPixel
+from logic_bridge.solvers import (
     HAVE_NATIVE_HIE,
     native_de_solve,
     native_pso_solve,
@@ -124,7 +124,7 @@ def test_native_solve_alignment_gnc_recovers_pure_translation():
 
 
 def test_native_functions_raise_when_unavailable(monkeypatch):
-    monkeypatch.setattr("hie_middleware.logic_bridge.solvers.HAVE_NATIVE_HIE", False)
+    monkeypatch.setattr("logic_bridge.solvers.HAVE_NATIVE_HIE", False)
     with pytest.raises(RuntimeError):
         native_pso_solve(_sphere, [(-1.0, 1.0)], n_particles=4, max_iter=1)
     with pytest.raises(RuntimeError):

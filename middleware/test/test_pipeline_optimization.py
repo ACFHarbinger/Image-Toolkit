@@ -1,6 +1,6 @@
 import pytest
 
-from hie_middleware.pipeline import OptimizationPipeline, OptimizationUnavailable
+from pipeline import OptimizationPipeline, OptimizationUnavailable
 
 
 def test_optimization_pipeline_defaults_to_cancellable_reference_jobs():

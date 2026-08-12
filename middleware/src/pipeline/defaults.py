@@ -1,14 +1,14 @@
 """Standard dependency-light registry used by standalone HIE frontends."""
 
 from .orchestrator import ProposalPipeline
-from ..models import (
+from models import (
     DeblurAdapter,
     InpaintingAdapter,
     MattingAdapter,
     SuperResolutionAdapter,
     WatermarkRemovalAdapter,
 )
-from ..policies import BrushAssistantPolicy, CropCompositionPolicy, GlobalTonePolicy
+from policies import BrushAssistantPolicy, CropCompositionPolicy, GlobalTonePolicy
 
 
 def build_default_pipeline() -> ProposalPipeline:

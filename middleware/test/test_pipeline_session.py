@@ -1,6 +1,6 @@
-from hie_middleware.document import Document, FrameSequence
-from hie_middleware.pipeline import PipelineSession
-from hie_middleware.jobs import JobStatus
+from document import Document, FrameSequence
+from pipeline import PipelineSession
+from jobs import JobStatus
 
 
 def test_pipeline_session_previews_then_accepts_into_undoable_history():
@@ -27,7 +27,7 @@ def test_pipeline_session_dispatches_restoration_through_injected_pipeline():
     class FakeRestoration:
         def submit(self, operation, input_ref, *, backend, options):
             calls.append((operation, input_ref, backend, options))
-            from hie_middleware.jobs import submit_job
+            from jobs import submit_job
 
             return submit_job(lambda _token, _report: None)
 

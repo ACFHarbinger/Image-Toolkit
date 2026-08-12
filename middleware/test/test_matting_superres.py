@@ -1,7 +1,7 @@
 """Unit tests for MattingAdapter and SuperResolutionAdapter model contracts."""
 
 import pytest
-from hie_middleware.models import (
+from models import (
     MattingAdapter,
     MattingModel,
     ModelUnavailable,

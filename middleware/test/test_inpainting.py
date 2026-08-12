@@ -1,7 +1,7 @@
 """Unit tests for the InpaintingAdapter contract."""
 
 import pytest
-from hie_middleware.models import InpaintingAdapter, InpaintingModel, ModelUnavailable
+from models import InpaintingAdapter, InpaintingModel, ModelUnavailable
 
 
 def test_inpainting_adapter_default_unavailable():

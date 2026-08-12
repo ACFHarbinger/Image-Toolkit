@@ -21,8 +21,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from hie_middleware.jobs import call_hie_de, call_hie_pso  # noqa: E402
-from hie_middleware.logic_bridge.solvers import (  # noqa: E402
+from jobs import call_hie_de, call_hie_pso  # noqa: E402
+from logic_bridge.solvers import (  # noqa: E402
     HAVE_NATIVE_HIE,
     native_de_solve,
     native_pso_solve,
