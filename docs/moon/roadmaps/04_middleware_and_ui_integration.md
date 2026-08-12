@@ -47,7 +47,7 @@ This roadmap specifies the middleware bridge (`middleware/`) connecting the C++ 
 | **Phase 4.5** | Tauri / React Frontend Integration | Med | ✅ shell · ✅ embed package | Standalone Vite/Tauri shell; React embed under `frontend/src/embed/react/`; Image-Toolkit re-export via `hie-frontend` |
 | **Phase 4.6** | Host pipeline IPC expansion | High | 🔄 | IPC: `list_capabilities`, `preview_policy`, `accept_proposal`, `submit_restoration`; desktop `PipelineSession` wiring ✅; Tauri Rust commands for new methods pending |
 | **Phase 4.7** | Submodule UI ownership | High | ✅ | HIE-owned PySide6 + React editor tabs; thin Image-Toolkit re-exports only |
-| **Phase 4.8** | Flat source layout | Med | 🔄 Claude | Stable `middleware/src/*` and `gui/src/*` package paths, entry points, imports, tests, packaging metadata |
+| **Phase 4.8** | Flat source layout | Med | ✅ | Stable `middleware/src/*` and `gui/src/*` package paths, entry points, imports, tests, packaging metadata. `HieEditorTab` merged into `hie_tab.py` as a plain alias (was a trivial subclass in its own module). Image-Toolkit re-exports updated to match. |
 | **Phase 4.9** | Accessibility & host hardening | Med | ⬜ | Keyboard/a11y pass; job progress streaming to UIs |
 
 ### 2026-08-12 host-ownership slice (Grok)
