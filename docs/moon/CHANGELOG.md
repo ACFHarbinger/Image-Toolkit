@@ -2,6 +2,29 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S376 — 2026-08-12 (Resolved and Closed All Open Backlog Issues on GitHub)
+
+Resolved all 19 open GitHub backlog issues across HIE, UI/UX, Performance, Architecture, and New Features:
+- **HIE Phase 2 Neural Inpainting & Outpainting Adapter ([#365](https://github.com/ACFHarbinger/Image-Toolkit/issues/365))**: Created `InpaintingAdapter` / `InpaintingModel` supporting prompt-driven and stroke-guided mask generation options and outpainting bounding boxes (`neural_inpaint`, `neural_outpaint`), registered in `build_default_pipeline()` with unit test suite in `test_inpainting.py`.
+- **Safetensors Metadata Viewer & Integrity Inspector ([#312](https://github.com/ACFHarbinger/Image-Toolkit/issues/312))**: Enhanced `read_metadata()` with `parse_model_spec()` (LoRA rank, alpha, base model, trigger words) and `calculate_file_hash()` for chunked, non-blocking SHA256 integrity verification in `SafetensorsInspectorDialog` (`✓ MATCHED` in green / `✗ MISMATCH` in red).
+- **Dark/Light Theme Toggle ([#350](https://github.com/ACFHarbinger/Image-Toolkit/issues/350))**: Integrated theme toggle with QSS stylesheet switching, icon updates (`☀` / `🌙`), OS color-scheme auto-detection, vault preference persistence, and unit test suite in `test_theme_toggle.py`.
+- **Workflow Templates ([#317](https://github.com/ACFHarbinger/Image-Toolkit/issues/317))**: Closed with `_WorkflowTemplatesMixin`, `Ctrl+Shift+M` picker, and vault persistence (`test_workflow_templates.py`).
+- **Appearance Profiles ([#316](https://github.com/ACFHarbinger/Image-Toolkit/issues/316))**: Closed with system preference profiles consolidating theme, accent colours, font scale, UI density, and app zoom.
+- **Slideshow Improvements ([#310](https://github.com/ACFHarbinger/Image-Toolkit/issues/310))**: Closed with interval timing, shuffle order, and directory/tag filtering.
+- **Multi-Frame Image Splitter ([#319](https://github.com/ACFHarbinger/Image-Toolkit/issues/319))**: Closed with Extractor tab Image subtab boundary preview and deep-zoom canvas.
+- **Extractor Storyboard Scrub Preview ([#318](https://github.com/ACFHarbinger/Image-Toolkit/issues/318))**: Closed with sprite-sheet storyboard floating preview widget.
+- **Additional Stitcher Options ([#320](https://github.com/ACFHarbinger/Image-Toolkit/issues/320))**: Closed with Merge tab Engine dropdown (OpenCV, Hugin, Overmix, ASP) and backend engine wrappers.
+- **Media Loader Web Media Downloader ([#321](https://github.com/ACFHarbinger/Image-Toolkit/issues/321))**: Closed with Reddit and nhentai downloaders and telemetry instrumentation.
+- **ComfyUI Workflow Integration ([#311](https://github.com/ACFHarbinger/Image-Toolkit/issues/311))**: Closed with `ComfyUIManager` ControlNet/IP-Adapter prompt queueing and workflow template overrides.
+- **Pipeline Trace JSON ([#351](https://github.com/ACFHarbinger/Image-Toolkit/issues/351))**: Fixed `telemetry.py` file handle persistence, logging structured JSONL event records to `telemetry-<pid>.jsonl`.
+- **Consolidated Overmix Summary Report ([#352](https://github.com/ACFHarbinger/Image-Toolkit/issues/352))**: Added `merge_overmix_report.py` to consolidate Overmix artifacts without requiring pipeline re-runs.
+- **Unified Database Backup Pipeline ([#343](https://github.com/ACFHarbinger/Image-Toolkit/issues/343))**: Retargeted backup pipeline to `library.db.bak` byte copy of unified SQLCipher store.
+- **ASP Render Stage GPU Acceleration ([#330](https://github.com/ACFHarbinger/Image-Toolkit/issues/330))**: Closed with PyTorch CUDA GPU accelerated temporal median rendering (`_gpu_nanmedian()`, `ASP_GPU_MEDIAN=1`).
+- **Python ML Model Memory Lifecycle ([#335](https://github.com/ACFHarbinger/Image-Toolkit/issues/335))**: Closed with `unload()` method on all PyTorch model wrappers clearing VRAM.
+- **C++ Streaming Image Merger ([#329](https://github.com/ACFHarbinger/Image-Toolkit/issues/329))**: Closed with two-pass header-only dimension sizing in `base/src/core/merger.cpp`.
+- **REST API Layer for Remote Control ([#313](https://github.com/ACFHarbinger/Image-Toolkit/issues/313))**: Closed with `drf-spectacular` OpenAPI 3.0 schema generation at `/api/schema/`, `/api/docs/`, and `/api/redoc/`.
+- **ASP RLHF Quality Feedback ([#314](https://github.com/ACFHarbinger/Image-Toolkit/issues/314))**: Created `backend/src/animation/stitch_feedback.py` logging rating records to `stitch_feedback.jsonl`.
+
 ## S375 — 2026-08-09 (Rebuilt docs/website as the full interactive documentation portal)
 
 Reversed S364's removal (2026-08-07) and rebuilt `docs/website/` as a Vite + Vue 3 + TypeScript
