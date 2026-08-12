@@ -92,8 +92,15 @@ python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*", "*Test"]
 python_functions = ["test_*", "*_test"]
 testpaths = [
+    "gui/test",
     "backend/test",
-    "backend/benchmark/evaluation/test",
+    "submodules/ASP/gui/test",
+    "submodules/ASP/backend/test",
+    "submodules/ASP/backend/benchmark/evaluation/test",
+    "submodules/CRE/test",
+    "submodules/CSG/gui/test",
+    "submodules/CSG/backend/test",
+    "submodules/HIE/gui/test",
 ]
 
 markers = [
