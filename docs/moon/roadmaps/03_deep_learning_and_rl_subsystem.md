@@ -34,4 +34,4 @@ This roadmap defines the AI capabilities in `middleware/models/` and `middleware
 | **Phase 3.5** | Crop & Composition RL Policy (Phase 3 Target) | Low | `middleware/policies/crop_agent.py` |
 | **Phase 3.6** | Deblur Restoration Adapter & Job Contract | High | `middleware/models/deblur.py`, `middleware/jobs/restoration.py` |
 | **Phase 3.7** | Consent-Gated Watermark Inpainting Adapter | High | `middleware/models/watermark.py`, `middleware/jobs/restoration.py` |
-| **Phase 3.8** | CPU Restoration Preview Baseline | Med | `middleware/jobs/cpu_restoration.py` |
+| **Phase 3.8** | CPU Restoration Preview Baseline | Med | `middleware/jobs/cpu_restoration.py`, `middleware/pyproject.toml` (`restoration-opencv` UV extra) |

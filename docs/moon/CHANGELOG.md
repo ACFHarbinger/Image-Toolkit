@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - HIE restoration foundations: optional `DeblurAdapter` and consent-gated `WatermarkRemovalAdapter`, plus cancellable injected restoration jobs for blind/non-blind deblurring and mask-guided inpainting. No model weights or heavy runtimes are bundled.
 - Added optional Pillow CPU restoration runners for conservative deblur and mask-guided inpainting previews; neural/OpenCV backends remain swappable.
 - Added an optional `restoration-opencv` middleware extra and OpenCV Telea/Navier–Stokes masked-inpainting runner.
+- Added UV dependency locking for the optional OpenCV stack; `uv.lock` records the reproducible `restoration-opencv` environment.
 - Multi-modal IPC media support for still sources and validated multi-frame sequences with FPS, frame duration, and metadata preservation.
 - Stateful `PipelineSession`, versioned frontend IPC envelopes, in-memory IPC service, PySide6/Tauri frontend surfaces, and default Phase 1 capability registration.
 

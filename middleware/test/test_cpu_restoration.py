@@ -6,6 +6,7 @@ from hie_middleware.jobs import (
     cpu_masked_inpainting_runner,
     submit_restoration_job,
 )
+import pytest
 
 
 def test_cpu_deblur_runner_writes_a_new_preview(tmp_path):
@@ -33,3 +34,20 @@ def test_cpu_inpainting_runner_uses_a_mask_and_writes_preview(tmp_path):
     ).result(5)
     assert result.status is JobStatus.SUCCEEDED
     assert (tmp_path / "owned.inpaint.png").is_file()
+
+
+def test_opencv_inpainting_runner_writes_preview_when_uv_extra_is_installed(tmp_path):
+    pytest.importorskip("cv2")
+    from hie_middleware.jobs import opencv_masked_inpainting_runner
+
+    source = tmp_path / "owned.png"
+    mask = tmp_path / "logo-mask.png"
+    Image.new("RGB", (20, 20), "#4477aa").save(source)
+    Image.new("L", (20, 20), 0).save(mask)
+    result = submit_restoration_job(
+        "masked_inpainting", str(source),
+        options={"mask_ref": str(mask), "permission_confirmed": True},
+        runner=opencv_masked_inpainting_runner,
+    ).result(5)
+    assert result.status is JobStatus.SUCCEEDED
+    assert (tmp_path / "owned.opencv-inpaint.png").is_file()

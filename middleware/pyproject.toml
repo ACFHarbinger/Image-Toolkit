@@ -8,7 +8,11 @@ dependencies = []
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "ruff>=0.6"]
 restoration = ["Pillow>=10.0"]
-restoration-opencv = ["Pillow>=10.0", "numpy>=1.24", "opencv-python-headless>=4.10"]
+restoration-opencv = [
+    "pillow>=10.0",
+    "numpy>=1.24",
+    "opencv-python-headless>=4.10",
+]
 
 [build-system]
 requires = ["setuptools>=68"]
