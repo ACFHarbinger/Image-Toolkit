@@ -18,29 +18,89 @@ from safetensors.torch import save_file
 logger = logging.getLogger(__name__)
 
 
+import hashlib
+import json
+
+
+def calculate_file_hash(path: str, chunk_size: int = 1048576) -> str:
+    """Calculate SHA256 hash of a file in chunks for model integrity verification."""
+    sha256 = hashlib.sha256()
+    with open(path, "rb") as f:
+        while chunk := f.read(chunk_size):
+            sha256.update(chunk)
+    return sha256.hexdigest()
+
+
+def parse_model_spec(user_meta: Dict[str, Any]) -> Dict[str, Any]:
+    """Extract structured model attributes (rank, alpha, base model, trigger words, arch)."""
+    meta = user_meta or {}
+
+    rank = meta.get("ss_network_dim") or meta.get("modelspec.rank")
+    alpha = meta.get("ss_network_alpha") or meta.get("modelspec.alpha")
+
+    base_model = (
+        meta.get("ss_sd_model_name")
+        or meta.get("modelspec.architecture")
+        or meta.get("ss_base_model_version")
+        or "Unknown"
+    )
+
+    trigger_words = meta.get("modelspec.trigger_phrase")
+    if not trigger_words and "ss_tag_frequency" in meta:
+        try:
+            tags_dict = json.loads(meta["ss_tag_frequency"])
+            top_tags = []
+            for sub_dict in tags_dict.values():
+                if isinstance(sub_dict, dict):
+                    sorted_tags = sorted(sub_dict.items(), key=lambda x: x[1], reverse=True)
+                    top_tags.extend([t[0] for t in sorted_tags[:5]])
+            trigger_words = ", ".join(top_tags[:10])
+        except Exception:
+            pass
+
+    embedded_hash = (
+        meta.get("ss_sha256")
+        or meta.get("modelspec.hash_sha256")
+        or meta.get("sshs_model_hash")
+    )
+
+    return {
+        "rank": rank,
+        "alpha": alpha,
+        "base_model": base_model,
+        "trigger_words": trigger_words or "None specified",
+        "embedded_hash": embedded_hash,
+    }
+
+
 def read_metadata(path: str) -> Dict[str, Any]:
     """Read metadata and tensor summary from a .safetensors file without loading tensor data.
 
     Returns a dict with keys:
         file_size_mb  -- file size in megabytes
         user_meta     -- dict of user-defined metadata strings
+        parsed_spec   -- structured dict (rank, alpha, base_model, trigger_words, embedded_hash)
         tensor_count  -- total number of tensors
         param_count   -- total parameter count (sum of all element counts)
         dtype_counts  -- Counter mapping dtype string → number of tensors
         tensors       -- dict mapping tensor name → {shape, dtype}
     """
-    stat = os.stat(path)
     result: Dict[str, Any] = {
-        "file_size_mb": stat.st_size / (1024 * 1024),
+        "file_size_mb": 0.0,
         "user_meta": {},
+        "parsed_spec": {},
         "tensor_count": 0,
         "param_count": 0,
         "dtype_counts": {},
         "tensors": {},
     }
     try:
+        stat = os.stat(path)
+        result["file_size_mb"] = stat.st_size / (1024 * 1024)
         with safe_open(path, framework="pt", device="cpu") as f:
-            result["user_meta"] = dict(f.metadata() or {})
+            user_meta = dict(f.metadata() or {})
+            result["user_meta"] = user_meta
+            result["parsed_spec"] = parse_model_spec(user_meta)
             keys = list(f.keys())
             result["tensor_count"] = len(keys)
             total_params = 0
