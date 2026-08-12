@@ -2,5 +2,13 @@
 
 from .base import ModelAdapter, ModelProposal, ModelSpec, ModelUnavailable
 from .matting import MattingAdapter
+from .superres import SuperResolutionAdapter
 
-__all__ = ["MattingAdapter", "ModelAdapter", "ModelProposal", "ModelSpec", "ModelUnavailable"]
+__all__ = [
+    "MattingAdapter",
+    "ModelAdapter",
+    "ModelProposal",
+    "ModelSpec",
+    "ModelUnavailable",
+    "SuperResolutionAdapter",
+]

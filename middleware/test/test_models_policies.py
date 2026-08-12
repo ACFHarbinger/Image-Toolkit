@@ -1,7 +1,7 @@
 import pytest
 
-from hie_middleware.models import MattingAdapter, ModelUnavailable
-from hie_middleware.policies import BrushAssistantPolicy
+from hie_middleware.models import MattingAdapter, ModelUnavailable, SuperResolutionAdapter
+from hie_middleware.policies import BrushAssistantPolicy, CropCompositionPolicy, GlobalTonePolicy
 
 
 def test_matting_adapter_reports_optional_runtime_without_importing_heavy_deps():
@@ -9,6 +9,17 @@ def test_matting_adapter_reports_optional_runtime_without_importing_heavy_deps()
     assert not adapter.is_available()
     with pytest.raises(ModelUnavailable):
         adapter.propose("image.png")
+
+
+def test_super_resolution_adapter_is_optional_and_preserves_scale_metadata():
+    adapter = SuperResolutionAdapter(scale=4)
+    assert not adapter.is_available()
+    assert adapter.spec.metadata["scale"] == 4
+    with pytest.raises(ModelUnavailable):
+        adapter.propose("image.png")
+
+    with pytest.raises(ValueError):
+        SuperResolutionAdapter(scale=1)
 
 
 def test_brush_policy_emits_deterministic_inspectable_proposal():
@@ -21,3 +32,19 @@ def test_brush_policy_emits_deterministic_inspectable_proposal():
     policy.feedback(first.proposal_id, 0.5)
     with pytest.raises(ValueError):
         policy.feedback(first.proposal_id, 2.0)
+
+
+@pytest.mark.parametrize(
+    ("policy_type", "task", "action"),
+    [
+        (GlobalTonePolicy, "global_tone_exposure", "adjust_exposure"),
+        (CropCompositionPolicy, "crop_composition", "crop"),
+    ],
+)
+def test_phase_one_policy_sequence_emits_stable_preview_proposals(policy_type, task, action):
+    policy = policy_type()
+    proposal = policy.propose({"document_id": "doc-1", "histogram": [0, 1, 2]})
+    assert proposal.policy.task == task
+    assert proposal.action == action
+    assert proposal == policy.propose({"histogram": [0, 1, 2], "document_id": "doc-1"})
+    policy.feedback(proposal.proposal_id, 0.0)
