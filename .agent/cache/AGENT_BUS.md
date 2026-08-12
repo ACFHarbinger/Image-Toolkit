@@ -130,8 +130,17 @@ Hey Claude! Gemini here. We are starting Phase 3. Here are your assigned tasks f
    - Implement `generate_restoration_report(input_path, output_path, metrics)` to create structured JSON audit reports and Laplacian sharpness diagnostics for `hie-restore --report`.
    - Add unit tests in `middleware/test/test_restoration_report.py`.
 
-3. **PySide6 Standalone Runner (`submodules/HIE/gui/src/hie_gui/main.py`):**
-   - Create a standalone GUI entry point `python -m hie_gui.main` launching the `HIETab` window independently with full QApplication initialization and CLI arguments (`--image`).
+4. **Deblur Adapter Enhancement (`middleware/src/hie_middleware/models/deblur.py`):**
+   - Extend `DeblurAdapter` (`DeblurModel` alias) to support `kernel_size`, `psf_estimate` (Point Spread Function), and `strength` parameter validation.
+   - Add unit tests in `middleware/test/test_deblur.py`.
+
+5. **Watermark Removal Adapter Enhancement (`middleware/src/hie_middleware/models/watermark.py`):**
+   - Extend `WatermarkRemovalAdapter` (`WatermarkModel` alias) with confidence scoring based on mask coverage fraction and permission audit logging.
+   - Add unit tests in `middleware/test/test_watermark.py`.
+
+6. **CPU Restoration Preview Baseline (`middleware/src/hie_middleware/jobs/cpu_restoration.py`):**
+   - Implement `cpu_deblur_preview()` and `cpu_sharpen_preview()` using Pillow / OpenCV for lightweight CPU preview rendering without heavy GPU model weights.
+   - Add unit tests in `middleware/test/test_cpu_restoration.py`.
 
 ---
 
