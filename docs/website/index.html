@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Cel-Shaded-Generator (CSG) — Offline-first anime lineart colorization, ARAP mesh puppeteering, layer canvas, and animation engine.">
+  <title>Cel-Shaded-Generator (CSG) — Manga Colorization & ARAP Puppeteering Engine</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&family=Inter:wght@300;400;600;700;800&display=swap');
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #0a0a0c;
+      color: #e2e8f0;
+    }
+    .font-mono { font-family: 'JetBrains Mono', monospace; }
+    .glow-cyan { text-shadow: 0 0 20px rgba(0, 240, 255, 0.4); }
+    .glow-pink { text-shadow: 0 0 20px rgba(255, 0, 85, 0.4); }
+    .border-glow:hover { border-color: rgba(0, 240, 255, 0.5); box-shadow: 0 0 20px rgba(0, 240, 255, 0.15); }
+    .border-glow-pink:hover { border-color: rgba(255, 0, 85, 0.5); box-shadow: 0 0 20px rgba(255, 0, 85, 0.15); }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between selection:bg-[#00f0ff]/30 selection:text-[#00f0ff]">
+  
+  <!-- Navigation Header -->
+  <header class="fixed top-0 left-0 right-0 z-50 bg-[#0a0a0c]/90 backdrop-blur-md border-b border-[#1a1c23]">
+    <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+      <div class="flex items-center space-x-3">
+        <div class="w-3 h-3 bg-[#ff0055] rounded-full animate-pulse"></div>
+        <span class="font-mono text-sm font-bold tracking-wider text-[#ff0055]">CSG</span>
+        <span class="text-xs text-[#8c92a0] border border-[#1a1c23] px-2 py-0.5 rounded font-mono">SUBMODULE</span>
+      </div>
+
+      <nav class="hidden md:flex space-x-8 text-sm font-medium text-[#8c92a0]">
+        <a href="#overview" class="hover:text-[#00f0ff] transition-colors">Overview</a>
+        <a href="#colorization" class="hover:text-[#00f0ff] transition-colors">Manga Colorization</a>
+        <a href="#layer-canvas" class="hover:text-[#00f0ff] transition-colors">Layer Canvas</a>
+        <a href="#mesh-editor" class="hover:text-[#00f0ff] transition-colors">Mesh Overlay & ARAP</a>
+        <a href="#puppeteering" class="hover:text-[#00f0ff] transition-colors">Puppeteering & Animation</a>
+      </nav>
+
+      <!-- Back to Main Toolkit -->
+      <a href="https://acfharbinger.github.io/Image-Toolkit/" 
+         class="flex items-center space-x-2 bg-[#00f0ff]/10 hover:bg-[#00f0ff]/20 text-[#00f0ff] border border-[#00f0ff]/30 px-4 py-2 rounded-lg text-xs font-mono font-bold transition-all">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+        </svg>
+        <span>Back to Image-Toolkit</span>
+      </a>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="pt-32 pb-16 px-6 max-w-7xl mx-auto flex-grow w-full">
+    
+    <!-- Hero Section -->
+    <section id="overview" class="text-center max-w-4xl mx-auto mb-20">
+      <span class="text-[#ff0055] text-xs font-mono tracking-[0.3em] uppercase font-bold px-3 py-1 bg-[#ff0055]/10 border border-[#ff0055]/30 rounded-full inline-block mb-4">
+        Offline Computational Art & Cel-Shaded Animation Engine
+      </span>
+      <h1 class="text-4xl md:text-6xl font-extrabold tracking-tight text-white glow-pink mb-6">
+        Cel-Shaded Generator
+      </h1>
+      <p class="text-[#8c92a0] text-lg md:text-xl leading-relaxed max-w-3xl mx-auto">
+        Offline-first suite for drawing anime, screentone-aware manga colorization, ARAP 2D mesh deformation, cel-shaded animation puppeteering, and Krita plugin integration.
+      </p>
+
+      <div class="mt-8 flex flex-wrap justify-center gap-3 font-mono text-xs">
+        <span class="bg-[#1a1c23] text-[#00f0ff] px-3.5 py-1.5 rounded border border-[#00f0ff]/20">Python 3.11+ / C++ Core</span>
+        <span class="bg-[#1a1c23] text-[#ff0055] px-3.5 py-1.5 rounded border border-[#ff0055]/20">PySide6 Qt Client</span>
+        <span class="bg-[#1a1c23] text-purple-400 px-3.5 py-1.5 rounded border border-purple-500/20">ARAP Mesh Solver</span>
+        <span class="bg-[#1a1c23] text-emerald-400 px-3.5 py-1.5 rounded border border-emerald-500/20">Graph-Cut Temporal Propagation</span>
+        <span class="bg-[#1a1c23] text-amber-400 px-3.5 py-1.5 rounded border border-amber-500/20">Krita 5.2 Integration</span>
+      </div>
+    </section>
+
+    <!-- Manga Lineart Colorization -->
+    <section id="colorization" class="mb-20">
+      <div class="flex items-center space-x-3 mb-8">
+        <div class="w-2 h-6 bg-[#ff0055] rounded"></div>
+        <h2 class="text-2xl md:text-3xl font-bold text-white tracking-tight">
+          Manga Lineart Colorization & Palette Transfer
+        </h2>
+      </div>
+
+      <div class="grid md:grid-cols-3 gap-6 mb-8">
+        <!-- Feature 1: Scribble & Screentone -->
+        <div class="border border-[#1a1c23] bg-[#0d0e12] p-6 rounded-xl border-glow">
+          <div class="text-[#00f0ff] font-mono text-xs font-bold mb-2">STAGE 01</div>
+          <h3 class="text-lg font-bold text-white mb-2">Screentone-Aware Scribble Hints</h3>
+          <p class="text-sm text-[#8c92a0] leading-relaxed">
+            Distinguishes fine ink lineart from dot screentones and crosshatching, allowing rapid color fills via sparse user color scribbles without bleeding across line boundaries.
+          </p>
+        </div>
+
+        <!-- Feature 2: Reference Palette Transfer -->
+        <div class="border border-[#1a1c23] bg-[#0d0e12] p-6 rounded-xl border-glow-pink">
+          <div class="text-[#ff0055] font-mono text-xs font-bold mb-2">STAGE 02</div>
+          <h3 class="text-lg font-bold text-white mb-2">Reference-Palette Color Transfer</h3>
+          <p class="text-sm text-[#8c92a0] leading-relaxed">
+            Extracts dominant color palettes from character reference art and maps them to target lineart regions using L-channel luminance matching and optimal transport color mapping.
+          </p>
+        </div>
+
+        <!-- Feature 3: Temporal Color Propagation -->
+        <div class="border border-[#1a1c23] bg-[#0d0e12] p-6 rounded-xl border-glow">
+          <div class="text-emerald-400 font-mono text-xs font-bold mb-2">STAGE 03</div>
+          <h3 class="text-lg font-bold text-white mb-2">Temporal Graph-Cut Refinement</h3>
+          <p class="text-sm text-[#8c92a0] leading-relaxed">
+            Propagates colorized keyframes across animation sequences using optical flow vectors and Graph-Cut energy minimization, eliminating frame-to-frame color flickering.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Layer Canvas & Architecture -->
+    <section id="layer-canvas" class="mb-20">
+      <div class="flex items-center space-x-3 mb-8">
+        <div class="w-2 h-6 bg-[#00f0ff] rounded"></div>
+        <h2 class="text-2xl md:text-3xl font-bold text-white tracking-tight">
+          Layer Canvas & Process-Isolated Execution Boundary
+        </h2>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-8 mb-8">
+        <div class="border border-[#1a1c23] bg-[#0d0e12] p-6 rounded-xl border-glow">
+          <h3 class="text-xl font-bold text-white mb-3">Multi-Layer Document Model</h3>
+          <p class="text-sm text-[#8c92a0] leading-relaxed mb-4">
+            Supports independent Lineart, Flat Color, Cel-Shadow, Highlight, and Screentone layers. Projects are saved in a portable offline <code class="font-mono text-[#00f0ff]">.csg</code> format containing raw raster assets and non-destructive mesh deformation parameters.
+          </p>
+          <ul class="text-xs text-[#8c92a0] font-mono space-y-1.5">
+            <li>&bull; Non-destructive vector lineart & raster layers</li>
+            <li>&bull; Portable JSON project manifest format</li>
+            <li>&bull; Local filesystem cache with zero cloud dependencies</li>
+          </ul>
+        </div>
+
+        <div class="border border-[#1a1c23] bg-[#0d0e12] p-6 rounded-xl border-glow-pink">
+          <h3 class="text-xl font-bold text-white mb-3">Crash-Contained Native Compute</h3>
+          <p class="text-sm text-[#8c92a0] leading-relaxed mb-4">
+            Heavy numerical jobs cross a serializable <code class="font-mono text-[#ff0055]">JobRequest</code> boundary. Isolated worker processes run solver routines with process-local locks, adaptive timeouts, and crash recovery — ensuring the Qt/Krita UI never freezes.
+          </p>
+          <ul class="text-xs text-[#8c92a0] font-mono space-y-1.5">
+            <li>&bull; Persistent restartable worker process for ARAP dragging</li>
+            <li>&bull; Spawned batch processes for temporal color propagation</li>
+            <li>&bull; Process-local <code class="text-[#00f0ff]">NATIVE_COMPUTE_LOCK</code> defense-in-depth</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Mesh Overlay Editor & ARAP -->
+    <section id="mesh-editor" class="mb-20">
+      <div class="flex items-center space-x-3 mb-8">
+        <div class="w-2 h-6 bg-purple-500 rounded"></div>
+        <h2 class="text-2xl md:text-3xl font-bold text-white tracking-tight">
+          Mesh Overlay Editor & ARAP 2D Deformation
+        </h2>
+      </div>
+
+      <div class="border border-[#1a1c23] bg-[#0d0e12] p-8 rounded-2xl mb-8">
+        <div class="grid md:grid-cols-12 gap-8 items-center">
+          <div class="md:col-span-6 space-y-4">
+            <span class="text-xs font-mono text-[#00f0ff] uppercase tracking-wider font-bold">Interactive Geometry Engine</span>
+            <h3 class="text-2xl font-bold text-white">As-Rigid-As-Possible (ARAP) Mesh Solver</h3>
+            <p class="text-sm text-[#8c92a0] leading-relaxed">
+              The Mesh Overlay Editor automatically triangulates character artwork into planar 2D triangular meshes. User pin handles deform character poses while preserving local triangle rigidity, foreshortening, and line width ratios.
+            </p>
+            <div class="flex gap-4 text-xs font-mono">
+              <div class="bg-[#14161d] p-3 rounded border border-[#1a1c23]">
+                <div class="text-[#00f0ff] font-bold">Stiffness Matrix</div>
+                <div class="text-[#8c92a0] text-[11px] mt-0.5">Weighted spring constraints</div>
+              </div>
+              <div class="bg-[#14161d] p-3 rounded border border-[#1a1c23]">
+                <div class="text-[#ff0055] font-bold">&lt; 16ms Latency</div>
+                <div class="text-[#8c92a0] text-[11px] mt-0.5">Real-time dragging response</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="md:col-span-6 bg-[#14161d] p-6 rounded-xl border border-[#1a1c23]">
+            <div class="flex justify-between text-xs font-mono text-[#8c92a0] mb-3">
+              <span>ARAP Mesh Triangulation & Pin Hooks</span>
+              <span class="text-emerald-400">Active Mesh Solver</span>
+            </div>
+            <pre class="text-xs font-mono text-[#00f0ff] leading-relaxed overflow-x-auto"><code><span class="text-[#8c92a0]">// Real-time ARAP Energy Minimization</span>
+<span class="text-white">E</span>(V') = &sum;<sub>i</sub> w<sub>i</sub> &sum;<sub>j &isin; N(i)</sub> w<sub>ij</sub> || (p'<sub>i</sub> - p'<sub>j</sub>) - R<sub>i</sub> (p<sub>i</sub> - p<sub>j</sub>) ||<sup>2</sup>
+
+<span class="text-[#8c92a0]">// Solve local rotations R_i via SVD</span>
+R_i = V_i &middot; U_i<sup>T</sup>  <span class="text-[#8c92a0]">(det(R_i) > 0)</span>
+
+<span class="text-[#8c92a0]">// Solve global positions V' via sparse Cholesky</span>
+L &middot; V' = b  <span class="text-emerald-400">[Linear Solver Execution]</span></code></pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Puppeteering & Animation Workflow -->
+    <section id="puppeteering" class="mb-16">
+      <div class="flex items-center space-x-3 mb-8">
+        <div class="w-2 h-6 bg-emerald-400 rounded"></div>
+        <h2 class="text-2xl md:text-3xl font-bold text-white tracking-tight">
+          Puppeteering & Animation Workflow
+        </h2>
+      </div>
+
+      <div class="grid md:grid-cols-4 gap-6 text-center">
+        <div class="bg-[#0d0e12] p-6 rounded-xl border border-[#1a1c23] border-glow">
+          <div class="text-xs font-mono text-[#00f0ff] mb-1">STEP 01</div>
+          <h3 class="font-bold text-white mb-2">Lineart Rigging</h3>
+          <p class="text-xs text-[#8c92a0]">Auto-generate 2D mesh overlays and place pin joints on arms, legs, and facial features.</p>
+        </div>
+        <div class="bg-[#0d0e12] p-6 rounded-xl border border-[#1a1c23] border-glow-pink">
+          <div class="text-xs font-mono text-[#ff0055] mb-1">STEP 02</div>
+          <h3 class="font-bold text-white mb-2">Keyframe Pose Dragging</h3>
+          <p class="text-xs text-[#8c92a0]">Drag pin handles with interactive ARAP solver feedback to record key poses.</p>
+        </div>
+        <div class="bg-[#0d0e12] p-6 rounded-xl border border-[#1a1c23] border-glow">
+          <div class="text-xs font-mono text-purple-400 mb-1">STEP 03</div>
+          <h3 class="font-bold text-white mb-2">Temporal Inbetweening</h3>
+          <p class="text-xs text-[#8c92a0]">Interpolate mesh deformations and propagate colors across intermediate frames.</p>
+        </div>
+        <div class="bg-[#0d0e12] p-6 rounded-xl border border-[#1a1c23] border-glow-pink">
+          <div class="text-xs font-mono text-emerald-400 mb-1">STEP 04</div>
+          <h3 class="font-bold text-white mb-2">Cel-Shade Rendering</h3>
+          <p class="text-xs text-[#8c92a0]">Export clean vector/raster cel sequences or game sprites with crisp shadow boundaries.</p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="border-t border-[#1a1c23] bg-[#0a0a0c] py-8 text-center text-xs text-[#8c92a0]">
+    <div class="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-4">
+      <span>Cel-Shaded-Generator (CSG) Submodule — Part of Image-Toolkit</span>
+      <a href="https://acfharbinger.github.io/Image-Toolkit/" class="text-[#00f0ff] hover:underline font-mono flex items-center space-x-1">
+        <span>Return to Image-Toolkit Hub</span>
+        <span>&rarr;</span>
+      </a>
+    </div>
+  </footer>
+
+</body>
+</html>
