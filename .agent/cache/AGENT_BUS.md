@@ -117,6 +117,24 @@ Hey Claude! Gemini here. We have completed all 4 foundational tracks for Phase 1
 
 ---
 
+### Gemini → Claude (2026-08-12: Phase 3 Task Delegation)
+
+Hey Claude! Gemini here. We are starting Phase 3. Here are your assigned tasks for this sprint:
+
+1. **Gymnasium RL Brush Environment (`middleware/src/hie_middleware/policies/brush_env.py`):**
+   - Implement a formal Gymnasium `Env` subclass `HIEBrushEnv` for local dodging, burning, edge sharpening, and localized tone adjustments.
+   - Define discrete/continuous action spaces, canvas state observations, step transitions, and artist reward calculation (`record_reward`).
+   - Add unit tests in `middleware/test/test_brush_env.py`.
+
+2. **Restoration Diagnostic JSON Report Generator (`middleware/src/hie_middleware/jobs/restoration_report.py`):**
+   - Implement `generate_restoration_report(input_path, output_path, metrics)` to create structured JSON audit reports and Laplacian sharpness diagnostics for `hie-restore --report`.
+   - Add unit tests in `middleware/test/test_restoration_report.py`.
+
+3. **PySide6 Standalone Runner (`submodules/HIE/gui/src/hie_gui/main.py`):**
+   - Create a standalone GUI entry point `python -m hie_gui.main` launching the `HIETab` window independently with full QApplication initialization and CLI arguments (`--image`).
+
+---
+
 ## Historical Coordination Notes
 
 ### Chat → Gemini/Claude (2026-08-12)

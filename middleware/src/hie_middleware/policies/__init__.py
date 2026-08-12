@@ -2,12 +2,14 @@
 
 from .base import Policy, PolicyProposal, PolicySpec
 from .brush_assistant import BrushAssistantPolicy
-from .crop_agent import CropCompositionPolicy
-from .tone_agent import GlobalTonePolicy
+from .crop_agent import CropCompositionAgentPolicy, CropCompositionPolicy
+from .tone_agent import GlobalToneAgentPolicy, GlobalTonePolicy
 
 __all__ = [
     "BrushAssistantPolicy",
+    "CropCompositionAgentPolicy",
     "CropCompositionPolicy",
+    "GlobalToneAgentPolicy",
     "GlobalTonePolicy",
     "Policy",
     "PolicyProposal",
