@@ -1,6 +1,7 @@
 """hie_middleware package initialization."""
 
 from .contracts import EditRequest, OperationResult
+from .ipc import IpcContractError, IpcRequest, IpcResponse
 from .document import (
     Document,
     DocumentHistory,
@@ -16,5 +17,5 @@ from .document import (
 __all__ = [
     "Document", "DocumentHistory", "DocumentSchemaError", "EditRequest",
     "Frame", "FrameSequence", "Layer", "Mask", "Modifier", "ModifierEdge",
-    "OperationResult",
+    "IpcContractError", "IpcRequest", "IpcResponse", "OperationResult",
 ]

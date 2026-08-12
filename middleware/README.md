@@ -29,7 +29,8 @@ The middleware is structured into five core submodules:
 
 ## Shared Contracts
 
-- `middleware/src/hie_middleware/contracts.py`: Defines serializable requests (`EditRequest`), execution results (`OperationResult`), and progress telemetry shared across `gui/` and `frontend/`.
+- `middleware/src/hie_middleware/contracts.py`: Defines serializable edit requests (`EditRequest`) and execution results (`OperationResult`).
+- `middleware/src/hie_middleware/ipc.py`: Defines versioned frontend/host envelopes (`IpcRequest`, `IpcResponse`) for `open_media`, `export_document`, and `notify`.
 
 ## Weight & Dependency Management
 

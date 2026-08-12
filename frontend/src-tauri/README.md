@@ -11,5 +11,5 @@ npm run tauri dev
 ```
 
 The Rust commands mirror `src/host.ts`: `open_media`, `export_document`, and
-`notify`. Media/document routing remains host-owned until the middleware IPC
-contract is finalized.
+`notify`. Their payloads should use the versioned `IpcRequest`/`IpcResponse`
+envelopes defined in `middleware/src/hie_middleware/ipc.py`.
