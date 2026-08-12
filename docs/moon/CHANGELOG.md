@@ -71,6 +71,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Flattened the Python "src layout" package directories: `middleware/src/hie_middleware/*` → `middleware/src/*` and `gui/src/hie_gui/*` → `gui/src/*`, deleting the inner package directories. Every `from hie_middleware.X import Y` / `from hie_gui.X import Y` (and internal relative-import equivalents) rewritten to flat top-level imports; `pyproject.toml` entry points and setuptools packaging config updated for both. Image-Toolkit's two parent-repo re-export files updated to match. Checked ASP, CRE, and CSG for the same pattern — none of them have it, their `src/` layouts were already flat.
 - Restoration and watermark-removal proposals remain preview-only. Watermark inpainting requires a user mask and explicit confirmation that the image may be edited.
 - Reworked the HIE editor tab layout (`gui/src/hie_gui/hie_tab.py`): a toolbar row replaces the bare title label, a persistent document-path status line and a separate transient operation-status line replace the single canvas-overlaid status text, and the assistance controls are grouped in a labeled `QGroupBox` instead of an unstructured column.
 
