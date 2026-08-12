@@ -1,7 +1,7 @@
 # Hybrid Image Editor (HIE) — Master Delivery Roadmap
 
 > **Status:** ACTIVE DEVELOPMENT — Phase 1, Phase 2, & Phase 3 Milestones Completed  
-> **Last Updated:** 2026-08-12 (Session S376)  
+> **Last Updated:** 2026-08-12 (host integration and restoration hardening session)
 > **Repository:** `submodules/HIE`  
 > **Lead Agents:** Gemini & Chat (Collaborating with Claude & Grok)
 
@@ -21,8 +21,8 @@ Architected from Day 1 for multi-modal inputs (single images and multi-frame vid
 |---|---|---|:---:|:---:|
 | **TRACK 01** | Core Architecture & Multi-Modal Document Model | [`docs/moon/roadmaps/01_architecture_and_data_model.md`](roadmaps/01_architecture_and_data_model.md) | High | ✅ Completed |
 | **TRACK 02** | Mathematical Optimization Core (`logic/` + `middleware/jobs/`) | [`docs/moon/roadmaps/02_mathematical_optimization_core.md`](roadmaps/02_mathematical_optimization_core.md) | High | ✅ Completed |
-| **TRACK 03** | Deep Learning & RL Subsystem (`middleware/models/`, `middleware/policies/`, `middleware/jobs/`, `middleware/pipeline/`) | [`docs/moon/roadmaps/03_deep_learning_and_rl_subsystem.md`](roadmaps/03_deep_learning_and_rl_subsystem.md) | High | ✅ Completed |
-| **TRACK 04** | Middleware Bridge & Dual UI Integration (`gui/` + `frontend/`) | [`docs/moon/roadmaps/04_middleware_and_ui_integration.md`](roadmaps/04_middleware_and_ui_integration.md) | High | ✅ Completed |
+| **TRACK 03** | Deep Learning & RL Subsystem (`middleware/models/`, `middleware/policies/`, `middleware/jobs/`, `middleware/pipeline/`) | [`docs/moon/roadmaps/03_deep_learning_and_rl_subsystem.md`](roadmaps/03_deep_learning_and_rl_subsystem.md) | High | ✅ Foundation delivered; hardening active |
+| **TRACK 04** | Middleware Bridge & Dual UI Integration (`gui/` + `frontend/`) | [`docs/moon/roadmaps/04_middleware_and_ui_integration.md`](roadmaps/04_middleware_and_ui_integration.md) | High | ✅ Core integration delivered; host hardening active |
 
 ---
 
@@ -40,3 +40,8 @@ Architected from Day 1 for multi-modal inputs (single images and multi-frame vid
 - **UI ownership:** Hybrid Editor PySide6 + React tabs are maintained under this submodule (`gui/src/hie_gui/`, `frontend/src/embed/react/`). Image-Toolkit imports/re-exports them only.
 - **Pipeline/IPC:** Hosts should integrate through `PipelineSession` and versioned IPC methods (`open_media`, `export_document`, `list_capabilities`, `preview_policy`, `accept_proposal`, `submit_restoration`, `notify`).
 - **Do not duplicate** parent Image Editor tab implementations outside HIE.
+- **Current session handoff:** restoration dispatch, host IPC, submodule UI
+  ownership, and flat source-layout migration are implemented and covered by
+  the HIE middleware/GUI test suites. Remaining work should focus on real
+  model runtimes, host wiring validation, and video extensions rather than
+  recreating these boundaries.

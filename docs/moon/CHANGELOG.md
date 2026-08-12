@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Session 2026-08-12 — Host integration and restoration hardening
+
+- Consolidated the restoration-to-host path: `RestorationPipeline` now feeds
+  `PipelineSession`, and versioned middleware IPC exposes capability discovery,
+  policy preview/acceptance, and cancellable restoration submission to both
+  frontends.
+- Completed the restoration hardening slice with deblur contract validation,
+  watermark confidence/audit logging, CPU deblur/sharpen previews, and
+  permission-preserving inpainting dispatch.
+- Moved HIE's PySide6 and React/Tauri editor ownership into the submodule and
+  flattened the Python source layouts so package imports, entry points, and
+  parent re-exports use the same stable paths.
+
 ### Added
 
 - Hybrid Editor UI ownership moved into this submodule: PySide6 `HieEditorTab` (`gui/src/hie_gui/`) and React embed tab (`frontend/src/embed/react/HieEditorTab.tsx`). Image-Toolkit keeps thin re-exports only, so parent UIs update when the submodule updates.

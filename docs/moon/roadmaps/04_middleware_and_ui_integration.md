@@ -34,3 +34,6 @@ This roadmap specifies the middleware bridge (`middleware/`) connecting the C++ 
 | **Phase 4.3** | PySide6 HIE Tab Component (`gui/hie_tab.py`) | High | `gui/src/hie_tab.py` integrated into `Image-Toolkit/gui/`. Includes an "Open Image…" toolbar action (`HieTab.open_image`/`load_image_path`) that loads a file into `HieViewport` and starts a fresh document history, plus a grouped toolbar/status/sidebar layout (2026-08-12). |
 | **Phase 4.4** | PySide6 Standalone Runner | High | `gui/main.py` entry point |
 | **Phase 4.5** | Tauri Frontend Integration | Med | `frontend/src/main.ts`, `frontend/src/style.css` |
+| **Phase 4.6** | Host Pipeline IPC Contract | High | Versioned `list_capabilities`, `preview_policy`, `accept_proposal`, and `submit_restoration` methods backed by `PipelineSession` |
+| **Phase 4.7** | Submodule UI Ownership | High | HIE-owned PySide6 and React/Tauri editor tabs with thin Image-Toolkit re-exports |
+| **Phase 4.8** | Flat Source Layout | Med | Stable `middleware/src/*` and `gui/src/*` package paths, updated entry points, imports, tests, and packaging metadata |
