@@ -6,6 +6,7 @@ Extracted from ``image_crawler_tab.py`` -- pure code motion, no logic change.
 from __future__ import annotations
 
 import contextlib
+import json
 import os
 
 from PySide6.QtCore import Slot
@@ -158,56 +159,45 @@ class _CrawlWorkerMixin:
             self.qml_crawling_changed.emit()
             self.on_crawl_done(0, "Cancelled by user.")
 
-    def _delete_pruned_file(self, item: str | dict):
-        """Helper to remove a pruned image and all its associated metadata files (.json, .txt)."""
+    def _delete_pruned_file(self, clean_path: str):
+        """Remove a downloaded image file and any associated sidecar files (.json, .txt)."""
         try:
-            if not item:
+            if not clean_path or not isinstance(clean_path, str):
                 return
 
-            if isinstance(item, str) and item.strip().startswith("{"):
-                with contextlib.suppress(Exception):
-                    import json
-                    item = json.loads(item)
-
-            raw_path = item.get("path", "") if isinstance(item, dict) else str(item)
-            if not raw_path:
+            # Normalize: strip query params, URL fragments, whitespace
+            target = os.path.normpath(clean_path.split("?")[0].split("#")[0].strip())
+            if not target:
                 return
-
-            clean_p = raw_path.split("?")[0].split("#")[0]
 
             d_dir = ""
             if hasattr(self, "download_dir_path") and hasattr(self.download_dir_path, "text"):
                 d_dir = self.download_dir_path.text().strip()
 
-            candidates = [clean_p]
-            fname = os.path.basename(clean_p)
-            if d_dir:
+            # Build candidate list: exact path + download_dir/filename fallback
+            fname = os.path.basename(target)
+            candidates = [target]
+            if d_dir and fname:
                 candidates.append(os.path.join(d_dir, fname))
 
-            deleted = False
-            for target in candidates:
-                if target and os.path.exists(target):
+            for candidate in candidates:
+                if candidate and os.path.isfile(candidate):
                     try:
-                        os.remove(target)
-                        deleted = True
-                    except Exception as ex:
-                        print(f"Error removing {target}: {ex}")
-
-                    for ext in [".json", ".txt"]:
-                        meta_path = os.path.splitext(target)[0] + ext
-                        if os.path.exists(meta_path):
-                            with contextlib.suppress(Exception):
-                                os.remove(meta_path)
-                    if deleted:
-                        break
-
-            if not deleted and d_dir and os.path.exists(d_dir):
-                candidate = os.path.join(d_dir, fname)
-                if os.path.exists(candidate):
-                    with contextlib.suppress(Exception):
                         os.remove(candidate)
+                        print(f"[CrawlWorker] Deleted: {candidate}")
+                    except Exception as ex:
+                        print(f"[CrawlWorker] Error removing {candidate}: {ex}")
+
+                    # Remove sidecar metadata files
+                    stem = os.path.splitext(candidate)[0]
+                    for ext in (".json", ".txt"):
+                        sidecar = stem + ext
+                        if os.path.isfile(sidecar):
+                            with contextlib.suppress(Exception):
+                                os.remove(sidecar)
+                    break
         except Exception as e:
-            print(f"Error removing pruned file/metadata: {e}")
+            print(f"[CrawlWorker] Error removing pruned file: {e}")
 
     def on_crawl_done(self, count, message):  # noqa: C901
         self.run_button.show()
@@ -254,9 +244,18 @@ class _CrawlWorkerMixin:
                         self, "Done", f"{new_msg}\nSaved to: {self.download_dir_path.text()}"
                     )
                 else:
-                    for item in self.downloaded_files:
-                        path = item["path"] if isinstance(item, dict) else item
-                        self._delete_pruned_file(path)
+                    # Cancel (Discard All): delete every downloaded file
+                    for raw_item in self.downloaded_files:
+                        clean_path = ""
+                        if isinstance(raw_item, dict):
+                            clean_path = raw_item.get("path", "")
+                        elif isinstance(raw_item, str) and raw_item.strip().startswith("{"):
+                            with contextlib.suppress(Exception):
+                                clean_path = json.loads(raw_item).get("path", "")
+                        else:
+                            clean_path = str(raw_item)
+                        if clean_path:
+                            self._delete_pruned_file(clean_path)
                     self.status_label.setText("Crawl discarded.")
                     QMessageBox.information(self, "Cancelled", "Crawl discarded. All downloaded files removed.")
 
