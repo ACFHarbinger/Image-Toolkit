@@ -13,7 +13,13 @@ from hie_middleware.pipeline import (
 
 def test_default_pipeline_registers_phase_one_policies_and_optional_models():
     assert build_default_pipeline().capabilities() == {
-        "models": ["alpha-matting", "image-deblur", "super-resolution", "watermark-inpainting"],
+        "models": [
+            "alpha-matting",
+            "image-deblur",
+            "neural-inpainting",
+            "super-resolution",
+            "watermark-inpainting",
+        ],
         "policies": ["brush-assistant", "crop-composition", "global-tone"],
     }
 

@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Neural Inpainting & Outpainting Model Adapter (`middleware/src/hie_middleware/models/inpainting.py`): `InpaintingAdapter` / `InpaintingModel` supporting prompt-driven and stroke-guided mask generation options and canvas outpainting bounding boxes (`neural_inpaint`, `neural_outpaint`), registered in `build_default_pipeline()` with unit test suite in `test_inpainting.py`.
 - Central `base.hie` pybind11 binding (`logic/src/{exact_solvers,metaheuristics}_bindings.cpp`, wired into Image-Toolkit's `base` module) exposing `solve_seam`, `solve_alignment_gnc`, `solve_color_harmonization`, `pso_solve`, and `de_solve` to Python.
 - `middleware/src/hie_middleware/logic_bridge/solvers.py`: native adapters for all five solvers above (`native_solve_seam`, `native_solve_alignment_gnc`, `native_solve_color_harmonization`, `native_pso_solve`, `native_de_solve`), each gated on `HAVE_NATIVE_HIE` with a clear `RuntimeError` when the compiled extension isn't available.
 - `call_hie_alignment_gnc` (`middleware/src/hie_middleware/jobs/exact_dp.py`): cancellable job wrapper for GNC-TLS robust 2D translation+scale alignment — native-only, since there's no meaningful pure-Python reference for outlier-rejected correspondence fitting.
@@ -19,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added optional Pillow CPU restoration runners for conservative deblur and mask-guided inpainting previews; neural/OpenCV backends remain swappable.
 - Added an optional `restoration-opencv` middleware extra and OpenCV Telea/Navier–Stokes masked-inpainting runner.
 - Added UV dependency locking for the optional OpenCV stack; `uv.lock` records the reproducible `restoration-opencv` environment.
+- Added the `hie-restore` CLI for local deblur and consent-gated mask inpainting previews.
 - Multi-modal IPC media support for still sources and validated multi-frame sequences with FPS, frame duration, and metadata preservation.
 - Stateful `PipelineSession`, versioned frontend IPC envelopes, in-memory IPC service, PySide6/Tauri frontend surfaces, and default Phase 1 capability registration.
 

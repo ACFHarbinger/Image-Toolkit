@@ -35,3 +35,4 @@ This roadmap defines the AI capabilities in `middleware/models/` and `middleware
 | **Phase 3.6** | Deblur Restoration Adapter & Job Contract | High | `middleware/models/deblur.py`, `middleware/jobs/restoration.py` |
 | **Phase 3.7** | Consent-Gated Watermark Inpainting Adapter | High | `middleware/models/watermark.py`, `middleware/jobs/restoration.py` |
 | **Phase 3.8** | CPU Restoration Preview Baseline | Med | `middleware/jobs/cpu_restoration.py`, `middleware/pyproject.toml` (`restoration-opencv` UV extra) |
+| **Phase 3.9** | Standalone Restoration CLI | Med | `middleware/src/hie_middleware/restore_cli.py`, `hie-restore` entry point |

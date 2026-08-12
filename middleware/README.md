@@ -45,6 +45,21 @@ python3 -m pip install -e '.[restoration-opencv]'
 Use `opencv_masked_inpainting_runner` through `submit_restoration_job` after
 the required mask and permission confirmation have been supplied.
 
+## CLI
+
+Install the middleware with UV and run the local baselines directly:
+
+```bash
+uv sync --extra restoration-opencv
+uv run hie-restore deblur input.png --output restored.png
+uv run hie-restore inpaint owned.png --mask logo-mask.png \
+  --permission-confirmed --output cleaned.png
+```
+
+`inpaint` defaults to OpenCV when installed and otherwise uses the Pillow
+baseline. The original file is never overwritten unless an explicit output
+path points to it.
+
 ## Weight & Dependency Management
 
 Model weights, checkpoints, and heavy dataset dependencies remain outside Git tracking. Document retrieval scripts, checksums, and remote URLs under `docs/`.
