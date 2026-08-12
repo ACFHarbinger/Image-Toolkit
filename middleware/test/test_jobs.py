@@ -4,15 +4,18 @@ import time
 import pytest
 
 from hie_middleware.jobs import (
+    Correspondence,
     JobStatus,
     LayerColorStats,
     SeamPixel,
+    call_hie_alignment_gnc,
     call_hie_exact_solver,
     call_hie_de,
     call_hie_pso,
     submit_job,
 )
 from hie_middleware.jobs.base import JobCancelled, JobProgress
+from hie_middleware.logic_bridge.solvers import HAVE_NATIVE_HIE
 
 
 # ─── Job contract (base.py) ────────────────────────────────────────────────
@@ -212,3 +215,29 @@ def test_exact_solver_color_harmonization_matches_target_moments():
 def test_exact_solver_rejects_unknown_method():
     with pytest.raises(ValueError):
         call_hie_exact_solver("not-a-real-method")  # type: ignore[arg-type]
+
+
+# ─── GNC-TLS alignment (exact_dp.py, native-only) ──────────────────────────
+
+
+@pytest.mark.skipif(not HAVE_NATIVE_HIE, reason="compiled base.hie extension not available")
+def test_alignment_gnc_recovers_pure_translation():
+    correspondences = [
+        Correspondence(src_x=float(i), src_y=float(i * 2), dst_x=float(i) + 10.0, dst_y=float(i * 2) - 5.0)
+        for i in range(20)
+    ]
+    handle = call_hie_alignment_gnc(correspondences)
+    result = handle.result(timeout=5)
+    alignment = result.value
+
+    assert result.ok
+    assert alignment.success
+    assert alignment.model.tx == pytest.approx(10.0, abs=1e-2)
+    assert alignment.model.ty == pytest.approx(-5.0, abs=1e-2)
+    assert alignment.inlier_count == 20
+
+
+def test_alignment_gnc_raises_without_native_extension(monkeypatch):
+    monkeypatch.setattr("hie_middleware.jobs.exact_dp.HAVE_NATIVE_HIE", False)
+    with pytest.raises(RuntimeError):
+        call_hie_alignment_gnc([Correspondence(0.0, 0.0, 1.0, 1.0)])

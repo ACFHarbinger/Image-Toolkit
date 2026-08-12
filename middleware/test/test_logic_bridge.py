@@ -8,11 +8,12 @@ suite must also pass in a middleware-only install with no C++ extension.
 
 import pytest
 
-from hie_middleware.jobs.exact_dp import SeamPixel
+from hie_middleware.jobs.exact_dp import Correspondence, SeamPixel
 from hie_middleware.logic_bridge.solvers import (
     HAVE_NATIVE_HIE,
     native_de_solve,
     native_pso_solve,
+    native_solve_alignment_gnc,
     native_solve_seam,
 )
 
@@ -60,6 +61,21 @@ def test_native_solve_seam_prefers_zero_energy_column():
     assert all(x == 1 for x in result.seam_x)
 
 
+@requires_native
+def test_native_solve_alignment_gnc_recovers_pure_translation():
+    # dst = src + (10, -5), no scale or outliers — GNC should recover this exactly.
+    correspondences = [
+        Correspondence(src_x=float(i), src_y=float(i * 2), dst_x=float(i) + 10.0, dst_y=float(i * 2) - 5.0)
+        for i in range(20)
+    ]
+    result = native_solve_alignment_gnc(correspondences)
+    assert result.success
+    assert result.model.tx == pytest.approx(10.0, abs=1e-2)
+    assert result.model.ty == pytest.approx(-5.0, abs=1e-2)
+    assert result.model.scale == pytest.approx(1.0, abs=1e-2)
+    assert result.inlier_count == 20
+
+
 def test_native_functions_raise_when_unavailable(monkeypatch):
     monkeypatch.setattr("hie_middleware.logic_bridge.solvers.HAVE_NATIVE_HIE", False)
     with pytest.raises(RuntimeError):
@@ -68,3 +84,5 @@ def test_native_functions_raise_when_unavailable(monkeypatch):
         native_de_solve(_sphere, [(-1.0, 1.0)], population_size=4, max_iter=1)
     with pytest.raises(RuntimeError):
         native_solve_seam([[SeamPixel(0.0)]])
+    with pytest.raises(RuntimeError):
+        native_solve_alignment_gnc([Correspondence(0.0, 0.0, 1.0, 1.0)])

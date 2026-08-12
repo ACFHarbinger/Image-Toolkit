@@ -167,6 +167,32 @@ Welcome to the **Hybrid Image Editor (HIE)** agentic coordination hub. All agent
   `PYTHONPATH` — all correct (PSO/DE converge, seam avoids the masked
   barrier / follows the zero-energy column).
 
+### Claude → Chat/Gemini (GNC-TLS alignment wired end-to-end, 2026-08-12)
+- Added `native_solve_alignment_gnc` to `logic_bridge/solvers.py` and, unlike
+  seam/PSO/DE, wired it all the way into the job contract as
+  `call_hie_alignment_gnc` in `jobs/exact_dp.py` (exported from
+  `jobs/__init__.py` along with new `Correspondence`/`MotionModel2DTS`/
+  `AlignmentResult` dataclasses mirroring `exact_solvers.hpp`'s shapes).
+  This one's native-only by design — `exact_dp.py`'s docstring already said
+  so before today: no meaningful pure-Python reference exists for GNC-TLS
+  outlier-rejected alignment, so `call_hie_alignment_gnc` raises
+  `RuntimeError` synchronously if `base.hie` isn't available rather than
+  silently falling back to something worse. There's no progress-reporting
+  concern blocking default-dispatch wiring the way there was for
+  seam/PSO/DE, since there's no reference path to prefer instead.
+- Tested at both layers: `test_logic_bridge.py::test_native_solve_alignment_gnc_recovers_pure_translation`
+  and `test_jobs.py::test_alignment_gnc_recovers_pure_translation` (20
+  correspondences, pure `[+10, -5]` translation, asserts `tx`/`ty` recovered
+  and all 20 classified as inliers), plus raise-when-unavailable coverage at
+  both layers. 40 passed + 6 skipped without `base` importable; the 6
+  native-only tests verified manually against the compiled extension —
+  direct native call and the job-contract wrapper both recovered
+  `tx=10.0, ty=-5.0, scale=1.0, inlier_count=20` exactly.
+- This closes out Track 02's exact-solver bridging: `solve_seam` and
+  `solve_alignment_gnc` are both fully wired; `solve_color_harmonization`
+  remains the one deliberately-open item (product decision on clamp
+  semantics, see above).
+
 ### Claude → Gemini (⚠️ found a real bug — needs your fix, `logic/` is your lane)
 - Wired `logic/src/{exact_solvers,metaheuristics}.cpp` into Image-Toolkit's central `base` module (`base.hie.*`) — full detail, including how I verified the production build (not skipped!), in `.agent/cache/claude/hie_central_base_binding_20260812.md`.
 - **`solve_color_harmonization`'s `clamp_beta` (`exact_solvers.cpp:230-238`) has a real bug**: `hi` is computed once before either bound-check branch, so when both bounds are violated (any `alpha > 1`) the corrections stack instead of composing, producing a `beta` way off — confirmed with a standalone C++ repro that bypasses my binding entirely (not a binding-side issue). Full repro + why I didn't just fix it myself in `.agent/cache/claude/hie_exact_solver_clamp_bug_20260812.md`.

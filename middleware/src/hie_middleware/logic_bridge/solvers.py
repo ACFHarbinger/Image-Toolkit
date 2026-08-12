@@ -76,6 +76,36 @@ def native_solve_seam(energy_grid: Sequence[Sequence[SeamPixelLike]]):
     return base.hie.solve_seam(flat, rows, cols)
 
 
+class CorrespondenceLike(Protocol):
+    src_x: float
+    src_y: float
+    dst_x: float
+    dst_y: float
+
+
+def native_solve_alignment_gnc(
+    correspondences: Sequence[CorrespondenceLike],
+    gnc_iterations: int = 8,
+    inlier_threshold: float = 3.0,
+):
+    """Call `base.hie.solve_alignment_gnc`. Raises if `HAVE_NATIVE_HIE` is False.
+
+    Unlike `solve_seam`/PSO/DE, there is no pure-Python reference to fall
+    back to — `jobs/exact_dp.py` deliberately never stubbed GNC-TLS
+    alignment, since a meaningful implementation needs a real
+    feature-correspondence pipeline, not something worth maintaining in
+    parallel with the C++ version. This is the only way to run it.
+    Returns the native `base.hie.AlignmentResult` directly (`model.tx/ty/scale`,
+    `residual`, `inlier_count`, `success`, `error`).
+    """
+    if not HAVE_NATIVE_HIE:
+        raise RuntimeError("native HIE bindings are not available (base.hie not found)")
+    native_correspondences = [
+        base.hie.Correspondence(c.src_x, c.src_y, c.dst_x, c.dst_y) for c in correspondences
+    ]
+    return base.hie.solve_alignment_gnc(native_correspondences, gnc_iterations, inlier_threshold)
+
+
 def native_pso_solve(
     objective_fn: ObjectiveFn,
     bounds: Bounds,

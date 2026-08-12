@@ -11,11 +11,13 @@ once the pybind11 binding for `logic/src/exact_solvers.cpp` lands — the
 `SeamResult`/`ColorHarmonizationResult` in the C++ header so that swap is a
 pure implementation change, not an API change.
 
-GNC-TLS layer alignment (`solve_alignment_gnc`) is intentionally NOT stubbed
-here: it depends on a real feature-correspondence pipeline (see
+GNC-TLS layer alignment (`solve_alignment_gnc`) has no pure-Python reference
+here — it depends on a real feature-correspondence pipeline (see
 `hie_claude_handoff_20260812.md`'s GNC-TLS centering fix) that doesn't have a
 meaningful pure-Python fallback worth maintaining in parallel with the C++
-implementation. Route it through `logic_bridge` directly once bound.
+implementation. `call_hie_alignment_gnc` below routes straight through
+`logic_bridge.native_solve_alignment_gnc` and raises if the native binding
+isn't available — there's no reference to fall back to.
 """
 
 from __future__ import annotations
@@ -23,6 +25,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
+from ..logic_bridge.solvers import HAVE_NATIVE_HIE, native_solve_alignment_gnc
 from .base import CancelToken, JobHandle, JobProgress, ReportFn, submit_job
 
 Method = Literal["seam", "color_harmonization"]
@@ -60,6 +63,30 @@ class ColorHarmonizationResult:
     beta_a: float
     alpha_b: float
     beta_b: float
+    success: bool
+    error: str = ""
+
+
+@dataclass(frozen=True)
+class Correspondence:
+    src_x: float
+    src_y: float
+    dst_x: float
+    dst_y: float
+
+
+@dataclass(frozen=True)
+class MotionModel2DTS:
+    tx: float = 0.0
+    ty: float = 0.0
+    scale: float = 1.0
+
+
+@dataclass(frozen=True)
+class AlignmentResult:
+    model: MotionModel2DTS
+    residual: float
+    inlier_count: int
     success: bool
     error: str = ""
 
@@ -167,3 +194,37 @@ def call_hie_exact_solver(
         return submit_job(lambda _token, _report: _solve_color_harmonization(source, target))
 
     raise ValueError(f"unknown exact-solver method: {method!r}")
+
+
+def call_hie_alignment_gnc(
+    correspondences: list[Correspondence],
+    *,
+    gnc_iterations: int = 8,
+    inlier_threshold: float = 3.0,
+) -> JobHandle[AlignmentResult]:
+    """GNC-TLS robust 2D translation+scale alignment. Native-only — see module docstring.
+
+    Raises `RuntimeError` synchronously (before any job is submitted) if the
+    compiled `base.hie` extension isn't available, matching
+    `logic_bridge.native_solve_alignment_gnc`'s own fail-fast behavior.
+    """
+    if not HAVE_NATIVE_HIE:
+        raise RuntimeError(
+            "call_hie_alignment_gnc requires the native base.hie extension "
+            "(no pure-Python reference exists — see module docstring)"
+        )
+
+    def _body(_token: CancelToken, _report: ReportFn) -> AlignmentResult:
+        native_result = native_solve_alignment_gnc(correspondences, gnc_iterations, inlier_threshold)
+        model = MotionModel2DTS(
+            tx=native_result.model.tx, ty=native_result.model.ty, scale=native_result.model.scale
+        )
+        return AlignmentResult(
+            model=model,
+            residual=native_result.residual,
+            inlier_count=native_result.inlier_count,
+            success=native_result.success,
+            error=native_result.error,
+        )
+
+    return submit_job(_body)
