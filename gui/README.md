@@ -10,3 +10,20 @@ This directory contains the **PySide6 (Qt for Python) desktop GUI** for the Hybr
 - Threaded `QThread` workers communicating off the main loop via Qt Signals & Slots.
 - Native OpenGL / QGraphicsView viewport for image & video frame editing.
 - Deep Learning & Reinforcement Learning interactive parameter control panels.
+
+## Running
+
+Install the GUI and the local middleware package, then launch the standalone
+window:
+
+```bash
+python3 -m pip install -e ../middleware -e .
+hie-gui
+# or: python3 -m hie_gui.main
+```
+
+`HieTab` is the embeddable widget. A host can provide its active
+`DocumentHistory` with `set_history()` and register policies on a shared
+`ProposalPipeline`. Assistance is previewed first and only accepted through
+an explicit action, so the standalone and Image-Toolkit-hosted surfaces share
+the same safety boundary.
