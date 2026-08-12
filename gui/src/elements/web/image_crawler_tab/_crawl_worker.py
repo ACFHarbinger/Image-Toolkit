@@ -158,13 +158,22 @@ class _CrawlWorkerMixin:
             self.qml_crawling_changed.emit()
             self.on_crawl_done(0, "Cancelled by user.")
 
-    def _delete_pruned_file(self, path: str):
+    def _delete_pruned_file(self, item: str | dict):
         """Helper to remove a pruned image and all its associated metadata files (.json, .txt)."""
         try:
-            if not path:
+            if not item:
                 return
 
-            clean_p = str(path).split("?")[0].split("#")[0]
+            if isinstance(item, str) and item.strip().startswith("{"):
+                with contextlib.suppress(Exception):
+                    import json
+                    item = json.loads(item)
+
+            raw_path = item.get("path", "") if isinstance(item, dict) else str(item)
+            if not raw_path:
+                return
+
+            clean_p = raw_path.split("?")[0].split("#")[0]
 
             d_dir = ""
             if hasattr(self, "download_dir_path") and hasattr(self.download_dir_path, "text"):
@@ -212,15 +221,20 @@ class _CrawlWorkerMixin:
         if is_cancelled:
             if "Manual Selection" in mode or "Automated Selection" in mode:
                 for item in self.downloaded_files:
-                    path = item["path"] if isinstance(item, dict) else item
-                    self._delete_pruned_file(path)
+                    self._delete_pruned_file(item)
             return
 
         if self.downloaded_files:
             if "Manual Selection" in mode:
                 from gui.src.components.dialogs.crawler_selection_dialogs import ManualSelectionDialog
-                sf = self.skip_first_spin.value() if hasattr(self, "skip_first_spin") else 0
-                sl = self.skip_last_spin.value() if hasattr(self, "skip_last_spin") else 0
+                sf, sl = 0, 0
+                if hasattr(self, "skip_first_input") and hasattr(self.skip_first_input, "text"):
+                    with contextlib.suppress(Exception):
+                        sf = int(self.skip_first_input.text().strip())
+                if hasattr(self, "skip_last_input") and hasattr(self.skip_last_input, "text"):
+                    with contextlib.suppress(Exception):
+                        sl = int(self.skip_last_input.text().strip())
+
                 dialog = ManualSelectionDialog(self.downloaded_files, self, skip_first=sf, skip_last=sl)
                 result = dialog.exec()
 

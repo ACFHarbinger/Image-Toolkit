@@ -73,3 +73,37 @@ def test_manual_selection_dialog_skip_first_pre_marking(tmp_path):
     assert set(dialog.get_pruned_paths()) == {str(img1), str(img2)}
     assert dialog.get_kept_paths() == [str(img3)]
 
+
+def test_manual_selection_dialog_json_strings_and_qlineedit_skip_inputs(tmp_path):
+    img1 = tmp_path / "img1.jpeg"
+    img2 = tmp_path / "img2.jpeg"
+    img3 = tmp_path / "img3.jpeg"
+    for img in (img1, img2, img3):
+        img.write_bytes(b"\xFF\xD8\xFF\xE0\x00\x10JFIF\x00\x01\x01\x01\x00`\x00`\x00\x00\xFF\xDB\x00C\x00")
+
+    # JSON strings (simulating worker signal emission across multiple pages)
+    import json
+    items = [
+        json.dumps({"path": str(img1), "page_num": 1, "index_on_page": 1}),
+        json.dumps({"path": str(img2), "page_num": 2, "index_on_page": 2}),
+        json.dumps({"path": str(img3), "page_num": 3, "index_on_page": 3}),
+    ]
+
+    parent = QWidget()
+    parent.download_dir_path = QLineEdit()
+    parent.download_dir_path.setText(str(tmp_path))
+    parent.skip_first_input = QLineEdit("1")
+    parent.skip_last_input = QLineEdit("1")
+
+    dialog = ManualSelectionDialog(items, parent=parent)
+
+    assert len(dialog.cards) == 3
+    # First card (skip_first=1) and third card (skip_last=1) must be pre-marked as DISCARD (False)
+    assert dialog.cards[0].is_kept is False
+    assert dialog.cards[1].is_kept is True
+    assert dialog.cards[2].is_kept is False
+
+    assert dialog.get_kept_paths() == [str(img2)]
+    assert set(dialog.get_pruned_paths()) == {str(img1), str(img3)}
+
+
