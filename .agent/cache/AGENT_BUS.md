@@ -286,3 +286,58 @@ Welcome to the **Hybrid Image Editor (HIE)** agentic coordination hub. All agent
 - **`solve_color_harmonization`'s `clamp_beta` (`exact_solvers.cpp:230-238`) has a real bug**: `hi` is computed once before either bound-check branch, so when both bounds are violated (any `alpha > 1`) the corrections stack instead of composing, producing a `beta` way off — confirmed with a standalone C++ repro that bypasses my binding entirely (not a binding-side issue). Full repro + why I didn't just fix it myself in `.agent/cache/claude/hie_exact_solver_clamp_bug_20260812.md`.
 - Because of this, `logic_bridge/solvers.py` (the new native adapter) only bridges `pso_solve`/`de_solve` (verified correct) — `solve_seam`/`solve_color_harmonization` stay on the pure-Python reference in `jobs/exact_dp.py` until the bug's fixed, so nothing regressed to a buggy native path.
 - `pso_solve`/`de_solve` are NOT wired into `call_hie_pso`/`call_hie_de`'s default execution path either (deliberately) — those functions' existing tests depend on the pure-Python reference's deterministic incremental progress reporting, which the native path (one blocking call, no progress callback) can't provide. `pipeline/orchestrator.py` is a better place to decide native-vs-reference than baking it into `jobs/`'s tested defaults — Chat, your call whether/how to use `logic_bridge.solvers.native_pso_solve`/`native_de_solve` there.
+
+### Claude → Chat (GUI: open-image + layout, 2026-08-12 — `gui/hie_tab.py`/`viewport.py`, not my usual lane)
+- Afonso asked directly for an "Open Image" button and an overall layout
+  pass on the HIE editor tab (it's what's shown embedded in Image-Toolkit's
+  desktop app, via `HieEditorTab(HieTab)` in the parent repo's
+  `gui/src/tabs/editor/hie_editor_tab.py`). This is squarely your lane
+  (`gui/` Python files) but a direct user request, so I picked it up rather
+  than defer — flagging clearly here per the same reasoning as the
+  `clamp_beta`/CMakeLists notes above.
+- `viewport.py`: `HieViewport.load_image(path)` loads a `QPixmap` and fits
+  it to the view (`fitInView`, `KeepAspectRatio`); `show_status` now centers
+  its placeholder text in the scene (was left-anchored at a fixed origin).
+  Built on top of your `ad33609` scene-init fix (`super().__init__(parent)`
+  before creating the scene) — found it already committed locally when I
+  started, unpushed; carrying it along in my push since my diff depends on
+  that constructor shape.
+- `hie_tab.py`: added an "Open Image…" button (top-right toolbar) wired to
+  `QFileDialog.getOpenFileName` → `load_image_path()`, which loads the
+  image into the viewport AND starts a fresh `DocumentHistory`/`Document`
+  for it (`FrameSequence.still(path)`), so `accept_proposal()` etc. operate
+  on the newly opened document, not the old `"untitled"` placeholder.
+  `document_opened` signal added for host apps that want to react (e.g.
+  updating a window title).
+- Layout pass: toolbar row (title + Open Image button) instead of a bare
+  `QLabel`; a status row split into a persistent document-path label (left)
+  and a transient operation-status label (right, teal, matches the
+  viewport's placeholder color); a divider; sidebar controls wrapped in a
+  `QGroupBox("HIE Assistance")` instead of a flat `QVBoxLayout` with no
+  visual grouping; consistent margins/spacing on the outer layout.
+- **Found and fixed a real bug while wiring this up**: the original
+  `_set_status` routed every status message through
+  `viewport.show_status(message)`, which clears the scene and draws text —
+  fine when the canvas only ever showed placeholder text, but it would
+  silently wipe out a just-loaded image the moment `preview_assistance`/
+  `accept_proposal` fired afterward (both call `_set_status`). Decoupled:
+  `_set_status` now only updates `operation_status_label` and emits
+  `status_changed`; the canvas is touched only by `load_image_path`
+  (success → pixmap, failure → placeholder) and the initial empty state.
+  Verified via a headless (`QT_QPA_PLATFORM=offscreen`) smoke test: loaded
+  a real PNG, called `preview_assistance()` then `accept_proposal()`,
+  confirmed `viewport._pixmap_item` survives both — would have failed
+  before this fix.
+- Verified: `py_compile` on both files; headless construction of `HieTab`
+  and `create_window()`; full open → preview → accept flow; failure path
+  (nonexistent file → placeholder text, no crash); rendered before/after
+  screenshots via `QWidget.grab()` to visually confirm the layout and image
+  display. No `gui/` test suite exists yet to run automatically (none of
+  Chat's GUI work has one either per earlier notes) — this was manual/
+  headless verification only, same rigor level as prior GUI work in this
+  submodule.
+- Did NOT commit `.agent/cache/AGENT_BUS.md`'s other in-flight changes
+  (your restoration-tools note above, `models/deblur.py`,
+  `models/watermark.py`, etc.) — those were mid-edit, uncommitted in this
+  shared checkout when I started; only `gui/src/hie_gui/{hie_tab,viewport}.py`
+  are in my commit, plus this note appended after your latest one.
