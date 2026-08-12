@@ -3,6 +3,7 @@ import json
 import os
 import re
 import shutil
+import socket
 import subprocess
 import tempfile
 import time
@@ -81,6 +82,7 @@ class ImageCrawler(QObject):
         driver = self._try_init_driver()
 
         downloaded_count = 0
+        global_seen = set()
         session = requests.Session()
         session_headers = {
             "User-Agent": (
@@ -104,11 +106,24 @@ class ImageCrawler(QObject):
                 if driver:
                     try:
                         driver.get(target_url)
-                        time.sleep(2)
+                        time.sleep(1.5)
+                        with contextlib.suppress(Exception):
+                            driver.execute_script("window.scrollTo(0, document.body.scrollHeight / 2);")
+                            time.sleep(0.5)
+                            driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+                            time.sleep(0.5)
+                            driver.execute_script("window.scrollTo(0, 0);")
+
                         parsed_urls = self._process_selenium_actions(
                             driver, actions, target_url
                         )
-                        extracted_urls.extend(parsed_urls)
+                        if parsed_urls:
+                            extracted_urls.extend(parsed_urls)
+                        else:
+                            self.on_status.emit("ℹ️ Selenium extracted 0 images. Using HTTP fallback parser...")
+                            extracted_urls.extend(
+                                self._process_requests_page(session, target_url, session_headers)
+                            )
                     except Exception as e:
                         self.on_status.emit(
                             f"⚠️ Selenium navigation error: {e}. Falling back to HTTP parser..."
@@ -121,12 +136,11 @@ class ImageCrawler(QObject):
                         self._process_requests_page(session, target_url, session_headers)
                     )
 
-                # Deduplicate while preserving order
-                seen = set()
+                # Deduplicate against global_seen set across all pages
                 unique_urls = []
                 for u in extracted_urls:
-                    if u not in seen:
-                        seen.add(u)
+                    if u not in global_seen:
+                        global_seen.add(u)
                         unique_urls.append(u)
 
                 is_manual_selection = "Manual Selection" in selection_mode
@@ -236,6 +250,14 @@ class ImageCrawler(QObject):
                     return p
         return None
 
+    def _is_port_open(self, host: str, port: int, timeout: float = 0.2) -> bool:
+        """Quick check if a TCP port is open to avoid long Selenium connection timeouts."""
+        try:
+            with socket.create_connection((host, port), timeout=timeout):
+                return True
+        except Exception:
+            return False
+
     def _try_init_driver(self):
         """Try connecting to Remote Selenium WebDriver or local browser driver."""
         try:
@@ -272,25 +294,27 @@ class ImageCrawler(QObject):
             if browser_bin:
                 options.binary_location = browser_bin
 
-            # 1. Check for an active remote debugging session on port 9222
-            try:
-                dbg_options = ChromeOptions()
-                dbg_options.add_experimental_option("debuggerAddress", "127.0.0.1:9222")
-                driver = webdriver.Chrome(options=dbg_options)
-                self.on_status.emit(f"🌐 Connected to active {browser_name.title()} debugging session (port 9222).")
-                return driver
-            except Exception:
-                pass
+            # 1. Instant check for an active remote debugging session on port 9222
+            if self._is_port_open("127.0.0.1", 9222):
+                try:
+                    dbg_options = ChromeOptions()
+                    dbg_options.add_experimental_option("debuggerAddress", "127.0.0.1:9222")
+                    driver = webdriver.Chrome(options=dbg_options)
+                    self.on_status.emit(f"🌐 Connected to active {browser_name.title()} debugging session (port 9222).")
+                    return driver
+                except Exception:
+                    pass
 
-            # 2. Try Remote Managed WebDriver (port 9515)
-            try:
-                driver = webdriver.Remote(
-                    command_executor="http://localhost:9515", options=options
-                )
-                self.on_status.emit(f"🌐 Connected to Managed WebDriver service on port 9515 ({browser_name.title()}).")
-                return driver
-            except Exception:
-                pass
+            # 2. Instant check for Managed Remote WebDriver on port 9515
+            if self._is_port_open("127.0.0.1", 9515):
+                try:
+                    driver = webdriver.Remote(
+                        command_executor="http://localhost:9515", options=options
+                    )
+                    self.on_status.emit(f"🌐 Connected to Managed WebDriver service on port 9515 ({browser_name.title()}).")
+                    return driver
+                except Exception:
+                    pass
 
             # 3. For Brave specifically on Linux/Mac, launch remote-debugging subprocess if direct ChromeDriver session traps
             if browser_name == "brave" and browser_bin:
