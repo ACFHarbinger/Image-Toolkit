@@ -1,4 +1,5 @@
 import "./style.css";
+import { getHieHost } from "./host";
 
 type Tool = "localized_tone" | "adjust_exposure" | "crop";
 
@@ -55,6 +56,7 @@ root.innerHTML = `
 const message = document.querySelector<HTMLElement>("#message")!;
 const saveState = document.querySelector<HTMLElement>("#save-state")!;
 const proposalBox = document.querySelector<HTMLElement>("#proposal")!;
+const host = getHieHost();
 
 function renderTools(): void {
   document.querySelector<HTMLElement>("#tools")!.innerHTML = tools.map((tool) => `
@@ -90,6 +92,16 @@ function accept(): void {
 }
 
 document.querySelector<HTMLButtonElement>("#preview")!.onclick = preview;
-document.querySelector<HTMLButtonElement>("#open")!.onclick = () => { message.textContent = "Media picker bridge ready for Tauri host"; };
-document.querySelector<HTMLButtonElement>("#export")!.onclick = () => { message.textContent = "Export bridge ready for Tauri host"; };
+document.querySelector<HTMLButtonElement>("#open")!.onclick = async () => {
+  await host.openMedia();
+  const text = "Media open requested from host";
+  message.textContent = text;
+  host.notify(text);
+};
+document.querySelector<HTMLButtonElement>("#export")!.onclick = async () => {
+  await host.exportDocument();
+  const text = "Export requested from host";
+  message.textContent = text;
+  host.notify(text);
+};
 renderTools();

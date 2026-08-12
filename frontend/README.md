@@ -24,6 +24,8 @@ npm run build
 npm run dev
 ```
 
-The buttons currently expose host seams for media open/export. Tauri commands
-and the Python middleware transport can replace those handlers without
-changing the proposal-first UI state model.
+The typed `HieHost` interface in `src/host.ts` exposes `openMedia`,
+`exportDocument`, and `notify`. A Tauri or Image-Toolkit host can inject an
+implementation through `window.__HIE_HOST__`; standalone Vite uses a safe
+browser fallback. The transport can therefore change without changing the
+proposal-first UI state model.
