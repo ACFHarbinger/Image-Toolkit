@@ -7,7 +7,7 @@ variable "environment" {
 variable "project_name" {
   description = "Short name used to prefix provisioned resources."
   type        = string
-  default     = "single-module-template"
+  default     = "hybrid-image-editor"
 }
 
 variable "region" {

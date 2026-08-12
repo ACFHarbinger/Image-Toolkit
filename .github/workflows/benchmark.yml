@@ -5,9 +5,9 @@ on:
   push:
     branches: [main]
     paths:
-      - "benchmark/**"
-      - "src/**"
-      - "include/**"
+      - "logic/benchmark/**"
+      - "logic/src/**"
+      - "logic/include/**"
 
 jobs:
   benchmark:
@@ -16,5 +16,5 @@ jobs:
       - uses: actions/checkout@v4
       - run: |
           cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_BENCHMARK=ON
-          cmake --build build --target single_module_template_benchmark --parallel
-          ./build/benchmark/single_module_template_benchmark
+          cmake --build build --target hybrid_image_editor_benchmark --parallel
+          ./build/logic/benchmark/hybrid_image_editor_benchmark

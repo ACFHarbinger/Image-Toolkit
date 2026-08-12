@@ -1,28 +1,28 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: single-module-template
+  name: hybrid-image-editor
   labels:
-    app: single-module-template
+    app: hybrid-image-editor
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: single-module-template
+      app: hybrid-image-editor
   template:
     metadata:
       labels:
-        app: single-module-template
+        app: hybrid-image-editor
     spec:
       containers:
         - name: app
           # TODO: point at your real registry once infra/global/docker/Dockerfile is published there.
-          image: single-module-template:latest
+          image: hybrid-image-editor:latest
           ports:
             - containerPort: 8000
           envFrom:
             - configMapRef:
-                name: single-module-template-config
+                name: hybrid-image-editor-config
           readinessProbe:
             httpGet:
               path: /healthz

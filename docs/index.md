@@ -1,6 +1,6 @@
-# Single-Module-Template Documentation
+# Hybrid-Image-Editor (HIE) Documentation
 
-Welcome to the documentation portal for `Single-Module-Template`. This site is built with [MkDocs Material](https://squidfunk.github.io/mkdocs-material/).
+Welcome to the documentation portal for `Hybrid-Image-Editor (HIE)`. This site is built with [MkDocs Material](https://squidfunk.github.io/mkdocs-material/).
 
 ## Where to start
 

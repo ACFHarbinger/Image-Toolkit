@@ -1,9 +1,9 @@
-site_name: Single-Module-Template Documentation
+site_name: Hybrid-Image-Editor (HIE) Documentation
 site_description: >-
-  Documentation portal for Single-Module-Template C++ repository.
+  Documentation portal for Hybrid-Image-Editor (HIE) C++ repository.
 site_author: ACFHarbinger
-repo_url: https://github.com/ACFHarbinger/Single-Module-Template
-repo_name: ACFHarbinger/Single-Module-Template
+repo_url: https://github.com/ACFHarbinger/Hybrid-Image-Editor
+repo_name: ACFHarbinger/Hybrid-Image-Editor
 edit_uri: edit/main/docs/
 
 docs_dir: .

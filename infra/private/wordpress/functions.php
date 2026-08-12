@@ -1,7 +1,7 @@
 <?php
 // infra/private/wordpress/functions.php
 
-function single_module_template_wp_setup() {
+function hybrid_image_editor_wp_setup() {
     // Add default posts and comments RSS feed links to head.
     add_theme_support( 'automatic-feed-links' );
 
@@ -11,7 +11,7 @@ function single_module_template_wp_setup() {
     // Register primary navigation menu.
     register_nav_menus(
         array(
-            'menu-1' => esc_html__( 'Primary', 'single_module_template-wp' ),
+            'menu-1' => esc_html__( 'Primary', 'hybrid_image_editor-wp' ),
         )
     );
 
@@ -29,9 +29,9 @@ function single_module_template_wp_setup() {
         )
     );
 }
-add_action( 'after_setup_theme', 'single_module_template_wp_setup' );
+add_action( 'after_setup_theme', 'hybrid_image_editor_wp_setup' );
 
-function single_module_template_wp_scripts() {
-    wp_enqueue_style( 'single_module_template-wp-style', get_stylesheet_uri(), array(), '1.0.0' );
+function hybrid_image_editor_wp_scripts() {
+    wp_enqueue_style( 'hybrid_image_editor-wp-style', get_stylesheet_uri(), array(), '1.0.0' );
 }
-add_action( 'wp_enqueue_scripts', 'single_module_template_wp_scripts' );
+add_action( 'wp_enqueue_scripts', 'hybrid_image_editor_wp_scripts' );

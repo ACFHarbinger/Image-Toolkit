@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "single-module-template",
+    "name": "hybrid-image-editor",
     "log_level": "info"
   }
 }

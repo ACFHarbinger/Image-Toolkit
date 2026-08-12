@@ -1,3 +1,3 @@
 environment  = "dev"
-project_name = "single-module-template"
+project_name = "hybrid-image-editor"
 region       = "us-east-1"

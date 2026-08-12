@@ -1,12 +1,12 @@
 <div align="center">
 
-# Single-Module-Template
+# Hybrid-Image-Editor (HIE)
 
-**A modern, production-ready template repository for C++ projects.**
+**Core hybrid image editing C++ logic and polyglot module for Image-Toolkit.**
 
 </br>
 
-<a href="https://github.com/ACFHarbinger/Single-Module-Template/releases"><img alt="Release" src="https://img.shields.io/git/v/release/ACFHarbinger/Single-Module-Template?include_prereleases&logo=github&color=blue"></a>
+<a href="https://github.com/ACFHarbinger/Hybrid-Image-Editor/releases"><img alt="Release" src="https://img.shields.io/git/v/release/ACFHarbinger/Hybrid-Image-Editor?include_prereleases&logo=github&color=blue"></a>
 <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/License-AGPL_v3-blue.svg"></a>
 <a href="https://isocpp.org/"><img alt="C++" src="https://img.shields.io/badge/C%2B%2B-17-00599C?logo=cplusplus&logoColor=white"></a>
 <a href="https://cmake.org/"><img alt="CMake" src="https://img.shields.io/badge/CMake-Build-064F8C?logo=cmake&logoColor=white"></a>
@@ -17,24 +17,25 @@
 
 ## About
 
-`Single-Module-Template` is a GitHub template repository for standalone C++ projects. It ships with standard modern C++ (C++17) scaffolding including CMake build files, unit testing (GoogleTest), micro-benchmarking (Google Benchmark), CI/CD pipelines, containerized dev environments, pre-commit hooks, and LLM coding-agent instructions.
-
-Use **"Use this template"** on GitHub to start a new C++ project immediately.
+`Hybrid-Image-Editor (HIE)` is the high-performance C++ logic engine and polyglot workspace for the Image-Toolkit ecosystem. It provides modern C++ (C++17) algorithm implementations, CMake build files, unit testing (GoogleTest), micro-benchmarking (Google Benchmark), CI/CD pipelines, containerized dev environments, pre-commit hooks, and LLM coding-agent instructions.
 
 ## Repository Layout
 
 | Path | Purpose |
 | --- | --- |
-| `include/` | Public C++ header files (`single_module_template/greet.hpp`) |
-| `src/` | C++ implementation files (`greet.cpp`, `main.cpp`) |
-| `test/` | GoogleTest unit tests (`greet_test.cpp`) |
-| `benchmark/` | Google Benchmark micro-benchmarks (`greet_benchmark.cpp`) |
+| `logic/include/` | Public C++ header files |
+| `logic/src/` | C++ implementation files (`greet.cpp`, `main.cpp`) |
+| `logic/test/` | GoogleTest unit tests (`greet_test.cpp`) |
+| `logic/benchmark/` | Google Benchmark micro-benchmarks (`greet_benchmark.cpp`) |
 | `config/` | Runtime JSON configuration (`default.json`) |
 | `.agent/` | LLM coding-agent prompts, rules, and workflows (`AGENTS.md`) |
 | `.devcontainer/` | VS Code Dev Container definition |
 | `.git/` | Issue/PR templates, GitHub Actions CI workflows |
 | `infra/` | Docker containerization, Kubernetes/Helm/Terraform/Ansible manifests |
 | `docs/` | Architecture notes, design documentation, MkDocs material site |
+| `middleware/` | Python orchestration, bindings, and ML integrations |
+| `frontend/` | Tauri UI, embeddable in Image-Toolkit or runnable standalone |
+| `gui/` | PySide6 UI, embeddable in Image-Toolkit or runnable standalone |
 | `tools/` | Automation task scripts backing the root `justfile` |
 
 ## Quick Start
@@ -49,7 +50,7 @@ cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON -DBUILD_BENCHM
 cmake --build build --parallel
 
 # Run executable
-./build/single_module_template_cli
+./build/hybrid_image_editor_cli
 
 # Run tests
 ctest --test-dir build --output-on-failure

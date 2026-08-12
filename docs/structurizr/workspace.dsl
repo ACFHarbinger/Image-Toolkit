@@ -1,15 +1,15 @@
 /*
- * Single-Module-Template — Structurizr DSL workspace (C4 model)
+ * Hybrid-Image-Editor (HIE) — Structurizr DSL workspace (C4 model)
  *
  * See docs/structurizr/README.md for rendering instructions.
  */
 
-workspace "Single-Module-Template" "C4 model for Single-Module-Template C++ repository." {
+workspace "Hybrid-Image-Editor" "C4 model for Hybrid-Image-Editor (HIE) C++ repository." {
 
     model {
         user = person "User" "Interacts with the C++ application."
 
-        system = softwareSystem "Single-Module-Template" "C++ repository application." {
+        system = softwareSystem "Hybrid-Image-Editor" "C++ repository application." {
             cli = container "CLI Executable" "Command-line interface." "C++17"
             lib = container "Core Library" "C++ domain logic." "C++17"
         }

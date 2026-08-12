@@ -14,7 +14,7 @@ Unit tests are written in C++ using **GoogleTest** and registered with **CTest**
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON
 
 # Build test executable
-cmake --build build --target single_module_template_tests
+cmake --build build --target hybrid_image_editor_tests
 
 # Run test suite via CTest
 ctest --test-dir build --output-on-failure
@@ -22,7 +22,7 @@ ctest --test-dir build --output-on-failure
 
 ## Test Structure
 
-Tests live in `test/greet_test.cpp` and are discovered automatically using GoogleTest's `gtest_discover_tests`.
+Tests live in `logic/test/greet_test.cpp` and are discovered automatically using GoogleTest's `gtest_discover_tests`.
 
 ## Coverage
 

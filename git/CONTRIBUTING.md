@@ -1,13 +1,13 @@
-# Contributing to Single-Module-Template
+# Contributing to Hybrid-Image-Editor (HIE)
 
 [![C++](https://img.shields.io/badge/C%2B%2B-17-00599C?logo=cplusplus&logoColor=white)](https://isocpp.org/)
 [![CMake](https://img.shields.io/badge/CMake-Build-064F8C?logo=cmake&logoColor=white)](https://cmake.org/)
-[![CI](https://github.com/ACFHarbinger/Single-Module-Template/actions/workflows/ci.yml/badge.svg)](https://github.com/ACFHarbinger/Single-Module-Template/actions/workflows/ci.yml)
+[![CI](https://github.com/ACFHarbinger/Hybrid-Image-Editor/actions/workflows/ci.yml/badge.svg)](https://github.com/ACFHarbinger/Hybrid-Image-Editor/actions/workflows/ci.yml)
 
 > **Version**: 1.0
 > **Last Updated**: 2026-08-06
 
-Thank you for your interest in contributing to `Single-Module-Template`!
+Thank you for your interest in contributing to `Hybrid-Image-Editor (HIE)`!
 
 ---
 
@@ -23,8 +23,8 @@ Thank you for your interest in contributing to `Single-Module-Template`!
 ### 1.2 Bootstrap
 
 ```bash
-git clone https://github.com/ACFHarbinger/Single-Module-Template.git
-cd Single-Module-Template
+git clone https://github.com/ACFHarbinger/Hybrid-Image-Editor.git
+cd Hybrid-Image-Editor
 cp .env.example .env
 just setup
 ```

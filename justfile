@@ -1,4 +1,4 @@
-# Single-Module-Template Task Automation — Root Justfile
+# Hybrid-Image-Editor (HIE) Task Automation — Root Justfile
 # https://github.com/casey/just
 #
 # Recipes are organised into per-domain sub-modules under tools/. Invoke a

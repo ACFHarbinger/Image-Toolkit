@@ -2,7 +2,7 @@
 DUAL OPEN-CORE LICENSING MODEL
 ========================================================================
 
-This project (Single-Module-Template) is dual-licensed under an open-core model:
+This project (Hybrid-Image-Editor) is dual-licensed under an open-core model:
 
 1. FREE / OPEN SOURCE USE — GNU AGPL-3.0
    You may use, modify, and distribute this software free of charge under
@@ -694,11 +694,11 @@ SECTION B: COMMERCIAL LICENSE AGREEMENT
 ========================================================================
 
 COMMERCIAL LICENSE AGREEMENT
-Single-Module-Template
+Hybrid-Image-Editor (HIE)
 
 Copyright (c) 2026 ACFHarbinger. All rights reserved.
 
-This section governs commercial use of Single-Module-Template for for-profit
+This section governs commercial use of Hybrid-Image-Editor (HIE) for for-profit
 enterprises or proprietary implementations where compliance with Section A
 (GNU AGPL-3.0) is not desired or applicable.
 
@@ -752,7 +752,7 @@ free of charge.
 
 6. HOW TO OBTAIN A COMMERCIAL LICENSE
    Contact ACFHarbinger <afonso.fernandes100@gmail.com> to discuss
-   commercial licensing, pricing, and terms for Single-Module-Template.
+   commercial licensing, pricing, and terms for Hybrid-Image-Editor (HIE).
 
 This file (LICENSE) governs both open-source use under GNU AGPL-3.0 (Section A)
 and commercial use for for-profit enterprises (Section B).

@@ -1,0 +1,36 @@
+# HIE Middleware Layer (`submodules/HIE/middleware/`)
+
+The **middleware layer** serves as the Python orchestration boundary connecting the high-performance C++ logic core (`logic/`) to state-of-the-art Machine Learning (ML/DL) models, Reinforcement Learning (RL) policies, mathematical optimization solvers, and dual frontends (**PySide6** `gui/` & **Tauri** `frontend/`).
+
+## Architecture & Submodules Layout
+
+The middleware is structured into five core submodules:
+
+- **`middleware/models/` — Machine Learning & Deep Learning Neural Nets:**
+  - **BiRefNet & FastSAM:** Neural sub-pixel alpha matting and trimap extraction.
+  - **Real-ESRGAN:** AI super-resolution and spatial upscaling nodes.
+  - **Generative Inpainting:** Stroke-guided and prompt-driven generative fill & boundary outpainting.
+
+- **`middleware/policies/` — Reinforcement Learning Policies:**
+  - **Interactive Brush Assistant (`policies/brush_assistant.py`):** RL agent trained via Gymnasium to assist with localized dodging, burning, and tone adjustment.
+  - **Global Tone Agent (`policies/tone_agent.py`):** RL policy for dynamic range balancing and automated color grading.
+  - **Crop & Composition Agent (`policies/crop_agent.py`):** Reinforcement learning policy for auto-cropping and visual weight maximization.
+
+- **`middleware/jobs/` — Mathematical & Swarm Optimization Methods:**
+  - **Exact DP Solvers (`jobs/exact_dp.py`):** Seam routing with character exclusion barriers, GNC-TLS alignment, and convex color harmonization.
+  - **Metaheuristic Solvers (`jobs/metaheuristics.py`):** Particle Swarm Optimization (PSO) for multi-parameter filter tuning and Differential Evolution (DE) for composition layout optimization.
+
+- **`middleware/pipeline/` — Processing Pipeline Orchestrator:**
+  - **Pipeline Execution (`pipeline/orchestrator.py`):** Orchestrates multi-stage processing graphs combining models, RL policies, optimization jobs, and C++ DAG render graph evaluations.
+  - **Sequence Processing (`pipeline/sequence.py`):** Multi-frame video clip sequence evaluation and temporal keyframe propagation.
+
+- **`middleware/logic_bridge/` — C++ pybind11 & C-ABI Wrappers:**
+  - Zero-copy tensor/array memory sharing between Python (NumPy / PyTorch) and native C++ DAG evaluators/solvers in `logic/`.
+
+## Shared Contracts
+
+- `middleware/contracts.py`: Defines serializable requests (`EditRequest`), execution results (`OperationResult`), and progress telemetry shared across `gui/` and `frontend/`.
+
+## Weight & Dependency Management
+
+Model weights, checkpoints, and heavy dataset dependencies remain outside Git tracking. Document retrieval scripts, checksums, and remote URLs under `docs/`.

@@ -5,7 +5,7 @@
 
 > **Version**: 1.0
 > **Last Updated**: 2026-08-06
-> **Purpose**: Authoritative reference for AI assistants (Claude, GPT, Gemini, Copilot, etc.) working in repositories generated from this template.
+> **Purpose**: Authoritative reference for AI assistants (Claude, GPT, Gemini, Copilot, etc.) working on Hybrid-Image-Editor (HIE).
 
 ## Table of Contents
 
@@ -18,7 +18,7 @@
 
 ## 1. Project Overview & Mission
 
-`Single-Module-Template` is a GitHub template repository designed for single-module C++ projects. It provides modern C++ scaffolding including CMake build configurations, GoogleTest unit testing, Google Benchmark micro-benchmarks, CI/CD pipelines, containerized dev environments, pre-commit hooks, and LLM coding-agent instructions.
+**Hybrid-Image-Editor (HIE)** is the core hybrid image processing engine and polyglot logic module for the Image-Toolkit ecosystem. It provides modern C++ (C++17) algorithms, CMake build configurations, GoogleTest unit testing, Google Benchmark micro-benchmarks, CI/CD pipelines, containerized dev environments, pre-commit hooks, and LLM coding-agent instructions.
 
 ## 2. Technical Stack & Governance
 
@@ -33,10 +33,10 @@
 
 ## 3. Module Boundaries
 
-- `include/single_module_template/` — Public C++ header files.
-- `src/` — Implementation files (`.cpp`).
-- `test/` — Unit tests using GoogleTest.
-- `benchmark/` — Performance micro-benchmarks using Google Benchmark.
+- `logic/include/hybrid_image_editor/` — Public C++ header files.
+- `logic/src/` — Implementation files (`.cpp`).
+- `logic/test/` — Unit tests using GoogleTest.
+- `logic/benchmark/` — Performance micro-benchmarks using Google Benchmark.
 - `config/` — Configuration assets (`default.json`).
 
 ## 4. Key CLI Entry Points
@@ -55,7 +55,7 @@
 - Follow C++ core guidelines and rules specified in `.agent/rules/cpp.md`.
 - Prefer small, reviewable diffs. Do not reformat files unrelated to the change.
 - Every new public header function/class must include documentation comments.
-- Every new feature must include corresponding unit tests in `test/`.
+- Every new feature must include corresponding unit tests in `logic/test/`.
 
 ## 6. Known Constraints
 

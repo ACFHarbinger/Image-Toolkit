@@ -15,8 +15,8 @@ terraform {
 
   # TODO: configure a remote state backend before using this in a team setting.
   # backend "s3" {
-  #   bucket = "single-module-template-tfstate"
-  #   key    = "single-module-template/terraform.tfstate"
+  #   bucket = "hybrid-image-editor-tfstate"
+  #   key    = "hybrid-image-editor/terraform.tfstate"
   #   region = "us-east-1"
   # }
 }

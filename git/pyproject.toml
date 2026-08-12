@@ -1,0 +1,13 @@
+[project]
+name = "hybrid-image-editor-git"
+version = "0.1.0"
+description = "Git utilities for the Hybrid-Image-Editor repository."
+requires-python = ">=3.11"
+dependencies = ["pyyaml>=6.0", "requests>=2.31", "google-genai>=0.3"]
+
+[build-system]
+requires = ["setuptools>=83.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]

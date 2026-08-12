@@ -4,7 +4,7 @@ Micro-benchmarks use **Google Benchmark** to measure performance of core functio
 
 | Target | Tool | Location |
 | --- | --- | --- |
-| `single_module_template_benchmark` | Google Benchmark | `benchmark/greet_benchmark.cpp` |
+| `hybrid_image_editor_benchmark` | Google Benchmark | `logic/benchmark/greet_benchmark.cpp` |
 
 Run benchmarks with:
 
@@ -12,6 +12,6 @@ Run benchmarks with:
 just bench
 # Or directly via cmake:
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_BENCHMARK=ON
-cmake --build build --target single_module_template_benchmark
-./build/benchmark/single_module_template_benchmark
+cmake --build build --target hybrid_image_editor_benchmark
+./build/logic/benchmark/hybrid_image_editor_benchmark
 ```

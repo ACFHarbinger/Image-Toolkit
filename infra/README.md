@@ -1,6 +1,6 @@
 # infra/
 
-Infrastructure-as-code and edge configs for `Single-Module-Template`.
+Infrastructure-as-code and edge configs for Hybrid-Image-Editor (HIE).
 
 | Directory | Scope | Purpose |
 | --- | --- | --- |

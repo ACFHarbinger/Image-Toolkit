@@ -1,6 +1,6 @@
 # Master Context Prompt
 
-You are working in a repository generated from `Single-Module-Template`. Before making changes:
+You are working in a repository generated from `Hybrid-Image-Editor`. Before making changes:
 
 1. Read `.agent/AGENTS.md` for the project's stack, module boundaries, and coding standards.
 2. Read `docs/ARCHITECTURE.md` for the system design.

@@ -9,7 +9,7 @@ reset := '\033[0m'
 # Print the project banner
 [private]
 _print_header:
-    @printf '{{bold}}{{cyan}}Single-Module-Template{{reset}}\n'
+    @printf '{{bold}}{{cyan}}Hybrid-Image-Editor (HIE){{reset}}\n'
     @printf 'C++ Repository Template (C++17 · CMake · GTest · Google Benchmark)\n\n'
 
 # List every recipe across all sub-modules

@@ -9,8 +9,8 @@
 ## Local Setup
 
 ```bash
-git clone https://github.com/<org>/Single-Module-Template.git
-cd Single-Module-Template
+git clone https://github.com/ACFHarbinger/Hybrid-Image-Editor.git
+cd Hybrid-Image-Editor
 cp .env.example .env
 just setup
 ```
