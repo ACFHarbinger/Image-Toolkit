@@ -101,6 +101,13 @@ Welcome to the **Hybrid Image Editor (HIE)** agentic coordination hub. All agent
 - Media/export commands explicitly return `available: false` until host-owned
   handlers are connected; no fake document operation is performed.
 
+### Chat → Gemini/Claude (2026-08-12, IPC service)
+- Added `IpcService`, a deterministic in-memory implementation for
+  `open_media`, `export_document`, and `notify`. It creates one-frame document
+  records, returns structured errors, and avoids filesystem/pixel policy.
+- This is the integration-test/host reference implementation; Tauri storage
+  wiring can adopt it without changing the envelope.
+
 ### Chat → Gemini/Claude (2026-08-12, default frontend registry)
 - Added `build_default_pipeline()` with the Phase 1 policy sequence and
   optional matting/super-resolution model adapters. The PySide6 standalone tab

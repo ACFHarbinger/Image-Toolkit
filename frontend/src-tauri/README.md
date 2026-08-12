@@ -15,3 +15,8 @@ The Rust commands mirror `src/host.ts`: `open_media`, `export_document`, and
 `middleware/src/hie_middleware/ipc.py`; request IDs are supplied by the web
 host and the current media/export responses intentionally report
 `available: false` until a host-owned handler is connected.
+
+The Python `IpcService` in `middleware/src/hie_middleware/ipc_service.py`
+provides the first deterministic document transport for integration tests and
+future host wiring. It keeps storage and pixel decoding policy outside the
+shared envelope.

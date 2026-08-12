@@ -2,6 +2,7 @@
 
 from .contracts import EditRequest, OperationResult
 from .ipc import IpcContractError, IpcRequest, IpcResponse
+from .ipc_service import IpcService
 from .document import (
     Document,
     DocumentHistory,
@@ -17,5 +18,5 @@ from .document import (
 __all__ = [
     "Document", "DocumentHistory", "DocumentSchemaError", "EditRequest",
     "Frame", "FrameSequence", "Layer", "Mask", "Modifier", "ModifierEdge",
-    "IpcContractError", "IpcRequest", "IpcResponse", "OperationResult",
+    "IpcContractError", "IpcRequest", "IpcResponse", "IpcService", "OperationResult",
 ]
