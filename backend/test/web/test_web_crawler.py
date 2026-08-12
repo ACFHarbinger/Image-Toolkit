@@ -68,7 +68,9 @@ def test_run_success(mock_download, mock_requests_page, mock_init_driver):
     result = crawler.run()
 
     assert result == 1
-    crawler.on_image_saved.emit.assert_called_once_with("/tmp/img1.jpg")
+    call_args = crawler.on_image_saved.emit.call_args[0][0]
+    assert "/tmp/img1.jpg" in call_args
+    assert "https://example.com" in call_args
     crawler.on_finished.emit.assert_called_once_with(
         "Crawl finished. Downloaded **1** image(s)!"
     )

@@ -1,6 +1,6 @@
 import hashlib
 import os
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 from backend.src.core.dir_phash_index import compute_phash_file
 from PySide6.QtCore import Qt
@@ -55,11 +55,12 @@ def get_file_sha256(path: str) -> str:
 class ManualSelectionDialog(QDialog):
     """
     Shows a grid of downloaded images with checkboxes, allowing manual selection.
+    Displays Page URL, Page #, and Pos # on Page (counter ID) to assist with Skip First/Last parameter tuning.
     """
-    def __init__(self, downloaded_files: List[str], parent=None):
+    def __init__(self, downloaded_files: List[Union[str, dict]], parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Manual Download Selection")
-        self.resize(900, 700)
+        self.setWindowTitle("Manual Download Selection & Skip Parameter Tuning")
+        self.resize(950, 750)
         self.downloaded_files = downloaded_files
         self.checkboxes: Dict[str, QCheckBox] = {}
 
@@ -70,8 +71,29 @@ class ManualSelectionDialog(QDialog):
 
         # Title Label
         title = QLabel("Select the images you want to keep. Unselected images will be deleted.")
-        title.setStyleSheet("font-size: 14px; font-weight: bold; margin-bottom: 10px;")
+        title.setStyleSheet("font-size: 14px; font-weight: bold; margin-bottom: 4px;")
         layout.addWidget(title)
+
+        # Banner explaining counter IDs & Skip First/Last tuning
+        tip_box = QFrame()
+        tip_box.setStyleSheet("QFrame { background-color: #1e222a; border: 1px solid #00f0ff; border-radius: 6px; padding: 6px; margin-bottom: 8px; }")
+        tip_layout = QVBoxLayout(tip_box)
+        tip_layout.setContentsMargins(8, 6, 8, 6)
+
+        tip_title = QLabel("💡 Download Metadata & Skip First/Last Parameter Tuning Guide")
+        tip_title.setStyleSheet("color: #00f0ff; font-weight: bold; font-size: 12px;")
+
+        tip_text = QLabel(
+            "Each image card below displays its Source Page URL, Page #, and Pos # on Page (counter ID).\n"
+            "If every page downloads N unwanted header/footer images (e.g. Pos #1, #2, #3), "
+            "set 'Skip First: N' (e.g. 3) in the Crawler Tab for future runs to bypass them automatically!"
+        )
+        tip_text.setStyleSheet("color: #cccccc; font-size: 11px;")
+        tip_text.setWordWrap(True)
+
+        tip_layout.addWidget(tip_title)
+        tip_layout.addWidget(tip_text)
+        layout.addWidget(tip_box)
 
         # Scroll Area for images grid
         scroll = QScrollArea()
@@ -82,8 +104,8 @@ class ManualSelectionDialog(QDialog):
 
         # Add images to grid
         cols = 4
-        for idx, path in enumerate(self.downloaded_files):
-            card = self.create_image_card(path)
+        for idx, item in enumerate(self.downloaded_files):
+            card = self.create_image_card(item, idx)
             row = idx // cols
             col = idx % cols
             self.grid_layout.addWidget(card, row, col)
@@ -117,7 +139,20 @@ class ManualSelectionDialog(QDialog):
         buttons_layout.addWidget(self.btn_cancel)
         layout.addLayout(buttons_layout)
 
-    def create_image_card(self, path: str) -> QFrame:
+    def create_image_card(self, item: Union[str, dict], idx: int) -> QFrame:
+        if isinstance(item, dict):
+            path = item.get("path", "")
+            page_url = item.get("page_url", "")
+            page_num = item.get("page_num", 1)
+            index_on_page = item.get("index_on_page", idx + 1)
+            global_id = item.get("global_id", idx + 1)
+        else:
+            path = item
+            page_url = ""
+            page_num = 1
+            index_on_page = idx + 1
+            global_id = idx + 1
+
         card = QFrame()
         card.setFrameShape(QFrame.Shape.StyledPanel)
         card.setStyleSheet("QFrame { border: 1px solid #4f545c; border-radius: 8px; background-color: #2d2d30; padding: 5px; }")
@@ -141,8 +176,21 @@ class ManualSelectionDialog(QDialog):
         filename = os.path.basename(path)
         if len(filename) > 20:
             filename = filename[:17] + "..."
-        info_label = QLabel(f"{filename}\n{get_file_size_str(path)}")
-        info_label.setStyleSheet("color: #cccccc; font-size: 11px;")
+
+        size_str = get_file_size_str(path)
+        meta_html = f"<b>{filename}</b> ({size_str})<br/>"
+        meta_html += f"<span style='color: #00f0ff;'><b>Pos on Page: #{index_on_page}</b></span> &nbsp;|&nbsp; Page #{page_num}<br/>"
+        meta_html += f"<span style='color: #a0a0a0;'>Global ID: #{global_id}</span>"
+
+        if page_url:
+            short_url = page_url.replace("https://", "").replace("http://", "")
+            if len(short_url) > 26:
+                short_url = short_url[:23] + "..."
+            meta_html += f"<br/><span style='color: #888888;'>URL: {short_url}</span>"
+
+        info_label = QLabel(meta_html)
+        info_label.setTextFormat(Qt.TextFormat.RichText)
+        info_label.setStyleSheet("font-size: 11px;")
         info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         # Checkbox

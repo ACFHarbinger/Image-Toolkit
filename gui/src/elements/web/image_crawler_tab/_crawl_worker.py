@@ -181,7 +181,8 @@ class _CrawlWorkerMixin:
 
         if is_cancelled:
             if "Manual Selection" in mode or "Automated Selection" in mode:
-                for path in self.downloaded_files:
+                for item in self.downloaded_files:
+                    path = item["path"] if isinstance(item, dict) else item
                     self._delete_pruned_file(path)
             return
 
@@ -193,7 +194,8 @@ class _CrawlWorkerMixin:
 
                 if result == QDialog.DialogCode.Accepted:
                     kept_count = 0
-                    for path in self.downloaded_files:
+                    for item in self.downloaded_files:
+                        path = item["path"] if isinstance(item, dict) else item
                         chk = dialog.checkboxes.get(path)
                         if chk and chk.isChecked():
                             kept_count += 1
@@ -206,7 +208,8 @@ class _CrawlWorkerMixin:
                         self, "Done", f"{new_msg}\nSaved to: {self.download_dir_path.text()}"
                     )
                 else:
-                    for path in self.downloaded_files:
+                    for item in self.downloaded_files:
+                        path = item["path"] if isinstance(item, dict) else item
                         self._delete_pruned_file(path)
                     self.status_label.setText("Crawl discarded.")
                     QMessageBox.information(self, "Cancelled", "Crawl discarded. All downloaded files removed.")
