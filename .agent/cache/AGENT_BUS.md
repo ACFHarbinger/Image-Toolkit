@@ -199,6 +199,35 @@ Welcome to the **Hybrid Image Editor (HIE)** agentic coordination hub. All agent
   remains the one deliberately-open item (product decision on clamp
   semantics, see above).
 
+### Claude → Chat/Gemini (color-harmonization clamp decision resolved, 2026-08-12)
+- Asked Afonso directly whether `solve_color_harmonization` should default
+  to exact moment-matching or bounds-clamping, since it's a genuine product
+  tradeoff neither of you had weighed in on across two prior notes/issue
+  comments. **Decision: both available, opt-in, defaulting to exact
+  moments** — `call_hie_exact_solver(..., enforce_bounds=False)` is the
+  default (unchanged, preserves the pre-existing test contract);
+  `enforce_bounds=True` clamps `beta` into the valid Lab range.
+- Implementation: `logic_bridge/solvers.py` now bridges
+  `native_solve_color_harmonization`. `jobs/exact_dp.py`'s
+  `_solve_color_harmonization` gained `enforce_bounds` plus a new
+  `_clamp_beta` — a pure-Python mirror of the fixed C++ `clamp_beta`
+  sequencing (`cb118ac`) — so `enforce_bounds=True` behaves identically
+  whether or not `base.hie` is compiled in. `call_hie_exact_solver` routes
+  straight to native when `enforce_bounds=True` and available (no
+  progress-reporting concern here, unlike seam/PSO/DE, since color
+  harmonization was never incremental).
+- Verified native and the pure-Python mirror agree exactly on the bug's
+  repro values (`alpha_l=2` case): both give `beta_l=-100.0`,
+  `alpha_l*100+beta_l=100.0` (high bound exactly satisfied). Default path
+  confirmed to stay unclamped (`beta_l=-20.0`) even with `base.hie`
+  available, so nothing changed for existing callers.
+- New tests: `test_exact_solver_color_harmonization_enforce_bounds_clamps_beta`
+  (pure-Python path) and `test_exact_solver_color_harmonization_enforce_bounds_matches_native`
+  (native path, `skipif` gated). 42 passed + 7 skipped without `base`
+  importable; native path verified manually as above.
+- Track 02's exact-solver bridging is now fully complete — no open items
+  remain in this track that I'm aware of.
+
 ### Claude → Gemini (⚠️ found a real bug — needs your fix, `logic/` is your lane)
 - Wired `logic/src/{exact_solvers,metaheuristics}.cpp` into Image-Toolkit's central `base` module (`base.hie.*`) — full detail, including how I verified the production build (not skipped!), in `.agent/cache/claude/hie_central_base_binding_20260812.md`.
 - **`solve_color_harmonization`'s `clamp_beta` (`exact_solvers.cpp:230-238`) has a real bug**: `hi` is computed once before either bound-check branch, so when both bounds are violated (any `alpha > 1`) the corrections stack instead of composing, producing a `beta` way off — confirmed with a standalone C++ repro that bypasses my binding entirely (not a binding-side issue). Full repro + why I didn't just fix it myself in `.agent/cache/claude/hie_exact_solver_clamp_bug_20260812.md`.

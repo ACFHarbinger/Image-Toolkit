@@ -8,24 +8,26 @@ hasn't been built) — callers should fall back to the pure-Python reference
 implementations in ``jobs/exact_dp.py`` / ``jobs/metaheuristics.py`` in that
 case, which is exactly what those modules do.
 
-`solve_color_harmonization` is still NOT bridged: its `clamp_beta`
-sequencing bug (stale `hi` read before the low-bound correction) is FIXED
-as of 2026-08-12 — see `.agent/cache/claude/hie_exact_solver_clamp_bug_20260812.md`
-for the original repro and `logic/test/test_solvers.cpp`'s
-`test_color_harmonization_clamp_beta_sequencing` for the regression test —
-but a genuine semantic mismatch remains: the native `solve_color_harmonization`
-clamps `beta` into the valid Lab range (and, for `alpha` far enough from 1,
-that clamp is unsatisfiable on both bounds at once — see the code comment on
-`clamp_beta` in `exact_solvers.cpp`), while `jobs/exact_dp.py`'s
-`_solve_color_harmonization` Python reference does not clamp at all and
-`middleware/test/test_jobs.py::test_exact_solver_color_harmonization_matches_target_moments`
-asserts that exact (unclamped) moment-matching as the reference's contract.
-Swapping the dispatch to native as-is would silently change
-`call_hie_exact_solver("color_harmonization", ...)`'s output distribution
-for any caller whose stats produce an out-of-range alpha/beta, which is a
-product decision (should the reference also clamp for parity, breaking that
-test's documented contract, or should clamping stay native-only/opt-in?)
-worth its own pass, not a side effect of bridging.
+`solve_color_harmonization`'s `clamp_beta` sequencing bug (stale `hi` read
+before the low-bound correction) is FIXED as of 2026-08-12 — see
+`.agent/cache/claude/hie_exact_solver_clamp_bug_20260812.md` for the
+original repro and `logic/test/test_solvers.cpp`'s
+`test_color_harmonization_clamp_beta_sequencing` for the regression test.
+The remaining semantic question — the native path clamps `beta` into the
+valid Lab range (a non-clipping guarantee), the naive unclamped transfer
+reproduces the target's mean/std moments exactly, and for `alpha` far
+enough from 1 the two are mathematically incompatible (clamp is
+unsatisfiable on both bounds at once — see the code comment on
+`clamp_beta` in `exact_solvers.cpp`) — was resolved as a product decision
+(2026-08-12): **both are available, opt-in, defaulting to exact moments**.
+`jobs/exact_dp.py`'s `_solve_color_harmonization` takes an
+`enforce_bounds` flag; when `True` it either delegates to
+`native_solve_color_harmonization` below (if `base.hie` is available) or
+replicates the same fixed `clamp_beta` logic in pure Python (so the
+behavior is identical whether or not the native extension is present).
+Default (`enforce_bounds=False`) preserves the pre-existing exact-moment
+contract `middleware/test/test_jobs.py::test_exact_solver_color_harmonization_matches_target_moments`
+already asserted.
 
 `solve_seam` has no such mismatch (masked-cell DP is identical on both
 sides) and IS bridged below as `native_solve_seam` — available to callers
@@ -33,6 +35,10 @@ that want it, but not wired into `jobs/exact_dp.py`'s default dispatch:
 `call_hie_exact_solver("seam", ...)`'s tests depend on the pure-Python
 reference's per-row `report(JobProgress(...))` calls, which a single
 blocking native call can't provide (same reasoning as PSO/DE below).
+Color harmonization has no such progress-reporting concern (it was never
+incremental — a single closed-form computation), which is why it CAN be
+wired into the default dispatch path when `enforce_bounds=True`, unlike
+seam/PSO/DE.
 """
 
 from __future__ import annotations
@@ -74,6 +80,35 @@ def native_solve_seam(energy_grid: Sequence[Sequence[SeamPixelLike]]):
     cols = len(energy_grid[0]) if rows else 0
     flat = [base.hie.SeamPixel(px.energy, px.masked) for row in energy_grid for px in row]
     return base.hie.solve_seam(flat, rows, cols)
+
+
+class LayerColorStatsLike(Protocol):
+    mean_l: float
+    mean_a: float
+    mean_b: float
+    std_l: float
+    std_a: float
+    std_b: float
+
+
+def native_solve_color_harmonization(source: LayerColorStatsLike, target: LayerColorStatsLike):
+    """Call `base.hie.solve_color_harmonization` (clamps `beta` into the valid
+    Lab range — a non-clipping guarantee). Raises if `HAVE_NATIVE_HIE` is
+    False. See the module docstring for how this relates to
+    `jobs/exact_dp.py`'s `enforce_bounds` flag. Returns the native
+    `base.hie.ColorHarmonizationResult` directly (same field names —
+    `alpha_l`/`beta_l`/.../`success`/`error` — as the Python reference's
+    `ColorHarmonizationResult` dataclass).
+    """
+    if not HAVE_NATIVE_HIE:
+        raise RuntimeError("native HIE bindings are not available (base.hie not found)")
+    native_source = base.hie.LayerColorStats(
+        source.mean_l, source.mean_a, source.mean_b, source.std_l, source.std_a, source.std_b
+    )
+    native_target = base.hie.LayerColorStats(
+        target.mean_l, target.mean_a, target.mean_b, target.std_l, target.std_a, target.std_b
+    )
+    return base.hie.solve_color_harmonization(native_source, native_target)
 
 
 class CorrespondenceLike(Protocol):

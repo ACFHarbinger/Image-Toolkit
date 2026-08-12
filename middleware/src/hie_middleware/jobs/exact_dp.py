@@ -4,12 +4,24 @@
 reference implementation of the same algorithm the C++ header documents
 (`solve_seam`, `solve_color_harmonization`) — this is the stub AGENT_BUS.md's
 "Gemini -> Chat" note asked for, upgraded from a bare placeholder to a real
-(if unoptimized) implementation so callers get correct results today. Swap
-the method bodies for calls into `middleware/src/hie_middleware/logic_bridge/`
-once the pybind11 binding for `logic/src/exact_solvers.cpp` lands — the
-`JobResult` shape and field names below are chosen to match
-`SeamResult`/`ColorHarmonizationResult` in the C++ header so that swap is a
-pure implementation change, not an API change.
+(if unoptimized) implementation so callers get correct results today.
+`solve_seam`'s native binding is available (opt-in) via
+`logic_bridge.native_solve_seam`, but not wired into this dispatch — its
+tests depend on the reference's per-row progress reporting, which a single
+blocking native call can't provide.
+
+`solve_color_harmonization` takes an `enforce_bounds` flag (default
+`False`, preserving the original exact-moment-matching contract). When
+`True`, the result's `beta` is clamped into the valid Lab range (a
+non-clipping guarantee) — via `logic_bridge.native_solve_color_harmonization`
+when `base.hie` is available, or `_clamp_beta` (a pure-Python mirror of the
+same, sequencing-bug-fixed C++ logic, see `cb118ac`) otherwise, so behavior
+is identical either way. This has no progress-reporting concern (color
+harmonization was never incremental), which is why — unlike seam/PSO/DE —
+it's fine to route straight to native by default when requested. See
+`.agent/cache/claude/hie_exact_solver_clamp_bug_20260812.md` for why exact
+moments and bounds-clamping can't both hold for every input (the product
+decision behind this flag).
 
 GNC-TLS layer alignment (`solve_alignment_gnc`) has no pure-Python reference
 here — it depends on a real feature-correspondence pipeline (see
@@ -25,7 +37,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
-from ..logic_bridge.solvers import HAVE_NATIVE_HIE, native_solve_alignment_gnc
+from ..logic_bridge.solvers import (
+    HAVE_NATIVE_HIE,
+    native_solve_alignment_gnc,
+    native_solve_color_harmonization,
+)
 from .base import CancelToken, JobHandle, JobProgress, ReportFn, submit_job
 
 Method = Literal["seam", "color_harmonization"]
@@ -143,14 +159,40 @@ def _solve_seam(
     return SeamResult(seam_x=seam_x, total_energy=last_row[end_c], success=True)
 
 
+def _clamp_beta(alpha: float, beta: float, lo_bound: float, hi_bound: float) -> float:
+    """Pure-Python mirror of `exact_solvers.cpp`'s (sequencing-bug-fixed) `clamp_beta`.
+
+    Projects `beta` so `alpha * in + beta` stays within `[lo_bound, hi_bound]`
+    for `in` ranging over the same `[lo_bound, hi_bound]` interval (the only
+    way the three call sites below ever use it — source and output range are
+    always identical). `hi` is recomputed after the low-bound correction, not
+    read from a stale pre-correction value — see `cb118ac`'s fix and
+    `logic/test/test_solvers.cpp::test_color_harmonization_clamp_beta_sequencing`.
+    For `alpha` far enough from 1 no single shift can satisfy both bounds at
+    once; this clamps as close as a shift can get, biased toward the
+    second-checked (high) bound, matching the native implementation exactly.
+    """
+    lo = alpha * lo_bound + beta
+    if lo < lo_bound:
+        beta += lo_bound - lo
+    hi = alpha * hi_bound + beta
+    if hi > hi_bound:
+        beta -= hi - hi_bound
+    return beta
+
+
 def _solve_color_harmonization(
-    source: LayerColorStats, target: LayerColorStats
+    source: LayerColorStats, target: LayerColorStats, *, enforce_bounds: bool = False
 ) -> ColorHarmonizationResult:
     """Closed-form per-channel affine color transfer (Reinhard-style mean/std matching).
 
     Solves ``out = alpha * in + beta`` per CIELab channel so that
     ``source``'s statistics map onto ``target``'s. This is the exact convex
     optimum for matching first and second moments — no iteration needed.
+
+    `enforce_bounds=True` additionally clamps each channel's `beta` into the
+    valid Lab range (non-clipping guarantee), trading exact moment-matching
+    for bounded output when the two conflict — see module docstring.
     """
 
     def channel(std_src: float, std_dst: float, mean_src: float, mean_dst: float) -> tuple[float, float]:
@@ -161,6 +203,11 @@ def _solve_color_harmonization(
     alpha_l, beta_l = channel(source.std_l, target.std_l, source.mean_l, target.mean_l)
     alpha_a, beta_a = channel(source.std_a, target.std_a, source.mean_a, target.mean_a)
     alpha_b, beta_b = channel(source.std_b, target.std_b, source.mean_b, target.mean_b)
+
+    if enforce_bounds:
+        beta_l = _clamp_beta(alpha_l, beta_l, 0.0, 100.0)
+        beta_a = _clamp_beta(alpha_a, beta_a, -128.0, 127.0)
+        beta_b = _clamp_beta(alpha_b, beta_b, -128.0, 127.0)
 
     return ColorHarmonizationResult(
         alpha_l=alpha_l, beta_l=beta_l,
@@ -176,12 +223,16 @@ def call_hie_exact_solver(
     energy_grid: list[list[SeamPixel]] | None = None,
     source: LayerColorStats | None = None,
     target: LayerColorStats | None = None,
+    enforce_bounds: bool = False,
 ) -> JobHandle[SeamResult | ColorHarmonizationResult]:
     """Dispatch an exact-solver job by `method` name.
 
     - `method="seam"` requires `energy_grid`, returns a `SeamResult`.
     - `method="color_harmonization"` requires `source` and `target`, returns
-      a `ColorHarmonizationResult`.
+      a `ColorHarmonizationResult`. `enforce_bounds=True` clamps `beta` into
+      the valid Lab range (via native when available, a pure-Python mirror
+      otherwise) instead of the default exact-moment-matching behavior —
+      see module docstring for why this is opt-in.
     """
     if method == "seam":
         if energy_grid is None:
@@ -191,7 +242,11 @@ def call_hie_exact_solver(
     if method == "color_harmonization":
         if source is None or target is None:
             raise ValueError("call_hie_exact_solver(method='color_harmonization') requires source and target")
-        return submit_job(lambda _token, _report: _solve_color_harmonization(source, target))
+        if enforce_bounds and HAVE_NATIVE_HIE:
+            return submit_job(lambda _token, _report: native_solve_color_harmonization(source, target))
+        return submit_job(
+            lambda _token, _report: _solve_color_harmonization(source, target, enforce_bounds=enforce_bounds)
+        )
 
     raise ValueError(f"unknown exact-solver method: {method!r}")
 

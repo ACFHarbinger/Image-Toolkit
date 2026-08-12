@@ -212,6 +212,49 @@ def test_exact_solver_color_harmonization_matches_target_moments():
     assert harmonization.alpha_b == pytest.approx(target.std_b / source.std_b)
 
 
+def test_exact_solver_color_harmonization_enforce_bounds_clamps_beta():
+    # Same repro values as the clamp_beta sequencing bug (cb118ac) and
+    # logic/test/test_solvers.cpp::test_color_harmonization_clamp_beta_sequencing —
+    # alpha=2 makes the low/high Lab bounds mutually unsatisfiable by a pure
+    # shift, so this exercises the "close as a shift can get" clamp path,
+    # not just a trivial in-range case.
+    source = LayerColorStats(mean_l=40.0, mean_a=1.0, mean_b=2.0, std_l=10.0, std_a=5.0, std_b=5.0)
+    target = LayerColorStats(mean_l=60.0, mean_a=3.0, mean_b=-2.0, std_l=20.0, std_a=15.0, std_b=10.0)
+
+    default_handle = call_hie_exact_solver("color_harmonization", source=source, target=target)
+    default_result = default_handle.result(timeout=5).value
+    assert default_result.beta_l == pytest.approx(-20.0)  # unclamped: 60 - 2*40
+
+    clamped_handle = call_hie_exact_solver(
+        "color_harmonization", source=source, target=target, enforce_bounds=True
+    )
+    clamped_result = clamped_handle.result(timeout=5).value
+    assert clamped_result.success
+    assert clamped_result.alpha_l == pytest.approx(2.0)
+    assert clamped_result.beta_l == pytest.approx(-100.0)
+    # High bound is exactly satisfied post-clamp (the low bound is the one
+    # that stays violated — see _clamp_beta's docstring).
+    assert clamped_result.alpha_l * 100.0 + clamped_result.beta_l == pytest.approx(100.0)
+
+
+@pytest.mark.skipif(not HAVE_NATIVE_HIE, reason="compiled base.hie extension not available")
+def test_exact_solver_color_harmonization_enforce_bounds_matches_native():
+    # With base.hie present, enforce_bounds=True routes to
+    # native_solve_color_harmonization directly (see call_hie_exact_solver) —
+    # this just confirms that path and the pure-Python _clamp_beta mirror
+    # (exercised above without native) agree, which they must since both are
+    # required to implement the same fixed clamp_beta sequencing.
+    source = LayerColorStats(mean_l=40.0, mean_a=1.0, mean_b=2.0, std_l=10.0, std_a=5.0, std_b=5.0)
+    target = LayerColorStats(mean_l=60.0, mean_a=3.0, mean_b=-2.0, std_l=20.0, std_a=15.0, std_b=10.0)
+
+    result = call_hie_exact_solver(
+        "color_harmonization", source=source, target=target, enforce_bounds=True
+    ).result(timeout=5).value
+    assert result.success
+    assert result.beta_l == pytest.approx(-100.0)
+    assert result.alpha_l * 100.0 + result.beta_l == pytest.approx(100.0)
+
+
 def test_exact_solver_rejects_unknown_method():
     with pytest.raises(ValueError):
         call_hie_exact_solver("not-a-real-method")  # type: ignore[arg-type]
