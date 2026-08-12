@@ -201,16 +201,25 @@ class ManualSelectionDialog(QDialog):
         self.cards: List[ClickableImageCard] = []
         self.checkboxes: Dict[str, Any] = {}  # Backward compatibility shim for legacy tests
 
-        # Resolve target download directory & skip spin parameters from parent hierarchy
+        # Resolve target download directory & skip input parameters from parent hierarchy
         self.download_dir = ""
         p = parent
         while p is not None:
-            if self.skip_first == 0 and hasattr(p, "skip_first_spin"):
-                with contextlib.suppress(Exception):
-                    self.skip_first = int(getattr(p, "skip_first_spin").value())
-            if self.skip_last == 0 and hasattr(p, "skip_last_spin"):
-                with contextlib.suppress(Exception):
-                    self.skip_last = int(getattr(p, "skip_last_spin").value())
+            if self.skip_first == 0:
+                if hasattr(p, "skip_first_input"):
+                    with contextlib.suppress(Exception):
+                        self.skip_first = int(getattr(p, "skip_first_input").text().strip())
+                elif hasattr(p, "skip_first_spin"):
+                    with contextlib.suppress(Exception):
+                        self.skip_first = int(getattr(p, "skip_first_spin").value())
+
+            if self.skip_last == 0:
+                if hasattr(p, "skip_last_input"):
+                    with contextlib.suppress(Exception):
+                        self.skip_last = int(getattr(p, "skip_last_input").text().strip())
+                elif hasattr(p, "skip_last_spin"):
+                    with contextlib.suppress(Exception):
+                        self.skip_last = int(getattr(p, "skip_last_spin").value())
 
             if hasattr(p, "download_dir_path"):
                 try:
@@ -314,6 +323,11 @@ class ManualSelectionDialog(QDialog):
         layout.addLayout(buttons_layout)
 
     def create_image_card(self, item: Union[str, dict], idx: int) -> ClickableImageCard:
+        if isinstance(item, str) and item.strip().startswith("{"):
+            with contextlib.suppress(Exception):
+                import json
+                item = json.loads(item)
+
         raw_path = item.get("path", "") if isinstance(item, dict) else str(item)
         clean_path = raw_path.split("?")[0].split("#")[0]
 
@@ -344,13 +358,14 @@ class ManualSelectionDialog(QDialog):
 
         # Pre-mark skipped images as DISCARD (Red border & background)
         index_on_page = idx + 1
-        total_on_page = 0
+        total_on_page = len(self.downloaded_files)
         item_skip_first = self.skip_first
         item_skip_last = self.skip_last
 
         if isinstance(item, dict):
             index_on_page = item.get("index_on_page", idx + 1)
-            total_on_page = item.get("total_on_page", 0)
+            if item.get("total_on_page"):
+                total_on_page = int(item["total_on_page"])
             if "skip_first" in item and item["skip_first"]:
                 item_skip_first = int(item["skip_first"])
             if "skip_last" in item and item["skip_last"]:
