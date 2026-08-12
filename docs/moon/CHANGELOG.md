@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Central `base.hie` pybind11 binding (`logic/src/{exact_solvers,metaheuristics}_bindings.cpp`, wired into Image-Toolkit's `base` module) exposing `solve_seam`, `solve_alignment_gnc`, `solve_color_harmonization`, `pso_solve`, and `de_solve` to Python.
+- `middleware/src/hie_middleware/logic_bridge/solvers.py`: native adapters for all five solvers above (`native_solve_seam`, `native_solve_alignment_gnc`, `native_solve_color_harmonization`, `native_pso_solve`, `native_de_solve`), each gated on `HAVE_NATIVE_HIE` with a clear `RuntimeError` when the compiled extension isn't available.
+- `call_hie_alignment_gnc` (`middleware/src/hie_middleware/jobs/exact_dp.py`): cancellable job wrapper for GNC-TLS robust 2D translation+scale alignment — native-only, since there's no meaningful pure-Python reference for outlier-rejected correspondence fitting.
+- `call_hie_exact_solver("color_harmonization", ..., enforce_bounds=True)`: opt-in Lab-range clamping for color harmonization, available via either the native binding or an equivalent pure-Python `_clamp_beta` mirror so behavior is identical with or without the compiled extension. Defaults to the original exact-moment-matching behavior for backward compatibility.
+- `logic/benchmark/solvers_benchmark.cpp`: native Google Benchmark coverage for `solve_seam`, `solve_alignment_gnc`, `solve_color_harmonization`, `pso_solve`, and `de_solve`, complementing the existing Python-level `middleware/scripts/benchmark_jobs.py` report.
+- "Open Image…" button on the PySide6 HIE editor tab (`gui/src/hie_gui/hie_tab.py`), wired to a file dialog that loads the image into the viewport (`HieViewport.load_image`) and starts a fresh document history for it.
 - HIE restoration foundations: optional `DeblurAdapter` and consent-gated `WatermarkRemovalAdapter`, plus cancellable injected restoration jobs for blind/non-blind deblurring and mask-guided inpainting. No model weights or heavy runtimes are bundled.
 - Multi-modal IPC media support for still sources and validated multi-frame sequences with FPS, frame duration, and metadata preservation.
 - Stateful `PipelineSession`, versioned frontend IPC envelopes, in-memory IPC service, PySide6/Tauri frontend surfaces, and default Phase 1 capability registration.
@@ -43,9 +49,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Restoration and watermark-removal proposals remain preview-only. Watermark inpainting requires a user mask and explicit confirmation that the image may be edited.
+- Reworked the HIE editor tab layout (`gui/src/hie_gui/hie_tab.py`): a toolbar row replaces the bare title label, a persistent document-path status line and a separate transient operation-status line replace the single canvas-overlaid status text, and the assistance controls are grouped in a labeled `QGroupBox` instead of an unstructured column.
 
 - Moved `moon/` directory into `docs/` to integrate with the documentation portal, and updated all referencing files.
 - Moved `docker/` to `infra/global/docker/` to make room for other infra-as-code stacks; updated all referencing files.
+
+### Fixed
+
+- `solve_color_harmonization`'s `clamp_beta` (`logic/src/exact_solvers.cpp`): the high-bound check read a `hi` value computed before the low-bound correction, so corrections stacked instead of composing whenever both Lab bounds were violated (any `alpha` far from 1). `hi` is now recomputed after the low-bound adjustment.
+- `HieTab._set_status` (`gui/src/hie_gui/hie_tab.py`): status messages were routed through `HieViewport.show_status`, which clears the canvas — harmless while the canvas only ever showed placeholder text, but it silently discarded a just-loaded image the next time `preview_assistance`/`accept_proposal` fired. Status messages no longer touch the canvas.
 
 ## [0.1.0] — 2026-07-30
 

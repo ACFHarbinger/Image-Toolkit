@@ -31,6 +31,6 @@ This roadmap specifies the middleware bridge (`middleware/`) connecting the C++ 
 |---|---|:---:|---|
 | **Phase 4.1** | Central `base` pybind11 HIE Logic Bridge | High | `middleware/logic_bridge/` and Image-Toolkit `base` integration |
 | **Phase 4.2** | Models, Policies, Jobs, and Pipeline Service Contract | High | `middleware/{models,policies,jobs,pipeline}/` |
-| **Phase 4.3** | PySide6 HIE Tab Component (`gui/hie_tab.py`) | High | `gui/src/hie_tab.py` integrated into `Image-Toolkit/gui/` |
+| **Phase 4.3** | PySide6 HIE Tab Component (`gui/hie_tab.py`) | High | `gui/src/hie_tab.py` integrated into `Image-Toolkit/gui/`. Includes an "Open Image…" toolbar action (`HieTab.open_image`/`load_image_path`) that loads a file into `HieViewport` and starts a fresh document history, plus a grouped toolbar/status/sidebar layout (2026-08-12). |
 | **Phase 4.4** | PySide6 Standalone Runner | High | `gui/main.py` entry point |
 | **Phase 4.5** | Tauri Frontend Integration | Med | `frontend/src/main.ts`, `frontend/src/style.css` |
