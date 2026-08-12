@@ -2,6 +2,9 @@ import contextlib
 import json
 import os
 import re
+import shutil
+import subprocess
+import tempfile
 import time
 import urllib.parse
 import requests
@@ -165,13 +168,79 @@ class ImageCrawler(QObject):
         self.on_finished.emit(message)
         return downloaded_count
 
+    def _find_browser_binary(self, browser_name: str) -> str | None:
+        """Find binary executable path for specified browser."""
+        b_name = (browser_name or "").lower().strip()
+        if b_name == "brave":
+            for cmd in ("brave-browser", "brave", "brave-browser-stable"):
+                p = shutil.which(cmd)
+                if p and os.path.exists(p):
+                    return p
+            for p in (
+                "/usr/bin/brave-browser",
+                "/usr/bin/brave",
+                "/snap/bin/brave",
+                "/opt/brave.com/brave/brave-browser",
+                "/opt/brave.com/brave/brave",
+                r"C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe",
+                r"C:\Program Files (x86)\BraveSoftware\Brave-Browser\Application\brave.exe",
+                "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser",
+            ):
+                if os.path.exists(p):
+                    return p
+        elif b_name in ("edge", "msedge"):
+            for cmd in ("msedge", "microsoft-edge", "microsoft-edge-stable"):
+                p = shutil.which(cmd)
+                if p and os.path.exists(p):
+                    return p
+            for p in (
+                "/usr/bin/microsoft-edge",
+                "/usr/bin/microsoft-edge-stable",
+                r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+                r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
+                "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+            ):
+                if os.path.exists(p):
+                    return p
+        elif b_name in ("chrome", "chromium"):
+            for cmd in ("google-chrome", "google-chrome-stable", "chromium", "chromium-browser"):
+                p = shutil.which(cmd)
+                if p and os.path.exists(p):
+                    return p
+            for p in (
+                "/usr/bin/google-chrome",
+                "/usr/bin/chromium",
+                "/usr/bin/chromium-browser",
+                r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+                r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+                "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+            ):
+                if os.path.exists(p):
+                    return p
+        return None
+
     def _try_init_driver(self):
-        """Try connecting to Remote Selenium WebDriver or local Chrome driver."""
+        """Try connecting to Remote Selenium WebDriver or local browser driver."""
         try:
             from selenium import webdriver
-            from selenium.webdriver.chrome.options import Options
+            from selenium.webdriver.chrome.options import Options as ChromeOptions
+            from selenium.webdriver.firefox.options import Options as FirefoxOptions
 
-            options = Options()
+            browser_name = self.config.get("browser") or self.config.get("gen_browser") or "brave"
+            browser_name = str(browser_name).lower().strip()
+            headless = self.config.get("headless", False)
+
+            # Firefox support
+            if browser_name == "firefox":
+                ff_options = FirefoxOptions()
+                if headless:
+                    ff_options.add_argument("-headless")
+                driver = webdriver.Firefox(options=ff_options)
+                self.on_status.emit("🌐 Initialized local Firefox session.")
+                return driver
+
+            # Chromium-based options (Brave, Chrome, Edge)
+            options = ChromeOptions()
             options.add_argument("--no-sandbox")
             options.add_argument("--disable-dev-shm-usage")
             options.add_argument("--disable-blink-features=AutomationControlled")
@@ -179,22 +248,61 @@ class ImageCrawler(QObject):
                 "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                 "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
             )
-            if self.config.get("headless", False):
+            if headless:
                 options.add_argument("--headless=new")
 
-            # Try Remote WebDriver at port 9515 first (managed by manage_webdriver.py)
+            browser_bin = self._find_browser_binary(browser_name)
+            if browser_bin:
+                options.binary_location = browser_bin
+
+            # 1. Check for an active remote debugging session on port 9222
             try:
-                driver = webdriver.Remote(
-                    command_executor="http://localhost:9515", options=options
-                )
-                self.on_status.emit("🌐 Connected to Managed WebDriver service (port 9515).")
+                dbg_options = ChromeOptions()
+                dbg_options.add_experimental_option("debuggerAddress", "127.0.0.1:9222")
+                driver = webdriver.Chrome(options=dbg_options)
+                self.on_status.emit(f"🌐 Connected to active {browser_name.title()} debugging session (port 9222).")
                 return driver
             except Exception:
                 pass
 
-            # Fallback to direct Chrome launch
+            # 2. Try Remote Managed WebDriver (port 9515)
+            try:
+                driver = webdriver.Remote(
+                    command_executor="http://localhost:9515", options=options
+                )
+                self.on_status.emit(f"🌐 Connected to Managed WebDriver service on port 9515 ({browser_name.title()}).")
+                return driver
+            except Exception:
+                pass
+
+            # 3. For Brave specifically on Linux/Mac, launch remote-debugging subprocess if direct ChromeDriver session traps
+            if browser_name == "brave" and browser_bin:
+                try:
+                    user_dir = tempfile.mkdtemp(prefix="brave_profile_")
+                    cmd = [
+                        browser_bin,
+                        "--remote-debugging-port=9222",
+                        "--no-sandbox",
+                        "--disable-dev-shm-usage",
+                        f"--user-data-dir={user_dir}",
+                    ]
+                    if headless:
+                        cmd.append("--headless=new")
+
+                    self._brave_proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    time.sleep(1.5)
+
+                    dbg_options = ChromeOptions()
+                    dbg_options.add_experimental_option("debuggerAddress", "127.0.0.1:9222")
+                    driver = webdriver.Chrome(options=dbg_options)
+                    self.on_status.emit(f"🌐 Initialized local {browser_name.title()} browser session.")
+                    return driver
+                except Exception as ex:
+                    self.on_status.emit(f"⚠️ Brave subprocess launch warning: {ex}")
+
+            # 4. Fallback to direct Chrome/Chromium launch
             driver = webdriver.Chrome(options=options)
-            self.on_status.emit("🌐 Initialized local ChromeDriver session.")
+            self.on_status.emit(f"🌐 Initialized local {browser_name.title()} session.")
             return driver
 
         except Exception as e:

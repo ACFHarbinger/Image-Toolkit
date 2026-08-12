@@ -43,7 +43,11 @@ class _WebDriverMixin:
                 (p for p in python_candidates if os.path.exists(p)), sys.executable
             )
 
-            self.webdriver_process.start(python_exe, [script_path, "start"])
+            browser = "brave"
+            if hasattr(self, "browser_combo") and self.browser_combo:
+                browser = self.browser_combo.currentText()
+
+            self.webdriver_process.start(python_exe, [script_path, "start", f"--browser={browser}"])
             if not self.webdriver_process.waitForStarted(10000):
                 self.log_window.append_log(
                     "❌ Failed to start WebDriver manager script."
