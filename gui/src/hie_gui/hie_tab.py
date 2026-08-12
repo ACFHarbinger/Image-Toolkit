@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
+import os
+
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QComboBox,
+    QFileDialog,
+    QFrame,
+    QGroupBox,
     QHBoxLayout,
     QLabel,
     QPushButton,
@@ -22,22 +27,54 @@ from hie_middleware.pipeline import (
 
 from .viewport import HieViewport
 
+IMAGE_FILE_FILTER = (
+    "Images (*.png *.jpg *.jpeg *.webp *.bmp *.tif *.tiff *.exr);;All files (*)"
+)
+
 
 class HieTab(QWidget):
     """Hybrid layer/node editing surface suitable for Image-Toolkit tabs."""
 
     status_changed = Signal(str)
+    document_opened = Signal(str)
 
     def __init__(self, pipeline: ProposalPipeline | None = None, parent=None) -> None:
         super().__init__(parent)
         self.pipeline = pipeline if pipeline is not None else build_default_pipeline()
         self._last_proposal = None
-        self._history = DocumentHistory(
-            Document("untitled", FrameSequence.still(""), metadata={"source": "standalone"})
-        )
+        self._history = None
 
+        # ─── Toolbar: document actions ──────────────────────────────────────
+        title_label = QLabel("Hybrid Image Editor")
+        title_label.setStyleSheet("font-size: 15px; font-weight: 600;")
+        self.open_image_button = QPushButton("Open Image…")
+        self.open_image_button.setToolTip("Load a still image as a new HIE document")
+        self.open_image_button.clicked.connect(self.open_image)
+
+        toolbar = QHBoxLayout()
+        toolbar.addWidget(title_label)
+        toolbar.addStretch()
+        toolbar.addWidget(self.open_image_button)
+
+        self.document_status_label = QLabel("No document loaded")
+        self.document_status_label.setStyleSheet("color: #8a97a6;")
+        self.operation_status_label = QLabel("")
+        self.operation_status_label.setStyleSheet("color: #8ed8df;")
+
+        status_row = QHBoxLayout()
+        status_row.addWidget(self.document_status_label)
+        status_row.addStretch()
+        status_row.addWidget(self.operation_status_label)
+
+        divider = QFrame()
+        divider.setFrameShape(QFrame.Shape.HLine)
+        divider.setFrameShadow(QFrame.Shadow.Sunken)
+
+        # ─── Canvas ──────────────────────────────────────────────────────────
         self.viewport = HieViewport()
         self.viewport.show_status("Open an image or video sequence to begin")
+
+        # ─── Sidebar: assistance controls, grouped ──────────────────────────
         self.tool_select = QComboBox()
         self.tool_select.addItems(["No assistance tools registered"])
         self.preview_button = QPushButton("Preview assistance")
@@ -46,24 +83,74 @@ class HieTab(QWidget):
         self.preview_button.clicked.connect(self.preview_assistance)
         self.accept_button.clicked.connect(self.accept_proposal)
 
+        assistance_group = QGroupBox("HIE Assistance")
+        assistance_layout = QVBoxLayout(assistance_group)
+        assistance_layout.addWidget(QLabel("Tool"))
+        assistance_layout.addWidget(self.tool_select)
+        assistance_layout.addWidget(self.preview_button)
+        assistance_layout.addWidget(self.accept_button)
+
         sidebar = QWidget()
-        controls = QVBoxLayout(sidebar)
-        controls.addWidget(QLabel("HIE assistance"))
-        controls.addWidget(self.tool_select)
-        controls.addWidget(self.preview_button)
-        controls.addWidget(self.accept_button)
-        controls.addStretch()
+        sidebar.setMinimumWidth(220)
+        sidebar_layout = QVBoxLayout(sidebar)
+        sidebar_layout.setContentsMargins(0, 0, 0, 0)
+        sidebar_layout.addWidget(assistance_group)
+        sidebar_layout.addStretch()
 
         splitter = QSplitter()
         splitter.addWidget(self.viewport)
         splitter.addWidget(sidebar)
         splitter.setStretchFactor(0, 1)
-        splitter.setSizes([720, 220])
+        splitter.setStretchFactor(1, 0)
+        splitter.setSizes([760, 240])
 
         layout = QVBoxLayout(self)
-        layout.addWidget(QLabel("Hybrid Image Editor"))
+        layout.setContentsMargins(12, 10, 12, 10)
+        layout.setSpacing(8)
+        layout.addLayout(toolbar)
+        layout.addLayout(status_row)
+        layout.addWidget(divider)
         layout.addWidget(splitter)
+
+        self._set_untitled_history()
         self.refresh_capabilities()
+
+    def _set_untitled_history(self) -> None:
+        self._history = DocumentHistory(
+            Document("untitled", FrameSequence.still(""), metadata={"source": "standalone"})
+        )
+
+    def open_image(self) -> None:
+        """Prompt for an image file and load it as a new HIE document."""
+        path, _selected_filter = QFileDialog.getOpenFileName(
+            self, "Open Image", "", IMAGE_FILE_FILTER
+        )
+        if not path:
+            return
+        self.load_image_path(path)
+
+    def load_image_path(self, path: str) -> bool:
+        """Load `path` into the viewport and start a fresh document history for it.
+
+        Returns whether the image loaded successfully — callers (e.g. a host
+        application opening a file from elsewhere) can check this without
+        going through the file dialog in `open_image`.
+        """
+        if not self.viewport.load_image(path):
+            self._set_status(f"Failed to open image: {path}")
+            return False
+
+        document = Document(
+            os.path.basename(path) or path,
+            FrameSequence.still(path),
+            metadata={"source": path},
+        )
+        self.set_history(DocumentHistory(document))
+        self.document_status_label.setText(os.path.basename(path))
+        self.document_status_label.setToolTip(path)
+        self._set_status(f"Opened {os.path.basename(path)}")
+        self.document_opened.emit(path)
+        return True
 
     def refresh_capabilities(self) -> None:
         capabilities = self.pipeline.capabilities()
@@ -97,5 +184,10 @@ class HieTab(QWidget):
         self._history = history
 
     def _set_status(self, message: str) -> None:
-        self.viewport.show_status(message)
+        """Report an operation status. Does NOT touch the canvas — a loaded
+        image must survive status updates (previewing assistance, accepting
+        a proposal, etc.); only `open_image`/`load_image_path` failure paths
+        put the canvas itself into a placeholder state.
+        """
+        self.operation_status_label.setText(message)
         self.status_changed.emit(message)
