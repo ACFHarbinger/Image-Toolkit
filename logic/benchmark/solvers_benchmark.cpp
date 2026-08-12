@@ -21,7 +21,15 @@ static std::vector<SeamPixel> make_energy_grid(std::size_t rows, std::size_t col
     return grid;
 }
 
-static void BM_SolveSeam(benchmark::State& state) {
+// solve_seam dispatches to the AVX2/NEON fast path internally when compiled
+// with -DHIE_ENABLE_SIMD_SEAM=ON (see CMakeLists.txt); this benchmark always
+// calls the same public function, so comparing scalar vs SIMD means running
+// this binary built both ways and comparing the two reports -- there's no
+// runtime dispatch, only a compile-time one, so a single binary can't show
+// both numbers side by side. The benchmark label below records which build
+// produced the numbers.
+#if defined(HIE_ENABLE_SIMD_SEAM)
+static void BM_SolveSeam_SIMD(benchmark::State& state) {
     const auto rows = static_cast<std::size_t>(state.range(0));
     const auto cols = static_cast<std::size_t>(state.range(1));
     auto grid = make_energy_grid(rows, cols);
@@ -29,7 +37,18 @@ static void BM_SolveSeam(benchmark::State& state) {
         benchmark::DoNotOptimize(solve_seam(grid, rows, cols));
     }
 }
-BENCHMARK(BM_SolveSeam)->Args({256, 256})->Args({1080, 1920});
+BENCHMARK(BM_SolveSeam_SIMD)->Args({256, 256})->Args({1080, 1920})->Args({2160, 3840});
+#else
+static void BM_SolveSeam_Scalar(benchmark::State& state) {
+    const auto rows = static_cast<std::size_t>(state.range(0));
+    const auto cols = static_cast<std::size_t>(state.range(1));
+    auto grid = make_energy_grid(rows, cols);
+    for (auto _ : state) {
+        benchmark::DoNotOptimize(solve_seam(grid, rows, cols));
+    }
+}
+BENCHMARK(BM_SolveSeam_Scalar)->Args({256, 256})->Args({1080, 1920})->Args({2160, 3840});
+#endif
 
 // ─── GNC-TLS Alignment ──────────────────────────────────────────────────────
 

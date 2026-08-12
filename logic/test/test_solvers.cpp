@@ -4,6 +4,8 @@
 #include <cassert>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
+#include <random>
 #include <vector>
 
 #include "exact_solvers.hpp"
@@ -11,6 +13,96 @@
 #include "render_graph.hpp"
 
 using namespace hybrid_image_editor;
+
+#if defined(HIE_ENABLE_SIMD_SEAM)
+// Standalone reimplementation of solve_seam's pre-SIMD scalar algorithm,
+// used only as a ground truth to verify the vectorized fast path in
+// exact_solvers.cpp produces bit-for-bit identical output -- deliberately
+// NOT sharing code with exact_solvers.cpp, so a bug in the SIMD path can't
+// hide behind a shared bug in a shared helper.
+static SeamResult solve_seam_reference_scalar(
+        const std::vector<SeamPixel>& energy_grid, std::size_t rows, std::size_t cols) {
+    SeamResult result;
+    result.success = false;
+    if (energy_grid.size() != rows * cols || rows == 0 || cols == 0) {
+        result.error = "Invalid energy grid dimensions";
+        return result;
+    }
+    constexpr float kMaskCost = 1e9f;
+    std::vector<float> dp(rows * cols);
+    std::vector<int> parent(rows * cols, -1);
+    for (std::size_t c = 0; c < cols; ++c) {
+        const auto& px = energy_grid[c];
+        dp[c] = px.masked ? kMaskCost : px.energy;
+    }
+    for (std::size_t r = 1; r < rows; ++r) {
+        for (std::size_t c = 0; c < cols; ++c) {
+            float best = std::numeric_limits<float>::infinity();
+            int best_c = static_cast<int>(c);
+            for (int dc = -1; dc <= 1; ++dc) {
+                int pc = static_cast<int>(c) + dc;
+                if (pc < 0 || pc >= static_cast<int>(cols)) continue;
+                float prev = dp[(r - 1) * cols + pc];
+                if (prev < best) {
+                    best = prev;
+                    best_c = pc;
+                }
+            }
+            const auto& px = energy_grid[r * cols + c];
+            float cost = px.masked ? kMaskCost : px.energy;
+            dp[r * cols + c] = best + cost;
+            parent[r * cols + c] = best_c;
+        }
+    }
+    std::size_t min_col = 0;
+    float min_val = std::numeric_limits<float>::infinity();
+    for (std::size_t c = 0; c < cols; ++c) {
+        float v = dp[(rows - 1) * cols + c];
+        if (v < min_val) {
+            min_val = v;
+            min_col = c;
+        }
+    }
+    result.seam_x.resize(rows);
+    result.seam_x[rows - 1] = static_cast<int>(min_col);
+    for (int r = static_cast<int>(rows) - 2; r >= 0; --r) {
+        int next_c = result.seam_x[r + 1];
+        result.seam_x[r] = parent[(r + 1) * cols + next_c];
+    }
+    result.total_energy = min_val;
+    result.success = true;
+    return result;
+}
+
+static void test_seam_simd_matches_scalar_reference() {
+    // Sizes chosen to exercise: single column, sub-vector-width, exactly one
+    // AVX2 block (8) / NEON block (4), one block plus remainder, and a large
+    // multi-block grid -- boundary handling around block edges is exactly
+    // where an off-by-one in the SIMD path would show up.
+    std::mt19937 rng(1234);
+    std::uniform_real_distribution<float> energy_dist(0.f, 1.f);
+    std::uniform_real_distribution<float> mask_roll(0.f, 1.f);
+
+    for (std::size_t cols : {1u, 2u, 3u, 7u, 8u, 9u, 10u, 17u, 64u, 257u}) {
+        for (std::size_t rows : {1u, 2u, 5u}) {
+            std::vector<SeamPixel> grid(rows * cols);
+            for (auto& px : grid) {
+                px.energy = energy_dist(rng);
+                px.masked = mask_roll(rng) < 0.1f;  // scatter some masked cells
+            }
+            SeamResult simd_result = solve_seam(grid, rows, cols);
+            SeamResult scalar_result = solve_seam_reference_scalar(grid, rows, cols);
+
+            assert(simd_result.success == scalar_result.success);
+            if (scalar_result.success) {
+                assert(simd_result.seam_x == scalar_result.seam_x);
+                assert(simd_result.total_energy == scalar_result.total_energy);
+            }
+        }
+    }
+    std::printf("[PASS] test_seam_simd_matches_scalar_reference\n");
+}
+#endif  // HIE_ENABLE_SIMD_SEAM
 
 // ─── Seam Routing Tests ───────────────────────────────────────────────────────
 
@@ -226,6 +318,9 @@ int main() {
 
     test_seam_basic();
     test_seam_masked_barrier();
+#if defined(HIE_ENABLE_SIMD_SEAM)
+    test_seam_simd_matches_scalar_reference();
+#endif
     test_alignment_pure_translation();
     test_alignment_with_outliers();
     test_color_harmonization_identity();

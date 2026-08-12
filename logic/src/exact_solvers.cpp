@@ -10,6 +10,23 @@
 #include <limits>
 #include <numeric>
 
+// Opt-in SIMD fast path for solve_seam's DP row fill (see HIE_ENABLE_SIMD_SEAM
+// in CMakeLists.txt). Off by default: the scalar path below is unconditionally
+// correct and portable, and vectorization here is strictly a performance
+// optimization for high-resolution (4K/8K) grids, not an algorithm change --
+// logic/test/test_solvers.cpp's SIMD-vs-scalar comparison (built only when
+// this is enabled) asserts bit-for-bit identical output.
+#if defined(HIE_ENABLE_SIMD_SEAM) && (defined(__x86_64__) || defined(_M_X64) || defined(__i386__)) && defined(__AVX2__)
+#define HIE_SIMD_SEAM_AVX2 1
+#include <immintrin.h>
+#elif defined(HIE_ENABLE_SIMD_SEAM) && (defined(__ARM_NEON) || defined(__aarch64__))
+// NOTE: implemented by reasoning from ARM NEON intrinsic semantics, not
+// empirically verified on ARM hardware (this development environment is
+// x86_64-only) -- worth a real run on AArch64 before relying on it.
+#define HIE_SIMD_SEAM_NEON 1
+#include <arm_neon.h>
+#endif
+
 namespace hybrid_image_editor {
 
 // ─── DP Seam Routing ─────────────────────────────────────────────────────────
@@ -38,27 +55,118 @@ SeamResult solve_seam(const std::vector<SeamPixel>& energy_grid,
         dp[c] = px.masked ? kMaskCost : px.energy;
     }
 
-    // Fill DP table row by row
+    // Fill DP table row by row. Each row depends only on the previous row
+    // (already fully computed), so columns within a row are independent of
+    // one another -- safe to vectorize across the column dimension.
     for (std::size_t r = 1; r < rows; ++r) {
-        for (std::size_t c = 0; c < cols; ++c) {
-            // Consider left, centre, right predecessors
+        const float* prev_row = &dp[(r - 1) * cols];
+        float* cur_row = &dp[r * cols];
+        int* cur_parent = &parent[r * cols];
+        const SeamPixel* row_px = &energy_grid[r * cols];
+
+        // Exact copy of the original (pre-SIMD) per-cell logic, factored into
+        // a lambda so the boundary columns and any non-vectorized remainder
+        // always go through the identical, already-tested scalar path.
+        auto scalar_cell = [&](std::size_t c) {
             float best = std::numeric_limits<float>::infinity();
             int   best_c = static_cast<int>(c);
-
             for (int dc = -1; dc <= 1; ++dc) {
                 int pc = static_cast<int>(c) + dc;
                 if (pc < 0 || pc >= static_cast<int>(cols)) continue;
-                float prev = dp[(r - 1) * cols + pc];
+                float prev = prev_row[pc];
                 if (prev < best) {
                     best   = prev;
                     best_c = pc;
                 }
             }
-
-            const auto& px = energy_grid[r * cols + c];
+            const SeamPixel& px = row_px[c];
             float cost = px.masked ? kMaskCost : px.energy;
-            dp[r * cols + c] = best + cost;
-            parent[r * cols + c] = best_c;
+            cur_row[c] = best + cost;
+            cur_parent[c] = best_c;
+        };
+
+        std::size_t c = 0;
+        scalar_cell(0);  // left boundary: no c-1 neighbor, always scalar
+        c = 1;
+        const std::size_t interior_end = cols - 1;  // exclusive; last col handled below
+
+#if defined(HIE_SIMD_SEAM_AVX2)
+        const std::size_t simd_end =
+            c + (interior_end > c ? ((interior_end - c) / 8) * 8 : 0);
+        for (; c < simd_end; c += 8) {
+            alignas(32) float cost_block[8];
+            for (int k = 0; k < 8; ++k) {
+                const SeamPixel& px = row_px[c + k];
+                cost_block[k] = px.masked ? kMaskCost : px.energy;
+            }
+            __m256 prev_l = _mm256_loadu_ps(prev_row + c - 1);
+            __m256 prev_m = _mm256_loadu_ps(prev_row + c);
+            __m256 prev_r = _mm256_loadu_ps(prev_row + c + 1);
+            __m256 cost   = _mm256_load_ps(cost_block);
+
+            // Mirrors scalar_cell's dc = -1, 0, +1 order and strict "<"
+            // comparison exactly, so ties resolve to the same (leftmost)
+            // neighbor as the scalar loop.
+            __m256 best = prev_l;
+            __m256 offset = _mm256_set1_ps(-1.0f);
+
+            __m256 mask_m = _mm256_cmp_ps(prev_m, best, _CMP_LT_OQ);
+            best = _mm256_blendv_ps(best, prev_m, mask_m);
+            offset = _mm256_blendv_ps(offset, _mm256_setzero_ps(), mask_m);
+
+            __m256 mask_r = _mm256_cmp_ps(prev_r, best, _CMP_LT_OQ);
+            best = _mm256_blendv_ps(best, prev_r, mask_r);
+            offset = _mm256_blendv_ps(offset, _mm256_set1_ps(1.0f), mask_r);
+
+            __m256 dp_val = _mm256_add_ps(best, cost);
+            _mm256_storeu_ps(cur_row + c, dp_val);
+
+            __m256i offset_i = _mm256_cvttps_epi32(offset);
+            __m256i c_idx = _mm256_add_epi32(
+                _mm256_set1_epi32(static_cast<int>(c)),
+                _mm256_setr_epi32(0, 1, 2, 3, 4, 5, 6, 7));
+            __m256i parent_i = _mm256_add_epi32(c_idx, offset_i);
+            _mm256_storeu_si256(reinterpret_cast<__m256i*>(cur_parent + c), parent_i);
+        }
+#elif defined(HIE_SIMD_SEAM_NEON)
+        const std::size_t simd_end =
+            c + (interior_end > c ? ((interior_end - c) / 4) * 4 : 0);
+        for (; c < simd_end; c += 4) {
+            float cost_block[4];
+            for (int k = 0; k < 4; ++k) {
+                const SeamPixel& px = row_px[c + k];
+                cost_block[k] = px.masked ? kMaskCost : px.energy;
+            }
+            float32x4_t prev_l = vld1q_f32(prev_row + c - 1);
+            float32x4_t prev_m = vld1q_f32(prev_row + c);
+            float32x4_t prev_r = vld1q_f32(prev_row + c + 1);
+            float32x4_t cost   = vld1q_f32(cost_block);
+
+            float32x4_t best = prev_l;
+            int32x4_t offset = vdupq_n_s32(-1);
+
+            uint32x4_t mask_m = vcltq_f32(prev_m, best);
+            best = vbslq_f32(mask_m, prev_m, best);
+            offset = vbslq_s32(mask_m, vdupq_n_s32(0), offset);
+
+            uint32x4_t mask_r = vcltq_f32(prev_r, best);
+            best = vbslq_f32(mask_r, prev_r, best);
+            offset = vbslq_s32(mask_r, vdupq_n_s32(1), offset);
+
+            float32x4_t dp_val = vaddq_f32(best, cost);
+            vst1q_f32(cur_row + c, dp_val);
+
+            int32_t c_idx_arr[4] = {
+                static_cast<int32_t>(c), static_cast<int32_t>(c) + 1,
+                static_cast<int32_t>(c) + 2, static_cast<int32_t>(c) + 3};
+            int32x4_t c_idx = vld1q_s32(c_idx_arr);
+            int32x4_t parent_v = vaddq_s32(c_idx, offset);
+            vst1q_s32(cur_parent + c, parent_v);
+        }
+#endif
+
+        for (; c < cols; ++c) {
+            scalar_cell(c);
         }
     }
 
