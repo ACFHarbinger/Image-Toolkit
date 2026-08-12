@@ -27,6 +27,6 @@ This roadmap defines the core document architecture and canvas model for the **H
 
 | Phase | Milestone | Priority | Output Deliverables |
 |---|---|:---:|---|
-| **Phase 1.1** | Frame Sequence Document Schema | High | `middleware/document.py` & C++ `logic/include/hie/document.hpp` |
+| **Phase 1.1** | Frame Sequence Document Schema | High | `middleware/src/hie_middleware/document.py` & C++ `logic/include/hybrid_image_editor/document.hpp` |
 | **Phase 1.2** | Hybrid Layer-Node DAG Engine | High | C++ topological render graph evaluator in `logic/src/render_graph.cpp` |
 | **Phase 1.3** | PySide6 Canvas Viewport | High | PySide6 `QGraphicsView` / `QOpenGLWidget` viewport in `gui/src/viewport.py` |
