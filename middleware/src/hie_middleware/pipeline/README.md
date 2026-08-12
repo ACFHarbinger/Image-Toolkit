@@ -13,6 +13,8 @@ The `pipeline` package provides the central execution pipeline orchestrating dee
 
 `ProposalPipeline` in `orchestrator.py` registers model adapters and RL
 policies, exposes capabilities, and returns serializable preview proposals.
-It intentionally does not mutate documents. A future acceptance/history
-service will apply an explicitly accepted proposal and connect long-running
-optimization jobs through the same frontend contract.
+It intentionally does not mutate documents. `ProposalAcceptanceService` is the
+explicit next step: it records an accepted proposal in document metadata and
+commits it through `DocumentHistory`; operation-specific renderers can later
+consume that audit record and connect long-running optimization jobs through
+the same frontend contract.
