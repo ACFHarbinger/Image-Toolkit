@@ -2,6 +2,13 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S377 — 2026-08-12 (HIE Hybrid Editor UI ownership in submodule)
+
+Moved Hybrid Editor tab implementations into `submodules/HIE` so Image-Toolkit UIs update when the submodule updates:
+- PySide6: thin re-exports under `gui/src/tabs/editor/` → `hie_gui.HieEditorTab`.
+- React/Tauri: `frontend` depends on `hie-frontend` (`file:../submodules/HIE/frontend`) and re-exports `HieEditorTab` from the submodule embed path.
+- HIE pipeline/IPC extended for host integration (`list_capabilities`, `preview_policy`, `accept_proposal`, `submit_restoration`); `HieTab` uses `PipelineSession`.
+
 ## S376 — 2026-08-12 (Resolved and Closed All Open Backlog Issues on GitHub)
 
 Resolved all 19 open GitHub backlog issues across HIE, UI/UX, Performance, Architecture, and New Features:
