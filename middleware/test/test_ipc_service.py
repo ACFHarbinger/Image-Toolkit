@@ -1,4 +1,5 @@
-from hie_middleware import IpcRequest, IpcService
+from ipc import IpcRequest
+from ipc_service import IpcService
 
 
 def test_ipc_service_opens_and_exports_a_still_document():
@@ -50,3 +51,47 @@ def test_ipc_service_returns_structured_errors_without_raising():
 def test_ipc_service_acknowledges_notifications():
     response = IpcService().handle(IpcRequest("note-1", "notify", {"message": "ready"}))
     assert response.to_dict()["payload"] == {"acknowledged": True}
+
+
+def test_ipc_service_lists_capabilities_and_previews_policies():
+    service = IpcService()
+    caps = service.handle(IpcRequest("caps-1", "list_capabilities"))
+    assert caps.status == "ok"
+    assert "brush-assistant" in caps.payload["policies"]
+    assert "deblur" in caps.payload["restoration"]
+
+    opened = service.handle(
+        IpcRequest("open-1", "open_media", {"source": "image.png", "document_id": "doc-1"})
+    )
+    assert opened.status == "ok"
+    preview = service.handle(
+        IpcRequest(
+            "prev-1",
+            "preview_policy",
+            {"document_id": "doc-1", "policy": "global-tone"},
+        )
+    )
+    assert preview.status == "ok"
+    assert preview.payload["pending"] is True
+    accepted = service.handle(
+        IpcRequest("acc-1", "accept_proposal", {"document_id": "doc-1"})
+    )
+    assert accepted.status == "ok"
+    assert accepted.payload["accepted"] is True
+
+
+def test_ipc_service_submit_restoration_queues_job():
+    service = IpcService()
+    service.handle(
+        IpcRequest("open-1", "open_media", {"source": "image.png", "document_id": "doc-1"})
+    )
+    response = service.handle(
+        IpcRequest(
+            "rest-1",
+            "submit_restoration",
+            {"document_id": "doc-1", "operation": "deblur", "backend": "pillow"},
+        )
+    )
+    assert response.status == "ok"
+    assert response.payload["operation"] == "deblur"
+    assert response.payload["job_id"]

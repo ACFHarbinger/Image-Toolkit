@@ -3,8 +3,10 @@
 This directory contains the **PySide6 (Qt for Python) desktop GUI** for the Hybrid Image Editor (HIE).
 
 ## Multi-Hosting Architecture
-- **Embedded Mode:** Integrated directly into Image-Toolkit's PySide6 desktop GUI as a dedicated tab (`hie_tab.py`).
-- **Standalone Mode:** Can be launched independently as a standalone PySide6 window application (`python -m hie.gui.main`).
+- **Embedded Mode:** Image-Toolkit re-exports `HieEditorTab` from this package
+  (`from hie_gui import HieEditorTab`). Parent thin wrappers live under
+  `Image-Toolkit/gui/src/tabs/editor/` and must not re-implement the UI.
+- **Standalone Mode:** Launch with `hie-gui` or `python -m hie_gui.main [--image PATH]`.
 
 ## Capabilities
 - Threaded `QThread` workers communicating off the main loop via Qt Signals & Slots.

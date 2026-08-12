@@ -5,15 +5,17 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-from .document import Document, Frame, FrameSequence
-from .ipc import IpcRequest, IpcResponse
+from document import Document, Frame, FrameSequence
+from ipc import IpcRequest, IpcResponse
+from pipeline import PipelineSession, build_default_pipeline
 
 
 class IpcService:
-    """Handle initial media/document commands without filesystem policy."""
+    """Handle media, proposal, and restoration commands for editor hosts."""
 
     def __init__(self) -> None:
-        self._documents: dict[str, Document] = {}
+        self._sessions: dict[str, PipelineSession] = {}
+        self._pending_proposals: dict[str, Any] = {}
 
     def handle(self, request: IpcRequest) -> IpcResponse:
         try:
@@ -21,6 +23,10 @@ class IpcService:
                 "open_media": self._open_media,
                 "export_document": self._export_document,
                 "notify": self._notify,
+                "list_capabilities": self._list_capabilities,
+                "preview_policy": self._preview_policy,
+                "accept_proposal": self._accept_proposal,
+                "submit_restoration": self._submit_restoration,
             }[request.method]
             return IpcResponse(request.request_id, "ok", handler(request.payload))
         except (KeyError, TypeError, ValueError) as exc:
@@ -30,8 +36,14 @@ class IpcService:
         source = payload.get("source")
         sequence = self._sequence_from_payload(source, payload)
         document_id = payload.get("document_id") or f"doc-{uuid.uuid4().hex[:12]}"
-        document = Document(document_id, sequence)
-        self._documents[document_id] = document
+        metadata = dict(payload.get("metadata") or {})
+        if isinstance(source, str) and source.strip() and "source" not in metadata:
+            metadata["source"] = source
+        document = Document(document_id, sequence, metadata=metadata)
+        self._sessions[document_id] = PipelineSession(
+            document, pipeline=build_default_pipeline()
+        )
+        self._pending_proposals.pop(document_id, None)
         return {
             "document_id": document_id,
             "snapshot_id": document.snapshot_id(),
@@ -72,10 +84,84 @@ class IpcService:
 
     def _export_document(self, payload: dict[str, Any]) -> dict[str, Any]:
         document_id = payload.get("document_id")
-        if document_id not in self._documents:
+        session = self._require_session(document_id)
+        return {"document_id": document_id, "document": session.document.to_dict()}
+
+    def _list_capabilities(self, payload: dict[str, Any]) -> dict[str, Any]:
+        document_id = payload.get("document_id")
+        if document_id:
+            session = self._require_session(document_id)
+            pipeline_caps = session.pipeline.capabilities()
+            restoration_caps = session.restoration.capabilities()
+        else:
+            pipeline_caps = build_default_pipeline().capabilities()
+            from pipeline import RestorationPipeline
+
+            restoration_caps = RestorationPipeline().capabilities()
+        return {
+            "models": pipeline_caps.get("models", []),
+            "policies": pipeline_caps.get("policies", []),
+            "restoration": restoration_caps,
+        }
+
+    def _preview_policy(self, payload: dict[str, Any]) -> dict[str, Any]:
+        document_id = payload.get("document_id")
+        policy = payload.get("policy")
+        if not isinstance(policy, str) or not policy.strip():
+            raise ValueError("preview_policy requires a non-empty policy name")
+        session = self._require_session(document_id)
+        observation = dict(payload.get("observation") or {"source": "ipc"})
+        proposal = session.preview_policy(policy, observation)
+        self._pending_proposals[document_id] = proposal
+        action = getattr(proposal.proposal, "action", None) or policy
+        return {
+            "document_id": document_id,
+            "policy": policy,
+            "action": action,
+            "pending": True,
+        }
+
+    def _accept_proposal(self, payload: dict[str, Any]) -> dict[str, Any]:
+        document_id = payload.get("document_id")
+        session = self._require_session(document_id)
+        proposal = self._pending_proposals.pop(document_id, None)
+        if proposal is None:
+            raise ValueError(f"no pending proposal for document: {document_id!r}")
+        record = session.accept(proposal)
+        return {
+            "document_id": document_id,
+            "accepted": True,
+            "snapshot_id": session.document.snapshot_id(),
+            "record": record.to_dict(),
+        }
+
+    def _submit_restoration(self, payload: dict[str, Any]) -> dict[str, Any]:
+        document_id = payload.get("document_id")
+        session = self._require_session(document_id)
+        operation = payload.get("operation")
+        backend = payload.get("backend", "pillow")
+        if not isinstance(operation, str) or not operation.strip():
+            raise ValueError("submit_restoration requires an operation")
+        if not isinstance(backend, str) or not backend.strip():
+            raise ValueError("submit_restoration requires a backend")
+        input_ref = payload.get("input_ref") or session.document.metadata.get("source")
+        if not isinstance(input_ref, str) or not input_ref.strip():
+            raise ValueError("submit_restoration requires input_ref or open media with source")
+        options = dict(payload.get("options") or {})
+        handle = session.submit_restoration(
+            operation, input_ref, backend=backend, options=options
+        )
+        return {
+            "document_id": document_id,
+            "job_id": handle.job_id,
+            "operation": operation,
+            "backend": backend,
+        }
+
+    def _require_session(self, document_id: Any) -> PipelineSession:
+        if document_id not in self._sessions:
             raise ValueError(f"document is not open: {document_id!r}")
-        document = self._documents[document_id]
-        return {"document_id": document_id, "document": document.to_dict()}
+        return self._sessions[document_id]
 
     @staticmethod
     def _notify(payload: dict[str, Any]) -> dict[str, Any]:

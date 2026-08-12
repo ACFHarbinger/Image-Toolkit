@@ -1,28 +1,8 @@
-"""Standalone PySide6 entry point; embedding can reuse ``create_window``."""
+"""Compatibility entry: prefer ``python -m hie_gui.main`` / ``hie-gui``."""
 
-from __future__ import annotations
+from hie_gui.main import create_window, main
 
-import sys
-
-
-def create_window():
-    from PySide6.QtWidgets import QLabel, QMainWindow
-
-    window = QMainWindow()
-    window.setWindowTitle("Hybrid Image Editor")
-    window.setCentralWidget(QLabel("HIE GUI shell ready for Image-Toolkit embedding."))
-    return window
-
-
-def main() -> int:
-    from PySide6.QtWidgets import QApplication
-
-    app = QApplication(sys.argv)
-    window = create_window()
-    window.resize(900, 600)
-    window.show()
-    return app.exec()
-
+__all__ = ["create_window", "main"]
 
 if __name__ == "__main__":
     raise SystemExit(main())

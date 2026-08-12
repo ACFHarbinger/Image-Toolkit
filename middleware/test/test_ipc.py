@@ -1,6 +1,6 @@
 import pytest
 
-from hie_middleware.ipc import IpcContractError, IpcRequest, IpcResponse
+from ipc import IpcContractError, IpcRequest, IpcResponse
 
 
 def test_ipc_request_round_trips_as_a_versioned_json_safe_envelope():
@@ -27,3 +27,14 @@ def test_ipc_response_requires_explicit_error_details():
 def test_ipc_request_rejects_unsupported_or_malformed_envelopes(value):
     with pytest.raises(IpcContractError):
         IpcRequest.from_dict(value)
+
+
+def test_ipc_request_accepts_pipeline_methods():
+    for method in (
+        "list_capabilities",
+        "preview_policy",
+        "accept_proposal",
+        "submit_restoration",
+    ):
+        request = IpcRequest("req-pipe", method, {})
+        assert request.method == method

@@ -32,3 +32,11 @@ Architected from Day 1 for multi-modal inputs (single images and multi-frame vid
 - **Phase 2 (Optimization & Matting):** Exact C++ DP seam routing & convex color harmonization, PSO filter autotuner, BiRefNet alpha matting, and optional deblur/inpainting restoration foundations.
 - **Phase 3 (RL Co-Pilot & Advanced Features):** Interactive Brush RL Retouching Agent, Differential Evolution composition solver, Real-ESRGAN super-resolution, Tauri web UI integration.
 - **Phase 4 (Video Editing Extension):** Temporal keyframe sequence propagation, SAM-2 tracking, video clip export.
+
+---
+
+## 4. Active Integration Notes (2026-08-12)
+
+- **UI ownership:** Hybrid Editor PySide6 + React tabs are maintained under this submodule (`gui/src/hie_gui/`, `frontend/src/embed/react/`). Image-Toolkit imports/re-exports them only.
+- **Pipeline/IPC:** Hosts should integrate through `PipelineSession` and versioned IPC methods (`open_media`, `export_document`, `list_capabilities`, `preview_policy`, `accept_proposal`, `submit_restoration`, `notify`).
+- **Do not duplicate** parent Image Editor tab implementations outside HIE.

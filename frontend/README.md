@@ -1,22 +1,33 @@
 # Hybrid Image Editor (HIE) — Tauri Frontend (`frontend/`)
 
-This directory contains the web-native **Tauri UI frontend** for the Hybrid Image Editor (HIE).
+This directory contains the web-native **Tauri UI frontend** for the Hybrid Image Editor (HIE), plus the **embeddable React tab** consumed by Image-Toolkit.
 
 ## Multi-Hosting Architecture
-- **Embedded Mode:** Integrated directly into Image-Toolkit's primary Tauri frontend as a dedicated workspace tab.
-- **Standalone Mode:** The Vite shell runs independently, or the Tauri wrapper can be launched with `npm run tauri dev`.
+
+- **Embedded Mode (Image-Toolkit):** The parent React app depends on this package
+  (`hie-frontend` via `file:../submodules/HIE/frontend`) and re-exports
+  `HieEditorTab` from `src/embed/react/`. Editor UI changes land here first;
+  Image-Toolkit only keeps a thin re-export under `frontend/src/tabs/editor/`.
+- **Standalone Mode:** The Vite shell (`src/main.ts`) runs independently, or the
+  Tauri wrapper can be launched with `npm run tauri dev`.
+
+## Layout
+
+| Path | Role |
+| --- | --- |
+| `src/main.ts` | Standalone Vite workspace shell |
+| `src/host.ts` | Typed `HieHost` IPC seam (browser / Tauri / injected) |
+| `src/embed/react/HieEditorTab.tsx` | React Hybrid Editor tab for Image-Toolkit |
 
 ## Capabilities
-- High-performance Canvas 2D / WebGL 2 rendering viewport.
+
+- High-performance Canvas 2D / WebGL 2 rendering viewport (standalone shell).
 - Real-time ML/DL inference controls and layer management.
 - Non-destructive mathematical optimization parameter adjustment.
+- Versioned host IPC: `open_media`, `export_document`, `notify`,
+  `list_capabilities`, `preview_policy`, `accept_proposal`, `submit_restoration`.
 
-## Current UI
-
-The Vite entry point now provides a dark HIE workspace with a canvas surface,
-layer stack, assistance tool selection, proposal preview, explicit acceptance,
-timeline, and Image-Toolkit return link. It is intentionally framework-light
-so the same view can be embedded by the Image-Toolkit Tauri application.
+## Running standalone
 
 ```bash
 npm install
@@ -24,12 +35,5 @@ npm run build
 npm run dev
 ```
 
-The typed `HieHost` interface in `src/host.ts` exposes `openMedia`,
-`exportDocument`, and `notify`. A Tauri or Image-Toolkit host can inject an
-implementation through `window.__HIE_HOST__`; standalone Vite uses a safe
-browser fallback. The transport can therefore change without changing the
-proposal-first UI state model.
-
-The native wrapper in `src-tauri/` exposes matching `open_media`,
-`export_document`, and `notify` commands. The first two are intentionally
-host-owned no-op seams until the document/media IPC contract is finalized.
+A Tauri or Image-Toolkit host can inject an implementation through
+`window.__HIE_HOST__`; standalone Vite uses a safe browser fallback.

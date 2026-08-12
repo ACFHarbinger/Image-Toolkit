@@ -18,10 +18,11 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from hie_middleware.document import Document, DocumentHistory, FrameSequence
-from hie_middleware.pipeline import (
-    ProposalAcceptanceService,
+from document import Document, FrameSequence
+from pipeline import (
+    PipelineSession,
     ProposalPipeline,
+    RestorationPipeline,
     build_default_pipeline,
 )
 
@@ -38,11 +39,29 @@ class HieTab(QWidget):
     status_changed = Signal(str)
     document_opened = Signal(str)
 
-    def __init__(self, pipeline: ProposalPipeline | None = None, parent=None) -> None:
+    def __init__(
+        self,
+        pipeline: ProposalPipeline | None = None,
+        *,
+        restoration: RestorationPipeline | None = None,
+        session: PipelineSession | None = None,
+        parent=None,
+    ) -> None:
         super().__init__(parent)
-        self.pipeline = pipeline if pipeline is not None else build_default_pipeline()
+        if session is not None:
+            self.session = session
+        else:
+            untitled = Document(
+                "untitled",
+                FrameSequence.still(""),
+                metadata={"source": "standalone"},
+            )
+            self.session = PipelineSession(
+                untitled,
+                pipeline=pipeline if pipeline is not None else build_default_pipeline(),
+                restoration=restoration,
+            )
         self._last_proposal = None
-        self._history = None
 
         # ─── Toolbar: document actions ──────────────────────────────────────
         title_label = QLabel("Hybrid Image Editor")
@@ -90,11 +109,23 @@ class HieTab(QWidget):
         assistance_layout.addWidget(self.preview_button)
         assistance_layout.addWidget(self.accept_button)
 
+        self.restoration_select = QComboBox()
+        self.restoration_select.addItems(["No restoration backends"])
+        self.restoration_button = QPushButton("Queue restoration preview")
+        self.restoration_button.clicked.connect(self.queue_restoration_preview)
+
+        restoration_group = QGroupBox("Restoration")
+        restoration_layout = QVBoxLayout(restoration_group)
+        restoration_layout.addWidget(QLabel("Operation / backend"))
+        restoration_layout.addWidget(self.restoration_select)
+        restoration_layout.addWidget(self.restoration_button)
+
         sidebar = QWidget()
         sidebar.setMinimumWidth(220)
         sidebar_layout = QVBoxLayout(sidebar)
         sidebar_layout.setContentsMargins(0, 0, 0, 0)
         sidebar_layout.addWidget(assistance_group)
+        sidebar_layout.addWidget(restoration_group)
         sidebar_layout.addStretch()
 
         splitter = QSplitter()
@@ -112,13 +143,16 @@ class HieTab(QWidget):
         layout.addWidget(divider)
         layout.addWidget(splitter)
 
-        self._set_untitled_history()
         self.refresh_capabilities()
 
-    def _set_untitled_history(self) -> None:
-        self._history = DocumentHistory(
-            Document("untitled", FrameSequence.still(""), metadata={"source": "standalone"})
-        )
+    @property
+    def pipeline(self) -> ProposalPipeline:
+        return self.session.pipeline
+
+    @property
+    def _history(self):
+        """Compatibility alias used by existing GUI tests and host hooks."""
+        return self.session.history
 
     def open_image(self) -> None:
         """Prompt for an image file and load it as a new HIE document."""
@@ -145,7 +179,13 @@ class HieTab(QWidget):
             FrameSequence.still(path),
             metadata={"source": path},
         )
-        self.set_history(DocumentHistory(document))
+        self.session = PipelineSession(
+            document,
+            pipeline=self.session.pipeline,
+            restoration=self.session.restoration,
+        )
+        self._last_proposal = None
+        self.accept_button.setEnabled(False)
         self.document_status_label.setText(os.path.basename(path))
         self.document_status_label.setToolTip(path)
         self._set_status(f"Opened {os.path.basename(path)}")
@@ -153,12 +193,23 @@ class HieTab(QWidget):
         return True
 
     def refresh_capabilities(self) -> None:
-        capabilities = self.pipeline.capabilities()
+        capabilities = self.session.pipeline.capabilities()
         self.tool_select.clear()
         policies = capabilities["policies"]
         self.tool_select.addItems(policies or ["No assistance tools registered"])
+
+        restoration = self.session.restoration.capabilities()
+        self.restoration_select.clear()
+        labels: list[str] = []
+        for operation, backends in restoration.items():
+            for backend in backends:
+                labels.append(f"{operation} / {backend}")
+        self.restoration_select.addItems(labels or ["No restoration backends"])
+        self.restoration_button.setEnabled(bool(labels))
+
         self.status_changed.emit(
-            f"{len(capabilities['models'])} models · {len(policies)} policies available"
+            f"{len(capabilities['models'])} models · {len(policies)} policies · "
+            f"{len(labels)} restoration paths"
         )
 
     def preview_assistance(self) -> None:
@@ -166,28 +217,49 @@ class HieTab(QWidget):
         if name == "No assistance tools registered":
             self._set_status("Register a policy before requesting assistance")
             return
-        self._last_proposal = self.pipeline.policy_proposal(name, {"source": "hie-gui"})
+        self._last_proposal = self.session.preview_policy(name, {"source": "hie-gui"})
         self.accept_button.setEnabled(True)
         action = self._last_proposal.proposal.action
         self._set_status(f"Preview ready: {action} (accept to record)")
 
     def accept_proposal(self) -> None:
-        if self._last_proposal is None or self._history is None:
-            self._set_status("Create a document history before accepting a proposal")
+        if self._last_proposal is None:
+            self._set_status("Preview a proposal before accepting")
             return
-        ProposalAcceptanceService().accept(self._history, self._last_proposal)
+        self.session.accept(self._last_proposal)
         self.accept_button.setEnabled(False)
+        self._last_proposal = None
         self._set_status("Proposal accepted and added to document history")
 
+    def queue_restoration_preview(self) -> None:
+        """Submit a cancellable restoration job for the active document source."""
+        label = self.restoration_select.currentText()
+        if label == "No restoration backends" or " / " not in label:
+            self._set_status("No restoration backend selected")
+            return
+        operation, backend = label.split(" / ", 1)
+        source = self.session.document.metadata.get("source") or ""
+        if not source or source == "standalone":
+            self._set_status("Open an image before queuing restoration")
+            return
+        handle = self.session.submit_restoration(
+            operation, source, backend=backend, options={}
+        )
+        self._set_status(
+            f"Queued {operation} ({backend}) job {handle.job_id} — cancellable preview"
+        )
+
     def set_history(self, history) -> None:
-        """Attach the active document history supplied by the host application."""
-        self._history = history
+        """Attach host-supplied document history while keeping the same pipelines."""
+        self.session = PipelineSession(
+            history.current,
+            pipeline=self.session.pipeline,
+            restoration=self.session.restoration,
+        )
+        # Preserve undo stack by swapping history after construction.
+        self.session.history = history
 
     def _set_status(self, message: str) -> None:
-        """Report an operation status. Does NOT touch the canvas — a loaded
-        image must survive status updates (previewing assistance, accepting
-        a proposal, etc.); only `open_image`/`load_image_path` failure paths
-        put the canvas itself into a placeholder state.
-        """
+        """Report an operation status without clearing the canvas."""
         self.operation_status_label.setText(message)
         self.status_changed.emit(message)

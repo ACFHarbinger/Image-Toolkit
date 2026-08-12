@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Hybrid Editor UI ownership moved into this submodule: PySide6 `HieEditorTab` (`gui/src/hie_gui/`) and React embed tab (`frontend/src/embed/react/HieEditorTab.tsx`). Image-Toolkit keeps thin re-exports only, so parent UIs update when the submodule updates.
+- `HieTab` now owns a middleware `PipelineSession` (proposal + restoration pipelines) and surfaces restoration capability discovery with a cancellable preview queue action.
+- Frontend/host IPC methods `list_capabilities`, `preview_policy`, `accept_proposal`, and `submit_restoration` (middleware `ipc.py` / `ipc_service.py`) for pipeline integration beyond open/export/notify.
 - Watermark removal confidence scoring from `mask_coverage` (smaller, more localized masks score higher) and a permission audit log (`hie_middleware.watermark_removal.audit`) recording every accepted, permission-confirmed removal request.
 - `cpu_deblur_preview()` / `cpu_sharpen_preview()` (`middleware/src/hie_middleware/jobs/cpu_restoration.py`): synchronous, in-memory (no disk write, no job contract) Pillow preview renderers for instant live-preview use (e.g. a GUI slider), distinct from the existing async `cpu_deblur_runner`.
 - `HIEBrushEnv` (`middleware/src/hie_middleware/policies/brush_env.py`): a Gymnasium `Env` for local dodge/burn/sharpen/tone brush-tool RL training, with a mixed discrete (`tool`) / continuous (`x`, `y`, `radius`, `strength`) action space and an artist-reward-correction annotation API (`record_reward`). Operates on an abstract canvas grid, not real pixels. `gymnasium`/`numpy` are optional (new `rl` extra); verified against the real library including the official `gymnasium.utils.env_checker.check_env` conformance check.
@@ -45,8 +48,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **C++ Metaheuristic Solvers (`logic/include/metaheuristics.hpp`, `logic/src/metaheuristics.cpp`):** Particle Swarm Optimization (PSO) for non-convex filter stack tuning and Differential Evolution (DE) for spatial layout packing.
 - **C++ Solver Test Suite (`logic/test/test_solvers.cpp`):** Comprehensive unit tests for exact and metaheuristic solvers (100% passing).
 - **Python Middleware Package (`middleware/src/hie_middleware/`):** Document manager (`document.py`), versioned contracts (`contracts.py`), neural model adapters (`models/`), RL policy agents (`policies/`), optimization jobs (`jobs/`), pipeline orchestrator (`pipeline/`), acceptance service (`acceptance.py`), session manager (`session.py`), and IPC service (`ipc_service.py`).
-- **PySide6 Desktop GUI Integration (`gui/src/tabs/editor/hie_editor_tab.py`):** Wrapped `HieTab` into Image-Toolkit's desktop app, registering the new **Image Editor** category containing the **Hybrid Editor** tab in `_tab_registry.py` and `_relaunch_settings.py`.
-- **React/Tauri App UI Integration (`frontend/src/tabs/editor/HieEditorTab.tsx`):** Built HIE editor component and registered the new **Image Editor** category containing the **Hybrid Editor** tab in `App.tsx`.
+- **PySide6 Desktop GUI Integration:** `HieEditorTab` is defined in this submodule (`gui/src/hie_gui/`) and re-exported by Image-Toolkit into the **Image Editor → Hybrid Editor** tab category.
+- **React/Tauri App UI Integration:** Embeddable React tab lives at `frontend/src/embed/react/HieEditorTab.tsx` and is re-exported by Image-Toolkit's **Image Editor → Hybrid Editor** category.
 - Created templates and placeholder documents for research and reports directories under `docs/research/` and `docs/reports/`.
 - Created a beautiful, interactive Vue documentation portal in `docs/website/` that parses and displays all repository documentation files dynamically with search, dark mode, alert styling, and navigation.
 - Created `website/javascript/` workspace similar to the typescript/ directory but for JavaScript, and added it to root workspace settings and `justfile` tasks.

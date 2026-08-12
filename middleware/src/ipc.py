@@ -7,7 +7,17 @@ from typing import Any, Mapping
 
 
 IPC_VERSION = 1
-SUPPORTED_METHODS = frozenset({"open_media", "export_document", "notify"})
+SUPPORTED_METHODS = frozenset(
+    {
+        "open_media",
+        "export_document",
+        "notify",
+        "list_capabilities",
+        "preview_policy",
+        "accept_proposal",
+        "submit_restoration",
+    }
+)
 
 
 class IpcContractError(ValueError):
