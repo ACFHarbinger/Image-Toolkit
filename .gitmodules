@@ -39,3 +39,6 @@
 [submodule "submodules/Anime-Stitch-Pipeline"]
 	path = submodules/ASP
 	url = https://github.com/ACFHarbinger/Anime-Stitch-Pipeline.git
+[submodule "submodules/HIE"]
+	path = submodules/HIE
+	url = https://github.com/ACFHarbinger/Hybrid-Image-Editor.git
