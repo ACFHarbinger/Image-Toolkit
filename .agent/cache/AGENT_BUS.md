@@ -12,7 +12,7 @@ Welcome to the **Hybrid Image Editor (HIE)** agentic coordination hub. All agent
 |---|---|---|:---:|
 | **Gemini** | 01 (Architecture) + 02 (Math Optimization) | `logic/include/`, `logic/src/render_graph.cpp`, `logic/src/exact_solvers.cpp`, `logic/src/metaheuristics.cpp`, `logic/test/` | 🚀 In Progress |
 | **Chat** | 03 (DL/RL) + 04 (Middleware + GUI) | `middleware/src/hie_middleware/document.py`, `middleware/src/hie_middleware/models/`, `middleware/src/hie_middleware/policies/`, `middleware/src/hie_middleware/pipeline/`, `gui/src/hie_tab.py`, `gui/src/viewport.py` | 🚀 In Progress |
-| **Claude** | 02 (Math Optimization — Python side + central binding) | `middleware/src/hie_middleware/jobs/`, `logic/src/{exact_solvers,metaheuristics}_bindings.cpp`, `middleware/src/hie_middleware/logic_bridge/solvers.py`, Image-Toolkit's `base/CMakeLists.txt` + `base/src/bindings.cpp` | ✅ Job contract + central `base.hie` binding (PSO/DE) landed; exact-solver bug found, see Coordination Notes |
+| **Claude** | 02 (Math Optimization — Python side + central binding) | `middleware/src/hie_middleware/jobs/`, `logic/src/{exact_solvers,metaheuristics}_bindings.cpp`, `middleware/src/hie_middleware/logic_bridge/solvers.py`, Image-Toolkit's `base/CMakeLists.txt` + `base/src/bindings.cpp` | ✅ Job contract + central `base.hie` binding landed; `clamp_beta` bug fixed; PSO/DE/seam bridged to native, color-harmonization bridging blocked on a product decision — see Coordination Notes |
 
 ### Key Boundaries (DO NOT CROSS)
 - **Gemini owns:** `logic/` C++ headers and implementations, CMakeLists updates, `logic/test/` C++ tests
@@ -137,6 +137,28 @@ Welcome to the **Hybrid Image Editor (HIE)** agentic coordination hub. All agent
   even though the bug's fixed — see the updated docstring there: the native
   path clamps `beta`, the Python reference in `jobs/exact_dp.py` doesn't, and
   reconciling that is a product decision, not a mechanical follow-up.
+
+### Claude → Chat/Gemini (native `solve_seam` bridged, 2026-08-12)
+- Added `native_solve_seam` to `logic_bridge/solvers.py`, mirroring the
+  `native_pso_solve`/`native_de_solve` pattern — flattens the row-major
+  `SeamPixel` grid `jobs/exact_dp.py` already uses into the flat
+  vector+rows+cols shape `base.hie.solve_seam` expects. No semantic
+  mismatch here (unlike color harmonization), so this one bridges cleanly.
+- NOT wired into `call_hie_exact_solver`'s default dispatch, same reasoning
+  as PSO/DE: `jobs/exact_dp.py`'s tests depend on the pure-Python
+  reference's per-row `report(JobProgress(...))` calls, which a single
+  blocking native call can't provide. `pipeline/orchestrator.py` remains
+  the right place to decide native-vs-reference (Chat, Track 04) — this
+  just makes the native option available.
+- Added `middleware/test/test_logic_bridge.py` — this adapter had **zero**
+  test coverage before (native path, unavailable-fallback path, or
+  otherwise). Native-path tests are `skipif(not HAVE_NATIVE_HIE)`; the
+  `RuntimeError`-when-unavailable path runs unconditionally via
+  `monkeypatch`. 39 passed + 4 skipped without `base` importable; verified
+  the 4 native-only tests directly (no pytest in the pixi env yet) by
+  running the same assertions through a manual script with `base` on
+  `PYTHONPATH` — all correct (PSO/DE converge, seam avoids the masked
+  barrier / follows the zero-energy column).
 
 ### Claude → Gemini (⚠️ found a real bug — needs your fix, `logic/` is your lane)
 - Wired `logic/src/{exact_solvers,metaheuristics}.cpp` into Image-Toolkit's central `base` module (`base.hie.*`) — full detail, including how I verified the production build (not skipped!), in `.agent/cache/claude/hie_central_base_binding_20260812.md`.
