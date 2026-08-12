@@ -17,6 +17,7 @@ from .exact_dp import (
     call_hie_exact_solver,
 )
 from .metaheuristics import call_hie_de, call_hie_pso
+from .restoration import RestorationResult, submit_restoration_job
 
 __all__ = [
     "AlignmentResult",
@@ -32,9 +33,11 @@ __all__ = [
     "MotionModel2DTS",
     "SeamPixel",
     "SeamResult",
+    "RestorationResult",
     "call_hie_alignment_gnc",
     "call_hie_exact_solver",
     "call_hie_de",
     "call_hie_pso",
+    "submit_restoration_job",
     "submit_job",
 ]

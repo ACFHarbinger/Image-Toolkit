@@ -11,6 +11,8 @@ This roadmap defines the AI capabilities in `middleware/models/` and `middleware
 - **Neural Alpha Matting:** BiRefNet and FastSAM integration for instant sub-pixel alpha mask generation around complex subjects (hair, fur, glass).
 - **Generative Inpainting & Outpainting:** Prompt-driven or stroke-guided neural fill for object removal and non-destructive canvas boundary extension.
 - **AI Super-Resolution:** Real-ESRGAN upscaling nodes integrated into non-destructive layer graphs.
+- **Image Deblurring:** Optional blind/non-blind restoration adapter and cancellable job boundary for motion/defocus blur.
+- **Consent-Gated Watermark Inpainting:** User-mask-guided logo removal for owned/licensed assets, with explicit permission confirmation and preview-only proposals.
 
 ### 2. Reinforcement Learning Co-Pilot (`middleware/policies/`)
 - **RL Environment Sequence:**
@@ -30,3 +32,5 @@ This roadmap defines the AI capabilities in `middleware/models/` and `middleware
 | **Phase 3.3** | Interactive Brush RL Retouching Policy (Phase 1 Target) | High | `middleware/policies/brush_assistant.py` & Gymnasium Env |
 | **Phase 3.4** | Global Tone RL Retouching Policy (Phase 2 Target) | Med | `middleware/policies/tone_agent.py` |
 | **Phase 3.5** | Crop & Composition RL Policy (Phase 3 Target) | Low | `middleware/policies/crop_agent.py` |
+| **Phase 3.6** | Deblur Restoration Adapter & Job Contract | High | `middleware/models/deblur.py`, `middleware/jobs/restoration.py` |
+| **Phase 3.7** | Consent-Gated Watermark Inpainting Adapter | High | `middleware/models/watermark.py`, `middleware/jobs/restoration.py` |

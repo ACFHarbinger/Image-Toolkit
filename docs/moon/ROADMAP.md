@@ -29,6 +29,6 @@ Architected from Day 1 for multi-modal inputs (single images and multi-frame vid
 ## 3. Phased Sequence Summary
 
 - **Phase 1 (Foundation):** Multi-modal frame sequence document model, C++ logic core refactoring, pybind11 root `base` binding integration, PySide6 `gui/hie_tab.py` viewport.
-- **Phase 2 (Optimization & Matting):** Exact C++ DP seam routing & convex color harmonization, PSO filter autotuner, BiRefNet alpha matting.
+- **Phase 2 (Optimization & Matting):** Exact C++ DP seam routing & convex color harmonization, PSO filter autotuner, BiRefNet alpha matting, and optional deblur/inpainting restoration foundations.
 - **Phase 3 (RL Co-Pilot & Advanced Features):** Interactive Brush RL Retouching Agent, Differential Evolution composition solver, Real-ESRGAN super-resolution, Tauri web UI integration.
 - **Phase 4 (Video Editing Extension):** Temporal keyframe sequence propagation, SAM-2 tracking, video clip export.

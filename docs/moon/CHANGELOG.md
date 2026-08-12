@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- HIE restoration foundations: optional `DeblurAdapter` and consent-gated `WatermarkRemovalAdapter`, plus cancellable injected restoration jobs for blind/non-blind deblurring and mask-guided inpainting. No model weights or heavy runtimes are bundled.
+- Multi-modal IPC media support for still sources and validated multi-frame sequences with FPS, frame duration, and metadata preservation.
+- Stateful `PipelineSession`, versioned frontend IPC envelopes, in-memory IPC service, PySide6/Tauri frontend surfaces, and default Phase 1 capability registration.
+
 - **Multi-Modal Document Schema (`logic/include/document.hpp`):** Defined versioned value types (`MediaAsset`, `Frame`, `FrameSequence`, `Layer`, `ModifierNode`, `ModifierEdge`, `Document`). Supports 1-frame degenerate sequence representation for still images without data model refactoring for video clips.
 - **Topological DAG Render Graph (`logic/include/render_graph.hpp`, `logic/src/render_graph.cpp`):** Built C++ DAG evaluator using Kahn’s topological sorting algorithm, tile-based rendering callbacks, per-node cache invalidation, and BFS downstream dirty propagation.
 - **C++ Exact Numerical Solvers (`logic/include/exact_solvers.hpp`, `logic/src/exact_solvers.cpp`):** Min-Cut / Viterbi DP seam routing with external character exclusion mask barriers (`1e9` infinite penalty), GNC-TLS 2D Translation + Scale alignment (`[tx, ty, scale]`) with Cauchy robust weighting schedule, and Reinhard convex color harmonization in CIELab space with non-clipping constraints.
@@ -37,6 +41,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `dev/` developer-assistant tool, milestones D1–D5 of `docs/moon/roadmaps/developer_tools.md`: the `input/protobuf/codegraph.proto` schema, a hand-mirrored Python data model (`core/model.py`), a real AST-based Python import-graph parser (`input/python/parser.py`), multi-source graph aggregation (`core/aggregate.py`), layer classification + forbidden-direction violation detection (`core/layers.py`), Tarjan's-SCC circular-dependency detection (`core/cycles.py`), a self-contained vis.js/Jinja2 HTML report generator (`output/html/report.py`), and a `cli.py` tying it together (`report`/`check` subcommands). 13 passing pytest cases, including a fixture project with an intentional import cycle.
 
 ### Changed
+
+- Restoration and watermark-removal proposals remain preview-only. Watermark inpainting requires a user mask and explicit confirmation that the image may be edited.
 
 - Moved `moon/` directory into `docs/` to integrate with the documentation portal, and updated all referencing files.
 - Moved `docker/` to `infra/global/docker/` to make room for other infra-as-code stacks; updated all referencing files.

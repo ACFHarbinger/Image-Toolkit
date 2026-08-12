@@ -33,6 +33,7 @@ The middleware is structured into five core submodules:
 - `middleware/src/hie_middleware/ipc.py`: Defines versioned frontend/host envelopes (`IpcRequest`, `IpcResponse`) for `open_media`, `export_document`, and `notify`.
 - `middleware/src/hie_middleware/ipc_service.py`: Provides a deterministic in-memory implementation of those initial methods for hosts and integration tests, including still and multi-frame media sequences.
 - `middleware/src/hie_middleware/pipeline/session.py`: Combines an active `DocumentHistory`, default capabilities, proposal preview, and explicit acceptance for one editor session.
+- `middleware/src/hie_middleware/jobs/restoration.py`: Runs injected deblur/inpainting backends through cancellable `JobHandle`s without bundling model runtimes.
 
 ## Weight & Dependency Management
 
