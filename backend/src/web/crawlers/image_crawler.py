@@ -315,6 +315,10 @@ class ImageCrawler(QObject):
         parsed = urllib.parse.urlparse(url)
         path = parsed.path.lower()
 
+        # Reject HTML webpage links
+        if any(path.endswith(ext) for ext in (".html", ".htm", ".php", ".asp", ".aspx")):
+            return None
+
         if any(
             path.endswith(ext)
             for ext in (".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp")
@@ -352,15 +356,44 @@ class ImageCrawler(QObject):
 
             out_path = os.path.abspath(os.path.join(download_dir, fname))
 
-            # Skip if already exists
-            if os.path.exists(out_path) and os.path.getsize(out_path) > 1000:
+            # Skip if already exists and valid
+            if os.path.exists(out_path) and os.path.getsize(out_path) > 3000:
                 return out_path
 
             resp = session.get(img_url, headers=headers, timeout=20)
-            if resp.status_code == 200 and len(resp.content) > 3000:
-                with open(out_path, "wb") as f:
-                    f.write(resp.content)
-                return out_path
+            if resp.status_code != 200:
+                return None
+
+            c_type = resp.headers.get("Content-Type", "").lower()
+            if "text/html" in c_type or "text/plain" in c_type or "application/xhtml" in c_type:
+                return None
+
+            content = resp.content
+            if len(content) < 100:
+                return None
+
+            # Verify image magic bytes
+            is_valid_image = (
+                content.startswith(b"\xff\xd8\xff")  # JPEG
+                or content.startswith(b"\x89PNG")     # PNG
+                or content.startswith(b"GIF8")        # GIF
+                or (content.startswith(b"RIFF") and b"WEBP" in content[:16])  # WEBP
+                or content.startswith(b"BM")          # BMP
+            )
+            if not is_valid_image:
+                return None
+
+            # Correct extension if mismatch
+            if content.startswith(b"\xff\xd8\xff") and not out_path.lower().endswith((".jpg", ".jpeg")):
+                out_path = os.path.splitext(out_path)[0] + ".jpg"
+            elif content.startswith(b"\x89PNG") and not out_path.lower().endswith(".png"):
+                out_path = os.path.splitext(out_path)[0] + ".png"
+            elif b"WEBP" in content[:16] and not out_path.lower().endswith(".webp"):
+                out_path = os.path.splitext(out_path)[0] + ".webp"
+
+            with open(out_path, "wb") as f:
+                f.write(content)
+            return out_path
 
         except Exception as e:
             self.on_status.emit(f"⚠️ Download failed for {img_url}: {e}")
