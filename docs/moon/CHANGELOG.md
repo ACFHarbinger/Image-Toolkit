@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added optional JSON preview reports from `hie-restore --report`, including dimensions, backend, and mask coverage.
 - Added input/output sharpness diagnostics and sharpness delta to restoration preview reports.
 - Added bounded inpainting-mask validation: empty, full-image, and overly broad masks are rejected before a restoration backend runs; accepted coverage is retained in job metadata and CLI reports.
+- Added `RestorationPipeline`, a frontend-facing dispatch boundary that exposes configured restoration capabilities and submits cancellable deblur/inpainting previews without coupling UIs to runner implementations.
 - Multi-modal IPC media support for still sources and validated multi-frame sequences with FPS, frame duration, and metadata preservation.
 - Stateful `PipelineSession`, versioned frontend IPC envelopes, in-memory IPC service, PySide6/Tauri frontend surfaces, and default Phase 1 capability registration.
 

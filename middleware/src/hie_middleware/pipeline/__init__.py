@@ -5,6 +5,7 @@ from .orchestrator import PipelineProposal, PipelineUnavailable, ProposalPipelin
 from .optimization import OptimizationPipeline, OptimizationUnavailable
 from .defaults import build_default_pipeline
 from .session import PipelineSession
+from .restoration import RestorationPipeline
 
 __all__ = [
     "AcceptedProposal",
@@ -16,4 +17,5 @@ __all__ = [
     "PipelineUnavailable",
     "ProposalAcceptanceService",
     "ProposalPipeline",
+    "RestorationPipeline",
 ]
