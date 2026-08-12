@@ -130,7 +130,7 @@ class ImageCrawler(QObject):
                 download_headers = dict(session_headers)
                 download_headers["Referer"] = f"https://{host}/"
 
-                for img_url in unique_urls:
+                for img_idx, img_url in enumerate(unique_urls, start=1):
                     if not self._is_running:
                         break
 
@@ -139,9 +139,18 @@ class ImageCrawler(QObject):
                     )
                     if saved_path:
                         downloaded_count += 1
-                        self.on_image_saved.emit(saved_path)
+                        pos_on_page = (skip_first if skip_first > 0 else 0) + img_idx
+                        meta = {
+                            "path": saved_path,
+                            "page_url": target_url,
+                            "page_num": page_idx + 1,
+                            "index_on_page": pos_on_page,
+                            "global_id": downloaded_count,
+                            "img_url": img_url,
+                        }
+                        self.on_image_saved.emit(json.dumps(meta))
                         self.on_status.emit(
-                            f"✅ Saved [{downloaded_count}]: {os.path.basename(saved_path)}"
+                            f"✅ Saved [{downloaded_count}] (Page {page_idx + 1} #{pos_on_page}): {os.path.basename(saved_path)}"
                         )
 
                     time.sleep(0.1)

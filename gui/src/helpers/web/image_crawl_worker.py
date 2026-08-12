@@ -53,9 +53,23 @@ class ImageCrawlWorker(QThread):
 
             downloaded = 0
 
-            def on_saved(path):
+            def on_saved(meta_or_path):
                 nonlocal downloaded
                 downloaded += 1
+                if isinstance(meta_or_path, str) and meta_or_path.startswith("{"):
+                    with contextlib.suppress(Exception):
+                        meta = json.loads(meta_or_path)
+                        path = meta["path"]
+                        global_id = meta.get("global_id", downloaded)
+                        page_num = meta.get("page_num", 1)
+                        pos_on_page = meta.get("index_on_page", downloaded)
+                        self.status.emit(
+                            f"Saved [{global_id}] (Page {page_num} #{pos_on_page}): {os.path.basename(path)}"
+                        )
+                        self.image_downloaded.emit(meta)
+                        return
+
+                path = meta_or_path if isinstance(meta_or_path, str) else str(meta_or_path)
                 self.status.emit(f"Saved: {os.path.basename(path)}")
                 self.image_downloaded.emit(path)
 
