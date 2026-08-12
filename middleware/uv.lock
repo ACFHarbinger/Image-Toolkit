@@ -35,6 +35,14 @@ restoration-opencv = [
     { name = "pillow" },
 ]
 
+[package.dev-dependencies]
+restoration-opencv = [
+    { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "numpy", version = "2.5.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+    { name = "opencv-python-headless" },
+    { name = "pillow" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "numpy", marker = "extra == 'restoration-opencv'", specifier = ">=1.24" },
@@ -45,6 +53,13 @@ requires-dist = [
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.6" },
 ]
 provides-extras = ["dev", "restoration", "restoration-opencv"]
+
+[package.metadata.requires-dev]
+restoration-opencv = [
+    { name = "numpy", specifier = ">=1.24" },
+    { name = "opencv-python-headless", specifier = ">=4.10" },
+    { name = "pillow", specifier = ">=10.0" },
+]
 
 [[package]]
 name = "iniconfig"
