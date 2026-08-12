@@ -6,11 +6,15 @@ requires-python = ">=3.11"
 dependencies = ["PySide6>=6.7,<7"]
 
 [project.scripts]
-hie-gui = "hie_gui.main:main"
+hie-gui = "main:main"
 
 [build-system]
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
-[tool.setuptools.packages.find]
-where = ["src"]
+[tool.setuptools]
+py-modules = ["hie_editor_tab", "hie_tab", "main", "viewport"]
+
+[tool.pytest.ini_options]
+testpaths = ["test"]
+pythonpath = ["src"]

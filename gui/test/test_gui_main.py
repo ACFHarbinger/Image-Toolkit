@@ -1,8 +1,8 @@
-"""Unit tests for standalone HIE GUI runner (hie_gui.main)."""
+"""Unit tests for standalone HIE GUI runner (main.py)."""
 
 import pytest
 from PySide6.QtWidgets import QApplication, QMainWindow
-from hie_gui.main import build_parser, create_window
+from main import build_parser, create_window
 
 
 def test_build_parser():

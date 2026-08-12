@@ -26,7 +26,7 @@ from pipeline import (
     build_default_pipeline,
 )
 
-from .viewport import HieViewport
+from viewport import HieViewport
 
 IMAGE_FILE_FILTER = (
     "Images (*.png *.jpg *.jpeg *.webp *.bmp *.tif *.tiff *.exr);;All files (*)"

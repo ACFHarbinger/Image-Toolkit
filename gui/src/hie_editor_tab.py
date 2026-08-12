@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .hie_tab import HieTab
+from hie_tab import HieTab
 
 
 class HieEditorTab(HieTab):
