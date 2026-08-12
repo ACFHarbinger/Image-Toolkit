@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Documented root-level `uv run --package hie-middleware hie-restore ...` commands so the restoration CLI is discoverable from the HIE workspace.
 - Added the `hie-restore` CLI for local deblur and consent-gated mask inpainting previews.
 - Added optional JSON preview reports from `hie-restore --report`, including dimensions, backend, and mask coverage.
+- Added input/output sharpness diagnostics and sharpness delta to restoration preview reports.
 - Multi-modal IPC media support for still sources and validated multi-frame sequences with FPS, frame duration, and metadata preservation.
 - Stateful `PipelineSession`, versioned frontend IPC envelopes, in-memory IPC service, PySide6/Tauri frontend surfaces, and default Phase 1 capability registration.
 

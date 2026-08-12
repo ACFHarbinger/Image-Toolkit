@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import statistics
 import sys
 from pathlib import Path
 
@@ -84,6 +85,10 @@ def main(argv: list[str] | None = None) -> int:
 def _write_report(args: argparse.Namespace, output_ref: str, operation: str) -> None:
     from PIL import Image
 
+    input_image = Image.open(args.input)
+    output_image = Image.open(output_ref)
+    input_sharpness = _sharpness_score(input_image)
+    output_sharpness = _sharpness_score(output_image)
     report = {
         "schema_version": 1,
         "preview_only": True,
@@ -91,16 +96,27 @@ def _write_report(args: argparse.Namespace, output_ref: str, operation: str) -> 
         "backend": getattr(args, "backend", "pillow"),
         "input": str(Path(args.input).resolve()),
         "output": str(Path(output_ref).resolve()),
-        "input_size": list(Image.open(args.input).size),
-        "output_size": list(Image.open(output_ref).size),
+        "input_size": list(input_image.size),
+        "output_size": list(output_image.size),
+        "input_sharpness": input_sharpness,
+        "output_sharpness": output_sharpness,
+        "sharpness_delta": output_sharpness - input_sharpness,
     }
     if operation == "masked_inpainting":
-        import numpy as np
-
-        mask = np.asarray(Image.open(args.mask).convert("L"))
-        report["mask_coverage"] = float((mask > 0).mean())
+        mask_image = Image.open(args.mask).convert("L")
+        mask = list(mask_image.get_flattened_data())
+        report["mask_coverage"] = sum(pixel > 0 for pixel in mask) / len(mask)
         report["mask"] = str(Path(args.mask).resolve())
     Path(args.report).write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+
+
+def _sharpness_score(image) -> float:
+    """Return a dependency-light edge-variance diagnostic for a preview."""
+    from PIL import ImageFilter
+
+    edges = image.convert("L").filter(ImageFilter.FIND_EDGES)
+    edge_values = list(edges.get_flattened_data())
+    return float(statistics.pvariance(edge_values))
 
 
 if __name__ == "__main__":

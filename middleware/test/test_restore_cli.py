@@ -25,3 +25,4 @@ def test_restore_cli_writes_deblur_preview_report(tmp_path):
     assert data["preview_only"] is True
     assert data["input_size"] == [10, 12]
     assert data["operation"] == "deblur"
+    assert "sharpness_delta" in data
