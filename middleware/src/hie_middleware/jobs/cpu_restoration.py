@@ -133,6 +133,45 @@ def opencv_masked_inpainting_runner(
     return str(output)
 
 
+def cpu_deblur_preview(input_ref: str, *, strength: float = 1.0, radius: float = 1.2):
+    """Synchronous Pillow UnsharpMask preview — no job contract, no disk write.
+
+    `cpu_deblur_runner` above is a full `RestorationRunner` (options/token/
+    report signature, writes a new file, meant for `submit_restoration_job`).
+    This is the lighter-weight counterpart for instant preview rendering
+    (e.g. a live strength/radius slider in the GUI) where spinning up a
+    cancellable `Job` and touching the filesystem on every parameter change
+    would be unnecessary overhead. Returns the rendered `PIL.Image.Image`
+    directly; the caller decides whether/where to persist it.
+    """
+    from PIL import ImageFilter
+
+    if not 0.0 <= strength <= 3.0:
+        raise ValueError("deblur strength must be between 0 and 3")
+    if not 0.1 <= radius <= 5.0:
+        raise ValueError("deblur radius must be between 0.1 and 5")
+    source = _open_image(input_ref)
+    percent = int(100 + strength * 150)
+    return source.filter(ImageFilter.UnsharpMask(radius=radius, percent=percent, threshold=2))
+
+
+def cpu_sharpen_preview(input_ref: str, *, strength: float = 1.0):
+    """Synchronous Pillow sharpen preview — no job contract, no disk write.
+
+    Distinct from `cpu_deblur_preview`: a single-pass `ImageEnhance.Sharpness`
+    boost rather than an unsharp-mask deconvolution approximation — cheaper,
+    and better suited to "just make the edges pop a bit" live-preview use
+    than genuine blur-restoration. See `cpu_deblur_preview`'s docstring for
+    why this returns an in-memory image instead of writing a file.
+    """
+    from PIL import ImageEnhance
+
+    if not 0.0 <= strength <= 3.0:
+        raise ValueError("sharpen strength must be between 0 and 3")
+    source = _open_image(input_ref)
+    return ImageEnhance.Sharpness(source).enhance(1.0 + strength)
+
+
 def _open_image(path: str):
     from PIL import Image
 

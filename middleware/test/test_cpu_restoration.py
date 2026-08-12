@@ -2,8 +2,10 @@ from PIL import Image, ImageDraw
 
 from hie_middleware.jobs import (
     JobStatus,
+    cpu_deblur_preview,
     cpu_deblur_runner,
     cpu_masked_inpainting_runner,
+    cpu_sharpen_preview,
     opencv_deblur_runner,
     submit_restoration_job,
 )
@@ -81,3 +83,51 @@ def test_inpainting_mask_validation_rejects_empty_and_broad_masks():
     ImageDraw.Draw(mostly_marked).rectangle((0, 0, 2, 2), fill=0)
     with pytest.raises(ValueError, match="safety limit"):
         validate_inpainting_mask(mostly_marked)
+
+
+def test_cpu_deblur_preview_returns_an_image_without_writing_a_file(tmp_path):
+    source = tmp_path / "blurred.png"
+    Image.new("RGB", (24, 24), "#aa4477").save(source)
+
+    result = cpu_deblur_preview(str(source), strength=1.5, radius=1.0)
+
+    assert isinstance(result, Image.Image)
+    assert result.size == (24, 24)
+    # No output file should appear -- this is the in-memory-only counterpart
+    # to cpu_deblur_runner, which does write one.
+    assert not (tmp_path / "blurred.deblur.png").exists()
+
+
+def test_cpu_deblur_preview_validates_strength_and_radius(tmp_path):
+    source = tmp_path / "blurred.png"
+    Image.new("RGB", (24, 24), "#aa4477").save(source)
+
+    with pytest.raises(ValueError, match="strength must be between 0 and 3"):
+        cpu_deblur_preview(str(source), strength=5.0)
+    with pytest.raises(ValueError, match="radius must be between 0.1 and 5"):
+        cpu_deblur_preview(str(source), radius=10.0)
+
+
+def test_cpu_sharpen_preview_returns_an_image_without_writing_a_file(tmp_path):
+    source = tmp_path / "soft.png"
+    Image.new("RGB", (24, 24), "#335577").save(source)
+
+    result = cpu_sharpen_preview(str(source), strength=1.0)
+
+    assert isinstance(result, Image.Image)
+    assert result.size == (24, 24)
+    assert not (tmp_path / "soft.sharpen.png").exists()
+
+
+def test_cpu_sharpen_preview_validates_strength(tmp_path):
+    source = tmp_path / "soft.png"
+    Image.new("RGB", (24, 24), "#335577").save(source)
+    with pytest.raises(ValueError, match="sharpen strength must be between 0 and 3"):
+        cpu_sharpen_preview(str(source), strength=-1.0)
+
+
+def test_cpu_preview_functions_raise_for_missing_input():
+    with pytest.raises(FileNotFoundError):
+        cpu_deblur_preview("/does/not/exist.png")
+    with pytest.raises(FileNotFoundError):
+        cpu_sharpen_preview("/does/not/exist.png")
