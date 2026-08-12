@@ -65,6 +65,26 @@ class ManualSelectionDialog(QDialog):
         self.downloaded_files = downloaded_files
         self.checkboxes: Dict[str, QCheckBox] = {}
 
+        # Resolve target download directory from parent hierarchy
+        self.download_dir = ""
+        p = parent
+        while p is not None:
+            if hasattr(p, "download_dir_path"):
+                try:
+                    self.download_dir = getattr(p, "download_dir_path").text().strip()
+                    if self.download_dir:
+                        break
+                except Exception:
+                    pass
+            if hasattr(p, "download_dir"):
+                try:
+                    self.download_dir = str(getattr(p, "download_dir")).strip()
+                    if self.download_dir:
+                        break
+                except Exception:
+                    pass
+            p = p.parent() if hasattr(p, "parent") and callable(p.parent) else None
+
         self.setup_ui()
 
     def setup_ui(self):
@@ -157,13 +177,28 @@ class ManualSelectionDialog(QDialog):
         # Sanitize path by stripping query parameters and URL fragments
         clean_path = raw_path.split("?")[0].split("#")[0]
 
-        # Verify disk file existence; try parent download dir fallback if needed
+        # 1. Resolve relative path or missing file via download_dir
         if not os.path.exists(clean_path):
             fname = os.path.basename(clean_path)
-            if self.parent() and hasattr(self.parent(), "download_dir_path"):
-                d_dir = getattr(self.parent(), "download_dir_path").text().strip()
-                if d_dir and os.path.exists(os.path.join(d_dir, fname)):
-                    clean_path = os.path.join(d_dir, fname)
+            if self.download_dir:
+                candidate = os.path.join(self.download_dir, fname)
+                if os.path.exists(candidate):
+                    clean_path = candidate
+                else:
+                    for ext in (".jpeg", ".jpg", ".png", ".webp", ".gif", ".bmp"):
+                        if os.path.exists(candidate + ext):
+                            clean_path = candidate + ext
+                            break
+
+        # 2. Ultimate Fail-Safe: Match file by download index if file is still not found directly
+        if not os.path.exists(clean_path) and self.download_dir and os.path.exists(self.download_dir):
+            disk_files = sorted([
+                os.path.join(self.download_dir, f)
+                for f in os.listdir(self.download_dir)
+                if any(f.lower().endswith(ext) for ext in (".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp"))
+            ])
+            if 0 <= idx < len(disk_files):
+                clean_path = disk_files[idx]
 
         card = QFrame()
         card.setFrameShape(QFrame.Shape.StyledPanel)
@@ -213,11 +248,13 @@ class ManualSelectionDialog(QDialog):
         info_label.setStyleSheet("font-size: 11px;")
         info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        # Checkbox
+        # Checkbox mapping for all path aliases
         chk = QCheckBox("Keep")
         chk.setChecked(True)
         self.checkboxes[raw_path] = chk
         self.checkboxes[clean_path] = chk
+        if isinstance(item, dict) and "path" in item:
+            self.checkboxes[item["path"]] = chk
 
         card_layout.addWidget(thumb_label, 0, Qt.AlignmentFlag.AlignCenter)
         card_layout.addWidget(info_label, 0, Qt.AlignmentFlag.AlignCenter)
