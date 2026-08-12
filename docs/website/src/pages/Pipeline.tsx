@@ -5,13 +5,6 @@ import { submoduleSites } from '../constants/submodules';
 export default function Pipeline() {
   const [selectedSubmodule, setSelectedSubmodule] = useState<string | null>(null);
 
-  const localPaths: Record<string, string> = {
-    'anime-stitch-pipeline': '/submodules/ASP/docs/website/index.html',
-    'cel-shaded-generator': '/submodules/CSG/docs/website/index.html',
-    'content-recommendation-engine': '/submodules/CRE/docs/website/index.html',
-    'hybrid-image-editor': '/submodules/HIE/docs/website/index.html',
-  };
-
   return (
     <div className="min-h-screen pt-32 px-8 max-w-[1400px] mx-auto pb-24">
       <div className="mb-16">
@@ -53,7 +46,7 @@ export default function Pipeline() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           {submoduleSites.map((site) => {
             const isSelected = selectedSubmodule === site.slug;
-            const targetUrl = localPaths[site.slug] || site.url;
+            const targetUrl = site.url;
 
             return (
               <div 
@@ -123,7 +116,7 @@ export default function Pipeline() {
               </button>
             </div>
             <iframe 
-              src={localPaths[selectedSubmodule] || submoduleSites.find(s => s.slug === selectedSubmodule)?.url} 
+              src={submoduleSites.find(s => s.slug === selectedSubmodule)?.url}
               title="Submodule Website Preview"
               className="w-full h-[650px] rounded border border-[#1a1c23]"
             />
