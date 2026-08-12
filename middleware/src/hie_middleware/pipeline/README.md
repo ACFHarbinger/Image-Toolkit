@@ -18,3 +18,7 @@ explicit next step: it records an accepted proposal in document metadata and
 commits it through `DocumentHistory`; operation-specific renderers can later
 consume that audit record and connect long-running optimization jobs through
 the same frontend contract.
+
+`OptimizationPipeline` exposes PSO and differential evolution through the same
+job handle. The Python reference implementation is the default; native
+`base.hie` execution is opt-in and is reported through `capabilities()`.
