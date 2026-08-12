@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `logic/benchmark/solvers_benchmark.cpp`: native Google Benchmark coverage for `solve_seam`, `solve_alignment_gnc`, `solve_color_harmonization`, `pso_solve`, and `de_solve`, complementing the existing Python-level `middleware/scripts/benchmark_jobs.py` report.
 - "Open Image…" button on the PySide6 HIE editor tab (`gui/src/hie_gui/hie_tab.py`), wired to a file dialog that loads the image into the viewport (`HieViewport.load_image`) and starts a fresh document history for it.
 - HIE restoration foundations: optional `DeblurAdapter` and consent-gated `WatermarkRemovalAdapter`, plus cancellable injected restoration jobs for blind/non-blind deblurring and mask-guided inpainting. No model weights or heavy runtimes are bundled.
+- Added optional Pillow CPU restoration runners for conservative deblur and mask-guided inpainting previews; neural/OpenCV backends remain swappable.
+- Added an optional `restoration-opencv` middleware extra and OpenCV Telea/Navier–Stokes masked-inpainting runner.
 - Multi-modal IPC media support for still sources and validated multi-frame sequences with FPS, frame duration, and metadata preservation.
 - Stateful `PipelineSession`, versioned frontend IPC envelopes, in-memory IPC service, PySide6/Tauri frontend surfaces, and default Phase 1 capability registration.
 

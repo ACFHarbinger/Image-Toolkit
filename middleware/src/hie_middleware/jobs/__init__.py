@@ -18,6 +18,11 @@ from .exact_dp import (
 )
 from .metaheuristics import call_hie_de, call_hie_pso
 from .restoration import RestorationResult, submit_restoration_job
+from .cpu_restoration import (
+    cpu_deblur_runner,
+    cpu_masked_inpainting_runner,
+    opencv_masked_inpainting_runner,
+)
 
 __all__ = [
     "AlignmentResult",
@@ -34,6 +39,9 @@ __all__ = [
     "SeamPixel",
     "SeamResult",
     "RestorationResult",
+    "cpu_deblur_runner",
+    "cpu_masked_inpainting_runner",
+    "opencv_masked_inpainting_runner",
     "call_hie_alignment_gnc",
     "call_hie_exact_solver",
     "call_hie_de",

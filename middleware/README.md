@@ -34,6 +34,16 @@ The middleware is structured into five core submodules:
 - `middleware/src/hie_middleware/ipc_service.py`: Provides a deterministic in-memory implementation of those initial methods for hosts and integration tests, including still and multi-frame media sequences.
 - `middleware/src/hie_middleware/pipeline/session.py`: Combines an active `DocumentHistory`, default capabilities, proposal preview, and explicit acceptance for one editor session.
 - `middleware/src/hie_middleware/jobs/restoration.py`: Runs injected deblur/inpainting backends through cancellable `JobHandle`s without bundling model runtimes.
+- `middleware/src/hie_middleware/jobs/cpu_restoration.py`: Optional Pillow CPU baselines for local previews while neural/OpenCV runtimes are unavailable.
+
+Install the OpenCV backend with:
+
+```bash
+python3 -m pip install -e '.[restoration-opencv]'
+```
+
+Use `opencv_masked_inpainting_runner` through `submit_restoration_job` after
+the required mask and permission confirmation have been supplied.
 
 ## Weight & Dependency Management
 
