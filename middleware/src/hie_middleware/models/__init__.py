@@ -1,14 +1,15 @@
 """Model adapters for machine learning and deep learning tools."""
 
 from .base import ModelAdapter, ModelProposal, ModelSpec, ModelUnavailable
-from .deblur import DeblurAdapter
+from .deblur import DeblurAdapter, DeblurModel
 from .inpainting import InpaintingAdapter, InpaintingModel
 from .matting import MattingAdapter, MattingModel
 from .superres import SuperResolutionAdapter, SuperResModel
-from .watermark import WatermarkRemovalAdapter
+from .watermark import WatermarkModel, WatermarkRemovalAdapter
 
 __all__ = [
     "DeblurAdapter",
+    "DeblurModel",
     "InpaintingAdapter",
     "InpaintingModel",
     "MattingAdapter",
@@ -19,5 +20,6 @@ __all__ = [
     "ModelUnavailable",
     "SuperResolutionAdapter",
     "SuperResModel",
+    "WatermarkModel",
     "WatermarkRemovalAdapter",
 ]
