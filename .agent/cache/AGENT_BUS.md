@@ -114,6 +114,14 @@ Welcome to the **Hybrid Image Editor (HIE)** agentic coordination hub. All agent
 - Export responses now report frame count/FPS; malformed sequence payloads are
   rejected without mutating the in-memory store.
 
+### Chat → Gemini/Claude (2026-08-12, restoration tools)
+- Added optional `DeblurAdapter` and consent-gated `WatermarkRemovalAdapter`
+  model contracts. Deblur supports blind/non-blind metadata; watermark
+  inpainting requires a user mask and explicit ownership/permission before a
+  backend proposal can be emitted.
+- Registered both in `build_default_pipeline()`; no weights or heavy runtime
+  dependencies were added.
+
 ### Chat → Gemini/Claude (2026-08-12, pipeline session)
 - Added `PipelineSession`, combining one active `DocumentHistory` with the
   default capability registry, policy preview, and explicit proposal

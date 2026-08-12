@@ -1,6 +1,9 @@
 import pytest
 
-from hie_middleware.models import MattingAdapter, ModelUnavailable, SuperResolutionAdapter
+from hie_middleware.models import (
+    DeblurAdapter, MattingAdapter, ModelUnavailable, SuperResolutionAdapter,
+    WatermarkRemovalAdapter,
+)
 from hie_middleware.policies import BrushAssistantPolicy, CropCompositionPolicy, GlobalTonePolicy
 
 
@@ -20,6 +23,26 @@ def test_super_resolution_adapter_is_optional_and_preserves_scale_metadata():
 
     with pytest.raises(ValueError):
         SuperResolutionAdapter(scale=1)
+
+
+def test_deblur_adapter_is_optional_and_validates_method():
+    adapter = DeblurAdapter(method="blind")
+    assert adapter.spec.task == "deblur"
+    assert not adapter.is_available()
+    with pytest.raises(ModelUnavailable):
+        adapter.propose("blurred.png")
+    with pytest.raises(ValueError):
+        DeblurAdapter(method="unknown")
+
+
+def test_watermark_adapter_requires_mask_and_permission_before_runtime():
+    adapter = WatermarkRemovalAdapter()
+    with pytest.raises(ValueError, match="mask_ref"):
+        adapter.propose("owned.png", permission_confirmed=True)
+    with pytest.raises(PermissionError, match="ownership"):
+        adapter.propose("owned.png", mask_ref="logo-mask.png")
+    with pytest.raises(ModelUnavailable):
+        adapter.propose("owned.png", mask_ref="logo-mask.png", permission_confirmed=True)
 
 
 def test_brush_policy_emits_deterministic_inspectable_proposal():
