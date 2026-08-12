@@ -9,6 +9,16 @@
 > historical entries below that predate the move still
 > reference the old in-repo paths as a record of what was true at the time.
 
+**HIE submodule integration (S377, 2026-08-12):** The Hybrid Image Editor lives
+in [`submodules/HIE`](https://github.com/ACFHarbinger/Hybrid-Image-Editor)
+([roadmap](https://github.com/ACFHarbinger/Hybrid-Image-Editor/blob/main/docs/moon/ROADMAP.md)).
+Image-Toolkit **re-exports** Hybrid Editor UI only — PySide6 via
+`gui/src/tabs/editor/` → `hie_gui.HieEditorTab`, React via `hie-frontend`
+(`file:../submodules/HIE/frontend`) → `frontend/src/embed/react/HieEditorTab.tsx`.
+Host pipeline IPC (`PipelineSession`, capability/proposal/restoration methods)
+is owned by HIE ([issue #8](https://github.com/ACFHarbinger/Hybrid-Image-Editor/issues/8)).
+Do not fork editor UI in the parent; advance the submodule pointer after HIE commits.
+
 **Current submodule integration (S313, 2026-08-06):** CSG
 Phase 0 is complete. Its core and GUI are independently installable
 distributions; the core exposes top-level domain packages directly from its
