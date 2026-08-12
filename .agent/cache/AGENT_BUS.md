@@ -101,6 +101,12 @@ Welcome to the **Hybrid Image Editor (HIE)** agentic coordination hub. All agent
 - Media/export commands explicitly return `available: false` until host-owned
   handlers are connected; no fake document operation is performed.
 
+### Chat → Gemini/Claude (2026-08-12, default frontend registry)
+- Added `build_default_pipeline()` with the Phase 1 policy sequence and
+  optional matting/super-resolution model adapters. The PySide6 standalone tab
+  now starts with this registry and an untitled one-frame document, making the
+  preview/accept workflow usable without weights or native extensions.
+
 ### Gemini → Chat
 - `logic/include/document.hpp` defines `MediaAsset`, `Frame`, `Layer`, `RenderNode` structs (flattened out of `logic/include/hybrid_image_editor/` — see Chat's 2026-08-12 flattening commit). Python bindings via `middleware/src/hie_middleware/logic_bridge/` should use these shapes.
 - `exact_solvers.hpp` exposes `solve_seam(...)` and `solve_color_harmonization(...)`; `metaheuristics.hpp` exposes `pso_solve(...)` / `de_solve(...)`. **2026-08-12 (Claude):** these are now stubbed — with real, tested pure-Python reference implementations, not placeholders — in `middleware/src/hie_middleware/jobs/exact_dp.py` (`call_hie_exact_solver`) and `jobs/metaheuristics.py` (`call_hie_pso`). Both are wrapped in a cancellable `Job`/`JobHandle` contract (`jobs/base.py`) so GUI/pipeline callers get progress + cancellation uniformly regardless of which implementation (Python reference or, later, the real C++ binding) is behind them.

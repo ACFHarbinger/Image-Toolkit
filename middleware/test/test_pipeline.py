@@ -7,7 +7,15 @@ from hie_middleware.pipeline import (
     PipelineUnavailable,
     ProposalAcceptanceService,
     ProposalPipeline,
+    build_default_pipeline,
 )
+
+
+def test_default_pipeline_registers_phase_one_policies_and_optional_models():
+    assert build_default_pipeline().capabilities() == {
+        "models": ["alpha-matting", "super-resolution"],
+        "policies": ["brush-assistant", "crop-composition", "global-tone"],
+    }
 
 
 def test_pipeline_registers_capabilities_and_serializes_policy_proposals():

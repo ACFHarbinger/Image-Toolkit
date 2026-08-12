@@ -22,8 +22,9 @@ hie-gui
 # or: python3 -m hie_gui.main
 ```
 
-`HieTab` is the embeddable widget. A host can provide its active
-`DocumentHistory` with `set_history()` and register policies on a shared
-`ProposalPipeline`. Assistance is previewed first and only accepted through
-an explicit action, so the standalone and Image-Toolkit-hosted surfaces share
-the same safety boundary.
+`HieTab` is the embeddable widget. Standalone mode starts with the dependency-
+light Phase 1 policy registry and an untitled one-frame document, so its
+preview/accept workflow is immediately demonstrable without model weights. A
+host can replace the registry and provide its active `DocumentHistory` with
+`set_history()`. Assistance is previewed first and only accepted through an
+explicit action.

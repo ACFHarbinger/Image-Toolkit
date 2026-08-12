@@ -13,7 +13,12 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from hie_middleware.pipeline import ProposalAcceptanceService, ProposalPipeline
+from hie_middleware.document import Document, DocumentHistory, FrameSequence
+from hie_middleware.pipeline import (
+    ProposalAcceptanceService,
+    ProposalPipeline,
+    build_default_pipeline,
+)
 
 from .viewport import HieViewport
 
@@ -25,9 +30,11 @@ class HieTab(QWidget):
 
     def __init__(self, pipeline: ProposalPipeline | None = None, parent=None) -> None:
         super().__init__(parent)
-        self.pipeline = pipeline or ProposalPipeline()
+        self.pipeline = pipeline if pipeline is not None else build_default_pipeline()
         self._last_proposal = None
-        self._history = None
+        self._history = DocumentHistory(
+            Document("untitled", FrameSequence.still(""), metadata={"source": "standalone"})
+        )
 
         self.viewport = HieViewport()
         self.viewport.show_status("Open an image or video sequence to begin")
@@ -56,6 +63,7 @@ class HieTab(QWidget):
         layout = QVBoxLayout(self)
         layout.addWidget(QLabel("Hybrid Image Editor"))
         layout.addWidget(splitter)
+        self.refresh_capabilities()
 
     def refresh_capabilities(self) -> None:
         capabilities = self.pipeline.capabilities()
