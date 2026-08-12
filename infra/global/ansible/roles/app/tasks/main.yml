@@ -1,0 +1,12 @@
+---
+- name: Ensure app directory exists
+  ansible.builtin.file:
+    path: /opt/single-module-template
+    state: directory
+    mode: "0755"
+
+- name: Template environment file
+  ansible.builtin.template:
+    src: env.j2
+    dest: /opt/single-module-template/.env
+    mode: "0600"

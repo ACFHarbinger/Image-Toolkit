@@ -1,0 +1,20 @@
+name: Benchmark
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "benchmark/**"
+      - "src/**"
+      - "include/**"
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_BENCHMARK=ON
+          cmake --build build --target single_module_template_benchmark --parallel
+          ./build/benchmark/single_module_template_benchmark

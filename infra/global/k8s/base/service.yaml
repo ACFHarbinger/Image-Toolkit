@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: single-module-template
+  labels:
+    app: single-module-template
+spec:
+  selector:
+    app: single-module-template
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8000
+  type: ClusterIP
