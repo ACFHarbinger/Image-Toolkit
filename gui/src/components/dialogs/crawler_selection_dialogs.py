@@ -185,18 +185,33 @@ class ManualSelectionDialog(QDialog):
     Shows an interactive grid of downloaded images where clicking any card toggles between KEEP (blue) and DISCARD (red).
     Displays Page URL, Page #, and Pos # on Page (counter ID) to assist with Skip First/Last parameter tuning.
     """
-    def __init__(self, downloaded_files: List[Union[str, dict]], parent=None):
+    def __init__(
+        self,
+        downloaded_files: List[Union[str, dict]],
+        parent=None,
+        skip_first: int = 0,
+        skip_last: int = 0,
+    ):
         super().__init__(parent)
         self.setWindowTitle("Manual Download Selection & Skip Parameter Tuning")
         self.resize(950, 750)
         self.downloaded_files = downloaded_files
+        self.skip_first = skip_first
+        self.skip_last = skip_last
         self.cards: List[ClickableImageCard] = []
         self.checkboxes: Dict[str, Any] = {}  # Backward compatibility shim for legacy tests
 
-        # Resolve target download directory from parent hierarchy
+        # Resolve target download directory & skip spin parameters from parent hierarchy
         self.download_dir = ""
         p = parent
         while p is not None:
+            if self.skip_first == 0 and hasattr(p, "skip_first_spin"):
+                with contextlib.suppress(Exception):
+                    self.skip_first = int(getattr(p, "skip_first_spin").value())
+            if self.skip_last == 0 and hasattr(p, "skip_last_spin"):
+                with contextlib.suppress(Exception):
+                    self.skip_last = int(getattr(p, "skip_last_spin").value())
+
             if hasattr(p, "download_dir_path"):
                 try:
                     self.download_dir = getattr(p, "download_dir_path").text().strip()
@@ -236,7 +251,7 @@ class ManualSelectionDialog(QDialog):
             "Each card shows source Page URL, Page #, and Pos # on Page (counter ID). Click anywhere on a card to toggle state:\n"
             "• Blue Edge / Background = KEEP (Selected)\n"
             "• Red Edge / Background = DISCARD (Will be deleted on Confirm)\n"
-            "If every page downloads N unwanted header/footer images (e.g. Pos #1, #2, #3), set 'Skip First: N' (e.g. 3) in Crawler Tab!"
+            "Images within Skip First / Skip Last ranges are automatically pre-marked in RED as DISCARD!"
         )
         tip_text.setStyleSheet("color: #cccccc; font-size: 11px;")
         tip_text.setWordWrap(True)
@@ -325,7 +340,28 @@ class ManualSelectionDialog(QDialog):
             if 0 <= idx < len(disk_files):
                 clean_path = disk_files[idx]
 
-        return ClickableImageCard(clean_path, raw_path, item, idx, self)
+        card = ClickableImageCard(clean_path, raw_path, item, idx, self)
+
+        # Pre-mark skipped images as DISCARD (Red border & background)
+        index_on_page = idx + 1
+        total_on_page = 0
+        item_skip_first = self.skip_first
+        item_skip_last = self.skip_last
+
+        if isinstance(item, dict):
+            index_on_page = item.get("index_on_page", idx + 1)
+            total_on_page = item.get("total_on_page", 0)
+            if "skip_first" in item and item["skip_first"]:
+                item_skip_first = int(item["skip_first"])
+            if "skip_last" in item and item["skip_last"]:
+                item_skip_last = int(item["skip_last"])
+
+        if item_skip_first > 0 and index_on_page <= item_skip_first:
+            card.set_kept(False)
+        elif item_skip_last > 0 and total_on_page > 0 and index_on_page > (total_on_page - item_skip_last):
+            card.set_kept(False)
+
+        return card
 
     def select_all(self):
         for card in self.cards:
