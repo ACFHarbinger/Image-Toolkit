@@ -11,5 +11,7 @@ npm run tauri dev
 ```
 
 The Rust commands mirror `src/host.ts`: `open_media`, `export_document`, and
-`notify`. Their payloads should use the versioned `IpcRequest`/`IpcResponse`
-envelopes defined in `middleware/src/hie_middleware/ipc.py`.
+`notify`. They return a versioned `IpcResponse` envelope matching
+`middleware/src/hie_middleware/ipc.py`; request IDs are supplied by the web
+host and the current media/export responses intentionally report
+`available: false` until a host-owned handler is connected.

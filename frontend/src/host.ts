@@ -8,6 +8,18 @@ export interface HieHost {
   notify(message: string): void;
 }
 
+interface IpcResponse {
+  version: number;
+  request_id: string;
+  status: "ok" | "error";
+  payload: Record<string, unknown>;
+  error: string | null;
+}
+
+function requestId(): string {
+  return globalThis.crypto?.randomUUID?.() ?? `hie-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
 const browserHost: HieHost = {
   async openMedia(): Promise<void> {
     // A browser-safe fallback; Tauri/Image-Toolkit hosts replace this method.
@@ -29,10 +41,14 @@ declare global {
 export function getHieHost(): HieHost {
   if (window.__HIE_HOST__) return window.__HIE_HOST__;
   if ("__TAURI_INTERNALS__" in window) {
+    const requireOk = async (command: string, args: Record<string, string>): Promise<void> => {
+      const response = await invoke<IpcResponse>(command, args);
+      if (response.status === "error") throw new Error(response.error ?? `HIE host command failed: ${command}`);
+    };
     return {
-      openMedia: () => invoke("open_media"),
-      exportDocument: () => invoke("export_document"),
-      notify: (message: string) => { void invoke("notify", { message }); },
+      openMedia: () => requireOk("open_media", { requestId: requestId() }),
+      exportDocument: () => requireOk("export_document", { requestId: requestId() }),
+      notify: (message: string) => { void requireOk("notify", { requestId: requestId(), message }); },
     };
   }
   return browserHost;
