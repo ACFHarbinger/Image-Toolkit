@@ -7,22 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Session 2026-08-12 — Host integration and restoration hardening
+### Session 2026-08-12 — Host ownership, pipeline/IPC, restoration hardening
 
-- Consolidated the restoration-to-host path: `RestorationPipeline` now feeds
-  `PipelineSession`, and versioned middleware IPC exposes capability discovery,
-  policy preview/acceptance, and cancellable restoration submission to both
-  frontends.
-- Completed the restoration hardening slice with deblur contract validation,
-  watermark confidence/audit logging, CPU deblur/sharpen previews, and
-  permission-preserving inpainting dispatch.
-- Moved HIE's PySide6 and React/Tauri editor ownership into the submodule and
-  flattened the Python source layouts so package imports, entry points, and
-  parent re-exports use the same stable paths.
+Multi-agent session. **Grok** owned Hybrid Editor UI submodule ownership + host
+pipeline/IPC (HIE `ae052e8`, Image-Toolkit `a672ba46` / S377, [HIE #8](https://github.com/ACFHarbinger/Hybrid-Image-Editor/issues/8)).
+**Claude** owned package-dir flatten (`hie_middleware` → flat `middleware/src/*`,
+planned `hie_gui` → `gui/src/*`) and restoration/RL contract hardening; do not reverse.
+
+#### Host ownership & pipeline/IPC (Grok)
+
+- Hybrid Editor UI implementations live in this submodule; Image-Toolkit only re-exports:
+  - PySide6: `HieEditorTab` / `HieTab` (parent `gui/src/tabs/editor/`)
+  - React: `frontend/src/embed/react/HieEditorTab.tsx` via `hie-frontend` package
+- `HieTab` owns a middleware `PipelineSession` (proposals + restoration capability list + cancellable queue).
+- Versioned IPC expanded (`middleware/src/ipc.py`, `ipc_service.py`):
+  `list_capabilities`, `preview_policy`, `accept_proposal`, `submit_restoration`
+  (plus `open_media`, `export_document`, `notify`).
+- `HieHost` TypeScript seam supports optional capability/proposal methods; React embed uses host open/export/preview/accept.
+- Tests at land: middleware **103 passed / 23 skipped**, gui **5 passed**.
+
+#### Restoration & layout (Claude / concurrent)
+
+- Restoration path consolidated: `RestorationPipeline` → `PipelineSession` → host IPC.
+- Deblur contract validation, watermark confidence/audit logging, CPU deblur/sharpen previews, permission-preserving inpainting dispatch.
+- Python source layout flatten in progress for stable package paths and parent re-exports.
 
 ### Added
 
-- Hybrid Editor UI ownership moved into this submodule: PySide6 `HieEditorTab` (`gui/src/hie_gui/`) and React embed tab (`frontend/src/embed/react/HieEditorTab.tsx`). Image-Toolkit keeps thin re-exports only, so parent UIs update when the submodule updates.
+- Hybrid Editor UI ownership moved into this submodule: PySide6 `HieEditorTab` and React embed tab (`frontend/src/embed/react/HieEditorTab.tsx`). Image-Toolkit keeps thin re-exports only, so parent UIs update when the submodule updates.
 - `HieTab` now owns a middleware `PipelineSession` (proposal + restoration pipelines) and surfaces restoration capability discovery with a cancellable preview queue action.
 - Frontend/host IPC methods `list_capabilities`, `preview_policy`, `accept_proposal`, and `submit_restoration` (middleware `ipc.py` / `ipc_service.py`) for pipeline integration beyond open/export/notify.
 - Watermark removal confidence scoring from `mask_coverage` (smaller, more localized masks score higher) and a permission audit log (`hie_middleware.watermark_removal.audit`) recording every accepted, permission-confirmed removal request.
