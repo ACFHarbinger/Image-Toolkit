@@ -18,11 +18,13 @@ from .exact_dp import (
 )
 from .metaheuristics import call_hie_de, call_hie_pso
 from .restoration import RestorationResult, submit_restoration_job
+from .restoration_report import generate_restoration_report
 from .cpu_restoration import (
     cpu_deblur_runner,
     cpu_masked_inpainting_runner,
     opencv_deblur_runner,
     opencv_masked_inpainting_runner,
+    validate_inpainting_mask,
 )
 
 __all__ = [
@@ -44,6 +46,8 @@ __all__ = [
     "cpu_masked_inpainting_runner",
     "opencv_deblur_runner",
     "opencv_masked_inpainting_runner",
+    "validate_inpainting_mask",
+    "generate_restoration_report",
     "call_hie_alignment_gnc",
     "call_hie_exact_solver",
     "call_hie_de",
