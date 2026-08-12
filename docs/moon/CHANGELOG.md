@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Multi-Modal Document Schema (`logic/include/document.hpp`):** Defined versioned value types (`MediaAsset`, `Frame`, `FrameSequence`, `Layer`, `ModifierNode`, `ModifierEdge`, `Document`). Supports 1-frame degenerate sequence representation for still images without data model refactoring for video clips.
+- **Topological DAG Render Graph (`logic/include/render_graph.hpp`, `logic/src/render_graph.cpp`):** Built C++ DAG evaluator using Kahn’s topological sorting algorithm, tile-based rendering callbacks, per-node cache invalidation, and BFS downstream dirty propagation.
+- **C++ Exact Numerical Solvers (`logic/include/exact_solvers.hpp`, `logic/src/exact_solvers.cpp`):** Min-Cut / Viterbi DP seam routing with external character exclusion mask barriers (`1e9` infinite penalty), GNC-TLS 2D Translation + Scale alignment (`[tx, ty, scale]`) with Cauchy robust weighting schedule, and Reinhard convex color harmonization in CIELab space with non-clipping constraints.
+- **C++ Metaheuristic Solvers (`logic/include/metaheuristics.hpp`, `logic/src/metaheuristics.cpp`):** Particle Swarm Optimization (PSO) for non-convex filter stack tuning and Differential Evolution (DE) for spatial layout packing.
+- **C++ Solver Test Suite (`logic/test/test_solvers.cpp`):** Comprehensive unit tests for exact and metaheuristic solvers (100% passing).
+- **Python Middleware Package (`middleware/src/hie_middleware/`):** Document manager (`document.py`), versioned contracts (`contracts.py`), neural model adapters (`models/`), RL policy agents (`policies/`), optimization jobs (`jobs/`), pipeline orchestrator (`pipeline/`), acceptance service (`acceptance.py`), session manager (`session.py`), and IPC service (`ipc_service.py`).
+- **PySide6 Desktop GUI Integration (`gui/src/tabs/editor/hie_editor_tab.py`):** Wrapped `HieTab` into Image-Toolkit's desktop app, registering the new **Image Editor** category containing the **Hybrid Editor** tab in `_tab_registry.py` and `_relaunch_settings.py`.
+- **React/Tauri App UI Integration (`frontend/src/tabs/editor/HieEditorTab.tsx`):** Built HIE editor component and registered the new **Image Editor** category containing the **Hybrid Editor** tab in `App.tsx`.
 - Created templates and placeholder documents for research and reports directories under `docs/research/` and `docs/reports/`.
 - Created a beautiful, interactive Vue documentation portal in `docs/website/` that parses and displays all repository documentation files dynamically with search, dark mode, alert styling, and navigation.
 - Created `website/javascript/` workspace similar to the typescript/ directory but for JavaScript, and added it to root workspace settings and `justfile` tasks.
