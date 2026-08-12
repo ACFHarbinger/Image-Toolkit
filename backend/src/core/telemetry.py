@@ -131,12 +131,12 @@ def current_file_path() -> Optional[Path]:
 
 def _ensure_file():
     global _file, _file_path
-    if _file is not None:
+    if _file is not None and not _file.closed:
         return _file
     TELEMETRY_DIR.mkdir(parents=True, exist_ok=True)
     _file_path = TELEMETRY_DIR / f"telemetry-{_pid}.jsonl"
-    with open(_file_path, "a", encoding="utf-8") as _file:
-        return _file
+    _file = open(_file_path, "a", encoding="utf-8")
+    return _file
 
 
 def emit(category: str, event: str, **fields: Any) -> None:
