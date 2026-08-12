@@ -1,4 +1,4 @@
-#include "hybrid_image_editor/greet.hpp"
+#include "greet.hpp"
 
 namespace hybrid_image_editor {
 
