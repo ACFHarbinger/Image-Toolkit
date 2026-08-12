@@ -2,12 +2,26 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
-## S377 — 2026-08-12 (HIE Hybrid Editor UI ownership in submodule)
+## S377 — 2026-08-12 (HIE Hybrid Editor UI ownership + host pipeline/IPC)
 
-Moved Hybrid Editor tab implementations into `submodules/HIE` so Image-Toolkit UIs update when the submodule updates:
-- PySide6: thin re-exports under `gui/src/tabs/editor/` → `hie_gui.HieEditorTab`.
-- React/Tauri: `frontend` depends on `hie-frontend` (`file:../submodules/HIE/frontend`) and re-exports `HieEditorTab` from the submodule embed path.
-- HIE pipeline/IPC extended for host integration (`list_capabilities`, `preview_policy`, `accept_proposal`, `submit_restoration`); `HieTab` uses `PipelineSession`.
+**Goal:** Hybrid Editor UI and host pipeline integration live in `submodules/HIE`; Image-Toolkit only re-exports so parent UIs track the submodule.
+
+### Image-Toolkit (parent `a672ba46`)
+- PySide6: `gui/src/tabs/editor/` is a thin re-export of `hie_gui.HieEditorTab` (no local editor implementation).
+- React/Tauri: `frontend` depends on `hie-frontend` (`file:../submodules/HIE/frontend`) and re-exports `HieEditorTab` from `frontend/src/embed/react/`.
+- Workspace `package-lock.json` records the `hie-frontend` link.
+- HIE submodule pointer advanced to host-ownership commit `ae052e8`.
+
+### HIE submodule (`ae052e8`, issue [#8](https://github.com/ACFHarbinger/Hybrid-Image-Editor/issues/8))
+- `HieTab` owns a middleware `PipelineSession` (policy preview/accept + restoration capability list and cancellable queue).
+- Versioned IPC expanded: `list_capabilities`, `preview_policy`, `accept_proposal`, `submit_restoration` (plus existing open/export/notify).
+- React embed and `HieHost` seam updated for host-driven open/export/preview/accept.
+- Tests at land: middleware **103 passed / 23 skipped**, gui **5 passed**.
+- Coordination: Claude owns package-dir flatten (`hie_middleware` → flat `middleware/src/*`; planned `hie_gui` → `gui/src/*`); Grok did not reverse that work.
+
+### Tracking
+- HIE [#8](https://github.com/ACFHarbinger/Hybrid-Image-Editor/issues/8) — host pipeline / dual-UI integration progress comments.
+- Parent Track 04 [#363](https://github.com/ACFHarbinger/Image-Toolkit/issues/363) (closed foundation) — follow-up comment for re-export ownership.
 
 ## S376 — 2026-08-12 (Resolved and Closed All Open Backlog Issues on GitHub)
 
