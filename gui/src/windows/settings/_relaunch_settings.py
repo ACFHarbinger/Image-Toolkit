@@ -43,6 +43,8 @@ class _RelaunchSettingsMixin:
             "Web Integration",
             "Deep Learning",
             "Image Stitching",
+            "Manga",
+            "Image Editor",
         ]
         self.startup_category_combo = QComboBox()
         self.startup_category_combo.addItems(category_names)
