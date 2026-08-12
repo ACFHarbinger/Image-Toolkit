@@ -141,17 +141,28 @@ class ManualSelectionDialog(QDialog):
 
     def create_image_card(self, item: Union[str, dict], idx: int) -> QFrame:
         if isinstance(item, dict):
-            path = item.get("path", "")
+            raw_path = item.get("path", "")
             page_url = item.get("page_url", "")
             page_num = item.get("page_num", 1)
             index_on_page = item.get("index_on_page", idx + 1)
             global_id = item.get("global_id", idx + 1)
         else:
-            path = item
+            raw_path = str(item)
             page_url = ""
             page_num = 1
             index_on_page = idx + 1
             global_id = idx + 1
+
+        # Sanitize path by stripping query parameters and URL fragments
+        clean_path = raw_path.split("?")[0].split("#")[0]
+
+        # Verify disk file existence; try parent download dir fallback if needed
+        if not os.path.exists(clean_path):
+            fname = os.path.basename(clean_path)
+            if self.parent() and hasattr(self.parent(), "download_dir_path"):
+                d_dir = getattr(self.parent(), "download_dir_path").text().strip()
+                if d_dir and os.path.exists(os.path.join(d_dir, fname)):
+                    clean_path = os.path.join(d_dir, fname)
 
         card = QFrame()
         card.setFrameShape(QFrame.Shape.StyledPanel)
@@ -165,7 +176,7 @@ class ManualSelectionDialog(QDialog):
         thumb_label.setFixedSize(160, 160)
         thumb_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        pixmap = QPixmap(path)
+        pixmap = QPixmap(clean_path)
         if not pixmap.isNull():
             thumb_label.setPixmap(pixmap.scaled(150, 150, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
         else:
@@ -173,11 +184,11 @@ class ManualSelectionDialog(QDialog):
             thumb_label.setStyleSheet("color: #888888; font-style: italic;")
 
         # Filename and details
-        filename = os.path.basename(path)
+        filename = os.path.basename(clean_path)
         if len(filename) > 20:
             filename = filename[:17] + "..."
 
-        size_str = get_file_size_str(path)
+        size_str = get_file_size_str(clean_path)
         meta_html = f"<b>{filename}</b> ({size_str})<br/>"
         meta_html += f"<span style='color: #00f0ff;'><b>Pos on Page: #{index_on_page}</b></span> &nbsp;|&nbsp; Page #{page_num}<br/>"
         meta_html += f"<span style='color: #a0a0a0;'>Global ID: #{global_id}</span>"
@@ -196,7 +207,8 @@ class ManualSelectionDialog(QDialog):
         # Checkbox
         chk = QCheckBox("Keep")
         chk.setChecked(True)
-        self.checkboxes[path] = chk
+        self.checkboxes[raw_path] = chk
+        self.checkboxes[clean_path] = chk
 
         card_layout.addWidget(thumb_label, 0, Qt.AlignmentFlag.AlignCenter)
         card_layout.addWidget(info_label, 0, Qt.AlignmentFlag.AlignCenter)
