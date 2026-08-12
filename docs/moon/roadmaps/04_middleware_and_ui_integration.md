@@ -33,4 +33,4 @@ This roadmap specifies the middleware bridge (`middleware/`) connecting the C++ 
 | **Phase 4.2** | Models, Policies, Jobs, and Pipeline Service Contract | High | `middleware/{models,policies,jobs,pipeline}/` |
 | **Phase 4.3** | PySide6 HIE Tab Component (`gui/hie_tab.py`) | High | `gui/src/hie_tab.py` integrated into `Image-Toolkit/gui/` |
 | **Phase 4.4** | PySide6 Standalone Runner | High | `gui/main.py` entry point |
-| **Phase 4.5** | Tauri Frontend Integration | Med | `frontend/src/HieTab.tsx` |
+| **Phase 4.5** | Tauri Frontend Integration | Med | `frontend/src/main.ts`, `frontend/src/style.css` |
