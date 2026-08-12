@@ -1,32 +1,21 @@
 # AGENT_BUS.md — Hybrid Image Editor (HIE) Multi-Agent Communication Bus
 
-Welcome to the **Hybrid Image Editor (HIE)** agentic coordination hub. All agents (Gemini, Chat, Claude, Grok) working on `submodules/HIE` post updates, architectural proposals, roadmaps, and status reports here.
+Welcome to the **Hybrid Image Editor (HIE)** agentic coordination hub. All agents (Gemini, Chat, Claude, Grok) working on `submodules/HIE` and cross-submodule tasks post updates here.
 
 ---
 
-## Agent Directory & Workspace Structure
-- **Global Coordination:** `submodules/HIE/.agent/cache/AGENT_BUS.md`
-- **Gemini Cache:** `submodules/HIE/.agent/cache/gemini/`
-- **Chat Cache:** `submodules/HIE/.agent/cache/chat/`
-- **Claude Cache:** `submodules/HIE/.agent/cache/claude/`
-- **Grok Cache:** `submodules/HIE/.agent/cache/grok/`
+## Task Delegation & Coordination (Website & Pipeline Integration)
 
----
+### Submodule Website Creation & Navigation Link Handoff
 
-## Finalized Architectural Decisions (Confirmed by Harbinger)
+| Submodule | Target Location | Lead Agent | Status | Key Features |
+|---|---|---|:---:|---|
+| **ASP** | `submodules/ASP/docs/website/` | **Gemini** | 🚀 In Progress | Panorama Stitching, Motion Model $[t_x, t_y, s]$, GNC-TLS, Cel Barrier |
+| **CRE** | `submodules/CRE/docs/website/` | **Chat** | 🚀 In Progress | Local-First pgvector Hybrid Semantic Recommendation Engine |
+| **CSG** | `submodules/CSG/docs/website/` | **Chat** | 🚀 In Progress | Manga Colorization, Layer Canvas, Mesh Overlay, Puppeteering |
+| **HIE** | `submodules/HIE/docs/website/` | **Gemini** | 🚀 In Progress | ML (BiRefNet, Real-ESRGAN), RL Brush Assistant, Exact DP/PSO Pipeline |
 
-1. **Canvas Architecture:** **Hybrid Stack** (combining layer-stack controls with non-destructive node modifiers).
-2. **C++ Logic Binding Boundary:** **Root `base` Pybind11 Module** (compiled into Image-Toolkit's central `base` module like ASP to maintain repository standards and allow zero-copy memory sharing).
-3. **Reinforcement Learning Sequence:** **Localized Retouching (Interactive Brush Assistant) $\rightarrow$ Global Color/Exposure Retouching $\rightarrow$ Crop & Composition Optimizer**.
-4. **Optimization Solvers Focus:** **Parallel Execution** (Exact DP/Convex solvers + Swarm Intelligence [PSO] & Differential Evolution [DE]).
-5. **Document Data Model:** **Multi-Modal Frame Sequence Model from Day 1** (`Sequence[Frame]`, image = 1-frame clip).
-6. **UI Priority Target:** **PySide6 Desktop GUI (`gui/`) as Primary Phase 1 Target** (zero-IPC latency for PyTorch/C++ rendering) with clean middleware APIs for Tauri (`frontend/`).
-
----
-
-## Finalized Roadmaps Directory Structure (`submodules/HIE/docs/moon/`)
-- [`ROADMAP.md`](../../docs/moon/ROADMAP.md) — Master HIE Delivery Plan & Priority Matrix
-- [`01_architecture_and_data_model.md`](../../docs/moon/roadmaps/01_architecture_and_data_model.md) — Core Architecture & Multi-Modal Document Model
-- [`02_mathematical_optimization_core.md`](../../docs/moon/roadmaps/02_mathematical_optimization_core.md) — Mathematical Optimization Core (Exact Solvers + PSO/DE)
-- [`03_deep_learning_and_rl_subsystem.md`](../../docs/moon/roadmaps/03_deep_learning_and_rl_subsystem.md) — Deep Learning Matting/Inpainting & RL Subsystem
-- [`04_middleware_and_ui_integration.md`](../../docs/moon/roadmaps/04_middleware_and_ui_integration.md) — Middleware Bridge & Dual UI Integration (PySide6 & Tauri)
+### Key Requirements
+1. **Theme Consistency:** Follow Image-Toolkit dark-cyberpunk theme (`#0a0a0c` dark bg, `#00f0ff` cyan accent, `#ff0055` pink highlights, clean typography).
+2. **Back Link:** Every submodule website must feature a visible **"Back to Image-Toolkit"** button/icon linking to `https://acfharbinger.github.io/Image-Toolkit/`.
+3. **Pipeline Page Integration:** Update `docs/website/src/pages/Pipeline.tsx` and `docs/website/src/constants/submodules.ts` on the main Image-Toolkit website to add a **Submodules** section allowing users to select and open any submodule's website.
