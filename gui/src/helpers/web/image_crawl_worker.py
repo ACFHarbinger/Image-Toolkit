@@ -1,3 +1,4 @@
+import contextlib
 import os
 
 from backend.src.web import (
@@ -19,6 +20,14 @@ class ImageCrawlWorker(QThread):
     def __init__(self, config: dict):
         super().__init__()
         self.config = config
+        self.crawler = None
+
+    def stop(self):
+        """Stop the underlying crawler instance and interrupt thread."""
+        if self.crawler:
+            with contextlib.suppress(Exception):
+                self.crawler.stop()
+        self.requestInterruption()
 
     def run(self):
         try:
@@ -39,6 +48,8 @@ class ImageCrawlWorker(QThread):
                     crawler = DanbooruCrawler(self.config)
             else:
                 crawler = ImageCrawler(self.config)
+
+            self.crawler = crawler
 
             downloaded = 0
 

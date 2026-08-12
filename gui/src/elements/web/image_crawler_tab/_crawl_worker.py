@@ -148,9 +148,12 @@ class _CrawlWorkerMixin:
 
     @Slot()
     def cancel_crawl(self):
-        if self.worker:
+        if self.worker and self.worker.isRunning():
+            self.log_window.append_log("🛑 Stopping crawler...")
             self.worker.stop()
-            self.log_window.append_log("Cancellation requested...")
+            if not self.worker.wait(3000):
+                self.worker.terminate()
+                self.worker.wait(1000)
             self._is_crawling = False
             self.qml_crawling_changed.emit()
             self.on_crawl_done(0, "Cancelled by user.")
