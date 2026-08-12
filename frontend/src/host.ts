@@ -1,5 +1,7 @@
 /** Typed host seam shared by standalone Vite, Tauri, and Image-Toolkit tabs. */
 
+import { invoke } from "@tauri-apps/api/core";
+
 export interface HieHost {
   openMedia(): Promise<void>;
   exportDocument(): Promise<void>;
@@ -25,5 +27,13 @@ declare global {
 }
 
 export function getHieHost(): HieHost {
-  return window.__HIE_HOST__ ?? browserHost;
+  if (window.__HIE_HOST__) return window.__HIE_HOST__;
+  if ("__TAURI_INTERNALS__" in window) {
+    return {
+      openMedia: () => invoke("open_media"),
+      exportDocument: () => invoke("export_document"),
+      notify: (message: string) => { void invoke("notify", { message }); },
+    };
+  }
+  return browserHost;
 }

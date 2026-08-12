@@ -4,7 +4,7 @@ This directory contains the web-native **Tauri UI frontend** for the Hybrid Imag
 
 ## Multi-Hosting Architecture
 - **Embedded Mode:** Integrated directly into Image-Toolkit's primary Tauri frontend as a dedicated workspace tab.
-- **Standalone Mode:** The Vite shell runs independently today; the Tauri native wrapper is intentionally a follow-up bootstrap step (`npm run tauri dev`).
+- **Standalone Mode:** The Vite shell runs independently, or the Tauri wrapper can be launched with `npm run tauri dev`.
 
 ## Capabilities
 - High-performance Canvas 2D / WebGL 2 rendering viewport.
@@ -29,3 +29,7 @@ The typed `HieHost` interface in `src/host.ts` exposes `openMedia`,
 implementation through `window.__HIE_HOST__`; standalone Vite uses a safe
 browser fallback. The transport can therefore change without changing the
 proposal-first UI state model.
+
+The native wrapper in `src-tauri/` exposes matching `open_media`,
+`export_document`, and `notify` commands. The first two are intentionally
+host-owned no-op seams until the document/media IPC contract is finalized.
