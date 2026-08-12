@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
+from pathlib import Path
 
 from .jobs import (
     cpu_deblur_runner,
@@ -24,6 +26,7 @@ def build_parser() -> argparse.ArgumentParser:
     deblur.add_argument("--strength", type=float, default=1.0)
     deblur.add_argument("--radius", type=float, default=1.2)
     deblur.add_argument("--backend", choices=("opencv", "pillow"), default="pillow")
+    deblur.add_argument("--report", help="write a JSON preview report")
 
     inpaint = subparsers.add_parser("inpaint", help="remove a masked logo from an owned/licensed image")
     inpaint.add_argument("input", help="input image path")
@@ -33,6 +36,7 @@ def build_parser() -> argparse.ArgumentParser:
     inpaint.add_argument("--permission-confirmed", action="store_true",
                          help="confirm that you own or may edit this image")
     inpaint.add_argument("--radius", type=float, default=3.0)
+    inpaint.add_argument("--report", help="write a JSON preview report")
     return parser
 
 
@@ -71,8 +75,32 @@ def main(argv: list[str] | None = None) -> int:
     if not result.ok:
         print(f"hie-restore: {result.error}", file=sys.stderr)
         return 1
+    if args.report:
+        _write_report(args, result.value.output_ref, operation)
     print(result.value.output_ref)
     return 0
+
+
+def _write_report(args: argparse.Namespace, output_ref: str, operation: str) -> None:
+    from PIL import Image
+
+    report = {
+        "schema_version": 1,
+        "preview_only": True,
+        "operation": operation,
+        "backend": getattr(args, "backend", "pillow"),
+        "input": str(Path(args.input).resolve()),
+        "output": str(Path(output_ref).resolve()),
+        "input_size": list(Image.open(args.input).size),
+        "output_size": list(Image.open(output_ref).size),
+    }
+    if operation == "masked_inpainting":
+        import numpy as np
+
+        mask = np.asarray(Image.open(args.mask).convert("L"))
+        report["mask_coverage"] = float((mask > 0).mean())
+        report["mask"] = str(Path(args.mask).resolve())
+    Path(args.report).write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
 
 
 if __name__ == "__main__":

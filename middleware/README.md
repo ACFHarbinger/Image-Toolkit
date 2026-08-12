@@ -61,6 +61,10 @@ baseline. `deblur` uses the Pillow baseline by default; select `--backend
 opencv` for the OpenCV high-frequency restoration baseline. The original file
 is never overwritten unless an explicit output path points to it.
 
+Add `--report report.json` to either command for a versioned JSON preview
+record containing operation/backend, input/output dimensions, and (for
+inpainting) mask coverage.
+
 ## Weight & Dependency Management
 
 Model weights, checkpoints, and heavy dataset dependencies remain outside Git tracking. Document retrieval scripts, checksums, and remote URLs under `docs/`.
