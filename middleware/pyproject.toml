@@ -13,6 +13,10 @@ restoration-opencv = [
     "numpy>=1.24",
     "opencv-python-headless>=4.10",
 ]
+rl = [
+    "gymnasium>=1.0",
+    "numpy>=1.24",
+]
 
 [project.scripts]
 hie-restore = "hie_middleware.restore_cli:main"

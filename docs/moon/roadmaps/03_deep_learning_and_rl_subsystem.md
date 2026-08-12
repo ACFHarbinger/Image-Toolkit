@@ -29,7 +29,7 @@ This roadmap defines the AI capabilities in `middleware/models/` and `middleware
 |---|---|:---:|---|
 | **Phase 3.1** | BiRefNet & SAM Alpha Matting Model | High | `middleware/models/matting.py` |
 | **Phase 3.2** | Real-ESRGAN Super-Resolution Model | Med | `middleware/models/superres.py` |
-| **Phase 3.3** | Interactive Brush RL Retouching Policy (Phase 1 Target) | High | `middleware/policies/brush_assistant.py` & Gymnasium Env |
+| **Phase 3.3** | Interactive Brush RL Retouching Policy (Phase 1 Target) | High | **Complete.** `middleware/policies/brush_assistant.py` (deterministic proposal shell) & `middleware/policies/brush_env.py` (`HIEBrushEnv`, a real Gymnasium `Env` with mixed discrete/continuous action space for dodge/burn/sharpen/tone, artist reward-correction via `record_reward`; `gymnasium`/`numpy` optional via the `rl` extra) |
 | **Phase 3.4** | Global Tone RL Retouching Policy (Phase 2 Target) | Med | `middleware/policies/tone_agent.py` |
 | **Phase 3.5** | Crop & Composition RL Policy (Phase 3 Target) | Low | `middleware/policies/crop_agent.py` |
 | **Phase 3.6** | Deblur Restoration Adapter & Job Contract | High | `middleware/models/deblur.py`, `middleware/jobs/restoration.py` |
