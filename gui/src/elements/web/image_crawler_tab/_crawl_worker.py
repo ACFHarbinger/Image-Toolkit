@@ -161,10 +161,16 @@ class _CrawlWorkerMixin:
     def _delete_pruned_file(self, path: str):
         """Helper to remove a pruned image and all its associated metadata files (.json, .txt)."""
         try:
-            if os.path.exists(path):
-                os.remove(path)
+            abs_path = path.split("?")[0].split("#")[0]
+            if not os.path.isabs(abs_path) and hasattr(self, "download_dir_path"):
+                d_dir = self.download_dir_path.text().strip()
+                if d_dir:
+                    abs_path = os.path.join(d_dir, os.path.basename(abs_path))
+
+            if os.path.exists(abs_path):
+                os.remove(abs_path)
             for ext in [".json", ".txt"]:
-                meta_path = os.path.splitext(path)[0] + ext
+                meta_path = os.path.splitext(abs_path)[0] + ext
                 if os.path.exists(meta_path):
                     os.remove(meta_path)
         except Exception as e:
@@ -193,16 +199,16 @@ class _CrawlWorkerMixin:
                 result = dialog.exec()
 
                 if result == QDialog.DialogCode.Accepted:
-                    kept_count = 0
-                    for item in self.downloaded_files:
-                        path = item["path"] if isinstance(item, dict) else item
-                        chk = dialog.checkboxes.get(path)
-                        if chk and chk.isChecked():
-                            kept_count += 1
-                        else:
-                            self._delete_pruned_file(path)
+                    kept_paths = set(dialog.get_kept_paths())
+                    pruned_paths = set(dialog.get_pruned_paths())
 
-                    new_msg = f"Crawl finished. Manually kept **{kept_count}** of **{len(self.downloaded_files)}** image(s)!"
+                    pruned_count = 0
+                    for path in pruned_paths:
+                        self._delete_pruned_file(path)
+                        pruned_count += 1
+
+                    kept_count = len(kept_paths)
+                    new_msg = f"Crawl finished. Manually kept **{kept_count}** of **{len(self.downloaded_files)}** image(s) ({pruned_count} deleted)!"
                     self.status_label.setText(new_msg)
                     QMessageBox.information(
                         self, "Done", f"{new_msg}\nSaved to: {self.download_dir_path.text()}"
