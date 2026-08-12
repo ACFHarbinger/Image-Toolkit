@@ -334,12 +334,23 @@ class ImageCrawler(QObject):
         try:
             parsed = urllib.parse.urlparse(img_url)
             fname = os.path.basename(parsed.path)
-            if not fname or len(fname) < 4:
-                fname = f"img_{int(time.time() * 1000)}.jpg"
+            fname = urllib.parse.unquote(fname).split("?")[0].split("#")[0]
+            if (
+                not fname
+                or len(fname) < 4
+                or not any(
+                    fname.lower().endswith(ext)
+                    for ext in (".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp")
+                )
+            ):
+                ext = ".jpg"
+                for e in (".png", ".webp", ".gif", ".bmp", ".jpeg", ".jpg"):
+                    if e in img_url.lower():
+                        ext = e
+                        break
+                fname = f"img_{int(time.time() * 1000)}_{abs(hash(img_url)) % 10000}{ext}"
 
-            # Clean query string from filename if present
-            fname = fname.split("?")[0]
-            out_path = os.path.join(download_dir, fname)
+            out_path = os.path.abspath(os.path.join(download_dir, fname))
 
             # Skip if already exists
             if os.path.exists(out_path) and os.path.getsize(out_path) > 1000:
