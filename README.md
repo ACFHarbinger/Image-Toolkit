@@ -68,6 +68,21 @@ just lint     # Check code formatting
 just docs     # Build documentation site
 ```
 
+### Local restoration CLI (UV)
+
+The restoration CLI is owned by the `middleware` workspace member. From the
+HIE root, install the optional OpenCV environment and target that member:
+
+```bash
+uv sync --group restoration-opencv
+uv run --package hie-middleware hie-restore deblur input.png --output restored.png
+uv run --package hie-middleware hie-restore inpaint owned.png \
+  --mask logo-mask.png --permission-confirmed --output cleaned.png
+```
+
+Use `--backend pillow` for the dependency-light fallback, or omit it to use
+OpenCV automatically when the root restoration environment includes it.
+
 ## License
 
 This project is dual-licensed:
