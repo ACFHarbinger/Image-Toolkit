@@ -32,6 +32,7 @@ The middleware is structured into five core submodules:
 - `middleware/src/hie_middleware/contracts.py`: Defines serializable edit requests (`EditRequest`) and execution results (`OperationResult`).
 - `middleware/src/hie_middleware/ipc.py`: Defines versioned frontend/host envelopes (`IpcRequest`, `IpcResponse`) for `open_media`, `export_document`, and `notify`.
 - `middleware/src/hie_middleware/ipc_service.py`: Provides a deterministic in-memory implementation of those initial methods for hosts and integration tests.
+- `middleware/src/hie_middleware/pipeline/session.py`: Combines an active `DocumentHistory`, default capabilities, proposal preview, and explicit acceptance for one editor session.
 
 ## Weight & Dependency Management
 

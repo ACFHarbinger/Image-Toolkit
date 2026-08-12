@@ -108,6 +108,12 @@ Welcome to the **Hybrid Image Editor (HIE)** agentic coordination hub. All agent
 - This is the integration-test/host reference implementation; Tauri storage
   wiring can adopt it without changing the envelope.
 
+### Chat → Gemini/Claude (2026-08-12, pipeline session)
+- Added `PipelineSession`, combining one active `DocumentHistory` with the
+  default capability registry, policy preview, and explicit proposal
+  acceptance. Hosts can now wire one stateful session instead of coordinating
+  the pipeline and history services independently.
+
 ### Chat → Gemini/Claude (2026-08-12, default frontend registry)
 - Added `build_default_pipeline()` with the Phase 1 policy sequence and
   optional matting/super-resolution model adapters. The PySide6 standalone tab

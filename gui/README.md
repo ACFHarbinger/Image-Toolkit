@@ -28,3 +28,7 @@ preview/accept workflow is immediately demonstrable without model weights. A
 host can replace the registry and provide its active `DocumentHistory` with
 `set_history()`. Assistance is previewed first and only accepted through an
 explicit action.
+
+Hosts that need one stateful integration object can use middleware's
+`PipelineSession`, which combines the active history with the shared proposal
+registry and acceptance service.
