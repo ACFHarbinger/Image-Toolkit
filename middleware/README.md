@@ -57,8 +57,9 @@ uv run hie-restore inpaint owned.png --mask logo-mask.png \
 ```
 
 `inpaint` defaults to OpenCV when installed and otherwise uses the Pillow
-baseline. The original file is never overwritten unless an explicit output
-path points to it.
+baseline. `deblur` uses the Pillow baseline by default; select `--backend
+opencv` for the OpenCV high-frequency restoration baseline. The original file
+is never overwritten unless an explicit output path points to it.
 
 ## Weight & Dependency Management
 

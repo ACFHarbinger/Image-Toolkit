@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - HIE restoration foundations: optional `DeblurAdapter` and consent-gated `WatermarkRemovalAdapter`, plus cancellable injected restoration jobs for blind/non-blind deblurring and mask-guided inpainting. No model weights or heavy runtimes are bundled.
 - Added optional Pillow CPU restoration runners for conservative deblur and mask-guided inpainting previews; neural/OpenCV backends remain swappable.
 - Added an optional `restoration-opencv` middleware extra and OpenCV Telea/Navier–Stokes masked-inpainting runner.
+- Added an OpenCV CPU deblur baseline with explicit CLI backend selection.
 - Added UV dependency locking for the optional OpenCV stack; `uv.lock` records the reproducible `restoration-opencv` environment.
 - Added the middleware package to the HIE root UV workspace and mirrored the `restoration-opencv` dependency group in `submodules/HIE/pyproject.toml`, so the extra can be synced from the repository root.
 - Documented root-level `uv run --package hie-middleware hie-restore ...` commands so the restoration CLI is discoverable from the HIE workspace.

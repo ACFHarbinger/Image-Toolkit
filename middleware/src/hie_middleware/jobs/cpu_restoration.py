@@ -64,6 +64,38 @@ def cpu_masked_inpainting_runner(
     return str(output)
 
 
+def opencv_deblur_runner(
+    input_ref: str, options: dict[str, Any], token: CancelToken, report: ReportFn
+) -> str:
+    """Apply a bounded OpenCV high-frequency restoration baseline."""
+    try:
+        import cv2
+        import numpy as np
+    except ImportError as exc:
+        raise RuntimeError(
+            "OpenCV runner unavailable; install HIE with the restoration-opencv extra"
+        ) from exc
+    from PIL import Image
+
+    source = _open_image(input_ref).convert("RGB")
+    token.raise_if_cancelled()
+    strength = float(options.get("strength", 1.0))
+    if not 0.0 <= strength <= 3.0:
+        raise ValueError("deblur strength must be between 0 and 3")
+    sigma = float(options.get("sigma", 1.2))
+    if not 0.1 <= sigma <= 5.0:
+        raise ValueError("OpenCV deblur sigma must be between 0.1 and 5")
+    report(JobProgress(0.35, "applying OpenCV deblur baseline"))
+    rgb = np.asarray(source)
+    blurred = cv2.GaussianBlur(rgb, (0, 0), sigma)
+    restored = cv2.addWeighted(rgb, 1.0 + strength, blurred, -strength, 0)
+    token.raise_if_cancelled()
+    output = _output_path(input_ref, options, "opencv-deblur")
+    Image.fromarray(restored).save(output)
+    report(JobProgress(0.9, "saved OpenCV deblur preview", {"output_ref": str(output), "backend": "opencv"}))
+    return str(output)
+
+
 def opencv_masked_inpainting_runner(
     input_ref: str, options: dict[str, Any], token: CancelToken, report: ReportFn
 ) -> str:

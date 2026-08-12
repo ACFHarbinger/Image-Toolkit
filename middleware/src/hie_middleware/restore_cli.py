@@ -9,6 +9,7 @@ from .jobs import (
     cpu_deblur_runner,
     cpu_masked_inpainting_runner,
     opencv_masked_inpainting_runner,
+    opencv_deblur_runner,
     submit_restoration_job,
 )
 
@@ -22,6 +23,7 @@ def build_parser() -> argparse.ArgumentParser:
     deblur.add_argument("--output", help="output preview path")
     deblur.add_argument("--strength", type=float, default=1.0)
     deblur.add_argument("--radius", type=float, default=1.2)
+    deblur.add_argument("--backend", choices=("opencv", "pillow"), default="pillow")
 
     inpaint = subparsers.add_parser("inpaint", help="remove a masked logo from an owned/licensed image")
     inpaint.add_argument("input", help="input image path")
@@ -38,7 +40,7 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if args.operation == "deblur":
         options = {"output_ref": args.output, "strength": args.strength, "radius": args.radius}
-        runner = cpu_deblur_runner
+        runner = opencv_deblur_runner if args.backend == "opencv" else cpu_deblur_runner
         operation = "deblur"
     else:
         options = {

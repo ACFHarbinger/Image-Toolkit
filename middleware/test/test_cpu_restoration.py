@@ -4,6 +4,7 @@ from hie_middleware.jobs import (
     JobStatus,
     cpu_deblur_runner,
     cpu_masked_inpainting_runner,
+    opencv_deblur_runner,
     submit_restoration_job,
 )
 import pytest
@@ -34,6 +35,17 @@ def test_cpu_inpainting_runner_uses_a_mask_and_writes_preview(tmp_path):
     ).result(5)
     assert result.status is JobStatus.SUCCEEDED
     assert (tmp_path / "owned.inpaint.png").is_file()
+
+
+def test_opencv_deblur_runner_writes_preview_when_uv_extra_is_installed(tmp_path):
+    pytest.importorskip("cv2")
+    source = tmp_path / "blurred.png"
+    Image.new("RGB", (20, 20), "#6688aa").save(source)
+    result = submit_restoration_job(
+        "deblur", str(source), options={"strength": 1.0}, runner=opencv_deblur_runner
+    ).result(5)
+    assert result.status is JobStatus.SUCCEEDED
+    assert (tmp_path / "blurred.opencv-deblur.png").is_file()
 
 
 def test_opencv_inpainting_runner_writes_preview_when_uv_extra_is_installed(tmp_path):
