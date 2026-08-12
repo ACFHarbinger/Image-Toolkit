@@ -323,35 +323,40 @@ class ManualSelectionDialog(QDialog):
         layout.addLayout(buttons_layout)
 
     def create_image_card(self, item: Union[str, dict], idx: int) -> ClickableImageCard:
+        # Signal(object) emits dicts directly now; plain strings are a legacy fallback
         if isinstance(item, str) and item.strip().startswith("{"):
             with contextlib.suppress(Exception):
                 import json
                 item = json.loads(item)
 
         raw_path = item.get("path", "") if isinstance(item, dict) else str(item)
-        clean_path = raw_path.split("?")[0].split("#")[0]
+        clean_path = os.path.normpath(raw_path.split("?")[0].split("#")[0])
 
         # 1. Resolve relative path or missing file via download_dir
-        if not os.path.exists(clean_path):
+        if not os.path.isfile(clean_path):
             fname = os.path.basename(clean_path)
             if self.download_dir:
                 candidate = os.path.join(self.download_dir, fname)
-                if os.path.exists(candidate):
+                if os.path.isfile(candidate):
                     clean_path = candidate
                 else:
                     for ext in (".jpeg", ".jpg", ".png", ".webp", ".gif", ".bmp"):
-                        if os.path.exists(candidate + ext):
+                        if os.path.isfile(candidate + ext):
                             clean_path = candidate + ext
                             break
 
-        # 2. Ultimate Fail-Safe: Match file by download index if file is still not found directly
-        if not os.path.exists(clean_path) and self.download_dir and os.path.exists(self.download_dir):
+        # 2. Fail-Safe: Match file by global_id then fallback to sorted-disk index
+        if not os.path.isfile(clean_path) and self.download_dir and os.path.isdir(self.download_dir):
             disk_files = sorted([
                 os.path.join(self.download_dir, f)
                 for f in os.listdir(self.download_dir)
                 if any(f.lower().endswith(ext) for ext in (".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp"))
             ])
-            if 0 <= idx < len(disk_files):
+            # Try matching by global_id first (1-based)
+            global_id = item.get("global_id", 0) if isinstance(item, dict) else 0
+            if global_id > 0 and global_id <= len(disk_files):
+                clean_path = disk_files[global_id - 1]
+            elif 0 <= idx < len(disk_files):
                 clean_path = disk_files[idx]
 
         card = ClickableImageCard(clean_path, raw_path, item, idx, self)
