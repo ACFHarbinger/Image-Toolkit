@@ -9,5 +9,5 @@ if(NOT benchmark_FOUND)
     FetchContent_MakeAvailable(googlebenchmark)
 endif()
 
-add_executable(hybrid_image_editor_benchmark greet_benchmark.cpp)
+add_executable(hybrid_image_editor_benchmark greet_benchmark.cpp solvers_benchmark.cpp)
 target_link_libraries(hybrid_image_editor_benchmark PRIVATE hybrid_image_editor_logic benchmark::benchmark_main)
