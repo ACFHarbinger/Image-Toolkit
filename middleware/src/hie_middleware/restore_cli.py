@@ -3,18 +3,18 @@
 from __future__ import annotations
 
 import argparse
-import json
-import statistics
 import sys
 from pathlib import Path
 
 from .jobs import (
     cpu_deblur_runner,
     cpu_masked_inpainting_runner,
+    generate_restoration_report,
     opencv_masked_inpainting_runner,
     opencv_deblur_runner,
     submit_restoration_job,
 )
+from .jobs.cpu_restoration import validate_inpainting_mask
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -37,6 +37,8 @@ def build_parser() -> argparse.ArgumentParser:
     inpaint.add_argument("--permission-confirmed", action="store_true",
                          help="confirm that you own or may edit this image")
     inpaint.add_argument("--radius", type=float, default=3.0)
+    inpaint.add_argument("--max-mask-coverage", type=float, default=0.5,
+                         help="reject masks covering more than this fraction of the image")
     inpaint.add_argument("--report", help="write a JSON preview report")
     return parser
 
@@ -53,6 +55,7 @@ def main(argv: list[str] | None = None) -> int:
             "mask_ref": args.mask,
             "permission_confirmed": args.permission_confirmed,
             "radius": int(args.radius),
+            "max_mask_coverage": args.max_mask_coverage,
         }
         if args.backend == "opencv":
             runner = opencv_masked_inpainting_runner
@@ -68,6 +71,13 @@ def main(argv: list[str] | None = None) -> int:
         operation = "masked_inpainting"
 
     try:
+        if operation == "masked_inpainting":
+            from PIL import Image
+
+            with Image.open(args.mask) as mask_image:
+                options["mask_coverage"] = validate_inpainting_mask(
+                    mask_image, max_coverage=args.max_mask_coverage
+                )
         handle = submit_restoration_job(operation, args.input, options=options, runner=runner)
         result = handle.result()
     except (ValueError, PermissionError, FileNotFoundError) as exc:
@@ -77,46 +87,17 @@ def main(argv: list[str] | None = None) -> int:
         print(f"hie-restore: {result.error}", file=sys.stderr)
         return 1
     if args.report:
-        _write_report(args, result.value.output_ref, operation)
+        _write_report(args, result.value.output_ref, operation, options)
     print(result.value.output_ref)
     return 0
 
 
-def _write_report(args: argparse.Namespace, output_ref: str, operation: str) -> None:
-    from PIL import Image
-
-    input_image = Image.open(args.input)
-    output_image = Image.open(output_ref)
-    input_sharpness = _sharpness_score(input_image)
-    output_sharpness = _sharpness_score(output_image)
-    report = {
-        "schema_version": 1,
-        "preview_only": True,
-        "operation": operation,
-        "backend": getattr(args, "backend", "pillow"),
-        "input": str(Path(args.input).resolve()),
-        "output": str(Path(output_ref).resolve()),
-        "input_size": list(input_image.size),
-        "output_size": list(output_image.size),
-        "input_sharpness": input_sharpness,
-        "output_sharpness": output_sharpness,
-        "sharpness_delta": output_sharpness - input_sharpness,
-    }
+def _write_report(args: argparse.Namespace, output_ref: str, operation: str, options: dict) -> None:
+    metrics = {"operation": operation, "backend": getattr(args, "backend", "pillow")}
     if operation == "masked_inpainting":
-        mask_image = Image.open(args.mask).convert("L")
-        mask = list(mask_image.get_flattened_data())
-        report["mask_coverage"] = sum(pixel > 0 for pixel in mask) / len(mask)
-        report["mask"] = str(Path(args.mask).resolve())
-    Path(args.report).write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
-
-
-def _sharpness_score(image) -> float:
-    """Return a dependency-light edge-variance diagnostic for a preview."""
-    from PIL import ImageFilter
-
-    edges = image.convert("L").filter(ImageFilter.FIND_EDGES)
-    edge_values = list(edges.get_flattened_data())
-    return float(statistics.pvariance(edge_values))
+        metrics["mask_coverage"] = options["mask_coverage"]
+        metrics["mask"] = str(Path(args.mask).resolve())
+    generate_restoration_report(args.input, output_ref, metrics, write_to=args.report)
 
 
 if __name__ == "__main__":

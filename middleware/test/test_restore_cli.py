@@ -13,6 +13,7 @@ def test_restore_cli_parses_deblur_and_inpaint_commands():
     inpaint = parser.parse_args(["inpaint", "owned.png", "--mask", "mask.png", "--permission-confirmed"])
     assert inpaint.operation == "inpaint"
     assert inpaint.permission_confirmed is True
+    assert inpaint.max_mask_coverage == 0.5
 
 
 def test_restore_cli_writes_deblur_preview_report(tmp_path):

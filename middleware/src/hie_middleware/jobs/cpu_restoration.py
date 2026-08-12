@@ -50,6 +50,7 @@ def cpu_masked_inpainting_runner(
     mask = _open_image(mask_ref).convert("L")
     if mask.size != source.size:
         raise ValueError("mask dimensions must match the input image")
+    options["mask_coverage"] = validate_inpainting_mask(mask, max_coverage=options.get("max_mask_coverage", 0.5))
     token.raise_if_cancelled()
     radius = int(options.get("radius", 5))
     if radius not in {3, 5, 7, 9}:
@@ -116,6 +117,7 @@ def opencv_masked_inpainting_runner(
     mask = _open_image(mask_ref).convert("L")
     if mask.size != source.size:
         raise ValueError("mask dimensions must match the input image")
+    options["mask_coverage"] = validate_inpainting_mask(mask, max_coverage=options.get("max_mask_coverage", 0.5))
     token.raise_if_cancelled()
     radius = float(options.get("radius", 3.0))
     if not 1.0 <= radius <= 20.0:
@@ -139,6 +141,29 @@ def _open_image(path: str):
         raise FileNotFoundError(f"image does not exist: {path}")
     with Image.open(source) as image:
         return image.convert("RGBA").copy()
+
+
+def validate_inpainting_mask(mask, *, max_coverage: float = 0.5) -> float:
+    """Validate a grayscale inpainting mask and return its positive coverage.
+
+    Broad masks are rejected because they make an inpainting preview replace
+    most or all of the source image instead of removing a localized mark.
+    """
+    if not 0.0 < max_coverage < 1.0:
+        raise ValueError("max mask coverage must be greater than 0 and less than 1")
+    values = list(mask.convert("L").get_flattened_data())
+    if not values:
+        raise ValueError("inpainting mask must not be empty")
+    coverage = sum(pixel > 0 for pixel in values) / len(values)
+    if coverage <= 0.0:
+        raise ValueError("inpainting mask must contain at least one marked pixel")
+    if coverage >= 1.0:
+        raise ValueError("inpainting mask must not cover the entire image")
+    if coverage > max_coverage:
+        raise ValueError(
+            f"inpainting mask coverage {coverage:.1%} exceeds the safety limit {max_coverage:.1%}"
+        )
+    return coverage
 
 
 def _output_path(input_ref: str, options: dict[str, Any], suffix: str) -> Path:

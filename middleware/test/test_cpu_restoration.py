@@ -7,6 +7,7 @@ from hie_middleware.jobs import (
     opencv_deblur_runner,
     submit_restoration_job,
 )
+from hie_middleware.jobs.cpu_restoration import validate_inpainting_mask
 import pytest
 
 
@@ -55,7 +56,9 @@ def test_opencv_inpainting_runner_writes_preview_when_uv_extra_is_installed(tmp_
     source = tmp_path / "owned.png"
     mask = tmp_path / "logo-mask.png"
     Image.new("RGB", (20, 20), "#4477aa").save(source)
-    Image.new("L", (20, 20), 0).save(mask)
+    mask_image = Image.new("L", (20, 20), 0)
+    ImageDraw.Draw(mask_image).rectangle((8, 8, 11, 11), fill=255)
+    mask_image.save(mask)
     result = submit_restoration_job(
         "masked_inpainting", str(source),
         options={"mask_ref": str(mask), "permission_confirmed": True},
@@ -63,3 +66,18 @@ def test_opencv_inpainting_runner_writes_preview_when_uv_extra_is_installed(tmp_
     ).result(5)
     assert result.status is JobStatus.SUCCEEDED
     assert (tmp_path / "owned.opencv-inpaint.png").is_file()
+
+
+def test_inpainting_mask_validation_rejects_empty_and_broad_masks():
+    empty = Image.new("L", (10, 10), 0)
+    with pytest.raises(ValueError, match="at least one"):
+        validate_inpainting_mask(empty)
+
+    broad = Image.new("L", (10, 10), 255)
+    with pytest.raises(ValueError, match="entire image"):
+        validate_inpainting_mask(broad)
+
+    mostly_marked = Image.new("L", (10, 10), 255)
+    ImageDraw.Draw(mostly_marked).rectangle((0, 0, 2, 2), fill=0)
+    with pytest.raises(ValueError, match="safety limit"):
+        validate_inpainting_mask(mostly_marked)

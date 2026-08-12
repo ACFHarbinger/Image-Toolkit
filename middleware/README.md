@@ -63,7 +63,9 @@ is never overwritten unless an explicit output path points to it.
 
 Add `--report report.json` to either command for a versioned JSON preview
 record containing operation/backend, input/output dimensions, and (for
-inpainting) mask coverage.
+inpainting) mask coverage. Inpainting rejects empty masks and masks covering
+more than 50% of the image by default; adjust the explicit safety boundary
+with `--max-mask-coverage` when appropriate for a permitted edit.
 
 ## Weight & Dependency Management
 
