@@ -16,7 +16,7 @@ class ImageCrawlWorker(QThread):
     status = Signal(str)  # status message
     sig_finished = Signal(int, str)  # (count, message)
     error = Signal(str)  # error message
-    image_downloaded = Signal(object)  # saved file path (str) or metadata dict
+    image_downloaded = Signal(str)  # saved file path or JSON-encoded metadata string
 
     def __init__(self, config: dict):
         super().__init__()
@@ -58,29 +58,24 @@ class ImageCrawlWorker(QThread):
                 nonlocal downloaded
                 downloaded += 1
 
-                # Backend emits JSON strings; parse into dict for rich metadata
-                meta: dict | str
+                # Backend emits json.dumps(meta); parse only for status log display.
+                # Always re-emit as a str — Signal(str) works safely across threads.
                 if isinstance(meta_or_path, str) and meta_or_path.strip().startswith("{"):
-                    try:
+                    with contextlib.suppress(Exception):
                         meta = json.loads(meta_or_path)
-                    except Exception:
-                        meta = meta_or_path  # fallback: keep as raw string
-                else:
-                    meta = meta_or_path if isinstance(meta_or_path, str) else str(meta_or_path)
+                        path = meta.get("path", "")
+                        global_id = meta.get("global_id", downloaded)
+                        page_num = meta.get("page_num", 1)
+                        pos_on_page = meta.get("index_on_page", downloaded)
+                        self.status.emit(
+                            f"Saved [{global_id}] (Page {page_num} #{pos_on_page}): {os.path.basename(path)}"
+                        )
+                    self.image_downloaded.emit(meta_or_path)
+                    return
 
-                if isinstance(meta, dict):
-                    path = meta.get("path", "")
-                    global_id = meta.get("global_id", downloaded)
-                    page_num = meta.get("page_num", 1)
-                    pos_on_page = meta.get("index_on_page", downloaded)
-                    self.status.emit(
-                        f"Saved [{global_id}] (Page {page_num} #{pos_on_page}): {os.path.basename(path)}"
-                    )
-                else:
-                    self.status.emit(f"Saved: {os.path.basename(str(meta))}")
-
-                # Emit dict (or string) directly via Signal(object) — no TypeError risk
-                self.image_downloaded.emit(meta)
+                path = meta_or_path if isinstance(meta_or_path, str) else str(meta_or_path)
+                self.status.emit(f"Saved: {os.path.basename(path)}")
+                self.image_downloaded.emit(path)
 
             # Connect signals
             crawler.on_status.connect(self.status.emit)
