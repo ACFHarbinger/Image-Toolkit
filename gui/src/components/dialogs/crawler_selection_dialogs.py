@@ -1,3 +1,4 @@
+import contextlib
 import hashlib
 import os
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
@@ -177,6 +178,14 @@ class ManualSelectionDialog(QDialog):
         thumb_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         pixmap = QPixmap(clean_path)
+        if pixmap.isNull() and os.path.exists(clean_path):
+            with contextlib.suppress(Exception):
+                from PIL import Image, ImageQt
+                pil_img = Image.open(clean_path)
+                pil_img.thumbnail((150, 150))
+                q_img = ImageQt.ImageQt(pil_img)
+                pixmap = QPixmap.fromImage(q_img)
+
         if not pixmap.isNull():
             thumb_label.setPixmap(pixmap.scaled(150, 150, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
         else:
