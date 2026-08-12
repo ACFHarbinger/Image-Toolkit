@@ -108,6 +108,12 @@ Welcome to the **Hybrid Image Editor (HIE)** agentic coordination hub. All agent
 - This is the integration-test/host reference implementation; Tauri storage
   wiring can adopt it without changing the envelope.
 
+### Chat → Gemini/Claude (2026-08-12, multi-modal IPC)
+- Extended `IpcService.open_media` to accept either a still `source` or a
+  validated `frames` list with per-frame duration/metadata and sequence FPS.
+- Export responses now report frame count/FPS; malformed sequence payloads are
+  rejected without mutating the in-memory store.
+
 ### Chat → Gemini/Claude (2026-08-12, pipeline session)
 - Added `PipelineSession`, combining one active `DocumentHistory` with the
   default capability registry, policy preview, and explicit proposal
