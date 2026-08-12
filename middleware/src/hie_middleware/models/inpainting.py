@@ -37,8 +37,9 @@ class InpaintingAdapter(ModelAdapter):
         input_ref: str,
         *,
         mask_ref: str | None = None,
+        strokes: list[dict[str, Any]] | None = None,
         prompt: str | None = None,
-        bbox: tuple[int, int, int, int] | None = None,
+        bbox: tuple[float, float, float, float] | None = None,
         mode: str = "inpaint",
         **options: Any,
     ) -> ModelProposal:
@@ -51,9 +52,24 @@ class InpaintingAdapter(ModelAdapter):
         if mode not in ("inpaint", "outpaint"):
             raise ValueError(f"Invalid mode '{mode}': must be 'inpaint' or 'outpaint'")
 
+        if mode == "inpaint" and not mask_ref and not strokes:
+            raise ValueError(
+                "inpaint mode requires either mask_ref (a precomputed mask) or "
+                "strokes (raw stroke-guided mask points, rasterized downstream) "
+                "so the model knows which region to fill"
+            )
+
+        if mode == "outpaint":
+            if bbox is None:
+                raise ValueError("outpaint mode requires bbox (the canvas expansion rectangle)")
+            x0, y0, x1, y1 = bbox
+            if not (x1 > x0 and y1 > y0):
+                raise ValueError(f"invalid outpaint bbox {bbox}: expected x1 > x0 and y1 > y0")
+
         payload: dict[str, Any] = {
             "input_ref": input_ref,
             "mask_ref": mask_ref,
+            "strokes": strokes,
             "prompt": prompt,
             "bbox": bbox,
             "mode": mode,

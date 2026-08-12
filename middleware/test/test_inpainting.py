@@ -67,3 +67,38 @@ def test_inpainting_model_alias():
         weights_uri="https://example.com/models/inpainting.safetensors",
     )
     assert isinstance(model, InpaintingAdapter)
+
+
+def _available_adapter() -> InpaintingAdapter:
+    return InpaintingAdapter(
+        backend="diffusers",
+        weights_uri="https://example.com/models/inpainting.safetensors",
+    )
+
+
+def test_inpainting_adapter_accepts_stroke_guided_mask():
+    # Raw stroke/point data as an alternative to a precomputed mask_ref -- the
+    # UI paints directly on the canvas and the actual rasterization happens
+    # downstream, not in this dependency-light contract layer.
+    strokes = [{"x": 12, "y": 8, "radius": 6.0}, {"x": 14, "y": 9, "radius": 6.0}]
+    proposal = _available_adapter().propose(
+        "canvas_frame_01.png", strokes=strokes, mode="inpaint"
+    )
+    assert proposal.payload["strokes"] == strokes
+    assert proposal.payload["mask_ref"] is None
+
+
+def test_inpainting_adapter_inpaint_requires_mask_or_strokes():
+    with pytest.raises(ValueError, match="mask_ref.*strokes|strokes.*mask_ref"):
+        _available_adapter().propose("canvas_frame_01.png", mode="inpaint")
+
+
+def test_inpainting_adapter_outpaint_requires_bbox():
+    with pytest.raises(ValueError, match="bbox"):
+        _available_adapter().propose("canvas_frame_01.png", mode="outpaint")
+
+
+@pytest.mark.parametrize("bbox", [(100, 100, 100, 200), (100, 100, 200, 100), (200, 0, 100, 50)])
+def test_inpainting_adapter_rejects_degenerate_outpaint_bbox(bbox):
+    with pytest.raises(ValueError, match="bbox"):
+        _available_adapter().propose("canvas_frame_01.png", bbox=bbox, mode="outpaint")
