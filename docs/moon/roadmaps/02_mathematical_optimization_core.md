@@ -12,7 +12,7 @@ This roadmap specifies the high-performance numerical optimization engines in `l
 - **Dynamic Programming Layer Alignment:** Calculates optimal 2D $[t_x, t_y, s]$ motion alignment with Cauchy GNC-TLS outlier rejection.
 - **Convex Color Harmonization:** Solves global luminance and color transfer matrices across layers while enforcing non-clipping boundary constraints.
 
-### 2. Swarm Intelligence & Evolutionary Algorithms (`logic/src/metaheuristics.cpp` & `middleware/jobs/`)
+### 2. Swarm Intelligence & Evolutionary Algorithms (`logic/src/metaheuristics.cpp` & `middleware/src/hie_middleware/jobs/`)
 - **Particle Swarm Optimization (PSO):** Autotunes non-convex multi-parameter image processing stacks (curves, vibrance, local contrast, sharpening, noise suppression) to match target aesthetic profiles.
 - **Differential Evolution (DE):** Solves non-convex spatial element placement and layout packing, maximizing visual balance metrics (rule-of-thirds, visual weight distribution).
 
@@ -23,6 +23,6 @@ This roadmap specifies the high-performance numerical optimization engines in `l
 | Phase | Milestone | Priority | Output Deliverables |
 |---|---|:---:|---|
 | **Phase 2.1** | C++ Exact DP & GNC Solvers | High | C++ DP & convex solvers in `logic/src/exact_solvers.cpp` |
-| **Phase 2.2** | C++ PSO Filter Tuning Engine | High | Particle Swarm solver in `logic/src/pso_solver.cpp` |
-| **Phase 2.3** | Differential Evolution Composition Solver | Med | DE layout optimizer in `logic/src/de_solver.cpp` |
-| **Phase 2.4** | Python Middleware Optimization Jobs API | High | `middleware/jobs/solvers.py` with central `base` pybind11 integration |
+| **Phase 2.2** | C++ PSO Filter Tuning Engine | High | Particle Swarm solver (`pso_solve`) in `logic/src/metaheuristics.cpp` |
+| **Phase 2.3** | Differential Evolution Composition Solver | Med | DE layout optimizer (`de_solve`) in `logic/src/metaheuristics.cpp` |
+| **Phase 2.4** | Python Middleware Optimization Jobs API | High | Cancellable job contract in `middleware/src/hie_middleware/jobs/base.py`, with `exact_dp.py` (`call_hie_exact_solver`) and `metaheuristics.py` (`call_hie_pso`) providing pure-Python reference implementations pending central `base` pybind11 integration (tracked separately — see `hie_claude_handoff_20260812.md`) |
