@@ -161,18 +161,42 @@ class _CrawlWorkerMixin:
     def _delete_pruned_file(self, path: str):
         """Helper to remove a pruned image and all its associated metadata files (.json, .txt)."""
         try:
-            abs_path = path.split("?")[0].split("#")[0]
-            if not os.path.isabs(abs_path) and hasattr(self, "download_dir_path"):
-                d_dir = self.download_dir_path.text().strip()
-                if d_dir:
-                    abs_path = os.path.join(d_dir, os.path.basename(abs_path))
+            if not path:
+                return
 
-            if os.path.exists(abs_path):
-                os.remove(abs_path)
-            for ext in [".json", ".txt"]:
-                meta_path = os.path.splitext(abs_path)[0] + ext
-                if os.path.exists(meta_path):
-                    os.remove(meta_path)
+            clean_p = str(path).split("?")[0].split("#")[0]
+
+            d_dir = ""
+            if hasattr(self, "download_dir_path") and hasattr(self.download_dir_path, "text"):
+                d_dir = self.download_dir_path.text().strip()
+
+            candidates = [clean_p]
+            fname = os.path.basename(clean_p)
+            if d_dir:
+                candidates.append(os.path.join(d_dir, fname))
+
+            deleted = False
+            for target in candidates:
+                if target and os.path.exists(target):
+                    try:
+                        os.remove(target)
+                        deleted = True
+                    except Exception as ex:
+                        print(f"Error removing {target}: {ex}")
+
+                    for ext in [".json", ".txt"]:
+                        meta_path = os.path.splitext(target)[0] + ext
+                        if os.path.exists(meta_path):
+                            with contextlib.suppress(Exception):
+                                os.remove(meta_path)
+                    if deleted:
+                        break
+
+            if not deleted and d_dir and os.path.exists(d_dir):
+                candidate = os.path.join(d_dir, fname)
+                if os.path.exists(candidate):
+                    with contextlib.suppress(Exception):
+                        os.remove(candidate)
         except Exception as e:
             print(f"Error removing pruned file/metadata: {e}")
 
@@ -195,7 +219,9 @@ class _CrawlWorkerMixin:
         if self.downloaded_files:
             if "Manual Selection" in mode:
                 from gui.src.components.dialogs.crawler_selection_dialogs import ManualSelectionDialog
-                dialog = ManualSelectionDialog(self.downloaded_files, self)
+                sf = self.skip_first_spin.value() if hasattr(self, "skip_first_spin") else 0
+                sl = self.skip_last_spin.value() if hasattr(self, "skip_last_spin") else 0
+                dialog = ManualSelectionDialog(self.downloaded_files, self, skip_first=sf, skip_last=sl)
                 result = dialog.exec()
 
                 if result == QDialog.DialogCode.Accepted:

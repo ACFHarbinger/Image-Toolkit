@@ -43,3 +43,33 @@ def test_manual_selection_dialog_card_states_and_paths(tmp_path):
     dialog.select_all()
     assert set(dialog.get_kept_paths()) == {str(img1), str(img2)}
     assert dialog.get_pruned_paths() == []
+
+
+def test_manual_selection_dialog_skip_first_pre_marking(tmp_path):
+    img1 = tmp_path / "img1.jpeg"
+    img2 = tmp_path / "img2.jpeg"
+    img3 = tmp_path / "img3.jpeg"
+    for img in (img1, img2, img3):
+        img.write_bytes(b"\xFF\xD8\xFF\xE0\x00\x10JFIF\x00\x01\x01\x01\x00`\x00`\x00\x00\xFF\xDB\x00C\x00")
+
+    items = [
+        {"path": str(img1), "index_on_page": 1},
+        {"path": str(img2), "index_on_page": 2},
+        {"path": str(img3), "index_on_page": 3},
+    ]
+
+    parent = QWidget()
+    parent.download_dir_path = QLineEdit()
+    parent.download_dir_path.setText(str(tmp_path))
+
+    # Open dialog with skip_first=2
+    dialog = ManualSelectionDialog(items, parent=parent, skip_first=2)
+
+    # Card 0 (index 1) and Card 1 (index 2) must be DISCARD, Card 2 (index 3) must be KEEP
+    assert dialog.cards[0].is_kept is False
+    assert dialog.cards[1].is_kept is False
+    assert dialog.cards[2].is_kept is True
+
+    assert set(dialog.get_pruned_paths()) == {str(img1), str(img2)}
+    assert dialog.get_kept_paths() == [str(img3)]
+

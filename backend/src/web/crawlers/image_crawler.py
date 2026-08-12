@@ -56,12 +56,23 @@ class ImageCrawler(QObject):
         if replace_str and replacements:
             if isinstance(replacements, str):
                 replacements = [r.strip() for r in replacements.split(",") if r.strip()]
+
+            clean_replace_str = replace_str.strip()
             for r in replacements:
-                new_url = base_url.replace(replace_str, r)
+                clean_r = r.strip()
+                if clean_replace_str.startswith("?") and not clean_r.startswith("?") and not clean_r.startswith("&"):
+                    if "page=" in clean_replace_str and "page=" not in clean_r:
+                        clean_r = f"?page={clean_r}"
+                    else:
+                        clean_r = f"?{clean_r}"
+                elif clean_replace_str.startswith("page=") and not clean_r.startswith("page="):
+                    clean_r = f"page={clean_r}"
+
+                new_url = base_url.replace(clean_replace_str, clean_r)
                 if new_url not in target_urls:
                     target_urls.append(new_url)
 
-        self.on_status.emit(f"🌐 Target pages queued: {len(target_urls)}")
+        self.on_status.emit(f"🌐 Target pages queued ({len(target_urls)}): {', '.join(target_urls)}")
 
         skip_first = int(self.config.get("skip_first", 0) or 0)
         skip_last = int(self.config.get("skip_last", 0) or 0)
@@ -118,14 +129,17 @@ class ImageCrawler(QObject):
                         seen.add(u)
                         unique_urls.append(u)
 
-                # Slice skip_first and skip_last
-                if skip_first > 0:
-                    unique_urls = unique_urls[skip_first:]
-                if skip_last > 0 and len(unique_urls) > skip_last:
-                    unique_urls = unique_urls[:-skip_last]
+                is_manual_selection = "Manual Selection" in selection_mode
+
+                urls_to_download = list(unique_urls)
+                if not is_manual_selection:
+                    if skip_first > 0:
+                        urls_to_download = urls_to_download[skip_first:]
+                    if skip_last > 0 and len(urls_to_download) > skip_last:
+                        urls_to_download = urls_to_download[:-skip_last]
 
                 self.on_status.emit(
-                    f"📷 Found {len(unique_urls)} downloadable image(s) on page {page_idx + 1}."
+                    f"📷 Found {len(urls_to_download)} downloadable image(s) on page {page_idx + 1}."
                 )
 
                 # Download images
@@ -133,7 +147,7 @@ class ImageCrawler(QObject):
                 download_headers = dict(session_headers)
                 download_headers["Referer"] = f"https://{host}/"
 
-                for img_idx, img_url in enumerate(unique_urls, start=1):
+                for img_idx, img_url in enumerate(urls_to_download, start=1):
                     if not self._is_running:
                         break
 
@@ -142,14 +156,17 @@ class ImageCrawler(QObject):
                     )
                     if saved_path:
                         downloaded_count += 1
-                        pos_on_page = (skip_first if skip_first > 0 else 0) + img_idx
+                        pos_on_page = img_idx
                         meta = {
                             "path": saved_path,
                             "page_url": target_url,
                             "page_num": page_idx + 1,
                             "index_on_page": pos_on_page,
+                            "total_on_page": len(urls_to_download),
                             "global_id": downloaded_count,
                             "img_url": img_url,
+                            "skip_first": skip_first,
+                            "skip_last": skip_last,
                         }
                         self.on_image_saved.emit(json.dumps(meta))
                         self.on_status.emit(
