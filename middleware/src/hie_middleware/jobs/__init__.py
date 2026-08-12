@@ -12,7 +12,7 @@ from .exact_dp import (
     SeamResult,
     call_hie_exact_solver,
 )
-from .metaheuristics import call_hie_pso
+from .metaheuristics import call_hie_de, call_hie_pso
 
 __all__ = [
     "CancelToken",
@@ -26,6 +26,7 @@ __all__ = [
     "SeamPixel",
     "SeamResult",
     "call_hie_exact_solver",
+    "call_hie_de",
     "call_hie_pso",
     "submit_job",
 ]

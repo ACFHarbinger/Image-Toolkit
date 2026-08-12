@@ -46,6 +46,7 @@ Built the job contract now; deferred the central `base` binding integration.
   (inertia + cognitive + social terms, clamped to bounds), verified against a known quadratic
   minimum in tests.
 - 16/16 middleware tests pass (`cd middleware && python3 -m pytest test/`).
+- Follow-up DE parity is now being added by Chat with the same cancellation/progress contract.
 
 Why defer the `base` binding rather than doing both: it's a larger, cross-repo change (touching
 Image-Toolkit's root `base` pybind11 module, not just this submodule) and the solver signatures

@@ -8,6 +8,7 @@ from hie_middleware.jobs import (
     LayerColorStats,
     SeamPixel,
     call_hie_exact_solver,
+    call_hie_de,
     call_hie_pso,
     submit_job,
 )
@@ -132,6 +133,31 @@ def test_pso_respects_cancellation():
     result = handle.result(timeout=10)
 
     assert result.status is JobStatus.CANCELLED
+
+
+def test_de_minimizes_simple_quadratic_bowl():
+    def objective(p):
+        x, y = p
+        return (x - 1.5) ** 2 + (y + 2.5) ** 2
+
+    result = call_hie_de(
+        params={}, objective_fn=objective, bounds=[(-5.0, 5.0), (-5.0, 5.0)],
+        population_size=20, max_iter=80, seed=123,
+    ).result(timeout=10)
+    assert result.ok
+    assert result.value[0] == pytest.approx(1.5, abs=0.35)
+    assert result.value[1] == pytest.approx(-2.5, abs=0.35)
+
+
+def test_de_reports_generations_and_rejects_small_population():
+    handle = call_hie_de(
+        params={}, objective_fn=lambda p: p[0] ** 2, bounds=[(-2.0, 2.0)],
+        population_size=6, max_iter=4, seed=2,
+    )
+    handle.result(timeout=10)
+    assert len(handle.drain_progress()) == 4
+    with pytest.raises(ValueError, match="at least four"):
+        call_hie_de(params={}, objective_fn=lambda p: p[0], bounds=[(-1.0, 1.0)], population_size=3)
 
 
 # ─── call_hie_exact_solver (exact_dp.py) ───────────────────────────────────

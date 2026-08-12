@@ -1,4 +1,4 @@
-"""Swarm/evolutionary optimization jobs (PSO now; DE to follow Roadmap 02 Phase 2.3).
+"""Swarm/evolutionary optimization jobs (PSO and Differential Evolution).
 
 `call_hie_pso` mirrors the ``pso_tune(params, objective_fn, bounds, n_particles,
 max_iter)`` signature agreed in ``.agent/cache/AGENT_BUS.md``'s Gemini -> Chat
@@ -103,4 +103,87 @@ def call_hie_pso(
     """
     del params  # reserved for warm-start parity with the C++ signature; unused by the reference impl
     body = _pso_body(objective_fn, bounds, n_particles, max_iter, seed=seed)
+    return submit_job(body)
+
+
+def _de_body(
+    objective_fn: ObjectiveFn,
+    bounds: Bounds,
+    population_size: int,
+    max_iter: int,
+    *,
+    differential_weight: float = 0.8,
+    crossover_rate: float = 0.9,
+    seed: int | None = None,
+) -> Callable[[CancelToken, ReportFn], list[float]]:
+    """Return a deterministic, bounded ``DE/rand/1/bin`` job body."""
+    rng = random.Random(seed)
+    dim = len(bounds)
+
+    def body(token: CancelToken, report: ReportFn) -> list[float]:
+        population = [[rng.uniform(lo, hi) for lo, hi in bounds] for _ in range(population_size)]
+        scores = [objective_fn(candidate) for candidate in population]
+
+        for generation in range(max_iter):
+            token.raise_if_cancelled()
+            for index, target in enumerate(population):
+                choices = [i for i in range(population_size) if i != index]
+                a, b, c = rng.sample(choices, 3)
+                mutant = [
+                    population[a][dimension]
+                    + differential_weight * (population[b][dimension] - population[c][dimension])
+                    for dimension in range(dim)
+                ]
+                forced = rng.randrange(dim)
+                trial = [
+                    _clamp(mutant[dimension], *bounds[dimension])
+                    if dimension == forced or rng.random() < crossover_rate
+                    else target[dimension]
+                    for dimension in range(dim)
+                ]
+                trial_score = objective_fn(trial)
+                if trial_score <= scores[index]:
+                    population[index] = trial
+                    scores[index] = trial_score
+
+            best_index = min(range(population_size), key=scores.__getitem__)
+            report(JobProgress(
+                fraction=(generation + 1) / max_iter,
+                message=f"generation {generation + 1}/{max_iter}",
+                payload={"best_score": scores[best_index], "best_params": list(population[best_index])},
+            ))
+
+        return list(population[min(range(population_size), key=scores.__getitem__)])
+
+    return body
+
+
+def call_hie_de(
+    params: dict[str, float],
+    objective_fn: ObjectiveFn,
+    bounds: Bounds,
+    population_size: int = 24,
+    max_iter: int = 60,
+    *,
+    differential_weight: float = 0.8,
+    crossover_rate: float = 0.9,
+    seed: int | None = None,
+) -> JobHandle[list[float]]:
+    """Optimize composition/layout parameters with Differential Evolution."""
+    del params  # reserved for parity with the eventual central binding
+    if len(bounds) == 0:
+        raise ValueError("call_hie_de requires at least one parameter bound")
+    if population_size < 4:
+        raise ValueError("call_hie_de requires a population of at least four candidates")
+    if max_iter < 1:
+        raise ValueError("call_hie_de requires at least one generation")
+    body = _de_body(
+        objective_fn,
+        bounds,
+        population_size,
+        max_iter,
+        differential_weight=differential_weight,
+        crossover_rate=crossover_rate,
+        seed=seed,
+    )
     return submit_job(body)
