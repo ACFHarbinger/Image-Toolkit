@@ -229,11 +229,21 @@ ColorHarmonizationResult solve_color_harmonization(
 
     // Clamp beta so that the minimum source value stays non-negative (L channel)
     // and to prevent clipping at the high end. Simple convex projection onto [0,100].
+    //
+    // `hi` must be recomputed after the low-end correction: the two branches both
+    // mutate `beta`, so checking the high end against a `hi` computed from the
+    // pre-correction `beta` let the corrections stack instead of compose (e.g.
+    // alpha=2 could clamp beta once for the low bound, then clamp it a second,
+    // unrelated time for a high bound reading that was already stale). Note this
+    // is still a pure shift (alpha is never rescaled), so for alpha far from 1
+    // there may be no beta that satisfies both bounds at once — in that case this
+    // clamps as close as a single shift can get, biased toward the bound whose
+    // violation is resolved second (currently the high end).
     auto clamp_beta = [&](float alpha, float& beta, float src_min, float src_max,
                           float out_min, float out_max) {
         float lo = alpha * src_min + beta;
-        float hi = alpha * src_max + beta;
         if (lo < out_min) beta += out_min - lo;
+        float hi = alpha * src_max + beta;
         if (hi > out_max) beta -= hi - out_max;
     };
 

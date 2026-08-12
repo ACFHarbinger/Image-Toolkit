@@ -9,14 +9,26 @@ implementations in ``jobs/exact_dp.py`` / ``jobs/metaheuristics.py`` in that
 case, which is exactly what those modules do.
 
 Only PSO/DE are wired through here. `solve_seam`/`solve_color_harmonization`
-are intentionally NOT bridged yet: `solve_color_harmonization`'s C++
-implementation has a confirmed bug in its non-clipping `clamp_beta` step (it
-computes `hi` once and then applies both the lower- and upper-bound
-correction sequentially without recomputing `hi` after the first
-adjustment, double-correcting `beta` whenever both bounds are violated —
-see `.agent/cache/claude/hie_exact_solver_clamp_bug_20260812.md` for the
-full repro). Bridging it now would silently regress `call_hie_exact_solver`
-from a correct Python reference to a buggy native one.
+are still NOT bridged, but for a different reason now than before:
+`solve_color_harmonization`'s `clamp_beta` sequencing bug (stale `hi` read
+before the low-bound correction) is FIXED as of 2026-08-12 — see
+`.agent/cache/claude/hie_exact_solver_clamp_bug_20260812.md` for the
+original repro and `logic/test/test_solvers.cpp`'s
+`test_color_harmonization_clamp_beta_sequencing` for the regression test.
+What's blocking the bridge now is a genuine semantic mismatch: the native
+`solve_color_harmonization` clamps `beta` into the valid Lab range (and, for
+`alpha` far enough from 1, that clamp is unsatisfiable on both bounds at
+once — see the code comment on `clamp_beta` in `exact_solvers.cpp`), while
+`jobs/exact_dp.py`'s `_solve_color_harmonization` Python reference does not
+clamp at all. Swapping the dispatch to native as-is would silently change
+`call_hie_exact_solver("color_harmonization", ...)`'s output distribution
+for any caller whose stats produce an out-of-range alpha/beta, which is a
+product decision (should the reference also clamp for parity, or should
+clamping become an opt-in?) worth its own pass, not a side effect of
+bridging. `solve_seam` has no such mismatch and could be bridged alone, but
+`call_hie_exact_solver` dispatches by method name to one function — see
+`hie_central_base_binding_20260812.md` for why splitting seam/color-harmony
+bridging across two passes was already ruled out once.
 """
 
 from __future__ import annotations

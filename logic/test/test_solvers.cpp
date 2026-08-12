@@ -98,6 +98,31 @@ static void test_color_harmonization_identity() {
     std::printf("[PASS] test_color_harmonization_identity\n");
 }
 
+// Regression test for the clamp_beta sequencing bug: `hi` must be recomputed
+// after the low-bound correction, not read from a value computed with the
+// pre-correction beta. Uses alpha > 1 so both bounds engage. With alpha=2 on
+// a 100-wide range, no single shift can satisfy both bounds (scaled width
+// 200 > range width 100), so the low bound is expected to stay violated —
+// what this asserts is that the *high* bound (checked second, the one the
+// stale-`hi` bug corrupted) ends up exactly satisfied, not overshot.
+static void test_color_harmonization_clamp_beta_sequencing() {
+    LayerColorStats src{40.f, 1.f, 2.f, 10.f, 5.f, 5.f};
+    LayerColorStats tgt{60.f, 3.f, -2.f, 20.f, 15.f, 10.f};
+    auto r = solve_color_harmonization(src, tgt);
+    assert(r.success);
+
+    assert(std::abs(r.alpha_l - 2.f) < 1e-4f);
+    float hi_l = r.alpha_l * 100.f + r.beta_l;
+    assert(hi_l <= 100.f + 1e-3f && "high bound must be satisfied post-clamp, not stale-hi overshot");
+    assert(std::abs(r.beta_l - (-100.f)) < 1e-3f && "buggy sequencing produced -80 instead of -100");
+
+    assert(std::abs(r.alpha_a - 3.f) < 1e-4f);
+    float hi_a = r.alpha_a * 127.f + r.beta_a;
+    assert(hi_a <= 127.f + 1e-3f && "high bound must be satisfied post-clamp, not stale-hi overshot");
+
+    std::printf("[PASS] test_color_harmonization_clamp_beta_sequencing\n");
+}
+
 // ─── PSO Tests ────────────────────────────────────────────────────────────────
 
 static void test_pso_sphere() {
@@ -204,6 +229,7 @@ int main() {
     test_alignment_pure_translation();
     test_alignment_with_outliers();
     test_color_harmonization_identity();
+    test_color_harmonization_clamp_beta_sequencing();
     test_pso_sphere();
     test_de_rosenbrock();
     test_render_graph_topo_order();
