@@ -11,9 +11,10 @@ class HieViewport(QGraphicsView):
     """Minimal hardware-friendly canvas with a clear empty-document state."""
 
     def __init__(self, parent=None) -> None:
-        scene = QGraphicsScene()
-        scene.setBackgroundBrush(QBrush(QColor("#10151b")))
-        super().__init__(scene, parent)
+        super().__init__(parent)
+        self._scene = QGraphicsScene(self)
+        self._scene.setBackgroundBrush(QBrush(QColor("#10151b")))
+        self.setScene(self._scene)
         self.setRenderHint(QPainter.RenderHint.Antialiasing)
         self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
         self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
