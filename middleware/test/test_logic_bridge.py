@@ -6,6 +6,8 @@ compiled `base` extension is importable (`HAVE_NATIVE_HIE`), since this
 suite must also pass in a middleware-only install with no C++ extension.
 """
 
+import importlib.util
+
 import pytest
 
 from hie_middleware.jobs.exact_dp import Correspondence, SeamPixel
@@ -15,9 +17,14 @@ from hie_middleware.logic_bridge.solvers import (
     native_pso_solve,
     native_solve_alignment_gnc,
     native_solve_seam,
+    native_solve_seam_np,
 )
 
 requires_native = pytest.mark.skipif(not HAVE_NATIVE_HIE, reason="compiled base.hie extension not available")
+HAVE_NUMPY = importlib.util.find_spec("numpy") is not None
+requires_native_and_numpy = pytest.mark.skipif(
+    not (HAVE_NATIVE_HIE and HAVE_NUMPY), reason="requires both compiled base.hie and numpy"
+)
 
 
 def _sphere(p: list[float]) -> float:
@@ -61,6 +68,46 @@ def test_native_solve_seam_prefers_zero_energy_column():
     assert all(x == 1 for x in result.seam_x)
 
 
+@requires_native_and_numpy
+def test_native_solve_seam_np_matches_list_based_native_solve_seam():
+    import numpy as np
+
+    energy = np.array([[1, 0, 1], [1, 0, 1], [1, 0, 1]], dtype=np.float32)
+    mask = np.zeros((3, 3), dtype=np.uint8)
+    mask[:, 1] = 1  # mask column 1 -- seam must route around it
+
+    np_result = native_solve_seam_np(energy, mask)
+    grid = [
+        [SeamPixel(1.0), SeamPixel(0.0, masked=True), SeamPixel(1.0)],
+        [SeamPixel(1.0), SeamPixel(0.0, masked=True), SeamPixel(1.0)],
+        [SeamPixel(1.0), SeamPixel(0.0, masked=True), SeamPixel(1.0)],
+    ]
+    list_result = native_solve_seam(grid)
+
+    assert np_result.success and list_result.success
+    assert list(np_result.seam_x) == list(list_result.seam_x)
+    assert np_result.total_energy == pytest.approx(list_result.total_energy)
+
+
+@requires_native_and_numpy
+def test_native_solve_seam_np_without_mask():
+    import numpy as np
+
+    energy = np.array([[1, 0, 1], [1, 0, 1], [1, 0, 1]], dtype=np.float32)
+    result = native_solve_seam_np(energy)
+    assert result.success
+    assert all(x == 1 for x in result.seam_x)
+
+
+@requires_native_and_numpy
+def test_native_solve_seam_np_rejects_mismatched_mask_shape():
+    import numpy as np
+
+    energy = np.zeros((3, 3), dtype=np.float32)
+    with pytest.raises(ValueError, match="shape"):
+        native_solve_seam_np(energy, np.zeros((2, 2), dtype=np.uint8))
+
+
 @requires_native
 def test_native_solve_alignment_gnc_recovers_pure_translation():
     # dst = src + (10, -5), no scale or outliers — GNC should recover this exactly.
@@ -86,3 +133,5 @@ def test_native_functions_raise_when_unavailable(monkeypatch):
         native_solve_seam([[SeamPixel(0.0)]])
     with pytest.raises(RuntimeError):
         native_solve_alignment_gnc([Correspondence(0.0, 0.0, 1.0, 1.0)])
+    with pytest.raises(RuntimeError):
+        native_solve_seam_np([[0.0]])

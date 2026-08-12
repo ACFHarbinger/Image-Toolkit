@@ -39,12 +39,27 @@ Color harmonization has no such progress-reporting concern (it was never
 incremental — a single closed-form computation), which is why it CAN be
 wired into the default dispatch path when `enforce_bounds=True`, unlike
 seam/PSO/DE.
+
+`native_solve_seam_np` (2026-08-12, Gemini's Phase 2 task 3/3) is a second
+entry point for `solve_seam`, taking NumPy arrays directly instead of a
+Python list of `SeamPixel`-like objects. `native_solve_seam`'s list
+conversion goes through pybind11/stl.h's `std::vector<SeamPixel>` caster,
+which constructs/destroys one Python `SeamPixel` object per grid cell —
+measured ~9x slower than `native_solve_seam_np` for a 1080p grid (0.54s
+vs 0.06s for the binding call alone, excluding building the Python list
+in the first place, which the NumPy path skips entirely). Reads NumPy's
+buffer directly via pybind11's buffer protocol (`array_t.request()`), no
+per-element Python object round-trip — see `logic/src/exact_solvers_bindings.cpp`'s
+`solve_seam_np` binding for the C++ side.
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
+
+if TYPE_CHECKING:
+    import numpy as np
 
 try:
     import base
@@ -80,6 +95,35 @@ def native_solve_seam(energy_grid: Sequence[Sequence[SeamPixelLike]]):
     cols = len(energy_grid[0]) if rows else 0
     flat = [base.hie.SeamPixel(px.energy, px.masked) for row in energy_grid for px in row]
     return base.hie.solve_seam(flat, rows, cols)
+
+
+def native_solve_seam_np(energy: "np.ndarray", mask: "np.ndarray | None" = None):
+    """Call `base.hie.solve_seam_np` — NumPy-buffer entry point for `solve_seam`.
+
+    `energy` is a 2D float array `(rows, cols)`; `mask` is an optional 2D
+    array of the same shape (nonzero/truthy = masked/protected). Meaningfully
+    faster than `native_solve_seam` for large grids since it reads NumPy's
+    buffer directly instead of converting a Python list of `SeamPixel`
+    objects element-by-element — see the module docstring for measured
+    numbers. `numpy` is only imported here, not at module scope: it's an
+    optional dependency of this package (the `restoration-opencv` extra),
+    not a core one.
+
+    Raises `RuntimeError` if `HAVE_NATIVE_HIE` is False — check first.
+    """
+    if not HAVE_NATIVE_HIE:
+        raise RuntimeError("native HIE bindings are not available (base.hie not found)")
+    import numpy as np
+
+    energy_arr = np.asarray(energy, dtype=np.float32)
+    if energy_arr.ndim != 2:
+        raise ValueError(f"energy must be a 2D array, got shape {energy_arr.shape}")
+    if mask is None:
+        return base.hie.solve_seam_np(energy_arr)
+    mask_arr = np.asarray(mask, dtype=np.uint8)
+    if mask_arr.shape != energy_arr.shape:
+        raise ValueError(f"mask shape {mask_arr.shape} must match energy shape {energy_arr.shape}")
+    return base.hie.solve_seam_np(energy_arr, mask_arr)
 
 
 class LayerColorStatsLike(Protocol):

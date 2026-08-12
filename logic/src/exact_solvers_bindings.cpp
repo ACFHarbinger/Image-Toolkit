@@ -10,8 +10,12 @@
 // (or this submodule) isn't importable — see that file's module docstring.
 // ---------------------------------------------------------------------------
 
+#include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
+
+#include <cstdint>
+#include <stdexcept>
 
 #include "exact_solvers.hpp"
 
@@ -44,6 +48,56 @@ void register_hie_exact_solvers(py::module_& m) {
         },
         py::arg("energy_grid"), py::arg("rows"), py::arg("cols"),
         "Dynamic-programming optimal seam routing (see exact_solvers.hpp for the full contract).");
+
+    m.def(
+        "solve_seam_np",
+        [](py::array_t<float, py::array::c_style | py::array::forcecast> energy,
+           py::array_t<std::uint8_t, py::array::c_style | py::array::forcecast> mask) {
+            // NumPy-array entry point for solve_seam. `energy_grid` (the
+            // list-of-SeamPixel-objects overload above) goes through
+            // pybind11/stl.h's std::vector<SeamPixel> caster, which
+            // constructs/destroys one Python SeamPixel object per grid
+            // cell -- expensive for a full-frame (4K/8K) grid. This
+            // overload reads NumPy's raw buffer directly via `.request()`
+            // (no per-element Python object round-trip at all), so only
+            // the final C++-side packing into the AoS layout `solve_seam`
+            // expects costs anything, and that's a tight, cache-friendly
+            // memory copy rather than N Python object conversions.
+            py::buffer_info energy_info = energy.request();
+            if (energy_info.ndim != 2) {
+                throw std::invalid_argument("energy must be a 2D array shaped (rows, cols)");
+            }
+            const auto rows = static_cast<std::size_t>(energy_info.shape[0]);
+            const auto cols = static_cast<std::size_t>(energy_info.shape[1]);
+
+            const bool have_mask = mask.size() > 0;
+            py::buffer_info mask_info;
+            if (have_mask) {
+                mask_info = mask.request();
+                if (mask_info.ndim != 2 ||
+                    static_cast<std::size_t>(mask_info.shape[0]) != rows ||
+                    static_cast<std::size_t>(mask_info.shape[1]) != cols) {
+                    throw std::invalid_argument("mask shape must match energy shape (rows, cols)");
+                }
+            }
+
+            std::vector<SeamPixel> grid(rows * cols);
+            const auto* energy_ptr = static_cast<const float*>(energy_info.ptr);
+            const auto* mask_ptr =
+                have_mask ? static_cast<const std::uint8_t*>(mask_info.ptr) : nullptr;
+            for (std::size_t i = 0; i < rows * cols; ++i) {
+                grid[i].energy = energy_ptr[i];
+                grid[i].masked = have_mask && mask_ptr[i] != 0;
+            }
+
+            py::gil_scoped_release release;
+            return solve_seam(grid, rows, cols);
+        },
+        py::arg("energy"), py::arg("mask") = py::array_t<std::uint8_t>(),
+        "NumPy-buffer variant of solve_seam: `energy` is a 2D float32 array (rows, cols); "
+        "`mask` is an optional 2D uint8/bool array of the same shape (nonzero = masked/"
+        "protected). Reads NumPy's buffer directly instead of converting a Python list of "
+        "SeamPixel objects element-by-element -- meaningfully faster for large grids.");
 
     py::class_<Correspondence>(m, "Correspondence")
         .def(py::init([](float src_x, float src_y, float dst_x, float dst_y) {

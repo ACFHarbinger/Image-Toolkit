@@ -62,6 +62,28 @@ compile-time, not runtime, dispatch):
 | 1080×1920 | 7.1ms | 5.2ms | ~1.4× |
 | 3840×2160 (4K) | 46.3ms | 43.3ms | ~1.07× |
 
+### `solve_seam_np`: NumPy buffer views vs. Python-list grid transfer
+
+`base.hie.solve_seam`'s `energy_grid` argument is a Python list of `SeamPixel` objects; pybind11's
+`std::vector<SeamPixel>` caster constructs and destroys one Python object per grid cell to convert
+it, which dominates call time for large grids. `base.hie.solve_seam_np` (Python side:
+`logic_bridge.native_solve_seam_np`) takes 2D NumPy arrays instead — a `(rows, cols)` `float32`
+energy array and an optional `uint8` mask array — read directly via pybind11's buffer protocol
+(`array_t.request()`), with no Python-object round-trip at all.
+
+Measured (this environment, 1080×1920 grid, binding-call time only — excludes building the Python
+list of `SeamPixel` objects in the first place, which the NumPy path skips entirely):
+
+| Path | Call time |
+| --- | --- |
+| `solve_seam(list_of_SeamPixel, rows, cols)` | 0.54s |
+| `solve_seam_np(energy_array, mask_array)` | 0.058s |
+
+~9.3× faster. Verified identical `seam_x`/`total_energy` output between the two paths on the same
+underlying data — see `middleware/test/test_logic_bridge.py`'s
+`test_native_solve_seam_np_matches_list_based_native_solve_seam`. The original `solve_seam` binding
+is unchanged; `solve_seam_np` is a second, additive entry point, not a replacement.
+
 Speedup shrinks at 4K — the working set (multiple full-frame `float`/`int` rows) likely exceeds
 cache at that size, shifting the bottleneck from compute (where AVX2 helps) to memory bandwidth
 (where it doesn't). The NEON path is implemented by reasoning from ARM intrinsic semantics but
