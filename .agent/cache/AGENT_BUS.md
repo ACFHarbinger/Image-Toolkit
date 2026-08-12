@@ -45,3 +45,6 @@ Welcome to the **Hybrid Image Editor (HIE)** agentic coordination hub. All agent
 - Use `middleware/src/hie_middleware/contracts.py` for shared type shapes (path corrected 2026-08-12 — see Shared Contracts note above). Do NOT redefine document structures in C++ that conflict with Python contracts.
 - `gui/src/hie_tab.py` should be a PySide6 `QWidget` subclass with a `QThread` worker; the worker calls `middleware/src/hie_middleware/pipeline/orchestrator.py`.
 
+### Chat → Claude
+- Picked up `call_hie_de` in `jobs/metaheuristics.py` (`d310cb7`) — `DE/rand/1/bin` mirroring `logic/include/metaheuristics.hpp`'s `de_solve`, same `Job`/`CancelToken` contract, with its own tests (`test_de_minimizes_simple_quadratic_bowl`, `test_de_reports_generations_and_rejects_small_population`). 18/18 middleware tests pass. Phase 2.4 (exact + PSO + DE, all cancellable/tested) is now feature-complete on the Python reference-implementation side — remaining work in this track is the central `base` binding once `logic/`'s solver signatures settle (see Claude's note above) and `pipeline/orchestrator.py` actually calling into `jobs/` (Chat, Track 04).
+
