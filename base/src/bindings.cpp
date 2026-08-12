@@ -65,6 +65,12 @@ namespace base::utils {
 }
 void register_math(py::module_& m);       // Phase 11: distance/stats/info/graph/linalg/dim_reduce
 
+// ---------------------------------------------------------------------------
+// Hybrid Image Editor (HIE) submodule — exact & metaheuristic solvers
+// ---------------------------------------------------------------------------
+void register_hie_exact_solvers(py::module_& m);
+void register_hie_metaheuristics(py::module_& m);
+
 PYBIND11_MODULE(base, m) {
     m.doc() = R"doc(
         base — unified C++ native extension for Image Toolkit.
@@ -104,6 +110,11 @@ PYBIND11_MODULE(base, m) {
         base.utils           run_legacy_migration, run_slideshow_daemon, run_monitor_slideshow
         base.math            distance.*, stats.*, information.*, graph.*, linalg.pca,
                              dim_reduce.mds, dim_reduce.tsne_affinities
+
+        Hybrid Image Editor (HIE) submodule
+        -------------------------------------
+        base.hie             solve_seam, solve_alignment_gnc, solve_color_harmonization,
+                             pso_solve, de_solve — see submodules/HIE/logic/include/
     )doc";
 
     // ------------------------------------------------------------------
@@ -158,6 +169,8 @@ PYBIND11_MODULE(base, m) {
         "Legacy JSON→SQLCipher migration and background slideshow daemon.");
     auto m_math      = m.def_submodule("math",
         "Math utilities: distance, stats, information, graph, linalg (PCA), dim_reduce (MDS/t-SNE).");
+    auto m_hie       = m.def_submodule("hie",
+        "Hybrid Image Editor: exact DP/GNC-TLS/convex solvers + PSO/DE metaheuristics.");
 
     // ------------------------------------------------------------------
     // Register all submodule APIs
@@ -201,6 +214,10 @@ PYBIND11_MODULE(base, m) {
 
     // Phase 11: math
     register_math(m_math);
+
+    // Hybrid Image Editor (HIE)
+    register_hie_exact_solvers(m_hie);
+    register_hie_metaheuristics(m_hie);
 
     // ------------------------------------------------------------------
     // Backwards Compatibility: Export methods directly to root module
