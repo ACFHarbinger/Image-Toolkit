@@ -2,6 +2,6 @@
 
 from __future__ import annotations
 
-from hie_gui import HieEditorTab
+from hie_editor_tab import HieEditorTab
 
 __all__ = ["HieEditorTab"]
