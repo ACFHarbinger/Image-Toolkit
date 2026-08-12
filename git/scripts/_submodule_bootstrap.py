@@ -25,6 +25,8 @@ _ALIASES = {
 
 _PACKAGE_ROOTS = (
     ("CSG", "logic", "src"),
+    ("HIE", "middleware", "src"),
+    ("HIE", "gui", "src"),
 )
 
 

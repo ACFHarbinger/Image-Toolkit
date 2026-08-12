@@ -22,6 +22,7 @@ class _TabRegistryMixin:
             DriveSyncTab,
             EntityReconTab,
             ExtractorTab,
+            HieEditorTab,
             ImageCrawlTab,
             MangaAnimationTab,
             MangaColorizationTab,
@@ -70,6 +71,7 @@ class _TabRegistryMixin:
         self.manga_colorization_tab = MangaColorizationTab()
         self.manga_animation_tab = MangaAnimationTab()
         self.manga_puppeteering_tab = MangaPuppeteeringTab()
+        self.hie_editor_tab = HieEditorTab()
 
         # --- LINK TABS (Critical for Cross-Tab Communication) ---
         self.database_tab.scan_tab_ref = self.scan_metadata_tab
@@ -134,6 +136,9 @@ class _TabRegistryMixin:
                 "Colorization": self.manga_colorization_tab,
                 "Animation": self.manga_animation_tab,
                 "Puppeteering": self.manga_puppeteering_tab,
+            },
+            "Image Editor": {
+                "Hybrid Editor": self.hie_editor_tab,
             },
         }
 
