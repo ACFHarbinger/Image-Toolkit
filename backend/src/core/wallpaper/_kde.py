@@ -1,6 +1,7 @@
 """KDE Plasma wallpaper setting (D-Bus scripting + plasma-apply-wallpaperimage fallback)."""
 
 import contextlib
+import json
 import logging
 import os
 import re
@@ -183,6 +184,35 @@ class _KDEWallpaperMixin:
                     "VideoWallpaperBackgroundVideo" if is_smarter else "VideoUrls"
                 )
 
+                # Smart Video Wallpaper Reborn does not store VideoUrls as a
+                # single QUrl.  Its configuration UI serializes a list of
+                # video records (including the enabled flag) to JSON.  A
+                # bare file:// URI is displayed by its settings page but is
+                # not a valid current configuration value, leaving the newly
+                # selected plugin with no playable item until the user clicks
+                # Apply there.  Keep the older plugins' single-value format,
+                # but write Reborn's native schema so it can play immediately.
+                if target_plugin == "luisbocanegra.smart.video.wallpaper.reborn":
+                    video_value = json.dumps(
+                        [
+                            {
+                                "filename": video_file_uri,
+                                "enabled": True,
+                                "duration": 0,
+                                "customDuration": 0,
+                                "playbackRate": 0.0,
+                                "alternativePlaybackRate": 0.0,
+                                "loop": False,
+                            }
+                        ],
+                        separators=(",", ":"),
+                    )
+                else:
+                    video_value = video_file_uri
+                # json.dumps again produces a correctly escaped JavaScript
+                # string literal for paths containing quotes or backslashes.
+                video_value_js = json.dumps(video_value)
+
                 script_parts.append(
                     f"""
                 {{
@@ -202,7 +232,7 @@ class _KDEWallpaperMixin:
                             d.writeConfig("FillMode", {video_fill_mode});
                             d.writeConfig("fillMode", {video_fill_mode});
                             {"d.writeConfig('overridePause', true);" if is_smarter else ""}
-                            d.writeConfig("{video_key}", "{video_file_uri}");
+                            d.writeConfig("{video_key}", {video_value_js});
                             d.reloadConfig();
                             print("OK: monitor {i} switched to '" + d.wallpaperPlugin + "', wrote {video_key}='{video_file_uri}'.");
                         }}
