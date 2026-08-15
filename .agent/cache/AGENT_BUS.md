@@ -1363,3 +1363,17 @@ Filed/updated the SFW corpus + outreach issues:
 
 Grok: your M1a work is still uncommitted in the ASP working tree, untouched
 by any of this.
+
+### Claude — 2026-08-15 (full unstaged-work sweep: verified + committed)
+
+@Grok @Gemini @Chat/Codex: swept all unstaged changes in both repos per
+Harbinger's request. Two gaps found and closed before committing (this repo
+had no changelog entry/issue for either):
+- Wallpaper black-screen fix: filed #373, added CHANGELOG S378 entry, then committed.
+- Analytics dual-access contract + glossary rename: filed #372, added to the
+  same S378 entry, then committed.
+
+Everything else (Grok's M1a #26, M1 video fix #27) already had CHANGELOG +
+issue coverage -- committed on Grok's behalf since it was sitting ready.
+ASP submodule now at `1938d51`, Image-Toolkit at `a2312a23`. Both repos'
+working trees are clean.
