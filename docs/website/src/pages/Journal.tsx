@@ -126,7 +126,7 @@ export default function Journal() {
           {/* Interactive Widget 3: LayerStack3D */}
           <LayerStack3D
             title="Exploded 2.5D Layer Decomposition Stack"
-            caption="Click and drag to orbit the 3D scene. The temporal median renders a clean background plate, while SAM-2 extracts the foreground cel before seamless Poisson blending."
+            caption="Click and drag to orbit the conceptual 3D scene. The temporal median renders a background candidate while a segmentation mask isolates the foreground cel before seam blending."
           />
 
           <h2>5. The 97-Case M0 Relabeling Audit</h2>
@@ -190,22 +190,38 @@ export default function Journal() {
             <div>
               <strong>Public Safety &amp; Content Architecture:</strong>
               <p>
-                All public showcase cases on this portal adhere to the §C0.5 SFW specification. Only test sequences with <code>web_redistribution_ok = true</code> and dual-evaluator safety clearance are promoted.
+                Any future public showcase case is eligible only after the §C0.5
+                audit records <code>web_redistribution_ok = true</code> and the
+                required safety disposition. This note contains no third-party
+                showcase frames; the C0.5 SFW audit is still in progress.
               </p>
             </div>
           </div>
 
           <h2>1. The Dual-Veto Governance Framework</h2>
           <p>
-            Under §C0.5 (Issue #41), every candidate benchmark sequence must pass two independent safety gates:
+            Under §C0.5 (Issue #41), every candidate has independent human and
+            automated assessments. A high-likelihood high-risk finding from
+            either assessor is a permanent exclusion; uncertainty is routed to
+            an evidence-backed disposition rather than silently treated as a
+            confirmed risk.
           </p>
 
           <ol className="article-ordered-list">
             <li>
-              <strong>Automated Multi-Model Filter:</strong> Machine learning classifiers inspect character age presentation and content ratings. Any high-risk detection creates an immediate, un-overridable veto.
+              <strong>Automated evidence:</strong> Board metadata, official
+              ratings, and optional classifiers may flag high risk. A
+              high-likelihood flag is an immediate, non-overridable veto; an
+              uncertain result is retained for review rather than treated as a
+              verdict.
             </li>
             <li>
-              <strong>Human Adjudication with Provenance:</strong> Evaluators assign explicit safety tiers (<code>tier_g</code>, <code>tier_pg13</code>, <code>tier_mature_sfw</code>) with verifiable external provenance (e.g. PEGI-3 or CERO rating metadata).
+              <strong>Human review and adjudication:</strong> Evaluators assign
+              content tags and safety tiers (<code>tier_g</code>,
+              <code>tier_pg13</code>, <code>tier_mature_sfw</code>). A
+              one-sided acceptance, when allowed by the active policy, requires
+              an explicit justification and attached provenance (for example,
+              PEGI-3 or CERO metadata); it never overrides a high-risk veto.
             </li>
           </ol>
 
