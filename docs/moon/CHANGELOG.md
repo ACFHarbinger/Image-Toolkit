@@ -2,7 +2,26 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S379 — 2026-08-15 (Ratings Dashboard overhaul + Crawler rating filter & Safebooru preset + ML roadmap Phase 2 rescope)
+
+Implemented GitHub issues #370 and #371, along with the full Optic Lab theme overhaul of the web ratings & provenance dashboard:
+
+- **Web Ratings & Provenance Dashboard Overhaul (`docs/website/src/pages/RatingsDashboard.tsx` + `RatingsDashboard.css`)**:
+  - Rebuilt the Ratings Dashboard under the **Optic Lab / Blueprint Lab** theme, replacing legacy purple variables with dark obsidian (`#07080b` / `#0d0f14`), glassmorphic panels, and glowing cyber-cyan (`#00f0ff`/`#06b6d4`) vs. emerald (`#10b981`) color tokens.
+  - Added M0/C0.5 Corpus Provenance & Safety Tiering metrics (`tier_g`, `tier_pg13`, `tier_mature_sfw`, Dual-Veto Verification badge, and Human Preference Arbitration split meter).
+  - Added real-time text search, safety tier filtering, verdict filtering, interactive defect category tags, expandable row detail drawers, and interactive SVG trend charts with hover crosshairs.
+  - Verified `npm run build` generates `dist/` cleanly with zero TypeScript errors.
+
+- **Crawler Rating Filter & Safebooru Preset (Issue #370)**:
+  - `backend/src/web/crawlers/image_board_crawler.py`: Added automatic rating normalization (`config["rating"]` appends `rating:<val>` to tags) and polymorphic backend engine name dispatch via `get_crawler_backend_name()`.
+  - `backend/src/web/crawlers/safebooru_crawler.py`: Created `SafebooruCrawler` backed by the Gelbooru DAPI engine (`https://safebooru.org`).
+  - `backend/test/web/test_image_board_crawler.py`: Added unit tests verifying Safebooru preset mapping and tag rating normalization.
+
+- **Phase 2 ML Roadmap Rescope (Issue #371)**:
+  - `docs/moon/roadmaps/analytics_and_interpretability.md`: Rescoped Phase 2 around active deep learning components (`AnimeStitchNet`, BiRefNet, LoFTR, DINOv2) and explicitly archived stale references to retired RLHF reward models.
+
 ## S378 — 2026-08-15 (Analytics dual-access contract + KDE video wallpaper fix)
+
 
 Implemented GitHub issue #372 / `analytics_and_interpretability.md` cross-cutting
 requirement: every Phase 1-12 deliverable should expose a machine-readable
