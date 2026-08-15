@@ -67,6 +67,33 @@ export interface BenchmarkResults {
   runs: BenchmarkRun[];
 }
 
+export interface RelabeledCaseEntry {
+  case_id: string;
+  fallback_code: number;
+  fallback_gate: string;
+  human_asp_score: number | null;
+  human_reviewed: boolean;
+  human_simple_score: number | null;
+  rated_identity: string;
+  true_raw_asp_composite: boolean;
+}
+
+export interface M0RelabeledSummary {
+  summary: {
+    total_cases: number;
+    true_raw_asp_composites: {
+      count: number;
+      mean_human_asp_score: number | null;
+    };
+    safety_fallbacks_to_scans: {
+      count: number;
+      mean_human_asp_score: number | null;
+      by_gate: Record<string, number>;
+    };
+  };
+  cases: Record<string, RelabeledCaseEntry>;
+}
+
 export interface DashboardMeta {
   generated_at: string;
   automated_runs: number;
@@ -80,6 +107,7 @@ interface RatingsData {
   error: string | null;
   humanRatings: HumanRatingsSummary | null;
   benchmarkResults: BenchmarkResults | null;
+  m0Data: M0RelabeledSummary | null;
   meta: DashboardMeta | null;
 }
 
@@ -98,15 +126,17 @@ export function useRatingsData(): RatingsData {
   const [error, setError] = useState<string | null>(null);
   const [humanRatings, setHumanRatings] = useState<HumanRatingsSummary | null>(null);
   const [benchmarkResults, setBenchmarkResults] = useState<BenchmarkResults | null>(null);
+  const [m0Data, setM0Data] = useState<M0RelabeledSummary | null>(null);
   const [meta, setMeta] = useState<DashboardMeta | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       const base = import.meta.env.BASE_URL;
-      const [hr, br, m] = await Promise.all([
+      const [hr, br, m0, m] = await Promise.all([
         fetchJson<HumanRatingsSummary>(`${base}data/human_ratings_summary.json`),
         fetchJson<BenchmarkResults>(`${base}data/benchmark_results.json`),
+        fetchJson<M0RelabeledSummary>(`${base}data/m0_relabeled_summary.json`),
         fetchJson<DashboardMeta>(`${base}data/dashboard_meta.json`),
       ]);
       if (cancelled) return;
@@ -115,6 +145,7 @@ export function useRatingsData(): RatingsData {
       }
       setHumanRatings(hr);
       setBenchmarkResults(br);
+      setM0Data(m0);
       setMeta(m);
       setLoading(false);
     })();
@@ -123,8 +154,9 @@ export function useRatingsData(): RatingsData {
     };
   }, []);
 
-  return { loading, error, humanRatings, benchmarkResults, meta };
+  return { loading, error, humanRatings, benchmarkResults, m0Data, meta };
 }
+
 
 /** Aggregate defect tags across all reviewed evaluations, most common first. */
 export function useDefectCounts(evaluations: Record<string, EvaluationEntry> | undefined) {

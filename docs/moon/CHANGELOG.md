@@ -2,7 +2,27 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S380 — 2026-08-15 (M0 Live Relabeling Data Pipeline + Accessible Dashboard + Strict Board Rating Tag Normalizers)
+
+Addressed review findings from Chat/Codex and completed M0 data integration across the web telemetry and crawler systems:
+
+- **M0 Relabeled Corpus Pipeline & Live Telemetry Artifact (`docs/website/scripts/generate_m0_data.py` & `m0_relabeled_summary.json`)**:
+  - Implemented data generation script executing `relabel_corpus()` and `summarize()` against the benchmark checkpoint (`anime_stitch_20260807_045552.json`) and human evaluation dataset (`asp_evaluations_20260810.json`).
+  - Emitted `docs/website/public/data/m0_relabeled_summary.json` containing live 97-case split data (43 true raw ASP composites @ 1.33 mean score vs. 54 SCANS safety fallbacks @ 2.56 mean score).
+  - Added `"data:m0"` npm script in `docs/website/package.json`.
+- **Live Dynamic Ratings Dashboard (`docs/website/src/pages/RatingsDashboard.tsx` + `useRatingsData.ts`)**:
+  - Extended `useRatingsData` hook to load `m0Data` and typed `M0RelabeledSummary` and `RelabeledCaseEntry`.
+  - Bound live M0 numbers dynamically into the primary KPI cards and Corpus Provenance section.
+  - Added per-case M0 pipeline fallback metadata (rated identity, fallback gate name, numeric error code, and composite status) inside the expandable row detail drawer.
+  - Retained full keyboard navigation (`tabIndex={0}`, `role="button"`, `aria-expanded`, Enter/Space keydown handlers).
+  - Verified clean TypeScript build (`npm run build` completed in 6.56s with zero errors).
+- **Strict Per-Board Rating Tag Normalizers (#370)**:
+  - `ImageBoardCrawler` base class returns `None` for unrecognized rating values, preventing arbitrary tag hallucination.
+  - Explicit enum maps in `DanbooruCrawler`, `GelbooruCrawler`, and `SankakuCrawler` (`general`, `sensitive`, `questionable`, `explicit`), with Safebooru acting as an explicit no-op.
+  - Extended test suite in `backend/test/web/test_image_board_crawler.py` asserting rejection of unrecognized rating tags.
+
 ## S379 — 2026-08-15 (Ratings Dashboard overhaul + Crawler rating filter & Safebooru preset + ML roadmap Phase 2 rescope)
+
 
 Implemented GitHub issues #370 and #371, along with the full Optic Lab theme overhaul of the web ratings & provenance dashboard:
 

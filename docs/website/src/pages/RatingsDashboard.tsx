@@ -203,7 +203,7 @@ function ScoreHistogram({
 }
 
 export default function RatingsDashboard() {
-  const { loading, error, humanRatings, benchmarkResults } = useRatingsData();
+  const { loading, error, humanRatings, benchmarkResults, m0Data } = useRatingsData();
   const defectCounts = useDefectCounts(humanRatings?.evaluations);
 
   // Filter States
@@ -224,15 +224,18 @@ export default function RatingsDashboard() {
       // Use real safety tier if present in metadata, otherwise label audit pending
       const tier = (entry as Record<string, unknown>).safety_tier as string | undefined ?? "audit_pending";
       const tags = ((entry as Record<string, unknown>).tags as string[] | undefined) ?? [];
+      const m0Case = m0Data?.cases?.[name];
 
       return {
         name,
         entry,
         tier,
         tags,
+        m0Case,
       };
     });
-  }, [rawRows]);
+  }, [rawRows, m0Data]);
+
 
 
   // Filtered rows
@@ -376,10 +379,16 @@ export default function RatingsDashboard() {
             <ShieldCheck size={15} className="kpi-icon text-cyan-400" />
           </div>
           <div className="kpi-value-row">
-            <span className="kpi-value">43 / 54</span>
+            <span className="kpi-value">
+              {m0Data ? `${m0Data.summary.true_raw_asp_composites.count} / ${m0Data.summary.safety_fallbacks_to_scans.count}` : "43 / 54"}
+            </span>
             <span className="kpi-total">Split</span>
           </div>
-          <span className="kpi-caption">43 true ASP composites vs 54 SCANS fallbacks</span>
+          <span className="kpi-caption">
+            {m0Data
+              ? `${m0Data.summary.true_raw_asp_composites.count} true ASP vs ${m0Data.summary.safety_fallbacks_to_scans.count} fallbacks`
+              : "43 true ASP composites vs 54 SCANS fallbacks"}
+          </span>
         </div>
       </section>
 
@@ -392,14 +401,22 @@ export default function RatingsDashboard() {
             <h3 className="card-title">Corpus Provenance &amp; Relabeled Split</h3>
           </div>
           <div className="provenance-badges">
-            <span className="prov-chip tier-cyan">43 True Raw ASP (Mean 1.33)</span>
-            <span className="prov-chip tier-emerald">54 Safety Fallbacks (Mean 2.56)</span>
+            <span className="prov-chip tier-cyan">
+              {m0Data
+                ? `${m0Data.summary.true_raw_asp_composites.count} True Raw ASP (Mean ${m0Data.summary.true_raw_asp_composites.mean_human_asp_score?.toFixed(2)})`
+                : "43 True Raw ASP (Mean 1.33)"}
+            </span>
+            <span className="prov-chip tier-emerald">
+              {m0Data
+                ? `${m0Data.summary.safety_fallbacks_to_scans.count} Safety Fallbacks (Mean ${m0Data.summary.safety_fallbacks_to_scans.mean_human_asp_score?.toFixed(2)})`
+                : "54 Safety Fallbacks (Mean 2.56)"}
+            </span>
             <span className="prov-chip tier-pending">C0.5 SFW Audit in Progress</span>
           </div>
         </div>
 
         <p className="prov-explainer">
-          Per M0 relabeling (<code>relabel.py</code>) and the signed-off SFW corpus roadmap (Issue #41), the legacy dataset contains 43 true raw ASP composites and 54 safety fallbacks to SCANS. The C0.5 SFW benchmark enforces an evidence-backed dual-veto gate before public promotion.
+          Per M0 relabeling (<code>relabel.py</code>) and the signed-off SFW corpus roadmap (Issue #41), the legacy dataset contains {m0Data?.summary.true_raw_asp_composites.count ?? 43} true raw ASP composites and {m0Data?.summary.safety_fallbacks_to_scans.count ?? 54} safety fallbacks to SCANS. The C0.5 SFW benchmark enforces an evidence-backed dual-veto gate before public promotion.
         </p>
 
         <div className="preference-meter-section">
@@ -567,7 +584,7 @@ export default function RatingsDashboard() {
                   </td>
                 </tr>
               ) : (
-                filteredRows.map(({ name, entry, tier, tags }) => {
+                filteredRows.map(({ name, entry, tier, tags, m0Case }) => {
                   const isExpanded = expandedTest === name;
                   const pref = entry.preference || "tie";
 
@@ -656,6 +673,34 @@ export default function RatingsDashboard() {
                                 <div>
                                   <h5 className="drawer-heading">Reviewer Assessment &amp; Rationale</h5>
                                   <p className="drawer-notes">{entry.notes || "No additional evaluator notes provided."}</p>
+
+                                  <h5 className="drawer-heading mt-4">Pipeline &amp; Fallback Provenance (M0)</h5>
+                                  <div className="drawer-provenance-info">
+                                    {m0Case ? (
+                                      <div className="space-y-1 text-xs font-mono">
+                                        <div>
+                                          <span className="text-slate-400">Rated Identity: </span>
+                                          <span className={m0Case.true_raw_asp_composite ? "text-cyan-400" : "text-emerald-400"}>
+                                            {m0Case.rated_identity.toUpperCase()}
+                                          </span>
+                                        </div>
+                                        <div>
+                                          <span className="text-slate-400">Gate: </span>
+                                          <span className="text-slate-200">{m0Case.fallback_gate} (code {m0Case.fallback_code})</span>
+                                        </div>
+                                        <div>
+                                          <span className="text-slate-400">Composite: </span>
+                                          <span className="text-slate-300">
+                                            {m0Case.true_raw_asp_composite
+                                              ? "True Raw ASP Composite"
+                                              : "Safety fallback to SCANS"}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <span className="text-xs text-slate-400">Provenance metadata pending</span>
+                                    )}
+                                  </div>
                                 </div>
                                 <div>
                                   <h5 className="drawer-heading">Identified Defect Signatures</h5>
@@ -692,6 +737,7 @@ export default function RatingsDashboard() {
           </table>
         </div>
       </section>
+
 
 
       {/* Automated Metrics Over Time (Telemetry Stream) */}

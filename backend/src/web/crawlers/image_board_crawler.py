@@ -74,20 +74,24 @@ class ImageBoardCrawler(QObject):
     def normalize_rating_tag(self, rating: str) -> str | None:
         """
         Map user-facing rating enum to board-specific tag query string,
-        or None if unsupported or a no-op (§4.18 / Issue #370).
+        or None if unsupported, no-op, or unrecognized (§4.18 / Issue #370).
         """
         if not rating:
             return None
         r = rating.strip().lower()
-        if r in ("general", "g", "safe"):
-            return "rating:general"
-        if r in ("sensitive", "s"):
-            return "rating:sensitive"
-        if r in ("questionable", "q"):
-            return "rating:questionable"
-        if r in ("explicit", "e"):
-            return "rating:explicit"
-        return f"rating:{r}"
+        mapping = {
+            "general": "rating:general",
+            "g": "rating:general",
+            "safe": "rating:general",
+            "sensitive": "rating:sensitive",
+            "s": "rating:sensitive",
+            "questionable": "rating:questionable",
+            "q": "rating:questionable",
+            "explicit": "rating:explicit",
+            "e": "rating:explicit",
+        }
+        return mapping.get(r, None)
+
 
     def run(self):
         """
