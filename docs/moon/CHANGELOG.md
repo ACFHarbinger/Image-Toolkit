@@ -2,7 +2,23 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S381 — 2026-08-15 (Track O0: Optic Lab Research Journal & Distill Explorable Explanation Widgets)
+
+Implemented Track O0 of the ASP Outreach Roadmap (`asp_outreach_roadmap_2026q3.md`), launching the Optic Lab Research Journal and interactive Distill-style explorable explanation widgets in `docs/website/`:
+
+- **Optic Lab Research Journal Portal (`docs/website/src/pages/Journal.tsx` + `Journal.css`)**:
+  - Implemented `/journal` index and `/journal/:articleId` article reader routing in `App.tsx`.
+  - Built Optic Lab themed layout (Obsidian/Cyan/Emerald/Purple tokens, article categorizations, author cards, read time estimates, tag filters, and responsive typography).
+  - Seeded **Lab Note 01** (*"Metric Inversion & Failure-Mode Anatomy in Multi-Frame Cel Alignment"*) detailing why automated CV sharpness inflates on broken seams, and the 43/54 M0 split.
+  - Seeded **Lab Note 02** (*"Evidence-Backed Dual-Veto Gates for Public Benchmark Promotion (§C0.5)"*) detailing the dual-assessor clearance and machine-readable telemetry contract.
+- **Distill-Style Explorable Explanation Widgets (`docs/website/src/components/journal/`)**:
+  - `DiffLoupe.tsx` + `DiffLoupe.css`: Interactive split-view loupe with 2.5x magnification magnifying seam pixel alignment, optical flow, and step discontinuities.
+  - `HoldTimelineSlider.tsx` + `HoldTimelineSlider.css`: Interactive timeline scrubber demonstrating cel-pose hold selection and ghosting suppression.
+  - `LayerStack3D.tsx` + `LayerStack3D.css`: 2.5D/3D perspective exploded layer stack demonstrating background canvas synthesis, SAM-2 alpha cutout mattes, and final seam-blended composites with click-and-drag orbit controls.
+- Verified `npm run build` cleanly in 6.46s with zero errors.
+
 ## S380 — 2026-08-15 (M0 Live Relabeling Data Pipeline + Accessible Dashboard + Strict Board Rating Tag Normalizers)
+
 
 Addressed review findings from Chat/Codex and completed M0 data integration across the web telemetry and crawler systems:
 
