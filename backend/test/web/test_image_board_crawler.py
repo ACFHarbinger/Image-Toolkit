@@ -94,3 +94,33 @@ def test_run_failure_still_records_elapsed(mock_base):
     assert result == 0
     assert crawler.telemetry["elapsed_sec"] is not None
     assert crawler.telemetry["error_count"] == 1  # "Critical Error..." status emitted
+
+
+@patch("backend.src.web.crawlers.image_board_crawler.base")
+def test_rating_filter_normalization(mock_base):
+    mock_base.run_board_crawler.return_value = 0
+    crawler = ImageBoardCrawler({"url": "http://example.com", "tags": "scenery", "rating": "general"})
+    crawler.run()
+
+    # Verify rating:general was appended to tags
+    expected_config = {"url": "http://example.com", "tags": "scenery rating:general", "rating": "general"}
+    mock_base.run_board_crawler.assert_called_once_with(
+        "imageboard", json.dumps(expected_config), crawler
+    )
+
+
+@patch("backend.src.web.crawlers.image_board_crawler.base")
+def test_safebooru_crawler_backend_name_and_preset(mock_base):
+    from backend.src.web.crawlers.safebooru_crawler import SafebooruCrawler
+
+    mock_base.run_board_crawler.return_value = 0
+    crawler = SafebooruCrawler({"tags": "landscape"})
+    assert crawler.config["url"] == "https://safebooru.org"
+    assert crawler.get_crawler_backend_name() == "gelbooru"
+
+    crawler.run()
+    expected_config = {"tags": "landscape", "url": "https://safebooru.org"}
+    mock_base.run_board_crawler.assert_called_once_with(
+        "gelbooru", json.dumps(expected_config), crawler
+    )
+

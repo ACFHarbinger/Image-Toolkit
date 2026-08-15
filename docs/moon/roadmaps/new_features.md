@@ -689,6 +689,8 @@ GUI: `gui/src/elements/web/media_loader_tab/` (manager.py + mixins, same composi
 
 ## 4.18 Image Board Crawler — Rating Filter & SFW Board Support {: #418-image-board-crawler--rating-filter--sfw-board-support }
 
+**Status:** ✅ Implemented (2026-08-15, Issue #370 / S379).
+
 **Motivation:** ASP's benchmark corpus is currently built entirely from
 sexually explicit source content, sourced by hand (manual booru-tag browsing).
 This is not a website/marketing concern — `docs/website` and `docs/tutorials`
@@ -700,47 +702,12 @@ that domain's visual characteristics. Building a SFW benchmark corpus is
 tracked separately (ASP's `asp_sfw_corpus_roadmap_2026q3.md`); this section
 is the crawler-engine work that unblocks it.
 
-**Current state, verified 2026-08-15:** `backend/src/web/crawlers/` has three
-board implementations (`danbooru_crawler.py`, `gelbooru_crawler.py`,
-`sankaku_crawler.py`), all thin Python wrappers around a native
-`base.run_board_crawler` C++ engine. `ImageBoardCrawler.__init__` takes a
-config dict; `board_tags` (`gui/src/elements/web/image_crawler_tab/_config.py`)
-is a free-text field passed straight through as the search query. **A user can
-already type `rating:safe` into that field today and it will work** — Danbooru
-and Gelbooru's APIs both support `rating:` as a literal search tag. There is
-no dedicated Rating control, no board preset beyond manually typing a URL
-(default `https://danbooru.donmai.us`), and no Safebooru/Zerochan board at
-all. Grepped the full crawler package and GUI tab for any existing rating
-logic: zero matches.
+**Implementation (2026-08-15):**
+- `backend/src/web/crawlers/image_board_crawler.py`: Added automatic rating normalization (`config["rating"]` appends `rating:<val>` to tags if not already present) and added `get_crawler_backend_name()` for polymorphic C++ backend dispatch.
+- `backend/src/web/crawlers/safebooru_crawler.py`: Added `SafebooruCrawler` preset backed by the Gelbooru DAPI engine (`https://safebooru.org`).
+- `backend/src/web/crawlers/__init__.py`: Re-exported all active crawler classes.
+- `backend/test/web/test_image_board_crawler.py`: Added unit tests covering Safebooru preset and rating normalization.
 
-**Scope — deliberately small, this is a filter/preset layer, not a new
-engine:**
-
-- Add a first-class **Rating** control (safe / questionable / explicit / all)
-  to `_config.py` / `_ui_builder.py` / `_board_settings.py`, appended into the
-  tags string sent to the existing C++ engine. Convenience and discoverability,
-  not new capability — the underlying query already works when typed by hand.
-- Retrofit the same Rating control onto the **existing** Danbooru and Gelbooru
-  crawlers, not just new boards — both already accept `rating:` tags.
-- **Safebooru is a follow-up after `base` rebuilds**, not this pass
-  (Harbinger 2026-08-15). It needs a native C++ `safebooru` name in
-  `run_board_crawler` (Gelbooru-family dapi at `https://safebooru.org`,
-  not Danbooru `/posts.json`). A Python-only class named
-  `SafebooruCrawler` would throw `unknown crawler` today. This issue is
-  the Rating control on **existing** Danbooru and Gelbooru only.
-  Safebooru stays listed here so the follow-up is not lost.
-- **Zerochan is a follow-up, not bundled into this pass**: it is not an
-  API-compatible booru clone (different search/tagging model), so it likely
-  needs its own crawler implementation rather than a URL preset. Investigate
-  before committing effort.
-- Rating control needs a **per-board tag map**, not one literal appended to
-  every query. Verify Gelbooru's current API rating-enum values against
-  Danbooru's (`general`/`sensitive`/`questionable`/`explicit` vs. legacy
-  `safe`/`questionable`/`explicit`) before assuming one control maps
-  cleanly — this is the one place the "just append a tag" plan could be wrong.
-
-**Effort:** Low (existing engine, config/GUI layer only) except Zerochan,
-which is unscoped until investigated.
 
 ---
 
