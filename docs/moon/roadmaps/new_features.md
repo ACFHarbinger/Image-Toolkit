@@ -722,22 +722,80 @@ engine:**
   not new capability — the underlying query already works when typed by hand.
 - Retrofit the same Rating control onto the **existing** Danbooru and Gelbooru
   crawlers, not just new boards — both already accept `rating:` tags.
-- Add a **Safebooru** board preset/crawler class, mirroring
-  `DanbooruCrawler`'s pattern (Safebooru is API-compatible with the
-  Danbooru/Moebooru tag-search shape, pre-filtered to SFW content by the site
-  itself — expected to substantially cut the curation ratio described in the
-  ASP SFW corpus roadmap).
+- **Safebooru is a follow-up after `base` rebuilds**, not this pass
+  (Harbinger 2026-08-15). It needs a native C++ `safebooru` name in
+  `run_board_crawler` (Gelbooru-family dapi at `https://safebooru.org`,
+  not Danbooru `/posts.json`). A Python-only class named
+  `SafebooruCrawler` would throw `unknown crawler` today. This issue is
+  the Rating control on **existing** Danbooru and Gelbooru only.
+  Safebooru stays listed here so the follow-up is not lost.
 - **Zerochan is a follow-up, not bundled into this pass**: it is not an
   API-compatible booru clone (different search/tagging model), so it likely
   needs its own crawler implementation rather than a URL preset. Investigate
   before committing effort.
-- Verify Gelbooru's current API rating-enum values match Danbooru's
-  (`general`/`sensitive`/`questionable`/`explicit` vs. legacy `safe`/
-  `questionable`/`explicit`) before assuming one Rating control maps cleanly
-  to both — this is the one place the "just append a tag" plan could be wrong.
+- Rating control needs a **per-board tag map**, not one literal appended to
+  every query. Verify Gelbooru's current API rating-enum values against
+  Danbooru's (`general`/`sensitive`/`questionable`/`explicit` vs. legacy
+  `safe`/`questionable`/`explicit`) before assuming one control maps
+  cleanly — this is the one place the "just append a tag" plan could be wrong.
 
 **Effort:** Low (existing engine, config/GUI layer only) except Zerochan,
 which is unscoped until investigated.
+
+---
+
+## 4.19 Account-Linked Settings Sync (Google Drive) {: #419-account-linked-settings-sync-google-drive }
+
+**Status:** Draft only — quick scope note for future work, not a fully
+specced feature. Deliberately kept light per Harbinger's explicit request
+(2026-08-15).
+
+**Goal:** link an Image-Toolkit install to a Google account and sync app
+settings across a user's own multiple devices via a Google Drive folder.
+
+**Narrowed scope (Harbinger, 2026-08-15):** despite `~/.image-toolkit/`
+containing a lot of state (databases, caches, logs, telemetry — several GB
+total), only **two files matter for this entry**, both already encrypted:
+`secrets/my_keystore-a.p12` and `secrets/my_secure_data-a.vault`. Together
+they hold the app's settings — the highest-impact thing to sync, and the
+only target in scope right now. Everything else in `~/.image-toolkit/`
+(caches, logs, telemetry, the actual content databases) is explicitly out of
+scope for this entry — regenerable/large data has different sync
+requirements and isn't part of this draft.
+
+**Existing foundation, not starting from zero:** `backend/src/web/cloud/`
+already has a working `GoogleDriveSync` (+ Dropbox/OneDrive siblings) with
+both Service Account and personal OAuth flows, a native C++ implementation,
+and a GUI worker (`gui/src/helpers/web/cloud/google_drive_sync_worker.py`).
+That infrastructure syncs arbitrary local folders to a named Drive folder
+today — this feature is about **pointing it at (or extending it for) the
+two encrypted settings files specifically**, with account-linking as the
+entry point, not building Drive sync from scratch.
+
+**Genuinely open, left for whoever picks this up:**
+
+- **Conflict resolution** when the same settings file changes on two
+  devices before a sync — simple last-write-wins (matches the existing
+  sync worker's likely current behavior, unverified), or version-keep-both
+  with a user prompt? Different files, different answer is plausible (the
+  keystore rarely changes; the vault might change more often).
+- Whether "git-like tracking" (versioned snapshots, useful since these are
+  small encrypted blobs, not large databases — diffing doesn't help but
+  keeping N prior versions does) or something simpler (just overwrite,
+  rely on Drive's own version history) is worth building vs. relying on
+  Google Drive's native file-revision history, which may already cover
+  this need for free.
+- Whether "database replication" (mentioned in the original ask) is even
+  relevant to this narrowed two-file scope — it matters much more for
+  large multi-writer SQLite databases (`library.db` etc.) than for two
+  small encrypted settings blobs, and that broader database-sync problem is
+  explicitly not what this entry covers. If cross-device DB sync is wanted
+  later, it deserves its own, separately-scoped roadmap entry — don't
+  assume this one expands to cover it.
+
+**ASP note:** Harbinger asked for a pointer entry in ASP too, not current
+priority there — see `ASP_CHANGE_ROADMAP_2026Q3.md` §7 (future work,
+non-priority) for the cross-link.
 
 ---
 
@@ -777,9 +835,10 @@ which is unscoped until investigated.
 | 4.16 Additional Stitcher Options | [#416-additional-stitcher-options](#416-additional-stitcher-options) |
 | 4.17 Media Loader — Web Media Downloader | [#417-media-loader--web-media-downloader](#417-media-loader--web-media-downloader) |
 | 4.18 Image Board Crawler — Rating Filter & SFW Board Support | [#418-image-board-crawler--rating-filter--sfw-board-support](#418-image-board-crawler--rating-filter--sfw-board-support) |
+| 4.19 Account-Linked Settings Sync (Google Drive) | [#419-account-linked-settings-sync-google-drive](#419-account-linked-settings-sync-google-drive) |
 
 ---
 
 ## Document History
 
-*Last updated: 2026-08-15 — §4.18 Image Board Crawler rating filter and Safebooru board support added (planned, not yet implemented), motivated by the ASP SFW benchmark corpus roadmap. Previous update 2026-08-03: §4.17 Media Loader (Reddit + nhentai web media downloader tab) added and shipped same day, issue #182. Previous update 2026-07-17: §4.15 Extractor Tab Image Sub-Tab (multi-frame image splitter) added, implemented same day: Extractor tab split into Video/Image subtabs. Previous update 2026-07-11 (§4.14 storyboard scrub preview).*
+*Last updated: 2026-08-15 — §4.19 Account-Linked Settings Sync (Google Drive) added as a quick draft, deliberately not fully specced. Previous update same day: §4.18 Image Board Crawler rating filter and Safebooru board support added (planned, not yet implemented), motivated by the ASP SFW benchmark corpus roadmap. Previous update 2026-08-03: §4.17 Media Loader (Reddit + nhentai web media downloader tab) added and shipped same day, issue #182. Previous update 2026-07-17: §4.15 Extractor Tab Image Sub-Tab (multi-frame image splitter) added, implemented same day: Extractor tab split into Video/Image subtabs. Previous update 2026-07-11 (§4.14 storyboard scrub preview).*
