@@ -114,13 +114,26 @@ def test_safebooru_crawler_backend_name_and_preset(mock_base):
     from backend.src.web.crawlers.safebooru_crawler import SafebooruCrawler
 
     mock_base.run_board_crawler.return_value = 0
-    crawler = SafebooruCrawler({"tags": "landscape"})
+    crawler = SafebooruCrawler({"tags": "landscape", "rating": "general"})
     assert crawler.config["url"] == "https://safebooru.org"
     assert crawler.get_crawler_backend_name() == "gelbooru"
+    assert crawler.normalize_rating_tag("general") is None
 
+    # Verify Safebooru ignores rating filter (no-op)
     crawler.run()
-    expected_config = {"tags": "landscape", "url": "https://safebooru.org"}
+    expected_config = {"tags": "landscape", "rating": "general", "url": "https://safebooru.org"}
     mock_base.run_board_crawler.assert_called_once_with(
         "gelbooru", json.dumps(expected_config), crawler
     )
+
+
+def test_sankaku_rating_normalization():
+    from backend.src.web.crawlers.sankaku_crawler import SankakuCrawler
+
+    crawler = SankakuCrawler({})
+    assert crawler.normalize_rating_tag("safe") == "rating:safe"
+    assert crawler.normalize_rating_tag("general") == "rating:safe"
+    assert crawler.normalize_rating_tag("questionable") == "rating:questionable"
+    assert crawler.normalize_rating_tag("explicit") == "rating:explicit"
+
 
