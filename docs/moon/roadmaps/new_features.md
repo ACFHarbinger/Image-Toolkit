@@ -687,6 +687,60 @@ GUI: `gui/src/elements/web/media_loader_tab/` (manager.py + mixins, same composi
 
 ---
 
+## 4.18 Image Board Crawler — Rating Filter & SFW Board Support {: #418-image-board-crawler--rating-filter--sfw-board-support }
+
+**Motivation:** ASP's benchmark corpus is currently built entirely from
+sexually explicit source content, sourced by hand (manual booru-tag browsing).
+This is not a website/marketing concern — `docs/website` and `docs/tutorials`
+were checked (2026-08-15) and contain no NSFW text or imagery — but it is a
+real gap in ASP's promotion ladder: every quality gate in
+`ASP_CHANGE_ROADMAP_2026Q3.md`'s M0–M6 is tuned and validated against one
+content distribution, with no second distribution to catch overfitting to
+that domain's visual characteristics. Building a SFW benchmark corpus is
+tracked separately (ASP's `ASP_SFW_CORPUS_ROADMAP_2026Q3.md`); this section
+is the crawler-engine work that unblocks it.
+
+**Current state, verified 2026-08-15:** `backend/src/web/crawlers/` has three
+board implementations (`danbooru_crawler.py`, `gelbooru_crawler.py`,
+`sankaku_crawler.py`), all thin Python wrappers around a native
+`base.run_board_crawler` C++ engine. `ImageBoardCrawler.__init__` takes a
+config dict; `board_tags` (`gui/src/elements/web/image_crawler_tab/_config.py`)
+is a free-text field passed straight through as the search query. **A user can
+already type `rating:safe` into that field today and it will work** — Danbooru
+and Gelbooru's APIs both support `rating:` as a literal search tag. There is
+no dedicated Rating control, no board preset beyond manually typing a URL
+(default `https://danbooru.donmai.us`), and no Safebooru/Zerochan board at
+all. Grepped the full crawler package and GUI tab for any existing rating
+logic: zero matches.
+
+**Scope — deliberately small, this is a filter/preset layer, not a new
+engine:**
+
+- Add a first-class **Rating** control (safe / questionable / explicit / all)
+  to `_config.py` / `_ui_builder.py` / `_board_settings.py`, appended into the
+  tags string sent to the existing C++ engine. Convenience and discoverability,
+  not new capability — the underlying query already works when typed by hand.
+- Retrofit the same Rating control onto the **existing** Danbooru and Gelbooru
+  crawlers, not just new boards — both already accept `rating:` tags.
+- Add a **Safebooru** board preset/crawler class, mirroring
+  `DanbooruCrawler`'s pattern (Safebooru is API-compatible with the
+  Danbooru/Moebooru tag-search shape, pre-filtered to SFW content by the site
+  itself — expected to substantially cut the curation ratio described in the
+  ASP SFW corpus roadmap).
+- **Zerochan is a follow-up, not bundled into this pass**: it is not an
+  API-compatible booru clone (different search/tagging model), so it likely
+  needs its own crawler implementation rather than a URL preset. Investigate
+  before committing effort.
+- Verify Gelbooru's current API rating-enum values match Danbooru's
+  (`general`/`sensitive`/`questionable`/`explicit` vs. legacy `safe`/
+  `questionable`/`explicit`) before assuming one Rating control maps cleanly
+  to both — this is the one place the "just append a tag" plan could be wrong.
+
+**Effort:** Low (existing engine, config/GUI layer only) except Zerochan,
+which is unscoped until investigated.
+
+---
+
 ## Effort × Impact Matrix {: #effort--impact-matrix }
 
 *Effort* — **Low**: < 1 day · **Medium**: 1 day – 1 week · **High**: 1 – 2 weeks · **Very High**: 2+ weeks or external dependency
@@ -694,7 +748,7 @@ GUI: `gui/src/elements/web/media_loader_tab/` (manager.py + mixins, same composi
 
 | **Effort ↓ / Impact →** | Low | Medium | High | Very High |
 |---|---|---|---|---|
-| **Low (<1d)** | §4.2C WebP quick-share export · §4.7E image health check · §4.9A safetensors viewer [Quick Win] · §4.10A OpenAPI schema · §4.13C workflow templates | §4.2B ffmpeg scrolling video · §4.5E wallpaper mirror all monitors · §4.9D model hash verify · §4.11A inline rating panel [Quick Win] · §4.11C batch rating mode · §4.14A storyboard scrub preview [Quick Win] | §4.1C CLI batch stitch · §4.7A slideshow config | — |
+| **Low (<1d)** | §4.2C WebP quick-share export · §4.7E image health check · §4.9A safetensors viewer [Quick Win] · §4.10A OpenAPI schema · §4.13C workflow templates · §4.18 crawler rating filter + Safebooru preset | §4.2B ffmpeg scrolling video · §4.5E wallpaper mirror all monitors · §4.9D model hash verify · §4.11A inline rating panel [Quick Win] · §4.11C batch rating mode · §4.14A storyboard scrub preview [Quick Win] | §4.1C CLI batch stitch · §4.7A slideshow config | — |
 | **Medium (1d–1w)** | — | §4.5A KDE per-monitor wallpaper · §4.5D HydraPaper GNOME · §4.6A cross-dir phash dedup · §4.8A stitch→ComfyUI button · §4.10B trigger operations via REST · §4.12A appearance profiles | §4.4A WD14 auto-tagger · §4.6C LSH near-dedup · §4.8C drag-drop to ComfyUI · §4.8E workflow template library · §4.13A macro playback | §4.3A CLIP semantic search |
 | **High (1–2w)** | — | §4.1A GUI batch mode | §4.10C WebSocket job status · §4.11B side-by-side preference labelling · §4.11D per-seam annotation | §4.3C dual-column CLIP + Siamese search |
 | **Very High (2w+)** | — | — | §4.1B PostgreSQL job queue | §4.3B AnimeCLIP fine-tune |
@@ -722,9 +776,10 @@ GUI: `gui/src/elements/web/media_loader_tab/` (manager.py + mixins, same composi
 | 4.15 Extractor Tab Image Sub-Tab — Multi-Frame Image Splitter | [#415-extractor-tab-image-sub-tab--multi-frame-image-splitter](#415-extractor-tab-image-sub-tab--multi-frame-image-splitter) |
 | 4.16 Additional Stitcher Options | [#416-additional-stitcher-options](#416-additional-stitcher-options) |
 | 4.17 Media Loader — Web Media Downloader | [#417-media-loader--web-media-downloader](#417-media-loader--web-media-downloader) |
+| 4.18 Image Board Crawler — Rating Filter & SFW Board Support | [#418-image-board-crawler--rating-filter--sfw-board-support](#418-image-board-crawler--rating-filter--sfw-board-support) |
 
 ---
 
 ## Document History
 
-*Last updated: 2026-08-03 — §4.17 Media Loader (Reddit + nhentai web media downloader tab) added and shipped same day, issue #182. Previous update 2026-07-17: §4.15 Extractor Tab Image Sub-Tab (multi-frame image splitter) added, implemented same day: Extractor tab split into Video/Image subtabs. Previous update 2026-07-11 (§4.14 storyboard scrub preview).*
+*Last updated: 2026-08-15 — §4.18 Image Board Crawler rating filter and Safebooru board support added (planned, not yet implemented), motivated by the ASP SFW benchmark corpus roadmap. Previous update 2026-08-03: §4.17 Media Loader (Reddit + nhentai web media downloader tab) added and shipped same day, issue #182. Previous update 2026-07-17: §4.15 Extractor Tab Image Sub-Tab (multi-frame image splitter) added, implemented same day: Extractor tab split into Video/Image subtabs. Previous update 2026-07-11 (§4.14 storyboard scrub preview).*
