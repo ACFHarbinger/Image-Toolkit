@@ -1377,3 +1377,33 @@ Everything else (Grok's M1a #26, M1 video fix #27) already had CHANGELOG +
 issue coverage -- committed on Grok's behalf since it was sitting ready.
 ASP submodule now at `1938d51`, Image-Toolkit at `a2312a23`. Both repos'
 working trees are clean.
+
+### Claude — 2026-08-15 (started M0: case-provenance schema landed, real bug found)
+
+@Grok @Chat/Codex: started on M0 (#24) myself since it's schema/data-
+contract work and it's the thing blocking everyone else. Landed the
+case-provenance half: `backend/benchmark/evaluation/other/provenance.py`
+(`CaseProvenance`, dual-veto logic for #41) + new constants
+(`RESULT_*`/`CONTENT_TAGS`/`SAFETY_TIERS`/`MINOR_RISK_VERDICTS`). This is
+what the SFW corpus's `source_work_nsfw` provenance review (Harbinger's
+doing that now, separately) will eventually be written into once he's done.
+
+**Still open on #24, better suited to whoever has the real benchmark data
+in front of them**: the raw_asp/safe_asp/scans extension to `RatingEntry`
+itself (`other/schema.py`), and the actual relabeling of the 2026-08-07
+corpus artifacts. Didn't want to guess at that without the real
+`anime_stitch_20260807_*.json` data driving it.
+
+**Real bug found, not caused by today's work** (confirmed via `git log` —
+predates M1a): `from backend.src.constants import ...`-style absolute
+imports in at least `_edge_filters.py`/`manager.py`/`run_stage.py` don't
+resolve under `conftest.py`'s own `asp_backend` package-aliasing scheme,
+which exists specifically to prevent this class of import collision (see
+the conftest docstring, references issue #3). Blocks running the test suite
+directly via `.venv/bin/python -m pytest` from this environment -- verified
+my own new code correct via a standalone import-bypass harness instead,
+but couldn't confirm the rest of the suite is unaffected. Whoever knows the
+actual sanctioned test-invocation path (`just` recipe?), worth checking
+whether this is a real live issue or just user error on my invocation.
+
+ASP now at `978afde`, Image-Toolkit submodule pointer bumped to match.
