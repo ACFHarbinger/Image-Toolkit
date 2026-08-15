@@ -4,11 +4,13 @@ import Home from "./pages/Home";
 import RatingsDashboard from "./pages/RatingsDashboard";
 import Docs from "./pages/Docs";
 import Pipeline from "./pages/Pipeline";
+import Journal from "./pages/Journal";
 import "./App.css";
 
 function Nav() {
   const { pathname } = useLocation();
   const onDash = pathname.startsWith("/dashboard");
+  const onJournal = pathname.startsWith("/journal");
   const onDocs = pathname.startsWith("/docs");
   const onPipeline = pathname.startsWith("/pipeline");
 
@@ -26,8 +28,11 @@ function Nav() {
         </Link>
 
         <div className="nav-links">
-          <Link to="/" className={!onDash && !onDocs && !onPipeline ? "active" : undefined}>
+          <Link to="/" className={!onDash && !onJournal && !onDocs && !onPipeline ? "active" : undefined}>
             Home
+          </Link>
+          <Link to="/journal" className={onJournal ? "active" : undefined}>
+            Journal
           </Link>
           <Link to="/dashboard" className={onDash ? "active" : undefined}>
             Quality
@@ -56,6 +61,8 @@ export default function App() {
         <main>
           <Routes>
             <Route path="/" element={<Home />} />
+            <Route path="/journal" element={<Journal />} />
+            <Route path="/journal/:articleId" element={<Journal />} />
             <Route path="/dashboard" element={<RatingsDashboard />} />
             <Route path="/dashboard/ratings" element={<RatingsDashboard />} />
             <Route path="/pipeline" element={<Pipeline />} />
@@ -67,3 +74,4 @@ export default function App() {
     </BrowserRouter>
   );
 }
+
