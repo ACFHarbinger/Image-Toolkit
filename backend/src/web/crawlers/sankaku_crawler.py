@@ -15,11 +15,15 @@ class SankakuCrawler(ImageBoardCrawler):
         if not rating:
             return None
         r = rating.strip().lower()
-        if r in ("safe", "general", "g"):
-            return "rating:safe"
-        if r in ("questionable", "q"):
-            return "rating:questionable"
-        if r in ("explicit", "e"):
-            return "rating:explicit"
-        return f"rating:{r}"
+        mapping = {
+            "safe": "rating:safe",
+            "general": "rating:safe",
+            "g": "rating:safe",
+            "questionable": "rating:questionable",
+            "q": "rating:questionable",
+            "explicit": "rating:explicit",
+            "e": "rating:explicit",
+        }
+        return mapping.get(r, None)
+
 

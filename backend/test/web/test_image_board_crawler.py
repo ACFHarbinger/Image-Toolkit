@@ -135,5 +135,12 @@ def test_sankaku_rating_normalization():
     assert crawler.normalize_rating_tag("general") == "rating:safe"
     assert crawler.normalize_rating_tag("questionable") == "rating:questionable"
     assert crawler.normalize_rating_tag("explicit") == "rating:explicit"
+    assert crawler.normalize_rating_tag("unknown_rating_val") is None
+
+
+def test_unrecognized_rating_ignored():
+    crawler = ImageBoardCrawler({"url": "http://example.com", "rating": "invalid_val"})
+    assert crawler.normalize_rating_tag("invalid_val") is None
+
 
 
