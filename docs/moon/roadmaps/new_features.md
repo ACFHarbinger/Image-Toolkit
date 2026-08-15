@@ -694,10 +694,10 @@ sexually explicit source content, sourced by hand (manual booru-tag browsing).
 This is not a website/marketing concern — `docs/website` and `docs/tutorials`
 were checked (2026-08-15) and contain no NSFW text or imagery — but it is a
 real gap in ASP's promotion ladder: every quality gate in
-`ASP_CHANGE_ROADMAP_2026Q3.md`'s M0–M6 is tuned and validated against one
+`asp_change_roadmap_2026q3.md`'s M0–M6 is tuned and validated against one
 content distribution, with no second distribution to catch overfitting to
 that domain's visual characteristics. Building a SFW benchmark corpus is
-tracked separately (ASP's `ASP_SFW_CORPUS_ROADMAP_2026Q3.md`); this section
+tracked separately (ASP's `asp_sfw_corpus_roadmap_2026q3.md`); this section
 is the crawler-engine work that unblocks it.
 
 **Current state, verified 2026-08-15:** `backend/src/web/crawlers/` has three
@@ -794,7 +794,7 @@ entry point, not building Drive sync from scratch.
   assume this one expands to cover it.
 
 **ASP note:** Harbinger asked for a pointer entry in ASP too, not current
-priority there — see `ASP_CHANGE_ROADMAP_2026Q3.md` §7 (future work,
+priority there — see `asp_change_roadmap_2026q3.md` §7 (future work,
 non-priority) for the cross-link.
 
 ---
