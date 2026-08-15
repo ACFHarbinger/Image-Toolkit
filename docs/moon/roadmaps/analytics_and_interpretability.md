@@ -7,6 +7,7 @@
 ## Table of Contents
 
 - [Implementation Status](#implementation-status)
+- [Cross-Cutting: Dual Human/Agent Access Contract](#cross-cutting-dual-humanagent-access-contract)
 - [Phase 1: The Interactive Meta-Graph (Codebase Topology)](#phase-1-the-interactive-meta-graph-codebase-topology)
 - [Phase 2: ML Model & Loss Landscape Visualizer](#phase-2-ml-model--loss-landscape-visualizer)
 - [Phase 3: ASP Stage-by-Stage CV Diagnostics](#phase-3-asp-stage-by-stage-cv-diagnostics)
@@ -148,7 +149,7 @@ flowchart TD
 | **Rust math backbone** (`base/src/math/`) | ✅ Complete | 6 modules, 49 unit tests passing |
 | **TypeScript math backbone** (`frontend/src/math/`) | ✅ Complete | 7 modules + `benchmark.ts`, `tsc --noEmit` clean |
 | **Benchmark dashboard migration** (Streamlit → Tauri/React) | ✅ Complete | Tauri commands, SVG charts, 7-page dashboard, `App.tsx` wired |
-| Phase 1–10 feature implementation | ⬜ Not started | Backbone provides all mathematical primitives |
+| Phase 1–10 remaining feature implementation | ⬜ Not started | Backbone provides the mathematical primitives. Phase 1.4's static dependency safeguards are already shipped; the interactive/meta-graph feature work remains planned. |
 | **ASP Benchmark Analytics (Phase 11)** | ✅ Complete (2026-07-30) | 11.1–11.5 (per-test) done in the ASP evaluation tool, issue #123; 11.6/11.7/11.8/11.9/11.10 (corpus-wide) done in `bench_anime_stitch.py`'s report, issue #69 |
 | **Benchmark Coverage Expansion (Phase 12)** | 🔄 Partial (2026-07-30) | 12.1/12.2/12.3/12.5/12.6/12.7 shipped; 12.4 rescoped (see §12.4); 12.8 rescoped (see §12.8) |
 
@@ -182,6 +183,54 @@ This roadmap outlines the development of a suite of interactive, highly optimize
 Leveraging a Rust backend for time-efficient data parsing/aggregation and a TypeScript frontend for visually stunning, GPU-accelerated dashboards, these tools will expose the hidden geometries, failure modes, and execution topologies of the system.
 
 See [`research/Analytics and Codebase Visualization Research.md`](../research/Analytics%20and%20Codebase%20Visualization%20Research.md) for the full technical research underpinning every item on this roadmap.
+
+---
+
+## Cross-Cutting: Dual Human/Agent Access Contract
+
+Every Phase 1–12 deliverable must serve the project's actual paired users:
+Harbinger as the researcher/quality authority and named local agents that
+inspect, compare, and reproduce work. A chart that only a person can read is
+not sufficient; neither is a raw dataset with no intelligible explanation.
+
+### Required companion artifacts
+
+Each deliverable emits, alongside its human-facing chart/dashboard:
+
+1. a versioned **JSON sidecar** with the core contract below;
+2. a short **natural-language summary** stating what was measured, the
+   important result, known limitations, and the next decision it can support;
+3. **Parquet** only when the result is a non-trivial tabular/event collection
+   (many rows, repeated runs, telemetry, or a corpus slice). Small manifests,
+   single-run reports, and graph structures remain JSON-first rather than
+   duplicating data for ceremony.
+
+The sidecar's stable core is deliberately small: `analytics_contract_version`,
+`artifact_id`, producer/version and timestamp, source run/case IDs and hashes,
+configuration/profile, metric definitions/units/directions, chart artifact
+references, provenance, and the privacy classification. Phase-specific fields
+are optional namespaced extensions. A consumer must preserve unknown extension
+fields rather than treating them as invalid.
+
+All shareable artifacts are **anonymized metrics and explicitly approved
+derived assets by default**. Raw corpus frames, source URLs that expose a
+private corpus, and personal browsing/reviewer data are private unless an
+explicit publication approval says otherwise. This contract neither implies a
+public corpus release nor creates one.
+
+### Defects, disagreement, and adjudication
+
+Use the shared living vocabulary in
+[`ANALYTICS_GLOSSARY.md`](ANALYTICS_GLOSSARY.md). Defect observations are
+multi-label: one output may carry several interconnected defects, and the
+optional `primary_defects` field may contain more than one equally causal label.
+Each observation records output scope, evidence/provenance, and confidence.
+
+Human observations and automated observations are immutable parallel records.
+When they conflict, an optional adjudication records the effective decision,
+rationale, and adjudicator **without overwriting either observation**. This is
+important for known category failures such as automated systems mistaking a
+technical plot for unsafe content.
 
 ---
 
@@ -219,32 +268,35 @@ See [`research/Analytics and Codebase Visualization Research.md`](../research/An
 
 ## **Phase 2: ML Model & Loss Landscape Visualizer** {: #phase-2-ml-model--loss-landscape-visualizer }
 
-**Goal:** Open the "black box" of the deep learning models (e.g., Reward Models in RLHF, GANs, LoRAs) by visualizing weight evolution and objective function geometry.
+**Goal:** Open the "black box" of the deep learning models in the pipeline (e.g., `AnimeStitchNet` 4-DoF alignment regressor, BiRefNet foreground segmentation, LoFTR dense feature matching, and DINOv2 pose embeddings) by visualizing weight evolution, feature activations, and objective function geometry.
+
+> **Historical Note (Issue #371, 2026-08-15):** Prior drafts referenced RLHF-style reward models and DRL super-resolution. Those experimental tracks were evaluated and retired in the S200 "great trim" as unverified complexity. Phase 2 is now scoped around the active deep learning components (`AnimeStitchNet`, BiRefNet, LoFTR, DINOv2).
 
 * **2.1 Loss Landscape 3D Surface Plotter:**
-  * Implement **Filter Normalization** (Li et al., 2018) to project the high-dimensional loss/reward surface into a 2D/3D visualizable space without scale-invariance distortion from Batch Normalization layers.
-  * Plot the trajectory of the optimizer (e.g., AdamW8bit, Adafactor) across the non-convex loss surface using a TS-based 3D renderer (e.g., Three.js or Plotly.js).
+  * Implement **Filter Normalization** (Li et al., 2018) to project the high-dimensional loss surface of alignment regressors (`AnimeStitchNet`) into a 2D/3D visualizable space without scale-invariance distortion from normalization layers.
+  * Plot the trajectory of the optimizer (e.g., AdamW, Adafactor) across the non-convex loss surface using a TS-based 3D renderer (e.g., Three.js or Plotly.js).
   * Libraries: **`loss-landscapes`** (PyPI), **`loss-landscape-analysis` (LLA)**, or **DeepCAVE** for hyperparameter landscape exploration.
 
 * **2.2 Hessian-Based Landscape Geometry (PyHessian):**
-  * Compute the **Hessian Trace** via Hutchinson's algorithm (`Tr(H) ≈ E[z^T H z]` using Rademacher random vectors) to measure local loss landscape sharpness.
+  * Compute the **Hessian Trace** via Hutchinson's algorithm (`Tr(H) ≈ E[z^T H z]` using Rademacher random vectors) to measure local loss landscape sharpness in alignment networks.
   * Compute **Eigenvalue Spectral Density (ESD)** via Stochastic Lanczos Quadrature (SLQ) — builds a tridiagonal matrix whose Ritz values approximate extremal Hessian eigenvalues.
-  * Flat minima (low Tr(H)) indicate robust generalization; sharp minima indicate propensity to overfit on out-of-distribution pipeline inputs.
+  * Flat minima (low Tr(H)) indicate robust generalization across diverse animation styles; sharp minima indicate propensity to overfit on specific keyframe sequences.
   * Library: **PyHessian** (GPU-accelerated, integrates with PyTorch training loops).
 
 * **2.3 Weight & Gradient Trajectory Tracking:**
-  * Track the evolution of network weights and gradients during training (e.g., in `stitch_trainer.py`).
-  * Use **PCA**, **t-SNE**, or **UMAP** dimensionality reduction (computed rapidly in Rust) to visualize how latent representations separate different domains over epochs.
+  * Track the evolution of network weights and gradients during training (e.g., in `stitch_trainer.py` for `AnimeStitchNet`).
+  * Use **PCA**, **t-SNE**, or **UMAP** dimensionality reduction (computed rapidly in Rust/C++) to visualize how latent representations separate different animation styles or displacement regimes over epochs.
   * Platforms: **MLflow**, **TensorBoard**, or **DeepCAVE** for programmatic access to optimization trajectories and hyperparameter importance.
   * Architecture visualization: **Netron** for static network architecture inspection.
 
 * **2.4 Activation Atlases & Feature Inversion:**
-  * **Activation Atlases:** Aggregate millions of spatial activations across the benchmark dataset → UMAP → explorable grid of learned visual concepts. Exposes what compositional features the seam-blending model has encoded.
-  * **CPPN Feature Inversion:** Use **Compositional Pattern Producing Networks (CPPNs)** as image parameterization during feature inversion. CPPNs generate resolution-independent, highly cohesive visualizations revealing what specific neural pathways respond to during seam-blending and synthesis phases.
+  * **Activation Atlases:** Aggregate millions of spatial activations across the benchmark dataset → UMAP → explorable grid of learned visual concepts. Exposes what structural features the feature-matching and segmentation models (LoFTR/BiRefNet) have encoded.
+  * **Feature Inversion:** Visualize what specific neural pathways respond to during foreground character extraction and dense keypoint matching.
 
 * **2.5 Attention & Feature Map Overlays:**
-  * For diffusion models and transformers, generate interactive heatmaps of self-attention and cross-attention layers.
-  * Overlay these maps directly onto input images in the GUI to see *where* the model focuses when assessing seam quality or filling backgrounds.
+  * For transformer-based models (LoFTR, DINOv2, BiRefNet Swin backbones), generate interactive heatmaps of self-attention and cross-attention layers.
+  * Overlay these maps directly onto input images in the GUI and web portal to see *where* the model focuses when assessing keypoint correspondence or segmenting foreground cels.
+
 
 ---
 
@@ -252,13 +304,14 @@ See [`research/Analytics and Codebase Visualization Research.md`](../research/An
 
 **Goal:** Create visual debuggers for classic Computer Vision algorithms that interact within the pipeline, diagnosing why specific mathematical transformations fail.
 
-* **3.1 Rerun.io as the Unified CV Telemetry Engine:**
-  * Integrate the **rerun-sdk** Python logger throughout the ASP. Rerun uses an Entity-Component-System (ECS) architecture purpose-built for spatial and CV data:
-    * `Transform3D` + `Pinhole` archetypes log exact translation, rotation, and camera intrinsics of the Bundle Adjustment step.
-    * `Points3D` archetype logs 3D inliers, auto-projecting world coordinates via the pinhole camera matrix.
-    * `Tensor` archetype logs FFT profiles and Sobel heatmaps, mapped to custom color scales and overlaid on source imagery.
-  * Define temporal timelines (e.g., `frame_index`, `gnc_optimization_step`) enabling scrubbing through a single optimization pass to observe DP seam evolution at 60fps.
-  * Embed the **Rerun WebAssembly viewer** in the React dashboard — no install required, streams `.rrd` files over the network.
+* **3.1 Locked architecture (Harbinger 2026-08-15): A+B — Rerun sidecar + OTel, no website WASM.**
+  * Sequence behind M1 (`PipelineSession`) / alongside M2.5a. Do not implement ahead of the canonical runner.
+  * Add a `TelemetrySink` protocol on `PipelineSession` (`on_stage`, `on_artifact`, `on_tensor`). Canonical `run()` must not import `rerun` or `opentelemetry`.
+  * **A — opt-in `.rrd` sidecar.** `rerun-sdk` is a `desktop_quality` extra, never a `laptop_balanced` required package. Open in the native Rerun desktop viewer. Dense LoFTR residual tensors and full-res seam cost maps log only when that extra / `ASP_TELEMETRY_DENSE=1` is on.
+  * ASP BA is a **2D affine / translation chain**, not a calibrated pinhole reconstruct. `Transform3D` + `Pinhole` + `Points3D` are a visualization metaphor (cameras on the canvas plane, inliers lifted to `z=0`). Every viewer caption must say so.
+  * **B — OTel dual-write.** Same emission API writes spans and the named metrics `asp.stage.duration_ms`, `asp.vram.peak_bytes`, `asp.gain.clamp_residual`, `asp.seam.cut_energy`. First backend is local OTLP file or stdout. Prometheus/Grafana/Jaeger/Honeycomb are optional collectors, not in-repo deliverables.
+  * **D rejected.** Do not embed the Rerun WebAssembly viewer in `docs/website`. Do not commit `.rrd` files that contain third-party corpus frames.
+  * **C fully optional (not scheduled, not low-priority).** A native JSON/NPZ/PNG inspector that re-implements spatial scrubbing inside M6 / `/journal` may be added later if someone wants it. It is not a Phase 3 exit criterion and does not block A+B, M6 Distill widgets, or outreach. See `.agent/reports/grok/phase3_rerun_tradeoffs_20260815.md`.
 
 * **3.2 Feature Matching & Inlier Geometry (The "Bones"):**
   * Visualize SIFT/ORB/LoFTR keypoint matches between frames.
@@ -266,13 +319,17 @@ See [`research/Analytics and Codebase Visualization Research.md`](../research/An
   * Render **2D quiver plots** of sub-pixel alignment errors overlaid on source frames — arrow direction and magnitude represent disparity between estimated homography and true feature locations.
 
 * **3.3 Bundle Adjustment Residual Graphs:**
-  * Visualize reprojection errors before and after GNC-TLS Bundle Adjustment (`bundle_adjust.py`).
-  * Show camera poses (translations/rotations) in a 3D coordinate space to ensure the virtual camera path is smooth and continuous.
+  * Visualize reprojection errors before and after GNC-TLS Bundle Adjustment (`bundle_adjust.py`) in the Rerun desktop sidecar (A).
+  * Show camera origins as a polyline on the canvas plane. This is 2D scroll geometry, not a 3D reconstruct.
 
 * **3.4 Seam Blending & Frequency Domain Mismatch (The "Skin"):**
   * **Spatial Diagnostics:** Render the intelligent scissors routing over the DP seam.
   * **Frequency Diagnostics:** Visualize FFT spatial-frequency profiles (referencing `_seam_freq_profile` in `compositing.py`) to show low/high-frequency mismatches at stitching boundaries.
   * **Gradient Diagnostics:** Display Sobel gradient-direction coherence vectors as a quiver plot across the seam. Circular distance `d_c(∇a, ∇b) = 1 - cos(∇a - ∇b)` rendered as a heatmap highlights photometric tearing regions.
+
+* **3.5 Optional / unscheduled — native inspector (was option C):**
+  * A JSON/NPZ/PNG dump rendered inside M6 or `/journal` that duplicates the spatial scrubbing Rerun already provides.
+  * **Not a Phase 3, M2.5, or M6 exit criterion.** Not low priority — not on the schedule at all. Recorded so it is not rediscovered as "missing work." Anyone may pick it up later; nothing waits on it.
 
 ---
 
@@ -432,7 +489,7 @@ See [`research/Analytics and Codebase Visualization Research.md`](../research/An
 |---|---|---|
 | **Data Generation** (Python) | PyTorch, OpenCV, PyHessian, causal-learn, rerun-sdk, OpenTelemetry | ML execution, CV transforms, Hessian trace, causal DAG, telemetry emission |
 | **Aggregation Backend** (Rust) | tokio, tree-sitter, nusy-codegraph, SCIP crate, gRPC/WebSockets | AST parsing, semantic graph construction, Arrow zero-copy aggregation, streaming |
-| **Visual Analytics** (TypeScript/React) | cosmos.gl, Three.js, Rerun Wasm, DuckDB-WASM, Perfetto UI | GPU force graphs, 3D surfaces, temporal scrubbing, SQL filtering, flame graphs |
+| **Visual Analytics** (TypeScript/React) | cosmos.gl, Three.js, DuckDB-WASM, Perfetto UI | GPU force graphs, 3D surfaces, temporal scrubbing, SQL filtering, flame graphs. Rerun WASM is **not** in the website stack (Phase 3 D rejected). Desktop Rerun opens local `.rrd` sidecars. |
 
 ---
 
