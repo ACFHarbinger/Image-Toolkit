@@ -221,7 +221,7 @@ public corpus release nor creates one.
 ### Defects, disagreement, and adjudication
 
 Use the shared living vocabulary in
-[`ANALYTICS_GLOSSARY.md`](ANALYTICS_GLOSSARY.md). Defect observations are
+[`analytics_glossary.md`](analytics_glossary.md). Defect observations are
 multi-label: one output may carry several interconnected defects, and the
 optional `primary_defects` field may contain more than one equally causal label.
 Each observation records output scope, evidence/provenance, and confidence.

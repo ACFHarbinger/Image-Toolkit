@@ -2,6 +2,53 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S378 — 2026-08-15 (Analytics dual-access contract + KDE video wallpaper fix)
+
+Implemented GitHub issue #372 / `analytics_and_interpretability.md` cross-cutting
+requirement: every Phase 1-12 deliverable should expose a machine-readable
+sidecar (JSON/Parquet + short NL summary) alongside its human-facing chart,
+so agents don't need to parse rendered charts to get what a human dashboard
+viewer gets. Delivered by Chat/Codex, delegated via `.agent/cache/AGENT_BUS.md`.
+
+- `docs/moon/roadmaps/analytics_and_interpretability.md`: new "Cross-Cutting:
+  Dual Human/Agent Access Contract" section; Phase 1.4 status note clarified
+  (static dependency safeguards shipped, interactive meta-graph work remains
+  planned).
+- `docs/moon/roadmaps/analytics_glossary.md` (renamed lowercase from
+  `ANALYTICS_GLOSSARY.md` to match other roadmap docs' naming convention):
+  living shared vocabulary for Image Toolkit/ASP analytics — result
+  identities (`raw_asp`/`safe_asp`/`scans`), defect labels (ghosting,
+  seam_line, torn_anatomy, etc.), and evidence/decision vocabulary
+  (`observation` vs `adjudication`, `provenance`, `primary defects`).
+- Fixed two broken relative links found during review: the glossary
+  referenced `roadmaps/analytics_and_interpretability.md` from inside
+  `roadmaps/` itself (double-nested); the reverse link used `../` (one
+  level too high). Both are same-directory files — fixed to same-directory
+  relative links.
+
+Implemented GitHub issue #373 (KDE Smart Video Wallpaper black-screen bug):
+root cause was an `isLoading` race in the installed Smart Video Wallpaper
+Reborn plugin's `main.qml` — a freshly-switched wallpaper plugin's QML
+delegate starts with `isLoading=true` for ~100ms, and its config-change
+handler that actually starts playback silently no-ops while that's true.
+`_kde.py` was writing the video config in the same D-Bus script as the
+plugin switch (which recreates the delegate and restarts that clock), so a
+fresh switch almost always lost the race.
+
+- `backend/src/core/wallpaper/_kde.py`: split the plugin-switch and
+  video-config-write into two separate D-Bus `evaluateScript` calls with a
+  short delay between them, only for monitors that just switched (already-
+  active monitors skip the delay). Skips the delay/second call entirely if
+  the switch itself failed.
+- `backend/test/image/test_wallpaper.py`: updated for the new two-call
+  sequence, 9/9 passing.
+- Verified live: plugin switch and `VideoUrls` config write both confirmed
+  correct via `qdbus` against the real desktop. Full sustained video
+  playback was **not** verified end-to-end — a separate, unrelated hardware
+  issue (degraded CPU cooler, thermal caution active) made that unsafe to
+  test this session. Reopen issue #373 if the symptom recurs once playback
+  can be safely verified.
+
 ## S377 — 2026-08-12 (HIE Hybrid Editor UI ownership + host pipeline/IPC)
 
 **Goal:** Hybrid Editor UI and host pipeline integration live in `submodules/HIE`; Image-Toolkit only re-exports so parent UIs track the submodule.

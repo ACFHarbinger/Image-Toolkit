@@ -260,6 +260,7 @@ class TestWallpaperManager:
         """
         mock_base.evaluate_kde_script.side_effect = [
             "0:0:0:0",
+            "",
             "OK: monitor 0 switched.",
         ]
 
