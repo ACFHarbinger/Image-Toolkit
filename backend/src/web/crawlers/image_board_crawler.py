@@ -71,6 +71,24 @@ class ImageBoardCrawler(QObject):
         """Returns the backend engine name passed to C++ base.run_board_crawler."""
         return self.__class__.__name__.replace("Crawler", "").lower()
 
+    def normalize_rating_tag(self, rating: str) -> str | None:
+        """
+        Map user-facing rating enum to board-specific tag query string,
+        or None if unsupported or a no-op (§4.18 / Issue #370).
+        """
+        if not rating:
+            return None
+        r = rating.strip().lower()
+        if r in ("general", "g", "safe"):
+            return "rating:general"
+        if r in ("sensitive", "s"):
+            return "rating:sensitive"
+        if r in ("questionable", "q"):
+            return "rating:questionable"
+        if r in ("explicit", "e"):
+            return "rating:explicit"
+        return f"rating:{r}"
+
     def run(self):
         """
         Main execution loop delegate.
@@ -84,12 +102,14 @@ class ImageBoardCrawler(QObject):
         config_to_send = dict(self.config)
         rating = config_to_send.get("rating")
         if rating:
-            existing_tags = config_to_send.get("tags", "")
-            rating_tag = f"rating:{rating}"
-            if "rating:" not in existing_tags:
-                config_to_send["tags"] = f"{existing_tags} {rating_tag}".strip()
+            rating_tag = self.normalize_rating_tag(rating)
+            if rating_tag:
+                existing_tags = config_to_send.get("tags", "")
+                if "rating:" not in existing_tags:
+                    config_to_send["tags"] = f"{existing_tags} {rating_tag}".strip()
 
         config_json = json.dumps(config_to_send)
+
 
         t0 = time.perf_counter()
         try:

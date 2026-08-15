@@ -12,3 +12,8 @@ class SafebooruCrawler(GelbooruCrawler):
     def get_crawler_backend_name(self) -> str:
         """Safebooru uses the Gelbooru DAPI schema."""
         return "gelbooru"
+
+    def normalize_rating_tag(self, rating: str) -> str | None:
+        """Safebooru is exclusively SFW/general; rating filters are a no-op."""
+        return None
+

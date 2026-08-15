@@ -218,22 +218,12 @@ export default function RatingsDashboard() {
     [humanRatings],
   );
 
-  // Synthetic safety tiers derived for M0/C0.5 preview and visual hierarchy
+  // Provenance and relabeled metadata (M0 / C0.5)
   const enrichedRows = useMemo(() => {
     return rawRows.map(([name, entry]) => {
-      const num = parseInt(name.replace(/\D/g, ""), 10) || 0;
-      let tier = "tier_g";
-      let tags = ["camera_pan", "clean_bg"];
-      if (num % 4 === 1) {
-        tier = "tier_pg13";
-        tags = ["action", "character_motion", "rapid_cut"];
-      } else if (num % 4 === 2) {
-        tier = "tier_g";
-        tags = ["scenery", "slow_pan"];
-      } else if (num % 4 === 3) {
-        tier = "tier_mature_sfw";
-        tags = ["dark_lighting", "battle_scene"];
-      }
+      // Use real safety tier if present in metadata, otherwise label audit pending
+      const tier = (entry as Record<string, unknown>).safety_tier as string | undefined ?? "audit_pending";
+      const tags = ((entry as Record<string, unknown>).tags as string[] | undefined) ?? [];
 
       return {
         name,
@@ -243,6 +233,7 @@ export default function RatingsDashboard() {
       };
     });
   }, [rawRows]);
+
 
   // Filtered rows
   const filteredRows = useMemo(() => {
@@ -381,33 +372,34 @@ export default function RatingsDashboard() {
 
         <div className="kpi-card">
           <div className="kpi-label-row">
-            <span className="kpi-label">Provenance Dual-Veto</span>
+            <span className="kpi-label">M0 Relabeled Composition</span>
             <ShieldCheck size={15} className="kpi-icon text-cyan-400" />
           </div>
           <div className="kpi-value-row">
-            <span className="kpi-value">100%</span>
-            <span className="kpi-total">0 High-Risk</span>
+            <span className="kpi-value">43 / 54</span>
+            <span className="kpi-total">Split</span>
           </div>
-          <span className="kpi-caption">Dual-evaluator content safety policy</span>
+          <span className="kpi-caption">43 true ASP composites vs 54 SCANS fallbacks</span>
         </div>
       </section>
+
 
       {/* Corpus Composition & Safety Tiering (M0 / C0.5 Preview) */}
       <section className="dash-card provenance-card">
         <div className="card-header-flex">
           <div>
-            <div className="card-tag">Corpus Architecture §C0.5</div>
-            <h3 className="card-title">Corpus Composition &amp; Safety Tiering</h3>
+            <div className="card-tag">Corpus Architecture §M0 / §C0.5</div>
+            <h3 className="card-title">Corpus Provenance &amp; Relabeled Split</h3>
           </div>
           <div className="provenance-badges">
-            <span className="prov-chip tier-g">Tier G (General)</span>
-            <span className="prov-chip tier-pg13">Tier PG-13</span>
-            <span className="prov-chip tier-mature">Mature SFW</span>
+            <span className="prov-chip tier-cyan">43 True Raw ASP (Mean 1.33)</span>
+            <span className="prov-chip tier-emerald">54 Safety Fallbacks (Mean 2.56)</span>
+            <span className="prov-chip tier-pending">C0.5 SFW Audit in Progress</span>
           </div>
         </div>
 
         <p className="prov-explainer">
-          Per the signed-off SFW corpus roadmap (Issue #41), the benchmark dataset enforces a <strong>dual-veto safety gate</strong>. Cases must independently clear both human curation and automated ensemble checks. Public examples on this portal default to <code>tier_g</code> and <code>tier_pg13</code> with verified redistribution rights.
+          Per M0 relabeling (<code>relabel.py</code>) and the signed-off SFW corpus roadmap (Issue #41), the legacy dataset contains 43 true raw ASP composites and 54 safety fallbacks to SCANS. The C0.5 SFW benchmark enforces an evidence-backed dual-veto gate before public promotion.
         </p>
 
         <div className="preference-meter-section">
@@ -526,7 +518,8 @@ export default function RatingsDashboard() {
                 onChange={(e) => setSelectedTier(e.target.value)}
                 className="filter-select"
               >
-                <option value="all">All Safety Tiers</option>
+                <option value="all">All Safety Statuses</option>
+                <option value="audit_pending">Audit Pending (C0.5)</option>
                 <option value="tier_g">Tier G (General)</option>
                 <option value="tier_pg13">Tier PG-13</option>
                 <option value="tier_mature_sfw">Mature SFW</option>
@@ -557,7 +550,7 @@ export default function RatingsDashboard() {
             <thead>
               <tr>
                 <th>Test Case</th>
-                <th>Safety Tier</th>
+                <th>Safety Status</th>
                 <th>ASP (0–4)</th>
                 <th>SCANS (0–4)</th>
                 <th>Human Preference</th>
@@ -579,72 +572,119 @@ export default function RatingsDashboard() {
                   const pref = entry.preference || "tie";
 
                   return (
-                    <tr
-                      key={name}
-                      className={`table-row-item ${isExpanded ? "expanded" : ""}`}
-                      onClick={() => setExpandedTest(isExpanded ? null : name)}
-                    >
-                      <td className="font-mono font-medium text-cyan-300">
-                        {name}
-                      </td>
-                      <td>
-                        <span className={`table-tier-badge ${tier}`}>
-                          {tier.replace("tier_", "").toUpperCase()}
-                        </span>
-                      </td>
-                      <td>
-                        <div className="score-cell-flex">
-                          <span className="score-num font-mono">{entry.asp ?? "—"}</span>
-                          {entry.asp !== undefined && (
-                            <div className="mini-score-bar">
-                              <div
-                                className="mini-fill cyan"
-                                style={{ width: `${(entry.asp / 4) * 100}%` }}
-                              />
+                    <>
+                      <tr
+                        key={name}
+                        className={`table-row-item ${isExpanded ? "expanded" : ""}`}
+                        onClick={() => setExpandedTest(isExpanded ? null : name)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            setExpandedTest(isExpanded ? null : name);
+                          }
+                        }}
+                        tabIndex={0}
+                        role="button"
+                        aria-expanded={isExpanded}
+                      >
+                        <td className="font-mono font-medium text-cyan-300">
+                          {name}
+                        </td>
+                        <td>
+                          <span className={`table-tier-badge ${tier}`}>
+                            {tier === "audit_pending" ? "AUDIT PENDING" : tier.replace("tier_", "").toUpperCase()}
+                          </span>
+                        </td>
+                        <td>
+                          <div className="score-cell-flex">
+                            <span className="score-num font-mono">{entry.asp ?? "—"}</span>
+                            {entry.asp !== undefined && (
+                              <div className="mini-score-bar">
+                                <div
+                                  className="mini-fill cyan"
+                                  style={{ width: `${(entry.asp / 4) * 100}%` }}
+                                />
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                        <td>
+                          <div className="score-cell-flex">
+                            <span className="score-num font-mono">{entry.simple ?? "—"}</span>
+                            {entry.simple !== undefined && (
+                              <div className="mini-score-bar">
+                                <div
+                                  className="mini-fill emerald"
+                                  style={{ width: `${(entry.simple / 4) * 100}%` }}
+                                />
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                        <td>
+                          <span className={`preference-badge ${pref}`}>
+                            {pref === "asp" ? "ASP PREFERRED" : pref === "simple" ? "SCANS PREFERRED" : "EQUIVALENT"}
+                          </span>
+                        </td>
+                        <td>
+                          <div className="table-defect-chips">
+                            {(entry.defects ?? []).length > 0 ? (
+                              entry.defects!.map((d) => (
+                                <span key={d} className="mini-defect-tag">
+                                  {d.replace(/_/g, " ")}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="text-slate-500 text-xs">—</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="table-notes-cell">
+                          <p className="truncate-notes">{entry.notes || "—"}</p>
+                        </td>
+                        <td className="text-right">
+                          <button className="row-toggle-btn" aria-label="Toggle details">
+                            {isExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                          </button>
+                        </td>
+                      </tr>
+                      {isExpanded && (
+                        <tr className="table-detail-drawer-row">
+                          <td colSpan={8} className="table-detail-drawer-cell">
+                            <div className="detail-drawer-content">
+                              <div className="drawer-grid">
+                                <div>
+                                  <h5 className="drawer-heading">Reviewer Assessment &amp; Rationale</h5>
+                                  <p className="drawer-notes">{entry.notes || "No additional evaluator notes provided."}</p>
+                                </div>
+                                <div>
+                                  <h5 className="drawer-heading">Identified Defect Signatures</h5>
+                                  <div className="drawer-defect-list">
+                                    {(entry.defects ?? []).length > 0 ? (
+                                      entry.defects!.map((d) => (
+                                        <span key={d} className="drawer-defect-badge">
+                                          {d.replace(/_/g, " ")}
+                                        </span>
+                                      ))
+                                    ) : (
+                                      <span className="text-xs text-slate-400">No major defects recorded</span>
+                                    )}
+                                  </div>
+                                  {tags.length > 0 && (
+                                    <div className="drawer-tag-row">
+                                      <span className="text-xs text-slate-500 font-mono">Tags:</span>
+                                      {tags.map((t) => (
+                                        <span key={t} className="drawer-tag">{t}</span>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
                             </div>
-                          )}
-                        </div>
-                      </td>
-                      <td>
-                        <div className="score-cell-flex">
-                          <span className="score-num font-mono">{entry.simple ?? "—"}</span>
-                          {entry.simple !== undefined && (
-                            <div className="mini-score-bar">
-                              <div
-                                className="mini-fill emerald"
-                                style={{ width: `${(entry.simple / 4) * 100}%` }}
-                              />
-                            </div>
-                          )}
-                        </div>
-                      </td>
-                      <td>
-                        <span className={`preference-badge ${pref}`}>
-                          {pref === "asp" ? "ASP PREFERRED" : pref === "simple" ? "SCANS PREFERRED" : "EQUIVALENT"}
-                        </span>
-                      </td>
-                      <td>
-                        <div className="table-defect-chips">
-                          {(entry.defects ?? []).length > 0 ? (
-                            entry.defects!.map((d) => (
-                              <span key={d} className="mini-defect-tag">
-                                {d.replace(/_/g, " ")}
-                              </span>
-                            ))
-                          ) : (
-                            <span className="text-slate-500 text-xs">—</span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="table-notes-cell">
-                        <p className="truncate-notes">{entry.notes || "—"}</p>
-                      </td>
-                      <td className="text-right">
-                        <button className="row-toggle-btn" aria-label="Toggle details">
-                          {isExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
-                        </button>
-                      </td>
-                    </tr>
+                          </td>
+                        </tr>
+                      )}
+                    </>
                   );
                 })
               )}
@@ -652,6 +692,7 @@ export default function RatingsDashboard() {
           </table>
         </div>
       </section>
+
 
       {/* Automated Metrics Over Time (Telemetry Stream) */}
       {benchmarkResults && benchmarkResults.runs.length > 0 && (
