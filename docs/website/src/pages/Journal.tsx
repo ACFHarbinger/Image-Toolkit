@@ -93,18 +93,19 @@ export default function Journal() {
             </div>
           </div>
 
-          <h2>2. Interactive Seam &amp; Optical Flow Inspection</h2>
+          <h2>2. Conceptual Failure-Mode Simulation</h2>
           <p>
-            Below is an interactive explorable explanation demonstrating how Neural ASP composite alignment isolates foreground cels and suppresses seam tearing compared to classical phase correlation:
+            Below is an interactive conceptual model comparing ideal foreground cel separation against the primary failure mode of classical phase correlation (seam striping). As documented in §5 below, achieving this ideal in practice remains an open research challenge on our 43 true raw ASP test cases (current human mean coherence: 1.33 / 4.00):
           </p>
 
           {/* Interactive Widget 1: DiffLoupe */}
           <DiffLoupe
-            title="Interactive Seam & Flow Comparator (Simulated Cel Pan)"
-            caption="Drag the divider to compare neural foreground composite isolation against classical phase-correlation striping. Click '2.5x Seam Loupe' to magnify seam boundaries."
-            leftLabel="Neural ASP Composite"
-            rightLabel="SCANS Classical Stitch"
+            title="Conceptual Seam & Flow Simulation (Synthesized Pan Model)"
+            caption="Drag the divider to observe how unsegmented phase correlation tears moving cels into discrete bands. Click '2.5x Seam Loupe' to inspect artificial step-edge boundaries."
+            leftLabel="Target Cel Isolation"
+            rightLabel="Classical Seam Slicing"
           />
+
 
           <h2>3. Keyframe Hold Deconstruction</h2>
           <p>
