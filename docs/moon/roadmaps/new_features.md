@@ -318,6 +318,23 @@ Simplest mode: apply the same wallpaper to all monitors simultaneously. Already 
 
 ---
 
+## 4.6 Native KDE video-wallpaper plugin (fallback if third-party plugins stay broken) — planned, not started
+
+**Pain point:** [#373](https://github.com/ACFHarbinger/Image-Toolkit/issues/373) — KDE Smart Video Wallpaper (Reborn) shows a black screen instead of the configured video. Root-caused (2026-08-15/16) through several rounds:
+
+1. An `isLoading` race on plugin switch (fixed, `a2312a23`).
+2. A stale `LastVideo` vs. freshly-written `VideoUrls` mismatch that leaves `main.currentSource` resolving empty (fixed in `_kde.py`, keeps `LastVideo` in sync).
+3. **Even with both of the above fixed, a fresh `plasmashell` restart, `QT_MEDIA_BACKEND=gstreamer` confirmed active, and a provably correct/consistent config, the video still never loads** (`mediaStatus` stuck at Qt Multimedia's `NoMedia`). Filed upstream as [luisbocanegra/plasma-smart-video-wallpaper-reborn#292](https://github.com/luisbocanegra/plasma-smart-video-wallpaper-reborn/issues/292).
+4. **Installed and tested a second, independently-coded plugin** (`smartervideowallpaper`, from `PeterTucker/smartER-video-wallpaper`) as a fallback per this repo's existing `get_best_video_plugin()` search order. It fails identically — same file, same backend, same machine, config confirmed correctly written. Two unrelated codebases failing the same way points at something below plugin code: Qt Multimedia's gstreamer backend integration, GPU/driver video decode, or KWin compositor interaction on this specific Plasma 6.6.6 / Qt 6.10.2 / Ubuntu 26.04 combination — not yet isolated (a raw, non-wallpaper QtMultimedia+gstreamer smoke test was attempted but inconclusive: no system-matching Qt6 QML runtime or `gst-play-1.0` was available without installing new packages, which wasn't done without confirmation).
+
+**Fallback option — build a small first-party video-wallpaper QML plugin**, scoped narrowly (loop a single `MediaPlayer`/`VideoOutput` bound to config Image-Toolkit already writes) rather than reimplementing Reborn's full feature set (crossfade, per-effect pause/blur, battery/lock-screen awareness, etc.). Only worth doing if:
+- The upstream Reborn issue and/or further isolation of the Qt Multimedia/gstreamer layer don't produce a fix, **and**
+- A minimal from-scratch `MediaPlayer`/`VideoOutput` QML scene is first confirmed to actually render video on this machine — if the underlying Qt Multimedia/gstreamer/compositor layer itself is broken, a custom plugin hits the identical wall two failed third-party plugins already hit, and building one would not fix anything.
+
+**Gate condition answered, 2026-08-16 — do not start yet.** Ran the isolation test: a standalone Qt6 `MediaPlayer`/`VideoOutput` QML scene (`QT_MEDIA_BACKEND=ffmpeg`, no wallpaper plugin involved) decoded and produced real texture frames continuously (168 `createTexturesFromMemory` calls over 8s, real NAL-unit decode at framerate) — the Qt Multimedia/FFmpeg/codec stack works correctly on this machine standalone. The failure is specific to the Plasma wallpaper plugin → KWin Wayland compositor texture-import path (matches [luisbocanegra/plasma-smart-video-wallpaper-reborn#290](https://github.com/luisbocanegra/plasma-smart-video-wallpaper-reborn/issues/290)'s working theory: an NVIDIA+Wayland DMA-BUF/EGL compositor issue, not a plugin bug). A first-party plugin would hit the exact same KWin/Wayland/NVIDIA compositor question every existing plugin already hits — **not worth building until upstream (#290 / our own [#292](https://github.com/luisbocanegra/plasma-smart-video-wallpaper-reborn/issues/292)) narrows the compositor-side cause further**, since nothing plugin-side (ours or a replacement) can route around a compositor-level texture-import failure.
+
+---
+
 ## 4.6 Image Deduplication Across Directories
 
 **Pain point:** Duplicate detection operates within a single directory scan. Users with multiple collections (local, Dropbox, crawler downloads) accumulate cross-directory duplicates.
