@@ -417,7 +417,7 @@ class VaultManager:
                 pass
 
             if has_qt:
-                print("Skipping manual JVM shutdown due to active Qt Application to avoid segfault.", file=sys.stderr)
+                print("Skipping manual JVM shutdown due to active Qt Application.", file=sys.stderr)
             else:
                 print("Shutting down JVM...", file=sys.stderr)
                 jpype.shutdownJVM() # pyrefly: ignore [missing-attribute]
