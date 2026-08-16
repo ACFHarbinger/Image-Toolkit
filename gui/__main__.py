@@ -27,6 +27,15 @@ from git.scripts._submodule_bootstrap import register_submodule_packages  # noqa
 
 register_submodule_packages(repo_root)
 
+# Qt Multimedia backend pinning (#374): PySide6's bundled Qt ships only the
+# FFmpeg backend, but a machine-wide QT_MEDIA_BACKEND=gstreamer (left over
+# from the #373 KDE-wallpaper investigation in /etc/environment) makes every
+# QMediaPlayer fail to initialize -> Extractor tab video player black. Pin
+# the backend before any QtMultimedia object can be constructed.
+from backend.src.qt_runtime_env import pin_qt_media_backend  # noqa: E402
+
+pin_qt_media_backend()
+
 
 if __name__ == "__main__":
     launch_app({"no_dropdown": False, "enable_manager": True})

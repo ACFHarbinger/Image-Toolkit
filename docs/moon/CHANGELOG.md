@@ -1,3 +1,45 @@
+## S383 — 2026-08-16 (Extractor tab video player black — #374; real external player toggle)
+
+Fixed the today-only regression where the Extractor tab's in-app video player
+showed black for every video, and wired the "Switch to External Player" button
+to actually launch an external player (it previously only toggled the internal
+player's output, so it appeared to do nothing).
+
+**#374 root cause — machine-wide QT_MEDIA_BACKEND=gstreamer:** the
+QT_MEDIA_BACKEND=gstreamer left over in /etc/environment from the #373
+KDE-smart-video-wallpaper investigation was inherited by the Image-Toolkit
+process. PySide6's bundled Qt ships ONLY the FFmpeg multimedia backend
+(Qt/plugins/multimedia/libffmpegmediaplugin.so) — there is no GStreamer
+backend plugin in the wheel. With gstreamer forced, every QMediaPlayer failed
+to initialize ("No QtMultimedia backends found ... Failed to initialize
+QMediaPlayer"), so the player surface stayed black for every video. Haruna
+(an mpv-based, non-Qt-Multimedia player) was unaffected, matching the report.
+Reproduced with a minimal QMediaPlayer/QGraphicsVideoItem script: with
+gstreamer the player reports no backend and hasVideo=False; with ffmpeg media
+loads, buffers and plays to end-of-media.
+
+- backend/src/qt_runtime_env.py (new): pin_qt_media_backend() forces
+  QT_MEDIA_BACKEND=ffmpeg — the only backend this distribution ships — and
+  must run before any QtMultimedia object is constructed.
+- backend/main.py and gui/__main__.py: call pin_qt_media_backend() at entry,
+  before any Qt import, so the app is immune to a poisoned machine-wide env
+  var regardless of how it is launched.
+- gui/src/elements/core/extractor_tab/_view_controls.py:
+  _launch_external_player() now opens the current video with the user's
+  default handler (xdg-open → Haruna here), falling back to a known player
+  binary (haruna/mpv/vlc/celluloid) when xdg-open is unavailable; the
+  external branch of _apply_player_mode() calls it (deduplicated per video,
+  and an explicit toggle always relaunches). Also removed a duplicate
+  setAudioOutput(None) call.
+- gui/src/elements/core/extractor_tab/manager.py: track
+  _external_player_launched_path to avoid spawning duplicate player windows.
+- Tests: backend/test/core/test_qt_runtime_env.py (3) and
+  gui/test/core/test_extractor_external_player.py (6, --run-gui).
+
+**Note:** the leftover QT_MEDIA_BACKEND=gstreamer in /etc/environment should
+still be removed machine-wide so other Qt Multimedia consumers on this box
+aren't affected (the app itself is now hardened against it).
+
 # Image Toolkit — Changelog
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*

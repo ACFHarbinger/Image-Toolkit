@@ -6,8 +6,12 @@ Extracted from ``extractor_tab.py`` -- pure code motion, no logic change.
 
 from __future__ import annotations
 
+import os
+import platform
+import shutil
+import subprocess
 from pathlib import Path
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 from PySide6.QtCore import QEvent, QObject, Qt, QUrl, Slot
 from PySide6.QtGui import QKeyEvent, QMouseEvent, QResizeEvent, QWheelEvent
@@ -15,8 +19,6 @@ from PySide6.QtMultimedia import QMediaPlayer
 from PySide6.QtWidgets import QGraphicsView, QLabel, QLineEdit, QMessageBox, QStyle, QWidget
 
 from ....components import ClickableLabel
-
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ..protos.extractor_tab import VideoExtractorSubTabHostProtocol
@@ -181,6 +183,11 @@ class _ViewControlsMixin:
     @Slot()
     def toggle_player_mode(self: "VideoExtractorSubTabHostProtocol"):
         self.use_internal_player = not self.use_internal_player
+        if not self.use_internal_player:
+            # Explicit switch to external: always (re)launch the current
+            # video, even if it was already launched once -- the user may
+            # have closed the external player window since.
+            self._external_player_launched_path = None
         self._apply_player_mode()
 
     def _apply_player_mode(self: "VideoExtractorSubTabHostProtocol"):
@@ -209,6 +216,10 @@ class _ViewControlsMixin:
             self.btn_play.setEnabled(True)
             self.change_resolution(self.combo_resolution.currentIndex())
         else:
+            # Keep the internal player's source loaded (it drives the
+            # slider/timestamps -- see the info label) but detach its
+            # video/audio output and pause it; the actual viewing happens
+            # in an external player launched below.
             self.media_player.setSource(QUrl.fromLocalFile(self.video_path))
             self.btn_toggle_mode.setText("Switch to Internal Player")
             self.btn_toggle_mode.setIcon(
@@ -223,11 +234,69 @@ class _ViewControlsMixin:
             self.volume_slider.setVisible(False)
             self.media_player.setVideoOutput(None)  # type: ignore[arg-type] # pyrefly: ignore [bad-argument-type]
             self.media_player.setAudioOutput(None)  # type: ignore[arg-type] # pyrefly: ignore [bad-argument-type]
-            self.media_player.setAudioOutput(None)  # type: ignore[arg-type] # pyrefly: ignore [bad-argument-type]
             self.media_player.pause()
+
+            # Actually launch an external player for the current video
+            # (previously this branch only toggled the internal player's
+            # output -- the button appeared to do nothing). Avoid spawning
+            # duplicate windows when re-applying the same video.
+            if self.video_path != self._external_player_launched_path:
+                self._external_player_launched_path = self.video_path
+                self._launch_external_player()
 
         # Apply current speed locally
         self.update_playback_speed(self.combo_player_speed.currentText())
+
+    def _launch_external_player(self: "VideoExtractorSubTabHostProtocol"):
+        """Open the current video in an external player.
+
+        On Linux this prefers the user's default handler (xdg-open -- the
+        same thing the file manager uses, e.g. Haruna), falling back to a
+        known player binary only if xdg-open is unavailable.
+        """
+        path = self.video_path
+        if not path or not os.path.exists(path):
+            return
+        try:
+            if platform.system() == "Windows":
+                os.startfile(path)  # pyrefly: ignore [missing-attribute]
+                return
+            if platform.system() == "Darwin":
+                subprocess.Popen(
+                    ["open", path],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+                return
+            xdg = shutil.which("xdg-open")
+            if xdg:
+                subprocess.Popen(
+                    [xdg, path],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+                return
+            for player in ("haruna", "mpv", "vlc", "celluloid"):
+                exe = shutil.which(player)
+                if exe:
+                    subprocess.Popen(
+                        [exe, path],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
+                    return
+            QMessageBox.warning(
+                cast(QWidget, self),
+                "External Player",
+                "No external video player found. Install a player (e.g. "
+                "Haruna, mpv, VLC) or set one as the system default.",
+            )
+        except Exception as e:
+            QMessageBox.warning(
+                cast(QWidget, self),
+                "External Player",
+                f"Could not launch external player: {e}",
+            )
 
     @Slot(str)
     def update_playback_speed(self: "VideoExtractorSubTabHostProtocol", text: str):

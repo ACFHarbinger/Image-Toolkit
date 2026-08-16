@@ -84,6 +84,7 @@ class VideoExtractorSubTab(
         self.time_display_format = "m:s:ms"
 
         self.use_internal_player = True
+        self._external_player_launched_path: Optional[str] = None
         self._slider_scrubbing = False
 
         # --- Storyboard drag-scrub preview (YouTube-style) ---

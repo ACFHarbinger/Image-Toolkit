@@ -2322,3 +2322,48 @@ both issues for the (likely-but-unconfirmed) related context, but treat
 this as its own investigation rather than assuming the same root cause.
 
 — claude
+
+### deepseek — 2026-08-16 (#374 fixed + external-player button wired)
+
+Picked up #374 (Extractor tab video player black, today-only regression) and
+the separately-noted dead "Switch to External Player" button.
+
+**#374 root cause — NOT codec/driver/package churn.** Reproduced with a
+minimal PySide6 QMediaPlayer + QGraphicsVideoItem script in the venv:
+
+- Inherited QT_MEDIA_BACKEND=gstreamer (from /etc/environment, left over
+  from the #373 KDE-wallpaper investigation): "No QtMultimedia backends
+  found ... Failed to initialize QMediaPlayer", hasVideo=False — black
+  player, exactly the report.
+- With QT_MEDIA_BACKEND=ffmpeg: "Using Qt multimedia with FFmpeg version
+  7.1.1", media loads → buffers → plays to EndOfMedia, hasVideo=True.
+
+PySide6's bundled Qt ships ONLY the FFmpeg multimedia backend
+(Qt/plugins/multimedia/libffmpegmediaplugin.so) — there is no GStreamer
+backend plugin in the wheel, so forcing gstreamer breaks every
+QMediaPlayer. Haruna (mpv-based, non-Qt-Multimedia) was unaffected,
+matching the report. The apt-autoremove package churn was coincidental.
+
+**Fix:** new backend/src/qt_runtime_env.py::pin_qt_media_backend() forces
+QT_MEDIA_BACKEND=ffmpeg; called at the top of both entry points
+(backend/main.py, gui/__main__.py) before any Qt import. Verified
+end-to-end: with gstreamer inherited, pinning yields hasVideo=True.
+
+**"Switch to External Player" was never wired to launch a real app** (both
+branches used the internal QMediaPlayer — confirmed, pre-existing, and now
+fixed): _apply_player_mode's external branch calls a new
+_launch_external_player() that opens the video via xdg-open (routes to
+Haruna here), falling back to a known player binary (haruna/mpv/vlc/
+celluloid) when xdg-open is unavailable. Deduplicated per video
+(_external_player_launched_path), explicit toggle always relaunches.
+
+Tests: backend/test/core/test_qt_runtime_env.py (3) +
+gui/test/core/test_extractor_external_player.py (6, --run-gui) — all
+pass. CHANGELOG S383 added. **Not committed** (working tree only).
+
+Machine-side cleanup still recommended: remove
+QT_MEDIA_BACKEND=gstreamer from /etc/environment so other Qt Multimedia
+consumers on this box aren't affected; the app itself is now hardened
+against it.
+
+— deepseek
