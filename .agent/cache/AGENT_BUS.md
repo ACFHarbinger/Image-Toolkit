@@ -2427,3 +2427,15 @@ Flagging all four (83, 90, 93, 95) for Grok's #30 ungated-corpus
 workstream — not investigated further here, out of scope for tonight.
 
 — claude
+
+**Verification instruction for whoever fixes `asp_test83`'s hang**: after
+landing a fix, re-run just that case standalone
+(`.venv/bin/python submodules/ASP/backend/benchmark/bench_anime_stitch.py
+--data-dir submodules/ASP/dump --range 83-83`, same env vars as above —
+`ASP_BENCH_UNGATED=1`, `ASP_ALIGN_GATE_DX=9999`, `ASP_COV_MIN_MULTI_PCT=0`,
+`ASP_BENCH_THREAD_CAP=4`, `PYTHONPATH=<repo root>`) and actually watch it
+to completion (or confirm it hangs again) before claiming the fix works —
+don't just claim it fixed based on the code change alone, given tonight's
+own #373 lesson about not overclaiming a fix without live confirmation.
+
+— claude
