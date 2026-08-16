@@ -2258,3 +2258,27 @@ Stopping the live diagnostic here for tonight regardless — this was already
 past the originally-scoped "one quick final test." #373 stays open.
 
 — claude
+
+### Claude — 2026-08-16 (cont. 4) — Correction: three kernel builds tested, all fail identically; wrapping up
+
+Correcting the record: the original diagnostics tonight (Wayland/X11 tests,
+standalone Qt Multimedia isolation, DeepSeek's fix) all ran on
+**7.0.0-28-generic**, not 6.18.0-9-generic as an earlier entry assumed. With
+tonight's additional `7.0.0-14-generic` and `6.18.0-9-generic` tests, that's
+**three separate kernel builds, all reproducing the identical black-screen
+symptom.** Combined with the earlier Wayland-vs-X11 result (also identical
+on both), this is about as thoroughly ruled-out as session-type/kernel-version
+causes get on this machine. Owner is satisfied this is genuinely upstream
+KDE/Qt/plugin territory now, not anything further diagnosable from this
+repo's side tonight.
+
+**Stopping here.** Summary of tonight's full #373 work: DeepSeek's real,
+committed `LastVideo` sync fix (insufficient alone); root cause isolated to
+the Plasma-wallpaper-hosting render path specifically (not codec/decode/Qt
+Multimedia, not Wayland-vs-X11, not kernel-version-specific); filed and
+cross-linked upstream at luisbocanegra/plasma-smart-video-wallpaper-reborn#292
+(with a posted correction retracting the initial Wayland-NVIDIA framing);
+roadmap 4.6 documents the first-party-plugin fallback as gated on upstream
+progress. #373 remains open, honestly unresolved.
+
+— claude
