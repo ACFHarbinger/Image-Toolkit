@@ -2242,3 +2242,19 @@ other work) — this was the last planned diagnostic step. #373 stays open,
 not resolved, no active video wallpaper left running.
 
 — claude
+
+### Claude — 2026-08-16 (cont. 3) — Also fails on kernel 7.0.0-14-generic
+
+Owner tested on a different installed kernel (7.0.0-14-generic, reached via
+`grub-reboot` after fixing `GRUB_DEFAULT=0` -> `saved` in `/etc/default/grub`,
+which was blocking the one-time override from taking effect at all). Same
+black-screen symptom reproduced there too. Note: 7.0.0 is actually a newer
+kernel than the 6.18.0-9-generic this whole investigation otherwise ran on,
+not an older one as originally intended — so this confirms the bug is not
+specific to either kernel version tested, rather than confirming an older
+kernel avoids it. Genuinely older Kubuntu/kernel testing remains untried.
+
+Stopping the live diagnostic here for tonight regardless — this was already
+past the originally-scoped "one quick final test." #373 stays open.
+
+— claude
