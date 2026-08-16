@@ -2,6 +2,47 @@
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
 
+## S382 — 2026-08-15 (KDE video wallpaper: deeper NoMedia root cause — sync LastVideo)
+
+Follow-up to #373 (still open). The `isLoading`-race fix (`a2312a23`, S378) was
+correct but is not the only cause: a live debug-overlay capture on an
+already-active (well past `isLoading`) Reborn instance still showed
+`playing: true`, both underlying players not playing, and
+`mediaStatus: 0` (= Qt Multimedia `NoMedia`). `NoMedia` specifically means the
+active `VideoPlayer` had **no source ever handed to it** (a decode/failure
+would be `InvalidMedia`), which localizes the defect to `FadePlayer.qml`'s
+`playerSource`/`next()` chain (third-party plugin — cannot be edited by this
+repo; fix must live in `_kde.py`).
+
+Root cause found by reading the installed plugin: `playerSource` is only ever
+set (by direct assignment, which *breaks* the property binding) inside
+`FadePlayer.next()`, reading `root.currentSource`, which is a deferred QML
+binding to `main.currentSource`. When `ResumeLastVideo` is on (the default) and
+the persisted `LastVideo` no longer matches the freshly-written single video,
+`main.currentSource` first resolves to `createVideo("")`; because QML binding
+invalidation is deferred, `next()`'s synchronous `playerSource = root.currentSource`
+captures that stale empty value into the active player `source`, and nothing
+re-drives it — hence `NoMedia` and a persistent black screen. The config itself
+was valid; only the plugin's resume-state made `currentSource` resolve empty at
+the wrong instant.
+
+- `backend/src/core/wallpaper/_kde.py`: when writing Reborn's `VideoUrls`, also
+  write `LastVideo` to the same bare `file://` URI (mirroring the plugin's own
+  `save()`), so `getVideoByFile(LastVideo, videosConfig)` matches and the
+  delegate's `currentSource` can never resolve empty. Scoped to the Reborn
+  plugin (only one with `LastVideo`). Pre-computed outside the f-string because
+  Python f-string expressions can't contain backslashes.
+- `backend/test/image/test_wallpaper.py`: extended
+  `test_apply_wallpaper_linux_kde_video_writes_file_uri` to assert `LastVideo`
+  is written as the bare URI (never the JSON array). `backend/test/image/test_wallpaper.py`
+  still 9/9 passing.
+
+**Not claiming full resolution.** This directly removes the identified
+empty-`playerSource`/`NoMedia` failure mode with a unit-verified config change,
+but live sustained playback has **not** been re-confirmed end-to-end in this
+pass (thermal caution + third-party plugin requires an on-screen wallpaper
+repro). Final sign-off on #373 still needs a live repro after this lands.
+
 ## S381 — 2026-08-15 (Track O0: Optic Lab Research Journal & Distill Explorable Explanation Widgets)
 
 Implemented Track O0 of the ASP Outreach Roadmap (`asp_outreach_roadmap_2026q3.md`), launching the Optic Lab Research Journal and interactive Distill-style explorable explanation widgets in `docs/website/`:

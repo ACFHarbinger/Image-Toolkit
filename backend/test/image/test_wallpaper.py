@@ -275,6 +275,13 @@ class TestWallpaperManager:
         assert 'writeConfig("VideoUrls", "[{\\\"filename\\\":\\\"file:///path/to/video.mp4\\\"' in script
         assert '\\\"enabled\\\":true' in script
         assert 'writeConfig("VideoUrls", "file:///path/to/video.mp4")' not in script
+        # Regression test: Reborn's `LastVideo` must be written as the bare file
+        # URI string (matching the VideoUrls filename) so the delegate's
+        # currentSource never resolves empty from a stale `LastVideo`
+        # (ResumeLastVideo defaults on), which otherwise produces a black
+        # NoMedia player. It must NOT be the JSON video-list schema.
+        assert 'writeConfig("LastVideo", "file:///path/to/video.mp4")' in script
+        assert 'writeConfig("LastVideo", "[{' not in script
 
 
 # Helper to check winreg calls simpler

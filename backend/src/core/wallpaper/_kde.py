@@ -214,6 +214,27 @@ class _KDEWallpaperMixin:
                 # json.dumps again produces a correctly escaped JavaScript
                 # string literal for paths containing quotes or backslashes.
                 video_value_js = json.dumps(video_value)
+                # Reborn's `LastVideo` config key (the value the delegate hands
+                # back to main.currentSource via getVideoByFile on startup/next())
+                # is a bare file URI string, NOT the JSON video-list schema above
+                # — mirror what the plugin's own save() writes
+                # (`LastVideo = currentSource.filename`). Keeping it in sync with
+                # the single video we just wrote is what prevents the delegate's
+                # currentSource binding from resolving to an empty player source:
+                # with ResumeLastVideo on (the default) and a stale LastVideo that
+                # no longer matches the freshly-written video, main.currentSource
+                # returns createVideo("") and FadePlayer.next()'s direct assignment
+                # captures that empty value into playerSource, which Qt Multimedia
+                # reports as NoMedia — the persistent black screen.
+                last_video_js = json.dumps(video_file_uri)
+                # Build the conditional JS statement outside the f-string below:
+                # f-string expression parts cannot contain backslashes, so the
+                # double-quoted writeConfig(...) call has to be pre-computed.
+                reborn_last_video_write = (
+                    f'd.writeConfig("LastVideo", {last_video_js});'
+                    if target_plugin == "luisbocanegra.smart.video.wallpaper.reborn"
+                    else ""
+                )
 
                 # Only assign wallpaperPlugin when it's actually changing. Plasma
                 # tears down and recreates the wallpaper QML delegate whenever this
@@ -279,6 +300,7 @@ class _KDEWallpaperMixin:
                             d.writeConfig("fillMode", {video_fill_mode});
                             {"d.writeConfig('overridePause', true);" if is_smarter else ""}
                             d.writeConfig("{video_key}", {video_value_js});
+                            {reborn_last_video_write}
                             d.reloadConfig();
                             print("OK: monitor {i} switched to '" + d.wallpaperPlugin + "', wrote {video_key}='{video_file_uri}'.");
                         }}
