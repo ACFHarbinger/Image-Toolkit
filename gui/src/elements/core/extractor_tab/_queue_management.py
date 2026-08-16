@@ -11,7 +11,7 @@ import copy
 import os
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional, cast
+from typing import TYPE_CHECKING, List, Optional, cast
 
 from PySide6.QtCore import QPoint, Qt, QThreadPool, Slot
 from PySide6.QtWidgets import (
@@ -354,9 +354,14 @@ class _QueueManagementMixin:
         self.extraction_status_label.setText(f"Processing queue ({mode})...")
         self.extraction_status_label.show()
 
-        worker = QueueExecutionWorker(self.extraction_queue, parallel=is_parallel)
+        # Pass a COPY: the worker iterates its own list while the tab
+        # removes completed items from self.extraction_queue per item; sharing
+        # the same list object would let the tab's pop() skip the worker's
+        # pending iterations.
+        worker = QueueExecutionWorker(list(self.extraction_queue), parallel=is_parallel)
         self.active_queue_worker = worker
         worker.signals.progress.connect(self._on_queue_progress)
+        worker.signals.item_completed.connect(self._on_queue_item_completed)
         worker.signals.finished.connect(self._on_queue_processing_finished)
         worker.signals.error.connect(self._on_queue_processing_error)
 
@@ -367,6 +372,92 @@ class _QueueManagementMixin:
         self.extraction_progress_bar.setMaximum(max(total, 1))
         self.extraction_progress_bar.setValue(completed)
 
+    def _queue_result_paths(self: "VideoExtractorSubTabHostProtocol", res: dict) -> List[str]:
+        """Collect the files a queue item produced (saved_files or output_path)."""
+        paths = []
+        if res.get("status") != "success":
+            return paths
+        if res.get("saved_files"):
+            paths.extend(res["saved_files"])
+        elif res.get("output_path"):
+            paths.append(res["output_path"])
+        return paths
+
+    def _queue_result_metadata(self: "VideoExtractorSubTabHostProtocol", item: dict) -> dict:
+        """Build the extraction-history metadata for a queued item, mirroring
+        _get_current_extraction_metadata() but sourced from the queue config
+        (the worker is stateless, so the UI state can't be trusted at the
+        moment the queue finishes)."""
+        engine = "FFmpeg" if item.get("use_ffmpeg", True) else "MoviePy"
+        return {
+            "video_path": item.get("video_path", ""),
+            "start_ms": item.get("start_ms", 0),
+            "end_ms": item.get("end_ms", 0),
+            "cuts_ms": copy.deepcopy(item.get("cuts_ms", [])),
+            "tags_ms": [],
+            "output_size": "",
+            "extract_vertical": False,
+            "gif_fps": int(item.get("fps", 24)),
+            "mute_audio": bool(item.get("mute_audio", False)),
+            "engine": engine,
+            "frame_interval": int(item.get("frame_interval", 1)),
+            "smart_extract": bool(item.get("smart_extract", False)),
+            "smart_method": item.get("smart_method", ""),
+            "speed": str(item.get("speed", 1.0)),
+            "timestamp": time.time(),
+        }
+
+    @Slot(int, dict, dict)
+    def _on_queue_item_completed(self: "VideoExtractorSubTabHostProtocol", index: int, res: dict, item: dict):
+        """Per-item completion: record the extraction into recent extractions
+        (previously queue results never appeared there), remove the finished
+        item from the queue list promptly, and add its files to the gallery.
+
+        item is the original queue config handed to the worker, so the
+        finished entry is removed by identity; index alignment is not reliable
+        once earlier items have already been popped (parallel mode completes
+        out of order).
+
+        Previously only _on_queue_processing_finished ran (once the WHOLE
+        queue was done), so items lingered in the list after completing and
+        their outputs were never recorded in extraction history.
+        """
+        paths = self._queue_result_paths(res)
+        if not paths:
+            return
+
+        # Record first (so a failure below doesn't drop the history entry)
+        metadata = self._queue_result_metadata(item)
+        metadata["mode"] = item.get("type", "range")
+        self._record_extraction(paths, metadata)
+
+        # Remove the finished item from the queue list immediately.
+        # Match by identity first (sequential mode: same process), then by
+        # value (parallel mode: the config was pickled through multiprocessing
+        # so the worker returns a copy), then fall back to index.
+        removed = False
+        for i, queued in enumerate(self.extraction_queue):
+            if queued is item or queued == item or (not item and i == index):
+                self.extraction_queue.pop(i)
+                removed = True
+                break
+        if removed:
+            self._update_queue_ui()
+
+        self._add_queue_results_to_gallery(paths)
+
+    def _add_queue_results_to_gallery(self: "VideoExtractorSubTabHostProtocol", paths: List[str]):
+        self._refresh_extracted_stems_cache()
+        self.start_loading_gallery(paths, append=True)
+        self.current_extracted_paths = self.gallery_image_paths[:]
+
+        for path, widget in self.source_path_to_widget.items():
+            label = widget.findChild(ClickableLabel)
+            if label:
+                self._update_source_label_style(
+                    path, label, path == getattr(self, "video_path", None)
+                )
+
     def _on_queue_processing_finished(self: "VideoExtractorSubTabHostProtocol", results):
         self.active_queue_worker = None
         self.extraction_progress_bar.hide()
@@ -376,31 +467,33 @@ class _QueueManagementMixin:
         self.btn_clear_queue.setEnabled(True)
         self.combo_queue_mode.setEnabled(True)
 
-        self.extraction_queue.clear()
-        self._update_queue_ui()
-
-        new_paths = []
+        # Fallback for any results the per-item handler could not associate
+        # (e.g. parallel mode's index mapping): record + show them too.
+        # Paths already handled by _on_queue_item_completed are skipped so
+        # the gallery is not populated twice.
+        new_paths: List[str] = []
         errors = []
         for res in results:
-            if res.get("status") == "success":
-                if "saved_files" in res:
-                    new_paths.extend(res["saved_files"])
-                elif "output_path" in res:
-                    new_paths.append(res["output_path"])
+            paths = self._queue_result_paths(res)
+            if paths:
+                for path in paths:
+                    if str(path) not in self.master_image_paths:
+                        new_paths.append(path)
+                recorded = any(
+                    str(p) in self.extraction_metadata for p in paths
+                )
+                if not recorded:
+                    metadata = self._queue_result_metadata({})
+                    metadata["mode"] = "range"
+                    self._record_extraction(paths, metadata)
             else:
                 errors.append(res.get("message", "Unknown error"))
 
-        if new_paths:
-            self._refresh_extracted_stems_cache()
-            self.start_loading_gallery(new_paths, append=True)
-            self.current_extracted_paths = self.gallery_image_paths[:]
+        self.extraction_queue.clear()
+        self._update_queue_ui()
 
-            for path, widget in self.source_path_to_widget.items():
-                label = widget.findChild(ClickableLabel)
-                if label:
-                    self._update_source_label_style(
-                        path, label, path == getattr(self, "video_path", None)
-                    )
+        if new_paths:
+            self._add_queue_results_to_gallery(new_paths)
 
         if errors:
             QMessageBox.warning(

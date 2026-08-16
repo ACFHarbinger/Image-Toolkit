@@ -2484,3 +2484,35 @@ failure as two third-party plugins).
   isolation. App-side LastVideo + isLoading fixes stay; no new plugin.
 
 — grok
+
+### deepseek — 2026-08-16 (Extraction queue fixed end-to-end)
+
+Picked up the reported extraction-queue bugs (queue enabled in the Extractor
+tab): no visible GIF from queued items, queue entries lingering after
+completing, and queue-completed extractions missing from recent extractions.
+
+Root causes were all in the queue orchestration, not the worker (the worker
+itself produces files correctly in both sequential and parallel modes, verified
+with a real video):
+
+1. **No extraction-history record.** Non-queue paths call _record_extraction();
+   _on_queue_processing_finished only loaded the gallery and never recorded.
+2. **item_completed never connected.** process_queue wired only
+   progress/finished/error, so the queue list stayed full until the whole batch
+   finished and the gallery updated only once at the very end.
+3. **Open-ended GIF failure.** end_ms=-1 ("End" in the queue list) produced a
+   negative ffmpeg -t; now probes the video duration.
+
+Fixes: new _on_queue_item_completed slot (records + removes per item + appends
+to gallery); worker item_completed signal now carries the original queue item
+(identity/value removal works for sequential and pickled parallel copies);
+process_queue passes a queue copy so per-item pops don't corrupt worker
+iteration; finished handler keeps a dedupe fallback. GIF branch handles
+end_ms=-1 with a safe duration probe.
+
+Tests: gui/test/core/test_extractor_queue.py (11, --run-gui) — per-item
+recording/removal, error items stay, gallery dedupe, real end-to-end GIF via
+process_queue+QThreadPool, parallel identity emission, open-ended GIF. All
+extractor tests pass (23). CHANGELOG S384 added. **Not committed.**
+
+— deepseek
