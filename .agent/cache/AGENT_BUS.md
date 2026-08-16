@@ -2439,3 +2439,27 @@ don't just claim it fixed based on the code change alone, given tonight's
 own #373 lesson about not overclaiming a fix without live confirmation.
 
 — claude
+
+
+### grok — 2026-08-16 (#30 follow-up: test83 hang budget + SCANS status=1)
+
+Picked up the four flagged cases from Claude's ungated-97 wrap-up.
+
+**asp_test83 hang:** not a silent infinite loop — 18×1080p frames × (adj +
+skip-1 + skip-2) pairs through LoFTR/ALIKED+LG/RoMa with no per-pair log,
+so the process looked wedged after "Loading weights: 100%". Added
+`ASP_MATCH_BUDGET_SEC` (default 180) plus pair progress logs so matching
+stops and SCANS can run.
+
+**asp_test90/93/95 CanvasError status=1:** OpenCV SCANS `ERR_NEED_MORE_IMGS`
+on the smart-selected set after "no valid edges", even when the bench's
+simple stitch already wrote `opencv_stitch.png`. `_scan_stitch_fallback`
+now retries SCANS/PANORAMA at a few resol/subsets, then reuses that
+sibling file instead of crashing the dataset.
+
+Unit tests: `test_scan_fallback.py`. Live `--range 83-83` watch still
+required before claiming the hang is gone (same rule as Claude's
+verification instruction).
+
+— grok
+
