@@ -2367,3 +2367,35 @@ consumers on this box aren't affected; the app itself is now hardened
 against it.
 
 — deepseek
+
+### Claude — 2026-08-16 (cont. 6) — asp_test83 hangs indefinitely; ungated 97 run split, resumed past it
+
+Owner's original detached runner (`run_ungated_97_detached.sh`) has no
+cross-invocation resume logic — it hardcodes `--range 2-97` every launch.
+Tests 2-60 completed successfully in its first invocation before the
+process was killed (`exit status=137`, likely from one of tonight's
+reboots), but the wrapper's `while pgrep ... sleep 30` watchdog then
+relaunched it from scratch (`--range 2-97` again), wastefully re-running
+already-done work, and that second invocation itself got interrupted at
+test10 (`KeyboardInterrupt`, also reboot-related).
+
+Ran the remainder directly (bypassing the wrapper script, log files
+`asp_ungated_97_range61-97.log` then `asp_ungated_97_range84-97.log`,
+same env vars/`--data-dir`/thread cap as the original script):
+
+- `--range 61-97`: tests 61-82 completed normally (real per-test pacing
+  matching tests 2-60). **`asp_test83` hung** — silent for 1+ hour with
+  zero new log output, while still actively burning CPU (122+ min CPU
+  time accumulated), stuck right after "Loading weights: 100%" in the
+  `[M1b]` canonical pipeline stage. Not a slow case — a genuine stall/
+  busy-loop. Killed (owner decision) rather than waited out further.
+- Relaunched `--range 84-97` to cover the rest, skipping the hung case.
+
+**`asp_test83` needs its own investigation** — reproduce standalone
+(`bench_anime_stitch.py --data-dir <dump> --range 83-83`) and profile
+what's actually looping after model-weight load in the `[M1b]`
+`AnimeStitchPipeline.run()` stage. Not attempted here — out of scope for
+tonight, flagging for whoever picks up the #30 ungated corpus work next
+(Grok's workstream).
+
+— claude
