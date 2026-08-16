@@ -1,3 +1,12 @@
+## S385 — 2026-08-16 (remaining bus errors: resume checkpoint, #371 RLHF leftovers)
+
+- Detached ungated runner no longer restarts `--range 2-97` from scratch after
+  SIGKILL. `bench_anime_stitch.py --resume-checkpoint` skips names already in
+  `_checkpoint.json`; the wrapper always passes that flag.
+- `analytics_and_interpretability.md` Phase 9 no longer cites deleted RLHF
+  batch scheduling / reward-loop termination (#371 leftover after Phase 2
+  was already retargeted).
+
 ## S384 — 2026-08-16 (#30: asp_test83 match hang + SCANS status=1 crash)
 
 Ungated 97-run follow-up from the bus: `asp_test83` burned CPU for 1+ hour

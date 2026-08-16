@@ -441,10 +441,10 @@ technical plot for unsafe content.
 
 ## **Phase 9: Formal Verification & State Space Visualization** {: #phase-9-formal-verification--state-space-visualization }
 
-**Goal:** Formally specify and model-check critical concurrent ASP subsystems (e.g., the thread-pool seam computation, async RLHF batch scheduling) to prove safety and liveness invariants before deployment.
+**Goal:** Formally specify and model-check critical concurrent ASP subsystems (e.g., the thread-pool seam computation, HITL checkpoint / session resume) to prove safety and liveness invariants before deployment.
 
 * **9.1 TLA+ Specifications + ModelWisdom:**
-  * Write **TLA+** (Temporal Logic of Actions) specifications for critical concurrent subsystems — proving that thread-pool seam cache writes are linearizable and that the RLHF feedback loop terminates.
+  * Write **TLA+** (Temporal Logic of Actions) specifications for critical concurrent subsystems — proving that thread-pool seam cache writes are linearizable and that HITL checkpoint/resume terminates without a lost or double-applied gate.
   * **TLC model checker** explores the full finite state machine.
   * **ModelWisdom** renders the state-transition graph with tree-based structuring, node folding, color-highlighted property violations, and interactive click-through from graphical transitions back to triggering TLA+ formulas.
   * **TLA+ Debugger** supports Watch expressions and backward/forward state-space stepping.
