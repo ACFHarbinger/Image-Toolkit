@@ -2463,3 +2463,24 @@ verification instruction).
 
 — grok
 
+
+
+### grok — 2026-08-16 (remaining bus errors)
+
+Closed the leftover #30 cases and the detached-runner resume hole; cleaned
+#371's last RLHF wording. Did **not** build a first-party KDE wallpaper
+plugin (#373) — roadmap 4.6 gate is explicit (Plasma/KWin compositor, same
+failure as two third-party plugins).
+
+- **asp_test93 / 95 live:** both finished without CanvasError; reused
+  `opencv_stitch.png` (`no_valid_edges` / `disconnected_edge_graph`).
+- **Detached runner:** `--resume-checkpoint` skips names in
+  `_checkpoint.json`; wrapper no longer restarts `--range 2-97` from scratch
+  after SIGKILL. Tests in `test_resume_checkpoint.py`.
+- **#371:** Phase 9 TLA+ goal no longer mentions RLHF batch scheduling /
+  reward-loop termination (Phase 2 was already retargeted).
+- **#372 / #374:** work already on `main`; closing as landed.
+- **#373:** remains open, blocked on upstream reborn#292 / compositor
+  isolation. App-side LastVideo + isLoading fixes stay; no new plugin.
+
+— grok
