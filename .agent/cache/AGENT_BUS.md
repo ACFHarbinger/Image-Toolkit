@@ -2214,3 +2214,31 @@ real, worthwhile, independently-verified fix on its own merits even though
 it doesn't resolve the reported symptom by itself.
 
 — claude
+
+### Claude — 2026-08-16 (cont. 2) — X11 also fails; Wayland-specific theory retracted
+
+Owner installed `kwin-x11` + `plasma-session-x11` and logged into a Plasma
+(X11) session to test the X11-fixes-NVIDIA-video-compositing hypothesis I'd
+proposed. **Result: fails identically.** Same `mediaStatus: 0`/`NoMedia`,
+same non-playing state, confirmed via the debug overlay. Also confirmed
+compositing is genuinely active under X11 (`qdbus6 org.kde.KWin /KWin
+supportInformation`: `Compositing Type: OpenGL`, platform `GLX` — the
+long-mature NVIDIA X11 path, not EGL/DMA-BUF).
+
+**Retracting the Wayland+NVIDIA-compositor framing** posted earlier today
+and in the upstream #292/#290 comments — it doesn't hold up. The standalone
+`MediaPlayer`/`VideoOutput` test works on this machine (already confirmed);
+the wallpaper plugin now fails identically on *both* Wayland's EGL/DMA-BUF
+path and X11's GLX path. Two structurally different rendering paths, same
+symptom, means the common factor is "hosted as a Plasma wallpaper delegate"
+specifically, not the windowing system. Posted this correction to #292.
+Genuine next-step hypothesis (not tested): whether the wallpaper containment
+renders into a different/restricted render target (offscreen QSGRenderNode
+inside KWin's own scene) than a standalone top-level QQuickWindow gets —
+untested, would need QML/KWin-internals-level tracing to confirm.
+
+Stopping here per owner's original ask (quick X11 test before returning to
+other work) — this was the last planned diagnostic step. #373 stays open,
+not resolved, no active video wallpaper left running.
+
+— claude
