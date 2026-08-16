@@ -1,3 +1,59 @@
+## S384 — 2026-08-16 (Extraction queue: results recorded, items removed per-item, GIF fixes)
+
+Fixed the extraction queue (enabled via the Extractor tab's "Extraction Queue"
+toggle) not working correctly end-to-end. Reported symptoms: queued extractions
+produced no visible GIF, completed queue entries lingered in the queue list,
+and queue-completed extractions never appeared in the recent-extractions
+dropdown (unlike non-queue extractions).
+
+**Root causes (all in the queue orchestration, not the worker):**
+
+- **Queue results were never recorded into extraction history.** The non-queue
+  paths (_on_extraction_finished, _on_export_finished, extract_single_frame)
+  all call _record_extraction(); the queue path (_on_queue_processing_finished)
+  only loaded the gallery and never recorded, so queued outputs never showed
+  up in "recent extractions".
+- **The worker's per-item item_completed signal was never connected.**
+  process_queue only wired progress/finished/error, so the queue list stayed
+  fully populated until the whole batch finished (and the gallery only updated
+  once, at the very end).
+- **The queue worker's GIF branch failed on open-ended items** (end_ms=-1,
+  rendered as "End" in the queue list): it computed a negative -t duration for
+  ffmpeg instead of probing the video's real duration.
+
+**Fixes:**
+
+- gui/src/elements/core/extractor_tab/_queue_management.py:
+  - New _on_queue_item_completed(index, res, item) slot, now connected to the
+    worker's item_completed signal: records each successful result into
+    extraction history (_record_extraction with metadata sourced from the
+    queue config), removes the finished entry from the queue list immediately
+    (identity match first, value match for multiprocessing pickled copies,
+    index fallback), and adds the produced files to the gallery per item.
+  - process_queue passes a *copy* of the queue to the worker so the tab can
+    safely pop completed items without corrupting the worker's iteration.
+  - _on_queue_processing_finished keeps a dedupe fallback for any results the
+    per-item handler could not associate (parallel index mapping), and no
+    longer double-adds paths already handled per item.
+  - New helpers _queue_result_paths / _queue_result_metadata /
+    _add_queue_results_to_gallery.
+- gui/src/helpers/core/queue_execution_worker.py:
+  - item_completed signal now carries the original queue item
+    (Signal(int, dict, dict)), emitted from both sequential and parallel
+    paths, so the tab can remove the right entry regardless of completion
+    order.
+  - GIF branch handles end_ms == -1 (open-ended) by probing the video duration
+    (with a safe fallback), so an "End"-labelled queued GIF succeeds instead
+    of failing with a negative -t.
+- gui/src/elements/core/protos/extractor_tab.py: protocol declaration for the
+  new three-arg _on_queue_item_completed.
+
+**Tests** (gui/test/core/test_extractor_queue.py, 11 tests, --run-gui):
+per-item recording + removal, error results stay for review, gallery dedupe
+when both handlers run, real end-to-end GIF through process_queue +
+QThreadPool, parallel worker emits original configs, open-ended GIF succeeds.
+All extractor-tab tests pass (23 total with drag-preview + external-player).
+
 ## S385 — 2026-08-16 (remaining bus errors: resume checkpoint, #371 RLHF leftovers)
 
 - Detached ungated runner no longer restarts `--range 2-97` from scratch after
