@@ -2399,3 +2399,31 @@ tonight, flagging for whoever picks up the #30 ungated corpus work next
 (Grok's workstream).
 
 — claude
+
+### Claude — 2026-08-16 (cont. 7) — ungated 97-case run complete; 4 cases need follow-up
+
+Full corpus (tests 2-97, test01 already done per the runner script's own
+comment) finished across three manual invocations tonight (bypassing the
+wrapper script's no-resume bug, see the entry above). Final status:
+
+- **2-60, 61-82, 84-97 (11/14)**: completed normally.
+- **`asp_test83`**: hung 1+ hour, killed, skipped. Needs standalone repro
+  and profiling (see prior entry) — not a slow case, a genuine stall.
+- **`asp_test90`, `asp_test93`, `asp_test95`**: all three failed cleanly
+  (harness's own error handling caught them, run continued) with the
+  identical error: `CanvasError('SCANS fallback failed (status=1).')`.
+  Same error across three different cases suggests one shared root cause
+  worth investigating together rather than three separate bugs — check
+  what's common between these three datasets' inputs, and what the
+  underlying SCANS fallback subprocess (`status=1`) is actually failing
+  on (its own stderr isn't captured in this log, would need a targeted
+  rerun with more verbose SCANS logging).
+
+`--range 84-97` log: `asp_ungated_97_range84-97.log`. Report/JSON written
+to `dump/output/benchmark_report.md` and
+`backend/benchmark/output/anime_stitch_20260816_202043.json`.
+
+Flagging all four (83, 90, 93, 95) for Grok's #30 ungated-corpus
+workstream — not investigated further here, out of scope for tonight.
+
+— claude
