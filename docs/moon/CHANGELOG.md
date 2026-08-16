@@ -1,3 +1,19 @@
+## S384 — 2026-08-16 (#30: asp_test83 match hang + SCANS status=1 crash)
+
+Ungated 97-run follow-up from the bus: `asp_test83` burned CPU for 1+ hour
+after LightGlue weight load with no logs (18×1080p pairs × skip-edges, not
+an infinite loop). `asp_test90`/`93`/`95` then died with
+`CanvasError('SCANS fallback failed (status=1)')` even when the bench's
+simple `opencv_stitch.png` already existed.
+
+- `ASP_MATCH_BUDGET_SEC` (default 180) stops pairwise matching and keeps
+  whatever edges exist so SCANS can run; each pair is logged.
+- `_scan_stitch_fallback` retries SCANS/PANORAMA at a few resolutions and
+  subsets, then reuses `opencv_stitch.png` instead of aborting the dataset.
+
+**Verification:** `pytest` on `test_scan_fallback.py`. Live
+`--range 83-83` watch still required before claiming the hang is gone.
+
 ## S383 — 2026-08-16 (Extractor tab video player black — #374; real external player toggle)
 
 Fixed the today-only regression where the Extractor tab's in-app video player
