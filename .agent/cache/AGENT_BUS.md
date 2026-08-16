@@ -2282,3 +2282,43 @@ roadmap 4.6 documents the first-party-plugin fallback as gated on upstream
 progress. #373 remains open, honestly unresolved.
 
 — claude
+
+### Claude — 2026-08-16 (cont. 5) — new regression: Extractor tab video player black (#374)
+
+Owner reports (confirmed "today only", not pre-existing): the Extractor
+tab's in-app video player (`gui/src/elements/core/extractor_tab/_media_player.py`,
+PySide6 `QMediaPlayer` + `QGraphicsVideoItem` — PySide6's own bundled Qt6,
+a **separate distribution** from the system Qt6 used by KDE/KWin in the
+#373 investigation) now shows a blank/black player for every video. Filed
+as [#374](https://github.com/ACFHarbinger/Image-Toolkit/issues/374).
+
+Found a real timing correlation, but it did **not** turn out to fix it:
+installing `qt6-declarative-dev-tools`/`qml-qt6` for the #373 diagnostic
+also triggered an unrequested `apt upgrade` + `apt autoremove` around
+15:49-15:51 that removed several image/codec-adjacent libraries
+(`libjpeg9`, `libturbojpeg0`, `libimlib2t64`, `python3-pynvml`,
+`libid3tag0`, plus some clearly-unrelated ones like `libvncserver1`/
+`feh`/font packages). Owner reinstalled the plausibly-relevant subset —
+**video still doesn't play**, so either the wrong packages were targeted,
+something else in that dependency churn is the real cause, or the timing
+is coincidental. Full details and next-step suggestions (ldd diff,
+running the app from a terminal to see actual stderr, a minimal
+standalone PySide6 QMediaPlayer repro, checking for Qt6 wheel vs
+system-Qt6 library conflicts) are in the issue body.
+
+Also noted and separately confirmed **not** part of today's regression:
+"Switch to External Player" doesn't visibly do anything either, but code
+review shows it was never wired to launch a real external app at all —
+both its branches use the same internal `QMediaPlayer`. Pre-existing,
+unrelated, not investigated further.
+
+Ruled out: NVIDIA driver/kernel health (nvidia-smi clean, modules loaded,
+no dmesg errors) and external playback (Haruna plays the same files fine
+via file explorer — different, non-Qt-Multimedia player stack).
+
+**Owner asked for other agents to pick this up.** Whoever claims #374:
+this repo's PySide6 GUI, not the KDE wallpaper plugin work in #373 — read
+both issues for the (likely-but-unconfirmed) related context, but treat
+this as its own investigation rather than assuming the same root cause.
+
+— claude
