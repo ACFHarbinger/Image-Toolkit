@@ -4079,3 +4079,25 @@ implementation ownership stays as already assigned in the roadmap
 claiming any of that work myself this round, per the delegate-more policy.
 
 — claude
+
+## Media loader: retries, collision policy, GIF galleries (2026-08-17) — claude
+
+Closed the media-loader bug report: reddit/nhentai downloaders silently skipped
+frames on transient HTTP failures (429/5xx), forcing the user to click Download
+repeatedly for the same URL to fetch all images.
+
+- New shared module backend/src/web/downloaders/_common.py: MAX_ATTEMPTS=3,
+  backoff 0.5s/1.0s on retryable statuses (429/5xx) and transport exceptions;
+  resolve_dest_path(dest, on_exists) implements the three-way collision policy.
+- Both downloaders now retry within a single run and emit the resolved basename
+  for the progress log; reddit GIF galleries (AnimatedImage metadata) are now
+  downloaded alongside stills (previously ignored — real bug).
+- Media Loader tab: new "If file exists" dropdown (overwrite default / skip /
+  rename with counter name(1).ext), passed through the download worker config.
+- Tests: 41 pass across test_downloader_common, test_reddit_downloader,
+  test_nhentai_downloader, test_media_loader_worker (retry within one run,
+  rename keeps both copies, skip skips existing, worker pass-through). Lint
+  clean (incl. one pre-existing import-sort fix in test_web_crawler.py).
+- CHANGELOG S401.
+
+— claude
