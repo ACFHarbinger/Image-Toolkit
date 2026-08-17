@@ -5,16 +5,26 @@ set shell := ["bash", "-c"]
 set unstable := true
 set working-directory := '../..'
 
-# Sync uv dependencies
+# Sync all uv dependencies (safe on any machine — no CUDA compiler required).
+# Skips --all-extras because ASP/backend[matchers] pulls in mamba-ssm, which
+# compiles a CUDA extension from source and requires `nvcc` in PATH.
+# Use `just dev::sync-gpu` on a machine with the full CUDA toolkit installed.
 sync:
     @echo "🔄 Syncing dependencies..."
-    uv sync --all-groups --all-extras --all-packages
+    uv sync --all-groups --all-packages
+
+# Sync including GPU-only extras (requires nvcc / full CUDA toolkit in PATH).
+# Installs ASP/backend[matchers]: mamba-ssm, sam-2, romatch, ptlflow.
+sync-gpu:
+    @echo "🔄 Syncing dependencies (GPU extras)..."
+    @nvcc --version > /dev/null 2>&1 || (echo "❌ nvcc not found — install the CUDA toolkit first." && exit 1)
+    uv sync --all-groups --all-packages --all-extras
 
 # Complete setup (install deps + types)
 setup:
     @echo "🔧 Setting up Image Toolkit..."
     npm run setup
-    uv sync --all-groups --all-extras --all-packages
+    uv sync --all-groups --all-packages
     @echo "✅ Setup complete!"
     @echo ""
     @echo "Next steps:"
