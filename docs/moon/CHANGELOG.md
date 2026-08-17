@@ -1,4 +1,27 @@
+## S386 — 2026-08-17 (M2: ASP Advanced Configuration UI Matrix delivered in GUI & Web)
+
+Delivered the M2 Advanced Configuration UI surface across both the desktop
+PySide6 application and the React documentation/portal website:
+
+- **PySide6 Dialog & MergeTab Integration** (`gui/src/components/dialogs/asp_advanced_config_dialog.py`):
+  - Created `AspAdvancedConfigDialog` presenting a curated 20-flag Primary Profile
+    surface and an expandable category drawer containing all 73 registered `ASP_*`
+    parameters from `_CONFIG_SCHEMA`.
+  - Added live type/bounds validation (int/float ranges, binary checkboxes, flow engine selector),
+    parameter search filtering, preset switching (`laptop_balanced`, `desktop_quality`, `research_ungated`),
+    and JSON/TOML configuration import/export.
+  - Integrated "Advanced Configuration…" button into `MergeTab` AI options (`gui/src/elements/core/merge_tab/_ui_config.py`).
+  - Added unit test suite `gui/test/dialogs/test_asp_advanced_config_dialog.py` (6/6 passing).
+
+- **React Web Component & Pipeline Page Integration** (`docs/website/src/components/config/AdvancedConfigDrawer.tsx`):
+  - Implemented `AdvancedConfigDrawer` under the Optic Lab / Blueprint design theme.
+  - Features real-time parameter search, category filtering, interactive toggle/slider controls,
+    preset application, and one-click TOML manifest generation/copying.
+  - Embedded into `docs/website/src/pages/Pipeline.tsx` under the "ASP Configuration & Tuning Matrix" section.
+  - Verified clean TypeScript/Vite production build (`npm run build`).
+
 ## S385 — 2026-08-17 (Extractor output dir: respect saved dir; GIF in gallery but not in output dir)
+
 
 Fixed: GIF (and frame) extractions showed up in the Extractor tab gallery but
 the actual files were NOT in the user's output directory — both with the queue
