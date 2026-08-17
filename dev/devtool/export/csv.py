@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import csv
 import io
-from typing import Any, List
+from typing import List
 
 _COLUMNS = ["t", "pid", "tid", "tname", "category", "event"]
 

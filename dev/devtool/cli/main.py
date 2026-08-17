@@ -21,7 +21,6 @@ from typing import Any, Optional
 
 from ..host.app import Host
 from ..host.store import WorkspaceStore
-
 from . import track_a
 
 
@@ -182,37 +181,29 @@ def main(argv: Optional[list[str]] = None) -> int:
     if args.command is None:
         args.json = False
         return cmd_workspace(args)
-    if args.command == "plugins":
-        return cmd_plugins(args)
-    if args.command == "workspace":
-        return cmd_workspace(args)
-    # Track A verbs stay implemented in debugtool; this CLI is the front door.
+
     from debugtool.cli.main import cmd_analyze, cmd_list, cmd_tui, cmd_watch
 
-    if args.command == "list":
-        return cmd_list(args)
-    if args.command == "analyze":
-        return cmd_analyze(args)
-    if args.command == "tui":
-        return cmd_tui(args)
-    if args.command == "watch":
-        return cmd_watch(args)
-    if args.command == "web":
-        return cmd_web(args)
-    if args.command == "mcp":
-        return cmd_mcp(args)
-    if args.command == "serve":
-        return cmd_serve(args)
-    if args.command == "export":
-        return track_a.cmd_export(args)
-    if args.command == "diff":
-        return track_a.cmd_diff(args)
-    if args.command == "resolve-offset":
-        return track_a.cmd_resolve_offset(args)
-    if args.command == "prune":
-        return track_a.cmd_prune(args)
-    if args.command == "repro":
-        return track_a.cmd_repro(args)
+    handlers = {
+        "plugins": cmd_plugins,
+        "workspace": cmd_workspace,
+        "list": cmd_list,
+        "analyze": cmd_analyze,
+        "tui": cmd_tui,
+        "watch": cmd_watch,
+        "web": cmd_web,
+        "mcp": cmd_mcp,
+        "serve": cmd_serve,
+        "export": track_a.cmd_export,
+        "diff": track_a.cmd_diff,
+        "resolve-offset": track_a.cmd_resolve_offset,
+        "prune": track_a.cmd_prune,
+        "repro": track_a.cmd_repro,
+    }
+    handler = handlers.get(args.command)
+    if handler is not None:
+        return handler(args)
+
     parser.print_help()
     return 2
 

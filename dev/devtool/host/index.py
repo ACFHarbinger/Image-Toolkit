@@ -12,7 +12,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict
 
-from debugtool import Session, TELEMETRY_DIR
+from debugtool import TELEMETRY_DIR, Session
 
 from .store import WorkspaceStore
 

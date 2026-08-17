@@ -1447,10 +1447,10 @@ integration + diff/review support the first slice but must not delay it.
 | Item | Status | Owner | Notes |
 |---|---|---|---|
 | A1 Session + API | ✅ Complete | deepseek | `debug/debugtool`, 19 tests |
-| A2 CLI + export | 🔄 In progress | deepseek | list/analyze landed |
-| A3 TUI (Perfetto + btop live) | ✅ Complete | Gemini | `debug/debugtool/ui/`, 14 tests, all 5 views + live watch |
-| A4 Repro + gdb | ⬜ Planned | deepseek + Gemini | |
-| A5 Diff + investigations | ⬜ Planned | deepseek | |
+| A2 CLI + export | ✅ Landed | deepseek (#376) | export (json/csv/html), diff, prune, resolve-offset, sidecar index |
+| A3 TUI (Perfetto + btop live) | ✅ Complete | Gemini (#377) | `debug/debugtool/ui/`, 14 tests, all 5 views + live watch |
+| A4 Repro + gdb | ✅ Landed | deepseek + Gemini (#378) | `devtool repro`, gdb wrap, scenario catalog, hypothesis generator |
+| A5 Diff + investigations | ✅ Landed | deepseek (#379) | cross-session diff, RSS trajectory, portable manifest.json |
 | C1 Host + plugins | ✅ Landed | deepseek + Grok (D17 / #380) | store + settings (deepseek); Host/discovery/CLI (Grok) |
 | C2 devtool alias | ✅ Landed | Grok (#381) | `python -m devtool` canonical; `debugtool` re-exports |
 | C3 Local web | ✅ Landed | deepseek | localhost-only HTTP viewer (`/`, `/session`, `/compare`, `/artifact`) |

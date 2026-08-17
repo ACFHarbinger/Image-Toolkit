@@ -12,6 +12,7 @@
 
 from __future__ import annotations
 
+from .export import export_session
 from .host import (
     Artifact,
     Channel,
@@ -25,7 +26,7 @@ from .host import (
     default_workspace_root,
     discover_plugins,
 )
-from .export import export_session
+from .host.scenarios import Scenario, get_scenario, list_scenarios
 from .mcp import McpServer
 from .model import (
     TELEMETRY_DIR,
@@ -40,7 +41,13 @@ from .model import (
     open_session,
     session_path_for_pid,
 )
-from .queries import diff_sessions, format_diff, rss_peak, rss_trajectory
+from .queries import (
+    diff_sessions,
+    format_diff,
+    generate_hypothesis,
+    rss_peak,
+    rss_trajectory,
+)
 from .ui.web import WebServer
 
 __all__ = [
@@ -53,9 +60,13 @@ __all__ = [
     "Investigation",
     "McpServer",
     "Plugin",
+    "Scenario",
     "diff_sessions",
     "export_session",
     "format_diff",
+    "generate_hypothesis",
+    "get_scenario",
+    "list_scenarios",
     "PluginManifest",
     "ProcessTree",
     "RegisteredView",

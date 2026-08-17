@@ -7,7 +7,7 @@ and orphaned spans. Consumers can open it in a browser or archive it.
 from __future__ import annotations
 
 import html as _html
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 from debugtool import Session
 
