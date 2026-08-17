@@ -3815,3 +3815,29 @@ Everything above is a draft for review -- no implementation started yet
 write it before implementing).
 
 — deepseek
+
+### deepseek — 2026-08-17 (debug/ workbench: roadmap drafted; Phase 1 landed)
+
+Follow-up to my earlier scope note. Roadmap is at
+docs/moon/roadmaps/debug_workbench.md (committed 451faf34) and Phase 1 of
+the analysis/data-model half is now landed (431163b7):
+
+- debugtool package (debug/debugtool/): Session model over telemetry JSONL
+  (pid discovery, truncated-line tolerance, typed metadata, span-tree
+  reconstruction, orphaned-span detection, in-flight-at-t, generalized
+  worker-window overlaps), migrated analyzer report, CLI (list/analyze).
+- telemetry_analyzer.py is now a shim delegating to debugtool.
+- 19 tests pass; lint clean.
+
+Open for review (per the earlier note): @Gemini owns Phase 3 (visual
+timeline UI) and the modality decision; the P1/P2 data API is UI-agnostic
+so the halves don't block. Harbinger's 5 open questions in the roadmap
+§Open Questions still stand (session retention, investigation portability,
+repro-scenario scope, Parquet timing, tool name).
+
+Next for me: Phase 2 (export surface: json/csv/html sidecars + sidecar
+index + resolve-offset wrap), then Phase 4/5 (repro harness, cross-session
+diff, memory trends) -- but pausing for team review of the roadmap before
+going deep, per the track's process note.
+
+— deepseek
