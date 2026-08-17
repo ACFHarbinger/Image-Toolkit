@@ -141,6 +141,12 @@ class _QueueManagementMixin:
         self.main_layout.addWidget(self.queue_group)
         self.queue_group.setVisible(self.extraction_queue_enabled)
 
+        # Deferred gallery paths while a queue run is active: per-item
+        # completion appends here and the finished/error handler performs ONE
+        # gallery rebuild (see _on_queue_item_completed for why per-item
+        # rebuilds freeze the UI).
+        self._queue_pending_gallery_paths = []
+
         # Add shared search input (Lazy Search)
         self.main_layout.addWidget(self.search_input)
 
@@ -354,6 +360,9 @@ class _QueueManagementMixin:
         self.extraction_status_label.setText(f"Processing queue ({mode})...")
         self.extraction_status_label.show()
 
+        # Deferred gallery paths for this run (see _on_queue_item_completed).
+        self._queue_pending_gallery_paths = []
+
         # Pass a COPY: the worker iterates its own list while the tab
         # removes completed items from self.extraction_queue per item; sharing
         # the same list object would let the tab's pop() skip the worker's
@@ -410,8 +419,17 @@ class _QueueManagementMixin:
     @Slot(int, dict, dict)
     def _on_queue_item_completed(self: "VideoExtractorSubTabHostProtocol", index: int, res: dict, item: dict):
         """Per-item completion: record the extraction into recent extractions
-        (previously queue results never appeared there), remove the finished
-        item from the queue list promptly, and add its files to the gallery.
+        (previously queue results never appeared there) and remove the
+        finished item from the queue list promptly.
+
+        The gallery update is DEFERRED to _on_queue_processing_finished (or
+        _on_queue_processing_error): rebuilding the gallery per item runs
+        refresh_gallery_view() -> cancel_loading() -> thread_pool.
+        waitForDone(-1) on the UI thread, and the gallery shares
+        QThreadPool.globalInstance() with the queue worker itself, so that
+        wait blocks until the WHOLE queue finishes -- the observed freeze
+        while queued extractions run. Paths are accumulated and one rebuild
+        happens once the worker is done.
 
         item is the original queue config handed to the worker, so the
         finished entry is removed by identity; index alignment is not reliable
@@ -444,7 +462,12 @@ class _QueueManagementMixin:
         if removed:
             self._update_queue_ui()
 
-        self._add_queue_results_to_gallery(paths)
+        # Defer the gallery update: see class docstring above. Existence
+        # filtering still happens here so a phantom path never enters the
+        # pending list.
+        existing = [p for p in paths if os.path.exists(p)]
+        if existing:
+            self._queue_pending_gallery_paths.extend(existing)
 
     def _add_queue_results_to_gallery(self: "VideoExtractorSubTabHostProtocol", paths: List[str]):
         # Only show files that actually exist on disk -- the gallery does not
@@ -474,6 +497,13 @@ class _QueueManagementMixin:
         self.btn_clear_queue.setEnabled(True)
         self.combo_queue_mode.setEnabled(True)
 
+        # ONE gallery rebuild for the whole run: per-item completion defers
+        # its gallery update (see _on_queue_item_completed) because a per-item
+        # rebuild blocks the UI thread on thread_pool.waitForDone(-1) while
+        # the queue worker is still running. Flush everything here.
+        deferred = list(self._queue_pending_gallery_paths)
+        self._queue_pending_gallery_paths = []
+
         # Fallback for any results the per-item handler could not associate
         # (e.g. parallel mode's index mapping): record + show them too.
         # Paths already handled by _on_queue_item_completed are skipped so
@@ -499,8 +529,9 @@ class _QueueManagementMixin:
         self.extraction_queue.clear()
         self._update_queue_ui()
 
-        if new_paths:
-            self._add_queue_results_to_gallery(new_paths)
+        all_paths = deferred + [p for p in new_paths if p not in deferred]
+        if all_paths:
+            self._add_queue_results_to_gallery(all_paths)
 
         if errors:
             QMessageBox.warning(
@@ -512,7 +543,7 @@ class _QueueManagementMixin:
             QMessageBox.information(
                 cast(QWidget, self),
                 "Success",
-                f"Queue execution complete! Processed all items. Extracted {len(new_paths)} items.",
+                f"Queue execution complete! Processed all items. Extracted {len(all_paths)} items.",
             )
 
     def _on_queue_processing_error(self: "VideoExtractorSubTabHostProtocol", error_msg):
@@ -523,6 +554,12 @@ class _QueueManagementMixin:
         self.btn_process_queue.setEnabled(True)
         self.btn_clear_queue.setEnabled(True)
         self.combo_queue_mode.setEnabled(True)
+
+        # Flush any per-item results that completed before the failure so
+        # they still appear in the gallery.
+        if self._queue_pending_gallery_paths:
+            self._add_queue_results_to_gallery(self._queue_pending_gallery_paths)
+            self._queue_pending_gallery_paths = []
 
         if "cancelled" not in error_msg.lower():
             QMessageBox.warning(cast(QWidget, self), "Queue Processing Error", error_msg)

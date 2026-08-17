@@ -232,7 +232,11 @@ class TestExtractorTabQueue:
 
         assert tab.queue_list.count() == 1, "completed item must leave the queue"
         assert str(f1) in tab.extraction_metadata
-        assert str(f1) in tab.master_image_paths
+        # Gallery update is deferred per item (freeze fix): the path lands in
+        # the pending list immediately and only enters master_image_paths when
+        # the whole run flushes.
+        assert str(f1) in tab._queue_pending_gallery_paths
+        assert str(f1) not in tab.master_image_paths
 
         tab._on_queue_item_completed(
             0, {"status": "success", "output_path": str(f2)}, item2
@@ -240,6 +244,14 @@ class TestExtractorTabQueue:
 
         assert tab.queue_list.count() == 0
         assert str(f2) in tab.extraction_metadata
+        assert str(f2) in tab._queue_pending_gallery_paths
+
+        # The finished handler flushes the deferred paths with ONE gallery
+        # rebuild.
+        tab._on_queue_processing_finished([])
+        assert str(f1) in tab.master_image_paths
+        assert str(f2) in tab.master_image_paths
+        assert tab._queue_pending_gallery_paths == []
 
     def test_queue_item_error_result_not_recorded(self, q_app, tmp_path):
         tab, video_path = self._make_tab(tmp_path)
@@ -360,6 +372,79 @@ class TestExtractorTabQueue:
 
         assert tab.master_image_paths.count(str(f1)) == 1
         assert tab.extraction_metadata.get(str(f1)) is not None
+
+    def test_item_completed_does_not_rebuild_gallery_per_item(self, q_app, tmp_path):
+        """Regression: the per-item gallery rebuild freezes the UI. Each
+        item_completed must only buffer paths; a single gallery rebuild
+        happens when the run finishes (or errors)."""
+        tab, video_path = self._make_tab(tmp_path)
+        f1 = tab.extraction_dir / "a.gif"
+        f2 = tab.extraction_dir / "b.gif"
+        f1.write_text("gif")
+        f2.write_text("gif")
+        tab.extraction_queue.append(
+            {"type": "gif", "video_path": str(video_path), "start_ms": 0,
+             "end_ms": 1000, "output_dir": str(tab.extraction_dir),
+             "use_ffmpeg": True, "fps": 24}
+        )
+        tab.extraction_queue.append(
+            {"type": "gif", "video_path": str(video_path), "start_ms": 1000,
+             "end_ms": 2000, "output_dir": str(tab.extraction_dir),
+             "use_ffmpeg": True, "fps": 24}
+        )
+        tab._update_queue_ui()
+        item1 = tab.extraction_queue[0]
+        item2 = tab.extraction_queue[1]
+
+        with patch.object(
+            tab.video_subtab, "start_loading_gallery", return_value=None
+        ) as mock_load:
+            tab._on_queue_item_completed(
+                0, {"status": "success", "output_path": str(f1)}, item1
+            )
+            tab._on_queue_item_completed(
+                0, {"status": "success", "output_path": str(f2)}, item2
+            )
+            assert mock_load.call_count == 0, (
+                "per-item completion must not rebuild the gallery (UI freeze)"
+            )
+
+            tab._on_queue_processing_finished([])
+            assert mock_load.call_count == 1, (
+                "exactly one gallery rebuild at queue end"
+            )
+            forwarded = mock_load.call_args[0][0]
+            assert str(f1) in forwarded
+            assert str(f2) in forwarded
+
+    def test_queue_error_flushes_deferred_gallery_paths(self, q_app, tmp_path):
+        """Results that completed before a queue error must still appear in
+        the gallery when the error handler flushes them."""
+        tab, video_path = self._make_tab(tmp_path)
+        f1 = tab.extraction_dir / "a.gif"
+        f1.write_text("gif")
+        item = {"type": "gif", "video_path": str(video_path), "start_ms": 0,
+                "end_ms": 1000, "output_dir": str(tab.extraction_dir),
+                "use_ffmpeg": True, "fps": 24}
+        tab.extraction_queue.append(item)
+        tab._update_queue_ui()
+
+        with patch.object(
+            tab.video_subtab, "start_loading_gallery", return_value=None
+        ) as mock_load:
+            tab._on_queue_item_completed(
+                0, {"status": "success", "output_path": str(f1)}, item
+            )
+            assert mock_load.call_count == 0
+
+            with patch(
+                "gui.src.elements.core.extractor_tab._queue_management.QMessageBox"
+            ):
+                tab._on_queue_processing_error("engine failure")
+
+            assert mock_load.call_count == 1
+            assert str(f1) in mock_load.call_args[0][0]
+            assert tab._queue_pending_gallery_paths == []
 
     def test_queue_finished_records_each_successful_result(self, q_app, tmp_path):
         """Multiple successful queue results must all be recorded, and the
