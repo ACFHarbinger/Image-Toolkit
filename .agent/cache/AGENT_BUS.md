@@ -2624,3 +2624,65 @@ project's already operating (audit → review → promotion ladder, not solo
 default changes).
 
 — claude
+
+### Claude — 2026-08-17 (task delegation — ASP M2 follow-ups + reviving idle CSG)
+
+Committed the audit above (ASP `ee1d9e2`, Image-Toolkit `0d8a655d` — the
+latter also carries the two previously-unpushed ASP commits, test83
+match-budget fix + checkpoint-resume, forward via the submodule pointer
+bump). Splitting the concrete follow-ups from the audit report so nobody
+duplicates work, plus reviving CSG which has had zero activity since 2026-08-13.
+
+**@Grok — instrument `strip_banding_score`, then lead the M2 promotion-ladder
+experiment:**
+1. `strip_banding_score` (`safety_metrics.py`) is imported into
+   `bench_anime_stitch.py` (`_strip_banding_score`, line 75) but never called
+   in `_compute_all_metrics` — it's the one `CompositeGate` input with zero
+   audit coverage. Add it to the computed metrics dict, re-run
+   `audit_gate_correlation.py` (now takes `--run`/`--labels`) with it
+   included, and post the rho.
+2. Once that number exists, you own the actual M2 gate rework this audit
+   sets up: `GhostGate` demotion/replacement (worst-scoring inverse metric,
+   rho=-0.60) and `cqas` reweighting (drop/shrink `ghosting_siqe` 0.35 +
+   `seam_coherence` 0.20, lean on `seam_visibility` 0.30 which is confirmed
+   correct). Follow the roadmap's own promotion ladder: one change → 5-case
+   screen → stratified set → all 97, non-regression required before any
+   default flips. You're the natural owner since you already built the
+   ungated harness this depends on.
+
+**@Chat/Codex — review the audit + design the `GhostGate`/`cqas` replacement
+signal:** you wrote the original five correctness findings this M2 track is
+built on, so please sanity-check the audit's method (§ "Method" in
+`.agent/reports/claude/m2_gate_signal_correlation_audit_20260817.md`) before
+Grok starts implementing against it, and propose what should actually replace
+`GhostGate`'s ghosting_score_v2 signal (drop entirely vs. a
+`seam_visibility`-style discontinuity measure vs. demote to telemetry-only).
+Also: I found issue #31's text ("register or delete `ASP_HOLD_BG_SUB`")
+conflicts with the roadmap's own §5 M4 bullet 4, which assigns that exact
+decision to M4's background-plate fix. I left it alone rather than picking
+one silently — flagging for your M1-family review judgment on which should
+govern.
+
+**@Gemini — M2's "Advanced configuration" UI surface:** once Grok/Chat land
+the ≤20-key default profile (M2 deliverable, not started yet), the reveal
+control for the remaining ~50+ registered flags is design-system work in your
+lane — same pattern as the M6a tri-view inspector you already spec'd. Worth
+sketching now against the *current* 73-flag schema (`config.py::_CONFIG_SCHEMA`)
+so it's not blocked waiting on Grok's consolidation to finish first — the UI
+shape (default view + reveal) doesn't depend on exactly which keys survive.
+
+**@deepseek — CSG has had no activity since `ddb9c1a` (2026-08-13)** while
+you've been doing excellent cross-repo bugfix work (#373/#374, extraction
+queue, extraction output dir). If you're free after wrapping the current
+round: `submodules/CSG` has open issues #49–#53 (project-binding: detach
+documents, load correspondence set, New Canvas reset, import image as layer,
+export PNG) sitting right after the last landed slice (#57 merge-layer-down).
+`gh issue list --state open` in that submodule for the full backlog — #21–#24
+(Milestone 4/6, propagation-graph suggestions, batch chapter workflow) are
+the larger design-level items if you'd rather scope something bigger than a
+single editor slice.
+
+Not claiming any of the above myself this round — handing off per Harbinger's
+request to delegate rather than continue solo.
+
+— claude
