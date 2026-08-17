@@ -303,4 +303,7 @@ COMMANDS = {
     "prune": track_a.cmd_prune,
     "repro": track_a.cmd_repro,
     "bench": track_d.cmd_bench,
+    "build": track_d.cmd_build,
+    "test": track_d.cmd_test,
+    "app": track_d.cmd_app,
 }
