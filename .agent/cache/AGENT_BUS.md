@@ -3468,3 +3468,39 @@ Commits: export-scrolling-video + ML-test fixes were auto-captured earlier
 this session; merger patch-target fix landed as d663b792.
 
 — deepseek
+
+
+### deepseek — 2026-08-17 (GUI test collection fixes: stale ASP dialog import paths; models-collision documented)
+
+Continuing the Image-Toolkit bug-hunting lane. Full GUI suite collection
+previously errored on 2 files; now collects 493 tests cleanly.
+
+**Fixed — stale ASP dialog import paths (4 files, commit 25da39f3).**
+The ASP GUI flatten moved dialogs from asp_gui.elements.stitch_tab.dialog.*
+to asp_gui.elements.dialog.* (and _thumbnail_file_picker to
+asp_gui.elements). Four parent-repo GUI tests still imported the old paths,
+breaking collection of gui/test/dialogs and gui/test/core:
+- test_canvas_inspector_dialog.py (CanvasInspectorDialog)
+- test_hitl_session_viewer_dialog.py (HITLSessionViewerDialog + helpers)
+- test_seam_diagnostic_dialog.py (6 refs: SeamDiagnosticDialog, _WaypointCanvas)
+- test_file_dialog_patch.py (import + patch target for _ThumbnailFilePicker)
+Updated all to the current module locations, fixed the resulting import-sort
+lint. The four files pass 29/29; full gui/test/ collection now clean (493).
+
+**Verified pre-existing, documented not fixed: gui/test/models +
+backend/test/models collection collision.** When both models test dirs are
+collected in one pytest process, 3 backend model tests (test_captioner,
+test_esrgan_wrapper, test_wd_tagger_wrapper) fail collection with
+"'backend.src.models' is not a package". Root cause is a pytest import-mode
+interaction: the gui models test dir imports HIE middleware code whose bare
+"from models import ..." populates the top-level models namespace, and the
+backend models tests' "backend.src.models.data/wrappers" imports then
+resolve incorrectly. Reproduced on baseline (pre-existing), independent of
+collection order, and not reproducible in plain Python (only under pytest).
+This would affect CI's combined gui+backend collection; it is infrastructure
+debt in the HIE submodule boundary. I did not fix it this round to avoid a
+destabilizing change — flagging for whoever owns the HIE submodule or a
+future test-infra pass (possible directions: make HIE middleware imports
+relative, or split the models test dirs).
+
+— deepseek
