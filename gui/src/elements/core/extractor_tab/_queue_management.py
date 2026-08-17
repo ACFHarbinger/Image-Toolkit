@@ -520,10 +520,12 @@ class _QueueManagementMixin:
         deferred = list(self._queue_pending_gallery_paths)
         self._queue_pending_gallery_paths = []
 
-        # Fallback for any results the per-item handler could not associate
-        # (e.g. parallel mode's index mapping): record + show them too.
-        # Paths already handled by _on_queue_item_completed are skipped so
-        # the gallery is not populated twice.
+        # Only collect gallery paths here. Recording into recent
+        # extractions is done per-item in _on_queue_item_completed (which has
+        # the real queue config). The old fallback re-recorded results with
+        # _queue_result_metadata({}) -- an empty dict -- which wrote
+        # "Unknown Video (00:00:000 - 00:00:000)" entries for every queued
+        # item after restart. Do NOT record with empty metadata.
         new_paths: List[str] = []
         errors = []
         for res in results:
@@ -532,13 +534,6 @@ class _QueueManagementMixin:
                 for path in paths:
                     if str(path) not in self.master_image_paths:
                         new_paths.append(path)
-                recorded = any(
-                    str(p) in self.extraction_metadata for p in paths
-                )
-                if not recorded:
-                    metadata = self._queue_result_metadata({})
-                    metadata["mode"] = "range"
-                    self._record_extraction(paths, metadata)
             else:
                 errors.append(res.get("message", "Unknown error"))
 

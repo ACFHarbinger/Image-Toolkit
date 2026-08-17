@@ -87,22 +87,52 @@ class TestExtractorTabQueue:
         assert cfg["start_ms"] == 0
         assert cfg["end_ms"] == 3000
 
-    def test_queue_finished_records_recent_extractions(self, q_app, tmp_path):
-        """_on_queue_processing_finished must record completed extractions
-        into extraction history (recent extractions), same as the non-queue
-        paths do."""
+    def test_queue_item_completed_records_real_metadata(self, q_app, tmp_path):
+        """Per-item completion records extraction history with the REAL queue
+        item (video_path/start/end). Regression for the "Unknown Video
+        (00:00:000 - 00:00:000)" bug: _on_queue_processing_finished used to
+        re-record with _queue_result_metadata({}) -- an empty dict -- which
+        wrote empty entries for every queued item after restart."""
         tab, video_path = self._make_tab(tmp_path)
         out_file = tab.extraction_dir / "test_0ms_3000ms.gif"
         out_file.write_text("gif")
 
-        tab._on_queue_processing_finished(
-            [{"status": "success", "output_path": str(out_file)}]
+        item = {
+            "type": "gif",
+            "video_path": str(video_path),
+            "start_ms": 0,
+            "end_ms": 3000,
+            "output_dir": str(tab.extraction_dir),
+            "use_ffmpeg": True,
+            "fps": 24,
+        }
+
+        tab._on_queue_item_completed(
+            0, {"status": "success", "output_path": str(out_file)}, item
         )
 
         assert str(out_file) in tab.extraction_metadata
-        assert any(
-            run.get("timestamp") is not None for run in tab.recent_runs
-        ), "queue completion should create a recent-extraction entry"
+        entry = tab.recent_runs[-1]
+        assert entry["video_path"] == str(video_path)
+        assert entry["start_ms"] == 0
+        assert entry["end_ms"] == 3000
+
+    def test_queue_finished_does_not_record_empty_metadata(self, q_app, tmp_path):
+        """The finished handler must not write empty 'Unknown Video' entries:
+        recording is per-item (_on_queue_item_completed); the finished handler
+        only builds the gallery and cleans up."""
+        tab, video_path = self._make_tab(tmp_path)
+        out_file = tab.extraction_dir / "test_0ms_3000ms.gif"
+        out_file.write_text("gif")
+
+        with patch("gui.src.elements.core.extractor_tab._queue_management.QMessageBox"):
+            tab._on_queue_processing_finished(
+                [{"status": "success", "output_path": str(out_file)}]
+            )
+
+        assert all(
+            run.get("video_path") for run in tab.recent_runs
+        ), "finished handler must not record empty 'Unknown Video' entries"
 
     def test_queue_finished_clears_queue_and_loads_gallery(self, q_app, tmp_path):
         tab, video_path = self._make_tab(tmp_path)
@@ -164,8 +194,10 @@ class TestExtractorTabQueue:
         assert len(tab.extraction_queue) == 1
 
         worker = QueueExecutionWorker(list(tab.extraction_queue), parallel=False)
+        worker.signals.item_completed.connect(tab._on_queue_item_completed)
         worker.signals.finished.connect(tab._on_queue_processing_finished)
-        worker.run()
+        with patch("gui.src.elements.core.extractor_tab._queue_management.QMessageBox"):
+            worker.run()
 
         out_gif = tab.extraction_dir / "realsource_0ms_3000ms.gif"
         assert out_gif.exists(), "gif file must be produced from queued item"
@@ -465,9 +497,9 @@ class TestExtractorTabQueue:
             assert str(f1) in mock_load.call_args[0][0]
             assert tab._queue_pending_gallery_paths == []
 
-    def test_queue_finished_records_each_successful_result(self, q_app, tmp_path):
-        """Multiple successful queue results must all be recorded, and the
-        gallery must receive every path (saved_files or output_path)."""
+    def test_queue_finished_builds_gallery_for_each_result(self, q_app, tmp_path):
+        """The finished handler sends every successful result path
+        (saved_files or output_path) to the gallery."""
         tab, video_path = self._make_tab(tmp_path)
         f1 = tab.extraction_dir / "a.gif"
         f2 = tab.extraction_dir / "b.gif"
@@ -475,15 +507,15 @@ class TestExtractorTabQueue:
         for f in (f1, f2, f3):
             f.write_text("gif")
 
-        tab._on_queue_processing_finished(
-            [
-                {"status": "success", "output_path": str(f1)},
-                {"status": "success", "saved_files": [str(f2), str(f3)]},
-            ]
-        )
+        with patch("gui.src.elements.core.extractor_tab._queue_management.QMessageBox"):
+            tab._on_queue_processing_finished(
+                [
+                    {"status": "success", "output_path": str(f1)},
+                    {"status": "success", "saved_files": [str(f2), str(f3)]},
+                ]
+            )
 
         for f in (f1, f2, f3):
-            assert str(f) in tab.extraction_metadata
             assert str(f) in tab.master_image_paths
 
     def test_gallery_never_shows_nonexistent_worker_path(self, q_app, tmp_path):
