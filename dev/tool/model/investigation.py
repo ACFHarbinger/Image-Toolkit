@@ -36,6 +36,7 @@ class Investigation:
     created_at: str = field(default_factory=_utcnow_iso)
     updated_at: str = field(default_factory=_utcnow_iso)
     note_count: int = 0
+    git: Dict[str, Any] | None = None
 
     # ------------------------------------------------------------------
     # Creation / opening
@@ -67,6 +68,7 @@ class Investigation:
             created_at=data.get("created_at", ""),
             updated_at=data.get("updated_at", ""),
             note_count=data.get("note_count", 0),
+            git=data.get("git"),
         )
 
     # ------------------------------------------------------------------
@@ -88,7 +90,18 @@ class Investigation:
             "created_at": self.created_at,
             "updated_at": self.updated_at,
             "note_count": self.note_count,
+            "git": self.git,
         }
+
+    def attach_git(self, state: Dict[str, Any] | None = None) -> Dict[str, Any]:
+        """Stamp current (or provided) git provenance onto the manifest."""
+        if state is None:
+            from ..host.git import git_state
+
+            state = git_state(self.root)
+        self.git = state
+        self._write_meta()
+        return state
 
     def _write_meta(self) -> None:
         self.updated_at = _utcnow_iso()

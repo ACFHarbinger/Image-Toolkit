@@ -13,6 +13,7 @@ import sys
 from typing import Optional, cast
 
 from backend.src.constants import MONITOR_SLIDESHOW_DAEMON_CONFIG_PATH, ROOT_DIR
+from backend.src.utils.display import monitor_slideshow_daemon as _monitor_slideshow
 from PySide6.QtCore import Slot
 from PySide6.QtWidgets import QMessageBox, QWidget
 
@@ -37,10 +38,14 @@ class _SlideshowDaemonMixin:
 
     def _check_daemon_status_on_startup(self: "MonitorDisplaySubTabHostProtocol"):
         status = self._read_daemon_status()
-        if status and status.get("running"):
+        if _monitor_slideshow.daemon_is_live(status):
             self._daemon_active_monitor_id = str(status.get("monitor_id"))
             self._update_slideshow_buttons()
             self._update_queue_status_label()
+            return
+        self._daemon_active_monitor_id = None
+        if status and status.get("running"):
+            _monitor_slideshow.mark_stopped(status)
 
     @Slot()
     def _toggle_daemon_slideshow(self: "MonitorDisplaySubTabHostProtocol"):
@@ -131,12 +136,12 @@ class _SlideshowDaemonMixin:
         try:
             if platform.system() == "Windows":
                 creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-                subprocess.Popen(
+                proc = subprocess.Popen(
                     [sys.executable, str(script_path)],
                     creationflags=creationflags,
                 )
             else:
-                subprocess.Popen(
+                proc = subprocess.Popen(
                     [sys.executable, str(script_path)],
                     start_new_session=True,
                     stdout=subprocess.DEVNULL,
@@ -146,6 +151,13 @@ class _SlideshowDaemonMixin:
             QMessageBox.critical(
                 cast(QWidget, self), "Error", f"Failed to start daemon: {e}")
             return
+
+        config["pid"] = proc.pid
+        try:
+            with open(MONITOR_SLIDESHOW_DAEMON_CONFIG_PATH, "w") as f:
+                json.dump(config, f, indent=2)
+        except Exception:
+            pass
 
         self._daemon_active_monitor_id = monitor_id
         self._update_slideshow_buttons()

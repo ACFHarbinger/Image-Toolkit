@@ -64,7 +64,7 @@ class _SlideshowStatusMixin:
                     remaining = max(0, int(round(dur - (time.time() - last_change))))
         elif self._daemon_active_monitor_id == monitor_id:
             status = self._read_daemon_status()
-            if status and status.get("running"):
+            if _monitor_slideshow.daemon_is_live(status):
                 daemon_idx = status.get("current_index")
                 if daemon_idx is not None:
                     idx = daemon_idx

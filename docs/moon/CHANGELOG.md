@@ -1,3 +1,15 @@
+## S410 — 2026-08-18 (slideshow daemon liveness + D2 bench compare)
+
+Slideshow daemon: write/check a live pid; per-tick exceptions no longer
+kill the process while leaving `running: true`; GUI startup only
+restores the daemon button if that pid is alive, otherwise persists
+`running: false`.
+
+D2 (#388): Session/Investigation manifests record git commit / branch /
+dirty-hash. `python dev/ bench compare A B` is an evidence report (ids,
+config, image paths, human annotations, metric deltas) and does not
+declare a winner.
+
 ## S409 — 2026-08-17 (D40: debug/dev fold — debug/ merges into dev/, devtool renamed tool/)
 
 Now that Track A/C are fully landed, `debug/` folds into `dev/` and
