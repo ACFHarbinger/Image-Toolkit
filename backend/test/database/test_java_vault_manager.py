@@ -1,8 +1,9 @@
 from unittest.mock import MagicMock
 
 import pytest
-from conftest import MockKeyStoreManager
 from src.core.vault_manager import VaultManager as JavaVaultManager
+
+from backend.test.conftest import MockKeyStoreManager
 
 
 class JavaVaultManagerTest:
