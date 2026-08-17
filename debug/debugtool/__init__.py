@@ -8,8 +8,8 @@ Public API (stable, importable by agents and other tools):
     session.in_flight_at(t)        # spans active at a moment
     session.overlapping_windows()  # generalized worker-window overlaps
 
-Headless by design: the CLI (debugtool analyze / list / ...) is a thin
-wrapper over this API, and Gemini's visual UI consumes the same model.
+Headless by design: the CLI is an alias of ``python -m devtool`` (C2).
+Gemini's visual UI consumes the same Session model.
 
 See docs/moon/roadmaps/development_tool.md (Track A) for the full roadmap.
 """

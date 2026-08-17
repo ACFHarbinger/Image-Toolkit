@@ -171,13 +171,14 @@ reproduced it.
 Phase 1 of the Development Tool roadmap (docs/moon/roadmaps/development_tool.md, Track A)
 adds a session-oriented analysis layer over the same telemetry files:
 
-    python -m debugtool list                     # list available sessions
+    python -m devtool list                       # canonical (C2)
+    python -m debugtool list                     # alias of the same CLI
     python -m debugtool analyze [path|--pid N]   # full report for one session
     python -m debugtool analyze [path] --tail N  # last N events only
 
 Or as a library from any agent/tool:
 
-    from debugtool import open_session
+    from devtool import open_session             # also: from debugtool import ...
     session = open_session(pid=1234)      # or open_session(path=...)
     session.orphaned_spans()              # what was in flight at a crash
     session.in_flight_at(t)               # spans active at a moment

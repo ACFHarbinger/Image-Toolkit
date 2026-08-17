@@ -107,7 +107,7 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(argv=None) -> int:
+def _legacy_main(argv=None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     if args.command == "list":
@@ -120,6 +120,15 @@ def main(argv=None) -> int:
         return cmd_watch(args)
     parser.print_help()
     return 2
+
+
+def main(argv=None) -> int:
+    """Alias of the canonical ``devtool`` CLI (C2). Lazy import avoids a cycle."""
+    try:
+        from devtool.cli.main import main as _canonical
+    except ImportError:
+        return _legacy_main(argv)
+    return _canonical(argv)
 
 
 if __name__ == "__main__":

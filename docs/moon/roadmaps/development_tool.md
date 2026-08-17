@@ -1452,7 +1452,7 @@ integration + diff/review support the first slice but must not delay it.
 | A4 Repro + gdb | ⬜ Planned | deepseek + Gemini | |
 | A5 Diff + investigations | ⬜ Planned | deepseek | |
 | C1 Host + plugins | ✅ Landed | deepseek + Grok (D17 / #380) | store + settings (deepseek); Host/discovery/CLI (Grok) |
-| C2 devtool alias | ⬜ Planned | deepseek | keep debugtool working until C1 (D19) |
+| C2 devtool alias | ✅ Landed | Grok (#381) | `python -m devtool` canonical; `debugtool` re-exports |
 | C3 Local web | ⬜ Planned | Gemini + Grok | pixels |
 | C4 MCP server | ⬜ Planned | Grok (D18) | read-only analysis tools first |
 | C5 ASP evaluator plugin | ⬜ Planned | TBD | wrap, don't fork |

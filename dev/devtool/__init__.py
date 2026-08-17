@@ -1,14 +1,13 @@
 """devtool: the modular Development Tool host + plugins (Track C).
 
-    from devtool import Host, WorkspaceStore
-    host = Host(store=WorkspaceStore(root=...))
-    host.discover()                   # first-party plugins
-    host.artifacts("telemetry_workbench")
+    from devtool import open_session, Host, WorkspaceStore
+    session = open_session(pid=1234)
 
     python -m devtool                 # workspace chooser (no daemon)
     python -m devtool plugins
+    python -m devtool list|analyze|tui|watch
 
-Telemetry analysis stays in debug/debugtool until C2.
+``python -m debugtool`` is a permanent alias of this CLI (C2).
 """
 
 from __future__ import annotations
@@ -22,6 +21,8 @@ from .model import (
     Session,
     Span,
     discover_sessions,
+    list_sessions,
+    open_session,
     session_path_for_pid,
 )
 from .host import (
@@ -58,5 +59,7 @@ __all__ = [
     "default_workspace_root",
     "discover_plugins",
     "discover_sessions",
+    "list_sessions",
+    "open_session",
     "session_path_for_pid",
 ]

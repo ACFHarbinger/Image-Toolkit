@@ -15,6 +15,8 @@ from .session import (
     TELEMETRY_DIR,
     Session,
     discover_sessions,
+    list_sessions,
+    open_session,
     session_path_for_pid,
 )
 from .span import Span
@@ -28,5 +30,7 @@ __all__ = [
     "Session",
     "Span",
     "discover_sessions",
+    "list_sessions",
+    "open_session",
     "session_path_for_pid",
 ]
