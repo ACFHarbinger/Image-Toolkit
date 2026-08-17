@@ -26,6 +26,7 @@ import {
   type CorrelationCell,
   type CoherenceV2ABEval,
   type CoherenceV2ABCase,
+  type CoherenceV2RedsetSummary,
 } from "../hooks/useRatingsData";
 import "./RatingsDashboard.css";
 
@@ -552,11 +553,21 @@ function DefectCorrelationSection({ matrix }: { matrix: DefectCorrelationMatrix 
 }
 
 /** M3 (#34) Coherence V2 Single-Pose vs. Seam-Loop Compositor A/B Screen */
-function CoherenceV2Section({ abEval }: { abEval: CoherenceV2ABEval }) {
+function CoherenceV2Section({
+  abEval,
+  redset,
+}: {
+  abEval: CoherenceV2ABEval;
+  redset?: CoherenceV2RedsetSummary | null;
+}) {
   const [selectedCaseName, setSelectedCaseName] = useState<string>(abEval.cases[0]?.name ?? "asp_test04");
   const selectedCase = useMemo(
     () => abEval.cases.find((c) => c.name === selectedCaseName) ?? abEval.cases[0],
     [abEval, selectedCaseName]
+  );
+  const redsetCase = useMemo(
+    () => redset?.cases?.find((c) => c.name === selectedCaseName),
+    [redset, selectedCaseName]
   );
 
   return (
@@ -570,6 +581,11 @@ function CoherenceV2Section({ abEval }: { abEval: CoherenceV2ABEval }) {
           </p>
         </div>
         <div className="ab-summary-badges">
+          {redset && (
+            <span className={`prov-chip ${redset.passes_crop_gate ? "tier-emerald" : "tier-rose"}`}>
+              <AlertTriangle size={12} /> {redset.passes_crop_gate ? "Crop Gate: PASS" : `Crop Gate: BLOCKED (${redset.n_crop_loss_increased}/${redset.n} Crop Loss)`}
+            </span>
+          )}
           <span className="prov-chip tier-emerald">
             <Sparkles size={12} /> {abEval.summary.improved_anatomy_count} / {abEval.total_evaluated_cases} Anatomy Improved
           </span>
@@ -710,7 +726,17 @@ function CoherenceV2Section({ abEval }: { abEval: CoherenceV2ABEval }) {
 }
 
 export default function RatingsDashboard() {
-  const { loading, error, humanRatings, benchmarkResults, m0Data, defectCorrelation, benchmarkSubsets, coherenceV2Eval } = useRatingsData();
+  const {
+    loading,
+    error,
+    humanRatings,
+    benchmarkResults,
+    m0Data,
+    defectCorrelation,
+    benchmarkSubsets,
+    coherenceV2Eval,
+    coherenceV2Redset,
+  } = useRatingsData();
   const defectCounts = useDefectCounts(humanRatings?.evaluations);
 
   // Filter States
@@ -1013,7 +1039,7 @@ export default function RatingsDashboard() {
 
       {/* M3 (#34) Coherence V2 Single-Pose vs. Seam-Loop Compositor A/B Screen */}
       {coherenceV2Eval && (
-        <CoherenceV2Section abEval={coherenceV2Eval} />
+        <CoherenceV2Section abEval={coherenceV2Eval} redset={coherenceV2Redset} />
       )}
 
       {/* Main Interactive Evaluations Table */}
