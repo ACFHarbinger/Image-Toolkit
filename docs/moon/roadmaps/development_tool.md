@@ -55,21 +55,22 @@ subsection under [Team review notes](#team-review-notes).
 
 Image-Toolkit's debugging work — most visibly the 16+ round gallery-scan
 native-crash investigation (`deleteOrphaned` / `QSocketNotifier` / glibc
-heap corruption; see `debug/README.md`, `docs/TROUBLESHOOTING.md`, and
+heap corruption; see `dev/README.md`, `docs/TROUBLESHOOTING.md`, and
 `.agent/cache/gallery_crash_deleteorphaned_2026-07-27.md`) — produced a
-real instrumentation foundation:
+real instrumentation foundation (paths below are post-D40; `debug/` no
+longer exists as a separate directory):
 
 - `backend/src/core/telemetry.py`: toggleable JSONL logger (`emit` /
   `span`), `IMAGE_TOOLKIT_TELEMETRY=1`, flush-every-line so a SIGABRT a
   moment later still leaves the last completed event.
-- `debug/telemetry_analyzer.py` → now a shim over `debugtool`.
-- `debug/run_with_gdb.sh`: gdb batch capture on SIGABRT; JVM `hs_err`
+- `dev/telemetry_analyzer.py` → a shim over `tool.debug`.
+- `dev/run_with_gdb.sh`: gdb batch capture on SIGABRT; JVM `hs_err`
   preserved.
-- `debug/resolve_qt_offset.py`: stripped PySide6 offsets → exported
+- `dev/resolve_qt_offset.py`: stripped PySide6 offsets → exported
   symbols (the tool that named `deleteOrphaned`).
-- `debug/debugtool/`: Phase 1 session model (`open_session`, orphaned
-  spans, in-flight-at-t, overlaps). 19 tests. Landed by deepseek
-  (`431163b7`).
+- `dev/tool/debug/`: the original Phase 1 session model
+  (`open_session`, orphaned spans, in-flight-at-t, overlaps), landed by
+  deepseek (`431163b7`), preserved as its own subpackage after D40's fold.
 
 Separately, the project already has a second mature developer surface:
 ASP's benchmark evaluator (`submodules/ASP/backend/benchmark/evaluation/`
@@ -183,8 +184,8 @@ deepseek / Gemini / analytics locks that still hold, plus the
 | D7 | Pixels | TUI + **local** web view for images, A/B frames, plots. Not the public website. PySide6 GUI is an optional plugin surface, not the host default. |
 | D8 | Visual density | **Perfetto** for static / post-mortem. **btop** for live / real-time. |
 | D9 | JSONL | Remains the source of truth. Sidecar index at `~/.image-toolkit/telemetry/index.json`. Parquet deferred to v2 (analytics contract still allows Parquet for large tabular corpora). |
-| D10 | Naming | Product title: **Development Tool**. New package / CLI: `devtool`. `debugtool` remains a compatibility entry point. |
-| D11 | Home | New `dev/` directory is the source of truth. `debug/` stays until Track A migrates, then becomes a thin pointer. |
+| D10 | Naming | Product title: **Development Tool**. Package `devtool.py` module name kept; import package is `tool` (D40 superseded the original "new package/CLI: devtool, debugtool stays a compat entry point" — there is no separate `debugtool` package anymore). |
+| D11 | Home | `dev/` directory is the source of truth (D40 completed the fold — `debug/` no longer exists). |
 | D12 | Investigations | Portable folders `dev/investigations/<name>/` (or `debug/investigations/` during migration) with `manifest.json`, captures, repro scripts. |
 | D13 | Retention | `devtool prune --keep N` (default 50) and `--older-than Xd` (default 14d), with confirm. |
 | D14 | Phase 3 ASP spatial telemetry | Rerun desktop sidecar + OTel dual-write. **No** Rerun WASM in `docs/website`. Unchanged from the 2026-08-15 analytics lock. |
@@ -192,7 +193,7 @@ deepseek / Gemini / analytics locks that still hold, plus the
 | D16 | Dev-assistance scope (2026-08-17, Harbinger) | Beyond debug/telemetry/benchmark: **build/test/bench runner integration**, **diff/review assistance** (tie sessions to code changes), **documentation/knowledge surface** (annotations to a searchable debug knowledge base), **performance profiling** (stage timers, memory, per-API latency), **reproducibility artifacts** (one-click code+config+repro+captures bundle). All five in scope. |
 | D17 | Host ownership (2026-08-17) | C1 host-core is **deepseek + Grok**: deepseek owns the host model / plugin protocol / store (data side); Grok owns process lifecycle + plugin discovery. First slice: load a plugin, list its artifacts. |
 | D18 | MCP first surface (2026-08-17) | **Read-only analysis tools first**: list_sessions, open_session, orphaned_spans, in_flight_at, diff, overlaps. No host mutation in the first MCP slice; investigation management and full plugin surface later. |
-| D19 | Package move timing (2026-08-17) | **Keep debug/debugtool in place until C1 exists** (Grok lean, accepted). python -m debugtool stays canonical-compatible; move under dev/ in the same change as C1. |
+| D19 | Package move timing (2026-08-17) | **Keep debug/debugtool in place until C1 exists** (Grok lean, accepted). Superseded by D40 once C1-C7 landed: the fold happened in one pass, not gradually. |
 | D20 | Investigation git policy (2026-08-17) | **Grok proposal accepted**: manifests + repro scripts committed; JSONL/gdb/hs_err stay in ~/.image-toolkit unless an author explicitly copies a redacted bundle. |
 | D21 | Editor integration (2026-08-17, Harbinger) | Add an **editor-integration surface** alongside TUI/web: VS Code/IDE plugin or clipboard snippets so devtool output lands in the editor. Not required for v1, but in scope. |
 | D22 | Build order (2026-08-17) | **D4 span-IDs first, then C1 host**, with A3 (TUI) and C3 (local web) in parallel. A4/A5 follow A2. MCP (C4) can start read-only once C1's session store exists. |
@@ -213,6 +214,7 @@ deepseek / Gemini / analytics locks that still hold, plus the
 | D37 | Scope boundary (2026-08-17, Harbinger) | No additional exclusion list is locked yet. Until one is, a capability enters the roadmap only when it fits D16, has a named plugin/surface, and does not displace the benchmark-first sequence without Harbinger approval. |
 | D38 | First explicit v1 exclusion (2026-08-17, Harbinger, via Claude) | **Cloud sync/collaboration** (multi-machine sync, shared team workspaces, remote access) is the first named out-of-scope category. Consistent with D24 (durable local sessions, no required daemon) and D33 (localhost workspace) — this stays a local-first, single-developer tool for v1. |
 | D39 | Persistent-service promotion trigger (2026-08-17, Harbinger, via Claude) | An always-on local service/daemon is justified once the **btop-style live-watch view (D8) needs push updates** that JSONL polling can no longer deliver responsively — not a pre-picked latency number, since there's no usage data yet to set one. Whoever builds A3's live-tail mode owns measuring this and proposing the daemon when it's actually hit, not before. |
+| D40 | debug/dev fold (2026-08-17, Harbinger, via Claude) | Now that Track A/C landed, `debug/` folds fully into `dev/`, and `debug/debugtool/` folds into `dev/devtool/` — no gradual migration, no compatibility alias. The original `debugtool` package identity (`open_session`/`list_sessions`/`render_session_view`/`run_tui` + the human-readable `analyzer.py`) is preserved as its own subpackage, `tool.debug`, rather than merged flat — an import-level compatibility surface, not a CLI one. `dev/devtool/` itself is renamed `dev/tool/`; `main()` moves out to its own `tool/devtool.py` module (keeping the product name), and `tool/cli/main.py` is renamed `tool/cli/parser.py` (it now only builds the parser + command handlers). `dev/tool/__main__.py` moves to a top-level `dev/__main__.py`, so the canonical invocation becomes `python dev/` — `python -m debugtool` and `python -m tool`/`-m devtool` no longer work (no `__main__.py` remains inside the `tool` package). Tests split into `dev/test/debugger/` (inherited from `debug/debugtool`) and `dev/test/development/` (written directly against `tool`), sharing one `dev/test/conftest.py`. |
 
 ---
 
@@ -323,7 +325,7 @@ observation.
 
 | Surface | Shape | Consumer |
 |---|---|---|
-| Python API | `from devtool import open_session, open_investigation` (and plugin facades) | In-repo agents |
+| Python API | `from tool import open_session, open_investigation` (and plugin facades) | In-repo agents |
 | CLI | every human verb has `--json` / `--format json` | Scripts, CI |
 | MCP / stdio | `devtool mcp` (stdio) and optional `devtool serve` (localhost) | Other agent sessions that cannot import this tree |
 
@@ -345,72 +347,89 @@ committed.
 
 ## Home: the `dev/` directory
 
-Proposed layout. Names are a recommendation for review, not code yet.
+**As-built (2026-08-17 debug/dev fold — D40).** `debug/` no longer exists;
+its content folded into `dev/`, and `debug/debugtool/` folded into
+`dev/tool/` (the package literally renamed `devtool` → `tool`). Real
+layout:
 
 ```
 dev/
-  README.md                 # pointer at this roadmap; how to launch
-  pyproject.toml            # optional later; may stay a namespace under root
-  devtool/
-    __init__.py             # public API
-    __main__.py
+  README.md                 # crash narrative + how-to (merged from debug/README.md)
+  __main__.py                # `python dev/` entry point -> tool.devtool.main()
+  telemetry_analyzer.py      # compat shim -> tool.debug.analyzer
+  resolve_qt_offset.py       # stripped-symbol offset resolver
+  run_with_gdb.sh            # SIGABRT-stop gdb capture
+  tool/
+    __init__.py             # public API (from tool import open_session, Host, ...)
+    devtool.py              # main() entry point (the `devtool` product identity)
+    debug/                   # the original debugtool public surface, preserved
+      __init__.py            # re-exports Session/Span/open_session/... + render_session_view/run_tui
+      analyzer.py            # human-readable report (successor to the pre-Phase-1 script)
     host/
-      app.py                # process lifecycle, view router
-      plugins.py            # discovery + Plugin protocol
+      app.py                 # process lifecycle, plugin discovery, view router
+      plugins.py             # Plugin protocol
+      store.py               # WorkspaceStore: sessions, investigations, settings
       settings.py            # capture, retention, alert emphasis, privacy
+      scenarios.py           # named repro scenarios catalog
+      index.py               # sidecar index (A2)
     model/
-      session.py
-      span.py
+      session.py             # Session/Span/discover_sessions/list_sessions/open_session (real impl)
+      span.py                 # re-export of Span from .session
       event.py
       investigation.py
       crash_bundle.py
       process_tree.py
-    telemetry/              # migrated from debug/debugtool
-      emit_schema.py        # span_id contract (writer side lives in backend)
     queries/
-      timeline.py
-      spans.py
-      overlaps.py
-      diff.py
-      memory.py
+      diff.py                 # A5 cross-session diff
+      rss.py                  # A5 RSS trajectory
+      hypothesis.py           # A4 natural-language hypothesis generator
     export/
       json_sidecar.py
       html.py
       csv.py
     ui/
-      tui/                  # Perfetto static + btop live
-      web/                  # local viewer for pixels / plots
+      app.py                  # TUI entry (run_tui/render_session_view)
+      views/                  # timeline, crash, concurrency, memory, flame, live_tail
+      web/                    # C3 local web viewer
     cli/
-      main.py               # devtool …  (debugtool = alias)
+      parser.py               # build_parser() + cmd_* handlers
+      track_a.py               # export/diff/resolve-offset/prune/repro verbs
     mcp/
-      server.py             # stdio + optional localhost
+      server.py               # C4 stdio + optional localhost
     plugins/
-      telemetry_workbench/  # Track A
-      asp_evaluator/        # adapter over submodules/ASP/.../evaluation
-      benchmarks/           # parent + ASP bench JSON
-      analytics/            # Track B views that are not ASP-specific
-  investigations/           # portable named folders
+      telemetry_workbench.py  # Track A
+      asp_evaluator.py         # adapter over submodules/ASP/.../evaluation
+      benchmarks.py             # parent + ASP bench JSON A/B
+      editor_integration.py     # C7: clipboard markdown + VS Code tasks
+  investigations/            # portable named folders
   test/
+    conftest.py               # sys.path + synthetic-telemetry fixtures (shared)
+    debugger/                 # tests inherited from debug/debugtool
+    development/               # tests written directly against tool/devtool
 ```
 
-Migration rule: **do not move `debug/debugtool` until Track C host
-exists and the alias `python -m debugtool` still works.** deepseek's
-Phase 1 API is the data engine the host will import.
-
-`debug/investigations/` may be created first; move under `dev/` when the
-host lands.
+Invocation is `python dev/` (or `python dev/__main__.py`) — running a
+directory with Python adds that directory to `sys.path[0]`, so `tool`
+resolves without any `PYTHONPATH`. There is deliberately **no**
+`tool/__main__.py`: `python -m tool` does not work post-fold, since
+`__main__.py` moved to the top-level `dev/` per this decision. `devtool.py`
+keeps the product's name as a module even though the package itself is
+`tool` — it is what `dev/__main__.py` calls.
 
 ---
 
 ## Relationship to Existing Tooling
 
-| Existing artifact | New home | Notes |
+| Former artifact | Now | Notes |
 |---|---|---|
-| `debug/debugtool/` | `dev/devtool/telemetry/` + host API | Phase 1 stays; package path changes only with an alias |
-| `debug/telemetry_analyzer.py` | `devtool analyze` | Already a shim |
-| `debug/run_with_gdb.sh` | `devtool repro` | Same gdb flags, SIGABRT-only stop, `hs_err` preserved |
-| `debug/resolve_qt_offset.py` | `devtool resolve-offset` | Gains session `--hs-err` scan |
-| `debug/README.md` | Kept | Crash narrative stays; how-to points here |
+| `debug/debugtool/` | `dev/tool/` (model/cli/export/queries/ui/host/mcp/plugins) | Folded in, not aliased — no separate `debugtool` package exists anymore |
+| `debug/debugtool/__init__.py` + `analyzer.py` | `dev/tool/debug/` | Kept as their own subpackage — the original small `debugtool` public surface, for import compatibility (`tool.debug.open_session` etc.) |
+| `debug/debugtool/cli/main.py` (Phase-1-only CLI) | Deleted | Superseded entirely by `dev/tool/cli/parser.py`'s 14-verb canonical CLI |
+| `python -m debugtool` (C2 alias) | Retired | No separate top-level package to alias; the CLI is exclusively `python dev/` |
+| `debug/telemetry_analyzer.py` | `dev/telemetry_analyzer.py` | Still a shim, now delegates to `tool.devtool.main` |
+| `debug/run_with_gdb.sh` | `dev/run_with_gdb.sh` | Same gdb flags, SIGABRT-only stop, `hs_err` preserved |
+| `debug/resolve_qt_offset.py` | `dev/resolve_qt_offset.py` | Unchanged logic, moved |
+| `debug/README.md` | Merged into `dev/README.md` | One README for the whole tool now |
 | `backend/src/core/telemetry.py` | Unchanged writer | Grows optional span IDs; still no-op when unset |
 | ASP `evaluation/` | Plugin `asp_evaluator` | Adapter, not a fork. Evaluator remains the rating UI of record |
 | `docs/website` dashboard | Out of scope | May *read* the same JSON the plugin writes; this tool does not own it |
@@ -1300,11 +1319,22 @@ wait for A3–A5 to finish.
 
 ### C2 — `debugtool` → `devtool` alias
 
-- `python -m devtool` is canonical.
-- `python -m debugtool` re-exports the same CLI forever (or until a
-  dated deprecation the team agrees).
-- Public API: `from devtool import open_session` works; `debugtool`
-  keeps the same names.
+**Superseded by D40** (2026-08-17 debug/dev fold): once C1-C7 all landed,
+the fold happened as one pass rather than a gradual migration behind a
+"forever" CLI alias. `debug/debugtool` no longer exists as a separate
+package — `python -m debugtool` is retired, along with `python -m devtool`
+(there is no `tool/__main__.py`; the entry point is `dev/__main__.py`, run
+as `python dev/`). What the alias goal actually became: `tool.debug` keeps
+the original public API names (`open_session`, `list_sessions`, etc.) as an
+*import*-level compatibility surface, permanently — old code only needs
+`debugtool` → `tool.debug`, not a full rewrite. Original bullets below kept
+for history:
+
+- ~~`python -m devtool` is canonical.~~
+- ~~`python -m debugtool` re-exports the same CLI forever (or until a
+  dated deprecation the team agrees).~~
+- ~~Public API: `from devtool import open_session` works; `debugtool`
+  keeps the same names.~~
 
 ### C3 — Local web viewer
 
@@ -1452,7 +1482,7 @@ integration + diff/review support the first slice but must not delay it.
 | A4 Repro + gdb | ✅ Landed | deepseek + Gemini (#378) | `devtool repro`, gdb wrap, scenario catalog, hypothesis generator |
 | A5 Diff + investigations | ✅ Landed | deepseek (#379) | cross-session diff, RSS trajectory, portable manifest.json |
 | C1 Host + plugins | ✅ Landed | deepseek + Grok (D17 / #380) | store + settings (deepseek); Host/discovery/CLI (Grok) |
-| C2 devtool alias | ✅ Landed | Grok (#381) | `python -m devtool` canonical; `debugtool` re-exports |
+| C2 devtool alias | ✅ Landed, then superseded by D40 | Grok (#381), Claude (fold) | Was `python -m devtool` canonical + `debugtool` re-export; now `python dev/` is the sole entry point, `tool.debug` is the import-level compat surface |
 | C3 Local web | ✅ Landed | deepseek | localhost-only HTTP viewer (`/`, `/session`, `/compare`, `/artifact`) |
 | C4 MCP server | ✅ Landed | deepseek (D18) | stdio JSON-RPC 2.0 (`devtool mcp`), read-only tools + note append |
 | C5 ASP evaluator plugin | ✅ Landed | Gemini | `devtool.plugins.asp_evaluator`, eval dataset discovery & metrics summary |
@@ -1684,5 +1714,5 @@ that spawned them is now this file's Track B.
 | B / Phase 1–12 | [Track B](#track-b--analytics-benchmarks--interpretability) |
 | C1–C7 | [Track C](#track-c--host-plugins-mcp-local-web) |
 | D1–D5 | [Track D](#track-d--development-assistance-d16) |
-| D16–D39 | [Settled Decisions](#settled-decisions-2026-08-17) |
+| D16–D40 | [Settled Decisions](#settled-decisions-2026-08-17) |
 | §11.x / §12.x | Historical analytics headings (folded below / in Track B spec) |

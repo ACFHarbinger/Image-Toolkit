@@ -20,7 +20,7 @@ sink for that same kind of instrumentation:
   reasoning as the existing ``flush=True`` print idiom this replaces/
   augments) -- a partial file from a crashed run is still fully readable up
   to the last completed event.
-- ``debug/telemetry_analyzer.py`` consumes these files to reconstruct a
+- ``dev/telemetry_analyzer.py`` consumes these files to reconstruct a
   merged, per-thread timeline and flag exactly the kind of overlap
   (concurrent scanner threads, native calls in flight when the log stops)
   that previously had to be found by eye.

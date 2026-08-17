@@ -23,7 +23,7 @@ def _decode_span(tool: str, video_path: str):
     thread, not the main thread), with the JPype JVM already loaded
     in-process. If a crash happens inside this span, the telemetry file's
     last line being a `.start` with no matching `.end` is itself the
-    finding -- see debug/telemetry_analyzer.py."""
+    finding -- see dev/telemetry_analyzer.py."""
     return telemetry.span(
         "native", "qimage_decode",
         tool=tool, video_path=video_path, tid=threading.get_ident(),
