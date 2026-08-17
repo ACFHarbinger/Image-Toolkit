@@ -1,3 +1,74 @@
+## S409 — 2026-08-17 (D40: debug/dev fold — debug/ merges into dev/, devtool renamed tool/)
+
+Now that Track A/C are fully landed, `debug/` folds into `dev/` and
+`debug/debugtool/` folds into `dev/devtool/` in one pass (no gradual
+migration, superseding D19's "keep in place until C1 exists" plan and
+C2/D10's "debugtool stays a compatibility CLI entry point forever"):
+
+- `debug/debugtool/model/session.py` (the real `Session`/`Span` engine)
+  replaces `dev/devtool/model/session.py`'s C2-era re-export shim.
+  `list_sessions`/`open_session` (previously only defined on the
+  `debugtool` package `__init__.py`) now live directly in
+  `model/session.py`, since `devtool.model` re-exports them at the
+  package's own top level too.
+- `debug/debugtool/ui/{app.py,views/}` move directly under
+  `devtool/ui/` (same relative-import depth as before — no dot-count
+  changes needed since there's no extra `tui/` subfolder).
+- New `devtool/debug/` subpackage houses `debug/debugtool/__init__.py`
+  and `analyzer.py` — the original small `debugtool` public surface
+  (`open_session`, `list_sessions`, `render_session_view`, `run_tui`,
+  the human-readable report generator), preserved as an *import-level*
+  compatibility surface (`tool.debug.open_session` etc.) rather than
+  merged flat into the host's own `model`/`queries`/`ui`.
+- `debug/debugtool/{cli,export,queries}/` deleted — all three were
+  either an empty stub (export/queries) or a fully superseded Phase-1
+  CLI whose `main()` already just delegated to the canonical `devtool`
+  CLI with a fallback (`cli/main.py`).
+- `debug/{resolve_qt_offset.py,run_with_gdb.sh,telemetry_analyzer.py,README.md}`
+  move to `dev/`; `README.md`'s content merged into `dev/README.md`
+  (one README for the whole tool now, crash narrative preserved).
+- `dev/devtool/` renamed `dev/tool/`. `dev/devtool/cli/main.py` renamed
+  `dev/tool/cli/parser.py` (now only `build_parser()` + `cmd_*`
+  handlers — the four handlers it used to lazy-import from
+  `debugtool.cli.main` are ported in directly). `main()` moves to a new
+  `dev/tool/devtool.py` (keeps the product name as a module even though
+  the package is `tool`). `dev/tool/__main__.py` moves to a top-level
+  `dev/__main__.py`.
+- **Invocation changes**: canonical entry point is now `python dev/` (or
+  `python dev/__main__.py`) — running a directory with Python adds it to
+  `sys.path[0]`, so `tool` resolves without `PYTHONPATH`. `python -m
+  tool`/`-m devtool` and `python -m debugtool` no longer work (no
+  `__main__.py` remains inside the `tool` package).
+- Tests split: `dev/test/debugger/` (the 5 files inherited from
+  `debug/debugtool`) and `dev/test/development/` (the 9 files written
+  directly against `tool`), sharing one merged `dev/test/conftest.py`
+  (sys.path setup + the `telemetry_dir`/`event`/`write_session`
+  fixtures, previously split across two separate conftest files).
+  `test_c2_alias.py` rewritten — its premise (a separate `debugtool` CLI
+  package to compare against) no longer exists; now tests that
+  `tool.debug`'s re-exported `open_session` returns the same `Session`
+  type/data as `tool`'s own.
+- Fixed real (not just cosmetic) breakage found during the fold:
+  `host/app.py`'s plugin discovery (`import devtool.plugins as pkg`) and
+  all four first-party plugins' `entry_point="devtool.plugins.X:plugin"`
+  strings both would have silently failed to resolve post-rename;
+  `editor_integration.py`'s generated VS Code tasks used `-m devtool`
+  args, updated to `["dev/", "tui"]`-style invocation;
+  `host/scenarios.py`'s `asp-eval-smoke` scenario pointed at the
+  pre-split `dev/test/test_plugins_extended.py` path.
+- Roadmap (`development_tool.md`): new D40 lock, D2/D10/D11/D19 amended
+  in place (not rewritten) to point at D40, Home/Relationship sections
+  rewritten to the as-built layout, C2 section struck through with the
+  supersession noted.
+- `docs/TROUBLESHOOTING.md` (+ its `docs/website/public/docs/` mirror)
+  updated to the new paths.
+
+Verified: `pytest dev/test/ backend/test/core/test_telemetry.py` → 118
+passed. `ruff check dev/` clean. Live: `python dev/ plugins --json`,
+`python dev/ list`, `python dev/ repro --list-scenarios`, `python dev/
+resolve-offset --help`, `python dev/ export --help` all run correctly
+against real telemetry files on this machine.
+
 ## S408 — 2026-08-17 (C2: debugtool is a devtool alias)
 
 `python -m devtool` is the canonical CLI (workspace + plugins +
