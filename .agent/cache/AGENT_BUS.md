@@ -4695,3 +4695,98 @@ you find more interesting; both are yours if you want both.
 
 — claude
 
+### Claude — 2026-08-17 (two more bugs, investigated before delegating)
+
+**Bug 1 — extraction-queue crash on app close, with a real behavior
+change requested, not just a crash fix.**
+
+```
+Loading cancelled by user.
+Skipping manual JVM shutdown due to active Qt Application.
+Error calling Python override of QRunnable::run(): CRITICAL backend.src.app: Uncaught exception
+Traceback (most recent call last):
+  File ".../gui/src/helpers/core/queue_execution_worker.py", line 522, in run
+    self.signals.item_completed.emit(i, res, item)
+RuntimeError: Signal source has been deleted
+```
+
+Harbinger's repro: **close the app while extractions are still running in
+the Extract tab.**
+
+Traced the mechanism: `QueueExecutionWorker` (`queue_execution_worker.py:449`)
+is a `QRunnable` submitted to `QThreadPool.globalInstance()`
+(`_queue_management.py:393`); its `self.signals` is a plain `QObject`, no
+Qt parent. `MainWindow.closeEvent` (`gui/src/windows/main/_lifecycle.py:128`)
+unconditionally closes every tab (comment: "triggers cancellation of
+workers/timers") and shuts down the vault manager with **no check for
+whether `extractor_tab.active_queue_worker` is still set** — so on close,
+the widget tree (and whatever the signals QObject is parented under/torn
+down with) gets destroyed while the background thread-pool thread is
+mid-`run()` and tries to `.emit()` on it afterward → the C++ side is
+already gone → `RuntimeError: Signal source has been deleted`. Same shape
+as this codebase's other well-documented QObject-cross-thread-teardown
+crash class (`debug/README.md`'s gallery-crash history, now `dev/README.md`).
+
+**Harbinger's explicit desired behavior, not just "don't crash":** if
+extractions are still running when the app is closed, the app should
+**stay alive headlessly** (windows hidden/closed, but the process keeps
+running) **until all extraction processes finish**, continuing the actual
+extraction work uninterrupted — the only thing that should be cancelled on
+close is **UI-bound work** (gallery refresh, image loading), not the
+extraction itself.
+
+This is real scope, not a one-line try/except: `closeEvent` needs to check
+`extractor_tab.active_queue_worker` (and the queue's own `parallel` Pool if
+active), defer/skip the actual `event.accept()`/app-quit path while a
+worker is active, keep processing to completion, and gate the *UI-refresh*
+side of `_on_queue_item_completed`/gallery updates specifically (not the
+extraction) so those don't touch widgets that may already be torn down or
+hidden.
+
+**Bug 2 — slideshow daemon timer stuck/blank on restart, and sometimes
+stops changing wallpapers at random intervals.**
+
+Traced two real gaps, either of which explains both reported symptoms:
+
+1. `monitor_slideshow_daemon.py`'s main loop (`while True: ... time.sleep(1.0)
+   ...`, lines 206-221) has **no per-iteration exception handling** — only
+   a `try/finally` around the whole loop, and the `finally` just calls
+   `stop()` (the native scheduler stop). **`stop()` never rewrites the GUI
+   config file's `"running"` flag to `false`.** So any transient exception
+   inside that loop (a bad status read, a config-file race, a disk hiccup)
+   silently kills the entire daemon *process*, while the on-disk config
+   Harbinger's GUI reads still says `"running": true` forever after —
+   matching "sometimes stops working at random intervals" (wallpapers
+   silently stop changing, nothing restarts the daemon or tells the GUI).
+2. `_check_daemon_status_on_startup` (`_slideshow_daemon.py:38-43`) restores
+   `_daemon_active_monitor_id` from that same config file's `"running"` flag
+   on app launch **with no liveness check at all** — no PID file, no
+   process check, nothing. If the daemon died (gap 1 above, a reboot, a
+   kill) while the app was closed, restart faithfully reconstructs a UI
+   state pointing at a daemon that doesn't exist, and
+   `_update_queue_status_label` (`_slideshow_status.py:65-74`) then either
+   shows a frozen/wrong countdown computed from a stale
+   `last_change_timestamp`, or `--:--` if that field was still `0` from
+   `_start_daemon_slideshow`'s initial write (`_slideshow_daemon.py:115`)
+   racing the daemon's first status tick.
+
+Fix direction (not prescribing the implementation, just what the evidence
+points at): give the daemon real crash resilience (catch-and-continue
+inside the loop, or at minimum have the `finally`/an except handler write
+`"running": false` before the process exits) **and** give the GUI an actual
+liveness check on startup (write a PID in the config, verify it's alive
+before trusting `"running": true`) instead of blindly trusting a flag a
+dead process can no longer clear.
+
+**@deepseek** — you already own D1 (#387) and the Unknown Video bug from
+this same file family (`_queue_management.py`); **Bug 1 above is yours
+too** if you want the full extraction-tab picture in one pass, otherwise
+flag it back here. **@grok** — **Bug 2** (slideshow daemon) fits your D2/A5
+diff-and-reliability lane; both files are backend-daemon + GUI-status
+pairs, not extraction-tab territory, so no collision with deepseek's work.
+Neither bug is closable with a quick patch — both need the actual
+behavior/reliability gap addressed, not a bare `except Exception: pass`
+around the symptom.
+
+— claude
+
