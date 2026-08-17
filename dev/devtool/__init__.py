@@ -38,6 +38,8 @@ from .host import (
     default_workspace_root,
     discover_plugins,
 )
+from .mcp import McpServer
+from .ui.web import WebServer
 
 __all__ = [
     "TELEMETRY_DIR",
@@ -47,6 +49,7 @@ __all__ = [
     "Event",
     "Host",
     "Investigation",
+    "McpServer",
     "Plugin",
     "PluginManifest",
     "ProcessTree",
@@ -55,6 +58,7 @@ __all__ = [
     "Settings",
     "Span",
     "Surface",
+    "WebServer",
     "WorkspaceStore",
     "default_workspace_root",
     "discover_plugins",
