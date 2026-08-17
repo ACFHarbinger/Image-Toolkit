@@ -1,0 +1,23 @@
+fix(media-loader): crash on repeated Download clicks (worker re-entry + thread QObject lifetime)
+
+Clicking Download twice crashed the app. start_download replaced
+self.worker (a live MediaLoaderWorker QThread) with no re-entry guard,
+and MediaLoaderWorker.run() kept its worker-thread-affinity downloader
+QObject referenced in self._downloader after the thread finished. The
+second click dropped the old QThread; Python GC then destroyed the
+downloader QObject from the main thread -- cross-thread QObject
+destruction behind the recurring "QThread: Destroyed while thread is
+still running" / QObject::killTimer / Shiboken retrieveWrapper /
+QObject::property SIGSEGV family.
+
+- _download_worker.py: start_download ignores a second click while the
+  previous worker is still running (worker.isRunning() guard, matching
+  image_crawler_tab's cancel_crawl pattern).
+- media_loader_worker.py: run() clears self._downloader in a finally so
+  the worker-thread QObject is released on the worker thread, never GC'd
+  from the main thread after a later click replaces the QThread.
+
+Regression test TestStartDownloadReentryGuard: fails pre-fix with
+"QThread: Destroyed while thread is still running", passes post-fix.
+All 42 downloader/worker tests green. CHANGELOG S403; AGENT_BUS entry
+appended.

@@ -18,6 +18,13 @@ from PySide6.QtCore import QObject, Signal
 from gui.src.helpers.web.media_loader_worker import MediaLoaderWorker
 
 
+def _seen_config_capture(seen: dict, config):
+    """Fake downloader factory recording the config it was built with."""
+    fake = _FakeDownloader(config)
+    seen["config"] = config
+    return fake
+
+
 class _FakeDownloader(QObject):
     on_status = Signal(str)
     on_image_saved = Signal(str)
@@ -58,6 +65,24 @@ def _run_worker(q_app, source, config, downloader_cls, patch_target):
         return worker, statuses, saved, finished, errors
 
 
+class _NeverFinishingWorker(MediaLoaderWorker):
+    """A MediaLoaderWorker that stays running until stopped, so a test can
+    hold it as tab.worker and verify start_download does not replace it."""
+
+    def __init__(self, source, config):
+        super().__init__(source, config)
+        self._stop = False
+
+    def stop(self):
+        self._stop = True
+
+    def run(self):
+        while not self._stop:
+            import time
+
+            time.sleep(0.01)
+
+
 class TestMediaLoaderWorkerDispatch:
     def test_reddit_source_constructs_reddit_downloader(self, q_app, tmp_path):
         config = {"source": "EarthPorn", "download_dir": str(tmp_path)}
@@ -66,11 +91,17 @@ class TestMediaLoaderWorkerDispatch:
             "gui.src.helpers.web.media_loader_worker.RedditDownloader",
         )
 
-        assert worker._downloader.ran
+        # The downloader QObject is created on the worker thread and released
+        # there when run() completes (run() clears self._downloader in a
+        # finally) -- otherwise the next Download click's replacement of
+        # self.worker GCs it from the main thread, the cross-thread QObject
+        # destruction behind the recurring crash. Signals still forward
+        # correctly while the worker runs.
         assert "working..." in statuses
         assert saved == ["/tmp/fake.jpg"]
         assert finished == [(1, "Finished. Downloaded 1 file(s).")]
         assert errors == []
+        assert worker._downloader is None
 
     def test_nhentai_source_constructs_nhentai_downloader(self, q_app, tmp_path):
         config = {"gallery": "111006", "download_dir": str(tmp_path)}
@@ -79,8 +110,8 @@ class TestMediaLoaderWorkerDispatch:
             "gui.src.helpers.web.media_loader_worker.NhentaiDownloader",
         )
 
-        assert worker._downloader.ran
         assert finished == [(1, "Finished. Downloaded 1 file(s).")]
+        assert worker._downloader is None
 
     def test_unknown_source_emits_error_without_constructing_anything(self, q_app, tmp_path):
         worker = MediaLoaderWorker("unknown-source", {"download_dir": str(tmp_path)})
@@ -118,21 +149,27 @@ class TestOnExistsPassThrough:
             "download_dir": str(tmp_path),
             "on_exists": "rename",
         }
+        # Capture the config the downloader was constructed with before
+        # run()'s finally releases the worker-thread QObject.
+        seen = {}
         with patch(
-            "gui.src.helpers.web.media_loader_worker.RedditDownloader", _FakeDownloader
+            "gui.src.helpers.web.media_loader_worker.RedditDownloader",
+            lambda cfg: _seen_config_capture(seen, cfg),
         ):
             worker = MediaLoaderWorker("reddit", config)
             worker.run()
-        assert worker._downloader.config["on_exists"] == "rename"
+        assert seen["config"]["on_exists"] == "rename"
 
     def test_worker_defaults_on_exists_to_overwrite(self, q_app, tmp_path):
         config = {"source": "EarthPorn", "download_dir": str(tmp_path)}
+        seen = {}
         with patch(
-            "gui.src.helpers.web.media_loader_worker.RedditDownloader", _FakeDownloader
+            "gui.src.helpers.web.media_loader_worker.RedditDownloader",
+            lambda cfg: _seen_config_capture(seen, cfg),
         ):
             worker = MediaLoaderWorker("reddit", config)
             worker.run()
-        assert worker._downloader.config.get("on_exists") is None
+        assert seen["config"].get("on_exists") is None
 
     def test_tab_builds_dropdown_with_three_policies(self, q_app):
         """MediaLoaderTab exposes the existing-file dropdown with the three
@@ -145,3 +182,41 @@ class TestOnExistsPassThrough:
             tab.on_exists_combo.itemData(i) for i in range(tab.on_exists_combo.count())
         ]
         assert values == ["overwrite", "skip", "rename"]
+
+class TestStartDownloadReentryGuard:
+    """Clicking Download while a previous worker QThread is still alive must
+    not replace it: the second start_download would drop the old QThread
+    reference while its worker-thread downloader QObject is still alive,
+    and Python GC would destroy that QObject from the main thread -- the
+    cross-thread QObject destruction behind the recurring crash when
+    Download is clicked twice (QObject::killTimer / Shiboken
+    retrieveWrapper / QObject::property SIGSEGVs)."""
+
+    def test_start_download_ignored_while_worker_running(self, q_app):
+        from gui.src.elements.web.media_loader_tab import MediaLoaderTab
+        from gui.src.elements.web.media_loader_tab._ui_builder import SOURCE_NHENTAI
+
+        tab = MediaLoaderTab()
+        tab.source_combo.setCurrentIndex(SOURCE_NHENTAI)
+        tab.download_dir_path.setText("/tmp/fake_out")
+        tab.nhentai_gallery_input.setText("https://nhentai.net/g/111006/")
+
+        # A worker that never finishes: isRunning() must stay True so the
+        # guard sees an in-flight download.
+        worker = _NeverFinishingWorker("nhentai", {"download_dir": "/tmp"})
+        tab.worker = worker
+        worker.start()
+
+        try:
+            tab.start_download()
+            assert tab.worker is worker, (
+                "start_download must NOT replace a still-running worker "
+                "(old QThread + worker-thread downloader would be GC'd "
+                "cross-thread on the next click)"
+            )
+        finally:
+            worker.stop()
+            worker.wait(2000)
+            if tab.worker is not None and tab.worker is not worker:
+                tab.worker.stop()
+                tab.worker.wait(2000)

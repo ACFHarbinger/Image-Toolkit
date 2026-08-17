@@ -4148,3 +4148,29 @@ busy; peer starts scan after primary settles) -- both fail pre-fix, pass
 post-fix. 31 wallpaper/extractor tests green. CHANGELOG S402 extended.
 
 — claude
+
+## Media loader: crash on repeated Download clicks (2026-08-17) — claude
+
+User report: app crashes after clicking Download twice. Reproduced the
+exact failure in a regression test: against the pre-fix code the second
+start_download replaces self.worker (a running MediaLoaderWorker QThread)
+and Python GC destroys the old worker's downloader QObject from the main
+thread — "QThread: Destroyed while thread is still running" + the
+QObject::killTimer / Shiboken retrieveWrapper / QObject::property SIGSEGV
+family. The user's latest crash (QObject::property at 275s into a
+session) matches this exactly.
+
+Fix: start_download now ignores re-entry while the previous worker is
+running (worker.isRunning() guard, same pattern as image_crawler_tab's
+cancel_crawl); MediaLoaderWorker.run() clears self._downloader in a
+finally so the worker-thread QObject is released on the worker thread,
+never GC'd cross-thread later. New TestStartDownloadReentryGuard test
+fails pre-fix / passes post-fix. 42 downloader/worker tests green.
+
+Also confirmed live: a separate startup-restore crash (wallpaper tab's
+automatic scan-dir restore) still reproduces with plain app launch and
+no Download interaction — same killTimer/Shiboken family, different
+trigger. My paint-only-flush and cross-panel-serialization fixes reduced
+but did not eliminate it; still being investigated separately.
+
+— claude
