@@ -7,14 +7,13 @@ change, to keep the file under the codebase's 500-code-line convention
 
 from __future__ import annotations
 
-from typing import Optional, Tuple
+from typing import TYPE_CHECKING, Optional, Tuple
 
+from PySide6.QtCore import QEvent
 from PySide6.QtWidgets import QApplication, QGroupBox, QLabel, QVBoxLayout, QWidget
 
 from ......components import DraggableMonitorContainer, MonitorDropView
 from ......styles import STYLE_START_ACTION
-
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ....protos.wallpaper_common_base import WallpaperCommonBaseHostProtocol
@@ -75,7 +74,19 @@ class _MonitorSelectionMixin:
             finally:
                 self._syncing_selection = False
 
-        QApplication.processEvents()
+        # Flush only posted paint events, NOT the full event queue: a full
+        # QApplication.processEvents() here reentrantly pumps timers and
+        # queued signals. During session recovery this fires the scan-dir
+        # restore timer (armed 250ms earlier by set_config) from inside
+        # _select_monitor_peer's call stack, starting scanner QThreads
+        # mid-recovery -- the documented deleteOrphaned/heap-corruption
+        # crash shape (see Addendum 21 of
+        # .agent/cache/gallery_crash_deleteorphaned_2026-07-27.md, and the
+        # user crash whose caller trace reached populate_scan_image_gallery
+        # via exactly this line). sendPostedEvents(None, Paint) still
+        # delivers the repaint the original processEvents() was there for
+        # (monitor highlight delay, commit 06375b44) without that hazard.
+        QApplication.sendPostedEvents(None, QEvent.Type.Paint)
 
         self._on_monitor_selected(new_id)
 
@@ -86,7 +97,11 @@ class _MonitorSelectionMixin:
                 widget.set_selected(mid == monitor_id)
                 widget.repaint()
 
-        QApplication.processEvents()
+        # Same narrowing as _select_monitor above: paint-only flush, never a
+        # full processEvents() (which reentrantly fires timers/queued signals
+        # mid-call -- the crash trace in the user report reached
+        # _do_pending_scan_dir_restore via this line during session recovery).
+        QApplication.sendPostedEvents(None, QEvent.Type.Paint)
 
         self._on_monitor_selected(monitor_id)
 

@@ -19,12 +19,14 @@ from __future__ import annotations
 import time
 
 import pytest
+from PySide6.QtCore import QTimer
+from PySide6.QtWidgets import QGridLayout, QScrollArea, QWidget
+
 from gui.src.elements.core.wallpaper_tab.common import wallpaper_common_base
 from gui.src.elements.core.wallpaper_tab.common.wallpaper_common_base import (
     WallpaperCommonBase,
 )
 from gui.src.helpers import ImageScannerWorker
-from PySide6.QtWidgets import QGridLayout, QScrollArea, QWidget
 
 pytestmark = pytest.mark.gui
 
@@ -171,3 +173,64 @@ class TestPeerReentrancyGuard:
         _pump(1.0)
 
         assert stop_calls == [1]
+
+    def test_monitor_selection_does_not_fire_pending_timers_reentrantly(
+        self, q_app, monkeypatch, tmp_path
+    ):
+        """Regression: _select_monitor/_select_monitor_peer must NOT pump the
+        full event queue (QApplication.processEvents), because during session
+        recovery that reentrantly fires the scan-dir restore timer (armed
+        250ms earlier by set_config) from inside the monitor-selection call
+        stack -- starting scanner QThreads mid-recovery. The user crash trace
+        reached _do_pending_scan_dir_restore via _select_monitor_peer line 89
+        exactly this way. The narrowed paint-only flush must leave pending
+        timers/queued signals untouched during the call."""
+        system_display = ConcreteWallpaperBase()
+        monitor_display = ConcreteWallpaperBase()
+        _link_panels(system_display, monitor_display)
+
+        # Simulate the session-recovery state: a pending restore timer (0ms so
+        # it would fire immediately if the event queue were pumped reentrantly)
+        # plus a queued signal delivery, both of which a full processEvents()
+        # inside _select_monitor_peer would dispatch mid-call.
+        fired = []
+        QTimer.singleShot(0, lambda: fired.append("timer"))
+        system_display._select_monitor_peer("0")
+
+        assert fired == [], (
+            "pending timer must NOT fire reentrantly from inside "
+            "_select_monitor_peer (paint-only flush, not processEvents)"
+        )
+
+        # The timer must still fire normally once control returns to the event
+        # loop -- the narrowing only removed the reentrant pump, not delivery.
+        _pump(0.5)
+        assert fired == ["timer"]
+
+    def test_monitor_selection_does_not_call_full_process_events(
+        self, q_app, monkeypatch, tmp_path
+    ):
+        """Guards the fix itself: _select_monitor/_select_monitor_peer must
+        never call QApplication.processEvents() (the full pump); they now use
+        sendPostedEvents(None, Paint). A future regression back to
+        processEvents() reintroduces the session-recovery reentrancy."""
+        import gui.src.elements.core.wallpaper_tab.common.wallpaper_common_base._monitor_selection as ms
+
+        calls = []
+        monkeypatch.setattr(ms.QApplication, "processEvents", lambda: calls.append("processEvents"))
+        monkeypatch.setattr(
+            ms.QApplication, "sendPostedEvents", lambda *_: calls.append("sendPostedEvents")
+        )
+
+        system_display = ConcreteWallpaperBase()
+        monitor_display = ConcreteWallpaperBase()
+        _link_panels(system_display, monitor_display)
+
+        system_display._select_monitor("0")
+        monitor_display._select_monitor_peer("0")
+
+        assert "processEvents" not in calls, (
+            "full QApplication.processEvents() must not be called from "
+            "monitor selection (reentrant timer/signal pump -- see Addendum 21)"
+        )
+        assert calls, "paint-only flush (sendPostedEvents) must still run"

@@ -112,14 +112,6 @@ class _QueueManagementMixin:
         queue_layout.setContentsMargins(10, 10, 10, 10)
 
         self.queue_list = QListWidget()
-        # ~26px per row: a 320px minimum shows roughly 10-12 queued
-        # extractions at once before scrolling, up from the default ~192px
-        # sizeHint (~7 rows). setMinimumHeight (not just setMaximumHeight) is
-        # what forces the layout to actually allocate the taller height; the
-        # cap keeps larger queues scrolling inside the widget so the gallery
-        # below still gets vertical space.
-        self.queue_list.setMinimumHeight(320)
-        self.queue_list.setMaximumHeight(420)
         self.queue_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.queue_list.customContextMenuRequested.connect(self.show_queue_context_menu)
         self.queue_list.setDragDropMode(QListWidget.DragDropMode.InternalMove)
@@ -144,6 +136,23 @@ class _QueueManagementMixin:
         controls_layout.addWidget(self.btn_clear_queue)
 
         queue_layout.addLayout(controls_layout)
+
+        # Match the Extraction Queue section's height to the Extraction
+        # Settings section (self.extract_group, built earlier in __init__):
+        # cap the queue list so the whole queue group renders at the same
+        # height as the settings group. The settings group's sizeHint is the
+        # source of truth; the queue group's non-list overhead (title bar,
+        # margins, spacing, and the controls row, i.e. group sizeHint minus
+        # the list's own sizeHint) is subtracted so the LIST height is what's
+        # tuned. Larger queues scroll inside the widget, and the gallery
+        # below keeps its space.
+        settings_h = self.extract_group.sizeHint().height()
+        queue_overhead = (
+            self.queue_group.sizeHint().height() - self.queue_list.sizeHint().height()
+        )
+        target_list_h = max(0, settings_h - queue_overhead)
+        self.queue_list.setMinimumHeight(target_list_h)
+        self.queue_list.setMaximumHeight(target_list_h)
 
         self.main_layout.addWidget(self.queue_group)
         self.queue_group.setVisible(self.extraction_queue_enabled)
