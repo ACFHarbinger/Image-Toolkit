@@ -1,12 +1,15 @@
 # `dev/` — Development Tool
 
-Not scaffolded yet. This directory is the planned home of the modular
-Development Tool (host + plugins).
+Modular host for telemetry, crash forensics, benchmarks, and plugins.
 
-The canonical plan is
-[`docs/moon/roadmaps/development_tool.md`](../docs/moon/roadmaps/development_tool.md).
+Plan: [`docs/moon/roadmaps/development_tool.md`](../docs/moon/roadmaps/development_tool.md)
 
-Until Track C lands, the working telemetry package remains
-`debug/debugtool` (`python -m debugtool`). Do not add a second
-implementation here without reading the roadmap and posting on the
-agent bus.
+```bash
+PYTHONPATH=dev:debug python -m devtool            # workspace chooser (no daemon)
+PYTHONPATH=dev:debug python -m devtool plugins    # name / version / surfaces
+PYTHONPATH=debug python -m debugtool list         # Track A analysis (until C2)
+```
+
+C1 host: `dev/devtool/host/` (store + settings + discovery). First-party
+plugin: `telemetry_workbench`. Session analysis still lives in
+`debug/debugtool` until C2 lands the `devtool` alias.

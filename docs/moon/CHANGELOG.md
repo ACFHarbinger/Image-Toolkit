@@ -1,3 +1,10 @@
+## S407 — 2026-08-17 (C1 host lifecycle + discovery)
+
+Grok slice of C1 (#380 / D17): `devtool.host.Host` discovers first-party
+plugins from `dev/devtool/plugins/`, lists artifacts via the existing
+store, and exposes `python -m devtool` / `devtool plugins` / a no-verb
+workspace chooser (no daemon). `debug/debugtool` is unchanged (D19).
+
 ## S406 — 2026-08-17 (D4/D23 telemetry span IDs)
 
 `telemetry.emit`/`span` now write optional `span_id`, `parent_span_id`,
