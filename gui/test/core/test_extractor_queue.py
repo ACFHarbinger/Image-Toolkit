@@ -559,3 +559,65 @@ class TestExtractorTabQueue:
         assert phantom not in forwarded
         # The phantom must never reach the gallery's master path list either.
         assert phantom not in tab.master_image_paths
+
+
+class TestHeadlessKeepAlive:
+    """Bug 1: MainWindow defers close while extractions run. The tab reports
+    active extractions and fires the deferred-close callback once none remain,
+    and the worker keeps itself alive for the whole run()."""
+
+    def _make_tab(self, tmp_path):
+        from gui.src.elements.core.extractor_tab import ExtractorTab
+
+        with (
+            patch("gui.src.elements.core.extractor_tab._media_player.QMediaPlayer"),
+            patch("gui.src.elements.core.extractor_tab._media_player.QAudioOutput"),
+        ):
+            tab = ExtractorTab()
+        tab._media_player = MagicMock()
+        return tab
+
+    def test_has_active_extractions_detects_workers(self, q_app, tmp_path):
+        tab = self._make_tab(tmp_path)
+        tab.active_queue_worker = None
+        tab.active_extraction_worker = None
+        assert tab.has_active_extractions() is False
+        tab.active_queue_worker = object()
+        assert tab.has_active_extractions() is True
+        tab.active_queue_worker = None
+        tab.active_extraction_worker = object()
+        assert tab.has_active_extractions() is True
+
+    def test_deferred_close_callback_fires_when_idle(self, q_app, tmp_path):
+        tab = self._make_tab(tmp_path)
+        tab.active_queue_worker = None
+        tab.active_extraction_worker = None
+        fired = []
+        tab.set_close_when_finished(lambda: fired.append(True))
+        tab._maybe_finish_close()
+        assert fired == [True]
+
+    def test_deferred_close_callback_defers_while_worker_active(self, q_app, tmp_path):
+        tab = self._make_tab(tmp_path)
+        tab.active_queue_worker = object()
+        tab.active_extraction_worker = None
+        fired = []
+        tab.set_close_when_finished(lambda: fired.append(True))
+        tab._maybe_finish_close()
+        assert fired == []
+        tab.active_queue_worker = None
+        tab._maybe_finish_close()
+        assert fired == [True]
+
+    def test_worker_safety_net_keeps_self_alive_through_run(self):
+        from gui.src.helpers.core.queue_execution_worker import (
+            QueueExecutionWorker,
+            _RUNNING_WORKERS,
+        )
+
+        worker = QueueExecutionWorker([], parallel=False)
+        assert worker not in _RUNNING_WORKERS
+        worker.run()  # empty queue: emits started/finished, no extraction
+        assert worker not in _RUNNING_WORKERS, (
+            "the worker must drop its safety-net reference once run() returns"
+        )

@@ -557,6 +557,8 @@ class _QueueManagementMixin:
                 f"Queue execution complete! Processed all items. Extracted {len(all_paths)} items.",
             )
 
+        self._maybe_finish_close()
+
     def _on_queue_processing_error(self: "VideoExtractorSubTabHostProtocol", error_msg):
         self.active_queue_worker = None
         self.extraction_progress_bar.hide()
@@ -574,6 +576,36 @@ class _QueueManagementMixin:
 
         if "cancelled" not in error_msg.lower():
             QMessageBox.warning(cast(QWidget, self), "Queue Processing Error", error_msg)
+
+        self._maybe_finish_close()
+
+    # ------------------------------------------------------------------
+    # App-close deferral (headless keep-alive while extractions run)
+    # ------------------------------------------------------------------
+
+    def has_active_extractions(self: "VideoExtractorSubTabHostProtocol") -> bool:
+        """True while a queue worker OR a single (GIF/video) extraction is
+        still running. MainWindow.closeEvent uses this to keep the process
+        alive headlessly until the work finishes (Bug 1)."""
+        return (
+            getattr(self, "active_queue_worker", None) is not None
+            or getattr(self, "active_extraction_worker", None) is not None
+        )
+
+    def set_close_when_finished(self: "VideoExtractorSubTabHostProtocol", callback) -> None:
+        """Register a callback invoked once all extractions finish (used by
+        MainWindow to complete a deferred close)."""
+        self._close_when_finished = callback
+
+    def _maybe_finish_close(self: "VideoExtractorSubTabHostProtocol") -> None:
+        """Fire the deferred-close callback once no extraction is active."""
+        if self.has_active_extractions():
+            return
+        callback = getattr(self, "_close_when_finished", None)
+        if callback is None:
+            return
+        self._close_when_finished = None
+        callback()
 
 
 __all__ = ["_QueueManagementMixin"]
