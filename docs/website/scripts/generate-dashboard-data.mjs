@@ -279,6 +279,37 @@ function main() {
     ) + "\n"
   );
 
+  // Generate M2.5a (#32) Per-Defect & Stage-Attributed Correlation Matrix
+  const defectAuditScript = path.join(
+    REPO_ROOT,
+    "submodules/ASP/backend/benchmark/audit_defect_correlation.py"
+  );
+  const primaryRunFile = runFiles.find((f) => path.basename(f) === "anime_stitch_20260807_045552.json") || runFiles[0];
+  if (fs.existsSync(defectAuditScript) && primaryRunFile && latestEvalPath) {
+    try {
+      const pythonBin = fs.existsSync(path.join(REPO_ROOT, ".venv/bin/python"))
+        ? path.join(REPO_ROOT, ".venv/bin/python")
+        : "python3";
+      const defectJsonOut = path.join(OUT_DIR, "defect_correlation_matrix.json");
+      import("node:child_process").then(({ execFileSync }) => {
+        execFileSync(pythonBin, [
+          defectAuditScript,
+          "--run",
+          primaryRunFile,
+          "--labels",
+          latestEvalPath,
+          "--json-out",
+          defectJsonOut,
+        ]);
+        console.log("generated defect correlation matrix:", defectJsonOut);
+      }).catch((e) => {
+        console.warn("failed to run defect correlation script:", e.message);
+      });
+    } catch (e) {
+      console.warn("could not spawn defect correlation audit:", e.message);
+    }
+  }
+
   console.log(
     `dashboard data: ${runs.length} automated run(s), human eval keys=${Object.keys(latestEval).length}`
   );

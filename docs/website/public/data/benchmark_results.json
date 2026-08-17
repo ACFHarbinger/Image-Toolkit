@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-08-10T08:43:17.784Z",
-  "run_count": 9,
+  "generated_at": "2026-08-17T12:14:34.916Z",
+  "run_count": 17,
   "runs": [
     {
       "id": "anime_stitch_20260807_002510",
@@ -42,6 +42,45 @@
         "avg_ssim_simple_vs_gt": 0.7423,
         "human_coherence_rated": 0
       },
+      "automated_metric_catalog": {
+        "cqas_v1_legacy": {
+          "label": "CQAS v1 (legacy diagnostic)",
+          "direction": "higher_is_better_historically",
+          "status": "legacy_diagnostic_only",
+          "verdict_eligible": false,
+          "note": "Failed human-label correlation audit; never use for ranking or X-wins claims."
+        },
+        "seam_visibility": {
+          "label": "Seam visibility",
+          "direction": "lower_is_better",
+          "status": "human_aligned_candidate",
+          "verdict_eligible": true
+        },
+        "seam_gradient": {
+          "label": "Seam gradient",
+          "direction": "lower_is_better",
+          "status": "human_aligned_supporting_diagnostic",
+          "verdict_eligible": false
+        },
+        "ghosting_siqe": {
+          "label": "Ghosting SIQE",
+          "direction": "lower_is_better_historically",
+          "status": "inverse_validated_telemetry",
+          "verdict_eligible": false
+        },
+        "seam_coherence": {
+          "label": "Seam coherence / banding",
+          "direction": "lower_is_better_historically",
+          "status": "no_human_correlation_telemetry",
+          "verdict_eligible": false
+        },
+        "strip_banding_score": {
+          "label": "Strip banding",
+          "direction": "lower_is_better_historically",
+          "status": "inverse_validated_telemetry",
+          "verdict_eligible": false
+        }
+      },
       "datasets": [
         {
           "name": "asp_test04",
@@ -72,7 +111,7 @@
             "ghost_seam_max": null,
             "width": 1901,
             "height": 2372,
-            "cqas": 0.5268
+            "cqas_v1_legacy": 0.5268
           },
           "metrics_simple": {
             "sharpness": 37.6,
@@ -87,7 +126,7 @@
             "ghost_seam_max": null,
             "width": 1906,
             "height": 2493,
-            "cqas": 0.4151
+            "cqas_v1_legacy": 0.4151
           },
           "comparison": {
             "ssim": 0.713,
@@ -126,7 +165,7 @@
             "ghost_seam_max": null,
             "width": 1898,
             "height": 1749,
-            "cqas": 0.5537
+            "cqas_v1_legacy": 0.5537
           },
           "metrics_simple": {
             "sharpness": 226.55,
@@ -141,7 +180,7 @@
             "ghost_seam_max": null,
             "width": 1870,
             "height": 1647,
-            "cqas": 0.5618
+            "cqas_v1_legacy": 0.5618
           },
           "comparison": {
             "ssim": 0.7752,
@@ -180,7 +219,7 @@
             "ghost_seam_max": null,
             "width": 1485,
             "height": 2333,
-            "cqas": 0.5167
+            "cqas_v1_legacy": 0.5167
           },
           "metrics_simple": {
             "sharpness": 90.52,
@@ -195,7 +234,7 @@
             "ghost_seam_max": null,
             "width": 1544,
             "height": 2330,
-            "cqas": 0.5387
+            "cqas_v1_legacy": 0.5387
           },
           "comparison": {
             "ssim": 0.8443,
@@ -234,7 +273,7 @@
             "ghost_seam_max": null,
             "width": 1878,
             "height": 2143,
-            "cqas": 0.4372
+            "cqas_v1_legacy": 0.4372
           },
           "metrics_simple": {
             "sharpness": 104.52,
@@ -249,7 +288,7 @@
             "ghost_seam_max": null,
             "width": 1920,
             "height": 2449,
-            "cqas": 0.5328
+            "cqas_v1_legacy": 0.5328
           },
           "comparison": {
             "ssim": 0.7278,
@@ -288,7 +327,7 @@
             "ghost_seam_max": null,
             "width": 1917,
             "height": 2589,
-            "cqas": 0.4509
+            "cqas_v1_legacy": 0.4509
           },
           "metrics_simple": {
             "sharpness": 36.02,
@@ -303,7 +342,7 @@
             "ghost_seam_max": null,
             "width": 1917,
             "height": 2591,
-            "cqas": 0.4422
+            "cqas_v1_legacy": 0.4422
           },
           "comparison": {
             "ssim": 0.9336,
@@ -354,6 +393,45 @@
         "avg_ssim_simple_vs_gt": 0.7423,
         "human_coherence_rated": 0
       },
+      "automated_metric_catalog": {
+        "cqas_v1_legacy": {
+          "label": "CQAS v1 (legacy diagnostic)",
+          "direction": "higher_is_better_historically",
+          "status": "legacy_diagnostic_only",
+          "verdict_eligible": false,
+          "note": "Failed human-label correlation audit; never use for ranking or X-wins claims."
+        },
+        "seam_visibility": {
+          "label": "Seam visibility",
+          "direction": "lower_is_better",
+          "status": "human_aligned_candidate",
+          "verdict_eligible": true
+        },
+        "seam_gradient": {
+          "label": "Seam gradient",
+          "direction": "lower_is_better",
+          "status": "human_aligned_supporting_diagnostic",
+          "verdict_eligible": false
+        },
+        "ghosting_siqe": {
+          "label": "Ghosting SIQE",
+          "direction": "lower_is_better_historically",
+          "status": "inverse_validated_telemetry",
+          "verdict_eligible": false
+        },
+        "seam_coherence": {
+          "label": "Seam coherence / banding",
+          "direction": "lower_is_better_historically",
+          "status": "no_human_correlation_telemetry",
+          "verdict_eligible": false
+        },
+        "strip_banding_score": {
+          "label": "Strip banding",
+          "direction": "lower_is_better_historically",
+          "status": "inverse_validated_telemetry",
+          "verdict_eligible": false
+        }
+      },
       "datasets": [
         {
           "name": "asp_test04",
@@ -384,7 +462,7 @@
             "ghost_seam_max": null,
             "width": 1901,
             "height": 2372,
-            "cqas": 0.5268
+            "cqas_v1_legacy": 0.5268
           },
           "metrics_simple": {
             "sharpness": 37.6,
@@ -399,7 +477,7 @@
             "ghost_seam_max": null,
             "width": 1906,
             "height": 2493,
-            "cqas": 0.4151
+            "cqas_v1_legacy": 0.4151
           },
           "comparison": {
             "ssim": 0.713,
@@ -438,7 +516,7 @@
             "ghost_seam_max": null,
             "width": 1898,
             "height": 1749,
-            "cqas": 0.5537
+            "cqas_v1_legacy": 0.5537
           },
           "metrics_simple": {
             "sharpness": 226.55,
@@ -453,7 +531,7 @@
             "ghost_seam_max": null,
             "width": 1870,
             "height": 1647,
-            "cqas": 0.5618
+            "cqas_v1_legacy": 0.5618
           },
           "comparison": {
             "ssim": 0.7752,
@@ -492,7 +570,7 @@
             "ghost_seam_max": null,
             "width": 1485,
             "height": 2333,
-            "cqas": 0.5167
+            "cqas_v1_legacy": 0.5167
           },
           "metrics_simple": {
             "sharpness": 90.52,
@@ -507,7 +585,7 @@
             "ghost_seam_max": null,
             "width": 1544,
             "height": 2330,
-            "cqas": 0.5387
+            "cqas_v1_legacy": 0.5387
           },
           "comparison": {
             "ssim": 0.8443,
@@ -546,7 +624,7 @@
             "ghost_seam_max": null,
             "width": 1878,
             "height": 2143,
-            "cqas": 0.4372
+            "cqas_v1_legacy": 0.4372
           },
           "metrics_simple": {
             "sharpness": 104.52,
@@ -561,7 +639,7 @@
             "ghost_seam_max": null,
             "width": 1920,
             "height": 2449,
-            "cqas": 0.5328
+            "cqas_v1_legacy": 0.5328
           },
           "comparison": {
             "ssim": 0.7278,
@@ -600,7 +678,7 @@
             "ghost_seam_max": null,
             "width": 1917,
             "height": 2589,
-            "cqas": 0.4509
+            "cqas_v1_legacy": 0.4509
           },
           "metrics_simple": {
             "sharpness": 36.02,
@@ -615,7 +693,7 @@
             "ghost_seam_max": null,
             "width": 1917,
             "height": 2591,
-            "cqas": 0.4422
+            "cqas_v1_legacy": 0.4422
           },
           "comparison": {
             "ssim": 0.9336,
@@ -666,6 +744,45 @@
         "avg_ssim_simple_vs_gt": 0.7423,
         "human_coherence_rated": 0
       },
+      "automated_metric_catalog": {
+        "cqas_v1_legacy": {
+          "label": "CQAS v1 (legacy diagnostic)",
+          "direction": "higher_is_better_historically",
+          "status": "legacy_diagnostic_only",
+          "verdict_eligible": false,
+          "note": "Failed human-label correlation audit; never use for ranking or X-wins claims."
+        },
+        "seam_visibility": {
+          "label": "Seam visibility",
+          "direction": "lower_is_better",
+          "status": "human_aligned_candidate",
+          "verdict_eligible": true
+        },
+        "seam_gradient": {
+          "label": "Seam gradient",
+          "direction": "lower_is_better",
+          "status": "human_aligned_supporting_diagnostic",
+          "verdict_eligible": false
+        },
+        "ghosting_siqe": {
+          "label": "Ghosting SIQE",
+          "direction": "lower_is_better_historically",
+          "status": "inverse_validated_telemetry",
+          "verdict_eligible": false
+        },
+        "seam_coherence": {
+          "label": "Seam coherence / banding",
+          "direction": "lower_is_better_historically",
+          "status": "no_human_correlation_telemetry",
+          "verdict_eligible": false
+        },
+        "strip_banding_score": {
+          "label": "Strip banding",
+          "direction": "lower_is_better_historically",
+          "status": "inverse_validated_telemetry",
+          "verdict_eligible": false
+        }
+      },
       "datasets": [
         {
           "name": "asp_test04",
@@ -696,7 +813,7 @@
             "ghost_seam_max": null,
             "width": 1901,
             "height": 2372,
-            "cqas": 0.5268
+            "cqas_v1_legacy": 0.5268
           },
           "metrics_simple": {
             "sharpness": 37.6,
@@ -711,7 +828,7 @@
             "ghost_seam_max": null,
             "width": 1906,
             "height": 2493,
-            "cqas": 0.4151
+            "cqas_v1_legacy": 0.4151
           },
           "comparison": {
             "ssim": 0.713,
@@ -750,7 +867,7 @@
             "ghost_seam_max": null,
             "width": 1898,
             "height": 1749,
-            "cqas": 0.5537
+            "cqas_v1_legacy": 0.5537
           },
           "metrics_simple": {
             "sharpness": 226.55,
@@ -765,7 +882,7 @@
             "ghost_seam_max": null,
             "width": 1870,
             "height": 1647,
-            "cqas": 0.5618
+            "cqas_v1_legacy": 0.5618
           },
           "comparison": {
             "ssim": 0.7752,
@@ -804,7 +921,7 @@
             "ghost_seam_max": null,
             "width": 1485,
             "height": 2333,
-            "cqas": 0.5167
+            "cqas_v1_legacy": 0.5167
           },
           "metrics_simple": {
             "sharpness": 90.52,
@@ -819,7 +936,7 @@
             "ghost_seam_max": null,
             "width": 1544,
             "height": 2330,
-            "cqas": 0.5387
+            "cqas_v1_legacy": 0.5387
           },
           "comparison": {
             "ssim": 0.8443,
@@ -858,7 +975,7 @@
             "ghost_seam_max": null,
             "width": 1878,
             "height": 2143,
-            "cqas": 0.4372
+            "cqas_v1_legacy": 0.4372
           },
           "metrics_simple": {
             "sharpness": 104.52,
@@ -873,7 +990,7 @@
             "ghost_seam_max": null,
             "width": 1920,
             "height": 2449,
-            "cqas": 0.5328
+            "cqas_v1_legacy": 0.5328
           },
           "comparison": {
             "ssim": 0.7278,
@@ -912,7 +1029,7 @@
             "ghost_seam_max": null,
             "width": 1917,
             "height": 2589,
-            "cqas": 0.4509
+            "cqas_v1_legacy": 0.4509
           },
           "metrics_simple": {
             "sharpness": 36.02,
@@ -927,7 +1044,7 @@
             "ghost_seam_max": null,
             "width": 1917,
             "height": 2591,
-            "cqas": 0.4422
+            "cqas_v1_legacy": 0.4422
           },
           "comparison": {
             "ssim": 0.9336,
@@ -978,6 +1095,45 @@
         "avg_ssim_simple_vs_gt": 0.7423,
         "human_coherence_rated": 0
       },
+      "automated_metric_catalog": {
+        "cqas_v1_legacy": {
+          "label": "CQAS v1 (legacy diagnostic)",
+          "direction": "higher_is_better_historically",
+          "status": "legacy_diagnostic_only",
+          "verdict_eligible": false,
+          "note": "Failed human-label correlation audit; never use for ranking or X-wins claims."
+        },
+        "seam_visibility": {
+          "label": "Seam visibility",
+          "direction": "lower_is_better",
+          "status": "human_aligned_candidate",
+          "verdict_eligible": true
+        },
+        "seam_gradient": {
+          "label": "Seam gradient",
+          "direction": "lower_is_better",
+          "status": "human_aligned_supporting_diagnostic",
+          "verdict_eligible": false
+        },
+        "ghosting_siqe": {
+          "label": "Ghosting SIQE",
+          "direction": "lower_is_better_historically",
+          "status": "inverse_validated_telemetry",
+          "verdict_eligible": false
+        },
+        "seam_coherence": {
+          "label": "Seam coherence / banding",
+          "direction": "lower_is_better_historically",
+          "status": "no_human_correlation_telemetry",
+          "verdict_eligible": false
+        },
+        "strip_banding_score": {
+          "label": "Strip banding",
+          "direction": "lower_is_better_historically",
+          "status": "inverse_validated_telemetry",
+          "verdict_eligible": false
+        }
+      },
       "datasets": [
         {
           "name": "asp_test04",
@@ -1008,7 +1164,7 @@
             "ghost_seam_max": null,
             "width": 1901,
             "height": 2372,
-            "cqas": 0.5268
+            "cqas_v1_legacy": 0.5268
           },
           "metrics_simple": {
             "sharpness": 37.6,
@@ -1023,7 +1179,7 @@
             "ghost_seam_max": null,
             "width": 1906,
             "height": 2493,
-            "cqas": 0.4151
+            "cqas_v1_legacy": 0.4151
           },
           "comparison": {
             "ssim": 0.713,
@@ -1062,7 +1218,7 @@
             "ghost_seam_max": null,
             "width": 1898,
             "height": 1749,
-            "cqas": 0.5537
+            "cqas_v1_legacy": 0.5537
           },
           "metrics_simple": {
             "sharpness": 226.55,
@@ -1077,7 +1233,7 @@
             "ghost_seam_max": null,
             "width": 1870,
             "height": 1647,
-            "cqas": 0.5618
+            "cqas_v1_legacy": 0.5618
           },
           "comparison": {
             "ssim": 0.7752,
@@ -1116,7 +1272,7 @@
             "ghost_seam_max": null,
             "width": 1485,
             "height": 2333,
-            "cqas": 0.5167
+            "cqas_v1_legacy": 0.5167
           },
           "metrics_simple": {
             "sharpness": 90.52,
@@ -1131,7 +1287,7 @@
             "ghost_seam_max": null,
             "width": 1544,
             "height": 2330,
-            "cqas": 0.5387
+            "cqas_v1_legacy": 0.5387
           },
           "comparison": {
             "ssim": 0.8443,
@@ -1170,7 +1326,7 @@
             "ghost_seam_max": null,
             "width": 1878,
             "height": 2143,
-            "cqas": 0.4372
+            "cqas_v1_legacy": 0.4372
           },
           "metrics_simple": {
             "sharpness": 104.52,
@@ -1185,7 +1341,7 @@
             "ghost_seam_max": null,
             "width": 1920,
             "height": 2449,
-            "cqas": 0.5328
+            "cqas_v1_legacy": 0.5328
           },
           "comparison": {
             "ssim": 0.7278,
@@ -1224,7 +1380,7 @@
             "ghost_seam_max": null,
             "width": 1917,
             "height": 2589,
-            "cqas": 0.4509
+            "cqas_v1_legacy": 0.4509
           },
           "metrics_simple": {
             "sharpness": 36.02,
@@ -1239,7 +1395,7 @@
             "ghost_seam_max": null,
             "width": 1917,
             "height": 2591,
-            "cqas": 0.4422
+            "cqas_v1_legacy": 0.4422
           },
           "comparison": {
             "ssim": 0.9336,
@@ -1290,6 +1446,45 @@
         "avg_ssim_simple_vs_gt": 0.7383,
         "human_coherence_rated": 0
       },
+      "automated_metric_catalog": {
+        "cqas_v1_legacy": {
+          "label": "CQAS v1 (legacy diagnostic)",
+          "direction": "higher_is_better_historically",
+          "status": "legacy_diagnostic_only",
+          "verdict_eligible": false,
+          "note": "Failed human-label correlation audit; never use for ranking or X-wins claims."
+        },
+        "seam_visibility": {
+          "label": "Seam visibility",
+          "direction": "lower_is_better",
+          "status": "human_aligned_candidate",
+          "verdict_eligible": true
+        },
+        "seam_gradient": {
+          "label": "Seam gradient",
+          "direction": "lower_is_better",
+          "status": "human_aligned_supporting_diagnostic",
+          "verdict_eligible": false
+        },
+        "ghosting_siqe": {
+          "label": "Ghosting SIQE",
+          "direction": "lower_is_better_historically",
+          "status": "inverse_validated_telemetry",
+          "verdict_eligible": false
+        },
+        "seam_coherence": {
+          "label": "Seam coherence / banding",
+          "direction": "lower_is_better_historically",
+          "status": "no_human_correlation_telemetry",
+          "verdict_eligible": false
+        },
+        "strip_banding_score": {
+          "label": "Strip banding",
+          "direction": "lower_is_better_historically",
+          "status": "inverse_validated_telemetry",
+          "verdict_eligible": false
+        }
+      },
       "datasets": [
         {
           "name": "asp_test08",
@@ -1320,7 +1515,7 @@
             "ghost_seam_max": null,
             "width": 1898,
             "height": 1749,
-            "cqas": 0.5537
+            "cqas_v1_legacy": 0.5537
           },
           "metrics_simple": {
             "sharpness": 226.55,
@@ -1335,7 +1530,7 @@
             "ghost_seam_max": null,
             "width": 1870,
             "height": 1647,
-            "cqas": 0.5618
+            "cqas_v1_legacy": 0.5618
           },
           "comparison": {
             "ssim": 0.7752,
@@ -1374,7 +1569,7 @@
             "ghost_seam_max": null,
             "width": 1485,
             "height": 2333,
-            "cqas": 0.5167
+            "cqas_v1_legacy": 0.5167
           },
           "metrics_simple": {
             "sharpness": 90.52,
@@ -1389,7 +1584,7 @@
             "ghost_seam_max": null,
             "width": 1544,
             "height": 2330,
-            "cqas": 0.5387
+            "cqas_v1_legacy": 0.5387
           },
           "comparison": {
             "ssim": 0.8443,
@@ -1428,7 +1623,7 @@
             "ghost_seam_max": null,
             "width": 1880,
             "height": 2117,
-            "cqas": 0.4518
+            "cqas_v1_legacy": 0.4518
           },
           "metrics_simple": {
             "sharpness": 104.52,
@@ -1443,7 +1638,7 @@
             "ghost_seam_max": null,
             "width": 1920,
             "height": 2449,
-            "cqas": 0.5328
+            "cqas_v1_legacy": 0.5328
           },
           "comparison": {
             "ssim": 0.7196,
@@ -1494,6 +1689,45 @@
         "avg_ssim_simple_vs_gt": 0.7423,
         "human_coherence_rated": 0
       },
+      "automated_metric_catalog": {
+        "cqas_v1_legacy": {
+          "label": "CQAS v1 (legacy diagnostic)",
+          "direction": "higher_is_better_historically",
+          "status": "legacy_diagnostic_only",
+          "verdict_eligible": false,
+          "note": "Failed human-label correlation audit; never use for ranking or X-wins claims."
+        },
+        "seam_visibility": {
+          "label": "Seam visibility",
+          "direction": "lower_is_better",
+          "status": "human_aligned_candidate",
+          "verdict_eligible": true
+        },
+        "seam_gradient": {
+          "label": "Seam gradient",
+          "direction": "lower_is_better",
+          "status": "human_aligned_supporting_diagnostic",
+          "verdict_eligible": false
+        },
+        "ghosting_siqe": {
+          "label": "Ghosting SIQE",
+          "direction": "lower_is_better_historically",
+          "status": "inverse_validated_telemetry",
+          "verdict_eligible": false
+        },
+        "seam_coherence": {
+          "label": "Seam coherence / banding",
+          "direction": "lower_is_better_historically",
+          "status": "no_human_correlation_telemetry",
+          "verdict_eligible": false
+        },
+        "strip_banding_score": {
+          "label": "Strip banding",
+          "direction": "lower_is_better_historically",
+          "status": "inverse_validated_telemetry",
+          "verdict_eligible": false
+        }
+      },
       "datasets": [
         {
           "name": "asp_test04",
@@ -1524,7 +1758,7 @@
             "ghost_seam_max": null,
             "width": 1906,
             "height": 2478,
-            "cqas": 0.5683
+            "cqas_v1_legacy": 0.5683
           },
           "metrics_simple": {
             "sharpness": 37.6,
@@ -1539,7 +1773,7 @@
             "ghost_seam_max": null,
             "width": 1906,
             "height": 2493,
-            "cqas": 0.4151
+            "cqas_v1_legacy": 0.4151
           },
           "comparison": {
             "ssim": 0.69,
@@ -1578,7 +1812,7 @@
             "ghost_seam_max": null,
             "width": 1898,
             "height": 1749,
-            "cqas": 0.5537
+            "cqas_v1_legacy": 0.5537
           },
           "metrics_simple": {
             "sharpness": 226.55,
@@ -1593,7 +1827,7 @@
             "ghost_seam_max": null,
             "width": 1870,
             "height": 1647,
-            "cqas": 0.5618
+            "cqas_v1_legacy": 0.5618
           },
           "comparison": {
             "ssim": 0.7752,
@@ -1632,7 +1866,7 @@
             "ghost_seam_max": null,
             "width": 1485,
             "height": 2333,
-            "cqas": 0.5167
+            "cqas_v1_legacy": 0.5167
           },
           "metrics_simple": {
             "sharpness": 90.52,
@@ -1647,7 +1881,7 @@
             "ghost_seam_max": null,
             "width": 1544,
             "height": 2330,
-            "cqas": 0.5387
+            "cqas_v1_legacy": 0.5387
           },
           "comparison": {
             "ssim": 0.8443,
@@ -1686,7 +1920,7 @@
             "ghost_seam_max": null,
             "width": 1880,
             "height": 2117,
-            "cqas": 0.4518
+            "cqas_v1_legacy": 0.4518
           },
           "metrics_simple": {
             "sharpness": 104.52,
@@ -1701,7 +1935,7 @@
             "ghost_seam_max": null,
             "width": 1920,
             "height": 2449,
-            "cqas": 0.5328
+            "cqas_v1_legacy": 0.5328
           },
           "comparison": {
             "ssim": 0.7196,
@@ -1740,7 +1974,7 @@
             "ghost_seam_max": null,
             "width": 1894,
             "height": 2548,
-            "cqas": 0.3938
+            "cqas_v1_legacy": 0.3938
           },
           "metrics_simple": {
             "sharpness": 36.02,
@@ -1755,7 +1989,7 @@
             "ghost_seam_max": null,
             "width": 1917,
             "height": 2591,
-            "cqas": 0.4422
+            "cqas_v1_legacy": 0.4422
           },
           "comparison": {
             "ssim": 0.7367,
@@ -1806,6 +2040,45 @@
         "avg_ssim_simple_vs_gt": 0.7423,
         "human_coherence_rated": 0
       },
+      "automated_metric_catalog": {
+        "cqas_v1_legacy": {
+          "label": "CQAS v1 (legacy diagnostic)",
+          "direction": "higher_is_better_historically",
+          "status": "legacy_diagnostic_only",
+          "verdict_eligible": false,
+          "note": "Failed human-label correlation audit; never use for ranking or X-wins claims."
+        },
+        "seam_visibility": {
+          "label": "Seam visibility",
+          "direction": "lower_is_better",
+          "status": "human_aligned_candidate",
+          "verdict_eligible": true
+        },
+        "seam_gradient": {
+          "label": "Seam gradient",
+          "direction": "lower_is_better",
+          "status": "human_aligned_supporting_diagnostic",
+          "verdict_eligible": false
+        },
+        "ghosting_siqe": {
+          "label": "Ghosting SIQE",
+          "direction": "lower_is_better_historically",
+          "status": "inverse_validated_telemetry",
+          "verdict_eligible": false
+        },
+        "seam_coherence": {
+          "label": "Seam coherence / banding",
+          "direction": "lower_is_better_historically",
+          "status": "no_human_correlation_telemetry",
+          "verdict_eligible": false
+        },
+        "strip_banding_score": {
+          "label": "Strip banding",
+          "direction": "lower_is_better_historically",
+          "status": "inverse_validated_telemetry",
+          "verdict_eligible": false
+        }
+      },
       "datasets": [
         {
           "name": "asp_test04",
@@ -1836,7 +2109,7 @@
             "ghost_seam_max": null,
             "width": 1901,
             "height": 2372,
-            "cqas": 0.5268
+            "cqas_v1_legacy": 0.5268
           },
           "metrics_simple": {
             "sharpness": 37.6,
@@ -1851,7 +2124,7 @@
             "ghost_seam_max": null,
             "width": 1906,
             "height": 2493,
-            "cqas": 0.4151
+            "cqas_v1_legacy": 0.4151
           },
           "comparison": {
             "ssim": 0.713,
@@ -1890,7 +2163,7 @@
             "ghost_seam_max": null,
             "width": 1898,
             "height": 1749,
-            "cqas": 0.5537
+            "cqas_v1_legacy": 0.5537
           },
           "metrics_simple": {
             "sharpness": 226.55,
@@ -1905,7 +2178,7 @@
             "ghost_seam_max": null,
             "width": 1870,
             "height": 1647,
-            "cqas": 0.5618
+            "cqas_v1_legacy": 0.5618
           },
           "comparison": {
             "ssim": 0.7752,
@@ -1944,7 +2217,7 @@
             "ghost_seam_max": null,
             "width": 1485,
             "height": 2333,
-            "cqas": 0.5167
+            "cqas_v1_legacy": 0.5167
           },
           "metrics_simple": {
             "sharpness": 90.52,
@@ -1959,7 +2232,7 @@
             "ghost_seam_max": null,
             "width": 1544,
             "height": 2330,
-            "cqas": 0.5387
+            "cqas_v1_legacy": 0.5387
           },
           "comparison": {
             "ssim": 0.8443,
@@ -1998,7 +2271,7 @@
             "ghost_seam_max": null,
             "width": 1878,
             "height": 2143,
-            "cqas": 0.4372
+            "cqas_v1_legacy": 0.4372
           },
           "metrics_simple": {
             "sharpness": 104.52,
@@ -2013,7 +2286,7 @@
             "ghost_seam_max": null,
             "width": 1920,
             "height": 2449,
-            "cqas": 0.5328
+            "cqas_v1_legacy": 0.5328
           },
           "comparison": {
             "ssim": 0.7278,
@@ -2052,7 +2325,7 @@
             "ghost_seam_max": null,
             "width": 1917,
             "height": 2589,
-            "cqas": 0.4509
+            "cqas_v1_legacy": 0.4509
           },
           "metrics_simple": {
             "sharpness": 36.02,
@@ -2067,7 +2340,7 @@
             "ghost_seam_max": null,
             "width": 1917,
             "height": 2591,
-            "cqas": 0.4422
+            "cqas_v1_legacy": 0.4422
           },
           "comparison": {
             "ssim": 0.9336,
@@ -2118,6 +2391,45 @@
         "avg_ssim_simple_vs_gt": 0.7445,
         "human_coherence_rated": 0
       },
+      "automated_metric_catalog": {
+        "cqas_v1_legacy": {
+          "label": "CQAS v1 (legacy diagnostic)",
+          "direction": "higher_is_better_historically",
+          "status": "legacy_diagnostic_only",
+          "verdict_eligible": false,
+          "note": "Failed human-label correlation audit; never use for ranking or X-wins claims."
+        },
+        "seam_visibility": {
+          "label": "Seam visibility",
+          "direction": "lower_is_better",
+          "status": "human_aligned_candidate",
+          "verdict_eligible": true
+        },
+        "seam_gradient": {
+          "label": "Seam gradient",
+          "direction": "lower_is_better",
+          "status": "human_aligned_supporting_diagnostic",
+          "verdict_eligible": false
+        },
+        "ghosting_siqe": {
+          "label": "Ghosting SIQE",
+          "direction": "lower_is_better_historically",
+          "status": "inverse_validated_telemetry",
+          "verdict_eligible": false
+        },
+        "seam_coherence": {
+          "label": "Seam coherence / banding",
+          "direction": "lower_is_better_historically",
+          "status": "no_human_correlation_telemetry",
+          "verdict_eligible": false
+        },
+        "strip_banding_score": {
+          "label": "Strip banding",
+          "direction": "lower_is_better_historically",
+          "status": "inverse_validated_telemetry",
+          "verdict_eligible": false
+        }
+      },
       "datasets": [
         {
           "name": "asp_test04",
@@ -2148,7 +2460,7 @@
             "ghost_seam_max": null,
             "width": 1884,
             "height": 2380,
-            "cqas": 0.4458
+            "cqas_v1_legacy": 0.4458
           },
           "metrics_simple": {
             "sharpness": 44.98,
@@ -2163,7 +2475,7 @@
             "ghost_seam_max": null,
             "width": 1910,
             "height": 2501,
-            "cqas": 0.412
+            "cqas_v1_legacy": 0.412
           },
           "comparison": {
             "ssim": 0.7064,
@@ -2202,7 +2514,7 @@
             "ghost_seam_max": null,
             "width": 1893,
             "height": 1738,
-            "cqas": 0.5693
+            "cqas_v1_legacy": 0.5693
           },
           "metrics_simple": {
             "sharpness": 244.03,
@@ -2217,7 +2529,7 @@
             "ghost_seam_max": null,
             "width": 1917,
             "height": 1774,
-            "cqas": 0.5661
+            "cqas_v1_legacy": 0.5661
           },
           "comparison": {
             "ssim": 0.794,
@@ -2256,7 +2568,7 @@
             "ghost_seam_max": null,
             "width": 1445,
             "height": 2325,
-            "cqas": 0.5168
+            "cqas_v1_legacy": 0.5168
           },
           "metrics_simple": {
             "sharpness": 91.51,
@@ -2271,7 +2583,7 @@
             "ghost_seam_max": null,
             "width": 1547,
             "height": 2329,
-            "cqas": 0.544
+            "cqas_v1_legacy": 0.544
           },
           "comparison": {
             "ssim": 0.8342,
@@ -2310,7 +2622,7 @@
             "ghost_seam_max": null,
             "width": 1863,
             "height": 2000,
-            "cqas": 0.442
+            "cqas_v1_legacy": 0.442
           },
           "metrics_simple": {
             "sharpness": 110.61,
@@ -2325,7 +2637,7 @@
             "ghost_seam_max": null,
             "width": 1920,
             "height": 2449,
-            "cqas": 0.5332
+            "cqas_v1_legacy": 0.5332
           },
           "comparison": {
             "ssim": 0.7089,
@@ -2364,7 +2676,7 @@
             "ghost_seam_max": null,
             "width": 1905,
             "height": 3101,
-            "cqas": 0.4421
+            "cqas_v1_legacy": 0.4421
           },
           "metrics_simple": {
             "sharpness": 37.37,
@@ -2379,7 +2691,7 @@
             "ghost_seam_max": null,
             "width": 1915,
             "height": 2596,
-            "cqas": 0.4394
+            "cqas_v1_legacy": 0.4394
           },
           "comparison": {
             "ssim": 0.7213,
@@ -2430,6 +2742,45 @@
         "avg_ssim_simple_vs_gt": 0.6931,
         "human_coherence_rated": 0
       },
+      "automated_metric_catalog": {
+        "cqas_v1_legacy": {
+          "label": "CQAS v1 (legacy diagnostic)",
+          "direction": "higher_is_better_historically",
+          "status": "legacy_diagnostic_only",
+          "verdict_eligible": false,
+          "note": "Failed human-label correlation audit; never use for ranking or X-wins claims."
+        },
+        "seam_visibility": {
+          "label": "Seam visibility",
+          "direction": "lower_is_better",
+          "status": "human_aligned_candidate",
+          "verdict_eligible": true
+        },
+        "seam_gradient": {
+          "label": "Seam gradient",
+          "direction": "lower_is_better",
+          "status": "human_aligned_supporting_diagnostic",
+          "verdict_eligible": false
+        },
+        "ghosting_siqe": {
+          "label": "Ghosting SIQE",
+          "direction": "lower_is_better_historically",
+          "status": "inverse_validated_telemetry",
+          "verdict_eligible": false
+        },
+        "seam_coherence": {
+          "label": "Seam coherence / banding",
+          "direction": "lower_is_better_historically",
+          "status": "no_human_correlation_telemetry",
+          "verdict_eligible": false
+        },
+        "strip_banding_score": {
+          "label": "Strip banding",
+          "direction": "lower_is_better_historically",
+          "status": "inverse_validated_telemetry",
+          "verdict_eligible": false
+        }
+      },
       "datasets": [
         {
           "name": "asp_test01",
@@ -2460,7 +2811,7 @@
             "ghost_seam_max": null,
             "width": 1703,
             "height": 1704,
-            "cqas": 0.5125
+            "cqas_v1_legacy": 0.5125
           },
           "metrics_simple": {
             "sharpness": 79.95,
@@ -2475,7 +2826,7 @@
             "ghost_seam_max": null,
             "width": 1917,
             "height": 2050,
-            "cqas": 0.471
+            "cqas_v1_legacy": 0.471
           },
           "comparison": {
             "ssim": 0.6999,
@@ -2514,7 +2865,7 @@
             "ghost_seam_max": null,
             "width": 1878,
             "height": 2048,
-            "cqas": 0.3419
+            "cqas_v1_legacy": 0.3419
           },
           "metrics_simple": {
             "sharpness": 106.26,
@@ -2529,7 +2880,7 @@
             "ghost_seam_max": null,
             "width": 1919,
             "height": 2332,
-            "cqas": 0.4889
+            "cqas_v1_legacy": 0.4889
           },
           "comparison": {
             "ssim": 0.7444,
@@ -2568,7 +2919,7 @@
             "ghost_seam_max": null,
             "width": 1695,
             "height": 1221,
-            "cqas": 0.3378
+            "cqas_v1_legacy": 0.3378
           },
           "metrics_simple": {
             "sharpness": 98.94,
@@ -2583,7 +2934,7 @@
             "ghost_seam_max": null,
             "width": 1920,
             "height": 1275,
-            "cqas": 0.4743
+            "cqas_v1_legacy": 0.4743
           },
           "comparison": {
             "ssim": 0.6531,
@@ -2622,7 +2973,7 @@
             "ghost_seam_max": null,
             "width": 1901,
             "height": 2372,
-            "cqas": 0.5268
+            "cqas_v1_legacy": 0.5268
           },
           "metrics_simple": {
             "sharpness": 41.13,
@@ -2637,7 +2988,7 @@
             "ghost_seam_max": null,
             "width": 1913,
             "height": 2503,
-            "cqas": 0.4162
+            "cqas_v1_legacy": 0.4162
           },
           "comparison": {
             "ssim": 0.7061,
@@ -2676,7 +3027,7 @@
             "ghost_seam_max": null,
             "width": 1860,
             "height": 1989,
-            "cqas": 0.4436
+            "cqas_v1_legacy": 0.4436
           },
           "metrics_simple": {
             "sharpness": 110.77,
@@ -2691,7 +3042,7 @@
             "ghost_seam_max": null,
             "width": 1919,
             "height": 2051,
-            "cqas": 0.5335
+            "cqas_v1_legacy": 0.5335
           },
           "comparison": {
             "ssim": 0.7119,
@@ -2730,7 +3081,7 @@
             "ghost_seam_max": null,
             "width": 1867,
             "height": 1646,
-            "cqas": 0.3441
+            "cqas_v1_legacy": 0.3441
           },
           "metrics_simple": {
             "sharpness": 109.45,
@@ -2745,7 +3096,7 @@
             "ghost_seam_max": null,
             "width": 1902,
             "height": 1699,
-            "cqas": 0.5392
+            "cqas_v1_legacy": 0.5392
           },
           "comparison": {
             "ssim": 0.7971,
@@ -2784,7 +3135,7 @@
             "ghost_seam_max": null,
             "width": 1725,
             "height": 2074,
-            "cqas": 0.3243
+            "cqas_v1_legacy": 0.3243
           },
           "metrics_simple": {
             "sharpness": 48.95,
@@ -2799,7 +3150,7 @@
             "ghost_seam_max": null,
             "width": 1152,
             "height": 1696,
-            "cqas": 0.3347
+            "cqas_v1_legacy": 0.3347
           },
           "comparison": {
             "ssim": 0.5193,
@@ -2838,7 +3189,7 @@
             "ghost_seam_max": null,
             "width": 1916,
             "height": 1759,
-            "cqas": 0.5598
+            "cqas_v1_legacy": 0.5598
           },
           "metrics_simple": {
             "sharpness": 235.68,
@@ -2853,7 +3204,7 @@
             "ghost_seam_max": null,
             "width": 1915,
             "height": 1760,
-            "cqas": 0.5555
+            "cqas_v1_legacy": 0.5555
           },
           "comparison": {
             "ssim": 0.9234,
@@ -2892,7 +3243,7 @@
             "ghost_seam_max": null,
             "width": 1581,
             "height": 2334,
-            "cqas": 0.5472
+            "cqas_v1_legacy": 0.5472
           },
           "metrics_simple": {
             "sharpness": 91.47,
@@ -2907,7 +3258,7 @@
             "ghost_seam_max": null,
             "width": 1533,
             "height": 2329,
-            "cqas": 0.5406
+            "cqas_v1_legacy": 0.5406
           },
           "comparison": {
             "ssim": 0.8507,
@@ -2946,7 +3297,7 @@
             "ghost_seam_max": null,
             "width": 1919,
             "height": 1534,
-            "cqas": 0.4603
+            "cqas_v1_legacy": 0.4603
           },
           "metrics_simple": {
             "sharpness": 76.53,
@@ -2961,7 +3312,7 @@
             "ghost_seam_max": null,
             "width": 1908,
             "height": 1530,
-            "cqas": 0.4407
+            "cqas_v1_legacy": 0.4407
           },
           "comparison": {
             "ssim": 0.8457,
@@ -3000,7 +3351,7 @@
             "ghost_seam_max": null,
             "width": 1803,
             "height": 1030,
-            "cqas": 0.5844
+            "cqas_v1_legacy": 0.5844
           },
           "metrics_simple": {
             "sharpness": 111.12,
@@ -3015,7 +3366,7 @@
             "ghost_seam_max": null,
             "width": 1808,
             "height": 1304,
-            "cqas": 0.5556
+            "cqas_v1_legacy": 0.5556
           },
           "comparison": {
             "ssim": 0.747,
@@ -3054,7 +3405,7 @@
             "ghost_seam_max": null,
             "width": 1886,
             "height": 1613,
-            "cqas": 0.434
+            "cqas_v1_legacy": 0.434
           },
           "metrics_simple": {
             "sharpness": 81.9,
@@ -3069,7 +3420,7 @@
             "ghost_seam_max": null,
             "width": 1919,
             "height": 1808,
-            "cqas": 0.4931
+            "cqas_v1_legacy": 0.4931
           },
           "comparison": {
             "ssim": 0.6944,
@@ -3108,7 +3459,7 @@
             "ghost_seam_max": null,
             "width": 1504,
             "height": 1632,
-            "cqas": 0.4895
+            "cqas_v1_legacy": 0.4895
           },
           "metrics_simple": {
             "sharpness": 61.24,
@@ -3123,7 +3474,7 @@
             "ghost_seam_max": null,
             "width": 1488,
             "height": 1648,
-            "cqas": 0.4734
+            "cqas_v1_legacy": 0.4734
           },
           "comparison": {
             "ssim": 0.8258,
@@ -3162,7 +3513,7 @@
             "ghost_seam_max": null,
             "width": 1905,
             "height": 2984,
-            "cqas": 0.4756
+            "cqas_v1_legacy": 0.4756
           },
           "metrics_simple": {
             "sharpness": 37.81,
@@ -3177,7 +3528,7 @@
             "ghost_seam_max": null,
             "width": 1856,
             "height": 2672,
-            "cqas": 0.4822
+            "cqas_v1_legacy": 0.4822
           },
           "comparison": {
             "ssim": 0.7014,
@@ -3216,7 +3567,7 @@
             "ghost_seam_max": null,
             "width": 1975,
             "height": 3206,
-            "cqas": 0.4993
+            "cqas_v1_legacy": 0.4993
           },
           "metrics_simple": {
             "sharpness": 29.41,
@@ -3231,7 +3582,7 @@
             "ghost_seam_max": null,
             "width": 1918,
             "height": 2797,
-            "cqas": 0.4431
+            "cqas_v1_legacy": 0.4431
           },
           "comparison": {
             "ssim": 0.618,
@@ -3270,7 +3621,7 @@
             "ghost_seam_max": null,
             "width": 1920,
             "height": 1741,
-            "cqas": 0.4373
+            "cqas_v1_legacy": 0.4373
           },
           "metrics_simple": {
             "sharpness": 52.16,
@@ -3285,7 +3636,7 @@
             "ghost_seam_max": null,
             "width": 1920,
             "height": 1937,
-            "cqas": 0.3954
+            "cqas_v1_legacy": 0.3954
           },
           "comparison": {
             "ssim": 0.7975,
@@ -3324,7 +3675,7 @@
             "ghost_seam_max": null,
             "width": 1880,
             "height": 2117,
-            "cqas": 0.4681
+            "cqas_v1_legacy": 0.4681
           },
           "metrics_simple": {
             "sharpness": 38.21,
@@ -3339,7 +3690,7 @@
             "ghost_seam_max": null,
             "width": 1917,
             "height": 2179,
-            "cqas": 0.4955
+            "cqas_v1_legacy": 0.4955
           },
           "comparison": {
             "ssim": 0.8247,
@@ -3378,7 +3729,7 @@
             "ghost_seam_max": null,
             "width": 2914,
             "height": 1054,
-            "cqas": 0.4053
+            "cqas_v1_legacy": 0.4053
           },
           "metrics_simple": {
             "sharpness": 41.16,
@@ -3393,7 +3744,7 @@
             "ghost_seam_max": null,
             "width": 3033,
             "height": 1078,
-            "cqas": 0.3781
+            "cqas_v1_legacy": 0.3781
           },
           "comparison": {
             "ssim": 0.859,
@@ -3432,7 +3783,7 @@
             "ghost_seam_max": null,
             "width": 1910,
             "height": 1942,
-            "cqas": 0.4904
+            "cqas_v1_legacy": 0.4904
           },
           "metrics_simple": {
             "sharpness": 67.62,
@@ -3447,7 +3798,7 @@
             "ghost_seam_max": null,
             "width": 1912,
             "height": 2113,
-            "cqas": 0.4671
+            "cqas_v1_legacy": 0.4671
           },
           "comparison": {
             "ssim": 0.7383,
@@ -3486,7 +3837,7 @@
             "ghost_seam_max": null,
             "width": 1344,
             "height": 1856,
-            "cqas": 0.5507
+            "cqas_v1_legacy": 0.5507
           },
           "metrics_simple": {
             "sharpness": 107.62,
@@ -3501,7 +3852,7 @@
             "ghost_seam_max": null,
             "width": 1360,
             "height": 1824,
-            "cqas": 0.551
+            "cqas_v1_legacy": 0.551
           },
           "comparison": {
             "ssim": 0.8425,
@@ -3540,7 +3891,7 @@
             "ghost_seam_max": null,
             "width": 1916,
             "height": 2171,
-            "cqas": 0.4649
+            "cqas_v1_legacy": 0.4649
           },
           "metrics_simple": {
             "sharpness": 80.34,
@@ -3555,7 +3906,7 @@
             "ghost_seam_max": null,
             "width": 1917,
             "height": 2173,
-            "cqas": 0.4748
+            "cqas_v1_legacy": 0.4748
           },
           "comparison": {
             "ssim": 0.9486,
@@ -3594,7 +3945,7 @@
             "ghost_seam_max": null,
             "width": 1997,
             "height": 1644,
-            "cqas": 0.484
+            "cqas_v1_legacy": 0.484
           },
           "metrics_simple": {
             "sharpness": 141.1,
@@ -3609,7 +3960,7 @@
             "ghost_seam_max": null,
             "width": 1835,
             "height": 1080,
-            "cqas": 0.5333
+            "cqas_v1_legacy": 0.5333
           },
           "comparison": {
             "ssim": 0.6738,
@@ -3648,7 +3999,7 @@
             "ghost_seam_max": null,
             "width": 1723,
             "height": 1031,
-            "cqas": 0.4538
+            "cqas_v1_legacy": 0.4538
           },
           "metrics_simple": {
             "sharpness": 112.2,
@@ -3663,7 +4014,7 @@
             "ghost_seam_max": null,
             "width": 1920,
             "height": 1967,
-            "cqas": 0.4135
+            "cqas_v1_legacy": 0.4135
           },
           "comparison": {
             "ssim": 0.5969,
@@ -3702,7 +4053,7 @@
             "ghost_seam_max": null,
             "width": 1862,
             "height": 1236,
-            "cqas": 0.5477
+            "cqas_v1_legacy": 0.5477
           },
           "metrics_simple": {
             "sharpness": 132.37,
@@ -3717,7 +4068,7 @@
             "ghost_seam_max": null,
             "width": 1888,
             "height": 1263,
-            "cqas": 0.5307
+            "cqas_v1_legacy": 0.5307
           },
           "comparison": {
             "ssim": 0.8311,
@@ -3756,7 +4107,7 @@
             "ghost_seam_max": null,
             "width": 1914,
             "height": 1233,
-            "cqas": 0.439
+            "cqas_v1_legacy": 0.439
           },
           "metrics_simple": {
             "sharpness": 141.22,
@@ -3771,7 +4122,7 @@
             "ghost_seam_max": null,
             "width": 1913,
             "height": 1126,
-            "cqas": 0.4712
+            "cqas_v1_legacy": 0.4712
           },
           "comparison": {
             "ssim": 0.825,
@@ -3810,7 +4161,7 @@
             "ghost_seam_max": null,
             "width": 1907,
             "height": 1514,
-            "cqas": 0.5424
+            "cqas_v1_legacy": 0.5424
           },
           "metrics_simple": {
             "sharpness": 131.17,
@@ -3825,7 +4176,7 @@
             "ghost_seam_max": null,
             "width": 1907,
             "height": 1517,
-            "cqas": 0.5455
+            "cqas_v1_legacy": 0.5455
           },
           "comparison": {
             "ssim": 0.9473,
@@ -3864,7 +4215,7 @@
             "ghost_seam_max": null,
             "width": 1878,
             "height": 2143,
-            "cqas": 0.4372
+            "cqas_v1_legacy": 0.4372
           },
           "metrics_simple": {
             "sharpness": 101.83,
@@ -3879,7 +4230,7 @@
             "ghost_seam_max": null,
             "width": 1919,
             "height": 2449,
-            "cqas": 0.5314
+            "cqas_v1_legacy": 0.5314
           },
           "comparison": {
             "ssim": 0.7278,
@@ -3918,7 +4269,7 @@
             "ghost_seam_max": null,
             "width": 1867,
             "height": 2349,
-            "cqas": 0.3077
+            "cqas_v1_legacy": 0.3077
           },
           "metrics_simple": {
             "sharpness": 115.82,
@@ -3933,7 +4284,7 @@
             "ghost_seam_max": null,
             "width": 1918,
             "height": 2524,
-            "cqas": 0.4813
+            "cqas_v1_legacy": 0.4813
           },
           "comparison": {
             "ssim": 0.7119,
@@ -3972,7 +4323,7 @@
             "ghost_seam_max": null,
             "width": 1608,
             "height": 2186,
-            "cqas": 0.3751
+            "cqas_v1_legacy": 0.3751
           },
           "metrics_simple": {
             "sharpness": 66.05,
@@ -3987,7 +4338,7 @@
             "ghost_seam_max": null,
             "width": 1846,
             "height": 2590,
-            "cqas": 0.4085
+            "cqas_v1_legacy": 0.4085
           },
           "comparison": {
             "ssim": 0.6475,
@@ -4026,7 +4377,7 @@
             "ghost_seam_max": null,
             "width": 1910,
             "height": 1799,
-            "cqas": 0.4022
+            "cqas_v1_legacy": 0.4022
           },
           "metrics_simple": {
             "sharpness": 49.41,
@@ -4041,7 +4392,7 @@
             "ghost_seam_max": null,
             "width": 1942,
             "height": 1741,
-            "cqas": 0.4109
+            "cqas_v1_legacy": 0.4109
           },
           "comparison": {
             "ssim": 0.8516,
@@ -4080,7 +4431,7 @@
             "ghost_seam_max": null,
             "width": 1395,
             "height": 2098,
-            "cqas": 0.2615
+            "cqas_v1_legacy": 0.2615
           },
           "metrics_simple": {
             "sharpness": 98.56,
@@ -4095,7 +4446,7 @@
             "ghost_seam_max": null,
             "width": 1488,
             "height": 1616,
-            "cqas": 0.3913
+            "cqas_v1_legacy": 0.3913
           },
           "comparison": {
             "ssim": 0.5617,
@@ -4134,7 +4485,7 @@
             "ghost_seam_max": null,
             "width": 1914,
             "height": 1795,
-            "cqas": 0.4708
+            "cqas_v1_legacy": 0.4708
           },
           "metrics_simple": {
             "sharpness": 105.43,
@@ -4149,7 +4500,7 @@
             "ghost_seam_max": null,
             "width": 1912,
             "height": 1791,
-            "cqas": 0.4781
+            "cqas_v1_legacy": 0.4781
           },
           "comparison": {
             "ssim": 0.8544,
@@ -4188,7 +4539,7 @@
             "ghost_seam_max": null,
             "width": 2238,
             "height": 2182,
-            "cqas": 0.5359
+            "cqas_v1_legacy": 0.5359
           },
           "metrics_simple": {
             "sharpness": 125.05,
@@ -4203,7 +4554,7 @@
             "ghost_seam_max": null,
             "width": 1568,
             "height": 2048,
-            "cqas": 0.4924
+            "cqas_v1_legacy": 0.4924
           },
           "comparison": {
             "ssim": 0.5704,
@@ -4242,7 +4593,7 @@
             "ghost_seam_max": null,
             "width": 1992,
             "height": 1730,
-            "cqas": 0.3145
+            "cqas_v1_legacy": 0.3145
           },
           "metrics_simple": {
             "sharpness": 90.81,
@@ -4257,7 +4608,7 @@
             "ghost_seam_max": null,
             "width": 1726,
             "height": 1039,
-            "cqas": 0.5264
+            "cqas_v1_legacy": 0.5264
           },
           "comparison": {
             "ssim": 0.622,
@@ -4296,7 +4647,7 @@
             "ghost_seam_max": null,
             "width": 1867,
             "height": 1493,
-            "cqas": 0.4246
+            "cqas_v1_legacy": 0.4246
           },
           "metrics_simple": {
             "sharpness": 30.18,
@@ -4311,7 +4662,7 @@
             "ghost_seam_max": null,
             "width": 1904,
             "height": 1072,
-            "cqas": 0.4927
+            "cqas_v1_legacy": 0.4927
           },
           "comparison": {
             "ssim": 0.7424,
@@ -4350,7 +4701,7 @@
             "ghost_seam_max": null,
             "width": 1871,
             "height": 2206,
-            "cqas": 0.4245
+            "cqas_v1_legacy": 0.4245
           },
           "metrics_simple": {
             "sharpness": 124.6,
@@ -4365,7 +4716,7 @@
             "ghost_seam_max": null,
             "width": 1917,
             "height": 2166,
-            "cqas": 0.5434
+            "cqas_v1_legacy": 0.5434
           },
           "comparison": {
             "ssim": 0.7244,
@@ -4404,7 +4755,7 @@
             "ghost_seam_max": null,
             "width": 1917,
             "height": 2717,
-            "cqas": 0.4288
+            "cqas_v1_legacy": 0.4288
           },
           "metrics_simple": {
             "sharpness": 57.13,
@@ -4419,7 +4770,7 @@
             "ghost_seam_max": null,
             "width": 1916,
             "height": 2719,
-            "cqas": 0.4194
+            "cqas_v1_legacy": 0.4194
           },
           "comparison": {
             "ssim": 0.9827,
@@ -4458,7 +4809,7 @@
             "ghost_seam_max": null,
             "width": 1878,
             "height": 1917,
-            "cqas": 0.4208
+            "cqas_v1_legacy": 0.4208
           },
           "metrics_simple": {
             "sharpness": 20.11,
@@ -4473,7 +4824,7 @@
             "ghost_seam_max": null,
             "width": 1920,
             "height": 1972,
-            "cqas": 0.489
+            "cqas_v1_legacy": 0.489
           },
           "comparison": {
             "ssim": 0.5808,
@@ -4512,7 +4863,7 @@
             "ghost_seam_max": null,
             "width": 1861,
             "height": 1571,
-            "cqas": 0.4305
+            "cqas_v1_legacy": 0.4305
           },
           "metrics_simple": {
             "sharpness": 79.51,
@@ -4527,7 +4878,7 @@
             "ghost_seam_max": null,
             "width": 1918,
             "height": 1908,
-            "cqas": 0.5002
+            "cqas_v1_legacy": 0.5002
           },
           "comparison": {
             "ssim": 0.6358,
@@ -4566,7 +4917,7 @@
             "ghost_seam_max": null,
             "width": 2114,
             "height": 2062,
-            "cqas": 0.4826
+            "cqas_v1_legacy": 0.4826
           },
           "metrics_simple": {
             "sharpness": 47.34,
@@ -4581,7 +4932,7 @@
             "ghost_seam_max": null,
             "width": 1904,
             "height": 1072,
-            "cqas": 0.4992
+            "cqas_v1_legacy": 0.4992
           },
           "comparison": {
             "ssim": 0.5529,
@@ -4620,7 +4971,7 @@
             "ghost_seam_max": null,
             "width": 1584,
             "height": 1248,
-            "cqas": 0.7898
+            "cqas_v1_legacy": 0.7898
           },
           "metrics_simple": {
             "sharpness": 63.17,
@@ -4635,7 +4986,7 @@
             "ghost_seam_max": null,
             "width": 1919,
             "height": 1568,
-            "cqas": 0.493
+            "cqas_v1_legacy": 0.493
           },
           "comparison": {
             "ssim": 0.62,
@@ -4674,7 +5025,7 @@
             "ghost_seam_max": null,
             "width": 1917,
             "height": 2163,
-            "cqas": 0.4816
+            "cqas_v1_legacy": 0.4816
           },
           "metrics_simple": {
             "sharpness": 158.59,
@@ -4689,7 +5040,7 @@
             "ghost_seam_max": null,
             "width": 1918,
             "height": 2161,
-            "cqas": 0.5191
+            "cqas_v1_legacy": 0.5191
           },
           "comparison": {
             "ssim": 0.8998,
@@ -4728,7 +5079,7 @@
             "ghost_seam_max": null,
             "width": 1912,
             "height": 1454,
-            "cqas": 0.4192
+            "cqas_v1_legacy": 0.4192
           },
           "metrics_simple": {
             "sharpness": 26.55,
@@ -4743,7 +5094,7 @@
             "ghost_seam_max": null,
             "width": 1908,
             "height": 1460,
-            "cqas": 0.4278
+            "cqas_v1_legacy": 0.4278
           },
           "comparison": {
             "ssim": 0.9022,
@@ -4782,7 +5133,7 @@
             "ghost_seam_max": null,
             "width": 2124,
             "height": 1533,
-            "cqas": 0.4595
+            "cqas_v1_legacy": 0.4595
           },
           "metrics_simple": {
             "sharpness": 9.93,
@@ -4797,7 +5148,7 @@
             "ghost_seam_max": null,
             "width": 1904,
             "height": 1072,
-            "cqas": 0.4413
+            "cqas_v1_legacy": 0.4413
           },
           "comparison": {
             "ssim": 0.7053,
@@ -4836,7 +5187,7 @@
             "ghost_seam_max": null,
             "width": 1896,
             "height": 1933,
-            "cqas": 0.4171
+            "cqas_v1_legacy": 0.4171
           },
           "metrics_simple": {
             "sharpness": 18.68,
@@ -4851,7 +5202,7 @@
             "ghost_seam_max": null,
             "width": 1616,
             "height": 1680,
-            "cqas": 0.3467
+            "cqas_v1_legacy": 0.3467
           },
           "comparison": {
             "ssim": 0.5468,
@@ -4890,7 +5241,7 @@
             "ghost_seam_max": null,
             "width": 1900,
             "height": 2099,
-            "cqas": 0.3541
+            "cqas_v1_legacy": 0.3541
           },
           "metrics_simple": {
             "sharpness": 14.15,
@@ -4905,7 +5256,7 @@
             "ghost_seam_max": null,
             "width": 1648,
             "height": 1472,
-            "cqas": 0.359
+            "cqas_v1_legacy": 0.359
           },
           "comparison": {
             "ssim": 0.6859,
@@ -4944,7 +5295,7 @@
             "ghost_seam_max": null,
             "width": 2055,
             "height": 1502,
-            "cqas": 0.4891
+            "cqas_v1_legacy": 0.4891
           },
           "metrics_simple": {
             "sharpness": 20.02,
@@ -4959,7 +5310,7 @@
             "ghost_seam_max": null,
             "width": 1216,
             "height": 1216,
-            "cqas": 0.4224
+            "cqas_v1_legacy": 0.4224
           },
           "comparison": {
             "ssim": 0.6188,
@@ -4998,7 +5349,7 @@
             "ghost_seam_max": null,
             "width": 1881,
             "height": 1454,
-            "cqas": 0.3851
+            "cqas_v1_legacy": 0.3851
           },
           "metrics_simple": {
             "sharpness": 21.2,
@@ -5013,7 +5364,7 @@
             "ghost_seam_max": null,
             "width": 1914,
             "height": 1786,
-            "cqas": 0.3432
+            "cqas_v1_legacy": 0.3432
           },
           "comparison": {
             "ssim": 0.7719,
@@ -5052,7 +5403,7 @@
             "ghost_seam_max": null,
             "width": 1264,
             "height": 1552,
-            "cqas": 0.6396
+            "cqas_v1_legacy": 0.6396
           },
           "metrics_simple": {
             "sharpness": 28.04,
@@ -5067,7 +5418,7 @@
             "ghost_seam_max": null,
             "width": 1911,
             "height": 2477,
-            "cqas": 0.3414
+            "cqas_v1_legacy": 0.3414
           },
           "comparison": {
             "ssim": 0.5724,
@@ -5106,7 +5457,7 @@
             "ghost_seam_max": null,
             "width": 2514,
             "height": 1344,
-            "cqas": 0.5043
+            "cqas_v1_legacy": 0.5043
           },
           "metrics_simple": {
             "sharpness": 63.7,
@@ -5121,7 +5472,7 @@
             "ghost_seam_max": null,
             "width": 1968,
             "height": 1072,
-            "cqas": 0.4491
+            "cqas_v1_legacy": 0.4491
           },
           "comparison": {
             "ssim": 0.6266,
@@ -5160,7 +5511,7 @@
             "ghost_seam_max": null,
             "width": 1648,
             "height": 1056,
-            "cqas": 0.4334
+            "cqas_v1_legacy": 0.4334
           },
           "metrics_simple": {
             "sharpness": 43,
@@ -5175,7 +5526,7 @@
             "ghost_seam_max": null,
             "width": 1248,
             "height": 1232,
-            "cqas": 0.4747
+            "cqas_v1_legacy": 0.4747
           },
           "comparison": {
             "ssim": 0.7861,
@@ -5214,7 +5565,7 @@
             "ghost_seam_max": null,
             "width": 1753,
             "height": 1069,
-            "cqas": 0.4316
+            "cqas_v1_legacy": 0.4316
           },
           "metrics_simple": {
             "sharpness": 66.02,
@@ -5229,7 +5580,7 @@
             "ghost_seam_max": null,
             "width": 1752,
             "height": 1144,
-            "cqas": 0.4147
+            "cqas_v1_legacy": 0.4147
           },
           "comparison": {
             "ssim": 0.8423,
@@ -5268,7 +5619,7 @@
             "ghost_seam_max": null,
             "width": 2134,
             "height": 1079,
-            "cqas": 0.3695
+            "cqas_v1_legacy": 0.3695
           },
           "metrics_simple": {
             "sharpness": 49.76,
@@ -5283,7 +5634,7 @@
             "ghost_seam_max": null,
             "width": 2134,
             "height": 1079,
-            "cqas": 0.3699
+            "cqas_v1_legacy": 0.3699
           },
           "comparison": {
             "ssim": 0.9999,
@@ -5322,7 +5673,7 @@
             "ghost_seam_max": null,
             "width": 1680,
             "height": 900,
-            "cqas": 0.5321
+            "cqas_v1_legacy": 0.5321
           },
           "metrics_simple": {
             "sharpness": 92.24,
@@ -5337,7 +5688,7 @@
             "ghost_seam_max": null,
             "width": 1684,
             "height": 897,
-            "cqas": 0.5302
+            "cqas_v1_legacy": 0.5302
           },
           "comparison": {
             "ssim": 0.8449,
@@ -5376,7 +5727,7 @@
             "ghost_seam_max": null,
             "width": 1814,
             "height": 2217,
-            "cqas": 0.4838
+            "cqas_v1_legacy": 0.4838
           },
           "metrics_simple": {
             "sharpness": 80.24,
@@ -5391,7 +5742,7 @@
             "ghost_seam_max": null,
             "width": 1552,
             "height": 2176,
-            "cqas": 0.4553
+            "cqas_v1_legacy": 0.4553
           },
           "comparison": {
             "ssim": 0.6281,
@@ -5430,7 +5781,7 @@
             "ghost_seam_max": null,
             "width": 1918,
             "height": 1629,
-            "cqas": 0.4329
+            "cqas_v1_legacy": 0.4329
           },
           "metrics_simple": {
             "sharpness": 77.25,
@@ -5445,7 +5796,7 @@
             "ghost_seam_max": null,
             "width": 1877,
             "height": 1387,
-            "cqas": 0.474
+            "cqas_v1_legacy": 0.474
           },
           "comparison": {
             "ssim": 0.7523,
@@ -5484,7 +5835,7 @@
             "ghost_seam_max": null,
             "width": 1915,
             "height": 2587,
-            "cqas": 0.4362
+            "cqas_v1_legacy": 0.4362
           },
           "metrics_simple": {
             "sharpness": 36.77,
@@ -5499,7 +5850,7 @@
             "ghost_seam_max": null,
             "width": 1912,
             "height": 2581,
-            "cqas": 0.443
+            "cqas_v1_legacy": 0.443
           },
           "comparison": {
             "ssim": 0.8915,
@@ -5538,7 +5889,7 @@
             "ghost_seam_max": null,
             "width": 1888,
             "height": 2368,
-            "cqas": 0.4212
+            "cqas_v1_legacy": 0.4212
           },
           "metrics_simple": {
             "sharpness": 47.67,
@@ -5553,7 +5904,7 @@
             "ghost_seam_max": null,
             "width": 918,
             "height": 2387,
-            "cqas": 0.4367
+            "cqas_v1_legacy": 0.4367
           },
           "comparison": {
             "ssim": 0.8535,
@@ -5592,7 +5943,7 @@
             "ghost_seam_max": null,
             "width": 2065,
             "height": 1606,
-            "cqas": 0.3914
+            "cqas_v1_legacy": 0.3914
           },
           "metrics_simple": {
             "sharpness": 34.87,
@@ -5607,7 +5958,7 @@
             "ghost_seam_max": null,
             "width": 1852,
             "height": 1265,
-            "cqas": 0.3709
+            "cqas_v1_legacy": 0.3709
           },
           "comparison": {
             "ssim": 0.6648,
@@ -5646,7 +5997,7 @@
             "ghost_seam_max": null,
             "width": 1632,
             "height": 1456,
-            "cqas": 0.4199
+            "cqas_v1_legacy": 0.4199
           },
           "metrics_simple": {
             "sharpness": 18.16,
@@ -5661,7 +6012,7 @@
             "ghost_seam_max": null,
             "width": 1890,
             "height": 1837,
-            "cqas": 0.3729
+            "cqas_v1_legacy": 0.3729
           },
           "comparison": {
             "ssim": 0.7246,
@@ -5700,7 +6051,7 @@
             "ghost_seam_max": null,
             "width": 2270,
             "height": 2070,
-            "cqas": 0.3349
+            "cqas_v1_legacy": 0.3349
           },
           "metrics_simple": {
             "sharpness": 39.85,
@@ -5715,7 +6066,7 @@
             "ghost_seam_max": null,
             "width": 1904,
             "height": 1072,
-            "cqas": 0.3575
+            "cqas_v1_legacy": 0.3575
           },
           "comparison": {
             "ssim": 0.492,
@@ -5754,7 +6105,7 @@
             "ghost_seam_max": null,
             "width": 1751,
             "height": 939,
-            "cqas": 0.4787
+            "cqas_v1_legacy": 0.4787
           },
           "metrics_simple": {
             "sharpness": 48.62,
@@ -5769,7 +6120,7 @@
             "ghost_seam_max": null,
             "width": 1792,
             "height": 1007,
-            "cqas": 0.4792
+            "cqas_v1_legacy": 0.4792
           },
           "comparison": {
             "ssim": 0.7698,
@@ -5808,7 +6159,7 @@
             "ghost_seam_max": null,
             "width": 1901,
             "height": 1534,
-            "cqas": 0.4323
+            "cqas_v1_legacy": 0.4323
           },
           "metrics_simple": {
             "sharpness": 72.91,
@@ -5823,7 +6174,7 @@
             "ghost_seam_max": null,
             "width": 1903,
             "height": 1535,
-            "cqas": 0.4298
+            "cqas_v1_legacy": 0.4298
           },
           "comparison": {
             "ssim": 0.9761,
@@ -5862,7 +6213,7 @@
             "ghost_seam_max": null,
             "width": 1881,
             "height": 2365,
-            "cqas": 0.3619
+            "cqas_v1_legacy": 0.3619
           },
           "metrics_simple": {
             "sharpness": 53.48,
@@ -5877,7 +6228,7 @@
             "ghost_seam_max": null,
             "width": 1914,
             "height": 2762,
-            "cqas": 0.4444
+            "cqas_v1_legacy": 0.4444
           },
           "comparison": {
             "ssim": 0.7317,
@@ -5916,7 +6267,7 @@
             "ghost_seam_max": null,
             "width": 1869,
             "height": 2093,
-            "cqas": 0.489
+            "cqas_v1_legacy": 0.489
           },
           "metrics_simple": {
             "sharpness": 130.47,
@@ -5931,7 +6282,7 @@
             "ghost_seam_max": null,
             "width": 1920,
             "height": 1201,
-            "cqas": 0.4772
+            "cqas_v1_legacy": 0.4772
           },
           "comparison": {
             "ssim": 0.6655,
@@ -5970,7 +6321,7 @@
             "ghost_seam_max": null,
             "width": 1680,
             "height": 1968,
-            "cqas": 0.4643
+            "cqas_v1_legacy": 0.4643
           },
           "metrics_simple": {
             "sharpness": 53.27,
@@ -5985,7 +6336,7 @@
             "ghost_seam_max": null,
             "width": 1680,
             "height": 2000,
-            "cqas": 0.476
+            "cqas_v1_legacy": 0.476
           },
           "comparison": {
             "ssim": 0.8332,
@@ -6024,7 +6375,7 @@
             "ghost_seam_max": null,
             "width": 1788,
             "height": 1291,
-            "cqas": 0.4451
+            "cqas_v1_legacy": 0.4451
           },
           "metrics_simple": {
             "sharpness": 26.59,
@@ -6039,7 +6390,7 @@
             "ghost_seam_max": null,
             "width": 1787,
             "height": 1291,
-            "cqas": 0.4439
+            "cqas_v1_legacy": 0.4439
           },
           "comparison": {
             "ssim": 0.9705,
@@ -6078,7 +6429,7 @@
             "ghost_seam_max": null,
             "width": 1835,
             "height": 1348,
-            "cqas": 0.5549
+            "cqas_v1_legacy": 0.5549
           },
           "metrics_simple": {
             "sharpness": 93.36,
@@ -6093,7 +6444,7 @@
             "ghost_seam_max": null,
             "width": 1835,
             "height": 1347,
-            "cqas": 0.5642
+            "cqas_v1_legacy": 0.5642
           },
           "comparison": {
             "ssim": 0.9689,
@@ -6132,7 +6483,7 @@
             "ghost_seam_max": null,
             "width": 1914,
             "height": 1480,
-            "cqas": 0.5221
+            "cqas_v1_legacy": 0.5221
           },
           "metrics_simple": {
             "sharpness": 67.47,
@@ -6147,7 +6498,7 @@
             "ghost_seam_max": null,
             "width": 1915,
             "height": 1487,
-            "cqas": 0.5112
+            "cqas_v1_legacy": 0.5112
           },
           "comparison": {
             "ssim": 0.8753,
@@ -6186,7 +6537,7 @@
             "ghost_seam_max": null,
             "width": 1942,
             "height": 2471,
-            "cqas": 0.4222
+            "cqas_v1_legacy": 0.4222
           },
           "metrics_simple": {
             "sharpness": 36.59,
@@ -6201,7 +6552,7 @@
             "ghost_seam_max": null,
             "width": 1947,
             "height": 2472,
-            "cqas": 0.4214
+            "cqas_v1_legacy": 0.4214
           },
           "comparison": {
             "ssim": 0.951,
@@ -6240,7 +6591,7 @@
             "ghost_seam_max": null,
             "width": 1820,
             "height": 1418,
-            "cqas": 0.4088
+            "cqas_v1_legacy": 0.4088
           },
           "metrics_simple": {
             "sharpness": 61.68,
@@ -6255,7 +6606,7 @@
             "ghost_seam_max": null,
             "width": 1820,
             "height": 1419,
-            "cqas": 0.4015
+            "cqas_v1_legacy": 0.4015
           },
           "comparison": {
             "ssim": 0.9893,
@@ -6294,7 +6645,7 @@
             "ghost_seam_max": null,
             "width": 1905,
             "height": 2094,
-            "cqas": 0.3651
+            "cqas_v1_legacy": 0.3651
           },
           "metrics_simple": {
             "sharpness": 86.24,
@@ -6309,7 +6660,7 @@
             "ghost_seam_max": null,
             "width": 1909,
             "height": 2094,
-            "cqas": 0.4125
+            "cqas_v1_legacy": 0.4125
           },
           "comparison": {
             "ssim": 0.9436,
@@ -6348,7 +6699,7 @@
             "ghost_seam_max": null,
             "width": 2385,
             "height": 2236,
-            "cqas": 0.4753
+            "cqas_v1_legacy": 0.4753
           },
           "metrics_simple": {
             "sharpness": 14.19,
@@ -6363,7 +6714,7 @@
             "ghost_seam_max": null,
             "width": 1888,
             "height": 1120,
-            "cqas": 0.4881
+            "cqas_v1_legacy": 0.4881
           },
           "comparison": {
             "ssim": 0.5454,
@@ -6402,7 +6753,7 @@
             "ghost_seam_max": null,
             "width": 1916,
             "height": 2450,
-            "cqas": 0.3973
+            "cqas_v1_legacy": 0.3973
           },
           "metrics_simple": {
             "sharpness": 52.77,
@@ -6417,7 +6768,7 @@
             "ghost_seam_max": null,
             "width": 1916,
             "height": 2450,
-            "cqas": 0.4203
+            "cqas_v1_legacy": 0.4203
           },
           "comparison": {
             "ssim": 0.9824,
@@ -6456,7 +6807,7 @@
             "ghost_seam_max": null,
             "width": 1918,
             "height": 1839,
-            "cqas": 0.3837
+            "cqas_v1_legacy": 0.3837
           },
           "metrics_simple": {
             "sharpness": 71.78,
@@ -6471,7 +6822,7 @@
             "ghost_seam_max": null,
             "width": 1919,
             "height": 1839,
-            "cqas": 0.3833
+            "cqas_v1_legacy": 0.3833
           },
           "comparison": {
             "ssim": 0.9873,
@@ -6510,7 +6861,7 @@
             "ghost_seam_max": null,
             "width": 1908,
             "height": 1647,
-            "cqas": 0.5254
+            "cqas_v1_legacy": 0.5254
           },
           "metrics_simple": {
             "sharpness": 106.74,
@@ -6525,7 +6876,7 @@
             "ghost_seam_max": null,
             "width": 1903,
             "height": 1645,
-            "cqas": 0.5252
+            "cqas_v1_legacy": 0.5252
           },
           "comparison": {
             "ssim": 0.8468,
@@ -6564,7 +6915,7 @@
             "ghost_seam_max": null,
             "width": 1913,
             "height": 2195,
-            "cqas": 0.4318
+            "cqas_v1_legacy": 0.4318
           },
           "metrics_simple": {
             "sharpness": 46.02,
@@ -6579,7 +6930,7 @@
             "ghost_seam_max": null,
             "width": 1919,
             "height": 2182,
-            "cqas": 0.437
+            "cqas_v1_legacy": 0.437
           },
           "comparison": {
             "ssim": 0.9034,
@@ -6618,7 +6969,7 @@
             "ghost_seam_max": null,
             "width": 1900,
             "height": 2305,
-            "cqas": 0.447
+            "cqas_v1_legacy": 0.447
           },
           "metrics_simple": {
             "sharpness": 50.12,
@@ -6633,7 +6984,7 @@
             "ghost_seam_max": null,
             "width": 1911,
             "height": 2352,
-            "cqas": 0.438
+            "cqas_v1_legacy": 0.438
           },
           "comparison": {
             "ssim": 0.8366,
@@ -6672,7 +7023,7 @@
             "ghost_seam_max": null,
             "width": 1881,
             "height": 3069,
-            "cqas": 0.3172
+            "cqas_v1_legacy": 0.3172
           },
           "metrics_simple": {
             "sharpness": 27.1,
@@ -6687,7 +7038,7 @@
             "ghost_seam_max": null,
             "width": 1908,
             "height": 3035,
-            "cqas": 0.4059
+            "cqas_v1_legacy": 0.4059
           },
           "comparison": {
             "ssim": 0.7505,
@@ -6726,7 +7077,7 @@
             "ghost_seam_max": null,
             "width": 1900,
             "height": 2142,
-            "cqas": 0.3993
+            "cqas_v1_legacy": 0.3993
           },
           "metrics_simple": {
             "sharpness": 32.05,
@@ -6741,7 +7092,7 @@
             "ghost_seam_max": null,
             "width": 1899,
             "height": 2141,
-            "cqas": 0.3968
+            "cqas_v1_legacy": 0.3968
           },
           "comparison": {
             "ssim": 0.9848,
@@ -6780,7 +7131,7 @@
             "ghost_seam_max": null,
             "width": 2129,
             "height": 1842,
-            "cqas": 0.5246
+            "cqas_v1_legacy": 0.5246
           },
           "metrics_simple": {
             "sharpness": 24.16,
@@ -6795,7 +7146,7 @@
             "ghost_seam_max": null,
             "width": 1904,
             "height": 1072,
-            "cqas": 0.4135
+            "cqas_v1_legacy": 0.4135
           },
           "comparison": {
             "ssim": 0.655,
@@ -6834,7 +7185,7 @@
             "ghost_seam_max": null,
             "width": 1888,
             "height": 2112,
-            "cqas": 0.5292
+            "cqas_v1_legacy": 0.5292
           },
           "metrics_simple": {
             "sharpness": 32.13,
@@ -6849,7 +7200,7 @@
             "ghost_seam_max": null,
             "width": 1908,
             "height": 2376,
-            "cqas": 0.4417
+            "cqas_v1_legacy": 0.4417
           },
           "comparison": {
             "ssim": 0.7781,
@@ -6888,7 +7239,7 @@
             "ghost_seam_max": null,
             "width": 1998,
             "height": 2443,
-            "cqas": 0.6176
+            "cqas_v1_legacy": 0.6176
           },
           "metrics_simple": {
             "sharpness": 28.81,
@@ -6903,7 +7254,7 @@
             "ghost_seam_max": null,
             "width": 1900,
             "height": 1908,
-            "cqas": 0.4186
+            "cqas_v1_legacy": 0.4186
           },
           "comparison": {
             "ssim": 0.7081,
@@ -6942,7 +7293,7 @@
             "ghost_seam_max": null,
             "width": 1838,
             "height": 1269,
-            "cqas": 0.4373
+            "cqas_v1_legacy": 0.4373
           },
           "metrics_simple": {
             "sharpness": 15.46,
@@ -6957,7 +7308,7 @@
             "ghost_seam_max": null,
             "width": 1918,
             "height": 2152,
-            "cqas": 0.4208
+            "cqas_v1_legacy": 0.4208
           },
           "comparison": {
             "ssim": 0.7695,
@@ -6996,7 +7347,7 @@
             "ghost_seam_max": null,
             "width": 1904,
             "height": 2416,
-            "cqas": 0.5446
+            "cqas_v1_legacy": 0.5446
           },
           "metrics_simple": {
             "sharpness": 71.95,
@@ -7011,7 +7362,7 @@
             "ghost_seam_max": null,
             "width": 1919,
             "height": 2418,
-            "cqas": 0.546
+            "cqas_v1_legacy": 0.546
           },
           "comparison": {
             "ssim": 0.8609,
@@ -7050,7 +7401,7 @@
             "ghost_seam_max": null,
             "width": 1961,
             "height": 2928,
-            "cqas": 0.3784
+            "cqas_v1_legacy": 0.3784
           },
           "metrics_simple": {
             "sharpness": 20.44,
@@ -7065,7 +7416,7 @@
             "ghost_seam_max": null,
             "width": 1879,
             "height": 2714,
-            "cqas": 0.3113
+            "cqas_v1_legacy": 0.3113
           },
           "comparison": {
             "ssim": 0.7014,
@@ -7104,7 +7455,7 @@
             "ghost_seam_max": null,
             "width": 1783,
             "height": 1490,
-            "cqas": 0.4414
+            "cqas_v1_legacy": 0.4414
           },
           "metrics_simple": {
             "sharpness": 36.95,
@@ -7119,7 +7470,7 @@
             "ghost_seam_max": null,
             "width": 1808,
             "height": 1469,
-            "cqas": 0.4346
+            "cqas_v1_legacy": 0.4346
           },
           "comparison": {
             "ssim": 0.8335,
@@ -7158,7 +7509,7 @@
             "ghost_seam_max": null,
             "width": 1878,
             "height": 1249,
-            "cqas": 0.4563
+            "cqas_v1_legacy": 0.4563
           },
           "metrics_simple": {
             "sharpness": 96.53,
@@ -7173,7 +7524,7 @@
             "ghost_seam_max": null,
             "width": 1919,
             "height": 1635,
-            "cqas": 0.502
+            "cqas_v1_legacy": 0.502
           },
           "comparison": {
             "ssim": 0.617,
@@ -7212,7 +7563,7 @@
             "ghost_seam_max": null,
             "width": 1919,
             "height": 2175,
-            "cqas": 0.3876
+            "cqas_v1_legacy": 0.3876
           },
           "metrics_simple": {
             "sharpness": 13.61,
@@ -7227,7 +7578,7 @@
             "ghost_seam_max": null,
             "width": 1760,
             "height": 1744,
-            "cqas": 0.3199
+            "cqas_v1_legacy": 0.3199
           },
           "comparison": {
             "ssim": 0.6939,
@@ -7266,7 +7617,7 @@
             "ghost_seam_max": null,
             "width": 1792,
             "height": 1120,
-            "cqas": 0.4839
+            "cqas_v1_legacy": 0.4839
           },
           "metrics_simple": {
             "sharpness": 14.84,
@@ -7281,7 +7632,7 @@
             "ghost_seam_max": null,
             "width": 1920,
             "height": 1072,
-            "cqas": 0.5011
+            "cqas_v1_legacy": 0.5011
           },
           "comparison": {
             "ssim": 0.8672,
@@ -7320,7 +7671,7 @@
             "ghost_seam_max": null,
             "width": 1918,
             "height": 2099,
-            "cqas": 0.4811
+            "cqas_v1_legacy": 0.4811
           },
           "metrics_simple": {
             "sharpness": 116.99,
@@ -7335,7 +7686,7 @@
             "ghost_seam_max": null,
             "width": 1920,
             "height": 2100,
-            "cqas": 0.5064
+            "cqas_v1_legacy": 0.5064
           },
           "comparison": {
             "ssim": 0.9324,
@@ -7374,7 +7725,7 @@
             "ghost_seam_max": null,
             "width": 1776,
             "height": 1955,
-            "cqas": 0.4447
+            "cqas_v1_legacy": 0.4447
           },
           "metrics_simple": {
             "sharpness": 25.3,
@@ -7389,7 +7740,7 @@
             "ghost_seam_max": null,
             "width": 1856,
             "height": 2509,
-            "cqas": 0.4137
+            "cqas_v1_legacy": 0.4137
           },
           "comparison": {
             "ssim": 0.6688,
@@ -7428,7 +7779,7 @@
             "ghost_seam_max": null,
             "width": 1552,
             "height": 1568,
-            "cqas": 0.3778
+            "cqas_v1_legacy": 0.3778
           },
           "metrics_simple": {
             "sharpness": 40.6,
@@ -7443,7 +7794,7 @@
             "ghost_seam_max": null,
             "width": 1536,
             "height": 1568,
-            "cqas": 0.3812
+            "cqas_v1_legacy": 0.3812
           },
           "comparison": {
             "ssim": 0.8718,
@@ -7482,7 +7833,7 @@
             "ghost_seam_max": null,
             "width": 1904,
             "height": 1056,
-            "cqas": 0.524
+            "cqas_v1_legacy": 0.524
           },
           "metrics_simple": {
             "sharpness": 50.22,
@@ -7497,7 +7848,7 @@
             "ghost_seam_max": null,
             "width": 1709,
             "height": 948,
-            "cqas": 0.5042
+            "cqas_v1_legacy": 0.5042
           },
           "comparison": {
             "ssim": 0.8022,
@@ -7536,7 +7887,7 @@
             "ghost_seam_max": null,
             "width": 1641,
             "height": 1647,
-            "cqas": 0.4407
+            "cqas_v1_legacy": 0.4407
           },
           "metrics_simple": {
             "sharpness": 6.59,
@@ -7551,7 +7902,7 @@
             "ghost_seam_max": null,
             "width": 1919,
             "height": 2807,
-            "cqas": 0.4429
+            "cqas_v1_legacy": 0.4429
           },
           "comparison": {
             "ssim": 0.6206,
@@ -7590,7 +7941,7 @@
             "ghost_seam_max": null,
             "width": 2087,
             "height": 3076,
-            "cqas": 0.227
+            "cqas_v1_legacy": 0.227
           },
           "metrics_simple": {
             "sharpness": 44.62,
@@ -7605,7 +7956,7 @@
             "ghost_seam_max": null,
             "width": 1904,
             "height": 1184,
-            "cqas": 0.385
+            "cqas_v1_legacy": 0.385
           },
           "comparison": {
             "ssim": 0.5747,
@@ -7644,7 +7995,7 @@
             "ghost_seam_max": null,
             "width": 2448,
             "height": 1848,
-            "cqas": 0.4361
+            "cqas_v1_legacy": 0.4361
           },
           "metrics_simple": {
             "sharpness": 43.83,
@@ -7659,7 +8010,7 @@
             "ghost_seam_max": null,
             "width": 1520,
             "height": 1552,
-            "cqas": 0.4734
+            "cqas_v1_legacy": 0.4734
           },
           "comparison": {
             "ssim": 0.4811,
@@ -7668,6 +8019,3336 @@
             "verdict_source": "cv_metrics"
           },
           "human_coherence": null
+        }
+      ]
+    },
+    {
+      "id": "anime_stitch_20260811_062035",
+      "source": "submodules/ASP/backend/benchmark/output/anime_stitch_20260811_062035.json",
+      "timestamp": "2026-08-11T06:20:35",
+      "metadata": {
+        "git_commit": null,
+        "label": null
+      },
+      "system": {
+        "gpu": "NVIDIA GeForce RTX 3090 Ti",
+        "cuda": null
+      },
+      "summary": {
+        "total_datasets": 5,
+        "datasets_passed": 3,
+        "datasets_fallback": 2,
+        "total_time_sec": 717.111,
+        "avg_time_per_dataset_sec": 135.845,
+        "avg_sharpness_asp": 121.012,
+        "avg_sharpness_simple": 104.414,
+        "avg_ghosting_asp": 53.902,
+        "avg_ghosting_simple": 77.252,
+        "avg_coverage_asp": 0.9999,
+        "avg_ssim": 0.7822,
+        "verdict_counts": {
+          "asp_better": 0,
+          "simple_better": 3,
+          "comparable": 2,
+          "insufficient_data": 0
+        },
+        "gt_verdict_counts": {
+          "asp_better": 1,
+          "simple_better": 2,
+          "comparable": 2
+        },
+        "avg_ssim_asp_vs_gt": 0.7382,
+        "avg_ssim_simple_vs_gt": 0.7447,
+        "human_coherence_rated": 4
+      },
+      "automated_metric_catalog": {
+        "cqas_v1_legacy": {
+          "label": "CQAS v1 (legacy diagnostic)",
+          "direction": "higher_is_better_historically",
+          "status": "legacy_diagnostic_only",
+          "verdict_eligible": false,
+          "note": "Failed human-label correlation audit; never use for ranking or X-wins claims."
+        },
+        "seam_visibility": {
+          "label": "Seam visibility",
+          "direction": "lower_is_better",
+          "status": "human_aligned_candidate",
+          "verdict_eligible": true
+        },
+        "seam_gradient": {
+          "label": "Seam gradient",
+          "direction": "lower_is_better",
+          "status": "human_aligned_supporting_diagnostic",
+          "verdict_eligible": false
+        },
+        "ghosting_siqe": {
+          "label": "Ghosting SIQE",
+          "direction": "lower_is_better_historically",
+          "status": "inverse_validated_telemetry",
+          "verdict_eligible": false
+        },
+        "seam_coherence": {
+          "label": "Seam coherence / banding",
+          "direction": "lower_is_better_historically",
+          "status": "no_human_correlation_telemetry",
+          "verdict_eligible": false
+        },
+        "strip_banding_score": {
+          "label": "Strip banding",
+          "direction": "lower_is_better_historically",
+          "status": "inverse_validated_telemetry",
+          "verdict_eligible": false
+        }
+      },
+      "datasets": [
+        {
+          "name": "asp_test04",
+          "used_fallback": false,
+          "fallback_reason": null,
+          "time": {
+            "simple_stitch_sec": 5.841,
+            "birefnet_sec": 16.019,
+            "matching_sec": 11.24,
+            "bundle_adjust_sec": 12.335,
+            "ecc_sec": 0.808,
+            "render_sec": 30.145,
+            "composite_sec": 61.348,
+            "render_gate_fallback": 0,
+            "visualisations_sec": 2.63,
+            "total_sec": 157.501
+          },
+          "metrics_asp": {
+            "sharpness": 94.47,
+            "coverage": 0.9995,
+            "seam_gradient": 8.272,
+            "color_entropy": 7.6789,
+            "edge_energy_score": 39.1074,
+            "ghosting_siqe": 18.59,
+            "seam_coherence": 19.23,
+            "seam_visibility": 20.84,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1874,
+            "height": 2568,
+            "cqas_v1_legacy": 0.5563
+          },
+          "metrics_simple": {
+            "sharpness": 44.98,
+            "coverage": 0.9996,
+            "seam_gradient": 5.18,
+            "color_entropy": 7.6427,
+            "edge_energy_score": 22.1268,
+            "ghosting_siqe": 62.37,
+            "seam_coherence": 30.23,
+            "seam_visibility": 2.88,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1910,
+            "height": 2501,
+            "cqas_v1_legacy": 0.412
+          },
+          "comparison": {
+            "ssim": 0.7057,
+            "psnr_db": 13.57,
+            "verdict": "simple_better",
+            "verdict_source": "ground_truth"
+          },
+          "human_coherence": {
+            "asp": 1,
+            "bboxes": [],
+            "confidence": 3,
+            "defects": [
+              "banding",
+              "color_shift",
+              "ghosting",
+              "misordered_content",
+              "seam_line",
+              "torn_anatomy"
+            ],
+            "dimensions": {
+              "asp": {
+                "coherence": 1
+              },
+              "simple": {
+                "coherence": 3
+              }
+            },
+            "edges": [],
+            "notes": "Again, SCANS only has minor ghosting issues, while the ASP even has torn anatomy...",
+            "preference": "simple",
+            "reviewed": true,
+            "simple": 3,
+            "updated_at": "2026-08-10T09:16:47"
+          }
+        },
+        {
+          "name": "asp_test08",
+          "used_fallback": true,
+          "fallback_reason": "seam_vis_gate:asp=144.4_sim=2.9_limit=35.0",
+          "time": {
+            "simple_stitch_sec": 1.727,
+            "birefnet_sec": 4.073,
+            "matching_sec": 3.53,
+            "bundle_adjust_sec": 0.579,
+            "ecc_sec": 1.525,
+            "render_sec": 6.772,
+            "composite_sec": 14.868,
+            "render_gate_fallback": 2,
+            "scans_fallback_sec": 0.999,
+            "total_sec": 50.305
+          },
+          "metrics_asp": {
+            "sharpness": 249.34,
+            "coverage": 1,
+            "seam_gradient": 8.885,
+            "color_entropy": 7.1884,
+            "edge_energy_score": 47.7466,
+            "ghosting_siqe": 82.5,
+            "seam_coherence": 12.05,
+            "seam_visibility": 2.71,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1893,
+            "height": 1738,
+            "cqas_v1_legacy": 0.5693
+          },
+          "metrics_simple": {
+            "sharpness": 244.03,
+            "coverage": 1,
+            "seam_gradient": 9.707,
+            "color_entropy": 7.1602,
+            "edge_energy_score": 46.8582,
+            "ghosting_siqe": 80.45,
+            "seam_coherence": 12.37,
+            "seam_visibility": 2.87,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1917,
+            "height": 1774,
+            "cqas_v1_legacy": 0.5661
+          },
+          "comparison": {
+            "ssim": 0.794,
+            "psnr_db": 16.34,
+            "verdict": "simple_better",
+            "verdict_source": "human_coherence_veto"
+          },
+          "human_coherence": {
+            "asp": 3,
+            "bboxes": [],
+            "confidence": 2,
+            "defects": [
+              "other"
+            ],
+            "dimensions": {
+              "asp": {
+                "coherence": 3
+              },
+              "hugin": {
+                "coherence": 2
+              },
+              "simple": {
+                "coherence": 4
+              }
+            },
+            "edges": [],
+            "notes": "ASP nearly perfect with small artifacts near some edges, SCANS is pratically perfect, and Hugin again produces a perfect image but weirdly stretched out in a way that ends up making it worse than the others",
+            "preference": "simple",
+            "reviewed": true,
+            "simple": 4,
+            "updated_at": "2026-08-10T09:25:42"
+          }
+        },
+        {
+          "name": "asp_test09",
+          "used_fallback": false,
+          "fallback_reason": null,
+          "time": {
+            "simple_stitch_sec": 4.87,
+            "birefnet_sec": 9.221,
+            "matching_sec": 9.871,
+            "bundle_adjust_sec": 6.052,
+            "ecc_sec": 3.227,
+            "render_sec": 24.499,
+            "composite_sec": 53.447,
+            "render_gate_fallback": 0,
+            "visualisations_sec": 2.367,
+            "total_sec": 133.688
+          },
+          "metrics_asp": {
+            "sharpness": 89.01,
+            "coverage": 1,
+            "seam_gradient": 6.518,
+            "color_entropy": 7.1611,
+            "edge_energy_score": 29.5642,
+            "ghosting_siqe": 42.96,
+            "seam_coherence": 22.41,
+            "seam_visibility": 7.08,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1866,
+            "height": 2136,
+            "cqas_v1_legacy": 0.5583
+          },
+          "metrics_simple": {
+            "sharpness": 91.51,
+            "coverage": 1,
+            "seam_gradient": 5.044,
+            "color_entropy": 7.0257,
+            "edge_energy_score": 20.8495,
+            "ghosting_siqe": 79.64,
+            "seam_coherence": 17.7,
+            "seam_visibility": 1.87,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1547,
+            "height": 2329,
+            "cqas_v1_legacy": 0.544
+          },
+          "comparison": {
+            "ssim": 0.752,
+            "psnr_db": 13.81,
+            "verdict": "comparable",
+            "verdict_source": "ground_truth"
+          },
+          "human_coherence": {
+            "asp": 3,
+            "bboxes": [],
+            "defects": [
+              "crop_loss",
+              "other"
+            ],
+            "dimensions": {
+              "asp": {
+                "coherence": 3
+              },
+              "simple": {
+                "coherence": 4
+              }
+            },
+            "edges": [],
+            "notes": "SCANS is pratically perfect, while the ASP, while nearly perfect, again has small isues with crop loss and non-connecting edges",
+            "preference": "tie",
+            "reviewed": true,
+            "simple": 4,
+            "updated_at": "2026-08-10T09:26:54"
+          }
+        },
+        {
+          "name": "asp_test27",
+          "used_fallback": false,
+          "fallback_reason": null,
+          "time": {
+            "simple_stitch_sec": 5.488,
+            "birefnet_sec": 8.798,
+            "matching_sec": 8.962,
+            "bundle_adjust_sec": 14.015,
+            "ecc_sec": 3.228,
+            "render_sec": 22.157,
+            "composite_sec": 51.486,
+            "render_gate_fallback": 0,
+            "visualisations_sec": 2.445,
+            "total_sec": 137.756
+          },
+          "metrics_asp": {
+            "sharpness": 131.22,
+            "coverage": 1,
+            "seam_gradient": 5.84,
+            "color_entropy": 6.9201,
+            "edge_energy_score": 34.5685,
+            "ghosting_siqe": 42.45,
+            "seam_coherence": 28.04,
+            "seam_visibility": 4.16,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1862,
+            "height": 1995,
+            "cqas_v1_legacy": 0.5903
+          },
+          "metrics_simple": {
+            "sharpness": 107.92,
+            "coverage": 1,
+            "seam_gradient": 5.104,
+            "color_entropy": 7.4641,
+            "edge_energy_score": 24.1325,
+            "ghosting_siqe": 79.33,
+            "seam_coherence": 24.86,
+            "seam_visibility": 1.42,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1920,
+            "height": 2449,
+            "cqas_v1_legacy": 0.5335
+          },
+          "comparison": {
+            "ssim": 0.7191,
+            "psnr_db": 15.2,
+            "verdict": "simple_better",
+            "verdict_source": "ground_truth"
+          },
+          "human_coherence": {
+            "asp": 2,
+            "bboxes": [],
+            "defects": [
+              "banding",
+              "ghosting",
+              "seam_line"
+            ],
+            "dimensions": {
+              "asp": {
+                "coherence": 2
+              },
+              "simple": {
+                "coherence": 3
+              }
+            },
+            "edges": [],
+            "notes": "Ghosting in the SCANS output, and banding + visible seam lines in the ASP output",
+            "reviewed": true,
+            "simple": 3,
+            "updated_at": "2026-08-11T05:46:31"
+          }
+        },
+        {
+          "name": "asp_test57",
+          "used_fallback": true,
+          "fallback_reason": "seam_vis_gate:asp=44.2_sim=2.7_limit=35.0",
+          "time": {
+            "simple_stitch_sec": 5.236,
+            "birefnet_sec": 10.912,
+            "matching_sec": 13.423,
+            "bundle_adjust_sec": 19.498,
+            "ecc_sec": 1.011,
+            "render_sec": 41.172,
+            "composite_sec": 85.973,
+            "render_gate_fallback": 2,
+            "scans_fallback_sec": 3.898,
+            "total_sec": 199.973
+          },
+          "metrics_asp": {
+            "sharpness": 41.02,
+            "coverage": 1,
+            "seam_gradient": 5.169,
+            "color_entropy": 7.3985,
+            "edge_energy_score": 24.5331,
+            "ghosting_siqe": 83.01,
+            "seam_coherence": 20.94,
+            "seam_visibility": 2.79,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1913,
+            "height": 2595,
+            "cqas_v1_legacy": 0.4443
+          },
+          "metrics_simple": {
+            "sharpness": 33.63,
+            "coverage": 1,
+            "seam_gradient": 5.8,
+            "color_entropy": 7.4053,
+            "edge_energy_score": 23.7537,
+            "ghosting_siqe": 84.47,
+            "seam_coherence": 20.88,
+            "seam_visibility": 2.66,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1910,
+            "height": 2600,
+            "cqas_v1_legacy": 0.435
+          },
+          "comparison": {
+            "ssim": 0.94,
+            "psnr_db": 26.94,
+            "verdict": "comparable",
+            "verdict_source": "ground_truth"
+          },
+          "human_coherence": null
+        }
+      ]
+    },
+    {
+      "id": "anime_stitch_20260811_063712",
+      "source": "submodules/ASP/backend/benchmark/output/anime_stitch_20260811_063712.json",
+      "timestamp": "2026-08-11T06:37:12",
+      "metadata": {
+        "git_commit": null,
+        "label": null
+      },
+      "system": {
+        "gpu": "NVIDIA GeForce RTX 3090 Ti",
+        "cuda": null
+      },
+      "summary": {
+        "total_datasets": 5,
+        "datasets_passed": 2,
+        "datasets_fallback": 3,
+        "total_time_sec": 720.472,
+        "avg_time_per_dataset_sec": 135.184,
+        "avg_sharpness_asp": 105.93,
+        "avg_sharpness_simple": 97.73,
+        "avg_ghosting_asp": 60.782,
+        "avg_ghosting_simple": 75.384,
+        "avg_coverage_asp": 0.9997,
+        "avg_ssim": 0.7836,
+        "verdict_counts": {
+          "asp_better": 0,
+          "simple_better": 2,
+          "comparable": 3,
+          "insufficient_data": 0
+        },
+        "gt_verdict_counts": {
+          "asp_better": 0,
+          "simple_better": 2,
+          "comparable": 3
+        },
+        "avg_ssim_asp_vs_gt": 0.7207,
+        "avg_ssim_simple_vs_gt": 0.7395,
+        "human_coherence_rated": 4
+      },
+      "automated_metric_catalog": {
+        "cqas_v1_legacy": {
+          "label": "CQAS v1 (legacy diagnostic)",
+          "direction": "higher_is_better_historically",
+          "status": "legacy_diagnostic_only",
+          "verdict_eligible": false,
+          "note": "Failed human-label correlation audit; never use for ranking or X-wins claims."
+        },
+        "seam_visibility": {
+          "label": "Seam visibility",
+          "direction": "lower_is_better",
+          "status": "human_aligned_candidate",
+          "verdict_eligible": true
+        },
+        "seam_gradient": {
+          "label": "Seam gradient",
+          "direction": "lower_is_better",
+          "status": "human_aligned_supporting_diagnostic",
+          "verdict_eligible": false
+        },
+        "ghosting_siqe": {
+          "label": "Ghosting SIQE",
+          "direction": "lower_is_better_historically",
+          "status": "inverse_validated_telemetry",
+          "verdict_eligible": false
+        },
+        "seam_coherence": {
+          "label": "Seam coherence / banding",
+          "direction": "lower_is_better_historically",
+          "status": "no_human_correlation_telemetry",
+          "verdict_eligible": false
+        },
+        "strip_banding_score": {
+          "label": "Strip banding",
+          "direction": "lower_is_better_historically",
+          "status": "inverse_validated_telemetry",
+          "verdict_eligible": false
+        }
+      },
+      "datasets": [
+        {
+          "name": "asp_test04",
+          "used_fallback": true,
+          "fallback_reason": "composite_gate_sb:asp_sc=23.6_limit=52.9,asp_sb=37.9_limit=35.0",
+          "time": {
+            "simple_stitch_sec": 5.764,
+            "birefnet_sec": 12.704,
+            "matching_sec": 10.535,
+            "bundle_adjust_sec": 13.412,
+            "ecc_sec": 0.838,
+            "render_sec": 30.306,
+            "composite_sec": 67.24,
+            "render_gate_fallback": 1,
+            "scans_fallback_sec": 4.04,
+            "total_sec": 159.976
+          },
+          "metrics_asp": {
+            "sharpness": 36.56,
+            "coverage": 0.9984,
+            "seam_gradient": 5.788,
+            "color_entropy": 7.6097,
+            "edge_energy_score": 21.7927,
+            "ghosting_siqe": 67.03,
+            "seam_coherence": 28.33,
+            "seam_visibility": 2.03,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1878,
+            "height": 2497,
+            "cqas_v1_legacy": 0.4172
+          },
+          "metrics_simple": {
+            "sharpness": 37.6,
+            "coverage": 0.9989,
+            "seam_gradient": 5.09,
+            "color_entropy": 7.6565,
+            "edge_energy_score": 21.4241,
+            "ghosting_siqe": 58.31,
+            "seam_coherence": 26.45,
+            "seam_visibility": 3.78,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1906,
+            "height": 2493,
+            "cqas_v1_legacy": 0.4151
+          },
+          "comparison": {
+            "ssim": 0.8408,
+            "psnr_db": 18.94,
+            "verdict": "comparable",
+            "verdict_source": "ground_truth"
+          },
+          "human_coherence": {
+            "asp": 1,
+            "bboxes": [],
+            "confidence": 3,
+            "defects": [
+              "banding",
+              "color_shift",
+              "ghosting",
+              "misordered_content",
+              "seam_line",
+              "torn_anatomy"
+            ],
+            "dimensions": {
+              "asp": {
+                "coherence": 1
+              },
+              "simple": {
+                "coherence": 3
+              }
+            },
+            "edges": [],
+            "notes": "Again, SCANS only has minor ghosting issues, while the ASP even has torn anatomy...",
+            "preference": "simple",
+            "reviewed": true,
+            "simple": 3,
+            "updated_at": "2026-08-10T09:16:47"
+          }
+        },
+        {
+          "name": "asp_test08",
+          "used_fallback": true,
+          "fallback_reason": "composite_gate_sb:asp_sc=17.0_limit=38.0,asp_sb=35.8_limit=35.0",
+          "time": {
+            "simple_stitch_sec": 1.976,
+            "birefnet_sec": 4.004,
+            "matching_sec": 3.451,
+            "bundle_adjust_sec": 0.542,
+            "ecc_sec": 1.465,
+            "render_sec": 6.455,
+            "composite_sec": 13.738,
+            "render_gate_fallback": 1,
+            "scans_fallback_sec": 1.434,
+            "total_sec": 48.929
+          },
+          "metrics_asp": {
+            "sharpness": 236.69,
+            "coverage": 1,
+            "seam_gradient": 10.83,
+            "color_entropy": 7.0938,
+            "edge_energy_score": 43.4702,
+            "ghosting_siqe": 72.07,
+            "seam_coherence": 10.6,
+            "seam_visibility": 2.51,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1878,
+            "height": 1006,
+            "cqas_v1_legacy": 0.5775
+          },
+          "metrics_simple": {
+            "sharpness": 235.8,
+            "coverage": 1,
+            "seam_gradient": 10.01,
+            "color_entropy": 7.1545,
+            "edge_energy_score": 48.2061,
+            "ghosting_siqe": 77.65,
+            "seam_coherence": 13.21,
+            "seam_visibility": 4.05,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1875,
+            "height": 1794,
+            "cqas_v1_legacy": 0.5486
+          },
+          "comparison": {
+            "ssim": 0.6882,
+            "psnr_db": 10.94,
+            "verdict": "simple_better",
+            "verdict_source": "ground_truth"
+          },
+          "human_coherence": {
+            "asp": 3,
+            "bboxes": [],
+            "confidence": 2,
+            "defects": [
+              "other"
+            ],
+            "dimensions": {
+              "asp": {
+                "coherence": 3
+              },
+              "hugin": {
+                "coherence": 2
+              },
+              "simple": {
+                "coherence": 4
+              }
+            },
+            "edges": [],
+            "notes": "ASP nearly perfect with small artifacts near some edges, SCANS is pratically perfect, and Hugin again produces a perfect image but weirdly stretched out in a way that ends up making it worse than the others",
+            "preference": "simple",
+            "reviewed": true,
+            "simple": 4,
+            "updated_at": "2026-08-10T09:25:42"
+          }
+        },
+        {
+          "name": "asp_test09",
+          "used_fallback": false,
+          "fallback_reason": null,
+          "time": {
+            "simple_stitch_sec": 5.364,
+            "birefnet_sec": 9.264,
+            "matching_sec": 10.054,
+            "bundle_adjust_sec": 7.717,
+            "ecc_sec": 3.657,
+            "render_sec": 23.51,
+            "composite_sec": 52.057,
+            "render_gate_fallback": 0,
+            "visualisations_sec": 2.372,
+            "total_sec": 134.285
+          },
+          "metrics_asp": {
+            "sharpness": 87.05,
+            "coverage": 1,
+            "seam_gradient": 6.659,
+            "color_entropy": 7.1672,
+            "edge_energy_score": 29.4839,
+            "ghosting_siqe": 41.77,
+            "seam_coherence": 22.61,
+            "seam_visibility": 7.47,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1866,
+            "height": 2138,
+            "cqas_v1_legacy": 0.5568
+          },
+          "metrics_simple": {
+            "sharpness": 78.81,
+            "coverage": 1,
+            "seam_gradient": 4.977,
+            "color_entropy": 6.942,
+            "edge_energy_score": 20.9961,
+            "ghosting_siqe": 77.75,
+            "seam_coherence": 19.51,
+            "seam_visibility": 1.96,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1485,
+            "height": 2333,
+            "cqas_v1_legacy": 0.5167
+          },
+          "comparison": {
+            "ssim": 0.7374,
+            "psnr_db": 13.03,
+            "verdict": "comparable",
+            "verdict_source": "ground_truth"
+          },
+          "human_coherence": {
+            "asp": 3,
+            "bboxes": [],
+            "defects": [
+              "crop_loss",
+              "other"
+            ],
+            "dimensions": {
+              "asp": {
+                "coherence": 3
+              },
+              "simple": {
+                "coherence": 4
+              }
+            },
+            "edges": [],
+            "notes": "SCANS is pratically perfect, while the ASP, while nearly perfect, again has small isues with crop loss and non-connecting edges",
+            "preference": "tie",
+            "reviewed": true,
+            "simple": 4,
+            "updated_at": "2026-08-10T09:26:54"
+          }
+        },
+        {
+          "name": "asp_test27",
+          "used_fallback": false,
+          "fallback_reason": null,
+          "time": {
+            "simple_stitch_sec": 5.84,
+            "birefnet_sec": 8.911,
+            "matching_sec": 9.051,
+            "bundle_adjust_sec": 15.386,
+            "ecc_sec": 3.604,
+            "render_sec": 21.753,
+            "composite_sec": 49.245,
+            "render_gate_fallback": 0,
+            "visualisations_sec": 2.427,
+            "total_sec": 136.869
+          },
+          "metrics_asp": {
+            "sharpness": 124.84,
+            "coverage": 1,
+            "seam_gradient": 7.319,
+            "color_entropy": 6.9535,
+            "edge_energy_score": 34.3783,
+            "ghosting_siqe": 39.51,
+            "seam_coherence": 27.99,
+            "seam_visibility": 8.08,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1864,
+            "height": 1985,
+            "cqas_v1_legacy": 0.5606
+          },
+          "metrics_simple": {
+            "sharpness": 100.42,
+            "coverage": 1,
+            "seam_gradient": 5.013,
+            "color_entropy": 7.4782,
+            "edge_energy_score": 23.5056,
+            "ghosting_siqe": 79.33,
+            "seam_coherence": 24.91,
+            "seam_visibility": 1.46,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1920,
+            "height": 2449,
+            "cqas_v1_legacy": 0.5328
+          },
+          "comparison": {
+            "ssim": 0.7178,
+            "psnr_db": 15.09,
+            "verdict": "simple_better",
+            "verdict_source": "ground_truth"
+          },
+          "human_coherence": {
+            "asp": 2,
+            "bboxes": [],
+            "defects": [
+              "banding",
+              "ghosting",
+              "seam_line"
+            ],
+            "dimensions": {
+              "asp": {
+                "coherence": 2
+              },
+              "simple": {
+                "coherence": 3
+              }
+            },
+            "edges": [],
+            "notes": "Ghosting in the SCANS output, and banding + visible seam lines in the ASP output",
+            "reviewed": true,
+            "simple": 3,
+            "updated_at": "2026-08-11T05:46:31"
+          }
+        },
+        {
+          "name": "asp_test57",
+          "used_fallback": true,
+          "fallback_reason": "composite_gate_sb:asp_sc=27.4_limit=41.1,asp_sb=35.8_limit=35.0",
+          "time": {
+            "simple_stitch_sec": 5.358,
+            "birefnet_sec": 10.961,
+            "matching_sec": 13.373,
+            "bundle_adjust_sec": 13.486,
+            "ecc_sec": 3.331,
+            "render_sec": 39.27,
+            "composite_sec": 87.26,
+            "render_gate_fallback": 1,
+            "scans_fallback_sec": 3.875,
+            "total_sec": 195.862
+          },
+          "metrics_asp": {
+            "sharpness": 44.51,
+            "coverage": 0.9999,
+            "seam_gradient": 5.591,
+            "color_entropy": 7.4104,
+            "edge_energy_score": 24.7593,
+            "ghosting_siqe": 83.53,
+            "seam_coherence": 20.65,
+            "seam_visibility": 2.77,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1917,
+            "height": 2589,
+            "cqas_v1_legacy": 0.4509
+          },
+          "metrics_simple": {
+            "sharpness": 36.02,
+            "coverage": 0.9998,
+            "seam_gradient": 5.682,
+            "color_entropy": 7.4064,
+            "edge_energy_score": 23.2295,
+            "ghosting_siqe": 83.88,
+            "seam_coherence": 20.53,
+            "seam_visibility": 2.48,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1917,
+            "height": 2591,
+            "cqas_v1_legacy": 0.4422
+          },
+          "comparison": {
+            "ssim": 0.9336,
+            "psnr_db": 26.23,
+            "verdict": "comparable",
+            "verdict_source": "ground_truth"
+          },
+          "human_coherence": null
+        }
+      ]
+    },
+    {
+      "id": "anime_stitch_20260811_070710",
+      "source": "submodules/ASP/backend/benchmark/output/anime_stitch_20260811_070710.json",
+      "timestamp": "2026-08-11T07:07:10",
+      "metadata": {
+        "git_commit": null,
+        "label": null
+      },
+      "system": {
+        "gpu": "NVIDIA GeForce RTX 3090 Ti",
+        "cuda": null
+      },
+      "summary": {
+        "total_datasets": 5,
+        "datasets_passed": 3,
+        "datasets_fallback": 2,
+        "total_time_sec": 713.897,
+        "avg_time_per_dataset_sec": 133.531,
+        "avg_sharpness_asp": 117.028,
+        "avg_sharpness_simple": 94.766,
+        "avg_ghosting_asp": 52.344,
+        "avg_ghosting_simple": 75.44,
+        "avg_coverage_asp": 0.9999,
+        "avg_ssim": 0.7652,
+        "verdict_counts": {
+          "asp_better": 0,
+          "simple_better": 3,
+          "comparable": 2,
+          "insufficient_data": 0
+        },
+        "gt_verdict_counts": {
+          "asp_better": 1,
+          "simple_better": 2,
+          "comparable": 2
+        },
+        "avg_ssim_asp_vs_gt": 0.7282,
+        "avg_ssim_simple_vs_gt": 0.7267,
+        "human_coherence_rated": 4
+      },
+      "automated_metric_catalog": {
+        "cqas_v1_legacy": {
+          "label": "CQAS v1 (legacy diagnostic)",
+          "direction": "higher_is_better_historically",
+          "status": "legacy_diagnostic_only",
+          "verdict_eligible": false,
+          "note": "Failed human-label correlation audit; never use for ranking or X-wins claims."
+        },
+        "seam_visibility": {
+          "label": "Seam visibility",
+          "direction": "lower_is_better",
+          "status": "human_aligned_candidate",
+          "verdict_eligible": true
+        },
+        "seam_gradient": {
+          "label": "Seam gradient",
+          "direction": "lower_is_better",
+          "status": "human_aligned_supporting_diagnostic",
+          "verdict_eligible": false
+        },
+        "ghosting_siqe": {
+          "label": "Ghosting SIQE",
+          "direction": "lower_is_better_historically",
+          "status": "inverse_validated_telemetry",
+          "verdict_eligible": false
+        },
+        "seam_coherence": {
+          "label": "Seam coherence / banding",
+          "direction": "lower_is_better_historically",
+          "status": "no_human_correlation_telemetry",
+          "verdict_eligible": false
+        },
+        "strip_banding_score": {
+          "label": "Strip banding",
+          "direction": "lower_is_better_historically",
+          "status": "inverse_validated_telemetry",
+          "verdict_eligible": false
+        }
+      },
+      "datasets": [
+        {
+          "name": "asp_test04",
+          "used_fallback": false,
+          "fallback_reason": null,
+          "time": {
+            "simple_stitch_sec": 5.869,
+            "birefnet_sec": 12.849,
+            "matching_sec": 10.783,
+            "bundle_adjust_sec": 12.037,
+            "ecc_sec": 0.585,
+            "render_sec": 28.373,
+            "composite_sec": 62.858,
+            "render_gate_fallback": 0,
+            "visualisations_sec": 2.644,
+            "total_sec": 152.281
+          },
+          "metrics_asp": {
+            "sharpness": 94.47,
+            "coverage": 0.9995,
+            "seam_gradient": 8.272,
+            "color_entropy": 7.6789,
+            "edge_energy_score": 39.1074,
+            "ghosting_siqe": 18.59,
+            "seam_coherence": 19.23,
+            "seam_visibility": 20.84,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1874,
+            "height": 2568,
+            "cqas_v1_legacy": 0.5563
+          },
+          "metrics_simple": {
+            "sharpness": 44.98,
+            "coverage": 0.9996,
+            "seam_gradient": 5.18,
+            "color_entropy": 7.6427,
+            "edge_energy_score": 22.1268,
+            "ghosting_siqe": 62.37,
+            "seam_coherence": 30.23,
+            "seam_visibility": 2.88,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1910,
+            "height": 2501,
+            "cqas_v1_legacy": 0.412
+          },
+          "comparison": {
+            "ssim": 0.7057,
+            "psnr_db": 13.57,
+            "verdict": "simple_better",
+            "verdict_source": "ground_truth"
+          },
+          "human_coherence": {
+            "asp": 1,
+            "bboxes": [],
+            "confidence": 3,
+            "defects": [
+              "banding",
+              "color_shift",
+              "ghosting",
+              "misordered_content",
+              "seam_line",
+              "torn_anatomy"
+            ],
+            "dimensions": {
+              "asp": {
+                "coherence": 1
+              },
+              "simple": {
+                "coherence": 3
+              }
+            },
+            "edges": [],
+            "notes": "Again, SCANS only has minor ghosting issues, while the ASP even has torn anatomy...",
+            "preference": "simple",
+            "reviewed": true,
+            "simple": 3,
+            "updated_at": "2026-08-10T09:16:47"
+          }
+        },
+        {
+          "name": "asp_test08",
+          "used_fallback": true,
+          "fallback_reason": "composite_gate_sb:asp_sc=17.0_limit=42.5,asp_sb=35.8_limit=35.0",
+          "time": {
+            "simple_stitch_sec": 1.68,
+            "birefnet_sec": 4.065,
+            "matching_sec": 3.534,
+            "bundle_adjust_sec": 0.557,
+            "ecc_sec": 1.265,
+            "render_sec": 6.388,
+            "composite_sec": 13.976,
+            "render_gate_fallback": 1,
+            "scans_fallback_sec": 1.581,
+            "total_sec": 49.379
+          },
+          "metrics_asp": {
+            "sharpness": 235.8,
+            "coverage": 1,
+            "seam_gradient": 10.382,
+            "color_entropy": 7.1545,
+            "edge_energy_score": 48.2061,
+            "ghosting_siqe": 77.65,
+            "seam_coherence": 13.21,
+            "seam_visibility": 4.05,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1875,
+            "height": 1794,
+            "cqas_v1_legacy": 0.5486
+          },
+          "metrics_simple": {
+            "sharpness": 206.17,
+            "coverage": 1,
+            "seam_gradient": 8.857,
+            "color_entropy": 6.9156,
+            "edge_energy_score": 41.2944,
+            "ghosting_siqe": 71.35,
+            "seam_coherence": 21.26,
+            "seam_visibility": 6.17,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1407,
+            "height": 1634,
+            "cqas_v1_legacy": 0.4909
+          },
+          "comparison": {
+            "ssim": 0.7104,
+            "psnr_db": 11.92,
+            "verdict": "simple_better",
+            "verdict_source": "human_coherence_veto"
+          },
+          "human_coherence": {
+            "asp": 3,
+            "bboxes": [],
+            "confidence": 2,
+            "defects": [
+              "other"
+            ],
+            "dimensions": {
+              "asp": {
+                "coherence": 3
+              },
+              "hugin": {
+                "coherence": 2
+              },
+              "simple": {
+                "coherence": 4
+              }
+            },
+            "edges": [],
+            "notes": "ASP nearly perfect with small artifacts near some edges, SCANS is pratically perfect, and Hugin again produces a perfect image but weirdly stretched out in a way that ends up making it worse than the others",
+            "preference": "simple",
+            "reviewed": true,
+            "simple": 4,
+            "updated_at": "2026-08-10T09:25:42"
+          }
+        },
+        {
+          "name": "asp_test09",
+          "used_fallback": false,
+          "fallback_reason": null,
+          "time": {
+            "simple_stitch_sec": 5.091,
+            "birefnet_sec": 9.33,
+            "matching_sec": 10.086,
+            "bundle_adjust_sec": 6.124,
+            "ecc_sec": 3.651,
+            "render_sec": 24.599,
+            "composite_sec": 53.105,
+            "render_gate_fallback": 0,
+            "visualisations_sec": 2.519,
+            "total_sec": 135.057
+          },
+          "metrics_asp": {
+            "sharpness": 89.01,
+            "coverage": 1,
+            "seam_gradient": 6.518,
+            "color_entropy": 7.1611,
+            "edge_energy_score": 29.5642,
+            "ghosting_siqe": 42.96,
+            "seam_coherence": 22.41,
+            "seam_visibility": 7.08,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1866,
+            "height": 2136,
+            "cqas_v1_legacy": 0.5583
+          },
+          "metrics_simple": {
+            "sharpness": 91.51,
+            "coverage": 1,
+            "seam_gradient": 5.044,
+            "color_entropy": 7.0257,
+            "edge_energy_score": 20.8495,
+            "ghosting_siqe": 79.64,
+            "seam_coherence": 17.7,
+            "seam_visibility": 1.87,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1547,
+            "height": 2329,
+            "cqas_v1_legacy": 0.544
+          },
+          "comparison": {
+            "ssim": 0.752,
+            "psnr_db": 13.81,
+            "verdict": "comparable",
+            "verdict_source": "ground_truth"
+          },
+          "human_coherence": {
+            "asp": 3,
+            "bboxes": [],
+            "defects": [
+              "crop_loss",
+              "other"
+            ],
+            "dimensions": {
+              "asp": {
+                "coherence": 3
+              },
+              "simple": {
+                "coherence": 4
+              }
+            },
+            "edges": [],
+            "notes": "SCANS is pratically perfect, while the ASP, while nearly perfect, again has small isues with crop loss and non-connecting edges",
+            "preference": "tie",
+            "reviewed": true,
+            "simple": 4,
+            "updated_at": "2026-08-10T09:26:54"
+          }
+        },
+        {
+          "name": "asp_test27",
+          "used_fallback": false,
+          "fallback_reason": null,
+          "time": {
+            "simple_stitch_sec": 5.385,
+            "birefnet_sec": 8.765,
+            "matching_sec": 8.826,
+            "bundle_adjust_sec": 14.854,
+            "ecc_sec": 3.55,
+            "render_sec": 21.123,
+            "composite_sec": 48.879,
+            "render_gate_fallback": 0,
+            "visualisations_sec": 2.574,
+            "total_sec": 135.045
+          },
+          "metrics_asp": {
+            "sharpness": 124.84,
+            "coverage": 1,
+            "seam_gradient": 7.319,
+            "color_entropy": 6.9535,
+            "edge_energy_score": 34.3783,
+            "ghosting_siqe": 39.51,
+            "seam_coherence": 27.99,
+            "seam_visibility": 8.08,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1864,
+            "height": 1985,
+            "cqas_v1_legacy": 0.5606
+          },
+          "metrics_simple": {
+            "sharpness": 97.54,
+            "coverage": 1,
+            "seam_gradient": 5.026,
+            "color_entropy": 7.4671,
+            "edge_energy_score": 23.7089,
+            "ghosting_siqe": 79.37,
+            "seam_coherence": 24.94,
+            "seam_visibility": 1.58,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1918,
+            "height": 2449,
+            "cqas_v1_legacy": 0.5276
+          },
+          "comparison": {
+            "ssim": 0.7178,
+            "psnr_db": 15.12,
+            "verdict": "simple_better",
+            "verdict_source": "ground_truth"
+          },
+          "human_coherence": {
+            "asp": 2,
+            "bboxes": [],
+            "defects": [
+              "banding",
+              "ghosting",
+              "seam_line"
+            ],
+            "dimensions": {
+              "asp": {
+                "coherence": 2
+              },
+              "simple": {
+                "coherence": 3
+              }
+            },
+            "edges": [],
+            "notes": "Ghosting in the SCANS output, and banding + visible seam lines in the ASP output",
+            "reviewed": true,
+            "simple": 3,
+            "updated_at": "2026-08-11T05:46:31"
+          }
+        },
+        {
+          "name": "asp_test57",
+          "used_fallback": true,
+          "fallback_reason": "seam_vis_gate:asp=44.2_sim=2.7_limit=35.0",
+          "time": {
+            "simple_stitch_sec": 5.191,
+            "birefnet_sec": 10.741,
+            "matching_sec": 13.259,
+            "bundle_adjust_sec": 20.355,
+            "ecc_sec": 0.975,
+            "render_sec": 39.122,
+            "composite_sec": 84.138,
+            "render_gate_fallback": 2,
+            "scans_fallback_sec": 3.731,
+            "total_sec": 195.893
+          },
+          "metrics_asp": {
+            "sharpness": 41.02,
+            "coverage": 1,
+            "seam_gradient": 5.169,
+            "color_entropy": 7.3985,
+            "edge_energy_score": 24.5331,
+            "ghosting_siqe": 83.01,
+            "seam_coherence": 20.94,
+            "seam_visibility": 2.79,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1913,
+            "height": 2595,
+            "cqas_v1_legacy": 0.4443
+          },
+          "metrics_simple": {
+            "sharpness": 33.63,
+            "coverage": 1,
+            "seam_gradient": 5.8,
+            "color_entropy": 7.4053,
+            "edge_energy_score": 23.7537,
+            "ghosting_siqe": 84.47,
+            "seam_coherence": 20.88,
+            "seam_visibility": 2.66,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1910,
+            "height": 2600,
+            "cqas_v1_legacy": 0.435
+          },
+          "comparison": {
+            "ssim": 0.94,
+            "psnr_db": 26.94,
+            "verdict": "comparable",
+            "verdict_source": "ground_truth"
+          },
+          "human_coherence": null
+        }
+      ]
+    },
+    {
+      "id": "anime_stitch_20260811_073555",
+      "source": "submodules/ASP/backend/benchmark/output/anime_stitch_20260811_073555.json",
+      "timestamp": "2026-08-11T07:35:55",
+      "metadata": {
+        "git_commit": null,
+        "label": null
+      },
+      "system": {
+        "gpu": "NVIDIA GeForce RTX 3090 Ti",
+        "cuda": null
+      },
+      "summary": {
+        "total_datasets": 5,
+        "datasets_passed": 2,
+        "datasets_fallback": 3,
+        "total_time_sec": 555.328,
+        "avg_time_per_dataset_sec": 102.547,
+        "avg_sharpness_asp": 124.972,
+        "avg_sharpness_simple": 99.042,
+        "avg_ghosting_asp": 63.592,
+        "avg_ghosting_simple": 75.984,
+        "avg_coverage_asp": 0.9999,
+        "avg_ssim": 0.7974,
+        "verdict_counts": {
+          "asp_better": 0,
+          "simple_better": 2,
+          "comparable": 3,
+          "insufficient_data": 0
+        },
+        "gt_verdict_counts": {
+          "asp_better": 0,
+          "simple_better": 2,
+          "comparable": 3
+        },
+        "avg_ssim_asp_vs_gt": 0.7302,
+        "avg_ssim_simple_vs_gt": 0.7423,
+        "human_coherence_rated": 4
+      },
+      "automated_metric_catalog": {
+        "cqas_v1_legacy": {
+          "label": "CQAS v1 (legacy diagnostic)",
+          "direction": "higher_is_better_historically",
+          "status": "legacy_diagnostic_only",
+          "verdict_eligible": false,
+          "note": "Failed human-label correlation audit; never use for ranking or X-wins claims."
+        },
+        "seam_visibility": {
+          "label": "Seam visibility",
+          "direction": "lower_is_better",
+          "status": "human_aligned_candidate",
+          "verdict_eligible": true
+        },
+        "seam_gradient": {
+          "label": "Seam gradient",
+          "direction": "lower_is_better",
+          "status": "human_aligned_supporting_diagnostic",
+          "verdict_eligible": false
+        },
+        "ghosting_siqe": {
+          "label": "Ghosting SIQE",
+          "direction": "lower_is_better_historically",
+          "status": "inverse_validated_telemetry",
+          "verdict_eligible": false
+        },
+        "seam_coherence": {
+          "label": "Seam coherence / banding",
+          "direction": "lower_is_better_historically",
+          "status": "no_human_correlation_telemetry",
+          "verdict_eligible": false
+        },
+        "strip_banding_score": {
+          "label": "Strip banding",
+          "direction": "lower_is_better_historically",
+          "status": "inverse_validated_telemetry",
+          "verdict_eligible": false
+        }
+      },
+      "datasets": [
+        {
+          "name": "asp_test04",
+          "used_fallback": false,
+          "fallback_reason": null,
+          "time": {
+            "simple_stitch_sec": 6.01,
+            "birefnet_sec": 12.885,
+            "matching_sec": 10.81,
+            "bundle_adjust_sec": 15.524,
+            "ecc_sec": 0.902,
+            "render_sec": 30.686,
+            "composite_sec": 38.063,
+            "render_gate_fallback": 0,
+            "visualisations_sec": 2.499,
+            "total_sec": 127.248
+          },
+          "metrics_asp": {
+            "sharpness": 132.88,
+            "coverage": 0.9994,
+            "seam_gradient": 11.31,
+            "color_entropy": 7.8739,
+            "edge_energy_score": 45.6475,
+            "ghosting_siqe": 27.41,
+            "seam_coherence": 27.99,
+            "seam_visibility": 14.42,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1893,
+            "height": 2363,
+            "cqas_v1_legacy": 0.5551
+          },
+          "metrics_simple": {
+            "sharpness": 37.6,
+            "coverage": 0.9989,
+            "seam_gradient": 5.09,
+            "color_entropy": 7.6565,
+            "edge_energy_score": 21.4241,
+            "ghosting_siqe": 58.31,
+            "seam_coherence": 26.45,
+            "seam_visibility": 3.78,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1906,
+            "height": 2493,
+            "cqas_v1_legacy": 0.4151
+          },
+          "comparison": {
+            "ssim": 0.7078,
+            "psnr_db": 13.09,
+            "verdict": "simple_better",
+            "verdict_source": "ground_truth"
+          },
+          "human_coherence": {
+            "asp": 1,
+            "bboxes": [],
+            "confidence": 3,
+            "defects": [
+              "banding",
+              "color_shift",
+              "ghosting",
+              "misordered_content",
+              "seam_line",
+              "torn_anatomy"
+            ],
+            "dimensions": {
+              "asp": {
+                "coherence": 1
+              },
+              "simple": {
+                "coherence": 3
+              }
+            },
+            "edges": [],
+            "notes": "Again, SCANS only has minor ghosting issues, while the ASP even has torn anatomy...",
+            "preference": "simple",
+            "reviewed": true,
+            "simple": 3,
+            "updated_at": "2026-08-10T09:16:47"
+          }
+        },
+        {
+          "name": "asp_test08",
+          "used_fallback": true,
+          "fallback_reason": "seam_vis_gate:asp=139.7_sim=3.4_limit=35.0",
+          "time": {
+            "simple_stitch_sec": 1.437,
+            "birefnet_sec": 3.971,
+            "matching_sec": 3.391,
+            "bundle_adjust_sec": 0.745,
+            "ecc_sec": 1.302,
+            "render_sec": 6.454,
+            "composite_sec": 11.755,
+            "render_gate_fallback": 2,
+            "scans_fallback_sec": 1.262,
+            "total_sec": 35.66
+          },
+          "metrics_asp": {
+            "sharpness": 225.24,
+            "coverage": 1,
+            "seam_gradient": 9.006,
+            "color_entropy": 7.1842,
+            "edge_energy_score": 47.1737,
+            "ghosting_siqe": 77.14,
+            "seam_coherence": 12.17,
+            "seam_visibility": 3.97,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1898,
+            "height": 1749,
+            "cqas_v1_legacy": 0.5537
+          },
+          "metrics_simple": {
+            "sharpness": 226.55,
+            "coverage": 1,
+            "seam_gradient": 9.561,
+            "color_entropy": 7.1731,
+            "edge_energy_score": 45.9868,
+            "ghosting_siqe": 78.52,
+            "seam_coherence": 11.82,
+            "seam_visibility": 3.41,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1870,
+            "height": 1647,
+            "cqas_v1_legacy": 0.5618
+          },
+          "comparison": {
+            "ssim": 0.7752,
+            "psnr_db": 15.48,
+            "verdict": "comparable",
+            "verdict_source": "ground_truth"
+          },
+          "human_coherence": {
+            "asp": 3,
+            "bboxes": [],
+            "confidence": 2,
+            "defects": [
+              "other"
+            ],
+            "dimensions": {
+              "asp": {
+                "coherence": 3
+              },
+              "hugin": {
+                "coherence": 2
+              },
+              "simple": {
+                "coherence": 4
+              }
+            },
+            "edges": [],
+            "notes": "ASP nearly perfect with small artifacts near some edges, SCANS is pratically perfect, and Hugin again produces a perfect image but weirdly stretched out in a way that ends up making it worse than the others",
+            "preference": "simple",
+            "reviewed": true,
+            "simple": 4,
+            "updated_at": "2026-08-10T09:25:42"
+          }
+        },
+        {
+          "name": "asp_test09",
+          "used_fallback": true,
+          "fallback_reason": "seam_vis_gate:asp=39.9_sim=1.9_limit=35.0",
+          "time": {
+            "simple_stitch_sec": 5.421,
+            "birefnet_sec": 9.114,
+            "matching_sec": 9.956,
+            "bundle_adjust_sec": 8.891,
+            "ecc_sec": 4.074,
+            "render_sec": 24.105,
+            "composite_sec": 33.048,
+            "render_gate_fallback": 2,
+            "scans_fallback_sec": 4.436,
+            "total_sec": 107.497
+          },
+          "metrics_asp": {
+            "sharpness": 78.81,
+            "coverage": 1,
+            "seam_gradient": 4.626,
+            "color_entropy": 6.942,
+            "edge_energy_score": 20.9961,
+            "ghosting_siqe": 77.75,
+            "seam_coherence": 19.51,
+            "seam_visibility": 1.96,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1485,
+            "height": 2333,
+            "cqas_v1_legacy": 0.5167
+          },
+          "metrics_simple": {
+            "sharpness": 90.52,
+            "coverage": 1,
+            "seam_gradient": 5.02,
+            "color_entropy": 7.0088,
+            "edge_energy_score": 20.7455,
+            "ghosting_siqe": 79.76,
+            "seam_coherence": 18.7,
+            "seam_visibility": 1.86,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1544,
+            "height": 2330,
+            "cqas_v1_legacy": 0.5387
+          },
+          "comparison": {
+            "ssim": 0.8443,
+            "psnr_db": 19.38,
+            "verdict": "comparable",
+            "verdict_source": "ground_truth"
+          },
+          "human_coherence": {
+            "asp": 3,
+            "bboxes": [],
+            "defects": [
+              "crop_loss",
+              "other"
+            ],
+            "dimensions": {
+              "asp": {
+                "coherence": 3
+              },
+              "simple": {
+                "coherence": 4
+              }
+            },
+            "edges": [],
+            "notes": "SCANS is pratically perfect, while the ASP, while nearly perfect, again has small isues with crop loss and non-connecting edges",
+            "preference": "tie",
+            "reviewed": true,
+            "simple": 4,
+            "updated_at": "2026-08-10T09:26:54"
+          }
+        },
+        {
+          "name": "asp_test27",
+          "used_fallback": false,
+          "fallback_reason": null,
+          "time": {
+            "simple_stitch_sec": 6.162,
+            "birefnet_sec": 8.811,
+            "matching_sec": 8.771,
+            "bundle_adjust_sec": 5.178,
+            "ecc_sec": 3.343,
+            "render_sec": 23.088,
+            "composite_sec": 29.78,
+            "render_gate_fallback": 0,
+            "visualisations_sec": 2.526,
+            "total_sec": 96.758
+          },
+          "metrics_asp": {
+            "sharpness": 143.42,
+            "coverage": 1,
+            "seam_gradient": 8.631,
+            "color_entropy": 6.8658,
+            "edge_energy_score": 37.4725,
+            "ghosting_siqe": 52.13,
+            "seam_coherence": 30.05,
+            "seam_visibility": 11.9,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1875,
+            "height": 2136,
+            "cqas_v1_legacy": 0.4329
+          },
+          "metrics_simple": {
+            "sharpness": 104.52,
+            "coverage": 1,
+            "seam_gradient": 5.03,
+            "color_entropy": 7.4724,
+            "edge_energy_score": 23.6701,
+            "ghosting_siqe": 79.45,
+            "seam_coherence": 24.86,
+            "seam_visibility": 1.48,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1920,
+            "height": 2449,
+            "cqas_v1_legacy": 0.5328
+          },
+          "comparison": {
+            "ssim": 0.7262,
+            "psnr_db": 14.64,
+            "verdict": "simple_better",
+            "verdict_source": "ground_truth"
+          },
+          "human_coherence": {
+            "asp": 2,
+            "bboxes": [],
+            "defects": [
+              "banding",
+              "ghosting",
+              "seam_line"
+            ],
+            "dimensions": {
+              "asp": {
+                "coherence": 2
+              },
+              "simple": {
+                "coherence": 3
+              }
+            },
+            "edges": [],
+            "notes": "Ghosting in the SCANS output, and banding + visible seam lines in the ASP output",
+            "reviewed": true,
+            "simple": 3,
+            "updated_at": "2026-08-11T05:46:31"
+          }
+        },
+        {
+          "name": "asp_test57",
+          "used_fallback": true,
+          "fallback_reason": "seam_vis_gate:asp=41.2_sim=2.5_limit=35.0",
+          "time": {
+            "simple_stitch_sec": 5.027,
+            "birefnet_sec": 10.759,
+            "matching_sec": 12.912,
+            "bundle_adjust_sec": 11.679,
+            "ecc_sec": 3.233,
+            "render_sec": 38.34,
+            "composite_sec": 51.129,
+            "render_gate_fallback": 2,
+            "scans_fallback_sec": 3.848,
+            "total_sec": 145.572
+          },
+          "metrics_asp": {
+            "sharpness": 44.51,
+            "coverage": 0.9999,
+            "seam_gradient": 5.591,
+            "color_entropy": 7.4104,
+            "edge_energy_score": 24.7593,
+            "ghosting_siqe": 83.53,
+            "seam_coherence": 20.65,
+            "seam_visibility": 2.77,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1917,
+            "height": 2589,
+            "cqas_v1_legacy": 0.4509
+          },
+          "metrics_simple": {
+            "sharpness": 36.02,
+            "coverage": 0.9998,
+            "seam_gradient": 5.682,
+            "color_entropy": 7.4064,
+            "edge_energy_score": 23.2295,
+            "ghosting_siqe": 83.88,
+            "seam_coherence": 20.53,
+            "seam_visibility": 2.48,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1917,
+            "height": 2591,
+            "cqas_v1_legacy": 0.4422
+          },
+          "comparison": {
+            "ssim": 0.9336,
+            "psnr_db": 26.23,
+            "verdict": "comparable",
+            "verdict_source": "ground_truth"
+          },
+          "human_coherence": null
+        }
+      ]
+    },
+    {
+      "id": "anime_stitch_20260815_195912",
+      "source": "submodules/ASP/backend/benchmark/output/anime_stitch_20260815_195912.json",
+      "timestamp": "2026-08-15T19:59:12",
+      "metadata": {
+        "git_commit": null,
+        "label": null
+      },
+      "system": {
+        "gpu": "NVIDIA GeForce RTX 3090 Ti",
+        "cuda": null
+      },
+      "summary": {
+        "total_datasets": 4,
+        "datasets_passed": 2,
+        "datasets_fallback": 2,
+        "total_time_sec": 6053.524,
+        "avg_time_per_dataset_sec": 1490.601,
+        "avg_sharpness_asp": 164.725,
+        "avg_sharpness_simple": 114.315,
+        "avg_ghosting_asp": 46.0275,
+        "avg_ghosting_simple": 72.82,
+        "avg_coverage_asp": 0.9972,
+        "avg_ssim": 0.7634,
+        "verdict_counts": {
+          "asp_better": 0,
+          "simple_better": 3,
+          "comparable": 1,
+          "insufficient_data": 0
+        },
+        "gt_verdict_counts": {
+          "asp_better": 0,
+          "simple_better": 3,
+          "comparable": 1
+        },
+        "avg_ssim_asp_vs_gt": 0.6816,
+        "avg_ssim_simple_vs_gt": 0.7362,
+        "human_coherence_rated": 4
+      },
+      "automated_metric_catalog": {
+        "cqas_v1_legacy": {
+          "label": "CQAS v1 (legacy diagnostic)",
+          "direction": "higher_is_better_historically",
+          "status": "legacy_diagnostic_only",
+          "verdict_eligible": false,
+          "note": "Failed human-label correlation audit; never use for ranking or X-wins claims."
+        },
+        "seam_visibility": {
+          "label": "Seam visibility",
+          "direction": "lower_is_better",
+          "status": "human_aligned_candidate",
+          "verdict_eligible": true
+        },
+        "seam_gradient": {
+          "label": "Seam gradient",
+          "direction": "lower_is_better",
+          "status": "human_aligned_supporting_diagnostic",
+          "verdict_eligible": false
+        },
+        "ghosting_siqe": {
+          "label": "Ghosting SIQE",
+          "direction": "lower_is_better_historically",
+          "status": "inverse_validated_telemetry",
+          "verdict_eligible": false
+        },
+        "seam_coherence": {
+          "label": "Seam coherence / banding",
+          "direction": "lower_is_better_historically",
+          "status": "no_human_correlation_telemetry",
+          "verdict_eligible": false
+        },
+        "strip_banding_score": {
+          "label": "Strip banding",
+          "direction": "lower_is_better_historically",
+          "status": "inverse_validated_telemetry",
+          "verdict_eligible": false
+        }
+      },
+      "datasets": [
+        {
+          "name": "asp_test04",
+          "used_fallback": false,
+          "fallback_reason": null,
+          "time": {
+            "simple_stitch_sec": 5.817,
+            "canonical_run_sec": 74.715,
+            "total_sec": 81.407
+          },
+          "metrics_asp": {
+            "sharpness": 106.92,
+            "coverage": 0.9929,
+            "seam_gradient": 8.252,
+            "color_entropy": 7.5351,
+            "edge_energy_score": 37.3552,
+            "ghosting_siqe": 16.2,
+            "seam_coherence": 20.55,
+            "seam_visibility": 45.9,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1909,
+            "height": 2520,
+            "cqas_v1_legacy": 0.5233
+          },
+          "metrics_simple": {
+            "sharpness": 37.6,
+            "coverage": 0.9989,
+            "seam_gradient": 5.09,
+            "color_entropy": 7.6565,
+            "edge_energy_score": 21.4241,
+            "ghosting_siqe": 58.31,
+            "seam_coherence": 26.45,
+            "seam_visibility": 3.78,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1906,
+            "height": 2493,
+            "cqas_v1_legacy": 0.4151
+          },
+          "comparison": {
+            "ssim": 0.6677,
+            "psnr_db": 12.48,
+            "verdict": "simple_better",
+            "verdict_source": "ground_truth"
+          },
+          "human_coherence": {
+            "asp": 1,
+            "bboxes": [],
+            "confidence": 3,
+            "defects": [
+              "banding",
+              "color_shift",
+              "ghosting",
+              "misordered_content",
+              "seam_line",
+              "torn_anatomy"
+            ],
+            "dimensions": {
+              "asp": {
+                "coherence": 1
+              },
+              "simple": {
+                "coherence": 3
+              }
+            },
+            "edges": [],
+            "notes": "Again, SCANS only has minor ghosting issues, while the ASP even has torn anatomy...",
+            "preference": "simple",
+            "reviewed": true,
+            "simple": 3,
+            "updated_at": "2026-08-10T09:16:47"
+          }
+        },
+        {
+          "name": "asp_test08",
+          "used_fallback": false,
+          "fallback_reason": null,
+          "time": {
+            "simple_stitch_sec": 1.394,
+            "canonical_run_sec": 27.402,
+            "total_sec": 30.334
+          },
+          "metrics_asp": {
+            "sharpness": 441.95,
+            "coverage": 0.9959,
+            "seam_gradient": 12.984,
+            "color_entropy": 7.3614,
+            "edge_energy_score": 69.1857,
+            "ghosting_siqe": 16.14,
+            "seam_coherence": 17.21,
+            "seam_visibility": 80.8,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1952,
+            "height": 1769,
+            "cqas_v1_legacy": 0.537
+          },
+          "metrics_simple": {
+            "sharpness": 214.81,
+            "coverage": 1,
+            "seam_gradient": 9.632,
+            "color_entropy": 7.167,
+            "edge_energy_score": 46.5117,
+            "ghosting_siqe": 75.75,
+            "seam_coherence": 11.86,
+            "seam_visibility": 4.55,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1907,
+            "height": 1751,
+            "cqas_v1_legacy": 0.548
+          },
+          "comparison": {
+            "ssim": 0.7199,
+            "psnr_db": 14.25,
+            "verdict": "simple_better",
+            "verdict_source": "ground_truth"
+          },
+          "human_coherence": {
+            "asp": 3,
+            "bboxes": [],
+            "confidence": 2,
+            "defects": [
+              "other"
+            ],
+            "dimensions": {
+              "asp": {
+                "coherence": 3
+              },
+              "hugin": {
+                "coherence": 2
+              },
+              "simple": {
+                "coherence": 4
+              }
+            },
+            "edges": [],
+            "notes": "ASP nearly perfect with small artifacts near some edges, SCANS is pratically perfect, and Hugin again produces a perfect image but weirdly stretched out in a way that ends up making it worse than the others",
+            "preference": "simple",
+            "reviewed": true,
+            "simple": 4,
+            "updated_at": "2026-08-10T09:25:42"
+          }
+        },
+        {
+          "name": "asp_test09",
+          "used_fallback": true,
+          "fallback_reason": "min_gap=10.7434px < 20px",
+          "time": {
+            "simple_stitch_sec": 4.69,
+            "canonical_run_sec": 5809.325,
+            "total_sec": 5815.4
+          },
+          "metrics_asp": {
+            "sharpness": 26.46,
+            "coverage": 0.9999,
+            "seam_gradient": 6.012,
+            "color_entropy": 6.4754,
+            "edge_energy_score": 32.448,
+            "ghosting_siqe": 73.22,
+            "seam_coherence": 19.82,
+            "seam_visibility": 4.29,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 4832,
+            "height": 1136,
+            "cqas_v1_legacy": 0.4089
+          },
+          "metrics_simple": {
+            "sharpness": 91.41,
+            "coverage": 1,
+            "seam_gradient": 5.056,
+            "color_entropy": 7.0579,
+            "edge_energy_score": 20.8493,
+            "ghosting_siqe": 77.7,
+            "seam_coherence": 18.04,
+            "seam_visibility": 1.84,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1568,
+            "height": 2331,
+            "cqas_v1_legacy": 0.5429
+          },
+          "comparison": {
+            "ssim": 0.6948,
+            "psnr_db": 11.57,
+            "verdict": "simple_better",
+            "verdict_source": "ground_truth"
+          },
+          "human_coherence": {
+            "asp": 3,
+            "bboxes": [],
+            "defects": [
+              "crop_loss",
+              "other"
+            ],
+            "dimensions": {
+              "asp": {
+                "coherence": 3
+              },
+              "simple": {
+                "coherence": 4
+              }
+            },
+            "edges": [],
+            "notes": "SCANS is pratically perfect, while the ASP, while nearly perfect, again has small isues with crop loss and non-connecting edges",
+            "preference": "tie",
+            "reviewed": true,
+            "simple": 4,
+            "updated_at": "2026-08-10T09:26:54"
+          }
+        },
+        {
+          "name": "asp_test27",
+          "used_fallback": true,
+          "fallback_reason": "disconnected_edge_graph",
+          "time": {
+            "simple_stitch_sec": 4.642,
+            "canonical_run_sec": 29.185,
+            "total_sec": 35.261
+          },
+          "metrics_asp": {
+            "sharpness": 83.57,
+            "coverage": 1,
+            "seam_gradient": 4.956,
+            "color_entropy": 7.4375,
+            "edge_energy_score": 23.2877,
+            "ghosting_siqe": 78.55,
+            "seam_coherence": 24.92,
+            "seam_visibility": 1.45,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1920,
+            "height": 2448,
+            "cqas_v1_legacy": 0.5083
+          },
+          "metrics_simple": {
+            "sharpness": 113.44,
+            "coverage": 1,
+            "seam_gradient": 5.076,
+            "color_entropy": 7.4638,
+            "edge_energy_score": 23.9233,
+            "ghosting_siqe": 79.52,
+            "seam_coherence": 24.83,
+            "seam_visibility": 1.66,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1919,
+            "height": 2449,
+            "cqas_v1_legacy": 0.5308
+          },
+          "comparison": {
+            "ssim": 0.9714,
+            "psnr_db": 31.02,
+            "verdict": "comparable",
+            "verdict_source": "ground_truth"
+          },
+          "human_coherence": {
+            "asp": 2,
+            "bboxes": [],
+            "confidence": 3,
+            "defects": [
+              "banding",
+              "ghosting",
+              "seam_line"
+            ],
+            "dimensions": {
+              "asp": {
+                "coherence": 2
+              },
+              "simple": {
+                "coherence": 3
+              }
+            },
+            "edges": [],
+            "notes": "Ghosting in the SCANS output, and banding + visible seam lines in the ASP output",
+            "preference": "simple",
+            "reviewed": true,
+            "simple": 3,
+            "updated_at": "2026-08-15T06:09:26"
+          }
+        }
+      ]
+    },
+    {
+      "id": "anime_stitch_20260815_200031",
+      "source": "submodules/ASP/backend/benchmark/output/anime_stitch_20260815_200031.json",
+      "timestamp": "2026-08-15T20:00:31",
+      "metadata": {
+        "git_commit": null,
+        "label": null
+      },
+      "system": {
+        "gpu": "NVIDIA GeForce RTX 3090 Ti",
+        "cuda": null
+      },
+      "summary": {
+        "total_datasets": 1,
+        "datasets_passed": 0,
+        "datasets_fallback": 1,
+        "total_time_sec": 74.09,
+        "avg_time_per_dataset_sec": 58.762,
+        "avg_sharpness_asp": 22.35,
+        "avg_sharpness_simple": 40.55,
+        "avg_ghosting_asp": 76.63,
+        "avg_ghosting_simple": 82.79,
+        "avg_coverage_asp": 1,
+        "avg_ssim": 0.8111,
+        "verdict_counts": {
+          "asp_better": 0,
+          "simple_better": 0,
+          "comparable": 1,
+          "insufficient_data": 0
+        },
+        "gt_verdict_counts": {
+          "asp_better": 0,
+          "simple_better": 0,
+          "comparable": 1
+        },
+        "avg_ssim_asp_vs_gt": 0.7449,
+        "avg_ssim_simple_vs_gt": 0.7554,
+        "human_coherence_rated": 1
+      },
+      "automated_metric_catalog": {
+        "cqas_v1_legacy": {
+          "label": "CQAS v1 (legacy diagnostic)",
+          "direction": "higher_is_better_historically",
+          "status": "legacy_diagnostic_only",
+          "verdict_eligible": false,
+          "note": "Failed human-label correlation audit; never use for ranking or X-wins claims."
+        },
+        "seam_visibility": {
+          "label": "Seam visibility",
+          "direction": "lower_is_better",
+          "status": "human_aligned_candidate",
+          "verdict_eligible": true
+        },
+        "seam_gradient": {
+          "label": "Seam gradient",
+          "direction": "lower_is_better",
+          "status": "human_aligned_supporting_diagnostic",
+          "verdict_eligible": false
+        },
+        "ghosting_siqe": {
+          "label": "Ghosting SIQE",
+          "direction": "lower_is_better_historically",
+          "status": "inverse_validated_telemetry",
+          "verdict_eligible": false
+        },
+        "seam_coherence": {
+          "label": "Seam coherence / banding",
+          "direction": "lower_is_better_historically",
+          "status": "no_human_correlation_telemetry",
+          "verdict_eligible": false
+        },
+        "strip_banding_score": {
+          "label": "Strip banding",
+          "direction": "lower_is_better_historically",
+          "status": "inverse_validated_telemetry",
+          "verdict_eligible": false
+        }
+      },
+      "datasets": [
+        {
+          "name": "asp_test57",
+          "used_fallback": true,
+          "fallback_reason": "min_gap=7.92342px < 25.3201px",
+          "time": {
+            "simple_stitch_sec": 5.406,
+            "canonical_run_sec": 52.291,
+            "total_sec": 58.762
+          },
+          "metrics_asp": {
+            "sharpness": 22.35,
+            "coverage": 1,
+            "seam_gradient": 4.824,
+            "color_entropy": 7.0909,
+            "edge_energy_score": 21.4244,
+            "ghosting_siqe": 76.63,
+            "seam_coherence": 21.57,
+            "seam_visibility": 1.77,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1840,
+            "height": 2528,
+            "cqas_v1_legacy": 0.426
+          },
+          "metrics_simple": {
+            "sharpness": 40.55,
+            "coverage": 0.9999,
+            "seam_gradient": 5.94,
+            "color_entropy": 7.4196,
+            "edge_energy_score": 24.4198,
+            "ghosting_siqe": 82.79,
+            "seam_coherence": 20.79,
+            "seam_visibility": 2.61,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1912,
+            "height": 2594,
+            "cqas_v1_legacy": 0.4463
+          },
+          "comparison": {
+            "ssim": 0.8111,
+            "psnr_db": 14.96,
+            "verdict": "comparable",
+            "verdict_source": "ground_truth"
+          },
+          "human_coherence": {
+            "asp": 3,
+            "bboxes": [],
+            "confidence": 3,
+            "defects": [
+              "ghosting",
+              "torn_anatomy"
+            ],
+            "dimensions": {
+              "asp": {
+                "coherence": 3
+              },
+              "simple": {
+                "coherence": 3
+              }
+            },
+            "edges": [],
+            "notes": "Both results are relatively good, with both displaying some ghosting (SCANS is more severe here) and slight torn anatomy (ASP is slightly more severe here)",
+            "preference": "tie",
+            "reviewed": true,
+            "simple": 3,
+            "updated_at": "2026-08-13T03:29:44"
+          }
+        }
+      ]
+    },
+    {
+      "id": "anime_stitch_20260816_202043",
+      "source": "submodules/ASP/backend/benchmark/output/anime_stitch_20260816_202043.json",
+      "timestamp": "2026-08-16T20:20:43",
+      "metadata": {
+        "git_commit": null,
+        "label": null
+      },
+      "system": {
+        "gpu": "NVIDIA GeForce RTX 3090 Ti",
+        "cuda": null
+      },
+      "summary": {
+        "total_datasets": 11,
+        "datasets_passed": 3,
+        "datasets_fallback": 8,
+        "total_time_sec": 1837.913,
+        "avg_time_per_dataset_sec": 136.35,
+        "avg_sharpness_asp": 115.386,
+        "avg_sharpness_simple": 46.197,
+        "avg_ghosting_asp": 60.2391,
+        "avg_ghosting_simple": 79.2309,
+        "avg_coverage_asp": 0.9965,
+        "avg_ssim": 0.7235,
+        "verdict_counts": {
+          "asp_better": 1,
+          "simple_better": 5,
+          "comparable": 5,
+          "insufficient_data": 0
+        },
+        "gt_verdict_counts": {
+          "asp_better": 1,
+          "simple_better": 5,
+          "comparable": 2
+        },
+        "avg_ssim_asp_vs_gt": 0.6122,
+        "avg_ssim_simple_vs_gt": 0.6724,
+        "human_coherence_rated": 11
+      },
+      "automated_metric_catalog": {
+        "cqas_v1_legacy": {
+          "label": "CQAS v1 (legacy diagnostic)",
+          "direction": "higher_is_better_historically",
+          "status": "legacy_diagnostic_only",
+          "verdict_eligible": false,
+          "note": "Failed human-label correlation audit; never use for ranking or X-wins claims."
+        },
+        "seam_visibility": {
+          "label": "Seam visibility",
+          "direction": "lower_is_better",
+          "status": "human_aligned_candidate",
+          "verdict_eligible": true
+        },
+        "seam_gradient": {
+          "label": "Seam gradient",
+          "direction": "lower_is_better",
+          "status": "human_aligned_supporting_diagnostic",
+          "verdict_eligible": false
+        },
+        "ghosting_siqe": {
+          "label": "Ghosting SIQE",
+          "direction": "lower_is_better_historically",
+          "status": "inverse_validated_telemetry",
+          "verdict_eligible": false
+        },
+        "seam_coherence": {
+          "label": "Seam coherence / banding",
+          "direction": "lower_is_better_historically",
+          "status": "no_human_correlation_telemetry",
+          "verdict_eligible": false
+        },
+        "strip_banding_score": {
+          "label": "Strip banding",
+          "direction": "lower_is_better_historically",
+          "status": "inverse_validated_telemetry",
+          "verdict_eligible": false
+        }
+      },
+      "datasets": [
+        {
+          "name": "asp_test84",
+          "used_fallback": true,
+          "fallback_reason": "disconnected_edge_graph",
+          "time": {
+            "simple_stitch_sec": 5.429,
+            "canonical_run_sec": 41.409,
+            "total_sec": 50.256
+          },
+          "metrics_asp": {
+            "sharpness": 27.08,
+            "coverage": 0.9993,
+            "seam_gradient": 3.796,
+            "color_entropy": 7.3115,
+            "edge_energy_score": 15.2192,
+            "ghosting_siqe": 80.98,
+            "seam_coherence": 19.39,
+            "seam_visibility": 2.32,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1904,
+            "height": 2128,
+            "cqas_v1_legacy": 0.4352
+          },
+          "metrics_simple": {
+            "sharpness": 15.33,
+            "coverage": 0.9999,
+            "seam_gradient": 3.687,
+            "color_entropy": 7.3136,
+            "edge_energy_score": 14.42,
+            "ghosting_siqe": 77.72,
+            "seam_coherence": 19.06,
+            "seam_visibility": 2.41,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1918,
+            "height": 2151,
+            "cqas_v1_legacy": 0.4178
+          },
+          "comparison": {
+            "ssim": 0.8848,
+            "psnr_db": 19.08,
+            "verdict": "comparable",
+            "verdict_source": "ground_truth"
+          },
+          "human_coherence": {
+            "asp": 2,
+            "bboxes": [],
+            "confidence": 3,
+            "defects": [
+              "crop_loss",
+              "ghosting",
+              "torn_anatomy"
+            ],
+            "dimensions": {
+              "asp": {
+                "coherence": 2
+              },
+              "simple": {
+                "coherence": 3
+              }
+            },
+            "edges": [],
+            "notes": "Both the ASP and SCANS present ghosting plus torn anatomy, and the ASP has additional crop loss at the bottom.",
+            "preference": "simple",
+            "reviewed": true,
+            "simple": 3,
+            "updated_at": "2026-08-13T04:00:22"
+          }
+        },
+        {
+          "name": "asp_test85",
+          "used_fallback": true,
+          "fallback_reason": "ratio=3.2967 > 3",
+          "time": {
+            "simple_stitch_sec": 3.744,
+            "canonical_run_sec": 129.873,
+            "total_sec": 136.034
+          },
+          "metrics_asp": {
+            "sharpness": 22.27,
+            "coverage": 0.9994,
+            "seam_gradient": 7.163,
+            "color_entropy": 7.3673,
+            "edge_energy_score": 37.2755,
+            "ghosting_siqe": 76.92,
+            "seam_coherence": 17.58,
+            "seam_visibility": 4.15,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 7728,
+            "height": 1664,
+            "cqas_v1_legacy": 0.4133
+          },
+          "metrics_simple": {
+            "sharpness": 66.72,
+            "coverage": 1,
+            "seam_gradient": 6.01,
+            "color_entropy": 7.0854,
+            "edge_energy_score": 26.8674,
+            "ghosting_siqe": 85.68,
+            "seam_coherence": 10.34,
+            "seam_visibility": 1.49,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1888,
+            "height": 2416,
+            "cqas_v1_legacy": 0.5408
+          },
+          "comparison": {
+            "ssim": 0.7254,
+            "psnr_db": 13.77,
+            "verdict": "simple_better",
+            "verdict_source": "ground_truth"
+          },
+          "human_coherence": {
+            "asp": 3,
+            "bboxes": [],
+            "confidence": 2,
+            "defects": [
+              "ghosting",
+              "torn_anatomy"
+            ],
+            "dimensions": {
+              "asp": {
+                "coherence": 3
+              },
+              "simple": {
+                "coherence": 3
+              }
+            },
+            "edges": [],
+            "notes": "Both outputs are very good, although they suffer from some torn anatomy and ghosting. The ASP has slightly worse torn anatomy, thus SCANS comes out as slightly better.",
+            "preference": "simple",
+            "reviewed": true,
+            "simple": 3,
+            "updated_at": "2026-08-13T04:01:43"
+          }
+        },
+        {
+          "name": "asp_test86",
+          "used_fallback": true,
+          "fallback_reason": "disconnected_edge_graph",
+          "time": {
+            "simple_stitch_sec": 7.637,
+            "canonical_run_sec": 48.192,
+            "total_sec": 57.095
+          },
+          "metrics_asp": {
+            "sharpness": 19.86,
+            "coverage": 1,
+            "seam_gradient": 5.622,
+            "color_entropy": 7.7186,
+            "edge_energy_score": 19.8843,
+            "ghosting_siqe": 65.92,
+            "seam_coherence": 37.71,
+            "seam_visibility": 5.94,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1856,
+            "height": 2715,
+            "cqas_v1_legacy": 0.3077
+          },
+          "metrics_simple": {
+            "sharpness": 19.97,
+            "coverage": 0.9998,
+            "seam_gradient": 5.227,
+            "color_entropy": 7.7484,
+            "edge_energy_score": 17.9391,
+            "ghosting_siqe": 72.39,
+            "seam_coherence": 39.97,
+            "seam_visibility": 4.31,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1880,
+            "height": 2714,
+            "cqas_v1_legacy": 0.3184
+          },
+          "comparison": {
+            "ssim": 0.9046,
+            "psnr_db": 18.9,
+            "verdict": "comparable",
+            "verdict_source": "ground_truth"
+          },
+          "human_coherence": {
+            "asp": 1,
+            "bboxes": [],
+            "confidence": 3,
+            "defects": [
+              "banding",
+              "blur",
+              "color_shift",
+              "duplicated_strip",
+              "ghosting",
+              "misordered_content",
+              "seam_line",
+              "torn_anatomy"
+            ],
+            "dimensions": {
+              "asp": {
+                "coherence": 1
+              },
+              "simple": {
+                "coherence": 3
+              }
+            },
+            "edges": [],
+            "notes": "The ASP has its usual array of issues with severe magnitude, while SCANS produces a very good result with some ghosting and blur issues.",
+            "preference": "simple",
+            "reviewed": true,
+            "simple": 3,
+            "updated_at": "2026-08-13T04:02:34"
+          }
+        },
+        {
+          "name": "asp_test87",
+          "used_fallback": true,
+          "fallback_reason": "disconnected_edge_graph",
+          "time": {
+            "simple_stitch_sec": 10.303,
+            "canonical_run_sec": 49.431,
+            "total_sec": 64.158
+          },
+          "metrics_asp": {
+            "sharpness": 34.05,
+            "coverage": 1,
+            "seam_gradient": 5.739,
+            "color_entropy": 7.6209,
+            "edge_energy_score": 22.6227,
+            "ghosting_siqe": 86,
+            "seam_coherence": 22.8,
+            "seam_visibility": 2.48,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1815,
+            "height": 1481,
+            "cqas_v1_legacy": 0.4301
+          },
+          "metrics_simple": {
+            "sharpness": 35.95,
+            "coverage": 1,
+            "seam_gradient": 5.826,
+            "color_entropy": 7.6129,
+            "edge_energy_score": 23.2511,
+            "ghosting_siqe": 86.24,
+            "seam_coherence": 23.63,
+            "seam_visibility": 2.03,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1811,
+            "height": 1487,
+            "cqas_v1_legacy": 0.435
+          },
+          "comparison": {
+            "ssim": 0.8802,
+            "psnr_db": 24.4,
+            "verdict": "comparable",
+            "verdict_source": "cv_metrics"
+          },
+          "human_coherence": {
+            "asp": 3,
+            "bboxes": [],
+            "confidence": 2,
+            "defects": [
+              "crop_loss",
+              "geometry_warp",
+              "ghosting",
+              "torn_anatomy"
+            ],
+            "dimensions": {
+              "asp": {
+                "coherence": 3
+              },
+              "hugin": {
+                "coherence": 2
+              },
+              "simple": {
+                "coherence": 3
+              }
+            },
+            "edges": [],
+            "notes": "Small crop loss, ghosting, and torn anatomy on both the ASP and SCANS outputs, with the ASP having slightly worse torn anatomy. Hugin has torn anatomy, ghosting, and above average geometric warp.",
+            "preference": "simple",
+            "reviewed": true,
+            "simple": 3,
+            "updated_at": "2026-08-13T04:04:46"
+          }
+        },
+        {
+          "name": "asp_test88",
+          "used_fallback": false,
+          "fallback_reason": null,
+          "time": {
+            "simple_stitch_sec": 1.617,
+            "canonical_run_sec": 14.461,
+            "total_sec": 19.497
+          },
+          "metrics_asp": {
+            "sharpness": 236.98,
+            "coverage": 1,
+            "seam_gradient": 13.184,
+            "color_entropy": 7.4342,
+            "edge_energy_score": 64.205,
+            "ghosting_siqe": 9.13,
+            "seam_coherence": 15.55,
+            "seam_visibility": 83.97,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1877,
+            "height": 1183,
+            "cqas_v1_legacy": 0.5845
+          },
+          "metrics_simple": {
+            "sharpness": 84.78,
+            "coverage": 1,
+            "seam_gradient": 9.208,
+            "color_entropy": 7.5245,
+            "edge_energy_score": 35.4816,
+            "ghosting_siqe": 76.75,
+            "seam_coherence": 29.56,
+            "seam_visibility": 2.25,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1918,
+            "height": 1636,
+            "cqas_v1_legacy": 0.4819
+          },
+          "comparison": {
+            "ssim": 0.5684,
+            "psnr_db": 10.12,
+            "verdict": "simple_better",
+            "verdict_source": "ground_truth"
+          },
+          "human_coherence": {
+            "asp": 0,
+            "bboxes": [],
+            "confidence": 3,
+            "defects": [
+              "banding",
+              "blur",
+              "color_shift",
+              "crop_loss",
+              "duplicated_strip",
+              "ghosting",
+              "misordered_content",
+              "seam_line",
+              "torn_anatomy"
+            ],
+            "dimensions": {
+              "asp": {
+                "coherence": 0
+              },
+              "simple": {
+                "coherence": 4
+              }
+            },
+            "edges": [],
+            "notes": "SCANS produces a near-perfect result, while the ASP's output is basically garbage, having all possible issues (except geometry warp) with extreme magnitude.",
+            "preference": "simple",
+            "reviewed": true,
+            "simple": 4,
+            "updated_at": "2026-08-13T04:05:44"
+          }
+        },
+        {
+          "name": "asp_test89",
+          "used_fallback": true,
+          "fallback_reason": "disconnected_edge_graph",
+          "time": {
+            "simple_stitch_sec": 9.754,
+            "canonical_run_sec": 58.967,
+            "total_sec": 72.513
+          },
+          "metrics_asp": {
+            "sharpness": 11.44,
+            "coverage": 1,
+            "seam_gradient": 3.05,
+            "color_entropy": 7.4028,
+            "edge_energy_score": 8.9337,
+            "ghosting_siqe": 71.49,
+            "seam_coherence": 51.19,
+            "seam_visibility": 5.15,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1899,
+            "height": 1206,
+            "cqas_v1_legacy": 0.2554
+          },
+          "metrics_simple": {
+            "sharpness": 24.03,
+            "coverage": 1,
+            "seam_gradient": 4.952,
+            "color_entropy": 7.7797,
+            "edge_energy_score": 17.3932,
+            "ghosting_siqe": 90.14,
+            "seam_coherence": 31.71,
+            "seam_visibility": 1.71,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1916,
+            "height": 2175,
+            "cqas_v1_legacy": 0.3887
+          },
+          "comparison": {
+            "ssim": 0.6326,
+            "psnr_db": 7.67,
+            "verdict": "simple_better",
+            "verdict_source": "ground_truth"
+          },
+          "human_coherence": {
+            "asp": 2,
+            "bboxes": [],
+            "confidence": 3,
+            "defects": [
+              "blur",
+              "color_shift",
+              "crop_loss",
+              "duplicated_strip",
+              "ghosting",
+              "misordered_content",
+              "torn_anatomy"
+            ],
+            "dimensions": {
+              "asp": {
+                "coherence": 2
+              },
+              "simple": {
+                "coherence": 1
+              }
+            },
+            "edges": [],
+            "notes": "Both outputs have torn anatomy, duplicated strips, misordered content, ghosting, color shift, and blur, with SCANS also having crop loss issues.",
+            "preference": "asp",
+            "reviewed": true,
+            "simple": 1,
+            "updated_at": "2026-08-13T04:06:39"
+          }
+        },
+        {
+          "name": "asp_test91",
+          "used_fallback": false,
+          "fallback_reason": null,
+          "time": {
+            "simple_stitch_sec": 4.395,
+            "canonical_run_sec": 41.694,
+            "total_sec": 47.986
+          },
+          "metrics_asp": {
+            "sharpness": 226.39,
+            "coverage": 0.9996,
+            "seam_gradient": 16.706,
+            "color_entropy": 7.608,
+            "edge_energy_score": 75.9537,
+            "ghosting_siqe": 53.93,
+            "seam_coherence": 26.02,
+            "seam_visibility": 34.42,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1908,
+            "height": 2091,
+            "cqas_v1_legacy": 0.2813
+          },
+          "metrics_simple": {
+            "sharpness": 89.48,
+            "coverage": 1,
+            "seam_gradient": 11.491,
+            "color_entropy": 7.7495,
+            "edge_energy_score": 47.4714,
+            "ghosting_siqe": 89.48,
+            "seam_coherence": 26.38,
+            "seam_visibility": 3.01,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1919,
+            "height": 2099,
+            "cqas_v1_legacy": 0.4926
+          },
+          "comparison": {
+            "ssim": 0.5998,
+            "psnr_db": 12.03,
+            "verdict": "simple_better",
+            "verdict_source": "ground_truth"
+          },
+          "human_coherence": {
+            "asp": 4,
+            "bboxes": [],
+            "confidence": 3,
+            "defects": [
+              "color_shift",
+              "ghosting"
+            ],
+            "dimensions": {
+              "asp": {
+                "coherence": 4
+              },
+              "simple": {
+                "coherence": 4
+              }
+            },
+            "edges": [],
+            "notes": "Both outputs are near-identical and near-perfect, with just slight ghosting and small color shift issues.",
+            "preference": "tie",
+            "reviewed": true,
+            "simple": 4,
+            "updated_at": "2026-08-15T06:09:56"
+          }
+        },
+        {
+          "name": "asp_test92",
+          "used_fallback": true,
+          "fallback_reason": "min_gap=1.29489px < 20px",
+          "time": {
+            "simple_stitch_sec": 6.614,
+            "canonical_run_sec": 388.994,
+            "total_sec": 398.825
+          },
+          "metrics_asp": {
+            "sharpness": 45.4,
+            "coverage": 1,
+            "seam_gradient": 6.634,
+            "color_entropy": 7.7948,
+            "edge_energy_score": 22.4965,
+            "ghosting_siqe": 92.02,
+            "seam_coherence": 17.41,
+            "seam_visibility": 1.46,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1792,
+            "height": 1937,
+            "cqas_v1_legacy": 0.4809
+          },
+          "metrics_simple": {
+            "sharpness": 30.25,
+            "coverage": 0.9997,
+            "seam_gradient": 5.569,
+            "color_entropy": 7.7995,
+            "edge_energy_score": 18.2476,
+            "ghosting_siqe": 92.42,
+            "seam_coherence": 27.67,
+            "seam_visibility": 1.29,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1857,
+            "height": 2509,
+            "cqas_v1_legacy": 0.4192
+          },
+          "comparison": {
+            "ssim": 0.662,
+            "psnr_db": 10.62,
+            "verdict": "simple_better",
+            "verdict_source": "ground_truth"
+          },
+          "human_coherence": {
+            "asp": 2,
+            "bboxes": [],
+            "confidence": 3,
+            "defects": [
+              "blur",
+              "crop_loss",
+              "geometry_warp",
+              "ghosting"
+            ],
+            "dimensions": {
+              "asp": {
+                "coherence": 2
+              },
+              "hugin": {
+                "coherence": 4
+              },
+              "simple": {
+                "coherence": 3
+              }
+            },
+            "edges": [],
+            "notes": "The ASP has severe crop loss, and both it and SCANS have ghosting issues. Additionally, SCANS also has some blur, and Hugin is pratically perfect, with near-imperceptible geometric warp.",
+            "preference": "simple",
+            "reviewed": true,
+            "simple": 3,
+            "updated_at": "2026-08-13T04:09:47"
+          }
+        },
+        {
+          "name": "asp_test94",
+          "used_fallback": false,
+          "fallback_reason": null,
+          "time": {
+            "simple_stitch_sec": 2.944,
+            "canonical_run_sec": 39.339,
+            "total_sec": 44.55
+          },
+          "metrics_asp": {
+            "sharpness": 483.7,
+            "coverage": 0.9667,
+            "seam_gradient": 10.946,
+            "color_entropy": 6.8443,
+            "edge_energy_score": 49.1936,
+            "ghosting_siqe": 14.79,
+            "seam_coherence": 14.78,
+            "seam_visibility": 74.83,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 2055,
+            "height": 1911,
+            "cqas_v1_legacy": 0.5546
+          },
+          "metrics_simple": {
+            "sharpness": 47.27,
+            "coverage": 1,
+            "seam_gradient": 5.364,
+            "color_entropy": 7.1482,
+            "edge_energy_score": 20.4232,
+            "ghosting_siqe": 57.66,
+            "seam_coherence": 8.44,
+            "seam_visibility": 4.22,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1726,
+            "height": 957,
+            "cqas_v1_legacy": 0.5002
+          },
+          "comparison": {
+            "ssim": 0.6511,
+            "psnr_db": 10.89,
+            "verdict": "comparable",
+            "verdict_source": "cv_metrics"
+          },
+          "human_coherence": {
+            "asp": 1,
+            "bboxes": [],
+            "confidence": 2,
+            "defects": [
+              "crop_loss",
+              "geometry_warp",
+              "ghosting",
+              "seam_line",
+              "torn_anatomy"
+            ],
+            "dimensions": {
+              "asp": {
+                "coherence": 1
+              },
+              "hugin": {
+                "coherence": 2
+              },
+              "simple": {
+                "coherence": 1
+              }
+            },
+            "edges": [],
+            "notes": "Both the ASP and SCANS have severe crop loss (although in different frame ranges), torn anatomy, ghosting, and visible seam line issues. Hugin has severe geometric warp and some torn anatomy.",
+            "preference": "tie",
+            "reviewed": true,
+            "simple": 1,
+            "updated_at": "2026-08-13T04:12:08"
+          }
+        },
+        {
+          "name": "asp_test96",
+          "used_fallback": true,
+          "fallback_reason": "min_gap=15.2087px < 20.6075px",
+          "time": {
+            "simple_stitch_sec": 9.738,
+            "canonical_run_sec": 568.875,
+            "total_sec": 579.998
+          },
+          "metrics_asp": {
+            "sharpness": 109.4,
+            "coverage": 0.9979,
+            "seam_gradient": 6.546,
+            "color_entropy": 7.0077,
+            "edge_energy_score": 31.2264,
+            "ghosting_siqe": 48.77,
+            "seam_coherence": 38.58,
+            "seam_visibility": 4.98,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1936,
+            "height": 816,
+            "cqas_v1_legacy": 0.5014
+          },
+          "metrics_simple": {
+            "sharpness": 39.77,
+            "coverage": 1,
+            "seam_gradient": 7.156,
+            "color_entropy": 7.2074,
+            "edge_energy_score": 31.4308,
+            "ghosting_siqe": 80.71,
+            "seam_coherence": 30.57,
+            "seam_visibility": 4.79,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1904,
+            "height": 1184,
+            "cqas_v1_legacy": 0.3799
+          },
+          "comparison": {
+            "ssim": 0.7251,
+            "psnr_db": 10.33,
+            "verdict": "asp_better",
+            "verdict_source": "ground_truth"
+          },
+          "human_coherence": {
+            "asp": 3,
+            "bboxes": [],
+            "confidence": 3,
+            "defects": [
+              "color_shift",
+              "crop_loss",
+              "geometry_warp"
+            ],
+            "dimensions": {
+              "asp": {
+                "coherence": 3
+              },
+              "hugin": {
+                "coherence": 3
+              },
+              "simple": {
+                "coherence": 1
+              }
+            },
+            "edges": [],
+            "notes": "Both the ASP and Hugin outputs are very good, with the ASP one having color shift issues and Hugin geometric warp issues. SCANS has crop loss so extreme, that its output contains less than a third of the other stitches and the ground truth.",
+            "preference": "asp",
+            "reviewed": true,
+            "simple": 1,
+            "updated_at": "2026-08-13T04:15:18"
+          }
+        },
+        {
+          "name": "asp_test97",
+          "used_fallback": true,
+          "fallback_reason": "disconnected_edge_graph",
+          "time": {
+            "simple_stitch_sec": 3.801,
+            "canonical_run_sec": 24.097,
+            "total_sec": 28.942
+          },
+          "metrics_asp": {
+            "sharpness": 52.68,
+            "coverage": 0.9988,
+            "seam_gradient": 8.24,
+            "color_entropy": 6.7619,
+            "edge_energy_score": 39.6234,
+            "ghosting_siqe": 62.68,
+            "seam_coherence": 14.32,
+            "seam_visibility": 3.03,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1328,
+            "height": 1504,
+            "cqas_v1_legacy": 0.4854
+          },
+          "metrics_simple": {
+            "sharpness": 54.62,
+            "coverage": 0.9839,
+            "seam_gradient": 7.736,
+            "color_entropy": 6.8127,
+            "edge_energy_score": 37.1351,
+            "ghosting_siqe": 62.35,
+            "seam_coherence": 13.62,
+            "seam_visibility": 3.07,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1520,
+            "height": 1552,
+            "cqas_v1_legacy": 0.4906
+          },
+          "comparison": {
+            "ssim": 0.725,
+            "psnr_db": 18.33,
+            "verdict": "comparable",
+            "verdict_source": "cv_metrics"
+          },
+          "human_coherence": {
+            "asp": 2,
+            "bboxes": [],
+            "confidence": 3,
+            "defects": [
+              "banding",
+              "blur",
+              "color_shift",
+              "crop_loss",
+              "duplicated_strip",
+              "ghosting",
+              "misordered_content",
+              "seam_line",
+              "torn_anatomy"
+            ],
+            "dimensions": {
+              "asp": {
+                "coherence": 2
+              },
+              "hugin": {
+                "coherence": 4
+              },
+              "simple": {
+                "coherence": 3
+              }
+            },
+            "edges": [],
+            "notes": "Hugin produces a near-perfect output, while SCANS has some ghosting and severe crop loss. The ASP also has some crop loss, plus its usual array of issues with moderate magnitude.",
+            "preference": "simple",
+            "reviewed": true,
+            "simple": 3,
+            "updated_at": "2026-08-13T04:15:22"
+          }
+        }
+      ]
+    },
+    {
+      "id": "anime_stitch_20260816_202758",
+      "source": "submodules/ASP/backend/benchmark/output/anime_stitch_20260816_202758.json",
+      "timestamp": "2026-08-16T20:27:58",
+      "metadata": {
+        "git_commit": null,
+        "label": null
+      },
+      "system": {
+        "gpu": "NVIDIA GeForce RTX 3090 Ti",
+        "cuda": null
+      },
+      "summary": {
+        "total_datasets": 1,
+        "datasets_passed": 0,
+        "datasets_fallback": 1,
+        "total_time_sec": 76.794,
+        "avg_time_per_dataset_sec": 57.351,
+        "avg_sharpness_asp": 28.1,
+        "avg_sharpness_simple": 28.5,
+        "avg_ghosting_asp": 79.27,
+        "avg_ghosting_simple": 78.82,
+        "avg_coverage_asp": 1,
+        "avg_ssim": 0.9152,
+        "verdict_counts": {
+          "asp_better": 0,
+          "simple_better": 0,
+          "comparable": 1,
+          "insufficient_data": 0
+        },
+        "gt_verdict_counts": {
+          "asp_better": 0,
+          "simple_better": 0,
+          "comparable": 1
+        },
+        "avg_ssim_asp_vs_gt": 0.7769,
+        "avg_ssim_simple_vs_gt": 0.7758,
+        "human_coherence_rated": 1
+      },
+      "automated_metric_catalog": {
+        "cqas_v1_legacy": {
+          "label": "CQAS v1 (legacy diagnostic)",
+          "direction": "higher_is_better_historically",
+          "status": "legacy_diagnostic_only",
+          "verdict_eligible": false,
+          "note": "Failed human-label correlation audit; never use for ranking or X-wins claims."
+        },
+        "seam_visibility": {
+          "label": "Seam visibility",
+          "direction": "lower_is_better",
+          "status": "human_aligned_candidate",
+          "verdict_eligible": true
+        },
+        "seam_gradient": {
+          "label": "Seam gradient",
+          "direction": "lower_is_better",
+          "status": "human_aligned_supporting_diagnostic",
+          "verdict_eligible": false
+        },
+        "ghosting_siqe": {
+          "label": "Ghosting SIQE",
+          "direction": "lower_is_better_historically",
+          "status": "inverse_validated_telemetry",
+          "verdict_eligible": false
+        },
+        "seam_coherence": {
+          "label": "Seam coherence / banding",
+          "direction": "lower_is_better_historically",
+          "status": "no_human_correlation_telemetry",
+          "verdict_eligible": false
+        },
+        "strip_banding_score": {
+          "label": "Strip banding",
+          "direction": "lower_is_better_historically",
+          "status": "inverse_validated_telemetry",
+          "verdict_eligible": false
+        }
+      },
+      "datasets": [
+        {
+          "name": "asp_test83",
+          "used_fallback": true,
+          "fallback_reason": "affine_invalid:min_gap=24.3392px < 25.6822px",
+          "time": {
+            "simple_stitch_sec": 3.48,
+            "canonical_run_sec": 51.559,
+            "total_sec": 57.351
+          },
+          "metrics_asp": {
+            "sharpness": 28.1,
+            "coverage": 1,
+            "seam_gradient": 5.065,
+            "color_entropy": 7.4101,
+            "edge_energy_score": 19.7691,
+            "ghosting_siqe": 79.27,
+            "seam_coherence": 20.68,
+            "seam_visibility": 2.89,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1908,
+            "height": 1917,
+            "cqas_v1_legacy": 0.4248
+          },
+          "metrics_simple": {
+            "sharpness": 28.5,
+            "coverage": 1,
+            "seam_gradient": 5.104,
+            "color_entropy": 7.4221,
+            "edge_energy_score": 19.9199,
+            "ghosting_siqe": 78.82,
+            "seam_coherence": 20.67,
+            "seam_visibility": 2.65,
+            "ghost_seam_scores": [],
+            "ghost_seam_max": null,
+            "width": 1906,
+            "height": 1909,
+            "cqas_v1_legacy": 0.4283
+          },
+          "comparison": {
+            "ssim": 0.9152,
+            "psnr_db": 25.1,
+            "verdict": "comparable",
+            "verdict_source": "ground_truth"
+          },
+          "human_coherence": {
+            "asp": 1,
+            "bboxes": [],
+            "confidence": 3,
+            "defects": [
+              "banding",
+              "blur",
+              "color_shift",
+              "crop_loss",
+              "duplicated_strip",
+              "misordered_content",
+              "seam_line",
+              "torn_anatomy"
+            ],
+            "dimensions": {
+              "asp": {
+                "coherence": 1
+              },
+              "simple": {
+                "coherence": 2
+              }
+            },
+            "edges": [],
+            "notes": "SCANS has crop loss, while the ASP has its usual array of issues with severe magnitude.",
+            "preference": "simple",
+            "reviewed": true,
+            "simple": 2,
+            "updated_at": "2026-08-13T03:59:37"
+          }
         }
       ]
     }

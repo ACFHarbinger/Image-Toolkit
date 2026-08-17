@@ -1,3 +1,17 @@
+## S392 — 2026-08-17 (M2.5a: Per-Defect Category & Stage-Attributed Correlation Heatmap)
+
+Delivered M2.5a (#32) per-defect category correlation analysis and interactive
+dashboard visualization for ASP benchmark telemetry:
+- Added `submodules/ASP/backend/benchmark/audit_defect_correlation.py` and
+  `test_audit_defect_correlation.py` computing Spearman $\rho$ across 10 failure
+  classes and stage attributions.
+- Extended `docs/website/scripts/generate-dashboard-data.mjs` to export
+  `defect_correlation_matrix.json`.
+- Implemented `DefectCorrelationSection` in `docs/website/src/pages/RatingsDashboard.tsx`
+  and `RatingsDashboard.css` with stage filtering, discrimination vs subset quality
+  views, interactive cell inspection, and pipeline stage attribution summary cards.
+- Verified: `npm --prefix docs/website run build` passed cleanly.
+
 ## S391 — 2026-08-17 (M2: CompositeGate sb candidate + discriminating check)
 
 `ASP_COMPOSITE_SB_TELEMETRY_ONLY=1` is a default-off candidate (26 identity
