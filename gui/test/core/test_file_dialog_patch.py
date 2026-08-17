@@ -1,10 +1,11 @@
 from unittest.mock import patch
 
-from gui.src.windows.settings.app_settings import AppSettings
-from gui.src.windows.settings.file_dialog_patch import CustomFileDialog, FileDialogEventFilter
 from PySide6.QtCore import QPoint
 from PySide6.QtGui import QContextMenuEvent, QStandardItem, QStandardItemModel
 from PySide6.QtWidgets import QFileDialog, QListView, QMenu, QMessageBox
+
+from gui.src.windows.settings.app_settings import AppSettings
+from gui.src.windows.settings.file_dialog_patch import CustomFileDialog, FileDialogEventFilter
 
 
 class MyStandardItemModel(QStandardItemModel):
@@ -137,7 +138,7 @@ class TestFileDialogPatch:
         AppSettings.set_favourite_directories([])
 
     def test_thumbnail_file_picker_favourites(self, q_app, tmp_path):
-        from asp_gui.elements.stitch_tab import _ThumbnailFilePicker
+        from asp_gui.elements import _ThumbnailFilePicker
         from PySide6.QtCore import Qt
 
         fav_dir = tmp_path / "picker_fav"
@@ -166,7 +167,7 @@ class TestFileDialogPatch:
 
             # Simulate context menu action trigger
             pos = picker._sidebar.visualItemRect(target_item).center()
-            with patch("asp_gui.elements.stitch_tab._thumbnail_file_picker.QMenu", MyMenu):
+            with patch("asp_gui.elements._thumbnail_file_picker.QMenu", MyMenu):
                 picker._on_sidebar_context_menu(pos)
 
             assert str(fav_dir) not in AppSettings.favourite_directories()
