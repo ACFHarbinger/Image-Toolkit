@@ -103,11 +103,15 @@ discard count. `_report_adjacency` and Character Colors' adjacency-suggested
 defaults (C4.1) now share one `region_labels_and_names` scan in
 `segmentation_masks.py` rather than two independent copies; `_segment_regions`
 buckets pixels into per-region buffers in one pass instead of rescanning the
-full label array once per region. Issue #23 (Backlog) tracks a real but
-deferred finding from the same review: every Docker action across the
-plugin runs synchronously on Krita's UI thread, freezing it during heavy
-work; fixing this needs a plugin-wide async architecture decision, not a
-scoped patch to one Docker.
+full label array once per region. Issue #23 is Done (2026-08-17): every
+Docker action across the plugin now routes its engine subprocess round
+trips and pure-Python buffer computations through an EngineWorker on a
+background QThread, disabling the dock's buttons for the run's duration,
+so Krita's UI thread no longer freezes during heavy work. Krita's
+non-thread-safe document/node API stays on the UI thread throughout --
+pixel buffers are extracted and any document mutation applied there, only
+the pure computation moves off it (see the changelog entry and the
+engine_worker.py module).
 
 ## Milestone 6 — batch chapter workflow
 
