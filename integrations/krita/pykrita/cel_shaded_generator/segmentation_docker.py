@@ -6,6 +6,7 @@ from krita import DockWidget, Krita
 from PyQt5.QtCore import QByteArray
 from PyQt5.QtWidgets import QInputDialog, QLabel, QPushButton, QVBoxLayout, QWidget
 
+from .engine_worker import WorkerBusyMixin
 from .segmentation_masks import (
     GAP_CLOSED_PREFIX,
     LINE_ART_GROUP_NAME,
@@ -20,8 +21,14 @@ from .segmentation_masks import (
 from .value_masks import find_named_node
 
 
-class SegmentationDocker(DockWidget):
-    """Close line-art gaps and segment enclosed regions into editable layers."""
+class SegmentationDocker(WorkerBusyMixin, DockWidget):
+    """Close line-art gaps and segment enclosed regions into editable layers.
+
+    The pure-Python per-pixel buffer computations (gap closing, region
+    labeling/filtering, adjacency scan) run on an EngineWorker (issue #23);
+    Krita's document/node API stays on the UI thread -- pixel extraction
+    happens here, the computed result is applied back here.
+    """
 
     def __init__(self):
         super().__init__()
@@ -37,12 +44,15 @@ class SegmentationDocker(DockWidget):
             ("Segment Regions into Layers", self._segment_regions),
             ("Report Region Adjacency", self._report_adjacency),
         )
+        self._buttons = []
         for label, callback in actions:
             button = QPushButton(label, container)
             button.clicked.connect(callback)
             layout.addWidget(button)
+            self._buttons.append(button)
         layout.addWidget(self._status)
         self.setWidget(container)
+        self._init_worker_state(self._buttons)
 
     def _close_gaps(self):
         document = Krita.instance().activeDocument()
@@ -59,7 +69,13 @@ class SegmentationDocker(DockWidget):
         ink = self._ink_mask(node, width, height)
         if ink is None:
             return
-        closed = close_line_gaps_bytes(ink, width, height, max_gap_px)
+        self._run_worker(
+            lambda: close_line_gaps_bytes(ink, width, height, max_gap_px),
+            lambda closed: self._finish_close_gaps(document, width, height, max_gap_px, closed),
+            "Could not close line-art gaps: ",
+        )
+
+    def _finish_close_gaps(self, document, width, height, max_gap_px, closed):
         root = document.rootNode()
         group = find_named_node(root, LINE_ART_GROUP_NAME)
         if group is None:
@@ -95,15 +111,29 @@ class SegmentationDocker(DockWidget):
         ink = self._ink_mask(node, width, height)
         if ink is None:
             return
-        labels = segment_regions_bytes(ink, width, height)
+        self._run_worker(
+            lambda: segment_regions_bytes(ink, width, height),
+            lambda labels: self._ask_min_area(document, width, height, labels),
+            "Could not segment regions: ",
+        )
+
+    def _ask_min_area(self, document, width, height, labels):
         min_area, accepted = QInputDialog.getInt(
             self, "Segment Regions", "Minimum region area (pixels):", 4, 0, 1_000_000, 1
         )
         if not accepted:
             return
+        self._run_worker(
+            lambda: filter_small_regions(labels, min_area),
+            lambda filtered: self._finish_segment_regions(
+                document, width, height, labels, filtered
+            ),
+            "Could not filter small regions: ",
+        )
+
+    def _finish_segment_regions(self, document, width, height, labels, filtered):
         before = len({value for value in labels if value})
-        labels = filter_small_regions(labels, min_area)
-        region_ids = sorted({value for value in labels if value})
+        region_ids = sorted({value for value in filtered if value})
         discarded = before - len(region_ids)
         if not region_ids:
             self._status.setText("No enclosed regions found; close gaps first if needed.")
@@ -119,7 +149,7 @@ class SegmentationDocker(DockWidget):
         # one full rescan of labels per region (O(w*h + regions) instead of
         # O(w*h * regions)).
         pixel_buffers = {region_id: bytearray(width * height * 4) for region_id in region_ids}
-        for index, value in enumerate(labels):
+        for index, value in enumerate(filtered):
             buffer = pixel_buffers.get(value)
             if buffer is not None:
                 offset = index * 4
@@ -155,7 +185,13 @@ class SegmentationDocker(DockWidget):
             self._status.setText(f"No '{REGION_GROUP_NAME}' group found; segment regions first.")
             return
         labels, names, width, height = scan
-        pairs = region_adjacency_bytes(labels, width, height)
+        self._run_worker(
+            lambda: region_adjacency_bytes(labels, width, height),
+            lambda pairs: self._finish_adjacency(names, pairs),
+            "Could not compute region adjacency: ",
+        )
+
+    def _finish_adjacency(self, names, pairs):
         if not pairs:
             self._status.setText("No adjacent region pairs found.")
             return

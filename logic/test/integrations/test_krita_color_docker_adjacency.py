@@ -92,8 +92,52 @@ def _load_color_docker(monkeypatch):
     krita_module.DockWidget = DockWidget
     krita_module.Krita = Krita
 
+    class FakeSignal:
+        def __init__(self):
+            self._callbacks = []
+            self.emitted = []
+
+        def connect(self, callback):
+            self._callbacks.append(callback)
+
+        def emit(self, *args):
+            self.emitted.append(args)
+            for callback in list(self._callbacks):
+                callback(*args)
+
+    class SignalDescriptor:
+        def __init__(self, _type):
+            self._store_key = object()
+
+        def __get__(self, instance, owner=None):
+            if instance is None:
+                return self
+            store = getattr(instance, "_fake_signals", None)
+            if store is None:
+                store = {}
+                instance._fake_signals = store
+            if self._store_key not in store:
+                store[self._store_key] = FakeSignal()
+            return store[self._store_key]
+
+        def __set__(self, instance, value):
+            store = getattr(instance, "_fake_signals", None)
+            if store is None:
+                store = {}
+                instance._fake_signals = store
+            store[self._store_key] = value
+
+    class FakeQThread:
+        def __init__(self, parent=None):
+            self._parent = parent
+
+        def start(self):
+            self.run()
+
     qtcore = types.ModuleType("PyQt5.QtCore")
     qtcore.QByteArray = type("QByteArray", (), {})
+    qtcore.QThread = FakeQThread
+    qtcore.Signal = staticmethod(lambda _type: SignalDescriptor(_type))
 
     qtwidgets = types.ModuleType("PyQt5.QtWidgets")
     for name in (

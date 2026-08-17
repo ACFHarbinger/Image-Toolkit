@@ -31,12 +31,20 @@ from .color_masks import (
     union_alpha_buffers,
 )
 from .engine_client import EngineClient
+from .engine_worker import WorkerBusyMixin
 from .segmentation_masks import region_adjacency_bytes, region_labels_and_names
 from .value_masks import find_named_node
 
 
-class CharacterColorsDocker(DockWidget):
-    """Author bibles and preview explicit material-mask palette roles."""
+class CharacterColorsDocker(WorkerBusyMixin, DockWidget):
+    """Author bibles and preview explicit material-mask palette roles.
+
+    Every engine subprocess round trip and every pure-Python buffer
+    computation runs on an EngineWorker (issue #23). Krita's document/node
+    API stays on the UI thread: pixel buffers are extracted here and handed
+    to the worker, and any document mutation is applied back in the finished
+    handler.
+    """
 
     def __init__(self):
         super().__init__()
@@ -60,15 +68,18 @@ class CharacterColorsDocker(DockWidget):
             ("Reject Color Preview", self._reject_preview),
         )
         layout.addWidget(self._bibles)
+        self._buttons = []
         for label, callback in actions:
             button = QPushButton(label, container)
             button.clicked.connect(callback)
             layout.addWidget(button)
+            self._buttons.append(button)
         layout.addWidget(self._status)
         self.setWidget(container)
         self._project_directory = None
         self._references = []
         self._preview = None
+        self._init_worker_state(self._buttons)
 
     def _bind_project(self):
         directory = QFileDialog.getExistingDirectory(self, "Select Portable Project")
@@ -81,13 +92,16 @@ class CharacterColorsDocker(DockWidget):
         self._refresh_bibles()
 
     def _refresh_bibles(self):
-        try:
-            snapshot = EngineClient().project_progress_snapshot(
-                str(uuid.uuid4()), self._project_directory
-            )
-        except (RuntimeError, ValueError) as error:
-            self._status.setText("Could not read project: " + str(error))
-            return
+        project_directory = self._project_directory
+        self._run_worker(
+            lambda: EngineClient().project_progress_snapshot(
+                str(uuid.uuid4()), project_directory
+            ),
+            self._show_bibles,
+            "Could not read project: ",
+        )
+
+    def _show_bibles(self, snapshot):
         self._bibles.clear()
         for bible in snapshot.get("style_bibles", []):
             self._bibles.addItem(
@@ -104,13 +118,16 @@ class CharacterColorsDocker(DockWidget):
         )
         if not source:
             return
-        try:
-            result = EngineClient().import_reference_asset(
-                str(uuid.uuid4()), self._project_directory, source
-            )
-        except (RuntimeError, ValueError) as error:
-            self._status.setText("Could not import reference: " + str(error))
-            return
+        project_directory = self._project_directory
+        self._run_worker(
+            lambda: EngineClient().import_reference_asset(
+                str(uuid.uuid4()), project_directory, source
+            ),
+            lambda result: self._finish_import_reference(result, source),
+            "Could not import reference: ",
+        )
+
+    def _finish_import_reference(self, result, source):
         label = self._text("Reference", "Reference label:", Path(source).stem)
         if label is None:
             return
@@ -141,7 +158,12 @@ class CharacterColorsDocker(DockWidget):
         if self._project_directory is None:
             self._status.setText("Bind a portable project first.")
             return
-        existing = self._selected_bible() if self._bibles.count() else None
+        if self._bibles.count():
+            self._with_selected_bible(self._author_bible_dialogs)
+        else:
+            self._author_bible_dialogs(None)
+
+    def _author_bible_dialogs(self, existing):
         bible_id = self._text(
             "Style Bible",
             "Lowercase kebab-case bible ID:",
@@ -234,20 +256,28 @@ class CharacterColorsDocker(DockWidget):
             "recovery_revisions": 10,
             "schema_version": 2,
         }
-        try:
-            EngineClient().upsert_project_style_bible(
-                str(uuid.uuid4()), self._project_directory, payload
-            )
-        except (RuntimeError, ValueError) as error:
-            self._status.setText("Could not save style bible: " + str(error))
-            return
+        project_directory = self._project_directory
+        self._run_worker(
+            lambda: EngineClient().upsert_project_style_bible(
+                str(uuid.uuid4()), project_directory, payload
+            ),
+            lambda _result: self._after_bible_saved(),
+            "Could not save style bible: ",
+        )
+
+    def _after_bible_saved(self):
         self._references.clear()
         self._refresh_bibles()
 
     def _create_masks(self):
         document = Krita.instance().activeDocument()
-        bible = self._selected_bible()
-        if document is None or bible is None:
+        if document is None:
+            self._status.setText("Open a document and select a bound style bible first.")
+            return
+        self._with_selected_bible(lambda bible: self._create_masks_with(document, bible))
+
+    def _create_masks_with(self, document, bible):
+        if bible is None:
             self._status.setText("Open a document and select a bound style bible first.")
             return
         root = document.rootNode()
@@ -269,8 +299,13 @@ class CharacterColorsDocker(DockWidget):
 
     def _create_mask_variant(self):
         document = Krita.instance().activeDocument()
-        bible = self._selected_bible()
-        if document is None or bible is None:
+        if document is None:
+            self._status.setText("Open a document and select a bound style bible first.")
+            return
+        self._with_selected_bible(lambda bible: self._create_mask_variant_with(document, bible))
+
+    def _create_mask_variant_with(self, document, bible):
+        if bible is None:
             self._status.setText("Open a document and select a bound style bible first.")
             return
         material_id, accepted = QInputDialog.getItem(
@@ -306,8 +341,12 @@ class CharacterColorsDocker(DockWidget):
 
     def _preview_palette(self):
         document = Krita.instance().activeDocument()
-        bible = self._selected_bible()
-        if document is None or bible is None:
+        if document is None:
+            return
+        self._with_selected_bible(lambda bible: self._preview_palette_with(document, bible))
+
+    def _preview_palette_with(self, document, bible):
+        if bible is None:
             return
         node = document.activeNode()
         try:
@@ -338,35 +377,56 @@ class CharacterColorsDocker(DockWidget):
             self._status.setText("Krita returned an unexpected mask buffer.")
             return
         mask_group = find_named_node(document.rootNode(), MASK_GROUP_NAME)
-        masks = {}
+        # Extract every material-mask buffer on the UI thread (Krita API), then
+        # combine/overlap/preview them off the UI thread (pure Python, issue #23).
+        masks_raw = {}
         for item in bible["materials"]:
             mask_buffers = self._mask_buffers(mask_group, item["id"], width, height)
-            if not mask_buffers:
-                continue
+            if mask_buffers:
+                masks_raw[item["id"]] = mask_buffers
+        self._run_worker(
+            lambda: self._compute_palette_preview(
+                raw[3::4], material, role, masks_raw
+            ),
+            lambda pixels: self._apply_palette_preview(
+                document, bible, material_id, role, pixels, width, height
+            ),
+            "Could not build color preview: ",
+        )
+
+    def _compute_palette_preview(self, alpha, material, role, masks_raw):
+        masks = {}
+        for item_id, buffers in masks_raw.items():
             try:
-                masks[item["id"]] = union_alpha_buffers(mask_buffers)
+                masks[item_id] = union_alpha_buffers(buffers)
             except ValueError as error:
-                self._status.setText("Could not combine material mask variants: " + str(error))
-                return
+                raise ValueError("Could not combine material mask variants: " + str(error)) from None
         try:
-            conflicts = overlapping_materials(material_id, masks)
+            conflicts = overlapping_materials(material["id"], masks)
         except ValueError as error:
-            self._status.setText("Could not compare material masks: " + str(error))
-            return
+            raise ValueError("Could not compare material masks: " + str(error)) from None
         if conflicts:
             details = ", ".join(
                 f"{conflict_id} ({count} px)" for conflict_id, count in conflicts.items()
             )
-            self._status.setText("Mask overlaps must be corrected: " + details + ".")
-            return
-        pixels = palette_preview_bgra(raw[3::4], material["palette"][role])
+            raise ValueError("Mask overlaps must be corrected: " + details + ".")
+        return palette_preview_bgra(alpha, material["palette"][role])
+
+    def _apply_palette_preview(self, document, bible, material_id, role, pixels, width, height):
         if self._create_preview_layer(document, bible, material_id, role, pixels, width, height):
             self._status.setText("Preview created; source mask and artwork are unchanged.")
 
     def _assign_correspondence(self):
         document = Krita.instance().activeDocument()
-        bible = self._selected_bible()
-        if document is None or bible is None:
+        if document is None:
+            self._status.setText("Open a document and select a bound style bible first.")
+            return
+        self._with_selected_bible(
+            lambda bible: self._assign_correspondence_with(document, bible)
+        )
+
+    def _assign_correspondence_with(self, document, bible):
+        if bible is None:
             self._status.setText("Open a document and select a bound style bible first.")
             return
         node = document.activeNode()
@@ -379,103 +439,138 @@ class CharacterColorsDocker(DockWidget):
             self._status.setText("Could not derive a region id: " + str(error))
             return
         material_ids = [item["id"] for item in bible["materials"]]
-        correspondence_set = self._correspondence_set(bible["id"])
+        self._with_correspondence_set(
+            bible["id"],
+            lambda correspondence_set: self._assign_rank(
+                document, bible, node, region_id, material_ids, correspondence_set
+            ),
+        )
+
+    def _assign_rank(self, document, bible, node, region_id, material_ids, correspondence_set):
         adjacency_agreements = self._adjacency_agreement_by_material(
             document, region_id, correspondence_set
         )
-        ranked_candidates = None
-        try:
-            ranked_candidates = EngineClient().rank_correspondence_materials(
+        project_directory = self._project_directory
+        bible_asset = self._bibles.currentData()
+
+        def continue_with(ranked_candidates):
+            if ranked_candidates:
+                ordered_material_ids = [item["material_id"] for item in ranked_candidates]
+                default_material_index = 0
+            else:
+                ordered_material_ids = material_ids
+                default_material_index = self._suggested_material_index(
+                    document, region_id, correspondence_set, material_ids
+                )
+            material_id, accepted = QInputDialog.getItem(
+                self,
+                "Region Correspondence",
+                "Canonical material (ranked by confidence):",
+                ordered_material_ids,
+                default_material_index,
+                False,
+            )
+            if not accepted:
+                return
+            role, accepted = QInputDialog.getItem(
+                self,
+                "Region Correspondence",
+                "Palette role:",
+                ["local", "light", "shadow", "accent"],
+                0,
+                False,
+            )
+            if not accepted:
+                return
+            panel_id = self._text(
+                "Region Correspondence",
+                "Optional panel/page id (kebab-case):",
+                allow_empty=True,
+            )
+            if panel_id is None:
+                return
+            entry = {
+                "id": "correspondence-" + uuid.uuid4().hex[:8],
+                "region_id": region_id,
+                "material_id": material_id,
+                "role": role,
+            }
+            if panel_id:
+                entry["panel_id"] = panel_id
+            # Re-read rather than reuse the set loaded before the three modal
+            # dialogs above: a stale in-memory copy would silently discard any
+            # write that landed on disk while those dialogs were open.
+            self._with_correspondence_set(
+                bible["id"],
+                lambda fresh_set: self._assign_save(
+                    fresh_set, entry, ranked_candidates, region_id, material_id, role
+                ),
+            )
+
+        self._run_worker(
+            lambda: EngineClient().rank_correspondence_materials(
                 str(uuid.uuid4()),
-                self._project_directory,
-                self._bibles.currentData(),
+                project_directory,
+                bible_asset,
                 region_id,
                 adjacency_agreements,
-            )["candidates"]
-        except (RuntimeError, ValueError):
-            # Ranking is a suggestion, never a requirement -- fall back to the
-            # unordered dropdown plus C4.1's unanimous-adjacency default index
-            # rather than blocking assignment on an engine/network hiccup.
-            ranked_candidates = None
-        if ranked_candidates:
-            ordered_material_ids = [item["material_id"] for item in ranked_candidates]
-            default_material_index = 0
-        else:
-            ordered_material_ids = material_ids
-            default_material_index = self._suggested_material_index(
-                document, region_id, correspondence_set, material_ids
-            )
-        material_id, accepted = QInputDialog.getItem(
-            self,
-            "Region Correspondence",
-            "Canonical material (ranked by confidence):",
-            ordered_material_ids,
-            default_material_index,
-            False,
+            )["candidates"],
+            continue_with,
+            "Could not rank correspondence materials: ",
+            on_error=lambda _message: continue_with(None),
         )
-        if not accepted:
-            return
-        role, accepted = QInputDialog.getItem(
-            self,
-            "Region Correspondence",
-            "Palette role:",
-            ["local", "light", "shadow", "accent"],
-            0,
-            False,
-        )
-        if not accepted:
-            return
-        panel_id = self._text(
-            "Region Correspondence", "Optional panel/page id (kebab-case):", allow_empty=True
-        )
-        if panel_id is None:
-            return
-        entry = {
-            "id": "correspondence-" + uuid.uuid4().hex[:8],
-            "region_id": region_id,
-            "material_id": material_id,
-            "role": role,
-        }
-        if panel_id:
-            entry["panel_id"] = panel_id
-        # Re-read rather than reuse the set loaded before the three modal
-        # dialogs above: a stale in-memory copy would silently discard any
-        # write that landed on disk while those dialogs were open.
-        correspondence_set = self._correspondence_set(bible["id"])
+
+    def _assign_save(self, correspondence_set, entry, ranked_candidates, region_id, material_id, role):
         correspondence_set["correspondences"].append(entry)
-        try:
-            EngineClient().upsert_project_correspondence_set(
-                str(uuid.uuid4()), self._project_directory, correspondence_set
-            )
-        except (RuntimeError, ValueError) as error:
-            self._status.setText("Could not save region correspondence: " + str(error))
+        project_directory = self._project_directory
+        self._run_worker(
+            lambda: EngineClient().upsert_project_correspondence_set(
+                str(uuid.uuid4()), project_directory, correspondence_set
+            ),
+            lambda _result: self._assign_record(
+                ranked_candidates, region_id, material_id, role
+            ),
+            "Could not save region correspondence: ",
+        )
+
+    def _assign_record(self, ranked_candidates, region_id, material_id, role):
+        if not ranked_candidates:
+            self._status.setText(f"Assigned region '{region_id}' to {material_id}/{role}.")
             return
-        if ranked_candidates:
-            try:
-                EngineClient().record_correspondence_choice(
-                    str(uuid.uuid4()), self._project_directory, material_id, ranked_candidates
-                )
-            except (RuntimeError, ValueError):
-                # Correction learning is best-effort feedback for future
-                # suggestions -- the assignment itself already saved
-                # successfully, so a learning-update failure must not
-                # surface as an assignment failure.
-                pass
-        self._status.setText(f"Assigned region '{region_id}' to {material_id}/{role}.")
+        project_directory = self._project_directory
+        self._run_worker(
+            lambda: EngineClient().record_correspondence_choice(
+                str(uuid.uuid4()), project_directory, material_id, ranked_candidates
+            ),
+            lambda _result: self._status.setText(
+                f"Assigned region '{region_id}' to {material_id}/{role}."
+            ),
+            "Could not record correspondence choice: ",
+            on_error=lambda _message: self._status.setText(
+                f"Assigned region '{region_id}' to {material_id}/{role}."
+            ),
+        )
 
     def _propagate_correspondence(self):
-        bible = self._selected_bible()
+        self._with_selected_bible(self._propagate_correspondence_with)
+
+    def _propagate_correspondence_with(self, bible):
         if bible is None:
             self._status.setText("Select a bound style bible first.")
             return
         asset_path = f"correspondence/{bible['id']}.json"
-        try:
-            correspondence_set = EngineClient().project_correspondence_set_payload(
-                str(uuid.uuid4()), self._project_directory, asset_path
-            )
-        except (RuntimeError, ValueError) as error:
-            self._status.setText("Assign at least one region correspondence first: " + str(error))
-            return
+        project_directory = self._project_directory
+        self._run_worker(
+            lambda: EngineClient().project_correspondence_set_payload(
+                str(uuid.uuid4()), project_directory, asset_path
+            ),
+            lambda correspondence_set: self._propagate_choose(
+                bible, asset_path, correspondence_set
+            ),
+            "Assign at least one region correspondence first: ",
+        )
+
+    def _propagate_choose(self, bible, asset_path, correspondence_set):
         entries = correspondence_set.get("correspondences", [])
         if not entries:
             self._status.setText("No region correspondences exist to propagate.")
@@ -504,26 +599,33 @@ class CharacterColorsDocker(DockWidget):
         if not target_region_ids:
             self._status.setText("Enter at least one explicit target region id.")
             return
-        try:
-            propagated = EngineClient().propagate_project_correspondence(
+        project_directory = self._project_directory
+        self._run_worker(
+            lambda: EngineClient().propagate_project_correspondence(
                 str(uuid.uuid4()),
-                self._project_directory,
+                project_directory,
                 asset_path,
                 source_id,
                 target_region_ids,
-            )
-        except (RuntimeError, ValueError) as error:
-            self._status.setText("Could not propagate correspondence: " + str(error))
-            return
-        self._status.setText(
-            f"Propagated to {len(target_region_ids)} region(s); set now has "
-            f"{len(propagated['correspondences'])} correspondence(s)."
+            ),
+            lambda propagated: self._status.setText(
+                f"Propagated to {len(target_region_ids)} region(s); set now has "
+                f"{len(propagated['correspondences'])} correspondence(s)."
+            ),
+            "Could not propagate correspondence: ",
         )
 
     def _preview_correspondence(self):
         document = Krita.instance().activeDocument()
-        bible = self._selected_bible()
-        if document is None or bible is None:
+        if document is None:
+            self._status.setText("Open a document and select a bound style bible first.")
+            return
+        self._with_selected_bible(
+            lambda bible: self._preview_correspondence_with(document, bible)
+        )
+
+    def _preview_correspondence_with(self, document, bible):
+        if bible is None:
             self._status.setText("Open a document and select a bound style bible first.")
             return
         if self._preview is not None:
@@ -539,13 +641,20 @@ class CharacterColorsDocker(DockWidget):
             self._status.setText("Could not derive a region id: " + str(error))
             return
         asset_path = f"correspondence/{bible['id']}.json"
-        try:
-            correspondence_set = EngineClient().project_correspondence_set_payload(
-                str(uuid.uuid4()), self._project_directory, asset_path
-            )
-        except (RuntimeError, ValueError) as error:
-            self._status.setText("No region correspondences are bound: " + str(error))
-            return
+        project_directory = self._project_directory
+        self._run_worker(
+            lambda: EngineClient().project_correspondence_set_payload(
+                str(uuid.uuid4()), project_directory, asset_path
+            ),
+            lambda correspondence_set: self._preview_correspondence_compute(
+                document, node, bible, region_id, correspondence_set
+            ),
+            "No region correspondences are bound: ",
+        )
+
+    def _preview_correspondence_compute(
+        self, document, node, bible, region_id, correspondence_set
+    ):
         matches = [
             item
             for item in correspondence_set.get("correspondences", [])
@@ -571,27 +680,62 @@ class CharacterColorsDocker(DockWidget):
         if len(raw) != width * height * 4:
             self._status.setText("Krita returned an unexpected mask buffer.")
             return
-        pixels = palette_preview_bgra(raw[3::4], color)
-        material_id, role = correspondence["material_id"], correspondence["role"]
+        self._run_worker(
+            lambda: palette_preview_bgra(raw[3::4], color),
+            lambda pixels: self._apply_correspondence_preview(
+                document,
+                bible,
+                correspondence["material_id"],
+                correspondence["role"],
+                pixels,
+                width,
+                height,
+            ),
+            "Could not build color preview: ",
+        )
+
+    def _apply_correspondence_preview(
+        self, document, bible, material_id, role, pixels, width, height
+    ):
         if self._create_preview_layer(document, bible, material_id, role, pixels, width, height):
             self._status.setText(
                 "Correspondence preview created; source region and artwork are unchanged."
             )
 
-    def _correspondence_set(self, bible_id):
+    def _with_selected_bible(self, on_ok):
+        if self._project_directory is None or self._bibles.currentData() is None:
+            on_ok(None)
+            return
+        project_directory = self._project_directory
+        bible_asset = self._bibles.currentData()
+        self._run_worker(
+            lambda: EngineClient().project_style_bible_payload(
+                str(uuid.uuid4()), project_directory, bible_asset
+            ),
+            on_ok,
+            "Could not load style bible: ",
+            on_error=lambda _message: on_ok(None),
+        )
+
+    def _with_correspondence_set(self, bible_id, on_ok):
         asset_path = f"correspondence/{bible_id}.json"
-        try:
-            return EngineClient().project_correspondence_set_payload(
-                str(uuid.uuid4()), self._project_directory, asset_path
-            )
-        except (RuntimeError, ValueError):
-            return {
-                "id": bible_id,
-                "style_bible_id": bible_id,
-                "correspondences": [],
-                "recovery_revisions": 10,
-                "schema_version": 1,
-            }
+        project_directory = self._project_directory
+        self._run_worker(
+            lambda: EngineClient().project_correspondence_set_payload(
+                str(uuid.uuid4()), project_directory, asset_path
+            ),
+            on_ok,
+            "Could not load correspondence set: ",
+            on_error=lambda _message: on_ok(
+                {
+                    "id": bible_id,
+                    "style_bible_id": bible_id,
+                    "correspondences": [],
+                    "recovery_revisions": 10,
+                    "schema_version": 1,
+                }
+            ),
+        )
 
     def _create_preview_layer(self, document, bible, material_id, role, pixels, width, height):
         preview = document.createNode(PREVIEW_PREFIX + material_id + " — " + role, "paintlayer")
@@ -632,17 +776,6 @@ class CharacterColorsDocker(DockWidget):
             return
         self._preview = None
         self._status.setText("Color preview rejected; artist layers were unchanged.")
-
-    def _selected_bible(self):
-        if self._project_directory is None or self._bibles.currentData() is None:
-            return None
-        try:
-            return EngineClient().project_style_bible_payload(
-                str(uuid.uuid4()), self._project_directory, self._bibles.currentData()
-            )
-        except (RuntimeError, ValueError) as error:
-            self._status.setText("Could not load style bible: " + str(error))
-            return None
 
     def _text(self, title, prompt, default="", allow_empty=False):
         value, accepted = QInputDialog.getText(self, title, prompt, QLineEdit.Normal, default)
@@ -686,9 +819,9 @@ class CharacterColorsDocker(DockWidget):
     def _adjacent_region_names(document, region_id):
         """Suggest (never auto-apply) propagation targets from G1's Regions group.
 
-        Reads the currently segmented ``Regions`` group the same way the Line
+        Reads the currently segmented Regions group the same way the Line
         Art Segmentation Docker's Report Region Adjacency action does, and
-        returns the names of regions touching ``region_id``. Returns an empty
+        returns the names of regions touching region_id. Returns an empty
         list rather than raising if no Regions group exists, since manual
         typed target ids remain fully supported without one.
 
@@ -748,15 +881,15 @@ class CharacterColorsDocker(DockWidget):
         """Per-material adjacency-agreement scores for milestone 4's ranked
         suggestion (roadmap milestone 4, issue #24).
 
-        Unlike ``_suggested_material_index``'s unanimous-or-nothing default,
-        this returns a fraction in ``[0, 1]`` per material -- how many of
-        ``region_id``'s adjacent regions are already assigned to it, out of
+        Unlike _suggested_material_index's unanimous-or-nothing default,
+        this returns a fraction in [0, 1] per material -- how many of
+        region_id's adjacent regions are already assigned to it, out of
         all adjacent regions (assigned or not) -- so
-        ``colorization.confidence.score_candidate`` can combine partial
+        colorization.confidence.score_candidate can combine partial
         agreement with the name-similarity signal instead of only ever
         seeing "unanimous" or "no suggestion". Returns an empty dict (every
         material scores zero adjacency agreement) when there is no adjacency
-        information, same as ``_suggested_material_index``'s empty-adjacency
+        information, same as _suggested_material_index's empty-adjacency
         fallback.
         """
         adjacent = cls._adjacent_region_names(document, region_id)

@@ -17,14 +17,19 @@ from PyQt5.QtWidgets import (
 )
 
 from .engine_client import EngineClient
+from .engine_worker import WorkerBusyMixin
 
 
-class ChapterQueueDocker(DockWidget):
+class ChapterQueueDocker(WorkerBusyMixin, DockWidget):
     """Track a batch chapter's page review queue and navigate between pages.
 
     Execution-agnostic project state (roadmap milestone 6, issue #22) drives
     this Docker; it only opens pages and reports status transitions back,
     never inferring correspondence across pages.
+
+    Every engine round trip runs on an EngineWorker (issue #23) so the engine
+    subprocess call never blocks Krita's UI thread; the action buttons are
+    disabled for the duration and failures land in the status label.
     """
 
     def __init__(self):
@@ -42,13 +47,16 @@ class ChapterQueueDocker(DockWidget):
             ("Mark Active Page Accepted", lambda: self._set_active_page_status("accepted")),
             ("Refresh Queue", self._refresh_queue),
         )
+        self._buttons = []
         for label, callback in actions:
             button = QPushButton(label, container)
             button.clicked.connect(callback)
             layout.addWidget(button)
+            self._buttons.append(button)
         layout.addWidget(self._status)
         self.setWidget(container)
         self._project_directory = None
+        self._init_worker_state(self._buttons)
 
     def _bind_project(self):
         directory = QFileDialog.getExistingDirectory(self, "Select Portable Project")
@@ -76,26 +84,29 @@ class ChapterQueueDocker(DockWidget):
         panel_id = self._text("Add Page", "Panel id (kebab-case):", Path(source).stem)
         if panel_id is None:
             return
-        try:
-            EngineClient().add_chapter_page(
-                str(uuid.uuid4()), self._project_directory, relative, panel_id
-            )
-        except (RuntimeError, ValueError) as error:
-            self._status.setText("Could not add chapter page: " + str(error))
-            return
-        self._refresh_queue()
+        project_directory = self._project_directory
+        self._run_worker(
+            lambda: EngineClient().add_chapter_page(
+                str(uuid.uuid4()), project_directory, relative, panel_id
+            ),
+            lambda _result: self._refresh_queue(),
+            "Could not add chapter page: ",
+        )
 
     def _open_next_pending(self):
         if self._project_directory is None:
             self._status.setText("Bind a portable project first.")
             return
-        try:
-            page = EngineClient().next_pending_chapter_page(
-                str(uuid.uuid4()), self._project_directory
-            )
-        except (RuntimeError, ValueError) as error:
-            self._status.setText("Could not read the chapter queue: " + str(error))
-            return
+        project_directory = self._project_directory
+        self._run_worker(
+            lambda: EngineClient().next_pending_chapter_page(
+                str(uuid.uuid4()), project_directory
+            ),
+            self._open_pending_page,
+            "Could not read the chapter queue: ",
+        )
+
+    def _open_pending_page(self, page):
         if page.get("page_id") is None:
             self._status.setText("No pending pages; the chapter queue is empty or complete.")
             return
@@ -110,16 +121,19 @@ class ChapterQueueDocker(DockWidget):
             self._status.setText("Krita could not open " + page["document_asset"])
             return
         window.addView(document)
-        try:
-            EngineClient().set_chapter_page_status(
-                str(uuid.uuid4()), self._project_directory, page["page_id"], "in_progress"
-            )
-        except (RuntimeError, ValueError) as error:
-            self._status.setText(
-                "Opened the page but could not update its status: " + str(error)
-            )
-            return
-        self._status.setText(f"Opened {page['document_asset']} (panel {page['panel_id']}).")
+        project_directory = self._project_directory
+        page_id = page["page_id"]
+        document_asset = page["document_asset"]
+        panel_id = page["panel_id"]
+        self._run_worker(
+            lambda: EngineClient().set_chapter_page_status(
+                str(uuid.uuid4()), project_directory, page_id, "in_progress"
+            ),
+            lambda _result: self._status.setText(
+                f"Opened {document_asset} (panel {panel_id})."
+            ),
+            "Opened the page but could not update its status: ",
+        )
 
     def _set_active_page_status(self, status):
         if self._project_directory is None:
@@ -133,13 +147,16 @@ class ChapterQueueDocker(DockWidget):
         if relative is None:
             self._status.setText("The active document is not inside the bound project.")
             return
-        try:
-            snapshot = EngineClient().project_progress_snapshot(
-                str(uuid.uuid4()), self._project_directory
-            )
-        except (RuntimeError, ValueError) as error:
-            self._status.setText("Could not read the chapter queue: " + str(error))
-            return
+        project_directory = self._project_directory
+        self._run_worker(
+            lambda: EngineClient().project_progress_snapshot(
+                str(uuid.uuid4()), project_directory
+            ),
+            lambda snapshot: self._mark_page_status(snapshot, relative, status),
+            "Could not read the chapter queue: ",
+        )
+
+    def _mark_page_status(self, snapshot, relative, status):
         matching = [
             entry
             for entry in snapshot.get("chapter", {}).get("pages", [])
@@ -148,23 +165,30 @@ class ChapterQueueDocker(DockWidget):
         if len(matching) != 1:
             self._status.setText("Active document is not a page in the bound chapter.")
             return
-        try:
-            EngineClient().set_chapter_page_status(
-                str(uuid.uuid4()), self._project_directory, matching[0]["page_id"], status
-            )
-        except (RuntimeError, ValueError) as error:
-            self._status.setText("Could not update the page status: " + str(error))
-            return
-        self._refresh_queue()
+        project_directory = self._project_directory
+        page_id = matching[0]["page_id"]
+        self._run_worker(
+            lambda: EngineClient().set_chapter_page_status(
+                str(uuid.uuid4()), project_directory, page_id, status
+            ),
+            lambda _result: self._refresh_queue(),
+            "Could not update the page status: ",
+        )
 
     def _refresh_queue(self):
-        try:
-            snapshot = EngineClient().project_progress_snapshot(
-                str(uuid.uuid4()), self._project_directory
-            )
-        except (RuntimeError, ValueError) as error:
-            self._status.setText("Could not read project: " + str(error))
+        if self._project_directory is None:
+            self._status.setText("Bind a portable project first.")
             return
+        project_directory = self._project_directory
+        self._run_worker(
+            lambda: EngineClient().project_progress_snapshot(
+                str(uuid.uuid4()), project_directory
+            ),
+            self._show_queue_snapshot,
+            "Could not read project: ",
+        )
+
+    def _show_queue_snapshot(self, snapshot):
         chapter = snapshot.get("chapter", {})
         pages = chapter.get("pages", [])
         accepted = sum(1 for page in pages if page["status"] == "accepted")

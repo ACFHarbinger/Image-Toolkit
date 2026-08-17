@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Issue #23: heavy Docker computations moved off the Krita UI thread
+  (2026-08-17, deepseek).** New `engine_worker.py`: `EngineWorker` (a
+  `QThread` subclass running one zero-arg callable off the UI thread,
+  mirroring the parent repo's worker convention) plus `WorkerBusyMixin`
+  (routes a Docker's button handlers through the worker, disabling buttons
+  for the duration and re-enabling via a busy counter across chained calls).
+  `SegmentationDocker`, `ColorDocker`, and `ChapterDocker` all route their
+  pure-Python per-pixel buffer computations and engine subprocess round
+  trips through it; Krita's document/node API stays on the UI thread —
+  pixel extraction and any document mutation still happen there, only the
+  pure computation moves off it. Tests:
+  `test_krita_engine_worker.py`, `test_krita_segmentation_docker.py`,
+  `test_krita_color_docker_worker.py`, extended
+  `test_krita_chapter_docker.py`/`test_krita_color_docker_adjacency.py`
+  (36 passed total).
+
 ### Changed
 
 - Flattened the GUI source tree by moving the contents of
