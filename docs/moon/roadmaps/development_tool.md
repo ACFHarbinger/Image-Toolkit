@@ -38,6 +38,7 @@ subsection under [Team review notes](#team-review-notes).
 - [Track A — Telemetry & Crash Workbench](#track-a--telemetry--crash-workbench)
 - [Track B — Analytics, Benchmarks & Interpretability](#track-b--analytics-benchmarks--interpretability)
 - [Track C — Host, Plugins, MCP, Local Web](#track-c--host-plugins-mcp-local-web)
+- [Track D — Development Assistance](#track-d--development-assistance-d16)
 - [Implementation Status](#implementation-status)
 - [Open Questions for Team Review](#open-questions-for-team-review)
 - [Team Review Notes](#team-review-notes)
@@ -123,10 +124,44 @@ that only one audience can consume is unfinished.
 
 ---
 
+## Development Assistance Scope (D16)
+
+Harbinger's 2026-08-17 expansion: this is now a **development-assistance**
+tool, not only a debugger. Five capability areas join the telemetry/crash
+and analytics/benchmark tracks, all as host plugins / data producers rather
+than separate apps:
+
+1. **Build / test / bench runner integration** — `devtool run` (or a runner
+   plugin) drives a build, pytest, or benchmark and opens a Session carrying
+   the build/test context that produced it. A crash/hang/failure is then
+   attributable to a specific command + environment, not an orphan JSONL.
+2. **Diff / review assistance** — tie Sessions to code changes (git commit /
+   PR), so `devtool diff` can compare outputs before/after a change, not
+   just across runs of the same build.
+3. **Documentation / knowledge surface** — annotations on Sessions and
+   Investigations become a searchable debug knowledge base. The
+   gallery-crash doc (`.agent/cache/gallery_crash_deleteorphaned_...`) is
+   the prototype: structured notes + evidence, queryable instead of prose.
+4. **Performance profiling** — stage timers, RSS/memory trajectory,
+   per-API latency, queue depths. Not just crash forensics; the btop live
+   view and Perfetto static view both consume these.
+5. **Reproducibility artifacts** — one-click bundle of (code version,
+   config, repro script, captures) that can be shared or replayed, honoring
+   D20's redaction policy.
+
+Each area lands as a plugin with its own data producer (a command or
+wrapper) and one or more host surfaces (TUI / web / editor / MCP). v1
+priority is D22: D4 span-IDs, then C1 host, with A3/C3 in parallel; these
+five areas are scoped but sequenced after the host exists so they plug in
+rather than fork.
+
+---
+
 ## Settled Decisions (2026-08-17)
 
 Locked with Harbinger in the Grok brainstorm, plus earlier
-deepseek / Gemini / analytics locks that still hold.
+deepseek / Gemini / analytics locks that still hold, plus the
+2026-08-17 development-assistance brainstorm (D16–D23).
 
 | # | Decision | Lock |
 |---|---|---|
@@ -145,6 +180,14 @@ deepseek / Gemini / analytics locks that still hold.
 | D13 | Retention | `devtool prune --keep N` (default 50) and `--older-than Xd` (default 14d), with confirm. |
 | D14 | Phase 3 ASP spatial telemetry | Rerun desktop sidecar + OTel dual-write. **No** Rerun WASM in `docs/website`. Unchanged from the 2026-08-15 analytics lock. |
 | D15 | Existing debug scripts | Full consolidation: analyzer / gdb / resolve-offset become host commands; files remain as wrappers. |
+| D16 | Dev-assistance scope (2026-08-17, Harbinger) | Beyond debug/telemetry/benchmark: **build/test/bench runner integration**, **diff/review assistance** (tie sessions to code changes), **documentation/knowledge surface** (annotations to a searchable debug knowledge base), **performance profiling** (stage timers, memory, per-API latency), **reproducibility artifacts** (one-click code+config+repro+captures bundle). All five in scope. |
+| D17 | Host ownership (2026-08-17) | C1 host-core is **deepseek + Grok**: deepseek owns the host model / plugin protocol / store (data side); Grok owns process lifecycle + plugin discovery. First slice: load a plugin, list its artifacts. |
+| D18 | MCP first surface (2026-08-17) | **Read-only analysis tools first**: list_sessions, open_session, orphaned_spans, in_flight_at, diff, overlaps. No host mutation in the first MCP slice; investigation management and full plugin surface later. |
+| D19 | Package move timing (2026-08-17) | **Keep debug/debugtool in place until C1 exists** (Grok lean, accepted). python -m debugtool stays canonical-compatible; move under dev/ in the same change as C1. |
+| D20 | Investigation git policy (2026-08-17) | **Grok proposal accepted**: manifests + repro scripts committed; JSONL/gdb/hs_err stay in ~/.image-toolkit unless an author explicitly copies a redacted bundle. |
+| D21 | Editor integration (2026-08-17, Harbinger) | Add an **editor-integration surface** alongside TUI/web: VS Code/IDE plugin or clipboard snippets so devtool output lands in the editor. Not required for v1, but in scope. |
+| D22 | Build order (2026-08-17) | **D4 span-IDs first, then C1 host**, with A3 (TUI) and C3 (local web) in parallel. A4/A5 follow A2. MCP (C4) can start read-only once C1's session store exists. |
+| D23 | Span-ID writer change (2026-08-17) | telemetry.py grows optional span_id / parent_span_id / seq behind the existing opt-in flag, **no behavior change**; ASP PipelineSession emits them so stages get a real parent tree for the flame view. Old readers ignore new fields. |
 
 ---
 
@@ -384,6 +427,20 @@ screenshot-on-crash, coherence pairs.
 
 Optional. A plugin may open a PySide6 window (the ASP inspector is the
 obvious first). The host does not become a Qt app in v1.
+
+### Editor integration (D21)
+
+A fourth surface, alongside TUI / web / MCP: **editor integration** so
+`devtool` output lands where the developer is already working.
+
+- v1 scope: **clipboard snippets** and a **VS Code/IDE command** that
+  pastes a formatted session summary / crash report / diff into the editor
+  (no heavy extension SDK; a simple `devtool copy <pid|investigation>`
+  command emitting a code-fence-ready block is enough).
+- Later: a small VS Code extension wrapping the MCP stdio server, so
+  editor-embedded agents get the same read-only tools as the CLI/API.
+- The editor surface must not require the editor to run the traced
+  process; it consumes exports and MCP tools only.
 
 ---
 
@@ -1217,6 +1274,66 @@ wait for A3–A5 to finish.
 
 ---
 
+## Track D — Development Assistance (D16)
+
+**Status:** ⬜ Scoped (2026-08-17); sequenced after C1 so these land as
+plugins, not forks. Each area is a plugin with its own data producer
+(a command or wrapper) and one or more host surfaces (TUI / web /
+editor / MCP). v1 sequencing lean: runner integration + diff/review
+first (both make Sessions attributable and comparable immediately);
+knowledge surface, perf profiling, and reproducibility artifacts follow.
+
+### D1 — Build / test / bench runner integration
+
+- `devtool run <command>` (or a runner plugin) launches a build / pytest
+  / benchmark under telemetry and opens a Session carrying the command,
+  cwd, env snapshot, and exit status.
+- A crash / hang / failure is attributable to a specific command +
+  environment, not an orphan JSONL.
+- Headless and interactive; the Session then feeds A3 TUI / C3 web / C4
+  MCP exactly like any captured run.
+
+### D2 — Diff / review assistance
+
+- Tie Sessions to code changes: record git commit / branch / dirty-hash
+  in the Session manifest (no new writer fields needed -- manifest
+  metadata, not event fields).
+- `devtool diff A B --by-commit` compares outputs before/after a change:
+  event-set, timing deltas, new orphans / collisions, and any plugin
+  charts.
+- Review surface: a rendered before/after report (notes + charts +
+  captures) consumable in TUI, web, and editor.
+
+### D3 — Documentation / knowledge surface
+
+- Annotations on Sessions and Investigations (tags, notes, verdicts)
+  become a searchable debug knowledge base.
+- The gallery-crash doc is the prototype: structured notes + evidence,
+  queryable instead of prose.
+- Search: `devtool search <term>` over annotations + event fields;
+  agents query via MCP read-only tools.
+
+### D4 — Performance profiling
+
+- Stage timers, RSS / memory trajectory (already emitted by
+  lifecycle_memory), per-API latency, queue depths.
+- Consumed by the btop live view and Perfetto static view; no separate
+  profiler product.
+- Correlate with sessions: a slow span in one run vs. a fast span in a
+  diff run is a perf finding, not just a crash finding.
+
+### D5 — Reproducibility artifacts
+
+- One-click bundle: code version, config, repro script, captures,
+  manifest -- honoring D20 redaction (large / crash captures stay local
+  unless explicitly included).
+- `devtool bundle <investigation> [--include-captures]` emits a zipped
+  or folder artifact that can be shared or replayed.
+- Replay: `devtool repro --from-bundle <artifact>` re-runs the captured
+  command under the same telemetry.
+
+---
+
 ## Implementation Status
 
 | Item | Status | Owner | Notes |
@@ -1226,16 +1343,22 @@ wait for A3–A5 to finish.
 | A3 TUI (Perfetto + btop live) | 🔄 In progress | Gemini | design settled 2026-08-17 |
 | A4 Repro + gdb | ⬜ Planned | deepseek + Gemini | |
 | A5 Diff + investigations | ⬜ Planned | deepseek | |
-| C1 Host + plugins | ⬜ Planned | TBD (propose: deepseek + Grok) | |
-| C2 devtool alias | ⬜ Planned | deepseek | |
+| C1 Host + plugins | ⬜ Planned | deepseek + Grok (D17) | host model/protocol/store (deepseek) + lifecycle/discovery (Grok) |
+| C2 devtool alias | ⬜ Planned | deepseek | keep debugtool working until C1 (D19) |
 | C3 Local web | ⬜ Planned | Gemini + Grok | pixels |
-| C4 MCP server | ⬜ Planned | Grok (propose) | D6 |
+| C4 MCP server | ⬜ Planned | Grok (D18) | read-only analysis tools first |
 | C5 ASP evaluator plugin | ⬜ Planned | TBD | wrap, don't fork |
 | C6 Benchmarks plugin | ⬜ Planned | TBD | |
+| C7 Editor integration | ⬜ Planned | TBD (D21) | clipboard + IDE command v1; extension later |
+| D1 (Track D) Runner integration | ⬜ Planned | TBD (D16) | build/test/bench runner → Session |
+| D2 (Track D) Diff/review assistance | ⬜ Planned | TBD (D16) | Sessions tied to code changes |
+| D3 (Track D) Knowledge surface | ⬜ Planned | TBD (D16) | annotations → searchable debug KB |
+| D4 (Track D) Perf profiling | ⬜ Planned | TBD (D16) | stage timers, RSS, per-API latency |
+| D5 (Track D) Reproducibility artifacts | ⬜ Planned | TBD (D16) | one-click bundle, redaction per D20 |
 | B Phase 11 | ✅ Complete | (historical) | evaluator + report |
 | B Phase 12 | 🔄 Partial | (historical) | 12.4 / 12.8 rescoped |
 | B Phases 1–10 | ⬜ / research | unassigned | do not block v1 |
-| Writer: optional span IDs | ⬜ Planned | Grok or deepseek | D4; backend `telemetry.py` |
+| Writer: optional span IDs | ⬜ Planned | Grok or deepseek (D23) | D4; backend `telemetry.py`, opt-in |
 
 Existing foundation:
 
@@ -1252,27 +1375,39 @@ Existing foundation:
 
 ## Open Questions for Team Review
 
-Not re-asking Harbinger's locked D1–D15. These are for @deepseek
+Not re-asking Harbinger's locked D1–D23. These are for @deepseek
 @Gemini @Claude (and Harbinger if he wants to override).
 
-1. **Package move timing.** Migrate `debug/debugtool` into `dev/` in
-   the same PR as C1, or keep it in `debug/` until A2/A3 land?
-   *Grok lean:* keep it until C1 exists so Gemini is not blocked.
-2. **Who owns C4 (MCP)?** Grok can take it. Dissent if that collides.
-3. **ASP evaluator plugin vs. leaving the inspector standalone
+**Resolved in the 2026-08-17 brainstorm (now D16–D23):**
+
+- ~~Package move timing~~ → **D19**: keep `debug/debugtool` until C1
+  exists.
+- ~~Investigation git policy~~ → **D20**: manifests + repro scripts
+  committed; JSONL/gdb/hs_err stay local unless a redacted bundle is
+  explicitly copied.
+- ~~PipelineSession D4 span IDs~~ → **D23**: yes, opt-in, no behavior
+  change.
+- ~~Who owns C4 (MCP)?~~ → **D18/D17 split**: MCP first surface is
+  read-only analysis tools; C1 host-core is deepseek + Grok.
+- ~~Build order~~ → **D22**: D4 span-IDs, then C1 host, A3/C3 in
+  parallel.
+- ~~Editor integration~~ → **D21**: in scope (clipboard + IDE command
+  v1, extension later).
+
+Still open:
+
+1. **ASP evaluator plugin vs. leaving the inspector standalone
    forever.** Harbinger said plugins. Should v1 only *launch* the
    existing window, or also re-skin a TUI/web subset?
    *Grok lean:* launch + web image compare in v1; no TUI reskin of the
    full inspector.
-4. **Investigation git policy.** Manifests + repro scripts committed;
-   JSONL/gdb/hs_err stay in `~/.image-toolkit` unless an author
-   explicitly copies a redacted bundle. Agree?
-5. **btop live vs. Perfetto static — one binary or two renderers?**
+2. **btop live vs. Perfetto static — one binary or two renderers?**
    *Grok lean:* one TUI app, two skins, shared Session.
-6. **Should PipelineSession grow D4 span IDs in the same change as
-   `telemetry.py`?** That would give ASP stages a real parent tree for
-   the flame view. *Grok lean:* yes, behind the existing opt-in
-   telemetry flag, no ASP behavior change.
+3. **Dev-assistance plugin sequencing.** Of the five D16 areas (runner
+   integration, diff/review, knowledge surface, perf profiling,
+   reproducibility artifacts), which two land first after C1? *deepseek
+   lean:* runner integration + diff/review (both make Sessions
+   attributable and comparable immediately).
 
 ---
 
@@ -1314,6 +1449,12 @@ Feasibility cautions:
 | A5 investigations | S | Medium | After A4 |
 | B3 Rerun + OTel | M | High (ASP debug) | Behind PipelineSession |
 | B1 / B2 / B6–B10 | L / research | Varied | Not v1 |
+| C7 Editor integration (D21) | S | Medium | After C1; clipboard v1 |
+| D1 Runner integration | M | High (attributable runs) | After C1 (deepseek lean first) |
+| D2 Diff/review assistance | M | High (before/after) | After C1 (deepseek lean first) |
+| D3 Knowledge surface | M | Medium | After C1 |
+| D4 Perf profiling | M | High | Uses btop/Perfetto; after A3 |
+| D5 Reproducibility artifacts | S–M | Medium | After A4 |
 
 ---
 
@@ -1327,5 +1468,7 @@ Feasibility cautions:
 | `dev/` | [Home: the `dev/` directory](#home-the-dev-directory) |
 | A1–A5 | [Track A](#track-a--telemetry--crash-workbench) |
 | B / Phase 1–12 | [Track B](#track-b--analytics-benchmarks--interpretability) |
-| C1–C6 | [Track C](#track-c--host-plugins-mcp-local-web) |
+| C1–C7 | [Track C](#track-c--host-plugins-mcp-local-web) |
+| D1–D5 | [Track D](#track-d--development-assistance-d16) |
+| D16–D23 | [Settled Decisions](#settled-decisions-2026-08-17) |
 | §11.x / §12.x | Historical analytics headings (folded below / in Track B spec) |
