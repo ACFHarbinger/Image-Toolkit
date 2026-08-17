@@ -1453,11 +1453,11 @@ integration + diff/review support the first slice but must not delay it.
 | A5 Diff + investigations | ⬜ Planned | deepseek | |
 | C1 Host + plugins | ✅ Landed | deepseek + Grok (D17 / #380) | store + settings (deepseek); Host/discovery/CLI (Grok) |
 | C2 devtool alias | ✅ Landed | Grok (#381) | `python -m devtool` canonical; `debugtool` re-exports |
-| C3 Local web | ⬜ Planned | Gemini + Grok | pixels |
-| C4 MCP server | ⬜ Planned | Grok (D18) | read-only analysis tools first |
-| C5 ASP evaluator plugin | ⬜ Planned | TBD | wrap, don't fork |
-| C6 Benchmarks plugin | ⬜ Planned | TBD | first end-to-end product workflow: image/result A/B |
-| C7 Editor integration | ⬜ Planned | TBD (D21) | clipboard + IDE command v1; extension later |
+| C3 Local web | ✅ Landed | deepseek | localhost-only HTTP viewer (`/`, `/session`, `/compare`, `/artifact`) |
+| C4 MCP server | ✅ Landed | deepseek (D18) | stdio JSON-RPC 2.0 (`devtool mcp`), read-only tools + note append |
+| C5 ASP evaluator plugin | ✅ Landed | Gemini | `devtool.plugins.asp_evaluator`, eval dataset discovery & metrics summary |
+| C6 Benchmarks plugin | ✅ Landed | Gemini | `devtool.plugins.benchmarks`, benchmark run discovery & A/B comparison |
+| C7 Editor integration | ✅ Landed | Gemini (D21) | `devtool.plugins.editor_integration`, Markdown clipboard export & VS Code tasks |
 | D1 (Track D) Runner integration | ⬜ Planned | TBD (D16) | explicit build/test/bench/app/repro verbs → Session |
 | D2 (Track D) Diff/review assistance | ⬜ Planned | TBD (D16) | benchmark image/result A/B first; other diffs later |
 | D3 (Track D) Knowledge surface | ⬜ Planned | TBD (D16) | annotations → searchable debug KB |
