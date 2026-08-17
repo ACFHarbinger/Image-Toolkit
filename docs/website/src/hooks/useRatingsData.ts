@@ -152,6 +152,33 @@ export interface DashboardMeta {
   notes: string[];
 }
 
+export interface BenchmarkSubsetEntry {
+  label: string;
+  description: string;
+  target_milestone: string;
+  cases: string[];
+  fidelity: {
+    subset_size: number;
+    full_corpus_size: number;
+    defect_coverage_ratio: number;
+    covered_defects_count: number;
+    total_defects_count: number;
+    mean_asp_score: { subset: number; full: number; abs_error: number };
+    mean_simple_score: { subset: number; full: number; abs_error: number };
+    preference_distribution: {
+      subset: Record<string, number>;
+      full: Record<string, number>;
+    };
+  };
+}
+
+export interface BenchmarkSubsetsCatalog {
+  schema_version: number;
+  generated_at: string;
+  total_corpus_cases: number;
+  subsets: Record<string, BenchmarkSubsetEntry>;
+}
+
 interface RatingsData {
   loading: boolean;
   error: string | null;
@@ -159,6 +186,7 @@ interface RatingsData {
   benchmarkResults: BenchmarkResults | null;
   m0Data: M0RelabeledSummary | null;
   defectCorrelation: DefectCorrelationMatrix | null;
+  benchmarkSubsets: BenchmarkSubsetsCatalog | null;
   meta: DashboardMeta | null;
 }
 
@@ -179,17 +207,19 @@ export function useRatingsData(): RatingsData {
   const [benchmarkResults, setBenchmarkResults] = useState<BenchmarkResults | null>(null);
   const [m0Data, setM0Data] = useState<M0RelabeledSummary | null>(null);
   const [defectCorrelation, setDefectCorrelation] = useState<DefectCorrelationMatrix | null>(null);
+  const [benchmarkSubsets, setBenchmarkSubsets] = useState<BenchmarkSubsetsCatalog | null>(null);
   const [meta, setMeta] = useState<DashboardMeta | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       const base = import.meta.env.BASE_URL;
-      const [hr, br, m0, dc, m] = await Promise.all([
+      const [hr, br, m0, dc, bs, m] = await Promise.all([
         fetchJson<HumanRatingsSummary>(`${base}data/human_ratings_summary.json`),
         fetchJson<BenchmarkResults>(`${base}data/benchmark_results.json`),
         fetchJson<M0RelabeledSummary>(`${base}data/m0_relabeled_summary.json`),
         fetchJson<DefectCorrelationMatrix>(`${base}data/defect_correlation_matrix.json`),
+        fetchJson<BenchmarkSubsetsCatalog>(`${base}data/benchmark_subsets.json`),
         fetchJson<DashboardMeta>(`${base}data/dashboard_meta.json`),
       ]);
       if (cancelled) return;
@@ -200,6 +230,7 @@ export function useRatingsData(): RatingsData {
       setBenchmarkResults(br);
       setM0Data(m0);
       setDefectCorrelation(dc);
+      setBenchmarkSubsets(bs);
       setMeta(m);
       setLoading(false);
     })();
@@ -208,7 +239,7 @@ export function useRatingsData(): RatingsData {
     };
   }, []);
 
-  return { loading, error, humanRatings, benchmarkResults, m0Data, defectCorrelation, meta };
+  return { loading, error, humanRatings, benchmarkResults, m0Data, defectCorrelation, benchmarkSubsets, meta };
 }
 
 

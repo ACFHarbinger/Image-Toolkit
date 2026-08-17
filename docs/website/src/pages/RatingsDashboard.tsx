@@ -550,7 +550,7 @@ function DefectCorrelationSection({ matrix }: { matrix: DefectCorrelationMatrix 
 }
 
 export default function RatingsDashboard() {
-  const { loading, error, humanRatings, benchmarkResults, m0Data, defectCorrelation } = useRatingsData();
+  const { loading, error, humanRatings, benchmarkResults, m0Data, defectCorrelation, benchmarkSubsets } = useRatingsData();
   const defectCounts = useDefectCounts(humanRatings?.evaluations);
 
   // Filter States
@@ -558,6 +558,7 @@ export default function RatingsDashboard() {
   const [selectedPreference, setSelectedPreference] = useState<string>("all");
   const [selectedDefect, setSelectedDefect] = useState<string>("all");
   const [selectedTier, setSelectedTier] = useState<string>("all");
+  const [selectedSubset, setSelectedSubset] = useState<string>("all");
   const [expandedTest, setExpandedTest] = useState<string | null>(null);
 
   const rawRows = useMemo(
@@ -588,6 +589,12 @@ export default function RatingsDashboard() {
   // Filtered rows
   const filteredRows = useMemo(() => {
     return enrichedRows.filter(({ name, entry, tier, tags }) => {
+      // Subset Selection Filter (M2.5a)
+      if (selectedSubset !== "all" && benchmarkSubsets?.subsets?.[selectedSubset]) {
+        const subsetCases = new Set(benchmarkSubsets.subsets[selectedSubset].cases);
+        if (!subsetCases.has(name)) return false;
+      }
+
       // Search
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
@@ -617,7 +624,7 @@ export default function RatingsDashboard() {
 
       return true;
     });
-  }, [enrichedRows, searchQuery, selectedPreference, selectedDefect, selectedTier]);
+  }, [enrichedRows, selectedSubset, benchmarkSubsets, searchQuery, selectedPreference, selectedDefect, selectedTier]);
 
   if (loading) {
     return (
@@ -846,6 +853,47 @@ export default function RatingsDashboard() {
 
       {/* Main Interactive Evaluations Table */}
       <section className="dash-card table-section">
+        {/* M2.5a Similarity-Based Subset Selection Filter */}
+        {benchmarkSubsets && (
+          <div className="subset-filter-toolbar">
+            <div className="subset-toolbar-header">
+              <span className="subset-toolbar-label">
+                <Layers size={14} className="text-cyan-400" /> Data-Driven Mini-Benchmarks:
+              </span>
+              <div className="subset-chips">
+                <button
+                  type="button"
+                  onClick={() => setSelectedSubset("all")}
+                  className={`subset-chip ${selectedSubset === "all" ? "active" : ""}`}
+                >
+                  Full Corpus ({benchmarkSubsets.total_corpus_cases})
+                </button>
+                {Object.entries(benchmarkSubsets.subsets).map(([key, s]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setSelectedSubset(key)}
+                    className={`subset-chip ${selectedSubset === key ? "active" : ""}`}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {selectedSubset !== "all" && benchmarkSubsets.subsets[selectedSubset] && (
+              <div className="subset-active-banner">
+                <span className="subset-banner-desc">
+                  <strong>{benchmarkSubsets.subsets[selectedSubset].target_milestone} Target:</strong>{" "}
+                  {benchmarkSubsets.subsets[selectedSubset].description}
+                </span>
+                <span className="subset-banner-stats">
+                  Defect Coverage: <strong>{(benchmarkSubsets.subsets[selectedSubset].fidelity.defect_coverage_ratio * 100).toFixed(0)}%</strong> &bull; Score MAE: <strong>&plusmn;{benchmarkSubsets.subsets[selectedSubset].fidelity.mean_asp_score.abs_error.toFixed(2)}</strong>
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="table-controls-bar">
           <div className="search-input-wrapper">
             <Search size={15} className="search-icon" />
