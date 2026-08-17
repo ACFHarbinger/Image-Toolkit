@@ -103,7 +103,7 @@ def format_compare(report: Dict[str, Any]) -> str:
     if git.get("commit"):
         dirty = f" dirty={git.get('dirty_hash')}" if git.get("dirty") else ""
         lines.append(f"git  {git.get('branch')}@{git.get('commit')[:12]}{dirty}")
-    for key, item in (report.get("metrics") or {}).items():
+    for _key, item in (report.get("metrics") or {}).items():
         lines.append(
             f"  {item['label']}: {item['val_a']} -> {item['val_b']}  "
             f"delta={item['delta']:+} ({item['pct_change']:+.1f}%)"

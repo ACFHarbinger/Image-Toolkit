@@ -165,6 +165,43 @@ def cmd_serve(args: Any) -> int:
     return 0
 
 
+def cmd_search(args: Any) -> int:
+    from ..queries.search import format_search_results, search_workspace
+
+    host = _host_from_args(args)
+    results = search_workspace(
+        args.term,
+        store=host.store,
+        category=getattr(args, "category", "all"),
+        max_results=getattr(args, "max_results", 50),
+    )
+    print(format_search_results(results, term=args.term, json_mode=args.json))
+    return 0
+
+
+def cmd_perf(args: Any) -> int:
+    from rich.console import Console
+
+    from ..queries.perf import format_profile_report, profile_session, render_profile_panel
+
+    path = _resolve_session(args)
+    session = open_session(path=path)
+    if session is None:
+        print(f"Failed to open session at {path}", file=sys.stderr)
+        return 1
+
+    profile = profile_session(session)
+    if getattr(args, "json", False):
+        print(format_profile_report(profile, json_mode=True))
+        return 0
+    if getattr(args, "text", False):
+        print(format_profile_report(profile, json_mode=False))
+        return 0
+
+    Console().print(render_profile_panel(profile))
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="tool",
@@ -222,6 +259,23 @@ def build_parser() -> argparse.ArgumentParser:
     p_serve.add_argument("--host", default="127.0.0.1", help="Bind host (default 127.0.0.1)")
     p_serve.add_argument("--port", type=int, default=8000, help="Bind port")
 
+    p_search = sub.add_parser("search", help="Search the knowledge surface across investigations and telemetry (D3)")
+    p_search.add_argument("term", help="Search term or regex pattern")
+    p_search.add_argument(
+        "--category",
+        choices=["all", "notes", "investigations", "events", "sessions", "evals", "benchmarks"],
+        default="all",
+        help="Filter search scope",
+    )
+    p_search.add_argument("--max-results", type=int, default=50, help="Maximum number of hits (default 50)")
+    p_search.add_argument("--json", action="store_true", help="Machine-readable JSON output")
+
+    p_perf = sub.add_parser("perf", help="Performance profiling & stage latency analysis (D4)")
+    p_perf.add_argument("path", nargs="?", help="Telemetry JSONL file")
+    p_perf.add_argument("--pid", type=int, default=None, help="Session pid")
+    p_perf.add_argument("--json", action="store_true", help="Output raw profile JSON")
+    p_perf.add_argument("--text", action="store_true", help="Output plain text report instead of Rich panel")
+
     track_a.add_parsers(sub)
     track_d.add_parsers(sub)
     return parser
@@ -241,6 +295,8 @@ COMMANDS = {
     "web": cmd_web,
     "mcp": cmd_mcp,
     "serve": cmd_serve,
+    "search": cmd_search,
+    "perf": cmd_perf,
     "export": track_a.cmd_export,
     "diff": track_a.cmd_diff,
     "resolve-offset": track_a.cmd_resolve_offset,
