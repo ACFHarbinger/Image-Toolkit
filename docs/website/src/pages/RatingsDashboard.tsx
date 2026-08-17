@@ -11,8 +11,20 @@ import {
   ChevronDown,
   ChevronUp,
   Tag,
+  TrendingUp,
+  TrendingDown,
+  Minus,
+  Sparkles,
+  Workflow,
+  Cpu,
 } from "lucide-react";
-import { useDefectCounts, useRatingsData, type BenchmarkRun } from "../hooks/useRatingsData";
+import {
+  useDefectCounts,
+  useRatingsData,
+  type BenchmarkRun,
+  type DefectCorrelationMatrix,
+  type CorrelationCell,
+} from "../hooks/useRatingsData";
 import "./RatingsDashboard.css";
 
 /** Dependency-free high-precision SVG line chart with interactive hover tooltip and guides */
@@ -202,8 +214,343 @@ function ScoreHistogram({
   );
 }
 
+/** M2.5a (#32) Per-Defect Category & Stage-Attributed Correlation Matrix Component */
+function DefectCorrelationSection({ matrix }: { matrix: DefectCorrelationMatrix }) {
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [viewMode, setViewMode] = useState<"detection" | "subset">("detection");
+  const [activeCell, setActiveCell] = useState<{
+    defect: string;
+    metricKey: string;
+    cell: CorrelationCell;
+  } | null>(null);
+
+  const metrics = Object.values(matrix.metric_catalog);
+  const defects = Object.values(matrix.defect_summaries);
+
+  const filteredDefects = useMemo(() => {
+    if (selectedCategory === "all") return defects;
+    return defects.filter((d) => d.category === selectedCategory);
+  }, [defects, selectedCategory]);
+
+  const activeMatrix = viewMode === "detection" ? matrix.defect_detection_correlation : matrix.defect_subset_correlation;
+
+  const getDiagnosisClass = (diagnosis: string) => {
+    switch (diagnosis) {
+      case "tracks_quality":
+        return "cell-tracks";
+      case "inverse_misleading":
+        return "cell-inverse";
+      case "no_signal":
+        return "cell-neutral";
+      default:
+        return "cell-empty";
+    }
+  };
+
+  const getDiagnosisBadge = (diagnosis: string) => {
+    switch (diagnosis) {
+      case "tracks_quality":
+        return (
+          <span className="matrix-badge-tag tracks">
+            <TrendingUp size={12} />
+            <span>Tracks Human Quality</span>
+          </span>
+        );
+      case "inverse_misleading":
+        return (
+          <span className="matrix-badge-tag inverse">
+            <TrendingDown size={12} />
+            <span>Inverted / Misleading</span>
+          </span>
+        );
+      case "no_signal":
+        return (
+          <span className="matrix-badge-tag neutral">
+            <Minus size={12} />
+            <span>No Clear Signal</span>
+          </span>
+        );
+      default:
+        return (
+          <span className="matrix-badge-tag insufficient">
+            <span>Insufficient N</span>
+          </span>
+        );
+    }
+  };
+
+  return (
+    <section className="dash-card defect-matrix-section">
+      <div className="card-header-flex">
+        <div>
+          <div className="card-tag">Milestone §M2.5a (#32) • Empirical Metric Audit</div>
+          <h3 className="card-title">Per-Defect Failure Mode &amp; Stage Correlation Matrix</h3>
+        </div>
+        <div className="matrix-view-toggle">
+          <button
+            className={`matrix-toggle-btn ${viewMode === "detection" ? "active" : ""}`}
+            onClick={() => setViewMode("detection")}
+            title="Measures how well the metric rewards clean outputs free of this defect"
+          >
+            <span>Defect Absence Discrimination</span>
+          </button>
+          <button
+            className={`matrix-toggle-btn ${viewMode === "subset" ? "active" : ""}`}
+            onClick={() => setViewMode("subset")}
+            title="Measures correlation on the subset of cases exhibiting this defect"
+          >
+            <span>Within-Defect Subset Quality</span>
+          </button>
+        </div>
+      </div>
+
+      <p className="matrix-explainer">
+        Correlates oriented metric deltas against human arbitration across specific failure classes.
+        <strong> Positive &rho; (green)</strong> represents signals that correctly reward clean cel construction.
+        <strong> Negative &rho; (red)</strong> indicates metrics that are paradoxically inflated by catastrophic artifacts (e.g. sharp torn seams or duplicated line art masquerading as high frequency detail).
+      </p>
+
+      {/* Stage Category Filters */}
+      <div className="matrix-category-filters">
+        <span className="filter-label">Pipeline Stage Scope:</span>
+        <button
+          className={`stage-filter-chip ${selectedCategory === "all" ? "active" : ""}`}
+          onClick={() => setSelectedCategory("all")}
+        >
+          <span>All Failure Classes</span>
+          <span className="chip-count">{defects.length}</span>
+        </button>
+        <button
+          className={`stage-filter-chip ${selectedCategory === "structural" ? "active" : ""}`}
+          onClick={() => setSelectedCategory("structural")}
+        >
+          <Workflow size={13} className="opacity-70" />
+          <span>Structural &amp; Alignment (Stages 5–8)</span>
+          <span className="chip-count">{defects.filter((d) => d.category === "structural").length}</span>
+        </button>
+        <button
+          className={`stage-filter-chip ${selectedCategory === "temporal" ? "active" : ""}`}
+          onClick={() => setSelectedCategory("temporal")}
+        >
+          <Cpu size={13} className="opacity-70" />
+          <span>Temporal &amp; Masking (Stage 9)</span>
+          <span className="chip-count">{defects.filter((d) => d.category === "temporal").length}</span>
+        </button>
+        <button
+          className={`stage-filter-chip ${selectedCategory === "photometric" ? "active" : ""}`}
+          onClick={() => setSelectedCategory("photometric")}
+        >
+          <Sparkles size={13} className="opacity-70" />
+          <span>Photometric &amp; Seams (Stage 11)</span>
+          <span className="chip-count">{defects.filter((d) => d.category === "photometric").length}</span>
+        </button>
+        <button
+          className={`stage-filter-chip ${selectedCategory === "canvas" ? "active" : ""}`}
+          onClick={() => setSelectedCategory("canvas")}
+        >
+          <Layers size={13} className="opacity-70" />
+          <span>Canvas &amp; Crop (Stages 8–9)</span>
+          <span className="chip-count">{defects.filter((d) => d.category === "canvas").length}</span>
+        </button>
+      </div>
+
+      {/* Interactive Heatmap Matrix Grid */}
+      <div className="heatmap-scroll-wrapper">
+        <table className="heatmap-matrix-table">
+          <thead>
+            <tr>
+              <th className="sticky-col header-corner">
+                <span>Defect Signature</span>
+                <span className="sub-header-corner">Attributed Pipeline Stage</span>
+              </th>
+              {metrics.map((m) => (
+                <th key={m.key} className="heatmap-metric-header">
+                  <div className="metric-header-title">{m.label}</div>
+                  <div className="metric-header-dir">
+                    {m.higher_is_better ? "Higher is better" : "Lower is better"}
+                  </div>
+                  {matrix.overall_corpus_correlation[m.key]?.rho !== null && (
+                    <div className="metric-overall-rho font-mono">
+                      Corpus &rho;: {matrix.overall_corpus_correlation[m.key].rho! > 0 ? "+" : ""}
+                      {matrix.overall_corpus_correlation[m.key].rho?.toFixed(2)}
+                    </div>
+                  )}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {filteredDefects.map((defect) => (
+              <tr key={defect.defect} className="heatmap-row">
+                <td className="sticky-col defect-row-header">
+                  <div className="defect-title-row">
+                    <span className="defect-name">{defect.label}</span>
+                    <span className="defect-count-pill font-mono">{defect.count} cases</span>
+                  </div>
+                  <div className="defect-stage-row">
+                    <span className={`defect-cat-tag ${defect.category}`}>{defect.category.toUpperCase()}</span>
+                    <span className="defect-stage-name">{defect.stage_name}</span>
+                  </div>
+                </td>
+                {metrics.map((m) => {
+                  const cell = activeMatrix[defect.defect]?.[m.key] ?? {
+                    rho: null,
+                    p_value: null,
+                    n: 0,
+                    diagnosis: "insufficient_data",
+                  };
+                  const isSelected =
+                    activeCell?.defect === defect.defect && activeCell?.metricKey === m.key;
+
+                  return (
+                    <td
+                      key={m.key}
+                      className={`heatmap-cell ${getDiagnosisClass(cell.diagnosis)} ${isSelected ? "selected" : ""}`}
+                      onClick={() =>
+                        setActiveCell(
+                          isSelected ? null : { defect: defect.defect, metricKey: m.key, cell }
+                        )
+                      }
+                      tabIndex={0}
+                      role="button"
+                      aria-label={`${defect.label} vs ${m.label} correlation ${cell.rho ?? "N/A"}`}
+                    >
+                      <div className="cell-content font-mono">
+                        {cell.rho !== null ? (
+                          <>
+                            <span className="cell-rho">
+                              {cell.rho > 0 ? "+" : ""}
+                              {cell.rho.toFixed(2)}
+                            </span>
+                            <span className="cell-sub-p">p={cell.p_value?.toFixed(3)}</span>
+                          </>
+                        ) : (
+                          <span className="cell-empty-dash">&mdash;</span>
+                        )}
+                      </div>
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Selected Cell Inspection Drawer */}
+      {activeCell && (
+        <div className="matrix-inspector-card">
+          <div className="inspector-header">
+            <div className="inspector-titles">
+              <span className="inspector-kicker">Diagnostic Cell Deep-Dive</span>
+              <h4>
+                {matrix.defect_summaries[activeCell.defect]?.label} &times;{" "}
+                {matrix.metric_catalog[activeCell.metricKey]?.label}
+              </h4>
+            </div>
+            <button className="inspector-close-btn" onClick={() => setActiveCell(null)}>
+              &times;
+            </button>
+          </div>
+
+          <div className="inspector-grid">
+            <div className="inspector-stat-col">
+              <span className="stat-label">Spearman Rank Correlation (&rho;)</span>
+              <div className="stat-val-flex font-mono">
+                <span className="stat-huge-rho">
+                  {activeCell.cell.rho !== null
+                    ? `${activeCell.cell.rho > 0 ? "+" : ""}${activeCell.cell.rho.toFixed(3)}`
+                    : "N/A"}
+                </span>
+                {getDiagnosisBadge(activeCell.cell.diagnosis)}
+              </div>
+              <span className="stat-sub">
+                p-value: {activeCell.cell.p_value?.toFixed(4) ?? "N/A"} • N = {activeCell.cell.n} test cases
+              </span>
+            </div>
+
+            <div className="inspector-meta-col">
+              <div className="inspector-row">
+                <span className="meta-key">Responsible Pipeline Stage:</span>
+                <span className="meta-val font-mono text-cyan-300">
+                  {matrix.defect_summaries[activeCell.defect]?.stage_name}
+                </span>
+              </div>
+              <div className="inspector-row">
+                <span className="meta-key">Defect Prevalence:</span>
+                <span className="meta-val">
+                  {matrix.defect_summaries[activeCell.defect]?.count} cases (
+                  {matrix.defect_summaries[activeCell.defect]?.prevalence_pct}% of corpus)
+                </span>
+              </div>
+              <div className="inspector-row">
+                <span className="meta-key">Mean Human Scores on Defect:</span>
+                <span className="meta-val font-mono">
+                  ASP {matrix.defect_summaries[activeCell.defect]?.mean_asp_score} vs SCANS{" "}
+                  {matrix.defect_summaries[activeCell.defect]?.mean_simple_score}
+                </span>
+              </div>
+            </div>
+
+            <div className="inspector-analysis-col">
+              <span className="meta-key">Engineering Takeaway:</span>
+              <p className="analysis-text">
+                {activeCell.cell.diagnosis === "tracks_quality"
+                  ? "This metric reliably penalizes the artifact and moves in harmony with human visual judgments. It can safely serve as a diagnostic evaluator."
+                  : activeCell.cell.diagnosis === "inverse_misleading"
+                  ? "This metric is paradoxically triggered by the visual defect — high-frequency step discontinuities and duplicated line edges falsely register as 'sharpness' or 'rich detail'. It must never be used as a standalone gating signal."
+                  : "No statistically significant rank discrimination observed for this defect mode."}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Stage Attribution Architecture Insights */}
+      <div className="stage-attribution-grid">
+        {Object.entries(matrix.stage_groups).map(([cat, grp]) => {
+          const topMetric = Object.entries(grp.metrics_avg_rho)
+            .filter(([, v]) => v !== null)
+            .sort((a, b) => (b[1] ?? 0) - (a[1] ?? 0))[0];
+          const worstMetric = Object.entries(grp.metrics_avg_rho)
+            .filter(([, v]) => v !== null)
+            .sort((a, b) => (a[1] ?? 0) - (b[1] ?? 0))[0];
+
+          return (
+            <div key={cat} className={`stage-group-card ${cat}`}>
+              <div className="stage-group-header">
+                <span className={`stage-badge ${cat}`}>{cat.toUpperCase()}</span>
+                <h4>{grp.stage_name}</h4>
+              </div>
+              <p className="stage-defects-list">
+                <strong>Failure Classes:</strong> {grp.defects.map((d) => d.replace(/_/g, " ")).join(", ")}
+              </p>
+              <div className="stage-signals-summary">
+                {topMetric && (
+                  <div className="signal-item positive">
+                    <span className="sig-label">Best Discriminator:</span>
+                    <span className="sig-metric">{matrix.metric_catalog[topMetric[0]]?.label}</span>
+                    <span className="sig-rho font-mono">+{topMetric[1]?.toFixed(2)}</span>
+                  </div>
+                )}
+                {worstMetric && worstMetric[1] !== null && worstMetric[1] < 0 && (
+                  <div className="signal-item negative">
+                    <span className="sig-label">Strongest Inversion:</span>
+                    <span className="sig-metric">{matrix.metric_catalog[worstMetric[0]]?.label}</span>
+                    <span className="sig-rho font-mono">{worstMetric[1]?.toFixed(2)}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 export default function RatingsDashboard() {
-  const { loading, error, humanRatings, benchmarkResults, m0Data } = useRatingsData();
+  const { loading, error, humanRatings, benchmarkResults, m0Data, defectCorrelation } = useRatingsData();
   const defectCounts = useDefectCounts(humanRatings?.evaluations);
 
   // Filter States
@@ -490,6 +837,11 @@ export default function RatingsDashboard() {
             })}
           </div>
         </section>
+      )}
+
+      {/* M2.5a (#32) Per-Defect & Stage-Attributed Correlation Matrix */}
+      {defectCorrelation && (
+        <DefectCorrelationSection matrix={defectCorrelation} />
       )}
 
       {/* Main Interactive Evaluations Table */}

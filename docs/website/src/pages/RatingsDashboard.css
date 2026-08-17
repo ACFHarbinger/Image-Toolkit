@@ -1072,3 +1072,630 @@
   font-size: 0.85rem;
   font-family: 'DM Mono', monospace;
 }
+
+/* --------------------------------------------------------------------------
+   M2.5a (#32) Defect Correlation Matrix & Heatmap Grid
+   -------------------------------------------------------------------------- */
+
+.defect-matrix-section {
+  margin-bottom: 2rem;
+}
+
+.matrix-explainer {
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: #94a3b8;
+  margin: 0 0 1.25rem 0;
+}
+
+.matrix-explainer strong {
+  color: #f1f5f9;
+}
+
+.matrix-view-toggle {
+  display: inline-flex;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  padding: 0.2rem;
+  gap: 0.25rem;
+}
+
+.matrix-toggle-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 0.78rem;
+  font-weight: 500;
+  padding: 0.35rem 0.75rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.matrix-toggle-btn:hover {
+  color: #f1f5f9;
+}
+
+.matrix-toggle-btn.active {
+  background: rgba(6, 182, 212, 0.15);
+  color: #22d3ee;
+  font-weight: 600;
+  border: 1px solid rgba(6, 182, 212, 0.3);
+}
+
+.matrix-category-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.filter-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-family: 'DM Mono', monospace;
+  color: #64748b;
+  margin-right: 0.25rem;
+}
+
+.stage-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #cbd5e1;
+  font-size: 0.78rem;
+  padding: 0.3rem 0.65rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.stage-filter-chip:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: #f8fafc;
+}
+
+.stage-filter-chip.active {
+  background: rgba(6, 182, 212, 0.12);
+  border-color: rgba(6, 182, 212, 0.4);
+  color: #22d3ee;
+}
+
+.chip-count {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.7rem;
+  background: rgba(0, 0, 0, 0.35);
+  padding: 0.1rem 0.35rem;
+  border-radius: 3px;
+  color: #94a3b8;
+}
+
+/* Heatmap Table */
+
+.heatmap-scroll-wrapper {
+  overflow-x: auto;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  background: rgba(10, 14, 23, 0.75);
+  margin-bottom: 1.5rem;
+}
+
+.heatmap-matrix-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.heatmap-matrix-table th,
+.heatmap-matrix-table td {
+  padding: 0.65rem 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  text-align: center;
+}
+
+.sticky-col {
+  position: sticky;
+  left: 0;
+  background: #0d121d;
+  z-index: 2;
+  text-align: left !important;
+  min-width: 250px;
+  max-width: 280px;
+  border-right: 2px solid rgba(6, 182, 212, 0.3) !important;
+}
+
+.header-corner {
+  background: #0f172a !important;
+  padding: 0.75rem !important;
+}
+
+.header-corner span {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #f1f5f9;
+}
+
+.sub-header-corner {
+  font-size: 0.7rem !important;
+  font-weight: normal !important;
+  color: #64748b;
+  font-family: 'DM Mono', monospace;
+  margin-top: 0.15rem;
+}
+
+.heatmap-metric-header {
+  background: rgba(15, 23, 42, 0.95);
+  min-width: 95px;
+  max-width: 115px;
+  vertical-align: top;
+}
+
+.metric-header-title {
+  color: #f1f5f9;
+  font-weight: 600;
+  font-size: 0.78rem;
+  margin-bottom: 0.15rem;
+  line-height: 1.25;
+}
+
+.metric-header-dir {
+  font-size: 0.65rem;
+  color: #64748b;
+  margin-bottom: 0.35rem;
+}
+
+.metric-overall-rho {
+  font-size: 0.7rem;
+  color: #22d3ee;
+  background: rgba(6, 182, 212, 0.08);
+  border: 1px solid rgba(6, 182, 212, 0.2);
+  border-radius: 3px;
+  padding: 0.15rem 0.3rem;
+  display: inline-block;
+}
+
+/* Defect Row Header */
+
+.defect-row-header {
+  vertical-align: middle;
+}
+
+.defect-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.2rem;
+}
+
+.defect-name {
+  font-weight: 600;
+  color: #f8fafc;
+  font-size: 0.82rem;
+}
+
+.defect-count-pill {
+  font-size: 0.68rem;
+  color: #94a3b8;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 0.1rem 0.4rem;
+  border-radius: 3px;
+}
+
+.defect-stage-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.defect-cat-tag {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.62rem;
+  font-weight: 700;
+  padding: 0.05rem 0.3rem;
+  border-radius: 2px;
+}
+
+.defect-cat-tag.structural {
+  background: rgba(168, 85, 247, 0.15);
+  border: 1px solid rgba(168, 85, 247, 0.35);
+  color: #c084fc;
+}
+
+.defect-cat-tag.temporal {
+  background: rgba(59, 130, 246, 0.15);
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  color: #60a5fa;
+}
+
+.defect-cat-tag.photometric {
+  background: rgba(234, 179, 8, 0.15);
+  border: 1px solid rgba(234, 179, 8, 0.35);
+  color: #facc15;
+}
+
+.defect-cat-tag.canvas {
+  background: rgba(20, 184, 166, 0.15);
+  border: 1px solid rgba(20, 184, 166, 0.35);
+  color: #2dd4bf;
+}
+
+.defect-cat-tag.other {
+  background: rgba(148, 163, 184, 0.15);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  color: #cbd5e1;
+}
+
+.defect-stage-name {
+  font-size: 0.68rem;
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 170px;
+}
+
+/* Heatmap Cells */
+
+.heatmap-cell {
+  cursor: pointer;
+  transition: all 0.15s ease;
+  position: relative;
+}
+
+.heatmap-cell:hover {
+  filter: brightness(1.25);
+  outline: 1px solid #22d3ee;
+  z-index: 1;
+}
+
+.heatmap-cell.selected {
+  outline: 2px solid #22d3ee !important;
+  z-index: 2;
+}
+
+.cell-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.1rem;
+}
+
+.cell-rho {
+  font-weight: 700;
+  font-size: 0.8rem;
+}
+
+.cell-sub-p {
+  font-size: 0.62rem;
+  opacity: 0.7;
+}
+
+.cell-empty-dash {
+  color: #475569;
+}
+
+/* Heatmap Colors based on Diagnosis */
+
+.cell-tracks {
+  background: rgba(16, 185, 129, 0.22);
+  color: #34d399;
+}
+
+.cell-tracks:hover {
+  background: rgba(16, 185, 129, 0.35);
+}
+
+.cell-inverse {
+  background: rgba(244, 63, 94, 0.22);
+  color: #fb7185;
+}
+
+.cell-inverse:hover {
+  background: rgba(244, 63, 94, 0.35);
+}
+
+.cell-neutral {
+  background: rgba(100, 116, 139, 0.12);
+  color: #94a3b8;
+}
+
+.cell-neutral:hover {
+  background: rgba(100, 116, 139, 0.22);
+}
+
+.cell-empty {
+  background: rgba(15, 23, 42, 0.4);
+  color: #475569;
+}
+
+/* Selected Cell Inspector */
+
+.matrix-inspector-card {
+  background: #0f172a;
+  border: 1px solid rgba(6, 182, 212, 0.35);
+  border-radius: 8px;
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  animation: fadeIn 0.2s ease-out;
+}
+
+.inspector-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.inspector-kicker {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #06b6d4;
+  display: block;
+  margin-bottom: 0.2rem;
+}
+
+.inspector-titles h4 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #f8fafc;
+}
+
+.inspector-close-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 0.4rem;
+}
+
+.inspector-close-btn:hover {
+  color: #f8fafc;
+}
+
+.inspector-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+}
+
+.inspector-stat-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.stat-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #64748b;
+  font-family: 'DM Mono', monospace;
+}
+
+.stat-val-flex {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.stat-huge-rho {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.stat-sub {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  font-family: 'DM Mono', monospace;
+}
+
+.matrix-badge-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.25rem 0.55rem;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.matrix-badge-tag.tracks {
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  color: #34d399;
+}
+
+.matrix-badge-tag.inverse {
+  background: rgba(244, 63, 94, 0.15);
+  border: 1px solid rgba(244, 63, 94, 0.4);
+  color: #fb7185;
+}
+
+.matrix-badge-tag.neutral {
+  background: rgba(100, 116, 139, 0.15);
+  border: 1px solid rgba(100, 116, 139, 0.4);
+  color: #94a3b8;
+}
+
+.matrix-badge-tag.insufficient {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #64748b;
+}
+
+.inspector-meta-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.inspector-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.meta-key {
+  font-size: 0.72rem;
+  color: #64748b;
+  text-transform: uppercase;
+  font-family: 'DM Mono', monospace;
+}
+
+.meta-val {
+  font-size: 0.85rem;
+  color: #e2e8f0;
+}
+
+.inspector-analysis-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.analysis-text {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: #cbd5e1;
+}
+
+/* Stage Attribution Cards */
+
+.stage-attribution-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.stage-group-card {
+  background: rgba(13, 18, 28, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 6px;
+  padding: 1rem 1.15rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.stage-group-card.structural {
+  border-left: 3px solid #a855f7;
+}
+
+.stage-group-card.temporal {
+  border-left: 3px solid #3b82f6;
+}
+
+.stage-group-card.photometric {
+  border-left: 3px solid #eab308;
+}
+
+.stage-group-card.canvas {
+  border-left: 3px solid #14b8a6;
+}
+
+.stage-group-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.stage-group-header h4 {
+  margin: 0;
+  font-size: 0.88rem;
+  color: #f1f5f9;
+}
+
+.stage-badge {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.15rem 0.4rem;
+  border-radius: 3px;
+}
+
+.stage-badge.structural {
+  background: rgba(168, 85, 247, 0.15);
+  color: #c084fc;
+}
+
+.stage-badge.temporal {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+}
+
+.stage-badge.photometric {
+  background: rgba(234, 179, 8, 0.15);
+  color: #facc15;
+}
+
+.stage-badge.canvas {
+  background: rgba(20, 184, 166, 0.15);
+  color: #2dd4bf;
+}
+
+.stage-defects-list {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #94a3b8;
+  line-height: 1.4;
+}
+
+.stage-defects-list strong {
+  color: #cbd5e1;
+}
+
+.stage-signals-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: auto;
+  padding-top: 0.4rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.signal-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.74rem;
+}
+
+.signal-item.positive .sig-rho {
+  color: #34d399;
+}
+
+.signal-item.negative .sig-rho {
+  color: #fb7185;
+}
+
+.sig-label {
+  color: #64748b;
+}
+
+.sig-metric {
+  color: #e2e8f0;
+  font-weight: 500;
+}
+

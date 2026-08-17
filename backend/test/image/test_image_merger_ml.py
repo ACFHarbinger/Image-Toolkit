@@ -10,7 +10,7 @@ from PIL import Image
 # Add backend to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..")))
 
-from backend.src.core.image_merger import ImageMerger
+from backend.src.core.image import ImageMerger
 
 
 @pytest.fixture

@@ -94,6 +94,56 @@ export interface M0RelabeledSummary {
   cases: Record<string, RelabeledCaseEntry>;
 }
 
+export interface CorrelationCell {
+  rho: number | null;
+  p_value: number | null;
+  n: number;
+  diagnosis: "tracks_quality" | "inverse_misleading" | "no_signal" | "insufficient_data";
+}
+
+export interface DefectSummaryEntry {
+  defect: string;
+  label: string;
+  count: number;
+  prevalence_pct: number;
+  mean_asp_score: number;
+  mean_simple_score: number;
+  stage_id: string;
+  stage_name: string;
+  category: "structural" | "temporal" | "canvas" | "photometric" | "other";
+}
+
+export interface OverallMetricEntry {
+  metric_key: string;
+  label: string;
+  higher_is_better: boolean;
+  rho: number | null;
+  p_value: number | null;
+  n: number;
+  diagnosis: "tracks_quality" | "inverse_misleading" | "no_signal" | "insufficient_data";
+}
+
+export interface StageGroupEntry {
+  stage_id: string;
+  stage_name: string;
+  category: string;
+  defects: string[];
+  total_defect_instances: number;
+  metrics_avg_rho: Record<string, number | null>;
+}
+
+export interface DefectCorrelationMatrix {
+  schema_version: number;
+  generated_at: string;
+  total_reviewed_cases: number;
+  metric_catalog: Record<string, { key: string; label: string; higher_is_better: boolean }>;
+  overall_corpus_correlation: Record<string, OverallMetricEntry>;
+  defect_summaries: Record<string, DefectSummaryEntry>;
+  defect_subset_correlation: Record<string, Record<string, CorrelationCell>>;
+  defect_detection_correlation: Record<string, Record<string, CorrelationCell>>;
+  stage_groups: Record<string, StageGroupEntry>;
+}
+
 export interface DashboardMeta {
   generated_at: string;
   automated_runs: number;
@@ -108,6 +158,7 @@ interface RatingsData {
   humanRatings: HumanRatingsSummary | null;
   benchmarkResults: BenchmarkResults | null;
   m0Data: M0RelabeledSummary | null;
+  defectCorrelation: DefectCorrelationMatrix | null;
   meta: DashboardMeta | null;
 }
 
@@ -127,16 +178,18 @@ export function useRatingsData(): RatingsData {
   const [humanRatings, setHumanRatings] = useState<HumanRatingsSummary | null>(null);
   const [benchmarkResults, setBenchmarkResults] = useState<BenchmarkResults | null>(null);
   const [m0Data, setM0Data] = useState<M0RelabeledSummary | null>(null);
+  const [defectCorrelation, setDefectCorrelation] = useState<DefectCorrelationMatrix | null>(null);
   const [meta, setMeta] = useState<DashboardMeta | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       const base = import.meta.env.BASE_URL;
-      const [hr, br, m0, m] = await Promise.all([
+      const [hr, br, m0, dc, m] = await Promise.all([
         fetchJson<HumanRatingsSummary>(`${base}data/human_ratings_summary.json`),
         fetchJson<BenchmarkResults>(`${base}data/benchmark_results.json`),
         fetchJson<M0RelabeledSummary>(`${base}data/m0_relabeled_summary.json`),
+        fetchJson<DefectCorrelationMatrix>(`${base}data/defect_correlation_matrix.json`),
         fetchJson<DashboardMeta>(`${base}data/dashboard_meta.json`),
       ]);
       if (cancelled) return;
@@ -146,6 +199,7 @@ export function useRatingsData(): RatingsData {
       setHumanRatings(hr);
       setBenchmarkResults(br);
       setM0Data(m0);
+      setDefectCorrelation(dc);
       setMeta(m);
       setLoading(false);
     })();
@@ -154,7 +208,7 @@ export function useRatingsData(): RatingsData {
     };
   }, []);
 
-  return { loading, error, humanRatings, benchmarkResults, m0Data, meta };
+  return { loading, error, humanRatings, benchmarkResults, m0Data, defectCorrelation, meta };
 }
 
 
