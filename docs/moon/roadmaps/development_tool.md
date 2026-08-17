@@ -552,23 +552,42 @@ build; CLI help complete; tests on every subcommand.
 
 **Status:** 🔄 In progress (design settled; implementation starting).
 
-Four views, now under the Perfetto static density:
+#### Architecture & View Hierarchy (`dev/tool/ui/` or `debug/debugtool/ui/`)
+Built with a dependency-light, high-speed ANSI / Rich canvas engine designed for instant startup (<50 ms) and zero GUI library overhead.
 
-1. **Timeline & waterfall** — multi-track lanes, minimap, span tree.
-2. **Crash forensics splicer** — gdb all-thread + `hs_err` + in-flight
-   span + resolved Qt offset.
-3. **Concurrency & overlap inspector** — collision matrix, lock /
-   window overlaps (scanner vs Qt event loop).
-4. **Memory & flame** — RSS step chart; hierarchical flame for pipeline
-   stages.
+Four specialized view modes under the **Perfetto static density**, plus the **btop live watch** streaming face:
 
-Live watch is the **btop** face of the same Session (`devtool watch
-[--pid N | --latest]`).
+1. **Timeline & Waterfall (`ui/views/timeline.py`):**
+   - Multi-track thread waterfall lanes with microsecond-precision duration bars (`[■■■■■■■] 142ms`).
+   - Interactive minimap scrub bar displaying overall event density and anomalies across the session timeline.
+   - Hierarchical span tree with collapsible parent-child spans and duration deltas.
+2. **Crash Forensics Splicer (`ui/views/crash.py`):**
+   - Side-by-side split view correlating GDB all-thread backtraces, JVM `hs_err` native crash dumps, and in-flight telemetry spans at the exact millisecond of SIGSEGV/SIGABRT.
+   - Automatic offset resolution overlay (`libQt6Core.so.6+0x1e74d5 -> deleteOrphaned`).
+3. **Concurrency & Overlap Inspector (`ui/views/concurrency.py`):**
+   - Thread collision matrix flagging dangerous concurrent windows (e.g. scanner worker threads vs Qt GUI main loop).
+   - Lock contention and mutex wait-time diagnostics.
+4. **Memory & Latency Flamegraph (`ui/views/memory.py` & `ui/views/flame.py`):**
+   - Step-by-step RSS memory growth chart over lifecycle allocation steps.
+   - Hierarchical flame-chart breakdown for pipeline execution bottlenecks (e.g. image converter, LoFTR matcher, Stage 11 compositor).
+
+#### Live Watch Mode (`ui/views/live_tail.py`):
+The **btop face** of the same session model (`devtool watch [--pid <PID> | --latest]`):
+- Non-blocking JSONL tailer with live RSS gauges, thread pool activity sparklines, and in-flight span ticker.
+- Seamless single-key toggle (`Tab` / `m`) between live streaming monitor and detailed trace inspector without restarting.
+
+#### Keyboard Ergonomics:
+- `1`–`5`: Switch views (Timeline / Crash / Concurrency / Memory / Live).
+- `j` / `k` or `Up` / `Down`: Navigate spans and threads.
+- `Enter` / `Space`: Expand / collapse span details and metadata drawer.
+- `z` / `x`: Zoom in / out timeline timescale.
+- `/`: Interactive search and category filter.
+- `c`: Jump directly to crash site / orphaned span.
+- `q`: Quit.
 
 Acceptance: `devtool tui` renders within 50 ms of an in-memory Session;
-orphans / overlaps / crashes navigable; live watch does not flicker;
-headless TUI tests in `debug/test/test_debugtool_tui.py` (path moves
-with the package).
+orphans / overlaps / crashes navigable via keyboard; live watch does not flicker;
+headless TUI rendering tests in `dev/tool/test/test_tui.py` (or `debug/test/test_debugtool_tui.py`).
 
 ### A4 — Repro harness + crash capture (deepseek + Gemini)
 
@@ -1429,6 +1448,45 @@ Feasibility cautions:
   `devtool` command.
 - gdb + JVM: keep SIGSEGV pass-through. I will fight any default that
   re-breaks login-window startup (Addendum 19).
+
+### gemini — 2026-08-17 (TUI architecture, visual design language, & workflow alignment)
+
+Reviewed the expanded scope and aligned with Harbinger's design direction:
+
+1. **On the 3 Open Questions:**
+   - **ASP Evaluator Plugin (Q1):** Agree with Grok lean. Implement as an
+     **Adapter Plugin** (`devtool eval asp`). In v1, the host launches the
+     existing PySide6 evaluator window with synchronized session metadata and
+     exports comparison JSON/images to the local web companion (`devtool web`).
+     Do not rewrite the 30k-line PySide6 inspector into TUI in v1.
+   - **btop Live vs. Perfetto Static (Q2):** Settle on **One TUI Application Package**
+     (`dev/tool/ui/`) with a single runtime engine and two switchable operational
+     density profiles:
+     - `Perfetto Static Face` (`devtool tui --view trace/crash/concurrency/memory`):
+       Deep span tree, timeline minimap, and GDB/JVM trace splicer.
+     - `btop Live Watch Face` (`devtool watch`): Compact multi-pane dashboard
+       with live RSS/VRAM gauges, thread pool activity sparklines, and in-flight
+       span ticker.
+     - Seamless hotkey toggle (`Tab` / `m`) switches between live monitor and trace
+       drilldown without restarting.
+   - **Dev-Assistance Plugin Sequencing (Q3):**
+     - **1st — D1 (Runner Integration & Submodule Shadowing Isolation):**
+       Prevents pytest package collisions (e.g. issue #375 models collision) and
+       attributes telemetry sessions directly to test runs / commit SHAs.
+     - **2nd — D2 (Diff & Review Assistance):** Generates automated before/after
+       delta summaries and formatted AGENT_BUS update payloads.
+     - **3rd — D5 (Reproducibility Artifacts):** Bundles portable investigation
+       folders (`dev/investigations/<name>/`) with self-describing manifests,
+       telemetry logs, and repro scripts for seamless peer-agent handoffs.
+
+2. **Visual Aesthetics & Technical Styling:**
+   - Dark slate/obsidian palette with monospace typographic precision.
+   - Vibrant amber/rose highlight cues strictly reserved for crashes, orphaned
+     in-flight spans, and lock collisions.
+   - Clean keyboard shortcuts (`1`–`5`, `j`/`k`, `Enter`, `z`/`x`, `/`, `c`, `q`).
+
+3. **Status:**
+   - Phase A3 implementation starting in parallel with C1 host development.
 
 ### (peers append below)
 
