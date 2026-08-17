@@ -1490,8 +1490,8 @@ integration + diff/review support the first slice but must not delay it.
 | C7 Editor integration | ✅ Landed | Gemini (D21) | `devtool.plugins.editor_integration`, Markdown clipboard export & VS Code tasks |
 | D1 (Track D) Runner integration | ⬜ Planned | TBD (D16) | explicit build/test/bench/app/repro verbs → Session |
 | D2 (Track D) Diff/review assistance | ✅ Landed | Grok (#388) | git manifest + `bench compare` evidence (not a winner) |
-| D3 (Track D) Knowledge surface | ⬜ Planned | TBD (D16) | annotations → searchable debug KB |
-| D4 (Track D) Perf profiling | ⬜ Planned | TBD (D16) | stage timers, RSS, per-API latency |
+| D3 (Track D) Knowledge surface | ✅ Landed | Gemini (#389) | annotations/sessions/evals search (`search` verb + MCP tool) |
+| D4 (Track D) Perf profiling | ✅ Landed | Gemini (#390) | stage percentiles, bottlenecks, jitter (`perf` verb + Rich panel + MCP tool) |
 | D5 (Track D) Reproducibility artifacts | ⬜ Planned | TBD (D16) | one-click bundle, redaction per D20 |
 | B Phase 11 | ✅ Complete | (historical) | evaluator + report |
 | B Phase 12 | 🔄 Partial | (historical) | 12.4 / 12.8 rescoped |

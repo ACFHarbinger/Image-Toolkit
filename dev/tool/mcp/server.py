@@ -77,6 +77,29 @@ TOOLS: List[Dict[str, Any]] = [
             "required": ["investigation", "text", "author"],
         },
     },
+    {
+        "name": "search_knowledge",
+        "description": "Search the knowledge base across investigations, notes, events, and benchmarks (D3).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "term": {"type": "string"},
+                "category": {"type": "string", "enum": ["all", "notes", "investigations", "events", "sessions", "evals", "benchmarks"]},
+            },
+            "required": ["term"],
+        },
+    },
+    {
+        "name": "profile_session",
+        "description": "Compute microsecond stage latencies, percentiles, bottlenecks, and throughput for a session (D4).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "pid": {"type": "integer"},
+                "path": {"type": "string"},
+            },
+        },
+    },
 ]
 
 
@@ -103,6 +126,10 @@ class McpServer:
             return self._list_artifacts(arguments)
         if name == "append_investigation_note":
             return self._append_investigation_note(arguments)
+        if name == "search_knowledge":
+            return self._search_knowledge(arguments)
+        if name == "profile_session":
+            return self._profile_session(arguments)
         return _text_result(f"unknown tool: {name}", is_error=True)
 
     def _list_sessions(self) -> Dict[str, Any]:
@@ -153,6 +180,31 @@ class McpServer:
             return _text_result(f"no investigation named {name!r}", is_error=True)
         note = inv.append_note(args.get("text", ""), args.get("author", "agent"))
         return _text_result(f"note appended to {name} at {note['t']}")
+
+    def _search_knowledge(self, args: Dict[str, Any]) -> Dict[str, Any]:
+        from ..queries.search import format_search_results, search_workspace
+
+        term = args.get("term", "")
+        category = args.get("category", "all")
+        results = search_workspace(term, store=self.store, category=category)
+        return _text_result(format_search_results(results, term=term, json_mode=False))
+
+    def _profile_session(self, args: Dict[str, Any]) -> Dict[str, Any]:
+        from ..queries.perf import format_profile_report, profile_session
+
+        session: Optional[Session] = None
+        if args.get("path"):
+            session = Session.open(args["path"])
+        elif args.get("pid") is not None:
+            path = self.store.sessions()
+            for p in path:
+                if p.name == f"telemetry-{args['pid']}.jsonl":
+                    session = Session.open(p)
+                    break
+        if session is None:
+            return _text_result("session not found", is_error=True)
+        profile = profile_session(session)
+        return _text_result(format_profile_report(profile, json_mode=False))
 
     # ------------------------------------------------------------------
     # JSON-RPC 2.0
