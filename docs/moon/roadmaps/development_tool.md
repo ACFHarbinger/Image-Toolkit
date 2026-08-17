@@ -1348,6 +1348,16 @@ wait for A3–A5 to finish.
   notebook notes, and export the evidence bundle. Other diff families do not
   block this slice.
 
+### C7 — Editor integration (D21)
+
+- v1: clipboard export (a Session/finding formatted for pasting into an
+  editor or PR description) plus a simple IDE command (e.g. a VS Code task
+  that shells out to `devtool`). Not a full extension in v1.
+- Consumes the same export surface as A2/C3 — no separate rendering path.
+- A real IDE extension (inline gutter annotations, live session status in
+  the editor chrome) is a later, separately scoped expansion once v1's
+  clipboard/command surface proves useful.
+
 ---
 
 ## Track D — Development Assistance (D16)
