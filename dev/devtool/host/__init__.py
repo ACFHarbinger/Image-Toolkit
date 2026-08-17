@@ -8,6 +8,7 @@ discovery) lands in app.py next.
 from __future__ import annotations
 
 from .app import Host, RegisteredView, discover_plugins
+from .index import INDEX_FILENAME, build_index, index_path, write_index
 from .plugins import (
     Artifact,
     Channel,
@@ -22,6 +23,7 @@ __all__ = [
     "Artifact",
     "Channel",
     "Host",
+    "INDEX_FILENAME",
     "Plugin",
     "PluginManifest",
     "RegisteredView",
@@ -29,6 +31,9 @@ __all__ = [
     "Settings",
     "Surface",
     "WorkspaceStore",
+    "build_index",
     "default_workspace_root",
     "discover_plugins",
+    "index_path",
+    "write_index",
 ]

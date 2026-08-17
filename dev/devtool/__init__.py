@@ -25,6 +25,7 @@ from .host import (
     default_workspace_root,
     discover_plugins,
 )
+from .export import export_session
 from .mcp import McpServer
 from .model import (
     TELEMETRY_DIR,
@@ -39,6 +40,7 @@ from .model import (
     open_session,
     session_path_for_pid,
 )
+from .queries import diff_sessions, format_diff, rss_peak, rss_trajectory
 from .ui.web import WebServer
 
 __all__ = [
@@ -51,6 +53,9 @@ __all__ = [
     "Investigation",
     "McpServer",
     "Plugin",
+    "diff_sessions",
+    "export_session",
+    "format_diff",
     "PluginManifest",
     "ProcessTree",
     "RegisteredView",
@@ -60,6 +65,8 @@ __all__ = [
     "Surface",
     "WebServer",
     "WorkspaceStore",
+    "rss_peak",
+    "rss_trajectory",
     "default_workspace_root",
     "discover_plugins",
     "discover_sessions",

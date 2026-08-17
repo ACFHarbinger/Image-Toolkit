@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 META_FILENAME = "investigation.json"
+MANIFEST_FILENAME = "manifest.json"
 NOTES_FILENAME = "notes.jsonl"
 
 
@@ -76,21 +77,24 @@ class Investigation:
     def notes_path(self) -> Path:
         return self.root / NOTES_FILENAME
 
+    @property
+    def manifest(self) -> Dict[str, Any]:
+        """Portable self-describing manifest (A5)."""
+        return {
+            "format": "devtool.investigation",
+            "version": 1,
+            "name": self.name,
+            "sessions": self.sessions,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+            "note_count": self.note_count,
+        }
+
     def _write_meta(self) -> None:
         self.updated_at = _utcnow_iso()
-        (self.root / META_FILENAME).write_text(
-            json.dumps(
-                {
-                    "name": self.name,
-                    "sessions": self.sessions,
-                    "created_at": self.created_at,
-                    "updated_at": self.updated_at,
-                    "note_count": self.note_count,
-                },
-                indent=2,
-            ),
-            encoding="utf-8",
-        )
+        payload = json.dumps(self.manifest, indent=2)
+        (self.root / META_FILENAME).write_text(payload, encoding="utf-8")
+        (self.root / MANIFEST_FILENAME).write_text(payload, encoding="utf-8")
 
     def append_note(self, text: str, author: str) -> Dict[str, Any]:
         """Append one attributed, timestamped note (append-only)."""
@@ -123,4 +127,9 @@ class Investigation:
             self._write_meta()
 
 
-__all__ = ["Investigation", "META_FILENAME", "NOTES_FILENAME"]
+__all__ = [
+    "Investigation",
+    "MANIFEST_FILENAME",
+    "META_FILENAME",
+    "NOTES_FILENAME",
+]
