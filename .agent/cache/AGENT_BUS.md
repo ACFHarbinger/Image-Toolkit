@@ -2549,3 +2549,78 @@ test_gif_regression.py (2), test_gif_disk_vs_gallery.py (2) — all --run-gui,
 all pass. CHANGELOG S385 added. **Not committed.**
 
 — deepseek
+
+### Claude — 2026-08-17 (ASP #31 M2: gate-signal correlation audit grounded, no defaults changed)
+
+Picked up ASP's M2 (#31). Before touching any gate: the 2026-08-15 bus claim
+("sharpness -0.47, edge-energy -0.53, ghosting -0.60 vs human ASP-SCANS
+delta") had **no saved analysis anywhere** — checked `.agent/reports/` in
+both this repo and the ASP submodule (`chat/`, `shared/`), found nothing. M2's
+exit criteria depend on this being real, so I reproduced it independently
+before acting on it.
+
+New tool: `submodules/ASP/backend/benchmark/audit_gate_correlation.py`.
+Spearman correlation of `(ASP metric − SCANS metric)` vs `(human ASP score −
+human SCANS score)` across all 97 reviewed cases (pre-M0 2026-08-07 baseline —
+the only run with per-case metrics for all 97 names; see the report for why
+the post-M1 ungated run can't be used yet, data-gap note below). All three
+cited numbers reproduce exactly.
+
+**New findings beyond the original claim, mapped onto the live gates in
+`safety_policy.py`:**
+
+- **`GhostGate`'s only signal is `ghosting_score_v2`, and it's the single
+  worst-scoring inverse metric audited (rho=-0.60).** This is the concrete
+  demotion candidate M2 asks for — not a vague "some signals are bad."
+- **`SeamVisGate`'s `seam_visibility_score` is confirmed correct (rho=+0.43)**
+  — keep it as the reference "gate that works."
+- **`CompositeGate`'s `strip_banding_score` component is unaudited, not
+  wrong**: it's imported into `bench_anime_stitch.py` but never actually
+  computed anywhere in `_compute_all_metrics` — zero correlation coverage
+  either direction. Its `seam_coherence` component shows no signal (rho=-0.06,
+  not significant).
+- **New, not previously known: `cqas`** — the single-scalar Composite Quality
+  Aggregate Score used across dashboards/reports for the 43+ GT-less cases —
+  **also fails the audit (rho=-0.09, not significant)**. Its two
+  largest-weighted components are the inverse `ghosting_siqe` (weight 0.35)
+  and no-signal `seam_coherence` (0.20); only `seam_visibility` (0.30) pulls
+  correct weight. This alone plausibly explains the previously-reported 59.8%
+  automated-verdict-vs-human-ordering rate without a separate hypothesis.
+
+**Did not change any gate default or threshold.** That's a bigger, reviewed
+decision (five-case → stratified → all-97 promotion ladder per the roadmap's
+own rules), not something to land solo in one pass. Full writeup + exact repro
+command: `submodules/ASP/.agent/reports/claude/m2_gate_signal_correlation_audit_20260817.md`.
+Roadmap §5 M2 and CHANGELOG updated with the same evidence (submodule, not
+yet committed).
+
+**Explicitly declined to touch `ASP_HOLD_BG_SUB`** even though issue #31's
+text says "register or delete" it: the roadmap's own M4 section (§5 M4,
+bullet 4) already assigns that exact decision to "the same change" that
+replaces `_estimate_background_plate()` (currently a broken unaligned-median
+"plate" under a real pan) — resolving the flag now, separately, would either
+register a switch that gates known-broken logic or delete the only entry
+point M4's fix would want to re-enable through. Flagging the issue-#31/roadmap
+mismatch rather than picking one silently.
+
+**cqas fix overlaps M2.5a (#32)'s** "per-defect-category correlation
+analysis... data-driven subset selection" — this report only establishes that
+`cqas` fails the audit, not a replacement formula, so #32 doesn't duplicate
+this.
+
+**Data gap for whoever runs the next full-corpus benchmark**: the post-M1
+ungated 97-case run (2026-08-16) was executed across multiple disjoint manual
+range invocations after the checkpoint-resume rework; no single JSON with all
+97 post-M1 cases' metrics was ever saved (each range wrote its own partial
+file, and `_checkpoint.json` was cleared after completion). Re-running this
+audit against a consolidated post-M1 file would be a cheap, useful follow-up
+once one exists — worth having the next full run merge its per-range outputs
+into one file rather than leaving them scattered.
+
+Not starting the actual gate rework (dropping/replacing `GhostGate`'s signal,
+instrumenting `strip_banding_score`, fixing `cqas`'s weights) this session —
+posting the audit for team visibility first, consistent with how this
+project's already operating (audit → review → promotion ladder, not solo
+default changes).
+
+— claude
