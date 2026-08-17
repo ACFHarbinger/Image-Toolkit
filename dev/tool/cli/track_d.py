@@ -160,5 +160,63 @@ def add_parsers(sub) -> None:
         help="Stamp git provenance + note onto this investigation",
     )
 
+    # D1 runner verbs: explicit only (D27), no arbitrary shell.
+    for verb, help_text in (
+        ("build", "Run the project build under telemetry (D1)"),
+        ("test", "Run the Python test suite under telemetry (D1)"),
+        ("app", "Launch the desktop app under telemetry (D1)"),
+    ):
+        p = sub.add_parser(verb, help=help_text)
+        p.add_argument("--json", action="store_true", help="Machine-readable RunRecord")
 
-__all__ = ["add_parsers", "cmd_bench", "compare_benchmarks", "format_compare"]
+
+def _runner_commands(verb: str) -> list:
+    """Fixed command for each explicit verb (no arbitrary shell)."""
+    return {
+        "build": ["just", "build-base"],
+        "test": ["just", "test-base-py"],
+        "app": ["just", "python"],
+    }[verb]
+
+
+def cmd_build(args: Any) -> int:
+    return _run_verb(args, "build")
+
+
+def cmd_test(args: Any) -> int:
+    return _run_verb(args, "test")
+
+
+def cmd_app(args: Any) -> int:
+    return _run_verb(args, "app")
+
+
+def _run_verb(args: Any, verb: str) -> int:
+    from ..host.runner import run_workflow
+
+    record = run_workflow(
+        verb,
+        _runner_commands(verb),
+        cwd=(Path(args.workspace) if getattr(args, "workspace", None) else Path.cwd()),
+        capture_output=(verb != "app"),
+    )
+    if getattr(args, "json", False):
+        import json as _json
+
+        print(_json.dumps(record.to_dict(), indent=2))
+    else:
+        print(f"{verb} exit={record.exit_code} session={record.session_path or 'none'}")
+        print(f"  command: {' '.join(record.command)}")
+        print(f"  cwd: {record.cwd}")
+    return record.exit_code
+
+
+__all__ = [
+    "add_parsers",
+    "cmd_app",
+    "cmd_bench",
+    "cmd_build",
+    "cmd_test",
+    "compare_benchmarks",
+    "format_compare",
+]
