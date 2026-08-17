@@ -22,6 +22,8 @@ from typing import Any, Optional
 from ..host.app import Host
 from ..host.store import WorkspaceStore
 
+from . import track_a
+
 
 def _host_from_args(args: Any) -> Host:
     root = Path(args.workspace) if getattr(args, "workspace", None) else None
@@ -169,6 +171,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_serve.add_argument("--mcp", action="store_true", help="Serve MCP over localhost HTTP")
     p_serve.add_argument("--host", default="127.0.0.1", help="Bind host (default 127.0.0.1)")
     p_serve.add_argument("--port", type=int, default=8000, help="Bind port")
+
+    track_a.add_parsers(sub)
     return parser
 
 
@@ -199,6 +203,16 @@ def main(argv: Optional[list[str]] = None) -> int:
         return cmd_mcp(args)
     if args.command == "serve":
         return cmd_serve(args)
+    if args.command == "export":
+        return track_a.cmd_export(args)
+    if args.command == "diff":
+        return track_a.cmd_diff(args)
+    if args.command == "resolve-offset":
+        return track_a.cmd_resolve_offset(args)
+    if args.command == "prune":
+        return track_a.cmd_prune(args)
+    if args.command == "repro":
+        return track_a.cmd_repro(args)
     parser.print_help()
     return 2
 
