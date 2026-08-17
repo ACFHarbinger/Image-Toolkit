@@ -1,3 +1,12 @@
+## S406 — 2026-08-17 (D4/D23 telemetry span IDs)
+
+`telemetry.emit`/`span` now write optional `span_id`, `parent_span_id`,
+`seq`, and `runtime` when telemetry is on. Disabled path is unchanged.
+`PipelineSession` start/complete/finish emit `asp` / `stage.<name>`
+spans when the host writer is importable and enabled. debugtool
+reconstructs by `span_id` when present, else the old
+`(tid, category, basename)` heuristic.
+
 ## S405 — 2026-08-17 (Download-click heap corruption: no QObject on QThread)
 
 The remaining Download-click crash (`QSocketNotifier` from another thread

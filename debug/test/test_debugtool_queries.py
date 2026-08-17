@@ -26,6 +26,26 @@ def test_orphaned_span_detected(telemetry_dir):
     assert orphaned[0].start_event["path"] == "/a.mp4"
 
 
+def test_span_id_pairs_same_name_on_same_tid(telemetry_dir):
+    """Overlapping same-name spans on one tid are distinct when span_id is set."""
+    session = _session_with_spans(
+        telemetry_dir,
+        [
+            event(0.0, "asp", "stage.load.start", span_id="aaaa", seq=1),
+            event(0.1, "asp", "stage.load.start", span_id="bbbb", parent_span_id="aaaa", seq=2),
+            event(0.2, "asp", "stage.load.end", span_id="bbbb", seq=3),
+            event(0.3, "asp", "stage.load.end", span_id="aaaa", seq=4),
+        ],
+    )
+    spans = session.spans()
+    assert len(spans) == 2
+    by_id = {s.span_id: s for s in spans}
+    assert by_id["bbbb"].parent_span_id == "aaaa"
+    assert by_id["aaaa"].ended_ok is True
+    assert by_id["bbbb"].ended_ok is True
+    assert session.orphaned_spans() == []
+
+
 def test_completed_span_not_orphaned(telemetry_dir):
     session = _session_with_spans(
         telemetry_dir,
