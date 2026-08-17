@@ -4,12 +4,15 @@
 and plugin-backed evaluators. One source of truth for Image-Toolkit developer
 tooling.*
 
-**Status:** Active collaboration — Harbinger product direction incorporated;
-open for team review (2026-08-17).
+**Status:** Locked (2026-08-17) — all open questions resolved (D1–D39);
+issues filed and tracked on the
+[Development Tool project board](https://github.com/users/ACFHarbinger/projects/25/views/1).
+Remains open for amendment as tracks progress.
 **Product lead:** Harbinger.  
-**This pass:** Grok (feasibility + product fold). Prior authors of folded
-docs: deepseek (debug data engine), Gemini (TUI), plus the analytics /
-glossary authors.
+**This pass:** Grok (feasibility + product fold), Chat/Codex (D24-D37
+product-design pass), Claude (D38-D39 close-out + GitHub issue/project
+creation). Prior authors of folded docs: deepseek (debug data engine),
+Gemini (TUI), plus the analytics / glossary authors.
 
 This file **replaces** and folds:
 
@@ -208,6 +211,8 @@ deepseek / Gemini / analytics locks that still hold, plus the
 | D35 | Alert configuration (2026-08-17, Harbinger) | Alert classes and emphasis are configurable. Defaults are conservative; users choose which failures, regressions, leaks, hangs, config changes, and review blockers deserve prominence. |
 | D36 | Evidence-only assistance (2026-08-17, Harbinger) | v1 presents evidence and multiple visualizations; it does not recommend commands, diagnoses, or automatic fixes. Recommendation features need a later evidence/quality contract. |
 | D37 | Scope boundary (2026-08-17, Harbinger) | No additional exclusion list is locked yet. Until one is, a capability enters the roadmap only when it fits D16, has a named plugin/surface, and does not displace the benchmark-first sequence without Harbinger approval. |
+| D38 | First explicit v1 exclusion (2026-08-17, Harbinger, via Claude) | **Cloud sync/collaboration** (multi-machine sync, shared team workspaces, remote access) is the first named out-of-scope category. Consistent with D24 (durable local sessions, no required daemon) and D33 (localhost workspace) — this stays a local-first, single-developer tool for v1. |
+| D39 | Persistent-service promotion trigger (2026-08-17, Harbinger, via Claude) | An always-on local service/daemon is justified once the **btop-style live-watch view (D8) needs push updates** that JSONL polling can no longer deliver responsively — not a pre-picked latency number, since there's no usage data yet to set one. Whoever builds A3's live-tail mode owns measuring this and proposing the daemon when it's actually hit, not before. |
 
 ---
 
@@ -1495,17 +1500,12 @@ Not re-asking Harbinger's locked D1–D37. These are for @deepseek
   end-to-end workflow; runner integration and diff/review support it, then
   agentic-debug and broader developer-debug capabilities (D26/D31).
 
-Still open:
+Both resolved 2026-08-17 (Claude brainstorm with Harbinger, now **D38–D39**):
 
-1. **Explicit v1 exclusion boundary.** Harbinger intentionally left this
-   open. Which tempting adjacent category should be stated as out of scope
-   first (for example cloud sync/collaboration, full IDE extension,
-   autonomous fixes, or training dashboards)? Until answered, D37's
-   admission gate prevents speculative expansion.
-2. **Persistent-service promotion trigger.** Durable files/indexes are enough
-   for v1. Define the measurable condition that earns an always-on local
-   service (for example index latency, live-watch limitations, or concurrent
-   workspace needs) before adding a daemon.
+- ~~Explicit v1 exclusion boundary~~ → **D38**.
+- ~~Persistent-service promotion trigger~~ → **D39**.
+
+No items remain open from the original three; see [Claude's review pass](#claude--2026-08-17-review-pass-issue-creation-scoping) below for the issue-creation scoping questions this round added instead.
 
 ---
 
@@ -1584,6 +1584,53 @@ product-default mutation is authorized.
 Still open for team review: the first explicit out-of-scope boundary and the
 measurable trigger for promoting durable local data into an always-on service.
 
+### Claude — 2026-08-17 (review pass; issue-creation scoping)
+
+Read the full roadmap before brainstorming further with Harbinger — the
+document is already thorough (37 locks, clear v1 ordering via the
+Implementation Status table and Effort×Impact matrix) so I did not
+re-litigate anything settled. Closed the two remaining open questions with
+Harbinger directly: **D38** (first v1 exclusion: cloud sync/collaboration)
+and **D39** (daemon trigger: when the live-watch view needs push updates
+JSONL polling can't deliver, not a pre-picked number).
+
+**Two small accuracy notes, not blocking anything:**
+
+1. Track D's D1–D5 sub-items (Runner integration, Diff/review, Knowledge
+   surface, Perf profiling, Reproducibility artifacts) share numbering with
+   the top-level Settled Decisions D1–D39. They're in different namespaces
+   (Track D's are roadmap *items*, the Settled Decisions are *locks*) and
+   the doc's own structure disambiguates them by section, but a bare "D4"
+   in a commit message or bus post is genuinely ambiguous between "the
+   telemetry-schema lock" and "Track D's performance-profiling item."
+   Worth spelling out which one in any future reference.
+2. Phase 11's sub-items (11.1–11.10) and Phase 12's (12.1–12.8) cite
+   "issue #123" / "issue #69" as their DONE-tracking issues. Neither
+   citation is correct in this repo: Image-Toolkit #123 is "[S198]
+   Rust→C++ migration" and #69 is "[S245] ASP Phase 4/3.1 follow-up" —
+   both closed, both unrelated to Phase 11/12's content. The actual
+   per-item tracking issues are Image-Toolkit #159–177 (all closed,
+   confirmed live via `gh issue view`), which is what I'm using for the
+   project-board migration below. Not fixing the stale in-doc citations
+   this pass since Phase 11/12 are fully closed history, not live work —
+   flagging so nobody chases a dead reference later.
+
+**Issue-creation scope for this round** (Harbinger's call, brainstormed
+live): file GitHub issues for the full roadmap now, including Track B's
+Phases 1–10 (long-horizon / research, explicitly "not v1" per the
+Effort×Impact matrix, but tracked so nothing is silently lost) — not just
+the v1 build queue. One issue per lettered/numbered item (A1–A5, C1–C7,
+Track D's D1–D5, the D4/D23 span-ID writer change, Track B Phase 1 through
+Phase 10, plus one issue for Phase 12's still-open rescoped tail
+(12.4/12.8) — Phase 11 and the rest of Phase 12 are done, closed, and
+already tracked by #159–177, so no new issues for those). All filed under
+a new `Development Tool` milestone and added to the
+[Development Tool project board](https://github.com/users/ACFHarbinger/projects/25/views/1)
+(project 25); the 21 closed `analytics_and_interpretability` issues
+(#159–177, #371, #372) and #375 (D1's runner-integration motivating case)
+move there from the Image-Toolkit project board (#12), since the roadmap
+that spawned them is now this file's Track B.
+
 ### (peers append below)
 
 ---
@@ -1627,5 +1674,5 @@ measurable trigger for promoting durable local data into an always-on service.
 | B / Phase 1–12 | [Track B](#track-b--analytics-benchmarks--interpretability) |
 | C1–C7 | [Track C](#track-c--host-plugins-mcp-local-web) |
 | D1–D5 | [Track D](#track-d--development-assistance-d16) |
-| D16–D23 | [Settled Decisions](#settled-decisions-2026-08-17) |
+| D16–D39 | [Settled Decisions](#settled-decisions-2026-08-17) |
 | §11.x / §12.x | Historical analytics headings (folded below / in Track B spec) |
