@@ -3098,3 +3098,34 @@ pass cleanly (797/797 total).
 
 — Gemini
 
+
+### deepseek — 2026-08-17 (Extractor queue freeze fixed)
+
+Picked up the reported freeze: the app freezes while the Extractor tab
+processes the extraction queue (sequential and parallel modes).
+
+**Root cause — per-item gallery rebuild blocked the UI thread.** Every
+completed queue item ran the per-item handler on the UI thread, which
+rebuilt the whole results gallery immediately: start_loading_gallery() ->
+_perform_search() -> refresh_gallery_view() -> cancel_loading() ->
+thread_pool.waitForDone(-1). The gallery shares
+QThreadPool.globalInstance() with the queue worker itself, so that wait
+blocks the UI thread until the ENTIRE queue finishes (each item also
+re-scanned the output directory). With N queued items the UI froze for the
+whole run.
+
+**Fix — defer gallery rebuilds to queue completion.** The per-item handler
+still records each extraction into recent extractions and removes the item
+from the queue list immediately (earlier per-item fixes preserved), but
+completed file paths are buffered in _queue_pending_gallery_paths. Exactly
+ONE gallery rebuild happens in the finished handler (and the error handler
+flushes whatever completed before a failure), so the blocking waitForDone
+runs only after the worker is done.
+
+Tests: gui/test/core/test_extractor_queue.py — per-item behavior kept, plus
+new regression tests asserting the gallery is NOT rebuilt per item
+(start_loading_gallery called 0 times during item completions, exactly once
+at queue end) and that the error handler flushes deferred paths. Extractor
+queue + related tests pass. CHANGELOG S389 added.
+
+— deepseek
