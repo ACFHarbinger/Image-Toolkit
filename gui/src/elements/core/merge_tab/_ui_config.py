@@ -270,8 +270,32 @@ class _UIConfigMixin:
         ai_form.addRow(self.lbl_pyramid_levels, self.pyramid_levels_spinbox)
         ai_layout.addLayout(ai_form)
 
+        # Advanced ASP Configuration Button
+        self.btn_advanced_asp_config = QPushButton("Advanced Configuration…")
+        self.btn_advanced_asp_config.setToolTip(
+            "Open the full 73-parameter ASP configuration matrix with presets and validation."
+        )
+        self.btn_advanced_asp_config.clicked.connect(self._open_advanced_asp_config)
+        ai_layout.addWidget(self.btn_advanced_asp_config)
+
         self.ai_options_group.setLayout(ai_layout)
         config_layout.addRow(self.ai_options_group)
 
+    def _open_advanced_asp_config(self) -> None:
+        """Opens the AspAdvancedConfigDialog to inspect/edit all 73 ASP parameters."""
+        try:
+            from ....components.dialogs.asp_advanced_config_dialog import AspAdvancedConfigDialog
+
+            current_cfg = getattr(self, "asp_advanced_config", {})
+            dlg = AspAdvancedConfigDialog(current_cfg, parent=self)
+            dlg.config_changed.connect(self._on_asp_advanced_config_changed)
+            dlg.exec()
+        except Exception as e:
+            from PySide6.QtWidgets import QMessageBox
+            QMessageBox.warning(self, "Advanced Config", f"Could not open config dialog:\n{e}")
+
+    def _on_asp_advanced_config_changed(self, new_cfg: dict) -> None:
+        """Stores custom ASP configuration parameters."""
+        self.asp_advanced_config = new_cfg
 
 __all__ = ["_UIConfigMixin"]

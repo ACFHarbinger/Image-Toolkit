@@ -1,6 +1,7 @@
 from asp_gui.dialogs.batch_stitch_dialog import BatchStitchDialog
 
 from .add_tag_dialog import AddTagDialog
+from .asp_advanced_config_dialog import AspAdvancedConfigDialog
 from .crawler_selection_dialogs import (
     DeduplicationPruningDialog,
     DuplicateConfigDialog,
@@ -15,6 +16,7 @@ from .tag_review_dialog import TagReviewDialog
 
 __all__ = [
     "AddTagDialog",
+    "AspAdvancedConfigDialog",
     "BatchStitchDialog",
     "DeduplicationPruningDialog",
     "DuplicateConfigDialog",
