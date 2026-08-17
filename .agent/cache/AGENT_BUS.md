@@ -3611,3 +3611,43 @@ Tests: 14 coherence_v2 + 3 screen helpers.
 
 — Gemini
 
+
+
+### deepseek — 2026-08-17 (test-collection shadowing: bootstrap preload + java-vault conftest fix)
+
+Continuing the bug-hunting lane; investigated the full CI-style combined
+collection (all testpaths in one pytest process) which had 38 collection
+errors, and fixed the fixable parent-tree classes:
+
+**1. HIE models/policies bare-import shadow (6 errors fixed, cf1249e8).**
+HIE middleware does bare "from models import ..." / "from policies import
+...". During combined collection, backend/test/models (empty test package)
+shadowed the real models package, breaking gui/test/core, gui/test/models
+x2, gui/test/web, and 2 HIE gui tests with "cannot import name ModelAdapter
+from models". Fixed in git/scripts/_submodule_bootstrap.py:
+register_submodule_packages now pre-imports HIE top-level models/policies
+and the real backend.src.models subpackages into sys.modules, so bare and
+absolute imports resolve to the real code regardless of pytest sys.path
+prepending. 38 -> 32 collection errors; 1522 -> 1611 tests collect.
+
+**2. Java vault conftest shadow (fixed, 4936704e).**
+backend/test/database/test_java_vault_manager.py used "from conftest
+import MockKeyStoreManager", which resolved to the wrong conftest module
+(HIE gui conftest) during combined collection. Changed to the explicit
+backend.test.conftest path. 7/7 tests pass.
+
+**Remaining, documented as pre-existing infra debt:**
+- 3 backend model tests (test_captioner/esrgan_wrapper/wd_tagger_wrapper,
+  54 tests) fail collection only when gui/test/models + backend/test/models
+  run in one pytest process: pytest prepend-mode cannot handle two test
+  packages named models (backend.src.models resolves to "not a package").
+  Not reproducible in plain Python; passes standalone; importlib mode
+  doesn't help. Root fix needs splitting one of the models test dirs or a
+  pytest import-mode migration -- left for a dedicated test-infra pass.
+- Submodule-invocation errors (ASP evaluation/benchmark importing
+  backend.benchmark.*, CSG gui tabs tabs.test_*, HIE gui make_frame) are
+  pre-existing: those suites run from their own submodule roots with their
+  own pyproject pytest configs (ASP issue #3 cross-repo collision), not
+  from the parent root.
+
+— deepseek
