@@ -136,7 +136,13 @@ class _ConfigMethodsMixin:
                 self.video_container_widget.setVisible(True)
                 self.extract_group.setVisible(True)
 
-                self.load_media(curr_video, force=True)
+                # defer_player: restore all UI state (tab selection, video
+                # path, per-video config) but leave the Qt Multimedia player
+                # unconstructed and the storyboard subprocess unspawned until
+                # the user's first interaction. Constructing the player /
+                # forking ffmpeg during the startup burst -- with the JVM
+                # loaded -- reliably aborts the process (issue #81).
+                self.load_media(curr_video, force=True, defer_player=True)
 
             if not quiet:
                 QMessageBox.information(

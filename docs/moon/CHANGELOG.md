@@ -1,3 +1,60 @@
+## S404 — 2026-08-17 (Startup freeze/crash: cross-tab pool drain + Qt Multimedia construction race)
+
+The app froze and crashed at startup ("always freezing and crashing when
+you launch it") and when clicking Download within the ~40s startup window —
+the same underlying startup crash landing at click time. Plain
+backend/main.py launch reproduces it with no interaction. Live
+faulthandler captures ("Fatal Python error: Aborted") identified three
+stacked mechanisms:
+
+1. **Cross-tab QThreadPool.globalInstance() freeze.** gallery_base.py
+   assigned the app-wide global pool to every gallery, so the wallpaper
+   startup-restore path (populate_scan_image_gallery →
+   clear_gallery_widgets → cancel_loading → thread_pool.waitForDone(-1))
+   blocked the main thread until EVERY tab's pooled workers finished —
+   including ExtractorTab's BatchVideoLoaderWorker, which spawns ffmpeg
+   subprocesses (up to 15s each, one per video). Captured stacks: main
+   thread in waitForDone, worker inside subprocess._communicate.
+2. **QAudioOutput() construction aborts the process.** The first
+   QMediaPlayer/QAudioOutput construction lazily loads Qt Multimedia's
+   native FFmpeg/audio backend, whose async device probe races any other
+   active thread (scanner QThreads, ffmpeg forks) → QSocketNotifier warning
+   → heap corruption → SIGABRT. QAudioOutput() aborted repeatedly, even in
+   isolation (before the JVM, before the event loop); QMediaPlayer() alone
+   never aborted.
+3. **Session recovery constructed the player during the startup burst**
+   (violating app.py's round-13 "lazy player" assumption): speed-combo
+   setCurrentIndex, load_media(force=True), the eventFilter wheel/arrow
+   seek branches, and tab-change handling all built the player mid-recovery.
+
+Fixes:
+- gallery_base.py: every gallery now uses its own QThreadPool
+  (maxThreadCount capped at max(2, min(8, cpu_count))) instead of
+  QThreadPool.globalInstance() — cancel_loading() drains only that
+  gallery's own workers.
+- Extractor tab player construction is now genuinely deferred during
+  recovery: set_config calls load_media(..., defer_player=True) (UI state
+  restored, player unbuilt, storyboard unspawned); update_playback_speed
+  records _pending_playback_rate without building the player (applied on
+  construction); the eventFilter uses _current_duration_ms(); tab changes
+  defer while a pending restore is outstanding; toggle_playback completes
+  the deferred load on first interaction.
+- _media_player.py: player construction is serialized against in-flight
+  ffmpeg subprocess forks via MEDIA_BACKEND_LOAD_LOCK (see
+  video_thumbnailer.media_backend_spawn_guard), and QAudioOutput is no
+  longer constructed eagerly — it is built on demand only when the user
+  explicitly adjusts volume (the app already defaults to muted).
+
+Verified: startup now runs clean end-to-end (graceful SIGTERM exit, zero
+killTimer/~QObject/Fatal Python occurrences) with full session recovery +
+wallpaper restore + a live nhentai download (gallery 111006) all running
+concurrently. Tests: 11 new regression tests in
+gui/test/core/test_extractor_startup_deferral.py (dedicated pool,
+playback-speed deferral, deferred load, on-demand audio, spawn guard) +
+gui/test/web/test_media_loader_download_click.py (Download click /
+click-again flow); 47 GUI + 23 downloader tests green.
+
+## S403 — 2026-08-17 (Media loader: crash on repeated Download clicks)
 ## S403 — 2026-08-17 (Media loader: crash on repeated Download clicks)
 
 Clicking Download twice in a row crashed the app. Root cause:
