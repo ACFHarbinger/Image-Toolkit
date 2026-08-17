@@ -4,7 +4,8 @@
 and plugin-backed evaluators. One source of truth for Image-Toolkit developer
 tooling.*
 
-**Status:** Active collaboration — draft for team review (2026-08-17).  
+**Status:** Active collaboration — Harbinger product direction incorporated;
+open for team review (2026-08-17).
 **Product lead:** Harbinger.  
 **This pass:** Grok (feasibility + product fold). Prior authors of folded
 docs: deepseek (debug data engine), Gemini (TUI), plus the analytics /
@@ -113,6 +114,11 @@ audience. Harbinger uses the TUI and the local web view. Agents use the
 same Session / Investigation / plugin APIs and the MCP server. A feature
 that only one audience can consume is unfinished.
 
+**Delivery order (Harbinger):** make benchmark evidence useful first, then
+agentic debugging, then the broader human/developer crash-debug workflow.
+This is ordering, not an audience downgrade: every shipped capability still
+honours the dual-access contract.
+
 **Not this product:**
 
 - The public `docs/website` ratings dashboard (Team A; live JSON in
@@ -188,6 +194,20 @@ deepseek / Gemini / analytics locks that still hold, plus the
 | D21 | Editor integration (2026-08-17, Harbinger) | Add an **editor-integration surface** alongside TUI/web: VS Code/IDE plugin or clipboard snippets so devtool output lands in the editor. Not required for v1, but in scope. |
 | D22 | Build order (2026-08-17) | **D4 span-IDs first, then C1 host**, with A3 (TUI) and C3 (local web) in parallel. A4/A5 follow A2. MCP (C4) can start read-only once C1's session store exists. |
 | D23 | Span-ID writer change (2026-08-17) | telemetry.py grows optional span_id / parent_span_id / seq behind the existing opt-in flag, **no behavior change**; ASP PipelineSession emits them so stages get a real parent tree for the flame view. Old readers ignore new fields. |
+| D24 | Launch and persistence (2026-08-17, Harbinger) | `devtool` opens a command palette / workspace chooser first. Durable sessions and investigations are the v1 persistence model; an always-on local service/indexer is optional later, never required to inspect existing evidence. |
+| D25 | Product name (2026-08-17, Harbinger) | Product title and CLI remain **Development Tool** / `devtool`; do not introduce a second brand. |
+| D26 | Audience sequencing (2026-08-17, Harbinger) | Prioritize benchmark investigation first, then agentic debugging, then general human/developer debugging. Dual human/agent access remains mandatory for every delivered slice. |
+| D27 | Runner safety (2026-08-17, Harbinger) | Start with explicit verbs only (`build`, `test`, `bench`, `app`, `repro`); do not ship arbitrary-shell execution in v1. A constrained shell extension is a later, separately reviewed capability. |
+| D28 | Capture configuration (2026-08-17, Harbinger) | Command/env, git state, telemetry, stdout/stderr, system/RAM/VRAM, process tree, and optional screenshots are independently configurable capture channels. No single mandatory heavyweight capture profile. |
+| D29 | Retention configuration (2026-08-17, Harbinger) | Session count, age, size budget, and exemptions for failures/named investigations are settings, not hard-coded policy. `prune` previews its targets and requires confirmation. |
+| D30 | Investigation role (2026-08-17, Harbinger) | Investigations are durable lab notebooks: hypotheses, evidence links, annotations, decisions, and repro scripts accompany Sessions rather than merely containing raw files. |
+| D31 | First comparison (2026-08-17, Harbinger) | The first end-to-end diff is benchmark image/result A/B, with human-readable evidence. Test, crash-signature, and performance diffs follow as plugins. |
+| D32 | MCP note mutation (2026-08-17, Harbinger) | MCP starts analysis-first but may append a timestamped note to an existing Investigation. It may not execute commands, alter settings, delete evidence, or change product configuration in v1. |
+| D33 | Local web workspace (2026-08-17, Harbinger) | `devtool web` is a persistent localhost browser workspace with command-palette navigation, investigations, and visual artifacts — not a one-off image viewer. |
+| D34 | Visual posture (2026-08-17, Harbinger) | Default to a dense **mission-control** workspace: high signal, keyboard-first, clear hierarchy, and strong anomaly contrast without hiding the underlying evidence. |
+| D35 | Alert configuration (2026-08-17, Harbinger) | Alert classes and emphasis are configurable. Defaults are conservative; users choose which failures, regressions, leaks, hangs, config changes, and review blockers deserve prominence. |
+| D36 | Evidence-only assistance (2026-08-17, Harbinger) | v1 presents evidence and multiple visualizations; it does not recommend commands, diagnoses, or automatic fixes. Recommendation features need a later evidence/quality contract. |
+| D37 | Scope boundary (2026-08-17, Harbinger) | No additional exclusion list is locked yet. Until one is, a capability enters the roadmap only when it fits D16, has a named plugin/surface, and does not displace the benchmark-first sequence without Harbinger approval. |
 
 ---
 
@@ -241,7 +261,14 @@ nearby terms.
 - **Session**: one process launch that produced a `telemetry-<pid>.jsonl`
   (and, if present, its CrashBundle).
 - **Investigation**: a named, portable folder grouping Sessions, notes,
-  and repro scripts.
+  hypotheses, evidence links, decisions, and repro scripts; a durable lab
+  notebook, not a raw-capture bucket.
+- **Workspace**: the persistent localhost/TUI navigation context over durable
+  sessions and investigations. It may be reopened at any time without a
+  background service.
+- **Evidence-only mode**: the v1 assistance rule: expose raw artifacts,
+  derived comparisons, and visualizations without prescribing a next command,
+  diagnosis, or fix.
 - **CrashBundle**: `{jsonl, gdb-bt, hs_err, resolved offsets, optional
   core}` aligned on one run.
 - **Runtime lane**: a first-class row in the process tree: `python`,
@@ -297,8 +324,10 @@ observation.
 
 MCP tools (minimum set): `list_sessions`, `open_session`,
 `orphaned_spans`, `in_flight_at`, `overlaps`, `analyze`,
-`list_investigations`, `list_plugins`, `run_plugin`. Plugins may
-register additional tools.
+`list_investigations`, `list_plugins`, `run_plugin`, and the narrowly scoped
+`append_investigation_note`. The first mutation only appends an attributable
+note; it cannot execute, configure, delete, or rewrite evidence. Plugins may
+register additional read-only tools.
 
 ### Privacy
 
@@ -323,7 +352,7 @@ dev/
     host/
       app.py                # process lifecycle, view router
       plugins.py            # discovery + Plugin protocol
-      settings.py
+      settings.py            # capture, retention, alert emphasis, privacy
     model/
       session.py
       span.py
@@ -399,6 +428,9 @@ diff, investigation review.
 - Monospace timestamps. Color only for faults (amber = orphaned /
   contention, rose = SIGABRT / SIGSEGV / truncated crash).
 - Dark slate ground, monochromatic type hierarchy.
+- Mission-control default: command palette, dense but navigable panels, and
+  evidence linked directly to the underlying run / artifact. Alert classes
+  and emphasis are user-configurable rather than hard-coded.
 - Keyboard: `Tab` view, `j/k` spans, `Enter` drill, `z/x` zoom, `/`
   filter.
 
@@ -414,12 +446,16 @@ queue depth.
 
 ### Local web (pixels)
 
-Used by: frame A/B, ASP evaluator images, plotly / matplotlib figures,
-screenshot-on-crash, coherence pairs.
+Used by: persistent workspace navigation, benchmark frame/result A/B, ASP
+evaluator images, plotly / matplotlib figures, screenshot-on-crash, and
+coherence pairs.
 
 - Localhost only. Zero public bind by default.
-- No JS build step required for v1 (single-file HTML or a tiny static
-  server over the export surface).
+- Persistent localhost workspace with command-palette navigation across
+  investigations, sessions, plugins, and visual artifacts. It reads durable
+  files/indexes; a background service is optional, not required.
+- No JS build step required for v1 (single-file HTML or a tiny static server
+  over the export surface).
 - The website dashboard is a *separate* consumer of committed JSON, not
   this viewer.
 
@@ -1251,6 +1287,11 @@ wait for A3–A5 to finish.
 - `dev/devtool/host/` as described above.
 - Discover first-party plugins from `dev/devtool/plugins/`.
 - `devtool plugins` lists name, version, surfaces.
+- `devtool` with no verb opens the command palette / workspace chooser over
+  durable Sessions and Investigations. It must work without a resident daemon.
+- Settings own capture channels, retention budgets, alert emphasis, and privacy
+  defaults; plugins declare their configurable channels rather than inventing
+  hidden environment-only settings.
 
 ### C2 — `debugtool` → `devtool` alias
 
@@ -1263,16 +1304,23 @@ wait for A3–A5 to finish.
 ### C3 — Local web viewer
 
 - `devtool web [--pid N | --investigation NAME | --plugin asp_evaluator]`
-- Localhost, ephemeral port, prints the URL.
-- First routes: session HTML timeline (reuse A2 html export), image
-  A/B (paths from an Investigation or ASP session), matplotlib/PNG
+- Localhost-only persistent workspace; an ephemeral port is acceptable, but
+  opening a Session must restore command-palette navigation and durable context.
+- First routes: workspace home / recent investigations, benchmark image-result
+  A/B, session HTML timeline (reuse A2 html export), and matplotlib/PNG
   figures from plugin exports.
+- Benchmark A/B is the first visual comparison workflow: side-by-side images,
+  run/config/provenance, human annotation links, and raw artifact paths. It
+  presents evidence; it does not declare a winner or propose a fix.
 
 ### C4 — MCP / stdio server
 
 - `devtool mcp` on stdio (Claude/Codex/Gemini/Grok can attach).
 - Optional `devtool serve --mcp 127.0.0.1:port`.
 - Never binds `0.0.0.0` by default.
+- `append_investigation_note` is the only v1 mutation: timestamped, attributed,
+  append-only, and restricted to an existing Investigation. All lifecycle,
+  command, retention, and settings changes remain human/CLI actions.
 
 ### C5 — ASP evaluator plugin
 
@@ -1290,6 +1338,10 @@ wait for A3–A5 to finish.
   `backend/benchmark/output/`.
 - Chart runners already covered by Phase 11–12.
 - Emit the access-contract sidecar next to any new plot.
+- **First plugin workflow after C1/C3:** select two compatible benchmark runs,
+  inspect output image/result A/B with config + provenance, attach human/agent
+  notebook notes, and export the evidence bundle. Other diff families do not
+  block this slice.
 
 ---
 
@@ -1298,15 +1350,19 @@ wait for A3–A5 to finish.
 **Status:** ⬜ Scoped (2026-08-17); sequenced after C1 so these land as
 plugins, not forks. Each area is a plugin with its own data producer
 (a command or wrapper) and one or more host surfaces (TUI / web /
-editor / MCP). v1 sequencing lean: runner integration + diff/review
-first (both make Sessions attributable and comparable immediately);
-knowledge surface, perf profiling, and reproducibility artifacts follow.
+editor / MCP). Harbinger's v1 sequence is benchmark image/result A/B first,
+then agentic debugging, then broader developer-debug workflows. Runner
+integration + diff/review support the first slice but must not delay it.
 
 ### D1 — Build / test / bench runner integration
 
-- `devtool run <command>` (or a runner plugin) launches a build / pytest
-  / benchmark under telemetry and opens a Session carrying the command,
-  cwd, env snapshot, and exit status.
+- Explicit verbs only: `devtool build`, `devtool test`, `devtool bench`,
+  `devtool app`, and `devtool repro`. They launch their named workflow under
+  telemetry and open a Session carrying command, cwd, env snapshot, and exit
+  status. Arbitrary shell execution is deferred to a separately reviewed
+  extension.
+- Capture channels are selectable per profile: command/env and git state,
+  telemetry, stdout/stderr, system/RAM/VRAM, process tree, and screenshots.
 - A crash / hang / failure is attributable to a specific command +
   environment, not an orphan JSONL.
 - Headless and interactive; the Session then feeds A3 TUI / C3 web / C4
@@ -1317,16 +1373,20 @@ knowledge surface, perf profiling, and reproducibility artifacts follow.
 - Tie Sessions to code changes: record git commit / branch / dirty-hash
   in the Session manifest (no new writer fields needed -- manifest
   metadata, not event fields).
-- `devtool diff A B --by-commit` compares outputs before/after a change:
-  event-set, timing deltas, new orphans / collisions, and any plugin
-  charts.
+- **First implementation:** `devtool bench compare A B` compares compatible
+  benchmark image/result artifacts before and after a change, retaining both
+  source run IDs, config, image paths, and human annotations. It must not turn
+  a metric into an unqualified "winner" claim.
+- Later `devtool diff A B --by-commit` compares event-set, timing deltas, new
+  orphans / collisions, and any plugin charts.
 - Review surface: a rendered before/after report (notes + charts +
   captures) consumable in TUI, web, and editor.
 
 ### D3 — Documentation / knowledge surface
 
-- Annotations on Sessions and Investigations (tags, notes, verdicts)
-  become a searchable debug knowledge base.
+- Annotations on Sessions and Investigations (hypotheses, evidence links,
+  notes, decisions) become a searchable durable lab notebook / debug knowledge
+  base. Notes are append-only through MCP and editable through the human UI.
 - The gallery-crash doc is the prototype: structured notes + evidence,
   queryable instead of prose.
 - Search: `devtool search <term>` over annotations + event fields;
@@ -1351,6 +1411,20 @@ knowledge surface, perf profiling, and reproducibility artifacts follow.
 - Replay: `devtool repro --from-bundle <artifact>` re-runs the captured
   command under the same telemetry.
 
+### Settings, retention, and alert policy
+
+- `devtool settings` exposes named profiles rather than a fixed global policy:
+  capture channels, retention count/age/size, failure/investigation exemptions,
+  privacy/redaction, and alert emphasis.
+- `devtool prune` always presents the calculated target set and estimated freed
+  space before confirmation. Named Investigations and failed Sessions are only
+  pruned when their profile explicitly permits it.
+- Alert categories (crash, test failure, benchmark regression, memory leak,
+  hang, unsafe configuration, review blocker) are independently enabled and
+  styled. Defaults are conservative mission-control signals, not judgments.
+- No v1 feature recommends a command, diagnosis, or fix. It may offer multiple
+  views or filters of the same evidence, with provenance visible in each.
+
 ---
 
 ## Implementation Status
@@ -1367,10 +1441,10 @@ knowledge surface, perf profiling, and reproducibility artifacts follow.
 | C3 Local web | ⬜ Planned | Gemini + Grok | pixels |
 | C4 MCP server | ⬜ Planned | Grok (D18) | read-only analysis tools first |
 | C5 ASP evaluator plugin | ⬜ Planned | TBD | wrap, don't fork |
-| C6 Benchmarks plugin | ⬜ Planned | TBD | |
+| C6 Benchmarks plugin | ⬜ Planned | TBD | first end-to-end product workflow: image/result A/B |
 | C7 Editor integration | ⬜ Planned | TBD (D21) | clipboard + IDE command v1; extension later |
-| D1 (Track D) Runner integration | ⬜ Planned | TBD (D16) | build/test/bench runner → Session |
-| D2 (Track D) Diff/review assistance | ⬜ Planned | TBD (D16) | Sessions tied to code changes |
+| D1 (Track D) Runner integration | ⬜ Planned | TBD (D16) | explicit build/test/bench/app/repro verbs → Session |
+| D2 (Track D) Diff/review assistance | ⬜ Planned | TBD (D16) | benchmark image/result A/B first; other diffs later |
 | D3 (Track D) Knowledge surface | ⬜ Planned | TBD (D16) | annotations → searchable debug KB |
 | D4 (Track D) Perf profiling | ⬜ Planned | TBD (D16) | stage timers, RSS, per-API latency |
 | D5 (Track D) Reproducibility artifacts | ⬜ Planned | TBD (D16) | one-click bundle, redaction per D20 |
@@ -1394,7 +1468,7 @@ Existing foundation:
 
 ## Open Questions for Team Review
 
-Not re-asking Harbinger's locked D1–D23. These are for @deepseek
+Not re-asking Harbinger's locked D1–D37. These are for @deepseek
 @Gemini @Claude (and Harbinger if he wants to override).
 
 **Resolved in the 2026-08-17 brainstorm (now D16–D23):**
@@ -1412,21 +1486,26 @@ Not re-asking Harbinger's locked D1–D23. These are for @deepseek
   parallel.
 - ~~Editor integration~~ → **D21**: in scope (clipboard + IDE command
   v1, extension later).
+- ~~ASP evaluator plugin v1 shape~~ → adapter launches the existing PySide6
+  inspector and exports comparison JSON/images to the local web workspace;
+  no inspector rewrite in v1 (Gemini consensus).
+- ~~btop vs. Perfetto renderer split~~ → one TUI package with switchable live
+  and static density profiles (Gemini consensus).
+- ~~first two D16 plugins~~ → benchmark image/result A/B is the first
+  end-to-end workflow; runner integration and diff/review support it, then
+  agentic-debug and broader developer-debug capabilities (D26/D31).
 
 Still open:
 
-1. **ASP evaluator plugin vs. leaving the inspector standalone
-   forever.** Harbinger said plugins. Should v1 only *launch* the
-   existing window, or also re-skin a TUI/web subset?
-   *Grok lean:* launch + web image compare in v1; no TUI reskin of the
-   full inspector.
-2. **btop live vs. Perfetto static — one binary or two renderers?**
-   *Grok lean:* one TUI app, two skins, shared Session.
-3. **Dev-assistance plugin sequencing.** Of the five D16 areas (runner
-   integration, diff/review, knowledge surface, perf profiling,
-   reproducibility artifacts), which two land first after C1? *deepseek
-   lean:* runner integration + diff/review (both make Sessions
-   attributable and comparable immediately).
+1. **Explicit v1 exclusion boundary.** Harbinger intentionally left this
+   open. Which tempting adjacent category should be stated as out of scope
+   first (for example cloud sync/collaboration, full IDE extension,
+   autonomous fixes, or training dashboards)? Until answered, D37's
+   admission gate prevents speculative expansion.
+2. **Persistent-service promotion trigger.** Durable files/indexes are enough
+   for v1. Define the measurable condition that earns an always-on local
+   service (for example index latency, live-watch limitations, or concurrent
+   workspace needs) before adding a daemon.
 
 ---
 
@@ -1488,6 +1567,23 @@ Reviewed the expanded scope and aligned with Harbinger's design direction:
 3. **Status:**
    - Phase A3 implementation starting in parallel with C1 host development.
 
+### Chat/Codex — 2026-08-17 (Harbinger product-design pass: benchmark-first workbench)
+
+Recorded Harbinger's decisions D24–D37. The roadmap now centers the first
+usable flow on benchmark image/result A/B, entered through a command palette
+and examined in a persistent localhost mission-control workspace. Sessions
+and Investigations are durable from v1; a background service remains optional.
+
+The new constraints are intentional: explicit runner verbs rather than
+arbitrary shell execution, configurable capture/retention/alert profiles,
+durable lab-notebook Investigations, evidence-only assistance, and a narrowly
+scoped MCP `append_investigation_note` mutation. Existing D18 read-only
+analysis remains the default; no MCP execution, deletion, configuration, or
+product-default mutation is authorized.
+
+Still open for team review: the first explicit out-of-scope boundary and the
+measurable trigger for promoting durable local data into an always-on service.
+
 ### (peers append below)
 
 ---
@@ -1503,13 +1599,16 @@ Reviewed the expanded scope and aligned with Harbinger's design direction:
 | C3 local web | M | High (pixels) | Parallel with A3 |
 | C4 MCP | S–M | High (agents) | Parallel with C1 |
 | C5 ASP evaluator adapter | M | High | After C1 |
-| A4 repro | M | High (crash loop) | After A2 |
-| A5 investigations | S | Medium | After A4 |
+| C6 Benchmarks plugin + A/B workspace | M | **Highest** | First end-to-end product workflow after C1/C3 |
+| D1 explicit bench runner | M | High | Supports first benchmark A/B workflow |
+| D2 benchmark diff/review | M | High | First comparison; agentic/debug diffs follow |
+| A4 repro | M | High (crash loop) | After A2 / benchmark A/B slice |
+| A5 investigations | S | Medium | Durable notebook base; parallel with C1 where possible |
 | B3 Rerun + OTel | M | High (ASP debug) | Behind PipelineSession |
 | B1 / B2 / B6–B10 | L / research | Varied | Not v1 |
 | C7 Editor integration (D21) | S | Medium | After C1; clipboard v1 |
-| D1 Runner integration | M | High (attributable runs) | After C1 (deepseek lean first) |
-| D2 Diff/review assistance | M | High (before/after) | After C1 (deepseek lean first) |
+| D1 Runner integration | M | High (attributable runs) | Explicit verbs; bench first |
+| D2 Diff/review assistance | M | High (before/after) | Benchmark A/B first |
 | D3 Knowledge surface | M | Medium | After C1 |
 | D4 Perf profiling | M | High | Uses btop/Perfetto; after A3 |
 | D5 Reproducibility artifacts | S–M | Medium | After A4 |
