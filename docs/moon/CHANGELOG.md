@@ -1,3 +1,38 @@
+## S389 — 2026-08-17 (Extractor queue: app freezes during queued extractions)
+
+Fixed: the app freezes while the Extractor tab processes the extraction
+queue (both sequential and parallel modes).
+
+**Root cause — per-item gallery rebuild blocked the UI thread.** Every
+completed queue item ran the per-item completion handler on the UI thread,
+which rebuilt the whole results gallery immediately: start_loading_gallery()
+-> _perform_search() -> refresh_gallery_view() -> cancel_loading() ->
+thread_pool.waitForDone(-1). The gallery shares
+QThreadPool.globalInstance() with the queue worker itself, so that wait
+blocks the UI thread until the ENTIRE queue finishes (and each item also
+re-scanned the output directory). With a queue of N items, the UI froze for
+the whole run.
+
+**Fix — defer gallery rebuilds to queue completion.** The per-item handler
+still records each extraction into recent extractions and removes the item
+from the queue list immediately (the earlier per-item fixes are preserved),
+but completed file paths are now buffered in _queue_pending_gallery_paths.
+Exactly ONE gallery rebuild happens in the queue-finished handler (and the
+error handler flushes whatever completed before a failure), so the blocking
+waitForDone(-1) runs only after the worker is done.
+
+Tests: gui/test/core/test_extractor_queue.py — per-item behavior kept,
+plus new regression tests asserting the gallery is NOT rebuilt per item
+(start_loading_gallery called 0 times during item completions, exactly once
+at queue end) and that the error handler flushes deferred paths. All
+extractor queue + related tests pass (27).
+
+## S389 — 2026-08-17 (M2 observability: pose sources, drop reasons, bench JSON)
+
+Second slice on the session envelope: pose `source`/`refined_by`, per-pass
+frame drop reasons, load/save geometry, and `observability` on the canonical
+benchmark JSON.
+
 ## S388 — 2026-08-17 (M2: PipelineSession observability envelope)
 
 ASP records the first M2 observability slice on `PipelineSession`: per-stage
