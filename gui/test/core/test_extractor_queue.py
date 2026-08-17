@@ -47,18 +47,23 @@ class TestExtractorTabQueue:
         tab.extraction_dir.mkdir(exist_ok=True)
         return tab, video_path
 
-    def test_queue_list_renders_taller_than_default_sizehint(self, q_app, tmp_path):
-        """Regression: the Extraction Queue list must actually render at the
-        increased height. setMaximumHeight alone does NOT grow a QListWidget
-        (the layout gives it the ~192px sizeHint); a minimum height is what
-        forces the taller allocation so more queued extractions are visible."""
+    def test_queue_section_height_matches_settings_section(self, q_app, tmp_path):
+        """The Extraction Queue section must render at the same height as the
+        Extraction Settings section: the queue list is capped so the whole
+        queue group's sizeHint equals the settings group's sizeHint (the
+        settings group is the source of truth). Larger queues scroll inside
+        the list instead of stretching the section taller."""
         tab, video_path = self._make_tab(tmp_path)
         tab.show()
         q_app.processEvents()
 
-        assert tab.queue_list.minimumHeight() >= 300
+        assert tab.queue_group.sizeHint().height() == tab.extract_group.sizeHint().height(), (
+            "queue group must match the Extraction Settings section height"
+        )
+        # The queue list is what's tuned (the cap lands on the list, not the
+        # group), so it must actually honor the cap once rendered.
         assert tab.queue_list.height() >= tab.queue_list.minimumHeight() - 1, (
-            "rendered height must honor the minimum (max-only caps do nothing)"
+            "rendered list height must honor the cap"
         )
 
     def test_gif_queue_item_config_has_output_dir(self, q_app, tmp_path):

@@ -1,3 +1,32 @@
+## S402 — 2026-08-17 (Extractor queue height match + wallpaper restore reentrancy fix)
+
+Two Extractor/Wallpaper tab fixes:
+
+- **Extraction Queue section now renders at the same height as the
+  Extraction Settings section** (`_queue_management.py`): the queue list
+  height is computed from the settings group's sizeHint minus the queue
+  group's non-list overhead, replacing the hardcoded 320px minimum from the
+  earlier height fix (S387-era). Both groups now report equal sizeHints;
+  larger queues scroll inside the list.
+- **Wallpaper tab: `_select_monitor`/`_select_monitor_peer` no longer pump
+  the full event queue.** The two `QApplication.processEvents()` calls are
+  narrowed to `QApplication.sendPostedEvents(None, QEvent.Type.Paint)`.
+  During session recovery, a full `processEvents()` inside
+  `_select_monitor_peer` reentrantly fired the 250ms scan-dir restore timer
+  from inside the monitor-selection call stack, starting scanner QThreads
+  mid-recovery with the JVM loaded — the documented residual
+  deleteOrphaned/heap-corruption crash class (gallery_crash doc Addenda
+  9/21/26-28). The user's crash caller trace reached
+  `_do_pending_scan_dir_restore` via exactly that line. Paint-only flush
+  preserves the monitor highlight repaint without the reentrancy.
+
+Tests: 2 new regression tests in
+`gui/test/core/test_wallpaper_linked_panel_scan_race.py` (pending timers
+must not fire reentrantly from monitor selection; full processEvents must
+never be called there) — both fail against the pre-fix code and pass with
+it. Queue-height test updated to assert the settings-match instead of the
+old 320px minimum.
+
 ## S401 — 2026-08-17 (Media loader: retries, collision policy, GIF galleries)
 
 Reddit and nhentai downloaders now retry transient HTTP failures (429/5xx,

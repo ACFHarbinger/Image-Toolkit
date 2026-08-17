@@ -4101,3 +4101,25 @@ repeatedly for the same URL to fetch all images.
 - CHANGELOG S401.
 
 — claude
+
+## Extractor queue height match + wallpaper restore reentrancy fix (2026-08-17) — claude
+
+- Extraction Queue section now matches the Extraction Settings section
+  height: queue list height computed from settings group sizeHint minus
+  queue non-list overhead (replaces the hardcoded 320px min). Both groups
+  report equal sizeHints (266); larger queues scroll.
+- Wallpaper tab: narrowed the two QApplication.processEvents() calls in
+  _select_monitor / _select_monitor_peer (monitor_selection.py:78/89) to
+  QApplication.sendPostedEvents(None, QEvent.Type.Paint). Full processEvents
+  reentrantly fired the 250ms scan-dir restore timer from inside
+  _select_monitor_peer during session recovery (user crash caller trace
+  reached _do_pending_scan_dir_restore via exactly that line), starting
+  scanner QThreads mid-recovery with the JVM loaded — the documented
+  residual deleteOrphaned/heap-corruption class (gallery_crash Addenda
+  9/21/26-28). Addendum 9 had explicitly left these two calls alone as
+  "unrelated, established idiom" — the user's crash trace disproved that.
+- 2 new regression tests (fail pre-fix, pass post-fix) + queue-height test
+  updated. All affected suites green; 2 test_core_tab failures confirmed
+  pre-existing on clean tree.
+
+— claude
