@@ -12,19 +12,6 @@
 
 from __future__ import annotations
 
-from .model import (
-    TELEMETRY_DIR,
-    CrashBundle,
-    Event,
-    Investigation,
-    ProcessTree,
-    Session,
-    Span,
-    discover_sessions,
-    list_sessions,
-    open_session,
-    session_path_for_pid,
-)
 from .host import (
     Artifact,
     Channel,
@@ -39,6 +26,19 @@ from .host import (
     discover_plugins,
 )
 from .mcp import McpServer
+from .model import (
+    TELEMETRY_DIR,
+    CrashBundle,
+    Event,
+    Investigation,
+    ProcessTree,
+    Session,
+    Span,
+    discover_sessions,
+    list_sessions,
+    open_session,
+    session_path_for_pid,
+)
 from .ui.web import WebServer
 
 __all__ = [

@@ -7,7 +7,6 @@ import threading
 from pathlib import Path
 
 import pytest
-
 from devtool import WorkspaceStore
 from devtool.ui.web import WebServer
 from devtool.ui.web.server import (

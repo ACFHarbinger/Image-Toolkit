@@ -17,7 +17,6 @@ from __future__ import annotations
 import html
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Optional
 
 from ...host.store import WorkspaceStore
 from ...model import Session

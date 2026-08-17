@@ -7,6 +7,7 @@ discovery) lands in app.py next.
 
 from __future__ import annotations
 
+from .app import Host, RegisteredView, discover_plugins
 from .plugins import (
     Artifact,
     Channel,
@@ -14,7 +15,6 @@ from .plugins import (
     PluginManifest,
     Surface,
 )
-from .app import Host, RegisteredView, discover_plugins
 from .settings import SETTINGS_FILENAME, Settings
 from .store import WorkspaceStore, default_workspace_root
 

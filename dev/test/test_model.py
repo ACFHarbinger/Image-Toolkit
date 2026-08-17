@@ -6,9 +6,8 @@ import json
 from pathlib import Path
 
 import pytest
-
-from devtool.model import CrashBundle, Event, Investigation, ProcessTree
 from debugtool import Session
+from devtool.model import CrashBundle, Event, Investigation, ProcessTree
 
 
 def _session(tmp_path: Path) -> Session:
