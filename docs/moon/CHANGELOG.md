@@ -1,3 +1,10 @@
+## S393 — 2026-08-17 (M2: SeamVis retune cannot pass discriminating exit)
+
+No `(floor, ratio)` pair catches catastrophes 04/06/07/12/14/15 and keeps
+known-good test96. test96 sv=32.2 is higher than every catastrophe (binding
+test15 at 12.55). M2 exit needs a new structural signal, not a threshold
+change.
+
 ## S392 — 2026-08-17 (M2.5a: Per-Defect Category & Stage-Attributed Correlation Heatmap)
 
 Delivered M2.5a (#32) per-defect category correlation analysis and interactive
