@@ -27,6 +27,22 @@ never be called there) — both fail against the pre-fix code and pass with
 it. Queue-height test updated to assert the settings-match instead of the
 old 320px minimum.
 
+**Follow-up (crash recurred at the same `QObjectPrivate::connect`
+offset with a clean caller trace):** the remaining trigger was
+**cross-panel scan concurrency**. The recurring startup-restore crash log
+showed the peer panel's queued `directory_scanned` mirror call starting
+its own `ImageScannerWorker` while the primary was still mid-flight —
+the primary sets `_scan_pipeline_busy` BEFORE emitting
+`directory_scanned`, but the peer's `populate_scan_image_gallery` only
+checked its own flag, so both panels ran scanner QThreads at the same
+instant (the documented Addendum 26/28 two-scanner-threads-at-once
+shape). `_scan_pipeline.py` now defers the peer's mirror call (100ms
+retry timer) while any linked panel is busy, keeping the two panels'
+scans strictly sequential. 2 new regression tests
+(`test_peer_does_not_start_scan_while_primary_busy`,
+`test_peer_starts_scan_after_primary_settles`) — both fail pre-fix and
+pass post-fix.
+
 ## S401 — 2026-08-17 (Media loader: retries, collision policy, GIF galleries)
 
 Reddit and nhentai downloaders now retry transient HTTP failures (429/5xx,
