@@ -5,11 +5,16 @@ Modular host for telemetry, crash forensics, benchmarks, and plugins.
 Plan: [`docs/moon/roadmaps/development_tool.md`](../docs/moon/roadmaps/development_tool.md)
 
 ```bash
-PYTHONPATH=dev:debug python -m devtool            # workspace chooser (no daemon)
-PYTHONPATH=dev:debug python -m devtool plugins    # name / version / surfaces
-PYTHONPATH=debug python -m debugtool list         # Track A analysis (until C2)
+PYTHONPATH=dev:debug python -m devtool            # workspace chooser (canonical)
+PYTHONPATH=dev:debug python -m devtool plugins
+PYTHONPATH=dev:debug python -m devtool list       # same verbs as debugtool
+PYTHONPATH=dev:debug python -m debugtool list     # C2 alias of the same CLI
 ```
 
-C1 host: `dev/devtool/host/` (store + settings + discovery). First-party
-plugin: `telemetry_workbench`. Session analysis still lives in
-`debug/debugtool` until C2 lands the `devtool` alias.
+```python
+from devtool import open_session, Host, WorkspaceStore
+session = open_session(pid=1234)
+```
+
+`debug/debugtool` still holds the Session engine and TUI. C2 makes
+`devtool` the public name; `debugtool` keeps working.

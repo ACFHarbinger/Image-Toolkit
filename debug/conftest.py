@@ -11,5 +11,7 @@ import sys
 from pathlib import Path
 
 _DEBUG_ROOT = Path(__file__).resolve().parent
-if str(_DEBUG_ROOT) not in sys.path:
-    sys.path.insert(0, str(_DEBUG_ROOT))
+_DEV_ROOT = _DEBUG_ROOT.parent / "dev"
+for _root in (_DEBUG_ROOT, _DEV_ROOT):
+    if str(_root) not in sys.path:
+        sys.path.insert(0, str(_root))

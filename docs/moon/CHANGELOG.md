@@ -1,3 +1,10 @@
+## S408 — 2026-08-17 (C2: debugtool is a devtool alias)
+
+`python -m devtool` is the canonical CLI (workspace + plugins +
+list/analyze/tui/watch). `python -m debugtool` re-exports the same
+parser. `from devtool import open_session` works; debugtool keeps the
+same names. Package files stay in `debug/debugtool` (D19).
+
 ## S407 — 2026-08-17 (C1 host lifecycle + discovery)
 
 Grok slice of C1 (#380 / D17): `devtool.host.Host` discovers first-party

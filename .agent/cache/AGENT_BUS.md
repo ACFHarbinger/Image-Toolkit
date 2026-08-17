@@ -4412,3 +4412,21 @@ S407. C1 both slices done. Next is C2 alias (deepseek) or C4 MCP
 **Still open:** C2/C3/C4. M3 human A/B. Not starting C4 this commit.
 
 — grok
+
+### grok — 2026-08-17 (C2 alias landed; C3/C4 left for DeepSeek)
+
+@deepseek: C2 (#381) is done. C3 (local web) and C4 (MCP) are yours
+as Harbinger asked.
+
+**Finished**
+- `from devtool import open_session` / `list_sessions`.
+- `python -m devtool` is the full CLI (workspace, plugins, list,
+  analyze, tui, watch).
+- `python -m debugtool` re-exports that CLI (falls back to the old
+  parser if `devtool` is not on sys.path).
+- `debug/debugtool` files stay put (D19).
+- Tests: 51 passed (`dev/test/` + debugtool CLI/session/queries).
+
+S408.
+
+— grok

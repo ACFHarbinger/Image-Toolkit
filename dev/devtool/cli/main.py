@@ -1,10 +1,14 @@
-"""devtool command-line interface.
+"""devtool command-line interface (canonical, C2).
 
     python -m devtool                 # workspace chooser (no daemon)
-    python -m devtool plugins         # name / version / surfaces
-    python -m devtool plugins --json
-    python -m devtool workspace       # same snapshot as the no-verb chooser
-    python -m devtool workspace --json
+    python -m devtool plugins [--json]
+    python -m devtool workspace [--json]
+    python -m devtool list
+    python -m devtool analyze [path|--pid N] [--tail N] [--category X]
+    python -m devtool tui [path|--pid N] [--view NAME]
+    python -m devtool watch [path|--pid N]
+
+``python -m debugtool`` re-exports this same CLI.
 """
 
 from __future__ import annotations
@@ -73,7 +77,39 @@ def cmd_workspace(args: Any) -> int:
         print("  (none)")
     for name in snapshot["investigations"]:
         print(f"  {name}")
-    print("Commands: plugins | workspace | python -m debugtool list|analyze|tui")
+    print("Commands: plugins | workspace | list | analyze | tui | watch | web | mcp")
+    return 0
+
+
+def cmd_web(args: Any) -> int:
+    from ..ui.web import WebServer
+
+    host = _host_from_args(args)
+    httpd = WebServer(host.store).serve(host=args.host, port=args.port)
+    print(f"devtool web listening on http://{args.host}:{httpd.server_port}", flush=True)
+    try:
+        httpd.serve_forever()
+    except KeyboardInterrupt:
+        httpd.server_close()
+    return 0
+
+
+def cmd_mcp(args: Any) -> int:
+    from ..mcp import McpServer
+
+    host = _host_from_args(args)
+    McpServer(host.store).serve_stdio()
+    return 0
+
+
+def cmd_serve(args: Any) -> int:
+    from ..mcp import McpServer
+
+    if not args.mcp:
+        print("devtool serve requires --mcp for now (C4).", file=sys.stderr)
+        return 2
+    host = _host_from_args(args)
+    McpServer(host.store).serve_http(host=args.host, port=args.port)
     return 0
 
 
@@ -100,6 +136,39 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_ws = sub.add_parser("workspace", help="Print the workspace chooser")
     p_ws.add_argument("--json", action="store_true", help="Machine-readable")
+
+    sub.add_parser("list", help="List available telemetry sessions")
+
+    p_analyze = sub.add_parser("analyze", help="Full analysis report for one session")
+    p_analyze.add_argument("path", nargs="?", help="Telemetry JSONL file")
+    p_analyze.add_argument("--pid", type=int, default=None, help="Session pid")
+    p_analyze.add_argument("--tail", type=int, default=None, help="Only last N events")
+    p_analyze.add_argument("--category", default=None, help="Filter --tail by category")
+
+    p_tui = sub.add_parser("tui", help="Launch visual TUI workbench")
+    p_tui.add_argument("path", nargs="?", help="Telemetry JSONL file")
+    p_tui.add_argument("--pid", type=int, default=None, help="Session pid")
+    p_tui.add_argument(
+        "--view",
+        choices=["timeline", "crash", "concurrency", "memory", "flame", "live"],
+        default="timeline",
+        help="Initial view to display (default: timeline)",
+    )
+
+    p_watch = sub.add_parser("watch", help="Live btop-style telemetry monitor")
+    p_watch.add_argument("path", nargs="?", help="Telemetry JSONL file")
+    p_watch.add_argument("--pid", type=int, default=None, help="Session pid")
+
+    p_web = sub.add_parser("web", help="Launch the localhost web viewer (C3)")
+    p_web.add_argument("--host", default="127.0.0.1", help="Bind host (default 127.0.0.1)")
+    p_web.add_argument("--port", type=int, default=0, help="Bind port (default 0 = ephemeral)")
+
+    p_mcp = sub.add_parser("mcp", help="Run the MCP stdio server (C4)")
+
+    p_serve = sub.add_parser("serve", help="Run devtool in serve mode")
+    p_serve.add_argument("--mcp", action="store_true", help="Serve MCP over localhost HTTP")
+    p_serve.add_argument("--host", default="127.0.0.1", help="Bind host (default 127.0.0.1)")
+    p_serve.add_argument("--port", type=int, default=8000, help="Bind port")
     return parser
 
 
@@ -113,6 +182,17 @@ def main(argv: Optional[list[str]] = None) -> int:
         return cmd_plugins(args)
     if args.command == "workspace":
         return cmd_workspace(args)
+    # Track A verbs stay implemented in debugtool; this CLI is the front door.
+    from debugtool.cli.main import cmd_analyze, cmd_list, cmd_tui, cmd_watch
+
+    if args.command == "list":
+        return cmd_list(args)
+    if args.command == "analyze":
+        return cmd_analyze(args)
+    if args.command == "tui":
+        return cmd_tui(args)
+    if args.command == "watch":
+        return cmd_watch(args)
     parser.print_help()
     return 2
 
