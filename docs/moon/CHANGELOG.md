@@ -1,3 +1,49 @@
+## S385 — 2026-08-17 (Extractor output dir: respect saved dir; GIF in gallery but not in output dir)
+
+Fixed: GIF (and frame) extractions showed up in the Extractor tab gallery but
+the actual files were NOT in the user's output directory — both with the queue
+disabled and with a single queued item.
+
+**Root cause — startup preferences silently reset the output directory.** On
+every launch, _apply_startup_preferences() in
+gui/src/windows/main/_startup_prefs.py unconditionally overwrote
+tab.extraction_dir with the DEFAULT path (LOCAL_SOURCE_PATH/Frames =
+~/Downloads/Data/Media/Frames), discarding the directory the user had
+previously browsed to (stored in the session as last_browsed_extraction_dir).
+The saved value was only ever used as the browse dialog's starting point,
+never applied as the actual extraction target. So:
+
+- GIFs/PNGs were written to the default dir.
+- The gallery reads extraction_dir (the default), so the file appeared there.
+- The user's configured output directory (e.g.
+  ~/Downloads/Data/Frames/GIFs) stayed empty -> "appears in gallery, but not
+  in the actual output directory".
+
+Reproduced with a real video: after simulating the startup-prefs force, the
+gif landed in ~/Downloads/Data/Media/Frames while the user's chosen dir was
+empty; after the fix it lands in the user's dir and the gallery shows the same
+path.
+
+**Fixes:**
+
+- gui/src/windows/main/_startup_prefs.py: the ExtractorTab block now loads the
+  saved last_browsed_extraction_dir (with the Downloads/data case fix) and
+  applies it to extraction_dir + line_edit_extract_dir when it exists,
+  falling back to the default only when there is no saved dir. Also refreshes
+  the extracted-stems cache and output gallery so the UI reflects the
+  restored dir.
+- gui/src/elements/core/extractor_tab/_queue_management.py:
+  _add_queue_results_to_gallery now filters out worker-reported paths that do
+  not exist on disk, so a path mismatch can never surface as a phantom
+  gallery card ("appears in gallery but not in the output dir").
+
+**Tests** (gui/test/core/test_startup_extraction_dir.py, 2; plus
+gui/test/core/test_gif_regression.py, 2, and
+gui/test/core/test_gif_disk_vs_gallery.py, 2, all --run-gui): startup prefs
+respect a saved extraction dir; fall back to default when none saved; real
+end-to-end GIF creation on disk for queue-disabled and 1-item queue; gallery
+paths match disk paths. All pass. CHANGELOG S385 entry.
+
 ## S384 — 2026-08-16 (Extraction queue: results recorded, items removed per-item, GIF fixes)
 
 Fixed the extraction queue (enabled via the Extractor tab's "Extraction Queue"

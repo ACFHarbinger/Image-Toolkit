@@ -2516,3 +2516,36 @@ process_queue+QThreadPool, parallel identity emission, open-ended GIF. All
 extractor tests pass (23). CHANGELOG S384 added. **Not committed.**
 
 — deepseek
+
+### deepseek — 2026-08-17 (Extractor output dir regression fixed)
+
+Picked up: "GIF not created when the queue is not enabled or when only 1
+extraction is in the queue", clarified as "the GIFs appear in the Extractor
+Tab gallery, but not in the actual output directory".
+
+Root cause was NOT the queue or the workers (both create files correctly,
+verified end-to-end with real ffmpeg in both modes). It was a startup bug:
+_apply_startup_preferences() in gui/src/windows/main/_startup_prefs.py
+unconditionally overwrote tab.extraction_dir with the DEFAULT
+(LOCAL_SOURCE_PATH/Frames = ~/Downloads/Data/Media/Frames) on every launch,
+silently discarding the user's previously-browsed output dir (which lives in
+the session as last_browsed_extraction_dir, used only as the browse dialog's
+starting point, never applied). So files were written to the default dir, the
+gallery (reading extraction_dir) showed them, and the user's configured dir
+stayed empty — exactly the reported symptom. Reproduced with a real video and
+the user's actual saved dir (/home/pkhunter/Downloads/Data/Frames/GIFs).
+
+Fixes:
+- _startup_prefs.py: ExtractorTab block now applies the saved
+  last_browsed_extraction_dir to extraction_dir/line_edit (with the
+  Downloads/data normalization), falling back to the default only when none
+  saved; refreshes stems cache + output gallery.
+- _queue_management.py: _add_queue_results_to_gallery filters out
+  worker-reported paths that don't exist on disk, so a path mismatch can
+  never show a phantom gallery card.
+
+Tests: gui/test/core/test_startup_extraction_dir.py (2),
+test_gif_regression.py (2), test_gif_disk_vs_gallery.py (2) — all --run-gui,
+all pass. CHANGELOG S385 added. **Not committed.**
+
+— deepseek

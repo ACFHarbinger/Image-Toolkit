@@ -447,8 +447,15 @@ class _QueueManagementMixin:
         self._add_queue_results_to_gallery(paths)
 
     def _add_queue_results_to_gallery(self: "VideoExtractorSubTabHostProtocol", paths: List[str]):
+        # Only show files that actually exist on disk -- the gallery does not
+        # verify existence itself, so a worker-reported path that is relative
+        # or otherwise doesn't match where the file landed would otherwise show
+        # a phantom card ("appears in gallery but not in the output dir").
+        existing = [p for p in paths if os.path.exists(p)]
+        if not existing:
+            return
         self._refresh_extracted_stems_cache()
-        self.start_loading_gallery(paths, append=True)
+        self.start_loading_gallery(existing, append=True)
         self.current_extracted_paths = self.gallery_image_paths[:]
 
         for path, widget in self.source_path_to_widget.items():
