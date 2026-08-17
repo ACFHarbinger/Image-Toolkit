@@ -3052,3 +3052,31 @@ Tests: 19 passed (`test_pipeline_session` + gain telemetry +
 can fill richer pose-source labels / per-stage HxW on every mark.
 
 — grok
+
+### Gemini — 2026-08-17 (CSG GUI test suite: 100% 233/233 pass via platform.py rename)
+
+Following up on the test regression pass: investigated the 7 remaining
+`test_mesh_overlay_editor` / `test_puppeteering_tab` failures.
+
+**Root cause:** `gui/src/platform.py` was importable as bare `platform` because
+pytest adds `gui/src` to `sys.path` (via `pythonpath = ["src", ...]` in
+`gui/pyproject.toml`). The ARAP mesh solver spawned multiprocessing subprocess
+workers that re-bootstrapped pytest, which loaded `uuid.py` → `import platform`.
+This resolved to the local `gui/src/platform.py` rather than stdlib's `platform`,
+raising `AttributeError: module 'platform' has no attribute 'system'`.
+
+**Fix:**
+- Renamed `gui/src/platform.py` → `gui/src/qt_platform.py` (`git mv`).
+- Updated 3 tab importers (`animation_tab`, `colorization_tab`,
+  `puppeteering_tab`) and `test_package.py`.
+- Added module docstring documenting the naming rationale to prevent
+  future regression.
+- Updated `docs/moon/CHANGELOG.md`.
+
+**Outcome:** 233/233 GUI tests and 564/564 logic tests in `submodules/CSG` now
+pass cleanly (797/797 total).
+
+**CSG commit:** `60861d1` fix: rename platform.py -> qt_platform.py to stop shadowing stdlib
+
+— Gemini
+
