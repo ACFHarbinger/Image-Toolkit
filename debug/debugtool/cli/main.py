@@ -61,6 +61,20 @@ def cmd_analyze(args) -> int:
     return 0
 
 
+def cmd_tui(args) -> int:
+    from ..ui.app import run_tui
+
+    path = _resolve_session(args)
+    return run_tui(path, initial_view=args.view)
+
+
+def cmd_watch(args) -> int:
+    from ..ui.app import run_tui
+
+    path = _resolve_session(args)
+    return run_tui(path, initial_view="live", live=True)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="debugtool",
@@ -76,6 +90,20 @@ def build_parser() -> argparse.ArgumentParser:
     p_analyze.add_argument("--pid", type=int, default=None, help="Session pid")
     p_analyze.add_argument("--tail", type=int, default=None, help="Only last N events")
     p_analyze.add_argument("--category", default=None, help="Filter --tail by category")
+
+    p_tui = sub.add_parser("tui", help="Launch visual TUI workbench")
+    p_tui.add_argument("path", nargs="?", help="Telemetry JSONL file")
+    p_tui.add_argument("--pid", type=int, default=None, help="Session pid")
+    p_tui.add_argument(
+        "--view",
+        choices=["timeline", "crash", "concurrency", "memory", "flame", "live"],
+        default="timeline",
+        help="Initial view to display (default: timeline)",
+    )
+
+    p_watch = sub.add_parser("watch", help="Live btop-style telemetry monitor")
+    p_watch.add_argument("path", nargs="?", help="Telemetry JSONL file")
+    p_watch.add_argument("--pid", type=int, default=None, help="Session pid")
     return parser
 
 
@@ -86,9 +114,14 @@ def main(argv=None) -> int:
         return cmd_list(args)
     if args.command == "analyze":
         return cmd_analyze(args)
+    if args.command == "tui":
+        return cmd_tui(args)
+    if args.command == "watch":
+        return cmd_watch(args)
     parser.print_help()
     return 2
 
 
 if __name__ == "__main__":
     sys.exit(main())
+

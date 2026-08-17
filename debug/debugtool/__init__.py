@@ -43,6 +43,20 @@ def open_session(path=None, pid=None, directory=None):
     raise ValueError("provide either path= or pid=")
 
 
+def render_session_view(session, view_name="timeline", **kwargs):
+    """Render a visual TUI view for the given session."""
+    from .ui.app import render_session_view as _render
+
+    return _render(session, view_name=view_name, **kwargs)
+
+
+def run_tui(session_or_path, initial_view="timeline", live=False, console=None):
+    """Run the TUI application."""
+    from .ui.app import run_tui as _run
+
+    return _run(session_or_path, initial_view=initial_view, live=live, console=console)
+
+
 __all__ = [
     "TELEMETRY_DIR",
     "Session",
@@ -51,4 +65,6 @@ __all__ = [
     "session_path_for_pid",
     "list_sessions",
     "open_session",
+    "render_session_view",
+    "run_tui",
 ]
