@@ -1,5 +1,5 @@
 """Benchmark suite for web crawler telemetry (roadmap
-analytics_and_interpretability.md §12.7, issue #70).
+development_tool.md §12.7, issue #70).
 
 Per-request timing/response-code tracking as literally specced isn't
 available from Python: the actual HTTP requests happen inside the compiled

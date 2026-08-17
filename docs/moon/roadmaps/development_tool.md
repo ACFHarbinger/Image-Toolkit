@@ -1,238 +1,586 @@
-# **Comprehensive Visual Analytics & Interpretability Roadmap**
+# Development Tool Roadmap
 
-*Targeting Codebase Topology, ML Interpretability, Pipeline Diagnostics, and Omniscient Debugging*
+*A modular host in `dev/` for telemetry, crash forensics, benchmarks, charts,
+and plugin-backed evaluators. One source of truth for Image-Toolkit developer
+tooling.*
+
+**Status:** Active collaboration — draft for team review (2026-08-17).  
+**Product lead:** Harbinger.  
+**This pass:** Grok (feasibility + product fold). Prior authors of folded
+docs: deepseek (debug data engine), Gemini (TUI), plus the analytics /
+glossary authors.
+
+This file **replaces** and folds:
+
+| Former file | Fate |
+|---|---|
+| `docs/moon/roadmaps/debug_workbench.md` | Folded into Track A; deleted |
+| `docs/moon/roadmaps/analytics_glossary.md` | Folded into [Glossary](#glossary); deleted |
+| `docs/moon/roadmaps/analytics_and_interpretability.md` | Folded into Track B; deleted |
+
+**Review request:** @deepseek @Gemini @Claude — please edit this file in
+place. Do not resurrect the three deleted files. Dissent in a dated
+subsection under [Team review notes](#team-review-notes).
 
 ---
 
 ## Table of Contents
 
+- [Why This Exists](#why-this-exists)
+- [Product Vision](#product-vision)
+- [Settled Decisions (2026-08-17)](#settled-decisions-2026-08-17)
+- [Glossary](#glossary)
+- [Dual Human / Agent Access Contract](#dual-human--agent-access-contract)
+- [Home: the `dev/` directory](#home-the-dev-directory)
+- [Relationship to Existing Tooling](#relationship-to-existing-tooling)
+- [Visual Language](#visual-language)
+- [Architecture](#architecture)
+- [Track A — Telemetry & Crash Workbench](#track-a--telemetry--crash-workbench)
+- [Track B — Analytics, Benchmarks & Interpretability](#track-b--analytics-benchmarks--interpretability)
+- [Track C — Host, Plugins, MCP, Local Web](#track-c--host-plugins-mcp-local-web)
 - [Implementation Status](#implementation-status)
-- [Cross-Cutting: Dual Human/Agent Access Contract](#cross-cutting-dual-humanagent-access-contract)
-- [Phase 1: The Interactive Meta-Graph (Codebase Topology)](#phase-1-the-interactive-meta-graph-codebase-topology)
-- [Phase 2: ML Model & Loss Landscape Visualizer](#phase-2-ml-model--loss-landscape-visualizer)
-- [Phase 3: ASP Stage-by-Stage CV Diagnostics](#phase-3-asp-stage-by-stage-cv-diagnostics)
-- [Phase 4: Statistical & Information-Theoretic Failure Analysis](#phase-4-statistical--information-theoretic-failure-analysis)
-- [Phase 5: Resource, Latency, and Causal Profiling](#phase-5-resource-latency-and-causal-profiling)
-- [Phase 6: Semantic Code Analysis & Vulnerability Discovery](#phase-6-semantic-code-analysis--vulnerability-discovery)
-- [Phase 7: Omniscient Debugging & Deterministic Replay](#phase-7-omniscient-debugging--deterministic-replay)
-- [Phase 8: Distributed Observability & High-Cardinality Telemetry](#phase-8-distributed-observability--high-cardinality-telemetry)
-- [Phase 9: Formal Verification & State Space Visualization](#phase-9-formal-verification--state-space-visualization)
-- [Phase 10: Topological Data Analysis (TDA) of Pipeline Architecture](#phase-10-topological-data-analysis-tda-of-pipeline-architecture)
-- [Architectural Blueprint: A Zero-Copy Analytics Pipeline](#architectural-blueprint-a-zero-copy-analytics-pipeline)
-- [Phase 11: ASP Benchmark Analytics & Visual Diagnostics](#phase-11-asp-benchmark-analytics--visual-diagnostics)
-- [Phase 12: Benchmark Coverage Expansion](#phase-12-benchmark-coverage-expansion)
+- [Open Questions for Team Review](#open-questions-for-team-review)
+- [Team Review Notes](#team-review-notes)
+- [Effort × Impact Matrix](#effort--impact-matrix)
+- [Anchor Index](#anchor-index)
 
 ---
 
-## Implementation Timeline
+## Why This Exists
 
-> **Legend** — *Node fill:* new feature (blue) · augmentation (violet) · infrastructure (cyan) · performance (orange) · research (slate) · security (dark red) · testing (amber) · docs (green) — *Node border:* ✅ complete (green, thick) · 🔄 in-progress (amber, thick) · ⬜ planned (slate, thin) · 🚫 blocked (red) · ⏸ on hold (purple) — *Edges:* `==>` critical blocking dependency · `-->` sequential dependency · `-.->` alternative/independent research track · `---` complements (parallel work)
+Image-Toolkit's debugging work — most visibly the 16+ round gallery-scan
+native-crash investigation (`deleteOrphaned` / `QSocketNotifier` / glibc
+heap corruption; see `debug/README.md`, `docs/TROUBLESHOOTING.md`, and
+`.agent/cache/gallery_crash_deleteorphaned_2026-07-27.md`) — produced a
+real instrumentation foundation:
 
-```mermaid
-flowchart TD
-    %% ── TYPE classes (node fill = element type) ─────────────────────────────
-    classDef feature     fill:#2563eb,color:#fff
-    classDef augment     fill:#7c3aed,color:#fff
-    classDef fix         fill:#dc2626,color:#fff
-    classDef infra       fill:#0891b2,color:#fff
-    classDef perf        fill:#ea580c,color:#fff
-    classDef research    fill:#475569,color:#fff
-    classDef security    fill:#7f1d1d,color:#fff
-    classDef refactor    fill:#0f766e,color:#fff
-    classDef migration   fill:#4338ca,color:#fff
-    classDef testing     fill:#a16207,color:#fff
-    classDef docs        fill:#15803d,color:#fff
-    classDef integration fill:#9d174d,color:#fff
-    %% ── STATUS classes (node border = implementation status) ─────────────────
-    classDef done        stroke:#16a34a,stroke-width:4px
-    classDef active      stroke:#d97706,stroke-width:4px
-    classDef planned     stroke:#64748b,stroke-width:2px
-    classDef blocked     stroke:#dc2626,stroke-width:3px
-    classDef hold        stroke:#9333ea,stroke-width:3px
+- `backend/src/core/telemetry.py`: toggleable JSONL logger (`emit` /
+  `span`), `IMAGE_TOOLKIT_TELEMETRY=1`, flush-every-line so a SIGABRT a
+  moment later still leaves the last completed event.
+- `debug/telemetry_analyzer.py` → now a shim over `debugtool`.
+- `debug/run_with_gdb.sh`: gdb batch capture on SIGABRT; JVM `hs_err`
+  preserved.
+- `debug/resolve_qt_offset.py`: stripped PySide6 offsets → exported
+  symbols (the tool that named `deleteOrphaned`).
+- `debug/debugtool/`: Phase 1 session model (`open_session`, orphaned
+  spans, in-flight-at-t, overlaps). 19 tests. Landed by deepseek
+  (`431163b7`).
 
-    %% ── Completed Infrastructure ──────────────────────────────────────────
-    RUST["🦀 Rust Math Backbone
-    base/src/math/
-    6 modules · 49 unit tests ✅"]:::infra:::done
+Separately, the project already has a second mature developer surface:
+ASP's benchmark evaluator (`submodules/ASP/backend/benchmark/evaluation/`
+— session/discovery, comparison/annotation UI, plugin/export, own
+schema). And a third: the analytics / interpretability roadmap (math
+backbones, Phase 11–12 benchmark diagnostics, many still-planned
+visualisation phases).
 
-    TS["📘 TypeScript Math Backbone
-    frontend/src/math/
-    7 modules + benchmark.ts ✅"]:::infra:::done
+Those three families were specified in different documents and lived in
+different directories. Harbinger's 2026-08-17 direction is that they are
+**one product**: a modular development application whose first-party and
+third-party pieces (telemetry inspector, crash splicer, ASP evaluator,
+benchmark charts, future analytics views) load as **plugins** against a
+shared host.
 
-    DASH["📊 Benchmark Dashboard
-    Streamlit → Tauri/React
-    7-page SVG charts ✅"]:::feature:::done
+What the current pieces do **not** do, and what this roadmap builds:
 
-    %% ── Planned Foundation ────────────────────────────────────────────────
-    ARCH["🏗️ Architectural Blueprint
-    Zero-Copy Analytics Pipeline
-    Rust aggregation · TS GPU render"]:::infra:::planned
-
-    %% ── Planned Feature Phases ────────────────────────────────────────────
-    P1["Phase 1
-    Interactive Meta-Graph
-    Codebase Topology"]:::feature:::planned
-
-    P2["Phase 2
-    ML Loss Landscape Visualizer
-    Weight/gradient landscape"]:::feature:::planned
-
-    P3["Phase 3
-    ASP Stage-by-Stage
-    CV Diagnostics"]:::augment:::planned
-
-    P4["Phase 4
-    Statistical & Info-Theoretic
-    Failure Analysis"]:::research:::planned
-
-    P5["Phase 5
-    Resource, Latency &
-    Causal Profiling"]:::perf:::planned
-
-    P6["Phase 6
-    Semantic Code Analysis
-    & Vulnerability Discovery"]:::security:::planned
-
-    P7["Phase 7
-    Omniscient Debugging
-    & Deterministic Replay"]:::feature:::planned
-
-    P8["Phase 8
-    Distributed Observability
-    & High-Cardinality Telemetry"]:::infra:::planned
-
-    P9["Phase 9
-    Formal Verification
-    & State Space Visualization"]:::research:::planned
-
-    P10["Phase 10
-    Topological Data Analysis
-    TDA of Pipeline Architecture"]:::research:::planned
-
-    P11["Phase 11
-    ASP Benchmark Analytics
-    & Visual Diagnostics"]:::testing:::planned
-
-    P12["Phase 12
-    Benchmark Coverage
-    Expansion"]:::testing:::planned
-
-    %% ── Dependency Edges ──────────────────────────────────────────────────
-    RUST  ==> ARCH
-    TS    ==> ARCH
-    RUST  ==> P1
-    TS    ==> P1
-    ARCH  --> P1
-
-    P1    --> P2
-    P1    --> P3
-    P1    --> P10
-    DASH  --> P11
-
-    P3    --> P4
-    P4    --- P5
-    P5    --> P7
-    P7    --> P8
-
-    P3    --> P11
-    P11   --> P12
-
-    P6    -.-> P9
-```
+1. **One host, many plugins.** The ASP evaluator is the complexity
+   reference, not a one-off. It should become a plugin rather than a
+   second standalone app the team has to remember.
+2. **Sessions and investigations, not single files.** One process launch
+   is a `Session`. Named `Investigation` folders group runs, gdb traces,
+   and reviewer notes.
+3. **Queryability for agents.** `open_session()` plus a local MCP / stdio
+   server so agents do not re-parse JSONL or scrape a TUI.
+4. **Pixels where they exist.** Crash dumps are text; ASP and benchmarks
+   are images and plots. TUI for traces; a local web view for anything
+   with pixels. The public website is **not** this tool.
+5. **Two visual densities.** Perfetto-style for static / post-mortem
+   analysis. btop-style for live watch.
 
 ---
 
-## Implementation Status
+## Product Vision
 
-| Layer | Status | Details |
-|-------|--------|---------|
-| **Rust math backbone** (`base/src/math/`) | ✅ Complete | 6 modules, 49 unit tests passing |
-| **TypeScript math backbone** (`frontend/src/math/`) | ✅ Complete | 7 modules + `benchmark.ts`, `tsc --noEmit` clean |
-| **Benchmark dashboard migration** (Streamlit → Tauri/React) | ✅ Complete | Tauri commands, SVG charts, 7-page dashboard, `App.tsx` wired |
-| Phase 1–10 remaining feature implementation | ⬜ Not started | Backbone provides the mathematical primitives. Phase 1.4's static dependency safeguards are already shipped; the interactive/meta-graph feature work remains planned. |
-| **ASP Benchmark Analytics (Phase 11)** | ✅ Complete (2026-07-30) | 11.1–11.5 (per-test) done in the ASP evaluation tool, issue #123; 11.6/11.7/11.8/11.9/11.10 (corpus-wide) done in `bench_anime_stitch.py`'s report, issue #69 |
-| **Benchmark Coverage Expansion (Phase 12)** | 🔄 Partial (2026-07-30) | 12.1/12.2/12.3/12.5/12.6/12.7 shipped; 12.4 rescoped (see §12.4); 12.8 rescoped (see §12.8) |
+A **fully modular development application** in `dev/`.
 
-### Rust backbone — `base/src/math/`
+It captures and displays telemetry (including stack traces) **and**
+charts / plots / model-benchmark results. Domain tools such as the ASP
+benchmark evaluator attach as plugins. A plugin may target the TUI, the
+local web view, a future GUI host, or any combination.
 
-| Module | Contents |
-|--------|----------|
-| `linalg` | `Matrix`, PCA via power iteration, dot/norm/normalize, gram-schmidt |
-| `stats` | mean/variance/stddev/percentile/histogram/covariance matrix/pearson |
-| `information` | Shannon entropy, KL/JS divergence, mutual information (NMI), cross-entropy |
-| `distance` | Euclidean/Manhattan/Cosine/Bhattacharyya/Hellinger/pairwise/condensed matrix |
-| `graph` | `Graph`/`UnionFind`, BFS/DFS, Kahn topo sort, Tarjan SCC, Kruskal MST/max-MST |
-| `dim_reduce` | Classical MDS, geodesic distances (Dijkstra), t-SNE affinity calibration |
+**Primary job that wins scope arguments (Harbinger):** equal dual
+audience. Harbinger uses the TUI and the local web view. Agents use the
+same Session / Investigation / plugin APIs and the MCP server. A feature
+that only one audience can consume is unfinished.
 
-### TypeScript backbone — `frontend/src/math/`
+**Not this product:**
 
-| Module | Contents |
-|--------|----------|
-| `linalg` | Vec2/Vec3/VecN ops, Mat3/Mat4, clamp/saturate |
-| `stats` | mean/variance/percentile/pearson/normalize01/z-score/histogram |
-| `colormap` | viridis/plasma/magma/inferno/coolwarm (17-stop lookup tables + `applyColormap`) |
-| `distance` | euclidean/cosine/manhattan/hamming/pairwise/condensed |
-| `graph` | `Graph`/`GraphNode`/`GraphEdge`, BFS, topo sort, Fruchterman-Reingold layout |
-| `signal` | Cooley-Tukey FFT/IFFT, power spectrum, Hann/Hamming windows, autocorrelation |
-| `index` | Barrel re-exports for all sub-modules |
+- The public `docs/website` ratings dashboard (Team A; live JSON in
+  `docs/website/public/data/` stays untouched by this tool).
+- Promoting ASP algorithm flags. This tool observes and compares; it
+  does not flip product defaults.
+- A rewrite of `backend/src/core/telemetry.py` or of the ASP evaluator
+  internals. Both are foundations the host consumes.
 
 ---
 
-This roadmap outlines the development of a suite of interactive, highly optimized tools designed to give developers and researchers a profound understanding of the Image Toolkit codebase, specifically the Anime Stitch Pipeline (ASP) and its underlying Neural Networks.
+## Settled Decisions (2026-08-17)
 
-Leveraging a Rust backend for time-efficient data parsing/aggregation and a TypeScript frontend for visually stunning, GPU-accelerated dashboards, these tools will expose the hidden geometries, failure modes, and execution topologies of the system.
+Locked with Harbinger in the Grok brainstorm, plus earlier
+deepseek / Gemini / analytics locks that still hold.
 
-See [`research/Analytics and Codebase Visualization Research.md`](../research/Analytics%20and%20Codebase%20Visualization%20Research.md) for the full technical research underpinning every item on this roadmap.
+| # | Decision | Lock |
+|---|---|---|
+| D1 | Audience | Equal dual: human TUI/web + agent API/MCP. |
+| D2 | Scope of "Development" | Modular host. Telemetry + stack traces + charts/plots + model benchmarks. ASP evaluator is a plugin (TUI and/or GUI/web). |
+| D3 | Canonical doc | This file. Former three roadmaps folded and deleted. |
+| D4 | Telemetry schema | Add optional `span_id` / `parent_span_id` / `seq`. Old JSONL still parses via `(tid, category, basename)`. |
+| D5 | Multi-runtime | Balance: first-class `CrashBundle` correlation **and** a lightweight process tree (Python / JVM / Qt / native lanes). Not a full JVM-internal span model. |
+| D6 | Agent contract | Python import + CLI `--json` **and** a local MCP / stdio server (`devtool mcp` / `devtool serve`). |
+| D7 | Pixels | TUI + **local** web view for images, A/B frames, plots. Not the public website. PySide6 GUI is an optional plugin surface, not the host default. |
+| D8 | Visual density | **Perfetto** for static / post-mortem. **btop** for live / real-time. |
+| D9 | JSONL | Remains the source of truth. Sidecar index at `~/.image-toolkit/telemetry/index.json`. Parquet deferred to v2 (analytics contract still allows Parquet for large tabular corpora). |
+| D10 | Naming | Product title: **Development Tool**. New package / CLI: `devtool`. `debugtool` remains a compatibility entry point. |
+| D11 | Home | New `dev/` directory is the source of truth. `debug/` stays until Track A migrates, then becomes a thin pointer. |
+| D12 | Investigations | Portable folders `dev/investigations/<name>/` (or `debug/investigations/` during migration) with `manifest.json`, captures, repro scripts. |
+| D13 | Retention | `devtool prune --keep N` (default 50) and `--older-than Xd` (default 14d), with confirm. |
+| D14 | Phase 3 ASP spatial telemetry | Rerun desktop sidecar + OTel dual-write. **No** Rerun WASM in `docs/website`. Unchanged from the 2026-08-15 analytics lock. |
+| D15 | Existing debug scripts | Full consolidation: analyzer / gdb / resolve-offset become host commands; files remain as wrappers. |
 
 ---
 
-## Cross-Cutting: Dual Human/Agent Access Contract
+## Glossary
 
-Every Phase 1–12 deliverable must serve the project's actual paired users:
-Harbinger as the researcher/quality authority and named local agents that
-inspect, compare, and reproduce work. A chart that only a person can read is
-not sufficient; neither is a raw dataset with no intelligible explanation.
+Living shared vocabulary. Add a term only with a definition, a
+measurement direction where relevant, and a clear distinction from
+nearby terms.
+
+### Result identities
+
+- **Raw ASP** (`raw_asp`): the ungated ASP compositor result. It remains
+  an artifact even when a policy selects another result.
+- **Safe ASP** (`safe_asp`): the policy-selected ASP-safe result; it may
+  use a named safe fallback but is not a fourth result identity.
+- **SCANS** (`scans`): the OpenCV stitcher comparison / fallback result.
+
+### Defect labels
+
+- **ghosting**: doubled or semi-transparent visual content from imperfect
+  alignment or overlap composition.
+- **seam_line**: an unwanted visible boundary at or near a stitch seam.
+- **misordered_content**: spatial or temporal content in the wrong order.
+- **crop_loss**: meaningful intended content missing from the output
+  bounds.
+- **torn_anatomy**: anatomy discontinuous or implausibly joined across a
+  composition boundary.
+- **duplicated_strip**: a scene strip or region appears more than once.
+- **banding**: discrete tonal / color steps where a smooth transition is
+  expected.
+- **color_shift**: unwanted color or luminance change vs. intended
+  source / reference.
+- **blur**: loss of meaningful high-frequency detail beyond expected
+  scaling or motion.
+- **geometry_warp**: visibly implausible shape distortion from the
+  transform.
+
+### Evidence and decisions
+
+- **observation**: an individual human or automated claim about a metric,
+  defect, or safety decision; retained even when later disagreed with.
+- **adjudication**: a separately stored, reasoned effective decision over
+  one or more observations; never a destructive replacement for them.
+- **provenance**: enough to reproduce or assess a claim: producer and
+  version, inputs / hashes, configuration, timestamp, evidence links.
+- **primary defects**: one or more defects judged equally causal; not a
+  forced single-label classification.
+
+### Workbench identities
+
+- **Session**: one process launch that produced a `telemetry-<pid>.jsonl`
+  (and, if present, its CrashBundle).
+- **Investigation**: a named, portable folder grouping Sessions, notes,
+  and repro scripts.
+- **CrashBundle**: `{jsonl, gdb-bt, hs_err, resolved offsets, optional
+  core}` aligned on one run.
+- **Runtime lane**: a first-class row in the process tree: `python`,
+  `jvm`, `qt-gui`, `native`. Not a full VM-internal model.
+- **Plugin**: a module that registers data sources, views, CLI verbs,
+  and / or MCP tools against the host. Declares which surfaces it
+  implements (`tui`, `web`, `gui`, `cli`, `mcp`).
+- **Host**: the `dev/` application. Owns discovery, routing, settings,
+  export, and the access contract. Does not own domain logic.
+
+---
+
+## Dual Human / Agent Access Contract
+
+Every deliverable on this roadmap must serve both audiences. A chart
+only a person can read is unfinished; so is a raw dataset with no
+intelligible explanation.
 
 ### Required companion artifacts
 
-Each deliverable emits, alongside its human-facing chart/dashboard:
+Each deliverable emits, alongside its human-facing view:
 
-1. a versioned **JSON sidecar** with the core contract below;
-2. a short **natural-language summary** stating what was measured, the
-   important result, known limitations, and the next decision it can support;
-3. **Parquet** only when the result is a non-trivial tabular/event collection
-   (many rows, repeated runs, telemetry, or a corpus slice). Small manifests,
-   single-run reports, and graph structures remain JSON-first rather than
-   duplicating data for ceremony.
+1. a versioned **JSON sidecar** (`analytics_contract_version`,
+   `artifact_id`, producer / version / timestamp, source run / case IDs
+   and hashes, configuration, metric definitions / units / directions,
+   chart artifact refs, provenance, privacy classification);
+2. a short **natural-language summary** (what was measured, the
+   important result, known limits, the next decision it supports);
+3. **Parquet** only when the result is a non-trivial tabular / event
+   collection. Small manifests stay JSON-first.
 
-The sidecar's stable core is deliberately small: `analytics_contract_version`,
-`artifact_id`, producer/version and timestamp, source run/case IDs and hashes,
-configuration/profile, metric definitions/units/directions, chart artifact
-references, provenance, and the privacy classification. Phase-specific fields
-are optional namespaced extensions. A consumer must preserve unknown extension
-fields rather than treating them as invalid.
+Unknown extension fields are preserved, never treated as invalid.
 
 All shareable artifacts are **anonymized metrics and explicitly approved
-derived assets by default**. Raw corpus frames, source URLs that expose a
-private corpus, and personal browsing/reviewer data are private unless an
-explicit publication approval says otherwise. This contract neither implies a
-public corpus release nor creates one.
+derived assets by default**. Raw corpus frames, private source URLs, and
+personal browsing / reviewer data are private unless an explicit
+publication approval says otherwise.
 
 ### Defects, disagreement, and adjudication
 
-Use the shared living vocabulary in
-[`analytics_glossary.md`](analytics_glossary.md). Defect observations are
-multi-label: one output may carry several interconnected defects, and the
-optional `primary_defects` field may contain more than one equally causal label.
-Each observation records output scope, evidence/provenance, and confidence.
+Use the [Glossary](#glossary). Defect observations are multi-label. Human
+and automated observations are immutable parallel records. Conflict
+produces an optional adjudication **without overwriting** either
+observation.
 
-Human observations and automated observations are immutable parallel records.
-When they conflict, an optional adjudication records the effective decision,
-rationale, and adjudicator **without overwriting either observation**. This is
-important for known category failures such as automated systems mistaking a
-technical plot for unsafe content.
+### Agent surfaces (required)
+
+| Surface | Shape | Consumer |
+|---|---|---|
+| Python API | `from devtool import open_session, open_investigation` (and plugin facades) | In-repo agents |
+| CLI | every human verb has `--json` / `--format json` | Scripts, CI |
+| MCP / stdio | `devtool mcp` (stdio) and optional `devtool serve` (localhost) | Other agent sessions that cannot import this tree |
+
+MCP tools (minimum set): `list_sessions`, `open_session`,
+`orphaned_spans`, `in_flight_at`, `overlaps`, `analyze`,
+`list_investigations`, `list_plugins`, `run_plugin`. Plugins may
+register additional tools.
+
+### Privacy
+
+Telemetry is local and never published by default. Export sidecars carry
+privacy classification tags. Paths under the user's home and vault-related
+events are redacted in any export leaving the machine. Cores are never
+committed.
 
 ---
+
+## Home: the `dev/` directory
+
+Proposed layout. Names are a recommendation for review, not code yet.
+
+```
+dev/
+  README.md                 # pointer at this roadmap; how to launch
+  pyproject.toml            # optional later; may stay a namespace under root
+  devtool/
+    __init__.py             # public API
+    __main__.py
+    host/
+      app.py                # process lifecycle, view router
+      plugins.py            # discovery + Plugin protocol
+      settings.py
+    model/
+      session.py
+      span.py
+      event.py
+      investigation.py
+      crash_bundle.py
+      process_tree.py
+    telemetry/              # migrated from debug/debugtool
+      emit_schema.py        # span_id contract (writer side lives in backend)
+    queries/
+      timeline.py
+      spans.py
+      overlaps.py
+      diff.py
+      memory.py
+    export/
+      json_sidecar.py
+      html.py
+      csv.py
+    ui/
+      tui/                  # Perfetto static + btop live
+      web/                  # local viewer for pixels / plots
+    cli/
+      main.py               # devtool …  (debugtool = alias)
+    mcp/
+      server.py             # stdio + optional localhost
+    plugins/
+      telemetry_workbench/  # Track A
+      asp_evaluator/        # adapter over submodules/ASP/.../evaluation
+      benchmarks/           # parent + ASP bench JSON
+      analytics/            # Track B views that are not ASP-specific
+  investigations/           # portable named folders
+  test/
+```
+
+Migration rule: **do not move `debug/debugtool` until Track C host
+exists and the alias `python -m debugtool` still works.** deepseek's
+Phase 1 API is the data engine the host will import.
+
+`debug/investigations/` may be created first; move under `dev/` when the
+host lands.
+
+---
+
+## Relationship to Existing Tooling
+
+| Existing artifact | New home | Notes |
+|---|---|---|
+| `debug/debugtool/` | `dev/devtool/telemetry/` + host API | Phase 1 stays; package path changes only with an alias |
+| `debug/telemetry_analyzer.py` | `devtool analyze` | Already a shim |
+| `debug/run_with_gdb.sh` | `devtool repro` | Same gdb flags, SIGABRT-only stop, `hs_err` preserved |
+| `debug/resolve_qt_offset.py` | `devtool resolve-offset` | Gains session `--hs-err` scan |
+| `debug/README.md` | Kept | Crash narrative stays; how-to points here |
+| `backend/src/core/telemetry.py` | Unchanged writer | Grows optional span IDs; still no-op when unset |
+| ASP `evaluation/` | Plugin `asp_evaluator` | Adapter, not a fork. Evaluator remains the rating UI of record |
+| `docs/website` dashboard | Out of scope | May *read* the same JSON the plugin writes; this tool does not own it |
+| Rust / C++ / TS math backbones | Track B primitives | Already shipped; plugins call them, do not rewrite them |
+| Parent `backend/benchmark/` | Plugin `benchmarks` | Phase 12 benches stay where they are; the host charts them |
+
+---
+
+## Visual Language
+
+Two modes, one product. Gemini owns the TUI chrome; this section locks
+**density**, not pixel-perfect color.
+
+### Static / post-mortem — Perfetto
+
+Used by: timeline waterfall, crash splicer, flame / icicle, cross-session
+diff, investigation review.
+
+- Multi-track lanes, minimap scrub, packed span bars, nested span trees.
+- Monospace timestamps. Color only for faults (amber = orphaned /
+  contention, rose = SIGABRT / SIGSEGV / truncated crash).
+- Dark slate ground, monochromatic type hierarchy.
+- Keyboard: `Tab` view, `j/k` spans, `Enter` drill, `z/x` zoom, `/`
+  filter.
+
+### Live / real-time — btop
+
+Used by: `devtool watch`, RSS gauges, stage timers, in-flight count,
+queue depth.
+
+- Boxed panels, live percentages, sparkline rates, modest chrome.
+- Non-blocking JSONL tail. No flicker. Must not stall the traced
+  process.
+- `w` toggles live watch from the static TUI.
+
+### Local web (pixels)
+
+Used by: frame A/B, ASP evaluator images, plotly / matplotlib figures,
+screenshot-on-crash, coherence pairs.
+
+- Localhost only. Zero public bind by default.
+- No JS build step required for v1 (single-file HTML or a tiny static
+  server over the export surface).
+- The website dashboard is a *separate* consumer of committed JSON, not
+  this viewer.
+
+### GUI plugin surface
+
+Optional. A plugin may open a PySide6 window (the ASP inspector is the
+obvious first). The host does not become a Qt app in v1.
+
+---
+
+## Architecture
+
+### Plugin protocol
+
+A plugin is a Python package exposing:
+
+```python
+class Plugin:
+    name: str
+    version: str
+    surfaces: frozenset[str]  # tui | web | gui | cli | mcp
+
+    def register(self, host: Host) -> None: ...
+    def discover(self) -> list[ArtifactRef]: ...
+```
+
+The host provides: session/investigation store, export helpers, TUI view
+registry, local-web route registry, MCP tool registry, settings,
+privacy redaction.
+
+**First-party plugins (v1):** `telemetry_workbench`, `asp_evaluator`,
+`benchmarks`. Analytics Phase 1–10 views land as additional plugins
+only when someone is ready to implement them — they do not block the
+host.
+
+### Telemetry schema (D4)
+
+Current event (unchanged, still valid):
+
+```json
+{"ts": 0.0, "tid": 123, "cat": "native", "event": "qimage.load.start", "...": "..."}
+```
+
+Compatible additions, ignored by old readers:
+
+```json
+{"span_id": "a1b2", "parent_span_id": "a1b0", "seq": 17, "runtime": "python"}
+```
+
+`runtime` is one of `python | jvm | qt-gui | native`. Writer
+(`telemetry.py`) emits them when present; `span()` allocates a
+`span_id` and nests via `parent_span_id` instead of only the
+`(tid, category, basename)` heuristic. Reconstruction prefers IDs and
+falls back to the heuristic for historic files.
+
+### Multi-runtime (D5)
+
+Not "Python threads only." Not "model the HotSpot JIT."
+
+- A `Session` has a **process tree**: root pid, child pids if known,
+  runtime lanes, thread names from telemetry and from gdb `info
+  threads`.
+- A `CrashBundle` joins `{jsonl, gdb-bt, hs_err, resolved offsets}` by
+  pid + wall clock. The splicer answers: *which span was in flight on
+  which lane at the aborting microsecond?*
+- JVM SIGSEGV stays `nostop noprint pass` in gdb (benign HotSpot
+  implicit-null / safepoint). SIGABRT remains the default trap.
+  Explicit `devtool repro --trap-segv` is opt-in and documented as
+  hostile to a live JVM.
+- Qt GUI thread is always its own lane when we can identify it.
+
+### Performance budget (Grok recommendation)
+
+- Session parse of 100k events: &lt; 200 ms cold, incremental tail
+  thereafter.
+- TUI first paint: &lt; 50 ms once the Session is in memory (Gemini's
+  Phase 3 criterion, kept).
+- Live watch: never holds the JSONL write lock; read-only tail.
+
+---
+
+## Track A — Telemetry & Crash Workbench
+
+Folded from `debug_workbench.md`. Owners: deepseek (data / CLI /
+repro), Gemini (TUI). Host integration is Track C.
+
+This track is deliberately **general-purpose** (startup probes, workers,
+native boundaries, RSS, scan pipelines). The gallery-crash workflow is
+the first user, not the only one.
+
+### A1 — Session model + queryable API (deepseek)
+
+**Status:** ✅ Landed (`431163b7`), 19/19 tests.
+
+`Session` over `telemetry-<pid>.jsonl`; truncated-final-line tolerance;
+span-tree reconstruction; `open_session` / `list_sessions`;
+`orphaned_spans` / `in_flight_at` / `overlapping_windows`; analyzer
+report byte-compatible via `debugtool analyze`.
+
+**Follow-on (not yet landed):** consume D4 span IDs when present;
+`CrashBundle` loader; `runtime` lane grouping.
+
+### A2 — CLI + export surface (deepseek)
+
+**Status:** 🔄 In progress (`list` / `analyze` exist; export / prune /
+resolve-offset still to wrap).
+
+- `devtool list | analyze | diff | export | resolve-offset | prune`
+- JSON / CSV / standalone HTML export
+- Sidecar index `~/.image-toolkit/telemetry/index.json`
+
+Acceptance: `export --format json` valid sidecar; HTML opens with no JS
+build; CLI help complete; tests on every subcommand.
+
+### A3 — Visual timeline & TUI (Gemini)
+
+**Status:** 🔄 In progress (design settled; implementation starting).
+
+Four views, now under the Perfetto static density:
+
+1. **Timeline & waterfall** — multi-track lanes, minimap, span tree.
+2. **Crash forensics splicer** — gdb all-thread + `hs_err` + in-flight
+   span + resolved Qt offset.
+3. **Concurrency & overlap inspector** — collision matrix, lock /
+   window overlaps (scanner vs Qt event loop).
+4. **Memory & flame** — RSS step chart; hierarchical flame for pipeline
+   stages.
+
+Live watch is the **btop** face of the same Session (`devtool watch
+[--pid N | --latest]`).
+
+Acceptance: `devtool tui` renders within 50 ms of an in-memory Session;
+orphans / overlaps / crashes navigable; live watch does not flicker;
+headless TUI tests in `debug/test/test_debugtool_tui.py` (path moves
+with the package).
+
+### A4 — Repro harness + crash capture (deepseek + Gemini)
+
+**Status:** ⬜ Planned.
+
+`devtool repro [--scenario NAME] [-- args...]`:
+
+- `IMAGE_TOOLKIT_TELEMETRY=1`
+- gdb wrap (SIGABRT default; hs_err preserved)
+- post-run summary: session path, orphans, overlaps, gdb frames,
+  natural-language hypothesis
+- optional open in `tui --view crash`
+- write `dev/investigations/<name>/`
+
+Works headless in CI and interactively.
+
+### A5 — Cross-session comparison + investigations (deepseek)
+
+**Status:** ⬜ Planned.
+
+- `diff(a, b)`: event-set, timing deltas, new orphans / collisions
+- RSS trajectory across an Investigation
+- portable `manifest.json`
+
+---
+
+## Track B — Analytics, Benchmarks & Interpretability
+
+Folded from `analytics_and_interpretability.md`. These phases become
+**plugins and data producers** for the host, not a second product.
+
+See the research underpinning:
+[`research/Analytics and Codebase Visualization Research.md`](../research/Analytics%20and%20Codebase%20Visualization%20Research.md).
+
+Historical implementation status (unchanged by the fold):
+
+| Layer | Status | Details |
+|-------|--------|---------|
+| **C++ / former Rust math backbone** (`base/` math) | ✅ Complete | 6 modules; 49 unit tests at the time of record |
+| **TypeScript math backbone** (`frontend/src/math/`) | ✅ Complete | 7 modules + `benchmark.ts` |
+| **Benchmark dashboard migration** (Streamlit → Tauri/React) | ✅ Complete | Separate from this host; Tauri/React 7-page dashboard |
+| Phases 1–10 feature implementation | ⬜ Mostly not started | §1.4 DSM-equivalent shipped; rest planned / research |
+| **Phase 11 ASP Benchmark Analytics** | ✅ Complete (2026-07-30) | 11.1–11.5 in ASP evaluator (#123); 11.6–11.10 in `bench_anime_stitch.py` report (#69) |
+| **Phase 12 Benchmark Coverage** | 🔄 Partial (2026-07-30) | 12.1/12.2/12.3/12.5/12.6/12.7 shipped; 12.4 and 12.8 rescoped |
+
+### How Track B attaches to the host
+
+| Phase | Host attachment |
+|---|---|
+| 1 Meta-graph | Future `analytics` plugin, local-web GPU view. Do not block v1. |
+| 2 Loss landscape | Future plugin; scoped to live models (AnimeStitchNet, BiRefNet, LoFTR, DINOv2). Issue #371 retired RLHF/DRL. |
+| 3 ASP CV diagnostics | Plugin + PipelineSession `TelemetrySink`. Rerun desktop + OTel. No website WASM. |
+| 4 Causal / info-theory | Consumes Parquet / JSONL the host already exports. |
+| 5 Flame / coz / VRAM | Shares Track A flame + memory views; do not build a second profiler. |
+| 6 CPG / CodeQL | Research plugin; not v1. |
+| 7 rr / Pernosco | Optional later CrashBundle backend. gdb remains v1. |
+| 8 OTel / high-cardinality | Same emission API as D4 spans; collectors stay optional. |
+| 9 TLA+ / concolic | Research; not v1. |
+| 10 TDA | Research; not v1. |
+| 11 ASP charts | **v1 plugin** — wrap evaluator diagnostics rather than reimplement. |
+| 12 Coverage benches | **v1 plugin** — discover existing `backend/benchmark/bench_*.py` JSON. |
+
+The original Phase 1–12 specification text is preserved below so no
+accepted detail is lost. Section headings keep their historical names
+so citations such as `§12.5` and `Phase 11` still resolve.
+
+---
+
+<!-- TRACK_B_SPEC_START -->
 
 ## **Phase 1: The Interactive Meta-Graph (Codebase Topology)**
 
@@ -809,3 +1157,175 @@ the Android app before there's anything to A/B; (3) add the
 `androidx.benchmark.macro` Gradle module and run it against a connected
 device/emulator, which this sandboxed Linux CI-style environment doesn't
 have.
+
+<!-- TRACK_B_SPEC_END -->
+
+---
+
+## Track C — Host, Plugins, MCP, Local Web
+
+**Status:** ⬜ Planned. Grok-proposed; needs deepseek / Gemini ACK.
+
+This is the new work that makes D2/D6/D7/D11 real. It should start as
+soon as A1 is treated as a library (it already is) — it does **not**
+wait for A3–A5 to finish.
+
+### C1 — Host skeleton + Plugin protocol
+
+- `dev/devtool/host/` as described above.
+- Discover first-party plugins from `dev/devtool/plugins/`.
+- `devtool plugins` lists name, version, surfaces.
+
+### C2 — `debugtool` → `devtool` alias
+
+- `python -m devtool` is canonical.
+- `python -m debugtool` re-exports the same CLI forever (or until a
+  dated deprecation the team agrees).
+- Public API: `from devtool import open_session` works; `debugtool`
+  keeps the same names.
+
+### C3 — Local web viewer
+
+- `devtool web [--pid N | --investigation NAME | --plugin asp_evaluator]`
+- Localhost, ephemeral port, prints the URL.
+- First routes: session HTML timeline (reuse A2 html export), image
+  A/B (paths from an Investigation or ASP session), matplotlib/PNG
+  figures from plugin exports.
+
+### C4 — MCP / stdio server
+
+- `devtool mcp` on stdio (Claude/Codex/Gemini/Grok can attach).
+- Optional `devtool serve --mcp 127.0.0.1:port`.
+- Never binds `0.0.0.0` by default.
+
+### C5 — ASP evaluator plugin
+
+- Adapter around
+  `submodules/ASP/backend/benchmark/evaluation/`.
+- Does not copy UI code. Registers: discover eval sessions, open the
+  existing inspector (`gui` surface), TUI metrics/defects table, web
+  image compare.
+- Human ratings remain the source of truth; the plugin must not invent
+  scores.
+
+### C6 — Benchmarks plugin
+
+- Discover `backend/benchmark/output/` and ASP
+  `backend/benchmark/output/`.
+- Chart runners already covered by Phase 11–12.
+- Emit the access-contract sidecar next to any new plot.
+
+---
+
+## Implementation Status
+
+| Item | Status | Owner | Notes |
+|---|---|---|---|
+| A1 Session + API | ✅ Complete | deepseek | `debug/debugtool`, 19 tests |
+| A2 CLI + export | 🔄 In progress | deepseek | list/analyze landed |
+| A3 TUI (Perfetto + btop live) | 🔄 In progress | Gemini | design settled 2026-08-17 |
+| A4 Repro + gdb | ⬜ Planned | deepseek + Gemini | |
+| A5 Diff + investigations | ⬜ Planned | deepseek | |
+| C1 Host + plugins | ⬜ Planned | TBD (propose: deepseek + Grok) | |
+| C2 devtool alias | ⬜ Planned | deepseek | |
+| C3 Local web | ⬜ Planned | Gemini + Grok | pixels |
+| C4 MCP server | ⬜ Planned | Grok (propose) | D6 |
+| C5 ASP evaluator plugin | ⬜ Planned | TBD | wrap, don't fork |
+| C6 Benchmarks plugin | ⬜ Planned | TBD | |
+| B Phase 11 | ✅ Complete | (historical) | evaluator + report |
+| B Phase 12 | 🔄 Partial | (historical) | 12.4 / 12.8 rescoped |
+| B Phases 1–10 | ⬜ / research | unassigned | do not block v1 |
+| Writer: optional span IDs | ⬜ Planned | Grok or deepseek | D4; backend `telemetry.py` |
+
+Existing foundation:
+
+| Artifact | Status |
+|---|---|
+| `backend/src/core/telemetry.py` | ✅ Complete (IDs not yet) |
+| `debug/telemetry_analyzer.py` | ✅ Shim |
+| `debug/run_with_gdb.sh` | ✅ Complete |
+| `debug/resolve_qt_offset.py` | ✅ Complete |
+| ASP `evaluation/` | ✅ Complete (standalone) |
+| Math backbones | ✅ Complete |
+
+---
+
+## Open Questions for Team Review
+
+Not re-asking Harbinger's locked D1–D15. These are for @deepseek
+@Gemini @Claude (and Harbinger if he wants to override).
+
+1. **Package move timing.** Migrate `debug/debugtool` into `dev/` in
+   the same PR as C1, or keep it in `debug/` until A2/A3 land?
+   *Grok lean:* keep it until C1 exists so Gemini is not blocked.
+2. **Who owns C4 (MCP)?** Grok can take it. Dissent if that collides.
+3. **ASP evaluator plugin vs. leaving the inspector standalone
+   forever.** Harbinger said plugins. Should v1 only *launch* the
+   existing window, or also re-skin a TUI/web subset?
+   *Grok lean:* launch + web image compare in v1; no TUI reskin of the
+   full inspector.
+4. **Investigation git policy.** Manifests + repro scripts committed;
+   JSONL/gdb/hs_err stay in `~/.image-toolkit` unless an author
+   explicitly copies a redacted bundle. Agree?
+5. **btop live vs. Perfetto static — one binary or two renderers?**
+   *Grok lean:* one TUI app, two skins, shared Session.
+6. **Should PipelineSession grow D4 span IDs in the same change as
+   `telemetry.py`?** That would give ASP stages a real parent tree for
+   the flame view. *Grok lean:* yes, behind the existing opt-in
+   telemetry flag, no ASP behavior change.
+
+---
+
+## Team Review Notes
+
+### grok — 2026-08-17 (feasibility pass)
+
+Authored this fold. Recommendations above are marked *Grok lean*. I am
+not starting C1–C6 until the others have a chance to edit this file.
+
+Feasibility cautions:
+
+- Do not put Rerun WASM or Cosmograph in the public website (already
+  locked). The local web viewer is the place for heavy visuals.
+- Do not let Track B Phases 6–10 (CPG, rr/Pernosco, TLA+, TDA) inflate
+  v1. They stay in this doc so they are not lost.
+- `docs/website/public/data/*.json` remains live rating data. This
+  tool must not regenerate or overwrite it as a side effect of a
+  `devtool` command.
+- gdb + JVM: keep SIGSEGV pass-through. I will fight any default that
+  re-breaks login-window startup (Addendum 19).
+
+### (peers append below)
+
+---
+
+## Effort × Impact Matrix
+
+| Item | Effort | Impact | When |
+|---|---|---|---|
+| D4 span IDs in `telemetry.py` | S | High (honest trees) | Before A3 flame is deep |
+| A2 export / prune / resolve-offset | S–M | High | Now (deepseek) |
+| A3 TUI Perfetto + btop | M | High | Now (Gemini) |
+| C1 host + plugin protocol | M | High | After A1 treated as library (already is) |
+| C3 local web | M | High (pixels) | Parallel with A3 |
+| C4 MCP | S–M | High (agents) | Parallel with C1 |
+| C5 ASP evaluator adapter | M | High | After C1 |
+| A4 repro | M | High (crash loop) | After A2 |
+| A5 investigations | S | Medium | After A4 |
+| B3 Rerun + OTel | M | High (ASP debug) | Behind PipelineSession |
+| B1 / B2 / B6–B10 | L / research | Varied | Not v1 |
+
+---
+
+## Anchor Index
+
+| Anchor | Section |
+|---|---|
+| D1–D15 | [Settled Decisions](#settled-decisions-2026-08-17) |
+| Glossary | [Glossary](#glossary) |
+| Contract | [Dual Human / Agent Access Contract](#dual-human--agent-access-contract) |
+| `dev/` | [Home: the `dev/` directory](#home-the-dev-directory) |
+| A1–A5 | [Track A](#track-a--telemetry--crash-workbench) |
+| B / Phase 1–12 | [Track B](#track-b--analytics-benchmarks--interpretability) |
+| C1–C6 | [Track C](#track-c--host-plugins-mcp-local-web) |
+| §11.x / §12.x | Historical analytics headings (folded below / in Track B spec) |

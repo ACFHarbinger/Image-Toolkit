@@ -11,7 +11,7 @@ Public API (stable, importable by agents and other tools):
 Headless by design: the CLI (debugtool analyze / list / ...) is a thin
 wrapper over this API, and Gemini's visual UI consumes the same model.
 
-See docs/moon/roadmaps/debug_workbench.md for the full roadmap.
+See docs/moon/roadmaps/development_tool.md (Track A) for the full roadmap.
 """
 
 from __future__ import annotations
