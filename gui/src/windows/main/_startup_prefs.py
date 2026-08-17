@@ -178,13 +178,24 @@ class _StartupPrefsMixin:
                 # ExtractorTab specific directory update
                 if type(tab).__name__ == "ExtractorTab":
                     tab_any: Any = tab
-                    tab_any.extraction_dir = Path(default_dir) / "Frames"
+                    default_extraction_dir = Path(default_dir) / "Frames"
+                    saved = tab_any._load_last_extraction_dir(str(default_extraction_dir))
+                    if saved and "Downloads/data" in saved:
+                        saved = saved.replace("Downloads/data", "Downloads/Data")
+                    # Respect the user's previously-browsed extraction directory.
+                    # Blindly forcing the default here silently discarded the
+                    # user's chosen output dir on every launch, so GIFs/PNGs
+                    # appeared in the gallery (which reads extraction_dir) but
+                    # not in the user's actual output directory.
+                    if saved and Path(saved).exists():
+                        tab_any.extraction_dir = Path(saved)
+                    else:
+                        tab_any.extraction_dir = default_extraction_dir
                     tab_any.extraction_dir.mkdir(parents=True, exist_ok=True)
-                    tab_any.last_browsed_extraction_dir = tab_any._load_last_extraction_dir(str(tab_any.extraction_dir))
-                    if tab_any.last_browsed_extraction_dir and "Downloads/data" in tab_any.last_browsed_extraction_dir:
-                        tab_any.last_browsed_extraction_dir = tab_any.last_browsed_extraction_dir.replace(
-                            "Downloads/data", "Downloads/Data"
-                        )
+                    tab_any.last_browsed_extraction_dir = str(tab_any.extraction_dir)
+                    tab_any.line_edit_extract_dir.setText(str(tab_any.extraction_dir))
+                    tab_any._refresh_extracted_stems_cache()
+                    tab_any._load_existing_output_images()
 
                 # Apply Extractor seek interval
                 if hasattr(tab, "wheel_seek_ms"):

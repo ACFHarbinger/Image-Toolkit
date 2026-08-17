@@ -381,3 +381,45 @@ class TestExtractorTabQueue:
         for f in (f1, f2, f3):
             assert str(f) in tab.extraction_metadata
             assert str(f) in tab.master_image_paths
+
+    def test_gallery_never_shows_nonexistent_worker_path(self, q_app, tmp_path):
+        """A worker-reported output path that does not exist on disk must not
+        appear as a phantom gallery card (the gallery itself never checks
+        existence)."""
+        tab, video_path = self._make_tab(tmp_path)
+        phantom = str(tab.extraction_dir / "does_not_exist.gif")
+
+        tab._on_queue_item_completed(
+            0,
+            {"status": "success", "output_path": phantom},
+            {"type": "gif", "video_path": str(video_path)},
+        )
+
+        assert phantom not in tab.master_image_paths
+
+    def test_queue_finished_skips_nonexistent_paths(self, q_app, tmp_path):
+        """The finished handler must not pass nonexistent paths into the
+        gallery (which would render a phantom card)."""
+        tab, video_path = self._make_tab(tmp_path)
+        real = tab.extraction_dir / "real.gif"
+        real.write_text("gif")
+        phantom = str(tab.extraction_dir / "phantom.gif")
+
+        # Avoid real thumbnail decode of the dummy gif in this sandbox; we
+        # only assert which paths are forwarded to the gallery.
+        with patch.object(
+            tab.video_subtab, "start_loading_gallery", return_value=None
+        ) as mock_load:
+            tab._on_queue_processing_finished(
+                [
+                    {"status": "success", "output_path": str(real)},
+                    {"status": "success", "output_path": phantom},
+                ]
+            )
+
+        assert mock_load.call_count == 1
+        forwarded = mock_load.call_args[0][0]
+        assert str(real) in forwarded
+        assert phantom not in forwarded
+        # The phantom must never reach the gallery's master path list either.
+        assert phantom not in tab.master_image_paths
