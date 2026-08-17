@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Bugfix: `platform.py` shadow shadowed stdlib `platform` in subprocess
+  workers (2026-08-17, Gemini).** `gui/src/platform.py` was importable as
+  the bare top-level name `platform` because pytest adds `gui/src` to
+  `sys.path` (via `pythonpath = ["src", ...]` in `gui/pyproject.toml`).
+  ARAP solver tests spawn subprocess workers that re-bootstrap pytest; those
+  subprocesses imported the local `platform.py` instead of the stdlib module,
+  causing `uuid.py`'s `platform.system()` call to raise `AttributeError`
+  and crashing all 7 `test_mesh_overlay_editor` / `test_puppeteering_tab`
+  tests. Fixed by renaming `gui/src/platform.py` → `gui/src/qt_platform.py`
+  and updating the 3 tab importers (`animation_tab`, `colorization_tab`,
+  `puppeteering_tab`) and the `test_package.py` test. The new module
+  docstring explains the naming choice to prevent future regressions.
+  Outcome: 233/233 GUI tests pass; 564/564 logic tests pass.
+
 - **Bugfix: GUI test suite regression (2026-08-17, Gemini).** Fixed four
   failing tests in `gui/test/tabs/test_reference_coloring_tab.py` introduced
   by editor slices #53–#57:

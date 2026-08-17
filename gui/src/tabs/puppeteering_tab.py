@@ -38,7 +38,7 @@ from PySide6.QtWidgets import (
 )
 
 from ..elements import MeshOverlayEditor
-from ..platform import DIALOG_OPTS, IMAGE_FILE_DIALOG_FILTER, load_qimage
+from ..qt_platform import DIALOG_OPTS, IMAGE_FILE_DIALOG_FILTER, load_qimage
 
 
 class MangaPuppeteeringTab(QWidget):

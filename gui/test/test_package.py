@@ -5,7 +5,7 @@ from __future__ import annotations
 import sys
 
 import csg_gui
-from csg_gui.platform import IMAGE_FILE_DIALOG_FILTER
+from csg_gui.qt_platform import IMAGE_FILE_DIALOG_FILTER
 
 
 def test_gui_uses_stable_namespace() -> None:

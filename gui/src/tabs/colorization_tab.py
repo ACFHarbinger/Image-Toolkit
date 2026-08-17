@@ -51,7 +51,7 @@ from temporal.quadtree import build_quadtree
 
 from ..elements import MangaCanvasEditor, qimage_to_rgb_array
 from ..helpers import ColorizeWorker, IncrementalColorizeWorker, ReferenceColorizeWorker
-from ..platform import DIALOG_OPTS, IMAGE_FILE_DIALOG_FILTER, load_qimage
+from ..qt_platform import DIALOG_OPTS, IMAGE_FILE_DIALOG_FILTER, load_qimage
 
 # Index in mode_combo -> backend colorize_fn (see ColorizeWorker's
 # colorize_fn parameter). Modes not present here are disabled placeholders.

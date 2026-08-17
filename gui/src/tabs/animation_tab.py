@@ -68,7 +68,7 @@ from ..elements.canvas_editor import (
     rgb_array_to_qpixmap,
 )
 from ..helpers import AnimationColorizeWorker
-from ..platform import DIALOG_OPTS, IMAGE_FILE_DIALOG_FILTER, load_qimage
+from ..qt_platform import DIALOG_OPTS, IMAGE_FILE_DIALOG_FILTER, load_qimage
 
 
 def _qimage_to_gray(image: QImage) -> np.ndarray:

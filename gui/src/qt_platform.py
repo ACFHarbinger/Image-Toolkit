@@ -1,4 +1,11 @@
-"""Small Qt platform helpers owned by the standalone GUI package."""
+"""Small Qt platform helpers owned by the standalone GUI package.
+
+Named ``qt_platform`` rather than ``platform`` to avoid shadowing the stdlib
+``platform`` module: pytest adds ``gui/src`` to ``sys.path`` for tests, which
+would otherwise make this file importable as the top-level ``platform`` module
+in subprocess workers (such as ARAP solver processes), breaking ``uuid``'s
+``platform.system()`` call on Python 3.11.
+"""
 
 from __future__ import annotations
 
