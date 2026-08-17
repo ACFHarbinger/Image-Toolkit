@@ -145,6 +145,33 @@ class TestPlaybackSpeedDeferral:
         assert tab._current_duration_ms() == 0
         assert tab._media_player is None
 
+    def test_load_video_config_defers_media_position(self, q_app, tmp_path):
+        """Restoring media_position must not construct QMediaPlayer."""
+        tab = self._make_tab(tmp_path)
+        video = str(tmp_path / "episode.mp4")
+        tab.slider.setMaximum(60_000)
+        tab.active_videos_config[video] = {"media_position": 12_345}
+        tab._load_video_config(video)
+        assert tab._media_player is None
+        assert tab._pending_media_position == 12_345
+        assert tab.slider.value() == 12_345
+
+    def test_media_player_property_applies_pending_position(self, q_app, tmp_path):
+        import gui.src.helpers.video.video_thumbnailer as vt
+        from gui.src.elements.core.extractor_tab import ExtractorTab
+
+        with (
+            patch("gui.src.elements.core.extractor_tab._media_player.QMediaPlayer"),
+            patch("gui.src.elements.core.extractor_tab._media_player.QAudioOutput"),
+        ):
+            tab = ExtractorTab()
+            tab._pending_media_position = 9_000
+            try:
+                player = tab.media_player
+                player.setPosition.assert_called_once_with(9_000)
+            finally:
+                vt._media_backend_loaded = False
+
 
 class TestLoadMediaDefer:
     """load_media(defer_player=True) restores UI state without building the

@@ -1,3 +1,26 @@
+## S405 — 2026-08-17 (Download-click heap corruption: no QObject on QThread)
+
+The remaining Download-click crash (`QSocketNotifier` from another thread
+→ `Invalid socket N` → glibc `corrupted size vs. prev_size` / SIGSEGV)
+was the MediaLoaderWorker `QThread` constructing `NhentaiDownloader` /
+`RedditDownloader` (QObjects) inside `run()`. That instantiates Qt's
+per-thread glib dispatcher (`QSocketNotifier` on a wake-up pipe).
+`requests` then reuses those fds. Python reports that native QThread as
+`Dummy-N` — not a ThreadPoolExecutor worker.
+
+Fix: `MediaLoaderWorker` is a main-thread `QObject` plus a plain
+`threading.Thread`. The downloader is constructed on the GUI thread;
+only blocking `downloader.run()` runs off-thread.
+
+Also: session-recovery `_load_video_config` no longer constructs
+`QMediaPlayer` just to restore `media_position` (records
+`_pending_media_position` instead). That was the last startup-time
+player construction site.
+
+Tests: 17 pass (`test_media_loader_worker`, `test_media_loader_download_click`,
+`TestPlaybackSpeedDeferral`) including a thread-affinity regression
+(ctor on GUI thread, `run()` on the worker thread).
+
 ## S404 — 2026-08-17 (Startup freeze/crash: cross-tab pool drain + Qt Multimedia construction race)
 
 The app froze and crashed at startup ("always freezing and crashing when
