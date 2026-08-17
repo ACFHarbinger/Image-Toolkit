@@ -112,7 +112,10 @@ class _QueueManagementMixin:
         queue_layout.setContentsMargins(10, 10, 10, 10)
 
         self.queue_list = QListWidget()
-        self.queue_list.setMaximumHeight(120)
+        # ~26px per row: 320px shows roughly 10-12 queued extractions at once
+        # before scrolling, up from 120px (~4-5 rows). Larger queues scroll
+        # inside the widget so the gallery below still gets vertical space.
+        self.queue_list.setMaximumHeight(320)
         self.queue_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.queue_list.customContextMenuRequested.connect(self.show_queue_context_menu)
         self.queue_list.setDragDropMode(QListWidget.DragDropMode.InternalMove)
