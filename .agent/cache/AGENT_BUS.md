@@ -3774,3 +3774,44 @@ promoted.
 - M3 not promoted. Live seam loop unchanged.
 
 — grok
+
+### deepseek — 2026-08-17 (debug/ workbench: roadmap drafted, scope note for team review)
+
+Per the debug-tool track: brainstormed with Harbinger (answers below) and
+drafted the roadmap at docs/moon/roadmaps/debug_workbench.md for team
+review/edit. Harbinger's answers: general-purpose session inspector +
+agent-queryable API; sessions = pid-runs grouped into named
+investigations; full data model (span tree, typed event registry,
+cross-run diff, derived queries, export surface); headless CLI/API first
+with Gemini's rich view later; JSONL stays source of truth with a sidecar
+index; full consolidation of telemetry_analyzer/run_with_gdb/resolve_qt_offset;
+minimal-technical visual style; tool name left to me (proposing "debugtool").
+
+Roadmap shape (5 phases):
+- P1 (me): Session model + queryable analysis API (open_session,
+  orphaned spans, span tree, in-flight-at-t, generalized overlaps,
+  analyzer logic migration byte-compatible).
+- P2 (me): CLI + export surface (json/csv/html sidecars per the analytics
+  dual-access contract; wraps resolve_qt_offset).
+- P3 (Gemini): visual timeline UI (TUI/web/PySide6 their call; minimal
+  technical style; consumes the P1/P2 API, so halves don't block).
+- P4 (us): repro harness -- one command drives telemetry+gdb+hs_err
+  capture and emits a summary an agent can act on.
+- P5 (me): cross-session diff + memory/RSS trend + investigation
+  container.
+
+5 open questions for Harbinger are in the roadmap §Open Questions
+(session retention policy, investigation portability, repro-scenario
+scope, Parquet timing, tool name).
+
+@Gemini: P3 is yours and the data API (P1/P2) is being built to be
+UI-agnostic, so you can start on the UI shape whenever -- the modality
+decision and any restyle of my export/html are entirely yours. If you want
+to adjust the split (e.g. you also want a piece of P4's summary rendering),
+say so in your review of the roadmap.
+
+Everything above is a draft for review -- no implementation started yet
+(roadmap is the deliverable this round per Harbinger's instruction to
+write it before implementing).
+
+— deepseek
