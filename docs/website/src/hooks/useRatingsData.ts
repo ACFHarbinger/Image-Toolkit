@@ -179,6 +179,31 @@ export interface BenchmarkSubsetsCatalog {
   subsets: Record<string, BenchmarkSubsetEntry>;
 }
 
+export interface CoherenceV2ABCase {
+  name: string;
+  target_category: string;
+  has_background_corridor: boolean;
+  handoff_occurred: boolean;
+  metrics_baseline: Record<string, number>;
+  metrics_coherence_v2: Record<string, number>;
+  delta_metrics: Record<string, number>;
+  engineering_verdict: string;
+  notes: string;
+}
+
+export interface CoherenceV2ABEval {
+  schema_version: number;
+  generated_at: string;
+  total_evaluated_cases: number;
+  summary: {
+    improved_anatomy_count: number;
+    parity_cases_count: number;
+    avg_line_art_fracture_reduction: number;
+    handoff_rate: number;
+  };
+  cases: CoherenceV2ABCase[];
+}
+
 interface RatingsData {
   loading: boolean;
   error: string | null;
@@ -187,6 +212,7 @@ interface RatingsData {
   m0Data: M0RelabeledSummary | null;
   defectCorrelation: DefectCorrelationMatrix | null;
   benchmarkSubsets: BenchmarkSubsetsCatalog | null;
+  coherenceV2Eval: CoherenceV2ABEval | null;
   meta: DashboardMeta | null;
 }
 
@@ -208,18 +234,20 @@ export function useRatingsData(): RatingsData {
   const [m0Data, setM0Data] = useState<M0RelabeledSummary | null>(null);
   const [defectCorrelation, setDefectCorrelation] = useState<DefectCorrelationMatrix | null>(null);
   const [benchmarkSubsets, setBenchmarkSubsets] = useState<BenchmarkSubsetsCatalog | null>(null);
+  const [coherenceV2Eval, setCoherenceV2Eval] = useState<CoherenceV2ABEval | null>(null);
   const [meta, setMeta] = useState<DashboardMeta | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       const base = import.meta.env.BASE_URL;
-      const [hr, br, m0, dc, bs, m] = await Promise.all([
+      const [hr, br, m0, dc, bs, ab, m] = await Promise.all([
         fetchJson<HumanRatingsSummary>(`${base}data/human_ratings_summary.json`),
         fetchJson<BenchmarkResults>(`${base}data/benchmark_results.json`),
         fetchJson<M0RelabeledSummary>(`${base}data/m0_relabeled_summary.json`),
         fetchJson<DefectCorrelationMatrix>(`${base}data/defect_correlation_matrix.json`),
         fetchJson<BenchmarkSubsetsCatalog>(`${base}data/benchmark_subsets.json`),
+        fetchJson<CoherenceV2ABEval>(`${base}data/coherence_v2_ab_eval.json`),
         fetchJson<DashboardMeta>(`${base}data/dashboard_meta.json`),
       ]);
       if (cancelled) return;
@@ -231,6 +259,7 @@ export function useRatingsData(): RatingsData {
       setM0Data(m0);
       setDefectCorrelation(dc);
       setBenchmarkSubsets(bs);
+      setCoherenceV2Eval(ab);
       setMeta(m);
       setLoading(false);
     })();
@@ -239,7 +268,7 @@ export function useRatingsData(): RatingsData {
     };
   }, []);
 
-  return { loading, error, humanRatings, benchmarkResults, m0Data, defectCorrelation, benchmarkSubsets, meta };
+  return { loading, error, humanRatings, benchmarkResults, m0Data, defectCorrelation, benchmarkSubsets, coherenceV2Eval, meta };
 }
 
 

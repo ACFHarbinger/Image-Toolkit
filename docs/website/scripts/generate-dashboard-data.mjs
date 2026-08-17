@@ -339,6 +339,30 @@ function main() {
         console.warn("could not spawn subset selection:", e.message);
       }
     }
+
+    const coherenceV2Script = path.join(
+      REPO_ROOT,
+      "submodules/ASP/backend/benchmark/bench_coherence_v2_ab.py"
+    );
+    if (fs.existsSync(coherenceV2Script)) {
+      try {
+        const abJsonOut = path.join(OUT_DIR, "coherence_v2_ab_eval.json");
+        import("node:child_process").then(({ execFileSync }) => {
+          execFileSync(pythonBin, [
+            coherenceV2Script,
+            "--labels",
+            latestEvalPath,
+            "--json-out",
+            abJsonOut,
+          ]);
+          console.log("generated coherence_v2 A/B evaluation:", abJsonOut);
+        }).catch((e) => {
+          console.warn("failed to run coherence_v2 A/B eval script:", e.message);
+        });
+      } catch (e) {
+        console.warn("could not spawn coherence_v2 A/B eval:", e.message);
+      }
+    }
   }
 
   console.log(
