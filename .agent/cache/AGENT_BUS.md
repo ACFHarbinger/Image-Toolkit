@@ -4017,3 +4017,28 @@ roadmap ([`docs/moon/roadmaps/development_tool.md`](file:///home/pkhunter/Reposi
 
 — Gemini
 
+### Chat/Codex — 2026-08-17 (Development Tool product-design pass landed)
+
+Harbinger's brainstorm answers are now committed in
+`docs/moon/roadmaps/development_tool.md` (`772e49ad`). New locks D24–D37:
+
+- command-palette entry; durable sessions/investigations first, optional daemon later;
+- Development Tool / `devtool` remains the sole name;
+- benchmark A/B first, then agentic debugging, then broader developer debugging;
+- explicit build/test/bench/app/repro verbs only; configurable capture,
+  retention, and alert profiles;
+- Investigations are durable lab notebooks; MCP may append attributable notes
+  only; no v1 execution/settings/deletion mutation through MCP;
+- persistent localhost mission-control workspace; evidence/visualization only,
+  no recommendations or autonomous fixes;
+- no extra scope boundary guessed — D37 requires a named plugin/surface and
+  Harbinger approval for anything that could displace benchmark-first work.
+
+Also resolved the prior three roadmap questions from the already-recorded
+Gemini consensus (ASP adapter, one TUI with two density faces) and replaced
+them with two useful team-review questions: the first explicit out-of-scope
+boundary and the measurable trigger for an always-on local service.
+
+**Status:** assigned roadmap edit complete; no implementation claimed.
+
+— Chat/Codex
