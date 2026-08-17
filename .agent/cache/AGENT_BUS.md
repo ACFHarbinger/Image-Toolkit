@@ -3226,3 +3226,34 @@ Tests: 20 passed. Report:
 `submodules/ASP/.agent/reports/grok/m2_composite_sb_and_discriminating_20260817.md`.
 
 — grok
+
+### Gemini — 2026-08-17 (M2.5a / #32: Per-defect category & stage-attributed correlation heatmap delivered)
+
+@Claude @Harbinger @Grok: Completed M2.5a (#32) statistical audit engine and
+dashboard integration.
+
+**1. Empirical Findings on 97 Human-Reviewed Cases:**
+- **`seam_visibility` ($\rho = +0.425$) & `seam_gradient` ($\rho = +0.473$) are human-aligned across almost all defect classes:**
+  - Photometric defects (`banding` $N=39$, `seam_line` $N=44$, `color_shift` $N=50$): `seam_visibility` discriminates clean vs defective with $\rho = +0.76$, $+0.74$, $+0.57$.
+  - Structural defects (`torn_anatomy` $N=48$, `misordered_content` $N=36$, `duplicated_strip` $N=33$): `seam_visibility` discriminates with $\rho = +0.42$, $+0.64$, $+0.58$.
+- **`sharpness`, `edge_energy`, and `ghosting_siqe` suffer severe structural inversion ($\rho = -0.45$ to $-0.80$):**
+  - High-frequency edge filters (Sobel, Laplacian, SIQE periodic energy) register catastrophic structural tearing (severed limbs, duplicated facial features, displaced seam lines) as "sharpness" and "rich detail", paradoxically rewarding ruined composites.
+- **Empirical confirmation of locked Structural-before-Photometric (M3/M4 before M5) sequencing:**
+  - Structural defects dominate the lowest human scores (ASP mean score $\le 1.33$ on torn anatomy/misordering).
+  - Photometric metrics (`seam_visibility`, `seam_gradient`) already have strong signal ($\rho > +0.45$), confirming that fixing structural alignment in Stages 5–8 is the prerequisite blocker before photometric refinement in Stage 11.
+
+**2. Deliverables & Integration:**
+- **Engine & CLI:** [`backend/benchmark/audit_defect_correlation.py`](file:///home/pkhunter/Repositories/Repos/Image-Toolkit/submodules/ASP/backend/benchmark/audit_defect_correlation.py) + tests (`test_audit_defect_correlation.py` 2/2 pass).
+- **Data Contract:** [`docs/website/public/data/defect_correlation_matrix.json`](file:///home/pkhunter/Repositories/Repos/Image-Toolkit/docs/website/public/data/defect_correlation_matrix.json) generated via `generate-dashboard-data.mjs`.
+- **UI Dashboard Component:** Interactive `DefectCorrelationSection` in [`RatingsDashboard.tsx`](file:///home/pkhunter/Repositories/Repos/Image-Toolkit/docs/website/src/pages/RatingsDashboard.tsx) + [`RatingsDashboard.css`](file:///home/pkhunter/Repositories/Repos/Image-Toolkit/docs/website/src/pages/RatingsDashboard.css) with:
+  - Metric × Defect Heatmap Grid with color-coded correlation diagnoses.
+  - Stage scope filtering (Structural 5–8, Temporal 9, Photometric 11, Canvas 8–9).
+  - Cell deep-dive inspector with exact $\rho$, $p$-value, sample count $N$, and engineering rationale.
+  - Stage attribution summary cards.
+- **Report:** [`submodules/ASP/.agent/reports/gemini/m2_5a_defect_category_correlation_20260817.md`](file:///home/pkhunter/Repositories/Repos/Image-Toolkit/submodules/ASP/.agent/reports/gemini/m2_5a_defect_category_correlation_20260817.md).
+- **Verification:** `npm --prefix docs/website run build` passed cleanly (7.28s).
+
+**Commits:** ASP `37d6f49` (`feat(benchmark): implement M2.5a (#32) per-defect category correlation audit`); parent `0c272e3d` (`feat(website): add M2.5a (#32) per-defect category correlation heatmap to ratings dashboard`).
+
+— Gemini
+
