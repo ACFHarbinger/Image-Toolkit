@@ -3,182 +3,226 @@
   "n_crop_loss_increased": 0,
   "known_good_crop_ok": true,
   "passes_crop_gate": true,
+  "scale": 1.0,
+  "max_frames": 8,
   "note": "Compositor-only A/B on subsampled frames + median-dy affines. Human ratings still describe the published default path, not v2.",
   "cases": [
     {
       "name": "asp_test04",
       "role": "catastrophe",
-      "n_frames": 6,
-      "scale": 0.25,
-      "dy": 15.0,
+      "n_frames": 8,
+      "scale": 1.0,
+      "dy": 60.0,
       "default": {
-        "coverage": 0.986,
-        "content_area": 161293.0,
-        "width": 473.0,
-        "height": 341.0,
-        "line_art_fracture": 48.45,
-        "seam_visibility": 88.98
+        "coverage": 0.9979,
+        "content_area": 2807728.0,
+        "width": 1892.0,
+        "height": 1484.0,
+        "line_art_fracture": 48.48,
+        "seam_visibility": 24.17
       },
       "coherence_v2": {
-        "coverage": 0.9941,
-        "content_area": 161293.0,
-        "width": 473.0,
-        "height": 341.0,
-        "line_art_fracture": 53.82,
-        "seam_visibility": 16.49
+        "coverage": 0.9919,
+        "content_area": 2807728.0,
+        "width": 1892.0,
+        "height": 1484.0,
+        "line_art_fracture": 40.11,
+        "seam_visibility": 30.0
       },
       "crop_loss_increased": false,
-      "human_labels_apply_to": "published_default_path_only"
+      "human_labels_apply_to": "published_default_path_only",
+      "renders": {
+        "default_png": "docs/website/public/data/coherence_v2/asp_test04_default.png",
+        "coherence_v2_png": "docs/website/public/data/coherence_v2/asp_test04_v2.png",
+        "default_url": "/data/coherence_v2/asp_test04_default.png",
+        "coherence_v2_url": "/data/coherence_v2/asp_test04_v2.png"
+      }
     },
     {
       "name": "asp_test06",
       "role": "catastrophe",
-      "n_frames": 6,
-      "scale": 0.25,
-      "dy": 18.66,
+      "n_frames": 8,
+      "scale": 1.0,
+      "dy": 74.64,
       "default": {
         "coverage": 1.0,
-        "content_area": 174720.0,
-        "width": 480.0,
-        "height": 364.0,
-        "line_art_fracture": 61.48,
-        "seam_visibility": 119.09
+        "content_area": 3077760.0,
+        "width": 1920.0,
+        "height": 1603.0,
+        "line_art_fracture": 46.93,
+        "seam_visibility": 92.41
       },
       "coherence_v2": {
         "coverage": 1.0,
-        "content_area": 174720.0,
-        "width": 480.0,
-        "height": 364.0,
-        "line_art_fracture": 54.09,
-        "seam_visibility": 133.21
+        "content_area": 3077760.0,
+        "width": 1920.0,
+        "height": 1603.0,
+        "line_art_fracture": 41.21,
+        "seam_visibility": 142.83
       },
       "crop_loss_increased": false,
-      "human_labels_apply_to": "published_default_path_only"
+      "human_labels_apply_to": "published_default_path_only",
+      "renders": {
+        "default_png": "docs/website/public/data/coherence_v2/asp_test06_default.png",
+        "coherence_v2_png": "docs/website/public/data/coherence_v2/asp_test06_v2.png",
+        "default_url": "/data/coherence_v2/asp_test06_default.png",
+        "coherence_v2_url": "/data/coherence_v2/asp_test06_v2.png"
+      }
     },
     {
       "name": "asp_test07",
       "role": "catastrophe",
-      "n_frames": 6,
-      "scale": 0.25,
-      "dy": 11.22,
+      "n_frames": 8,
+      "scale": 1.0,
+      "dy": 44.89,
       "default": {
-        "coverage": 0.9497,
-        "content_area": 106836.0,
-        "width": 348.0,
-        "height": 307.0,
-        "line_art_fracture": 62.16,
-        "seam_visibility": 51.35
+        "coverage": 0.9377,
+        "content_area": 1866566.0,
+        "width": 1394.0,
+        "height": 1339.0,
+        "line_art_fracture": 41.71,
+        "seam_visibility": 99.14
       },
       "coherence_v2": {
-        "coverage": 0.9459,
-        "content_area": 106836.0,
-        "width": 348.0,
-        "height": 307.0,
-        "line_art_fracture": 59.31,
-        "seam_visibility": 58.89
+        "coverage": 0.9504,
+        "content_area": 1866566.0,
+        "width": 1394.0,
+        "height": 1339.0,
+        "line_art_fracture": 37.6,
+        "seam_visibility": 54.43
       },
       "crop_loss_increased": false,
-      "human_labels_apply_to": "published_default_path_only"
+      "human_labels_apply_to": "published_default_path_only",
+      "renders": {
+        "default_png": "docs/website/public/data/coherence_v2/asp_test07_default.png",
+        "coherence_v2_png": "docs/website/public/data/coherence_v2/asp_test07_v2.png",
+        "default_url": "/data/coherence_v2/asp_test07_default.png",
+        "coherence_v2_url": "/data/coherence_v2/asp_test07_v2.png"
+      }
     },
     {
       "name": "asp_test12",
       "role": "catastrophe",
-      "n_frames": 6,
-      "scale": 0.25,
-      "dy": 17.1,
+      "n_frames": 8,
+      "scale": 1.0,
+      "dy": 68.39,
       "default": {
-        "coverage": 0.9771,
-        "content_area": 170880.0,
-        "width": 480.0,
-        "height": 356.0,
-        "line_art_fracture": 49.3,
-        "seam_visibility": 68.46
+        "coverage": 0.9925,
+        "content_area": 2993280.0,
+        "width": 1920.0,
+        "height": 1559.0,
+        "line_art_fracture": 33.44,
+        "seam_visibility": 35.45
       },
       "coherence_v2": {
-        "coverage": 0.9707,
-        "content_area": 170880.0,
-        "width": 480.0,
-        "height": 356.0,
-        "line_art_fracture": 50.36,
-        "seam_visibility": 66.0
+        "coverage": 0.977,
+        "content_area": 2993280.0,
+        "width": 1920.0,
+        "height": 1559.0,
+        "line_art_fracture": 24.85,
+        "seam_visibility": 65.05
       },
       "crop_loss_increased": false,
-      "human_labels_apply_to": "published_default_path_only"
+      "human_labels_apply_to": "published_default_path_only",
+      "renders": {
+        "default_png": "docs/website/public/data/coherence_v2/asp_test12_default.png",
+        "coherence_v2_png": "docs/website/public/data/coherence_v2/asp_test12_v2.png",
+        "default_url": "/data/coherence_v2/asp_test12_default.png",
+        "coherence_v2_url": "/data/coherence_v2/asp_test12_v2.png"
+      }
     },
     {
       "name": "asp_test14",
       "role": "catastrophe",
-      "n_frames": 6,
-      "scale": 0.25,
-      "dy": 15.5,
+      "n_frames": 8,
+      "scale": 1.0,
+      "dy": 62.0,
       "default": {
-        "coverage": 0.9953,
-        "content_area": 167040.0,
-        "width": 480.0,
-        "height": 348.0,
-        "line_art_fracture": 59.45,
-        "seam_visibility": 43.22
+        "coverage": 0.9984,
+        "content_area": 2906880.0,
+        "width": 1920.0,
+        "height": 1514.0,
+        "line_art_fracture": 45.25,
+        "seam_visibility": 30.29
       },
       "coherence_v2": {
-        "coverage": 0.9946,
-        "content_area": 167040.0,
-        "width": 480.0,
-        "height": 348.0,
-        "line_art_fracture": 79.73,
-        "seam_visibility": 35.71
+        "coverage": 0.9976,
+        "content_area": 2906880.0,
+        "width": 1920.0,
+        "height": 1514.0,
+        "line_art_fracture": 39.25,
+        "seam_visibility": 11.45
       },
       "crop_loss_increased": false,
-      "human_labels_apply_to": "published_default_path_only"
+      "human_labels_apply_to": "published_default_path_only",
+      "renders": {
+        "default_png": "docs/website/public/data/coherence_v2/asp_test14_default.png",
+        "coherence_v2_png": "docs/website/public/data/coherence_v2/asp_test14_v2.png",
+        "default_url": "/data/coherence_v2/asp_test14_default.png",
+        "coherence_v2_url": "/data/coherence_v2/asp_test14_v2.png"
+      }
     },
     {
       "name": "asp_test15",
       "role": "catastrophe",
-      "n_frames": 6,
-      "scale": 0.25,
-      "dy": 18.48,
+      "n_frames": 8,
+      "scale": 1.0,
+      "dy": 73.91,
       "default": {
-        "coverage": 0.9836,
-        "content_area": 194400.0,
-        "width": 480.0,
-        "height": 405.0,
-        "line_art_fracture": 50.51,
-        "seam_visibility": 163.99
+        "coverage": 0.975,
+        "content_area": 3114240.0,
+        "width": 1920.0,
+        "height": 1622.0,
+        "line_art_fracture": 37.1,
+        "seam_visibility": 40.66
       },
       "coherence_v2": {
-        "coverage": 0.9659,
-        "content_area": 194400.0,
-        "width": 480.0,
-        "height": 405.0,
-        "line_art_fracture": 57.01,
-        "seam_visibility": 38.27
+        "coverage": 0.9658,
+        "content_area": 3114240.0,
+        "width": 1920.0,
+        "height": 1622.0,
+        "line_art_fracture": 30.49,
+        "seam_visibility": 34.42
       },
       "crop_loss_increased": false,
-      "human_labels_apply_to": "published_default_path_only"
+      "human_labels_apply_to": "published_default_path_only",
+      "renders": {
+        "default_png": "docs/website/public/data/coherence_v2/asp_test15_default.png",
+        "coherence_v2_png": "docs/website/public/data/coherence_v2/asp_test15_v2.png",
+        "default_url": "/data/coherence_v2/asp_test15_default.png",
+        "coherence_v2_url": "/data/coherence_v2/asp_test15_v2.png"
+      }
     },
     {
       "name": "asp_test96",
       "role": "known_good",
-      "n_frames": 6,
-      "scale": 0.25,
-      "dy": 15.07,
+      "n_frames": 8,
+      "scale": 1.0,
+      "dy": 60.27,
       "default": {
-        "coverage": 0.9999,
-        "content_area": 166080.0,
-        "width": 480.0,
-        "height": 346.0,
-        "line_art_fracture": 64.82,
-        "seam_visibility": 166.51
+        "coverage": 1.0,
+        "content_area": 2883840.0,
+        "width": 1920.0,
+        "height": 1502.0,
+        "line_art_fracture": 27.01,
+        "seam_visibility": 88.65
       },
       "coherence_v2": {
-        "coverage": 0.9998,
-        "content_area": 166080.0,
-        "width": 480.0,
-        "height": 346.0,
-        "line_art_fracture": 39.26,
-        "seam_visibility": 218.92
+        "coverage": 0.9997,
+        "content_area": 2883840.0,
+        "width": 1920.0,
+        "height": 1502.0,
+        "line_art_fracture": 18.66,
+        "seam_visibility": 226.52
       },
       "crop_loss_increased": false,
-      "human_labels_apply_to": "published_default_path_only"
+      "human_labels_apply_to": "published_default_path_only",
+      "renders": {
+        "default_png": "docs/website/public/data/coherence_v2/asp_test96_default.png",
+        "coherence_v2_png": "docs/website/public/data/coherence_v2/asp_test96_v2.png",
+        "default_url": "/data/coherence_v2/asp_test96_default.png",
+        "coherence_v2_url": "/data/coherence_v2/asp_test96_v2.png"
+      }
     }
   ]
 }

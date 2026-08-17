@@ -1,3 +1,9 @@
+## S398 — 2026-08-17 (M3: full-res red-set A/B renders)
+
+Full-resolution default vs coherence_v2 PNGs for
+04/06/07/12/14/15/96 in `docs/website/public/data/coherence_v2/`. Crop gate
+still 0/7. GhostGate product-default telemetry-only confirmed (23 tests).
+
 ## S397 — 2026-08-17 (M3: exclusive-keep passes crop-loss gate)
 
 coherence_v2 now keeps exclusive FG with its source. Red-set re-screen:
