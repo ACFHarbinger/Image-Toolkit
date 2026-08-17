@@ -1,3 +1,12 @@
+## S400 — 2026-08-17 (Development Tool product direction)
+
+The canonical Development Tool roadmap now records Harbinger's benchmark-first
+product direction: command-palette entry, durable lab-notebook investigations,
+persistent localhost mission-control workspace, explicit runner verbs,
+configurable capture/retention/alerts, evidence-only assistance, and narrowly
+scoped append-only MCP investigation notes. See
+`docs/moon/roadmaps/development_tool.md` decisions D24–D37.
+
 ## S399 — 2026-08-17 (Development Tool roadmap fold)
 
 Single source of truth for developer tooling:
