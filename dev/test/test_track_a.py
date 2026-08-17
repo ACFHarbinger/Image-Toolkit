@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from debugtool import Session
 from devtool import (
     WorkspaceStore,
     diff_sessions,
@@ -13,7 +14,6 @@ from devtool import (
     rss_trajectory,
 )
 from devtool.host.index import build_index, write_index
-from debugtool import Session
 
 
 def _write_session(path: Path, events: list) -> Path:
@@ -109,7 +109,10 @@ class TestManifest:
 
 class TestResolveOffset:
     def test_extract_frames_from_hs_err(self, tmp_path):
-        from debug.resolve_qt_offset import extract_frames_from_hs_err
+        try:
+            from resolve_qt_offset import extract_frames_from_hs_err
+        except ImportError:
+            from debug.resolve_qt_offset import extract_frames_from_hs_err
 
         hs = tmp_path / "hs_err.log"
         hs.write_text("Problematic frame: C [libQt6Core.so.6+0x1e74d5]\n")

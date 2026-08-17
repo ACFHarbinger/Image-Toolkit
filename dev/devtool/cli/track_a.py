@@ -69,7 +69,10 @@ def cmd_diff(args: Any) -> int:
 # ---------------------------------------------------------------------------
 
 def _print_resolved(lib: str, offset: int) -> None:
-    from debug.resolve_qt_offset import find_library, resolve
+    try:
+        from resolve_qt_offset import find_library, resolve
+    except ImportError:
+        from debug.resolve_qt_offset import find_library, resolve
 
     try:
         lib_path = find_library(lib)
@@ -85,7 +88,10 @@ def _print_resolved(lib: str, offset: int) -> None:
 
 
 def cmd_resolve_offset(args: Any) -> int:
-    from debug.resolve_qt_offset import extract_frames_from_hs_err
+    try:
+        from resolve_qt_offset import extract_frames_from_hs_err
+    except ImportError:
+        from debug.resolve_qt_offset import extract_frames_from_hs_err
 
     if args.hs_err:
         frames = extract_frames_from_hs_err(Path(args.hs_err))
@@ -121,14 +127,36 @@ def cmd_prune(args: Any) -> int:
 # ---------------------------------------------------------------------------
 
 def cmd_repro(args: Any) -> int:
-    """Run a command under telemetry (optionally gdb), then write an
+    """Run a command or named scenario under telemetry (optionally gdb), then write an
     investigation summarizing the run (session path, orphans, overlaps,
-    gdb frames)."""
+    natural-language hypothesis, gdb frames)."""
+    from ..host.scenarios import get_scenario, list_scenarios
     from ..host.store import WorkspaceStore
 
+    if getattr(args, "list_scenarios", False):
+        print("Available Reproduction Scenarios:")
+        for s in list_scenarios():
+            tags_str = f"[{', '.join(s.tags)}]" if s.tags else ""
+            print(f"  {s.name:22} {tags_str:20} {s.description}")
+            print(f"    cmd: {' '.join(s.command)}")
+        return 0
+
     cmd = list(args.cmd)
+    if cmd and cmd[0] == "--":
+        cmd = cmd[1:]
+
+    scenario_name = args.scenario
+    if not cmd and scenario_name:
+        sc = get_scenario(scenario_name)
+        if sc:
+            cmd = sc.command
+            print(f"Running catalog scenario '{scenario_name}': {' '.join(cmd)}")
+        else:
+            print(f"Unknown scenario '{scenario_name}'. Use 'devtool repro --list-scenarios' to list.", file=sys.stderr)
+            return 2
+
     if not cmd:
-        print("repro requires a command (devtool repro -- CMD ARGS...)", file=sys.stderr)
+        print("repro requires a command or scenario (devtool repro --scenario <NAME> OR devtool repro -- CMD ARGS...)", file=sys.stderr)
         return 2
 
     env = os.environ.copy()
@@ -154,7 +182,7 @@ def cmd_repro(args: Any) -> int:
 
     root = Path(args.workspace) if getattr(args, "workspace", None) else None
     store = WorkspaceStore(root=root)
-    name = args.scenario or f"repro-{int(time.time())}"
+    name = scenario_name or f"repro-{int(time.time())}"
     try:
         inv = store.create_investigation(name)
     except FileExistsError:
@@ -201,7 +229,10 @@ def _run_under_gdb(cmd: List[str], env: dict) -> str:
 
 
 def _summarize(session_path: Optional[Path], exit_code: int, gdb_output: str) -> str:
+    from ..queries.hypothesis import generate_hypothesis
+
     lines = [f"repro exit={exit_code}"]
+    session = None
     if session_path is None:
         lines.append("no new telemetry session written")
     else:
@@ -216,6 +247,12 @@ def _summarize(session_path: Optional[Path], exit_code: int, gdb_output: str) ->
         lines.append(f"  overlapping_windows={len(overlaps)}")
     if gdb_output and gdb_output.strip() and "gdb not installed" not in gdb_output:
         lines.append("gdb backtrace captured")
+
+    # Natural-language root cause hypothesis
+    hypothesis = generate_hypothesis(session, exit_code, gdb_output)
+    lines.append("\nHypothesis & Diagnosis:")
+    lines.append(hypothesis)
+
     return "\n".join(lines)
 
 
@@ -243,7 +280,8 @@ def add_parsers(sub) -> None:
     p_prune.add_argument("--keep", type=int, default=20, help="Keep the newest N (default 20)")
 
     p_repro = sub.add_parser("repro", help="Run a command under telemetry and summarize (A4)")
-    p_repro.add_argument("--scenario", default=None, help="Investigation name")
+    p_repro.add_argument("--scenario", default=None, help="Scenario or investigation name")
+    p_repro.add_argument("--list-scenarios", action="store_true", help="List all catalogued reproduction scenarios")
     p_repro.add_argument("--gdb", action="store_true", help="Run under gdb (SIGABRT stop)")
     p_repro.add_argument("cmd", nargs=argparse.REMAINDER, help="Command + args to run")
     return None
