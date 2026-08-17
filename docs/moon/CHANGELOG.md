@@ -1,3 +1,8 @@
+## S397 — 2026-08-17 (M3: exclusive-keep passes crop-loss gate)
+
+coherence_v2 now keeps exclusive FG with its source. Red-set re-screen:
+0/7 crop-loss, including test96. Still default-off. Sidecar updated.
+
 ## S396 — 2026-08-17 (M3: coherence_v2 red-set crop-loss screen fails)
 
 Compositor A/B on the structural red set: v2 increases crop loss on 6/7

@@ -1,8 +1,8 @@
 {
   "n": 7,
-  "n_crop_loss_increased": 6,
-  "known_good_crop_ok": false,
-  "passes_crop_gate": false,
+  "n_crop_loss_increased": 0,
+  "known_good_crop_ok": true,
+  "passes_crop_gate": true,
   "note": "Compositor-only A/B on subsampled frames + median-dy affines. Human ratings still describe the published default path, not v2.",
   "cases": [
     {
@@ -20,14 +20,14 @@
         "seam_visibility": 88.98
       },
       "coherence_v2": {
-        "coverage": 0.8393,
-        "content_area": 142373.0,
+        "coverage": 0.9941,
+        "content_area": 161293.0,
         "width": 473.0,
         "height": 341.0,
-        "line_art_fracture": 40.48,
-        "seam_visibility": 18.46
+        "line_art_fracture": 53.82,
+        "seam_visibility": 16.49
       },
-      "crop_loss_increased": true,
+      "crop_loss_increased": false,
       "human_labels_apply_to": "published_default_path_only"
     },
     {
@@ -45,14 +45,14 @@
         "seam_visibility": 119.09
       },
       "coherence_v2": {
-        "coverage": 0.7445,
-        "content_area": 130080.0,
+        "coverage": 1.0,
+        "content_area": 174720.0,
         "width": 480.0,
         "height": 364.0,
-        "line_art_fracture": 60.82,
-        "seam_visibility": 143.27
+        "line_art_fracture": 54.09,
+        "seam_visibility": 133.21
       },
-      "crop_loss_increased": true,
+      "crop_loss_increased": false,
       "human_labels_apply_to": "published_default_path_only"
     },
     {
@@ -70,7 +70,7 @@
         "seam_visibility": 51.35
       },
       "coherence_v2": {
-        "coverage": 0.9451,
+        "coverage": 0.9459,
         "content_area": 106836.0,
         "width": 348.0,
         "height": 307.0,
@@ -95,14 +95,14 @@
         "seam_visibility": 68.46
       },
       "coherence_v2": {
-        "coverage": 0.8468,
-        "content_area": 156000.0,
+        "coverage": 0.9707,
+        "content_area": 170880.0,
         "width": 480.0,
         "height": 356.0,
-        "line_art_fracture": 35.69,
-        "seam_visibility": 53.65
+        "line_art_fracture": 50.36,
+        "seam_visibility": 66.0
       },
-      "crop_loss_increased": true,
+      "crop_loss_increased": false,
       "human_labels_apply_to": "published_default_path_only"
     },
     {
@@ -120,14 +120,14 @@
         "seam_visibility": 43.22
       },
       "coherence_v2": {
-        "coverage": 0.8844,
-        "content_area": 159840.0,
+        "coverage": 0.9946,
+        "content_area": 167040.0,
         "width": 480.0,
         "height": 348.0,
-        "line_art_fracture": 37.25,
-        "seam_visibility": 42.45
+        "line_art_fracture": 79.73,
+        "seam_visibility": 35.71
       },
-      "crop_loss_increased": true,
+      "crop_loss_increased": false,
       "human_labels_apply_to": "published_default_path_only"
     },
     {
@@ -145,14 +145,14 @@
         "seam_visibility": 163.99
       },
       "coherence_v2": {
-        "coverage": 0.9278,
-        "content_area": 185760.0,
+        "coverage": 0.9659,
+        "content_area": 194400.0,
         "width": 480.0,
         "height": 405.0,
-        "line_art_fracture": 40.25,
-        "seam_visibility": 40.81
+        "line_art_fracture": 57.01,
+        "seam_visibility": 38.27
       },
-      "crop_loss_increased": true,
+      "crop_loss_increased": false,
       "human_labels_apply_to": "published_default_path_only"
     },
     {
@@ -170,14 +170,14 @@
         "seam_visibility": 166.51
       },
       "coherence_v2": {
-        "coverage": 0.783,
-        "content_area": 130080.0,
+        "coverage": 0.9998,
+        "content_area": 166080.0,
         "width": 480.0,
         "height": 346.0,
-        "line_art_fracture": 47.14,
-        "seam_visibility": 183.49
+        "line_art_fracture": 39.26,
+        "seam_visibility": 218.92
       },
-      "crop_loss_increased": true,
+      "crop_loss_increased": false,
       "human_labels_apply_to": "published_default_path_only"
     }
   ]
