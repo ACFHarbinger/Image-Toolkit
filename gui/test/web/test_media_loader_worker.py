@@ -3,14 +3,14 @@
 Regression coverage for the app crash triggered by clicking Download on the
 nhentai source in the Media Loader tab (SIGSEGV/heap corruption via
 ``QSocketNotifier: Socket notifiers cannot be enabled or disabled from
-another thread``), root-caused to running an asyncio event loop
-(``asyncpraw``/``aiohttp``) inside a QThread -- see
-``backend/src/web/downloaders/nhentai_downloader.py``'s module docstring.
+another thread``). The downloader QObject must be constructed on the GUI
+thread; only ``downloader.run()`` may run on a plain ``threading.Thread``.
 These tests exercise the worker's dispatch/forwarding logic only (the real
 downloaders have their own unit tests in ``backend/test/web/``), using a
 fake downloader with real Qt signals so emissions actually forward.
 """
 
+import threading
 from unittest.mock import patch
 
 from PySide6.QtCore import QObject, Signal
@@ -73,6 +73,15 @@ class _NeverFinishingWorker(MediaLoaderWorker):
         super().__init__(source, config)
         self._stop = False
 
+    def start(self):
+        # Skip downloader construction: this stub never downloads.
+        if self.isRunning():
+            return
+        self._thread = threading.Thread(
+            target=self.run, name="media-loader-test", daemon=True
+        )
+        self._thread.start()
+
     def stop(self):
         self._stop = True
 
@@ -91,17 +100,14 @@ class TestMediaLoaderWorkerDispatch:
             "gui.src.helpers.web.media_loader_worker.RedditDownloader",
         )
 
-        # The downloader QObject is created on the worker thread and released
-        # there when run() completes (run() clears self._downloader in a
-        # finally) -- otherwise the next Download click's replacement of
-        # self.worker GCs it from the main thread, the cross-thread QObject
-        # destruction behind the recurring crash. Signals still forward
-        # correctly while the worker runs.
+        # The downloader QObject is created on the GUI thread (this test
+        # calls run() synchronously) and kept there -- destroying it from
+        # the worker thread is the crash. Signals still forward.
         assert "working..." in statuses
         assert saved == ["/tmp/fake.jpg"]
         assert finished == [(1, "Finished. Downloaded 1 file(s).")]
         assert errors == []
-        assert worker._downloader is None
+        assert worker._downloader is not None
 
     def test_nhentai_source_constructs_nhentai_downloader(self, q_app, tmp_path):
         config = {"gallery": "111006", "download_dir": str(tmp_path)}
@@ -111,7 +117,7 @@ class TestMediaLoaderWorkerDispatch:
         )
 
         assert finished == [(1, "Finished. Downloaded 1 file(s).")]
-        assert worker._downloader is None
+        assert worker._downloader is not None
 
     def test_unknown_source_emits_error_without_constructing_anything(self, q_app, tmp_path):
         worker = MediaLoaderWorker("unknown-source", {"download_dir": str(tmp_path)})
@@ -130,9 +136,8 @@ class TestMediaLoaderWorkerDispatch:
             "gui.src.helpers.web.media_loader_worker.RedditDownloader", _FakeDownloader
         ):
             worker = MediaLoaderWorker("reddit", config)
-            # Simulate the downloader having been created (normally happens
-            # inside run(), which we don't call here -- cancel() before/
-            # during a real run must not raise if _downloader is still None).
+            # cancel() before start()/run() must not raise if the
+            # downloader has not been constructed yet.
             worker.cancel()
             assert worker._downloader is None
 
@@ -149,8 +154,7 @@ class TestOnExistsPassThrough:
             "download_dir": str(tmp_path),
             "on_exists": "rename",
         }
-        # Capture the config the downloader was constructed with before
-        # run()'s finally releases the worker-thread QObject.
+        # Capture the config the downloader was constructed with.
         seen = {}
         with patch(
             "gui.src.helpers.web.media_loader_worker.RedditDownloader",
@@ -183,14 +187,44 @@ class TestOnExistsPassThrough:
         ]
         assert values == ["overwrite", "skip", "rename"]
 
+class TestDownloaderThreadAffinity:
+    """The downloader QObject must be constructed on the GUI thread.
+
+    Constructing it inside the worker thread is the QSocketNotifier /
+    fd-reuse crash (Dummy-N + requests sockets + live JVM).
+    """
+
+    def test_start_constructs_downloader_on_caller_thread(self, q_app, tmp_path):
+        constructed_on = {}
+
+        class _RecordingDownloader(_FakeDownloader):
+            def __init__(self, config):
+                super().__init__(config)
+                constructed_on["ctor"] = threading.get_ident()
+                constructed_on["run"] = None
+
+            def run(self):
+                constructed_on["run"] = threading.get_ident()
+                super().run()
+
+        config = {"gallery": "111006", "download_dir": str(tmp_path)}
+        main_ident = threading.get_ident()
+        with patch(
+            "gui.src.helpers.web.media_loader_worker.NhentaiDownloader",
+            _RecordingDownloader,
+        ):
+            worker = MediaLoaderWorker("nhentai", config)
+            worker.start()
+            assert worker.wait(2000)
+        assert constructed_on["ctor"] == main_ident
+        assert constructed_on["run"] is not None
+        assert constructed_on["run"] != main_ident
+
+
 class TestStartDownloadReentryGuard:
-    """Clicking Download while a previous worker QThread is still alive must
-    not replace it: the second start_download would drop the old QThread
-    reference while its worker-thread downloader QObject is still alive,
-    and Python GC would destroy that QObject from the main thread -- the
-    cross-thread QObject destruction behind the recurring crash when
-    Download is clicked twice (QObject::killTimer / Shiboken
-    retrieveWrapper / QObject::property SIGSEGVs)."""
+    """Clicking Download while a previous worker is still alive must not
+    replace it: the second start_download would drop the only reference
+    to a running download thread."""
 
     def test_start_download_ignored_while_worker_running(self, q_app):
         from gui.src.elements.web.media_loader_tab import MediaLoaderTab

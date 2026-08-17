@@ -149,6 +149,9 @@ class _MediaPlayerMixin:
         # Playback rate requested (e.g. via the speed combo) before the
         # player was first constructed; applied when the player is created.
         self._pending_playback_rate: Optional[float] = None
+        # Media position restored from config (session recovery) before the
+        # player was constructed; applied when the player is created.
+        self._pending_media_position: Optional[int] = None
         # True while a session-recovery restore has set up all UI state for a
         # video but deliberately deferred constructing the Qt Multimedia
         # player / spawning the storyboard subprocess (issue #81 crash
@@ -352,6 +355,9 @@ class _MediaPlayerMixin:
                     pending = getattr(self, "_pending_playback_rate", None)
                     if pending is not None:
                         self._media_player.setPlaybackRate(pending)
+                    pending_pos = getattr(self, "_pending_media_position", None)
+                    if pending_pos is not None and pending_pos > 0:
+                        self._media_player.setPosition(pending_pos)
         return self._media_player
 
     def cancel_loading(self: "VideoExtractorSubTabHostProtocol"):

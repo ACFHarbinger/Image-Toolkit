@@ -2,10 +2,9 @@
 
 Covered regressions:
 - S403 (Download double-click): clicking Download twice used to replace
-  self.worker (a running MediaLoaderWorker QThread) and GC the old worker's
-  downloader QObject from the main thread -> "QThread: Destroyed while thread
-  is still running" + the killTimer/Shiboken SIGSEGV family. start_download
-  now ignores re-entry while the previous worker is running.
+  self.worker (a running download thread) and drop the only reference to
+  it. start_download now ignores re-entry while the previous worker is
+  running.
 - "Download button does nothing" (modal-messagebox / hidden-button state):
   after a download finishes the run button must be visible again and the
   status must reflect the finished download.

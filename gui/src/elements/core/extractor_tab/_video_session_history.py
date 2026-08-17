@@ -115,10 +115,18 @@ class _VideoSessionHistoryMixin:
             self.combo_smart_method.setCurrentText(smart_method)
 
         pos = config.get("media_position", 0)
-        if pos > 0 and self.media_player:
-            self.media_player.setPosition(pos)
+        if pos > 0:
+            # Restore the position UI WITHOUT constructing the player. The
+            # player may legitimately not exist yet (session-recovery
+            # deferred load, issue #81) -- constructing QMediaPlayer here
+            # during the startup burst reliably aborts the process. The
+            # position is applied when the player is first constructed (see
+            # the media_player property).
+            self._pending_media_position = pos
             self.slider.setValue(pos)
-            cast(QLabel, self.lbl_current_time).setText(self._format_time(pos)) # pyrefly: ignore [missing-attribute]
+            cast(QLabel, self.lbl_current_time).setText(self._format_time(pos))
+            if self._media_player is not None:
+                self._media_player.setPosition(pos) # pyrefly: ignore [missing-attribute]
 
     @Slot(int)
     def _on_active_video_tab_changed(self: "VideoExtractorSubTabHostProtocol", index: int):
