@@ -66,6 +66,7 @@ def test_rename_selected_layer_updates_list_and_is_undoable(q_app, monkeypatch):
     from editor import EditHistory
 
     edit_history = EditHistory(stack)
+    tab._history = edit_history
     tab._canvas.set_history(edit_history)
     tab._layer_panel.set_history(edit_history)
     tab._layer_panel.select_layer("source")
@@ -95,6 +96,7 @@ def test_clear_selected_layer_clears_pixels_and_mask_and_is_undoable(q_app):
     tab._canvas.set_layer_stack(stack)
     tab._layer_panel.set_layer_stack(stack)
     history = EditHistory(stack)
+    tab._history = history
     tab._canvas.set_history(history)
     tab._layer_panel.set_history(history)
     tab._layer_panel.select_layer("source")
@@ -104,8 +106,10 @@ def test_clear_selected_layer_clears_pixels_and_mask_and_is_undoable(q_app):
     assert (layer.pixels == 0).all()
     assert (layer.mask == 0).all()
     tab._undo()
-    assert layer.pixels[0, 0].tolist() == [1, 2, 3, 255]
-    assert layer.mask[0, 0] == 77
+    restored = stack.layer("source")
+    assert restored is not None
+    assert restored.pixels[0, 0].tolist() == [1, 2, 3, 255]
+    assert restored.mask is not None and restored.mask[0, 0] == 77
 
 
 def test_merge_selected_layer_down_is_undoable(q_app):
@@ -120,6 +124,7 @@ def test_merge_selected_layer_down_is_undoable(q_app):
     tab._canvas.set_layer_stack(stack)
     tab._layer_panel.set_layer_stack(stack)
     history = EditHistory(stack)
+    tab._history = history
     tab._canvas.set_history(history)
     tab._layer_panel.set_history(history)
     tab._layer_panel.select_layer("upper")

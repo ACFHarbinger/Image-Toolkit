@@ -413,7 +413,7 @@ class ReferenceColoringTab(QWidget):
             rgba.strides[0],
             QImage.Format.Format_RGBA8888,
         )
-        if not image.copy().save(path, b"PNG"):
+        if not image.copy().save(path, "PNG"):
             self._status.setText(f"Could not export PNG to {path}.")
             return
         self._status.setText(f"Exported composite PNG to {path}.")

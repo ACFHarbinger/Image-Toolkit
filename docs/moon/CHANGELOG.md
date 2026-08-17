@@ -9,6 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Bugfix: GUI test suite regression (2026-08-17, Gemini).** Fixed four
+  failing tests in `gui/test/tabs/test_reference_coloring_tab.py` introduced
+  by editor slices #53–#57:
+  - `test_export_png_writes_flattened_rgba_composite`: `QImage.save()` was
+    called with `b"PNG"` (bytes) where PySide6 requires a `str`; fixed to
+    `"PNG"` in `reference_coloring_tab._export_png`.
+  - `test_rename_selected_layer_updates_list_and_is_undoable`,
+    `test_clear_selected_layer_clears_pixels_and_mask_and_is_undoable`,
+    `test_merge_selected_layer_down_is_undoable`: tests manually wired
+    `EditHistory` to the canvas and layer panel but omitted `tab._history`,
+    so `tab._undo()` short-circuited and never fired. Added the missing
+    `tab._history = history` assignment in each test, matching what
+    `_new_canvas` does. The clear-layer test also fixed a stale `Layer`
+    reference post-undo — `load_state` replaces the `_layers` list with new
+    `Layer` objects, so assertions after undo must re-query via
+    `stack.layer("source")` rather than holding the pre-undo reference.
+  Outcome: 226 GUI tests pass (7 pre-existing puppeteering/mesh-overlay
+  failures, unrelated to the editor slices, remain).
+
 - **Issue #23: heavy Docker computations moved off the Krita UI thread
   (2026-08-17, deepseek).** New `engine_worker.py`: `EngineWorker` (a
   `QThread` subclass running one zero-arg callable off the UI thread,
