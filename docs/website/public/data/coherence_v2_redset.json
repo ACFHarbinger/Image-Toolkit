@@ -1,0 +1,184 @@
+{
+  "n": 7,
+  "n_crop_loss_increased": 6,
+  "known_good_crop_ok": false,
+  "passes_crop_gate": false,
+  "note": "Compositor-only A/B on subsampled frames + median-dy affines. Human ratings still describe the published default path, not v2.",
+  "cases": [
+    {
+      "name": "asp_test04",
+      "role": "catastrophe",
+      "n_frames": 6,
+      "scale": 0.25,
+      "dy": 15.0,
+      "default": {
+        "coverage": 0.986,
+        "content_area": 161293.0,
+        "width": 473.0,
+        "height": 341.0,
+        "line_art_fracture": 48.45,
+        "seam_visibility": 88.98
+      },
+      "coherence_v2": {
+        "coverage": 0.8393,
+        "content_area": 142373.0,
+        "width": 473.0,
+        "height": 341.0,
+        "line_art_fracture": 40.48,
+        "seam_visibility": 18.46
+      },
+      "crop_loss_increased": true,
+      "human_labels_apply_to": "published_default_path_only"
+    },
+    {
+      "name": "asp_test06",
+      "role": "catastrophe",
+      "n_frames": 6,
+      "scale": 0.25,
+      "dy": 18.66,
+      "default": {
+        "coverage": 1.0,
+        "content_area": 174720.0,
+        "width": 480.0,
+        "height": 364.0,
+        "line_art_fracture": 61.48,
+        "seam_visibility": 119.09
+      },
+      "coherence_v2": {
+        "coverage": 0.7445,
+        "content_area": 130080.0,
+        "width": 480.0,
+        "height": 364.0,
+        "line_art_fracture": 60.82,
+        "seam_visibility": 143.27
+      },
+      "crop_loss_increased": true,
+      "human_labels_apply_to": "published_default_path_only"
+    },
+    {
+      "name": "asp_test07",
+      "role": "catastrophe",
+      "n_frames": 6,
+      "scale": 0.25,
+      "dy": 11.22,
+      "default": {
+        "coverage": 0.9497,
+        "content_area": 106836.0,
+        "width": 348.0,
+        "height": 307.0,
+        "line_art_fracture": 62.16,
+        "seam_visibility": 51.35
+      },
+      "coherence_v2": {
+        "coverage": 0.9451,
+        "content_area": 106836.0,
+        "width": 348.0,
+        "height": 307.0,
+        "line_art_fracture": 59.31,
+        "seam_visibility": 58.89
+      },
+      "crop_loss_increased": false,
+      "human_labels_apply_to": "published_default_path_only"
+    },
+    {
+      "name": "asp_test12",
+      "role": "catastrophe",
+      "n_frames": 6,
+      "scale": 0.25,
+      "dy": 17.1,
+      "default": {
+        "coverage": 0.9771,
+        "content_area": 170880.0,
+        "width": 480.0,
+        "height": 356.0,
+        "line_art_fracture": 49.3,
+        "seam_visibility": 68.46
+      },
+      "coherence_v2": {
+        "coverage": 0.8468,
+        "content_area": 156000.0,
+        "width": 480.0,
+        "height": 356.0,
+        "line_art_fracture": 35.69,
+        "seam_visibility": 53.65
+      },
+      "crop_loss_increased": true,
+      "human_labels_apply_to": "published_default_path_only"
+    },
+    {
+      "name": "asp_test14",
+      "role": "catastrophe",
+      "n_frames": 6,
+      "scale": 0.25,
+      "dy": 15.5,
+      "default": {
+        "coverage": 0.9953,
+        "content_area": 167040.0,
+        "width": 480.0,
+        "height": 348.0,
+        "line_art_fracture": 59.45,
+        "seam_visibility": 43.22
+      },
+      "coherence_v2": {
+        "coverage": 0.8844,
+        "content_area": 159840.0,
+        "width": 480.0,
+        "height": 348.0,
+        "line_art_fracture": 37.25,
+        "seam_visibility": 42.45
+      },
+      "crop_loss_increased": true,
+      "human_labels_apply_to": "published_default_path_only"
+    },
+    {
+      "name": "asp_test15",
+      "role": "catastrophe",
+      "n_frames": 6,
+      "scale": 0.25,
+      "dy": 18.48,
+      "default": {
+        "coverage": 0.9836,
+        "content_area": 194400.0,
+        "width": 480.0,
+        "height": 405.0,
+        "line_art_fracture": 50.51,
+        "seam_visibility": 163.99
+      },
+      "coherence_v2": {
+        "coverage": 0.9278,
+        "content_area": 185760.0,
+        "width": 480.0,
+        "height": 405.0,
+        "line_art_fracture": 40.25,
+        "seam_visibility": 40.81
+      },
+      "crop_loss_increased": true,
+      "human_labels_apply_to": "published_default_path_only"
+    },
+    {
+      "name": "asp_test96",
+      "role": "known_good",
+      "n_frames": 6,
+      "scale": 0.25,
+      "dy": 15.07,
+      "default": {
+        "coverage": 0.9999,
+        "content_area": 166080.0,
+        "width": 480.0,
+        "height": 346.0,
+        "line_art_fracture": 64.82,
+        "seam_visibility": 166.51
+      },
+      "coherence_v2": {
+        "coverage": 0.783,
+        "content_area": 130080.0,
+        "width": 480.0,
+        "height": 346.0,
+        "line_art_fracture": 47.14,
+        "seam_visibility": 183.49
+      },
+      "crop_loss_increased": true,
+      "human_labels_apply_to": "published_default_path_only"
+    }
+  ]
+}
