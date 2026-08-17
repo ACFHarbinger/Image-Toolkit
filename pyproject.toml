@@ -7,7 +7,24 @@ requires-python = ">=3.11"
 dependencies = []
 
 [tool.uv.workspace]
-members = ["backend", "gui", "submodules/ASP", "submodules/CRE", "submodules/CSG", "git"]
+# UV does not support nested workspaces. Each entry must point to a leaf
+# directory that has a [project] table but no [tool.uv.workspace] of its own.
+# Submodule roots (submodules/ASP, submodules/CSG) are themselves workspace
+# roots — we list their individual leaf packages instead.
+members = [
+    # Image-Toolkit core packages
+    "backend",
+    "gui",
+    # ASP submodule leaf packages
+    "submodules/ASP/backend",
+    "submodules/ASP/gui",
+    # CSG submodule leaf packages
+    "submodules/CSG/logic",
+    "submodules/CSG/gui",
+    # Other submodule / internal packages
+    "submodules/CRE",
+    "git",
+]
 
 [dependency-groups]
 # CI runs `uv sync --group dev` from the workspace root, so the group must be
