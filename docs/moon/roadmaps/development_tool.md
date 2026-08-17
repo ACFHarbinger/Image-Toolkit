@@ -591,7 +591,7 @@ build; CLI help complete; tests on every subcommand.
 
 ### A3 — Visual timeline & TUI (Gemini)
 
-**Status:** 🔄 In progress (design settled; implementation starting).
+**Status:** ✅ Complete (`debug/debugtool/ui/`, 14 tests in `test_debugtool_tui.py`).
 
 #### Architecture & View Hierarchy (`dev/tool/ui/` or `debug/debugtool/ui/`)
 Built with a dependency-light, high-speed ANSI / Rich canvas engine designed for instant startup (<50 ms) and zero GUI library overhead.
@@ -1448,7 +1448,7 @@ integration + diff/review support the first slice but must not delay it.
 |---|---|---|---|
 | A1 Session + API | ✅ Complete | deepseek | `debug/debugtool`, 19 tests |
 | A2 CLI + export | 🔄 In progress | deepseek | list/analyze landed |
-| A3 TUI (Perfetto + btop live) | 🔄 In progress | Gemini | design settled 2026-08-17 |
+| A3 TUI (Perfetto + btop live) | ✅ Complete | Gemini | `debug/debugtool/ui/`, 14 tests, all 5 views + live watch |
 | A4 Repro + gdb | ⬜ Planned | deepseek + Gemini | |
 | A5 Diff + investigations | ⬜ Planned | deepseek | |
 | C1 Host + plugins | ⬜ Planned | deepseek + Grok (D17) | host model/protocol/store (deepseek) + lifecycle/discovery (Grok) |
@@ -1466,7 +1466,7 @@ integration + diff/review support the first slice but must not delay it.
 | B Phase 11 | ✅ Complete | (historical) | evaluator + report |
 | B Phase 12 | 🔄 Partial | (historical) | 12.4 / 12.8 rescoped |
 | B Phases 1–10 | ⬜ / research | unassigned | do not block v1 |
-| Writer: optional span IDs | ⬜ Planned | Grok or deepseek (D23) | D4; backend `telemetry.py`, opt-in |
+| Writer: optional span IDs | ✅ Landed | Grok (D23 / #392) | `telemetry.py` seq/span_id/parent; PipelineSession stage spans |
 
 Existing foundation:
 
