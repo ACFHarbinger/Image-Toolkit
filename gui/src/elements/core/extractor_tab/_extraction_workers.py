@@ -197,6 +197,8 @@ class _ExtractionWorkersMixin:
                 cast(QWidget, self), "Success", f"Media created successfully:\n{Path(new_path).name}"
             )
 
+        self._maybe_finish_close()
+
     @Slot(str)
     def _on_export_error(self: "VideoExtractorSubTabHostProtocol", error_msg: str):
         self.active_extraction_worker = None
@@ -206,6 +208,8 @@ class _ExtractionWorkersMixin:
         self._active_metadata = None
         if "cancelled" not in error_msg.lower():
             QMessageBox.warning(cast(QWidget, self), "Export Error", error_msg)
+
+        self._maybe_finish_close()
 
     def _generate_video_thumbnail(self: "VideoExtractorSubTabHostProtocol", path: str) -> Optional[QPixmap]:
         """Generate a thumbnail for a single video file."""

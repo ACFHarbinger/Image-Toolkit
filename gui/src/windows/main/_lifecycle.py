@@ -138,6 +138,14 @@ class _LifecycleMixin:
             )
             return
 
+        # Bug 1: if extractions are still running, hide every window and keep
+        # the process alive headlessly until they finish, then quit. Only
+        # UI-bound work is cancelled on close; the extraction itself continues
+        # uninterrupted.
+        if self._defer_close_for_extractions():
+            event.ignore()
+            return
+
         # §3.17 — persist window geometry so next launch restores it
         AppSettings.set_mainwindow_geometry(self.saveGeometry())  # pyrefly: ignore [bad-argument-type]
         self._save_session_recovery()
@@ -157,6 +165,31 @@ class _LifecycleMixin:
             self.vault_manager.shutdown()
 
         super().closeEvent(event)
+
+    def _defer_close_for_extractions(self) -> bool:
+        """Return True (and arm a deferred close) when an extraction is still
+        running, so the app hides and stays alive headlessly until the work
+        finishes instead of tearing the worker down mid-emit (Bug 1)."""
+        extractor = getattr(self, "extractor_tab", None)
+        if extractor is None or not getattr(extractor, "has_active_extractions", lambda: False)():
+            return False
+
+        self._close_pending = True
+        self.hide()
+        for window in list(QApplication.topLevelWidgets()):
+            if window is not self and window.isVisible():
+                with contextlib.suppress(Exception):
+                    window.hide()
+        extractor.set_close_when_finished(self._finish_deferred_close)
+        return True
+
+    def _finish_deferred_close(self) -> None:
+        """Called by the extractor tab once all extractions finish; performs
+        the real close now that no worker is active."""
+        if not getattr(self, "_close_pending", False):
+            return
+        self._close_pending = False
+        self.close()
 
 
 __all__ = ["_LifecycleMixin"]

@@ -438,6 +438,11 @@ def run_extraction_in_process(config: Union[ExtractionConfig, Dict[str, Any]]) -
         return {"status": "error", "message": str(e)}
 
 
+# Workers currently mid-run(). Keeps their signals QObject (no Qt parent)
+# alive until run() finishes, so a tab teardown can't GC it mid-emit (Bug 1).
+_RUNNING_WORKERS: set = set()
+
+
 class _QueueWorkerSignals(QObject):
     started = Signal()
     progress = Signal(int, int)  # (completed, total) — §5.9 Option C
@@ -458,6 +463,18 @@ class QueueExecutionWorker(QRunnable):
         self._is_cancelled = True
 
     def run(self):
+        # Safety net (Bug 1): keep this worker (and therefore its signals
+        # QObject, which has no Qt parent) alive from run() start to finish,
+        # even if the tab drops its active_queue_worker reference mid-run. A
+        # GC'd signals QObject would make a still-running pool thread emit on
+        # a deleted C++ object -> RuntimeError: Signal source has been deleted.
+        _RUNNING_WORKERS.add(self)
+        try:
+            self._run_impl()
+        finally:
+            _RUNNING_WORKERS.discard(self)
+
+    def _run_impl(self):
         self.signals.started.emit()
         results = []
 
