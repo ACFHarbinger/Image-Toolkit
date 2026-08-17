@@ -1,3 +1,10 @@
+## S391 — 2026-08-17 (M2: CompositeGate sb candidate + discriminating check)
+
+`ASP_COMPOSITE_SB_TELEMETRY_ONLY=1` is a default-off candidate (26 identity
+changes on the 2026-08-07 run). Discriminating-policy exit fails: known-good
+test96 is Raw ASP, but catastrophes 04/06/07/12/14/15 are also Raw ASP under
+current gates. CompositeGate has no audited-correct input once `sb` is retired.
+
 ## S390 — 2026-08-17 (fix stale SafebooruCrawler test assertion, #370 sweep)
 
 Found while sweeping open issues for closure: `test_safebooru_crawler_backend_name_and_preset`
@@ -35,6 +42,13 @@ plus new regression tests asserting the gallery is NOT rebuilt per item
 (start_loading_gallery called 0 times during item completions, exactly once
 at queue end) and that the error handler flushes deferred paths. All
 extractor queue + related tests pass (27).
+
+## S390 — 2026-08-17 (M2: CompositeGate sb candidate + discriminating check)
+
+`ASP_COMPOSITE_SB_TELEMETRY_ONLY=1` is a default-off candidate (26 identity
+changes on the 2026-08-07 run). Discriminating-policy exit fails: known-good
+test96 is Raw ASP, but catastrophes 04/06/07/12/14/15 are also Raw ASP under
+current gates. CompositeGate has no audited-correct input once `sb` is retired.
 
 ## S389 — 2026-08-17 (M2 observability: pose sources, drop reasons, bench JSON)
 
