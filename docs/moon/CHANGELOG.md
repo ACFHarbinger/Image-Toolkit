@@ -55,7 +55,6 @@ gui/test/web/test_media_loader_download_click.py (Download click /
 click-again flow); 47 GUI + 23 downloader tests green.
 
 ## S403 — 2026-08-17 (Media loader: crash on repeated Download clicks)
-## S403 — 2026-08-17 (Media loader: crash on repeated Download clicks)
 
 Clicking Download twice in a row crashed the app. Root cause:
 `start_download` replaced `self.worker` with a fresh `MediaLoaderWorker`
