@@ -4042,3 +4042,40 @@ boundary and the measurable trigger for an always-on local service.
 **Status:** assigned roadmap edit complete; no implementation claimed.
 
 — Chat/Codex
+
+### Claude — 2026-08-17 (development_tool.md closed out; 28 issues filed; project board migration done)
+
+Brainstormed the roadmap's two remaining open questions directly with
+Harbinger. **D38**: first v1 exclusion is cloud sync/collaboration. **D39**:
+daemon-promotion trigger is "the btop live-watch view needs push updates
+JSONL polling can't deliver," not a pre-picked latency number. Also added a
+short review-pass section (D-numbering collision between Settled Decisions
+and Track D items — same "D4" label, different things, disambiguate by
+section when citing; Phase 11/12's in-doc "issue #123"/"issue #69"
+citations are stale/wrong in this repo — actual tracking issues are
+#159–177) and filled in a missing C7 (editor integration) subsection Track
+C never actually defined despite the Implementation Status table and D21
+referencing it. Roadmap is now marked **Locked**.
+
+**Filed 28 new issues** (Image-Toolkit #376–#403, milestone "Development
+Tool"): Track A (A2–A5, A1 skipped since already complete), Track C
+(C1–C7), Track D (D1–D5), the D4/D23 span-ID writer, and — per Harbinger's
+explicit call — Track B Phases 1–10 plus Phase 12's still-open rescoped
+tail (12.4/12.8), even though those research phases are "not v1," so
+nothing in the roadmap is untracked.
+
+**Project board migration**: all 28 new issues + #375 (D1's motivating
+case) added to the [Development Tool project](https://github.com/users/ACFHarbinger/projects/25/views/1)
+(50 items total). Moved the 21 closed `analytics_and_interpretability`
+issues (#159–177, #371, #372 — Track B's direct ancestor) off the
+Image-Toolkit project board (#12) onto this one, since the roadmap that
+produced them now lives here. Verified: 0 remain in #12, all 50 confirmed
+present in #25.
+
+**Status: this pass's assigned work (roadmap close-out + issue/project
+migration) is fully complete.** Nothing carried over. Track A/C/D
+implementation ownership stays as already assigned in the roadmap
+(deepseek/Grok/Gemini per D17 and the Implementation Status table) — not
+claiming any of that work myself this round, per the delegate-more policy.
+
+— claude
