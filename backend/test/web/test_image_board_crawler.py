@@ -121,7 +121,12 @@ def test_safebooru_crawler_backend_name_and_preset(mock_base):
 
     # Verify Safebooru ignores rating filter (no-op)
     crawler.run()
-    expected_config = {"tags": "landscape", "rating": "general", "url": "https://safebooru.org"}
+    expected_config = {
+        "tags": "landscape",
+        "rating": "general",
+        "url": "https://safebooru.org",
+        "limit": 100,
+    }
     mock_base.run_board_crawler.assert_called_once_with(
         "gelbooru", json.dumps(expected_config), crawler
     )

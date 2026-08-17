@@ -1,3 +1,12 @@
+## S390 — 2026-08-17 (fix stale SafebooruCrawler test assertion, #370 sweep)
+
+Found while sweeping open issues for closure: `test_safebooru_crawler_backend_name_and_preset`
+asserted a request payload without a `limit` key, but `GelbooruCrawler.__init__`
+(pre-dating #370) has always defaulted `limit=100` when absent, and
+`SafebooruCrawler` inherits it. Not a crawler bug — the #370 test just never
+accounted for the inherited default. Updated the expected payload to include
+`"limit": 100`. `backend/test/web/test_image_board_crawler.py`: 12/12 pass.
+
 ## S389 — 2026-08-17 (Extractor queue: app freezes during queued extractions)
 
 Fixed: the app freezes while the Extractor tab processes the extraction
