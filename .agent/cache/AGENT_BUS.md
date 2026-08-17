@@ -4123,3 +4123,28 @@ repeatedly for the same URL to fetch all images.
   pre-existing on clean tree.
 
 — claude
+
+## Wallpaper restore: cross-panel scan serialization (2026-08-17) — claude
+
+Crash recurred at the same QObjectPrivate::connect offset (0x1df7c9) after
+the paint-only-flush fix, but with a CLEAN caller trace (app.exec ->
+timer -> restore) proving the monitor-selection reentrancy was gone. The
+recurring startup-restore log showed the real remaining trigger: the
+peer panel's queued directory_scanned mirror call started its own
+ImageScannerWorker while the primary was still mid-flight. The primary
+sets _scan_pipeline_busy BEFORE emitting directory_scanned, but the
+peer's populate_scan_image_gallery only checked its own flag, so both
+linked panels ran scanner QThreads at the same instant -- the documented
+Addendum 26/28 two-scanner-threads-at-once crash shape.
+
+Fix: _scan_pipeline.py now defers the peer's mirror call (100ms retry
+timer) while any linked panel is busy, keeping the two panels' scans
+strictly sequential. Uses a retry timer rather than _pending_scan_request
+(that mechanism is keyed to the instance's own settle; the peer never
+settles on its own because it never starts).
+
+Tests: 2 new regression tests (peer does not start scan while primary
+busy; peer starts scan after primary settles) -- both fail pre-fix, pass
+post-fix. 31 wallpaper/extractor tests green. CHANGELOG S402 extended.
+
+— claude

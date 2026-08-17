@@ -234,3 +234,88 @@ class TestPeerReentrancyGuard:
             "monitor selection (reentrant timer/signal pump -- see Addendum 21)"
         )
         assert calls, "paint-only flush (sendPostedEvents) must still run"
+
+    def test_peer_does_not_start_scan_while_primary_busy(
+        self, q_app, monkeypatch, tmp_path
+    ):
+        """Cross-panel serialization (Addendum 26/28 crash shape): the
+        recurring startup-restore crash log shows the peer's queued
+        directory_scanned mirror call starting its own ImageScannerWorker
+        WHILE the primary is still mid-flight -- the primary sets
+        _scan_pipeline_busy BEFORE emitting directory_scanned, but the
+        peer's populate only checked its OWN flag, so both panels ran
+        scanner QThreads at the same instant and died in
+        QObjectPrivate::connect. The peer must defer (retry timer) when any
+        linked panel is busy, keeping the two scans strictly sequential."""
+        monkeypatch.setattr(
+            wallpaper_common_base._scan_pipeline, "ImageScannerWorker", DelayedImageScannerWorker
+        )
+
+        system_display = ConcreteWallpaperBase()
+        monitor_display = ConcreteWallpaperBase()
+        _link_panels(system_display, monitor_display)
+
+        target_dir = tmp_path / "some_dir"
+        target_dir.mkdir()
+        (target_dir / "pic.png").write_bytes(b"\x00")
+
+        # Primary mid-flight: exactly the state it is in when the peer's
+        # queued directory_scanned mirror call is delivered (primary sets
+        # busy before emitting).
+        system_display._scan_pipeline_busy = True
+        worker_starts = []
+        monkeypatch.setattr(
+            wallpaper_common_base._scan_pipeline,
+            "ImageScannerWorker",
+            lambda *a, **k: worker_starts.append(1) or DelayedImageScannerWorker(*a, **k),
+        )
+
+        # This is the queued directory_scanned mirror call.
+        monitor_display.populate_scan_image_gallery(str(target_dir), emit_signal=False)
+        # Give the deferral retry a moment; the primary never settles, so the
+        # peer must keep deferring and never start a second scanner.
+        _pump(0.4)
+
+        assert worker_starts == [], (
+            "peer must not start its own ImageScannerWorker while the "
+            "primary panel is mid-flight (_scan_pipeline_busy) -- both "
+            "panels scanning at the same instant is the documented crash "
+            "shape (Addendum 26/28)"
+        )
+
+    def test_peer_starts_scan_after_primary_settles(
+        self, q_app, monkeypatch, tmp_path
+    ):
+        """Once the primary settles, the peer's deferred mirror call must go
+        ahead and start its own scan -- the deferral is serialization, not a
+        permanent skip."""
+        monkeypatch.setattr(
+            wallpaper_common_base._scan_pipeline, "ImageScannerWorker", DelayedImageScannerWorker
+        )
+
+        system_display = ConcreteWallpaperBase()
+        monitor_display = ConcreteWallpaperBase()
+        _link_panels(system_display, monitor_display)
+
+        target_dir = tmp_path / "some_dir"
+        target_dir.mkdir()
+        (target_dir / "pic.png").write_bytes(b"\x00")
+
+        system_display._scan_pipeline_busy = True
+        worker_starts = []
+        monkeypatch.setattr(
+            wallpaper_common_base._scan_pipeline,
+            "ImageScannerWorker",
+            lambda *a, **k: worker_starts.append(1) or DelayedImageScannerWorker(*a, **k),
+        )
+
+        monitor_display.populate_scan_image_gallery(str(target_dir), emit_signal=False)
+        _pump(0.2)
+        assert worker_starts == [], "peer must defer while primary busy"
+
+        # Primary settles -> peer's retry proceeds.
+        system_display._settle_scan_pipeline()
+        _pump(0.4)
+        assert worker_starts == [1], (
+            "peer must start its scan after the primary settles"
+        )

@@ -29,17 +29,16 @@ from __future__ import annotations
 
 import os
 import threading
-from typing import Any, List, Optional
+from typing import TYPE_CHECKING, Any, List, Optional
 
 from backend.src.constants import SUPPORTED_IMG_FORMATS
 from backend.src.core import telemetry
-from gui.src.helpers import ImageScannerWorker, VideoScannerWorker
 from PySide6.QtCore import QThread, QTimer
+
+from gui.src.helpers import ImageScannerWorker, VideoScannerWorker
 
 from ......utils.guard.startup_probe_guard import startup_settle_remaining_ms
 from ......utils.sort_utils import natural_sort_key
-
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ....protos.wallpaper_common_base import WallpaperCommonBaseHostProtocol
@@ -83,6 +82,29 @@ class _ScanPipelineMixin:
         if getattr(self, "_scan_pipeline_busy", False):
             self._pending_scan_request = (directory, emit_signal)
             return
+
+        # Cross-panel serialization (Addendum 26/28 crash shape): the two
+        # linked Wallpaper panels (system_display/monitor_display) each run
+        # their own scanner QThreads. The primary sets _scan_pipeline_busy
+        # BEFORE emitting directory_scanned, so when the peer's queued
+        # mirror call arrives, the primary is still mid-flight -- but the
+        # check above only looks at THIS instance's flag, so the peer would
+        # start its own ImageScannerWorker concurrently with the primary's.
+        # The crash log for the recurring startup restore crash shows both
+        # panels' _on_image_scan_finished proceeding within the same
+        # event-loop burst and then dying in QObjectPrivate::connect -- the
+        # documented two-scanner-QThreads-at-once shape. Defer here when
+        # any linked panel is busy, keeping the two scans strictly
+        # sequential. Uses a retry timer rather than _pending_scan_request
+        # (that mechanism is keyed to THIS instance's own settle; the peer
+        # never settles on its own here because it never starts).
+        for peer in getattr(self, "linked_tabs", []):
+            if getattr(peer, "_scan_pipeline_busy", False):
+                QTimer.singleShot(
+                    100,
+                    lambda: self.populate_scan_image_gallery(directory, emit_signal),
+                )
+                return
 
         if emit_signal:
             import traceback
