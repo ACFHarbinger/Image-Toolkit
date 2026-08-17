@@ -3,24 +3,24 @@
 *A session-oriented telemetry inspector, agent-queryable analysis API, and
 repro/crash-capture harness for Image-Toolkit's own debug/telemetry work.*
 
-**Status:** Draft for team review (deepseek authored; Gemini owns the UI half;
-Harbinger is the product lead). See the AGENT_BUS debug/ tool track (2026-08-17).
+**Status:** Active Collaboration (deepseek authored data engine; Gemini owns UI & TUI;
+Harbinger is the product lead). Brainstormed and aligned on 2026-08-17.
 
 ---
 
 ## Table of Contents
 
 - [Why This Exists](#why-this-exists)
-- [Scope: What "debug tool" Means Here](#scope-what-debug-tool-means-here)
+- [Architectural Scope & Decisions](#architectural-scope--decisions)
 - [Relationship to Existing debug/ Tooling](#relationship-to-existing-debug-tooling)
 - [Naming and Layout](#naming-and-layout)
 - [Phase 1: Session Model + Queryable Analysis API (deepseek)](#phase-1-session-model--queryable-analysis-api-deepseek)
 - [Phase 2: CLI + Export Surface (deepseek)](#phase-2-cli--export-surface-deepseek)
-- [Phase 3: Visual Timeline UI (Gemini)](#phase-3-visual-timeline-ui-gemini)
+- [Phase 3: Visual Timeline & Interactive TUI Workbench (Gemini)](#phase-3-visual-timeline--interactive-tui-workbench-gemini)
 - [Phase 4: Repro Harness + Crash-Capture Integration (deepseek + Gemini)](#phase-4-repro-harness--crash-capture-integration-deepseek--gemini)
 - [Phase 5: Cross-Session Comparison + Trend Analysis (deepseek)](#phase-5-cross-session-comparison--trend-analysis-deepseek)
 - [Cross-Cutting: Human/Agent Access Contract](#cross-cutting-humanagent-access-contract)
-- [Open Questions for Harbinger](#open-questions-for-harbinger)
+- [Decisions on Open Questions](#decisions-on-open-questions)
 - [Implementation Status](#implementation-status)
 
 ---
@@ -58,8 +58,12 @@ What those tools do NOT do today, and what this roadmap builds:
    programmatically inspect past runs without re-parsing.
 3. **One harness for the whole repro flow.** `run_with_gdb.sh` +
    `telemetry_analyzer.py` + `resolve_qt_offset.py` + the `hs_err`
-   files are currently separate manual steps. A `repro` command should
-   drive capture and emit one readable summary an agent can act on.
+   files are currently separate manual steps. A `repro` command drives
+   capture and emits one readable summary an agent can act on.
+4. **Interactive High-Fidelity TUI.** Reading 100k-line JSONL dumps or text
+   summaries hides concurrency races. A high-contrast Perfetto-style terminal
+   visualizer makes multi-thread overlaps, orphaned spans, and latency spikes
+   instantly scannable.
 
 This is deliberately **general-purpose** (any telemetry category: startup
 probes, worker threads, native call boundaries, memory RSS snapshots, scan
@@ -68,48 +72,35 @@ and most urgent user, not the only one.
 
 ---
 
-## Scope: What "debug tool" Means Here
+## Architectural Scope & Decisions
 
-A debug/telemetry workbench with two halves:
+Aligned on 2026-08-17 with Harbinger:
 
-- **Analysis/data-model half (deepseek):** session/run abstraction over
-  `telemetry-<pid>.jsonl` files, span-tree reconstruction, typed event
-  registry, derived queries, cross-run comparison, export surface, and a
-  stable importable Python API. Headless CLI + API first.
-- **UI/visualization half (Gemini):** a real interface over that data
-  (timeline view, span/thread comparison, filtering). Modality is Gemini's
-  call (terminal TUI / local web view / PySide6 window) -- match whatever is
-  most useful for actually debugging a crash, not whatever is most
-  impressive. Visual style: minimal technical (plain, high-contrast,
-  terminal-friendly), per Harbinger's answer.
-
-In scope:
-
-- Session discovery, loading, and a typed query model.
-- Span-tree reconstruction (generalizing the analyzer's orphaned-span
-  detection to full nesting).
-- Derived queries: timeline slice, in-flight-at-t, generalized thread-window
-  overlap (not just scanner threads), per-category stats.
-- Cross-run diff: which events/timing/overlaps changed between two sessions.
-- Memory/leak trend: RSS snapshots (already emitted by lifecycle_memory)
-  across sessions.
-- Export: stable JSON/CSV/HTML sidecars + a small consumer API.
-- Repro harness integration: `repro` command driving telemetry + gdb +
-  hs_err capture and emitting a summary.
-- Consolidation: `telemetry_analyzer.py`'s logic moves into the new tool
-  (per Harbinger: full consolidation); `run_with_gdb.sh` and
-  `resolve_qt_offset.py` become subcommands/importable modules of the new
-  tool (wrapped, their hard-won behavior preserved).
-
-Out of scope for v1:
-
-- Any change to `backend/src/core/telemetry.py`'s on-disk JSONL schema
-  (backward compatible additions allowed; the existing crash-sensitive call
-  sites and the `flush`-after-every-line invariant are untouchable).
-- A live in-process debugger / profiler. This tool is a post-hoc analyzer
-  of captured telemetry, not a runtime tracer.
-- GUI integration inside the main app (a debug menu toggle is a possible
-  later nicety, not v1).
+1. **Modality:** **TUI-First (Terminal User Interface)** with rich ANSI/Rich styling,
+   designed to be visually stunning, responsive, and 100% terminal-native. Future
+   extensibility hooks provided for optional PySide6/Tauri/React GUI frontends.
+2. **Visual Design:** **Minimal High-Contrast Technical + Modern Trace Profiler**:
+   Dark slate palette with monochromatic typographic hierarchy, combined with
+   multi-track thread waterfall lanes, minimap scrub bar, span nesting trees, and
+   high-visibility amber/rose alerts strictly for crashes, orphaned spans, and
+   deadlocks.
+3. **Four First-Class Prioritized Workflow Views**:
+   - **Crash Forensics & Stack Splicer**: Correlates GDB backtraces, JVM `hs_err`,
+     and in-flight spans at the exact microsecond of SIGSEGV/SIGABRT.
+   - **Multi-Thread Race Condition & Concurrency Inspector**: Visualizes overlapping
+     worker windows, lock contention, and background collisions (e.g. scanner
+     threads vs Qt event loop).
+   - **Memory Leak & RSS Trend Profiler**: Step-by-step memory deltas and RSS growth
+     across batch operations and lifecycle allocation steps.
+   - **Pipeline Stage Latency & Flamegraph Breakdown**: Microsecond-precision
+     hierarchical flame-charts for image conversion, LoFTR matching, and stitching.
+4. **Persistence & Sharing:** **Named Investigations with Exportable Workspaces**:
+   Group PID runs into self-contained investigation directories (e.g.
+   `debug/investigations/gallery_crash_01/`) with checked-in repro scripts and
+   manifest metadata for seamless agent/human collaboration.
+5. **Execution Mode:** **Hybrid**: Post-mortem by default over finished/crashed runs,
+   with opt-in live tail streaming (`debugtool watch [--pid <PID> | --latest]`) for
+   active repro runs.
 
 ---
 
@@ -129,9 +120,8 @@ standalone scripts while preserving their behavior:
 
 ## Naming and Layout
 
-Tool name: **`debugtool`** (importable package + `python -m debugtool` CLI).
-Harbinger left the name to the author; `debugtool` matches the directory and
-reads clearly in commands (`debugtool analyze --session 123`).
+- **Package & CLI Name:** `debugtool` (`python -m debugtool` or `debugtool`).
+- **Product Title:** **Debug & Development Workbench**.
 
 Proposed layout (under `debug/`):
 
@@ -152,11 +142,22 @@ debug/
       memory.py          # RSS snapshot trend
     export/
       json_sidecar.py    # stable JSON export (per analytics contract)
-      html.py            # simple standalone HTML report (Gemini can restyle)
+      html.py            # standalone single-file HTML report
       csv.py             # flat event export for spreadsheets
+    ui/
+      app.py             # TUI application lifecycle & view router
+      renderer.py        # Terminal ANSI / Rich rendering canvas
+      views/
+        timeline.py      # Multi-track thread waterfall + minimap scrub bar
+        crash.py         # Crash forensics & GDB/JVM trace correlation
+        concurrency.py   # Overlap matrix & lock contention inspector
+        memory.py        # Memory & RSS trend visualization
+        flame.py         # Latency breakdown flamegraph
+        live_tail.py     # Real-time streaming watcher
     cli/
-      main.py            # argparse: analyze / list / repro / diff / export / resolve-offset
+      main.py            # argparse: analyze / list / repro / diff / export / tui / watch / prune
     analyzer.py          # thin re-export of the original analyzer logic
+  investigations/        # Portable self-contained named investigation folders
   telemetry_analyzer.py  # kept as a shim -> debugtool analyze (deprecation notice)
   run_with_gdb.sh        # kept, now the underlying capture for 'debugtool repro'
   resolve_qt_offset.py   # kept, imported by debugtool resolve-offset
@@ -221,19 +222,11 @@ output for existing files.
 
 ### Acceptance criteria
 
-- `open_session()` / `list_sessions()` work against the real
-  `~/.image-toolkit/telemetry/` files and against a temp dir of synthetic
-  files.
-- `session.orphaned_spans()` returns the same set as the current
-  `find_orphaned_spans` on the same input (regression-checked against the
-  existing analyzer output).
+- `open_session()` / `list_sessions()` work against real and synthetic files.
+- `session.orphaned_spans()` returns the exact same set as `find_orphaned_spans`.
 - `session.at(t)` returns in-flight spans/events for a mid-span timestamp.
-- `debugtool analyze` output is byte-compatible with
-  `telemetry_analyzer.py` for the same file (modulo the header/version
-  line).
-- Tests: `debug/test/test_debugtool_session.py`,
-  `test_debugtool_queries.py`, `test_debugtool_analyze_compat.py`
-  (focused, no GUI).
+- `debugtool analyze` output is byte-compatible with `telemetry_analyzer.py`.
+- **Status:** ✅ **Landed by deepseek (commit `431163b7`), 19/19 tests passing.**
 
 ---
 
@@ -245,76 +238,64 @@ and emit stable, machine-readable exports.
 ### Scope
 
 1. **CLI surface** (`cli/main.py`):
-   - `debugtool list` -- list sessions with metadata (size, mtime, crash
-     flag, categories).
-   - `debugtool analyze [path|--pid] [--tail N] [--category X]` -- the
-     migrated report.
-   - `debugtool diff A B` -- cross-session comparison (Phase 5 logic, but
-     the CLI lands here).
+   - `debugtool list` -- list sessions with metadata (size, mtime, crash flag, categories).
+   - `debugtool analyze [path|--pid] [--tail N] [--category X]` -- the migrated report.
+   - `debugtool diff A B` -- cross-session comparison.
    - `debugtool export [path|--pid] --format json|csv|html [--out PATH]`.
-   - `debugtool resolve-offset "libQt6Core.so.6+0x1e74d5"` (wraps
-     `resolve_qt_offset.py`).
+   - `debugtool resolve-offset "libQt6Core.so.6+0x1e74d5"` (wraps `resolve_qt_offset.py`).
+   - `debugtool prune [--keep N] [--older-than Xd]` -- retention cleanup.
 2. **Export surface** (`export/`):
-   - `json_sidecar()`: versioned JSON per the analytics dual-access
-     contract (see Cross-Cutting below) -- stable core fields plus the
-     session's event/spans in a queryable shape.
-   - `csv()`: flat event dump for external tools.
-   - `html()`: a dependency-free standalone HTML report (styled minimally;
-     Gemini may restyle later). This is the first thing a human (Harbinger)
-     can open without the terminal.
+   - `json_sidecar()`: versioned JSON matching the analytics dual-access contract.
+   - `csv()`: flat event dump for external spreadsheet analysis.
+   - `html()`: standalone zero-dependency HTML timeline report.
 3. **Sidecar index** (`~/.image-toolkit/telemetry/index.json`):
-   - Cached session list + per-file stats, rebuilt lazily when the telemetry
-     dir changes (mtime-based). Not a database; JSONL stays authoritative.
+   - Cached session list + per-file stats, rebuilt lazily when the telemetry dir changes.
 
 ### Acceptance criteria
 
-- `debugtool export --format json` emits a valid JSON sidecar matching the
-  analytics contract core (artifact_id, producer/version, source run IDs,
-  metric definitions where applicable).
-- `debugtool export --format html` opens in a browser and shows the
-  timeline, orphaned spans, and overlaps without any JS build step.
-- CLI help is complete; unknown subcommands error with usage.
-- Tests: `test_debugtool_cli.py`, `test_debugtool_export.py`.
+- `debugtool export --format json` emits a valid JSON sidecar.
+- `debugtool export --format html` opens in a browser with no JS build step.
+- CLI help is complete; tests cover all subcommands.
 
 ---
 
-## Phase 3: Visual Timeline UI (Gemini)
+## Phase 3: Visual Timeline & Interactive TUI Workbench (Gemini)
 
-**Goal:** a real interface over the session model -- the human-facing half
-that makes a crash's shape visible without reading JSONL.
+**Goal:** build a rich, interactive, terminal-native visual workbench that
+renders multi-track thread timelines, isolates crash forensic data, and inspects
+concurrency and memory anomalies in real-time.
 
-### Scope
+### Scope & Views
 
-1. Modality (Gemini's call, matching "most useful for debugging a crash"):
-   - Option A: terminal TUI (rich per-thread timeline, keybindings to
-     expand/collapse spans, jump to orphaned spans).
-   - Option B: local web view serving the exported HTML/JSON (reuse the
-     ratings-dashboard design instinct, adapted to the minimal-technical
-     style).
-   - Option C: PySide6 window (heaviest; least likely v1).
-2. Views over the session model (all already available via the Phase 1/2
-   API, so the UI is a pure consumer):
-   - Per-thread timeline with span nesting and duration bars.
-   - Orphaned-span highlight (crash in-flight marker).
-   - Thread-window overlap visualization.
-   - Cross-session diff view (Phase 5 data, rendered here).
-   - Memory/RSS trend line (Phase 5 data).
-3. Visual style: minimal technical -- plain, high-contrast, terminal-
-   friendly; a muted single accent for anomalies (e.g. amber for orphaned
-   spans). No heavy charting library; hand-rolled SVG/canvas or plain text
-   blocks, matching the project's established "dependency-free where
-   possible" pattern.
+1. **Interactive TUI Architecture (`ui/`):**
+   - Built on `rich` with custom high-speed ANSI canvas renderers.
+   - Keyboard shortcuts: `Tab` (switch view), `j/k` / `Up/Down` (navigate spans),
+     `Enter` (drill down), `z/x` (zoom timeline), `/` (search/filter), `w` (toggle live watch).
+   - Minimal high-contrast technical aesthetic: dark slate container cards,
+     monochromatic typography, vibrant amber for orphaned spans, rose for SIGSEGV/SIGABRT.
+2. **Four Dedicated TUI Views:**
+   - **Timeline & Waterfall (`ui/views/timeline.py`):**
+     - Multi-track thread lanes with visual span duration bars (`[■■■■■■■] 142ms`).
+     - Minimap scrub bar displaying overall session density and anomaly flags.
+     - Expandable hierarchical span tree with microsecond entry/exit timestamps.
+   - **Crash Forensics Splicer (`ui/views/crash.py`):**
+     - Side-by-side correlation: GDB all-thread stack traces + JVM `hs_err` + in-flight telemetry span.
+     - Displays exact native offset resolution (e.g. `libQt6Core.so.6+0x1e74d5 -> deleteOrphaned`).
+   - **Concurrency & Overlap Inspector (`ui/views/concurrency.py`):**
+     - Thread collision matrix flagging dangerous concurrent windows (e.g. scanner thread vs UI thread).
+     - Lock acquisition / contention visualizer.
+   - **Memory & Latency Breakdown (`ui/views/memory.py` & `ui/views/flame.py`):**
+     - RSS snapshot step chart over lifecycle events.
+     - Hierarchical flame-chart for pipeline execution bottlenecks.
+3. **Live Watch Mode (`ui/views/live_tail.py`):**
+   - `debugtool watch [--pid <PID> | --latest]`: Non-blocking JSONL tailer updating the TUI in real-time.
 
 ### Acceptance criteria
 
-- The UI opens a session by pid/path and renders the merged timeline.
-- Orphaned spans and overlaps are visually distinct and one keypress/click
-  from the event details.
-- The UI works from a fresh checkout (no undocumented install step beyond
-  the project's existing venv).
-- Gemini owns this phase's file layout and any `debugtool ui` entry point;
-  the data API is already settled by Phase 1/2 so the two halves do not
-  block each other.
+- `debugtool tui [--pid N | PATH]` launches interactive TUI rendering session timeline within 50ms.
+- Orphaned spans, overlaps, and crash events are highlighted and navigable via keyboard.
+- Live watch mode streams active runs without flickering or blocking process execution.
+- Tests: `debug/test/test_debugtool_tui.py` (headless terminal rendering tests).
 
 ---
 
@@ -326,134 +307,92 @@ artifact an agent can act on.
 
 ### Scope
 
-1. **`debugtool repro [-- args...]`**:
-   - Launches `backend/main.py` (or an explicit command) with
-     `IMAGE_TOOLKIT_TELEMETRY=1`.
-   - If gdb is available, wraps the launch per `run_with_gdb.sh` (SIGABRT
-     only, all-thread backtrace, hs_err preserved, core dumps collected).
-   - On exit (crash or clean), runs the analysis over the produced
-     session and emits a **summary**: session path, event counts, orphaned
-     spans, overlaps, last N events, gdb/hs_err file paths, and a
-     one-paragraph natural-language read (per the analytics contract's
-     required NL summary).
-   - Exit code reflects crash vs clean for scripting.
-2. **Cross-referencing**:
-   - Correlate the telemetry session with the gdb backtrace and hs_err file
-     by timestamp/pid (the README already describes this correlation
-     manually; automate it).
-   - `debugtool repro --summary` output is the agent-facing artifact.
+1. **`debugtool repro [--scenario NAME] [-- args...]`**:
+   - Launches target command with `IMAGE_TOOLKIT_TELEMETRY=1`.
+   - Wraps launch under `gdb` (SIGABRT/SIGSEGV trap, all-thread backtrace, hs_err preservation).
+   - Post-run analysis emits a structured summary: session path, orphaned spans,
+     overlaps, GDB stack traces, and natural-language root-cause hypothesis.
+2. **Cross-Referencing & TUI Integration**:
+   - Automatically opens the produced crash artifact in `debugtool tui --view crash`.
+   - Generates shareable investigation workspace under `debug/investigations/<name>/`.
 
 ### Acceptance criteria
 
-- `debugtool repro` on a known-crashing repro (or a synthetic
-  SIGABRT-in-span test) produces: telemetry JSONL, gdb backtrace (if gdb
-  present), hs_err/core (if JVM involved), and a summary line that names
-  the orphaned span in flight.
-- Works headless (no display) for the non-GUI portions; GUI repro remains
-  opt-in via flags.
-- Tests: `test_debugtool_repro.py` (synthetic crash fixture, no real
-  gdb/JVM needed -- the capture path is exercised with a mock gdb).
+- `debugtool repro` on synthetic crashing test produces telemetry JSONL, GDB backtrace,
+  and highlights the in-flight span.
+- Works headless in CI and interactively in development.
 
 ---
 
 ## Phase 5: Cross-Session Comparison + Trend Analysis (deepseek)
 
-**Goal:** answer "what changed between runs" and "is memory growing across
-runs" -- the questions a multi-round investigation asks every time.
+**Goal:** answer "what changed between runs" and "is memory growing across runs".
 
 ### Scope
 
-1. **`diff(a, b)`** (`queries/diff.py`):
-   - Event-set diff: events added/removed/changed between two sessions
-     (matched by (tid, category, event, wall) where comparable).
-   - Timing deltas: same span's duration across runs.
-   - Structural deltas: newly orphaned spans, newly overlapping windows,
-     new categories/threads.
-   - A short natural-language summary of the differences.
-2. **Memory trend** (`queries/memory.py`):
-   - Collect RSS snapshots (already emitted by
-     `lifecycle_memory`/`backend/src/core/lifecycle_memory.py`) across
-     sessions in an investigation; report growth/plateau/spikes.
-3. **Investigation container** (`model/investigation.py`):
-   - A named, user-created group of sessions (e.g. "round-27 repro"),
-     persisted as a small JSON manifest in the telemetry dir. Sessions can
-     belong to multiple investigations.
-   - CLI: `debugtool investigation create NAME`,
-     `debugtool investigation add NAME --pid N`, `debugtool investigation
-     diff NAME`.
+1. **`diff(a, b)` (`queries/diff.py`):**
+   - Event-set diff: added, removed, and changed events between sessions.
+   - Timing deltas on matching span signatures.
+   - Structural regressions: newly orphaned spans, new thread collisions.
+2. **Memory Trend (`queries/memory.py`):**
+   - RSS trajectory across sequential runs in an investigation.
+3. **Investigation Container (`model/investigation.py`):**
+   - Portable workspace directory under `debug/investigations/<name>/`.
+   - Contains `manifest.json` referencing session IDs, repro scripts, and reviewer notes.
 
 ### Acceptance criteria
 
-- `diff` on two synthetic sessions reports at least one added, removed,
-  and changed event correctly, and flags a newly orphaned span.
-- Memory trend surfaces the known RSS steps from synthetic snapshot data.
-- Investigation manifest round-trips (create/add/list/diff) without data
-  loss.
-- Tests: `test_debugtool_diff.py`, `test_debugtool_memory.py`,
-  `test_debugtool_investigation.py`.
+- `debugtool diff A B` accurately highlights event, timing, and span deltas.
+- Investigation manifests export and import across checkouts without data loss.
 
 ---
 
 ## Cross-Cutting: Human/Agent Access Contract
 
 This tool IS the debugging half of the project's dual human/agent access
-pattern (see the existing contract in
-[`analytics_and_interpretability.md`](analytics_and_interpretability.md)
--- this roadmap adopts it rather than duplicating it):
+pattern (see [`analytics_and_interpretability.md`](analytics_and_interpretability.md)):
 
 - Every export/summary emits: a stable versioned JSON sidecar, a short
-  natural-language summary, and (only when the result is a non-trivial
-  tabular/event collection) Parquet. Telemetry sessions are exactly the
-  "non-trivial event collection" case where Parquet may be worth it for
-  large runs; v1 stays JSON-first.
-- **Privacy/scope:** telemetry may contain paths, directories, and video
-  paths that are private to the local machine. Debug artifacts are local
-  and never published by default; the export sidecar includes a privacy
-  classification field and anonymization is the agent's responsibility
-  before sharing any report externally.
+  natural-language summary, and (optional) flat CSV.
+- **Privacy/scope:** telemetry is local and never published by default; export
+  sidecars include privacy classification tags.
 - **Agents are first-class consumers:** `debugtool` exposes a stable
-  importable API specifically so future debugging sessions (and other
-  agents) can query past runs programmatically. The CLI is a thin wrapper
-  over the API, never the only interface.
+  importable Python API for automated agents. The CLI and TUI are clean
+  consumers over the API.
 
 ---
 
-## Open Questions for Harbinger
+## Decisions on Open Questions
 
-1. **Sessions cleanup policy:** telemetry files accumulate unboundedly.
-   Should `debugtool` offer a retention/prune command (e.g. keep last N,
-   or delete sessions older than X with a flag), or leave cleanup entirely
-   manual?
-2. **Investigation naming/persistence:** the named-investigation manifest
-   lives in `~/.image-toolkit/telemetry/`. Fine for a single machine, or
-   should investigations be portable (checked-in JSON next to a repro
-   script) so a repro is self-describing?
-3. **`debugtool repro` scope:** should the repro command also drive the
-   *reproduction scenario* (e.g. auto-open a directory switch) or only the
-   capture pipeline around a command we already know how to run?
-4. **Parquet timing:** adopt Parquet export in v1 for large sessions, or
-   defer until the JSON sidecar proves insufficient (recommended: defer)?
-5. **Tool/UI naming:** `debugtool` for the package/CLI is my proposal.
-   If Gemini's UI wants a friendlier product name, that's UI-only; the API
-   name can stay stable.
+1. **Sessions cleanup policy:** Settle with **`debugtool prune --keep <N>`** (default 50) and
+   **`debugtool prune --older-than <Xd>`** (default 14d) with confirmation prompt.
+2. **Investigation persistence:** Settle on **Portable Investigation Folders** in
+   `debug/investigations/<name>/` containing `manifest.json`, associated telemetry captures,
+   and repro scripts, checked into git or shared across machines.
+3. **`debugtool repro` scope:** Drives both the **repro scenario execution** and the
+   **telemetry/gdb/hs_err capture pipeline**, outputting a consolidated diagnostic report.
+4. **Parquet timing:** **Deferred to v2**. JSONL + sidecar JSON index is lightweight,
+   human-readable, and sufficient for current multi-gigabyte session volumes.
+5. **Tool & Product Naming:** Package / CLI name is **`debugtool`**; human-facing product
+   title is **Debug & Development Workbench**.
 
 ---
 
 ## Implementation Status
 
-| Phase | Status | Owner |
-|-------|--------|-------|
-| Phase 1: Session model + queryable API | ⬜ Not started | deepseek |
-| Phase 2: CLI + export surface | ⬜ Not started | deepseek |
-| Phase 3: Visual timeline UI | ⬜ Not started | Gemini |
-| Phase 4: Repro harness + crash-capture integration | ⬜ Not started | deepseek + Gemini |
-| Phase 5: Cross-session comparison + trends | ⬜ Not started | deepseek |
+| Phase | Status | Owner | Details |
+|---|---|---|---|
+| **Phase 1: Session model + queryable API** | ✅ **Complete** | deepseek | `debugtool` package, session parser, span tree, 19/19 tests (`431163b7`) |
+| **Phase 2: CLI + export surface** | 🔄 **In Progress** | deepseek | `debugtool analyze/list/export/resolve-offset/prune` |
+| **Phase 3: Visual timeline & TUI workbench** | 🔄 **In Progress** | Gemini | Rich TUI, Perfetto-style lanes, Crash/Concurrency/Memory views, Live Watch |
+| **Phase 4: Repro harness + crash capture** | ⬜ **Planned** | deepseek + Gemini | `debugtool repro`, GDB/JVM stack trace splicer, automated NL summary |
+| **Phase 5: Cross-session diff + trends** | ⬜ **Planned** | deepseek | Session diffing, RSS trend analyzer, `debug/investigations/` container |
 
-Existing foundation (not part of the phases, already shipped):
+Existing foundation:
 
 | Artifact | Status |
-|----------|--------|
+|---|---|
 | `backend/src/core/telemetry.py` (JSONL logger) | ✅ Complete |
-| `debug/telemetry_analyzer.py` (orphaned spans / overlaps) | ✅ Complete (to be superseded by Phase 1 migration) |
-| `debug/run_with_gdb.sh` (SIGABRT capture) | ✅ Complete (to be wrapped by Phase 4) |
-| `debug/resolve_qt_offset.py` (Qt offset resolution) | ✅ Complete (to be wrapped by Phase 2 CLI) |
+| `debug/telemetry_analyzer.py` (orphaned spans / overlaps) | ✅ Complete (migrated to `debugtool.analyzer`) |
+| `debug/run_with_gdb.sh` (SIGABRT capture) | ✅ Complete (wrapped by Phase 4) |
+| `debug/resolve_qt_offset.py` (Qt offset resolution) | ✅ Complete (wrapped by Phase 2) |
