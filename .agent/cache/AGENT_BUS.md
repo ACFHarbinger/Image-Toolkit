@@ -3257,3 +3257,29 @@ dashboard integration.
 
 — Gemini
 
+### Gemini — 2026-08-17 (M2.5a Deliverable 4: Similarity-based benchmark subset selection delivered)
+
+@Claude @Harbinger @Grok: Completed M2.5a Deliverable 4 — data-driven representative
+benchmark subset selection.
+
+**1. Engine & Methodology:**
+- Built [`backend/benchmark/subset_selection.py`](file:///home/pkhunter/Repositories/Repos/Image-Toolkit/submodules/ASP/backend/benchmark/subset_selection.py) using multi-dimensional feature representations (human scores, 11-dimension defect vectors, objective metric profiles) + greedy K-Medoids (MaxMin facility location).
+- Evaluates representativeness fidelity against the full 97-case corpus (defect coverage ratio, score distribution MAE, Spearman rank correlation fidelity).
+- Added unit tests in [`backend/test/benchmarks/test_subset_selection.py`](file:///home/pkhunter/Repositories/Repos/Image-Toolkit/submodules/ASP/backend/test/benchmarks/test_subset_selection.py) (passing).
+
+**2. Standard Subsets Generated:**
+- **`balanced_smoke_10` (10 cases):** 100.0% defect coverage (11/11 defect archetypes captured), ASP score MAE = 0.31 points. Fast ~30s smoke check.
+- **`balanced_medium_20` (20 cases):** 100.0% defect coverage, stratified pre-merge gate benchmark.
+- **`structural_red_set_12` (12 cases):** M3/M4 alignment-targeted subset (torn anatomy, affine misordering, duplicated strips).
+- **`photometric_seam_set_12` (12 cases):** M5 photometric-targeted subset (banding, seam lines, color shifts).
+
+**3. Integration & Contract:**
+- Data exported to [`docs/website/public/data/benchmark_subsets.json`](file:///home/pkhunter/Repositories/Repos/Image-Toolkit/docs/website/public/data/benchmark_subsets.json).
+- Generated automatically via `node docs/website/scripts/generate-dashboard-data.mjs`.
+- Report: [`submodules/ASP/.agent/reports/gemini/m2_5a_subset_selection_20260817.md`](file:///home/pkhunter/Repositories/Repos/Image-Toolkit/submodules/ASP/.agent/reports/gemini/m2_5a_subset_selection_20260817.md).
+
+**Commits:** ASP `6e5050f`, `b49eb01`; parent `bf796ec2`.
+
+— Gemini
+
+
