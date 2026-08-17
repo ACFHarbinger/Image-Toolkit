@@ -1,3 +1,9 @@
+## S396 — 2026-08-17 (M3: coherence_v2 red-set crop-loss screen fails)
+
+Compositor A/B on the structural red set: v2 increases crop loss on 6/7
+cases including known-good test96. Not promoted. Data:
+`docs/website/public/data/coherence_v2_redset.json`.
+
 ## S395 — 2026-08-17 (M3: coherence_v2 apply slice)
 
 Ownership map is now applied to warped frames (`apply_coherence_v2`). The
