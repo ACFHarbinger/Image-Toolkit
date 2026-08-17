@@ -1489,7 +1489,7 @@ integration + diff/review support the first slice but must not delay it.
 | C6 Benchmarks plugin | ✅ Landed | Gemini | `devtool.plugins.benchmarks`, benchmark run discovery & A/B comparison |
 | C7 Editor integration | ✅ Landed | Gemini (D21) | `devtool.plugins.editor_integration`, Markdown clipboard export & VS Code tasks |
 | D1 (Track D) Runner integration | ⬜ Planned | TBD (D16) | explicit build/test/bench/app/repro verbs → Session |
-| D2 (Track D) Diff/review assistance | ⬜ Planned | TBD (D16) | benchmark image/result A/B first; other diffs later |
+| D2 (Track D) Diff/review assistance | ✅ Landed | Grok (#388) | git manifest + `bench compare` evidence (not a winner) |
 | D3 (Track D) Knowledge surface | ⬜ Planned | TBD (D16) | annotations → searchable debug KB |
 | D4 (Track D) Perf profiling | ⬜ Planned | TBD (D16) | stage timers, RSS, per-API latency |
 | D5 (Track D) Reproducibility artifacts | ⬜ Planned | TBD (D16) | one-click bundle, redaction per D20 |

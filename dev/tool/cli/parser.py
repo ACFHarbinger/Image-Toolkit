@@ -17,7 +17,7 @@ from ..debug.analyzer import print_report, tail
 from ..host.app import Host
 from ..host.store import WorkspaceStore
 from ..model import list_sessions, open_session
-from . import track_a
+from . import track_a, track_d
 
 
 def _host_from_args(args: Any) -> Host:
@@ -223,6 +223,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_serve.add_argument("--port", type=int, default=8000, help="Bind port")
 
     track_a.add_parsers(sub)
+    track_d.add_parsers(sub)
     return parser
 
 
@@ -245,4 +246,5 @@ COMMANDS = {
     "resolve-offset": track_a.cmd_resolve_offset,
     "prune": track_a.cmd_prune,
     "repro": track_a.cmd_repro,
+    "bench": track_d.cmd_bench,
 }

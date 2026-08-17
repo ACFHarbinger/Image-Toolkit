@@ -29,6 +29,7 @@ from .host import (
     default_workspace_root,
     discover_plugins,
 )
+from .host.git import git_state, write_session_manifest
 from .host.scenarios import Scenario, get_scenario, list_scenarios
 from .mcp import McpServer
 from .model import (
@@ -69,7 +70,9 @@ __all__ = [
     "format_diff",
     "generate_hypothesis",
     "get_scenario",
+    "git_state",
     "list_scenarios",
+    "write_session_manifest",
     "PluginManifest",
     "ProcessTree",
     "RegisteredView",

@@ -21,6 +21,7 @@ scheduler and to WallpaperManager -- the GUI never calls `base` directly.
 import atexit
 import json
 import logging
+import os
 import sys
 import time
 from pathlib import Path
@@ -169,6 +170,47 @@ def _write_gui_config(config: dict) -> None:
         logging.error(f"Failed to persist daemon state: {e}")
 
 
+def is_pid_alive(pid: int) -> bool:
+    """True if *pid* names a live process. ``os.kill(pid, 0)`` is a
+    liveness probe, not a signal delivery."""
+    if not isinstance(pid, int) or pid <= 0:
+        return False
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    except OSError:
+        return False
+    return True
+
+
+def daemon_is_live(config: Optional[dict]) -> bool:
+    """True only when the config claims running *and* its pid is alive.
+
+    A ``running: true`` flag with a missing or dead pid is a stale file
+    (daemon crashed, reboot, kill) and must not be trusted by the GUI.
+    """
+    if not config or not config.get("running"):
+        return False
+    pid = config.get("pid")
+    try:
+        pid_int = int(pid)
+    except (TypeError, ValueError):
+        return False
+    return is_pid_alive(pid_int)
+
+
+def mark_stopped(config: Optional[dict] = None) -> None:
+    """Persist ``running: false`` and drop the pid so a dead daemon
+    cannot leave the GUI thinking it is still ticking."""
+    cfg = dict(config or _load_gui_config() or {})
+    cfg["running"] = False
+    cfg.pop("pid", None)
+    _write_gui_config(cfg)
+
+
 def _monitors_from_geometries(geoms: Dict[str, dict]):
     from screeninfo import Monitor
 
@@ -192,6 +234,8 @@ def run():
         return
 
     logging.info(f"Monitor slideshow daemon started for monitor {config.get('monitor_id')}.")
+    config["pid"] = os.getpid()
+    _write_gui_config(config)
     start(
         config["monitor_id"],
         config.get("queue", []),
@@ -205,22 +249,31 @@ def run():
     try:
         while True:
             time.sleep(1.0)
-            gui_cfg = _load_gui_config()
-            if not gui_cfg or not gui_cfg.get("running"):
-                logging.info("Stop requested.")
-                break
+            try:
+                gui_cfg = _load_gui_config()
+                if not gui_cfg or not gui_cfg.get("running"):
+                    logging.info("Stop requested.")
+                    break
 
-            native_status = status() or {}
-            gui_cfg.update(
-                {
-                    "current_index": native_status.get("current_index", gui_cfg.get("current_index", -1)),
-                    "current_duration": native_status.get("current_duration"),
-                    "last_change_timestamp": native_status.get("last_change_timestamp", 0),
-                }
-            )
-            _write_gui_config(gui_cfg)
+                native_status = status() or {}
+                gui_cfg.update(
+                    {
+                        "pid": os.getpid(),
+                        "current_index": native_status.get(
+                            "current_index", gui_cfg.get("current_index", -1)
+                        ),
+                        "current_duration": native_status.get("current_duration"),
+                        "last_change_timestamp": native_status.get(
+                            "last_change_timestamp", 0
+                        ),
+                    }
+                )
+                _write_gui_config(gui_cfg)
+            except Exception:
+                logging.exception("slideshow daemon tick failed; continuing")
     finally:
         stop()
+        mark_stopped(_load_gui_config())
         logging.info("Monitor slideshow daemon stopped.")
 
 
