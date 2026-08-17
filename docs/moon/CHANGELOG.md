@@ -1,3 +1,10 @@
+## S388 — 2026-08-17 (M2: PipelineSession observability envelope)
+
+ASP records the first M2 observability slice on `PipelineSession`: per-stage
+geometry, frame/pose provenance, gain residuals/clamps, seam feasibility, and
+fallback reason, published from `finish()` as `artifacts["observability"]`.
+No pixel-path change.
+
 ## S387 — 2026-08-17 (M2: GhostGate telemetry-only candidate + range-JSON merge)
 
 ASP submodule `b3ee8a9` (`fix(#31)`):
