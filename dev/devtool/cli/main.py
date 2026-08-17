@@ -163,7 +163,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_web.add_argument("--host", default="127.0.0.1", help="Bind host (default 127.0.0.1)")
     p_web.add_argument("--port", type=int, default=0, help="Bind port (default 0 = ephemeral)")
 
-    p_mcp = sub.add_parser("mcp", help="Run the MCP stdio server (C4)")
+    sub.add_parser("mcp", help="Run the MCP stdio server (C4)")
 
     p_serve = sub.add_parser("serve", help="Run devtool in serve mode")
     p_serve.add_argument("--mcp", action="store_true", help="Serve MCP over localhost HTTP")
