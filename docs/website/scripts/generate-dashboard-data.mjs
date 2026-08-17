@@ -284,29 +284,60 @@ function main() {
     REPO_ROOT,
     "submodules/ASP/backend/benchmark/audit_defect_correlation.py"
   );
+  const subsetSelectionScript = path.join(
+    REPO_ROOT,
+    "submodules/ASP/backend/benchmark/subset_selection.py"
+  );
   const primaryRunFile = runFiles.find((f) => path.basename(f) === "anime_stitch_20260807_045552.json") || runFiles[0];
-  if (fs.existsSync(defectAuditScript) && primaryRunFile && latestEvalPath) {
-    try {
-      const pythonBin = fs.existsSync(path.join(REPO_ROOT, ".venv/bin/python"))
-        ? path.join(REPO_ROOT, ".venv/bin/python")
-        : "python3";
-      const defectJsonOut = path.join(OUT_DIR, "defect_correlation_matrix.json");
-      import("node:child_process").then(({ execFileSync }) => {
-        execFileSync(pythonBin, [
-          defectAuditScript,
-          "--run",
-          primaryRunFile,
-          "--labels",
-          latestEvalPath,
-          "--json-out",
-          defectJsonOut,
-        ]);
-        console.log("generated defect correlation matrix:", defectJsonOut);
-      }).catch((e) => {
-        console.warn("failed to run defect correlation script:", e.message);
-      });
-    } catch (e) {
-      console.warn("could not spawn defect correlation audit:", e.message);
+  if (primaryRunFile && latestEvalPath) {
+    const pythonBin = fs.existsSync(path.join(REPO_ROOT, ".venv/bin/python"))
+      ? path.join(REPO_ROOT, ".venv/bin/python")
+      : "python3";
+    
+    if (fs.existsSync(defectAuditScript)) {
+      try {
+        const defectJsonOut = path.join(OUT_DIR, "defect_correlation_matrix.json");
+        import("node:child_process").then(({ execFileSync }) => {
+          execFileSync(pythonBin, [
+            defectAuditScript,
+            "--run",
+            primaryRunFile,
+            "--labels",
+            latestEvalPath,
+            "--json-out",
+            defectJsonOut,
+          ]);
+          console.log("generated defect correlation matrix:", defectJsonOut);
+        }).catch((e) => {
+          console.warn("failed to run defect correlation script:", e.message);
+        });
+      } catch (e) {
+        console.warn("could not spawn defect correlation audit:", e.message);
+      }
+    }
+
+    if (fs.existsSync(subsetSelectionScript)) {
+      try {
+        const subsetJsonOut = path.join(OUT_DIR, "benchmark_subsets.json");
+        import("node:child_process").then(({ execFileSync }) => {
+          execFileSync(pythonBin, [
+            subsetSelectionScript,
+            "--run",
+            primaryRunFile,
+            "--labels",
+            latestEvalPath,
+            "--mode",
+            "all_standard",
+            "--json-out",
+            subsetJsonOut,
+          ]);
+          console.log("generated benchmark subsets:", subsetJsonOut);
+        }).catch((e) => {
+          console.warn("failed to run subset selection script:", e.message);
+        });
+      } catch (e) {
+        console.warn("could not spawn subset selection:", e.message);
+      }
     }
   }
 
