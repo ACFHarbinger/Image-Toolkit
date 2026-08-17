@@ -156,6 +156,7 @@ class Session:
         reports the innermost in flight. Returns spans in start order.
         """
         open_stack: Dict[tuple, List["Span"]] = defaultdict(list)
+        open_by_id: Dict[str, Span] = {}
         spans: List[Span] = []
         for e in self.events:
             event_name = e.get("event", "")
@@ -165,6 +166,7 @@ class Session:
                 if event_name.endswith(suffix):
                     base = event_name[: -len(suffix)]
                     key = (e["tid"], e.get("category", ""), base)
+                    span_id = e.get("span_id")
                     if suffix == ".start":
                         span = Span(
                             tid=e["tid"],
@@ -172,13 +174,23 @@ class Session:
                             name=base,
                             start=e["t"],
                             start_event=e,
+                            span_id=span_id,
+                            parent_span_id=e.get("parent_span_id"),
                         )
-                        open_stack[key].append(span)
+                        if span_id:
+                            open_by_id[span_id] = span
+                        else:
+                            open_stack[key].append(span)
                         spans.append(span)
                     elif suffix in (".end", ".error"):
-                        stack = open_stack.get(key)
-                        if stack:
-                            span = stack.pop()
+                        span = None
+                        if span_id and span_id in open_by_id:
+                            span = open_by_id.pop(span_id)
+                        else:
+                            stack = open_stack.get(key)
+                            if stack:
+                                span = stack.pop()
+                        if span is not None:
                             span.end = e["t"]
                             span.end_event = e
                             span.ended_ok = suffix == ".end"
@@ -255,6 +267,8 @@ class Span:
     end: Optional[float] = None
     end_event: Optional[Dict[str, Any]] = None
     ended_ok: Optional[bool] = None
+    span_id: Optional[str] = None
+    parent_span_id: Optional[str] = None
 
     @property
     def duration_ms(self) -> Optional[float]:
