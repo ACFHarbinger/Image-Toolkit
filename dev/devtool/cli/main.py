@@ -193,6 +193,12 @@ def main(argv: Optional[list[str]] = None) -> int:
         return cmd_tui(args)
     if args.command == "watch":
         return cmd_watch(args)
+    if args.command == "web":
+        return cmd_web(args)
+    if args.command == "mcp":
+        return cmd_mcp(args)
+    if args.command == "serve":
+        return cmd_serve(args)
     parser.print_help()
     return 2
 
