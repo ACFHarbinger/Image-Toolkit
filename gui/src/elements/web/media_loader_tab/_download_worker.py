@@ -17,6 +17,19 @@ class _DownloadWorkerMixin:
 
     @Slot()
     def start_download(self):
+        # Guard against re-entry: clicking Download while a previous
+        # MediaLoaderWorker QThread is still alive would replace
+        # self.worker, dropping the old QThread while its worker-thread
+        # downloader QObject is still referenced by it. Python GC then
+        # destroys that QObject from the main thread -- cross-thread QObject
+        # destruction behind the recurring crash (QObject::killTimer /
+        # Shiboken retrieveWrapper / QObject::property SIGSEGV) when
+        # Download is clicked twice in a row. Keep the old worker alive
+        # until it finishes; ignore the duplicate click instead.
+        if self.worker is not None and self.worker.isRunning():
+            self.status_label.setText("Download already in progress...")
+            return
+
         download_dir = self.download_dir_path.text().strip()
         if not download_dir:
             QMessageBox.warning(self, "Error", "Please select a download directory.")
