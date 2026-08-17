@@ -1,3 +1,15 @@
+## S401 — 2026-08-17 (Media loader: retries, collision policy, GIF galleries)
+
+Reddit and nhentai downloaders now retry transient HTTP failures (429/5xx,
+backoff 0.5s/1.0s, up to 3 attempts) so a single Download run fetches the
+full gallery instead of silently skipping frames (the old "click Download
+multiple times" symptom). Reddit GIF galleries (AnimatedImage metadata) are
+now included alongside stills. A new "If file exists" dropdown on the Media
+Loader tab selects the collision policy: overwrite (default), skip, or rename
+to `<name>(<N>)<ext>` where N counts prior files with the same name in the
+queue. Shared helpers live in `backend/src/web/downloaders/_common.py`;
+41 tests cover retry, collision policies, and worker pass-through.
+
 ## S400 — 2026-08-17 (Development Tool product direction)
 
 The canonical Development Tool roadmap now records Harbinger's benchmark-first

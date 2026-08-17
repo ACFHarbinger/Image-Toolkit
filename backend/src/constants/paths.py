@@ -38,4 +38,4 @@ BASE_VAULT_FILE = str(SECRETS_DIR / "my_secure_data.vault")
 BASE_PEPPER_FILE = str(SECRETS_DIR / "pepper.txt")
 
 # Other
-LOCAL_SOURCE_PATH = str(Path.home() / "Downloads" / "Data" / "Media")
+LOCAL_SOURCE_PATH = str(Path.home() / "Downloads" / "Data")

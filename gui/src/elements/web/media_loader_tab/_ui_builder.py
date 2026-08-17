@@ -20,8 +20,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ....styles import apply_shadow_effect
 from gui.src.constants.elements import SOURCE_REDDIT
+
+from ....styles import apply_shadow_effect
 
 SOURCE_NHENTAI = 1
 
@@ -91,6 +92,12 @@ class _UIBuilderMixin:
         download_dir_layout.addWidget(self.download_dir_path)
         download_dir_layout.addWidget(btn_browse_download)
         output_layout.addRow("Download Dir:", download_dir_layout)
+
+        self.on_exists_combo = QComboBox()
+        self.on_exists_combo.addItem("Overwrite existing", "overwrite")
+        self.on_exists_combo.addItem("Skip existing", "skip")
+        self.on_exists_combo.addItem("Rename (name(1).ext)", "rename")
+        output_layout.addRow("If file exists:", self.on_exists_combo)
 
         main_layout.addWidget(output_group)
 

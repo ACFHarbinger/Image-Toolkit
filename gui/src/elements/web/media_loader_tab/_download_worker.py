@@ -22,6 +22,8 @@ class _DownloadWorkerMixin:
             QMessageBox.warning(self, "Error", "Please select a download directory.")
             return
 
+        on_exists = self.on_exists_combo.currentData()
+
         if self.source_combo.currentIndex() == SOURCE_NHENTAI:
             gallery = self.nhentai_gallery_input.text().strip()
             if not gallery:
@@ -31,6 +33,7 @@ class _DownloadWorkerMixin:
             config = {
                 "gallery": gallery,
                 "download_dir": download_dir,
+                "on_exists": on_exists,
             }
         else:
             reddit_source = self.reddit_source_input.text().strip()
@@ -53,6 +56,7 @@ class _DownloadWorkerMixin:
                 "download_images": self.reddit_download_images_chk.isChecked(),
                 "download_videos": self.reddit_download_videos_chk.isChecked(),
                 "download_dir": download_dir,
+                "on_exists": on_exists,
             }
 
         self.run_button.hide()

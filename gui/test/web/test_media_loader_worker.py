@@ -13,8 +13,9 @@ fake downloader with real Qt signals so emissions actually forward.
 
 from unittest.mock import patch
 
-from gui.src.helpers.web.media_loader_worker import MediaLoaderWorker
 from PySide6.QtCore import QObject, Signal
+
+from gui.src.helpers.web.media_loader_worker import MediaLoaderWorker
 
 
 class _FakeDownloader(QObject):
@@ -107,3 +108,40 @@ class TestMediaLoaderWorkerDispatch:
             worker._downloader = _FakeDownloader(config)
             worker.cancel()
             assert worker._downloader.stopped
+
+class TestOnExistsPassThrough:
+    """The dropdown selection must reach the downloader config unchanged."""
+
+    def test_worker_receives_on_exists_in_config(self, q_app, tmp_path):
+        config = {
+            "source": "EarthPorn",
+            "download_dir": str(tmp_path),
+            "on_exists": "rename",
+        }
+        with patch(
+            "gui.src.helpers.web.media_loader_worker.RedditDownloader", _FakeDownloader
+        ):
+            worker = MediaLoaderWorker("reddit", config)
+            worker.run()
+        assert worker._downloader.config["on_exists"] == "rename"
+
+    def test_worker_defaults_on_exists_to_overwrite(self, q_app, tmp_path):
+        config = {"source": "EarthPorn", "download_dir": str(tmp_path)}
+        with patch(
+            "gui.src.helpers.web.media_loader_worker.RedditDownloader", _FakeDownloader
+        ):
+            worker = MediaLoaderWorker("reddit", config)
+            worker.run()
+        assert worker._downloader.config.get("on_exists") is None
+
+    def test_tab_builds_dropdown_with_three_policies(self, q_app):
+        """MediaLoaderTab exposes the existing-file dropdown with the three
+        policy values the backend understands."""
+        from gui.src.elements.web.media_loader_tab import MediaLoaderTab
+
+        tab = MediaLoaderTab()
+        assert tab.on_exists_combo.count() == 3
+        values = [
+            tab.on_exists_combo.itemData(i) for i in range(tab.on_exists_combo.count())
+        ]
+        assert values == ["overwrite", "skip", "rename"]
