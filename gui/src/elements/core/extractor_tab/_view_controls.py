@@ -28,6 +28,23 @@ class _ViewControlsMixin:
     """Event filtering, view resizing/fullscreen, resolution swapping, and
     internal/external player-mode toggling."""
 
+    def _current_duration_ms(self: "VideoExtractorSubTabHostProtocol") -> int:
+        """Current media duration WITHOUT constructing the player.
+
+        Passive events (wheel-seek over the player container, arrow-key
+        seeking) must not build QMediaPlayer/QAudioOutput: constructing them
+        lazily loads Qt Multimedia's native backend, which during the startup
+        burst -- with the JVM loaded and other QThreads active -- reliably
+        aborts the process (issue #81). A not-yet-built player has no
+        duration (0), which is correct: there is nothing to seek before a
+        video is loaded.
+        """
+        if self.duration_ms:
+            return self.duration_ms
+        if self._media_player is not None:
+            return self._media_player.duration()
+        return 0
+
     def eventFilter(self: "VideoExtractorSubTabHostProtocol", watched: QObject, event: QEvent  # noqa: C901
     ) -> bool:
         if self.lbl_current_time and watched is self.lbl_current_time and event.type() == QEvent.Type.MouseButtonPress:
@@ -62,7 +79,7 @@ class _ViewControlsMixin:
 
             if is_view or is_viewport or is_container:
                 # Only perform seek logic if the video is loaded and we are in internal player mode
-                duration_ms = self.duration_ms or self.media_player.duration()
+                duration_ms = self._current_duration_ms()
                 if self.use_internal_player and duration_ms > 0:
                     delta = cast(QWheelEvent, event).angleDelta().y()
                     # Jump by configured ms per scroll tick
@@ -91,7 +108,7 @@ class _ViewControlsMixin:
                 if key_event.key() == Qt.Key.Key_Right:
                     # Seek forward
                     pos = self.slider.value()
-                    duration = self.duration_ms or self.media_player.duration()
+                    duration = self._current_duration_ms()
                     new_pos = min(pos + self.wheel_seek_ms, duration)
                     self._seek_to(new_pos)
                     return True
@@ -212,7 +229,11 @@ class _ViewControlsMixin:
             self.info_label.setVisible(False)
             self.media_player.setSource(QUrl.fromLocalFile(self.video_path))
             self.media_player.setVideoOutput(self.video_item)
-            self.media_player.setAudioOutput(self.audio_output)
+            # QAudioOutput is constructed on demand only (issue #81: its
+            # construction aborts the process in this environment). Attach
+            # it if the user already has one.
+            if self._audio_output is not None:
+                self.media_player.setAudioOutput(self._audio_output)
             self.btn_play.setEnabled(True)
             self.change_resolution(self.combo_resolution.currentIndex())
         else:
@@ -306,11 +327,25 @@ class _ViewControlsMixin:
         except ValueError:
             speed = 1.0
 
-        # QMediaPlayer.setPlaybackRate introduced in Qt6
-        self.media_player.setPlaybackRate(speed)
+        # Record the requested rate; apply it only if the player already
+        # exists. Deliberately does NOT construct the player here: this slot
+        # fires during session recovery (combo_player_speed.setCurrentIndex
+        # in set_config), and constructing QMediaPlayer/QAudioOutput in the
+        # startup burst -- with the JVM loaded and ffmpeg thumbnail workers
+        # forking subprocesses -- reliably aborts the process (issue #81).
+        # The rate is applied when the player is first constructed (see the
+        # media_player property).
+        self._pending_playback_rate = speed
+        if self._media_player is not None:
+            # QMediaPlayer.setPlaybackRate introduced in Qt6
+            self._media_player.setPlaybackRate(speed)
 
     @Slot()
     def toggle_playback(self: "VideoExtractorSubTabHostProtocol"):
+        # Complete a session-recovery deferred load on first user interaction
+        # (the tab restore sets up UI state but leaves the player unbuilt).
+        if getattr(self, "_media_load_pending", False) and self.video_path:
+            self.load_media(self.video_path, force=True)
         if self.media_player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
             self.media_player.pause()
             self.btn_play.setIcon(

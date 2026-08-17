@@ -127,7 +127,14 @@ class _VideoSessionHistoryMixin:
 
         path = self.active_videos_tabbar.tabData(index)
         if path and path != self.video_path:
-            self.load_media(path)
+            # A session-recovery restore may still have a deferred (UI-only)
+            # media load pending while the startup burst races Qt Multimedia
+            # construction (issue #81). Keep such tab changes deferred too;
+            # the first player interaction (play button) completes the load.
+            if getattr(self, "_media_load_pending", False):
+                self.load_media(path, defer_player=True)
+            else:
+                self.load_media(path)
 
     @Slot(int)
     def _on_active_video_tab_closed(self: "VideoExtractorSubTabHostProtocol", index: int):
@@ -159,10 +166,15 @@ class _VideoSessionHistoryMixin:
                     self._update_source_label_style(path, label, False)
 
     @Slot(str)
-    def load_media(self: "VideoExtractorSubTabHostProtocol", file_path: str, force: bool = False):
+    def load_media(self: "VideoExtractorSubTabHostProtocol", file_path: str, force: bool = False, defer_player: bool = False):
         old_path = self.video_path
 
-        if old_path == file_path and not force:
+        if (
+            old_path == file_path
+            and not force
+            and not defer_player
+            and not getattr(self, "_media_load_pending", False)
+        ):
             return
 
         if old_path:
@@ -177,6 +189,11 @@ class _VideoSessionHistoryMixin:
         if ext == ".gif":
             self.video_container_widget.setVisible(False)
             self.extract_group.setVisible(False)
+            if defer_player:
+                # Session-recovery restore: set up all UI state but do NOT
+                # touch the Qt Multimedia player (issue #81 crash family).
+                self._media_load_pending = False
+                return
             self.media_player.stop()
             self.media_player.setSource(QUrl())
             # Update style
@@ -233,6 +250,17 @@ class _VideoSessionHistoryMixin:
         self.btn_set_cut_end.setEnabled(True)
         self.btn_add_tag.setEnabled(True)
 
+        if defer_player:
+            # Session-recovery restore: leave the Qt Multimedia player
+            # unconstructed and the storyboard unspawned until the user's
+            # first interaction (tab click / play / thumbnail click) completes
+            # the load via a normal load_media() call. Constructing the
+            # player / forking ffmpeg during the startup burst -- with the
+            # JVM loaded -- reliably aborts the process (issue #81).
+            self._media_load_pending = True
+            return
+
+        self._media_load_pending = False
         self._apply_player_mode()
         self._start_storyboard()
 

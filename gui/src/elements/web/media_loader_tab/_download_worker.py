@@ -26,7 +26,15 @@ class _DownloadWorkerMixin:
         # Shiboken retrieveWrapper / QObject::property SIGSEGV) when
         # Download is clicked twice in a row. Keep the old worker alive
         # until it finishes; ignore the duplicate click instead.
-        if self.worker is not None and self.worker.isRunning():
+        try:
+            _worker_busy = self.worker is not None and self.worker.isRunning()
+        except RuntimeError:
+            # self.worker may reference a QThread whose C++ object was already
+            # destroyed (e.g. a stale worker left over from before the re-entry
+            # guard landed). Treat it as done and replace it below.
+            _worker_busy = False
+            self.worker = None
+        if _worker_busy:
             self.status_label.setText("Download already in progress...")
             return
 

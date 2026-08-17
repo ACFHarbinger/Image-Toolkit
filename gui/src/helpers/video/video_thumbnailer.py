@@ -1,3 +1,4 @@
+import contextlib
 import hashlib
 import os
 import shutil
@@ -27,6 +28,39 @@ def _decode_span(tool: str, video_path: str):
         "native", "qimage_decode",
         tool=tool, video_path=video_path, tid=threading.get_ident(),
     )
+
+# Issue #81 crash family (see startup_probe_guard.py / app.py round 13): the
+# process's FIRST QMediaPlayer/QAudioOutput construction lazily dlopens Qt
+# Multimedia's native FFmpeg/audio backend. If that lazy load happens while
+# another thread is mid-fork() for an ffmpeg subprocess -- with the JPype JVM
+# already loaded in-process -- the process reliably aborts (heap corruption /
+# QSocketNotifier warnings, then SIGABRT/SIGSEGV inside libQt6Core; observed
+# live as "Fatal Python error: Aborted" with the main thread inside
+# QMediaPlayer()/QAudioOutput() and a pool thread inside subprocess.run()).
+# Serialize ffmpeg subprocess spawns against that first construction; once the
+# backend is loaded the lock is skipped entirely (uncontended fast path).
+MEDIA_BACKEND_LOAD_LOCK = threading.Lock()
+_media_backend_loaded = False
+
+
+@contextlib.contextmanager
+def media_backend_spawn_guard():
+    """Serializes an ffmpeg subprocess spawn against the process's first
+    Qt Multimedia backend load. No-op (no lock) once the backend is loaded."""
+    global _media_backend_loaded
+    if _media_backend_loaded:
+        yield
+        return
+    with MEDIA_BACKEND_LOAD_LOCK:
+        yield
+
+
+def mark_media_backend_loaded() -> None:
+    """Called (under MEDIA_BACKEND_LOAD_LOCK) by the construction site right
+    after Qt Multimedia's native backend has been loaded, so subsequent
+    ffmpeg spawns skip the lock."""
+    global _media_backend_loaded
+    _media_backend_loaded = True
 
 
 def get_video_thumbnail_cache_path(video_path: str) -> str:
@@ -97,10 +131,12 @@ class VideoThumbnailer:
                     "-q",
                     "5",  # Quality (low is fine for thumbs)
                 ]
-                # Timeout prevents hanging on corrupt files
-                result = subprocess.run(
-                    cmd, capture_output=True, check=True, timeout=15.0
-                )
+                # Timeout prevents hanging on corrupt files. Serialized
+                # against the first Qt Multimedia backend load (issue #81).
+                with media_backend_spawn_guard():
+                    result = subprocess.run(
+                        cmd, capture_output=True, check=True, timeout=15.0
+                    )
 
                 img = QImage()
                 # Load directly from memory buffer
@@ -138,9 +174,10 @@ class VideoThumbnailer:
                     "mjpeg",
                     "pipe:1",
                 ]
-                return subprocess.run(
-                    cmd, capture_output=True, check=True, timeout=15.0
-                )
+                with media_backend_spawn_guard():
+                    return subprocess.run(
+                        cmd, capture_output=True, check=True, timeout=15.0
+                    )
 
             try:
                 # Try seeking to 5 seconds first (avoids black intros)

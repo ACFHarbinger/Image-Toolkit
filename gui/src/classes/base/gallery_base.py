@@ -82,7 +82,20 @@ class AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery):
         )
 
         # --- Threading ---------------------------------------------------------
-        self.thread_pool = QThreadPool.globalInstance()
+        # Dedicated pool per gallery instance, NOT QThreadPool.globalInstance().
+        # The global pool is shared app-wide: a cancel_loading()'s
+        # thread_pool.waitForDone(-1) on it (e.g. the wallpaper startup-restore
+        # path) blocks the main thread until EVERY tab's pooled worker
+        # finishes -- including another tab's long-running ffmpeg thumbnail
+        # batch (subprocess.communicate waiting on the ffmpeg pipe). That
+        # freezes startup and then aborts the process (issue #81 family;
+        # observed live as "Fatal Python error: Aborted" with the main thread
+        # in thread_pool.waitForDone and a pooled worker inside
+        # subprocess._communicate). A per-instance pool makes cancel_loading()
+        # drain only THIS gallery's own workers. Capped so N galleries never
+        # spawn N * cpu_count threads.
+        self.thread_pool = QThreadPool()
+        self.thread_pool.setMaxThreadCount(max(2, min(8, os.cpu_count() or 4)))
         self._active_workers: set = set()
         # Generation counter: invalidates queued load-chunks after cancel/restart
         self._load_generation: int = 0

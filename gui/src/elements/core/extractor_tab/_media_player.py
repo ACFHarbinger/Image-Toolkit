@@ -42,6 +42,10 @@ from ....helpers.video.storyboard import (
     storyboard_is_complete,
     storyboard_meta_path_for,
 )
+from ....helpers.video.video_thumbnailer import (
+    MEDIA_BACKEND_LOAD_LOCK,
+    mark_media_backend_loaded,
+)
 from ....utils.sort_utils import natural_sort_key
 
 from typing import TYPE_CHECKING
@@ -142,6 +146,15 @@ class _MediaPlayerMixin:
         # avoids doing this during the fragile startup window.
         self._media_player: Optional[QMediaPlayer] = None
         self._audio_output: Optional[QAudioOutput] = None
+        # Playback rate requested (e.g. via the speed combo) before the
+        # player was first constructed; applied when the player is created.
+        self._pending_playback_rate: Optional[float] = None
+        # True while a session-recovery restore has set up all UI state for a
+        # video but deliberately deferred constructing the Qt Multimedia
+        # player / spawning the storyboard subprocess (issue #81 crash
+        # family: doing so during the startup burst, with the JVM loaded,
+        # reliably aborts). The first user interaction completes the load.
+        self._media_load_pending: bool = False
 
         # Controls Row 1 (Top)
         controls_top_layout = QHBoxLayout()
@@ -201,7 +214,7 @@ class _MediaPlayerMixin:
         self.volume_slider.setValue(0)
         self.volume_slider.setFixedWidth(60)
         self.volume_slider.valueChanged.connect(
-            lambda v: self.audio_output.setVolume(v / 100.0)
+            self._on_volume_slider_changed
         )
         self.volume_slider.setVisible(True)
 
@@ -298,15 +311,47 @@ class _MediaPlayerMixin:
             self._audio_output.setVolume(0.0)
         return self._audio_output
 
+    def _on_volume_slider_changed(self: "VideoExtractorSubTabHostProtocol", value: int):
+        # Explicit user audio action: construct the QAudioOutput on demand
+        # (issue #81 -- its construction aborts in some environments, so it is
+        # never built by startup/preview paths) and attach it to the player so
+        # the new volume actually applies.
+        ao = self.audio_output
+        if self._media_player is not None:
+            self._media_player.setAudioOutput(ao)
+        ao.setVolume(value / 100.0)
+
     @property
     def media_player(self: "VideoExtractorSubTabHostProtocol") -> QMediaPlayer:
         if self._media_player is None:
-            self._media_player = QMediaPlayer()
-            self._media_player.setAudioOutput(self.audio_output)
-            self._media_player.setVideoOutput(self.video_item)
-            self._media_player.positionChanged.connect(self.position_changed)
-            self._media_player.durationChanged.connect(self.duration_changed)
-            self._media_player.errorOccurred.connect(self.handle_player_error)
+            # Issue #81 crash family: the FIRST QMediaPlayer/QAudioOutput
+            # construction in the process lazily dlopens Qt Multimedia's
+            # native backend. Serialize it against any in-flight ffmpeg
+            # subprocess fork (see video_thumbnailer.media_backend_spawn_guard)
+            # so the lazy load never happens concurrently with a fork while
+            # the JVM is loaded in-process.
+            with MEDIA_BACKEND_LOAD_LOCK:
+                if self._media_player is None:  # re-check under the lock
+                    self._media_player = QMediaPlayer()
+                    # QAudioOutput is deliberately NOT constructed here:
+                    # QAudioOutput() construction lazily initializes Qt
+                    # Multimedia's audio backend, whose device probe aborts
+                    # the process in this environment (issue #81 family --
+                    # reproduced even in isolation with the JVM absent). The
+                    # player renders video fine without it, and the app
+                    # already defaults to volume 0 (muted). The audio output
+                    # is constructed on demand only when the user explicitly
+                    # adjusts volume / unmutes.
+                    if self._audio_output is not None:
+                        self._media_player.setAudioOutput(self._audio_output)
+                    self._media_player.setVideoOutput(self.video_item)
+                    self._media_player.positionChanged.connect(self.position_changed)
+                    self._media_player.durationChanged.connect(self.duration_changed)
+                    self._media_player.errorOccurred.connect(self.handle_player_error)
+                    mark_media_backend_loaded()
+                    pending = getattr(self, "_pending_playback_rate", None)
+                    if pending is not None:
+                        self._media_player.setPlaybackRate(pending)
         return self._media_player
 
     def cancel_loading(self: "VideoExtractorSubTabHostProtocol"):

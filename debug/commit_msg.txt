@@ -1,23 +1,41 @@
-fix(media-loader): crash on repeated Download clicks (worker re-entry + thread QObject lifetime)
+Fix startup freeze/crash: per-gallery pools + deferred player construction (S404)
 
-Clicking Download twice crashed the app. start_download replaced
-self.worker (a live MediaLoaderWorker QThread) with no re-entry guard,
-and MediaLoaderWorker.run() kept its worker-thread-affinity downloader
-QObject referenced in self._downloader after the thread finished. The
-second click dropped the old QThread; Python GC then destroyed the
-downloader QObject from the main thread -- cross-thread QObject
-destruction behind the recurring "QThread: Destroyed while thread is
-still running" / QObject::killTimer / Shiboken retrieveWrapper /
-QObject::property SIGSEGV family.
+The app froze and crashed at startup (and when clicking Download inside
+the ~40s startup window -- the same crash landing at click time). Plain
+launch reproduces it. Live faulthandler captures ("Fatal Python error:
+Aborted") found three stacked mechanisms:
 
-- _download_worker.py: start_download ignores a second click while the
-  previous worker is still running (worker.isRunning() guard, matching
-  image_crawler_tab's cancel_crawl pattern).
-- media_loader_worker.py: run() clears self._downloader in a finally so
-  the worker-thread QObject is released on the worker thread, never GC'd
-  from the main thread after a later click replaces the QThread.
+1. Cross-tab QThreadPool.globalInstance() freeze: every gallery shared the
+   global pool, so the wallpaper startup-restore cancel_loading() ->
+   waitForDone(-1) blocked the main thread until OTHER tabs' pooled workers
+   finished -- including ExtractorTab's ffmpeg thumbnail batch (captured:
+   main thread in waitForDone, worker in subprocess._communicate).
+2. QAudioOutput() construction aborts the process: the first
+   QMediaPlayer/QAudioOutput construction lazily loads Qt Multimedia's
+   backend, whose async device probe races other active threads with the
+   JVM loaded -> QSocketNotifier warning -> heap corruption -> SIGABRT.
+   QAudioOutput() aborted even in isolation; QMediaPlayer() alone never did.
+3. Session recovery constructed the player during the startup burst
+   (speed combo, load_media(force=True), eventFilter, tab change), violating
+   the round-13 "lazy player" assumption.
 
-Regression test TestStartDownloadReentryGuard: fails pre-fix with
-"QThread: Destroyed while thread is still running", passes post-fix.
-All 42 downloader/worker tests green. CHANGELOG S403; AGENT_BUS entry
-appended.
+Fixes:
+- gallery_base.py: dedicated per-instance QThreadPool (capped thread count)
+  so cancel_loading() drains only the gallery's own workers.
+- Extractor player construction deferred during recovery: load_media(
+  defer_player=True) restores UI state only; update_playback_speed records
+  _pending_playback_rate without building the player; eventFilter uses
+  _current_duration_ms(); tab changes defer while pending; toggle_playback
+  completes the deferred load on first interaction.
+- _media_player.py: construction serialized against ffmpeg forks via
+  MEDIA_BACKEND_LOAD_LOCK; QAudioOutput constructed on demand only (volume
+  slider), never by startup/preview paths.
+- video_thumbnailer.py: media_backend_spawn_guard() around subprocess.run.
+
+Verified: startup runs clean end-to-end (graceful SIGTERM exit, zero
+killTimer/~QObject/Fatal occurrences) with recovery + wallpaper restore +
+a live nhentai download (gallery 111006) running concurrently.
+
+Tests: 11 new regression tests (test_extractor_startup_deferral.py) +
+test_media_loader_download_click.py (replaces tmp driver tests); 47 GUI +
+23 downloader tests green. CHANGELOG S404.
