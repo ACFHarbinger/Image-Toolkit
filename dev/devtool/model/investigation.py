@@ -15,7 +15,7 @@ import json
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 META_FILENAME = "investigation.json"
 NOTES_FILENAME = "notes.jsonl"

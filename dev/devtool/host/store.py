@@ -20,9 +20,9 @@ from typing import Any, List, Optional
 
 from debugtool import Session, discover_sessions
 
+from ..model.investigation import Investigation
 from .plugins import Artifact, Plugin, PluginManifest
 from .settings import SETTINGS_FILENAME, Settings
-from ..model.investigation import Investigation
 
 
 def default_workspace_root() -> Path:
@@ -96,7 +96,7 @@ class WorkspaceStore:
         if attr:
             return getattr(module, attr)
         # fall back to a module-level "plugin" or "PLUGIN" object
-        return getattr(module, "plugin", None) or getattr(module, "PLUGIN")
+        return getattr(module, "plugin", None) or module.PLUGIN
 
     def manifest(self, plugin: Plugin) -> PluginManifest:
         return plugin.manifest

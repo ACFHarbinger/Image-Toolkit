@@ -5,17 +5,13 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
-
 from devtool import (
-    Artifact,
     Channel,
     PluginManifest,
     Settings,
     Surface,
     WorkspaceStore,
 )
-from devtool.model import Investigation
 
 
 def _manifest():
