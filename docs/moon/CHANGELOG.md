@@ -1,3 +1,11 @@
+## S399 — 2026-08-17 (Development Tool roadmap fold)
+
+Single source of truth for developer tooling:
+`docs/moon/roadmaps/development_tool.md`. Folds and deletes
+`debug_workbench.md`, `analytics_glossary.md`, and
+`analytics_and_interpretability.md`. Product: modular host in `dev/`
+(TUI + local web + MCP; ASP evaluator as a plugin).
+
 ## S398 — 2026-08-17 (M3: full-res red-set A/B renders)
 
 Full-resolution default vs coherence_v2 PNGs for

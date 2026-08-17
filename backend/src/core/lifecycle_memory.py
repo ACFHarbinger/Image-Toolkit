@@ -1,4 +1,4 @@
-"""App lifecycle RSS instrumentation (roadmap analytics_and_interpretability.md
+"""App lifecycle RSS instrumentation (roadmap development_tool.md
 §12.5, issue #70).
 
 A tiny, dependency-light phase-tagged memory logger for `app.py`'s startup

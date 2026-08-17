@@ -108,6 +108,7 @@ Section-specific roadmaps:
 - [Performance — Compute, Memory, I/O](roadmaps/performance.md)
 - [New Features — Capabilities & Integrations](roadmaps/new_features.md)
 - [Architecture & Infrastructure](roadmaps/architecture.md)
+- [Development Tool — telemetry, debug, benchmarks, plugins](roadmaps/development_tool.md)
 - [Browser Extension — Capture, Build System & App Integration](roadmaps/extension.md)
 - [Unified Database — Merging Listings Subtabs & Database Tabs](roadmaps/unified_database.md)
 - [Cel-Shaded Generator — drawing education, coloring, animation, and game assets](https://github.com/ACFHarbinger/Cel-Shaded-Generator/blob/main/docs/moon/ROADMAP.md)

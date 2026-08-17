@@ -168,7 +168,7 @@ reproduced it.
 
 ## The workbench: debugtool
 
-Phase 1 of the debug workbench roadmap (docs/moon/roadmaps/debug_workbench.md)
+Phase 1 of the Development Tool roadmap (docs/moon/roadmaps/development_tool.md, Track A)
 adds a session-oriented analysis layer over the same telemetry files:
 
     python -m debugtool list                     # list available sessions
