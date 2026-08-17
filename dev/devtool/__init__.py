@@ -1,15 +1,14 @@
 """devtool: the modular Development Tool host + plugins (Track C).
 
-Public data-side API (deepseek's slice; process lifecycle + discovery is
-Grok's and lands in host/app.py next):
+    from devtool import Host, WorkspaceStore
+    host = Host(store=WorkspaceStore(root=...))
+    host.discover()                   # first-party plugins
+    host.artifacts("telemetry_workbench")
 
-    from devtool import WorkspaceStore, Investigation, Session
-    store = WorkspaceStore(root=...)
-    plugin = store.load_plugin("devtool.plugins.telemetry_workbench:plugin")
-    store.list_artifacts(plugin)      # sessions + investigations
+    python -m devtool                 # workspace chooser (no daemon)
+    python -m devtool plugins
 
-The working telemetry package remains debug/debugtool until C2 lands the
-devtool alias; this package imports its Session model from there.
+Telemetry analysis stays in debug/debugtool until C2.
 """
 
 from __future__ import annotations
@@ -28,12 +27,15 @@ from .model import (
 from .host import (
     Artifact,
     Channel,
+    Host,
     Plugin,
     PluginManifest,
+    RegisteredView,
     Settings,
     Surface,
     WorkspaceStore,
     default_workspace_root,
+    discover_plugins,
 )
 
 __all__ = [
@@ -42,16 +44,19 @@ __all__ = [
     "Channel",
     "CrashBundle",
     "Event",
+    "Host",
     "Investigation",
     "Plugin",
     "PluginManifest",
     "ProcessTree",
+    "RegisteredView",
     "Session",
     "Settings",
     "Span",
     "Surface",
     "WorkspaceStore",
     "default_workspace_root",
+    "discover_plugins",
     "discover_sessions",
     "session_path_for_pid",
 ]

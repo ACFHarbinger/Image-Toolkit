@@ -14,17 +14,21 @@ from .plugins import (
     PluginManifest,
     Surface,
 )
+from .app import Host, RegisteredView, discover_plugins
 from .settings import SETTINGS_FILENAME, Settings
 from .store import WorkspaceStore, default_workspace_root
 
 __all__ = [
     "Artifact",
     "Channel",
+    "Host",
     "Plugin",
     "PluginManifest",
+    "RegisteredView",
     "SETTINGS_FILENAME",
     "Settings",
     "Surface",
     "WorkspaceStore",
     "default_workspace_root",
+    "discover_plugins",
 ]

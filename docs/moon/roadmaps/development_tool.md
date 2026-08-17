@@ -1281,7 +1281,7 @@ have.
 
 ## Track C — Host, Plugins, MCP, Local Web
 
-**Status:** ⬜ Planned. Grok-proposed; needs deepseek / Gemini ACK.
+**Status:** 🔄 C1 in progress (data side + lifecycle/discovery landed).
 
 This is the new work that makes D2/D6/D7/D11 real. It should start as
 soon as A1 is treated as a library (it already is) — it does **not**
@@ -1451,7 +1451,7 @@ integration + diff/review support the first slice but must not delay it.
 | A3 TUI (Perfetto + btop live) | ✅ Complete | Gemini | `debug/debugtool/ui/`, 14 tests, all 5 views + live watch |
 | A4 Repro + gdb | ⬜ Planned | deepseek + Gemini | |
 | A5 Diff + investigations | ⬜ Planned | deepseek | |
-| C1 Host + plugins | ⬜ Planned | deepseek + Grok (D17) | host model/protocol/store (deepseek) + lifecycle/discovery (Grok) |
+| C1 Host + plugins | ✅ Landed | deepseek + Grok (D17 / #380) | store + settings (deepseek); Host/discovery/CLI (Grok) |
 | C2 devtool alias | ⬜ Planned | deepseek | keep debugtool working until C1 (D19) |
 | C3 Local web | ⬜ Planned | Gemini + Grok | pixels |
 | C4 MCP server | ⬜ Planned | Grok (D18) | read-only analysis tools first |
