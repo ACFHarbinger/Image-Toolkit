@@ -1,3 +1,8 @@
+## S395 — 2026-08-17 (M3: coherence_v2 apply slice)
+
+Ownership map is now applied to warped frames (`apply_coherence_v2`). The
+live seam loop is unchanged unless `ASP_COHERENCE_V2=1`.
+
 ## S394 — 2026-08-17 (M3: coherence_v2 first slice)
 
 Isolated `coherence_v2` region-to-single-pose assignment (Critical Evaluation
