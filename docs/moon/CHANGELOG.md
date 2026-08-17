@@ -1,3 +1,15 @@
+## S387 — 2026-08-17 (M2: GhostGate telemetry-only candidate + range-JSON merge)
+
+ASP submodule `b3ee8a9` (`fix(#31)`):
+
+- GhostGate can record `ghosting_score_v2` as `telemetry_only_inverse_validated`
+  (`ASP_GHOST_TELEMETRY_ONLY=1`) without driving Safe ASP fallback. Default
+  reject path is unchanged. Offline replay of the 2026-08-07 97-case run:
+  0 identity changes (five-case, red set, all 97). No historic GhostGate-only
+  fallback exists in that corpus.
+- Disjoint per-range `anime_stitch_*.json` files now merge into
+  `anime_stitch_latest_consolidated.json` after each bench write.
+
 ## S386 — 2026-08-17 (M2: ASP Advanced Configuration UI Matrix delivered in GUI & Web)
 
 Delivered the M2 Advanced Configuration UI surface across both the desktop
