@@ -165,3 +165,24 @@ previously browsed directory on startup, then immediately (manually or via
 the Wallpaper tab's browse button) switch to a directory containing videos —
 image → video is the trigger; video → video or image → image has not
 reproduced it.
+
+## The workbench: debugtool
+
+Phase 1 of the debug workbench roadmap (docs/moon/roadmaps/debug_workbench.md)
+adds a session-oriented analysis layer over the same telemetry files:
+
+    python -m debugtool list                     # list available sessions
+    python -m debugtool analyze [path|--pid N]   # full report for one session
+    python -m debugtool analyze [path] --tail N  # last N events only
+
+Or as a library from any agent/tool:
+
+    from debugtool import open_session
+    session = open_session(pid=1234)      # or open_session(path=...)
+    session.orphaned_spans()              # what was in flight at a crash
+    session.in_flight_at(t)               # spans active at a moment
+    session.overlapping_windows()         # generalized worker-window overlaps
+
+telemetry_analyzer.py is now a compatibility shim that delegates to
+debugtool analyze; run_with_gdb.sh and resolve_qt_offset.py will be
+wrapped by later phases.
