@@ -1,3 +1,9 @@
+## S394 — 2026-08-17 (M3: coherence_v2 first slice)
+
+Isolated `coherence_v2` region-to-single-pose assignment (Critical Evaluation
+§9.2 Stage 2). Default-off `ASP_COHERENCE_V2`. Not wired into the live seam
+loop.
+
 ## S393 — 2026-08-17 (M2: SeamVis retune cannot pass discriminating exit)
 
 No `(floor, ratio)` pair catches catastrophes 04/06/07/12/14/15 and keeps
