@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Development Tool</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main id="picker">
+    <h1>Development Tool</h1>
+    <p class="sub">Select a workspace (repository) to monitor. One repository per workspace (D60).</p>
+
+    <section id="last-workspace" hidden>
+      <h2>Continue where you left off</h2>
+      <button id="continue-btn"></button>
+    </section>
+
+    <section>
+      <h2>Open a workspace</h2>
+      <button id="browse-btn">Choose repository folder&hellip;</button>
+      <p id="error" class="error" hidden></p>
+    </section>
+  </main>
+
+  <main id="workspace-view" hidden>
+    <header>
+      <span id="workspace-name"></span>
+      <button id="switch-btn">Switch workspace</button>
+    </header>
+    <p class="placeholder">
+      Host skeleton only (#407). Sidecar (#408), plugin artifacts, and the
+      2D/3D views land once that wiring is up.
+    </p>
+  </main>
+
+  <script src="main.js"></script>
+</body>
+</html>

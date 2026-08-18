@@ -1,5 +1,6 @@
 [workspace]
 members = [
     "frontend/src-tauri",
+    "dev/app/src-tauri",
 ]
 resolver = "2"
