@@ -1,11 +1,13 @@
 import json
 import os
 import time
+from unittest.mock import MagicMock, patch
 
 import pytest
 from gui.src.helpers.video.storyboard import (
     StoryboardBuilder,
     StoryboardMeta,
+    probe_duration_ms,
     storyboard_is_complete,
     storyboard_meta_path_for,
 )
@@ -135,6 +137,84 @@ class TestStoryboardBuilderCancellation:
         builder.run()
 
         assert len(failures) == 1
+
+
+class TestStoryboardMediaBackendGuard:
+    """Issue #81 crash family: every ffmpeg/ffprobe fork in this module must
+    be serialized against the process's first QMediaPlayer construction via
+    media_backend_spawn_guard() (see _media_player.py's media_player
+    property and video_thumbnailer.py's own ffmpeg spawns). This spawn site
+    was missed when that fix originally landed elsewhere; regression-guard
+    both forks here now that it's fixed."""
+
+    def test_probe_duration_ms_forks_ffprobe_under_the_guard(self):
+        calls = []
+
+        class _RecordingGuard:
+            def __enter__(self):
+                calls.append("guard_enter")
+                return self
+
+            def __exit__(self, *exc):
+                calls.append("guard_exit")
+                return False
+
+        def _fake_run(*args, **kwargs):
+            calls.append("subprocess_run")
+            result = MagicMock()
+            result.returncode = 0
+            result.stdout = "12.5"
+            return result
+
+        with (
+            patch("gui.src.helpers.video.storyboard.media_backend_spawn_guard", lambda: _RecordingGuard()),
+            patch("gui.src.helpers.video.storyboard.subprocess.run", side_effect=_fake_run),
+        ):
+            duration = probe_duration_ms("/fake/video.mkv")
+
+        assert duration == 12500
+        assert calls == ["guard_enter", "subprocess_run", "guard_exit"]
+
+    def test_storyboard_builder_forks_ffmpeg_under_the_guard(self, q_app, tmp_path):
+        calls = []
+
+        class _RecordingGuard:
+            def __enter__(self):
+                calls.append("guard_enter")
+                return self
+
+            def __exit__(self, *exc):
+                calls.append("guard_exit")
+                return False
+
+        def _fake_popen(*args, **kwargs):
+            calls.append("subprocess_popen")
+            proc = MagicMock()
+            proc.stdout = iter([])  # no progress lines; loop exits immediately
+            proc.wait.return_value = 0
+            return proc
+
+        video = tmp_path / "episode.mkv"
+        video.write_text("dummy")
+        builder = StoryboardBuilder(str(video), 60_000)
+        failures = []
+        builder.failed.connect(failures.append)
+
+        with (
+            patch("gui.src.helpers.video.storyboard.media_backend_spawn_guard", lambda: _RecordingGuard()),
+            patch("gui.src.helpers.video.storyboard.subprocess.Popen", side_effect=_fake_popen),
+        ):
+            builder.run()
+
+        # No real tile files exist (Popen is faked), so run() fails cleanly
+        # right after the fork — that's fine, this test is only about the
+        # fork itself being guarded, not a full storyboard build.
+        assert failures == ["No thumbnails extracted."]
+        assert calls == ["guard_enter", "subprocess_popen", "guard_exit"]
+        # The Popen fork itself is guarded; nothing about draining its
+        # (empty, in this test) stdout stream should still be inside the
+        # guard afterwards — a slow storyboard build must not hold this
+        # lock and stall a concurrent QMediaPlayer construction.
 
 
 class TestStoryboardPagination:
