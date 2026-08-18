@@ -42,8 +42,9 @@
     "python_module": "tool.plugins.asp_evaluator:plugin",
     "command": [
       ".venv/bin/python",
-      "-m",
-      "tool.plugins.asp_evaluator"
+      "dev",
+      "plugin-run",
+      "asp_evaluator"
     ]
   }
 }

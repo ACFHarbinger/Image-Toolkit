@@ -34,8 +34,9 @@
     "python_module": "tool.plugins.telemetry_workbench:plugin",
     "command": [
       ".venv/bin/python",
-      "-m",
-      "tool.plugins.telemetry_workbench"
+      "dev",
+      "plugin-run",
+      "telemetry_workbench"
     ]
   }
 }

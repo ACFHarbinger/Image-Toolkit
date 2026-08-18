@@ -133,7 +133,7 @@ def cmd_workspace(args: Any) -> int:
         print("  (none)")
     for name in snapshot["investigations"]:
         print(f"  {name}")
-    print("Commands: plugins | workspace | list | analyze | tui | watch | web | mcp | sidecar")
+    print("Commands: plugins | workspace | list | analyze | tui | watch | web | mcp | sidecar | plugin-run")
     return 0
 
 
@@ -175,6 +175,35 @@ def cmd_serve(args: Any) -> int:
     host = _host_from_args(args)
     McpServer(host.store).serve_http(host=args.host, port=args.port)
     return 0
+
+
+def cmd_plugin_run(args: Any) -> int:
+    """Run a first-party IT plugin as a spawned command entry (#413).
+
+    The host appends --stdio (Grok lock #8); the plugin then speaks the
+    frozen D52 JSON-RPC-over-stdio contract (initialize / list_artifacts /
+    ping) via the shared PluginStdioServer. Without --stdio we refuse to
+    start, mirroring d52_proof (a spawned command always gets it).
+    """
+    if not getattr(args, "stdio", False):
+        print(
+            f"plugin-run: --stdio is required (Grok lock #8: the host appends it)",
+            file=sys.stderr,
+        )
+        return 2
+
+    import importlib
+
+    module = importlib.import_module(f"tool.plugins.{args.name}")
+    plugin = getattr(module, "plugin", None)
+    if plugin is None:
+        print(f"plugin-run: no plugin object in tool.plugins.{args.name}", file=sys.stderr)
+        return 1
+
+    host = _host_from_args(args)
+    from ..host.command import run_plugin_stdio
+
+    return run_plugin_stdio(plugin, store=host.store, argv=["--stdio"])
 
 
 def cmd_search(args: Any) -> int:
@@ -308,6 +337,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Speak JSON-RPC over stdio (the host appends this flag; implied for this verb)",
     )
 
+    p_plugin_run = sub.add_parser(
+        "plugin-run",
+        help="Run a first-party IT plugin as a spawned command entry (v2 #413, D52 protocol)",
+    )
+    p_plugin_run.add_argument("name", help="Plugin module name under tool.plugins (e.g. telemetry_workbench)")
+    p_plugin_run.add_argument(
+        "--stdio",
+        action="store_true",
+        help="Speak JSON-RPC over stdio (the host appends this flag)",
+    )
+
     p_serve = sub.add_parser("serve", help="Run tool in serve mode")
     p_serve.add_argument("--mcp", action="store_true", help="Serve MCP over localhost HTTP")
     p_serve.add_argument("--host", default="127.0.0.1", help="Bind host (default 127.0.0.1)")
@@ -365,6 +405,7 @@ COMMANDS = {
     "mcp": cmd_mcp,
     "sidecar": cmd_sidecar,
     "serve": cmd_serve,
+    "plugin-run": cmd_plugin_run,
     "search": cmd_search,
     "perf": cmd_perf,
     "eval": cmd_eval,

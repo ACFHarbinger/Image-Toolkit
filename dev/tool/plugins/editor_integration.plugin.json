@@ -27,8 +27,9 @@
     "python_module": "tool.plugins.editor_integration:plugin",
     "command": [
       ".venv/bin/python",
-      "-m",
-      "tool.plugins.editor_integration"
+      "dev",
+      "plugin-run",
+      "editor_integration"
     ]
   }
 }

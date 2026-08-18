@@ -130,3 +130,20 @@ class EditorIntegrationPlugin:
 
 
 plugin = EditorIntegrationPlugin()
+
+def main(argv=None) -> int:
+    """D52 command-plugin entry: python -m tool.plugins.<name> --stdio.
+
+    Delegates to the shared stdio server so the host can spawn this plugin
+    as a command entry (Grok lock #8: entry.command argv + --stdio).
+    """
+    from ..host.command import run_plugin_stdio
+
+    return run_plugin_stdio(plugin, argv=argv)
+
+
+if __name__ == "__main__":
+    import sys
+
+    sys.exit(main())
+
