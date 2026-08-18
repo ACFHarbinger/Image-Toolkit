@@ -2106,6 +2106,33 @@ plugin). Track progress on the [Development
 Tool](https://github.com/users/ACFHarbinger/projects/25/views/1) project
 board.
 
+## v2 as-built (2026-08-18)
+
+Started implementation of the first-build shape above.
+
+- **#411 D52 proof plugin — Landed.** `dev/plugins/d52_proof/` (Go, module
+  `devtool.d52_proof`, stdlib-only): tiny in-tree Go `command` plugin
+  (lock 6) proving language neutrality. Answers the frozen JSON-RPC-over-stdio
+  contract (`initialize` / `list_artifacts` / `ping`; host appends `--stdio`,
+  lock 8) and returns the #410 Artifact shape `{kind, name, path, meta}`.
+  Manifest at `dev/tool/plugins/d52_proof.plugin.json` (command-only, no
+  `python_module`), discovered by the host via #410. Tests: `go test` +
+  `dev/test/development/test_d52_proof.py` (9 tests, builds+spawns the
+  binary, skips when Go is absent).
+- **#408 Sidecar — Python core Landed; host wiring pending #407.** The
+  bundled, isolated Python process (lock 5) now exists as `dev/tool/sidecar/`
+  and speaks the *same* JSON-RPC as a command plugin so the host has one
+  process protocol (Grok feasibility note). `SidecarServer` (initialize /
+  list_artifacts / ping) serves the in-process Python plugin registry over
+  that wire; `SidecarRestartPolicy` encodes locks 4 + 12 as a pure testable
+  state machine the Rust host ports. New verb: `python dev/ sidecar --stdio`
+  (exits 0 on stdin EOF). Remaining: Tauri spawn-on-window-open / kill-on-
+  close + restart-policy enforcement + workspace-python resolution for
+  in-tree plugin command argv — all land with Claude's #407 host skeleton.
+- **#414 `just devtool-app` + Linux packaging — held**, blocked on #407
+  (no Tauri crate in the root workspace yet). Source-built first Linux
+  release (lock 1); no AppImage/.deb/Flatpak (D61 deferred).
+
 ---
 
 ## Effort × Impact Matrix

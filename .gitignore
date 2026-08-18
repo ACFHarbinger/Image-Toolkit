@@ -441,6 +441,7 @@ backend/benchmark/output/*.json
 /**/build
 /**/dist
 /**/target
+/dev/plugins/d52_proof/bin/
 
 # Agent files
 .claude/
