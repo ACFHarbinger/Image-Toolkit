@@ -65,6 +65,53 @@ class TestSidecarProtocol:
         lines = [json.loads(l) for l in stdout.getvalue().strip().splitlines()]
         assert [l["id"] for l in lines] == [1, 2]
 
+    def test_visual_and_world_state_rpc_methods(self, tmp_path):
+        server = _server(tmp_path)
+
+        # 1. get_meta_graph
+        resp = json.loads(server.handle('{"jsonrpc":"2.0","id":10,"method":"get_meta_graph"}'))
+        assert resp["id"] == 10
+        assert "graph" in resp["result"]
+        assert len(resp["result"]["graph"]["nodes"]) >= 3
+        assert len(resp["result"]["nexus_nodes"]) >= 1
+
+        # 2. get_flame_graph
+        resp = json.loads(server.handle('{"jsonrpc":"2.0","id":11,"method":"get_flame_graph"}'))
+        assert resp["id"] == 11
+        assert "tree" in resp["result"]
+        assert resp["result"]["total_time_ms"] > 0
+
+        # 3. get_metrics_timeline
+        resp = json.loads(server.handle('{"jsonrpc":"2.0","id":12,"method":"get_metrics_timeline"}'))
+        assert resp["id"] == 12
+        assert "rss_memory" in resp["result"]
+        assert len(resp["result"]["rss_memory"]["points"]) > 0
+
+        # 4. get_pipeline_scrubber
+        resp = json.loads(server.handle('{"jsonrpc":"2.0","id":13,"method":"get_pipeline_scrubber","params":{"t_ms":150.0}}'))
+        assert resp["id"] == 13
+        assert "session" in resp["result"]
+        assert "evaluation" in resp["result"]
+        assert resp["result"]["evaluation"]["timestamp_ms"] == 150.0
+
+        # 5. get_world_state & save_world_state
+        resp = json.loads(server.handle('{"jsonrpc":"2.0","id":14,"method":"get_world_state"}'))
+        assert resp["id"] == 14
+        world_state = resp["result"]
+        world_state["camera"]["label"] = "Custom Front Vantage"
+
+        resp_save = json.loads(server.handle(json.dumps({
+            "jsonrpc": "2.0",
+            "id": 15,
+            "method": "save_world_state",
+            "params": {"world_state": world_state},
+        })))
+        assert resp_save["id"] == 15
+        assert resp_save["result"]["saved"] is True
+
+        resp_reload = json.loads(server.handle('{"jsonrpc":"2.0","id":16,"method":"get_world_state"}'))
+        assert resp_reload["result"]["camera"]["label"] == "Custom Front Vantage"
+
 
 class TestRestartPolicy:
     def test_crash_before_initialize_is_hard_fail(self):

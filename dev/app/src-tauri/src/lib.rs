@@ -35,6 +35,42 @@ fn list_artifacts(state: State<'_, SidecarState>) -> Result<serde_json::Value, S
     state.lock().unwrap().list_artifacts().map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+fn get_meta_graph(state: State<'_, SidecarState>) -> Result<serde_json::Value, String> {
+    state.lock().unwrap().get_meta_graph().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn get_flame_graph(state: State<'_, SidecarState>) -> Result<serde_json::Value, String> {
+    state.lock().unwrap().get_flame_graph().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn get_metrics_timeline(state: State<'_, SidecarState>) -> Result<serde_json::Value, String> {
+    state.lock().unwrap().get_metrics_timeline().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn get_pipeline_scrubber(
+    t_ms: Option<f64>,
+    state: State<'_, SidecarState>,
+) -> Result<serde_json::Value, String> {
+    state.lock().unwrap().get_pipeline_scrubber(t_ms).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn get_world_state(state: State<'_, SidecarState>) -> Result<serde_json::Value, String> {
+    state.lock().unwrap().get_world_state().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn save_world_state(
+    world_state: serde_json::Value,
+    state: State<'_, SidecarState>,
+) -> Result<serde_json::Value, String> {
+    state.lock().unwrap().save_world_state(world_state).map_err(|e| e.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let repo_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
@@ -50,6 +86,12 @@ pub fn run() {
             workspace::select_workspace,
             list_records,
             list_artifacts,
+            get_meta_graph,
+            get_flame_graph,
+            get_metrics_timeline,
+            get_pipeline_scrubber,
+            get_world_state,
+            save_world_state,
         ])
         .setup(|app| {
             if cfg!(debug_assertions) {
