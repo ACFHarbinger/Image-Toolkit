@@ -1,7 +1,8 @@
-"""Unit tests for the wallpaper CLI verb (ASP Hero-Cel compositing, issue #430).
+"""Unit tests for the wallpaper CLI verb (ASP Hero-Cel compositing, #430).
 
-The real pipeline is not yet implemented; this covers the CLI surface and
-the stub handler that returns exit code 2.
+Covers the CLI surface (parser args + defaults) and the --estimate path
+(parameter-dependent wall-clock, no clip required). The full pipeline run
+is exercised in the ASP submodule's test_wallpaper_pipeline.py.
 """
 
 from __future__ import annotations
@@ -31,10 +32,13 @@ def test_wallpaper_parser_defaults():
     assert args.estimate is False
 
 
-def test_wallpaper_cmd_returns_exit_code_2():
+def test_wallpaper_estimate_returns_0_without_clip():
+    # --estimate prints the parameter-dependent wall-clock and exits 0; it
+    # must not require a real clip (the probe falls back to a default frame
+    # count when the clip can't be opened).
     parser = build_parser()
     args = parser.parse_args(
-        ["wallpaper", "/tmp/clip.mov", "--aspect", "21:9", "--quality", "fast", "--estimate"]
+        ["wallpaper", "/tmp/does_not_exist.mov", "--aspect", "21:9", "--quality", "fast", "--estimate"]
     )
     ret = COMMANDS["wallpaper"](args)
-    assert ret == 2
+    assert ret == 0
