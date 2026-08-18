@@ -74,3 +74,26 @@ class JavaVaultManagerTest:
             mock_shutdown_jvm.assert_not_called()
 
         mock_shutdown_jvm.assert_called_once()
+
+    def test_shutdown_skips_while_qt_alive(self, mock_jpype, monkeypatch):
+        """shutdown() must NOT call shutdownJVM while a Qt app instance exists."""
+        _, mock_shutdown_jvm = mock_jpype
+        monkeypatch.setattr(
+            "PySide6.QtCore.QCoreApplication.instance",
+            lambda *a, **k: object(),  # non-None -> Qt "alive"
+        )
+        with JavaVaultManager("test.jar") as manager:
+            manager.shutdown()
+            mock_shutdown_jvm.assert_not_called()
+
+    def test_shutdown_jvm_force_shuts_down_while_qt_alive(self, mock_jpype, monkeypatch):
+        """shutdown_jvm() must call shutdownJVM even while a Qt app exists
+        (it is wired to aboutToQuit; the Bug 1 headless-close hang)."""
+        _, mock_shutdown_jvm = mock_jpype
+        monkeypatch.setattr(
+            "PySide6.QtCore.QCoreApplication.instance",
+            lambda *a, **k: object(),  # non-None -> Qt "alive"
+        )
+        with JavaVaultManager("test.jar") as manager:
+            manager.shutdown_jvm()
+            mock_shutdown_jvm.assert_called_once()

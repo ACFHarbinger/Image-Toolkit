@@ -276,6 +276,15 @@ def launch_app(opts):
         print("[startup-probe-guard] login succeeded", flush=True)
         telemetry.emit("startup", "login.succeeded", tid=threading.get_ident())
 
+        # Bug 1 follow-up (headless close hang): the embedded JVM keeps a
+        # non-daemon thread alive, so the process hangs after app.exec()
+        # returns unless the JVM is shut down as Qt's event loop exits.
+        # shutdown() deliberately skips while a Qt app exists (it is called
+        # from inside closeEvent), so wire the force-shutdown here, once,
+        # at aboutToQuit -- which fires as the event loop is tearing down.
+        if vault_manager is not None:
+            app.aboutToQuit.connect(vault_manager.shutdown_jvm)
+
         # Create the new main window instance (deferred -- see the
         # QSocketNotifier/heap-corruption comment above) and only THEN
         # close the login window. Closing LoginWindow first and

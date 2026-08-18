@@ -423,6 +423,22 @@ class VaultManager:
                 jpype.shutdownJVM() # pyrefly: ignore [missing-attribute]
                 print("JVM shut down.", file=sys.stderr)
 
+    def shutdown_jvm(self):
+        """Force-shutdown the embedded JVM.
+
+        Unlike shutdown() this does NOT skip while a Qt Application instance
+        exists: it is meant to be wired to QApplication.aboutToQuit, which
+        fires as the Qt event loop is exiting. If left unshut, JPype's
+        embedded JVM keeps a non-daemon thread alive and the process hangs
+        after app.exec() returns (Bug 1 follow-up: headless close hang).
+        """
+        if self.is_guest:
+            return
+        if jpype.isJVMStarted(): # pyrefly: ignore [missing-attribute]
+            print("Shutting down JVM (aboutToQuit)...", file=sys.stderr)
+            jpype.shutdownJVM() # pyrefly: ignore [missing-attribute]
+            print("JVM shut down.", file=sys.stderr)
+
 
     def __enter__(self):
         return self
