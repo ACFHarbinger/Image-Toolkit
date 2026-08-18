@@ -178,7 +178,7 @@ class TestOnExistsPassThrough:
     def test_tab_builds_dropdown_with_three_policies(self, q_app):
         """MediaLoaderTab exposes the existing-file dropdown with the three
         policy values the backend understands."""
-        from gui.src.elements.web.media_loader_tab import MediaLoaderTab
+        from gui.src.tabs.web.media_loader_tab import MediaLoaderTab
 
         tab = MediaLoaderTab()
         assert tab.on_exists_combo.count() == 3
@@ -228,8 +228,8 @@ class TestStartDownloadReentryGuard:
     to a running download thread."""
 
     def test_start_download_ignored_while_worker_running(self, q_app):
-        from gui.src.elements.web.media_loader_tab import MediaLoaderTab
-        from gui.src.elements.web.media_loader_tab._ui_builder import SOURCE_NHENTAI
+        from gui.src.tabs.web.media_loader_tab import MediaLoaderTab
+        from gui.src.tabs.web.media_loader_tab._ui_builder import SOURCE_NHENTAI
 
         tab = MediaLoaderTab()
         tab.source_combo.setCurrentIndex(SOURCE_NHENTAI)

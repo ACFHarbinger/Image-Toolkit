@@ -52,8 +52,8 @@ def _fake_run(self):
 
 
 def _make_tab():
-    from gui.src.elements.web.media_loader_tab import MediaLoaderTab
-    from gui.src.elements.web.media_loader_tab._ui_builder import SOURCE_NHENTAI
+    from gui.src.tabs.web.media_loader_tab import MediaLoaderTab
+    from gui.src.tabs.web.media_loader_tab._ui_builder import SOURCE_NHENTAI
 
     tab = MediaLoaderTab()
     tab.source_combo.setCurrentIndex(SOURCE_NHENTAI)
@@ -88,8 +88,8 @@ class TestMediaLoaderDownloadClick:
             assert tab.worker is not None
 
     def test_click_download_twice_still_completes(self, q_app, tmp_path):
-        from gui.src.elements.web.media_loader_tab import MediaLoaderTab
-        from gui.src.elements.web.media_loader_tab._ui_builder import SOURCE_NHENTAI
+        from gui.src.tabs.web.media_loader_tab import MediaLoaderTab
+        from gui.src.tabs.web.media_loader_tab._ui_builder import SOURCE_NHENTAI
         from gui.src.helpers.web.media_loader_worker import MediaLoaderWorker
 
         tab = MediaLoaderTab()
