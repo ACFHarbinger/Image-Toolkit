@@ -1,29 +1,28 @@
 #!/usr/bin/env bash
 # Run the desktop app under gdb, capturing an all-thread backtrace the
-# instant it crashes with SIGABRT, and leaving the process runnable under a
-# debugger for any manual follow-up.
+# instant it crashes with SIGABRT or SIGSEGV, and leaving the process
+# runnable under a debugger for any manual follow-up.
 #
 # This is the explicit "next step" both docs/TROUBLESHOOTING.md and
 # .agent/cache/gallery_crash_deleteorphaned_2026-07-27.md call for after
 # sixteen-plus rounds of Python-level print/telemetry instrumentation
 # narrowed the crash (QSocketNotifier warning -> glibc heap corruption ->
-# SIGABRT, "corrupted size vs. prev_size") but never pinned down the exact
-# native call responsible.
+# SIGABRT, "corrupted size vs. prev_size"; separately, a shiboken binding-
+# hash SIGSEGV during MainWindow construction/teardown, Addenda 29-31) but
+# never pinned down the exact native call responsible.
 #
-# IMPORTANT: this script deliberately does NOT stop on SIGSEGV, only
-# SIGABRT. HotSpot JVMs raise SIGSEGV *on purpose* as part of normal
-# operation -- implicit null-pointer checks and safepoint polling are both
-# implemented by letting the CPU fault intentionally, then the JVM's own
-# installed signal handler catches it and recovers (turns it into a
-# NullPointerException, or just continues). An earlier version of this
-# script stopped on SIGSEGV too, which made gdb intercept every one of
-# these totally benign, JVM-internal signals -- producing a misleading
-# "the app crashes before the login window even opens" symptom that never
-# happens in normal, un-debugged execution. See Addendum 19 in
-# .agent/cache/gallery_crash_deleteorphaned_2026-07-27.md for the full
-# story. SIGABRT is never used by the JVM for anything routine -- glibc's
-# malloc_consolidate() only raises it on genuine heap corruption, which is
-# exactly the "corrupted size vs. prev_size" symptom this tool exists for.
+# HISTORY (why this now stops on SIGSEGV too): an earlier version of this
+# script let SIGSEGV pass through untouched, because the app used to embed
+# a JVM (JPype cryptography module) whose HotSpot runtime raises SIGSEGV
+# *on purpose* for implicit null-pointer checks and safepoint polling, and
+# recovers from it internally -- stopping gdb there just intercepted totally
+# benign, JVM-internal signals (see Addendum 19). Issue #435 replaced that
+# JVM module with a native C/OpenSSL implementation, so the process has no
+# embedded JVM left to raise benign SIGSEGVs (or to convert a real fatal one
+# into its own SIGABRT+hs_err, which is how earlier rounds' SIGSEGV crashes
+# ended up caught here at all). Passing SIGSEGV through untouched post-#435
+# would mean a real native SIGSEGV now gets zero diagnostics -- the opposite
+# of what this tool is for -- so it stops and prints like SIGABRT.
 #
 # Usage:
 #   IMAGE_TOOLKIT_TELEMETRY=1 dev/run_with_gdb.sh
@@ -32,9 +31,9 @@
 #
 # Output: an all-thread backtrace, written to
 #   ~/.image-toolkit/telemetry/gdb-backtrace-<timestamp>.txt
-# as soon as gdb catches SIGABRT -- correlate its timestamp against the
-# matching telemetry-<pid>.jsonl file (enable telemetry too, per the usage
-# line above) with dev/telemetry_analyzer.py to see exactly what
+# as soon as gdb catches SIGABRT/SIGSEGV -- correlate its timestamp against
+# the matching telemetry-<pid>.jsonl file (enable telemetry too, per the
+# usage line above) with dev/telemetry_analyzer.py to see exactly what
 # Python-level event was in flight when the native fault happened.
 #
 # Also raises the core-dump size limit for this process tree (Addendum 20):
@@ -71,49 +70,46 @@ echo "    with: python dev/telemetry_analyzer.py)"
 # shellcheck disable=SC1091
 source .venv/bin/activate
 
-# SIGSEGV: let it pass through untouched (nostop/noprint) -- the JVM uses it
-# internally and recovers from it on its own; gdb must never break there.
-# SIGABRT: stop and print -- this is the actual symptom ("corrupted size vs.
-# prev_size" -> glibc abort()), never raised by the JVM for normal reasons.
-# After dumping the backtrace, write a real core file of the inferior via
-# `generate-core-file` BEFORE re-delivering the signal. This is the crucial
-# step every prior round assumed happened but never did: with `ulimit -c`
-# raised, the kernel core is *still* piped to apport (`/proc/sys/kernel/
-# core_pattern` -> `/usr/share/apport/apport`), and once gdb is attached the
-# kernel never writes a core at all because gdb owns the signal -- so a file
-# named core.<pid> never materialized despite hs_err claiming it would. The
-# gdb-generated core captures the corrupted heap (the whole point: inspecting
-# the damaged QObject/ConnectionData) at the exact abort stop.
-# `continue` re-delivers the same SIGABRT to the inferior's OWN handler so
-# the JVM's hs_err_pid<PID>.log still gets written for the same crash -- both
-# diagnostics land side by side.
+# SIGSEGV and SIGABRT: stop and print both -- post-#435 there's no embedded
+# JVM left to raise SIGSEGV for benign reasons (see header), and SIGABRT is
+# the glibc heap-corruption symptom ("corrupted size vs. prev_size") this
+# tool was originally built for. After dumping the backtrace, write a real
+# core file of the inferior via `generate-core-file` BEFORE re-delivering the
+# signal. This is the crucial step every prior round assumed happened but
+# never did: with `ulimit -c` raised, the kernel core is *still* piped to
+# apport (`/proc/sys/kernel/core_pattern` -> `/usr/share/apport/apport`), and
+# once gdb is attached the kernel never writes a core at all because gdb owns
+# the signal -- so a file named core.<pid> never materialized despite hs_err
+# claiming it would. The gdb-generated core captures the corrupted heap (the
+# whole point: inspecting the damaged QObject/ConnectionData) at the exact
+# stop. `continue` re-delivers the same signal to the inferior's own default
+# handler so the process still terminates the way it normally would.
 gdb -q -batch \
     -ex "set pagination off" \
     -ex "set confirm off" \
-    -ex "handle SIGSEGV nostop noprint pass" \
+    -ex "handle SIGSEGV stop print" \
     -ex "handle SIGABRT stop print" \
     -ex "run ${RUN_ARGS:-backend/main.py} $*" \
-    -ex "echo \n===== SIGABRT CAUGHT -- ALL-THREAD BACKTRACE =====\n" \
+    -ex "echo \n===== SIGNAL CAUGHT -- ALL-THREAD BACKTRACE =====\n" \
     -ex "thread apply all bt full" \
-    -ex "echo \n===== WRITING CORE FILE (kernel core_pattern pipes to apport; gdb owns SIGABRT, so generate-core-file is the only way a core lands) =====\n" \
+    -ex "echo \n===== WRITING CORE FILE (kernel core_pattern pipes to apport; gdb owns the signal, so generate-core-file is the only way a core lands) =====\n" \
     -ex "generate-core-file $OUT_DIR/core.$TIMESTAMP" \
-    -ex "echo \n===== RE-DELIVERING SIGNAL TO THE JVM'S OWN HANDLER (for hs_err_pid*.log) =====\n" \
+    -ex "echo \n===== RE-DELIVERING SIGNAL TO THE INFERIOR'S DEFAULT HANDLER =====\n" \
     -ex "continue" \
     python 2>&1 | tee "$BT_FILE"
 
 echo
 echo "Backtrace (if any signal was caught) written to: $BT_FILE"
 
-# The JVM writes hs_err_pid<PID>.log (and, now that ulimit -c is raised
-# above, a core.<PID> file) to this script's cwd (the repo root) -- collect
-# them into the same telemetry dir as everything else instead of leaving
-# them as repo-root clutter.
+# Historical artifact collection: the embedded JVM (removed in #435) used to
+# write hs_err_pid<PID>.log to this script's cwd on a fatal SIGSEGV; that
+# path is gone now, but collect any straggler core.<PID> the kernel manages
+# to write anyway (e.g. if core_pattern isn't apport-piped on some machine)
+# into the same telemetry dir instead of leaving it as repo-root clutter.
 shopt -s nullglob
-hs_err_files=(hs_err_pid*.log core.[0-9]*)
-if [ ${#hs_err_files[@]} -gt 0 ]; then
-    mv "${hs_err_files[@]}" "$OUT_DIR/"
-    echo "Moved JVM crash artifact(s) to: $OUT_DIR/"
-    echo "  Resolve a Qt offset from one with:"
-    echo "  python dev/resolve_qt_offset.py --hs-err $OUT_DIR/hs_err_pid<PID>.log"
+stray_cores=(core.[0-9]*)
+if [ ${#stray_cores[@]} -gt 0 ]; then
+    mv "${stray_cores[@]}" "$OUT_DIR/"
+    echo "Moved stray kernel core dump(s) to: $OUT_DIR/"
 fi
 shopt -u nullglob
