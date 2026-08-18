@@ -50,7 +50,20 @@ from backend.src.qt_runtime_env import pin_qt_media_backend  # noqa: E402
 pin_qt_media_backend()
 
 from PySide6.QtCore import QTimer  # noqa: E402
-from PySide6.QtWidgets import QMessageBox  # noqa: E402
+from PySide6.QtWidgets import QApplication, QMessageBox  # noqa: E402
+
+# After MainWindow is shown, additionally hammer the two linked Wallpaper
+# panels with rapid back-to-back directory switches. The scan pipeline's own
+# comment (_scan_pipeline.py) calls rapid back-to-back switches "the exact
+# repro this whole investigation is built around": each switch tears down and
+# rebuilds QObjects, and the tight burst of construction/destruction across
+# both panels' scanner QThreads is where every observed crash lands -- inside
+# PySide6/Shiboken's binding-layer bookkeeping. The startup restore alone is
+# gentler; the hammer substantially raises the per-run crash odds.
+_HAMMER_DIRS = (
+    str(Path(__file__).resolve().parent.parent / "docs/tutorials/images"),
+    str(Path.home() / "Pictures"),
+)
 
 # Patch the guest-login flow BEFORE launch_app() runs so the modal "Logged in
 # as guest" dialog never blocks an unattended run, and the login window
@@ -112,9 +125,50 @@ def _auto_guest_show(self):
 
 
 def _auto_guest_login(self):
-    _orig_do_guest_login(self, "", anonymous=True)
+    print("[repro] auto-guest fired", flush=True)
+    try:
+        _orig_do_guest_login(self, "", anonymous=True)
+        print("[repro] _do_guest_login returned", flush=True)
+    except Exception as e:  # noqa: BLE001 -- repro helper
+        print(f"[repro] _do_guest_login raised: {e!r}", flush=True)
     if getattr(self, "vault_manager", None) is not None:
         _inject_recovery(self.vault_manager)
+        print("[repro] recovery injected", flush=True)
+    _schedule_wallpaper_hammer()
+
+
+def _hammer_wallpaper_race() -> bool:
+    """Trigger rapid back-to-back switches on both Wallpaper panels once found."""
+    for w in QApplication.topLevelWidgets():
+        all_tabs = getattr(w, "all_tabs", None)
+        if not all_tabs:
+            continue
+        wtab = all_tabs.get("System Tools", {}).get("Wallpaper")
+        if wtab is None:
+            continue
+        system_display = getattr(wtab, "system_display", None)
+        monitor_display = getattr(wtab, "monitor_display", None)
+        if system_display is None or monitor_display is None:
+            continue
+        print("[repro] MainWindow found; hammering both Wallpaper panels", flush=True)
+        for directory in _HAMMER_DIRS:
+            for panel in (system_display, monitor_display):
+                try:
+                    panel.populate_scan_image_gallery(directory, emit_signal=True)
+                except Exception as e:  # noqa: BLE001 -- repro helper
+                    print(f"[repro] hammer call raised: {e!r}", flush=True)
+        return True
+    return False
+
+
+def _schedule_wallpaper_hammer():
+    def _retry():
+        if _hammer_wallpaper_race():
+            print("[repro] wallpaper hammer scheduled", flush=True)
+        else:
+            QTimer.singleShot(500, _retry)
+
+    QTimer.singleShot(2000, _retry)
 
 
 _LoginWindowCls.show = _auto_guest_show
