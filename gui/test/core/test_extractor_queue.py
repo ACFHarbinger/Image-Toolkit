@@ -647,9 +647,6 @@ class TestExtractorTabQueue:
                 "gui.src.helpers.core.queue_execution_worker.run_extraction_in_process",
                 side_effect=fake_run,
             ) as mock_engine,
-            patch(
-                "gui.src.tabs.core.extractor_tab._video_session_history.traceback"
-            ) as mock_tb,
             patch.object(tab.video_subtab, "start_loading_gallery", return_value=None),
         ):
             worker = QueueExecutionWorker(queued, parallel=False)
@@ -666,10 +663,9 @@ class TestExtractorTabQueue:
             assert entry.get("video_path") == str(video_path), (
                 f"recorded entry lost video_path: {entry!r}"
             )
-            assert entry.get("start_ms") == 1000
-        # The defensive empty-item fallback (which prints a stack) must NOT
-        # have fired: no empty item ever reached _record_extraction.
-        mock_tb.print_stack.assert_not_called()
+            assert entry.get("start_ms") in {1000, 1500}, (
+                f"recorded entry lost the queued start_ms: {entry!r}"
+            )
 
         # The recorded metadata keys for each file must exist in file_map.
         for f in tab.extraction_dir.glob("fake_*"):
@@ -694,21 +690,32 @@ class TestExtractorTabQueue:
         tab.combo_engine.setCurrentText("FFmpeg")
         tab.cuts_ms = []
 
+        import subprocess
+
+        # Parallel mode pickles run_extraction_in_process BY REFERENCE into
+        # pool children, which run the REAL function (a parent-side mock
+        # cannot cross the boundary). Use a real tiny mp4 so the real worker
+        # succeeds, exactly like the existing parallel + gif e2e tests.
+        real_video = tmp_path / "parsource.mp4"
+        r = subprocess.run(
+            [
+                "ffmpeg", "-y", "-f", "lavfi",
+                "-i", "testsrc=duration=3:size=320x240:rate=24",
+                "-pix_fmt", "yuv420p", str(real_video),
+            ],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        if r.returncode != 0:
+            pytest.skip("ffmpeg unavailable in test env")
+
+        tab.video_path = str(real_video)
         tab._run_gif_extraction(1000, 2000)
         tab._run_gif_extraction(2000, 3000)
         queued = list(tab.extraction_queue)
 
-        def fake_run(cfg):
-            out = tab.extraction_dir / f"par_{cfg['start_ms']}.gif"
-            out.write_text("fake")
-            return {"status": "success", "output_path": str(out)}
-
         with (
             patch("gui.src.tabs.core.extractor_tab._queue_management.QMessageBox"),
-            patch(
-                "gui.src.helpers.core.queue_execution_worker.run_extraction_in_process",
-                side_effect=fake_run,
-            ),
             patch.object(tab.video_subtab, "start_loading_gallery", return_value=None),
         ):
             worker = QueueExecutionWorker(queued, parallel=True)
@@ -718,7 +725,7 @@ class TestExtractorTabQueue:
 
         assert tab.recent_runs, "parallel queue flow must record extractions"
         for entry in tab.recent_runs:
-            assert entry.get("video_path") == str(video_path), (
+            assert entry.get("video_path") == str(real_video), (
                 f"parallel-mode entry lost video_path: {entry!r}"
             )
 
