@@ -282,6 +282,9 @@ class _RelaunchSettingsMixin:
                 "session_recovery_level": self.session_recovery_combo.currentText(),
                 "accent_color_dark": self.pref_accent_dark,
                 "accent_color_light": self.pref_accent_light,
+                "color_overrides": self._get_color_overrides_dict() if hasattr(self, "_get_color_overrides_dict") else {},
+                "background_config": self._get_background_config_dict() if hasattr(self, "_get_background_config_dict") else {},
+                "corner_radius": self.corner_radius_combo.currentData() if hasattr(self, "corner_radius_combo") else 4,
                 "font_scale": self.font_scale_spinbox.value(),
                 "ui_density": self.ui_density_combo.currentText(),
                 "app_zoom": self.pref_app_zoom,
@@ -289,6 +292,7 @@ class _RelaunchSettingsMixin:
                     self.fav_list_widget.item(i).text() for i in range(self.fav_list_widget.count())
                 ],
             }
+
 
             if self._save_vault_data(user_data):
                 # Also save to QSettings (only if not in Guest mode)
@@ -369,17 +373,30 @@ class _RelaunchSettingsMixin:
         self.enable_queue_check.setChecked(False)
         self.extractor_time_format_combo.setCurrentText("m:s:ms")
 
-        # Reset Appearance
+        # Reset Appearance & Theme Studio
         self.pref_accent_dark = "#00bcd4"
         self.pref_accent_light = "#007AFF"
-        self._update_swatch(self.dark_accent_swatch, "#00bcd4")
-        self._update_swatch(self.light_accent_swatch, "#007AFF")
+        if hasattr(self, "_reset_palette_to_base_defaults"):
+            self._reset_palette_to_base_defaults()
+        if hasattr(self, "bg_path_input"):
+            self.bg_path_input.clear()
+        if hasattr(self, "bg_fit_combo"):
+            self.bg_fit_combo.setCurrentText("Cover")
+        if hasattr(self, "bg_opacity_slider"):
+            self.bg_opacity_slider.setValue(50)
+        if hasattr(self, "bg_blur_spin"):
+            self.bg_blur_spin.setValue(0)
+        if hasattr(self, "glassmorphism_check"):
+            self.glassmorphism_check.setChecked(False)
+        if hasattr(self, "corner_radius_combo"):
+            self.corner_radius_combo.setCurrentIndex(1)  # Subtle (4px)
         self.font_scale_spinbox.setValue(100)
         self.ui_density_combo.setCurrentText("Comfortable")
         self.pref_app_zoom = 0
         self._zoom_label.setText(self._zoom_label_text())
         self.fav_list_widget.clear()
         self.default_dir_input.clear()
+
 
     def _browse_default_open_dir(self):
         current_dir = self.default_dir_input.text().strip()
