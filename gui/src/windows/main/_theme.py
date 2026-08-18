@@ -116,6 +116,56 @@ class _ThemeMixin:
         if hasattr(self, "_theme_toggle_btn"):
             self._theme_toggle_btn.setText("☀" if theme_name == "dark" else "🌙")
 
+    def apply_theme_pack(self, pack) -> None:
+        """Apply a #437 ThemePack onto the existing $VAR QSS system (hybrid
+        migration, round-1 answer): resolve the pack to the QSS var names
+        theme.qss already consumes, load the base stylesheet with those
+        overrides, then append density/typography/shadow/raw-QSS."""
+        from gui.src.theming.resolve import resolve_colors, resolve_to_qss_vars
+        from gui.src.styles import COMPACT_DENSITY_QSS, SPACIOUS_DENSITY_QSS, load_qss_with_overrides
+
+        qss_name = f"{pack.base}.qss"
+        overrides = resolve_to_qss_vars(pack)
+        qss = load_qss_with_overrides(qss_name, overrides)
+        self.current_theme = pack.base
+
+        mode = getattr(pack.density, "mode", "comfortable")
+        if mode == "compact":
+            qss += COMPACT_DENSITY_QSS
+        elif mode == "spacious":
+            qss += SPACIOUS_DENSITY_QSS
+
+        # Typography: scale percent maps onto the existing font path.
+        scale = getattr(pack.typography, "scale_percent", 100)
+        if scale != 100:
+            scaled_pt = max(7, int(10 * scale / 100))
+            QApplication.instance().setFont(QFont("Segoe UI", scaled_pt))
+        else:
+            QApplication.instance().setFont(QFont("Segoe UI", 10))
+
+        # Raw QSS (expert escape hatch) then the user override hook.
+        raw = getattr(pack, "raw_qss", None)
+        if raw:
+            qss += "\n" + raw
+        qss += load_user_qss_override()
+
+        self.setStyleSheet(qss) if "PYTEST_CURRENT_TEST" in os.environ else QApplication.instance().setStyleSheet(qss)
+
+        # Header restyle mirrors set_application_theme's behavior for the
+        # resolved accent/window colors.
+        header_widget = self.findChild(QWidget, "header_widget")
+        if header_widget:
+            resolved = resolve_colors(pack)
+            accent = resolved.accent
+            window_bg = resolved.window_bg
+            text = resolved.text
+            header_widget.setStyleSheet(
+                f"background-color: {window_bg}; padding: 10px; border-bottom: 2px solid {accent};"
+            )
+            title_label = getattr(self, "title_label", None)
+            if title_label is not None:
+                title_label.setStyleSheet(f"color: {text}; font-size: 18pt; font-weight: bold;")
+
     def _toggle_theme(self) -> None:
         """Manually toggle dark↔light theme, overriding the OS preference."""
         new_theme = "light" if self.current_theme == "dark" else "dark"
