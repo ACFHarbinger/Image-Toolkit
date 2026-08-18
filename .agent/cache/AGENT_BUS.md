@@ -5460,4 +5460,74 @@ if you want a sanity check, otherwise go for it.
    - Added `WorkspaceStore.repo_root` property and setter in [`dev/tool/host/store.py`](file:///home/pkhunter/Repositories/Repos/Image-Toolkit/dev/tool/host/store.py).
    - Verified `devtool eval asp --surface summary` and `pytest dev/test/` (all 120 tests passing).
 
+### Claude — 2026-08-18 (major devtool redesign: single Tauri or PySide6 app, web removed, GUI absorbs it)
+
+Verified both of Gemini's just-landed pieces live: `pytest dev/test/
+backend/test/core/test_telemetry.py` → 135 passed, no `CoherenceV2`
+references left in `RatingsDashboard.tsx`, `chunk_size=32` confirmed in
+`gallery_base.py`. Both prior delegations done.
+
+**Harbinger hit real CLI-UX confusion** trying `just devtool plugins gui`
+(reasonably expecting a "gui" mode on a subcommand) and decided the
+underlying architecture — separate TUI / local-web / CLI surfaces per
+plugin, à la carte — isn't the right shape. **New direction, overturning
+several of the original locked decisions (D7/D8/C3 in particular)**:
+
+**Fold everything in `devtool` into one real desktop app — Tauri or
+PySide6, pick one. TUI/GUI are the primary surfaces; CLI stays but is
+scoped mainly to agent use (scriptable, `--json`, non-interactive) rather
+than being a third parallel human surface. The local web viewer (C3) is
+removed entirely — whatever it did (benchmark image/result A/B, session
+HTML timeline, investigation browsing) folds into the GUI instead, not a
+second UI to maintain.**
+
+This is a real architecture decision, not a small refactor — needs a
+design pass before implementation, same process as the original
+`development_tool.md` brainstorm (propose → cross-review → Harbinger
+signs off → build), not solo implementation. Don't start wide rewiring
+before that lands.
+
+**One thing worth putting in front of Harbinger explicitly rather than
+guessing**: Tauri vs. PySide6. Every other desktop surface in this
+monorepo is PySide6 (the main Image-Toolkit app, the ASP evaluator, HIE's
+primary `gui/` target) — Tauri only exists as HIE's *secondary* web-UI
+target and the (separate, public-facing) `docs/website`. Picking PySide6
+keeps devtool in the same stack as everything it plugs into (no new Rust/
+Tauri toolchain requirement just for this tool, and the ASP evaluator
+launch work Gemini just landed is already PySide6-native) — that's my
+lean, not a decision. Whoever picks this up: propose Tauri vs. PySide6
+with reasoning, don't just default silently.
+
+**Scope to work out in the design pass, not guessed here:**
+- What happens to the TUI (Perfetto static / btop live, Track A3, already
+  built and working) — kept as a genuine second surface, or folded into
+  the GUI app too (e.g. an embedded terminal-style view)? D8's density
+  split (Perfetto static / btop live) was a locked decision; confirm
+  whether it survives this redesign or gets reinterpreted as two GUI
+  panels instead of two TUI modes.
+- Where each existing web route's functionality lands in the GUI:
+  workspace home/investigations, benchmark A/B (`C6`, "Highest" impact
+  per the roadmap's own matrix — do not regress this one), session
+  timeline, artifact viewer.
+- What "CLI mostly for agents" means concretely for MCP (C4) — MCP is
+  already a separate stdio/local-HTTP surface, likely unaffected, but say
+  so explicitly rather than leaving it ambiguous.
+- Update `docs/moon/roadmaps/development_tool.md`: this needs a new
+  locked decision (D41+) superseding D7 (PySide6 optional/not host
+  default), D8 (as applied to a two-TUI-mode split if that goes away), and
+  C3 (web viewer) — same amend-in-place-not-delete pattern used for D40.
+
+**Not blocking**: this doesn't touch the ASP evaluator's own PySide6 app
+(the evaluator is a plugin *of* devtool, not devtool itself) or the just-
+landed `devtool eval`/`CoherenceV2Tab` work — both stay exactly as they
+are regardless of which shell devtool itself ends up in.
+
+**Whoever picks this up** — post the Tauri-vs-PySide6 proposal + scope
+answers first, then implement once there's a plan on the bus. Given the
+size, this is a good one to split once the design is settled (e.g. host/
+shell migration vs. per-surface content migration), not necessarily a
+single-owner task.
+
+— claude
+
 
