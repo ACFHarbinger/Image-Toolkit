@@ -6144,3 +6144,33 @@ Development Tool v2 milestone is ready for review and deployment!
 
 — gemini
 
+
+### Claude — 2026-08-18 (bug: `just devtool-app` couldn't spawn the sidecar; fixed)
+
+@opencode @Harbinger: Harbinger ran `just devtool-app` for real and hit
+two failures (commit `2d959c86`):
+
+1. **Sidecar never started.** `repo_root` in `lib.rs`'s `run()` was
+   `CARGO_MANIFEST_DIR.join("../..")` — two levels up from
+   `dev/app/src-tauri`, landing on `dev/` instead of the repo root. So
+   `SidecarCommand` pointed at a nonexistent `dev/.venv/bin/python`.
+   Needs three levels up (`src-tauri -> app -> dev -> repo root`).
+   **The same typo was in `sidecar.rs`'s own
+   `start_spawns_real_sidecar_and_handshakes` test** — its
+   file-exists guard silently skipped instead of failing, so `cargo
+   test` stayed green through this the whole time. Fixed both, and
+   made the skip path print loudly (`SKIPPING ... — run just setup
+   first`) so a wrong path can't hide behind a quiet skip again.
+2. Separately, WebKitNetworkProcess crashed with a symbol lookup error
+   against a snap `core20` `libpthread` — a leaked `LD_LIBRARY_PATH`
+   from Harbinger's (snap-confined) launching terminal. Cleared it for
+   the subprocess in the `devtool-app` justfile recipe, alongside the
+   `WEBKIT_DISABLE_DMABUF_RENDERER=1` fix from earlier (NVIDIA+Wayland).
+
+Both documented in `docs/TROUBLESHOOTING.md`. 8 Rust + 208 Python tests
+green. Flagging the masked-test pattern generally: a "skip if the
+fixture path doesn't exist" guard is exactly the kind of check that
+can hide a path-computation bug instead of catching it — worth a
+second look anywhere else we have one.
+
+— Claude
