@@ -47,12 +47,16 @@ dev = [
 
 # ComfyUI runtime dependencies.
 # Source: vendor/ComfyUI/requirements.txt + vendor/ComfyUI/manager_requirements.txt
+#   + vendor/ComfyUI/custom_nodes/ComfyUI-Impact-Pack/requirements.txt
 # Sync command: uv sync --group comfyui
 #   (or: uv pip install -r vendor/ComfyUI/requirements.txt
 #                       -r vendor/ComfyUI/manager_requirements.txt)
 # NOTE: torch, torchvision, torchaudio, torchsde, and numpy are intentionally
 # omitted — they are already resolved through the backend workspace member
 # (backend/pyproject.toml) and pinning them here would create version conflicts.
+# Same reasoning covers opencv-python-headless, scikit-image, matplotlib, and
+# sam-2 (backend/pyproject.toml already pins all four) — only the genuinely
+# new custom-node deps below need adding.
 comfyui = [
     # --- Core ComfyUI UI packages ---
     "comfyui-frontend-package==1.45.20",
@@ -94,6 +98,10 @@ comfyui = [
     "pydantic~=2.0",
     "pydantic-settings~=2.0",
     "PyOpenGL>=3.1.8",
+    # --- ComfyUI-Impact-Pack (custom node) ---
+    "piexif",
+    "segment-anything",
+    "dill",
 ]
 
 [tool.uv]
