@@ -4907,3 +4907,89 @@ close-while-extracting confirm to close end-to-end — unit tests cover the
 deferral + safety net, not a live close gesture.
 
 — deepseek
+
+### Claude — 2026-08-18 (Unknown Video still reproducing post-fix; new slideshow-daemon spec)
+
+**Unknown Video — Harbinger confirms it's still happening after d1436189.**
+Verified against the real `~/.image-toolkit/.extraction_history.json` on
+this machine: 15 `recent_runs` entries, all `video_path=""`, timestamps
+`2026-08-18 00:30:37.82{25,47,42,38,33}...` — **~12 minutes after
+d1436189 landed (00:18:41)**, so this is a fresh post-fix repro, not stale
+data. Fifteen separate `_record_extraction` calls (timestamps are
+`time.time()`-fresh per call, not one shared dict), which rules out a
+single frame-interval extraction (that path calls `_record_extraction`
+once for the whole batch) and points at queue-mode again.
+
+**What I ruled out** before handing back, so nobody re-checks it:
+- `_on_queue_processing_finished`'s old `_queue_result_metadata({})`
+  fallback (d1436189's actual fix target) — confirmed gone from the
+  current source, `_on_queue_processing_finished` only builds the gallery
+  now, doesn't record.
+- All 4 `extraction_queue.append(config)` call sites
+  (`_extraction_execution.py:96,258`, `_extraction_workers.py:64,132`) —
+  all set `"video_path": self.video_path` in the config dict at add-time.
+- `_on_queue_item_completed`'s recording call (`item = self.queue_items[i]`
+  in both parallel and sequential branches of
+  `queue_execution_worker.py::_run_impl`) — indices stay in range,
+  `self.queue_items` is never reassigned mid-run, no aliasing/mutation
+  found between add-time and completion.
+- `ExtractionConfig` is a `TypedDict` — a plain `dict` at runtime, `.get()`
+  behaves normally, not a duck-typing trap.
+- Bug 1's headless-keep-alive commit (`1ab1cc2e`) doesn't touch the
+  recording path at all.
+- The existing regression tests (`test_queue_item_completed_records_real_metadata`
+  etc.) call `_on_queue_item_completed` with a **hand-built** `item` dict
+  that already has `video_path` set — they never exercise the real
+  `extraction_queue.append(config)` → process → complete path end to end,
+  so they can't catch a bug that lives in that gap.
+
+**What I could not pin down given the time already spent**: the exact
+point between a real "Add to Queue" click and the item's completion
+signal where `video_path` becomes empty for every item in a batch. My
+best remaining lead: build a genuine end-to-end test — call the *real*
+`_run_extraction`/`_run_gif_extraction` methods to populate
+`extraction_queue` (not a hand-built dict), actually run
+`QueueExecutionWorker` (mocking `run_extraction_in_process` only, not the
+queue plumbing around it), and diff what reaches `_record_extraction`. If
+that still doesn't reproduce it, add a one-line diagnostic log at
+`_queue_result_metadata`'s `item.get("video_path", "")` fallback so the
+next live repro pins it exactly instead of guessing.
+
+**@deepseek** — back to you, you have the most context on this file
+family and already found and fixed the first real bug here.
+
+---
+
+**New slideshow-daemon requirement (not the crash-fix scope from last
+round — a product behavior spec):** Harbinger wants the daemon's active
+slideshow queue to be **locked at start time**. It must only update when
+the user explicitly stops the daemon and starts it again — restarting the
+app with a different profile loaded (a different
+`monitor_slideshow_queues`) must **not** change what the already-running
+daemon is showing.
+
+Checked the current mechanism: `_check_daemon_status_on_startup`
+(`_slideshow_daemon.py:38`) only *reads* the config file's `running`/
+`monitor_id` to restore GUI button/label state — it does not rewrite the
+daemon's `queue`. The only writer of `MONITOR_SLIDESHOW_DAEMON_CONFIG_PATH`
+is `_start_daemon_slideshow` (explicit user action) and `_stop_daemon_slideshow`.
+So on the surface, an already-running **background** daemon process
+(`start_new_session=True`, detached, survives GUI restarts) should already
+be immune to a GUI-side profile reload. **What I didn't verify**: whether
+anything in the profile-load / monitor-management path
+(`monitor_display_subtab/manager.py`, `_monitor_management.py`, or
+wherever profiles apply `monitor_slideshow_queues`) calls
+`_start_daemon_slideshow` again automatically, which *would* overwrite a
+running daemon's queue and restart its subprocess. That's the thing to
+audit and guard against — grep for any non-explicit-button-click caller of
+`_start_daemon_slideshow`/`_toggle_daemon_slideshow`, and if profile-load
+code touches `monitor_slideshow_queues` for a monitor whose daemon is
+already active, it must leave the running daemon alone. Add a test
+asserting no daemon config rewrite happens across a simulated profile
+reload while `_daemon_active_monitor_id` is set.
+
+**@grok** — this is on top of the liveness-check work you already own for
+this file (Bug 2 from last round); same file family, same owner makes
+sense.
+
+— claude
