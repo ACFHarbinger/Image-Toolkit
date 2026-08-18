@@ -589,6 +589,138 @@ class TestExtractorTabQueue:
         # The phantom must never reach the gallery's master path list either.
         assert phantom not in tab.master_image_paths
 
+    def test_full_queue_flow_range_single_gif_records_real_metadata(self, q_app, tmp_path):
+        """Genuine end-to-end (the exact path Claude asked to pin): build each
+        queue config via the REAL _run_extraction/_run_gif_extraction methods,
+        run the REAL sequential QueueExecutionWorker with only
+        run_extraction_in_process mocked, and diff what reaches
+        _record_extraction. No empty "Unknown Video" entry may be recorded --
+        every recorded entry must carry the real video_path/start/end.
+
+        This is the Unknown-Video regression test that the hand-built-dict
+        tests cannot provide: it exercises add-to-queue -> worker -> per-item
+        completion -> _record_extraction for every queue type in one flow.
+        """
+        from gui.src.helpers.core.queue_execution_worker import (
+            QueueExecutionWorker,
+        )
+
+        tab, video_path = self._make_tab(tmp_path)
+        tab.extraction_queue_enabled = True
+        tab.video_path = str(video_path)
+        tab.start_time_ms = 1000
+        tab.end_time_ms = 3000
+        tab.spin_gif_fps.setValue(24)
+        tab.combo_engine.setCurrentText("FFmpeg")
+        tab.cuts_ms = []
+        tab.tags_ms = []
+        tab.spin_interval.setValue(1)
+
+        # Queue three different item types through the real UI entry points.
+        tab._run_extraction(1000, 3000, is_range=True)   # range -> type "range"
+        tab._run_gif_extraction(1000, 3000)              # gif
+        tab._run_extraction(1500, 1500, is_range=False)  # single
+
+        assert len(tab.extraction_queue) == 3
+        for cfg in tab.extraction_queue:
+            assert cfg["video_path"] == str(video_path), (
+                f"queue config lost video_path at add time: {cfg!r}"
+            )
+
+        # Snapshot the queue before the worker consumes its own copy.
+        queued = list(tab.extraction_queue)
+
+        # Mock ONLY the extraction engine: the queue plumbing, per-item
+        # completion signal, and _record_extraction are all real.
+        def fake_run(cfg):
+            t = cfg.get("type")
+            if t == "gif":
+                out = tab.extraction_dir / f"fake_{cfg['start_ms']}_{cfg['end_ms']}.gif"
+            else:
+                out = tab.extraction_dir / f"fake_{cfg['start_ms']}_{cfg['end_ms']}.png"
+            out.write_text("fake")
+            return {"status": "success", "output_path": str(out)}
+
+        with (
+            patch("gui.src.tabs.core.extractor_tab._queue_management.QMessageBox"),
+            patch(
+                "gui.src.helpers.core.queue_execution_worker.run_extraction_in_process",
+                side_effect=fake_run,
+            ) as mock_engine,
+            patch(
+                "gui.src.tabs.core.extractor_tab._video_session_history.traceback"
+            ) as mock_tb,
+            patch.object(tab.video_subtab, "start_loading_gallery", return_value=None),
+        ):
+            worker = QueueExecutionWorker(queued, parallel=False)
+            worker.signals.item_completed.connect(tab._on_queue_item_completed)
+            worker.signals.finished.connect(tab._on_queue_processing_finished)
+            worker.run()
+
+        assert mock_engine.call_count == 3
+        assert tab.extraction_queue == []
+
+        # Every recorded recent run must carry the REAL source video_path.
+        assert tab.recent_runs, "queue flow must record extractions"
+        for entry in tab.recent_runs:
+            assert entry.get("video_path") == str(video_path), (
+                f"recorded entry lost video_path: {entry!r}"
+            )
+            assert entry.get("start_ms") == 1000
+        # The defensive empty-item fallback (which prints a stack) must NOT
+        # have fired: no empty item ever reached _record_extraction.
+        mock_tb.print_stack.assert_not_called()
+
+        # The recorded metadata keys for each file must exist in file_map.
+        for f in tab.extraction_dir.glob("fake_*"):
+            assert str(f) in tab.extraction_metadata
+
+    def test_full_queue_flow_parallel_records_real_metadata(self, q_app, tmp_path):
+        """Parallel mode: configs pickle through multiprocessing, so the item
+        arriving at _on_queue_item_completed is a COPY -- it must still carry
+        video_path (regression: parallel-mode items previously risked being
+        recorded empty). run_extraction_in_process is mocked; the real worker
+        + tab handlers run."""
+        from gui.src.helpers.core.queue_execution_worker import (
+            QueueExecutionWorker,
+        )
+
+        tab, video_path = self._make_tab(tmp_path)
+        tab.extraction_queue_enabled = True
+        tab.video_path = str(video_path)
+        tab.start_time_ms = 1000
+        tab.end_time_ms = 3000
+        tab.spin_gif_fps.setValue(24)
+        tab.combo_engine.setCurrentText("FFmpeg")
+        tab.cuts_ms = []
+
+        tab._run_gif_extraction(1000, 2000)
+        tab._run_gif_extraction(2000, 3000)
+        queued = list(tab.extraction_queue)
+
+        def fake_run(cfg):
+            out = tab.extraction_dir / f"par_{cfg['start_ms']}.gif"
+            out.write_text("fake")
+            return {"status": "success", "output_path": str(out)}
+
+        with (
+            patch("gui.src.tabs.core.extractor_tab._queue_management.QMessageBox"),
+            patch(
+                "gui.src.helpers.core.queue_execution_worker.run_extraction_in_process",
+                side_effect=fake_run,
+            ),
+            patch.object(tab.video_subtab, "start_loading_gallery", return_value=None),
+        ):
+            worker = QueueExecutionWorker(queued, parallel=True)
+            worker.signals.item_completed.connect(tab._on_queue_item_completed)
+            worker.signals.finished.connect(tab._on_queue_processing_finished)
+            worker.run()
+
+        assert tab.recent_runs, "parallel queue flow must record extractions"
+        for entry in tab.recent_runs:
+            assert entry.get("video_path") == str(video_path), (
+                f"parallel-mode entry lost video_path: {entry!r}"
+            )
 
 class TestHeadlessKeepAlive:
     """Bug 1: MainWindow defers close while extractions run. The tab reports
