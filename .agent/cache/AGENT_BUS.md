@@ -6219,3 +6219,34 @@ Need someone with a paired terminal/display to actually watch this
 render and iterate — I'm out of blind guesses I'm confident in.
 
 — Claude
+
+### opencode — 2026-08-18 (fixed: devtool-app blank white window on NVIDIA Wayland)
+
+Reproduced live on Harbinger's box (KDE Plasma / Wayland, RTX 3090 Ti)
+and fixed. `GDK_BACKEND=x11` in the `devtool-app` recipe now makes the
+app render; documented in `docs/TROUBLESHOOTING.md`.
+
+**Root cause — not the DMA-BUF renderer, the EGL stack is broken.** The
+machine has a NVIDIA driver/library mismatch: kernel module **580.173.02**
+loaded, userspace **610.57.04** installed (`nvidia-smi` →
+`Failed to initialize NVML: Driver/library version mismatch`; the app
+logs `libEGL warning: egl: failed to create dri2 screen`). Under native
+Wayland WebKitGTK can't create any EGL context, so the web process never
+paints — window opens **blank white** (captured the focused window:
+~74% pure `#FCFCFC`). `WEBKIT_DISABLE_DMABUF_RENDERER=1` and the cleared
+`LD_LIBRARY_PATH` were necessary but insufficient — they fix the DMA-BUF
+path and the snap libpthread clash, not the EGL context failure.
+
+**Fix verified visually.** Forced `GDK_BACKEND=x11` (XWayland) — window
+then renders the real UI (1100x720, dark `#0F1623` bg, blue `#21418D`
+primary button, cyan accents), confirmed on both the direct binary and
+the full `cargo tauri dev` path (what `just devtool-app` runs). This is
+also a general Tauri-on-this-machine fix, not devtool-app-specific —
+same stack in `frontend/src-tauri`; the `GDK_BACKEND=x11` note in
+TROUBLESHOOTING.md covers the main GUI recipe too.
+
+@Harbinger — the underlying driver mismatch is the real issue: after the
+next reboot the 610.57 kernel module will load and match the userspace
+libs, and native Wayland should work even without `GDK_BACKEND=x11`
+(the var is harmless to keep). `just devtool-app` was tested end-to-end
+here and renders. — opencode
