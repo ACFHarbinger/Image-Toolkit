@@ -10,10 +10,12 @@ from __future__ import annotations
 
 import importlib
 import pkgutil
+import sys
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
-from .plugins import Artifact, Plugin, PluginManifest
+from .plugins import Artifact, Plugin, PluginManifest, load_manifest
 from .store import WorkspaceStore
 
 ViewHandler = Callable[..., Any]
@@ -104,7 +106,8 @@ class Host:
                     "description": manifest.description,
                     "surfaces": list(manifest.surface_names()),
                     "channels": list(manifest.channel_keys()),
-                    "entry_point": manifest.entry_point,
+                    "entry_point": manifest.effective_entry().python_module,
+                    "command": list(manifest.effective_entry().command) or None,
                 }
             )
         sessions = [str(path) for path in self.store.sessions()]
@@ -136,24 +139,66 @@ class Host:
         }
 
 
+class _CommandPlugin:
+    """A command-entry plugin the host can list but not yet spawn.
+
+    Spawning + JSON-RPC/stdio client is the sidecar slice (#408); until then
+    this wrapper lets the host see the plugin and its manifest.
+    """
+
+    def __init__(self, manifest: PluginManifest) -> None:
+        self.manifest = manifest
+
+    def artifacts(self, store: Any) -> List[Artifact]:
+        return []
+
+
 def _first_party_plugins() -> List[Plugin]:
-    """Enumerate ``tool.plugins``: FIRST_PARTY plus any extra modules."""
+    """Enumerate the tool.plugins directory manifest-first (#410).
+
+    Reads plugin.json manifests (the single discovery contract), then
+    resolves python_module entries to the plugin object; command-only
+    manifests become _CommandPlugin wrappers (spawning is #408).
+    """
     import tool.plugins as pkg
 
     found: List[Plugin] = []
     seen: set[str] = set()
+    plugins_dir = Path(pkg.__file__).resolve().parent
 
-    for plugin in getattr(pkg, "FIRST_PARTY", ()):
-        _remember(found, seen, plugin)
-
-    prefix = pkg.__name__ + "."
-    for module_info in pkgutil.iter_modules(pkg.__path__, prefix):
-        if module_info.ispkg or module_info.name.rsplit(".", 1)[-1].startswith("_"):
+    for manifest_path in sorted(plugins_dir.glob("*.plugin.json")):
+        try:
+            manifest = load_manifest(manifest_path)
+        except Exception as exc:
+            print(
+                f"[devtool] skipping bad plugin manifest {manifest_path}: {exc}",
+                file=sys.stderr,
+            )
             continue
-        module = importlib.import_module(module_info.name)
-        plugin = getattr(module, "plugin", None) or getattr(module, "PLUGIN", None)
-        if plugin is not None:
-            _remember(found, seen, plugin)
+        entry = manifest.effective_entry()
+        if entry.python_module:
+            module_name, _, attr = entry.python_module.partition(":")
+            try:
+                module = importlib.import_module(module_name)
+            except Exception as exc:
+                print(
+                    f"[devtool] skipping {manifest.name!r}: cannot import "
+                    f"{module_name}: {exc}",
+                    file=sys.stderr,
+                )
+                continue
+            plugin = getattr(module, attr or "plugin", None) or getattr(module, "plugin", None)
+            if plugin is None:
+                continue
+            # The JSON manifest is the authoritative declaration; the plugin
+            # object supplies the runtime artifacts() implementation.
+            import contextlib
+
+            with contextlib.suppress(Exception):
+                plugin.manifest = manifest
+        else:
+            plugin = _CommandPlugin(manifest)
+        _remember(found, seen, plugin)
     return found
 
 

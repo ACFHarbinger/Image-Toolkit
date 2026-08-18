@@ -1,0 +1,45 @@
+{
+  "schema": "devtool.plugin.manifest",
+  "schema_version": 1,
+  "name": "benchmarks",
+  "version": "0.1.0",
+  "description": "Benchmark results discovery, metric aggregation, and A/B comparison.",
+  "surfaces": [
+    {
+      "name": "cli",
+      "description": "list benchmark runs and compute A/B metric diffs"
+    },
+    {
+      "name": "tui",
+      "description": "visual benchmark trend tables and delta inspections"
+    },
+    {
+      "name": "web",
+      "description": "interactive A/B image & metric comparison viewer"
+    }
+  ],
+  "channels": [
+    {
+      "key": "benchmarks",
+      "label": "raw benchmark JSON run outputs",
+      "description": "",
+      "default_enabled": true,
+      "retention": "forever"
+    },
+    {
+      "key": "comparisons",
+      "label": "A/B diff evidence summaries",
+      "description": "",
+      "default_enabled": true,
+      "retention": "forever"
+    }
+  ],
+  "entry": {
+    "python_module": "tool.plugins.benchmarks:plugin",
+    "command": [
+      ".venv/bin/python",
+      "-m",
+      "tool.plugins.benchmarks"
+    ]
+  }
+}

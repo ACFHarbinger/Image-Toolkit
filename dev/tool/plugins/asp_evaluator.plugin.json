@@ -1,0 +1,49 @@
+{
+  "schema": "devtool.plugin.manifest",
+  "schema_version": 1,
+  "name": "asp_evaluator",
+  "version": "0.1.0",
+  "description": "ASP benchmark evaluation & human coherence ratings adapter.",
+  "surfaces": [
+    {
+      "name": "cli",
+      "description": "summary / inspect ASP human evaluation datasets"
+    },
+    {
+      "name": "tui",
+      "description": "visual defect distributions & coherence score tables"
+    },
+    {
+      "name": "web",
+      "description": "image comparison and rating inspector"
+    },
+    {
+      "name": "gui",
+      "description": "launch native PySide6 ASP evaluator window"
+    }
+  ],
+  "channels": [
+    {
+      "key": "evaluations",
+      "label": "ASP evaluation JSON snapshots",
+      "description": "",
+      "default_enabled": true,
+      "retention": "forever"
+    },
+    {
+      "key": "human_ratings",
+      "label": "human-verified coherence score datasets",
+      "description": "",
+      "default_enabled": true,
+      "retention": "forever"
+    }
+  ],
+  "entry": {
+    "python_module": "tool.plugins.asp_evaluator:plugin",
+    "command": [
+      ".venv/bin/python",
+      "-m",
+      "tool.plugins.asp_evaluator"
+    ]
+  }
+}
