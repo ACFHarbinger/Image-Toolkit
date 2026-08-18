@@ -19,10 +19,11 @@ build-base:
         && cmake --install build/base
     @echo "base extension built and installed."
 
-# Build production application cryptography JAR
-build-jar:
-    @echo "Building production application cryptography JAR..."
-    ./gradlew build
+# Build native cryptography library (C/OpenSSL, replaces the retired Kotlin JAR)
+build-crypto:
+    @echo "Building native cryptography library..."
+    mkdir -p build/crypto
+    cc -O2 -fPIC -shared -Wall -o build/crypto/libitk_crypto.so cryptography/cpp/itk_crypto.c -lcrypto
 
 # Build production application frontend
 build-frontend:
@@ -56,8 +57,8 @@ build-opencv:
         && cmake --install opencv/build
     @echo "OpenCV built and installed to opencv/install."
 
-# Build everything: C++ base + Kotlin JAR + TypeScript frontend
-build-all: build-base build-jar build-frontend
+# Build everything: C++ base + native crypto + TypeScript frontend
+build-all: build-base build-crypto build-frontend
 
 # Alias for build-all
 build: build-all

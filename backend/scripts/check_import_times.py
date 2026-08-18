@@ -62,7 +62,8 @@ ANIM_MODULES: List[str] = [
 
 # §3.15C — Core modules that were audited for heavy-import isolation.
 # image_merger previously loaded BiRefNetWrapper + LoFTRWrapper + AnimeStitchPipeline
-# unconditionally (~3 s); vault_manager loaded jpype unconditionally.
+# unconditionally (~3 s); vault_manager previously loaded jpype unconditionally
+# (JVM removed in favor of the native crypto library).
 CORE_MODULES: List[str] = [
     "backend.src.core.image_merger",
     "backend.src.core.vault_manager",

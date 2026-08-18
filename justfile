@@ -146,9 +146,9 @@ devtool-app *ARGS: helper::_print_header
 build-base: helper::_print_header
     just build::build-base
 
-# Build production application cryptography JAR
-build-jar: helper::_print_header
-    just build::build-jar
+# Build native cryptography library (C/OpenSSL, replaces the retired Kotlin JAR)
+build-crypto: helper::_print_header
+    just build::build-crypto
 
 # Build production application frontend
 build-frontend: helper::_print_header

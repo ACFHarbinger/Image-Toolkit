@@ -87,7 +87,7 @@ pytest:
     - uv venv && source .venv/bin/activate
     - uv sync --frozen --group dev --no-install-project
   script:
-    - ./gradlew :cryptography:shadowJar -Dorg.gradle.java.home="$JAVA_HOME"
+    - cc -O2 -fPIC -shared -o build/crypto/libitk_crypto.so cryptography/cpp/itk_crypto.c -lcrypto
     - uv run cmake -B build/base base/ -G Ninja -DCMAKE_BUILD_TYPE=Release
     - uv run cmake --build build/base --parallel
     - uv run cmake --install build/base --prefix .
