@@ -39,6 +39,65 @@ from git.scripts._submodule_bootstrap import register_submodule_packages
 
 register_submodule_packages(repo_root)
 
+# When gui/test and backend/test are collected in ONE pytest process, the
+# gui conftest's heavy-import blocker replaces backend.src.models.* (and
+# cv2/torch.hub/diffusers) with mocks in sys.modules so gui tests collect
+# without loading torch. Backend model tests need the REAL packages. We
+# restore BOTH at import time (covers gui-first: the gui mock is already in
+# sys.modules when backend modules import) AND via a session fixture (covers
+# backend-first: the gui mock lands after backend conftest import but before
+# backend test execution) (#375).
+def _restore_real_backend_packages() -> None:
+    import importlib as _importlib
+
+    if not sys.modules.get("_devtool_mocked_backend_models"):
+        return
+    for name in list(sys.modules):
+        if name == "backend.src.models" or name.startswith("backend.src.models."):
+            del sys.modules[name]
+    for name in list(sys.modules):
+        if name == "asp_backend.models" or name.startswith("asp_backend.models."):
+            del sys.modules[name]
+    del sys.modules["_devtool_mocked_backend_models"]
+
+    # The gui conftest also mocks cv2 / torch.hub / diffusers to keep gui
+    # imports light; backend tests use the real cv2 (e.g. cv2.imread in the
+    # model wrappers' structural tests), so restore those too.
+    from unittest.mock import MagicMock as _MagicMock
+
+    for name in ("cv2", "torch.hub", "diffusers"):
+        mod = sys.modules.get(name)
+        if mod is not None and isinstance(mod, _MagicMock):
+            del sys.modules[name]
+
+    for pkg in (
+        "backend.src.models",
+        "backend.src.models.core",
+        "backend.src.models.tuning",
+        "backend.src.models.wrappers",
+        "backend.src.models.data",
+        "backend.src.models.gen",
+    ):
+        try:
+            _importlib.import_module(pkg)
+        except Exception:
+            pass
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _restore_real_models():
+    """Restore the real backend.src.models tree for backend tests even when
+    the gui conftest's heavy-import mocks loaded into the same pytest
+    process (#375). Runs after collection, before any backend test."""
+    _restore_real_backend_packages()
+    yield
+
+
+# Import-time restore: when gui/test is collected BEFORE backend/test (the
+# testpaths order), the gui mock is already in sys.modules as backend test
+# modules are imported during collection -- restore before that import.
+_restore_real_backend_packages()
+
 # Limit OpenCV threads to prevent CPU thrashing
 try:
     import cv2
