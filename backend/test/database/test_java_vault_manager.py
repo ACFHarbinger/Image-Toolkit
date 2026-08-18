@@ -67,8 +67,21 @@ class JavaVaultManagerTest:
             with pytest.raises(ValueError, match="No secret key found"):
                 manager.get_secret_key("non_existent_key", "keypass")
 
-    def test_jvm_shuts_down_on_exit(self, mock_jpype):
+    def test_jvm_shuts_down_on_exit(self, mock_jpype, monkeypatch):
+        """shutdown() must call shutdownJVM when no Qt app is alive.
+
+        Explicitly mocks QCoreApplication.instance() -> None: without it,
+        this test is order-dependent (#406) — it passes standalone but
+        fails after any earlier test in the same process leaves a real
+        QApplication singleton alive, since VaultManager.shutdown() skips
+        the inline JVM shutdown while Qt is up (by design, see the two
+        tests below).
+        """
         mock_start_jvm, mock_shutdown_jvm = mock_jpype
+        monkeypatch.setattr(
+            "PySide6.QtCore.QCoreApplication.instance",
+            lambda *a, **k: None,
+        )
 
         with JavaVaultManager("test.jar") as _manager:
             mock_shutdown_jvm.assert_not_called()
