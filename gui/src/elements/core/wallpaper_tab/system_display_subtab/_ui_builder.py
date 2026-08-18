@@ -175,7 +175,7 @@ class _UIBuilderMixin:
         self.btn_skip_wallpapers.clicked.connect(self.skip_current_wallpapers)
         slideshow_layout.addWidget(self.btn_skip_wallpapers)
 
-        if self._is_daemon_running_config():
+        if self._reconcile_daemon_liveness_on_startup():
             self.btn_daemon_toggle.setText("Stop Background Daemon")
             self.btn_daemon_toggle.setChecked(True)
             self.btn_daemon_toggle.setStyleSheet(
