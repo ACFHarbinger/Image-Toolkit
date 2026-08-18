@@ -24,11 +24,16 @@ def _get_video_duration(path: str) -> Optional[float]:
     if path in _VIDEO_DURATION_CACHE:
         return _VIDEO_DURATION_CACHE[path]
     try:
-        result = subprocess.run(
-            ["ffprobe", "-v", "quiet", "-show_entries", "format=duration",
-             "-of", "default=noprint_wrappers=1:nokey=1", path],
-            capture_output=True, text=True, timeout=10,
-        )
+        # Issue #81 crash family: this ffprobe fork can race the first
+        # QMediaPlayer construction (slideshow start / app startup).
+        from gui.src.helpers.video.video_thumbnailer import media_backend_spawn_guard
+
+        with media_backend_spawn_guard():
+            result = subprocess.run(
+                ["ffprobe", "-v", "quiet", "-show_entries", "format=duration",
+                 "-of", "default=noprint_wrappers=1:nokey=1", path],
+                capture_output=True, text=True, timeout=10,
+            )
         val = result.stdout.strip()
         if val:
             dur = float(val)

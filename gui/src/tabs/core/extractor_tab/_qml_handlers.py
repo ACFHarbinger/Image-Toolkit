@@ -86,7 +86,12 @@ class _QmlHandlersMixin:
             ]
 
             # Hide console on windows if needed (usually handled by subprocess)
-            result = subprocess.run(cmd, capture_output=True, text=True)
+            # Issue #81 crash family: this runs on a QThreadPool thread,
+            # possibly concurrently with the first QMediaPlayer construction.
+            from gui.src.helpers.video.video_thumbnailer import media_backend_spawn_guard
+
+            with media_backend_spawn_guard():
+                result = subprocess.run(cmd, capture_output=True, text=True)
 
             if result.returncode == 0 and os.path.exists(out_path):
                 self.qml_extraction_status.emit(f"Saved: {os.path.basename(out_path)}")
