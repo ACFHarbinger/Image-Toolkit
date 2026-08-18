@@ -1,99 +1,65 @@
 # App Theming & Customization (2026Q3)
 
-**Status: DRAFT — brainstorm stage, not locked.** Same process as the
+**Status: DRAFT — Brainstorm Round 1 Decisions Consolidated.** Same process as the
 Development Tool v2 and ASP wallpaper-mode pivots: brainstorm → team
-cross-review (each agent asks Harbinger their own questions
-independently) → answers → proposals → sign-off. This document captures
-round 1 (Harbinger's initial framing) so the team has real context to
-brainstorm against — it is not a spec to implement yet.
+cross-review → answers → proposals → sign-off. This document captures
+Harbinger's design decisions from the brainstorming session.
 
 **Origin:** Harbinger, 2026-08-18. "Make the app customizable — user-
 defined theme (colors, styles, etc.) and background image(s)."
 
-## Scope, per Harbinger's round-1 answers
+---
 
-1. **Customization depth: full custom palette.** Not just tinting an
-   accent color on top of dark/light — every semantic color token
-   (background, panel, text, accent, borders, hover states, etc.)
-   user-definable. Dark/light become two of possibly several shipped
-   presets, not the only two options. (Extends, doesn't replace, the
-   existing accent-color-override mechanism — see §2.8 in `gui_ux.md`.)
-2. **Background image: whole app window, translucent panels on top.**
-   One background image behind the entire main window; content panels/
-   cards get semi-transparent backgrounds so the image shows through —
-   game-launcher / Discord-style theming, not a small confined region.
-3. **Surface scope: all three UI surfaces.** PySide6 desktop app
-   (`gui/`), the devtool Tauri/React app (`dev/app/`), and the docs
-   website (`docs/website/`). One (conceptually) unified theming system,
-   not three independent ones built separately.
-4. **Editor UX: visual editor primary, config file secondary.** A
-   dedicated settings panel — color pickers per token, background-image
-   picker, live preview — as the main experience. Raw config-file
-   editing (extending the existing `load_user_qss_override` hook for
-   PySide6) stays available underneath for power users.
+## 1. Core Architectural & Aesthetic Decisions (Harbinger's Answers)
 
-## What already exists per surface (read before proposing anything)
+### A. Background Image Canvas & Translucency Layering
+- **Full-Window Canvas with Adjustable Opacity & Frosted Glass**: The background
+  image renders behind the root application window with configurable opacity
+  ($0.10$–$1.0$) and optional backdrop blur ($0$–$30\text{px}$). Content areas,
+  toolbars, and cards use translucent glassmorphic surfaces (`rgba(..., alpha)`)
+  so the image shows through subtly while maintaining text readability.
+- **Dynamic Slideshow & Multi-Image Rotation**: Users can configure a background
+  playlist with automatic timer-based slideshow rotation (1m, 5m, 15m, 1h) and
+  smooth cross-fade transitions, integrating with the wallpaper daemon.
+- **Fit & Scaling Modes**: Cover, Contain, Center, and Tile modes to cleanly adapt
+  to ultrawide and multi-monitor setups.
 
-- **PySide6 (`gui/`):** `gui/src/windows/main/_theme.py` — dark/light
-  QSS toggle, per-theme accent-color override (`compute_accent_vars`),
-  UI density (`Comfortable`/`Compact`/`Spacious`), font scale,
-  `load_user_qss_override` (a user QSS file hook already exists — not
-  starting from zero). Stylesheets live in `gui/src/styles/qss/`.
-- **devtool-app (`dev/app/`):** React app (Vite), single
-  `dev/app/src/index.css`, no token/theme system yet — a straight port
-  of the original vanilla-JS app's styling, never designed for
-  user customization.
-- **docs website (`docs/website/`):** most mature token infrastructure
-  of the three already — `docs/website/src/styles/tokens.css` +
-  `theme.css` (real CSS custom properties), separate from
-  `tailwind.css`/`hub.css`/per-page CSS files.
+### B. Color Token Customization & Stylesheet Control
+- **Semantic Palette Editor**: Structured visual customizer exposing primary
+  semantic color slots (Primary Accent, Surface/Card Background, Window Background,
+  Primary/Muted Text, Border/Dividers).
+- **WCAG 2.1 AA Auto-Contrast Validation**: Real-time contrast ratio indicator to
+  prevent unreadable foreground/background combinations.
+- **Dynamic Palette Extraction (Material You / PyWal Style)**: Automated color
+  extraction from the active background image using $k$-means / median-cut
+  quantization to generate harmonious matching UI accents on the fly.
+- **In-App Live QSS Stylesheet Editor**: Integrated code editor targeting
+  `~/.image-toolkit/user_theme.qss` with live preview and a fail-safe "Reset to Default" button.
 
-The three surfaces are at very different maturity levels for this. A
-"unified" system most likely means a shared *theme definition format*
-(color tokens + background image reference, some serializable spec)
-that each surface's own renderer consumes differently — a QSS
-generator for PySide6, CSS custom properties for React/docs-website —
-not literally shared runtime code across a Python/Qt app and two web
-apps.
+### C. Widget Styling, Curvature, & Typography
+- **Corner Radius Curvature**: Selectable corner styles (Sharp $0\text{px}$ / Subtle $4\text{px}$ / Rounded $8\text{px}$ / Pill $16\text{px}$).
+- **Elevation & Shadows**: Configurable UI card drop-shadow elevation.
+- **Custom Typography**: Selectable application font family, scale ($80\%$–$150\%$), and font weight overrides.
 
-## Open questions for the team (round 1 — ask Harbinger your own, don't just answer these)
+---
 
-These are the ones visible from round 1 alone; expect more once each
-agent looks at their own surface's actual styling code.
+## 2. Surface Integration Phasing
 
-1. **Theme definition format.** A single portable spec (JSON/YAML/TOML)
-   that all three surfaces read, with a per-surface adapter/generator?
-   Or three separate but visually-matching implementations? Affects
-   whether this is one shared-format project or three coordinated ones.
-2. **Token set.** What's the actual semantic token list — same set
-   across all three surfaces, or does each surface get its own set
-   mapped from a smaller shared "core" (accent, background, text,
-   border) plus surface-specific extras?
-3. **Background image scope on devtool-app/docs-website.** Harbinger's
-   "whole window, translucent panels" answer was likely framed around
-   the PySide6 app. Does it apply identically to the other two, or do
-   web surfaces need their own treatment (a website background image
-   raises very different performance/accessibility questions than a
-   native app window)?
-4. **Preset gallery / sharing.** Ship a few curated built-in themes?
-   Let users export/import a theme file to share? Not asked in round 1,
-   worth raising.
-5. **Accessibility.** Full custom palettes risk bad-contrast
-   combinations. Any minimum contrast-ratio enforcement, or fully
-   trust the user?
-6. **Rollout order.** Which surface first? PySide6 has the most
-   existing infra to extend (lowest risk, fastest to a real result);
-   docs-website has the best token foundation already (fastest to
-   retrofit); devtool-app has neither (greenfield, most freedom but
-   most work). Team should propose a sequencing, not do all three at
-   once.
+| Phase | Surface | Architecture & Mechanism | Status |
+|:---|:---|:---|:---|
+| **Phase 1** | **PySide6 Desktop (`gui/`)** | `_theme.py` + dynamic QSS generation + root `QPainter` background overlay + `user_theme.qss` live reload | In Design |
+| **Phase 2** | **Docs Website (`docs/website/`)** | Shared JSON token schema → CSS custom properties (`tokens.css` + `theme.css`) + backdrop-filter glassmorphism | Next |
+| **Phase 3** | **DevTool App (`dev/app/`)** | Migration from `index.css` to CSS custom property tokens matching the shared theme JSON schema | Next |
 
-## Process
+---
 
-Each agent: read this doc + your own surface's actual current styling
-code, then ask Harbinger your own round-1 questions on the bus (same
-format as the ASP pivot thread) — don't just answer the six above,
-find what's actually unclear once you're looking at real code. After
-Harbinger answers, proposals, then sign-off, then this doc gets
-rewritten from DRAFT to a locked design (same treatment
-`asp_wallpaper_mode_roadmap_2026q3.md` got).
+## 3. Work Breakdown & Proposed Issues (#437–#440)
+
+- **#437 (Theme Studio UI & Semantic Palette Customizer)**:
+  - Settings "🎨 Appearance & Themes" tab with 5-slot color picker, WCAG contrast meter, corner curvature radio group, and font family selector.
+- **#438 (Dynamic Palette Extraction & Wallpaper Daemon Integration)**:
+  - Fast $k$-means/median-cut color extractor generating harmonious UI palettes from the active desktop/background image.
+- **#439 (Full-Window Background Canvas & Glassmorphic Layering Engine)**:
+  - Root window background renderer with opacity slider, backdrop blur, fit modes, and multi-image slideshow playlist.
+- **#440 (In-App QSS Live Editor & Cross-Surface JSON Theme Export/Import)**:
+  - In-app stylesheet editor with live reload, syntax validation, and portable JSON theme pack export/import.
