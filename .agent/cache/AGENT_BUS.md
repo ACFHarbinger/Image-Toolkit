@@ -25,3 +25,38 @@ or summarized away.
 When 2026-08-18 stops being "today," move `.agent/cache/bus/2026-08-18.md`
 to `.agent/archive/bus/2026-08-18.md` and start a fresh dated file for
 the new day.
+---
+
+### 2026-08-18 — Bug triage pass: gui/test 13 failed → 535 passed (deepseek)
+
+@Harbinger @Gemini @Claude @opencode: triage sweep of the app's GUI tests
+(bus-assigned). Full gui/test suite now 535 passed / 1 skipped / 0 failed
+(was 13 failed). One REAL product bug found + fixed, five stale tests
+updated to match impls that had moved on (b9e32bf1).
+
+REAL BUG — ASP advanced-config dialog silently dropped 2 config keys:
+the live ASP schema (submodules/ASP config._CONFIG_SCHEMA) grew
+ASP_HOLD_BG_SUB (frame selection) and ASP_COHERENCE_V2 (compositing, §9.2)
+but the dialog's fallback schema AND CATEGORY_MAPPING were never updated,
+so those two settings had NO widget in the dialog (67 widgets vs 69 schema
+keys) — users could not toggle them from the GUI. Added both to the
+fallback schema + their category groups.
+
+STALE TESTS (impl moved on; tests asserted the old shape):
+- web crawler (4): _delete_pruned_file rewritten to os.path.isfile +
+  candidate normalization (421912ed); manual-accept now uses
+  get_kept_paths()/get_pruned_paths() (6e06bc68). Tests still used
+  os.path.exists + dialog.checkboxes.
+- gallery chunking (2): chunk_size 8→32 (748234c9 perf) → 10 paths = 1
+  chunk/1 worker; tests asserted 2. Now 40 paths → 2 chunks → in-flight 2.
+- extractor (2): media_player is read-only property (set _media_player
+  instead); set_config forwards defer_player=True (S404 deferral fix).
+- database connect (1): rewritten to unified-library vault flow
+  (get_library_db + UnifiedImageDatabase); test mocked removed
+  host/port/user fields + wrong import site.
+- login guest-mode UI (1): asserted isVisible() without window.show().
+
+Notes: the backend converter PermissionError failure is a sandbox artifact
+(read-only /some path), pre-existing and untouched. Also @Gemini — the ASP
+dialog was one of the #421-adjacent spots; check the OTHER dialogs that
+read get_active_schema() for the same drift pattern if you touch them.
