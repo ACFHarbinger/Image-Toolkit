@@ -127,6 +127,26 @@ def cmd_repro(args: Any) -> int:
     from ..host.scenarios import get_scenario, list_scenarios
     from ..host.store import WorkspaceStore
 
+    if getattr(args, "from_bundle", None):
+        # D5 replay: re-run the captured command from a bundle artifact
+        # under the same telemetry, writing a new investigation.
+        from ..host.bundle import replay_bundle
+
+        root = Path(args.workspace) if getattr(args, "workspace", None) else None
+        store = WorkspaceStore(root=root)
+        try:
+            result = replay_bundle(Path(args.from_bundle), store)
+        except (FileNotFoundError, ValueError) as err:
+            print(f"replay failed: {err}", file=sys.stderr)
+            return 2
+        print(f"replayed: {' '.join(result['command'])}")
+        print(f"  exit: {result['exit_code']}")
+        print(f"  session: {result.get('session') or '(none written)'}")
+        print(f"  investigation: {result['root']}")
+        if result.get("stderr_tail"):
+            print(f"  stderr tail: {result['stderr_tail']!r}")
+        return 0
+
     if getattr(args, "list_scenarios", False):
         print("Available Reproduction Scenarios:")
         for s in list_scenarios():
@@ -188,6 +208,34 @@ def cmd_repro(args: Any) -> int:
     if gdb_output:
         gdb_path = inv.root / "gdb-backtrace.txt"
         gdb_path.write_text(gdb_output, encoding="utf-8")
+
+    # D5: write a run sidecar so this investigation bundles with a working
+    # repro.sh. Next to the session when one exists (D1 convention),
+    # otherwise inside the investigation folder itself.
+    from ..host.runner import RunRecord, env_snapshot, _write_run_manifest
+    from ..host.git import git_state
+
+    record = RunRecord(
+        verb="repro",
+        command=list(cmd),
+        cwd=os.getcwd(),
+        exit_code=exit_code,
+        started_at=before,
+        ended_at=time.time(),
+        env=env_snapshot(env),
+        git=git_state(Path.cwd()),
+        session_path=str(session_path) if session_path else None,
+    )
+    if session_path is not None:
+        _write_run_manifest(session_path, record)
+    else:
+        payload = {
+            "format": "tool.session",
+            "version": 1,
+            "session": None,
+            "run": record.to_dict(),
+        }
+        (inv.root / "repro.run.json").write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
     print(summary)
     print(f"investigation: {inv.root}")
@@ -254,6 +302,43 @@ def _summarize(session_path: Optional[Path], exit_code: int, gdb_output: str) ->
 # parser wiring
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# bundle (D5, #391)
+# ---------------------------------------------------------------------------
+
+def cmd_bundle(args: Any) -> int:
+    """Bundle one investigation into a portable D5 artifact.
+
+    Emits <name>.zip (or a folder with --no-zip) containing manifest,
+    notes, repro.sh and gdb backtrace; telemetry JSONL + run sidecars are
+    only included with --include-captures (D20 redaction).
+    """
+    from ..host.bundle import build_bundle
+    from ..host.store import WorkspaceStore
+
+    root = Path(args.workspace) if getattr(args, "workspace", None) else None
+    store = WorkspaceStore(root=root)
+    dest = Path(args.out) if getattr(args, "out", None) else Path.cwd()
+    try:
+        result = build_bundle(
+            store,
+            args.investigation,
+            include_captures=args.include_captures,
+            dest_dir=dest,
+            zip_out=not getattr(args, "no_zip", False),
+        )
+    except FileNotFoundError as err:
+        print(f"bundle failed: {err}", file=sys.stderr)
+        return 1
+    print(f"bundle: {result.path}")
+    print(f"  investigation: {result.investigation}")
+    print(f"  sessions linked: {result.n_sessions}")
+    print(f"  repro command: {' '.join(result.command) or '(none captured)'}")
+    print(f"  captures included: {result.n_captures} (--include-captures)" if result.include_captures
+          else "  captures: excluded (D20 redaction; use --include-captures)")
+    return 0
+
+
 def add_parsers(sub) -> None:
     p_export = sub.add_parser("export", help="Export a session (json|csv|html)")
     p_export.add_argument("path", nargs="?", help="Telemetry JSONL file")
@@ -277,12 +362,22 @@ def add_parsers(sub) -> None:
     p_repro.add_argument("--scenario", default=None, help="Scenario or investigation name")
     p_repro.add_argument("--list-scenarios", action="store_true", help="List all catalogued reproduction scenarios")
     p_repro.add_argument("--gdb", action="store_true", help="Run under gdb (SIGABRT stop)")
+    p_repro.add_argument("--from-bundle", default=None, metavar="ARTIFACT",
+                         help="Replay a D5 bundle artifact (zip or folder) instead of running a new command (#391)")
     p_repro.add_argument("cmd", nargs=argparse.REMAINDER, help="Command + args to run")
+
+    p_bundle = sub.add_parser("bundle", help="One-click investigation bundle (D5, #391)")
+    p_bundle.add_argument("investigation", help="Investigation name to bundle")
+    p_bundle.add_argument("--include-captures", action="store_true",
+                          help="Include telemetry JSONL + run sidecars (D20 redaction: off by default)")
+    p_bundle.add_argument("--out", default=None, help="Output directory for the artifact (default: cwd)")
+    p_bundle.add_argument("--no-zip", action="store_true", help="Emit a folder instead of a zip")
     return None
 
 
 __all__ = [
     "add_parsers",
+    "cmd_bundle",
     "cmd_diff",
     "cmd_export",
     "cmd_prune",

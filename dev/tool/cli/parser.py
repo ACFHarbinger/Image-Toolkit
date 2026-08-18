@@ -492,6 +492,7 @@ COMMANDS = {
     "resolve-offset": track_a.cmd_resolve_offset,
     "prune": track_a.cmd_prune,
     "repro": track_a.cmd_repro,
+    "bundle": track_a.cmd_bundle,
     "bench": track_d.cmd_bench,
     "build": track_d.cmd_build,
     "test": track_d.cmd_test,
