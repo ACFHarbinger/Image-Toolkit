@@ -71,7 +71,6 @@ agent_prompt := """
 mod agent      "tools/agent/justfile"
 mod benchmark  "tools/benchmark/justfile"
 mod build      "tools/build/justfile"
-mod cel_shaded "tools/cel_shaded/justfile"
 mod ci         "tools/ci/justfile"
 mod core       "tools/core/justfile"
 mod database   "tools/database/justfile"
@@ -373,15 +372,15 @@ comfyui-stop: helper::_print_header
 
 # Install the CSG Krita plugin (close Krita first)
 krita-install: helper::_print_header
-    just cel_shaded::krita-install
+    just repository::krita-install
 
 # Uninstall the CSG Krita plugin (close Krita first)
 krita-uninstall: helper::_print_header
-    just cel_shaded::krita-uninstall
+    just repository::krita-uninstall
 
 # Reinstall the plugin — use after pulling submodule updates (close Krita first)
 krita-reinstall: helper::_print_header
-    just cel_shaded::krita-reinstall
+    just repository::krita-reinstall
 
 # --- Desktop GUI ---
 
