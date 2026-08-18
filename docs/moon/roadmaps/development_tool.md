@@ -1805,6 +1805,92 @@ The remaining design work is intentionally technical rather than product
 ambiguous: validate the Linux distribution format, specify the sidecar RPC
 lifecycle, and select the first bounded 4D spike through the review round.
 
+### deepseek — 2026-08-18 (v2 plugin-API portability + authoring floor, per D42/D51/D52)
+
+Lens: "Portability of the plugin API" (D42). Brainstormed six open questions
+with Harbinger; all six recommended options were accepted: manifest-first
+runtime (Python in-process allowed), versioned core artifact kinds + custom
+passthrough, a canonical generic record schema, global + per-workspace
+discovery, a manifest-file + one-entry-command authoring floor, and an
+additive (non-breaking) migration.
+
+**Current state (all Python-only, repo-bound).** The plugin contract is the
+dataclasses Surface / Channel / Artifact / PluginManifest plus a structural
+Plugin Protocol (manifest + artifacts(store)), discovered by scanning this
+repo's dev/tool/plugins/ package (host/app.py _first_party_plugins). Session
+is telemetry-*.jsonl under ~/.image-toolkit/telemetry (tool/model/session.py).
+Neither survives a repo boundary.
+
+**Proposal — manifest-first, JSON-serializable contract.**
+
+1. **The manifest is the single discovery contract.** The Python
+   PluginManifest becomes a parsed *view* of a JSON/TOML file (plugin.json),
+   not the source of truth. Shape (JSON, 4-space-indented for readability):
+
+       {
+         "schema": "devtool.plugin.manifest",
+         "version": 1,
+         "name": "benchmarks",
+         "version": "0.1.0",
+         "description": "...",
+         "surfaces": [{"name": "cli"}, {"name": "gui"}],
+         "channels": [{"key": "bench", "label": "...", "default_enabled": true, "retention": "forever"}],
+         "entry": {"python_module": "tool.plugins.benchmarks:plugin"}
+       }
+
+   entry carries at least one runtime selector. Two runtimes behind one
+   manifest: python_module (in-process, the fast path for first-party
+   plugins) and command (a subprocess argv the host spawns and speaks JSON-RPC
+   to — the language-neutral path, D52). schema+version gate compatibility.
+
+2. **Versioned core artifact kinds + custom passthrough.** The core
+   recognizes a small closed set it can render/interlink natively —
+   session, investigation, image, metric, report, file — and any other kind
+   string is plugin-owned, rendered opaquely or via that plugin's declared
+   view. Artifact stays {kind, name, path, meta}; meta is the plugin's JSON
+   payload, and the core kinds must conform to the record schema in (3).
+
+3. **Canonical generic record schema.** The core owns a minimal versioned
+   Record/Run schema that every evidence producer emits (including IT's
+   telemetry adapter); GUI/MCP/TUI operate on this, never on telemetry-*.jsonl
+   directly. IT's Session becomes one adapter (plugin telemetry_workbench)
+   that maps JSONL -> core records, and tool/model/session.py drops its
+   ~/.image-toolkit hard-coding:
+
+       { "schema": "devtool.record", "version": 1, "id": "...", "kind": "span",
+         "start_ms": 0, "end_ms": 1, "source": "telemetry_workbench",
+         "workspace": "<repo-root>", "payload": { } }
+
+4. **Discovery = global + per-workspace.** Global plugins live under
+   ~/.config/devtool/plugins/; the selected workspace may declare additional
+   plugins in a devtool.toml at the repo root (D60: one workspace). The host
+   merges both, global first, workspace overriding.
+
+5. **Authoring floor (the D52 proof).** A plugin author in a *different*
+   repo writes only (a) a plugin.json manifest with a command entry, and (b)
+   that command, which answers JSON-RPC-over-stdio requests (initialize /
+   list_artifacts) and writes responses. No Python import, no Image-Toolkit
+   package required. The JSON-RPC methods are the frozen contract.
+
+6. **Additive migration.** Keep the Python Plugin/PluginManifest/Artifact/
+   Channel/Surface classes; add a serializer (manifest <-> dataclass) and a
+   discovery adapter that reads plugin.json files and can still import
+   python_module entries in-process. The four existing plugins migrate by
+   adding a plugin.json (no logic rewrite); host/app.py discovery switches
+   from package-scanning to manifest-scanning.
+
+**Not in this proposal (other lenses).** Tauri shell + Linux packaging
+(Grok's feasibility lens); the JSON-RPC-over-stdio lifecycle/failure spec and
+a minimal non-Python adapter spike (Sidecar/protocol lens); 3D/4D and
+TUI/MCP-parity lenses. This proposal only fixes the plugin-contract *shape*;
+the sidecar protocol should reuse these manifest/artifact/record JSON shapes
+as its message payloads so the two don't drift.
+
+**Open items to confirm before implementation.** (1) The exact command-entry
+argv contract (argv = [plugin_command, subcommand]? host speaks a
+devtool.plugin.v1 method set on stdio?), and (2) whether Session migration
+(IT telemetry -> core records) is in-scope now or a follow-on adapter slice.
+
 ### (peers append below)
 
 ---
