@@ -123,6 +123,7 @@ class TestWallpaperTab:
         tab.system_display.monitor_current_index = {"0": 0, "1": 0}
 
         # Perform swap
+        # pyrefly: ignore [bad-argument-type]
         tab.system_display.swap_monitors("0", "1")
 
         # Verify swapped states
@@ -142,11 +143,13 @@ class TestWallpaperTab:
 
         # When daemon is active, cancel_loading should NOT stop the countdown timer
         with patch.object(tab.system_display, "_is_daemon_running_config", return_value=True):
+            # pyrefly: ignore [bad-argument-type]
             tab.system_display.cancel_loading()
             tab.system_display.countdown_timer.stop.assert_not_called()
 
         # When daemon is NOT active, cancel_loading SHOULD stop the countdown timer
         with patch.object(tab.system_display, "_is_daemon_running_config", return_value=False):
+            # pyrefly: ignore [bad-argument-type]
             tab.system_display.cancel_loading()
             tab.system_display.countdown_timer.stop.assert_called_once()
 
@@ -163,6 +166,7 @@ class TestWallpaperTab:
                 "last_change_timestamp": int(time.time()) - 100,
             }
             with patch("builtins.open", mock_open(read_data=json.dumps(mock_config))):
+                # pyrefly: ignore [bad-argument-type]
                 tab.system_display._start_daemon_countdown_if_active()
                 # 300 interval - 100 elapsed = 200 remaining (give or take a second due to timing)
                 assert 195 <= tab.system_display.time_remaining_sec <= 200
@@ -216,6 +220,7 @@ class TestWallpaperTab:
 
         from PySide6.QtWidgets import QMessageBox
         with patch.object(QMessageBox, "question", return_value=QMessageBox.StandardButton.Yes) as mock_q:
+            # pyrefly: ignore [bad-argument-type]
             tab.monitor_display.clear_monitor_graph("0")
             mock_q.assert_called_once()
 
@@ -233,6 +238,7 @@ class TestWallpaperTab:
 
         from PySide6.QtWidgets import QMessageBox
         with patch.object(QMessageBox, "question", return_value=QMessageBox.StandardButton.Yes) as mock_q:
+            # pyrefly: ignore [bad-argument-type]
             tab.system_display.clear_monitor_graph("0")
             mock_q.assert_called_once()
 

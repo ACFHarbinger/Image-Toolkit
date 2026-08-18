@@ -71,7 +71,7 @@ class TestDataBrowserTab:
         assert tab.current_table == "images"
         assert tab.data_table.columnCount() == 2
         assert tab.data_table.rowCount() == 2
-        assert tab.data_table.item(0, 1).text() == "/a.png"
+        assert tab.data_table.item(0, 1).text() == "/a.png" # pyrefly: ignore [missing-attribute]
         assert tab.row_count_label.text() == "2 row(s)"
 
     def test_invalid_where_clause_shows_warning_not_crash(self, q_app):
@@ -190,8 +190,8 @@ class TestDataBrowserTabNavigation:
         tab = self._make_tab_on_images()
         # Clicking the "group_id" cell (col 2) of row 0 (value 7) should
         # switch to "groups" filtered to id = 7.
-        tab.browser_repo.table_foreign_keys.return_value = []  # groups has none
-        tab.browser_repo.query_table.return_value = (["id", "name"], [(7, "Trips")])
+        tab.browser_repo.table_foreign_keys.return_value = []  # pyrefly: ignore [missing-attribute]
+        tab.browser_repo.query_table.return_value = (["id", "name"], [(7, "Trips")]) # pyrefly: ignore [missing-attribute]
 
         tab._on_cell_clicked(0, 2)
 
@@ -211,19 +211,19 @@ class TestDataBrowserTabNavigation:
 
     def test_row_selection_populates_reverse_references(self, q_app):
         tab = self._make_tab_on_images()
-        tab.browser_repo.reverse_references.return_value = [
+        tab.browser_repo.reverse_references.return_value = [ # pyrefly: ignore [missing-attribute]
             {"table": "media_groups", "column": "group_id", "count": 3},
         ]
 
         tab.data_table.selectRow(0)
 
-        tab.browser_repo.reverse_references.assert_called_with("images", "1")
+        tab.browser_repo.reverse_references.assert_called_with("images", "1") # pyrefly: ignore [missing-attribute]
         assert tab.refs_list.count() == 1
         assert "media_groups.group_id (3)" in tab.refs_list.item(0).text()
 
     def test_row_selection_no_references_shows_hint(self, q_app):
         tab = self._make_tab_on_images()
-        tab.browser_repo.reverse_references.return_value = []
+        tab.browser_repo.reverse_references.return_value = [] # pyrefly: ignore [missing-attribute]
 
         tab.data_table.selectRow(1)
 
@@ -232,12 +232,12 @@ class TestDataBrowserTabNavigation:
 
     def test_reverse_reference_click_navigates(self, q_app):
         tab = self._make_tab_on_images()
-        tab.browser_repo.reverse_references.return_value = [
+        tab.browser_repo.reverse_references.return_value = [ # pyrefly: ignore [missing-attribute]
             {"table": "media_groups", "column": "group_id", "count": 3},
         ]
         tab.data_table.selectRow(0)
-        tab.browser_repo.table_foreign_keys.return_value = []
-        tab.browser_repo.query_table.return_value = (["media_item_id", "group_id"], [])
+        tab.browser_repo.table_foreign_keys.return_value = [] # pyrefly: ignore [missing-attribute]
+        tab.browser_repo.query_table.return_value = (["media_item_id", "group_id"], []) # pyrefly: ignore [missing-attribute]
 
         tab._on_reverse_ref_clicked(tab.refs_list.item(0))
 
@@ -291,8 +291,8 @@ class TestDataBrowserTabSchemaView:
 
     def test_er_view_no_fk_no_relationship_line(self, q_app):
         tab = self._make_tab_with_schema()
-        tab.browser_repo.table_foreign_keys.side_effect = None
-        tab.browser_repo.table_foreign_keys.return_value = []
+        tab.browser_repo.table_foreign_keys.side_effect = None # pyrefly: ignore [missing-attribute]
+        tab.browser_repo.table_foreign_keys.return_value = [] # pyrefly: ignore [missing-attribute]
         tab._refresh_er_view()
 
         lines = [
@@ -308,8 +308,8 @@ class TestDataBrowserTabSchemaView:
         # return value -- an unconfigured MagicMock isn't iterable, and the
         # resulting exception pops a real, blocking QMessageBox in this
         # headless run. Configure the full cascade, not just list_tables.
-        tab.browser_repo.table_row_count.return_value = 0
-        tab.browser_repo.query_table.return_value = ([], [])
+        tab.browser_repo.table_row_count.return_value = 0 # pyrefly: ignore [missing-attribute]
+        tab.browser_repo.query_table.return_value = ([], []) # pyrefly: ignore [missing-attribute]
         tab.table_combo.blockSignals(True)
         tab.table_combo.addItems(["images", "groups"])
         tab.table_combo.blockSignals(False)
@@ -322,8 +322,8 @@ class TestDataBrowserTabSchemaView:
 
     def test_refresh_table_list_also_populates_schema_view(self, q_app):
         tab = self._make_tab_with_schema()
-        tab.browser_repo.table_row_count.return_value = 0
-        tab.browser_repo.query_table.return_value = ([], [])
+        tab.browser_repo.table_row_count.return_value = 0 # pyrefly: ignore [missing-attribute]
+        tab.browser_repo.query_table.return_value = ([], []) # pyrefly: ignore [missing-attribute]
 
         tab.refresh_table_list()
 
@@ -357,19 +357,19 @@ class TestDataBrowserTabEditMode:
         tab = self._make_tab_on_images()
         assert tab.edit_mode_enabled is False
         item = tab.data_table.item(0, 1)  # file_path -- not PK/FK
-        assert not (item.flags() & Qt.ItemFlag.ItemIsEditable)
+        assert not (item.flags() & Qt.ItemFlag.ItemIsEditable) # pyrefly: ignore [missing-attribute]
 
     def test_enabling_edit_mode_makes_non_pk_fk_cells_editable(self, q_app):
         tab = self._make_tab_on_images()
         tab.edit_mode_checkbox.setChecked(True)
 
         file_path_item = tab.data_table.item(0, 1)
-        assert file_path_item.flags() & Qt.ItemFlag.ItemIsEditable
+        assert file_path_item.flags() & Qt.ItemFlag.ItemIsEditable # pyrefly: ignore [missing-attribute]
 
         pk_item = tab.data_table.item(0, 0)
         fk_item = tab.data_table.item(0, 2)
-        assert not (pk_item.flags() & Qt.ItemFlag.ItemIsEditable)
-        assert not (fk_item.flags() & Qt.ItemFlag.ItemIsEditable)
+        assert not (pk_item.flags() & Qt.ItemFlag.ItemIsEditable) # pyrefly: ignore [missing-attribute]
+        assert not (fk_item.flags() & Qt.ItemFlag.ItemIsEditable) # pyrefly: ignore [missing-attribute]
 
     def test_confirmed_edit_calls_update_cell_and_requeries(self, q_app):
         tab = self._make_tab_on_images()
@@ -379,13 +379,13 @@ class TestDataBrowserTabEditMode:
             "gui.src.elements.database.data_browser_tab._edit.QMessageBox.question",
             return_value=QMessageBox.StandardButton.Yes,
         ):
-            tab.data_table.item(0, 1).setText("/renamed.png")
+            tab.data_table.item(0, 1).setText("/renamed.png") # pyrefly: ignore [missing-attribute]
 
-        tab.browser_repo.update_cell.assert_called_once_with(
+        tab.browser_repo.update_cell.assert_called_once_with( # pyrefly: ignore [missing-attribute]
             "images", "id", "1", "file_path", "/renamed.png",
         )
         # _on_cell_changed() re-runs the query to reflect real DB state.
-        assert tab.browser_repo.query_table.call_count == 2
+        assert tab.browser_repo.query_table.call_count == 2 # pyrefly: ignore [missing-attribute]
 
     def test_cancelled_edit_reverts_cell_and_does_not_write(self, q_app):
         tab = self._make_tab_on_images()
@@ -395,15 +395,15 @@ class TestDataBrowserTabEditMode:
             "gui.src.elements.database.data_browser_tab._edit.QMessageBox.question",
             return_value=QMessageBox.StandardButton.No,
         ):
-            tab.data_table.item(0, 1).setText("/renamed.png")
+            tab.data_table.item(0, 1).setText("/renamed.png") # pyrefly: ignore [missing-attribute]
 
-        tab.browser_repo.update_cell.assert_not_called()
-        assert tab.data_table.item(0, 1).text() == "/a.png"
+        tab.browser_repo.update_cell.assert_not_called() # pyrefly: ignore [missing-attribute]
+        assert tab.data_table.item(0, 1).text() == "/a.png" # pyrefly: ignore [missing-attribute]
 
     def test_edit_rejected_by_repo_reverts_cell(self, q_app):
         tab = self._make_tab_on_images()
         tab.edit_mode_checkbox.setChecked(True)
-        tab.browser_repo.update_cell.side_effect = ValueError("nope")
+        tab.browser_repo.update_cell.side_effect = ValueError("nope") # pyrefly: ignore [missing-attribute]
 
         with patch(
             "gui.src.elements.database.data_browser_tab._edit.QMessageBox.question",
@@ -411,10 +411,10 @@ class TestDataBrowserTabEditMode:
         ), patch(
             "gui.src.elements.database.data_browser_tab._edit.QMessageBox.warning"
         ) as mock_warn:
-            tab.data_table.item(0, 1).setText("/renamed.png")
+            tab.data_table.item(0, 1).setText("/renamed.png") # pyrefly: ignore [missing-attribute]
             mock_warn.assert_called()
 
-        assert tab.data_table.item(0, 1).text() == "/a.png"
+        assert tab.data_table.item(0, 1).text() == "/a.png" # pyrefly: ignore [missing-attribute]
 
 
 class TestDataBrowserTabColumnFilters:
@@ -446,7 +446,7 @@ class TestDataBrowserTabColumnFilters:
 
         tab._apply_filter()
 
-        _, kwargs = tab.browser_repo.query_table.call_args
+        _, kwargs = tab.browser_repo.query_table.call_args # pyrefly: ignore [missing-attribute]
         assert kwargs["where_sql"] == "\"file_path\" LIKE '%a.png%'"
 
     def test_column_filter_composes_with_main_where_box(self, q_app):
@@ -456,14 +456,14 @@ class TestDataBrowserTabColumnFilters:
 
         tab._apply_filter()
 
-        _, kwargs = tab.browser_repo.query_table.call_args
+        _, kwargs = tab.browser_repo.query_table.call_args # pyrefly: ignore [missing-attribute]
         assert kwargs["where_sql"] == "(id > 0) AND \"file_path\" LIKE '%a.png%'"
 
     def test_table_switch_clears_column_filters(self, q_app):
         tab = self._make_tab_on_images()
         tab.column_filter_edits[1].setText("a.png")
-        tab.browser_repo.query_table.return_value = (["id"], [])
-        tab.browser_repo.table_row_count.return_value = 0
+        tab.browser_repo.query_table.return_value = (["id"], []) # pyrefly: ignore [missing-attribute]
+        tab.browser_repo.table_row_count.return_value = 0 # pyrefly: ignore [missing-attribute]
 
         tab._on_table_changed("groups")
 

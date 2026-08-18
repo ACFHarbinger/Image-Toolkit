@@ -61,6 +61,7 @@ class TestGalleryDedicatedPool:
             def update_card_pixmap(self, widget, pixmap, label_ref=None):
                 pass
 
+            # pyrefly: ignore [bad-override]
             def create_gallery_label(self, path, size):
                 return QWidget()
 
@@ -206,6 +207,7 @@ class TestLoadMediaDefer:
         tab.load_media(video, force=True, defer_player=True)
         assert tab._media_load_pending is True
         tab.toggle_playback()
+        # pyrefly: ignore [unnecessary-comparison]
         assert tab._media_load_pending is False
         tab._media_player.setSource.assert_called_once()
 
@@ -256,5 +258,6 @@ class TestMediaBackendSpawnGuard:
 
         vt._media_backend_loaded = False
         vt.mark_media_backend_loaded()
+        # pyrefly: ignore [unnecessary-comparison]
         assert vt._media_backend_loaded is True
         vt._media_backend_loaded = False

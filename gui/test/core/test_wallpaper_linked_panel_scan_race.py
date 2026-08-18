@@ -48,6 +48,7 @@ class ConcreteWallpaperBase(WallpaperCommonBase):
     def update_card_pixmap(self, widget, pixmap, label_ref=None):
         pass
 
+    # pyrefly: ignore [bad-override]
     def create_gallery_label(self, path, size):
         return QWidget()
 
@@ -77,9 +78,11 @@ def _link_panels(a: ConcreteWallpaperBase, b: ConcreteWallpaperBase) -> None:
     b.linked_tabs = [a]
     b._initial_pixmap_cache = a._initial_pixmap_cache
     a.directory_scanned.connect(
+        # pyrefly: ignore [bad-argument-type]
         lambda directory: b.populate_scan_image_gallery(directory, emit_signal=False)
     )
     b.directory_scanned.connect(
+        # pyrefly: ignore [bad-argument-type]
         lambda directory: a.populate_scan_image_gallery(directory, emit_signal=False)
     )
 
@@ -111,6 +114,7 @@ class TestPeerReentrancyGuard:
         self, q_app, monkeypatch, tmp_path
     ):
         monkeypatch.setattr(
+            # pyrefly: ignore [implicit-import]
             wallpaper_common_base._scan_pipeline, "ImageScannerWorker", DelayedImageScannerWorker
         )
 
@@ -136,6 +140,7 @@ class TestPeerReentrancyGuard:
         # This is exactly the call the queued directory_scanned signal
         # triggers on the peer once the emitting panel's own call has
         # already returned to the event loop.
+        # pyrefly: ignore [bad-argument-type]
         monitor_display.populate_scan_image_gallery(str(target_dir), emit_signal=False)
         _pump(1.0)
 
@@ -151,6 +156,7 @@ class TestPeerReentrancyGuard:
         genuinely has stale scanner threads and is NOT mid-flight through
         its own call should still get stopped/drained as before."""
         monkeypatch.setattr(
+            # pyrefly: ignore [implicit-import]
             wallpaper_common_base._scan_pipeline, "ImageScannerWorker", DelayedImageScannerWorker
         )
 
@@ -169,6 +175,7 @@ class TestPeerReentrancyGuard:
             system_display, "_stop_scanner_threads", lambda: stop_calls.append(1)
         )
 
+        # pyrefly: ignore [bad-argument-type]
         monitor_display.populate_scan_image_gallery(str(target_dir), emit_signal=False)
         _pump(1.0)
 
@@ -195,6 +202,7 @@ class TestPeerReentrancyGuard:
         # inside _select_monitor_peer would dispatch mid-call.
         fired = []
         QTimer.singleShot(0, lambda: fired.append("timer"))
+        # pyrefly: ignore [bad-argument-type]
         system_display._select_monitor_peer("0")
 
         assert fired == [], (
@@ -226,7 +234,9 @@ class TestPeerReentrancyGuard:
         monitor_display = ConcreteWallpaperBase()
         _link_panels(system_display, monitor_display)
 
+        # pyrefly: ignore [bad-argument-type]
         system_display._select_monitor("0")
+        # pyrefly: ignore [bad-argument-type]
         monitor_display._select_monitor_peer("0")
 
         assert "processEvents" not in calls, (
@@ -248,6 +258,7 @@ class TestPeerReentrancyGuard:
         QObjectPrivate::connect. The peer must defer (retry timer) when any
         linked panel is busy, keeping the two scans strictly sequential."""
         monkeypatch.setattr(
+            # pyrefly: ignore [implicit-import]
             wallpaper_common_base._scan_pipeline, "ImageScannerWorker", DelayedImageScannerWorker
         )
 
@@ -265,12 +276,14 @@ class TestPeerReentrancyGuard:
         system_display._scan_pipeline_busy = True
         worker_starts = []
         monkeypatch.setattr(
+            # pyrefly: ignore [implicit-import]
             wallpaper_common_base._scan_pipeline,
             "ImageScannerWorker",
             lambda *a, **k: worker_starts.append(1) or DelayedImageScannerWorker(*a, **k),
         )
 
         # This is the queued directory_scanned mirror call.
+        # pyrefly: ignore [bad-argument-type]
         monitor_display.populate_scan_image_gallery(str(target_dir), emit_signal=False)
         # Give the deferral retry a moment; the primary never settles, so the
         # peer must keep deferring and never start a second scanner.
@@ -290,6 +303,7 @@ class TestPeerReentrancyGuard:
         ahead and start its own scan -- the deferral is serialization, not a
         permanent skip."""
         monkeypatch.setattr(
+            # pyrefly: ignore [implicit-import]
             wallpaper_common_base._scan_pipeline, "ImageScannerWorker", DelayedImageScannerWorker
         )
 
@@ -304,16 +318,19 @@ class TestPeerReentrancyGuard:
         system_display._scan_pipeline_busy = True
         worker_starts = []
         monkeypatch.setattr(
+            # pyrefly: ignore [implicit-import]
             wallpaper_common_base._scan_pipeline,
             "ImageScannerWorker",
             lambda *a, **k: worker_starts.append(1) or DelayedImageScannerWorker(*a, **k),
         )
 
+        # pyrefly: ignore [bad-argument-type]
         monitor_display.populate_scan_image_gallery(str(target_dir), emit_signal=False)
         _pump(0.2)
         assert worker_starts == [], "peer must defer while primary busy"
 
         # Primary settles -> peer's retry proceeds.
+        # pyrefly: ignore [bad-argument-type]
         system_display._settle_scan_pipeline()
         _pump(0.4)
         assert worker_starts == [1], (

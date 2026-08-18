@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 import pytest
+# pyrefly: ignore [missing-import]
 from asp_gui.elements.dialog.hitl_session_viewer_dialog import (
     HITLSessionViewerDialog,
     _format_session_info,

@@ -51,7 +51,9 @@ def test_countdown_starts_before_pid_file_exists(q_app, tmp_path, monkeypatch):
         tmp_path / "missing.pid",
     )
     tab = Fake()
+    # pyrefly: ignore [bad-argument-type]
     assert tab._is_background_daemon_process_alive() is False
+    # pyrefly: ignore [bad-argument-type]
     tab._start_daemon_countdown_if_active()
     assert tab.countdown_timer is not None
     assert tab.countdown_timer.isActive()
@@ -101,6 +103,7 @@ def test_sync_daemon_config_keeps_locked_queues(q_app, tmp_path, monkeypatch):
         "gui.src.elements.core.wallpaper_tab.system_display_subtab._daemon.DAEMON_CONFIG_PATH",
         path,
     )
+    # pyrefly: ignore [bad-argument-type]
     Fake()._sync_daemon_config()
     saved = json.loads(path.read_text())
     assert saved["monitor_queues"] == {"0": ["/locked.jpg"]}
@@ -131,6 +134,7 @@ def test_monitor_set_config_does_not_write_daemon_file(q_app, tmp_path, monkeypa
         "gui.src.elements.core.wallpaper_tab.monitor_display_subtab._slideshow_daemon.MONITOR_SLIDESHOW_DAEMON_CONFIG_PATH",
         path,
     )
+    # pyrefly: ignore [bad-argument-type]
     Fake().set_config({"monitor_display_graphs": {}})
     assert json.loads(path.read_text()) == original
 
@@ -160,6 +164,7 @@ def test_start_daemon_slideshow_is_noop_when_live(q_app, tmp_path, monkeypatch):
         "backend.src.utils.display.monitor_slideshow_daemon.daemon_is_live",
         lambda cfg: True,
     )
+    # pyrefly: ignore [bad-argument-type]
     Fake()._start_daemon_slideshow("0")
     saved = json.loads(path.read_text())
     assert saved["queue"] == ["/locked.jpg"]

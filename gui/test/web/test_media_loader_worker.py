@@ -201,6 +201,7 @@ class TestDownloaderThreadAffinity:
             def __init__(self, config):
                 super().__init__(config)
                 constructed_on["ctor"] = threading.get_ident()
+                # pyrefly: ignore [unsupported-operation]
                 constructed_on["run"] = None
 
             def run(self):
