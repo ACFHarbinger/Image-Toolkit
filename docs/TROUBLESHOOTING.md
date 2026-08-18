@@ -840,7 +840,7 @@ sudo apt install libwebkit2gtk-4.1-dev
 
 ### Tauri window shows "WebKit encountered an internal error"
 
-Three independent causes. Causes 1 and 2 are fixed by `just devtool-app`
+Four independent causes, all fixed by `just devtool-app`
 (`tools/dev/justfile`):
 
 1. **NVIDIA (proprietary driver) + Wayland.** WebKitGTK's DMA-BUF renderer
@@ -849,17 +849,44 @@ Three independent causes. Causes 1 and 2 are fixed by `just devtool-app`
    ```bash
    WEBKIT_DISABLE_DMABUF_RENDERER=1 cargo tauri dev
    ```
-2. **Leaked snap `LD_LIBRARY_PATH`.** If the terminal that launched `cargo
+2. **Snap environment poisoning via `GIO_MODULE_DIR` (network process
+   crashes with `__libc_pthread_init`).** A snap-confined launching
+   terminal — most commonly **VS Code installed via snap** — exports
+   `GIO_MODULE_DIR`, `GIO_EXTRA_MODULES`, `GTK_PATH` and `GTK_MODULES`
+   pointing into the snap. WebKitGTK's subprocesses are GIO-based, so
+   `WebKitNetworkProcess` dlopens a snap GIO module
+   (`/snap/code/current/usr/lib/x86_64-linux-gnu/gio/modules/libgiognutls.so`
+   etc.) whose `RPATH` literally contains
+   `/snap/core20/current/lib/x86_64-linux-gnu`. The dynamic loader then
+   resolves the module's dependencies from that RPATH and picks the old
+   core20 `libpthread.so.0`, which lacks the internal
+   `__libc_pthread_init` symbol required by the system glibc:
+   ```bash
+   WebKitNetworkProcess: symbol lookup error:
+     /snap/core20/current/lib/x86_64-linux-gnu/libpthread.so.0:
+     undefined symbol: __libc_pthread_init, version GLIBC_PRIVATE
+   ```
+   Note this is *not* a plain `LD_LIBRARY_PATH` leak (cause 3) — clearing
+   `LD_LIBRARY_PATH` alone does **not** fix it, because the snap library
+   is pulled in through the module's RPATH. Unset the whole set for the
+   process tree:
+   ```bash
+   env -u GIO_MODULE_DIR -u GIO_EXTRA_MODULES -u GTK_PATH -u GTK_MODULES -u LD_LIBRARY_PATH cargo tauri dev
+   ```
+   Verify your terminal is snap-confined with:
+   ```bash
+   echo "$GIO_MODULE_DIR $GTK_PATH $GTK_MODULES"
+   ```
+3. **Leaked snap `LD_LIBRARY_PATH`.** If the terminal that launched `cargo
    tauri dev` is itself snap-confined, its `LD_LIBRARY_PATH` can leak to
    the WebKit subprocesses, causing `WebKitNetworkProcess` to load a snap
-   `core20` copy of `libpthread.so.0` instead of the system one:
-   `symbol lookup error: .../snap/core20/current/lib/.../libpthread.so.0:
-   undefined symbol: __libc_pthread_init, version GLIBC_PRIVATE`. Clear it
-   for the subprocess:
+   `core20` copy of `libpthread.so.0` instead of the system one (same
+   symptom as cause 2, but via the library path rather than a module
+   RPATH). Clear it for the subprocess:
    ```bash
    LD_LIBRARY_PATH= cargo tauri dev
    ```
-3. **NVIDIA EGL fails on native Wayland (blank white window).** Even with
+4. **NVIDIA EGL fails on native Wayland (blank white window).** Even with
    the DMA-BUF renderer disabled, WebKitGTK still needs an EGL context.
    When the NVIDIA stack is broken or mismatched — e.g. a post-boot driver
    upgrade leaves the loaded kernel module out of sync with the userspace
@@ -876,12 +903,13 @@ Three independent causes. Causes 1 and 2 are fixed by `just devtool-app`
    Wayland; the mismatch is fixed by rebooting after the driver upgrade
    (loaded module vs userspace must both be the same version).
 
-The `just devtool-app` recipe sets all three variables
-(`GDK_BACKEND=x11 WEBKIT_DISABLE_DMABUF_RENDERER=1 LD_LIBRARY_PATH=`).
+The `just devtool-app` recipe applies causes 1-4 together
+(`env -u GIO_MODULE_DIR -u GIO_EXTRA_MODULES -u GTK_PATH -u GTK_MODULES
+-u LD_LIBRARY_PATH` plus `GDK_BACKEND=x11 WEBKIT_DISABLE_DMABUF_RENDERER=1`).
 
-If the main GUI (`just dev`, `frontend/src-tauri`) hits either error,
-export the same variables before running `npm run dev`, or add them to
-that recipe too.
+If the main GUI (`just dev`, `frontend/src-tauri`) hits any of these,
+export/unset the same variables before running `npm run dev`, or add them
+to that recipe too.
 
 ### `Cannot find module 'react-dom/client'`
 
