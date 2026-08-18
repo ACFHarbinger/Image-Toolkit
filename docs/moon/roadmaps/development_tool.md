@@ -1,17 +1,22 @@
 # Development Tool Roadmap
 
-*A modular host in `dev/` for telemetry, crash forensics, benchmarks, charts,
-and plugin-backed evaluators. One source of truth for Image-Toolkit developer
-tooling.*
+*A modular, repo-agnostic Tauri dev app — telemetry, crash forensics,
+benchmarks, 2D/3D visualization, and plugin-backed evaluators — usable
+across Image-Toolkit and other repos.*
 
-**Status:** Locked (2026-08-17) — all open questions resolved (D1–D39);
-issues filed and tracked on the
-[Development Tool project board](https://github.com/users/ACFHarbinger/projects/25/views/1).
-Remains open for amendment as tracks progress.
+**Status:** v1 (Python/PySide6-plugin-CLI shape) **Locked and shipped**
+(2026-08-17, D1–D40). **v2 (Tauri rewrite, multi-repo, 2D/3D/4D
+visualization) brainstormed with Harbinger 2026-08-18 (D41–D47) — open for
+the team's cross-review pass before implementation starts.** See the new
+[Development Tool v2](#development-tool-v2-2026-08-18)
+section below for full scope; v1's sections stay as history/reference, not
+superseded wholesale — most of v1's plugin *content* (ASP evaluator,
+benchmarks, telemetry model) carries forward per D42, only the shell/host
+is being rewritten.
 **Product lead:** Harbinger.  
 **This pass:** Grok (feasibility + product fold), Chat/Codex (D24-D37
 product-design pass), Claude (D38-D39 close-out + GitHub issue/project
-creation). Prior authors of folded docs: deepseek (debug data engine),
+creation; D41-D47 v2 brainstorm). Prior authors of folded docs: deepseek (debug data engine),
 Gemini (TUI), plus the analytics / glossary authors.
 
 This file **replaces** and folds:
@@ -33,6 +38,7 @@ subsection under [Team review notes](#team-review-notes).
 - [Why This Exists](#why-this-exists)
 - [Product Vision](#product-vision)
 - [Settled Decisions (2026-08-17)](#settled-decisions-2026-08-17)
+- [Development Tool v2 (2026-08-18)](#development-tool-v2-2026-08-18)
 - [Glossary](#glossary)
 - [Dual Human / Agent Access Contract](#dual-human--agent-access-contract)
 - [Home: the `dev/` directory](#home-the-dev-directory)
@@ -215,6 +221,80 @@ deepseek / Gemini / analytics locks that still hold, plus the
 | D38 | First explicit v1 exclusion (2026-08-17, Harbinger, via Claude) | **Cloud sync/collaboration** (multi-machine sync, shared team workspaces, remote access) is the first named out-of-scope category. Consistent with D24 (durable local sessions, no required daemon) and D33 (localhost workspace) — this stays a local-first, single-developer tool for v1. |
 | D39 | Persistent-service promotion trigger (2026-08-17, Harbinger, via Claude) | An always-on local service/daemon is justified once the **btop-style live-watch view (D8) needs push updates** that JSONL polling can no longer deliver responsively — not a pre-picked latency number, since there's no usage data yet to set one. Whoever builds A3's live-tail mode owns measuring this and proposing the daemon when it's actually hit, not before. |
 | D40 | debug/dev fold (2026-08-17, Harbinger, via Claude) | Now that Track A/C landed, `debug/` folds fully into `dev/`, and `debug/debugtool/` folds into `dev/devtool/` — no gradual migration, no compatibility alias. The original `debugtool` package identity (`open_session`/`list_sessions`/`render_session_view`/`run_tui` + the human-readable `analyzer.py`) is preserved as its own subpackage, `tool.debug`, rather than merged flat — an import-level compatibility surface, not a CLI one. `dev/devtool/` itself is renamed `dev/tool/`; `main()` moves out to its own `tool/devtool.py` module (keeping the product name), and `tool/cli/main.py` is renamed `tool/cli/parser.py` (it now only builds the parser + command handlers). `dev/tool/__main__.py` moves to a top-level `dev/__main__.py`, so the canonical invocation becomes `python dev/` — `python -m debugtool` and `python -m tool`/`-m devtool` no longer work (no `__main__.py` remains inside the `tool` package). Tests split into `dev/test/debugger/` (inherited from `debug/debugtool`) and `dev/test/development/` (written directly against `tool`), sharing one `dev/test/conftest.py`. |
+| D41 | **v2 shell: Tauri, not PySide6** (2026-08-18, Harbinger, via Claude) | Chosen specifically because devtool is being promoted to a dev app usable **across other repos**, not just Image-Toolkit, and Tauri's web-tech substrate gives natural, proven access to Three.js/`react-three-fiber` for 3D (already exercised by the public website's `Hero3D`) — a materially better fit than PySide6's comparatively awkward 3D story (QtQuick3D / embedded WebEngine), even though it breaks from this monorepo's PySide6-everywhere convention. This is a genuine rewrite of the host/shell, not a port — see the new v2 section below. |
+| D42 | **v2 portability: fully repo-agnostic core** (2026-08-18, Harbinger, via Claude) | The host (session/investigation model, TUI/GUI shell, CLI, MCP server) must know nothing Image-Toolkit-specific — it is a real installable package/app any repo can point at (via a config file or `--workspace` flag), not something that only works living inside this repo's `dev/`. Image-Toolkit's own plugins (`asp_evaluator`, `benchmarks`, `telemetry_workbench`, etc.) ship alongside as the plugin API's first real-world proof — generalizing the core without a complex real plugin exercising it is the riskier order, explicitly rejected. |
+| D43 | **v2 visualization scope: 2D+3D across meta-graph, flame graph, benchmark trends, and memory timeline** (2026-08-18, Harbinger, via Claude) | Track B Phase 1 (Interactive Meta-Graph / codebase topology, GPU-accelerated, previously scoped as research/not-v1) is **pulled into v1** as the flagship 3D view. Flame graphs, benchmark A/B trend-over-time surfaces, and the memory/RSS timeline also get 3D treatment where it adds real value — 2D remains the right choice per-view where mature prior art already works well (e.g. classic 2D flame graphs have 300+ existing implementations); this is "3D where it helps," not "3D everywhere by default." |
+| D44 | **v2: 4D experimentation is an explicit spike, not a core v1 deliverable** (2026-08-18, Harbinger, via Claude) | "4D" here means the standard technique from the visualization literature: a 3D scene with **time as an animated/scrubbable dimension**, not a literal fourth spatial axis. Industry/research treatment of 4D-for-dev-tools is genuinely experimental (no established prior art the way 2D flame graphs or 3D force-directed graphs have), so this is scoped as a bounded spike against one concrete view (candidate: the meta-graph evolving across commits, or a benchmark run's stage timings animating through the pipeline) rather than a blocking v1 requirement. |
+| D45 | **v2 interactivity baseline** (2026-08-18, Harbinger, via Claude) | Every shipped visualization view must support: live/real-time updates (not just static post-mortem snapshots), click-to-drill-down (zoom into a span/node/bar, jump to source or a linked Investigation), cross-view linking (a selection in one view highlights/filters related data in every other open view), in-app annotation that saves into the Investigation (not just typed notes elsewhere), filtering/slicing, hover tooltips, and dynamic zoom. This is the baseline bar for any view in v2, not optional polish layered on later. |
+| D46 | **v2: local web (C3) retires as a separate surface** (2026-08-18, Harbinger, via Claude) | No standalone localhost web server a browser points at. Because Tauri's rendering *is* the same web-tech stack, this is not a contradiction with D43's 3D approach — it means one packaged app window, not a second UI surface (browser tab) to keep in sync with the GUI. Whatever C3 did (benchmark A/B, session timeline, artifact viewer, investigation browsing) becomes GUI content directly. |
+| D47 | **v2 shell decisions still open for the cross-agent review round** (2026-08-18, Harbinger, via Claude) | Not decided yet, deliberately left for the team's design pass rather than guessed: (a) the TUI's (A3, already built and working) fate — folded into the Tauri app as an embedded terminal-style view, kept as a genuine lightweight/SSH-friendly fallback surface, or retired now that GUI is primary; (b) MCP's (C4) relationship to the new shell — likely unaffected as a separate stdio/local-HTTP surface, but confirm explicitly; (c) concrete packaging/distribution mechanism for D42's "installable standalone" (a Tauri bundle per-OS, a versioned release process, how a consuming repo actually acquires and points it at itself). |
+
+---
+
+## Development Tool v2 (2026-08-18)
+
+*Tauri rewrite, multi-repo portability, 2D/3D/4D visualization.*
+
+Brainstormed directly with Harbinger (Claude), triggered by real CLI-UX
+confusion in v1's separate-surfaces design (`just devtool plugins gui` —
+reasonably expected but not how the CLI is shaped) and a decision to
+promote devtool from an Image-Toolkit-only tool into one usable across
+other repos too. **This section is the brainstorm's output — decisions
+D41–D47 above are locked; everything else here is scope for the team's
+design/feasibility pass, not yet implemented.**
+
+### What's actually changing vs. what carries forward
+
+- **Changing**: the shell/host. v1's Python CLI + separate TUI (Rich/
+  ANSI) + local web server (`http.server`) + optional PySide6-plugin-only
+  GUI becomes one Tauri app — GUI/TUI-equivalent as the primary human
+  surface, CLI kept but scoped mainly to agent use (D41, D46).
+- **Carrying forward** (per D42): the *content* — Session/Investigation/
+  CrashBundle data model, the plugin protocol's shape (manifest +
+  artifacts + surfaces), MCP's read-mostly agent contract, and
+  Image-Toolkit's own plugins (`asp_evaluator`, `benchmarks`,
+  `telemetry_workbench`, `editor_integration`) all survive as the proof
+  that a generalized plugin API still supports a real, complex use case.
+  This is a shell rewrite, not throwing away Track A/C/D's actual work.
+- **New**: full 2D/3D visualization (D43), an experimental 4D spike (D44),
+  a concrete interactivity baseline every view must meet (D45), and
+  multi-repo portability as a first-class requirement (D42) rather than
+  an afterthought.
+
+### Visualization inventory (from D43/D44, for the design pass to flesh out)
+
+| View | Dimensionality | Notes |
+|---|---|---|
+| Codebase/dependency meta-graph | **3D** (flagship) | Track B Phase 1's already-researched GPU-accelerated force-directed graph (Cosmograph-equivalent in Tauri/Three.js); pulled into v1 by this brainstorm. |
+| Flame graph / call stack | 2D primary, 3D optional | Mature 2D prior art (300+ implementations industry-wide); a 3D variant is genuinely novel — don't let it block the 2D version shipping. |
+| Benchmark A/B / trend-over-time | 2D primary, 3D surface for multi-run patterns | 2D per-comparison (the already-shipped `CoherenceV2Tab`-style A/B) stays; 3D adds value specifically for spotting patterns *across many runs at once*. |
+| Memory/RSS timeline | 2D primary, 3D if a second dimension is worth encoding | e.g. per-thread or per-category memory bands as depth — only if that reads better than small-multiples 2D. |
+| 4D spike | 3D + animated/scrubbed time | One concrete candidate view only (D44) — meta-graph evolving across commits, or a benchmark run's stage timings animating through the pipeline. Not a blocking deliverable. |
+
+### Cross-agent review round (requested on the bus, 2026-08-18)
+
+Same process as v1's original fold: propose → cross-review → Harbinger
+signs off → implementation starts. Suggested review lenses, not rigid
+assignments:
+
+- **Feasibility / packaging** (D42, D47c): Tauri app structure, how a
+  standalone installable build actually gets produced and versioned, how
+  a consuming repo points the tool at itself.
+- **Portability of the plugin API** (D42): what changes in the current
+  Python plugin protocol (`Plugin`/`PluginManifest`/`Artifact`/`Channel`/
+  `Surface` in `host/plugins.py`) to make it genuinely repo-agnostic, and
+  what a plugin author in a *different* repo would need to write one.
+- **3D/4D visual + interaction design** (D43/D44/D45): concrete view
+  layouts, what "cross-view linking" and "in-app annotation" look like in
+  a Tauri/React shell, and the 4D spike's actual candidate view.
+- **TUI/MCP fate** (D47a/b): whether the TUI becomes an embedded panel,
+  a fallback surface, or retires; confirm MCP is unaffected.
+
+Post proposals as dated subsections under [Team Review Notes](#team-review-notes)
+below, same convention as the v1 rounds. Nobody starts wide implementation
+before Harbinger has seen the cross-review and signed off — v1's Track A/C/D
+work stays live and usable in the meantime (D42 means none of it is wasted
+regardless of how the shell rewrite lands).
 
 ---
 
@@ -1715,4 +1795,6 @@ that spawned them is now this file's Track B.
 | C1–C7 | [Track C](#track-c--host-plugins-mcp-local-web) |
 | D1–D5 | [Track D](#track-d--development-assistance-d16) |
 | D16–D40 | [Settled Decisions](#settled-decisions-2026-08-17) |
+| D41–D47 | [Settled Decisions](#settled-decisions-2026-08-17) (v2) |
+| v2 | [Development Tool v2](#development-tool-v2-2026-08-18) |
 | §11.x / §12.x | Historical analytics headings (folded below / in Track B spec) |
