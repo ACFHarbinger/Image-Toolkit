@@ -49,3 +49,34 @@ check:
 
 # setup + dev
 quick-dev: setup dev
+
+# --- Development Tool (dev/tool, the devtool CLI/TUI/web host) ---
+#
+# Canonical invocation is `python dev/` (running a directory adds it to
+# sys.path[0], so `tool` resolves with no PYTHONPATH needed) -- see
+# dev/README.md and docs/moon/roadmaps/development_tool.md.
+
+# Workspace chooser / any devtool verb (plugins, list, analyze, export, ...)
+devtool *ARGS:
+    @echo "🛠️  Development Tool..."
+    source .venv/bin/activate && python dev/ {{ARGS}}
+
+# Launch the Development Tool TUI (Perfetto-style static trace/crash views)
+devtool-tui *ARGS:
+    @echo "🛠️  Launching Development Tool TUI..."
+    source .venv/bin/activate && python dev/ tui {{ARGS}}
+
+# Launch the Development Tool live watch (btop-style RSS/thread/span monitor)
+devtool-watch *ARGS:
+    @echo "🛠️  Launching Development Tool live watch..."
+    source .venv/bin/activate && python dev/ watch {{ARGS}}
+
+# Launch the Development Tool local web viewer (pixels: benchmark A/B, plots)
+devtool-web *ARGS:
+    @echo "🛠️  Launching Development Tool web viewer..."
+    source .venv/bin/activate && python dev/ web {{ARGS}}
+
+# Run the Development Tool MCP stdio server (agent surface)
+devtool-mcp *ARGS:
+    @echo "🛠️  Starting Development Tool MCP server..."
+    source .venv/bin/activate && python dev/ mcp {{ARGS}}
