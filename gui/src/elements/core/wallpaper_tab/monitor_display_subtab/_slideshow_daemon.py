@@ -58,6 +58,15 @@ class _SlideshowDaemonMixin:
             self._start_daemon_slideshow(monitor_id)
 
     def _start_daemon_slideshow(self: "MonitorDisplaySubTabHostProtocol", monitor_id: str):
+        # Profile reload / implicit callers must not restart a live daemon
+        # or overwrite its start-time queue.
+        status = self._read_daemon_status()
+        if (
+            _monitor_slideshow.daemon_is_live(status)
+            and str(status.get("monitor_id")) == str(monitor_id)
+        ):
+            self._daemon_active_monitor_id = str(monitor_id)
+            return
         queue = self.monitor_slideshow_queues.get(monitor_id, [])
         if not queue:
             QMessageBox.information(

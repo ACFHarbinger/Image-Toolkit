@@ -1,3 +1,19 @@
+## S411 — 2026-08-18 (system slideshow: lock start-time queue, restore timer)
+
+The Wallpaper Settings "Stop Background Daemon" path is
+`slideshow_daemon.py` (system display), not the per-monitor daemon.
+On app restart, `set_config` / vault defaults fired `_sync_daemon_config`
+and overwrote the running process's `monitor_queues` (often empty). The
+daemon treated that as "all queues empty" and exited; `cancel_loading`
+then froze the countdown at `Timer: --:--`.
+
+Fix: the daemon ignores queue/order rewrites while running (stop only
+via `running: false`). `_sync_daemon_config` keeps the locked start-time
+queues. Countdown is not stopped on `cancel_loading` if the daemon
+process is alive, and is restarted afterward. `_is_daemon_running_config`
+requires a live pid. Per-monitor `_start_daemon_slideshow` is a no-op
+when that daemon is already live.
+
 ## S410 — 2026-08-18 (slideshow daemon liveness + D2 bench compare)
 
 Slideshow daemon: write/check a live pid; per-tick exceptions no longer
