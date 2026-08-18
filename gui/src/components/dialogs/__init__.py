@@ -1,4 +1,7 @@
-from asp_gui.dialogs.batch_stitch_dialog import BatchStitchDialog
+try:
+    from asp_gui.dialogs.batch_stitch_dialog import BatchStitchDialog
+except ImportError:
+    BatchStitchDialog = None  # type: ignore[assignment, misc]
 
 from .add_tag_dialog import AddTagDialog
 from .asp_advanced_config_dialog import AspAdvancedConfigDialog
