@@ -11,7 +11,7 @@ import copy
 import os
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, List, Optional, cast
+from typing import TYPE_CHECKING, Any, List, Optional, Tuple, cast
 
 from PySide6.QtCore import QPoint, Qt, QThreadPool, Slot
 from PySide6.QtWidgets import (
@@ -40,7 +40,16 @@ if TYPE_CHECKING:
 class _QueueManagementMixin:
     """Extraction queue management and the Results Gallery / Queue section."""
 
-    active_queue_worker: Optional[QueueExecutionWorker]
+    active_queue_worker: Optional[QueueExecutionWorker] = None
+    _close_progress_dialog: Optional[Any] = None
+    _close_when_finished: Optional[Any] = None
+    _queue_total_count: int = 0
+    _queue_completed_count: int = 0
+    _current_queue_item_title: str = ""
+
+    def set_close_progress_dialog(self: "VideoExtractorSubTabHostProtocol", dialog: Any) -> None:
+        """Attach the TaskCloseProgressDialog to receive live progress updates."""
+        self._close_progress_dialog = dialog
 
     def _build_results_section(self: "VideoExtractorSubTabHostProtocol") -> None:
         """Builds "5. Results Gallery Section" and adds it to self.main_layout."""
@@ -408,6 +417,10 @@ class _QueueManagementMixin:
         # Deferred gallery paths for this run (see _on_queue_item_completed).
         self._queue_pending_gallery_paths = []
 
+        self._queue_total_count = len(self.extraction_queue)
+        self._queue_completed_count = 0
+        self._current_queue_item_title = ""
+
         # Pass a COPY: the worker iterates its own list while the tab
         # removes completed items from self.extraction_queue per item; sharing
         # the same list object would let the tab's pop() skip the worker's
@@ -423,10 +436,16 @@ class _QueueManagementMixin:
 
     @Slot(int, int)
     def _on_queue_progress(self: "VideoExtractorSubTabHostProtocol", completed: int, total: int):
+        self._queue_completed_count = completed
+        self._queue_total_count = max(total, getattr(self, "_queue_total_count", total))
         self.extraction_progress_bar.setMaximum(max(total, 1))
         self.extraction_progress_bar.setValue(completed)
         if getattr(self, "_close_progress_dialog", None):
-            self._close_progress_dialog.update_progress(completed, total)
+            self._close_progress_dialog.update_progress(
+                completed,
+                self._queue_total_count,
+                getattr(self, "_current_queue_item_title", ""),
+            )
 
     def _queue_result_paths(self: "VideoExtractorSubTabHostProtocol", res: dict) -> List[str]:
         """Collect the files a queue item produced (saved_files or output_path)."""
@@ -653,6 +672,28 @@ class _QueueManagementMixin:
             return
         self._close_when_finished = None
         callback()
+
+    def get_tasks_progress(self: "VideoExtractorSubTabHostProtocol") -> Tuple[int, int, str]:
+        """Return (completed_count, total_count, current_item_title) for active extraction operations."""
+        if getattr(self, "active_queue_worker", None) is not None:
+            total = getattr(
+                self,
+                "_queue_total_count",
+                max(self.extraction_progress_bar.maximum(), len(self.extraction_queue)),
+            )
+            completed = getattr(
+                self,
+                "_queue_completed_count",
+                self.extraction_progress_bar.value(),
+            )
+            title = getattr(self, "_current_queue_item_title", "")
+            return (completed, max(total, 1), title)
+        elif getattr(self, "active_extraction_worker", None) is not None:
+            val = self.extraction_progress_bar.value()
+            max_val = max(self.extraction_progress_bar.maximum(), 100)
+            title = Path(getattr(self, "video_path", "") or "").name
+            return (val, max_val, title)
+        return (0, 1, "")
 
 
 __all__ = ["_QueueManagementMixin"]

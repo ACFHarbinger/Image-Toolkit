@@ -9,9 +9,10 @@ import contextlib
 import os
 import sys
 
-from gui.src.windows.settings.app_settings import AppSettings
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication, QMessageBox, QScrollArea, QSystemTrayIcon
+
+from gui.src.windows.settings.app_settings import AppSettings
 
 from ...utils.manager.shortcut_manager import get_registry
 
@@ -184,12 +185,14 @@ class _LifecycleMixin:
             ExtractionCloseProgressDialog,
         )
 
-        total_queue = len(getattr(extractor, "extraction_queue", [])) + (
-            1
-            if getattr(extractor, "active_queue_worker", None)
-            or getattr(extractor, "active_extraction_worker", None)
-            else 0
-        )
+        completed = 0
+        total = 1
+        current_title = ""
+        if hasattr(extractor, "get_tasks_progress"):
+            completed, total, current_title = extractor.get_tasks_progress()
+        elif hasattr(extractor, "extraction_progress_bar"):
+            completed = extractor.extraction_progress_bar.value()
+            total = max(extractor.extraction_progress_bar.maximum(), 1)
 
         def _on_cancel():
             if hasattr(extractor, "cancel_queue"):
@@ -205,10 +208,16 @@ class _LifecycleMixin:
             parent=None,
             on_cancel=_on_cancel,
             on_confirm=_on_confirm,
-            total=total_queue,
-            completed=0,
+            total=total,
+            completed=completed,
         )
-        extractor._close_progress_dialog = dialog
+        if current_title:
+            dialog.update_progress(completed, total, current_title)
+
+        if hasattr(extractor, "set_close_progress_dialog"):
+            extractor.set_close_progress_dialog(dialog)
+        else:
+            extractor._close_progress_dialog = dialog
         extractor.set_close_when_finished(dialog.on_all_finished)
         dialog.show()
 
