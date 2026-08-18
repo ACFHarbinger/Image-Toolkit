@@ -10,6 +10,55 @@ import pytest
 pytestmark = pytest.mark.gui
 
 
+def test_countdown_starts_before_pid_file_exists(q_app, tmp_path, monkeypatch):
+    """Start click must show a timer even if the child has not written a pid yet."""
+    from gui.src.elements.core.wallpaper_tab.system_display_subtab._daemon import (
+        _DaemonMixin,
+    )
+    from PySide6.QtWidgets import QLabel, QWidget
+
+    path = tmp_path / ".slideshow_config.json"
+    path.write_text(
+        json.dumps(
+            {
+                "running": True,
+                "interval_seconds": 30,
+                "last_change_timestamp": int(__import__("time").time()),
+            }
+        )
+    )
+
+    class Fake(_DaemonMixin, QWidget):
+        def __init__(self):
+            QWidget.__init__(self)
+            self.countdown_timer = None
+            self.time_remaining_sec = 0
+            self.interval_sec = 0
+            self.countdown_label = QLabel("Timer: --:--")
+            self.slideshow_group = QWidget()
+            self.slideshow_group.setVisible(True)
+
+        def update_countdown(self):
+            m, s = divmod(max(0, self.time_remaining_sec), 60)
+            self.countdown_label.setText(f"Timer: {m:02}:{s:02}")
+
+    monkeypatch.setattr(
+        "gui.src.elements.core.wallpaper_tab.system_display_subtab._daemon.DAEMON_CONFIG_PATH",
+        path,
+    )
+    monkeypatch.setattr(
+        "gui.src.elements.core.wallpaper_tab.system_display_subtab._daemon.PID_PATH",
+        tmp_path / "missing.pid",
+    )
+    tab = Fake()
+    assert tab._is_background_daemon_process_alive() is False
+    tab._start_daemon_countdown_if_active()
+    assert tab.countdown_timer is not None
+    assert tab.countdown_timer.isActive()
+    assert tab.countdown_label.text().startswith("Timer: ")
+    assert tab.countdown_label.text() != "Timer: --:--"
+
+
 def test_sync_daemon_config_keeps_locked_queues(q_app, tmp_path, monkeypatch):
     from gui.src.elements.core.wallpaper_tab.system_display_subtab._daemon import (
         _DaemonMixin,

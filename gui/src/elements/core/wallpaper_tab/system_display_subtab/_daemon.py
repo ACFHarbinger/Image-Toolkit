@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Optional, cast
 
 from backend.src.constants import DAEMON_CONFIG_PATH, ROOT_DIR
+from backend.src.constants.utils import PID_PATH
 from PySide6.QtCore import QObject, QTimer
 from PySide6.QtWidgets import QMessageBox, QWidget
 
@@ -31,6 +32,9 @@ class _DaemonMixin:
     countdown_timer: Optional[QTimer]
 
     def _start_daemon_countdown_if_active(self: "SystemDisplaySubTabHostProtocol"):
+        # Countdown follows the config "running" flag, not the pid file.
+        # The child writes the pid after import/startup; gating on that
+        # left Timer: --:-- even on a successful Start click.
         if not self._is_daemon_running_config():
             return
         try:
@@ -46,15 +50,16 @@ class _DaemonMixin:
 
             timer = getattr(self, "countdown_timer", None)
             try:
-                alive = timer is not None and not timer.isActive()
-                if timer is None:
-                    raise RuntimeError("no countdown timer")
+                needs_start = timer is None or not timer.isActive()
             except RuntimeError:
+                timer = None
+                needs_start = True
+            if timer is None:
                 timer = QTimer(cast(QObject, self))
                 self.countdown_timer = timer
                 timer.timeout.connect(self.update_countdown)
-                alive = True
-            if alive and timer is not None:
+                needs_start = True
+            if needs_start:
                 timer.start(1000)
 
             self.update_countdown()
@@ -79,30 +84,43 @@ class _DaemonMixin:
 
         return str(script_path)
 
-    def _is_daemon_running_config(self: "SystemDisplaySubTabHostProtocol"):
+    def _daemon_config_running(self: "SystemDisplaySubTabHostProtocol") -> bool:
+        """True if the config file says the daemon should be running.
+
+        Used for UI (button/timer). Do not require a pid file here — the
+        child writes that after it starts, and the GUI must show a
+        countdown immediately on Start.
+        """
         if not DAEMON_CONFIG_PATH.exists():
             return False
         try:
             with open(DAEMON_CONFIG_PATH, "r") as f:
                 data = json.load(f)
-            if not data.get("running", False):
-                return False
-            return self._is_background_daemon_process_alive()
+            return bool(data.get("running", False))
         except Exception:
             return False
+
+    def _is_daemon_running_config(self: "SystemDisplaySubTabHostProtocol"):
+        return self._daemon_config_running()
 
     def _is_background_daemon_process_alive(self: "SystemDisplaySubTabHostProtocol") -> bool:
         """Whether a slideshow_daemon.py process is actually alive (not just
         the config file's stale 'running' flag from a process that crashed
         without cleaning up). Used to avoid spawning a second daemon process
         that would race the first one on the shared config file."""
-        pid_path = Path.home() / ".image-toolkit" / ".slideshow_daemon.pid"
         try:
-            pid = int(pid_path.read_text().strip())
+            pid = int(PID_PATH.read_text().strip())
             os.kill(pid, 0)
         except Exception:
             return False
         return True
+
+    def _record_daemon_pid(self, pid: int) -> None:
+        try:
+            PID_PATH.parent.mkdir(parents=True, exist_ok=True)
+            PID_PATH.write_text(str(pid))
+        except Exception:
+            pass
 
     def _sync_daemon_config(self: "SystemDisplaySubTabHostProtocol"):
         if not self._is_daemon_running_config():
@@ -187,6 +205,9 @@ class _DaemonMixin:
             else self.wallpaper_style
         )
 
+        if start and last_change_timestamp <= 0:
+            last_change_timestamp = int(time.time())
+
         config = {
             "running": start,
             "interval_seconds": (self.interval_min_spinbox.value() * 60)
@@ -238,7 +259,7 @@ class _DaemonMixin:
             try:
                 if platform.system() == "Windows":
                     creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-                    subprocess.Popen(
+                    proc = subprocess.Popen(
                         [sys.executable, script_path],
                         creationflags=creationflags,
                     )
@@ -249,13 +270,14 @@ class _DaemonMixin:
                     # session cannot reach the user's session bus and fail
                     # silently, causing wallpapers never to change.
                     daemon_env = os.environ.copy()
-                    subprocess.Popen(
+                    proc = subprocess.Popen(
                         [sys.executable, script_path],
                         start_new_session=True,
                         stdout=subprocess.DEVNULL,
                         stderr=subprocess.DEVNULL,
                         env=daemon_env,
                     )
+                self._record_daemon_pid(proc.pid)
                 self.btn_daemon_toggle.setText("Stop Background Daemon")
                 self.btn_daemon_toggle.setStyleSheet(
                     "background-color: #c0392b; color: white; padding: 5px;"
