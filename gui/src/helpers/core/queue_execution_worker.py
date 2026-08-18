@@ -127,9 +127,15 @@ def run_extraction_in_process(config: Union[ExtractionConfig, Dict[str, Any]]) -
                 )
                 cmd.append(out_pattern)
 
-                subprocess.run(
-                    cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-                )
+                # Issue #81 crash family: queue workers run on the shared
+                # thread pool; serialize the ffmpeg fork against the first
+                # QMediaPlayer construction.
+                from gui.src.helpers.video.video_thumbnailer import media_backend_spawn_guard
+
+                with media_backend_spawn_guard():
+                    subprocess.run(
+                        cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+                    )
 
                 prefix = f"{video_name}_smart_tmp_{temp_id}_"
                 tmp_files = sorted(
@@ -198,9 +204,13 @@ def run_extraction_in_process(config: Union[ExtractionConfig, Dict[str, Any]]) -
                 out_pattern = os.path.join(output_dir, f"{video_name}_tmp_%05d.png")
                 cmd.append(out_pattern)
 
-                subprocess.run(
-                    cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-                )
+                # Issue #81 crash family (queue worker thread).
+                from gui.src.helpers.video.video_thumbnailer import media_backend_spawn_guard
+
+                with media_backend_spawn_guard():
+                    subprocess.run(
+                        cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+                    )
 
                 tmp_files = sorted(
                     [
@@ -282,9 +292,13 @@ def run_extraction_in_process(config: Union[ExtractionConfig, Dict[str, Any]]) -
                 cmd.extend(["-vf", complex_filter])
                 cmd.append(output_path)
 
-                subprocess.run(
-                    cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-                )
+                # Issue #81 crash family (queue worker thread).
+                from gui.src.helpers.video.video_thumbnailer import media_backend_spawn_guard
+
+                with media_backend_spawn_guard():
+                    subprocess.run(
+                        cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+                    )
                 return {"status": "success", "output_path": output_path}
             else:
                 base_clip = VideoFileClip(video_path).subclip(t_start, t_end)
