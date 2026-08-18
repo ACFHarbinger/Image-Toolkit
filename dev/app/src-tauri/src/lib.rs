@@ -17,7 +17,23 @@ use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use tauri::{Manager, WindowEvent};
+use tauri::{Manager, State, WindowEvent};
+
+type SidecarState = Arc<Mutex<sidecar::SidecarHandle>>;
+
+/// #409 wiring: `devtool.record`s for the current workspace, read through
+/// the running sidecar's `list_records` method (lock 9).
+#[tauri::command]
+fn list_records(state: State<'_, SidecarState>) -> Result<serde_json::Value, String> {
+    state.lock().unwrap().list_records().map_err(|e| e.to_string())
+}
+
+/// The discovered plugin registry, read through the sidecar's
+/// `list_artifacts` method (#410 shape).
+#[tauri::command]
+fn list_artifacts(state: State<'_, SidecarState>) -> Result<serde_json::Value, String> {
+    state.lock().unwrap().list_artifacts().map_err(|e| e.to_string())
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -32,6 +48,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             workspace::get_last_workspace,
             workspace::select_workspace,
+            list_records,
+            list_artifacts,
         ])
         .setup(|app| {
             if cfg!(debug_assertions) {

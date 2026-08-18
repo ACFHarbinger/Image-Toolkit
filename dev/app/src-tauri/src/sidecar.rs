@@ -18,15 +18,25 @@
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, Command, Stdio};
+use std::sync::mpsc::{self, Receiver};
 use std::time::Duration;
 
 use anyhow::{bail, Context, Result};
+use serde_json::Value;
 
 pub const MAX_AUTO_RESTARTS: u32 = 1;
 
 /// How long the host waits for the sidecar's `initialize` response before
 /// declaring the handshake failed (visible hard failure path).
 pub const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(15);
+
+/// How long the host waits for a reply to a request made after the
+/// handshake (`list_records`, `list_artifacts`, ...). The sidecar is a
+/// local process on the same machine, so a generous fixed timeout is
+/// sufficient for this skeleton; a wedged sidecar past this point is
+/// treated as a request failure, not (yet) fed back into the restart
+/// policy (#409/#407 scope stops at "the call returns or errors").
+pub const RPC_TIMEOUT: Duration = Duration::from_secs(10);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RestartDecision {
@@ -121,10 +131,16 @@ impl SidecarCommand {
     }
 }
 
-/// A live sidecar child process plus its piped stdin/stdout.
+/// A live sidecar child process plus its piped stdin and a background
+/// reader thread draining stdout line-by-line onto `stdout_rx` (ChildStdout
+/// has no read timeout, so a dedicated thread is how a `recv_timeout` bound
+/// is possible on each reply). One request in flight at a time — every
+/// caller here is synchronous, so replies are consumed in request order.
 pub struct SidecarProcess {
     child: Child,
     stdin: ChildStdin,
+    stdout_rx: Receiver<String>,
+    next_id: u64,
 }
 
 impl SidecarProcess {
@@ -141,46 +157,83 @@ impl SidecarProcess {
             .stdin
             .take()
             .ok_or_else(|| anyhow::anyhow!("sidecar stdin not piped"))?;
-        Ok(SidecarProcess { child, stdin })
-    }
-
-    /// JSON-RPC 2.0 `initialize` handshake over stdio (lock #8, D52 frozen
-    /// contract). Writes the request, waits up to `timeout` for the response
-    /// line on a reader thread (ChildStdout has no read timeout), and checks
-    /// the reply names the sidecar server.
-    pub fn initialize_handshake(&mut self, timeout: Duration) -> Result<()> {
-        let stdout = self
-            .child
+        let stdout = child
             .stdout
             .take()
             .ok_or_else(|| anyhow::anyhow!("sidecar stdout not piped"))?;
-        self.stdin
-            .write_all(br#"{"jsonrpc":"2.0","id":1,"method":"initialize"}"#)?;
-        self.stdin.write_all(b"\n")?;
-        self.stdin.flush()?;
 
-        let (tx, rx) = std::sync::mpsc::channel::<String>();
+        let (tx, rx) = mpsc::channel::<String>();
         std::thread::spawn(move || {
             let mut reader = BufReader::new(stdout);
             let mut line = String::new();
-            if reader.read_line(&mut line).is_ok() && !line.trim().is_empty() {
-                let _ = tx.send(line);
+            loop {
+                line.clear();
+                match reader.read_line(&mut line) {
+                    Ok(0) => break, // EOF: sidecar exited
+                    Ok(_) => {
+                        if tx.send(std::mem::take(&mut line)).is_err() {
+                            break; // SidecarProcess dropped
+                        }
+                    }
+                    Err(_) => break,
+                }
             }
         });
 
-        let line = rx
+        Ok(SidecarProcess {
+            child,
+            stdin,
+            stdout_rx: rx,
+            next_id: 1,
+        })
+    }
+
+    /// Send one JSON-RPC 2.0 request (no params — every frozen-contract
+    /// method here is zero-arg) and wait up to `timeout` for its reply.
+    /// Returns the `result` value; a JSON-RPC `error` reply becomes an Err.
+    fn request(&mut self, method: &str, timeout: Duration) -> Result<Value> {
+        let id = self.next_id;
+        self.next_id += 1;
+        let payload = serde_json::json!({"jsonrpc": "2.0", "id": id, "method": method});
+        self.stdin.write_all(serde_json::to_string(&payload)?.as_bytes())?;
+        self.stdin.write_all(b"\n")?;
+        self.stdin.flush()?;
+
+        let line = self
+            .stdout_rx
             .recv_timeout(timeout)
-            .map_err(|_| anyhow::anyhow!("initialize handshake timed out after {timeout:?}"))?;
-        let value: serde_json::Value = serde_json::from_str(&line)
-            .with_context(|| format!("sidecar handshake: non-JSON response: {line:?}"))?;
-        let result = &value["result"];
+            .map_err(|_| anyhow::anyhow!("sidecar '{method}' timed out after {timeout:?}"))?;
+        let value: Value = serde_json::from_str(&line)
+            .with_context(|| format!("sidecar '{method}': non-JSON response: {line:?}"))?;
+        if let Some(error) = value.get("error") {
+            bail!("sidecar '{method}' error: {error}");
+        }
+        Ok(value["result"].clone())
+    }
+
+    /// JSON-RPC 2.0 `initialize` handshake over stdio (lock #8, D52 frozen
+    /// contract): checks the reply names the sidecar server at the expected
+    /// protocol version.
+    pub fn initialize_handshake(&mut self, timeout: Duration) -> Result<()> {
+        let result = self.request("initialize", timeout)?;
         if result["serverInfo"]["name"] != "devtool-sidecar" {
-            bail!("sidecar handshake: unexpected serverInfo: {line}");
+            bail!("sidecar handshake: unexpected serverInfo: {result}");
         }
         if result["protocolVersion"] != "1" {
-            bail!("sidecar handshake: unexpected protocolVersion: {line}");
+            bail!("sidecar handshake: unexpected protocolVersion: {result}");
         }
         Ok(())
+    }
+
+    /// `list_records` (#409, lock 9): every `devtool.record` in the
+    /// workspace, adapted from telemetry by the Python side.
+    pub fn list_records(&mut self, timeout: Duration) -> Result<Value> {
+        Ok(self.request("list_records", timeout)?["records"].clone())
+    }
+
+    /// `list_artifacts` (#410 shape): the discovered plugin registry.
+    pub fn list_artifacts(&mut self, timeout: Duration) -> Result<Value> {
+        Ok(self.request("list_artifacts", timeout)?["artifacts"].clone())
     }
 
     /// Non-blocking: has the child exited?
@@ -237,6 +290,24 @@ impl SidecarHandle {
                 // Lock #12: crash-before-handshake is a visible hard failure.
                 bail!("sidecar initialize handshake failed: {err:#}");
             }
+        }
+    }
+
+    /// #409 wiring: `devtool.record`s for the current workspace, via the
+    /// running sidecar. Errs if the sidecar isn't up (not yet started, or
+    /// down after a hard failure — locks #4/#12).
+    pub fn list_records(&mut self) -> Result<Value> {
+        match &mut self.process {
+            Some(process) => process.list_records(RPC_TIMEOUT),
+            None => bail!("sidecar is not running"),
+        }
+    }
+
+    /// The discovered plugin registry, via the running sidecar.
+    pub fn list_artifacts(&mut self) -> Result<Value> {
+        match &mut self.process {
+            Some(process) => process.list_artifacts(RPC_TIMEOUT),
+            None => bail!("sidecar is not running"),
         }
     }
 
@@ -348,8 +419,23 @@ mod tests {
         let mut handle = SidecarHandle::new(command);
         handle.start().expect("spawn + initialize handshake");
         assert!(handle.policy.initialized());
+
+        // #409 wiring: both RPC methods must round-trip through the same
+        // persistent-reader plumbing the handshake used.
+        let records = handle.list_records().expect("list_records");
+        assert!(records.is_array());
+        let artifacts = handle.list_artifacts().expect("list_artifacts");
+        assert!(artifacts.is_array());
+
         handle.stop();
         assert!(!handle.running);
+    }
+
+    #[test]
+    fn rpc_call_before_start_errs() {
+        let command = SidecarCommand::for_repo_root(Path::new("/repo"));
+        let mut handle = SidecarHandle::new(command);
+        assert!(handle.list_records().unwrap_err().to_string().contains("not running"));
     }
 
     #[test]
