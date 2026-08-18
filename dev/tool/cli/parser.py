@@ -24,6 +24,10 @@ def _host_from_args(args: Any) -> Host:
     root = Path(args.workspace) if getattr(args, "workspace", None) else None
     tel = Path(args.telemetry_dir) if getattr(args, "telemetry_dir", None) else None
     store = WorkspaceStore(root=root, telemetry_dir=tel)
+    if root is not None:
+        # v2 #412: an explicit --workspace becomes the remembered last
+        # workspace (restored next launch; lock #13).
+        store.remember()
     return Host(store=store)
 
 
@@ -129,7 +133,7 @@ def cmd_workspace(args: Any) -> int:
         print("  (none)")
     for name in snapshot["investigations"]:
         print(f"  {name}")
-    print("Commands: plugins | workspace | list | analyze | tui | watch | web | mcp")
+    print("Commands: plugins | workspace | list | analyze | tui | watch | web | mcp | sidecar")
     return 0
 
 
@@ -151,6 +155,14 @@ def cmd_mcp(args: Any) -> int:
 
     host = _host_from_args(args)
     McpServer(host.store).serve_stdio()
+    return 0
+
+
+def cmd_sidecar(args: Any) -> int:
+    from ..sidecar import SidecarServer
+
+    host = _host_from_args(args)
+    SidecarServer(host.store).serve_stdio()
     return 0
 
 
@@ -289,6 +301,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("mcp", help="Run the MCP stdio server (C4)")
 
+    p_sidecar = sub.add_parser("sidecar", help="Run the sidecar stdio server (v2 #408, D52 protocol)")
+    p_sidecar.add_argument(
+        "--stdio",
+        action="store_true",
+        help="Speak JSON-RPC over stdio (the host appends this flag; implied for this verb)",
+    )
+
     p_serve = sub.add_parser("serve", help="Run tool in serve mode")
     p_serve.add_argument("--mcp", action="store_true", help="Serve MCP over localhost HTTP")
     p_serve.add_argument("--host", default="127.0.0.1", help="Bind host (default 127.0.0.1)")
@@ -344,6 +363,7 @@ COMMANDS = {
     "watch": cmd_watch,
     "web": cmd_web,
     "mcp": cmd_mcp,
+    "sidecar": cmd_sidecar,
     "serve": cmd_serve,
     "search": cmd_search,
     "perf": cmd_perf,

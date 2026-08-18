@@ -1,3 +1,25 @@
+## S414 — 2026-08-18 (devtool v2: D52 proof plugin + sidecar core landed)
+
+Two slices of the Development Tool v2 first-build shape are in.
+
+- **#411 — D52 proof plugin landed.** `dev/plugins/d52_proof/` is a tiny,
+  dependency-free Go binary (module `devtool.d52_proof`) proving the plugin
+  process protocol is genuinely language-neutral. It speaks the frozen
+  JSON-RPC-over-stdio contract (`--stdio` appended by the host, Grok lock #8)
+  and answers `initialize` + `list_artifacts` (+ `ping`). Its in-tree manifest
+  `dev/tool/plugins/d52_proof.plugin.json` is discovered by the host as a
+  command-only plugin (#410). Go unit tests + 9 pytest integration tests.
+- **#408 — Sidecar core landed (Python half).** `dev/tool/sidecar/` adds a
+  `SidecarServer` that speaks the *same* JSON-RPC contract as a command
+  plugin, so the host has one process protocol for both (Grok feasibility /
+  lock #6). `list_artifacts` serves the real in-process Python plugin
+  registry over that wire. `SidecarRestartPolicy` encodes locks #4 + #12 as a
+  testable state machine (lifetime = window; one auto-restart after a
+  successful `initialize`, then visible hard fail; crash-before-handshake is
+  not a free restart). New `sidecar` CLI verb (`python dev/ sidecar
+  --stdio`). The Rust spawn/kill wiring is the remaining half, pending #407.
+- Full dev test suite: 121 passed.
+
 ## S413 — 2026-08-18 (Development Tool v2 product-design resolution)
 
 The Development Tool v2 roadmap now locks a Linux-first standalone Tauri
