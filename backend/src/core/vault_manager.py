@@ -144,11 +144,46 @@ class _CryptoAPI:
         return err.decode() if err else "unknown error"
 
 
+class SecureJsonVault:
+    """A single encrypted-JSON file, keyed by an already-derived secret key.
+
+    Used for standalone encrypted files outside the main account vault
+    (session-recovery snapshots, sync-backup exports, per-file API
+    credential caches) — the same purpose the JVM-era Kotlin
+    ``SecureJsonVault`` class served. Kept as a `VaultManager.SecureJsonVault`
+    attribute with the same `(secret_key, file_path)` constructor and
+    `saveData`/`loadData` method names so call sites across gui/ didn't need
+    to change when #435 replaced the JVM with this native ctypes binding.
+    """
+
+    def __init__(self, secret_key: bytes, file_path: str):
+        self.secret_key = secret_key
+        self.file_path = file_path
+
+    def saveData(self, json_string: str) -> None:
+        if _CryptoAPI.vault_encrypt(self.secret_key, self.file_path, json_string.encode("utf-8")) != 0:
+            raise RuntimeError(f"Failed to save data: {_CryptoAPI.last_error()}")
+
+    def loadData(self) -> str:
+        plaintext, error = _CryptoAPI.vault_decrypt(self.secret_key, self.file_path)
+        if plaintext is None and error and (
+            "not found" in error.lower() or "empty or truncated" in error.lower()
+        ):
+            return "{}"
+        if plaintext is None:
+            raise RuntimeError(f"Failed to load data: {error}")
+        return plaintext.decode("utf-8")
+
+
 class VaultManager:
     """
     A Python wrapper to manage the SecureJsonVault by calling the native
     cryptography library (libitk_crypto.so) through ctypes.
     """
+
+    # Exposed so callers can do `self.vault_manager.SecureJsonVault(key, path)`
+    # for one-off encrypted files, same as the JVM-era attribute.
+    SecureJsonVault = SecureJsonVault
 
     @staticmethod
     def _load_or_generate_pepper():
