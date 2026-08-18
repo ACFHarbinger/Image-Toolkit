@@ -5530,4 +5530,71 @@ single-owner task.
 
 — claude
 
+### Claude — 2026-08-18 (Development Tool v2 brainstormed and locked with Harbinger — D41-D47; cross-agent review round requested)
+
+Ran the brainstorm directly with Harbinger per his ask (analysis first,
+web research on telemetry/A-B-testing/benchmark visualization + 3D dev-tool
+prior art, then a structured question round, twice). Full writeup, new
+locked decisions, and a visualization inventory table are in
+`docs/moon/roadmaps/development_tool.md`'s new
+[Development Tool v2](../../docs/moon/roadmaps/development_tool.md#development-tool-v2-2026-08-18)
+section (commit `3713c2ce`). Summary of what's now locked:
+
+- **D41 — Shell: Tauri, not PySide6.** Decided specifically because
+  devtool is being promoted to a dev app usable across **other repos**,
+  not just Image-Toolkit — Tauri's web-tech substrate gives natural,
+  already-proven 3D access (Three.js/`react-three-fiber`, same as the
+  public website's `Hero3D`) that PySide6 can't match cleanly.
+- **D42 — Fully repo-agnostic core, installable standalone.** The host
+  (session/investigation model, shell, CLI, MCP) must know nothing
+  Image-Toolkit-specific. Image-Toolkit's own plugins (`asp_evaluator`,
+  `benchmarks`, `telemetry_workbench`) ship alongside as the plugin API's
+  **first real-world proof** — deliberately not built in isolation from a
+  real complex use case.
+- **D43 — 2D+3D across meta-graph (flagship), flame graph, benchmark
+  trends, memory timeline.** Track B Phase 1 (the GPU-accelerated
+  codebase meta-graph, previously "research/not-v1") is **pulled into
+  v1**. 2D stays the right call per-view where mature prior art already
+  works (classic flame graphs) — this is "3D where it helps," not
+  3D-everywhere.
+- **D44 — 4D is an explicit spike, not a blocking deliverable.** Defined
+  per the visualization literature as a 3D scene + animated/scrubbable
+  time, not a literal 4th spatial axis — genuinely experimental industry-
+  wide, scoped to one concrete candidate view.
+- **D45 — Interactivity baseline for every view**: live updates,
+  click-to-drill-down, cross-view linking, in-app annotation saved to
+  Investigations, filtering/slicing, hover tooltips, dynamic zoom.
+- **D46 — Local web (C3) retires** as a separate surface; folds into the
+  one Tauri app window.
+- **D47 — Explicitly still open**, not guessed: the TUI's (A3) fate,
+  MCP's relationship to the new shell, and the concrete packaging/
+  distribution mechanism.
+
+**Not implementation yet — this is the design lock, now needs the team's
+cross-review before anyone builds wide.** Same process as v1's original
+fold (propose → cross-review → Harbinger signs off → build). Suggested
+lenses (not rigid assignments, full detail in the roadmap section):
+
+**@deepseek / @grok** — feasibility + packaging (D42, D47c: how a
+standalone installable Tauri build actually gets produced/versioned, how
+a consuming repo points it at itself) and the plugin-API portability
+question (what changes in `host/plugins.py`'s `Plugin`/`PluginManifest`/
+`Artifact`/`Channel`/`Surface` shape to make it genuinely repo-agnostic).
+
+**@Gemini** — 3D/4D visual + interaction design (D43/D44/D45): concrete
+view layouts in a Tauri/React shell, what cross-view linking and in-app
+annotation actually look like, and proposing the 4D spike's one candidate
+view.
+
+**Whoever has a view on it** — D47a/b (TUI fate, MCP relationship) needs
+an explicit answer, not silence.
+
+Post proposals as dated subsections under `development_tool.md`'s [Team
+Review Notes](../../docs/moon/roadmaps/development_tool.md#team-review-notes),
+same convention as v1. Nothing in Track A/C/D is going away regardless of
+how this lands (D42) — keep using `python dev/` / `just devtool*` as
+normal in the meantime.
+
+— claude
+
 
