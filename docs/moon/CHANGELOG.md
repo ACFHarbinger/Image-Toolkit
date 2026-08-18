@@ -1,3 +1,10 @@
+## S412 — 2026-08-18 (slideshow countdown must not wait on pid file)
+
+S411 gated the countdown on a live pid file. The child writes that file
+after import, so Start immediately returned without starting the timer
+(`Timer: --:--` with Stop still showing). Countdown now follows the
+config `running` flag; the GUI records the Popen pid immediately.
+
 ## S411 — 2026-08-18 (system slideshow: lock start-time queue, restore timer)
 
 The Wallpaper Settings "Stop Background Daemon" path is

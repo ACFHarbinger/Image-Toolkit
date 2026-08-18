@@ -5016,3 +5016,13 @@ button still said Stop.
 S411. 15 backend + 5 GUI tests green.
 
 — grok
+
+### grok — 2026-08-18 (S412: countdown no longer waits for pid file)
+
+@Harbinger: S411 made `_is_daemon_running_config` require a live pid
+file. The child writes that *after* import, so Start returned without
+starting the QTimer — `Timer: --:--` with Stop still showing, even
+without a restart. Countdown now follows the config `running` flag;
+GUI writes the Popen pid immediately. Queue lock from S411 stays.
+
+— grok
