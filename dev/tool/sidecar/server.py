@@ -8,6 +8,7 @@ command plugin and the sidecar: newline-delimited JSON-RPC 2.0 on stdio, with
 Methods (the frozen contract, per development_tool.md D52):
 - initialize      -> {protocolVersion, capabilities, serverInfo}
 - list_artifacts  -> {artifacts: [{kind, name, path, meta}...]} (#410 shape)
+- list_records    -> {records: [devtool.record dicts...]} (#409)
 - ping            -> {}
 
 Errors follow JSON-RPC 2.0: -32700 parse error (id null), -32601
@@ -17,7 +18,9 @@ on stdin EOF.
 Unlike a command plugin, the sidecar can import this monorepo's ``tool``
 package, so list_artifacts serves the *real* Python plugin registry over the
 same wire format -- the bundled, isolated Python surface (lock 5). The Record
-adapter (#409) will add its own methods here later.
+adapter (#409) adds ``list_records`` below: Tauri/TUI/MCP all read
+``devtool.record`` from day one (lock 9) instead of parsing telemetry JSONL
+themselves.
 """
 
 from __future__ import annotations
@@ -28,6 +31,8 @@ from typing import Any, Dict, List, Optional
 
 from ..host.app import Host
 from ..host.store import WorkspaceStore
+from ..model.record import records_to_dicts
+from ..model.telemetry_record_adapter import records_from_session
 
 SERVER_NAME = "devtool-sidecar"
 SERVER_VERSION = "0.1.0"
@@ -65,6 +70,20 @@ class SidecarServer:
                 )
         return out
 
+    def _list_records(self) -> List[Dict[str, Any]]:
+        """Adapt every telemetry session in the workspace into
+        ``devtool.record`` dicts (#409, lock 9). One place the sidecar knows
+        telemetry JSONL's raw shape; everything on the wire is Records."""
+        workspace = str(self.store.root)
+        out: List[Dict[str, Any]] = []
+        for path in self.store.sessions():
+            try:
+                session = self.store.open_session(path)
+            except Exception:  # noqa: BLE001 -- one bad session file must not fail the sidecar
+                continue
+            out.extend(records_to_dicts(records_from_session(session, workspace)))
+        return out
+
     # ------------------------------------------------------------------
     # JSON-RPC 2.0 transport
     # ------------------------------------------------------------------
@@ -94,6 +113,8 @@ class SidecarServer:
             )
         if method == "list_artifacts":
             return json.dumps({"jsonrpc": "2.0", "id": msg_id, "result": {"artifacts": self._list_artifacts()}})
+        if method == "list_records":
+            return json.dumps({"jsonrpc": "2.0", "id": msg_id, "result": {"records": self._list_records()}})
         if method == "ping":
             return json.dumps({"jsonrpc": "2.0", "id": msg_id, "result": {}})
         return json.dumps(

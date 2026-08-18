@@ -1,0 +1,27 @@
+{
+  "$schema": "../../../frontend/node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "Development Tool",
+  "version": "0.1.0",
+  "identifier": "com.acfharbinger.devtool",
+  "build": {
+    "frontendDist": "../ui"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Development Tool",
+        "width": 1100,
+        "height": 720,
+        "resizable": true,
+        "fullscreen": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": false
+  }
+}
