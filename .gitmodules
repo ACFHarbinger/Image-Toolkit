@@ -16,9 +16,6 @@
 [submodule "vendor/BiRefNet"]
 	path = vendor/BiRefNet
 	url = https://github.com/ACFHarbinger/BiRefNet.git
-[submodule "vendor/ComfyUI"]
-	path = vendor/ComfyUI
-	url = https://github.com/ACFHarbinger/ComfyUI.git
 [submodule "vendor/Hugin"]
 	path = vendor/Hugin
 	url = https://github.com/ACFHarbinger/Hugin.git
@@ -42,3 +39,6 @@
 [submodule "submodules/HIE"]
 	path = submodules/HIE
 	url = https://github.com/ACFHarbinger/Hybrid-Image-Editor.git
+[submodule "vendor/ComfyUI"]
+	path = vendor/ComfyUI
+	url = https://github.com/ACFHarbinger/ComfyUI.git
