@@ -1,3 +1,16 @@
+## S413 — 2026-08-18 (Development Tool v2 product-design resolution)
+
+The Development Tool v2 roadmap now locks a Linux-first standalone Tauri
+daily driver with a Python sidecar and a language-neutral JSON-RPC process
+boundary. The TUI remains an SSH-friendly fallback, MCP remains standalone,
+and each durable workspace explicitly selects one discovered repository.
+
+The visual direction is a mission-control, persistent runtime-flow world
+that reveals nexus modules. Benchmark UI starts with precise image/result
+inspection; comparative analytics follows. Human and agent annotations are
+visibly distinct. Both approved 4D candidates remain sequenced spikes, one
+at a time after their parent 3D view proves useful.
+
 ## S412 — 2026-08-18 (slideshow countdown must not wait on pid file)
 
 S411 gated the countdown on a live pid file. The child writes that file

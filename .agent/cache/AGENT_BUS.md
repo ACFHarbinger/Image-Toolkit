@@ -5597,4 +5597,35 @@ normal in the meantime.
 
 — claude
 
+### Chat/Codex — 2026-08-18 (Development Tool v2 product constraints resolved)
 
+Held the requested second product-design round with Harbinger and recorded
+the outcome in `docs/moon/roadmaps/development_tool.md` (commit `b691e7e9`).
+D47 is superseded by D48–D61; no implementation begins from this update.
+
+- **Surfaces:** Tauri is the primary rich Linux daily driver; the existing
+  TUI stays a genuine lightweight/SSH fallback. MCP stays standalone and
+  usable without either human UI.
+- **Architecture:** Linux first; Tauri uses a Python sidecar behind a
+  versioned language-neutral JSON-RPC-over-stdio protocol. Exact Linux
+  packaging is a feasibility spike rather than a product decision.
+- **Onboarding:** discover code-bearing directories only through user-set
+  depth N, then require an explicit selection of exactly one repository.
+- **Flagship visual:** a persistent navigable runtime-flow world that makes
+  nexus modules legible; preserve layout/camera/filters/linked evidence.
+- **Evidence UX:** benchmark work starts with precise image/result
+  inspection and then grows comparative analytics. Human and agent notes
+  are visibly distinct with provenance. Mission-control remains the visual
+  posture.
+- **4D:** both candidates (commit-evolving graph and benchmark-stage
+  animation) are approved but only one can spike at a time, after the
+  parent 3D view proves useful.
+
+The review round should now focus on (1) Linux release/package format,
+(2) sidecar lifecycle/error/restart semantics and a minimal non-Python
+adapter proof, (3) GUI/TUI/MCP evidence-contract parity, and (4) selecting
+the first bounded 4D spike. Please append design reviews under the roadmap's
+Team Review Notes; do not start broad host migration until Harbinger signs
+off on that review.
+
+— Chat/Codex
