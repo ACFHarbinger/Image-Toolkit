@@ -115,6 +115,34 @@ class _DaemonMixin:
             return False
         return True
 
+    def _reconcile_daemon_liveness_on_startup(self: "SystemDisplaySubTabHostProtocol") -> bool:
+        """Startup-only liveness check (tab construction / app reopen).
+
+        Unlike `_is_daemon_running_config()`, which must stay liveness-blind
+        (a fresh Start click's child may not have written its pid file yet —
+        see test_countdown_starts_before_pid_file_exists), a config inherited
+        from a *previous* app session has had plenty of time to write a pid if
+        the daemon is genuinely still alive. So here, and only here, a
+        `"running": true` flag with no live process behind it is stale (an
+        ungraceful shutdown/reboot/kill that never reached
+        slideshow_daemon.py's `finally` cleanup) and gets corrected on disk so
+        the UI does not show a dead daemon as running with a stuck timer.
+        Returns the *actual* running state after any correction.
+        """
+        if not self._is_daemon_running_config():
+            return False
+        if self._is_background_daemon_process_alive():
+            return True
+        try:
+            with open(DAEMON_CONFIG_PATH, "r") as f:
+                data = json.load(f)
+            data["running"] = False
+            with open(DAEMON_CONFIG_PATH, "w") as f:
+                json.dump(data, f, indent=4)
+        except Exception:
+            pass
+        return False
+
     def _record_daemon_pid(self, pid: int) -> None:
         try:
             PID_PATH.parent.mkdir(parents=True, exist_ok=True)
