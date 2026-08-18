@@ -118,6 +118,24 @@ check: helper::_print_header
 quick-dev: helper::_print_header
     just dev::quick-dev
 
+# --- Development Tool (dev/tool) ---
+
+# Development Tool workspace chooser / any devtool verb
+devtool *ARGS: helper::_print_header
+    just dev::devtool {{ARGS}}
+
+# Launch the Development Tool TUI
+devtool-tui *ARGS: helper::_print_header
+    just dev::devtool-tui {{ARGS}}
+
+# Launch the Development Tool live watch (btop-style)
+devtool-watch *ARGS: helper::_print_header
+    just dev::devtool-watch {{ARGS}}
+
+# Launch the Development Tool local web viewer
+devtool-web *ARGS: helper::_print_header
+    just dev::devtool-web {{ARGS}}
+
 # --- Building ---
 
 # Build C++ base extension (Phase 7: batch/ renamed to base/, Rust retired)
