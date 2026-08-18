@@ -1,23 +1,34 @@
-## S414 — 2026-08-18 (devtool v2: D52 proof plugin + sidecar core landed)
+## S414 — 2026-08-18 (devtool v2: D52 proof plugin + sidecar + Tauri host landed)
 
-Two slices of the Development Tool v2 first-build shape are in.
+The Development Tool v2 first-build shape is in: host skeleton, sidecar,
+record schema, proof plugin, and `just devtool-app`.
 
-- **#411 — D52 proof plugin landed.** `dev/plugins/d52_proof/` is a tiny,
-  dependency-free Go binary (module `devtool.d52_proof`) proving the plugin
-  process protocol is genuinely language-neutral. It speaks the frozen
+- **#407/#409 — Tauri host skeleton + record schema landed (Claude).**
+  `dev/app/src-tauri/` (crate `devtool-app`, root Cargo.toml member): single
+  window, workspace picker sharing `~/.config/devtool/state.json` with the
+  Python CLI/TUI (D48), plus the `devtool.record` schema.
+- **#411 — D52 proof plugin landed (opencode).** `dev/plugins/d52_proof/` is
+  a tiny, dependency-free Go binary (module `devtool.d52_proof`) proving the
+  plugin process protocol is genuinely language-neutral. It speaks the frozen
   JSON-RPC-over-stdio contract (`--stdio` appended by the host, Grok lock #8)
   and answers `initialize` + `list_artifacts` (+ `ping`). Its in-tree manifest
   `dev/tool/plugins/d52_proof.plugin.json` is discovered by the host as a
   command-only plugin (#410). Go unit tests + 9 pytest integration tests.
-- **#408 — Sidecar core landed (Python half).** `dev/tool/sidecar/` adds a
-  `SidecarServer` that speaks the *same* JSON-RPC contract as a command
-  plugin, so the host has one process protocol for both (Grok feasibility /
-  lock #6). `list_artifacts` serves the real in-process Python plugin
-  registry over that wire. `SidecarRestartPolicy` encodes locks #4 + #12 as a
-  testable state machine (lifetime = window; one auto-restart after a
-  successful `initialize`, then visible hard fail; crash-before-handshake is
-  not a free restart). New `sidecar` CLI verb (`python dev/ sidecar
-  --stdio`). The Rust spawn/kill wiring is the remaining half, pending #407.
+- **#408 — Sidecar landed (opencode, Python core + Rust host wiring).**
+  `dev/tool/sidecar/` adds a `SidecarServer` that speaks the *same* JSON-RPC
+  contract as a command plugin, so the host has one process protocol for both
+  (Grok feasibility / lock #6). `list_artifacts` serves the real in-process
+  Python plugin registry over that wire. `SidecarRestartPolicy` encodes locks
+  #4 + #12 as a testable state machine. New `sidecar` CLI verb (`python dev/
+  sidecar --stdio`). The Rust host wiring spawns the bundled Python
+  (`<repo-root>/.venv/bin/python dev sidecar --stdio`), performs the
+  `initialize` handshake (15s timeout), and drives spawn-on-window-open /
+  kill-on-close + the crash monitor (one auto-restart, then hard fail) from
+  the child's exit status. 7 cargo tests (incl. a real sidecar handshake).
+- **#414 — `just devtool-app` landed (opencode).** `just devtool` stays the
+  Python CLI (unchanged); `just devtool-app` runs `cargo tauri dev` in
+  `dev/app/src-tauri/` (`cargo install tauri-cli`). Source-built first Linux
+  release (lock #1); no AppImage/.deb/Flatpak yet (D61 deferred).
 - Full dev test suite: 121 passed.
 
 ## S413 — 2026-08-18 (Development Tool v2 product-design resolution)

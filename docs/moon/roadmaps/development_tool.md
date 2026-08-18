@@ -2119,19 +2119,25 @@ Started implementation of the first-build shape above.
   `python_module`), discovered by the host via #410. Tests: `go test` +
   `dev/test/development/test_d52_proof.py` (9 tests, builds+spawns the
   binary, skips when Go is absent).
-- **#408 Sidecar — Python core Landed; host wiring pending #407.** The
-  bundled, isolated Python process (lock 5) now exists as `dev/tool/sidecar/`
-  and speaks the *same* JSON-RPC as a command plugin so the host has one
-  process protocol (Grok feasibility note). `SidecarServer` (initialize /
+- **#408 Sidecar — Landed (Python core + Rust host wiring).** The
+  bundled, isolated Python process (lock 5) is `dev/tool/sidecar/` and speaks
+  the *same* JSON-RPC as a command plugin so the host has one process
+  protocol (Grok feasibility note). `SidecarServer` (initialize /
   list_artifacts / ping) serves the in-process Python plugin registry over
   that wire; `SidecarRestartPolicy` encodes locks 4 + 12 as a pure testable
-  state machine the Rust host ports. New verb: `python dev/ sidecar --stdio`
-  (exits 0 on stdin EOF). Remaining: Tauri spawn-on-window-open / kill-on-
-  close + restart-policy enforcement + workspace-python resolution for
-  in-tree plugin command argv — all land with Claude's #407 host skeleton.
-- **#414 `just devtool-app` + Linux packaging — held**, blocked on #407
-  (no Tauri crate in the root workspace yet). Source-built first Linux
-  release (lock 1); no AppImage/.deb/Flatpak (D61 deferred).
+  state machine. Verb: `python dev/ sidecar --stdio`. Host wiring in
+  `dev/app/src-tauri/`: `SidecarCommand::for_repo_root` spawns
+  `<repo-root>/.venv/bin/python dev sidecar --stdio`, `SidecarProcess` does
+  the JSON-RPC `initialize` handshake (15s timeout), and `SidecarHandle`
+  drives spawn-on-window-open / kill-on-close + the crash monitor (one
+  auto-restart after a successful initialize, then visible hard fail) from
+  the child's exit status. Workspace-python resolution for in-tree *command
+  plugin* argv is #410/#412 territory (deepseek), not the sidecar.
+- **#414 `just devtool-app` + Linux packaging — Landed.** `just devtool`
+  stays the Python CLI (unchanged); `just devtool-app` runs `cargo tauri
+  dev` in `dev/app/src-tauri/` (requires `cargo install tauri-cli`).
+  Source-built first Linux release (lock 1); no AppImage/.deb/Flatpak
+  (D61 deferred).
 
 ---
 
