@@ -38,8 +38,9 @@
     "python_module": "tool.plugins.benchmarks:plugin",
     "command": [
       ".venv/bin/python",
-      "-m",
-      "tool.plugins.benchmarks"
+      "dev",
+      "plugin-run",
+      "benchmarks"
     ]
   }
 }
