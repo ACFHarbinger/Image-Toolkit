@@ -311,6 +311,9 @@ Higher-complexity features that depend on Phase 3–4 infrastructure or require 
 | 5.10 | **[Arch] Compositor registry** — same pattern as Matcher (Option E) | ~1w | [architecture.md §5.3](roadmaps/architecture.md#53-plugin-system-for-matchers-and-compositors) |
 | 5.11 | **[Perf] Rust memory-mapped output buffer** — `memmap2` for >10K px panoramas (Option C) | ~2d | [performance.md §3.1](roadmaps/performance.md#31-rust-streaming-image-merger) |
 | 5.12 | **[GUI] Extractor tab `libmpv` playback engine spike** — swap `QMediaPlayer`/`QGraphicsVideoItem` for `python-mpv` (Option A), gated on an isolated JVM-coexistence smoke test per the project's prior JPype/native-lib SIGSEGV history; falls back to mpv's OpenGL render API (Option B) if X11 `wid` window embedding proves unreliable on Wayland | ~2w | [gui_ux.md §2.33](roadmaps/gui_ux.md#233-extractor-tab-playback-engine--libmpv-integration) |
+| 5.13 | **[GUI] Custom Theme Engine & Semantic Color System** — visual palette customizer (Primary Accent, Surface, Window BG, Text/Muted, Borders) with WCAG auto-contrast check, corner curvature control, dynamic palette extraction from active background image (Material You / PyWal style), and in-app live QSS editor (Options A + B + C) | ~1w | [gui_ux.md §2.34](roadmaps/gui_ux.md#234-custom-theme-engine--semantic-color-system) |
+| 5.14 | **[GUI] Full-Window Background Canvas & Glassmorphic Layering** — full-window layered background canvas with adjustable opacity/blur, glassmorphic card layering, multi-image slideshow playlist with cross-fade transitions, and fit/scaling modes (Options A + B + C) | ~1w | [gui_ux.md §2.35](roadmaps/gui_ux.md#235-full-window-background-canvas--glassmorphic-layering) |
+
 
 ---
 
