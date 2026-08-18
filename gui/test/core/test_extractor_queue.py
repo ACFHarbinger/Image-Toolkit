@@ -87,6 +87,27 @@ class TestExtractorTabQueue:
         assert cfg["start_ms"] == 0
         assert cfg["end_ms"] == 3000
 
+    def test_empty_item_falls_back_to_live_state(self, q_app, tmp_path):
+        """An empty/corrupt queue item must never be recorded as "Unknown
+        Video": _queue_result_metadata falls back to the live UI state."""
+        tab, video_path = self._make_tab(tmp_path)
+        out_file = tab.extraction_dir / "a.gif"
+        out_file.write_text("gif")
+        tab.video_path = str(video_path)
+        tab.start_time_ms = 123
+        tab.end_time_ms = 456
+        tab.cuts_ms = []
+        tab.tags_ms = []
+
+        tab._on_queue_item_completed(
+            0, {"status": "success", "output_path": str(out_file)}, {}
+        )
+
+        entry = tab.recent_runs[-1]
+        assert entry["video_path"] == str(video_path), (
+            "empty item must fall back to the live video_path, not 'Unknown Video'"
+        )
+
     def test_queue_item_completed_records_real_metadata(self, q_app, tmp_path):
         """Per-item completion records extraction history with the REAL queue
         item (video_path/start/end). Regression for the "Unknown Video
@@ -204,6 +225,14 @@ class TestExtractorTabQueue:
         assert tab.extraction_queue == []
         assert str(out_gif) in tab.master_image_paths
         assert str(out_gif) in tab.extraction_metadata
+        # The recorded recent-extraction entry must keep the REAL source
+        # video_path/start/end (regression for the "Unknown Video" bug).
+        entry = tab.recent_runs[-1]
+        assert entry["video_path"] == str(video_path), (
+            "recorded entry must keep the source video_path"
+        )
+        assert entry["start_ms"] == 0
+        assert entry["end_ms"] == 3000
 
     def test_process_queue_via_threadpool_full_flow(self, q_app, tmp_path):
         """Drive the real process_queue() button path: queue a GIF, click

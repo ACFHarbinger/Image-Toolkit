@@ -413,6 +413,21 @@ class _QueueManagementMixin:
         _get_current_extraction_metadata() but sourced from the queue config
         (the worker is stateless, so the UI state can't be trusted at the
         moment the queue finishes)."""
+        # Defensive (Unknown Video bug): an empty/corrupt item cannot be
+        # recorded faithfully. Fall back to the live UI state so a real
+        # extraction is never recorded as "Unknown Video", and log the empty
+        # item + stack so the real root cause can be pinned on reproduction.
+        if not item.get("video_path"):
+            import traceback
+
+            print(
+                f"[recent-extractions] EMPTY queue item at completion: item={item!r}",
+                flush=True,
+            )
+            traceback.print_stack(limit=20)
+            fallback = self._get_current_extraction_metadata()
+            fallback["mode"] = item.get("type", "range")
+            return fallback
         engine = "FFmpeg" if item.get("use_ffmpeg", True) else "MoviePy"
         return {
             "video_path": item.get("video_path", ""),
