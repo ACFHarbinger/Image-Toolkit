@@ -71,6 +71,7 @@ class TestSignalDisconnectBeforeTeardown:
         received = []
         worker.scan_finished.connect(lambda paths: received.append(paths))
 
+        # pyrefly: ignore [bad-argument-type]
         panel._stop_scanner_threads()
 
         # _stop_scanner_threads()'s own trailing sendPostedEvents(None,

@@ -38,6 +38,7 @@ class TestReconcileDaemonLivenessOnStartup:
             pass
 
         tab = Fake()
+        # pyrefly: ignore [bad-argument-type]
         assert tab._reconcile_daemon_liveness_on_startup() is False
         assert json.loads(path.read_text())["running"] is False
 
@@ -67,6 +68,7 @@ class TestReconcileDaemonLivenessOnStartup:
             pass
 
         tab = Fake()
+        # pyrefly: ignore [bad-argument-type]
         assert tab._reconcile_daemon_liveness_on_startup() is True
         assert json.loads(path.read_text())["running"] is True
 
@@ -97,5 +99,6 @@ class TestReconcileDaemonLivenessOnStartup:
             pass
 
         tab = Fake()
+        # pyrefly: ignore [bad-argument-type]
         assert tab._reconcile_daemon_liveness_on_startup() is False
         assert path.read_text() == original

@@ -26,11 +26,11 @@ class TestDatabaseTab:
     def test_connect_database(self, q_app, mock_db_cls):
         # Mock connection fields
         tab = DatabaseTab()
-        tab.db_host.setText("localhost")
-        tab.db_port.setText("5432")
-        tab.db_user.setText("user")
-        tab.db_password.setText("pass")
-        tab.db_name.setText("test_db")
+        tab.db_host.setText("localhost") # pyrefly: ignore [missing-attribute]
+        tab.db_port.setText("5432") # pyrefly: ignore [missing-attribute]
+        tab.db_user.setText("user") # pyrefly: ignore [missing-attribute]
+        tab.db_password.setText("pass") # pyrefly: ignore [missing-attribute]
+        tab.db_name.setText("test_db") # pyrefly: ignore [missing-attribute]
 
         # Mock internal update methods to avoid complexity
         tab.update_statistics = MagicMock()

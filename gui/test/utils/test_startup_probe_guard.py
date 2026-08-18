@@ -169,7 +169,8 @@ class TestWallpaperScanDefersDuringSettleWindow:
         # window, no positive confirmation yet): the very next call must
         # NOT construct a scanner worker.
         startup_probe_guard.mark_startup_probe_started()
-        base.populate_scan_image_gallery(directory)
+        # pyrefly: ignore [bad-argument-type]
+        base.populate_scan_image_gallery(directory) 
 
         assert started == [], (
             "populate_scan_image_gallery() started a scanner QThread while "
@@ -257,7 +258,8 @@ class TestWallpaperScanDefersDuringSettleWindow:
         # wait out the ceiling.
         startup_probe_guard.mark_startup_probe_started()
         startup_probe_guard.mark_startup_probe_settled(source="test")
-        base.populate_scan_image_gallery(directory)
+        # pyrefly: ignore [bad-argument-type]
+        base.populate_scan_image_gallery(directory) 
 
         assert started == [directory]
 

@@ -22,6 +22,7 @@ class MockVaultManager:
 
 def test_theme_toggle(q_app):
     vault = MockVaultManager({"account_name": "TestUser", "theme": "dark"})
+    # pyrefly: ignore [bad-argument-type]
     window = MainWindow(vault_manager=vault, dropdown=False)
 
     assert window.current_theme == "dark"

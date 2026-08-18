@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 
 import pytest
+# pyrefly: ignore [missing-import]
 from asp_gui.elements.dialog.canvas_inspector_dialog import (
     CanvasInspectorDialog,
 )

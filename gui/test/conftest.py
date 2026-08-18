@@ -74,7 +74,7 @@ def mock_image_toolkit_paths(tmp_path, monkeypatch):
     monkeypatch.setattr(constants, "DAEMON_CONFIG_PATH", fake_config_path)
 
     try:
-        from gui.src.tabs.core import listings_tab
+        from gui.src.elements.database import listings_tab
 
         monkeypatch.setattr(listings_tab, "IMAGE_TOOLKIT_DIR", tmp_path)
         monkeypatch.setattr(listings_tab, "LISTINGS_FILE", tmp_path / "listings.json")

@@ -81,15 +81,23 @@ def test_queue_processing_state_toggle():
     host = DummyQueueHost()
 
     # State: Processing
+    # pyrefly: ignore [bad-argument-type]
     host._set_queue_processing_state(True)
+    # pyrefly: ignore [missing-attribute]
     host.btn_process_queue.setText.assert_called_with("🛑 Cancel Queue")
+    # pyrefly: ignore [missing-attribute]
     host.btn_clear_queue.setEnabled.assert_called_with(False)
+    # pyrefly: ignore [missing-attribute]
     host.combo_queue_mode.setEnabled.assert_called_with(False)
 
     # State: Idle
+    # pyrefly: ignore [bad-argument-type]
     host._set_queue_processing_state(False)
+    # pyrefly: ignore [missing-attribute]
     host.btn_process_queue.setText.assert_called_with("⚙️ Process Queue")
+    # pyrefly: ignore [missing-attribute]
     host.btn_clear_queue.setEnabled.assert_called_with(True)
+    # pyrefly: ignore [missing-attribute]
     host.combo_queue_mode.setEnabled.assert_called_with(True)
 
 
@@ -98,21 +106,27 @@ def test_cancel_queue_invokes_worker_cancel():
     worker_mock = MagicMock()
     host.active_queue_worker = worker_mock
 
+    # pyrefly: ignore [bad-argument-type]
     host.cancel_queue()
     worker_mock.cancel.assert_called_once()
+    # pyrefly: ignore [missing-attribute]
     host.btn_process_queue.setText.assert_called_with("⚙️ Process Queue")
 
 
 def test_get_tasks_progress_reflects_active_queue_progress():
     host = DummyQueueHost()
     host.active_queue_worker = MagicMock()
+    # pyrefly: ignore [missing-attribute]
     host.extraction_progress_bar = MagicMock()
+    # pyrefly: ignore [missing-attribute]
     host.extraction_progress_bar.maximum.return_value = 27
+    # pyrefly: ignore [missing-attribute]
     host.extraction_progress_bar.value.return_value = 17
     host._queue_total_count = 27
     host._queue_completed_count = 17
     host._current_queue_item_title = "episode_01.mkv"
 
+    # pyrefly: ignore [bad-argument-type]
     completed, total, title = host.get_tasks_progress()
     assert completed == 17
     assert total == 27

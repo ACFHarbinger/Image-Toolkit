@@ -138,6 +138,7 @@ class TestFileDialogPatch:
         AppSettings.set_favourite_directories([])
 
     def test_thumbnail_file_picker_favourites(self, q_app, tmp_path):
+        # pyrefly: ignore [missing-import]
         from asp_gui.elements import _ThumbnailFilePicker
         from PySide6.QtCore import Qt
 
