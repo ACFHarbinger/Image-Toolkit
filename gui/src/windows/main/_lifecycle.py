@@ -10,9 +10,12 @@ import os
 import sys
 
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QPainter
 from PySide6.QtWidgets import QApplication, QMessageBox, QScrollArea, QSystemTrayIcon
 
+from gui.src.styles.background_canvas import BackgroundCanvasController
 from gui.src.windows.settings.app_settings import AppSettings
+
 
 from ...utils.manager.shortcut_manager import get_registry
 
@@ -73,9 +76,19 @@ class _LifecycleMixin:
         if hasattr(self, "_status_bar"):
             self._status_bar.showMessage(message, timeout_ms)
 
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        current_tab = None
+        if hasattr(self, "tabs") and self.tabs is not None:
+            current_tab = self.tabs.tabText(self.tabs.currentIndex())
+        BackgroundCanvasController.instance().render_background(painter, self.rect(), active_tab=current_tab)
+        painter.end()
+        super().paintEvent(event)
+
     def showEvent(self, event):
         super().showEvent(event)
         self._shown = True
+
 
         # §2.12A tray-icon setup is intentionally NOT auto-constructed here
         # (or anywhere else during startup). Every timing attempt tried --

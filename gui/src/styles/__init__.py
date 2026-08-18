@@ -185,3 +185,10 @@ SHARED_BUTTON_STYLE = load_qss("shared_button.qss")
 STYLE_START_ACTION = load_qss("shared_button.qss")
 STYLE_STOP_ACTION = load_qss("stop_action.qss")
 # -------------------------------------------
+
+from .background_canvas import (
+    BackgroundCanvasController,
+    BackgroundConfig,
+    generate_glassmorphism_qss,
+)
+

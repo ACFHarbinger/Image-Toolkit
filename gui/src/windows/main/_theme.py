@@ -16,10 +16,14 @@ from ...styles import (
     DARK_ACCENT_COLOR,
     LIGHT_ACCENT_COLOR,
     SPACIOUS_DENSITY_QSS,
+    BackgroundCanvasController,
+    BackgroundConfig,
     compute_accent_vars,
+    generate_glassmorphism_qss,
     load_qss_with_overrides,
     load_user_qss_override,
 )
+
 
 
 class _ThemeMixin:
@@ -69,7 +73,16 @@ class _ThemeMixin:
 
         # §3.16 — append user custom QSS override if present
         qss += load_user_qss_override()
+
+        # §2.34/§2.35 — background canvas and glassmorphism styling (#440)
+        bg_data = prefs.get("background_config", {})
+        if bg_data:
+            bg_config = BackgroundConfig.from_dict(bg_data)
+            BackgroundCanvasController.instance().set_config(bg_config)
+            qss += generate_glassmorphism_qss(bg_config, is_dark=(theme_name == "dark"))
+
         self.setStyleSheet(qss) if "PYTEST_CURRENT_TEST" in os.environ else QApplication.instance().setStyleSheet(qss)  # pyrefly: ignore [missing-attribute]
+
 
         header_widget = self.findChild(QWidget, "header_widget")
         if header_widget:
