@@ -28,6 +28,7 @@
 # Usage:
 #   IMAGE_TOOLKIT_TELEMETRY=1 dev/run_with_gdb.sh
 #   dev/run_with_gdb.sh --no-dropdown            # extra args forwarded to backend/main.py
+#   RUN_ARGS="dev/repro_guest_startup.py" dev/run_with_gdb.sh   # alternate inferior target
 #
 # Output: an all-thread backtrace, written to
 #   ~/.image-toolkit/telemetry/gdb-backtrace-<timestamp>.txt
@@ -74,18 +75,28 @@ source .venv/bin/activate
 # internally and recovers from it on its own; gdb must never break there.
 # SIGABRT: stop and print -- this is the actual symptom ("corrupted size vs.
 # prev_size" -> glibc abort()), never raised by the JVM for normal reasons.
-# After dumping the backtrace, `continue` re-delivers the same SIGABRT to
-# the inferior's OWN handler so the JVM's hs_err_pid<PID>.log still gets
-# written for the same crash (gdb stopping first would otherwise silently
-# suppress it) -- both diagnostics land side by side.
+# After dumping the backtrace, write a real core file of the inferior via
+# `generate-core-file` BEFORE re-delivering the signal. This is the crucial
+# step every prior round assumed happened but never did: with `ulimit -c`
+# raised, the kernel core is *still* piped to apport (`/proc/sys/kernel/
+# core_pattern` -> `/usr/share/apport/apport`), and once gdb is attached the
+# kernel never writes a core at all because gdb owns the signal -- so a file
+# named core.<pid> never materialized despite hs_err claiming it would. The
+# gdb-generated core captures the corrupted heap (the whole point: inspecting
+# the damaged QObject/ConnectionData) at the exact abort stop.
+# `continue` re-delivers the same SIGABRT to the inferior's OWN handler so
+# the JVM's hs_err_pid<PID>.log still gets written for the same crash -- both
+# diagnostics land side by side.
 gdb -q -batch \
     -ex "set pagination off" \
     -ex "set confirm off" \
     -ex "handle SIGSEGV nostop noprint pass" \
     -ex "handle SIGABRT stop print" \
-    -ex "run backend/main.py $*" \
+    -ex "run ${RUN_ARGS:-backend/main.py} $*" \
     -ex "echo \n===== SIGABRT CAUGHT -- ALL-THREAD BACKTRACE =====\n" \
     -ex "thread apply all bt full" \
+    -ex "echo \n===== WRITING CORE FILE (kernel core_pattern pipes to apport; gdb owns SIGABRT, so generate-core-file is the only way a core lands) =====\n" \
+    -ex "generate-core-file $OUT_DIR/core.$TIMESTAMP" \
     -ex "echo \n===== RE-DELIVERING SIGNAL TO THE JVM'S OWN HANDLER (for hs_err_pid*.log) =====\n" \
     -ex "continue" \
     python 2>&1 | tee "$BT_FILE"
