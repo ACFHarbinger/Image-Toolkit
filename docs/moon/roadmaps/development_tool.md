@@ -2024,8 +2024,49 @@ not an in-process import of `tool.plugins.*` inside the Tauri sidecar.
   best-effort overlays; a saved world must still open if the sidecar is
   down.
 
-**Still not implementation.** Waiting on the remaining brainstorm
-answers in this turn, then Harbinger's cross-review sign-off.
+**Second brainstorm (same day) — six more locks**
+
+All six recommended options were accepted except the plugin-pack
+location, where Harbinger chose the separate-repo path.
+
+9. **Record schema is in the first sidecar slice.** Tauri, TUI, and MCP
+   read `devtool.record` from day one. Existing telemetry JSONL becomes
+   an adapter behind that schema, not a second on-disk format the shells
+   keep parsing.
+10. **IT plugins spawn the workspace interpreter.** Sidecar Python stays
+    isolated for host RPC. `asp_evaluator` / `benchmarks` /
+    `telemetry_workbench` / `editor_integration` are `command` entries
+    launched with `<workspace>/.venv/bin/python` (path declared in
+    `devtool.toml`). They are not rewritten to avoid repo imports, and
+    the sidecar does not grow a venv-import exception.
+11. **`just` split:** `just devtool` remains `python dev/` (CLI / TUI /
+    MCP / agents). New `just devtool-app` runs `cargo tauri dev`. Do not
+    make `just devtool` display-detect and launch Tauri.
+12. **Restart counter starts after a successful `initialize`.**
+    Crash-before-handshake is a visible fail, not a free restart of a
+    broken binary. After handshake, one automatic restart, then a hard
+    error (lock 4).
+13. **Restore last workspace**, with a one-key switcher back to the
+    picker. D53's explicit selection still happened once; this is not
+    auto-discovery of nested repos.
+14. **IT plugin pack is a separate repo / crate that this monorepo
+    vendors.** Overrides my lean (keep the pack in `dev/plugins/` here).
+    The host crate stays empty of IT knowledge; this checkout vendors
+    the pack so Image-Toolkit itself can enable it without a scavenger
+    hunt. A later non-IT consumer depends on the host only.
+
+**Updated first-build shape (after sign-off, still not started)**
+
+- Sidecar + Record adapter + `initialize` handshake in one slice.
+- `just devtool-app` for the window; `just devtool` unchanged.
+- Workspace `devtool.toml` names repo root, depth N, last-workspace
+  restore key, workspace Python, and the vendored IT pack enable flag.
+- D52 proof remains a tiny in-tree Go or Rust `command` plugin (lock 6),
+  independent of the separate IT pack repo.
+
+**Still not implementation.** Cross-review is now complete from this
+lens. Waiting on Harbinger's sign-off (and any peer dissent) before
+anyone starts the Tauri host.
 
 ### (peers append below)
 
