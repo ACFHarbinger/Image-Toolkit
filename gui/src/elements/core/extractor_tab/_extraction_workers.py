@@ -9,7 +9,7 @@ from __future__ import annotations
 import os
 import time
 from pathlib import Path
-from typing import Any, List, Optional, cast
+from typing import TYPE_CHECKING, Any, List, Optional, cast
 
 from backend.src.constants import SUPPORTED_VIDEO_FORMATS
 from PySide6.QtCore import QThreadPool, Slot
@@ -19,8 +19,6 @@ from PySide6.QtWidgets import QLabel, QLineEdit, QMessageBox, QWidget
 from ....components import ClickableLabel
 from ....helpers import GifCreationWorker, VideoExtractionWorker
 from ....helpers.video.video_thumbnailer import VideoThumbnailer
-
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ..protos.extractor_tab import VideoExtractorSubTabHostProtocol
@@ -69,7 +67,6 @@ class _ExtractionWorkersMixin:
             self.extraction_status_label.show()
             return
 
-        self._set_extraction_buttons_enabled(False)
         self.extraction_progress_bar.setValue(0)
         self.extraction_progress_bar.show()
         self.extraction_status_label.setText(
@@ -137,7 +134,6 @@ class _ExtractionWorkersMixin:
             self.extraction_status_label.show()
             return
 
-        self._set_extraction_buttons_enabled(False)
         self.extraction_progress_bar.setValue(0)
         self.extraction_progress_bar.show()
         self.extraction_status_label.setText(

@@ -11,6 +11,11 @@ from .crawler_selection_dialogs import (
     ManualSelectionDialog,
     run_duplicate_scan,
 )
+from .extraction_close_progress_dialog import (
+    ExtractionCloseProgressDialog,
+    ProcessCloseProgressDialog,
+    TaskCloseProgressDialog,
+)
 from .frame_selection_dialog import FrameSelectionDialog, extract_video_frame_via_ffmpeg
 from .property_comparison_dialog import PropertyComparisonDialog
 from .safetensors_inspector_dialog import SafetensorsInspectorDialog
@@ -23,6 +28,9 @@ __all__ = [
     "BatchStitchDialog",
     "DeduplicationPruningDialog",
     "DuplicateConfigDialog",
+    "ExtractionCloseProgressDialog",
+    "ProcessCloseProgressDialog",
+    "TaskCloseProgressDialog",
     "ManualSelectionDialog",
     "run_duplicate_scan",
     "FrameSelectionDialog",
