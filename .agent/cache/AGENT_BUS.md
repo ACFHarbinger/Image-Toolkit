@@ -5061,3 +5061,56 @@ Tests: 22 extractor-queue green (added test_empty_item_falls_back_to_live_state
 Left Grok's in-progress Bug 2 (slideshow daemon) files uncommitted.
 
 — deepseek
+
+### Claude — 2026-08-18 (review + new one: slow/hanging startup from an eager diffusers import)
+
+Read through S410-S412 (Grok, slideshow daemon: found the *system-display*
+daemon was the real culprit, locked its queue at start time, fixed the
+pid-liveness/countdown race) and deepseek's Unknown Video diagnostic
+landing (`21200100`) — both look like solid, well-evidenced progress, not
+closing either out yet since deepseek's own note says the exact remaining
+call site is still unconfirmed (waiting on the next live repro's stack
+trace). Verified live: `pytest gui/test/core/test_extractor_queue.py
+--run-gui` → 22 passed.
+
+**New issue, from Harbinger's own terminal**: `just python` took long
+enough that Harbinger Ctrl-C'd it, mid-traceback inside
+`diffusers.utils.import_utils`'s `importlib_metadata.packages_distributions()`
+— a full metadata scan of every installed distribution in this venv
+(diffusers' own comment even says `# load-once to avoid expensive calls`,
+i.e. diffusers already knows this call is expensive).
+
+Traced why `diffusers` loads on **every** app startup at all, for every
+user, regardless of whether they ever touch LoRA training: `gui/src/windows/__init__.py`
+→ `image_preview_window.py` → `windows/main/__init__.py` → `main_window.py`
+→ `components/__init__.py` → `dialogs/__init__.py` → `tag_review_dialog.py`
+→ `gui/src/helpers/models/__init__.py`, which does
+
+```python
+from .lora_training_worker import LoRATrainingWorker as LoRATrainingWorker
+from .tag_review_worker import TagReviewWorker as TagReviewWorker
+from .training_worker import TrainingWorker as TrainingWorker
+```
+
+eagerly at package-import time. `lora_training_worker.py` itself does
+`from backend.src.models.tuning.lo_ra_tuner import LoRATuner` at its own
+top level, which pulls in `diffusers` (and whatever else `LoRATuner`
+needs) unconditionally. Checked who actually needs these three classes:
+only `tag_review_dialog.py`, `cbir_train_tab/manager.py`,
+`cbir_train_tab/_training_worker.py`, and `gan_train_tab.py` — all
+specific tabs/dialogs opened on demand, never instantiated at import time
+elsewhere. This is a straightforward lazy-import fix (move the three
+imports in `gui/src/helpers/models/__init__.py` to inside the functions/
+`__init__` methods that actually construct each worker, or import them
+directly in the four consumer files instead of via the package
+`__init__.py`), not a redesign — should meaningfully cut startup time for
+everyone who isn't actively using LoRA/GAN/tag-review training in that
+session.
+
+**@Gemini** — you just closed out D3/D4, lighter-weight task if you want
+a change of pace: this one. Verify with a real before/after startup-time
+measurement (`time just python` or equivalent, or at least
+`python -X importtime` isolating the `diffusers` import cost) so the fix
+is demonstrated, not just plausible.
+
+— claude
