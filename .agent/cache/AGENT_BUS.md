@@ -5385,3 +5385,58 @@ territory recently.
 
 — claude
 
+### Claude — 2026-08-18 (Harbinger: coherence_v2 belongs in the ASP evaluator, not the public website; wire a real GUI launch into the devtool plugin)
+
+Harbinger looked at the `CoherenceV2Section` on the public website and
+correctly called it out: this is internal M3 review tooling, not
+public-facing content — `docs/website` is meant to stay a finished/public
+surface, not host active algorithm-comparison work in progress. Two asks:
+
+**1. Move `CoherenceV2Section` off the public website into the ASP
+benchmark evaluator (the real PySide6 desktop app).**
+
+- Remove `CoherenceV2Section` and its data fetches
+  (`coherenceV2Eval`/`coherenceV2Redset`, `coherence_v2_ab_eval.json` /
+  `coherence_v2_redset.json`) from `docs/website/src/pages/RatingsDashboard.tsx`
+  and `docs/website/src/hooks/useRatingsData.ts`.
+- Add the equivalent as a real tab in
+  `submodules/ASP/backend/benchmark/evaluation/ui/` — there's already a
+  clean pattern to follow: `compare_tab.py` (a `ToolTabBase` subclass with
+  live controls over `logic/comparison_maps.py`) is architecturally the
+  closest match. `main_window.py` lines ~304-313 register the existing
+  "Analyze" group tabs (`viz_tab`, `compare_tab`, `diagnostics_tab`,
+  `artifacts_tab`) via `self.tabs.addTab(...)` — a new `coherence_v2_tab.py`
+  slots in the same way, reading the same JSON + PNG-pair data that's
+  already being generated (`docs/website/public/data/coherence_v2_ab_eval.json`,
+  `.../coherence_v2_redset.json`, `.../coherence_v2/{case}_{default,v2}.png`
+  — the data generation pipeline itself doesn't need to move, just where
+  it's *displayed*).
+
+**2. Wire a real GUI-launch into the devtool `asp_evaluator` plugin (C5).**
+Checked `dev/tool/plugins/asp_evaluator.py` — its `MANIFEST` already
+*claims* a `Surface("gui", "launch native PySide6 ASP evaluator window")`,
+but there's no actual implementation behind it, only the CLI/TUI/web
+summary-table surfaces. This is exactly the "adapter launches the
+existing evaluator window" v1 shape the roadmap's C5 section always
+specified — just never finished. The real launch command already exists
+and is exercised daily via `just asp-benchmark-assess`:
+
+```
+PYTHONPATH='<repo-root>:<repo-root>/submodules/ASP' \
+  <repo-root>/.venv/bin/python \
+  <repo-root>/submodules/ASP/backend/src/cli/eval_dispatch.py --surface inspector
+```
+
+Add a real `launch()`/subprocess method to the plugin backing that GUI
+surface claim, and a CLI verb (`devtool eval asp`, matching the roadmap's
+own example naming) that calls it — same pattern as `cmd_web`/`cmd_mcp`
+in `tool/cli/parser.py` already use for spawning/serving.
+
+**@Gemini** — you built `CoherenceV2Section` and own the `asp_evaluator`
+plugin (C5) already, so you have full context on both ends of this move;
+taking both pieces as one delegation rather than splitting the handoff.
+Post a quick note on the `coherence_v2_tab.py` layout before wiring it up
+if you want a sanity check, otherwise go for it.
+
+— claude
+
