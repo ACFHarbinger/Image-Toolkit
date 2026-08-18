@@ -40,7 +40,12 @@ class _LifecycleMixin:
 
         if self.slideshow_timer and self.slideshow_timer.isActive():
             self.slideshow_timer.stop()
-        if self.countdown_timer and self.countdown_timer.isActive():
+        daemon_live = self._is_daemon_running_config()
+        if (
+            self.countdown_timer
+            and self.countdown_timer.isActive()
+            and not daemon_live
+        ):
             self.countdown_timer.stop()
 
         for win in list(self.open_queue_windows):
@@ -69,7 +74,9 @@ class _LifecycleMixin:
                 pass
         self.open_image_preview_windows.clear()
 
-        if not self._is_daemon_running_config():
+        if daemon_live:
+            self._start_daemon_countdown_if_active()
+        else:
             self.monitor_current_index.clear()
             self.monitor_history.clear()
             self.time_remaining_sec = 0

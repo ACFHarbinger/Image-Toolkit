@@ -31,33 +31,37 @@ class _DaemonMixin:
     countdown_timer: Optional[QTimer]
 
     def _start_daemon_countdown_if_active(self: "SystemDisplaySubTabHostProtocol"):
-        if self._is_daemon_running_config():
+        if not self._is_daemon_running_config():
+            return
+        try:
+            with open(DAEMON_CONFIG_PATH, "r") as f:
+                data = json.load(f)
+            self.interval_sec = int(data.get("interval_seconds", 300) or 300)
+            last_change = int(data.get("last_change_timestamp", 0) or 0)
+            if last_change > 0:
+                elapsed = int(time.time()) - last_change
+                self.time_remaining_sec = max(0, self.interval_sec - elapsed)
+            else:
+                self.time_remaining_sec = self.interval_sec
+
+            timer = getattr(self, "countdown_timer", None)
             try:
-                with open(DAEMON_CONFIG_PATH, "r") as f:
-                    data = json.load(f)
-                    self.interval_sec = data.get("interval_seconds", 300)
-                    last_change = data.get("last_change_timestamp", 0)
-                    if last_change > 0:
-                        elapsed = int(time.time()) - last_change
-                        self.time_remaining_sec = max(0, self.interval_sec - elapsed)
-                    else:
-                        self.time_remaining_sec = self.interval_sec
+                alive = timer is not None and not timer.isActive()
+                if timer is None:
+                    raise RuntimeError("no countdown timer")
+            except RuntimeError:
+                timer = QTimer(cast(QObject, self))
+                self.countdown_timer = timer
+                timer.timeout.connect(self.update_countdown)
+                alive = True
+            if alive and timer is not None:
+                timer.start(1000)
 
-                    if not hasattr(self, "countdown_timer") or not self.countdown_timer:
-                        countdown_timer = QTimer(cast(QObject, self))
-                        self.countdown_timer = countdown_timer
-                        countdown_timer.timeout.connect(self.update_countdown)
-
-                    countdown_timer = self.countdown_timer
-                    if countdown_timer is not None and not countdown_timer.isActive():
-                        countdown_timer.start(1000)
-
-                    self.update_countdown()
-
-                    if not self.slideshow_group.isVisible():
-                        self.slideshow_group.setVisible(True)
-            except Exception:
-                pass
+            self.update_countdown()
+            if not self.slideshow_group.isVisible():
+                self.slideshow_group.setVisible(True)
+        except Exception:
+            pass
 
     def _get_daemon_script_path(self: "SystemDisplaySubTabHostProtocol"):
         script_path = ROOT_DIR / "backend" / "src" / "utils" / "display" / "slideshow_daemon.py"
@@ -81,7 +85,9 @@ class _DaemonMixin:
         try:
             with open(DAEMON_CONFIG_PATH, "r") as f:
                 data = json.load(f)
-                return data.get("running", False)
+            if not data.get("running", False):
+                return False
+            return self._is_background_daemon_process_alive()
         except Exception:
             return False
 
@@ -104,6 +110,7 @@ class _DaemonMixin:
 
         last_change_timestamp = 0
         monitor_history = getattr(self, "monitor_history", {})
+        old_config: dict = {}
         try:
             if os.path.exists(DAEMON_CONFIG_PATH):
                 with open(DAEMON_CONFIG_PATH, "r") as f:
@@ -123,6 +130,10 @@ class _DaemonMixin:
             else self.wallpaper_style
         )
 
+        # Queue is locked at daemon start. Profile reload / spinbox sync
+        # must not replace the running process's start-time playlist.
+        locked_queues = old_config.get("monitor_queues", self.monitor_slideshow_queues)
+
         config = {
             "running": True,
             "interval_seconds": (self.interval_min_spinbox.value() * 60)
@@ -132,7 +143,7 @@ class _DaemonMixin:
                 and self.chk_video_runtime_interval.isChecked()
             ),
             "style": style_to_use,
-            "monitor_queues": self.monitor_slideshow_queues,
+            "monitor_queues": locked_queues,
             "current_paths": self.monitor_image_paths,
             "playback_order": self.playback_order_combo.currentText(),
             "filter_directories": [],
