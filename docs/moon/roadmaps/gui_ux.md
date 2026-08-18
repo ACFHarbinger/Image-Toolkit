@@ -356,9 +356,19 @@ Use `asyncio.CancelledError` or a `threading.Event` as a cancellation token pass
 
 ---
 
-## 2.8 Theme Support
+## 2.8 Theme Support ✅ Partial (options A + D shipped — dark/light QSS toggle with per-theme accent-color override, `gui/src/windows/main/_theme.py` + `gui/src/styles/`; also UI density and a `load_user_qss_override` power-user hook) {: #28-theme-support }
 
-**Pain point:** App uses the system Qt palette, producing inconsistent look across platforms. Dark-mode OS settings not reliably respected.
+**2026-08-18 — superseded by a much larger scope.** Harbinger wants full
+user-defined theming (every color token, not just an accent tint) plus a
+custom app background image, across all three of the project's UI
+surfaces (PySide6 desktop app, `dev/app` devtool Tauri/React app, and the
+docs website) — not just the PySide6 app this section originally scoped.
+Full brainstorm-stage design doc:
+[`app_theming_2026q3.md`](app_theming_2026q3.md). This section stays as
+history for what shipped in the smaller original scope; new work happens
+in that doc.
+
+**Original pain point (for history):** App uses the system Qt palette, producing inconsistent look across platforms. Dark-mode OS settings not reliably respected.
 
 ### Options
 
