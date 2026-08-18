@@ -359,17 +359,46 @@ class _QueueManagementMixin:
         if hasattr(self, "queue_group"):
             self.queue_group.setVisible(self.extraction_queue_enabled)
 
+    def _set_queue_processing_state(self: "VideoExtractorSubTabHostProtocol", processing: bool):
+        """Update button label, style, and controls for active queue processing or idle."""
+        if processing:
+            self.btn_process_queue.setText("🛑 Cancel Queue")
+            self.btn_process_queue.setStyleSheet(
+                "QPushButton { font-weight: bold; background-color: #e74c3c; color: white; padding: 4px 8px; }"
+                "QPushButton:hover { background-color: #c0392b; }"
+            )
+            self.btn_process_queue.setEnabled(True)
+            self.btn_clear_queue.setEnabled(False)
+            self.combo_queue_mode.setEnabled(False)
+        else:
+            self.btn_process_queue.setText("⚙️ Process Queue")
+            self.btn_process_queue.setStyleSheet(
+                "QPushButton { font-weight: bold; background-color: #2ecc71; color: white; padding: 4px 8px; }"
+                "QPushButton:hover { background-color: #27ae60; }"
+            )
+            self.btn_process_queue.setEnabled(True)
+            self.btn_clear_queue.setEnabled(True)
+            self.combo_queue_mode.setEnabled(True)
+
+    def cancel_queue(self: "VideoExtractorSubTabHostProtocol"):
+        """Cancel the active queue processing run."""
+        if self.active_queue_worker:
+            self.active_queue_worker.cancel()
+        self._set_queue_processing_state(False)
+
     @Slot()
     def process_queue(self: "VideoExtractorSubTabHostProtocol"):
+        if self.active_queue_worker is not None:
+            self.cancel_queue()
+            return
+
         if not self.extraction_queue:
             return
 
         mode = self.combo_queue_mode.currentText()
         is_parallel = "Parallel" in mode
 
-        self.btn_process_queue.setEnabled(False)
-        self.btn_clear_queue.setEnabled(False)
-        self.combo_queue_mode.setEnabled(False)
+        self._set_queue_processing_state(True)
 
         self.extraction_progress_bar.setValue(0)
         self.extraction_progress_bar.show()
@@ -396,6 +425,8 @@ class _QueueManagementMixin:
     def _on_queue_progress(self: "VideoExtractorSubTabHostProtocol", completed: int, total: int):
         self.extraction_progress_bar.setMaximum(max(total, 1))
         self.extraction_progress_bar.setValue(completed)
+        if getattr(self, "_close_progress_dialog", None):
+            self._close_progress_dialog.update_progress(completed, total)
 
     def _queue_result_paths(self: "VideoExtractorSubTabHostProtocol", res: dict) -> List[str]:
         """Collect the files a queue item produced (saved_files or output_path)."""
@@ -521,12 +552,9 @@ class _QueueManagementMixin:
 
     def _on_queue_processing_finished(self: "VideoExtractorSubTabHostProtocol", results):
         self.active_queue_worker = None
+        self._set_queue_processing_state(False)
         self.extraction_progress_bar.hide()
         self.extraction_status_label.hide()
-
-        self.btn_process_queue.setEnabled(True)
-        self.btn_clear_queue.setEnabled(True)
-        self.combo_queue_mode.setEnabled(True)
 
         # ONE gallery rebuild for the whole run: per-item completion defers
         # its gallery update (see _on_queue_item_completed) because a per-item
@@ -559,7 +587,10 @@ class _QueueManagementMixin:
         if all_paths:
             self._add_queue_results_to_gallery(all_paths)
 
-        if errors:
+        close_dialog = getattr(self, "_close_progress_dialog", None)
+        if close_dialog is not None:
+            close_dialog.on_all_finished()
+        elif errors:
             QMessageBox.warning(
                 cast(QWidget, self),
                 "Queue Extraction Completed with Errors",
@@ -576,12 +607,13 @@ class _QueueManagementMixin:
 
     def _on_queue_processing_error(self: "VideoExtractorSubTabHostProtocol", error_msg):
         self.active_queue_worker = None
+        self._set_queue_processing_state(False)
         self.extraction_progress_bar.hide()
         self.extraction_status_label.hide()
 
-        self.btn_process_queue.setEnabled(True)
-        self.btn_clear_queue.setEnabled(True)
-        self.combo_queue_mode.setEnabled(True)
+        close_dialog = getattr(self, "_close_progress_dialog", None)
+        if close_dialog is not None:
+            close_dialog.reject()
 
         # Flush any per-item results that completed before the failure so
         # they still appear in the gallery.

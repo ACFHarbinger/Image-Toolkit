@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple, Union, cast
+from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple, Union, cast
 
 import cv2
 from PySide6.QtCore import Qt, QThreadPool, Slot
@@ -17,8 +17,6 @@ from PySide6.QtWidgets import QDialog, QMessageBox, QStyle, QWidget
 
 from ....components import ClickableLabel, FrameSelectionDialog
 from ....helpers import FrameExtractionWorker
-
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ..protos.extractor_tab import VideoExtractorSubTabHostProtocol
@@ -263,7 +261,6 @@ class _ExtractionExecutionMixin:
             self.extraction_status_label.show()
             return
 
-        self._set_extraction_buttons_enabled(False)
         self.extraction_progress_bar.setValue(0)
         self.extraction_progress_bar.show()
         self.extraction_status_label.setText("Extracting frames...")

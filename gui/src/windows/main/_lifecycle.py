@@ -167,9 +167,8 @@ class _LifecycleMixin:
         super().closeEvent(event)
 
     def _defer_close_for_extractions(self) -> bool:
-        """Return True (and arm a deferred close) when an extraction is still
-        running, so the app hides and stays alive headlessly until the work
-        finishes instead of tearing the worker down mid-emit (Bug 1)."""
+        """Return True (and arm a deferred close with progress dialog) when an extraction is
+        still running, so background work finishes before exit (Bug 1)."""
         extractor = getattr(self, "extractor_tab", None)
         if extractor is None or not getattr(extractor, "has_active_extractions", lambda: False)():
             return False
@@ -180,11 +179,43 @@ class _LifecycleMixin:
             if window is not self and window.isVisible():
                 with contextlib.suppress(Exception):
                     window.hide()
-        extractor.set_close_when_finished(self._finish_deferred_close)
+
+        from gui.src.components.dialogs.extraction_close_progress_dialog import (
+            ExtractionCloseProgressDialog,
+        )
+
+        total_queue = len(getattr(extractor, "extraction_queue", [])) + (
+            1
+            if getattr(extractor, "active_queue_worker", None)
+            or getattr(extractor, "active_extraction_worker", None)
+            else 0
+        )
+
+        def _on_cancel():
+            if hasattr(extractor, "cancel_queue"):
+                extractor.cancel_queue()
+            if hasattr(extractor, "cancel_extraction"):
+                extractor.cancel_extraction()
+            self._finish_deferred_close()
+
+        def _on_confirm():
+            self._finish_deferred_close()
+
+        dialog = ExtractionCloseProgressDialog(
+            parent=None,
+            on_cancel=_on_cancel,
+            on_confirm=_on_confirm,
+            total=total_queue,
+            completed=0,
+        )
+        extractor._close_progress_dialog = dialog
+        extractor.set_close_when_finished(dialog.on_all_finished)
+        dialog.show()
+
         return True
 
     def _finish_deferred_close(self) -> None:
-        """Called by the extractor tab once all extractions finish; performs
+        """Called once extractions finish or are cancelled; performs
         the real close now that no worker is active."""
         if not getattr(self, "_close_pending", False):
             return
