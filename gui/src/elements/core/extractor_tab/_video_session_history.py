@@ -344,6 +344,20 @@ class _VideoSessionHistoryMixin:
     def _record_extraction(self: "VideoExtractorSubTabHostProtocol", file_paths: List[str], metadata: dict):
         """Records metadata for a set of extracted files using absolute paths as keys."""
         metadata = copy.deepcopy(metadata)
+        # DIAGNOSTIC (Unknown Video bug): an extraction with no video_path is
+        # always a bug -- you cannot extract without a source video. Log the
+        # full call stack at the instant it happens so a real reproduction
+        # pinpoints the exact recording path (queue vs single, add-to-queue vs
+        # completion). Remove once the bug is closed.
+        if not metadata.get("video_path"):
+            import traceback
+
+            print(
+                f"[recent-extractions] EMPTY video_path being recorded: "
+                f"metadata={metadata!r} files={file_paths!r}",
+                flush=True,
+            )
+            traceback.print_stack(limit=20)
         # 1. Update file_map for the new files
         for path in file_paths:
             abs_path = str(Path(path).absolute())
