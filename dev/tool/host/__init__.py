@@ -25,8 +25,23 @@ from .plugins import (
 )
 from .settings import SETTINGS_FILENAME, Settings
 from .store import WorkspaceStore, default_workspace_root
+from .workspace import (
+    DEFAULT_MONITOR_DEPTH,
+    PluginSource,
+    STATE_FILENAME,
+    WORKSPACE_CONFIG_FILENAME,
+    WorkspaceConfig,
+    config_dir,
+    discover_plugin_sources,
+    global_plugins_dir,
+    load_last_workspace,
+    load_workspace_config,
+    save_last_workspace,
+    state_path,
+)
 
 __all__ = [
+    "DEFAULT_MONITOR_DEPTH",
     "MANIFEST_FILENAME",
     "MANIFEST_SCHEMA",
     "MANIFEST_SCHEMA_VERSION",
@@ -37,17 +52,28 @@ __all__ = [
     "Plugin",
     "PluginEntry",
     "PluginManifest",
+    "PluginSource",
     "RegisteredView",
     "SETTINGS_FILENAME",
+    "STATE_FILENAME",
     "Settings",
     "Surface",
+    "WORKSPACE_CONFIG_FILENAME",
+    "WorkspaceConfig",
     "WorkspaceStore",
     "build_command_argv",
     "build_index",
+    "config_dir",
     "default_workspace_root",
+    "discover_plugin_sources",
     "discover_plugins",
+    "global_plugins_dir",
     "index_path",
+    "load_last_workspace",
     "load_manifest",
+    "load_workspace_config",
+    "save_last_workspace",
+    "state_path",
     "write_index",
     "write_manifest",
 ]

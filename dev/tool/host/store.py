@@ -37,7 +37,28 @@ class WorkspaceStore:
     telemetry_dir: Optional[Path] = None
 
     def __post_init__(self) -> None:
-        self.root = Path(self.root) if self.root is not None else default_workspace_root()
+        if self.root is not None:
+            self.root = Path(self.root)
+        else:
+            # v2 #412: restore the last selected workspace (lock #13) before
+            # falling back to the in-repo default.
+            from .workspace import load_last_workspace
+
+            self.root = load_last_workspace() or default_workspace_root()
+        self.telemetry_dir = Path(self.telemetry_dir) if self.telemetry_dir else None
+
+    def remember(self) -> None:
+        """Persist this root as the last-selected workspace (#412 / lock #13)."""
+        from .workspace import save_last_workspace
+
+        save_last_workspace(self.root)
+
+    @property
+    def workspace_config(self) -> Any:
+        """Parsed devtool.toml at this workspace root, if any (#412)."""
+        from .workspace import load_workspace_config
+
+        return load_workspace_config(self.root)
 
     @property
     def repo_root(self) -> Path:

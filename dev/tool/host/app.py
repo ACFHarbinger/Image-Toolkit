@@ -46,7 +46,7 @@ class Host:
         if self._discovered:
             return list(self._plugins)
         seen: set[str] = set()
-        for plugin in _first_party_plugins():
+        for plugin in _first_party_plugins(root=self.store.root):
             name = plugin.manifest.name
             if name in seen:
                 continue
@@ -153,25 +153,32 @@ class _CommandPlugin:
         return []
 
 
-def _first_party_plugins() -> List[Plugin]:
-    """Enumerate the tool.plugins directory manifest-first (#410).
+def _first_party_plugins(root: Optional[Path] = None) -> List[Plugin]:
+    """Enumerate plugin.json manifests manifest-first (#410/#412).
 
-    Reads plugin.json manifests (the single discovery contract), then
-    resolves python_module entries to the plugin object; command-only
-    manifests become _CommandPlugin wrappers (spawning is #408).
+    Merged set = global (~/.config/devtool/plugins) + in-tree host pack +
+    workspace-declared (devtool.toml); resolves python_module entries to
+    the plugin object; command-only manifests become _CommandPlugin
+    wrappers (spawning is #408).
     """
     import tool.plugins as pkg
+
+    from .workspace import discover_plugin_sources, global_plugins_dir
 
     found: List[Plugin] = []
     seen: set[str] = set()
     plugins_dir = Path(pkg.__file__).resolve().parent
 
-    for manifest_path in sorted(plugins_dir.glob("*.plugin.json")):
+    for source in discover_plugin_sources(
+        root=root,
+        global_dir=global_plugins_dir(),
+        in_tree_dir=plugins_dir,
+    ):
         try:
-            manifest = load_manifest(manifest_path)
+            manifest = source if not isinstance(source, Path) else load_manifest(source)
         except Exception as exc:
             print(
-                f"[devtool] skipping bad plugin manifest {manifest_path}: {exc}",
+                f"[devtool] skipping bad plugin manifest {source}: {exc}",
                 file=sys.stderr,
             )
             continue
@@ -200,8 +207,6 @@ def _first_party_plugins() -> List[Plugin]:
             plugin = _CommandPlugin(manifest)
         _remember(found, seen, plugin)
     return found
-
-
 def _remember(found: List[Plugin], seen: set[str], plugin: Plugin) -> None:
     name = plugin.manifest.name
     if name in seen:
