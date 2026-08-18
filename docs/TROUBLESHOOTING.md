@@ -840,17 +840,29 @@ sudo apt install libwebkit2gtk-4.1-dev
 
 ### Tauri window shows "WebKit encountered an internal error"
 
-NVIDIA (proprietary driver) + Wayland: WebKitGTK's DMA-BUF renderer path
-isn't supported by the NVIDIA driver, so the webview fails to render
-anything and shows this error instead of the app. Disable that renderer:
+Two independent causes, both fixed by `just devtool-app`
+(`tools/dev/justfile`):
 
-```bash
-WEBKIT_DISABLE_DMABUF_RENDERER=1 cargo tauri dev
-```
+1. **NVIDIA (proprietary driver) + Wayland.** WebKitGTK's DMA-BUF renderer
+   path isn't supported by the NVIDIA driver, so the webview fails to
+   render anything. Disable that renderer:
+   ```bash
+   WEBKIT_DISABLE_DMABUF_RENDERER=1 cargo tauri dev
+   ```
+2. **Leaked snap `LD_LIBRARY_PATH`.** If the terminal that launched `cargo
+   tauri dev` is itself snap-confined, its `LD_LIBRARY_PATH` can leak to
+   the WebKit subprocesses, causing `WebKitNetworkProcess` to load a snap
+   `core20` copy of `libpthread.so.0` instead of the system one:
+   `symbol lookup error: .../snap/core20/current/lib/.../libpthread.so.0:
+   undefined symbol: __libc_pthread_init, version GLIBC_PRIVATE`. Clear it
+   for the subprocess:
+   ```bash
+   LD_LIBRARY_PATH= cargo tauri dev
+   ```
 
-`just devtool-app` (`tools/dev/justfile`) already sets this. If the main
-GUI (`just dev`, `frontend/src-tauri`) hits the same error, export the
-variable before running `npm run dev`, or add it to that recipe too.
+If the main GUI (`just dev`, `frontend/src-tauri`) hits either error,
+export the same variables before running `npm run dev`, or add them to
+that recipe too.
 
 ### `Cannot find module 'react-dom/client'`
 

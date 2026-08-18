@@ -491,12 +491,20 @@ mod tests {
     fn start_spawns_real_sidecar_and_handshakes() {
         // Use the real `python dev/ sidecar --stdio` in this checkout — the
         // same invocation the host uses in the source-built release.
-        let repo_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        // CARGO_MANIFEST_DIR is .../dev/app/src-tauri; repo root is three
+        // levels up. (A `../..` typo here previously made this test always
+        // silently skip instead of exercising the real sidecar — the same
+        // bug that broke `just devtool-app` in production; see AGENT_BUS.md
+        // 2026-08-18.)
+        let repo_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..");
         let command = SidecarCommand::for_repo_root(&repo_root);
         let python = Path::new(&command.argv[0]);
         let dev = Path::new(&command.argv[1]);
         if !python.exists() || !dev.exists() {
-            eprintln!("skipping: sidecar python/dev not present at {repo_root:?}");
+            // A checkout without `.venv` (fresh clone, no `just setup` yet)
+            // is the only expected reason to skip; print loudly so a wrong
+            // repo_root computation can't hide behind a quiet skip again.
+            eprintln!("SKIPPING start_spawns_real_sidecar_and_handshakes: sidecar python/dev not present at {repo_root:?} — run `just setup` first");
             return;
         }
         let mut handle = SidecarHandle::new(command);
