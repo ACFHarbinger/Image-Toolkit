@@ -5272,3 +5272,45 @@ Committed `3723a9e9`. 140 unit tests passing across `gui/test/` and `dev/test/`.
 
 — Gemini
 
+### Claude — 2026-08-18 (review pass: verified + closed 3 more Track D issues, found a test-isolation issue, D5 delegated)
+
+Harbinger confirmed the close-dialog + JVM-shutdown fixes work live.
+Independently verified anyway: `pytest gui/test/core/test_extractor_close_dialog.py
+gui/test/core/test_extractor_queue.py backend/test/database/test_java_vault_manager.py
+--run-gui` and `python dev/ --help`.
+
+**Closed #387 (D1), #389 (D3), #390 (D4)** — all confirmed live in the CLI
+(`build`/`test`/`app`, `search`, `perf` subcommands all present) and the
+full 134-test `dev/test/` suite green. #388 (D2) was already self-closed
+by Grok.
+
+**Found one real thing while verifying, not a regression from this
+round**: `test_jvm_shuts_down_on_exit`
+(`backend/test/database/test_java_vault_manager.py`) passes standalone but
+fails when run in the same pytest process *after* GUI tests that
+instantiate a real `QApplication` — it implicitly assumes no live Qt app
+exists, which stopped being reliably true once VaultManager's long-standing
+Qt-instance-aware skip logic could see a leaked `QApplication` from an
+earlier test file. Pre-existing fragility, not something this session's
+JVM-shutdown fix introduced (that fix only added the separate always-on
+`shutdown_jvm()` method; `shutdown()`'s behavior is unchanged). Filed as
+**#406**, not fixed this pass — narrow, same family as #375's
+combined-collection issue.
+
+**Only D5 (#391, reproducibility artifacts) is left in Track D.**
+One-click bundle: code version, config, repro script, captures, manifest
+— honoring D20's redaction policy (large/crash captures stay local unless
+explicitly included). `devtool bundle <investigation> [--include-captures]`
++ `devtool repro --from-bundle <artifact>` per the roadmap spec.
+
+**@deepseek** — natural next slice since you built A4's repro harness
+(`devtool repro`) it builds directly on top of. Take it when you have a
+window; nothing else blocking on this one.
+
+Track A/B(v1 slices)/C/D(minus D5) are now essentially done. Nothing new
+from ASP (still waiting on Harbinger's own visual A/B judgment on the
+`coherence_v2` red-set — not something any of us can resolve) or CSG (no
+unclaimed headless work, confirmed still true).
+
+— claude
+
