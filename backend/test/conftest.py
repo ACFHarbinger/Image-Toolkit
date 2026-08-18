@@ -333,46 +333,6 @@ class MockWebCrawler:
         pass
 
 
-# --- Mock Java Classes (Existing) ---
-# These mock classes simulate the behavior of your compiled Java code.
-class MockKeyStoreManager:
-    """Mock the Java KeyStoreManager class."""
-
-    # Store state to simulate keystore and key
-    keystore = MagicMock()
-    secret_key = MagicMock()
-
-    # Instance methods (non-static) - Note the 'self' argument
-    def loadKeyStore(self, keystore_path, keystore_pass):
-        """Simulate the non-static loadKeyStore call."""
-        if "wrong.p12" in keystore_path:
-            # Simulate Java exception
-            raise Exception("java.io.IOException: Keystore was tampered with.")
-        return self.keystore
-
-    def getSecretKey(self, keystore, key_alias, key_pass):
-        """Simulate the non-static getSecretKey call."""
-        if key_alias == "non_existent_key":
-            # Simulate Java returning null (None in Python)
-            return None
-        return self.secret_key
-
-
-class MockSecureJsonVault:
-    """Mock the Java SecureJsonVault class."""
-
-    def __init__(self, key, path):
-        self.key = key
-        self.path = path
-        self.data = None
-
-    def saveData(self, json_string):
-        self.data = json_string
-
-    def loadData(self):
-        return self.data
-
-
 # ----------------------------------------------------------------------
 # Pytest Fixtures
 # ----------------------------------------------------------------------
@@ -384,29 +344,6 @@ def mock_dependencies(monkeypatch):
     """
     # Mock WC_BROWSERS in definitions
     monkeypatch.setattr(udef, "WC_BROWSERS", ["brave", "chrome", "firefox"])
-
-
-@pytest.fixture
-def mock_jpype():
-    mock_jclass_map = {
-        "com.personal.image_toolkit.KeyStoreManager": MockKeyStoreManager,
-        "com.personal.image_toolkit.SecureJsonVault": MockSecureJsonVault,
-        "java.lang.String": MagicMock(),
-    }
-
-    with (
-        patch("src.core.vault_manager.jpype.startJVM") as mock_start_jvm,
-        patch(
-            "src.core.vault_manager.jpype.JClass",
-            side_effect=lambda name: mock_jclass_map.get(name, MagicMock()),
-        ) as _mock_jclass,
-        patch(
-            "src.core.vault_manager.jpype.isJVMStarted",
-            side_effect=[False, True, True],
-        ),
-        patch("src.core.vault_manager.jpype.shutdownJVM") as mock_shutdown_jvm,
-    ):
-        yield mock_start_jvm, mock_shutdown_jvm
 
 
 @pytest.fixture

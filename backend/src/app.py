@@ -11,8 +11,8 @@ from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
 
 from backend.src.constants import CTRL_C_TIMEOUT, ICON_FILE
-from backend.src.core import lifecycle_memory, telemetry
 from backend.src.constants.app import SETTINGS_PREFIX_TYPES, SETTINGS_SCHEMA
+from backend.src.core import lifecycle_memory, telemetry
 
 # ---------------------------------------------------------------------------
 # Logging setup (item 1.13) — rotating file handler + coloured console output
@@ -212,16 +212,16 @@ def launch_app(opts):
     # VideoThumbnailer.generate() to decode the JPEG bytes ffmpeg/
     # ffmpegthumbnailer wrote to stdout. The first time any video thumbnail
     # gets decoded in the process, Qt's JPEG image-format plugin lazily
-    # loads -- off the main thread, with the JPype JVM already loaded
-    # in-process. That's the same "Qt subsystem lazily dlopening a native
-    # lib off the main thread while the JVM is loaded" crash class already
-    # fixed 3 times before for other subsystems (native file dialog/GTK,
-    # QWebEngineView/Chromium, QMediaPlayer FFmpeg VA-API -- see
-    # jvm_native_lib_conflicts in project memory), and explains this crash's
-    # perfect determinism far better than a timing race would: a directory
-    # with video files always hits this path, one without never does.
-    # Priming the JPEG plugin here, synchronously, on the main thread,
-    # before the JVM loads, closed that specific SIGSEGV (confirmed live).
+    # loads -- off the main thread. This is the same "Qt subsystem lazily
+    # dlopening a native lib off the main thread while the (then still
+    # loaded) JPype JVM was in-process" crash class already fixed 3 times
+    # before for other subsystems (native file dialog/GTK, QWebEngineView/
+    # Chromium, QMediaPlayer FFmpeg VA-API -- see jvm_native_lib_conflicts
+    # in project memory); the JVM itself has since been removed from the
+    # product entirely (see cryptography/README and the C++ crypto module),
+    # which closed the whole class. Priming the JPEG plugin here,
+    # synchronously, on the main thread, closed that specific SIGSEGV
+    # (confirmed live).
     #
     # A live retest after that fix still failed, though differently (an
     # "Invalid socket ... disabling" spam-hang, then a glibc heap-corruption
@@ -276,15 +276,6 @@ def launch_app(opts):
         print("[startup-probe-guard] login succeeded", flush=True)
         telemetry.emit("startup", "login.succeeded", tid=threading.get_ident())
 
-        # Bug 1 follow-up (headless close hang): the embedded JVM keeps a
-        # non-daemon thread alive, so the process hangs after app.exec()
-        # returns unless the JVM is shut down as Qt's event loop exits.
-        # shutdown() deliberately skips while a Qt app exists (it is called
-        # from inside closeEvent), so wire the force-shutdown here, once,
-        # at aboutToQuit -- which fires as the event loop is tearing down.
-        if vault_manager is not None:
-            app.aboutToQuit.connect(vault_manager.shutdown_jvm)
-
         # Create the new main window instance (deferred -- see the
         # QSocketNotifier/heap-corruption comment above) and only THEN
         # close the login window. Closing LoginWindow first and
@@ -314,7 +305,7 @@ def launch_app(opts):
             # see bench_app_lifecycle.py for the controlled N-image variant.
             lifecycle_memory.snapshot("main_window_shown")  # §12.5 (issue #70)
             if previous_window and isinstance(previous_window, LoginWindow):
-                # The LoginWindow's closeEvent handles JVM shutdown if
+                # The LoginWindow's closeEvent handles teardown if
                 # needed. Closed only now that MainWindow is already up, so
                 # at least one top-level window is always open.
                 previous_window.close()

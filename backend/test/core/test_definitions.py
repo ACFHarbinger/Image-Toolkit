@@ -7,7 +7,7 @@ TEST_MODULES = {
     "video_converter": "test_video_converter.py",
     "image_finder": "test_image_finder.py",
     "image_merger": "test_image_merger.py",
-    "vault_manager": "test_java_vault_manager.py",
+    "vault_manager": "test_vault_manager.py",
     "models": "test_models.py",
     "wallpaper": "test_wallpaper.py",
     "web_crawler": "test_web_crawler.py",

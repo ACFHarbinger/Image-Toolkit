@@ -19,9 +19,7 @@ IMAGES_DIR = ASSETS_DIR / "images"
 API_DIR = ASSETS_DIR / "api"
 
 # Files
-JAR_FILE = str(
-    ROOT_DIR / "cryptography" / "build" / "libs" / "cryptography-1.0.0-SNAPSHOT.jar"
-)
+CRYPTO_LIB_FILE = str(ROOT_DIR / "build" / "crypto" / "libitk_crypto.so")
 ICON_FILE = str(IMAGES_DIR / "image_toolkit_icon.png")
 DAEMON_CONFIG_PATH = IMAGE_TOOLKIT_DIR / ".slideshow_config.json"
 MONITOR_SLIDESHOW_DAEMON_CONFIG_PATH = IMAGE_TOOLKIT_DIR / ".monitor_slideshow_daemon.json"

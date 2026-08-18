@@ -6,7 +6,7 @@ import uuid
 from pathlib import Path
 
 import backend.src.constants as udef
-from backend.src.core.vault_manager import CryptographyJarNotBuiltError, VaultManager
+from backend.src.core.vault_manager import CryptographyLibNotBuiltError, VaultManager
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QHBoxLayout,
@@ -587,12 +587,12 @@ class LoginWindow(QWidget):
             else:
                 QMessageBox.critical(self, "Login Failed", "Invalid password.")
 
-        except CryptographyJarNotBuiltError:
+        except CryptographyLibNotBuiltError:
             QMessageBox.critical(
                 self,
-                "Cryptography JAR Not Built",
+                "Cryptography Library Not Built",
                 "The cryptography module hasn't been built yet.\n\n"
-                "Run `just build-jar` from the repo root, then try again.",
+                "Run `just build-crypto` from the repo root, then try again.",
             )
         except FileNotFoundError:
             QMessageBox.critical(
@@ -680,12 +680,12 @@ class LoginWindow(QWidget):
             # ~line 564) for why.
             self.login_successful.emit(self.vault_manager)
 
-        except CryptographyJarNotBuiltError:
+        except CryptographyLibNotBuiltError:
             QMessageBox.critical(
                 self,
-                "Cryptography JAR Not Built",
+                "Cryptography Library Not Built",
                 "The cryptography module hasn't been built yet.\n\n"
-                "Run `just build-jar` from the repo root, then try again.",
+                "Run `just build-crypto` from the repo root, then try again.",
             )
             if self.vault_manager:
                 self.vault_manager.shutdown()
@@ -774,7 +774,7 @@ class LoginWindow(QWidget):
             super().keyPressEvent(event)
 
     def closeEvent(self, event):
-        """Ensure JVM is shut down if the window is closed without successful login."""
+        """Run teardown if the window is closed without successful login."""
         if self.vault_manager and not self.is_authenticated:
             self.vault_manager.shutdown()
         super().closeEvent(event)
