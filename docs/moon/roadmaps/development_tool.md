@@ -227,7 +227,21 @@ deepseek / Gemini / analytics locks that still hold, plus the
 | D44 | **v2: 4D experimentation is an explicit spike, not a core v1 deliverable** (2026-08-18, Harbinger, via Claude) | "4D" here means the standard technique from the visualization literature: a 3D scene with **time as an animated/scrubbable dimension**, not a literal fourth spatial axis. Industry/research treatment of 4D-for-dev-tools is genuinely experimental (no established prior art the way 2D flame graphs or 3D force-directed graphs have), so this is scoped as a bounded spike against one concrete view (candidate: the meta-graph evolving across commits, or a benchmark run's stage timings animating through the pipeline) rather than a blocking v1 requirement. |
 | D45 | **v2 interactivity baseline** (2026-08-18, Harbinger, via Claude) | Every shipped visualization view must support: live/real-time updates (not just static post-mortem snapshots), click-to-drill-down (zoom into a span/node/bar, jump to source or a linked Investigation), cross-view linking (a selection in one view highlights/filters related data in every other open view), in-app annotation that saves into the Investigation (not just typed notes elsewhere), filtering/slicing, hover tooltips, and dynamic zoom. This is the baseline bar for any view in v2, not optional polish layered on later. |
 | D46 | **v2: local web (C3) retires as a separate surface** (2026-08-18, Harbinger, via Claude) | No standalone localhost web server a browser points at. Because Tauri's rendering *is* the same web-tech stack, this is not a contradiction with D43's 3D approach — it means one packaged app window, not a second UI surface (browser tab) to keep in sync with the GUI. Whatever C3 did (benchmark A/B, session timeline, artifact viewer, investigation browsing) becomes GUI content directly. |
-| D47 | **v2 shell decisions still open for the cross-agent review round** (2026-08-18, Harbinger, via Claude) | Not decided yet, deliberately left for the team's design pass rather than guessed: (a) the TUI's (A3, already built and working) fate — folded into the Tauri app as an embedded terminal-style view, kept as a genuine lightweight/SSH-friendly fallback surface, or retired now that GUI is primary; (b) MCP's (C4) relationship to the new shell — likely unaffected as a separate stdio/local-HTTP surface, but confirm explicitly; (c) concrete packaging/distribution mechanism for D42's "installable standalone" (a Tauri bundle per-OS, a versioned release process, how a consuming repo actually acquires and points it at itself). |
+| D47 | **v2 shell decisions resolved** (2026-08-18, Harbinger) | Superseded by D48–D61 after the product-design session. Distribution package format remains an implementation feasibility choice, not a product blocker. |
+| D48 | **TUI: retain both human surfaces** (2026-08-18, Harbinger) | Tauri is the rich, primary daily-driver surface; the existing TUI remains a genuine lightweight, terminal/SSH-friendly fallback, not merely an embedded visual effect. Both consume the same durable evidence and Investigation model. |
+| D49 | **MCP: standalone service** (2026-08-18, Harbinger) | MCP remains independently usable and is not coupled to either human shell. Its existing evidence-first, narrowly mutating contract carries forward; an agent can use it without the Tauri app or TUI running. |
+| D50 | **Platform: Linux first** (2026-08-18, Harbinger) | The standalone v2 app targets Linux first. Other OS bundles may follow, but do not constrain the first usable architecture or acceptance criteria. |
+| D51 | **Python integration: sidecar** (2026-08-18, Harbinger) | The Tauri host uses a Python sidecar for the current Python evidence/plugin ecosystem rather than embedding its runtime into the GUI process. |
+| D52 | **Host protocol: language-neutral** (2026-08-18, Harbinger) | Define a versioned, language-neutral manifest and process protocol (initially JSON-RPC over stdio). Python is a first-class adapter/sidecar, not the core's required implementation language. |
+| D53 | **Workspace onboarding: bounded discovery, explicit selection** (2026-08-18, Harbinger) | Given a starting directory, the app scans for code-bearing directories through a user-configurable maximum depth **N**, then the user explicitly selects the directories to monitor. Discovery never silently turns every nested project into a workspace. |
+| D54 | **Flagship 3D story: runtime flow and nexus modules** (2026-08-18, Harbinger) | The primary 3D explanation is how the system flows at runtime: nodes and edges reveal execution flow, while visually legible nexus modules expose where responsibility, coupling, or traffic concentrates. |
+| D55 | **Meta-graph: persistent navigable world** (2026-08-18, Harbinger) | The graph is a saved, navigable workspace world—not a disposable render. Layout, camera, filters, selected evidence, and linked Investigations persist with the workspace. |
+| D56 | **4D spike: both candidates approved, one at a time** (2026-08-18, Harbinger) | Both candidate experiments are worthwhile—meta-graph evolution across commits and benchmark-stage timing animation—but only one may be prototyped at a time, after its parent 3D view proves useful. |
+| D57 | **Benchmark GUI sequence: inspect, then compare** (2026-08-18, Harbinger) | Start with precise image/result inspection. Comparative analytics and trend surfaces follow from trusted per-artifact evidence rather than replacing it. |
+| D58 | **Annotation authorship: visually distinct** (2026-08-18, Harbinger) | Human and agent annotations must be visibly distinguishable and retain author, time, provenance, and confidence where available; both attach to durable evidence/Investigations. |
+| D59 | **Aesthetic: mission control** (2026-08-18, Harbinger) | Retain and deepen D34's mission-control character: dense but legible, keyboard-oriented, evidence-forward, and clear under incident pressure. |
+| D60 | **Workspace scope: one repository** (2026-08-18, Harbinger) | A workspace monitors exactly one selected repository in v2. Cross-repository portfolio/correlation views are explicitly deferred. |
+| D61 | **Success bar: daily driver plus research-grade visualization** (2026-08-18, Harbinger) | v2 succeeds only when it is useful for everyday debugging and benchmark work while also supporting credible research-grade visual exploration. Select the exact Linux packaging/release format through a feasibility spike. |
 
 ---
 
@@ -240,15 +254,16 @@ confusion in v1's separate-surfaces design (`just devtool plugins gui` —
 reasonably expected but not how the CLI is shaped) and a decision to
 promote devtool from an Image-Toolkit-only tool into one usable across
 other repos too. **This section is the brainstorm's output — decisions
-D41–D47 above are locked; everything else here is scope for the team's
+D41–D61 above are locked; everything else here is scope for the team's
 design/feasibility pass, not yet implemented.**
 
 ### What's actually changing vs. what carries forward
 
-- **Changing**: the shell/host. v1's Python CLI + separate TUI (Rich/
+- **Changing**: the rich shell/host. v1's Python CLI + separate TUI (Rich/
   ANSI) + local web server (`http.server`) + optional PySide6-plugin-only
-  GUI becomes one Tauri app — GUI/TUI-equivalent as the primary human
-  surface, CLI kept but scoped mainly to agent use (D41, D46).
+  GUI becomes one Tauri app. The Tauri app is primary, but the TUI remains
+  a real terminal/SSH fallback; CLI and standalone MCP remain available for
+  agent and automation use (D41, D46, D48, D49).
 - **Carrying forward** (per D42): the *content* — Session/Investigation/
   CrashBundle data model, the plugin protocol's shape (manifest +
   artifacts + surfaces), MCP's read-mostly agent contract, and
@@ -259,17 +274,34 @@ design/feasibility pass, not yet implemented.**
 - **New**: full 2D/3D visualization (D43), an experimental 4D spike (D44),
   a concrete interactivity baseline every view must meet (D45), and
   multi-repo portability as a first-class requirement (D42) rather than
-  an afterthought.
+  an afterthought. v2 is Linux-first, uses a Python sidecar behind a
+  language-neutral protocol, and keeps each workspace to one explicitly
+  selected repository (D50–D53, D60).
+
+### Host, workspace, and evidence boundaries
+
+- **Host boundary**: Tauri owns the Linux desktop experience; Python runs as
+  a sidecar behind a versioned JSON-RPC-over-stdio protocol. Core manifests
+  and requests must remain language-neutral so future non-Python adapters do
+  not need a host rewrite (D51, D52).
+- **Workspace onboarding**: begin from a directory, discover code-bearing
+  candidates no deeper than user-set depth **N**, then require an explicit
+  choice of exactly one repository. Persist the workspace selection and its
+  visual state locally (D53, D55, D60).
+- **Evidence boundary**: Tauri, TUI, CLI, and standalone MCP read/write the
+  same durable sessions and Investigations. Human and agent annotations are
+  visually distinct and retain provenance; the product continues to present
+  evidence rather than diagnoses or autonomous fixes (D36, D48, D49, D58).
 
 ### Visualization inventory (from D43/D44, for the design pass to flesh out)
 
 | View | Dimensionality | Notes |
 |---|---|---|
-| Codebase/dependency meta-graph | **3D** (flagship) | Track B Phase 1's already-researched GPU-accelerated force-directed graph (Cosmograph-equivalent in Tauri/Three.js); pulled into v1 by this brainstorm. |
+| Runtime-flow meta-graph / nexus modules | **3D** (flagship) | A persistent navigable world that explains runtime flow and makes nexus modules—concentrated responsibility, coupling, or traffic—legible. Save layout, camera, filters, selection, and linked Investigations (D54, D55). |
 | Flame graph / call stack | 2D primary, 3D optional | Mature 2D prior art (300+ implementations industry-wide); a 3D variant is genuinely novel — don't let it block the 2D version shipping. |
-| Benchmark A/B / trend-over-time | 2D primary, 3D surface for multi-run patterns | 2D per-comparison (the already-shipped `CoherenceV2Tab`-style A/B) stays; 3D adds value specifically for spotting patterns *across many runs at once*. |
+| Benchmark A/B / trend-over-time | Precise 2D inspection first; 3D surface for multi-run patterns | Trustworthy per-image/result inspection comes first; comparative analytics and 3D add value for patterns *across many runs at once* only after that foundation (D57). |
 | Memory/RSS timeline | 2D primary, 3D if a second dimension is worth encoding | e.g. per-thread or per-category memory bands as depth — only if that reads better than small-multiples 2D. |
-| 4D spike | 3D + animated/scrubbed time | One concrete candidate view only (D44) — meta-graph evolving across commits, or a benchmark run's stage timings animating through the pipeline. Not a blocking deliverable. |
+| 4D spike | 3D + animated/scrubbed time | Both candidates are approved—meta-graph evolving across commits and a benchmark run's stage timings—but sequence exactly one after its parent 3D view proves useful. Not a blocking deliverable (D56). |
 
 ### Cross-agent review round (requested on the bus, 2026-08-18)
 
@@ -277,18 +309,21 @@ Same process as v1's original fold: propose → cross-review → Harbinger
 signs off → implementation starts. Suggested review lenses, not rigid
 assignments:
 
-- **Feasibility / packaging** (D42, D47c): Tauri app structure, how a
-  standalone installable build actually gets produced and versioned, how
-  a consuming repo points the tool at itself.
+- **Feasibility / Linux delivery** (D42, D50, D61): Tauri app structure,
+  the Linux package/release format, and how a consuming repository acquires
+  the app and selects its single monitored workspace.
 - **Portability of the plugin API** (D42): what changes in the current
   Python plugin protocol (`Plugin`/`PluginManifest`/`Artifact`/`Channel`/
   `Surface` in `host/plugins.py`) to make it genuinely repo-agnostic, and
   what a plugin author in a *different* repo would need to write one.
-- **3D/4D visual + interaction design** (D43/D44/D45): concrete view
-  layouts, what "cross-view linking" and "in-app annotation" look like in
-  a Tauri/React shell, and the 4D spike's actual candidate view.
-- **TUI/MCP fate** (D47a/b): whether the TUI becomes an embedded panel,
-  a fallback surface, or retires; confirm MCP is unaffected.
+- **Sidecar/protocol portability** (D51, D52): versioned RPC boundary,
+  lifecycle/failure handling, and a minimal non-Python adapter proof.
+- **3D/4D visual + interaction design** (D43–D45, D54–D59): concrete
+  runtime-flow/nexus layouts, persistent-world behavior, visibly distinct
+  human/agent annotations, and which approved 4D candidate should run first.
+- **TUI/MCP parity** (D48, D49): define the shared evidence contract and
+  the deliberate capability differences between the primary GUI, SSH TUI,
+  and standalone MCP service.
 
 Post proposals as dated subsections under [Team Review Notes](#team-review-notes)
 below, same convention as the v1 rounds. Nobody starts wide implementation
@@ -1750,6 +1785,25 @@ a new `Development Tool` milestone and added to the
 (#159–177, #371, #372) and #375 (D1's runner-integration motivating case)
 move there from the Image-Toolkit project board (#12), since the roadmap
 that spawned them is now this file's Track B.
+
+### Chat/Codex — 2026-08-18 (v2 product-design resolution)
+
+Recorded Harbinger's resolution of the v2 shell questions as D48–D61.
+The product is a Linux-first Tauri daily driver with a Python sidecar and
+a language-neutral process protocol. The existing TUI remains an actual
+lightweight/SSH fallback; MCP remains a standalone evidence service. Each
+workspace discovers candidates within user-set depth **N**, then monitors
+one explicitly selected repository.
+
+The flagship visual is now a persistent, navigable runtime-flow world that
+makes nexus modules legible. Benchmark work begins with exact image/result
+inspection before comparative analytics. Human and agent annotations are
+visibly distinct and durable. Both 4D candidates remain approved, but one
+must be selected and tested only after its parent 3D view is useful.
+
+The remaining design work is intentionally technical rather than product
+ambiguous: validate the Linux distribution format, specify the sidecar RPC
+lifecycle, and select the first bounded 4D spike through the review round.
 
 ### (peers append below)
 
