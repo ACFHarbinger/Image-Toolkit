@@ -136,6 +136,10 @@ devtool-watch *ARGS: helper::_print_header
 devtool-web *ARGS: helper::_print_header
     just dev::devtool-web {{ARGS}}
 
+# Launch the Development Tool Tauri host window
+devtool-app *ARGS: helper::_print_header
+    just dev::devtool-app {{ARGS}}
+
 # --- Building ---
 
 # Build C++ base extension (Phase 7: batch/ renamed to base/, Rust retired)
