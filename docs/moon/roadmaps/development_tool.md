@@ -6,18 +6,21 @@ across Image-Toolkit and other repos.*
 
 **Status:** v1 (Python/PySide6-plugin-CLI shape) **Locked and shipped**
 (2026-08-17, D1–D40). **v2 (Tauri rewrite, multi-repo, 2D/3D/4D
-visualization) brainstormed with Harbinger 2026-08-18 (D41–D47) — open for
-the team's cross-review pass before implementation starts.** See the new
+visualization) is signed off (2026-08-18, D41–D64) — cross-review is
+complete and implementation may begin.** See the new
 [Development Tool v2](#development-tool-v2-2026-08-18)
 section below for full scope; v1's sections stay as history/reference, not
 superseded wholesale — most of v1's plugin *content* (ASP evaluator,
 benchmarks, telemetry model) carries forward per D42, only the shell/host
 is being rewritten.
 **Product lead:** Harbinger.  
-**This pass:** Grok (feasibility + product fold), Chat/Codex (D24-D37
-product-design pass), Claude (D38-D39 close-out + GitHub issue/project
-creation; D41-D47 v2 brainstorm). Prior authors of folded docs: deepseek (debug data engine),
-Gemini (TUI), plus the analytics / glossary authors.
+**This pass:** Grok (feasibility + product fold, delivery/sidecar locks),
+Chat/Codex (D24-D37 product-design pass, v2 product-design resolution),
+deepseek (v2 plugin-API portability), Gemini (v2 3D/4D visual design),
+Claude (D38-D39 close-out + GitHub issue/project creation; D41-D47 v2
+brainstorm; D62-D64 final sign-off + roadmap consolidation). Prior authors
+of folded docs: deepseek (debug data engine), Gemini (TUI), plus the
+analytics / glossary authors.
 
 This file **replaces** and folds:
 
@@ -52,6 +55,7 @@ subsection under [Team review notes](#team-review-notes).
 - [Implementation Status](#implementation-status)
 - [Open Questions for Team Review](#open-questions-for-team-review)
 - [Team Review Notes](#team-review-notes)
+- [v2 Final Sign-off (2026-08-18)](#v2-final-sign-off-2026-08-18)
 - [Effort × Impact Matrix](#effort--impact-matrix)
 - [Anchor Index](#anchor-index)
 
@@ -242,6 +246,9 @@ deepseek / Gemini / analytics locks that still hold, plus the
 | D59 | **Aesthetic: mission control** (2026-08-18, Harbinger) | Retain and deepen D34's mission-control character: dense but legible, keyboard-oriented, evidence-forward, and clear under incident pressure. |
 | D60 | **Workspace scope: one repository** (2026-08-18, Harbinger) | A workspace monitors exactly one selected repository in v2. Cross-repository portfolio/correlation views are explicitly deferred. |
 | D61 | **Success bar: daily driver plus research-grade visualization** (2026-08-18, Harbinger) | v2 succeeds only when it is useful for everyday debugging and benchmark work while also supporting credible research-grade visual exploration. Select the exact Linux packaging/release format through a feasibility spike. |
+| D62 | **IT plugin pack ships as crate(s) in this monorepo, not a separate repo** (2026-08-18, Harbinger) | Supersedes Grok's review-note lock #14. `asp_evaluator`, `benchmarks`, `telemetry_workbench`, `editor_integration` become one or more crates/packages inside Image-Toolkit, not a new GitHub repo. Once the devtool host itself becomes its own repo (D63), that host repo carries one branch per consuming repo (e.g. a `dev-image-toolkit` branch holding Image-Toolkit's plugin crate(s)); until then there is nothing to branch, so the pack simply lives here. |
+| D63 | **Devtool host stays in `dev/` until a second consumer repo needs it** (2026-08-18, Harbinger) | The Tauri/Rust core is designed repo-agnostic (D42) but its git history stays inside Image-Toolkit's `dev/` for now — repo-agnostic governs the code's design, not where it currently lives. Spin the host out to its own repo only when a real second consuming repo shows up wanting it; D62's per-repo-branch plugin model activates at that point. |
+| D64 | **Name stays "Development Tool" / devtool** (2026-08-18, Harbinger) | Reaffirms D25 through the v2 pivot. The shell and reach are changing (Tauri, multi-repo), not the product's identity; no rebrand. |
 
 ---
 
@@ -2072,6 +2079,35 @@ anyone starts the Tauri host.
 
 ---
 
+## v2 Final Sign-off (2026-08-18)
+
+Cross-review is complete across all four lenses (Chat/Codex product-design,
+deepseek plugin-API portability, Gemini 3D/4D visual design, Grok
+feasibility/delivery). Harbinger reviewed the full set and resolved the
+three remaining open questions:
+
+- **D62** — the IT plugin pack ships as crate(s) in this monorepo, not a
+  separate repo. This **supersedes Grok's lock #14** above (which proposed
+  a separate repo now); Grok's locks #1-13 and #9-13 (second brainstorm)
+  otherwise stand as written and are ratified as binding by this sign-off.
+- **D63** — the devtool host stays in `dev/` here until a second
+  consuming repo actually needs it.
+- **D64** — the product keeps the name "Development Tool" / devtool.
+
+DeepSeek's two originally-open items are both closed: the `command`-entry
+argv contract by Grok's lock #8, and the Record-schema migration timing by
+Grok's lock #9 (first sidecar slice, not a follow-on).
+
+**Implementation may begin.** First slice per Grok's "Updated first-build
+shape": sidecar + Record adapter + `initialize` handshake, `just
+devtool-app` for the window (`just devtool` unchanged), workspace
+`devtool.toml`, and the D52 proof plugin (tiny in-tree Go/Rust `command`
+plugin). Track progress on the [Development
+Tool](https://github.com/users/ACFHarbinger/projects/25/views/1) project
+board.
+
+---
+
 ## Effort × Impact Matrix
 
 | Item | Effort | Impact | When |
@@ -2112,6 +2148,7 @@ anyone starts the Tauri host.
 | C1–C7 | [Track C](#track-c--host-plugins-mcp-local-web) |
 | D1–D5 | [Track D](#track-d--development-assistance-d16) |
 | D16–D40 | [Settled Decisions](#settled-decisions-2026-08-17) |
-| D41–D47 | [Settled Decisions](#settled-decisions-2026-08-17) (v2) |
+| D41–D64 | [Settled Decisions](#settled-decisions-2026-08-17) (v2) |
 | v2 | [Development Tool v2](#development-tool-v2-2026-08-18) |
+| v2 sign-off | [v2 Final Sign-off](#v2-final-sign-off-2026-08-18) |
 | §11.x / §12.x | Historical analytics headings (folded below / in Track B spec) |
