@@ -1,0 +1,28 @@
+{
+  "schema": "devtool.plugin.manifest",
+  "schema_version": 1,
+  "name": "ts_js_parser",
+  "version": "0.1.0",
+  "description": "TypeScript/JavaScript parser/ingestion: extracts interfaces, classes, functions, enums and variables via the TypeScript compiler API; feeds devtool.record-shaped evidence.",
+  "surfaces": [
+    {
+      "name": "cli",
+      "description": "symbol/definition extraction for TS/JS sources over D52 stdio"
+    }
+  ],
+  "channels": [
+    {
+      "key": "source_symbols",
+      "label": "TS/JS symbol extraction records",
+      "default_enabled": true,
+      "retention": "forever"
+    }
+  ],
+  "entry": {
+    "python_module": null,
+    "command": [
+      "node",
+      "dev/plugins/ts_js_parser/parser.js"
+    ]
+  }
+}

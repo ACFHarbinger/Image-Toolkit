@@ -1,0 +1,4 @@
+# build artifacts (D52 command plugin binaries)
+/bin/
+/target/
+/fixture/

@@ -1,0 +1,28 @@
+{
+  "schema": "devtool.plugin.manifest",
+  "schema_version": 1,
+  "name": "py_parser",
+  "version": "0.1.0",
+  "description": "Python source parser/ingestion: extracts functions, classes, imports and module assignments via the stdlib ast module; feeds devtool.record-shaped evidence.",
+  "surfaces": [
+    {
+      "name": "cli",
+      "description": "symbol/definition extraction for Python sources over D52 stdio"
+    }
+  ],
+  "channels": [
+    {
+      "key": "source_symbols",
+      "label": "Python symbol extraction records",
+      "default_enabled": true,
+      "retention": "forever"
+    }
+  ],
+  "entry": {
+    "python_module": null,
+    "command": [
+      ".venv/bin/python",
+      "dev/plugins/py_parser/parser.py"
+    ]
+  }
+}
