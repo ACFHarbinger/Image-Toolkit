@@ -105,7 +105,7 @@ class TestImageCrawlTab:
             patch("gui.src.tabs.web.image_crawler_tab.manager.LogWindow"),
             patch("gui.src.components.dialogs.crawler_selection_dialogs.ManualSelectionDialog") as mock_dialog_class,
             patch("gui.src.tabs.web.image_crawler_tab._crawl_worker.QMessageBox.information"),
-            patch("gui.src.tabs.web.image_crawler_tab._crawl_worker.os.path.exists", return_value=True),
+            patch("gui.src.tabs.web.image_crawler_tab._crawl_worker.os.path.isfile", return_value=True),
             patch("gui.src.tabs.web.image_crawler_tab._crawl_worker.os.remove") as mock_remove,
         ):
             tab = ImageCrawlTab()
@@ -115,12 +115,9 @@ class TestImageCrawlTab:
             # Mock the dialog instance
             mock_dialog = MagicMock()
             mock_dialog.exec.return_value = 1  # Accepted
-            # Mock checkboxes: img1 is kept, img2 is pruned
-            chk1 = MagicMock()
-            chk1.isChecked.return_value = True
-            chk2 = MagicMock()
-            chk2.isChecked.return_value = False
-            mock_dialog.checkboxes = {"/tmp/img1.png": chk1, "/tmp/img2.png": chk2}
+            # img1 is kept, img2 is pruned (dialog API: get_kept/pruned_paths)
+            mock_dialog.get_kept_paths.return_value = ["/tmp/img1.png"]
+            mock_dialog.get_pruned_paths.return_value = ["/tmp/img2.png"]
             mock_dialog_class.return_value = mock_dialog
 
             tab.on_crawl_done(2, "Crawl finished. Downloaded **2** image(s)!")
@@ -139,7 +136,7 @@ class TestImageCrawlTab:
             patch("gui.src.tabs.web.image_crawler_tab.manager.LogWindow"),
             patch("gui.src.components.dialogs.crawler_selection_dialogs.ManualSelectionDialog") as mock_dialog_class,
             patch("gui.src.tabs.web.image_crawler_tab._crawl_worker.QMessageBox.information"),
-            patch("gui.src.tabs.web.image_crawler_tab._crawl_worker.os.path.exists", return_value=True),
+            patch("gui.src.tabs.web.image_crawler_tab._crawl_worker.os.path.isfile", return_value=True),
             patch("gui.src.tabs.web.image_crawler_tab._crawl_worker.os.remove") as mock_remove,
         ):
             tab = ImageCrawlTab()
@@ -166,7 +163,7 @@ class TestImageCrawlTab:
             patch("gui.src.components.dialogs.crawler_selection_dialogs.DeduplicationPruningDialog") as mock_prune_dialog_class,
             patch("gui.src.components.dialogs.crawler_selection_dialogs.run_duplicate_scan", return_value={}),
             patch("gui.src.tabs.web.image_crawler_tab._crawl_worker.QMessageBox.information"),
-            patch("gui.src.tabs.web.image_crawler_tab._crawl_worker.os.path.exists", return_value=True),
+            patch("gui.src.tabs.web.image_crawler_tab._crawl_worker.os.path.isfile", return_value=True),
             patch("gui.src.tabs.web.image_crawler_tab._crawl_worker.os.remove") as mock_remove,
         ):
             tab = ImageCrawlTab()
@@ -206,7 +203,7 @@ class TestImageCrawlTab:
             patch("gui.src.tabs.web.image_crawler_tab.manager.LogWindow"),
             patch("gui.src.components.dialogs.crawler_selection_dialogs.DuplicateConfigDialog") as mock_config_dialog_class,
             patch("gui.src.tabs.web.image_crawler_tab._crawl_worker.QMessageBox.information"),
-            patch("gui.src.tabs.web.image_crawler_tab._crawl_worker.os.path.exists", return_value=True),
+            patch("gui.src.tabs.web.image_crawler_tab._crawl_worker.os.path.isfile", return_value=True),
             patch("gui.src.tabs.web.image_crawler_tab._crawl_worker.os.remove") as mock_remove,
         ):
             tab = ImageCrawlTab()

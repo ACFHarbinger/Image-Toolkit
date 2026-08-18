@@ -327,7 +327,7 @@ class TestExtractorTab:
             mock_player_cls.return_value = mock_player
 
             tab = ExtractorTab()
-            tab.media_player = mock_player # pyrefly: ignore [read-only]
+            tab._media_player = mock_player
 
             # Call cancel_loading, which is triggered during gallery refreshes
             tab.cancel_loading()
@@ -509,7 +509,7 @@ class TestExtractorTab:
             with patch("gui.src.tabs.core.extractor_tab._config_methods.QMessageBox") as mock_box:
                 tab.set_config(config, quiet=True)
                 mock_box.information.assert_not_called()
-                tab.load_media.assert_called_with(str(dummy_video), force=True)
+                tab.load_media.assert_called_with(str(dummy_video), force=True, defer_player=True)
 
 
 class TestListingsTab:
@@ -527,14 +527,14 @@ class TestListingsTab:
     def test_listing_images_subdirectory(self):
         from pathlib import Path
 
-        from gui.src.tabs.core.elements.common.listings_common import LISTING_IMAGES_DIR
+        from gui.src.elements.database.common.listings_common import LISTING_IMAGES_DIR
 
         assert LISTING_IMAGES_DIR is not None
         assert isinstance(LISTING_IMAGES_DIR, Path)
         assert LISTING_IMAGES_DIR.name == "listing-images"
 
     def test_generate_thumbnail_from_file(self, tmp_path):
-        from gui.src.tabs.core.elements.common.listings_common import generate_thumbnail_from_file
+        from gui.src.elements.database.common.listings_common import generate_thumbnail_from_file
 
         # Create a mock image file
         img_src = tmp_path / "test_image.png"

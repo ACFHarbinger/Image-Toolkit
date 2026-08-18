@@ -201,7 +201,9 @@ class TestAbstractClassSingleGallery:
         assert widget.pixmap() is not None
 
     def test_batch_found_load_chunking(self, gallery):
-        paths = [f"image_{i}.jpg" for i in range(10)]
+        # 40 paths -> 2 chunks at the default chunk_size=32; max_in_flight=2
+        # means both chunks dispatch immediately.
+        paths = [f"image_{i}.jpg" for i in range(40)]
         gallery._trigger_batch_found_load(paths)
         assert len(gallery._active_workers) == 2
 
@@ -276,7 +278,9 @@ class TestAbstractClassTwoGalleries:
         assert "a.jpg" in two_galleries.path_to_label_map
 
     def test_batch_found_load_chunking(self, two_galleries):
-        paths = [f"image_{i}.jpg" for i in range(10)]
+        # 40 paths -> 2 chunks at the default chunk_size=32; max_in_flight=2
+        # means both chunks dispatch immediately.
+        paths = [f"image_{i}.jpg" for i in range(40)]
         two_galleries._trigger_batch_found_load(paths)
         assert len(two_galleries._active_workers) == 2
 
