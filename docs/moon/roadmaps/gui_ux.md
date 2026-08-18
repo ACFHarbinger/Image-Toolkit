@@ -368,6 +368,15 @@ Full brainstorm-stage design doc:
 history for what shipped in the smaller original scope; new work happens
 in that doc.
 
+**2026-08-18 (round-1 Q&A, deepseek → Harbinger):** brainstorm refinements
+folded into the design doc — hybrid QSS migration (keep the existing
+$VAR system, generate the 5 core slots now), global background + per-tab
+override, JSON-pack and raw-QSS both first-class theme formats, dynamic
+palette extraction off by default (Theme Studio toggle), density as a
+theme axis, base-theme + overrides model with follow-system switching the
+base, blur off by default (opt-in, adaptive radius + cached layers), and
+desktop-first Phase 1 with the shared token schema designed for reuse.
+
 **Original pain point (for history):** App uses the system Qt palette, producing inconsistent look across platforms. Dark-mode OS settings not reliably respected.
 
 ### Options
