@@ -24,6 +24,7 @@ Architected from Day 1 for multi-modal inputs (single images and multi-frame vid
 | **TRACK 02** | Mathematical Optimization Core (`logic/` + `middleware/jobs/`) | [`docs/moon/roadmaps/02_mathematical_optimization_core.md`](roadmaps/02_mathematical_optimization_core.md) | High | ✅ Completed |
 | **TRACK 03** | Deep Learning & RL Subsystem (`middleware/models/`, `middleware/policies/`, `middleware/jobs/`, `middleware/pipeline/`) | [`docs/moon/roadmaps/03_deep_learning_and_rl_subsystem.md`](roadmaps/03_deep_learning_and_rl_subsystem.md) | High | ✅ Foundation delivered; restoration/RL hardening continues |
 | **TRACK 04** | Middleware Bridge & Dual UI Integration (`gui/` + `frontend/`) | [`docs/moon/roadmaps/04_middleware_and_ui_integration.md`](roadmaps/04_middleware_and_ui_integration.md) | High | ✅ Core delivered · 🔄 host IPC / ownership / flat layout ([HIE #8](https://github.com/ACFHarbinger/Hybrid-Image-Editor/issues/8)) |
+| **TRACK 05** | Video Editing Extension — trim/remove-range/splice slice (`gui/`, main-repo `gui/src/helpers/video/`) | [`docs/moon/roadmaps/05_video_editing_extension.md`](roadmaps/05_video_editing_extension.md) | Med | 📝 Design note only, unimplemented |
 
 ---
 
@@ -33,7 +34,7 @@ Architected from Day 1 for multi-modal inputs (single images and multi-frame vid
 - **Phase 2 (Optimization & Matting):** Exact C++ DP seam routing & convex color harmonization, PSO filter autotuner, BiRefNet alpha matting, and optional deblur/inpainting restoration foundations.
 - **Phase 3 (RL Co-Pilot & Advanced Features):** Interactive Brush RL Retouching Agent, Differential Evolution composition solver, Real-ESRGAN super-resolution, Tauri web UI integration.
 - **Phase 4 (Host pipeline integration — active):** Image-Toolkit re-export ownership, `PipelineSession` in desktop UI, versioned IPC for capabilities/proposals/restoration; residual Tauri command wiring for new IPC methods, a11y pass, package-layout flatten (Claude).
-- **Phase 5 (Video Editing Extension):** Temporal keyframe sequence propagation, SAM-2 tracking, video clip export. *(Earlier drafts labeled this “Phase 4 video.”)*
+- **Phase 5 (Video Editing Extension):** Temporal keyframe sequence propagation, SAM-2 tracking, video clip export. *(Earlier drafts labeled this “Phase 4 video.”)* Trim/remove-range/splice slice scoped in [`docs/moon/roadmaps/05_video_editing_extension.md`](roadmaps/05_video_editing_extension.md) (design note only, unimplemented); SAM-2/keyframe-propagation remain unscoped.
 
 ---
 
