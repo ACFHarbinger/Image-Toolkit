@@ -202,6 +202,41 @@ def cmd_perf(args: Any) -> int:
     return 0
 
 
+def cmd_eval(args: Any) -> int:
+    target = getattr(args, "target", "asp")
+    if target != "asp":
+        print(f"Unknown eval target: {target}. Available: asp", file=sys.stderr)
+        return 1
+
+    host = _host_from_args(args)
+    surface = getattr(args, "surface", "inspector")
+    extra_args = list(getattr(args, "eval_args", []) or [])
+
+    from ..plugins.asp_evaluator import AspEvaluatorPlugin
+
+    if surface == "summary":
+        from rich.console import Console
+
+        artifacts = AspEvaluatorPlugin().artifacts(host.store)
+        if not artifacts:
+            print("No evaluation datasets found.", file=sys.stderr)
+            return 1
+        data = AspEvaluatorPlugin.load_evaluations(artifacts[0].path)
+        summary = AspEvaluatorPlugin.summarize(data)
+        Console().print(AspEvaluatorPlugin.render_summary_table(summary))
+        return 0
+
+    try:
+        return AspEvaluatorPlugin.launch(
+            repo_root=host.store.repo_root,
+            surface=surface,
+            extra_args=extra_args,
+        )
+    except FileNotFoundError as err:
+        print(f"Error launching evaluator: {err}", file=sys.stderr)
+        return 1
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="tool",
@@ -276,6 +311,21 @@ def build_parser() -> argparse.ArgumentParser:
     p_perf.add_argument("--json", action="store_true", help="Output raw profile JSON")
     p_perf.add_argument("--text", action="store_true", help="Output plain text report instead of Rich panel")
 
+    p_eval = sub.add_parser("eval", help="Launch benchmark evaluator or show evaluation metrics (C5)")
+    p_eval.add_argument("target", nargs="?", default="asp", choices=["asp"], help="Evaluation target (default: asp)")
+    p_eval.add_argument(
+        "--surface",
+        choices=["inspector", "summary", "triage", "ingest", "sync"],
+        default="inspector",
+        help="Evaluator surface: native PySide6 inspector GUI, summary table, or triage (default: inspector)",
+    )
+    p_eval.add_argument(
+        "--eval-args",
+        nargs="*",
+        default=[],
+        help="Additional arguments forwarded to evaluator",
+    )
+
     track_a.add_parsers(sub)
     track_d.add_parsers(sub)
     return parser
@@ -297,6 +347,7 @@ COMMANDS = {
     "serve": cmd_serve,
     "search": cmd_search,
     "perf": cmd_perf,
+    "eval": cmd_eval,
     "export": track_a.cmd_export,
     "diff": track_a.cmd_diff,
     "resolve-offset": track_a.cmd_resolve_offset,
@@ -307,3 +358,4 @@ COMMANDS = {
     "test": track_d.cmd_test,
     "app": track_d.cmd_app,
 }
+

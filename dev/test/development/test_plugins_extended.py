@@ -64,6 +64,39 @@ def test_asp_evaluator_artifacts(tmp_path):
     assert artifacts[0].kind == "eval_dataset"
 
 
+def test_asp_evaluator_launch_and_cli(tmp_path, monkeypatch):
+    from unittest.mock import MagicMock
+    import subprocess
+    from tool.cli.parser import build_parser, COMMANDS
+
+    # Create dummy eval_dispatch.py
+    dispatch = tmp_path / "submodules" / "ASP" / "backend" / "src" / "cli" / "eval_dispatch.py"
+    dispatch.parent.mkdir(parents=True)
+    dispatch.write_text("#!/usr/bin/env python3\npass\n")
+
+    # Mock subprocess.run for AspEvaluatorPlugin.launch
+    mock_run = MagicMock(returncode=0)
+    monkeypatch.setattr(subprocess, "run", MagicMock(return_value=mock_run))
+
+    # Test AspEvaluatorPlugin.launch
+    ret = AspEvaluatorPlugin.launch(repo_root=tmp_path, surface="inspector")
+    assert ret == 0
+    assert subprocess.run.called
+    called_cmd = subprocess.run.call_args[0][0]
+    assert "--surface" in called_cmd
+    assert "inspector" in called_cmd
+
+    # Test devtool eval asp CLI dispatch
+    parser = build_parser()
+    args = parser.parse_args(["eval", "asp", "--surface", "summary"])
+    assert args.command == "eval"
+    assert args.surface == "summary"
+
+    ret_cli = COMMANDS["eval"](args)
+    assert ret_cli == 0
+
+
+
 def test_benchmarks_compare_and_render():
     run_a = {
         "metadata": {"timestamp": "2026-08-01T00:00:00"},

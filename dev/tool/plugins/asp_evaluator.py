@@ -168,5 +168,37 @@ class AspEvaluatorPlugin:
             border_style="bright_blue",
         )
 
+    @staticmethod
+    def launch(
+        repo_root: Path | str | None = None,
+        surface: str = "inspector",
+        extra_args: List[str] | None = None,
+    ) -> int:
+        """Launch the native PySide6 ASP evaluator window or CLI dispatch surface."""
+        import os
+        import subprocess
+        import sys
+
+        root = Path(repo_root) if repo_root else Path.cwd()
+        asp_dir = root / "submodules" / "ASP"
+        dispatch_script = asp_dir / "backend" / "src" / "cli" / "eval_dispatch.py"
+
+        if not dispatch_script.exists():
+            raise FileNotFoundError(f"ASP evaluation script not found at {dispatch_script}")
+
+        env = os.environ.copy()
+        pythonpath = env.get("PYTHONPATH", "")
+        paths = [str(root), str(asp_dir)]
+        if pythonpath:
+            paths.append(pythonpath)
+        env["PYTHONPATH"] = os.pathsep.join(paths)
+
+        cmd = [sys.executable, str(dispatch_script), "--surface", surface]
+        if extra_args:
+            cmd.extend(extra_args)
+
+        return subprocess.run(cmd, env=env).returncode
+
 
 plugin = AspEvaluatorPlugin()
+
