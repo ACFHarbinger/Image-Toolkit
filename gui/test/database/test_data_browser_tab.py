@@ -3,8 +3,8 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
-from gui.src.elements.database.data_browser_tab import DataBrowserTab
-from gui.src.elements.database.data_browser_tab._er_view import _TableCardItem
+from gui.src.tabs.database.data_browser_tab import DataBrowserTab
+from gui.src.tabs.database.data_browser_tab._er_view import _TableCardItem
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QGraphicsLineItem, QMessageBox, QWidget
 
@@ -24,7 +24,7 @@ class TestDataBrowserTab:
             "gui.src.helpers.database.library_session.get_library_db",
             return_value=None,
         ), patch(
-            "gui.src.elements.database.data_browser_tab._query.QMessageBox.warning"
+            "gui.src.tabs.database.data_browser_tab._query.QMessageBox.warning"
         ) as mock_warn:
             tab.connect_browser(silent=False)
             mock_warn.assert_called()
@@ -81,7 +81,7 @@ class TestDataBrowserTab:
         tab.browser_repo.query_table.side_effect = ValueError("WHERE clause rejected")
 
         with patch(
-            "gui.src.elements.database.data_browser_tab._query.QMessageBox.warning"
+            "gui.src.tabs.database.data_browser_tab._query.QMessageBox.warning"
         ) as mock_warn:
             tab.where_edit.setText("1=1; DROP TABLE images")
             tab._apply_filter()
@@ -116,10 +116,10 @@ class TestDataBrowserTab:
 
         out_path = tmp_path / "out.csv"
         with patch(
-            "gui.src.elements.database.data_browser_tab._export.QFileDialog.getSaveFileName",
+            "gui.src.tabs.database.data_browser_tab._export.QFileDialog.getSaveFileName",
             return_value=(str(out_path), "CSV Files (*.csv)"),
         ), patch(
-            "gui.src.elements.database.data_browser_tab._export.QMessageBox.information"
+            "gui.src.tabs.database.data_browser_tab._export.QMessageBox.information"
         ):
             tab.export_csv()
 
@@ -135,10 +135,10 @@ class TestDataBrowserTab:
 
         out_path = tmp_path / "out.json"
         with patch(
-            "gui.src.elements.database.data_browser_tab._export.QFileDialog.getSaveFileName",
+            "gui.src.tabs.database.data_browser_tab._export.QFileDialog.getSaveFileName",
             return_value=(str(out_path), "JSON Files (*.json)"),
         ), patch(
-            "gui.src.elements.database.data_browser_tab._export.QMessageBox.information"
+            "gui.src.tabs.database.data_browser_tab._export.QMessageBox.information"
         ):
             tab.export_json()
 
@@ -376,7 +376,7 @@ class TestDataBrowserTabEditMode:
         tab.edit_mode_checkbox.setChecked(True)
 
         with patch(
-            "gui.src.elements.database.data_browser_tab._edit.QMessageBox.question",
+            "gui.src.tabs.database.data_browser_tab._edit.QMessageBox.question",
             return_value=QMessageBox.StandardButton.Yes,
         ):
             tab.data_table.item(0, 1).setText("/renamed.png") # pyrefly: ignore [missing-attribute]
@@ -392,7 +392,7 @@ class TestDataBrowserTabEditMode:
         tab.edit_mode_checkbox.setChecked(True)
 
         with patch(
-            "gui.src.elements.database.data_browser_tab._edit.QMessageBox.question",
+            "gui.src.tabs.database.data_browser_tab._edit.QMessageBox.question",
             return_value=QMessageBox.StandardButton.No,
         ):
             tab.data_table.item(0, 1).setText("/renamed.png") # pyrefly: ignore [missing-attribute]
@@ -406,10 +406,10 @@ class TestDataBrowserTabEditMode:
         tab.browser_repo.update_cell.side_effect = ValueError("nope") # pyrefly: ignore [missing-attribute]
 
         with patch(
-            "gui.src.elements.database.data_browser_tab._edit.QMessageBox.question",
+            "gui.src.tabs.database.data_browser_tab._edit.QMessageBox.question",
             return_value=QMessageBox.StandardButton.Yes,
         ), patch(
-            "gui.src.elements.database.data_browser_tab._edit.QMessageBox.warning"
+            "gui.src.tabs.database.data_browser_tab._edit.QMessageBox.warning"
         ) as mock_warn:
             tab.data_table.item(0, 1).setText("/renamed.png") # pyrefly: ignore [missing-attribute]
             mock_warn.assert_called()

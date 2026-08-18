@@ -8,8 +8,8 @@ itself remains a reusable component).
 from unittest.mock import MagicMock, patch
 
 import pytest
-from gui.src.elements.database.database_tab import DatabaseTab
-from gui.src.elements.database.search_tab import SearchTab
+from gui.src.tabs.database.database_tab import DatabaseTab
+from gui.src.tabs.database.search_tab import SearchTab
 from PySide6.QtCore import Qt
 
 pytestmark = pytest.mark.gui
@@ -77,7 +77,7 @@ class TestSearchImagesWithTag:
     def test_no_selection_warns(self, q_app):
         tab = DatabaseTab()
         with patch(
-            "gui.src.elements.database.database_tab._crud.QMessageBox.warning"
+            "gui.src.tabs.database.database_tab._crud.QMessageBox.warning"
         ) as mock_warn:
             tab.search_images_with_selected_tag()
             mock_warn.assert_called_once()
@@ -92,7 +92,7 @@ class TestSearchImagesWithTag:
         tab.search_tab_ref = None
 
         with patch(
-            "gui.src.elements.database.database_tab._crud.QMessageBox.warning"
+            "gui.src.tabs.database.database_tab._crud.QMessageBox.warning"
         ) as mock_warn:
             tab.search_images_with_selected_tag()
             mock_warn.assert_called_once()
@@ -108,7 +108,7 @@ class TestSearchImagesWithTag:
         tab.search_tab_ref = mock_search_tab
 
         with patch(
-            "gui.src.elements.database.database_tab._crud.QMessageBox.information"
+            "gui.src.tabs.database.database_tab._crud.QMessageBox.information"
         ):
             tab.search_images_with_selected_tag()
 
@@ -119,7 +119,7 @@ class TestSearchListingsWithTag:
     def test_no_selection_warns(self, q_app):
         tab = DatabaseTab()
         with patch(
-            "gui.src.elements.database.database_tab._crud.QMessageBox.warning"
+            "gui.src.tabs.database.database_tab._crud.QMessageBox.warning"
         ) as mock_warn:
             tab.search_listings_with_selected_tag()
             mock_warn.assert_called_once()
@@ -134,7 +134,7 @@ class TestSearchListingsWithTag:
         tab.listings_tab_ref = None
 
         with patch(
-            "gui.src.elements.database.database_tab._crud.QMessageBox.warning"
+            "gui.src.tabs.database.database_tab._crud.QMessageBox.warning"
         ) as mock_warn:
             tab.search_listings_with_selected_tag()
             mock_warn.assert_called_once()
@@ -174,7 +174,7 @@ class TestSearchListingsWithTag:
         tab.main_window_ref = None
 
         with patch(
-            "gui.src.elements.database.database_tab._crud.QMessageBox.information"
+            "gui.src.tabs.database.database_tab._crud.QMessageBox.information"
         ) as mock_info:
             tab.search_listings_with_selected_tag()
             mock_info.assert_called_once()
@@ -189,7 +189,7 @@ class TestSearchTabFilterByGroup:
         tab = SearchTab(mock_db_tab)
 
         with patch(
-            "gui.src.elements.database.search_tab._search_worker.QThreadPool"
+            "gui.src.tabs.database.search_tab._search_worker.QThreadPool"
         ):
             tab.filter_by_group("Voyages")
 
@@ -212,7 +212,7 @@ class TestSearchTabSearchByTag:
         tab._setup_tag_checkboxes()  # populate _all_tags_cache + type list
 
         with patch(
-            "gui.src.elements.database.search_tab._search_worker.QThreadPool"
+            "gui.src.tabs.database.search_tab._search_worker.QThreadPool"
         ):
             tab.search_by_tag("sunset")
 
