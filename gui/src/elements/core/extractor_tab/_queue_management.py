@@ -607,8 +607,11 @@ class _QueueManagementMixin:
             self._add_queue_results_to_gallery(all_paths)
 
         close_dialog = getattr(self, "_close_progress_dialog", None)
+        is_closing = close_dialog is not None or getattr(self, "_close_when_finished", None) is not None
         if close_dialog is not None:
             close_dialog.on_all_finished()
+        elif is_closing:
+            pass  # Suppress popup during deferred close
         elif errors:
             QMessageBox.warning(
                 cast(QWidget, self),
