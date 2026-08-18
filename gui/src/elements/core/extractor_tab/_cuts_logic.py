@@ -160,7 +160,7 @@ class _CutsLogicMixin:
             self.cuts_layout.addWidget(QLabel("Cuts:"))
             for i, (s, e) in enumerate(self.cuts_ms):
                 cut_text = f"[{self._format_time(s)}-{self._format_time(e)}]"
-                from gui.src.tabs.core.labels import _CutLabel
+                from gui.src.elements.core.extractor_tab.labels import _CutLabel
 
                 label = _CutLabel(cut_text, i)
                 label.right_clicked.connect(self.show_cut_context_menu)

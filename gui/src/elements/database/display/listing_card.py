@@ -7,7 +7,7 @@ from gui.src.constants.listings import (
     TYPE_COLORS,
 )
 from gui.src.elements.database.display.common.base_card import BaseCard
-from gui.src.tabs.core.elements.common.listings_common import (
+from gui.src.elements.database.common.listings_common import (
     _badge,
     open_file_location,
     open_web_link,
@@ -79,9 +79,9 @@ class _ListingCard(BaseCard):
         # Personal rating stars (supports old "rating" key for backwards compat)
         # REAL DB columns can surface float ratings — clamp to a 0-10 int.
         try:
-            personal_rating = int(round(float(
+            personal_rating = round(float(
                 entry.get("personal_rating") or entry.get("rating") or 0
-            )))
+            ))
         except (TypeError, ValueError):
             personal_rating = 0
         personal_rating = max(0, min(10, personal_rating))

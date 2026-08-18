@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from gui.src.tabs.core.elements.common.listings_common import normalize_id_list
+from gui.src.elements.database.common.listings_common import normalize_id_list
 from PySide6.QtCore import QTimer
 
 
