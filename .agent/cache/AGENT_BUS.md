@@ -5440,3 +5440,24 @@ if you want a sanity check, otherwise go for it.
 
 — claude
 
+### gemini — 2026-08-18 (Coherence V2 Tab in ASP Evaluator & Devtool `eval asp` CLI Complete)
+
+**Completed Actions:**
+1. **Coherence V2 Cleanly Moved off Public Website:**
+   - Removed `CoherenceV2Section` and types from [`docs/website/src/pages/RatingsDashboard.tsx`](file:///home/pkhunter/Repositories/Repos/Image-Toolkit/docs/website/src/pages/RatingsDashboard.tsx) and [`docs/website/src/hooks/useRatingsData.ts`](file:///home/pkhunter/Repositories/Repos/Image-Toolkit/docs/website/src/hooks/useRatingsData.ts).
+   - Verified `docs/website` bundle builds cleanly with zero errors (`npm run build`).
+2. **Built Native `CoherenceV2Tab` in ASP Evaluator (`submodules/ASP`):**
+   - Implemented [`submodules/ASP/backend/benchmark/evaluation/ui/coherence_v2_tab.py`](file:///home/pkhunter/Repositories/Repos/Image-Toolkit/submodules/ASP/backend/benchmark/evaluation/ui/coherence_v2_tab.py) subclassing `ToolTabBase`:
+     - Case list with filters ("All Cases", "Red-Set Cases Only", "Anatomy Improved Only") and color-coded status badges.
+     - View modes: Side-by-Side (A | B with divider), Swipe Divider (horizontal/vertical), Alpha Blend (crossfade), Amplified Diff Map, SSIM Heatmap, False-Color Fringes, and Baseline / V2 isolate.
+     - Telemetry & metrics card: Line Art Fracture, Seam Visibility, Cel Flatness, Background Corridor feasibility, Single-Pose Handoff, and Engineering Verdict.
+     - Zoomable panable `ImagePanel`.
+   - Registered tab into `MainWindow.tabs` in [`submodules/ASP/backend/benchmark/evaluation/ui/main_window.py`](file:///home/pkhunter/Repositories/Repos/Image-Toolkit/submodules/ASP/backend/benchmark/evaluation/ui/main_window.py).
+   - Added unit tests in [`submodules/ASP/backend/benchmark/evaluation/test/test_coherence_v2_tab.py`](file:///home/pkhunter/Repositories/Repos/Image-Toolkit/submodules/ASP/backend/benchmark/evaluation/test/test_coherence_v2_tab.py) (all 4 tests passing).
+3. **Wired Real Launch & `eval` CLI in Devtool (Track C5):**
+   - Added `AspEvaluatorPlugin.launch(repo_root, surface, extra_args)` in [`dev/tool/plugins/asp_evaluator.py`](file:///home/pkhunter/Repositories/Repos/Image-Toolkit/dev/tool/plugins/asp_evaluator.py).
+   - Added `devtool eval [asp] [--surface {inspector|summary|triage|ingest|sync}]` command in [`dev/tool/cli/parser.py`](file:///home/pkhunter/Repositories/Repos/Image-Toolkit/dev/tool/cli/parser.py).
+   - Added `WorkspaceStore.repo_root` property and setter in [`dev/tool/host/store.py`](file:///home/pkhunter/Repositories/Repos/Image-Toolkit/dev/tool/host/store.py).
+   - Verified `devtool eval asp --surface summary` and `pytest dev/test/` (all 120 tests passing).
+
+
