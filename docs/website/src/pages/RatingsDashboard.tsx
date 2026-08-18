@@ -24,9 +24,6 @@ import {
   type BenchmarkRun,
   type DefectCorrelationMatrix,
   type CorrelationCell,
-  type CoherenceV2ABEval,
-  type CoherenceV2ABCase,
-  type CoherenceV2RedsetSummary,
 } from "../hooks/useRatingsData";
 import "./RatingsDashboard.css";
 
@@ -552,179 +549,6 @@ function DefectCorrelationSection({ matrix }: { matrix: DefectCorrelationMatrix 
   );
 }
 
-/** M3 (#34) Coherence V2 Single-Pose vs. Seam-Loop Compositor A/B Screen */
-function CoherenceV2Section({
-  abEval,
-  redset,
-}: {
-  abEval: CoherenceV2ABEval;
-  redset?: CoherenceV2RedsetSummary | null;
-}) {
-  const [selectedCaseName, setSelectedCaseName] = useState<string>(abEval.cases[0]?.name ?? "asp_test04");
-  const selectedCase = useMemo(
-    () => abEval.cases.find((c) => c.name === selectedCaseName) ?? abEval.cases[0],
-    [abEval, selectedCaseName]
-  );
-  const redsetCase = useMemo(
-    () => redset?.cases?.find((c) => c.name === selectedCaseName),
-    [redset, selectedCaseName]
-  );
-
-  return (
-    <section className="dash-card coherence-ab-card">
-      <div className="card-header-flex">
-        <div>
-          <div className="card-tag">Milestone §M3 / Issue #34 Evaluation Screen</div>
-          <h3 className="card-title">Coherence V2 Single-Pose Compositor A/B Screen</h3>
-          <p className="section-subtitle">
-            Critical Evaluation §9.2 Stage 2: eliminates multi-pose character mixing by assigning each foreground region to exactly one source pose with deterministic corridor &amp; handoff handling.
-          </p>
-        </div>
-        <div className="ab-summary-badges">
-          {redset && (
-            <span className={`prov-chip ${redset.passes_crop_gate ? "tier-emerald" : "tier-rose"}`}>
-              <AlertTriangle size={12} /> {redset.passes_crop_gate ? "Crop Gate: PASS" : `Crop Gate: BLOCKED (${redset.n_crop_loss_increased}/${redset.n} Crop Loss)`}
-            </span>
-          )}
-          <span className="prov-chip tier-emerald">
-            <Sparkles size={12} /> {abEval.summary.improved_anatomy_count} / {abEval.total_evaluated_cases} Anatomy Improved
-          </span>
-          <span className="prov-chip tier-cyan">
-            Line Fracture: -{abEval.summary.avg_line_art_fracture_reduction} pts
-          </span>
-          <span className="prov-chip tier-pending">
-            Handoff Rate: {(abEval.summary.handoff_rate * 100).toFixed(1)}%
-          </span>
-        </div>
-      </div>
-
-      {/* Case Selector Tabs */}
-      <div className="ab-case-selector">
-        <span className="ab-case-label">Structural Red-Set Cases:</span>
-        <div className="ab-case-chips">
-          {abEval.cases.map((c) => (
-            <button
-              key={c.name}
-              type="button"
-              onClick={() => setSelectedCaseName(c.name)}
-              className={`ab-case-chip ${selectedCaseName === c.name ? "active" : ""} ${
-                c.engineering_verdict === "improves_anatomy" ? "improved" : ""
-              }`}
-            >
-              {c.name}
-              {c.engineering_verdict === "improves_anatomy" && (
-                <span className="verdict-dot green" title="Anatomy Improved" />
-              )}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Selected Case Deep-Dive Comparison */}
-      {selectedCase && (
-        <div className="ab-deep-dive">
-          <div className="ab-case-header">
-            <div className="ab-case-title">
-              <span className="case-id">{selectedCase.name}</span>
-              <span className={`case-verdict-badge ${selectedCase.engineering_verdict}`}>
-                {selectedCase.engineering_verdict === "improves_anatomy" ? "✓ Improves Structural Anatomy" : selectedCase.engineering_verdict}
-              </span>
-              <span className="case-target-category">
-                Target Category: <strong>{selectedCase.target_category}</strong>
-              </span>
-            </div>
-            <div className="ab-case-notes">{selectedCase.notes}</div>
-          </div>
-
-          {/* Metrics Comparison Grid */}
-          <div className="ab-metrics-grid">
-            <div className="ab-metric-card">
-              <div className="ab-metric-label">Line Art Fracture Score</div>
-              <div className="ab-metric-values">
-                <div className="val-col">
-                  <span className="val-type">Baseline (Seam-Loop)</span>
-                  <span className="val-num">{selectedCase.metrics_baseline.line_art_fracture?.toFixed(1)}</span>
-                </div>
-                <div className="val-arrow">&rarr;</div>
-                <div className="val-col">
-                  <span className="val-type">Coherence V2</span>
-                  <span className="val-num highlight-green">{selectedCase.metrics_coherence_v2.line_art_fracture?.toFixed(1)}</span>
-                </div>
-              </div>
-              <div className="ab-metric-delta font-mono">
-                Delta: <span className={selectedCase.delta_metrics.line_art_fracture_delta < 0 ? "text-emerald-400" : "text-slate-400"}>
-                  {selectedCase.delta_metrics.line_art_fracture_delta > 0 ? "+" : ""}
-                  {selectedCase.delta_metrics.line_art_fracture_delta}
-                </span> (Ink continuity improved)
-              </div>
-            </div>
-
-            <div className="ab-metric-card">
-              <div className="ab-metric-label">Seam Visibility Score</div>
-              <div className="ab-metric-values">
-                <div className="val-col">
-                  <span className="val-type">Baseline</span>
-                  <span className="val-num">{selectedCase.metrics_baseline.seam_visibility?.toFixed(2)}</span>
-                </div>
-                <div className="val-arrow">&rarr;</div>
-                <div className="val-col">
-                  <span className="val-type">Coherence V2</span>
-                  <span className="val-num">{selectedCase.metrics_coherence_v2.seam_visibility?.toFixed(2)}</span>
-                </div>
-              </div>
-              <div className="ab-metric-delta font-mono">
-                Delta: <span className="text-slate-300">
-                  {selectedCase.delta_metrics.seam_visibility_delta > 0 ? "+" : ""}
-                  {selectedCase.delta_metrics.seam_visibility_delta}
-                </span>
-              </div>
-            </div>
-
-            <div className="ab-metric-card">
-              <div className="ab-metric-label">Cel Flatness Variance</div>
-              <div className="ab-metric-values">
-                <div className="val-col">
-                  <span className="val-type">Baseline</span>
-                  <span className="val-num">{selectedCase.metrics_baseline.cel_flatness?.toFixed(2)}</span>
-                </div>
-                <div className="val-arrow">&rarr;</div>
-                <div className="val-col">
-                  <span className="val-type">Coherence V2</span>
-                  <span className="val-num">{selectedCase.metrics_coherence_v2.cel_flatness?.toFixed(2)}</span>
-                </div>
-              </div>
-              <div className="ab-metric-delta font-mono">
-                Delta: <span className="text-slate-300">
-                  {selectedCase.delta_metrics.cel_flatness_delta > 0 ? "+" : ""}
-                  {selectedCase.delta_metrics.cel_flatness_delta}
-                </span>
-              </div>
-            </div>
-
-            <div className="ab-metric-card">
-              <div className="ab-metric-label">Corridor &amp; Handoff Telemetry</div>
-              <div className="ab-telemetry-body">
-                <div className="telemetry-row">
-                  <span>Background Corridor:</span>
-                  <strong className={selectedCase.has_background_corridor ? "text-emerald-400" : "text-amber-400"}>
-                    {selectedCase.has_background_corridor ? "Feasible 4-Connected Path" : "Obstructed (All-Foreground)"}
-                  </strong>
-                </div>
-                <div className="telemetry-row">
-                  <span>Single-Pose Handoff:</span>
-                  <strong className={selectedCase.handoff_occurred ? "text-cyan-400" : "text-slate-400"}>
-                    {selectedCase.handoff_occurred ? "Active (Infinite Cost Avoided)" : "Not Required"}
-                  </strong>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </section>
-  );
-}
-
 export default function RatingsDashboard() {
   const {
     loading,
@@ -734,8 +558,7 @@ export default function RatingsDashboard() {
     m0Data,
     defectCorrelation,
     benchmarkSubsets,
-    coherenceV2Eval,
-    coherenceV2Redset,
+    meta,
   } = useRatingsData();
   const defectCounts = useDefectCounts(humanRatings?.evaluations);
 
@@ -1035,11 +858,6 @@ export default function RatingsDashboard() {
       {/* M2.5a (#32) Per-Defect & Stage-Attributed Correlation Matrix */}
       {defectCorrelation && (
         <DefectCorrelationSection matrix={defectCorrelation} />
-      )}
-
-      {/* M3 (#34) Coherence V2 Single-Pose vs. Seam-Loop Compositor A/B Screen */}
-      {coherenceV2Eval && (
-        <CoherenceV2Section abEval={coherenceV2Eval} redset={coherenceV2Redset} />
       )}
 
       {/* Main Interactive Evaluations Table */}

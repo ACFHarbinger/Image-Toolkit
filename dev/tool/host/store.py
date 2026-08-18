@@ -38,6 +38,19 @@ class WorkspaceStore:
 
     def __post_init__(self) -> None:
         self.root = Path(self.root) if self.root is not None else default_workspace_root()
+
+    @property
+    def repo_root(self) -> Path:
+        """Top-level repository root directory."""
+        if getattr(self, "_repo_root", None) is not None:
+            return self._repo_root
+        if self.root:
+            return self.root.parents[1]
+        return Path.cwd()
+
+    @repo_root.setter
+    def repo_root(self, value: Path | str | None) -> None:
+        self._repo_root = Path(value) if value is not None else None
         self.telemetry_dir = Path(self.telemetry_dir) if self.telemetry_dir else None
 
     # ------------------------------------------------------------------
