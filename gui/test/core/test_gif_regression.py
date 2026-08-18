@@ -27,11 +27,11 @@ def _make_real_video(tmp_path):
 
 
 def _make_tab(tmp_path):
-    from gui.src.elements.core.extractor_tab import ExtractorTab
+    from gui.src.tabs.core.extractor_tab import ExtractorTab
 
     with (
-        patch("gui.src.elements.core.extractor_tab._media_player.QMediaPlayer"),
-        patch("gui.src.elements.core.extractor_tab._media_player.QAudioOutput"),
+        patch("gui.src.tabs.core.extractor_tab._media_player.QMediaPlayer"),
+        patch("gui.src.tabs.core.extractor_tab._media_player.QAudioOutput"),
     ):
         tab = ExtractorTab()
     mock_player = MagicMock()
@@ -61,7 +61,7 @@ class TestGifRegression:
 
         # Monkeypatch the modal success dialog so the test doesn't block
         with patch(
-            "gui.src.elements.core.extractor_tab._extraction_workers.QMessageBox.information"
+            "gui.src.tabs.core.extractor_tab._extraction_workers.QMessageBox.information"
         ):
             tab.extract_range_as_gif()
             deadline = time.time() + 20
@@ -87,7 +87,7 @@ class TestGifRegression:
         tab.cuts_ms = []
 
         with patch(
-            "gui.src.elements.core.extractor_tab._queue_management.QMessageBox.information"
+            "gui.src.tabs.core.extractor_tab._queue_management.QMessageBox.information"
         ):
             tab._run_gif_extraction(0, 3000)
             assert len(tab.extraction_queue) == 1

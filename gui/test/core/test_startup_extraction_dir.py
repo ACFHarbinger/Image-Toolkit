@@ -32,11 +32,11 @@ class _Harness:
 
 class TestStartupExtractionDir:
     def _make_tab(self, tmp_path):
-        from gui.src.elements.core.extractor_tab import ExtractorTab
+        from gui.src.tabs.core.extractor_tab import ExtractorTab
 
         with (
-            patch("gui.src.elements.core.extractor_tab._media_player.QMediaPlayer"),
-            patch("gui.src.elements.core.extractor_tab._media_player.QAudioOutput"),
+            patch("gui.src.tabs.core.extractor_tab._media_player.QMediaPlayer"),
+            patch("gui.src.tabs.core.extractor_tab._media_player.QAudioOutput"),
         ):
             tab = ExtractorTab()
         return tab

@@ -57,7 +57,7 @@ class TestMarkStopped:
 class TestStartupLiveness:
     def test_stale_flag_does_not_restore_active_monitor(self, tmp_path, monkeypatch):
         from backend.src.utils.display import monitor_slideshow_daemon as daemon
-        from gui.src.elements.core.wallpaper_tab.monitor_display_subtab._slideshow_daemon import (
+        from gui.src.tabs.core.wallpaper_tab.monitor_display_subtab._slideshow_daemon import (
             _SlideshowDaemonMixin,
         )
 
@@ -65,7 +65,7 @@ class TestStartupLiveness:
         path.write_text(json.dumps({"running": True, "monitor_id": "3", "pid": 2**22}))
         monkeypatch.setattr(daemon, "MONITOR_SLIDESHOW_DAEMON_CONFIG_PATH", path)
         monkeypatch.setattr(
-            "gui.src.elements.core.wallpaper_tab.monitor_display_subtab._slideshow_daemon.MONITOR_SLIDESHOW_DAEMON_CONFIG_PATH",
+            "gui.src.tabs.core.wallpaper_tab.monitor_display_subtab._slideshow_daemon.MONITOR_SLIDESHOW_DAEMON_CONFIG_PATH",
             path,
         )
 
@@ -88,7 +88,7 @@ class TestStartupLiveness:
 
     def test_live_pid_restores_monitor(self, tmp_path, monkeypatch):
         from backend.src.utils.display import monitor_slideshow_daemon as daemon
-        from gui.src.elements.core.wallpaper_tab.monitor_display_subtab._slideshow_daemon import (
+        from gui.src.tabs.core.wallpaper_tab.monitor_display_subtab._slideshow_daemon import (
             _SlideshowDaemonMixin,
         )
 
@@ -98,7 +98,7 @@ class TestStartupLiveness:
         )
         monkeypatch.setattr(daemon, "MONITOR_SLIDESHOW_DAEMON_CONFIG_PATH", path)
         monkeypatch.setattr(
-            "gui.src.elements.core.wallpaper_tab.monitor_display_subtab._slideshow_daemon.MONITOR_SLIDESHOW_DAEMON_CONFIG_PATH",
+            "gui.src.tabs.core.wallpaper_tab.monitor_display_subtab._slideshow_daemon.MONITOR_SLIDESHOW_DAEMON_CONFIG_PATH",
             path,
         )
 

@@ -41,7 +41,7 @@ class TestGalleryDedicatedPool:
     waitForDone(-1) freeze)."""
 
     def _make_gallery(self):
-        from gui.src.elements.core.wallpaper_tab.common.wallpaper_common_base import (
+        from gui.src.tabs.core.wallpaper_tab.common.wallpaper_common_base import (
             WallpaperCommonBase,
         )
         from PySide6.QtWidgets import QGridLayout, QScrollArea, QWidget
@@ -91,11 +91,11 @@ class TestPlaybackSpeedDeferral:
     session recovery via combo_player_speed.setCurrentIndex)."""
 
     def _make_tab(self, tmp_path):
-        from gui.src.elements.core.extractor_tab import ExtractorTab
+        from gui.src.tabs.core.extractor_tab import ExtractorTab
 
         with (
-            patch("gui.src.elements.core.extractor_tab._media_player.QMediaPlayer"),
-            patch("gui.src.elements.core.extractor_tab._media_player.QAudioOutput"),
+            patch("gui.src.tabs.core.extractor_tab._media_player.QMediaPlayer"),
+            patch("gui.src.tabs.core.extractor_tab._media_player.QAudioOutput"),
         ):
             return ExtractorTab()
 
@@ -107,11 +107,11 @@ class TestPlaybackSpeedDeferral:
 
     def test_media_player_property_applies_pending_rate(self, q_app, tmp_path):
         import gui.src.helpers.video.video_thumbnailer as vt
-        from gui.src.elements.core.extractor_tab import ExtractorTab
+        from gui.src.tabs.core.extractor_tab import ExtractorTab
 
         with (
-            patch("gui.src.elements.core.extractor_tab._media_player.QMediaPlayer"),
-            patch("gui.src.elements.core.extractor_tab._media_player.QAudioOutput"),
+            patch("gui.src.tabs.core.extractor_tab._media_player.QMediaPlayer"),
+            patch("gui.src.tabs.core.extractor_tab._media_player.QAudioOutput"),
         ):
             tab = ExtractorTab()
             tab.update_playback_speed("1.5x")
@@ -127,11 +127,11 @@ class TestPlaybackSpeedDeferral:
 
     def test_media_player_property_does_not_construct_audio_output(self, q_app, tmp_path):
         import gui.src.helpers.video.video_thumbnailer as vt
-        from gui.src.elements.core.extractor_tab import ExtractorTab
+        from gui.src.tabs.core.extractor_tab import ExtractorTab
 
         with (
-            patch("gui.src.elements.core.extractor_tab._media_player.QMediaPlayer"),
-            patch("gui.src.elements.core.extractor_tab._media_player.QAudioOutput"),
+            patch("gui.src.tabs.core.extractor_tab._media_player.QMediaPlayer"),
+            patch("gui.src.tabs.core.extractor_tab._media_player.QAudioOutput"),
         ):
             tab = ExtractorTab()
             try:
@@ -159,11 +159,11 @@ class TestPlaybackSpeedDeferral:
 
     def test_media_player_property_applies_pending_position(self, q_app, tmp_path):
         import gui.src.helpers.video.video_thumbnailer as vt
-        from gui.src.elements.core.extractor_tab import ExtractorTab
+        from gui.src.tabs.core.extractor_tab import ExtractorTab
 
         with (
-            patch("gui.src.elements.core.extractor_tab._media_player.QMediaPlayer"),
-            patch("gui.src.elements.core.extractor_tab._media_player.QAudioOutput"),
+            patch("gui.src.tabs.core.extractor_tab._media_player.QMediaPlayer"),
+            patch("gui.src.tabs.core.extractor_tab._media_player.QAudioOutput"),
         ):
             tab = ExtractorTab()
             tab._pending_media_position = 9_000
@@ -179,13 +179,13 @@ class TestLoadMediaDefer:
     player; the first player interaction completes the load."""
 
     def _make_tab(self, tmp_path):
-        from gui.src.elements.core.extractor_tab import ExtractorTab
+        from gui.src.tabs.core.extractor_tab import ExtractorTab
 
         video_path = tmp_path / "episode.mp4"
         video_path.write_text("dummy")
         with (
-            patch("gui.src.elements.core.extractor_tab._media_player.QMediaPlayer"),
-            patch("gui.src.elements.core.extractor_tab._media_player.QAudioOutput"),
+            patch("gui.src.tabs.core.extractor_tab._media_player.QMediaPlayer"),
+            patch("gui.src.tabs.core.extractor_tab._media_player.QAudioOutput"),
         ):
             tab = ExtractorTab()
         tab._media_player = MagicMock()

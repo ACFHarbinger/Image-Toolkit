@@ -18,14 +18,14 @@ pytestmark = pytest.mark.gui
 
 class TestExtractorTabExternalPlayer:
     def _make_tab(self, tmp_path):
-        from gui.src.elements.core.extractor_tab import ExtractorTab
+        from gui.src.tabs.core.extractor_tab import ExtractorTab
 
         video_path = tmp_path / "episode.mp4"
         video_path.write_text("dummy")
 
         with (
-            patch("gui.src.elements.core.extractor_tab._media_player.QMediaPlayer"),
-            patch("gui.src.elements.core.extractor_tab._media_player.QAudioOutput"),
+            patch("gui.src.tabs.core.extractor_tab._media_player.QMediaPlayer"),
+            patch("gui.src.tabs.core.extractor_tab._media_player.QAudioOutput"),
         ):
             tab = ExtractorTab()
         mock_player = MagicMock()
@@ -42,15 +42,15 @@ class TestExtractorTabExternalPlayer:
         """Patch the Linux launch path; yields the mocked subprocess.Popen."""
         with (
             patch(
-                "gui.src.elements.core.extractor_tab._view_controls.platform.system",
+                "gui.src.tabs.core.extractor_tab._view_controls.platform.system",
                 return_value="Linux",
             ),
             patch(
-                "gui.src.elements.core.extractor_tab._view_controls.shutil.which",
+                "gui.src.tabs.core.extractor_tab._view_controls.shutil.which",
                 return_value=which_result,
             ),
             patch(
-                "gui.src.elements.core.extractor_tab._view_controls.subprocess.Popen"
+                "gui.src.tabs.core.extractor_tab._view_controls.subprocess.Popen"
             ) as mock_popen,
         ):
             yield mock_popen
@@ -116,15 +116,15 @@ class TestExtractorTabExternalPlayer:
 
         with (
             patch(
-                "gui.src.elements.core.extractor_tab._view_controls.platform.system",
+                "gui.src.tabs.core.extractor_tab._view_controls.platform.system",
                 return_value="Linux",
             ),
             patch(
-                "gui.src.elements.core.extractor_tab._view_controls.shutil.which",
+                "gui.src.tabs.core.extractor_tab._view_controls.shutil.which",
                 side_effect=fake_which,
             ),
             patch(
-                "gui.src.elements.core.extractor_tab._view_controls.subprocess.Popen"
+                "gui.src.tabs.core.extractor_tab._view_controls.subprocess.Popen"
             ) as mock_popen,
         ):
             tab.toggle_player_mode()

@@ -7,7 +7,7 @@ from unittest.mock import MagicMock
 from gui.src.components.dialogs.extraction_close_progress_dialog import (
     TaskCloseProgressDialog,
 )
-from gui.src.elements.core.extractor_tab._queue_management import (
+from gui.src.tabs.core.extractor_tab._queue_management import (
     _QueueManagementMixin,
 )
 
