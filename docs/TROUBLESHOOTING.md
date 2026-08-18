@@ -838,6 +838,20 @@ sqlx migrate run
 sudo apt install libwebkit2gtk-4.1-dev
 ```
 
+### Tauri window shows "WebKit encountered an internal error"
+
+NVIDIA (proprietary driver) + Wayland: WebKitGTK's DMA-BUF renderer path
+isn't supported by the NVIDIA driver, so the webview fails to render
+anything and shows this error instead of the app. Disable that renderer:
+
+```bash
+WEBKIT_DISABLE_DMABUF_RENDERER=1 cargo tauri dev
+```
+
+`just devtool-app` (`tools/dev/justfile`) already sets this. If the main
+GUI (`just dev`, `frontend/src-tauri`) hits the same error, export the
+variable before running `npm run dev`, or add it to that recipe too.
+
 ### `Cannot find module 'react-dom/client'`
 
 ```bash
