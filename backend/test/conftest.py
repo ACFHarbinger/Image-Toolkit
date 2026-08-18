@@ -60,16 +60,6 @@ def _restore_real_backend_packages() -> None:
             del sys.modules[name]
     del sys.modules["_devtool_mocked_backend_models"]
 
-    # The gui conftest also mocks cv2 / torch.hub / diffusers to keep gui
-    # imports light; backend tests use the real cv2 (e.g. cv2.imread in the
-    # model wrappers' structural tests), so restore those too.
-    from unittest.mock import MagicMock as _MagicMock
-
-    for name in ("cv2", "torch.hub", "diffusers"):
-        mod = sys.modules.get(name)
-        if mod is not None and isinstance(mod, _MagicMock):
-            del sys.modules[name]
-
     for pkg in (
         "backend.src.models",
         "backend.src.models.core",
@@ -90,6 +80,17 @@ def _restore_real_models():
     the gui conftest's heavy-import mocks loaded into the same pytest
     process (#375). Runs after collection, before any backend test."""
     _restore_real_backend_packages()
+
+    # Backend tests need the real cv2 (model wrappers' structural tests do
+    # cv2.imread); the gui conftest mocks cv2 globally. Restore it here --
+    # in the backend-scoped fixture only, so gui tests (which need the
+    # mock) are unaffected (#375).
+    from unittest.mock import MagicMock as _MagicMock
+
+    for name in ("cv2", "torch.hub", "diffusers"):
+        mod = sys.modules.get(name)
+        if mod is not None and isinstance(mod, _MagicMock):
+            del sys.modules[name]
     yield
 
 
