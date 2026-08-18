@@ -300,7 +300,9 @@ class TestMainWindowSaveTabConfig:
             def collect(self):
                 return {"some_key": "some_value"}
 
-        window._save_tab_config_to_vault(_FakeTab(), "my_profile")
+        with patch.object(QMessageBox, "information") as mock_info:
+            window._save_tab_config_to_vault(_FakeTab(), "my_profile")
+            mock_info.assert_called_once()
 
         saved = vault.saved_data
         assert saved is not None
