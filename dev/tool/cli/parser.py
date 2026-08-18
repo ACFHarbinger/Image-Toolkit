@@ -278,6 +278,19 @@ def cmd_eval(args: Any) -> int:
         return 1
 
 
+def cmd_wallpaper(args: Any) -> int:
+    clip = args.clip
+    aspect = getattr(args, "aspect", "16:9")
+    quality = getattr(args, "quality", "balanced")
+    estimate = getattr(args, "estimate", False)
+    print(f"clip={clip} aspect={aspect} quality={quality} estimate={estimate}")
+    print(
+        "wallpaper orchestrator not yet implemented — see Image-Toolkit issue #430",
+        file=sys.stderr,
+    )
+    return 2
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="tool",
@@ -385,6 +398,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Additional arguments forwarded to evaluator",
     )
 
+    p_wallpaper = sub.add_parser("wallpaper", help="Generate a wallpaper from a video clip via ASP Hero-Cel compositing (#430)")
+    p_wallpaper.add_argument("clip", help="Path to the source video clip")
+    p_wallpaper.add_argument("--aspect", choices=["16:9", "9:16", "21:9"], default="16:9", help="Target output aspect ratio (default: 16:9)")
+    p_wallpaper.add_argument("--quality", choices=["fast", "balanced", "max"], default="balanced", help="Quality/speed tradeoff (default: balanced)")
+    p_wallpaper.add_argument("--estimate", action="store_true", help="Print a predicted wall-clock estimate and exit, without running the pipeline")
+
     track_a.add_parsers(sub)
     track_d.add_parsers(sub)
     return parser
@@ -409,6 +428,7 @@ COMMANDS = {
     "search": cmd_search,
     "perf": cmd_perf,
     "eval": cmd_eval,
+    "wallpaper": cmd_wallpaper,
     "export": track_a.cmd_export,
     "diff": track_a.cmd_diff,
     "resolve-offset": track_a.cmd_resolve_offset,
