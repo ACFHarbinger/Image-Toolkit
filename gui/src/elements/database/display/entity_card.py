@@ -7,7 +7,7 @@ from gui.src.constants.listings import (
     ENTITY_TYPE_COLORS,
 )
 from gui.src.elements.database.display.common.base_card import BaseCard
-from gui.src.tabs.core.elements.common.listings_common import (
+from gui.src.elements.database.common.listings_common import (
     _badge,
     open_file_location,
 )

@@ -16,7 +16,7 @@ from PySide6.QtGui import QDesktopServices
 from PySide6.QtPdf import QPdfDocument
 from PySide6.QtWidgets import QLabel
 
-from .....constants.listings import (
+from gui.src.constants.listings import (
     ENTITIES_FILE,  # noqa: F401
     LISTING_IMAGES_DIR,
     LISTINGS_FILE,  # noqa: F401

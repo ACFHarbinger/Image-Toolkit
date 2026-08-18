@@ -9,7 +9,7 @@ from __future__ import annotations
 from gui.src.constants.listings import ENTRY_STATUS, ENTRY_TYPES
 from gui.src.elements.database.display.detail_panel import _DetailPanel
 from gui.src.styles import SHARED_BUTTON_STYLE, apply_shadow_effect
-from gui.src.tabs.core.elements.common.listings_common import _persist_splitter
+from gui.src.elements.database.common.listings_common import _persist_splitter
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (
     QComboBox,

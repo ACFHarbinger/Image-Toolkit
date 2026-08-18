@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from gui.src.tabs.core.elements.common.listings_common import open_file_location, open_web_link
+from gui.src.elements.database.common.listings_common import open_file_location, open_web_link
 from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 
