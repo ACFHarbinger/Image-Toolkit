@@ -89,7 +89,10 @@ devtool-mcp *ARGS:
 # WEBKIT_DISABLE_DMABUF_RENDERER=1: WebKitGTK's DMA-BUF renderer crashes
 # with "WebKit encountered an internal error" on NVIDIA + Wayland (the
 # proprietary driver doesn't support the DMA-BUF path WebKitGTK assumes).
-# See docs/TROUBLESHOOTING.md.
+# LD_LIBRARY_PATH cleared: a leaked snap LD_LIBRARY_PATH (common when the
+# launching terminal is itself snap-confined) shadows system libpthread
+# with a snap core20 copy, crashing WebKitNetworkProcess with a symbol
+# lookup error. See docs/TROUBLESHOOTING.md.
 devtool-app *ARGS:
     @echo "🛠️  Launching Development Tool app (Tauri host)..."
-    cd dev/app/src-tauri && WEBKIT_DISABLE_DMABUF_RENDERER=1 cargo tauri dev {{ARGS}}
+    cd dev/app/src-tauri && WEBKIT_DISABLE_DMABUF_RENDERER=1 LD_LIBRARY_PATH= cargo tauri dev {{ARGS}}

@@ -73,7 +73,9 @@ fn save_world_state(
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let repo_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    // CARGO_MANIFEST_DIR is .../dev/app/src-tauri; the repo root is three
+    // levels up (src-tauri -> app -> dev -> repo root), not two.
+    let repo_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..");
     let sidecar = Arc::new(Mutex::new(sidecar::SidecarHandle::new(
         sidecar::SidecarCommand::for_repo_root(&repo_root),
     )));
