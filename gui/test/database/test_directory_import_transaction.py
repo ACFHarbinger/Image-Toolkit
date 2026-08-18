@@ -8,7 +8,7 @@ media_groups link pre-filled.
 from unittest.mock import MagicMock, patch
 
 import pytest
-from gui.src.elements.database.series_listings_subtab import SeriesListingsSubTab
+from gui.src.tabs.database.series_listings_subtab import SeriesListingsSubTab
 from PySide6.QtWidgets import QDialog
 
 pytestmark = pytest.mark.gui
@@ -36,10 +36,10 @@ class TestDirectoryImportTransaction:
         dlg = MagicMock()
         dlg.exec.return_value = QDialog.DialogCode.Rejected
         with patch(
-            "gui.src.elements.database.series_listings_subtab._directory_import._DirectoryImportDialog",
+            "gui.src.tabs.database.series_listings_subtab._directory_import._DirectoryImportDialog",
             return_value=dlg,
         ), patch(
-            "gui.src.elements.database.series_listings_subtab._directory_import.get_library_db"
+            "gui.src.tabs.database.series_listings_subtab._directory_import.get_library_db"
         ) as mock_get_db:
             tab._on_import_from_directory()
             mock_get_db.assert_not_called()
@@ -48,13 +48,13 @@ class TestDirectoryImportTransaction:
         tab = _make_tab()
         dlg = _mock_dialog(["Show A"], {"Show A": [(1, "/a/ep1.mp4")]})
         with patch(
-            "gui.src.elements.database.series_listings_subtab._directory_import._DirectoryImportDialog",
+            "gui.src.tabs.database.series_listings_subtab._directory_import._DirectoryImportDialog",
             return_value=dlg,
         ), patch(
-            "gui.src.elements.database.series_listings_subtab._directory_import.get_library_db",
+            "gui.src.tabs.database.series_listings_subtab._directory_import.get_library_db",
             return_value=None,
         ), patch(
-            "gui.src.elements.database.series_listings_subtab._directory_import.QMessageBox.warning"
+            "gui.src.tabs.database.series_listings_subtab._directory_import.QMessageBox.warning"
         ) as mock_warn:
             tab._on_import_from_directory()
             mock_warn.assert_called_once()
@@ -72,16 +72,16 @@ class TestDirectoryImportTransaction:
         mock_media_repo = MagicMock()
 
         with patch(
-            "gui.src.elements.database.series_listings_subtab._directory_import._DirectoryImportDialog",
+            "gui.src.tabs.database.series_listings_subtab._directory_import._DirectoryImportDialog",
             return_value=dlg,
         ), patch(
-            "gui.src.elements.database.series_listings_subtab._directory_import.get_library_db",
+            "gui.src.tabs.database.series_listings_subtab._directory_import.get_library_db",
             return_value=mock_raw_db,
         ), patch(
-            "gui.src.elements.database.series_listings_subtab._directory_import.MediaRepo",
+            "gui.src.tabs.database.series_listings_subtab._directory_import.MediaRepo",
             return_value=mock_media_repo,
         ), patch(
-            "gui.src.elements.database.series_listings_subtab._directory_import.QMessageBox.information"
+            "gui.src.tabs.database.series_listings_subtab._directory_import.QMessageBox.information"
         ):
             tab._on_import_from_directory()
 
@@ -101,16 +101,16 @@ class TestDirectoryImportTransaction:
         mock_media_repo = MagicMock()
 
         with patch(
-            "gui.src.elements.database.series_listings_subtab._directory_import._DirectoryImportDialog",
+            "gui.src.tabs.database.series_listings_subtab._directory_import._DirectoryImportDialog",
             return_value=dlg,
         ), patch(
-            "gui.src.elements.database.series_listings_subtab._directory_import.get_library_db",
+            "gui.src.tabs.database.series_listings_subtab._directory_import.get_library_db",
             return_value=mock_raw_db,
         ), patch(
-            "gui.src.elements.database.series_listings_subtab._directory_import.MediaRepo",
+            "gui.src.tabs.database.series_listings_subtab._directory_import.MediaRepo",
             return_value=mock_media_repo,
         ), patch(
-            "gui.src.elements.database.series_listings_subtab._directory_import.QMessageBox.information"
+            "gui.src.tabs.database.series_listings_subtab._directory_import.QMessageBox.information"
         ):
             tab._on_import_from_directory()
 
@@ -128,16 +128,16 @@ class TestDirectoryImportTransaction:
         mock_media_repo.save_media.side_effect = RuntimeError("disk full")
 
         with patch(
-            "gui.src.elements.database.series_listings_subtab._directory_import._DirectoryImportDialog",
+            "gui.src.tabs.database.series_listings_subtab._directory_import._DirectoryImportDialog",
             return_value=dlg,
         ), patch(
-            "gui.src.elements.database.series_listings_subtab._directory_import.get_library_db",
+            "gui.src.tabs.database.series_listings_subtab._directory_import.get_library_db",
             return_value=mock_raw_db,
         ), patch(
-            "gui.src.elements.database.series_listings_subtab._directory_import.MediaRepo",
+            "gui.src.tabs.database.series_listings_subtab._directory_import.MediaRepo",
             return_value=mock_media_repo,
         ), patch(
-            "gui.src.elements.database.series_listings_subtab._directory_import.QMessageBox.critical"
+            "gui.src.tabs.database.series_listings_subtab._directory_import.QMessageBox.critical"
         ) as mock_crit:
             tab._on_import_from_directory()
             mock_crit.assert_called_once()
