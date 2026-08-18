@@ -604,3 +604,25 @@ class TestSettingsWindowShortcuts:
         reg = get_registry()
         assert reg.get_custom_keys("gallery.select_all") == []
 
+
+class TestMinimizeToTraySettings:
+    def test_minimize_to_tray_checkbox_exists(self, q_app):
+        window = SettingsWindow()
+        assert hasattr(window, "minimize_to_tray_check")
+        assert "background tray" in window.minimize_to_tray_check.text().lower()
+
+    def test_app_settings_minimize_to_tray_get_set(self, q_app):
+        from gui.src.windows.settings.app_settings import AppSettings
+
+        AppSettings.set_minimize_to_tray(True)
+        assert AppSettings.minimize_to_tray() is True
+        AppSettings.set_minimize_to_tray(False)
+        assert AppSettings.minimize_to_tray() is False
+
+    def test_reset_settings_unchecks_minimize_to_tray(self, q_app):
+        window = SettingsWindow()
+        window.minimize_to_tray_check.setChecked(True)
+        window.reset_settings()
+        assert window.minimize_to_tray_check.isChecked() is False
+
+
