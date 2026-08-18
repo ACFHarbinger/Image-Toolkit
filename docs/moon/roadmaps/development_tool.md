@@ -1891,6 +1891,52 @@ argv contract (argv = [plugin_command, subcommand]? host speaks a
 devtool.plugin.v1 method set on stdio?), and (2) whether Session migration
 (IT telemetry -> core records) is in-scope now or a follow-on adapter slice.
 
+### gemini — 2026-08-18 (v2 3D/4D visual + interaction design, per D43/D44/D45/D54/D55/D57/D60/D61)
+
+Lens: "3D/4D Visual & Interaction Design" (D43, D44, D45, D54, D55, D57, D60, D61). Brainstormed core design choices directly with Harbinger (all 4 recommendations accepted): Tiered 3D Force-Directed Galaxy topology, Candidate B (Pipeline Execution Scrubbing) for the bounded 4D spike, a collapsible side-drawer evidence workbench with bi-directional Investigation linking, and a hybrid orbit + smart focus camera navigation system.
+
+**1. Flagship 3D Runtime-Flow & Meta-Graph World (Three.js / React Three Fiber in Tauri Shell)**
+
+- **Spatial Topology — Tiered 3D Galaxy:**
+  - Subsystems cluster radially around central nexus nodes using a 3D force-directed layout with repulsive charge between clusters and strong intra-module springs.
+  - **Vertical Y-axis encodes architectural layer:**
+    - Top Layer (`+Y`): UI / Frontend / Tauri Host presentation components.
+    - Middle Layer (`Y = 0`): Python Core, domain models, pipeline orchestrators, and database repositories.
+    - Bottom Layer (`-Y`): C++ high-performance native core, OpenMP/SIMD kernels, and hardware drivers.
+  - **Legibility & Visual Hierarchy (D54):**
+    - Nexus nodes (high in-degree/out-degree hubs) render with distinctive geometric silhouettes, glowing rim shaders, and prominent typography billboards.
+    - Inter-module conduits use cubic Bezier curves with animated photon pulses indicating real-time message volume and latency (green = fast, amber = congested, red = error).
+  - **Dynamic Level-of-Detail (LOD):**
+    - *Macro (Zoomed out):* Subsystems collapse into luminous constellation centroids displaying aggregate health metrics (CPU load, error count, throughput).
+    - *Micro (Zoomed in):* Individual classes, functions, and worker threads expand with live telemetry sparklines.
+
+**2. Camera Controls & Navigation Posture**
+
+- **Hybrid Orbit + Smart Focus:**
+  - Smooth orbital rotation around active points of interest with mouse drag and inertial damping.
+  - `F` (or `Double-Click` node): Smooth cinematic camera interpolation to frame the selected module or dependency cluster.
+  - `1–5` Number Hotkeys: Camera preset jump-points (`1` = Full System Galaxy, `2` = Native C++ Core, `3` = Python Orchestration Layer, `4` = Active Pipeline Flow, `5` = Active Investigation Bookmark).
+  - Search Jump (`Ctrl+K`): Omnibar autocomplete instantly centers the 3D camera on matching symbols or telemetry traces.
+
+**3. Cross-View Evidence Linking & Investigation Workbench (D45, D57)**
+
+- **Collapsible Side-Drawer Inspector:**
+  - Clicking any 3D node/edge docks a responsive full-height inspector drawer on the right without occluding the primary 3D world.
+  - Inspector embeds deep 2D views: flame graph slice for the selected component, latency/memory timeseries, and artifact diff viewers.
+  - **Bi-Directional Highlighting:** Hovering spans in the 2D flame graph or trace table pulses the corresponding 3D node in the world space.
+- **In-App Durable Annotation (D57):**
+  - "Pin to Investigation" button on every 3D entity and 2D chart slice.
+  - Annotation drawer captures: selected entity ID, timestamp, metrics snapshot, and a **3D Camera Bookmark** (position, target, FOV) so clicking an investigation note restores the exact spatial vantage point.
+  - Markdown note editor supports `@` mentions for nodes/sessions and tags human vs. agent provenance badges.
+
+**4. Bounded 4D Time-Scrubbing Spike (D44, D60, D61)**
+
+- **Selected Spike: Candidate B — Pipeline Execution Time Scrubbing:**
+  - *Rationale:* Directly delivers immediate diagnostic value to existing complex pipelines (ASP multi-stage stitching, HIE frame processing) before attempting full git-history multi-week graph evolution.
+  - *Interaction:* A bottom transport bar (Play, Pause, Step-Forward 10ms, Loop, Scrub Slider).
+  - *Visual Flow:* Scrubbing moves time forward: 3D stage nodes illuminate sequentially, data packets stream along conduits, and the side-drawer dynamically renders frame/tensor transforms at that exact microsecond.
+  - *Telemetry Source:* Consumes session span events with `start_ms` and `end_ms` directly from the generic core record schema.
+
 ### (peers append below)
 
 ---
