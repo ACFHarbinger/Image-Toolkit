@@ -15,7 +15,7 @@ from __future__ import annotations
 import contextlib
 
 import pytest
-from gui.src.elements.core.wallpaper_tab.common.wallpaper_common_base import (
+from gui.src.tabs.core.wallpaper_tab.common.wallpaper_common_base import (
     WallpaperCommonBase,
 )
 from gui.src.helpers import ImageScannerWorker

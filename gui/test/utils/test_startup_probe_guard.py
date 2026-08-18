@@ -99,7 +99,7 @@ class TestWallpaperScanDefersDuringSettleWindow:
     is wired into, not just the guard module in isolation."""
 
     def test_populate_scan_defers_a_scanner_thread_start(self, q_app, monkeypatch, tmp_path):
-        from gui.src.elements.core.wallpaper_tab.common import wallpaper_common_base
+        from gui.src.tabs.core.wallpaper_tab.common import wallpaper_common_base
 
         started = []
 
@@ -197,7 +197,7 @@ class TestWallpaperScanDefersDuringSettleWindow:
         scan proceed right away, without waiting out the ceiling at all --
         this is the actual behavior difference from the old flat-timeout
         guard: a fast probe should not force a needless wait."""
-        from gui.src.elements.core.wallpaper_tab.common import wallpaper_common_base
+        from gui.src.tabs.core.wallpaper_tab.common import wallpaper_common_base
 
         started = []
 

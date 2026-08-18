@@ -117,7 +117,7 @@ class _TagsLogicMixin:
             self.tags_layout.addWidget(QLabel("Tags:"))
             for i, (ms, label_text) in enumerate(self.tags_ms):
                 tag_display = f"{label_text} ({self._format_time(ms)})"
-                from gui.src.elements.core.extractor_tab.labels import _TagLabel
+                from gui.src.tabs.core.extractor_tab.labels import _TagLabel
 
                 label = _TagLabel(tag_display, ms, i)
                 label.clicked.connect(self.jump_to_tag_time)

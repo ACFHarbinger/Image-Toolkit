@@ -1,4 +1,4 @@
-from gui.src.tabs.core.elements.common.listings_common import (
+from gui.src.elements.database.common.listings_common import (
     resolve_entity_id_for_mal_name,
 )
 

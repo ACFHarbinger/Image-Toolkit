@@ -12,7 +12,7 @@ pytestmark = pytest.mark.gui
 
 def test_countdown_starts_before_pid_file_exists(q_app, tmp_path, monkeypatch):
     """Start click must show a timer even if the child has not written a pid yet."""
-    from gui.src.elements.core.wallpaper_tab.system_display_subtab._daemon import (
+    from gui.src.tabs.core.wallpaper_tab.system_display_subtab._daemon import (
         _DaemonMixin,
     )
     from PySide6.QtWidgets import QLabel, QWidget
@@ -43,11 +43,11 @@ def test_countdown_starts_before_pid_file_exists(q_app, tmp_path, monkeypatch):
             self.countdown_label.setText(f"Timer: {m:02}:{s:02}")
 
     monkeypatch.setattr(
-        "gui.src.elements.core.wallpaper_tab.system_display_subtab._daemon.DAEMON_CONFIG_PATH",
+        "gui.src.tabs.core.wallpaper_tab.system_display_subtab._daemon.DAEMON_CONFIG_PATH",
         path,
     )
     monkeypatch.setattr(
-        "gui.src.elements.core.wallpaper_tab.system_display_subtab._daemon.PID_PATH",
+        "gui.src.tabs.core.wallpaper_tab.system_display_subtab._daemon.PID_PATH",
         tmp_path / "missing.pid",
     )
     tab = Fake()
@@ -62,7 +62,7 @@ def test_countdown_starts_before_pid_file_exists(q_app, tmp_path, monkeypatch):
 
 
 def test_sync_daemon_config_keeps_locked_queues(q_app, tmp_path, monkeypatch):
-    from gui.src.elements.core.wallpaper_tab.system_display_subtab._daemon import (
+    from gui.src.tabs.core.wallpaper_tab.system_display_subtab._daemon import (
         _DaemonMixin,
     )
 
@@ -100,7 +100,7 @@ def test_sync_daemon_config_keeps_locked_queues(q_app, tmp_path, monkeypatch):
             return True
 
     monkeypatch.setattr(
-        "gui.src.elements.core.wallpaper_tab.system_display_subtab._daemon.DAEMON_CONFIG_PATH",
+        "gui.src.tabs.core.wallpaper_tab.system_display_subtab._daemon.DAEMON_CONFIG_PATH",
         path,
     )
     # pyrefly: ignore [bad-argument-type]
@@ -111,10 +111,10 @@ def test_sync_daemon_config_keeps_locked_queues(q_app, tmp_path, monkeypatch):
 
 
 def test_monitor_set_config_does_not_write_daemon_file(q_app, tmp_path, monkeypatch):
-    from gui.src.elements.core.wallpaper_tab.monitor_display_subtab._serialization import (
+    from gui.src.tabs.core.wallpaper_tab.monitor_display_subtab._serialization import (
         _SerializationMixin,
     )
-    from gui.src.elements.core.wallpaper_tab.monitor_display_subtab._slideshow_daemon import (
+    from gui.src.tabs.core.wallpaper_tab.monitor_display_subtab._slideshow_daemon import (
         _SlideshowDaemonMixin,
     )
 
@@ -131,7 +131,7 @@ def test_monitor_set_config_does_not_write_daemon_file(q_app, tmp_path, monkeypa
             self.monitor_slideshow_queues = {"0": ["/profile.jpg"]}
 
     monkeypatch.setattr(
-        "gui.src.elements.core.wallpaper_tab.monitor_display_subtab._slideshow_daemon.MONITOR_SLIDESHOW_DAEMON_CONFIG_PATH",
+        "gui.src.tabs.core.wallpaper_tab.monitor_display_subtab._slideshow_daemon.MONITOR_SLIDESHOW_DAEMON_CONFIG_PATH",
         path,
     )
     # pyrefly: ignore [bad-argument-type]
@@ -140,7 +140,7 @@ def test_monitor_set_config_does_not_write_daemon_file(q_app, tmp_path, monkeypa
 
 
 def test_start_daemon_slideshow_is_noop_when_live(q_app, tmp_path, monkeypatch):
-    from gui.src.elements.core.wallpaper_tab.monitor_display_subtab._slideshow_daemon import (
+    from gui.src.tabs.core.wallpaper_tab.monitor_display_subtab._slideshow_daemon import (
         _SlideshowDaemonMixin,
     )
 
@@ -157,7 +157,7 @@ def test_start_daemon_slideshow_is_noop_when_live(q_app, tmp_path, monkeypatch):
             self.monitor_slideshow_queues = {"0": ["/new.jpg"]}
 
     monkeypatch.setattr(
-        "gui.src.elements.core.wallpaper_tab.monitor_display_subtab._slideshow_daemon.MONITOR_SLIDESHOW_DAEMON_CONFIG_PATH",
+        "gui.src.tabs.core.wallpaper_tab.monitor_display_subtab._slideshow_daemon.MONITOR_SLIDESHOW_DAEMON_CONFIG_PATH",
         path,
     )
     monkeypatch.setattr(

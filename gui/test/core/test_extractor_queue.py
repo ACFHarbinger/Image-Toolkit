@@ -22,20 +22,20 @@ def _isolate_extraction_history(tmp_path, monkeypatch):
     but _video_session_history binds IMAGE_TOOLKIT_DIR at import time, so the
     extraction-history JSON still points at the real home dir. Route it to the
     per-test tmp dir to keep queue recording tests isolated."""
-    import gui.src.elements.core.extractor_tab._video_session_history as vsh
+    import gui.src.tabs.core.extractor_tab._video_session_history as vsh
 
     monkeypatch.setattr(vsh, "IMAGE_TOOLKIT_DIR", tmp_path)
 
 
 class TestExtractorTabQueue:
     def _make_tab(self, tmp_path):
-        from gui.src.elements.core.extractor_tab import ExtractorTab
+        from gui.src.tabs.core.extractor_tab import ExtractorTab
 
         video_path = tmp_path / "episode.mp4"
         video_path.write_text("dummy")
         with (
-            patch("gui.src.elements.core.extractor_tab._media_player.QMediaPlayer"),
-            patch("gui.src.elements.core.extractor_tab._media_player.QAudioOutput"),
+            patch("gui.src.tabs.core.extractor_tab._media_player.QMediaPlayer"),
+            patch("gui.src.tabs.core.extractor_tab._media_player.QAudioOutput"),
         ):
             tab = ExtractorTab()
         mock_player = MagicMock()
@@ -146,7 +146,7 @@ class TestExtractorTabQueue:
         out_file = tab.extraction_dir / "test_0ms_3000ms.gif"
         out_file.write_text("gif")
 
-        with patch("gui.src.elements.core.extractor_tab._queue_management.QMessageBox"):
+        with patch("gui.src.tabs.core.extractor_tab._queue_management.QMessageBox"):
             tab._on_queue_processing_finished(
                 [{"status": "success", "output_path": str(out_file)}]
             )
@@ -217,7 +217,7 @@ class TestExtractorTabQueue:
         worker = QueueExecutionWorker(list(tab.extraction_queue), parallel=False)
         worker.signals.item_completed.connect(tab._on_queue_item_completed)
         worker.signals.finished.connect(tab._on_queue_processing_finished)
-        with patch("gui.src.elements.core.extractor_tab._queue_management.QMessageBox"):
+        with patch("gui.src.tabs.core.extractor_tab._queue_management.QMessageBox"):
             worker.run()
 
         out_gif = tab.extraction_dir / "realsource_0ms_3000ms.gif"
@@ -518,7 +518,7 @@ class TestExtractorTabQueue:
             assert mock_load.call_count == 0
 
             with patch(
-                "gui.src.elements.core.extractor_tab._queue_management.QMessageBox"
+                "gui.src.tabs.core.extractor_tab._queue_management.QMessageBox"
             ):
                 tab._on_queue_processing_error("engine failure")
 
@@ -536,7 +536,7 @@ class TestExtractorTabQueue:
         for f in (f1, f2, f3):
             f.write_text("gif")
 
-        with patch("gui.src.elements.core.extractor_tab._queue_management.QMessageBox"):
+        with patch("gui.src.tabs.core.extractor_tab._queue_management.QMessageBox"):
             tab._on_queue_processing_finished(
                 [
                     {"status": "success", "output_path": str(f1)},
@@ -596,11 +596,11 @@ class TestHeadlessKeepAlive:
     and the worker keeps itself alive for the whole run()."""
 
     def _make_tab(self, tmp_path):
-        from gui.src.elements.core.extractor_tab import ExtractorTab
+        from gui.src.tabs.core.extractor_tab import ExtractorTab
 
         with (
-            patch("gui.src.elements.core.extractor_tab._media_player.QMediaPlayer"),
-            patch("gui.src.elements.core.extractor_tab._media_player.QAudioOutput"),
+            patch("gui.src.tabs.core.extractor_tab._media_player.QMediaPlayer"),
+            patch("gui.src.tabs.core.extractor_tab._media_player.QAudioOutput"),
         ):
             tab = ExtractorTab()
         tab._media_player = MagicMock()

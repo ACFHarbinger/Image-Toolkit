@@ -22,8 +22,8 @@ import pytest
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QGridLayout, QScrollArea, QWidget
 
-from gui.src.elements.core.wallpaper_tab.common import wallpaper_common_base
-from gui.src.elements.core.wallpaper_tab.common.wallpaper_common_base import (
+from gui.src.tabs.core.wallpaper_tab.common import wallpaper_common_base
+from gui.src.tabs.core.wallpaper_tab.common.wallpaper_common_base import (
     WallpaperCommonBase,
 )
 from gui.src.helpers import ImageScannerWorker
@@ -222,7 +222,7 @@ class TestPeerReentrancyGuard:
         never call QApplication.processEvents() (the full pump); they now use
         sendPostedEvents(None, Paint). A future regression back to
         processEvents() reintroduces the session-recovery reentrancy."""
-        import gui.src.elements.core.wallpaper_tab.common.wallpaper_common_base._monitor_selection as ms
+        import gui.src.tabs.core.wallpaper_tab.common.wallpaper_common_base._monitor_selection as ms
 
         calls = []
         monkeypatch.setattr(ms.QApplication, "processEvents", lambda: calls.append("processEvents"))

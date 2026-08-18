@@ -86,8 +86,8 @@ def mock_image_toolkit_paths(tmp_path, monkeypatch):
         pass
 
     try:
-        import gui.src.elements.core.wallpaper_tab.system_display_subtab._daemon as subtab_daemon
-        import gui.src.elements.core.wallpaper_tab.system_display_subtab._slideshow as subtab_slideshow
+        import gui.src.tabs.core.wallpaper_tab.system_display_subtab._daemon as subtab_daemon
+        import gui.src.tabs.core.wallpaper_tab.system_display_subtab._slideshow as subtab_slideshow
         monkeypatch.setattr(subtab_daemon, "DAEMON_CONFIG_PATH", fake_config_path)
         monkeypatch.setattr(subtab_daemon, "ROOT_DIR", tmp_path)
         monkeypatch.setattr(subtab_slideshow, "DAEMON_CONFIG_PATH", fake_config_path)
@@ -95,7 +95,7 @@ def mock_image_toolkit_paths(tmp_path, monkeypatch):
         pass
 
     try:
-        import gui.src.elements.core.wallpaper_tab.common.wallpaper_common_base._widget_ui_lifecycle as common_base_ui_lifecycle
+        import gui.src.tabs.core.wallpaper_tab.common.wallpaper_common_base._widget_ui_lifecycle as common_base_ui_lifecycle
         monkeypatch.setattr(common_base_ui_lifecycle, "DAEMON_CONFIG_PATH", fake_config_path)
     except Exception:
         pass

@@ -15,7 +15,7 @@ class TestReconcileDaemonLivenessOnStartup:
         """A 'running': true flag with a dead pid is stale (ungraceful shutdown
         never reached the daemon's finally cleanup) and must be corrected on
         disk so the UI does not show a dead daemon with a stuck timer."""
-        from gui.src.elements.core.wallpaper_tab.system_display_subtab._daemon import (
+        from gui.src.tabs.core.wallpaper_tab.system_display_subtab._daemon import (
             _DaemonMixin,
         )
 
@@ -26,11 +26,11 @@ class TestReconcileDaemonLivenessOnStartup:
         pid_path.write_text(str(2**22))
 
         monkeypatch.setattr(
-            "gui.src.elements.core.wallpaper_tab.system_display_subtab._daemon.DAEMON_CONFIG_PATH",
+            "gui.src.tabs.core.wallpaper_tab.system_display_subtab._daemon.DAEMON_CONFIG_PATH",
             path,
         )
         monkeypatch.setattr(
-            "gui.src.elements.core.wallpaper_tab.system_display_subtab._daemon.PID_PATH",
+            "gui.src.tabs.core.wallpaper_tab.system_display_subtab._daemon.PID_PATH",
             pid_path,
         )
 
@@ -45,7 +45,7 @@ class TestReconcileDaemonLivenessOnStartup:
     def test_live_pid_keeps_running_flag(self, q_app, tmp_path, monkeypatch):
         """A 'running': true flag backed by a genuinely live pid (inherited
         from a previous app session) must stay untouched on disk."""
-        from gui.src.elements.core.wallpaper_tab.system_display_subtab._daemon import (
+        from gui.src.tabs.core.wallpaper_tab.system_display_subtab._daemon import (
             _DaemonMixin,
         )
 
@@ -56,11 +56,11 @@ class TestReconcileDaemonLivenessOnStartup:
         pid_path.write_text(str(os.getpid()))
 
         monkeypatch.setattr(
-            "gui.src.elements.core.wallpaper_tab.system_display_subtab._daemon.DAEMON_CONFIG_PATH",
+            "gui.src.tabs.core.wallpaper_tab.system_display_subtab._daemon.DAEMON_CONFIG_PATH",
             path,
         )
         monkeypatch.setattr(
-            "gui.src.elements.core.wallpaper_tab.system_display_subtab._daemon.PID_PATH",
+            "gui.src.tabs.core.wallpaper_tab.system_display_subtab._daemon.PID_PATH",
             pid_path,
         )
 
@@ -75,7 +75,7 @@ class TestReconcileDaemonLivenessOnStartup:
     def test_not_running_is_untouched(self, q_app, tmp_path, monkeypatch):
         """A 'running': false config returns False without any pid check and
         leaves the config file byte-for-byte unchanged."""
-        from gui.src.elements.core.wallpaper_tab.system_display_subtab._daemon import (
+        from gui.src.tabs.core.wallpaper_tab.system_display_subtab._daemon import (
             _DaemonMixin,
         )
 
@@ -87,11 +87,11 @@ class TestReconcileDaemonLivenessOnStartup:
         pid_path.write_text(str(os.getpid()))
 
         monkeypatch.setattr(
-            "gui.src.elements.core.wallpaper_tab.system_display_subtab._daemon.DAEMON_CONFIG_PATH",
+            "gui.src.tabs.core.wallpaper_tab.system_display_subtab._daemon.DAEMON_CONFIG_PATH",
             path,
         )
         monkeypatch.setattr(
-            "gui.src.elements.core.wallpaper_tab.system_display_subtab._daemon.PID_PATH",
+            "gui.src.tabs.core.wallpaper_tab.system_display_subtab._daemon.PID_PATH",
             pid_path,
         )
 

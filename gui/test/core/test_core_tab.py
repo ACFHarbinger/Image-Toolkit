@@ -4,8 +4,8 @@ from unittest.mock import MagicMock, mock_open, patch
 
 import cv2
 import pytest
-from gui.src.elements.core.extractor_tab import ExtractorTab
-from gui.src.elements.core.similarity_tab import SimilarityTab
+from gui.src.tabs.core.extractor_tab import ExtractorTab
+from gui.src.tabs.core.similarity_tab import SimilarityTab
 from gui.src.tabs.core.convert_tab import ConvertTab
 from gui.src.tabs.core.merge_tab import MergeTab
 from gui.src.tabs.core.wallpaper_tab import WallpaperTab
@@ -19,7 +19,7 @@ class TestConvertTab:
     @pytest.fixture
     def mock_worker(self):
         with patch(
-            "gui.src.elements.core.format_subtab._conversion_worker.ConversionWorker"
+            "gui.src.tabs.core.format_subtab._conversion_worker.ConversionWorker"
         ) as mock:
             yield mock
 
@@ -31,7 +31,7 @@ class TestConvertTab:
     def test_start_conversion_no_files(self, q_app, mock_worker):
         # Mock message box to avoid blocking
         with patch(
-            "gui.src.elements.core.format_subtab._conversion_worker.QMessageBox"
+            "gui.src.tabs.core.format_subtab._conversion_worker.QMessageBox"
         ) as mock_mb:
             tab = ConvertTab()
             tab.format_subtab.collect_paths = MagicMock(return_value=[])
@@ -43,7 +43,7 @@ class TestConvertTab:
 
     def test_start_conversion_success(self, q_app, mock_worker):
         with patch(
-            "gui.src.elements.core.format_subtab._conversion_worker.os.path.isdir",
+            "gui.src.tabs.core.format_subtab._conversion_worker.os.path.isdir",
             return_value=True,
         ):
             tab = ConvertTab()
@@ -70,13 +70,13 @@ class TestWallpaperTab:
         mock_monitor = Monitor(name="Display1", x=0, y=0, width=1920, height=1080, is_primary=True)
         with (
             patch(
-                "gui.src.elements.core.wallpaper_tab.system_display_subtab._wallpaper_worker.WallpaperWorker"
+                "gui.src.tabs.core.wallpaper_tab.system_display_subtab._wallpaper_worker.WallpaperWorker"
             ),
             patch(
-                "gui.src.elements.core.wallpaper_tab.common.wallpaper_common_base._scan_pipeline.ImageScannerWorker"
+                "gui.src.tabs.core.wallpaper_tab.common.wallpaper_common_base._scan_pipeline.ImageScannerWorker"
             ),
             patch(
-                "gui.src.elements.core.wallpaper_tab.common.wallpaper_common_base._monitor_layout.get_monitors",
+                "gui.src.tabs.core.wallpaper_tab.common.wallpaper_common_base._monitor_layout.get_monitors",
                 return_value=[mock_monitor],
             ),
         ):
@@ -182,7 +182,7 @@ class TestWallpaperTab:
             mock_select.assert_called_once_with("0")
 
     def test_video_duration_caching(self, q_app):
-        from gui.src.elements.core.wallpaper_tab.monitor_display_subtab import (
+        from gui.src.tabs.core.wallpaper_tab.monitor_display_subtab import (
             _VIDEO_DURATION_CACHE,
             _get_video_duration,
         )
@@ -193,7 +193,7 @@ class TestWallpaperTab:
         video_path = "/tmp/dummy_test_video.mp4"
 
         with patch(
-            "gui.src.elements.core.wallpaper_tab.monitor_display_subtab._traversal.subprocess.run"
+            "gui.src.tabs.core.wallpaper_tab.monitor_display_subtab._traversal.subprocess.run"
         ) as mock_run:
             mock_run.return_value.stdout = " 12.34 \n"
 
@@ -210,7 +210,7 @@ class TestWallpaperTab:
 
     def test_clear_monitor_graph(self, q_app, mock_deps):
         tab = WallpaperTab(db_tab_ref=MagicMock())
-        from gui.src.elements.core.wallpaper_tab.graph.data_schema import GraphData, NodeData
+        from gui.src.tabs.core.wallpaper_tab.graph.data_schema import GraphData, NodeData
         g = GraphData()
         g.nodes["node1"] = NodeData(node_id="node1", file_path="dummy.jpg")
         tab.monitor_display._graphs["0"] = g
@@ -230,7 +230,7 @@ class TestWallpaperTab:
         tab = WallpaperTab(db_tab_ref=MagicMock())
         tab.system_display._monitor_display_ref = tab.monitor_display
 
-        from gui.src.elements.core.wallpaper_tab.graph.data_schema import GraphData, NodeData
+        from gui.src.tabs.core.wallpaper_tab.graph.data_schema import GraphData, NodeData
         g = GraphData()
         g.nodes["node1"] = NodeData(node_id="node1", file_path="dummy.jpg")
         tab.monitor_display._graphs["0"] = g
@@ -251,7 +251,7 @@ class TestWallpaperTab:
 
 class TestSimilarityTab:
     def test_init(self, q_app):
-        with patch("gui.src.elements.core.similarity_tab._deletion.DeletionWorker"):
+        with patch("gui.src.tabs.core.similarity_tab._deletion.DeletionWorker"):
             tab = SimilarityTab()
             assert isinstance(tab, QWidget)
 
@@ -309,8 +309,8 @@ class TestExtractorTab:
     def test_init(self, q_app):
         # Patch to avoid actual multimedia initialization
         with (
-            patch("gui.src.elements.core.extractor_tab._media_player.QMediaPlayer"),
-            patch("gui.src.elements.core.extractor_tab._media_player.QAudioOutput"),
+            patch("gui.src.tabs.core.extractor_tab._media_player.QMediaPlayer"),
+            patch("gui.src.tabs.core.extractor_tab._media_player.QAudioOutput"),
         ):
             tab = ExtractorTab()
             assert isinstance(tab, QWidget)
@@ -319,9 +319,9 @@ class TestExtractorTab:
         # Patch QMediaPlayer to avoid actual media player initialization and track calls
         with (
             patch(
-                "gui.src.elements.core.extractor_tab._media_player.QMediaPlayer"
+                "gui.src.tabs.core.extractor_tab._media_player.QMediaPlayer"
             ) as mock_player_cls,
-            patch("gui.src.elements.core.extractor_tab._media_player.QAudioOutput"),
+            patch("gui.src.tabs.core.extractor_tab._media_player.QAudioOutput"),
         ):
             mock_player = MagicMock()
             mock_player_cls.return_value = mock_player
@@ -344,8 +344,8 @@ class TestExtractorTab:
             cv2.CAP_PROP_FRAME_HEIGHT = 4
 
         with (
-            patch("gui.src.elements.core.extractor_tab._media_player.QMediaPlayer"),
-            patch("gui.src.elements.core.extractor_tab._media_player.QAudioOutput"),
+            patch("gui.src.tabs.core.extractor_tab._media_player.QMediaPlayer"),
+            patch("gui.src.tabs.core.extractor_tab._media_player.QAudioOutput"),
         ):
             mock_vc = MagicMock()
             mock_vc.get.side_effect = lambda prop: {
@@ -380,8 +380,8 @@ class TestExtractorTab:
 
     def test_has_extracted_files_regex(self, q_app):
         with (
-            patch("gui.src.elements.core.extractor_tab._media_player.QMediaPlayer"),
-            patch("gui.src.elements.core.extractor_tab._media_player.QAudioOutput"),
+            patch("gui.src.tabs.core.extractor_tab._media_player.QMediaPlayer"),
+            patch("gui.src.tabs.core.extractor_tab._media_player.QAudioOutput"),
         ):
             tab = ExtractorTab()
             tab._extracted_stems_cache.clear()
@@ -398,10 +398,10 @@ class TestExtractorTab:
         (source_dir / "video.mp4").touch()
 
         with (
-            patch("gui.src.elements.core.extractor_tab._media_player.QMediaPlayer"),
-            patch("gui.src.elements.core.extractor_tab._media_player.QAudioOutput"),
+            patch("gui.src.tabs.core.extractor_tab._media_player.QMediaPlayer"),
+            patch("gui.src.tabs.core.extractor_tab._media_player.QAudioOutput"),
             patch(
-                "gui.src.elements.core.extractor_tab._video_session_history.QFileDialog.getExistingDirectory",
+                "gui.src.tabs.core.extractor_tab._video_session_history.QFileDialog.getExistingDirectory",
                 return_value=str(output_dir),
             ),
         ):
@@ -422,8 +422,8 @@ class TestExtractorTab:
         (output_dir / "clip.mp4").touch()
 
         with (
-            patch("gui.src.elements.core.extractor_tab._media_player.QMediaPlayer"),
-            patch("gui.src.elements.core.extractor_tab._media_player.QAudioOutput"),
+            patch("gui.src.tabs.core.extractor_tab._media_player.QMediaPlayer"),
+            patch("gui.src.tabs.core.extractor_tab._media_player.QAudioOutput"),
         ):
             tab = ExtractorTab()
             tab.scan_directory(str(source_dir))
@@ -446,8 +446,8 @@ class TestExtractorTab:
         video_path.touch()
 
         with (
-            patch("gui.src.elements.core.extractor_tab._media_player.QMediaPlayer"),
-            patch("gui.src.elements.core.extractor_tab._media_player.QAudioOutput"),
+            patch("gui.src.tabs.core.extractor_tab._media_player.QMediaPlayer"),
+            patch("gui.src.tabs.core.extractor_tab._media_player.QAudioOutput"),
         ):
             tab = ExtractorTab()
             tab.extraction_dir = output_dir
@@ -473,11 +473,11 @@ class TestExtractorTab:
             mock_dlg.fps = 24.0
 
             monkeypatch.setattr(
-                "gui.src.elements.core.extractor_tab._extraction_execution.FrameSelectionDialog",
+                "gui.src.tabs.core.extractor_tab._extraction_execution.FrameSelectionDialog",
                 lambda *args, **kwargs: mock_dlg,
             )
             monkeypatch.setattr(
-                "gui.src.elements.core.extractor_tab._extraction_execution.QMessageBox.critical",
+                "gui.src.tabs.core.extractor_tab._extraction_execution.QMessageBox.critical",
                 lambda *args, **kwargs: None,
             )
             monkeypatch.setattr(tab, "_get_target_size", lambda: None)
@@ -490,8 +490,8 @@ class TestExtractorTab:
 
     def test_set_config_quiet_and_force_load(self, q_app, tmp_path):
         with (
-            patch("gui.src.elements.core.extractor_tab._media_player.QMediaPlayer"),
-            patch("gui.src.elements.core.extractor_tab._media_player.QAudioOutput"),
+            patch("gui.src.tabs.core.extractor_tab._media_player.QMediaPlayer"),
+            patch("gui.src.tabs.core.extractor_tab._media_player.QAudioOutput"),
         ):
             tab = ExtractorTab()
             dummy_video = tmp_path / "dummy_video.mp4"
@@ -506,7 +506,7 @@ class TestExtractorTab:
 
             tab.load_media = MagicMock()
 
-            with patch("gui.src.elements.core.extractor_tab._config_methods.QMessageBox") as mock_box:
+            with patch("gui.src.tabs.core.extractor_tab._config_methods.QMessageBox") as mock_box:
                 tab.set_config(config, quiet=True)
                 mock_box.information.assert_not_called()
                 tab.load_media.assert_called_with(str(dummy_video), force=True)

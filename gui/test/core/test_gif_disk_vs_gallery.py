@@ -26,11 +26,11 @@ def _make_real_video(tmp_path):
 
 class TestGifDiskVsGallery:
     def _make_tab(self, tmp_path, out_dir):
-        from gui.src.elements.core.extractor_tab import ExtractorTab
+        from gui.src.tabs.core.extractor_tab import ExtractorTab
 
         with (
-            patch("gui.src.elements.core.extractor_tab._media_player.QMediaPlayer"),
-            patch("gui.src.elements.core.extractor_tab._media_player.QAudioOutput"),
+            patch("gui.src.tabs.core.extractor_tab._media_player.QMediaPlayer"),
+            patch("gui.src.tabs.core.extractor_tab._media_player.QAudioOutput"),
         ):
             tab = ExtractorTab()
         mock_player = MagicMock()
@@ -63,7 +63,7 @@ class TestGifDiskVsGallery:
         tab.cuts_ms = []
 
         with patch(
-            "gui.src.elements.core.extractor_tab._extraction_workers.QMessageBox.information"
+            "gui.src.tabs.core.extractor_tab._extraction_workers.QMessageBox.information"
         ):
             tab.extract_range_as_gif()
             self._wait(tab, "active_extraction_worker")
@@ -88,7 +88,7 @@ class TestGifDiskVsGallery:
         tab.cuts_ms = []
 
         with patch(
-            "gui.src.elements.core.extractor_tab._queue_management.QMessageBox.information"
+            "gui.src.tabs.core.extractor_tab._queue_management.QMessageBox.information"
         ):
             tab._run_gif_extraction(0, 3000)
             assert len(tab.extraction_queue) == 1
