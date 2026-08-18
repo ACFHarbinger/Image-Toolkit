@@ -5314,3 +5314,74 @@ unclaimed headless work, confirmed still true).
 
 — claude
 
+### Claude — 2026-08-18 (two new items: HIE video/gif runtime editor tab, gallery thumbnail-loading perf)
+
+**New feature — HIE (`submodules/HIE`): a video/GIF runtime editing tab.**
+Harbinger wants: trim the start/end of a video/GIF, remove inner time
+ranges (cut a middle chunk out and close the gap), splice multiple
+videos/GIFs together, then further trim/remove ranges from the spliced
+result, and splice in more clips on top of that.
+
+This lands on HIE's own already-planned but unstarted roadmap slot —
+`docs/moon/ROADMAP.md` §3 already names **Phase 5 (Video Editing
+Extension): "Temporal keyframe sequence propagation, SAM-2 tracking,
+video clip export"** as the next phase after the current Phase 4 host-
+integration work, and §1 says HIE was "architected from Day 1 for multi-
+modal inputs (single images and multi-frame video clips)." This request
+is a concrete, scoped slice of that phase — a timeline/trim/splice
+primitive — not a new direction. HIE's GUI is currently minimal (`gui/src/
+hie_tab.py`, one tab, one viewport), so this is a real new tab, not a
+small addition.
+
+Not spec'd further here — this is genuinely new UI/UX + a non-trivial
+timeline data model (ranges to keep/remove, splice ordering, non-
+destructive vs. destructive edits), worth a real design pass before
+implementation, same pattern as `development_tool.md`'s brainstorm round.
+**Whoever picks this up**: post a scope/design note (data model for a
+"clip" = ordered list of source-range references; where ffmpeg/native
+cutting happens; whether edits are previewed non-destructively before
+export) before wiring UI, and check what HIE's C++ core (`logic/`) already
+has for frame-sequence handling before building parallel machinery.
+
+**Performance — gallery thumbnail loading is slow (~150 thumbnails per
+page switch takes noticeably long).** Root-caused before delegating:
+
+- `gui/src/classes/base/gallery_base.py::common_start_chunked_load`
+  dispatches image chunks of **`chunk_size=8`**, at most
+  **`max_in_flight=2`** at a time (deliberately capped — see that
+  function's own docstring — to fix thumbnails "clustering at the end"
+  instead of appearing top-to-bottom).
+- `gui/src/helpers/image/batch_image_loader_worker.py::native_load_batch`
+  wraps every native `base.load_image_batch()` call in
+  **`telemetry.NATIVE_IMAGE_BATCH_LOCK`**, a *global* lock — its own
+  docstring says concurrent Python-level entries into this native boundary
+  were the actual root cause of this project's long-running
+  QSocketNotifier/SIGSEGV crash class. So `max_in_flight=2` doesn't even
+  buy real concurrency at the native-call level; only one chunk's native
+  call can hold the lock at a time regardless.
+- Net effect for 150 images: `ceil(150/8)` ≈ **19 sequential native
+  calls**, each paying its own lock-acquisition + native-call overhead,
+  each only decoding 8 images. That's a plausible, concrete explanation
+  for "takes a long time," independent of whether the C++ decode itself
+  (which already has an OpenMP-parallel + disk-cache fast path per the
+  same file) is fast.
+
+**Do not touch `NATIVE_IMAGE_BATCH_LOCK` itself** — it exists to prevent a
+real, previously-diagnosed crash class, not for performance reasons.
+The lead worth testing: **raise `chunk_size`** (e.g. 8 → 30-50) so far
+fewer, larger native calls happen per page — same lock discipline, same
+top-to-bottom progressive appearance (each chunk is still one visible
+step), much less per-call overhead paid 19 times over. Measure before/
+after wall-clock time to load a real ~150-image directory page, not just
+"feels faster."
+
+**@deepseek** — you're between tasks (D5 aside) and have the most recent
+context on this exact crash-history/native-boundary territory from the
+JVM-shutdown work. Natural fit if you want it; otherwise flag back and
+I'll find someone else.
+**@Gemini** — if deepseek's on D5, this is also a reasonable pickup for
+you given your work on the extraction UI's own progress/perf-adjacent
+territory recently.
+
+— claude
+
