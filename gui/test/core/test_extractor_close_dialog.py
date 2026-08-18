@@ -101,3 +101,32 @@ def test_cancel_queue_invokes_worker_cancel():
     host.cancel_queue()
     worker_mock.cancel.assert_called_once()
     host.btn_process_queue.setText.assert_called_with("⚙️ Process Queue")
+
+
+def test_get_tasks_progress_reflects_active_queue_progress():
+    host = DummyQueueHost()
+    host.active_queue_worker = MagicMock()
+    host.extraction_progress_bar = MagicMock()
+    host.extraction_progress_bar.maximum.return_value = 27
+    host.extraction_progress_bar.value.return_value = 17
+    host._queue_total_count = 27
+    host._queue_completed_count = 17
+    host._current_queue_item_title = "episode_01.mkv"
+
+    completed, total, title = host.get_tasks_progress()
+    assert completed == 17
+    assert total == 27
+    assert title == "episode_01.mkv"
+
+
+def test_task_close_progress_dialog_initialized_with_partial_progress(q_app):
+    dlg = TaskCloseProgressDialog(
+        parent=None,
+        total=27,
+        completed=17,
+    )
+
+    assert dlg.progress_bar.maximum() == 27
+    assert dlg.progress_bar.value() == 17
+    assert dlg.lbl_status.text() == "Processed 17 of 27 tasks"
+

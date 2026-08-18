@@ -101,6 +101,25 @@ class ExtractorTab(QWidget):
         self.video_subtab.cancel_loading()
         self.image_subtab.cancel_loading()
 
+    def has_active_extractions(self) -> bool:
+        return self.video_subtab.has_active_extractions()
+
+    def set_close_when_finished(self, callback) -> None:
+        self.video_subtab.set_close_when_finished(callback)
+
+    def set_close_progress_dialog(self, dialog) -> None:
+        self._close_progress_dialog = dialog
+        self.video_subtab.set_close_progress_dialog(dialog)
+
+    def get_tasks_progress(self) -> tuple[int, int, str]:
+        return self.video_subtab.get_tasks_progress()
+
+    def cancel_queue(self) -> None:
+        self.video_subtab.cancel_queue()
+
+    def cancel_extraction(self) -> None:
+        self.video_subtab.cancel_extraction()
+
     def closeEvent(self, event):
         self.video_subtab.close()
         self.image_subtab.close()
