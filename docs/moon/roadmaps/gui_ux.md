@@ -1228,7 +1228,7 @@ Keep `QMediaPlayer` as the engine; rely on the storyboard preview (§4.14) for t
 
 ---
 
-## 2.34 Custom Theme Engine & Semantic Color System {: #234-custom-theme-engine--semantic-color-system }
+## 2.34 Custom Theme Engine & Semantic Color System ✅ Locked, unimplemented (2026-08-18 — issues #437-441) {: #234-custom-theme-engine--semantic-color-system }
 
 **Pain point:** The application currently provides a binary Dark/Light theme toggle with fixed accent colors. Users have diverse display calibrations, aesthetic preferences, and accessibility requirements (e.g. high-contrast surfaces, custom typography, or personalized branding). There is currently no unified semantic color customization interface, dynamic color extraction engine, or in-app style editing with live preview.
 
@@ -1249,11 +1249,23 @@ An embedded code editor (`QPlainTextEdit` with syntax highlighting and instant "
 - Pros: Maximum flexibility for power users to customize any Qt selector, pseudo-class, or transition.
 - Cons: Malformed CSS can temporarily distort layout if syntax validation is bypassed.
 
-**Recommendation:** Implement A as the default visual customizer, integrate B for one-click dynamic extraction from background images, and provide C in an "Advanced" subtab for complete QSS overrides.
+**Locked (2026-08-18):** Phase 1 targets the host PySide6 GUI and host-owned
+tabs; embedded HIE/CSG/ASP surfaces receive adapters later. Theme Studio
+controls palette, density, corners, typography, shadows, and motion.
+Contrast ratios are warnings rather than save blockers. Invalid token or
+QSS previews apply transactionally and roll back to the last valid snapshot.
+Raw QSS uses a safe styling mode by default, with an explicit expert toggle
+for unrestricted selectors/properties. Shared JSON schema: #437 (foundational,
+blocks the rest). Theme Studio UI: #438 (deepseek). QSS editor + export/
+import: #441 (deepseek). See `app_theming_2026q3.md` for the full design.
+
+**Recommendation:** Implement A as the default visual customizer, integrate B
+as an opt-in background-derived palette action, and provide C in an Advanced
+subtab behind the explicit expert toggle.
 
 ---
 
-## 2.35 Full-Window Background Canvas & Glassmorphic Layering {: #235-full-window-background-canvas--glassmorphic-layering }
+## 2.35 Full-Window Background Canvas & Glassmorphic Layering ✅ Locked, unimplemented (2026-08-18 — issues #437, #439, #440) {: #235-full-window-background-canvas--glassmorphic-layering }
 
 **Pain point:** Application windows and tab content render against solid, opaque background surfaces. Users cannot personalize their workspace with custom background art, photo collections, or modern translucent "glassmorphic" (Mica / acrylic / frosted glass) layered surfaces.
 
@@ -1274,7 +1286,19 @@ Provides aspect ratio scaling options for single or playlist background images t
 - Pros: Clean presentation regardless of display aspect ratio.
 - Cons: Minor geometry calculation on resize events.
 
-**Recommendation:** Ship A + B + C together as an integrated "Aesthetics & Backgrounds" settings suite.
+**Locked (2026-08-18):** Backgrounds support both linked paths and explicit
+import into managed app storage. Portable theme packs carry token values
+plus background references (`asset_ref`, defined in #437) and must report
+missing assets. The host owns one global playlist clock; a per-tab image
+override does not create a second timer. Static opacity remains the cheap
+default, while blur is opt-in with adaptive-radius and cached-layer
+fallbacks. Motion settings must honor a reduced-motion/low-performance
+fallback.
+
+**Recommendation:** Ship A + B + C together as an integrated host-only
+"Aesthetics & Backgrounds" settings suite. Background canvas + glassmorphic
+layering: #440 (Gemini). Palette extraction from the active background:
+#439 (opencode). Both depend on #437 (schema, Claude).
 
 ---
 
@@ -1337,4 +1361,3 @@ Provides aspect ratio scaling options for single or playlist background images t
 ## Document History
 
 *Last updated: 2026-08-18 — §2.34 Custom Theme Engine & Semantic Color System and §2.35 Full-Window Background Canvas & Glassmorphic Layering added. Previous update 2026-07-11. Targets PySide6 (Qt 6.x) desktop application.*
-
