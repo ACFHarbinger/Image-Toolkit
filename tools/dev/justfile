@@ -94,10 +94,14 @@ devtool-mcp *ARGS:
 # userspace libs), WebKitGTK still cannot create an EGL context on native
 # Wayland and the window stays blank white; running under XWayland routes
 # the GL through the working GLX/EGL-X11 path and the UI renders.
-# LD_LIBRARY_PATH cleared: a leaked snap LD_LIBRARY_PATH (common when the
-# launching terminal is itself snap-confined) shadows system libpthread
-# with a snap core20 copy, crashing WebKitNetworkProcess with a symbol
-# lookup error. See docs/TROUBLESHOOTING.md.
+# env -u ...: a snap-confined launching terminal (e.g. VS Code installed
+# via snap) exports GIO_MODULE_DIR/GTK_PATH/GTK_MODULES/LD_LIBRARY_PATH
+# pointing at the snap's libs. WebKitGTK's subprocesses are GIO-based and
+# dlopen a snap GIO module whose RPATH contains
+# /snap/core20/current/lib/x86_64-linux-gnu, so the loader resolves the
+# old core20 libpthread.so.0 and crashes with "undefined symbol:
+# __libc_pthread_init, version GLIBC_PRIVATE". Unset all of them for the
+# whole tree. See docs/TROUBLESHOOTING.md.
 devtool-app *ARGS:
     @echo "🛠️  Launching Development Tool app (Tauri host)..."
-    cd dev/app/src-tauri && GDK_BACKEND=x11 WEBKIT_DISABLE_DMABUF_RENDERER=1 LD_LIBRARY_PATH= cargo tauri dev {{ARGS}}
+    cd dev/app/src-tauri && env -u GIO_MODULE_DIR -u GIO_EXTRA_MODULES -u GTK_PATH -u GTK_MODULES -u LD_LIBRARY_PATH GDK_BACKEND=x11 WEBKIT_DISABLE_DMABUF_RENDERER=1 cargo tauri dev {{ARGS}}
