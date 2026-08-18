@@ -112,3 +112,93 @@ def test_pipeline_scrubber_timeline_evaluation():
     eval_700 = session.evaluate_at(700.0)
     assert eval_700["active_stage_ids"] == []
     assert eval_700["completed_stage_ids"] == ["s1", "s2", "s3"]
+
+
+def test_flame_graph_hierarchical_construction():
+    from tool.model.flame_graph import FlameGraph
+    from dataclasses import dataclass
+
+    @dataclass
+    class DummySpan:
+        id: str
+        name: str
+        start_ms: float
+        duration_ms: float
+        end_ms: float
+        category: str
+        module: str
+
+    spans = [
+        DummySpan("s1", "app.main", 0.0, 100.0, 100.0, "lifecycle", "app"),
+        DummySpan("s2", "db.init", 10.0, 40.0, 50.0, "database", "db"),
+        DummySpan("s3", "gui.render", 50.0, 40.0, 90.0, "ui", "gui"),
+    ]
+
+    fg = FlameGraph.from_spans(spans)
+    assert fg.total_time_ms == 100.0
+    assert len(fg.root.children) == 1  # app.main is the root span
+    app_node = fg.root.children[0]
+    assert app_node.name == "app.main"
+    assert len(app_node.children) == 2  # db.init and gui.render are nested inside app.main
+
+    db_nodes = fg.find_nodes_by_category("database")
+    assert len(db_nodes) == 1
+    assert db_nodes[0].name == "db.init"
+
+
+def test_timeseries_lttb_downsampling():
+    from tool.model.metrics_timeline import TimeSeries
+    import math
+
+    ts = TimeSeries(name="rss_memory", unit="MB", alert_threshold=200.0)
+
+    # Generate 1000 noisy sinusoidal data points
+    for i in range(1000):
+        t = float(i)
+        val = 100.0 + 50.0 * math.sin(i / 50.0) + (i % 5)
+        ts.add_point(t_ms=t, val=val)
+
+    assert len(ts.points) == 1000
+    assert ts.max_val > 140.0
+    assert ts.min_val < 60.0
+
+    # Downsample to 50 points
+    sampled = ts.downsample(target_points=50)
+    assert len(sampled) == 50
+    # First and last point must be preserved exactly
+    assert sampled[0].t_ms == ts.points[0].t_ms
+    assert sampled[-1].t_ms == ts.points[-1].t_ms
+
+
+def test_cross_view_bridge_event_dispatch():
+    from tool.model.interaction_linking import CrossViewBridge, HoverTarget, SelectionTarget
+
+    bridge = CrossViewBridge()
+    selections: list[SelectionTarget] = []
+    hovers: list[HoverTarget] = []
+
+    bridge.on_selection(lambda sel: selections.append(sel))
+    bridge.on_hover(lambda h: hovers.append(h) if h else None)
+
+    # Dispatch selection
+    sel = SelectionTarget(
+        entity_id="node-asp-core",
+        entity_kind="meta_node",
+        source_surface="3d_world",
+        linked_meta_node_id="node-asp-core",
+    )
+    bridge.set_selection(sel)
+    assert len(selections) == 1
+    assert bridge.active_selection.entity_id == "node-asp-core"
+
+    # Dispatch hover
+    hov = HoverTarget(
+        entity_id="node-asp-core",
+        entity_kind="meta_node",
+        source_surface="flame_graph",
+        pulse_color="#38bdf8",
+    )
+    bridge.set_hover(hov)
+    assert len(hovers) == 1
+    assert bridge.active_hover.pulse_color == "#38bdf8"
+
