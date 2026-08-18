@@ -840,7 +840,7 @@ sudo apt install libwebkit2gtk-4.1-dev
 
 ### Tauri window shows "WebKit encountered an internal error"
 
-Two independent causes, both fixed by `just devtool-app`
+Three independent causes. Causes 1 and 2 are fixed by `just devtool-app`
 (`tools/dev/justfile`):
 
 1. **NVIDIA (proprietary driver) + Wayland.** WebKitGTK's DMA-BUF renderer
@@ -859,6 +859,25 @@ Two independent causes, both fixed by `just devtool-app`
    ```bash
    LD_LIBRARY_PATH= cargo tauri dev
    ```
+3. **NVIDIA EGL fails on native Wayland (blank white window).** Even with
+   the DMA-BUF renderer disabled, WebKitGTK still needs an EGL context.
+   When the NVIDIA stack is broken or mismatched — e.g. a post-boot driver
+   upgrade leaves the loaded kernel module out of sync with the userspace
+   libraries (`nvidia-smi` reports
+   `Failed to initialize NVML: Driver/library version mismatch`, and the
+   app logs `libEGL warning: egl: failed to create dri2 screen`) — context
+   creation fails and the web process never paints: the window opens but
+   stays blank white instead of showing the UI. Force GTK/WebKit onto the
+   X11 (XWayland) backend, where the GL/EGL-X11 path works:
+   ```bash
+   GDK_BACKEND=x11 cargo tauri dev
+   ```
+   Note: with a correctly matched driver the app also renders on native
+   Wayland; the mismatch is fixed by rebooting after the driver upgrade
+   (loaded module vs userspace must both be the same version).
+
+The `just devtool-app` recipe sets all three variables
+(`GDK_BACKEND=x11 WEBKIT_DISABLE_DMABUF_RENDERER=1 LD_LIBRARY_PATH=`).
 
 If the main GUI (`just dev`, `frontend/src-tauri`) hits either error,
 export the same variables before running `npm run dev`, or add them to

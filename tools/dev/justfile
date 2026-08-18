@@ -89,10 +89,15 @@ devtool-mcp *ARGS:
 # WEBKIT_DISABLE_DMABUF_RENDERER=1: WebKitGTK's DMA-BUF renderer crashes
 # with "WebKit encountered an internal error" on NVIDIA + Wayland (the
 # proprietary driver doesn't support the DMA-BUF path WebKitGTK assumes).
+# GDK_BACKEND=x11: with a broken/mismatched NVIDIA EGL stack (e.g. a
+# post-boot driver upgrade leaving the kernel module out of sync with the
+# userspace libs), WebKitGTK still cannot create an EGL context on native
+# Wayland and the window stays blank white; running under XWayland routes
+# the GL through the working GLX/EGL-X11 path and the UI renders.
 # LD_LIBRARY_PATH cleared: a leaked snap LD_LIBRARY_PATH (common when the
 # launching terminal is itself snap-confined) shadows system libpthread
 # with a snap core20 copy, crashing WebKitNetworkProcess with a symbol
 # lookup error. See docs/TROUBLESHOOTING.md.
 devtool-app *ARGS:
     @echo "🛠️  Launching Development Tool app (Tauri host)..."
-    cd dev/app/src-tauri && WEBKIT_DISABLE_DMABUF_RENDERER=1 LD_LIBRARY_PATH= cargo tauri dev {{ARGS}}
+    cd dev/app/src-tauri && GDK_BACKEND=x11 WEBKIT_DISABLE_DMABUF_RENDERER=1 LD_LIBRARY_PATH= cargo tauri dev {{ARGS}}
