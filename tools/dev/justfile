@@ -80,3 +80,11 @@ devtool-web *ARGS:
 devtool-mcp *ARGS:
     @echo "🛠️  Starting Development Tool MCP server..."
     source .venv/bin/activate && python dev/ mcp {{ARGS}}
+
+# Launch the Development Tool Tauri host window (v2 #414). `just devtool`
+# stays the Python CLI (unchanged); this recipe opens the Tauri app in
+# dev/app. Requires the tauri-cli: `cargo install tauri-cli` (source-built
+# first Linux release, lock #1). No AppImage/.deb/Flatpak yet (D61 deferred).
+devtool-app *ARGS:
+    @echo "🛠️  Launching Development Tool app (Tauri host)..."
+    cd dev/app/src-tauri && cargo tauri dev {{ARGS}}
