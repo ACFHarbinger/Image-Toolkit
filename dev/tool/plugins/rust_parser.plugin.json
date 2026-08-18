@@ -1,0 +1,27 @@
+{
+  "schema": "devtool.plugin.manifest",
+  "schema_version": 1,
+  "name": "rust_parser",
+  "version": "0.1.0",
+  "description": "Rust source parser/ingestion: extracts fn/struct/enum/trait/impl/mod/use items via a std-only tokenizer; feeds devtool.record-shaped evidence.",
+  "surfaces": [
+    {
+      "name": "cli",
+      "description": "symbol/definition extraction for Rust sources over D52 stdio"
+    }
+  ],
+  "channels": [
+    {
+      "key": "source_symbols",
+      "label": "Rust symbol extraction records",
+      "default_enabled": true,
+      "retention": "forever"
+    }
+  ],
+  "entry": {
+    "python_module": null,
+    "command": [
+      "dev/plugins/rust_parser/target/release/rust_parser"
+    ]
+  }
+}
