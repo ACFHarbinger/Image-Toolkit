@@ -47,7 +47,6 @@ class TaskCloseProgressDialog(QDialog):
         self.setWindowTitle(title)
         self.setFixedSize(440, 190)
         self.setWindowFlags(Qt.WindowType.Dialog | Qt.WindowType.CustomizeWindowHint | Qt.WindowType.WindowTitleHint)
-        self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
 
         self._setup_ui(header, subtext, cancel_text)
         self.update_progress(completed=self.completed_items, total=self.total_items)
@@ -126,14 +125,22 @@ class TaskCloseProgressDialog(QDialog):
         self.btn_ok.setFocus()
 
     def _handle_cancel(self) -> None:
-        if self.on_cancel_callback:
-            self.on_cancel_callback()
-        self.reject()
+        callback = self.on_cancel_callback
+        try:
+            self.reject()
+        except RuntimeError:
+            pass
+        if callback:
+            callback()
 
     def _handle_confirm(self) -> None:
-        if self.on_confirm_callback:
-            self.on_confirm_callback()
-        self.accept()
+        callback = self.on_confirm_callback
+        try:
+            self.accept()
+        except RuntimeError:
+            pass
+        if callback:
+            callback()
 
 
 # Aliases for backwards compatibility
