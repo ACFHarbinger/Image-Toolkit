@@ -227,6 +227,8 @@ class TestGuestMode:
     def test_toggle_guest_mode_ui(self, q_app):
         """Toggling guest mode switches button labels and field visibility."""
         window = LoginWindow()
+        window.show()
+        q_app.processEvents()
         # Initial state: normal mode
         assert window._mode == window._MODE_NORMAL
         assert window.password_input.isVisible()

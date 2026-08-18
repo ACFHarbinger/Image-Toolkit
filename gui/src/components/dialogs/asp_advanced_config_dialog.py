@@ -63,6 +63,7 @@ _FALLBACK_SCHEMA: dict[str, tuple] = {
     "ASP_DHASH_EXACT_DROP": (int, 0, 1, "Drop exact dHash duplicates before selection"),
     "ASP_HIGH_HOLD_RESPONSE": (float, 0.0, 1.0, "phaseCorrelate response floor for hold merge"),
     "ASP_HOLD_AVERAGE": (int, 0, 1, "Overmix-style ECC sub-pixel averaging within hold blocks"),
+    "ASP_HOLD_BG_SUB": (int, 0, 1, "EXPERIMENTAL, default-off: unaligned-median background plate for hold detection; not validated under camera pan (M4 owns keep/delete)"),
     "ASP_BLUR_REJECT_THRESH": (float, 0.0, None, "Laplacian-variance floor for blurry-frame rejection (0=off)"),
     "ASP_CONTRAST_THRESH": (float, 0.0, None, "Pixel-std floor for low-contrast frame rejection (0=off)"),
     "ASP_NEAR_DUP_LUMA": (float, 0.0, 255.0, "Near-dup luma dedup ceiling (0=off)"),
@@ -103,6 +104,7 @@ _FALLBACK_SCHEMA: dict[str, tuple] = {
     "ASP_COV_MIN_MULTI_PCT": (float, 0.0, 1.0, "Min multi-frame canvas coverage before SCANS fallback"),
     # Compositing
     "ASP_PHASE_COMPOSITE": (int, 0, 1, "Phase-consistent compositing: escalate to single-pose at boundaries"),
+    "ASP_COHERENCE_V2": (int, 0, 1, "M3 default-off §9.2 Stage 2 compositor candidate: one pose per foreground overlap region; not wired into the live seam loop"),
     "ASP_GRAPHCUT_SEAM": (int, 0, 1, "GraphCut global multi-image seam"),
     "ASP_GC_FEATHER_PX": (int, 0, None, "Feather width at GraphCut ownership boundaries"),
     "ASP_BLOCKS_GAIN_COMP": (int, 0, 1, "32×32 blocks BGR gain compensation in blend zones"),
@@ -150,7 +152,8 @@ def get_active_schema() -> dict[str, tuple]:
 CATEGORY_MAPPING = {
     "Frame Selection": [
         "ASP_HOLD_THRESHOLD", "ASP_HOLD_DHASH_THRESH", "ASP_DHASH_EXACT_DROP",
-        "ASP_HIGH_HOLD_RESPONSE", "ASP_HOLD_AVERAGE", "ASP_BLUR_REJECT_THRESH",
+        "ASP_HIGH_HOLD_RESPONSE", "ASP_HOLD_AVERAGE", "ASP_HOLD_BG_SUB",
+        "ASP_BLUR_REJECT_THRESH",
         "ASP_CONTRAST_THRESH", "ASP_NEAR_DUP_LUMA", "ASP_TEMPORAL_VAR_THRESH",
         "ASP_OTSU_BG_CORR", "ASP_TWO_CHANNEL_SELECT", "ASP_POSE_WINDOW_PX",
         "ASP_PHASE_AWARE_SELECT", "ASP_PHASE_CROSS_PENALTY", "ASP_MAX_SKIPPABLE_HOLD_SIZE",
@@ -180,7 +183,7 @@ CATEGORY_MAPPING = {
         "ASP_GPU_MEDIAN", "ASP_COV_MIN_MULTI_PCT"
     ],
     "Compositing & Gain Compensation": [
-        "ASP_PHASE_COMPOSITE", "ASP_GRAPHCUT_SEAM", "ASP_GC_FEATHER_PX",
+        "ASP_PHASE_COMPOSITE", "ASP_COHERENCE_V2", "ASP_GRAPHCUT_SEAM", "ASP_GC_FEATHER_PX",
         "ASP_BLOCKS_GAIN_COMP", "ASP_BLOCKS_LUM_COMP", "ASP_GLOBAL_GAIN_COMP",
         "ASP_JOINT_GAIN_SOLVE", "ASP_JOINT_GAIN_SIGMA_N", "ASP_JOINT_GAIN_SIGMA_G",
         "ASP_JOINT_GAIN_ROBUST", "ASP_SP_SOFT_PX", "ASP_BG_NORM_MIN_PX",
