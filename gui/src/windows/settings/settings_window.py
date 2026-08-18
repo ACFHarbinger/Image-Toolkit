@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
 
 from ._appearance import _AppearanceMixin
 from ._credentials import _CredentialsMixin
+from ._theme_studio_mixin import _ThemeStudioMixin
 from ._misc_sections import _MiscSectionsMixin
 from ._profile_management import _ProfileManagementMixin
 from ._relaunch_settings import _RelaunchSettingsMixin
@@ -39,6 +40,7 @@ class SettingsWindow(
     _RelaunchSettingsMixin,
     _ShortcutsMixin,
     _AppearanceMixin,
+    _ThemeStudioMixin,
     _ResetStateMixin,
     _CredentialsMixin,
     _MiscSectionsMixin,
@@ -259,7 +261,11 @@ class SettingsWindow(
         shortcuts_tab_layout.addWidget(self._build_shortcuts_groupbox())
         self.tab_widget.addTab(shortcuts_tab, "⌨️ Shortcuts")
 
-        # Tab 7: Bulk Pattern Update
+        # Tab 7: Appearance & Themes (Theme Studio #438 + QSS editor #441)
+        theme_studio_tab = self._build_theme_studio_tab()
+        self.tab_widget.addTab(theme_studio_tab, "🎨 Appearance & Themes")
+
+        # Tab 8: Bulk Pattern Update
         scroll_bulk, layout_bulk = create_tab_scroll_area()
         layout_bulk.addWidget(bulk_groupbox)
         layout_bulk.addStretch(1)

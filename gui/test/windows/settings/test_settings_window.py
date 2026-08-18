@@ -626,3 +626,32 @@ class TestMinimizeToTraySettings:
         assert window.minimize_to_tray_check.isChecked() is False
 
 
+
+
+class TestThemeStudioTab:
+    def test_appearance_themes_tab_exists(self, q_app):
+        from gui.src.windows.settings.settings_window import SettingsWindow
+
+        window = SettingsWindow()
+        names = [window.tab_widget.tabText(i) for i in range(window.tab_widget.count())]
+        assert any("Appearance & Themes" in n for n in names)
+        assert window.theme_studio is not None
+        assert window.qss_editor is not None
+
+    def test_studio_edit_applies_through_callback(self, q_app):
+        from gui.src.windows.settings.settings_window import SettingsWindow
+
+        window = SettingsWindow()
+        # A main-window-less settings window still builds the studio; the
+        # apply callback is a no-op without a main window ref.
+        applied = []
+        window.theme_studio._apply = applied.append
+        window.theme_studio.density_combo.setCurrentText("compact")
+        assert applied
+        assert applied[-1].density.mode == "compact"
+
+    def test_qss_editor_built_readonly(self, q_app):
+        from gui.src.windows.settings.settings_window import SettingsWindow
+
+        window = SettingsWindow()
+        assert window.qss_editor.editor.isReadOnly() is True
