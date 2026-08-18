@@ -60,16 +60,18 @@ and user corrections.
    C4 issue #18 (Done — live Krita checklist passed) adds region-to-material
    assignment, explicit-target propagation, and preview/accept/reject in the
    same Character Colors Docker.
-4. 🔄 Assisted correspondence with confidence and correction learning.
-   Issue #24 (In review) implements deterministic confidence scoring, a
-   multiplicative-weights correction-learning step, and the Character
-   Colors Docker's confidence-ranked "Canonical material" dropdown.
+4. ✅ Assisted correspondence with confidence and correction learning.
+   Issue #24 (Done — live Krita checklist passed, 2026-08-18) implements
+   deterministic confidence scoring, a multiplicative-weights
+   correction-learning step, and the Character Colors Docker's
+   confidence-ranked "Canonical material" dropdown.
 5. Optional generative proposals through the local model registry.
-6. 🔄 Batch chapter workflow with review queue and recoverable checkpoints.
-   Issue #22 (In review) implements the portable schema plus a Chapter Queue
-   Docker: bind a project, add pages, open the next pending page, and mark
-   pages reviewed/accepted. The offline/CLI batch-tool execution path
-   remains a separate future slice.
+6. ✅ Batch chapter workflow with review queue and recoverable checkpoints.
+   Issue #22 (Done — live Krita checklist passed, 2026-08-18) implements
+   the portable schema plus a Chapter Queue Docker: bind a project, add
+   pages, open the next pending page, and mark pages reviewed/accepted.
+   The offline/CLI batch-tool execution path remains a separate future
+   slice.
 
 ## G1 — segmentation and gap-repair baseline
 
@@ -196,7 +198,7 @@ preview/accept-reject checklist passed live in Krita.
 
 ### C4.1 — adjacency-suggested defaults
 
-Issue #21 is In review pending the live-Krita checklist. Now that both G1
+Issue #21 is **Done** — the live Krita checklist passed (2026-08-18). Now that both G1
 (segmentation/adjacency) and C4 (correspondence/propagation) are
 independently verified, the Character Colors Docker connects them in two
 places, neither ever auto-applying anything:
@@ -258,7 +260,7 @@ Learned correspondence is still a later milestone (milestone 4).
 
 ## Milestone 4 — assisted correspondence: confidence and correction learning
 
-Issue #24 is In review pending a live Krita checklist. The portable contract
+Issue #24 is **Done** — the live Krita checklist passed (2026-08-18). The portable contract
 landed first (following the same sequencing as C1-C4/C4.1 and milestone 6's
 schema-only first slice), and the Character Colors Docker now consumes it.
 
