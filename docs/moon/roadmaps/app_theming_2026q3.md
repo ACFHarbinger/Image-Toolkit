@@ -1,9 +1,9 @@
 # App Theming & Customization (2026Q3)
 
-**Status: DRAFT — Brainstorm Round 1 Decisions Consolidated.** Same process as the
-Development Tool v2 and ASP wallpaper-mode pivots: brainstorm → team
-cross-review → answers → proposals → sign-off. This document captures
-Harbinger's design decisions from the brainstorming session.
+**Status: LOCKED — ready for implementation.** Brainstorm rounds 1-2
+(Gemini, deepseek, opencode independently) plus a final ambiguity-clearing
+round with Harbinger are complete. Milestone "App Theming & Customization",
+GitHub issues #437 (foundational schema, blocks the rest) through #441.
 
 **Origin:** Harbinger, 2026-08-18. "Make the app customizable — user-
 defined theme (colors, styles, etc.) and background image(s)."
@@ -75,7 +75,7 @@ defined theme (colors, styles, etc.) and background image(s)."
 
 | Phase | Surface | Architecture & Mechanism | Status |
 |:---|:---|:---|:---|
-| **Phase 1** | **PySide6 Desktop (`gui/`)** | `_theme.py` + dynamic QSS generation + root `QPainter` background overlay + `user_theme.qss` live reload | In Design |
+| **Phase 1** | **PySide6 Desktop (`gui/`)** | `_theme.py` + dynamic QSS generation + root `QPainter` background overlay + `user_theme.qss` live reload; host-owned tabs only | In Design |
 | **Phase 2** | **Docs Website (`docs/website/`)** | Shared JSON token schema → CSS custom properties (`tokens.css` + `theme.css`) + backdrop-filter glassmorphism | Next |
 | **Phase 3** | **DevTool App (`dev/app/`)** | Migration from `index.css` to CSS custom property tokens matching the shared theme JSON schema | Next |
 
@@ -87,16 +87,29 @@ organically without the cross-surface shape in mind.
 
 ---
 
-## 3. Work Breakdown & Proposed Issues (#437–#440)
+## 3. Work Breakdown & Issues (locked, filed)
 
-- **#437 (Theme Studio UI & Semantic Palette Customizer)**:
-  - Settings "🎨 Appearance & Themes" tab with 5-slot color picker, WCAG contrast meter, corner curvature radio group, and font family selector.
-- **#438 (Dynamic Palette Extraction & Wallpaper Daemon Integration)**:
-  - Fast $k$-means/median-cut color extractor generating harmonious UI palettes from the active desktop/background image.
-- **#439 (Full-Window Background Canvas & Glassmorphic Layering Engine)**:
-  - Root window background renderer with opacity slider, backdrop blur, fit modes, and multi-image slideshow playlist.
-- **#440 (In-App QSS Live Editor & Cross-Surface JSON Theme Export/Import)**:
-  - In-app stylesheet editor with live reload, syntax validation, and portable JSON theme pack export/import.
+- **#437 — shared JSON theme-token schema (foundational).** Blocks #438-441;
+  must land first. 5 core semantic slots, base+override-delta model,
+  `asset_ref` for backgrounds distinct from token values, designed for
+  reuse across all 3 surfaces from day one. Assigned: **Claude**.
+- **#438 — Theme Studio UI & Semantic Palette Customizer.** Settings
+  "🎨 Appearance & Themes" tab: 5-slot color picker, WCAG contrast meter
+  (advisory), corner curvature, typography, shadows, density-as-an-axis.
+  Transactional preview. Assigned: **deepseek**.
+- **#439 — Dynamic Palette Extraction.** $k$-means/median-cut color
+  extractor from the active background image, off by default. Assigned:
+  **opencode**.
+- **#440 — Full-Window Background Canvas & Glassmorphic Layering.**
+  Opacity/blur/fit-mode renderer, multi-image slideshow (one global
+  clock), translucent panels. Assigned: **Gemini**.
+- **#441 — In-App QSS Live Editor & Cross-Surface Theme Export/Import.**
+  Advanced/expert QSS editor behind an explicit toggle, plus the
+  portable theme-pack export/import format Phase 2/3 will later consume.
+  Assigned: **deepseek**.
+
+Sequencing: #437 first (everyone else depends on its schema contract).
+#438-441 are independent of each other once #437 lands — parallelizable.
 
 ---
 
@@ -117,7 +130,47 @@ follow after sign-off. Answers recorded here as design refinements.
 | 7 | Blur performance posture? | **Off by default, opt-in**, with adaptive radius + cached blur layers as settings. |
 | 8 | Phase-1 scope? | **Desktop first, schema designed for reuse** across all three surfaces. |
 
-These refinements are folded into Sections 1 and 2 above; the work breakdown
-(#437–#440) is unchanged. Next step per the process: team cross-review of this
-roadmap, then proposals, then sign-off — implementation issues stay unfiled
-until the design locks.
+These refinements are folded into Sections 1 and 2 above.
+
+## 5. Round-2 Q&A (opencode → Harbinger, 2026-08-18)
+
+These answers narrow the implementation contract without locking the design:
+
+| # | Question | Harbinger's answer |
+|:--|:--|:--|
+| 1 | Which surfaces participate in the first milestone? | **Host PySide6 GUI and its host-owned tabs only**; embedded HIE/CSG/ASP surfaces get adapters later. |
+| 2 | How are background assets supplied and persisted? | **Both linked paths and explicit import**; users can choose portability without forcing every asset into managed storage. |
+| 3 | What does a portable theme pack contain? | **Tokens plus background references**; the pack records paths/identifiers and reports missing assets rather than silently embedding large files. |
+| 4 | What happens when a preview edit is invalid? | **Transactional preview**; apply temporarily and revert to the last valid theme on parse or application failure. |
+| 5 | Which visual axes are Phase 1 controls? | **Palette, density, corners, typography, shadows, and motion**. |
+| 6 | Are WCAG contrast checks hard gates? | **Warnings only**; the user may save an intentional low-contrast aesthetic, with the risk made visible. |
+| 7 | How does a background playlist advance? | **One global clock** shared by the host window; per-tab overrides do not create independent timers in Phase 1. |
+| 8 | How much authority does raw QSS receive? | **Separate expert toggle**: safe styling mode by default, unrestricted raw-QSS mode only after explicit opt-in. |
+
+### Round-2 implications
+
+- The shared JSON schema must distinguish `asset_ref` (linked path or imported
+  asset id) from token values so packs remain portable without silently copying
+  files.
+- The background controller owns one timer and publishes the active image to
+  the host; a tab override can replace the image but not create another clock.
+- Preview application needs a transaction boundary around QSS generation,
+  stylesheet installation, and background-pixmap loading. The previous valid
+  snapshot remains the rollback source.
+- Motion and shadow settings need reduced-motion and low-performance fallbacks;
+  they must be runtime axes, not hardcoded animation assumptions.
+- WCAG ratios remain diagnostics, not validators. The UI should name the
+  affected token pair and provide a one-click return to a compliant suggestion.
+
+## 6. Final Q&A (Claude → Harbinger, 2026-08-18) — closes the brainstorm
+
+| # | Question | Harbinger's answer |
+|:--|:--|:--|
+| 1 | Schema sequencing: own foundational issue first, or fold into Theme Studio? | **Own foundational issue first** — #437, blocks #438-441. |
+| 2 | Issue granularity: keep the 4 proposed feature issues, or split further? | **Keep as 4** (plus the foundational schema issue = 5 total). |
+| 3 | Enumerate exactly which tabs are "host-owned" now, or leave to implementation judgment? | **Leave to implementation judgment.** |
+
+Design locked. See §3 for the final issue numbers/assignments (shifted by
+one from the §3/§4/§5 "proposed #437-440" numbering above once the real
+foundational schema issue took #437 — read assignments from §3, not the
+inline numbers in earlier sections' prose).
