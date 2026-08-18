@@ -188,13 +188,24 @@ impl SidecarProcess {
         })
     }
 
-    /// Send one JSON-RPC 2.0 request (no params — every frozen-contract
-    /// method here is zero-arg) and wait up to `timeout` for its reply.
+    /// Send one JSON-RPC 2.0 request with optional params and wait up to `timeout` for its reply.
     /// Returns the `result` value; a JSON-RPC `error` reply becomes an Err.
     fn request(&mut self, method: &str, timeout: Duration) -> Result<Value> {
+        self.request_with_params(method, None, timeout)
+    }
+
+    fn request_with_params(
+        &mut self,
+        method: &str,
+        params: Option<Value>,
+        timeout: Duration,
+    ) -> Result<Value> {
         let id = self.next_id;
         self.next_id += 1;
-        let payload = serde_json::json!({"jsonrpc": "2.0", "id": id, "method": method});
+        let mut payload = serde_json::json!({"jsonrpc": "2.0", "id": id, "method": method});
+        if let Some(p) = params {
+            payload["params"] = p;
+        }
         self.stdin.write_all(serde_json::to_string(&payload)?.as_bytes())?;
         self.stdin.write_all(b"\n")?;
         self.stdin.flush()?;
@@ -234,6 +245,36 @@ impl SidecarProcess {
     /// `list_artifacts` (#410 shape): the discovered plugin registry.
     pub fn list_artifacts(&mut self, timeout: Duration) -> Result<Value> {
         Ok(self.request("list_artifacts", timeout)?["artifacts"].clone())
+    }
+
+    /// `get_meta_graph` (#415): 3D Tiered Galaxy meta-graph topology and nodes.
+    pub fn get_meta_graph(&mut self, timeout: Duration) -> Result<Value> {
+        self.request("get_meta_graph", timeout)
+    }
+
+    /// `get_flame_graph` (#416): Hierarchical 2D call tree and spans.
+    pub fn get_flame_graph(&mut self, timeout: Duration) -> Result<Value> {
+        self.request("get_flame_graph", timeout)
+    }
+
+    /// `get_metrics_timeline` (#416): Memory RSS progression and benchmark trends.
+    pub fn get_metrics_timeline(&mut self, timeout: Duration) -> Result<Value> {
+        self.request("get_metrics_timeline", timeout)
+    }
+
+    /// `get_pipeline_scrubber` (#418): 4D pipeline stage timeline and evaluation.
+    pub fn get_pipeline_scrubber(&mut self, t_ms: Option<f64>, timeout: Duration) -> Result<Value> {
+        self.request_with_params("get_pipeline_scrubber", Some(serde_json::json!({"t_ms": t_ms})), timeout)
+    }
+
+    /// `get_world_state` (#419): Persistent world state, camera bookmarks, and filters.
+    pub fn get_world_state(&mut self, timeout: Duration) -> Result<Value> {
+        self.request("get_world_state", timeout)
+    }
+
+    /// `save_world_state` (#419): Save world state to disk (.devtool/world_state.json).
+    pub fn save_world_state(&mut self, world_state: Value, timeout: Duration) -> Result<Value> {
+        self.request_with_params("save_world_state", Some(serde_json::json!({"world_state": world_state})), timeout)
     }
 
     /// Non-blocking: has the child exited?
@@ -307,6 +348,48 @@ impl SidecarHandle {
     pub fn list_artifacts(&mut self) -> Result<Value> {
         match &mut self.process {
             Some(process) => process.list_artifacts(RPC_TIMEOUT),
+            None => bail!("sidecar is not running"),
+        }
+    }
+
+    pub fn get_meta_graph(&mut self) -> Result<Value> {
+        match &mut self.process {
+            Some(process) => process.get_meta_graph(RPC_TIMEOUT),
+            None => bail!("sidecar is not running"),
+        }
+    }
+
+    pub fn get_flame_graph(&mut self) -> Result<Value> {
+        match &mut self.process {
+            Some(process) => process.get_flame_graph(RPC_TIMEOUT),
+            None => bail!("sidecar is not running"),
+        }
+    }
+
+    pub fn get_metrics_timeline(&mut self) -> Result<Value> {
+        match &mut self.process {
+            Some(process) => process.get_metrics_timeline(RPC_TIMEOUT),
+            None => bail!("sidecar is not running"),
+        }
+    }
+
+    pub fn get_pipeline_scrubber(&mut self, t_ms: Option<f64>) -> Result<Value> {
+        match &mut self.process {
+            Some(process) => process.get_pipeline_scrubber(t_ms, RPC_TIMEOUT),
+            None => bail!("sidecar is not running"),
+        }
+    }
+
+    pub fn get_world_state(&mut self) -> Result<Value> {
+        match &mut self.process {
+            Some(process) => process.get_world_state(RPC_TIMEOUT),
+            None => bail!("sidecar is not running"),
+        }
+    }
+
+    pub fn save_world_state(&mut self, world_state: Value) -> Result<Value> {
+        match &mut self.process {
+            Some(process) => process.save_world_state(world_state, RPC_TIMEOUT),
             None => bail!("sidecar is not running"),
         }
     }

@@ -70,44 +70,66 @@ class FlameGraph:
     @classmethod
     def from_spans(cls, spans: List[Any], root_name: str = "root") -> FlameGraph:
         """Construct a flame tree from a list of telemetry spans."""
-        # Sort spans by start_ms
-        sorted_spans = sorted(
-            [s for s in spans if getattr(s, "start_ms", None) is not None],
-            key=lambda s: getattr(s, "start_ms", 0.0),
-        )
+        normalized: List[Dict[str, Any]] = []
+        for s in spans:
+            s_start = getattr(s, "start_ms", None)
+            if s_start is None and hasattr(s, "start"):
+                s_start = s.start * 1000.0 if s.start is not None else None
+            if s_start is None:
+                continue
 
-        root = FlameNode(name=root_name, value=0.0, category="root")
-        if not sorted_spans:
-            return cls(root=root, total_time_ms=0.0)
+            s_dur = getattr(s, "duration_ms", None)
+            if s_dur is None and hasattr(s, "duration"):
+                s_dur = s.duration * 1000.0 if s.duration is not None else None
+            if s_dur is None or s_dur <= 0:
+                s_dur = 1.0
 
-        min_start = min(s.start_ms for s in sorted_spans)
-        max_end = max(getattr(s, "end_ms", s.start_ms + getattr(s, "duration_ms", 0.0)) for s in sorted_spans)
-        root.start_ms = min_start
-        root.end_ms = max_end
-        root.value = max_end - min_start
-
-        # Simple hierarchical stack builder based on time containment
-        stack: List[FlameNode] = [root]
-
-        for s in sorted_spans:
-            s_start = s.start_ms
             s_end = getattr(s, "end_ms", None)
-            s_dur = getattr(s, "duration_ms", 0.0)
             if s_end is None:
                 s_end = s_start + s_dur
 
+            normalized.append({
+                "name": getattr(s, "name", "span"),
+                "category": getattr(s, "category", "general"),
+                "module": getattr(s, "module", None) or getattr(s, "name", "span"),
+                "start_ms": float(s_start),
+                "end_ms": float(s_end),
+                "duration_ms": float(s_dur),
+                "id": getattr(s, "id", None),
+            })
+
+        root = FlameNode(name=root_name, value=0.0, category="root")
+        if not normalized:
+            return cls(root=root, total_time_ms=0.0)
+
+        sorted_spans = sorted(normalized, key=lambda s: s["start_ms"])
+        min_start = min(s["start_ms"] for s in sorted_spans)
+        max_end = max(s["end_ms"] for s in sorted_spans)
+        total_time = max(max_end - min_start, 1.0)
+
+        root.start_ms = min_start
+        root.end_ms = max_end
+        root.value = total_time
+
+        # Hierarchical stack builder based on time containment
+        stack: List[FlameNode] = [root]
+
+        for s in sorted_spans:
+            s_start = s["start_ms"]
+            s_end = s["end_ms"]
+            s_dur = s["duration_ms"]
+
             node = FlameNode(
-                name=getattr(s, "name", "span"),
+                name=s["name"],
                 value=s_dur,
                 self_time_ms=s_dur,
-                category=getattr(s, "category", "general"),
-                meta_node_id=getattr(s, "module", None) or getattr(s, "name", None),
+                category=s["category"],
+                meta_node_id=s["module"],
                 start_ms=s_start,
                 end_ms=s_end,
-                metadata={"span_id": getattr(s, "id", None)},
+                metadata={"span_id": s["id"]},
             )
 
-            # Pop stack items that finished before this span started
             while len(stack) > 1 and stack[-1].end_ms <= s_start:
                 stack.pop()
 
