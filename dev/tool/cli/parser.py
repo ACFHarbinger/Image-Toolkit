@@ -279,16 +279,73 @@ def cmd_eval(args: Any) -> int:
 
 
 def cmd_wallpaper(args: Any) -> int:
+    """Generate a wallpaper from a clip via ASP Hero-Cel compositing (#430).
+
+    Bootstraps the ASP submodule alias (asp_backend) the same way
+    backend/main.py and the tests do, then runs the wallpaper pipeline
+    under a PipelineSession. --estimate prints the predicted wall-clock
+    for the current parameters and exits without running (per Harbinger:
+    runtime depends on the params, with an estimate given).
+    """
+    from pathlib import Path
+
     clip = args.clip
     aspect = getattr(args, "aspect", "16:9")
     quality = getattr(args, "quality", "balanced")
     estimate = getattr(args, "estimate", False)
-    print(f"clip={clip} aspect={aspect} quality={quality} estimate={estimate}")
-    print(
-        "wallpaper orchestrator not yet implemented — see Image-Toolkit issue #430",
-        file=sys.stderr,
+    output = getattr(args, "output", None)
+
+    # ASP submodule alias + package roots (same as backend/main.py). The
+    # git/scripts bootstrap is not on sys.path when running the devtool CLI,
+    # so add the repo root (parents[3] of this file) first.
+    repo_root = str(Path(__file__).resolve().parents[3])
+    if repo_root not in sys.path:
+        sys.path.insert(0, repo_root)
+    from git.scripts._submodule_bootstrap import register_submodule_packages
+
+    register_submodule_packages(repo_root)
+
+    from asp_backend.rendering.wallpaper.wallpaper_pipeline import (
+        estimate_wallpaper_time,
+        run_wallpaper_pipeline,
     )
-    return 2
+
+    try:
+        if estimate:
+            # Estimate needs a frame count; probe the clip length cheaply.
+            n_frames = 40  # fallback if the clip can't be probed
+            try:
+                import cv2 as _cv2
+
+                _cap = _cv2.VideoCapture(clip)
+                if _cap.isOpened():
+                    n_frames = min(int(_cap.get(_cv2.CAP_PROP_FRAME_COUNT)) or 40, 60)
+                    _cap.release()
+            except Exception:
+                pass
+            costs = estimate_wallpaper_time(n_frames=n_frames, aspect=aspect, quality=quality)
+            print(f"wallpaper estimate ({quality}, {n_frames} frames):")
+            for key, val in costs.items():
+                print(f"  {key}: {val}s")
+            return 0
+
+        out_path = output or str(Path(clip).with_suffix(".wallpaper.png"))
+        result = run_wallpaper_pipeline(
+            clip,
+            out_path,
+            aspect=aspect,
+            quality=quality,
+        )
+        print(f"wallpaper written: {result.output_path}")
+        print(f"  hero frame: {result.hero.frame_idx}  score: {result.hero.score:.3f}")
+        print(f"  plate void_ratio: {result.plate.void_ratio:.3f}")
+        print(f"  blend: {result.composite.blend_method}")
+        print(f"  aspect: {result.framed.target_aspect}  needs_outpaint: {result.framed.needs_generative_outpaint}")
+        print(f"  stage trace: {[s.name for s in result.session.stages]}")
+        return 0
+    except Exception as exc:
+        print(f"wallpaper failed: {exc}", file=sys.stderr)
+        return 1
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -403,6 +460,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_wallpaper.add_argument("--aspect", choices=["16:9", "9:16", "21:9"], default="16:9", help="Target output aspect ratio (default: 16:9)")
     p_wallpaper.add_argument("--quality", choices=["fast", "balanced", "max"], default="balanced", help="Quality/speed tradeoff (default: balanced)")
     p_wallpaper.add_argument("--estimate", action="store_true", help="Print a predicted wall-clock estimate and exit, without running the pipeline")
+    p_wallpaper.add_argument("--output", default=None, help="Output PNG path (default: <clip>.wallpaper.png)")
 
     track_a.add_parsers(sub)
     track_d.add_parsers(sub)
