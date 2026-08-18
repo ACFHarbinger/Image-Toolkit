@@ -1937,6 +1937,96 @@ Lens: "3D/4D Visual & Interaction Design" (D43, D44, D45, D54, D55, D57, D60, D6
   - *Visual Flow:* Scrubbing moves time forward: 3D stage nodes illuminate sequentially, data packets stream along conduits, and the side-drawer dynamically renders frame/tensor transforms at that exact microsecond.
   - *Telemetry Source:* Consumes session span events with `start_ms` and `end_ms` directly from the generic core record schema.
 
+### grok — 2026-08-18 (v2 feasibility / Linux delivery + sidecar)
+
+Lens: "Feasibility / Linux delivery" (D42, D50, D61) plus the sidecar
+lifecycle half of D51/D52. Brainstormed eight delivery questions with
+Harbinger; all eight recommended options were accepted. This note records
+those locks and the packaging/process implications. It does **not** start
+the Tauri host.
+
+**Accepted delivery locks**
+
+1. **First Linux release is source-built.** No AppImage / `.deb` /
+   Flatpak yet. Developers build with `cargo` + `just` from a clone.
+   D61's "select the exact Linux packaging/release format" is deferred
+   until a daily-driver window actually exists; the spike is not a
+   prerequisite for the first usable architecture.
+2. **Consuming-repo shape: global host + workspace plugin pack.** The
+   Tauri app (and its bundled sidecar) is installed once. A workspace
+   points the host at itself and may declare extra plugins; the host does
+   not get vendored into every repo.
+3. **Sidecar lifetime is the window.** Spawn the Python sidecar when the
+   Tauri window opens; kill it when the window closes. No leftover
+   sidecar after quit; no always-on daemon (still D24 / D39).
+4. **Crash policy: one automatic restart, then fail visibly.** After a
+   single restart the UI must show a hard error (not a spinner, not a
+   silent empty world). Do not loop-restart.
+5. **Python is always bundled and isolated from the workspace.** The
+   sidecar interpreter is the app's, not `./.venv` and not `$PATH`
+   python. Workspace packages are not importable inside that process.
+6. **D52 proof is a tiny Go or Rust `command` plugin.** Not a second
+   Python script. That is the only way to prove the protocol is actually
+   language-neutral.
+7. **Image-Toolkit plugins are an optional pack, not the core app.**
+   The shipped host stays repo-agnostic (D42). `asp_evaluator`,
+   `benchmarks`, `telemetry_workbench`, and `editor_integration` live in
+   an IT plugin pack a workspace can enable.
+8. **`manifest.entry.command` is the plugin's argv.** The host appends
+   `--stdio` and speaks JSON-RPC on that process's stdin/stdout. DeepSeek's
+   open argv question is closed: the argv is not `[plugin_command,
+   subcommand]`; it is the manifest list plus one host-added flag.
+
+**Implication that changes DeepSeek's in-process path**
+
+Bundled, isolated sidecar Python **cannot import this monorepo**. Any
+plugin that needs Image-Toolkit / ASP / HIE packages must be a
+`command` entry spawned with the *workspace* interpreter (typically
+`<repo>/.venv/bin/python`), not a `python_module` loaded inside the
+sidecar. `python_module` stays valid only for host-shipped plugins that
+depend on the bundled environment alone (generic record/store adapters,
+discovery, Investigations). Additive migration still holds: the four
+existing IT plugins grow a `plugin.json` whose `entry` is `command`,
+not an in-process import of `tool.plugins.*` inside the Tauri sidecar.
+
+**Packaging / process shape I would build first (after sign-off)**
+
+- `just devtool` remains the Python CLI (`python dev/`) for agents and
+  for the TUI/MCP fallback. A new `just devtool-app` (name TBD) would
+  `cargo tauri dev` the shell. Do not replace the CLI entry in the same
+  commit as the first window.
+- Sidecar binary is a frozen/bundled CPython (or a uv-managed env the
+  app owns under its own prefix). It speaks the same JSON-RPC as a
+  `command` plugin so the host has one process protocol.
+- Workspace `devtool.toml` names the repo root, discovery depth N, the
+  enabled plugin pack, and — for IT plugins — the workspace Python to
+  spawn. Global plugins stay under `~/.config/devtool/plugins/`.
+- The Go/Rust D52 proof plugin answers `initialize` + `list_artifacts`
+  only. That is the acceptance test for the protocol, not a product
+  plugin.
+
+**Cross-review of the other two lenses**
+
+- **DeepSeek (manifest-first):** ACK the contract shape, core artifact
+  kinds, generic Record schema, global+workspace discovery, and additive
+  migration. Dissent only on treating `python_module` as the fast path
+  for the current four IT plugins — those must be `command` under lock
+  5/7. Session → core-record migration is still DeepSeek's second open
+  item; I am asking Harbinger whether that adapter is in the first
+  sidecar slice or a follow-on.
+- **Gemini (3D/4D):** No packaging collision. Candidate B (pipeline
+  execution scrubbing) is the cheaper first 4D spike because it consumes
+  span `start_ms`/`end_ms` already in the proposed Record schema, and
+  does not require a git-history indexer. Persistent world state
+  (layout, camera, filters, Investigation bookmarks) must live on disk
+  with the workspace, not in sidecar RAM — otherwise a sidecar restart
+  (lock 4) wipes the D55 world. Photon-pulse / live LOD metrics are
+  best-effort overlays; a saved world must still open if the sidecar is
+  down.
+
+**Still not implementation.** Waiting on the remaining brainstorm
+answers in this turn, then Harbinger's cross-review sign-off.
+
 ### (peers append below)
 
 ---
