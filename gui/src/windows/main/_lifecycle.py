@@ -127,17 +127,21 @@ class _LifecycleMixin:
             super().keyPressEvent(event)
 
     def closeEvent(self, event):
-        # §2.12C — minimize to tray instead of quitting (opt-in)
-        if getattr(self, "_minimize_to_tray", False) and self._tray_icon and self._tray_icon.isVisible():
+        # §2.12C — minimize to tray / background mode instead of quitting (opt-in)
+        if getattr(self, "_minimize_to_tray", False):
+            if getattr(self, "_tray_icon", None) is None or not self._tray_icon.isVisible():
+                self._setup_tray_icon()
             event.ignore()
             self.hide()
-            self._tray_icon.showMessage(
-                "Image Toolkit",
-                "Minimised to tray. Double-click the icon to reopen.",
-                QSystemTrayIcon.MessageIcon.Information,
-                2500,
-            )
+            if getattr(self, "_tray_icon", None) and self._tray_icon.isVisible():
+                self._tray_icon.showMessage(
+                    "Image Toolkit",
+                    "Application running in background. Click tray icon to reopen.",
+                    QSystemTrayIcon.MessageIcon.Information,
+                    2500,
+                )
             return
+
 
         # Bug 1: if extractions are still running, hide every window and keep
         # the process alive headlessly until they finish, then quit. Only

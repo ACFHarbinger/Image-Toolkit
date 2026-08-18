@@ -81,6 +81,15 @@ class _RelaunchSettingsMixin:
         restore_last_dir_row.addStretch(1)
         session_layout.addRow(restore_last_dir_row)
 
+        self.minimize_to_tray_check = QCheckBox("Close to background tray icon (keep app running in background)")
+        self.minimize_to_tray_check.setChecked(self.pref_minimize_to_tray)
+        self.minimize_to_tray_check.setToolTip(
+            "When enabled, closing the window keeps the application running in the background with "
+            "a system tray icon for quick re-opening."
+        )
+        session_layout.addRow(self.minimize_to_tray_check)
+
+
         self.recent_dirs_count_spinbox = QSpinBox()
         self.recent_dirs_count_spinbox.setRange(1, 50)
         self.recent_dirs_count_spinbox.setValue(self.pref_recent_dirs_count)
@@ -256,6 +265,7 @@ class _RelaunchSettingsMixin:
                 "initial_cache_maxsize": self.initial_cache_spinbox.value(),
                 "restore_last_dir": self.restore_last_dir_check.isChecked(),
                 "restore_last_tab": self.restore_last_tab_check.isChecked(),
+                "minimize_to_tray": self.minimize_to_tray_check.isChecked(),
                 "default_open_dir": self.default_dir_input.text().strip().replace("Downloads/data", "Downloads/Data"),
                 "recent_dirs_count": self.recent_dirs_count_spinbox.value(),
                 "startup_category": self.startup_category_combo.currentText(),
@@ -284,10 +294,13 @@ class _RelaunchSettingsMixin:
                 # Also save to QSettings (only if not in Guest mode)
                 if getattr(self.vault_manager, "is_guest", False) is not True:
                     AppSettings.set_recursive_scan(self.recursive_scan_check.isChecked())
+                    AppSettings.set_minimize_to_tray(self.minimize_to_tray_check.isChecked())
                     AppSettings.set_favourite_directories(user_data["preferences"]["favourite_directories"])  # pyrefly: ignore [bad-argument-type]
                     AppSettings.set_mal_fetch_method(self.mal_fetch_method_combo.currentData())
                 if self.main_window_ref:
                     self.main_window_ref.cached_creds = user_data
+                    if hasattr(self.main_window_ref, "set_minimize_to_tray"):
+                        self.main_window_ref.set_minimize_to_tray(self.minimize_to_tray_check.isChecked())
                     if selected_theme:
                         self.main_window_ref.set_application_theme(selected_theme)
                     if hasattr(self.main_window_ref, "_apply_startup_preferences"):
@@ -327,6 +340,8 @@ class _RelaunchSettingsMixin:
         self._refresh_startup_tab_combo(self.startup_category_combo.currentText())
         self.restore_last_dir_check.setChecked(True)
         self.restore_last_tab_check.setChecked(False)
+        self.minimize_to_tray_check.setChecked(False)
+
         self.recent_dirs_count_spinbox.setValue(10)
         self.session_recovery_combo.setCurrentText("None")
 

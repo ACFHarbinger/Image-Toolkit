@@ -114,6 +114,21 @@ class AppSettings:
     def set_mal_fetch_method(cls, method: str) -> None:
         cls._q().setValue("preferences/mal_fetch_method", method)
 
+    @classmethod
+    def minimize_to_tray(cls) -> bool:
+        """Return True if closing the app minimizes to background tray state."""
+        val = cls._q().value("preferences/minimize_to_tray")
+        if val is not None:
+            if isinstance(val, str):
+                return val.lower() == "true"
+            return bool(val)
+        return False
+
+    @classmethod
+    def set_minimize_to_tray(cls, enabled: bool) -> None:
+        cls._q().setValue("preferences/minimize_to_tray", enabled)
+
+
     # ── Session namespace ─────────────────────────────────────────────────────
 
     @classmethod

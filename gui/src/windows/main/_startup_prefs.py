@@ -241,6 +241,21 @@ class _StartupPrefsMixin:
             except Exception:
                 pass
 
+        # §2.12C — minimize to tray / background mode preference
+        minimize_to_tray = bool(
+            prefs.get("minimize_to_tray", False)
+            or prefs.get("close_to_tray", False)
+        )
+        if hasattr(self, "set_minimize_to_tray"):
+            self.set_minimize_to_tray(minimize_to_tray)
+        if minimize_to_tray:
+            if getattr(self, "_tray_icon", None) is None:
+                self._setup_tray_icon()
+            elif hasattr(self, "_tray_icon") and self._tray_icon and not self._tray_icon.isVisible():
+                self._tray_icon.show()
+        elif getattr(self, "_tray_icon", None) is not None:
+            self._tray_icon.hide()
+
         # §2.16F — logging preferences (GUI/UX §2.9F, issue #48). Local import:
         # backend.src.app imports from gui.src.windows.main, so a module-level
         # import here would be circular.
@@ -252,6 +267,7 @@ class _StartupPrefsMixin:
             )
         except Exception:
             pass
+
 
 
 __all__ = ["_StartupPrefsMixin"]
