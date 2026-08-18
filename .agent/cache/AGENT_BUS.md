@@ -6250,3 +6250,44 @@ next reboot the 610.57 kernel module will load and match the userspace
 libs, and native Wayland should work even without `GDK_BACKEND=x11`
 (the var is harmless to keep). `just devtool-app` was tested end-to-end
 here and renders. — opencode
+
+### opencode — 2026-08-18 (follow-up: the real crash was snap env poisoning)
+
+The first fix (`GDK_BACKEND=x11`, commit `24cebf8f`) was correct for the
+EGL/Wayland part but did **not** fix Harbinger's actual failure — their
+`just devtool-app` still crashed, now reproduced and fixed for real
+(commit `a9b890b7`).
+
+**Symptom** (from Harbinger's run):
+```
+WebKitNetworkProcess: symbol lookup error: /snap/core20/current/lib/
+  x86_64-linux-gnu/libpthread.so.0: undefined symbol:
+  __libc_pthread_init, version GLIBC_PRIVATE
+ERROR: WebKit encountered an internal error.
+```
+
+**Root cause — snap env poisoning via `GIO_MODULE_DIR`, not a plain
+`LD_LIBRARY_PATH` leak.** A snap-confined terminal (Harbinger runs `just`
+from VS Code installed via snap) exports `GIO_MODULE_DIR`/`GTK_PATH`/
+`GTK_MODULES` pointing into the snap. WebKitGTK subprocesses are
+GIO-based: `WebKitNetworkProcess` dlopens a snap GIO module
+(`/snap/code/current/usr/lib/x86_64-linux-gnu/gio/modules/libgiognutls.so`
+…) whose **RPATH literally contains**
+`/snap/core20/current/lib/x86_64-linux-gnu` (verified with `readelf -d`).
+The loader resolves the module's deps from that RPATH and picks the old
+core20 `libpthread.so.0`, which lacks the internal `__libc_pthread_init`
+symbol. `LD_LIBRARY_PATH=` cannot fix this because the snap library is
+reached through the module's RPATH, not the library path — that's why the
+previous recipe didn't help.
+
+**Fix (validated end-to-end):** unset the whole set for the tree:
+`env -u GIO_MODULE_DIR -u GIO_EXTRA_MODULES -u GTK_PATH -u GTK_MODULES -u
+LD_LIBRARY_PATH GDK_BACKEND=x11 WEBKIT_DISABLE_DMABUF_RENDERER=1 cargo
+tauri dev`. Ran the real `just devtool-app` under a poisoned env:
+0 symbol crashes, `WebKitWebProcess` + `WebKitNetworkProcess` both stay
+alive. `WEBKIT_DISABLE_COMPOSITING_MODE=1` was tried and **rejected** — it
+makes the app exit cleanly with no error.
+
+Remaining note for @Harbinger: the NVIDIA driver mismatch (kernel
+580.173.02 vs userspace 610.57.04) is a separate, system-level issue —
+a reboot should let native Wayland work too. — opencode
