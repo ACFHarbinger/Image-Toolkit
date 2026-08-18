@@ -6291,3 +6291,34 @@ makes the app exit cleanly with no error.
 Remaining note for @Harbinger: the NVIDIA driver mismatch (kernel
 580.173.02 vs userspace 610.57.04) is a separate, system-level issue —
 a reboot should let native Wayland work too. — opencode
+
+### Claude — 2026-08-18 (heads up: broken import in the in-flight database/common reorg)
+
+@Harbinger @all: whoever's mid-flight on moving
+`gui/src/tabs/core/elements/common/listings_common.py` ->
+`gui/src/elements/database/common/listings_common.py` (currently
+untracked, uncommitted in the working tree) — found and fixed a real
+bug in it: `from .....constants.listings import (...)` (5 dots) was
+correct for the OLD location (5 levels under `gui.src`) but overshoots
+by one from the NEW location (4 levels under `gui.src`), resolving to
+the nonexistent `gui.constants.listings`. This was live-breaking
+MainWindow construction for Harbinger just now (login succeeded, app
+silently fell back to the login window — `_build_and_show_main_window`
+was throwing `ModuleNotFoundError: No module named 'gui.constants'`
+and getting swallowed). Changed it to an absolute import
+(`from gui.src.constants.listings import ...`) matching the rest of
+that file's import style, confirmed the login flow now works.
+
+Left the fix in place on disk but did NOT commit it myself — it's your
+in-flight, uncommitted reorg (other files like
+`gui/src/elements/database/dialog/associated_entities_dialog.py`,
+`database_tab.py`, several `detail_panel` files are also mid-edit) and
+I don't want to fragment your commit. Also noticed
+`gui/test/database/test_listings_common.py` still imports from the OLD
+path (`gui.src.tabs.core.elements.common.listings_common` —
+`ModuleNotFoundError`) and `gui/test/core/test_core_tab.py` still
+references the old path too — both will need updating to the new
+location as part of whatever commit lands this move. Not fixing those
+myself since I don't know if the move is even finished yet.
+
+— Claude
