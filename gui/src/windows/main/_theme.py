@@ -39,6 +39,17 @@ class _ThemeMixin:
         if theme_name == "dark":
             accent_color = prefs.get("accent_color_dark", DARK_ACCENT_COLOR)
             overrides = compute_accent_vars(accent_color, "DARK")  # pyrefly: ignore [bad-argument-type]
+            color_overrides = prefs.get("color_overrides", {})
+            if color_overrides and isinstance(color_overrides, dict):
+                try:
+                    from gui.src.theming.resolve import resolve_colors, to_qss_vars
+                    from gui.src.theming.schema import ThemePack
+
+                    pack = ThemePack(name="Active", base="dark", color_overrides=color_overrides)
+                    resolved = resolve_colors(pack)
+                    overrides.update(to_qss_vars(resolved, prefix="DARK"))
+                except Exception:
+                    pass
             qss = load_qss_with_overrides("dark.qss", overrides)
             self.current_theme = "dark"
             hover_bg = "#5f646c"
@@ -48,6 +59,17 @@ class _ThemeMixin:
         elif theme_name == "light":
             accent_color = prefs.get("accent_color_light", LIGHT_ACCENT_COLOR)
             overrides = compute_accent_vars(accent_color, "LIGHT")  # pyrefly: ignore [bad-argument-type]
+            color_overrides = prefs.get("color_overrides", {})
+            if color_overrides and isinstance(color_overrides, dict):
+                try:
+                    from gui.src.theming.resolve import resolve_colors, to_qss_vars
+                    from gui.src.theming.schema import ThemePack
+
+                    pack = ThemePack(name="Active", base="light", color_overrides=color_overrides)
+                    resolved = resolve_colors(pack)
+                    overrides.update(to_qss_vars(resolved, prefix="LIGHT"))
+                except Exception:
+                    pass
             qss = load_qss_with_overrides("light.qss", overrides)
             self.current_theme = "light"
             hover_bg = "#cccccc"
@@ -56,6 +78,7 @@ class _ThemeMixin:
             header_widget_bg = "#ffffff"
         else:
             return
+
 
         if density == "Compact":
             qss += COMPACT_DENSITY_QSS
@@ -81,7 +104,12 @@ class _ThemeMixin:
             BackgroundCanvasController.instance().set_config(bg_config)
             qss += generate_glassmorphism_qss(bg_config, is_dark=(theme_name == "dark"))
 
+        corner_radius = prefs.get("corner_radius")
+        if corner_radius is not None and isinstance(corner_radius, (int, float)):
+            qss += f"\nQPushButton, QComboBox, QLineEdit, QSpinBox {{ border-radius: {int(corner_radius)}px; }}\n"
+
         self.setStyleSheet(qss) if "PYTEST_CURRENT_TEST" in os.environ else QApplication.instance().setStyleSheet(qss)  # pyrefly: ignore [missing-attribute]
+
 
 
         header_widget = self.findChild(QWidget, "header_widget")

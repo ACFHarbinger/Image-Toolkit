@@ -118,6 +118,10 @@ class SettingsWindow(
         self.pref_font_scale = _p.get("font_scale", 100)
         self.pref_ui_density = _p.get("ui_density", "Comfortable")
         self.pref_app_zoom = _p.get("app_zoom", 0)
+        self.pref_background_config = _p.get("background_config", {})
+        self.pref_corner_radius = _p.get("corner_radius", 4)
+        self.pref_shadow_elevation = _p.get("shadow_elevation", "None")
+        self.pref_color_overrides = _p.get("color_overrides", {})
         self.pref_recursive_scan = _p.get("recursive_scan", True)
         self.pref_mal_fetch_method = AppSettings.mal_fetch_method()
         seen_dirs = set()
@@ -126,6 +130,7 @@ class SettingsWindow(
             for x in (_p.get("favourite_directories", []) + AppSettings.favourite_directories())
             if not (x in seen_dirs or seen_dirs.add(x))
         ]
+
 
         # --- Configuration Defaults State ---
         self.tab_defaults_config = self._load_tab_defaults_from_vault()

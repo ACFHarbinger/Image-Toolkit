@@ -655,3 +655,44 @@ class TestThemeStudioTab:
 
         window = SettingsWindow()
         assert window.qss_editor.editor.isReadOnly() is True
+
+
+class TestThemeAndBackgroundControlsWiring:
+    def test_background_canvas_controls_exist(self, q_app):
+        window = SettingsWindow()
+        assert hasattr(window, "bg_path_input")
+        assert hasattr(window, "bg_fit_combo")
+        assert hasattr(window, "bg_opacity_slider")
+        assert hasattr(window, "bg_blur_spin")
+        assert hasattr(window, "glassmorphism_check")
+        assert hasattr(window, "corner_radius_combo")
+
+    def test_get_background_config_dict(self, q_app):
+        window = SettingsWindow()
+        window.bg_path_input.setText("/tmp/test_bg.png")
+        window.bg_fit_combo.setCurrentText("Contain")
+        window.bg_opacity_slider.setValue(80)
+        window.bg_blur_spin.setValue(10)
+        window.glassmorphism_check.setChecked(True)
+
+        cfg = window._get_background_config_dict()
+        assert cfg["image_path"] == "/tmp/test_bg.png"
+        assert cfg["fit_mode"] == "contain"
+        assert cfg["opacity"] == 0.8
+        assert cfg["blur_radius"] == 10
+        assert cfg["glassmorphism_enabled"] is True
+
+    def test_reset_settings_resets_background_and_palette(self, q_app):
+        window = SettingsWindow()
+        window.bg_path_input.setText("/tmp/custom.png")
+        window.bg_opacity_slider.setValue(90)
+        window.bg_blur_spin.setValue(15)
+        window.glassmorphism_check.setChecked(True)
+
+        window.reset_settings()
+
+        assert window.bg_path_input.text() == ""
+        assert window.bg_opacity_slider.value() == 50
+        assert window.bg_blur_spin.value() == 0
+        assert window.glassmorphism_check.isChecked() is False
+
