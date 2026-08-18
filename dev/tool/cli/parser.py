@@ -337,9 +337,12 @@ def cmd_wallpaper(args: Any) -> int:
             quality=quality,
         )
         print(f"wallpaper written: {result.output_path}")
+        print(f"  engine: {result.routing_engine} ({result.routing_reason})")
         print(f"  hero frame: {result.hero.frame_idx}  score: {result.hero.score:.3f}")
-        print(f"  plate void_ratio: {result.plate.void_ratio:.3f}")
-        print(f"  blend: {result.composite.blend_method}")
+        if result.plate is not None:
+            print(f"  plate void_ratio: {result.plate.void_ratio:.3f}")
+        if result.composite is not None:
+            print(f"  blend: {result.composite.blend_method}")
         print(f"  aspect: {result.framed.target_aspect}  needs_outpaint: {result.framed.needs_generative_outpaint}")
         print(f"  stage trace: {[s.name for s in result.session.stages]}")
         return 0
