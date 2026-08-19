@@ -145,6 +145,14 @@ class MainWindow(
         self.on_command_changed(self.command_combo.currentText())
 
 
+        # Default before _apply_startup_preferences() so a saved
+        # "minimize to tray" preference isn't stomped back to False by the
+        # unconditional reset further down (that reset is only meant for
+        # _tray_icon, see its comment) -- must exist here for guest/first
+        # launch, where _apply_startup_preferences() has no saved prefs to
+        # apply and returns early.
+        self._minimize_to_tray: bool = False
+
         # GUI/UX §2.16 — wire vault preferences to runtime at startup
         self._apply_startup_preferences()
 
@@ -168,7 +176,6 @@ class MainWindow(
         # startup-timing adjustment tried). _tray_icon stays None; anything
         # that reads it (e.g. tray_notify()) already handles that safely.
         self._tray_icon: QSystemTrayIcon | None = None
-        self._minimize_to_tray: bool = False
 
         # GUI/UX §2.8 — live OS color-scheme changes (e.g. user toggles dark mode in KDE/Windows)
         try:

@@ -263,6 +263,21 @@ class TestMainWindowSessionRecovery:
         assert window.convert_tab.format_subtab.last_browsed_dir == expected_dir
         assert window.extractor_tab.last_browsed_scan_dir == expected_dir
 
+    def test_minimize_to_tray_pref_survives_init(self, q_app):
+        # Regression: _minimize_to_tray was default-reset to False right
+        # after _apply_startup_preferences() set it from the saved pref,
+        # so the setting only took effect once a Settings-window Save
+        # re-applied it mid-session, and reverted on every fresh launch.
+        creds = {
+            "account_name": "test_user",
+            "preferences": {"minimize_to_tray": True},
+        }
+        vault = MockVaultManager(creds)
+        window = MainWindow(vault_manager=vault)  # pyrefly: ignore [bad-argument-type]
+        QApplication.processEvents()
+
+        assert window._minimize_to_tray is True
+
 
 class TestMainWindowSaveTabConfig:
     @pytest.fixture(autouse=True)
