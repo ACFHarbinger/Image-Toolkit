@@ -1,9 +1,13 @@
 # App Theming & Customization (2026Q3)
 
-**Status: LOCKED — ready for implementation.** Brainstorm rounds 1-2
-(Gemini, deepseek, opencode independently) plus a final ambiguity-clearing
-round with Harbinger are complete. Milestone "App Theming & Customization",
-GitHub issues #437 (foundational schema, blocks the rest) through #441.
+**Status: Phase 1 (desktop) shipped.** #437-441 (schema, Theme Studio,
+palette extraction, background canvas + glassmorphism, QSS editor/export)
+landed 2026-08-18. A follow-up sweep was needed and landed 2026-08-19:
+glassmorphism defaulted off and its QSS selectors didn't match the real
+widget tree (#449), and ~45 tab files had inline hardcoded panel/button
+colors overriding the theme entirely (#446, #450-452 — #450 has two files
+still outstanding, see its issue). Phases 2 (docs website) and 3 (devtool
+app) are still "Next," unstarted.
 
 **Origin:** Harbinger, 2026-08-18. "Make the app customizable — user-
 defined theme (colors, styles, etc.) and background image(s)."
