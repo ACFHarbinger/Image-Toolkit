@@ -53,8 +53,10 @@ class _AppearanceMixin:
         theme_layout = QHBoxLayout()
         self.dark_theme_radio = QRadioButton("Dark Base")
         self.light_theme_radio = QRadioButton("Light Base")
-        self.dark_theme_radio.setStyleSheet("QRadioButton { min-width: 140px; padding: 4px; }")
-        self.light_theme_radio.setStyleSheet("QRadioButton { min-width: 140px; padding: 4px; }")
+        self.dark_theme_radio.setMinimumWidth(180)
+        self.light_theme_radio.setMinimumWidth(180)
+        self.dark_theme_radio.setStyleSheet("QRadioButton { min-width: 180px; padding: 4px; }")
+        self.light_theme_radio.setStyleSheet("QRadioButton { min-width: 180px; padding: 4px; }")
 
         if self.initial_theme == "light":
             self.light_theme_radio.setChecked(True)
@@ -300,6 +302,8 @@ class _AppearanceMixin:
             f"QPushButton {{ background-color: {c.name()}; border: 1px solid #666; border-radius: 4px; }}"
             f"QPushButton:hover {{ border: 1px solid #fff; }}"
         )
+
+    _update_swatch = _update_swatch_color
 
     def _pick_palette_color(self, token_key: str) -> None:
         current_val = self._current_colors.get(token_key, "#00bcd4")
