@@ -31,7 +31,7 @@ class BackgroundConfig:
     opacity: float = 0.50
     blur_radius: int = 0
     fit_mode: str = "cover"  # "cover" | "contain" | "center" | "tile"
-    glassmorphism_enabled: bool = False
+    glassmorphism_enabled: bool = True
     tab_overrides: dict[str, str] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -50,7 +50,7 @@ class BackgroundConfig:
             fit_mode=str(data.get("fit_mode", "cover")).lower()
             if str(data.get("fit_mode", "cover")).lower() in {"cover", "contain", "center", "tile"}
             else "cover",
-            glassmorphism_enabled=bool(data.get("glassmorphism_enabled", False)),
+            glassmorphism_enabled=bool(data.get("glassmorphism_enabled", True)),
             tab_overrides={str(k): str(v) for k, v in data.get("tab_overrides", {}).items()},
         )
 
@@ -334,6 +334,13 @@ def generate_glassmorphism_qss(config: BackgroundConfig, is_dark: bool = True) -
         background: transparent !important;
     }}
     QTabWidget {{
+        background: transparent !important;
+    }}
+    /* Each tab page is a plain QWidget the tab's own layout owns -- without
+       this, dark.qss/light.qss's blanket QWidget background-color rule
+       paints every tab page opaque and hides the translucent pane/cards
+       behind it (#449). */
+    QTabWidget > QWidget {{
         background: transparent !important;
     }}
     QTabWidget::pane {{
