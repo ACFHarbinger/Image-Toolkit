@@ -187,8 +187,21 @@ class _SlideshowMixin:
         else:
             if "Error" not in self.countdown_label.text():
                 self.countdown_label.setText("Timer: 00:00")
-            if not self._is_daemon_running_config():
+            # Config's "running" flag can go stale if the daemon process died
+            # without reaching its cleanup (crash, OOM, hard kill): reuses the
+            # PID-liveness check to catch that, instead of trusting the flag
+            # alone, so the countdown doesn't stay pinned at 00:00 forever.
+            if not self._reconcile_daemon_liveness_on_startup():
                 self.time_remaining_sec = self.interval_sec
+                if hasattr(self, "countdown_timer") and self.countdown_timer:
+                    self.countdown_timer.stop()
+                if hasattr(self, "btn_daemon_toggle"):
+                    self.btn_daemon_toggle.setChecked(False)
+                    self.btn_daemon_toggle.setText("Start Background Daemon")
+                    self.btn_daemon_toggle.setStyleSheet(
+                        "background-color: #27ae60; color: white; padding: 5px;"
+                    )
+                self.countdown_label.setText("Timer: --:--")
 
     @Slot()
     def stop_slideshow(self: "SystemDisplaySubTabHostProtocol"):
