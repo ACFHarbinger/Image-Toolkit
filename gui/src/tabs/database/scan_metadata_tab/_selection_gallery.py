@@ -7,7 +7,6 @@ change (see ``_ui_builder.py``'s docstring).
 from __future__ import annotations
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QGridLayout, QLabel
 
 from ....classes.mixins import compute_reordered, install_drag_reorder
@@ -127,6 +126,8 @@ class _SelectionGalleryMixin:
             self.populate_selected_images_gallery()
             return
 
+        paths_to_load = []
+        target_widgets = {}
         for i, path in enumerate(page_slice):
             pixmap = None
             is_in_db = False
@@ -138,10 +139,6 @@ class _SelectionGalleryMixin:
                 inner_label = wrapper.findChild(QLabel)
                 if inner_label and inner_label.pixmap():
                     pixmap = inner_label.pixmap()
-
-            # Fallback load
-            if pixmap is None:
-                pixmap = QPixmap(path)
 
             card = self._create_gallery_card(
                 path, pixmap, is_selected=True, is_in_db=is_in_db
@@ -156,6 +153,12 @@ class _SelectionGalleryMixin:
             self.selected_grid_layout.addWidget(
                 card, row, col, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop
             )
+            if pixmap is None:
+                paths_to_load.append(path)
+                target_widgets[path] = card
+
+        if paths_to_load:
+            self._trigger_batch_selected_load(paths_to_load, target_widgets)
 
         self.selected_images_widget.setUpdatesEnabled(True)
         self.selected_images_widget.adjustSize()
