@@ -231,6 +231,8 @@ class ImageExtractorSubTab(QWidget):
 
     def __init__(self):
         super().__init__()
+        self.operation_thread_pool = QThreadPool()
+        self.operation_thread_pool.setMaxThreadCount(2)
         self.image_path: Optional[str] = None
         self.image_size = (0, 0)
         self._frame_rects: List[QRect] = []
@@ -572,7 +574,7 @@ class ImageExtractorSubTab(QWidget):
             lambda paths, w=worker: self._on_cut_finished(paths, w)
         )
         worker.signals.error.connect(lambda msg, w=worker: self._on_cut_error(msg, w))
-        QThreadPool.globalInstance().start(worker)
+        self.operation_thread_pool.start(worker)
 
     @Slot(int, int)
     def _on_cut_progress(self, done: int, total: int):
@@ -602,6 +604,8 @@ class ImageExtractorSubTab(QWidget):
 
     def closeEvent(self, event):
         self.cancel_loading()
+        self.operation_thread_pool.clear()
+        self.operation_thread_pool.waitForDone(2000)
         super().closeEvent(event)
 
     def collect(self) -> Dict[str, Any]:
