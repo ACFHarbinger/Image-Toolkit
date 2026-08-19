@@ -236,10 +236,6 @@ class _UIGraphCanvasMixin:
     def _build_gallery_panel(self: "MonitorDisplaySubTabHostProtocol") -> QGroupBox:
         # Gallery panel for dragging and dropping files
         gallery_panel = QGroupBox("Gallery / Drag and Drop")
-        gallery_panel.setStyleSheet(
-            "QGroupBox { border:1px solid #4f545c; border-radius:6px; margin-top:8px; }"
-            "QGroupBox::title { color:white; padding:0 6px; }"
-        )
         gallery_lyt = QVBoxLayout(gallery_panel)
         gallery_lyt.setContentsMargins(6, 12, 6, 6)
         gallery_lyt.setSpacing(4)
@@ -269,15 +265,9 @@ class _UIGraphCanvasMixin:
         gallery_scroll_area = MarqueeScrollArea()
         self.gallery_scroll_area = gallery_scroll_area
         gallery_scroll_area.setWidgetResizable(True)
-        gallery_scroll_area.setStyleSheet(
-            "QScrollArea { border: 1px solid #4f545c;  border-radius: 8px; }"
-        )
         gallery_scroll_area.setMinimumHeight(600)
 
         self.scan_thumbnail_widget = QWidget()
-        self.scan_thumbnail_widget.setStyleSheet(
-            "QWidget {  }"
-        )
 
         self.scan_thumbnail_layout = QGridLayout(self.scan_thumbnail_widget)
         self.scan_thumbnail_layout.setAlignment(

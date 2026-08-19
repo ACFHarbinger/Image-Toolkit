@@ -164,7 +164,8 @@ class TestGlassmorphismQSS:
         qss = generate_glassmorphism_qss(cfg, is_dark=True)
         assert "QMainWindow" in qss
         assert "QTabWidget::pane" in qss
-        assert "rgba(32, 33, 36" in qss
+        assert "QGroupBox" in qss
+        assert "rgba(" in qss
 
     def test_glassmorphism_light_mode_qss(self):
         cfg = BackgroundConfig(image_path="/tmp/bg.png", glassmorphism_enabled=True)

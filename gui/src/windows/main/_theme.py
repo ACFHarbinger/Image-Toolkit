@@ -102,6 +102,11 @@ class _ThemeMixin:
         if bg_data:
             bg_config = BackgroundConfig.from_dict(bg_data)
             BackgroundCanvasController.instance().set_config(bg_config)
+        else:
+            bg_config = BackgroundCanvasController.instance().config
+
+        effective_bg = BackgroundCanvasController.instance().get_effective_image_path()
+        if bg_config.glassmorphism_enabled and (bg_config.image_path or effective_bg):
             qss += generate_glassmorphism_qss(bg_config, is_dark=(theme_name == "dark"))
 
         corner_radius = prefs.get("corner_radius")
@@ -110,12 +115,10 @@ class _ThemeMixin:
 
         self.setStyleSheet(qss) if "PYTEST_CURRENT_TEST" in os.environ else QApplication.instance().setStyleSheet(qss)  # pyrefly: ignore [missing-attribute]
 
-
-
         header_widget = self.findChild(QWidget, "header_widget")
         if header_widget:
-            if bg_data and bg_data.get("image_path") and bg_data.get("glassmorphism_enabled", True):
-                header_widget_bg = "rgba(32, 33, 36, 0.70)" if theme_name == "dark" else "rgba(255, 255, 255, 0.75)"
+            if bg_config.glassmorphism_enabled and (bg_config.image_path or effective_bg):
+                header_widget_bg = "rgba(16, 18, 22, 0.65)" if theme_name == "dark" else "rgba(255, 255, 255, 0.70)"
             header_widget.setStyleSheet(
                 f"background-color: {header_widget_bg}; padding: 10px; border-bottom: 2px solid {accent_color};"
             )
@@ -124,7 +127,6 @@ class _ThemeMixin:
                 account_name = self.cached_creds.get("account_name", "Authenticated User")
                 title_label.setText(f"Image Database and Toolkit - {account_name}")
                 title_label.setStyleSheet(f"color: {header_label_color}; font-size: 18pt; font-weight: bold;")
-
 
         self.settings_button.setStyleSheet(
             f"""
@@ -180,6 +182,16 @@ class _ThemeMixin:
             qss += "\n" + raw
         qss += load_user_qss_override()
 
+        # Background tokens & glassmorphism styling
+        if hasattr(pack, "background") and pack.background:
+            BackgroundCanvasController.instance().set_background_tokens(
+                pack.background, getattr(pack, "backgrounds", [])
+            )
+        bg_config = BackgroundCanvasController.instance().config
+        effective_bg = BackgroundCanvasController.instance().get_effective_image_path()
+        if bg_config.glassmorphism_enabled and (bg_config.image_path or effective_bg):
+            qss += generate_glassmorphism_qss(bg_config, is_dark=(pack.base == "dark"))
+
         self.setStyleSheet(qss) if "PYTEST_CURRENT_TEST" in os.environ else QApplication.instance().setStyleSheet(qss)
 
         # Header restyle mirrors set_application_theme's behavior for the
@@ -189,6 +201,8 @@ class _ThemeMixin:
             resolved = resolve_colors(pack)
             accent = resolved.accent
             window_bg = resolved.window_bg
+            if bg_config.glassmorphism_enabled and (bg_config.image_path or effective_bg):
+                window_bg = "rgba(16, 18, 22, 0.65)" if pack.base == "dark" else "rgba(255, 255, 255, 0.70)"
             text = resolved.text
             header_widget.setStyleSheet(
                 f"background-color: {window_bg}; padding: 10px; border-bottom: 2px solid {accent};"

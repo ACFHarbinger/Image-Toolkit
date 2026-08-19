@@ -26,8 +26,6 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from gui.src.constants.elements import _GROUP_BOX_STYLE
-
 from .....components import MarqueeScrollArea
 from .....styles import STYLE_START_ACTION, apply_shadow_effect, set_button_role
 
@@ -68,7 +66,6 @@ class _UIBuilderMixin:
         content_layout.addWidget(layout_group)
 
         settings_group = QGroupBox("Wallpaper Settings")
-        settings_group.setStyleSheet(_GROUP_BOX_STYLE)
         settings_layout = QVBoxLayout(settings_group)
         settings_layout.setContentsMargins(10, 20, 10, 10)
 
@@ -280,15 +277,9 @@ class _UIBuilderMixin:
     def _build_gallery_section(self: "SystemDisplaySubTabHostProtocol", content_layout) -> None:
         self.gallery_scroll_area = MarqueeScrollArea()
         self.gallery_scroll_area.setWidgetResizable(True)
-        self.gallery_scroll_area.setStyleSheet(
-            "QScrollArea { border: 1px solid #4f545c;  border-radius: 8px; }"
-        )
         self.gallery_scroll_area.setMinimumHeight(600)
 
         self.scan_thumbnail_widget = QWidget()
-        self.scan_thumbnail_widget.setStyleSheet(
-            "QWidget {  }"
-        )
 
         self.scan_thumbnail_layout = QGridLayout(self.scan_thumbnail_widget)
         self.scan_thumbnail_layout.setAlignment(

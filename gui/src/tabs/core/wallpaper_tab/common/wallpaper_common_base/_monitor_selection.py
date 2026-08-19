@@ -31,22 +31,7 @@ class _MonitorSelectionMixin:
         self._system_display_ref = system_display
 
     def create_monitor_layout_section(self: "WallpaperCommonBaseHostProtocol", title: str) -> QGroupBox:
-        group_box_style = """
-            QGroupBox {
-                border: 1px solid #4f545c;
-                border-radius: 8px;
-                margin-top: 10px;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                subcontrol-position: top left;
-                padding: 4px 10px;
-                color: white;
-                border-radius: 4px;
-            }
-        """
         layout_group = QGroupBox(title)
-        layout_group.setStyleSheet(group_box_style)
 
         self.monitor_layout_container = DraggableMonitorContainer()
 
