@@ -22,31 +22,15 @@ from PySide6.QtWidgets import (
 
 from gui.src.constants.elements import SOURCE_REDDIT
 
-from ....styles import apply_shadow_effect
+from gui.src.constants.elements import SOURCE_REDDIT
+
+from ....styles import apply_shadow_effect, set_button_role
 
 SOURCE_NHENTAI = 1
 
 
 class _UIBuilderMixin:
     """Builds the source-type stack, output settings, and run controls."""
-
-    def _get_group_style(self):
-        return """
-            QGroupBox { border: 1px solid #4f545c; border-radius: 8px; margin-top: 10px; }
-            QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top left; padding: 4px 10px; color: white; border-radius: 4px; }
-        """
-
-    def _get_run_btn_style(self):
-        return """
-            QPushButton { background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #667eea, stop:1 #764ba2); color: white; font-weight: bold; padding: 14px; border-radius: 10px; }
-            QPushButton:hover { background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #764ba2, stop:1 #667eea); }
-        """
-
-    def _get_cancel_btn_style(self):
-        return """
-            QPushButton { background-color: #cc3333; color: white; font-weight: bold; padding: 14px; border-radius: 10px; }
-            QPushButton:hover { background-color: #ff4444; }
-        """
 
     def _build_ui(self) -> None:
         main_layout = QVBoxLayout(self)
@@ -77,7 +61,6 @@ class _UIBuilderMixin:
 
         # --- 3. Shared Output Settings ---
         output_group = QGroupBox("Output Configuration")
-        output_group.setStyleSheet(self._get_group_style())
         output_layout = QFormLayout(output_group)
         output_layout.setContentsMargins(10, 20, 10, 10)
 
@@ -116,7 +99,7 @@ class _UIBuilderMixin:
         main_layout.addWidget(self.progress_bar)
 
         self.run_button = QPushButton("Download")
-        self.run_button.setStyleSheet(self._get_run_btn_style())
+        set_button_role(self.run_button, "success")
         apply_shadow_effect(
             self.run_button, color_hex="#000000", radius=8, x_offset=0, y_offset=3
         )
@@ -124,7 +107,7 @@ class _UIBuilderMixin:
         main_layout.addWidget(self.run_button)
 
         self.cancel_button = QPushButton("Cancel")
-        self.cancel_button.setStyleSheet(self._get_cancel_btn_style())
+        set_button_role(self.cancel_button, "danger")
         apply_shadow_effect(
             self.cancel_button, color_hex="#000000", radius=8, x_offset=0, y_offset=3
         )
@@ -141,7 +124,6 @@ class _UIBuilderMixin:
         layout.setContentsMargins(0, 0, 0, 0)
 
         group = QGroupBox("Reddit Settings")
-        group.setStyleSheet(self._get_group_style())
         form = QFormLayout(group)
         form.setContentsMargins(10, 20, 10, 10)
 
@@ -182,7 +164,6 @@ class _UIBuilderMixin:
         layout.setContentsMargins(0, 0, 0, 0)
 
         group = QGroupBox("nhentai Settings")
-        group.setStyleSheet(self._get_group_style())
         form = QFormLayout(group)
         form.setContentsMargins(10, 20, 10, 10)
 

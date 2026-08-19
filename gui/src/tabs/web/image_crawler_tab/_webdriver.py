@@ -10,6 +10,8 @@ import sys
 
 from PySide6.QtCore import QProcess
 
+from ....styles import set_button_role
+
 
 class _WebDriverMixin:
     """Starts/stops the external WebDriver management script and streams its output."""
@@ -54,7 +56,7 @@ class _WebDriverMixin:
                 )
                 return
             self.webdriver_button.setText("🛑 Stop WebDriver Service")
-            self.webdriver_button.setStyleSheet(self._get_cancel_btn_style())
+            set_button_role(self.webdriver_button, "danger")
         else:
             self.log_window.append_log("🛑 Stopping WebDriver service...")
             self.webdriver_process.terminate()
@@ -74,7 +76,7 @@ class _WebDriverMixin:
     def on_webdriver_finished(self):
         self.log_window.append_log("🌐 WebDriver service stopped.")
         self.webdriver_button.setText("🌐 Start WebDriver Service")
-        self.webdriver_button.setStyleSheet(self._get_webdriver_btn_style())
+        set_button_role(self.webdriver_button, "success")
 
 
 __all__ = ["_WebDriverMixin"]

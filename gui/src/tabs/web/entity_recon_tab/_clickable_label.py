@@ -21,7 +21,7 @@ class _ClickableImageLabel(QLabel):
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.setMinimumSize(320, 320)
         self.setText("Load an image to begin.")
-        self.setStyleSheet("color: #999; border: 1px dashed #4f545c; background: #2c2f33;")
+        self.setStyleSheet("color: #999; border: 1px dashed #4f545c; background: transparent;")
         self._src_w = 0
         self._src_h = 0
         self._scaled_w = 0

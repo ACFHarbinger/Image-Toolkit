@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from PySide6.QtWidgets import QApplication
 
-from ....styles import STYLE_SYNC_RUN, STYLE_SYNC_STOP
+from ....styles import set_button_role
 
 
 class _UILockMixin:
@@ -16,9 +16,7 @@ class _UILockMixin:
     def lock_ui(self, message: str, is_running: bool = False, clear_log: bool = False):
         """Locks UI elements and updates sync button text/style."""
         self.sync_button.setText(message)
-        self.sync_button.setStyleSheet(
-            STYLE_SYNC_STOP if is_running else STYLE_SYNC_RUN
-        )
+        set_button_role(self.sync_button, "danger" if is_running else "success")
         self.sync_button.setEnabled(True)
 
         config_enabled = not is_running

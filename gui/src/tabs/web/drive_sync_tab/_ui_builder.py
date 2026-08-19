@@ -23,7 +23,7 @@ from PySide6.QtWidgets import (
 )
 
 from ....constants import DRY_RUN
-from ....styles import STYLE_SYNC_RUN, apply_shadow_effect
+from ....styles import apply_shadow_effect, set_button_role
 
 
 class _UIBuilderMixin:
@@ -128,9 +128,6 @@ class _UIBuilderMixin:
         self.dry_run_checkbox.setStyleSheet(
             """
             QCheckBox { color: #f1c40f; }
-            QCheckBox::indicator { width: 16px; height: 16px; border: 1px solid #555;
-                                   border-radius: 3px; background: #333; }
-            QCheckBox::indicator:checked { background: #f1c40f; border-color: #f1c40f; }
         """
         )
 
@@ -219,7 +216,7 @@ class _UIBuilderMixin:
 
         # ------------------ SYNC BUTTON ------------------
         self.sync_button = QPushButton("Run Synchronization Now")
-        self.sync_button.setStyleSheet(STYLE_SYNC_RUN)
+        set_button_role(self.sync_button, "success")
         apply_shadow_effect(self.sync_button, "#000000", 8, 0, 3)
         self.sync_button.clicked.connect(self.toggle_sync)
 
