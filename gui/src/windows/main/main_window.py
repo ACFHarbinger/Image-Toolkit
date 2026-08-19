@@ -67,6 +67,10 @@ class MainWindow(
         enable_manager=False,
     ):
         super().__init__()
+        # MainWindow is itself the top-level widget (no separate central
+        # widget/QStackedWidget) -- named so the glassmorphism QSS's
+        # `QWidget#central_widget` selector actually matches something (#449).
+        self.setObjectName("central_widget")
 
         # Store the authenticated vault manager instance
         self.vault_manager = vault_manager
