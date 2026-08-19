@@ -5,7 +5,10 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional, Tuple
 
 from PySide6.QtCore import Signal
-from PySide6.QtWidgets import QWidget
+
+from gui.src.elements.database.display.common.listing_gallery_base import (
+    ListingGalleryBase,
+)
 
 from ._backup_sync import _BackupSyncMixin
 from ._card_actions import _CardActionsMixin
@@ -32,12 +35,14 @@ class SeriesListingsSubTab(
     _SemanticSearchMixin,
     _BackupSyncMixin,
     _DirectoryImportMixin,
-    QWidget,
+    ListingGalleryBase,
 ):
     entities_changed = Signal()  # emitted when entities.json is updated by cross-sync
 
     def __init__(self, parent=None, vault_manager=None):
-        super().__init__(parent)
+        super().__init__()
+        if parent is not None:
+            self.setParent(parent)
         self.vault_manager = vault_manager
         self._entries: List[Dict[str, Any]] = []
         self._selected_id: Optional[str] = None

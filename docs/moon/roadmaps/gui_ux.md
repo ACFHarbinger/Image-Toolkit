@@ -168,6 +168,14 @@ time (#456), and chunk/concurrency tuning for progressive rendering
 claims. Still Option C underneath, not the Option A rewrite — revisit if
 freezes recur at very large (thousands-of-images) directory sizes.
 
+**2026-08-19 listing parity follow-up:** series/entity listings now inherit
+the shared two-gallery foundation through a database-record adapter (#447).
+Their existing 100-card pages now also support §2.13E search operators,
+arrow/Enter navigation, per-tab Ctrl+wheel card sizing, and persisted §2.18
+color-label borders without applying filesystem-only rename/copy operations
+to database record IDs. This closes the listing-specific parity work while
+retaining Option C pagination.
+
 **Pain point:** Page-based gallery requires manual forward/back navigation. LRU eviction on page change causes 50–200ms thumbnail reloads. `QLabel` grid layout does not scale beyond 200 items without noticeable lag.
 
 ### Options

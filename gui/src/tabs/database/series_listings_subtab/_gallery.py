@@ -15,7 +15,6 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QLabel
 
 from gui.src.constants.elements import _SORT_KEY_MAP
-from gui.src.constants.listings import CARD_SIZE
 from gui.src.elements.database.display.listing_card import _ListingCard
 
 # sort_combo display text -> SearchRepo.filter_media's sort_key (DB.5).
@@ -49,29 +48,34 @@ class _GalleryMixin:
         # SearchRepo.filter_media (DB.5) — no more full-list Python scan.
         type_filter = (
             self._filter_type
-            if self._filter_type and self._filter_type not in (
-                "All", "All Types", "None", "",
+            if self._filter_type
+            and self._filter_type
+            not in (
+                "All",
+                "All Types",
+                "None",
+                "",
             )
             else None
         )
-        status_filter = (
-            self._filter_status
-            if self._filter_status not in ("All", "All Status")
-            else None
-        )
+        status_filter = self._filter_status if self._filter_status not in ("All", "All Status") else None
         sort_field = self.sort_combo.currentText()
         sort_key = _SORT_KEY_MAP.get(sort_field, "title")
         descending = self.sort_order_combo.currentText() == "Descending"
+        operator_query = self._has_search_operators(self._search_query)
 
         repo = self._search_repo()
         if repo is None:
             # Vault locked / DB unavailable — nothing better to show than the
             # last loaded snapshot, unfiltered.
-            return list(self._entries)
+            result = list(self._entries)
+            if operator_query:
+                result = self._apply_listing_operator_search(result)
+            return result
 
         try:
             ids = repo.filter_media(
-                search_query=self._search_query,
+                search_query=None if operator_query else self._search_query,
                 type_filter=type_filter,
                 status_filter=status_filter,
                 advanced_criteria=self._advanced_search_criteria,
@@ -79,14 +83,14 @@ class _GalleryMixin:
                 descending=descending,
             )
         except Exception:
-            logging.exception(
-                "[SeriesListingsSubTab] SQL filter/sort failed; showing "
-                "unfiltered entries"
-            )
+            logging.exception("[SeriesListingsSubTab] SQL filter/sort failed; showing unfiltered entries")
             return list(self._entries)
 
         by_id = {e["id"]: e for e in self._entries if "id" in e}
         result = [by_id[i] for i in ids if i in by_id]
+
+        if operator_query:
+            result = self._apply_listing_operator_search(result)
 
         if sort_key == "local_file":
             # Basename-of-path sort isn't expressible in portable SQL (no
@@ -94,20 +98,37 @@ class _GalleryMixin:
             # this is a sort over the already-filtered subset, not a
             # full-table scan.
             result.sort(
-                key=lambda x: Path(x.get("local_file", "")).name.lower()
-                if x.get("local_file")
-                else "",
+                key=lambda x: Path(x.get("local_file", "")).name.lower() if x.get("local_file") else "",
                 reverse=descending,
             )
 
         return result
 
+    def _apply_listing_operator_search(self, entries: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        return self._filter_records_with_operators(
+            entries,
+            self._search_query,
+            lambda entry: " ".join(
+                str(value)
+                for value in (
+                    entry.get("title", ""),
+                    entry.get("creator", ""),
+                    entry.get("type", ""),
+                    entry.get("status", ""),
+                    entry.get("tags", ""),
+                    entry.get("genres", ""),
+                    entry.get("local_file", ""),
+                )
+            ),
+        )
+
     def _rebuild_gallery(self):
+        self._reset_listing_cards()
         # Clear old widgets
         while self._grid.count():
             item = self._grid.takeAt(0)
             if item.widget():
-                item.widget().deleteLater() # pyrefly: ignore [missing-attribute]
+                item.widget().deleteLater()  # pyrefly: ignore [missing-attribute]
 
         visible = self._filtered_entries()
         total_pages = max(1, math.ceil(len(visible) / self._listing_page_size))
@@ -115,30 +136,28 @@ class _GalleryMixin:
         start = self._listing_page * self._listing_page_size
         page_entries = visible[start : start + self._listing_page_size]
         if not visible:
-            placeholder = QLabel(
-                "No entries found.\nClick '＋ Add Entry' to get started."
-            )
+            placeholder = QLabel("No entries found.\nClick '＋ Add Entry' to get started.")
             placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
             placeholder.setStyleSheet("color:#555;font-size:14px;")
             self._grid.addWidget(placeholder, 0, 0)
         else:
-            cols = max(1, self.gallery_scroll.width() // (CARD_SIZE + 20))
+            cols = max(
+                1,
+                self.gallery_scroll.width() // (self._listing_card_size + 20),
+            )
             for i, entry in enumerate(page_entries):
-                card = _ListingCard(entry)
-                card.clicked.connect(self._on_card_clicked)
+                card = _ListingCard(entry, card_size=self._listing_card_size)
+                card.clicked.connect(self._activate_listing)
                 card.add_requested.connect(self._on_add_new)
                 card.delete_requested.connect(self._on_card_delete_requested)
-                card.image_remove_requested.connect(
-                    self._on_card_image_remove_requested
-                )
+                card.image_remove_requested.connect(self._on_card_image_remove_requested)
+                self._register_listing_card(entry["id"], card)
                 self._grid.addWidget(card, i // cols, i % cols)
 
         # Stats
         total = len(self._entries)
         completed = sum(1 for e in self._entries if e.get("status") == "Completed")
-        self.stats_label.setText(
-            f"{total} entries total · {completed} completed · showing {len(visible)}"
-        )
+        self.stats_label.setText(f"{total} entries total · {completed} completed · showing {len(visible)}")
         self._page_label.setText(f"Page {self._listing_page + 1} / {total_pages}")
         self._page_prev_btn.setEnabled(self._listing_page > 0)
         self._page_next_btn.setEnabled(self._listing_page + 1 < total_pages)

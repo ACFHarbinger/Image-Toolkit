@@ -6,7 +6,7 @@ change.
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QComboBox,
     QGridLayout,
@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from gui.src.components import MarqueeScrollArea
 from gui.src.constants.listings import ENTRY_STATUS, ENTRY_TYPES
 from gui.src.elements.database.common.listings_common import _persist_splitter
 from gui.src.elements.database.display.detail_panel import _DetailPanel
@@ -173,8 +174,7 @@ class _UIBuilderMixin:
         import_dir_btn.setStyleSheet(SHARED_BUTTON_STYLE)
         import_dir_btn.setFixedWidth(120)
         import_dir_btn.setToolTip(
-            "Scan a video directory and auto-create listings\n"
-            "for series that don't already have an entry."
+            "Scan a video directory and auto-create listings\nfor series that don't already have an entry."
         )
         import_dir_btn.clicked.connect(self._on_import_from_directory)
         apply_shadow_effect(import_dir_btn)
@@ -221,17 +221,16 @@ class _UIBuilderMixin:
         gallery_vbox.setContentsMargins(0, 0, 0, 0)
         gallery_vbox.setSpacing(0)
 
-        self.gallery_scroll = QScrollArea()
+        self.gallery_scroll = MarqueeScrollArea()
         self.gallery_scroll.setWidgetResizable(True)
-        self.gallery_scroll.setStyleSheet(
-            "QScrollArea{border:1px solid #4f545c;border-radius:8px;}"
-        )
+        self.gallery_scroll.setStyleSheet("QScrollArea{border:1px solid #4f545c;border-radius:8px;}")
         self._grid_widget = QWidget()
         self._grid = QGridLayout(self._grid_widget)
         self._grid.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
         self._grid.setSpacing(10)
         self._grid.setContentsMargins(10, 10, 10, 10)
         self.gallery_scroll.setWidget(self._grid_widget)
+        self._configure_listing_gallery(self.gallery_scroll)
         gallery_vbox.addWidget(self.gallery_scroll)
 
         pager = QHBoxLayout()
@@ -251,9 +250,7 @@ class _UIBuilderMixin:
         # Detail panel (wrapped in a scroll area)
         detail_scroll = QScrollArea()
         detail_scroll.setWidgetResizable(True)
-        detail_scroll.setStyleSheet(
-            "QScrollArea{border:1px solid #4f545c;border-radius:8px;}"
-        )
+        detail_scroll.setStyleSheet("QScrollArea{border:1px solid #4f545c;border-radius:8px;}")
         self._detail = _DetailPanel(vault_manager=self.vault_manager)
         self._detail.saved.connect(self._on_entry_saved)
         self._detail.deleted.connect(self._on_entry_deleted)
@@ -267,9 +264,7 @@ class _UIBuilderMixin:
 
         # Context Menu for Gallery background
         self.gallery_scroll.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self.gallery_scroll.customContextMenuRequested.connect(
-            self._show_gallery_context_menu
-        )
+        self.gallery_scroll.customContextMenuRequested.connect(self._show_gallery_context_menu)
 
         # ---- Load data ----
         self._load_data()
@@ -277,10 +272,8 @@ class _UIBuilderMixin:
         self._detail.clear_for_new()
 
         # Debounced resize — avoid rebuilding the gallery on every pixel of a drag.
-        self._resize_timer = QTimer(self)
         self._resize_timer.setSingleShot(True)
         self._resize_timer.setInterval(120)
-        self._resize_timer.timeout.connect(self._rebuild_gallery)
 
 
 __all__ = ["_UIBuilderMixin"]
