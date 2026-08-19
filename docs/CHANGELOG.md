@@ -22,6 +22,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Changed
 
+- Promoted duplicate card rendering, styling, and preview context menu logic out of per-tab implementations into `AbstractClassTwoGalleries` (`_CardRenderingMixin`).
+- Stripped hardcoded panel backgrounds and button colors across `gui/src/tabs/web/` (`DriveSyncTab`, `ImageCrawlTab`, `MediaLoaderTab`, `ReverseSearchTab`, `WebRequestsTab`, `EntityReconTab`), delegating to theme QSS and semantic button roles (`btn_success`/`btn_danger`).
 - Series and entity listing galleries now render at most 100 cards per page, with previous/next navigation, instead of destroying and recreating the complete result set after every search, filter, sort, or resize.
 - Core and model tabs now defer panel backgrounds to the active global/glass QSS. Success and danger actions use semantic button roles supplied by the resolved theme rather than inline green/red styles.
 - Database listing-card thumbnail requests are coalesced into native batch-loader jobs with disk-cache reuse. The Scan & Tag selected-image panel now uses the shared batch-selected loader instead of synchronous full-resolution pixmap decoding.

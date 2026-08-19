@@ -23,36 +23,11 @@ from PySide6.QtWidgets import (
 )
 
 from ....components import OptionalField
-from ....styles import apply_shadow_effect
+from ....styles import apply_shadow_effect, set_button_role
 
 
 class _UIBuilderMixin:
     """Builds the crawler-type stack, output/selection groups, and run controls."""
-
-    def _get_group_style(self):
-        return """
-            QGroupBox { border: 1px solid #4f545c; border-radius: 8px; margin-top: 10px; }
-            QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top left; padding: 4px 10px; color: white; border-radius: 4px; }
-        """
-
-    def _get_run_btn_style(self):
-        return """
-            QPushButton { background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #667eea, stop:1 #764ba2); color: white; font-weight: bold; padding: 14px; border-radius: 10px; }
-            QPushButton:hover { background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #764ba2, stop:1 #667eea); }
-        """
-
-    def _get_cancel_btn_style(self):
-        return """
-            QPushButton { background-color: #cc3333; color: white; font-weight: bold; padding: 14px; border-radius: 10px; }
-            QPushButton:hover { background-color: #ff4444; }
-        """
-
-    def _get_webdriver_btn_style(self):
-        return """
-            QPushButton { background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #43e97b, stop:1 #38f9d7); color: #1a1a1a; font-weight: bold; padding: 12px; border-radius: 10px; margin-bottom: 5px; }
-            QPushButton:hover { background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #38f9d7, stop:1 #43e97b); }
-            QPushButton:disabled { background: #4f545c; color: #888; }
-        """
 
     def _build_ui(self) -> None:
         main_layout = QVBoxLayout(self)
@@ -94,7 +69,6 @@ class _UIBuilderMixin:
 
         # --- 3. Shared Download Settings ---
         download_group = QGroupBox("Output Configuration")
-        download_group.setStyleSheet(self._get_group_style())
         download_layout = QFormLayout(download_group)
         download_layout.setContentsMargins(10, 20, 10, 10)
 
@@ -135,7 +109,6 @@ class _UIBuilderMixin:
 
         # --- 3b. Selection and Deduplication Mode ---
         selection_group = QGroupBox("Deduplication and Selection Mode")
-        selection_group.setStyleSheet(self._get_group_style())
         selection_layout = QFormLayout(selection_group)
         selection_layout.setContentsMargins(10, 20, 10, 10)
 
@@ -171,7 +144,7 @@ class _UIBuilderMixin:
         self.button_layout.setContentsMargins(0, 0, 0, 0)
 
         self.run_button = QPushButton("Run Crawler")
-        self.run_button.setStyleSheet(self._get_run_btn_style())
+        set_button_role(self.run_button, "success")
         apply_shadow_effect(
             self.run_button, color_hex="#000000", radius=8, x_offset=0, y_offset=3
         )
@@ -184,7 +157,7 @@ class _UIBuilderMixin:
         self.webdriver_process.finished.connect(self.on_webdriver_finished)
 
         self.webdriver_button = QPushButton("🌐 Start WebDriver Service")
-        self.webdriver_button.setStyleSheet(self._get_webdriver_btn_style())
+        set_button_role(self.webdriver_button, "success")
         apply_shadow_effect(
             self.webdriver_button, color_hex="#000000", radius=8, x_offset=0, y_offset=3
         )
@@ -196,7 +169,7 @@ class _UIBuilderMixin:
         self.button_layout.addWidget(self.run_button, 0, Qt.AlignmentFlag.AlignBottom)
 
         self.cancel_button = QPushButton("Cancel Crawl")
-        self.cancel_button.setStyleSheet(self._get_cancel_btn_style())
+        set_button_role(self.cancel_button, "danger")
         apply_shadow_effect(
             self.cancel_button, color_hex="#000000", radius=8, x_offset=0, y_offset=3
         )
@@ -218,7 +191,6 @@ class _UIBuilderMixin:
 
         # Login Group
         login_group = QGroupBox("General Login Configuration")
-        login_group.setStyleSheet(self._get_group_style())
         login_form = QFormLayout()
         login_form.setContentsMargins(10, 20, 10, 10)
 
@@ -236,7 +208,6 @@ class _UIBuilderMixin:
 
         # General Settings Group
         crawl_group = QGroupBox("Web Scraper Settings")
-        crawl_group.setStyleSheet(self._get_group_style())
         form = QFormLayout()
         form.setContentsMargins(10, 20, 10, 10)
 
@@ -266,7 +237,6 @@ class _UIBuilderMixin:
 
         # Actions Group
         actions_group = QGroupBox("Actions")
-        actions_group.setStyleSheet(self._get_group_style())
         act_layout = QVBoxLayout()
 
         # Skip settings
@@ -329,6 +299,7 @@ class _UIBuilderMixin:
         # List controls
         lc_layout = QHBoxLayout()
         self.rem_act_btn = QPushButton("Remove Selected")
+        set_button_role(self.rem_act_btn, "danger")
         self.rem_act_btn.clicked.connect(self.remove_action)
         self.clr_act_btn = QPushButton("Clear All")
         self.clr_act_btn.clicked.connect(self.action_list_widget.clear)
@@ -345,7 +316,6 @@ class _UIBuilderMixin:
 
         # Board API Settings
         api_group = QGroupBox("API Configuration")
-        api_group.setStyleSheet(self._get_group_style())
         form = QFormLayout()
         form.setContentsMargins(10, 20, 10, 10)
 
@@ -386,7 +356,6 @@ class _UIBuilderMixin:
 
         # Auth Group
         auth_group = QGroupBox("Authentication (Optional)")
-        auth_group.setStyleSheet(self._get_group_style())
         a_form = QFormLayout()
         a_form.setContentsMargins(10, 20, 10, 10)
 
