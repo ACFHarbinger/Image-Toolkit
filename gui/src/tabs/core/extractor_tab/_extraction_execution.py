@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple, Union, cast
 
 import cv2
-from PySide6.QtCore import Qt, QThreadPool, Slot
+from PySide6.QtCore import Qt, Slot
 from PySide6.QtMultimedia import QMediaPlayer
 from PySide6.QtWidgets import QDialog, QMessageBox, QStyle, QWidget
 
@@ -287,7 +287,7 @@ class _ExtractionExecutionMixin:
         worker.signals.progress.connect(self.extraction_progress_bar.setValue)
         worker.signals.finished.connect(self._on_extraction_finished)
         worker.signals.error.connect(lambda e: self._on_extraction_error(e))
-        QThreadPool.globalInstance().start(worker)
+        self.operation_thread_pool.start(worker)
 
     def _on_extraction_error(self: "VideoExtractorSubTabHostProtocol", error_msg: str):
         self.active_extraction_worker = None

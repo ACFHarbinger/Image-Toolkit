@@ -23,8 +23,12 @@ def _isolate_extraction_history(tmp_path, monkeypatch):
     extraction-history JSON still points at the real home dir. Route it to the
     per-test tmp dir to keep queue recording tests isolated."""
     import gui.src.tabs.core.extractor_tab._video_session_history as vsh
+    from PySide6.QtWidgets import QMessageBox
 
     monkeypatch.setattr(vsh, "IMAGE_TOOLKIT_DIR", tmp_path)
+    monkeypatch.setattr(QMessageBox, "information", lambda *args, **kwargs: QMessageBox.StandardButton.Ok)
+    monkeypatch.setattr(QMessageBox, "warning", lambda *args, **kwargs: QMessageBox.StandardButton.Ok)
+    monkeypatch.setattr(QMessageBox, "question", lambda *args, **kwargs: QMessageBox.StandardButton.Yes)
 
 
 class TestExtractorTabQueue:
@@ -265,13 +269,14 @@ class TestExtractorTabQueue:
         tab.cuts_ms = []
 
         tab._run_gif_extraction(0, 3000)
-        tab.process_queue()
+        with patch("gui.src.tabs.core.extractor_tab._queue_management.QMessageBox"):
+            tab.process_queue()
 
-        # Wait for the async worker (finished handler clears active_queue_worker)
-        deadline = time.time() + 20
-        while tab.active_queue_worker is not None and time.time() < deadline:
-            QApplication.processEvents()
-            time.sleep(0.05)
+            # Wait for the async worker (finished handler clears active_queue_worker)
+            deadline = time.time() + 20
+            while tab.active_queue_worker is not None and time.time() < deadline:
+                QApplication.processEvents()
+                time.sleep(0.05)
 
         out_gif = tab.extraction_dir / "realsource_0ms_3000ms.gif"
         assert tab.active_queue_worker is None

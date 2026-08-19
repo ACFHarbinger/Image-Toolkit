@@ -13,7 +13,7 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, List, Optional, Tuple, cast
 
-from PySide6.QtCore import QPoint, Qt, QThreadPool, Slot
+from PySide6.QtCore import QPoint, Qt, Slot
 from PySide6.QtWidgets import (
     QComboBox,
     QGridLayout,
@@ -380,7 +380,7 @@ class _QueueManagementMixin:
         worker.signals.finished.connect(self._on_queue_processing_finished)
         worker.signals.error.connect(self._on_queue_processing_error)
 
-        QThreadPool.globalInstance().start(worker)
+        self.operation_thread_pool.start(worker)
 
     @Slot(int, int)
     def _on_queue_progress(self: "VideoExtractorSubTabHostProtocol", completed: int, total: int):
@@ -454,10 +454,8 @@ class _QueueManagementMixin:
         The gallery update is DEFERRED to _on_queue_processing_finished (or
         _on_queue_processing_error): rebuilding the gallery per item runs
         refresh_gallery_view() -> cancel_loading() -> thread_pool.
-        waitForDone(-1) on the UI thread, and the gallery shares
-        QThreadPool.globalInstance() with the queue worker itself, so that
-        wait blocks until the WHOLE queue finishes -- the observed freeze
-        while queued extractions run. Paths are accumulated and one rebuild
+        waitForDone(-1) on the UI thread. Queue workers therefore run on the
+        separate operation_thread_pool; paths are accumulated and one rebuild
         happens once the worker is done.
 
         item is the original queue config handed to the worker, so the

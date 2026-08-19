@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, List, Optional, cast
 
 from backend.src.constants import SUPPORTED_VIDEO_FORMATS
-from PySide6.QtCore import QThreadPool, Slot
+from PySide6.QtCore import Slot
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QLabel, QLineEdit, QMessageBox, QWidget
 
@@ -96,7 +96,7 @@ class _ExtractionWorkersMixin:
         worker.signals.progress.connect(self.extraction_progress_bar.setValue)
         worker.signals.finished.connect(self._on_export_finished)
         worker.signals.error.connect(self._on_export_error)
-        QThreadPool.globalInstance().start(worker)
+        self.operation_thread_pool.start(worker)
 
     def _run_video_extraction(self: "VideoExtractorSubTabHostProtocol", start: int, end: int):
         target_size = self._get_target_size()
@@ -164,7 +164,7 @@ class _ExtractionWorkersMixin:
         worker.signals.progress.connect(self.extraction_progress_bar.setValue)
         worker.signals.finished.connect(self._on_export_finished)
         worker.signals.error.connect(self._on_export_error)
-        QThreadPool.globalInstance().start(worker)
+        self.operation_thread_pool.start(worker)
 
     @Slot(str)
     def _on_export_finished(self: "VideoExtractorSubTabHostProtocol", new_path: str):
