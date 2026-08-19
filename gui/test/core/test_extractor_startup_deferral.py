@@ -86,6 +86,47 @@ class TestGalleryDedicatedPool:
         assert a.thread_pool is not b.thread_pool
 
 
+class TestExtractorDedicatedOperationPools:
+    """Long-running extractor jobs must not occupy either Qt's global pool
+    or the gallery pool that UI refreshes synchronously drain."""
+
+    def _make_tab(self):
+        from gui.src.tabs.core.extractor_tab import ExtractorTab
+
+        with (
+            patch("gui.src.tabs.core.extractor_tab._media_player.QMediaPlayer"),
+            patch("gui.src.tabs.core.extractor_tab._media_player.QAudioOutput"),
+        ):
+            return ExtractorTab()
+
+    def test_video_and_image_extractors_own_operation_pools(self, q_app):
+        from PySide6.QtCore import QThreadPool
+
+        tab = self._make_tab()
+        try:
+            assert tab.video_subtab.operation_thread_pool is not tab.video_subtab.thread_pool
+            assert tab.video_subtab.operation_thread_pool is not QThreadPool.globalInstance()
+            assert tab.image_subtab.operation_thread_pool is not QThreadPool.globalInstance()
+            assert tab.image_subtab.operation_thread_pool is not tab.video_subtab.operation_thread_pool
+        finally:
+            tab.close()
+
+    def test_queue_dispatches_to_operation_pool(self, q_app):
+        tab = self._make_tab()
+        try:
+            tab.extraction_queue = [{"type": "gif", "video_path": "dummy.mp4"}]
+            with (
+                patch.object(tab.video_subtab.operation_thread_pool, "start") as operation_start,
+                patch.object(tab.video_subtab.thread_pool, "start") as gallery_start,
+            ):
+                tab.process_queue()
+
+            operation_start.assert_called_once()
+            gallery_start.assert_not_called()
+        finally:
+            tab.close()
+
+
 class TestPlaybackSpeedDeferral:
     """update_playback_speed must not construct the player (it fires during
     session recovery via combo_player_speed.setCurrentIndex)."""

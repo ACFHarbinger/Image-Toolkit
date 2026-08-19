@@ -8,11 +8,12 @@ now lives in each mixin's own ``_build_*_section()`` method; this
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
 
 from backend.src.constants import LOCAL_SOURCE_PATH
-from PySide6.QtCore import QTimer, Signal
+from PySide6.QtCore import QThreadPool, QTimer, Signal
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QGraphicsView,
@@ -66,6 +67,14 @@ class VideoExtractorSubTab(
 
     def __init__(self):
         super().__init__()
+        # Extraction/scanning jobs must not share the gallery loader pool.
+        # Gallery refreshes synchronously drain ``thread_pool``; a queue
+        # completion handler refreshing the gallery would otherwise wait on
+        # the queue worker that is waiting for that handler to return.
+        self.operation_thread_pool = QThreadPool()
+        self.operation_thread_pool.setMaxThreadCount(
+            max(2, min(8, os.cpu_count() or 4))
+        )
         self.video_path: Optional[str] = None
         self.current_extracted_paths: List[str] = []
         self.selected_paths: Set[str] = set()

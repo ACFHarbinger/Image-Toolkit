@@ -12,7 +12,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Protocol, Set, Tuple, Union
 
-from PySide6.QtCore import QPoint, QTimer, SignalInstance
+from PySide6.QtCore import QPoint, QThreadPool, QTimer, SignalInstance
 from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
 from PySide6.QtMultimediaWidgets import QGraphicsVideoItem
@@ -67,6 +67,7 @@ class VideoExtractorSubTabHostProtocol(AbstractClassSingleGalleryHostProtocol, P
     active_extraction_worker: Optional[Any]
     active_queue_worker: Optional[QueueExecutionWorker]
     active_videos_config: Dict[str, dict]
+    operation_thread_pool: QThreadPool
     active_videos_tabbar: QTabBar
     available_resolutions: list
     btn_add_cut: QPushButton
