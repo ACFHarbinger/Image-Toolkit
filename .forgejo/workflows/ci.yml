@@ -130,7 +130,7 @@ jobs:
           sudo apt-get install -y libopencv-dev libssl-dev libfftw3-dev libsodium-dev libsqlcipher-dev ninja-build libeigen3-dev
 
       - name: Build native crypto library
-        run: cc -O2 -fPIC -shared -o build/crypto/libitk_crypto.so cryptography/cpp/itk_crypto.c -lcrypto
+        run: cc -O2 -fPIC -shared -o build/crypto/libitk_crypto.so base/src/secret/itk_crypto.c -lcrypto
 
       - name: Build and install C++ base extension
         run: |
@@ -185,7 +185,7 @@ jobs:
           sudo apt-get install -y libopencv-dev libssl-dev libfftw3-dev libsodium-dev libsqlcipher-dev ninja-build libeigen3-dev
 
       - name: Build native crypto library
-        run: cc -O2 -fPIC -shared -o build/crypto/libitk_crypto.so cryptography/cpp/itk_crypto.c -lcrypto
+        run: cc -O2 -fPIC -shared -o build/crypto/libitk_crypto.so base/src/secret/itk_crypto.c -lcrypto
 
       - name: Build and install C++ base extension
         run: |

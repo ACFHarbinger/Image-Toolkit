@@ -17,8 +17,13 @@ existing account keystores/vaults migrate with zero changes:
 ```sh
 just build-crypto        # or:
 cc -O2 -fPIC -shared -Wall -o build/crypto/libitk_crypto.so \
-   cryptography/cpp/itk_crypto.c -lcrypto
+   base/src/secret/itk_crypto.c -lcrypto
 ```
+
+Not part of the `base` pybind11 extension module (`base/CMakeLists.txt`) —
+this is a separate, plain-C shared library loaded via `ctypes`, not pybind.
+It lives under `base/` because that's where all the project's C++ (and C)
+source lives, but it builds and ships independently.
 
 ## C API
 

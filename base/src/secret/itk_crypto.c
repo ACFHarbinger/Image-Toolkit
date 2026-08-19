@@ -13,7 +13,7 @@
 //
 // C ABI so Python loads it with ctypes (no build-time Python/C++ glue).
 //
-// Build: cc -O2 -fPIC -shared -o build/crypto/libitk_crypto.so itk_crypto.cpp -lcrypto
+// Build: cc -O2 -fPIC -shared -o build/crypto/libitk_crypto.so itk_crypto.c -lcrypto
 
 #include <openssl/err.h>
 #include <openssl/evp.h>
