@@ -10,7 +10,7 @@ import subprocess
 from pathlib import Path
 from typing import Any, Optional, cast
 
-from PySide6.QtCore import QThreadPool, Slot
+from PySide6.QtCore import Slot
 from PySide6.QtWidgets import QFileDialog, QWidget
 
 from ....helpers import FrameExtractionWorker
@@ -62,7 +62,7 @@ class _QmlHandlersMixin:
         out_path = output_dir / filename
 
         # Run in thread to not block UI
-        QThreadPool.globalInstance().start(
+        self.operation_thread_pool.start(
             lambda: self._quick_extract(video_path, timestamp_ms, str(out_path))
         )
 
@@ -128,7 +128,7 @@ class _QmlHandlersMixin:
             lambda val, msg: self.qml_extraction_status.emit(f"Progress: {val}%")
         )
 
-        QThreadPool.globalInstance().start(worker)
+        self.operation_thread_pool.start(worker)
 
 
 __all__ = ["_QmlHandlersMixin"]

@@ -15,7 +15,9 @@ class MetadataOverlay(QFrame):
         self.hide()
         
         self._setup_ui()
-        self._load_metadata()
+        # Set filename immediately (cheap string operation, no I/O)
+        self.filename_label.setText(os.path.basename(self.file_path))
+        self._metadata_loaded = False
         
     def _setup_ui(self):
         layout = QVBoxLayout(self)
@@ -36,6 +38,12 @@ class MetadataOverlay(QFrame):
         layout.addWidget(self.dim_label)
         layout.addWidget(self.size_label)
         layout.addStretch()
+
+    def showEvent(self, event):
+        if not self._metadata_loaded:
+            self._load_metadata()
+            self._metadata_loaded = True
+        super().showEvent(event)
         
     def _load_metadata(self):
         # Filename

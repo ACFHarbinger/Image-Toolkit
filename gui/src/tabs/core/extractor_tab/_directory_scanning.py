@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 from backend.src.constants import SUPPORTED_VIDEO_FORMATS
 from backend.src.core import telemetry
-from PySide6.QtCore import QPoint, Qt, QThreadPool, QTimer, Slot
+from PySide6.QtCore import QPoint, Qt, QTimer, Slot
 from PySide6.QtGui import QAction, QImage, QPixmap
 from PySide6.QtWidgets import (
     QFileDialog,
@@ -266,7 +266,7 @@ class _DirectoryScanningMixin:
                 "thread-lifecycle", "extractor_batch_video_worker.start",
                 panel=id(self), directory=path, count=len(paths_needing_thumbnail),
             )
-            QThreadPool.globalInstance().start(worker)
+            self.operation_thread_pool.start(worker)
         else:
             self.scan_progress_complete()
 

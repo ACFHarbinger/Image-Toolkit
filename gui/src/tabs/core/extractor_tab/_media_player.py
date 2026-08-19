@@ -373,6 +373,9 @@ class _MediaPlayerMixin:
             self.active_extraction_worker.cancel()
             self.active_extraction_worker = None
 
+        if self.active_queue_worker:
+            self.active_queue_worker.cancel()
+
         # Close sub-windows
         for win in list(self.open_preview_windows):
             with contextlib.suppress(Exception):
@@ -383,6 +386,9 @@ class _MediaPlayerMixin:
         """Cleanup processes on close."""
         self.cancel_loading()
         self._stop_storyboard()
+        self.operation_thread_pool.clear()
+        # Never hold the UI indefinitely on a stuck codec/subprocess.
+        self.operation_thread_pool.waitForDone(2000)
         super().closeEvent(event)  # type: ignore[misc,safe-super]
 
     def _load_existing_output_images(self: "VideoExtractorSubTabHostProtocol"):
