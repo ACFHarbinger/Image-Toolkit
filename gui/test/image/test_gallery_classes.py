@@ -201,11 +201,11 @@ class TestAbstractClassSingleGallery:
         assert widget.pixmap() is not None
 
     def test_batch_found_load_chunking(self, gallery):
-        # 40 paths -> 2 chunks at the default chunk_size=32; max_in_flight=2
-        # means both chunks dispatch immediately.
+        # 40 paths -> 3 chunks at chunk_size=16 (16, 16, 8); max_in_flight=4
+        # means all 3 chunks dispatch immediately.
         paths = [f"image_{i}.jpg" for i in range(40)]
         gallery._trigger_batch_found_load(paths)
-        assert len(gallery._active_workers) == 2
+        assert len(gallery._active_workers) == 3
 
     def test_jump_to_path(self, gallery):
         gallery.master_image_paths = ["apple.jpg", "banana.jpg", "cherry.png"]
@@ -278,11 +278,11 @@ class TestAbstractClassTwoGalleries:
         assert "a.jpg" in two_galleries.path_to_label_map
 
     def test_batch_found_load_chunking(self, two_galleries):
-        # 40 paths -> 2 chunks at the default chunk_size=32; max_in_flight=2
-        # means both chunks dispatch immediately.
+        # 40 paths -> 3 chunks at chunk_size=16 (16, 16, 8); max_in_flight=4
+        # means all 3 chunks dispatch immediately.
         paths = [f"image_{i}.jpg" for i in range(40)]
         two_galleries._trigger_batch_found_load(paths)
-        assert len(two_galleries._active_workers) == 2
+        assert len(two_galleries._active_workers) == 3
 
     def test_jump_to_path(self, two_galleries):
         two_galleries.start_loading_thumbnails(["a.jpg", "b.jpg", "c.jpg"])

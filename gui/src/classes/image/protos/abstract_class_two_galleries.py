@@ -160,8 +160,8 @@ class AbstractClassTwoGalleriesHostProtocol(Protocol):
         paths: list,
         worker_factory: Any,
         batch_slot: Any = None,
-        chunk_size: int = 32,
-        max_in_flight: int = 2,
+        chunk_size: int = 16,
+        max_in_flight: int = 4,
     ) -> None: ...
     def common_show_placeholder(self, layout: Optional[QGridLayout], text: str, columns: int) -> None: ...
 
