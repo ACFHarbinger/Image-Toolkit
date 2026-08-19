@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
+- Repeated login submissions no longer leave the app on the login screen or schedule multiple MainWindow constructions. Authentication is single-flight, and startup failures restore the login controls for retry.
 - Glassmorphic background canvas and Discord-style translucent panels: resolved container opacity across nested `QStackedWidget`, `QTabWidget`, `QScrollArea`, and subtab hierarchies, and stripped inline `_GROUP_BOX_STYLE` overrides in `WallpaperTab` and `MonitorDropView`. Group boxes, panels, cards, and tab panes now render with translucent alpha backgrounds (`rgba(...)`), enabling full-window background images and theme artwork to show through cleanly like Discord themes.
 - Wallpaper gallery scans no longer rebuild the page twice after each image and video phase. Startup-restored monitor thumbnails are decoded at the configured thumbnail size and cached instead of loading full-resolution pixmaps on the UI thread.
 - Restored `VaultManager.SecureJsonVault`, dropped when the JVM cryptography module was retired: session recovery, sync-backup export/import, and the per-file API-credential cache all construct a standalone encrypted-JSON file via `SecureJsonVault(secret_key, path)` outside the main account vault, and lost that attribute entirely (`AttributeError` on save/load) until this fix added an equivalent ctypes-backed class with the same constructor and `saveData`/`loadData` method names.

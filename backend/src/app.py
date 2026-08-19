@@ -166,6 +166,7 @@ def launch_app(opts):
 
     # We will track the active window (either login or main)
     active_window = None
+    main_window_launch_pending = False
 
     # Create a custom signal handler that works with Qt
     def handle_interrupt(signum, frame):
@@ -272,7 +273,11 @@ def launch_app(opts):
         Creates and shows the MainWindow after successful authentication.
         Replaces the LoginWindow.
         """
-        nonlocal active_window
+        nonlocal active_window, main_window_launch_pending
+        if main_window_launch_pending:
+            logger.warning("Ignoring duplicate login-success signal during startup")
+            return
+        main_window_launch_pending = True
         print("[startup-probe-guard] login succeeded", flush=True)
         telemetry.emit("startup", "login.succeeded", tid=threading.get_ident())
 
@@ -285,16 +290,25 @@ def launch_app(opts):
         # whole app right there -- silently, with no crash log, matching
         # exactly the "crashes immediately after login" symptom this caused.
         def _build_and_show_main_window():
-            nonlocal active_window
+            nonlocal active_window, main_window_launch_pending
             print("[startup-probe-guard] MainWindow construction starting", flush=True)
             telemetry.emit("startup", "main_window.construction.start", tid=threading.get_ident())
             previous_window = active_window
-            active_window = MainWindow(
-                vault_manager=vault_manager,  # Pass the authenticated manager
-                dropdown=not opts.get("no_dropdown", False),
-                app_icon=ICON_FILE,
-                enable_manager=opts.get("enable_manager", False),
-            )
+            try:
+                active_window = MainWindow(
+                    vault_manager=vault_manager,
+                    dropdown=not opts.get("no_dropdown", False),
+                    app_icon=ICON_FILE,
+                    enable_manager=opts.get("enable_manager", False),
+                )
+            except Exception as exc:
+                main_window_launch_pending = False
+                logger.exception("MainWindow construction failed after login")
+                if isinstance(previous_window, LoginWindow):
+                    previous_window.auth_transition_failed(
+                        f"The main window could not start:\n{exc}"
+                    )
+                return
             active_window.show()
             telemetry.emit("startup", "main_window.shown", tid=threading.get_ident())
             # Captures the cumulative cost of JVM start (VaultManager, inside

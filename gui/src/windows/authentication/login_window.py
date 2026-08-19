@@ -44,6 +44,7 @@ class LoginWindow(QWidget):
         # Vault Manager and Authentication State
         self.vault_manager = None
         self.is_authenticated = False
+        self._auth_transition_pending = False
 
         # Theme state
         self.current_theme = "dark"
@@ -225,6 +226,35 @@ class LoginWindow(QWidget):
         else:
             self.attempt_login()
 
+    def _begin_auth_transition(self) -> bool:
+        """Lock authentication controls until the main window takes over."""
+        if self._auth_transition_pending:
+            return False
+        self._auth_transition_pending = True
+        for widget in (
+            self.login_button,
+            self.create_button,
+            self.guest_toggle_button,
+            self.guest_as_button,
+        ):
+            widget.setEnabled(False)
+        return True
+
+    def _reset_auth_transition(self) -> None:
+        self._auth_transition_pending = False
+        for widget in (
+            self.login_button,
+            self.create_button,
+            self.guest_toggle_button,
+            self.guest_as_button,
+        ):
+            widget.setEnabled(True)
+
+    def auth_transition_failed(self, message: str) -> None:
+        """Restore login controls when startup fails after authentication."""
+        self._reset_auth_transition()
+        QMessageBox.critical(self, "Startup Error", message)
+
     def _secondary_action(self):
         """Dispatch the secondary button click based on the current mode."""
         if self._mode == self._MODE_GUEST:
@@ -362,6 +392,8 @@ class LoginWindow(QWidget):
 
     def _do_guest_login(self, username: str, *, anonymous: bool):
         """Core guest-login logic shared by both anonymous and named paths."""
+        if not self._begin_auth_transition():
+            return
         try:
             self.vault_manager = VaultManager.create_guest_vault(username)
             self.is_authenticated = True
@@ -378,7 +410,7 @@ class LoginWindow(QWidget):
             # login_successful.emit() call sites in this file for why.
             self.login_successful.emit(self.vault_manager)
         except Exception as e:
-            QMessageBox.critical(self, "Guest Mode Error", f"Failed to start Guest session: {e}")
+            self.auth_transition_failed(f"Failed to start Guest session: {e}")
             if self.vault_manager:
                 self.vault_manager.shutdown()
 
@@ -432,6 +464,8 @@ class LoginWindow(QWidget):
         username, raw_password = self._get_credentials()
         if not username:
             return
+        if not self._begin_auth_transition():
+            return
 
         try:
             # --- START MODIFICATION ---
@@ -455,6 +489,7 @@ class LoginWindow(QWidget):
 
             if stored_data.get("account_name") != username:
                 QMessageBox.critical(self, "Login Failed", "Account name does not match stored account.")
+                self._reset_auth_transition()
                 return
 
             stored_hash = stored_data.get("hashed_password")
@@ -586,6 +621,7 @@ class LoginWindow(QWidget):
                 self.login_successful.emit(self.vault_manager)
             else:
                 QMessageBox.critical(self, "Login Failed", "Invalid password.")
+                self._reset_auth_transition()
 
         except CryptographyLibNotBuiltError:
             QMessageBox.critical(
@@ -594,12 +630,14 @@ class LoginWindow(QWidget):
                 "The cryptography module hasn't been built yet.\n\n"
                 "Run `just build-crypto` from the repo root, then try again.",
             )
+            self._reset_auth_transition()
         except FileNotFoundError:
             QMessageBox.critical(
                 self,
                 "Configuration Error",
                 "Account files not found. Does this account exist?",
             )
+            self._reset_auth_transition()
         except Exception as e:
             QMessageBox.critical(
                 self,
@@ -608,6 +646,7 @@ class LoginWindow(QWidget):
             )
             if self.vault_manager:
                 self.vault_manager.shutdown()
+            self._reset_auth_transition()
 
     def create_account(self):
         """
