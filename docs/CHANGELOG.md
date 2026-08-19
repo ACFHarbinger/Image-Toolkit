@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
+- Wallpaper gallery scans no longer rebuild the page twice after each image and video phase. Startup-restored monitor thumbnails are decoded at the configured thumbnail size and cached instead of loading full-resolution pixmaps on the UI thread.
 - Restored `VaultManager.SecureJsonVault`, dropped when the JVM cryptography module was retired: session recovery, sync-backup export/import, and the per-file API-credential cache all construct a standalone encrypted-JSON file via `SecureJsonVault(secret_key, path)` outside the main account vault, and lost that attribute entirely (`AttributeError` on save/load) until this fix added an equivalent ctypes-backed class with the same constructor and `saveData`/`loadData` method names.
 - Re-wired root `just asp-benchmark-assess` (and related ASP benchmark/triage recipes) after Anime-Stitch-Pipeline moved to `submodules/ASP`. Dispatch now calls `submodules/ASP/backend/src/cli/eval_dispatch.py` via the Image-Toolkit venv with a correct `PYTHONPATH`, avoiding broken `backend/controllers/bench_eval_dispatch.py` and bare workspace `uv run` failures on CSG’s workspace-only pyproject.
 - Added compatibility shim at `backend/controllers/bench_eval_dispatch.py` for older scripts/docs.

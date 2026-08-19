@@ -344,10 +344,6 @@ class _ScanPipelineMixin:
         else:
             self.refresh_gallery_view()
 
-        if self.gallery_image_paths:
-            self.gallery_image_paths.sort(key=natural_sort_key)
-            self.refresh_gallery_view()
-
         self._start_video_scan(self.scanned_dir)
 
     def _start_video_scan(self: "WallpaperCommonBaseHostProtocol", directory: str) -> None:
@@ -399,9 +395,6 @@ class _ScanPipelineMixin:
             new_video_paths = [p for p in video_paths if p not in existing_paths]
             if new_video_paths:
                 self.start_loading_gallery(new_video_paths, show_progress=False, append=True)
-            if self.gallery_image_paths:
-                self.gallery_image_paths.sort(key=natural_sort_key)
-                self.refresh_gallery_view()
 
         self._settle_scan_pipeline()
 
