@@ -1,10 +1,9 @@
 from unittest.mock import MagicMock
 
 import pytest
+from gui.src.windows.authentication.login_window import LoginWindow
 from PySide6.QtCore import QEvent, Qt
 from PySide6.QtGui import QKeyEvent
-
-from gui.src.windows.authentication.login_window import LoginWindow
 
 pytestmark = pytest.mark.gui
 
@@ -205,6 +204,39 @@ class TestLoginWindowPreferenceProfile:
 
 
 class TestGuestMode:
+    def test_repeated_guest_login_emits_success_once(self, q_app):
+        from unittest.mock import patch
+
+        window = LoginWindow()
+        listener = MagicMock()
+        window.login_successful.connect(listener)
+
+        with patch(
+            "gui.src.windows.authentication.login_window.QMessageBox.information"
+        ):
+            window._do_guest_login("guest_user", anonymous=False)
+            window._do_guest_login("guest_user", anonymous=False)
+
+        listener.assert_called_once_with(window.vault_manager)
+        assert window._auth_transition_pending
+        assert not window.login_button.isEnabled()
+
+    def test_startup_failure_reenables_login_controls(self, q_app):
+        from unittest.mock import patch
+
+        window = LoginWindow()
+        assert window._begin_auth_transition()
+
+        with patch(
+            "gui.src.windows.authentication.login_window.QMessageBox.critical"
+        ) as critical:
+            window.auth_transition_failed("construction failed")
+
+        assert not window._auth_transition_pending
+        assert window.login_button.isEnabled()
+        assert window.create_button.isEnabled()
+        critical.assert_called_once()
+
     def test_guest_login_empty_username_falls_back_to_anonymous(self, q_app):
         """Empty username in guest mode should generate an anonymous random username."""
         from unittest.mock import MagicMock, patch
@@ -298,4 +330,3 @@ class TestGuestMode:
         loaded = vault.load_account_credentials()
         assert loaded["custom"] == "value"
         assert loaded["theme"] == "light"
-
