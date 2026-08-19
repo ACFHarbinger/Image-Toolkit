@@ -511,8 +511,8 @@ class AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery):
         paths: list,
         worker_factory,
         batch_slot=None,
-        chunk_size: int = 32,
-        max_in_flight: int = 2,
+        chunk_size: int = 16,
+        max_in_flight: int = 4,
     ) -> None:
         """Dispatch *paths* to workers in sequential chunks.
 
