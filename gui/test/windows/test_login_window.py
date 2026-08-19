@@ -225,6 +225,9 @@ class TestGuestMode:
         from unittest.mock import patch
 
         window = LoginWindow()
+        vault = MagicMock()
+        window.vault_manager = vault
+        window.is_authenticated = True
         assert window._begin_auth_transition()
 
         with patch(
@@ -235,6 +238,9 @@ class TestGuestMode:
         assert not window._auth_transition_pending
         assert window.login_button.isEnabled()
         assert window.create_button.isEnabled()
+        assert window.vault_manager is None
+        assert not window.is_authenticated
+        vault.shutdown.assert_called_once()
         critical.assert_called_once()
 
     def test_guest_login_empty_username_falls_back_to_anonymous(self, q_app):
