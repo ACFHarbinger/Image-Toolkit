@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-from abc import abstractmethod
 from typing import Dict, List, Optional, Set
 
 from backend.src.constants import LOCAL_SOURCE_PATH
@@ -14,6 +13,7 @@ from PySide6.QtWidgets import QGridLayout, QLabel, QWidget
 from ....components import MarqueeScrollArea
 from ....utils.cache.lru_image_cache import LRUImageCache
 from ...base.gallery_base import AbstractGalleryBase
+from ._card_rendering import _CardRenderingMixin
 from ._color_labels import _ColorLabelsMixin
 from ._context_menu import _ContextMenuMixin
 from ._found_gallery_load import _FoundGalleryLoadMixin
@@ -42,6 +42,7 @@ class AbstractClassTwoGalleries(
     _SelectedPanelMixin,
     _FoundGalleryLoadMixin,
     _FoundGalleryPopulateMixin,
+    _CardRenderingMixin,
     _LifecycleMixin,
     AbstractGalleryBase,
 ):
@@ -116,22 +117,6 @@ class AbstractClassTwoGalleries(
 
         # Enable keyboard focus for shortcuts
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
-
-    # --- ABSTRACT METHODS ---
-
-    @abstractmethod
-    def create_card_widget(
-        self, path: str, pixmap: Optional[QPixmap], is_selected: bool
-    ) -> QWidget:
-        pass
-
-    @abstractmethod
-    def update_card_pixmap(self, widget: QWidget, pixmap: Optional[QPixmap]):
-        pass
-
-    @abstractmethod
-    def on_selection_changed(self):
-        pass
 
 
 __all__ = ["AbstractClassTwoGalleries"]

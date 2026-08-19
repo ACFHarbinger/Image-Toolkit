@@ -295,6 +295,23 @@ class TestAbstractClassTwoGalleries:
         two_galleries.start_loading_thumbnails(["a.jpg"])
         assert two_galleries.jump_to_path("nonexistent.jpg") is False
 
+    def test_promoted_card_rendering_and_styling(self, q_app):
+        gallery = AbstractClassTwoGalleries()
+        pix = QPixmap(200, 200)
+        pix.fill()
+        card = gallery.create_card_widget("test_img.png", pix, is_selected=False)
+        assert card is not None
+        assert card.property("gallery_path") == "test_img.png"
+
+        # Update pixmap
+        gallery.update_card_pixmap(card, pix)
+        # Check selection style update
+        gallery.selected_files.append("test_img.png")
+        gallery.update_card_style(card, is_selected=True)
+        img_label = card.findChild(QLabel)
+        assert img_label is not None
+        assert "5865f2" in img_label.styleSheet()
+
 
 class TestMetaAbstractClassGallery:
     def test_method_injection(self, dummy_gallery):
