@@ -31,6 +31,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Changed
 
+- Series and entity database listings now participate in the shared two-gallery foundation through a record-aware adapter: advanced search operators, keyboard card navigation, per-tab Ctrl+wheel sizing, persisted color-label borders, lifecycle state, and the existing 100-card pagination are consistent with image galleries.
 - Promoted duplicate card rendering, styling, and preview context menu logic out of per-tab implementations into `AbstractClassTwoGalleries` (`_CardRenderingMixin`).
 - Stripped hardcoded panel backgrounds and button colors across `gui/src/tabs/web/` (`DriveSyncTab`, `ImageCrawlTab`, `MediaLoaderTab`, `ReverseSearchTab`, `WebRequestsTab`, `EntityReconTab`), delegating to theme QSS and semantic button roles (`btn_success`/`btn_danger`).
 - Series and entity listing galleries now render at most 100 cards per page, with previous/next navigation, instead of destroying and recreating the complete result set after every search, filter, sort, or resize.
