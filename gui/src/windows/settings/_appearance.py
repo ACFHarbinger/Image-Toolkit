@@ -30,6 +30,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from gui.src.components.dialogs.thumbnail_file_picker import ThumbnailFilePicker
 from gui.src.styles.background_canvas import BackgroundCanvasController, BackgroundConfig
 from gui.src.theming.palette import extract_palette
 from gui.src.theming.resolve import base_defaults, resolve_colors
@@ -359,11 +360,11 @@ class _AppearanceMixin:
             self.glassmorphism_check.setChecked(True)
 
     def _browse_background_image(self) -> None:
-        file_path, _ = QFileDialog.getOpenFileName(
+        start_dir = self.bg_path_input.text().strip()
+        file_path, _ = ThumbnailFilePicker.getOpenFileName(
             self,
-            "Select Background Image",
-            "",
-            "Images (*.png *.jpg *.jpeg *.webp *.bmp *.gif);;All Files (*)",
+            caption="Select Background Image",
+            start_dir=start_dir,
         )
         if file_path:
             self.bg_path_input.setText(file_path)
@@ -371,11 +372,10 @@ class _AppearanceMixin:
     def _extract_palette_from_current_background(self) -> None:
         img_path = self.bg_path_input.text().strip()
         if not img_path or not Path(img_path).exists():
-            img_path, _ = QFileDialog.getOpenFileName(
+            img_path, _ = ThumbnailFilePicker.getOpenFileName(
                 self,
-                "Select Image for Palette Extraction",
-                "",
-                "Images (*.png *.jpg *.jpeg *.webp *.bmp);;All Files (*)",
+                caption="Select Image for Palette Extraction",
+                start_dir=img_path,
             )
             if not img_path:
                 return

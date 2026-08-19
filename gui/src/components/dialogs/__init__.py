@@ -21,6 +21,7 @@ from .property_comparison_dialog import PropertyComparisonDialog
 from .safetensors_inspector_dialog import SafetensorsInspectorDialog
 from .scroll_video_export_dialog import ScrollVideoExportDialog
 from .tag_review_dialog import TagReviewDialog
+from .thumbnail_file_picker import ThumbnailFilePicker
 
 __all__ = [
     "AddTagDialog",
@@ -39,4 +40,5 @@ __all__ = [
     "SafetensorsInspectorDialog",
     "ScrollVideoExportDialog",
     "TagReviewDialog",
+    "ThumbnailFilePicker",
 ]
