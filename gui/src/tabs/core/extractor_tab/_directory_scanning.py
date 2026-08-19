@@ -98,12 +98,8 @@ class _DirectoryScanningMixin:
         self.source_scroll.setWidgetResizable(True)
         self.source_scroll.setMinimumHeight(300)
         self.source_scroll.setMaximumHeight(300)
-        self.source_scroll.setStyleSheet(
-            "QScrollArea { border: 1px solid #4f545c;  border-radius: 8px; }"
-        )
 
         self.source_container = QWidget()
-        self.source_container.setStyleSheet("QWidget {  }")
 
         self.source_grid = QGridLayout(self.source_container)
         self.source_grid.setAlignment(

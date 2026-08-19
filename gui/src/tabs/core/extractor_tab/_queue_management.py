@@ -56,54 +56,9 @@ class _QueueManagementMixin:
         """Builds "5. Results Gallery Section" and adds it to self.main_layout."""
         self.gallery_scroll_area: Optional[QScrollArea] = MarqueeScrollArea()
         self.gallery_scroll_area.setWidgetResizable(True) # pyrefly: ignore [missing-attribute]
-        self.gallery_scroll_area.setStyleSheet( # pyrefly: ignore [missing-attribute]
-            """
-            QScrollArea {
-                border: 1px solid #4f545c;
-
-                border-radius: 8px;
-            }
-            QScrollBar:vertical {
-                border: none;
-                background: #2c2f33;
-                width: 12px;
-                margin: 0px 0px 0px 0px;
-            }
-            QScrollBar::handle:vertical {
-                background: #00BCD4;
-                min-height: 20px;
-                border-radius: 6px;
-                margin: 0 2px;
-            }
-            QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
-                background: none;
-            }
-            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
-                height: 0px;
-                subcontrol-position: none;
-            }
-            QScrollBar:horizontal {
-                border: none;
-                background: #2c2f33;
-                height: 12px;
-                margin: 0px 0px 0px 0px;
-            }
-            QScrollBar::handle:horizontal {
-                background: #00BCD4;
-                min-width: 20px;
-                border-radius: 6px;
-                margin: 2px 0;
-            }
-            QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
-                width: 0px;
-                subcontrol-position: none;
-            }
-        """
-        )
         self.gallery_scroll_area.setMinimumHeight(600) # pyrefly: ignore [missing-attribute]
 
         self.gallery_container = QWidget()
-        self.gallery_container.setStyleSheet("QWidget {  }")
 
         self.gallery_layout: Optional[QGridLayout] = QGridLayout(self.gallery_container)
         self.gallery_layout.setAlignment( # pyrefly: ignore [missing-attribute]

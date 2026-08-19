@@ -79,7 +79,7 @@ class _UIBuilderMixin:
         self.groups_list_widget.setMinimumHeight(200)
         self.groups_list_widget.setStyleSheet(
             "QListWidget::item { padding: 4px; } "
-            "QListWidget { background-color: #2c2f33; border: 1px solid #4f545c; border-radius: 8px; }"
+            "QListWidget { border: 1px solid #4f545c; border-radius: 8px; }"
         )
         self.groups_list_widget.itemChanged.connect(self._on_group_selection_changed)
 
@@ -88,7 +88,7 @@ class _UIBuilderMixin:
         self.subgroups_list_widget.setMinimumHeight(200)
         self.subgroups_list_widget.setStyleSheet(
             "QListWidget::item { padding: 4px; } "
-            "QListWidget { background-color: #2c2f33; border: 1px solid #4f545c; border-radius: 8px; }"
+            "QListWidget { border: 1px solid #4f545c; border-radius: 8px; }"
         )
         # Internal store: list of (group_name, subgroup_name)
         self._all_subgroups_detailed: list = []
@@ -146,7 +146,6 @@ class _UIBuilderMixin:
             for fmt in SUPPORTED_IMG_FORMATS:
                 btn = QPushButton(fmt)
                 btn.setCheckable(True)
-                btn.setStyleSheet("QPushButton:hover { background-color: #3498db; }")
                 apply_shadow_effect(
                     btn, color_hex="#000000", radius=8, x_offset=0, y_offset=3
                 )
@@ -159,14 +158,14 @@ class _UIBuilderMixin:
 
             all_btn_layout = QHBoxLayout()
             self.btn_add_all = QPushButton("Add All")
-            self.btn_add_all.setStyleSheet("background-color: green; color: white;")
+            self.btn_add_all.setObjectName("btn_success")
             apply_shadow_effect(
                 self.btn_add_all, color_hex="#000000", radius=8, x_offset=0, y_offset=3
             )
             self.btn_add_all.clicked.connect(self.add_all_formats)
 
             self.btn_remove_all = QPushButton("Remove All")
-            self.btn_remove_all.setStyleSheet("background-color: red; color: white;")
+            self.btn_remove_all.setObjectName("btn_danger")
             apply_shadow_effect(
                 self.btn_remove_all,
                 color_hex="#000000",
@@ -206,7 +205,7 @@ class _UIBuilderMixin:
         self.tag_types_list_widget.setMinimumHeight(200)
         self.tag_types_list_widget.setStyleSheet(
             "QListWidget::item { padding: 4px; } "
-            "QListWidget { background-color: #2c2f33; border: 1px solid #4f545c; border-radius: 8px; }"
+            "QListWidget { border: 1px solid #4f545c; border-radius: 8px; }"
         )
         self.tag_types_list_widget.itemChanged.connect(self._on_tag_type_changed)
 
@@ -215,7 +214,7 @@ class _UIBuilderMixin:
         self.tags_list_widget.setMinimumHeight(200)
         self.tags_list_widget.setStyleSheet(
             "QListWidget::item { padding: 5px; } "
-            "QListWidget { background-color: #2c2f33; border: 1px solid #4f545c; border-radius: 8px; }"
+            "QListWidget { border: 1px solid #4f545c; border-radius: 8px; }"
         )
 
         # Containers for side-by-side Tag Types/Tags layout
@@ -300,15 +299,10 @@ class _UIBuilderMixin:
         self.results_scroll = MarqueeScrollArea()
         self.results_scroll.setWidgetResizable(True)
         self.results_scroll.setMinimumHeight(600)
-        self.results_scroll.setStyleSheet(
-            "QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }"
-        )
         # Connect Marquee Selection
         self.results_scroll.selection_changed.connect(self.handle_marquee_selection)
 
         self.results_widget = QWidget()
-        self.results_widget.setStyleSheet("QWidget { background-color: #2c2f33; }")
-
         self.results_layout = QGridLayout(self.results_widget)
         self.results_layout.setSpacing(3)
         self.results_layout.setAlignment(
@@ -339,14 +333,8 @@ class _UIBuilderMixin:
         self.selected_scroll = MarqueeScrollArea()
         self.selected_scroll.setWidgetResizable(True)
         self.selected_scroll.setMinimumHeight(400)
-        self.selected_scroll.setStyleSheet(
-            "QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }"
-        )
 
         self.selected_widget_container = QWidget()
-        self.selected_widget_container.setStyleSheet(
-            "QWidget { background-color: #2c2f33; }"
-        )
         self.selected_layout_grid = QGridLayout(self.selected_widget_container)
         self.selected_layout_grid.setSpacing(3)
         self.selected_layout_grid.setAlignment(

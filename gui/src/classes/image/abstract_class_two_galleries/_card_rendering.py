@@ -145,25 +145,25 @@ class _CardRenderingMixin:
 
         if is_selected:
             img_label.setStyleSheet(
-                "border: 3px solid #5865f2; background-color: #36393f;"
+                "border: 3px solid #5865f2; background-color: rgba(88, 101, 242, 0.25);"
             )
         elif is_in_db:
             img_label.setStyleSheet(
-                "border: 3px solid #2ecc71; background-color: #36393f;"
+                "border: 3px solid #2ecc71; background-color: rgba(46, 204, 113, 0.20);"
             )
         else:
             label_color = self._LABEL_COLORS.get(self._get_color_label(path) or "", "") if path else ""
             if label_color:
-                img_label.setStyleSheet(f"border: 2px solid {label_color}; background-color: #36393f;")
+                img_label.setStyleSheet(f"border: 2px solid {label_color}; background-color: rgba(20, 24, 32, 0.35);")
             elif img_label.pixmap() and not img_label.pixmap().isNull():
                 img_label.setStyleSheet(
-                    "border: 1px solid #4f545c; background-color: #36393f;"
+                    "border: 1px solid rgba(255, 255, 255, 0.15); background-color: rgba(20, 24, 32, 0.35);"
                 )
             else:
                 if img_label.text() in ("Loading...", "Loading…", "Error"):
                     pass
                 else:
-                    img_label.setStyleSheet("border: 1px dashed #666; color: #999;")
+                    img_label.setStyleSheet("border: 1px dashed rgba(255, 255, 255, 0.20); color: #999; background-color: rgba(20, 24, 32, 0.25);")
 
     def _update_found_card_styles(self: "AbstractClassTwoGalleriesHostProtocol") -> None:
         """Re-evaluate and apply style to all currently visible found cards."""

@@ -28,9 +28,9 @@ class _ListingCard(BaseCard):
         self.entry = entry
         self.setObjectName("listing_card")
         self.setStyleSheet(
-            "QWidget#listing_card{background:#2c2f33;border:2px solid #4f545c;"
+            "QWidget#listing_card{background:rgba(20, 24, 32, 0.45);border:2px solid rgba(255, 255, 255, 0.12);"
             "border-radius:8px;}"
-            "QWidget#listing_card:hover{border:2px solid #00bcd4;}"
+            "QWidget#listing_card:hover{border:2px solid #00bcd4;background:rgba(28, 34, 46, 0.60);}"
         )
 
         layout = QVBoxLayout(self)

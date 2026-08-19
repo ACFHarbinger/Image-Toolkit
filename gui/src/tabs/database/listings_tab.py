@@ -29,11 +29,6 @@ class ListingsTab(QWidget):
 
         # Tab Widget
         self.tab_widget = QTabWidget()
-        self.tab_widget.setStyleSheet(
-            "QTabWidget::pane { border: none; background: #2c2f33; }"
-            "QTabBar::tab { background: #23272a; color: #888; padding: 10px 20px; font-weight: bold; border-top-left-radius: 6px; border-top-right-radius: 6px; }"
-            "QTabBar::tab:selected { background: #2c2f33; color: #00bcd4; border-bottom: 2px solid #00bcd4; }"
-        )
 
         self.series_listings = SeriesListingsSubTab(vault_manager=vault_manager)
         self.entity_listings = EntityListingsSubTab(vault_manager=vault_manager)
