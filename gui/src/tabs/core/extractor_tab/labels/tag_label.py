@@ -16,7 +16,7 @@ class _TagLabel(QLabel):
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setStyleSheet(
             "color: #FFC107; font-weight: bold; padding: 2px 6px; "
-            "border: 1px solid #4f545c; border-radius: 4px; background-color: #1e1f22;"
+            "border: 1px solid #4f545c; border-radius: 4px; "
         )
         self.setToolTip(f"Jump to {text}\nRight-click to edit/delete")
 

@@ -77,11 +77,11 @@ class _DirectoryBrowseMixin:
         btn = self.extension_buttons[ext]
         if checked:
             self.selected_extensions.add(ext)
-            btn.setStyleSheet("QPushButton:checked { background-color: #3320b5; color: white; }")
+            btn.setStyleSheet("QPushButton:checked {  color: white; }")
             apply_shadow_effect(btn, "#000000", 8, 0, 3)
         else:
             self.selected_extensions.discard(ext)
-            btn.setStyleSheet("QPushButton:hover { background-color: #3498db; }")
+            btn.setStyleSheet("QPushButton:hover {  }")
             apply_shadow_effect(btn, "#000000", 8, 0, 3)
 
     def add_all_extensions(self):

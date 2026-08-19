@@ -22,6 +22,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Changed
 
+- Core and model tabs now defer panel backgrounds to the active global/glass QSS. Success and danger actions use semantic button roles supplied by the resolved theme rather than inline green/red styles.
 - Database listing-card thumbnail requests are coalesced into native batch-loader jobs with disk-cache reuse. The Scan & Tag selected-image panel now uses the shared batch-selected loader instead of synchronous full-resolution pixmap decoding.
 - Moved the native crypto library from the standalone top-level `cryptography/` directory into `base/src/secret/itk_crypto.c`, so `base/` holds all of the project's C/C++ source in one place. It still builds as its own plain-C shared library (`build/crypto/libitk_crypto.so`, loaded via `ctypes`), separate from the `base` pybind11 extension — only the source location and the `just build-crypto`/CI build commands changed.
 

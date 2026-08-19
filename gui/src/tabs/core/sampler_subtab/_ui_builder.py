@@ -143,8 +143,8 @@ class _UIBuilderMixin:
         # Checkboxes
         _cb_style = (
             "QCheckBox::indicator { width: 16px; height: 16px; border: 1px solid #555; "
-            "border-radius: 3px; background-color: #333; }"
-            "QCheckBox::indicator:checked { background-color: #4CAF50; border: 1px solid #4CAF50; }"
+            "border-radius: 3px;  }"
+            "QCheckBox::indicator:checked {  border: 1px solid #4CAF50; }"
         )
         self.multicore_cb = QCheckBox("Multi-core processing (faster for batches)")
         self.multicore_cb.setChecked(True)
@@ -196,9 +196,9 @@ class _UIBuilderMixin:
         self.progress_bar.setTextVisible(True)
         self.progress_bar.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.progress_bar.setStyleSheet(
-            "QProgressBar { background-color: #36393f; color: white; border: 1px solid #4f545c; "
+            "QProgressBar {  color: white; border: 1px solid #4f545c; "
             "border-radius: 4px; padding: 2px; }"
-            "QProgressBar::chunk { background-color: #5865f2; border-radius: 4px; }"
+            "QProgressBar::chunk {  border-radius: 4px; }"
         )
         self.progress_bar.setRange(0, 100)
         self.progress_bar.setValue(0)
@@ -214,11 +214,11 @@ class _UIBuilderMixin:
         self.found_gallery_scroll = MarqueeScrollArea()
         self.found_gallery_scroll.setWidgetResizable(True)
         self.found_gallery_scroll.setStyleSheet(
-            "QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }"
+            "QScrollArea { border: 1px solid #4f545c;  border-radius: 8px; }"
         )
         self.found_gallery_scroll.setMinimumHeight(500)
         self.gallery_widget = QWidget()
-        self.gallery_widget.setStyleSheet("background-color: #2c2f33;")
+        self.gallery_widget.setStyleSheet("")
         self.found_gallery_layout = QGridLayout(self.gallery_widget)
         self.found_gallery_layout.setAlignment(
             Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter
@@ -240,11 +240,11 @@ class _UIBuilderMixin:
         self.selected_gallery_scroll = MarqueeScrollArea()
         self.selected_gallery_scroll.setWidgetResizable(True)
         self.selected_gallery_scroll.setStyleSheet(
-            "QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }"
+            "QScrollArea { border: 1px solid #4f545c;  border-radius: 8px; }"
         )
         self.selected_gallery_scroll.setMinimumHeight(300)
         self.selected_widget = QWidget()
-        self.selected_widget.setStyleSheet("background-color: #2c2f33;")
+        self.selected_widget.setStyleSheet("")
         self.selected_gallery_layout = QGridLayout(self.selected_widget)
         self.selected_gallery_layout.setAlignment(
             Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter

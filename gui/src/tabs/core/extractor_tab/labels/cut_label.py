@@ -13,7 +13,7 @@ class _CutLabel(QLabel):
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setStyleSheet(
             "color: #00BCD4; font-weight: bold; padding: 2px 6px; "
-            "border: 1px solid #4f545c; border-radius: 4px; background-color: #1e1f22;"
+            "border: 1px solid #4f545c; border-radius: 4px; "
         )
         self.setToolTip("Right-click to delete this cut")
 

@@ -11,16 +11,14 @@ import logging
 import os
 import random
 import time
-from typing import Dict, Optional
+from typing import TYPE_CHECKING, Dict, Optional, cast
 
 from backend.src.constants import DAEMON_CONFIG_PATH
 from PySide6.QtCore import QObject, QTimer, Slot
 from PySide6.QtWidgets import QMessageBox, QWidget
 
-from .....styles import STYLE_STOP_ACTION
+from .....styles import STYLE_STOP_ACTION, set_button_role
 from ._video_duration import _get_video_duration, _is_video
-
-from typing import TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
     from ...protos.system_display_subtab import SystemDisplaySubTabHostProtocol
@@ -198,9 +196,7 @@ class _SlideshowMixin:
                 if hasattr(self, "btn_daemon_toggle"):
                     self.btn_daemon_toggle.setChecked(False)
                     self.btn_daemon_toggle.setText("Start Background Daemon")
-                    self.btn_daemon_toggle.setStyleSheet(
-                        "background-color: #27ae60; color: white; padding: 5px;"
-                    )
+                    set_button_role(self.btn_daemon_toggle, "success")
                 self.countdown_label.setText("Timer: --:--")
 
     @Slot()

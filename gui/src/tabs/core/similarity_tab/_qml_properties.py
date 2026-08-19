@@ -89,12 +89,12 @@ class _QmlPropertiesMixin:
 
     def _update_card_style(self, img_label: QLabel, is_selected: bool):
         if is_selected:
-            img_label.setStyleSheet("border: 3px solid #5865f2; background-color: #36393f;")
+            img_label.setStyleSheet("border: 3px solid #5865f2; ")
         else:
             try:
                 px = img_label.pixmap()
                 if px and not px.isNull():
-                    img_label.setStyleSheet("border: 1px solid #4f545c; background-color: #36393f;")
+                    img_label.setStyleSheet("border: 1px solid #4f545c; ")
                 else:
                     img_label.setStyleSheet("border: 1px dashed #666; color: #999;")
             except RuntimeError:

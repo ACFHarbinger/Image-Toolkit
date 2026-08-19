@@ -33,8 +33,9 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from gui.src.constants.elements import SUPPORTED_IMAGE_FILTER, _MAX_SCALE, _MIN_SCALE
 
+from gui.src.constants.elements import _MAX_SCALE, _MIN_SCALE, SUPPORTED_IMAGE_FILTER
+from gui.src.styles import set_button_role
 
 # Absolute zoom bounds for the canvas. 0.01x shows a ~40k-pixel-tall strip
 # whole; 80x makes a single source pixel ~80 screen pixels wide, which is
@@ -378,10 +379,7 @@ class ImageExtractorSubTab(QWidget):
         # --- Actions ---
         actions_layout = QHBoxLayout()
         self.btn_extract = QPushButton("✂️ Cut Frames")
-        self.btn_extract.setStyleSheet(
-            "QPushButton { background-color: #2ecc71; color: white; font-weight: bold; padding: 6px 16px; }"
-            "QPushButton:disabled { background-color: #4f545c; color: #888; }"
-        )
+        set_button_role(self.btn_extract, "success")
         self.btn_extract.clicked.connect(self.extract_frames)
         self.btn_extract.setEnabled(False)
         actions_layout.addWidget(self.btn_extract)

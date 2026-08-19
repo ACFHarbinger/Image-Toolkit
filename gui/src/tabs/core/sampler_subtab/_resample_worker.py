@@ -73,7 +73,7 @@ class _ResampleWorkerMixin:
         cancel_btn.setEnabled(True)
         cancel_btn.setText("Cancel")
         cancel_btn.setStyleSheet(
-            "QPushButton { background-color: #cc3333; color: white; font-weight: bold; }"
+            "QPushButton {  color: white; font-weight: bold; }"
         )
 
         n = len(config["files_to_process"])

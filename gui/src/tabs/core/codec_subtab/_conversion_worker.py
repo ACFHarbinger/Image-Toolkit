@@ -58,7 +58,7 @@ class _ConversionWorkerMixin:
         button_to_cancel.setText("Cancel Conversion")
         button_to_cancel.setStyleSheet(
             """
-            QPushButton { background-color: #cc3333; color: white; font-weight: bold; }
+            QPushButton {  color: white; font-weight: bold; }
         """
         )
 

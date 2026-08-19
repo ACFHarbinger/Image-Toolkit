@@ -162,7 +162,7 @@ class _CanvasControlsMixin:
             thumb_label = ClickableLabel(path)
             thumb_label.setFixedSize(size, size)
             thumb_label.setStyleSheet(
-                "background-color: #3a3d42; border-radius: 4px;"
+                " border-radius: 4px;"
             )
             pix = self._thumbnail_for(path)
             if pix.isNull() and os.path.isfile(path):

@@ -13,14 +13,14 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import Optional, cast
+from typing import TYPE_CHECKING, Optional, cast
 
 from backend.src.constants import DAEMON_CONFIG_PATH, ROOT_DIR
 from backend.src.constants.utils import PID_PATH
 from PySide6.QtCore import QObject, QTimer
 from PySide6.QtWidgets import QMessageBox, QWidget
 
-from typing import TYPE_CHECKING
+from .....styles import set_button_role
 
 if TYPE_CHECKING:
     from ...protos.system_display_subtab import SystemDisplaySubTabHostProtocol
@@ -271,9 +271,7 @@ class _DaemonMixin:
             # second. Spawning a second process here would race the first on
             # the same config file and could clobber its settings mid-flight.
             self.btn_daemon_toggle.setText("Stop Background Daemon")
-            self.btn_daemon_toggle.setStyleSheet(
-                "background-color: #c0392b; color: white; padding: 5px;"
-            )
+            set_button_role(self.btn_daemon_toggle, "danger")
             self._start_daemon_countdown_if_active()
             return
 
@@ -307,17 +305,13 @@ class _DaemonMixin:
                     )
                 self._record_daemon_pid(proc.pid)
                 self.btn_daemon_toggle.setText("Stop Background Daemon")
-                self.btn_daemon_toggle.setStyleSheet(
-                    "background-color: #c0392b; color: white; padding: 5px;"
-                )
+                set_button_role(self.btn_daemon_toggle, "danger")
                 self._start_daemon_countdown_if_active()
             except Exception as e:
                 QMessageBox.critical(cast(QWidget, self), "Error", f"Failed to start daemon: {e}")
         else:
             self.btn_daemon_toggle.setText("Start Background Daemon")
-            self.btn_daemon_toggle.setStyleSheet(
-                "background-color: #27ae60; color: white; padding: 5px;"
-            )
+            set_button_role(self.btn_daemon_toggle, "success")
             if hasattr(self, "countdown_timer") and self.countdown_timer:
                 self.countdown_timer.stop()
             self.countdown_label.setText("Timer: --:--")
