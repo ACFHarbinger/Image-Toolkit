@@ -23,7 +23,7 @@ build-base:
 build-crypto:
     @echo "Building native cryptography library..."
     mkdir -p build/crypto
-    cc -O2 -fPIC -shared -Wall -o build/crypto/libitk_crypto.so cryptography/cpp/itk_crypto.c -lcrypto
+    cc -O2 -fPIC -shared -Wall -o build/crypto/libitk_crypto.so base/src/secret/itk_crypto.c -lcrypto
 
 # Build production application frontend
 build-frontend:

@@ -218,7 +218,7 @@ def launch_app(opts):
     # before for other subsystems (native file dialog/GTK, QWebEngineView/
     # Chromium, QMediaPlayer FFmpeg VA-API -- see jvm_native_lib_conflicts
     # in project memory); the JVM itself has since been removed from the
-    # product entirely (see cryptography/README and the C++ crypto module),
+    # product entirely (see base/src/secret/README.md and the C++ crypto module),
     # which closed the whole class. Priming the JPEG plugin here,
     # synchronously, on the main thread, closed that specific SIGSEGV
     # (confirmed live).
