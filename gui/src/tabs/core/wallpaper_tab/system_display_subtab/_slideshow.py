@@ -18,6 +18,7 @@ from PySide6.QtCore import QObject, QTimer, Slot
 from PySide6.QtWidgets import QMessageBox, QWidget
 
 from .....styles import STYLE_STOP_ACTION, set_button_role
+from ._daemon import _write_daemon_config_atomic
 from ._video_duration import _get_video_duration, _is_video
 
 if TYPE_CHECKING:
@@ -231,8 +232,7 @@ class _SlideshowMixin:
                     with open(DAEMON_CONFIG_PATH, "r") as f:
                         config = json.load(f)
                     config["last_change_timestamp"] = int(time.time())
-                    with open(DAEMON_CONFIG_PATH, "w") as f:
-                        json.dump(config, f, indent=4)
+                    _write_daemon_config_atomic(config)
                     self.time_remaining_sec = self.interval_sec
                     self.update_countdown()
             except Exception:
