@@ -275,9 +275,7 @@ class _UIBuilderMixin:
         fgl.addRow("Index output:", row_idx_out)
 
         self._btn_build_index = QPushButton("▶  Build FAISS Index")
-        self._btn_build_index.setStyleSheet(
-            "background:#1565C0; color:white; font-weight:bold; padding:6px 14px;"
-        )
+        set_button_role(self._btn_build_index, "success")
         self._btn_build_index.clicked.connect(self._start_build_index)
         fgl.addRow("", self._btn_build_index)
 

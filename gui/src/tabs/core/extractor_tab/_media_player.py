@@ -83,11 +83,6 @@ class _MediaPlayerMixin:
         self.active_videos_tabbar.customContextMenuRequested.connect(
             self._show_tab_context_menu
         )
-        self.active_videos_tabbar.setStyleSheet(
-            "QTabBar::tab { background: #2c2f33; color: #9b59b6; padding: 8px 16px; border: 1px solid #4f545c; border-top-left-radius: 4px; border-top-right-radius: 4px; }"
-            "QTabBar::tab:selected { background: #23272a; color: #00bcd4; border-bottom-color: #23272a; font-weight: bold; }"
-            "QTabBar::close-button { image: url(close.png); }"
-        )
         video_container_layout.addWidget(self.active_videos_tabbar)
 
         player_group = QGroupBox("Video Player")
