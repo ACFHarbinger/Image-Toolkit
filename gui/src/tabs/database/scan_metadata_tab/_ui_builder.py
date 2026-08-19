@@ -95,13 +95,9 @@ class _UIBuilderMixin:
         # A. Top Gallery: Scan Results
         self.scan_scroll_area = MarqueeScrollArea()
         self.scan_scroll_area.setWidgetResizable(True)
-        self.scan_scroll_area.setStyleSheet(
-            "QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }"
-        )
         self.scan_scroll_area.setMinimumHeight(600)
 
         self.scan_thumbnail_widget = QWidget()
-        self.scan_thumbnail_widget.setStyleSheet("background-color: #2c2f33;")
         self.scan_thumbnail_layout = QGridLayout(self.scan_thumbnail_widget)
         self.scan_thumbnail_layout.setAlignment(
             Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter
@@ -135,9 +131,6 @@ class _UIBuilderMixin:
         # B. Bottom Gallery: Selected Images
         self.selected_images_area = MarqueeScrollArea()
         self.selected_images_area.setWidgetResizable(True)
-        self.selected_images_area.setStyleSheet(
-            "QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }"
-        )
         self.selected_images_area.setMinimumHeight(400)
         self.selected_images_area.setVisible(True)
         self.selected_images_area.selection_changed.connect(
@@ -145,7 +138,6 @@ class _UIBuilderMixin:
         )
 
         self.selected_images_widget = QWidget()
-        self.selected_images_widget.setStyleSheet("background-color: #2c2f33;")
         self.selected_grid_layout = QGridLayout(self.selected_images_widget)
         self.selected_grid_layout.setAlignment(
             Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter
@@ -202,7 +194,7 @@ class _UIBuilderMixin:
         self.tags_list_widget.setMinimumHeight(400)
         self.tags_list_widget.setStyleSheet(
             "QListWidget::item { padding: 5px; } "
-            "QListWidget { background-color: #2c2f33; border: 1px solid #4f545c; border-radius: 8px; }"
+            "QListWidget { border: 1px solid #4f545c; border-radius: 8px; }"
         )
         self._setup_tag_checkboxes()
 
@@ -236,18 +228,14 @@ class _UIBuilderMixin:
         self.view_in_db_only_button.toggled.connect(self.toggle_in_db_only_view)
 
         self.upsert_button = QPushButton("Add/Update Database Data")
-        self.upsert_button.setStyleSheet(
-            "background-color: #2ecc71; color: white; font-weight: bold; padding: 10px;"
-        )
+        self.upsert_button.setObjectName("btn_success")
         apply_shadow_effect(
             self.upsert_button, color_hex="#000000", radius=8, x_offset=0, y_offset=3
         )
         self.upsert_button.clicked.connect(self.perform_upsert_operation)
 
         self.delete_selected_button = QPushButton("Delete Images Data from Database")
-        self.delete_selected_button.setStyleSheet(
-            "background-color: #e74c3c; color: white; font-weight: bold; padding: 10px;"
-        )
+        self.delete_selected_button.setObjectName("btn_danger")
         apply_shadow_effect(
             self.delete_selected_button,
             color_hex="#000000",

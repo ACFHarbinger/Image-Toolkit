@@ -213,12 +213,8 @@ class _UIBuilderMixin:
         # --- Found gallery ---
         self.found_gallery_scroll = MarqueeScrollArea()
         self.found_gallery_scroll.setWidgetResizable(True)
-        self.found_gallery_scroll.setStyleSheet(
-            "QScrollArea { border: 1px solid #4f545c;  border-radius: 8px; }"
-        )
         self.found_gallery_scroll.setMinimumHeight(500)
         self.gallery_widget = QWidget()
-        self.gallery_widget.setStyleSheet("")
         self.found_gallery_layout = QGridLayout(self.gallery_widget)
         self.found_gallery_layout.setAlignment(
             Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter
@@ -239,12 +235,8 @@ class _UIBuilderMixin:
         # --- Selected gallery ---
         self.selected_gallery_scroll = MarqueeScrollArea()
         self.selected_gallery_scroll.setWidgetResizable(True)
-        self.selected_gallery_scroll.setStyleSheet(
-            "QScrollArea { border: 1px solid #4f545c;  border-radius: 8px; }"
-        )
         self.selected_gallery_scroll.setMinimumHeight(300)
         self.selected_widget = QWidget()
-        self.selected_widget.setStyleSheet("")
         self.selected_gallery_layout = QGridLayout(self.selected_widget)
         self.selected_gallery_layout.setAlignment(
             Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter

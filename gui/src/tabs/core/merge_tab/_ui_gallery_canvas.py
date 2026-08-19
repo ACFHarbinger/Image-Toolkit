@@ -39,13 +39,9 @@ class _UIGalleryCanvasMixin:
 
         self.gallery_scroll_area = MarqueeScrollArea()
         self.gallery_scroll_area.setWidgetResizable(True)  # pyrefly: ignore [missing-attribute]
-        self.gallery_scroll_area.setStyleSheet(  # pyrefly: ignore [missing-attribute]
-            "QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }"
-        )
         self.gallery_scroll_area.setMinimumHeight(600)  # pyrefly: ignore [missing-attribute]
 
         gallery_inner = QWidget()
-        gallery_inner.setStyleSheet("background-color: #2c2f33;")
         self.gallery_layout = QGridLayout(gallery_inner)
         self.gallery_layout.setAlignment(  # pyrefly: ignore [missing-attribute]
             Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter
@@ -133,12 +129,8 @@ class _UIGalleryCanvasMixin:
         content_layout.addWidget(self.queue_header_label)
         self.queue_gallery_scroll = QScrollArea()
         self.queue_gallery_scroll.setWidgetResizable(True)
-        self.queue_gallery_scroll.setStyleSheet(
-            "QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }"
-        )
         self.queue_gallery_scroll.setMinimumHeight(600)
         queue_gallery_inner = QWidget()
-        queue_gallery_inner.setStyleSheet("background-color: #2c2f33;")
         self.queue_gallery_layout = QGridLayout(queue_gallery_inner)
         self.queue_gallery_layout.setAlignment(
             Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft
