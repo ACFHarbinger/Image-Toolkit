@@ -25,7 +25,12 @@ if TYPE_CHECKING:
 
 
 class _GallerySelectionMixin:
-    """Extracted-frame gallery card rendering, selection, and context menu."""
+    """Extracted-frame gallery card rendering, selection, and context menu.
+
+    Aligned with AbstractClassSingleGallery base (#448):
+    - Uses base's selected_files / path_to_label_map instead of selected_paths set
+    - Uses base's selection ops (marquee, keyboard) instead of local handlers
+    """
 
     def create_card_widget(self: "VideoExtractorSubTabHostProtocol", path: str, pixmap: Optional[QPixmap]) -> QWidget:
         container = QWidget()
@@ -68,7 +73,8 @@ class _GallerySelectionMixin:
             else:
                 clickable_label.setText("Loading...")
 
-        self.update_card_style(container, is_selected=(path in self.selected_paths))
+        is_selected = path in self.selected_files
+        self.update_card_style(container, is_selected)
 
         layout.addWidget(clickable_label)
         return container
@@ -103,38 +109,38 @@ class _GallerySelectionMixin:
                     clickable_label.setText("Loading...")
 
             self.update_card_style(
-                widget, is_selected=(clickable_label.path in self.selected_paths)
+                clickable_label, is_selected=(clickable_label.path in self.selected_files)
             )
+
+    
+    def handle_marquee_selection(self: "VideoExtractorSubTabHostProtocol", marquee_selection: Set[str], is_ctrl: bool):
+        # Use base's selected_files (list) and path_to_label_map (dict) instead of selected_paths set
+        if is_ctrl:
+            # Subtractive selection (CTRL): Remove items in marquee from selection
+            for path in marquee_selection:
+                if path in self.selected_files:
+                    self.selected_files.remove(path)
+            # Update styles for affected cards
+            for path in marquee_selection:
+                widget = self.path_to_card_widget.get(path)
+                if widget:
+                    self.update_card_style(widget, path in self.selected_files)
+        else:
+            # Standard selection (No Modifiers): Replace selection with marquee
+            self.selected_files = sorted(list(marquee_selection))
+            # Update styles for all visible cards
+            self._update_card_styles()
+
+        self.on_selection_changed()
+
+
+
 
     @Slot(str)
     def handle_thumbnail_single_click(self: "VideoExtractorSubTabHostProtocol", image_path: str):
-        mods = QApplication.keyboardModifiers()
-        is_ctrl = bool(mods & Qt.KeyboardModifier.ControlModifier)
-        if is_ctrl:
-            if image_path in self.selected_paths:
-                self.selected_paths.remove(image_path)
-            else:
-                self.selected_paths.add(image_path)
-        else:
-            self.selected_paths.clear()
-            self.selected_paths.add(image_path)
-        self.update_visual_selection()
+        # Delegate to base's toggle_selection (#448)
+        self.toggle_selection(image_path)
 
-    @Slot(set, bool)
-    def handle_marquee_selection(self: "VideoExtractorSubTabHostProtocol", marquee_selection: Set[str], is_ctrl: bool):
-        if is_ctrl:
-            self.selected_paths.update(marquee_selection)
-        else:
-            self.selected_paths = marquee_selection
-        self.update_visual_selection()
-
-    def update_visual_selection(self: "VideoExtractorSubTabHostProtocol"):
-        if not self.gallery_container:
-            return
-        for label in self.gallery_container.findChildren(ClickableLabel):
-            if hasattr(label, "path"):
-                is_selected = label.path in self.selected_paths
-                self.update_card_style(label, is_selected)
 
     @Slot(str)
     def handle_thumbnail_double_click(self: "VideoExtractorSubTabHostProtocol", image_path: str):
@@ -182,11 +188,11 @@ class _GallerySelectionMixin:
 
     @Slot(QPoint, str)
     def show_image_context_menu(self: "VideoExtractorSubTabHostProtocol", global_pos: QPoint, path: str):
-        if path not in self.selected_paths:
-            self.selected_paths = {path}
-            self.update_visual_selection()
+        if path not in self.selected_files:
+            self.selected_files = [path]
+            self._update_card_styles()
 
-        count = len(self.selected_paths)
+        count = len(self.selected_files)
         menu = QMenu(cast(QWidget, self))
 
         # Extraction History Actions
@@ -284,7 +290,7 @@ class _GallerySelectionMixin:
         self.extraction_status_label.show()
 
     def delete_selected_images(self: "VideoExtractorSubTabHostProtocol"):
-        if not self.selected_paths:
+        if not self.selected_files:
             return
 
         prefs = {}
@@ -297,12 +303,12 @@ class _GallerySelectionMixin:
         confirm = QMessageBox.question(
             cast(QWidget, self),
             f"Confirm {action_name}",
-            f"Are you sure you want to move {len(self.selected_paths)} items to {action_name}?",
+            f"Are you sure you want to move {len(self.selected_files)} items to {action_name}?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
         if confirm == QMessageBox.StandardButton.Yes:
             failed = []
-            paths_to_delete = list(self.selected_paths)
+            paths_to_delete = list(self.selected_files)
             layout_changed = False
 
             widgets_to_delete = []
@@ -327,7 +333,7 @@ class _GallerySelectionMixin:
                 except Exception as e:
                     failed.append(f"{Path(path).name}: {e}")
 
-            self.selected_paths.clear()
+            self.selected_files.clear()
 
             if layout_changed and self.gallery_layout is not None:
                 for widget in widgets_to_delete:
@@ -344,9 +350,18 @@ class _GallerySelectionMixin:
                 QMessageBox.warning(cast(QWidget, self), "Partial Deletion Failure", "\n".join(failed))
 
     def delete_image(self: "VideoExtractorSubTabHostProtocol", path: str):
-        if path not in self.selected_paths:
-            self.selected_paths = {path}
+        if path not in self.selected_files:
+            self.selected_files = [path]
         self.delete_selected_images()
+
+
+
+    def _update_card_styles(self: "VideoExtractorSubTabHostProtocol") -> None:
+        """Re-evaluate and apply style to all currently visible cards."""
+        for path, widget in self.path_to_card_widget.items():
+            if widget:
+                is_selected = path in self.selected_files
+                self.update_card_style(widget, is_selected)
 
 
 __all__ = ["_GallerySelectionMixin"]
