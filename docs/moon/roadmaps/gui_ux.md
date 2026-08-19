@@ -153,6 +153,21 @@ live investigation. If that turns out to be inherent to the bounded-page
 QLabel approach at real-world directory sizes (hundreds-to-thousands of
 images), Option A is the actual fix, not another tuning pass on C.
 
+**2026-08-19 follow-up:** root-caused the "still slow, sometimes freezes"
+report. Real cause: the LRU cache resize from the fix above never shrank
+(`resize(max(current_maxsize, page_size))`), so one directory opened at
+page size "All" permanently inflated the cache for the rest of the
+process's life — unbounded RSS growth, matching the freeze exactly.
+Capped with `LRU_CACHE_CEILING` (#458, fixed). Also fixed in the same
+pass: a same-day theming regression that made every gallery viewport
+transparent and disabled Qt's scroll-blit fast path (#453), extractor's
+use of the global thread pool causing app-quit hangs (#455), synchronous
+per-card metadata reads blocking the GUI thread at widget-construction
+time (#456), and chunk/concurrency tuning for progressive rendering
+(#454). All closed and verified against actual code, not just landing
+claims. Still Option C underneath, not the Option A rewrite — revisit if
+freezes recur at very large (thousands-of-images) directory sizes.
+
 **Pain point:** Page-based gallery requires manual forward/back navigation. LRU eviction on page change causes 50–200ms thumbnail reloads. `QLabel` grid layout does not scale beyond 200 items without noticeable lag.
 
 ### Options
