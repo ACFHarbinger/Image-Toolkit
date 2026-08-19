@@ -151,9 +151,16 @@ class _CanvasControlsMixin:
             if w:
                 w.deleteLater()
 
+        # Pagination: get the current page's slice
+        page_size = self._queue_page_size
+        current_page = self._queue_current_page
+        start = current_page * page_size
+        end = start + page_size
+        page_entries = self.selected_files[start:end]
+
         size = self._queue_thumb_size
         cols = self._queue_gallery_cols
-        for idx, path in enumerate(self.selected_files):
+        for idx, path in enumerate(page_entries):
             cell = QWidget()
             cell_layout = QVBoxLayout(cell)
             cell_layout.setContentsMargins(2, 2, 2, 2)
@@ -180,16 +187,15 @@ class _CanvasControlsMixin:
             thumb_label.path_right_clicked.connect(self.show_image_context_menu)
             cell_layout.addWidget(thumb_label)
 
-            caption = QLabel(f"{idx + 1}. {os.path.basename(path)}")
-            caption.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            caption.setStyleSheet("color: #b9bbbe; font-size: 10px;")
-            caption.setWordWrap(True)
-            caption.setFixedWidth(size)
-            cell_layout.addWidget(caption)
+            # Use base class helper for filename label (#448)
+            self._add_filename_label(thumb_label, path)
 
             install_drag_reorder(cell, path, self, "reorder_queue")
 
             self.queue_gallery_layout.addWidget(cell, idx // cols, idx % cols)
+
+        # Update pagination controls
+        self._update_queue_pagination_ui()
 
     def reorder_queue(self, dragged_path: str, target_path: str) -> None:
         """Drag-and-drop callback for the queue gallery. Canvas mode is the
@@ -214,5 +220,77 @@ class _CanvasControlsMixin:
         self.overmix_group.setVisible(is_panorama and engine == "overmix")
         self.ai_options_group.setVisible(is_panorama and engine == "asp")
 
+
+
+    def _update_queue_pagination_ui(self):
+        """Update the queue gallery pagination controls."""
+        if self._queue_pagination_widget is None:
+            # Create pagination controls if they don't exist yet
+            container, controls = self.common_create_pagination_ui()
+            self._queue_pagination_widget = container
+            self._queue_page_combo = controls["combo"]
+            self._queue_prev_btn = controls["btn_prev"]
+            self._queue_next_btn = controls["btn_next"]
+            self._queue_page_btn = controls["btn_page"]
+            self._queue_item_range_lbl = controls["item_range_lbl"]
+
+            # Configure for queue gallery
+            self._queue_page_combo.setCurrentText(str(self._queue_page_size))
+            self._queue_page_combo.currentTextChanged.connect(self._on_queue_page_size_changed)
+            self._queue_prev_btn.clicked.connect(lambda: self._change_queue_page(-1))
+            self._queue_next_btn.clicked.connect(lambda: self._change_queue_page(1))
+
+            # Insert pagination widget into the layout (after the queue gallery)
+            # Find the queue gallery in the layout and add pagination after it
+            if hasattr(self, "queue_gallery_scroll") and self.queue_gallery_scroll.parent():
+                parent_layout = self.queue_gallery_scroll.parent().layout()
+                if parent_layout:
+                    parent_layout.addWidget(self._queue_pagination_widget, 0, Qt.AlignmentFlag.AlignCenter)
+
+        total = len(self.selected_files)
+        page_size = self._queue_page_size
+        current_page = self._queue_current_page
+
+        if total == 0:
+            self._queue_page_btn.setText("Page 0 / 0")
+            self._queue_page_btn.setEnabled(False)
+            self._queue_prev_btn.setEnabled(False)
+            self._queue_next_btn.setEnabled(False)
+            self._queue_item_range_lbl.setText("0 items")
+            return
+
+        total_pages = max(1, (total + page_size - 1) // page_size)
+        if current_page >= total_pages:
+            current_page = max(0, total_pages - 1)
+            self._queue_current_page = current_page
+
+        self._queue_page_btn.setText(f"Page {current_page + 1} / {total_pages}")
+        self._queue_page_btn.setEnabled(True)
+        self._queue_prev_btn.setEnabled(current_page > 0)
+        self._queue_next_btn.setEnabled(current_page < total_pages - 1)
+
+        start = current_page * page_size + 1
+        end = min(start + page_size - 1, total)
+        self._queue_item_range_lbl.setText(f"Items {start}-{end} of {total}")
+
+    @Slot(str)
+    def _on_queue_page_size_changed(self, text: str):
+        size = 999999 if text == "All" else int(text)
+        self._queue_page_size = size
+        self._queue_current_page = 0
+        self._refresh_queue_gallery()
+
+    def _change_queue_page(self, delta: int):
+        total_items = len(self.selected_files)
+        if total_items == 0:
+            return
+
+        page_size = self._queue_page_size
+        max_page = max(0, (total_items + page_size - 1) // page_size - 1)
+        new_page = max(0, min(self._queue_current_page + delta, max_page))
+
+        if new_page != self._queue_current_page:
+            self._queue_current_page = new_page
+            self._refresh_queue_gallery()
 
 __all__ = ["_CanvasControlsMixin"]

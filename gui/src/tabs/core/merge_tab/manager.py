@@ -64,6 +64,16 @@ class MergeTab(
         # can detect canvas<->non-canvas transitions (queue/canvas resync).
         self._prev_direction = "canvas"
 
+        # --- Queue gallery pagination (new for #448) ---
+        self._queue_page_size = 100
+        self._queue_current_page = 0
+        self._queue_pagination_widget: Optional[QWidget] = None
+        self._queue_page_combo: Optional[Any] = None
+        self._queue_prev_btn: Optional[Any] = None
+        self._queue_next_btn: Optional[Any] = None
+        self._queue_page_btn: Optional[Any] = None
+        self._queue_item_range_lbl: Optional[Any] = None
+
         # --- Main Layout: single outer QScrollArea (mirrors convert_tab / wallpaper_tab) ---
         main_layout = QVBoxLayout(self)
         main_layout.setSpacing(0)
