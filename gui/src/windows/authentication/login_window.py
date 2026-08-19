@@ -252,6 +252,10 @@ class LoginWindow(QWidget):
 
     def auth_transition_failed(self, message: str) -> None:
         """Restore login controls when startup fails after authentication."""
+        if self.vault_manager:
+            self.vault_manager.shutdown()
+        self.vault_manager = None
+        self.is_authenticated = False
         self._reset_auth_transition()
         QMessageBox.critical(self, "Startup Error", message)
 
