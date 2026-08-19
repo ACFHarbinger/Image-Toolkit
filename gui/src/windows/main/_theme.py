@@ -114,6 +114,8 @@ class _ThemeMixin:
 
         header_widget = self.findChild(QWidget, "header_widget")
         if header_widget:
+            if bg_data and bg_data.get("image_path") and bg_data.get("glassmorphism_enabled", True):
+                header_widget_bg = "rgba(32, 33, 36, 0.70)" if theme_name == "dark" else "rgba(255, 255, 255, 0.75)"
             header_widget.setStyleSheet(
                 f"background-color: {header_widget_bg}; padding: 10px; border-bottom: 2px solid {accent_color};"
             )
@@ -122,6 +124,7 @@ class _ThemeMixin:
                 account_name = self.cached_creds.get("account_name", "Authenticated User")
                 title_label.setText(f"Image Database and Toolkit - {account_name}")
                 title_label.setStyleSheet(f"color: {header_label_color}; font-size: 18pt; font-weight: bold;")
+
 
         self.settings_button.setStyleSheet(
             f"""

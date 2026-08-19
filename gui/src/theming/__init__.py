@@ -8,6 +8,7 @@ Studio UI, no background rendering, no palette-extraction math lives
 here -- see those issues.
 """
 
+from .palette import PaletteExtractionResult, extract_palette
 from .resolve import base_defaults, derive_accent_variants, resolve_colors, resolve_to_qss_vars, to_qss_vars
 from .schema import (
     COLOR_TOKEN_KEYS,
@@ -86,4 +87,7 @@ __all__ = [
     "ContrastWarning",
     "contrast_ratio",
     "contrast_warnings",
+    # palette extraction
+    "PaletteExtractionResult",
+    "extract_palette",
 ]
