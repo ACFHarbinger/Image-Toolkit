@@ -175,7 +175,10 @@ class TestCacheSizing:
         gallery = single_gallery
         gallery.page_size = 1000
         gallery.start_loading_gallery([f"p{i}.jpg" for i in range(1500)])
-        assert gallery._initial_pixmap_cache.maxsize == 1000
+        # Capped at LRU_CACHE_CEILING (800), not the raw page size -- an
+        # uncapped resize let one large "All" directory permanently inflate
+        # the cache (unbounded RSS growth/swap thrash), see #444 follow-up.
+        assert gallery._initial_pixmap_cache.maxsize == 800
 
     def test_single_cache_all_page_capped_at_path_count(self, single_gallery):
         gallery = single_gallery
@@ -189,6 +192,24 @@ class TestCacheSizing:
         gallery.page_size = 100
         gallery.start_loading_gallery([f"p{i}.jpg" for i in range(50)])
         assert gallery._initial_pixmap_cache.maxsize == 2000
+
+    def test_single_cache_never_exceeds_ceiling_on_huge_directory(self, single_gallery):
+        # Regression: an earlier version of this fix let maxsize grow
+        # monotonically with every load (max(current, page-driven)), so
+        # opening one huge "All"-page directory permanently inflated the
+        # cache for the rest of the process's life -- unbounded RSS growth
+        # that could swap-thrash the app to a freeze on real (thousands of
+        # images) directories, even though small test fixtures never
+        # exercised a large enough count to catch it.
+        gallery = single_gallery
+        gallery.page_size = 999999  # "All"
+        gallery.start_loading_gallery([f"p{i}.jpg" for i in range(5000)])
+        assert gallery._initial_pixmap_cache.maxsize == 800
+        # A second, smaller directory must shrink back down, not keep the
+        # first directory's ceiling-capped bound forever.
+        gallery.page_size = 50
+        gallery.start_loading_gallery([f"p{i}.jpg" for i in range(50)])
+        assert gallery._initial_pixmap_cache.maxsize == 300
 
     def test_found_cache_sized_to_page_size(self, two_galleries):
         gallery = two_galleries

@@ -2,6 +2,15 @@ from collections import OrderedDict
 
 from PySide6.QtGui import QImage
 
+# Hard upper bound for resize() (#444 follow-up). Page size can be 500/1000/
+# "All" (999999, gallery_base.py), and #444's `resize(max(current_maxsize,
+# min(page_size, len(paths))))` callers let maxsize grow unboundedly and
+# never shrink back -- one large directory permanently inflates the cache
+# for the rest of the process's life. At the largest thumbnail_size
+# (512px, ~1MB/QImage) this ceiling bounds one cache to ~800MB instead of
+# unbounded/swap-thrashing on multi-thousand-image directories.
+LRU_CACHE_CEILING = 800
+
 
 class LRUImageCache:
     """Bounded LRU cache for QImage thumbnails.
