@@ -20,8 +20,7 @@ from PySide6.QtWidgets import (
 )
 
 from ....components import MarqueeScrollArea
-from ....styles import apply_shadow_effect
-from ....theming.button_roles import set_button_role
+from ....styles import apply_shadow_effect, set_button_role
 
 
 class _UIGalleryCanvasMixin:
@@ -146,12 +145,12 @@ class _UIGalleryCanvasMixin:
         btns_layout = QHBoxLayout()
 
         self.run_button = QPushButton("Run Merge")
-        set_button_role(self.run_button, "btn_success")
+        set_button_role(self.run_button, "success")
         apply_shadow_effect(self.run_button, "#000000", 8, 0, 3)
         self.run_button.clicked.connect(self.start_merge)
 
         self.cancel_button = QPushButton("Cancel")
-        set_button_role(self.cancel_button, "btn_danger")
+        set_button_role(self.cancel_button, "danger")
         apply_shadow_effect(self.cancel_button, "#000000", 8, 0, 3)
         self.cancel_button.clicked.connect(self.cancel_merge)
         self.cancel_button.setVisible(False)

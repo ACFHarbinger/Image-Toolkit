@@ -10,6 +10,7 @@ import time
 from typing import Optional
 
 from backend.src.utils.display import monitor_slideshow_daemon as _monitor_slideshow
+from .....styles import set_button_role
 
 from typing import TYPE_CHECKING
 
@@ -30,12 +31,18 @@ class _SlideshowStatusMixin:
         self._btn_inapp_slideshow.setText(
             "⏹ Stop In-App Slideshow" if inapp_running else "▶ Start In-App Slideshow"
         )
+        set_button_role(
+            self._btn_inapp_slideshow, "danger" if inapp_running else "success"
+        )
         self._btn_inapp_slideshow.blockSignals(False)
 
         self._btn_daemon_slideshow.blockSignals(True)
         self._btn_daemon_slideshow.setChecked(daemon_running)
         self._btn_daemon_slideshow.setText(
             "⏹ Stop Slideshow Daemon" if daemon_running else "⏱ Start Slideshow Daemon"
+        )
+        set_button_role(
+            self._btn_daemon_slideshow, "danger" if daemon_running else "success"
         )
         self._btn_daemon_slideshow.blockSignals(False)
 
