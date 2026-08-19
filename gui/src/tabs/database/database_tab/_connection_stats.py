@@ -54,9 +54,6 @@ class _ConnectionStatsMixin:
             )
             self.update_button_states(connected=False)
             self.stats_label.setText("Library Unavailable")
-            self.stats_label.setStyleSheet(
-                "padding: 10px; background-color: #e74c3c; color: white; border-radius: 5px; font-weight: bold;"
-            )
 
     def reset_database(self):
         if not self.db:
@@ -150,14 +147,8 @@ class _ConnectionStatsMixin:
                 f"Last Sync: {last_sync_str}"
             )
             self.stats_label.setText(stats_text)
-            self.stats_label.setStyleSheet(
-                "padding: 10px; background-color: #27ae60; color: white; border-radius: 5px; font-weight: bold;"
-            )
         except Exception as e:
             self.stats_label.setText(f"Error getting statistics: {str(e)}")
-            self.stats_label.setStyleSheet(
-                "padding: 10px; background-color: #e74c3c; color: white; border-radius: 5px; font-weight: bold;"
-            )
 
     def run_vacuum(self):
         if not self.db:

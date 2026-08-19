@@ -104,10 +104,7 @@ class _UIBuilderMixin:
         toolbar.addWidget(_semantic_pair)
 
         self.clear_semantic_btn = QPushButton("❌ Clear Semantic")
-        self.clear_semantic_btn.setStyleSheet(
-            "QPushButton { background:#c0392b; color:white; border:none; border-radius:4px; padding:2px 8px; font-weight:bold; font-size:11px; }"
-            "QPushButton:hover { background:#e74c3c; }"
-        )
+        self.clear_semantic_btn.setObjectName("btn_danger")
         self.clear_semantic_btn.setFixedWidth(130)
         self.clear_semantic_btn.clicked.connect(self._clear_semantic_search)
         self.clear_semantic_btn.hide()
@@ -179,10 +176,9 @@ class _UIBuilderMixin:
         self.gallery_scroll = QScrollArea()
         self.gallery_scroll.setWidgetResizable(True)
         self.gallery_scroll.setStyleSheet(
-            "QScrollArea{border:1px solid #4f545c;border-radius:8px;background:#23272a;}"
+            "QScrollArea{border:1px solid #4f545c;border-radius:8px;}"
         )
         self._grid_widget = QWidget()
-        self._grid_widget.setStyleSheet("background:#23272a;")
         self._grid = QGridLayout(self._grid_widget)
         self._grid.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
         self._grid.setSpacing(10)
@@ -208,7 +204,7 @@ class _UIBuilderMixin:
         detail_scroll = QScrollArea()
         detail_scroll.setWidgetResizable(True)
         detail_scroll.setStyleSheet(
-            "QScrollArea{border:1px solid #4f545c;border-radius:8px;background:#2c2f33;}"
+            "QScrollArea{border:1px solid #4f545c;border-radius:8px;}"
         )
         self._detail = _EntityDetailPanel(vault_manager=self.vault_manager)
         self._detail.saved.connect(self._on_entity_saved)

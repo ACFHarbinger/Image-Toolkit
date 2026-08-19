@@ -510,7 +510,6 @@ class AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery):
         self,
         paths: list,
         worker_factory,
-        per_result_slot=None,
         batch_slot=None,
         chunk_size: int = 32,
         max_in_flight: int = 2,
@@ -524,6 +523,13 @@ class AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery):
         *max_in_flight* chunks and starting the next only when one finishes
         makes thumbnails appear top-to-bottom as they load, at the same (or
         better) total throughput.
+
+        Only ``batch_result`` is connected (#444): the batch workers emit
+        both ``result`` (per path) and ``batch_result`` (same list), and
+        connecting both slots ran update_card_pixmap() twice per thumbnail
+        on the GUI thread. The batch slot owns rendering, caching, and
+        worker cleanup; the per-result slots remain wired only for the
+        single-shot ImageLoaderWorker/VideoLoaderWorker paths.
 
         Cancellation: `cancel_loading` implementations bump
         ``self._load_generation``; queued continuations from an older
@@ -542,16 +548,14 @@ class AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery):
             chunk = chunks.popleft()
             worker = worker_factory(chunk)
             # Tag with the generation active at dispatch time so the result
-            # handler (per_result_slot/batch_slot) can tell a stale delivery
-            # (this chunk's own generation no longer current, e.g. the user
-            # switched directories again while it was in flight) from a
-            # current one, and skip touching any gallery widget for a stale
-            # result -- this chunk's own queued signal isn't cancelled by
-            # bumping _load_generation, only the not-yet-dispatched *next*
-            # chunk is (see the `gen != self._load_generation` check above).
+            # handler (batch_slot) can tell a stale delivery (this chunk's
+            # own generation no longer current, e.g. the user switched
+            # directories again while it was in flight) from a current one,
+            # and skip touching any gallery widget for a stale result --
+            # this chunk's own queued signal isn't cancelled by bumping
+            # _load_generation, only the not-yet-dispatched *next* chunk is
+            # (see the `gen != self._load_generation` check above).
             worker.load_generation = gen
-            if per_result_slot is not None:
-                worker.signals.result.connect(per_result_slot)
             if batch_slot is not None:
                 worker.signals.batch_result.connect(batch_slot)
             # Chain: when this chunk finishes, dispatch the next one

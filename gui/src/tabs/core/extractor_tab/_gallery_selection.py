@@ -46,12 +46,20 @@ class _GallerySelectionMixin:
         is_video = path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
 
         if pixmap and not pixmap.isNull():
-            scaled = pixmap.scaled(
-                self.thumbnail_size,
-                self.thumbnail_size,
-                Qt.AspectRatioMode.KeepAspectRatio,
-                Qt.TransformationMode.SmoothTransformation,
-            )
+            if (
+                pixmap.width() > self.thumbnail_size
+                or pixmap.height() > self.thumbnail_size
+            ):
+                scaled = pixmap.scaled(
+                    self.thumbnail_size,
+                    self.thumbnail_size,
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation,
+                )
+            else:
+                # Loader thumbnails already fit the target size — avoid a
+                # second smooth rescale on the GUI thread (#444).
+                scaled = pixmap
             clickable_label.setPixmap(scaled)
             clickable_label.setText("")
 
@@ -84,12 +92,20 @@ class _GallerySelectionMixin:
             )
 
             if pixmap and not pixmap.isNull():
-                scaled = pixmap.scaled(
-                    self.thumbnail_size,
-                    self.thumbnail_size,
-                    Qt.AspectRatioMode.KeepAspectRatio,
-                    Qt.TransformationMode.SmoothTransformation,
-                )
+                if (
+                    pixmap.width() > self.thumbnail_size
+                    or pixmap.height() > self.thumbnail_size
+                ):
+                    scaled = pixmap.scaled(
+                        self.thumbnail_size,
+                        self.thumbnail_size,
+                        Qt.AspectRatioMode.KeepAspectRatio,
+                        Qt.TransformationMode.SmoothTransformation,
+                    )
+                else:
+                    # Loader thumbnails already fit the target size — avoid
+                    # a second smooth rescale on the GUI thread (#444).
+                    scaled = pixmap
                 clickable_label.setPixmap(scaled)
                 clickable_label.setText("")
 

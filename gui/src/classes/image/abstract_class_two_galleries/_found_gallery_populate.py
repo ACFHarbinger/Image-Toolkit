@@ -27,6 +27,16 @@ class _FoundGalleryPopulateMixin:
     def refresh_found_gallery(self: "AbstractClassTwoGalleriesHostProtocol"):
         self.cancel_loading()
 
+        # #444: size the cache to hold the entire page without mid-populate
+        # eviction -- page sizes go up to 500/1000/All, above the 300
+        # default. Keep any larger user-configured baseline (§2.16B).
+        self._found_pixmap_cache.resize(
+            max(
+                self._found_pixmap_cache.maxsize,
+                min(self.found_page_size, len(self.found_files)),
+            )
+        )
+
         if not hasattr(self, "found_loading_paths"):
             self.found_loading_paths: set = set()
         self.found_loading_paths.clear()

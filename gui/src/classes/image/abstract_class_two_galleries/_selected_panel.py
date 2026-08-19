@@ -42,6 +42,16 @@ class _SelectedPanelMixin:
         if not self.selected_gallery_layout:
             return
 
+        # #444: size the cache to hold the entire page without mid-populate
+        # eviction -- page sizes go up to 500/1000/All, above the 200
+        # default. Keep any larger user-configured baseline (§2.16B).
+        self._selected_pixmap_cache.resize(
+            max(
+                self._selected_pixmap_cache.maxsize,
+                min(self.selected_page_size, len(self.selected_files)),
+            )
+        )
+
         # 1. Harvest pixmaps from current widgets to refresh cache
         for path, widget in self.selected_card_map.items():
             try:

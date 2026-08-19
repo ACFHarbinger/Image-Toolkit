@@ -151,7 +151,6 @@ class AbstractClassSingleGalleryHostProtocol(Protocol):
         self,
         paths: list,
         worker_factory: Any,
-        per_result_slot: Any = None,
         batch_slot: Any = None,
         chunk_size: int = 32,
         max_in_flight: int = 2,

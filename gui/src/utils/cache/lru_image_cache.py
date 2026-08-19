@@ -46,3 +46,11 @@ class LRUImageCache:
 
     def clear(self):
         self._cache.clear()
+
+    def resize(self, maxsize: int) -> None:
+        """Re-bound the cache (#444). Evicts LRU entries immediately when
+        shrinking below the current entry count, so callers can size the
+        cache to the active page size without losing entries mid-populate."""
+        self.maxsize = maxsize
+        while len(self._cache) > self.maxsize:
+            self._cache.popitem(last=False)

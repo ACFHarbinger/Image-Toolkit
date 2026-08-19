@@ -19,31 +19,17 @@ class _FormatFiltersMixin:
     def toggle_format(self, fmt, checked):
         if checked:
             self.selected_formats.add(fmt)  # pyrefly: ignore [missing-attribute]
-            self.format_buttons[fmt].setStyleSheet(
-                """
-                QPushButton:checked { background-color: #3320b5; color: white; }
-                QPushButton:hover { background-color: #00838a; }
-            """
-            )
-            apply_shadow_effect(
-                self.format_buttons[fmt],
-                color_hex="#000000",
-                radius=8,
-                x_offset=0,
-                y_offset=3,
-            )
         else:
             self.selected_formats.discard(fmt)  # pyrefly: ignore [missing-attribute]
-            self.format_buttons[fmt].setStyleSheet(
-                "QPushButton:hover { background-color: #3498db; }"
-            )
-            apply_shadow_effect(
-                self.format_buttons[fmt],
-                color_hex="#000000",
-                radius=8,
-                x_offset=0,
-                y_offset=3,
-            )
+
+        # Theme QSS handles :checked/:hover states; no inline styles needed
+        apply_shadow_effect(
+            self.format_buttons[fmt],
+            color_hex="#000000",
+            radius=8,
+            x_offset=0,
+            y_offset=3,
+        )
 
     @Slot()
     def add_all_formats(self):
