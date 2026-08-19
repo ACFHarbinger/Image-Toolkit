@@ -86,6 +86,9 @@ class TestWallpaperTab:
         # WallpaperTab takes a db_tab_ref arg
         tab = WallpaperTab(db_tab_ref=MagicMock())
         assert isinstance(tab, QWidget)
+        assert tab.monitor_display._btn_delete.objectName() == "btn_danger"
+        assert tab.monitor_display._btn_inapp_slideshow.objectName() == "btn_success"
+        assert tab.monitor_display._btn_daemon_slideshow.objectName() == "btn_success"
 
     def test_monitor_display_populated_on_init(self, q_app, mock_deps):
         tab = WallpaperTab(db_tab_ref=MagicMock())
@@ -263,6 +266,8 @@ class TestMergeTab:
     def test_init(self, q_app):
         tab = MergeTab()
         assert isinstance(tab, QWidget)
+        assert tab.run_button.objectName() == "btn_success"
+        assert tab.cancel_button.objectName() == "btn_danger"
 
     def test_event_filter_blocks_ctrl_wheel(self, q_app):
         from PySide6.QtCore import QPoint, QPointF, Qt

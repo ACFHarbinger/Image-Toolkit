@@ -135,6 +135,7 @@ class _UIGraphCanvasMixin:
 
         self._btn_delete = QPushButton("🗑 Delete")
         self._btn_delete.setToolTip("Delete selected node or edge (Del key also works)")
+        set_button_role(self._btn_delete, "danger")
         self._btn_delete.clicked.connect(self._delete_selected)
 
         btn_reset_view = QPushButton("⊡ Fit View")
@@ -142,10 +143,6 @@ class _UIGraphCanvasMixin:
 
         self._btn_set_start = QPushButton("★ Set Start")
         self._btn_set_start.setToolTip("Mark the selected node as the slideshow start node")
-        self._btn_set_start.setStyleSheet(
-            "QPushButton { background:#b8860b; color:white; border-radius:4px; padding:4px 8px; }"
-            "QPushButton:hover { background:#f1c40f; color:#1a1a00; }"
-        )
         self._btn_set_start.clicked.connect(self._set_start_node)
 
         self._btn_clear_graph = QPushButton("🗑 Clear Graph")
@@ -173,10 +170,6 @@ class _UIGraphCanvasMixin:
 
         self._btn_preview = QPushButton("▶ Preview Timelapse")
         self._btn_preview.setToolTip("Generate a temporary preview video and open it")
-        self._btn_preview.setStyleSheet(
-            "QPushButton { background:#7289da; color:white; border-radius:4px; padding:4px 8px; }"
-            "QPushButton:hover { background:#5f73bc; }"
-        )
         self._btn_preview.clicked.connect(self._preview_timelapse)
 
         self._btn_inapp_slideshow = QPushButton("▶ Start In-App Slideshow")
@@ -185,12 +178,7 @@ class _UIGraphCanvasMixin:
             "Cycle this display's Wallpaper Queue locally while the app stays open.\n"
             "Each entry uses its own duration (fixed time, or full video runtime)."
         )
-        self._btn_inapp_slideshow.setStyleSheet(
-            "QPushButton { background:#5865f2; color:white; border-radius:4px; padding:4px 8px; }"
-            "QPushButton:hover { background:#4752c4; }"
-            "QPushButton:checked { background:#c0392b; }"
-            "QPushButton:checked:hover { background:#a93226; }"
-        )
+        set_button_role(self._btn_inapp_slideshow, "success")
         self._btn_inapp_slideshow.clicked.connect(self._toggle_inapp_slideshow)
 
         self._btn_daemon_slideshow = QPushButton("⏱ Start Slideshow Daemon")
@@ -200,12 +188,7 @@ class _UIGraphCanvasMixin:
             "that keeps running after the app closes. Only one display's daemon can\n"
             "run at a time."
         )
-        self._btn_daemon_slideshow.setStyleSheet(
-            "QPushButton { background:#b8860b; color:white; border-radius:4px; padding:4px 8px; }"
-            "QPushButton:hover { background:#966f09; }"
-            "QPushButton:checked { background:#c0392b; }"
-            "QPushButton:checked:hover { background:#a93226; }"
-        )
+        set_button_role(self._btn_daemon_slideshow, "success")
         self._btn_daemon_slideshow.clicked.connect(self._toggle_daemon_slideshow)
 
         for btn in [self._btn_export_queue, self._btn_preview,
