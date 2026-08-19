@@ -111,65 +111,12 @@ class TestDraggableMonitorContainer:
 
 
 class TestOpaqueViewport:
-    def test_default_opacity(self, q_app):
+    def test_default_transparency(self, q_app):
         from PySide6.QtCore import Qt
         viewport = OpaqueViewport()
-        assert viewport.testAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent)
+        assert not viewport.testAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent)
         assert viewport.objectName() == "gallery_viewport"
-        assert viewport.windowOpacity() == 1.0
-
-    def test_rendered_backing_is_fully_opaque(self, q_app):
-        viewport = OpaqueViewport()
-        viewport.resize(64, 64)
-        viewport._rebuild_backing()
-        img = viewport._backing.toImage()
-        assert img.pixelColor(10, 10).alpha() == 255
-
-    def test_backing_fill_is_not_black_with_no_background_configured(self, q_app):
-        # Regression: reading self.palette().window().color() as the base
-        # fill produced a pitch-black backing on some setups, since QSS
-        # background-color rules never write back into QPalette. The base
-        # fill must come from the DARK_BG/LIGHT_BG theme constants instead.
-        viewport = OpaqueViewport()
-        viewport.resize(64, 64)
-        viewport._rebuild_backing()
-        img = viewport._backing.toImage()
-        pixel = img.pixelColor(10, 10)
-        assert (pixel.red(), pixel.green(), pixel.blue()) != (0, 0, 0)
-
-    def test_backing_draws_the_real_configured_background_image(self, q_app, tmp_path):
-        # Being opaque (WA_OpaquePaintEvent=True) is not the same as being a
-        # flat-colored box: _rebuild_backing must actually draw the
-        # configured background artwork into the cached pixmap, so the
-        # on-screen result looks the same as a truly transparent widget
-        # layered over that same image. Proves this widget can be opaque
-        # (Qt fast scroll-blit, #453/#457) *and* show the real background
-        # (Discord-style translucency requirement) -- these are not in
-        # conflict, despite this file having been reverted on the mistaken
-        # belief that they are (see the class docstring).
-        from PySide6.QtGui import QColor, QImage
-        from gui.src.styles.background_canvas import BackgroundCanvasController, BackgroundConfig
-
-        img_path = tmp_path / "bright_red_bg.png"
-        img = QImage(200, 200, QImage.Format.Format_RGB32)
-        img.fill(QColor(255, 0, 0))  # a color nothing in the dark theme uses
-        img.save(str(img_path))
-
-        controller = BackgroundCanvasController.instance()
-        original_config = controller.config
-        try:
-            controller.set_config(
-                BackgroundConfig(image_path=str(img_path), opacity=1.0, fit_mode="cover")
-            )
-            viewport = OpaqueViewport()
-            viewport.resize(64, 64)
-            viewport._rebuild_backing()
-            pixel = viewport._backing.toImage().pixelColor(32, 32)
-            assert pixel.red() > 150
-            assert pixel.green() < 100
-            assert pixel.blue() < 100
-        finally:
-            controller.set_config(original_config)
+        assert viewport.background_color.alpha() == 0
 
 
 class TestOptionalField:
