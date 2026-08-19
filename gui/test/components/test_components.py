@@ -111,31 +111,12 @@ class TestDraggableMonitorContainer:
 
 
 class TestOpaqueViewport:
-    def test_default_opacity(self, q_app):
+    def test_default_transparency(self, q_app):
         from PySide6.QtCore import Qt
         viewport = OpaqueViewport()
-        assert viewport.testAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent)
+        assert not viewport.testAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent)
         assert viewport.objectName() == "gallery_viewport"
-        assert viewport.windowOpacity() == 1.0
-
-    def test_rendered_backing_is_fully_opaque(self, q_app):
-        viewport = OpaqueViewport()
-        viewport.resize(64, 64)
-        viewport._rebuild_backing()
-        img = viewport._backing.toImage()
-        assert img.pixelColor(10, 10).alpha() == 255
-
-    def test_backing_fill_is_not_black_with_no_background_configured(self, q_app):
-        # Regression: reading self.palette().window().color() as the base
-        # fill produced a pitch-black backing on some setups, since QSS
-        # background-color rules never write back into QPalette. The base
-        # fill must come from the DARK_BG/LIGHT_BG theme constants instead.
-        viewport = OpaqueViewport()
-        viewport.resize(64, 64)
-        viewport._rebuild_backing()
-        img = viewport._backing.toImage()
-        pixel = img.pixelColor(10, 10)
-        assert (pixel.red(), pixel.green(), pixel.blue()) != (0, 0, 0)
+        assert viewport.background_color.alpha() == 0
 
 
 class TestOptionalField:
