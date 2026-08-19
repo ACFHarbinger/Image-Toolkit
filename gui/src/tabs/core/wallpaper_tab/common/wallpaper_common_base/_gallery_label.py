@@ -7,16 +7,14 @@ change (see ``_monitor_selection.py``'s docstring).
 from __future__ import annotations
 
 import os
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from backend.src.constants import SUPPORTED_VIDEO_FORMATS
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QImage, QPixmap
+from PySide6.QtCore import QSize, Qt
+from PySide6.QtGui import QImage, QImageReader, QPixmap
 from PySide6.QtWidgets import QLabel
 
 from ......components import DraggableLabel
-
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ....protos.wallpaper_common_base import WallpaperCommonBaseHostProtocol
@@ -56,7 +54,24 @@ class _GalleryLabelMixin:
                 if thumb:
                     self._initial_pixmap_cache[path] = thumb.toImage()
             elif os.path.exists(path):
-                thumb = QPixmap(path)
+                reader = QImageReader(path)
+                source_size = reader.size()
+                target_size = QSize(self.thumbnail_size, self.thumbnail_size)
+                if source_size.isValid():
+                    source_size.scale(
+                        target_size, Qt.AspectRatioMode.KeepAspectRatio
+                    )
+                    reader.setScaledSize(source_size)
+                image = reader.read()
+                if not image.isNull():
+                    if image.width() > self.thumbnail_size or image.height() > self.thumbnail_size:
+                        image = image.scaled(
+                            target_size,
+                            Qt.AspectRatioMode.KeepAspectRatio,
+                            Qt.TransformationMode.SmoothTransformation,
+                        )
+                    self._initial_pixmap_cache[path] = image
+                    thumb = QPixmap.fromImage(image)
         return thumb
 
 
