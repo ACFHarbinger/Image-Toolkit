@@ -110,6 +110,32 @@ def test_sync_daemon_config_keeps_locked_queues(q_app, tmp_path, monkeypatch):
     assert saved["interval_seconds"] == 30
 
 
+def test_write_daemon_config_atomic_leaves_no_partial_file(tmp_path, monkeypatch):
+    # Regression: a plain open(path, "w") truncates immediately, then writes
+    # incrementally -- if the daemon subprocess's own polling loop reads the
+    # file in that window, it can see an empty/torn file and fail to parse
+    # it ("Failed to read config: Expecting value..."), silently skipping
+    # that config update. Writing through a temp file + os.replace() must
+    # never leave anything but a fully-valid old or new file on disk.
+    from gui.src.tabs.core.wallpaper_tab.system_display_subtab._daemon import (
+        _write_daemon_config_atomic,
+    )
+
+    path = tmp_path / ".slideshow_config.json"
+    path.write_text(json.dumps({"running": False}))
+    monkeypatch.setattr(
+        "gui.src.tabs.core.wallpaper_tab.system_display_subtab._daemon.DAEMON_CONFIG_PATH",
+        path,
+    )
+
+    _write_daemon_config_atomic({"running": True, "interval_seconds": 42})
+
+    # No leftover temp file, and the target is valid, complete JSON.
+    assert not (tmp_path / ".slideshow_config.json.tmp").exists()
+    saved = json.loads(path.read_text())
+    assert saved == {"running": True, "interval_seconds": 42}
+
+
 def test_monitor_set_config_does_not_write_daemon_file(q_app, tmp_path, monkeypatch):
     from gui.src.tabs.core.wallpaper_tab.monitor_display_subtab._serialization import (
         _SerializationMixin,

@@ -22,6 +22,25 @@ from PySide6.QtWidgets import QMessageBox, QWidget
 
 from .....styles import set_button_role
 
+def _write_daemon_config_atomic(data: dict) -> None:
+    """Write the daemon config atomically.
+
+    A plain ``open(path, "w")`` truncates the file immediately, then writes
+    content incrementally -- if the daemon subprocess's own polling loop
+    (backend/src/utils/display/slideshow_daemon.py) reads the file in that
+    window, it can see an empty or torn/partial write and fail to parse it
+    ("Failed to read config: Expecting value..."), silently skipping that
+    poll cycle instead of applying the new config. Writing to a sibling temp
+    file and rename()-ing over the target is atomic on POSIX (and on
+    Windows via os.replace), so a concurrent reader always sees either the
+    old file or the fully-written new one, never a partial one.
+    """
+    tmp_path = Path(str(DAEMON_CONFIG_PATH) + ".tmp")
+    with open(tmp_path, "w") as f:
+        json.dump(data, f, indent=4)
+    os.replace(tmp_path, DAEMON_CONFIG_PATH)
+
+
 if TYPE_CHECKING:
     from ...protos.system_display_subtab import SystemDisplaySubTabHostProtocol
 
@@ -137,8 +156,7 @@ class _DaemonMixin:
             with open(DAEMON_CONFIG_PATH, "r") as f:
                 data = json.load(f)
             data["running"] = False
-            with open(DAEMON_CONFIG_PATH, "w") as f:
-                json.dump(data, f, indent=4)
+            _write_daemon_config_atomic(data)
         except Exception:
             pass
         return False
@@ -202,8 +220,7 @@ class _DaemonMixin:
         }
 
         try:
-            with open(DAEMON_CONFIG_PATH, "w") as f:
-                json.dump(config, f, indent=4)
+            _write_daemon_config_atomic(config)
         except Exception:
             pass
 
@@ -258,8 +275,7 @@ class _DaemonMixin:
         }
 
         try:
-            with open(DAEMON_CONFIG_PATH, "w") as f:
-                json.dump(config, f, indent=4)
+            _write_daemon_config_atomic(config)
         except Exception as e:
             QMessageBox.critical(cast(QWidget, self), "Error", f"Failed to save daemon config: {e}")
             return
