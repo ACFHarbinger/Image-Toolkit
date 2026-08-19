@@ -6,10 +6,6 @@ change.
 
 from __future__ import annotations
 
-from gui.src.constants.listings import ENTRY_STATUS, ENTRY_TYPES
-from gui.src.elements.database.display.detail_panel import _DetailPanel
-from gui.src.styles import SHARED_BUTTON_STYLE, apply_shadow_effect
-from gui.src.elements.database.common.listings_common import _persist_splitter
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (
     QComboBox,
@@ -23,6 +19,11 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+
+from gui.src.constants.listings import ENTRY_STATUS, ENTRY_TYPES
+from gui.src.elements.database.common.listings_common import _persist_splitter
+from gui.src.elements.database.display.detail_panel import _DetailPanel
+from gui.src.styles import SHARED_BUTTON_STYLE, apply_shadow_effect
 
 
 class _UIBuilderMixin:
@@ -242,6 +243,19 @@ class _UIBuilderMixin:
         self._grid.setContentsMargins(10, 10, 10, 10)
         self.gallery_scroll.setWidget(self._grid_widget)
         gallery_vbox.addWidget(self.gallery_scroll)
+
+        pager = QHBoxLayout()
+        pager.addStretch()
+        self._page_prev_btn = QPushButton("< Prev")
+        self._page_label = QLabel("Page 1 / 1")
+        self._page_next_btn = QPushButton("Next >")
+        self._page_prev_btn.clicked.connect(lambda: self._change_listing_page(-1))
+        self._page_next_btn.clicked.connect(lambda: self._change_listing_page(1))
+        pager.addWidget(self._page_prev_btn)
+        pager.addWidget(self._page_label)
+        pager.addWidget(self._page_next_btn)
+        pager.addStretch()
+        gallery_vbox.addLayout(pager)
         splitter.addWidget(gallery_container)
 
         # Detail panel (wrapped in a scroll area)

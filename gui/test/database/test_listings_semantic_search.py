@@ -5,6 +5,7 @@ _filtered_entities() (mirrors the existing recommendation-mode branch).
 """
 
 import pytest
+
 from gui.src.tabs.database.entity_listings_subtab import EntityListingsSubTab
 from gui.src.tabs.database.series_listings_subtab import SeriesListingsSubTab
 
@@ -42,6 +43,17 @@ class TestSeriesListingsSemanticSearch:
         assert tab._semantic_search_results is None
         assert tab.clear_semantic_btn.isHidden()
 
+    def test_gallery_is_paginated(self, q_app):
+        tab = SeriesListingsSubTab(vault_manager=None)
+        tab._entries = [
+            {"id": f"m-{i}", "title": f"Entry {i}"} for i in range(205)
+        ]
+
+        tab._rebuild_gallery()
+        assert tab._grid.count() == 100
+        tab._change_listing_page(2)
+        assert tab._grid.count() == 5
+
 
 class TestEntityListingsSemanticSearch:
     def test_construction(self, q_app):
@@ -70,3 +82,14 @@ class TestEntityListingsSemanticSearch:
 
         assert tab._semantic_search_results is None
         assert tab.clear_semantic_btn.isHidden()
+
+    def test_gallery_is_paginated(self, q_app):
+        tab = EntityListingsSubTab(vault_manager=None)
+        tab._entities = [
+            {"id": f"e-{i}", "name": f"Entity {i}"} for i in range(205)
+        ]
+
+        tab._rebuild_gallery()
+        assert tab._grid.count() == 100
+        tab._change_listing_page(2)
+        assert tab._grid.count() == 5
