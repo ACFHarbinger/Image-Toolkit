@@ -45,6 +45,8 @@ class SeriesListingsSubTab(
         self._filter_status = "All"
         self._search_query = ""
         self._advanced_search_criteria = None
+        self._listing_page = 0
+        self._listing_page_size = 100
 
         # Vector search state
         self._recommendation_results: Optional[List[Tuple[str, float]]] = None

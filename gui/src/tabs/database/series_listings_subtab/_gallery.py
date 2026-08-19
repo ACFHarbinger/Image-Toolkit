@@ -7,14 +7,16 @@ change.
 from __future__ import annotations
 
 import logging
+import math
 from pathlib import Path
 from typing import Any, Dict, List
 
-from gui.src.constants.listings import CARD_SIZE
-from gui.src.elements.database.display.listing_card import _ListingCard
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QLabel
+
 from gui.src.constants.elements import _SORT_KEY_MAP
+from gui.src.constants.listings import CARD_SIZE
+from gui.src.elements.database.display.listing_card import _ListingCard
 
 # sort_combo display text -> SearchRepo.filter_media's sort_key (DB.5).
 
@@ -108,6 +110,10 @@ class _GalleryMixin:
                 item.widget().deleteLater() # pyrefly: ignore [missing-attribute]
 
         visible = self._filtered_entries()
+        total_pages = max(1, math.ceil(len(visible) / self._listing_page_size))
+        self._listing_page = min(self._listing_page, total_pages - 1)
+        start = self._listing_page * self._listing_page_size
+        page_entries = visible[start : start + self._listing_page_size]
         if not visible:
             placeholder = QLabel(
                 "No entries found.\nClick '＋ Add Entry' to get started."
@@ -117,7 +123,7 @@ class _GalleryMixin:
             self._grid.addWidget(placeholder, 0, 0)
         else:
             cols = max(1, self.gallery_scroll.width() // (CARD_SIZE + 20))
-            for i, entry in enumerate(visible):
+            for i, entry in enumerate(page_entries):
                 card = _ListingCard(entry)
                 card.clicked.connect(self._on_card_clicked)
                 card.add_requested.connect(self._on_add_new)
@@ -133,6 +139,13 @@ class _GalleryMixin:
         self.stats_label.setText(
             f"{total} entries total · {completed} completed · showing {len(visible)}"
         )
+        self._page_label.setText(f"Page {self._listing_page + 1} / {total_pages}")
+        self._page_prev_btn.setEnabled(self._listing_page > 0)
+        self._page_next_btn.setEnabled(self._listing_page + 1 < total_pages)
+
+    def _change_listing_page(self, delta: int) -> None:
+        self._listing_page = max(0, self._listing_page + delta)
+        self._rebuild_gallery()
 
     def resizeEvent(self, event):
         super().resizeEvent(event)

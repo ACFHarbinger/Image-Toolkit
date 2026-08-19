@@ -15,16 +15,19 @@ class _FiltersMixin:
     @Slot(str)
     def _on_search(self, text: str):
         self._search_query = text
+        self._listing_page = 0
         self._rebuild_gallery()
 
     @Slot(str)
     def _on_type_filter(self, text: str):
         self._filter_type = text
+        self._listing_page = 0
         self._rebuild_gallery()
 
     @Slot(str)
     def _on_role_filter(self, text: str):
         self._filter_role = text
+        self._listing_page = 0
         self._rebuild_gallery()
 
 

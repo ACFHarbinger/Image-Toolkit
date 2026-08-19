@@ -41,6 +41,8 @@ class EntityListingsSubTab(
         self._filter_type = "All"
         self._filter_role = "All"
         self._search_query = ""
+        self._listing_page = 0
+        self._listing_page_size = 100
 
         # Semantic (BGE-M3) search state (DB.7)
         self._semantic_search_results: Optional[List[Tuple[str, float]]] = None
