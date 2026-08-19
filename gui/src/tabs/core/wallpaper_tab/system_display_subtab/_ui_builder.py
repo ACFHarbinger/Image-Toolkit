@@ -214,9 +214,6 @@ class _UIBuilderMixin:
         style_layout.setContentsMargins(0, 0, 0, 0)
 
         self.style_combo = QComboBox()
-        self.style_combo.setStyleSheet(
-            "QComboBox { padding: 5px; border-radius: 4px; }"
-        )
         initial_styles = self._get_relevant_styles()
         self.style_combo.addItems(initial_styles.keys())  # pyrefly: ignore [bad-argument-type]
         self.style_combo.setCurrentText(list(initial_styles.keys())[0])
@@ -228,9 +225,6 @@ class _UIBuilderMixin:
         style_layout.addWidget(self.style_combo)
 
         self.video_style_combo = QComboBox()
-        self.video_style_combo.setStyleSheet(
-            "QComboBox { padding: 5px; border-radius: 4px; }"
-        )
         self.video_style_combo.addItems(
             ["Stretch", "Keep Proportions", "Scaled and Cropped"]
         )

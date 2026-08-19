@@ -301,59 +301,45 @@ def generate_glassmorphism_qss(config: BackgroundConfig, is_dark: bool = True) -
         return ""
 
     if is_dark:
-        card_bg = "rgba(20, 23, 30, 0.52)"
-        card_hover = "rgba(28, 32, 42, 0.65)"
-        pane_bg = "rgba(16, 18, 24, 0.42)"
-        tab_bg = "rgba(26, 28, 36, 0.55)"
-        tab_selected = "rgba(12, 14, 18, 0.80)"
-        list_bg = "rgba(16, 18, 24, 0.55)"
-        input_bg = "rgba(14, 16, 20, 0.70)"
-        header_bg = "rgba(16, 18, 22, 0.65)"
-        border_color = "rgba(255, 255, 255, 0.10)"
+        card_bg = "rgba(18, 22, 30, 0.35)"
+        card_hover = "rgba(25, 32, 44, 0.48)"
+        pane_bg = "rgba(14, 18, 25, 0.28)"
+        tab_bg = "rgba(24, 28, 38, 0.45)"
+        tab_selected = "rgba(10, 14, 20, 0.70)"
+        list_bg = "rgba(14, 18, 25, 0.38)"
+        input_bg = "rgba(12, 15, 22, 0.55)"
+        header_bg = "rgba(14, 18, 24, 0.50)"
+        dialog_bg = "rgba(20, 24, 32, 0.94)"
+        menu_bg = "rgba(18, 22, 30, 0.94)"
+        border_color = "rgba(255, 255, 255, 0.12)"
         border_subtle = "rgba(255, 255, 255, 0.06)"
         text_color = "#ffffff"
+        scrollbar_bg = "rgba(20, 24, 32, 0.30)"
     else:
-        card_bg = "rgba(255, 255, 255, 0.65)"
-        card_hover = "rgba(245, 245, 245, 0.78)"
-        pane_bg = "rgba(255, 255, 255, 0.48)"
-        tab_bg = "rgba(240, 240, 245, 0.60)"
-        tab_selected = "rgba(255, 255, 255, 0.85)"
-        list_bg = "rgba(255, 255, 255, 0.58)"
-        input_bg = "rgba(255, 255, 255, 0.75)"
-        header_bg = "rgba(255, 255, 255, 0.68)"
+        card_bg = "rgba(255, 255, 255, 0.45)"
+        card_hover = "rgba(255, 255, 255, 0.60)"
+        pane_bg = "rgba(255, 255, 255, 0.30)"
+        tab_bg = "rgba(240, 242, 248, 0.45)"
+        tab_selected = "rgba(255, 255, 255, 0.75)"
+        list_bg = "rgba(255, 255, 255, 0.40)"
+        input_bg = "rgba(255, 255, 255, 0.65)"
+        header_bg = "rgba(255, 255, 255, 0.50)"
+        dialog_bg = "rgba(255, 255, 255, 0.95)"
+        menu_bg = "rgba(255, 255, 255, 0.95)"
         border_color = "rgba(0, 0, 0, 0.10)"
         border_subtle = "rgba(0, 0, 0, 0.05)"
         text_color = "#1e1e1e"
+        scrollbar_bg = "rgba(0, 0, 0, 0.10)"
 
     return f"""
     /* --- Full App Window Background & Glassmorphic Layering (#440) --- */
-    MainWindow, QMainWindow, QWidget#central_widget {{
-        background: transparent !important;
-        background-color: transparent !important;
+    QWidget {{
+        background-color: transparent;
     }}
 
-    /* Hierarchy transparency: Ensure all intermediate container widgets let the canvas show through */
-    QStackedWidget, QStackedWidget > QWidget, QStackedWidget > QWidget > QWidget {{
-        background: transparent !important;
-        background-color: transparent !important;
-    }}
-
-    QTabWidget, QTabWidget > QWidget, QTabWidget > QStackedWidget,
-    QTabWidget > QStackedWidget > QWidget, QTabWidget > QStackedWidget > QWidget > QWidget {{
-        background: transparent !important;
-        background-color: transparent !important;
-    }}
-
-    QScrollArea, QAbstractScrollArea,
-    QScrollArea > QWidget, QAbstractScrollArea > QWidget,
-    QScrollArea > QWidget > QWidget, QAbstractScrollArea > QWidget > QWidget,
-    QWidget#qt_scrollarea_viewport,
-    QWidget#qt_scrollarea_viewport > QWidget {{
-        background: transparent !important;
-        background-color: transparent !important;
-    }}
-
-    QSplitter, QSplitter > QWidget {{
+    MainWindow, QMainWindow, QWidget#central_widget,
+    QStackedWidget, QTabWidget, QScrollArea, QAbstractScrollArea,
+    QSplitter {{
         background: transparent !important;
         background-color: transparent !important;
     }}
@@ -361,11 +347,13 @@ def generate_glassmorphism_qss(config: BackgroundConfig, is_dark: bool = True) -
     /* Tab bar & Panes */
     QTabWidget::pane {{
         background: {pane_bg} !important;
+        background-color: {pane_bg} !important;
         border: 1px solid {border_color} !important;
         border-radius: 8px;
     }}
     QTabBar::tab {{
         background: {tab_bg} !important;
+        background-color: {tab_bg} !important;
         color: {text_color} !important;
         border: 1px solid {border_subtle} !important;
         border-bottom: none;
@@ -376,6 +364,7 @@ def generate_glassmorphism_qss(config: BackgroundConfig, is_dark: bool = True) -
     }}
     QTabBar::tab:selected {{
         background: {tab_selected} !important;
+        background-color: {tab_selected} !important;
         color: {text_color} !important;
         border: 1px solid {border_color} !important;
         border-bottom: none;
@@ -383,6 +372,7 @@ def generate_glassmorphism_qss(config: BackgroundConfig, is_dark: bool = True) -
     }}
     QTabBar::tab:hover:!selected {{
         background: {card_hover} !important;
+        background-color: {card_hover} !important;
     }}
 
     /* Translucent Panels & Group Boxes */
@@ -434,6 +424,33 @@ def generate_glassmorphism_qss(config: BackgroundConfig, is_dark: bool = True) -
         border: 1px solid {border_color} !important;
         border-radius: 4px;
         padding: 6px;
+    }}
+    QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QDoubleSpinBox:focus,
+    QTextEdit:focus, QPlainTextEdit:focus {{
+        background-color: {card_hover} !important;
+    }}
+
+    /* Drop-downs and Menus */
+    QComboBox QAbstractItemView {{
+        background-color: {menu_bg} !important;
+        color: {text_color};
+        border: 1px solid {border_color};
+    }}
+    QMenu {{
+        background-color: {menu_bg} !important;
+        color: {text_color};
+        border: 1px solid {border_color};
+        border-radius: 6px;
+    }}
+
+    /* Dialogs */
+    QDialog {{
+        background-color: {dialog_bg};
+    }}
+
+    /* Scrollbars */
+    QScrollBar:vertical, QScrollBar:horizontal {{
+        background: {scrollbar_bg};
     }}
 
     /* Generic labels and buttons in glassmorphism mode */
