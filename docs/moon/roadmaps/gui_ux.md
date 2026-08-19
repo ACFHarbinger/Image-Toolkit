@@ -139,6 +139,20 @@ Each section describes an ergonomic pain point, all viable implementation option
 
 ## 2.1 Virtual Scroll Gallery
 
+**2026-08-19 update:** a perf pass (issues #444/#445/#447) fixed several
+real bugs in the current page-based system — thumbnails were being
+decoded twice per image, the loading pipeline drained the thread pool
+twice per page turn, the LRU cache was smaller than common page sizes,
+and database listing tabs had no pagination at all (rebuilt every card on
+every keystroke). Series/entity listings are now capped at 100 cards/page
+(Option C below). None of this is the Option A virtualized rewrite —
+still a `QLabel` grid under a fixed page cap, not `QListView` viewport
+culling. The user is still seeing slowness and occasional freezes on
+large directories after this pass; see the 2026-08-19 bus log for the
+live investigation. If that turns out to be inherent to the bounded-page
+QLabel approach at real-world directory sizes (hundreds-to-thousands of
+images), Option A is the actual fix, not another tuning pass on C.
+
 **Pain point:** Page-based gallery requires manual forward/back navigation. LRU eviction on page change causes 50–200ms thumbnail reloads. `QLabel` grid layout does not scale beyond 200 items without noticeable lag.
 
 ### Options
