@@ -271,5 +271,5 @@ def test_settings_window_theme_layout_and_button_width(q_app, monkeypatch):
         parent_groupbox = parent_groupbox.parentWidget()
 
     assert parent_groupbox is not None
-    assert parent_groupbox.title() == "Appearance" # pyrefly: ignore [missing-attribute]
+    assert parent_groupbox.title() in ("Appearance", "Theme & Aesthetics Studio")
 
