@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import contextlib
 from pathlib import Path
-from typing import List, Optional, cast
+from typing import TYPE_CHECKING, List, Optional, cast
 
 from PySide6.QtCore import QObject, QPoint, Qt, Slot
 from PySide6.QtGui import QPixmap
@@ -47,8 +47,6 @@ from ....helpers.video.video_thumbnailer import (
     mark_media_backend_loaded,
 )
 from ....utils.sort_utils import natural_sort_key
-
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ..protos.extractor_tab import VideoExtractorSubTabHostProtocol
@@ -97,7 +95,7 @@ class _MediaPlayerMixin:
 
         player_container = QWidget()
         self.player_container = player_container
-        player_container.setStyleSheet("background-color: #2b2d31;")
+        player_container.setStyleSheet("")
         self.player_inner_layout = QVBoxLayout(player_container)
         self.player_inner_layout.setContentsMargins(0, 0, 0, 0)
 
@@ -233,7 +231,7 @@ class _MediaPlayerMixin:
         edit_current_time.setVisible(False)
         edit_current_time.setAlignment(Qt.AlignmentFlag.AlignCenter)
         edit_current_time.setStyleSheet(
-            "QLineEdit { background-color: #1e1f22; color: #00BCD4; border: 1px solid #4f545c; border-radius: 4px; font-family: monospace; }"
+            "QLineEdit {  color: #00BCD4; border: 1px solid #4f545c; border-radius: 4px; font-family: monospace; }"
         )
         edit_current_time.returnPressed.connect(self._jump_to_edited_time)
         edit_current_time.installEventFilter(cast(QObject, self))
@@ -283,9 +281,9 @@ class _MediaPlayerMixin:
         self.storyboard_progress_bar.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.storyboard_progress_bar.setFixedHeight(14)
         self.storyboard_progress_bar.setStyleSheet(
-            "QProgressBar { background-color: #36393f; color: #aaa; border: 1px solid #4f545c;"
+            "QProgressBar {  color: #aaa; border: 1px solid #4f545c;"
             " border-radius: 4px; font-size: 10px; }"
-            "QProgressBar::chunk { background-color: #5865f2; border-radius: 4px; }"
+            "QProgressBar::chunk {  border-radius: 4px; }"
         )
         self.storyboard_progress_bar.setMinimum(0)
         self.storyboard_progress_bar.setMaximum(100)

@@ -28,6 +28,12 @@ QPushButton:disabled {
     color: $LIGHT_MUTED_TEXT;
     border-color: $LIGHT_BORDER;
 }
+QPushButton#btn_success {
+    background: $LIGHT_SUCCESS;
+}
+QPushButton#btn_danger {
+    background: $LIGHT_DANGER;
+}
 
 /* --- Tab Widget Styling --- */
 QTabWidget::pane {

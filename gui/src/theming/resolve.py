@@ -15,9 +15,7 @@ agree numerically (see test_resolve.py) -- this doesn't replace
 
 from __future__ import annotations
 
-from typing import Optional
-
-from .schema import COLOR_TOKEN_KEYS, ColorTokens, ThemePack
+from .schema import ColorTokens, ThemePack
 
 #: Base-theme default color tokens, sourced from the same values already
 #: shipped in gui/src/styles/qss/theme.qss's @vars block (parsed at import
@@ -122,6 +120,8 @@ def to_qss_vars(resolved: ColorTokens, *, prefix: str) -> dict[str, str]:
         f"{prefix}_TEXT": resolved.text,
         f"{prefix}_MUTED_TEXT": resolved.muted_text,
         f"{prefix}_BORDER": resolved.border,
+        f"{prefix}_SUCCESS": "#2e7d32",
+        f"{prefix}_DANGER": "#c62828",
     }
 
 

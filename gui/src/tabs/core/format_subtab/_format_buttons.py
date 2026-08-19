@@ -18,7 +18,7 @@ class _FormatButtonsMixin:
     def _add_format_button(self, fmt, layout):
         btn = QPushButton(fmt)
         btn.setCheckable(True)
-        btn.setStyleSheet("QPushButton:hover { background-color: #3498db; }")
+        btn.setStyleSheet("QPushButton:hover {  }")
         apply_shadow_effect(btn, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
         btn.clicked.connect(lambda checked, f=fmt: self.toggle_format(f, checked))
         layout.addWidget(btn)
@@ -65,8 +65,8 @@ class _FormatButtonsMixin:
             self.selected_formats.add(fmt) # pyrefly: ignore [missing-attribute]
             btn.setStyleSheet(
                 """
-                QPushButton:checked { background-color: #3320b5; color: white; }
-                QPushButton:hover { background-color: #00838a; }
+                QPushButton:checked {  color: white; }
+                QPushButton:hover {  }
             """
             )
             apply_shadow_effect(
@@ -74,7 +74,7 @@ class _FormatButtonsMixin:
             )
         else:
             self.selected_formats.discard(fmt) # pyrefly: ignore [missing-attribute]
-            btn.setStyleSheet("QPushButton:hover { background-color: #3498db; }")
+            btn.setStyleSheet("QPushButton:hover {  }")
             apply_shadow_effect(
                 btn, color_hex="#000000", radius=8, x_offset=0, y_offset=3
             )

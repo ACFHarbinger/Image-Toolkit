@@ -28,6 +28,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from .....styles import set_button_role
 from ._sparkline import _SparkLine
 
 if TYPE_CHECKING:
@@ -301,12 +302,8 @@ class _UIBuilderMixin:
         self._btn_start = QPushButton("▶  Start Training")
         self._btn_cancel = QPushButton("■  Cancel")
         self._btn_cancel.setEnabled(False)
-        self._btn_start.setStyleSheet(
-            "background:#4CAF50; color:white; font-weight:bold; padding:8px 16px;"
-        )
-        self._btn_cancel.setStyleSheet(
-            "background:#f44336; color:white; font-weight:bold; padding:8px 16px;"
-        )
+        set_button_role(self._btn_start, "success")
+        set_button_role(self._btn_cancel, "danger")
         self._btn_start.clicked.connect(self._start_training)
         self._btn_cancel.clicked.connect(self._cancel_training)
         ctrl.addWidget(self._btn_start)

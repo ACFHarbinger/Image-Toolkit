@@ -7,6 +7,8 @@ Extracted from ``extractor_tab.py`` -- pure code motion, no logic change.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, List, Tuple
+
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -20,8 +22,6 @@ from PySide6.QtWidgets import (
     QSpinBox,
     QVBoxLayout,
 )
-
-from typing import TYPE_CHECKING, List, Tuple
 
 if TYPE_CHECKING:
     from ..protos.extractor_tab import VideoExtractorSubTabHostProtocol
@@ -116,9 +116,9 @@ class _ExtractionPanelUIMixin:
 
         self.btn_cancel_extraction = QPushButton("🛑 Cancel Extraction")
         self.btn_cancel_extraction.setStyleSheet(
-            "QPushButton { background-color: #f04747; color: white; font-weight: bold; border-radius: 4px; padding: 4px 12px; }"
-            "QPushButton:hover { background-color: #d84040; }"
-            "QPushButton:disabled { background-color: #4f545c; color: #888; }"
+            "QPushButton {  color: white; font-weight: bold; border-radius: 4px; padding: 4px 12px; }"
+            "QPushButton:hover {  }"
+            "QPushButton:disabled {  color: #888; }"
         )
         self.btn_cancel_extraction.clicked.connect(self.cancel_extraction)
         self.btn_cancel_extraction.hide()
@@ -146,16 +146,16 @@ class _ExtractionPanelUIMixin:
 
         self.btn_extract_gif = QPushButton("GIF Extract as GIF")
         self.btn_extract_gif.setStyleSheet(
-            "QPushButton { background-color: #8e44ad; color: white; font-weight: bold; }"
-            "QPushButton:disabled { background-color: #4f545c; color: #888; }"
+            "QPushButton {  color: white; font-weight: bold; }"
+            "QPushButton:disabled {  color: #888; }"
         )
         self.btn_extract_gif.clicked.connect(self.extract_range_as_gif)
         self.btn_extract_gif.setEnabled(False)
 
         self.btn_extract_video = QPushButton("MP4 Extract as Video")
         self.btn_extract_video.setStyleSheet(
-            "QPushButton { background-color: #2980b9; color: white; font-weight: bold; }"
-            "QPushButton:disabled { background-color: #4f545c; color: #888; }"
+            "QPushButton {  color: white; font-weight: bold; }"
+            "QPushButton:disabled {  color: #888; }"
         )
         self.btn_extract_video.clicked.connect(self.extract_range_as_video)
         self.btn_extract_video.setEnabled(False)
@@ -216,8 +216,8 @@ class _ExtractionPanelUIMixin:
         self.extraction_progress_bar.setTextVisible(True)
         self.extraction_progress_bar.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.extraction_progress_bar.setStyleSheet(
-            "QProgressBar { background-color: #36393f; color: white; border: 1px solid #4f545c; border-radius: 4px; padding: 2px; height: 20px; }"
-            "QProgressBar::chunk { background-color: #00BCD4; border-radius: 4px; }"
+            "QProgressBar {  color: white; border: 1px solid #4f545c; border-radius: 4px; padding: 2px; height: 20px; }"
+            "QProgressBar::chunk {  border-radius: 4px; }"
         )
         self.extraction_progress_bar.setMinimum(0)
         self.extraction_progress_bar.setMaximum(100)

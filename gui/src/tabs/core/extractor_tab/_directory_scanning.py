@@ -20,7 +20,7 @@ from __future__ import annotations
 import os
 import re
 from pathlib import Path
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from backend.src.constants import SUPPORTED_VIDEO_FORMATS
 from backend.src.core import telemetry
@@ -44,8 +44,6 @@ from ....constants import MAX_PREVIEW_ITEMS
 from ....helpers import BatchVideoLoaderWorker
 from ....utils.guard.startup_probe_guard import startup_settle_remaining_ms
 from ....utils.sort_utils import natural_sort_key
-
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ..protos.extractor_tab import VideoExtractorSubTabHostProtocol
@@ -101,11 +99,11 @@ class _DirectoryScanningMixin:
         self.source_scroll.setMinimumHeight(300)
         self.source_scroll.setMaximumHeight(300)
         self.source_scroll.setStyleSheet(
-            "QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }"
+            "QScrollArea { border: 1px solid #4f545c;  border-radius: 8px; }"
         )
 
         self.source_container = QWidget()
-        self.source_container.setStyleSheet("QWidget { background-color: #2c2f33; }")
+        self.source_container.setStyleSheet("QWidget {  }")
 
         self.source_grid = QGridLayout(self.source_container)
         self.source_grid.setAlignment(
@@ -474,7 +472,7 @@ class _DirectoryScanningMixin:
         elif is_other_open:
             if label.text() == "VIDEO":
                 label.setStyleSheet(
-                    "border: 2px solid #9b59b6; color: #9b59b6; font-weight: bold; background-color: #2c2f33; border-radius: 4px;"
+                    "border: 2px solid #9b59b6; color: #9b59b6; font-weight: bold;  border-radius: 4px;"
                 )
             elif label.text() == "No Preview" or label.text() == "Loading...":
                 label.setStyleSheet(
@@ -486,11 +484,11 @@ class _DirectoryScanningMixin:
             if label.text() == "VIDEO":
                 if has_extracted:
                     label.setStyleSheet(
-                        "border: 2px solid #2ecc71; color: #2ecc71; font-weight: bold; background-color: #2c2f33; border-radius: 4px;"
+                        "border: 2px solid #2ecc71; color: #2ecc71; font-weight: bold;  border-radius: 4px;"
                     )
                 else:
                     label.setStyleSheet(
-                        "border: 2px solid #3498db; color: #3498db; font-weight: bold; background-color: #2c2f33; border-radius: 4px;"
+                        "border: 2px solid #3498db; color: #3498db; font-weight: bold;  border-radius: 4px;"
                     )
             elif label.text() == "No Preview":
                 label.setStyleSheet(

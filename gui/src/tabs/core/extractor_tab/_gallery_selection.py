@@ -9,7 +9,7 @@ from __future__ import annotations
 import os
 import subprocess
 from pathlib import Path
-from typing import Optional, Set, cast
+from typing import TYPE_CHECKING, Optional, Set, cast
 
 from backend.src.constants import SUPPORTED_VIDEO_FORMATS
 from PySide6.QtCore import QPoint, Qt, Slot
@@ -19,8 +19,6 @@ from send2trash import send2trash  # pyrefly: ignore [untyped-import]
 
 from ....components import ClickableLabel
 from ....windows import ImagePreviewWindow
-
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ..protos.extractor_tab import VideoExtractorSubTabHostProtocol
@@ -110,7 +108,7 @@ class _GallerySelectionMixin:
         is_video = label.path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
 
         if selected:
-            label.setStyleSheet("border: 3px solid #5865f2; background-color: #36393f;")
+            label.setStyleSheet("border: 3px solid #5865f2; ")
         else:
             if is_video:
                 if label.text() == "VIDEO":

@@ -25,9 +25,10 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from gui.src.constants.elements import _SHARED_BUTTON_STYLE
+
 from ....components import MarqueeScrollArea, OptionalField
 from ....styles import apply_shadow_effect
-from gui.src.constants.elements import _SHARED_BUTTON_STYLE
 
 
 class _UIBuilderMixin:
@@ -126,8 +127,8 @@ class _UIBuilderMixin:
         self._cancel_label = "✖ Cancel Scan"
         self.btn_scan = QPushButton(self._scan_label)
         self.btn_scan.setStyleSheet(
-            "QPushButton { background-color: #5865f2; color: white; font-weight: bold; "
-            "padding: 10px; border-radius: 8px; } QPushButton:hover { background-color: #4752c4; }")
+            "QPushButton {  color: white; font-weight: bold; "
+            "padding: 10px; border-radius: 8px; } QPushButton:hover {  }")
         apply_shadow_effect(self.btn_scan, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
         self.btn_scan.clicked.connect(self.on_scan_button_clicked)
         scan_btn_row.addWidget(self.btn_scan)
@@ -135,8 +136,8 @@ class _UIBuilderMixin:
         # the gallery down to just the similar images.
         self.btn_reset = QPushButton("🔄 Reset / Show All")
         self.btn_reset.setStyleSheet(
-            "QPushButton { background-color: #4f545c; color: white; font-weight: bold; "
-            "padding: 10px; border-radius: 8px; } QPushButton:hover { background-color: #5d6269; }")
+            "QPushButton {  color: white; font-weight: bold; "
+            "padding: 10px; border-radius: 8px; } QPushButton:hover {  }")
         apply_shadow_effect(self.btn_reset, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
         self.btn_reset.clicked.connect(self.reset_gallery)
         scan_btn_row.addWidget(self.btn_reset)
@@ -157,11 +158,11 @@ class _UIBuilderMixin:
         self.found_gallery_scroll = MarqueeScrollArea()
         self.found_gallery_scroll.setWidgetResizable(True)
         self.found_gallery_scroll.setStyleSheet(
-            "QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }"
+            "QScrollArea { border: 1px solid #4f545c;  border-radius: 8px; }"
         )
         self.found_gallery_scroll.setMinimumHeight(600)
         self.gallery_widget = QWidget()
-        self.gallery_widget.setStyleSheet("background-color: #2c2f33;")
+        self.gallery_widget.setStyleSheet("")
         self.found_gallery_layout = QGridLayout(self.gallery_widget)
         self.found_gallery_layout.setAlignment(
             Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter
@@ -179,11 +180,11 @@ class _UIBuilderMixin:
         self.selected_gallery_scroll = MarqueeScrollArea()
         self.selected_gallery_scroll.setWidgetResizable(True)
         self.selected_gallery_scroll.setStyleSheet(
-            "QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }"
+            "QScrollArea { border: 1px solid #4f545c;  border-radius: 8px; }"
         )
         self.selected_gallery_scroll.setMinimumHeight(400)
         self.selected_widget = QWidget()
-        self.selected_widget.setStyleSheet("background-color: #2c2f33;")
+        self.selected_widget.setStyleSheet("")
         self.selected_gallery_layout = QGridLayout(self.selected_widget)
         self.selected_gallery_layout.setAlignment(
             Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter
@@ -217,7 +218,7 @@ class _UIBuilderMixin:
             for ext in SUPPORTED_IMG_FORMATS:
                 btn = QPushButton(ext)
                 btn.setCheckable(True)
-                btn.setStyleSheet("QPushButton:hover { background-color: #3498db; }")
+                btn.setStyleSheet("QPushButton:hover {  }")
                 apply_shadow_effect(btn, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
                 btn.clicked.connect(lambda checked, e=ext: self.toggle_extension(e, checked))
                 btn_layout.addWidget(btn)

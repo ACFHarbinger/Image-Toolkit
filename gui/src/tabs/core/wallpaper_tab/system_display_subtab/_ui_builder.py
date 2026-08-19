@@ -7,7 +7,7 @@ convention (§5.17).
 
 from __future__ import annotations
 
-from typing import Optional, cast
+from typing import TYPE_CHECKING, Optional, cast
 
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (
@@ -26,11 +26,10 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from .....components import MarqueeScrollArea
-from .....styles import STYLE_START_ACTION, apply_shadow_effect
-
-from typing import TYPE_CHECKING
 from gui.src.constants.elements import _GROUP_BOX_STYLE
+
+from .....components import MarqueeScrollArea
+from .....styles import STYLE_START_ACTION, apply_shadow_effect, set_button_role
 
 if TYPE_CHECKING:
     from ...protos.system_display_subtab import SystemDisplaySubTabHostProtocol
@@ -178,16 +177,12 @@ class _UIBuilderMixin:
         if self._reconcile_daemon_liveness_on_startup():
             self.btn_daemon_toggle.setText("Stop Background Daemon")
             self.btn_daemon_toggle.setChecked(True)
-            self.btn_daemon_toggle.setStyleSheet(
-                "background-color: #c0392b; color: white; padding: 5px;"
-            )
+            set_button_role(self.btn_daemon_toggle, "danger")
             QTimer.singleShot(1000, self._start_daemon_countdown_if_active)
         else:
             self.btn_daemon_toggle.setText("Start Background Daemon")
             self.btn_daemon_toggle.setChecked(False)
-            self.btn_daemon_toggle.setStyleSheet(
-                "background-color: #27ae60; color: white; padding: 5px;"
-            )
+            set_button_role(self.btn_daemon_toggle, "success")
 
         settings_layout.addWidget(self.slideshow_group)
         self.slideshow_group.setVisible(False)
@@ -286,13 +281,13 @@ class _UIBuilderMixin:
         self.gallery_scroll_area = MarqueeScrollArea()
         self.gallery_scroll_area.setWidgetResizable(True)
         self.gallery_scroll_area.setStyleSheet(
-            "QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }"
+            "QScrollArea { border: 1px solid #4f545c;  border-radius: 8px; }"
         )
         self.gallery_scroll_area.setMinimumHeight(600)
 
         self.scan_thumbnail_widget = QWidget()
         self.scan_thumbnail_widget.setStyleSheet(
-            "QWidget { background-color: #2c2f33; }"
+            "QWidget {  }"
         )
 
         self.scan_thumbnail_layout = QGridLayout(self.scan_thumbnail_widget)

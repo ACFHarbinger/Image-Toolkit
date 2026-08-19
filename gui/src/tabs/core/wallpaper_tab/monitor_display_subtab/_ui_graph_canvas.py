@@ -7,7 +7,7 @@ convention (§5.17).
 
 from __future__ import annotations
 
-from typing import Optional, cast
+from typing import TYPE_CHECKING, Optional, cast
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
@@ -25,10 +25,8 @@ from PySide6.QtWidgets import (
 )
 
 from .....components import MarqueeScrollArea
-from .....styles import apply_shadow_effect
+from .....styles import apply_shadow_effect, set_button_role
 from ..graph import WallpaperGraphScene, WallpaperGraphView
-
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ...protos.monitor_display_subtab import MonitorDisplaySubTabHostProtocol
@@ -152,10 +150,7 @@ class _UIGraphCanvasMixin:
 
         self._btn_clear_graph = QPushButton("🗑 Clear Graph")
         self._btn_clear_graph.setToolTip("Reset the graph and clear all nodes and edges")
-        self._btn_clear_graph.setStyleSheet(
-            "QPushButton { background:#992d22; color:white; border-radius:4px; padding:4px 8px; }"
-            "QPushButton:hover { background:#c0392b; }"
-        )
+        set_button_role(self._btn_clear_graph, "danger")
         self._btn_clear_graph.clicked.connect(self._clear_canvas)
 
         for btn in [self._btn_add_node, self._btn_self_edge, self._btn_connect,
@@ -173,10 +168,7 @@ class _UIGraphCanvasMixin:
         self._btn_export_queue.setToolTip(
             "Append the graph's current traversal sequence to the monitor's Wallpaper Queue"
         )
-        self._btn_export_queue.setStyleSheet(
-            "QPushButton { background:#2ecc71; color:white; border-radius:4px; padding:4px 8px; }"
-            "QPushButton:hover { background:#27ae60; }"
-        )
+        set_button_role(self._btn_export_queue, "success")
         self._btn_export_queue.clicked.connect(self._export_graph_to_queue)
 
         self._btn_preview = QPushButton("▶ Preview Timelapse")
@@ -278,13 +270,13 @@ class _UIGraphCanvasMixin:
         self.gallery_scroll_area = gallery_scroll_area
         gallery_scroll_area.setWidgetResizable(True)
         gallery_scroll_area.setStyleSheet(
-            "QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }"
+            "QScrollArea { border: 1px solid #4f545c;  border-radius: 8px; }"
         )
         gallery_scroll_area.setMinimumHeight(600)
 
         self.scan_thumbnail_widget = QWidget()
         self.scan_thumbnail_widget.setStyleSheet(
-            "QWidget { background-color: #2c2f33; }"
+            "QWidget {  }"
         )
 
         self.scan_thumbnail_layout = QGridLayout(self.scan_thumbnail_widget)

@@ -32,6 +32,7 @@ from PySide6.QtWidgets import (
 
 from ....components import ClickableLabel, MarqueeScrollArea
 from ....helpers.core.queue_execution_worker import QueueExecutionWorker
+from ....styles import set_button_role
 
 if TYPE_CHECKING:
     from ..protos.extractor_tab import VideoExtractorSubTabHostProtocol
@@ -59,7 +60,7 @@ class _QueueManagementMixin:
             """
             QScrollArea {
                 border: 1px solid #4f545c;
-                background-color: #2c2f33;
+
                 border-radius: 8px;
             }
             QScrollBar:vertical {
@@ -102,7 +103,7 @@ class _QueueManagementMixin:
         self.gallery_scroll_area.setMinimumHeight(600) # pyrefly: ignore [missing-attribute]
 
         self.gallery_container = QWidget()
-        self.gallery_container.setStyleSheet("QWidget { background-color: #2c2f33; }")
+        self.gallery_container.setStyleSheet("QWidget {  }")
 
         self.gallery_layout: Optional[QGridLayout] = QGridLayout(self.gallery_container)
         self.gallery_layout.setAlignment( # pyrefly: ignore [missing-attribute]
@@ -135,9 +136,7 @@ class _QueueManagementMixin:
 
         self.btn_process_queue = QPushButton("⚙️ Process Queue")
         self.btn_process_queue.clicked.connect(self.process_queue)
-        self.btn_process_queue.setStyleSheet(
-            "QPushButton { font-weight: bold; background-color: #2ecc71; color: white; padding: 4px 8px; }"
-        )
+        set_button_role(self.btn_process_queue, "success")
         controls_layout.addWidget(self.btn_process_queue)
 
         self.btn_clear_queue = QPushButton("🗑️ Clear Queue")
@@ -206,7 +205,7 @@ class _QueueManagementMixin:
 
         menu = QMenu(cast(QWidget, self))
         menu.setStyleSheet(
-            "QMenu { background-color: #1e1f22; color: white; border: 1px solid #4f545c; }"
+            "QMenu {  color: white; border: 1px solid #4f545c; }"
         )
         load_action = menu.addAction("✏️ Load Configurations")
         remove_action = menu.addAction("❌ Remove")
@@ -372,19 +371,13 @@ class _QueueManagementMixin:
         """Update button label, style, and controls for active queue processing or idle."""
         if processing:
             self.btn_process_queue.setText("🛑 Cancel Queue")
-            self.btn_process_queue.setStyleSheet(
-                "QPushButton { font-weight: bold; background-color: #e74c3c; color: white; padding: 4px 8px; }"
-                "QPushButton:hover { background-color: #c0392b; }"
-            )
+            set_button_role(self.btn_process_queue, "danger")
             self.btn_process_queue.setEnabled(True)
             self.btn_clear_queue.setEnabled(False)
             self.combo_queue_mode.setEnabled(False)
         else:
             self.btn_process_queue.setText("⚙️ Process Queue")
-            self.btn_process_queue.setStyleSheet(
-                "QPushButton { font-weight: bold; background-color: #2ecc71; color: white; padding: 4px 8px; }"
-                "QPushButton:hover { background-color: #27ae60; }"
-            )
+            set_button_role(self.btn_process_queue, "success")
             self.btn_process_queue.setEnabled(True)
             self.btn_clear_queue.setEnabled(True)
             self.combo_queue_mode.setEnabled(True)

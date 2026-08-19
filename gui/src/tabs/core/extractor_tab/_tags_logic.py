@@ -6,10 +6,10 @@ Extracted from ``extractor_tab.py`` -- pure code motion, no logic change.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, cast
+
 from PySide6.QtCore import QPoint, Qt, Slot
 from PySide6.QtGui import QAction
-from typing import cast
-
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QInputDialog,
@@ -21,8 +21,6 @@ from PySide6.QtWidgets import (
     QStyle,
     QWidget,
 )
-
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ..protos.extractor_tab import VideoExtractorSubTabHostProtocol
@@ -139,14 +137,14 @@ class _TagsLogicMixin:
 
         menu = QMenu(cast(QWidget, self))
         menu.setStyleSheet(
-            "QMenu { background-color: #1e1f22; color: white; border: 1px solid #4f545c; }"
+            "QMenu {  color: white; border: 1px solid #4f545c; }"
         )
 
         # 1. Jump to Tag Submenu
         if self.tags_ms:
             jump_menu = menu.addMenu("📍 Jump to Tag")
             jump_menu.setStyleSheet(
-                "QMenu { background-color: #1e1f22; color: #FFC107; }"
+                "QMenu {  color: #FFC107; }"
             )
             for ms, label in self.tags_ms:
                 action = QAction(f"{label} ({self._format_time(ms)})", cast(QWidget, self))
