@@ -33,5 +33,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- Visual thumbnail file picker (`ThumbnailFilePicker` in `gui/src/components/dialogs/thumbnail_file_picker.py`): provides visual async thumbnail grids, directory bookmarks, size scaling, and fast single/multi-selection. Integrated with the Theme Studio / Display & Media settings for background image selection and dynamic palette extraction.
 - Docs stubs: `DEVELOPMENT.md`, `SECURITY.md`, `TESTING.md`, `GLOSSARY.md`, this changelog.
 - Agent coordination for docs/website migration under `.agent/cache/AGENT_BUS.md` and `.agent/reports/grok/`.
