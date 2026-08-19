@@ -1,22 +1,15 @@
-"""QML Property accessors and gallery-card rendering for ``SimilarityTab``.
+"""QML Property accessors and selection hook for ``SimilarityTab``.
 
-Extracted from ``similarity_tab.py`` -- pure code motion, no logic change
-(see ``_ui_builder.py``'s docstring).
+Card creation and styling are promoted to AbstractClassTwoGalleries (§Issue 446).
 """
 
 from __future__ import annotations
 
-from typing import List, Optional
-
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QPixmap
-from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
-
-from ....components import ClickableLabel
+from typing import List
 
 
 class _QmlPropertiesMixin:
-    """scanRunning/confidenceThreshold/selectedFiles Qt Properties and card rendering."""
+    """scanRunning/confidenceThreshold/selectedFiles Qt Properties and selection hook."""
 
     # ==================================================================
     # Similarity state accessors
@@ -37,68 +30,6 @@ class _QmlPropertiesMixin:
 
     def _get_selected_files(self) -> List[str]:
         return sorted(self.selected_files)
-
-    # ==================================================================
-    # Gallery card rendering (from DeleteTab)
-    # ==================================================================
-
-    def create_card_widget(self, path: str, pixmap: Optional[QPixmap], is_selected: bool) -> QWidget:
-        thumb_size = self.thumbnail_size
-        card_wrapper = ClickableLabel(path)
-        card_wrapper.setFixedSize(thumb_size + 10, thumb_size + 10)
-        card_layout = QVBoxLayout(card_wrapper)
-        card_layout.setContentsMargins(0, 0, 0, 0)
-        img_label = QLabel()
-        img_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        img_label.setFixedSize(thumb_size, thumb_size)
-        card_wrapper.set_image_label(img_label)
-        if pixmap and not pixmap.isNull():
-            img_label.setPixmap(pixmap.scaled(thumb_size, thumb_size,
-                                Qt.AspectRatioMode.KeepAspectRatio,
-                                Qt.TransformationMode.SmoothTransformation))
-        else:
-            img_label.setText("Loading...")
-            img_label.setStyleSheet("color: #999; border: 1px dashed #666;")
-        card_layout.addWidget(img_label)
-        card_wrapper.setLayout(card_layout)
-        card_wrapper.path_double_clicked.connect(self.open_full_preview)
-        card_wrapper.path_right_clicked.connect(self.show_image_context_menu)
-        card_wrapper.set_selected_style(is_selected, self._update_card_style, img_label)
-        return card_wrapper
-
-    def update_card_pixmap(self, widget: QWidget, pixmap: Optional[QPixmap]):
-        try:
-            if not isinstance(widget, ClickableLabel):
-                return
-            img_label = widget.findChild(QLabel)
-            if not img_label:
-                return
-            if pixmap and not pixmap.isNull():
-                thumb_size = self.thumbnail_size
-                scaled = pixmap.scaled(thumb_size, thumb_size,
-                    Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
-                img_label.setPixmap(scaled)
-                img_label.setText("")
-            else:
-                img_label.clear()
-                img_label.setText("Loading...")
-            is_selected = widget.path in self.selected_files
-            self._update_card_style(img_label, is_selected)
-        except RuntimeError:
-            pass
-
-    def _update_card_style(self, img_label: QLabel, is_selected: bool):
-        if is_selected:
-            img_label.setStyleSheet("border: 3px solid #5865f2; ")
-        else:
-            try:
-                px = img_label.pixmap()
-                if px and not px.isNull():
-                    img_label.setStyleSheet("border: 1px solid #4f545c; ")
-                else:
-                    img_label.setStyleSheet("border: 1px dashed #666; color: #999;")
-            except RuntimeError:
-                pass
 
     def on_selection_changed(self):
         count = len(self.selected_files)
