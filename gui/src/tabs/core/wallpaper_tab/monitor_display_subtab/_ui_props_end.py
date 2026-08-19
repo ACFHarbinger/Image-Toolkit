@@ -34,10 +34,6 @@ class _UIPropsEndMixin:
 
     def _build_props_panel(self: "MonitorDisplaySubTabHostProtocol") -> QGroupBox:
         grp = QGroupBox("Node Properties")
-        grp.setStyleSheet(
-            "QGroupBox { border:1px solid #4f545c; border-radius:6px; margin-top:8px; }"
-            "QGroupBox::title { color:white; padding:0 6px; }"
-        )
         lyt = QVBoxLayout(grp)
 
         self._props_hint = QLabel("Double-click or right-click a node to edit it.")
@@ -145,10 +141,6 @@ class _UIPropsEndMixin:
 
     def _build_end_behavior_bar(self: "MonitorDisplaySubTabHostProtocol") -> QGroupBox:
         grp = QGroupBox("End of Graph Behavior")
-        grp.setStyleSheet(
-            "QGroupBox { border:1px solid #4f545c; border-radius:6px; margin-top:8px; }"
-            "QGroupBox::title { color:white; padding:0 6px; }"
-        )
         lyt = QHBoxLayout(grp)
         lyt.setContentsMargins(6, 14, 6, 6)
 
