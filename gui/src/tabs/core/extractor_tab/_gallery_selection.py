@@ -38,7 +38,7 @@ class _GallerySelectionMixin:
 
         # Explicitly define the method on the instance
         def apply_style(is_selected: bool):
-            self._style_label(clickable_label, is_selected)
+            self.update_card_style(container, is_selected)
 
         # Assign custom styling method for the Base class to call
         container.set_selected_style = apply_style  # type: ignore[attr-defined] # pyrefly: ignore [missing-attribute]
@@ -62,24 +62,13 @@ class _GallerySelectionMixin:
                 scaled = pixmap
             clickable_label.setPixmap(scaled)
             clickable_label.setText("")
-
-            if is_video:
-                clickable_label.setStyleSheet("border: 2px solid #3498db;")
-            else:
-                clickable_label.setStyleSheet("border: 1px solid #4f545c;")
         else:
             if is_video:
                 clickable_label.setText("VIDEO")
-                clickable_label.setStyleSheet(
-                    "border: 1px solid #2980b9; color: #2980b9; font-weight: bold;"
-                )
             else:
                 clickable_label.setText("Loading...")
-                clickable_label.setStyleSheet(
-                    "border: 1px solid #4f545c; color: #888; font-size: 10px;"
-                )
 
-        self._style_label(clickable_label, selected=(path in self.selected_paths))
+        self.update_card_style(container, is_selected=(path in self.selected_paths))
 
         layout.addWidget(clickable_label)
         return container
@@ -108,35 +97,14 @@ class _GallerySelectionMixin:
                     scaled = pixmap
                 clickable_label.setPixmap(scaled)
                 clickable_label.setText("")
-
-                if is_video:
-                    clickable_label.setStyleSheet("border: 2px solid #3498db;")
             else:
                 if not is_video:
                     clickable_label.clear()
                     clickable_label.setText("Loading...")
 
-            self._style_label(
-                clickable_label, selected=(clickable_label.path in self.selected_paths)
+            self.update_card_style(
+                widget, is_selected=(clickable_label.path in self.selected_paths)
             )
-
-    def _style_label(self: "VideoExtractorSubTabHostProtocol", label: ClickableLabel, selected: bool):
-        is_video = label.path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
-
-        if selected:
-            label.setStyleSheet("border: 3px solid #5865f2; ")
-        else:
-            if is_video:
-                if label.text() == "VIDEO":
-                    label.setStyleSheet(
-                        "border: 1px solid #2980b9; color: #2980b9; font-weight: bold;"
-                    )
-                else:
-                    label.setStyleSheet("border: 2px solid #3498db;")
-            elif label.text() in ["Load Error", "Loading..."]:
-                pass
-            else:
-                label.setStyleSheet("border: 1px solid #4f545c;")
 
     @Slot(str)
     def handle_thumbnail_single_click(self: "VideoExtractorSubTabHostProtocol", image_path: str):
@@ -166,7 +134,7 @@ class _GallerySelectionMixin:
         for label in self.gallery_container.findChildren(ClickableLabel):
             if hasattr(label, "path"):
                 is_selected = label.path in self.selected_paths
-                self._style_label(label, is_selected)
+                self.update_card_style(label, is_selected)
 
     @Slot(str)
     def handle_thumbnail_double_click(self: "VideoExtractorSubTabHostProtocol", image_path: str):
