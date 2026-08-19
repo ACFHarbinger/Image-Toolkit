@@ -31,9 +31,7 @@ class _UIConnectionMixin:
         self.button_conn_layout.addWidget(self.btn_connect)
 
         self.btn_reset_db = QPushButton("⚠️ Reset Database (Drop All Data)")
-        self.btn_reset_db.setStyleSheet(
-            "background-color: #c0392b; color: white; padding: 10px; font-weight: bold;"
-        )
+        self.btn_reset_db.setObjectName("btn_danger")
         apply_shadow_effect(
             self.btn_reset_db, color_hex="#000000", radius=8, x_offset=0, y_offset=3
         )
@@ -43,9 +41,6 @@ class _UIConnectionMixin:
 
         # Management Buttons
         self.btn_vacuum = QPushButton("🧹 Vacuum Database")
-        self.btn_vacuum.setStyleSheet(
-            "background-color: #8e44ad; color: white; padding: 10px;"
-        )
         apply_shadow_effect(
             self.btn_vacuum, color_hex="#000000", radius=8, x_offset=0, y_offset=3
         )
@@ -54,9 +49,6 @@ class _UIConnectionMixin:
         self.button_conn_layout.addWidget(self.btn_vacuum)
 
         self.btn_reindex = QPushButton("🔍 Reindex Database")
-        self.btn_reindex.setStyleSheet(
-            "background-color: #2980b9; color: white; padding: 10px;"
-        )
         apply_shadow_effect(
             self.btn_reindex, color_hex="#000000", radius=8, x_offset=0, y_offset=3
         )
@@ -68,9 +60,6 @@ class _UIConnectionMixin:
         self.btn_embed_backfill.setToolTip(
             "Compute semantic (open_clip) embeddings for images that don't "
             "have one yet, enabling text/find-similar search (DB.7)."
-        )
-        self.btn_embed_backfill.setStyleSheet(
-            "background-color: #16a085; color: white; padding: 10px;"
         )
         apply_shadow_effect(
             self.btn_embed_backfill, color_hex="#000000", radius=8, x_offset=0, y_offset=3
@@ -84,9 +73,6 @@ class _UIConnectionMixin:
 
         # Statistics display
         self.stats_label = QLabel("Not connected to database")
-        self.stats_label.setStyleSheet(
-            "padding: 10px; background-color: #e74c3c; color: white; border-radius: 5px; font-weight: bold;"
-        )
         main_layout.addWidget(self.stats_label)
 
 

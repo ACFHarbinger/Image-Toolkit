@@ -45,9 +45,7 @@ class _UIGroupsMixin:
         self.btn_auto_populate = QPushButton(
             "Auto-Sync Groups and Subgroups from Source"
         )
-        self.btn_auto_populate.setStyleSheet(
-            "background-color: #2ecc71; color: white; padding: 8px; font-weight: bold;"
-        )
+        self.btn_auto_populate.setObjectName("btn_success")
         apply_shadow_effect(
             self.btn_auto_populate,
             color_hex="#000000",
@@ -98,7 +96,7 @@ class _UIGroupsMixin:
         groups_btn_layout.addWidget(self.btn_refresh_groups)
 
         self.btn_remove_group = QPushButton("Remove Selected Group")
-        self.btn_remove_group.setStyleSheet("background-color: #f39c12; color: white;")
+        self.btn_remove_group.setObjectName("btn_danger")
         apply_shadow_effect(
             self.btn_remove_group, color_hex="#000000", radius=8, x_offset=0, y_offset=3
         )

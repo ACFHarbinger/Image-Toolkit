@@ -35,12 +35,8 @@ class _ViewTogglesMixin:
 
         if self.view_new_only:
             self.view_new_only_button.setText("👁️ Show Only New (On)")
-            self.view_new_only_button.setStyleSheet(
-                "background-color: #e67e22; color: white; border: 2px solid #d35400;"
-            )
         else:
             self.view_new_only_button.setText("👁️ Show Only New (Not in DB)")
-            self.view_new_only_button.setStyleSheet("")
 
         if hasattr(self, "scanned_dir") and self.scanned_dir:
             self.apply_scan_filters()
@@ -64,12 +60,8 @@ class _ViewTogglesMixin:
 
         if self.view_in_db_only:
             self.view_in_db_only_button.setText("💾 Show Only In DB (On)")
-            self.view_in_db_only_button.setStyleSheet(
-                "background-color: #3498db; color: white; border: 2px solid #2980b9;"
-            )
         else:
             self.view_in_db_only_button.setText("💾 Show Only In DB")
-            self.view_in_db_only_button.setStyleSheet("")
 
         if hasattr(self, "scanned_dir") and self.scanned_dir:
             self.apply_scan_filters()

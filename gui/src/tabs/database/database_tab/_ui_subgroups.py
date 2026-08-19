@@ -92,9 +92,7 @@ class _UISubgroupsMixin:
         subgroups_btn_layout.addWidget(self.btn_refresh_subgroups)
 
         self.btn_remove_subgroup = QPushButton("Remove Selected Subgroup")
-        self.btn_remove_subgroup.setStyleSheet(
-            "background-color: #f39c12; color: white;"
-        )
+        self.btn_remove_subgroup.setObjectName("btn_danger")
         apply_shadow_effect(
             self.btn_remove_subgroup,
             color_hex="#000000",

@@ -92,9 +92,6 @@ class _UITagsMixin:
         bulk_import_layout.addRow("JSON File:", json_h_layout)
 
         self.btn_import_tags = QPushButton("Import Tags from JSON")
-        self.btn_import_tags.setStyleSheet(
-            "background-color: #3498db; color: white; padding: 8px;"
-        )
         apply_shadow_effect(
             self.btn_import_tags, color_hex="#000000", radius=8, x_offset=0, y_offset=3
         )
@@ -117,7 +114,7 @@ class _UITagsMixin:
         tags_btn_layout.addWidget(self.btn_refresh_tags)
 
         self.btn_remove_tag = QPushButton("Remove Selected Tag")
-        self.btn_remove_tag.setStyleSheet("background-color: #f39c12; color: white;")
+        self.btn_remove_tag.setObjectName("btn_danger")
         apply_shadow_effect(
             self.btn_remove_tag, color_hex="#000000", radius=8, x_offset=0, y_offset=3
         )
