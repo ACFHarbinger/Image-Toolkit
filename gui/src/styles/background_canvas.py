@@ -467,4 +467,3 @@ def generate_glassmorphism_qss(config: BackgroundConfig, is_dark: bool = True) -
         background-color: {header_bg} !important;
     }}
     """
-
