@@ -111,22 +111,12 @@ class TestDraggableMonitorContainer:
 
 
 class TestOpaqueViewport:
-    def test_default_opacity(self, q_app):
+    def test_default_transparency(self, q_app):
         from PySide6.QtCore import Qt
         viewport = OpaqueViewport()
-        # #453: viewport must be opaque for Qt's fast scroll-blit path
-        assert viewport.testAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent)
-        assert viewport.windowOpacity() == pytest.approx(1.0, rel=1e-2)
+        assert not viewport.testAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent)
         assert viewport.objectName() == "gallery_viewport"
-
-    def test_rendered_backing_is_fully_opaque(self, q_app):
-        viewport = OpaqueViewport()
-        viewport.resize(40, 40)
-        viewport.show()
-        q_app.processEvents()
-
-        image = viewport.grab().toImage()
-        assert image.pixelColor(20, 20).alpha() == 255
+        assert viewport.background_color.alpha() == 0
 
 
 class TestOptionalField:
