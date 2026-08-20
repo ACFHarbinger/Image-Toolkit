@@ -25,6 +25,6 @@
 
 ## Verification
 
-- [ ] `just lint` and `just test` pass for the affected module(s).
+- [ ] `just lint` and `just test-all` pass for the affected module(s).
 - [ ] Benchmarks included for performance-sensitive changes.
 - [ ] Docs / roadmap / `moon/CHANGELOG.md` updated where the public surface changed.

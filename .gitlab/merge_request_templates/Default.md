@@ -23,5 +23,5 @@
 
 ## Verification
 
-- [ ] `just lint` and `just test` pass for the affected module(s).
+- [ ] `just lint` and `just test-all` pass for the affected module(s).
 - [ ] Docs / roadmap / `docs/moon/CHANGELOG.md` updated where the public surface changed.

@@ -7,4 +7,4 @@ set shell := ["bash", "-c"]
 # justfile's lint/test recipes rather than importing sub-modules directly,
 # since just doesn't support cross-module recipe calls from a sub-module).
 reproduce:
-    cd ../.. && just lint && just test
+    cd ../.. && just lint && just test-all

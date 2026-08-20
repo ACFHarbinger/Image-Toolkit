@@ -48,13 +48,13 @@ clean:
 # --- Build (→ tools/build) ---
 
 # Build every language module
-build:
+build-all:
     @just build::all
 
 # --- Test (→ tools/test) ---
 
 # Run every language module's test suite
-test:
+test-all:
     @just test::all
 
 # --- Validation (→ tools/validation) ---
@@ -66,10 +66,10 @@ lint:
 # --- Docs (→ tools/docs) ---
 
 # Build the documentation site (MkDocs + Sphinx)
-docs:
+docs-build:
     @just docs::build
 
 # --- Benchmark (→ tools/bench) ---
 
-bench:
+bench-all:
     @just bench::all
