@@ -1,11 +1,14 @@
 # tools/build — build the Python packages.
+#
+# Module recipes execute with cwd = this file's directory (`tools/build/`),
+# not the repo root (CSG #58).
 
 set shell := ["bash", "-c"]
 
 all: src gui
 
 src:
-    uv build
+    cd ../../logic && uv build
 
 gui:
-    cd gui && uv build
+    cd ../../gui && uv build

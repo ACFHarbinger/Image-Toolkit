@@ -1,11 +1,14 @@
 # tools/validation — run linters/formatters.
+#
+# Module recipes execute with cwd = this file's directory (`tools/validation/`),
+# not the repo root (CSG #58).
 
 set shell := ["bash", "-c"]
 
 all: src gui
 
 src:
-    uv run ruff check . && uv run ruff format --check .
+    cd ../.. && uv run ruff check logic/src logic/test && uv run ruff format --check logic/src logic/test
 
 gui:
-    cd gui && uv run ruff check . && uv run ruff format --check .
+    cd ../.. && uv run --package cel-shaded-generator-gui ruff check gui && uv run --package cel-shaded-generator-gui ruff format --check gui

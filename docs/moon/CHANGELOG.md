@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **just lint / test-all cwd (issue #58, 2026-08-20, Grok).** Module recipes
+  run with cwd = `tools/<module>/`, not the repo root, so `cd gui` failed
+  and `uv run pytest logic/test` resolved pytest's rootdir to Image-Toolkit.
+  Recipes now `cd` into `logic/` and `gui/` (matching the commands that
+  already passed 797/797). Verified: `just test::src` 564 passed,
+  `just test::gui` 233 passed; `just validation::gui` reaches the gui
+  package instead of `cd: gui: No such file or directory`.
+
 - **Root justfile completely broken (2026-08-20, Claude).** `build`/`test`/`docs`/`bench` were each declared as both a `mod` import (`tools/*/justfile`) and a shorthand recipe of the same name — `just` refuses to parse a file with that collision, so *every* `just` command in this repo failed at parse time, not just those four. Renamed the shorthand recipes to `build-all`/`test-all`/`docs-build`/`bench-all` (matching the convention already used in the parent Image-Toolkit and sibling ASP justfiles) and updated the stale `just test`/`just docs` references in `tools/ci/justfile`, `tools/dev/justfile`, `.agent/skills/build-and-test.md`, and every PR/MR template. Verified: `just --list` now works; `logic/test` (564) and `gui/test` (233) both pass 797/797 when run directly with `uv run pytest`. Two further pre-existing justfile plumbing bugs this surfaced (previously invisible since nothing via `just` ran at all) — `just lint`'s `cd gui` failing and `just test-all`'s `uv run pytest logic/test` resolving against Image-Toolkit's rootdir instead of CSG's own — are filed separately, not fixed here.
 
 ### Added

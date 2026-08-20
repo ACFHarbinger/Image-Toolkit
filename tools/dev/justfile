@@ -1,12 +1,15 @@
 # tools/dev — environment setup and maintenance.
+#
+# Module recipes execute with cwd = this file's directory (`tools/dev/`),
+# not the repo root (CSG #58).
 
 set shell := ["bash", "-c"]
 
 # Set up the dev environments
 setup:
     @echo "Setting up dev environment..."
-    uv sync --all-extras --dev
-    cd gui && uv sync --all-extras --dev
+    cd ../.. && uv sync --all-extras --dev
+    cd ../../gui && uv sync --all-extras --dev
     pip install pre-commit || true
     pre-commit install --install-hooks || echo "pre-commit not available"
     @echo "Setup complete. Run 'just test-all' to verify."
@@ -14,8 +17,8 @@ setup:
 # Update all dependencies
 update:
     @echo "Updating dependencies..."
-    uv sync --upgrade
-    cd gui && uv sync --upgrade
+    cd ../.. && uv sync --upgrade
+    cd ../../gui && uv sync --upgrade
 
 # Run pre-commit hooks manually
 pre-commit:
@@ -23,5 +26,5 @@ pre-commit:
 
 # Clean build artifacts
 clean:
-    rm -rf .pytest_cache .ruff_cache .mypy_cache **/__pycache__
-    rm -rf gui/.pytest_cache gui/.ruff_cache gui/.mypy_cache gui/**/__pycache__
+    cd ../.. && rm -rf .pytest_cache .ruff_cache .mypy_cache **/__pycache__
+    cd ../.. && rm -rf gui/.pytest_cache gui/.ruff_cache gui/.mypy_cache gui/**/__pycache__

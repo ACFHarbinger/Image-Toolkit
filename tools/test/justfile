@@ -1,11 +1,15 @@
 # tools/test — run the test suites.
+#
+# Module recipes execute with cwd = this file's directory (`tools/test/`),
+# not the repo root (CSG #58). `cd` into each package so `uv run` sees that
+# package's pyproject.toml instead of walking up to Image-Toolkit.
 
 set shell := ["bash", "-c"]
 
 all: src gui
 
 src:
-    uv run pytest logic/test -v
+    cd ../../logic && uv run pytest test -q
 
 gui:
-    cd gui && uv run pytest test -v
+    cd ../../gui && uv run pytest test -q
