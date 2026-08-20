@@ -14,6 +14,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
+- ASP benchmark runs no longer appear to freeze after the final matcher pair.
+  Model teardown avoids implicit CUDA synchronization/full GC, affine bundle
+  adjustment bounds dense correspondence work, and failed affine validation
+  skips OpenCV PANORAMA for sequences over 12 frames in favor of bounded SCANS
+  (`ASP_PANORAMA_MAX_FRAMES` can override the safety limit). The repeated
+  `asp_test04 → asp_test08 → asp_test09` reproducer now completes and writes
+  reports without the former multi-gigabyte PANORAMA expansion.
 - Gallery scrolling again uses Qt's fast opaque scroll-blit path. `OpaqueViewport` now caches a fully opaque, window-aligned composite of the configured background artwork and a theme tint instead of forcing transparent repaint propagation through the entire widget tree. This fix landed, was reverted same-day after it turned out to paint galleries pitch black whenever no background image was configured, and has now landed again correctly: the black backing came from sourcing the fill color via `self.palette().window().color()`, which never reflects the app's actual QSS-driven theme (QSS `background-color` rules don't write back into `QPalette`). The base fill now comes from the `DARK_BG`/`LIGHT_BG` theme constants instead.
 - Wallpaper slideshow daemon config writes (`_sync_daemon_config`, `toggle_daemon`, `_reconcile_daemon_liveness_on_startup`, and the manual "skip" cycle) were not atomic: a plain `open(path, "w")` truncates the file immediately, then writes incrementally, so the daemon subprocess's own polling loop could read a torn/partial file mid-write and fail with `Failed to read config: Expecting value...`, silently skipping that config update — observed live, correlating with reports of the daemon "stopping" again after the earlier stuck-timer fix. Config writes now go through a temp file + atomic rename (`_write_daemon_config_atomic`) so a concurrent read always sees a complete file, never a torn one.
 - Extractor background work now runs on lifecycle-owned operation pools instead of Qt's process-global pool. Video queue/extraction/scanning jobs remain separate from the gallery pool that refreshes synchronously drain, preventing cross-tab shutdown hangs and queue-completion deadlocks; the Image extractor also owns and drains its worker pool.

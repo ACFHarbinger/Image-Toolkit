@@ -28,6 +28,7 @@ from __future__ import annotations
 import functools
 import gc
 import logging
+import os
 import weakref
 from abc import ABC, abstractmethod
 from typing import List, Optional
@@ -79,14 +80,21 @@ class ModelWrapper(ABC):
         """
         Release VRAM / RAM.
 
-        The default implementation flushes the CUDA cache and triggers GC.
-        Subclasses should delete all model-specific state first, then call
-        ``super().unload()``.
+        Subclasses delete their model-specific state before calling this
+        hook. Forced GC and CUDA allocator flushing are opt-in because both
+        can synchronously traverse or drain very large model allocations and
+        stall repeated model lifecycles. Set
+        ``ITK_MODEL_FORCE_GC_ON_UNLOAD=1`` and/or
+        ``ITK_MODEL_FLUSH_CUDA_ON_UNLOAD=1`` for allocator diagnostics.
         """
         import torch
-        if torch.cuda.is_available():
+        if (
+            os.environ.get("ITK_MODEL_FLUSH_CUDA_ON_UNLOAD", "0") == "1"
+            and torch.cuda.is_available()
+        ):
             torch.cuda.empty_cache()
-        gc.collect()
+        if os.environ.get("ITK_MODEL_FORCE_GC_ON_UNLOAD", "0") == "1":
+            gc.collect()
 
     @classmethod
     def is_available(cls) -> bool:
