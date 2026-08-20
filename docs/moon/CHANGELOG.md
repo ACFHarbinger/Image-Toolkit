@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **#5 ADR for the hybrid document model (2026-08-20, Grok):**
+  `docs/adr/0003-hybrid-document-and-modifier-graph.md` records the
+  already-shipped Phase 1 contract: stills as one-frame sequences, layer
+  stack plus optional modifier DAG, Python JSON as the host-facing schema,
+  C++ `Document`/`RenderGraph` as the logic-core mirror, fail-closed
+  schema versions. Schema/round-trip tests already live in
+  `middleware/test/test_document.py` (14 passing).
+
 ### Session 2026-08-12 — Host ownership, pipeline/IPC, restoration hardening
 
 Multi-agent session. **Grok** owned Hybrid Editor UI submodule ownership + host

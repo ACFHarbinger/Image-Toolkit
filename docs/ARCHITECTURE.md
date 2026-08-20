@@ -34,3 +34,4 @@ See [`docs/structurizr/`](structurizr/README.md) for the rendered C4 model.
 ## Architecture Decision Records
 
 Significant architecture decisions are recorded under [`docs/adr/`](adr/).
+The hybrid document / modifier-graph contract is [ADR 0003](adr/0003-hybrid-document-and-modifier-graph.md).
