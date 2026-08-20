@@ -227,6 +227,14 @@ justification for choosing the desktop architecture.
 - If mobile resumes, target full tablet editing rather than a review-only
   companion, after desktop document and engine contracts are stable.
 
+## Future integration — agent DCC tool access
+
+Noted future work, not yet scoped or scheduled: an MCP server (or
+equivalent) giving AI agents direct tool access to Krita, Blender, and
+OpenToonz, designed so it can later be wired into the separate
+`Coding-Assistants` app as well as this codebase's own agent team. See
+[Agent DCC Tool Access](roadmaps/agent_dcc_tool_access.md).
+
 ## Automation levels
 
 | Level | Behavior |
