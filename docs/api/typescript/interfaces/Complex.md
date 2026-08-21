@@ -1,6 +1,6 @@
 # Interface: Complex
 
-Defined in: [signal.ts:7](https://github.com/ACFHarbinger/Image-Toolkit/blob/c83b0f03024b40295257ca9a82367a60fe0f1ce2/frontend/src/math/signal.ts#L7)
+Defined in: [signal.ts:7](https://github.com/ACFHarbinger/Image-Toolkit/blob/151030dce5d66210a825506a38d724662270bc79/frontend/src/math/signal.ts#L7)
 
 Signal processing utilities for the analytics backbone.
 
@@ -14,7 +14,7 @@ Signal processing utilities for the analytics backbone.
 
 > **im**: `number`
 
-Defined in: [signal.ts:9](https://github.com/ACFHarbinger/Image-Toolkit/blob/c83b0f03024b40295257ca9a82367a60fe0f1ce2/frontend/src/math/signal.ts#L9)
+Defined in: [signal.ts:9](https://github.com/ACFHarbinger/Image-Toolkit/blob/151030dce5d66210a825506a38d724662270bc79/frontend/src/math/signal.ts#L9)
 
 ***
 
@@ -22,4 +22,4 @@ Defined in: [signal.ts:9](https://github.com/ACFHarbinger/Image-Toolkit/blob/c83
 
 > **re**: `number`
 
-Defined in: [signal.ts:8](https://github.com/ACFHarbinger/Image-Toolkit/blob/c83b0f03024b40295257ca9a82367a60fe0f1ce2/frontend/src/math/signal.ts#L8)
+Defined in: [signal.ts:8](https://github.com/ACFHarbinger/Image-Toolkit/blob/151030dce5d66210a825506a38d724662270bc79/frontend/src/math/signal.ts#L8)

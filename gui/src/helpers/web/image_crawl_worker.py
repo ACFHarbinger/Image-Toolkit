@@ -1,3 +1,5 @@
+import contextlib
+import json
 import os
 
 from backend.src.web import (
@@ -14,11 +16,19 @@ class ImageCrawlWorker(QThread):
     status = Signal(str)  # status message
     sig_finished = Signal(int, str)  # (count, message)
     error = Signal(str)  # error message
-    image_downloaded = Signal(str)  # saved file path
+    image_downloaded = Signal(str)  # saved file path or JSON-encoded metadata string
 
     def __init__(self, config: dict):
         super().__init__()
         self.config = config
+        self.crawler = None
+
+    def stop(self):
+        """Stop the underlying crawler instance and interrupt thread."""
+        if self.crawler:
+            with contextlib.suppress(Exception):
+                self.crawler.stop()
+        self.requestInterruption()
 
     def run(self):
         try:
@@ -40,11 +50,30 @@ class ImageCrawlWorker(QThread):
             else:
                 crawler = ImageCrawler(self.config)
 
+            self.crawler = crawler
+
             downloaded = 0
 
-            def on_saved(path):
+            def on_saved(meta_or_path):
                 nonlocal downloaded
                 downloaded += 1
+
+                # Backend emits json.dumps(meta); parse only for status log display.
+                # Always re-emit as a str — Signal(str) works safely across threads.
+                if isinstance(meta_or_path, str) and meta_or_path.strip().startswith("{"):
+                    with contextlib.suppress(Exception):
+                        meta = json.loads(meta_or_path)
+                        path = meta.get("path", "")
+                        global_id = meta.get("global_id", downloaded)
+                        page_num = meta.get("page_num", 1)
+                        pos_on_page = meta.get("index_on_page", downloaded)
+                        self.status.emit(
+                            f"Saved [{global_id}] (Page {page_num} #{pos_on_page}): {os.path.basename(path)}"
+                        )
+                    self.image_downloaded.emit(meta_or_path)
+                    return
+
+                path = meta_or_path if isinstance(meta_or_path, str) else str(meta_or_path)
                 self.status.emit(f"Saved: {os.path.basename(path)}")
                 self.image_downloaded.emit(path)
 

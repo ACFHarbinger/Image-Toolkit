@@ -178,13 +178,24 @@ class _StartupPrefsMixin:
                 # ExtractorTab specific directory update
                 if type(tab).__name__ == "ExtractorTab":
                     tab_any: Any = tab
-                    tab_any.extraction_dir = Path(default_dir) / "Frames"
+                    default_extraction_dir = Path(default_dir) / "Frames"
+                    saved = tab_any._load_last_extraction_dir(str(default_extraction_dir))
+                    if saved and "Downloads/data" in saved:
+                        saved = saved.replace("Downloads/data", "Downloads/Data")
+                    # Respect the user's previously-browsed extraction directory.
+                    # Blindly forcing the default here silently discarded the
+                    # user's chosen output dir on every launch, so GIFs/PNGs
+                    # appeared in the gallery (which reads extraction_dir) but
+                    # not in the user's actual output directory.
+                    if saved and Path(saved).exists():
+                        tab_any.extraction_dir = Path(saved)
+                    else:
+                        tab_any.extraction_dir = default_extraction_dir
                     tab_any.extraction_dir.mkdir(parents=True, exist_ok=True)
-                    tab_any.last_browsed_extraction_dir = tab_any._load_last_extraction_dir(str(tab_any.extraction_dir))
-                    if tab_any.last_browsed_extraction_dir and "Downloads/data" in tab_any.last_browsed_extraction_dir:
-                        tab_any.last_browsed_extraction_dir = tab_any.last_browsed_extraction_dir.replace(
-                            "Downloads/data", "Downloads/Data"
-                        )
+                    tab_any.last_browsed_extraction_dir = str(tab_any.extraction_dir)
+                    tab_any.line_edit_extract_dir.setText(str(tab_any.extraction_dir))
+                    tab_any._refresh_extracted_stems_cache()
+                    tab_any._load_existing_output_images()
 
                 # Apply Extractor seek interval
                 if hasattr(tab, "wheel_seek_ms"):
@@ -230,6 +241,21 @@ class _StartupPrefsMixin:
             except Exception:
                 pass
 
+        # §2.12C — minimize to tray / background mode preference
+        minimize_to_tray = bool(
+            prefs.get("minimize_to_tray", False)
+            or prefs.get("close_to_tray", False)
+        )
+        if hasattr(self, "set_minimize_to_tray"):
+            self.set_minimize_to_tray(minimize_to_tray)
+        if minimize_to_tray:
+            if getattr(self, "_tray_icon", None) is None:
+                self._setup_tray_icon()
+            elif hasattr(self, "_tray_icon") and self._tray_icon and not self._tray_icon.isVisible():
+                self._tray_icon.show()
+        elif getattr(self, "_tray_icon", None) is not None:
+            self._tray_icon.hide()
+
         # §2.16F — logging preferences (GUI/UX §2.9F, issue #48). Local import:
         # backend.src.app imports from gui.src.windows.main, so a module-level
         # import here would be circular.
@@ -241,6 +267,7 @@ class _StartupPrefsMixin:
             )
         except Exception:
             pass
+
 
 
 __all__ = ["_StartupPrefsMixin"]

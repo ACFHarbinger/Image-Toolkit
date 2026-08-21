@@ -42,26 +42,34 @@ from typing import List, Optional, Tuple
 from PIL import Image
 from PySide6.QtCore import QThread, Signal
 from gui.src.constants.helpers import MAX_TOTAL_TILES, MIN_INTERVAL_MS, MIN_TILES, TILE_WIDTH, _MAX_PAGE_RAW_MB, _OUT_TIME_RE, _STORYBOARD_CACHE_VERSION, _STORYBOARD_DIR
+from gui.src.helpers.video.video_thumbnailer import media_backend_spawn_guard
 
 
 def probe_duration_ms(video_path: str) -> int:
     try:
-        result = subprocess.run(
-            [
-                "ffprobe",
-                "-v",
-                "error",
-                "-show_entries",
-                "format=duration",
-                "-of",
-                "default=noprint_wrappers=1:nokey=1",
-                video_path,
-            ],
-            capture_output=True,
-            text=True,
-            timeout=15,
-            check=False,
-        )
+        # Issue #81 crash family (see _media_player.py's media_player
+        # property): serialize this ffprobe fork against the process's
+        # first QMediaPlayer construction, same as video_thumbnailer.py's
+        # ffmpeg spawns. This call runs on StoryboardBuilder's QThread,
+        # concurrently with the user possibly opening the video for
+        # playback on the main thread.
+        with media_backend_spawn_guard():
+            result = subprocess.run(
+                [
+                    "ffprobe",
+                    "-v",
+                    "error",
+                    "-show_entries",
+                    "format=duration",
+                    "-of",
+                    "default=noprint_wrappers=1:nokey=1",
+                    video_path,
+                ],
+                capture_output=True,
+                text=True,
+                timeout=15,
+                check=False,
+            )
         if result.returncode == 0 and result.stdout.strip():
             return int(float(result.stdout.strip()) * 1000)
     except (OSError, subprocess.TimeoutExpired, ValueError):
@@ -197,12 +205,20 @@ class StoryboardBuilder(QThread):
                 tile_pattern,
             ]
             try:
-                self._process = subprocess.Popen(
-                    cmd,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.DEVNULL,
-                    text=True,
-                )
+                # Issue #81 crash family: guard only the fork() moment
+                # (Popen returns immediately; the streaming read below runs
+                # unguarded so a slow storyboard build doesn't hold this
+                # lock and stall the main thread opening a video for
+                # playback) against the process's first QMediaPlayer
+                # construction — see _media_player.py's media_player
+                # property and video_thumbnailer.py's ffmpeg spawns.
+                with media_backend_spawn_guard():
+                    self._process = subprocess.Popen(
+                        cmd,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.DEVNULL,
+                        text=True,
+                    )
                 self.progress_changed.emit(0, self.duration_ms)
                 assert self._process.stdout is not None
                 for line in self._process.stdout:

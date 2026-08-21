@@ -241,26 +241,32 @@ class ConversionWorker(QThread):
             self._register_process(p)
 
         try:
+            # Issue #81 crash family: this QThread's ffmpeg forks must not
+            # race the first QMediaPlayer construction.
+            from gui.src.helpers.video.video_thumbnailer import media_backend_spawn_guard
+
             if is_src_video and target_is_gif:
-                success = VideoFormatConverter.convert_to_gif(
-                    input_path=input_file,
-                    output_path=temp_output_path,
-                    delete=False,
-                    process_callback=register_p,
-                    target_width=ar_w,
-                    target_height=ar_h,
-                )
+                with media_backend_spawn_guard():
+                    success = VideoFormatConverter.convert_to_gif(
+                        input_path=input_file,
+                        output_path=temp_output_path,
+                        delete=False,
+                        process_callback=register_p,
+                        target_width=ar_w,
+                        target_height=ar_h,
+                    )
             elif is_src_video and target_is_video:
-                success = VideoFormatConverter.convert_video(
-                    input_path=input_file,
-                    output_path=temp_output_path,
-                    delete=False,
-                    process_callback=register_p,
-                    target_width=ar_w,
-                    target_height=ar_h,
-                    aspect_ratio=float(aspect_ratio), # pyrefly: ignore [bad-argument-type]
-                    ar_mode=aspect_ratio_mode,
-                )
+                with media_backend_spawn_guard():
+                    success = VideoFormatConverter.convert_video(
+                        input_path=input_file,
+                        output_path=temp_output_path,
+                        delete=False,
+                        process_callback=register_p,
+                        target_width=ar_w,
+                        target_height=ar_h,
+                        aspect_ratio=float(aspect_ratio), # pyrefly: ignore [bad-argument-type]
+                        ar_mode=aspect_ratio_mode,
+                    )
             elif is_src_image and target_is_image:
                 res = ImageFormatConverter.convert_single_image(
                     image_path=input_file,

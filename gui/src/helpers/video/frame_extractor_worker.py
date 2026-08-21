@@ -166,9 +166,15 @@ class FrameExtractionWorker(QRunnable):
             out_pattern = os.path.join(self.output_dir, f"{video_name}_tmp_%05d.png")
             cmd.append(out_pattern)
 
-            process = subprocess.Popen(
-                cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
-            )
+            # Issue #81 crash family: serialize the ffmpeg fork against the
+            # first QMediaPlayer construction (QThread worker, may run
+            # concurrently with video playback opening).
+            from gui.src.helpers.video.video_thumbnailer import media_backend_spawn_guard
+
+            with media_backend_spawn_guard():
+                process = subprocess.Popen(
+                    cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+                )
             while process.poll() is None:
                 if self._is_cancelled:
                     process.terminate()
@@ -272,9 +278,14 @@ class FrameExtractionWorker(QRunnable):
             out_pattern = os.path.join(self.output_dir, f"{video_name}_smart_tmp_{temp_id}_%08d.png")
             cmd.append(out_pattern)
 
-            process = subprocess.Popen(
-                cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
-            )
+            # Issue #81 crash family: serialize the ffmpeg fork against the
+            # first QMediaPlayer construction (QThread worker).
+            from gui.src.helpers.video.video_thumbnailer import media_backend_spawn_guard
+
+            with media_backend_spawn_guard():
+                process = subprocess.Popen(
+                    cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+                )
             while process.poll() is None:
                 if self._is_cancelled:
                     process.terminate()

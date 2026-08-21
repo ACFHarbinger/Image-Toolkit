@@ -211,10 +211,19 @@ pybind11_add_module(base
 
     # Phase 11: math bindings
     src/math/math_bindings.cpp
+
+    # Hybrid Image Editor (HIE) — exact & metaheuristic optimization solvers.
+    # Sources live in the HIE submodule; compiled here so they link into the
+    # single `base` native extension, same pattern as the ASP sources above.
+    ../submodules/HIE/logic/src/exact_solvers.cpp
+    ../submodules/HIE/logic/src/exact_solvers_bindings.cpp
+    ../submodules/HIE/logic/src/metaheuristics.cpp
+    ../submodules/HIE/logic/src/metaheuristics_bindings.cpp
 )
 
 target_include_directories(base PRIVATE
     include/
+    ../submodules/HIE/logic/include
     ${OpenCV_INCLUDE_DIRS}
     ${EIGEN3_INCLUDE_DIR}
     ${eigen_SOURCE_DIR}

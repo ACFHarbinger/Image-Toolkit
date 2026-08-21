@@ -19,8 +19,8 @@ def install_driver():
         # No, better to fail and inform the user.
         sys.exit(1)
 
-def start_driver(port=9515):
-    """Start the chromedriver server on the specified port."""
+def start_driver(port=9515, browser="brave"):
+    """Start the chromedriver server on the specified port for the given browser."""
     driver_path = install_driver()
 
     # Ensure the driver is executable
@@ -28,7 +28,7 @@ def start_driver(port=9515):
         print(f"🛠️ Setting executable permissions on {driver_path}...")
         os.chmod(driver_path, 0o755)
 
-    print(f"🌐 Starting WebDriver on port {port}...")
+    print(f"🌐 Starting Managed WebDriver service for {browser.title()} on port {port}...")
     try:
         # Execute the driver binary
         # Use --port flag as required by standard chromedriver
@@ -40,8 +40,13 @@ def start_driver(port=9515):
         sys.exit(1)
 
 if __name__ == "__main__":
+    browser_arg = "brave"
+    for arg in sys.argv:
+        if arg.startswith("--browser="):
+            browser_arg = arg.split("=", 1)[1].strip()
+
     if len(sys.argv) > 1 and sys.argv[1] == "start":
-        start_driver()
+        start_driver(browser=browser_arg)
     else:
         # Default to just installing/updating
         install_driver()

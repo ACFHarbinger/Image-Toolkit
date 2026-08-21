@@ -139,6 +139,14 @@ def apply_shadow_effect(
     return shadow
 
 
+def set_button_role(widget, role: str) -> None:
+    """Apply a semantic QSS role and refresh an already-polished button."""
+    widget.setObjectName(f"btn_{role}")
+    style = widget.style()
+    style.unpolish(widget)
+    style.polish(widget)
+
+
 # --- THEME DEFINITIONS (Populated from theme.qss) ---
 DARK_ACCENT_COLOR = THEME_VARS.get("DARK_ACCENT_COLOR", "#00bcd4")
 DARK_ACCENT_HOVER = THEME_VARS.get("DARK_ACCENT_HOVER", "#0097a7")
@@ -185,3 +193,9 @@ SHARED_BUTTON_STYLE = load_qss("shared_button.qss")
 STYLE_START_ACTION = load_qss("shared_button.qss")
 STYLE_STOP_ACTION = load_qss("stop_action.qss")
 # -------------------------------------------
+
+from .background_canvas import (
+    BackgroundCanvasController,
+    BackgroundConfig,
+    generate_glassmorphism_qss,
+)

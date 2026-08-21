@@ -20,7 +20,7 @@ sink for that same kind of instrumentation:
   reasoning as the existing ``flush=True`` print idiom this replaces/
   augments) -- a partial file from a crashed run is still fully readable up
   to the last completed event.
-- ``debug/telemetry_analyzer.py`` consumes these files to reconstruct a
+- ``dev/telemetry_analyzer.py`` consumes these files to reconstruct a
   merged, per-thread timeline and flag exactly the kind of overlap
   (concurrent scanner threads, native calls in flight when the log stops)
   that previously had to be found by eye.
@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import json
 import os
+import secrets
 import threading
 import time
 from collections.abc import Generator
@@ -48,6 +49,8 @@ _enabled = os.environ.get(_ENV_VAR, "").strip().lower() in _TRUTHY
 _lock = threading.Lock()
 _file = None  # type: ignore[var-annotated]
 _file_path: Optional[Path] = None
+_seq = 0
+_tls = threading.local()
 
 # Serializes calls into backend/src/manga/{colorization,screentone}.py's
 # OpenCV-heavy solve path (cv2.filter2D/GaussianBlur/resize + cvtColor,
@@ -129,14 +132,26 @@ def current_file_path() -> Optional[Path]:
     return _file_path
 
 
+def _span_stack() -> list[dict[str, Any]]:
+    stack = getattr(_tls, "spans", None)
+    if stack is None:
+        stack = []
+        _tls.spans = stack
+    return stack
+
+
+def _new_span_id() -> str:
+    return secrets.token_hex(4)
+
+
 def _ensure_file():
     global _file, _file_path
-    if _file is not None:
+    if _file is not None and not _file.closed:
         return _file
     TELEMETRY_DIR.mkdir(parents=True, exist_ok=True)
     _file_path = TELEMETRY_DIR / f"telemetry-{_pid}.jsonl"
-    with open(_file_path, "a", encoding="utf-8") as _file:
-        return _file
+    _file = open(_file_path, "a", encoding="utf-8")
+    return _file
 
 
 def emit(category: str, event: str, **fields: Any) -> None:
@@ -164,9 +179,17 @@ def emit(category: str, event: str, **fields: Any) -> None:
         "category": category,
         "event": event,
     }
+    stack = _span_stack()
+    if "span_id" not in fields and stack:
+        record["span_id"] = stack[-1]["span_id"]
     record.update(fields)
     try:
         with _lock:
+            global _seq
+            if "seq" not in record:
+                _seq += 1
+                record["seq"] = _seq
+            record.setdefault("runtime", "python")
             f = _ensure_file()
             f.write(json.dumps(record, default=str) + "\n")
             f.flush()
@@ -175,12 +198,76 @@ def emit(category: str, event: str, **fields: Any) -> None:
         pass
 
 
+def begin_span(category: str, event: str, **fields: Any) -> Optional[str]:
+    """Allocate a ``span_id``, emit ``<event>.start``, and push the span.
+
+    Returns the id, or ``None`` when telemetry is disabled (no-op, no
+    stack mutation). Nested calls set ``parent_span_id`` from the open
+    parent. Old JSONL readers ignore the new fields.
+    """
+    if not _enabled:
+        return None
+    stack = _span_stack()
+    parent = stack[-1]["span_id"] if stack else None
+    span_id = fields.pop("span_id", None) or _new_span_id()
+    extra = dict(fields)
+    extra["span_id"] = span_id
+    if parent is not None:
+        extra.setdefault("parent_span_id", parent)
+    extra.setdefault("runtime", "python")
+    stack.append({"span_id": span_id, "t0": time.monotonic(), "event": event})
+    emit(category, f"{event}.start", **extra)
+    return span_id
+
+
+def end_span(
+    category: str,
+    event: str,
+    *,
+    error: Optional[str] = None,
+    duration_ms: Optional[float] = None,
+    **fields: Any,
+) -> None:
+    """Pop the current span and emit ``<event>.end`` or ``<event>.error``."""
+    if not _enabled:
+        return
+    stack = _span_stack()
+    span_id = fields.pop("span_id", None)
+    t0 = None
+    if stack and (span_id is None or stack[-1]["span_id"] == span_id):
+        frame = stack.pop()
+        span_id = frame["span_id"]
+        t0 = frame["t0"]
+    elif span_id is not None:
+        for i in range(len(stack) - 1, -1, -1):
+            if stack[i]["span_id"] == span_id:
+                t0 = stack.pop(i)["t0"]
+                break
+    extra = dict(fields)
+    if span_id is not None:
+        extra["span_id"] = span_id
+    if stack:
+        extra.setdefault("parent_span_id", stack[-1]["span_id"])
+    if duration_ms is None and t0 is not None:
+        duration_ms = round((time.monotonic() - t0) * 1000, 3)
+    if duration_ms is not None:
+        extra["duration_ms"] = duration_ms
+    if error is not None:
+        extra["error"] = error
+        emit(category, f"{event}.error", **extra)
+    else:
+        emit(category, f"{event}.end", **extra)
+
+
 @contextmanager
 def span(category: str, event: str, **fields: Any) -> Generator[None, None, None]:
     """Emit ``<event>.start`` before the block and ``<event>.end`` (with
     ``duration_ms``) after it, or ``<event>.error`` (with ``duration_ms``
     and ``error``) if the block raises -- the exception is always
     re-raised, this only observes it.
+
+    Allocates a ``span_id`` and nests via ``parent_span_id`` (D4 / D23).
+    Disabled telemetry is a plain no-op.
 
     Intended for exactly the kind of call this investigation has repeatedly
     needed visibility into but never had: a native call boundary
@@ -192,26 +279,14 @@ def span(category: str, event: str, **fields: Any) -> Generator[None, None, None
     if not _enabled:
         yield
         return
-    t0 = time.monotonic()
-    emit(category, f"{event}.start", **fields)
+    begin_span(category, event, **fields)
     try:
         yield
     except BaseException as exc:
-        emit(
-            category,
-            f"{event}.error",
-            duration_ms=round((time.monotonic() - t0) * 1000, 3),
-            error=repr(exc),
-            **fields,
-        )
+        end_span(category, event, error=repr(exc), **fields)
         raise
     else:
-        emit(
-            category,
-            f"{event}.end",
-            duration_ms=round((time.monotonic() - t0) * 1000, 3),
-            **fields,
-        )
+        end_span(category, event, **fields)
 
 
 def close() -> None:
@@ -225,6 +300,7 @@ def close() -> None:
                 _file.close()
             _file = None
             _file_path = None
+    _tls.spans = []
 
 
 __all__ = [
@@ -233,6 +309,8 @@ __all__ = [
     "set_enabled",
     "current_file_path",
     "emit",
+    "begin_span",
+    "end_span",
     "span",
     "close",
     "NATIVE_SCAN_LOCK",

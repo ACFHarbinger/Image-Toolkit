@@ -1,0 +1,20 @@
+{
+  "schema": "devtool.plugin.manifest",
+  "schema_version": 1,
+  "name": "d52_proof",
+  "version": "0.1.0",
+  "description": "D52 proof plugin: a tiny Go binary proving the JSON-RPC-over-stdio process protocol is language-neutral. Answers initialize + list_artifacts only.",
+  "surfaces": [
+    {
+      "name": "cli",
+      "description": "spawnable command plugin; host speaks JSON-RPC 2.0 over stdio"
+    }
+  ],
+  "channels": [],
+  "entry": {
+    "python_module": null,
+    "command": [
+      "dev/plugins/d52_proof/bin/d52_proof"
+    ]
+  }
+}

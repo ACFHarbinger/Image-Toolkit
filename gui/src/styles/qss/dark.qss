@@ -27,6 +27,12 @@ QPushButton:disabled {
     background-color: $DARK_ACCENT_MUTED;
     color: $DARK_MUTED_TEXT;
 }
+QPushButton#btn_success {
+    background: $DARK_SUCCESS;
+}
+QPushButton#btn_danger {
+    background: $DARK_DANGER;
+}
 
 /* --- Tab Widget Styling --- */
 QTabWidget::pane {

@@ -13,6 +13,7 @@ pytestmark = pytest.mark.gui
 
 class TestAppConfigCapture:
     def test_capture_includes_every_asp_schema_key(self, q_app, monkeypatch):
+        # pyrefly: ignore [missing-import]
         from asp_backend.core.config import asp_schema
         from gui.src.windows.settings.app_config import AppConfig
 

@@ -1,0 +1,27 @@
+{
+  "schema": "devtool.plugin.manifest",
+  "schema_version": 1,
+  "name": "cpp_parser",
+  "version": "0.1.0",
+  "description": "C/C++ source parser/ingestion: extracts class/struct/enum/namespace/using/typedef/function symbols via a std-only tokenizer; feeds devtool.record-shaped evidence.",
+  "surfaces": [
+    {
+      "name": "cli",
+      "description": "symbol/definition extraction for C/C++ sources over D52 stdio"
+    }
+  ],
+  "channels": [
+    {
+      "key": "source_symbols",
+      "label": "C/C++ symbol extraction records",
+      "default_enabled": true,
+      "retention": "forever"
+    }
+  ],
+  "entry": {
+    "python_module": null,
+    "command": [
+      "dev/plugins/cpp_parser/bin/cpp_parser"
+    ]
+  }
+}

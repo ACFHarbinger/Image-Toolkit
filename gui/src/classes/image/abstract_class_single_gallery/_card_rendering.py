@@ -109,12 +109,12 @@ class _CardRenderingMixin:
             if is_video:
                 label.setStyleSheet(
                     "border: 2px solid #3498db; color: #3498db; "
-                    "font-weight: bold; background-color: #2c2f33;"
+                    "font-weight: bold; background-color: rgba(20, 24, 32, 0.35);"
                 )
             else:
                 label.setStyleSheet(
-                    "border: 1px dashed #666; color: #888; "
-                    "font-size: 10px; background-color: #2c2f33;"
+                    "border: 1px dashed rgba(255, 255, 255, 0.20); color: #888; "
+                    "font-size: 10px; background-color: rgba(20, 24, 32, 0.35);"
                 )
 
         layout.addWidget(label)
@@ -141,7 +141,6 @@ class _CardRenderingMixin:
         is_video = path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
 
         # 1. Check Failure State
-        # 1. Check Failure State
         if hasattr(self, "_failed_paths") and path in self._failed_paths:
             label.clear()
             label.setScaledContents(False)
@@ -150,12 +149,12 @@ class _CardRenderingMixin:
                 # Match ExtractorTab style ("VIDEO" text, Blue border)
                 label.setText("VIDEO")
                 label.setStyleSheet(
-                    "border: 2px solid #3498db; color: #3498db; font-weight: bold; background-color: #2c2f33;"
+                    "border: 2px solid #3498db; color: #3498db; font-weight: bold; background-color: rgba(20, 24, 32, 0.35);"
                 )
             else:
                 label.setText("No Thumbnail")
                 label.setStyleSheet(
-                    "border: 2px solid #e74c3c; color: #e74c3c; font-weight: bold; background-color: #2c2f33;"
+                    "border: 2px solid #e74c3c; color: #e74c3c; font-weight: bold; background-color: rgba(20, 24, 32, 0.35);"
                 )
 
             label.show()
@@ -186,14 +185,14 @@ class _CardRenderingMixin:
                 )
             else:
                 label.setStyleSheet(
-                    "border: 1px solid #4f545c; background-color: transparent;"
+                    "border: 1px solid rgba(255, 255, 255, 0.15); background-color: transparent;"
                 )
 
         # 3. Loading/Empty State
         else:
             label.setText("Load Failed")
             label.setStyleSheet(
-                "border: 1px solid #e74c3c; color: #e74c3c; font-size: 10px; background-color: #2c2f33;"
+                "border: 1px solid #e74c3c; color: #e74c3c; font-size: 10px; background-color: rgba(20, 24, 32, 0.35);"
             )
 
     def _generate_error_pixmap(self: "AbstractClassSingleGalleryHostProtocol") -> QPixmap:

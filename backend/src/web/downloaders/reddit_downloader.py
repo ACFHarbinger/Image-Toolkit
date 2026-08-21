@@ -43,8 +43,15 @@ from urllib.parse import urlparse
 
 from PySide6.QtCore import QObject, Signal
 
+from backend.src.constants.web import _DIRECT_HOSTS, DOWNLOADERS__IMAGE_EXTS
 from backend.src.core import telemetry
-from backend.src.constants.web import DOWNLOADERS__IMAGE_EXTS, _DIRECT_HOSTS
+from backend.src.web.downloaders._common import (
+    MAX_ATTEMPTS,
+    ON_EXISTS_DEFAULT,
+    backoff_sleep,
+    is_retryable_status,
+    resolve_dest_path,
+)
 
 log = logging.getLogger(__name__)
 
@@ -64,6 +71,7 @@ class RedditDownloadConfig:
     request_timeout: float = 20.0
     filename_template: str = "{subreddit}_{id}_{index}{ext}"
     extra_headers: dict = field(default_factory=dict)
+    on_exists: str = ON_EXISTS_DEFAULT
 
 
 class RedditDownloader(QObject):
@@ -172,9 +180,14 @@ class RedditDownloader(QObject):
                 ext=ext,
             )
             dest = os.path.join(self._config.download_dir, filename)
+            dest = resolve_dest_path(dest, self._config.on_exists)
+            if dest is None:
+                # on_exists=skip and the file is already present.
+                self.on_status.emit(f"Skipped (exists): {filename}")
+                continue
             if self._download_file(url, dest):
                 saved += 1
-                self.on_status.emit(f"Saved: {filename}")
+                self.on_status.emit(f"Saved: {os.path.basename(dest)}")
                 self.on_image_saved.emit(dest)
         return saved
 
@@ -185,7 +198,9 @@ class RedditDownloader(QObject):
         media_metadata = post.get("media_metadata")
         if media_metadata and self._config.download_images:
             for item in media_metadata.values():
-                if item.get("e") == "Image":
+                # Reddit galleries use e="Image" for stills and
+                # e="AnimatedImage" for GIFs; both carry s.u.
+                if item.get("e") in ("Image", "AnimatedImage"):
                     src = item.get("s", {}).get("u", "").replace("&amp;", "&")
                     if src:
                         urls.append(src)
@@ -219,15 +234,35 @@ class RedditDownloader(QObject):
         return match.group(1) if match else ".jpg"
 
     def _download_file(self, url: str, dest: str) -> bool:
-        try:
-            with telemetry.span("media-loader", "reddit.http_get", url=url):
-                resp = self._session.get(url, timeout=self._config.request_timeout)
-            if resp.status_code != 200:
+        """Fetch url and write it to dest, retrying transient failures.
+
+        Transient HTTP statuses (429/5xx) and network exceptions are retried
+        with backoff (MAX_ATTEMPTS total) before giving up, so a momentary
+        CDN hiccup no longer silently drops a file from the run -- the
+        previous behaviour that made re-clicking Download necessary to get
+        every image of a gallery.
+        """
+        data = None
+        last_error = ""
+        for attempt in range(MAX_ATTEMPTS):
+            if not self._is_running:
                 return False
-            data = resp.content
-        except Exception as exc:
-            log.debug("Download failed for %s: %s", url, exc)
-            self.on_status.emit(f"Failed to download {url}: {exc}")
+            try:
+                with telemetry.span("media-loader", "reddit.http_get", url=url):
+                    resp = self._session.get(url, timeout=self._config.request_timeout)
+                if resp.status_code == 200:
+                    data = resp.content
+                    break
+                last_error = f"HTTP {resp.status_code}"
+                if not is_retryable_status(resp.status_code):
+                    break
+            except Exception as exc:
+                log.debug("Download failed for %s: %s", url, exc)
+                last_error = str(exc)
+            if attempt + 1 < MAX_ATTEMPTS:
+                backoff_sleep(attempt)
+        if data is None:
+            self.on_status.emit(f"Failed to download {url}: {last_error}")
             return False
 
         try:

@@ -67,6 +67,10 @@ class MainWindow(
         enable_manager=False,
     ):
         super().__init__()
+        # MainWindow is itself the top-level widget (no separate central
+        # widget/QStackedWidget) -- named so the glassmorphism QSS's
+        # `QWidget#central_widget` selector actually matches something (#449).
+        self.setObjectName("central_widget")
 
         # Store the authenticated vault manager instance
         self.vault_manager = vault_manager
@@ -135,9 +139,23 @@ class MainWindow(
         self.tabs = QTabWidget()
         vbox.addWidget(self.tabs)
 
+        # §2.35 — background canvas update connections
+        from gui.src.styles.background_canvas import BackgroundCanvasController
+        BackgroundCanvasController.instance().background_changed.connect(self.update)
+        self.tabs.currentChanged.connect(lambda _: self.update())
+
         # Connect after populating so the initial currentTextChanged fires correctly.
         self.command_combo.currentTextChanged.connect(self.on_command_changed)
         self.on_command_changed(self.command_combo.currentText())
+
+
+        # Default before _apply_startup_preferences() so a saved
+        # "minimize to tray" preference isn't stomped back to False by the
+        # unconditional reset further down (that reset is only meant for
+        # _tray_icon, see its comment) -- must exist here for guest/first
+        # launch, where _apply_startup_preferences() has no saved prefs to
+        # apply and returns early.
+        self._minimize_to_tray: bool = False
 
         # GUI/UX §2.16 — wire vault preferences to runtime at startup
         self._apply_startup_preferences()
@@ -162,7 +180,6 @@ class MainWindow(
         # startup-timing adjustment tried). _tray_icon stays None; anything
         # that reads it (e.g. tray_notify()) already handles that safely.
         self._tray_icon: QSystemTrayIcon | None = None
-        self._minimize_to_tray: bool = False
 
         # GUI/UX §2.8 — live OS color-scheme changes (e.g. user toggles dark mode in KDE/Windows)
         try:

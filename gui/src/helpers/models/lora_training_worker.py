@@ -1,4 +1,3 @@
-from backend.src.models.tuning.lo_ra_tuner import LoRATuner
 from PySide6.QtCore import QThread, Signal
 
 
@@ -106,4 +105,6 @@ class LoRATrainingWorker(QThread):
         """
         Triggers graceful cancellation of the training process.
         """
+        from backend.src.models.tuning.lo_ra_tuner import LoRATuner
+
         LoRATuner.cancel_process()
