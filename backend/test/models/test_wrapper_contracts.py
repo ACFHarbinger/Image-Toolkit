@@ -435,3 +435,33 @@ class TestBiRefNetSingleton:
             a = BiRefNetWrapper(device="cpu")
             b = BiRefNetWrapper(device="cpu")
             assert a._models is b._models
+
+
+class TestModelWrapperCudaFlushPolicy:
+    """Allocator synchronization is diagnostic-only during unload."""
+
+    @staticmethod
+    def _wrapper_class():
+        from backend.src.models.core.base import ModelWrapper
+
+        class _Wrapper(ModelWrapper):
+            def load(self) -> None:
+                pass
+
+        return _Wrapper
+
+    def test_unload_does_not_flush_cuda_by_default(self, monkeypatch):
+        torch_stub = _make_torch_stub()
+        torch_stub.cuda.is_available.return_value = True
+        monkeypatch.delenv("ITK_MODEL_FLUSH_CUDA_ON_UNLOAD", raising=False)
+        with patch.dict(sys.modules, {"torch": torch_stub}):
+            self._wrapper_class()(device="cuda").unload()
+        torch_stub.cuda.empty_cache.assert_not_called()
+
+    def test_unload_flush_can_be_enabled_for_diagnostics(self, monkeypatch):
+        torch_stub = _make_torch_stub()
+        torch_stub.cuda.is_available.return_value = True
+        monkeypatch.setenv("ITK_MODEL_FLUSH_CUDA_ON_UNLOAD", "1")
+        with patch.dict(sys.modules, {"torch": torch_stub}):
+            self._wrapper_class()(device="cuda").unload()
+        torch_stub.cuda.empty_cache.assert_called_once_with()

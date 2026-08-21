@@ -14,6 +14,7 @@ from PySide6.QtGui import QImage, QPixmap
 
 from ....components import ClickableLabel
 from ....helpers import ImageLoaderWorker
+from ....utils.cache.lru_image_cache import LRU_CACHE_CEILING
 
 from typing import TYPE_CHECKING
 
@@ -26,6 +27,21 @@ class _FoundGalleryPopulateMixin:
 
     def refresh_found_gallery(self: "AbstractClassTwoGalleriesHostProtocol"):
         self.cancel_loading()
+
+        # #444: size the cache to hold the entire page without mid-populate
+        # eviction -- page sizes go up to 500/1000/All, above the 300
+        # default. Capped at LRU_CACHE_CEILING so one large "All" directory
+        # can't inflate the cache into unbounded RSS growth/swap thrash
+        # (see #444 follow-up) -- but an explicit larger §2.16B baseline
+        # (already reflected in maxsize before this call) is left alone,
+        # it just doesn't grow further from directory size alone.
+        if self._found_pixmap_cache.maxsize <= LRU_CACHE_CEILING:
+            self._found_pixmap_cache.resize(
+                min(
+                    max(300, min(self.found_page_size, len(self.found_files))),
+                    LRU_CACHE_CEILING,
+                )
+            )
 
         if not hasattr(self, "found_loading_paths"):
             self.found_loading_paths: set = set()

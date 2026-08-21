@@ -39,7 +39,7 @@ class TestDirectoryImportDialogSubdirScan:
         # Instantiate dialog
         dialog = _DirectoryImportDialog(set())
         dialog._directory = str(scan_dir)
-        dialog._dir_edit.setText(str(scan_dir))
+        dialog._dir_edit.setText(str(scan_dir)) # pyrefly: ignore [missing-attribute]
 
         # Mock app settings recursive scan
         from gui.src.windows.settings.app_settings import AppSettings
@@ -70,15 +70,15 @@ class TestDirectoryImportDialogSubdirScan:
         # Test Deselect All
         from PySide6.QtWidgets import QCheckBox
         dialog._deselect_all()
-        for r in range(dialog._table.rowCount()):
-            cw = dialog._table.cellWidget(r, 0)
+        for r in range(dialog._table.rowCount()): # pyrefly: ignore [missing-attribute]
+            cw = dialog._table.cellWidget(r, 0) # pyrefly: ignore [missing-attribute]
             chk = cw.findChild(QCheckBox)
             assert not chk.isChecked()
 
         # Test Select All New
         dialog._select_all_new()
-        for r in range(dialog._table.rowCount()):
-            cw = dialog._table.cellWidget(r, 0)
+        for r in range(dialog._table.rowCount()): # pyrefly: ignore [missing-attribute]
+            cw = dialog._table.cellWidget(r, 0) # pyrefly: ignore [missing-attribute]
             chk = cw.findChild(QCheckBox)
             assert chk.isChecked()
 
@@ -110,7 +110,7 @@ class TestEntityDirectoryImportDialogSubdirScan:
         # Instantiate dialog
         dialog = _EntityDirectoryImportDialog(set())
         dialog._directory = str(scan_dir)
-        dialog._dir_edit.setText(str(scan_dir))
+        dialog._dir_edit.setText(str(scan_dir)) # pyrefly: ignore [missing-attribute]
 
         # Act
         dialog._do_subdirectory_scan()
@@ -139,15 +139,15 @@ class TestEntityDirectoryImportDialogSubdirScan:
         # Test Deselect All
         from PySide6.QtWidgets import QCheckBox
         dialog._deselect_all()
-        for r in range(dialog._table.rowCount()):
-            cw = dialog._table.cellWidget(r, 0)
+        for r in range(dialog._table.rowCount()): # pyrefly: ignore [missing-attribute]
+            cw = dialog._table.cellWidget(r, 0) # pyrefly: ignore [missing-attribute]
             chk = cw.findChild(QCheckBox)
             assert not chk.isChecked()
 
         # Test Select All New
         dialog._select_all_new()
-        for r in range(dialog._table.rowCount()):
-            cw = dialog._table.cellWidget(r, 0)
+        for r in range(dialog._table.rowCount()): # pyrefly: ignore [missing-attribute]
+            cw = dialog._table.cellWidget(r, 0) # pyrefly: ignore [missing-attribute]
             chk = cw.findChild(QCheckBox)
             assert chk.isChecked()
 

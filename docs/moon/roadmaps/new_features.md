@@ -318,6 +318,23 @@ Simplest mode: apply the same wallpaper to all monitors simultaneously. Already 
 
 ---
 
+## 4.6 Native KDE video-wallpaper plugin (fallback if third-party plugins stay broken) — planned, not started
+
+**Pain point:** [#373](https://github.com/ACFHarbinger/Image-Toolkit/issues/373) — KDE Smart Video Wallpaper (Reborn) shows a black screen instead of the configured video. Root-caused (2026-08-15/16) through several rounds:
+
+1. An `isLoading` race on plugin switch (fixed, `a2312a23`).
+2. A stale `LastVideo` vs. freshly-written `VideoUrls` mismatch that leaves `main.currentSource` resolving empty (fixed in `_kde.py`, keeps `LastVideo` in sync).
+3. **Even with both of the above fixed, a fresh `plasmashell` restart, `QT_MEDIA_BACKEND=gstreamer` confirmed active, and a provably correct/consistent config, the video still never loads** (`mediaStatus` stuck at Qt Multimedia's `NoMedia`). Filed upstream as [luisbocanegra/plasma-smart-video-wallpaper-reborn#292](https://github.com/luisbocanegra/plasma-smart-video-wallpaper-reborn/issues/292).
+4. **Installed and tested a second, independently-coded plugin** (`smartervideowallpaper`, from `PeterTucker/smartER-video-wallpaper`) as a fallback per this repo's existing `get_best_video_plugin()` search order. It fails identically — same file, same backend, same machine, config confirmed correctly written. Two unrelated codebases failing the same way points at something below plugin code: Qt Multimedia's gstreamer backend integration, GPU/driver video decode, or KWin compositor interaction on this specific Plasma 6.6.6 / Qt 6.10.2 / Ubuntu 26.04 combination — not yet isolated (a raw, non-wallpaper QtMultimedia+gstreamer smoke test was attempted but inconclusive: no system-matching Qt6 QML runtime or `gst-play-1.0` was available without installing new packages, which wasn't done without confirmation).
+
+**Fallback option — build a small first-party video-wallpaper QML plugin**, scoped narrowly (loop a single `MediaPlayer`/`VideoOutput` bound to config Image-Toolkit already writes) rather than reimplementing Reborn's full feature set (crossfade, per-effect pause/blur, battery/lock-screen awareness, etc.). Only worth doing if:
+- The upstream Reborn issue and/or further isolation of the Qt Multimedia/gstreamer layer don't produce a fix, **and**
+- A minimal from-scratch `MediaPlayer`/`VideoOutput` QML scene is first confirmed to actually render video on this machine — if the underlying Qt Multimedia/gstreamer/compositor layer itself is broken, a custom plugin hits the identical wall two failed third-party plugins already hit, and building one would not fix anything.
+
+**Gate condition answered, 2026-08-16 — do not start yet.** Ran the isolation test: a standalone Qt6 `MediaPlayer`/`VideoOutput` QML scene (`QT_MEDIA_BACKEND=ffmpeg`, no wallpaper plugin involved) decoded and produced real texture frames continuously (168 `createTexturesFromMemory` calls over 8s, real NAL-unit decode at framerate) — the Qt Multimedia/FFmpeg/codec stack works correctly on this machine standalone. The failure is specific to the Plasma wallpaper plugin → KWin Wayland compositor texture-import path (matches [luisbocanegra/plasma-smart-video-wallpaper-reborn#290](https://github.com/luisbocanegra/plasma-smart-video-wallpaper-reborn/issues/290)'s working theory: an NVIDIA+Wayland DMA-BUF/EGL compositor issue, not a plugin bug). A first-party plugin would hit the exact same KWin/Wayland/NVIDIA compositor question every existing plugin already hits — **not worth building until upstream (#290 / our own [#292](https://github.com/luisbocanegra/plasma-smart-video-wallpaper-reborn/issues/292)) narrows the compositor-side cause further**, since nothing plugin-side (ours or a replacement) can route around a compositor-level texture-import failure.
+
+---
+
 ## 4.6 Image Deduplication Across Directories
 
 **Pain point:** Duplicate detection operates within a single directory scan. Users with multiple collections (local, Dropbox, crawler downloads) accumulate cross-directory duplicates.
@@ -687,6 +704,85 @@ GUI: `gui/src/elements/web/media_loader_tab/` (manager.py + mixins, same composi
 
 ---
 
+## 4.18 Image Board Crawler — Rating Filter & SFW Board Support {: #418-image-board-crawler--rating-filter--sfw-board-support }
+
+**Status:** ✅ Implemented (2026-08-15, Issue #370 / S379).
+
+**Motivation:** ASP's benchmark corpus is currently built entirely from
+sexually explicit source content, sourced by hand (manual booru-tag browsing).
+This is not a website/marketing concern — `docs/website` and `docs/tutorials`
+were checked (2026-08-15) and contain no NSFW text or imagery — but it is a
+real gap in ASP's promotion ladder: every quality gate in
+`asp_change_roadmap_2026q3.md`'s M0–M6 is tuned and validated against one
+content distribution, with no second distribution to catch overfitting to
+that domain's visual characteristics. Building a SFW benchmark corpus is
+tracked separately (ASP's `asp_sfw_corpus_roadmap_2026q3.md`); this section
+is the crawler-engine work that unblocks it.
+
+**Implementation (2026-08-15):**
+- `backend/src/web/crawlers/image_board_crawler.py`: Added automatic rating normalization (`config["rating"]` appends `rating:<val>` to tags if not already present) and added `get_crawler_backend_name()` for polymorphic C++ backend dispatch.
+- `backend/src/web/crawlers/safebooru_crawler.py`: Added `SafebooruCrawler` preset backed by the Gelbooru DAPI engine (`https://safebooru.org`).
+- `backend/src/web/crawlers/__init__.py`: Re-exported all active crawler classes.
+- `backend/test/web/test_image_board_crawler.py`: Added unit tests covering Safebooru preset and rating normalization.
+
+
+---
+
+## 4.19 Account-Linked Settings Sync (Google Drive) {: #419-account-linked-settings-sync-google-drive }
+
+**Status:** Draft only — quick scope note for future work, not a fully
+specced feature. Deliberately kept light per Harbinger's explicit request
+(2026-08-15).
+
+**Goal:** link an Image-Toolkit install to a Google account and sync app
+settings across a user's own multiple devices via a Google Drive folder.
+
+**Narrowed scope (Harbinger, 2026-08-15):** despite `~/.image-toolkit/`
+containing a lot of state (databases, caches, logs, telemetry — several GB
+total), only **two files matter for this entry**, both already encrypted:
+`secrets/my_keystore-a.p12` and `secrets/my_secure_data-a.vault`. Together
+they hold the app's settings — the highest-impact thing to sync, and the
+only target in scope right now. Everything else in `~/.image-toolkit/`
+(caches, logs, telemetry, the actual content databases) is explicitly out of
+scope for this entry — regenerable/large data has different sync
+requirements and isn't part of this draft.
+
+**Existing foundation, not starting from zero:** `backend/src/web/cloud/`
+already has a working `GoogleDriveSync` (+ Dropbox/OneDrive siblings) with
+both Service Account and personal OAuth flows, a native C++ implementation,
+and a GUI worker (`gui/src/helpers/web/cloud/google_drive_sync_worker.py`).
+That infrastructure syncs arbitrary local folders to a named Drive folder
+today — this feature is about **pointing it at (or extending it for) the
+two encrypted settings files specifically**, with account-linking as the
+entry point, not building Drive sync from scratch.
+
+**Genuinely open, left for whoever picks this up:**
+
+- **Conflict resolution** when the same settings file changes on two
+  devices before a sync — simple last-write-wins (matches the existing
+  sync worker's likely current behavior, unverified), or version-keep-both
+  with a user prompt? Different files, different answer is plausible (the
+  keystore rarely changes; the vault might change more often).
+- Whether "git-like tracking" (versioned snapshots, useful since these are
+  small encrypted blobs, not large databases — diffing doesn't help but
+  keeping N prior versions does) or something simpler (just overwrite,
+  rely on Drive's own version history) is worth building vs. relying on
+  Google Drive's native file-revision history, which may already cover
+  this need for free.
+- Whether "database replication" (mentioned in the original ask) is even
+  relevant to this narrowed two-file scope — it matters much more for
+  large multi-writer SQLite databases (`library.db` etc.) than for two
+  small encrypted settings blobs, and that broader database-sync problem is
+  explicitly not what this entry covers. If cross-device DB sync is wanted
+  later, it deserves its own, separately-scoped roadmap entry — don't
+  assume this one expands to cover it.
+
+**ASP note:** Harbinger asked for a pointer entry in ASP too, not current
+priority there — see `asp_change_roadmap_2026q3.md` §7 (future work,
+non-priority) for the cross-link.
+
+---
+
 ## Effort × Impact Matrix {: #effort--impact-matrix }
 
 *Effort* — **Low**: < 1 day · **Medium**: 1 day – 1 week · **High**: 1 – 2 weeks · **Very High**: 2+ weeks or external dependency
@@ -694,7 +790,7 @@ GUI: `gui/src/elements/web/media_loader_tab/` (manager.py + mixins, same composi
 
 | **Effort ↓ / Impact →** | Low | Medium | High | Very High |
 |---|---|---|---|---|
-| **Low (<1d)** | §4.2C WebP quick-share export · §4.7E image health check · §4.9A safetensors viewer [Quick Win] · §4.10A OpenAPI schema · §4.13C workflow templates | §4.2B ffmpeg scrolling video · §4.5E wallpaper mirror all monitors · §4.9D model hash verify · §4.11A inline rating panel [Quick Win] · §4.11C batch rating mode · §4.14A storyboard scrub preview [Quick Win] | §4.1C CLI batch stitch · §4.7A slideshow config | — |
+| **Low (<1d)** | §4.2C WebP quick-share export · §4.7E image health check · §4.9A safetensors viewer [Quick Win] · §4.10A OpenAPI schema · §4.13C workflow templates · §4.18 crawler rating filter + Safebooru preset | §4.2B ffmpeg scrolling video · §4.5E wallpaper mirror all monitors · §4.9D model hash verify · §4.11A inline rating panel [Quick Win] · §4.11C batch rating mode · §4.14A storyboard scrub preview [Quick Win] | §4.1C CLI batch stitch · §4.7A slideshow config | — |
 | **Medium (1d–1w)** | — | §4.5A KDE per-monitor wallpaper · §4.5D HydraPaper GNOME · §4.6A cross-dir phash dedup · §4.8A stitch→ComfyUI button · §4.10B trigger operations via REST · §4.12A appearance profiles | §4.4A WD14 auto-tagger · §4.6C LSH near-dedup · §4.8C drag-drop to ComfyUI · §4.8E workflow template library · §4.13A macro playback | §4.3A CLIP semantic search |
 | **High (1–2w)** | — | §4.1A GUI batch mode | §4.10C WebSocket job status · §4.11B side-by-side preference labelling · §4.11D per-seam annotation | §4.3C dual-column CLIP + Siamese search |
 | **Very High (2w+)** | — | — | §4.1B PostgreSQL job queue | §4.3B AnimeCLIP fine-tune |
@@ -722,9 +818,11 @@ GUI: `gui/src/elements/web/media_loader_tab/` (manager.py + mixins, same composi
 | 4.15 Extractor Tab Image Sub-Tab — Multi-Frame Image Splitter | [#415-extractor-tab-image-sub-tab--multi-frame-image-splitter](#415-extractor-tab-image-sub-tab--multi-frame-image-splitter) |
 | 4.16 Additional Stitcher Options | [#416-additional-stitcher-options](#416-additional-stitcher-options) |
 | 4.17 Media Loader — Web Media Downloader | [#417-media-loader--web-media-downloader](#417-media-loader--web-media-downloader) |
+| 4.18 Image Board Crawler — Rating Filter & SFW Board Support | [#418-image-board-crawler--rating-filter--sfw-board-support](#418-image-board-crawler--rating-filter--sfw-board-support) |
+| 4.19 Account-Linked Settings Sync (Google Drive) | [#419-account-linked-settings-sync-google-drive](#419-account-linked-settings-sync-google-drive) |
 
 ---
 
 ## Document History
 
-*Last updated: 2026-08-03 — §4.17 Media Loader (Reddit + nhentai web media downloader tab) added and shipped same day, issue #182. Previous update 2026-07-17: §4.15 Extractor Tab Image Sub-Tab (multi-frame image splitter) added, implemented same day: Extractor tab split into Video/Image subtabs. Previous update 2026-07-11 (§4.14 storyboard scrub preview).*
+*Last updated: 2026-08-15 — §4.19 Account-Linked Settings Sync (Google Drive) added as a quick draft, deliberately not fully specced. Previous update same day: §4.18 Image Board Crawler rating filter and Safebooru board support added (planned, not yet implemented), motivated by the ASP SFW benchmark corpus roadmap. Previous update 2026-08-03: §4.17 Media Loader (Reddit + nhentai web media downloader tab) added and shipped same day, issue #182. Previous update 2026-07-17: §4.15 Extractor Tab Image Sub-Tab (multi-frame image splitter) added, implemented same day: Extractor tab split into Video/Image subtabs. Previous update 2026-07-11 (§4.14 storyboard scrub preview).*

@@ -59,7 +59,7 @@ class _ImageDisplayMixin:
             if self.property("selected"):
                 self.setStyleSheet("""
                     QLabel {
-                        background-color: #2d5a3d;
+                        background-color: rgba(46, 204, 113, 0.25);
                         border: 3px solid #2ecc71;
                         border-radius: 8px;
                         color: white;
@@ -69,7 +69,7 @@ class _ImageDisplayMixin:
                 self.setStyleSheet(
                     """
                     QLabel {
-                        background-color: #36393f;
+                        background-color: rgba(20, 24, 32, 0.35);
                         border: 2px solid #3498db;
                         border-radius: 8px;
                     }
@@ -85,7 +85,7 @@ class _ImageDisplayMixin:
         if self.property("selected"):
             self.setStyleSheet("""
                 QLabel {
-                    background-color: #2d5a3d;
+                    background-color: rgba(46, 204, 113, 0.25);
                     border: 3px solid #2ecc71;
                     border-radius: 8px;
                     color: white;
@@ -98,7 +98,7 @@ class _ImageDisplayMixin:
             self.setStyleSheet(
                 """
                 QLabel {
-                    background-color: #2c3e50;
+                    background-color: rgba(44, 62, 80, 0.50);
                     border: 2px solid #3498db;
                     color: #ecf0f1;
                     font-size: 13px;
@@ -120,7 +120,7 @@ class _ImageDisplayMixin:
         if self.property("selected"):
             self.setStyleSheet("""
                 QLabel {
-                    background-color: #2d5a3d;
+                    background-color: rgba(46, 204, 113, 0.25);
                     border: 3px solid #2ecc71;
                     border-radius: 8px;
                     color: white;
@@ -134,7 +134,7 @@ class _ImageDisplayMixin:
         if selected:
             self.setStyleSheet("""
                 QLabel {
-                    background-color: #2d5a3d;
+                    background-color: rgba(46, 204, 113, 0.25);
                     border: 3px solid #2ecc71;
                     border-radius: 8px;
                     color: white;
@@ -147,7 +147,7 @@ class _ImageDisplayMixin:
                 if is_video:
                     self.setStyleSheet("""
                         QLabel {
-                            background-color: #36393f;
+                            background-color: rgba(20, 24, 32, 0.35);
                             border: 2px solid #3498db;
                             border-radius: 8px;
                         }

@@ -31,6 +31,7 @@ import {
   CheckCircle2,
   AlertCircle,
   Loader2,
+  Layers,
 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { useAppStore } from "./store/appStore";
@@ -66,6 +67,9 @@ import { R3GANEvaluateTab } from "./tabs/models/R3GANEvaluateTab";
 // --- Analytics Tabs ---
 import { BenchmarkDashboard } from "./tabs/apollo/BenchmarkDashboard";
 
+// --- Image Editor Tabs ---
+import { HieEditorTab } from "./tabs/editor/HieEditorTab";
+
 // --- Interfaces ---
 
 type TabId =
@@ -85,7 +89,8 @@ type TabId =
   | "crawler"
   | "revsearch"
   | "webreq"
-  | "benchmarks";
+  | "benchmarks"
+  | "hie_editor";
 
 interface BaseTabProps {
   showModal: (
@@ -180,6 +185,7 @@ const App: React.FC = () => {
   const RevSearchRef = useRef<any>(null);
   const WebReqRef = useRef<any>(null);
   const BenchmarksRef = useRef<any>(null);
+  const HieEditorRef = useRef<any>(null);
 
   const primaryDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -201,6 +207,7 @@ const App: React.FC = () => {
     revsearch: RevSearchRef,
     webreq: WebReqRef,
     benchmarks: BenchmarksRef,
+    hie_editor: HieEditorRef,
   };
 
   const showModal = (
@@ -343,6 +350,17 @@ const App: React.FC = () => {
           label: "Benchmarks",
           icon: BarChart3,
           component: BenchmarkDashboard,
+        },
+      ],
+    },
+    {
+      title: "Image Editor",
+      tabs: [
+        {
+          id: "hie_editor",
+          label: "Hybrid Editor",
+          icon: Layers,
+          component: HieEditorTab,
         },
       ],
     },

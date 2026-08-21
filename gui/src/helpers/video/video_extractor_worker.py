@@ -171,14 +171,21 @@ class VideoExtractionWorker(QRunnable):
                 print(f"FFmpeg Video CMD: {cmd}")
 
                 self.signals.progress.emit(0, 100)
-                # Run command
-                process = subprocess.Popen(
-                    cmd,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    stdin=subprocess.DEVNULL,
-                    text=True,
-                )
+                # Run command. Issue #81 crash family: serialize the ffmpeg
+                # fork against the process's first QMediaPlayer construction
+                # (this worker runs on a QThread, concurrently with the user
+                # possibly opening a video for playback). Guard only the
+                # fork, not the streaming read loop.
+                from gui.src.helpers.video.video_thumbnailer import media_backend_spawn_guard
+
+                with media_backend_spawn_guard():
+                    process = subprocess.Popen(
+                        cmd,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        stdin=subprocess.DEVNULL,
+                        text=True,
+                    )
 
                 while process.poll() is None:
                     if self._is_cancelled:

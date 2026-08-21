@@ -5,16 +5,26 @@ set shell := ["bash", "-c"]
 set unstable := true
 set working-directory := '../..'
 
-# Sync uv dependencies
+# Sync all uv dependencies (safe on any machine — no CUDA compiler required).
+# Skips --all-extras because ASP/backend[matchers] pulls in mamba-ssm, which
+# compiles a CUDA extension from source and requires `nvcc` in PATH.
+# Use `just dev::sync-gpu` on a machine with the full CUDA toolkit installed.
 sync:
     @echo "🔄 Syncing dependencies..."
-    uv sync --all-groups --all-extras --all-packages
+    uv sync --all-groups --all-packages
+
+# Sync including GPU-only extras (requires nvcc / full CUDA toolkit in PATH).
+# Installs ASP/backend[matchers]: mamba-ssm, sam-2, romatch, ptlflow.
+sync-gpu:
+    @echo "🔄 Syncing dependencies (GPU extras)..."
+    @nvcc --version > /dev/null 2>&1 || (echo "❌ nvcc not found — install the CUDA toolkit first." && exit 1)
+    uv sync --all-groups --all-packages --all-extras
 
 # Complete setup (install deps + types)
 setup:
     @echo "🔧 Setting up Image Toolkit..."
     npm run setup
-    uv sync --all-groups --all-extras --all-packages
+    uv sync --all-groups --all-packages
     @echo "✅ Setup complete!"
     @echo ""
     @echo "Next steps:"
@@ -39,3 +49,59 @@ check:
 
 # setup + dev
 quick-dev: setup dev
+
+# --- Development Tool (dev/tool, the devtool CLI/TUI/web host) ---
+#
+# Canonical invocation is `python dev/` (running a directory adds it to
+# sys.path[0], so `tool` resolves with no PYTHONPATH needed) -- see
+# dev/README.md and docs/moon/roadmaps/development_tool.md.
+
+# Workspace chooser / any devtool verb (plugins, list, analyze, export, ...)
+devtool *ARGS:
+    @echo "🛠️  Development Tool..."
+    source .venv/bin/activate && python dev/ {{ARGS}}
+
+# Launch the Development Tool TUI (Perfetto-style static trace/crash views)
+devtool-tui *ARGS:
+    @echo "🛠️  Launching Development Tool TUI..."
+    source .venv/bin/activate && python dev/ tui {{ARGS}}
+
+# Launch the Development Tool live watch (btop-style RSS/thread/span monitor)
+devtool-watch *ARGS:
+    @echo "🛠️  Launching Development Tool live watch..."
+    source .venv/bin/activate && python dev/ watch {{ARGS}}
+
+# Launch the Development Tool local web viewer (pixels: benchmark A/B, plots)
+devtool-web *ARGS:
+    @echo "🛠️  Launching Development Tool web viewer..."
+    source .venv/bin/activate && python dev/ web {{ARGS}}
+
+# Run the Development Tool MCP stdio server (agent surface)
+devtool-mcp *ARGS:
+    @echo "🛠️  Starting Development Tool MCP server..."
+    source .venv/bin/activate && python dev/ mcp {{ARGS}}
+
+# Launch the Development Tool Tauri host window (v2 #414). `just devtool`
+# stays the Python CLI (unchanged); this recipe opens the Tauri app in
+# dev/app. Requires the tauri-cli: `cargo install tauri-cli` (source-built
+# first Linux release, lock #1). No AppImage/.deb/Flatpak yet (D61 deferred).
+#
+# WEBKIT_DISABLE_DMABUF_RENDERER=1: WebKitGTK's DMA-BUF renderer crashes
+# with "WebKit encountered an internal error" on NVIDIA + Wayland (the
+# proprietary driver doesn't support the DMA-BUF path WebKitGTK assumes).
+# GDK_BACKEND=x11: with a broken/mismatched NVIDIA EGL stack (e.g. a
+# post-boot driver upgrade leaving the kernel module out of sync with the
+# userspace libs), WebKitGTK still cannot create an EGL context on native
+# Wayland and the window stays blank white; running under XWayland routes
+# the GL through the working GLX/EGL-X11 path and the UI renders.
+# env -u ...: a snap-confined launching terminal (e.g. VS Code installed
+# via snap) exports GIO_MODULE_DIR/GTK_PATH/GTK_MODULES/LD_LIBRARY_PATH
+# pointing at the snap's libs. WebKitGTK's subprocesses are GIO-based and
+# dlopen a snap GIO module whose RPATH contains
+# /snap/core20/current/lib/x86_64-linux-gnu, so the loader resolves the
+# old core20 libpthread.so.0 and crashes with "undefined symbol:
+# __libc_pthread_init, version GLIBC_PRIVATE". Unset all of them for the
+# whole tree. See docs/TROUBLESHOOTING.md.
+devtool-app *ARGS:
+    @echo "🛠️  Launching Development Tool app (Tauri host)..."
+    cd dev/app/src-tauri && env -u GIO_MODULE_DIR -u GIO_EXTRA_MODULES -u GTK_PATH -u GTK_MODULES -u LD_LIBRARY_PATH GDK_BACKEND=x11 WEBKIT_DISABLE_DMABUF_RENDERER=1 cargo tauri dev {{ARGS}}

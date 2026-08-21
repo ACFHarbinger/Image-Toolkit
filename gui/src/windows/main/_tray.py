@@ -75,8 +75,12 @@ class _TrayMixin:
             wt._cycle_slideshow_wallpaper(increment=True)
 
     def _on_tray_activated(self, reason) -> None:
-        if reason == QSystemTrayIcon.ActivationReason.DoubleClick:
+        if reason in (
+            QSystemTrayIcon.ActivationReason.DoubleClick,
+            QSystemTrayIcon.ActivationReason.Trigger,
+        ):
             self._tray_show_window()
+
 
     def tray_notify(self, title: str, message: str, timeout_ms: int = 4000) -> None:
         """Show a tray balloon notification (§2.12B). No-op when tray is unavailable."""

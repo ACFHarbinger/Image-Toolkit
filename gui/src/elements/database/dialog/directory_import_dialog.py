@@ -6,7 +6,7 @@ from gui.src.elements.database.dialog.common.base_directory_import_dialog import
     BaseDirectoryImportDialog,
 )
 from gui.src.styles import SHARED_BUTTON_STYLE
-from gui.src.tabs.core.elements.common.listings_common import (
+from gui.src.elements.database.common.listings_common import (
     _parse_video_series,
     _persist_splitter,
     _scan_video_directory,

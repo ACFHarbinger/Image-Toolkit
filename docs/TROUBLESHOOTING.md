@@ -399,7 +399,7 @@ vs. prev_size` (glibc's `malloc_consolidate()` catching heap corruption)
 and SIGABRT — the same failure mode Addendum 13 already saw once. Rather
 than another Python-level fix guess, this round built permanent,
 toggleable tooling instead of another one-off print pass: see
-[`debug/README.md`](../debug/README.md).
+[`dev/README.md`](../dev/README.md).
 `backend/src/core/telemetry.py` is a structured, JSONL event logger
 (`IMAGE_TOOLKIT_TELEMETRY=1 just python` to enable) wired into every
 `[thread-lifecycle]`/`[startup-probe-guard]` call site already documented
@@ -408,10 +408,10 @@ suspected native-crash boundary itself — `QImage().loadFromData()` in
 `video_thumbnailer.py` and every `base.scan_files_multi()` call —
 wrapped in `telemetry.span()` so a crash mid-decode leaves an unambiguous
 "orphaned span" in the file instead of requiring inference from which
-`print()` line happened to be last. `debug/telemetry_analyzer.py` parses
+`print()` line happened to be last. `dev/telemetry_analyzer.py` parses
 that file into a merged, time-ordered timeline and flags orphaned spans
 and overlapping scanner-thread windows automatically.
-`debug/run_with_gdb.sh` runs the app under `gdb -batch`, stopping only on
+`dev/run_with_gdb.sh` runs the app under `gdb -batch`, stopping only on
 SIGABRT (SIGSEGV is deliberately passed through untouched — the JVM raises
 it internally, on purpose, for implicit null-checks/safepoint polling, and
 stopping there produces a misleading "crashes before login" false
@@ -425,7 +425,7 @@ never had a ready-made tool for.
 crash site.** With the fixed script, two live crashes produced real
 `hs_err_pid*.log` files with the JVM's own diagnosis:
 `libQt6Core.so.6+0x1e74d5` and `libQt6Core.so.6+0x1df7c9`. PySide6's
-bundled Qt is stripped, but `debug/resolve_qt_offset.py` resolves both via
+bundled Qt is stripped, but `dev/resolve_qt_offset.py` resolves both via
 the surviving dynamic symbol table: `QObjectPrivate::ConnectionData::deleteOrphaned(...)`
 and `QObjectPrivate::connect(...)` respectively — the first confirms this
 is genuinely the same `deleteOrphaned` class documented throughout this
@@ -439,8 +439,8 @@ just wherever that already-damaged structure gets touched next — not 20
 independent bugs. Not yet fixed: neither capture had telemetry enabled, so
 there's no Python-level correlation for which specific `.connect()` call
 site was involved. If you hit this again, reproduce with
-`IMAGE_TOOLKIT_TELEMETRY=1 debug/run_with_gdb.sh` (now also captures a
-core dump) and start from `debug/telemetry_analyzer.py`'s report before
+`IMAGE_TOOLKIT_TELEMETRY=1 dev/run_with_gdb.sh` (now also captures a
+core dump) and start from `dev/telemetry_analyzer.py`'s report before
 writing another speculative fix.
 
 **Update (2026-08-01, Addendum 23) — video-directory scanning removed
@@ -837,6 +837,79 @@ sqlx migrate run
 ```bash
 sudo apt install libwebkit2gtk-4.1-dev
 ```
+
+### Tauri window shows "WebKit encountered an internal error"
+
+Four independent causes, all fixed by `just devtool-app`
+(`tools/dev/justfile`):
+
+1. **NVIDIA (proprietary driver) + Wayland.** WebKitGTK's DMA-BUF renderer
+   path isn't supported by the NVIDIA driver, so the webview fails to
+   render anything. Disable that renderer:
+   ```bash
+   WEBKIT_DISABLE_DMABUF_RENDERER=1 cargo tauri dev
+   ```
+2. **Snap environment poisoning via `GIO_MODULE_DIR` (network process
+   crashes with `__libc_pthread_init`).** A snap-confined launching
+   terminal — most commonly **VS Code installed via snap** — exports
+   `GIO_MODULE_DIR`, `GIO_EXTRA_MODULES`, `GTK_PATH` and `GTK_MODULES`
+   pointing into the snap. WebKitGTK's subprocesses are GIO-based, so
+   `WebKitNetworkProcess` dlopens a snap GIO module
+   (`/snap/code/current/usr/lib/x86_64-linux-gnu/gio/modules/libgiognutls.so`
+   etc.) whose `RPATH` literally contains
+   `/snap/core20/current/lib/x86_64-linux-gnu`. The dynamic loader then
+   resolves the module's dependencies from that RPATH and picks the old
+   core20 `libpthread.so.0`, which lacks the internal
+   `__libc_pthread_init` symbol required by the system glibc:
+   ```bash
+   WebKitNetworkProcess: symbol lookup error:
+     /snap/core20/current/lib/x86_64-linux-gnu/libpthread.so.0:
+     undefined symbol: __libc_pthread_init, version GLIBC_PRIVATE
+   ```
+   Note this is *not* a plain `LD_LIBRARY_PATH` leak (cause 3) — clearing
+   `LD_LIBRARY_PATH` alone does **not** fix it, because the snap library
+   is pulled in through the module's RPATH. Unset the whole set for the
+   process tree:
+   ```bash
+   env -u GIO_MODULE_DIR -u GIO_EXTRA_MODULES -u GTK_PATH -u GTK_MODULES -u LD_LIBRARY_PATH cargo tauri dev
+   ```
+   Verify your terminal is snap-confined with:
+   ```bash
+   echo "$GIO_MODULE_DIR $GTK_PATH $GTK_MODULES"
+   ```
+3. **Leaked snap `LD_LIBRARY_PATH`.** If the terminal that launched `cargo
+   tauri dev` is itself snap-confined, its `LD_LIBRARY_PATH` can leak to
+   the WebKit subprocesses, causing `WebKitNetworkProcess` to load a snap
+   `core20` copy of `libpthread.so.0` instead of the system one (same
+   symptom as cause 2, but via the library path rather than a module
+   RPATH). Clear it for the subprocess:
+   ```bash
+   LD_LIBRARY_PATH= cargo tauri dev
+   ```
+4. **NVIDIA EGL fails on native Wayland (blank white window).** Even with
+   the DMA-BUF renderer disabled, WebKitGTK still needs an EGL context.
+   When the NVIDIA stack is broken or mismatched — e.g. a post-boot driver
+   upgrade leaves the loaded kernel module out of sync with the userspace
+   libraries (`nvidia-smi` reports
+   `Failed to initialize NVML: Driver/library version mismatch`, and the
+   app logs `libEGL warning: egl: failed to create dri2 screen`) — context
+   creation fails and the web process never paints: the window opens but
+   stays blank white instead of showing the UI. Force GTK/WebKit onto the
+   X11 (XWayland) backend, where the GL/EGL-X11 path works:
+   ```bash
+   GDK_BACKEND=x11 cargo tauri dev
+   ```
+   Note: with a correctly matched driver the app also renders on native
+   Wayland; the mismatch is fixed by rebooting after the driver upgrade
+   (loaded module vs userspace must both be the same version).
+
+The `just devtool-app` recipe applies causes 1-4 together
+(`env -u GIO_MODULE_DIR -u GIO_EXTRA_MODULES -u GTK_PATH -u GTK_MODULES
+-u LD_LIBRARY_PATH` plus `GDK_BACKEND=x11 WEBKIT_DISABLE_DMABUF_RENDERER=1`).
+
+If the main GUI (`just dev`, `frontend/src-tauri`) hits any of these,
+export/unset the same variables before running `npm run dev`, or add them
+to that recipe too.
 
 ### `Cannot find module 'react-dom/client'`
 

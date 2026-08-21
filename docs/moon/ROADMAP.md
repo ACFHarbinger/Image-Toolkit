@@ -9,6 +9,16 @@
 > historical entries below that predate the move still
 > reference the old in-repo paths as a record of what was true at the time.
 
+**HIE submodule integration (S377, 2026-08-12):** The Hybrid Image Editor lives
+in [`submodules/HIE`](https://github.com/ACFHarbinger/Hybrid-Image-Editor)
+([roadmap](https://github.com/ACFHarbinger/Hybrid-Image-Editor/blob/main/docs/moon/ROADMAP.md)).
+Image-Toolkit **re-exports** Hybrid Editor UI only — PySide6 via
+`gui/src/tabs/editor/` → `hie_gui.HieEditorTab`, React via `hie-frontend`
+(`file:../submodules/HIE/frontend`) → `frontend/src/embed/react/HieEditorTab.tsx`.
+Host pipeline IPC (`PipelineSession`, capability/proposal/restoration methods)
+is owned by HIE ([issue #8](https://github.com/ACFHarbinger/Hybrid-Image-Editor/issues/8)).
+Do not fork editor UI in the parent; advance the submodule pointer after HIE commits.
+
 **Current submodule integration (S313, 2026-08-06):** CSG
 Phase 0 is complete. Its core and GUI are independently installable
 distributions; the core exposes top-level domain packages directly from its
@@ -98,6 +108,7 @@ Section-specific roadmaps:
 - [Performance — Compute, Memory, I/O](roadmaps/performance.md)
 - [New Features — Capabilities & Integrations](roadmaps/new_features.md)
 - [Architecture & Infrastructure](roadmaps/architecture.md)
+- [Development Tool — telemetry, debug, benchmarks, plugins](roadmaps/development_tool.md)
 - [Browser Extension — Capture, Build System & App Integration](roadmaps/extension.md)
 - [Unified Database — Merging Listings Subtabs & Database Tabs](roadmaps/unified_database.md)
 - [Cel-Shaded Generator — drawing education, coloring, animation, and game assets](https://github.com/ACFHarbinger/Cel-Shaded-Generator/blob/main/docs/moon/ROADMAP.md)
@@ -300,6 +311,10 @@ Higher-complexity features that depend on Phase 3–4 infrastructure or require 
 | 5.10 | **[Arch] Compositor registry** — same pattern as Matcher (Option E) | ~1w | [architecture.md §5.3](roadmaps/architecture.md#53-plugin-system-for-matchers-and-compositors) |
 | 5.11 | **[Perf] Rust memory-mapped output buffer** — `memmap2` for >10K px panoramas (Option C) | ~2d | [performance.md §3.1](roadmaps/performance.md#31-rust-streaming-image-merger) |
 | 5.12 | **[GUI] Extractor tab `libmpv` playback engine spike** — swap `QMediaPlayer`/`QGraphicsVideoItem` for `python-mpv` (Option A), gated on an isolated JVM-coexistence smoke test per the project's prior JPype/native-lib SIGSEGV history; falls back to mpv's OpenGL render API (Option B) if X11 `wid` window embedding proves unreliable on Wayland | ~2w | [gui_ux.md §2.33](roadmaps/gui_ux.md#233-extractor-tab-playback-engine--libmpv-integration) |
+| 5.13 | **[GUI] 🔄 Draft: host Theme Studio & semantic customization** — Phase 1 host PySide6 GUI only; shared JSON schema for later surfaces; palette, density, corners, typography, shadows, motion, opt-in image-derived palette, transactional preview, and expert-gated raw QSS | Design / ~1–2w after sign-off | [app_theming_2026q3.md](roadmaps/app_theming_2026q3.md) · [gui_ux.md §2.34](roadmaps/gui_ux.md#234-custom-theme-engine--semantic-color-system) |
+| 5.14 | **[GUI] Draft: background canvas & playlist** — linked/imported assets, token-pack references, global playlist clock, per-tab static override, fit modes, opacity, and opt-in cached blur | Design / ~1–2w after sign-off | [app_theming_2026q3.md](roadmaps/app_theming_2026q3.md) · [gui_ux.md §2.35](roadmaps/gui_ux.md#235-full-window-background-canvas--glassmorphic-layering) |
+| 5.14 | **[GUI] Full-Window Background Canvas & Glassmorphic Layering** — full-window layered background canvas with adjustable opacity/blur, glassmorphic card layering, multi-image slideshow playlist with cross-fade transitions, and fit/scaling modes (Options A + B + C) | ~1w | [gui_ux.md §2.35](roadmaps/gui_ux.md#235-full-window-background-canvas--glassmorphic-layering) |
+
 
 ---
 

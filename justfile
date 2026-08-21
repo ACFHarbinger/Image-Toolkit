@@ -71,7 +71,6 @@ agent_prompt := """
 mod agent      "tools/agent/justfile"
 mod benchmark  "tools/benchmark/justfile"
 mod build      "tools/build/justfile"
-mod cel_shaded "tools/cel_shaded/justfile"
 mod ci         "tools/ci/justfile"
 mod core       "tools/core/justfile"
 mod database   "tools/database/justfile"
@@ -119,15 +118,37 @@ check: helper::_print_header
 quick-dev: helper::_print_header
     just dev::quick-dev
 
+# --- Development Tool (dev/tool) ---
+
+# Development Tool workspace chooser / any devtool verb
+devtool *ARGS: helper::_print_header
+    just dev::devtool {{ARGS}}
+
+# Launch the Development Tool TUI
+devtool-tui *ARGS: helper::_print_header
+    just dev::devtool-tui {{ARGS}}
+
+# Launch the Development Tool live watch (btop-style)
+devtool-watch *ARGS: helper::_print_header
+    just dev::devtool-watch {{ARGS}}
+
+# Launch the Development Tool local web viewer
+devtool-web *ARGS: helper::_print_header
+    just dev::devtool-web {{ARGS}}
+
+# Launch the Development Tool Tauri host window
+devtool-app *ARGS: helper::_print_header
+    just dev::devtool-app {{ARGS}}
+
 # --- Building ---
 
 # Build C++ base extension (Phase 7: batch/ renamed to base/, Rust retired)
 build-base: helper::_print_header
     just build::build-base
 
-# Build production application cryptography JAR
-build-jar: helper::_print_header
-    just build::build-jar
+# Build native cryptography library (C/OpenSSL, replaces the retired Kotlin JAR)
+build-crypto: helper::_print_header
+    just build::build-crypto
 
 # Build production application frontend
 build-frontend: helper::_print_header
@@ -178,9 +199,13 @@ test-cpp: helper::_print_header
 benchmark-save: helper::_print_header
     just benchmark::benchmark-save
 
-# Launch benchmark analysis dashboard
+# Launch Streamlit IT performance dashboard
 benchmark-dashboard: helper::_print_header
     just benchmark::benchmark-dashboard
+
+# Aggregate ASP automated runs + human ratings into docs/website/public/data/
+dashboard-data: helper::_print_header
+    just benchmark::dashboard-data
 
 # Run the ASP benchmark on all datasets (asp_test01 … asp_test96)
 asp-benchmark: helper::_print_header
@@ -216,6 +241,12 @@ asp-benchmark-clean: helper::_print_header
 # Rate the panoramic stitches produced by the ASP (PySide6 inspector)
 asp-benchmark-assess *ARGS: helper::_print_header
     just benchmark::asp-benchmark-assess {{ARGS}}
+
+# Forward arbitrary arguments to the ASP submodule's root Justfile. This keeps
+# the submodule's own task surface reachable after the ASP repository split.
+# Examples: `just asp-just --list`, `just asp-just bench::help`.
+asp-just *ARGS: helper::_print_header
+    just --justfile submodules/ASP/justfile {{ARGS}}
 
 # Corpus-level triage of the ASP evaluations in FiftyOne (optional extra)
 asp-triage *ARGS: helper::_print_header
@@ -363,15 +394,15 @@ comfyui-stop: helper::_print_header
 
 # Install the CSG Krita plugin (close Krita first)
 krita-install: helper::_print_header
-    just cel_shaded::krita-install
+    just repository::krita-install
 
 # Uninstall the CSG Krita plugin (close Krita first)
 krita-uninstall: helper::_print_header
-    just cel_shaded::krita-uninstall
+    just repository::krita-uninstall
 
 # Reinstall the plugin — use after pulling submodule updates (close Krita first)
 krita-reinstall: helper::_print_header
-    just cel_shaded::krita-reinstall
+    just repository::krita-reinstall
 
 # --- Desktop GUI ---
 
@@ -501,6 +532,22 @@ python *args: helper::_print_header
 
 # --- AI Tools ---
 
+# --- Shorthands ---
+# Note: none of these share a name with a `mod` above (just forbids that);
+# use the module directly (e.g. `just build::debug`) for anything not listed here.
+
 # Loop the Claude Code agent on a stateful context
-loop-agent prompt=agent_prompt: helper::_print_header
-    just agent::loop-agent '{{prompt}}'
+loop-claude prompt="Continue implementing the studio, updating the ROADMAP and CHANGELOG, and commiting your work": helper::_print_header
+    just agent::loop-claude "{{prompt}}"
+
+# Loop the Grok agent on a stateful context
+loop-grok prompt="Continue implementing the studio, updating the ROADMAP and CHANGELOG, and commiting your work": helper::_print_header
+    just agent::loop-grok "{{prompt}}"
+
+# Loop the Gemini agent on a stateful context
+loop-gemini prompt="Continue implementing the studio, updating the ROADMAP and CHANGELOG, and commiting your work": helper::_print_header
+    just agent::loop-gemini "{{prompt}}"
+
+# Loop the ChatGPT agent on a stateful context
+loop-chatgpt prompt="Continue implementing the studio, updating the ROADMAP and CHANGELOG, and commiting your work": helper::_print_header
+    just agent::loop-chatgpt "{{prompt}}"

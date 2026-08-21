@@ -1,0 +1,233 @@
+.layer-stack-card {
+  background: #0d0f14;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  overflow: hidden;
+  margin: 2rem 0;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+}
+
+.layer-stack-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.25rem;
+  background: rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.layer-stack-tag {
+  display: inline-block;
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #a855f7;
+  margin-bottom: 0.25rem;
+}
+
+.layer-stack-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #f1f5f9;
+}
+
+.stack-toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #cbd5e1;
+  padding: 0.35rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.stack-toggle-btn:hover,
+.stack-toggle-btn.active {
+  background: rgba(168, 85, 247, 0.15);
+  border-color: #a855f7;
+  color: #c084fc;
+}
+
+.layer-stack-viewport {
+  position: relative;
+  height: 380px;
+  background: #07080b;
+  perspective: 900px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  user-select: none;
+  cursor: grab;
+}
+
+.layer-stack-viewport:active {
+  cursor: grabbing;
+}
+
+.orbit-hint {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.6875rem;
+  color: #64748b;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.stage-3d-scene {
+  position: relative;
+  width: 240px;
+  height: 220px;
+  transform-style: preserve-3d;
+  transition: transform 0.05s ease-out;
+}
+
+.layer-plane {
+  position: absolute;
+  inset: 0;
+  border-radius: 10px;
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  transform-style: preserve-3d;
+}
+
+.plane-label {
+  position: absolute;
+  top: -24px;
+  left: 0;
+  font-size: 0.625rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 600;
+  color: #94a3b8;
+  white-space: nowrap;
+  background: rgba(13, 15, 20, 0.9);
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.bg-plane {
+  background: rgba(15, 23, 42, 0.85);
+  border-color: rgba(59, 130, 246, 0.4);
+}
+
+.bg-art {
+  position: absolute;
+  inset: 10px;
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(59, 130, 246, 0.1),
+    rgba(59, 130, 246, 0.1) 10px,
+    transparent 10px,
+    transparent 20px
+  );
+  border-radius: 6px;
+}
+
+.mask-plane {
+  background: rgba(30, 41, 59, 0.7);
+  border-color: rgba(6, 182, 212, 0.5);
+}
+
+.mask-art {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mask-silhouette {
+  width: 90px;
+  height: 120px;
+  background: #00f0ff;
+  border-radius: 40% 40% 20% 20%;
+  box-shadow: 0 0 15px rgba(0, 240, 255, 0.5);
+}
+
+.cel-plane {
+  background: rgba(20, 24, 33, 0.6);
+  border-color: rgba(168, 85, 247, 0.5);
+}
+
+.cel-art {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cel-colored {
+  width: 90px;
+  height: 120px;
+  background: linear-gradient(135deg, #a855f7 0%, #ec4899 100%);
+  border-radius: 40% 40% 20% 20%;
+}
+
+.composite-plane {
+  background: rgba(13, 15, 20, 0.9);
+  border-color: rgba(16, 185, 129, 0.6);
+}
+
+.composite-art {
+  position: absolute;
+  inset: 10px;
+  background: radial-gradient(circle at 50% 50%, rgba(16, 185, 129, 0.3) 0%, rgba(15, 23, 42, 0.9) 80%);
+  border-radius: 6px;
+}
+
+.layer-stack-footer {
+  padding: 1.25rem;
+  background: rgba(255, 255, 255, 0.015);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.stack-status-chips {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.chip {
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.6875rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.chip.cyan {
+  background: rgba(6, 182, 212, 0.1);
+  color: #00f0ff;
+  border: 1px solid rgba(6, 182, 212, 0.3);
+}
+
+.chip.emerald {
+  background: rgba(16, 185, 129, 0.1);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.chip.purple {
+  background: rgba(168, 85, 247, 0.1);
+  color: #c084fc;
+  border: 1px solid rgba(168, 85, 247, 0.3);
+}
+
+.layer-stack-caption {
+  font-size: 0.8125rem;
+  color: #94a3b8;
+  line-height: 1.5;
+  margin: 0;
+}

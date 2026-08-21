@@ -1,6 +1,6 @@
 import pytest
-from gui.src.elements.core.wallpaper_tab.graph.data_schema import GraphData
-from gui.src.elements.core.wallpaper_tab.graph.wallpaper_graph_scene import WallpaperGraphScene
+from gui.src.tabs.core.wallpaper_tab.graph.data_schema import GraphData
+from gui.src.tabs.core.wallpaper_tab.graph.wallpaper_graph_scene import WallpaperGraphScene
 from PySide6.QtCore import QPointF, Qt
 
 pytestmark = pytest.mark.gui

@@ -28,11 +28,6 @@ class MarqueeScrollArea(QScrollArea):
         self.origin = QPoint()
         self.last_selected_paths = set()
 
-        # Apply style to viewport
-        self.setStyleSheet(
-            "QScrollArea { border: 1px solid #4f545c; background-color: #2c2f33; border-radius: 8px; }"
-        )
-
     def mousePressEvent(self, event: QMouseEvent):
         content_widget = self.widget()
         if not content_widget:

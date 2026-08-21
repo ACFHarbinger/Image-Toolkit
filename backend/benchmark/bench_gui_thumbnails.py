@@ -1,4 +1,4 @@
-"""Benchmark suite for GUI thumbnail loading (roadmap analytics_and_interpretability.md §12.3).
+"""Benchmark suite for GUI thumbnail loading (roadmap development_tool.md §12.3).
 
 Covers the paths behind gallery scrolling performance:
 - base.load_image_batch() at gallery-relevant scales (100/500/1000 images)

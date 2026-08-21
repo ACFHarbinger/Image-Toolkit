@@ -57,6 +57,7 @@ class _LifecycleMixin:
             self.found_search_timer.stop()
 
         # Stop all active workers
+        had_pending_workers = bool(self._active_workers)
         for worker in list(self._active_workers):
             with contextlib.suppress(Exception):
                 worker.stop()
@@ -76,19 +77,30 @@ class _LifecycleMixin:
             # video directory scan). closeEvent() already did this same wait
             # for the tab-close path; this extends the same fix to every
             # other cancel_loading() caller.
-            self.thread_pool.waitForDone(_WORKER_DRAIN_TIMEOUT_MS)
-            # waitForDone() blocks THIS thread until pool workers finish; it
-            # does not pump this thread's own event loop meanwhile. Any
-            # deleteLater() calls already queued from an earlier, rapid
-            # directory switch are still unprocessed at this point --
-            # flush them before the caller proceeds to tear down/rebuild
-            # widgets again, or repeated rapid switches can pile up
-            # multiple generations of pending deferred-deletion events
-            # (see .agent/cache/gallery_crash_deleteorphaned_2026-07-27.md
-            # Addendum 8). Narrowed to DeferredDelete only -- see Addendum 9:
-            # a full processEvents() also delivers ordinary queued
-            # cross-thread signals reentrantly, mid-teardown.
-            QApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+            #
+            # #444: guard the drain against the second cancel_loading() of a
+            # single refresh cycle (start_loading_thumbnails()/_sort_zoom
+            # cancel, then refresh_found_gallery() cancels again). The first
+            # call already drained the pool and flushed deferred deletions,
+            # and nothing is dispatched between the two, so the unbounded
+            # wait and the app-wide flush are pure overhead there. Any worker
+            # still alive (tracked at entry, or reported by the pool) still
+            # takes the full drain path. closeEvent()'s own unconditional
+            # wait below is unchanged.
+            if had_pending_workers or self.thread_pool.activeThreadCount() > 0:
+                self.thread_pool.waitForDone(_WORKER_DRAIN_TIMEOUT_MS)
+                # waitForDone() blocks THIS thread until pool workers finish; it
+                # does not pump this thread's own event loop meanwhile. Any
+                # deleteLater() calls already queued from an earlier, rapid
+                # directory switch are still unprocessed at this point --
+                # flush them before the caller proceeds to tear down/rebuild
+                # widgets again, or repeated rapid switches can pile up
+                # multiple generations of pending deferred-deletion events
+                # (see .agent/cache/gallery_crash_deleteorphaned_2026-07-27.md
+                # Addendum 8). Narrowed to DeferredDelete only -- see Addendum 9:
+                # a full processEvents() also delivers ordinary queued
+                # cross-thread signals reentrantly, mid-teardown.
+                QApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
 
     def closeEvent(self: "AbstractClassTwoGalleriesHostProtocol", event):
         """Cleanup processes on close."""

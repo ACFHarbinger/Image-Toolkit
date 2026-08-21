@@ -1,9 +1,21 @@
 # tools/benchmark/justfile
-# Performance benchmark recipes (non-ASP). ASP benchmarks live in tools/pipeline/justfile.
+# Performance benchmarks (Image-Toolkit) + ASP quality/eval recipes.
+#
+# After Anime-Stitch-Pipeline moved to submodules/ASP, stitch + human-rating
+# entrypoints live under that submodule. Recipes below re-wire those paths and
+# avoid bare `uv run` at the Image-Toolkit workspace root (uv fails on
+# submodules/CSG/pyproject.toml which is workspace-only with no [project] table).
 
 set shell := ["bash", "-c"]
 set unstable := true
 set working-directory := '../..'
+
+# Image-Toolkit root (this file is tools/benchmark/justfile)
+_IT_ROOT := justfile_directory()
+_ASP_ROOT := _IT_ROOT / "submodules" / "ASP"
+_IT_PY := _IT_ROOT / ".venv" / "bin" / "python"
+# Cross-repo PYTHONPATH: IT shared packages + ASP repo root for asp_* aliases
+_ASP_ENV := "PYTHONPATH='" + _IT_ROOT + ":" + _ASP_ROOT + "'"
 
 # Run benchmarks
 benchmark:
@@ -23,79 +35,106 @@ benchmark-dashboard:
     @echo "Dashboard will open at http://localhost:8501"
     source .venv/bin/activate && streamlit run backend/ui/benchmark_dashboard.py
 
-# Run the ASP benchmark on all datasets (asp_test01 … asp_test96).
-# Results written to backend/benchmark/results/anime_stitch_YYYYMMDD_HHMMSS.json
-# and a markdown report to data/output/benchmark_report.md.
-asp-benchmark:
-    @echo "🎞️  Running ASP benchmark on all 96 datasets..."
-    source .venv/bin/activate && python -m backend.benchmark.bench_anime_stitch
-    @echo "✅ ASP benchmark complete. Results in backend/benchmark/results/"
+# Aggregate ASP automated runs + human ratings into docs/website/public/data/
+# for the ratings dashboard (/dashboard/ratings).
+dashboard-data:
+    @echo "📦 Generating docs website dashboard JSON..."
+    node docs/website/scripts/generate-dashboard-data.mjs
+
+# --- ASP quality benchmark (submodules/ASP) ---
+
+# Full corpus run. Script path (not -m backend.benchmark.*) avoids colliding
+# with Image-Toolkit's own top-level `backend` package (ASP issue #3 pattern).
+asp-benchmark *ARGS:
+    @echo "🎞️  Running ASP benchmark on all datasets..."
+    {{_ASP_ENV}} {{_IT_PY}} \
+        {{_ASP_ROOT}}/backend/benchmark/bench_anime_stitch.py --data-dir {{_ASP_ROOT}}/dump {{ARGS}}
+    @echo "✅ ASP benchmark complete."
 
 # Run ASP benchmark on specific named datasets.
 # Usage: just asp-benchmark-tests asp_test09 asp_test27 asp_test57
 asp-benchmark-tests *tests:
     @echo "🎞️  Running ASP benchmark on: {{tests}}"
-    source .venv/bin/activate && python -m backend.benchmark.bench_anime_stitch --tests {{tests}}
+    {{_ASP_ENV}} {{_IT_PY}} \
+        {{_ASP_ROOT}}/backend/benchmark/bench_anime_stitch.py --data-dir {{_ASP_ROOT}}/dump --tests {{tests}}
 
 # Run ASP benchmark on a numeric range of datasets.
 # Usage: just asp-benchmark-range 1-10
 # Usage: just asp-benchmark-range 4,8,27,57
 asp-benchmark-range range:
     @echo "🎞️  Running ASP benchmark on range: {{range}}"
-    source .venv/bin/activate && python -m backend.benchmark.bench_anime_stitch --range "{{range}}"
+    {{_ASP_ENV}} {{_IT_PY}} \
+        {{_ASP_ROOT}}/backend/benchmark/bench_anime_stitch.py --data-dir {{_ASP_ROOT}}/dump --range "{{range}}"
 
 # Run ASP benchmark on the first N datasets.
 # Usage: just asp-benchmark-first 5
 asp-benchmark-first n="5":
     @echo "🎞️  Running ASP benchmark on first {{n}} datasets..."
-    source .venv/bin/activate && python -m backend.benchmark.bench_anime_stitch --first {{n}}
+    {{_ASP_ENV}} {{_IT_PY}} \
+        {{_ASP_ROOT}}/backend/benchmark/bench_anime_stitch.py --data-dir {{_ASP_ROOT}}/dump --first {{n}}
 
 # Run ASP benchmark only on datasets not yet processed (panorama.png absent).
 asp-benchmark-resume:
     @echo "🎞️  Resuming ASP benchmark (skipping already-processed datasets)..."
-    source .venv/bin/activate && python -m backend.benchmark.bench_anime_stitch --skip-done
+    {{_ASP_ENV}} {{_IT_PY}} \
+        {{_ASP_ROOT}}/backend/benchmark/bench_anime_stitch.py --data-dir {{_ASP_ROOT}}/dump --skip-done
 
 # Run ASP benchmark on the standard quality-verification test suite:
 # test09 (canonical seam-tear), test27 (full-body portrait), test08 (high-motion),
 # test57 (comparable), test04 (gate fallback).
 asp-benchmark-verify:
     @echo "🎞️  Running ASP quality-verification suite (5 tests)..."
-    source .venv/bin/activate && python -m backend.benchmark.bench_anime_stitch \
+    {{_ASP_ENV}} {{_IT_PY}} \
+        {{_ASP_ROOT}}/backend/benchmark/bench_anime_stitch.py --data-dir {{_ASP_ROOT}}/dump \
         --tests asp_test04 asp_test08 asp_test09 asp_test27 asp_test57
     @echo "✅ Verification complete. Check .agent/cache/pipeline_analysis_report.md"
 
 # Clean ASP benchmark output directories
 asp-benchmark-clean:
     @echo "🧹 Cleaning ASP benchmark output directories..."
-    rm -rf dump/asp_test*/output
-    rm -rf dump/output
+    rm -rf {{_ASP_ROOT}}/dump/asp_test*/output
+    rm -rf {{_ASP_ROOT}}/dump/output
     @echo "✅ Cleanup complete!"
 
-# Rate the quality of the panoramic stitches produced by the ASP during benchmarking
-# (the PySide6 inspector: N-way comparison, pixel probe, live diff maps,
-# per-test diagnostics, region annotation, keyboard-first scoring)
+# Rate panoramic stitches (PySide6 inspector: N-way compare, pixel probe,
+# live diffs, region annotation, keyboard-first scoring).
+# Human coherence evaluator for the weekend rating pass.
+#
+# Usage (from Image-Toolkit root):
+#   just asp-benchmark-assess
+#   just asp-benchmark-assess --help
+#   just asp-benchmark-assess --data-dir dump --redo
+#   just asp-benchmark-assess --start-at asp_test09
+#
+# Dispatch lives in submodules/ASP (not backend/controllers/ after the ASP
+# git-submodule migration). Do not use bare `uv run` here — workspace uv
+# resolution breaks on CSG's workspace-only pyproject.
 asp-benchmark-assess *ARGS:
-    @echo "🎨 Rating the panoramic stitches produced by the ASP during benchmarking..."
-    uv run python backend/controllers/bench_eval_dispatch.py {{ARGS}}
+    @echo "🎨 Rating ASP panoramic stitches (human coherence inspector)..."
+    @test -x {{_IT_PY}} || (echo "error: missing {{_IT_PY}} — run: just install" && exit 1)
+    @test -f {{_ASP_ROOT}}/backend/src/cli/eval_dispatch.py || (echo "error: ASP submodule missing eval_dispatch.py — init submodules/ASP" && exit 1)
+    {{_ASP_ENV}} {{_IT_PY}} \
+        {{_ASP_ROOT}}/backend/src/cli/eval_dispatch.py --surface inspector {{ARGS}}
 
-# Corpus-level triage of the same evaluations in FiftyOne: builds a grouped
-# dataset (one group per test, one slice per comparator) and opens the App.
-# Needs the optional extra:  uv pip install -e '.[benchmark-eval]'
-# and a reachable MongoDB — see `just asp-triage-db` if fiftyone-db shipped no
-# mongod for this distro.
+# Corpus-level triage of the same evaluations in FiftyOne.
+# Needs: uv pip install -e 'submodules/ASP[benchmark-eval]' (or project extra)
+# and a reachable MongoDB — see `just asp-triage-db`.
 asp-triage *ARGS:
     @echo "🔎 Building the FiftyOne triage dataset for the ASP benchmark corpus..."
-    uv run python backend/controllers/bench_eval_dispatch.py --surface triage {{ARGS}}
+    {{_ASP_ENV}} {{_IT_PY}} \
+        {{_ASP_ROOT}}/backend/src/cli/eval_dispatch.py --surface triage {{ARGS}}
 
 # Build/refresh the FiftyOne dataset without opening the App
 asp-triage-ingest *ARGS:
-    uv run python backend/controllers/bench_eval_dispatch.py --surface ingest {{ARGS}}
+    {{_ASP_ENV}} {{_IT_PY}} \
+        {{_ASP_ROOT}}/backend/src/cli/eval_dispatch.py --surface ingest {{ARGS}}
 
-# Round-trip human judgment between the FiftyOne dataset and the evaluations
-# JSON. pull: fold App-side defect tags into the JSON (the JSON stays the source
-# of truth). push: refresh the dataset's human fields/tags/regions from the JSON.
+# Round-trip human judgment between FiftyOne and evaluations JSON.
+# pull: fold App-side defect tags into the JSON (JSON stays source of truth).
+# push: refresh the dataset's human fields/tags/regions from the JSON.
 asp-triage-sync DIRECTION="pull" *ARGS:
-    uv run python backend/controllers/bench_eval_dispatch.py --surface sync \
+    {{_ASP_ENV}} {{_IT_PY}} \
+        {{_ASP_ROOT}}/backend/src/cli/eval_dispatch.py --surface sync \
         --sync-direction {{DIRECTION}} {{ARGS}}
 
 # Start a local MongoDB for FiftyOne. `fiftyone-db` ships a prebuilt mongod only

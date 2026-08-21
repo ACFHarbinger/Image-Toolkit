@@ -1,0 +1,42 @@
+{
+  "schema": "devtool.plugin.manifest",
+  "schema_version": 1,
+  "name": "telemetry_workbench",
+  "version": "0.1.0",
+  "description": "Telemetry session analysis: timeline, spans, crash bundles.",
+  "surfaces": [
+    {
+      "name": "cli",
+      "description": "analyze / list / tail a telemetry session"
+    },
+    {
+      "name": "tui",
+      "description": "visual timeline / flame / memory / concurrency views"
+    }
+  ],
+  "channels": [
+    {
+      "key": "telemetry",
+      "label": "session JSONL capture",
+      "description": "",
+      "default_enabled": true,
+      "retention": "30d"
+    },
+    {
+      "key": "crash",
+      "label": "hs_err + gdb post-mortem bundles",
+      "description": "",
+      "default_enabled": true,
+      "retention": "forever"
+    }
+  ],
+  "entry": {
+    "python_module": "tool.plugins.telemetry_workbench:plugin",
+    "command": [
+      ".venv/bin/python",
+      "dev",
+      "plugin-run",
+      "telemetry_workbench"
+    ]
+  }
+}

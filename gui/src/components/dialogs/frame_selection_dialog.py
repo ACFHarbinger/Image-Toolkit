@@ -42,7 +42,13 @@ def extract_video_frame_via_ffmpeg(
             "1",
             tmp_name,
         ]
-        res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        # Issue #81 crash family: extracted off the main thread (frame
+        # worker), possibly concurrently with the first QMediaPlayer
+        # construction -- serialize the ffmpeg fork.
+        from gui.src.helpers.video.video_thumbnailer import media_backend_spawn_guard
+
+        with media_backend_spawn_guard():
+            res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         if res.returncode == 0 and Path(tmp_name).exists():
             img = cv2.imread(tmp_name)
             if img is not None:

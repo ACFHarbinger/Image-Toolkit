@@ -189,3 +189,88 @@ class TestRun:
         result = downloader.run()
 
         assert result == 0
+
+class TestGifGallery:
+    def test_animated_image_gallery_extracts_gif_urls(self, tmp_path):
+        """Reddit GIF galleries use e='AnimatedImage' -- these must be
+        downloaded too, not skipped as non-Image entries."""
+        downloader = _downloader(tmp_path)
+        post = {
+            "media_metadata": {
+                "img1": {"e": "Image", "s": {"u": "https://preview.redd.it/1.jpg"}},
+                "img2": {"e": "AnimatedImage", "s": {"u": "https://preview.redd.it/2.gif"}},
+            }
+        }
+        urls = downloader._extract_media_urls(post)
+        assert urls == [
+            "https://preview.redd.it/1.jpg",
+            "https://preview.redd.it/2.gif",
+        ]
+
+
+class TestRunRetry:
+    @patch("requests.Session")
+    def test_transient_429_is_retried_within_one_run(self, mock_session_cls, tmp_path):
+        """A 429 on an image must be retried (with backoff) inside the same
+        run instead of silently dropping the file -- the previous behaviour
+        that required re-clicking Download to get every image."""
+        mock_session = MagicMock()
+        mock_session_cls.return_value = mock_session
+        posts = [
+            {"id": "a", "subreddit": "EarthPorn", "url": "https://i.redd.it/a.jpg"},
+        ]
+        mock_session.get.side_effect = [
+            _resp(200, _listing(posts)),   # listing
+            _resp(429),                    # first image attempt -> 429
+            _resp(200),                    # retry succeeds
+        ]
+
+        downloader = _downloader(tmp_path, source="EarthPorn")
+        result = downloader.run()
+
+        assert result == 1
+        assert (tmp_path / "EarthPorn_a_0.jpg").read_bytes() == b"image-bytes"
+
+    @patch("requests.Session")
+    def test_on_exists_rename_keeps_both_copies(self, mock_session_cls, tmp_path):
+        """on_exists=rename writes name(1).ext when name.ext already exists."""
+        mock_session = MagicMock()
+        mock_session_cls.return_value = mock_session
+        posts = [
+            {"id": "a", "subreddit": "EarthPorn", "url": "https://i.redd.it/a.jpg"},
+        ]
+        mock_session.get.side_effect = [
+            _resp(200, _listing(posts)),
+            _resp(200),
+        ]
+
+        first = tmp_path / "EarthPorn_a_0.jpg"
+        first.write_bytes(b"old")
+
+        downloader = _downloader(tmp_path, source="EarthPorn", on_exists="rename")
+        result = downloader.run()
+
+        assert result == 1
+        assert first.read_bytes() == b"old"  # untouched
+        assert (tmp_path / "EarthPorn_a_0(1).jpg").read_bytes() == b"image-bytes"
+
+    @patch("requests.Session")
+    def test_on_exists_skip_skips_existing_file(self, mock_session_cls, tmp_path):
+        """on_exists=skip leaves an existing file alone and does not count it."""
+        mock_session = MagicMock()
+        mock_session_cls.return_value = mock_session
+        posts = [
+            {"id": "a", "subreddit": "EarthPorn", "url": "https://i.redd.it/a.jpg"},
+        ]
+        mock_session.get.side_effect = [
+            _resp(200, _listing(posts)),
+        ]
+
+        first = tmp_path / "EarthPorn_a_0.jpg"
+        first.write_bytes(b"old")
+
+        downloader = _downloader(tmp_path, source="EarthPorn", on_exists="skip")
+        result = downloader.run()
+
+        assert result == 0
+        assert first.read_bytes() == b"old"
