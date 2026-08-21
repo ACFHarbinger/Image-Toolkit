@@ -13,13 +13,17 @@ worker's signals before any teardown) is still tested below.
 from __future__ import annotations
 
 import contextlib
+from unittest.mock import MagicMock
 
 import pytest
-from gui.src.elements.core.wallpaper_tab.common.wallpaper_common_base import (
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QImage
+from PySide6.QtWidgets import QGridLayout, QScrollArea, QWidget
+
+from gui.src.helpers import ImageScannerWorker
+from gui.src.tabs.core.wallpaper_tab.common.wallpaper_common_base import (
     WallpaperCommonBase,
 )
-from gui.src.helpers import ImageScannerWorker
-from PySide6.QtWidgets import QGridLayout, QScrollArea, QWidget
 
 pytestmark = pytest.mark.gui
 
@@ -71,6 +75,7 @@ class TestSignalDisconnectBeforeTeardown:
         received = []
         worker.scan_finished.connect(lambda paths: received.append(paths))
 
+        # pyrefly: ignore [bad-argument-type]
         panel._stop_scanner_threads()
 
         # _stop_scanner_threads()'s own trailing sendPostedEvents(None,
@@ -87,3 +92,52 @@ class TestSignalDisconnectBeforeTeardown:
             "scan_finished must be disconnected before any teardown -- "
             "a stale emit reached a slot that should no longer be connected"
         )
+
+
+class TestWallpaperGalleryLoading:
+    def test_image_scan_appends_with_one_gallery_rebuild(self, q_app):
+        panel = ConcreteWallpaperBase()
+        panel.master_image_paths = ["existing.png"]
+        panel.start_loading_gallery = MagicMock()
+        panel.refresh_gallery_view = MagicMock()
+        panel._start_video_scan = MagicMock()
+
+        panel._on_image_scan_finished(["existing.png", "new.png"])
+
+        panel.start_loading_gallery.assert_called_once_with(
+            ["new.png"], show_progress=False, append=True
+        )
+        panel.refresh_gallery_view.assert_not_called()
+
+    def test_video_scan_appends_with_one_gallery_rebuild(self, q_app):
+        panel = ConcreteWallpaperBase()
+        panel.master_image_paths = ["existing.png"]
+        panel.start_loading_gallery = MagicMock()
+        panel.refresh_gallery_view = MagicMock()
+        panel._settle_scan_pipeline = MagicMock()
+
+        panel._on_video_scan_finished(["clip.mp4"])
+
+        panel.start_loading_gallery.assert_called_once_with(
+            ["clip.mp4"], show_progress=False, append=True
+        )
+        panel.refresh_gallery_view.assert_not_called()
+
+    def test_startup_thumbnail_is_scaled_and_cached(self, q_app, tmp_path):
+        path = tmp_path / "large.png"
+        image = QImage(800, 400, QImage.Format.Format_RGB32)
+        image.fill(Qt.GlobalColor.red)
+        assert image.save(str(path))
+
+        panel = ConcreteWallpaperBase()
+        panel.thumbnail_size = 96
+        thumb = panel._get_or_generate_thumbnail(str(path))
+
+        assert thumb is not None
+        assert not thumb.isNull()
+        assert thumb.width() <= 96
+        assert thumb.height() <= 96
+        cached = panel._initial_pixmap_cache.get(str(path))
+        assert cached is not None
+        assert cached.width() <= 96
+        assert cached.height() <= 96

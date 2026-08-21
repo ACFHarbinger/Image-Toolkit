@@ -267,43 +267,26 @@ def run() -> None:  # noqa: C901
                     logging.warning(f"Config re-read failed: {exc}")
                     gui_cfg = {}
 
-                if not gui_cfg.get("running"):
+                decision = apply_runtime_config(
+                    gui_cfg,
+                    interval=interval,
+                    style=raw_style,
+                    use_video_runtime=use_video_runtime,
+                )
+                if decision["stop"]:
                     logging.info("Stop requested via config file.")
                     break
 
                 monitors = _parse_monitors(gui_cfg)
-
-                new_interval = int(gui_cfg.get("interval_seconds", interval))
-                new_order = gui_cfg.get("playback_order", playback_order)
-                new_style = gui_cfg.get("style", raw_style)
-                new_queues = gui_cfg.get("monitor_queues", {})
-                use_video_runtime = bool(
-                    gui_cfg.get("use_video_runtime_interval", use_video_runtime)
-                )
-
-                if not use_video_runtime and new_interval != interval:
-                    logging.info(f"Interval changed: {interval} → {new_interval}s")
-                    interval = new_interval
-                    elapsed = 0.0  # reset timer
-
-                if new_order != playback_order or new_queues != monitor_queues:
-                    logging.info("Queue/order changed – rebuilding monitor state.")
-                    monitor_queues = new_queues
-                    playback_order = new_order
-                    monitor_state = {}
-                    for mid, paths in monitor_queues.items():
-                        if not paths:
-                            continue
-                        ordered = list(paths)
-                        if playback_order == "Random":
-                            random.shuffle(ordered)
-                        monitor_state[mid] = {"paths": ordered, "index": 0}
-                    if not monitor_state:
-                        logging.warning("All queues are now empty – stopping.")
-                        break
-                    elapsed = interval  # advance immediately
-
-                raw_style = new_style
+                if decision["reset_elapsed"]:
+                    logging.info(
+                        f"Interval changed: {interval} → {decision['interval']}s"
+                    )
+                    elapsed = 0.0
+                interval = decision["interval"]
+                use_video_runtime = decision["use_video_runtime"]
+                raw_style = decision["style"]
+                # monitor_queues / playback_order stay locked at start time.
 
             # ---- Advance wallpapers when timer fires ----------------------
             if elapsed >= interval:
@@ -357,6 +340,36 @@ def _apply_all(monitor_state: dict, de: str, qdbus: str | None, raw_style: str, 
         WallpaperManager.apply_wallpaper(path_map, monitors, raw_style, qdbus)
     except Exception as exc:
         logging.error(f"Failed to apply wallpaper: {exc}")
+
+
+def apply_runtime_config(
+    gui_cfg: dict,
+    *,
+    interval: int,
+    style: str,
+    use_video_runtime: bool,
+) -> dict:
+    """Apply a GUI config rewrite without touching the locked start-time queue.
+
+    Restarting the app (or loading another profile) must not change what an
+    already-running daemon is showing. Only an explicit stop (``running``
+    cleared) ends the loop. Interval/style may still update.
+    """
+    if not gui_cfg or not gui_cfg.get("running"):
+        return {"stop": True, "interval": interval, "style": style, "use_video_runtime": use_video_runtime}
+    try:
+        new_interval = int(gui_cfg.get("interval_seconds", interval))
+    except (TypeError, ValueError):
+        new_interval = interval
+    new_style = gui_cfg.get("style", style) or style
+    new_video = bool(gui_cfg.get("use_video_runtime_interval", use_video_runtime))
+    return {
+        "stop": False,
+        "interval": new_interval,
+        "style": new_style,
+        "use_video_runtime": new_video,
+        "reset_elapsed": (not new_video and new_interval != interval),
+    }
 
 
 def _update_config_paths(monitor_state: dict, interval: int, use_video_runtime: bool) -> None:

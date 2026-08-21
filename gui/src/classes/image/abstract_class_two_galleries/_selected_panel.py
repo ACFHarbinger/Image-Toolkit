@@ -18,6 +18,7 @@ from shiboken6 import Shiboken
 
 from ....components import ClickableLabel
 from ....helpers import BatchImageLoaderWorker, ImageLoaderWorker
+from ....utils.cache.lru_image_cache import LRU_CACHE_CEILING
 from ...mixins import install_drag_reorder
 
 from typing import TYPE_CHECKING
@@ -41,6 +42,21 @@ class _SelectedPanelMixin:
     def refresh_selected_panel(self: "AbstractClassTwoGalleriesHostProtocol"):  # noqa: C901
         if not self.selected_gallery_layout:
             return
+
+        # #444: size the cache to hold the entire page without mid-populate
+        # eviction -- page sizes go up to 500/1000/All, above the 200
+        # default. Capped at LRU_CACHE_CEILING so one large "All" directory
+        # can't inflate the cache into unbounded RSS growth/swap thrash
+        # (see #444 follow-up) -- but an explicit larger §2.16B baseline
+        # (already reflected in maxsize before this call) is left alone,
+        # it just doesn't grow further from directory size alone.
+        if self._selected_pixmap_cache.maxsize <= LRU_CACHE_CEILING:
+            self._selected_pixmap_cache.resize(
+                min(
+                    max(200, min(self.selected_page_size, len(self.selected_files))),
+                    LRU_CACHE_CEILING,
+                )
+            )
 
         # 1. Harvest pixmaps from current widgets to refresh cache
         for path, widget in self.selected_card_map.items():

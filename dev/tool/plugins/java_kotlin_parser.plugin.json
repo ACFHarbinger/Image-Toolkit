@@ -1,0 +1,30 @@
+{
+  "schema": "devtool.plugin.manifest",
+  "schema_version": 1,
+  "name": "java_kotlin_parser",
+  "version": "0.1.0",
+  "description": "Java/Kotlin parser/ingestion: Java via the real javac AST (com.sun.source), Kotlin via a tokenizer; extracts classes/methods/fields/imports; feeds devtool.record-shaped evidence.",
+  "surfaces": [
+    {
+      "name": "cli",
+      "description": "symbol/definition extraction for Java/Kotlin sources over D52 stdio"
+    }
+  ],
+  "channels": [
+    {
+      "key": "source_symbols",
+      "label": "Java/Kotlin symbol extraction records",
+      "default_enabled": true,
+      "retention": "forever"
+    }
+  ],
+  "entry": {
+    "python_module": null,
+    "command": [
+      "java",
+      "-cp",
+      "dev/plugins/java_kotlin_parser/bin",
+      "Parser"
+    ]
+  }
+}

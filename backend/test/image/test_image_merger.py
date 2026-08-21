@@ -382,7 +382,7 @@ class ImageMergerTest:
         assert os.path.exists(grid_output)
         assert isinstance(result, Image.Image)
 
-    @patch("src.core.image_merger._engines.cv2")
+    @patch("src.core.image._engines.cv2")
     def test_merge_images_panorama(self, mock_cv2, sample_images, output_dir):
         """Test panorama stitching (mocked)"""
         temp_dir, image_paths = sample_images
@@ -419,7 +419,7 @@ class ImageMergerTest:
         mock_cv2.Stitcher_create.assert_called()
         mock_stitcher.stitch.assert_called()
 
-    @patch("src.core.image_merger._engines.cv2")
+    @patch("src.core.image._engines.cv2")
     def test_merge_images_scan_stitch(self, mock_cv2, sample_images, output_dir):
         """Test scan stitching (mocked)"""
         temp_dir, image_paths = sample_images
@@ -458,7 +458,7 @@ class ImageMergerTest:
         mock_cv2.Stitcher_create.assert_called_with(mode=1)
         mock_stitcher.setRegistrationResol.assert_called()
 
-    @patch("src.core.image_merger._engines.cv2")
+    @patch("src.core.image._engines.cv2")
     def test_merge_images_sequential(self, mock_cv2, sample_images, output_dir):
         """Test sequential stitching (mocked w/ template matching)"""
         temp_dir, image_paths = sample_images

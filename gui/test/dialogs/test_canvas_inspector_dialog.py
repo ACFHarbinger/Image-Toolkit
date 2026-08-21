@@ -5,7 +5,8 @@ from __future__ import annotations
 import math
 
 import pytest
-from asp_gui.elements.stitch_tab.dialog.canvas_inspector_dialog import (
+# pyrefly: ignore [missing-import]
+from asp_gui.elements.dialog.canvas_inspector_dialog import (
     CanvasInspectorDialog,
 )
 from PySide6.QtCore import QPointF

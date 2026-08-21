@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
 
 from ._appearance import _AppearanceMixin
 from ._credentials import _CredentialsMixin
+from ._theme_studio_mixin import _ThemeStudioMixin
 from ._misc_sections import _MiscSectionsMixin
 from ._profile_management import _ProfileManagementMixin
 from ._relaunch_settings import _RelaunchSettingsMixin
@@ -39,6 +40,7 @@ class SettingsWindow(
     _RelaunchSettingsMixin,
     _ShortcutsMixin,
     _AppearanceMixin,
+    _ThemeStudioMixin,
     _ResetStateMixin,
     _CredentialsMixin,
     _MiscSectionsMixin,
@@ -91,10 +93,16 @@ class SettingsWindow(
         self.pref_initial_cache = _p.get("initial_cache_maxsize", 300)
         self.pref_restore_last_dir = _p.get("restore_last_dir", True)
         self.pref_restore_last_tab = _p.get("restore_last_tab", False)
+        self.pref_minimize_to_tray = bool(
+            _p.get("minimize_to_tray", False)
+            or _p.get("close_to_tray", False)
+            or AppSettings.minimize_to_tray()
+        )
         self.pref_default_open_dir = _p.get("default_open_dir", "")
         self.pref_recent_dirs_count = _p.get("recent_dirs_count", 10)
         self.pref_startup_category = _p.get("startup_category", "System Tools")
         self.pref_startup_tab = _p.get("startup_tab", "")
+
         self.pref_slideshow_min = _p.get("slideshow_interval_min", 5)
         self.pref_slideshow_sec = _p.get("slideshow_interval_sec", 0)
         self.pref_slideshow_order = _p.get("slideshow_order", "Sequential")
@@ -110,6 +118,10 @@ class SettingsWindow(
         self.pref_font_scale = _p.get("font_scale", 100)
         self.pref_ui_density = _p.get("ui_density", "Comfortable")
         self.pref_app_zoom = _p.get("app_zoom", 0)
+        self.pref_background_config = _p.get("background_config", {})
+        self.pref_corner_radius = _p.get("corner_radius", 4)
+        self.pref_shadow_elevation = _p.get("shadow_elevation", "None")
+        self.pref_color_overrides = _p.get("color_overrides", {})
         self.pref_recursive_scan = _p.get("recursive_scan", True)
         self.pref_mal_fetch_method = AppSettings.mal_fetch_method()
         seen_dirs = set()
@@ -118,6 +130,7 @@ class SettingsWindow(
             for x in (_p.get("favourite_directories", []) + AppSettings.favourite_directories())
             if not (x in seen_dirs or seen_dirs.add(x))
         ]
+
 
         # --- Configuration Defaults State ---
         self.tab_defaults_config = self._load_tab_defaults_from_vault()
@@ -253,7 +266,11 @@ class SettingsWindow(
         shortcuts_tab_layout.addWidget(self._build_shortcuts_groupbox())
         self.tab_widget.addTab(shortcuts_tab, "⌨️ Shortcuts")
 
-        # Tab 7: Bulk Pattern Update
+        # Tab 7: Appearance & Themes (Theme Studio #438 + QSS editor #441)
+        theme_studio_tab = self._build_theme_studio_tab()
+        self.tab_widget.addTab(theme_studio_tab, "🎨 Appearance & Themes")
+
+        # Tab 8: Bulk Pattern Update
         scroll_bulk, layout_bulk = create_tab_scroll_area()
         layout_bulk.addWidget(bulk_groupbox)
         layout_bulk.addStretch(1)

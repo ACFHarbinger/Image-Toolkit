@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
 )
 
 from ...helpers import WebRequestsWorker
+from ...styles import set_button_role
 from ...windows.logging import LogWindow
 
 
@@ -39,25 +40,8 @@ class WebRequestsTab(QWidget):
 
         main_layout = QVBoxLayout(self)
 
-        # --- Group Box Styling ---
-        group_box_style = """
-            QGroupBox {
-                border: 1px solid #4f545c;
-                border-radius: 8px;
-                margin-top: 10px;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                subcontrol-position: top left;
-                padding: 4px 10px;
-                color: white;
-                border-radius: 4px;
-            }
-        """
-
         # --- Request Configuration Group ---
         request_config_group = QGroupBox("Request Configuration")
-        request_config_group.setStyleSheet(group_box_style)
 
         form_layout = QFormLayout()
         form_layout.setContentsMargins(10, 20, 10, 10)
@@ -73,7 +57,6 @@ class WebRequestsTab(QWidget):
 
         # --- Request Builder Group ---
         request_builder_group = QGroupBox("1. Request List (Runs in order)")
-        request_builder_group.setStyleSheet(group_box_style)
         request_builder_layout = QVBoxLayout()
         request_builder_layout.setSpacing(10)
 
@@ -114,7 +97,6 @@ class WebRequestsTab(QWidget):
 
         # --- Action Builder Group ---
         action_builder_group = QGroupBox("2. Response Actions (Runs for each request)")
-        action_builder_group.setStyleSheet(group_box_style)
         action_builder_layout = QVBoxLayout()
         action_builder_layout.setSpacing(10)
 
@@ -179,32 +161,12 @@ class WebRequestsTab(QWidget):
         self.button_layout.setContentsMargins(0, 0, 0, 0)
 
         self.run_button = QPushButton("Run Requests")
-        self.run_button.setStyleSheet(
-            """
-            QPushButton {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #667eea, stop:1 #764ba2);
-                color: white; font-weight: bold; font-size: 16px;
-                padding: 14px; border-radius: 10px; min-height: 44px;
-            }
-            QPushButton:hover { background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                stop:0 #764ba2, stop:1 #667eea); }
-            QPushButton:disabled { background: #718096; }
-        """
-        )
+        set_button_role(self.run_button, "success")
         self.run_button.clicked.connect(self.start_requests)
         self.button_layout.addWidget(self.run_button, 0, Qt.AlignmentFlag.AlignBottom)
 
         self.cancel_button = QPushButton("Cancel Requests")
-        self.cancel_button.setStyleSheet(
-            """
-            QPushButton {
-                background-color: #cc3333; color: white; font-weight: bold;
-                font-size: 16px; padding: 14px; border-radius: 10px; min-height: 44px;
-            }
-            QPushButton:hover { background-color: #ff4444; }
-        """
-        )
+        set_button_role(self.cancel_button, "danger")
         self.cancel_button.clicked.connect(self.cancel_requests)
         self.cancel_button.hide()
         self.button_layout.addWidget(

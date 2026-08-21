@@ -1,6 +1,864 @@
+## S414 — 2026-08-18 (devtool v2: D52 proof plugin + sidecar + Tauri host landed)
+
+The Development Tool v2 first-build shape is in: host skeleton, sidecar,
+record schema, proof plugin, and `just devtool-app`.
+
+- **#407/#409 — Tauri host skeleton + record schema landed (Claude).**
+  `dev/app/src-tauri/` (crate `devtool-app`, root Cargo.toml member): single
+  window, workspace picker sharing `~/.config/devtool/state.json` with the
+  Python CLI/TUI (D48), plus the `devtool.record` schema.
+- **#411 — D52 proof plugin landed (opencode).** `dev/plugins/d52_proof/` is
+  a tiny, dependency-free Go binary (module `devtool.d52_proof`) proving the
+  plugin process protocol is genuinely language-neutral. It speaks the frozen
+  JSON-RPC-over-stdio contract (`--stdio` appended by the host, Grok lock #8)
+  and answers `initialize` + `list_artifacts` (+ `ping`). Its in-tree manifest
+  `dev/tool/plugins/d52_proof.plugin.json` is discovered by the host as a
+  command-only plugin (#410). Go unit tests + 9 pytest integration tests.
+- **#408 — Sidecar landed (opencode, Python core + Rust host wiring).**
+  `dev/tool/sidecar/` adds a `SidecarServer` that speaks the *same* JSON-RPC
+  contract as a command plugin, so the host has one process protocol for both
+  (Grok feasibility / lock #6). `list_artifacts` serves the real in-process
+  Python plugin registry over that wire. `SidecarRestartPolicy` encodes locks
+  #4 + #12 as a testable state machine. New `sidecar` CLI verb (`python dev/
+  sidecar --stdio`). The Rust host wiring spawns the bundled Python
+  (`<repo-root>/.venv/bin/python dev sidecar --stdio`), performs the
+  `initialize` handshake (15s timeout), and drives spawn-on-window-open /
+  kill-on-close + the crash monitor (one auto-restart, then hard fail) from
+  the child's exit status. 7 cargo tests (incl. a real sidecar handshake).
+- **#414 — `just devtool-app` landed (opencode).** `just devtool` stays the
+  Python CLI (unchanged); `just devtool-app` runs `cargo tauri dev` in
+  `dev/app/src-tauri/` (`cargo install tauri-cli`). Source-built first Linux
+  release (lock #1); no AppImage/.deb/Flatpak yet (D61 deferred).
+- Full dev test suite: 121 passed.
+
+## S413 — 2026-08-18 (Development Tool v2 product-design resolution)
+
+The Development Tool v2 roadmap now locks a Linux-first standalone Tauri
+daily driver with a Python sidecar and a language-neutral JSON-RPC process
+boundary. The TUI remains an SSH-friendly fallback, MCP remains standalone,
+and each durable workspace explicitly selects one discovered repository.
+
+The visual direction is a mission-control, persistent runtime-flow world
+that reveals nexus modules. Benchmark UI starts with precise image/result
+inspection; comparative analytics follows. Human and agent annotations are
+visibly distinct. Both approved 4D candidates remain sequenced spikes, one
+at a time after their parent 3D view proves useful.
+
+## S412 — 2026-08-18 (slideshow countdown must not wait on pid file)
+
+S411 gated the countdown on a live pid file. The child writes that file
+after import, so Start immediately returned without starting the timer
+(`Timer: --:--` with Stop still showing). Countdown now follows the
+config `running` flag; the GUI records the Popen pid immediately.
+
+## S411 — 2026-08-18 (system slideshow: lock start-time queue, restore timer)
+
+The Wallpaper Settings "Stop Background Daemon" path is
+`slideshow_daemon.py` (system display), not the per-monitor daemon.
+On app restart, `set_config` / vault defaults fired `_sync_daemon_config`
+and overwrote the running process's `monitor_queues` (often empty). The
+daemon treated that as "all queues empty" and exited; `cancel_loading`
+then froze the countdown at `Timer: --:--`.
+
+Fix: the daemon ignores queue/order rewrites while running (stop only
+via `running: false`). `_sync_daemon_config` keeps the locked start-time
+queues. Countdown is not stopped on `cancel_loading` if the daemon
+process is alive, and is restarted afterward. `_is_daemon_running_config`
+requires a live pid. Per-monitor `_start_daemon_slideshow` is a no-op
+when that daemon is already live.
+
+## S410 — 2026-08-18 (slideshow daemon liveness + D2 bench compare)
+
+Slideshow daemon: write/check a live pid; per-tick exceptions no longer
+kill the process while leaving `running: true`; GUI startup only
+restores the daemon button if that pid is alive, otherwise persists
+`running: false`.
+
+D2 (#388): Session/Investigation manifests record git commit / branch /
+dirty-hash. `python dev/ bench compare A B` is an evidence report (ids,
+config, image paths, human annotations, metric deltas) and does not
+declare a winner.
+
+## S409 — 2026-08-17 (D40: debug/dev fold — debug/ merges into dev/, devtool renamed tool/)
+
+Now that Track A/C are fully landed, `debug/` folds into `dev/` and
+`debug/debugtool/` folds into `dev/devtool/` in one pass (no gradual
+migration, superseding D19's "keep in place until C1 exists" plan and
+C2/D10's "debugtool stays a compatibility CLI entry point forever"):
+
+- `debug/debugtool/model/session.py` (the real `Session`/`Span` engine)
+  replaces `dev/devtool/model/session.py`'s C2-era re-export shim.
+  `list_sessions`/`open_session` (previously only defined on the
+  `debugtool` package `__init__.py`) now live directly in
+  `model/session.py`, since `devtool.model` re-exports them at the
+  package's own top level too.
+- `debug/debugtool/ui/{app.py,views/}` move directly under
+  `devtool/ui/` (same relative-import depth as before — no dot-count
+  changes needed since there's no extra `tui/` subfolder).
+- New `devtool/debug/` subpackage houses `debug/debugtool/__init__.py`
+  and `analyzer.py` — the original small `debugtool` public surface
+  (`open_session`, `list_sessions`, `render_session_view`, `run_tui`,
+  the human-readable report generator), preserved as an *import-level*
+  compatibility surface (`tool.debug.open_session` etc.) rather than
+  merged flat into the host's own `model`/`queries`/`ui`.
+- `debug/debugtool/{cli,export,queries}/` deleted — all three were
+  either an empty stub (export/queries) or a fully superseded Phase-1
+  CLI whose `main()` already just delegated to the canonical `devtool`
+  CLI with a fallback (`cli/main.py`).
+- `debug/{resolve_qt_offset.py,run_with_gdb.sh,telemetry_analyzer.py,README.md}`
+  move to `dev/`; `README.md`'s content merged into `dev/README.md`
+  (one README for the whole tool now, crash narrative preserved).
+- `dev/devtool/` renamed `dev/tool/`. `dev/devtool/cli/main.py` renamed
+  `dev/tool/cli/parser.py` (now only `build_parser()` + `cmd_*`
+  handlers — the four handlers it used to lazy-import from
+  `debugtool.cli.main` are ported in directly). `main()` moves to a new
+  `dev/tool/devtool.py` (keeps the product name as a module even though
+  the package is `tool`). `dev/tool/__main__.py` moves to a top-level
+  `dev/__main__.py`.
+- **Invocation changes**: canonical entry point is now `python dev/` (or
+  `python dev/__main__.py`) — running a directory with Python adds it to
+  `sys.path[0]`, so `tool` resolves without `PYTHONPATH`. `python -m
+  tool`/`-m devtool` and `python -m debugtool` no longer work (no
+  `__main__.py` remains inside the `tool` package).
+- Tests split: `dev/test/debugger/` (the 5 files inherited from
+  `debug/debugtool`) and `dev/test/development/` (the 9 files written
+  directly against `tool`), sharing one merged `dev/test/conftest.py`
+  (sys.path setup + the `telemetry_dir`/`event`/`write_session`
+  fixtures, previously split across two separate conftest files).
+  `test_c2_alias.py` rewritten — its premise (a separate `debugtool` CLI
+  package to compare against) no longer exists; now tests that
+  `tool.debug`'s re-exported `open_session` returns the same `Session`
+  type/data as `tool`'s own.
+- Fixed real (not just cosmetic) breakage found during the fold:
+  `host/app.py`'s plugin discovery (`import devtool.plugins as pkg`) and
+  all four first-party plugins' `entry_point="devtool.plugins.X:plugin"`
+  strings both would have silently failed to resolve post-rename;
+  `editor_integration.py`'s generated VS Code tasks used `-m devtool`
+  args, updated to `["dev/", "tui"]`-style invocation;
+  `host/scenarios.py`'s `asp-eval-smoke` scenario pointed at the
+  pre-split `dev/test/test_plugins_extended.py` path.
+- Roadmap (`development_tool.md`): new D40 lock, D2/D10/D11/D19 amended
+  in place (not rewritten) to point at D40, Home/Relationship sections
+  rewritten to the as-built layout, C2 section struck through with the
+  supersession noted.
+- `docs/TROUBLESHOOTING.md` (+ its `docs/website/public/docs/` mirror)
+  updated to the new paths.
+
+Verified: `pytest dev/test/ backend/test/core/test_telemetry.py` → 118
+passed. `ruff check dev/` clean. Live: `python dev/ plugins --json`,
+`python dev/ list`, `python dev/ repro --list-scenarios`, `python dev/
+resolve-offset --help`, `python dev/ export --help` all run correctly
+against real telemetry files on this machine.
+
+## S408 — 2026-08-17 (C2: debugtool is a devtool alias)
+
+`python -m devtool` is the canonical CLI (workspace + plugins +
+list/analyze/tui/watch). `python -m debugtool` re-exports the same
+parser. `from devtool import open_session` works; debugtool keeps the
+same names. Package files stay in `debug/debugtool` (D19).
+
+## S407 — 2026-08-17 (C1 host lifecycle + discovery)
+
+Grok slice of C1 (#380 / D17): `devtool.host.Host` discovers first-party
+plugins from `dev/devtool/plugins/`, lists artifacts via the existing
+store, and exposes `python -m devtool` / `devtool plugins` / a no-verb
+workspace chooser (no daemon). `debug/debugtool` is unchanged (D19).
+
+## S406 — 2026-08-17 (D4/D23 telemetry span IDs)
+
+`telemetry.emit`/`span` now write optional `span_id`, `parent_span_id`,
+`seq`, and `runtime` when telemetry is on. Disabled path is unchanged.
+`PipelineSession` start/complete/finish emit `asp` / `stage.<name>`
+spans when the host writer is importable and enabled. debugtool
+reconstructs by `span_id` when present, else the old
+`(tid, category, basename)` heuristic.
+
+## S405 — 2026-08-17 (Download-click heap corruption: no QObject on QThread)
+
+The remaining Download-click crash (`QSocketNotifier` from another thread
+→ `Invalid socket N` → glibc `corrupted size vs. prev_size` / SIGSEGV)
+was the MediaLoaderWorker `QThread` constructing `NhentaiDownloader` /
+`RedditDownloader` (QObjects) inside `run()`. That instantiates Qt's
+per-thread glib dispatcher (`QSocketNotifier` on a wake-up pipe).
+`requests` then reuses those fds. Python reports that native QThread as
+`Dummy-N` — not a ThreadPoolExecutor worker.
+
+Fix: `MediaLoaderWorker` is a main-thread `QObject` plus a plain
+`threading.Thread`. The downloader is constructed on the GUI thread;
+only blocking `downloader.run()` runs off-thread.
+
+Also: session-recovery `_load_video_config` no longer constructs
+`QMediaPlayer` just to restore `media_position` (records
+`_pending_media_position` instead). That was the last startup-time
+player construction site.
+
+Tests: 17 pass (`test_media_loader_worker`, `test_media_loader_download_click`,
+`TestPlaybackSpeedDeferral`) including a thread-affinity regression
+(ctor on GUI thread, `run()` on the worker thread).
+
+## S404 — 2026-08-17 (Startup freeze/crash: cross-tab pool drain + Qt Multimedia construction race)
+
+The app froze and crashed at startup ("always freezing and crashing when
+you launch it") and when clicking Download within the ~40s startup window —
+the same underlying startup crash landing at click time. Plain
+backend/main.py launch reproduces it with no interaction. Live
+faulthandler captures ("Fatal Python error: Aborted") identified three
+stacked mechanisms:
+
+1. **Cross-tab QThreadPool.globalInstance() freeze.** gallery_base.py
+   assigned the app-wide global pool to every gallery, so the wallpaper
+   startup-restore path (populate_scan_image_gallery →
+   clear_gallery_widgets → cancel_loading → thread_pool.waitForDone(-1))
+   blocked the main thread until EVERY tab's pooled workers finished —
+   including ExtractorTab's BatchVideoLoaderWorker, which spawns ffmpeg
+   subprocesses (up to 15s each, one per video). Captured stacks: main
+   thread in waitForDone, worker inside subprocess._communicate.
+2. **QAudioOutput() construction aborts the process.** The first
+   QMediaPlayer/QAudioOutput construction lazily loads Qt Multimedia's
+   native FFmpeg/audio backend, whose async device probe races any other
+   active thread (scanner QThreads, ffmpeg forks) → QSocketNotifier warning
+   → heap corruption → SIGABRT. QAudioOutput() aborted repeatedly, even in
+   isolation (before the JVM, before the event loop); QMediaPlayer() alone
+   never aborted.
+3. **Session recovery constructed the player during the startup burst**
+   (violating app.py's round-13 "lazy player" assumption): speed-combo
+   setCurrentIndex, load_media(force=True), the eventFilter wheel/arrow
+   seek branches, and tab-change handling all built the player mid-recovery.
+
+Fixes:
+- gallery_base.py: every gallery now uses its own QThreadPool
+  (maxThreadCount capped at max(2, min(8, cpu_count))) instead of
+  QThreadPool.globalInstance() — cancel_loading() drains only that
+  gallery's own workers.
+- Extractor tab player construction is now genuinely deferred during
+  recovery: set_config calls load_media(..., defer_player=True) (UI state
+  restored, player unbuilt, storyboard unspawned); update_playback_speed
+  records _pending_playback_rate without building the player (applied on
+  construction); the eventFilter uses _current_duration_ms(); tab changes
+  defer while a pending restore is outstanding; toggle_playback completes
+  the deferred load on first interaction.
+- _media_player.py: player construction is serialized against in-flight
+  ffmpeg subprocess forks via MEDIA_BACKEND_LOAD_LOCK (see
+  video_thumbnailer.media_backend_spawn_guard), and QAudioOutput is no
+  longer constructed eagerly — it is built on demand only when the user
+  explicitly adjusts volume (the app already defaults to muted).
+
+Verified: startup now runs clean end-to-end (graceful SIGTERM exit, zero
+killTimer/~QObject/Fatal Python occurrences) with full session recovery +
+wallpaper restore + a live nhentai download (gallery 111006) all running
+concurrently. Tests: 11 new regression tests in
+gui/test/core/test_extractor_startup_deferral.py (dedicated pool,
+playback-speed deferral, deferred load, on-demand audio, spawn guard) +
+gui/test/web/test_media_loader_download_click.py (Download click /
+click-again flow); 47 GUI + 23 downloader tests green.
+
+## S403 — 2026-08-17 (Media loader: crash on repeated Download clicks)
+
+Clicking Download twice in a row crashed the app. Root cause:
+`start_download` replaced `self.worker` with a fresh `MediaLoaderWorker`
+QThread with no re-entry guard, and `MediaLoaderWorker.run()` kept its
+worker-thread-affinity downloader QObject referenced in `self._downloader`
+after the thread finished. The second click dropped the old QThread;
+Python GC then destroyed the downloader QObject from the main thread —
+cross-thread QObject destruction surfacing as the recurring
+`QThread: Destroyed while thread is still running` / `QObject::killTimer` /
+Shiboken `retrieveWrapper` / `QObject::property` SIGSEGV family (the user's
+latest crash, at 275s into a session, was `QObject::property`).
+
+Fixes:
+- `_download_worker.py`: `start_download` now ignores a second click while
+  the previous worker is still running (`worker.isRunning()` guard, matching
+  `image_crawler_tab`'s `cancel_crawl` pattern).
+- `media_loader_worker.py`: `run()` clears `self._downloader` in a `finally`
+  so the worker-thread QObject is released on the worker thread, never GC'd
+  from the main thread after a later click replaces the QThread.
+
+Tests: new `TestStartDownloadReentryGuard` regression test — against the
+pre-fix code it crashes with `QThread: Destroyed while thread is still
+running`; with the fix it passes. All 42 downloader/worker tests green.
+
+## S402 — 2026-08-17 (Extractor queue height match + wallpaper restore reentrancy fix)
+
+Two Extractor/Wallpaper tab fixes:
+
+- **Extraction Queue section now renders at the same height as the
+  Extraction Settings section** (`_queue_management.py`): the queue list
+  height is computed from the settings group's sizeHint minus the queue
+  group's non-list overhead, replacing the hardcoded 320px minimum from the
+  earlier height fix (S387-era). Both groups now report equal sizeHints;
+  larger queues scroll inside the list.
+- **Wallpaper tab: `_select_monitor`/`_select_monitor_peer` no longer pump
+  the full event queue.** The two `QApplication.processEvents()` calls are
+  narrowed to `QApplication.sendPostedEvents(None, QEvent.Type.Paint)`.
+  During session recovery, a full `processEvents()` inside
+  `_select_monitor_peer` reentrantly fired the 250ms scan-dir restore timer
+  from inside the monitor-selection call stack, starting scanner QThreads
+  mid-recovery with the JVM loaded — the documented residual
+  deleteOrphaned/heap-corruption crash class (gallery_crash doc Addenda
+  9/21/26-28). The user's crash caller trace reached
+  `_do_pending_scan_dir_restore` via exactly that line. Paint-only flush
+  preserves the monitor highlight repaint without the reentrancy.
+
+Tests: 2 new regression tests in
+`gui/test/core/test_wallpaper_linked_panel_scan_race.py` (pending timers
+must not fire reentrantly from monitor selection; full processEvents must
+never be called there) — both fail against the pre-fix code and pass with
+it. Queue-height test updated to assert the settings-match instead of the
+old 320px minimum.
+
+**Follow-up (crash recurred at the same `QObjectPrivate::connect`
+offset with a clean caller trace):** the remaining trigger was
+**cross-panel scan concurrency**. The recurring startup-restore crash log
+showed the peer panel's queued `directory_scanned` mirror call starting
+its own `ImageScannerWorker` while the primary was still mid-flight —
+the primary sets `_scan_pipeline_busy` BEFORE emitting
+`directory_scanned`, but the peer's `populate_scan_image_gallery` only
+checked its own flag, so both panels ran scanner QThreads at the same
+instant (the documented Addendum 26/28 two-scanner-threads-at-once
+shape). `_scan_pipeline.py` now defers the peer's mirror call (100ms
+retry timer) while any linked panel is busy, keeping the two panels'
+scans strictly sequential. 2 new regression tests
+(`test_peer_does_not_start_scan_while_primary_busy`,
+`test_peer_starts_scan_after_primary_settles`) — both fail pre-fix and
+pass post-fix.
+
+## S401 — 2026-08-17 (Media loader: retries, collision policy, GIF galleries)
+
+Reddit and nhentai downloaders now retry transient HTTP failures (429/5xx,
+backoff 0.5s/1.0s, up to 3 attempts) so a single Download run fetches the
+full gallery instead of silently skipping frames (the old "click Download
+multiple times" symptom). Reddit GIF galleries (AnimatedImage metadata) are
+now included alongside stills. A new "If file exists" dropdown on the Media
+Loader tab selects the collision policy: overwrite (default), skip, or rename
+to `<name>(<N>)<ext>` where N counts prior files with the same name in the
+queue. Shared helpers live in `backend/src/web/downloaders/_common.py`;
+41 tests cover retry, collision policies, and worker pass-through.
+
+## S400 — 2026-08-17 (Development Tool product direction)
+
+The canonical Development Tool roadmap now records Harbinger's benchmark-first
+product direction: command-palette entry, durable lab-notebook investigations,
+persistent localhost mission-control workspace, explicit runner verbs,
+configurable capture/retention/alerts, evidence-only assistance, and narrowly
+scoped append-only MCP investigation notes. See
+`docs/moon/roadmaps/development_tool.md` decisions D24–D37.
+
+## S399 — 2026-08-17 (Development Tool roadmap fold)
+
+Single source of truth for developer tooling:
+`docs/moon/roadmaps/development_tool.md`. Folds and deletes
+`debug_workbench.md`, `analytics_glossary.md`, and
+`analytics_and_interpretability.md`. Product: modular host in `dev/`
+(TUI + local web + MCP; ASP evaluator as a plugin).
+
+## S398 — 2026-08-17 (M3: full-res red-set A/B renders)
+
+Full-resolution default vs coherence_v2 PNGs for
+04/06/07/12/14/15/96 in `docs/website/public/data/coherence_v2/`. Crop gate
+still 0/7. GhostGate product-default telemetry-only confirmed (23 tests).
+
+## S397 — 2026-08-17 (M3: exclusive-keep passes crop-loss gate)
+
+coherence_v2 now keeps exclusive FG with its source. Red-set re-screen:
+0/7 crop-loss, including test96. Still default-off. Sidecar updated.
+
+## S396 — 2026-08-17 (M3: coherence_v2 red-set crop-loss screen fails)
+
+Compositor A/B on the structural red set: v2 increases crop loss on 6/7
+cases including known-good test96. Not promoted. Data:
+`docs/website/public/data/coherence_v2_redset.json`.
+
+## S395 — 2026-08-17 (M3: coherence_v2 apply slice)
+
+Ownership map is now applied to warped frames (`apply_coherence_v2`). The
+live seam loop is unchanged unless `ASP_COHERENCE_V2=1`.
+
+## S394 — 2026-08-17 (M3: coherence_v2 first slice)
+
+Isolated `coherence_v2` region-to-single-pose assignment (Critical Evaluation
+§9.2 Stage 2). Default-off `ASP_COHERENCE_V2`. Not wired into the live seam
+loop.
+
+## S393 — 2026-08-17 (M2: SeamVis retune cannot pass discriminating exit)
+
+No `(floor, ratio)` pair catches catastrophes 04/06/07/12/14/15 and keeps
+known-good test96. test96 sv=32.2 is higher than every catastrophe (binding
+test15 at 12.55). M2 exit needs a new structural signal, not a threshold
+change.
+
+## S392 — 2026-08-17 (M2.5a: Per-Defect Category & Stage-Attributed Correlation Heatmap)
+
+Delivered M2.5a (#32) per-defect category correlation analysis and interactive
+dashboard visualization for ASP benchmark telemetry:
+- Added `submodules/ASP/backend/benchmark/audit_defect_correlation.py` and
+  `test_audit_defect_correlation.py` computing Spearman $\rho$ across 10 failure
+  classes and stage attributions.
+- Extended `docs/website/scripts/generate-dashboard-data.mjs` to export
+  `defect_correlation_matrix.json`.
+- Implemented `DefectCorrelationSection` in `docs/website/src/pages/RatingsDashboard.tsx`
+  and `RatingsDashboard.css` with stage filtering, discrimination vs subset quality
+  views, interactive cell inspection, and pipeline stage attribution summary cards.
+- Verified: `npm --prefix docs/website run build` passed cleanly.
+
+## S391 — 2026-08-17 (M2: CompositeGate sb candidate + discriminating check)
+
+`ASP_COMPOSITE_SB_TELEMETRY_ONLY=1` is a default-off candidate (26 identity
+changes on the 2026-08-07 run). Discriminating-policy exit fails: known-good
+test96 is Raw ASP, but catastrophes 04/06/07/12/14/15 are also Raw ASP under
+current gates. CompositeGate has no audited-correct input once `sb` is retired.
+
+## S390 — 2026-08-17 (fix stale SafebooruCrawler test assertion, #370 sweep)
+
+Found while sweeping open issues for closure: `test_safebooru_crawler_backend_name_and_preset`
+asserted a request payload without a `limit` key, but `GelbooruCrawler.__init__`
+(pre-dating #370) has always defaulted `limit=100` when absent, and
+`SafebooruCrawler` inherits it. Not a crawler bug — the #370 test just never
+accounted for the inherited default. Updated the expected payload to include
+`"limit": 100`. `backend/test/web/test_image_board_crawler.py`: 12/12 pass.
+
+## S389 — 2026-08-17 (Extractor queue: app freezes during queued extractions)
+
+Fixed: the app freezes while the Extractor tab processes the extraction
+queue (both sequential and parallel modes).
+
+**Root cause — per-item gallery rebuild blocked the UI thread.** Every
+completed queue item ran the per-item completion handler on the UI thread,
+which rebuilt the whole results gallery immediately: start_loading_gallery()
+-> _perform_search() -> refresh_gallery_view() -> cancel_loading() ->
+thread_pool.waitForDone(-1). The gallery shares
+QThreadPool.globalInstance() with the queue worker itself, so that wait
+blocks the UI thread until the ENTIRE queue finishes (and each item also
+re-scanned the output directory). With a queue of N items, the UI froze for
+the whole run.
+
+**Fix — defer gallery rebuilds to queue completion.** The per-item handler
+still records each extraction into recent extractions and removes the item
+from the queue list immediately (the earlier per-item fixes are preserved),
+but completed file paths are now buffered in _queue_pending_gallery_paths.
+Exactly ONE gallery rebuild happens in the queue-finished handler (and the
+error handler flushes whatever completed before a failure), so the blocking
+waitForDone(-1) runs only after the worker is done.
+
+Tests: gui/test/core/test_extractor_queue.py — per-item behavior kept,
+plus new regression tests asserting the gallery is NOT rebuilt per item
+(start_loading_gallery called 0 times during item completions, exactly once
+at queue end) and that the error handler flushes deferred paths. All
+extractor queue + related tests pass (27).
+
+## S390 — 2026-08-17 (M2: CompositeGate sb candidate + discriminating check)
+
+`ASP_COMPOSITE_SB_TELEMETRY_ONLY=1` is a default-off candidate (26 identity
+changes on the 2026-08-07 run). Discriminating-policy exit fails: known-good
+test96 is Raw ASP, but catastrophes 04/06/07/12/14/15 are also Raw ASP under
+current gates. CompositeGate has no audited-correct input once `sb` is retired.
+
+## S389 — 2026-08-17 (M2 observability: pose sources, drop reasons, bench JSON)
+
+Second slice on the session envelope: pose `source`/`refined_by`, per-pass
+frame drop reasons, load/save geometry, and `observability` on the canonical
+benchmark JSON.
+
+## S388 — 2026-08-17 (M2: PipelineSession observability envelope)
+
+ASP records the first M2 observability slice on `PipelineSession`: per-stage
+geometry, frame/pose provenance, gain residuals/clamps, seam feasibility, and
+fallback reason, published from `finish()` as `artifacts["observability"]`.
+No pixel-path change.
+
+## S387 — 2026-08-17 (M2: GhostGate telemetry-only candidate + range-JSON merge)
+
+ASP submodule `b3ee8a9` (`fix(#31)`):
+
+- GhostGate can record `ghosting_score_v2` as `telemetry_only_inverse_validated`
+  (`ASP_GHOST_TELEMETRY_ONLY=1`) without driving Safe ASP fallback. Default
+  reject path is unchanged. Offline replay of the 2026-08-07 97-case run:
+  0 identity changes (five-case, red set, all 97). No historic GhostGate-only
+  fallback exists in that corpus.
+- Disjoint per-range `anime_stitch_*.json` files now merge into
+  `anime_stitch_latest_consolidated.json` after each bench write.
+
+## S386 — 2026-08-17 (M2: ASP Advanced Configuration UI Matrix delivered in GUI & Web)
+
+Delivered the M2 Advanced Configuration UI surface across both the desktop
+PySide6 application and the React documentation/portal website:
+
+- **PySide6 Dialog & MergeTab Integration** (`gui/src/components/dialogs/asp_advanced_config_dialog.py`):
+  - Created `AspAdvancedConfigDialog` presenting a curated 20-flag Primary Profile
+    surface and an expandable category drawer containing all 73 registered `ASP_*`
+    parameters from `_CONFIG_SCHEMA`.
+  - Added live type/bounds validation (int/float ranges, binary checkboxes, flow engine selector),
+    parameter search filtering, preset switching (`laptop_balanced`, `desktop_quality`, `research_ungated`),
+    and JSON/TOML configuration import/export.
+  - Integrated "Advanced Configuration…" button into `MergeTab` AI options (`gui/src/elements/core/merge_tab/_ui_config.py`).
+  - Added unit test suite `gui/test/dialogs/test_asp_advanced_config_dialog.py` (6/6 passing).
+
+- **React Web Component & Pipeline Page Integration** (`docs/website/src/components/config/AdvancedConfigDrawer.tsx`):
+  - Implemented `AdvancedConfigDrawer` under the Optic Lab / Blueprint design theme.
+  - Features real-time parameter search, category filtering, interactive toggle/slider controls,
+    preset application, and one-click TOML manifest generation/copying.
+  - Embedded into `docs/website/src/pages/Pipeline.tsx` under the "ASP Configuration & Tuning Matrix" section.
+  - Verified clean TypeScript/Vite production build (`npm run build`).
+
+## S385 — 2026-08-17 (Extractor output dir: respect saved dir; GIF in gallery but not in output dir)
+
+
+Fixed: GIF (and frame) extractions showed up in the Extractor tab gallery but
+the actual files were NOT in the user's output directory — both with the queue
+disabled and with a single queued item.
+
+**Root cause — startup preferences silently reset the output directory.** On
+every launch, _apply_startup_preferences() in
+gui/src/windows/main/_startup_prefs.py unconditionally overwrote
+tab.extraction_dir with the DEFAULT path (LOCAL_SOURCE_PATH/Frames =
+~/Downloads/Data/Media/Frames), discarding the directory the user had
+previously browsed to (stored in the session as last_browsed_extraction_dir).
+The saved value was only ever used as the browse dialog's starting point,
+never applied as the actual extraction target. So:
+
+- GIFs/PNGs were written to the default dir.
+- The gallery reads extraction_dir (the default), so the file appeared there.
+- The user's configured output directory (e.g.
+  ~/Downloads/Data/Frames/GIFs) stayed empty -> "appears in gallery, but not
+  in the actual output directory".
+
+Reproduced with a real video: after simulating the startup-prefs force, the
+gif landed in ~/Downloads/Data/Media/Frames while the user's chosen dir was
+empty; after the fix it lands in the user's dir and the gallery shows the same
+path.
+
+**Fixes:**
+
+- gui/src/windows/main/_startup_prefs.py: the ExtractorTab block now loads the
+  saved last_browsed_extraction_dir (with the Downloads/data case fix) and
+  applies it to extraction_dir + line_edit_extract_dir when it exists,
+  falling back to the default only when there is no saved dir. Also refreshes
+  the extracted-stems cache and output gallery so the UI reflects the
+  restored dir.
+- gui/src/elements/core/extractor_tab/_queue_management.py:
+  _add_queue_results_to_gallery now filters out worker-reported paths that do
+  not exist on disk, so a path mismatch can never surface as a phantom
+  gallery card ("appears in gallery but not in the output dir").
+
+**Tests** (gui/test/core/test_startup_extraction_dir.py, 2; plus
+gui/test/core/test_gif_regression.py, 2, and
+gui/test/core/test_gif_disk_vs_gallery.py, 2, all --run-gui): startup prefs
+respect a saved extraction dir; fall back to default when none saved; real
+end-to-end GIF creation on disk for queue-disabled and 1-item queue; gallery
+paths match disk paths. All pass. CHANGELOG S385 entry.
+
+## S384 — 2026-08-16 (Extraction queue: results recorded, items removed per-item, GIF fixes)
+
+Fixed the extraction queue (enabled via the Extractor tab's "Extraction Queue"
+toggle) not working correctly end-to-end. Reported symptoms: queued extractions
+produced no visible GIF, completed queue entries lingered in the queue list,
+and queue-completed extractions never appeared in the recent-extractions
+dropdown (unlike non-queue extractions).
+
+**Root causes (all in the queue orchestration, not the worker):**
+
+- **Queue results were never recorded into extraction history.** The non-queue
+  paths (_on_extraction_finished, _on_export_finished, extract_single_frame)
+  all call _record_extraction(); the queue path (_on_queue_processing_finished)
+  only loaded the gallery and never recorded, so queued outputs never showed
+  up in "recent extractions".
+- **The worker's per-item item_completed signal was never connected.**
+  process_queue only wired progress/finished/error, so the queue list stayed
+  fully populated until the whole batch finished (and the gallery only updated
+  once, at the very end).
+- **The queue worker's GIF branch failed on open-ended items** (end_ms=-1,
+  rendered as "End" in the queue list): it computed a negative -t duration for
+  ffmpeg instead of probing the video's real duration.
+
+**Fixes:**
+
+- gui/src/elements/core/extractor_tab/_queue_management.py:
+  - New _on_queue_item_completed(index, res, item) slot, now connected to the
+    worker's item_completed signal: records each successful result into
+    extraction history (_record_extraction with metadata sourced from the
+    queue config), removes the finished entry from the queue list immediately
+    (identity match first, value match for multiprocessing pickled copies,
+    index fallback), and adds the produced files to the gallery per item.
+  - process_queue passes a *copy* of the queue to the worker so the tab can
+    safely pop completed items without corrupting the worker's iteration.
+  - _on_queue_processing_finished keeps a dedupe fallback for any results the
+    per-item handler could not associate (parallel index mapping), and no
+    longer double-adds paths already handled per item.
+  - New helpers _queue_result_paths / _queue_result_metadata /
+    _add_queue_results_to_gallery.
+- gui/src/helpers/core/queue_execution_worker.py:
+  - item_completed signal now carries the original queue item
+    (Signal(int, dict, dict)), emitted from both sequential and parallel
+    paths, so the tab can remove the right entry regardless of completion
+    order.
+  - GIF branch handles end_ms == -1 (open-ended) by probing the video duration
+    (with a safe fallback), so an "End"-labelled queued GIF succeeds instead
+    of failing with a negative -t.
+- gui/src/elements/core/protos/extractor_tab.py: protocol declaration for the
+  new three-arg _on_queue_item_completed.
+
+**Tests** (gui/test/core/test_extractor_queue.py, 11 tests, --run-gui):
+per-item recording + removal, error results stay for review, gallery dedupe
+when both handlers run, real end-to-end GIF through process_queue +
+QThreadPool, parallel worker emits original configs, open-ended GIF succeeds.
+All extractor-tab tests pass (23 total with drag-preview + external-player).
+
+## S385 — 2026-08-16 (remaining bus errors: resume checkpoint, #371 RLHF leftovers)
+
+- Detached ungated runner no longer restarts `--range 2-97` from scratch after
+  SIGKILL. `bench_anime_stitch.py --resume-checkpoint` skips names already in
+  `_checkpoint.json`; the wrapper always passes that flag.
+- `analytics_and_interpretability.md` Phase 9 no longer cites deleted RLHF
+  batch scheduling / reward-loop termination (#371 leftover after Phase 2
+  was already retargeted).
+
+## S384 — 2026-08-16 (#30: asp_test83 match hang + SCANS status=1 crash)
+
+Ungated 97-run follow-up from the bus: `asp_test83` burned CPU for 1+ hour
+after LightGlue weight load with no logs (18×1080p pairs × skip-edges, not
+an infinite loop). `asp_test90`/`93`/`95` then died with
+`CanvasError('SCANS fallback failed (status=1)')` even when the bench's
+simple `opencv_stitch.png` already existed.
+
+- `ASP_MATCH_BUDGET_SEC` (default 180) stops pairwise matching and keeps
+  whatever edges exist so SCANS can run; each pair is logged.
+- `_scan_stitch_fallback` retries SCANS/PANORAMA at a few resolutions and
+  subsets, then reuses `opencv_stitch.png` instead of aborting the dataset.
+
+**Verification:** `pytest` on `test_scan_fallback.py`. Live
+`--range 83-83` watch still required before claiming the hang is gone.
+
+## S383 — 2026-08-16 (Extractor tab video player black — #374; real external player toggle)
+
+Fixed the today-only regression where the Extractor tab's in-app video player
+showed black for every video, and wired the "Switch to External Player" button
+to actually launch an external player (it previously only toggled the internal
+player's output, so it appeared to do nothing).
+
+**#374 root cause — machine-wide QT_MEDIA_BACKEND=gstreamer:** the
+QT_MEDIA_BACKEND=gstreamer left over in /etc/environment from the #373
+KDE-smart-video-wallpaper investigation was inherited by the Image-Toolkit
+process. PySide6's bundled Qt ships ONLY the FFmpeg multimedia backend
+(Qt/plugins/multimedia/libffmpegmediaplugin.so) — there is no GStreamer
+backend plugin in the wheel. With gstreamer forced, every QMediaPlayer failed
+to initialize ("No QtMultimedia backends found ... Failed to initialize
+QMediaPlayer"), so the player surface stayed black for every video. Haruna
+(an mpv-based, non-Qt-Multimedia player) was unaffected, matching the report.
+Reproduced with a minimal QMediaPlayer/QGraphicsVideoItem script: with
+gstreamer the player reports no backend and hasVideo=False; with ffmpeg media
+loads, buffers and plays to end-of-media.
+
+- backend/src/qt_runtime_env.py (new): pin_qt_media_backend() forces
+  QT_MEDIA_BACKEND=ffmpeg — the only backend this distribution ships — and
+  must run before any QtMultimedia object is constructed.
+- backend/main.py and gui/__main__.py: call pin_qt_media_backend() at entry,
+  before any Qt import, so the app is immune to a poisoned machine-wide env
+  var regardless of how it is launched.
+- gui/src/elements/core/extractor_tab/_view_controls.py:
+  _launch_external_player() now opens the current video with the user's
+  default handler (xdg-open → Haruna here), falling back to a known player
+  binary (haruna/mpv/vlc/celluloid) when xdg-open is unavailable; the
+  external branch of _apply_player_mode() calls it (deduplicated per video,
+  and an explicit toggle always relaunches). Also removed a duplicate
+  setAudioOutput(None) call.
+- gui/src/elements/core/extractor_tab/manager.py: track
+  _external_player_launched_path to avoid spawning duplicate player windows.
+- Tests: backend/test/core/test_qt_runtime_env.py (3) and
+  gui/test/core/test_extractor_external_player.py (6, --run-gui).
+
+**Note:** the leftover QT_MEDIA_BACKEND=gstreamer in /etc/environment should
+still be removed machine-wide so other Qt Multimedia consumers on this box
+aren't affected (the app itself is now hardened against it).
+
 # Image Toolkit — Changelog
 
 *Completed items archived from the Master Roadmap. Ordered from most recent phase to earliest.*
+
+## S382 — 2026-08-15 (KDE video wallpaper: deeper NoMedia root cause — sync LastVideo)
+
+Follow-up to #373 (still open). The `isLoading`-race fix (`a2312a23`, S378) was
+correct but is not the only cause: a live debug-overlay capture on an
+already-active (well past `isLoading`) Reborn instance still showed
+`playing: true`, both underlying players not playing, and
+`mediaStatus: 0` (= Qt Multimedia `NoMedia`). `NoMedia` specifically means the
+active `VideoPlayer` had **no source ever handed to it** (a decode/failure
+would be `InvalidMedia`), which localizes the defect to `FadePlayer.qml`'s
+`playerSource`/`next()` chain (third-party plugin — cannot be edited by this
+repo; fix must live in `_kde.py`).
+
+Root cause found by reading the installed plugin: `playerSource` is only ever
+set (by direct assignment, which *breaks* the property binding) inside
+`FadePlayer.next()`, reading `root.currentSource`, which is a deferred QML
+binding to `main.currentSource`. When `ResumeLastVideo` is on (the default) and
+the persisted `LastVideo` no longer matches the freshly-written single video,
+`main.currentSource` first resolves to `createVideo("")`; because QML binding
+invalidation is deferred, `next()`'s synchronous `playerSource = root.currentSource`
+captures that stale empty value into the active player `source`, and nothing
+re-drives it — hence `NoMedia` and a persistent black screen. The config itself
+was valid; only the plugin's resume-state made `currentSource` resolve empty at
+the wrong instant.
+
+- `backend/src/core/wallpaper/_kde.py`: when writing Reborn's `VideoUrls`, also
+  write `LastVideo` to the same bare `file://` URI (mirroring the plugin's own
+  `save()`), so `getVideoByFile(LastVideo, videosConfig)` matches and the
+  delegate's `currentSource` can never resolve empty. Scoped to the Reborn
+  plugin (only one with `LastVideo`). Pre-computed outside the f-string because
+  Python f-string expressions can't contain backslashes.
+- `backend/test/image/test_wallpaper.py`: extended
+  `test_apply_wallpaper_linux_kde_video_writes_file_uri` to assert `LastVideo`
+  is written as the bare URI (never the JSON array). `backend/test/image/test_wallpaper.py`
+  still 9/9 passing.
+
+**Not claiming full resolution.** This directly removes the identified
+empty-`playerSource`/`NoMedia` failure mode with a unit-verified config change,
+but live sustained playback has **not** been re-confirmed end-to-end in this
+pass (thermal caution + third-party plugin requires an on-screen wallpaper
+repro). Final sign-off on #373 still needs a live repro after this lands.
+
+## S381 — 2026-08-15 (Track O0: Optic Lab Research Journal & Distill Explorable Explanation Widgets)
+
+Implemented Track O0 of the ASP Outreach Roadmap (`asp_outreach_roadmap_2026q3.md`), launching the Optic Lab Research Journal and interactive Distill-style explorable explanation widgets in `docs/website/`:
+
+- **Optic Lab Research Journal Portal (`docs/website/src/pages/Journal.tsx` + `Journal.css`)**:
+  - Implemented `/journal` index and `/journal/:articleId` article reader routing in `App.tsx`.
+  - Built Optic Lab themed layout (Obsidian/Cyan/Emerald/Purple tokens, article categorizations, author cards, read time estimates, tag filters, and responsive typography).
+  - Seeded **Lab Note 01** (*"Metric Inversion & Failure-Mode Anatomy in Multi-Frame Cel Alignment"*) detailing why automated CV sharpness inflates on broken seams, and the 43/54 M0 split.
+  - Seeded **Lab Note 02** (*"Evidence-Backed Dual-Veto Gates for Public Benchmark Promotion (§C0.5)"*) detailing the dual-assessor clearance and machine-readable telemetry contract.
+- **Distill-Style Explorable Explanation Widgets (`docs/website/src/components/journal/`)**:
+  - `DiffLoupe.tsx` + `DiffLoupe.css`: Interactive split-view loupe with 2.5x magnification magnifying seam pixel alignment, optical flow, and step discontinuities.
+  - `HoldTimelineSlider.tsx` + `HoldTimelineSlider.css`: Interactive timeline scrubber demonstrating cel-pose hold selection and ghosting suppression.
+  - `LayerStack3D.tsx` + `LayerStack3D.css`: 2.5D/3D perspective exploded layer stack demonstrating background canvas synthesis, SAM-2 alpha cutout mattes, and final seam-blended composites with click-and-drag orbit controls.
+- Verified `npm run build` cleanly in 6.46s with zero errors.
+
+## S380 — 2026-08-15 (M0 Live Relabeling Data Pipeline + Accessible Dashboard + Strict Board Rating Tag Normalizers)
+
+
+Addressed review findings from Chat/Codex and completed M0 data integration across the web telemetry and crawler systems:
+
+- **M0 Relabeled Corpus Pipeline & Live Telemetry Artifact (`docs/website/scripts/generate_m0_data.py` & `m0_relabeled_summary.json`)**:
+  - Implemented data generation script executing `relabel_corpus()` and `summarize()` against the benchmark checkpoint (`anime_stitch_20260807_045552.json`) and human evaluation dataset (`asp_evaluations_20260810.json`).
+  - Emitted `docs/website/public/data/m0_relabeled_summary.json` containing live 97-case split data (43 true raw ASP composites @ 1.33 mean score vs. 54 SCANS safety fallbacks @ 2.56 mean score).
+  - Added `"data:m0"` npm script in `docs/website/package.json`.
+- **Live Dynamic Ratings Dashboard (`docs/website/src/pages/RatingsDashboard.tsx` + `useRatingsData.ts`)**:
+  - Extended `useRatingsData` hook to load `m0Data` and typed `M0RelabeledSummary` and `RelabeledCaseEntry`.
+  - Bound live M0 numbers dynamically into the primary KPI cards and Corpus Provenance section.
+  - Added per-case M0 pipeline fallback metadata (rated identity, fallback gate name, numeric error code, and composite status) inside the expandable row detail drawer.
+  - Retained full keyboard navigation (`tabIndex={0}`, `role="button"`, `aria-expanded`, Enter/Space keydown handlers).
+  - Verified clean TypeScript build (`npm run build` completed in 6.56s with zero errors).
+- **Strict Per-Board Rating Tag Normalizers (#370)**:
+  - `ImageBoardCrawler` base class returns `None` for unrecognized rating values, preventing arbitrary tag hallucination.
+  - Explicit enum maps in `DanbooruCrawler`, `GelbooruCrawler`, and `SankakuCrawler` (`general`, `sensitive`, `questionable`, `explicit`), with Safebooru acting as an explicit no-op.
+  - Extended test suite in `backend/test/web/test_image_board_crawler.py` asserting rejection of unrecognized rating tags.
+
+## S379 — 2026-08-15 (Ratings Dashboard overhaul + Crawler rating filter & Safebooru preset + ML roadmap Phase 2 rescope)
+
+
+Implemented GitHub issues #370 and #371, along with the full Optic Lab theme overhaul of the web ratings & provenance dashboard:
+
+- **Web Ratings & Provenance Dashboard Overhaul (`docs/website/src/pages/RatingsDashboard.tsx` + `RatingsDashboard.css`)**:
+  - Rebuilt the Ratings Dashboard under the **Optic Lab / Blueprint Lab** theme, replacing legacy purple variables with dark obsidian (`#07080b` / `#0d0f14`), glassmorphic panels, and glowing cyber-cyan (`#00f0ff`/`#06b6d4`) vs. emerald (`#10b981`) color tokens.
+  - Added M0/C0.5 Corpus Provenance & Safety Tiering metrics (`tier_g`, `tier_pg13`, `tier_mature_sfw`, Dual-Veto Verification badge, and Human Preference Arbitration split meter).
+  - Added real-time text search, safety tier filtering, verdict filtering, interactive defect category tags, expandable row detail drawers, and interactive SVG trend charts with hover crosshairs.
+  - Verified `npm run build` generates `dist/` cleanly with zero TypeScript errors.
+
+- **Crawler Rating Filter & Safebooru Preset (Issue #370)**:
+  - `backend/src/web/crawlers/image_board_crawler.py`: Added automatic rating normalization (`config["rating"]` appends `rating:<val>` to tags) and polymorphic backend engine name dispatch via `get_crawler_backend_name()`.
+  - `backend/src/web/crawlers/safebooru_crawler.py`: Created `SafebooruCrawler` backed by the Gelbooru DAPI engine (`https://safebooru.org`).
+  - `backend/test/web/test_image_board_crawler.py`: Added unit tests verifying Safebooru preset mapping and tag rating normalization.
+
+- **Phase 2 ML Roadmap Rescope (Issue #371)**:
+  - `docs/moon/roadmaps/analytics_and_interpretability.md`: Rescoped Phase 2 around active deep learning components (`AnimeStitchNet`, BiRefNet, LoFTR, DINOv2) and explicitly archived stale references to retired RLHF reward models.
+
+## S378 — 2026-08-15 (Analytics dual-access contract + KDE video wallpaper fix)
+
+
+Implemented GitHub issue #372 / `analytics_and_interpretability.md` cross-cutting
+requirement: every Phase 1-12 deliverable should expose a machine-readable
+sidecar (JSON/Parquet + short NL summary) alongside its human-facing chart,
+so agents don't need to parse rendered charts to get what a human dashboard
+viewer gets. Delivered by Chat/Codex, delegated via `.agent/cache/AGENT_BUS.md`.
+
+- `docs/moon/roadmaps/analytics_and_interpretability.md`: new "Cross-Cutting:
+  Dual Human/Agent Access Contract" section; Phase 1.4 status note clarified
+  (static dependency safeguards shipped, interactive meta-graph work remains
+  planned).
+- `docs/moon/roadmaps/analytics_glossary.md` (renamed lowercase from
+  `ANALYTICS_GLOSSARY.md` to match other roadmap docs' naming convention):
+  living shared vocabulary for Image Toolkit/ASP analytics — result
+  identities (`raw_asp`/`safe_asp`/`scans`), defect labels (ghosting,
+  seam_line, torn_anatomy, etc.), and evidence/decision vocabulary
+  (`observation` vs `adjudication`, `provenance`, `primary defects`).
+- Fixed two broken relative links found during review: the glossary
+  referenced `roadmaps/analytics_and_interpretability.md` from inside
+  `roadmaps/` itself (double-nested); the reverse link used `../` (one
+  level too high). Both are same-directory files — fixed to same-directory
+  relative links.
+
+Implemented GitHub issue #373 (KDE Smart Video Wallpaper black-screen bug):
+root cause was an `isLoading` race in the installed Smart Video Wallpaper
+Reborn plugin's `main.qml` — a freshly-switched wallpaper plugin's QML
+delegate starts with `isLoading=true` for ~100ms, and its config-change
+handler that actually starts playback silently no-ops while that's true.
+`_kde.py` was writing the video config in the same D-Bus script as the
+plugin switch (which recreates the delegate and restarts that clock), so a
+fresh switch almost always lost the race.
+
+- `backend/src/core/wallpaper/_kde.py`: split the plugin-switch and
+  video-config-write into two separate D-Bus `evaluateScript` calls with a
+  short delay between them, only for monitors that just switched (already-
+  active monitors skip the delay). Skips the delay/second call entirely if
+  the switch itself failed.
+- `backend/test/image/test_wallpaper.py`: updated for the new two-call
+  sequence, 9/9 passing.
+- Verified live: plugin switch and `VideoUrls` config write both confirmed
+  correct via `qdbus` against the real desktop. Full sustained video
+  playback was **not** verified end-to-end — a separate, unrelated hardware
+  issue (degraded CPU cooler, thermal caution active) made that unsafe to
+  test this session. Reopen issue #373 if the symptom recurs once playback
+  can be safely verified.
+
+## S377 — 2026-08-12 (HIE Hybrid Editor UI ownership + host pipeline/IPC)
+
+**Goal:** Hybrid Editor UI and host pipeline integration live in `submodules/HIE`; Image-Toolkit only re-exports so parent UIs track the submodule.
+
+### Image-Toolkit (parent `a672ba46`)
+- PySide6: `gui/src/tabs/editor/` is a thin re-export of `hie_gui.HieEditorTab` (no local editor implementation).
+- React/Tauri: `frontend` depends on `hie-frontend` (`file:../submodules/HIE/frontend`) and re-exports `HieEditorTab` from `frontend/src/embed/react/`.
+- Workspace `package-lock.json` records the `hie-frontend` link.
+- HIE submodule pointer advanced to host-ownership commit `ae052e8`.
+
+### HIE submodule (`ae052e8`, issue [#8](https://github.com/ACFHarbinger/Hybrid-Image-Editor/issues/8))
+- `HieTab` owns a middleware `PipelineSession` (policy preview/accept + restoration capability list and cancellable queue).
+- Versioned IPC expanded: `list_capabilities`, `preview_policy`, `accept_proposal`, `submit_restoration` (plus existing open/export/notify).
+- React embed and `HieHost` seam updated for host-driven open/export/preview/accept.
+- Tests at land: middleware **103 passed / 23 skipped**, gui **5 passed**.
+- Coordination: Claude owns package-dir flatten (`hie_middleware` → flat `middleware/src/*`; planned `hie_gui` → `gui/src/*`); Grok did not reverse that work.
+
+### Tracking
+- HIE [#8](https://github.com/ACFHarbinger/Hybrid-Image-Editor/issues/8) — host pipeline / dual-UI integration progress comments.
+- Parent Track 04 [#363](https://github.com/ACFHarbinger/Image-Toolkit/issues/363) (closed foundation) — follow-up comment for re-export ownership.
+
+## S376 — 2026-08-12 (Resolved and Closed All Open Backlog Issues on GitHub)
+
+Resolved all 19 open GitHub backlog issues across HIE, UI/UX, Performance, Architecture, and New Features:
+- **HIE Phase 2 Neural Inpainting & Outpainting Adapter ([#365](https://github.com/ACFHarbinger/Image-Toolkit/issues/365))**: Created `InpaintingAdapter` / `InpaintingModel` supporting prompt-driven and stroke-guided mask generation options and outpainting bounding boxes (`neural_inpaint`, `neural_outpaint`), registered in `build_default_pipeline()` with unit test suite in `test_inpainting.py`.
+- **Safetensors Metadata Viewer & Integrity Inspector ([#312](https://github.com/ACFHarbinger/Image-Toolkit/issues/312))**: Enhanced `read_metadata()` with `parse_model_spec()` (LoRA rank, alpha, base model, trigger words) and `calculate_file_hash()` for chunked, non-blocking SHA256 integrity verification in `SafetensorsInspectorDialog` (`✓ MATCHED` in green / `✗ MISMATCH` in red).
+- **Dark/Light Theme Toggle ([#350](https://github.com/ACFHarbinger/Image-Toolkit/issues/350))**: Integrated theme toggle with QSS stylesheet switching, icon updates (`☀` / `🌙`), OS color-scheme auto-detection, vault preference persistence, and unit test suite in `test_theme_toggle.py`.
+- **Workflow Templates ([#317](https://github.com/ACFHarbinger/Image-Toolkit/issues/317))**: Closed with `_WorkflowTemplatesMixin`, `Ctrl+Shift+M` picker, and vault persistence (`test_workflow_templates.py`).
+- **Appearance Profiles ([#316](https://github.com/ACFHarbinger/Image-Toolkit/issues/316))**: Closed with system preference profiles consolidating theme, accent colours, font scale, UI density, and app zoom.
+- **Slideshow Improvements ([#310](https://github.com/ACFHarbinger/Image-Toolkit/issues/310))**: Closed with interval timing, shuffle order, and directory/tag filtering.
+- **Multi-Frame Image Splitter ([#319](https://github.com/ACFHarbinger/Image-Toolkit/issues/319))**: Closed with Extractor tab Image subtab boundary preview and deep-zoom canvas.
+- **Extractor Storyboard Scrub Preview ([#318](https://github.com/ACFHarbinger/Image-Toolkit/issues/318))**: Closed with sprite-sheet storyboard floating preview widget.
+- **Additional Stitcher Options ([#320](https://github.com/ACFHarbinger/Image-Toolkit/issues/320))**: Closed with Merge tab Engine dropdown (OpenCV, Hugin, Overmix, ASP) and backend engine wrappers.
+- **Media Loader Web Media Downloader ([#321](https://github.com/ACFHarbinger/Image-Toolkit/issues/321))**: Closed with Reddit and nhentai downloaders and telemetry instrumentation.
+- **ComfyUI Workflow Integration ([#311](https://github.com/ACFHarbinger/Image-Toolkit/issues/311))**: Closed with `ComfyUIManager` ControlNet/IP-Adapter prompt queueing and workflow template overrides.
+- **Pipeline Trace JSON ([#351](https://github.com/ACFHarbinger/Image-Toolkit/issues/351))**: Fixed `telemetry.py` file handle persistence, logging structured JSONL event records to `telemetry-<pid>.jsonl`.
+- **Consolidated Overmix Summary Report ([#352](https://github.com/ACFHarbinger/Image-Toolkit/issues/352))**: Added `merge_overmix_report.py` to consolidate Overmix artifacts without requiring pipeline re-runs.
+- **Unified Database Backup Pipeline ([#343](https://github.com/ACFHarbinger/Image-Toolkit/issues/343))**: Retargeted backup pipeline to `library.db.bak` byte copy of unified SQLCipher store.
+- **ASP Render Stage GPU Acceleration ([#330](https://github.com/ACFHarbinger/Image-Toolkit/issues/330))**: Closed with PyTorch CUDA GPU accelerated temporal median rendering (`_gpu_nanmedian()`, `ASP_GPU_MEDIAN=1`).
+- **Python ML Model Memory Lifecycle ([#335](https://github.com/ACFHarbinger/Image-Toolkit/issues/335))**: Closed with `unload()` method on all PyTorch model wrappers clearing VRAM.
+- **C++ Streaming Image Merger ([#329](https://github.com/ACFHarbinger/Image-Toolkit/issues/329))**: Closed with two-pass header-only dimension sizing in `base/src/core/merger.cpp`.
+- **REST API Layer for Remote Control ([#313](https://github.com/ACFHarbinger/Image-Toolkit/issues/313))**: Closed with `drf-spectacular` OpenAPI 3.0 schema generation at `/api/schema/`, `/api/docs/`, and `/api/redoc/`.
+- **ASP RLHF Quality Feedback ([#314](https://github.com/ACFHarbinger/Image-Toolkit/issues/314))**: Created `backend/src/animation/stitch_feedback.py` logging rating records to `stitch_feedback.jsonl`.
 
 ## S375 — 2026-08-09 (Rebuilt docs/website as the full interactive documentation portal)
 

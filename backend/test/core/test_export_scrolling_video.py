@@ -17,7 +17,7 @@ import unittest
 import numpy as np
 from PIL import Image
 
-from backend.src.core.image_merger import ImageMerger
+from backend.src.core.image import ImageMerger
 
 _HAS_FFMPEG = shutil.which("ffmpeg") is not None
 _HAS_FFPROBE = shutil.which("ffprobe") is not None
@@ -148,7 +148,7 @@ class TestExportScrollingVideo(unittest.TestCase):
         # which does its own `import shutil` -- patch that submodule, not
         # the pre-split top-level image_merger path.
         with mock.patch(
-            "backend.src.core.image_merger._gif_video.shutil.which",
+            "backend.src.core.image._gif_video.shutil.which",
             return_value=None,
         ), self.assertRaises(RuntimeError):
             ImageMerger.export_scrolling_video(img_path, out_path)

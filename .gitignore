@@ -435,11 +435,13 @@ backend/benchmark/output/*.json
 
 # Build directories
 /**/Image_Toolkit.egg-info
+/git/image_toolkit_git.egg-info
 /gui/image_toolkit_gui.egg-info
 /backend/image_toolkit_backend.egg-info
 /**/build
 /**/dist
 /**/target
+/dev/plugins/d52_proof/bin/
 
 # Agent files
 .claude/
