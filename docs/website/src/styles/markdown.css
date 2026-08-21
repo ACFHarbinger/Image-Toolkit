@@ -111,6 +111,15 @@
   overflow-x: auto;
 }
 
+.markdown-body .mermaid svg {
+  display: block;
+  width: max-content;
+  min-width: 100%;
+  max-width: none;
+  height: auto;
+  margin: 0 auto;
+}
+
 .markdown-body .katex-display {
   overflow-x: auto;
   overflow-y: hidden;

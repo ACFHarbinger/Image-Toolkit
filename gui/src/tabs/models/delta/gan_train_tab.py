@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
 )
 
 from ....helpers.models.training_worker import TrainingWorker
+from ....styles import set_button_role
 
 
 class GANTrainTab(QWidget):
@@ -87,9 +88,7 @@ class GANTrainTab(QWidget):
 
         # --- Actions ---
         self.btn_train = QPushButton("Start Training")
-        self.btn_train.setStyleSheet(
-            "background-color: #4CAF50; color: white; font-weight: bold; padding: 10px;"
-        )
+        set_button_role(self.btn_train, "success")
         self.btn_train.clicked.connect(self.start_training)
         layout.addWidget(self.btn_train)
 

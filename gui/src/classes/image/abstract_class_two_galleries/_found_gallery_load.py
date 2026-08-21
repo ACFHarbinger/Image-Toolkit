@@ -68,12 +68,13 @@ class _FoundGalleryLoadMixin:
             self.found_loading_paths = set()
 
         self.found_loading_paths.update(paths)
+        # batch_slot only: connecting the per-result slot too rendered every
+        # thumbnail twice (see common_start_chunked_load / #444).
         self.common_start_chunked_load(
             paths,
             worker_factory=lambda chunk: BatchVideoLoaderWorker(
                 chunk, self.thumbnail_size
             ),
-            per_result_slot=self._on_found_image_loaded,
             batch_slot=self._on_batch_found_loaded,
         )
 
@@ -154,12 +155,13 @@ class _FoundGalleryLoadMixin:
         if not hasattr(self, "found_loading_paths"):
             self.found_loading_paths = set()
         self.found_loading_paths.update(paths)
+        # batch_slot only: connecting the per-result slot too rendered every
+        # thumbnail twice (see common_start_chunked_load / #444).
         self.common_start_chunked_load(
             paths,
             worker_factory=lambda chunk: BatchImageLoaderWorker(
                 chunk, self.thumbnail_size
             ),
-            per_result_slot=self._on_found_image_loaded,
             batch_slot=self._on_batch_found_loaded,
         )
 

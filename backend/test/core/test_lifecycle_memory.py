@@ -1,5 +1,5 @@
 """Tests for backend/src/core/lifecycle_memory.py (roadmap
-analytics_and_interpretability.md §12.5, issue #70).
+development_tool.md §12.5, issue #70).
 """
 
 from __future__ import annotations

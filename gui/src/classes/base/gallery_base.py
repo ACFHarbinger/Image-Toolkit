@@ -82,7 +82,20 @@ class AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery):
         )
 
         # --- Threading ---------------------------------------------------------
-        self.thread_pool = QThreadPool.globalInstance()
+        # Dedicated pool per gallery instance, NOT QThreadPool.globalInstance().
+        # The global pool is shared app-wide: a cancel_loading()'s
+        # thread_pool.waitForDone(-1) on it (e.g. the wallpaper startup-restore
+        # path) blocks the main thread until EVERY tab's pooled worker
+        # finishes -- including another tab's long-running ffmpeg thumbnail
+        # batch (subprocess.communicate waiting on the ffmpeg pipe). That
+        # freezes startup and then aborts the process (issue #81 family;
+        # observed live as "Fatal Python error: Aborted" with the main thread
+        # in thread_pool.waitForDone and a pooled worker inside
+        # subprocess._communicate). A per-instance pool makes cancel_loading()
+        # drain only THIS gallery's own workers. Capped so N galleries never
+        # spawn N * cpu_count threads.
+        self.thread_pool = QThreadPool()
+        self.thread_pool.setMaxThreadCount(max(2, min(8, os.cpu_count() or 4)))
         self._active_workers: set = set()
         # Generation counter: invalidates queued load-chunks after cancel/restart
         self._load_generation: int = 0
@@ -497,10 +510,9 @@ class AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery):
         self,
         paths: list,
         worker_factory,
-        per_result_slot=None,
         batch_slot=None,
-        chunk_size: int = 8,
-        max_in_flight: int = 2,
+        chunk_size: int = 16,
+        max_in_flight: int = 4,
     ) -> None:
         """Dispatch *paths* to workers in sequential chunks.
 
@@ -511,6 +523,13 @@ class AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery):
         *max_in_flight* chunks and starting the next only when one finishes
         makes thumbnails appear top-to-bottom as they load, at the same (or
         better) total throughput.
+
+        Only ``batch_result`` is connected (#444): the batch workers emit
+        both ``result`` (per path) and ``batch_result`` (same list), and
+        connecting both slots ran update_card_pixmap() twice per thumbnail
+        on the GUI thread. The batch slot owns rendering, caching, and
+        worker cleanup; the per-result slots remain wired only for the
+        single-shot ImageLoaderWorker/VideoLoaderWorker paths.
 
         Cancellation: `cancel_loading` implementations bump
         ``self._load_generation``; queued continuations from an older
@@ -529,16 +548,14 @@ class AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery):
             chunk = chunks.popleft()
             worker = worker_factory(chunk)
             # Tag with the generation active at dispatch time so the result
-            # handler (per_result_slot/batch_slot) can tell a stale delivery
-            # (this chunk's own generation no longer current, e.g. the user
-            # switched directories again while it was in flight) from a
-            # current one, and skip touching any gallery widget for a stale
-            # result -- this chunk's own queued signal isn't cancelled by
-            # bumping _load_generation, only the not-yet-dispatched *next*
-            # chunk is (see the `gen != self._load_generation` check above).
+            # handler (batch_slot) can tell a stale delivery (this chunk's
+            # own generation no longer current, e.g. the user switched
+            # directories again while it was in flight) from a current one,
+            # and skip touching any gallery widget for a stale result --
+            # this chunk's own queued signal isn't cancelled by bumping
+            # _load_generation, only the not-yet-dispatched *next* chunk is
+            # (see the `gen != self._load_generation` check above).
             worker.load_generation = gen
-            if per_result_slot is not None:
-                worker.signals.result.connect(per_result_slot)
             if batch_slot is not None:
                 worker.signals.batch_result.connect(batch_slot)
             # Chain: when this chunk finishes, dispatch the next one

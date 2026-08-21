@@ -201,9 +201,11 @@ class TestAbstractClassSingleGallery:
         assert widget.pixmap() is not None
 
     def test_batch_found_load_chunking(self, gallery):
-        paths = [f"image_{i}.jpg" for i in range(10)]
+        # 40 paths -> 3 chunks at chunk_size=16 (16, 16, 8); max_in_flight=4
+        # means all 3 chunks dispatch immediately.
+        paths = [f"image_{i}.jpg" for i in range(40)]
         gallery._trigger_batch_found_load(paths)
-        assert len(gallery._active_workers) == 2
+        assert len(gallery._active_workers) == 3
 
     def test_jump_to_path(self, gallery):
         gallery.master_image_paths = ["apple.jpg", "banana.jpg", "cherry.png"]
@@ -276,9 +278,11 @@ class TestAbstractClassTwoGalleries:
         assert "a.jpg" in two_galleries.path_to_label_map
 
     def test_batch_found_load_chunking(self, two_galleries):
-        paths = [f"image_{i}.jpg" for i in range(10)]
+        # 40 paths -> 3 chunks at chunk_size=16 (16, 16, 8); max_in_flight=4
+        # means all 3 chunks dispatch immediately.
+        paths = [f"image_{i}.jpg" for i in range(40)]
         two_galleries._trigger_batch_found_load(paths)
-        assert len(two_galleries._active_workers) == 2
+        assert len(two_galleries._active_workers) == 3
 
     def test_jump_to_path(self, two_galleries):
         two_galleries.start_loading_thumbnails(["a.jpg", "b.jpg", "c.jpg"])
@@ -290,6 +294,23 @@ class TestAbstractClassTwoGalleries:
     def test_jump_to_path_missing(self, two_galleries):
         two_galleries.start_loading_thumbnails(["a.jpg"])
         assert two_galleries.jump_to_path("nonexistent.jpg") is False
+
+    def test_promoted_card_rendering_and_styling(self, q_app):
+        gallery = AbstractClassTwoGalleries()
+        pix = QPixmap(200, 200)
+        pix.fill()
+        card = gallery.create_card_widget("test_img.png", pix, is_selected=False)
+        assert card is not None
+        assert card.property("gallery_path") == "test_img.png"
+
+        # Update pixmap
+        gallery.update_card_pixmap(card, pix)
+        # Check selection style update
+        gallery.selected_files.append("test_img.png")
+        gallery.update_card_style(card, is_selected=True)
+        img_label = card.findChild(QLabel)
+        assert img_label is not None
+        assert "5865f2" in img_label.styleSheet()
 
 
 class TestMetaAbstractClassGallery:

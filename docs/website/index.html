@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" href="/assets/images/image_toolkit_icon.png" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       name="description"
@@ -12,7 +12,7 @@
     <script>
       // GitHub Pages SPA deep-link restore: public/404.html redirects
       // unknown paths to "/?/actual/path" before this script rewrites the
-      // URL back via history.replaceState, so vue-router sees the real path.
+      // URL back via history.replaceState, so React Router sees the real path.
       (function () {
         var redirect = sessionStorage.getItem("spa-redirect");
         if (redirect) {
@@ -26,7 +26,7 @@
     </script>
   </head>
   <body>
-    <div id="app"></div>
-    <script type="module" src="/src/main.ts"></script>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

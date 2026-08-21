@@ -310,8 +310,10 @@ class _ProfileManagementMixin:
         self.extractor_time_format_combo.setCurrentText(self.pref_extractor_time_format)
 
         # Repopulate Appearance
-        self._update_swatch(self.dark_accent_swatch, self.pref_accent_dark)
-        self._update_swatch(self.light_accent_swatch, self.pref_accent_light)
+        if hasattr(self, "dark_accent_swatch") and hasattr(self, "_update_swatch"):
+            self._update_swatch(self.dark_accent_swatch, self.pref_accent_dark)
+        if hasattr(self, "light_accent_swatch") and hasattr(self, "_update_swatch"):
+            self._update_swatch(self.light_accent_swatch, self.pref_accent_light)
         self.font_scale_spinbox.setValue(self.pref_font_scale)
         self.ui_density_combo.setCurrentText(self.pref_ui_density)
         self._zoom_label.setText(self._zoom_label_text())
@@ -345,10 +347,12 @@ class _ProfileManagementMixin:
         ui_density = profile_data.get("ui_density")
         if accent_dark:
             self.pref_accent_dark = accent_dark
-            self._update_swatch(self.dark_accent_swatch, accent_dark)
+            if hasattr(self, "dark_accent_swatch") and hasattr(self, "_update_swatch"):
+                self._update_swatch(self.dark_accent_swatch, accent_dark)
         if accent_light:
             self.pref_accent_light = accent_light
-            self._update_swatch(self.light_accent_swatch, accent_light)
+            if hasattr(self, "light_accent_swatch") and hasattr(self, "_update_swatch"):
+                self._update_swatch(self.light_accent_swatch, accent_light)
         if font_scale is not None:
             self.font_scale_spinbox.setValue(int(font_scale))
         if ui_density:

@@ -380,7 +380,7 @@ Rename / symlink `docs/TROUBLESHOOT.md` → `TROUBLESHOOTING.md` at the project 
 
 ## ✅ §6.9 Jupyter Notebooks as Executable Polyglot Documentation
 
-**Pain point:** The ML pipeline (ASP benchmark analysis, BiRefNet inference, CLIP embedding, Recommendation Engine) has no executable documentation. Developers must run the full pipeline to understand what intermediate outputs look like. The analytics dashboard (Phase 11 of `analytics_and_interpretability.md`) would benefit from notebook-based exploration before the TypeScript visualisation layer is built.
+**Pain point:** The ML pipeline (ASP benchmark analysis, BiRefNet inference, CLIP embedding, Recommendation Engine) has no executable documentation. Developers must run the full pipeline to understand what intermediate outputs look like. The analytics dashboard (Phase 11 of `development_tool.md`) would benefit from notebook-based exploration before the TypeScript visualisation layer is built.
 
 ### Options
 

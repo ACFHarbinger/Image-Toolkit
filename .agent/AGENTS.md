@@ -39,6 +39,14 @@ The project mission is to provide a unified environment for managing massive ima
 *   **Database**: Maintain `pgvector` schema compatibility. Use transactions for group/image integrity.
 *   **Security**: **NEVER** hardcode credentials. Use `VaultManager`.
 *   **Threading**: All heavy computations must run off the main thread (QThread/QRunnable).
+*   **Verbosity**: Keep code comments, markdown docs, and git commit messages
+    tight. A comment only earns its place if it explains non-obvious *why*
+    (a constraint, an invariant, a prior bug) — not what the code already
+    says. Commit messages: a one-line summary plus only the context a
+    reviewer actually needs, not a full narrative of the investigation that
+    led there. Markdown reports/roadmap entries: say the finding and the
+    evidence, skip the preamble and the restating-the-question. This applies
+    to every agent working in this repo, not just the one currently editing.
 *   **AI Review**:
     *   **CRITICAL**: Schema breaking, Security bypass.
     *   **HIGH**: Memory leaks, Deadlocks.

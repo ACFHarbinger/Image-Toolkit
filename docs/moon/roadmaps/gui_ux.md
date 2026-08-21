@@ -139,6 +139,43 @@ Each section describes an ergonomic pain point, all viable implementation option
 
 ## 2.1 Virtual Scroll Gallery
 
+**2026-08-19 update:** a perf pass (issues #444/#445/#447) fixed several
+real bugs in the current page-based system — thumbnails were being
+decoded twice per image, the loading pipeline drained the thread pool
+twice per page turn, the LRU cache was smaller than common page sizes,
+and database listing tabs had no pagination at all (rebuilt every card on
+every keystroke). Series/entity listings are now capped at 100 cards/page
+(Option C below). None of this is the Option A virtualized rewrite —
+still a `QLabel` grid under a fixed page cap, not `QListView` viewport
+culling. The user is still seeing slowness and occasional freezes on
+large directories after this pass; see the 2026-08-19 bus log for the
+live investigation. If that turns out to be inherent to the bounded-page
+QLabel approach at real-world directory sizes (hundreds-to-thousands of
+images), Option A is the actual fix, not another tuning pass on C.
+
+**2026-08-19 follow-up:** root-caused the "still slow, sometimes freezes"
+report. Real cause: the LRU cache resize from the fix above never shrank
+(`resize(max(current_maxsize, page_size))`), so one directory opened at
+page size "All" permanently inflated the cache for the rest of the
+process's life — unbounded RSS growth, matching the freeze exactly.
+Capped with `LRU_CACHE_CEILING` (#458, fixed). Also fixed in the same
+pass: a same-day theming regression that made every gallery viewport
+transparent and disabled Qt's scroll-blit fast path (#453), extractor's
+use of the global thread pool causing app-quit hangs (#455), synchronous
+per-card metadata reads blocking the GUI thread at widget-construction
+time (#456), and chunk/concurrency tuning for progressive rendering
+(#454). All closed and verified against actual code, not just landing
+claims. Still Option C underneath, not the Option A rewrite — revisit if
+freezes recur at very large (thousands-of-images) directory sizes.
+
+**2026-08-19 listing parity follow-up:** series/entity listings now inherit
+the shared two-gallery foundation through a database-record adapter (#447).
+Their existing 100-card pages now also support §2.13E search operators,
+arrow/Enter navigation, per-tab Ctrl+wheel card sizing, and persisted §2.18
+color-label borders without applying filesystem-only rename/copy operations
+to database record IDs. This closes the listing-specific parity work while
+retaining Option C pagination.
+
 **Pain point:** Page-based gallery requires manual forward/back navigation. LRU eviction on page change causes 50–200ms thumbnail reloads. `QLabel` grid layout does not scale beyond 200 items without noticeable lag.
 
 ### Options
@@ -356,9 +393,28 @@ Use `asyncio.CancelledError` or a `threading.Event` as a cancellation token pass
 
 ---
 
-## 2.8 Theme Support
+## 2.8 Theme Support ✅ Partial (options A + D shipped — dark/light QSS toggle with per-theme accent-color override, `gui/src/windows/main/_theme.py` + `gui/src/styles/`; also UI density and a `load_user_qss_override` power-user hook) {: #28-theme-support }
 
-**Pain point:** App uses the system Qt palette, producing inconsistent look across platforms. Dark-mode OS settings not reliably respected.
+**2026-08-18 — superseded by a much larger scope.** Harbinger wants full
+user-defined theming (every color token, not just an accent tint) plus a
+custom app background image, across all three of the project's UI
+surfaces (PySide6 desktop app, `dev/app` devtool Tauri/React app, and the
+docs website) — not just the PySide6 app this section originally scoped.
+Full brainstorm-stage design doc:
+[`app_theming_2026q3.md`](app_theming_2026q3.md). This section stays as
+history for what shipped in the smaller original scope; new work happens
+in that doc.
+
+**2026-08-18 (round-1 Q&A, deepseek → Harbinger):** brainstorm refinements
+folded into the design doc — hybrid QSS migration (keep the existing
+$VAR system, generate the 5 core slots now), global background + per-tab
+override, JSON-pack and raw-QSS both first-class theme formats, dynamic
+palette extraction off by default (Theme Studio toggle), density as a
+theme axis, base-theme + overrides model with follow-system switching the
+base, blur off by default (opt-in, adaptive radius + cached layers), and
+desktop-first Phase 1 with the shared token schema designed for reuse.
+
+**Original pain point (for history):** App uses the system Qt palette, producing inconsistent look across platforms. Dark-mode OS settings not reliably respected.
 
 ### Options
 
@@ -1207,7 +1263,79 @@ Keep `QMediaPlayer` as the engine; rely on the storyboard preview (§4.14) for t
 - Pros: Zero new dependencies, zero engine-swap risk. Already-fixed bugs (aspect ratio, release flash) stay fixed because the code paths that caused them aren't exercised at drag speed anymore.
 - Cons: The main player's seek latency (observed ~100-300ms per real seek) is still whatever `QMediaPlayer` gives you on pause/release — noticeably slower to "settle" than mpv's own seeking, just no longer perceptible as continuous stutter since it doesn't fire on every tick.
 
-**Recommendation:** Ship C now (it's the low-risk baseline the storyboard work already assumes). Pursue A as a follow-up spike behind a feature flag, with an isolated smoke test for JVM/libmpv coexistence before any wider integration; fall back to B if `wid` embedding proves unreliable on the team's actual desktop session (Wayland).
+---
+
+## 2.34 Custom Theme Engine & Semantic Color System ✅ Locked, unimplemented (2026-08-18 — issues #437-441) {: #234-custom-theme-engine--semantic-color-system }
+
+**Pain point:** The application currently provides a binary Dark/Light theme toggle with fixed accent colors. Users have diverse display calibrations, aesthetic preferences, and accessibility requirements (e.g. high-contrast surfaces, custom typography, or personalized branding). There is currently no unified semantic color customization interface, dynamic color extraction engine, or in-app style editing with live preview.
+
+### Options
+
+**A — Semantic Color Palette & Theme Generator**
+A structured visual palette customizer in Settings exposing five core semantic color slots: Primary Accent, Surface/Card Background, Window Background, Text (Primary & Muted), and Border/Dividers. Includes WCAG 2.1 AA auto-contrast validation indicators to guarantee legibility, plus widget styling controls (Corner Radius: Sharp 0px / Subtle 4px / Rounded 8px / Pill 16px; Shadow Elevation; Application Font Family & Scale overrides).
+- Pros: Structured, safe, and impossible to break UI layout. High accessibility value.
+- Cons: Does not allow arbitrary QSS rule injection for edge-case widgets.
+
+**B — Dynamic Image-Driven Palette Extraction (Material You / PyWal Style)**
+An automated color extractor that samples the user's active background art or desktop wallpaper using $k$-means / median-cut quantization, extracting dominant, vibrant, and muted tones to generate a harmonious semantic palette automatically.
+- Pros: Seamless aesthetic cohesion between background artwork and UI controls. Zero-friction personalization.
+- Cons: Requires fallback handling for low-contrast or monochromatic source images.
+
+**C — In-App Live QSS Stylesheet Editor**
+An embedded code editor (`QPlainTextEdit` with syntax highlighting and instant "Apply Live" hot-reloading) targeting `~/.image-toolkit/user_theme.qss`, with automatic syntax validation and a one-click fail-safe "Reset to Default" button.
+- Pros: Maximum flexibility for power users to customize any Qt selector, pseudo-class, or transition.
+- Cons: Malformed CSS can temporarily distort layout if syntax validation is bypassed.
+
+**Locked (2026-08-18):** Phase 1 targets the host PySide6 GUI and host-owned
+tabs; embedded HIE/CSG/ASP surfaces receive adapters later. Theme Studio
+controls palette, density, corners, typography, shadows, and motion.
+Contrast ratios are warnings rather than save blockers. Invalid token or
+QSS previews apply transactionally and roll back to the last valid snapshot.
+Raw QSS uses a safe styling mode by default, with an explicit expert toggle
+for unrestricted selectors/properties. Shared JSON schema: #437 (foundational,
+blocks the rest). Theme Studio UI: #438 (deepseek). QSS editor + export/
+import: #441 (deepseek). See `app_theming_2026q3.md` for the full design.
+
+**Recommendation:** Implement A as the default visual customizer, integrate B
+as an opt-in background-derived palette action, and provide C in an Advanced
+subtab behind the explicit expert toggle.
+
+---
+
+## 2.35 Full-Window Background Canvas & Glassmorphic Layering ✅ Locked, unimplemented (2026-08-18 — issues #437, #439, #440) {: #235-full-window-background-canvas--glassmorphic-layering }
+
+**Pain point:** Application windows and tab content render against solid, opaque background surfaces. Users cannot personalize their workspace with custom background art, photo collections, or modern translucent "glassmorphic" (Mica / acrylic / frosted glass) layered surfaces.
+
+### Options
+
+**A — Full-Window Layered Background Canvas with Frosted Glass Blur**
+Renders a user-selected background image beneath the root application window with configurable opacity ($0.10$–$1.0$) and backdrop blur radius ($0$–$30\text{px}$). Content areas, toolbars, and gallery cards render with translucent glassmorphic surfaces (`rgba(255, 255, 255, alpha)` in Light mode / `rgba(30, 30, 30, alpha)` in Dark mode) to ensure foreground text and image thumbnails remain sharp and legible.
+- Pros: Modern, immersive visual aesthetic. Works across all tabs uniformly.
+- Cons: Backdrop blur requires efficient pixmap caching off the main thread to avoid paint lag during window resizing.
+
+**B — Multi-Image Slideshow Playlist & Cross-Fade Transitions**
+Supports selecting a folder or playlist of background images with automatic slideshow rotation on a configurable interval (1m, 5m, 15m, 1h, or on startup), utilizing smooth alpha cross-fade transitions between frames.
+- Pros: Keeps the workspace dynamic and pairs directly with the existing Wallpaper/Slideshow daemon.
+- Cons: Memory management required to evict cached background pixmaps between transitions.
+
+**C — Fit & Scaling Modes (Cover, Contain, Center, Tile)**
+Provides aspect ratio scaling options for single or playlist background images to adapt cleanly across multi-monitor setups, ultrawide displays, and portrait orientations.
+- Pros: Clean presentation regardless of display aspect ratio.
+- Cons: Minor geometry calculation on resize events.
+
+**Locked (2026-08-18):** Backgrounds support both linked paths and explicit
+import into managed app storage. Portable theme packs carry token values
+plus background references (`asset_ref`, defined in #437) and must report
+missing assets. The host owns one global playlist clock; a per-tab image
+override does not create a second timer. Static opacity remains the cheap
+default, while blur is opt-in with adaptive-radius and cached-layer
+fallbacks. Motion settings must honor a reduced-motion/low-performance
+fallback.
+
+**Recommendation:** Ship A + B + C together as an integrated host-only
+"Aesthetics & Backgrounds" settings suite. Background canvas + glassmorphic
+layering: #440 (Gemini). Palette extraction from the active background:
+#439 (opencode). Both depend on #437 (schema, Claude).
 
 ---
 
@@ -1218,9 +1346,9 @@ Keep `QMediaPlayer` as the engine; rely on the storyboard preview (§4.14) for t
 
 | **Effort ↓ / Impact →** | Low | Medium | High | Very High |
 |---|---|---|---|---|
-| **Low (<1d)** | §2.4B right-click context menu · §2.10 toast notifications · §2.14 thumbnail metadata overlay · §2.24 hover animations · §2.25 shortcut discovery overlay · §2.26 inline rename | §2.2B Ctrl+scroll zoom [Quick Win] · §2.5A session path persistence · §2.9 settings extensions · §2.12 system tray · §2.17 log panel · §2.18 image rating + labels · §2.31A QSS user override | §2.3A+C keyboard nav shortcuts · §2.7A progress bar + cancel button [Quick Win] · §2.32A auto-save geometry [Quick Win] | — |
-| **Medium (1d–1w)** | §2.19 contact sheet export | §2.2A slider control · §2.5B session restore dialog · §2.6B side-by-side before/after · §2.13 gallery filter+sort · §2.15 undo/redo deletions · §2.20A QSplitter persistence · §2.21 nav history · §2.27 multi-image compare · §2.28 global search · §2.29 configurable shortcuts · §2.30 accent colour + density | §2.4A multi-select with QItemSelectionModel · §2.8A dark/light theme toggle · §2.8B dynamic colour extraction · §2.12B+C tray preview + context ops · §2.22 tag chip compound search · §2.32B named layout profiles | §2.6A interactive zoom/pan preview · §2.16A command palette + registry |
-| **High (1–2w)** | — | §2.30C density modes (compact/comfortable/spacious) · §2.31B in-app QSS editor | §2.23 accessibility audit · §2.29B global keybinding conflict detection | §2.1A QListView virtual scroll (full refactor) |
+| **Low (<1d)** | §2.4B right-click context menu · §2.10 toast notifications · §2.14 thumbnail metadata overlay · §2.24 hover animations · §2.25 shortcut discovery overlay · §2.26 inline rename | §2.2B Ctrl+scroll zoom [Quick Win] · §2.5A session path persistence · §2.9 settings extensions · §2.12 system tray · §2.17 log panel · §2.18 image rating + labels · §2.31A QSS user override · §2.35C fit & scaling modes | §2.3A+C keyboard nav shortcuts · §2.7A progress bar + cancel button [Quick Win] · §2.32A auto-save geometry [Quick Win] | — |
+| **Medium (1d–1w)** | §2.19 contact sheet export | §2.2A slider control · §2.5B session restore dialog · §2.6B side-by-side before/after · §2.13 gallery filter+sort · §2.15 undo/redo deletions · §2.20A QSplitter persistence · §2.21 nav history · §2.27 multi-image compare · §2.28 global search · §2.29 configurable shortcuts · §2.30 accent colour + density · §2.34B dynamic palette extraction · §2.35B background playlist slideshow | §2.4A multi-select with QItemSelectionModel · §2.8A dark/light theme toggle · §2.8B dynamic colour extraction · §2.12B+C tray preview + context ops · §2.22 tag chip compound search · §2.32B named layout profiles · §2.34A semantic color palette · §2.35A full-window background canvas | §2.6A interactive zoom/pan preview · §2.16A command palette + registry |
+| **High (1–2w)** | — | §2.30C density modes (compact/comfortable/spacious) · §2.31B in-app QSS editor · §2.34C advanced in-app QSS editor | §2.23 accessibility audit · §2.29B global keybinding conflict detection | §2.1A QListView virtual scroll (full refactor) |
 | **Very High (2w+)** | — | §2.4E drag-and-drop reorder | §2.33A libmpv engine swap (spike, gated on JVM coexistence smoke test) | §4.12C named workspaces (superset of §2.29+§2.30+§2.32) |
 
 ---
@@ -1262,9 +1390,11 @@ Keep `QMediaPlayer` as the engine; rely on the storyboard preview (§4.14) for t
 | 2.31 Custom QSS User Theme Override | [#231-custom-qss-user-theme-override](#231-custom-qss-user-theme-override) |
 | 2.32 Window Layout and State Profiles | [#232-window-layout-and-state-profiles](#232-window-layout-and-state-profiles) |
 | 2.33 Extractor Tab Playback Engine — libmpv | [#233-extractor-tab-playback-engine--libmpv-integration](#233-extractor-tab-playback-engine--libmpv-integration) |
+| 2.34 Custom Theme Engine & Semantic Colors | [#234-custom-theme-engine--semantic-color-system](#234-custom-theme-engine--semantic-color-system) |
+| 2.35 Full-Window Background Canvas & Glassmorphism | [#235-full-window-background-canvas--glassmorphic-layering](#235-full-window-background-canvas--glassmorphic-layering) |
 
 ---
 
 ## Document History
 
-*Last updated: 2026-07-11 — §2.33 Extractor Tab Playback Engine (libmpv integration) added; near-term scrub-preview UX handled separately via `new_features.md` §4.14 (storyboard sprite sheet). Previous update 2026-05-31. Targets PySide6 (Qt 6.x) desktop application.*
+*Last updated: 2026-08-18 — §2.34 Custom Theme Engine & Semantic Color System and §2.35 Full-Window Background Canvas & Glassmorphic Layering added. Previous update 2026-07-11. Targets PySide6 (Qt 6.x) desktop application.*

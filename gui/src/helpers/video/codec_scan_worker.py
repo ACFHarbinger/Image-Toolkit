@@ -37,8 +37,17 @@ class CodecScanWorker(QRunnable):
                 max_workers=max_workers
             ) as executor:
                 self.executor = executor
+                # Issue #81 crash family: probe_codecs forks ffprobe on
+                # these background threads, possibly concurrently with the
+                # first QMediaPlayer construction -- serialize each fork.
+                from gui.src.helpers.video.video_thumbnailer import media_backend_spawn_guard
+
+                def _probe_guarded(path):
+                    with media_backend_spawn_guard():
+                        return probe_codecs(path)
+
                 futures = {
-                    executor.submit(probe_codecs, path): path for path in self.paths
+                    executor.submit(_probe_guarded, path): path for path in self.paths
                 }
 
                 for future in concurrent.futures.as_completed(futures):

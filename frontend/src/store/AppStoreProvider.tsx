@@ -178,8 +178,12 @@ export const AppStoreProvider: React.FC<AppStoreProviderProps> = ({ children }) 
 
     // Cleanup listeners on unmount
     return () => {
-      unlistenProgress.then((fn) => fn());
-      unlistenComplete.then((fn) => fn());
+      if (unlistenProgress && typeof unlistenProgress.then === "function") {
+        unlistenProgress.then((fn) => fn && typeof fn === "function" && fn());
+      }
+      if (unlistenComplete && typeof unlistenComplete.then === "function") {
+        unlistenComplete.then((fn) => fn && typeof fn === "function" && fn());
+      }
     };
   }, [updateTask]);
 
@@ -211,7 +215,7 @@ export const AppStoreProvider: React.FC<AppStoreProviderProps> = ({ children }) 
       // Apply default theme
       setTheme('dark');
     }
-  }, [login, setTheme]);
+  }, []);
 
   // ===== Construct Store Value =====
 

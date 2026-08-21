@@ -27,6 +27,7 @@ def test_metadata_overlay_file_size(tmp_path):
         f.write(b'0' * 2048) # 2KB
         
     overlay = MetadataOverlay(str(test_file))
+    overlay.show()
     assert overlay.size_label.text() == "2.0 KB"
 
 def test_metadata_overlay_invalid_image(tmp_path):
@@ -34,11 +35,13 @@ def test_metadata_overlay_invalid_image(tmp_path):
     test_file.write_text("not an image")
     
     overlay = MetadataOverlay(str(test_file))
+    overlay.show()
     # Should say "Unknown dims" for invalid image
     assert overlay.dim_label.text() == "Unknown dims"
 
 def test_metadata_overlay_missing_file():
     overlay = MetadataOverlay("/path/that/does/not/exist.jpg")
+    overlay.show()
     assert overlay.dim_label.text() == "Unknown dims"
     assert overlay.size_label.text() == "Unknown size"
 
