@@ -35,7 +35,7 @@ def _install_fake_wd_module(auto=None, review=None, available=True):
     cls.return_value = instance
 
     fake_module = types.ModuleType(_MODULE_NAME)
-    fake_module.WDTaggerWrapper = cls
+    fake_module.WDTaggerWrapper = cls # pyrefly: ignore [missing-attribute]
     sys.modules[_MODULE_NAME] = fake_module
     return cls, instance
 

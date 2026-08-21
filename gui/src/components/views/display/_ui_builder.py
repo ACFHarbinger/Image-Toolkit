@@ -43,8 +43,8 @@ class _UIBuilderMixin:
                 color: #ffffff;
                 font-weight: bold;
                 font-size: 11px;
-                background-color: rgba(44, 62, 80, 200);
-                border: 1px solid rgba(255, 255, 255, 30);
+                background-color: rgba(14, 18, 24, 0.55);
+                border: 1px solid rgba(255, 255, 255, 0.15);
                 border-radius: 4px;
                 padding: 2px 6px;
             }
@@ -56,8 +56,8 @@ class _UIBuilderMixin:
             QLabel {
                 color: #ecf0f1;
                 font-size: 10px;
-                background-color: rgba(44, 62, 80, 200);
-                border: 1px solid rgba(255, 255, 255, 30);
+                background-color: rgba(14, 18, 24, 0.55);
+                border: 1px solid rgba(255, 255, 255, 0.15);
                 border-radius: 4px;
                 padding: 2px 6px;
             }
@@ -70,15 +70,15 @@ class _UIBuilderMixin:
         self.update_text()
         self.default_style = """
             QLabel {
-                background-color: #36393f;
-                border: 2px dashed #4f545c;
+                background-color: rgba(20, 24, 32, 0.35);
+                border: 2px dashed rgba(255, 255, 255, 0.20);
                 border-radius: 8px;
                 color: #b9bbbe;
                 font-size: 14px;
             }
             QLabel[dragging="true"] {
                 border: 2px solid #5865f2;
-                background-color: #40444b;
+                background-color: rgba(64, 68, 75, 0.65);
             }
         """
         self.setStyleSheet(self.default_style)

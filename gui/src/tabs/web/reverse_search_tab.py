@@ -23,7 +23,7 @@ from PySide6.QtWidgets import (
 from ...classes import AbstractClassSingleGallery
 from ...components import ClickableLabel, MarqueeScrollArea
 from ...helpers import ImageLoaderWorker, ImageScannerWorker, ReverseSearchWorker
-from ...styles import apply_shadow_effect
+from ...styles import apply_shadow_effect, set_button_role
 from ...utils.sort_utils import natural_sort_key
 from ...windows import ImagePreviewWindow
 
@@ -192,9 +192,7 @@ class ReverseImageSearchTab(AbstractClassSingleGallery):
         self.lbl_selected_path.setStyleSheet("color: #aaa; font-style: italic;")
 
         self.btn_search = QPushButton("Search Selected Image")
-        self.btn_search.setStyleSheet(
-            "background-color: #007AFF; color: white; font-weight: bold; padding: 6px;"
-        )
+        set_button_role(self.btn_search, "success")
         self.btn_search.clicked.connect(self.start_search)
         self.btn_search.setEnabled(False)
 
@@ -213,35 +211,8 @@ class ReverseImageSearchTab(AbstractClassSingleGallery):
         # Gallery
         self.gallery_scroll_area = MarqueeScrollArea()
         self.gallery_scroll_area.setWidgetResizable(True)
-        self.gallery_scroll_area.setStyleSheet(
-            """
-            QScrollArea {
-                border: 1px solid #4f545c;
-                background-color: #2c2f33;
-                border-radius: 8px;
-            }
-            QScrollBar:vertical {
-                border: none; background: #2c2f33; width: 12px; margin: 0;
-            }
-            QScrollBar::handle:vertical {
-                background: #00BCD4; min-height: 20px;
-                border-radius: 6px; margin: 0 2px;
-            }
-            QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: none; }
-            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
-            QScrollBar:horizontal {
-                border: none; background: #2c2f33; height: 12px; margin: 0;
-            }
-            QScrollBar::handle:horizontal {
-                background: #00BCD4; min-width: 20px;
-                border-radius: 6px; margin: 2px 0;
-            }
-            QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0; }
-        """
-        )
 
         self.gallery_container = QWidget()
-        self.gallery_container.setStyleSheet("QWidget { background-color: #2c2f33; }")
 
         self.gallery_layout = QGridLayout(self.gallery_container)
         self.gallery_layout.setAlignment(
@@ -399,7 +370,7 @@ class ReverseImageSearchTab(AbstractClassSingleGallery):
 
     def _style_label(self, label: ClickableLabel, selected: bool):
         if selected:
-            label.setStyleSheet("border: 3px solid #5865f2; background-color: #36393f;")
+            label.setStyleSheet("border: 3px solid #5865f2;")
         elif label.text() == "Loading...":
             label.setStyleSheet("border: 1px solid #4f545c; color: #888; font-size: 10px;")
         else:

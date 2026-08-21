@@ -94,3 +94,58 @@ def test_run_failure_still_records_elapsed(mock_base):
     assert result == 0
     assert crawler.telemetry["elapsed_sec"] is not None
     assert crawler.telemetry["error_count"] == 1  # "Critical Error..." status emitted
+
+
+@patch("backend.src.web.crawlers.image_board_crawler.base")
+def test_rating_filter_normalization(mock_base):
+    mock_base.run_board_crawler.return_value = 0
+    crawler = ImageBoardCrawler({"url": "http://example.com", "tags": "scenery", "rating": "general"})
+    crawler.run()
+
+    # Verify rating:general was appended to tags
+    expected_config = {"url": "http://example.com", "tags": "scenery rating:general", "rating": "general"}
+    mock_base.run_board_crawler.assert_called_once_with(
+        "imageboard", json.dumps(expected_config), crawler
+    )
+
+
+@patch("backend.src.web.crawlers.image_board_crawler.base")
+def test_safebooru_crawler_backend_name_and_preset(mock_base):
+    from backend.src.web.crawlers.safebooru_crawler import SafebooruCrawler
+
+    mock_base.run_board_crawler.return_value = 0
+    crawler = SafebooruCrawler({"tags": "landscape", "rating": "general"})
+    assert crawler.config["url"] == "https://safebooru.org"
+    assert crawler.get_crawler_backend_name() == "gelbooru"
+    assert crawler.normalize_rating_tag("general") is None
+
+    # Verify Safebooru ignores rating filter (no-op)
+    crawler.run()
+    expected_config = {
+        "tags": "landscape",
+        "rating": "general",
+        "url": "https://safebooru.org",
+        "limit": 100,
+    }
+    mock_base.run_board_crawler.assert_called_once_with(
+        "gelbooru", json.dumps(expected_config), crawler
+    )
+
+
+def test_sankaku_rating_normalization():
+    from backend.src.web.crawlers.sankaku_crawler import SankakuCrawler
+
+    crawler = SankakuCrawler({})
+    assert crawler.normalize_rating_tag("safe") == "rating:safe"
+    assert crawler.normalize_rating_tag("general") == "rating:safe"
+    assert crawler.normalize_rating_tag("questionable") == "rating:questionable"
+    assert crawler.normalize_rating_tag("explicit") == "rating:explicit"
+    assert crawler.normalize_rating_tag("unknown_rating_val") is None
+
+
+def test_unrecognized_rating_ignored():
+    crawler = ImageBoardCrawler({"url": "http://example.com", "rating": "invalid_val"})
+    assert crawler.normalize_rating_tag("invalid_val") is None
+
+
+

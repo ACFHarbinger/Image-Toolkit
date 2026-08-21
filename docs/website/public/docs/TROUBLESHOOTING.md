@@ -399,7 +399,7 @@ vs. prev_size` (glibc's `malloc_consolidate()` catching heap corruption)
 and SIGABRT — the same failure mode Addendum 13 already saw once. Rather
 than another Python-level fix guess, this round built permanent,
 toggleable tooling instead of another one-off print pass: see
-[`debug/README.md`](../debug/README.md).
+[`dev/README.md`](../dev/README.md).
 `backend/src/core/telemetry.py` is a structured, JSONL event logger
 (`IMAGE_TOOLKIT_TELEMETRY=1 just python` to enable) wired into every
 `[thread-lifecycle]`/`[startup-probe-guard]` call site already documented
@@ -408,10 +408,10 @@ suspected native-crash boundary itself — `QImage().loadFromData()` in
 `video_thumbnailer.py` and every `base.scan_files_multi()` call —
 wrapped in `telemetry.span()` so a crash mid-decode leaves an unambiguous
 "orphaned span" in the file instead of requiring inference from which
-`print()` line happened to be last. `debug/telemetry_analyzer.py` parses
+`print()` line happened to be last. `dev/telemetry_analyzer.py` parses
 that file into a merged, time-ordered timeline and flags orphaned spans
 and overlapping scanner-thread windows automatically.
-`debug/run_with_gdb.sh` runs the app under `gdb -batch`, stopping only on
+`dev/run_with_gdb.sh` runs the app under `gdb -batch`, stopping only on
 SIGABRT (SIGSEGV is deliberately passed through untouched — the JVM raises
 it internally, on purpose, for implicit null-checks/safepoint polling, and
 stopping there produces a misleading "crashes before login" false
@@ -425,7 +425,7 @@ never had a ready-made tool for.
 crash site.** With the fixed script, two live crashes produced real
 `hs_err_pid*.log` files with the JVM's own diagnosis:
 `libQt6Core.so.6+0x1e74d5` and `libQt6Core.so.6+0x1df7c9`. PySide6's
-bundled Qt is stripped, but `debug/resolve_qt_offset.py` resolves both via
+bundled Qt is stripped, but `dev/resolve_qt_offset.py` resolves both via
 the surviving dynamic symbol table: `QObjectPrivate::ConnectionData::deleteOrphaned(...)`
 and `QObjectPrivate::connect(...)` respectively — the first confirms this
 is genuinely the same `deleteOrphaned` class documented throughout this
@@ -439,8 +439,8 @@ just wherever that already-damaged structure gets touched next — not 20
 independent bugs. Not yet fixed: neither capture had telemetry enabled, so
 there's no Python-level correlation for which specific `.connect()` call
 site was involved. If you hit this again, reproduce with
-`IMAGE_TOOLKIT_TELEMETRY=1 debug/run_with_gdb.sh` (now also captures a
-core dump) and start from `debug/telemetry_analyzer.py`'s report before
+`IMAGE_TOOLKIT_TELEMETRY=1 dev/run_with_gdb.sh` (now also captures a
+core dump) and start from `dev/telemetry_analyzer.py`'s report before
 writing another speculative fix.
 
 **Update (2026-08-01, Addendum 23) — video-directory scanning removed

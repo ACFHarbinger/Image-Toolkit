@@ -1,5 +1,5 @@
 """Benchmark suite for app lifecycle memory profiling (roadmap
-analytics_and_interpretability.md §12.5, issue #70).
+development_tool.md §12.5, issue #70).
 
 `backend/src/app.py::launch_app` now calls `lifecycle_memory.snapshot(phase)`
 at `qt_init`, `login_window_shown`, and `main_window_shown` for every real

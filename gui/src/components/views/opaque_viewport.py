@@ -4,15 +4,18 @@ from PySide6.QtWidgets import QWidget
 
 
 class OpaqueViewport(QWidget):
-    """A viewport that explicitly paints its background to prevent artifacts."""
+    """A viewport for scroll areas that supports translucent and transparent backgrounds."""
 
-    def __init__(self, parent=None, color_hex="#2c2f33"):
+    def __init__(self, parent=None, color_hex="transparent"):
         super().__init__(parent)
-        self.background_color = QColor(color_hex)
-        self.setAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent, True)
-        # Set default window opacity for testing
-        self.setWindowOpacity(0.5)
+        self.setObjectName("gallery_viewport")
+        self.background_color = (
+            QColor(color_hex) if color_hex != "transparent" else QColor(0, 0, 0, 0)
+        )
+        self.setAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent, False)
 
     def paintEvent(self, event):
-        painter = QPainter(self)
-        painter.fillRect(self.rect(), self.background_color)
+        if self.background_color.alpha() > 0:
+            painter = QPainter(self)
+            painter.fillRect(self.rect(), self.background_color)
+            painter.end()

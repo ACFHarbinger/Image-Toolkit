@@ -1,4 +1,4 @@
-from gui.src.elements.database.listings_tab import ListingsTab
+from gui.src.tabs.database.listings_tab import ListingsTab
 from gui.src.tabs import (
     ConvertTab,
     DatabaseTab,

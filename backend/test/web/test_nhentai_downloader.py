@@ -161,3 +161,64 @@ class TestRun:
         result = downloader.run()
 
         assert result == 1
+
+class TestRunRetryAndCollision:
+    @patch("requests.Session")
+    def test_transient_500_is_retried_within_one_run(self, mock_session_cls, tmp_path):
+        """A 5xx on a page image is retried inside the same run rather than
+        silently dropped -- the previous behaviour that made the user click
+        Download again to get the remaining pages."""
+        mock_session = MagicMock()
+        mock_session_cls.return_value = mock_session
+        gallery_html = _gallery_json_blob(media_id="1", page_types=("j", "j"))
+        mock_session.get.side_effect = [
+            _resp(200, text=gallery_html),
+            _resp(500, content=b""),   # page 1 transient failure
+            _resp(200, content=b"retried"),  # page 1 retry succeeds
+            _resp(200, content=b"page2"),    # page 2
+        ]
+
+        downloader = _downloader(tmp_path, gallery="1")
+        result = downloader.run()
+
+        assert result == 2
+        assert (tmp_path / "1_001.jpg").read_bytes() == b"retried"
+        assert (tmp_path / "1_002.jpg").read_bytes() == b"page2"
+
+    @patch("requests.Session")
+    def test_on_exists_rename_keeps_both_copies(self, mock_session_cls, tmp_path):
+        mock_session = MagicMock()
+        mock_session_cls.return_value = mock_session
+        gallery_html = _gallery_json_blob(media_id="1", page_types=("j",))
+        mock_session.get.side_effect = [
+            _resp(200, text=gallery_html),
+            _resp(200, content=b"new"),
+        ]
+
+        existing = tmp_path / "1_001.jpg"
+        existing.write_bytes(b"old")
+
+        downloader = _downloader(tmp_path, gallery="1", on_exists="rename")
+        result = downloader.run()
+
+        assert result == 1
+        assert existing.read_bytes() == b"old"
+        assert (tmp_path / "1_001(1).jpg").read_bytes() == b"new"
+
+    @patch("requests.Session")
+    def test_on_exists_skip_skips_existing_page(self, mock_session_cls, tmp_path):
+        mock_session = MagicMock()
+        mock_session_cls.return_value = mock_session
+        gallery_html = _gallery_json_blob(media_id="1", page_types=("j",))
+        mock_session.get.side_effect = [
+            _resp(200, text=gallery_html),
+        ]
+
+        existing = tmp_path / "1_001.jpg"
+        existing.write_bytes(b"old")
+
+        downloader = _downloader(tmp_path, gallery="1", on_exists="skip")
+        result = downloader.run()
+
+        assert result == 0
+        assert existing.read_bytes() == b"old"

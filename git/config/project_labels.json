@@ -7,7 +7,7 @@
     { "name": "component:pyside6-gui",     "color": "41CD52", "description": "gui/ PySide6 desktop interface" },
     { "name": "component:tauri-desktop",   "color": "FFC131", "description": "frontend/ React + Tauri desktop shell" },
     { "name": "component:mobile",          "color": "3DDC84", "description": "app/ Android (Kotlin) and iOS (Swift) clients" },
-    { "name": "component:dev-tools",       "color": "5319E7", "description": "dev/ developer-assistant tool (see docs/moon/roadmaps/developer_tools.md)" },
+    { "name": "component:dev-tools",       "color": "5319E7", "description": "dev/ development tool (see docs/moon/roadmaps/development_tool.md)" },
     { "name": "component:ci-automation",   "color": "C5DEF5", "description": "GitHub Actions, bots, and repo automation" },
     { "name": "component:docs",            "color": "BFD4F2", "description": "Documentation and ADRs" }
   ],

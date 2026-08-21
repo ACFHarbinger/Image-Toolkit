@@ -10,24 +10,74 @@ from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QApplication
 
 # --- BLOCK HEAVY IMPORTS ---
-sys.modules["backend.src.models"] = MagicMock()
-sys.modules["backend.src.models.core"] = MagicMock()
-sys.modules["backend.src.models.tuning"] = MagicMock()
-sys.modules["backend.src.models.tuning.lo_ra_tuner"] = MagicMock()
-sys.modules["backend.src.models.wrappers"] = MagicMock()
-sys.modules["backend.src.models.wrappers.basic_wrapper"] = MagicMock()
-sys.modules["backend.src.models.wrappers.birefnet_wrapper"] = MagicMock()
-sys.modules["backend.src.models.core.comfy_manager"] = MagicMock()
-sys.modules["backend.src.models.full_finetune"] = MagicMock()
-sys.modules["backend.src.models.core.gan"] = MagicMock()
-sys.modules["backend.src.models.wrappers.gan_wrapper"] = MagicMock()
-sys.modules["backend.src.models.wrappers.loftr_wrapper"] = MagicMock()
-sys.modules["backend.src.models.lora_diffusion"] = MagicMock()
-sys.modules["backend.src.models.wrappers.sd3_wrapper"] = MagicMock()
-sys.modules["backend.src.models.core.siamese_network"] = MagicMock()
-sys.modules["asp_backend.models.stitch_net"] = MagicMock()
-sys.modules["backend.src.models.stable_diffusion"] = MagicMock()
-sys.modules["backend.src.models.gen"] = MagicMock()
+# Build the mocked backend.src.models tree as REAL package modules (with
+# __path__) whose leaf submodules are MagicMock. A flat
+# sys.modules["backend.src.models.wrappers"] = MagicMock() made any later
+# "from backend.src.models.wrappers.X import Y" in the SAME pytest process
+# fail with "'...wrappers' is not a package" — which broke backend/test/
+# models collection when gui/test/models and backend/test/models were
+# collected together (#375). Real packages + mocked leaves let both sides
+# import: gui gets the mock (heavy torch/diffusers never load), backend
+# tests that import BEFORE the gui session still resolve... (see restore
+# block below for the combined-session case).
+import types as _types
+
+
+def _mock_submodule(fullname: str) -> "MagicMock":
+    mod = MagicMock()
+    mod.__name__ = fullname
+    return mod
+
+
+def _mock_package(fullname: str) -> "types.ModuleType":
+    """Create a real package module (__path__ set) so submodule imports
+    resolve through it instead of failing with 'is not a package'."""
+    pkg = _types.ModuleType(fullname)
+    pkg.__path__ = []
+    pkg.__spec__ = importlib.machinery.ModuleSpec(fullname, None)
+    sys.modules.setdefault(fullname, pkg)
+    return pkg
+
+
+def _mock_model_tree():
+    """Mock backend.src.models.* (and asp_backend.models.stitch_net) as a
+    real-package tree so gui tests import quickly AND backend tests can
+    still collect in the same process."""
+    models_pkg = _mock_package("backend.src.models")
+    core_pkg = _mock_package("backend.src.models.core")
+    tuning_pkg = _mock_package("backend.src.models.tuning")
+    wrappers_pkg = _mock_package("backend.src.models.wrappers")
+    gen_pkg = _mock_package("backend.src.models.gen")
+    # Attach packages to their parents for attribute-style access.
+    models_pkg.core = core_pkg
+    models_pkg.tuning = tuning_pkg
+    models_pkg.wrappers = wrappers_pkg
+    models_pkg.gen = gen_pkg
+    # Leaf modules (each a MagicMock) — the names gui code imports.
+    leaves = [
+        "backend.src.models.core.comfy_manager",
+        "backend.src.models.core.gan",
+        "backend.src.models.core.siamese_network",
+        "backend.src.models.full_finetune",
+        "backend.src.models.lora_diffusion",
+        "backend.src.models.stable_diffusion",
+        "backend.src.models.tuning.lo_ra_tuner",
+        "backend.src.models.wrappers.basic_wrapper",
+        "backend.src.models.wrappers.birefnet_wrapper",
+        "backend.src.models.wrappers.gan_wrapper",
+        "backend.src.models.wrappers.loftr_wrapper",
+        "backend.src.models.wrappers.sd3_wrapper",
+        "asp_backend.models.stitch_net",
+    ]
+    for leaf in leaves:
+        sys.modules[leaf] = _mock_submodule(leaf)
+    # Sentinel: lets backend/test/conftest.py detect and restore the real
+    # packages when both suites share one pytest process (#375).
+    sys.modules.setdefault("_devtool_mocked_backend_models", True)
+    return models_pkg
+
+
+_mock_model_tree()
 
 diffusers_mock = MagicMock()
 diffusers_mock.__spec__ = importlib.machinery.ModuleSpec("diffusers", None)
@@ -74,7 +124,7 @@ def mock_image_toolkit_paths(tmp_path, monkeypatch):
     monkeypatch.setattr(constants, "DAEMON_CONFIG_PATH", fake_config_path)
 
     try:
-        from gui.src.tabs.core import listings_tab
+        from gui.src.tabs.database import listings_tab
 
         monkeypatch.setattr(listings_tab, "IMAGE_TOOLKIT_DIR", tmp_path)
         monkeypatch.setattr(listings_tab, "LISTINGS_FILE", tmp_path / "listings.json")
@@ -86,8 +136,8 @@ def mock_image_toolkit_paths(tmp_path, monkeypatch):
         pass
 
     try:
-        import gui.src.elements.core.wallpaper_tab.system_display_subtab._daemon as subtab_daemon
-        import gui.src.elements.core.wallpaper_tab.system_display_subtab._slideshow as subtab_slideshow
+        import gui.src.tabs.core.wallpaper_tab.system_display_subtab._daemon as subtab_daemon
+        import gui.src.tabs.core.wallpaper_tab.system_display_subtab._slideshow as subtab_slideshow
         monkeypatch.setattr(subtab_daemon, "DAEMON_CONFIG_PATH", fake_config_path)
         monkeypatch.setattr(subtab_daemon, "ROOT_DIR", tmp_path)
         monkeypatch.setattr(subtab_slideshow, "DAEMON_CONFIG_PATH", fake_config_path)
@@ -95,7 +145,7 @@ def mock_image_toolkit_paths(tmp_path, monkeypatch):
         pass
 
     try:
-        import gui.src.elements.core.wallpaper_tab.common.wallpaper_common_base._widget_ui_lifecycle as common_base_ui_lifecycle
+        import gui.src.tabs.core.wallpaper_tab.common.wallpaper_common_base._widget_ui_lifecycle as common_base_ui_lifecycle
         monkeypatch.setattr(common_base_ui_lifecycle, "DAEMON_CONFIG_PATH", fake_config_path)
     except Exception:
         pass

@@ -81,6 +81,15 @@ class _RelaunchSettingsMixin:
         restore_last_dir_row.addStretch(1)
         session_layout.addRow(restore_last_dir_row)
 
+        self.minimize_to_tray_check = QCheckBox("Close to background tray icon (keep app running in background)")
+        self.minimize_to_tray_check.setChecked(self.pref_minimize_to_tray)
+        self.minimize_to_tray_check.setToolTip(
+            "When enabled, closing the window keeps the application running in the background with "
+            "a system tray icon for quick re-opening."
+        )
+        session_layout.addRow(self.minimize_to_tray_check)
+
+
         self.recent_dirs_count_spinbox = QSpinBox()
         self.recent_dirs_count_spinbox.setRange(1, 50)
         self.recent_dirs_count_spinbox.setValue(self.pref_recent_dirs_count)
@@ -256,6 +265,7 @@ class _RelaunchSettingsMixin:
                 "initial_cache_maxsize": self.initial_cache_spinbox.value(),
                 "restore_last_dir": self.restore_last_dir_check.isChecked(),
                 "restore_last_tab": self.restore_last_tab_check.isChecked(),
+                "minimize_to_tray": self.minimize_to_tray_check.isChecked(),
                 "default_open_dir": self.default_dir_input.text().strip().replace("Downloads/data", "Downloads/Data"),
                 "recent_dirs_count": self.recent_dirs_count_spinbox.value(),
                 "startup_category": self.startup_category_combo.currentText(),
@@ -272,6 +282,9 @@ class _RelaunchSettingsMixin:
                 "session_recovery_level": self.session_recovery_combo.currentText(),
                 "accent_color_dark": self.pref_accent_dark,
                 "accent_color_light": self.pref_accent_light,
+                "color_overrides": self._get_color_overrides_dict() if hasattr(self, "_get_color_overrides_dict") else {},
+                "background_config": self._get_background_config_dict() if hasattr(self, "_get_background_config_dict") else {},
+                "corner_radius": self.corner_radius_combo.currentData() if hasattr(self, "corner_radius_combo") else 4,
                 "font_scale": self.font_scale_spinbox.value(),
                 "ui_density": self.ui_density_combo.currentText(),
                 "app_zoom": self.pref_app_zoom,
@@ -280,14 +293,18 @@ class _RelaunchSettingsMixin:
                 ],
             }
 
+
             if self._save_vault_data(user_data):
                 # Also save to QSettings (only if not in Guest mode)
                 if getattr(self.vault_manager, "is_guest", False) is not True:
                     AppSettings.set_recursive_scan(self.recursive_scan_check.isChecked())
+                    AppSettings.set_minimize_to_tray(self.minimize_to_tray_check.isChecked())
                     AppSettings.set_favourite_directories(user_data["preferences"]["favourite_directories"])  # pyrefly: ignore [bad-argument-type]
                     AppSettings.set_mal_fetch_method(self.mal_fetch_method_combo.currentData())
                 if self.main_window_ref:
                     self.main_window_ref.cached_creds = user_data
+                    if hasattr(self.main_window_ref, "set_minimize_to_tray"):
+                        self.main_window_ref.set_minimize_to_tray(self.minimize_to_tray_check.isChecked())
                     if selected_theme:
                         self.main_window_ref.set_application_theme(selected_theme)
                     if hasattr(self.main_window_ref, "_apply_startup_preferences"):
@@ -327,6 +344,8 @@ class _RelaunchSettingsMixin:
         self._refresh_startup_tab_combo(self.startup_category_combo.currentText())
         self.restore_last_dir_check.setChecked(True)
         self.restore_last_tab_check.setChecked(False)
+        self.minimize_to_tray_check.setChecked(False)
+
         self.recent_dirs_count_spinbox.setValue(10)
         self.session_recovery_combo.setCurrentText("None")
 
@@ -354,17 +373,30 @@ class _RelaunchSettingsMixin:
         self.enable_queue_check.setChecked(False)
         self.extractor_time_format_combo.setCurrentText("m:s:ms")
 
-        # Reset Appearance
+        # Reset Appearance & Theme Studio
         self.pref_accent_dark = "#00bcd4"
         self.pref_accent_light = "#007AFF"
-        self._update_swatch(self.dark_accent_swatch, "#00bcd4")
-        self._update_swatch(self.light_accent_swatch, "#007AFF")
+        if hasattr(self, "_reset_palette_to_base_defaults"):
+            self._reset_palette_to_base_defaults()
+        if hasattr(self, "bg_path_input"):
+            self.bg_path_input.clear()
+        if hasattr(self, "bg_fit_combo"):
+            self.bg_fit_combo.setCurrentText("Cover")
+        if hasattr(self, "bg_opacity_slider"):
+            self.bg_opacity_slider.setValue(50)
+        if hasattr(self, "bg_blur_spin"):
+            self.bg_blur_spin.setValue(0)
+        if hasattr(self, "glassmorphism_check"):
+            self.glassmorphism_check.setChecked(False)
+        if hasattr(self, "corner_radius_combo"):
+            self.corner_radius_combo.setCurrentIndex(1)  # Subtle (4px)
         self.font_scale_spinbox.setValue(100)
         self.ui_density_combo.setCurrentText("Comfortable")
         self.pref_app_zoom = 0
         self._zoom_label.setText(self._zoom_label_text())
         self.fav_list_widget.clear()
         self.default_dir_input.clear()
+
 
     def _browse_default_open_dir(self):
         current_dir = self.default_dir_input.text().strip()

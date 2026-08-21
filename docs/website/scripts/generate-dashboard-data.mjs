@@ -37,6 +37,49 @@ const EVAL_DIRS = [
   path.join(REPO_ROOT, "data/benchmarks"),
 ];
 
+// M2 audit status is deliberately checked into the generated contract rather
+// than inferred by the UI.  These are diagnostics, not automated quality
+// verdict weights; human preference and GT comparisons remain separate.
+const AUTOMATED_METRIC_CATALOG = {
+  cqas_v1_legacy: {
+    label: "CQAS v1 (legacy diagnostic)",
+    direction: "higher_is_better_historically",
+    status: "legacy_diagnostic_only",
+    verdict_eligible: false,
+    note: "Failed human-label correlation audit; never use for ranking or X-wins claims.",
+  },
+  seam_visibility: {
+    label: "Seam visibility",
+    direction: "lower_is_better",
+    status: "human_aligned_candidate",
+    verdict_eligible: true,
+  },
+  seam_gradient: {
+    label: "Seam gradient",
+    direction: "lower_is_better",
+    status: "human_aligned_supporting_diagnostic",
+    verdict_eligible: false,
+  },
+  ghosting_siqe: {
+    label: "Ghosting SIQE",
+    direction: "lower_is_better_historically",
+    status: "inverse_validated_telemetry",
+    verdict_eligible: false,
+  },
+  seam_coherence: {
+    label: "Seam coherence / banding",
+    direction: "lower_is_better_historically",
+    status: "no_human_correlation_telemetry",
+    verdict_eligible: false,
+  },
+  strip_banding_score: {
+    label: "Strip banding",
+    direction: "lower_is_better_historically",
+    status: "inverse_validated_telemetry",
+    verdict_eligible: false,
+  },
+};
+
 function listMatching(dir, prefix, suffix = ".json") {
   if (!fs.existsSync(dir)) return [];
   return fs
@@ -48,6 +91,19 @@ function listMatching(dir, prefix, suffix = ".json") {
 
 function readJson(file) {
   return JSON.parse(fs.readFileSync(file, "utf8"));
+}
+
+function normalizeMetricsForDashboard(metrics) {
+  if (!metrics || typeof metrics !== "object") return null;
+  const normalized = { ...metrics };
+  // Older benchmark artifacts used an unversioned name. Preserve the value for
+  // historical inspection but prevent consumers from mistaking it for a live
+  // aggregate quality score.
+  if (normalized.cqas_v1_legacy == null && normalized.cqas != null) {
+    normalized.cqas_v1_legacy = normalized.cqas;
+  }
+  delete normalized.cqas;
+  return normalized;
 }
 
 function summarizeRun(filePath, raw) {
@@ -68,8 +124,8 @@ function summarizeRun(filePath, raw) {
         used_fallback: Boolean(d.used_fallback),
         fallback_reason: d.fallback_reason || null,
         time: d.time || null,
-        metrics_asp: d.metrics_asp || null,
-        metrics_simple: d.metrics_simple || null,
+        metrics_asp: normalizeMetricsForDashboard(d.metrics_asp),
+        metrics_simple: normalizeMetricsForDashboard(d.metrics_simple),
         comparison: d.comparison || null,
         human_coherence: d.human_coherence || null,
       }))
@@ -105,6 +161,7 @@ function summarizeRun(filePath, raw) {
       avg_ssim_simple_vs_gt: summary.avg_ssim_simple_vs_gt ?? null,
       human_coherence_rated: summary.human_coherence_rated ?? null,
     },
+    automated_metric_catalog: AUTOMATED_METRIC_CATALOG,
     datasets,
   };
 }
@@ -213,6 +270,7 @@ function main() {
         human_summary: human_snapshot.summary,
         notes: [
           "Human coherence scores are not interchangeable with SSIM/sharpness/ghosting.",
+          "CQAS v1 is retained only as a legacy diagnostic; it is excluded from rankings and X-wins claims.",
           "Harbinger rating pass (2026-08-10): ASP often loses to OpenCV SCANS on structural coherence — banding, color shifts, seam degradation vs SCANS mild ghosting.",
         ],
       },
@@ -220,6 +278,92 @@ function main() {
       2
     ) + "\n"
   );
+
+  // Generate M2.5a (#32) Per-Defect & Stage-Attributed Correlation Matrix
+  const defectAuditScript = path.join(
+    REPO_ROOT,
+    "submodules/ASP/backend/benchmark/audit_defect_correlation.py"
+  );
+  const subsetSelectionScript = path.join(
+    REPO_ROOT,
+    "submodules/ASP/backend/benchmark/subset_selection.py"
+  );
+  const primaryRunFile = runFiles.find((f) => path.basename(f) === "anime_stitch_20260807_045552.json") || runFiles[0];
+  if (primaryRunFile && latestEvalPath) {
+    const pythonBin = fs.existsSync(path.join(REPO_ROOT, ".venv/bin/python"))
+      ? path.join(REPO_ROOT, ".venv/bin/python")
+      : "python3";
+    
+    if (fs.existsSync(defectAuditScript)) {
+      try {
+        const defectJsonOut = path.join(OUT_DIR, "defect_correlation_matrix.json");
+        import("node:child_process").then(({ execFileSync }) => {
+          execFileSync(pythonBin, [
+            defectAuditScript,
+            "--run",
+            primaryRunFile,
+            "--labels",
+            latestEvalPath,
+            "--json-out",
+            defectJsonOut,
+          ]);
+          console.log("generated defect correlation matrix:", defectJsonOut);
+        }).catch((e) => {
+          console.warn("failed to run defect correlation script:", e.message);
+        });
+      } catch (e) {
+        console.warn("could not spawn defect correlation audit:", e.message);
+      }
+    }
+
+    if (fs.existsSync(subsetSelectionScript)) {
+      try {
+        const subsetJsonOut = path.join(OUT_DIR, "benchmark_subsets.json");
+        import("node:child_process").then(({ execFileSync }) => {
+          execFileSync(pythonBin, [
+            subsetSelectionScript,
+            "--run",
+            primaryRunFile,
+            "--labels",
+            latestEvalPath,
+            "--mode",
+            "all_standard",
+            "--json-out",
+            subsetJsonOut,
+          ]);
+          console.log("generated benchmark subsets:", subsetJsonOut);
+        }).catch((e) => {
+          console.warn("failed to run subset selection script:", e.message);
+        });
+      } catch (e) {
+        console.warn("could not spawn subset selection:", e.message);
+      }
+    }
+
+    const coherenceV2Script = path.join(
+      REPO_ROOT,
+      "submodules/ASP/backend/benchmark/bench_coherence_v2_ab.py"
+    );
+    if (fs.existsSync(coherenceV2Script)) {
+      try {
+        const abJsonOut = path.join(OUT_DIR, "coherence_v2_ab_eval.json");
+        import("node:child_process").then(({ execFileSync }) => {
+          execFileSync(pythonBin, [
+            coherenceV2Script,
+            "--labels",
+            latestEvalPath,
+            "--json-out",
+            abJsonOut,
+          ]);
+          console.log("generated coherence_v2 A/B evaluation:", abJsonOut);
+        }).catch((e) => {
+          console.warn("failed to run coherence_v2 A/B eval script:", e.message);
+        });
+      } catch (e) {
+        console.warn("could not spawn coherence_v2 A/B eval:", e.message);
+      }
+    }
+  }
 
   console.log(
     `dashboard data: ${runs.length} automated run(s), human eval keys=${Object.keys(latestEval).length}`

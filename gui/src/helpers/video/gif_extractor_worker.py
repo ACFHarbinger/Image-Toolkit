@@ -125,13 +125,20 @@ class GifCreationWorker(QRunnable):
 
                 self.signals.progress.emit(0, 100)
 
-                process = subprocess.Popen(
-                    cmd,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    stdin=subprocess.DEVNULL,
-                    text=True,
-                )
+                # Issue #81 crash family: serialize the ffmpeg fork against
+                # the first QMediaPlayer construction (QThread worker, may
+                # run concurrently with video playback opening). Guard only
+                # the fork, not the streaming read loop.
+                from gui.src.helpers.video.video_thumbnailer import media_backend_spawn_guard
+
+                with media_backend_spawn_guard():
+                    process = subprocess.Popen(
+                        cmd,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        stdin=subprocess.DEVNULL,
+                        text=True,
+                    )
 
                 while process.poll() is None:
                     if self._is_cancelled:

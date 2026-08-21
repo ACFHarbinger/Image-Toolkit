@@ -176,7 +176,7 @@ nav:
       - GUI / UX: roadmaps/gui_ux.md
       - ASP Pipeline: roadmaps/asp.md
       - Content Generation: roadmaps/content_generation.md
-      - Analytics & Interpretability: roadmaps/analytics_and_interpretability.md
+      - Development Tool: roadmaps/development_tool.md
       - Documentation: roadmaps/documentation.md
   - Research:
       - Analytics & Codebase Visualisation: research/analytics.md

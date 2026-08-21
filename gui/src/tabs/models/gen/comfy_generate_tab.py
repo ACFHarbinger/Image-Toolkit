@@ -319,7 +319,6 @@ class ComfyUITab(QWidget):
         self._log_view = QTextEdit()
         self._log_view.setReadOnly(True)
         self._log_view.setStyleSheet(
-            "background: #1e1e1e; color: #d4d4d4;"
             "font-family: monospace; font-size: 9pt;"
         )
         log_layout.addWidget(self._log_view)

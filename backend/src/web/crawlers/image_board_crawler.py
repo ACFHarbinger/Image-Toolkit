@@ -67,20 +67,59 @@ class ImageBoardCrawler(QObject):
         """Glue method called by C++ to emit on_status signal."""
         self.on_status.emit(msg)
 
+    def get_crawler_backend_name(self) -> str:
+        """Returns the backend engine name passed to C++ base.run_board_crawler."""
+        return self.__class__.__name__.replace("Crawler", "").lower()
+
+    def normalize_rating_tag(self, rating: str) -> str | None:
+        """
+        Map user-facing rating enum to board-specific tag query string,
+        or None if unsupported, no-op, or unrecognized (§4.18 / Issue #370).
+        """
+        if not rating:
+            return None
+        r = rating.strip().lower()
+        mapping = {
+            "general": "rating:general",
+            "g": "rating:general",
+            "safe": "rating:general",
+            "sensitive": "rating:sensitive",
+            "s": "rating:sensitive",
+            "questionable": "rating:questionable",
+            "q": "rating:questionable",
+            "explicit": "rating:explicit",
+            "e": "rating:explicit",
+        }
+        return mapping.get(r, None)
+
+
     def run(self):
         """
         Main execution loop delegate.
         Calls the C++ implementation via base.run_board_crawler.
         """
-        crawler_name = self.__class__.__name__.replace("Crawler", "").lower()
+        crawler_name = self.get_crawler_backend_name()
         selection_mode = self.config.get("selection_mode", "Download All (Default)")
         self.on_status.emit(f"Crawl starting with selection mode: {selection_mode}")
-        config_json = json.dumps(self.config)
+
+        # Rating filter normalization (§4.18 / Issue #370)
+        config_to_send = dict(self.config)
+        rating = config_to_send.get("rating")
+        if rating:
+            rating_tag = self.normalize_rating_tag(rating)
+            if rating_tag:
+                existing_tags = config_to_send.get("tags", "")
+                if "rating:" not in existing_tags:
+                    config_to_send["tags"] = f"{existing_tags} {rating_tag}".strip()
+
+        config_json = json.dumps(config_to_send)
+
 
         t0 = time.perf_counter()
         try:
             total_downloaded = base.run_board_crawler(crawler_name, config_json, self)
             return total_downloaded
+
         except Exception as e:
             self.on_status.emit(f"Critical Error in C++ crawler: {str(e)}")
             return 0

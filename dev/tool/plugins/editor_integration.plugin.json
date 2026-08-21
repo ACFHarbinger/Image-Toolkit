@@ -1,0 +1,35 @@
+{
+  "schema": "devtool.plugin.manifest",
+  "schema_version": 1,
+  "name": "editor_integration",
+  "version": "0.1.0",
+  "description": "Editor clipboard formatting, PR description generator, and IDE task templates.",
+  "surfaces": [
+    {
+      "name": "cli",
+      "description": "export findings / sessions formatted for clipboard"
+    },
+    {
+      "name": "editor",
+      "description": "generate IDE task & command definitions"
+    }
+  ],
+  "channels": [
+    {
+      "key": "editor_exports",
+      "label": "formatted clipboard buffers and task templates",
+      "description": "",
+      "default_enabled": true,
+      "retention": "forever"
+    }
+  ],
+  "entry": {
+    "python_module": "tool.plugins.editor_integration:plugin",
+    "command": [
+      ".venv/bin/python",
+      "dev",
+      "plugin-run",
+      "editor_integration"
+    ]
+  }
+}

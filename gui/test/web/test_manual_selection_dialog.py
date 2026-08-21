@@ -16,10 +16,11 @@ def test_manual_selection_dialog_card_states_and_paths(tmp_path):
     ]
 
     parent = QWidget()
-    parent.download_dir_path = QLineEdit()
-    parent.download_dir_path.setText(str(tmp_path))
+    parent.download_dir_path = QLineEdit() # pyrefly: ignore [missing-attribute]
+    parent.download_dir_path.setText(str(tmp_path)) # pyrefly: ignore [missing-attribute]
 
-    dialog = ManualSelectionDialog(items, parent=parent)
+    # pyrefly: ignore [bad-argument-type]
+    dialog = ManualSelectionDialog(items, parent=parent) 
 
     # Initial state: Both cards are KEEP (is_kept = True)
     assert len(dialog.cards) == 2
@@ -31,6 +32,7 @@ def test_manual_selection_dialog_card_states_and_paths(tmp_path):
     # Toggle card 1 to DISCARD (is_kept = False)
     dialog.cards[1].set_kept(False)
 
+    # pyrefly: ignore [unnecessary-comparison]
     assert dialog.cards[1].is_kept is False
     assert dialog.get_kept_paths() == [str(img1)]
     assert dialog.get_pruned_paths() == [str(img2)]
@@ -59,10 +61,11 @@ def test_manual_selection_dialog_skip_first_pre_marking(tmp_path):
     ]
 
     parent = QWidget()
-    parent.download_dir_path = QLineEdit()
-    parent.download_dir_path.setText(str(tmp_path))
+    parent.download_dir_path = QLineEdit() # pyrefly: ignore [missing-attribute]
+    parent.download_dir_path.setText(str(tmp_path)) # pyrefly: ignore [missing-attribute]
 
     # Open dialog with skip_first=2
+    # pyrefly: ignore [bad-argument-type]
     dialog = ManualSelectionDialog(items, parent=parent, skip_first=2)
 
     # Card 0 (index 1) and Card 1 (index 2) must be DISCARD, Card 2 (index 3) must be KEEP
@@ -90,11 +93,12 @@ def test_manual_selection_dialog_json_strings_and_qlineedit_skip_inputs(tmp_path
     ]
 
     parent = QWidget()
-    parent.download_dir_path = QLineEdit()
-    parent.download_dir_path.setText(str(tmp_path))
-    parent.skip_first_input = QLineEdit("1")
-    parent.skip_last_input = QLineEdit("1")
+    parent.download_dir_path = QLineEdit() # pyrefly: ignore [missing-attribute]
+    parent.download_dir_path.setText(str(tmp_path)) # pyrefly: ignore [missing-attribute]
+    parent.skip_first_input = QLineEdit("1") # pyrefly: ignore [missing-attribute]
+    parent.skip_last_input = QLineEdit("1") # pyrefly: ignore [missing-attribute]
 
+    # pyrefly: ignore [bad-argument-type]
     dialog = ManualSelectionDialog(items, parent=parent)
 
     assert len(dialog.cards) == 3

@@ -6,7 +6,8 @@ import json
 from pathlib import Path
 
 import pytest
-from asp_gui.elements.stitch_tab.dialog.hitl_session_viewer_dialog import (
+# pyrefly: ignore [missing-import]
+from asp_gui.elements.dialog.hitl_session_viewer_dialog import (
     HITLSessionViewerDialog,
     _format_session_info,
     _list_sessions,

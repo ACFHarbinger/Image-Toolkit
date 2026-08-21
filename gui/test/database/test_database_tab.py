@@ -1,9 +1,9 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
-from gui.src.elements.database.database_tab import DatabaseTab
-from gui.src.elements.database.scan_metadata_tab import ScanMetadataTab
-from gui.src.elements.database.search_tab import SearchTab
+from gui.src.tabs.database.database_tab import DatabaseTab
+from gui.src.tabs.database.scan_metadata_tab import ScanMetadataTab
+from gui.src.tabs.database.search_tab import SearchTab
 from PySide6.QtWidgets import QWidget
 
 pytestmark = pytest.mark.gui
@@ -15,7 +15,11 @@ pytestmark = pytest.mark.gui
 class TestDatabaseTab:
     @pytest.fixture
     def mock_db_cls(self):
-        with patch("gui.src.elements.database.database_tab.manager.ImageDatabase") as mock:
+        # connect_database() lives in _connection_stats.py, which imports
+        # UnifiedImageDatabase directly (not via manager).
+        with patch(
+            "gui.src.tabs.database.database_tab._connection_stats.ImageDatabase"
+        ) as mock:
             yield mock
 
     def test_init(self, q_app):
@@ -24,13 +28,10 @@ class TestDatabaseTab:
         assert tab.db is None
 
     def test_connect_database(self, q_app, mock_db_cls):
-        # Mock connection fields
+        # The unified-library flow (DB.4/DB.7+) opens the vault session via
+        # get_library_db() and wraps it in ImageDatabase -- no host/port/user
+        # fields (those were the legacy direct-Postgres path, removed).
         tab = DatabaseTab()
-        tab.db_host.setText("localhost")
-        tab.db_port.setText("5432")
-        tab.db_user.setText("user")
-        tab.db_password.setText("pass")
-        tab.db_name.setText("test_db")
 
         # Mock internal update methods to avoid complexity
         tab.update_statistics = MagicMock()
@@ -39,19 +40,27 @@ class TestDatabaseTab:
         tab.refresh_tags_list = MagicMock()
         tab.refresh_groups_list = MagicMock()
         tab.refresh_subgroups_list = MagicMock()
+        tab.refresh_image_registry = MagicMock()
 
-        with patch(
-            "gui.src.elements.database.database_tab._connection_stats.QMessageBox.information"
+        fake_session_db = MagicMock()
+        with (
+            patch(
+                "gui.src.tabs.database.database_tab._connection_stats.get_library_db",
+                return_value=fake_session_db,
+            ),
+            patch(
+                "gui.src.tabs.database.database_tab._connection_stats.QMessageBox.information"
+            ),
         ):
             tab.connect_database()
 
-        mock_db_cls.assert_called_once()
+        mock_db_cls.assert_called_once_with(fake_session_db)
         assert tab.db is not None
 
     def test_reset_database_no_connection(self, q_app):
         tab = DatabaseTab()
         with patch(
-            "gui.src.elements.database.database_tab._connection_stats.QMessageBox.warning"
+            "gui.src.tabs.database.database_tab._connection_stats.QMessageBox.warning"
         ) as mock_warn:
             tab.reset_database()
             mock_warn.assert_called()
@@ -66,7 +75,7 @@ class TestScanMetadataTab:
         mock_db_tab = MagicMock()
         # Mock valid local path or os.getcwd for last_browsed_scan_dir
         with patch(
-            "gui.src.elements.database.scan_metadata_tab._ui_builder.LOCAL_SOURCE_PATH", "/tmp"
+            "gui.src.tabs.database.scan_metadata_tab._ui_builder.LOCAL_SOURCE_PATH", "/tmp"
         ):
             tab = ScanMetadataTab(mock_db_tab)
             assert isinstance(tab, QWidget)
@@ -75,7 +84,7 @@ class TestScanMetadataTab:
     def test_cancel_loading(self, q_app):
         mock_db_tab = MagicMock()
         with patch(
-            "gui.src.elements.database.scan_metadata_tab._ui_builder.LOCAL_SOURCE_PATH", "/tmp"
+            "gui.src.tabs.database.scan_metadata_tab._ui_builder.LOCAL_SOURCE_PATH", "/tmp"
         ):
             tab = ScanMetadataTab(mock_db_tab)
             mock_thread = MagicMock()
@@ -94,7 +103,7 @@ class TestScanMetadataTab:
 class TestSearchTab:
     @pytest.fixture
     def mock_worker(self):
-        with patch("gui.src.elements.database.search_tab._search_worker.SearchWorker") as mock:
+        with patch("gui.src.tabs.database.search_tab._search_worker.SearchWorker") as mock:
             yield mock
 
     def test_init(self, q_app):
@@ -108,7 +117,7 @@ class TestSearchTab:
         tab = SearchTab(mock_db_tab)
 
         with patch(
-            "gui.src.elements.database.search_tab._search_worker.QMessageBox.warning"
+            "gui.src.tabs.database.search_tab._search_worker.QMessageBox.warning"
         ) as mock_warn:
             tab.perform_search()
             mock_warn.assert_called()
@@ -126,7 +135,7 @@ class TestSearchTab:
         # Since perform_search uses QThreadPool.globalInstance().start(worker)
         # we can't easily check if global thread pool started it unless we mock QThreadPool
         with patch(
-            "gui.src.elements.database.search_tab._search_worker.QThreadPool"
+            "gui.src.tabs.database.search_tab._search_worker.QThreadPool"
         ) as MockThreadPool:
             tab.perform_search()
 
@@ -140,7 +149,7 @@ class TestSearchTabSemanticSearch:
     @pytest.fixture
     def mock_worker(self):
         with patch(
-            "gui.src.elements.database.search_tab._semantic_search.SemanticSearchWorker"
+            "gui.src.tabs.database.search_tab._semantic_search.SemanticSearchWorker"
         ) as mock:
             yield mock
 
@@ -150,7 +159,7 @@ class TestSearchTabSemanticSearch:
         tab = SearchTab(mock_db_tab)
 
         with patch(
-            "gui.src.elements.database.search_tab._semantic_search.QMessageBox.warning"
+            "gui.src.tabs.database.search_tab._semantic_search.QMessageBox.warning"
         ) as mock_warn:
             tab.semantic_query_edit.setText("a sunset")
             tab.perform_semantic_search()
@@ -162,7 +171,7 @@ class TestSearchTabSemanticSearch:
         tab = SearchTab(mock_db_tab)
 
         with patch(
-            "gui.src.elements.database.search_tab._semantic_search.QMessageBox.information"
+            "gui.src.tabs.database.search_tab._semantic_search.QMessageBox.information"
         ) as mock_info:
             tab.semantic_query_edit.setText("")
             tab.perform_semantic_search()
@@ -176,7 +185,7 @@ class TestSearchTabSemanticSearch:
         tab.semantic_query_edit.setText("a sunset over water")
 
         with patch(
-            "gui.src.elements.database.search_tab._semantic_search.QThreadPool"
+            "gui.src.tabs.database.search_tab._semantic_search.QThreadPool"
         ) as MockThreadPool:
             tab.perform_semantic_search()
 
@@ -205,7 +214,7 @@ class TestSearchTabSemanticSearch:
         tab = SearchTab(mock_db_tab)
 
         with patch(
-            "gui.src.elements.database.search_tab._semantic_search.QThreadPool"
+            "gui.src.tabs.database.search_tab._semantic_search.QThreadPool"
         ) as MockThreadPool:
             tab.find_similar_images("/some/photo.png")
 

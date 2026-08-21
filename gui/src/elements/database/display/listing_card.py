@@ -6,31 +6,32 @@ from gui.src.constants.listings import (
     STATUS_COLORS,
     TYPE_COLORS,
 )
-from gui.src.elements.database.display.common.base_card import BaseCard
-from gui.src.tabs.core.elements.common.listings_common import (
+from gui.src.elements.database.common.listings_common import (
     _badge,
     open_file_location,
     open_web_link,
 )
+from gui.src.elements.database.display.common.base_card import BaseCard
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QMenu, QPushButton, QVBoxLayout
 
 
 class _ListingCard(BaseCard):
-    def __init__(self, entry: Dict[str, Any], parent=None):
+    def __init__(self, entry: Dict[str, Any], parent=None, card_size: int = CARD_SIZE):
         super().__init__(
             item_id=entry["id"],
             image_path=entry.get("image_path", ""),
             placeholder=PLACEHOLDER,
             parent=parent,
+            card_size=card_size,
         )
         self.entry = entry
         self.setObjectName("listing_card")
-        self.setStyleSheet(
-            "QWidget#listing_card{background:#2c2f33;border:2px solid #4f545c;"
+        self.set_base_card_style(
+            "QWidget#listing_card{background:rgba(20, 24, 32, 0.45);border:2px solid rgba(255, 255, 255, 0.12);"
             "border-radius:8px;}"
-            "QWidget#listing_card:hover{border:2px solid #00bcd4;}"
+            "QWidget#listing_card:hover{border:2px solid #00bcd4;background:rgba(28, 34, 46, 0.60);}"
         )
 
         layout = QVBoxLayout(self)
@@ -44,16 +45,14 @@ class _ListingCard(BaseCard):
         title_lbl = QLabel(entry.get("title", "Untitled"))
         title_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         title_lbl.setWordWrap(False)
-        title_lbl.setStyleSheet(
-            "color:#ffffff;font-weight:bold;font-size:11px;border:none;"
-        )
-        title_lbl.setFixedWidth(CARD_SIZE - 4)
+        title_lbl.setStyleSheet("color:#ffffff;font-weight:bold;font-size:11px;border:none;")
+        title_lbl.setFixedWidth(self.card_size - 4)
         fm = title_lbl.fontMetrics()
         title_lbl.setText(
             fm.elidedText(
                 entry.get("title", "Untitled"),
                 Qt.TextElideMode.ElideRight,
-                CARD_SIZE - 10,
+                self.card_size - 10,
             )
         )
         title_lbl.setToolTip(entry.get("title", ""))
@@ -79,9 +78,7 @@ class _ListingCard(BaseCard):
         # Personal rating stars (supports old "rating" key for backwards compat)
         # REAL DB columns can surface float ratings — clamp to a 0-10 int.
         try:
-            personal_rating = int(round(float(
-                entry.get("personal_rating") or entry.get("rating") or 0
-            )))
+            personal_rating = round(float(entry.get("personal_rating") or entry.get("rating") or 0))
         except (TypeError, ValueError):
             personal_rating = 0
         personal_rating = max(0, min(10, personal_rating))
@@ -115,9 +112,7 @@ class _ListingCard(BaseCard):
                     "border-radius:4px; padding:2px 6px; font-size:10px; font-weight:bold; }"
                     "QPushButton:hover { background:#00bcd4; color:black; }"
                 )
-                file_btn.clicked.connect(
-                    lambda _, path=local_file_path: open_file_location(path)
-                )
+                file_btn.clicked.connect(lambda _, path=local_file_path: open_file_location(path))
                 actions_layout.addWidget(file_btn)
 
             if web_link_url:
@@ -154,9 +149,7 @@ class _ListingCard(BaseCard):
             menu.addSeparator()
             if local_file:
                 file_act = QAction("📁 Open File Location", self)
-                file_act.triggered.connect(
-                    lambda _, path=local_file: open_file_location(path)
-                )
+                file_act.triggered.connect(lambda _, path=local_file: open_file_location(path))
                 menu.addAction(file_act)
             if web_link:
                 link_act = QAction("🌐 Open Web Link", self)
@@ -167,16 +160,15 @@ class _ListingCard(BaseCard):
         if img_path:
             menu.addSeparator()
             open_img_loc_act = QAction("📂 Open Image Location", self)
-            open_img_loc_act.triggered.connect(
-                lambda _, path=img_path: open_file_location(path)
-            )
+            open_img_loc_act.triggered.connect(lambda _, path=img_path: open_file_location(path))
             menu.addAction(open_img_loc_act)
 
             remove_img_act = QAction("🖼 Delete / Remove Image", self)
-            remove_img_act.triggered.connect(
-                lambda: self.image_remove_requested.emit(self._id)
-            )
+            remove_img_act.triggered.connect(lambda: self.image_remove_requested.emit(self._id))
             menu.addAction(remove_img_act)
+
+        menu.addSeparator()
+        self._add_color_label_menu(menu)
 
         menu.addSeparator()
 

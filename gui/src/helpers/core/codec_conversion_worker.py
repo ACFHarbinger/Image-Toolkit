@@ -207,7 +207,13 @@ class CodecConversionWorker(QThread):
         delete_original = self.config.get("delete_original", False)
 
         if video_codec != "copy" or audio_codec != "copy":
-            src_video_codec, src_audio_codec = probe_codecs(input_file)
+            # Issue #81 crash family: this QThread may run concurrently with
+            # the first QMediaPlayer construction; serialize the ffprobe
+            # fork.
+            from gui.src.helpers.video.video_thumbnailer import media_backend_spawn_guard
+
+            with media_backend_spawn_guard():
+                src_video_codec, src_audio_codec = probe_codecs(input_file)
             if _matches_target(src_video_codec, video_codec) and _matches_target(
                 src_audio_codec, audio_codec
             ):
@@ -250,16 +256,21 @@ class CodecConversionWorker(QThread):
 
         success = False
         try:
-            success = VideoFormatConverter.convert_codec(
-                input_path=input_file,
-                output_path=temp_output_path,
-                video_codec=None if video_codec == "copy" else video_codec,
-                audio_codec=None if audio_codec == "copy" else audio_codec,
-                crf=crf,
-                speed=speed,
-                delete=False,
-                process_callback=register_p,
-            )
+            # Issue #81 crash family: the ffmpeg fork inside convert_codec
+            # must not race the first QMediaPlayer construction.
+            from gui.src.helpers.video.video_thumbnailer import media_backend_spawn_guard
+
+            with media_backend_spawn_guard():
+                success = VideoFormatConverter.convert_codec(
+                    input_path=input_file,
+                    output_path=temp_output_path,
+                    video_codec=None if video_codec == "copy" else video_codec,
+                    audio_codec=None if audio_codec == "copy" else audio_codec,
+                    crf=crf,
+                    speed=speed,
+                    delete=False,
+                    process_callback=register_p,
+                )
             self._finalize_conversion(
                 success,
                 input_file,

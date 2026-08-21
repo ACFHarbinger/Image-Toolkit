@@ -1,23 +1,37 @@
-from asp_gui.dialogs.batch_stitch_dialog import BatchStitchDialog
+try:
+    from asp_gui.dialogs.batch_stitch_dialog import BatchStitchDialog
+except ImportError:
+    BatchStitchDialog = None  # type: ignore[assignment, misc]
 
 from .add_tag_dialog import AddTagDialog
+from .asp_advanced_config_dialog import AspAdvancedConfigDialog
 from .crawler_selection_dialogs import (
     DeduplicationPruningDialog,
     DuplicateConfigDialog,
     ManualSelectionDialog,
     run_duplicate_scan,
 )
+from .extraction_close_progress_dialog import (
+    ExtractionCloseProgressDialog,
+    ProcessCloseProgressDialog,
+    TaskCloseProgressDialog,
+)
 from .frame_selection_dialog import FrameSelectionDialog, extract_video_frame_via_ffmpeg
 from .property_comparison_dialog import PropertyComparisonDialog
 from .safetensors_inspector_dialog import SafetensorsInspectorDialog
 from .scroll_video_export_dialog import ScrollVideoExportDialog
 from .tag_review_dialog import TagReviewDialog
+from .thumbnail_file_picker import ThumbnailFilePicker
 
 __all__ = [
     "AddTagDialog",
+    "AspAdvancedConfigDialog",
     "BatchStitchDialog",
     "DeduplicationPruningDialog",
     "DuplicateConfigDialog",
+    "ExtractionCloseProgressDialog",
+    "ProcessCloseProgressDialog",
+    "TaskCloseProgressDialog",
     "ManualSelectionDialog",
     "run_duplicate_scan",
     "FrameSelectionDialog",
@@ -26,4 +40,5 @@ __all__ = [
     "SafetensorsInspectorDialog",
     "ScrollVideoExportDialog",
     "TagReviewDialog",
+    "ThumbnailFilePicker",
 ]

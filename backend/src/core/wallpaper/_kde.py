@@ -7,6 +7,7 @@ import os
 import re
 import shutil
 import subprocess
+import time
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -145,6 +146,7 @@ class _KDEWallpaperMixin:
             )
 
         script_parts = []
+        video_config_parts = []
         for monitor_id, path in path_map.items():
             if not path:
                 continue
@@ -212,13 +214,64 @@ class _KDEWallpaperMixin:
                 # json.dumps again produces a correctly escaped JavaScript
                 # string literal for paths containing quotes or backslashes.
                 video_value_js = json.dumps(video_value)
+                # Reborn's `LastVideo` config key (the value the delegate hands
+                # back to main.currentSource via getVideoByFile on startup/next())
+                # is a bare file URI string, NOT the JSON video-list schema above
+                # — mirror what the plugin's own save() writes
+                # (`LastVideo = currentSource.filename`). Keeping it in sync with
+                # the single video we just wrote is what prevents the delegate's
+                # currentSource binding from resolving to an empty player source:
+                # with ResumeLastVideo on (the default) and a stale LastVideo that
+                # no longer matches the freshly-written video, main.currentSource
+                # returns createVideo("") and FadePlayer.next()'s direct assignment
+                # captures that empty value into playerSource, which Qt Multimedia
+                # reports as NoMedia — the persistent black screen.
+                last_video_js = json.dumps(video_file_uri)
+                # Build the conditional JS statement outside the f-string below:
+                # f-string expression parts cannot contain backslashes, so the
+                # double-quoted writeConfig(...) call has to be pre-computed.
+                reborn_last_video_write = (
+                    f'd.writeConfig("LastVideo", {last_video_js});'
+                    if target_plugin == "luisbocanegra.smart.video.wallpaper.reborn"
+                    else ""
+                )
 
+                # Only assign wallpaperPlugin when it's actually changing. Plasma
+                # tears down and recreates the wallpaper QML delegate whenever this
+                # property is *set*, even to its current value — for a video plugin
+                # that means destroying and rebuilding its GPU-backed video surface.
+                # The slideshow daemon calls this every playback interval (as low as
+                # single-digit seconds in video-runtime mode), so an unconditional
+                # assignment here was forcing that teardown/recreate cycle every few
+                # seconds for as long as the slideshow ran — a plausible way to wedge
+                # a GPU buffer import/fence over a long session. Advancing to the next
+                # video below only needs writeConfig()+reloadConfig(); it never needed
+                # the plugin itself to be reassigned once it's already active.
+                #
+                # Splitting this into two D-Bus round-trips (switch, then — after a
+                # short delay — write the video config) is deliberate, not an
+                # oversight: freshly (re)created QML wallpaper delegates (e.g.
+                # luisbocanegra.smart.video.wallpaper.reborn's main.qml) start with
+                # an internal `isLoading = true` guard that a 100ms startTimer clears.
+                # Their onVideoUrlsChanged-style handler that actually starts playback
+                # bails out silently while isLoading is still true, and nothing
+                # re-triggers it later — so writing the video config in the *same*
+                # script as the plugin switch races that timer and, most of the time,
+                # loses: the config is written correctly (confirmed via logs/dbus)
+                # but the delegate never picks it up, producing a black screen that
+                # only resolves if the user manually reopens Wallpaper Settings and
+                # clicks Apply (which writes the config through a different path,
+                # after the delegate has finished loading). Monitors that already
+                # have the target plugin active never hit this race and don't need
+                # the delay.
                 script_parts.append(
                     f"""
                 {{
                     var d = desktops()[{i}];
                     if (d && d.screen >= 0) {{
-                        d.wallpaperPlugin = "{target_plugin}";
+                        if (d.wallpaperPlugin !== "{target_plugin}") {{
+                            d.wallpaperPlugin = "{target_plugin}";
+                        }}
                         if (d.wallpaperPlugin !== "{target_plugin}") {{
                             // The plugin switch didn't take (e.g. the plugin isn't actually
                             // registered with Plasma despite being found on disk). Bail out
@@ -227,17 +280,30 @@ class _KDEWallpaperMixin:
                             // black, which is what actually renders when the plugin switch
                             // silently fails, producing a black screen instead of the video.
                             print("ERROR: monitor {i} failed to switch to video wallpaper plugin '{target_plugin}' (still on '" + d.wallpaperPlugin + "').");
+                        }}
+                    }} else {{
+                        print("ERROR: monitor {i} has no valid KDE desktop/screen.");
+                    }}
+                }}
+                """
+                )
+                video_config_parts.append(
+                    f"""
+                {{
+                    var d = desktops()[{i}];
+                    if (d && d.screen >= 0) {{
+                        if (d.wallpaperPlugin !== "{target_plugin}") {{
+                            print("ERROR: monitor {i} still not on video wallpaper plugin '{target_plugin}' (on '" + d.wallpaperPlugin + "') when writing video config.");
                         }} else {{
                             d.currentConfigGroup = Array("Wallpaper", "{target_plugin}", "General");
                             d.writeConfig("FillMode", {video_fill_mode});
                             d.writeConfig("fillMode", {video_fill_mode});
                             {"d.writeConfig('overridePause', true);" if is_smarter else ""}
                             d.writeConfig("{video_key}", {video_value_js});
+                            {reborn_last_video_write}
                             d.reloadConfig();
                             print("OK: monitor {i} switched to '" + d.wallpaperPlugin + "', wrote {video_key}='{video_file_uri}'.");
                         }}
-                    }} else {{
-                        print("ERROR: monitor {i} has no valid KDE desktop/screen.");
                     }}
                 }}
                 """
@@ -249,13 +315,46 @@ class _KDEWallpaperMixin:
 
         if not script_parts:
             return
+
+        errors: List[str] = []
+
         full_script = "".join(script_parts)
         try:
             result = evaluate_kde_script_with_fallback(qdbus, full_script)
         except Exception as e:
             raise RuntimeError(f"KDE method failed: {e}") from e
+        logger.info("[WallpaperManager] evaluateScript raw result (phase 1): %r", result)
+        errors.extend(
+            line for line in (result or "").splitlines() if line.startswith("ERROR:")
+        )
 
-        logger.info("[WallpaperManager] evaluateScript raw result: %r", result)
+        if video_config_parts and not errors:
+            # Skip the video-config phase entirely if the plugin switch already
+            # failed — nothing meaningful to write config for, and no reason to
+            # pay the delay/round-trip on a path that's already erroring out.
+            #
+            # Give freshly-switched QML wallpaper delegates time to clear their
+            # isLoading guard (100ms in the Reborn plugin) before writing the
+            # config their onVideoUrlsChanged-equivalent handler depends on to
+            # actually start playback — see the comment above. Monitors that
+            # were already on the target plugin pay this same small one-time
+            # delay too (config write is scoped to the video branch either
+            # way), rather than threading a second conditional through Python.
+            time.sleep(0.3)
+            video_script = "".join(video_config_parts)
+            try:
+                video_result = evaluate_kde_script_with_fallback(qdbus, video_script)
+            except Exception as e:
+                raise RuntimeError(f"KDE method failed (video config phase): {e}") from e
+            logger.info(
+                "[WallpaperManager] evaluateScript raw result (phase 2, video config): %r",
+                video_result,
+            )
+            errors.extend(
+                line
+                for line in (video_result or "").splitlines()
+                if line.startswith("ERROR:")
+            )
 
         # evaluateScript() over D-Bus returns exit code 0 for any successful
         # D-Bus round-trip, even when the JS itself threw or one of our own
@@ -263,7 +362,6 @@ class _KDEWallpaperMixin:
         # raises for that. Without this check, a failed plugin switch (see
         # the video branch above) silently reported Success: True while
         # showing a black screen instead of the video.
-        errors = [line for line in (result or "").splitlines() if line.startswith("ERROR:")]
         if errors:
             raise RuntimeError("KDE wallpaper script reported errors: " + "; ".join(errors))
 
