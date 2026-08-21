@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import PipelineDiagram from '../components/PipelineDiagram';
+import AdvancedConfigDrawer from '../components/config/AdvancedConfigDrawer';
 import { submoduleSites } from '../constants/submodules';
 
 export default function Pipeline() {
@@ -31,8 +32,24 @@ export default function Pipeline() {
         <PipelineDiagram height={300} />
       </div>
 
+      {/* ASP Parameter & Configuration Matrix */}
+      <div className="mb-16">
+        <div className="mb-6">
+          <span className="text-[#00f0ff] text-[11px] tracking-[0.2em] font-bold uppercase font-mono">PARAMETER MATRIX</span>
+          <h2 className="text-2xl md:text-3xl font-bold mt-2 text-[#e2e8f0]">
+            ASP Configuration & Tuning Matrix
+          </h2>
+          <p className="text-[#8c92a0] text-sm mt-2">
+            Configure the 20-flag primary profile or open the full 73-parameter advanced schema matrix with live typed validation.
+          </p>
+        </div>
+
+        <AdvancedConfigDrawer />
+      </div>
+
       {/* Submodules Explorer Section */}
       <div className="border-t border-[#1a1c23] pt-12">
+
         <div className="mb-8">
           <span className="text-[#ff0055] text-[11px] tracking-[0.2em] font-bold uppercase font-mono">SUBMODULE SITES</span>
           <h2 className="text-2xl md:text-3xl font-bold mt-2 text-[#e2e8f0]">

@@ -10,7 +10,7 @@ from PIL import Image
 # Add backend to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..")))
 
-from backend.src.core.image_merger import ImageMerger
+from backend.src.core.image import ImageMerger
 
 
 @pytest.fixture
@@ -33,6 +33,7 @@ def dummy_images():
         os.remove(p2)
 
 
+@pytest.mark.gpu  # legacy: perfect_stitch now runs AnimeStitchPipeline (real model weights)
 @patch("backend.src.models.wrappers.gan_wrapper.GanWrapper")
 @patch("backend.src.models.core.siamese_network.SiameseModelLoader.get_embedding")
 def test_perfect_stitch_ml_integration(mock_get_embedding, mock_gan, dummy_images):

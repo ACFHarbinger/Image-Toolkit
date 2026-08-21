@@ -14,12 +14,12 @@ import os
 from typing import TYPE_CHECKING, Dict, List, Optional
 
 from backend.src.constants import SUPPORTED_VIDEO_FORMATS
+from gui.src.utils.cache.lru_image_cache import LRU_CACHE_CEILING
 from PySide6.QtCore import Qt, Slot
 from PySide6.QtGui import QImage, QPixmap
 from shiboken6 import Shiboken
 
 from ....helpers import BatchImageLoaderWorker, ImageLoaderWorker, VideoLoaderWorker
-from ....utils.cache.lru_image_cache import LRUImageCache
 from ....utils.sort_utils import natural_sort_key
 
 if TYPE_CHECKING:
@@ -107,12 +107,13 @@ class _LoadingPipelineMixin:
         if not hasattr(self, "_loading_paths"):
             self._loading_paths = set()
         self._loading_paths.update(paths)
+        # batch_slot only: connecting the per-result slot too rendered every
+        # thumbnail twice (see common_start_chunked_load / #444).
         self.common_start_chunked_load(
             paths,
             worker_factory=lambda chunk: BatchImageLoaderWorker(
                 chunk, self.thumbnail_size
             ),
-            per_result_slot=self._on_single_image_loaded,
             batch_slot=self._on_batch_images_loaded,
         )
 
@@ -138,14 +139,37 @@ class _LoadingPipelineMixin:
         """
         if not append:
             self.master_image_paths = self._apply_sort(list(paths))
-            self._perform_search()
-
-            self._initial_pixmap_cache = LRUImageCache(maxsize=300)
+            # #444: size the cache to hold the entire page without
+            # mid-populate eviction -- page sizes go up to 500/1000/All,
+            # above the 300 default, so a fixed 300 evicted entries while
+            # the page was still filling and re-decoded them on every
+            # refresh. Capped at LRU_CACHE_CEILING so one large "All"
+            # directory can't inflate the cache into unbounded RSS
+            # growth/swap thrash (see #444 follow-up) -- but an explicit
+            # larger baseline the user configured via §2.16B (already
+            # reflected in maxsize before this call) is left alone rather
+            # than silently clamped down; it just doesn't grow further
+            # from directory size alone. Resize in place rather than
+            # replacing the object: the wallpaper tab shares one cache
+            # between its two subtabs (wallpaper_tab/manager.py) and
+            # replacement would silently de-share it. Done before
+            # _perform_search() so the populate it kicks off (and its
+            # load-skip decisions) see the fresh cache.
+            _current_max = self._initial_pixmap_cache.maxsize
+            if _current_max <= LRU_CACHE_CEILING:
+                self._initial_pixmap_cache.resize(
+                    min(
+                        max(300, min(self.page_size, len(self.master_image_paths))),
+                        LRU_CACHE_CEILING,
+                    )
+                )
+            self._initial_pixmap_cache.clear()
             if pixmap_cache:
                 for k, v in pixmap_cache.items():
                     self._initial_pixmap_cache[k] = v
             self._loading_paths.clear()
             self._failed_paths.clear()
+            self._perform_search()
         else:
             self.master_image_paths.extend(paths)
             self.master_image_paths.sort(key=natural_sort_key)

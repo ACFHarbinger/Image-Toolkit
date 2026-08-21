@@ -19,12 +19,14 @@ from __future__ import annotations
 import time
 
 import pytest
-from gui.src.elements.core.wallpaper_tab.common import wallpaper_common_base
-from gui.src.elements.core.wallpaper_tab.common.wallpaper_common_base import (
+from PySide6.QtCore import QTimer
+from PySide6.QtWidgets import QGridLayout, QScrollArea, QWidget
+
+from gui.src.tabs.core.wallpaper_tab.common import wallpaper_common_base
+from gui.src.tabs.core.wallpaper_tab.common.wallpaper_common_base import (
     WallpaperCommonBase,
 )
 from gui.src.helpers import ImageScannerWorker
-from PySide6.QtWidgets import QGridLayout, QScrollArea, QWidget
 
 pytestmark = pytest.mark.gui
 
@@ -46,6 +48,7 @@ class ConcreteWallpaperBase(WallpaperCommonBase):
     def update_card_pixmap(self, widget, pixmap, label_ref=None):
         pass
 
+    # pyrefly: ignore [bad-override]
     def create_gallery_label(self, path, size):
         return QWidget()
 
@@ -75,9 +78,11 @@ def _link_panels(a: ConcreteWallpaperBase, b: ConcreteWallpaperBase) -> None:
     b.linked_tabs = [a]
     b._initial_pixmap_cache = a._initial_pixmap_cache
     a.directory_scanned.connect(
+        # pyrefly: ignore [bad-argument-type]
         lambda directory: b.populate_scan_image_gallery(directory, emit_signal=False)
     )
     b.directory_scanned.connect(
+        # pyrefly: ignore [bad-argument-type]
         lambda directory: a.populate_scan_image_gallery(directory, emit_signal=False)
     )
 
@@ -109,6 +114,7 @@ class TestPeerReentrancyGuard:
         self, q_app, monkeypatch, tmp_path
     ):
         monkeypatch.setattr(
+            # pyrefly: ignore [implicit-import]
             wallpaper_common_base._scan_pipeline, "ImageScannerWorker", DelayedImageScannerWorker
         )
 
@@ -134,6 +140,7 @@ class TestPeerReentrancyGuard:
         # This is exactly the call the queued directory_scanned signal
         # triggers on the peer once the emitting panel's own call has
         # already returned to the event loop.
+        # pyrefly: ignore [bad-argument-type]
         monitor_display.populate_scan_image_gallery(str(target_dir), emit_signal=False)
         _pump(1.0)
 
@@ -149,6 +156,7 @@ class TestPeerReentrancyGuard:
         genuinely has stale scanner threads and is NOT mid-flight through
         its own call should still get stopped/drained as before."""
         monkeypatch.setattr(
+            # pyrefly: ignore [implicit-import]
             wallpaper_common_base._scan_pipeline, "ImageScannerWorker", DelayedImageScannerWorker
         )
 
@@ -167,7 +175,164 @@ class TestPeerReentrancyGuard:
             system_display, "_stop_scanner_threads", lambda: stop_calls.append(1)
         )
 
+        # pyrefly: ignore [bad-argument-type]
         monitor_display.populate_scan_image_gallery(str(target_dir), emit_signal=False)
         _pump(1.0)
 
         assert stop_calls == [1]
+
+    def test_monitor_selection_does_not_fire_pending_timers_reentrantly(
+        self, q_app, monkeypatch, tmp_path
+    ):
+        """Regression: _select_monitor/_select_monitor_peer must NOT pump the
+        full event queue (QApplication.processEvents), because during session
+        recovery that reentrantly fires the scan-dir restore timer (armed
+        250ms earlier by set_config) from inside the monitor-selection call
+        stack -- starting scanner QThreads mid-recovery. The user crash trace
+        reached _do_pending_scan_dir_restore via _select_monitor_peer line 89
+        exactly this way. The narrowed paint-only flush must leave pending
+        timers/queued signals untouched during the call."""
+        system_display = ConcreteWallpaperBase()
+        monitor_display = ConcreteWallpaperBase()
+        _link_panels(system_display, monitor_display)
+
+        # Simulate the session-recovery state: a pending restore timer (0ms so
+        # it would fire immediately if the event queue were pumped reentrantly)
+        # plus a queued signal delivery, both of which a full processEvents()
+        # inside _select_monitor_peer would dispatch mid-call.
+        fired = []
+        QTimer.singleShot(0, lambda: fired.append("timer"))
+        # pyrefly: ignore [bad-argument-type]
+        system_display._select_monitor_peer("0")
+
+        assert fired == [], (
+            "pending timer must NOT fire reentrantly from inside "
+            "_select_monitor_peer (paint-only flush, not processEvents)"
+        )
+
+        # The timer must still fire normally once control returns to the event
+        # loop -- the narrowing only removed the reentrant pump, not delivery.
+        _pump(0.5)
+        assert fired == ["timer"]
+
+    def test_monitor_selection_does_not_call_full_process_events(
+        self, q_app, monkeypatch, tmp_path
+    ):
+        """Guards the fix itself: _select_monitor/_select_monitor_peer must
+        never call QApplication.processEvents() (the full pump); they now use
+        sendPostedEvents(None, Paint). A future regression back to
+        processEvents() reintroduces the session-recovery reentrancy."""
+        import gui.src.tabs.core.wallpaper_tab.common.wallpaper_common_base._monitor_selection as ms
+
+        calls = []
+        monkeypatch.setattr(ms.QApplication, "processEvents", lambda: calls.append("processEvents"))
+        monkeypatch.setattr(
+            ms.QApplication, "sendPostedEvents", lambda *_: calls.append("sendPostedEvents")
+        )
+
+        system_display = ConcreteWallpaperBase()
+        monitor_display = ConcreteWallpaperBase()
+        _link_panels(system_display, monitor_display)
+
+        # pyrefly: ignore [bad-argument-type]
+        system_display._select_monitor("0")
+        # pyrefly: ignore [bad-argument-type]
+        monitor_display._select_monitor_peer("0")
+
+        assert "processEvents" not in calls, (
+            "full QApplication.processEvents() must not be called from "
+            "monitor selection (reentrant timer/signal pump -- see Addendum 21)"
+        )
+        assert calls, "paint-only flush (sendPostedEvents) must still run"
+
+    def test_peer_does_not_start_scan_while_primary_busy(
+        self, q_app, monkeypatch, tmp_path
+    ):
+        """Cross-panel serialization (Addendum 26/28 crash shape): the
+        recurring startup-restore crash log shows the peer's queued
+        directory_scanned mirror call starting its own ImageScannerWorker
+        WHILE the primary is still mid-flight -- the primary sets
+        _scan_pipeline_busy BEFORE emitting directory_scanned, but the
+        peer's populate only checked its OWN flag, so both panels ran
+        scanner QThreads at the same instant and died in
+        QObjectPrivate::connect. The peer must defer (retry timer) when any
+        linked panel is busy, keeping the two scans strictly sequential."""
+        monkeypatch.setattr(
+            # pyrefly: ignore [implicit-import]
+            wallpaper_common_base._scan_pipeline, "ImageScannerWorker", DelayedImageScannerWorker
+        )
+
+        system_display = ConcreteWallpaperBase()
+        monitor_display = ConcreteWallpaperBase()
+        _link_panels(system_display, monitor_display)
+
+        target_dir = tmp_path / "some_dir"
+        target_dir.mkdir()
+        (target_dir / "pic.png").write_bytes(b"\x00")
+
+        # Primary mid-flight: exactly the state it is in when the peer's
+        # queued directory_scanned mirror call is delivered (primary sets
+        # busy before emitting).
+        system_display._scan_pipeline_busy = True
+        worker_starts = []
+        monkeypatch.setattr(
+            # pyrefly: ignore [implicit-import]
+            wallpaper_common_base._scan_pipeline,
+            "ImageScannerWorker",
+            lambda *a, **k: worker_starts.append(1) or DelayedImageScannerWorker(*a, **k),
+        )
+
+        # This is the queued directory_scanned mirror call.
+        # pyrefly: ignore [bad-argument-type]
+        monitor_display.populate_scan_image_gallery(str(target_dir), emit_signal=False)
+        # Give the deferral retry a moment; the primary never settles, so the
+        # peer must keep deferring and never start a second scanner.
+        _pump(0.4)
+
+        assert worker_starts == [], (
+            "peer must not start its own ImageScannerWorker while the "
+            "primary panel is mid-flight (_scan_pipeline_busy) -- both "
+            "panels scanning at the same instant is the documented crash "
+            "shape (Addendum 26/28)"
+        )
+
+    def test_peer_starts_scan_after_primary_settles(
+        self, q_app, monkeypatch, tmp_path
+    ):
+        """Once the primary settles, the peer's deferred mirror call must go
+        ahead and start its own scan -- the deferral is serialization, not a
+        permanent skip."""
+        monkeypatch.setattr(
+            # pyrefly: ignore [implicit-import]
+            wallpaper_common_base._scan_pipeline, "ImageScannerWorker", DelayedImageScannerWorker
+        )
+
+        system_display = ConcreteWallpaperBase()
+        monitor_display = ConcreteWallpaperBase()
+        _link_panels(system_display, monitor_display)
+
+        target_dir = tmp_path / "some_dir"
+        target_dir.mkdir()
+        (target_dir / "pic.png").write_bytes(b"\x00")
+
+        system_display._scan_pipeline_busy = True
+        worker_starts = []
+        monkeypatch.setattr(
+            # pyrefly: ignore [implicit-import]
+            wallpaper_common_base._scan_pipeline,
+            "ImageScannerWorker",
+            lambda *a, **k: worker_starts.append(1) or DelayedImageScannerWorker(*a, **k),
+        )
+
+        # pyrefly: ignore [bad-argument-type]
+        monitor_display.populate_scan_image_gallery(str(target_dir), emit_signal=False)
+        _pump(0.2)
+        assert worker_starts == [], "peer must defer while primary busy"
+
+        # Primary settles -> peer's retry proceeds.
+        # pyrefly: ignore [bad-argument-type]
+        system_display._settle_scan_pipeline()
+        _pump(0.4)
+        assert worker_starts == [1], (
+            "peer must start its scan after the primary settles"
+        )

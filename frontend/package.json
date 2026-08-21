@@ -11,15 +11,15 @@
     "@tauri-apps/api": "^2.11.1",
     "@tauri-apps/plugin-dialog": "^2.7.2",
     "@testing-library/dom": "^10.4.1",
-    "@testing-library/jest-dom": "^7.0.0",
+    "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.3",
     "hie-frontend": "file:../submodules/HIE/frontend",
-    "lucide-react": "^1.28.0",
+    "lucide-react": "^1.31.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-scripts": "5.0.1",
-    "web-vitals": "^5.3.0"
+    "web-vitals": "^6.1.0"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.11.4",
@@ -27,7 +27,7 @@
     "@types/react": "^19.2.18",
     "concurrently": "^10.0.4",
     "cross-env": "^10.1.0",
-    "electron": "^43.0.0",
+    "electron": "^43.3.0",
     "electron-builder": "^26.15.3",
     "typedoc": "^0.28.20",
     "typedoc-plugin-markdown": "~4.12.0"

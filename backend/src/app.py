@@ -11,8 +11,8 @@ from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
 
 from backend.src.constants import CTRL_C_TIMEOUT, ICON_FILE
-from backend.src.core import lifecycle_memory, telemetry
 from backend.src.constants.app import SETTINGS_PREFIX_TYPES, SETTINGS_SCHEMA
+from backend.src.core import lifecycle_memory, telemetry
 
 # ---------------------------------------------------------------------------
 # Logging setup (item 1.13) — rotating file handler + coloured console output
@@ -166,6 +166,7 @@ def launch_app(opts):
 
     # We will track the active window (either login or main)
     active_window = None
+    main_window_launch_pending = False
 
     # Create a custom signal handler that works with Qt
     def handle_interrupt(signum, frame):
@@ -212,16 +213,16 @@ def launch_app(opts):
     # VideoThumbnailer.generate() to decode the JPEG bytes ffmpeg/
     # ffmpegthumbnailer wrote to stdout. The first time any video thumbnail
     # gets decoded in the process, Qt's JPEG image-format plugin lazily
-    # loads -- off the main thread, with the JPype JVM already loaded
-    # in-process. That's the same "Qt subsystem lazily dlopening a native
-    # lib off the main thread while the JVM is loaded" crash class already
-    # fixed 3 times before for other subsystems (native file dialog/GTK,
-    # QWebEngineView/Chromium, QMediaPlayer FFmpeg VA-API -- see
-    # jvm_native_lib_conflicts in project memory), and explains this crash's
-    # perfect determinism far better than a timing race would: a directory
-    # with video files always hits this path, one without never does.
-    # Priming the JPEG plugin here, synchronously, on the main thread,
-    # before the JVM loads, closed that specific SIGSEGV (confirmed live).
+    # loads -- off the main thread. This is the same "Qt subsystem lazily
+    # dlopening a native lib off the main thread while the (then still
+    # loaded) JPype JVM was in-process" crash class already fixed 3 times
+    # before for other subsystems (native file dialog/GTK, QWebEngineView/
+    # Chromium, QMediaPlayer FFmpeg VA-API -- see jvm_native_lib_conflicts
+    # in project memory); the JVM itself has since been removed from the
+    # product entirely (see base/src/secret/README.md and the C++ crypto module),
+    # which closed the whole class. Priming the JPEG plugin here,
+    # synchronously, on the main thread, closed that specific SIGSEGV
+    # (confirmed live).
     #
     # A live retest after that fix still failed, though differently (an
     # "Invalid socket ... disabling" spam-hang, then a glibc heap-corruption
@@ -272,7 +273,11 @@ def launch_app(opts):
         Creates and shows the MainWindow after successful authentication.
         Replaces the LoginWindow.
         """
-        nonlocal active_window
+        nonlocal active_window, main_window_launch_pending
+        if main_window_launch_pending:
+            logger.warning("Ignoring duplicate login-success signal during startup")
+            return
+        main_window_launch_pending = True
         print("[startup-probe-guard] login succeeded", flush=True)
         telemetry.emit("startup", "login.succeeded", tid=threading.get_ident())
 
@@ -285,16 +290,25 @@ def launch_app(opts):
         # whole app right there -- silently, with no crash log, matching
         # exactly the "crashes immediately after login" symptom this caused.
         def _build_and_show_main_window():
-            nonlocal active_window
+            nonlocal active_window, main_window_launch_pending
             print("[startup-probe-guard] MainWindow construction starting", flush=True)
             telemetry.emit("startup", "main_window.construction.start", tid=threading.get_ident())
             previous_window = active_window
-            active_window = MainWindow(
-                vault_manager=vault_manager,  # Pass the authenticated manager
-                dropdown=not opts.get("no_dropdown", False),
-                app_icon=ICON_FILE,
-                enable_manager=opts.get("enable_manager", False),
-            )
+            try:
+                active_window = MainWindow(
+                    vault_manager=vault_manager,
+                    dropdown=not opts.get("no_dropdown", False),
+                    app_icon=ICON_FILE,
+                    enable_manager=opts.get("enable_manager", False),
+                )
+            except Exception as exc:
+                main_window_launch_pending = False
+                logger.exception("MainWindow construction failed after login")
+                if isinstance(previous_window, LoginWindow):
+                    previous_window.auth_transition_failed(
+                        f"The main window could not start:\n{exc}"
+                    )
+                return
             active_window.show()
             telemetry.emit("startup", "main_window.shown", tid=threading.get_ident())
             # Captures the cumulative cost of JVM start (VaultManager, inside
@@ -305,7 +319,7 @@ def launch_app(opts):
             # see bench_app_lifecycle.py for the controlled N-image variant.
             lifecycle_memory.snapshot("main_window_shown")  # §12.5 (issue #70)
             if previous_window and isinstance(previous_window, LoginWindow):
-                # The LoginWindow's closeEvent handles JVM shutdown if
+                # The LoginWindow's closeEvent handles teardown if
                 # needed. Closed only now that MainWindow is already up, so
                 # at least one top-level window is always open.
                 previous_window.close()

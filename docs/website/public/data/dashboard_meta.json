@@ -1,21 +1,23 @@
 {
-  "generated_at": "2026-08-10T08:43:17.785Z",
-  "automated_runs": 9,
+  "generated_at": "2026-08-17T12:44:52.858Z",
+  "automated_runs": 17,
   "human_eval_source": "submodules/ASP/data/benchmarks/asp_evaluations_20260810.json",
   "human_summary": {
-    "total_keys": 18,
-    "reviewed": 18,
-    "mean_asp": 2,
-    "mean_simple": 3.388888888888889,
+    "total_keys": 97,
+    "reviewed": 97,
+    "mean_asp": 2.0103092783505154,
+    "mean_simple": 2.6391752577319587,
     "preference_counts": {
-      "simple": 14,
-      "tie": 4
+      "simple": 54,
+      "tie": 29,
+      "asp": 14
     },
-    "preference_simple_share": 1,
+    "preference_simple_share": 0.7941176470588235,
     "narrative_hint": "Human ratings currently prefer OpenCV SCANS (simple) more often than ASP."
   },
   "notes": [
     "Human coherence scores are not interchangeable with SSIM/sharpness/ghosting.",
+    "CQAS v1 is retained only as a legacy diagnostic; it is excluded from rankings and X-wins claims.",
     "Harbinger rating pass (2026-08-10): ASP often loses to OpenCV SCANS on structural coherence — banding, color shifts, seam degradation vs SCANS mild ghosting."
   ]
 }

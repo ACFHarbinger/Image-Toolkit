@@ -1,4 +1,5 @@
 from unittest.mock import MagicMock, patch
+
 from backend.src.web.crawlers.image_crawler import ImageCrawler
 
 

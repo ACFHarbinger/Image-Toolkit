@@ -274,9 +274,14 @@ class SamplerWorker(QThread):
         cmd = ["ffmpeg", "-y", "-i", in_path, "-vf", vf, "-c:a", "copy", out_path]
         proc = None
         try:
-            proc = subprocess.Popen(
-                cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-            )
+            # Issue #81 crash family: serialize the ffmpeg fork against the
+            # first QMediaPlayer construction (QThread worker).
+            from gui.src.helpers.video.video_thumbnailer import media_backend_spawn_guard
+
+            with media_backend_spawn_guard():
+                proc = subprocess.Popen(
+                    cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+                )
             with self._process_lock:
                 self._active_procs.add(proc)
             proc.wait(timeout=600)
@@ -298,23 +303,28 @@ class SamplerWorker(QThread):
     @staticmethod
     def _probe_video_dims(path: str) -> tuple[int, int]:
         try:
-            result = subprocess.run(
-                [
-                    "ffprobe",
-                    "-v",
-                    "error",
-                    "-select_streams",
-                    "v:0",
-                    "-show_entries",
-                    "stream=width,height",
-                    "-of",
-                    "csv=p=0:s=x",
-                    path,
-                ],
-                capture_output=True,
-                text=True,
-                timeout=15,
-            )
+            # Issue #81 crash family: ffprobe fork on a worker thread must
+            # not race the first QMediaPlayer construction.
+            from gui.src.helpers.video.video_thumbnailer import media_backend_spawn_guard
+
+            with media_backend_spawn_guard():
+                result = subprocess.run(
+                    [
+                        "ffprobe",
+                        "-v",
+                        "error",
+                        "-select_streams",
+                        "v:0",
+                        "-show_entries",
+                        "stream=width,height",
+                        "-of",
+                        "csv=p=0:s=x",
+                        path,
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=15,
+                )
             if result.returncode == 0 and "x" in result.stdout:
                 w_str, h_str = result.stdout.strip().split("x", 1)
                 return int(w_str), int(h_str)

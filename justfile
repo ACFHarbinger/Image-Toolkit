@@ -71,7 +71,6 @@ agent_prompt := """
 mod agent      "tools/agent/justfile"
 mod benchmark  "tools/benchmark/justfile"
 mod build      "tools/build/justfile"
-mod cel_shaded "tools/cel_shaded/justfile"
 mod ci         "tools/ci/justfile"
 mod core       "tools/core/justfile"
 mod database   "tools/database/justfile"
@@ -119,15 +118,37 @@ check: helper::_print_header
 quick-dev: helper::_print_header
     just dev::quick-dev
 
+# --- Development Tool (dev/tool) ---
+
+# Development Tool workspace chooser / any devtool verb
+devtool *ARGS: helper::_print_header
+    just dev::devtool {{ARGS}}
+
+# Launch the Development Tool TUI
+devtool-tui *ARGS: helper::_print_header
+    just dev::devtool-tui {{ARGS}}
+
+# Launch the Development Tool live watch (btop-style)
+devtool-watch *ARGS: helper::_print_header
+    just dev::devtool-watch {{ARGS}}
+
+# Launch the Development Tool local web viewer
+devtool-web *ARGS: helper::_print_header
+    just dev::devtool-web {{ARGS}}
+
+# Launch the Development Tool Tauri host window
+devtool-app *ARGS: helper::_print_header
+    just dev::devtool-app {{ARGS}}
+
 # --- Building ---
 
 # Build C++ base extension (Phase 7: batch/ renamed to base/, Rust retired)
 build-base: helper::_print_header
     just build::build-base
 
-# Build production application cryptography JAR
-build-jar: helper::_print_header
-    just build::build-jar
+# Build native cryptography library (C/OpenSSL, replaces the retired Kotlin JAR)
+build-crypto: helper::_print_header
+    just build::build-crypto
 
 # Build production application frontend
 build-frontend: helper::_print_header
@@ -373,15 +394,15 @@ comfyui-stop: helper::_print_header
 
 # Install the CSG Krita plugin (close Krita first)
 krita-install: helper::_print_header
-    just cel_shaded::krita-install
+    just repository::krita-install
 
 # Uninstall the CSG Krita plugin (close Krita first)
 krita-uninstall: helper::_print_header
-    just cel_shaded::krita-uninstall
+    just repository::krita-uninstall
 
 # Reinstall the plugin — use after pulling submodule updates (close Krita first)
 krita-reinstall: helper::_print_header
-    just cel_shaded::krita-reinstall
+    just repository::krita-reinstall
 
 # --- Desktop GUI ---
 

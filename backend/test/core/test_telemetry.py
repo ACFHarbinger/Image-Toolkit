@@ -98,6 +98,38 @@ class TestSpan:
         assert ran is True
         assert list(tmp_path.glob("telemetry-*.jsonl")) == []
 
+    def test_span_allocates_matching_span_ids(self, tmp_path):
+        with telemetry.span("native", "decode"):
+            telemetry.emit("native", "tick")
+        start, tick, end = _read_records(tmp_path)
+        assert start["span_id"] == end["span_id"] == tick["span_id"]
+        assert "parent_span_id" not in start
+        assert start["seq"] < tick["seq"] < end["seq"]
+        assert start["runtime"] == "python"
+
+    def test_nested_spans_set_parent_span_id(self, tmp_path):
+        with telemetry.span("asp", "stage.composite"):
+            with telemetry.span("asp", "stage.seam"):
+                pass
+        records = _read_records(tmp_path)
+        outer_start, inner_start, inner_end, outer_end = records
+        assert outer_start["span_id"] == outer_end["span_id"]
+        assert inner_start["span_id"] == inner_end["span_id"]
+        assert inner_start["parent_span_id"] == outer_start["span_id"]
+        assert inner_start["span_id"] != outer_start["span_id"]
+
+    def test_begin_end_span_pair(self, tmp_path):
+        sid = telemetry.begin_span("asp", "stage.load")
+        assert sid is not None
+        telemetry.end_span("asp", "stage.load", span_id=sid)
+        start, end = _read_records(tmp_path)
+        assert start["span_id"] == end["span_id"] == sid
+        assert end["event"] == "stage.load.end"
+
+    def test_begin_span_disabled_is_none(self):
+        telemetry.set_enabled(False)
+        assert telemetry.begin_span("asp", "stage.load") is None
+
 
 class TestEnableToggle:
     def test_set_enabled_false_then_true(self, tmp_path):

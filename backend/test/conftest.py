@@ -39,6 +39,66 @@ from git.scripts._submodule_bootstrap import register_submodule_packages
 
 register_submodule_packages(repo_root)
 
+# When gui/test and backend/test are collected in ONE pytest process, the
+# gui conftest's heavy-import blocker replaces backend.src.models.* (and
+# cv2/torch.hub/diffusers) with mocks in sys.modules so gui tests collect
+# without loading torch. Backend model tests need the REAL packages. We
+# restore BOTH at import time (covers gui-first: the gui mock is already in
+# sys.modules when backend modules import) AND via a session fixture (covers
+# backend-first: the gui mock lands after backend conftest import but before
+# backend test execution) (#375).
+def _restore_real_backend_packages() -> None:
+    import importlib as _importlib
+
+    if not sys.modules.get("_devtool_mocked_backend_models"):
+        return
+    for name in list(sys.modules):
+        if name == "backend.src.models" or name.startswith("backend.src.models."):
+            del sys.modules[name]
+    for name in list(sys.modules):
+        if name == "asp_backend.models" or name.startswith("asp_backend.models."):
+            del sys.modules[name]
+    del sys.modules["_devtool_mocked_backend_models"]
+
+    for pkg in (
+        "backend.src.models",
+        "backend.src.models.core",
+        "backend.src.models.tuning",
+        "backend.src.models.wrappers",
+        "backend.src.models.data",
+        "backend.src.models.gen",
+    ):
+        try:
+            _importlib.import_module(pkg)
+        except Exception:
+            pass
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _restore_real_models():
+    """Restore the real backend.src.models tree for backend tests even when
+    the gui conftest's heavy-import mocks loaded into the same pytest
+    process (#375). Runs after collection, before any backend test."""
+    _restore_real_backend_packages()
+
+    # Backend tests need the real cv2 (model wrappers' structural tests do
+    # cv2.imread); the gui conftest mocks cv2 globally. Restore it here --
+    # in the backend-scoped fixture only, so gui tests (which need the
+    # mock) are unaffected (#375).
+    from unittest.mock import MagicMock as _MagicMock
+
+    for name in ("cv2", "torch.hub", "diffusers"):
+        mod = sys.modules.get(name)
+        if mod is not None and isinstance(mod, _MagicMock):
+            del sys.modules[name]
+    yield
+
+
+# Import-time restore: when gui/test is collected BEFORE backend/test (the
+# testpaths order), the gui mock is already in sys.modules as backend test
+# modules are imported during collection -- restore before that import.
+_restore_real_backend_packages()
+
 # Limit OpenCV threads to prevent CPU thrashing
 try:
     import cv2
@@ -273,46 +333,6 @@ class MockWebCrawler:
         pass
 
 
-# --- Mock Java Classes (Existing) ---
-# These mock classes simulate the behavior of your compiled Java code.
-class MockKeyStoreManager:
-    """Mock the Java KeyStoreManager class."""
-
-    # Store state to simulate keystore and key
-    keystore = MagicMock()
-    secret_key = MagicMock()
-
-    # Instance methods (non-static) - Note the 'self' argument
-    def loadKeyStore(self, keystore_path, keystore_pass):
-        """Simulate the non-static loadKeyStore call."""
-        if "wrong.p12" in keystore_path:
-            # Simulate Java exception
-            raise Exception("java.io.IOException: Keystore was tampered with.")
-        return self.keystore
-
-    def getSecretKey(self, keystore, key_alias, key_pass):
-        """Simulate the non-static getSecretKey call."""
-        if key_alias == "non_existent_key":
-            # Simulate Java returning null (None in Python)
-            return None
-        return self.secret_key
-
-
-class MockSecureJsonVault:
-    """Mock the Java SecureJsonVault class."""
-
-    def __init__(self, key, path):
-        self.key = key
-        self.path = path
-        self.data = None
-
-    def saveData(self, json_string):
-        self.data = json_string
-
-    def loadData(self):
-        return self.data
-
-
 # ----------------------------------------------------------------------
 # Pytest Fixtures
 # ----------------------------------------------------------------------
@@ -324,29 +344,6 @@ def mock_dependencies(monkeypatch):
     """
     # Mock WC_BROWSERS in definitions
     monkeypatch.setattr(udef, "WC_BROWSERS", ["brave", "chrome", "firefox"])
-
-
-@pytest.fixture
-def mock_jpype():
-    mock_jclass_map = {
-        "com.personal.image_toolkit.KeyStoreManager": MockKeyStoreManager,
-        "com.personal.image_toolkit.SecureJsonVault": MockSecureJsonVault,
-        "java.lang.String": MagicMock(),
-    }
-
-    with (
-        patch("src.core.vault_manager.jpype.startJVM") as mock_start_jvm,
-        patch(
-            "src.core.vault_manager.jpype.JClass",
-            side_effect=lambda name: mock_jclass_map.get(name, MagicMock()),
-        ) as _mock_jclass,
-        patch(
-            "src.core.vault_manager.jpype.isJVMStarted",
-            side_effect=[False, True, True],
-        ),
-        patch("src.core.vault_manager.jpype.shutdownJVM") as mock_shutdown_jvm,
-    ):
-        yield mock_start_jvm, mock_shutdown_jvm
 
 
 @pytest.fixture

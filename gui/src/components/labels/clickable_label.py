@@ -25,16 +25,13 @@ class ClickableLabel(QLabel):
         self.setToolTip(os.path.basename(self.path))
         self.setFixedSize(100, 100)
 
-        # --- FIX: Set initial style with dark background for opacity ---
         self.setStyleSheet(
-            "background-color: #2c2f33; border: 1px dashed #4f545c; color: #b9bbbe;"
+            "background-color: rgba(20, 24, 32, 0.35); border: 1px dashed rgba(255, 255, 255, 0.15); color: #b9bbbe;"
         )
 
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
 
         self.setMouseTracking(True)
-        # Ensure the widget declares itself fully opaque for painting stability
-        self.setAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent)
         # Hover highlight (GUI/UX §2.24A)
         self._hovered = False
         self.setAttribute(Qt.WidgetAttribute.WA_Hover)

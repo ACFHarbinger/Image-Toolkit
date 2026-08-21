@@ -30,7 +30,8 @@ def main(cfg: DictConfig) -> None:
 
     elif command == "comfyui":
         logger.info("Starting ComfyUI headlessly...")
-        cmd = [sys.executable, "ComfyUI/main.py"]
+        # ComfyUI is a git submodule at vendor/ComfyUI/
+        cmd = [sys.executable, "vendor/ComfyUI/main.py"]
 
         # Forward specific flags if defined in config or passed via CLI
         comfy_cfg = cfg.get("comfyui", {})
@@ -54,7 +55,8 @@ def main(cfg: DictConfig) -> None:
             sys.exit(e.returncode)
         except FileNotFoundError:
             logger.error(
-                "Could not find ComfyUI/main.py. Make sure ComfyUI is installed in the repository root."
+                "Could not find vendor/ComfyUI/main.py. "
+                "Run 'git submodule update --init vendor/ComfyUI' to initialise the submodule."
             )
             sys.exit(1)
 

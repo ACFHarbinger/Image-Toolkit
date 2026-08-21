@@ -7,7 +7,24 @@ requires-python = ">=3.11"
 dependencies = []
 
 [tool.uv.workspace]
-members = ["backend", "gui", "submodules/ASP", "submodules/CRE", "submodules/CSG", "git"]
+# UV does not support nested workspaces. Each entry must point to a leaf
+# directory that has a [project] table but no [tool.uv.workspace] of its own.
+# Submodule roots (submodules/ASP, submodules/CSG) are themselves workspace
+# roots — we list their individual leaf packages instead.
+members = [
+    # Image-Toolkit core packages
+    "backend",
+    "gui",
+    # ASP submodule leaf packages
+    "submodules/ASP/backend",
+    "submodules/ASP/gui",
+    # CSG submodule leaf packages
+    "submodules/CSG/logic",
+    "submodules/CSG/gui",
+    # Other submodule / internal packages
+    "submodules/CRE",
+    "git",
+]
 
 [dependency-groups]
 # CI runs `uv sync --group dev` from the workspace root, so the group must be
@@ -26,6 +43,67 @@ dev = [
     "pytest>=9.1.1",
     "pyvis>=0.3.2",
     "ruff>=0.14.3",
+]
+
+# ComfyUI runtime dependencies.
+# Source: vendor/ComfyUI/requirements.txt + vendor/ComfyUI/manager_requirements.txt
+#   + vendor/ComfyUI/custom_nodes/ComfyUI-Impact-Pack/requirements.txt
+# Sync command: uv sync --group comfyui
+#   (or: uv pip install -r vendor/ComfyUI/requirements.txt
+#                       -r vendor/ComfyUI/manager_requirements.txt)
+# NOTE: torch, torchvision, torchaudio, torchsde, and numpy are intentionally
+# omitted — they are already resolved through the backend workspace member
+# (backend/pyproject.toml) and pinning them here would create version conflicts.
+# Same reasoning covers opencv-python-headless, scikit-image, matplotlib, and
+# sam-2 (backend/pyproject.toml already pins all four) — only the genuinely
+# new custom-node deps below need adding.
+comfyui = [
+    # --- Core ComfyUI UI packages ---
+    "comfyui-frontend-package==1.45.20",
+    "comfyui-workflow-templates==0.11.2",
+    "comfyui-embedded-docs==0.5.6",
+    # --- ComfyUI native acceleration layers ---
+    "comfy-kitchen==0.2.16",
+    "comfy-aimdo==0.4.10",
+    "comfy-angle",
+    # --- ComfyUI-Manager ---
+    "comfyui_manager==4.2.2",
+    # --- Transformer / tokeniser stack ---
+    "einops",
+    "transformers>=4.50.3",
+    "tokenizers>=0.13.3",
+    "sentencepiece",
+    "safetensors>=0.4.2",
+    # --- Server & networking ---
+    "aiohttp>=3.11.8",
+    "yarl>=1.18.0",
+    "pyyaml",
+    "requests",
+    # --- Image & media ---
+    "Pillow",
+    "av>=16.0.0",
+    # --- Scientific / utility ---
+    "scipy",
+    "tqdm",
+    "psutil",
+    "filelock",
+    "blake3",
+    "simpleeval>=1.0.0",
+    # --- Database (ComfyUI internal asset DB) ---
+    "alembic",
+    "SQLAlchemy>=2.0.0",
+    # --- Non-essential / optional node dependencies ---
+    "kornia>=0.7.1",
+    "spandrel",
+    "pydantic~=2.0",
+    "pydantic-settings~=2.0",
+    "PyOpenGL>=3.1.8",
+    # --- ComfyUI-Impact-Pack (custom node) ---
+    "piexif",
+    "segment-anything",
+    "dill",
+    # --- ComfyUI-Impact-Subpack (custom node, UltralyticsDetectorProvider) ---
+    "ultralytics>=8.3.162",
 ]
 
 [tool.uv]

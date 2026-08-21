@@ -40,11 +40,11 @@ export const roadmapCards: RoadmapCard[] = [
     docSource: "docs/moon/roadmaps/content_generation.md",
   },
   {
-    slug: "analytics",
-    title: "Analytics & Interpretability",
-    summary: "Codebase topology, ML interpretability, pipeline diagnostics, and debugging.",
-    path: "/roadmaps/analytics_and_interpretability",
-    docSource: "docs/moon/roadmaps/analytics_and_interpretability.md",
+    slug: "development-tool",
+    title: "Development Tool",
+    summary: "Modular host in dev/: telemetry, crash forensics, benchmarks, charts, and plugins.",
+    path: "/roadmaps/development_tool",
+    docSource: "docs/moon/roadmaps/development_tool.md",
   },
   {
     slug: "documentation",

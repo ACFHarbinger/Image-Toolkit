@@ -6,30 +6,31 @@ from gui.src.constants.listings import (
     ENTITY_ROLE_COLORS,
     ENTITY_TYPE_COLORS,
 )
-from gui.src.elements.database.display.common.base_card import BaseCard
-from gui.src.tabs.core.elements.common.listings_common import (
+from gui.src.elements.database.common.listings_common import (
     _badge,
     open_file_location,
 )
+from gui.src.elements.database.display.common.base_card import BaseCard
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QMenu, QVBoxLayout
 
 
 class _EntityCard(BaseCard):
-    def __init__(self, entity: Dict[str, Any], parent=None):
+    def __init__(self, entity: Dict[str, Any], parent=None, card_size: int = CARD_SIZE):
         super().__init__(
             item_id=entity["id"],
             image_path=entity.get("image_path", ""),
             placeholder=ENTITY_PLACEHOLDER,
             parent=parent,
+            card_size=card_size,
         )
         self.entity = entity
         self.setObjectName("entity_card")
-        self.setStyleSheet(
-            "QWidget#entity_card{background:#2c2f33;border:2px solid #4f545c;"
+        self.set_base_card_style(
+            "QWidget#entity_card{background:rgba(20, 24, 32, 0.45);border:2px solid rgba(255, 255, 255, 0.12);"
             "border-radius:8px;}"
-            "QWidget#entity_card:hover{border:2px solid #00bcd4;}"
+            "QWidget#entity_card:hover{border:2px solid #00bcd4;background:rgba(28, 34, 46, 0.60);}"
         )
 
         layout = QVBoxLayout(self)
@@ -43,16 +44,14 @@ class _EntityCard(BaseCard):
         name_lbl = QLabel(entity.get("name", "Unnamed"))
         name_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         name_lbl.setWordWrap(False)
-        name_lbl.setStyleSheet(
-            "color:#ffffff;font-weight:bold;font-size:11px;border:none;"
-        )
-        name_lbl.setFixedWidth(CARD_SIZE - 4)
+        name_lbl.setStyleSheet("color:#ffffff;font-weight:bold;font-size:11px;border:none;")
+        name_lbl.setFixedWidth(self.card_size - 4)
         fm = name_lbl.fontMetrics()
         name_lbl.setText(
             fm.elidedText(
                 entity.get("name", "Unnamed"),
                 Qt.TextElideMode.ElideRight,
-                CARD_SIZE - 10,
+                self.card_size - 10,
             )
         )
         name_lbl.setToolTip(entity.get("name", ""))
@@ -82,9 +81,13 @@ class _EntityCard(BaseCard):
             info_lbl = QLabel(info_text)
             info_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
             info_lbl.setStyleSheet("color:#888; font-size:10px; border:none;")
-            info_lbl.setFixedWidth(CARD_SIZE - 10)
+            info_lbl.setFixedWidth(self.card_size - 10)
             info_lbl.setText(
-                fm.elidedText(info_text, Qt.TextElideMode.ElideRight, CARD_SIZE - 10)
+                fm.elidedText(
+                    info_text,
+                    Qt.TextElideMode.ElideRight,
+                    self.card_size - 10,
+                )
             )
             layout.addWidget(info_lbl, alignment=Qt.AlignmentFlag.AlignHCenter)
 
@@ -120,10 +123,11 @@ class _EntityCard(BaseCard):
         if img_path:
             menu.addSeparator()
             open_img_loc_act = QAction("📂 Open Image Location", self)
-            open_img_loc_act.triggered.connect(
-                lambda _, path=img_path: open_file_location(path)
-            )
+            open_img_loc_act.triggered.connect(lambda _, path=img_path: open_file_location(path))
             menu.addAction(open_img_loc_act)
+
+        menu.addSeparator()
+        self._add_color_label_menu(menu)
 
         menu.addSeparator()
 

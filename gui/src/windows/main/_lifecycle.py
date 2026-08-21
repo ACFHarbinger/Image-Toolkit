@@ -9,9 +9,13 @@ import contextlib
 import os
 import sys
 
-from gui.src.windows.settings.app_settings import AppSettings
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QPainter
 from PySide6.QtWidgets import QApplication, QMessageBox, QScrollArea, QSystemTrayIcon
+
+from gui.src.styles.background_canvas import BackgroundCanvasController
+from gui.src.windows.settings.app_settings import AppSettings
+
 
 from ...utils.manager.shortcut_manager import get_registry
 
@@ -72,9 +76,19 @@ class _LifecycleMixin:
         if hasattr(self, "_status_bar"):
             self._status_bar.showMessage(message, timeout_ms)
 
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        current_tab = None
+        if hasattr(self, "tabs") and self.tabs is not None:
+            current_tab = self.tabs.tabText(self.tabs.currentIndex())
+        BackgroundCanvasController.instance().render_background(painter, self.rect(), active_tab=current_tab)
+        painter.end()
+        super().paintEvent(event)
+
     def showEvent(self, event):
         super().showEvent(event)
         self._shown = True
+
 
         # §2.12A tray-icon setup is intentionally NOT auto-constructed here
         # (or anywhere else during startup). Every timing attempt tried --
@@ -126,16 +140,28 @@ class _LifecycleMixin:
             super().keyPressEvent(event)
 
     def closeEvent(self, event):
-        # §2.12C — minimize to tray instead of quitting (opt-in)
-        if getattr(self, "_minimize_to_tray", False) and self._tray_icon and self._tray_icon.isVisible():
+        # §2.12C — minimize to tray / background mode instead of quitting (opt-in)
+        if getattr(self, "_minimize_to_tray", False):
+            if getattr(self, "_tray_icon", None) is None or not self._tray_icon.isVisible():
+                self._setup_tray_icon()
             event.ignore()
             self.hide()
-            self._tray_icon.showMessage(
-                "Image Toolkit",
-                "Minimised to tray. Double-click the icon to reopen.",
-                QSystemTrayIcon.MessageIcon.Information,
-                2500,
-            )
+            if getattr(self, "_tray_icon", None) and self._tray_icon.isVisible():
+                self._tray_icon.showMessage(
+                    "Image Toolkit",
+                    "Application running in background. Click tray icon to reopen.",
+                    QSystemTrayIcon.MessageIcon.Information,
+                    2500,
+                )
+            return
+
+
+        # Bug 1: if extractions are still running, hide every window and keep
+        # the process alive headlessly until they finish, then quit. Only
+        # UI-bound work is cancelled on close; the extraction itself continues
+        # uninterrupted.
+        if self._defer_close_for_extractions():
+            event.ignore()
             return
 
         # §3.17 — persist window geometry so next launch restores it
@@ -157,6 +183,70 @@ class _LifecycleMixin:
             self.vault_manager.shutdown()
 
         super().closeEvent(event)
+
+    def _defer_close_for_extractions(self) -> bool:
+        """Return True (and arm a deferred close with progress dialog) when an extraction is
+        still running, so background work finishes before exit (Bug 1)."""
+        extractor = getattr(self, "extractor_tab", None)
+        if extractor is None or not getattr(extractor, "has_active_extractions", lambda: False)():
+            return False
+
+        self._close_pending = True
+        self.hide()
+        for window in list(QApplication.topLevelWidgets()):
+            if window is not self and window.isVisible():
+                with contextlib.suppress(Exception):
+                    window.hide()
+
+        from gui.src.components.dialogs.extraction_close_progress_dialog import (
+            ExtractionCloseProgressDialog,
+        )
+
+        completed = 0
+        total = 1
+        current_title = ""
+        if hasattr(extractor, "get_tasks_progress"):
+            completed, total, current_title = extractor.get_tasks_progress()
+        elif hasattr(extractor, "extraction_progress_bar"):
+            completed = extractor.extraction_progress_bar.value()
+            total = max(extractor.extraction_progress_bar.maximum(), 1)
+
+        def _on_cancel():
+            if hasattr(extractor, "cancel_queue"):
+                extractor.cancel_queue()
+            if hasattr(extractor, "cancel_extraction"):
+                extractor.cancel_extraction()
+            self._finish_deferred_close()
+
+        def _on_confirm():
+            self._finish_deferred_close()
+
+        dialog = ExtractionCloseProgressDialog(
+            parent=None,
+            on_cancel=_on_cancel,
+            on_confirm=_on_confirm,
+            total=total,
+            completed=completed,
+        )
+        if current_title:
+            dialog.update_progress(completed, total, current_title)
+
+        if hasattr(extractor, "set_close_progress_dialog"):
+            extractor.set_close_progress_dialog(dialog)
+        else:
+            extractor._close_progress_dialog = dialog
+        extractor.set_close_when_finished(dialog.on_all_finished)
+        dialog.show()
+
+        return True
+
+    def _finish_deferred_close(self) -> None:
+        """Called once extractions finish or are cancelled; performs
+        the real close now that no worker is active."""
+        if not getattr(self, "_close_pending", False):
+            return
+        self._close_pending = False
+        self.close()
 
 
 __all__ = ["_LifecycleMixin"]

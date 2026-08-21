@@ -127,9 +127,15 @@ def run_extraction_in_process(config: Union[ExtractionConfig, Dict[str, Any]]) -
                 )
                 cmd.append(out_pattern)
 
-                subprocess.run(
-                    cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-                )
+                # Issue #81 crash family: queue workers run on the shared
+                # thread pool; serialize the ffmpeg fork against the first
+                # QMediaPlayer construction.
+                from gui.src.helpers.video.video_thumbnailer import media_backend_spawn_guard
+
+                with media_backend_spawn_guard():
+                    subprocess.run(
+                        cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+                    )
 
                 prefix = f"{video_name}_smart_tmp_{temp_id}_"
                 tmp_files = sorted(
@@ -198,9 +204,13 @@ def run_extraction_in_process(config: Union[ExtractionConfig, Dict[str, Any]]) -
                 out_pattern = os.path.join(output_dir, f"{video_name}_tmp_%05d.png")
                 cmd.append(out_pattern)
 
-                subprocess.run(
-                    cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-                )
+                # Issue #81 crash family (queue worker thread).
+                from gui.src.helpers.video.video_thumbnailer import media_backend_spawn_guard
+
+                with media_backend_spawn_guard():
+                    subprocess.run(
+                        cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+                    )
 
                 tmp_files = sorted(
                     [
@@ -227,7 +237,20 @@ def run_extraction_in_process(config: Union[ExtractionConfig, Dict[str, Any]]) -
 
         elif t_type == "gif":
             t_start = start_ms / 1000.0
-            t_end = end_ms / 1000.0
+            if end_ms == -1:  # open-ended: run to the end of the video
+                t_end = t_start + 1
+                try:
+                    cap = cv2.VideoCapture(video_path)
+                    if cap.isOpened():
+                        fps = float(cap.get(cv2.CAP_PROP_FPS) or 1.0)
+                        frames = float(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+                        if fps > 0 and frames > 0:
+                            t_end = t_start + frames / fps
+                    cap.release()
+                except Exception:
+                    pass  # fall back to t_start + 1 on probe failure
+            else:
+                t_end = end_ms / 1000.0
             output_path = os.path.join(
                 output_dir,
                 f"{Path(video_path).stem}_{int(start_ms)}ms_{int(end_ms)}ms.gif",
@@ -269,9 +292,13 @@ def run_extraction_in_process(config: Union[ExtractionConfig, Dict[str, Any]]) -
                 cmd.extend(["-vf", complex_filter])
                 cmd.append(output_path)
 
-                subprocess.run(
-                    cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-                )
+                # Issue #81 crash family (queue worker thread).
+                from gui.src.helpers.video.video_thumbnailer import media_backend_spawn_guard
+
+                with media_backend_spawn_guard():
+                    subprocess.run(
+                        cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+                    )
                 return {"status": "success", "output_path": output_path}
             else:
                 base_clip = VideoFileClip(video_path).subclip(t_start, t_end)
@@ -425,10 +452,15 @@ def run_extraction_in_process(config: Union[ExtractionConfig, Dict[str, Any]]) -
         return {"status": "error", "message": str(e)}
 
 
+# Workers currently mid-run(). Keeps their signals QObject (no Qt parent)
+# alive until run() finishes, so a tab teardown can't GC it mid-emit (Bug 1).
+_RUNNING_WORKERS: set = set()
+
+
 class _QueueWorkerSignals(QObject):
     started = Signal()
     progress = Signal(int, int)  # (completed, total) — §5.9 Option C
-    item_completed = Signal(int, dict)
+    item_completed = Signal(int, dict, dict)  # (index, result, original item)
     finished = Signal(list)
     error = Signal(str)
 
@@ -445,6 +477,18 @@ class QueueExecutionWorker(QRunnable):
         self._is_cancelled = True
 
     def run(self):
+        # Safety net (Bug 1): keep this worker (and therefore its signals
+        # QObject, which has no Qt parent) alive from run() start to finish,
+        # even if the tab drops its active_queue_worker reference mid-run. A
+        # GC'd signals QObject would make a still-running pool thread emit on
+        # a deleted C++ object -> RuntimeError: Signal source has been deleted.
+        _RUNNING_WORKERS.add(self)
+        try:
+            self._run_impl()
+        finally:
+            _RUNNING_WORKERS.discard(self)
+
+    def _run_impl(self):
         self.signals.started.emit()
         results = []
 
@@ -485,7 +529,12 @@ class QueueExecutionWorker(QRunnable):
                     for i, r in enumerate(async_results):
                         res = r.get()
                         results.append(res)
-                        self.signals.item_completed.emit(i, res)
+                        item = (
+                            self.queue_items[i]
+                            if 0 <= i < len(self.queue_items)
+                            else {}
+                        )
+                        self.signals.item_completed.emit(i, res, item)
             except Exception as e:
                 self.signals.error.emit(f"Parallel processing error: {e}")
                 return
@@ -501,7 +550,7 @@ class QueueExecutionWorker(QRunnable):
                 self.signals.progress.emit(i, total)
                 res = run_extraction_in_process(item)
                 results.append(res)
-                self.signals.item_completed.emit(i, res)
+                self.signals.item_completed.emit(i, res, item)
 
         self.signals.progress.emit(total, total)
         self.signals.finished.emit(results)

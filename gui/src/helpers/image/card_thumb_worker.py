@@ -1,13 +1,14 @@
-"""Async thumbnail infrastructure for listing/entity cards."""
+"""Batched async thumbnail infrastructure for listing/entity cards."""
 
 from typing import List, Optional, Tuple
 
-from gui.src.utils.cache.lru_image_cache import LRUImageCache
-from gui.src.utils.image_load import load_qimage
-from PySide6.QtCore import QObject, QRunnable, Qt, QThreadPool, Signal, Slot
+from PySide6.QtCore import QObject, Qt, QThreadPool, QTimer, Signal
 from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtWidgets import QApplication, QLabel
+
 from gui.src.constants.helpers import _INFLIGHT_PATHS
+from gui.src.helpers.image.batch_image_loader_worker import BatchImageLoaderWorker
+from gui.src.utils.cache.lru_image_cache import LRUImageCache
 
 # Shared LRU cache: stores scaled QImages keyed by absolute path.
 # 250 entries ≈ ~30 MB at 130×130 RGBA — well within budget.
@@ -16,6 +17,9 @@ _CARD_THUMB_CACHE: LRUImageCache = LRUImageCache(maxsize=250)
 # path -> [(label, width, height), ...]
 _ThumbWaiter = Tuple[QLabel, int, int]
 _THUMB_WAITERS: dict[str, List[_ThumbWaiter]] = {}
+_PENDING_THUMBS: dict[int, set[str]] = {}
+_ACTIVE_BATCHES: set[BatchImageLoaderWorker] = set()
+_BATCH_FLUSH_SCHEDULED = False
 
 
 class _ThumbSignalHub(QObject):
@@ -46,35 +50,6 @@ def invalidate_thumbnail_cache(path: str) -> None:
     _CARD_THUMB_CACHE.pop(f"preview160:{path}", None)
 
 
-class _ThumbWorker(QRunnable):
-    """Load and scale a card thumbnail off the main thread."""
-
-    def __init__(self, path: str, size: int):
-        super().__init__()
-        self.setAutoDelete(True)
-        self._path = path
-        self._size = size
-
-    @Slot()
-    def run(self) -> None:
-        try:
-            img = load_qimage(self._path)
-            if img.isNull():
-                return
-            img = img.scaled(
-                self._size,
-                self._size,
-                Qt.AspectRatioMode.KeepAspectRatio,
-                Qt.TransformationMode.SmoothTransformation,
-            )
-            _CARD_THUMB_CACHE[self._path] = img
-            _thumb_signal_hub().ready.emit(self._path, img)
-        except Exception:
-            pass
-        finally:
-            _INFLIGHT_PATHS.discard(self._path)
-
-
 def _scale_to_label(pix: QPixmap, width: int, height: int) -> QPixmap:
     return pix.scaled(
         width,
@@ -91,7 +66,7 @@ def _dispatch_thumbnail(path: str, img: QImage) -> None:
         # The label's C++ object may already be deleted by the time this
         # queued (cross-thread) signal is delivered -- e.g. a gallery
         # rebuild (directory switch) tore down the widget tree while the
-        # background _ThumbWorker was still loading this thumbnail. Skip
+        # background batch worker was still loading this thumbnail. Skip
         # stale waiters instead of raising.
         try:
             if label.property("_thumb_path") == path:
@@ -101,13 +76,54 @@ def _dispatch_thumbnail(path: str, img: QImage) -> None:
             continue
 
 
+def _on_batch_loaded(
+    results: list[tuple[str, QImage]],
+    requested_paths: list[str],
+    worker: BatchImageLoaderWorker,
+) -> None:
+    loaded_paths = set()
+    for path, image in results:
+        loaded_paths.add(path)
+        if not image.isNull():
+            _CARD_THUMB_CACHE[path] = image
+        _thumb_signal_hub().ready.emit(path, image)
+    for path in requested_paths:
+        if path not in loaded_paths:
+            _thumb_signal_hub().ready.emit(path, QImage())
+        _INFLIGHT_PATHS.discard(path)
+    _ACTIVE_BATCHES.discard(worker)
+
+
+def _flush_thumbnail_batch() -> None:
+    global _BATCH_FLUSH_SCHEDULED
+    _BATCH_FLUSH_SCHEDULED = False
+    batches = list(_PENDING_THUMBS.items())
+    _PENDING_THUMBS.clear()
+    for worker_size, pending_paths in batches:
+        paths = list(pending_paths)
+        if not paths:
+            continue
+        worker = BatchImageLoaderWorker(paths, worker_size)
+        _ACTIVE_BATCHES.add(worker)
+        worker.signals.batch_result.connect(
+            lambda results, requested, w=worker: _on_batch_loaded(
+                results, requested, w
+            )
+        )
+        QThreadPool.globalInstance().start(worker)
+
+
 def _queue_thumbnail_load(path: str, label: QLabel, width: int, height: int, worker_size: int) -> None:
+    global _BATCH_FLUSH_SCHEDULED
     _thumb_signal_hub()
     _THUMB_WAITERS.setdefault(path, []).append((label, width, height))
     if path in _INFLIGHT_PATHS:
         return
     _INFLIGHT_PATHS.add(path)
-    QThreadPool.globalInstance().start(_ThumbWorker(path, worker_size))
+    _PENDING_THUMBS.setdefault(worker_size, set()).add(path)
+    if not _BATCH_FLUSH_SCHEDULED:
+        _BATCH_FLUSH_SCHEDULED = True
+        QTimer.singleShot(0, _flush_thumbnail_batch)
 
 
 def apply_thumbnail_to_label(

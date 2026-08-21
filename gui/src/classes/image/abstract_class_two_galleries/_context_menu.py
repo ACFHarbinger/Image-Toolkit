@@ -8,13 +8,19 @@ from __future__ import annotations
 
 import contextlib
 import os
+import platform
 import shutil
+import subprocess
 from typing import cast
 
+from backend.src.constants import SUPPORTED_VIDEO_FORMATS
 from PySide6.QtCore import Qt, Slot
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QApplication, QFileDialog, QMenu, QMessageBox, QWidget
 from send2trash import send2trash  # pyrefly: ignore [untyped-import]
+
+from ....utils.sort_utils import natural_sort_key
+from ....windows import ImagePreviewWindow
 
 from typing import TYPE_CHECKING
 
@@ -120,10 +126,77 @@ class _ContextMenuMixin:
 
         menu.exec(global_pos)
 
+    @Slot(str)
     def _open_preview_for(self: "AbstractClassTwoGalleriesHostProtocol", path: str) -> None:
-        widget = self.path_to_label_map.get(path)
-        if widget and hasattr(widget, "path_double_clicked"):
-            widget.path_double_clicked.emit(path)
+        if not path or not os.path.exists(path):
+            return
+
+        if path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
+            try:
+                if platform.system() == "Windows":
+                    os.startfile(path)  # pyrefly: ignore [missing-attribute]
+                elif platform.system() == "Linux":
+                    subprocess.Popen(
+                        ["xdg-open", path],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
+                else:
+                    subprocess.Popen(
+                        ["open", path],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
+            except Exception as e:
+                QMessageBox.warning(
+                    cast(QWidget, self), "Video Error", f"Could not launch video player: {e}"
+                )
+            return
+
+        for win in list(self.open_preview_windows):
+            try:
+                if isinstance(win, ImagePreviewWindow) and getattr(win, "image_path", None) == path:
+                    win.activateWindow()
+                    return
+            except RuntimeError:
+                if win in self.open_preview_windows:
+                    self.open_preview_windows.remove(win)
+
+        all_paths = (
+            self.found_files
+            if hasattr(self, "found_files") and self.found_files
+            else [path]
+        )
+        if path not in all_paths:
+            if hasattr(self, "selected_files") and path in self.selected_files:
+                all_paths = sorted(list(self.selected_files), key=natural_sort_key)
+            else:
+                all_paths = [path]
+
+        try:
+            start_index = all_paths.index(path)
+        except ValueError:
+            start_index = 0
+
+        db_tab_ref = getattr(self, "db_tab_ref", None)
+        preview = ImagePreviewWindow(
+            image_path=path,
+            db_tab_ref=db_tab_ref,
+            parent=cast(QWidget, self),
+            all_paths=all_paths,
+            start_index=start_index,
+        )
+        if hasattr(preview, "path_changed"):
+            preview.path_changed.connect(self.update_preview_highlight)
+        preview.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        preview.show()
+        self.open_preview_windows.append(preview)
+
+    handle_full_image_preview = _open_preview_for
+    open_file_preview = _open_preview_for
+    _preview_image = _open_preview_for
+    show_image_context_menu = _on_found_card_right_clicked
+    _context_menu = _on_found_card_right_clicked
 
     def _confirm_deletions_enabled(self: "AbstractClassTwoGalleriesHostProtocol") -> bool:
         """Return True if the user's preference requires a confirmation dialog before deletion (§2.9D)."""
