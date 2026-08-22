@@ -538,8 +538,13 @@ Confirmed shipped: same function reads `found_cache_maxsize`, `selected_cache_ma
 **C — ✅ Wire startup category to MainWindow**
 Confirmed shipped: `_apply_startup_preferences()` sets `self.command_combo.setCurrentText(startup_cat)` from `prefs.get("startup_category", "")`, tagged `§2.16C`.
 
-**D — Wire confirm_deletions to deletion workflows ✅ (2026-06-10)**
-`_confirm_deletions_enabled()` helper reads `preferences["confirm_deletions"]` from vault in both gallery base classes. `_trash_path` in `AbstractClassTwoGalleries` gates on this preference. `ConvertTab`, `DeleteTab`, and `WallpaperTab` standalone deletion paths still use their own dialogs (partial coverage).
+**D — Wire confirm_deletions to deletion workflows ✅ (2026-08-22)**
+`_confirm_deletions_enabled()` reads `preferences["confirm_deletions"]` in the
+gallery bases; the remaining standalone Similarity (single, batch, and worker
+directory) and Wallpaper preview deletion paths now use the same policy.
+Similarity's local checkbox only adds a confirmation when the global preference
+is enabled. Its non-deletion "Compare first 10?" prompt is intentionally
+unchanged.
 
 **E — ✅ Wire slideshow defaults to WallpaperTab**
 Confirmed shipped: `_apply_startup_preferences()` sets `wallpaper_tab.interval_min_spinbox` / `interval_sec_spinbox` / `playback_order_combo` from `prefs`, tagged `§2.16E`.
