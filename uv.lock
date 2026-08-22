@@ -2280,7 +2280,7 @@ wheels = [
 
 [[package]]
 name = "fiftyone"
-version = "1.20.1"
+version = "1.21.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiofiles" },
@@ -2334,14 +2334,14 @@ dependencies = [
     { name = "voxel51-eta" },
     { name = "xmltodict" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/a7/16/580807a3da892db6eac384df02a615ec7a092b6fbbdb23acf856eb98abcc/fiftyone-1.20.1.tar.gz", hash = "sha256:0d40020b9fb265418d11027db7a945aa8ae540dcbf4e1dcd150b6f5722a5e4da", size = 19479896, upload-time = "2026-08-05T22:42:43.146Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/36/aa/bc1c6d954f958ea16fae88d1a582a28f1b67cc0095e74a47b7fe71d249e7/fiftyone-1.21.0.tar.gz", hash = "sha256:c6c9a9d559b50d8f7ba375b93ae9009b1ebb31a7d250bbcb7c76305f4f55aee2", size = 23550402, upload-time = "2026-08-19T22:02:01.167Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/34/9e/8e1975059e62de06800d6d58d482858666932923c68a91e29ad42dae2a8d/fiftyone-1.20.1-py3-none-any.whl", hash = "sha256:fe2bc13074fafe6962de900dc20db8b7c693683da8b3668c2759d531d0d8dde8", size = 19713447, upload-time = "2026-08-05T22:42:40.526Z" },
+    { url = "https://files.pythonhosted.org/packages/dd/8a/b12d8c38507d7697e27eaabde3fcae677e0c0386a260ffdb1d8775180ee1/fiftyone-1.21.0-py3-none-any.whl", hash = "sha256:9d5627c3805dcc3968cc35b7e9bc3efe79850de852607becbf3247aa9990f2e5", size = 23813823, upload-time = "2026-08-19T22:01:57.683Z" },
 ]
 
 [[package]]
 name = "fiftyone-brain"
-version = "0.23.0"
+version = "0.24.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
@@ -2349,9 +2349,9 @@ dependencies = [
     { name = "scikit-learn" },
     { name = "scipy" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/ec/c7/b2ffbe479d976e3f8238a03f3eaa4579780298a94d691281cb5a9097e2e1/fiftyone_brain-0.23.0.tar.gz", hash = "sha256:a651630c82e9e00ffcd35451513dce9ffdc795dfd74eb31ffcf59e2ed63d06b7", size = 123773, upload-time = "2026-07-29T20:19:03.202Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/b2/01/eb2adde44b03f78bba48721657f47f7e67371f25812fae156307d62d85ad/fiftyone_brain-0.24.0.tar.gz", hash = "sha256:a58f42c655b94bbbb308b6c0da6fa9b206ed3bf815631a9c6a68e929012b5851", size = 124558, upload-time = "2026-08-11T20:45:27.144Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/91/fc/b0c70d12f289e3fbeffde2743abaf23676865b4c04af7c69e3426ed4d310/fiftyone_brain-0.23.0-py3-none-any.whl", hash = "sha256:72085dfa3d2f73aa34053dfbe6a6631caad312eebc915e603dcdec3814583282", size = 120361, upload-time = "2026-07-29T20:19:02.024Z" },
+    { url = "https://files.pythonhosted.org/packages/7f/a0/1c39adf4447c69e97de43ab6d4755fc960a19192464b0bb7dff9db957cc2/fiftyone_brain-0.24.0-py3-none-any.whl", hash = "sha256:87c6472fa1d2ab3d20d28a1b8378ddc87491ac3f204a4658419385b2f56870fe", size = 120836, upload-time = "2026-08-11T20:45:25.73Z" },
 ]
 
 [[package]]
@@ -3853,6 +3853,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/98/76/64871f75af427e6afa9a9a5376543bdabe90a5b7275bf73cf551ee0e5f81/inscriptis-2.7.3.tar.gz", hash = "sha256:7a7d2b4c0bb48a78e92c889d90a952dfd327c68ed6af2c481e5467316a7f2fb4", size = 1090461, upload-time = "2026-07-23T08:53:31.947Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/5b/11/727741336b2e14b20506e033c1486b1f20323a2369de40e6f378367a7ab2/inscriptis-2.7.3-py3-none-any.whl", hash = "sha256:5de1c609b18ed005207e6942d27f223165319d211e689c39d5ccb46865e7182b", size = 45706, upload-time = "2026-07-23T08:53:29.168Z" },
+]
+
+[[package]]
+name = "invoke"
+version = "3.0.3"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/33/f6/227c48c5fe47fa178ccf1fda8f047d16c97ba926567b661e9ce2045c600c/invoke-3.0.3.tar.gz", hash = "sha256:437b6a622223824380bfb4e64f612711a6b648c795f565efc8625af66fb57f0c", size = 343419, upload-time = "2026-04-07T15:17:48.307Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/5a/de/bbc12563bbf979618d17625a4e753ff7a078523e28d870d3626daa97261a/invoke-3.0.3-py3-none-any.whl", hash = "sha256:f11327165e5cbb89b2ad1d88d3292b5113332c43b8553b494da435d6ec6f5053", size = 160958, upload-time = "2026-04-07T15:17:46.875Z" },
 ]
 
 [[package]]
@@ -6111,16 +6120,17 @@ wheels = [
 
 [[package]]
 name = "paramiko"
-version = "3.5.1"
+version = "5.0.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "bcrypt" },
     { name = "cryptography" },
+    { name = "invoke" },
     { name = "pynacl" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/7d/15/ad6ce226e8138315f2451c2aeea985bf35ee910afb477bae7477dc3a8f3b/paramiko-3.5.1.tar.gz", hash = "sha256:b2c665bc45b2b215bd7d7f039901b14b067da00f3a11e6640995fd58f2664822", size = 1566110, upload-time = "2025-02-04T02:37:59.783Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/62/93/dcc25d52f49022ae6175d15e6bd751f1acc99b98bc61fc55e5155a7be2e7/paramiko-5.0.0.tar.gz", hash = "sha256:36763b5b95c2a0dcfdf1abc48e48156ee425b21efe2f0e787c2dd5a95c0e5e79", size = 1548586, upload-time = "2026-05-09T18:28:52.256Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/15/f8/c7bd0ef12954a81a1d3cea60a13946bd9a49a0036a5927770c461eade7ae/paramiko-3.5.1-py3-none-any.whl", hash = "sha256:43b9a0501fc2b5e70680388d9346cf252cfb7d00b0667c39e80eb43a408b8f61", size = 227298, upload-time = "2025-02-04T02:37:57.672Z" },
+    { url = "https://files.pythonhosted.org/packages/82/5b/eadf6d45de38d30ab603f49393b6cd2cbe7e233af8cf90197e32782b68a9/paramiko-5.0.0-py3-none-any.whl", hash = "sha256:b7044611c30140d9a75261653210e2002977b71a0497ff3ba0d98d7edbf62f7c", size = 208919, upload-time = "2026-05-09T18:28:50.295Z" },
 ]
 
 [[package]]
@@ -10061,7 +10071,7 @@ wheels = [
 
 [[package]]
 name = "voxel51-eta"
-version = "0.16.0"
+version = "0.17.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "argcomplete" },
@@ -10086,9 +10096,9 @@ dependencies = [
     { name = "tzlocal" },
     { name = "urllib3" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/3d/9d/dca784714ae4c2cfa0a05cb9475d3d4203d73fe0b9a76d26ae27b04b8c82/voxel51_eta-0.16.0.tar.gz", hash = "sha256:b2d8e8b76215c6798c34712b656f37790197ae9953d80850851031cd2bdc1bd5", size = 907367, upload-time = "2026-06-03T20:26:32.316Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/63/39/fd389784ca8010096c3e9ecc3b721d3be5e6445eab49cba8b8cbe79f7be7/voxel51_eta-0.17.0.tar.gz", hash = "sha256:ef343a5e4b74bec51e7bb2289936a9516f172abf17e999da61e5ad663f0d537a", size = 907887, upload-time = "2026-08-10T15:40:00.975Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/eb/d0/fa153cbdbd0d35f1fbfe7eaddd1412fa4a58c192786dbf06a3a1687b5420/voxel51_eta-0.16.0-py2.py3-none-any.whl", hash = "sha256:07680b09763d048a2c57cc3194d5b502cec88ed1a42f82fb555dc1640177ed90", size = 935885, upload-time = "2026-06-03T20:26:30.052Z" },
+    { url = "https://files.pythonhosted.org/packages/9c/f6/28585d14bc805dfba3e1c1e0a428a51bd516d581b502801d5eea401c6c68/voxel51_eta-0.17.0-py3-none-any.whl", hash = "sha256:f58b2bcef05f5bd37b6ba09b128d70ebb0037468a7c9fedaeb44ddadce7df5e8", size = 936845, upload-time = "2026-08-10T15:39:59.277Z" },
 ]
 
 [[package]]
