@@ -13,7 +13,6 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QFormLayout,
-    QGridLayout,
     QGroupBox,
     QHBoxLayout,
     QLabel,
@@ -27,7 +26,7 @@ from PySide6.QtWidgets import (
 
 from gui.src.constants.elements import _SHARED_BUTTON_STYLE
 
-from ....components import MarqueeScrollArea, OptionalField
+from ....components import OptionalField, VirtualDualGallery
 from ....styles import apply_shadow_effect
 
 
@@ -154,39 +153,16 @@ class _UIBuilderMixin:
         self.scan_progress_bar.hide()
         content_layout.addWidget(self.scan_progress_bar)
 
-        # A. Top Gallery: Found duplicates / cluster members
-        self.found_gallery_scroll = MarqueeScrollArea()
-        self.found_gallery_scroll.setWidgetResizable(True)
-        self.found_gallery_scroll.setMinimumHeight(600)
-        self.gallery_widget = QWidget()
-        self.found_gallery_layout = QGridLayout(self.gallery_widget)
-        self.found_gallery_layout.setAlignment(
-            Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter
-        )
-        self.found_gallery_scroll.setWidget(self.gallery_widget)
-        self.found_gallery_scroll.selection_changed.connect(self.handle_marquee_selection)
-        content_layout.addWidget(self.found_search_input)
-        content_layout.addWidget(self.found_gallery_scroll, 1)
-        if hasattr(self, "found_pagination_widget"):
-            content_layout.addWidget(
-                self.found_pagination_widget, 0, Qt.AlignmentFlag.AlignCenter
-            )
-
-        # B. Bottom Gallery: Selected for Deletion
-        self.selected_gallery_scroll = MarqueeScrollArea()
-        self.selected_gallery_scroll.setWidgetResizable(True)
-        self.selected_gallery_scroll.setMinimumHeight(400)
-        self.selected_widget = QWidget()
-        self.selected_gallery_layout = QGridLayout(self.selected_widget)
-        self.selected_gallery_layout.setAlignment(
-            Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter
-        )
-        self.selected_gallery_scroll.setWidget(self.selected_widget)
-        content_layout.addWidget(self.selected_gallery_scroll, 1)
-        if hasattr(self, "selected_pagination_widget"):
-            content_layout.addWidget(
-                self.selected_pagination_widget, 0, Qt.AlignmentFlag.AlignCenter
-            )
+        # A. Found + Selected galleries (virtual-scroll, GUI/UX §2.1 Option A).
+        # Replaces the two MarqueeScrollArea + QGridLayout grids; pagination is
+        # dropped and selection lives in the dual gallery's selection models.
+        self.dual = VirtualDualGallery(self)
+        self.dual.found_activated.connect(self._open_preview_for)
+        self.dual.found_right_clicked.connect(self._on_found_card_right_clicked)
+        self.dual.selected_activated.connect(self._open_preview_for)
+        self.dual.selected_right_clicked.connect(self._on_found_card_right_clicked)
+        self.dual.selection_changed.connect(self._sync_selection_from_dual)
+        content_layout.addWidget(self.dual, 1)
 
         # Actions for duplicates
         dup_actions_layout = QHBoxLayout()

@@ -45,11 +45,9 @@ class _DeletionMixin:
                     self.selected_files.remove(path)
                 if path in self.found_files:
                     self.found_files.remove(path)
-                if path in self.path_to_label_map:
-                    self.path_to_label_map.pop(path).deleteLater()
             except Exception as e:
                 errors.append(f"{os.path.basename(path)}: {str(e)}")
-        self.common_reflow_layout(self.found_gallery_layout, self._current_found_cols)
+        self.refresh_found_gallery()
         self.refresh_selected_panel()
         self.on_selection_changed()
         msg = f"Moved {deleted_count} files to {action_name}."
@@ -82,9 +80,7 @@ class _DeletionMixin:
                 self.selected_files.remove(path)
             if path in self.found_files:
                 self.found_files.remove(path)
-            if path in self.path_to_label_map:
-                self.path_to_label_map.pop(path).deleteLater()
-            self.common_reflow_layout(self.found_gallery_layout, self._current_found_cols)
+            self.refresh_found_gallery()
             self.refresh_selected_panel()
             self.on_selection_changed()
             self.status_label.setText(f"Moved to {action_name}: {filename}")

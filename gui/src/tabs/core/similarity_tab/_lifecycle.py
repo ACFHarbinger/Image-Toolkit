@@ -27,6 +27,8 @@ class _LifecycleMixin:
                 self.worker.wait()
         with contextlib.suppress(Exception):
             super().cancel_loading()
+        if hasattr(self, "dual"):
+            self.dual.cancel_loading()
         for win in list(self.open_preview_windows):
             with contextlib.suppress(Exception):
                 win.close()
