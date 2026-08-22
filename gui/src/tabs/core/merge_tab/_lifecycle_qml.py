@@ -42,6 +42,9 @@ class _LifecycleQmlMixin:
                 win.close()
         self.open_preview_windows.clear()
 
+        if hasattr(self, "gallery"):
+            self.gallery.cancel_loading()
+
         super().cancel_loading()
 
     def closeEvent(self, event):
@@ -79,6 +82,7 @@ class _LifecycleQmlMixin:
     @Slot(list)
     def set_selected_files_qml(self, paths):
         self.selected_files = list(paths)
+        self._push_selection_to_gallery()
         if self.direction.currentText() != "canvas":
             self._refresh_queue_gallery()
         self.on_selection_changed()

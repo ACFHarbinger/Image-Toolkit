@@ -218,6 +218,7 @@ class _ConfigPersistenceMixin:
         if not valid:
             return
         self.selected_files = list(valid)
+        self._push_selection_to_gallery()
         if self.direction.currentText() == "canvas":
             for path in valid:
                 self.canvas_widget.add_image(path, self._thumbnail_for(path))

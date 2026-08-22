@@ -89,6 +89,10 @@ class VirtualGallery(QWidget):
     def clear_cache(self) -> None:
         self.model.clear_cache()
 
+    def cached_image(self, path: str):
+        """Return the model's cached QImage for *path* (None if not loaded)."""
+        return self.model.cached_image(path)
+
     def compare_selected(self, parent=None):
         """Open an ImageCompareWindow for the currently selected files (§2.27)."""
         selected = self.selected_files()

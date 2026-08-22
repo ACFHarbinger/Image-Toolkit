@@ -6,9 +6,9 @@ Extracted from ``MergeTab.__init__`` -- pure code motion, no logic change
 
 from __future__ import annotations
 
-from gui.src.components.containers.merge_canvas import MergeCanvas
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
+    QAbstractItemView,
     QComboBox,
     QGridLayout,
     QHBoxLayout,
@@ -19,7 +19,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ....components import MarqueeScrollArea
+from gui.src.components.containers.merge_canvas import MergeCanvas
+
+from ....components import VirtualGallery
 from ....styles import apply_shadow_effect, set_button_role
 
 
@@ -27,7 +29,7 @@ class _UIGalleryCanvasMixin:
     """Builds the image-library gallery, merge canvas, queue gallery, and action buttons."""
 
     def _build_gallery_section(self, content_layout) -> None:
-        # === 4. Image Library Gallery ===
+        # === 4. Image Library Gallery (virtual-scroll, GUI/UX §2.1 Option A) ===
         self.selection_label = QLabel("0 images selected.")
         self.selection_label.setStyleSheet("padding: 4px 0; font-weight: bold;")
         content_layout.addWidget(self.selection_label)
@@ -37,21 +39,18 @@ class _UIGalleryCanvasMixin:
         content_layout.addWidget(gallery_header)
         content_layout.addWidget(self.search_input)
 
-        self.gallery_scroll_area = MarqueeScrollArea()
-        self.gallery_scroll_area.setWidgetResizable(True)  # pyrefly: ignore [missing-attribute]
-        self.gallery_scroll_area.setMinimumHeight(600)  # pyrefly: ignore [missing-attribute]
-
-        gallery_inner = QWidget()
-        self.gallery_layout = QGridLayout(gallery_inner)
-        self.gallery_layout.setAlignment(  # pyrefly: ignore [missing-attribute]
-            Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter
+        self.gallery = VirtualGallery(self)
+        self.gallery.setMinimumHeight(600)
+        # MultiSelection keeps the tab's click-to-toggle interaction with
+        # native highlight, while the canvas/queue remain the authoritative
+        # merge-order surface (selection_changed -> _sync_selection_from_gallery).
+        self.gallery.view.setSelectionMode(
+            QAbstractItemView.SelectionMode.MultiSelection
         )
-        self.gallery_scroll_area.setWidget(gallery_inner)  # pyrefly: ignore [missing-attribute]
-
-        content_layout.addWidget(self.gallery_scroll_area, 1)  # pyrefly: ignore [bad-argument-type]
-        content_layout.addWidget(
-            self.pagination_widget, 0, Qt.AlignmentFlag.AlignCenter
-        )
+        self.gallery.selection_changed.connect(self._sync_selection_from_gallery)
+        self.gallery.path_activated.connect(self.handle_full_image_preview)
+        self.gallery.path_right_clicked.connect(self.show_image_context_menu)
+        content_layout.addWidget(self.gallery, 1)
 
     def _build_canvas_section(self, content_layout) -> None:
         # === 5. Merge Canvas (canvas mode) / Selected Image Queue (every other mode) ===
