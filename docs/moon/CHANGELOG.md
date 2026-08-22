@@ -1,3 +1,16 @@
+## S427 — 2026-08-22 (tooling: fix pyrefly install and `[tool.pyrefly]` config)
+
+- **Root cause**: `uv run pyrefly` failed with "No such file or directory" because `pyrefly` was never included in any dependency group — `uv run` could not find the binary.
+- **Fix**: Added `pyrefly>=1.2.0` to the `[dependency-groups] dev` list in `pyproject.toml`; installed via `uv pip install pyrefly`.
+- **Config cleanup**: Replaced the bogus `[tool.pyrefly]` section (which contained only pyright/mypy/pylance keys — `engine`, `ai_assisted`, `venvPath`, `venv`, `type_checking_mode`, `include`, `extraPaths`, `ignore`) with valid pyrefly 1.x keys (`project_includes`, `project_excludes`). This eliminates the `WARN: Extra keys found in config` noise on every run.
+- **Diagnostics — today's new files** (`virtual_gallery/`, `dual_widget.py`, `image_compare_window.py`, `reverse_search_tab.py`, `test_confirm_deletions.py`):
+  - `unnecessary-type-conversion` on `VirtualGalleryModel.set_thumbnail_size` — fixed (redundant `int()` on an already-`int` parameter).
+  - `bad-override` on `VirtualGalleryModel.data`/`flags` — pre-existing pattern in all `QAbstractListModel` subclasses; index parameter typed narrower than `QModelIndex | QPersistentModelIndex`. Not fixed here (codebase-wide pattern, risk of breaking PySide6 dispatch).
+  - `bad-argument-type` on `ReverseImageSearchTab` mixin calls — same pre-existing `Self@Tab` vs `TabHostProtocol` mismatch as `VideoExtractorSubTab` (10 occurrences) and every other mixin tab. Not fixed here.
+- `just pyrefly-gui` and `just pyrefly-backend` both now spawn and complete (3,951 and 388 diagnostics respectively, all pre-existing in the wider codebase, none introduced today).
+
+---
+
 ## S426 — 2026-08-22 (GUI/UX §2.1: gallery tabs migrated to the virtual-scroll gallery)
 
 Adopted the §2.1 Option A virtual-scroll gallery across the gallery-based

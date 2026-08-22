@@ -119,7 +119,7 @@ class VirtualGalleryModel(QAbstractListModel):
         """Change the served decoration size; cached QImages are rescaled on
         access, so zooming never reloads from disk. Emits ``layoutChanged``
         so the view re-lays-out with the new grid size."""
-        size = max(32, int(size))
+        size = max(32, size)
         if size == self.thumbnail_size:
             return
         self.thumbnail_size = size
