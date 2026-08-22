@@ -33,8 +33,8 @@ from PySide6.QtCore import (
     Qt,
     Signal,
 )
-from PySide6.QtGui import QMouseEvent, QWheelEvent
-from PySide6.QtWidgets import QAbstractItemView, QListView
+from PySide6.QtGui import QCursor, QMouseEvent, QWheelEvent
+from PySide6.QtWidgets import QAbstractItemView, QApplication, QListView
 
 from .delegate import VirtualGalleryDelegate
 
@@ -243,7 +243,56 @@ class VirtualGalleryView(QListView):
         else:
             super().wheelEvent(event)
 
+    # ------------------------------------------------------------------
+    # Custom drag-to-drop (opt-in) — mirrors the QLabel galleries'
+    # DraggableLabel custom drag: press an item, drag past a threshold to
+    # show a floating preview and grab the mouse, release to resolve the
+    # drop via an injected handler. Used by the wallpaper tabs to drag a
+    # thumbnail onto a monitor. Disabled for every other tab.
+    # ------------------------------------------------------------------
+
+    _CUSTOM_DRAG_THRESHOLD = 8
+
+    def set_custom_drag_enabled(self, enabled: bool, drop_handler=None) -> None:
+        """Enable/disable the custom drag. ``drop_handler(source_path,
+        selected_paths, drop_pos)`` is called on drop resolution."""
+        self._custom_drag_enabled = bool(enabled)
+        self._custom_drop_handler = drop_handler
+        self._drag_source_path: Optional[str] = None
+        self._drag_press_pos: Optional[QPoint] = None
+        self._is_custom_dragging = False
+        self._drag_preview = None
+
+    def mousePressEvent(self, event: QMouseEvent) -> None:
+        super().mousePressEvent(event)
+        if (
+            getattr(self, "_custom_drag_enabled", False)
+            and event.button() == Qt.MouseButton.LeftButton
+        ):
+            index = self.indexAt(event.position().toPoint())
+            if index.isValid() and self._gallery_model is not None:
+                self._drag_source_path = self._gallery_model.path_at(index.row())
+                self._drag_press_pos = event.position().toPoint()
+
+    def mouseMoveEvent(self, event: QMouseEvent) -> None:
+        enabled = getattr(self, "_custom_drag_enabled", False)
+        if enabled and self._drag_source_path and not self._is_custom_dragging:
+            moved = event.position().toPoint() - self._drag_press_pos
+            if (
+                event.buttons() & Qt.MouseButton.LeftButton
+                and abs(moved.x()) + abs(moved.y()) > self._CUSTOM_DRAG_THRESHOLD
+            ):
+                self._start_custom_drag()
+                return
+        if enabled and self._is_custom_dragging:
+            self._update_custom_drag_preview()
+            return
+        super().mouseMoveEvent(event)
+
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:
+        if getattr(self, "_is_custom_dragging", False):
+            self._finish_custom_drag(QCursor.pos())
+            return
         # A click on empty viewport space should clear the current selection
         # unless the user is extending it (marquee / modifier-held) — the
         # QLabel galleries treat blank-area clicks as "deselect everything".
@@ -257,6 +306,44 @@ class VirtualGalleryView(QListView):
         ):
             self.clear_selection()
         super().mouseReleaseEvent(event)
+
+    def _start_custom_drag(self) -> None:
+        self._is_custom_dragging = True
+        from gui.src.windows.drag_preview_window import DragPreviewWindow
+
+        preview = DragPreviewWindow(self._create_drag_preview())
+        preview.update_position(QCursor.pos())
+        preview.show()
+        self._drag_preview = preview
+        self.grabMouse()
+
+    def _update_custom_drag_preview(self) -> None:
+        if self._drag_preview is not None:
+            self._drag_preview.update_position(QCursor.pos())
+
+    def _finish_custom_drag(self, drop_pos: QPoint) -> None:
+        self._is_custom_dragging = False
+        self._drag_press_pos = None
+        self.releaseMouse()
+        if self._drag_preview is not None:
+            self._drag_preview.hide()
+            self._drag_preview.deleteLater()
+            self._drag_preview = None
+        handler = getattr(self, "_custom_drop_handler", None)
+        source = self._drag_source_path
+        self._drag_source_path = None
+        if handler is not None and source is not None:
+            handler(source, self.selected_paths(), drop_pos)
+
+    def _create_drag_preview(self):
+        """Build the drag-preview pixmap (the pressed item's thumbnail)."""
+        from PySide6.QtGui import QPixmap
+
+        if self._gallery_model is not None and self._drag_source_path is not None:
+            cached = self._gallery_model.cached_image(self._drag_source_path)
+            if cached is not None and not cached.isNull():
+                return QPixmap.fromImage(cached)
+        return QPixmap()
 
 
 __all__ = ["VirtualGalleryView"]

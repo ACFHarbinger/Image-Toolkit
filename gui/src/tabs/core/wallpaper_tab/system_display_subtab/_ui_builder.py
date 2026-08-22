@@ -269,25 +269,13 @@ class _UIBuilderMixin:
         settings_layout.addLayout(scan_dir_layout)
 
     def _build_gallery_section(self: "SystemDisplaySubTabHostProtocol", content_layout) -> None:
-        self.gallery_scroll_area = MarqueeScrollArea()
-        self.gallery_scroll_area.setWidgetResizable(True)
-        self.gallery_scroll_area.setMinimumHeight(600)
-
-        self.scan_thumbnail_widget = QWidget()
-
-        self.scan_thumbnail_layout = QGridLayout(self.scan_thumbnail_widget)
-        self.scan_thumbnail_layout.setAlignment(
-            Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter
-        )
-        self.gallery_scroll_area.setWidget(self.scan_thumbnail_widget)
+        # Virtual-scroll gallery (GUI/UX §2.1 Option A) — replaces the
+        # MarqueeScrollArea + QGridLayout grid; pagination is dropped.
+        self.gallery = self._build_virtual_gallery()
+        self.gallery_scroll_area = self.gallery  # setEnabled() callers
 
         content_layout.addWidget(self.search_input)
-        content_layout.addWidget(self.gallery_scroll_area, 1)
-        content_layout.addWidget(
-            self.pagination_widget, 0, Qt.AlignmentFlag.AlignCenter
-        )
-
-        self.gallery_layout = self.scan_thumbnail_layout
+        content_layout.addWidget(self.gallery, 1)
 
     def _build_action_row(self: "SystemDisplaySubTabHostProtocol", content_layout) -> None:
         action_layout = QHBoxLayout()

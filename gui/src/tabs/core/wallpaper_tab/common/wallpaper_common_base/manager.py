@@ -5,11 +5,14 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 from backend.src.core.wallpaper import find_qdbus_binary
-from PySide6.QtCore import QThread, QTimer, Signal
+from backend.src.constants import SUPPORTED_VIDEO_FORMATS
+from PySide6.QtCore import QPointF, QThread, QTimer, Signal
+from PySide6.QtWidgets import QApplication
 from screeninfo import Monitor
 
 from ......classes import AbstractClassSingleGallery
-from ......components import MonitorDropView
+from ......components import MonitorDropView, VirtualGallery
+from ......helpers import ImageLoaderWorker, VideoLoaderWorker
 from ._event_filter import _EventFilterMixin
 from ._gallery_label import _GalleryLabelMixin
 from ._graph_drop import _GraphDropMixin
@@ -126,6 +129,96 @@ class WallpaperCommonBase(
         self._pagination_debounce_timer.setSingleShot(True)
         self._pagination_debounce_timer.setInterval(200)
         self._pagination_debounce_timer.timeout.connect(self._update_pagination_ui)
+
+    # ------------------------------------------------------------------
+    # Virtual-scroll gallery surface (GUI/UX §2.1 Option A)
+    # ------------------------------------------------------------------
+
+    def _build_virtual_gallery(self):
+        """Create the virtual-scroll gallery with wallpaper wiring (click to
+        toggle, double-click to preview, right-click context menu, Ctrl+wheel
+        zoom, and the custom drag-to-monitor). The scan pipeline that feeds it
+        (and its serialization) is untouched."""
+        def _gallery_worker(path: str, target_size: int):
+            if path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
+                return VideoLoaderWorker(path, target_size)
+            return ImageLoaderWorker(path, target_size)
+
+        gallery = VirtualGallery(self, worker_factory=_gallery_worker)
+        gallery.setMinimumHeight(600)
+        gallery.path_clicked.connect(self.toggle_selection)
+        gallery.path_activated.connect(self.handle_thumbnail_double_click)
+        gallery.path_right_clicked.connect(self.show_image_context_menu)
+        gallery.ctrl_wheel.connect(self._on_ctrl_wheel_zoom)
+        gallery.view.set_custom_drag_enabled(True, self._on_gallery_drag_drop)
+        return gallery
+
+    def _on_gallery_drag_drop(self, source_path: str, selected_paths: list, drop_pos) -> None:
+        """Resolve a gallery drag-drop (mirrors DraggableLabel._try_drop_on_widget):
+        drop the file(s) on a MonitorDropView (set wallpaper) or the graph view
+        (add a node)."""
+        files_to_drop = selected_paths if source_path in selected_paths else [source_path]
+        widget = QApplication.widgetAt(drop_pos)
+        current = widget
+        while current:
+            if isinstance(current, MonitorDropView):
+                current.handle_custom_drop(files_to_drop)
+                return
+            if current.__class__.__name__ == "WallpaperGraphView" or (
+                hasattr(current, "scene") and hasattr(current, "mapToScene")
+            ):
+                view = current
+                sc = view.scene()
+                if sc is not None and hasattr(sc, "add_node"):
+                    local_pos = view.viewport().mapFromGlobal(drop_pos)
+                    scene_pos = view.mapToScene(local_pos)
+                    for file_path in files_to_drop:
+                        sc.add_node(file_path, scene_pos)
+                        scene_pos = QPointF(scene_pos.x() + 160, scene_pos.y())
+                    return
+            current = current.parentWidget()
+
+    def refresh_gallery_view(self):
+        """Feed the filtered path list to the virtual gallery (no page slice /
+        per-card populate). Overrides the base grid refresh. Falls back to the
+        base grid path for subclasses/harnesses that don't build ``self.gallery``."""
+        if not hasattr(self, "gallery"):
+            super().refresh_gallery_view()  # type: ignore[safe-super]
+            return
+        self.cancel_loading()
+        self.clear_gallery_widgets()
+        paths = self.gallery_image_paths
+        if not paths:
+            return
+        self.gallery.set_paths(paths)
+
+    def clear_gallery_widgets(self):
+        """Clear the virtual gallery and cancel its in-flight loads."""
+        if hasattr(self, "gallery"):
+            self.gallery.clear()
+            self.cancel_loading()
+        else:
+            super().clear_gallery_widgets()  # type: ignore[safe-super]
+
+    def cancel_loading(self):
+        super().cancel_loading()  # type: ignore[safe-super]
+        if hasattr(self, "gallery"):
+            self.gallery.cancel_loading()
+
+    def _on_layout_change(self):
+        """Virtual gallery re-lays-out itself; nothing to reflow."""
+
+    def _on_ctrl_wheel_zoom(self, delta: int):
+        """Ctrl+wheel thumbnail zoom (§2.2) over the virtual gallery."""
+        step = 16 if delta > 0 else -16
+        new_size = max(64, min(512, self.thumbnail_size + step))
+        if new_size == self.thumbnail_size:
+            return
+        self.thumbnail_size = new_size
+        self.approx_item_width = new_size + self.padding_width + 20
+        self._save_thumbnail_size()
+        if hasattr(self, "gallery"):
+            self.gallery.set_thumbnail_size(new_size)
 
 
 __all__ = ["WallpaperCommonBase"]

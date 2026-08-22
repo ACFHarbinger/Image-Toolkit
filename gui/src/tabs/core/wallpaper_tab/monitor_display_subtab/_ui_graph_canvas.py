@@ -244,27 +244,11 @@ class _UIGraphCanvasMixin:
         # Search Input
         gallery_lyt.addWidget(self.search_input)
 
-        # Scroll Area for Thumbnails
-        gallery_scroll_area = MarqueeScrollArea()
-        self.gallery_scroll_area = gallery_scroll_area
-        gallery_scroll_area.setWidgetResizable(True)
-        gallery_scroll_area.setMinimumHeight(600)
-
-        self.scan_thumbnail_widget = QWidget()
-
-        self.scan_thumbnail_layout = QGridLayout(self.scan_thumbnail_widget)
-        self.scan_thumbnail_layout.setAlignment(
-            Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter
-        )
-        gallery_scroll_area.setWidget(self.scan_thumbnail_widget)
-        gallery_lyt.addWidget(gallery_scroll_area, 1)
-
-        # Pagination controls
-        gallery_lyt.addWidget(
-            self.pagination_widget, 0, Qt.AlignmentFlag.AlignCenter
-        )
-
-        self.gallery_layout = self.scan_thumbnail_layout
+        # Virtual-scroll gallery (GUI/UX §2.1 Option A) — replaces the
+        # MarqueeScrollArea + QGridLayout grid; pagination is dropped.
+        self.gallery = self._build_virtual_gallery()
+        self.gallery_scroll_area = self.gallery  # setEnabled() callers
+        gallery_lyt.addWidget(self.gallery, 1)
 
         return gallery_panel
 
