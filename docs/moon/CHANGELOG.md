@@ -1,3 +1,42 @@
+## S426 — 2026-08-22 (GUI/UX §2.1: gallery tabs migrated to the virtual-scroll gallery)
+
+Adopted the §2.1 Option A virtual-scroll gallery across the gallery-based
+tabs, one tab per commit, per the roadmap's §2.1 adoption note.
+
+**Migrated to `VirtualGallery`** (single-panel; `QListView` + `QAbstractListModel`,
+viewport culling, native `QItemSelectionModel` selection):
+- `ReverseImageSearchTab` (earlier session, S422).
+- `VideoExtractorSubTab` (extractor_tab): extracted-frames results gallery, with
+  a video-capable worker factory (VideoLoaderWorker for videos) and
+  bidirectional selection sync.
+- `MergeTab`: Image Library gallery in `MultiSelection` mode (native
+  toggle-on-click + highlight); canvas/queue side effects driven delta-wise
+  from `selection_changed`; canvas/queue thumbnails read the gallery model
+  cache via a new `cached_image()` accessor.
+
+**Migrated to `VirtualDualGallery`** (found + selected panels, shared LRU cache):
+- `FormatSubTab`, `CodecSubTab`, `SamplerSubTab` (Convert subtabs): scan results
+  land in the found panel, toggle-selection drives the convert/resample set.
+- `SimilarityTab`: triage `_select`/`_deselect_paths` push to the dual; deletion
+  rebuilds both panels instead of reflowing the removed QGridLayout.
+
+Every migration drops the tab's page-size/pagination bar; selection/context
+menus/double-click preview/delete flows keep their behavior over the new
+surface. New per-tab migration tests (extractor 6, merge 6, format 5, codec 3,
+sampler 3, similarity 4); `gui/test/{web,components,image,core,database}`
+`--run-gui` → **414 passed**. `docs/moon/roadmaps/gui_ux.md` §2.1 updated.
+
+**Deferred (need a dedicated design pass, documented in the roadmap):**
+- `WallpaperCommonBase` — drag-thumbnail-to-monitor interaction isn't
+  expressible in the current `VirtualGallery`, and it sits at the center of the
+  #461 crash investigation.
+- `ScanMetadataTab` — bespoke selected gallery with drag-reorder +
+  set/order selection semantics.
+- `SearchTab`, `ListingGalleryBase` — DB-integrated galleries with their own
+  data shape.
+
+---
+
 ## S425 — 2026-08-22 (GUI/UX §2.6: Stitch ASP/SCANS comparison)
 
 Stitch results can now generate an OpenCV SCANS baseline from the source frames
