@@ -1,3 +1,34 @@
+## S422 — 2026-08-22 (GUI/UX §2.1: first VirtualGallery tab migration — ReverseImageSearchTab)
+
+Harbinger-approved adoption step: moved `ReverseImageSearchTab` off the
+bounded-page QLabel grid onto the §2.1 Option A virtual-scroll gallery.
+
+- **`gui/src/tabs/web/reverse_search_tab.py`**: the `QGridLayout` +
+  `ClickableLabel` card grid, the page-size/pagination bar, and the
+  card-rendering overrides (`create_card_widget` / `update_card_pixmap` /
+  `_style_label`) are deleted; the tab now renders its scanned directory
+  through the `VirtualGallery` composite (`gui/src/components/virtual_gallery/`).
+  `refresh_gallery_view` feeds the model directly (no page slice / per-card
+  populate), `clear_gallery_widgets`/`cancel_loading` drain the gallery's
+  model loads, selection (`handle_image_selection` / `update_visual_selection`
+  / `select_all_items` / `deselect_all_items`) maps onto the view's
+  `QItemSelectionModel`, and Ctrl+wheel zoom drives `gallery.set_thumbnail_size`.
+  Scan/drag-drop/reverse-search-engine/config/QML-surface logic unchanged;
+  `_trigger_image_load` and the `ImageLoaderWorker` import it used are gone.
+- **Tests** — `gui/test/web/test_reverse_search_gallery.py` (7 new):
+  scan→model population, empty scans, search-box filtering of the model,
+  selection mapping, select-all delegation, Ctrl+wheel zoom, QML `gallery_model`.
+  Existing `test_web_tab.py` fixtures updated (dropped the now-removed
+  `ImageLoaderWorker` patch). Verified `gui/test/{web,components,image,core,
+  database}` `--run-gui` → 380 passed (2 pre-existing "already disconnected"
+  RuntimeWarnings); real-image smoke (40 images loaded into the model cache via
+  the real `ImageLoaderWorker`, selection + zoom verified) + `ruff check` clean.
+- `docs/moon/roadmaps/gui_ux.md` §2.1 updated: first tab migrated; the remaining
+  QLabel-grid tabs (Extractor, Wallpaper, Format, Codec, Similarity, database
+  listings, …) migrate one at a time using this tab as the pattern.
+
+---
+
 ## S421 — 2026-08-22 (GUI/UX §2.27: Multi-Image Comparison View)
 
 Shipped §2.27 Multi-Image Comparison View supporting side-by-side, overlay, and pixel difference analysis across 2+ images.
