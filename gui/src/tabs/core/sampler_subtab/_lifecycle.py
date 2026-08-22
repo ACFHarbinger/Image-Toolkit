@@ -13,6 +13,8 @@ class _LifecycleMixin:
 
     def cancel_loading(self):
         super().cancel_loading()
+        if hasattr(self, "dual"):
+            self.dual.cancel_loading()
         if self.worker:
             with contextlib.suppress(Exception):
                 self.worker.cancel()
