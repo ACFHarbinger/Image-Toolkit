@@ -137,7 +137,7 @@ Each section describes an ergonomic pain point, all viable implementation option
 
 ---
 
-## 2.1 Virtual Scroll Gallery ✅ Partial (2026-08-22 — Option A prototype + first tab migration)
+## 2.1 Virtual Scroll Gallery ✅ Partial (2026-08-22 — prototype + 7 tabs migrated; Wallpaper/Scan/Search/Listings deferred)
 
 **2026-08-19 update:** a perf pass (issues #444/#445/#447) fixed several
 real bugs in the current page-based system — thumbnails were being
@@ -226,6 +226,22 @@ and zoom; verified `gui/test/{web,components,image,core,database}` `--run-gui`
 `AbstractClassSingleGallery` tabs (Extractor, Wallpaper, Format, Codec,
 Similarity, database listings, …) still use the QLabel grid; migrate one at a
 time using this tab as the pattern.
+
+**2026-08-22 mass migration (opencode, one commit per tab):** the remaining
+single-gallery tabs — `VideoExtractorSubTab` (extractor_tab, results gallery
+with a video-capable worker factory) and `MergeTab` (Image Library in
+`MultiSelection` mode; canvas/queue side effects driven from
+`selection_changed`; canvas/queue thumbnails read the gallery cache via a new
+`cached_image()`) — were migrated to `VirtualGallery`, and the uniform
+dual-panel Convert subtabs — `FormatSubTab`, `CodecSubTab`, `SamplerSubTab` —
+plus `SimilarityTab` were migrated to Agy's `VirtualDualGallery` (found +
+selected panels, shared cache). All drop their page-size/pagination bars.
+Per-tab migration tests added; `gui/test/{web,components,image,core,database}`
+`--run-gui` → 414 passed. `WallpaperCommonBase` is deferred (drag-to-monitor
+isn't expressible in `VirtualGallery` and it's at the center of the #461 crash
+investigation), as are `ScanMetadataTab` (bespoke drag-reorder selected
+gallery + set/order selection), `SearchTab`, and `ListingGalleryBase`
+(DB-integrated galleries) — each needs a dedicated design pass.
 
 **2026-08-22 dual-gallery design & prototype shipped (Agy):** Design document
 `.agent/reports/dual_virtual_gallery_design.md` and prototype composite widget
