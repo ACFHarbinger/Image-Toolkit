@@ -1,3 +1,32 @@
+## S428 — 2026-08-22 (GUI/UX §2.1: ScanMetadataTab gallery migration)
+
+Ninth tab adoption of the §2.1 Option A virtual-scroll gallery.
+
+- **`gui/src/components/virtual_gallery/` extension** — `VirtualGalleryModel`
+  gained an `InDbRole` + `set_in_db`/`mark_in_db`/`is_in_db` API, and a new
+  `VirtualGalleryDelegate` (`delegate.py`) paints a green border on rows the
+  tab marks as already in the library DB. Set on `VirtualGalleryView` by
+  default (no-op for tabs that don't use the role).
+- **`ScanMetadataTab`** — scan-results + selected `QGridLayout` grids replaced
+  by `VirtualDualGallery`. Scan results feed the found panel via a new
+  `_refresh_scan_gallery()` (with the in-DB batch check driving the green
+  border); selection syncs bidirectionally with the dual; the old
+  lazy-load-on-scroll, keyboard-selection, context-menu, pagination, and
+  layout-reflow machinery that was built on the wrapper-card grid was rewritten
+  as no-ops / dual-driven overrides. Upsert/delete flows update the model's
+  in-db state instead of wrapper widgets.
+- **Tests** — `gui/test/database/test_scan_metadata_gallery.py` (5 new);
+  full `gui/test/{web,components,image,core,database}` `--run-gui` → **422
+  passed**. `docs/moon/roadmaps/gui_ux.md` §2.1 updated.
+
+**Remaining (deferred, documented in the roadmap):** `WallpaperCommonBase`
+(drag-thumbnail-to-monitor uses a fully custom drag system that must be ported
+onto the QListView items — a new component, at the center of the #461 crash
+investigation) and `ListingGalleryBase` (rich interactive `_ListingCard` DB
+widgets need a custom widget/delegate, not the image-thumbnail model).
+
+---
+
 ## S427 — 2026-08-22 (tooling: fix pyrefly install and `[tool.pyrefly]` config)
 
 - **Root cause**: `uv run pyrefly` failed with "No such file or directory" because `pyrefly` was never included in any dependency group — `uv run` could not find the binary.
