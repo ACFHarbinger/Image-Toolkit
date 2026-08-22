@@ -13,10 +13,10 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, List, Optional, Tuple, cast
 
+from backend.src.constants import SUPPORTED_VIDEO_FORMATS
 from PySide6.QtCore import QPoint, Qt, Slot
 from PySide6.QtWidgets import (
     QComboBox,
-    QGridLayout,
     QGroupBox,
     QHBoxLayout,
     QLabel,
@@ -25,12 +25,12 @@ from PySide6.QtWidgets import (
     QMenu,
     QMessageBox,
     QPushButton,
-    QScrollArea,
     QVBoxLayout,
     QWidget,
 )
 
-from ....components import ClickableLabel, MarqueeScrollArea
+from ....components import ClickableLabel, VirtualGallery
+from ....helpers import ImageLoaderWorker, VideoLoaderWorker
 from ....helpers.core.queue_execution_worker import QueueExecutionWorker
 from ....styles import set_button_role
 
@@ -54,22 +54,20 @@ class _QueueManagementMixin:
 
     def _build_results_section(self: "VideoExtractorSubTabHostProtocol") -> None:
         """Builds "5. Results Gallery Section" and adds it to self.main_layout."""
-        self.gallery_scroll_area: Optional[QScrollArea] = MarqueeScrollArea()
-        self.gallery_scroll_area.setWidgetResizable(True) # pyrefly: ignore [missing-attribute]
-        self.gallery_scroll_area.setMinimumHeight(600) # pyrefly: ignore [missing-attribute]
+        # Virtual-scroll gallery (GUI/UX §2.1 Option A) — replaces the old
+        # MarqueeScrollArea + QGridLayout + ClickableLabel grid; pagination is
+        # dropped and selection lives in the view's QItemSelectionModel.
+        def _gallery_worker(path: str, target_size: int):
+            if path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
+                return VideoLoaderWorker(path, target_size)
+            return ImageLoaderWorker(path, target_size)
 
-        self.gallery_container = QWidget()
-
-        self.gallery_layout: Optional[QGridLayout] = QGridLayout(self.gallery_container)
-        self.gallery_layout.setAlignment( # pyrefly: ignore [missing-attribute]
-            Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter
-        )
-        self.gallery_layout.setSpacing(3) # pyrefly: ignore [missing-attribute]
-        self.gallery_scroll_area.setWidget(self.gallery_container) # pyrefly: ignore [missing-attribute]
-
-        self.gallery_scroll_area.selection_changed.connect( # pyrefly: ignore [missing-attribute]
-            self.handle_marquee_selection
-        )
+        self.gallery = VirtualGallery(self, worker_factory=_gallery_worker)
+        self.gallery.setMinimumHeight(600)
+        self.gallery.path_clicked.connect(self.handle_thumbnail_single_click)
+        self.gallery.path_activated.connect(self.handle_thumbnail_double_click)
+        self.gallery.path_right_clicked.connect(self.show_image_context_menu)
+        self.gallery.selection_changed.connect(self._sync_selection_from_gallery)
 
         # Setup Queue UI Group Box
         self.queue_group = QGroupBox("Extraction Queue")
@@ -129,10 +127,7 @@ class _QueueManagementMixin:
         # Add shared search input (Lazy Search)
         self.main_layout.addWidget(self.search_input)
 
-        self.main_layout.addWidget(self.gallery_scroll_area, 1) # pyrefly: ignore [bad-argument-type]
-        self.main_layout.addWidget(
-            self.pagination_widget, 0, Qt.AlignmentFlag.AlignCenter
-        )
+        self.main_layout.addWidget(self.gallery, 1)
 
         self.extraction_status_label = QLabel("Ready.")
         self.extraction_status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
