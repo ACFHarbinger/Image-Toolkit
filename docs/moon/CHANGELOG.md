@@ -1,3 +1,25 @@
+## S415 — 2026-08-22 (Analytics Phase 12 §12.4: SearchRepo filter scale benchmark)
+
+Implemented the rescoped §12.4 target (issue #403 / #63): a scale benchmark
+for `search_repo.py`'s `filter_media()`/`filter_entities()` SQL methods.
+
+- **New `backend/benchmark/bench_search_repo_scale.py`.** Standalone,
+  deterministic, seeded 10k/100k-row corpus bulk-inserted via `base.database`
+  `executemany` (FTS5 external-content triggers keep the shadow tables in
+  sync). 42 benchmarks cover every default gallery filter/sort shape: search
+  box (title/creator/tag/associated-entity-name, `LIKE … COLLATE NOCASE` +
+  per-row `EXISTS`), type/status/role combos, the Advanced Search criteria
+  builder, each `ORDER BY` sort key (incl. the `GROUP_CONCAT` tags sort and
+  the `credits_count` correlated-subquery sort), plus the FTS5 text-search
+  path. Prints a selectivity sanity check before the timed run.
+- **Measured**: search box scales linearly (~28 ms @ 10k → ~239 ms @ 100k),
+  equality combos stay cheap (~4→39 ms, result-materialization bound), tags
+  sort ~30→220 ms. Nothing exceeds ~260 ms at 100k rows.
+- `docs/moon/roadmaps/development_tool.md` §12.4 + Phase 12 summary tables and
+  `unified_database.md` §DB.5 updated; 12.8 remains the only rescoped item.
+
+---
+
 ## S414 — 2026-08-18 (devtool v2: D52 proof plugin + sidecar + Tauri host landed)
 
 The Development Tool v2 first-build shape is in: host skeleton, sidecar,

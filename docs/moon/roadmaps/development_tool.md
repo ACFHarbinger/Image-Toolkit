@@ -813,7 +813,7 @@ Historical implementation status (unchanged by the fold):
 | **Benchmark dashboard migration** (Streamlit → Tauri/React) | ✅ Complete | Separate from this host; Tauri/React 7-page dashboard |
 | Phases 1–10 feature implementation | ⬜ Mostly not started | §1.4 DSM-equivalent shipped; rest planned / research |
 | **Phase 11 ASP Benchmark Analytics** | ✅ Complete (2026-07-30) | 11.1–11.5 in ASP evaluator (#123); 11.6–11.10 in `bench_anime_stitch.py` report (#69) |
-| **Phase 12 Benchmark Coverage** | 🔄 Partial (2026-07-30) | 12.1/12.2/12.3/12.5/12.6/12.7 shipped; 12.4 and 12.8 rescoped |
+| **Phase 12 Benchmark Coverage** | 🔄 Partial (2026-08-22) | 12.1/12.2/12.3/12.4/12.5/12.6/12.7 shipped; 12.8 rescoped |
 
 ### How Track B attaches to the host
 
@@ -1303,26 +1303,40 @@ measured confirmation of `LRUImageCache`'s own design rationale
 (storing QImage, not QPixmap, to avoid the platform backing-store
 copy), not previously measured, only asserted in a docstring.
 
-### 12.4 Database Query Profiling at Scale (MEDIUM) — **rescoped, 2026-07-27**
-**Checked before extending anything**: this bullet's premise
-(`pgvector` ANN search, `HNSW` vs `IVFFlat`) targets
-`backend/src/database/image_database.py::PgvectorImageDatabase`, the
-legacy Postgres-backed image database. Per
-`unified_database.md`'s own DB.6 status ("Postgres retirement... mostly
-done (S211)") and the still-open archival item (issue #64, "archive
-legacy Postgres code"), this is an actively-retiring system — building
-new benchmark investment against it (Bulk insert, HNSW/IVFFlat
-comparison work that Postgres-side code is slated to be deleted) would
-not be a good use of this phase's effort. **Not implemented as
-originally scoped.** The forward-looking equivalent already exists and
-is a better target for a future session: `search_repo.py`'s new
-`filter_media()`/`filter_entities()` SQL methods (shipped this session,
-issue #63/`unified_database.md` §DB.5) already have correctness tests
-in `backend/test/database/test_unified_repos.py` but no *scale*
-benchmark (10k/100k-row FTS/filter query latency) — that's the item to
-build once someone picks this back up, not a pgvector ANN benchmark for
-a database half-way out the door. No code shipped for this sub-item;
-this note is the deliverable.
+### 12.4 Database Query Profiling at Scale (MEDIUM) — **DONE (rescoped target), 2026-08-22**
+**Original premise rescoped 2026-07-27** (pgvector/HNSW/IVFFlat against
+`PgvectorImageDatabase`, an actively-retiring Postgres system — see the
+DB.6 retirement and issue #64). The rescope named a concrete
+forward-looking target instead: `search_repo.py`'s `filter_media()`/
+`filter_entities()` SQL methods (issue #63 / `unified_database.md`
+§DB.5), which had correctness tests but no scale benchmark.
+
+**Shipped 2026-08-22**: `backend/benchmark/bench_search_repo_scale.py` —
+a standalone, deterministic scale benchmark (seeded data bulk-inserted
+via `base.database` `executemany`; the FTS5 external-content triggers
+keep the shadow tables in sync). It measures, at 10k and 100k
+media/entity rows, the real query latency of every default gallery
+filter/sort shape `filter_media()`/`filter_entities()` produce: the
+search box (title/creator/tag/associated-entity-name via `LIKE …
+COLLATE NOCASE` + per-row `EXISTS` subqueries), the type/status/role
+equality combos, the Advanced Search criteria builder (include/exclude
+genres/tags/entities, AND/OR), each `ORDER BY` sort key (including the
+`GROUP_CONCAT` tags sort and the `credits_count` correlated-subquery
+sort), plus the FTS5 text-search path (`search_media_text`/
+`search_entities_text`). 42 benchmarks total, run under
+`BenchmarkManager` with a selectivity sanity check printed before the
+timed run.
+
+**Measured** (this host, RTX 4080 laptop, SQLCipher w/ FTS5): the
+search-box query scales linearly with row count as expected for a
+leading-wildcard full scan — `filter_media(search_query='tag042')`
+~28 ms @ 10k → ~239 ms @ 100k; the equality combos stay cheap and
+flat-ish (`type_filter` ~4 ms → ~39 ms, dominated by result
+materialization at 100k); `sort_key='tags'` (per-row `GROUP_CONCAT`
+subquery) ~30 ms → ~220 ms. Nothing exceeds ~260 ms at 100k rows — SQLite
+is comfortably within the per-keystroke budget this path was designed
+for, and the numbers confirm the two known-expensive shapes (search box,
+tags sort) are the ones worth watching if the library grows past 100k.
 
 ### 12.5 App Lifecycle Memory Profiling (MEDIUM) — **DONE, 2026-07-30**
 New `backend/src/core/lifecycle_memory.py`: a phase-tagged RSS logger
@@ -1616,7 +1630,7 @@ integration + diff/review support the first slice but must not delay it.
 | D4 (Track D) Perf profiling | ✅ Landed | Gemini (#390) | stage percentiles, bottlenecks, jitter (`perf` verb + Rich panel + MCP tool) |
 | D5 (Track D) Reproducibility artifacts | ⬜ Planned | TBD (D16) | one-click bundle, redaction per D20 |
 | B Phase 11 | ✅ Complete | (historical) | evaluator + report |
-| B Phase 12 | 🔄 Partial | (historical) | 12.4 / 12.8 rescoped |
+| B Phase 12 | 🔄 Partial | (historical) | 12.8 rescoped |
 | B Phases 1–10 | ⬜ / research | unassigned | do not block v1 |
 | Writer: optional span IDs | ✅ Landed | Grok (D23 / #392) | `telemetry.py` seq/span_id/parent; PipelineSession stage spans |
 
