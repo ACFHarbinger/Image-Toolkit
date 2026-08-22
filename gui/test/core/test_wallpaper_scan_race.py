@@ -21,6 +21,7 @@ from PySide6.QtGui import QImage
 from PySide6.QtWidgets import QGridLayout, QScrollArea, QWidget
 
 from gui.src.helpers import ImageScannerWorker
+from gui.src.tabs.core.wallpaper_tab.common import wallpaper_common_base
 from gui.src.tabs.core.wallpaper_tab.common.wallpaper_common_base import (
     WallpaperCommonBase,
 )
@@ -95,6 +96,42 @@ class TestSignalDisconnectBeforeTeardown:
 
 
 class TestWallpaperGalleryLoading:
+    def test_settle_waits_for_gallery_workers_before_releasing_pending_switch(
+        self, q_app, monkeypatch
+    ):
+        """Linked panels must not overlap their thumbnail populations.
+
+        Image/video directory scans can finish before the QRunnables started
+        by ``start_loading_gallery()``. Releasing the pipeline at that point
+        starts the mirrored panel's population against the same native/Qt
+        boundaries, the crash shape seen when browsing a large directory.
+        """
+        panel = ConcreteWallpaperBase()
+        panel._scan_pipeline_busy = True
+        panel._pending_scan_request = ("/next", False)
+        active_counts = iter((1, 0))
+        panel.thread_pool.activeThreadCount = lambda: next(active_counts)
+        scheduled = []
+        monkeypatch.setattr(
+            wallpaper_common_base._scan_pipeline.QTimer,
+            "singleShot",
+            lambda delay, callback: scheduled.append((delay, callback)),
+        )
+
+        panel._settle_scan_pipeline()
+
+        assert panel._scan_pipeline_busy is True
+        assert panel._pending_scan_request == ("/next", False)
+        assert len(scheduled) == 1
+        assert scheduled[0][0] == 25
+
+        scheduled.pop()[1]()
+
+        assert panel._scan_pipeline_busy is False
+        assert panel._pending_scan_request is None
+        assert len(scheduled) == 1
+        assert scheduled[0][0] == 0
+
     def test_image_scan_appends_with_one_gallery_rebuild(self, q_app):
         panel = ConcreteWallpaperBase()
         panel.master_image_paths = ["existing.png"]

@@ -1,3 +1,16 @@
+## S417 — 2026-08-22 (Wallpaper gallery scan/load serialization)
+
+- Wallpaper's linked System Display and Monitor Display galleries now retain
+  their scan gate until the current panel's thumbnail pool is idle. The peer
+  (or a pending directory switch) is retried asynchronously afterwards,
+  preventing a second gallery population from overlapping native decoding and
+  Qt signal/object churn for the same large directory.
+- `dev/repro_guest_startup.py` accepts `IMAGE_TOOLKIT_REPRO_SCAN_DIR` and
+  `IMAGE_TOOLKIT_REPRO_SECONDARY_DIR` so gdb captures can target a reported
+  directory without editing the helper.
+
+---
+
 ## S416 — 2026-08-22 (Database extension and gallery-crash repro verification)
 
 - Rechecked the rebuilt `base` extension: the compiled module exposes
