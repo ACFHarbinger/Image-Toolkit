@@ -137,7 +137,7 @@ Each section describes an ergonomic pain point, all viable implementation option
 
 ---
 
-## 2.1 Virtual Scroll Gallery
+## 2.1 Virtual Scroll Gallery ✅ Partial (2026-08-22 — Option A prototype shipped)
 
 **2026-08-19 update:** a perf pass (issues #444/#445/#447) fixed several
 real bugs in the current page-based system — thumbnails were being
@@ -188,6 +188,32 @@ dispatch while about 150 OpenMP workers from `base.load_image_batch()` were
 alive. Native thumbnail batches now cap their OpenMP team at eight workers;
 the real 165-image directory measured 24 baseline threads and 32 peak after
 the change. This preserves parallel decoding without flooding the process.
+
+**2026-08-22 Option A prototype shipped (opencode):** new
+`gui/src/components/virtual_gallery/` — `VirtualGalleryModel`
+(`QAbstractListModel` exposing every path as a row; `Qt.DecorationRole`
+serves a lazily-loaded thumbnail, scheduling the background load on first
+request via the same `ImageLoaderWorker` + `LRUImageCache` (QImage, never
+QPixmap) + generation-tagged per-gallery `QThreadPool` the QLabel galleries
+use, then emitting `dataChanged` for that row), `VirtualGalleryView`
+(`QListView` IconMode, `uniformItemSizes`, scroll prefetch of the visible ±
+buffer range, `QItemSelectionModel` selection, and `path_clicked` /
+`path_activated` / `path_right_clicked` / `ctrl_wheel` signals mirroring
+`ClickableLabel` + `MarqueeScrollArea`), and a `VirtualGallery` composite
+widget exposing the tab-facing API (`set_paths`, `set_thumbnail_size`,
+`selected_files`, `select_all`, `jump_to_path`, `cancel_loading`,
+`clear_cache`). 14 tests in `gui/test/components/test_virtual_gallery.py`
+verify the property that makes the page cap obsolete: a 10k-item gallery
+creates **zero** card widgets, decoration requests are lazy (asking for one
+row schedules exactly that row's load), stale results after `set_paths`/
+`cancel_loading` are dropped, scroll prefetch schedules exactly the
+visible±buffer range, and selection works over the model. This is the
+roadmap's recommended first step — an additive prototype/foundation.
+**Nothing is migrated yet**: `AbstractClassTwoGalleries` /
+`AbstractClassSingleGallery` and the per-tab QLabel grids are untouched. The
+adoption path is one tab at a time: replace a gallery's QGridLayout+cards
+with a `VirtualGallery`, drop its page-size logic, and map the existing
+`path_to_label_map`/selection handling onto the model/view selection.
 
 **Pain point:** Page-based gallery requires manual forward/back navigation. LRU eviction on page change causes 50–200ms thumbnail reloads. `QLabel` grid layout does not scale beyond 200 items without noticeable lag.
 
