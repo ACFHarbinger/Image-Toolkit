@@ -246,6 +246,13 @@ interactive `_ListingCard` DB widgets (File/Link buttons, context menus)
 aren't expressible in the image-thumbnail model without a large custom
 delegate, and the virtualization benefit is marginal at a 100-card cap.
 
+**2026-08-22 eager pre-fill (opencode, S430):** `VirtualGalleryModel` now
+pre-loads the whole item list in the background as soon as a gallery is
+populated (`set_paths` → `_fill_all`, chained 4-in-flight dispatch), instead
+of only loading the visible viewport ± buffer on scroll — images are already
+in the cache when the user scrolls to them. Applies to every migrated tab;
+memory stays bounded by the LRU cache and worker count by the chained dispatch.
+
 **2026-08-22 dual-gallery design & prototype shipped (Agy):** Design document
 `.agent/reports/dual_virtual_gallery_design.md` and prototype composite widget
 `VirtualDualGallery` (`gui/src/components/virtual_gallery/dual_widget.py`).
