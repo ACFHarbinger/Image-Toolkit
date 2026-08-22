@@ -64,6 +64,12 @@ class _KeyboardNavMixin:
             if nxt:
                 self._navigate_to_dir(nxt)
             event.accept()
+        elif reg.matches(event, "gallery.compare_selected") or key == Qt.Key.Key_C:  # pyrefly: ignore [bad-argument-type]
+            if hasattr(self, "_compare_selected_images"):
+                self._compare_selected_images()
+                event.accept()
+            else:
+                super().keyPressEvent(event)
         else:
             super().keyPressEvent(event)  # type: ignore[misc,safe-super] # pyrefly: ignore [bad-argument-type]
 

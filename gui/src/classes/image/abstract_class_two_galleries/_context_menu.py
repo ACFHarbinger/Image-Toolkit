@@ -20,7 +20,7 @@ from PySide6.QtWidgets import QApplication, QFileDialog, QMenu, QMessageBox, QWi
 from send2trash import send2trash  # pyrefly: ignore [untyped-import]
 
 from ....utils.sort_utils import natural_sort_key
-from ....windows import ImagePreviewWindow
+from ....windows import ImageCompareWindow, ImagePreviewWindow
 
 from typing import TYPE_CHECKING
 
@@ -66,6 +66,11 @@ class _ContextMenuMixin:
         open_act = QAction("Open Preview", menu)
         open_act.triggered.connect(lambda: self._open_preview_for(path))
         menu.addAction(open_act)
+
+        if hasattr(self, "selected_files") and len(self.selected_files) >= 2:
+            compare_act = QAction(f"Compare Selected ({len(self.selected_files)})…  (C)", menu)
+            compare_act.triggered.connect(self._compare_selected_images)
+            menu.addAction(compare_act)
 
         menu.addSeparator()
 
@@ -189,8 +194,19 @@ class _ContextMenuMixin:
         if hasattr(preview, "path_changed"):
             preview.path_changed.connect(self.update_preview_highlight)
         preview.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
-        preview.show()
         self.open_preview_windows.append(preview)
+
+    @Slot()
+    def _compare_selected_images(self: "AbstractClassTwoGalleriesHostProtocol") -> None:
+        """Open multi-image comparison view for the currently selected files (§2.27)."""
+        if not hasattr(self, "selected_files") or len(self.selected_files) < 2:
+            return
+        paths = sorted(list(self.selected_files), key=natural_sort_key)
+        compare_win = ImageCompareWindow(image_paths=paths, parent=cast(QWidget, self))
+        compare_win.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        compare_win.show()
+        if hasattr(self, "open_preview_windows"):
+            self.open_preview_windows.append(compare_win)
 
     handle_full_image_preview = _open_preview_for
     open_file_preview = _open_preview_for

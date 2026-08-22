@@ -1,3 +1,18 @@
+## S421 — 2026-08-22 (GUI/UX §2.27: Multi-Image Comparison View)
+
+Shipped §2.27 Multi-Image Comparison View supporting side-by-side, overlay, and pixel difference analysis across 2+ images.
+
+- **New `ImageCompareWindow` (`gui/src/windows/image_compare_window.py`)**:
+  - **Option A (Side-by-Side)**: Multi-pane view in a `QSplitter` with linked zoom and synchronized drag-pan across all image panes (`SynchronizedImagePane`).
+  - **Option B (A/B Overlay)**: Single viewport overlay with `Tab`/`Space` image flipping and live opacity/blend crossfade slider.
+  - **Option C (Difference Map)**: Hardware-accelerated pixel difference computation (`QPainter.CompositionMode_Difference` + numpy channel amplification boost: 1×, 2×, 5×, 10×, 20×).
+  - Zoom controls (+/-/Fit/100%) and keyboard navigation shortcuts (`1`, `2`, `3`, `Tab`, `S`, `0`/`F`, `+`/`-`, `Esc`).
+- **Gallery Integration**:
+  - Added "Compare Selected (N)… (C)" context-menu action in `AbstractClassTwoGalleries._context_menu.py` and `C` shortcut in `_keyboard_nav.py`.
+  - Registered `gallery.compare_selected` in `shortcut_manager.py`.
+  - Added `VirtualGallery.compare_selected()` composite method.
+- **Tests**: `gui/test/windows/test_image_compare_window.py` (7 tests covering init, modes, zoom, sync pan, keyboard shortcuts, invalid paths, and virtual gallery integration).
+
 ## S420 — 2026-08-22 (GUI/UX §2.1: virtual-scroll gallery Option A prototype)
 
 Shipped the roadmap's recommended first step for §2.1 Option A (the QListView

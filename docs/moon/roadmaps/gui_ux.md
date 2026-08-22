@@ -31,7 +31,7 @@
 - [2.24 Thumbnail Hover Animations](#224-thumbnail-hover-animations)
 - [2.25 Keyboard Shortcut Discovery Overlay](#225-keyboard-shortcut-discovery-overlay)
 - [2.26 Inline Rename](#226-inline-rename)
-- [2.27 Multi-Image Comparison View](#227-multi-image-comparison-view)
+- [2.27 Multi-Image Comparison View ✅](#227-multi-image-comparison-view)
 - [2.28 Global Cross-Tab Search](#228-global-cross-tab-search)
 - [2.29 Configurable Keyboard Shortcuts](#229-configurable-keyboard-shortcuts)
 - [2.30 Accent Color and UI Density Customization](#230-accent-color-and-ui-density-customization)
@@ -91,7 +91,7 @@ flowchart LR
         S216["§2.16 Command Palette ✅p"]:::feature:::active
         S221["§2.21 Dir Nav History ✅p"]:::augment:::active
         S222["§2.22 Tag Chip UI ✅p"]:::feature:::active
-        S227["§2.27 Multi-Image Compare"]:::feature:::planned
+        S227["§2.27 Multi-Image Compare ✅"]:::feature:::done
         S228["§2.28 Global Search ✅"]:::feature:::done
         S222 --> S228
         S216 --> S228
@@ -1096,7 +1096,14 @@ After renaming, emit a signal to update the `images.path` column in the database
 
 ---
 
-## 2.27 Multi-Image Comparison View
+## 2.27 Multi-Image Comparison View ✅ (2026-08-22) {: #227-multi-image-comparison-view }
+
+**Shipped: Options A, B, and C.** Dedicated `ImageCompareWindow` (`gui/src/windows/image_compare_window.py`) supporting:
+- **Option A (Side-by-side)**: Multi-pane layout in a `QSplitter` with synchronized drag-panning and linked zoom factor across all loaded images (`SynchronizedImagePane`).
+- **Option B (A/B Overlay)**: Single-pane view with `Tab`/`Space` image flipping and a real-time crossfade opacity/blend slider.
+- **Option C (Difference map)**: Pixel difference computation via `QPainter.CompositionMode_Difference` and numpy RGB channel amplification (1×, 2×, 5×, 10×, 20×).
+- **Gallery Entry Points**: Added "Compare Selected (N)… (C)" action to `AbstractClassTwoGalleries` context menu, `C` keyboard shortcut in `_keyboard_nav.py`, shortcut registry binding `gallery.compare_selected`, and `VirtualGallery.compare_selected()` helper.
+- **Tests**: `gui/test/windows/test_image_compare_window.py` (7 unit tests).
 
 **Pain point:** The `ImagePreviewWindow` opens one image at a time. Users comparing near-duplicate outputs (e.g., ASP vs. SCANS results, or two LoRA generations) must switch between two separate preview windows manually. A side-by-side view does not exist in the general gallery — only the stitch-specific before/after in §2.6.
 
