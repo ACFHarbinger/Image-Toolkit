@@ -46,9 +46,6 @@ class _ScanActionsMixin:
             return
         self.clear_gallery_widgets()
         QMessageBox.warning(cast(QWidget, self), "Error Scanning", message)
-        self.common_show_placeholder(
-            self.gallery_layout, "Browse for a directory.", self.calculate_columns()
-        )
         # An image-scan error means _on_image_scan_finished() will never
         # fire (and settle the pipeline) for this switch -- this is the
         # pipeline's actual end for this switch.
