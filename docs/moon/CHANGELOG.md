@@ -1,3 +1,32 @@
+## S429 — 2026-08-22 (GUI/UX §2.1: Wallpaper subtab gallery migration)
+
+Tenth tab adoption of the §2.1 Option A virtual-scroll gallery.
+
+- **`VirtualGalleryView` custom drag** — a generic, opt-in drag-to-drop
+  (`set_custom_drag_enabled(enabled, drop_handler)`) that mirrors the old
+  `DraggableLabel` custom drag (floating preview + grab-mouse + drop
+  resolution via an injected handler). Off by default; the wallpaper tabs
+  enable it. The shared view stays decoupled from wallpaper components.
+- **`WallpaperCommonBase` + `SystemDisplaySubTab` + `MonitorDisplaySubTab`** —
+  the system/monitor display gallery grids (MarqueeScrollArea + QGridLayout)
+  are replaced by a `VirtualGallery` composite with a video-capable worker
+  factory, the wallpaper wiring (click-to-toggle, double-click preview,
+  context menu, Ctrl+wheel zoom), and the custom drag-to-monitor
+  (`_on_gallery_drag_drop` → `MonitorDropView.handle_custom_drop` /
+  graph `add_node`). The scan pipeline and its linked-panel serialization
+  (the #461 crash center) are untouched; the overrides fall back to the base
+  grid path for subclasses that don't build the virtual gallery.
+- **Tests** — `gui/test/core/test_wallpaper_gallery.py` (7 new, parametrized
+  over both subtabs); full `gui/test/{web,components,image,core,database}`
+  `--run-gui` → **429 passed**. `docs/moon/roadmaps/gui_ux.md` §2.1 updated.
+
+**Remaining (documented in the roadmap):** `ListingGalleryBase` (series/entity
+listings) stays on its deliberate Option C page cap (DB.5) — its rich
+interactive `_ListingCard` widgets need a custom widget/delegate and the
+image-thumbnail `VirtualGallery` isn't the right fit; not an Option A target.
+
+---
+
 ## S428 — 2026-08-22 (GUI/UX §2.1: ScanMetadataTab gallery migration)
 
 Ninth tab adoption of the §2.1 Option A virtual-scroll gallery.
