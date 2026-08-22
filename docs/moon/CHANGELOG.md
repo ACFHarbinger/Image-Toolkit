@@ -1,3 +1,13 @@
+## S418 — 2026-08-22 (Native thumbnail OpenMP cap)
+
+- Capped each `base.load_image_batch()` OpenMP region at eight workers. A real
+  core from the Wallpaper directory crash showed roughly 150 native workers
+  active while the GUI thread faulted in `QObject::property()` during PySide
+  timer dispatch. The reported 165-image batch now measures 24 baseline
+  threads and 32 peak threads while retaining parallel decode/resize work.
+
+---
+
 ## S417 — 2026-08-22 (Wallpaper gallery scan/load serialization)
 
 - Wallpaper's linked System Display and Monitor Display galleries now retain

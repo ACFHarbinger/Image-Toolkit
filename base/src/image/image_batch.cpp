@@ -29,6 +29,7 @@
 
 #include <omp.h>
 
+#include <algorithm>
 #include <cstdint>
 #include <cstdio>
 #include <filesystem>
@@ -129,11 +130,18 @@ py::list load_image_batch(
         fs::create_directories(cache_root, ec);   // best-effort; cache is optional
     }
     const int min_dim = std::max(thumb_w, thumb_h);
+    // A gallery already dispatches batches through dedicated QThreadPools.
+    // Letting every native batch create a full OpenMP team multiplies those
+    // host workers into hundreds of threads on large directories, starving
+    // the Qt event loop and destabilizing PySide object delivery. Eight
+    // decode workers retain parallel I/O/resize throughput without nesting
+    // an unbounded native team beneath each gallery task.
+    const int worker_count = std::max(1, std::min(N, 8));
 
     {
         py::gil_scoped_release release;
 
-        #pragma omp parallel for schedule(dynamic)
+        #pragma omp parallel for schedule(dynamic) num_threads(worker_count)
         for (int i = 0; i < N; ++i) {
             std::error_code ec;
 
@@ -186,7 +194,7 @@ py::list load_image_batch(
 
         // Convert to RGB after the cache write so cached files stay BGR JPEG.
         if (rgb) {
-            #pragma omp parallel for schedule(static)
+            #pragma omp parallel for schedule(static) num_threads(worker_count)
             for (int i = 0; i < N; ++i) {
                 if (!thumbs[i].empty())
                     cv::cvtColor(thumbs[i], thumbs[i], cv::COLOR_BGR2RGB);
