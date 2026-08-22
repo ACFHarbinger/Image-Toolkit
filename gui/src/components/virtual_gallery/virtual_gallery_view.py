@@ -36,6 +36,8 @@ from PySide6.QtCore import (
 from PySide6.QtGui import QMouseEvent, QWheelEvent
 from PySide6.QtWidgets import QAbstractItemView, QListView
 
+from .delegate import VirtualGalleryDelegate
+
 if TYPE_CHECKING:
     from .virtual_gallery_model import VirtualGalleryModel
 
@@ -65,6 +67,7 @@ class VirtualGalleryView(QListView):
         self.setMouseTracking(True)
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
+        self.setItemDelegate(VirtualGalleryDelegate(self))
 
         self.customContextMenuRequested.connect(self._on_context_menu)
         self.doubleClicked.connect(self._on_double_clicked)

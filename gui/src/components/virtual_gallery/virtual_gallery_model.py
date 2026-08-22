@@ -47,6 +47,7 @@ class VirtualGalleryModel(QAbstractListModel):
 
     # Row roles beyond Qt's built-ins.
     PathRole = Qt.ItemDataRole.UserRole
+    InDbRole = Qt.ItemDataRole.UserRole + 1
 
     def __init__(
         self,
@@ -60,6 +61,7 @@ class VirtualGalleryModel(QAbstractListModel):
         self._cache = shared_cache if shared_cache is not None else LRUImageCache(maxsize=cache_maxsize)
         self._loading: set[str] = set()
         self._failed: set[str] = set()
+        self._in_db: set[str] = set()
         self._active_workers: set = set()
         self._generation: int = 0
 
@@ -95,6 +97,47 @@ class VirtualGalleryModel(QAbstractListModel):
         # rejected by the generation check below.
         self._active_workers.clear()
         self.endResetModel()
+
+    # ------------------------------------------------------------------
+    # In-database flag (used by scan-metadata styling)
+    # ------------------------------------------------------------------
+
+    def set_in_db(self, paths) -> None:
+        """Set the full set of paths that exist in the database. Rows not in
+        the set are unmarked; changed rows emit ``dataChanged`` so the view
+        repaints their border."""
+        new_set = set(paths)
+        old_set = self._in_db
+        if new_set == old_set:
+            return
+        self._in_db = new_set
+        changed = new_set ^ old_set
+        self._emit_data_changed_for_paths(changed)
+
+    def mark_in_db(self, path: str, in_db: bool) -> None:
+        """Flip a single row's in-db flag (e.g. after an upsert/removal)."""
+        if in_db:
+            if path in self._in_db:
+                return
+            self._in_db.add(path)
+        else:
+            if path not in self._in_db:
+                return
+            self._in_db.discard(path)
+        self._emit_data_changed_for_paths({path})
+
+    def is_in_db(self, path: str) -> bool:
+        return path in self._in_db
+
+    def _emit_data_changed_for_paths(self, paths) -> None:
+        for path in paths:
+            row = self.row_for_path(path)
+            if row >= 0:
+                self.dataChanged.emit(
+                    self.index(row, 0),
+                    self.index(row, 0),
+                    [self.InDbRole],
+                )
 
     def clear(self) -> None:
         self.set_paths([])
@@ -162,6 +205,8 @@ class VirtualGalleryModel(QAbstractListModel):
             return os.path.basename(path)
         if role == self.PathRole:
             return path
+        if role == self.InDbRole:
+            return path in self._in_db
         return None
 
     def flags(self, index: QModelIndex) -> Qt.ItemFlag:

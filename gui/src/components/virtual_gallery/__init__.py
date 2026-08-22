@@ -7,9 +7,16 @@ regardless of item count. Additive — the existing QLabel-gallery base classes
 are untouched until a tab migrates to this widget.
 """
 
+from .delegate import VirtualGalleryDelegate as VirtualGalleryDelegate
 from .dual_widget import VirtualDualGallery as VirtualDualGallery
 from .virtual_gallery_model import VirtualGalleryModel as VirtualGalleryModel
 from .virtual_gallery_view import VirtualGalleryView as VirtualGalleryView
 from .widget import VirtualGallery as VirtualGallery
 
-__all__ = ["VirtualGalleryModel", "VirtualGalleryView", "VirtualGallery", "VirtualDualGallery"]
+__all__ = [
+    "VirtualGalleryModel",
+    "VirtualGalleryView",
+    "VirtualGallery",
+    "VirtualDualGallery",
+    "VirtualGalleryDelegate",
+]

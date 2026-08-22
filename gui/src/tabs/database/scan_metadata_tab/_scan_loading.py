@@ -9,9 +9,10 @@ from __future__ import annotations
 import contextlib
 from pathlib import Path
 
-from gui.src.helpers import ImageScannerWorker
-from PySide6.QtCore import QEventLoop, Qt, QTimer, Slot
+from PySide6.QtCore import QEventLoop, QTimer, Slot
 from PySide6.QtWidgets import QFileDialog
+
+from gui.src.helpers import ImageScannerWorker
 
 from ....utils.sort_utils import natural_sort_key
 
@@ -46,6 +47,8 @@ class _ScanLoadingMixin:
         """Slot for cancelling operation."""
         with contextlib.suppress(Exception):
             super().cancel_loading()
+        if hasattr(self, "dual"):
+            self.dual.cancel_loading()
         self._stop_running_threads()
         self._loaded_results_buffer.clear()
         print("Loading cancelled by user.")
@@ -78,9 +81,7 @@ class _ScanLoadingMixin:
         self._loading_cancelled = False
 
         if not is_refresh or not self.scan_image_list:
-            self.path_to_wrapper_map = {}
-            self._clear_gallery(self.scan_thumbnail_layout)
-            self._clear_gallery(self.selected_grid_layout)
+            self.dual.clear()
             self.scan_image_list = []
             self.scan_filtered_list = []  # Reset filtered list
             self.selected_image_paths = set()
@@ -130,7 +131,8 @@ class _ScanLoadingMixin:
         self.apply_scan_filters()
 
     def apply_scan_filters(self):
-        """Filters the raw scan list based on settings (Show New Only) and resets to Page 1."""
+        """Filters the raw scan list based on settings (Show New Only) and feeds
+        the virtual found gallery."""
         self.scan_filtered_list = sorted(
             self.scan_image_list, key=natural_sort_key
         )  # Sort by default
@@ -153,84 +155,41 @@ class _ScanLoadingMixin:
                         paths_in_db.append(path)
                 self.scan_filtered_list = sorted(paths_in_db, key=natural_sort_key)
 
-        # Reset to page 0 whenever filter changes or new scan happens
-        self.scan_current_page = 0
         self._load_current_scan_page()
 
     def _load_current_scan_page(self):
-        """Calculates the slice for the current page and initiates layout (images load lazily)."""
+        """Feed the current filtered scan list into the dual's found panel.
 
-        # 1. Update Pagination UI
-        self._update_pagination_ui(is_found=False, mode="scan")
+        The virtual gallery renders every filtered row with viewport culling
+        (scroll prefetch replaces the old lazy-load-on-scroll), so the page
+        slice / placeholder-card grid is gone."""
+        self._refresh_scan_gallery()
 
-        self._clear_gallery(self.scan_thumbnail_layout)
-        self.path_to_wrapper_map.clear()
+    def _refresh_scan_gallery(self):
+        """Rebuild the dual's found panel from ``scan_filtered_list`` and mark
+        which rows already exist in the database (green border via the
+        VirtualGalleryDelegate)."""
+        self.dual.set_found_paths(self.scan_filtered_list)
 
-        # Reset Lazy Load State for new page
-        self.loaded_paths.clear()
-        self.loading_paths.clear()
-        self.thread_pool.clear()
-
-        if not self.scan_filtered_list:
-            return
-
-        # 2. Calculate Slice
-        start_idx = self.scan_current_page * self.scan_page_size
-        if self.scan_page_size == float("inf"):
-            paths_to_load = self.scan_filtered_list
-        else:
-            end_idx = start_idx + self.scan_page_size
-            paths_to_load = self.scan_filtered_list[start_idx:end_idx]
-
-        # 3. Create Placeholders immediately
-        columns = self._columns()
-
-        # Batch DB Check
+        # Batch DB check for in-database styling
         db = self.db_tab_ref.db
-        paths_in_db_set = set()
-        if db:
+        in_db = set()
+        if db and self.scan_filtered_list:
             try:
-                if paths_to_load:
-                    if hasattr(db, "paths_in_db"):
-                        paths_in_db_set = db.paths_in_db(paths_to_load)
-                    elif hasattr(db, "_images") and hasattr(db._images, "paths_in_db"):
-                        paths_in_db_set = db._images.paths_in_db(paths_to_load)
-                    else:
-                        with db.conn.cursor() as cur:
-                            cur.execute(
-                                "SELECT file_path FROM images WHERE file_path = ANY(%s)",
-                                (paths_to_load,),
-                            )
-                            rows = cur.fetchall()
-                            paths_in_db_set = {row[0] for row in rows}
+                if hasattr(db, "paths_in_db"):
+                    in_db = db.paths_in_db(self.scan_filtered_list)
+                elif hasattr(db, "_images") and hasattr(db._images, "paths_in_db"):
+                    in_db = db._images.paths_in_db(self.scan_filtered_list)
+                else:
+                    with db.conn.cursor() as cur:
+                        cur.execute(
+                            "SELECT file_path FROM images WHERE file_path = ANY(%s)",
+                            (self.scan_filtered_list,),
+                        )
+                        in_db = {row[0] for row in cur.fetchall()}
             except Exception as e:
                 print(f"Batch DB check error: {e}")
-
-        # Populate Grid with Placeholders
-        for index, path in enumerate(paths_to_load):
-            row = index // columns
-            col = index % columns
-
-            is_in_db = path in paths_in_db_set
-            is_selected = path in self.selected_image_paths
-
-            # Create card with pixmap=None (Loading state)
-            card = self._create_gallery_card(path, None, is_selected, is_in_db=is_in_db)
-
-            card.path_clicked.connect(lambda checked, p=path: self.toggle_selection(p))
-            card.path_double_clicked.connect(self._view_single_image_preview)
-            card.path_right_clicked.connect(self.show_image_context_menu)
-
-            self.scan_thumbnail_layout.addWidget(
-                card, row, col, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop
-            )
-            self.path_to_wrapper_map[path] = card
-
-        self.scan_thumbnail_widget.adjustSize()
-
-        # 4. Trigger Initial Lazy Load (Check what is visible immediately)
-        # We give the layout a small moment to stabilize coordinates
-        QTimer.singleShot(50, self._process_visible_items)
+        self.dual.found_gallery.model.set_in_db(in_db)
 
 
 __all__ = ["_ScanLoadingMixin"]
