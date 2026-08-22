@@ -34,7 +34,7 @@ from PySide6.QtCore import (
     Signal,
 )
 from PySide6.QtGui import QCursor, QMouseEvent, QWheelEvent
-from PySide6.QtWidgets import QAbstractItemView, QApplication, QListView
+from PySide6.QtWidgets import QAbstractItemView, QListView
 
 from .delegate import VirtualGalleryDelegate
 
