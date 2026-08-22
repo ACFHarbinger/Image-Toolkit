@@ -182,6 +182,13 @@ They wait asynchronously for the initiating panel's thumbnail pool to drain,
 then allow the mirrored panel or latest queued switch to start. This removes
 the overlapping decode/signal churn observed when opening large directories.
 
+**2026-08-22 native follow-up:** a core from the remaining directory crash
+showed the GUI thread faulting in `QObject::property()` during PySide timer
+dispatch while about 150 OpenMP workers from `base.load_image_batch()` were
+alive. Native thumbnail batches now cap their OpenMP team at eight workers;
+the real 165-image directory measured 24 baseline threads and 32 peak after
+the change. This preserves parallel decoding without flooding the process.
+
 **Pain point:** Page-based gallery requires manual forward/back navigation. LRU eviction on page change causes 50–200ms thumbnail reloads. `QLabel` grid layout does not scale beyond 200 items without noticeable lag.
 
 ### Options
