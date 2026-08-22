@@ -15,6 +15,9 @@ class _LifecycleMixin:
         """Stops all active timers and background workers."""
         super().cancel_loading()
 
+        if hasattr(self, "dual"):
+            self.dual.cancel_loading()
+
         if self.worker:
             try:
                 # Use stop() which we just added as an alias for cancel()
