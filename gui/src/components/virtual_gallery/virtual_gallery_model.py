@@ -53,10 +53,11 @@ class VirtualGalleryModel(QAbstractListModel):
         parent=None,
         cache_maxsize: int = 300,
         worker_factory=None,
+        shared_cache: Optional[LRUImageCache] = None,
     ):
         super().__init__(parent)
         self._paths: List[str] = []
-        self._cache = LRUImageCache(maxsize=cache_maxsize)
+        self._cache = shared_cache if shared_cache is not None else LRUImageCache(maxsize=cache_maxsize)
         self._loading: set[str] = set()
         self._failed: set[str] = set()
         self._active_workers: set = set()

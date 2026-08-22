@@ -227,6 +227,16 @@ and zoom; verified `gui/test/{web,components,image,core,database}` `--run-gui`
 Similarity, database listings, …) still use the QLabel grid; migrate one at a
 time using this tab as the pattern.
 
+**2026-08-22 dual-gallery design & prototype shipped (Agy):** Design document
+`.agent/reports/dual_virtual_gallery_design.md` and prototype composite widget
+`VirtualDualGallery` (`gui/src/components/virtual_gallery/dual_widget.py`).
+Solves the two-gallery (`Found` + `Selected`) adoption path for
+`AbstractClassTwoGalleries`: links two `VirtualGallery` instances sharing a
+single `LRUImageCache` across a `QSplitter`, synchronizing selection staging,
+independent search-filtering, drag-reordering, and §2.27 comparison without
+page caps or sequential layout rebuild timers. 5 unit tests in
+`gui/test/components/test_virtual_dual_gallery.py`.
+
 **Pain point:** Page-based gallery requires manual forward/back navigation. LRU eviction on page change causes 50–200ms thumbnail reloads. `QLabel` grid layout does not scale beyond 200 items without noticeable lag.
 
 ### Options
