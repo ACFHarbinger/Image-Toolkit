@@ -1,0 +1,357 @@
+"""Tests for the virtualized gallery prototype — GUI/UX §2.1 Option A.
+
+Verifies the property that motivates Option A over the bounded-page
+QLabel grid: a multi-thousand-item gallery costs the same in widgets/paints
+as a small one because Qt's QListView viewport culling only ever requests
+decorations for visible cells. Also covers lazy background thumbnail loads,
+stale-load rejection after reset/cancel, scroll prefetch, selection, and the
+composite widget's tab-facing API.
+
+Uses an injectable fake loader worker so no real image files or native
+imaging are needed; loads are deterministic.
+"""
+
+from __future__ import annotations
+
+import os
+import threading
+import time
+
+import pytest
+from gui.src.components.virtual_gallery import (
+    VirtualGallery,
+    VirtualGalleryModel,
+    VirtualGalleryView,
+)
+from PySide6.QtCore import QObject, QRunnable, Qt, Signal
+from PySide6.QtGui import QImage
+from PySide6.QtWidgets import QApplication
+
+pytestmark = pytest.mark.gui
+
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+
+
+# --- Deterministic fake loader -----------------------------------------------
+
+_BLOCK = threading.Event()   # set to hold fake workers before their run()
+_FAIL_PATHS: set = set()     # paths whose fake worker emits a null QImage
+_STARTED = threading.Event()  # set when a fake worker enters run()
+
+
+class _FakeLoaderSignals(QObject):
+    result = Signal(str, QImage)
+
+
+class _FakeLoaderWorker(QRunnable):
+    def __init__(self, path: str, target_size: int):
+        super().__init__()
+        self.path = path
+        self.target_size = target_size
+        self.signals = _FakeLoaderSignals()
+        self.load_generation = 0
+        self.setAutoDelete(True)
+
+    def run(self):
+        _STARTED.set()
+        # Poll while _BLOCK is set (Event.wait() returns immediately when the
+        # flag is already true, so it can't be used as a "hold" barrier).
+        while _BLOCK.is_set():
+            time.sleep(0.005)
+        if self.path in _FAIL_PATHS:
+            self.signals.result.emit(self.path, QImage())
+            return
+        img = QImage(self.target_size, self.target_size, QImage.Format.Format_RGB32)
+        img.fill(Qt.GlobalColor.green)
+        self.signals.result.emit(self.path, img)
+
+
+def _make_model() -> VirtualGalleryModel:
+    return VirtualGalleryModel(worker_factory=_FakeLoaderWorker)
+
+
+def _pump(model: VirtualGalleryModel) -> None:
+    model.thread_pool.waitForDone()
+    QApplication.processEvents()
+
+
+# --- Basic model surface -----------------------------------------------------
+
+
+def test_row_count_reflects_full_list():
+    model = _make_model()
+    paths = [f"/p/{i:04d}.png" for i in range(10_000)]
+    model.set_paths(paths)
+    assert model.rowCount() == 10_000
+    assert model.path_at(0) == "/p/0000.png"
+    assert model.path_at(9_999) == "/p/9999.png"
+    assert model.row_for_path("/p/1234.png") == 1234
+    assert model.row_for_path("/missing.png") == -1
+
+
+def test_clear_resets_rows():
+    model = _make_model()
+    model.set_paths(["/a.png", "/b.png"])
+    model.clear()
+    assert model.rowCount() == 0
+
+
+# --- The core Option A property: constant widgets, lazy loads ---------------
+
+
+def test_large_gallery_creates_no_card_widgets():
+    """A 10k-item gallery must not materialize one widget per item.
+
+    The QLabel grid this replaces would create 10k cards (and cap page size
+    precisely because of that). The model/view surface must be widget-free
+    apart from the QListView itself.
+    """
+    model = _make_model()
+    view = VirtualGalleryView()
+    view.setModel(model)
+    model.set_paths([f"/p/{i:04d}.png" for i in range(10_000)])
+    view.show()
+    QApplication.processEvents()
+
+    from PySide6.QtWidgets import QLabel
+
+    assert view.findChildren(QLabel) == []
+    assert not hasattr(model, "path_to_label_map")
+    assert model.rowCount() == 10_000
+    # Row surface is cheap Python list data, not widgets.
+    assert view.model() is model
+    view.close()
+
+
+def test_decoration_request_is_lazy():
+    """Requesting one row's decoration schedules only that row's load."""
+    model = _make_model()
+    model.set_paths([f"/p/{i:04d}.png" for i in range(100)])
+
+    _ = model.data(model.index(0, 0), Qt.ItemDataRole.DecorationRole)
+    assert model._loading == {"/p/0000.png"}
+
+    _ = model.data(model.index(5, 0), Qt.ItemDataRole.DecorationRole)
+    assert model._loading == {"/p/0000.png", "/p/0005.png"}
+
+
+def test_loaded_thumbnail_lands_in_cache_and_emits_data_changed():
+    model = _make_model()
+    model.set_paths(["/a.png"])
+    changes = []
+    model.dataChanged.connect(
+        lambda tl, br, roles: changes.append((tl.row(), br.row(), list(roles)))
+    )
+
+    icon_before = model.data(model.index(0, 0), Qt.ItemDataRole.DecorationRole)
+    assert "/a.png" not in model._cache
+
+    _pump(model)
+
+    assert "/a.png" in model._cache
+    assert model._loading == set()
+    assert changes == [(0, 0, [Qt.ItemDataRole.DecorationRole])]
+
+    icon_after = model.data(model.index(0, 0), Qt.ItemDataRole.DecorationRole)
+    assert not icon_after.isNull()
+    assert icon_before  # placeholder was a valid (transparent) icon too
+
+
+def test_failed_load_lands_in_failed_and_is_not_retried():
+    model = _make_model()
+    model.set_paths(["/bad.png"])
+    _FAIL_PATHS.add("/bad.png")
+    try:
+        _ = model.data(model.index(0, 0), Qt.ItemDataRole.DecorationRole)
+        _pump(model)
+        assert "/bad.png" in model._failed
+        assert "/bad.png" not in model._cache
+        # A second decoration request must not re-schedule the failed path.
+        _ = model.data(model.index(0, 0), Qt.ItemDataRole.DecorationRole)
+        assert model._loading == set()
+    finally:
+        _FAIL_PATHS.clear()
+
+
+# --- Stale-load rejection ----------------------------------------------------
+
+
+def test_stale_load_rejected_after_reset():
+    model = _make_model()
+    model.set_paths(["/a.png"])
+    _ = model.data(model.index(0, 0), Qt.ItemDataRole.DecorationRole)
+    _BLOCK.set()
+    _STARTED.clear()
+    try:
+        assert _STARTED.wait(2.0), "fake worker never started"
+        model.set_paths(["/b.png"])  # bumps generation; /a.png result is stale
+        _BLOCK.clear()
+        _pump(model)
+        assert "/a.png" not in model._cache
+        assert "/b.png" not in model._cache  # never requested in the new list
+        assert model._loading == set()
+        assert model._active_workers == set()
+    finally:
+        _BLOCK.clear()
+
+
+def test_cancel_loading_rejects_inflight():
+    model = _make_model()
+    model.set_paths(["/a.png", "/b.png"])
+    _ = model.data(model.index(0, 0), Qt.ItemDataRole.DecorationRole)
+    _ = model.data(model.index(1, 0), Qt.ItemDataRole.DecorationRole)
+    _BLOCK.set()
+    _STARTED.clear()
+    try:
+        assert _STARTED.wait(2.0), "fake worker never started"
+        model.cancel_loading()
+        _BLOCK.clear()
+        _pump(model)
+        assert "/a.png" not in model._cache
+        assert "/b.png" not in model._cache
+        assert model._loading == set()
+        assert model._active_workers == set()
+    finally:
+        _BLOCK.clear()
+
+
+# --- View: selection, prefetch, sizing, signals -----------------------------
+
+
+def test_selection_model_backs_gallery_selection():
+    view = VirtualGalleryView()
+    model = _make_model()
+    view.setModel(model)
+    model.set_paths([f"/p/{i}.png" for i in range(10)])
+    view.show()
+    QApplication.processEvents()
+
+    sm = view.selectionModel()
+    sm.select(model.index(2, 0), sm.SelectionFlag.Select)
+    assert view.selected_paths() == ["/p/2.png"]
+
+    view.select_all()
+    assert set(view.selected_paths()) == {f"/p/{i}.png" for i in range(10)}
+
+    view.clear_selection()
+    assert view.selected_paths() == []
+    view.close()
+
+
+def test_scroll_prefetch_schedules_exact_visible_buffered_range():
+    view = VirtualGalleryView()
+    model = _make_model()
+    view.setModel(model)
+    paths = [f"/p/{i:04d}.png" for i in range(500)]
+    model.set_paths(paths)
+    view.resize(520, 320)
+    view.show()
+    QApplication.processEvents()
+
+    view._prefetch_visible()
+    lo, hi = view._visible_row_range(view._prefetch_buffer)
+    assert lo >= 0 and hi > lo
+    assert model._loading == set(paths[lo : hi + 1])
+    # Widget/paint work stays tiny regardless of the 500-row backing list.
+    assert (hi - lo + 1) < 200
+    view.close()
+
+
+def test_set_thumbnail_size_updates_grid_and_emits_layout_changed():
+    view = VirtualGalleryView()
+    model = _make_model()
+    view.setModel(model)
+    model.set_paths(["/a.png"])
+    view.resize(520, 320)
+
+    layout_changed = []
+    model.layoutChanged.connect(lambda *_: layout_changed.append(1))
+
+    view.set_thumbnail_size(64)
+    assert model.thumbnail_size == 64
+    assert view.thumbnail_size() == 64
+    assert view.iconSize().width() == 64
+    assert layout_changed
+
+
+def test_path_and_zoom_signals():
+    view = VirtualGalleryView()
+    model = _make_model()
+    view.setModel(model)
+    model.set_paths(["/a.png", "/b.png"])
+    view.resize(400, 300)
+    view.show()
+    QApplication.processEvents()
+
+    clicked, activated, right, zoom = [], [], [], []
+    view.path_clicked.connect(clicked.append)
+    view.path_activated.connect(activated.append)
+    view.path_right_clicked.connect(lambda pos, p: right.append((pos, p)))
+    view.ctrl_wheel.connect(zoom.append)
+
+    view._on_pressed(model.index(0, 0))
+    view._on_double_clicked(model.index(1, 0))
+
+    rect = view.visualRect(model.index(0, 0))
+    assert rect.isValid()
+    view._on_context_menu(rect.center())
+    assert clicked == ["/a.png"]
+    assert activated == ["/b.png"]
+    assert right and right[0][1] == "/a.png"
+    assert right[0][0].x() >= 0
+
+    view.ctrl_wheel.emit(120)
+    assert zoom == [120]
+    view.close()
+
+
+# --- Composite widget API ----------------------------------------------------
+
+
+def test_composite_widget_api():
+    gallery = VirtualGallery()
+    paths = [f"/p/{i:04d}.png" for i in range(50)]
+    gallery.set_paths(paths)
+    assert gallery.count() == 50
+    assert gallery.thumbnail_size == 180
+
+    gallery.set_thumbnail_size(96)
+    assert gallery.thumbnail_size == 96
+    assert gallery.view.iconSize().width() == 96
+
+    assert gallery.selected_files() == []
+    selection_events = []
+    gallery.selection_changed.connect(lambda *_: selection_events.append(1))
+    gallery.select_all()
+    assert len(gallery.selected_files()) == 50
+    assert selection_events
+    gallery.clear_selection()
+    assert gallery.selected_files() == []
+
+    assert gallery.jump_to_path("/p/0025.png") is True
+    assert gallery.jump_to_path("/missing.png") is False
+
+    gallery.clear()
+    assert gallery.count() == 0
+    gallery.clear_cache()
+    gallery.cancel_loading()
+
+
+def test_composite_forwards_view_signals():
+    gallery = VirtualGallery()
+    gallery.set_paths(["/a.png", "/b.png"])
+    gallery.show()
+    QApplication.processEvents()
+
+    clicked, activated, zoom = [], [], []
+    gallery.path_clicked.connect(clicked.append)
+    gallery.path_activated.connect(activated.append)
+    gallery.ctrl_wheel.connect(zoom.append)
+
+    gallery.view._on_pressed(gallery.model.index(0, 0))
+    gallery.view._on_double_clicked(gallery.model.index(1, 0))
+    gallery.view.ctrl_wheel.emit(120)
+    assert clicked == ["/a.png"]
+    assert activated == ["/b.png"]
+    assert zoom == [120]
+    gallery.close()
