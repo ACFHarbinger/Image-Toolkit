@@ -32,21 +32,24 @@ viewport culling, native `QItemSelectionModel` selection):
   land in the found panel, toggle-selection drives the convert/resample set.
 - `SimilarityTab`: triage `_select`/`_deselect_paths` push to the dual; deletion
   rebuilds both panels instead of reflowing the removed QGridLayout.
+- `SearchTab` (database Search tab): results + selected grids replaced by the
+  dual; the live result-count header is kept.
 
 Every migration drops the tab's page-size/pagination bar; selection/context
 menus/double-click preview/delete flows keep their behavior over the new
 surface. New per-tab migration tests (extractor 6, merge 6, format 5, codec 3,
-sampler 3, similarity 4); `gui/test/{web,components,image,core,database}`
-`--run-gui` → **414 passed**. `docs/moon/roadmaps/gui_ux.md` §2.1 updated.
+sampler 3, similarity 4, search 3); `gui/test/{web,components,image,core,database}`
+`--run-gui` → **417 passed**. `docs/moon/roadmaps/gui_ux.md` §2.1 updated.
 
 **Deferred (need a dedicated design pass, documented in the roadmap):**
+- `ScanMetadataTab` — scan pipeline/lazy-load/keyboard-selection/context
+  actions are built directly on the wrapper-card grid; a faithful migration is
+  a rework of that rendering path, not a gallery swap.
+- `ListingGalleryBase` (series/entity listings) — rich DB record cards need a
+  custom `QStyledItemDelegate`, not the image-thumbnail `VirtualGallery`.
 - `WallpaperCommonBase` — drag-thumbnail-to-monitor interaction isn't
   expressible in the current `VirtualGallery`, and it sits at the center of the
   #461 crash investigation.
-- `ScanMetadataTab` — bespoke selected gallery with drag-reorder +
-  set/order selection semantics.
-- `SearchTab`, `ListingGalleryBase` — DB-integrated galleries with their own
-  data shape.
 
 ---
 
