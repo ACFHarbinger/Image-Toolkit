@@ -11,7 +11,6 @@ from backend.src.constants import SUPPORTED_IMG_FORMATS
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QFormLayout,
-    QGridLayout,
     QGroupBox,
     QHBoxLayout,
     QLabel,
@@ -23,9 +22,10 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ....components import MarqueeScrollArea, OptionalField
-from ....styles import apply_shadow_effect
 from gui.src.constants.elements import _SEARCH_BUTTON_STYLE
+
+from ....components import OptionalField, VirtualDualGallery
+from ....styles import apply_shadow_effect
 
 
 class _UIBuilderMixin:
@@ -46,13 +46,6 @@ class _UIBuilderMixin:
         self._build_search_button(layout)
         self._build_semantic_search_section(layout)
         self._build_galleries(layout)
-
-        # **Assign Base Class References**
-        self.found_gallery_scroll = self.results_scroll
-        self.found_gallery_layout = self.results_layout
-
-        self.selected_gallery_scroll = self.selected_scroll
-        self.selected_gallery_layout = self.selected_layout_grid
 
         self.setLayout(layout)
 
@@ -276,12 +269,11 @@ class _UIBuilderMixin:
             self.input_formats_edit.returnPressed.connect(self.toggle_search)
 
     def _build_galleries(self, layout: QVBoxLayout) -> None:
-        # --- GALLERY AREA ---
+        # --- GALLERY AREA (virtual-scroll, GUI/UX §2.1 Option A) ---
 
-        # 1. Search Results (Found Gallery) - Direct Layout
+        # 1. Search Results header (kept for the live result count)
         results_header_layout = QHBoxLayout()
 
-        # Title Label (Replacing GroupBox title)
         results_title_label = QLabel(
             "Search Results (Ctrl+A: Select All | Ctrl+D: Deselect All)"
         )
@@ -296,60 +288,16 @@ class _UIBuilderMixin:
 
         layout.addLayout(results_header_layout)
 
-        self.results_scroll = MarqueeScrollArea()
-        self.results_scroll.setWidgetResizable(True)
-        self.results_scroll.setMinimumHeight(600)
-        # Connect Marquee Selection
-        self.results_scroll.selection_changed.connect(self.handle_marquee_selection)
-
-        self.results_widget = QWidget()
-        self.results_layout = QGridLayout(self.results_widget)
-        self.results_layout.setSpacing(3)
-        self.results_layout.setAlignment(
-            Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter
-        )
-        self.results_scroll.setWidget(self.results_widget)
-
-        # Add shared search input (Lazy Search) for Found Results
-        layout.addWidget(self.found_search_input)
-
-        # Add directly to main layout with stretch
-        layout.addWidget(self.results_scroll, stretch=1)
-
-        # Pagination Widget (Found)
-        if hasattr(self, "found_pagination_widget"):
-            layout.addWidget(
-                self.found_pagination_widget, 0, Qt.AlignmentFlag.AlignCenter
-            )
-
-        # 2. Selected Images Gallery - Direct Layout
-        selected_header_layout = QHBoxLayout()
-        selected_title_label = QLabel("Selected Images")
-        selected_title_label.setStyleSheet("font-weight: bold; font-size: 14px;")
-        selected_header_layout.addWidget(selected_title_label)
-        selected_header_layout.addStretch()
-        layout.addLayout(selected_header_layout)
-
-        self.selected_scroll = MarqueeScrollArea()
-        self.selected_scroll.setWidgetResizable(True)
-        self.selected_scroll.setMinimumHeight(400)
-
-        self.selected_widget_container = QWidget()
-        self.selected_layout_grid = QGridLayout(self.selected_widget_container)
-        self.selected_layout_grid.setSpacing(3)
-        self.selected_layout_grid.setAlignment(
-            Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter
-        )
-        self.selected_scroll.setWidget(self.selected_widget_container)
-
-        # Add directly to main layout with stretch
-        layout.addWidget(self.selected_scroll, stretch=1)
-
-        # Pagination Widget (Selected)
-        if hasattr(self, "selected_pagination_widget"):
-            layout.addWidget(
-                self.selected_pagination_widget, 0, Qt.AlignmentFlag.AlignCenter
-            )
+        # 2. Found + Selected galleries (VirtualDualGallery replaces the two
+        # MarqueeScrollArea + QGridLayout grids; pagination is dropped and
+        # selection lives in the dual gallery's selection models).
+        self.dual = VirtualDualGallery(self)
+        self.dual.found_activated.connect(self._open_preview_for)
+        self.dual.found_right_clicked.connect(self._on_found_card_right_clicked)
+        self.dual.selected_activated.connect(self._open_preview_for)
+        self.dual.selected_right_clicked.connect(self._on_found_card_right_clicked)
+        self.dual.selection_changed.connect(self._sync_selection_from_dual)
+        layout.addWidget(self.dual, stretch=1)
 
 
 __all__ = ["_UIBuilderMixin"]
