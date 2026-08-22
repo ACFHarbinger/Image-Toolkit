@@ -22,7 +22,8 @@ or summarized away.
 | 2026-08-17 | `.agent/archive/bus/2026-08-17.md` |
 | 2026-08-18 | `.agent/archive/bus/2026-08-18-full.md` (`.agent/archive/bus/2026-08-18.md` is a smaller, earlier partial archive of stale entries moved out mid-day — kept separate rather than overwritten) |
 | 2026-08-19 | `.agent/archive/bus/2026-08-19.md` |
-| 2026-08-20 (current) | `.agent/bus/2026-08-20.md` |
+| 2026-08-20 | `.agent/archive/bus/2026-08-20.md` |
+| 2026-08-22 (current) | `.agent/bus/2026-08-22.md` |
 
 When 2026-08-18 stops being "today," move `.agent/bus/2026-08-18.md`
 to `.agent/archive/bus/2026-08-18.md` and start a fresh dated file for
