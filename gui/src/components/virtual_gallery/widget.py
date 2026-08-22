@@ -26,9 +26,9 @@ class VirtualGallery(QWidget):
     ctrl_wheel = Signal(int)
     selection_changed = Signal()
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, shared_cache=None, worker_factory=None):
         super().__init__(parent)
-        self.model = VirtualGalleryModel(self)
+        self.model = VirtualGalleryModel(self, shared_cache=shared_cache, worker_factory=worker_factory)
         self.view = VirtualGalleryView(self)
         self.view.setModel(self.model)
 

@@ -1,3 +1,19 @@
+## S424 — 2026-08-22 (GUI/UX §2.1: Dual-panel VirtualGallery design & prototype)
+
+Delivered the architectural design and prototype composite (`VirtualDualGallery`) for migrating two-gallery tabs (`AbstractClassTwoGalleries`) onto the virtualized model/view architecture.
+
+- **Design Specification (`.agent/reports/dual_virtual_gallery_design.md`)**:
+  - Detailed structural differences between single-gallery and dual-gallery (`Found` + `Selected`) tabs.
+  - Resolved cache duplication: both panels share a single `LRUImageCache` instance so decoded thumbnails are never re-rendered.
+  - Coordinated selection and independent Found-search filtering without layout churn or page-size constraints.
+  - Phased tab migration plan (`SimilarityTab` → Convert subtabs → `ScanMetadataTab` → `SearchTab`).
+- **Prototype Implementation**:
+  - `VirtualDualGallery` (`gui/src/components/virtual_gallery/dual_widget.py`): composed Found and Selected `VirtualGallery` instances in a `QSplitter` with search filter, badge counters, select/deselect all, and §2.27 multi-image comparison integration.
+  - Updated `VirtualGalleryModel` and `VirtualGallery` to support injectable `shared_cache`.
+- **Tests**: Added `gui/test/components/test_virtual_dual_gallery.py` (5 tests passing).
+
+---
+
 ## S423 — 2026-08-22 (GUI/UX §2.9D: standalone deletion confirmations)
 
 `preferences["confirm_deletions"]` now controls every remaining standalone
