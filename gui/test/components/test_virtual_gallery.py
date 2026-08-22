@@ -66,8 +66,8 @@ class _FakeLoaderWorker(QRunnable):
         self.signals.result.emit(self.path, img)
 
 
-def _make_model() -> VirtualGalleryModel:
-    return VirtualGalleryModel(worker_factory=_FakeLoaderWorker)
+def _make_model(fill_mode: bool = True) -> VirtualGalleryModel:
+    return VirtualGalleryModel(worker_factory=_FakeLoaderWorker, fill_mode=fill_mode)
 
 
 def _pump(model: VirtualGalleryModel) -> None:
@@ -124,8 +124,9 @@ def test_large_gallery_creates_no_card_widgets():
 
 
 def test_decoration_request_is_lazy():
-    """Requesting one row's decoration schedules only that row's load."""
-    model = _make_model()
+    """Without the eager fill, requesting one row's decoration schedules only
+    that row's load (the lazy `data()` path still exists via fill_mode=False)."""
+    model = _make_model(fill_mode=False)
     model.set_paths([f"/p/{i:04d}.png" for i in range(100)])
 
     _ = model.data(model.index(0, 0), Qt.ItemDataRole.DecorationRole)
@@ -133,6 +134,26 @@ def test_decoration_request_is_lazy():
 
     _ = model.data(model.index(5, 0), Qt.ItemDataRole.DecorationRole)
     assert model._loading == {"/p/0000.png", "/p/0005.png"}
+
+
+def test_set_paths_eagerly_fills_all_rows():
+    """The default fill mode pre-loads every row on set_paths (no scroll /
+    decoration request needed) so images are cached before the user scrolls."""
+    model = _make_model()  # fill_mode=True by default
+    model.set_paths([f"/p/{i:04d}.png" for i in range(20)])
+
+    # No data()/prefetch call: the whole list is queued for loading.
+    assert model._loading == {f"/p/{i:04d}.png" for i in range(20)}
+
+    # Chained dispatch advances one round per event-loop turn; pump until the
+    # fill queue drains (loading set empty AND no workers left in flight).
+    for _ in range(60):
+        _pump(model)
+        if not model._loading and not model._active_workers:
+            break
+    assert len(model._cache) == 20
+    assert model._loading == set()
+    assert model._active_workers == set()
 
 
 def test_loaded_thumbnail_lands_in_cache_and_emits_data_changed():
@@ -177,7 +198,7 @@ def test_failed_load_lands_in_failed_and_is_not_retried():
 
 
 def test_stale_load_rejected_after_reset():
-    model = _make_model()
+    model = _make_model(fill_mode=False)
     model.set_paths(["/a.png"])
     _ = model.data(model.index(0, 0), Qt.ItemDataRole.DecorationRole)
     _BLOCK.set()
@@ -240,7 +261,7 @@ def test_selection_model_backs_gallery_selection():
 
 def test_scroll_prefetch_schedules_exact_visible_buffered_range():
     view = VirtualGalleryView()
-    model = _make_model()
+    model = _make_model(fill_mode=False)
     view.setModel(model)
     paths = [f"/p/{i:04d}.png" for i in range(500)]
     model.set_paths(paths)

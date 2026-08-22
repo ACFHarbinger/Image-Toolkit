@@ -26,6 +26,7 @@ dropped, mirroring the gallery base classes' ``_load_generation`` protocol.
 from __future__ import annotations
 
 import os
+from collections import deque
 from typing import List, Optional
 
 from PySide6.QtCore import QAbstractListModel, QModelIndex, Qt, QThreadPool
@@ -55,6 +56,8 @@ class VirtualGalleryModel(QAbstractListModel):
         cache_maxsize: int = 300,
         worker_factory=None,
         shared_cache: Optional[LRUImageCache] = None,
+        fill_mode: bool = True,
+        fill_limit: Optional[int] = None,
     ):
         super().__init__(parent)
         self._paths: List[str] = []
@@ -64,6 +67,17 @@ class VirtualGalleryModel(QAbstractListModel):
         self._in_db: set[str] = set()
         self._active_workers: set = set()
         self._generation: int = 0
+
+        # Eager background fill: when the item list changes, start loading
+        # thumbnails continuously (top-to-bottom) so images are already in the
+        # cache by the time the user scrolls to them, instead of only loading
+        # the visible viewport ± buffer on scroll. The chained dispatch keeps
+        # only ``_fill_max_in_flight`` workers alive at once (bounded memory)
+        # and the LRU cache bounds retained RAM.
+        self.fill_mode = bool(fill_mode)
+        self.fill_limit = fill_limit
+        self._fill_max_in_flight = 4
+        self._fill_queue: deque = deque()
 
         self.thumbnail_size: int = 180
         # Deferred: gui.src.helpers pulls a heavy chain (windows -> settings ->
@@ -96,7 +110,40 @@ class VirtualGalleryModel(QAbstractListModel):
         # here only releases finished workers; their late deliveries are
         # rejected by the generation check below.
         self._active_workers.clear()
+        self._fill_queue.clear()
         self.endResetModel()
+        if self.fill_mode:
+            self._fill_all()
+
+    def _fill_all(self) -> None:
+        """Queue every not-yet-cached path for a continuous background load."""
+        gen = self._generation
+        paths = [
+            p for p in self._paths
+            if p not in self._cache and p not in self._loading and p not in self._failed
+        ]
+        if self.fill_limit is not None:
+            paths = paths[: self.fill_limit]
+        if not paths:
+            return
+        self._loading.update(paths)
+        self._fill_queue.extend(paths)
+        for _ in range(self._fill_max_in_flight):
+            self._dispatch_fill(gen)
+
+    def _dispatch_fill(self, gen: int) -> None:
+        """Dispatch the next queued fill path (chained on completion)."""
+        if gen != self._generation or not self._fill_queue:
+            return
+        path = self._fill_queue.popleft()
+        worker = self.worker_factory(path, self.thumbnail_size)
+        worker.load_generation = gen
+        worker.signals.result.connect(
+            lambda p, img, g=gen, wk=worker: self._on_thumbnail_loaded(p, img, g, wk)
+        )
+        worker.signals.result.connect(lambda *_, g=gen: self._dispatch_fill(g))
+        self._active_workers.add(worker)
+        self.thread_pool.start(worker)
 
     # ------------------------------------------------------------------
     # In-database flag (used by scan-metadata styling)
@@ -185,6 +232,7 @@ class VirtualGalleryModel(QAbstractListModel):
         self._loading.clear()
         self._failed.clear()
         self._active_workers.clear()
+        self._fill_queue.clear()
 
     def prefetch(self, path: str) -> None:
         """Schedule a background thumbnail load for *path* if it isn't cached,
@@ -257,25 +305,23 @@ class VirtualGalleryModel(QAbstractListModel):
         worker = self.worker_factory(path, self.thumbnail_size)
         worker.load_generation = gen
         worker.signals.result.connect(
-            lambda p, img, g=gen: self._on_thumbnail_loaded(p, img, g)
+            lambda p, img, g=gen, wk=worker: self._on_thumbnail_loaded(p, img, g, wk)
         )
         self._active_workers.add(worker)
         self.thread_pool.start(worker)
 
-    def _on_thumbnail_loaded(self, path: str, image, generation: int) -> None:
+    def _on_thumbnail_loaded(self, path: str, image, generation: int, worker=None) -> None:
         # Queued (cross-thread) signal may arrive after the model's QObject
-        # is torn down; sender() on a dead QObject segfaults rather than
-        # raising (same guard the QLabel galleries use).
+        # is torn down; guard first (same as the QLabel galleries).
         if not Shiboken.isValid(self):
             return
         # Drop the worker's strong ref first so stale deliveries (and the
-        # failure path below) don't leak entries in _active_workers.
-        sender = self.sender()
-        if sender is not None:
-            for worker in list(self._active_workers):
-                if getattr(worker, "signals", None) is sender:
-                    self._active_workers.discard(worker)
-                    break
+        # failure path below) don't leak entries in _active_workers. The worker
+        # is passed explicitly through the lambda closure (sender() is None for
+        # a lambda-wrapped slot, so the QLabel-gallery sender() lookup can't be
+        # reused here).
+        if worker is not None:
+            self._active_workers.discard(worker)
         if generation != self._generation:
             self._loading.discard(path)
             return
