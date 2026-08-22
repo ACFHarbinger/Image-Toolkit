@@ -14,6 +14,9 @@ class _LifecycleMixin:
     def cancel_loading(self):
         super().cancel_loading()
 
+        if hasattr(self, "dual"):
+            self.dual.cancel_loading()
+
         if self._codec_scan_worker:
             with contextlib.suppress(Exception):
                 self._codec_scan_worker.stop()
