@@ -1,3 +1,16 @@
+## S425 — 2026-08-22 (GUI/UX §2.6: Stitch ASP/SCANS comparison)
+
+Stitch results can now generate an OpenCV SCANS baseline from the source frames
+off the GUI thread. The result preview toggles ASP ↔ SCANS with a 100 ms fade,
+and displays the active variant's sharpness, double-edge ghosting, and seam
+gradient scores. SCANS output is written next to the ASP panorama as
+`<stem>_scans.<ext>`.
+
+- **Tests** — Stitch comparison and existing Stitch tab coverage: 31 passed;
+  Ruff and whitespace checks clean.
+
+---
+
 ## S424 — 2026-08-22 (GUI/UX §2.1: Dual-panel VirtualGallery design & prototype)
 
 Delivered the architectural design and prototype composite (`VirtualDualGallery`) for migrating two-gallery tabs (`AbstractClassTwoGalleries`) onto the virtualized model/view architecture.

@@ -394,9 +394,12 @@ Save/load named "workspace" profiles that capture the full session state (B). Ex
 
 ---
 
-## 2.6 Stitch Tab UX — Before/After Comparison {: #26-stitch-tab-ux--beforeafter-comparison }
+## 2.6 Stitch Tab UX — Before/After Comparison ✅ (2026-08-22: B + C) {: #26-stitch-tab-ux--beforeafter-comparison }
 
-**Pain point:** StitchTab shows the output panorama but provides no comparison with the simple stitch fallback. Users can't judge whether ASP actually improved the result without manually opening both outputs.
+**Shipped:** The Stitch result preview offers an on-demand, off-main-thread
+OpenCV SCANS baseline written beside the ASP panorama (`<stem>_scans.<ext>`).
+Its toggle crossfades ASP ↔ SCANS over 100 ms and switches the displayed
+sharpness, double-edge ghosting, and seam-gradient readout with the image.
 
 ### Options
 
