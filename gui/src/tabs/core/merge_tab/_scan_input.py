@@ -56,10 +56,12 @@ class _ScanInputMixin:
         self.scanned_dir = directory
         if self.current_scan_worker:
             with contextlib.suppress(Exception):
+                self.current_scan_worker.scan_finished.disconnect()
+            with contextlib.suppress(Exception):
                 self.current_scan_worker.stop()
                 self.current_scan_worker.requestInterruption()
                 self.current_scan_worker.quit()
-                self._track_and_cleanup_thread(self.current_scan_worker)
+                self.current_scan_worker.wait()
             self.current_scan_worker = None
             self.current_scan_thread = None
 
