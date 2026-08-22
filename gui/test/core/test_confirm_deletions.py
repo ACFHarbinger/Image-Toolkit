@@ -19,8 +19,6 @@ class _SimilarityHarness(_DeletionMixin):
         self.selected_files: list[str] = []
         self.found_files: list[str] = []
         self.path_to_label_map: dict[str, object] = {}
-        self.found_gallery_layout = object()
-        self._current_found_cols = 1
         self.status_label = SimpleNamespace(setText=lambda *_: None)
 
     def _prefs(self) -> dict:
@@ -29,7 +27,7 @@ class _SimilarityHarness(_DeletionMixin):
     def _confirm_deletions_enabled(self) -> bool:
         return False
 
-    def common_reflow_layout(self, *_args) -> None:
+    def refresh_found_gallery(self) -> None:
         pass
 
     def refresh_selected_panel(self) -> None:
