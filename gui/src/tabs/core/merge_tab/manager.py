@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Optional
 
 from PySide6.QtCore import Qt, QThread, Signal, Slot
 from PySide6.QtGui import QPixmap
@@ -123,33 +123,56 @@ class MergeTab(
         label.path_right_clicked.connect(self.show_image_context_menu)
         return label
 
-    # ─── Selection (overrides base to sync canvas) ──────────────────────────────
+    # ─── Selection (drives canvas/queue via the gallery's selection model) ─────
 
     @Slot(str)
     def toggle_selection(self, path: str):
-        """Toggle gallery selection. In canvas mode, syncs the canvas too;
-        in every other mode, the canvas is left untouched (it's not visible)
-        and only resynced lazily on the next switch into canvas mode."""
+        """Toggle gallery selection via the view's selection model.
+
+        ``MultiSelection`` gives native toggle-on-click + highlight; the
+        resulting ``selection_changed`` fires ``_sync_selection_from_gallery``
+        which applies the canvas/queue side effects that the old QLabel-grid
+        toggle_selection did inline."""
+        sm = self.gallery.view.selectionModel()
+        row = self.gallery.model.row_for_path(path)
+        if row < 0:
+            return
+        sm.select(self.gallery.model.index(row, 0), sm.SelectionFlag.Toggle)
+
+    def _sync_selection_from_gallery(self):
+        """Mirror the gallery selection into ``selected_files`` and apply the
+        canvas/queue side effects (delta-driven, so canvas removal of an
+        already-removed item is a no-op)."""
+        new_sel = list(self.gallery.selected_files())
+        old_set = set(self.selected_files)
+        new_set = set(new_sel)
+        added = new_set - old_set
+        removed = old_set - new_set
+        self.selected_files = new_sel
+
         is_canvas = self.direction.currentText() == "canvas"
-        if path in self.selected_files:
-            self.selected_files.remove(path)
-            if is_canvas:
-                self.canvas_widget.remove_item(path)
-            is_selected = False
+        if is_canvas:
+            for p in removed:
+                self.canvas_widget.remove_item(p)
+            for p in added:
+                self.canvas_widget.add_image(p, self._thumbnail_for(p))
         else:
-            self.selected_files.append(path)
-            if is_canvas:
-                self.canvas_widget.add_image(path, self._thumbnail_for(path))
-            is_selected = True
-
-        if not is_canvas:
             self._refresh_queue_gallery()
-
-        widget = self.path_to_card_widget.get(path)
-        if widget:
-            self.update_card_style(widget, is_selected)
-
         self.on_selection_changed()
+
+    def _push_selection_to_gallery(self):
+        """Apply ``selected_files`` to the gallery's selection model (signals
+        blocked so the clear+select can't reentrantly wipe ``selected_files``)."""
+        sm = self.gallery.view.selectionModel()
+        sm.blockSignals(True)
+        try:
+            self.gallery.clear_selection()
+            for path in self.selected_files:
+                row = self.gallery.model.row_for_path(path)
+                if row >= 0:
+                    sm.select(self.gallery.model.index(row, 0), sm.SelectionFlag.Select)
+        finally:
+            sm.blockSignals(False)
 
     def on_selection_changed(self):
         count = len(self.selected_files)
@@ -163,6 +186,21 @@ class MergeTab(
         self.status_label.setText(
             "" if count < 2 else f"Ready to merge {count} images."
         )
+
+    def refresh_gallery_view(self):
+        """Feed the filtered path list to the virtual gallery (no page slice /
+        per-card populate). Overrides the base grid refresh."""
+        self.cancel_loading()
+        self.clear_gallery_widgets()
+        paths = self.gallery_image_paths
+        if not paths:
+            return
+        self.gallery.set_paths(paths)
+
+    def clear_gallery_widgets(self):
+        """Clear the virtual gallery and cancel its in-flight loads."""
+        self.gallery.clear()
+        self.cancel_loading()
 
 
 __all__ = ["MergeTab"]

@@ -10,8 +10,8 @@ import os
 from typing import Optional
 
 from PySide6.QtCore import Qt, Slot
-from PySide6.QtGui import QImage, QPixmap
-from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
+from PySide6.QtGui import QPixmap
+from PySide6.QtWidgets import QVBoxLayout, QWidget
 
 from ....classes.mixins import compute_reordered, install_drag_reorder
 from ....components import ClickableLabel, MergeCanvasItem
@@ -61,9 +61,11 @@ class _CanvasControlsMixin:
         for path in removed:
             if path in self.selected_files:
                 self.selected_files.remove(path)
-            widget = self.path_to_card_widget.get(path)
-            if widget:
-                self.update_card_style(widget, False)
+            # Deselect in the gallery so the selection model stays consistent.
+            sm = self.gallery.view.selectionModel()
+            row = self.gallery.model.row_for_path(path)
+            if row >= 0:
+                sm.select(self.gallery.model.index(row, 0), sm.SelectionFlag.Deselect)
         if removed:
             self.on_selection_changed()
 
@@ -72,9 +74,10 @@ class _CanvasControlsMixin:
         for path in paths:
             if path in self.selected_files:
                 self.selected_files.remove(path)
-            widget = self.path_to_card_widget.get(path)
-            if widget:
-                self.update_card_style(widget, False)
+            sm = self.gallery.view.selectionModel()
+            row = self.gallery.model.row_for_path(path)
+            if row >= 0:
+                sm.select(self.gallery.model.index(row, 0), sm.SelectionFlag.Deselect)
         if paths:
             self.on_selection_changed()
 
@@ -121,6 +124,7 @@ class _CanvasControlsMixin:
         then switch the visible widget to the read-only queue gallery."""
         layout = self.canvas_widget.get_layout()
         self.selected_files = [entry["path"] for entry in layout]
+        self._push_selection_to_gallery()
         self._refresh_queue_gallery()
 
     def _enter_canvas_mode(self):
@@ -135,9 +139,11 @@ class _CanvasControlsMixin:
             item.set_geometry(0, 0, item._w, item._h)
 
     def _thumbnail_for(self, path: str) -> QPixmap:
-        cached = self._initial_pixmap_cache.get(path)
-        if cached and isinstance(cached, QImage) and not cached.isNull():
+        cached = self.gallery.cached_image(path)
+        if cached and not cached.isNull():
             return QPixmap.fromImage(cached)
+        if os.path.isfile(path):
+            return QPixmap(path)
         return QPixmap()
 
     def _refresh_queue_gallery(self):

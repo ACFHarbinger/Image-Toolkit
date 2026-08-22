@@ -129,6 +129,12 @@ class VirtualGalleryModel(QAbstractListModel):
     def clear_cache(self) -> None:
         self._cache.clear()
 
+    def cached_image(self, path: str):
+        """Return the cached QImage for *path* (None if not loaded yet). Used
+        by tabs that also render the loaded thumbnail outside the gallery
+        (e.g. a merge canvas or queue strip)."""
+        return self._cache.get(path)
+
     def cancel_loading(self) -> None:
         """Drop all queued/in-flight loads. Workers already on the pool finish
         but their results are rejected as stale via the generation check."""
