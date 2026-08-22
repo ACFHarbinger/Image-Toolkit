@@ -1,3 +1,16 @@
+## S416 — 2026-08-22 (Database extension and gallery-crash repro verification)
+
+- Rechecked the rebuilt `base` extension: the compiled module exposes
+  `base.database` and a temporary SQLCipher create/insert/query/close smoke
+  test passes. The Database-tab listings load/save acceptance check remains
+  open because the shared display already had an active GUI session.
+- Ran the plain (non-telemetry) guest-startup and wallpaper-switch gdb repro.
+  It reached MainWindow construction and the dual-panel hammer without a
+  SIGSEGV/SIGABRT before the bounded run was stopped; no backtrace or core was
+  captured.
+
+---
+
 ## S415 — 2026-08-22 (Analytics Phase 12 §12.4: SearchRepo filter scale benchmark)
 
 Implemented the rescoped §12.4 target (issue #403 / #63): a scale benchmark
