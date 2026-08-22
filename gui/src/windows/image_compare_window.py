@@ -9,30 +9,24 @@ Supports comparing 2 or more images with:
 from __future__ import annotations
 
 import os
-from typing import List, Optional
+from typing import List
 
-from PySide6.QtCore import QPoint, QSize, Qt, QTimer, Signal, Slot
+from PySide6.QtCore import QPoint, Qt, QTimer, Signal, Slot
 from PySide6.QtGui import (
-    QAction,
-    QColor,
     QImage,
     QKeyEvent,
-    QMouseEvent,
     QPainter,
     QPixmap,
     QTransform,
     QWheelEvent,
 )
 from PySide6.QtWidgets import (
-    QApplication,
     QCheckBox,
     QComboBox,
     QDialog,
     QFrame,
-    QGridLayout,
     QHBoxLayout,
     QLabel,
-    QMessageBox,
     QPushButton,
     QScrollArea,
     QSlider,

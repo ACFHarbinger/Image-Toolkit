@@ -11,7 +11,7 @@ import os
 import platform
 import shutil
 import subprocess
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 from backend.src.constants import SUPPORTED_VIDEO_FORMATS
 from PySide6.QtCore import Qt, Slot
@@ -21,8 +21,6 @@ from send2trash import send2trash  # pyrefly: ignore [untyped-import]
 
 from ....utils.sort_utils import natural_sort_key
 from ....windows import ImageCompareWindow, ImagePreviewWindow
-
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ..protos.abstract_class_two_galleries import AbstractClassTwoGalleriesHostProtocol

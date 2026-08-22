@@ -1,13 +1,10 @@
 """Tests for ImageCompareWindow and multi-image comparison view (GUI/UX §2.27)."""
 
-import os
 import pytest
-from PySide6.QtCore import QPoint, Qt
-from PySide6.QtGui import QColor, QImage, QKeyEvent, QPixmap
-from PySide6.QtWidgets import QApplication
-
 from gui.src.components.virtual_gallery import VirtualGallery
-from gui.src.windows.image_compare_window import ImageCompareWindow, SynchronizedImagePane
+from gui.src.windows.image_compare_window import ImageCompareWindow
+from PySide6.QtCore import QPoint, Qt
+from PySide6.QtGui import QColor, QImage, QKeyEvent
 
 pytestmark = pytest.mark.gui
 
