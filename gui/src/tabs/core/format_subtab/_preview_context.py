@@ -5,7 +5,6 @@ Extracted from ``format_subtab.py`` -- pure code motion, no logic change.
 
 from __future__ import annotations
 
-import contextlib
 import os
 import platform
 import subprocess
@@ -143,14 +142,8 @@ class _PreviewContextMixin:
                 if hasattr(self, "selected_files") and path in self.selected_files:
                     self.selected_files.remove(path)
 
-                if (
-                    hasattr(self, "path_to_label_map")
-                    and path in self.path_to_label_map
-                ):
-                    widget = self.path_to_label_map.pop(path)
-                    with contextlib.suppress(RuntimeError):
-                        widget.deleteLater()
-
+                self.refresh_found_gallery()
+                self.refresh_selected_panel()
                 self.on_selection_changed()
 
                 # Also close any open preview for this file
