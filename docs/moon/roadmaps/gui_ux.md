@@ -137,7 +137,7 @@ Each section describes an ergonomic pain point, all viable implementation option
 
 ---
 
-## 2.1 Virtual Scroll Gallery ✅ Partial (2026-08-22 — prototype + 8 tabs migrated; Scan/Listings/Wallpaper deferred)
+## 2.1 Virtual Scroll Gallery ✅ Partial (2026-08-22 — prototype + 9 tabs migrated; Wallpaper/Listings deferred)
 
 **2026-08-19 update:** a perf pass (issues #444/#445/#447) fixed several
 real bugs in the current page-based system — thumbnails were being
@@ -232,18 +232,20 @@ single-gallery tabs — `VideoExtractorSubTab` (extractor_tab, results gallery
 with a video-capable worker factory) and `MergeTab` (Image Library in
 `MultiSelection` mode; canvas/queue side effects driven from
 `selection_changed`; canvas/queue thumbnails read the gallery cache via a new
-`cached_image()`) — were migrated to `VirtualGallery`, and the uniform
-dual-panel Convert subtabs — `FormatSubTab`, `CodecSubTab`, `SamplerSubTab` —
-plus `SimilarityTab` and the database `SearchTab` were migrated to Agy's
-`VirtualDualGallery` (found + selected panels, shared cache). All drop their
-page-size/pagination bars. Per-tab migration tests added;
-`gui/test/{web,components,image,core,database}` `--run-gui` → 417 passed.
-`ScanMetadataTab` is deferred (its scan pipeline / lazy-load / keyboard /
-context machinery is built directly on the wrapper-card grid — a rework, not a
-swap), as are `ListingGalleryBase` (rich DB record cards need a custom
-`QStyledItemDelegate`, not the image-thumbnail gallery) and
-`WallpaperCommonBase` (drag-to-monitor isn't expressible in `VirtualGallery`
-and it's at the center of the #461 crash investigation).
+`cached_image()`) — were migrated to `VirtualGallery`, and the dual-panel
+Convert subtabs — `FormatSubTab`, `CodecSubTab`, `SamplerSubTab` — plus
+`SimilarityTab`, the database `SearchTab`, and `ScanMetadataTab` were migrated
+to Agy's `VirtualDualGallery` (found + selected panels, shared cache).
+`ScanMetadataTab` also gained the `VirtualGalleryDelegate` in-DB green-border
+styling (a reusable `InDbRole` extension). All drop their page-size/pagination
+bars. Per-tab migration tests added;
+`gui/test/{web,components,image,core,database}` `--run-gui` → 422 passed.
+`ListingGalleryBase` (series/entity listings) is deferred — it renders rich
+interactive `_ListingCard` DB widgets (click/add/delete), which needs a custom
+widget/delegate rather than the image-thumbnail gallery. `WallpaperCommonBase`
+is deferred — drag-thumbnail-to-monitor uses a fully custom drag system that
+must be ported onto the virtual view's items, and it sits at the center of the
+#461 crash investigation.
 
 **2026-08-22 dual-gallery design & prototype shipped (Agy):** Design document
 `.agent/reports/dual_virtual_gallery_design.md` and prototype composite widget
