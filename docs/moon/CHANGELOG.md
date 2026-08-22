@@ -1,3 +1,16 @@
+## S419 — 2026-08-22 (Consolidating gallery crash issue #461 & tab scanner audit)
+
+- Filed consolidating GitHub issue #461 tracking the cross-thread gallery crash
+  class (`deleteOrphaned`, `connect`, `retrieveWrapper`), indexing all 33
+  investigation addenda from `.agent/archive/reports/gallery_crash_deleteorphaned_2026-07-27.md`.
+- Audited bespoke worker/scanner threads outside base `cancel_loading()`.
+  Enforced stop/wait before widget teardown and converted fixed timeouts
+  (`wait(1000)`, `wait(5000)`, `waitForDone(2000)`) to unbounded waits across
+  `ScanMetadataTab`, `MergeTab`, `ReverseImageSearchTab`, `SimilarityTab`,
+  `ImageExtractorSubTab`, `EntityReconTab`, and `FrameSelectionDialog`.
+
+---
+
 ## S418 — 2026-08-22 (Native thumbnail OpenMP cap)
 
 - Capped each `base.load_image_batch()` OpenMP region at eight workers. A real
