@@ -109,14 +109,32 @@ class TestWallpaperGalleryLoading:
         panel = ConcreteWallpaperBase()
         panel._scan_pipeline_busy = True
         panel._pending_scan_request = ("/next", False)
+        # `next(..., 0)` with a default is deliberate, not decoration: this
+        # stub stands in for a real QThreadPool method, reachable from
+        # Qt/Shiboken's own machinery (e.g. closeEvent's teardown checks)
+        # as well as our own two direct calls below. An exhausted iterator
+        # raising StopIteration from inside a Python override invoked via a
+        # C++ virtual call segfaults in Shiboken's exception-storage path
+        # (PepException_GetArgs) instead of surfacing as a normal Python
+        # error -- confirmed by reproducing it standalone under gdb.
         active_counts = iter((1, 0))
-        panel.thread_pool.activeThreadCount = lambda: next(active_counts)
+        panel.thread_pool.activeThreadCount = lambda: next(active_counts, 0)
         scheduled = []
-        monkeypatch.setattr(
-            wallpaper_common_base._scan_pipeline.QTimer,
-            "singleShot",
-            lambda delay, callback: scheduled.append((delay, callback)),
-        )
+
+        class _FakeQTimer:
+            @staticmethod
+            def singleShot(delay, callback):
+                scheduled.append((delay, callback))
+
+        # Rebind the module-level name only -- mutating the real QTimer
+        # class's singleShot (even via monkeypatch, which restores it at
+        # teardown) leaves every other QTimer.singleShot call in the process
+        # -- including ones Qt's own object/deferred-delete machinery makes
+        # during widget teardown -- routed through this stub for the whole
+        # test body, which segfaults conftest's post-test widget cleanup.
+        # Patching only the name this module looks up keeps the real QTimer
+        # class untouched everywhere else.
+        monkeypatch.setattr(wallpaper_common_base._scan_pipeline, "QTimer", _FakeQTimer)
 
         panel._settle_scan_pipeline()
 
