@@ -137,6 +137,12 @@ SHORTCUT_REGISTRY: list[dict] = [
         "scope": "Gallery",
         "default": "Alt+Right",
     },
+    {
+        "id": "gallery.compare_selected",
+        "description": "Compare selected images side-by-side (C)",
+        "scope": "Gallery",
+        "default": "C",
+    },
     # Image Preview window
     {
         "id": "preview.zoom_in",

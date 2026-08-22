@@ -89,5 +89,15 @@ class VirtualGallery(QWidget):
     def clear_cache(self) -> None:
         self.model.clear_cache()
 
+    def compare_selected(self, parent=None):
+        """Open an ImageCompareWindow for the currently selected files (§2.27)."""
+        selected = self.selected_files()
+        if len(selected) < 2:
+            return None
+        from ...windows import ImageCompareWindow
+        win = ImageCompareWindow(image_paths=selected, parent=parent or self)
+        win.show()
+        return win
+
 
 __all__ = ["VirtualGallery"]
