@@ -601,11 +601,12 @@ class ImageExtractorSubTab(QWidget):
         for worker in list(self._active_workers):
             worker.cancel()
         self._active_workers.clear()
+        if hasattr(self, "operation_thread_pool"):
+            self.operation_thread_pool.clear()
+            self.operation_thread_pool.waitForDone(-1)
 
     def closeEvent(self, event):
         self.cancel_loading()
-        self.operation_thread_pool.clear()
-        self.operation_thread_pool.waitForDone(2000)
         super().closeEvent(event)
 
     def collect(self) -> Dict[str, Any]:

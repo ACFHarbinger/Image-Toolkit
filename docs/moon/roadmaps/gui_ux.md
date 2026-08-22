@@ -391,6 +391,8 @@ Use `asyncio.CancelledError` or a `threading.Event` as a cancellation token pass
 
 **Recommendation:** A + B. Cancellation is a correctness feature. Stage progress is the minimum viable feedback. C is a quick add-on once A is in place.
 
+**2026-08-22 (scanner-thread lifecycle audit — #461):** Audited bespoke worker and scanner threads across all GUI tabs to eliminate bounded waits (`wait(1000)`, `wait(5000)`, `waitForDone(2000)`) and fix improper stop/teardown order before widget clearing across `MergeTab`, `ScanMetadataTab`, `ReverseSearchTab`, `SimilarityTab`, `ImageExtractorSubTab`, `EntityReconTab`, and `FrameSelectionDialog`.
+
 ---
 
 ## 2.8 Theme Support ✅ Partial (options A + D shipped — dark/light QSS toggle with per-theme accent-color override, `gui/src/windows/main/_theme.py` + `gui/src/styles/`; also UI density and a `load_user_qss_override` power-user hook) {: #28-theme-support }

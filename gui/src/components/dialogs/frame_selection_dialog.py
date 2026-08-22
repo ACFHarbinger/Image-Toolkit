@@ -352,7 +352,7 @@ class FrameSelectionDialog(QDialog):
             try:
                 if self._frame_worker.isRunning():
                     self._frame_worker.cancel()
-                    self._frame_worker.wait(500)  # give it up to 500 ms to exit
+                    self._frame_worker.wait()
             except RuntimeError:
                 pass
         if self.cap:

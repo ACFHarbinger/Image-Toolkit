@@ -6,6 +6,7 @@ change (see ``_ui_builder.py``'s docstring).
 
 from __future__ import annotations
 
+import contextlib
 from pathlib import Path
 
 from gui.src.helpers import ImageScannerWorker
@@ -24,19 +25,27 @@ class _ScanLoadingMixin:
         self._loading_cancelled = True
 
         if self.scan_thread and self.scan_thread.isRunning():
+            with contextlib.suppress(Exception):
+                if self.scan_worker:
+                    self.scan_worker.scan_finished.disconnect()
+                    self.scan_worker.scan_error.disconnect()
             self.scan_thread.requestInterruption()
             self.scan_thread.quit()
-            self.scan_thread.wait(1000)
+            self.scan_thread.wait()
             self.scan_worker = None
             self.scan_thread = None
 
         # Clear the ThreadPool
-        self.thread_pool.clear()
+        if hasattr(self, "thread_pool"):
+            self.thread_pool.clear()
+            self.thread_pool.waitForDone(-1)
 
         # Dialog removed, so no close logic needed here
 
     def cancel_loading(self):
         """Slot for cancelling operation."""
+        with contextlib.suppress(Exception):
+            super().cancel_loading()
         self._stop_running_threads()
         self._loaded_results_buffer.clear()
         print("Loading cancelled by user.")

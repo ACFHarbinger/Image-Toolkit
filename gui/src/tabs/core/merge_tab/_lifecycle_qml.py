@@ -17,14 +17,14 @@ class _LifecycleQmlMixin:
     """Cancel-on-close cleanup and the QML bridge slots."""
 
     def cancel_loading(self):
-        super().cancel_loading()
-
         if self.current_scan_worker:
+            with contextlib.suppress(Exception):
+                self.current_scan_worker.scan_finished.disconnect()
             with contextlib.suppress(Exception):
                 self.current_scan_worker.stop()
                 self.current_scan_worker.requestInterruption()
                 self.current_scan_worker.quit()
-                self._track_and_cleanup_thread(self.current_scan_worker)
+                self.current_scan_worker.wait()
             self.current_scan_worker = None
             self.current_scan_thread = None
 
@@ -33,7 +33,7 @@ class _LifecycleQmlMixin:
                 self.current_merge_worker.cancel()
                 self.current_merge_worker.requestInterruption()
                 self.current_merge_worker.quit()
-                self._track_and_cleanup_thread(self.current_merge_worker)
+                self.current_merge_worker.wait()
             self.current_merge_worker = None
             self.current_merge_thread = None
 
@@ -41,6 +41,8 @@ class _LifecycleQmlMixin:
             with contextlib.suppress(Exception):
                 win.close()
         self.open_preview_windows.clear()
+
+        super().cancel_loading()
 
     def closeEvent(self, event):
         self.cancel_loading()

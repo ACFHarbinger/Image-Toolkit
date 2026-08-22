@@ -14,7 +14,7 @@ class _LifecycleMixin:
             try:
                 t.requestInterruption()
                 t.quit()
-                t.wait(2000)
+                t.wait()
             except Exception:  # noqa: BLE001
                 pass
         self._threads.clear()

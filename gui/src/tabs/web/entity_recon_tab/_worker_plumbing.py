@@ -52,7 +52,7 @@ class _WorkerPlumbingMixin:
     def _reap_worker(self, worker):
         if worker in self._threads:
             self._threads.remove(worker)
-        worker.wait(5000)
+        worker.wait()
         worker.deleteLater()
 
     def _on_worker_error(self, message: str):

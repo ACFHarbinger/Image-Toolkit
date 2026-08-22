@@ -1,3 +1,4 @@
+import contextlib
 import os
 from typing import Dict, List, Optional
 
@@ -267,6 +268,17 @@ class ReverseImageSearchTab(AbstractClassSingleGallery):
             self.start_scanning(d)
 
     def start_scanning(self, directory: str):
+        if self.scan_thread is not None:
+            if self.scan_thread.isRunning():
+                if self.scan_worker:
+                    with contextlib.suppress(Exception):
+                        self.scan_worker.scan_finished.disconnect()
+                self.scan_thread.quit()
+                self.scan_thread.wait()
+            self.scan_thread.deleteLater()
+            self.scan_thread = None
+            self.scan_worker = None
+
         self.clear_gallery_widgets()
         self.gallery_image_paths = []
         self._initial_pixmap_cache.clear()
@@ -274,13 +286,6 @@ class ReverseImageSearchTab(AbstractClassSingleGallery):
         self.btn_search.setEnabled(False)
         self.lbl_selected_path.setText("No image selected")
         self.status_label.setText(f"Scanning directory: {directory}...")
-
-        if self.scan_thread is not None:
-            if self.scan_thread.isRunning():
-                self.scan_thread.quit()
-                self.scan_thread.wait()
-            self.scan_thread.deleteLater()
-            self.scan_thread = None
 
         self.scan_worker = ImageScannerWorker(directory)
         self.scan_thread = self.scan_worker
@@ -581,4 +586,24 @@ class ReverseImageSearchTab(AbstractClassSingleGallery):
             self.status_label.setText("Cancelling…")
         self._is_searching = False
         self.qml_searching_changed.emit()
+
+    def cancel_loading(self):
+        if self.scan_thread is not None:
+            if self.scan_thread.isRunning():
+                if self.scan_worker:
+                    with contextlib.suppress(Exception):
+                        self.scan_worker.scan_finished.disconnect()
+                self.scan_thread.quit()
+                self.scan_thread.wait()
+            self.scan_thread = None
+            self.scan_worker = None
+        super().cancel_loading()
+
+    def closeEvent(self, event):
+        self.cancel_loading()
+        for win in list(self.open_preview_windows):
+            with contextlib.suppress(Exception):
+                win.close()
+        self.open_preview_windows.clear()
+        super().closeEvent(event)
 

@@ -86,7 +86,7 @@ class _SimilarityScanMixin:
         worker = self._sim_worker
         self._sim_worker = None
         if worker is not None:
-            worker.wait(5000)
+            worker.wait()
             worker.deleteLater()
         self._set_running(False)
 
