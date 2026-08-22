@@ -4,12 +4,11 @@ from typing import Dict, List, Optional
 
 from backend.src.web import ENGINE_GOOGLE, ENGINE_LOCAL_CBIR, ENGINE_TINEYE
 from PySide6.QtCore import Property, Qt, QThread, QThreadPool, Signal, Slot
-from PySide6.QtGui import QDragEnterEvent, QDropEvent, QPixmap
+from PySide6.QtGui import QDragEnterEvent, QDropEvent
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QFileDialog,
-    QGridLayout,
     QGroupBox,
     QHBoxLayout,
     QLabel,
@@ -22,8 +21,8 @@ from PySide6.QtWidgets import (
 )
 
 from ...classes import AbstractClassSingleGallery
-from ...components import ClickableLabel, MarqueeScrollArea
-from ...helpers import ImageLoaderWorker, ImageScannerWorker, ReverseSearchWorker
+from ...components import VirtualGallery
+from ...helpers import ImageScannerWorker, ReverseSearchWorker
 from ...styles import apply_shadow_effect, set_button_role
 from ...utils.sort_utils import natural_sort_key
 from ...windows import ImagePreviewWindow
@@ -47,6 +46,12 @@ class ReverseImageSearchTab(AbstractClassSingleGallery):
     - **Google Lens** — browser-based scrape (existing C++ backend).
     - **TinEye API** — commercial REST API client.
     - **Local AI Search** — CLIP + FAISS against the user's local index.
+
+    The gallery is the virtual-scroll ``VirtualGallery`` composite (GUI/UX
+    §2.1 Option A): every scanned image is a model row and thumbnails load
+    lazily for the visible viewport, so a multi-thousand-image directory has
+    no page cap and no per-card widget rebuild. Pagination is gone; selection
+    lives in the model/view selection model.
     """
 
     def __init__(self):
@@ -209,24 +214,15 @@ class ReverseImageSearchTab(AbstractClassSingleGallery):
         self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.root_layout.addWidget(self.status_label)
 
-        # Gallery
-        self.gallery_scroll_area = MarqueeScrollArea()
-        self.gallery_scroll_area.setWidgetResizable(True)
-
-        self.gallery_container = QWidget()
-
-        self.gallery_layout = QGridLayout(self.gallery_container)
-        self.gallery_layout.setAlignment(
-            Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter
-        )
-        self.gallery_layout.setSpacing(3)
-        self.gallery_scroll_area.setWidget(self.gallery_container)
-
+        # Gallery — virtual-scroll (GUI/UX §2.1 Option A). Replaces the old
+        # QGridLayout + ClickableLabel card grid; pagination is dropped.
+        self.gallery = VirtualGallery(self)
         self.root_layout.addWidget(self.search_input)
-        self.root_layout.addWidget(self.gallery_scroll_area, 1)
-        self.root_layout.addWidget(
-            self.pagination_widget, 0, Qt.AlignmentFlag.AlignCenter
-        )
+        self.root_layout.addWidget(self.gallery, 1)
+
+        self.gallery.path_clicked.connect(self.handle_image_selection)
+        self.gallery.path_activated.connect(self.handle_image_double_click)
+        self.gallery.ctrl_wheel.connect(self._on_ctrl_wheel_zoom)
 
         self.setAcceptDrops(True)
         self._on_engine_changed(self.engine_combo.currentText())
@@ -301,85 +297,68 @@ class ReverseImageSearchTab(AbstractClassSingleGallery):
         count = len(paths)
         self.status_label.setText(f"Scan complete. Found {count} images.")
         if count == 0:
-            self.common_show_placeholder(
-                self.gallery_layout,
-                "No images found in directory.",
-                self.calculate_columns(),
-            )
-        else:
-            paths.sort(key=natural_sort_key)
-            self.start_loading_gallery(paths)
-            self.qml_gallery_changed.emit()
-
-    def _trigger_image_load(self, path: str):
-        worker = ImageLoaderWorker(path, self.thumbnail_size)
-        worker.signals.result.connect(self._on_single_image_loaded)
-        QThreadPool.globalInstance().start(worker)
-
-    # ------------------------------------------------------------------
-    # Card / Gallery
-    # ------------------------------------------------------------------
-
-    def create_gallery_label(self, path: str, size: int) -> ClickableLabel:
-        lbl = ClickableLabel(path, parent=self)
-        lbl.setFixedSize(size, size)
-        lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        lbl.path = path
-
-        lbl.path_clicked.connect(self.handle_image_selection)
-        lbl.path_double_clicked.connect(self.handle_image_double_click)
-        return lbl
-
-    def create_card_widget(self, path: str, pixmap: Optional[QPixmap]) -> QWidget:
-        container = QWidget()
-        container.setStyleSheet("background: transparent;")
-        layout = QVBoxLayout(container)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(1)
-
-        lbl = self.create_gallery_label(path, self.thumbnail_size)
-
-        if pixmap and not pixmap.isNull():
-            scaled = pixmap.scaled(
-                self.thumbnail_size,
-                self.thumbnail_size,
-                Qt.AspectRatioMode.KeepAspectRatio,
-                Qt.TransformationMode.SmoothTransformation,
-            )
-            lbl.setPixmap(scaled)
-            lbl.setText("")
-        else:
-            lbl.setText("Loading...")
-            lbl.setStyleSheet("border: 1px solid #4f545c; color: #888; font-size: 10px;")
-
-        self._style_label(lbl, selected=(path == self.selected_source_path))
-
-        layout.addWidget(lbl)
-        self.path_to_card_widget[path] = container
-        return container
-
-    def update_card_pixmap(self, widget: QWidget, pixmap: Optional[QPixmap], label_ref: QLabel | None = None):
-        if not widget:
+            self.gallery.clear()
             return
-        lbl = widget.findChild(ClickableLabel)
-        if lbl and pixmap:
-            scaled = pixmap.scaled(
-                self.thumbnail_size,
-                self.thumbnail_size,
-                Qt.AspectRatioMode.KeepAspectRatio,
-                Qt.TransformationMode.SmoothTransformation,
-            )
-            lbl.setPixmap(scaled)
-            lbl.setText("")
-            self._style_label(lbl, selected=(lbl.path == self.selected_source_path))
+        paths.sort(key=natural_sort_key)
+        self.start_loading_gallery(paths)
+        self.qml_gallery_changed.emit()
 
-    def _style_label(self, label: ClickableLabel, selected: bool):
-        if selected:
-            label.setStyleSheet("border: 3px solid #5865f2;")
-        elif label.text() == "Loading...":
-            label.setStyleSheet("border: 1px solid #4f545c; color: #888; font-size: 10px;")
-        else:
-            label.setStyleSheet("border: 1px solid #4f545c;")
+    # ------------------------------------------------------------------
+    # Gallery — virtual-scroll surface (GUI/UX §2.1 Option A)
+    # ------------------------------------------------------------------
+
+    def refresh_gallery_view(self):
+        """Feed the current filtered path list to the virtual gallery.
+
+        Overrides the base grid/pagination refresh: ``VirtualGallery`` renders
+        every row with viewport culling, so there is no page slice or per-card
+        widget population step."""
+        self.cancel_loading()
+        self.clear_gallery_widgets()
+        paths = self.gallery_image_paths
+        if not paths:
+            self.status_label.setText("No images to display.")
+            return
+        self.gallery.set_paths(paths)
+
+    def clear_gallery_widgets(self):
+        """Clear the virtual gallery and cancel its in-flight loads.
+
+        (Base version tears down a QGridLayout that no longer exists.)"""
+        self.gallery.clear()
+        self.cancel_loading()
+
+    def cancel_loading(self):
+        if self.scan_thread is not None:
+            if self.scan_thread.isRunning():
+                if self.scan_worker:
+                    with contextlib.suppress(Exception):
+                        self.scan_worker.scan_finished.disconnect()
+                self.scan_thread.quit()
+                self.scan_thread.wait()
+            self.scan_thread = None
+            self.scan_worker = None
+        if hasattr(self, "gallery"):
+            self.gallery.cancel_loading()
+        super().cancel_loading()
+
+    def _on_layout_change(self):
+        """VirtualGallery re-lays-out itself; nothing to reflow here."""
+
+    def _on_ctrl_wheel_zoom(self, delta: int):
+        """Ctrl+wheel thumbnail zoom (§2.2) over the virtual gallery."""
+        step = 16 if delta > 0 else -16
+        new_size = max(64, min(512, self.thumbnail_size + step))
+        if new_size == self.thumbnail_size:
+            return
+        self.thumbnail_size = new_size
+        self.approx_item_width = new_size + self.padding_width + 20
+        self._save_thumbnail_size()
+        self.gallery.set_thumbnail_size(new_size)
+
+    # ------------------------------------------------------------------
+    # Selection (mapped onto the model/view selection model)
+    # ------------------------------------------------------------------
 
     def handle_image_selection(self, path: str):
         self.selected_source_path = path
@@ -388,15 +367,35 @@ class ReverseImageSearchTab(AbstractClassSingleGallery):
         self.update_visual_selection()
 
     def update_visual_selection(self):
-        for path, widget in self.path_to_card_widget.items():
-            lbl = widget.findChild(ClickableLabel)
-            if lbl:
-                self._style_label(lbl, selected=(path == self.selected_source_path))
+        """Single-select model: highlight only ``selected_source_path``."""
+        self.gallery.clear_selection()
+        if self.selected_source_path:
+            row = self.gallery.model.row_for_path(self.selected_source_path)
+            if row >= 0:
+                sm = self.gallery.view.selectionModel()
+                sm.select(self.gallery.model.index(row, 0), sm.SelectionFlag.ClearAndSelect)
+
+    def select_all_items(self):
+        self.gallery.select_all()
+        self.on_selection_changed()
+
+    def deselect_all_items(self):
+        self.gallery.clear_selection()
+        self.on_selection_changed()
 
     def handle_image_double_click(self, path: str):
         window = ImagePreviewWindow(path, parent=self, all_paths=self.gallery_image_paths)
         window.show()
         self.open_preview_windows.append(window)
+
+    # ------------------------------------------------------------------
+    # AbstractClassSingleGallery contract (unused by the virtual surface)
+    # ------------------------------------------------------------------
+
+    def create_gallery_label(self, path: str, size: int) -> QLabel:
+        lbl = QLabel(path)
+        lbl.setFixedSize(size, size)
+        return lbl
 
     # ------------------------------------------------------------------
     # Search
@@ -429,8 +428,6 @@ class ReverseImageSearchTab(AbstractClassSingleGallery):
         worker.signals.finished.connect(self.on_search_finished)
         worker.signals.error.connect(self.on_search_error)
         QThreadPool.globalInstance().start(worker)
-
-
 
     @Slot(list)
     def on_search_finished(self, results: list):
@@ -587,18 +584,6 @@ class ReverseImageSearchTab(AbstractClassSingleGallery):
         self._is_searching = False
         self.qml_searching_changed.emit()
 
-    def cancel_loading(self):
-        if self.scan_thread is not None:
-            if self.scan_thread.isRunning():
-                if self.scan_worker:
-                    with contextlib.suppress(Exception):
-                        self.scan_worker.scan_finished.disconnect()
-                self.scan_thread.quit()
-                self.scan_thread.wait()
-            self.scan_thread = None
-            self.scan_worker = None
-        super().cancel_loading()
-
     def closeEvent(self, event):
         self.cancel_loading()
         for win in list(self.open_preview_windows):
@@ -606,4 +591,3 @@ class ReverseImageSearchTab(AbstractClassSingleGallery):
                 win.close()
         self.open_preview_windows.clear()
         super().closeEvent(event)
-

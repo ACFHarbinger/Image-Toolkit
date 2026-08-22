@@ -1,11 +1,12 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
+from PySide6.QtWidgets import QWidget
+
 from gui.src.tabs.web.drive_sync_tab import DriveSyncTab
 from gui.src.tabs.web.image_crawler_tab import ImageCrawlTab
 from gui.src.tabs.web.reverse_search_tab import ReverseImageSearchTab
 from gui.src.tabs.web.web_requests_tab import WebRequestsTab
-from PySide6.QtWidgets import QWidget
 
 pytestmark = pytest.mark.gui
 
@@ -233,7 +234,6 @@ class TestReverseImageSearchTab:
         with (
             patch("gui.src.tabs.web.reverse_search_tab.ImageScannerWorker"),
             patch("gui.src.tabs.web.reverse_search_tab.ReverseSearchWorker") as mock_search,
-            patch("gui.src.tabs.web.reverse_search_tab.ImageLoaderWorker"),
         ):
             yield mock_search
 

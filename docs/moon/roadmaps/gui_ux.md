@@ -137,7 +137,7 @@ Each section describes an ergonomic pain point, all viable implementation option
 
 ---
 
-## 2.1 Virtual Scroll Gallery ✅ Partial (2026-08-22 — Option A prototype shipped)
+## 2.1 Virtual Scroll Gallery ✅ Partial (2026-08-22 — Option A prototype + first tab migration)
 
 **2026-08-19 update:** a perf pass (issues #444/#445/#447) fixed several
 real bugs in the current page-based system — thumbnails were being
@@ -207,13 +207,25 @@ verify the property that makes the page cap obsolete: a 10k-item gallery
 creates **zero** card widgets, decoration requests are lazy (asking for one
 row schedules exactly that row's load), stale results after `set_paths`/
 `cancel_loading` are dropped, scroll prefetch schedules exactly the
-visible±buffer range, and selection works over the model. This is the
-roadmap's recommended first step — an additive prototype/foundation.
-**Nothing is migrated yet**: `AbstractClassTwoGalleries` /
-`AbstractClassSingleGallery` and the per-tab QLabel grids are untouched. The
-adoption path is one tab at a time: replace a gallery's QGridLayout+cards
-with a `VirtualGallery`, drop its page-size logic, and map the existing
-`path_to_label_map`/selection handling onto the model/view selection.
+visible±buffer range, and selection works over the model.
+
+**2026-08-22 first tab migrated (opencode, Harbinger-approved):**
+`ReverseImageSearchTab` (`gui/src/tabs/web/reverse_search_tab.py`) now renders
+its scanned directory through `VirtualGallery` — the `QGridLayout` +
+`ClickableLabel` card grid, its page-size/pagination bar, and the
+card-rendering overrides (`create_card_widget`/`update_card_pixmap`/
+`_style_label`) are deleted. Selection (`handle_image_selection` /
+`update_visual_selection` / `select_all_items` / `deselect_all_items`)
+maps onto the view's `QItemSelectionModel`; search-box filtering, Ctrl+wheel
+zoom, drag-drop scan, config persistence, and the reverse-search engine flow
+are unchanged (search/zoom now just feed/scale the virtual gallery). 7 new
+tests in `gui/test/web/test_reverse_search_gallery.py` cover scan→model
+population, empty scans, search-box filtering, selection mapping, select-all,
+and zoom; verified `gui/test/{web,components,image,core,database}` `--run-gui`
+→ 380 passed. The remaining `AbstractClassTwoGalleries` /
+`AbstractClassSingleGallery` tabs (Extractor, Wallpaper, Format, Codec,
+Similarity, database listings, …) still use the QLabel grid; migrate one at a
+time using this tab as the pattern.
 
 **Pain point:** Page-based gallery requires manual forward/back navigation. LRU eviction on page change causes 50–200ms thumbnail reloads. `QLabel` grid layout does not scale beyond 200 items without noticeable lag.
 
