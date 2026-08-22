@@ -1,3 +1,38 @@
+## S420 — 2026-08-22 (GUI/UX §2.1: virtual-scroll gallery Option A prototype)
+
+Shipped the roadmap's recommended first step for §2.1 Option A (the QListView
++ QAbstractItemModel virtual-scroll rewrite that makes the bounded-page
+QLabel-grid galleries' page cap obsolete).
+
+- **New `gui/src/components/virtual_gallery/`** — additive prototype; the
+  QLabel-grid base classes are untouched until a tab adopts it:
+  - `VirtualGalleryModel` (`QAbstractListModel`): every path is a row;
+    `Qt.DecorationRole` serves a lazily-loaded thumbnail and schedules the
+    background load on first request via the same `ImageLoaderWorker` +
+    `LRUImageCache` (QImage, not QPixmap) + generation-tagged per-gallery
+    `QThreadPool` the existing galleries use; each load emits `dataChanged`
+    for that row; stale deliveries after `set_paths`/`cancel_loading` are
+    dropped; `worker_factory` injectable for tests.
+  - `VirtualGalleryView` (`QListView` IconMode): `uniformItemSizes`, scroll
+    prefetch of the visible ± buffer row range, `QItemSelectionModel`
+    selection with `selected_paths()`/`select_all()`, and the gallery signal
+    surface (`path_clicked`/`path_activated`/`path_right_clicked`/`ctrl_wheel`)
+    mirroring `ClickableLabel` + `MarqueeScrollArea`.
+  - `VirtualGallery` composite widget exposing the tab-facing API
+    (`set_paths`, `set_thumbnail_size`, `selected_files`, `select_all`,
+    `jump_to_path`, `cancel_loading`, `clear_cache`).
+- **Tests** — `gui/test/components/test_virtual_gallery.py`, 14 cases
+  verifying the Option A property (a 10k-item gallery creates zero card
+  widgets; decorations are lazy; stale loads rejected after reset/cancel;
+  prefetch schedules exactly the visible±buffer range; selection; composite
+  API). Verified: `gui/test/{components,image,core,database}` with `--run-gui`
+  → 333 passed (2 pre-existing "already disconnected" RuntimeWarnings), plus
+  `ruff check` clean.
+- `docs/moon/roadmaps/gui_ux.md` §2.1 marked Partial with the prototype note
+  and the one-tab-at-a-time adoption path.
+
+---
+
 ## S419 — 2026-08-22 (Consolidating gallery crash issue #461 & tab scanner audit)
 
 - Filed consolidating GitHub issue #461 tracking the cross-thread gallery crash
@@ -44,41 +79,6 @@
   It reached MainWindow construction and the dual-panel hammer without a
   SIGSEGV/SIGABRT before the bounded run was stopped; no backtrace or core was
   captured.
-
----
-
-## S416 — 2026-08-22 (GUI/UX §2.1: virtual-scroll gallery Option A prototype)
-
-Shipped the roadmap's recommended first step for §2.1 Option A (the QListView
-+ QAbstractItemModel virtual-scroll rewrite that makes the bounded-page
-QLabel-grid galleries' page cap obsolete).
-
-- **New `gui/src/components/virtual_gallery/`** — additive prototype; the
-  QLabel-grid base classes are untouched until a tab adopts it:
-  - `VirtualGalleryModel` (`QAbstractListModel`): every path is a row;
-    `Qt.DecorationRole` serves a lazily-loaded thumbnail and schedules the
-    background load on first request via the same `ImageLoaderWorker` +
-    `LRUImageCache` (QImage, not QPixmap) + generation-tagged per-gallery
-    `QThreadPool` the existing galleries use; each load emits `dataChanged`
-    for that row; stale deliveries after `set_paths`/`cancel_loading` are
-    dropped; `worker_factory` injectable for tests.
-  - `VirtualGalleryView` (`QListView` IconMode): `uniformItemSizes`, scroll
-    prefetch of the visible ± buffer row range, `QItemSelectionModel`
-    selection with `selected_paths()`/`select_all()`, and the gallery signal
-    surface (`path_clicked`/`path_activated`/`path_right_clicked`/`ctrl_wheel`)
-    mirroring `ClickableLabel` + `MarqueeScrollArea`.
-  - `VirtualGallery` composite widget exposing the tab-facing API
-    (`set_paths`, `set_thumbnail_size`, `selected_files`, `select_all`,
-    `jump_to_path`, `cancel_loading`, `clear_cache`).
-- **Tests** — `gui/test/components/test_virtual_gallery.py`, 14 cases
-  verifying the Option A property (a 10k-item gallery creates zero card
-  widgets; decorations are lazy; stale loads rejected after reset/cancel;
-  prefetch schedules exactly the visible±buffer range; selection; composite
-  API). Verified: `gui/test/{components,image,core,database}` with `--run-gui`
-  → 333 passed (2 pre-existing "already disconnected" RuntimeWarnings), plus
-  `ruff check` clean.
-- `docs/moon/roadmaps/gui_ux.md` §2.1 marked Partial with the prototype note
-  and the one-tab-at-a-time adoption path.
 
 ---
 
