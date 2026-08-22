@@ -176,6 +176,12 @@ color-label borders without applying filesystem-only rename/copy operations
 to database record IDs. This closes the listing-specific parity work while
 retaining Option C pagination.
 
+**2026-08-22 wallpaper crash follow-up:** linked Wallpaper panels no longer
+release their directory-switch serialization when enumeration alone finishes.
+They wait asynchronously for the initiating panel's thumbnail pool to drain,
+then allow the mirrored panel or latest queued switch to start. This removes
+the overlapping decode/signal churn observed when opening large directories.
+
 **Pain point:** Page-based gallery requires manual forward/back navigation. LRU eviction on page change causes 50–200ms thumbnail reloads. `QLabel` grid layout does not scale beyond 200 items without noticeable lag.
 
 ### Options

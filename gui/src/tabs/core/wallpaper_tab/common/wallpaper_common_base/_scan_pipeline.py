@@ -412,6 +412,21 @@ class _ScanPipelineMixin:
         and, if a newer switch was requested while this one was still in
         flight, kicks it off now. See populate_scan_image_gallery()'s
         serialization comment."""
+        # Directory enumeration finishing is not sufficient to let a linked
+        # panel (or a locally queued directory switch) begin its own cycle.
+        # `_on_image_scan_finished()` has already dispatched this panel's
+        # thumbnail QRunnables by the time the video scan settles. Starting
+        # the peer here used to overlap two gallery populations for the same
+        # directory: even though native image batches are locked, their Qt
+        # signal/object churn still overlapped and matches the residual
+        # Wallpaper-tab SIGSEGV shape. Keep the scan gate until this panel's
+        # dedicated gallery pool is idle. Poll instead of waiting on the GUI
+        # thread so already-running thumbnail result signals can be delivered.
+        thread_pool = getattr(self, "thread_pool", None)
+        if thread_pool is not None and thread_pool.activeThreadCount() > 0:
+            QTimer.singleShot(25, self._settle_scan_pipeline)
+            return
+
         self._scan_pipeline_busy = False
         pending = getattr(self, "_pending_scan_request", None)
         if pending is not None:

@@ -60,9 +60,11 @@ from PySide6.QtWidgets import QApplication, QMessageBox  # noqa: E402
 # both panels' scanner QThreads is where every observed crash lands -- inside
 # PySide6/Shiboken's binding-layer bookkeeping. The startup restore alone is
 # gentler; the hammer substantially raises the per-run crash odds.
+_DEFAULT_REPRO_DIR = str(Path(__file__).resolve().parent.parent / "docs/tutorials/images")
+_REPRO_SCAN_DIR = os.environ.get("IMAGE_TOOLKIT_REPRO_SCAN_DIR", _DEFAULT_REPRO_DIR)
 _HAMMER_DIRS = (
-    str(Path(__file__).resolve().parent.parent / "docs/tutorials/images"),
-    str(Path.home() / "Pictures"),
+    _REPRO_SCAN_DIR,
+    os.environ.get("IMAGE_TOOLKIT_REPRO_SECONDARY_DIR", str(Path.home() / "Pictures")),
 )
 
 # Patch the guest-login flow BEFORE launch_app() runs so the modal "Logged in
@@ -76,7 +78,7 @@ from gui.src.windows.authentication import LoginWindow as _LoginWindowCls  # noq
 # Addenda 16/20-29 -- even though a fresh guest session normally has no saved
 # recovery data. Guest vaults are volatile-memory only (no disk persistence),
 # so this only ever affects this repro process.
-_RECOVERY_SCAN_DIR = str(Path(__file__).resolve().parent.parent / "docs/tutorials/images")
+_RECOVERY_SCAN_DIR = _REPRO_SCAN_DIR
 
 _GUEST_RECOVERY_PAYLOAD = {
     "preferences": {"session_recovery_level": "All Tabs"},
