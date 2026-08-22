@@ -6,9 +6,10 @@ change (see ``_ui_builder.py``'s docstring).
 
 from __future__ import annotations
 
-from gui.src.helpers import UpsertWorker
 from PySide6.QtCore import Slot
-from PySide6.QtWidgets import QLabel, QMessageBox
+from PySide6.QtWidgets import QMessageBox
+
+from gui.src.helpers import UpsertWorker
 
 from ....windows import MetadataEditorWindow
 
@@ -113,25 +114,16 @@ class _UpsertOpsMixin:
                         )
                     success_count += 1
 
-                    if path in self.path_to_wrapper_map:
-                        widget = self.path_to_wrapper_map[path]
-                        if self.view_new_only:
-                            self.scan_thumbnail_layout.removeWidget(widget)
-                            widget.deleteLater()
-                            del self.path_to_wrapper_map[path]
-                            if path in self.scan_image_list:
-                                self.scan_image_list.remove(path)
-                            if path in self.scan_filtered_list:
-                                self.scan_filtered_list.remove(path)
-                        else:
-                            widget.setProperty("in_db", True)
-                            inner_label = widget.findChild(QLabel)
-                            self._update_card_style(
-                                inner_label, is_selected=True, is_in_db=True  # pyrefly: ignore [bad-argument-type]
-                            )
+                    if self.view_new_only:
+                        if path in self.scan_image_list:
+                            self.scan_image_list.remove(path)
+                        if path in self.scan_filtered_list:
+                            self.scan_filtered_list.remove(path)
+                    else:
+                        self.dual.found_gallery.model.mark_in_db(path, True)
 
             if self.view_new_only:
-                self._load_current_scan_page()
+                self._refresh_scan_gallery()
 
             QMessageBox.information(
                 self, "Success", f"Upserted {success_count} images."
@@ -162,13 +154,7 @@ class _UpsertOpsMixin:
                 if img:
                     db.delete_image(img["id"])
 
-                if path in self.path_to_wrapper_map:
-                    wrapper = self.path_to_wrapper_map[path]
-                    wrapper.setProperty("in_db", False)
-                    inner_label = wrapper.findChild(QLabel)
-                    self._update_card_style(
-                        inner_label, is_selected=True, is_in_db=False  # pyrefly: ignore [bad-argument-type]
-                    )
+                self.dual.found_gallery.model.mark_in_db(path, False)
 
             QMessageBox.information(self, "Success", "Deleted entries.")
 

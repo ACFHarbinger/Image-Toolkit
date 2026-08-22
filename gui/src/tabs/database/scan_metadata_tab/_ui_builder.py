@@ -15,7 +15,6 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QComboBox,
     QFormLayout,
-    QGridLayout,
     QGroupBox,
     QHBoxLayout,
     QLineEdit,
@@ -28,7 +27,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ....components import MarqueeScrollArea
+from ....components import VirtualDualGallery
 from ....styles import apply_shadow_effect
 
 
@@ -92,71 +91,23 @@ class _UIBuilderMixin:
             self.last_browsed_scan_dir = os.getcwd()
 
     def _build_scan_gallery_section(self, content_layout) -> None:
-        # A. Top Gallery: Scan Results
-        self.scan_scroll_area = MarqueeScrollArea()
-        self.scan_scroll_area.setWidgetResizable(True)
-        self.scan_scroll_area.setMinimumHeight(600)
-
-        self.scan_thumbnail_widget = QWidget()
-        self.scan_thumbnail_layout = QGridLayout(self.scan_thumbnail_widget)
-        self.scan_thumbnail_layout.setAlignment(
-            Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter
-        )
-
-        self.scan_scroll_area.setWidget(self.scan_thumbnail_widget)
-        self.scan_scroll_area.selection_changed.connect(self.handle_marquee_selection)
-
-        # Connect Scroll Bar for Lazy Loading
-        self.scan_scroll_area.verticalScrollBar().valueChanged.connect(
-            self._on_scroll_event
-        )
-
-        # Scan Pagination Controls
-        (
-            self.scan_pag_widget,
-            self.scan_pag_combo,
-            self.scan_pag_prev,
-            self.scan_pag_next,
-            self.scan_pag_btn,
-        ) = self._create_pagination_controls("scan")
-
-        # Add shared search input (Lazy Search) for Scan Results
-        content_layout.addWidget(self.found_search_input)
-
-        content_layout.addWidget(self.scan_scroll_area, 1)
-        # Fix: Add alignment flag to center the widget itself
-        content_layout.addWidget(self.scan_pag_widget, 0, Qt.AlignmentFlag.AlignCenter)
+        # A. Top Gallery: Scan Results + B. Bottom Gallery: Selected Images
+        # (virtual-scroll, GUI/UX §2.1 Option A — replaces the two
+        # MarqueeScrollArea + QGridLayout grids; pagination is dropped and
+        # selection lives in the dual gallery's selection models).
+        self.dual = VirtualDualGallery(self)
+        self.dual.found_activated.connect(self._view_single_image_preview)
+        self.dual.found_right_clicked.connect(self.show_image_context_menu)
+        self.dual.selected_activated.connect(self._view_single_image_preview)
+        self.dual.selected_right_clicked.connect(self.show_image_context_menu)
+        self.dual.selection_changed.connect(self._sync_selection_from_dual)
+        content_layout.addWidget(self.dual, 1)
 
     def _build_selected_gallery_section(self, content_layout) -> None:
-        # B. Bottom Gallery: Selected Images
-        self.selected_images_area = MarqueeScrollArea()
-        self.selected_images_area.setWidgetResizable(True)
-        self.selected_images_area.setMinimumHeight(400)
-        self.selected_images_area.setVisible(True)
-        self.selected_images_area.selection_changed.connect(
-            self.handle_marquee_selection
-        )
-
-        self.selected_images_widget = QWidget()
-        self.selected_grid_layout = QGridLayout(self.selected_images_widget)
-        self.selected_grid_layout.setAlignment(
-            Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter
-        )
-
-        self.selected_images_area.setWidget(self.selected_images_widget)
-
-        # Selected Pagination Controls
-        (
-            self.sel_pag_widget,
-            self.sel_pag_combo,
-            self.sel_pag_prev,
-            self.sel_pag_next,
-            self.sel_pag_btn,
-        ) = self._create_pagination_controls("selected")
-
-        content_layout.addWidget(self.selected_images_area, 1)
-        # Fix: Add alignment flag to center the widget itself
-        content_layout.addWidget(self.sel_pag_widget, 0, Qt.AlignmentFlag.AlignCenter)
+        # The selected gallery now lives inside ``self.dual`` (see
+        # _build_scan_gallery_section above); this slot is kept as a no-op for
+        # call-order compatibility.
+        pass
 
     def _build_metadata_group(self, content_layout) -> None:
         # --- Metadata Group Box ---

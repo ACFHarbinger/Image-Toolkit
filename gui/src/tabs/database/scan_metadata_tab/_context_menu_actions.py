@@ -11,7 +11,7 @@ from pathlib import Path
 
 from PySide6.QtCore import QPoint, Qt, Slot
 from PySide6.QtGui import QAction, QPixmap
-from PySide6.QtWidgets import QLabel, QMenu, QMessageBox
+from PySide6.QtWidgets import QMenu, QMessageBox
 from send2trash import send2trash  # pyrefly: ignore [untyped-import]
 
 from ....windows import ImagePreviewWindow
@@ -71,15 +71,7 @@ class _ContextMenuActionsMixin:
                 if img:
                     db.delete_image(img["id"])
 
-                if path in self.path_to_wrapper_map:
-                    wrapper = self.path_to_wrapper_map[path]
-                    wrapper.setProperty("in_db", False)
-                    inner_label = wrapper.findChild(QLabel)
-                    is_selected = path in self.selected_image_paths
-                    if inner_label:
-                        self._update_card_style(
-                            inner_label, is_selected=is_selected, is_in_db=False
-                        )
+                self.dual.found_gallery.model.mark_in_db(path, False)
 
                 # Update selected list if path is present there
                 if path in self.selected_image_paths:
@@ -167,14 +159,8 @@ class _ContextMenuActionsMixin:
                 if path in self.selected_image_paths:
                     self.selected_image_paths.remove(path)
 
-                # Update UI immediately if on current page
-                if path in self.path_to_wrapper_map:
-                    widget = self.path_to_wrapper_map.pop(path)
-                    widget.deleteLater()
-                    self._repack_galleries()
-
                 # Refresh current pages to fill gaps
-                self._load_current_scan_page()
+                self._refresh_scan_gallery()
                 self.populate_selected_images_gallery()
             except Exception as e:
                 QMessageBox.critical(self, "Error", str(e))

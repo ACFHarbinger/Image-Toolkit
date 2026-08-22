@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Set, Tuple
+from typing import List, Optional, Set, Tuple
 
 from PySide6.QtCore import QThreadPool, QTimer
 from PySide6.QtGui import QImage
 from PySide6.QtWidgets import QWidget
 
 from ....classes import AbstractClassTwoGalleries
-from ....components import ClickableLabel
 from ....helpers import UpsertWorker
 from ._auto_listings import _AutoListingsMixin
 from ._config import _ConfigMixin
@@ -76,10 +75,6 @@ class ScanMetadataTab(
 
         # Cancellation flag
         self._loading_cancelled = False
-
-        # UI Maps
-        # Maps file_path -> ClickableLabel widget
-        self.path_to_wrapper_map: Dict[str, ClickableLabel] = {}
 
         # Gallery Constants
         self.thumbnail_size = 180
