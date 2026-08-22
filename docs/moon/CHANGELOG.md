@@ -1,3 +1,25 @@
+## S430 — 2026-08-22 (GUI/UX §2.1: eager thumbnail pre-fill in the virtual galleries)
+
+`VirtualGalleryModel` now pre-loads thumbnails continuously as soon as a
+gallery is populated, so images are already displayed by the time the user
+scrolls to them (previously only the visible viewport ± buffer loaded lazily).
+
+- **`_fill_all()` on `set_paths`** — every not-yet-cached path is queued for a
+  background load via chained dispatch (4 in flight, generation-gated, `fill_mode`
+  default on, optional `fill_limit`). Memory stays bounded (LRU cache) and only a
+  handful of workers are alive at once (chained, not all-at-once).
+- **Fixed a latent worker-cleanup bug** the fill exposed: `sender()` returns
+  `None` for lambda-wrapped signal slots, so `_on_thumbnail_loaded` previously
+  never removed workers from `_active_workers` (masked in single-load tests by
+  `set_paths` clearing the set). The worker is now passed explicitly through the
+  closure.
+- **Tests** — `test_set_paths_eagerly_fills_all_rows` added; the two
+  lazy-behavior tests now pin `fill_mode=False` (the lazy `data()` path still
+  exists). Full `gui/test/{web,components,image,core,database}` `--run-gui` →
+  **430 passed**. Applies to all migrated gallery tabs automatically.
+
+---
+
 ## S429 — 2026-08-22 (GUI/UX §2.1: Wallpaper subtab gallery migration)
 
 Tenth tab adoption of the §2.1 Option A virtual-scroll gallery.
