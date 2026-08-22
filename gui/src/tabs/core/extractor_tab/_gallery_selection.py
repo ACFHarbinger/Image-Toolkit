@@ -9,15 +9,14 @@ from __future__ import annotations
 import os
 import subprocess
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional, Set, cast
+from typing import TYPE_CHECKING, Set, cast
 
 from backend.src.constants import SUPPORTED_VIDEO_FORMATS
 from PySide6.QtCore import QPoint, Qt, Slot
-from PySide6.QtGui import QAction, QPixmap
-from PySide6.QtWidgets import QApplication, QLabel, QMenu, QMessageBox, QVBoxLayout, QWidget
+from PySide6.QtGui import QAction
+from PySide6.QtWidgets import QMenu, QMessageBox, QWidget
 from send2trash import send2trash  # pyrefly: ignore [untyped-import]
 
-from ....components import ClickableLabel
 from ....windows import ImagePreviewWindow
 
 if TYPE_CHECKING:
@@ -32,114 +31,43 @@ class _GallerySelectionMixin:
     - Uses base's selection ops (marquee, keyboard) instead of local handlers
     """
 
-    def create_card_widget(self: "VideoExtractorSubTabHostProtocol", path: str, pixmap: Optional[QPixmap]) -> QWidget:
-        container = QWidget()
-        container.setStyleSheet("background: transparent;")
-        layout = QVBoxLayout(container)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(1)
-
-        clickable_label = self.create_gallery_label(path, self.thumbnail_size)
-
-        # Explicitly define the method on the instance
-        def apply_style(is_selected: bool):
-            self.update_card_style(container, is_selected)
-
-        # Assign custom styling method for the Base class to call
-        container.set_selected_style = apply_style  # type: ignore[attr-defined] # pyrefly: ignore [missing-attribute]
-
-        is_video = path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
-
-        if pixmap and not pixmap.isNull():
-            if (
-                pixmap.width() > self.thumbnail_size
-                or pixmap.height() > self.thumbnail_size
-            ):
-                scaled = pixmap.scaled(
-                    self.thumbnail_size,
-                    self.thumbnail_size,
-                    Qt.AspectRatioMode.KeepAspectRatio,
-                    Qt.TransformationMode.SmoothTransformation,
-                )
-            else:
-                # Loader thumbnails already fit the target size — avoid a
-                # second smooth rescale on the GUI thread (#444).
-                scaled = pixmap
-            clickable_label.setPixmap(scaled)
-            clickable_label.setText("")
-        else:
-            if is_video:
-                clickable_label.setText("VIDEO")
-            else:
-                clickable_label.setText("Loading...")
-
-        is_selected = path in self.selected_files
-        self.update_card_style(container, is_selected)
-
-        layout.addWidget(clickable_label)
-        return container
-
-    def update_card_pixmap(self: "VideoExtractorSubTabHostProtocol", widget: QWidget, pixmap: Optional[QPixmap], label_ref: QLabel | None = None):
-        clickable_label = widget.findChild(ClickableLabel)
-        if clickable_label:
-            is_video = clickable_label.path.lower().endswith(
-                tuple(SUPPORTED_VIDEO_FORMATS)
-            )
-
-            if pixmap and not pixmap.isNull():
-                if (
-                    pixmap.width() > self.thumbnail_size
-                    or pixmap.height() > self.thumbnail_size
-                ):
-                    scaled = pixmap.scaled(
-                        self.thumbnail_size,
-                        self.thumbnail_size,
-                        Qt.AspectRatioMode.KeepAspectRatio,
-                        Qt.TransformationMode.SmoothTransformation,
-                    )
-                else:
-                    # Loader thumbnails already fit the target size — avoid
-                    # a second smooth rescale on the GUI thread (#444).
-                    scaled = pixmap
-                clickable_label.setPixmap(scaled)
-                clickable_label.setText("")
-            else:
-                if not is_video:
-                    clickable_label.clear()
-                    clickable_label.setText("Loading...")
-
-            self.update_card_style(
-                clickable_label, is_selected=(clickable_label.path in self.selected_files)
-            )
-
-    
-    def handle_marquee_selection(self: "VideoExtractorSubTabHostProtocol", marquee_selection: Set[str], is_ctrl: bool):
-        # Use base's selected_files (list) and path_to_label_map (dict) instead of selected_paths set
-        if is_ctrl:
-            # Subtractive selection (CTRL): Remove items in marquee from selection
-            for path in marquee_selection:
-                if path in self.selected_files:
-                    self.selected_files.remove(path)
-            # Update styles for affected cards
-            for path in marquee_selection:
-                widget = self.path_to_card_widget.get(path)
-                if widget:
-                    self.update_card_style(widget, path in self.selected_files)
-        else:
-            # Standard selection (No Modifiers): Replace selection with marquee
-            self.selected_files = sorted(list(marquee_selection))
-            # Update styles for all visible cards
-            self._update_card_styles()
-
+    def _sync_selection_from_gallery(self: "VideoExtractorSubTabHostProtocol"):
+        """Pull selection from the gallery's QItemSelectionModel into
+        ``selected_files`` (the tab's existing single source of truth)."""
+        self.selected_files = list(self.gallery.selected_files())
         self.on_selection_changed()
+
+    def _push_selection_to_gallery(self: "VideoExtractorSubTabHostProtocol"):
+        """Apply ``selected_files`` to the gallery's selection model.
+
+        Signals are blocked on the selection model while applying so the
+        clear+select below can't reentrantly trigger ``_sync_selection_from_gallery``
+        and wipe ``selected_files`` mid-push."""
+        sm = self.gallery.view.selectionModel()
+        sm.blockSignals(True)
+        try:
+            self.gallery.clear_selection()
+            for path in self.selected_files:
+                row = self.gallery.model.row_for_path(path)
+                if row >= 0:
+                    sm.select(self.gallery.model.index(row, 0), sm.SelectionFlag.Select)
+        finally:
+            sm.blockSignals(False)
+
+    def handle_marquee_selection(self: "VideoExtractorSubTabHostProtocol", marquee_selection: Set[str], is_ctrl: bool):
+        # Marquee/drag selection is handled natively by the QListView
+        # selection model; the gallery's selection_changed signal already
+        # synced it. Kept for API compatibility with callers.
+        self._sync_selection_from_gallery()
 
 
 
 
     @Slot(str)
     def handle_thumbnail_single_click(self: "VideoExtractorSubTabHostProtocol", image_path: str):
-        # Delegate to base's toggle_selection (#448)
-        self.toggle_selection(image_path)
+        # Single-click selection is handled by the view's native selection
+        # model (ExtendedSelection); keep selected_files in sync.
+        self._sync_selection_from_gallery()
 
 
     @Slot(str)
@@ -190,7 +118,7 @@ class _GallerySelectionMixin:
     def show_image_context_menu(self: "VideoExtractorSubTabHostProtocol", global_pos: QPoint, path: str):
         if path not in self.selected_files:
             self.selected_files = [path]
-            self._update_card_styles()
+            self._push_selection_to_gallery()
 
         count = len(self.selected_files)
         menu = QMenu(cast(QWidget, self))
@@ -309,9 +237,6 @@ class _GallerySelectionMixin:
         if confirm == QMessageBox.StandardButton.Yes:
             failed = []
             paths_to_delete = list(self.selected_files)
-            layout_changed = False
-
-            widgets_to_delete = []
 
             for path in paths_to_delete:
                 try:
@@ -323,28 +248,15 @@ class _GallerySelectionMixin:
                         self.current_extracted_paths.remove(path)
                     if path in self.gallery_image_paths:
                         self.gallery_image_paths.remove(path)
-
-                    if path in self.path_to_card_widget:
-                        widget = self.path_to_card_widget.pop(path)
-                        if widget:
-                            widgets_to_delete.append(widget)
-                            layout_changed = True
-
+                    if hasattr(self, "master_image_paths") and path in self.master_image_paths:
+                        self.master_image_paths.remove(path)
                 except Exception as e:
                     failed.append(f"{Path(path).name}: {e}")
 
             self.selected_files.clear()
-
-            if layout_changed and self.gallery_layout is not None:
-                for widget in widgets_to_delete:
-                    self.gallery_layout.removeWidget(widget)
-                    widget.deleteLater()
-
-                cols = self.common_calculate_columns(
-                    self.gallery_scroll_area, self.approx_item_width
-                )
-                self.common_reflow_layout(self.gallery_layout, cols)
-                self._update_pagination_ui()
+            self.gallery.clear_selection()
+            # Rebuild the virtual gallery from the updated master list.
+            self._perform_search()
 
             if failed:
                 QMessageBox.warning(cast(QWidget, self), "Partial Deletion Failure", "\n".join(failed))
@@ -357,11 +269,23 @@ class _GallerySelectionMixin:
 
 
     def _update_card_styles(self: "VideoExtractorSubTabHostProtocol") -> None:
-        """Re-evaluate and apply style to all currently visible cards."""
-        for path, widget in self.path_to_card_widget.items():
-            if widget:
-                is_selected = path in self.selected_files
-                self.update_card_style(widget, is_selected)
+        """Apply the current ``selected_files`` to the gallery's selection model."""
+        self._push_selection_to_gallery()
+
+    def refresh_gallery_view(self: "VideoExtractorSubTabHostProtocol"):
+        """Feed the filtered path list to the virtual gallery (no page slice /
+        per-card populate). Overrides the base grid refresh."""
+        self.cancel_loading()
+        self.clear_gallery_widgets()
+        paths = self.gallery_image_paths
+        if not paths:
+            return
+        self.gallery.set_paths(paths)
+
+    def clear_gallery_widgets(self: "VideoExtractorSubTabHostProtocol"):
+        """Clear the virtual gallery and cancel its in-flight loads."""
+        self.gallery.clear()
+        self.cancel_loading()
 
 
 __all__ = ["_GallerySelectionMixin"]

@@ -369,6 +369,9 @@ class _MediaPlayerMixin:
         """
         super().cancel_loading()  # type: ignore[safe-super]
 
+        if hasattr(self, "gallery"):
+            self.gallery.cancel_loading()
+
         if self.active_extraction_worker:
             self.active_extraction_worker.cancel()
             self.active_extraction_worker = None
