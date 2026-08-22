@@ -25,7 +25,7 @@ class _DeletionMixin:
         prefs = self._prefs()
         send_to_trash_enabled = prefs.get("send_to_trash", True)
         action_name = "Trash" if send_to_trash_enabled else "Permanent Delete"
-        if self.confirm_checkbox.isChecked():
+        if self._confirm_deletions_enabled() and self.confirm_checkbox.isChecked():
             reply = QMessageBox.question(
                 self, "Confirm Batch Delete",
                 f"Move **{count}** selected files to {action_name}?",
@@ -66,12 +66,13 @@ class _DeletionMixin:
         prefs = self._prefs()
         send_to_trash_enabled = prefs.get("send_to_trash", True)
         action_name = "Trash" if send_to_trash_enabled else "Permanent Delete"
-        reply = QMessageBox.question(
-            self, "Confirm Deletion", f"Move to {action_name}:\n{filename}",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No)
-        if reply == QMessageBox.StandardButton.No:
-            return
+        if self._confirm_deletions_enabled():
+            reply = QMessageBox.question(
+                self, "Confirm Deletion", f"Move to {action_name}:\n{filename}",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No)
+            if reply == QMessageBox.StandardButton.No:
+                return
         try:
             if send_to_trash_enabled:
                 send2trash(path)
@@ -95,7 +96,9 @@ class _DeletionMixin:
         if not self.is_valid(mode):
             return
         config = self.collect(mode)
-        config["require_confirm"] = self.confirm_checkbox.isChecked()
+        config["require_confirm"] = (
+            self._confirm_deletions_enabled() and self.confirm_checkbox.isChecked()
+        )
         self.btn_delete_files.setEnabled(False)
         self.btn_delete_directory.setEnabled(False)
         self.status_label.setText(f"Starting {mode} deletion...")
@@ -128,6 +131,9 @@ class _DeletionMixin:
 
     @Slot(str, int)
     def handle_confirmation_request(self, message: str, total_items: int):
+        if not self._confirm_deletions_enabled():
+            self.worker.set_confirmation_response(True)
+            return
         title = ("Confirm Directory Deletion"
                  if total_items == 1 and "directory" in message
                  else "Confirm File Deletion")

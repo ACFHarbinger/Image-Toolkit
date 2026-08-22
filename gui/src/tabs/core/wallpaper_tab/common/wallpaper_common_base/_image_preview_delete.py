@@ -10,7 +10,7 @@ import os
 import platform
 import subprocess
 from pathlib import Path
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from backend.src.constants import SUPPORTED_VIDEO_FORMATS
 from PySide6.QtCore import QPoint, Qt, Slot
@@ -22,14 +22,39 @@ from shiboken6 import Shiboken as sip
 from ......utils.sort_utils import natural_sort_key
 from ......windows import ImagePreviewWindow
 
-from typing import TYPE_CHECKING
-
 if TYPE_CHECKING:
     from ....protos.wallpaper_common_base import WallpaperCommonBaseHostProtocol
 
 
 class _ImagePreviewDeleteMixin:
     """Thumbnail activation, full-size preview, right-click menu, and file delete."""
+
+    def _confirm_deletions_enabled(self: "WallpaperCommonBaseHostProtocol") -> bool:
+        """Read the shared deletion-confirmation preference (§2.9D)."""
+        try:
+            main_win = self.window()
+            if main_win and hasattr(main_win, "cached_creds"):
+                return bool(
+                    main_win.cached_creds.get("preferences", {}).get(
+                        "confirm_deletions", True
+                    )
+                )
+        except Exception:
+            pass
+        return True
+
+    def _confirm_delete(self: "WallpaperCommonBaseHostProtocol", action_name: str, filename: str) -> bool:
+        """Return whether a standalone deletion may proceed."""
+        if not self._confirm_deletions_enabled():
+            return True
+        reply = QMessageBox.question(
+            cast(QWidget, self),
+            f"Confirm {action_name}",
+            f"Move to {action_name}:\n\n{filename}",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        return reply == QMessageBox.StandardButton.Yes
 
     def handle_thumbnail_double_click(self: "WallpaperCommonBaseHostProtocol", image_path: str):
         if self._current_monitor_id is not None:
@@ -160,14 +185,7 @@ class _ImagePreviewDeleteMixin:
         send_to_trash_enabled = prefs.get("send_to_trash", True)
         action_name = "Trash" if send_to_trash_enabled else "Permanent Delete"
 
-        reply = QMessageBox.question(
-            cast(QWidget, self),
-            f"Confirm {action_name}",
-            f"Move to {action_name}:\n\n{filename}",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No,
-        )
-        if reply == QMessageBox.StandardButton.No:
+        if not self._confirm_delete(action_name, filename):
             return
         try:
             if send_to_trash_enabled:

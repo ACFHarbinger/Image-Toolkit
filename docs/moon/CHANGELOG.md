@@ -1,3 +1,17 @@
+## S423 — 2026-08-22 (GUI/UX §2.9D: standalone deletion confirmations)
+
+`preferences["confirm_deletions"]` now controls every remaining standalone
+deletion prompt: Similarity's single, selected-batch, and worker-backed
+directory deletes, plus Wallpaper's preview/context-menu delete. When disabled,
+the action proceeds without a confirmation dialog; the Similarity checkbox only
+adds a confirmation when the global preference is enabled. The unrelated
+Similarity "Compare first 10?" prompt remains unchanged.
+
+- Added focused regression coverage for the Similarity and Wallpaper paths
+  (`gui/test/core/test_confirm_deletions.py`); 2 passed and Ruff is clean.
+
+---
+
 ## S422 — 2026-08-22 (GUI/UX §2.1: first VirtualGallery tab migration — ReverseImageSearchTab)
 
 Harbinger-approved adoption step: moved `ReverseImageSearchTab` off the
