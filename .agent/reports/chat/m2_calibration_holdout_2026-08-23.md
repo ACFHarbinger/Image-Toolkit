@@ -52,19 +52,29 @@ step is to freeze the rule and split before evaluating the held-out cases;
 existing SeamVis/Ghost/Composite thresholds must not be retuned against the
 hold-out. No production gate or default has been changed by this analysis.
 
-### Illustrative frozen split
+### Pre-registered defect-stratified hold-out
 
-For a first bounded check, the first eight score-order known-good IDs were
-used for calibration and `asp_test89`, `asp_test96` were held out. A grid fit
-on the calibration portion selected the same simple thresholds shown above
-(`BA RMS > 80`, cycle RMS `> 300`, raw edges `<= 10`, with missing BA treated
-as high-risk):
+The held-out membership was selected before the refit by assigning each role
+to a stable SHA-256 bucket and taking bucket 2 of 4. This retains both roles
+in hold-out while avoiding telemetry-dependent case selection:
 
-- Calibration: all 6 catastrophes rejected; 4/8 known-good cases retained.
-- Hold-out: `asp_test89` rejected as high-risk; `asp_test96` retained as
-  low-risk.
+| Split | Catastrophes | Score-order known-good |
+|---|---|---|
+| Calibration | `04, 06, 12, 14, 15` | `21, 44, 51, 52, 56, 58, 96` |
+| Held out | `07` | `46, 61, 89` |
 
-This is a useful positive feasibility result, but the two-case hold-out is too
-small to support a generalization claim. A formal M2 implementation should
-pre-register a defect-stratified split and repeat the frozen evaluation before
-promoting the rule.
+Every defect tag in the held-out rows is also represented by at least one
+calibration row, satisfying the protocol's requirement not to hold out a
+uniquely represented failure type.
+
+The calibration-only grid fit selected `BA RMS > 80`, cycle RMS `> 300`, and
+raw edges `<= 10`, with missing BA treated as high-risk. It rejected all five
+calibration catastrophes and retained four of seven calibration known-good
+cases (`44, 56, 58, 96`). Without refitting, it classified held-out
+`asp_test07` as high-risk and held-out `asp_test61` as low-risk; the remaining
+two held-out known-good cases (`46, 89`) were conservatively high-risk.
+
+This passes the M2 discriminating bar on the held-out slice, but the hold-out
+is four cases. It is a feasibility result, not a generalization or
+production-gate approval. A formal M2 implementation must retain this split
+and repeat the frozen evaluation before promoting the rule.
