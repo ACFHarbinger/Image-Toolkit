@@ -6,6 +6,18 @@ The frozen corrected evaluation says the immediate problem is render quality, no
 
 All candidates below are named, default-off experiments. They preserve Raw ASP, Safe ASP, and SCANS artifacts; none changes the post-match connectivity gate. Harbinger selects the validation IDs: 3–5 cases for each render cluster and 3–5 connectivity failures. No metric-derived subset is valid for promotion.
 
+## Locked first slice — Harbinger/Codex, 2026-08-23
+
+**Priority:** one coherent character pose comes before seam cleanup. P1 is therefore the first pixel-path candidate; P2 may refine only its already valid background plate.
+
+**Seam/blending:** `asp_test03` (blur-only minimal case); `asp_test05`, `17`, `37`, `42`, and `78` (seam/banding without content-integrity defects).
+
+**Content integrity:** `asp_test01`, `41`, `65`, `68`, `74`, and `82` (all three content defects plus the seam cluster); `asp_test28` and `83` (duplicated strip plus torn anatomy, without misordered content).
+
+**Controls:** `asp_test67` is the clean Raw ASP regression guard; `asp_test73` is the near-clean torn-anatomy-only control. No candidate is promotable if it damages `67`.
+
+**Connectivity:** `asp_test21`, `46`, and `52` are the assisted-recovery probes because the earlier offline overlap proposal found bounded bridge candidates for each. `asp_test51` and `89` are hard controls: that same probe reported anchors too sparse. The set is deliberately mixed so a manual-assistance design must expose unresolved cases rather than turn them into silent acceptance.
+
 ## P0 — make the render path observable
 
 **Mechanism.** Make the benchmark adapter report whether it invoked production-equivalent background normalization, with eligible-mask counts, background pixels, gains/clamps, residuals, and timing. Emit the same record for canvas-space joint gain and the background-plate builder when used. Keep pixels unchanged in this slice.

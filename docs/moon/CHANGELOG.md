@@ -6,6 +6,11 @@
   mask uncertainty with trapped-ball alternates; and replayable assisted
   connectivity repair. Validation uses Harbinger-selected defect clusters,
   not a metric-derived subset or an unapproved corpus run.
+- Harbinger selected the renderer slice and prioritized coherent character
+  pose before seam cleanup. The plan records seam cases 03/05/17/37/42/78,
+  content cases 01/41/65/68/74/82/28/83, and controls 67/73. Codex selected
+  connectivity probes 21/46/52 (offline bridge candidates) plus hard controls
+  51/89 (anchors too sparse).
 
 ## S449 — 2026-08-23 (ASP per-output defect severity)
 
