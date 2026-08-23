@@ -160,6 +160,7 @@ class VirtualDualGallery(QWidget):
         """Set the selected files subset and update the selected gallery view."""
         self._selected_paths = list(paths)
         self._refresh_selected_view()
+        self._sync_selected_marks()
         self.selection_changed.emit()
 
     def found_paths(self) -> List[str]:
@@ -196,6 +197,7 @@ class VirtualDualGallery(QWidget):
             selected = True
 
         self._refresh_selected_view()
+        self._sync_selected_marks()
         self.selection_changed.emit()
         return selected
 
@@ -208,6 +210,7 @@ class VirtualDualGallery(QWidget):
                 changed = True
         if changed:
             self._refresh_selected_view()
+            self._sync_selected_marks()
             self.selection_changed.emit()
 
     def deselect_all(self) -> None:
@@ -215,12 +218,14 @@ class VirtualDualGallery(QWidget):
         if self._selected_paths:
             self._selected_paths.clear()
             self._refresh_selected_view()
+            self._sync_selected_marks()
             self.selection_changed.emit()
 
     def remove_selected(self, path: str) -> None:
         if path in self._selected_paths:
             self._selected_paths.remove(path)
             self._refresh_selected_view()
+            self._sync_selected_marks()
             self.selection_changed.emit()
 
     # ------------------------------------------------------------------
@@ -239,6 +244,7 @@ class VirtualDualGallery(QWidget):
 
         self.found_gallery.set_paths(self._filtered_found_paths)
         self.lbl_found_title.setText(f"Found ({len(self._filtered_found_paths):,})")
+        self._sync_selected_marks()
 
     def _refresh_selected_view(self):
         self.selected_gallery.set_paths(self._selected_paths)
@@ -246,6 +252,21 @@ class VirtualDualGallery(QWidget):
         self.lbl_selected_title.setText(f"Selected ({count:,})")
         self.btn_compare.setEnabled(count >= 2)
         self.btn_compare.setText(f"Compare ({count}) (C)" if count >= 2 else "Compare (C)")
+
+    def _sync_selected_marks(self):
+        """Apply the current selection (indigo border) to the found rows and to
+        every row in the Selected panel, matching the classic QLabel-grid styling."""
+        self.found_gallery.set_selected(self._selected_paths)
+        self.selected_gallery.set_selected(self._selected_paths)
+
+    def set_preview(self, paths: List[str]) -> None:
+        """Mark the full set of preview-open paths (amber border) on both panels."""
+        self.found_gallery.set_preview(paths)
+        self.selected_gallery.set_preview(paths)
+
+    def mark_preview(self, path: str, preview: bool) -> None:
+        self.found_gallery.mark_preview(path, preview)
+        self.selected_gallery.mark_preview(path, preview)
 
     # ------------------------------------------------------------------
     # Gallery Management & Actions

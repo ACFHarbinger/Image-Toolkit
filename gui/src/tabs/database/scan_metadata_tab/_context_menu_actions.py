@@ -181,6 +181,8 @@ class _ContextMenuActionsMixin:
             ),
         )
         preview.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        if hasattr(preview, "path_changed"):
+            preview.path_changed.connect(self.update_preview_highlight)  # pyrefly: ignore [missing-attribute]
         preview.show()
         self.open_preview_windows.append(preview)
 

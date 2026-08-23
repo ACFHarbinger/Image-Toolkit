@@ -6,6 +6,7 @@ logic change.
 
 from __future__ import annotations
 
+import contextlib
 from typing import TYPE_CHECKING, Optional
 
 from backend.src.constants import SUPPORTED_VIDEO_FORMATS
@@ -44,8 +45,10 @@ class _CardRenderingMixin:
 
     @Slot(str, str)
     def update_preview_highlight(self: "AbstractClassSingleGalleryHostProtocol", old_path: str, new_path: str):
-        """Adds a blue highlight border to the card currently being viewed in the preview window."""
+        """Adds an amber highlight border to the card currently being viewed in
+        the preview window (distinct from the indigo selection border)."""
         is_closing = new_path == "WINDOW_CLOSED"
+        gallery = getattr(self, "gallery", None)
 
         def reset_card(path, card):
             if not card or not path:
@@ -61,11 +64,14 @@ class _CardRenderingMixin:
                 pass
 
         reset_card(old_path, self.path_to_card_widget.get(old_path))
+        if gallery is not None and hasattr(gallery, "mark_preview"):
+            gallery.mark_preview(old_path, False)
 
         if is_closing:
             sender_win = self.sender()
             if sender_win in self.open_preview_windows:
-                self.open_preview_windows.remove(sender_win) # pyrefly: ignore [bad-argument-type]
+                with contextlib.suppress(ValueError):
+                    self.open_preview_windows.remove(sender_win) # pyrefly: ignore [bad-argument-type]
             return
 
         def highlight_card(path, card):
@@ -77,11 +83,13 @@ class _CardRenderingMixin:
                     card.setProperty("original_style", card.styleSheet())
                 current = card.styleSheet().strip()
                 sep = "" if not current or current.endswith(";") else ";"
-                card.setStyleSheet(f"{current}{sep} border: 4px solid #3498db;")
+                card.setStyleSheet(f"{current}{sep} border: 4px solid #f39c12;")
             except RuntimeError:
                 pass
 
         highlight_card(new_path, self.path_to_card_widget.get(new_path))
+        if gallery is not None and hasattr(gallery, "mark_preview"):
+            gallery.mark_preview(new_path, True)
 
     def create_card_widget(self: "AbstractClassSingleGalleryHostProtocol", path: str, pixmap: Optional[QPixmap]) -> QWidget:
         container = QWidget()

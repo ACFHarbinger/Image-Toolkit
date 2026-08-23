@@ -254,6 +254,8 @@ class _FileActionsMixin:
             all_paths=all_paths,
             start_index=start_index,
         )
+        if hasattr(preview, "path_changed"):
+            preview.path_changed.connect(self.update_preview_highlight)  # pyrefly: ignore [missing-attribute]
         preview.finished.connect(
             lambda result, p=preview: self.remove_preview_window(p)
         )

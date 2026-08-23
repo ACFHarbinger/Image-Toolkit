@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from backend.src.core.wallpaper import find_qdbus_binary
 from backend.src.constants import SUPPORTED_VIDEO_FORMATS
+from backend.src.core.wallpaper import find_qdbus_binary
 from PySide6.QtCore import QPointF, QThread, QTimer, Signal
 from PySide6.QtWidgets import QApplication
 from screeninfo import Monitor
@@ -191,6 +191,7 @@ class WallpaperCommonBase(
         if not paths:
             return
         self.gallery.set_paths(paths)
+        self._refresh_gallery_highlights()  # pyrefly: ignore [bad-argument-type]
 
     def clear_gallery_widgets(self):
         """Clear the virtual gallery and cancel its in-flight loads."""

@@ -19,6 +19,7 @@ import time
 
 import pytest
 from gui.src.components.virtual_gallery import (
+    VirtualDualGallery,
     VirtualGallery,
     VirtualGalleryModel,
     VirtualGalleryView,
@@ -92,11 +93,99 @@ def test_row_count_reflects_full_list():
 def test_clear_resets_rows():
     model = _make_model()
     model.set_paths(["/a.png", "/b.png"])
+    model.set_selected(["/a.png"])
+    model.set_preview(["/b.png"])
     model.clear()
     assert model.rowCount() == 0
+    assert model.is_selected("/a.png") is False
+    assert model.is_preview("/b.png") is False
 
 
-# --- The core Option A property: constant widgets, lazy loads ---------------
+# --- Selected / preview state marks -------------------------------------------
+
+
+def test_selected_marks_roles_and_data():
+    model = _make_model()
+    model.set_paths(["/a.png", "/b.png", "/c.png"])
+    assert model.is_selected("/a.png") is False
+    assert model.data(model.index(0, 0), model.SelectedRole) is False
+
+    model.set_selected(["/a.png", "/b.png"])
+    assert model.is_selected("/a.png") is True
+    assert model.data(model.index(0, 0), model.SelectedRole) is True
+    assert model.data(model.index(1, 0), model.SelectedRole) is True
+    assert model.data(model.index(2, 0), model.SelectedRole) is False
+
+    model.mark_selected("/a.png", False)
+    assert model.is_selected("/a.png") is False
+    assert model.is_selected("/b.png") is True
+
+
+def test_preview_marks_roles_and_data():
+    model = _make_model()
+    model.set_paths(["/a.png", "/b.png"])
+    model.set_preview(["/b.png"])
+    assert model.is_preview("/b.png") is True
+    assert model.data(model.index(1, 0), model.PreviewRole) is True
+    assert model.data(model.index(0, 0), model.PreviewRole) is False
+
+    model.mark_preview("/b.png", False)
+    assert model.is_preview("/b.png") is False
+
+
+def test_marks_persist_across_set_paths():
+    """Selection/preview marks survive a gallery refresh (set_paths); only an
+    explicit clear() resets them, so an open preview stays highlighted when
+    the gallery repopulates."""
+    model = _make_model()
+    model.set_paths(["/a.png"])
+    model.set_selected(["/a.png"])
+    model.set_preview(["/a.png"])
+    model.set_paths(["/a.png", "/b.png"])
+    assert model.is_selected("/a.png") is True
+    assert model.is_preview("/a.png") is True
+
+
+# --- Delegate border painting -------------------------------------------------
+
+
+def test_delegate_paints_state_borders():
+    from gui.src.components.virtual_gallery.delegate import VirtualGalleryDelegate
+    from PySide6.QtGui import QPainter, QPixmap
+    from PySide6.QtWidgets import QStyle, QStyleOptionViewItem
+
+    model = _make_model()
+    model.set_paths(["/none.png", "/sel.png", "/prev.png"])
+    model.set_in_db(["/none.png"])
+    model.set_selected(["/sel.png"])
+    model.set_preview(["/prev.png"])
+
+    delegate = VirtualGalleryDelegate()
+    cases = {
+        "/none.png": "#2ecc71",
+        "/sel.png": "#5865f2",
+        "/prev.png": "#f39c12",
+    }
+    for row in range(model.rowCount()):
+        pm = QPixmap(200, 200)
+        pm.fill(Qt.GlobalColor.black)
+        painter = QPainter(pm)
+        opt = QStyleOptionViewItem()
+        opt.rect = pm.rect()
+        opt.state = QStyle.StateFlag.State_None
+        delegate.paint(painter, opt, model.index(row, 0))
+        painter.end()
+
+        expected = cases[model.path_at(row)]
+        # Sample a pixel just inside the top border (border width 3/4 px).
+        sample = pm.toImage().pixelColor(100, 2)
+        if expected is None:
+            assert sample.name() == "#000000"
+        else:
+            assert sample.name() == expected
+
+
+# --- Composite widget API ----------------------------------------------------
 
 
 def test_large_gallery_creates_no_card_widgets():
@@ -376,3 +465,42 @@ def test_composite_forwards_view_signals():
     assert activated == ["/b.png"]
     assert zoom == [120]
     gallery.close()
+
+
+# --- Dual-gallery selected / preview marks ------------------------------------
+
+
+def test_dual_gallery_syncs_selected_marks_and_preview():
+    dual = VirtualDualGallery(worker_factory=_FakeLoaderWorker)
+    dual.set_found_paths(["/a.png", "/b.png", "/c.png"])
+
+    dual.set_selected_paths(["/a.png"])
+    assert dual.found_gallery.model.is_selected("/a.png") is True
+    assert dual.found_gallery.model.is_selected("/b.png") is False
+    assert dual.selected_gallery.model.is_selected("/a.png") is True
+
+    dual.toggle_selection("/b.png")
+    assert dual.found_gallery.model.is_selected("/b.png") is True
+    assert dual.count_selected() == 2
+
+    dual.deselect_all()
+    assert dual.found_gallery.model.is_selected("/a.png") is False
+    assert dual.found_gallery.model.is_selected("/b.png") is False
+    assert dual.selected_gallery.model.is_selected("/a.png") is False
+
+    dual.set_preview(["/c.png"])
+    assert dual.found_gallery.model.is_preview("/c.png") is True
+    assert dual.selected_gallery.model.is_preview("/c.png") is True
+    dual.mark_preview("/c.png", False)
+    assert dual.found_gallery.model.is_preview("/c.png") is False
+    dual.close()
+
+
+def test_dual_gallery_selected_marks_survive_found_refresh():
+    dual = VirtualDualGallery(worker_factory=_FakeLoaderWorker)
+    dual.set_found_paths(["/a.png", "/b.png"])
+    dual.set_selected_paths(["/b.png"])
+    # A found-panel refresh re-applies the selection marks to the new rows.
+    dual.set_found_paths(["/a.png", "/b.png", "/c.png"])
+    assert dual.found_gallery.model.is_selected("/b.png") is True
+    dual.close()
