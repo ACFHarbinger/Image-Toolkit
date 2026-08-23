@@ -16,7 +16,7 @@ All candidates below are named, default-off experiments. They preserve Raw ASP, 
 
 **Controls:** `asp_test67` is the clean Raw ASP regression guard; `asp_test73` is the near-clean torn-anatomy-only control. No candidate is promotable if it damages `67`.
 
-**Connectivity:** `asp_test21`, `46`, and `52` are the assisted-recovery probes because the earlier offline overlap proposal found bounded bridge candidates for each. `asp_test51` and `89` are hard controls: that same probe reported anchors too sparse. The set is deliberately mixed so a manual-assistance design must expose unresolved cases rather than turn them into silent acceptance.
+**Connectivity:** `asp_test21`, `46`, and `52` are the assisted-recovery probes because the earlier offline overlap proposal found bounded bridge candidates for each. `asp_test89` is an anchors-too-sparse hard control; `asp_test25` is a separate genuine `no_valid_edges` control. `asp_test51` was removed because its frozen fallback reason is `seam_vis_gate`, not a connectivity failure. The set is deliberately mixed so a manual-assistance design must expose unresolved cases rather than turn them into silent acceptance.
 
 ## P0 — make the render path observable
 
