@@ -123,6 +123,19 @@
 
 ---
 
+## S446 — 2026-08-23 (ASP P2: Edge-Preserving Background Reconstruction + Multi-Band Blending)
+
+- **Edge-Preserving Sharp Source Selection (`_plate_compositor.py`)**:
+  Implemented edge-preserving source selection (`ASP_PLATE_EDGE_PRESERVE=1`, default ON when plate mode is enabled) in `_build_aligned_background_plate()` to protect high-frequency line art and prevent line-blurring when combining multiple aligned background samples.
+- **Multi-Band Pyramid Blending Over Clean Plate (`_plate_compositor.py`)**:
+  Integrated multi-scale Laplacian pyramid blending (`ASP_PLATE_MULTIBAND=1`, default OFF) over the canvas-aligned background plate transitions, resolving strip banding and seam lines while strictly preserving single-pose character sharpness.
+- **Log Noise Suppression**:
+  Wrapped `np.nanmedian` in `_build_aligned_background_plate()` with warning filters to suppress benign `All-NaN slice` runtime warnings on empty canvas regions.
+- **Verification**:
+  Added P2 unit tests to `test_plate_compositor.py` (4/4 passing).
+
+---
+
 ## S445 — 2026-08-23 (ASP P1: Canvas-Aligned Background Plate + Single Foreground Pose Compositor Candidate)
 
 - **Canvas-Aligned Background Plate Builder (`_plate_compositor.py`)**:
