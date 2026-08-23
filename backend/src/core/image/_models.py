@@ -7,7 +7,7 @@ the ``_get_*`` lazy loaders (§3.15A).
 
 from __future__ import annotations
 
-from backend.src.constants.core import IMAGE_MERGER__BIREFNET_OK, _LOFTR_OK
+from backend.src.constants.core import _LOFTR_OK, IMAGE_MERGER__BIREFNET_OK
 
 try:
     from backend.src.models.wrappers.basic_wrapper import BaSiCWrapper

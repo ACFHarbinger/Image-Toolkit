@@ -15,6 +15,7 @@ import logging
 from typing import Optional, Tuple
 
 import numpy as np
+
 from backend.src.constants.web import _SAM
 
 logger = logging.getLogger(__name__)

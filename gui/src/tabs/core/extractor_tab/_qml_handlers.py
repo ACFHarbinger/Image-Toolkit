@@ -8,14 +8,12 @@ from __future__ import annotations
 import os
 import subprocess
 from pathlib import Path
-from typing import Any, Optional, cast
+from typing import TYPE_CHECKING, Any, Optional, cast
 
 from PySide6.QtCore import Slot
 from PySide6.QtWidgets import QFileDialog, QWidget
 
 from ....helpers import FrameExtractionWorker
-
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ..protos.extractor_tab import VideoExtractorSubTabHostProtocol

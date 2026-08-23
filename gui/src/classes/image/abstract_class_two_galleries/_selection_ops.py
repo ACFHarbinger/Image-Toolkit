@@ -7,14 +7,13 @@ logic change (see ``_navigation.py``'s docstring).
 from __future__ import annotations
 
 import contextlib
+from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Qt, Slot
 from PySide6.QtWidgets import QApplication
 
 from ....utils.sort_utils import natural_sort_key
 from ...mixins import compute_reordered
-
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ..protos.abstract_class_two_galleries import AbstractClassTwoGalleriesHostProtocol

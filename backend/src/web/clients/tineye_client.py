@@ -29,8 +29,8 @@ from urllib.parse import urlparse
 
 import requests
 
+from backend.src.constants.web import _DEFAULT_TIMEOUT, _RETRY_BACKOFF_BASE, _SEARCH_ENDPOINT, CLIENTS__MAX_RETRIES
 from backend.src.web.models import ReverseSearchResult
-from backend.src.constants.web import CLIENTS__MAX_RETRIES, _DEFAULT_TIMEOUT, _RETRY_BACKOFF_BASE, _SEARCH_ENDPOINT
 
 log = logging.getLogger(__name__)
 

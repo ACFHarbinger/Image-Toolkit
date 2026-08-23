@@ -1,6 +1,4 @@
-import os
 import pytest
-from PySide6.QtWidgets import QApplication
 from gui.src.windows.main.main_window import MainWindow
 
 pytestmark = pytest.mark.gui

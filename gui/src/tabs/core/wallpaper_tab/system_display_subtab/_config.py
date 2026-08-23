@@ -14,14 +14,12 @@ from __future__ import annotations
 import os
 import time
 from pathlib import Path
-from typing import Any, Dict, cast
+from typing import TYPE_CHECKING, Any, Dict, cast
 
 from backend.src.core import telemetry
 from PySide6.QtWidgets import QMessageBox, QWidget
 
 from .....components import DraggableMonitorContainer, MonitorDropView
-
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ...protos.system_display_subtab import SystemDisplaySubTabHostProtocol

@@ -34,8 +34,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ...utils.manager.shortcut_manager import SHORTCUT_REGISTRY, get_registry
 from gui.src.constants.windows import _DEFAULT_SCOPE_ICON, _SCOPE_ICONS
+
+from ...utils.manager.shortcut_manager import SHORTCUT_REGISTRY, get_registry
 
 # Icons shown next to each functionality/scope in the left-hand list --
 # same emoji-prefix idiom already used for the settings window's own tab

@@ -1,7 +1,5 @@
 from typing import Any, Dict, List
 
-from gui.src.styles import SHARED_BUTTON_STYLE
-from gui.src.elements.database.common.listings_common import normalize_id_list
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QDialog,
@@ -12,6 +10,9 @@ from PySide6.QtWidgets import (
     QPushButton,
     QVBoxLayout,
 )
+
+from gui.src.elements.database.common.listings_common import normalize_id_list
+from gui.src.styles import SHARED_BUTTON_STYLE
 
 
 class _AssociatedEntitiesDialog(QDialog):

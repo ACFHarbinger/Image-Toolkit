@@ -7,7 +7,7 @@ linking individual call frames to 3D MetaGraph nodes and supporting differential
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
 

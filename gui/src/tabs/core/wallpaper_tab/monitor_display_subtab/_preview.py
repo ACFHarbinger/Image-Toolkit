@@ -11,15 +11,13 @@ import platform
 import shutil
 import subprocess
 import tempfile
-from typing import List, Optional, Tuple, cast
+from typing import TYPE_CHECKING, List, Optional, Tuple, cast
 
 from backend.src.constants import SUPPORTED_VIDEO_FORMATS
 from PySide6.QtCore import QTimer, Slot
 from PySide6.QtWidgets import QMessageBox, QWidget
 
 from ._traversal import _build_traversal
-
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ...protos.monitor_display_subtab import MonitorDisplaySubTabHostProtocol

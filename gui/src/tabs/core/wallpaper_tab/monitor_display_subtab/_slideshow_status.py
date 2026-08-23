@@ -7,12 +7,11 @@ change (see ``_ui_graph_canvas.py``'s docstring).
 from __future__ import annotations
 
 import time
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from backend.src.utils.display import monitor_slideshow_daemon as _monitor_slideshow
-from .....styles import set_button_role
 
-from typing import TYPE_CHECKING
+from .....styles import set_button_role
 
 if TYPE_CHECKING:
     from ...protos.monitor_display_subtab import MonitorDisplaySubTabHostProtocol

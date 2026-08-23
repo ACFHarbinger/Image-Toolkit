@@ -9,11 +9,12 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict
 
-from gui.src.elements.database.dialog.advanced_search_dialog import _AdvancedSearchDialog
 from PySide6.QtCore import Slot
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QMenu, QMessageBox
 from send2trash import send2trash  # pyrefly: ignore [untyped-import]
+
+from gui.src.elements.database.dialog.advanced_search_dialog import _AdvancedSearchDialog
 
 
 class _CardActionsMixin:

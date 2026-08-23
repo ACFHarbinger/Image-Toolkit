@@ -12,9 +12,10 @@ from typing import Callable, List, Optional, Tuple
 
 import numpy as np
 
+from backend.src.constants.web import _IMG_EXTS
+
 from .config import ReconConfig
 from .embedder import embed, embedding_dim
-from backend.src.constants.web import _IMG_EXTS
 
 logger = logging.getLogger(__name__)
 

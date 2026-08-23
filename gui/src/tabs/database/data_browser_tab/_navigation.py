@@ -17,6 +17,7 @@ from typing import Any, Optional
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QBrush
 from PySide6.QtWidgets import QListWidgetItem, QMessageBox
+
 from gui.src.constants.elements import _FK_CELL_COLOR
 
 

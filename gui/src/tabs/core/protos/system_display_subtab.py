@@ -13,21 +13,15 @@ from typing import Any, Dict, Mapping, Optional, Protocol, Tuple, Union
 
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import (
-    QCheckBox,
-    QComboBox,
     QGridLayout,
     QHBoxLayout,
     QLabel,
-    QLineEdit,
     QPushButton,
-    QScrollArea,
-    QSpinBox,
     QWidget,
 )
 
-from .wallpaper_common_base import WallpaperCommonBaseHostProtocol
-from ....components import MarqueeScrollArea
 from ....helpers import WallpaperWorker
+from .wallpaper_common_base import WallpaperCommonBaseHostProtocol
 
 
 class SystemDisplaySubTabHostProtocol(WallpaperCommonBaseHostProtocol, Protocol):

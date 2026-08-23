@@ -40,9 +40,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from backend.src.constants.models import ANIME_6B_FILENAME
 from backend.src.errors import ModelLoadError
 from backend.src.models.core.base import ModelWrapper, lazy_load
-from backend.src.constants.models import ANIME_6B_FILENAME
 
 logger = logging.getLogger(__name__)
 

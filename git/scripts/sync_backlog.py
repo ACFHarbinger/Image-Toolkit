@@ -39,13 +39,13 @@ import yaml
 from google import genai
 
 from .agent_tools import (
-    initialize_ticket,
-    transition_ticket,
     close_ticket,
-    resolve_status_field,
-    resolve_project_id,
+    initialize_ticket,
     list_project_items,
     load_json_config,
+    resolve_project_id,
+    resolve_status_field,
+    transition_ticket,
 )
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")

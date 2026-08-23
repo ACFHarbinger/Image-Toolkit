@@ -14,6 +14,7 @@ itself precisely instead of guessing a bigger number.
 import time
 
 import pytest
+
 from gui.src.utils.guard import startup_probe_guard
 
 pytestmark = pytest.mark.gui
@@ -170,7 +171,7 @@ class TestWallpaperScanDefersDuringSettleWindow:
         # NOT construct a scanner worker.
         startup_probe_guard.mark_startup_probe_started()
         # pyrefly: ignore [bad-argument-type]
-        base.populate_scan_image_gallery(directory) 
+        base.populate_scan_image_gallery(directory)
 
         assert started == [], (
             "populate_scan_image_gallery() started a scanner QThread while "
@@ -259,7 +260,7 @@ class TestWallpaperScanDefersDuringSettleWindow:
         startup_probe_guard.mark_startup_probe_started()
         startup_probe_guard.mark_startup_probe_settled(source="test")
         # pyrefly: ignore [bad-argument-type]
-        base.populate_scan_image_gallery(directory) 
+        base.populate_scan_image_gallery(directory)
 
         assert started == [directory]
 

@@ -120,7 +120,7 @@ def cmd_prune(args: Any) -> int:
 # repro (A4)
 # ---------------------------------------------------------------------------
 
-def cmd_repro(args: Any) -> int:
+def cmd_repro(args: Any) -> int:  # noqa: C901
     """Run a command or named scenario under telemetry (optionally gdb), then write an
     investigation summarizing the run (session path, orphans, overlaps,
     natural-language hypothesis, gdb frames)."""
@@ -212,8 +212,8 @@ def cmd_repro(args: Any) -> int:
     # D5: write a run sidecar so this investigation bundles with a working
     # repro.sh. Next to the session when one exists (D1 convention),
     # otherwise inside the investigation folder itself.
-    from ..host.runner import RunRecord, env_snapshot, _write_run_manifest
     from ..host.git import git_state
+    from ..host.runner import RunRecord, _write_run_manifest, env_snapshot
 
     record = RunRecord(
         verb="repro",

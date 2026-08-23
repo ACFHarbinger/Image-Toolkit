@@ -15,11 +15,11 @@ import re
 from typing import List, Optional
 
 from backend.src.constants import ENGINE_YANDEX
+from backend.src.constants.web import _CAPTCHA_MARKERS, _SEARCH_URL, _UPLOAD_URL
 from backend.src.web.crawlers.reverse_image_search_crawler import ReverseSearchEngine
 from backend.src.web.models import ReverseSearchResult
 
 from .common import EngineBlocked, make_session, raise_for_rate_limit
-from backend.src.constants.web import _CAPTCHA_MARKERS, _SEARCH_URL, _UPLOAD_URL
 
 log = logging.getLogger(__name__)
 

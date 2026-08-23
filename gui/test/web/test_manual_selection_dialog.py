@@ -1,5 +1,5 @@
-import os
-from PySide6.QtWidgets import QWidget, QLineEdit
+from PySide6.QtWidgets import QLineEdit, QWidget
+
 from gui.src.components.dialogs.crawler_selection_dialogs import ManualSelectionDialog
 
 
@@ -20,7 +20,7 @@ def test_manual_selection_dialog_card_states_and_paths(tmp_path):
     parent.download_dir_path.setText(str(tmp_path)) # pyrefly: ignore [missing-attribute]
 
     # pyrefly: ignore [bad-argument-type]
-    dialog = ManualSelectionDialog(items, parent=parent) 
+    dialog = ManualSelectionDialog(items, parent=parent)
 
     # Initial state: Both cards are KEEP (is_kept = True)
     assert len(dialog.cards) == 2

@@ -20,7 +20,6 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-
 # ---------------------------------------------------------------------------
 # _is_session_locked()
 # ---------------------------------------------------------------------------
@@ -50,14 +49,12 @@ class TestIsSessionLocked:
 
     def test_returns_false_when_no_session_id(self):
         from backend.src.utils.display.slideshow_daemon import _is_session_locked
-
-        with patch("backend.src.utils.display.slideshow_daemon._SESSION_ID", ""):
-            # Should not call subprocess at all when SESSION_ID is empty.
-            with patch(
-                "backend.src.utils.display.slideshow_daemon.subprocess.run"
-            ) as mock_run:
-                assert _is_session_locked() is False
-                mock_run.assert_not_called()
+        # Should not call subprocess at all when SESSION_ID is empty.
+        with patch("backend.src.utils.display.slideshow_daemon._SESSION_ID", ""), patch(
+            "backend.src.utils.display.slideshow_daemon.subprocess.run"
+        ) as mock_run:
+            assert _is_session_locked() is False
+            mock_run.assert_not_called()
 
     def test_returns_false_when_loginctl_errors(self):
         from backend.src.utils.display.slideshow_daemon import _is_session_locked
@@ -97,8 +94,8 @@ class TestApplyRuntimeConfigUnchanged:
 class TestMakeApplyCallbackLockDeferred:
     def _make_cb(self, locked: bool):
         """Build a callback with _is_session_locked patched to ``locked``."""
+
         from backend.src.utils.display.monitor_slideshow_daemon import make_apply_callback
-        from unittest.mock import MagicMock
 
         monitors = []
         with patch(
@@ -146,7 +143,6 @@ class TestMakeApplyCallbackLockDeferred:
         pending flushed by applying immediately."""
         from backend.src.utils.display.monitor_slideshow_daemon import make_apply_callback
 
-        apply_calls = []
 
         with patch(
             "backend.src.utils.display.monitor_slideshow_daemon._is_session_locked",

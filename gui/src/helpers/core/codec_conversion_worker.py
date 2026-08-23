@@ -7,8 +7,9 @@ from typing import Any, Dict, List, Optional, Union
 
 from backend.src.core import VideoFormatConverter
 from backend.src.core.video.video_probe import probe_codecs
-from gui.src.helpers.core.config_types import CodecConversionConfig
 from PySide6.QtCore import QThread, Signal
+
+from gui.src.helpers.core.config_types import CodecConversionConfig
 
 logger = logging.getLogger(__name__)
 

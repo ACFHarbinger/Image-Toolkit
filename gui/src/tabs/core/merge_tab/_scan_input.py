@@ -9,9 +9,10 @@ from __future__ import annotations
 import contextlib
 import os
 
-from gui.src.helpers import ImageScannerWorker
 from PySide6.QtCore import QEventLoop, QTimer, Slot
 from PySide6.QtWidgets import QFileDialog, QMessageBox
+
+from gui.src.helpers import ImageScannerWorker
 
 
 class _ScanInputMixin:

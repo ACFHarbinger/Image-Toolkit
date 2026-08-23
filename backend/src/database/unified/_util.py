@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from contextlib import contextmanager
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
+
 from backend.src.constants.database import _TAG_BUCKET_CLAUSE
 
 

@@ -1,5 +1,4 @@
 import pytest
-from gui.src.classes.base.base_generative_tab import BaseGenerativeTab
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -7,6 +6,8 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QSpinBox,
 )
+
+from gui.src.classes.base.base_generative_tab import BaseGenerativeTab
 
 pytestmark = pytest.mark.gui
 

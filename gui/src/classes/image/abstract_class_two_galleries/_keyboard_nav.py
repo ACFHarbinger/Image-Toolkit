@@ -19,7 +19,7 @@ class _KeyboardNavMixin:
     """§2.29 registry-driven shortcuts and arrow-key focus navigation/preview."""
 
     # --- KEYBOARD SHORTCUTS (GUI/UX §2.29 — registry-driven) ---
-    def keyPressEvent(self: "AbstractClassTwoGalleriesHostProtocol", event: QKeyEvent):
+    def keyPressEvent(self: "AbstractClassTwoGalleriesHostProtocol", event: QKeyEvent):  # noqa: C901
         from ....utils.manager.shortcut_manager import get_registry
 
         reg = get_registry()

@@ -1,6 +1,7 @@
 from unittest.mock import MagicMock, patch
 
 import numpy as np
+
 from gui.src.helpers.image.batch_image_loader_worker import BatchImageLoaderWorker
 from gui.src.helpers.image.image_loader_worker import ImageLoaderWorker
 from gui.src.helpers.image.image_scan_worker import ImageScannerWorker

@@ -24,6 +24,6 @@ class SankakuCrawler(ImageBoardCrawler):
             "explicit": "rating:explicit",
             "e": "rating:explicit",
         }
-        return mapping.get(r, None)
+        return mapping.get(r)
 
 

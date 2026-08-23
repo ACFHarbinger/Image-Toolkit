@@ -6,7 +6,6 @@ import pytest
 from PySide6.QtWidgets import QCheckBox, QDoubleSpinBox, QSpinBox
 
 from gui.src.components.dialogs.asp_advanced_config_dialog import (
-    CATEGORY_MAPPING,
     PRIMARY_CURATED_KEYS,
     AspAdvancedConfigDialog,
     get_active_schema,
@@ -35,11 +34,11 @@ class TestAspAdvancedConfigDialog:
             entry = dlg.schema[key]
             expected_type = entry[0]
 
-            if expected_type == int and entry[1] == 0 and entry[2] == 1:
+            if isinstance(expected_type, int) and entry[1] == 0 and entry[2] == 1:
                 assert isinstance(widget, QCheckBox)
-            elif expected_type == float:
+            elif isinstance(expected_type, float):
                 assert isinstance(widget, QDoubleSpinBox)
-            elif expected_type == int:
+            elif isinstance(expected_type, int):
                 assert isinstance(widget, QSpinBox)
 
     def test_preset_profile_switching(self, q_app):

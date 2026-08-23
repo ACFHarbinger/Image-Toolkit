@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 from typing import Callable, Optional
 
 from PySide6.QtCore import Qt
@@ -126,19 +127,15 @@ class TaskCloseProgressDialog(QDialog):
 
     def _handle_cancel(self) -> None:
         callback = self.on_cancel_callback
-        try:
+        with contextlib.suppress(RuntimeError):
             self.reject()
-        except RuntimeError:
-            pass
         if callback:
             callback()
 
     def _handle_confirm(self) -> None:
         callback = self.on_confirm_callback
-        try:
+        with contextlib.suppress(RuntimeError):
             self.accept()
-        except RuntimeError:
-            pass
         if callback:
             callback()
 

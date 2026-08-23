@@ -6,9 +6,10 @@ Extracted from ``search_tab.py`` -- pure code motion, no logic change
 
 from __future__ import annotations
 
-from gui.src.helpers import SearchWorker
 from PySide6.QtCore import QThreadPool, Slot
 from PySide6.QtWidgets import QMessageBox
+
+from gui.src.helpers import SearchWorker
 
 
 class _SearchWorkerMixin:

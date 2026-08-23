@@ -42,7 +42,7 @@ def _assert_guarded(module_path, subprocess_attr, args=(), kwargs=None, extra_pa
     fork happened strictly inside guard_enter..guard_exit."""
     import importlib
 
-    mod = importlib.import_module(module_path)
+    importlib.import_module(module_path)
     calls = []
 
     with (
@@ -94,6 +94,6 @@ class TestGuardPresence:
         # guard line. Count subprocess spawns and guard lines.
         import re
 
-        spawns = len(re.findall(r"subprocess\.(?:run|Popen|check_output|call)\(", src))
+        len(re.findall(r"subprocess\.(?:run|Popen|check_output|call)\(", src))
         guards = src.count("with media_backend_spawn_guard():")
         assert guards >= 1, f"{rel} must wrap at least one fork in the guard"

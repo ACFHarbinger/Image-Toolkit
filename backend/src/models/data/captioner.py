@@ -57,8 +57,8 @@ from typing import Optional, Union
 import numpy as np
 from PIL import Image
 
-from backend.src.models.wrappers.wd_tagger_wrapper import WDTaggerWrapper
 from backend.src.constants.models import _DEFAULT_UNDESIRED
+from backend.src.models.wrappers.wd_tagger_wrapper import WDTaggerWrapper
 
 log = logging.getLogger(__name__)
 

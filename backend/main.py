@@ -73,10 +73,11 @@ from backend.src.qt_runtime_env import pin_qt_media_backend  # noqa: E402
 
 pin_qt_media_backend()
 
+from gui.src.windows.settings.file_dialog_patch import apply_patch  # noqa: E402
+
 from backend.controllers.backend_dispatch import dispatch_command  # noqa: E402
 from backend.controllers.cli.arg_parser import parse_params  # noqa: E402
 from backend.src.app import launch_app, log_uncaught_exceptions  # noqa: E402
-from gui.src.windows.settings.file_dialog_patch import apply_patch  # noqa: E402
 
 # Apply the patch to add the favorites side bar to the file dialogs
 apply_patch()

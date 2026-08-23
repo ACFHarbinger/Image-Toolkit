@@ -19,7 +19,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-from gui.src.helpers.models.tag_review_worker import TagReviewWorker
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
@@ -37,7 +36,9 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+
 from gui.src.constants.components import _PREVIEW_MAX
+from gui.src.helpers.models.tag_review_worker import TagReviewWorker
 
 
 class TagReviewDialog(QDialog):

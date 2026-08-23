@@ -1,8 +1,8 @@
+import re
+from typing import Dict
+
 COLLECTION_NAME = "listings"
 DENSE_DIM = 1024  # BGE-M3 dense output dimension
-
-from typing import Dict
-import re
 
 # --- from backend/src/database/unified/entity_repo.py ---
 _COLUMN_KEYS = {'id': 'id', 'name': 'name', 'first_name': 'first_name', 'last_name': 'last_name', 'type': 'type', 'role': 'role', 'rating': 'rating', 'year': 'year', 'notes': 'notes', 'image_path': 'image_path', 'date_added': 'date_added'}

@@ -11,6 +11,7 @@ import urllib.error
 import urllib.request
 import uuid
 from pathlib import Path
+
 from backend.src.constants.models import DEFAULT_HOST, DEFAULT_PORT
 
 COMFYUI_DIR = Path(__file__).parents[3] / "ComfyUI"

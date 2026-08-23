@@ -14,7 +14,6 @@ import zipfile
 from pathlib import Path
 
 import pytest
-
 from tool.host.bundle import build_bundle, replay_bundle
 from tool.host.store import WorkspaceStore
 from tool.model.session import TELEMETRY_DIR  # noqa: F401  (ensure model import)

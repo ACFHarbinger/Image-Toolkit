@@ -10,6 +10,7 @@ from __future__ import annotations
 import types
 
 import pytest
+
 from gui.src.tabs.database.scan_metadata_tab import ScanMetadataTab
 
 pytestmark = pytest.mark.gui

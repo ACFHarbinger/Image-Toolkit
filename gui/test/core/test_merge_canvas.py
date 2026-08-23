@@ -1,7 +1,8 @@
 import pytest
-from gui.src.components.containers.merge_canvas import MergeCanvas
 from PySide6.QtCore import QPoint, QPointF, Qt
 from PySide6.QtGui import QWheelEvent
+
+from gui.src.components.containers.merge_canvas import MergeCanvas
 
 pytestmark = pytest.mark.gui
 

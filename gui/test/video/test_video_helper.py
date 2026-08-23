@@ -1,6 +1,7 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
+
 from gui.src.helpers.video.batch_video_loader_worker import BatchVideoLoaderWorker
 from gui.src.helpers.video.frame_extractor_worker import FrameExtractionWorker
 from gui.src.helpers.video.video_loader_worker import VideoLoaderWorker

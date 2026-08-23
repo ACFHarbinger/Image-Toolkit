@@ -11,15 +11,13 @@ import copy
 import json
 import time
 from pathlib import Path
-from typing import List, Optional, cast
+from typing import TYPE_CHECKING, List, Optional, cast
 
 from backend.src.constants import IMAGE_TOOLKIT_DIR
 from PySide6.QtCore import QUrl, Slot
 from PySide6.QtWidgets import QFileDialog, QLabel, QMessageBox, QWidget
 
 from ....components import ClickableLabel
-
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ..protos.extractor_tab import VideoExtractorSubTabHostProtocol
@@ -174,7 +172,7 @@ class _VideoSessionHistoryMixin:
                     self._update_source_label_style(path, label, False)
 
     @Slot(str)
-    def load_media(self: "VideoExtractorSubTabHostProtocol", file_path: str, force: bool = False, defer_player: bool = False):
+    def load_media(self: "VideoExtractorSubTabHostProtocol", file_path: str, force: bool = False, defer_player: bool = False):  # noqa: C901
         old_path = self.video_path
 
         if (

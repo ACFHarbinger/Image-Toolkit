@@ -47,8 +47,8 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
-from backend.src.models.core.base import ModelWrapper, lazy_load
 from backend.src.constants.models import _CATEGORY_NAMES, _DEFAULT_CACHE, _DEFAULT_REPO
+from backend.src.models.core.base import ModelWrapper, lazy_load
 
 logger = logging.getLogger(__name__)
 

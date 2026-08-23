@@ -65,9 +65,10 @@ def test_asp_evaluator_artifacts(tmp_path):
 
 
 def test_asp_evaluator_launch_and_cli(tmp_path, monkeypatch):
-    from unittest.mock import MagicMock
     import subprocess
-    from tool.cli.parser import build_parser, COMMANDS
+    from unittest.mock import MagicMock
+
+    from tool.cli.parser import COMMANDS, build_parser
 
     # Create dummy eval_dispatch.py
     dispatch = tmp_path / "submodules" / "ASP" / "backend" / "src" / "cli" / "eval_dispatch.py"

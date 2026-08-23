@@ -8,11 +8,9 @@ convention (§5.17).
 from __future__ import annotations
 
 import os
-from typing import Optional, cast
+from typing import TYPE_CHECKING, Optional, cast
 
 from PySide6.QtWidgets import QFileDialog, QInputDialog, QMessageBox, QWidget
-
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ..protos.abstract_class_two_galleries import AbstractClassTwoGalleriesHostProtocol

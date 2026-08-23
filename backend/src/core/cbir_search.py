@@ -21,8 +21,8 @@ from typing import List, Optional
 import numpy as np
 
 from backend.src.constants import CBIR_INDEX_DIR
-from backend.src.web.models import ReverseSearchResult
 from backend.src.constants.core import _CLIP_MODEL_NAME, _INDEX_FILE, _PATHS_FILE
+from backend.src.web.models import ReverseSearchResult
 
 log = logging.getLogger(__name__)
 

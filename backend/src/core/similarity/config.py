@@ -6,8 +6,8 @@ a cold run on a typical photo library.
 
 from dataclasses import dataclass, field
 from typing import List, Optional
-from backend.src.constants.core import SIMILARITY_DEFAULT_CACHE_PATH
 
+from backend.src.constants.core import SIMILARITY_DEFAULT_CACHE_PATH
 
 # Detection tiers (bitmask-style string identifiers)
 TIER_EXACT = "exact"            # Tier 1 — xxHash64 bit-for-bit duplicates

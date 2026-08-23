@@ -10,11 +10,11 @@ from typing import List, Optional
 from urllib.parse import urljoin
 
 from backend.src.constants import ENGINE_IQDB
+from backend.src.constants.web import _SIM_RE, SEARCH_ENGINES__RES_RE, SEARCH_ENGINES__SEARCH_URL
 from backend.src.web.crawlers.reverse_image_search_crawler import ReverseSearchEngine
 from backend.src.web.models import ReverseSearchResult
 
 from .common import make_session, raise_for_rate_limit
-from backend.src.constants.web import SEARCH_ENGINES__RES_RE, SEARCH_ENGINES__SEARCH_URL, _SIM_RE
 
 log = logging.getLogger(__name__)
 

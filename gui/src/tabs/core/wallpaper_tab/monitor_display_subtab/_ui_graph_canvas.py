@@ -24,7 +24,6 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from .....components import MarqueeScrollArea
 from .....styles import apply_shadow_effect, set_button_role
 from ..graph import WallpaperGraphScene, WallpaperGraphView
 

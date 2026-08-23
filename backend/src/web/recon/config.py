@@ -2,8 +2,8 @@
 
 from dataclasses import dataclass, field
 from typing import List
-from backend.src.constants.web import DEFAULT_CACHE_PATH, REVERSE_ENGINES
 
+from backend.src.constants.web import DEFAULT_CACHE_PATH, REVERSE_ENGINES
 
 # Embedding modes for identity resolution
 EMBED_FACE = "face"     # ArcFace / InsightFace 512d — humans

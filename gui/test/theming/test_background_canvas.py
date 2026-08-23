@@ -3,12 +3,10 @@
 from __future__ import annotations
 
 from pathlib import Path
-import tempfile
-import pytest
 
-from PySide6.QtCore import QRect, QSize, Qt
+import pytest
+from PySide6.QtCore import QRect, Qt
 from PySide6.QtGui import QColor, QImage, QPainter, QPixmap
-from PySide6.QtWidgets import QWidget
 
 from gui.src.styles.background_canvas import (
     BackgroundCanvasController,

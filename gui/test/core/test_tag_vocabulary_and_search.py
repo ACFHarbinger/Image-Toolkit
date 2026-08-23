@@ -8,9 +8,10 @@ itself remains a reusable component).
 from unittest.mock import MagicMock, patch
 
 import pytest
+from PySide6.QtCore import Qt
+
 from gui.src.tabs.database.database_tab import DatabaseTab
 from gui.src.tabs.database.search_tab import SearchTab
-from PySide6.QtCore import Qt
 
 pytestmark = pytest.mark.gui
 

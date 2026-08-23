@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+
 from gui.src.elements.database.dialog.directory_import_dialog import (
     _DirectoryImportDialog,
 )

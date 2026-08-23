@@ -10,11 +10,11 @@ import logging
 from typing import List, Optional
 
 from backend.src.constants import ENGINE_SAUCENAO
+from backend.src.constants.web import _API_BASE
 from backend.src.web.crawlers.reverse_image_search_crawler import ReverseSearchEngine
 from backend.src.web.models import ReverseSearchResult
 
 from .common import make_session, raise_for_rate_limit, resolve_api_key
-from backend.src.constants.web import _API_BASE
 
 log = logging.getLogger(__name__)
 

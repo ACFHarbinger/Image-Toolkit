@@ -14,6 +14,7 @@ colliding with this app's unrelated "Series Listings" naming.
 from __future__ import annotations
 
 import contextlib
+
 from backend.src.constants.database import DEFAULT_TAG_CATEGORIES, LEGACY_CATEGORY_ALIASES
 
 # (name, color, sort_order, applies_to)

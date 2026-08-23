@@ -11,6 +11,7 @@ import os
 
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import QDialog, QLineEdit, QListWidget, QListWidgetItem, QVBoxLayout
+
 from gui.src.constants.windows import _MAX_RESULTS, _NESTED_GALLERY_ATTRS
 
 # ConvertTab is a plain QWidget composing three gallery subtabs rather than

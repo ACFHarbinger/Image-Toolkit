@@ -27,7 +27,6 @@ from .schema import (
     SCHEMA,
     BackgroundAssetRef,
     BackgroundTokens,
-    ColorTokens,
     CornerTokens,
     DensityTokens,
     MotionTokens,

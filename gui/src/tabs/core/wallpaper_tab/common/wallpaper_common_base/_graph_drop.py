@@ -7,12 +7,11 @@ change (see ``_monitor_selection.py``'s docstring).
 from __future__ import annotations
 
 import uuid
+from typing import TYPE_CHECKING
 
 from backend.src.constants import SUPPORTED_VIDEO_FORMATS
 
 from ...graph.data_schema import GraphData, NodeData
-
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ....protos.wallpaper_common_base import WallpaperCommonBaseHostProtocol

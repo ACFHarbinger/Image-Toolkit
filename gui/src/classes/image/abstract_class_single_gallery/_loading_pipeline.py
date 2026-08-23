@@ -14,10 +14,11 @@ import os
 from typing import TYPE_CHECKING, Dict, List, Optional
 
 from backend.src.constants import SUPPORTED_VIDEO_FORMATS
-from gui.src.utils.cache.lru_image_cache import LRU_CACHE_CEILING
 from PySide6.QtCore import Qt, Slot
 from PySide6.QtGui import QImage, QPixmap
 from shiboken6 import Shiboken
+
+from gui.src.utils.cache.lru_image_cache import LRU_CACHE_CEILING
 
 from ....helpers import BatchImageLoaderWorker, ImageLoaderWorker, VideoLoaderWorker
 from ....utils.sort_utils import natural_sort_key

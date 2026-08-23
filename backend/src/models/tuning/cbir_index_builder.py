@@ -32,8 +32,8 @@ import numpy as np
 import torch
 
 from backend.src.constants import CBIR_INDEX_DIR
-from backend.src.models.data.cbir_dataset import scan_images
 from backend.src.constants.models import _BATCH_SIZE
+from backend.src.models.data.cbir_dataset import scan_images
 
 log = logging.getLogger(__name__)
 

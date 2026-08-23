@@ -7,7 +7,6 @@ and folder navigation.
 from __future__ import annotations
 
 import os
-from pathlib import Path
 from typing import Optional, Sequence
 
 from PySide6.QtCore import QObject, QRunnable, QSize, Qt, QThreadPool, Signal, Slot
@@ -29,7 +28,6 @@ from PySide6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QMenu,
-    QMessageBox,
     QPushButton,
     QSlider,
     QSplitter,
@@ -92,10 +90,7 @@ class ThumbnailFilePicker(QDialog):
             start_dir = os.path.dirname(start_dir)
         if not start_dir or not os.path.isdir(start_dir):
             pictures = os.path.expanduser("~/Pictures")
-            if os.path.isdir(pictures):
-                start_dir = pictures
-            else:
-                start_dir = os.path.expanduser("~")
+            start_dir = pictures if os.path.isdir(pictures) else os.path.expanduser("~")
 
         self._current_dir = start_dir
         self._single_selection = single_selection

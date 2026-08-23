@@ -8,6 +8,7 @@ import subprocess
 import tempfile
 import time
 import urllib.parse
+
 import requests
 from bs4 import BeautifulSoup
 from PySide6.QtCore import QObject, Signal
@@ -199,7 +200,7 @@ class ImageCrawler(QObject):
         self.on_finished.emit(message)
         return downloaded_count
 
-    def _find_browser_binary(self, browser_name: str) -> str | None:
+    def _find_browser_binary(self, browser_name: str) -> str | None:  # noqa: C901
         """Find binary executable path for specified browser."""
         b_name = (browser_name or "").lower().strip()
         if b_name == "brave":
@@ -352,7 +353,7 @@ class ImageCrawler(QObject):
             )
             return None
 
-    def _process_selenium_actions(self, driver, actions, base_url) -> list[str]:
+    def _process_selenium_actions(self, driver, actions, base_url) -> list[str]:  # noqa: C901
         """Execute configured actions on Selenium driver."""
         from selenium.webdriver.common.by import By
 

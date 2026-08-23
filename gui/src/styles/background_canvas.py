@@ -10,13 +10,13 @@ Provides root-window background image rendering with:
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
 import logging
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Sequence
+from typing import Any, Sequence
 
 from PySide6.QtCore import QObject, QRect, QSize, Qt, QTimer, Signal
-from PySide6.QtGui import QColor, QImage, QPainter, QPixmap
+from PySide6.QtGui import QImage, QPainter, QPixmap
 
 log = logging.getLogger(__name__)
 

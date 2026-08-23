@@ -72,7 +72,7 @@ def _inject_recovery(vault_manager):
         creds.setdefault("preferences", {}).update(_GUEST_RECOVERY_PAYLOAD["preferences"])
         creds["session_recovery_data"] = _GUEST_RECOVERY_PAYLOAD["session_recovery_data"]
         vault_manager.save_data(json.dumps(creds))
-        print(f"[verify] injected recovery payload targeting Database tab", flush=True)
+        print("[verify] injected recovery payload targeting Database tab", flush=True)
     except Exception as e:  # noqa: BLE001
         print(f"[verify] WARNING: failed to inject recovery payload: {e}", flush=True)
 

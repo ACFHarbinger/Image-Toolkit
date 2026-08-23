@@ -12,8 +12,8 @@ from pathlib import Path
 from typing import Optional
 
 from backend.src.constants import IMAGE_TOOLKIT_DIR
-from backend.src.database.unified import tag_categories
 from backend.src.constants.database import SCHEMA_VERSION
+from backend.src.database.unified import tag_categories
 
 DEFAULT_DB_PATH = Path(IMAGE_TOOLKIT_DIR) / "library.db"
 

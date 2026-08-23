@@ -8,15 +8,13 @@ from __future__ import annotations
 
 import platform
 from pathlib import Path
-from typing import Any, Dict, Optional, cast
+from typing import TYPE_CHECKING, Any, Dict, Optional, cast
 
 from backend.src.core import WallpaperManager
 from PySide6.QtWidgets import QLabel, QMessageBox, QWidget
 from screeninfo import get_monitors
 
 from ......components import MonitorDropView
-
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ....protos.wallpaper_common_base import WallpaperCommonBaseHostProtocol

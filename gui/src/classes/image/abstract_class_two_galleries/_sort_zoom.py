@@ -8,10 +8,9 @@ from __future__ import annotations
 
 import contextlib
 import hashlib
+from typing import TYPE_CHECKING
 
 from backend.src.constants import THUMBNAIL_CACHE_DIR
-
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ..protos.abstract_class_two_galleries import AbstractClassTwoGalleriesHostProtocol

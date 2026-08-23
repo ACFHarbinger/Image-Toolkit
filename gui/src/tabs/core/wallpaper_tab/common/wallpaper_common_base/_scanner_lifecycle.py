@@ -21,13 +21,11 @@ from __future__ import annotations
 
 import contextlib
 import threading
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from backend.src.core import telemetry
 from PySide6.QtCore import QEvent, QThread
 from PySide6.QtWidgets import QApplication
-
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ....protos.wallpaper_common_base import WallpaperCommonBaseHostProtocol

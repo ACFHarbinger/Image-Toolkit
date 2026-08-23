@@ -7,6 +7,7 @@ and Side-Drawer Inspectors.
 
 from __future__ import annotations
 
+import contextlib
 from dataclasses import asdict, dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
@@ -82,10 +83,8 @@ class CrossViewBridge:
         """Publish a new selection to all viewports."""
         self.active_selection = target
         for cb in self._selection_listeners:
-            try:
+            with contextlib.suppress(Exception):
                 cb(target)
-            except Exception:
-                pass
 
     def clear_selection(self) -> None:
         self.active_selection = None
@@ -94,10 +93,8 @@ class CrossViewBridge:
         """Publish a live hover pulse to all viewports."""
         self.active_hover = target
         for cb in self._hover_listeners:
-            try:
+            with contextlib.suppress(Exception):
                 cb(target)
-            except Exception:
-                pass
 
     @staticmethod
     def resolve_meta_node_id(entity_id: str, kind: str, metadata: Dict[str, Any]) -> Optional[str]:

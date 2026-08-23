@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 from backend.src.core.vault_manager import VaultManager
-from gui.src.components.widgets.toast_widget import ToastManager
-from gui.src.windows.settings.app_settings import AppSettings
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QGuiApplication, QImageReader
 from PySide6.QtWidgets import (
@@ -18,6 +16,9 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+
+from gui.src.components.widgets.toast_widget import ToastManager
+from gui.src.windows.settings.app_settings import AppSettings
 
 from ...constants import NEW_LIMIT_MB
 from ..settings import SettingsWindow

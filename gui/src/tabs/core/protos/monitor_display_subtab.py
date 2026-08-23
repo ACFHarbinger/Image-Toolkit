@@ -29,9 +29,9 @@ from PySide6.QtWidgets import (
 )
 from screeninfo import Monitor
 
-from .wallpaper_common_base import WallpaperCommonBaseHostProtocol
 from ..wallpaper_tab.graph import WallpaperGraphScene, WallpaperGraphView
 from ..wallpaper_tab.graph.data_schema import GraphData, NodeData
+from .wallpaper_common_base import WallpaperCommonBaseHostProtocol
 
 
 class MonitorDisplaySubTabHostProtocol(WallpaperCommonBaseHostProtocol, Protocol):

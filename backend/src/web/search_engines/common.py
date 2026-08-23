@@ -10,7 +10,8 @@ import logging
 import os
 from pathlib import Path
 from typing import Optional
-from backend.src.constants.web import DEFAULT_USER_AGENT, _RATE_LIMIT_STATUS
+
+from backend.src.constants.web import _RATE_LIMIT_STATUS, DEFAULT_USER_AGENT
 
 log = logging.getLogger(__name__)
 

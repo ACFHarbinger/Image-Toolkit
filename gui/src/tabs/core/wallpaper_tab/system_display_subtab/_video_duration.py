@@ -10,6 +10,7 @@ from __future__ import annotations
 import os
 import subprocess
 from typing import Optional
+
 from gui.src.constants.elements import _VIDEO_DURATION_CACHE
 
 

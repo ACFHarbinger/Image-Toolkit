@@ -1,8 +1,8 @@
 """Unit tests for backend/src/utils/data/safetensors_metadata.py."""
 
-import tempfile
 import os
-import pytest
+import tempfile
+
 from backend.src.utils.data.safetensors_metadata import (
     calculate_file_hash,
     parse_model_spec,

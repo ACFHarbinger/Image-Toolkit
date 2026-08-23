@@ -1,4 +1,3 @@
-from gui.src.components.labels.metadata_overlay import MetadataOverlay
 import contextlib
 import os
 from typing import Callable, Optional
@@ -6,6 +5,8 @@ from typing import Callable, Optional
 from PySide6.QtCore import QPoint, Qt, Signal
 from PySide6.QtGui import QColor, QMouseEvent, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import QLabel
+
+from gui.src.components.labels.metadata_overlay import MetadataOverlay
 
 
 class ClickableLabel(QLabel):

@@ -22,8 +22,6 @@ from PySide6.QtWidgets import (
 
 from gui.src.constants.elements import SOURCE_REDDIT
 
-from gui.src.constants.elements import SOURCE_REDDIT
-
 from ....styles import apply_shadow_effect, set_button_role
 
 SOURCE_NHENTAI = 1

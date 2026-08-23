@@ -1,11 +1,10 @@
 from unittest.mock import patch
 
+from gui.src.windows.settings.app_settings import AppSettings
+from gui.src.windows.settings.file_dialog_patch import CustomFileDialog, FileDialogEventFilter
 from PySide6.QtCore import QPoint
 from PySide6.QtGui import QContextMenuEvent, QStandardItem, QStandardItemModel
 from PySide6.QtWidgets import QFileDialog, QListView, QMenu, QMessageBox
-
-from gui.src.windows.settings.app_settings import AppSettings
-from gui.src.windows.settings.file_dialog_patch import CustomFileDialog, FileDialogEventFilter
 
 
 class MyStandardItemModel(QStandardItemModel):

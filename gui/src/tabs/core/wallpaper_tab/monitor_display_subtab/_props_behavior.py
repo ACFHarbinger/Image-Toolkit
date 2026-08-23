@@ -7,16 +7,13 @@ change (see ``_ui_graph_canvas.py``'s docstring).
 from __future__ import annotations
 
 import os
+from typing import TYPE_CHECKING, cast
 
 from PySide6.QtCore import QPoint, Qt, QTimer, Slot
-from typing import cast
-
 from PySide6.QtWidgets import QInputDialog, QListWidgetItem, QMenu, QWidget
 
 from ..graph import NodeItem, is_video
 from ..graph.data_schema import NodeData
-
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ...protos.monitor_display_subtab import MonitorDisplaySubTabHostProtocol

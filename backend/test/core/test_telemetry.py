@@ -108,9 +108,8 @@ class TestSpan:
         assert start["runtime"] == "python"
 
     def test_nested_spans_set_parent_span_id(self, tmp_path):
-        with telemetry.span("asp", "stage.composite"):
-            with telemetry.span("asp", "stage.seam"):
-                pass
+        with telemetry.span("asp", "stage.composite"), telemetry.span("asp", "stage.seam"):
+            pass
         records = _read_records(tmp_path)
         outer_start, inner_start, inner_end, outer_end = records
         assert outer_start["span_id"] == outer_end["span_id"]

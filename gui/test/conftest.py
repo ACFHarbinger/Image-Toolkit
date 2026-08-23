@@ -1,13 +1,6 @@
 import contextlib
 import importlib.machinery
 import sys
-from pathlib import Path
-from unittest.mock import MagicMock
-
-import pytest
-from PySide6.QtCore import QObject, QRunnable, Signal
-from PySide6.QtGui import QPixmap
-from PySide6.QtWidgets import QApplication
 
 # --- BLOCK HEAVY IMPORTS ---
 # Build the mocked backend.src.models tree as REAL package modules (with
@@ -20,7 +13,14 @@ from PySide6.QtWidgets import QApplication
 # import: gui gets the mock (heavy torch/diffusers never load), backend
 # tests that import BEFORE the gui session still resolve... (see restore
 # block below for the combined-session case).
-import types as _types
+import types
+from pathlib import Path
+from unittest.mock import MagicMock
+
+import pytest
+from PySide6.QtCore import QObject, QRunnable, Signal
+from PySide6.QtGui import QPixmap
+from PySide6.QtWidgets import QApplication
 
 
 def _mock_submodule(fullname: str) -> "MagicMock":
@@ -32,7 +32,7 @@ def _mock_submodule(fullname: str) -> "MagicMock":
 def _mock_package(fullname: str) -> "types.ModuleType":
     """Create a real package module (__path__ set) so submodule imports
     resolve through it instead of failing with 'is not a package'."""
-    pkg = _types.ModuleType(fullname)
+    pkg = types.ModuleType(fullname)
     pkg.__path__ = []
     pkg.__spec__ = importlib.machinery.ModuleSpec(fullname, None)
     sys.modules.setdefault(fullname, pkg)

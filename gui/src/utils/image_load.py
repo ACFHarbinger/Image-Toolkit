@@ -6,8 +6,8 @@ from pathlib import Path
 
 from backend.src.constants import SUPPORTED_IMG_FORMATS
 from PySide6.QtGui import QImage
-from gui.src.constants.utils import _QT_NATIVE_EXTS
 
+from gui.src.constants.utils import _QT_NATIVE_EXTS
 
 IMAGE_FILE_DIALOG_FILTER = (
     "Images ("

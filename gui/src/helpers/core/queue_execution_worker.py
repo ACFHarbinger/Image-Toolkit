@@ -9,9 +9,10 @@ from pathlib import Path
 from typing import Any, Dict, Union
 
 import cv2
-from gui.src.helpers.core.config_types import ExtractionConfig
 from moviepy.editor import AudioFileClip, VideoFileClip, concatenate_videoclips
 from PySide6.QtCore import QObject, QRunnable, Signal
+
+from gui.src.helpers.core.config_types import ExtractionConfig
 
 
 def run_extraction_in_process(config: Union[ExtractionConfig, Dict[str, Any]]) -> Dict[str, Any]:  # noqa: C901

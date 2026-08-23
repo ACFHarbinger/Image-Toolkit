@@ -10,9 +10,10 @@ from __future__ import annotations
 
 from typing import Dict, List
 
-from gui.src.components.tag_chip_widget import FlowLayout, TagChipWidget
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
+
+from gui.src.components.tag_chip_widget import FlowLayout, TagChipWidget
 
 
 class GroupedTagsDisplay(QWidget):

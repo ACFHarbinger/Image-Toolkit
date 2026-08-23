@@ -13,10 +13,9 @@ Covered regressions:
 from __future__ import annotations
 
 import time
-
-import pytest
 from unittest.mock import patch
 
+import pytest
 from PySide6.QtCore import QObject, Signal
 
 pytestmark = pytest.mark.gui
@@ -88,9 +87,9 @@ class TestMediaLoaderDownloadClick:
             assert tab.worker is not None
 
     def test_click_download_twice_still_completes(self, q_app, tmp_path):
+        from gui.src.helpers.web.media_loader_worker import MediaLoaderWorker
         from gui.src.tabs.web.media_loader_tab import MediaLoaderTab
         from gui.src.tabs.web.media_loader_tab._ui_builder import SOURCE_NHENTAI
-        from gui.src.helpers.web.media_loader_worker import MediaLoaderWorker
 
         tab = MediaLoaderTab()
         tab.source_combo.setCurrentIndex(SOURCE_NHENTAI)

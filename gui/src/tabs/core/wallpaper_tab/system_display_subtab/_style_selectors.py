@@ -7,14 +7,12 @@ change (see ``_ui_builder.py``'s docstring).
 from __future__ import annotations
 
 import platform
-from typing import Mapping, Optional, Tuple, Union, cast
+from typing import TYPE_CHECKING, Mapping, Optional, Tuple, Union, cast
 
 from backend.src.constants import WALLPAPER_STYLES
 from PySide6.QtCore import Slot
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QColorDialog, QWidget
-
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ...protos.system_display_subtab import SystemDisplaySubTabHostProtocol

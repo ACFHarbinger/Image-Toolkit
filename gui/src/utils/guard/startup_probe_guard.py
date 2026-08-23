@@ -33,6 +33,7 @@ import time
 from typing import Optional
 
 from backend.src.core import telemetry
+
 from gui.src.constants.utils import _STARTUP_SETTLE_CEILING_SECONDS
 
 # Upper bound if QMediaDevices never confirms (backend doesn't emit the

@@ -1,10 +1,11 @@
 import os
 
 from backend.src.constants import SUPPORTED_IMG_FORMATS, SUPPORTED_VIDEO_FORMATS
-from gui.src.components.containers.canvas_base import CanvasBase
 from PySide6.QtCore import QPointF
 from PySide6.QtGui import QBrush, QColor, QPainter
 from PySide6.QtWidgets import QGraphicsView
+
+from gui.src.components.containers.canvas_base import CanvasBase
 
 from .node_item import NODE_W
 from .wallpaper_graph_scene import WallpaperGraphScene

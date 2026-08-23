@@ -11,8 +11,9 @@ from typing import Optional
 
 import numpy as np
 
-from .config import EMBED_CLIP, EMBED_FACE
 from backend.src.constants.web import _FACE_APP
+
+from .config import EMBED_CLIP, EMBED_FACE
 
 logger = logging.getLogger(__name__)
 

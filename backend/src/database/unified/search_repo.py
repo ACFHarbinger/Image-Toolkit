@@ -11,9 +11,10 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
+from backend.src.constants.database import _ENTITY_SORT_SQL, _IMAGE_COLUMNS, _IMAGE_SELECT
+
 from . import session
 from ._util import sql_string_literal, tag_bucket_clause
-from backend.src.constants.database import _ENTITY_SORT_SQL, _IMAGE_COLUMNS, _IMAGE_SELECT
 
 
 def _like(fragment: str) -> str:

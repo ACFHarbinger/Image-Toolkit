@@ -1,8 +1,8 @@
 import time
 
 import requests
-from backend.src.constants.web import _BACKOFF_BASE_SECONDS, _MAX_RETRIES, _RETRY_STATUS_CODES, _STATUS_MAP
 
+from backend.src.constants.web import _BACKOFF_BASE_SECONDS, _MAX_RETRIES, _RETRY_STATUS_CODES, _STATUS_MAP
 
 # Jikan sits behind Cloudflare and occasionally answers with a transient
 # gateway error (429 rate-limited, 502/503/504 upstream hiccups) that

@@ -1,7 +1,7 @@
 import contextlib
 import hashlib
 import os
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, List, Tuple, Union
 
 from backend.src.core.dir_phash_index import compute_phash_file
 from PySide6.QtCore import Qt
@@ -208,29 +208,29 @@ class ManualSelectionDialog(QDialog):
             if self.skip_first == 0:
                 if hasattr(p, "skip_first_input"):
                     with contextlib.suppress(Exception):
-                        self.skip_first = int(getattr(p, "skip_first_input").text().strip())
+                        self.skip_first = int(p.skip_first_input.text().strip())
                 elif hasattr(p, "skip_first_spin"):
                     with contextlib.suppress(Exception):
-                        self.skip_first = int(getattr(p, "skip_first_spin").value())
+                        self.skip_first = int(p.skip_first_spin.value())
 
             if self.skip_last == 0:
                 if hasattr(p, "skip_last_input"):
                     with contextlib.suppress(Exception):
-                        self.skip_last = int(getattr(p, "skip_last_input").text().strip())
+                        self.skip_last = int(p.skip_last_input.text().strip())
                 elif hasattr(p, "skip_last_spin"):
                     with contextlib.suppress(Exception):
-                        self.skip_last = int(getattr(p, "skip_last_spin").value())
+                        self.skip_last = int(p.skip_last_spin.value())
 
             if hasattr(p, "download_dir_path"):
                 try:
-                    self.download_dir = getattr(p, "download_dir_path").text().strip()
+                    self.download_dir = p.download_dir_path.text().strip()
                     if self.download_dir:
                         break
                 except Exception:
                     pass
             if hasattr(p, "download_dir"):
                 try:
-                    self.download_dir = str(getattr(p, "download_dir")).strip()
+                    self.download_dir = str(p.download_dir).strip()
                     if self.download_dir:
                         break
                 except Exception:
@@ -376,9 +376,7 @@ class ManualSelectionDialog(QDialog):
             if "skip_last" in item and item["skip_last"]:
                 item_skip_last = int(item["skip_last"])
 
-        if item_skip_first > 0 and index_on_page <= item_skip_first:
-            card.set_kept(False)
-        elif item_skip_last > 0 and total_on_page > 0 and index_on_page > (total_on_page - item_skip_last):
+        if item_skip_first > 0 and index_on_page <= item_skip_first or item_skip_last > 0 and total_on_page > 0 and index_on_page > (total_on_page - item_skip_last):
             card.set_kept(False)
 
         return card

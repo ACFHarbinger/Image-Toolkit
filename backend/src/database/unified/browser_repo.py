@@ -25,6 +25,7 @@ the vault password.
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
+
 from backend.src.constants.database import _BANNED_WHERE_PATTERN
 
 

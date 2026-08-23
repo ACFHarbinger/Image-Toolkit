@@ -90,7 +90,7 @@ class ImageBoardCrawler(QObject):
             "explicit": "rating:explicit",
             "e": "rating:explicit",
         }
-        return mapping.get(r, None)
+        return mapping.get(r)
 
 
     def run(self):

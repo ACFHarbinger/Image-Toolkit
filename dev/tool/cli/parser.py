@@ -187,7 +187,7 @@ def cmd_plugin_run(args: Any) -> int:
     """
     if not getattr(args, "stdio", False):
         print(
-            f"plugin-run: --stdio is required (Grok lock #8: the host appends it)",
+            "plugin-run: --stdio is required (Grok lock #8: the host appends it)",
             file=sys.stderr,
         )
         return 2

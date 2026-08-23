@@ -12,6 +12,7 @@ import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Dict, List, Tuple
+
 from backend.src.constants.web import _NAME_RE, _NER, _STOP
 
 logger = logging.getLogger(__name__)

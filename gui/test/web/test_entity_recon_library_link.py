@@ -6,9 +6,10 @@ gui/src/tabs/web/entity_recon_tab/_library_link.py
 from unittest.mock import MagicMock, patch
 
 import pytest
-from gui.src.tabs.web.entity_recon_tab import EntityReconTab
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QTreeWidgetItem
+
+from gui.src.tabs.web.entity_recon_tab import EntityReconTab
 
 pytestmark = pytest.mark.gui
 

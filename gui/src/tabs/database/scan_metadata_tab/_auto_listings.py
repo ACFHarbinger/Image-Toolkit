@@ -22,7 +22,6 @@ from typing import Dict, List
 
 from backend.src.database.unified.image_repo import ImageRepo
 from backend.src.database.unified.media_repo import MediaRepo
-from gui.src.helpers.database.library_session import get_library_db
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QComboBox,
@@ -35,7 +34,9 @@ from PySide6.QtWidgets import (
     QTableWidgetItem,
     QVBoxLayout,
 )
+
 from gui.src.constants.elements import _WORD_RE
+from gui.src.helpers.database.library_session import get_library_db
 
 
 def _words(text: str) -> set:

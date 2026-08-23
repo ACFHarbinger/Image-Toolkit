@@ -19,10 +19,9 @@ import sys
 from pathlib import Path
 
 import pytest
-
 from tool import WorkspaceStore
 from tool.host import build_command_argv, discover_plugins, load_manifest
-from tool.host.command import PluginStdioServer, PROTOCOL_VERSION, run_plugin_stdio
+from tool.host.command import PROTOCOL_VERSION, PluginStdioServer, run_plugin_stdio
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 

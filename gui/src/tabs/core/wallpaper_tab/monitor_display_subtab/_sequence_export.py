@@ -7,15 +7,13 @@ change (see ``_ui_graph_canvas.py``'s docstring).
 from __future__ import annotations
 
 import os
-from typing import List, cast
+from typing import TYPE_CHECKING, List, cast
 
 from backend.src.constants import SUPPORTED_VIDEO_FORMATS
 from PySide6.QtCore import Slot
 from PySide6.QtWidgets import QMessageBox, QWidget
 
 from ._traversal import _build_traversal, _get_video_duration
-
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ...protos.monitor_display_subtab import MonitorDisplaySubTabHostProtocol

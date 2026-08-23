@@ -2,9 +2,10 @@ import json
 from pathlib import Path
 
 import pytest
+from PySide6.QtWidgets import QMessageBox
+
 from gui.src.tabs.core.extractor_tab import ExtractorTab
 from gui.src.windows.settings.settings_window import SettingsWindow
-from PySide6.QtWidgets import QMessageBox
 
 pytestmark = pytest.mark.gui
 

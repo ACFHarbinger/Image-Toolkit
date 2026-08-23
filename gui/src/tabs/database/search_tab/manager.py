@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from typing import Dict, List, Optional
 
-from gui.src.helpers import SearchWorker
 from PySide6.QtCore import Signal
+
+from gui.src.helpers import SearchWorker
 
 from ....classes import AbstractClassTwoGalleries
 from ._config import _ConfigMixin

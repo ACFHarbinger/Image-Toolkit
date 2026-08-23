@@ -1,9 +1,7 @@
 """Unit tests for backend/benchmark/merge_overmix_report.py."""
 
 import json
-import tempfile
-import pytest
-from pathlib import Path
+
 from backend.benchmark.merge_overmix_report import merge_overmix_results
 
 
@@ -16,7 +14,7 @@ def test_merge_overmix_results_empty_dir(tmp_path):
 def test_merge_overmix_results_with_artifacts(tmp_path):
     test1 = tmp_path / "test01"
     test1.mkdir()
-    
+
     meta_path = test1 / "overmix_variant.json"
     meta_path.write_text(json.dumps({"aligner": "Recursive", "elapsed_sec": 1.2}), encoding="utf-8")
 

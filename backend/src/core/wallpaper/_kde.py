@@ -106,7 +106,7 @@ class _KDEWallpaperMixin:
         return mapping
 
     @staticmethod
-    def _set_wallpaper_kde(path_map: Dict[str, str], style_name: str, qdbus: str):
+    def _set_wallpaper_kde(path_map: Dict[str, str], style_name: str, qdbus: str):  # noqa: C901
         video_fill_mode = 2
         video_mode_active = False
 

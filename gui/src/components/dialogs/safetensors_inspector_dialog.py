@@ -213,7 +213,7 @@ class SafetensorsInspectorDialog(QDialog):
     def _on_hash_computed(self, hash_val: str) -> None:
         self._computed_hash = hash_val
         self._hash_btn.setText("SHA256 Verified")
-        
+
         parsed_spec: dict = self._raw_data.get("parsed_spec", {})
         embedded = parsed_spec.get("embedded_hash")
 

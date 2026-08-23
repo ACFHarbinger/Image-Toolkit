@@ -3,7 +3,9 @@
 # --------------------------------
 import base64
 import contextlib
+import hashlib
 import io
+import json
 import logging
 import os
 import sys
@@ -16,10 +18,6 @@ from safetensors import safe_open
 from safetensors.torch import save_file
 
 logger = logging.getLogger(__name__)
-
-
-import hashlib
-import json
 
 
 def calculate_file_hash(path: str, chunk_size: int = 1048576) -> str:

@@ -5,6 +5,12 @@ from string import Template
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QGraphicsDropShadowEffect
 
+from .background_canvas import (
+    BackgroundCanvasController,
+    BackgroundConfig,
+    generate_glassmorphism_qss,
+)
+
 
 def parse_theme_vars() -> dict:
     """Parses variables from theme.qss file.
@@ -193,9 +199,3 @@ SHARED_BUTTON_STYLE = load_qss("shared_button.qss")
 STYLE_START_ACTION = load_qss("shared_button.qss")
 STYLE_STOP_ACTION = load_qss("stop_action.qss")
 # -------------------------------------------
-
-from .background_canvas import (
-    BackgroundCanvasController,
-    BackgroundConfig,
-    generate_glassmorphism_qss,
-)

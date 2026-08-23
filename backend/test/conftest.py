@@ -11,6 +11,7 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 os.environ["TF_NUM_INTEROP_THREADS"] = "1"
 os.environ["TF_NUM_INTRAOP_THREADS"] = "1"
 
+import contextlib
 import gc
 import sys
 import tempfile
@@ -32,10 +33,12 @@ if test_dir not in sys.path:
 build_base = os.path.join(repo_root, "build", "base")
 if os.path.exists(build_base) and build_base not in sys.path:
     sys.path.insert(0, build_base)
+
 # ASP and Manga Colorization & Animation live in their own submodules;
 # see git/scripts/_submodule_bootstrap.py for why this isn't a plain
 # sys.path.insert.
-from git.scripts._submodule_bootstrap import register_submodule_packages
+
+from git.scripts._submodule_bootstrap import register_submodule_packages  # noqa: E402
 
 register_submodule_packages(repo_root)
 
@@ -68,10 +71,8 @@ def _restore_real_backend_packages() -> None:
         "backend.src.models.data",
         "backend.src.models.gen",
     ):
-        try:
+        with contextlib.suppress(Exception):
             _importlib.import_module(pkg)
-        except Exception:
-            pass
 
 
 @pytest.fixture(autouse=True, scope="session")

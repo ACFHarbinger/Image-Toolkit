@@ -12,9 +12,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+from backend.src.constants.database import _SELECT_IMAGE, UNIFIED__IMAGE_COLUMNS
+
 from ._util import transaction
 from .tag_repo import TagRepo
-from backend.src.constants.database import UNIFIED__IMAGE_COLUMNS, _SELECT_IMAGE
 
 
 class ImageRepo:

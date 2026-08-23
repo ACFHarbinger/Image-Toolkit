@@ -9,8 +9,9 @@ import logging
 import os
 from typing import Dict, List, Optional, Tuple
 
-from .config import TriageRules
 from backend.src.constants.core import _FORMAT_RANK
+
+from .config import TriageRules
 
 logger = logging.getLogger(__name__)
 

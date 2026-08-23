@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import os
 import weakref
-from typing import Dict, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional
 
 from backend.src.constants import SUPPORTED_VIDEO_FORMATS
 from PySide6.QtCore import Qt
@@ -20,8 +20,6 @@ from ....components import ClickableLabel
 from ....helpers import BatchImageLoaderWorker, ImageLoaderWorker
 from ....utils.cache.lru_image_cache import LRU_CACHE_CEILING
 from ...mixins import install_drag_reorder
-
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ..protos.abstract_class_two_galleries import AbstractClassTwoGalleriesHostProtocol

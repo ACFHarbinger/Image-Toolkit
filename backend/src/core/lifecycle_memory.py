@@ -22,8 +22,8 @@ from typing import Dict, List, Optional
 
 import psutil
 
+from backend.src.constants.core import _HISTORY, LIFECYCLE_RSS_ALERT_MB
 from backend.src.core import telemetry
-from backend.src.constants.core import LIFECYCLE_RSS_ALERT_MB, _HISTORY
 
 # The roadmap item names this threshold explicitly ("Alert when any phase
 # increases RSS by >200 MB relative to the previous measurement"). Kept

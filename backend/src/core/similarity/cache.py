@@ -18,6 +18,7 @@ import threading
 from typing import Dict, Iterable, List, Optional, Tuple
 
 import numpy as np
+
 from backend.src.constants.core import SIMILARITY__SCHEMA
 
 

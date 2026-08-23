@@ -10,8 +10,9 @@ import os
 from typing import List
 
 from backend.src.core.similarity import SimilarityEngine, SimilarityReport, auto_select
-from gui.src.helpers.core.similarity_scan_worker import SimilarityScanWorker
 from PySide6.QtCore import Qt, Slot
+
+from gui.src.helpers.core.similarity_scan_worker import SimilarityScanWorker
 
 from ....utils.sort_utils import natural_sort_key
 
