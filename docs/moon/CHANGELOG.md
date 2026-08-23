@@ -29,6 +29,30 @@
 
 ---
 
+## S437 — 2026-08-23 (ASP M2: wave-correction prototype — negative retainability data point)
+
+- **`_wave_correction.py` (`submodules/ASP/backend/src/core/pipeline/`)**:
+  the 2D translation-domain analog of OpenCV `detail::waveCorrect` — projects
+  strip positions onto the dominant-direction line through the trajectory
+  centroid, removing the transverse bow while preserving along-axis spacing.
+  Wired into `run_stage.py` after bundle adjustment behind default-off
+  `ASP_WAVE_CORRECT` (registered in `_CONFIG_SCHEMA`); isolated from the
+  min-gap rejection path. 6 unit tests.
+- **Verified end-to-end on `asp_test96`**: the wave correction runs
+  (max |delta| 10.1 px) but the case still falls back on
+  `affine_invalid:min_gap=12.17px < 20.61px` (frozen value 14.88 px — the
+  projection only shrinks gaps, so it worsens min-gap rejects). Offline on
+  all 31 BA-reaching corpus cases: validity preserved (min_gap never grows).
+- **Data point**: wave correction does **not** move the 5/10 retainability
+  target — chain drift is not the binding constraint (matching coverage and
+  min_gap are). Kept as a default-off quality experiment (straighter
+  panoramas on passing cases).
+- Note: the ASP submodule working tree also carried Codex's concurrent
+  default-off `ASP_DEFER_MIN_GAP_TO_REGISTRATION_GATE` min-gap reconciliation;
+  both were verified together (199 ASP core/alignment tests green).
+
+---
+
 ## S436 — 2026-08-23 (ASP M2: roadmap critique round — gate calibration & retainability)
 
 
