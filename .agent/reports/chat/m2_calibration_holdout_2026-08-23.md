@@ -78,3 +78,25 @@ This passes the M2 discriminating bar on the held-out slice, but the hold-out
 is four cases. It is a feasibility result, not a generalization or
 production-gate approval. A formal M2 implementation must retain this split
 and repeat the frozen evaluation before promoting the rule.
+
+### Repeated pre-registered buckets
+
+The same hash-bucket protocol was repeated for all four buckets. Each fit used
+only its calibration rows; every calibration fit independently selected the
+same rule (`BA RMS > 80`, cycle RMS `> 300`, raw edges `<= 10`, or missing BA).
+Every held-out defect tag was represented in its corresponding calibration
+slice.
+
+| Held-out bucket | Held-out catastrophes | Held-out known-good | Frozen result |
+|---:|---|---|---|
+| 0 | `04, 12, 15` | `58` | all catastrophes high-risk; `58` low-risk |
+| 1 | `06, 14` | `21, 44, 52, 56` | all catastrophes high-risk; `44, 56` low-risk |
+| 2 | `07` | `46, 61, 89` | `07` high-risk; `61` low-risk |
+| 3 | none | `51, 96` | `96` low-risk; all six catastrophes remained in calibration and high-risk |
+
+Across the four rotations, every named catastrophe was evaluated either in a
+held-out bucket or in that bucket's frozen calibration rule, and every bucket
+retained at least one held-out or calibration known-good case. No bucket
+required a threshold refit. This strengthens the result to repeated
+pre-registered feasibility evidence; the sample remains too small to claim
+generalization or enable a production policy.
