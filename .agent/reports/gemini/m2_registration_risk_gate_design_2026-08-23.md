@@ -2,7 +2,8 @@
 
 **Document:** `.agent/reports/gemini/m2_registration_risk_gate_design_2026-08-23.md`  
 **Date:** 2026-08-23  
-**Status:** Design / Scoping Document (Track B). Implementation blocked on Track A repeated hold-out validation and Harbinger review.  
+**Status:** Design / Scoping Document (Track B). Decision record updated
+2026-08-23; implementation remains pending the roadmap critique round.
 **Author:** Agy  
 **References:**  
 - `m2_registration_gate_proposal_2026-08-23.md` (Proposal & Decisions A–D)  
@@ -17,9 +18,11 @@
 
 The M2 discriminating gate objective is to provide a reliable, pre-render mechanism that:
 1. **Rejects all known catastrophic failure modes** (misalignment, duplicate strips, loop inconsistencies) with high confidence.
-2. **Retains clean Raw ASP results** for known-good cases (passing the discriminating bar of $\ge 1$ of 10 score-order known-good cases, with 5 of 10 retained in exploratory screening).
+2. **Retains clean Raw ASP candidates** for at least 5 of the 10 score-order
+   known-good cases; “at least one” is no longer an adequate M2 target.
 3. **Replaces obsolete photometric-only render gates** (Ghost/Composite, which show inverse or near-zero human correlation) with true geometric registration signals.
-4. **Supports a structured uncertainty policy** (`uncertain_result_policy`) allowing safe automated fallback (`scans`) or human-in-the-loop review (`prompt`).
+4. **Routes uncertain and low-risk Raw-ASP candidates through targeted human
+   review**; no Raw ASP result silently publishes merely because it is low-risk.
 
 ---
 
@@ -46,7 +49,7 @@ The M2 discriminating gate objective is to provide a reliable, pre-render mechan
 |  |   Hard Validity Filter    |  |    Geometric Health Score     |  |   Secondary Crop Check    |  |
 |  | - Disconnected graph      |  | - BA Residual RMS > 80.0      |  | - Coverage floor < 0.35   |  |
 |  | - affine_health.valid=F   |  | - Loop closure RMS > 300.0    |  | - Aspect distortion       |  |
-|  | - raw_edges <= 10         |  | - inlier_ratio < 0.20         |  |   (escalates low->uncert) |  |
+|  | - raw_edges <= 10         |  | - inlier_ratio < 0.20         |  |   (hard non-Raw-ASP path) |  |
 |  +---------------------------+  +-------------------------------+  +---------------------------+  |
 |                                             |                                                     |
 |                                             v                                                     |
@@ -58,7 +61,7 @@ The M2 discriminating gate objective is to provide a reliable, pre-render mechan
                      |                                                 |
              (LOW_RISK)                                        (HIGH_RISK)
                      v                                                 v
-             Select Raw ASP                                      Select SCANS
+        Queue Raw ASP review                                     Select SCANS
                      |                                                 |
                      +------------------- (UNCERTAIN) -----------------+
                                               |
@@ -153,10 +156,12 @@ class RegistrationRiskGate:
    - `cycle_error_rms > thresholds.max_cycle_error_rms` (> 300.0 px).
    - `inlier_ratio < thresholds.min_inlier_ratio` (< 15%).
 
-3. **Secondary Crop-Coverage Adjustment (Decision D §3.4):**
+3. **Secondary Crop-Coverage Hard Check (Decision D §3.4):**
    - If `crop_coverage is not None` and `crop_coverage < thresholds.min_crop_coverage`:
-     - If registration metrics are in the marginal/uncertain zone, escalate from `LOW_RISK` to `UNCERTAIN`.
-     - Rationale: Prevents crop-loss catastrophes with superficially low BA residuals (degenerate tight canvas) from being misclassified as low-risk Raw ASP wins.
+     - Escalate directly to `HIGH_RISK`; never select or publish Raw ASP.
+     - Rationale: severe crop loss is not human-acceptable even when
+       registration metrics look clean; a single-frame-like result is not a
+       valid low-risk outcome.
 
 4. **Uncertainty Band (`status="uncertain"`):**
    - 45.0 < ba_residual_rms <= 80.0 OR 150.0 < cycle_error_rms <= 300.0.
@@ -164,6 +169,8 @@ class RegistrationRiskGate:
 
 5. **Clean Pass (`LOW_RISK` / `accept=True`):**
    - All metrics below uncertainty thresholds; no structural defects detected.
+   - Produces a Raw ASP candidate plus SCANS comparison artifacts and queues
+     targeted human review before final publication.
 
 ---
 
@@ -175,8 +182,8 @@ Extend `SafeAspPolicy` in `submodules/ASP/backend/src/core/pipeline/safety_polic
 
 ```python
 class UncertainResultPolicy(str, Enum):
-    SCANS = "scans"        # Conservative automated fallback (Interim default)
-    PROMPT = "prompt"      # HITL review dialog / interactive selection
+    SCANS = "scans"        # Conservative batch fallback / interim default
+    PROMPT = "prompt"      # HITL review dialog / interactive default
     RAW_ASP = "raw_asp"    # Speculative Raw ASP selection
 
 
@@ -195,7 +202,9 @@ class SafeAspPolicy:
   - If policy is `"prompt"` in automated batch: logs a review prompt marker and defaults to `"scans"` safely while serializing the dual output candidates to `run_manifest.json`.
 
 - **In GUI / Desktop App Mode (`ImageToolkit`):**
-  - If policy is `"prompt"`: When the pipeline emits `status="uncertain"`, the UI triggers the `SafeAspReviewDialog` (or HITL comparison card in the gallery), presenting:
+  - `"prompt"` is the intended interactive default. When the pipeline emits
+    `status="uncertain"` or `LOW_RISK`, the UI triggers the
+    `SafeAspReviewDialog` (or HITL comparison card in the gallery), presenting:
     - Side-by-side view: Raw ASP vs. SCANS.
     - Diagnostic badges: BA Residual RMS, Cycle Error, Crop Coverage.
     - Action buttons: "Keep Raw ASP", "Use SCANS", "Edit Seam/Crop".
@@ -206,7 +215,7 @@ class SafeAspPolicy:
 
 | Gate | Stage | Role | Status in M2 Production |
 |:---|:---|:---|:---|
-| **RegistrationRiskGate** | Pre-render | Primary structural & alignment filter | **Active Primary Gate** (new) |
+| **RegistrationRiskGate** | Pre-render | Primary structural & alignment filter | **Primary candidate gate; every Raw-ASP candidate reviewed** |
 | **SeamVisGate** | Post-render | Surface seam discontinuity detection | **Active Backstop** ($\rho=+0.43$, floor 35.0, ratio 3.0) |
 | **GhostGate** | Post-render | Ghosting / SIQE metric | **Telemetry Only** (`telemetry_only_inverse_validated`) |
 | **CompositeGate** | Post-render | Heuristic strip-banding & coherence | **Telemetry Only** (`telemetry_only_inverse_validated`) |
@@ -229,7 +238,7 @@ graph TD
 2. **Phase 1 (Core Module):** Implement `registration_gate.py` with 100% unit test coverage in `submodules/ASP/backend/test/test_registration_gate.py`.
 3. **Phase 2 (Policy Integration):** Wire `RegistrationRiskGate` into `SafeAspPolicy.evaluate_all()` and `safe_asp_counterfactual()`.
 4. **Phase 3 (Session Telemetry):** Serialize `registration_gate` decision object into `PipelineSession` and `_checkpoint.json`.
-5. **Phase 4 (HITL / UI Integration):** Connect `UncertainResultPolicy.PROMPT` to the GUI review dialog.
+5. **Phase 4 (HITL / UI Integration):** Connect `UncertainResultPolicy.PROMPT` to the GUI review dialog for uncertain and low-risk Raw-ASP candidates.
 
 ---
 
@@ -237,4 +246,8 @@ graph TD
 
 - **Backwards Compatibility:** Unattended pipelines and benchmarks remain non-breaking; default `uncertain_result_policy="scans"` preserves conservative fallback guarantees.
 - **Traceability:** Every decision (low-risk, uncertain, high-risk) serializes all scalar metrics (`ba_residual_rms`, `cycle_error_rms`, `raw_edges`, `crop_coverage`) into session JSON for auditability.
+- **Review guarantee:** every low-risk Raw-ASP candidate is paired with its
+  SCANS artifact and receives targeted human review before publication.
+- **Promotion target:** retain at least 5 of the 10 score-order known-good
+  cases while every known catastrophe remains non-Raw-ASP.
 - **Zero Heavy Computations on UI Thread:** Gate evaluation operates purely on already-computed scalar telemetry from Stages 5 & 6 (< 1 ms overhead).

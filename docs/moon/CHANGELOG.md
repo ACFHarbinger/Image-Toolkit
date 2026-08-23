@@ -1,3 +1,16 @@
+## S434 — 2026-08-23 (ASP M2: decision record for registration-risk gate)
+
+Harbinger clarified the M2 gate's operating contract before implementation:
+crop loss below the proposed coverage floor is a hard non-Raw-ASP outcome,
+not an acceptable low-risk result; interactive `prompt` is the intended policy
+for uncertain outcomes; and every low-risk Raw-ASP candidate must receive
+targeted human review against its SCANS artifact before publication. The M2
+promotion target is now retaining at least 5 of 10 score-order known-good
+cases while keeping every known catastrophe non-Raw-ASP. The registration,
+inlier-ratio, and crop-coverage rules remain in scope; the strategic priority
+after M2 is improving Raw ASP itself, not only routing around failures. No
+runtime behavior changed in this decision-record slice.
+
 ## S433 — 2026-08-23 (ASP M2: repeated registration-risk hold-out)
 
 Repeated the pre-registered, defect-stratified M2 registration-risk hold-out
