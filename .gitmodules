@@ -42,3 +42,9 @@
 [submodule "submodules/HIE"]
 	path = submodules/HIE
 	url = https://github.com/ACFHarbinger/Hybrid-Image-Editor.git
+[submodule "vendor/UDIS2"]
+	path = vendor/UDIS2
+	url = https://github.com/nie-lang/UDIS2.git
+[submodule "vendor/MoVerse"]
+	path = vendor/MoVerse
+	url = https://github.com/Orange-3DV-Team/MoVerse.git
