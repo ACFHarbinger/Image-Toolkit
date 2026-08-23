@@ -9,8 +9,16 @@
 - Harbinger selected the renderer slice and prioritized coherent character
   pose before seam cleanup. The plan records seam cases 03/05/17/37/42/78,
   content cases 01/41/65/68/74/82/28/83, and controls 67/73. Codex selected
-  connectivity probes 21/46/52 (offline bridge candidates) plus hard controls
-  51/89 (anchors too sparse).
+  connectivity probes 21/46/52 (offline bridge candidates), 89 (anchors too
+  sparse), and 25 (`no_valid_edges`). Test51 was removed because it is a
+  seam-visibility-gate case, not a connectivity failure.
+
+## S451 — 2026-08-23 (ASP production photometric telemetry parity)
+
+- Canonical benchmark results now serialize the exact Stage 4.5 production
+  gain record—per-frame background-pixel eligibility/luminance, BGR gains,
+  clamps, residuals, and reference luminance—from `PipelineSession`, without
+  recomputing a harness-only gain. Legacy A/B reports remain labeled as such.
 
 ## S449 — 2026-08-23 (ASP per-output defect severity)
 
