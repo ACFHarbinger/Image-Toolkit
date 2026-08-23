@@ -1,3 +1,36 @@
+## S444 — 2026-08-23 (ASP MAGSAC++ estimator swap — verified behavioral no-op)
+
+- **`_estimators.py` (`submodules/ASP/backend/src/alignment/matching/`)**:
+  default-off `ASP_USAC_MAGSAC` routes Stage 5-6 `estimateAffine2D`/
+  `findHomography` through `cv2.USAC_MAGSAC` instead of `cv2.RANSAC`.
+  `estimateAffinePartial2D` stays RANSAC — OpenCV 4.11 does not support the
+  USAC methods there (verified at runtime), so the LoFTR/JamMa wrappers and
+  `_ransac_metrics` are untouched. Registered in `_CONFIG_SCHEMA`.
+- **Verification (real matcher, handful of pairs, not a corpus run)**:
+  asp_test56/asp_test04, 6 adjacent pairs incl. a 42%-inlier contaminated
+  pair, plus synthetic sweeps to 75% outliers — RANSAC and MAGSAC produce
+  **identical inlier counts and recovered transforms**. Behavioral no-op;
+  no regression, no observed improvement. 3 unit tests; 400 alignment/core
+  green.
+
+## S445 — 2026-08-23 (ASP P2 connectivity overlap proposal)
+
+- **`_overlap_proposal.py` (`submodules/ASP/backend/src/alignment/matching/`)**:
+  default-off `ASP_OVERLAP_PROPOSAL` — the Hugin `CalculateOverlap`/`ImageGraph`
+  analog. Provisional phase-correlation anchors on downsampled background-masked
+  luma (chained from frame 0, unknown stays unknown) build overlap components;
+  a bounded handful of component/overlap bridge pairs are appended additively
+  to the temporal backbone (never removes adjacent pairs, never uses post-BA
+  affines). 7 unit tests.
+- **Offline probe on the 5 `no_valid_edges`/`disconnected_edge_graph`
+  known-good**: anchors reliable for 3 (21/46/52 → 2 bridges each) and too
+  sparse for 2 (51/89 → proposal stops, the delegation's stop-and-report
+  condition). Connected-graph verification on a real run is pending explicit
+  Harbinger authorization (RESOURCE RULE); the claim is offline-only until
+  then.
+
+---
+
 ## S443 — 2026-08-23 (ASP CleanCP local re-solve prototype)
 
 - **Default-off recovery (`submodules/ASP`)**: Added `ASP_CLEANCP_RESOLVE`, a
