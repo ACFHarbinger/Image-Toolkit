@@ -126,6 +126,18 @@
 
 ---
 
+## S442 — 2026-08-23 (ASP Stage 5–6 connectivity P0 instrumentation)
+
+- **No-behavior-change telemetry:** extracted the fixed temporal 1/2/3-span
+  matcher-pair loops into pure `propose_temporal_pairs(N, range_width)`, with
+  the default preserving the exact historical proposal order.
+- **Registration evidence:** benchmark/session telemetry now records candidate
+  span/reason, adjacent proposal-to-filter survival, and pre-/post-filter
+  graph components. `_match_pair`, filtering, and the connectivity fallback
+  remain unchanged. Focused suite: 55 passed.
+
+---
+
 ## S436 — 2026-08-23 (ASP M2: roadmap critique round — gate calibration & retainability)
 
 
