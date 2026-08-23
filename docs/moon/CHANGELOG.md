@@ -1,4 +1,17 @@
-## S437 — 2026-08-23 (ASP M4: Background-Masked Matching in Stage 5/6)
+## S439 — 2026-08-23 (ASP bootstrap: auto-discover root repository path for submodule runs)
+
+- **Submodule Root Auto-Discovery (`submodules/ASP/backend/benchmark/bench_anime_stitch.py`, `submodules/ASP/backend/test/conftest.py`)**:
+  Resolved the benchmark rerun blocker where running `bench_anime_stitch.py` or `pytest`
+  directly inside `submodules/ASP` failed with `ModuleNotFoundError: No module named 'backend'`
+  on `from backend.src.constants import ...`. Added parent-repo discovery that locates
+  `backend/src/constants` and prepends the root repository to `sys.path`.
+- **Verification**: Verified `python backend/benchmark/bench_anime_stitch.py --help` and
+  `pytest backend/test/core/pipeline/test_registration_gate.py` run cleanly from within `submodules/ASP`.
+
+---
+
+## S438 — 2026-08-23 (ASP M4: Background-Masked Matching in Stage 5/6)
+
 
 - **Background-Masked Matching (`submodules/ASP/backend/src/alignment/matching/_pairwise.py`)**:
   Implemented background-masked feature matching behind `bg_masked_matching` flag /
