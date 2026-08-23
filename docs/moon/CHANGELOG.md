@@ -29,8 +29,11 @@
   but was stopped before telemetry persisted at 77% host RAM; its missing
   `raw_asp.png` confirms non-Raw ASP, not a Stage 5/6 result. Diagnosis found
   host baseline contention plus a ~2–2.5 GiB transient, not evidence of a
-  32 GiB leak, and a real BiRefNet whole-input CUDA-residency defect to fix.
-  P2 remains offline-only pending that diagnostic slice and a less-loaded host.
+  32 GiB leak, and a real BiRefNet whole-input CUDA-residency defect. The
+  batcher now streams CUDA preprocessing/mask conversion per chunk, while
+  Stage‑4 snapshots and `canonical_evidence.json` preserve diagnostic evidence
+  before later benchmark scoring. P2 remains offline-only pending a fresh run
+  on the less-loaded host.
 
 ---
 

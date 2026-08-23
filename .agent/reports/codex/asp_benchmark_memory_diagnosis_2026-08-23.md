@@ -32,12 +32,13 @@ checkpoint immediately after Stage 4 masking. The interrupted run therefore
 cannot separate BiRefNet model load, input tensors, activations, and later
 pipeline stages.
 
-## Recommended next slice
+## Implemented diagnostic slice
 
-1. Stream BiRefNet preprocessing per inference chunk; release each chunk's
-   tensors and prediction array before the next one.
-2. Record process RSS plus CUDA allocated/reserved memory immediately before
-   and after Stage 4, and persist that evidence before later scoring/reporting.
+1. BiRefNet preprocessing and binary-mask conversion now stream per inference
+   chunk, releasing the chunk tensors and predictions before the next chunk.
+2. Stage 4 records process RSS plus CUDA allocated/reserved memory before and
+   after masking; the benchmark persists that and registration telemetry to
+   `canonical_evidence.json` immediately after canonical ASP returns.
 3. Retry only after host availability is materially higher. Treat an increasing
    post-mask or post-dataset RSS across isolated runs as leak evidence; do not
    infer it from the shared host percentage alone.
