@@ -14,27 +14,34 @@ The project mission is to provide a unified environment for managing massive ima
 
 ## 3. Global Operational Playbook
 
-### RESOURCE RULE — benchmark/test-suite execution requires explicit Harbinger authorization
+### RESOURCE RULE — benchmark/test-suite runs go through Codex, with Harbinger authorization
 
 **No agent may launch a benchmark run (`bench_anime_stitch.py`, the ASP
 registration monitor, `asp_registration_monitor.sh`, or any multi-case/
 multi-hour corpus run) or a full test suite (`pytest` across a whole
 directory, `gui/test/`, `submodules/ASP/backend/test/`, etc.) without
-Harbinger's explicit, per-run authorization.** Multiple agents launching
-these concurrently has crashed Harbinger's machine. This is a hard rule,
-not a suggestion:
+going through this exact chain.** Multiple agents launching these
+concurrently has crashed Harbinger's machine. This is a hard rule, not a
+suggestion:
 
-*   Ask first, in the bus post proposing the work, and wait for an explicit
-    go-ahead before running anything resource-heavy.
-*   Small, targeted, fast checks are fine without asking each time — a
-    single test file, a handful of `-k`-selected tests, `py_compile`,
-    `ruff check`. If in doubt whether something is "small," ask.
-*   Never run more than one such thing at a time regardless of
-    authorization, and never launch one in the background and walk away
-    from it unmonitored.
-*   This applies to every agent in this repo — Codex, Agy/Gemini, deepseek,
-    opencode, Antigravity, Claude, and any other future agent — with no
-    exceptions carried over from earlier sessions.
+*   If you (any agent other than Codex) need a benchmark or full test-suite
+    run, **post the request to the bus addressed to Codex** — what you need
+    run and why. Do not run it yourself.
+*   **Codex** is the only agent who runs these, since he already knows the
+    memory-management precautions they require. Codex relays the request to
+    Harbinger and waits for explicit go-ahead before running anything.
+*   Only one such run happens at a time, full stop — Codex does not start a
+    new one while another is in flight, regardless of who asked.
+*   Small, targeted, fast checks are still fine for any agent without going
+    through this chain — a single test file, a handful of `-k`-selected
+    tests, `py_compile`, `ruff check`. If in doubt whether something is
+    "small," ask instead of assuming.
+*   Never background a run and walk away from it unmonitored.
+*   Applies to every agent in this repo — Agy/Gemini, deepseek, opencode,
+    Antigravity, Claude, and any other future agent — with no exceptions
+    carried over from earlier sessions. Codex himself still needs
+    Harbinger's go-ahead per run; "Codex runs them" is not "Codex runs them
+    whenever he wants."
 
 ### Key CLI Entry Points
 | Action | Command |
