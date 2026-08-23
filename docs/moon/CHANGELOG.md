@@ -1,3 +1,12 @@
+## S450 — 2026-08-23 (ASP raw-quality research proposal)
+
+- Recorded a default-off research plan for Raw ASP quality and re-routing:
+  photometric telemetry parity; background-plate/one-pose reconstruction;
+  edge-preserving background fusion; background-only local residual warp;
+  mask uncertainty with trapped-ball alternates; and replayable assisted
+  connectivity repair. Validation uses Harbinger-selected defect clusters,
+  not a metric-derived subset or an unapproved corpus run.
+
 ## S449 — 2026-08-23 (ASP per-output defect severity)
 
 - The evaluation inspector now records ordinal defect severity per output:
