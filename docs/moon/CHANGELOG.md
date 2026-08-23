@@ -1,4 +1,20 @@
+## S432 — 2026-08-23 (fix: eliminate main-thread freeze when updating settings)
+
+**Root cause:**
+- `SettingsWindow._update_settings_logic()` called `_apply_active_tab_configs()` without tracking prior active tab configs, causing `set_config()` to be called unconditionally on all ~20 tabs in the application. Tabs re-scanned entire directories, probed video files with ffprobe/cv2, and reloaded images synchronously on the main GUI thread.
+- `_apply_startup_preferences()` unconditionally purges and re-instantiated `LRUImageCache` objects across all tabs (discarding all in-memory pixmaps) and unconditionally re-scanned `ExtractorTab`'s output directory.
+
+**Fix:**
+- `_apply_active_tab_configs()` now accepts an optional `previous_configs` mapping; tabs whose active configuration did not change are skipped entirely.
+- `_update_settings_logic()` passes the prior `active_tab_configs` mapping to `_apply_active_tab_configs(previous_configs=old_active_configs)`.
+- `_apply_startup_preferences()` resizes LRU caches in place via `cache.resize()` without purging existing cached thumbnails.
+- `_apply_startup_preferences()` only updates `ExtractorTab`'s `extraction_dir` (and re-scans output files) if the directory path actually changed.
+- Added regression tests in `gui/test/windows/settings/test_update_settings_performance.py`.
+
+---
+
 ## S431 — 2026-08-23 (ASP M2: registration-risk telemetry probe)
+
 
 Canonical ASP benchmark runs now emit measurement-only registration telemetry:
 per-pair RANSAC inlier count/ratio and reprojection RMS for real matcher
