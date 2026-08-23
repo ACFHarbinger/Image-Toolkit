@@ -57,8 +57,12 @@
   32 GiB leak, and a real BiRefNet whole-input CUDA-residency defect. The
   batcher now streams CUDA preprocessing/mask conversion per chunk, while
   Stage‑4 snapshots and `canonical_evidence.json` preserve diagnostic evidence
-  before later benchmark scoring. P2 remains offline-only pending a fresh run
-  on the less-loaded host.
+  before later benchmark scoring. **Verified negative on a real controlled
+  run (Codex, 2026-08-23)**: contrary to the offline probe, `21/46/52/51/89`
+  all reported `anchors_too_sparse`, added zero bridge pairs, and kept their
+  fallbacks (`21/46/89` disconnected, `52` no valid edges, `51` seam-vis
+  gate). P2 has no demonstrated connectivity recovery and stays default-off
+  pending a revised proposal/anchor calibration.
 
 ---
 
