@@ -1,4 +1,26 @@
+## S440 — 2026-08-23 (ASP Track E: Bench Eval Inspector UX, Per-Comparator Defect Tagging & Shortcuts)
+
+- **Per-Comparator Defect Attribution (`other/schema.py`, `ui/scoring_panel.py`)**:
+  Extended `RatingEntry` schema with backward-compatible `defect_attribution: dict[str, list[str]]`
+  keyed by comparator (`asp`, `simple`, `hugin`, `overmix`, `shared`). The flat `defects` field
+  remains the sorted union of all tags for full compatibility with legacy readers and `bench_anime_stitch.py`.
+  Legacy unattributed defect lists load as `{"shared": defects}` without data loss.
+- **Comparator-Scoped Scoring UI (`scoring_panel.py`, `main_window.py`)**:
+  Added comparator target selector buttons (`[Shared] [ASP] [SCANS] [Overmix] [Hugin]`) in the defect
+  box, automatically syncing with the focused image panel and enabling one-click/hotkey defect tagging.
+- **Enhanced Keyboard Shortcuts (`shortcuts.py`, `constants/user_interface.py`)**:
+  Added `G` (jump to case dialog by index/substring), `Ctrl+Z` (undo last scoring/defect edit),
+  `O` / `H` (focus Overmix / Hugin), `Ctrl+Shift+0-9` (explicit shared defect toggle), and updated footer `KEY_HINTS`.
+- **Coherence Tab Rename (`coherence_tab.py`, `main_window.py`)**:
+  Renamed `CoherenceV2Tab` to `CoherenceTab` (and `coherence_v2_tab.py` to `coherence_tab.py`),
+  dropping "V2" from inspector UI strings and tab labels while retaining backward-compatibility aliases.
+- **Verification**: Added unit tests in `test_eval_schema.py` and `test_eval_inspector.py`. All 278 evaluation
+  tests and all 1200 ASP backend tests passing (1200 passed, 3 skipped).
+
+---
+
 ## S439 — 2026-08-23 (ASP bootstrap: auto-discover root repository path for submodule runs)
+
 
 - **Submodule Root Auto-Discovery (`submodules/ASP/backend/benchmark/bench_anime_stitch.py`, `submodules/ASP/backend/test/conftest.py`)**:
   Resolved the benchmark rerun blocker where running `bench_anime_stitch.py` or `pytest`
