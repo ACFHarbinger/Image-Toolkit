@@ -101,6 +101,18 @@
 
 ---
 
+## S441 — 2026-08-23 (ASP Stage 5–6 connectivity vendor scope)
+
+- **Design only:** mapped OpenCV's range-constrained matcher to ASP's existing
+  temporal window and scoped Hugin-style overlap graphs as a later, default-off
+  pre-match geometry experiment. Adjacent pairs remain the required backbone;
+  any overlap signal may add/prioritize bridge pairs but cannot remove it.
+- **Evaluation discipline:** M2 calibration is paused until corrected labels
+  land. Connectivity work must improve filtered-graph connectivity before a
+  separately approved visual-quality screen.
+
+---
+
 ## S436 — 2026-08-23 (ASP M2: roadmap critique round — gate calibration & retainability)
 
 
