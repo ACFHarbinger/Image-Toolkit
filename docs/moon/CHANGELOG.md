@@ -42,6 +42,19 @@
 
 ---
 
+## S438 — 2026-08-23 (ASP inspector Track E scoped — per-comparator defects, UX, Coherence rename)
+
+- Scoped (design only, no implementation): per-comparator defect attribution
+  in `asp_evaluations.json` (backward-compatible `defect_attribution` keyed by
+  comparator + `shared`; legacy flat tags read as `shared`, never silently
+  reassigned), `G` jump-to-case + `Ctrl+Z` edit-undo shortcuts, a
+  per-comparator defect-chip overlay, and the inspector-only "Coherence V2" →
+  "Coherence" rename. Design:
+  `.agent/reports/deepseek/asp_inspector_track_e_design_2026-08-23.md`.
+  Production `ASP_COHERENCE_V2`/`coherence_v2.py` untouched.
+
+---
+
 ## S437 — 2026-08-23 (ASP M2: wave-correction prototype — negative retainability data point)
 
 - **`_wave_correction.py` (`submodules/ASP/backend/src/core/pipeline/`)**:
