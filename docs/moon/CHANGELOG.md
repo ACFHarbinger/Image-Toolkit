@@ -1,4 +1,20 @@
+## S437 — 2026-08-23 (ASP M4: Background-Masked Matching in Stage 5/6)
+
+- **Background-Masked Matching (`submodules/ASP/backend/src/alignment/matching/_pairwise.py`)**:
+  Implemented background-masked feature matching behind `bg_masked_matching` flag /
+  `ASP_BG_MASKED_MATCHING` env knob (default OFF). Restricts input to static background
+  pixels (`~fg_mask` from Stage 4 BiRefNet) across LoFTR, ALIKED+LightGlue, Template
+  Matching, Phase Correlation, Segment-Guided Matching, and RoMa, eliminating
+  correspondences on moving cels.
+- **Config & Pipeline Integration (`config.py`, `manager.py`, `session.py`, `run_stage.py`)**:
+  Added `ASP_BG_MASKED_MATCHING` to `_CONFIG_SCHEMA`, `_CONFIG_KEYS`, and `AnimeStitchPipeline.__init__`.
+- **Zero-Regression Invariant**: Pure background frames (`~fg_mask` all 255) undergo zero input modification.
+- **Verification**: Added `TestBgMaskedMatching` in `test_matching.py` (22/22 green; all 376 ASP core/alignment tests green).
+
+---
+
 ## S436 — 2026-08-23 (ASP M2: roadmap critique round — gate calibration & retainability)
+
 
 - **`RegistrationRiskGate` threshold demotion (`submodules/ASP/backend/src/core/pipeline/registration_gate.py`)**:
   `min_inlier_ratio` and `min_crop_coverage` were never part of the frozen
