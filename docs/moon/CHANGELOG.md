@@ -7,6 +7,22 @@
   bounded at 1.29–2.17 GiB and released between processes, ruling out
   cross-case accumulation in this run.
 
+## S446 — 2026-08-23 (ASP scope: asp_test94 affine_invalid:ratio — fragmented matching)
+
+- Scoped (design only, no code) `asp_test94`'s `affine_invalid:ratio=3.12>3`
+  failure: `ratio` = max/median gap over strips sorted by scroll position.
+  Diagnosis: a downstream symptom of fragmented matching — 7 of 12 adjacent
+  pairs have no observed correspondence, so BA/sequential-fill interpolate
+  across gaps and spacing looks uneven. Unlike the clean-metric min_gap
+  cases, asp_test94's metrics are marginal (BA 70.8/80, cycle 210/300, raw
+  33), so `ratio` is not proven conservative and should not be deferred like
+  min_gap. Fix path is connectivity (CleanCP/overlap proposal) plus gap
+  diagnostic telemetry; fold `ratio` into the affine_invalid reconciliation
+  follow-up. Scope:
+  `.agent/reports/deepseek/asp_test94_ratio_scope_2026-08-23.md`.
+
+---
+
 ## S444 — 2026-08-23 (ASP MAGSAC++ estimator swap — verified behavioral no-op)
 
 - **`_estimators.py` (`submodules/ASP/backend/src/alignment/matching/`)**:
