@@ -48,3 +48,6 @@
 [submodule "vendor/MoVerse"]
 	path = vendor/MoVerse
 	url = https://github.com/Orange-3DV-Team/MoVerse.git
+[submodule "vendor/APAP"]
+	path = vendor/APAP
+	url = https://github.com/EadCat/APAP-Image-Stitching.git
