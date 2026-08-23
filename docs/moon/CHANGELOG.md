@@ -101,6 +101,17 @@
 
 ---
 
+## S444 — 2026-08-23 (ASP Benchmark Inspector: Defect Severity Scoreboard UI Upgrade)
+
+- **Color-Coded Severity Chips (`theme.py`, `scoring_panel.py`)**:
+  Implemented `severity_chip_style()` in `theme.py` with custom palette-aware styling for defect grading buttons (0: absent/good green, 1: trace warn/yellow, 2: noticeable orange, 3: severe bad/red).
+- **Interactive Scoreboard Layout (`scoring_panel.py`)**:
+  Upgraded `DefectSeverityRow` with `QButtonGroup` exclusivity, enhanced alignment, generous label widths, tooltips, and theme-refresh synchronization across all comparator outputs.
+- **Verification**:
+  Added targeted unit test suite `test_scoring_panel.py` (2/2 passed) and verified all 8 targeted evaluation tests pass cleanly.
+
+---
+
 ## S443 — 2026-08-23 (ASP M5: Multi-Band / Laplacian Pyramid Blending in Stage 11 Compositing)
 
 - **Multi-Band Background Pyramid Blender (`_multiband.py`, `_fill.py`)**:
