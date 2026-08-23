@@ -40,6 +40,8 @@ from backend.src.constants import (  # noqa: E402
 from backend.src.core import WallpaperManager  # noqa: E402
 from backend.src.core.wallpaper import find_qdbus_binary  # noqa: E402
 from backend.src.constants.utils import DEFAULT_ENTRY_DURATION_SEC, LOG_PATH
+from backend.src.utils.display.slideshow_daemon import _is_session_locked  # noqa: E402
+
 
 # Safety net: the native scheduler holds a reference to the Python
 # apply_callback closure between start() and stop(). If the process exits
@@ -91,11 +93,28 @@ def make_apply_callback(
     advances; applies the wallpaper via the existing WallpaperManager logic
     (KDE qdbus scripts, Windows COM, GNOME gsettings) rather than
     re-implementing per-OS wallpaper application natively.
+
+    While the session is locked the apply is deferred: the path is stored in
+    ``pending`` so the polling loop in ``run()`` can flush it immediately after
+    the screen unlocks, guaranteeing the correct image is shown on unlock
+    without waiting the full interval again.
     """
     qdbus = qdbus if qdbus is not None else find_qdbus_binary()
     other_paths = dict(other_paths or {})
+    # Mutable container shared between the callback closure and run()'s loop.
+    pending: Dict[str, str] = {}
 
     def _apply(monitor_id: str, path: str, index: int) -> None:
+        if _is_session_locked():
+            # Record the path that would have been applied; the polling loop
+            # will flush it on unlock.  Do NOT attempt to set the wallpaper
+            # while locked — on KDE the qdbus call errors, on GNOME it silently
+            # has no visible effect, and either way it would consume the
+            # scheduler's advance without the user ever seeing it.
+            pending[monitor_id] = path
+            logging.debug(f"Monitor {monitor_id}: session locked — deferring '{path}'")
+            return
+
         style_to_use = (
             f"SmartVideoWallpaper::{video_style}"
             if path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
@@ -108,6 +127,8 @@ def make_apply_callback(
         except Exception as e:
             logging.error(f"Monitor {monitor_id}: failed to apply '{path}': {e}")
 
+    # Expose the pending dict on the callback function so run() can drain it.
+    _apply.pending = pending  # type: ignore[attr-defined]
     return _apply
 
 
@@ -121,11 +142,12 @@ def start(
     video_style: str = "Scaled and Cropped",
     other_paths: Optional[Dict[str, str]] = None,
     qdbus: Optional[str] = None,
+    callback: Optional[Callable[[str, str, int], None]] = None,
 ) -> str:
     resolved = [resolve_duration(p, d) for p, d in zip(queue, durations, strict=False)]
     config = {"monitor_id": monitor_id, "queue": list(queue), "durations": resolved}
-    callback = make_apply_callback(monitors, style, video_style, other_paths, qdbus)
-    return base.run_monitor_slideshow("start", json.dumps(config), callback) # pyrefly: ignore [missing-attribute]
+    cb = callback if callback is not None else make_apply_callback(monitors, style, video_style, other_paths, qdbus)
+    return base.run_monitor_slideshow("start", json.dumps(config), cb) # pyrefly: ignore [missing-attribute]
 
 
 def stop() -> str:
@@ -236,20 +258,45 @@ def run():
     logging.info(f"Monitor slideshow daemon started for monitor {config.get('monitor_id')}.")
     config["pid"] = os.getpid()
     _write_gui_config(config)
-    start(
-        config["monitor_id"],
-        config.get("queue", []),
-        config.get("durations", []),
-        monitors=_monitors_from_geometries(config.get("monitor_geometries", {})),
+
+    monitors = _monitors_from_geometries(config.get("monitor_geometries", {}))
+    apply_cb = make_apply_callback(
+        monitors,
         style=config.get("style", "Fill"),
         video_style=config.get("video_style", "Scaled and Cropped"),
         other_paths=config.get("other_current_paths", {}),
     )
+    start(
+        config["monitor_id"],
+        config.get("queue", []),
+        config.get("durations", []),
+        monitors=monitors,
+        style=config.get("style", "Fill"),
+        video_style=config.get("video_style", "Scaled and Cropped"),
+        other_paths=config.get("other_current_paths", {}),
+        callback=apply_cb,
+    )
+
+    _was_locked = _is_session_locked()
+    if _was_locked:
+        logging.info("Session is locked on daemon startup — first apply will be deferred.")
 
     try:
         while True:
             time.sleep(1.0)
             try:
+                # ---- Lock-screen: flush pending applies on unlock ----------
+                locked = _is_session_locked()
+                if locked and not _was_locked:
+                    logging.info("Session locked — wallpaper applies will be deferred.")
+                elif not locked and _was_locked:
+                    logging.info("Session unlocked — flushing deferred wallpaper applies.")
+                    pending = getattr(apply_cb, "pending", {})
+                    for mid, path in list(pending.items()):
+                        apply_cb(mid, path, -1)
+                        pending.pop(mid, None)
+                _was_locked = locked
+
                 gui_cfg = _load_gui_config()
                 if not gui_cfg or not gui_cfg.get("running"):
                     logging.info("Stop requested.")
