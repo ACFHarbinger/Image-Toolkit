@@ -1,3 +1,15 @@
+## S443 — 2026-08-23 (ASP CleanCP local re-solve prototype)
+
+- **Default-off recovery (`submodules/ASP`)**: Added `ASP_CLEANCP_RESOLVE`, a
+  Stage 5/6 retry limited to empty or disconnected filtered graphs. It trims
+  correspondence residual outliers, screens raw-edge translations with robust
+  statistics, and invokes the existing BA only if the recovered graph is
+  connected. Existing filters and the connectivity fallback are unchanged.
+- **Verification**: 64 focused ASP core/alignment tests passed; Ruff, compile,
+  and whitespace checks passed. No benchmark or full suite was run.
+
+---
+
 ## S442 — 2026-08-23 (ASP Coherence Tab: Fallback image discovery for unrendered evaluation cases)
 
 - **Fallback Image Discovery (`coherence_tab.py`)**:
