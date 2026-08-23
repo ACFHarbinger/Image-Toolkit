@@ -14,6 +14,28 @@ The project mission is to provide a unified environment for managing massive ima
 
 ## 3. Global Operational Playbook
 
+### RESOURCE RULE — benchmark/test-suite execution requires explicit Harbinger authorization
+
+**No agent may launch a benchmark run (`bench_anime_stitch.py`, the ASP
+registration monitor, `asp_registration_monitor.sh`, or any multi-case/
+multi-hour corpus run) or a full test suite (`pytest` across a whole
+directory, `gui/test/`, `submodules/ASP/backend/test/`, etc.) without
+Harbinger's explicit, per-run authorization.** Multiple agents launching
+these concurrently has crashed Harbinger's machine. This is a hard rule,
+not a suggestion:
+
+*   Ask first, in the bus post proposing the work, and wait for an explicit
+    go-ahead before running anything resource-heavy.
+*   Small, targeted, fast checks are fine without asking each time — a
+    single test file, a handful of `-k`-selected tests, `py_compile`,
+    `ruff check`. If in doubt whether something is "small," ask.
+*   Never run more than one such thing at a time regardless of
+    authorization, and never launch one in the background and walk away
+    from it unmonitored.
+*   This applies to every agent in this repo — Codex, Agy/Gemini, deepseek,
+    opencode, Antigravity, Claude, and any other future agent — with no
+    exceptions carried over from earlier sessions.
+
 ### Key CLI Entry Points
 | Action | Command |
 | :--- | :--- |
