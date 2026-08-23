@@ -144,6 +144,11 @@ class _LifecycleMixin:
         if getattr(self, "_minimize_to_tray", False):
             if getattr(self, "_tray_icon", None) is None or not self._tray_icon.isVisible():
                 self._setup_tray_icon()
+            # Persist geometry and tab settings before going to background so
+            # the next real quit (via tray menu or OS shutdown) sees up-to-date
+            # state even if the process is killed uncleanly while hidden.
+            AppSettings.set_mainwindow_geometry(self.saveGeometry())  # pyrefly: ignore [bad-argument-type]
+            self._save_session_recovery()
             event.ignore()
             self.hide()
             if getattr(self, "_tray_icon", None) and self._tray_icon.isVisible():
@@ -183,6 +188,19 @@ class _LifecycleMixin:
             self.vault_manager.shutdown()
 
         super().closeEvent(event)
+
+    def _quit_application(self) -> None:
+        """Save settings then perform a clean application quit.
+
+        Used by the tray icon's Quit action so that session recovery data
+        and window geometry are persisted even when the user quits from the
+        system tray (where closeEvent is bypassed by QApplication.quit()).
+        """
+        AppSettings.set_mainwindow_geometry(self.saveGeometry())  # pyrefly: ignore [bad-argument-type]
+        self._save_session_recovery()
+        if self.vault_manager is not None:
+            self.vault_manager.shutdown()
+        QApplication.quit()
 
     def _defer_close_for_extractions(self) -> bool:
         """Return True (and arm a deferred close with progress dialog) when an extraction is

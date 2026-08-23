@@ -89,6 +89,35 @@ widgets need a custom widget/delegate, not the image-thumbnail model).
 
 ---
 
+## S429 — 2026-08-23 (fix: save settings on exit with minimize-to-tray enabled)
+
+**Root cause (two exit paths, neither saved settings):**
+
+- `closeEvent` tray branch (`_minimize_to_tray=True`) — returned immediately after
+  `event.ignore() + self.hide()` without calling `AppSettings.set_mainwindow_geometry()`
+  or `_save_session_recovery()`. Window geometry and session recovery data were
+  therefore never persisted when closing to the tray, even if the app was later
+  killed uncleanly (e.g. system shutdown while hidden).
+- Tray "Quit" action — connected directly to `QApplication.quit`, bypassing
+  `closeEvent` entirely. Even if the user clicked "Quit" from the tray context
+  menu, no settings were saved.
+
+**Fix:**
+
+- `closeEvent` tray branch now saves geometry and session recovery **before**
+  `event.ignore()` / `self.hide()`. If the process is killed while hidden the
+  most-recent state is preserved.
+- Added `_quit_application()` to `_LifecycleMixin`: saves geometry, calls
+  `_save_session_recovery()`, shuts the vault, then calls `QApplication.quit()`.
+- Tray "Quit" action now connects to `self._quit_application()` instead of
+  `QApplication.quit` directly.
+- Removed unused `QApplication` import from `_tray.py`.
+- 10 regression tests in `gui/test/windows/test_minimize_to_tray_settings_save.py`
+  covering both the tray-hide and the tray-quit paths, including strict
+  ordering checks (save before quit).
+
+---
+
 ## S428 — 2026-08-23 (fix: slideshow daemon pauses correctly on lock screen)
 
 **Root cause (two daemons, same underlying problem):**

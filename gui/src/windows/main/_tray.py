@@ -8,7 +8,7 @@ from __future__ import annotations
 import os
 
 from PySide6.QtGui import QIcon
-from PySide6.QtWidgets import QApplication, QMenu, QStyle, QSystemTrayIcon
+from PySide6.QtWidgets import QMenu, QStyle, QSystemTrayIcon
 
 
 class _TrayMixin:
@@ -50,7 +50,7 @@ class _TrayMixin:
         tray_menu.addSeparator()
 
         quit_action = tray_menu.addAction("Quit")
-        quit_action.triggered.connect(QApplication.quit)
+        quit_action.triggered.connect(self._quit_application)
 
         self._tray_icon.setContextMenu(tray_menu)
         self._tray_icon.setToolTip("Image Toolkit")
