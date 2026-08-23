@@ -1,3 +1,12 @@
+## S446 — 2026-08-23 (ASP P2 controlled connectivity evidence)
+
+- The authorized sequential `ASP_OVERLAP_PROPOSAL=1` run completed
+  `asp_test21/46/52/51/89` with one thread, cache/GC flushing, and 70% RAM/75%
+  VRAM guards. Every case stopped at `anchors_too_sparse` with zero bridge
+  pairs; no connectivity recovery was demonstrated. Stage 4 RSS deltas were
+  bounded at 1.29–2.17 GiB and released between processes, ruling out
+  cross-case accumulation in this run.
+
 ## S444 — 2026-08-23 (ASP MAGSAC++ estimator swap — verified behavioral no-op)
 
 - **`_estimators.py` (`submodules/ASP/backend/src/alignment/matching/`)**:
