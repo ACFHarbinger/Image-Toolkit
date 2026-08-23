@@ -13,6 +13,22 @@
 
 ---
 
+## S438 — 2026-08-23 (ASP M2: default-off min-gap reconciliation experiment)
+
+- **`affine_invalid:min_gap` handoff**:
+  `ASP_DEFER_MIN_GAP_TO_REGISTRATION_GATE=1` defers only post-recovery
+  minimum-gap failures to the frozen registration-risk rule. Clean cases are
+  explicitly `uncertain` and require review; all other affine-health failures
+  retain their existing hard fallback behavior. The flag is default-off.
+- **Frozen four-bucket analysis**:
+  known-good `44/58/61/96` are the only new eligible cases; combined with
+  existing Raw `56`, this creates a 5/10 candidate route with representation
+  in each bucket. The six known catastrophes remain non-Raw under existing
+  early fallbacks or calibrated metric rejection. This is analytical evidence
+  only until a flagged corpus rerun confirms it.
+
+---
+
 ## S436 — 2026-08-23 (ASP M2: roadmap critique round — gate calibration & retainability)
 
 
