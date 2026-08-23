@@ -89,6 +89,42 @@ widgets need a custom widget/delegate, not the image-thumbnail model).
 
 ---
 
+## S428 — 2026-08-23 (fix: slideshow daemon pauses correctly on lock screen)
+
+**Root cause (two daemons, same underlying problem):**
+
+- `slideshow_daemon.py` — `elapsed` accumulated while the session was locked, so
+  timer intervals were consumed invisibly. On unlock the daemon either applied
+  the correct wallpaper immediately (if the timer had already fired) or waited
+  the remaining interval — but the *next* advance was delayed by a full
+  additional interval because `elapsed` had been reset to 0 on the previous
+  (invisible) fire. In practice: wallpaper changes skipped during lock + extra
+  wait after unlock.
+- `monitor_slideshow_daemon.py` — the native C++ scheduler fired the Python
+  `apply_callback` while locked. On KDE `qdbus` errored; on GNOME `gsettings`
+  silently had no effect. Either way the queue index advanced with nothing shown.
+
+**Fix:**
+
+- Added `_is_session_locked()` in `slideshow_daemon.py` — uses
+  `loginctl show-session $XDG_SESSION_ID --value -p LockedHint` (systemd-logind,
+  works on both KDE and GNOME). Falls back to `False` on non-systemd systems
+  (no behaviour change there).
+- `slideshow_daemon.py` main loop: `continue` (skip elapsed increment and config
+  poll) while `LockedHint=yes`. On the first tick after unlock, apply the
+  current wallpaper immediately and reset `elapsed` to 0 so the next advance
+  is exactly one interval later.
+- `monitor_slideshow_daemon.py` `make_apply_callback`: guard the apply with the
+  same lock check; store the deferred path in a `pending` dict attached to the
+  callback. `run()` now creates the callback explicitly and passes it to
+  `start()` (new optional `callback` param) so the polling loop can flush
+  `pending` on unlock.
+- `start()` accepts an optional pre-built `callback` kwarg; callers that don't
+  supply one get the same auto-built callback as before (no API break).
+- 9 new regression tests in `backend/test/core/test_slideshow_lock_screen.py`.
+
+---
+
 ## S427 — 2026-08-22 (tooling: fix pyrefly install and `[tool.pyrefly]` config)
 
 - **Root cause**: `uv run pyrefly` failed with "No such file or directory" because `pyrefly` was never included in any dependency group — `uv run` could not find the binary.

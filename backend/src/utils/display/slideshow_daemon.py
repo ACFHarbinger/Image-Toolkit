@@ -41,6 +41,28 @@ def _is_video(path: str) -> bool:
     return os.path.splitext(path)[1].lower() in SUPPORTED_VIDEO_FORMATS
 
 
+# XDG_SESSION_ID is set by PAM/systemd-logind in every graphical session and
+# is inherited by the daemon subprocess.  loginctl LockedHint is updated by
+# the screen-locker (gnome-screensaver, kscreenlocker, …) synchronously via
+# D-Bus, so it reliably reflects the locked state within ~100 ms.
+# Falls back to False (assume unlocked) on non-systemd or headless systems.
+_SESSION_ID: str = os.environ.get("XDG_SESSION_ID", "")
+
+
+def _is_session_locked() -> bool:
+    """Return True when the current logind session has its LockedHint set."""
+    if not _SESSION_ID:
+        return False
+    try:
+        result = subprocess.run(
+            ["loginctl", "show-session", _SESSION_ID, "--value", "-p", "LockedHint"],
+            capture_output=True, text=True, timeout=2,
+        )
+        return result.stdout.strip().lower() == "yes"
+    except Exception:
+        return False
+
+
 def _get_video_duration(path: str) -> float | None:
     """Return video duration in seconds via ffprobe, falling back to cv2."""
     if path in _VIDEO_DURATION_CACHE:
@@ -236,9 +258,13 @@ def run() -> None:  # noqa: C901
         f"monitors={list(monitor_state.keys())}"
     )
 
-    # Set first wallpaper on each monitor immediately
+    # Set first wallpaper on each monitor immediately (unless already locked)
     monitors = _parse_monitors(config)
-    _apply_all(monitor_state, de, qdbus, raw_style, monitors)
+    _was_locked = _is_session_locked()
+    if _was_locked:
+        logging.info("Session is locked on startup — deferring first wallpaper apply to unlock.")
+    else:
+        _apply_all(monitor_state, de, qdbus, raw_style, monitors)
     if use_video_runtime:
         interval = _runtime_interval(monitor_state, interval)
         logging.info(f"Video-runtime interval: {interval}s")
@@ -250,6 +276,25 @@ def run() -> None:  # noqa: C901
     try:
         while True:
             time.sleep(1.0)
+
+            # ---- Lock-screen: pause timer while session is locked ---------
+            locked = _is_session_locked()
+            if locked:
+                if not _was_locked:
+                    logging.info("Session locked — pausing slideshow timer.")
+                _was_locked = True
+                continue  # do not accumulate elapsed, do not poll config
+
+            if _was_locked:
+                # Just unlocked: apply the current wallpaper immediately so
+                # the user sees the right image without waiting another full
+                # interval, then reset elapsed so the next advance is on time.
+                logging.info("Session unlocked — applying wallpaper and resetting timer.")
+                _apply_all(monitor_state, de, qdbus, raw_style, monitors)
+                _update_config_paths(monitor_state, interval, use_video_runtime)
+                elapsed = 0.0
+            _was_locked = False
+
             elapsed += 1.0
 
             # ---- Detect config changes (GUI edited settings) --------------
@@ -315,6 +360,7 @@ def run() -> None:  # noqa: C901
         except Exception:
             pass
         logging.info("Slideshow daemon stopped.")
+
 
 
 # ---------------------------------------------------------------------------
