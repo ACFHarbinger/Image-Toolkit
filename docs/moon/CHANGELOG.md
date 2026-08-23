@@ -1,3 +1,10 @@
+## S449 — 2026-08-23 (ASP per-output defect severity)
+
+- The evaluation inspector now records ordinal defect severity per output:
+  absent, trace, noticeable, or severe. New `defect_severity` data is
+  additive; legacy binary tags remain derived for compatibility, and frozen
+  labels were not altered.
+
 ## S448 — 2026-08-23 (ASP corrected-label gate correlation audit)
 
 - Re-ran the reproducible Spearman audit on all 97 frozen telemetry records
