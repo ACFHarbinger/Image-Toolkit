@@ -1,3 +1,16 @@
+## S441 — 2026-08-23 (ASP Track E: Bench Eval Inspector UX Inversion & Interactive Grids)
+
+- **Defect-First UX Inversion (`scoring_panel.py`)**:
+  Completely inverted the defect tagging workflow to "click defect -> click targets", replacing the "select target -> click defects" model. Clicking a defect now selects it as the active defect and dynamically exposes a row of target buttons (`[ASP] [SCANS] [Overmix] [Hugin]`) for instant attribution.
+- **Removed "Shared" Target (`schema.py`, `shortcuts.py`)**:
+  Stripped the confusing "Shared" pseudo-target entirely from the UI and backend logic. Legacy data saved under `"shared"` is now automatically expanded into both `"asp"` and `"simple"` upon loading, ensuring no data loss while moving to explicit target attribution.
+- **Interactive Defect Grid (`scoring_panel.py`)**:
+  Defect buttons now reactively display their attributions directly in their labels (e.g., `0. Torn Anatomy [A, H]`), allowing rapid scanning of all defects across all targets without switching tabs or context.
+- **Fluid Keyboard Rating (`main_window.py`)**:
+  Modified keyboard defect shortcuts (`Ctrl+0-9`) to instantly toggle defects for the *currently focused image panel*, maintaining blazing-fast keyboard rating workflows. Removed `Ctrl+Shift+0-9` bindings for the defunct shared target.
+
+---
+
 ## S440 — 2026-08-23 (ASP Track E: Bench Eval Inspector UX, Per-Comparator Defect Tagging & Shortcuts)
 
 - **Per-Comparator Defect Attribution (`other/schema.py`, `ui/scoring_panel.py`)**:
