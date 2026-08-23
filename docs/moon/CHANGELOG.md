@@ -1,3 +1,10 @@
+## S448 — 2026-08-23 (ASP corrected-label gate correlation audit)
+
+- Re-ran the reproducible Spearman audit on all 97 frozen telemetry records
+  and corrected labels. Ghosting and Composite seam coherence remain inverse,
+  coverage is null, and SeamVis is positive only in pooled data—not either
+  fallback stratum. Present gates are not a validated content-safety screen.
+
 ## S447 — 2026-08-23 (ASP CleanCP real-set validation)
 
 - Guarded sequential validation covered nine failing known-good cases and six
