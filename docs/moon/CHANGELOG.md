@@ -115,6 +115,19 @@
 
 ---
 
+## S445 — 2026-08-23 (ASP P1: Canvas-Aligned Background Plate + Single Foreground Pose Compositor Candidate)
+
+- **Canvas-Aligned Background Plate Builder (`_plate_compositor.py`)**:
+  Implemented `_build_aligned_background_plate()` reconstructing a static background plate across all warped frames using joint gain equalization (`_apply_joint_gain_solve`) and robust temporal nanmedian over valid background masks.
+- **Single-Pose Hero Cel Placement**:
+  Implemented `composite_plate_single_pose()` assigning exactly one foreground pose per connected character overlap zone (scored by coverage, centrality, and boundary completeness) with soft-edge boundary feathering, eliminating multi-pose phantom ghosting and severed limbs by construction.
+- **Plumbing & Schema**:
+  Gated behind default-off `ASP_PLATE_SINGLE_POSE=1` (registered in `_CONFIG_SCHEMA`) and wired into `composite.py` as an independent Stage 11 renderer candidate.
+- **Verification**:
+  Added unit test suite `test_plate_compositor.py` (3 passed). Verified full test suite passes cleanly.
+
+---
+
 ## S444 — 2026-08-23 (ASP Benchmark Inspector: Defect Severity Scoreboard UI Upgrade)
 
 - **Color-Coded Severity Chips (`theme.py`, `scoring_panel.py`)**:
