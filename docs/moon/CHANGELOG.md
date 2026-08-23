@@ -1,3 +1,14 @@
+## S431 — 2026-08-23 (ASP M2: registration-risk telemetry probe)
+
+Canonical ASP benchmark runs now emit measurement-only registration telemetry:
+per-pair RANSAC inlier count/ratio and reprojection RMS for real matcher
+correspondences, global BA residual, and graph-loop closure error. Rejected
+graphs retain their raw pair evidence; grid-sampled fallback anchors are not
+misrepresented as observed matches. The approved 97-case ungated corpus probe
+is running against the frozen schema; no selection policy or pixel path changed.
+
+---
+
 ## S430 — 2026-08-22 (GUI/UX §2.1: eager thumbnail pre-fill in the virtual galleries)
 
 `VirtualGalleryModel` now pre-loads thumbnails continuously as soon as a
