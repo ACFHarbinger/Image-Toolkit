@@ -1,3 +1,15 @@
+## S433 — 2026-08-23 (ASP M2: repeated registration-risk hold-out)
+
+Repeated the pre-registered, defect-stratified M2 registration-risk hold-out
+over all four stable SHA-256 buckets using the completed 97-case corpus and
+97 human labels. Each calibration-only fit independently selected the same
+measurement-only rule (missing BA or BA RMS >80, cycle RMS >300, raw edges
+<=10). Buckets 0–2 held out every named catastrophe across the rotations and
+each retained at least one known-good Raw-ASP case; bucket 3 held out two
+known-good cases while all catastrophes remained high-risk in calibration. No
+policy or pixel behavior changed. This is repeated feasibility evidence, not a
+production-gate promotion. See `.agent/reports/chat/m2_calibration_holdout_2026-08-23.md`.
+
 ## S432 — 2026-08-23 (fix: eliminate main-thread freeze when updating settings)
 
 **Root cause:**
