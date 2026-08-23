@@ -38,7 +38,7 @@ import secrets
 import threading
 import time
 from collections.abc import Generator
-from contextlib import contextmanager, suppress
+from contextlib import ExitStack, contextmanager, suppress
 from pathlib import Path
 from typing import Any, Optional
 
@@ -48,6 +48,7 @@ _enabled = os.environ.get(_ENV_VAR, "").strip().lower() in _TRUTHY
 
 _lock = threading.Lock()
 _file = None  # type: ignore[var-annotated]
+_file_context = ExitStack()
 _file_path: Optional[Path] = None
 _seq = 0
 _tls = threading.local()
@@ -145,12 +146,12 @@ def _new_span_id() -> str:
 
 
 def _ensure_file():
-    global _file, _file_path
+    global _file, _file_context, _file_path
     if _file is not None and not _file.closed:
         return _file
     TELEMETRY_DIR.mkdir(parents=True, exist_ok=True)
     _file_path = TELEMETRY_DIR / f"telemetry-{_pid}.jsonl"
-    _file = open(_file_path, "a", encoding="utf-8")
+    _file = _file_context.enter_context(_file_path.open("a", encoding="utf-8"))
     return _file
 
 
@@ -293,12 +294,13 @@ def close() -> None:
     """Flush and close the telemetry file, if one is open. Not required for
     correctness (every write already flushes), but tidy for tests/tools
     that want a clean handle."""
-    global _file, _file_path
+    global _file, _file_context, _file_path
     with _lock:
         if _file is not None:
             with suppress(Exception):
-                _file.close()
+                _file_context.close()
             _file = None
+            _file_context = ExitStack()
             _file_path = None
     _tls.spans = []
 
