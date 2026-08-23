@@ -25,9 +25,9 @@
 - **Offline probe on the 5 `no_valid_edges`/`disconnected_edge_graph`
   known-good**: anchors reliable for 3 (21/46/52 → 2 bridges each) and too
   sparse for 2 (51/89 → proposal stops, the delegation's stop-and-report
-  condition). Connected-graph verification on a real run is pending explicit
-  Harbinger authorization (RESOURCE RULE); the claim is offline-only until
-  then.
+  condition). A constrained authorized retry was stopped during `asp_test21`
+  BiRefNet masking at 77% host RAM before any case completed; P2 remains
+  offline-only until the host is less loaded.
 
 ---
 
