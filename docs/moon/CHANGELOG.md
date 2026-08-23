@@ -1,3 +1,12 @@
+## S447 — 2026-08-23 (ASP CleanCP real-set validation)
+
+- Guarded sequential validation covered nine failing known-good cases and six
+  catastrophe controls with `ASP_CLEANCP_RESOLVE=1`. It accepted one recovery
+  (`asp_test87`, four components to one), but its independent ratio gate still
+  rejected Raw ASP. `asp_test04` reached Raw ASP without CleanCP despite being
+  a catastrophe; five other catastrophe controls fell back. CleanCP remains
+  default-off and is not promotable on this evidence.
+
 ## S446 — 2026-08-23 (ASP P2 controlled connectivity evidence)
 
 - The authorized sequential `ASP_OVERLAP_PROPOSAL=1` run completed
