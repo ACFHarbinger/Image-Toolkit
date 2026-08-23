@@ -1,4 +1,5 @@
 import pytest
+
 from gui.src.theming.schema import BackgroundAssetRef, BackgroundTokens, ThemePack, ThemeSchemaError
 from gui.src.theming.storage import (
     import_asset,

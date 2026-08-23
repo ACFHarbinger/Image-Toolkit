@@ -7,7 +7,7 @@ change (see ``_ui_builder.py``'s docstring).
 from __future__ import annotations
 
 import platform
-from typing import Dict, Optional, cast
+from typing import TYPE_CHECKING, Dict, Optional, cast
 
 from backend.src.core import WallpaperManager
 from PySide6.QtCore import QThreadPool, Slot
@@ -15,8 +15,6 @@ from PySide6.QtWidgets import QApplication, QMessageBox, QWidget
 
 from .....helpers import ImageScannerWorker, WallpaperWorker
 from .....styles import STYLE_START_ACTION, STYLE_STOP_ACTION
-
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ...protos.system_display_subtab import SystemDisplaySubTabHostProtocol

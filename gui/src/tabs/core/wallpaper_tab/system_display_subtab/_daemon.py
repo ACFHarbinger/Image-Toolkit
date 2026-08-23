@@ -6,6 +6,7 @@ change (see ``_ui_builder.py``'s docstring).
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import platform
@@ -21,6 +22,7 @@ from PySide6.QtCore import QObject, QTimer
 from PySide6.QtWidgets import QMessageBox, QWidget
 
 from .....styles import set_button_role
+
 
 def _write_daemon_config_atomic(data: dict) -> None:
     """Write the daemon config atomically.
@@ -219,10 +221,8 @@ class _DaemonMixin:
             "monitor_history": self.monitor_history,
         }
 
-        try:
+        with contextlib.suppress(Exception):
             _write_daemon_config_atomic(config)
-        except Exception:
-            pass
 
     def toggle_daemon(self: "SystemDisplaySubTabHostProtocol", checked: bool):
         start = checked

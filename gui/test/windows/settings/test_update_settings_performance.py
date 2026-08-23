@@ -17,10 +17,9 @@ Fix:
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
-
 from gui.src.utils.cache.lru_image_cache import LRUImageCache
 from gui.src.windows.main._startup_prefs import _StartupPrefsMixin
 

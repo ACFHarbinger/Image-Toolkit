@@ -8,8 +8,9 @@ media_groups link pre-filled.
 from unittest.mock import MagicMock, patch
 
 import pytest
-from gui.src.tabs.database.series_listings_subtab import SeriesListingsSubTab
 from PySide6.QtWidgets import QDialog
+
+from gui.src.tabs.database.series_listings_subtab import SeriesListingsSubTab
 
 pytestmark = pytest.mark.gui
 

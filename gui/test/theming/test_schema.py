@@ -1,4 +1,5 @@
 import pytest
+
 from gui.src.theming.schema import (
     BackgroundAssetRef,
     BackgroundTokens,

@@ -3,9 +3,10 @@ from typing import Any, Dict, Union
 
 from backend.src.constants import SUPPORTED_IMG_FORMATS
 from backend.src.core import FileDeleter, FSETool
-from gui.src.helpers.core.config_types import DeletionConfig
 from PySide6.QtCore import QMutex, QThread, QWaitCondition, Signal
 from send2trash import send2trash  # pyrefly: ignore [untyped-import]
+
+from gui.src.helpers.core.config_types import DeletionConfig
 
 
 class DeletionWorker(QThread):

@@ -17,11 +17,11 @@ import logging
 from typing import List, Optional
 
 from backend.src.constants import ENGINE_BING
+from backend.src.constants.web import _API_ENDPOINT, _SBI_UPLOAD, SEARCH_ENGINES_BING_VISUAL_STRATEGY__RES_RE
 from backend.src.web.crawlers.reverse_image_search_crawler import ReverseSearchEngine
 from backend.src.web.models import ReverseSearchResult
 
 from .common import make_session, raise_for_rate_limit, resolve_api_key
-from backend.src.constants.web import SEARCH_ENGINES_BING_VISUAL_STRATEGY__RES_RE, _API_ENDPOINT, _SBI_UPLOAD
 
 log = logging.getLogger(__name__)
 

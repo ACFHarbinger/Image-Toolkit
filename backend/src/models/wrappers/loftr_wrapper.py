@@ -22,8 +22,8 @@ import kornia.feature as KF
 import numpy as np
 import torch
 
+from backend.src.constants.models import _LOFTR_H, _LOFTR_W, WRAPPERS_LOFTR_WRAPPER__MIN_INLIERS
 from backend.src.models.core.base import ModelWrapper, lazy_load
-from backend.src.constants.models import WRAPPERS_LOFTR_WRAPPER__MIN_INLIERS, _LOFTR_H, _LOFTR_W
 
 logger = logging.getLogger(__name__)
 

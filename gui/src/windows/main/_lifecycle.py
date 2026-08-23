@@ -16,7 +16,6 @@ from PySide6.QtWidgets import QApplication, QMessageBox, QScrollArea, QSystemTra
 from gui.src.styles.background_canvas import BackgroundCanvasController
 from gui.src.windows.settings.app_settings import AppSettings
 
-
 from ...utils.manager.shortcut_manager import get_registry
 
 

@@ -3,6 +3,7 @@ import sys
 import warnings
 
 from backend.src.app import launch_app
+
 from gui.src.windows.settings.file_dialog_patch import apply_patch
 
 os.environ.setdefault("QT_FFMPEG_DECODING_HW_DEVICE_TYPES", "")

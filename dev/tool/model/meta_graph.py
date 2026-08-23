@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import asdict, dataclass, field
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List
 
 
 @dataclass
@@ -108,9 +108,9 @@ class MetaGraph:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "MetaGraph":
         graph = cls()
-        for k, v in data.get("nodes", {}).items():
+        for _k, v in data.get("nodes", {}).items():
             graph.add_node(MetaGraphNode.from_dict(v))
-        for k, v in data.get("edges", {}).items():
+        for _k, v in data.get("edges", {}).items():
             graph.add_edge(MetaGraphEdge.from_dict(v))
         return graph
 

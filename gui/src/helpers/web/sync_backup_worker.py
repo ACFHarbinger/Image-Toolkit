@@ -14,8 +14,9 @@ from pathlib import Path
 import backend.src.constants as udef
 from backend.src.database.unified.entity_repo import EntityRepo
 from backend.src.database.unified.media_repo import MediaRepo
-from gui.src.constants.listings import LISTING_IMAGES_DIR
 from PySide6.QtCore import QThread, Signal
+
+from gui.src.constants.listings import LISTING_IMAGES_DIR
 
 
 def _sync_images_from_backup(prefix: str) -> int:

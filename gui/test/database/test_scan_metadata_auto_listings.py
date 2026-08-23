@@ -5,8 +5,9 @@ image groups (gui/src/tabs/database/scan_metadata_tab/_auto_listings.py).
 from unittest.mock import MagicMock, patch
 
 import pytest
-from gui.src.tabs.database.scan_metadata_tab import ScanMetadataTab
 from PySide6.QtWidgets import QDialog
+
+from gui.src.tabs.database.scan_metadata_tab import ScanMetadataTab
 
 pytestmark = pytest.mark.gui
 

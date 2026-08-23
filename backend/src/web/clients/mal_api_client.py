@@ -14,8 +14,8 @@ same shape).
 
 import requests
 
+from backend.src.constants.web import _ANIME_FIELDS, _API_ROOT, CLIENTS__STATUS_MAP
 from backend.src.web.search_engines.common import resolve_api_key
-from backend.src.constants.web import CLIENTS__STATUS_MAP, _ANIME_FIELDS, _API_ROOT
 
 
 def _client_id(explicit: str | None = None) -> str | None:

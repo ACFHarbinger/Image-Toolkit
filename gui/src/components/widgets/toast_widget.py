@@ -18,7 +18,7 @@ class ToastWidget(QWidget):
     A floating, frameless, semi-transparent toast notification widget.
     It queues and stacks vertically when managed by ToastManager.
     """
-    
+
     # Emitted when the toast finishes its animation and closes
     toast_closed = Signal(object)
 
@@ -156,7 +156,7 @@ class ToastManager:
             anim.setEndValue(QPoint(x, current_y))
             anim.setEasingCurve(QEasingCurve.Type.OutQuad)
             anim.start()
-            
+
             # Keep reference to avoid garbage collection
             toast._pos_anim = anim
 

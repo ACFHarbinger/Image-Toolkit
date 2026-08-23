@@ -41,7 +41,17 @@ from typing import List, Optional, Tuple
 
 from PIL import Image
 from PySide6.QtCore import QThread, Signal
-from gui.src.constants.helpers import MAX_TOTAL_TILES, MIN_INTERVAL_MS, MIN_TILES, TILE_WIDTH, _MAX_PAGE_RAW_MB, _OUT_TIME_RE, _STORYBOARD_CACHE_VERSION, _STORYBOARD_DIR
+
+from gui.src.constants.helpers import (
+    _MAX_PAGE_RAW_MB,
+    _OUT_TIME_RE,
+    _STORYBOARD_CACHE_VERSION,
+    _STORYBOARD_DIR,
+    MAX_TOTAL_TILES,
+    MIN_INTERVAL_MS,
+    MIN_TILES,
+    TILE_WIDTH,
+)
 from gui.src.helpers.video.video_thumbnailer import media_backend_spawn_guard
 
 

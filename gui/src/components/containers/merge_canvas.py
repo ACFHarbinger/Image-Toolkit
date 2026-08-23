@@ -1,8 +1,6 @@
 import os
 from typing import Any, Dict, List, Optional
 
-from gui.src.components.containers.canvas_base import CanvasBase
-from gui.src.components.elements.merge_canvas_item import MergeCanvasItem
 from PySide6.QtCore import QPointF, Qt, QTimer, Signal
 from PySide6.QtGui import (
     QAction,
@@ -15,6 +13,9 @@ from PySide6.QtGui import (
     QWheelEvent,
 )
 from PySide6.QtWidgets import QGraphicsScene, QGraphicsView, QMenu
+
+from gui.src.components.containers.canvas_base import CanvasBase
+from gui.src.components.elements.merge_canvas_item import MergeCanvasItem
 
 
 class MergeCanvas(CanvasBase):

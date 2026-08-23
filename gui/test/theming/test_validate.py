@@ -1,4 +1,5 @@
 import pytest
+
 from gui.src.theming.resolve import base_defaults
 from gui.src.theming.validate import contrast_ratio, contrast_warnings
 

@@ -37,8 +37,9 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from asp_backend.core.config import asp_schema, get_asp
-from gui.src.windows.settings.app_settings import AppSettings
+
 from gui.src.constants.windows import _KNOWN_GUI_KEYS
+from gui.src.windows.settings.app_settings import AppSettings
 
 # QSettings keys already exposed as typed AppConfig.gui fields -- excluded
 # from gui_dynamic_keys so they aren't listed twice.

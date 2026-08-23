@@ -15,7 +15,6 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QColorDialog,
     QComboBox,
-    QFileDialog,
     QFormLayout,
     QGroupBox,
     QHBoxLayout,
@@ -27,14 +26,13 @@ from PySide6.QtWidgets import (
     QSlider,
     QSpinBox,
     QVBoxLayout,
-    QWidget,
 )
 
 from gui.src.components.dialogs.thumbnail_file_picker import ThumbnailFilePicker
 from gui.src.styles.background_canvas import BackgroundCanvasController, BackgroundConfig
 from gui.src.theming.palette import extract_palette
-from gui.src.theming.resolve import base_defaults, resolve_colors
-from gui.src.theming.schema import ColorTokens, ThemePack
+from gui.src.theming.resolve import base_defaults
+from gui.src.theming.schema import ColorTokens
 from gui.src.theming.validate import contrast_warnings
 
 
@@ -338,7 +336,7 @@ class _AppearanceMixin:
 
 
     def _update_contrast_status(self) -> None:
-        base = "dark" if self.dark_theme_radio.isChecked() else "light"
+        "dark" if self.dark_theme_radio.isChecked() else "light"
         try:
             tokens = ColorTokens(
                 accent=self._current_colors.get("accent", "#00bcd4"),

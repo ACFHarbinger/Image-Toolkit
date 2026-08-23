@@ -43,7 +43,16 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from gui.src.constants.elements import _BUCKET_ORDER, _BUCKET_TABLES, _CARD_MARGIN_X, _CARD_MARGIN_Y, _CARD_WIDTH, _ROW_HEIGHT, _TITLE_HEIGHT
+
+from gui.src.constants.elements import (
+    _BUCKET_ORDER,
+    _BUCKET_TABLES,
+    _CARD_MARGIN_X,
+    _CARD_MARGIN_Y,
+    _CARD_WIDTH,
+    _ROW_HEIGHT,
+    _TITLE_HEIGHT,
+)
 
 
 def _bucket_for(table: str) -> str:

@@ -1,4 +1,6 @@
-from gui.src.tabs.database.listings_tab import ListingsTab
+from asp_gui.tabs.stitch_tab_backend import StitchTabBackend
+from PySide6.QtCore import Property, QObject, Signal, Slot
+
 from gui.src.tabs import (
     ConvertTab,
     DatabaseTab,
@@ -18,11 +20,10 @@ from gui.src.tabs import (
     WallpaperTab,
     WebRequestsTab,
 )
-from asp_gui.tabs.stitch_tab_backend import StitchTabBackend
+from gui.src.tabs.database.listings_tab import ListingsTab
 from gui.src.windows.logging.log_backend import LogBackend
 from gui.src.windows.settings.settings_backend import SettingsBackend
 from gui.src.windows.slideshow_backend import SlideshowBackend
-from PySide6.QtCore import Property, QObject, Signal, Slot
 
 
 class MainBackend(QObject):

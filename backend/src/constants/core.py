@@ -1,11 +1,13 @@
 """Constants relocated from backend/src or gui/src modules under this subpackage (module-level ALL_CAPS assignments)."""
 
-from pathlib import Path
-from typing import Dict
-from typing import List
 import importlib.util as _importlib_util_merger
 import os
 import threading
+from pathlib import Path
+from typing import TYPE_CHECKING, Dict, List
+
+if TYPE_CHECKING:
+    from backend.src.core.similarity.embedder import BaseEmbedder
 
 # --- from backend/src/core/video_converter.py ---
 VIDEO_CODEC_ENCODERS = {'h264': ('libx264', ['-pix_fmt', 'yuv420p']), 'hevc': ('libx265', ['-pix_fmt', 'yuv420p', '-tag:v', 'hvc1']), 'av1': ('libsvtav1', ['-pix_fmt', 'yuv420p']), 'vp9': ('libvpx-vp9', ['-pix_fmt', 'yuv420p', '-b:v', '0'])}

@@ -14,11 +14,11 @@ from __future__ import annotations
 
 import contextlib
 import os
-
 from typing import TYPE_CHECKING, Optional
 
 from PySide6.QtCore import QEvent
 from PySide6.QtWidgets import QApplication, QGridLayout
+
 from gui.src.constants.classes import _WORKER_DRAIN_TIMEOUT_MS
 
 if TYPE_CHECKING:

@@ -22,8 +22,8 @@ import json
 import sys
 from typing import Any, Dict, List, Optional
 
-from .store import WorkspaceStore
 from .plugins import Plugin
+from .store import WorkspaceStore
 
 PROTOCOL_VERSION = "1"
 SERVER_NAME = "devtool-plugin"

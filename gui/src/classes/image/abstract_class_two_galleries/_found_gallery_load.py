@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import contextlib
 import os
-from typing import List
+from typing import TYPE_CHECKING, List
 
 from backend.src.constants import SUPPORTED_VIDEO_FORMATS
 from PySide6.QtCore import Slot
@@ -23,8 +23,6 @@ from PySide6.QtWidgets import QLabel
 from shiboken6 import Shiboken
 
 from ....helpers import BatchImageLoaderWorker, BatchVideoLoaderWorker, VideoLoaderWorker
-
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ..protos.abstract_class_two_galleries import AbstractClassTwoGalleriesHostProtocol

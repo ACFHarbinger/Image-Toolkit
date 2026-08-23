@@ -1,8 +1,9 @@
 import json
 import os
-from dataclasses import dataclass, field, asdict
-from typing import List, Literal, Optional
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
+from typing import List, Literal, Optional
+
 
 @dataclass
 class StageEntry:
@@ -42,10 +43,7 @@ class PipelineTrace:
             if entry.stage_index == index:
                 now = datetime.utcnow()
                 start_time = self._stage_starts.get(index)
-                if start_time:
-                    delta = (now - start_time).total_seconds() * 1000
-                else:
-                    delta = 0.0
+                delta = (now - start_time).total_seconds() * 1000 if start_time else 0.0
 
                 entry.duration_ms = delta
                 entry.status = status

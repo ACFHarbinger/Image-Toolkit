@@ -12,6 +12,7 @@ class _QueryMixin:
 
     def connect_browser(self, silent: bool = False) -> None:
         from backend.src.database.unified.browser_repo import BrowserRepo
+
         from gui.src.helpers.database.library_session import get_library_db
 
         try:

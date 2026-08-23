@@ -5,6 +5,7 @@ from __future__ import annotations
 from unittest.mock import patch
 
 import pytest
+
 from gui.src.components.dialogs.tag_review_dialog import TagReviewDialog
 
 pytestmark = pytest.mark.gui

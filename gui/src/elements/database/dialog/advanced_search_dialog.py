@@ -1,6 +1,5 @@
 from pathlib import Path
 
-from gui.src.helpers.image import _CARD_THUMB_CACHE
 from PySide6.QtCore import QSize, Qt
 from PySide6.QtGui import QIcon, QPixmap
 from PySide6.QtWidgets import (
@@ -15,6 +14,8 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+
+from gui.src.helpers.image import _CARD_THUMB_CACHE
 
 
 class _AdvancedSearchDialog(QDialog):

@@ -32,6 +32,7 @@ import os
 import weakref
 from abc import ABC, abstractmethod
 from typing import List, Optional
+
 from backend.src.constants.models import _F
 
 logger = logging.getLogger(__name__)

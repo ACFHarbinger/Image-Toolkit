@@ -16,6 +16,7 @@ import logging
 from typing import Dict, List, Optional
 
 import numpy as np
+
 from backend.src.constants.core import _ACTIVE
 
 logger = logging.getLogger(__name__)

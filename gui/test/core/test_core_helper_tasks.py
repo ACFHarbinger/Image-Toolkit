@@ -7,6 +7,7 @@ import pytest
 
 # Note: backend modules are mocked in conftest.py, so we can mock the Loader class return
 from backend.src.models.core.siamese_network import SiameseModelLoader
+from PIL import Image
 
 # Import the tasks
 from gui.src.helpers.core.tasks.orb_task import OrbTask
@@ -15,7 +16,6 @@ from gui.src.helpers.core.tasks.scan_signals import ScanSignals
 from gui.src.helpers.core.tasks.sift_task import SiftTask
 from gui.src.helpers.core.tasks.sn_task import SiameseTask
 from gui.src.helpers.core.tasks.ssim_task import SsimTask
-from PIL import Image
 
 
 class TestCoreHelperTasks:

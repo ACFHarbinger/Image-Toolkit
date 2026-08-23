@@ -11,6 +11,7 @@ with the ComfyUIManager network calls mocked out.
 from unittest.mock import MagicMock, patch
 
 import pytest
+
 from gui.src.tabs.models.gen.comfy_generate_tab import (
     WORKFLOW_MODES,
     ComfyUITab,

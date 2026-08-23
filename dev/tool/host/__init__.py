@@ -27,9 +27,9 @@ from .settings import SETTINGS_FILENAME, Settings
 from .store import WorkspaceStore, default_workspace_root
 from .workspace import (
     DEFAULT_MONITOR_DEPTH,
-    PluginSource,
     STATE_FILENAME,
     WORKSPACE_CONFIG_FILENAME,
+    PluginSource,
     WorkspaceConfig,
     config_dir,
     discover_plugin_sources,

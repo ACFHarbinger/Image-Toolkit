@@ -8,15 +8,13 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Optional
 
 from backend.src.constants import DAEMON_CONFIG_PATH
 from PySide6.QtCore import QThread, QTimer
 from shiboken6 import Shiboken as sip
 
 from ......windows import SlideshowQueueWindow
-
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ....protos.wallpaper_common_base import WallpaperCommonBaseHostProtocol

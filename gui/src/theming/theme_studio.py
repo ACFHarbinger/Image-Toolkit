@@ -34,10 +34,8 @@ from PySide6.QtWidgets import (
 
 from gui.src.theming.resolve import base_defaults, resolve_colors
 from gui.src.theming.schema import (
-    COLOR_TOKEN_KEYS,
     VALID_BASES,
     VALID_DENSITY_MODES,
-    ColorTokens,
     CornerTokens,
     DensityTokens,
     ShadowTokens,

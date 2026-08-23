@@ -6,7 +6,7 @@ change (see ``_ui_graph_canvas.py``'s docstring).
 
 from __future__ import annotations
 
-from typing import Optional, cast
+from typing import TYPE_CHECKING, Optional, cast
 
 from backend.src.constants import SUPPORTED_IMG_FORMATS, SUPPORTED_VIDEO_FORMATS
 from PySide6.QtCore import QPoint, QPointF, Qt, Slot
@@ -15,8 +15,6 @@ from PySide6.QtWidgets import QDialog, QFileDialog, QMenu, QMessageBox, QWidget
 
 from ..graph import NODE_W, NodeEditDialog, NodeItem
 from ..graph.data_schema import GraphData
-
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ...protos.monitor_display_subtab import MonitorDisplaySubTabHostProtocol

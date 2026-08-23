@@ -7,7 +7,7 @@ change (see ``_monitor_selection.py``'s docstring).
 from __future__ import annotations
 
 import os
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from PySide6.QtCore import Qt, Slot
 from PySide6.QtWidgets import QMenu, QMessageBox, QWidget
@@ -15,8 +15,6 @@ from shiboken6 import Shiboken as sip
 
 from ......windows import SlideshowQueueWindow
 from ...graph.data_schema import GraphData
-
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ....protos.wallpaper_common_base import WallpaperCommonBaseHostProtocol

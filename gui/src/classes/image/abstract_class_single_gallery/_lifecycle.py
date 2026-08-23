@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, List
 
 from PySide6.QtCore import QEvent
 from PySide6.QtWidgets import QApplication
+
 from gui.src.constants.classes import ABSTRACT_CLASS_SINGLE_GALLERY__WORKER_DRAIN_TIMEOUT_MS
 
 if TYPE_CHECKING:

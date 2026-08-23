@@ -7,8 +7,9 @@ from typing import Any, Dict, List, Optional, Union
 
 from backend.src.constants import SUPPORTED_IMG_FORMATS, SUPPORTED_VIDEO_FORMATS
 from backend.src.core import ImageFormatConverter, VideoFormatConverter
-from gui.src.helpers.core.config_types import ConversionConfig
 from PySide6.QtCore import QThread, Signal
+
+from gui.src.helpers.core.config_types import ConversionConfig
 
 logger = logging.getLogger(__name__)
 

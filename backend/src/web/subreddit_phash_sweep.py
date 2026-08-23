@@ -18,8 +18,8 @@ from dataclasses import dataclass
 from typing import List, Optional
 
 from backend.src.constants import ENGINE_SUBREDDIT_SWEEP
-from backend.src.web.models import ReverseSearchResult
 from backend.src.constants.web import _HASH_SIZE, _IMAGE_EXTS, _MAX_BITS
+from backend.src.web.models import ReverseSearchResult
 
 log = logging.getLogger(__name__)
 

@@ -1,11 +1,5 @@
 """Unit tests for backend/src/animation/stitch_feedback.py."""
 
-import json
-import pytest
-from backend.src.animation.stitch_feedback import (
-    log_stitch_feedback,
-    load_stitch_feedback,
-)
 
 
 def test_log_and_load_stitch_feedback(tmp_path, monkeypatch):

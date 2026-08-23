@@ -7,7 +7,6 @@ change (see ``_ui_builder.py``'s docstring).
 from __future__ import annotations
 
 import contextlib
-
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:

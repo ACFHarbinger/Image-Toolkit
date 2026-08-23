@@ -1,6 +1,7 @@
 from backend.src.web.clients.mal_dispatcher import fetch_mal_anime_data
-from gui.src.windows.settings.app_settings import AppSettings
 from PySide6.QtCore import QThread, Signal
+
+from gui.src.windows.settings.app_settings import AppSettings
 
 
 class MalSyncWorker(QThread):

@@ -13,9 +13,10 @@ import uuid
 from datetime import date
 from typing import Any, Dict, List, Optional, Tuple
 
+from backend.src.constants.database import _COLUMN_KEYS, _CREDIT_FIELDS, _RELATION_KEYS, _SELECT_COLUMNS
+
 from ._util import dumps_extra, intify, loads_extra, normalized_pair, transaction
 from .tag_repo import TagRepo
-from backend.src.constants.database import _COLUMN_KEYS, _CREDIT_FIELDS, _RELATION_KEYS, _SELECT_COLUMNS
 
 
 class EntityRepo:

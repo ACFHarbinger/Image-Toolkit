@@ -6,10 +6,11 @@ change.
 
 from __future__ import annotations
 
-from gui.src.elements.database.dialog.recommendation_dialog import _RecommendationDialog
-from gui.src.helpers.database.recommendation_worker import RecommendationWorker
 from PySide6.QtCore import Slot
 from PySide6.QtWidgets import QDialog, QMessageBox
+
+from gui.src.elements.database.dialog.recommendation_dialog import _RecommendationDialog
+from gui.src.helpers.database.recommendation_worker import RecommendationWorker
 
 
 class _RecommendationMixin:

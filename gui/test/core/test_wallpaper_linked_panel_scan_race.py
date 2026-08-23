@@ -22,11 +22,11 @@ import pytest
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QGridLayout, QScrollArea, QWidget
 
+from gui.src.helpers import ImageScannerWorker
 from gui.src.tabs.core.wallpaper_tab.common import wallpaper_common_base
 from gui.src.tabs.core.wallpaper_tab.common.wallpaper_common_base import (
     WallpaperCommonBase,
 )
-from gui.src.helpers import ImageScannerWorker
 
 pytestmark = pytest.mark.gui
 

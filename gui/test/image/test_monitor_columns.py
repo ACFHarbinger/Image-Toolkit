@@ -1,4 +1,5 @@
 import pytest
+
 from gui.src.components.containers.draggable_monitor_container import (
     DraggableMonitorContainer,
     _MonitorColumn,

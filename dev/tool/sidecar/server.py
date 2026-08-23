@@ -171,8 +171,9 @@ class SidecarServer:
 
     def _get_metrics_timeline(self) -> Dict[str, Any]:
         """Aggregate RSS memory lifecycle & benchmark timeseries (#416)."""
-        from ..model.metrics_timeline import TimeSeries
         import math
+
+        from ..model.metrics_timeline import TimeSeries
 
         rss_series = TimeSeries("rss_memory", "MB", alert_threshold=200.0)
         coherence_series = TimeSeries("coherence_score", "score")

@@ -5,8 +5,6 @@ from __future__ import annotations
 
 import json
 
-import pytest
-
 from tool import WorkspaceStore, discover_plugins
 from tool.host import workspace
 from tool.host.plugins import MANIFEST_SCHEMA, PluginManifest, load_manifest

@@ -6,7 +6,7 @@ Extracted from ``MonitorDisplaySubTab`` -- pure code motion, no logic change
 
 from __future__ import annotations
 
-from typing import Optional, cast
+from typing import TYPE_CHECKING, Optional, cast
 
 from PySide6.QtCore import QObject, Qt
 from PySide6.QtWidgets import (
@@ -22,8 +22,6 @@ from PySide6.QtWidgets import (
     QSpinBox,
     QVBoxLayout,
 )
-
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ...protos.monitor_display_subtab import MonitorDisplaySubTabHostProtocol

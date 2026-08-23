@@ -22,7 +22,6 @@ from PySide6.QtWidgets import (
 
 from ._appearance import _AppearanceMixin
 from ._credentials import _CredentialsMixin
-from ._theme_studio_mixin import _ThemeStudioMixin
 from ._misc_sections import _MiscSectionsMixin
 from ._profile_management import _ProfileManagementMixin
 from ._relaunch_settings import _RelaunchSettingsMixin
@@ -30,6 +29,7 @@ from ._reset_state import _ResetStateMixin
 from ._shortcuts import _ShortcutsMixin
 from ._tab_config_editing import _TabConfigEditingMixin
 from ._tab_config_management import _TabConfigMixin
+from ._theme_studio_mixin import _ThemeStudioMixin
 from .app_settings import AppSettings
 
 

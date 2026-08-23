@@ -7,8 +7,9 @@ import tempfile
 from typing import Dict, List, Optional
 
 from backend.src.core.similarity import SimilarityConfig, SimilarityReport, TriageRules
-from gui.src.helpers.core.similarity_scan_worker import SimilarityScanWorker
 from PySide6.QtCore import Property, Signal
+
+from gui.src.helpers.core.similarity_scan_worker import SimilarityScanWorker
 
 from ....classes import AbstractClassTwoGalleries
 from ....helpers import DeletionWorker

@@ -9,9 +9,6 @@ onto the existing $VAR QSS system).
 
 from __future__ import annotations
 
-from gui.src.theming.schema import ThemePack
-from gui.src.theming.theme_studio import ThemeStudioPanel
-from gui.src.theming.theme_tools import QssEditorWidget, export_theme_pack
 from PySide6.QtWidgets import (
     QFileDialog,
     QGroupBox,
@@ -21,6 +18,10 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+
+from gui.src.theming.schema import ThemePack
+from gui.src.theming.theme_studio import ThemeStudioPanel
+from gui.src.theming.theme_tools import QssEditorWidget, export_theme_pack
 
 
 class _ThemeStudioMixin:

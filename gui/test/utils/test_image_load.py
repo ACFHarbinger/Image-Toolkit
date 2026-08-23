@@ -2,9 +2,10 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-from gui.src.utils.image_load import IMAGE_FILE_DIALOG_FILTER, load_qimage
 from PIL import Image
 from PySide6.QtGui import QImage
+
+from gui.src.utils.image_load import IMAGE_FILE_DIALOG_FILTER, load_qimage
 
 pytestmark = pytest.mark.gui
 

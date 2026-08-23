@@ -6,6 +6,7 @@ from backend.src.core import telemetry
 from PySide6.QtCore import QObject, QRunnable, Qt, Signal, Slot
 from PySide6.QtGui import QImage
 from shiboken6 import Shiboken
+
 from gui.src.constants.helpers import _NATIVE_SUPPORTS_RGB_CACHE
 
 if HAS_NATIVE_IMAGING:

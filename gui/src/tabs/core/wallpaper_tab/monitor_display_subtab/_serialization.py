@@ -6,9 +6,9 @@ change (see ``_ui_graph_canvas.py``'s docstring).
 
 from __future__ import annotations
 
-from ..graph.data_schema import GraphData
-
 from typing import TYPE_CHECKING
+
+from ..graph.data_schema import GraphData
 
 if TYPE_CHECKING:
     from ...protos.monitor_display_subtab import MonitorDisplaySubTabHostProtocol

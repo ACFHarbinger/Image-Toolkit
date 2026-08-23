@@ -6,15 +6,14 @@ change (see ``_monitor_selection.py``'s docstring).
 
 from __future__ import annotations
 
-from gui.src.helpers import ImageScannerWorker
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 from PySide6.QtCore import Slot
 from PySide6.QtWidgets import QFileDialog, QMessageBox, QWidget
 
-from ......utils.sort_utils import natural_sort_key
+from gui.src.helpers import ImageScannerWorker
 
-from typing import TYPE_CHECKING
+from ......utils.sort_utils import natural_sort_key
 
 if TYPE_CHECKING:
     from ....protos.wallpaper_common_base import WallpaperCommonBaseHostProtocol

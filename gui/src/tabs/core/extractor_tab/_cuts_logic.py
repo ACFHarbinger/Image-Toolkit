@@ -5,6 +5,8 @@ Extracted from ``extractor_tab.py`` -- pure code motion, no logic change.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, cast
+
 from PySide6.QtCore import QPoint, Qt, Slot
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
@@ -17,8 +19,6 @@ from PySide6.QtWidgets import (
     QScrollArea,
     QWidget,
 )
-
-from typing import TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
     from ..protos.extractor_tab import VideoExtractorSubTabHostProtocol

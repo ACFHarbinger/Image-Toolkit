@@ -1,10 +1,10 @@
 """Constants relocated from backend/src or gui/src modules under this subpackage (module-level ALL_CAPS assignments)."""
 
-from PySide6.QtGui import QColor
-from PySide6.QtGui import QPen
+import re
 from pathlib import Path
 from typing import Dict
-import re
+
+from PySide6.QtGui import QColor, QPen
 
 # --- from gui/src/elements/web/media_loader_tab/_ui_builder.py ---
 SOURCE_REDDIT = 0

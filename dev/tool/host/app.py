@@ -9,7 +9,6 @@ without a resident daemon (D24 / D39).
 from __future__ import annotations
 
 import importlib
-import pkgutil
 import sys
 from dataclasses import dataclass
 from pathlib import Path

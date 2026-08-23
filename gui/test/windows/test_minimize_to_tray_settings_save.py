@@ -12,7 +12,7 @@ Fix:
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -25,10 +25,9 @@ pytestmark = pytest.mark.gui
 
 def _make_lifecycle_host(minimize_to_tray: bool):
     """Return a minimal object that mixes in _LifecycleMixin."""
+    from gui.src.windows.main._lifecycle import _LifecycleMixin
     from PySide6.QtCore import QByteArray
     from PySide6.QtWidgets import QWidget
-
-    from gui.src.windows.main._lifecycle import _LifecycleMixin
 
     class Host(_LifecycleMixin, QWidget):
         def __init__(self):

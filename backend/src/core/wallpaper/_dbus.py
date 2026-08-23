@@ -12,6 +12,7 @@ import shutil
 from typing import Optional
 
 import base  # Native extension
+
 from backend.src.constants.core import _QDBUS_CANDIDATES
 
 logger = logging.getLogger(__name__)

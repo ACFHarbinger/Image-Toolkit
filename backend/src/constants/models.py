@@ -1,5 +1,7 @@
 # SDXL/LoRA target-module lists.
-#
+from pathlib import Path
+from typing import Callable, Dict, TypeVar
+
 # Previously redeclared identically (byte-for-byte, just reformatted) in four
 # separate tuner files: dream_booth_tuner.py, lo_ra_tuner.py,
 # lo_ra_tuner_config.py, lo_ra_tuner_v2.py.
@@ -12,11 +14,6 @@ SDXL_CONV_TARGETS = (
     "conv1", "conv2", "conv_shortcut", "conv", "time_emb_proj",
 )
 TE_ATTN_TARGETS = ("q_proj", "k_proj", "v_proj", "out_proj")
-
-from pathlib import Path
-from typing import Callable
-from typing import Dict
-from typing import TypeVar
 
 # --- from backend/src/models/wrappers/esrgan_wrapper.py ---
 ANIME_6B_FILENAME = 'RealESRGAN_x4plus_anime_6B.pth'

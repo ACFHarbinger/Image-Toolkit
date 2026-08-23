@@ -8,14 +8,14 @@ from typing import Any, Dict, List, Optional
 
 import backend.src.constants as udef
 import cv2
-from gui.src.components.dialogs.frame_selection_dialog import (
-    extract_video_frame_via_ffmpeg,
-)
 from PySide6.QtCore import QSize, Qt, QUrl
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtPdf import QPdfDocument
 from PySide6.QtWidgets import QLabel
 
+from gui.src.components.dialogs.frame_selection_dialog import (
+    extract_video_frame_via_ffmpeg,
+)
 from gui.src.constants.listings import (
     ENTITIES_FILE,  # noqa: F401
     LISTING_IMAGES_DIR,

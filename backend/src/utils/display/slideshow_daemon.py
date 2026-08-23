@@ -32,9 +32,9 @@ if str(_ROOT) not in sys.path:
 from screeninfo import Monitor  # noqa: E402
 
 from backend.src.constants import SUPPORTED_VIDEO_FORMATS  # noqa: E402
+from backend.src.constants.paths import DAEMON_CONFIG_PATH  # noqa: E402
+from backend.src.constants.utils import _VIDEO_DURATION_CACHE, DISPLAY_LOG_PATH, PID_PATH  # noqa: E402
 from backend.src.core.wallpaper import WallpaperManager  # noqa: E402
-from backend.src.constants.paths import DAEMON_CONFIG_PATH
-from backend.src.constants.utils import DISPLAY_LOG_PATH, PID_PATH, _VIDEO_DURATION_CACHE
 
 
 def _is_video(path: str) -> bool:

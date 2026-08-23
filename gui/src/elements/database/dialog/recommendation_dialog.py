@@ -1,6 +1,5 @@
 from typing import Any, Dict
 
-from gui.src.constants.listings import ENTRY_TYPES
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QComboBox,
@@ -14,6 +13,8 @@ from PySide6.QtWidgets import (
     QTextEdit,
     QVBoxLayout,
 )
+
+from gui.src.constants.listings import ENTRY_TYPES
 
 
 class _RecommendationDialog(QDialog):

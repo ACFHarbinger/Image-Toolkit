@@ -1,11 +1,12 @@
-from gui.src.components.labels.metadata_overlay import MetadataOverlay
 import contextlib
 from typing import Callable, Optional
 
-from gui.src.windows.drag_preview_window import DragPreviewWindow
 from PySide6.QtCore import QPoint, Qt, Signal
 from PySide6.QtGui import QColor, QCursor, QMouseEvent, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import QApplication, QLabel
+
+from gui.src.components.labels.metadata_overlay import MetadataOverlay
+from gui.src.windows.drag_preview_window import DragPreviewWindow
 
 
 class DraggableLabel(QLabel):
@@ -195,8 +196,9 @@ class DraggableLabel(QLabel):
     def _try_drop_on_widget(self, widget):
         """Try to drop the file on the target widget."""
         # Import here to avoid circular dependency
-        from gui.src.components.views.monitor_drop_view import MonitorDropView
         from PySide6.QtCore import QPointF
+
+        from gui.src.components.views.monitor_drop_view import MonitorDropView
 
         # Get all files to drop
         files_to_drop = [self.file_path]

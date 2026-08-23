@@ -7,6 +7,7 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
+
 from gui.src.elements.database.display.detail_panel import _DetailPanel
 from gui.src.elements.database.display.entity_detail_panel import _EntityDetailPanel
 

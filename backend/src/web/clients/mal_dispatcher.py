@@ -14,8 +14,8 @@ failure modes:
   more fragile to MAL markup changes.
 """
 
-from backend.src.web.clients import jikan_client, mal_api_client, mal_scrape_client
 from backend.src.constants.web import _DEFAULT_METHOD
+from backend.src.web.clients import jikan_client, mal_api_client, mal_scrape_client
 
 # (internal key, human-readable label for Settings UI), in display order.
 MAL_FETCH_METHODS = (

@@ -6,9 +6,9 @@ change (see ``_monitor_selection.py``'s docstring).
 
 from __future__ import annotations
 
-from PySide6.QtCore import Slot
-
 from typing import TYPE_CHECKING
+
+from PySide6.QtCore import Slot
 
 if TYPE_CHECKING:
     from ....protos.wallpaper_common_base import WallpaperCommonBaseHostProtocol

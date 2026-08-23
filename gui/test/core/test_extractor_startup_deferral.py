@@ -41,10 +41,11 @@ class TestGalleryDedicatedPool:
     waitForDone(-1) freeze)."""
 
     def _make_gallery(self):
+        from PySide6.QtWidgets import QGridLayout, QScrollArea, QWidget
+
         from gui.src.tabs.core.wallpaper_tab.common.wallpaper_common_base import (
             WallpaperCommonBase,
         )
-        from PySide6.QtWidgets import QGridLayout, QScrollArea, QWidget
 
         class ConcreteWallpaperBase(WallpaperCommonBase):
             def __init__(self):
@@ -176,7 +177,7 @@ class TestPlaybackSpeedDeferral:
         ):
             tab = ExtractorTab()
             try:
-                tab.media_player
+                assert tab.media_player
             finally:
                 vt._media_backend_loaded = False
             assert tab._audio_output is None

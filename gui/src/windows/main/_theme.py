@@ -25,11 +25,10 @@ from ...styles import (
 )
 
 
-
 class _ThemeMixin:
     """Applies the dark/light stylesheet and handles manual theme toggling."""
 
-    def set_application_theme(self, theme_name):
+    def set_application_theme(self, theme_name):  # noqa: C901
         prefs = {}
         if hasattr(self, "cached_creds") and self.cached_creds:
             prefs = self.cached_creds.get("preferences", {})
@@ -154,8 +153,8 @@ class _ThemeMixin:
         migration, round-1 answer): resolve the pack to the QSS var names
         theme.qss already consumes, load the base stylesheet with those
         overrides, then append density/typography/shadow/raw-QSS."""
-        from gui.src.theming.resolve import resolve_colors, resolve_to_qss_vars
         from gui.src.styles import COMPACT_DENSITY_QSS, SPACIOUS_DENSITY_QSS, load_qss_with_overrides
+        from gui.src.theming.resolve import resolve_colors, resolve_to_qss_vars
 
         qss_name = f"{pack.base}.qss"
         overrides = resolve_to_qss_vars(pack)

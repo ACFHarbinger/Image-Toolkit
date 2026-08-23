@@ -17,8 +17,9 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 from urllib.parse import urlparse
 
-from .config import ReconConfig
 from backend.src.constants.web import _SCHEMA
+
+from .config import ReconConfig
 
 logger = logging.getLogger(__name__)
 

@@ -14,13 +14,14 @@ from __future__ import annotations
 
 from typing import List, Tuple
 
+from PySide6.QtCore import QThreadPool, Slot
+from PySide6.QtWidgets import QInputDialog, QMessageBox
+
 from gui.src.helpers.database.library_session import get_library_db
 from gui.src.helpers.database.listings_embedding_worker import ListingsEmbeddingWorker
 from gui.src.helpers.database.listings_semantic_search_worker import (
     ListingsSemanticSearchWorker,
 )
-from PySide6.QtCore import QThreadPool, Slot
-from PySide6.QtWidgets import QInputDialog, QMessageBox
 
 
 def _media_embedding_text(entry: dict) -> str:

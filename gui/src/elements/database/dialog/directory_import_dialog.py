@@ -1,16 +1,6 @@
 import re
 from pathlib import Path
 
-from gui.src.constants.listings import ENTRY_STATUS, ENTRY_TYPES, VIDEO_IMPORT_EXTS
-from gui.src.elements.database.dialog.common.base_directory_import_dialog import (
-    BaseDirectoryImportDialog,
-)
-from gui.src.styles import SHARED_BUTTON_STYLE
-from gui.src.elements.database.common.listings_common import (
-    _parse_video_series,
-    _persist_splitter,
-    _scan_video_directory,
-)
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
@@ -33,6 +23,17 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+
+from gui.src.constants.listings import ENTRY_STATUS, ENTRY_TYPES, VIDEO_IMPORT_EXTS
+from gui.src.elements.database.common.listings_common import (
+    _parse_video_series,
+    _persist_splitter,
+    _scan_video_directory,
+)
+from gui.src.elements.database.dialog.common.base_directory_import_dialog import (
+    BaseDirectoryImportDialog,
+)
+from gui.src.styles import SHARED_BUTTON_STYLE
 
 
 class _DirectoryImportDialog(BaseDirectoryImportDialog):

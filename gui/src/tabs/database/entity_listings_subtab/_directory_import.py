@@ -12,10 +12,11 @@ from datetime import date
 from pathlib import Path
 from typing import Any, Dict, List
 
-from gui.src.constants.listings import LISTING_IMAGES_DIR
-from gui.src.elements.database.dialog.entity_directory_import_dialog import _EntityDirectoryImportDialog
 from PySide6.QtCore import Slot
 from PySide6.QtWidgets import QDialog, QMessageBox
+
+from gui.src.constants.listings import LISTING_IMAGES_DIR
+from gui.src.elements.database.dialog.entity_directory_import_dialog import _EntityDirectoryImportDialog
 
 
 class _DirectoryImportMixin:

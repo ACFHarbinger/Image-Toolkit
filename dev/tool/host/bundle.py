@@ -122,7 +122,7 @@ def _repro_script(command: List[str], cwd: str) -> str:
     return "\n".join(lines) + "\n"
 
 
-def build_bundle(
+def build_bundle(  # noqa: C901
     store: WorkspaceStore,
     name: str,
     *,

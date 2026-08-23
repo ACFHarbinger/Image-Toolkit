@@ -1,4 +1,3 @@
-from gui.src.constants import LEVEL_COLORS
 from PySide6.QtCore import QDateTime, Qt
 from PySide6.QtGui import QColor, QFont, QGuiApplication, QTextCharFormat, QTextCursor
 from PySide6.QtWidgets import (
@@ -10,6 +9,8 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+
+from gui.src.constants import LEVEL_COLORS
 
 
 class LogWindow(QWidget):

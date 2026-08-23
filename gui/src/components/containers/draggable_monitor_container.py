@@ -1,6 +1,7 @@
-from gui.src.components.views.monitor_drop_view import MonitorDropView
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QHBoxLayout, QSizePolicy, QVBoxLayout, QWidget
+
+from gui.src.components.views.monitor_drop_view import MonitorDropView
 
 
 class _MonitorColumn(QWidget):

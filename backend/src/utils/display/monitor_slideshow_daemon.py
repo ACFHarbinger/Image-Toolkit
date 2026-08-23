@@ -37,11 +37,10 @@ from backend.src.constants import (  # noqa: E402
     MONITOR_SLIDESHOW_DAEMON_CONFIG_PATH,
     SUPPORTED_VIDEO_FORMATS,
 )
+from backend.src.constants.utils import DEFAULT_ENTRY_DURATION_SEC, LOG_PATH  # noqa: E402
 from backend.src.core import WallpaperManager  # noqa: E402
 from backend.src.core.wallpaper import find_qdbus_binary  # noqa: E402
-from backend.src.constants.utils import DEFAULT_ENTRY_DURATION_SEC, LOG_PATH
 from backend.src.utils.display.slideshow_daemon import _is_session_locked  # noqa: E402
-
 
 # Safety net: the native scheduler holds a reference to the Python
 # apply_callback closure between start() and stop(). If the process exits

@@ -7,10 +7,11 @@ Extracted from ``database_tab.py`` -- pure code motion, no logic change
 from __future__ import annotations
 
 from backend.src.database.unified.facade import UnifiedImageDatabase as ImageDatabase
+from PySide6.QtWidgets import QInputDialog, QMessageBox
+
+from gui.src.constants.elements import EMBED_MODEL
 from gui.src.helpers.database.embedding_worker import ImageEmbeddingWorker
 from gui.src.helpers.database.library_session import get_library_db
-from PySide6.QtWidgets import QInputDialog, QMessageBox
-from gui.src.constants.elements import EMBED_MODEL
 
 
 class _ConnectionStatsMixin:

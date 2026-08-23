@@ -6,14 +6,12 @@ change (see ``_ui_graph_canvas.py``'s docstring).
 
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 from PySide6.QtCore import QTimer, Slot
 from screeninfo import Monitor
 
 from ..graph.data_schema import GraphData
-
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ...protos.monitor_display_subtab import MonitorDisplaySubTabHostProtocol

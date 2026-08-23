@@ -14,13 +14,11 @@ something on the Python/Qt side stalls.
 from __future__ import annotations
 
 import contextlib
-from typing import List, Optional, cast
+from typing import TYPE_CHECKING, List, Optional, cast
 
 from backend.src.utils.display import monitor_slideshow_daemon as _monitor_slideshow
 from PySide6.QtCore import Slot
 from PySide6.QtWidgets import QMessageBox, QWidget
-
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ...protos.monitor_display_subtab import MonitorDisplaySubTabHostProtocol

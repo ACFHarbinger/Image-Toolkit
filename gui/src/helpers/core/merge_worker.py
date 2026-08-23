@@ -3,9 +3,10 @@ from typing import Any, Dict, List, Union
 
 from backend.src.constants import SUPPORTED_IMG_FORMATS
 from backend.src.core import FSETool, ImageMerger
-from gui.src.helpers.core.config_types import MergeConfig
 from PIL import Image as PILImage
 from PySide6.QtCore import QThread, Signal
+
+from gui.src.helpers.core.config_types import MergeConfig
 
 
 class MergeWorker(QThread):

@@ -28,7 +28,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from backend.src.constants import IMAGE_TOOLKIT_DIR
-from backend.src.constants.core import CORE_DIR_PHASH_INDEX__IMG_EXTS, _U64
+from backend.src.constants.core import _U64, CORE_DIR_PHASH_INDEX__IMG_EXTS
 
 logger = logging.getLogger(__name__)
 

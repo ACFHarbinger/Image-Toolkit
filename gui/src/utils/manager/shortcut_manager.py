@@ -33,6 +33,7 @@ import json
 from typing import Optional
 
 from PySide6.QtGui import QKeyEvent, QKeySequence
+
 from gui.src.constants.utils import _KEYBINDINGS_PATH
 
 # ---------------------------------------------------------------------------

@@ -7,8 +7,9 @@ category drawers, live type/bound validation, preset profiles, and JSON/TOML exp
 
 from __future__ import annotations
 
+import contextlib
 import json
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
@@ -260,7 +261,7 @@ class AspAdvancedConfigDialog(QDialog):
 
         primary_scroll.setWidget(primary_content)
         primary_layout.addWidget(primary_scroll)
-        self.tab_widget.addTab(primary_widget, f"Primary Profile (20 Flags)")
+        self.tab_widget.addTab(primary_widget, "Primary Profile (20 Flags)")
 
         # Advanced Tab (Full 73 flags categorized)
         advanced_widget = QWidget()
@@ -279,7 +280,7 @@ class AspAdvancedConfigDialog(QDialog):
                 if key in self.schema and key not in self.widgets:
                     widget = self._create_widget_for_key(key, self.schema[key])
                     self.widgets[key] = widget
-                
+
                 if key in self.widgets:
                     label = QLabel(key)
                     label.setToolTip(self.schema[key][3])
@@ -323,7 +324,7 @@ class AspAdvancedConfigDialog(QDialog):
     def _create_widget_for_key(self, key: str, schema_entry: tuple) -> QWidget:
         expected_type, lo, hi, desc = schema_entry
 
-        if expected_type == int:
+        if isinstance(expected_type, int):
             if lo == 0 and hi == 1:
                 cb = QCheckBox("Enabled")
                 cb.setToolTip(f"{key}\n{desc}\nType: Binary [0, 1]")
@@ -333,14 +334,14 @@ class AspAdvancedConfigDialog(QDialog):
                 spin.setRange(lo if lo is not None else -999999, hi if hi is not None else 999999)
                 spin.setToolTip(f"{key}\n{desc}\nRange: [{lo}, {hi}]")
                 return spin
-        elif expected_type == float:
+        elif isinstance(expected_type, float):
             dspin = QDoubleSpinBox()
             dspin.setDecimals(4)
             dspin.setRange(lo if lo is not None else -999999.0, hi if hi is not None else 999999.0)
             dspin.setSingleStep(0.05 if (hi or 1.0) <= 1.0 else 1.0)
             dspin.setToolTip(f"{key}\n{desc}\nRange: [{lo}, {hi}]")
             return dspin
-        elif expected_type == str:
+        elif isinstance(expected_type, str):
             if "searaft" in desc or "dis" in desc:
                 combo = QComboBox()
                 combo.addItems(["searaft", "dis"])
@@ -350,7 +351,7 @@ class AspAdvancedConfigDialog(QDialog):
                 edit = QLineEdit()
                 edit.setToolTip(f"{key}\n{desc}")
                 return edit
-        
+
         edit = QLineEdit()
         edit.setToolTip(f"{key}\n{desc}")
         return edit
@@ -364,10 +365,8 @@ class AspAdvancedConfigDialog(QDialog):
             if isinstance(widget, QCheckBox):
                 widget.setChecked(bool(val))
             elif isinstance(widget, (QSpinBox, QDoubleSpinBox)):
-                try:
+                with contextlib.suppress(Exception):
                     widget.setValue(float(val))
-                except Exception:
-                    pass
             elif isinstance(widget, QComboBox):
                 idx = widget.findText(str(val))
                 if idx >= 0:
@@ -478,7 +477,7 @@ class AspAdvancedConfigDialog(QDialog):
             # Find associated label if possible
             parent_form = widget.parentWidget()
             if isinstance(parent_form, QWidget):
-                label = parent_form.findChild(QLabel, "")
+                parent_form.findChild(QLabel, "")
 
     def _export_config(self) -> None:
         cfg = self.get_config()

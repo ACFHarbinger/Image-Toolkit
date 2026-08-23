@@ -6,13 +6,13 @@ Streamlit-based interactive dashboard for analyzing Image-Toolkit benchmark resu
 """
 
 import json
-import streamlit as st
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List
+
 import pandas as pd
 import plotly.graph_objects as go
-from pathlib import Path
-from datetime import datetime
-from typing import Dict, List, Any
-
+import streamlit as st
 
 # Page configuration
 st.set_page_config(
@@ -192,7 +192,7 @@ class BenchmarkAnalyzer:
         max_mem = max(avg_mems) if avg_mems else 1
         efficiency_scores = [
             (t / max_time) * (m / max_mem) * 100
-            for t, m in zip(avg_times, avg_mems)
+            for t, m in zip(avg_times, avg_mems, strict=False)
         ]
 
         fig = go.Figure()
@@ -211,7 +211,7 @@ class BenchmarkAnalyzer:
                 colorbar=dict(title="Efficiency<br>Score"),
                 line=dict(width=2, color='white'),
             ),
-            customdata=list(zip(iterations, efficiency_scores)),
+            customdata=list(zip(iterations, efficiency_scores, strict=False)),
             hovertemplate=(
                 '<b>%{text}</b><br>' +
                 'Time: %{x:.4f}s<br>' +
@@ -245,15 +245,15 @@ class BenchmarkAnalyzer:
         # Efficiency score: lower is better (normalized)
         efficiency_scores = [
             ((t / max_time) + (m / max_mem)) / 2 * 100
-            for t, m in zip(avg_times, avg_mems)
+            for t, m in zip(avg_times, avg_mems, strict=False)
         ]
 
         # Sort by efficiency (best to worst)
         sorted_data = sorted(
-            zip(names, efficiency_scores, avg_times, avg_mems),
+            zip(names, efficiency_scores, avg_times, avg_mems, strict=False),
             key=lambda x: x[1]
         )
-        sorted_names, sorted_scores, sorted_times, sorted_mems = zip(*sorted_data)
+        sorted_names, sorted_scores, sorted_times, sorted_mems = zip(*sorted_data, strict=False)
 
         # Color code: green for efficient, red for inefficient
         colors = ['#4CAF50' if s < 50 else '#FFC107' if s < 75 else '#F44336'
@@ -267,7 +267,7 @@ class BenchmarkAnalyzer:
             marker=dict(color=colors),
             text=[f'{s:.1f}' for s in sorted_scores],
             textposition='outside',
-            customdata=list(zip(sorted_times, sorted_mems)),
+            customdata=list(zip(sorted_times, sorted_mems, strict=False)),
             hovertemplate=(
                 '<b>%{y}</b><br>' +
                 'Efficiency Score: %{x:.1f}<br>' +
@@ -639,7 +639,7 @@ def render_system_comparison(analyzer: BenchmarkAnalyzer):
     st.dataframe(df, use_container_width=True, height=400)
 
 
-def render_function_comparison(analyzer: BenchmarkAnalyzer):
+def render_function_comparison(analyzer: BenchmarkAnalyzer):  # noqa: C901
     """Render comprehensive function comparison page."""
     st.title("⚖️ Function Comparison: Memory vs Compute Time")
 

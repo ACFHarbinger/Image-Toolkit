@@ -3,10 +3,11 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
-from gui.src.tabs.database.data_browser_tab import DataBrowserTab
-from gui.src.tabs.database.data_browser_tab._er_view import _TableCardItem
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QGraphicsLineItem, QMessageBox, QWidget
+
+from gui.src.tabs.database.data_browser_tab import DataBrowserTab
+from gui.src.tabs.database.data_browser_tab._er_view import _TableCardItem
 
 pytestmark = pytest.mark.gui
 

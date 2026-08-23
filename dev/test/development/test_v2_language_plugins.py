@@ -21,7 +21,6 @@ import sys
 from pathlib import Path
 
 import pytest
-
 from tool.host import build_command_argv, discover_plugins, load_manifest
 
 DEV_ROOT = Path(__file__).resolve().parent.parent.parent

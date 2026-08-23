@@ -2,16 +2,12 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import pytest
 from tool.model.meta_graph import MetaGraph, MetaGraphEdge, MetaGraphNode
 from tool.model.pipeline_scrubber import PipelineScrubSession, PipelineStageEvent
 from tool.model.world_state import (
-    CameraBookmark,
-    NodeSpatialState,
-    WorldFilterState,
     WorldState,
 )
 
@@ -115,8 +111,9 @@ def test_pipeline_scrubber_timeline_evaluation():
 
 
 def test_flame_graph_hierarchical_construction():
-    from tool.model.flame_graph import FlameGraph
     from dataclasses import dataclass
+
+    from tool.model.flame_graph import FlameGraph
 
     @dataclass
     class DummySpan:
@@ -147,8 +144,9 @@ def test_flame_graph_hierarchical_construction():
 
 
 def test_timeseries_lttb_downsampling():
-    from tool.model.metrics_timeline import TimeSeries
     import math
+
+    from tool.model.metrics_timeline import TimeSeries
 
     ts = TimeSeries(name="rss_memory", unit="MB", alert_threshold=200.0)
 

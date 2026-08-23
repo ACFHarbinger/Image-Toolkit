@@ -4,6 +4,7 @@ import time
 from unittest.mock import MagicMock, patch
 
 import pytest
+
 from gui.src.helpers.video.storyboard import (
     StoryboardBuilder,
     StoryboardMeta,
@@ -225,8 +226,9 @@ class TestStoryboardPagination:
     multiple page images, each kept safely under that ceiling."""
 
     def test_composite_splits_into_multiple_pages_for_many_tiles(self, tmp_path):
-        from gui.src.helpers.video.storyboard import _MAX_PAGE_RAW_MB, TILE_WIDTH
         from PIL import Image
+
+        from gui.src.helpers.video.storyboard import _MAX_PAGE_RAW_MB, TILE_WIDTH
 
         video = tmp_path / "episode.mkv"
         video.write_text("dummy")
@@ -266,9 +268,10 @@ class TestStoryboardPagination:
         """The actual bug this pagination fixes: a too-large single sprite
         sheet loads as QPixmap.isNull() == True with no exception at all --
         so this must be verified via a real QPixmap load, not just PIL."""
-        from gui.src.helpers.video.storyboard import _MAX_PAGE_RAW_MB, TILE_WIDTH
         from PIL import Image
         from PySide6.QtGui import QPixmap
+
+        from gui.src.helpers.video.storyboard import _MAX_PAGE_RAW_MB, TILE_WIDTH
 
         video = tmp_path / "episode.mkv"
         video.write_text("dummy")
@@ -301,9 +304,10 @@ def test_storyboard_builder_produces_a_real_sprite_sheet(q_app):
     from pathlib import Path
 
     import numpy as np
-    from gui.src.helpers.video.storyboard import probe_duration_ms
     from PIL import Image
     from PySide6.QtGui import QPixmap
+
+    from gui.src.helpers.video.storyboard import probe_duration_ms
 
     duration_ms = probe_duration_ms(HEVC_SAMPLE)
     assert duration_ms > 0

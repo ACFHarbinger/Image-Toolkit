@@ -1,5 +1,7 @@
 # Reverse-image-search / web-crawler engine identifiers.
-#
+import os
+import re
+
 # Previously redeclared identically (same string values) in five separate
 # files (reverse_image_search_crawler.py, search_engines/__init__.py, and
 # each individual strategy module) since the strategy modules can't import
@@ -19,9 +21,6 @@ SUPPORTED_ENGINES = (
     ENGINE_GOOGLE, ENGINE_TINEYE, ENGINE_LOCAL_CBIR,
     ENGINE_BING, ENGINE_YANDEX, ENGINE_SAUCENAO, ENGINE_IQDB,
 )
-
-import os
-import re
 
 # --- from backend/src/web/subreddit_phash_sweep.py ---
 _IMAGE_EXTS = ('.jpg', '.jpeg', '.png', '.webp', '.bmp', '.gif')

@@ -22,8 +22,9 @@ def _isolate_extraction_history(tmp_path, monkeypatch):
     but _video_session_history binds IMAGE_TOOLKIT_DIR at import time, so the
     extraction-history JSON still points at the real home dir. Route it to the
     per-test tmp dir to keep queue recording tests isolated."""
-    import gui.src.tabs.core.extractor_tab._video_session_history as vsh
     from PySide6.QtWidgets import QMessageBox
+
+    import gui.src.tabs.core.extractor_tab._video_session_history as vsh
 
     monkeypatch.setattr(vsh, "IMAGE_TOOLKIT_DIR", tmp_path)
     monkeypatch.setattr(QMessageBox, "information", lambda *args, **kwargs: QMessageBox.StandardButton.Ok)
@@ -784,8 +785,8 @@ class TestHeadlessKeepAlive:
 
     def test_worker_safety_net_keeps_self_alive_through_run(self):
         from gui.src.helpers.core.queue_execution_worker import (
-            QueueExecutionWorker,
             _RUNNING_WORKERS,
+            QueueExecutionWorker,
         )
 
         worker = QueueExecutionWorker([], parallel=False)

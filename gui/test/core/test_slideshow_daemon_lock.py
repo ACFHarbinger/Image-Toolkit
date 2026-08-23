@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -12,10 +12,11 @@ pytestmark = pytest.mark.gui
 
 def test_countdown_starts_before_pid_file_exists(q_app, tmp_path, monkeypatch):
     """Start click must show a timer even if the child has not written a pid yet."""
+    from PySide6.QtWidgets import QLabel, QWidget
+
     from gui.src.tabs.core.wallpaper_tab.system_display_subtab._daemon import (
         _DaemonMixin,
     )
-    from PySide6.QtWidgets import QLabel, QWidget
 
     path = tmp_path / ".slideshow_config.json"
     path.write_text(

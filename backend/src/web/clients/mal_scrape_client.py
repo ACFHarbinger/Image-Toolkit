@@ -18,14 +18,18 @@ import time
 import requests
 from bs4 import BeautifulSoup
 
+from backend.src.constants.web import (
+    _ANIME_URL_RE,
+    _REQUEST_DELAY_SECONDS,
+    CLIENTS__SEARCH_URL,
+    CLIENTS_MAL_SCRAPE_CLIENT__STATUS_MAP,
+)
 from backend.src.web.search_engines.common import (
     EngineBlocked,
     RateLimited,
     make_session,
     raise_for_rate_limit,
 )
-from backend.src.constants.web import CLIENTS_MAL_SCRAPE_CLIENT__STATUS_MAP, CLIENTS__SEARCH_URL, _ANIME_URL_RE, _REQUEST_DELAY_SECONDS
-
 
 # Politeness delay between sequential page fetches for a single lookup.
 

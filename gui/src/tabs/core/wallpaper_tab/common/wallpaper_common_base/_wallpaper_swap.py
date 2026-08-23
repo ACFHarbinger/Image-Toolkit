@@ -9,7 +9,7 @@ from __future__ import annotations
 import os
 import platform
 from pathlib import Path
-from typing import List, Optional, cast
+from typing import TYPE_CHECKING, List, Optional, cast
 
 from backend.src.core import WallpaperManager
 from PySide6.QtCore import Slot
@@ -18,8 +18,6 @@ from shiboken6 import Shiboken as sip
 
 from ......windows import SlideshowQueueWindow
 from ...graph.data_schema import GraphData
-
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ....protos.wallpaper_common_base import WallpaperCommonBaseHostProtocol
