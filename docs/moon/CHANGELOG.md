@@ -43,6 +43,19 @@
 
 ---
 
+## S443 — 2026-08-23 (ASP M5: Multi-Band / Laplacian Pyramid Blending in Stage 11 Compositing)
+
+- **Multi-Band Background Pyramid Blender (`_multiband.py`, `_fill.py`)**:
+  Implemented frequency-split Gaussian/Laplacian pyramid blending (`multiband_blend_background`) for Stage 7/11 compositing behind default-off `ASP_MULTIBAND_BLEND`. Blends low-frequency illumination differences across background strip zones while locking high-frequency Level 0 detail (`ASP_MULTIBAND_HF_LOCK=1`) to the discrete minimum-cost DP seam path to protect anime ink outlines.
+- **Background-Only Cel Bypass**:
+  Non-background character cel pixels strictly bypass pyramid decomposition and are copied from their respective single-pose frames, preventing ghost limb copies or moving-cel smearing.
+- **Configuration & Schema**:
+  Registered `ASP_MULTIBAND_BLEND`, `ASP_MULTIBAND_LEVELS` (default 5), and `ASP_MULTIBAND_HF_LOCK` (default 1) in `_CONFIG_SCHEMA`.
+- **Verification**:
+  Added unit test suite `test_multiband.py` (4/4 passed) verifying exact numerical reconstruction identity on uniform images ($\max |I_{\text{composite}} - I_A| \le 1\text{ LSB}$), smooth low-frequency gradient bridging, line art preservation, and background mask bypass. Verified full 507 rendering/core tests green.
+
+---
+
 ## S442 — 2026-08-23 (ASP Coherence Tab: Fallback image discovery for unrendered evaluation cases)
 
 - **Fallback Image Discovery (`coherence_tab.py`)**:
