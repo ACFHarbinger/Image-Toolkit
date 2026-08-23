@@ -39,9 +39,9 @@ import numpy as np
 import torch
 from PIL import Image
 
+from backend.src.constants.models import _BIREFNET_ERR, _BIREFNET_OK, BIREFNET_MODEL, TOONOUT_MODEL
 from backend.src.errors import ModelLoadError
 from backend.src.models.core.base import ModelWrapper, lazy_load
-from backend.src.constants.models import BIREFNET_MODEL, TOONOUT_MODEL, _BIREFNET_ERR, _BIREFNET_OK
 
 logger = logging.getLogger(__name__)
 
@@ -321,28 +321,25 @@ class BiRefNetWrapper(ModelWrapper):
 
         model = self._ensure_loaded()
 
-        # Pre-transform all images and record original sizes for resize-back.
-        tensors: List[torch.Tensor] = []
-        orig_sizes: List[tuple] = []
         mean = torch.tensor([0.485, 0.456, 0.406], device=self.device).view(3, 1, 1)
         std = torch.tensor([0.229, 0.224, 0.225], device=self.device).view(3, 1, 1)
-        for img_np in images:
-            img_rgb = cv2.cvtColor(img_np, cv2.COLOR_BGR2RGB)
-            img_pil = Image.fromarray(img_rgb)
-            img_resized = img_pil.resize((self._w, self._h), Image.BILINEAR)
-            img_tensor = torch.from_numpy(np.array(img_resized)).float() / 255.0
-            img_tensor = img_tensor.permute(2, 0, 1)  # HWC -> CHW
-            img_tensor = img_tensor.to(self.device)
-            img_tensor = (img_tensor - mean) / std
-            tensors.append(img_tensor)
-            orig_sizes.append((img_np.shape[0], img_np.shape[1]))
-
         batch_size = self._compute_batch_size()
-        soft_masks: List[np.ndarray] = []
+        results: List[np.ndarray] = []
 
-        for start in range(0, len(tensors), batch_size):
-            chunk = tensors[start : start + batch_size]
-            batch = torch.stack(chunk).to(self.device)
+        for start in range(0, len(images), batch_size):
+            chunk = images[start : start + batch_size]
+            orig_sizes = [(image.shape[0], image.shape[1]) for image in chunk]
+            tensors = []
+            for image in chunk:
+                image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+                image_resized = Image.fromarray(image_rgb).resize(
+                    (self._w, self._h), Image.BILINEAR
+                )
+                tensor = torch.from_numpy(np.array(image_resized)).float() / 255.0
+                tensor = tensor.permute(2, 0, 1).to(self.device)
+                tensors.append((tensor - mean) / std)
+            batch = torch.stack(tensors)
+            del tensors
             with torch.no_grad():
                 preds = model(batch)
                 if isinstance(preds, list):
@@ -351,15 +348,13 @@ class BiRefNetWrapper(ModelWrapper):
             del batch
             for i, pred in enumerate(preds):
                 raw = pred.squeeze()  # (H_inf, W_inf)
-                h, w = orig_sizes[start + i]
+                h, w = orig_sizes[i]
                 raw = cv2.resize(raw, (w, h), interpolation=cv2.INTER_LINEAR)
-                soft_masks.append(raw.astype(np.float32))
-
-        results: List[np.ndarray] = []
-        for soft in soft_masks:
-            binary = (soft > threshold).astype(np.uint8) * 255
-            binary = self._dilate_erode(binary, dilate_px, erode_px)
-            results.append(binary)
+                binary = (raw > threshold).astype(np.uint8) * 255
+                del raw
+                binary = self._dilate_erode(binary, dilate_px, erode_px)
+                results.append(binary)
+            del preds
         return results
 
     def _compute_batch_size(self) -> int:
