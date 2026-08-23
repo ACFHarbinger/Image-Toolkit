@@ -25,9 +25,12 @@
 - **Offline probe on the 5 `no_valid_edges`/`disconnected_edge_graph`
   known-good**: anchors reliable for 3 (21/46/52 → 2 bridges each) and too
   sparse for 2 (51/89 → proposal stops, the delegation's stop-and-report
-  condition). A constrained authorized retry was stopped during `asp_test21`
-  BiRefNet masking at 77% host RAM before any case completed; P2 remains
-  offline-only until the host is less loaded.
+  condition). A constrained retry produced `asp_test21`'s safe fallback output
+  but was stopped before telemetry persisted at 77% host RAM; its missing
+  `raw_asp.png` confirms non-Raw ASP, not a Stage 5/6 result. Diagnosis found
+  host baseline contention plus a ~2–2.5 GiB transient, not evidence of a
+  32 GiB leak, and a real BiRefNet whole-input CUDA-residency defect to fix.
+  P2 remains offline-only pending that diagnostic slice and a less-loaded host.
 
 ---
 
