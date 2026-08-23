@@ -1,4 +1,20 @@
+## S435 — 2026-08-23 (ASP M2: RegistrationRiskGate implementation & SafeAspPolicy integration)
+
+- **`RegistrationRiskGate` Module (`submodules/ASP/backend/src/core/pipeline/registration_gate.py`)**:
+  Implemented pre-render geometric evaluation using bundle adjustment residual RMS,
+  translation cycle loop closure error, RANSAC inlier ratio, and secondary crop coverage.
+  Emits typed three-way `GateDecision` (`low_risk`, `uncertain`, `high_risk`).
+- **`SafeAspPolicy` Integration (`submodules/ASP/backend/src/core/pipeline/safety_policy.py`)**:
+  Wired `evaluate_registration_risk()` into `evaluate_all()` and updated
+  `safe_asp_counterfactual()` to support `uncertain_result_policy` (`scans`, `prompt`, `raw_asp`).
+- **Roadmap Updates**: Added background-masked matching to M4 and multi-band blending to M5.
+- **Verification**: 9 new unit tests in `test_registration_gate.py` and 4 new tests in
+  `test_safety_policy.py` (all 374 ASP core & alignment tests green).
+
+---
+
 ## S434 — 2026-08-23 (ASP M2: decision record for registration-risk gate)
+
 
 Harbinger clarified the M2 gate's operating contract before implementation:
 crop loss below the proposed coverage floor is a hard non-Raw-ASP outcome,
