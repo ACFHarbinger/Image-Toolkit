@@ -6,6 +6,7 @@ change (see ``_monitor_selection.py``'s docstring).
 
 from __future__ import annotations
 
+import contextlib
 import os
 import platform
 import subprocess
@@ -110,12 +111,18 @@ class _ImagePreviewDeleteMixin:
             start_index=start_index,
         )
         window.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        if hasattr(window, "path_changed"):
+            window.path_changed.connect(self.update_preview_highlight)
 
         self.open_image_preview_windows = [
             w for w in self.open_image_preview_windows if not sip.isValid(w)
         ]
 
         def remove_closed_win(event: Any):
+            # Emit the standard WINDOW_CLOSED cleanup so the gallery clears the
+            # amber preview highlight (the default closeEvent is replaced here).
+            with contextlib.suppress(RuntimeError):
+                window.path_changed.emit(window.image_path, "WINDOW_CLOSED")
             self.open_image_preview_windows = [
                 w
                 for w in self.open_image_preview_windows

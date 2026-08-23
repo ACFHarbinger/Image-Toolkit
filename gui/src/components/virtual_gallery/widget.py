@@ -93,6 +93,35 @@ class VirtualGallery(QWidget):
         """Return the model's cached QImage for *path* (None if not loaded)."""
         return self.model.cached_image(path)
 
+    # --- State marks (selected / preview-open) ---------------------------
+
+    def set_in_db(self, paths) -> None:
+        """Mark the full set of paths with the green in-db/queued border."""
+        self.model.set_in_db(paths)
+
+    def mark_in_db(self, path: str, in_db: bool) -> None:
+        self.model.mark_in_db(path, in_db)
+
+    def is_in_db(self, path: str) -> bool:
+        return self.model.is_in_db(path)
+
+    def set_selected(self, paths) -> None:
+        """Mark the full set of selected paths (indigo border)."""
+        self.model.set_selected(paths)
+
+    def mark_selected(self, path: str, selected: bool) -> None:
+        self.model.mark_selected(path, selected)
+
+    def set_preview(self, paths) -> None:
+        """Mark the full set of preview-open paths (amber border)."""
+        self.model.set_preview(paths)
+
+    def mark_preview(self, path: str, preview: bool) -> None:
+        self.model.mark_preview(path, preview)
+
+    def is_preview(self, path: str) -> bool:
+        return self.model.is_preview(path)
+
     def compare_selected(self, parent=None):
         """Open an ImageCompareWindow for the currently selected files (§2.27)."""
         selected = self.selected_files()

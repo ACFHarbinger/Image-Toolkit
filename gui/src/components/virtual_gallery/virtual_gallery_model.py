@@ -49,6 +49,8 @@ class VirtualGalleryModel(QAbstractListModel):
     # Row roles beyond Qt's built-ins.
     PathRole = Qt.ItemDataRole.UserRole
     InDbRole = Qt.ItemDataRole.UserRole + 1
+    SelectedRole = Qt.ItemDataRole.UserRole + 2
+    PreviewRole = Qt.ItemDataRole.UserRole + 3
 
     def __init__(
         self,
@@ -65,6 +67,8 @@ class VirtualGalleryModel(QAbstractListModel):
         self._loading: set[str] = set()
         self._failed: set[str] = set()
         self._in_db: set[str] = set()
+        self._selected: set[str] = set()
+        self._preview: set[str] = set()
         self._active_workers: set = set()
         self._generation: int = 0
 
@@ -158,8 +162,7 @@ class VirtualGalleryModel(QAbstractListModel):
         if new_set == old_set:
             return
         self._in_db = new_set
-        changed = new_set ^ old_set
-        self._emit_data_changed_for_paths(changed)
+        self._emit_data_changed_for_paths(new_set ^ old_set, self.InDbRole)
 
     def mark_in_db(self, path: str, in_db: bool) -> None:
         """Flip a single row's in-db flag (e.g. after an upsert/removal)."""
@@ -171,22 +174,74 @@ class VirtualGalleryModel(QAbstractListModel):
             if path not in self._in_db:
                 return
             self._in_db.discard(path)
-        self._emit_data_changed_for_paths({path})
+        self._emit_data_changed_for_paths({path}, self.InDbRole)
 
     def is_in_db(self, path: str) -> bool:
         return path in self._in_db
 
-    def _emit_data_changed_for_paths(self, paths) -> None:
+    def set_selected(self, paths) -> None:
+        """Set the full set of selected paths. Changed rows emit ``dataChanged``
+        so the view repaints their selection border."""
+        new_set = set(paths)
+        old_set = self._selected
+        if new_set == old_set:
+            return
+        self._selected = new_set
+        self._emit_data_changed_for_paths(new_set ^ old_set, self.SelectedRole)
+
+    def mark_selected(self, path: str, selected: bool) -> None:
+        """Flip a single row's selected flag."""
+        if selected:
+            if path in self._selected:
+                return
+            self._selected.add(path)
+        else:
+            if path not in self._selected:
+                return
+            self._selected.discard(path)
+        self._emit_data_changed_for_paths({path}, self.SelectedRole)
+
+    def is_selected(self, path: str) -> bool:
+        return path in self._selected
+
+    def set_preview(self, paths) -> None:
+        """Set the full set of paths currently open in a preview window.
+        Changed rows emit ``dataChanged`` so the view repaints their border."""
+        new_set = set(paths)
+        old_set = self._preview
+        if new_set == old_set:
+            return
+        self._preview = new_set
+        self._emit_data_changed_for_paths(new_set ^ old_set, self.PreviewRole)
+
+    def mark_preview(self, path: str, preview: bool) -> None:
+        """Flip a single row's preview-open flag."""
+        if preview:
+            if path in self._preview:
+                return
+            self._preview.add(path)
+        else:
+            if path not in self._preview:
+                return
+            self._preview.discard(path)
+        self._emit_data_changed_for_paths({path}, self.PreviewRole)
+
+    def is_preview(self, path: str) -> bool:
+        return path in self._preview
+
+    def _emit_data_changed_for_paths(self, paths, role: int) -> None:
         for path in paths:
             row = self.row_for_path(path)
             if row >= 0:
                 self.dataChanged.emit(
                     self.index(row, 0),
                     self.index(row, 0),
-                    [self.InDbRole],
+                    [role],
                 )
 
     def clear(self) -> None:
+        self._selected.clear()
+        self._preview.clear()
         self.set_paths([])
 
     def rowCount(self, parent=None) -> int:
@@ -255,6 +310,10 @@ class VirtualGalleryModel(QAbstractListModel):
             return path
         if role == self.InDbRole:
             return path in self._in_db
+        if role == self.SelectedRole:
+            return path in self._selected
+        if role == self.PreviewRole:
+            return path in self._preview
         return None
 
     def flags(self, index: QModelIndex) -> Qt.ItemFlag:

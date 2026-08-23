@@ -66,3 +66,38 @@ def test_drag_drop_handler_no_target_is_noop(q_app, tmp_path):
     # No widget under the cursor (offscreen) -> the walk simply no-ops.
     tab._on_gallery_drag_drop(tab.gallery_image_paths[0], [tab.gallery_image_paths[0]], QPoint(0, 0))
     tab.close()
+
+
+@pytest.mark.parametrize("make", [_make_system, _make_monitor], ids=["system", "monitor"])
+def test_queue_and_selection_marks_in_virtual_gallery(q_app, tmp_path, make):
+    tab = make(q_app, tmp_path, n=6)
+    paths = tab.gallery_image_paths
+    model = tab.gallery.model
+
+    # Click-selection shows the indigo selected mark.
+    tab.toggle_selection(paths[0])
+    assert tab.selected_files == [paths[0]]
+    assert model.is_selected(paths[0]) is True
+
+    # A monitor display-queue member shows the green queued mark.
+    tab.monitor_slideshow_queues["mon1"] = [paths[1]]
+    tab._refresh_gallery_highlights()
+    assert model.is_in_db(paths[1]) is True
+    assert model.is_in_db(paths[0]) is False
+    tab.close()
+
+
+@pytest.mark.parametrize("make", [_make_system, _make_monitor], ids=["system", "monitor"])
+def test_preview_marks_virtual_gallery(q_app, tmp_path, make):
+    tab = make(q_app, tmp_path, n=4)
+    path = tab.gallery_image_paths[0]
+    model = tab.gallery.model
+
+    # Simulate a preview window opening (the deferred INITIAL_LOAD_TRIGGER).
+    tab.update_preview_highlight("INITIAL_LOAD_TRIGGER", path)
+    assert model.is_preview(path) is True
+
+    # Simulate the window closing.
+    tab.update_preview_highlight(path, "WINDOW_CLOSED")
+    assert model.is_preview(path) is False
+    tab.close()

@@ -6,12 +6,11 @@ logic change (see ``_navigation.py``'s docstring).
 
 from __future__ import annotations
 
-from typing import Dict, Optional
+import contextlib
+from typing import TYPE_CHECKING, Dict, Optional
 
 from PySide6.QtCore import Slot
 from PySide6.QtWidgets import QWidget
-
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ..protos.abstract_class_two_galleries import AbstractClassTwoGalleriesHostProtocol
@@ -65,8 +64,10 @@ class _ColorLabelsMixin:
 
     @Slot(str, str)
     def update_preview_highlight(self: "AbstractClassTwoGalleriesHostProtocol", old_path: str, new_path: str):
-        """Adds a blue highlight border to the card currently being viewed in the preview window."""
+        """Adds an amber highlight border to the card currently being viewed in
+        the preview window (distinct from the indigo selection border)."""
         is_closing = new_path == "WINDOW_CLOSED"
+        dual = getattr(self, "dual", None)
 
         def reset_card(path, card):
             if not card or not path:
@@ -85,11 +86,14 @@ class _ColorLabelsMixin:
         # 1. Restore style for the old card (found gallery and selected gallery)
         reset_card(old_path, self.path_to_label_map.get(old_path))
         reset_card(old_path, self.selected_card_map.get(old_path))
+        if dual is not None:
+            dual.mark_preview(old_path, False)
 
         if is_closing:
             sender_win = self.sender()
             if sender_win in self.open_preview_windows:
-                self.open_preview_windows.remove(sender_win)  # pyrefly: ignore [bad-argument-type]
+                with contextlib.suppress(ValueError):
+                    self.open_preview_windows.remove(sender_win)  # pyrefly: ignore [bad-argument-type]
             return
 
         def highlight_card(path, card):
@@ -103,16 +107,18 @@ class _ColorLabelsMixin:
                 if card.property("original_style") is None:
                     card.setProperty("original_style", card.styleSheet())
 
-                # Apply blue highlight border to the card wrapper
+                # Apply amber highlight border to the card wrapper
                 current = card.styleSheet().strip()
                 sep = "" if not current or current.endswith(";") else ";"
-                card.setStyleSheet(f"{current}{sep} border: 4px solid #3498db;")
+                card.setStyleSheet(f"{current}{sep} border: 4px solid #f39c12;")
             except RuntimeError:
                 pass
 
         # 2. Apply highlight to the new card
         highlight_card(new_path, self.path_to_label_map.get(new_path))
         highlight_card(new_path, self.selected_card_map.get(new_path))
+        if dual is not None:
+            dual.mark_preview(new_path, True)
 
 
 __all__ = ["_ColorLabelsMixin"]

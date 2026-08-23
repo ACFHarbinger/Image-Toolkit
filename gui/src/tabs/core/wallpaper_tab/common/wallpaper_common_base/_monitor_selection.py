@@ -125,6 +125,40 @@ class _MonitorSelectionMixin:
     def _refresh_gallery_highlights(self: "WallpaperCommonBaseHostProtocol"):
         for path, widget in self.path_to_card_widget.items():
             self.update_card_style(widget, self.is_path_selected(path))
+        self._sync_virtual_gallery_marks()
+
+    def _queued_paths(self: "WallpaperCommonBaseHostProtocol") -> list:
+        """Union of every path currently in a monitor display queue (including
+        the single assigned image per monitor)."""
+        paths = []
+        for p in self.monitor_image_paths.values():
+            if p:
+                paths.append(p)
+        for queue in self.monitor_slideshow_queues.values():
+            paths.extend(queue)
+        return paths
+
+    def _sync_virtual_gallery_marks(self: "WallpaperCommonBaseHostProtocol"):
+        """Mark the virtual gallery rows: display-queue members get the green
+        border, click-selected rows the indigo border. No-op for the classic
+        QLabel-grid galleries, which are styled per-card in ``update_card_style``."""
+        gallery = getattr(self, "gallery", None)
+        if gallery is None or not hasattr(gallery, "set_in_db"):
+            return
+        gallery.set_in_db(self._queued_paths())
+        gallery.set_selected(self.selected_files)
+
+    def toggle_selection(self: "WallpaperCommonBaseHostProtocol", path: str, *args, **kwargs):
+        super().toggle_selection(path)  # type: ignore[safe-super]
+        self._sync_virtual_gallery_marks()
+
+    def select_all_items(self: "WallpaperCommonBaseHostProtocol", *args, **kwargs):
+        super().select_all_items()  # type: ignore[safe-super]
+        self._sync_virtual_gallery_marks()
+
+    def deselect_all_items(self: "WallpaperCommonBaseHostProtocol", *args, **kwargs):
+        super().deselect_all_items()  # type: ignore[safe-super]
+        self._sync_virtual_gallery_marks()
 
     def _is_slideshow_validation_ready(self: "WallpaperCommonBaseHostProtocol") -> Tuple[bool, int]:
         target_monitor_ids = list(self.monitor_widgets.keys())
