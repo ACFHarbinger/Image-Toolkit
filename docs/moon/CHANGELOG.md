@@ -1,3 +1,11 @@
+## S442 — 2026-08-23 (ASP Coherence Tab: Fallback image discovery for unrendered evaluation cases)
+
+- **Fallback Image Discovery (`coherence_tab.py`)**:
+  Fixed black screen / "No images found for current case" on `asp_test28`–`asp_test59` in the evaluation inspector's Coherence Tab. When dedicated pre-computed `coherence_v2` A/B render pairs (`_default.png` / `_v2.png`) are not found under `docs/website/public/data/coherence_v2/`, the tab now automatically discovers and falls back to corresponding baseline and composite benchmark outputs in `Downloads/Data/Dump` and `dump/` (`opencv_stitch.png` / `simple_stitch.png` as baseline default and `raw_asp.png` / `anime_stitch.png` / `panorama.png` as coherence composite).
+- **Verification**: Verified with targeted test suite (`pytest submodules/ASP/backend/benchmark/evaluation/test/test_coherence_tab.py`, 5/5 passed) and validated valid NumPy BGR arrays loaded for all evaluation cases (`asp_test28`, `asp_test31`, `asp_test41`, `asp_test45`, `asp_test46`, `asp_test59`).
+
+---
+
 ## S441 — 2026-08-23 (ASP Track E: Bench Eval Inspector UX Inversion & Interactive Grids)
 
 - **Defect-First UX Inversion (`scoring_panel.py`)**:
