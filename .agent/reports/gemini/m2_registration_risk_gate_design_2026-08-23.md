@@ -2,14 +2,19 @@
 
 **Document:** `.agent/reports/gemini/m2_registration_risk_gate_design_2026-08-23.md`  
 **Date:** 2026-08-23  
-**Status:** Design / Scoping Document (Track B). Decision record updated
-2026-08-23; implementation remains pending the roadmap critique round.
+**Status:** Implemented (`registration_gate.py`, wired into `SafeAspPolicy`
+default-off, 2026-08-23). Critiqued in the roadmap round the same day:
+`min_inlier_ratio` and `min_crop_coverage` are now **diagnostic-only**
+(they were never in the 4-bucket hold-out), and the "retain ≥5 of 10
+known-good" target is unreachable on the post-M1 ungated corpus until
+`affine_invalid` is reconciled (only `asp_test56` of the 10 produces Raw
+ASP there).**
 **Author:** Agy  
 **References:**  
 - `m2_registration_gate_proposal_2026-08-23.md` (Proposal & Decisions A–D)  
 - `m2_calibration_holdout_2026-08-23.md` (Calibration & Hold-Out Baseline)  
 - `submodules/ASP/backend/src/core/pipeline/safety_policy.py` (`SafeAspPolicy`, `GateDecision`)  
-- `submodules/ASP/backend/src/core/pipeline/telemetry.py` (`RegistrationTelemetry`)  
+- `submodules/ASP/backend/src/core/pipeline/registration_gate.py` (implemented gate)  
 - `submodules/ASP/docs/moon/asp_change_roadmap_2026q3.md` (§15.3 M2 Gate Roadmap)
 
 ---
@@ -157,11 +162,11 @@ class RegistrationRiskGate:
    - `inlier_ratio < thresholds.min_inlier_ratio` (< 15%).
 
 3. **Secondary Crop-Coverage Hard Check (Decision D §3.4):**
-   - If `crop_coverage is not None` and `crop_coverage < thresholds.min_crop_coverage`:
-     - Escalate directly to `HIGH_RISK`; never select or publish Raw ASP.
-     - Rationale: severe crop loss is not human-acceptable even when
-       registration metrics look clean; a single-frame-like result is not a
-       valid low-risk outcome.
+   - **STATUS 2026-08-23: DEMOTED TO DIAGNOSTIC-ONLY.** `min_crop_coverage`
+     was never part of the frozen 4-bucket hold-out rule; the roadmap critique
+     round marked it (and `min_inlier_ratio`) diagnostic-only until calibrated
+     with the same frozen-then-evaluate protocol. The hard non-Raw-ASP intent
+     stands as policy but is not enforced by an uncalibrated threshold.
 
 4. **Uncertainty Band (`status="uncertain"`):**
    - 45.0 < ba_residual_rms <= 80.0 OR 150.0 < cycle_error_rms <= 300.0.
