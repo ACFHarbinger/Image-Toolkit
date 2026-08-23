@@ -137,7 +137,7 @@ def discover_plugin_sources(
     entries override earlier same-name sources. Inline entries (no manifest
     file) are synthesized into PluginManifest objects.
     """
-    from .plugins import PluginEntry, PluginManifest
+    from .plugins import PluginEntry, PluginManifest, load_manifest
 
     candidates: List[Any] = []
     seen_names: set[str] = set()
