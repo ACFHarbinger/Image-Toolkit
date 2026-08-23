@@ -134,7 +134,7 @@
 - **Registration evidence:** benchmark/session telemetry now records candidate
   span/reason, adjacent proposal-to-filter survival, and pre-/post-filter
   graph components. `_match_pair`, filtering, and the connectivity fallback
-  remain unchanged. Focused suite: 55 passed.
+  remain unchanged. Focused suite: 56 passed.
 
 ---
 
