@@ -1,3 +1,29 @@
+## S436 — 2026-08-23 (ASP M2: roadmap critique round — gate calibration & retainability)
+
+- **`RegistrationRiskGate` threshold demotion (`submodules/ASP/backend/src/core/pipeline/registration_gate.py`)**:
+  `min_inlier_ratio` and `min_crop_coverage` were never part of the frozen
+  4-bucket hold-out rule, so they are now **diagnostic-only** — recorded in
+  `scores`, never a rejection. The `crop_coverage` hard-reject was removed;
+  the gate keeps the three calibrated signals (BA RMS >80, cycle RMS >300,
+  raw edges <=10) plus the affine/BA-missing structural checks.
+- **Empirical findings on the frozen corpus (offline, no re-run)**:
+  worst-pair reprojection RMS is non-informative (uniform ~1.9–3.6 px, RANSAC
+  tight by construction); naive graph-topology features are noisy and kept as
+  diagnostic features only. M2's "retain ≥5 of 10 known-good" target is
+  **unreachable on the post-M1 ungated corpus**: only `asp_test56` of the 10
+  produces a Raw ASP candidate — 5 fall back upstream (`no_valid_edges`/
+  `disconnected_edge_graph`) and 4 (`44/58/61/96`) are rejected by
+  `affine_invalid:min_gap` despite clean metric-rule signals, so that check
+  must be reconciled with the gate decision surface and the target re-grounded.
+- **Roadmap/design reconciliation**: `registration_gate.py` exists and is wired
+  into `SafeAspPolicy` (default-off); docs previously described it as pending.
+  Approved experimental directions recorded (wave-correction, local re-solve,
+  duplicate-strip assignment verification, OpenCV/Hugin vendor mining).
+- **Verification**: `test_registration_gate.py` updated for diagnostic-only crop
+  coverage (9 pass); full ASP core/pipeline tests green.
+
+---
+
 ## S435 — 2026-08-23 (ASP M2: RegistrationRiskGate implementation & SafeAspPolicy integration)
 
 - **`RegistrationRiskGate` Module (`submodules/ASP/backend/src/core/pipeline/registration_gate.py`)**:
