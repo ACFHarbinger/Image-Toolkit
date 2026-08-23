@@ -302,6 +302,11 @@ class _RelaunchSettingsMixin:
                     AppSettings.set_favourite_directories(user_data["preferences"]["favourite_directories"])  # pyrefly: ignore [bad-argument-type]
                     AppSettings.set_mal_fetch_method(self.mal_fetch_method_combo.currentData())
                 if self.main_window_ref:
+                    old_active_configs = (
+                        dict(self.main_window_ref.cached_creds.get("active_tab_configs", {}))
+                        if getattr(self.main_window_ref, "cached_creds", None)
+                        else {}
+                    )
                     self.main_window_ref.cached_creds = user_data
                     if hasattr(self.main_window_ref, "set_minimize_to_tray"):
                         self.main_window_ref.set_minimize_to_tray(self.minimize_to_tray_check.isChecked())
@@ -310,8 +315,9 @@ class _RelaunchSettingsMixin:
                     if hasattr(self.main_window_ref, "_apply_startup_preferences"):
                         self.main_window_ref._apply_startup_preferences()
                     if hasattr(self.main_window_ref, "_apply_active_tab_configs"):
-                        self.main_window_ref._apply_active_tab_configs()
+                        self.main_window_ref._apply_active_tab_configs(previous_configs=old_active_configs)
                     QMessageBox.information(self, "Success", "Settings updated and saved successfully.")
+
 
         except Exception as e:
             QMessageBox.critical(self, "Update Failed", f"Failed to save preferences to vault:\n{e}")

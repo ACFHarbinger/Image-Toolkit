@@ -56,8 +56,13 @@ class _StartupPrefsMixin:
 
         return sanitized
 
-    def _apply_active_tab_configs(self) -> None:
-        """Applies the active configuration for each tab dynamically."""
+    def _apply_active_tab_configs(self, previous_configs: dict | None = None) -> None:
+        """Applies the active configuration for each tab dynamically.
+
+        If *previous_configs* is provided (e.g. when updating settings at runtime),
+        only tabs whose active config name actually changed are updated, avoiding
+        redundant directory scans and media reloads across all tabs.
+        """
         active_configs = self.cached_creds.get("active_tab_configs", {})
         saved_tab_configs = self.cached_creds.get("tab_configurations", {})
 
@@ -67,6 +72,10 @@ class _StartupPrefsMixin:
 
                 if tab_class_name in active_configs:
                     config_name = active_configs[tab_class_name]
+
+                    # Skip unchanged tab configs when previous_configs is provided
+                    if previous_configs is not None and previous_configs.get(tab_class_name) == config_name:
+                        continue
 
                     if tab_class_name in saved_tab_configs and config_name in saved_tab_configs[tab_class_name]:
                         config_data = saved_tab_configs[tab_class_name][config_name]
@@ -121,13 +130,18 @@ class _StartupPrefsMixin:
                 for attr in ("found_page_size", "selected_page_size", "page_size"):
                     if hasattr(tab, attr):
                         setattr(tab, attr, page_size)
-                # LRU caches (§2.16B)
-                if hasattr(tab, "_found_pixmap_cache"):
-                    tab._found_pixmap_cache = LRUImageCache(maxsize=found_cache)  # pyrefly: ignore [missing-attribute]
-                if hasattr(tab, "_selected_pixmap_cache"):
-                    tab._selected_pixmap_cache = LRUImageCache(maxsize=selected_cache)  # pyrefly: ignore [missing-attribute]
-                if hasattr(tab, "_initial_pixmap_cache"):
-                    tab._initial_pixmap_cache = LRUImageCache(maxsize=initial_cache)  # pyrefly: ignore [missing-attribute]
+                # LRU caches (§2.16B) — resize in-place to preserve cached thumbnails
+                for attr, size in (
+                    ("_found_pixmap_cache", found_cache),
+                    ("_selected_pixmap_cache", selected_cache),
+                    ("_initial_pixmap_cache", initial_cache),
+                ):
+                    if hasattr(tab, attr):
+                        cache = getattr(tab, attr, None)
+                        if cache is not None and hasattr(cache, "resize"):
+                            cache.resize(size)
+                        else:
+                            setattr(tab, attr, LRUImageCache(maxsize=size))
 
                 # Recent (browsed) directories MRU limit (§2.9G) — every gallery
                 # tab/subtab inherits AbstractGalleryBase.recent_dirs_limit,
@@ -187,15 +201,16 @@ class _StartupPrefsMixin:
                     # user's chosen output dir on every launch, so GIFs/PNGs
                     # appeared in the gallery (which reads extraction_dir) but
                     # not in the user's actual output directory.
-                    if saved and Path(saved).exists():
-                        tab_any.extraction_dir = Path(saved)
-                    else:
-                        tab_any.extraction_dir = default_extraction_dir
-                    tab_any.extraction_dir.mkdir(parents=True, exist_ok=True)
-                    tab_any.last_browsed_extraction_dir = str(tab_any.extraction_dir)
-                    tab_any.line_edit_extract_dir.setText(str(tab_any.extraction_dir))
-                    tab_any._refresh_extracted_stems_cache()
-                    tab_any._load_existing_output_images()
+                    target_dir = Path(saved) if (saved and Path(saved).exists()) else default_extraction_dir
+                    current_dir = getattr(tab_any, "extraction_dir", None)
+                    if current_dir != target_dir:
+                        tab_any.extraction_dir = target_dir
+                        tab_any.extraction_dir.mkdir(parents=True, exist_ok=True)
+                        tab_any.last_browsed_extraction_dir = str(tab_any.extraction_dir)
+                        tab_any.line_edit_extract_dir.setText(str(tab_any.extraction_dir))
+                        tab_any._refresh_extracted_stems_cache()
+                        tab_any._load_existing_output_images()
+
 
                 # Apply Extractor seek interval
                 if hasattr(tab, "wheel_seek_ms"):
