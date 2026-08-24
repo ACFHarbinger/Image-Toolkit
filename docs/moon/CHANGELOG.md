@@ -51,6 +51,13 @@
   lookup. Four focused plate tests pass; the P1 test03 rerun exercised the
   plate compositor successfully.
 
+# S459 — 2026-08-24 (P1 locked renderer arm complete)
+
+- All 16 deterministic P1 cases completed with single-pose plate rendering,
+  multiband and edge preservation disabled. Raw ASP was retained for 03 and
+  17; all other cases used existing affine, connectivity, or composite safety
+  fallbacks. Peak RSS was 3.84 GB. P2 has not run.
+
 ## S450 — 2026-08-23 (ASP raw-quality research proposal)
 
 - Recorded a default-off research plan for Raw ASP quality and re-routing:

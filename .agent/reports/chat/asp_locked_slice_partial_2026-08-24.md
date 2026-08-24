@@ -41,4 +41,7 @@ P1 uses `ASP_PLATE_SINGLE_POSE=1`, `ASP_PLATE_MULTIBAND=0`, and
 SCANS fallback. Test03 initially exposed a missing `os` import in the gated
 plate-compositor branch; the narrow import repair passed the 4 focused plate
 tests. The rerun completed Raw ASP with `plate_single_pose` active (RSS 3.51
-GB). P1 is otherwise still in progress.
+GB). P1 is complete (16/16): Raw ASP is retained for 03 and 17; 01/74/82 use
+the disconnected-graph fallback; 28/73/78/83 use affine safety fallbacks; and
+05/37/41/42/65/67/68 use composite-gate fallbacks. Per-case peak RSS remained
+at or below 3.84 GB.
