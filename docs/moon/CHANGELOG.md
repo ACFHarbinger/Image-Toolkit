@@ -45,6 +45,12 @@
   outcomes were 28/73/83 affine-safe SCANS, 82 disconnected-graph SCANS, and
   67 Raw ASP. P1/P2 evaluation remains pending.
 
+# S458 — 2026-08-24 (P1 plate-compositor runtime repair)
+
+- Added the missing `os` import used only by the default-off P1 environment
+  lookup. Four focused plate tests pass; the P1 test03 rerun exercised the
+  plate compositor successfully.
+
 ## S450 — 2026-08-23 (ASP raw-quality research proposal)
 
 - Recorded a default-off research plan for Raw ASP quality and re-routing:

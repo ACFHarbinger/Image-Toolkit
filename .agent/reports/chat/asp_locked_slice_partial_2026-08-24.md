@@ -33,3 +33,12 @@ crash: 31 GB RAM had only 4.5 GB free and 2 GB swap was full. With the services
 terminated, each resumed case peaked at 3.58–3.73 GB RSS and the host remained
 at about 20 GiB available. The remaining outputs live in the isolated,
 recoverable temporary workspace recorded in `/tmp/asp-p1p2-locked-root`.
+
+## P1 arm started
+
+P1 uses `ASP_PLATE_SINGLE_POSE=1`, `ASP_PLATE_MULTIBAND=0`, and
+`ASP_PLATE_EDGE_PRESERVE=0`. Test01 retained the baseline disconnected-graph
+SCANS fallback. Test03 initially exposed a missing `os` import in the gated
+plate-compositor branch; the narrow import repair passed the 4 focused plate
+tests. The rerun completed Raw ASP with `plate_single_pose` active (RSS 3.51
+GB). P1 is otherwise still in progress.
