@@ -7,7 +7,7 @@ Python process per dataset; that reset baseline RSS to 0.85–1.12 GB per case.
 
 After the user authorized termination of the Gradle/Java language services,
 available memory rose to 20 GiB. The deterministic fresh-process baseline has
-now completed nine cases:
+now completed eleven cases:
 
 | case | result |
 |---|---|
@@ -20,6 +20,8 @@ now completed nine cases:
 | 01 | SCANS, disconnected edge graph |
 | 41 | Safe ASP, seam visibility gate (43.7 vs SCANS 2.4) |
 | 65 | Safe ASP, composite banding gate (35.2 > 35.0) |
+| 68 | Raw ASP |
+| 74 | SCANS, disconnected edge graph |
 
 No P1 or P1+P2 case has run. The first stop was host pressure, not an ASP
 crash: 31 GB RAM had only 4.5 GB free and 2 GB swap was full. With the services
