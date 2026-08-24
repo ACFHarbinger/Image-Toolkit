@@ -24,6 +24,13 @@
   than matching across a cut; default remains off. 88 targeted tests passed;
   no benchmark run.
 
+# S455 — 2026-08-24 (ASP locked renderer slice paused for host capacity)
+
+- Six deterministic, fresh-process baseline cases completed. P1/P2 did not
+  start: full swap and external IDE/language-service memory brought the host
+  close to the 80% guardrail. The first in-process baseline showed retained RSS
+  across cases; future runs use one Python process per dataset.
+
 ## S450 — 2026-08-23 (ASP raw-quality research proposal)
 
 - Recorded a default-off research plan for Raw ASP quality and re-routing:
