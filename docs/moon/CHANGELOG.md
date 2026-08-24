@@ -79,6 +79,15 @@
   for the consensus candidate, and after acceptance. The ratio gate remains
   unchanged. Focused CleanCP and affine-validation tests: 38 passed.
 
+# S465 — 2026-08-24 (test94 CleanCP measurement)
+
+- Authorized deterministic, one-thread test94 run completed in an isolated
+  workspace with `ASP_CLEANCP_RESOLVE=1`. It did not reproduce the historical
+  ratio failure: 18 edges reached bundle adjustment; Safe ASP later fell back
+  only on seam visibility. This is non-confirmatory for CleanCP because the
+  canonical benchmark summary omits session artifacts. Evidence:
+  `.agent/reports/chat/asp_test94_cleancp_2026-08-24.md`.
+
 # S462 — 2026-08-24 (Affine fragmentation diagnostics)
 
 - Added affine-health telemetry for initial/final max, median, and minimum
