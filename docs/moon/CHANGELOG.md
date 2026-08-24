@@ -71,6 +71,13 @@
   regression guards) and 82 (disconnected-graph control) for held-out human
   inspection. No additional benchmark was run.
 
+# S462 — 2026-08-24 (Affine fragmentation diagnostics)
+
+- Added affine-health telemetry for initial/final max, median, and minimum
+  gaps plus missing-adjacent-edge count. This distinguishes fragmented chains
+  from genuine uneven pans without relaxing the ratio gate. 35 targeted tests
+  passed; no test94 benchmark was run.
+
 ## S450 — 2026-08-23 (ASP raw-quality research proposal)
 
 - Recorded a default-off research plan for Raw ASP quality and re-routing:
