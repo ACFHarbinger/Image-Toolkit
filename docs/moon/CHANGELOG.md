@@ -78,6 +78,13 @@
   from genuine uneven pans without relaxing the ratio gate. 35 targeted tests
   passed; no test94 benchmark was run.
 
+# S463 — 2026-08-24 (Default-off CleanCP connectivity recovery restored)
+
+- Restored `ASP_CLEANCP_RESOLVE=1` after reconciling the historical prototype
+  with current pipeline telemetry. It accepts only a fully connected,
+  locally-cleaned raw-edge consensus after filtering disconnects the graph;
+  production defaults and the ratio gate are unchanged. 38 focused tests pass.
+
 ## S450 — 2026-08-23 (ASP raw-quality research proposal)
 
 - Recorded a default-off research plan for Raw ASP quality and re-routing:
