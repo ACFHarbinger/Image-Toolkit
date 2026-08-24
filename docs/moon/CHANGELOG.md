@@ -31,6 +31,13 @@
   close to the 80% guardrail. The first in-process baseline showed retained RSS
   across cases; future runs use one Python process per dataset.
 
+# S456 — 2026-08-24 (ASP locked renderer slice resumed)
+
+- After terminating three user-authorized Gradle/Java language services, the
+  fresh-process baseline added cases 01 (disconnected → SCANS), 41 (seam gate),
+  and 65 (composite-banding gate). Each peak RSS was below 3.8 GB; P1/P2 is
+  still pending.
+
 ## S450 — 2026-08-23 (ASP raw-quality research proposal)
 
 - Recorded a default-off research plan for Raw ASP quality and re-routing:
