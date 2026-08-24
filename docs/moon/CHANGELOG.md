@@ -71,6 +71,14 @@
   regression guards) and 82 (disconnected-graph control) for held-out human
   inspection. No additional benchmark was run.
 
+# S464 — 2026-08-24 (CleanCP adjacent-edge recovery trigger)
+
+- Default-off `ASP_CLEANCP_RESOLVE=1` now also attempts recovery when a
+  filtered graph remains connected only through skip edges but has missing
+  adjacent links. Its artifact records missing-adjacent-edge counts before,
+  for the consensus candidate, and after acceptance. The ratio gate remains
+  unchanged. Focused CleanCP and affine-validation tests: 38 passed.
+
 # S462 — 2026-08-24 (Affine fragmentation diagnostics)
 
 - Added affine-health telemetry for initial/final max, median, and minimum
