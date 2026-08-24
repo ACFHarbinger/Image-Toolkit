@@ -1,3 +1,14 @@
+# S452 — 2026-08-24 (ASP deterministic-run auditability)
+
+- Added per-session reproducibility telemetry: native thread environment,
+  OpenCV/Torch thread counts, device, cuDNN/Torch deterministic settings, and
+  effective Python/NumPy/OpenCV/Torch/CUDA seed policy. `ASP_DETERMINISTIC=1`
+  pins process-local state with `ASP_REPRO_SEED`; default remains off.
+- Fixed `bench_anime_stitch.py` to set native thread caps before numerical
+  imports, making the documented cap apply to frame-selection reductions.
+- P1/P2 evaluation remains paused pending approval for a 2–3 case, twice-each
+  determinism check; identical routing is the exit criterion.
+
 ## S450 — 2026-08-23 (ASP raw-quality research proposal)
 
 - Recorded a default-off research plan for Raw ASP quality and re-routing:
