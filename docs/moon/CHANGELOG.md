@@ -17,6 +17,13 @@
 - P1/P2 A/B may resume only under that recorded environment. The pass does not
   establish equivalence with the older frozen corpus.
 
+# S454 — 2026-08-24 (ASP default-off shot-boundary pre-filter)
+
+- Added deterministic thumbnail-histogram scene-cut detection before smart
+  frame selection. When enabled, it retains one longest contiguous shot rather
+  than matching across a cut; default remains off. 88 targeted tests passed;
+  no benchmark run.
+
 ## S450 — 2026-08-23 (ASP raw-quality research proposal)
 
 - Recorded a default-off research plan for Raw ASP quality and re-routing:
