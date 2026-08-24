@@ -65,6 +65,12 @@
   Raw ASP only for 03/17; all other cases used pre-existing safety fallbacks.
   Peak RSS was 3.85 GB. Held-out quality evaluation remains pending.
 
+# S461 — 2026-08-24 (Locked renderer visual review bundle)
+
+- Exported labelled baseline/P1/P1+P2 PNG triplets for 67 and 68 (Raw-ASP
+  regression guards) and 82 (disconnected-graph control) for held-out human
+  inspection. No additional benchmark was run.
+
 ## S450 — 2026-08-23 (ASP raw-quality research proposal)
 
 - Recorded a default-off research plan for Raw ASP quality and re-routing:
