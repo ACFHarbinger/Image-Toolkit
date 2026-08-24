@@ -38,6 +38,13 @@
   and 65 (composite-banding gate). Each peak RSS was below 3.8 GB; P1/P2 is
   still pending.
 
+# S457 — 2026-08-24 (ASP locked renderer baseline complete)
+
+- All 16 locked baseline cases completed with one deterministic, one-thread
+  Python process per dataset. Peak RSS remained under 3.9 GB; the five final
+  outcomes were 28/73/83 affine-safe SCANS, 82 disconnected-graph SCANS, and
+  67 Raw ASP. P1/P2 evaluation remains pending.
+
 ## S450 — 2026-08-23 (ASP raw-quality research proposal)
 
 - Recorded a default-off research plan for Raw ASP quality and re-routing:
