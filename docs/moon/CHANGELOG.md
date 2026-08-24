@@ -123,6 +123,17 @@
 
 ---
 
+## S447 — 2026-08-24 (ASP Ingestion: Trapped-Ball Line-Art Segmentation for Deterministic Masking)
+
+- **Deterministic Trapped-Ball Masker (`trapped_ball.py`)**:
+  Implemented the Zhang et al. (2009) *Vectorizing Cartoon Animations* trapped-ball algorithm for anime line art. Bridges gapped non-closed contours ($< 2r\text{ px}$) using circular structuring element dilation and flood-fills background regions from borders deterministically with zero floating-point drift.
+- **Plumbing & Schema**:
+  Gated behind default-off `ASP_TRAPPED_BALL=1` and `ASP_TRAPPED_BALL_RADIUS=4` (registered in `_CONFIG_SCHEMA`), wired into `masking.py::_compute_fg_masks`.
+- **Verification**:
+  Added unit test suite `test_trapped_ball.py` (5/5 passed) verifying closed contour isolation, 4px gapped line closure, and batch mask generation.
+
+---
+
 ## S446 — 2026-08-23 (ASP P2: Edge-Preserving Background Reconstruction + Multi-Band Blending)
 
 - **Edge-Preserving Sharp Source Selection (`_plate_compositor.py`)**:
