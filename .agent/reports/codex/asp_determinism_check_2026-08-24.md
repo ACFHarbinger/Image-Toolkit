@@ -23,5 +23,6 @@ routing, or final output in this check. The determinism gate is passed for
 this three-case sample; it does not establish equivalence with the old frozen
 corpus, which used a different runtime configuration.
 
-Artifacts are temporary isolated outputs under `/tmp/asp-determinism-PvjBdZ`;
-the six benchmark JSON records are in `submodules/ASP/backend/benchmark/output/`.
+The temporary isolated inputs/outputs were removed after extracting these
+hashes. The six benchmark JSON records remain in
+`submodules/ASP/backend/benchmark/output/`.
