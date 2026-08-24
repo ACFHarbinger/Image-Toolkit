@@ -58,6 +58,13 @@
   17; all other cases used existing affine, connectivity, or composite safety
   fallbacks. Peak RSS was 3.84 GB. P2 has not run.
 
+# S460 — 2026-08-24 (P1+P2 locked renderer arm complete)
+
+- All 16 deterministic P1+P2 cases completed with single-pose plates,
+  multiband blending, and edge preservation enabled. Routing matched P1:
+  Raw ASP only for 03/17; all other cases used pre-existing safety fallbacks.
+  Peak RSS was 3.85 GB. Held-out quality evaluation remains pending.
+
 ## S450 — 2026-08-23 (ASP raw-quality research proposal)
 
 - Recorded a default-off research plan for Raw ASP quality and re-routing:

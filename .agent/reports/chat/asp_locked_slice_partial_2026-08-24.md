@@ -45,3 +45,12 @@ GB). P1 is complete (16/16): Raw ASP is retained for 03 and 17; 01/74/82 use
 the disconnected-graph fallback; 28/73/78/83 use affine safety fallbacks; and
 05/37/41/42/65/67/68 use composite-gate fallbacks. Per-case peak RSS remained
 at or below 3.84 GB.
+
+## P1+P2 arm complete
+
+P1+P2 uses `ASP_PLATE_SINGLE_POSE=1`, `ASP_PLATE_MULTIBAND=1`, and
+`ASP_PLATE_EDGE_PRESERVE=1`. All 16 cases completed: Raw ASP is retained for
+03 and 17; 01/74/82 use disconnected-graph SCANS; 28/73/78/83 use affine-safe
+SCANS; and 05/37/41/42/65/67/68 use composite-gate fallbacks. Peak RSS was
+3.85 GB. This is a routing/run-completion result only; it does not substitute
+for the planned held-out quality inspection.
