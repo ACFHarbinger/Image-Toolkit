@@ -9,6 +9,14 @@
 - P1/P2 evaluation remains paused pending approval for a 2–3 case, twice-each
   determinism check; identical routing is the exit criterion.
 
+# S453 — 2026-08-24 (ASP deterministic rerun gate)
+
+- Authorized fresh-process repeats of selection-drift cases 28/82 and Raw-ASP
+  control 67 passed: selection, dedup/edge counts, routing, and final PNG
+  hashes matched for every pair under one-thread deterministic settings.
+- P1/P2 A/B may resume only under that recorded environment. The pass does not
+  establish equivalence with the older frozen corpus.
+
 ## S450 — 2026-08-23 (ASP raw-quality research proposal)
 
 - Recorded a default-off research plan for Raw ASP quality and re-routing:
