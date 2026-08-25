@@ -88,6 +88,15 @@
   canonical benchmark summary omits session artifacts. Evidence:
   `.agent/reports/chat/asp_test94_cleancp_2026-08-24.md`.
 
+# S466 — 2026-08-25 (test94 frozen-selection CleanCP reproduction)
+
+- Authorized deterministic one-case rerun retained the frozen 13-frame
+  selection and disabled spatial dedup only for measurement. It reproduced
+  `affine_invalid:ratio=3.90229>3`; CleanCP reduced missing adjacent links
+  from 7 to 3 but did not change the invalid affine spacing, so SCANS fallback
+  held. No threshold/default changed. Evidence:
+  `.agent/reports/chat/asp_test94_frozen_repro_2026-08-25.md`.
+
 # S462 — 2026-08-24 (Affine fragmentation diagnostics)
 
 - Added affine-health telemetry for initial/final max, median, and minimum
