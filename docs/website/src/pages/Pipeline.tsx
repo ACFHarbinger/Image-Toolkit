@@ -19,14 +19,14 @@ export default function Pipeline() {
       </div>
 
       {/* ASP Pipeline Diagram */}
-      <div className="border border-[#1a1c23] bg-[#0a0a0c] p-8 md:p-12 relative overflow-hidden group hover:border-[#00f0ff]/30 transition-all mb-16">
-        <div className="absolute top-0 left-0 w-0 h-[2px] bg-[#ff0055] transition-all duration-700 group-hover:w-full" />
+      <div className="hud-panel p-8 md:p-12 mb-16">
+        <div className="absolute top-0 left-0 w-0 h-[2px] bg-[#00F0FF] transition-all duration-700 group-hover:w-full" />
         <div className="mb-12 flex justify-between items-end">
           <div>
-            <h3 className="text-xl font-bold text-[#e2e8f0]">ASP Stages</h3>
+            <h3 className="text-xl font-bold text-[#00F0FF]" style={{fontFamily: 'Chakra Petch'}}>ASP Stages</h3>
             <p className="text-[#8c92a0] text-sm mt-1">Sized by typical runtime share.</p>
           </div>
-          <div className="text-xs font-mono text-[#4a4d57] border border-[#1a1c23] px-3 py-1 rounded">LIVE PREVIEW</div>
+          <div className="text-xs font-mono text-[#00F0FF] opacity-70 border border-[rgba(0,240,255,0.2)] px-3 py-1 bg-[rgba(0,240,255,0.05)]">LIVE PREVIEW</div>
         </div>
         
         <PipelineDiagram height={300} />
@@ -36,7 +36,7 @@ export default function Pipeline() {
       <div className="mb-16">
         <div className="mb-6">
           <span className="text-[#00f0ff] text-[11px] tracking-[0.2em] font-bold uppercase font-mono">PARAMETER MATRIX</span>
-          <h2 className="text-2xl md:text-3xl font-bold mt-2 text-[#e2e8f0]">
+          <h2 className="text-2xl md:text-3xl font-bold mt-2 text-[#00F0FF]" style={{fontFamily: 'Chakra Petch'}}>
             ASP Configuration & Tuning Matrix
           </h2>
           <p className="text-[#8c92a0] text-sm mt-2">
@@ -48,11 +48,11 @@ export default function Pipeline() {
       </div>
 
       {/* Submodules Explorer Section */}
-      <div className="border-t border-[#1a1c23] pt-12">
+      <div className="border-t border-[rgba(0,240,255,0.2)] pt-12">
 
         <div className="mb-8">
-          <span className="text-[#ff0055] text-[11px] tracking-[0.2em] font-bold uppercase font-mono">SUBMODULE SITES</span>
-          <h2 className="text-2xl md:text-3xl font-bold mt-2 text-[#e2e8f0]">
+          <span className="text-[#00F0FF] text-[11px] tracking-[0.2em] font-bold uppercase font-mono">SUBMODULE SITES</span>
+          <h2 className="text-2xl md:text-3xl font-bold mt-2 text-[#00F0FF]" style={{fontFamily: 'Chakra Petch'}}>
             Integrated Submodules
           </h2>
           <p className="text-[#8c92a0] text-sm mt-2">
@@ -68,10 +68,10 @@ export default function Pipeline() {
             return (
               <div 
                 key={site.slug}
-                className={`border bg-[#0a0a0c] p-6 rounded-xl relative flex flex-col justify-between transition-all cursor-pointer ${
+                className={`hud-panel flex flex-col justify-between cursor-pointer ${
                   isSelected 
-                    ? 'border-[#00f0ff] bg-[#00f0ff]/5 shadow-[0_0_20px_rgba(0,240,255,0.15)]' 
-                    : 'border-[#1a1c23] hover:border-[#00f0ff]/40'
+                    ? 'border-[#00f0ff] bg-[rgba(0,240,255,0.1)] shadow-[0_0_20px_rgba(0,240,255,0.15)]' 
+                    : ''
                 }`}
                 onClick={() => setSelectedSubmodule(isSelected ? null : site.slug)}
               >
@@ -89,7 +89,7 @@ export default function Pipeline() {
                     >
                       <span>New Tab</span>
                       <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
                       </svg>
                     </a>
                   </div>
@@ -98,10 +98,10 @@ export default function Pipeline() {
                 </div>
 
                 <button
-                  className={`w-full py-2 px-3 rounded text-xs font-mono font-bold border transition-all ${
+                  className={`w-full py-2 px-3 mt-4 text-xs font-mono font-bold transition-all ${
                     isSelected
-                      ? 'bg-[#00f0ff] text-[#0a0a0c] border-[#00f0ff]'
-                      : 'bg-[#14161d] text-[#00f0ff] border-[#1a1c23] hover:border-[#00f0ff]/40'
+                      ? 'hud-btn border-[#00f0ff] bg-[#00f0ff] text-[#0a0a0c]'
+                      : 'hud-btn border-[rgba(0,240,255,0.3)] bg-[rgba(0,240,255,0.05)] text-[#00f0ff]'
                   }`}
                   onClick={(e) => {
                     e.stopPropagation();

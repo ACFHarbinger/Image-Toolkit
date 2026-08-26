@@ -45,7 +45,7 @@ function Nav() {
           </Link>
         </div>
 
-        <Link to="/dashboard" className="nav-cta">
+        <Link to="/dashboard" className="nav-cta hud-btn">
           View live signals
         </Link>
       </div>
@@ -56,7 +56,7 @@ function Nav() {
 export default function App() {
   return (
     <BrowserRouter>
-      <div className="site-shell">
+      <div className="site-shell boot-anim">
         <Nav />
         <main>
           <Routes>

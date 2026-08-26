@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@300;400;500;600;700&family=Chakra+Petch:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,12 +6,32 @@
 
 @layer base {
   body {
-    @apply bg-[#050505] text-[#e2e8f0] antialiased overflow-x-hidden;
+    @apply bg-[#0B0F19] text-[#e2e8f0] antialiased overflow-x-hidden;
     font-family: 'Inter', sans-serif;
   }
 
+  /* Scanline Overlay fixed over the entire background */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 9999;
+    background: repeating-linear-gradient(
+      to bottom,
+      transparent 0%,
+      rgba(0, 240, 255, 0.02) 50%,
+      transparent 100%
+    );
+    background-size: 100% 4px;
+    opacity: 0.7;
+  }
+
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Inter', sans-serif;
+    font-family: 'Chakra Petch', sans-serif;
+    @apply text-[#00F0FF];
+    text-shadow: 0 0 10px rgba(0, 240, 255, 0.4);
+    letter-spacing: 0.05em;
   }
 }
 
@@ -20,14 +40,15 @@
   width: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: #050505;
+  background: #0B0F19;
 }
 ::-webkit-scrollbar-thumb {
   background: #1a1c23;
   border-radius: 0px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #00f0ff;
+  background: #00F0FF;
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.8);
 }
 
 /* Nav Styles - Sleek Technical */
@@ -35,10 +56,11 @@
   position: fixed;
   inset: 0 0 auto;
   z-index: 50;
-  border-bottom: 1px solid #1a1c23;
-  background: rgba(5, 5, 5, 0.85);
+  border-bottom: 1px solid rgba(0, 240, 255, 0.2);
+  background: rgba(11, 15, 25, 0.85);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 2px 20px rgba(0, 240, 255, 0.1);
 }
 .site-nav-inner {
   max-width: 1400px;
@@ -51,21 +73,91 @@
 .nav-links {
   display: flex;
   gap: 2.5rem;
-  font-size: 0.8rem;
-  font-weight: 500;
-  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-family: 'Chakra Petch', sans-serif;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.15em;
   color: #8c92a0;
 }
-.nav-links a:hover {
-  color: #00f0ff;
-  text-shadow: 0 0 10px rgba(0, 240, 255, 0.3);
+.nav-links a {
+  transition: all 0.2s ease;
+  position: relative;
+}
+.nav-links a:hover, .nav-links a.active {
+  color: #00F0FF;
+  text-shadow: 0 0 12px rgba(0, 240, 255, 0.6);
 }
 
 .brand-text strong {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 1.1rem;
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 1.25rem;
   letter-spacing: 0.1em;
-  color: #e2e8f0;
+  color: #00F0FF;
+  text-shadow: 0 0 15px rgba(0, 240, 255, 0.5);
+  text-transform: uppercase;
+}
+
+/* HUD Panel Chrome Utilities */
+.hud-panel {
+  position: relative;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(0, 240, 255, 0.15);
+  /* Chamfered corners */
+  clip-path: polygon(
+    15px 0, 100% 0, 100% calc(100% - 15px), calc(100% - 15px) 100%, 0 100%, 0 15px
+  );
+  padding: 1.5rem;
+  transition: all 0.3s ease;
+}
+
+.hud-panel::after {
+  /* Corner bracket accents */
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 2px solid transparent;
+  background: 
+    linear-gradient(#00F0FF, #00F0FF) top left,
+    linear-gradient(#00F0FF, #00F0FF) top left,
+    linear-gradient(#00F0FF, #00F0FF) bottom right,
+    linear-gradient(#00F0FF, #00F0FF) bottom right;
+  background-size: 10px 2px, 2px 10px;
+  background-repeat: no-repeat;
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+.hud-panel:hover {
+  background: rgba(0, 240, 255, 0.05);
+  border-color: rgba(0, 240, 255, 0.4);
+  box-shadow: 0 0 20px rgba(0, 240, 255, 0.1) inset;
+}
+
+.hud-btn {
+  font-family: 'Chakra Petch', sans-serif;
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  background: rgba(0, 240, 255, 0.1);
+  color: #00F0FF;
+  border: 1px solid #00F0FF;
+  padding: 0.5rem 1.25rem;
+  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+  transition: all 0.2s ease;
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.2) inset;
+}
+.hud-btn:hover {
+  background: #00F0FF;
+  color: #0B0F19;
+  box-shadow: 0 0 20px rgba(0, 240, 255, 0.6), 0 0 15px rgba(0, 240, 255, 0.8) inset;
+}
+
+/* Boot Sequence Animation */
+@keyframes bootUp {
+  0% { opacity: 0; filter: blur(10px); transform: scale(0.98); }
+  100% { opacity: 1; filter: blur(0); transform: scale(1); }
+}
+.boot-anim {
+  animation: bootUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }

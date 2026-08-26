@@ -65,17 +65,17 @@ export default function Docs() {
   return (
     <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-[250px_1fr] gap-8 py-12 px-8 min-h-screen pt-32">
       {/* Sidebar */}
-      <aside className="p-6 rounded-2xl h-fit sticky top-32 bg-[#0a0a0c] border border-[#1a1c23]">
-        <div className="flex items-center gap-2 mb-6 pb-4 border-b border-[#1a1c23]">
+      <aside className="hud-panel h-fit sticky top-32">
+        <div className="flex items-center gap-2 mb-6 pb-4 border-b border-[rgba(0,240,255,0.2)]">
           <FileText className="w-5 h-5 text-[#00f0ff]" />
-          <h2 className="font-bold text-lg text-[#e2e8f0]">Documentation</h2>
+          <h2 className="font-bold text-lg text-[#00F0FF]" style={{fontFamily: 'Chakra Petch'}}>Documentation</h2>
         </div>
         <nav className="space-y-2">
           {DOC_PAGES.map(page => (
             <Link 
               key={page.id} 
               to={`/docs/${page.id}`}
-              className={`flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors ${activeFile === page.id ? 'bg-[#00f0ff]/10 text-[#00f0ff] font-bold border border-[#00f0ff]/30' : 'text-[#8c92a0] hover:bg-[#1a1c23] hover:text-[#e2e8f0]'}`}
+              className={`flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors ${activeFile === page.id ? 'bg-[rgba(0,240,255,0.15)] text-[#00f0ff] font-bold border border-[#00f0ff]' : 'text-[#8c92a0] hover:bg-[rgba(0,240,255,0.05)] hover:text-[#00F0FF]'}`}
             >
               {page.title}
               {activeFile === page.id && <ChevronRight className="w-4 h-4" />}
@@ -85,14 +85,14 @@ export default function Docs() {
       </aside>
 
       {/* Main Content */}
-      <main className="p-8 md:p-12 rounded-2xl bg-[#0a0a0c] border border-[#1a1c23]">
+      <main className="hud-panel md:p-12">
         {loading ? (
           <div className="flex items-center justify-center h-64">
             <div className="w-8 h-8 rounded-full border-4 border-[#00f0ff]/30 border-t-[#00f0ff] animate-spin" />
           </div>
         ) : (
           <div 
-            className="prose prose-invert max-w-none prose-a:text-[#00f0ff] hover:prose-a:text-[#ff0055] prose-headings:text-[#e2e8f0] prose-code:bg-[#1a1c23] prose-code:text-[#00f0ff] prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md prose-pre:bg-[#050505] prose-pre:border prose-pre:border-[#1a1c23]"
+            className="prose prose-invert max-w-none prose-a:text-[#00f0ff] hover:prose-a:text-[#ff0055] prose-code:bg-[#1a1c23] prose-code:text-[#00f0ff] prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md prose-pre:bg-[#050505] prose-pre:border prose-pre:border-[#1a1c23]"
             dangerouslySetInnerHTML={{ __html: content }} 
           />
         )}

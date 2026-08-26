@@ -95,10 +95,10 @@ export default function Home() {
           </p>
 
           <div className="flex gap-6 pt-8">
-            <a href="#modules" className="px-8 py-4 rounded border border-[#00f0ff] bg-[#00f0ff]/10 hover:bg-[#00f0ff]/20 text-[#00f0ff] font-mono transition-all shadow-[0_0_20px_rgba(0,240,255,0.15)] hover:shadow-[0_0_30px_rgba(0,240,255,0.3)] text-sm tracking-wide">
+            <a href="#modules" className="hud-btn">
               Explore Modules
             </a>
-            <Link to="/dashboard" className="px-8 py-4 rounded border border-[#333538] hover:border-[#ff0055]/50 bg-black/40 text-[#e2e8f0] hover:text-[#ff0055] transition-all font-mono text-sm tracking-wide group backdrop-blur-sm">
+            <Link to="/dashboard" className="hud-btn group">
               View Benchmarks <span className="inline-block transition-transform group-hover:translate-x-2">→</span>
             </Link>
           </div>
@@ -106,17 +106,17 @@ export default function Home() {
       </section>
 
       {/* Module Explorer - Prioritized Section */}
-      <section id="modules" className="relative z-10 py-32 px-8 max-w-[1400px] mx-auto border-t border-[#1a1c23] bg-gradient-to-b from-[#0a0a0c] to-[#050505]">
+      <section id="modules" className="relative z-10 py-32 px-8 max-w-[1400px] mx-auto border-t border-[rgba(0,240,255,0.2)] bg-gradient-to-b from-[rgba(11,15,25,0.9)] to-[#0B0F19]">
         <div className="mb-20 text-center">
           <span className="text-[#00f0ff] text-xs font-mono tracking-[0.2em] font-bold uppercase">TOOLKIT MODULES</span>
-          <h2 className="text-4xl md:text-5xl font-bold mt-4 tracking-tight text-[#e2e8f0]">
+          <h2 className="text-4xl md:text-5xl font-bold mt-4 tracking-tight text-[#00F0FF]" style={{fontFamily: 'Chakra Petch'}}>
             The complete visual stack.
           </h2>
         </div>
         <div className="grid md:grid-cols-3 gap-10">
           {modules.map(({ number, title, text, icon: Icon }, index) => (
             <motion.article
-              className={`p-10 border bg-[#0a0a0c] group transition-all hover:shadow-[0_0_30px_rgba(0,240,255,0.05)] relative overflow-hidden cursor-pointer ${activeModule === index ? "border-[#00f0ff]/70" : "border-[#1a1c23] hover:border-[#00f0ff]/50"}`}
+              className={`hud-panel cursor-pointer ${activeModule === index ? "border-[#00f0ff] bg-[rgba(0,240,255,0.1)]" : ""}`}
               key={title}
               role="button"
               tabIndex={0}
@@ -129,8 +129,8 @@ export default function Home() {
               <div className="absolute top-0 left-0 w-0 h-[2px] bg-[#00f0ff] transition-all duration-500 group-hover:w-full" />
 
               <div className="flex justify-between items-start mb-16">
-                <span className="font-mono text-4xl font-bold text-[#1a1c23] group-hover:text-[#ff0055] transition-colors">{number}</span>
-                <Icon size={28} className="text-[#4a4d57] group-hover:text-[#00f0ff] transition-colors" />
+                <span className="font-mono text-4xl font-bold text-[#00F0FF] opacity-50 group-hover:opacity-100 transition-opacity" style={{fontFamily: 'Chakra Petch'}}>{number}</span>
+                <Icon size={28} className="text-[#00F0FF] opacity-50 group-hover:opacity-100 transition-opacity" />
               </div>
               <h3 className="text-2xl font-bold text-[#e2e8f0] mb-4 tracking-tight">{title}</h3>
               <p className="text-[#8c92a0] leading-relaxed font-light">{text}</p>
@@ -142,7 +142,7 @@ export default function Home() {
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: .25 }}
-          className="mt-8 border border-[#00f0ff]/20 bg-[#08090c] p-7 md:flex items-center justify-between gap-8"
+          className="mt-8 hud-panel md:flex items-center justify-between gap-8"
         >
           <div>
             <span className="text-[#00f0ff] text-[10px] font-mono tracking-[0.2em] uppercase">ACTIVE MODULE / {modules[activeModule].number}</span>
@@ -154,15 +154,15 @@ export default function Home() {
         </motion.div>
       </section>
 
-      <section id="pipeline" className="relative z-10 py-28 px-8 max-w-[1400px] mx-auto border-t border-[#1a1c23]">
+      <section id="pipeline" className="relative z-10 py-28 px-8 max-w-[1400px] mx-auto border-t border-[rgba(0,240,255,0.2)]">
         <div className="grid lg:grid-cols-[.7fr_1.3fr] gap-12 items-center">
           <div>
             <span className="text-[#ffcf4a] text-xs font-mono tracking-[0.2em] font-bold uppercase">PIPELINE OBSERVATORY</span>
-            <h2 className="text-4xl md:text-5xl font-bold mt-4 tracking-tight text-[#e2e8f0]">Follow the image<br />through the instrument.</h2>
+            <h2 className="text-4xl md:text-5xl font-bold mt-4 tracking-tight text-[#00F0FF]" style={{fontFamily: 'Chakra Petch'}}>Follow the image<br />through the instrument.</h2>
             <p className="mt-5 max-w-md text-[#8c92a0] leading-relaxed font-light">A compact view of the processing stages. It explains the system without pretending that runtime or proxy metrics replace human visual review.</p>
           </div>
-          <div className="border border-[#1a1c23] bg-[#0a0a0c] p-5 shadow-[0_0_30px_rgba(0,240,255,0.04)]">
-            <div className="flex justify-between text-[#4a4d57] text-[10px] font-mono tracking-[0.18em] uppercase mb-2">
+          <div className="hud-panel p-5">
+            <div className="flex justify-between text-[#00F0FF] opacity-70 text-[10px] font-mono tracking-[0.18em] uppercase mb-2">
               <span>STITCH / SYSTEM FLOW</span><span className="text-[#00f0ff]">● ACTIVE</span>
             </div>
             <PipelineDiagram height={240} />
