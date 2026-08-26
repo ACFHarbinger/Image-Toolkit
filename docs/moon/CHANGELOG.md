@@ -9,6 +9,16 @@
 - P1/P2 evaluation remains paused pending approval for a 2–3 case, twice-each
   determinism check; identical routing is the exit criterion.
 
+# S467 — 2026-08-26 (ASP locked-slice review bundle completed)
+
+- Completed the labelled 16-case baseline/P1/P1+P2 review bundle at
+  `.agent/reports/chat/locked_renderer_exports_2026-08-24/` (48 PNGs).
+  Regenerated cases used isolated fresh processes, one native thread, fixed
+  seed, and resource guards; no algorithm or gate threshold changed.
+- The final controls 74, 28, 83, and 73 matched byte-for-byte across arms:
+  74 disconnected-edge SCANS; 28/83/73 affine-invalid SCANS. The bundle is
+  visual-review evidence only, not a quality-acceptance result.
+
 # S453 — 2026-08-24 (ASP deterministic rerun gate)
 
 - Authorized fresh-process repeats of selection-drift cases 28/82 and Raw-ASP
