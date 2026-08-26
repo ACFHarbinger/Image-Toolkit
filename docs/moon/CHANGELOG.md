@@ -9,6 +9,13 @@
 - P1/P2 evaluation remains paused pending approval for a 2–3 case, twice-each
   determinism check; identical routing is the exit criterion.
 
+# S469 — 2026-08-26 (CleanCP implementations reconciled)
+
+- Reviewed the historical prototype against the restored current implementation.
+  The prototype depended on a removed telemetry module; current CleanCP retains
+  its conservative consensus behavior, adds adjacent-gap telemetry and trigger
+  coverage, and is the sole safe implementation. Focused tests: 3 passed.
+
 # S468 — 2026-08-26 (documentation website architecture corrected)
 
 - Replaced the stale Vue/multi-framework description in `docs/website/README.md`
