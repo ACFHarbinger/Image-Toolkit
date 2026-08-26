@@ -9,6 +9,12 @@
 - P1/P2 evaluation remains paused pending approval for a 2–3 case, twice-each
   determinism check; identical routing is the exit criterion.
 
+# S468 — 2026-08-26 (documentation website architecture corrected)
+
+- Replaced the stale Vue/multi-framework description in `docs/website/README.md`
+  with the active React 19 + Vite application structure, routes, build command,
+  and documentation-content boundary. No website behavior changed.
+
 # S467 — 2026-08-26 (ASP locked-slice review bundle completed)
 
 - Completed the labelled 16-case baseline/P1/P1+P2 review bundle at

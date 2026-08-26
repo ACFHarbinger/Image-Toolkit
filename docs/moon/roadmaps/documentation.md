@@ -461,6 +461,12 @@ Use `papermill` to run notebooks with different parameters (different test seque
 
 ## ✅ §6.11 Unified Cross-Stack Documentation Portal (docs/index.md + docs/hooks.py) {: #611-unified-cross-stack-documentation-portal }
 
+**2026-08-26 implementation note:** the deployed interactive website is now a
+React + Vite SPA (`docs/website/src/main.tsx`, `App.tsx`, and `pages/`). Its
+README records that active architecture and treats the older framework
+directories as migration/experimental surfaces; MkDocs remains the separate
+strict documentation-validation path.
+
 **Pain point:** Even if each language generates docs (§6.1–§6.5), there is no unified structure that ties them together with the existing roadmaps, research reports, and the README.
 
 ### Options
