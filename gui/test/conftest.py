@@ -172,6 +172,19 @@ def cleanup_active_workers_and_timers(q_app):
 
     QThreadPool.globalInstance().start = mock_start
 
+    # Snapshot the windows that already exist so teardown only walks the ones
+    # this test created. Walking EVERY accumulated top-level window each test is
+    # quadratic: deleteLater()'d windows are never actually destroyed
+    # (processEvents() does not deliver DeferredDelete), so topLevelWidgets()
+    # grows unbounded and this findChildren/hasattr sweep climbs into the
+    # millions of calls on late tests — the gui/test/windows/ 100%-CPU hang
+    # (deepseek investigation 2026-08-23). Walking just the new windows is
+    # sufficient: every older window's timers were already stopped by its own
+    # teardown. We deliberately keep the widgets alive (no forced DeferredDelete
+    # delivery): destroying them under test fixtures that later call close() on
+    # the same wrappers segfaults in C++ virtual dispatch.
+    preexisting = {id(w) for w in QApplication.topLevelWidgets()}
+
     yield
 
     QThreadPool.globalInstance().start = original_start
@@ -184,6 +197,8 @@ def cleanup_active_workers_and_timers(q_app):
             pass
 
     for widget in QApplication.topLevelWidgets():
+        if id(widget) in preexisting:
+            continue
         for timer in widget.findChildren(QTimer):
             with contextlib.suppress(Exception):
                 timer.stop()
