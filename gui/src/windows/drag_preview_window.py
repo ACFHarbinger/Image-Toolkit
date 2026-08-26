@@ -23,6 +23,9 @@ class DragPreviewWindow(QWidget):
         # Make background transparent
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
+        # Purely visual: must never be able to eat a click, including if a
+        # bug elsewhere leaves it shown after the drag it belongs to ends.
+        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
 
         # Create label to display the pixmap
         self.label = QLabel(self)

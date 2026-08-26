@@ -26,7 +26,7 @@ from gui.src.components.virtual_gallery import (
 )
 from PySide6.QtCore import QObject, QRunnable, Qt, Signal
 from PySide6.QtGui import QImage
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QWidget
 
 pytestmark = pytest.mark.gui
 
@@ -413,6 +413,71 @@ def test_path_and_zoom_signals():
     view.ctrl_wheel.emit(120)
     assert zoom == [120]
     view.close()
+
+
+# --- Custom drag grab lifecycle (issue: a stuck grabMouse() froze clicks
+# app-wide) ---------------------------------------------------------------
+
+
+def test_hide_mid_drag_releases_the_mouse_grab():
+    """Losing visibility mid-drag (tab switch, gallery rebuild) must not
+    leave the app-wide mouse grab active, or every click everywhere stops
+    working until it is released."""
+    view = VirtualGalleryView()
+    model = _make_model()
+    view.setModel(model)
+    model.set_paths(["/a.png"])
+    view.set_custom_drag_enabled(True)
+    view.resize(400, 300)
+    view.show()
+    QApplication.processEvents()
+
+    view._start_custom_drag()
+    assert view._is_custom_dragging is True
+    assert QWidget.mouseGrabber() is view
+
+    view.hide()
+
+    assert view._is_custom_dragging is False
+    assert QWidget.mouseGrabber() is None
+    view.close()
+
+
+def test_start_drag_refuses_to_stack_on_an_existing_grab():
+    """If some other widget already holds the mouse grab, starting a second
+    one would guarantee the first can never be the one released."""
+    view = VirtualGalleryView()
+    model = _make_model()
+    view.setModel(model)
+    model.set_paths(["/a.png"])
+    view.set_custom_drag_enabled(True)
+    view.resize(400, 300)
+    view.show()
+
+    blocker = QWidget()
+    blocker.show()
+    QApplication.processEvents()
+    blocker.grabMouse()
+    try:
+        view._drag_source_path = "/a.png"
+        view._start_custom_drag()
+        assert view._is_custom_dragging is False
+        assert QWidget.mouseGrabber() is blocker
+    finally:
+        blocker.releaseMouse()
+        blocker.close()
+    view.close()
+
+
+def test_drag_preview_window_is_transparent_to_clicks():
+    """Purely a visual overlay; must never be able to eat a click even if a
+    bug elsewhere leaves it on screen after its drag ends."""
+    from gui.src.windows.drag_preview_window import DragPreviewWindow
+    from PySide6.QtGui import QPixmap
+
+    preview = DragPreviewWindow(QPixmap())
+    assert preview.testAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+    preview.close()
 
 
 # --- Composite widget API ----------------------------------------------------

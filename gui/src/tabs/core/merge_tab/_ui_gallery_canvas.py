@@ -40,7 +40,14 @@ class _UIGalleryCanvasMixin:
         content_layout.addWidget(self.search_input)
 
         self.gallery = VirtualGallery(self)
-        self.gallery.setMinimumHeight(600)
+        # Taller floor than the wallpaper gallery's matching 600: this tab's
+        # page has far more sections below it (merge settings, canvas, queue,
+        # action buttons), so its total content height already exceeds the
+        # viewport and the layout stretch factor below never gets slack to
+        # hand the gallery -- it sits at this floor by default rather than
+        # growing into leftover space the way the wallpaper gallery's does.
+        # ~4 rows at the default 180px thumbnail size, matching that gallery.
+        self.gallery.setMinimumHeight(900)
         # MultiSelection keeps the tab's click-to-toggle interaction with
         # native highlight, while the canvas/queue remain the authoritative
         # merge-order surface (selection_changed -> _sync_selection_from_gallery).

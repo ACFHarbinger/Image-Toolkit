@@ -34,7 +34,7 @@ from PySide6.QtCore import (
     Signal,
 )
 from PySide6.QtGui import QCursor, QMouseEvent, QWheelEvent
-from PySide6.QtWidgets import QAbstractItemView, QListView
+from PySide6.QtWidgets import QAbstractItemView, QListView, QWidget
 
 from .delegate import VirtualGalleryDelegate
 
@@ -308,14 +308,52 @@ class VirtualGalleryView(QListView):
         super().mouseReleaseEvent(event)
 
     def _start_custom_drag(self) -> None:
-        self._is_custom_dragging = True
+        # grabMouse() below routes every mouse event in the whole application
+        # to this widget until releaseMouse() is called. If some other widget
+        # already holds a grab -- e.g. a previous drag that was interrupted
+        # before it could release its own -- stacking a second grab on top
+        # would leave the app clicking nothing no matter which grab eventually
+        # lets go. Refuse to start rather than compound it.
+        if QWidget.mouseGrabber() is not None:
+            self._drag_source_path = None
+            self._drag_press_pos = None
+            return
+
         from gui.src.windows.drag_preview_window import DragPreviewWindow
 
-        preview = DragPreviewWindow(self._create_drag_preview())
-        preview.update_position(QCursor.pos())
-        preview.show()
+        try:
+            preview = DragPreviewWindow(self._create_drag_preview())
+            preview.update_position(QCursor.pos())
+            preview.show()
+        except Exception:
+            self._drag_source_path = None
+            self._drag_press_pos = None
+            return
+
+        # Only mark the drag as started once the grab actually succeeds, so a
+        # failure above never leaves _is_custom_dragging stuck true with no
+        # matching grab to release it.
         self._drag_preview = preview
+        self._is_custom_dragging = True
         self.grabMouse()
+
+    def hideEvent(self, event) -> None:
+        # Safety net for the case a drag is interrupted by something other
+        # than its own mouseReleaseEvent (tab switch, window deactivation,
+        # gallery rebuild): losing visibility mid-grab must not leave the
+        # grab -- and therefore every click in the app -- dangling forever.
+        # This is not a real drop, so cancel rather than route through
+        # _finish_custom_drag (which would fire the drop handler).
+        if getattr(self, "_is_custom_dragging", False):
+            self._is_custom_dragging = False
+            self._drag_source_path = None
+            self._drag_press_pos = None
+            self.releaseMouse()
+            if self._drag_preview is not None:
+                self._drag_preview.hide()
+                self._drag_preview.deleteLater()
+                self._drag_preview = None
+        super().hideEvent(event)
 
     def _update_custom_drag_preview(self) -> None:
         if self._drag_preview is not None:
