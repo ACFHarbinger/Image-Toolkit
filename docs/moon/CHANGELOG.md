@@ -9,6 +9,13 @@
 - P1/P2 evaluation remains paused pending approval for a 2–3 case, twice-each
   determinism check; identical routing is the exit criterion.
 
+# S470 — 2026-08-26 (M2 registration gate recovered)
+
+- Restored measurement-only registration telemetry and the default-off M2
+  RegistrationRiskGate. Its uncertainty band produces review-required
+  `prompt` counterfactuals; hard calibrated failures reject. Targeted tests:
+  20 passed. No benchmark run.
+
 # S469 — 2026-08-26 (CleanCP implementations reconciled)
 
 - Reviewed the historical prototype against the restored current implementation.
