@@ -7,6 +7,14 @@
 
 ---
 
+# S475 — 2026-08-27 (GUI Windows teardown verification)
+
+- Harbinger-authorized isolated `gui/test/windows/` verification completed in
+  0.37 seconds: 5 passed, 112 expected environment skips. The reported
+  teardown-scale quadratic hang did not reproduce; no code changed.
+
+---
+
 # S473 — 2026-08-27 (ASP run_stage.py & compositing audit and mask typing fixes)
 
 - Completed second-pair-of-eyes audit on `run_stage.py`'s reconciliation (`6458f55`)

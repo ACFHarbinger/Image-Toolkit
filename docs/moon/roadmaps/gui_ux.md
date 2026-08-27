@@ -346,6 +346,10 @@ Let users configure custom bindings for any tab action. Store in `~/.config/imag
   actions. Each dispatches through the existing button, preserving validation
   and enabled-state behavior; convert/merge follow-ons remain separate.
 
+- **2026-08-27 Windows teardown check:** the authorized isolated
+  `gui/test/windows/` directory run completed in 0.37 seconds (5 passed, 112
+  expected skips), with no recurrence of the reported quadratic hang.
+
 **C — Operation hotkeys (non-configurable)**
 Fixed shortcuts for common operations: `Ctrl+D` duplicate scan, `Ctrl+E` export, `Ctrl+W` close preview, `Space` toggle selection. Discoverable via tooltips.
 - Pros: Fast to implement. Covers 80% of use cases.
