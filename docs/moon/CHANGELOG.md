@@ -1,3 +1,15 @@
+# S454 — 2026-08-26 (ASP GUI Stitch-tab ASP/SCANS comparison recovered)
+
+- Restored the on-demand SCANS-comparison preview unique to the orphaned
+  lineage (`submodules/ASP/gui/src/elements/`): `_ScansComparisonTask`/
+  `_ScansComparisonSignals` (off-thread OpenCV SCANS baseline + ASP/SCANS
+  quality readouts), the `Generate SCANS Comparison` button, the ASP/SCANS
+  preview toggle with fade, and protocol/manager state wiring. New
+  `test_stitch_comparison.py`. 31 stitch-tab tests green. ASP commits
+  `99e4895`/`59d8df9`.
+
+---
+
 # S453 — 2026-08-26 (ASP run_stage.py orphaned-lineage reconciliation)
 
 - Applied the final orphaned-lineage diff to `run_stage.py`
