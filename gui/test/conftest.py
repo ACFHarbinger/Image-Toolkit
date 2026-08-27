@@ -1,6 +1,19 @@
 import contextlib
 import importlib.machinery
+import os
 import sys
+import tempfile
+
+# --- ISOLATE THE CONFIG ROOT (must precede any PySide6 import) ---
+# Qt resolves and caches its settings root (QSettings, and its own
+# QtProject.conf that persists QFileDialog sidebar bookmarks) on first use.
+# Point the whole config root at a throwaway dir so no test can write to the
+# user's real ~/.config — neither our QSettings("ImageToolkit", ...) nor Qt's
+# internal file-dialog "shortcuts" list. Session-wide; the dir dies with the
+# process, so every change a test makes here is transient.
+if "PYTEST_IT_CONFIG_HOME" not in os.environ:
+    os.environ["PYTEST_IT_CONFIG_HOME"] = tempfile.mkdtemp(prefix="it-test-config-")
+os.environ["XDG_CONFIG_HOME"] = os.environ["PYTEST_IT_CONFIG_HOME"]
 
 # --- BLOCK HEAVY IMPORTS ---
 # Build the mocked backend.src.models tree as REAL package modules (with
@@ -102,6 +115,50 @@ register_submodule_packages(str(project_root))
 from gui.src.windows.settings.file_dialog_patch import apply_patch  # noqa: E402
 
 apply_patch()
+
+
+@pytest.fixture(autouse=True)
+def isolate_persistent_settings(tmp_path, monkeypatch):
+    """Per-test isolation for everything the app persists outside its data dir.
+
+    ``XDG_CONFIG_HOME`` (set at conftest import) already keeps writes out of the
+    real ``~/.config``; this narrows it to per-test so state can't bleed between
+    tests:
+
+    - ``AppSettings`` — every ``QSettings("ImageToolkit", ...)`` access goes
+      through ``AppSettings._q()`` (verified: no direct ``QSettings(`` calls
+      elsewhere in ``gui/src``), so pointing that at a fresh per-test ini file
+      isolates favourites, session state, geometry, splitters, prefs, etc.
+    - ``_KEYBINDINGS_PATH`` — ``~/.image-toolkit/keybindings.json`` is derived
+      from ``Path.home()`` at import, not from the patched ``IMAGE_TOOLKIT_DIR``,
+      so it needs its own redirect (both module bindings).
+    """
+    from PySide6.QtCore import QSettings
+
+    ini = tmp_path / "app_settings.ini"
+
+    try:
+        from gui.src.windows.settings.app_settings import AppSettings
+
+        monkeypatch.setattr(
+            AppSettings,
+            "_q",
+            classmethod(lambda cls: QSettings(str(ini), QSettings.Format.IniFormat)),
+        )
+    except Exception:
+        pass
+
+    kb = tmp_path / "keybindings.json"
+    for modname in (
+        "gui.src.constants.utils",
+        "gui.src.utils.manager.shortcut_manager",
+    ):
+        try:
+            mod = importlib.import_module(modname)
+            if hasattr(mod, "_KEYBINDINGS_PATH"):
+                monkeypatch.setattr(mod, "_KEYBINDINGS_PATH", kb)
+        except Exception:
+            pass
 
 
 @pytest.fixture(autouse=True)
