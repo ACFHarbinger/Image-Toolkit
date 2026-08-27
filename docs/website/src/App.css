@@ -161,3 +161,60 @@
 .boot-anim {
   animation: bootUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+
+.achievement-toast {
+  position: fixed;
+  right: 1.5rem;
+  bottom: 1.5rem;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  max-width: min(24rem, calc(100vw - 3rem));
+  padding: 0.85rem 1rem;
+  color: #d9fff9;
+  background: rgba(6, 24, 29, 0.96);
+  border: 1px solid rgba(0, 240, 255, 0.72);
+  border-left: 3px solid #00f0ff;
+  box-shadow: 0 0 26px rgba(0, 240, 255, 0.24), inset 0 0 18px rgba(0, 240, 255, 0.07);
+  font-family: 'Chakra Petch', sans-serif;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(1rem) scale(0.97);
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.achievement-toast--visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.achievement-toast svg {
+  flex: 0 0 auto;
+  color: #00f0ff;
+  filter: drop-shadow(0 0 6px rgba(0, 240, 255, 0.8));
+}
+
+.achievement-toast strong,
+.achievement-toast span {
+  display: block;
+}
+
+.achievement-toast strong {
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.achievement-toast span {
+  margin-top: 0.12rem;
+  color: #9ba6b4;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.78rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .achievement-toast {
+    transition: none;
+  }
+}

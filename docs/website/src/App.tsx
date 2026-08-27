@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Link, useLocation } from "react-router-dom";
 import { Aperture } from "lucide-react";
+import AchievementToast from "./components/AchievementToast";
 import Home from "./pages/Home";
 import RatingsDashboard from "./pages/RatingsDashboard";
 import Docs from "./pages/Docs";
@@ -70,8 +71,8 @@ export default function App() {
             <Route path="/docs/:fileId" element={<Docs />} />
           </Routes>
         </main>
+        <AchievementToast />
       </div>
     </BrowserRouter>
   );
 }
-

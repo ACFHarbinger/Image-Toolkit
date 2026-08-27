@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Sliders, Search, Download, Copy, Check, RotateCcw, ChevronDown, ChevronRight, ShieldCheck, Cpu, Layers } from 'lucide-react';
+import { showAchievementToast } from '../../utils/achievementToast';
 
 export interface ConfigSchemaEntry {
   key: string;
@@ -172,6 +173,10 @@ export default function AdvancedConfigDrawer() {
     const toml = generateToml();
     navigator.clipboard.writeText(toml);
     setCopied(true);
+    showAchievementToast({
+      title: 'Configuration copied',
+      message: 'ASP TOML is ready to paste into your environment.',
+    });
     setTimeout(() => setCopied(false), 2000);
   };
 
