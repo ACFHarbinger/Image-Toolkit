@@ -1,4 +1,4 @@
-# S454 — 2026-08-26 (ASP GUI Stitch-tab ASP/SCANS comparison recovered)
+# S472 — 2026-08-26 (ASP GUI Stitch-tab ASP/SCANS comparison recovered)
 
 - Restored the on-demand SCANS-comparison preview unique to the orphaned
   lineage (`submodules/ASP/gui/src/elements/`): `_ScansComparisonTask`/
@@ -10,7 +10,7 @@
 
 ---
 
-# S453 — 2026-08-26 (ASP run_stage.py orphaned-lineage reconciliation)
+# S471 — 2026-08-26 (ASP run_stage.py orphaned-lineage reconciliation)
 
 - Applied the final orphaned-lineage diff to `run_stage.py`
   (`submodules/ASP` `6458f55`) after `registration_gate.py`/
