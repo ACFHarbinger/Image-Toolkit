@@ -8,6 +8,7 @@ from __future__ import annotations
 import os
 
 from PySide6.QtCore import Slot
+from PySide6.QtGui import QKeyEvent
 from PySide6.QtWidgets import QMessageBox
 
 from ....helpers import ConversionWorker
@@ -16,6 +17,25 @@ from ....styles import SHARED_BUTTON_STYLE
 
 class _ConversionWorkerMixin:
     """Starts/cancels the ConversionWorker and reacts to its progress/outcome."""
+
+    def keyPressEvent(self, event: QKeyEvent):
+        """Dispatch Convert-tab shortcuts before gallery navigation."""
+        from ....utils.manager.shortcut_manager import get_registry
+
+        reg = get_registry()
+        if reg.matches(event, "convert.run_all"):
+            self.start_conversion_worker(use_selection=False)
+            event.accept()
+            return
+        if reg.matches(event, "convert.run_selected"):
+            self.start_conversion_worker(use_selection=True)
+            event.accept()
+            return
+        if reg.matches(event, "convert.cancel"):
+            self.cancel_conversion()
+            event.accept()
+            return
+        super().keyPressEvent(event)  # type: ignore[misc,safe-super]
 
     @Slot(bool)
     def start_conversion_worker(self, use_selection: bool = False):

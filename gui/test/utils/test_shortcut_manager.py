@@ -45,6 +45,13 @@ class TestDefaults:
         assert entries["stitch.run"]["default"] == "Ctrl+Return"
         assert entries["stitch.run"]["scope"] == "Stitch"
 
+    def test_convert_and_merge_actions_are_configurable(self):
+        entries = {entry["id"]: entry for entry in shortcut_manager.SHORTCUT_REGISTRY}
+        assert {"convert.run_all", "convert.run_selected", "convert.cancel"} <= set(entries)
+        assert {"merge.run", "merge.cancel"} <= set(entries)
+        assert entries["convert.run_all"]["scope"] == "Convert"
+        assert entries["merge.run"]["scope"] == "Merge"
+
 
 class TestSaveLoad:
     def test_save_and_reload_round_trips(self, tmp_path):

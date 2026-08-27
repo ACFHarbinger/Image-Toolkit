@@ -90,6 +90,38 @@ SHORTCUT_REGISTRY: list[dict] = [
         "scope": "Stitch",
         "default": "Ctrl+Shift+G",
     },
+    # Convert — format and codec conversion actions
+    {
+        "id": "convert.run_all",
+        "description": "Convert every supported file in the selected directory",
+        "scope": "Convert",
+        "default": "Ctrl+Return",
+    },
+    {
+        "id": "convert.run_selected",
+        "description": "Convert only the selected files",
+        "scope": "Convert",
+        "default": "Ctrl+Shift+Return",
+    },
+    {
+        "id": "convert.cancel",
+        "description": "Cancel the active conversion",
+        "scope": "Convert",
+        "default": "Esc",
+    },
+    # Merge — image merge actions
+    {
+        "id": "merge.run",
+        "description": "Run the merge for the selected images",
+        "scope": "Merge",
+        "default": "Ctrl+Return",
+    },
+    {
+        "id": "merge.cancel",
+        "description": "Cancel the active merge",
+        "scope": "Merge",
+        "default": "Esc",
+    },
     # Gallery — two-gallery base class
     {
         "id": "gallery.select_all",

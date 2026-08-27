@@ -14,7 +14,7 @@ from typing import Dict, Optional
 import cv2
 from PIL import Image as PILImage
 from PySide6.QtCore import Q_ARG, QEventLoop, QMetaObject, Qt, Slot
-from PySide6.QtGui import QPixmap
+from PySide6.QtGui import QKeyEvent, QPixmap
 from PySide6.QtWidgets import QApplication, QDialog, QFileDialog, QMessageBox
 
 from ....components import ScrollVideoExportDialog
@@ -24,6 +24,21 @@ from ....windows import ImagePreviewWindow
 
 class _MergeExecutionMixin:
     """Run/cancel the merge worker and drive the post-merge result dialog."""
+
+    def keyPressEvent(self, event: QKeyEvent):
+        """Dispatch Merge-tab shortcuts before gallery navigation."""
+        from ....utils.manager.shortcut_manager import get_registry
+
+        reg = get_registry()
+        if reg.matches(event, "merge.run"):
+            self.start_merge()
+            event.accept()
+            return
+        if reg.matches(event, "merge.cancel"):
+            self.cancel_merge()
+            event.accept()
+            return
+        super().keyPressEvent(event)  # type: ignore[misc,safe-super]
 
     # ─── Helper: UI reset ───────────────────────────────────────────────────────
 
