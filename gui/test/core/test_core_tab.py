@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, mock_open, patch
 
 import cv2
 import pytest
-from PySide6.QtWidgets import QDialog, QWidget
+from PySide6.QtWidgets import QApplication, QDialog, QWidget
 
 from gui.src.tabs.core.convert_tab import ConvertTab
 from gui.src.tabs.core.extractor_tab import ExtractorTab
@@ -519,6 +519,19 @@ class TestExtractorTab:
 
 
 class TestListingsTab:
+    @pytest.fixture(autouse=True)
+    def close_listings_tabs(self, q_app):
+        """Keep ListingsTab instances from leaking across sibling tests."""
+        from gui.src.tabs.database.listings_tab import ListingsTab
+
+        yield
+        for widget in QApplication.topLevelWidgets():
+            if isinstance(widget, ListingsTab):
+                widget.close()
+                widget.deleteLater()
+        for _ in range(5):
+            QApplication.processEvents()
+
     def test_listings_tab_init(self, q_app):
         from gui.src.tabs.database.listings_tab import ListingsTab
 
@@ -603,6 +616,9 @@ class TestListingsTab:
                 self.raw_password = "dummy_password"
                 self.account_name = "dummy_account"
                 self.SecureJsonVault = MockSecureJsonVault
+
+            def shutdown(self):
+                pass
 
         # Mock message boxes to avoid blocking -- QMessageBox.critical/warning
         # too, not just information: get_library_db() calls critical() on a

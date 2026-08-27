@@ -2,12 +2,24 @@ import json
 from pathlib import Path
 
 import pytest
-from PySide6.QtWidgets import QMessageBox
+from PySide6.QtWidgets import QApplication, QMessageBox
 
 from gui.src.tabs.core.extractor_tab import ExtractorTab
 from gui.src.windows.settings.settings_window import SettingsWindow
 
 pytestmark = pytest.mark.gui
+
+
+@pytest.fixture(autouse=True)
+def close_settings_windows(q_app):
+    """Keep SettingsWindow instances from leaking across the test module."""
+    yield
+    for widget in QApplication.topLevelWidgets():
+        if isinstance(widget, SettingsWindow):
+            widget.close()
+            widget.deleteLater()
+    for _ in range(5):
+        QApplication.processEvents()
 
 
 def test_extraction_history_limit_and_pruning(q_app, tmp_path, monkeypatch):
@@ -175,6 +187,9 @@ def test_settings_window_reload_and_profile_update(q_app, monkeypatch):
             self.data = json.loads(data_str)
             return True
 
+        def shutdown(self):
+            pass
+
     # Instantiate SettingsWindow
     settings = SettingsWindow()
     settings.vault_manager = MockVaultManager()
@@ -273,4 +288,3 @@ def test_settings_window_theme_layout_and_button_width(q_app, monkeypatch):
 
     assert parent_groupbox is not None
     assert parent_groupbox.title() in ("Appearance", "Theme & Aesthetics Studio")
-
