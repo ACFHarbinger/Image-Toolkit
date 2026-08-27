@@ -1,3 +1,19 @@
+# S473 — 2026-08-27 (ASP run_stage.py & compositing audit and mask typing fixes)
+
+- Completed second-pair-of-eyes audit on `run_stage.py`'s reconciliation (`6458f55`)
+  and verified interactions across P1/P2/P3/P4, CleanCP, and `RegistrationRiskGate`.
+- Fixed boolean mask scaling in `_warp_inputs` (`_normalization.py`) so boolean
+  `bg_masks` scale to uint8 (0/255) before `cv2.warpAffine`, avoiding accidental
+  false background thresholding in downstream compositors.
+- Ensured `warped_bg` and `_contribution_masks` strictly emit boolean arrays across
+  compositing and wallpaper plate builders.
+- Updated `session.note_seam_feasibility` in `run_stage.py` Stage 11 to record
+  feasibility and `plate_ownership` under `ASP_PLATE_SINGLE_POSE=1`.
+- Targeted verification: 799/799 unit tests passing across core, pipeline,
+  alignment, ingestion, and rendering. ASP submodule commit `fcfcb65`.
+
+---
+
 # S472 — 2026-08-26 (ASP GUI Stitch-tab ASP/SCANS comparison recovered)
 
 - Restored the on-demand SCANS-comparison preview unique to the orphaned
