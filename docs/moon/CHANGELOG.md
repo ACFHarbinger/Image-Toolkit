@@ -1,3 +1,17 @@
+# S476 — 2026-08-27 (ASP multi-phase gating analysis & corpus scope review)
+
+- Analyzed the multi-phase gating stack (`e29ba08`, `bde8513`, `c00391c`) across
+  the frozen 97-case benchmark corpus: 59 cases (60.8%) have multiple animation
+  phases; 38 cases (39.2%) are single-phase.
+- Identified an architectural flaw in `composite.py:109-114`: skipping P1 for
+  multi-phase sequences currently executes `return canvas.copy()`, which bypasses
+  the legacy Laplacian seam compositor and forces 20 previously-valid RAW_ASP
+  multi-phase cases into uncomposited moving-cel ghosting and SCANS fallback.
+- Recommended fallback pass-through to legacy seam loop and designated Case 17
+  as an active quality gap in the ASP roadmap rather than "resolved".
+
+---
+
 # S474 — 2026-08-27 (ASP Stitch shortcut coverage)
 
 - Added configurable `Stitch`-scope shortcuts for run, cancel, match
