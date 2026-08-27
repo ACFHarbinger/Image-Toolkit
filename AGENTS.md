@@ -82,6 +82,21 @@ suggestion:
     *   **MEDIUM**: Inefficient SQL, Bad Selectors.
     *   **LOW**: UI Styling, Typos.
 
+### Test & Scratch Directories
+*   **Location**: Any test/scratch/fixture directory — throwaway data dirs,
+    generated corpora, exported review bundles, regenerated triplets, benchmark
+    input trees — MUST be created under `~/Downloads/Data/Tests/`, never inside
+    this repo. Point tools at it (`--data-dir`, the eval inspector's "Load
+    Directory…", etc.) rather than dropping files in the tree.
+*   **Never commit transient files.** `.agent/reports/` is for text findings,
+    not image bundles or generated data. A directory of PNGs / exported
+    artifacts does not belong in git history — it bloats every clone
+    permanently. If a reviewer needs to see images, hand over a path under
+    `~/Downloads/Data/Tests/`.
+*   Tests must not write outside their `tmp_path` / `~/Downloads/Data/Tests/`
+    — no touching `~/.config`, `~/.image-toolkit`, or the repo working tree.
+    See `gui/test/conftest.py`'s config-root isolation for the pattern.
+
 ### Known Constraints
 *   **PostgreSQL**: No SQLite. `pgvector` is required.
 *   **Linux**: `qdbus-qt6` compatibility for wallpapers.
