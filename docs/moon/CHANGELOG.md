@@ -1,3 +1,17 @@
+# S453 — 2026-08-26 (ASP run_stage.py orphaned-lineage reconciliation)
+
+- Applied the final orphaned-lineage diff to `run_stage.py`
+  (`submodules/ASP` `6458f55`) after `registration_gate.py`/
+  `registration_telemetry.py` landed (`65e7192`): `_stage4_memory_snapshot` +
+  Stage-4 mask-memory artifact, `_pair_proposal_telemetry` (adjacent-survival +
+  pre/post-filter components), post-filter/post-BA `collect_registration_telemetry`,
+  the `ASP_DEFER_MIN_GAP_TO_REGISTRATION_GATE` RegistrationRiskGate deferral,
+  the `ASP_DISABLE_PANORAMA_FALLBACK` guard, and the P2 overlap-proposal wiring
+  in `_pairwise_match_with`. CleanCP folded into pair-proposal telemetry.
+  382 core/alignment tests green; `run_stage.py` ruff-clean. No bench run.
+
+---
+
 # S452 — 2026-08-24 (ASP deterministic-run auditability)
 
 - Added per-session reproducibility telemetry: native thread environment,
