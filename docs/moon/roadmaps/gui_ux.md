@@ -341,6 +341,11 @@ Let users configure custom bindings for any tab action. Store in `~/.config/imag
 - **Verified before building anything new**: this option's own architecture — a central registry, a settings-window table with `QKeySequenceEdit` per row, JSON persistence, reset-to-default — is exactly what §2.29 ("Configurable Keyboard Shortcuts") already built and shipped: `gui/src/utils/shortcut_manager.py`'s `SHORTCUT_REGISTRY`/`ShortcutRegistry` (load/save/reset/`get_key_sequence`/`matches`, persisted to `~/.image-toolkit/keybindings.json` — same file, `.image-toolkit` not `.config/image-toolkit`, a harmless path difference from this bullet's original text) and `SettingsWindow`'s "Keyboard Shortcuts" tab (`settings_window.py`, Tab 6). Confirmed genuinely wired at runtime, not just a settings stub: both `AbstractClassTwoGalleries` and `AbstractClassSingleGallery`'s `keyPressEvent` handlers call `reg.matches(event, "...")` against the live registry. This section's own status line simply never got updated to point at §2.29's completion — no new code needed.
 - **Honest scope note**: the registry currently covers 24 actions across two scopes (`Gallery`, `Preview`) — genuinely "global" in *mechanism* (any future shortcut can register into it and gets settings-UI configurability for free), but not yet *coverage* of every tab's actions (e.g. ASP stitch tab, convert/merge-specific operations beyond gallery basics have no registry entries yet). Expanding registry coverage to more tabs is a legitimate, separate follow-on — not a gap in what this option asked for.
 
+- **2026-08-27 Stitch coverage:** the ASP Stitch tab now adds a third `Stitch`
+  scope with configurable run, cancel, compute-matches, and SCANS-comparison
+  actions. Each dispatches through the existing button, preserving validation
+  and enabled-state behavior; convert/merge follow-ons remain separate.
+
 **C — Operation hotkeys (non-configurable)**
 Fixed shortcuts for common operations: `Ctrl+D` duplicate scan, `Ctrl+E` export, `Ctrl+W` close preview, `Space` toggle selection. Discoverable via tooltips.
 - Pros: Fast to implement. Covers 80% of use cases.

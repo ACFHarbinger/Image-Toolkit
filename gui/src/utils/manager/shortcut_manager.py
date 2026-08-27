@@ -65,6 +65,31 @@ SHORTCUT_REGISTRY: list[dict] = [
         "scope": "General",
         "default": "Ctrl+Shift+M",
     },
+    # Stitch — ASP stitch tab actions
+    {
+        "id": "stitch.run",
+        "description": "Run the ASP stitch pipeline",
+        "scope": "Stitch",
+        "default": "Ctrl+Return",
+    },
+    {
+        "id": "stitch.cancel",
+        "description": "Cancel the active ASP stitch run",
+        "scope": "Stitch",
+        "default": "Esc",
+    },
+    {
+        "id": "stitch.compute_matches",
+        "description": "Compute matches for the selected stitch pair",
+        "scope": "Stitch",
+        "default": "F5",
+    },
+    {
+        "id": "stitch.generate_scans_comparison",
+        "description": "Generate the SCANS comparison for the stitch result",
+        "scope": "Stitch",
+        "default": "Ctrl+Shift+G",
+    },
     # Gallery — two-gallery base class
     {
         "id": "gallery.select_all",

@@ -1,3 +1,12 @@
+# S474 — 2026-08-27 (ASP Stitch shortcut coverage)
+
+- Added configurable `Stitch`-scope shortcuts for run, cancel, match
+  computation, and SCANS comparison. The tab invokes existing buttons, so no
+  duplicate action logic or settings UI was introduced. Focused GUI tests: 19
+  passed, 2 expected skips.
+
+---
+
 # S473 — 2026-08-27 (ASP run_stage.py & compositing audit and mask typing fixes)
 
 - Completed second-pair-of-eyes audit on `run_stage.py`'s reconciliation (`6458f55`)

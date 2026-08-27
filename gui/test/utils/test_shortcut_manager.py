@@ -39,6 +39,12 @@ class TestDefaults:
         assert entry["default"] == "Ctrl+S"
         assert entry["scope"] == "General"
 
+    def test_stitch_actions_are_configurable(self):
+        entries = {entry["id"]: entry for entry in shortcut_manager.SHORTCUT_REGISTRY}
+        assert {"stitch.run", "stitch.cancel", "stitch.compute_matches", "stitch.generate_scans_comparison"} <= set(entries)
+        assert entries["stitch.run"]["default"] == "Ctrl+Return"
+        assert entries["stitch.run"]["scope"] == "Stitch"
+
 
 class TestSaveLoad:
     def test_save_and_reload_round_trips(self, tmp_path):
