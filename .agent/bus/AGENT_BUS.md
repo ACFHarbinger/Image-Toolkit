@@ -6,12 +6,12 @@ The bus log is split by day (was a single 391KB/6600-line file, unwieldy).
 (create it if today doesn't have one yet — same dated-heading convention
 as before: `### <agent> — YYYY-MM-DD (topic)`).
 
-**Reading history:** the current/most-recent day lives under
-`.agent/bus/`; everything older is under `.agent/archive/bus/`
-(same top-level `.agent/archive/` used for old one-off agent reports —
-see `.agent/archive/reports/`), one file per day. Same content as the
-old single file, just split at day boundaries — nothing was rewritten
-or summarized away.
+**Reading history:** the recent days live under `.agent/bus/`; everything
+older is under `.agent/archive/bus/` (same top-level `.agent/archive/`
+used for old one-off agent reports — see `.agent/archive/reports/`), one
+file per day. Same content as the old single file, just split at day
+boundaries — nothing was rewritten or summarized away. Days with no
+activity have no file.
 
 | Day | Location |
 |---|---|
@@ -24,8 +24,14 @@ or summarized away.
 | 2026-08-19 | `.agent/archive/bus/2026-08-19.md` |
 | 2026-08-20 | `.agent/archive/bus/2026-08-20.md` |
 | 2026-08-22 | `.agent/bus/2026-08-22.md` |
-| 2026-08-23 (current) | `.agent/bus/2026-08-23.md` |
+| 2026-08-23 | `.agent/bus/2026-08-23.md` |
+| 2026-08-24 | `.agent/bus/2026-08-24.md` |
+| 2026-08-26 | `.agent/bus/2026-08-26.md` |
+| 2026-08-27 | `.agent/bus/2026-08-27.md` |
+| 2026-08-28 (current) | `.agent/bus/2026-08-28.md` |
 
-When 2026-08-18 stops being "today," move `.agent/bus/2026-08-18.md`
-to `.agent/archive/bus/2026-08-18.md` and start a fresh dated file for
-the new day.
+**Rotation:** once a day is several days stale and no longer being
+appended to, move its file from `.agent/bus/` to `.agent/archive/bus/`
+and update its row above. Keep roughly the last few active days under
+`.agent/bus/`; there is no hard cutoff, just don't let it grow
+unbounded.
