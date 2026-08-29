@@ -24,7 +24,7 @@ from gui.src.components.virtual_gallery import (
     VirtualGalleryModel,
     VirtualGalleryView,
 )
-from PySide6.QtCore import QObject, QRunnable, Qt, Signal
+from PySide6.QtCore import QObject, QPoint, QRunnable, Qt, Signal
 from PySide6.QtGui import QImage
 from PySide6.QtWidgets import QApplication, QWidget
 
@@ -415,57 +415,63 @@ def test_path_and_zoom_signals():
     view.close()
 
 
-# --- Custom drag grab lifecycle (issue: a stuck grabMouse() froze clicks
-# app-wide) ---------------------------------------------------------------
+# --- Drag-to-drop uses QDrag, never grabMouse() ------------------------------
+# (grabMouse() on a non-popup widget is a silent no-op on Wayland — "This
+# plugin supports grabbing the mouse only for popup windows" — which used to
+# half-start the drag and leave every click in the app dead-ending on a
+# widget that never got its release.)
 
 
-def test_hide_mid_drag_releases_the_mouse_grab():
-    """Losing visibility mid-drag (tab switch, gallery rebuild) must not
-    leave the app-wide mouse grab active, or every click everywhere stops
-    working until it is released."""
+def test_start_drag_fires_a_qdrag_with_the_selected_file_urls(monkeypatch):
+    from PySide6.QtGui import QDrag
+
+    captured = {}
+
+    def _fake_exec(self, *_a, **_kw):
+        md = self.mimeData()
+        captured["urls"] = [u.toLocalFile() for u in md.urls()] if md else []
+        return Qt.DropAction.IgnoreAction
+
+    monkeypatch.setattr(QDrag, "exec", _fake_exec, raising=False)
+
     view = VirtualGalleryView()
     model = _make_model()
     view.setModel(model)
-    model.set_paths(["/a.png"])
+    model.set_paths(["/a.png", "/b.png"])
     view.set_custom_drag_enabled(True)
     view.resize(400, 300)
     view.show()
     QApplication.processEvents()
 
+    view._drag_source_path = "/a.png"
+    view._drag_press_pos = QPoint(1, 1)
     view._start_custom_drag()
-    assert view._is_custom_dragging is True
-    assert QWidget.mouseGrabber() is view
 
-    view.hide()
-
-    assert view._is_custom_dragging is False
+    assert captured["urls"] == ["/a.png"]
+    # No mouse grab was ever taken, and the transient press state is cleared.
     assert QWidget.mouseGrabber() is None
+    assert view._drag_source_path is None
+    assert view._drag_press_pos is None
     view.close()
 
 
-def test_start_drag_refuses_to_stack_on_an_existing_grab():
-    """If some other widget already holds the mouse grab, starting a second
-    one would guarantee the first can never be the one released."""
+def test_start_drag_with_no_source_is_a_noop(monkeypatch):
+    from PySide6.QtGui import QDrag
+
+    calls = []
+    monkeypatch.setattr(QDrag, "exec", lambda self, *a, **k: calls.append(1), raising=False)
+
     view = VirtualGalleryView()
     model = _make_model()
     view.setModel(model)
     model.set_paths(["/a.png"])
     view.set_custom_drag_enabled(True)
-    view.resize(400, 300)
-    view.show()
 
-    blocker = QWidget()
-    blocker.show()
-    QApplication.processEvents()
-    blocker.grabMouse()
-    try:
-        view._drag_source_path = "/a.png"
-        view._start_custom_drag()
-        assert view._is_custom_dragging is False
-        assert QWidget.mouseGrabber() is blocker
-    finally:
-        blocker.releaseMouse()
-        blocker.close()
+    view._drag_source_path = None
+    view._start_custom_drag()
+
+    assert calls == []
+    assert QWidget.mouseGrabber() is None
     view.close()
 
 
