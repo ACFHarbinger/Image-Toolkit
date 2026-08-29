@@ -56,7 +56,16 @@ class _UIBuilderMixin:
 
         app = QApplication.instance()
         if app is not None:
-            app.installEventFilter(cast(QWidget, self))
+            self_widget = cast(QWidget, self)
+            app.installEventFilter(self_widget)
+            # Nothing calls removeEventFilter on a plain deleteLater()/GC
+            # teardown (only close() runs closeEvent), so also drop the
+            # app-wide filter the moment the C++ object is destroyed --
+            # otherwise every subsequent event in the whole app routes
+            # through a dead wrapper and the UI stops responding to clicks.
+            self_widget.destroyed.connect(
+                lambda *_a, _app=app, _obj=self_widget: _app.removeEventFilter(_obj)
+            )
         self.main_scroll_area.viewport().setAcceptDrops(True)
 
         layout_group = self.create_monitor_layout_section(

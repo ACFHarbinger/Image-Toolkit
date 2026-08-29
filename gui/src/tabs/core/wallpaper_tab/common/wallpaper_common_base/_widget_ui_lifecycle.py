@@ -6,12 +6,14 @@ change (see ``_monitor_selection.py``'s docstring).
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 from typing import TYPE_CHECKING, Optional
 
 from backend.src.constants import DAEMON_CONFIG_PATH
 from PySide6.QtCore import QThread, QTimer
+from PySide6.QtWidgets import QApplication
 from shiboken6 import Shiboken as sip
 
 from ......windows import SlideshowQueueWindow
@@ -46,6 +48,15 @@ class _WidgetUiLifecycleMixin:
                 widget.clear()
 
     def closeEvent(self: "WallpaperCommonBaseHostProtocol", event):  # noqa: C901
+        # Drop the application-wide event filter this subtab may have
+        # installed (see ``_ui_builder`` / ``_event_filter``). Leaving it
+        # registered after teardown routes every app event through a dead
+        # C++ wrapper and makes the whole app unclickable.
+        app = QApplication.instance()
+        if app is not None:
+            with contextlib.suppress(Exception):
+                app.removeEventFilter(self)
+
         # Stop slideshow and countdown timers
         if hasattr(self, "slideshow_timer") and self.slideshow_timer:
             try:
