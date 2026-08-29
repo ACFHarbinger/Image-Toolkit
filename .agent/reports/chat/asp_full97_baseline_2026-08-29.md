@@ -1,4 +1,6 @@
-# ASP full-97 default baseline — 2026-08-29  ⚠️ CORE REGRESSION FOUND
+# ASP full-97 default baseline — 2026-08-29  ⚠️ BENCH-ADAPTER REGRESSION (bisected — see end)
+
+> **Bottom line (added after bisection):** the "51 → 8 composites" collapse is **not** a pipeline regression. It bisects to `b20d02c` (M1b, 2026-08-15), which switched the default bench from a legacy inline stitcher to the product `AnimeStitchPipeline.run()`. `ASP_BENCH_LEGACY=1` at current HEAD composites the probe cases fine. The alignment primitives are healthy; the product runner orchestrates them worse than the legacy inline path did — and the GUI shares the product runner. Full analysis in the **BISECTION RESULT** section at the end. The "core registration pipeline" framing in the sections below is the pre-bisection read — kept for the record, corrected at the end.
 
 **Run by:** Claude, on Harbinger's authorization ("run #1 while I'm away").
 **Config:** pure default pipeline — **no** `ASP_PLATE_*`, **no** `ASP_PLATE_MULTIPHASE`, **no** `ASP_PHASE_COMPOSITE`. Resource envs only (`ASP_BENCH_THREAD_CAP=8`, `MALLOC_ARENA_MAX=2`, abort 72/80, `ASP_RESOURCE_FLUSH_CUDA=1`). Current HEAD incl. BiRefNet VRAM fix `e720ccd1`.
@@ -61,3 +63,36 @@ Do **not** build on the current pipeline for any quality work until this is fixe
 ## Note
 
 This baseline also *is* the roadmap Ground-Rule reference for any future default-ON decision — but it's unusable as a quality reference in its current state. Re-run after the regression is fixed.
+
+---
+
+## BISECTION RESULT (2026-08-29, Claude)
+
+`git bisect` on the ASP submodule, 6-step, probe = 3 cases (`asp_test10, 27, 51`, all `disconnected_edge_graph`/`no_valid_edges` at HEAD), signal = "reaches the compositor".
+
+**First bad commit: `b20d02c` — "feat(M1b): canonical bench adapter + injectable Safe ASP policy (#28)" (2026-08-15).**
+
+Bisect chain: `1b52059` (08-07) good → `1938d51` (08-15) good → `64d8829` good → **`b20d02c` bad** → `8f5514c` bad → `37d6f49` bad → `d940c05` (HEAD) bad. `978afde`/`64d8829` (immediately before M1b) composite all 3 probe cases cleanly; `b20d02c` breaks all 3.
+
+### It is a benchmark-adapter regression, NOT a pipeline regression
+
+M1b's commit message: *"Default `process_dataset` now runs product `AnimeStitchPipeline.run()` then `SafeAspPolicy` … `ASP_BENCH_LEGACY=1` keeps the old fork."*
+
+**Confirmed by running HEAD with `ASP_BENCH_LEGACY=1`:** `test10/27/51` all register (`Affine health: valid=True`) and reach the compositor — on **current HEAD**, with the same smart-selected frames. Only the default (M1b canonical) path fails them.
+
+So:
+- The alignment / matcher / bundle-adjust / edge-graph **primitives are fine at HEAD** — `ASP_BENCH_LEGACY=1` proves it.
+- Before M1b, `process_dataset` stitched via a hand-tuned **inline sequence** in `bench_anime_stitch.py` (the code still there behind `ASP_BENCH_LEGACY=1`). M1b switched the default to `run_canonical_asp` → `AnimeStitchPipeline.run()` with product defaults.
+- Both paths receive the **same** `_smart_select_frames(..., min_step_px=50.0)` output (line 1330, before the branch). The divergence is entirely in the stitch/registration orchestration.
+- **The GUI stitch tab also uses `AnimeStitchPipeline`** (`gui/src/tabs/stitch_tab_backend.py`), so the product runner's behaviour here is user-facing — this isn't purely a measurement artifact.
+
+### What this means for the numbers
+
+- The roadmap's full-corpus history through 2026-08-15 (~51 composites, 21 asp_better, etc.) measured the **legacy inline path**. Post-M1b bench numbers measure `AnimeStitchPipeline.run()`. **They are not comparable**, and the "51 → 8" drop is the measurement switch, not 3 weeks of pipeline rot.
+- Whether `AnimeStitchPipeline.run()` itself *also* regressed since 08-07 is a separate open question (would need the product runner called directly at an old commit).
+
+### Recommended fix direction
+
+Diff `AnimeStitchPipeline.run()`'s registration → edge-filter → BA orchestration against the `ASP_BENCH_LEGACY=1` inline sequence in `bench_anime_stitch.py` (both are in-tree, side by side). Likely candidates: a matching-confidence / min-matches threshold, `filter_edge_graph` gate params, `ASP_TEMPORAL_RANGE`, or canvas/normalisation config that the legacy fork set explicitly and the product `run()` leaves at a stricter default. Fixing the product runner (not the bench) is the goal, since the GUI shares it.
+
+**Interim:** the frozen-label / multi-phase discriminating-set analysis should treat `ASP_BENCH_LEGACY=1` as the reference until the product runner is fixed — or the multi-phase sweep should be re-run under `ASP_BENCH_LEGACY=1`… except the multi-phase renderer lives in `_composite_foreground`, which the legacy inline path also calls, so that's viable.
