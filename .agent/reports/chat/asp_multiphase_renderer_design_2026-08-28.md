@@ -4,7 +4,7 @@
 **Date:** 2026-08-28
 **HEAD:** root `018a8ba1`, ASP `cdd9958`
 **Relates to:** issue #463 (locked-slice renderer export review), ASP roadmap §2.2–2.4, `asp_change_roadmap_2026q3.md` "Known gap — P1 is unsafe for multi-phase sequences"
-**Status:** §7 signed off by Harbinger 2026-08-28. **§4 gate measured 2026-08-29 → MIDDLE branch** (build A behind a hard contiguity gate, ~70% coverage — see §4 RESULT). Implementation (steps 2–5) delegated to Codex 2026-08-29. The benchmark sweep (step 6) still needs Harbinger authorization.
+**Status:** §7 signed off 2026-08-28. §4 gate measured 2026-08-29 → MIDDLE branch (~70% coverage). **Implementation steps 2–5 landed 2026-08-29 (ASP `84af1be`, parent `992788d1`), default-off, 210 tests green.** Two test gaps flagged for hardening before the sweep (see §8). The benchmark sweep (step 6) still needs Harbinger authorization — nothing is enabled by default.
 
 ---
 
@@ -160,12 +160,19 @@ Piecewise per-phase P1 is the **compositing-side down payment** on that idea: it
 
 ## 8. Effort & sequencing
 
-1. ~~**§4 validation measurement**~~ — **DONE 2026-08-29 (Codex `7d08ff68`).** MIDDLE branch: build A behind a hard contiguity gate, ~70% coverage. See §4 RESULT.
-2. **New `ASP_PLATE_MULTIPHASE` flag** — register in `config.py` schema + TOML dump, default off, presupposes `ASP_PLATE_SINGLE_POSE`. `_warp_inputs(preserve_ternary=…)` must OR the new flag (Agy).
-3. **Contiguity + thin-span guards FIRST** — the §4-RESULT gate spec: sort compositor-frame indices by `affines[i][1,2]`, collapse sorted `phase_ids` to runs, permit exactly one run per phase (either direction, record it), else fall through to the *unchanged* legacy skip branch. Also guard `N_span < 2` (empty/thin span → `IndexError` at `_plate_compositor.py` `warped_frames[0].shape`, per Agy). Guarantees no regression vs. current skip behavior.
-4. **Piecewise partition + per-span P1 invocation** — inject **immediately after single-phase P1, before the multi-phase skip branch** (Agy). `phase_spans` (import into `composite.py`; `phase_ids` already in local scope, no threading) + slice `warped_list` / `warped_bg` / `warped_valid` in lockstep `[s:e+1]` + loop `composite_plate_single_pose`. `n_phases==1` byte-identical to today. Emit `[Stitch] plate_multiphase: N phases → ~M GiB peak RSS estimated` (`M ≈ 2.0 + 3.0·n_phases`, Agy) before the per-span loop.
-5. **Boundary join (§5a)** — the real work; a dedicated `_blend_phase_plates(...)`: plate-to-plate feather + Laplacian over `[y_seam ± W_blend]` in background regions, soft-alpha cel compositing in foreground (`claimed≥0` on either side → protect). Needs, beyond the current returns (Agy): each plate's valid `ty` band surfaced (add `plate_valid` or derive from `affines[s:e+1][1,2]`), and local→global frame-index remap (`global = s_p + local`) when assembling the final `claimed` / `seam_meta_out["plate_ownership"]`. Must clear `seam_vis_gate` / `composite_gate_sb`.
+1. ~~**§4 validation measurement**~~ — **DONE 2026-08-29 (Codex `7d08ff68`).** MIDDLE branch: build A behind a hard contiguity gate, ~70% coverage. See §4 RESULT. Interleaved-case caveat resolved (Agy `7c4198ee`, 6/6 genuine).
+2. ~~**New `ASP_PLATE_MULTIPHASE` flag**~~ — **DONE.** `config.py` schema + `compositing` TOML section; `_warp_inputs(preserve_ternary=…)` ORs both flags. Branch requires `ASP_PLATE_SINGLE_POSE` **and** `ASP_PLATE_MULTIPHASE`.
+3. ~~**Contiguity + thin-span guards FIRST**~~ — **DONE.** `_multiphase_plate_plan()` in `composite.py`: rejects `phase_ids` None/len-mismatch, thin spans (`end-start+1 < 2`), any phase owning >1 sorted-`ty` run, and mixed (non-monotone) physical order → returns `None` → falls through to the unchanged `multiple_phases` skip branch. Forward/reverse direction recorded.
+4. ~~**Piecewise partition + per-span P1**~~ — **DONE.** New branch after single-phase P1, before the skip branch; `composite_plate_multiphase()` in `_plate_compositor.py` loops `composite_plate_single_pose` per span with lockstep slicing; RSS-estimate `print` (`2.0 + 3.0·n_phases`), no cap.
+5. ~~**Boundary join (§5a)**~~ — **DONE (needs hardening — see below).** `_blend_phase_plates()` + `_laplacian_blend()`; `composite_plate_single_pose(return_plate_valid=…)` added; joins in physical canvas order; global frame-index ownership metadata.
+
+**Steps 2–5 landed 2026-08-29: ASP `84af1be` (`feat(compositing): add gated multiphase plate renderer`, +348/−3), parent pointer `992788d1`.** 6 new synthetic tests in `test_plate_compositor.py` (forward global-ownership, reverse canvas-order, interleaved fall-through, thin-span no-`IndexError`, single-phase byte-identical, flag-off). Suite: 210 passed / 0 failed on `-k "plate or composit or phase"`. Default-off; no benchmark/render run.
+
+**Known test gaps to close before step 6 (delegated to Codex 2026-08-29):**
+- `_blend_phase_plates` / `_laplacian_blend` have **no direct unit test** — only transitively exercised via `_composite_foreground` tests that assert shape + metadata, not pixel correctness of the boundary blend.
+- The `n_phases==1` byte-identical test is **partly vacuous**: single-phase input returns from the pre-existing single-pose branch before the multiphase branch is reached, so `composite_plate_multiphase()` is never exercised with a single span. Add a test that calls it directly with one span and asserts pixel-equality to the single-pose path.
+
 6. **First render sweep** (Codex, authorized — **Harbinger sign-off required, not yet given**) — piecewise P1 on the discriminating set, `n_phases=3`, **plus `ASP_PHASE_COMPOSITE` on/off fall-through arms** (resolves Option B). One change → one benchmark → keep or revert.
 7. **No default-ON** without a full-97 run and Phase 0.1 human coherence ratings, per roadmap Ground Rules.
 
-Steps 2–5 are one implementation delegation (step 1 has cleared). Step 6 waits for Harbinger. Reference: Agy's impl-surface audit `.agent/reports/gemini/asp_multiphase_p1_impl_surface_2026-08-29.md` (§6 has a checklist), Codex's §4 report `.agent/reports/chat/asp_multiphase_phase_ty_contiguity_2026-08-29.md`.
+Step 6 waits for Harbinger. References: Agy's impl-surface audit `.agent/reports/gemini/asp_multiphase_p1_impl_surface_2026-08-29.md`, Codex's §4 report `.agent/reports/chat/asp_multiphase_phase_ty_contiguity_2026-08-29.md`, Agy's interleaved-case verification `.agent/reports/gemini/asp_multiphase_interleaved_verify_2026-08-29.md`.
