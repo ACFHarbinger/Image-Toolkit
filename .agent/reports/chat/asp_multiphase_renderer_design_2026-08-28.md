@@ -125,7 +125,7 @@ Discriminating set (20): frozen-`RAW_ASP` ∩ multi-phase census = `01,05,08,17,
 
 Adjacent phase bands overlap 740–1080 px in every eligible case — expected (source frames are ≈ one frame-height tall), and it *provides* the blend region for the §5a join; not evidence of interleaving.
 
-**Caveat:** the registration-only measurement is not the frozen pipeline path. Whether the 6 "interleaved" cases are genuine back-and-forth pans or artifacts of the lighter registration is being independently checked (Agy, 2026-08-29).
+**Caveat resolved (Agy, 2026-08-29, `7c4198ee`):** forensic check of the 6 "interleaved" cases → **6/6 genuine** physical trajectory reversals (350–3226 px, far above the ~20 px registration-jitter floor; smooth parabolic Δ`ty` through zero at turning points; sustained 5–18 frames), **0 artifacts**. The 70% coverage figure holds firm — Option A's 1D vertical band stack genuinely cannot represent these 6 without tearing/double-rendering, so the contiguity gate is physically grounded, not a measurement workaround.
 
 ---
 
