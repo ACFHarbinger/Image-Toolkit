@@ -4,7 +4,7 @@
 **Date:** 2026-08-28
 **HEAD:** root `018a8ba1`, ASP `cdd9958`
 **Relates to:** issue #463 (locked-slice renderer export review), ASP roadmap §2.2–2.4, `asp_change_roadmap_2026q3.md` "Known gap — P1 is unsafe for multi-phase sequences"
-**Status:** §7 signed off 2026-08-28. §4 gate measured 2026-08-29 → MIDDLE branch (~70% coverage). **Implementation steps 2–5 landed 2026-08-29 (ASP `84af1be`, parent `992788d1`), default-off, 210 tests green.** Two test gaps flagged for hardening before the sweep (see §8). The benchmark sweep (step 6) still needs Harbinger authorization — nothing is enabled by default.
+**Status:** §7 signed off 2026-08-28. §4 gate → MIDDLE branch (~70% coverage). Implementation steps 2–5 landed 2026-08-29 (ASP `84af1be`), default-off. Test gaps closed (`cefd4df`). **Impl review (Agy `5933c570`) → CONDITIONAL NO-GO: blocker B1 + S1/S2 in `_blend_phase_plates` / `_build_aligned_background_plate`; fix delegated to Codex.** Sequence to step 6: fix → Agy re-review → Harbinger authorizes the sweep. Nothing enabled by default.
 
 ---
 
@@ -168,11 +168,20 @@ Piecewise per-phase P1 is the **compositing-side down payment** on that idea: it
 
 **Steps 2–5 landed 2026-08-29: ASP `84af1be` (`feat(compositing): add gated multiphase plate renderer`, +348/−3), parent pointer `992788d1`.** 6 new synthetic tests in `test_plate_compositor.py` (forward global-ownership, reverse canvas-order, interleaved fall-through, thin-span no-`IndexError`, single-phase byte-identical, flag-off). Suite: 210 passed / 0 failed on `-k "plate or composit or phase"`. Default-off; no benchmark/render run.
 
-**Known test gaps to close before step 6 (delegated to Codex 2026-08-29):**
-- `_blend_phase_plates` / `_laplacian_blend` have **no direct unit test** — only transitively exercised via `_composite_foreground` tests that assert shape + metadata, not pixel correctness of the boundary blend.
-- The `n_phases==1` byte-identical test is **partly vacuous**: single-phase input returns from the pre-existing single-pose branch before the multiphase branch is reached, so `composite_plate_multiphase()` is never exercised with a single span. Add a test that calls it directly with one span and asserts pixel-equality to the single-pose path.
+**Test gaps — CLOSED 2026-08-29 (Codex `cefd4df` / parent `ebca43ff`).** 5 new direct tests (`_laplacian_blend` flat-color + 1-row; `_blend_phase_plates` background feather + canvas voids; `_blend_phase_plates` cel preserved across seam; `composite_plate_multiphase` reverse-order canvas join; `composite_plate_multiphase` single-span == single-pose). Suite: 21 passed. The cel-across-seam test was scoped to the opaque core only — because Codex's test run hit review finding **B1** (below) and correctly refused to assert on buggy behavior.
 
-6. **First render sweep** (Codex, authorized — **Harbinger sign-off required, not yet given**) — piecewise P1 on the discriminating set, `n_phases=3`, **plus `ASP_PHASE_COMPOSITE` on/off fall-through arms** (resolves Option B). One change → one benchmark → keep or revert.
+### §8-5b — Implementation review 2026-08-29 (Agy `5933c570`) → CONDITIONAL NO-GO for step 6
+
+Gate (`_multiphase_plate_plan`), per-span slicing, local→global index remap, reverse-pan join order, `return_plate_valid` back-compat, RSS print + env reads — **all CLEARED**. Three defects block the sweep:
+
+- **B1 (BLOCKER, `_plate_compositor.py:451-454`)** — `_blend_phase_plates()` multiplies hero-cel alpha (`cel_alpha`) by the canvas-wide background blend ramp (`alpha_left` / `right_weight`). A character pose crossing a phase seam is rendered ~50 % transparent at `y_seam` and fully erased below `y_seam + ~49 px`; two poses in the band cross-ghost. Violates P1's single-pose invariant and the function's own docstring. Fix: cels carry only their silhouette feather — remove the ramp multiplication on cel pixels.
+- **S1 (should-fix, `_plate_compositor.py:415,419-420,517`)** — fixed `blend_width = 48` (96 px window) not clamped to the actual valid overlap → abrupt luminance step on overlaps < 96 px. Fix: clamp to the available overlap half-width.
+- **S2 (should-fix, `_plate_compositor.py:195-202`)** — `_build_aligned_background_plate()` single-source void fill ignores `warped_valid` for `N_span == 1`, marking the whole canvas valid. Fix: intersect with `warped_valid`.
+- N1/N2 (nits) — Laplacian level formula on tiny (`H ≤ 33`) test arrays; `np.all([])`-is-True direction default on single-span input. Safe at production scale.
+
+**Fix delegated to Codex 2026-08-29** (B1 + S1 + S2, tighten the cel-across-seam test to full-cel preservation, add S1/S2 regression tests, re-run suite). After the fix lands, an Agy re-review of the diff is the gate before step 6 is put to Harbinger.
+
+6. **First render sweep** (Codex, authorized — **Harbinger sign-off required; also gated on B1/S1/S2 fixed + re-reviewed**) — piecewise P1 on the discriminating set, `n_phases=3`, **plus `ASP_PHASE_COMPOSITE` on/off fall-through arms** (resolves Option B). One change → one benchmark → keep or revert.
 7. **No default-ON** without a full-97 run and Phase 0.1 human coherence ratings, per roadmap Ground Rules.
 
-Step 6 waits for Harbinger. References: Agy's impl-surface audit `.agent/reports/gemini/asp_multiphase_p1_impl_surface_2026-08-29.md`, Codex's §4 report `.agent/reports/chat/asp_multiphase_phase_ty_contiguity_2026-08-29.md`, Agy's interleaved-case verification `.agent/reports/gemini/asp_multiphase_interleaved_verify_2026-08-29.md`.
+References: impl-surface audit `.agent/reports/gemini/asp_multiphase_p1_impl_surface_2026-08-29.md`; §4 report `.agent/reports/chat/asp_multiphase_phase_ty_contiguity_2026-08-29.md`; interleaved-case verification `.agent/reports/gemini/asp_multiphase_interleaved_verify_2026-08-29.md`; implementation review `.agent/reports/gemini/asp_multiphase_impl_review_2026-08-29.md`.
