@@ -4,7 +4,7 @@
 **Date:** 2026-08-28
 **HEAD:** root `018a8ba1`, ASP `cdd9958`
 **Relates to:** issue #463 (locked-slice renderer export review), ASP roadmap §2.2–2.4, `asp_change_roadmap_2026q3.md` "Known gap — P1 is unsafe for multi-phase sequences"
-**Status:** §7 signed off 2026-08-28. §4 gate → MIDDLE branch (~70% coverage). Steps 2–5 landed (ASP `84af1be`), default-off; test gaps closed (`cefd4df`). Impl review (Agy `5933c570`) → CONDITIONAL NO-GO on B1/S1/S2; **fix landed (Codex `7e352ba` / parent `e1023761`), 23 tests green.** Remaining before step 6: Agy re-review of `7e352ba`, then Harbinger authorizes the benchmark sweep. Nothing enabled by default.
+**Status:** §7 signed off 2026-08-28. §4 gate → MIDDLE branch (~70% coverage). Steps 2–5 landed (ASP `84af1be`), default-off; test gaps closed (`cefd4df`); B1/S1/S2 fix landed (`7e352ba`); **Agy re-review `9b6116a2` → UNCONDITIONAL GO, zero regressions, 23 tests green.** All code-side work done and cleared. **Only remaining item: Harbinger authorizes the step-6 benchmark sweep** (see §8-6). Nothing enabled by default.
 
 ---
 
@@ -186,7 +186,13 @@ Gate (`_multiphase_plate_plan`), per-span slicing, local→global index remap, r
 - N1/N2 nits left as-is (safe at production scale).
 - Tests: cel-across-seam tightened to assert the **full** cel (`np.array_equal(result[cel], left[cel])`); + `..._single_source_respects_warped_valid` (S2) and `..._narrow_overlap_has_no_luminance_step` (S1). `test_plate_compositor.py` → 23 passed; backend `-k "plate or composit"` → 216 passed.
 
-**Next: Agy re-review of `7e352ba` → then step 6 goes to Harbinger.**
+**Re-review CLEARED 2026-08-29 (Agy `9b6116a2`) — UNCONDITIONAL GO.** B1/S1/S2 all confirmed resolved: no remaining path multiplies cel alpha by the ramp (background Laplacian blend strictly gated to `both_bg = (left_claimed<0) & (right_claimed<0)`); cels copied verbatim across the full seam band, pan-direction-independent; S1 clamp correct at overlap 0/1/2/3/≫96 px with no crash or step; S2 scoped to the `N_span==1` path only, `warped_valid is None` → all-True fallback. New tests exercise the actual failure modes (would fail on the pre-fix code). Side-effect audit: zero regressions — gate, slicing, index remap all intact.
+
+### §8-6 — Step 6 is STAGED, GO, and waits only on Harbinger authorization
+
+Everything code-side is done and independently cleared. The benchmark sweep is a **benchmark** ⇒ RESOURCE RULE ⇒ runs through Codex with explicit Harbinger sign-off. Claude will not launch it.
+
+Sweep spec: piecewise P1 (`ASP_PLATE_SINGLE_POSE=1 ASP_PLATE_MULTIPHASE=1`) on the 20-case frozen-`RAW_ASP` multi-phase discriminating set (`01,05,08,17,26,28,40,41,56,62,67,71,72,73,74,80,82,83,86,91`), harness `n_phases=3`; **plus `ASP_PHASE_COMPOSITE` on/off fall-through arms** on the same set (resolves Option B, doc §3/§7.5). Serial, resource-bounded. Compare arm identities + gate outcomes + a visual check on the 14 contiguity-eligible cases against frozen `RAW_ASP`. One change → one benchmark → keep or revert.
 
 6. **First render sweep** (Codex, authorized — **Harbinger sign-off required; also gated on B1/S1/S2 fixed + re-reviewed**) — piecewise P1 on the discriminating set, `n_phases=3`, **plus `ASP_PHASE_COMPOSITE` on/off fall-through arms** (resolves Option B). One change → one benchmark → keep or revert.
 7. **No default-ON** without a full-97 run and Phase 0.1 human coherence ratings, per roadmap Ground Rules.
