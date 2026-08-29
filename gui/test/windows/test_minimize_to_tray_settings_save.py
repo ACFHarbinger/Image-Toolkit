@@ -177,3 +177,44 @@ class TestQuitApplication:
 
         assert call_order.index("geometry") < call_order.index("quit")
         assert call_order.index("save") < call_order.index("quit")
+
+
+# ---------------------------------------------------------------------------
+# No duplicate tray icon (bug: two identical icons in background mode)
+# ---------------------------------------------------------------------------
+
+class TestNoDuplicateTrayIcon:
+    def test_close_to_tray_reuses_existing_icon(self, q_app):
+        """When a tray icon already exists, closeEvent must re-show it, never
+        call _setup_tray_icon() again (which would leave the old, still-shown,
+        still-parented QSystemTrayIcon behind = two icons)."""
+        host = _make_lifecycle_host(minimize_to_tray=True)
+        host._tray_icon = MagicMock()
+
+        with patch("gui.src.windows.main._lifecycle.AppSettings"):
+            from PySide6.QtGui import QCloseEvent
+            host.closeEvent(QCloseEvent())
+
+        host._setup_tray_icon.assert_not_called()
+        host._tray_icon.show.assert_called()
+
+    def test_setup_tray_icon_is_idempotent(self, q_app):
+        """Calling _setup_tray_icon twice must not create a second
+        QSystemTrayIcon -- the second call re-shows the first."""
+        from gui.src.windows.main._tray import _TrayMixin
+        from PySide6.QtWidgets import QWidget
+
+        class Host(_TrayMixin, QWidget):
+            def __init__(self):
+                QWidget.__init__(self)
+                self._quit_application = MagicMock()
+
+        host = Host()
+        host._setup_tray_icon()
+        first = host._tray_icon
+        assert first is not None
+
+        with patch.object(first, "show") as mock_show:
+            host._setup_tray_icon()
+            mock_show.assert_called_once()
+        assert host._tray_icon is first

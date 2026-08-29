@@ -483,6 +483,29 @@ Full diagnosis: `.agent/cache/gallery_crash_deleteorphaned_2026-07-27.md`.
 
 ---
 
+### Two identical Image Toolkit tray icons in background mode
+
+**Symptom:** With "Close to background tray icon" enabled, two identical
+Image Toolkit icons appear in the system tray, even with a single running
+instance.
+
+**Cause:** `_setup_tray_icon()` (`gui/src/windows/main/_tray.py`) rebuilt
+`self._tray_icon = QSystemTrayIcon(..., parent=self)` unconditionally. The
+previous `QSystemTrayIcon` stayed parented to the window (not garbage-
+collected) and stayed `.show()`n, so reassigning the attribute just hid the
+reference, not the icon. It was invoked twice: once from `_startup_prefs`
+when the pref is on at launch, and again from `closeEvent` whose guard
+(`_tray_icon is None or not _tray_icon.isVisible()`) re-triggered on the
+transient `not isVisible()` window that exists right after `.show()` on
+Wayland/Plasma before the tray host registers the icon.
+
+**Fix:** `_setup_tray_icon()` is now idempotent — if `self._tray_icon`
+already exists it just calls `.show()` and returns. `closeEvent` only
+*creates* when there is no icon yet, otherwise re-shows the existing one.
+A stray duplicate from a pre-fix session clears on restart.
+
+---
+
 ## <a id="qt-multimedia--video-playback-decode-failures"></a>Qt Multimedia / Video Playback Decode Failures
 
 ### AV1 video shows a blank frame + `Failed to get pixel format` / `Get current frame error` spam

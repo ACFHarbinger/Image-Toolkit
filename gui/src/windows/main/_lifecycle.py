@@ -141,8 +141,15 @@ class _LifecycleMixin:
     def closeEvent(self, event):
         # §2.12C — minimize to tray / background mode instead of quitting (opt-in)
         if getattr(self, "_minimize_to_tray", False):
-            if getattr(self, "_tray_icon", None) is None or not self._tray_icon.isVisible():
+            # Only *create* when there is no tray icon yet. Recreating on a
+            # transient ``not isVisible()`` (common right after .show() on
+            # Wayland/Plasma before the tray host has registered it) spawns a
+            # duplicate icon -- _setup_tray_icon() is idempotent and re-shows
+            # the existing one on its own.
+            if getattr(self, "_tray_icon", None) is None:
                 self._setup_tray_icon()
+            else:
+                self._tray_icon.show()
             # Persist geometry and tab settings before going to background so
             # the next real quit (via tray menu or OS shutdown) sees up-to-date
             # state even if the process is killed uncleanly while hidden.

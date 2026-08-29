@@ -15,6 +15,15 @@ class _TrayMixin:
     """Builds the tray icon/menu and handles tray-triggered actions."""
 
     def _setup_tray_icon(self, app_icon=None) -> None:
+        # Idempotent: a QSystemTrayIcon parented to the window stays alive and
+        # visible after ``self._tray_icon`` is reassigned, so calling this a
+        # second time (startup pref + first close-to-tray) left two identical
+        # icons in the tray. Re-show the existing one instead.
+        existing = getattr(self, "_tray_icon", None)
+        if existing is not None:
+            existing.show()
+            return
+
         icon = app_icon
         if icon is None or not isinstance(icon, QIcon):
             _asset = os.path.join(

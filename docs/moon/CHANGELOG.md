@@ -1,3 +1,24 @@
+# S477 — 2026-08-29 (Duplicate system-tray icon in background mode)
+
+- Fixed two identical Image Toolkit icons appearing in the system tray when
+  "Close to background tray icon" is enabled (single running instance).
+  `_setup_tray_icon()` (`gui/src/windows/main/_tray.py`) rebuilt
+  `self._tray_icon = QSystemTrayIcon(..., parent=self)` on every call; the
+  previous instance stayed parented to the window and stayed shown, so
+  reassigning the attribute only hid the reference. It was invoked twice —
+  from `_startup_prefs` when the pref is on at launch, and again from
+  `closeEvent` whose `_tray_icon is None or not _tray_icon.isVisible()`
+  guard re-fired on the transient not-yet-registered window right after
+  `.show()` on Wayland/Plasma.
+- `_setup_tray_icon()` is now idempotent (re-shows the existing icon and
+  returns); `closeEvent` only *creates* when no icon exists yet, otherwise
+  re-shows. A stray duplicate from a pre-fix session clears on restart.
+- Regression tests: `closeEvent` reuses an existing icon and never re-calls
+  `_setup_tray_icon()`; a second `_setup_tray_icon()` call creates no second
+  `QSystemTrayIcon`. `TROUBLESHOOTING.md` + `CHANGELOG.md` updated.
+
+---
+
 # S476 — 2026-08-27 (ASP multi-phase gating analysis & corpus scope review)
 
 - Analyzed the multi-phase gating stack (`e29ba08`, `bde8513`, `c00391c`) across
