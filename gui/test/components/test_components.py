@@ -78,6 +78,36 @@ class TestMonitorDropView:
         assert widget.image_path is None
         assert widget.pixmap().isNull()
 
+    def test_accepts_a_text_uri_list_drop(self, q_app, tmp_path):
+        """A QDrag carrying file URLs (what the thumbnail galleries now
+        send) must reach dropEvent and emit images_dropped. A stale
+        ``from .manager import`` in _drag_drop.py used to raise
+        ModuleNotFoundError on every dragEnterEvent, silently rejecting it."""
+        from PySide6.QtCore import QMimeData, QPoint, QPointF, QUrl
+        from PySide6.QtGui import QDragEnterEvent, QDropEvent
+
+        img = tmp_path / "wp.png"
+        img.write_bytes(b"x")
+        widget = MonitorDropView(MockMonitor(), "2")  # pyrefly: ignore [bad-argument-type]
+        got: list = []
+        widget.images_dropped.connect(lambda mid, paths: got.append((mid, list(paths))))
+
+        mime = QMimeData()
+        mime.setUrls([QUrl.fromLocalFile(str(img))])
+        pos = QPoint(20, 20)
+        enter = QDragEnterEvent(
+            pos, Qt.DropAction.CopyAction, mime,
+            Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier,
+        )
+        q_app.sendEvent(widget, enter)
+        assert enter.isAccepted()
+        drop = QDropEvent(
+            QPointF(pos), Qt.DropAction.CopyAction, mime,
+            Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier,
+        )
+        q_app.sendEvent(widget, drop)
+        assert got == [("2", [str(img)])]
+
 
 # --- MarqueeScrollArea Tests ---
 

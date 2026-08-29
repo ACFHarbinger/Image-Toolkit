@@ -336,6 +336,11 @@ class VirtualGalleryView(QListView):
             drag.setPixmap(pm)
             drag.setHotSpot(QPoint(pm.width() // 2, pm.height() // 2))
         drag.exec(Qt.DropAction.CopyAction | Qt.DropAction.MoveAction)
+        # QDrag.exec() runs a nested loop and swallows the mouse-release the
+        # QListView was waiting on, so the view is left mid-press — the next
+        # move would paint a rubber-band marquee. Mirror QAbstractItemView::
+        # startDrag() and clear the interaction state.
+        self.setState(QAbstractItemView.State.NoState)
 
     def _drag_preview_pixmap(self, path: Optional[str]) -> QPixmap:
         """Thumbnail pixmap for the dragged item, or a null pixmap."""

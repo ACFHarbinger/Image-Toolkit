@@ -16,11 +16,17 @@ class _DragDropMixin:
     """Accepts/rejects and processes incoming image drops (native and custom)."""
 
     def dragEnterEvent(self, event: QDragEnterEvent):
-        from .manager import MonitorDropView
+        try:
+            from ..monitor_drop_view import MonitorDropView
 
-        if event.source() and isinstance(event.source(), MonitorDropView):
-            event.ignore()
-            return
+            if event.source() and isinstance(event.source(), MonitorDropView):
+                event.ignore()
+                return
+        except Exception:
+            # Never let an import hiccup here reject a legitimate drop --
+            # a stale ``from .manager import`` used to raise ModuleNotFoundError
+            # on every drag enter, silently killing thumbnail drag-to-monitor.
+            pass
         if self.has_valid_image_url(event.mimeData()):
             event.acceptProposedAction()
             self.setProperty("dragging", True)
@@ -29,11 +35,17 @@ class _DragDropMixin:
             event.ignore()
 
     def dragMoveEvent(self, event: QDragMoveEvent):
-        from .manager import MonitorDropView
+        try:
+            from ..monitor_drop_view import MonitorDropView
 
-        if event.source() and isinstance(event.source(), MonitorDropView):
-            event.ignore()
-            return
+            if event.source() and isinstance(event.source(), MonitorDropView):
+                event.ignore()
+                return
+        except Exception:
+            # Never let an import hiccup here reject a legitimate drop --
+            # a stale ``from .manager import`` used to raise ModuleNotFoundError
+            # on every drag enter, silently killing thumbnail drag-to-monitor.
+            pass
         if self.has_valid_image_url(event.mimeData()):
             event.acceptProposedAction()
         else:
