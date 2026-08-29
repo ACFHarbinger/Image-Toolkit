@@ -1,6 +1,6 @@
 # ASP full-97 default baseline — 2026-08-29  ⚠️ BENCH-ADAPTER REGRESSION (bisected — see end)
 
-> **Bottom line (added after bisection):** the "51 → 8 composites" collapse is **not** a pipeline regression. It bisects to `b20d02c` (M1b, 2026-08-15), which switched the default bench from a legacy inline stitcher to the product `AnimeStitchPipeline.run()`. `ASP_BENCH_LEGACY=1` at current HEAD composites the probe cases fine. The alignment primitives are healthy; the product runner orchestrates them worse than the legacy inline path did — and the GUI shares the product runner. Full analysis in the **BISECTION RESULT** section at the end. The "core registration pipeline" framing in the sections below is the pre-bisection read — kept for the record, corrected at the end.
+> **Bottom line (added after bisection):** the "~43 → 8 composites" collapse is **not** a pipeline regression. It bisects to `b20d02c` (M1b, 2026-08-15), which switched the default bench from a legacy inline stitcher to the product `AnimeStitchPipeline.run()`. `ASP_BENCH_LEGACY=1` at current HEAD composites the probe cases fine. The alignment primitives are healthy; the product runner orchestrates them worse than the legacy inline path did — and the GUI shares the product runner. Full analysis in the **BISECTION RESULT** section at the end. The "core registration pipeline" framing in the sections below is the pre-bisection read — kept for the record, corrected at the end.
 
 **Run by:** Claude, on Harbinger's authorization ("run #1 while I'm away").
 **Config:** pure default pipeline — **no** `ASP_PLATE_*`, **no** `ASP_PLATE_MULTIPHASE`, **no** `ASP_PHASE_COMPOSITE`. Resource envs only (`ASP_BENCH_THREAD_CAP=8`, `MALLOC_ARENA_MAX=2`, abort 72/80, `ASP_RESOURCE_FLUSH_CUDA=1`). Current HEAD incl. BiRefNet VRAM fix `e720ccd1`.
@@ -14,7 +14,7 @@
 
 | | this run (2026-08-29) | roadmap ref (2026-07-28 / 08-07) |
 |---|---|---|
-| **True ASP composites** | **8 / 97** | ~51 / 97 |
+| **True ASP composites** | **8 / 97** | **43 / 97** (2026-08-07 full-97, `anime_stitch_20260807_045552.json` — the last full run before M1b; the "51" in the roadmap is the 2026-07-09 starting baseline) |
 | Guarded fallbacks | 89 | ~46 |
 | — **at the alignment stage** | **65** | **~1** |
 | — at the composite stage | 24 | ~45 |
@@ -88,7 +88,7 @@ So:
 
 ### What this means for the numbers
 
-- The roadmap's full-corpus history through 2026-08-15 (~51 composites, 21 asp_better, etc.) measured the **legacy inline path**. Post-M1b bench numbers measure `AnimeStitchPipeline.run()`. **They are not comparable**, and the "51 → 8" drop is the measurement switch, not 3 weeks of pipeline rot.
+- The roadmap's full-corpus history through 2026-08-15 (43 composites / 22 asp_better on 2026-08-07) measured the **legacy inline path**. Post-M1b bench numbers measure `AnimeStitchPipeline.run()`. **They are not comparable**, and the "43 → 8" drop is the measurement switch, not 3 weeks of pipeline rot.
 - Whether `AnimeStitchPipeline.run()` itself *also* regressed since 08-07 is a separate open question (would need the product runner called directly at an old commit).
 
 ### Recommended fix direction

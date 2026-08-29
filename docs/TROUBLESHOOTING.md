@@ -483,6 +483,62 @@ Full diagnosis: `.agent/cache/gallery_crash_deleteorphaned_2026-07-27.md`.
 
 ---
 
+### Wallpaper tab: dragging a thumbnail wedges the whole app (unclickable, not frozen)
+
+**Symptom:** On Wayland, click a wallpaper thumbnail and start to drag it —
+the app stops responding to clicks everywhere (menus, buttons, tabs), but the
+window still paints and the event loop keeps running, so it is not "frozen"
+or crashed. A traceback may print (`RuntimeError: Internal C++ object already
+deleted`) and the console shows `This plugin supports grabbing the mouse only
+for popup windows`.
+
+**Cause:** the thumbnail-gallery custom drag (`VirtualGalleryView` /
+`DraggableLabel`) was built on `QWidget.grabMouse()` + a floating preview
+window. On Wayland `grabMouse()` on a non-popup widget is a **silent no-op**
+(`… only for popup windows`), so the drag half-started: the drag state stayed
+`True` and Qt still recorded the widget as `QWidget.mouseGrabber()`, so every
+subsequent mouse event in the app routed to a widget that never received its
+release. `grabMouse()` works fine on X11, which is why it went unnoticed.
+
+**Fix:** the drag now uses a native `QDrag` carrying the file URLs
+(`text/uri-list`); the compositor owns the DnD grab, so it works on X11 and
+Wayland. `grabMouse()` was removed from the drag path entirely
+(`virtual_gallery_view.py`, `draggable_label.py`). Restart the app to clear a
+grab left stuck by a pre-fix session.
+
+A related bug in the same fix: `MonitorDropView.dragEnterEvent` did
+`from .manager import MonitorDropView` — there is no `display/manager.py`
+(stale path from a module-flattening reorg), so every drag-enter raised
+`ModuleNotFoundError`, silently rejecting the drop. The old `grabMouse` drag
+never hit it because it called `handle_custom_drop()` directly. Corrected to
+`from ..monitor_drop_view import …` and wrapped so an import hiccup can't
+silently kill drops again.
+
+---
+
+### BiRefNet mask generation OOMs on a 12 GB GPU / "CUDA out of memory" during masking
+
+**Symptom:** ASP stitching or the wallpaper hero-cel pipeline logs
+`[Stitch] BiRefNet batch path failed (CUDA out of memory. Tried to allocate
+~3.75 GiB …)` for ~15+ frame sequences on a ≤12 GB card, then falls back to a
+slow per-frame masking loop.
+
+**Cause:** `get_mask_batch`'s `_compute_batch_size()` estimated per-frame VRAM
+as only 32× the raw tensor, so it batched 4 frames of 1024² through the Swin-L
+backbone — whose activation memory needs a single ~3.75 GiB allocation that
+doesn't fit alongside the rest of the pipeline.
+
+**Fix (`backend/src/models/wrappers/birefnet_wrapper.py`):** fp16 `autocast`
+on the forward pass (mask is thresholded at 0.5, so fp16 rounding is
+immaterial) roughly halves activation residency; `torch.inference_mode()`;
+`empty_cache()` after each chunk; a more realistic per-frame estimate (48×)
+with a hard cap of 2 on ≤12 GiB cards (3 on larger); and a live-OOM backoff
+that halves the chunk and retries in place instead of aborting the whole
+batch. Measured on a 12 GB RTX 4080 laptop: VRAM peak 11.8 GB → 7.8 GB,
+0 CUDA-OOM lines across a full 97-case run, identical mask verdicts.
+
+---
+
 ### Two identical Image Toolkit tray icons in background mode
 
 **Symptom:** With "Close to background tray icon" enabled, two identical
