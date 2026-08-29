@@ -28,6 +28,7 @@ used plain generic BiRefNet. Fixed to the real HF repo (``joelseytre/toonout``,
 MIT-licensed, verified live) with the correct fallback direction.
 """
 
+import contextlib
 import gc
 import logging
 import os
@@ -324,10 +325,11 @@ class BiRefNetWrapper(ModelWrapper):
         mean = torch.tensor([0.485, 0.456, 0.406], device=self.device).view(3, 1, 1)
         std = torch.tensor([0.229, 0.224, 0.225], device=self.device).view(3, 1, 1)
         batch_size = self._compute_batch_size()
+        on_cuda = self.device != "cpu" and torch.cuda.is_available()
         results: List[np.ndarray] = []
 
-        for start in range(0, len(images), batch_size):
-            chunk = images[start : start + batch_size]
+        def _run_chunk(chunk: List[np.ndarray]) -> List[np.ndarray]:
+            """Preprocess → forward → postprocess one chunk. Raises on CUDA OOM."""
             orig_sizes = [(image.shape[0], image.shape[1]) for image in chunk]
             tensors = []
             for image in chunk:
@@ -340,40 +342,74 @@ class BiRefNetWrapper(ModelWrapper):
                 tensors.append((tensor - mean) / std)
             batch = torch.stack(tensors)
             del tensors
-            with torch.no_grad():
+            # Half-precision on the forward pass roughly halves Swin activation
+            # residency; the mask is thresholded at 0.5 afterwards so fp16
+            # rounding is immaterial. no-op on CPU.
+            autocast = (
+                torch.autocast("cuda", dtype=torch.float16)
+                if on_cuda
+                else contextlib.nullcontext()
+            )
+            with torch.inference_mode(), autocast:
                 preds = model(batch)
                 if isinstance(preds, list):
                     preds = preds[-1]  # final prediction
-                preds = preds.sigmoid().detach().cpu().numpy()
+                preds = preds.float().sigmoid().detach().cpu().numpy()
             del batch
+            out: List[np.ndarray] = []
             for i, pred in enumerate(preds):
                 raw = pred.squeeze()  # (H_inf, W_inf)
                 h, w = orig_sizes[i]
                 raw = cv2.resize(raw, (w, h), interpolation=cv2.INTER_LINEAR)
                 binary = (raw > threshold).astype(np.uint8) * 255
                 del raw
-                binary = self._dilate_erode(binary, dilate_px, erode_px)
-                results.append(binary)
+                out.append(self._dilate_erode(binary, dilate_px, erode_px))
             del preds
+            return out
+
+        start = 0
+        while start < len(images):
+            chunk = images[start : start + batch_size]
+            try:
+                results.extend(_run_chunk(chunk))
+            except (torch.cuda.OutOfMemoryError, RuntimeError) as e:
+                if not (on_cuda and "out of memory" in str(e).lower()):
+                    raise
+                # Shrink and retry rather than aborting the whole batch to the
+                # slower Python-level per-frame fallback in masking.py.
+                torch.cuda.empty_cache()
+                if batch_size == 1:
+                    # One frame still won't fit — let the caller's fallback try.
+                    raise
+                batch_size = max(1, batch_size // 2)
+                logger.info(
+                    f"[BiRefNet] batch OOM; shrinking chunk to {batch_size} and retrying"
+                )
+                continue
+            start += len(chunk)
+            if on_cuda:
+                torch.cuda.empty_cache()
         return results
 
     def _compute_batch_size(self) -> int:
         """Return how many frames can safely be batched given current free VRAM.
 
-        Uses 32× the raw tensor size as a per-frame VRAM estimate (input +
-        BiRefNet Swin activations + decoder + output).  Caps at 4 regardless of
-        VRAM to avoid OOM from activation spikes.  Returns 1 on CPU or failure.
+        Uses 48× the raw tensor size as a per-frame VRAM estimate (input +
+        BiRefNet Swin activations + decoder + output).  Caps at 3 on large
+        cards and 2 on ≤12 GiB cards to avoid OOM from activation spikes; the
+        chunk loop halves further on a live OOM.  Returns 1 on CPU or failure.
         """
         if self.device == "cpu" or not torch.cuda.is_available():
             return 1
         try:
-            free_bytes, _ = torch.cuda.mem_get_info()
+            free_bytes, total_bytes = torch.cuda.mem_get_info()
             reserve = 1 * 1024 ** 3  # 1 GB safety margin
             usable = max(0, free_bytes - reserve)
             h, w = self.inference_size
-            per_frame_bytes = h * w * 3 * 4 * 32  # 32× raw tensor size
+            per_frame_bytes = h * w * 3 * 4 * 48  # 48× raw tensor size
             batch_size = max(1, int(usable / per_frame_bytes))
-            return min(batch_size, 4)
+            hard_cap = 2 if total_bytes <= 13 * 1024 ** 3 else 3
+            return min(batch_size, hard_cap)
         except Exception:
             return 1
 
