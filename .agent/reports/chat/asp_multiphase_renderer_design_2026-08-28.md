@@ -4,7 +4,7 @@
 **Date:** 2026-08-28
 **HEAD:** root `018a8ba1`, ASP `cdd9958`
 **Relates to:** issue #463 (locked-slice renderer export review), ASP roadmap §2.2–2.4, `asp_change_roadmap_2026q3.md` "Known gap — P1 is unsafe for multi-phase sequences"
-**Status:** §7 signed off 2026-08-28. §4 gate → MIDDLE branch (~70% coverage). Implementation steps 2–5 landed 2026-08-29 (ASP `84af1be`), default-off. Test gaps closed (`cefd4df`). **Impl review (Agy `5933c570`) → CONDITIONAL NO-GO: blocker B1 + S1/S2 in `_blend_phase_plates` / `_build_aligned_background_plate`; fix delegated to Codex.** Sequence to step 6: fix → Agy re-review → Harbinger authorizes the sweep. Nothing enabled by default.
+**Status:** §7 signed off 2026-08-28. §4 gate → MIDDLE branch (~70% coverage). Steps 2–5 landed (ASP `84af1be`), default-off; test gaps closed (`cefd4df`). Impl review (Agy `5933c570`) → CONDITIONAL NO-GO on B1/S1/S2; **fix landed (Codex `7e352ba` / parent `e1023761`), 23 tests green.** Remaining before step 6: Agy re-review of `7e352ba`, then Harbinger authorizes the benchmark sweep. Nothing enabled by default.
 
 ---
 
@@ -179,7 +179,14 @@ Gate (`_multiphase_plate_plan`), per-span slicing, local→global index remap, r
 - **S2 (should-fix, `_plate_compositor.py:195-202`)** — `_build_aligned_background_plate()` single-source void fill ignores `warped_valid` for `N_span == 1`, marking the whole canvas valid. Fix: intersect with `warped_valid`.
 - N1/N2 (nits) — Laplacian level formula on tiny (`H ≤ 33`) test arrays; `np.all([])`-is-True direction default on single-span input. Safe at production scale.
 
-**Fix delegated to Codex 2026-08-29** (B1 + S1 + S2, tighten the cel-across-seam test to full-cel preservation, add S1/S2 regression tests, re-run suite). After the fix lands, an Agy re-review of the diff is the gate before step 6 is put to Harbinger.
+**Fix LANDED 2026-08-29 (Codex `7e352ba` / parent `e1023761`):**
+- **B1** — the `distanceTransform` cel-alpha rebuild + ramp multiplication is removed. Cel pixels (`claimed ≥ 0`) are now copied verbatim (`result[cel] = source[cel]`), carrying only their pre-baked single-pose silhouette feather; left/upper then right/lower iteration ⇒ **lower physical band wins** on cel overlap (documented). Background-only pixels still blend via the ramp.
+- **S1** — `blend_width` clamped to `available_overlap` computed from `left_valid & right_valid`; zero overlap ⇒ `blend_width = 0` ⇒ hard canvas-order seam at `seam_y`.
+- **S2** — single-source void fill `presence` now `& warped_valid[i]` (bounds-checked; all-True fallback when `warped_valid` is None). Out-of-frame pixels stay invalid.
+- N1/N2 nits left as-is (safe at production scale).
+- Tests: cel-across-seam tightened to assert the **full** cel (`np.array_equal(result[cel], left[cel])`); + `..._single_source_respects_warped_valid` (S2) and `..._narrow_overlap_has_no_luminance_step` (S1). `test_plate_compositor.py` → 23 passed; backend `-k "plate or composit"` → 216 passed.
+
+**Next: Agy re-review of `7e352ba` → then step 6 goes to Harbinger.**
 
 6. **First render sweep** (Codex, authorized — **Harbinger sign-off required; also gated on B1/S1/S2 fixed + re-reviewed**) — piecewise P1 on the discriminating set, `n_phases=3`, **plus `ASP_PHASE_COMPOSITE` on/off fall-through arms** (resolves Option B). One change → one benchmark → keep or revert.
 7. **No default-ON** without a full-97 run and Phase 0.1 human coherence ratings, per roadmap Ground Rules.
