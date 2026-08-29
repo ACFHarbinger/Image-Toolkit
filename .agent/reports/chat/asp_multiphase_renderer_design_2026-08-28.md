@@ -4,7 +4,7 @@
 **Date:** 2026-08-28
 **HEAD:** root `018a8ba1`, ASP `cdd9958`
 **Relates to:** issue #463 (locked-slice renderer export review), ASP roadmap §2.2–2.4, `asp_change_roadmap_2026q3.md` "Known gap — P1 is unsafe for multi-phase sequences"
-**Status:** design direction — **§7 signed off by Harbinger 2026-08-28**. No code yet. Any benchmark validation named below goes through Codex with Harbinger authorization.
+**Status:** §7 signed off by Harbinger 2026-08-28. **§4 gate measured 2026-08-29 → MIDDLE branch** (build A behind a hard contiguity gate, ~70% coverage — see §4 RESULT). Implementation (steps 2–5) delegated to Codex 2026-08-29. The benchmark sweep (step 6) still needs Harbinger authorization.
 
 ---
 
@@ -105,6 +105,28 @@ For a set of known multi-phase cases, for each: sort frame indices by `affines[i
 - Contiguous on some, interleaved on others → build A with the contiguity check as a hard gate (non-contiguous cases fall through to legacy), and note expected coverage.
 - Interleaved on most → Option A is not viable as a band-stack; fall back to Option C (per-zone exclusion, no band assumption) or D.
 
+### §4 RESULT — measured 2026-08-29 (Codex, `7d08ff68`)
+
+**Outcome: MIDDLE branch — build Option A with a hard runtime contiguity gate. Expected coverage 14/20 (70%) of the discriminating set.**
+
+Method: standalone serial **registration-only** pass (adjacent-pair template/phase-correlation, `ASP_TEMPORAL_RANGE=1`, no LoFTR, translation bundle-adjust) on the benchmark's smart-selected frames — the frozen JSONs did not preserve an index-aligned post-spatial-dedup path list, so cached phase diagnostics were unsafe to reuse. No compositor/gates/render ran. Raw JSON kept at `~/Downloads/Data/Tests/asp_phase_ty_contiguity_20260829.json`.
+
+Discriminating set (20): frozen-`RAW_ASP` ∩ multi-phase census = `01,05,08,17,26,28,40,41,56,62,67,71,72,73,74,80,82,83,86,91`. (Seed cases `test36`/`test51` intersected out — froze SCANS / SAFE_ASP respectively.)
+
+- **14/20 contiguous** — one non-interleaving canvas-`ty` band per phase. Of these, **10 forward** in sorted-`ty` phase order, **4 reverse-panning** (`05, 56, 72, 80`).
+- **6/20 interleaved** — `01, 17, 67, 73, 74, 82` — phase IDs repeat when frames are sorted by `ty`; cannot be represented by a vertical band stack. These retain the legacy fallback pending an Option C/D path.
+- The design's literal "`phase_ids` monotonic **non-decreasing**" predicate passes only 10/20; the 4 reverse cases are monotonic non-*increasing* after `ty`-sort with well-defined bands. **The gate must accept either monotone direction.**
+
+**Refined contiguity gate spec (Codex):**
+1. Sort final compositor-frame indices by `affines[i][1,2]`.
+2. Collapse the sorted `phase_ids` into runs.
+3. Permit exactly **one run per phase** (forward *or* reverse); join bands in sorted-canvas order; record the direction.
+4. Any repeated phase run → non-contiguous → retain legacy fallback.
+
+Adjacent phase bands overlap 740–1080 px in every eligible case — expected (source frames are ≈ one frame-height tall), and it *provides* the blend region for the §5a join; not evidence of interleaving.
+
+**Caveat:** the registration-only measurement is not the frozen pipeline path. Whether the 6 "interleaved" cases are genuine back-and-forth pans or artifacts of the lighter registration is being independently checked (Agy, 2026-08-29).
+
 ---
 
 ## 5. Spec decision — who owns cross-phase seams
@@ -138,12 +160,12 @@ Piecewise per-phase P1 is the **compositing-side down payment** on that idea: it
 
 ## 8. Effort & sequencing
 
-1. **§4 validation measurement** — standalone, read-only phase-span/canvas-`ty` contiguity check on the discriminating multi-phase RAW_ASP set (start `05/36/51/67/73`, then widen). Routed through Codex. **Gate on the whole approach — blocks everything below.** Decision rule in §4.
-2. **New `ASP_PLATE_MULTIPHASE` flag** — register in `config.py` schema + TOML dump, default off, presupposes `ASP_PLATE_SINGLE_POSE`.
-3. **Piecewise partition + per-span P1 invocation** — `phase_spans` + slice frame list/affines + loop `composite_plate_single_pose`. `n_phases==1` byte-identical to today. Emit the memory-cost warning line before building.
-4. **Boundary join (§5a)** — the real work; plate-to-plate feather + Laplacian blend at span boundaries using P1's `claimed` ownership map, must clear `seam_vis_gate` / `composite_gate_sb`.
-5. **Contiguity + thin-span guards** — fall through to legacy when unmet; guarantees no regression vs. current skip behavior.
-6. **First render sweep** (Codex, authorized) — piecewise P1 on the discriminating set, `n_phases=3`, **plus `ASP_PHASE_COMPOSITE` on/off fall-through arms** (resolves Option B). One change → one benchmark → keep or revert.
+1. ~~**§4 validation measurement**~~ — **DONE 2026-08-29 (Codex `7d08ff68`).** MIDDLE branch: build A behind a hard contiguity gate, ~70% coverage. See §4 RESULT.
+2. **New `ASP_PLATE_MULTIPHASE` flag** — register in `config.py` schema + TOML dump, default off, presupposes `ASP_PLATE_SINGLE_POSE`. `_warp_inputs(preserve_ternary=…)` must OR the new flag (Agy).
+3. **Contiguity + thin-span guards FIRST** — the §4-RESULT gate spec: sort compositor-frame indices by `affines[i][1,2]`, collapse sorted `phase_ids` to runs, permit exactly one run per phase (either direction, record it), else fall through to the *unchanged* legacy skip branch. Also guard `N_span < 2` (empty/thin span → `IndexError` at `_plate_compositor.py` `warped_frames[0].shape`, per Agy). Guarantees no regression vs. current skip behavior.
+4. **Piecewise partition + per-span P1 invocation** — inject **immediately after single-phase P1, before the multi-phase skip branch** (Agy). `phase_spans` (import into `composite.py`; `phase_ids` already in local scope, no threading) + slice `warped_list` / `warped_bg` / `warped_valid` in lockstep `[s:e+1]` + loop `composite_plate_single_pose`. `n_phases==1` byte-identical to today. Emit `[Stitch] plate_multiphase: N phases → ~M GiB peak RSS estimated` (`M ≈ 2.0 + 3.0·n_phases`, Agy) before the per-span loop.
+5. **Boundary join (§5a)** — the real work; a dedicated `_blend_phase_plates(...)`: plate-to-plate feather + Laplacian over `[y_seam ± W_blend]` in background regions, soft-alpha cel compositing in foreground (`claimed≥0` on either side → protect). Needs, beyond the current returns (Agy): each plate's valid `ty` band surfaced (add `plate_valid` or derive from `affines[s:e+1][1,2]`), and local→global frame-index remap (`global = s_p + local`) when assembling the final `claimed` / `seam_meta_out["plate_ownership"]`. Must clear `seam_vis_gate` / `composite_gate_sb`.
+6. **First render sweep** (Codex, authorized — **Harbinger sign-off required, not yet given**) — piecewise P1 on the discriminating set, `n_phases=3`, **plus `ASP_PHASE_COMPOSITE` on/off fall-through arms** (resolves Option B). One change → one benchmark → keep or revert.
 7. **No default-ON** without a full-97 run and Phase 0.1 human coherence ratings, per roadmap Ground Rules.
 
-Steps 2–5 are one implementation delegation once step 1 clears.
+Steps 2–5 are one implementation delegation (step 1 has cleared). Step 6 waits for Harbinger. Reference: Agy's impl-surface audit `.agent/reports/gemini/asp_multiphase_p1_impl_surface_2026-08-29.md` (§6 has a checklist), Codex's §4 report `.agent/reports/chat/asp_multiphase_phase_ty_contiguity_2026-08-29.md`.
