@@ -278,22 +278,17 @@ class TestMainWindowSessionRecovery:
 
         assert window._minimize_to_tray is True
 
-    def test_startup_tray_icon_reference_is_not_lost(self, q_app):
-        """A saved background-mode preference must create exactly one icon."""
-        tray_icon = object()
-
-        def create_tray_icon(window, *_args, **_kwargs):
-            window._tray_icon = tray_icon
-
+    def test_startup_does_not_create_a_tray_icon(self, q_app):
+        """Plasma/Wayland requires native tray creation after first show."""
         vault = MockVaultManager({
             "account_name": "test_user",
             "preferences": {"minimize_to_tray": True},
         })
-        with patch.object(MainWindow, "_setup_tray_icon", autospec=True, side_effect=create_tray_icon) as setup:
+        with patch.object(MainWindow, "_setup_tray_icon", autospec=True) as setup:
             window = MainWindow(vault_manager=vault)  # pyrefly: ignore [bad-argument-type]
 
-        assert setup.call_count == 1
-        assert window._tray_icon is tray_icon
+        setup.assert_not_called()
+        assert window._tray_icon is None
 
 
 class TestMainWindowSaveTabConfig:

@@ -269,13 +269,15 @@ class _StartupPrefsMixin:
         )
         if hasattr(self, "set_minimize_to_tray"):
             self.set_minimize_to_tray(minimize_to_tray)
+        tray_icon = getattr(self, "_tray_icon", None)
         if minimize_to_tray:
-            if getattr(self, "_tray_icon", None) is None:
-                self._setup_tray_icon()
-            elif hasattr(self, "_tray_icon") and self._tray_icon and not self._tray_icon.isVisible():
-                self._tray_icon.show()
-        elif getattr(self, "_tray_icon", None) is not None:
-            self._tray_icon.hide()
+            # Creating QSystemTrayIcon before the first shown MainWindow is
+            # unstable on Plasma/Wayland. Defer construction to closeEvent;
+            # only revive an icon that was already created at runtime.
+            if tray_icon is not None and not tray_icon.isVisible():
+                tray_icon.show()
+        elif tray_icon is not None:
+            tray_icon.hide()
 
         # §2.16F — logging preferences (GUI/UX §2.9F, issue #48). Local import:
         # backend.src.app imports from gui.src.windows.main, so a module-level

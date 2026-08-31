@@ -10,6 +10,9 @@ The live `org.kde.StatusNotifierWatcher` listed two Image Toolkit notifier
 registrations from the same `python backend/main.py` PID. This rules out the
 previous KWin app-id theory as the primary defect.
 
-Fixed by initializing `_tray_icon` before startup preferences. Focused GUI
-regression: `test_startup_tray_icon_reference_is_not_lost` (1 passed). No
-running app was restarted or otherwise interrupted during diagnosis.
+The first reference-order correction exposed the pre-show tray construction
+hazard documented in the lifecycle code: the app crashed after startup when
+the saved preference kept that icon alive. The final fix initializes the
+reference before preferences **and defers native tray creation to the first
+background close**. Focused GUI regressions: 3 passed. No running app was
+restarted or otherwise interrupted during diagnosis.
