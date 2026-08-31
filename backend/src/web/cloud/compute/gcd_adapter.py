@@ -9,7 +9,7 @@ callable returning the token string) to have it added as a Bearer header.
 
 from __future__ import annotations
 
-from typing import Any, Callable, Optional
+from typing import Callable, Optional
 
 import requests
 
