@@ -1,3 +1,29 @@
+# S483 — 2026-08-31 (DeepSeek/flash: #476 frozen-bundle path-assumption audit)
+
+- Swept `backend/` + `gui/` for `__file__`/repo-root/`ROOT_DIR` path
+  resolutions. Rule of thumb recorded: PYZ modules' `__file__` is a virtual
+  `_MEIPASS` path that only works when sibling resources are bundled as
+  data (the spec does), and nothing may *write* under `ROOT_DIR` in a
+  frozen install — writes belong in `~/.image-toolkit/`.
+- **Write-hazard fixes:** credential export now writes
+  `~/.image-toolkit/backup` (was `ROOT_DIR/backup`); crawler screenshot
+  default moves to `~/.image-toolkit/screenshots` when frozen
+  (`gui/src/constants/paths.py` now `_MEIPASS`-aware).
+- **Source-only subprocess features guarded** with clear "unavailable in
+  the packaged build" messaging: wallpaper slideshow daemon
+  (`system_display_subtab` + `monitor_display_subtab`), managed WebDriver,
+  `ComfyUIManager.start()` (ComfyUI server launch), LyCORIS training
+  (`sys.executable -m hydra_dispatch`), and `_sync_vault_to_assets`.
+- Verified-OK list (no change needed): QSS/QML/SQL/YAML/schema loads,
+  `_version` fallback, crypto lib, icons, `submodules/CRE`, tray icon.
+- Tests: `test_settings_window.py` 47 passed (`--run-gui`, incl. the
+  credential-export test updated for the new backup dir); slideshow-daemon
+  liveness/lock tests 8 passed; ruff + py_compile clean on all touched
+  files. Full table:
+  `.agent/reports/deepseek/issue_476_frozen_path_audit_2026-08-31.md`.
+
+---
+
 # S482 — 2026-08-31 (Grok: #475 frozen entry --version/--help)
 
 - `gui/__main__.py` short-circuits `-v`/`--version` and `-h`/`--help` after

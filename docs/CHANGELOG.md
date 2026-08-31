@@ -17,12 +17,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
   `-h`/`--help` and exits before Qt bootstrap (#475). Version string is the
   same `backend.src._version` source as `python backend/main.py -v`.
 - Off-thread QWidget-finalize crash class generalized (#480, follow-up to #478): new `gui/src/helpers/gc_safe.py` — `GcSafeThread` base, `@gc_disabled_run` decorator, `gc_disabled()` context manager — disables the process-global cyclic GC for a worker's whole `run()` so an allocation burst on a worker thread can never trigger a collection that finalizes GUI `QWidget` cycles off the GUI thread. `BaseQThreadWorker` / `BaseQRunnableWorker` now apply it to every `_execute()`; the audited JSON/listing/DB workers that override `run()` directly carry `@gc_disabled_run` (cloud sync ×3, image crawler, media loader, MAL sync, web requests, recommendation, Scan & Tag upsert, batch image loader; `_SyncBackupWorker` refactored onto the same guard). Tests in `gui/test/helpers/test_gc_safe.py`; audit in `.agent/reports/opencode/issue_480_gc_guard_audit_2026-08-31.md`.
+- Frozen-bundle path-assumption audit (#476): confirmed every `_MEIPASS` resource read resolves (QSS/SQL/YAML/schema/crypto/icon/submodules all bundled), moved the two remaining bundle-**write** hazards out of `ROOT_DIR` — credential export → `~/.image-toolkit/backup`, crawler screenshot default → `~/.image-toolkit/screenshots` when frozen — and added clear "unavailable in the packaged build" guards to the source-checkout-only subprocess features (wallpaper slideshow daemon ×2, managed WebDriver, ComfyUI server launch, LyCORIS training, vault→assets template sync). Full table: `.agent/reports/deepseek/issue_476_frozen_path_audit_2026-08-31.md`.
 - SIGSEGV when loading the backup listings in a listings subtab (#478): `_SyncBackupWorker` parsed the decrypted backup with `json.loads` on its QThread; the allocations tripped CPython's cyclic collector *on that thread*, which then finalized a `QWidget` from the GUI's cyclic garbage off the GUI thread (`QWidget::~QWidget` → `deleteChildren` → segfault — the #461 class). `run()` now disables the cyclic GC for its lifetime and drops the DB/vault handles so their teardown stays on the GUI thread. Regression test in `gui/test/helpers/test_sync_backup_worker.py`.
 
 ### Planned (tracked)
 
-- v1.1 native Windows desktop build (#471); frozen-bundle path-assumption
-  audit (#476); first-run PostgreSQL prerequisite UX (#477).
+- v1.1 native Windows desktop build (#471); first-run PostgreSQL prerequisite
+  UX (#477).
 - GC-guard Tier-2: extend `@gc_disabled_run` to the heavy CV/torch/ffmpeg
   worker threads (#481, follow-up to #480).
 - Cloud Sync tab restructured into subtabs + a new Local Directory Sync subtab
