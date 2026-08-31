@@ -6,16 +6,16 @@ internal mutex makes cross-thread use from this QThread safe — and rows are
 merged through the legacy-dict repos instead of the old delete-all/reinsert
 against ``listings_secure.db`` (the pattern behind the data-loss incident).
 
-``run()`` disables the cyclic GC for its lifetime: ``json.loads`` of the
-decrypted backup allocates enough to trip the collection threshold *on this
-QThread*, and CPython's collector is process-global with no thread affinity —
-so a collectable ``QWidget`` left anywhere in the GUI's cyclic garbage gets
-``__del__``'d here, off the GUI thread, and ``QWidget::~QWidget`` segfaults
-(the #461 crash class). Refcounted frees are unaffected; the GUI thread's
-next allocation re-collects.
+``run()`` runs under the ``@gc_disabled_run`` guard (cyclic GC disabled for
+its lifetime): ``json.loads`` of the decrypted backup allocates enough to
+trip the collection threshold *on this QThread*, and CPython's collector is
+process-global with no thread affinity — so a collectable ``QWidget`` left
+anywhere in the GUI's cyclic garbage gets ``__del__``'d here, off the GUI
+thread, and ``QWidget::~QWidget`` segfaults (the #461 crash class).
+Refcounted frees are unaffected; the GUI thread's next allocation
+re-collects.
 """
 
-import gc
 import json
 import zipfile
 from pathlib import Path
@@ -26,6 +26,7 @@ from backend.src.database.unified.media_repo import MediaRepo
 from PySide6.QtCore import QThread, Signal
 
 from gui.src.constants.listings import LISTING_IMAGES_DIR
+from gui.src.helpers.gc_safe import gc_disabled_run
 
 
 def _sync_images_from_backup(prefix: str) -> int:
@@ -62,9 +63,8 @@ class _SyncBackupWorker(QThread):
         self.category = category
         self.params = params
 
+    @gc_disabled_run
     def run(self):
-        gc_was_enabled = gc.isenabled()
-        gc.disable()
         try:
             if self.task_type == "sync":
                 self.run_sync()
@@ -73,8 +73,6 @@ class _SyncBackupWorker(QThread):
         except Exception as e:
             self.sig_finished.emit(False, str(e), None)
         finally:
-            if gc_was_enabled:
-                gc.enable()
             # Drop strong refs to the DB / vault handles so teardown of those
             # (some are QObjects) happens on the GUI thread via the parent, not
             # here when this QThread object is later collected.

@@ -13,6 +13,8 @@ from typing import Any, Dict, List, Optional
 
 from PySide6.QtCore import QThread, Signal
 
+from gui.src.helpers.gc_safe import gc_disabled_run
+
 from ...constants import RECOMMENDATION_ENGINE_DIR
 
 logger = logging.getLogger(__name__)
@@ -254,6 +256,7 @@ class RecommendationWorker(QThread):
             pass  # history boost is best-effort
         return None
 
+    @gc_disabled_run
     def run(self) -> None:
         try:
             _ensure_re_on_path()

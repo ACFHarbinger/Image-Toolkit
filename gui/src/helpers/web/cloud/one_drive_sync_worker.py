@@ -4,6 +4,8 @@ from typing import Any, Dict
 from backend.src.web import OneDriveSync
 from PySide6.QtCore import QRunnable
 
+from gui.src.helpers.gc_safe import gc_disabled_run
+
 from .cloud_drive_sync_signals import CloudDriveSyncWorkerSignals
 
 
@@ -33,6 +35,7 @@ class OneDriveSyncWorker(QRunnable):
             timestamp = time.strftime("[%H:%M:%S]")
             self.signals.status_update.emit(f"{timestamp} {message}")
 
+    @gc_disabled_run
     def run(self):
         self.signals.status_update.emit("\n" + "=" * 50)
         self._log("--- OneDrive Sync Initiated ---")

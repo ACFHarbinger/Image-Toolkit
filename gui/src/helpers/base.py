@@ -11,9 +11,12 @@ BaseQThreadWorker
       - ``sig_finished``, ``error``, ``progress`` signals.
       - ``cancel()`` / ``stop()`` — sets ``self._cancelled = True``.
       - ``run()`` — wraps ``_execute()`` in a try/except so unhandled
-        exceptions always route to ``error`` rather than crashing silently.
+        exceptions always route to ``error`` rather than crashing silently,
+        with the cyclic GC disabled for the whole run (the #478 crash
+        class — see ``gc_safe.py``).
     Subclasses implement ``_execute()``; complex workers that need more
-    control may override ``run()`` directly.
+    control may override ``run()`` directly — if they allocate heavily
+    (JSON / listings), the override should carry ``@gc_disabled_run``.
 
 _WorkerSignals
     Shared signal carrier for ``QRunnable``-based workers.  ``QRunnable``
@@ -59,6 +62,8 @@ from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QObject, QRunnable, QThread, Signal, Slot
 
+from .gc_safe import gc_disabled_run
+
 if TYPE_CHECKING:
     pass
 
@@ -99,8 +104,9 @@ class BaseQThreadWorker(QThread):
 
     @abstractmethod
     def _execute(self) -> None:
-        """Worker logic.  Override this instead of ``run()``."""
+        """Worker logic. Override this instead of ``run()``."""
 
+    @gc_disabled_run
     def run(self) -> None:
         try:
             self._execute()
@@ -177,8 +183,9 @@ class BaseQRunnableWorker(QRunnable):
 
     @abstractmethod
     def _execute(self) -> None:
-        """Task logic.  Override this instead of ``run()``."""
+        """Task logic. Override this instead of ``run()``."""
 
+    @gc_disabled_run
     @Slot()
     def run(self) -> None:
         if self._cancelled:

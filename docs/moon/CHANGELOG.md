@@ -1,3 +1,25 @@
+# S481 — 2026-08-31 (OpenCode/GLM 5.3: #480 reusable GC guard for worker threads)
+
+- `gui/src/helpers/gc_safe.py` (new): `gc_disabled()` context manager,
+  `@gc_disabled_run` decorator, `GcSafeThread` base — one guard for the
+  #478 crash class (the cyclic collector is process-global with no thread
+  affinity; an allocation burst on a worker thread can finalize a GUI
+  QWidget from the GUI's cyclic garbage off the GUI thread → SIGSEGV).
+- Guard wired into `BaseQThreadWorker.run()` / `BaseQRunnableWorker.run()`
+  (covers every `_execute()` implementor — search + both semantic-search
+  workers immediately) and applied as `@gc_disabled_run` to the 11 audited
+  direct-`run()` JSON/listing/DB workers: cloud sync ×3, image crawl,
+  media loader, MAL sync, web requests, recommendation, upsert, batch
+  image loader; `_SyncBackupWorker` refactored off its inline #478 code
+  (behavior identical, #478 regression test unchanged and green).
+- Tier-2 heavy CV/torch/ffmpeg workers left for a follow-up pass, per the
+  audit: `.agent/reports/opencode/issue_480_gc_guard_audit_2026-08-31.md`.
+- Tests: `gui/test/helpers/test_gc_safe.py` (11 new); targeted
+  `gui/test/helpers/` 14 passed / 7 pre-existing `--run-gui` skips; ruff +
+  py_compile clean on all touched files.
+
+---
+
 # S480 — 2026-08-31 (v1.0.0 shipped — Linux desktop; packaging bugs fixed)
 
 - `just release::bump 1.0.0` across all version sources + `uv.lock`; tag
