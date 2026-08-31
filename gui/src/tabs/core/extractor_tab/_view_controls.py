@@ -45,6 +45,23 @@ class _ViewControlsMixin:
             return self._media_player.duration()
         return 0
 
+    @Slot()
+    def skip_video_runtime(self: "VideoExtractorSubTabHostProtocol") -> None:
+        """Skip ahead by the user-selected runtime without passing video end."""
+        if not self.use_internal_player:
+            return
+        duration_ms = self._current_duration_ms()
+        if duration_ms <= 0:
+            return
+        skip_ms = (
+            self.skip_minutes_spinbox.value() * 60_000
+            + self.skip_seconds_spinbox.value() * 1_000
+            + self.skip_microseconds_spinbox.value() // 1_000
+        )
+        if skip_ms <= 0:
+            return
+        self._seek_to(min(self.slider.value() + skip_ms, duration_ms))
+
     def eventFilter(self: "VideoExtractorSubTabHostProtocol", watched: QObject, event: QEvent  # noqa: C901
     ) -> bool:
         if self.lbl_current_time and watched is self.lbl_current_time and event.type() == QEvent.Type.MouseButtonPress:
@@ -369,6 +386,11 @@ class _ViewControlsMixin:
         self.duration_ms = duration
         self.slider.setRange(0, duration)
         self.lbl_total_time.setText(self._format_time(duration))
+        enabled = duration > 0
+        self.skip_minutes_spinbox.setEnabled(enabled)
+        self.skip_seconds_spinbox.setEnabled(enabled)
+        self.skip_microseconds_spinbox.setEnabled(enabled)
+        self.btn_skip_runtime.setEnabled(enabled)
 
     @Slot(int)
     def set_position(self: "VideoExtractorSubTabHostProtocol", position: int):

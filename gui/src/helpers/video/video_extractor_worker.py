@@ -31,6 +31,8 @@ class VideoExtractionWorker(QRunnable):
         use_ffmpeg: bool = False,
         speed: float = 1.0,
         cuts_ms: Optional[list] = None,
+        encoder_threads: int = 0,
+        fps_clamp: int = 0,
     ):
         super().__init__()
         self.video_path = video_path
@@ -42,6 +44,8 @@ class VideoExtractionWorker(QRunnable):
         self.use_ffmpeg = use_ffmpeg
         self.speed = speed
         self.cuts_ms = cuts_ms or []
+        self.encoder_threads = max(0, int(encoder_threads))
+        self.fps_clamp = max(0, int(fps_clamp))
         self.signals = _VideoWorkerSignals()
         self._is_cancelled = False
 
@@ -129,11 +133,16 @@ class VideoExtractionWorker(QRunnable):
                     pts_mult = 1.0 / self.speed
                     filters.append(f"setpts={pts_mult}*PTS")
 
+                if self.fps_clamp > 0:
+                    filters.append(f"fps=min(fps\\,{self.fps_clamp})")
+
                 if filters:
                     cmd.extend(["-vf", ",".join(filters)])
 
                 # Codecs and Audio
                 cmd.extend(["-c:v", "libx264", "-movflags", "+faststart"])
+                if self.encoder_threads > 0:
+                    cmd.extend(["-threads", str(self.encoder_threads)])
 
                 if self.mute_audio:
                     cmd.append("-an")
@@ -260,15 +269,22 @@ class VideoExtractionWorker(QRunnable):
                 ffmpeg_params.extend(["-b:a", "128k"])
 
             self.signals.progress.emit(30, 100)
+            write_kwargs = {
+                "codec": "libx264",
+                "audio_codec": audio_codec,
+                "temp_audiofile": temp_audio_path,
+                "remove_temp": True,
+                "ffmpeg_params": ffmpeg_params,
+                "verbose": False,
+                "logger": None,
+            }
+            if self.encoder_threads > 0:
+                write_kwargs["threads"] = self.encoder_threads
+            if self.fps_clamp > 0 and getattr(clip, "fps", None) and clip.fps > self.fps_clamp:
+                write_kwargs["fps"] = self.fps_clamp
             clip.write_videofile(
                 self.output_path,
-                codec="libx264",
-                audio_codec=audio_codec,
-                temp_audiofile=temp_audio_path,
-                remove_temp=True,
-                ffmpeg_params=ffmpeg_params,
-                verbose=False,
-                logger=None,
+                **write_kwargs,
             )
 
             self.signals.progress.emit(100, 100)

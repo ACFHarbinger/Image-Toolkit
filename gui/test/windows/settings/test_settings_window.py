@@ -1,12 +1,60 @@
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from gui.src.windows.settings.settings_window import SettingsWindow
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import QMessageBox
 
 pytestmark = pytest.mark.gui
+
+
+class TestUnsavedSettingsExit:
+    def test_detects_edits_and_cancel_keeps_window_open(self, q_app):
+        window = SettingsWindow()
+        assert window._has_unsaved_settings() is False
+
+        window.recursive_scan_check.setChecked(not window.recursive_scan_check.isChecked())
+        assert window._has_unsaved_settings() is True
+
+        window._confirm_unsaved_settings_exit = MagicMock(return_value="cancel")
+        event = QCloseEvent()
+        window.closeEvent(event)
+
+        assert event.isAccepted() is False
+
+    def test_exit_without_saving_accepts_and_exit_saves(self, q_app):
+        window = SettingsWindow()
+        window.recursive_scan_check.setChecked(not window.recursive_scan_check.isChecked())
+
+        window._confirm_unsaved_settings_exit = MagicMock(return_value="discard")
+        discard_event = QCloseEvent()
+        window.closeEvent(discard_event)
+        assert discard_event.isAccepted() is True
+
+        window._confirm_unsaved_settings_exit = MagicMock(return_value="save")
+        window._update_settings_logic = MagicMock()
+        save_event = QCloseEvent()
+        window.closeEvent(save_event)
+        assert save_event.isAccepted() is False
+        window._update_settings_logic.assert_called_once()
+
+
+class TestParallelExtractionSetting:
+    def test_queue_processors_are_disabled_until_queue_is_enabled(self, q_app):
+        window = SettingsWindow()
+        window.enable_queue_check.setChecked(False)
+
+        assert window.parallel_extraction_processors_spinbox.isEnabled() is False
+        assert "Enable Extraction Queue" in window.parallel_extraction_resource_label.text()
+
+        window.enable_queue_check.setChecked(True)
+
+        assert window.parallel_extraction_processors_spinbox.isEnabled()
+        assert "RAM" in window.parallel_extraction_resource_label.text()
+        assert "swap" in window.parallel_extraction_resource_label.text()
+        window._mark_settings_saved()
 
 
 class TestSettingsWindowLogs:
@@ -695,4 +743,47 @@ class TestThemeAndBackgroundControlsWiring:
         assert window.bg_opacity_slider.value() == 50
         assert window.bg_blur_spin.value() == 0
         assert window.glassmorphism_check.isChecked() is False
+
+
+class TestExtractorEncoderPreferences:
+    def test_encoder_preferences_exist_and_save(self, q_app):
+        window = SettingsWindow()
+        assert hasattr(window, "extractor_encoder_threads_spinbox")
+        assert hasattr(window, "extractor_gif_max_colors_spinbox")
+        assert hasattr(window, "extractor_fps_clamp_spinbox")
+
+        window.extractor_encoder_threads_spinbox.setValue(4)
+        window.extractor_gif_max_colors_spinbox.setValue(128)
+        window.extractor_fps_clamp_spinbox.setValue(30)
+
+        window.vault_manager = MagicMock()
+        window.vault_manager.load_account_credentials.return_value = {
+            "theme": "dark",
+            "active_tab_configs": {},
+            "system_preference_profiles": {},
+            "preferences": {},
+        }
+        saved_data = {}
+        window._save_vault_data = MagicMock(side_effect=lambda data: saved_data.update(data) or True)
+        window._mark_settings_saved = MagicMock()
+        window.close = MagicMock()
+
+        window._update_settings_logic()
+
+        prefs = saved_data.get("preferences", {})
+        assert prefs.get("extractor_encoder_threads") == 4
+        assert prefs.get("extractor_gif_max_colors") == 128
+        assert prefs.get("extractor_fps_clamp") == 30
+
+    def test_reset_settings_resets_encoder_preferences(self, q_app):
+        window = SettingsWindow()
+        window.extractor_encoder_threads_spinbox.setValue(8)
+        window.extractor_gif_max_colors_spinbox.setValue(64)
+        window.extractor_fps_clamp_spinbox.setValue(24)
+
+        window.reset_settings()
+
+        assert window.extractor_encoder_threads_spinbox.value() == 0
+        assert window.extractor_gif_max_colors_spinbox.value() == 256
+        assert window.extractor_fps_clamp_spinbox.value() == 0
 

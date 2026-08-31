@@ -73,6 +73,8 @@ class FrameExtractionWorker(QRunnable):
         frame_interval: int = 1,
         smart_extract: bool = False,
         smart_method: str = "mpdecimate (De-duplicate)",
+        encoder_threads: int = 0,
+        fps_clamp: int = 0,
     ):
         super().__init__()
         self.video_path = video_path
@@ -86,9 +88,11 @@ class FrameExtractionWorker(QRunnable):
         self.frame_interval = frame_interval
         self.smart_extract = smart_extract
         self.smart_method = smart_method
+        self.encoder_threads = max(0, int(encoder_threads))
+        self.fps_clamp = max(0, int(fps_clamp))
         self.signals = _ExtractorSignals()
         self._is_cancelled = False
-        self.fps = fps
+        self.fps = min(fps, fps_clamp) if fps_clamp > 0 else fps
 
     def _get_fps(self) -> float:
         """Get video FPS to calculate timestamps."""
@@ -104,7 +108,7 @@ class FrameExtractionWorker(QRunnable):
             fps = 23.976
         return fps
 
-    def run(self):
+    def run(self):  # noqa: C901
         self.signals.started.emit()
         saved_files = []
 
@@ -162,6 +166,8 @@ class FrameExtractionWorker(QRunnable):
                     "2",
                 ]
             )
+            if self.encoder_threads > 0:
+                cmd.extend(["-threads", str(self.encoder_threads)])
 
             out_pattern = os.path.join(self.output_dir, f"{video_name}_tmp_%05d.png")
             cmd.append(out_pattern)
@@ -272,6 +278,8 @@ class FrameExtractionWorker(QRunnable):
                     "1",
                 ]
             )
+            if self.encoder_threads > 0:
+                cmd.extend(["-threads", str(self.encoder_threads)])
 
             # Use a more unique temp prefix to avoid collisions during extraction
             temp_id = int(time.time() * 1000) % 100000

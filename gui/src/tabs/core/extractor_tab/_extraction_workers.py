@@ -31,9 +31,18 @@ class _ExtractionWorkersMixin:
     active_extraction_worker: Optional[Any]
     _active_metadata: Optional[dict]
 
-    def _run_gif_extraction(self: "VideoExtractorSubTabHostProtocol", start: int, end: int):
+    def _run_gif_extraction(
+        self: "VideoExtractorSubTabHostProtocol",
+        start: int,
+        end: int,
+        metadata: Optional[dict] = None,
+    ):
+        active_metadata = metadata or self._record_extraction_start("gif", start, end)
         target_size = self._get_target_size()
         fps = self.spin_gif_fps.value()
+
+        if getattr(self, "fps_clamp", 0) > 0:
+            fps = min(fps, self.fps_clamp)
 
         # Speed
         speed_str = self.combo_speed.currentText().replace("x", "")
@@ -58,6 +67,10 @@ class _ExtractionWorkersMixin:
                 "mute_audio": False,
                 "use_ffmpeg": (self.combo_engine.currentText() == "FFmpeg"),
                 "speed": speed,
+                "encoder_threads": getattr(self, "encoder_threads", 0),
+                "max_colors": getattr(self, "gif_max_colors", 256),
+                "fps_clamp": getattr(self, "fps_clamp", 0),
+                "history_metadata": active_metadata,
             }
             self.extraction_queue.append(config)
             self._update_queue_ui()
@@ -74,8 +87,6 @@ class _ExtractionWorkersMixin:
         )
         self.extraction_status_label.show()
 
-        active_metadata = self._get_current_extraction_metadata()
-        active_metadata["mode"] = "gif"
         self._active_metadata = active_metadata
 
         assert self.video_path is not None
@@ -91,14 +102,24 @@ class _ExtractionWorkersMixin:
             use_ffmpeg=(self.combo_engine.currentText() == "FFmpeg"),
             speed=speed,
             cuts_ms=self.cuts_ms,
+            encoder_threads=getattr(self, "encoder_threads", 0),
+            max_colors=getattr(self, "gif_max_colors", 256),
+            fps_clamp=getattr(self, "fps_clamp", 0),
         )
         self.active_extraction_worker = worker
+        self._set_extraction_buttons_enabled(False)
         worker.signals.progress.connect(self.extraction_progress_bar.setValue)
         worker.signals.finished.connect(self._on_export_finished)
         worker.signals.error.connect(self._on_export_error)
         self.operation_thread_pool.start(worker)
 
-    def _run_video_extraction(self: "VideoExtractorSubTabHostProtocol", start: int, end: int):
+    def _run_video_extraction(
+        self: "VideoExtractorSubTabHostProtocol",
+        start: int,
+        end: int,
+        metadata: Optional[dict] = None,
+    ):
+        active_metadata = metadata or self._record_extraction_start("video", start, end)
         target_size = self._get_target_size()
         mute_audio = self.check_mute_audio.isChecked()
 
@@ -125,6 +146,9 @@ class _ExtractionWorkersMixin:
                 "mute_audio": mute_audio,
                 "use_ffmpeg": (self.combo_engine.currentText() == "FFmpeg"),
                 "speed": speed,
+                "encoder_threads": getattr(self, "encoder_threads", 0),
+                "fps_clamp": getattr(self, "fps_clamp", 0),
+                "history_metadata": active_metadata,
             }
             self.extraction_queue.append(config)
             self._update_queue_ui()
@@ -141,8 +165,6 @@ class _ExtractionWorkersMixin:
         )
         self.extraction_status_label.show()
 
-        active_metadata = self._get_current_extraction_metadata()
-        active_metadata["mode"] = "video"
         self._active_metadata = active_metadata
 
         assert self.video_path is not None
@@ -159,8 +181,11 @@ class _ExtractionWorkersMixin:
             use_ffmpeg=(self.combo_engine.currentText() == "FFmpeg"),
             speed=speed,
             cuts_ms=self.cuts_ms,
+            encoder_threads=getattr(self, "encoder_threads", 0),
+            fps_clamp=getattr(self, "fps_clamp", 0),
         )
         self.active_extraction_worker = worker
+        self._set_extraction_buttons_enabled(False)
         worker.signals.progress.connect(self.extraction_progress_bar.setValue)
         worker.signals.finished.connect(self._on_export_finished)
         worker.signals.error.connect(self._on_export_error)

@@ -278,7 +278,11 @@ class _RelaunchSettingsMixin:
                 "extractor_seek_ms": self.extractor_seek_spinbox.value(),
                 "recent_extractions_count": self.recent_extractions_spinbox.value(),
                 "enable_extraction_queue": self.enable_queue_check.isChecked(),
+                "parallel_extraction_processors": self.parallel_extraction_processors_spinbox.value(),
                 "extractor_time_format": self.extractor_time_format_combo.currentText(),
+                "extractor_encoder_threads": self.extractor_encoder_threads_spinbox.value() if hasattr(self, "extractor_encoder_threads_spinbox") else 0,
+                "extractor_gif_max_colors": self.extractor_gif_max_colors_spinbox.value() if hasattr(self, "extractor_gif_max_colors_spinbox") else 256,
+                "extractor_fps_clamp": self.extractor_fps_clamp_spinbox.value() if hasattr(self, "extractor_fps_clamp_spinbox") else 0,
                 "session_recovery_level": self.session_recovery_combo.currentText(),
                 "accent_color_dark": self.pref_accent_dark,
                 "accent_color_light": self.pref_accent_light,
@@ -323,6 +327,7 @@ class _RelaunchSettingsMixin:
             QMessageBox.critical(self, "Update Failed", f"Failed to save preferences to vault:\n{e}")
             return
 
+        self._mark_settings_saved()
         self.close()
 
     def reset_settings(self):
@@ -377,7 +382,16 @@ class _RelaunchSettingsMixin:
         self.extractor_seek_spinbox.setValue(100)
         self.recent_extractions_spinbox.setValue(10)
         self.enable_queue_check.setChecked(False)
+        self.parallel_extraction_processors_spinbox.setValue(
+            min(4, self.parallel_extraction_processors_spinbox.maximum())
+        )
         self.extractor_time_format_combo.setCurrentText("m:s:ms")
+        if hasattr(self, "extractor_encoder_threads_spinbox"):
+            self.extractor_encoder_threads_spinbox.setValue(0)
+        if hasattr(self, "extractor_gif_max_colors_spinbox"):
+            self.extractor_gif_max_colors_spinbox.setValue(256)
+        if hasattr(self, "extractor_fps_clamp_spinbox"):
+            self.extractor_fps_clamp_spinbox.setValue(0)
 
         # Reset Appearance & Theme Studio
         self.pref_accent_dark = "#00bcd4"

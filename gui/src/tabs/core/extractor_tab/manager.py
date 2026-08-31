@@ -88,6 +88,10 @@ class VideoExtractorSubTab(
         self._active_metadata: Optional[dict] = None
         self.wheel_seek_ms = 100
         self.extraction_queue_enabled = False
+        self.parallel_extraction_processors = min(4, os.cpu_count() or 1)
+        self.encoder_threads = 0
+        self.gif_max_colors = 256
+        self.fps_clamp = 0
         self.extraction_queue: List[dict] = []
         self.active_queue_worker: Optional[QueueExecutionWorker] = None
         self.time_display_format = "m:s:ms"

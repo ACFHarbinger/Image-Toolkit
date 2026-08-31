@@ -312,6 +312,42 @@ class TestMergeTab:
 
 
 class TestExtractorTab:
+    def test_skip_runtime_seeks_forward_and_clamps_at_video_end(self, q_app):
+        with (
+            patch("gui.src.tabs.core.extractor_tab._media_player.QMediaPlayer"),
+            patch("gui.src.tabs.core.extractor_tab._media_player.QAudioOutput"),
+        ):
+            tab = ExtractorTab()
+            tab.duration_ms = 10_000
+            tab.slider.setRange(0, 10_000)
+            tab.slider.setValue(8_000)
+            tab.skip_minutes_spinbox.setValue(0)
+            tab.skip_seconds_spinbox.setValue(5)
+            tab.skip_microseconds_spinbox.setValue(0)
+            tab._seek_to = MagicMock()
+
+            tab.skip_video_runtime()
+
+            tab._seek_to.assert_called_once_with(10_000)
+
+    def test_skip_runtime_combines_minutes_seconds_and_microseconds(self, q_app):
+        with (
+            patch("gui.src.tabs.core.extractor_tab._media_player.QMediaPlayer"),
+            patch("gui.src.tabs.core.extractor_tab._media_player.QAudioOutput"),
+        ):
+            tab = ExtractorTab()
+            tab.duration_ms = 100_000
+            tab.slider.setRange(0, 100_000)
+            tab.slider.setValue(1_000)
+            tab.skip_minutes_spinbox.setValue(1)
+            tab.skip_seconds_spinbox.setValue(2)
+            tab.skip_microseconds_spinbox.setValue(500_000)
+            tab._seek_to = MagicMock()
+
+            tab.skip_video_runtime()
+
+            tab._seek_to.assert_called_once_with(63_500)
+
     def test_init(self, q_app):
         # Patch to avoid actual multimedia initialization
         with (

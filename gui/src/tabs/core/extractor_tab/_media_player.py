@@ -28,6 +28,7 @@ from PySide6.QtWidgets import (
     QProgressBar,
     QPushButton,
     QSlider,
+    QSpinBox,
     QStyle,
     QTabBar,
     QVBoxLayout,
@@ -241,6 +242,31 @@ class _MediaPlayerMixin:
 
         self.lbl_total_time = QLabel("00:00")
 
+        self.skip_minutes_spinbox = QSpinBox()
+        self.skip_minutes_spinbox.setRange(0, 600)
+        self.skip_minutes_spinbox.setSuffix(" m")
+        self.skip_minutes_spinbox.setToolTip("Minutes to skip ahead")
+        self.skip_minutes_spinbox.setEnabled(False)
+
+        self.skip_seconds_spinbox = QSpinBox()
+        self.skip_seconds_spinbox.setRange(0, 59)
+        self.skip_seconds_spinbox.setValue(5)
+        self.skip_seconds_spinbox.setSuffix(" s")
+        self.skip_seconds_spinbox.setToolTip("Seconds to skip ahead")
+        self.skip_seconds_spinbox.setEnabled(False)
+
+        self.skip_microseconds_spinbox = QSpinBox()
+        self.skip_microseconds_spinbox.setRange(0, 999_999)
+        self.skip_microseconds_spinbox.setSingleStep(1_000)
+        self.skip_microseconds_spinbox.setSuffix(" μs")
+        self.skip_microseconds_spinbox.setToolTip("Microseconds to skip ahead")
+        self.skip_microseconds_spinbox.setEnabled(False)
+
+        self.btn_skip_runtime = QPushButton("Skip Ahead")
+        self.btn_skip_runtime.setToolTip("Skip forward by the selected runtime")
+        self.btn_skip_runtime.clicked.connect(self.skip_video_runtime)
+        self.btn_skip_runtime.setEnabled(False)
+
         self.btn_fullscreen = QPushButton()
         self.btn_fullscreen.setIcon(
             self.style().standardIcon(QStyle.StandardPixmap.SP_TitleBarMaxButton)
@@ -256,6 +282,11 @@ class _MediaPlayerMixin:
         controls_layout.addWidget(edit_current_time)
         controls_layout.addWidget(self.slider)
         controls_layout.addWidget(self.lbl_total_time)
+        controls_layout.addWidget(QLabel("Skip:"))
+        controls_layout.addWidget(self.skip_minutes_spinbox)
+        controls_layout.addWidget(self.skip_seconds_spinbox)
+        controls_layout.addWidget(self.skip_microseconds_spinbox)
+        controls_layout.addWidget(self.btn_skip_runtime)
         controls_layout.addWidget(self.btn_fullscreen)
 
         self.player_inner_layout.addLayout(controls_layout)

@@ -8,14 +8,27 @@ construction into the seven-tab layout.
 
 from __future__ import annotations
 
+import os
+
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
+    QCheckBox,
+    QComboBox,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
+    QListWidget,
+    QMessageBox,
+    QPlainTextEdit,
     QPushButton,
+    QRadioButton,
     QScrollArea,
     QSizePolicy,
+    QSlider,
+    QSpinBox,
     QTabWidget,
+    QTextEdit,
     QVBoxLayout,
     QWidget,
 )
@@ -111,7 +124,13 @@ class SettingsWindow(
         self.pref_extractor_seek_ms = _p.get("extractor_seek_ms", 100)
         self.pref_recent_extractions_count = _p.get("recent_extractions_count", 10)
         self.pref_enable_extraction_queue = _p.get("enable_extraction_queue", False)
+        self.pref_parallel_extraction_processors = _p.get(
+            "parallel_extraction_processors", min(4, os.cpu_count() or 1)
+        )
         self.pref_extractor_time_format = _p.get("extractor_time_format", "m:s:ms")
+        self.pref_extractor_encoder_threads = _p.get("extractor_encoder_threads", 0)
+        self.pref_extractor_gif_max_colors = _p.get("extractor_gif_max_colors", 256)
+        self.pref_extractor_fps_clamp = _p.get("extractor_fps_clamp", 0)
         self.pref_session_recovery = _p.get("session_recovery_level", "None")
         self.pref_accent_dark = _p.get("accent_color_dark", "#00bcd4")
         self.pref_accent_light = _p.get("accent_color_light", "#007AFF")
@@ -322,6 +341,68 @@ class SettingsWindow(
 
         # Populate credentials list
         self._refresh_credentials_list()
+        self._settings_baseline = self._settings_snapshot()
+
+    def _settings_snapshot(self) -> tuple:
+        """Return the editable settings state without treating buttons as edits."""
+        values = []
+        editable_types = (
+            QLineEdit, QTextEdit, QPlainTextEdit, QCheckBox, QRadioButton,
+            QComboBox, QSpinBox, QSlider, QListWidget,
+        )
+        for widget in self.findChildren(QWidget):
+            if not isinstance(widget, editable_types):
+                continue
+            if isinstance(widget, (QCheckBox, QRadioButton)):
+                value = widget.isChecked()
+            elif isinstance(widget, QComboBox):
+                value = (widget.currentIndex(), widget.currentText())
+            elif isinstance(widget, (QSpinBox, QSlider)):
+                value = widget.value()
+            elif isinstance(widget, QListWidget):
+                value = tuple(widget.item(index).text() for index in range(widget.count()))
+            else:
+                value = widget.toPlainText() if isinstance(widget, (QTextEdit, QPlainTextEdit)) else widget.text()
+            values.append((type(widget).__name__, widget.objectName(), value))
+        return tuple(values)
+
+    def _has_unsaved_settings(self) -> bool:
+        return self._settings_snapshot() != self._settings_baseline
+
+    def _mark_settings_saved(self) -> None:
+        self._settings_baseline = self._settings_snapshot()
+
+    def _confirm_unsaved_settings_exit(self) -> str:
+        dialog = QMessageBox(self)
+        dialog.setWindowTitle("Unsaved Settings")
+        dialog.setText("You have unsaved settings. Do you want to save them before exiting?")
+        cancel = dialog.addButton("Cancel", QMessageBox.ButtonRole.RejectRole)
+        discard = dialog.addButton("Exit Without Saving", QMessageBox.ButtonRole.DestructiveRole)
+        save = dialog.addButton("Exit", QMessageBox.ButtonRole.AcceptRole)
+        cancel.setStyleSheet("background-color: #4b5563; color: white; font-weight: bold;")
+        discard.setStyleSheet("background-color: #c0392b; color: white; font-weight: bold;")
+        save.setStyleSheet("background-color: #16803c; color: white; font-weight: bold;")
+        dialog.setDefaultButton(cancel)
+        dialog.exec()
+        if dialog.clickedButton() is save:
+            return "save"
+        if dialog.clickedButton() is discard:
+            return "discard"
+        return "cancel"
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        if not self._has_unsaved_settings():
+            event.accept()
+            return
+
+        choice = self._confirm_unsaved_settings_exit()
+        if choice == "discard":
+            event.accept()
+        elif choice == "save":
+            event.ignore()
+            self._update_settings_logic()
+        else:
+            event.ignore()
 
 
 __all__ = ["SettingsWindow"]

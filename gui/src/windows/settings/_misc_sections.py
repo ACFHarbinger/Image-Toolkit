@@ -138,6 +138,34 @@ class _MiscSectionsMixin:
         )
         media_layout.addRow("Extractor Time Display Format:", self.extractor_time_format_combo)
 
+        self.extractor_encoder_threads_spinbox = QSpinBox()
+        self.extractor_encoder_threads_spinbox.setRange(0, max(1, os.cpu_count() or 1))
+        self.extractor_encoder_threads_spinbox.setSpecialValueText("0 (Auto)")
+        self.extractor_encoder_threads_spinbox.setValue(self.pref_extractor_encoder_threads)
+        self.extractor_encoder_threads_spinbox.setToolTip(
+            "FFmpeg encoder thread count limit across extraction workers (0 = auto / unconstrained)"
+        )
+        media_layout.addRow("Encoder Threads Limit:", self.extractor_encoder_threads_spinbox)
+
+        self.extractor_gif_max_colors_spinbox = QSpinBox()
+        self.extractor_gif_max_colors_spinbox.setRange(16, 256)
+        self.extractor_gif_max_colors_spinbox.setSingleStep(16)
+        self.extractor_gif_max_colors_spinbox.setValue(self.pref_extractor_gif_max_colors)
+        self.extractor_gif_max_colors_spinbox.setToolTip(
+            "Maximum palette color count for GIF exports (16-256; lower reduces memory footprint and output size)"
+        )
+        media_layout.addRow("GIF Max Palette Colors:", self.extractor_gif_max_colors_spinbox)
+
+        self.extractor_fps_clamp_spinbox = QSpinBox()
+        self.extractor_fps_clamp_spinbox.setRange(0, 120)
+        self.extractor_fps_clamp_spinbox.setSpecialValueText("0 (Unclamped)")
+        self.extractor_fps_clamp_spinbox.setSuffix(" fps")
+        self.extractor_fps_clamp_spinbox.setValue(self.pref_extractor_fps_clamp)
+        self.extractor_fps_clamp_spinbox.setToolTip(
+            "Maximum framerate cap applied to GIF and video exports (0 = unclamped)"
+        )
+        media_layout.addRow("Maximum Export Framerate:", self.extractor_fps_clamp_spinbox)
+
         return media_groupbox
 
     def _update_parallel_extraction_resource_estimate(self) -> None:

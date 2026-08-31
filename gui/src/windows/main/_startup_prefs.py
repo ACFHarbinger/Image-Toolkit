@@ -227,6 +227,12 @@ class _StartupPrefsMixin:
                     tab.extraction_queue_enabled = prefs.get(  # pyrefly: ignore [missing-attribute]
                         "enable_extraction_queue", False
                     )
+                    tab.parallel_extraction_processors = max(
+                        1, int(prefs.get("parallel_extraction_processors", 4))
+                    )
+                    tab.encoder_threads = int(prefs.get("extractor_encoder_threads", 0))
+                    tab.gif_max_colors = int(prefs.get("extractor_gif_max_colors", 256))
+                    tab.fps_clamp = int(prefs.get("extractor_fps_clamp", 0))
                     if hasattr(tab, "_on_queue_toggle_changed") and callable(tab._on_queue_toggle_changed):
                         tab._on_queue_toggle_changed()
 

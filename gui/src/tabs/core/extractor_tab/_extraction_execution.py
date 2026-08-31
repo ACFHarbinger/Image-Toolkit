@@ -204,36 +204,69 @@ class _ExtractionExecutionMixin:
     def extract_range(self: "VideoExtractorSubTabHostProtocol"):
         if not self.video_path:
             return
+        metadata = self._record_extraction_start(
+            "range", self.start_time_ms, self.end_time_ms
+        )
         if self.use_internal_player:
             self.media_player.pause()
             self.btn_play.setIcon(
                 self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay)
             )
-        self._run_extraction(self.start_time_ms, self.end_time_ms, is_range=True)
+        self._run_extraction(
+            self.start_time_ms, self.end_time_ms, is_range=True, metadata=metadata
+        )
 
     @Slot()
     def extract_range_as_gif(self: "VideoExtractorSubTabHostProtocol"):
         if not self.video_path:
             return
+        metadata = self._record_extraction_start(
+            "gif", self.start_time_ms, self.end_time_ms
+        )
         if self.use_internal_player:
             self.media_player.pause()
             self.btn_play.setIcon(
                 self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay)
             )
-        self._run_gif_extraction(self.start_time_ms, self.end_time_ms)
+        self._run_gif_extraction(
+            self.start_time_ms, self.end_time_ms, metadata=metadata
+        )
 
     @Slot()
     def extract_range_as_video(self: "VideoExtractorSubTabHostProtocol"):
         if not self.video_path:
             return
+        metadata = self._record_extraction_start(
+            "video", self.start_time_ms, self.end_time_ms
+        )
         if self.use_internal_player:
             self.media_player.pause()
             self.btn_play.setIcon(
                 self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay)
             )
-        self._run_video_extraction(self.start_time_ms, self.end_time_ms)
+        self._run_video_extraction(
+            self.start_time_ms, self.end_time_ms, metadata=metadata
+        )
 
-    def _run_extraction(self: "VideoExtractorSubTabHostProtocol", start: int, end: int, is_range: bool):
+    def _record_extraction_start(
+        self: "VideoExtractorSubTabHostProtocol", mode: str, start: int, end: int
+    ) -> dict:
+        """Persist a run before any extraction work can fail."""
+        metadata = self._get_current_extraction_metadata()
+        metadata.update(mode=mode, start_ms=start, end_ms=end)
+        self._record_extraction([], metadata)
+        return metadata
+
+    def _run_extraction(
+        self: "VideoExtractorSubTabHostProtocol",
+        start: int,
+        end: int,
+        is_range: bool,
+        metadata: Optional[dict] = None,
+    ):
+        active_metadata = metadata or self._record_extraction_start(
+            "range" if is_range else "single", start, end
+        )
         target_size = self._get_target_size()
 
         if self.extraction_queue_enabled:
@@ -252,6 +285,10 @@ class _ExtractionExecutionMixin:
                 "mute_audio": False,
                 "use_ffmpeg": True,
                 "speed": 1.0,
+                "encoder_threads": getattr(self, "encoder_threads", 0),
+                "max_colors": getattr(self, "gif_max_colors", 256),
+                "fps_clamp": getattr(self, "fps_clamp", 0),
+                "history_metadata": active_metadata,
             }
             self.extraction_queue.append(config)
             self._update_queue_ui()
@@ -266,8 +303,6 @@ class _ExtractionExecutionMixin:
         self.extraction_status_label.setText("Extracting frames...")
         self.extraction_status_label.show()
 
-        active_metadata = self._get_current_extraction_metadata()
-        active_metadata["mode"] = "range" if is_range else "single"
         self._active_metadata = active_metadata
 
         assert self.video_path is not None
@@ -282,8 +317,11 @@ class _ExtractionExecutionMixin:
             frame_interval=self.spin_interval.value(),
             smart_extract=self.check_smart_extract.isChecked(),
             smart_method=self.combo_smart_method.currentText(),
+            encoder_threads=getattr(self, "encoder_threads", 0),
+            fps_clamp=getattr(self, "fps_clamp", 0),
         )
         self.active_extraction_worker = worker
+        self._set_extraction_buttons_enabled(False)
         worker.signals.progress.connect(self.extraction_progress_bar.setValue)
         worker.signals.finished.connect(self._on_extraction_finished)
         worker.signals.error.connect(lambda e: self._on_extraction_error(e))

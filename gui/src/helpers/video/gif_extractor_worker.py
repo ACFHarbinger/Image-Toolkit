@@ -31,6 +31,9 @@ class GifCreationWorker(QRunnable):
         use_ffmpeg: bool = False,
         speed: float = 1.0,
         cuts_ms: Optional[list] = None,
+        encoder_threads: int = 0,
+        max_colors: int = 256,
+        fps_clamp: int = 0,
     ):
         super().__init__()
         self.video_path = video_path
@@ -38,10 +41,13 @@ class GifCreationWorker(QRunnable):
         self.end_ms = end_ms
         self.output_path = output_path
         self.target_size = target_size
-        self.fps = fps
+        self.fps = min(fps, fps_clamp) if fps_clamp > 0 else fps
         self.use_ffmpeg = use_ffmpeg
         self.speed = speed
         self.cuts_ms = cuts_ms or []
+        self.encoder_threads = max(0, int(encoder_threads))
+        self.max_colors = max(16, min(256, int(max_colors)))
+        self.fps_clamp = max(0, int(fps_clamp))
         self.signals = _GifWorkerSignals()
         self._is_cancelled = False
 
@@ -148,16 +154,18 @@ class GifCreationWorker(QRunnable):
 
                 seek = ["-ss", str(t_start), "-t", str(duration)]
                 common = ["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-nostats"]
+                if self.encoder_threads > 0:
+                    common.extend(["-threads", str(self.encoder_threads)])
 
                 # Two-pass palette: pass 1 streams the frames through
-                # `palettegen` writing only a 256-colour PNG; pass 2 streams
+                # `palettegen` writing only a max_colors PNG; pass 2 streams
                 # them again applying it. The old single-pass
                 # `split[s0][s1];…palettegen…paletteuse` forced ffmpeg to
                 # buffer the *entire* scaled stream in RAM between the two
                 # branches — O(frames) memory for a long/high-res range.
                 pass1 = [
                     *common, *seek, "-i", self.video_path,
-                    "-vf", f"{base_filters},palettegen=max_colors=256:stats_mode=diff",
+                    "-vf", f"{base_filters},palettegen=max_colors={self.max_colors}:stats_mode=diff",
                     palette_path,
                 ]
                 pass2 = [
@@ -209,8 +217,11 @@ class GifCreationWorker(QRunnable):
                 clip = clip.speedx(self.speed) # pyrefly: ignore [missing-attribute]
 
             self.signals.progress.emit(30, 100)
+            write_kwargs = {"fps": self.fps, "logger": None}
+            if self.encoder_threads > 0:
+                write_kwargs["threads"] = self.encoder_threads
             clip.write_gif(
-                self.output_path, fps=self.fps, logger=None
+                self.output_path, **write_kwargs
             )  # logger=None to avoid stdout clutter
 
             self.signals.progress.emit(100, 100)

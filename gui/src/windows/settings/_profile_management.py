@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import base64
 import contextlib
+import os
 
 from PySide6.QtCore import QByteArray
 from PySide6.QtWidgets import (
@@ -222,7 +223,13 @@ class _ProfileManagementMixin:
         self.pref_extractor_seek_ms = _p.get("extractor_seek_ms", 100)
         self.pref_recent_extractions_count = _p.get("recent_extractions_count", 10)
         self.pref_enable_extraction_queue = _p.get("enable_extraction_queue", False)
+        self.pref_parallel_extraction_processors = _p.get(
+            "parallel_extraction_processors", min(4, os.cpu_count() or 1)
+        )
         self.pref_extractor_time_format = _p.get("extractor_time_format", "m:s:ms")
+        self.pref_extractor_encoder_threads = _p.get("extractor_encoder_threads", 0)
+        self.pref_extractor_gif_max_colors = _p.get("extractor_gif_max_colors", 256)
+        self.pref_extractor_fps_clamp = _p.get("extractor_fps_clamp", 0)
         self.pref_session_recovery = _p.get("session_recovery_level", "None")
         self.pref_accent_dark = _p.get("accent_color_dark", "#00bcd4")
         self.pref_accent_light = _p.get("accent_color_light", "#007AFF")
@@ -307,7 +314,17 @@ class _ProfileManagementMixin:
         self.extractor_seek_spinbox.setValue(self.pref_extractor_seek_ms)
         self.recent_extractions_spinbox.setValue(self.pref_recent_extractions_count)
         self.enable_queue_check.setChecked(self.pref_enable_extraction_queue)
+        self.parallel_extraction_processors_spinbox.setValue(
+            min(self.pref_parallel_extraction_processors, self.parallel_extraction_processors_spinbox.maximum())
+        )
+        self._update_parallel_extraction_resource_estimate()
         self.extractor_time_format_combo.setCurrentText(self.pref_extractor_time_format)
+        if hasattr(self, "extractor_encoder_threads_spinbox"):
+            self.extractor_encoder_threads_spinbox.setValue(self.pref_extractor_encoder_threads)
+        if hasattr(self, "extractor_gif_max_colors_spinbox"):
+            self.extractor_gif_max_colors_spinbox.setValue(self.pref_extractor_gif_max_colors)
+        if hasattr(self, "extractor_fps_clamp_spinbox"):
+            self.extractor_fps_clamp_spinbox.setValue(self.pref_extractor_fps_clamp)
 
         # Repopulate Appearance
         if hasattr(self, "dark_accent_swatch") and hasattr(self, "_update_swatch"):
@@ -338,6 +355,7 @@ class _ProfileManagementMixin:
 
         if show_msg:
             QMessageBox.information(self, "Settings Reloaded", "Settings reloaded from the vault successfully.")
+        self._mark_settings_saved()
 
     def _apply_appearance_from_profile(self, profile_data: dict) -> None:
         """§4.13 — Push appearance keys from a profile dict into the UI widgets."""

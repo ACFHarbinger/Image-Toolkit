@@ -36,6 +36,11 @@ def run_extraction_in_process(config: Union[ExtractionConfig, Dict[str, Any]]) -
     mute_audio = config.get("mute_audio", False)
     use_ffmpeg = config.get("use_ffmpeg", True)
     speed = float(config.get("speed", "1.0"))
+    encoder_threads = max(0, int(config.get("encoder_threads", 0)))
+    max_colors = max(16, min(256, int(config.get("max_colors", 256))))
+    fps_clamp = max(0, int(config.get("fps_clamp", 0)))
+    if fps_clamp > 0:
+        fps = min(fps, fps_clamp)
 
     def get_keep_regions(t_start: float, t_end: float):
         if not cuts_ms:
@@ -121,6 +126,8 @@ def run_extraction_in_process(config: Union[ExtractionConfig, Dict[str, Any]]) -
                         "1",
                     ]
                 )
+                if encoder_threads > 0:
+                    cmd.extend(["-threads", str(encoder_threads)])
 
                 temp_id = int(time.time() * 1000) % 100000
                 out_pattern = os.path.join(
@@ -138,18 +145,17 @@ def run_extraction_in_process(config: Union[ExtractionConfig, Dict[str, Any]]) -
                         cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
                     )
 
-                prefix = f"{video_name}_smart_tmp_{temp_id}_"
                 tmp_files = sorted(
                     [
                         f
                         for f in os.listdir(output_dir)
-                        if f.startswith(prefix) and f.endswith(".png")
+                        if f.startswith(f"{video_name}_smart_tmp_{temp_id}_")
+                        and f.endswith(".png")
                     ],
                     key=natural_sort_key,
                 )
-
                 saved_files = []
-                for f in tmp_files:
+                for _i, f in enumerate(tmp_files):
                     match = re.search(r"_(\d+)\.png$", f)
                     if not match:
                         continue
@@ -201,6 +207,8 @@ def run_extraction_in_process(config: Union[ExtractionConfig, Dict[str, Any]]) -
                         "2",
                     ]
                 )
+                if encoder_threads > 0:
+                    cmd.extend(["-threads", str(encoder_threads)])
 
                 out_pattern = os.path.join(output_dir, f"{video_name}_tmp_%05d.png")
                 cmd.append(out_pattern)
@@ -269,6 +277,8 @@ def run_extraction_in_process(config: Union[ExtractionConfig, Dict[str, Any]]) -
                     "-i",
                     video_path,
                 ]
+                if encoder_threads > 0:
+                    cmd.extend(["-threads", str(encoder_threads)])
 
                 filter_chain = []
                 keep_regions = get_keep_regions(t_start, t_end)
@@ -288,7 +298,7 @@ def run_extraction_in_process(config: Union[ExtractionConfig, Dict[str, Any]]) -
 
                 base_filters = ",".join(filter_chain)
                 complex_filter = (
-                    f"{base_filters},split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse"
+                    f"{base_filters},split[s0][s1];[s0]palettegen=max_colors={max_colors}[p];[s1][p]paletteuse"
                 )
                 cmd.extend(["-vf", complex_filter])
                 cmd.append(output_path)
@@ -316,7 +326,10 @@ def run_extraction_in_process(config: Union[ExtractionConfig, Dict[str, Any]]) -
                     clip = clip.resize(newsize=target_resolution)
                 if speed != 1.0:
                     clip = clip.speedx(speed)
-                clip.write_gif(output_path, fps=fps, logger=None)
+                write_kwargs = {"fps": fps, "logger": None}
+                if encoder_threads > 0:
+                    write_kwargs["threads"] = encoder_threads
+                clip.write_gif(output_path, **write_kwargs)
                 clip.close()
                 base_clip.close()
                 return {"status": "success", "output_path": output_path}
@@ -362,10 +375,14 @@ def run_extraction_in_process(config: Union[ExtractionConfig, Dict[str, Any]]) -
                 if speed != 1.0:
                     pts_mult = 1.0 / speed
                     filters.append(f"setpts={pts_mult}*PTS")
+                if fps_clamp > 0:
+                    filters.append(f"fps=min(fps\\,{fps_clamp})")
                 if filters:
                     cmd.extend(["-vf", ",".join(filters)])
 
                 cmd.extend(["-c:v", "libx264", "-movflags", "+faststart"])
+                if encoder_threads > 0:
+                    cmd.extend(["-threads", str(encoder_threads)])
                 if mute_audio:
                     cmd.append("-an")
                 else:
@@ -431,15 +448,22 @@ def run_extraction_in_process(config: Union[ExtractionConfig, Dict[str, Any]]) -
                     ffmpeg_params.extend(["-b:a", "128k"])
 
                 temp_audio_path = f"temp-audio-{int(time.time() * 1000)}.m4a"
+                write_kwargs = {
+                    "codec": "libx264",
+                    "audio_codec": audio_codec,
+                    "temp_audiofile": temp_audio_path,
+                    "remove_temp": True,
+                    "ffmpeg_params": ffmpeg_params,
+                    "verbose": False,
+                    "logger": None,
+                }
+                if encoder_threads > 0:
+                    write_kwargs["threads"] = encoder_threads
+                if fps_clamp > 0 and getattr(clip, "fps", None) and clip.fps > fps_clamp:
+                    write_kwargs["fps"] = fps_clamp
                 clip.write_videofile(
                     output_path,
-                    codec="libx264",
-                    audio_codec=audio_codec,
-                    temp_audiofile=temp_audio_path,
-                    remove_temp=True,
-                    ffmpeg_params=ffmpeg_params,
-                    verbose=False,
-                    logger=None,
+                    **write_kwargs,
                 )
                 if original_audio_clip:
                     original_audio_clip.close()
@@ -467,10 +491,13 @@ class _QueueWorkerSignals(QObject):
 
 
 class QueueExecutionWorker(QRunnable):
-    def __init__(self, queue_items: list, parallel: bool = False):
+    def __init__(
+        self, queue_items: list, parallel: bool = False, max_workers: int | None = None
+    ):
         super().__init__()
         self.queue_items = queue_items
         self.parallel = parallel
+        self.max_workers = max_workers
         self.signals = _QueueWorkerSignals()
         self._is_cancelled = False
 
@@ -494,7 +521,10 @@ class QueueExecutionWorker(QRunnable):
         results = []
 
         if self.parallel:
-            num_cores = min(multiprocessing.cpu_count(), len(self.queue_items))
+            requested_workers = self.max_workers or multiprocessing.cpu_count()
+            num_cores = min(
+                max(1, requested_workers), multiprocessing.cpu_count(), len(self.queue_items)
+            )
             if num_cores < 1:
                 num_cores = 1
 
