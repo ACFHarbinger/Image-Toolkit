@@ -51,14 +51,20 @@ class _FakeLoaderWorker(QRunnable):
         self.target_size = target_size
         self.signals = _FakeLoaderSignals()
         self.load_generation = 0
+        self._stopped = False
         self.setAutoDelete(True)
+
+    def stop(self):
+        self._stopped = True
 
     def run(self):
         _STARTED.set()
         # Poll while _BLOCK is set (Event.wait() returns immediately when the
         # flag is already true, so it can't be used as a "hold" barrier).
-        while _BLOCK.is_set():
+        while _BLOCK.is_set() and not self._stopped:
             time.sleep(0.005)
+        if self._stopped:
+            return
         if self.path in _FAIL_PATHS:
             self.signals.result.emit(self.path, QImage())
             return

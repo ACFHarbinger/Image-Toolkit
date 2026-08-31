@@ -43,12 +43,6 @@ def _pump(seconds: float) -> None:
         time.sleep(0.01)
 
 
-def _skip_startup_settle(monkeypatch) -> None:
-    import gui.src.tabs.core.wallpaper_tab.common.wallpaper_common_base._scan_pipeline as scan_pipeline
-
-    monkeypatch.setattr(scan_pipeline, "startup_settle_remaining_ms", lambda: 0)
-
-
 def _make_wallpaper_tab(q_app):
     return WallpaperTab(types.SimpleNamespace(db=None))
 
@@ -60,7 +54,6 @@ def _assert_alive(*widgets) -> None:
 
 class TestGalleryCrashStress:
     def test_dual_linked_rapid_dir_nav(self, q_app, monkeypatch, tmp_path):
-        _skip_startup_settle(monkeypatch)
         dir_a = tmp_path / "a"
         dir_b = tmp_path / "b"
         _write_pngs(dir_a, _IMAGES_PER_DIR, hue_base=20)
@@ -83,7 +76,6 @@ class TestGalleryCrashStress:
     def test_startup_restore_then_rapid_switch(self, q_app, monkeypatch, tmp_path):
         """Session-recovery restore (250ms timer) plus a second set_config,
         then immediate dir-nav — the Addendum 16 two-restore burst."""
-        _skip_startup_settle(monkeypatch)
         dir_a = tmp_path / "restore_a"
         dir_b = tmp_path / "restore_b"
         _write_pngs(dir_a, _IMAGES_PER_DIR, hue_base=30)
@@ -102,7 +94,6 @@ class TestGalleryCrashStress:
         _pump(0.2)
 
     def test_teardown_during_wallpaper_load(self, q_app, monkeypatch, tmp_path):
-        _skip_startup_settle(monkeypatch)
         dir_a = tmp_path / "live"
         _write_pngs(dir_a, _IMAGES_PER_DIR, hue_base=60)
 
@@ -137,7 +128,6 @@ class TestGalleryCrashStress:
             return ""
 
         monkeypatch.setattr(QFileDialog, "getExistingDirectory", fake_get)
-        _skip_startup_settle(monkeypatch)
         tab = _make_wallpaper_tab(q_app)
         tab.system_display.last_browsed_scan_dir = str(tmp_path)
         tab.system_display.browse_scan_directory()

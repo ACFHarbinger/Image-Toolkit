@@ -60,6 +60,7 @@ class VirtualGalleryModel(QAbstractListModel):
         shared_cache: Optional[LRUImageCache] = None,
         fill_mode: bool = True,
         fill_limit: Optional[int] = None,
+        max_concurrent_loads: int = 2,
     ):
         super().__init__(parent)
         self._paths: List[str] = []
@@ -74,11 +75,11 @@ class VirtualGalleryModel(QAbstractListModel):
 
         # Background fill warms every row so a directory's thumbnails remain
         # available even before the user scrolls to them. Dispatch is tightly
-        # bounded below; linked wallpaper panels therefore cannot create a
-        # decoder burst when they mirror one directory change.
+        # bounded below; callers can select a lower limit for crash-sensitive
+        # native decoder surfaces such as Wallpaper.
         self.fill_mode = bool(fill_mode)
         self.fill_limit = fill_limit
-        self._fill_max_in_flight = 2
+        self._fill_max_in_flight = max(1, int(max_concurrent_loads))
         self._fill_queue: deque = deque()
 
         self.thumbnail_size: int = 180
@@ -91,10 +92,9 @@ class VirtualGalleryModel(QAbstractListModel):
             worker_factory = ImageLoaderWorker
         self.worker_factory = worker_factory
         # A virtual gallery can have many rows but only a small visible
-        # surface. Two decoders keep scrolling responsive without competing
-        # native image libraries across linked wallpaper panels.
+        # surface. The caller controls the small concurrency ceiling.
         self.thread_pool = QThreadPool()
-        self.thread_pool.setMaxThreadCount(2)
+        self.thread_pool.setMaxThreadCount(self._fill_max_in_flight)
 
         self._placeholder_pixmap: Optional[QPixmap] = None
 
@@ -281,8 +281,7 @@ class VirtualGalleryModel(QAbstractListModel):
         return self._cache.get(path)
 
     def cancel_loading(self) -> None:
-        """Drop all queued/in-flight loads. Workers already on the pool finish
-        but their results are rejected as stale via the generation check."""
+        """Stop and drain queued/in-flight loads before returning."""
         self._generation += 1
         self._cancel_workers()
         self._loading.clear()
@@ -290,13 +289,30 @@ class VirtualGalleryModel(QAbstractListModel):
         self._fill_queue.clear()
 
     def _cancel_workers(self) -> None:
-        """Stop active work and remove queued work before a directory swap."""
+        """Stop and drain work before a directory/model generation swap.
+
+        Dropping Python references while an auto-deleting ``QRunnable`` is
+        still emitting through its signal object leaves Qt and Shiboken racing
+        ownership of the same connection graph. Directory replacement is rare,
+        so a complete drain is preferable to allowing generations to overlap.
+        """
         for worker in list(self._active_workers):
             stop = getattr(worker, "stop", None)
             if callable(stop):
                 stop()
         self.thread_pool.clear()
+        if self.thread_pool.activeThreadCount() > 0:
+            self.thread_pool.waitForDone(-1)
         self._active_workers.clear()
+
+    def has_pending_loads(self) -> bool:
+        """Whether queued, running, or not-yet-delivered loads remain."""
+        return bool(
+            self._fill_queue
+            or self._active_workers
+            or self._loading
+            or self.thread_pool.activeThreadCount()
+        )
 
     def prefetch(self, path: str) -> None:
         """Schedule a background thumbnail load for *path* if it isn't cached,

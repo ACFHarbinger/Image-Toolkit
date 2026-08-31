@@ -45,12 +45,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
   first background close (avoiding the known pre-show Qt crash); its reference
   is initialized before preferences run, so it cannot be orphaned and
   recreated. Regression test: `test_startup_does_not_create_a_tray_icon`.
-- Wallpaper virtual-gallery browsing warms every file with at most two
-  thumbnail decoders. Directory changes cancel queued work before replacing
-  paths; the linked System/Monitor mirror now waits for the source scan and
-  thumbnail pool to settle, then reuses its shared thumbnail cache. This
-  removes concurrent native decoder bursts and keeps mouse-wheel scrolling
-  available while a thumbnail is dragged onto a monitor.
+- Wallpaper directory browsing no longer creates short-lived image/video
+  scanner `QThread`s. A cancellable filesystem iterator now runs in bounded
+  4 ms event-loop slices, and the gallery fully drains an old thumbnail
+  generation before replacing it. Wallpaper uses one decoder at a time; the
+  linked System/Monitor mirror waits for the complete queue, including work
+  not yet submitted to its pool, then reuses the shared cache. Mouse-wheel
+  scrolling also remains available while dragging a thumbnail onto a monitor.
 
 - Scan & Tag `ImageScannerWorker` now runs under `@gc_disabled_run` (large
   path-list emit on a QThread, same cyclic-GC class as #478). Browse dialog

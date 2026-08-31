@@ -12,7 +12,6 @@ from PySide6.QtCore import Slot
 from PySide6.QtWidgets import QFileDialog, QMessageBox, QWidget
 
 from gui.src.constants.ui import DIALOG_OPTS
-from gui.src.helpers import ImageScannerWorker
 
 from ......utils.sort_utils import natural_sort_key
 
@@ -24,10 +23,7 @@ class _ScanActionsMixin:
     """Cancel scanning, apply scan results, handle scan errors, browse directory."""
 
     def cancel_scanning(self: "WallpaperCommonBaseHostProtocol"):
-        if self.img_scanner_thread and self.img_scanner_thread.isRunning():
-            self.img_scanner_thread.quit()
-        if self.vid_scanner_thread and self.vid_scanner_thread.isRunning():
-            self.vid_scanner_thread.quit()
+        self._stop_scanner_threads()
 
     @Slot(list)
     def display_scan_results(self: "WallpaperCommonBaseHostProtocol", image_paths: list):
@@ -57,14 +53,6 @@ class _ScanActionsMixin:
                 cast(QWidget, self),
                 "Mode Conflict",
                 "Cannot browse directory while Solid Color background is selected.",
-            )
-            return
-
-        if ImageScannerWorker is None:
-            QMessageBox.warning(
-                cast(QWidget, self),
-                "Missing Helpers",
-                "The ImageScannerWorker or ImageLoaderWorker could not be imported.",
             )
             return
 

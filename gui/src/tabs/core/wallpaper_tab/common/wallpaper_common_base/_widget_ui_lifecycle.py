@@ -82,29 +82,9 @@ class _WidgetUiLifecycleMixin:
                 pass
             self._pagination_debounce_timer = None  # pyrefly: ignore [bad-assignment]
 
-        # Clean up image scanner thread
-        if hasattr(self, "img_scanner_thread") and self.img_scanner_thread is not None:
-            try:
-                if self.img_scanner_thread.isRunning():
-                    self.img_scanner_thread.requestInterruption()
-                    self.img_scanner_thread.quit()
-                    self.img_scanner_thread.wait()
-                self.img_scanner_thread.deleteLater()
-            except Exception:
-                pass
-            self.img_scanner_thread = None
-
-        # Clean up video scanner thread
-        if hasattr(self, "vid_scanner_thread") and self.vid_scanner_thread is not None:
-            try:
-                if self.vid_scanner_thread.isRunning():
-                    self.vid_scanner_thread.requestInterruption()
-                    self.vid_scanner_thread.quit()
-                    self.vid_scanner_thread.wait()
-                self.vid_scanner_thread.deleteLater()
-            except Exception:
-                pass
-            self.vid_scanner_thread = None
+        # Cancel the incremental directory iterator and defensively drain any
+        # pre-rewrite scanner retained by a hot-reloaded instance.
+        self._stop_scanner_threads()
 
         for win in list(self.open_queue_windows):
             try:

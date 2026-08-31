@@ -87,21 +87,11 @@ class _ConfigMixin:
             if "scan_directory" in config:
                 self.scan_directory_path.setText(config.get("scan_directory", ""))
                 if os.path.isdir(config["scan_directory"]):
-                    # Deferred, not called synchronously: this runs during
-                    # MainWindow/tab construction, before the Qt event loop
-                    # has started processing events. Starting a new QThread
-                    # (img_scanner_thread, via populate_scan_image_gallery ->
-                    # _stop_scanner_threads/ImageScannerWorker) this early
-                    # can race Qt Multimedia's own PipeWire backend probe (also
-                    # thread-based, triggered by QtMultimedia's module
-                    # import elsewhere in the app) during this same fragile
-                    # startup window -- the exact "QSocketNotifier: ...
-                    # from another thread -> heap corruption -> SIGABRT"
-                    # pattern already documented and fixed for
-                    # ExtractorTab's QAudioOutput construction
-                    # (extractor_tab.py). Deferred via a single restartable
-                    # timer (see __init__), not QTimer.singleShot -- if
-                    # set_config() fires again before this restore has run
+                    # Deferred via a single restartable timer so repeated
+                    # recovery/config deliveries collapse into one scan after
+                    # construction. The scanner itself is now incremental and
+                    # thread-free. If set_config() fires again before this
+                    # restore has run
                     # (main_window.py's session-recovery flow calls
                     # set_config() on this tab twice back to back, see
                     # Addendum 16 in

@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional
 
 from backend.src.constants import SUPPORTED_VIDEO_FORMATS
 from backend.src.core.wallpaper import find_qdbus_binary
-from PySide6.QtCore import QPointF, QThread, QTimer, Signal
+from PySide6.QtCore import QPointF, QTimer, Signal
 from PySide6.QtWidgets import QApplication
 from screeninfo import Monitor
 
@@ -105,9 +105,14 @@ class WallpaperCommonBase(
         self.monitor_history: Dict[str, List[str]] = {}
 
         self.img_scanner_worker: Optional[Any] = None
-        self.img_scanner_thread: Optional[QThread] = None
+        self.img_scanner_thread: Optional[Any] = None
         self.vid_scanner_worker: Optional[Any] = None
-        self.vid_scanner_thread: Optional[QThread] = None
+        self.vid_scanner_thread: Optional[Any] = None
+        self._directory_scan_generation = 0
+        self._directory_scan_state = None
+        self._directory_scan_timer = QTimer(self)
+        self._directory_scan_timer.setSingleShot(True)
+        self._directory_scan_timer.timeout.connect(self._scan_directory_tick)
 
         self.scanned_dir = None
         self.path_to_label_map = {}
@@ -148,6 +153,7 @@ class WallpaperCommonBase(
             self,
             shared_cache=self._initial_pixmap_cache,
             worker_factory=_gallery_worker,
+            max_concurrent_loads=1,
         )
         gallery.setMinimumHeight(600)
         gallery.path_clicked.connect(self.toggle_selection)
