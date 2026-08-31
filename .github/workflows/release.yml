@@ -58,11 +58,24 @@ jobs:
       - name: Build native crypto library
         run: |
           mkdir -p build/crypto
-          cc -O2 -fPIC -shared -o build/crypto/libitk_crypto.so \
-            base/src/secret/itk_crypto.c -lcrypto
+          # Link against the pixi env's OpenSSL (3.6+), not the ubuntu-22.04
+          # system OpenSSL (3.0.2). The bundle also carries conda's libs2n /
+          # aws-c-* (via pyarrow), which need OPENSSL_3.4.0 — if PyInstaller
+          # bundles the older system libcrypto.so.3 the app dies at cv2 import
+          # with "version `OPENSSL_3.4.0' not found".
+          CONDA_PREFIX="$(pixi run -e dev python -c 'import sys,os; print(os.path.dirname(os.path.dirname(sys.executable)))')"
+          pixi run -e dev cc -O2 -fPIC -shared -o build/crypto/libitk_crypto.so \
+            base/src/secret/itk_crypto.c \
+            -I"${CONDA_PREFIX}/include" -L"${CONDA_PREFIX}/lib" \
+            -Wl,-rpath,'$ORIGIN' -lcrypto
 
       - name: Package Linux release (AppImage and .deb)
-        run: pixi run -e dev python tools/release/package_linux.py
+        run: |
+          # Force PyInstaller's shared-lib resolution to the pixi env first, so a
+          # single consistent libcrypto/libssl (conda's) is bundled.
+          CONDA_PREFIX="$(pixi run -e dev python -c 'import sys,os; print(os.path.dirname(os.path.dirname(sys.executable)))')"
+          export LD_LIBRARY_PATH="${CONDA_PREFIX}/lib:${LD_LIBRARY_PATH:-}"
+          pixi run -e dev python tools/release/package_linux.py
 
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4
