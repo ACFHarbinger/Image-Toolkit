@@ -6,9 +6,9 @@ import glob
 import os
 import sys
 
-# PyInstaller injects SPECPATH, Analysis, PYZ, EXE, COLLECT at runtime
-spec_root = globals().get("SPECPATH", os.path.dirname(os.path.abspath(__file__)))
-ROOT_DIR = os.path.abspath(spec_root)
+# PyInstaller injects SPECPATH, Analysis, PYZ, EXE, COLLECT into the spec's
+# globals; __file__ is NOT defined here, so never reference it.
+ROOT_DIR = os.path.abspath(SPECPATH)
 if ROOT_DIR not in sys.path:
     sys.path.insert(0, ROOT_DIR)
 
