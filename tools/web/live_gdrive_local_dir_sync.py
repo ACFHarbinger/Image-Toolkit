@@ -27,6 +27,10 @@ _REPO = Path(__file__).resolve().parents[2]
 if str(_REPO) not in sys.path:
     sys.path.insert(0, str(_REPO))
 
+from git.scripts._submodule_bootstrap import register_submodule_packages  # noqa: E402
+
+register_submodule_packages(str(_REPO))
+
 _DRIVE_SCOPE = ["https://www.googleapis.com/auth/drive"]
 _REMOTE_FOLDER = ".image-toolkit"
 _SCRATCH_PARENT = Path.home() / "Downloads" / "Data" / "Tests"
@@ -270,12 +274,28 @@ def _parse_args() -> argparse.Namespace:
     return p.parse_args()
 
 
+def _load_sync_worker():
+    """Load LocalDirSyncWorker without importing gui.src.helpers.__init__
+    (that package pulls MainWindow → asp_backend)."""
+    import importlib.util
+
+    path = _REPO / "gui" / "src" / "helpers" / "web" / "cloud" / "local_dir_sync_worker.py"
+    spec = importlib.util.spec_from_file_location("itk_local_dir_sync_worker", path)
+    if spec is None or spec.loader is None:
+        raise SystemExit(f"cannot load {path}")
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = mod
+    spec.loader.exec_module(mod)
+    return mod.LocalDirSyncWorker
+
+
 def main() -> int:
     print("Image-Toolkit live Drive Local Directory Sync", flush=True)
     args = _parse_args()
     from backend.src.web.cloud.gdrive_file_client import GoogleDriveFileClient
-    from gui.src.helpers.web.cloud.local_dir_sync_worker import LocalDirSyncWorker
     from PySide6.QtCore import QCoreApplication
+
+    LocalDirSyncWorker = _load_sync_worker()
 
     QCoreApplication.instance() or QCoreApplication(sys.argv)
 
