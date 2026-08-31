@@ -1,0 +1,186 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (upload artifacts only, do not create GitHub Release)'
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+jobs:
+  build-linux:
+    name: Build Linux Desktop (AppImage + .deb)
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Restore uv cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/uv
+          key: uv-release-linux-${{ hashFiles('uv.lock') }}
+          restore-keys: uv-release-linux-
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libopencv-dev libssl-dev libfftw3-dev libsodium-dev libsqlcipher-dev \
+            ninja-build libeigen3-dev libgl1-mesa-dev libglib2.0-0 \
+            fuse file dpkg-dev cmake g++
+
+      - name: Install Python dependencies
+        run: uv sync --frozen --group dev --no-install-project
+
+      - name: Build native crypto library
+        run: |
+          mkdir -p build/crypto
+          cc -O2 -fPIC -shared -o build/crypto/libitk_crypto.so base/src/secret/itk_crypto.c -lcrypto
+
+      - name: Build and install C++ base extension
+        run: |
+          uv run cmake -B build/base base/ -G Ninja -DCMAKE_BUILD_TYPE=Release
+          uv run cmake --build build/base --parallel
+          uv run cmake --install build/base --prefix .
+          SITE_PKGS=$(uv run python -c "import site; print(site.getsitepackages()[0])")
+          cp -f base*.so "$SITE_PKGS/" || true
+
+      - name: Package Linux release (AppImage and .deb)
+        run: uv run python tools/release/package_linux.py
+
+      - name: Upload Linux artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-linux
+          path: dist/release/*
+          if-no-files-found: error
+
+  build-windows:
+    name: Build Windows Desktop (Zip)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Restore uv cache
+        uses: actions/cache@v4
+        with:
+          path: ~\AppData\Local\uv\cache
+          key: uv-release-windows-${{ hashFiles('uv.lock') }}
+          restore-keys: uv-release-windows-
+
+      - name: Install Python dependencies
+        run: uv sync --frozen --group dev --no-install-project
+
+      - name: Build native crypto library (Windows)
+        shell: bash
+        run: |
+          mkdir -p build/crypto
+          OPENSSL_DIR="C:/Program Files/OpenSSL"
+          if [ ! -d "$OPENSSL_DIR" ]; then
+            OPENSSL_DIR="C:/Program Files/OpenSSL-Win64"
+          fi
+          if [ -d "$OPENSSL_DIR" ]; then
+            gcc -O2 -shared -o build/crypto/libitk_crypto.dll base/src/secret/itk_crypto.c \
+              -I"$OPENSSL_DIR/include" -L"$OPENSSL_DIR/lib" -lcrypto || true
+          fi
+
+      - name: Package Windows release (Zip)
+        run: uv run python tools/release/package_windows.py
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-windows
+          path: dist/release/*
+          if-no-files-found: error
+
+  publish-release:
+    name: Publish Release Draft
+    needs: [build-linux, build-windows]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Download all release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist/release-in
+
+      - name: Flatten release artifacts
+        run: |
+          mkdir -p dist/release
+          find dist/release-in/ -type f -exec cp -t dist/release/ {} +
+          python tools/release/generate_checksums.py
+          ls -la dist/release/
+
+      - name: Upload combined artifacts and checksums
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-all-checksums
+          path: dist/release/*
+
+      - name: Determine if drafting release
+        id: release_check
+        shell: bash
+        run: |
+          IS_DRY_RUN="${{ github.event.inputs.dry_run }}"
+          IS_TAG="${{ startsWith(github.ref, 'refs/tags/v') }}"
+          if [ "$IS_DRY_RUN" = "false" ] || [ -z "$IS_DRY_RUN" -a "$IS_TAG" = "true" ]; then
+            echo "create_release=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "create_release=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create draft GitHub Release
+        if: steps.release_check.outputs.create_release == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          prerelease: ${{ contains(github.ref, '-rc') || contains(github.ref, '-alpha') || contains(github.ref, '-beta') }}
+          files: dist/release/*
+          generate_release_notes: true

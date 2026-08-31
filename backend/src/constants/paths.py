@@ -1,7 +1,15 @@
+import sys
 from pathlib import Path
 
 # Project Root
-ROOT_DIR = Path(__file__).resolve().parents[3]
+if getattr(sys, "frozen", False):
+    ROOT_DIR = (
+        Path(sys._MEIPASS)
+        if hasattr(sys, "_MEIPASS")
+        else Path(sys.executable).resolve().parent
+    )
+else:
+    ROOT_DIR = Path(__file__).resolve().parents[3]
 
 # System Dirs
 IMAGE_TOOLKIT_DIR = Path.home() / ".image-toolkit"
@@ -17,9 +25,19 @@ SECRETS_DIR = ASSETS_DIR / "secrets"
 LOCAL_SECRETS_DIR = IMAGE_TOOLKIT_DIR / "secrets"
 IMAGES_DIR = ASSETS_DIR / "images"
 API_DIR = ASSETS_DIR / "api"
+CONFIGS_DIR = ROOT_DIR / "configs"
 
 # Files
-CRYPTO_LIB_FILE = str(ROOT_DIR / "build" / "crypto" / "libitk_crypto.so")
+_crypto_lib_name = "libitk_crypto.dll" if sys.platform == "win32" else "libitk_crypto.so"
+if (ROOT_DIR / "build" / "crypto" / _crypto_lib_name).exists():
+    CRYPTO_LIB_FILE = str(ROOT_DIR / "build" / "crypto" / _crypto_lib_name)
+elif (ROOT_DIR / _crypto_lib_name).exists():
+    CRYPTO_LIB_FILE = str(ROOT_DIR / _crypto_lib_name)
+elif getattr(sys, "frozen", False) and (Path(sys.executable).resolve().parent / _crypto_lib_name).exists():
+    CRYPTO_LIB_FILE = str(Path(sys.executable).resolve().parent / _crypto_lib_name)
+else:
+    CRYPTO_LIB_FILE = str(ROOT_DIR / "build" / "crypto" / _crypto_lib_name)
+
 ICON_FILE = str(IMAGES_DIR / "image_toolkit_icon.png")
 DAEMON_CONFIG_PATH = IMAGE_TOOLKIT_DIR / ".slideshow_config.json"
 MONITOR_SLIDESHOW_DAEMON_CONFIG_PATH = IMAGE_TOOLKIT_DIR / ".monitor_slideshow_daemon.json"

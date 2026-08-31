@@ -1,0 +1,27 @@
+# tools/release/justfile
+# Release versioning recipes.
+
+set shell := ["bash", "-c"]
+set unstable := true
+set working-directory := '../..'
+
+# Bump the canonical version (root pyproject.toml [project].version) and every
+# derived source (pixi.toml, package.json, app/android/build.gradle.kts, and the
+# backend/gui/git member pyproject.tomls) to match. Validates SemVer, rewrites
+# in place, prints the diff, does NOT commit or tag.
+# Usage: just release::bump 1.2.3
+bump new_version:
+    @source .venv/bin/activate && python tools/release/bump.py '{{new_version}}'
+
+# Build native Linux release bundle (PyInstaller -> AppImage + .deb)
+bundle-linux:
+    @source .venv/bin/activate && python tools/release/package_linux.py
+
+# Build Windows release bundle (PyInstaller -> zip)
+bundle-windows:
+    @source .venv/bin/activate && python tools/release/package_windows.py
+
+# Collect and checksum all release artifacts in dist/release/
+artifacts:
+    @source .venv/bin/activate && python tools/release/generate_checksums.py
+
