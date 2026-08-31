@@ -11,6 +11,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - Docs stubs: `DEVELOPMENT.md`, `SECURITY.md`, `TESTING.md`, `GLOSSARY.md`, this changelog.
 - Agent coordination for docs/website migration under `.agent/cache/AGENT_BUS.md` and `.agent/reports/grok/`.
 
+### Planned (tracked)
+
+- v1.1 native Windows desktop build (#471); `--version`/`--help` for the frozen
+  entry point (#475); frozen-bundle path-assumption audit (#476); first-run
+  PostgreSQL prerequisite UX (#477).
+- ASP: `no_valid_edges` recovery via edgeless-graph edge re-proposal (#472);
+  Phase 0.1 human coherence rating pass (#473); comparator coverage — Overmix
+  97/97 regen + Hugin/GT backfill (#474).
+
 ## [1.0.0] - 2026-08-31
 
 First desktop release: PySide6 app, PyInstaller, **Linux only** (AppImage +
@@ -42,6 +51,7 @@ build is deferred to 1.1 (no C++ toolchain path yet).
 
 ### Fixed
 
+- Frozen-bundle launch failures found during v1.0.0 smoke-testing and fixed before publish: (1) the AppImage crashed at `cv2` import — PyInstaller bundled the ubuntu-22.04 system `libcrypto.so.3` (OpenSSL 3.0.2) alongside conda's `libs2n.so.1` (needs `OPENSSL_3.4.0`, pulled via `pyarrow`); now the native crypto lib is built inside the pixi env against conda OpenSSL 3.6.3 and `LD_LIBRARY_PATH` is pinned to `$CONDA_PREFIX/lib` for the PyInstaller run so one consistent OpenSSL is bundled. (2) `moviepy` `PackageNotFoundError: imageio` — `ImageToolkit.spec` now `copy_metadata`s `imageio` / `imageio-ffmpeg` / `moviepy`. (3) `ModuleNotFoundError: asp_backend` — `gui/__main__.py` imported `backend.src.app` (which transitively needs the `asp_backend` submodule alias) before `register_submodule_packages`; the bootstrap is now hoisted above the first `backend.src` import and `repo_root` resolves from `sys._MEIPASS` when frozen. (4) 73 `.qml`, 11 `.qss` themes, and `.yaml`/`.sql`/`.qrc` resources were unbundled — added a recursive `collect_data_files` sweep of `gui/` and `backend/`.
 - Release-gate issue closures: #470's disconnected-edge-graph recovery validated on the full-97 ASP corpus (0 `disconnected_edge_graph` fallbacks versus 40 in the previous canonical baseline; Ground-Rule reference re-based to 18 RAW_ASP / 43 Safe-ASP / 36 SCANS); #461 closed as fixed after the dual-linked-panel stress pass (5 extra repeats, no SIGSEGV/SIGABRT); #373 (KDE wallpaper black screen) re-verified green and closed.
 - Gallery-crash class (#461): wallpaper scan browse now passes
   `DontUseNativeDialog`; image-crawler cancel and series-listing recommendation
