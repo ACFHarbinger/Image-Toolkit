@@ -53,23 +53,25 @@ class TestExtractorTabQueue:
         return tab, video_path
 
     def test_queue_section_height_matches_settings_section(self, q_app, tmp_path):
-        """The Extraction Queue section must render at the same height as the
-        Extraction Settings section: the queue list is capped so the whole
-        queue group's sizeHint equals the settings group's sizeHint (the
-        settings group is the source of truth). Larger queues scroll inside
-        the list instead of stretching the section taller."""
+        """The Extraction Queue section stays about as tall as the Extraction
+        Settings section: both the On Hold and In Process lists are capped so
+        the queue group does not stretch past the settings group (allowing a
+        small margin for the two column headers). Larger queues scroll inside
+        the lists instead of stretching the section taller."""
         tab, video_path = self._make_tab(tmp_path)
         tab.show()
         q_app.processEvents()
 
-        assert tab.queue_group.sizeHint().height() == tab.extract_group.sizeHint().height(), (
-            "queue group must match the Extraction Settings section height"
-        )
-        # The queue list is what's tuned (the cap lands on the list, not the
-        # group), so it must actually honor the cap once rendered.
-        assert tab.queue_list.height() >= tab.queue_list.minimumHeight() - 1, (
-            "rendered list height must honor the cap"
-        )
+        assert (
+            tab.queue_group.sizeHint().height()
+            <= tab.extract_group.sizeHint().height() + 30
+        ), "queue group must not stretch past the Extraction Settings section"
+        # The cap lands on the lists; both must honor it once rendered.
+        for lst in (tab.queue_list, tab.inprocess_list):
+            assert lst.maximumHeight() == tab.queue_list.maximumHeight()
+            assert lst.height() >= lst.minimumHeight() - 1, (
+                "rendered list height must honor the cap"
+            )
 
     def test_gif_queue_item_config_has_output_dir(self, q_app, tmp_path):
         """The queue config for a GIF must include every key the worker
@@ -160,11 +162,13 @@ class TestExtractorTabQueue:
             run.get("video_path") for run in tab.recent_runs
         ), "finished handler must not record empty 'Unknown Video' entries"
 
-    def test_queue_finished_clears_queue_and_loads_gallery(self, q_app, tmp_path):
+    def test_queue_finished_clears_inprocess_and_loads_gallery(self, q_app, tmp_path):
         tab, video_path = self._make_tab(tmp_path)
         out_file = tab.extraction_dir / "test_0ms_3000ms.gif"
         out_file.write_text("gif")
-        tab.extraction_queue.append(
+        # Simulate process_queue(): the batch has been moved into the right
+        # "In Process" queue.
+        tab.inprocess_items = [
             {
                 "type": "gif",
                 "video_path": str(video_path),
@@ -172,16 +176,20 @@ class TestExtractorTabQueue:
                 "end_ms": 3000,
                 "output_dir": str(tab.extraction_dir),
             }
-        )
-        tab._update_queue_ui()
-        assert tab.queue_list.count() == 1
+        ]
+        tab._inprocess_status = ["processing"]
+        tab._update_inprocess_ui()
+        assert tab.inprocess_list.count() == 1
 
+        # QMessageBox.information is monkeypatched to auto-OK, so _clear_inprocess
+        # runs straight after the modal in the finished handler.
         tab._on_queue_processing_finished(
             [{"status": "success", "output_path": str(out_file)}]
         )
 
-        assert tab.extraction_queue == []
-        assert tab.queue_list.count() == 0
+        assert tab.inprocess_items == []
+        assert tab.inprocess_list.count() == 0
+        assert tab._inprocess_awaiting_confirm is False
         assert str(out_file) in tab.master_image_paths
 
     def test_real_gif_through_worker_produces_file(self, q_app, tmp_path):
@@ -219,7 +227,12 @@ class TestExtractorTabQueue:
         tab._run_gif_extraction(0, 3000)
         assert len(tab.extraction_queue) == 1
 
-        worker = QueueExecutionWorker(list(tab.extraction_queue), parallel=False)
+        # Simulate process_queue() moving the On Hold batch into In Process.
+        tab.inprocess_items = list(tab.extraction_queue)
+        tab._inprocess_status = ["pending"] * len(tab.inprocess_items)
+        tab.extraction_queue.clear()
+
+        worker = QueueExecutionWorker(list(tab.inprocess_items), parallel=False)
         worker.signals.item_completed.connect(tab._on_queue_item_completed)
         worker.signals.finished.connect(tab._on_queue_processing_finished)
         with patch("gui.src.tabs.core.extractor_tab._queue_management.QMessageBox"):
@@ -227,7 +240,7 @@ class TestExtractorTabQueue:
 
         out_gif = tab.extraction_dir / "realsource_0ms_3000ms.gif"
         assert out_gif.exists(), "gif file must be produced from queued item"
-        assert tab.extraction_queue == []
+        assert tab.inprocess_items == []  # cleared after the completion dialog
         assert str(out_gif) in tab.master_image_paths
         assert str(out_gif) in tab.extraction_metadata
         # The recorded recent-extraction entry must keep the REAL source
@@ -289,34 +302,32 @@ class TestExtractorTabQueue:
         # non-queue extraction paths do (symptom: queue results missing).
         assert str(out_gif) in tab.extraction_metadata
 
-    def test_item_completed_records_and_removes_per_item(self, q_app, tmp_path):
-        """The per-item signal (previously never connected) must record each
-        successful extraction AND remove that item from the queue list."""
+    def test_item_completed_records_and_marks_inprocess_status(self, q_app, tmp_path):
+        """Per-item completion records each successful extraction AND marks
+        that item's status in the In Process list (the item stays visible with
+        a ✓/✗ until the user confirms the completion dialog)."""
         tab, video_path = self._make_tab(tmp_path)
         f1 = tab.extraction_dir / "a.gif"
         f2 = tab.extraction_dir / "b.gif"
         f1.write_text("gif")
         f2.write_text("gif")
-        tab.extraction_queue.append(
-            {"type": "gif", "video_path": str(video_path), "start_ms": 0,
-             "end_ms": 1000, "output_dir": str(tab.extraction_dir),
-             "use_ffmpeg": True, "fps": 24}
-        )
-        tab.extraction_queue.append(
-            {"type": "gif", "video_path": str(video_path), "start_ms": 1000,
-             "end_ms": 2000, "output_dir": str(tab.extraction_dir),
-             "use_ffmpeg": True, "fps": 24}
-        )
-        tab._update_queue_ui()
-        assert tab.queue_list.count() == 2
+        item1 = {"type": "gif", "video_path": str(video_path), "start_ms": 0,
+                 "end_ms": 1000, "output_dir": str(tab.extraction_dir),
+                 "use_ffmpeg": True, "fps": 24}
+        item2 = {"type": "gif", "video_path": str(video_path), "start_ms": 1000,
+                 "end_ms": 2000, "output_dir": str(tab.extraction_dir),
+                 "use_ffmpeg": True, "fps": 24}
+        tab.inprocess_items = [item1, item2]
+        tab._inprocess_status = ["processing", "processing"]
+        tab._update_inprocess_ui()
+        assert tab.inprocess_list.count() == 2
 
-        item1 = tab.extraction_queue[0]
-        item2 = tab.extraction_queue[1]
         tab._on_queue_item_completed(
             0, {"status": "success", "output_path": str(f1)}, item1
         )
 
-        assert tab.queue_list.count() == 1, "completed item must leave the queue"
+        assert tab._inprocess_status == ["done", "processing"]
+        assert tab.inprocess_list.count() == 2, "completed item stays visible until confirm"
         assert str(f1) in tab.extraction_metadata
         # Gallery update is deferred per item (freeze fix): the path lands in
         # the pending list immediately and only enters master_image_paths when
@@ -325,19 +336,23 @@ class TestExtractorTabQueue:
         assert str(f1) not in tab.master_image_paths
 
         tab._on_queue_item_completed(
-            0, {"status": "success", "output_path": str(f2)}, item2
+            1, {"status": "success", "output_path": str(f2)}, item2
         )
 
-        assert tab.queue_list.count() == 0
+        assert tab._inprocess_status == ["done", "done"]
         assert str(f2) in tab.extraction_metadata
         assert str(f2) in tab._queue_pending_gallery_paths
 
         # The finished handler flushes the deferred paths with ONE gallery
-        # rebuild.
-        tab._on_queue_processing_finished([])
+        # rebuild, then clears the In Process queue (dialog auto-OK'd).
+        tab._on_queue_processing_finished([
+            {"status": "success", "output_path": str(f1)},
+            {"status": "success", "output_path": str(f2)},
+        ])
         assert str(f1) in tab.master_image_paths
         assert str(f2) in tab.master_image_paths
         assert tab._queue_pending_gallery_paths == []
+        assert tab.inprocess_items == []
 
     def test_queue_item_error_result_not_recorded(self, q_app, tmp_path):
         tab, video_path = self._make_tab(tmp_path)
@@ -633,8 +648,12 @@ class TestExtractorTabQueue:
                 f"queue config lost video_path at add time: {cfg!r}"
             )
 
-        # Snapshot the queue before the worker consumes its own copy.
+        # Snapshot the queue, then simulate process_queue() moving the On
+        # Hold batch into the In Process queue.
         queued = list(tab.extraction_queue)
+        tab.inprocess_items = list(queued)
+        tab._inprocess_status = ["pending"] * len(queued)
+        tab.extraction_queue.clear()
 
         # Mock ONLY the extraction engine: the queue plumbing, per-item
         # completion signal, and _record_extraction are all real.
@@ -662,6 +681,7 @@ class TestExtractorTabQueue:
 
         assert mock_engine.call_count == 3
         assert tab.extraction_queue == []
+        assert tab.inprocess_items == []  # cleared after the completion dialog
 
         # Every recorded recent run must carry the REAL source video_path.
         assert tab.recent_runs, "queue flow must record extractions"

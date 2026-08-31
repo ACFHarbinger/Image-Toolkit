@@ -17,8 +17,14 @@ class DummyQueueHost(_QueueManagementMixin):
         self.btn_process_queue = MagicMock()
         self.btn_clear_queue = MagicMock()
         self.combo_queue_mode = MagicMock()
+        self.queue_list = MagicMock()
+        self.extraction_progress_bar = MagicMock()
+        self.extraction_status_label = MagicMock()
         self.active_queue_worker = None
         self.extraction_queue = []
+        self.inprocess_items = []
+        self._inprocess_status = []
+        self._inprocess_awaiting_confirm = False
         self._close_progress_dialog = None
 
 
@@ -79,6 +85,9 @@ def test_task_close_progress_dialog_cancel(q_app):
 
 def test_queue_processing_state_toggle():
     host = DummyQueueHost()
+    # The On Hold queue stays independently editable/clearable in every state,
+    # so Clear Queue tracks the left queue's length regardless of processing.
+    host.extraction_queue = [{"video_path": "x", "type": "range", "start_ms": 0, "end_ms": 1}]
 
     # State: Processing
     # pyrefly: ignore [bad-argument-type]
@@ -86,7 +95,7 @@ def test_queue_processing_state_toggle():
     # pyrefly: ignore [missing-attribute]
     host.btn_process_queue.setText.assert_called_with("🛑 Cancel Queue")
     # pyrefly: ignore [missing-attribute]
-    host.btn_clear_queue.setEnabled.assert_called_with(False)
+    host.btn_clear_queue.setEnabled.assert_called_with(True)  # left queue non-empty
     # pyrefly: ignore [missing-attribute]
     host.combo_queue_mode.setEnabled.assert_called_with(False)
 
@@ -96,9 +105,16 @@ def test_queue_processing_state_toggle():
     # pyrefly: ignore [missing-attribute]
     host.btn_process_queue.setText.assert_called_with("⚙️ Process Queue")
     # pyrefly: ignore [missing-attribute]
-    host.btn_clear_queue.setEnabled.assert_called_with(True)
-    # pyrefly: ignore [missing-attribute]
     host.combo_queue_mode.setEnabled.assert_called_with(True)
+    # pyrefly: ignore [missing-attribute]
+    host.btn_process_queue.setEnabled.assert_called_with(True)  # has items, idle
+
+    # State: awaiting confirmation of a finished batch -> Process stays dead
+    host._inprocess_awaiting_confirm = True
+    # pyrefly: ignore [bad-argument-type]
+    host._set_queue_processing_state(False)
+    # pyrefly: ignore [missing-attribute]
+    host.btn_process_queue.setEnabled.assert_called_with(False)
 
 
 def test_cancel_queue_invokes_worker_cancel():

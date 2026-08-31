@@ -38,6 +38,36 @@ from ....styles import set_button_role
 if TYPE_CHECKING:
     from ..protos.extractor_tab import VideoExtractorSubTabHostProtocol
 
+# In-process queue per-item states.
+_ST_PENDING = "pending"
+_ST_PROCESSING = "processing"
+_ST_DONE = "done"
+_ST_ERROR = "error"
+_ST_ICON = {
+    _ST_PENDING: "⏳",
+    _ST_PROCESSING: "▶️",
+    _ST_DONE: "✓",
+    _ST_ERROR: "✗",
+}
+
+
+def _inprocess_row_label(idx: int, item: dict, status: str) -> str:
+    """Pure row-label builder for the In Process list (Qt-free, unit-tested)."""
+    icon = _ST_ICON.get(status, _ST_ICON[_ST_PENDING])
+    try:
+        v_name = Path(item.get("video_path") or "?").name
+    except Exception:
+        v_name = "?"
+    t_type = str(item.get("type", "range")).upper()
+    start_fmt = time.strftime("%M:%S", time.gmtime(int(item.get("start_ms", 0)) / 1000.0))
+    end_ms = item.get("end_ms", -1)
+    end_fmt = (
+        time.strftime("%M:%S", time.gmtime(int(end_ms) / 1000.0))
+        if end_ms not in (-1, None)
+        else "End"
+    )
+    return f"{icon} {idx + 1}. [{t_type}] {v_name} ({start_fmt} - {end_fmt})"
+
 
 class _QueueManagementMixin:
     """Extraction queue management and the Results Gallery / Queue section."""
@@ -48,6 +78,9 @@ class _QueueManagementMixin:
     _queue_total_count: int = 0
     _queue_completed_count: int = 0
     _current_queue_item_title: str = ""
+    inprocess_items: List[dict] = []
+    _inprocess_status: List[str] = []
+    _inprocess_awaiting_confirm: bool = False
 
     def set_close_progress_dialog(self: "VideoExtractorSubTabHostProtocol", dialog: Any) -> None:
         """Attach the TaskCloseProgressDialog to receive live progress updates."""
@@ -75,12 +108,35 @@ class _QueueManagementMixin:
         queue_layout = QVBoxLayout(self.queue_group)
         queue_layout.setContentsMargins(10, 10, 10, 10)
 
+        # Two side-by-side lists: the left "On Hold" queue the user edits, and
+        # the right "In Process" queue that shows the batch currently being
+        # processed (pending / running / done / failed per item). Clicking
+        # Process Queue moves the left list into the right one; the right list
+        # is only cleared once the user acknowledges the completion dialog.
+        lists_row = QHBoxLayout()
+        lists_row.setSpacing(10)
+
+        onhold_col = QVBoxLayout()
+        onhold_col.setSpacing(2)
+        onhold_col.addWidget(QLabel("On Hold — editable"))
         self.queue_list = QListWidget()
         self.queue_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.queue_list.customContextMenuRequested.connect(self.show_queue_context_menu)
         self.queue_list.setDragDropMode(QListWidget.DragDropMode.InternalMove)
         self.queue_list.model().rowsMoved.connect(lambda *_: self._on_queue_reordered())
-        queue_layout.addWidget(self.queue_list)
+        onhold_col.addWidget(self.queue_list)
+        lists_row.addLayout(onhold_col, 1)
+
+        inprocess_col = QVBoxLayout()
+        inprocess_col.setSpacing(2)
+        inprocess_col.addWidget(QLabel("In Process"))
+        self.inprocess_list = QListWidget()
+        self.inprocess_list.setSelectionMode(QListWidget.SelectionMode.NoSelection)
+        self.inprocess_list.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        inprocess_col.addWidget(self.inprocess_list)
+        lists_row.addLayout(inprocess_col, 1)
+
+        queue_layout.addLayout(lists_row)
 
         controls_layout = QHBoxLayout()
         controls_layout.addWidget(QLabel("Execution Mode:"))
@@ -100,21 +156,20 @@ class _QueueManagementMixin:
         queue_layout.addLayout(controls_layout)
 
         # Match the Extraction Queue section's height to the Extraction
-        # Settings section (self.extract_group, built earlier in __init__):
-        # cap the queue list so the whole queue group renders at the same
-        # height as the settings group. The settings group's sizeHint is the
-        # source of truth; the queue group's non-list overhead (title bar,
-        # margins, spacing, and the controls row, i.e. group sizeHint minus
-        # the list's own sizeHint) is subtracted so the LIST height is what's
-        # tuned. Larger queues scroll inside the widget, and the gallery
-        # below keeps its space.
+        # Settings section (self.extract_group). The two lists sit side by
+        # side and are identical, so the row's height contribution is one
+        # list's sizeHint; subtracting that from the group sizeHint isolates
+        # the fixed overhead (title bar, margins, column headers, controls
+        # row), and capping BOTH lists to `settings_h - overhead` keeps the
+        # whole group at the settings-group height. Larger queues scroll.
         settings_h = self.extract_group.sizeHint().height()
         queue_overhead = (
             self.queue_group.sizeHint().height() - self.queue_list.sizeHint().height()
         )
         target_list_h = max(0, settings_h - queue_overhead)
-        self.queue_list.setMinimumHeight(target_list_h)
-        self.queue_list.setMaximumHeight(target_list_h)
+        for _lst in (self.queue_list, self.inprocess_list):
+            _lst.setMinimumHeight(target_list_h)
+            _lst.setMaximumHeight(target_list_h)
 
         self.main_layout.addWidget(self.queue_group)
         self.queue_group.setVisible(self.extraction_queue_enabled)
@@ -284,6 +339,8 @@ class _QueueManagementMixin:
         self.extraction_status_label.show()
 
     def _update_queue_ui(self: "VideoExtractorSubTabHostProtocol"):
+        if not hasattr(self, "queue_list"):
+            return
         self.queue_list.clear()
         for idx, item in enumerate(self.extraction_queue):
             v_name = Path(item["video_path"]).name
@@ -300,9 +357,70 @@ class _QueueManagementMixin:
             list_item.setData(Qt.ItemDataRole.UserRole, item)
             self.queue_list.addItem(list_item)
 
-        enabled = len(self.extraction_queue) > 0
-        self.btn_process_queue.setEnabled(enabled)
-        self.btn_clear_queue.setEnabled(enabled)
+        has_items = len(self.extraction_queue) > 0
+        # The Process button doubles as Cancel while a run is active and must
+        # stay disabled while a finished batch is awaiting confirmation — only
+        # touch its enabled state when the queue is idle.
+        if not self._queue_is_busy():
+            self.btn_process_queue.setEnabled(has_items)
+        self.btn_clear_queue.setEnabled(has_items)
+
+    def _queue_is_busy(self: "VideoExtractorSubTabHostProtocol") -> bool:
+        """True while a worker is running or a finished batch still needs the
+        user's acknowledgement — Process Queue must not start in either case."""
+        return (
+            getattr(self, "active_queue_worker", None) is not None
+            or getattr(self, "_inprocess_awaiting_confirm", False)
+        )
+
+    def _update_inprocess_ui(self: "VideoExtractorSubTabHostProtocol") -> None:
+        """Rebuild the right-hand In Process list from inprocess_items +
+        _inprocess_status, and reflect progress in the group title."""
+        if not hasattr(self, "inprocess_list"):
+            return
+        self.inprocess_list.clear()
+        for idx, item in enumerate(self.inprocess_items):
+            status = (
+                self._inprocess_status[idx]
+                if idx < len(self._inprocess_status)
+                else _ST_PENDING
+            )
+            self.inprocess_list.addItem(
+                QListWidgetItem(_inprocess_row_label(idx, item, status))
+            )
+        total = len(self.inprocess_items)
+        if total:
+            done = sum(
+                1 for s in self._inprocess_status if s in (_ST_DONE, _ST_ERROR)
+            )
+            self.queue_group.setTitle(f"Extraction Queue — In Process {done}/{total}")
+        else:
+            self.queue_group.setTitle("Extraction Queue")
+
+    def _finalize_inprocess_from_results(
+        self: "VideoExtractorSubTabHostProtocol", results: list
+    ) -> None:
+        """Backstop: resolve any item still pending/processing from the final
+        results list (parallel mode delivers per-item status in one burst)."""
+        for i, res in enumerate(results or []):
+            if i < len(self._inprocess_status) and self._inprocess_status[i] in (
+                _ST_PENDING,
+                _ST_PROCESSING,
+            ):
+                self._inprocess_status[i] = (
+                    _ST_DONE if res.get("status") == "success" else _ST_ERROR
+                )
+        self._update_inprocess_ui()
+
+    def _clear_inprocess(self: "VideoExtractorSubTabHostProtocol") -> None:
+        """Empty the In Process queue and return the controls to idle. Called
+        only after the user acknowledges completion (or on a headless close)."""
+        self.inprocess_items = []
+        self._inprocess_status = []
+        self._inprocess_awaiting_confirm = False
+        self._update_inprocess_ui()
+        self._set_queue_processing_state(False)
+        self._update_queue_ui()
 
     def _on_queue_reordered(self: "VideoExtractorSubTabHostProtocol") -> None:
         """Drag-and-drop (InternalMove) callback: resync extraction_queue's
@@ -321,18 +439,25 @@ class _QueueManagementMixin:
             self._refresh_recent_to_queue_controls()
 
     def _set_queue_processing_state(self: "VideoExtractorSubTabHostProtocol", processing: bool):
-        """Update button label, style, and controls for active queue processing or idle."""
+        """Update button label, style, and controls for the three queue states:
+        processing (run active), awaiting-confirm (run done, dialog not yet
+        acknowledged), and idle. The left "On Hold" queue stays editable and
+        clearable in every state — it no longer feeds the running batch."""
+        self.btn_clear_queue.setEnabled(len(self.extraction_queue) > 0)
         if processing:
             self.btn_process_queue.setText("🛑 Cancel Queue")
             set_button_role(self.btn_process_queue, "danger")
             self.btn_process_queue.setEnabled(True)
-            self.btn_clear_queue.setEnabled(False)
+            self.combo_queue_mode.setEnabled(False)
+        elif getattr(self, "_inprocess_awaiting_confirm", False):
+            self.btn_process_queue.setText("⚙️ Process Queue")
+            set_button_role(self.btn_process_queue, "success")
+            self.btn_process_queue.setEnabled(False)
             self.combo_queue_mode.setEnabled(False)
         else:
             self.btn_process_queue.setText("⚙️ Process Queue")
             set_button_role(self.btn_process_queue, "success")
-            self.btn_process_queue.setEnabled(True)
-            self.btn_clear_queue.setEnabled(True)
+            self.btn_process_queue.setEnabled(len(self.extraction_queue) > 0)
             self.combo_queue_mode.setEnabled(True)
 
     def cancel_queue(self: "VideoExtractorSubTabHostProtocol"):
@@ -348,9 +473,30 @@ class _QueueManagementMixin:
         # by it. Handlers below no-op for any worker that is not the current
         # one, so the stale signal is harmless.
         self.active_queue_worker = None
+
+        # Move anything that had not finished back to the front of the On Hold
+        # queue so a cancel doesn't lose queued work, then drop the batch.
+        not_done = [
+            item
+            for item, status in zip(self.inprocess_items, self._inprocess_status, strict=False)
+            if status in (_ST_PENDING, _ST_PROCESSING)
+        ]
+        if not_done:
+            self.extraction_queue[:0] = not_done
+        self.inprocess_items = []
+        self._inprocess_status = []
+        self._inprocess_awaiting_confirm = False
+        self._update_inprocess_ui()
+
+        self._update_queue_ui()
         self._set_queue_processing_state(False)
         self.extraction_progress_bar.hide()
-        self.extraction_status_label.setText("Queue cancelled.")
+        n = len(not_done)
+        self.extraction_status_label.setText(
+            f"Queue cancelled — {n} unfinished item{'s' if n != 1 else ''} returned to On Hold."
+            if n
+            else "Queue cancelled."
+        )
         self.extraction_status_label.show()
 
     @Slot()
@@ -359,11 +505,27 @@ class _QueueManagementMixin:
             self.cancel_queue()
             return
 
+        if getattr(self, "_inprocess_awaiting_confirm", False):
+            # A finished batch is still showing in the In Process list — the
+            # user has to acknowledge it before a new run can start.
+            self._prompt_inprocess_confirm()
+            return
+
         if not self.extraction_queue:
             return
 
         mode = self.combo_queue_mode.currentText()
         is_parallel = "Parallel" in mode
+
+        # Move the whole On Hold queue into the In Process queue. The left
+        # list is emptied and stays independently editable while this batch
+        # runs; the right list is only cleared once the user confirms the
+        # completion dialog (or on a headless app close).
+        self.inprocess_items = list(self.extraction_queue)
+        self._inprocess_status = [_ST_PENDING] * len(self.inprocess_items)
+        self.extraction_queue.clear()
+        self._update_queue_ui()
+        self._update_inprocess_ui()
 
         self._set_queue_processing_state(True)
 
@@ -375,16 +537,15 @@ class _QueueManagementMixin:
         # Deferred gallery paths for this run (see _on_queue_item_completed).
         self._queue_pending_gallery_paths = []
 
-        self._queue_total_count = len(self.extraction_queue)
+        self._queue_total_count = len(self.inprocess_items)
         self._queue_completed_count = 0
         self._current_queue_item_title = ""
 
-        # Pass a COPY: the worker iterates its own list while the tab
-        # removes completed items from self.extraction_queue per item; sharing
-        # the same list object would let the tab's pop() skip the worker's
-        # pending iterations.
+        # Pass a COPY of the in-process batch: the worker iterates its own
+        # list, and item_completed(index, ...) indexes back into this same
+        # ordering to update per-item status.
         worker = QueueExecutionWorker(
-            list(self.extraction_queue),
+            list(self.inprocess_items),
             parallel=is_parallel,
             max_workers=(
                 getattr(self, "parallel_extraction_processors", None)
@@ -419,6 +580,25 @@ class _QueueManagementMixin:
         self._queue_total_count = max(total, getattr(self, "_queue_total_count", total))
         self.extraction_progress_bar.setMaximum(max(total, 1))
         self.extraction_progress_bar.setValue(completed)
+
+        # Advance the In Process list's per-item status.
+        if self._inprocess_status:
+            if worker is not None and not getattr(worker, "parallel", False):
+                # Sequential: progress(i, total) fires as item i starts.
+                if (
+                    0 <= completed < len(self._inprocess_status)
+                    and self._inprocess_status[completed] == _ST_PENDING
+                ):
+                    self._inprocess_status[completed] = _ST_PROCESSING
+            else:
+                # Parallel: the pool runs several items at once with no
+                # per-item start signal — show every not-yet-finished item as
+                # running; exact done/failed states arrive with item_completed.
+                for j, st in enumerate(self._inprocess_status):
+                    if st == _ST_PENDING:
+                        self._inprocess_status[j] = _ST_PROCESSING
+            self._update_inprocess_ui()
+
         if getattr(self, "_close_progress_dialog", None):
             self._close_progress_dialog.update_progress(
                 completed,
@@ -484,26 +664,30 @@ class _QueueManagementMixin:
     def _on_queue_item_completed(self: "VideoExtractorSubTabHostProtocol", index: int, res: dict, item: dict, worker=None):
         if worker is not None and worker is not self.active_queue_worker:
             return
-        """Per-item completion: record the extraction into recent extractions
-        (previously queue results never appeared there) and remove the
-        finished item from the queue list promptly.
+        """Per-item completion: mark the item's status in the In Process list
+        and record the extraction into recent extractions (queue results were
+        previously never recorded there).
+
+        `index` is the item's position in the batch handed to the worker,
+        which is exactly self.inprocess_items' ordering — the parent-side
+        config object is passed straight back (only the child's copy is
+        pickled), so the index is reliable in both sequential and parallel
+        modes.
 
         The gallery update is DEFERRED to _on_queue_processing_finished (or
         _on_queue_processing_error): rebuilding the gallery per item runs
         refresh_gallery_view() -> cancel_loading() -> thread_pool.
-        waitForDone(-1) on the UI thread. Queue workers therefore run on the
-        separate operation_thread_pool; paths are accumulated and one rebuild
-        happens once the worker is done.
-
-        item is the original queue config handed to the worker, so the
-        finished entry is removed by identity; index alignment is not reliable
-        once earlier items have already been popped (parallel mode completes
-        out of order).
-
-        Previously only _on_queue_processing_finished ran (once the WHOLE
-        queue was done), so items lingered in the list after completing and
-        their outputs were never recorded in extraction history.
+        waitForDone(-1) on the UI thread. Queue workers run on the separate
+        operation_thread_pool; paths are accumulated and one rebuild happens
+        once the worker is done.
         """
+        # Per-item status for the right-hand list.
+        if 0 <= index < len(self._inprocess_status):
+            self._inprocess_status[index] = (
+                _ST_DONE if res.get("status") == "success" else _ST_ERROR
+            )
+            self._update_inprocess_ui()
+
         paths = self._queue_result_paths(res)
         if not paths:
             return
@@ -513,22 +697,8 @@ class _QueueManagementMixin:
         metadata["mode"] = item.get("type", "range")
         self._record_extraction(paths, metadata)
 
-        # Remove the finished item from the queue list immediately.
-        # Match by identity first (sequential mode: same process), then by
-        # value (parallel mode: the config was pickled through multiprocessing
-        # so the worker returns a copy), then fall back to index.
-        removed = False
-        for i, queued in enumerate(self.extraction_queue):
-            if queued is item or queued == item or (not item and i == index):
-                self.extraction_queue.pop(i)
-                removed = True
-                break
-        if removed:
-            self._update_queue_ui()
-
-        # Defer the gallery update: see class docstring above. Existence
-        # filtering still happens here so a phantom path never enters the
-        # pending list.
+        # Defer the gallery update: see docstring above. Existence filtering
+        # still happens here so a phantom path never enters the pending list.
         existing = [p for p in paths if os.path.exists(p)]
         if existing:
             self._queue_pending_gallery_paths.extend(existing)
@@ -556,9 +726,13 @@ class _QueueManagementMixin:
         if worker is not None and worker is not self.active_queue_worker:
             return
         self.active_queue_worker = None
-        self._set_queue_processing_state(False)
         self.extraction_progress_bar.hide()
         self.extraction_status_label.hide()
+
+        # Resolve any item still shown as pending/processing from the final
+        # results burst (parallel mode), then keep the In Process list on
+        # screen until the user acknowledges the completion dialog.
+        self._finalize_inprocess_from_results(results)
 
         # ONE gallery rebuild for the whole run: per-item completion defers
         # its gallery update (see _on_queue_item_completed) because a per-item
@@ -584,9 +758,6 @@ class _QueueManagementMixin:
             else:
                 errors.append(res.get("message", "Unknown error"))
 
-        self.extraction_queue.clear()
-        self._update_queue_ui()
-
         all_paths = deferred + [p for p in new_paths if p not in deferred]
         if all_paths:
             self._add_queue_results_to_gallery(all_paths)
@@ -595,20 +766,31 @@ class _QueueManagementMixin:
         is_closing = close_dialog is not None or getattr(self, "_close_when_finished", None) is not None
         if close_dialog is not None:
             close_dialog.on_all_finished()
+            self._clear_inprocess()  # headless close: no one to confirm
         elif is_closing:
-            pass  # Suppress popup during deferred close
-        elif errors:
-            QMessageBox.warning(
-                cast(QWidget, self),
-                "Queue Extraction Completed with Errors",
-                "Processed queue items. Errors encountered:\n" + "\n".join(errors),
-            )
+            self._clear_inprocess()  # deferred close: suppress popup, clear now
         else:
-            QMessageBox.information(
-                cast(QWidget, self),
-                "Success",
-                f"Queue execution complete! Processed all items. Extracted {len(all_paths)} items.",
-            )
+            # Keep the In Process list on screen (with final per-item states)
+            # until the user clicks OK — only then is it cleared.
+            self._inprocess_awaiting_confirm = True
+            self._set_queue_processing_state(False)
+            if errors:
+                QMessageBox.warning(
+                    cast(QWidget, self),
+                    "Queue Extraction Completed with Errors",
+                    f"Processed {len(self.inprocess_items)} queue item(s). "
+                    f"{len(errors)} error(s):\n" + "\n".join(errors)
+                    + "\n\nClick OK to clear the In Process queue.",
+                )
+            else:
+                QMessageBox.information(
+                    cast(QWidget, self),
+                    "Extractions Completed",
+                    f"Queue execution complete — processed all "
+                    f"{len(self.inprocess_items)} item(s), extracted {len(all_paths)} file(s)."
+                    "\n\nClick OK to clear the In Process queue.",
+                )
+            self._clear_inprocess()
 
         self._maybe_finish_close()
 
@@ -616,9 +798,14 @@ class _QueueManagementMixin:
         if worker is not None and worker is not self.active_queue_worker:
             return
         self.active_queue_worker = None
-        self._set_queue_processing_state(False)
         self.extraction_progress_bar.hide()
         self.extraction_status_label.hide()
+
+        # Whatever hadn't reported yet failed with the run.
+        for j, st in enumerate(self._inprocess_status):
+            if st in (_ST_PENDING, _ST_PROCESSING):
+                self._inprocess_status[j] = _ST_ERROR
+        self._update_inprocess_ui()
 
         close_dialog = getattr(self, "_close_progress_dialog", None)
         if close_dialog is not None:
@@ -630,10 +817,34 @@ class _QueueManagementMixin:
             self._add_queue_results_to_gallery(self._queue_pending_gallery_paths)
             self._queue_pending_gallery_paths = []
 
-        if "cancelled" not in error_msg.lower():
-            QMessageBox.warning(cast(QWidget, self), "Queue Processing Error", error_msg)
+        cancelled = "cancelled" in error_msg.lower()
+        if close_dialog is not None or getattr(self, "_close_when_finished", None) is not None:
+            self._clear_inprocess()  # closing: nobody to confirm
+        elif cancelled:
+            # cancel_queue() already handled the UI reset and re-queue.
+            self._clear_inprocess()
+        else:
+            self._inprocess_awaiting_confirm = True
+            self._set_queue_processing_state(False)
+            QMessageBox.warning(
+                cast(QWidget, self),
+                "Queue Processing Error",
+                f"{error_msg}\n\nClick OK to clear the In Process queue.",
+            )
+            self._clear_inprocess()
 
         self._maybe_finish_close()
+
+    def _prompt_inprocess_confirm(self: "VideoExtractorSubTabHostProtocol") -> None:
+        """Re-entry path: Process Queue was clicked while a finished batch is
+        still awaiting acknowledgement. Confirm and clear it."""
+        QMessageBox.information(
+            cast(QWidget, self),
+            "Extractions Completed",
+            "The previous batch has finished. Click OK to clear the "
+            "In Process queue, then press Process Queue again.",
+        )
+        self._clear_inprocess()
 
     # ------------------------------------------------------------------
     # App-close deferral (headless keep-alive while extractions run)

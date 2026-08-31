@@ -93,6 +93,14 @@ class VideoExtractorSubTab(
         self.gif_max_colors = 256
         self.fps_clamp = 0
         self.extraction_queue: List[dict] = []
+        # Right-hand "In Process" queue: the batch handed to the worker when
+        # Process Queue is clicked. Stays populated (with per-item status)
+        # until the user confirms the completion dialog. Independent of
+        # extraction_queue, so new items can be added to the left queue while
+        # this one runs.
+        self.inprocess_items: List[dict] = []
+        self._inprocess_status: List[str] = []
+        self._inprocess_awaiting_confirm: bool = False
         self.active_queue_worker: Optional[QueueExecutionWorker] = None
         self.time_display_format = "m:s:ms"
 
