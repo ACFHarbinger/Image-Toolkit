@@ -1,6 +1,8 @@
 import contextlib
 import os
+import select
 import subprocess
+import tempfile
 from typing import Optional, Tuple, Union
 
 from moviepy.editor import VideoFileClip
@@ -13,10 +15,41 @@ except ImportError:
     from moviepy.editor import AudioFileClip
 
 
+class _Cancelled(Exception):
+    """Raised inside the worker when the user cancels mid-ffmpeg."""
+
+
 class _VideoWorkerSignals(QObject):
     progress = Signal(int, int)  # (percent, 100) — §5.9 Option C; no natural item count
     finished = Signal(str)
     error = Signal(str)
+
+
+def _ffmpeg_thread_count(requested: int) -> int:
+    """Cap libx264 thread fan-out. 0 (Auto) → min(4, CPUs); never above CPU count."""
+    cpus = os.cpu_count() or 2
+    if requested <= 0:
+        return max(1, min(4, cpus))
+    return max(1, min(int(requested), cpus))
+
+
+def parse_ffmpeg_progress_line(line: str, duration_s: float) -> Optional[int]:
+    """Map an ffmpeg ``-progress`` ``out_time_us=`` line to 0–99 percent."""
+    if duration_s <= 0:
+        return None
+    text = line.strip()
+    if not text.startswith("out_time_us="):
+        return None
+    raw = text.split("=", 1)[1]
+    if raw in ("N/A", ""):
+        return None
+    try:
+        us = int(raw)
+    except ValueError:
+        return None
+    if us < 0:
+        return None
+    return int(min(99, max(0, (us / 1_000_000.0) / duration_s * 100)))
 
 
 class VideoExtractionWorker(QRunnable):
@@ -51,6 +84,61 @@ class VideoExtractionWorker(QRunnable):
 
     def cancel(self):
         self._is_cancelled = True
+
+    def _run_ffmpeg(self, cmd: list, duration_s: float = 0.0) -> None:
+        """Run ffmpeg without the stderr-PIPE deadlock; parse ``-progress``.
+
+        stderr used to go to ``PIPE`` and was only read after exit, so a
+        long encode that filled the ~64 KB pipe buffer hung forever (#484).
+        stderr now goes to a temp file (``-loglevel error``); stdout is
+        drained for ``out_time_us`` progress lines.
+        """
+        from gui.src.helpers.video.video_thumbnailer import media_backend_spawn_guard
+
+        last_pct = -1
+        with tempfile.TemporaryFile(mode="w+") as errf:
+            with media_backend_spawn_guard():
+                proc = subprocess.Popen(
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=errf,
+                    stdin=subprocess.DEVNULL,
+                    text=True,
+                    bufsize=1,
+                )
+            stdout = proc.stdout
+            while True:
+                if self._is_cancelled:
+                    proc.terminate()
+                    with contextlib.suppress(subprocess.TimeoutExpired):
+                        proc.wait(timeout=3)
+                    if proc.poll() is None:
+                        proc.kill()
+                    raise _Cancelled()
+                if proc.poll() is not None:
+                    if stdout is not None:
+                        for line in stdout.read().splitlines():
+                            pct = parse_ffmpeg_progress_line(line, duration_s)
+                            if pct is not None and pct != last_pct:
+                                last_pct = pct
+                                self.signals.progress.emit(pct, 100)
+                    break
+                ready, _, _ = select.select([stdout], [], [], 0.2)
+                if not ready or stdout is None:
+                    continue
+                line = stdout.readline()
+                if not line:
+                    continue
+                pct = parse_ffmpeg_progress_line(line, duration_s)
+                if pct is not None and pct != last_pct:
+                    last_pct = pct
+                    self.signals.progress.emit(pct, 100)
+            if proc.returncode != 0:
+                errf.seek(0)
+                tail = errf.read()[-2000:]
+                raise RuntimeError(
+                    f"FFmpeg failed with return code {proc.returncode}\n{tail}"
+                )
 
     def _get_keep_regions(self, t_start: float, t_end: float):
         if not self.cuts_ms:
@@ -141,8 +229,7 @@ class VideoExtractionWorker(QRunnable):
 
                 # Codecs and Audio
                 cmd.extend(["-c:v", "libx264", "-movflags", "+faststart"])
-                if self.encoder_threads > 0:
-                    cmd.extend(["-threads", str(self.encoder_threads)])
+                cmd.extend(["-threads", str(_ffmpeg_thread_count(self.encoder_threads))])
 
                 if self.mute_audio:
                     cmd.append("-an")
@@ -175,43 +262,18 @@ class VideoExtractionWorker(QRunnable):
 
                 cmd.extend(["-t", str(duration)])
                 cmd.append("-shortest")
+                cmd.extend(["-progress", "pipe:1", "-nostats", "-loglevel", "error"])
                 cmd.append(self.output_path)
 
                 print(f"FFmpeg Video CMD: {cmd}")
 
                 self.signals.progress.emit(0, 100)
-                # Run command. Issue #81 crash family: serialize the ffmpeg
-                # fork against the process's first QMediaPlayer construction
-                # (this worker runs on a QThread, concurrently with the user
-                # possibly opening a video for playback). Guard only the
-                # fork, not the streaming read loop.
-                from gui.src.helpers.video.video_thumbnailer import media_backend_spawn_guard
-
-                with media_backend_spawn_guard():
-                    process = subprocess.Popen(
-                        cmd,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.PIPE,
-                        stdin=subprocess.DEVNULL,
-                        text=True,
-                    )
-
-                while process.poll() is None:
-                    if self._is_cancelled:
-                        process.terminate()
-                        self.signals.error.emit("Extraction cancelled by user.")
-                        return
-                    import time
-                    time.sleep(0.5)
-
-                if process.returncode != 0:
-                    raise RuntimeError(
-                        f"FFmpeg failed with return code {process.returncode}\n{process.stderr.read()}" # pyrefly: ignore [missing-attribute]
-                    )
-
+                self._run_ffmpeg(cmd, duration)
                 self.signals.progress.emit(100, 100)
                 self.signals.finished.emit(self.output_path)
 
+            except _Cancelled:
+                self.signals.error.emit("Extraction cancelled by user.")
             except Exception as e:
                 self.signals.error.emit(f"FFmpeg Error: {str(e)}")
             return
@@ -278,8 +340,7 @@ class VideoExtractionWorker(QRunnable):
                 "verbose": False,
                 "logger": None,
             }
-            if self.encoder_threads > 0:
-                write_kwargs["threads"] = self.encoder_threads
+            write_kwargs["threads"] = _ffmpeg_thread_count(self.encoder_threads)
             if self.fps_clamp > 0 and getattr(clip, "fps", None) and clip.fps > self.fps_clamp:
                 write_kwargs["fps"] = self.fps_clamp
             clip.write_videofile(

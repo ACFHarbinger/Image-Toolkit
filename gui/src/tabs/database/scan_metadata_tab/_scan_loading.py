@@ -12,6 +12,7 @@ from pathlib import Path
 from PySide6.QtCore import QEventLoop, QTimer, Slot
 from PySide6.QtWidgets import QFileDialog
 
+from gui.src.constants.ui import DIALOG_OPTS
 from gui.src.helpers import ImageScannerWorker
 
 from ....utils.sort_utils import natural_sort_key
@@ -63,7 +64,9 @@ class _ScanLoadingMixin:
     def browse_scan_directory(self):
         start_dir = self.last_browsed_scan_dir
         options = (
-            QFileDialog.Option.ShowDirsOnly | QFileDialog.Option.DontResolveSymlinks
+            DIALOG_OPTS
+            | QFileDialog.Option.ShowDirsOnly
+            | QFileDialog.Option.DontResolveSymlinks
         )
         directory = QFileDialog.getExistingDirectory(
             self, "Select directory to scan", start_dir, options

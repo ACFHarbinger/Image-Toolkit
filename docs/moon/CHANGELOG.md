@@ -1,3 +1,18 @@
+# S484 — 2026-08-31 (Grok: database-tab #478 sweep + #484 video ffmpeg)
+
+- Database-tab crash-pattern sweep (`data_browser` / `scan_metadata` /
+  `search` / `entity_listings` / `database_tab`): Search/semantic/upsert/
+  backup workers already `#480`-guarded; no `QThread.terminate()`; no
+  off-thread widgets. `ImageScannerWorker.run` now `@gc_disabled_run`
+  (large path-list emit). Scan & Tag browse passes `DIALOG_OPTS`.
+  Embedding backfill workers left for `#481`. Report:
+  `.agent/reports/grok/db_tabs_478_sweep_2026-08-31.md`.
+- #484 video extractor: same stderr-PIPE deadlock fix as GIF, `-threads`
+  cap, `-progress pipe:1` parse. Tests 7 in
+  `gui/test/core/test_video_worker_resource.py`.
+
+---
+
 # S483 — 2026-08-31 (DeepSeek/flash: #476 frozen-bundle path-assumption audit)
 
 - Swept `backend/` + `gui/` for `__file__`/repo-root/`ROOT_DIR` path

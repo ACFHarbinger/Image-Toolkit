@@ -8,12 +8,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- Extractor video export (#484): ffmpeg no longer deadlocks on a full
+  `stderr=PIPE` (~64 KB buffer) — stderr goes to a temp file with
+  `-loglevel error -nostats`; stdout is drained for `-progress pipe:1`
+  (`out_time_us`) so the bar actually moves. Encoder `-threads` is always
+  passed and capped (`0`/Auto → `min(4, CPUs)`; explicit values never
+  exceed CPU count). `gui/src/helpers/video/video_extractor_worker.py`,
+  tests `gui/test/core/test_video_worker_resource.py`.
 - Extractor GIF export: two-pass ffmpeg palette (`palettegen` to a temp PNG, then `paletteuse`) instead of the single-pass `split[s0][s1]…palettegen…paletteuse`, which buffered the entire scaled frame stream in RAM — O(1) frame memory now. Fixed a hang on long encodes (`stderr=PIPE` was never drained until exit, so a full ~64 KB pipe buffer blocked ffmpeg forever) by sending stderr to a temp file with `-loglevel error -nostats`. MoviePy fallback now `.close()`s its clips (leaked an ffmpeg reader subprocess + fd per GIF). `gui/src/helpers/video/gif_extractor_worker.py`, `gui/test/core/test_gif_worker_resource.py`.
 - Extractor encoder preferences (#484): added settings controls in Settings ▸ Display & Media for FFmpeg encoder thread limit (`extractor_encoder_threads`, 0=Auto), GIF max palette colors (`extractor_gif_max_colors`, 16-256), and maximum export framerate clamp (`extractor_fps_clamp`, 0=Unclamped). Plumbed through `VideoExtractorSubTab` to all extraction workers (`FrameExtractionWorker`, `VideoExtractionWorker`, `GifCreationWorker`, and `QueueExecutionWorker`) across direct execution, queue processing, and MoviePy fallback passes. Unit tests in `gui/test/helpers/test_extractor_encoder_plumbing.py` and `gui/test/windows/settings/test_settings_window.py`.
 - Extractor tab: right-click a **Recent Extractions** dropdown entry to add just that one to the queue, load only its config, or delete it from the history. Plus **"Add Recent to Queue"** — a spinbox + button next to the Recent Extractions dropdown that appends the N most recent extraction configurations to the extraction queue in one action (skips entries whose source video no longer exists; enabled only when the Extraction Queue is on). `gui/src/tabs/core/extractor_tab/{_extraction_panel_ui,_video_session_history}.py`, test `gui/test/core/test_recent_extractions_to_queue.py`.
 - Docs stubs: `DEVELOPMENT.md`, `SECURITY.md`, `TESTING.md`, `GLOSSARY.md`, this changelog.
 - Agent coordination for docs/website migration under `.agent/cache/AGENT_BUS.md` and `.agent/reports/grok/`.
 - First-run PostgreSQL + pgvector prerequisite check and UX (#477): added non-blocking `gui/src/helpers/database/postgres_check.py` reachability diagnostics (`check_postgres_reachability()`, `show_postgres_status_dialog()`), parsing `DATABASE_URL` and `POSTGRES_*`/`DB_*` env variables with clean error handling pointing to `INSTALL.md` rather than raw stack traces. Added a dedicated "Check PostgreSQL" button in `DatabaseTab` connection section and test suite in `gui/test/database/test_postgres_check.py`.
+
+### Fixed
+
+- Scan & Tag `ImageScannerWorker` now runs under `@gc_disabled_run` (large
+  path-list emit on a QThread, same cyclic-GC class as #478). Browse dialog
+  passes `DontUseNativeDialog`. Database-tab sweep:
+  `.agent/reports/grok/db_tabs_478_sweep_2026-08-31.md`.
 
 ### Planned (tracked)
 
