@@ -14,6 +14,12 @@ else:
 if repo_root not in sys.path:
     sys.path.insert(0, repo_root)
 
+# --version/--help must run before submodule bootstrap, Qt, or launch_app
+# (#475). Path insert above is enough for backend.src._version.
+from gui._cli import handle_cli_flags  # noqa: E402
+
+handle_cli_flags()
+
 from git.scripts._submodule_bootstrap import register_submodule_packages  # noqa: E402
 
 register_submodule_packages(repo_root)

@@ -1,3 +1,13 @@
+# S482 — 2026-08-31 (Grok: #475 frozen entry --version/--help)
+
+- `gui/__main__.py` short-circuits `-v`/`--version` and `-h`/`--help` after
+  the `_MEIPASS` path insert and before submodule bootstrap / Qt /
+  `launch_app`. Version comes from `backend.src._version`.
+- `gui._cli` is a hidden import in `ImageToolkit.spec`. Tests:
+  `gui/test/windows/test_gui_cli.py` (unit + subprocess of the entry script).
+
+---
+
 # S481 — 2026-08-31 (OpenCode/GLM 5.3: #480 reusable GC guard for worker threads)
 
 - `gui/src/helpers/gc_safe.py` (new): `gc_disabled()` context manager,
