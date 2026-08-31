@@ -94,6 +94,12 @@ if __name__ == "__main__":
     sys.excepthook = log_uncaught_exceptions
 
     # Check if CLI arguments are provided
+    if len(sys.argv) > 1 and sys.argv[1] in ("-v", "--version"):
+        from backend.src._version import __version__
+
+        print(f"Image Toolkit {__version__}")
+        sys.exit(0)
+
     if len(sys.argv) > 1:
         # If the first argument is a flag, default to 'gui' command
         if sys.argv[1].startswith("-") and sys.argv[1] not in ["-h", "--help"]:
