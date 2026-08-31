@@ -874,6 +874,12 @@ that dispatches one extraction config to the Cloud Run worker, uploads the
 source video (or a signed URL), downloads the produced frames, and records one
 usage row the Dashboards tab reads. No GPU, one provider, one request type.
 
+**Worker foundation (issue #491, implemented):** `infra/cloud/gcd/worker/`
+provides the slim FFmpeg-only Cloud Run image and `POST /jobs` endpoint. It
+accepts a `gs://` range/GIF/video job, uploads outputs plus `usage.json` to
+`RESULTS_BUCKET`, and keeps each FFmpeg phase within the service request
+budget. Desktop dispatch and result download remain part of the PoC scope.
+
 **Security:** provider credentials via `VaultManager` (never in configs — the
 `infra/` files use env/secret placeholders); the source-video upload path
 warns before anything leaves the machine (same rule as §4.20).
