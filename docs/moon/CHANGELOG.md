@@ -1,3 +1,30 @@
+# S480 — 2026-08-31 (v1.0.0 shipped — Linux desktop; packaging bugs fixed)
+
+- `just release::bump 1.0.0` across all version sources + `uv.lock`; tag
+  `v1.0.0` → `release.yml` builds a draft GitHub Release (AppImage 858 MB,
+  `.deb` 959 MB, `SHA256SUMS.txt`).
+- Git: local `main` (pre-blob-strip rewrite, 6 days ahead, 118.7 MB of
+  `locked_renderer_exports*` PNG bundles removed) force-pushed to `origin`;
+  ASP submodule fast-forwarded to its own origin so `--recursive` clone /
+  CI checkout resolve.
+- Scope: **Linux only for 1.0.0**. Native Windows deferred to v1.1 (#471) —
+  `pixi.toml` solves `linux-64` only, no C++ toolchain path for the `base`
+  extension on Windows.
+- `release.yml` Linux native build moved from apt+uv to `setup-pixi` +
+  `pixi run build-base` (apt OpenCV is 4.5.4; `base/CMakeLists.txt` needs
+  ≥ 4.6; pixi pins ≥ 4.8).
+- Four frozen-bundle launch bugs found in smoke-testing and fixed before
+  publish: system-vs-conda OpenSSL mismatch (`cv2` import crash via
+  `libs2n`); missing `imageio`/`moviepy` dist metadata; `asp_backend`
+  bootstrap ordered after the first `backend.src` import in `gui/__main__.py`;
+  73 `.qml` / 11 `.qss` / config resources unbundled. Local `pixi run
+  pyinstaller` onedir now boots to the login window; CI AppImage verified.
+- Follow-ups filed: #472 (ASP `no_valid_edges` recovery), #473 (Phase 0.1
+  rating pass), #474 (Overmix comparator regen), #475/#476/#477 (frozen
+  entry `--version`, path-assumption audit, first-run Postgres UX).
+
+---
+
 # S479 — 2026-08-31 (WS-E: release checklist, 1.0.0 changelog skeleton, README install)
 
 - `docs/RELEASE_CHECKLIST.md` (new): Coding-Assistants shape adapted —
