@@ -46,9 +46,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
   is initialized before preferences run, so it cannot be orphaned and
   recreated. Regression test: `test_startup_does_not_create_a_tray_icon`.
 - Wallpaper virtual-gallery browsing warms every file with at most two
-  thumbnail decoders. Directory changes cancel queued thumbnail work before
-  replacing paths, preventing blank galleries and native-decoder bursts across
-  the linked System/Monitor panels.
+  thumbnail decoders. Directory changes cancel queued work before replacing
+  paths; the linked System/Monitor mirror now waits for the source scan and
+  thumbnail pool to settle, then reuses its shared thumbnail cache. This
+  removes concurrent native decoder bursts and keeps mouse-wheel scrolling
+  available while a thumbnail is dragged onto a monitor.
 
 - Scan & Tag `ImageScannerWorker` now runs under `@gc_disabled_run` (large
   path-list emit on a QThread, same cyclic-GC class as #478). Browse dialog

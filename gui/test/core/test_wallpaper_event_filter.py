@@ -11,8 +11,9 @@ first sign of a dead wrapper.
 from __future__ import annotations
 
 import pytest
-from PySide6.QtCore import QEvent, QObject
-from PySide6.QtWidgets import QWidget
+from PySide6.QtCore import QEvent, QObject, QPoint, QPointF, Qt
+from PySide6.QtGui import QWheelEvent
+from PySide6.QtWidgets import QScrollArea, QWidget
 
 from gui.src.tabs.core.wallpaper_tab.common.wallpaper_common_base._event_filter import (
     _EventFilterMixin,
@@ -33,6 +34,20 @@ class _StaleFilter(_EventFilterMixin, QWidget):
         if self._raise_on_visible:
             raise RuntimeError("Internal C++ object (_StaleFilter) already deleted.")
         return super().isVisible()
+
+
+class _DragWheelFilter(_EventFilterMixin, QWidget):
+    """Visible wallpaper stand-in with a scrollable monitor area."""
+
+    def __init__(self):
+        super().__init__()
+        self._filtering_event = False
+        self.resize(200, 200)
+        self.main_scroll_area = QScrollArea(self)
+        self.main_scroll_area.resize(200, 200)
+        content = QWidget()
+        content.setMinimumHeight(1_000)
+        self.main_scroll_area.setWidget(content)
 
 
 def test_event_filter_evicts_itself_when_self_is_dead(q_app):
@@ -64,4 +79,35 @@ def test_event_filter_passthrough_when_alive_and_hidden(q_app):
         # Hidden but alive: quiet no-op passthrough, no exception, returns False.
         assert flt.eventFilter(probe, ev) is False
     finally:
+        flt.deleteLater()
+
+
+def test_native_thumbnail_drag_keeps_wheel_scrolling_enabled(q_app, monkeypatch):
+    flt = _DragWheelFilter()
+    flt.show()
+    q_app.processEvents()
+    try:
+        bar = flt.main_scroll_area.verticalScrollBar()
+        assert bar.maximum() > 0
+        q_app.setProperty("image_toolkit_drag_scroll_active", True)
+        monkeypatch.setattr(
+            "gui.src.tabs.core.wallpaper_tab.common.wallpaper_common_base._event_filter.QCursor.pos",
+            lambda: flt.mapToGlobal(QPoint(50, 50)),
+        )
+        wheel = QWheelEvent(
+            QPointF(50, 50),
+            QPointF(flt.mapToGlobal(QPoint(50, 50))),
+            QPoint(),
+            QPoint(0, -120),
+            Qt.MouseButton.NoButton,
+            Qt.KeyboardModifier.NoModifier,
+            Qt.ScrollPhase.ScrollUpdate,
+            False,
+        )
+
+        assert flt.eventFilter(QObject(), wheel) is True
+        assert bar.value() > 0
+    finally:
+        q_app.setProperty("image_toolkit_drag_scroll_active", None)
+        flt.close()
         flt.deleteLater()

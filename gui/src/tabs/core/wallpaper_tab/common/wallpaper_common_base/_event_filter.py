@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 
 
 class _EventFilterMixin:
-    """Drag-near-edge autoscroll and Left-drag wheel scrolling of the gallery."""
+    """Drag-near-edge autoscroll and drag-wheel scrolling of the gallery."""
 
     def _handle_autoscroll(self: "WallpaperCommonBaseHostProtocol", global_pos: QPoint):
         if not cast(QWidget, self).isVisible():
@@ -78,7 +78,15 @@ class _EventFilterMixin:
 
             et = event.type()
             if et == QEvent.Type.Wheel:
-                if QApplication.mouseButtons() & Qt.MouseButton.LeftButton:
+                app = QApplication.instance()
+                native_drag_active = bool(
+                    app is not None
+                    and app.property("image_toolkit_drag_scroll_active")
+                )
+                if (
+                    QApplication.mouseButtons() & Qt.MouseButton.LeftButton
+                    or native_drag_active
+                ):
                     global_pos = QCursor.pos()
                     if widget.rect().contains(widget.mapFromGlobal(global_pos)):
                         scroll_area = getattr(self, "main_scroll_area", None)

@@ -164,7 +164,12 @@ class _LoadingPipelineMixin:
                         LRU_CACHE_CEILING,
                     )
                 )
-            self._initial_pixmap_cache.clear()
+            # VirtualGallery owns a bounded cache shared by Wallpaper's two
+            # linked panels. Retaining it lets the mirror reuse thumbnails
+            # after the primary panel has settled instead of decoding every
+            # file a second time.
+            if not hasattr(self, "gallery"):
+                self._initial_pixmap_cache.clear()
             if pixmap_cache:
                 for k, v in pixmap_cache.items():
                     self._initial_pixmap_cache[k] = v

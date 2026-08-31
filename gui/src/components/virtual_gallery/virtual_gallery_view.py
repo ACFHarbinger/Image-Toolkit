@@ -36,7 +36,7 @@ from PySide6.QtCore import (
     Signal,
 )
 from PySide6.QtGui import QDrag, QMouseEvent, QPixmap, QWheelEvent
-from PySide6.QtWidgets import QAbstractItemView, QListView
+from PySide6.QtWidgets import QAbstractItemView, QApplication, QListView
 
 from .delegate import VirtualGalleryDelegate
 
@@ -335,7 +335,25 @@ class VirtualGalleryView(QListView):
             )
             drag.setPixmap(pm)
             drag.setHotSpot(QPoint(pm.width() // 2, pm.height() // 2))
-        drag.exec(Qt.DropAction.CopyAction | Qt.DropAction.MoveAction)
+        # Qt releases the source widget's left-button state while a native
+        # drag is active. Tell Wallpaper's application event filter that a
+        # drag is nevertheless in progress so its scroll area can still
+        # consume wheel events while the pointer is over a monitor target.
+        application = QApplication.instance()
+        previous_drag_scroll = (
+            application.property("image_toolkit_drag_scroll_active")
+            if application is not None
+            else None
+        )
+        if application is not None:
+            application.setProperty("image_toolkit_drag_scroll_active", True)
+        try:
+            drag.exec(Qt.DropAction.CopyAction | Qt.DropAction.MoveAction)
+        finally:
+            if application is not None:
+                application.setProperty(
+                    "image_toolkit_drag_scroll_active", previous_drag_scroll
+                )
         # QDrag.exec() runs a nested loop and swallows the mouse-release the
         # QListView was waiting on, so the view is left mid-press — the next
         # move would paint a rubber-band marquee. Mirror QAbstractItemView::

@@ -144,7 +144,11 @@ class WallpaperCommonBase(
                 return VideoLoaderWorker(path, target_size)
             return ImageLoaderWorker(path, target_size)
 
-        gallery = VirtualGallery(self, worker_factory=_gallery_worker)
+        gallery = VirtualGallery(
+            self,
+            shared_cache=self._initial_pixmap_cache,
+            worker_factory=_gallery_worker,
+        )
         gallery.setMinimumHeight(600)
         gallery.path_clicked.connect(self.toggle_selection)
         gallery.path_activated.connect(self.handle_thumbnail_double_click)

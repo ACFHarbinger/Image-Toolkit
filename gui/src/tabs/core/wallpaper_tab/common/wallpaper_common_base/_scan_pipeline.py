@@ -150,6 +150,11 @@ class _ScanPipelineMixin:
             return
 
         self._scan_pipeline_busy = True
+        # Mirror the directory only after image/video enumeration and the
+        # virtual-gallery thumbnail pool have settled. Emitting here used to
+        # start the linked panel's scanner while this panel was already in its
+        # video-scan phase.
+        self._emit_directory_scanned_on_settle = emit_signal
         QTimer.singleShot(10_000, self._scan_pipeline_watchdog)
 
         # Stop and drain scanner threads on THIS instance and every linked
@@ -197,12 +202,8 @@ class _ScanPipelineMixin:
         if path_edit is not None:
             path_edit.setText(directory)
 
-        if emit_signal:
-            self.directory_scanned.emit(directory)
-
         self.clear_gallery_widgets()
         self.path_to_label_map.clear()
-        self._initial_pixmap_cache.clear()
         self.cancel_loading()
         self.gallery_image_paths = []
         # Unconditional reset (Addendum 25): previously only reset via the
@@ -426,8 +427,17 @@ class _ScanPipelineMixin:
         if thread_pool is not None and thread_pool.activeThreadCount() > 0:
             QTimer.singleShot(25, self._settle_scan_pipeline)
             return
+        gallery_model = getattr(getattr(self, "gallery", None), "model", None)
+        gallery_pool = getattr(gallery_model, "thread_pool", None)
+        if gallery_pool is not None and gallery_pool.activeThreadCount() > 0:
+            QTimer.singleShot(25, self._settle_scan_pipeline)
+            return
 
         self._scan_pipeline_busy = False
+        should_mirror = getattr(self, "_emit_directory_scanned_on_settle", False)
+        self._emit_directory_scanned_on_settle = False
+        if should_mirror and self.scanned_dir:
+            self.directory_scanned.emit(self.scanned_dir)
         pending = getattr(self, "_pending_scan_request", None)
         if pending is not None:
             self._pending_scan_request = None
