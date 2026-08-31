@@ -1,5 +1,8 @@
+import atexit
+import contextlib
 import logging
 import logging.handlers
+import os
 import signal
 import sys
 import threading
@@ -151,6 +154,76 @@ def log_uncaught_exceptions(ex_type, ex_value, ex_traceback):
     sys.__excepthook__(ex_type, ex_value, ex_traceback)
 
 
+def _reap_child_processes() -> None:
+    """Terminate, then kill, every descendant process (ffmpeg / multiprocessing
+    workers / daemons). Left unreaped, they orphan on exit and keep the tray
+    icon + Wayland connection alive after the main window is gone."""
+    try:
+        import psutil
+
+        kids = psutil.Process().children(recursive=True)
+    except Exception:
+        return
+    for c in kids:
+        with contextlib.suppress(Exception):
+            c.terminate()
+    with contextlib.suppress(Exception):
+        _gone, alive = psutil.wait_procs(kids, timeout=2)
+        for c in alive:
+            with contextlib.suppress(Exception):
+                c.kill()
+
+
+def _hard_exit(code: int = 1) -> None:
+    """Reap children then os._exit — skips atexit / Qt teardown that may hang."""
+    _reap_child_processes()
+    os._exit(code)
+
+
+def _install_shutdown_handlers(app, get_active_window) -> None:
+    """Idempotent SIGINT/SIGTERM handling with a hard-exit watchdog.
+
+    Fixes the zombie-after-SIGTERM state (OS shutdown, OOM-killer hitting a
+    child, `just` teardown): the old handler re-entered on a second signal and
+    ran a *second* graceful closeEvent, its watchdog used `sys.exit(1)` from a
+    timer thread (which only ends that thread, never the process), and nobody
+    reaped the child tree — so icons stayed and the launching terminal was
+    left unusable.
+    """
+    state = {"count": 0}
+
+    atexit.register(_reap_child_processes)
+    with contextlib.suppress(Exception):
+        app.aboutToQuit.connect(_reap_child_processes)
+
+    def handle_interrupt(signum, _frame):
+        state["count"] += 1
+        try:
+            sig_name = signal.Signals(signum).name
+        except Exception:
+            sig_name = str(signum)
+
+        if state["count"] >= 2:
+            print(f"\n{sig_name} again — forcing exit.", flush=True)
+            _hard_exit()
+            return
+
+        print(f"\n{sig_name} received - closing application...", flush=True)
+        # Arm the hard watchdog BEFORE any teardown, so a wedged closeEvent or
+        # stuck worker can't keep the process alive past CTRL_C_TIMEOUT.
+        t = threading.Timer(CTRL_C_TIMEOUT, _hard_exit)
+        t.daemon = True
+        t.start()
+        with contextlib.suppress(Exception):
+            win = get_active_window()
+            if win is not None:
+                win.close()
+        app.quit()
+
+    signal.signal(signal.SIGINT, handle_interrupt)
+    signal.signal(signal.SIGTERM, handle_interrupt)
+
+
 def launch_app(opts):
     _setup_logging(log_level=logging.DEBUG if getattr(opts, "verbose", False) else logging.INFO)
     sys.excepthook = log_uncaught_exceptions
@@ -168,24 +241,7 @@ def launch_app(opts):
     active_window = None
     main_window_launch_pending = False
 
-    # Create a custom signal handler that works with Qt
-    def handle_interrupt(signum, frame):
-        """Handle Ctrl+C and Termination signals by gracefully closing the application"""
-        sig_name = "SIGTERM" if signum == signal.SIGTERM else "SIGINT"
-        print(f"\n{sig_name} received - closing application...")
-        if active_window is not None:
-            # This triggers the closeEvent, which handles VaultManager shutdown
-            active_window.close()
-        app.quit()
-
-        # Force exit if app doesn't quit quickly (e.g., stuck thread)
-        t = threading.Timer(CTRL_C_TIMEOUT, lambda: sys.exit(1))
-        t.daemon = True
-        t.start()
-
-    # Set up signal handlers
-    signal.signal(signal.SIGINT, handle_interrupt)
-    signal.signal(signal.SIGTERM, handle_interrupt)
+    _install_shutdown_handlers(app, lambda: active_window)
 
     interpreter_timer = QTimer(app)
     interpreter_timer.start(100)
