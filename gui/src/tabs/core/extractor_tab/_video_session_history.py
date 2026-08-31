@@ -417,12 +417,15 @@ class _VideoSessionHistoryMixin:
         self.combo_recent_extractions.clear()
         self.combo_recent_extractions.addItem("Select a previous configuration...")
 
-        for run in self.recent_runs:
+        # recent_runs is newest-first, so #1 = most recent. "Add Recent to
+        # Queue" with a given N loads #1..#N.
+        for idx, run in enumerate(self.recent_runs, start=1):
             video_path = run.get("video_path", "")
             video_name = Path(video_path).name if video_path else "Unknown Video"
             start_ms = run.get("start_ms", 0)
             end_ms = run.get("end_ms", 0)
             engine = run.get("engine", "FFmpeg")
+            mode = str(run.get("mode") or run.get("type") or "range").upper()
 
             # Format timestamp nicely
             ts = run.get("timestamp", 0)
@@ -433,7 +436,10 @@ class _VideoSessionHistoryMixin:
             start_str = self._format_time(start_ms)
             end_str = self._format_time(end_ms)
 
-            label = f"[{ts_str}] {video_name} ({start_str} - {end_str}) [{engine}]"
+            label = (
+                f"#{idx}  [{ts_str}] {video_name} "
+                f"({start_str} - {end_str}) [{mode} · {engine}]"
+            )
             # Set the metadata dictionary as the item data!
             self.combo_recent_extractions.addItem(label, run)
 
@@ -457,6 +463,11 @@ class _VideoSessionHistoryMixin:
             spin.setMaximum(max(1, n_runs))
             if spin.value() == 1 and n_runs:
                 spin.setValue(min(5, n_runs))
+            n = spin.value()
+            spin.setToolTip(
+                f"Add the N most recent extractions to the queue "
+                f"(loads #1{f'–#{n}' if n > 1 else ''})"
+            )
         btn = getattr(self, "btn_add_recent_to_queue", None)
         if btn is not None:
             queue_on = getattr(self, "extraction_queue_enabled", False)
@@ -481,8 +492,14 @@ class _VideoSessionHistoryMixin:
                 target_res = None
         start_ms = int(run.get("start_ms", 0) or 0)
         end_ms = int(run.get("end_ms", 0) or 0)
+        # Preserve the original extraction mode (gif / video / range / single).
+        # Older history entries predate the `mode` key — fall back to the
+        # start==end heuristic only then.
+        mode = str(run.get("mode") or run.get("type") or "").lower()
+        _heuristic = "single" if start_ms == end_ms else "range"
+        qtype = mode if mode in ("gif", "video", "single", "range") else _heuristic
         return {
-            "type": "single" if start_ms == end_ms else "range",
+            "type": qtype,
             "video_path": run.get("video_path", ""),
             "start_ms": start_ms,
             "end_ms": end_ms,

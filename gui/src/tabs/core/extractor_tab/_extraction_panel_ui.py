@@ -62,6 +62,9 @@ class _ExtractionPanelUIMixin:
         self.spin_recent_to_queue_n.setToolTip(
             "How many of the most recent extractions to add to the queue"
         )
+        self.spin_recent_to_queue_n.valueChanged.connect(
+            lambda _v: self._refresh_recent_to_queue_controls()
+        )
         recent_layout.addWidget(self.spin_recent_to_queue_n)
 
         self.btn_add_recent_to_queue = QPushButton("➕ Add Recent to Queue")

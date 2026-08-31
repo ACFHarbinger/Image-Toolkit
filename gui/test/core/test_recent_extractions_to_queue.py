@@ -54,3 +54,21 @@ def test_bad_output_size_falls_back_to_none():
         {"video_path": "x", "output_size": "garbage", "start_ms": 0, "end_ms": 1}
     )
     assert cfg["target_resolution"] is None
+
+
+def test_mode_is_preserved():
+    for mode, expect in [("gif", "gif"), ("video", "video"), ("range", "range"),
+                         ("single", "single")]:
+        cfg = _Host()._recent_run_to_queue_config(
+            {"video_path": "x", "start_ms": 100, "end_ms": 900, "mode": mode}
+        )
+        assert cfg["type"] == expect, (mode, cfg["type"])
+
+
+def test_missing_mode_falls_back_to_start_end_heuristic():
+    assert _Host()._recent_run_to_queue_config(
+        {"video_path": "x", "start_ms": 5, "end_ms": 5}
+    )["type"] == "single"
+    assert _Host()._recent_run_to_queue_config(
+        {"video_path": "x", "start_ms": 5, "end_ms": 50}
+    )["type"] == "range"
