@@ -225,6 +225,12 @@ def test_decoration_request_is_lazy():
     assert model._loading == {"/p/0000.png", "/p/0005.png"}
 
 
+def test_default_model_uses_viewport_driven_loading():
+    model = VirtualGalleryModel(worker_factory=_FakeLoaderWorker)
+    model.set_paths(["/a.png", "/b.png"])
+    assert model._loading == set()
+
+
 def test_set_paths_eagerly_fills_all_rows():
     """The default fill mode pre-loads every row on set_paths (no scroll /
     decoration request needed) so images are cached before the user scrolls."""

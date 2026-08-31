@@ -58,7 +58,7 @@ class VirtualGalleryModel(QAbstractListModel):
         cache_maxsize: int = 300,
         worker_factory=None,
         shared_cache: Optional[LRUImageCache] = None,
-        fill_mode: bool = True,
+        fill_mode: bool = False,
         fill_limit: Optional[int] = None,
     ):
         super().__init__(parent)
@@ -72,15 +72,14 @@ class VirtualGalleryModel(QAbstractListModel):
         self._active_workers: set = set()
         self._generation: int = 0
 
-        # Eager background fill: when the item list changes, start loading
-        # thumbnails continuously (top-to-bottom) so images are already in the
-        # cache by the time the user scrolls to them, instead of only loading
-        # the visible viewport ± buffer on scroll. The chained dispatch keeps
-        # only ``_fill_max_in_flight`` workers alive at once (bounded memory)
-        # and the LRU cache bounds retained RAM.
+        # Optional background fill. Wallpaper used to fill every row in both
+        # linked panels immediately, which made a directory browse launch
+        # dozens of native decodes before a single thumbnail was visible.
+        # The normal path is viewport-prefetch; callers that genuinely need
+        # eager warming can still opt in.
         self.fill_mode = bool(fill_mode)
         self.fill_limit = fill_limit
-        self._fill_max_in_flight = 4
+        self._fill_max_in_flight = 2
         self._fill_queue: deque = deque()
 
         self.thumbnail_size: int = 180
@@ -92,10 +91,11 @@ class VirtualGalleryModel(QAbstractListModel):
 
             worker_factory = ImageLoaderWorker
         self.worker_factory = worker_factory
-        # Dedicated per-model pool, capped like AbstractGalleryBase's (a
-        # gallery per tab must not spawn N * cpu_count threads).
+        # A virtual gallery can have many rows but only a small visible
+        # surface. Two decoders keep scrolling responsive without competing
+        # native image libraries across linked wallpaper panels.
         self.thread_pool = QThreadPool()
-        self.thread_pool.setMaxThreadCount(max(2, min(8, os.cpu_count() or 4)))
+        self.thread_pool.setMaxThreadCount(2)
 
         self._placeholder_pixmap: Optional[QPixmap] = None
 
@@ -106,6 +106,7 @@ class VirtualGalleryModel(QAbstractListModel):
     def set_paths(self, paths) -> None:
         """Replace the whole item list. In-flight loads become stale."""
         self._generation += 1
+        self._cancel_workers()
         self.beginResetModel()
         self._paths = list(paths)
         self._loading.clear()
@@ -284,10 +285,19 @@ class VirtualGalleryModel(QAbstractListModel):
         """Drop all queued/in-flight loads. Workers already on the pool finish
         but their results are rejected as stale via the generation check."""
         self._generation += 1
+        self._cancel_workers()
         self._loading.clear()
         self._failed.clear()
-        self._active_workers.clear()
         self._fill_queue.clear()
+
+    def _cancel_workers(self) -> None:
+        """Stop active work and remove queued work before a directory swap."""
+        for worker in list(self._active_workers):
+            stop = getattr(worker, "stop", None)
+            if callable(stop):
+                stop()
+        self.thread_pool.clear()
+        self._active_workers.clear()
 
     def prefetch(self, path: str) -> None:
         """Schedule a background thumbnail load for *path* if it isn't cached,

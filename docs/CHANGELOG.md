@@ -45,6 +45,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
   first background close (avoiding the known pre-show Qt crash); its reference
   is initialized before preferences run, so it cannot be orphaned and
   recreated. Regression test: `test_startup_does_not_create_a_tray_icon`.
+- Wallpaper virtual-gallery browsing is now viewport-driven and capped at two
+  thumbnail decoders. Directory changes cancel queued thumbnail work before
+  replacing paths, preventing blank galleries and native-decoder bursts across
+  the linked System/Monitor panels.
 
 - Scan & Tag `ImageScannerWorker` now runs under `@gc_disabled_run` (large
   path-list emit on a QThread, same cyclic-GC class as #478). Browse dialog
