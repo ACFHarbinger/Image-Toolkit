@@ -135,6 +135,15 @@ class _SlideshowDaemonMixin:
                 cast(QWidget, self), "Error", f"Failed to write daemon config: {e}")
             return
 
+        if getattr(sys, "frozen", False):
+            QMessageBox.critical(
+                cast(QWidget, self), "Unavailable in packaged build",
+                "The slideshow daemon is a separate Python process and is "
+                "not supported in the packaged app. Run from a source "
+                "checkout to use it.",
+            )
+            return
+
         script_path = ROOT_DIR / "backend" / "src" / "utils" / "display" / "monitor_slideshow_daemon.py"
         if not script_path.exists():
             QMessageBox.critical(

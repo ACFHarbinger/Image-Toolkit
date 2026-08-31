@@ -325,6 +325,15 @@ class LoRATrainTab(BaseGenerativeTab):
         self.update_status_signal.emit(
             f"Launching LyCORIS ({engine}) training via anime_training_pipeline..."
         )
+        if getattr(sys, "frozen", False):
+            self.update_status_signal.emit(
+                "Error: LyCORIS training spawns the source checkout's Hydra "
+                "dispatcher and is not available in the packaged build."
+            )
+            self.training_finished_signal.emit(
+                "error", "LyCORIS training requires a source checkout."
+            )
+            return
         cmd = [
             sys.executable,
             "-m",

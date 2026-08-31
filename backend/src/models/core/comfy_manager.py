@@ -87,6 +87,13 @@ class ComfyUIManager:
 
     def start(self, port: int = DEFAULT_PORT, enable_manager: bool = False) -> int:
         """Start the ComfyUI server and return the port it is listening on."""
+        if getattr(sys, "frozen", False) and not COMFYUI_DIR.is_dir():
+            raise RuntimeError(
+                "ComfyUI server launch needs a source checkout with ComfyUI "
+                f"at {COMFYUI_DIR}; not available in the packaged build. "
+                "Connect to an already-running ComfyUI server instead."
+            )
+
         if self.is_running:
             return self._port
 

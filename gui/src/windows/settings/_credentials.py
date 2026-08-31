@@ -11,7 +11,7 @@ import re
 import shutil
 from pathlib import Path
 
-from backend.src.constants import API_DIR, ROOT_DIR
+from backend.src.constants import API_DIR, IMAGE_TOOLKIT_DIR
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -281,7 +281,9 @@ class _CredentialsMixin:
             )
             return
 
-        backup_dir = ROOT_DIR / "backup"
+        # Never write into the bundle/repo root — a frozen install's ROOT_DIR
+        # is read-only or transient. User-data dir is writable everywhere.
+        backup_dir = Path(IMAGE_TOOLKIT_DIR) / "backup"
         try:
             backup_dir.mkdir(parents=True, exist_ok=True)
             exported_files = []

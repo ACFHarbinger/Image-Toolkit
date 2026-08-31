@@ -292,6 +292,14 @@ class _DaemonMixin:
             return
 
         if start:
+            if getattr(sys, "frozen", False):
+                QMessageBox.critical(
+                    cast(QWidget, self), "Unavailable in packaged build",
+                    "The wallpaper slideshow daemon is a separate Python "
+                    "process and is not supported in the packaged app. Run "
+                    "from a source checkout to use it.",
+                )
+                return
             script_path = self._get_daemon_script_path()
             if not os.path.exists(script_path):
                 QMessageBox.critical(
