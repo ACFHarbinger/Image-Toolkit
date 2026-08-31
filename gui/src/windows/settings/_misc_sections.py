@@ -5,6 +5,9 @@ Extracted from ``settings_window.py`` -- pure code motion, no logic change.
 
 from __future__ import annotations
 
+import os
+
+import psutil
 from backend.src.web.clients.mal_dispatcher import MAL_FETCH_METHODS
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -16,6 +19,10 @@ from PySide6.QtWidgets import (
     QSizePolicy,
     QSpinBox,
     QWidget,
+)
+
+from gui.src.components.widgets.resource_simulator_dashboard import (
+    ResourceSimulatorDashboard,
 )
 
 
@@ -87,6 +94,42 @@ class _MiscSectionsMixin:
         self.enable_queue_check.setChecked(self.pref_enable_extraction_queue)
         media_layout.addRow(self.enable_queue_check)
 
+        self.parallel_extraction_processors_spinbox = QSpinBox()
+        cpu_cap = max(1, os.cpu_count() or 1)
+        # Also cap by memory: each worker needs ~PER_WORKER_RAM_MIB, and we keep
+        # an OS/app reserve free (see #483 — the simulator used to green-light
+        # counts that OOM the machine).
+        try:
+            _mem = psutil.virtual_memory()
+            _rs = ResourceSimulatorDashboard
+            _reserve = max(_rs.OS_RESERVE_MIN_GIB * 1024**3, int(_mem.total * _rs.OS_RESERVE_FRACTION))
+            _per = _rs.PER_WORKER_RAM_MIB * 1024**2
+            mem_cap = max(1, int((_mem.available - _reserve - _rs.BASE_RAM_MIB * 1024**2) / _per))
+        except Exception:
+            mem_cap = cpu_cap
+        self.parallel_extraction_processors_spinbox.setRange(1, max(1, min(cpu_cap, mem_cap)))
+        self.parallel_extraction_processors_spinbox.setValue(
+            min(self.pref_parallel_extraction_processors, self.parallel_extraction_processors_spinbox.maximum())
+        )
+        self.parallel_extraction_processors_spinbox.setToolTip(
+            "Maximum processes used by parallel extraction queue execution.\n"
+            f"Capped to {min(cpu_cap, mem_cap)} here: {cpu_cap} CPU / {mem_cap} by free RAM."
+        )
+        media_layout.addRow(
+            "Parallel Queue Processors:", self.parallel_extraction_processors_spinbox
+        )
+
+        self.resource_simulator_dashboard = ResourceSimulatorDashboard()
+        self.parallel_extraction_resource_label = self.resource_simulator_dashboard.summary_label
+        media_layout.addRow(self.resource_simulator_dashboard)
+        self.enable_queue_check.toggled.connect(
+            lambda _enabled: self._update_parallel_extraction_resource_estimate()
+        )
+        self.parallel_extraction_processors_spinbox.valueChanged.connect(
+            lambda _value: self._update_parallel_extraction_resource_estimate()
+        )
+        self._update_parallel_extraction_resource_estimate()
+
         self.extractor_time_format_combo = QComboBox()
         self.extractor_time_format_combo.addItems(["h:m:s", "m:s:ms", "microseconds", "milliseconds"])
         self.extractor_time_format_combo.setCurrentText(self.pref_extractor_time_format)
@@ -96,6 +139,15 @@ class _MiscSectionsMixin:
         media_layout.addRow("Extractor Time Display Format:", self.extractor_time_format_combo)
 
         return media_groupbox
+
+    def _update_parallel_extraction_resource_estimate(self) -> None:
+        enabled = self.enable_queue_check.isChecked()
+        self.parallel_extraction_processors_spinbox.setEnabled(enabled)
+        workers = self.parallel_extraction_processors_spinbox.value()
+        self.resource_simulator_dashboard.update_simulation(
+            enabled=enabled,
+            workers=workers,
+        )
 
     def _build_mal_section(self) -> QGroupBox:
         mal_groupbox = QGroupBox("MyAnimeList Auto-Fill")
