@@ -1,6 +1,6 @@
 [project]
 name = "image-toolkit-workspace"
-version = "0.1.0"
+version = "1.0.0"
 description = "Root workspace manifest for Image-Toolkit. Python modules: backend/ (see backend/pyproject.toml), gui/ (see gui/pyproject.toml), and the submodules/CRE/ git submodule (see submodules/CRE/pyproject.toml)."
 readme = "README.md"
 requires-python = ">=3.11"

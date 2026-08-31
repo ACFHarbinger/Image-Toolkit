@@ -3258,7 +3258,7 @@ wheels = [
 
 [[package]]
 name = "image-toolkit-backend"
-version = "0.1.0"
+version = "1.0.0"
 source = { editable = "backend" }
 dependencies = [
     { name = "accelerate" },
@@ -3508,7 +3508,7 @@ docs = [
 
 [[package]]
 name = "image-toolkit-git"
-version = "0.1.0"
+version = "1.0.0"
 source = { editable = "git" }
 dependencies = [
     { name = "google-genai" },
@@ -3525,7 +3525,7 @@ requires-dist = [
 
 [[package]]
 name = "image-toolkit-gui"
-version = "0.1.0"
+version = "1.0.0"
 source = { editable = "gui" }
 dependencies = [
     { name = "comtypes" },
@@ -3575,7 +3575,7 @@ dev = [{ name = "pytest", specifier = ">=9.1.1" }]
 
 [[package]]
 name = "image-toolkit-workspace"
-version = "0.1.0"
+version = "1.0.0"
 source = { virtual = "." }
 
 [package.dev-dependencies]

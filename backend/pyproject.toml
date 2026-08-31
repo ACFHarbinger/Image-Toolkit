@@ -1,6 +1,6 @@
 [project]
 name = "image-toolkit-backend"
-version = "0.1.0"
+version = "1.0.0"
 description = "Image database and edit toolkit — Python backend package."
 requires-python = ">=3.11"
 

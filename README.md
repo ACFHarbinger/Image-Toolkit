@@ -457,10 +457,10 @@ python backend/src/utils/check_import_times.py
 
 ### Install from a Release (Desktop App)
 
-Prebuilt desktop bundles are published on the
+Prebuilt Linux desktop bundles are published on the
 [GitHub Releases](https://github.com/ACFHarbinger/Image-Toolkit/releases) page:
-a Linux **AppImage**, a **`.deb`** package, and a **Windows zip** (unsigned —
-expect a SmartScreen prompt; see the note in [`docs/INSTALL.md`](docs/INSTALL.md)).
+an **AppImage** and a **`.deb`** package. A native Windows build is planned for
+1.1; see [`docs/INSTALL.md`](docs/INSTALL.md).
 
 ```bash
 # Linux AppImage
@@ -470,9 +470,6 @@ chmod +x ImageToolkit-*-x86_64.AppImage
 # Debian / Ubuntu
 sudo dpkg -i image-toolkit_*_amd64.deb   # launches as `image-toolkit` or from the app menu
 ```
-
-Windows: download `ImageToolkit-*-windows-x86_64.zip`, extract, and run
-`ImageToolkitApp.exe`.
 
 **Database prerequisite:** vector similarity search, anime training pipelines,
 and legacy migration need an external **PostgreSQL 14+ with the `pgvector`
