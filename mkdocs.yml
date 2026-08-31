@@ -137,6 +137,7 @@ nav:
           - Overview: STRUCTURIZR.md
           - Exporting & Rendering: structurizr/README.md
       - Troubleshooting: TROUBLESHOOTING.md
+      - Installation: INSTALL.md
   - Tutorials:
       - Overview: tutorials/index.md
       - System Tools: tutorials/system_tools.md
@@ -168,6 +169,7 @@ nav:
       - Benchmarks: BENCHMARKS.md
       - Dependency Policy: DEPENDENCY_POLICY.md
       - Documentation Standards: DOCUMENTATION_STANDARDS.md
+      - Release Checklist: RELEASE_CHECKLIST.md
   - Roadmaps:
       - Master Roadmap: roadmaps/ROADMAP.md
       - Architecture: roadmaps/architecture.md
