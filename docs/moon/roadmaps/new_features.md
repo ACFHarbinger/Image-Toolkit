@@ -785,7 +785,7 @@ non-priority) for the cross-link.
 
 ## 4.20 Cloud Sync tab restructure + Local Directory Sync {: #420-cloud-sync-local-directory-sync }
 
-**Status:** Priority 1, in progress (issue #479, 2026-08-31).
+**Status:** Completed (issue #479, 2026-08-31).
 
 **Goal:** synchronize the whole local `~/.image-toolkit/` directory with a
 remote `.image-toolkit/` folder on the user's cloud provider (Google Drive
