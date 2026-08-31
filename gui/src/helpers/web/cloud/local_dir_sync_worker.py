@@ -446,12 +446,17 @@ class LocalDirSyncWorker(QThread):
                 logger=self._log,
             )
         if pt == "Dropbox":
-            from backend.src.web.cloud.dropbox_drive_sync import DropboxDriveSync
-            return DropboxDriveSync(
-                local_source_path=str(self.local_root),
-                drive_destination_folder_name=self.remote_folder,
-                access_token=self.auth_config.get("access_token", ""),
-                dry_run=True,
+            from backend.src.web.cloud.dropbox_file_client import DropboxFileClient
+
+            token = self.auth_config.get("access_token")
+            if not token:
+                raise RuntimeError(
+                    "Dropbox authentication failed — no access token "
+                    "(check the Dropbox token in the vault)."
+                )
+            return DropboxFileClient(
+                access_token=token,
+                root_name=self.remote_folder,
                 logger=self._log,
             )
         if pt == "OneDrive":
