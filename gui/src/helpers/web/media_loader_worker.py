@@ -33,6 +33,8 @@ from backend.src.web import (
 )
 from PySide6.QtCore import QObject, Signal
 
+from gui.src.helpers.gc_safe import gc_disabled_run
+
 
 class MediaLoaderWorker(QObject):
     """Runs a source-specific downloader (Reddit, nhentai, ...) off the UI thread."""
@@ -95,6 +97,7 @@ class MediaLoaderWorker(QObject):
         downloader.on_error.connect(self.error.emit)
         self._downloader = downloader
 
+    @gc_disabled_run
     def run(self) -> None:
         try:
             os.makedirs(self.config["download_dir"], exist_ok=True)

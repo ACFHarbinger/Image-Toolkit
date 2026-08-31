@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
+- Off-thread QWidget-finalize crash class generalized (#480, follow-up to #478): new `gui/src/helpers/gc_safe.py` — `GcSafeThread` base, `@gc_disabled_run` decorator, `gc_disabled()` context manager — disables the process-global cyclic GC for a worker's whole `run()` so an allocation burst on a worker thread can never trigger a collection that finalizes GUI `QWidget` cycles off the GUI thread. `BaseQThreadWorker` / `BaseQRunnableWorker` now apply it to every `_execute()`; the audited JSON/listing/DB workers that override `run()` directly carry `@gc_disabled_run` (cloud sync ×3, image crawler, media loader, MAL sync, web requests, recommendation, Scan & Tag upsert, batch image loader; `_SyncBackupWorker` refactored onto the same guard). Tests in `gui/test/helpers/test_gc_safe.py`; audit in `.agent/reports/opencode/issue_480_gc_guard_audit_2026-08-31.md`.
 - SIGSEGV when loading the backup listings in a listings subtab (#478): `_SyncBackupWorker` parsed the decrypted backup with `json.loads` on its QThread; the allocations tripped CPython's cyclic collector *on that thread*, which then finalized a `QWidget` from the GUI's cyclic garbage off the GUI thread (`QWidget::~QWidget` → `deleteChildren` → segfault — the #461 class). `run()` now disables the cyclic GC for its lifetime and drops the DB/vault handles so their teardown stays on the GUI thread. Regression test in `gui/test/helpers/test_sync_backup_worker.py`.
 
 ### Planned (tracked)

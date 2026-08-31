@@ -1,6 +1,7 @@
 from backend.src.web.clients.mal_dispatcher import fetch_mal_anime_data
 from PySide6.QtCore import QThread, Signal
 
+from gui.src.helpers.gc_safe import gc_disabled_run
 from gui.src.windows.settings.app_settings import AppSettings
 
 
@@ -13,6 +14,7 @@ class MalSyncWorker(QThread):
         self.title = title
         self.method = method or AppSettings.mal_fetch_method()
 
+    @gc_disabled_run
     def run(self):
         result = fetch_mal_anime_data(self.title, method=self.method)
         if "error" in result:

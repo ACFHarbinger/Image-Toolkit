@@ -492,6 +492,8 @@ Use `asyncio.CancelledError` or a `threading.Event` as a cancellation token pass
 
 **2026-08-22 (scanner-thread lifecycle audit — #461):** Audited bespoke worker and scanner threads across all GUI tabs to eliminate bounded waits (`wait(1000)`, `wait(5000)`, `waitForDone(2000)`) and fix improper stop/teardown order before widget clearing across `MergeTab`, `ScanMetadataTab`, `ReverseSearchTab`, `SimilarityTab`, `ImageExtractorSubTab`, `EntityReconTab`, and `FrameSelectionDialog`.
 
+**2026-08-31 (worker-thread GC guard — #480):** Generalized the #478 fix into `gui/src/helpers/gc_safe.py` (`@gc_disabled_run` / `GcSafeThread` / `gc_disabled()`): the cyclic GC is disabled for a worker's whole `run()` so an allocation burst on a worker thread can never finalize GUI QWidget cycles off the GUI thread. Applied at `BaseQThreadWorker` / `BaseQRunnableWorker` and on the 11 direct-`run()` JSON/listing/DB workers; heavy CV/torch workers are listed as Tier-2 follow-ups in `.agent/reports/opencode/issue_480_gc_guard_audit_2026-08-31.md`.
+
 ---
 
 ## 2.8 Theme Support ✅ Partial (options A + D shipped — dark/light QSS toggle with per-theme accent-color override, `gui/src/windows/main/_theme.py` + `gui/src/styles/`; also UI density and a `load_user_qss_override` power-user hook) {: #28-theme-support }

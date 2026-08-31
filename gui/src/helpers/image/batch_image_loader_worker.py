@@ -8,6 +8,7 @@ from PySide6.QtGui import QImage
 from shiboken6 import Shiboken
 
 from gui.src.constants.helpers import _NATIVE_SUPPORTS_RGB_CACHE
+from gui.src.helpers.gc_safe import gc_disabled_run
 
 if HAS_NATIVE_IMAGING:
     import base
@@ -92,6 +93,7 @@ class BatchImageLoaderWorker(QRunnable):
         """Signals the worker to stop."""
         self._is_cancelled = True
 
+    @gc_disabled_run
     @Slot()
     def run(self):
         if self._is_cancelled:

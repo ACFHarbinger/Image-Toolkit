@@ -10,6 +10,8 @@ from backend.src.web import (
 )
 from PySide6.QtCore import QThread, Signal
 
+from gui.src.helpers.gc_safe import gc_disabled_run
+
 
 class ImageCrawlWorker(QThread):
     progress = Signal(int, int)  # (current, total)
@@ -30,6 +32,7 @@ class ImageCrawlWorker(QThread):
                 self.crawler.stop()
         self.requestInterruption()
 
+    @gc_disabled_run
     def run(self):
         try:
             # Create download directory, and screenshot directory if provided

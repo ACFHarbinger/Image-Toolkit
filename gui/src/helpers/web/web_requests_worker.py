@@ -1,6 +1,8 @@
 from backend.src.web import WebRequestsLogic
 from PySide6.QtCore import QThread, Signal
 
+from gui.src.helpers.gc_safe import gc_disabled_run
+
 
 class WebRequestsWorker(QThread):
     status = Signal(str)  # status message
@@ -12,6 +14,7 @@ class WebRequestsWorker(QThread):
         self.config = config
         self.logic = None
 
+    @gc_disabled_run
     def run(self):
         try:
             self.logic = WebRequestsLogic(self.config)
