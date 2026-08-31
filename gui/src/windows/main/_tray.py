@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import os
 
+from backend.src._version import __version__
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QMenu, QStyle, QSystemTrayIcon
 
@@ -62,7 +63,7 @@ class _TrayMixin:
         quit_action.triggered.connect(self._quit_application)
 
         self._tray_icon.setContextMenu(tray_menu)
-        self._tray_icon.setToolTip("Image Toolkit")
+        self._tray_icon.setToolTip(f"Image Toolkit — v{__version__}")
         self._tray_icon.activated.connect(self._on_tray_activated)
         self._tray_icon.show()
 

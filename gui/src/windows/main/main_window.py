@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from backend.src._version import __version__
 from backend.src.core.vault_manager import VaultManager
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QGuiApplication, QImageReader
@@ -78,7 +79,7 @@ class MainWindow(
         self.enable_manager = enable_manager
         self.toast_manager = ToastManager(self)
 
-        self.setWindowTitle("Image Database and Edit Toolkit")
+        self.setWindowTitle(f"Image Database and Edit Toolkit — v{__version__}")
         self.setMinimumWidth(800)
         self.setMinimumHeight(700)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)

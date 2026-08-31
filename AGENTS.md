@@ -59,6 +59,7 @@ suggestion:
 | **Run Python Tests** | `pytest` |
 | **Run Frontend Tests** | `npm run test-frontend` |
 | **Run C++ Tests** | `just test-base-cpp` |
+| **Bump Version** | `just release::bump 1.2.3` |
 
 ### External Access Rules
 *   **Docs**: Use Google Search for PySide6, pgvector, OpenCV, PyTorch Hub.
@@ -68,6 +69,15 @@ suggestion:
 *   **Database**: Maintain `pgvector` schema compatibility. Use transactions for group/image integrity.
 *   **Security**: **NEVER** hardcode credentials. Use `VaultManager`.
 *   **Threading**: All heavy computations must run off the main thread (QThread/QRunnable).
+*   **Versioning**: The single source of truth is the root `pyproject.toml`
+    `[project].version`. Never hand-edit a version — change it only via
+    `just release::bump <semver>`, which validates SemVer and rewrites every
+    derived source (`pixi.toml`, `package.json`,
+    `app/android/build.gradle.kts` `versionName` + derived `versionCode`,
+    and the `backend`/`gui`/`git` member `pyproject.toml`s) to match, prints
+    the diff, and never commits. The running app reads
+    `backend.src._version.__version__` (installed package metadata, falling
+    back to the canonical root file), so About / `--version` stays truthful.
 *   **Verbosity**: Keep code comments, markdown docs, and git commit messages
     tight. A comment only earns its place if it explains non-obvious *why*
     (a constraint, an invariant, a prior bug) — not what the code already

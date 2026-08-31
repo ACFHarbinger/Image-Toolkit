@@ -9,6 +9,7 @@ import argparse
 import sys
 from typing import Sequence
 
+from backend.src._version import __version__
 from backend.src.constants import APP_STYLES, SUPPORTED_IMG_FORMATS
 
 
@@ -330,6 +331,9 @@ def add_gui_args(parser):
 def get_main_parser():
     parser = ConfigsParser(
         description="Image-Toolkit CLI", formatter_class=argparse.RawTextHelpFormatter
+    )
+    parser.add_argument(
+        "-v", "--version", action="version", version=f"Image Toolkit {__version__}"
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
