@@ -10,11 +10,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 - Docs stubs: `DEVELOPMENT.md`, `SECURITY.md`, `TESTING.md`, `GLOSSARY.md`, this changelog.
 - Agent coordination for docs/website migration under `.agent/cache/AGENT_BUS.md` and `.agent/reports/grok/`.
+- First-run PostgreSQL + pgvector prerequisite check and UX (#477): added non-blocking `gui/src/helpers/database/postgres_check.py` reachability diagnostics (`check_postgres_reachability()`, `show_postgres_status_dialog()`), parsing `DATABASE_URL` and `POSTGRES_*`/`DB_*` env variables with clean error handling pointing to `INSTALL.md` rather than raw stack traces. Added a dedicated "Check PostgreSQL" button in `DatabaseTab` connection section and test suite in `gui/test/database/test_postgres_check.py`.
 
 ### Planned (tracked)
 
 - v1.1 native Windows desktop build (#471, blocked on a win-64 `sqlcipher`
-  package — none on conda-forge); first-run PostgreSQL prerequisite UX (#477).
+  package — none on conda-forge).
 - GC-guard Tier-2: extend `@gc_disabled_run` to the heavy CV/torch/ffmpeg
   worker threads (#481, follow-up to #480).
 - ASP: Phase 0.1 human coherence rating pass (#473); comparator coverage —

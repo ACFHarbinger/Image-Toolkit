@@ -298,5 +298,11 @@ class _ConnectionStatsMixin:
         if self.search_tab_ref:
             self.search_tab_ref.update_search_button_state(connected)
 
+    def check_postgres_status(self):
+        """Interactive reachability and pgvector diagnostic test."""
+        from gui.src.helpers.database.postgres_check import show_postgres_status_dialog
+
+        show_postgres_status_dialog(parent=self, silent_if_ok=False)
+
 
 __all__ = ["_ConnectionStatsMixin"]

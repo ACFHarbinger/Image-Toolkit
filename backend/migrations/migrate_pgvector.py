@@ -48,25 +48,20 @@ def _load_pg_env() -> Dict[str, str]:
                 if k.startswith("DB_") or k.startswith("POSTGRES_") or k == "DATABASE_URL":
                     env[k] = v
     # Environment variables override the file.
-    for key in (
-        "DATABASE_URL",
-        "DB_NAME", "DB_USER", "DB_PASSWORD", "DB_HOST", "DB_PORT",
-        "POSTGRES_DB", "POSTGRES_USER", "POSTGRES_PASSWORD", "POSTGRES_HOST", "POSTGRES_PORT",
-    ):
+    if os.environ.get("POSTGRES_DB"):
+        env["DB_NAME"] = os.environ["POSTGRES_DB"]
+    if os.environ.get("POSTGRES_USER"):
+        env["DB_USER"] = os.environ["POSTGRES_USER"]
+    if os.environ.get("POSTGRES_PASSWORD"):
+        env["DB_PASSWORD"] = os.environ["POSTGRES_PASSWORD"]
+    if os.environ.get("POSTGRES_HOST"):
+        env["DB_HOST"] = os.environ["POSTGRES_HOST"]
+    if os.environ.get("POSTGRES_PORT"):
+        env["DB_PORT"] = os.environ["POSTGRES_PORT"]
+
+    for key in ("DATABASE_URL", "DB_NAME", "DB_USER", "DB_PASSWORD", "DB_HOST", "DB_PORT"):
         if os.environ.get(key):
             env[key] = os.environ[key]
-
-    # Normalize POSTGRES_* aliases to DB_*
-    if "POSTGRES_DB" in env and "DB_NAME" not in env:
-        env["DB_NAME"] = env["POSTGRES_DB"]
-    if "POSTGRES_USER" in env and "DB_USER" not in env:
-        env["DB_USER"] = env["POSTGRES_USER"]
-    if "POSTGRES_PASSWORD" in env and "DB_PASSWORD" not in env:
-        env["DB_PASSWORD"] = env["POSTGRES_PASSWORD"]
-    if "POSTGRES_HOST" in env and "DB_HOST" not in env:
-        env["DB_HOST"] = env["POSTGRES_HOST"]
-    if "POSTGRES_PORT" in env and "DB_PORT" not in env:
-        env["DB_PORT"] = env["POSTGRES_PORT"]
 
     return env
 

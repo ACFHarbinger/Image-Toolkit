@@ -68,6 +68,17 @@ class _UIConnectionMixin:
         self.btn_embed_backfill.hide()
         self.button_conn_layout.addWidget(self.btn_embed_backfill)
 
+        self.btn_check_postgres = QPushButton("🐘 Check PostgreSQL")
+        self.btn_check_postgres.setToolTip(
+            "Check external PostgreSQL + pgvector connection status (optional prerequisite for vector search).\n"
+            "The app operates normally on local SQLCipher storage."
+        )
+        apply_shadow_effect(
+            self.btn_check_postgres, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+        )
+        self.btn_check_postgres.clicked.connect(self.check_postgres_status)
+        self.button_conn_layout.addWidget(self.btn_check_postgres)
+
         conn_layout.addLayout(self.button_conn_layout)
         main_layout.addWidget(conn_group)
 
