@@ -152,9 +152,10 @@ class _CrawlWorkerMixin:
         if self.worker and self.worker.isRunning():
             self.log_window.append_log("🛑 Stopping crawler...")
             self.worker.stop()
-            if not self.worker.wait(3000):
-                self.worker.terminate()
-                self.worker.wait(1000)
+            # Unbounded wait — QThread.terminate() is a heap-corruption
+            # class (see #461). Crawler.stop() + requestInterruption()
+            # is the cooperative cancel path.
+            self.worker.wait()
             self._is_crawling = False
             self.qml_crawling_changed.emit()
             self.on_crawl_done(0, "Cancelled by user.")
