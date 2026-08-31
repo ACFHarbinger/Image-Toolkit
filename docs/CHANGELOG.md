@@ -11,18 +11,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - Docs stubs: `DEVELOPMENT.md`, `SECURITY.md`, `TESTING.md`, `GLOSSARY.md`, this changelog.
 - Agent coordination for docs/website migration under `.agent/cache/AGENT_BUS.md` and `.agent/reports/grok/`.
 
-## [1.0.0] - Unreleased
+## [1.0.0] - 2026-08-31
 
-Release notes for the first desktop release: PySide6 app, PyInstaller, Linux
-(AppImage + `.deb`) and Windows (zip, unsigned). PostgreSQL + `pgvector` is an
-external prerequisite. Frozen — retitled to a dated `## [1.0.0] - YYYY-MM-DD` —
-only at tag time; see [`RELEASE_CHECKLIST.md`](RELEASE_CHECKLIST.md).
+First desktop release: PySide6 app, PyInstaller, **Linux only** (AppImage +
+`.deb`). PostgreSQL + `pgvector` is an external prerequisite. A native Windows
+build is deferred to 1.1 (no C++ toolchain path yet).
 
 ### Added
 
-- Release packaging pipeline: `just release::bump` / `bundle-linux` / `bundle-windows` / `artifacts` recipes and `.github/workflows/release.yml` (Linux pinned to `ubuntu-22.04` for glibc compatibility) producing the AppImage, `.deb`, and Windows zip with `SHA256SUMS.txt` — a `v*` tag publishes a **draft** GitHub Release, `workflow_dispatch` defaults to a no-publish dry run. `ImageToolkit.spec` bundles the backend/gui/submodule code, assets, configs, DB schema SQL, icons, and the native `libitk_crypto` / `base` binaries, with frozen-bundle path resolution via `sys._MEIPASS` / executable directory.
+- Release packaging pipeline: `just release::bump` / `bundle-linux` / `bundle-windows` / `artifacts` recipes and `.github/workflows/release.yml` (Linux native build via pixi, pinned to `ubuntu-22.04` for glibc compatibility) producing the AppImage and `.deb` with `SHA256SUMS.txt` — a `v*` tag publishes a **draft** GitHub Release, `workflow_dispatch` defaults to a no-publish dry run. `ImageToolkit.spec` bundles the backend/gui/submodule code, assets, configs, DB schema SQL, icons, and the native `libitk_crypto` / `base` binaries, with frozen-bundle path resolution via `sys._MEIPASS` / executable directory.
 - Canonical version contract: the root `pyproject.toml` `[project].version` is the single source of truth; `just release::bump <semver>` rewrites every derived source (`pixi.toml`, `package.json`, gradle `versionName` + derived `versionCode`, and the `backend`/`gui`/`git` member `pyproject.toml`s), and the running app reports its true version from installed dist metadata (`--version`, About, window title, tray tooltip).
-- Prebuilt installation guide ([`INSTALL.md`](INSTALL.md)): AppImage / `.deb` / Windows-zip install steps, the external PostgreSQL 14+ / `pgvector` (≥ 0.5.0) prerequisite (automated `just db-setup`, manual SQL bootstrap, `DATABASE_URL`), and the missing-DB fallback behavior.
+- Prebuilt installation guide ([`INSTALL.md`](INSTALL.md)): AppImage / `.deb` install steps, the external PostgreSQL 14+ / `pgvector` (≥ 0.5.0) prerequisite (automated `just db-setup`, manual SQL bootstrap, `DATABASE_URL`), and the missing-DB fallback behavior.
 - Visual thumbnail file picker (`ThumbnailFilePicker` in `gui/src/components/dialogs/thumbnail_file_picker.py`): provides visual async thumbnail grids, directory bookmarks, size scaling, and fast single/multi-selection. Integrated with the Theme Studio / Display & Media settings for background image selection and dynamic palette extraction.
 
 ### Changed

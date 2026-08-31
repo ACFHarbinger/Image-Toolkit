@@ -1,6 +1,6 @@
 [workspace]
 name = "image-toolkit"
-version = "0.1.0"
+version = "1.0.0"
 description = "Image database and editing toolkit with high-performance C++/Rust backend, Tauri frontend, and ML pipelines"
 authors = ["ACFHarbinger"]
 channels = ["conda-forge"]

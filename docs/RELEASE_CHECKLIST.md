@@ -6,8 +6,9 @@ PyInstaller) from this repository. It pairs with the automated
 need a human decision or a real machine.
 
 Shipping artifact per the v1.0.0 decision: the **PySide6 desktop app** on
-**Linux (AppImage + `.deb`) and Windows (zip, unsigned)**. PostgreSQL +
-`pgvector` is an external prerequisite — see [`INSTALL.md`](INSTALL.md).
+**Linux (AppImage + `.deb`)**. A native Windows build is deferred to 1.1.
+PostgreSQL + `pgvector` is an external prerequisite — see
+[`INSTALL.md`](INSTALL.md).
 
 ## 1. Pre-release
 
@@ -52,8 +53,7 @@ artifacts are attached (local equivalents land in `dist/release/`):
 
 - [ ] `ImageToolkit-<version>-x86_64.AppImage`
 - [ ] `image-toolkit_<version>_amd64.deb`
-- [ ] `ImageToolkit-<version>-windows-x86_64.zip`
-- [ ] `SHA256SUMS.txt` covering all of the above
+- [ ] `SHA256SUMS.txt` covering both of the above
 
 ## 5. Smoke-test matrix
 
@@ -65,13 +65,11 @@ box, **no repo checkout**, external PostgreSQL:
 - [ ] **`.deb`** install and remove (`dpkg -i` then `dpkg -r`, confirm no
       leftover config/units); launches from the desktop menu and via
       `image-toolkit`.
-- [ ] **Windows zip** on Windows 10 and 11 — extract, run
-      `ImageToolkitApp.exe`, accept the unsigned-SmartScreen prompt.
 - [ ] **Database prerequisite**: with PostgreSQL 14+ / `pgvector` ≥ 0.5.0
       configured per [`INSTALL.md`](INSTALL.md), vector features connect;
       with no database reachable, the app still launches on local SQLCipher
       storage and points the user at the install guide instead of crashing.
-- [ ] First-run vault creation and a conversion round-trip on each OS.
+- [ ] First-run vault creation and a conversion round-trip.
 
 ## 6. Publish and post-publish
 
@@ -81,8 +79,9 @@ box, **no repo checkout**, external PostgreSQL:
 
 ## 7. Known v1.0 caveats
 
-- **Windows builds are unsigned.** Expect a SmartScreen warning on download
-  and run ("More info" → "Run anyway"); the signing pipeline is deferred.
+- **No Windows build in 1.0.0.** The C++ base extension has no Windows
+  toolchain path yet (pixi solves `linux-64` only); native Windows is a 1.1
+  workstream.
 - **PostgreSQL + `pgvector` is not bundled.** Vector search, anime training
   pipelines, and legacy migration require an external database
   ([`INSTALL.md`](INSTALL.md)); the app degrades gracefully without it.

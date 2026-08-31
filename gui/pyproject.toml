@@ -1,6 +1,6 @@
 [project]
 name = "image-toolkit-gui"
-version = "0.1.0"
+version = "1.0.0"
 description = "Image database and edit toolkit — PySide6 desktop GUI."
 requires-python = ">=3.11"
 

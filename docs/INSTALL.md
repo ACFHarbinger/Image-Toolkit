@@ -24,10 +24,8 @@ Image-Toolkit distributes two Linux packages for 64-bit systems:
   Launches from the desktop application menu or by running `image-toolkit`.
 
 ### Windows
-- Download `ImageToolkit-*-windows-x86_64.zip`.
-- Extract the archive to a folder of your choice.
-- Run `ImageToolkitApp.exe`.
-- *Note:* The Windows executable is unsigned; if Windows SmartScreen displays a warning, click **"More info"** and then **"Run anyway"**.
+A native Windows build is planned for **1.1** — the C++ base extension needs a
+Windows toolchain that is not yet wired up. 1.0.0 is Linux-only.
 
 ---
 

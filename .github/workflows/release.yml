@@ -71,45 +71,10 @@ jobs:
           path: dist/release/*
           if-no-files-found: error
 
-  # Windows native build is UNRESOLVED: pixi.toml only solves linux-64, so the
-  # C++ base extension has no conda toolchain on Windows, and Ubuntu-style apt
-  # OpenCV isn't available either. Kept here (non-blocking) so the decision —
-  # ship Linux-only for 1.0.0 vs. invest in an MSVC + prebuilt-OpenCV path — is
-  # visible in CI. Does not gate publish-release.
-  build-windows:
-    name: Build Windows Desktop (Zip) [non-blocking]
-    runs-on: windows-latest
-    continue-on-error: true
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-          fetch-depth: 0
-
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
-        with:
-          version: "latest"
-
-      - name: Install Python dependencies
-        run: uv sync --frozen --group dev --no-install-project
-
-      - name: Package Windows release (Zip)
-        run: uv run python tools/release/package_windows.py
-
-      - name: Upload Windows artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: release-windows
-          path: dist/release/*
-          if-no-files-found: warn
+  # Windows is deferred to 1.1 — pixi.toml only solves linux-64, so there is no
+  # conda toolchain for the C++ base extension on Windows. Tracking: GH issue for
+  # a v1.1 MSVC + prebuilt-OpenCV + sqlcipher native-build path. tools/release/
+  # package_windows.py is kept for that work.
 
   publish-release:
     name: Publish Release Draft
