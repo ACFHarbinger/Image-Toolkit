@@ -13,6 +13,7 @@ Image-Toolkit distributes two Linux packages for 64-bit systems:
   ```bash
   chmod +x ImageToolkit-*-x86_64.AppImage
   ./ImageToolkit-*-x86_64.AppImage
+  ./ImageToolkit-*-x86_64.AppImage --version
   ```
 
 - **Debian / Ubuntu Package** (`.deb`):
