@@ -11,7 +11,13 @@ import sys
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPainter
-from PySide6.QtWidgets import QApplication, QMessageBox, QScrollArea, QSystemTrayIcon
+from PySide6.QtWidgets import (
+    QApplication,
+    QMenu,
+    QMessageBox,
+    QScrollArea,
+    QSystemTrayIcon,
+)
 
 from gui.src.styles.background_canvas import BackgroundCanvasController
 from gui.src.windows.settings.app_settings import AppSettings
@@ -157,6 +163,19 @@ class _LifecycleMixin:
             self._save_session_recovery()
             event.ignore()
             self.hide()
+            # Hide every other open top-level window too (Settings, image
+            # preview/compare, slideshow queue, log window, …). Each is a
+            # Qt.Window and keeps its own taskbar entry, so leaving one visible
+            # shows a second Image-Toolkit icon while "in background".
+            self._bg_hidden_windows = []
+            for w in QApplication.topLevelWidgets():
+                if w is self or isinstance(w, QMenu) or not w.isVisible():
+                    continue
+                if w.windowType() in (Qt.WindowType.Popup, Qt.WindowType.ToolTip):
+                    continue
+                with contextlib.suppress(Exception):
+                    w.hide()
+                    self._bg_hidden_windows.append(w)
             if getattr(self, "_tray_icon", None) and self._tray_icon.isVisible():
                 self._tray_icon.showMessage(
                     "Image Toolkit",

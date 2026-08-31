@@ -5,6 +5,7 @@ Extracted from ``main_window.py`` -- pure code motion, no logic change.
 
 from __future__ import annotations
 
+import contextlib
 import os
 
 from backend.src._version import __version__
@@ -71,6 +72,13 @@ class _TrayMixin:
         self.showNormal()
         self.raise_()
         self.activateWindow()
+        # Restore any secondary windows (Settings, previews, …) that were
+        # hidden alongside the main window when it went to background.
+        for w in getattr(self, "_bg_hidden_windows", []):
+            with contextlib.suppress(RuntimeError):
+                if w is not None:
+                    w.show()
+        self._bg_hidden_windows = []
 
     def _tray_toggle_daemon(self) -> None:
         wt = getattr(self, "wallpaper_tab", None)
