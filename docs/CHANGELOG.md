@@ -21,6 +21,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - v1.1 native Windows desktop build (#471); `--version`/`--help` for the frozen
   entry point (#475); frozen-bundle path-assumption audit (#476); first-run
   PostgreSQL prerequisite UX (#477).
+- GC-guard Tier-2: extend `@gc_disabled_run` to the heavy CV/torch/ffmpeg
+  worker threads (#481, follow-up to #480).
 - Cloud Sync tab restructured into subtabs + a new Local Directory Sync subtab
   (`~/.image-toolkit` ↔ remote `.image-toolkit`), roadmap §4.20 (#479).
 - ASP: `no_valid_edges` recovery via edgeless-graph edge re-proposal (#472);
