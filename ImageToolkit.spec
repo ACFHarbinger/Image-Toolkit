@@ -104,14 +104,36 @@ datas = [
 # back to the canonical root pyproject.toml. Ship both so the frozen app never
 # stamps "0.0.0+unknown" — copy_metadata for the editable-install path,
 # pyproject.toml (at parents[2] of backend/src/_version.py) for the fallback.
+# imageio/moviepy read their own dist metadata at import time and hard-fail
+# (PackageNotFoundError) without it.
+from PyInstaller.utils.hooks import collect_data_files as _collect_data_files
 from PyInstaller.utils.hooks import copy_metadata as _copy_metadata
 
-for _dist in ('image-toolkit-backend', 'image-toolkit-gui'):
+for _dist in (
+    'image-toolkit-backend', 'image-toolkit-gui',
+    'imageio', 'imageio-ffmpeg', 'moviepy',
+):
     try:
         datas += _copy_metadata(_dist)
     except Exception:
         pass
 datas.append((os.path.join(ROOT_DIR, 'pyproject.toml'), '.'))
+
+# Non-.py runtime resources loaded by path from the source packages — QML (73),
+# QSS themes, YAML configs, SQL schema, HTML/CSS/JS, .qrc, qmldir.
+# find_python_modules above only collects importable .py.
+_res_globs = ['**/*.qml', '**/qmldir', '**/*.qss', '**/*.qrc', '**/*.ui',
+              '**/*.yaml', '**/*.yml', '**/*.json', '**/*.sql', '**/*.html',
+              '**/*.css', '**/*.js', '**/*.svg', '**/*.txt', '**/*.toml',
+              '**/*.ini']
+for _pkg in ('gui', 'backend'):
+    try:
+        datas += _collect_data_files(
+            _pkg, includes=_res_globs,
+            excludes=['**/test/**', '**/tests/**', '**/__pycache__/**'],
+        )
+    except Exception:
+        pass
 
 # Database schemas if not covered by package
 schema_path = os.path.join(ROOT_DIR, 'backend', 'src', 'database', 'unified')
