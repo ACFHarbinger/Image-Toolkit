@@ -23,7 +23,7 @@ from PySide6.QtCore import QThread, Signal
 # Vault key material: AES-256-GCM encrypted but we don't send key files.
 # ---------------------------------------------------------------------------
 DEFAULT_EXCLUDES: Tuple[str, ...] = (
-    # Vault keystore and key material
+    # --- Key material — must never leave the machine ---
     "*.vault",
     "*.p12",
     "*.pfx",
@@ -31,13 +31,31 @@ DEFAULT_EXCLUDES: Tuple[str, ...] = (
     "*.key",
     ".keystore",
     "secrets/",
-    # Logs / traces that leak host paths
+    "cryptography/",  # ~/.image-toolkit/cryptography holds key material
+    # --- Databases — live SQLCipher / SQLite stores. Byte-syncing these
+    #     across devices with last-write-wins corrupts them; multi-writer DB
+    #     replication is explicitly out of scope (roadmap §4.20). ---
+    "*.db",
+    "*.db-shm",
+    "*.db-wal",
+    "*.db-journal",
+    "*.sqlite",
+    "*.sqlite3",
+    # --- Host-path / machine-specific state (privacy: absolute paths) ---
     "*.log",
     "*.trace",
     "logs/",
-    # Thumbnails — large, regenerable, not cross-device state
+    "telemetry/",
+    "recovery/",
+    ".slideshow_config.json",
+    ".monitor_slideshow_daemon.json",
+    ".phase_db_migration_state.json",
+    ".extraction_history.json",
+    # --- Large regenerable caches — not cross-device state ---
     "thumbnail-cache/",
-    # Lock files
+    "storyboard-cache/",
+    "listing-images/",
+    # --- Lock / transient ---
     "*.lock",
     "*.pid",
 )
@@ -273,6 +291,7 @@ class LocalDirSyncWorker(QThread):
         self.conflict_policy = conflict_policy
         self.excludes: Tuple[str, ...] = DEFAULT_EXCLUDES + tuple(excludes)
         self._cancelled = False
+        self._client = None  # cached provider client — one auth per run
 
     def stop(self) -> None:
         self._cancelled = True
@@ -289,9 +308,12 @@ class LocalDirSyncWorker(QThread):
         gc.disable()
         try:
             self._execute()
+        except Exception as exc:  # never let a QThread die without notifying the GUI
+            self.finished.emit(False, f"Local Directory Sync failed: {exc}", self.dry_run)
         finally:
             if was_enabled:
                 gc.enable()
+            self._client = None
 
     def _execute(self) -> None:  # noqa: C901
         self._log("=== Local Directory Sync ===")
@@ -385,7 +407,17 @@ class LocalDirSyncWorker(QThread):
     # ------------------------------------------------------------------
 
     def _provider_client(self):
-        """Return a thin cloud-client handle for the selected provider."""
+        """Return a cached cloud-client handle for the selected provider.
+
+        Built once per ``run()`` — re-instantiating per file re-runs the OAuth
+        / service-account handshake on every upload and download.
+        """
+        if self._client is not None:
+            return self._client
+        self._client = self._build_provider_client()
+        return self._client
+
+    def _build_provider_client(self):
         pt = self.provider_text
         if pt.startswith("Google Drive"):
             from backend.src.web.cloud.google_drive_sync import GoogleDriveSync
