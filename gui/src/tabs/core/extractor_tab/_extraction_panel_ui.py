@@ -50,6 +50,22 @@ class _ExtractionPanelUIMixin:
         self.btn_load_recent.setEnabled(False)
         recent_layout.addWidget(self.btn_load_recent)
 
+        # Bulk: enqueue the N most recent extraction configs at once.
+        self.spin_recent_to_queue_n = QSpinBox()
+        self.spin_recent_to_queue_n.setRange(1, 1)
+        self.spin_recent_to_queue_n.setToolTip(
+            "How many of the most recent extractions to add to the queue"
+        )
+        recent_layout.addWidget(self.spin_recent_to_queue_n)
+
+        self.btn_add_recent_to_queue = QPushButton("➕ Add Recent to Queue")
+        self.btn_add_recent_to_queue.setToolTip(
+            "Append the N most recent extraction configurations to the extraction queue"
+        )
+        self.btn_add_recent_to_queue.clicked.connect(self._add_recent_extractions_to_queue)
+        self.btn_add_recent_to_queue.setEnabled(False)
+        recent_layout.addWidget(self.btn_add_recent_to_queue)
+
         extract_main_layout.addLayout(recent_layout)
 
         # -- Row 1: Configuration --
@@ -141,21 +157,28 @@ class _ExtractionPanelUIMixin:
         self.btn_jump_end.clicked.connect(self.jump_to_range_end)
         self.btn_jump_end.setEnabled(False)
         self.btn_extract_range = QPushButton("🎞️ Extract Range")
+        self.btn_extract_range.setStyleSheet(
+            "QPushButton { background-color: #168f88; color: white; font-weight: bold; }"
+            "QPushButton:hover { background-color: #10736e; }"
+            "QPushButton:disabled { background-color: #4b5563; color: #c4c7cc; }"
+        )
         self.btn_extract_range.clicked.connect(self.extract_range)
         self.btn_extract_range.setEnabled(False)
 
         self.btn_extract_gif = QPushButton("GIF Extract as GIF")
         self.btn_extract_gif.setStyleSheet(
-            "QPushButton {  color: white; font-weight: bold; }"
-            "QPushButton:disabled {  color: #888; }"
+            "QPushButton { background-color: #8e44ad; color: white; font-weight: bold; }"
+            "QPushButton:hover { background-color: #70368a; }"
+            "QPushButton:disabled { background-color: #4b5563; color: #c4c7cc; }"
         )
         self.btn_extract_gif.clicked.connect(self.extract_range_as_gif)
         self.btn_extract_gif.setEnabled(False)
 
         self.btn_extract_video = QPushButton("MP4 Extract as Video")
         self.btn_extract_video.setStyleSheet(
-            "QPushButton {  color: white; font-weight: bold; }"
-            "QPushButton:disabled {  color: #888; }"
+            "QPushButton { background-color: #d97706; color: white; font-weight: bold; }"
+            "QPushButton:hover { background-color: #b45309; }"
+            "QPushButton:disabled { background-color: #4b5563; color: #c4c7cc; }"
         )
         self.btn_extract_video.clicked.connect(self.extract_range_as_video)
         self.btn_extract_video.setEnabled(False)

@@ -316,6 +316,8 @@ class _QueueManagementMixin:
     def _on_queue_toggle_changed(self: "VideoExtractorSubTabHostProtocol"):
         if hasattr(self, "queue_group"):
             self.queue_group.setVisible(self.extraction_queue_enabled)
+        if hasattr(self, "_refresh_recent_to_queue_controls"):
+            self._refresh_recent_to_queue_controls()
 
     def _set_queue_processing_state(self: "VideoExtractorSubTabHostProtocol", processing: bool):
         """Update button label, style, and controls for active queue processing or idle."""
@@ -368,7 +370,15 @@ class _QueueManagementMixin:
         # removes completed items from self.extraction_queue per item; sharing
         # the same list object would let the tab's pop() skip the worker's
         # pending iterations.
-        worker = QueueExecutionWorker(list(self.extraction_queue), parallel=is_parallel)
+        worker = QueueExecutionWorker(
+            list(self.extraction_queue),
+            parallel=is_parallel,
+            max_workers=(
+                getattr(self, "parallel_extraction_processors", None)
+                if is_parallel
+                else None
+            ),
+        )
         self.active_queue_worker = worker
         worker.signals.progress.connect(self._on_queue_progress)
         worker.signals.item_completed.connect(self._on_queue_item_completed)
@@ -406,6 +416,10 @@ class _QueueManagementMixin:
         _get_current_extraction_metadata() but sourced from the queue config
         (the worker is stateless, so the UI state can't be trusted at the
         moment the queue finishes)."""
+        saved_metadata = item.get("history_metadata")
+        if isinstance(saved_metadata, dict) and saved_metadata.get("video_path"):
+            return copy.deepcopy(saved_metadata)
+
         # Defensive (Unknown Video bug): an empty/corrupt item cannot be
         # recorded faithfully. Fall back to the live UI state so a real
         # extraction is never recorded as "Unknown Video", and log the empty

@@ -442,10 +442,99 @@ class _VideoSessionHistoryMixin:
                 self.combo_recent_extractions.currentIndex() > 0
             )
 
+        self._refresh_recent_to_queue_controls()
+
         self.combo_recent_extractions.currentIndexChanged.connect(
             self._on_recent_extraction_selected
         )
         self._recent_combo_connected = True
+
+    def _refresh_recent_to_queue_controls(self: "VideoExtractorSubTabHostProtocol") -> None:
+        """Sync the 'Add Recent to Queue' spinbox range + button enabled state."""
+        n_runs = len(getattr(self, "recent_runs", []) or [])
+        spin = getattr(self, "spin_recent_to_queue_n", None)
+        if spin is not None:
+            spin.setMaximum(max(1, n_runs))
+            if spin.value() == 1 and n_runs:
+                spin.setValue(min(5, n_runs))
+        btn = getattr(self, "btn_add_recent_to_queue", None)
+        if btn is not None:
+            queue_on = getattr(self, "extraction_queue_enabled", False)
+            btn.setEnabled(bool(n_runs) and queue_on)
+            btn.setToolTip(
+                "Append the N most recent extraction configurations to the extraction queue"
+                if queue_on
+                else "Enable the Extraction Queue (Settings ▸ Extractor) to use this"
+            )
+
+    def _recent_run_to_queue_config(
+        self: "VideoExtractorSubTabHostProtocol", run: dict
+    ) -> dict:
+        """Map a recent-run history entry to an extraction-queue config dict."""
+        size_str = run.get("output_size", "Native")
+        target_res = None
+        if isinstance(size_str, str) and "x" in size_str.lower():
+            try:
+                w, h = size_str.lower().split("x")
+                target_res = (int(w), int(h))
+            except ValueError:
+                target_res = None
+        start_ms = int(run.get("start_ms", 0) or 0)
+        end_ms = int(run.get("end_ms", 0) or 0)
+        return {
+            "type": "single" if start_ms == end_ms else "range",
+            "video_path": run.get("video_path", ""),
+            "start_ms": start_ms,
+            "end_ms": end_ms,
+            "output_dir": run.get("output_dir")
+            or str(getattr(self, "extraction_dir", "") or ""),
+            "target_resolution": target_res,
+            "cuts_ms": copy.deepcopy(run.get("cuts_ms", []) or []),
+            "frame_interval": int(run.get("frame_interval", 1) or 1),
+            "smart_extract": bool(run.get("smart_extract", False)),
+            "smart_method": run.get("smart_method", "") or "",
+            "fps": run.get("gif_fps", 24) or 24,
+            "mute_audio": bool(run.get("mute_audio", False)),
+            "use_ffmpeg": run.get("engine", "FFmpeg") != "MoviePy",
+            "speed": str(run.get("speed", "1.0")),
+        }
+
+    @Slot()
+    def _add_recent_extractions_to_queue(self: "VideoExtractorSubTabHostProtocol") -> None:
+        """Append the N most recent extraction configs to the extraction queue."""
+        runs = getattr(self, "recent_runs", []) or []
+        if not runs:
+            QMessageBox.information(
+                cast(QWidget, self),
+                "No Recent Extractions",
+                "There are no recent extractions to enqueue yet.",
+            )
+            return
+        if not getattr(self, "extraction_queue_enabled", False):
+            QMessageBox.information(
+                cast(QWidget, self),
+                "Extraction Queue Disabled",
+                "Enable the Extraction Queue in Settings ▸ Extractor first.",
+            )
+            return
+
+        n = self.spin_recent_to_queue_n.value()
+        added = 0
+        skipped = 0
+        for run in runs[:n]:  # recent_runs is sorted newest-first
+            vpath = run.get("video_path", "")
+            if not vpath or not Path(vpath).exists():
+                skipped += 1
+                continue
+            self.extraction_queue.append(self._recent_run_to_queue_config(run))
+            added += 1
+
+        self._update_queue_ui()
+        msg = f"Added {added} recent extraction(s) to the queue."
+        if skipped:
+            msg += f" Skipped {skipped} (source video missing)."
+        self.extraction_status_label.setText(msg)
+        self.extraction_status_label.show()
 
     def _on_recent_extraction_selected(self: "VideoExtractorSubTabHostProtocol", index: int):
         """Enables/disables the load button based on selection."""
@@ -508,6 +597,10 @@ class _VideoSessionHistoryMixin:
         self.btn_extract_gif.setEnabled(False)
         self.btn_extract_gif.setEnabled(False)
         self.btn_extract_video.setEnabled(False)
+        self.skip_minutes_spinbox.setEnabled(False)
+        self.skip_seconds_spinbox.setEnabled(False)
+        self.skip_microseconds_spinbox.setEnabled(False)
+        self.btn_skip_runtime.setEnabled(False)
         self.btn_extract_range.setText("🎞️ Extract Range")
 
         self.btn_jump_start.setEnabled(False)

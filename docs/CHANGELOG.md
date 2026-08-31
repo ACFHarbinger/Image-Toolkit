@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- Extractor tab: **"Add Recent to Queue"** — a spinbox + button next to the Recent Extractions dropdown that appends the N most recent extraction configurations to the extraction queue in one action (skips entries whose source video no longer exists; enabled only when the Extraction Queue is on). `gui/src/tabs/core/extractor_tab/{_extraction_panel_ui,_video_session_history}.py`, test `gui/test/core/test_recent_extractions_to_queue.py`.
 - Docs stubs: `DEVELOPMENT.md`, `SECURITY.md`, `TESTING.md`, `GLOSSARY.md`, this changelog.
 - Agent coordination for docs/website migration under `.agent/cache/AGENT_BUS.md` and `.agent/reports/grok/`.
 - First-run PostgreSQL + pgvector prerequisite check and UX (#477): added non-blocking `gui/src/helpers/database/postgres_check.py` reachability diagnostics (`check_postgres_reachability()`, `show_postgres_status_dialog()`), parsing `DATABASE_URL` and `POSTGRES_*`/`DB_*` env variables with clean error handling pointing to `INSTALL.md` rather than raw stack traces. Added a dedicated "Check PostgreSQL" button in `DatabaseTab` connection section and test suite in `gui/test/database/test_postgres_check.py`.
