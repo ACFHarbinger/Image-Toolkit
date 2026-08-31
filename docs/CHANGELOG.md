@@ -8,6 +8,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- Cloud Compute Dashboards (#490): Qt-free `UsageRow` aggregation over worker
+  `usage.json` and UI rows (wall time, peak RSS, egress, estimated Cloud Run
+  cost, success rate, per-provider split) plus theme-aware QPainter charts
+  (per-job duration, provider comparison) in `DashboardsPane`. Tests
+  `backend/test/cloud/test_usage_aggregation.py`.
 - Local Directory Sync e2e (#479): scratch `~/.image-toolkit`-shaped tree
   proves the denylist keeps `*.vault` / `*.p12` / `library.db*` /
   `cryptography/` / `secrets/` out of dry-run and live `upload_file` calls.

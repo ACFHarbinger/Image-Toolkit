@@ -1,3 +1,14 @@
+# S486 — 2026-08-31 (Grok: #490 Cloud Compute Dashboards charts)
+
+- `backend/src/web/cloud/compute/usage.py`: `UsageRow` / `aggregate_usage_rows`
+  over worker `usage.json` and UI dicts (duration, RSS, egress, cost,
+  success rate, per-provider stats). `UsageRowSource` is the in-memory
+  store for local cache now / live metrics later.
+- `DashboardsPane` KPIs use the summary; placeholder replaced with
+  theme-aware duration and provider-comparison charts (`usage_charts.py`).
+
+---
+
 # S485 — 2026-08-31 (Grok: #479 Local Directory Sync e2e)
 
 - Worker dry-run + live e2e against a FakeDrive client on a scratch

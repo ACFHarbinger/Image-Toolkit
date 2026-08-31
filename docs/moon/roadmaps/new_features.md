@@ -835,8 +835,8 @@ Drive arm is opt-in via `IT_GDRIVE_ACCESS_TOKEN`.
 
 ## 4.21 Cloud Compute Offload {: #421-cloud-compute-offload }
 
-**Status:** Planned (issue #486). PoC first: Extractor-tab extractions via
-Google Cloud (`gcd`).
+**Status:** In progress (issue #486). PoC first: Extractor-tab extractions via
+Google Cloud (`gcd`). Dashboards aggregation + charts: issue #490.
 
 **Goal:** run the app's heavy requests — video-frame / GIF / clip extraction,
 deep-learning image generation — on a chosen managed cloud provider instead of

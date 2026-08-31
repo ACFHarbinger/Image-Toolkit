@@ -23,6 +23,12 @@ from .provider_adapter import (
     OracleAdapter,
     get_adapter,
 )
+from .usage import (
+    UsageRow,
+    UsageRowSource,
+    UsageSummary,
+    aggregate_usage_rows,
+)
 
 __all__ = [
     "CloudJob",
@@ -31,5 +37,9 @@ __all__ = [
     "GCDCloudRunAdapter",
     "CloudflareAdapter",
     "OracleAdapter",
+    "UsageRow",
+    "UsageRowSource",
+    "UsageSummary",
+    "aggregate_usage_rows",
     "get_adapter",
 ]

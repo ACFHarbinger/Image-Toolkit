@@ -8,7 +8,14 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from PySide6.QtCore import Qt
+from backend.src.web.cloud.compute.usage import (
+    UsageRow,
+    UsageRowSource,
+    aggregate_usage_rows,
+    format_bytes,
+    format_duration,
+    format_usd,
+)
 from PySide6.QtWidgets import (
     QFrame,
     QGridLayout,
@@ -24,12 +31,20 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from gui.src.windows.cloud_compute.usage_charts import (
+    _BarChart,
+    _GroupedBarChart,
+    bars_from_duration,
+    groups_from_summary,
+)
+
 
 class DashboardsPane(QWidget):
     """Analytics and resource-usage dashboard for cloud compute tasks."""
 
     def __init__(self, parent: Optional[QWidget] = None):
         super().__init__(parent)
+        self._source = UsageRowSource()
         self._usage_rows: List[Dict[str, Any]] = []
 
         self._build_ui()
@@ -73,16 +88,17 @@ class DashboardsPane(QWidget):
         chart_layout.setContentsMargins(14, 14, 14, 14)
 
         self.chart_container = QFrame()
+        self.chart_container.setObjectName("usage_chart_container")
         self.chart_container.setStyleSheet(
-            "background-color: #0d1117; border: 1px dashed #30363d; border-radius: 8px; min-height: 160px;"
+            "QFrame#usage_chart_container { border: 1px solid #30363d; border-radius: 8px; min-height: 180px; }"
         )
-        chart_inner_layout = QVBoxLayout(self.chart_container)
-        chart_inner_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-        self.lbl_chart_placeholder = QLabel("📊 Telemetry & Resource Visualization (#490)\n(Live vCPU, RAM, and egress trend charts)")
-        self.lbl_chart_placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.lbl_chart_placeholder.setStyleSheet("color: #8b949e; font-size: 10pt; font-style: italic;")
-        chart_inner_layout.addWidget(self.lbl_chart_placeholder)
+        chart_inner_layout = QHBoxLayout(self.chart_container)
+        chart_inner_layout.setContentsMargins(4, 4, 4, 4)
+        chart_inner_layout.setSpacing(8)
+        self.chart_duration = _BarChart("Per-job wall time (s)")
+        self.chart_providers = _GroupedBarChart()
+        chart_inner_layout.addWidget(self.chart_duration, 1)
+        chart_inner_layout.addWidget(self.chart_providers, 1)
 
         chart_layout.addWidget(self.chart_container)
         layout.addWidget(group_charts)
@@ -146,23 +162,42 @@ class DashboardsPane(QWidget):
 
     def add_usage_row(self, row_data: Dict[str, Any]) -> None:
         """Add a usage record row from cloud job completion."""
+        parsed = UsageRow.from_mapping(row_data)
+        self._source.add(parsed)
         self._usage_rows.append(row_data)
         row = self.table_usage.rowCount()
         self.table_usage.insertRow(row)
-        self.table_usage.setItem(row, 0, QTableWidgetItem(str(row_data.get("timestamp", ""))))
-        self.table_usage.setItem(row, 1, QTableWidgetItem(str(row_data.get("job_id", ""))))
-        self.table_usage.setItem(row, 2, QTableWidgetItem(str(row_data.get("provider", "")).upper()))
-        self.table_usage.setItem(row, 3, QTableWidgetItem(str(row_data.get("task", ""))))
-        self.table_usage.setItem(row, 4, QTableWidgetItem(str(row_data.get("duration", ""))))
-        self.table_usage.setItem(row, 5, QTableWidgetItem(str(row_data.get("egress", ""))))
-        self.table_usage.setItem(row, 6, QTableWidgetItem(str(row_data.get("cost", ""))))
+        duration = (
+            str(row_data.get("duration", ""))
+            if parsed.status == "in_flight"
+            else format_duration(parsed.duration_seconds)
+        )
+        egress = str(row_data.get("egress", "")) or format_bytes(parsed.egress_bytes)
+        cost = str(row_data.get("cost", "")) or format_usd(parsed.cost_usd)
+        self.table_usage.setItem(row, 0, QTableWidgetItem(parsed.timestamp))
+        self.table_usage.setItem(row, 1, QTableWidgetItem(parsed.job_id))
+        self.table_usage.setItem(row, 2, QTableWidgetItem(parsed.provider.upper()))
+        self.table_usage.setItem(row, 3, QTableWidgetItem(parsed.task))
+        self.table_usage.setItem(row, 4, QTableWidgetItem(duration))
+        self.table_usage.setItem(row, 5, QTableWidgetItem(egress))
+        self.table_usage.setItem(row, 6, QTableWidgetItem(cost))
         self._update_kpi_aggregations()
 
     def _update_kpi_aggregations(self) -> None:
-        total_jobs = len(self._usage_rows)
-        lbl_jobs = self.card_total_jobs.findChild(QLabel, "kpi_val_total_jobs")
-        if lbl_jobs:
-            lbl_jobs.setText(str(total_jobs))
+        summary = aggregate_usage_rows(self._source.load_rows())
+        pairs = (
+            (self.card_total_jobs, "kpi_val_total_jobs", summary.total_jobs_label),
+            (self.card_total_time, "kpi_val_compute_time", summary.compute_time_label),
+            (self.card_egress, "kpi_val_data_transferred", summary.egress_label),
+            (self.card_cost, "kpi_val_estimated_spend", summary.cost_label),
+            (self.card_success_rate, "kpi_val_success_rate", summary.success_rate_label),
+        )
+        for card, name, text in pairs:
+            lbl = card.findChild(QLabel, name)
+            if lbl:
+                lbl.setText(text)
+        self.chart_duration.set_bars(bars_from_duration(summary.series))
+        self.chart_providers.set_groups(groups_from_summary(summary))
 
     def _refresh_metrics(self) -> None:
         self._update_kpi_aggregations()

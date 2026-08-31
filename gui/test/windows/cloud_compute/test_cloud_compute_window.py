@@ -10,7 +10,7 @@ from gui.src.windows.cloud_compute.provider_card import (
 )
 from gui.src.windows.cloud_compute.providers_pane import ProvidersPane
 from gui.src.windows.cloud_compute.request_builder_pane import RequestBuilderPane
-from PySide6.QtWidgets import QMessageBox
+from PySide6.QtWidgets import QLabel, QMessageBox
 
 pytestmark = pytest.mark.gui
 
@@ -132,10 +132,23 @@ class TestDashboardsPane:
             "egress": "28.5 MB",
             "cost": "$0.0012",
         })
+        pane.add_usage_row({
+            "job_id": "job-err",
+            "provider": "gcd",
+            "task": "extract_gif",
+            "status": "error",
+            "duration_seconds": 2,
+        })
 
-        assert pane.table_usage.rowCount() == 1
+        assert pane.table_usage.rowCount() == 2
         assert pane.table_usage.item(0, 1).text() == "job-12345"
         assert pane.table_usage.item(0, 2).text() == "GCD"
+        jobs = pane.card_total_jobs.findChild(QLabel, "kpi_val_total_jobs")
+        rate = pane.card_success_rate.findChild(QLabel, "kpi_val_success_rate")
+        assert jobs is not None and jobs.text() == "2"
+        assert rate is not None and rate.text() == "50%"
+        assert pane.chart_duration._bars
+        assert pane.chart_providers._groups
 
 
 class TestCloudSettingsPane:
