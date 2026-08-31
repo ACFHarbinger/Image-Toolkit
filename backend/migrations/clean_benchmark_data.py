@@ -31,7 +31,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from backend.migrations._backup_utils import backup_database  # noqa: E402
+from backend.backups._backup_utils import backup_database  # noqa: E402
 from backend.src.constants import IMAGE_TOOLKIT_DIR  # noqa: E402
 from backend.src.database.unified import session  # noqa: E402
 

@@ -27,7 +27,7 @@ the image tabs off Postgres onto the unified store, so a Postgres dump would
 back up a database the app no longer reads from or writes to.
 
 The module is importable (``run_backup()``) for the runner and executable
-directly: ``python -m backend.migrations.backup_all``.
+directly: ``python -m backend.backups.backup_all``.
 
 File is named without the ``000_`` prefix so it stays importable; the runner
 maps step ``000`` to this module.

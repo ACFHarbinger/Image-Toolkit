@@ -21,7 +21,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from backend.migrations import backup_all, create_library_db, migrate_listings, migrate_pgvector, verify_migration
+from backend.backups import backup_all
+from backend.migrations import create_library_db, migrate_listings, migrate_pgvector, verify_migration
 from backend.src.constants import IMAGE_TOOLKIT_DIR
 
 STATE_FILE = Path(IMAGE_TOOLKIT_DIR) / ".phase_db_migration_state.json"

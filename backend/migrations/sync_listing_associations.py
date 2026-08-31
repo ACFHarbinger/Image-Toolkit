@@ -39,7 +39,7 @@ if str(_REPO_ROOT) not in sys.path:
 
 import base  # noqa: E402
 
-from backend.migrations._backup_utils import backup_database, restore_database  # noqa: E402
+from backend.backups._backup_utils import backup_database, restore_database  # noqa: E402
 from backend.src.constants import IMAGE_TOOLKIT_DIR  # noqa: E402
 
 DEFAULT_DB_PATH = IMAGE_TOOLKIT_DIR / "listings_secure.db"

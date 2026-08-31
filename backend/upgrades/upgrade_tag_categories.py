@@ -9,7 +9,7 @@ scripted/offline maintenance pass), sharing the exact same migration
 function so the two paths can never drift apart.
 
 Usage:
-    python backend/migrations/upgrade_tag_categories.py \\
+    python backend/upgrades/upgrade_tag_categories.py \\
         --account-name <vault_account> [--password ...]
 """
 
@@ -25,7 +25,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from backend.migrations._backup_utils import backup_database  # noqa: E402
+from backend.backups._backup_utils import backup_database  # noqa: E402
 from backend.src.constants import IMAGE_TOOLKIT_DIR  # noqa: E402
 from backend.src.database.unified import session, tag_categories  # noqa: E402
 

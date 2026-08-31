@@ -8,5 +8,9 @@ Order is mandatory and enforced by :mod:`backend.migrations.runner`:
     003_migrate_pgvector   PostgreSQL -> library.db (skippable if unreachable)
     004_verify_migration   row-count / integrity / checksum report
 
+Step 000's implementation lives in :mod:`backend.backups.backup_all`; the
+shared copy-and-manifest helper is :mod:`backend.backups._backup_utils`.
+One-off, non-sequenced upgrades live in :mod:`backend.upgrades`.
+
 See docs/moon/roadmaps/unified_database.md (DB.4).
 """

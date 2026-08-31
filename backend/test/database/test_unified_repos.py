@@ -770,7 +770,7 @@ def test_maintenance_statistics(populated):
 
 def test_reset_requires_verified_backup(populated, tmp_path, monkeypatch):
     maint = Management(populated)
-    from backend.migrations import backup_all
+    from backend.backups import backup_all
 
     monkeypatch.setattr(backup_all, "PRE_UNIFIED_DIR", tmp_path / "none")
     with pytest.raises(RuntimeError, match="no backup manifest"):

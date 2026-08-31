@@ -22,7 +22,7 @@ def _password(args: dict) -> str:
 
 def dispatch_backup(args: dict) -> None:
     try:
-        from backend.migrations import backup_all
+        from backend.backups import backup_all
 
         report = backup_all.run_backup()
         print(report)
@@ -109,7 +109,7 @@ def dispatch_clean_benchmark_data(args: dict) -> None:
 
 def dispatch_upgrade_tag_categories(args: dict) -> None:
     try:
-        from backend.migrations import upgrade_tag_categories
+        from backend.upgrades import upgrade_tag_categories
 
         report = upgrade_tag_categories.run(
             _password(args), args["account_name"], db_path=args.get("db_path"),

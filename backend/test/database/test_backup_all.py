@@ -1,11 +1,11 @@
-"""Tests for backend/migrations/backup_all.py — the Phase DB backup gate."""
+"""Tests for backend/backups/backup_all.py — the Phase DB backup gate."""
 
 import json
 from pathlib import Path
 
 import pytest
 
-from backend.migrations import backup_all
+from backend.backups import backup_all
 
 
 @pytest.fixture()

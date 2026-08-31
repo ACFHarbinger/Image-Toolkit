@@ -54,16 +54,16 @@ class Management:
     def reset_database(self, backup_manifest_path=None) -> None:
         """Delete ALL rows from every user table.
 
-        Requires a verified backup manifest (see backend.migrations.backup_all)
+        Requires a verified backup manifest (see backend.backups.backup_all)
         — refusing to run without one is deliberate.
         """
-        from backend.migrations.backup_all import find_latest_manifest, verify_manifest
+        from backend.backups.backup_all import find_latest_manifest, verify_manifest
 
         manifest = backup_manifest_path or find_latest_manifest()
         if manifest is None:
             raise RuntimeError(
                 "reset_database refused: no backup manifest found. Run the "
-                "backup gate first (python -m backend.migrations.backup_all)."
+                "backup gate first (python -m backend.backups.backup_all)."
             )
         problems = verify_manifest(manifest)
         if problems:

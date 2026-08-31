@@ -13,8 +13,8 @@ import pytest
 
 base = pytest.importorskip("base")
 
-from backend.migrations import (  # noqa: E402  # noqa: E402  # noqa: E402
-    backup_all,
+from backend.backups import backup_all  # noqa: E402
+from backend.migrations import (  # noqa: E402
     create_library_db,
     migrate_listings,
     migrate_pgvector,

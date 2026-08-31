@@ -158,7 +158,7 @@ def test_maintenance_and_gated_reset(populated, tmp_path, monkeypatch):
     db.close()  # no-op — session stays usable
     assert db.get_statistics()["total_images"] == 2
 
-    from backend.migrations import backup_all
+    from backend.backups import backup_all
     monkeypatch.setattr(backup_all, "PRE_UNIFIED_DIR", tmp_path / "none")
     with pytest.raises(RuntimeError, match="no backup manifest"):
         db.reset_database()
