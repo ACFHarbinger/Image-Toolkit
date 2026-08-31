@@ -1,4 +1,5 @@
 from .authentication import LoginWindow
+from .cloud_compute import CloudComputeWindow
 from .drag_preview_window import DragPreviewWindow
 from .image_compare_window import ImageCompareWindow
 from .image_preview_window import ImagePreviewWindow
@@ -10,6 +11,7 @@ from .slideshow_backend import SlideshowBackend
 from .slideshow_window import SlideshowQueueWindow
 
 __all__ = [
+    "CloudComputeWindow",
     "DragPreviewWindow",
     "MetadataEditorWindow",
     "ImageCompareWindow",

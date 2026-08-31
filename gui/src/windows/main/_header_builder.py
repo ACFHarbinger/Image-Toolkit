@@ -46,6 +46,27 @@ class _HeaderBuilderMixin:
         self._theme_toggle_btn.clicked.connect(self._toggle_theme)
         header_layout.addWidget(self._theme_toggle_btn)
 
+        # --- Cloud Compute button (§4.21) ---
+        self.cloud_compute_button = QPushButton("☁️")
+        self.cloud_compute_button.setFixedSize(QSize(36, 36))
+        self.cloud_compute_button.setObjectName("cloud_compute_button")
+        self.cloud_compute_button.setToolTip("Open Cloud Compute Offload (§4.21)")
+        self.cloud_compute_button.setStyleSheet(
+            """
+            QPushButton#cloud_compute_button {
+                background-color: transparent;
+                border: none;
+                padding: 5px;
+                border-radius: 18px;
+                font-size: 14px;
+            }
+            QPushButton#cloud_compute_button:hover {
+                background-color: rgba(255,255,255,0.10);
+            }
+        """
+        )
+        header_layout.addWidget(self.cloud_compute_button)
+
         # --- Settings button ---
         self.settings_button = QPushButton()
         if app_icon and os.path.exists(app_icon):

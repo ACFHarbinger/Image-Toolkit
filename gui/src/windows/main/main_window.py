@@ -22,6 +22,7 @@ from gui.src.components.widgets.toast_widget import ToastManager
 from gui.src.windows.settings.app_settings import AppSettings
 
 from ...constants import NEW_LIMIT_MB
+from ..cloud_compute import CloudComputeWindow
 from ..settings import SettingsWindow
 from ._global_search import _GlobalSearchMixin
 from ._header_builder import _HeaderBuilderMixin
@@ -166,6 +167,8 @@ class MainWindow(
         # self._apply_active_tab_configs() is now called in the deferred do_restore function below to avoid layout race conditions.
 
         self.settings_button.clicked.connect(self.open_settings_window)
+        if hasattr(self, "cloud_compute_button"):
+            self.cloud_compute_button.clicked.connect(self.open_cloud_compute_window)
 
         # §2.10C — non-blocking status bar at the bottom of the main window
         self._status_bar = QStatusBar()
@@ -214,7 +217,16 @@ class MainWindow(
     def _reset_settings_window_ref(self):
         self.settings_window = None
 
+    def open_cloud_compute_window(self):
+        if not self.cloud_compute_window:
+            self.cloud_compute_window = CloudComputeWindow(self)
+            self.cloud_compute_window.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+            self.cloud_compute_window.destroyed.connect(lambda: self._reset_cloud_compute_window_ref())
+        self.cloud_compute_window.show()
+        self.cloud_compute_window.activateWindow()
 
+    def _reset_cloud_compute_window_ref(self):
+        self.cloud_compute_window = None
 
     def show_toast(self, message: str, toast_type: str = "info", duration_ms: int = 2500):
         """Show a floating toast notification (GUI/UX §2.10A)."""

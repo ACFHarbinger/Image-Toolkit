@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- Cloud Compute Offload window shell & provider descriptor cards (#488, roadmap §4.21): added standalone `CloudComputeWindow` (`gui/src/windows/cloud_compute/`) with a modern left-navigation sidebar and `QStackedWidget` panes (Providers, Request Builder, Dashboards, and Credentials & Config). Includes rich descriptor cards (`ProviderDescriptorCard`) for Google Cloud Run (GCD PoC target), Cloudflare Workers & Queues, Oracle Cloud Infrastructure (OCI), and AWS Fargate, detailing compute shapes, memory tiers, GPU options, cold start latencies, hourly cost estimates, and target regions. Integrated header launch button in `MainWindow`. Unit tests in `gui/test/windows/cloud_compute/test_cloud_compute_window.py`.
 - Extractor video export (#484): ffmpeg no longer deadlocks on a full
   `stderr=PIPE` (~64 KB buffer) — stderr goes to a temp file with
   `-loglevel error -nostats`; stdout is drained for `-progress pipe:1`
