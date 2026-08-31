@@ -33,6 +33,17 @@ def _extraction_pool_worker_init() -> None:
         fh.write("700")
 
 
+def _parse_speed(value: Any) -> float:
+    """Speed is stored inconsistently: 1.0 (float) from some paths, "1x" /
+    "0.5x" (combo text) from others. Accept both; never raise."""
+    if isinstance(value, (int, float)):
+        return float(value) or 1.0
+    try:
+        return float(str(value).strip().lower().rstrip("x") or "1") or 1.0
+    except (TypeError, ValueError):
+        return 1.0
+
+
 def run_extraction_in_process(config: Union[ExtractionConfig, Dict[str, Any]]) -> Dict[str, Any]:  # noqa: C901
     def natural_sort_key(s):
         return [
@@ -53,7 +64,7 @@ def run_extraction_in_process(config: Union[ExtractionConfig, Dict[str, Any]]) -
     fps = config.get("fps", 24)
     mute_audio = config.get("mute_audio", False)
     use_ffmpeg = config.get("use_ffmpeg", True)
-    speed = float(config.get("speed", "1.0"))
+    speed = _parse_speed(config.get("speed", 1.0))
     encoder_threads = max(0, int(config.get("encoder_threads", 0)))
     max_colors = max(16, min(256, int(config.get("max_colors", 256))))
     fps_clamp = max(0, int(config.get("fps_clamp", 0)))
@@ -532,6 +543,13 @@ class QueueExecutionWorker(QRunnable):
         _RUNNING_WORKERS.add(self)
         try:
             self._run_impl()
+        except Exception as exc:
+            # Never let the exception escape run(): Qt logs it as an "Error
+            # calling Python override of QRunnable::run()" and, crucially,
+            # neither finished nor error is emitted -> the tab's
+            # active_queue_worker is never cleared and the queue wedges.
+            with contextlib.suppress(Exception):
+                self.signals.error.emit(f"Queue worker crashed: {exc}")
         finally:
             _RUNNING_WORKERS.discard(self)
 
@@ -602,7 +620,10 @@ class QueueExecutionWorker(QRunnable):
                     return
 
                 self.signals.progress.emit(i, total)
-                res = run_extraction_in_process(item)
+                try:
+                    res = run_extraction_in_process(item)
+                except Exception as exc:  # one bad item must not kill the run
+                    res = {"status": "error", "message": f"{type(exc).__name__}: {exc}"}
                 results.append(res)
                 self.signals.item_completed.emit(i, res, item)
 

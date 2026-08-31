@@ -513,7 +513,9 @@ class _VideoSessionHistoryMixin:
             "fps": run.get("gif_fps", 24) or 24,
             "mute_audio": bool(run.get("mute_audio", False)),
             "use_ffmpeg": run.get("engine", "FFmpeg") != "MoviePy",
-            "speed": str(run.get("speed", "1.0")),
+            # Normalize "1x"/"0.5x" combo text -> plain number string; the
+            # queue worker also parses either, but keep configs consistent.
+            "speed": str(run.get("speed", "1.0")).strip().lower().rstrip("x") or "1.0",
         }
 
     def _on_recent_extraction_context_menu(
