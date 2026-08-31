@@ -827,7 +827,9 @@ becomes a container with a `QTabWidget`:
 container refactor unblocks further cloud subtabs).
 
 **Tests:** subtab construction; the diff / conflict resolver as pure logic
-(no network); exclude-list enforcement.
+(no network); exclude-list enforcement; worker dry-run/live e2e against a
+fake Drive client (`gui/test/web/test_local_dir_sync_e2e.py`). Live Google
+Drive arm is opt-in via `IT_GDRIVE_ACCESS_TOKEN`.
 
 ---
 

@@ -1,3 +1,14 @@
+# S485 — 2026-08-31 (Grok: #479 Local Directory Sync e2e)
+
+- Worker dry-run + live e2e against a FakeDrive client on a scratch
+  `~/.image-toolkit`-shaped tree: only `theme.qss` + `config/ui.json`
+  upload; `*.vault` / `*.p12` / `library.db*` / `cryptography/` never
+  leave. Live Google Drive gated on `IT_GDRIVE_ACCESS_TOKEN` (not set on
+  this box — vault locked). Report:
+  `.agent/reports/grok/issue_479_local_dir_sync_e2e_2026-08-31.md`.
+
+---
+
 # S484 — 2026-08-31 (Grok: database-tab #478 sweep + #484 video ffmpeg)
 
 - Database-tab crash-pattern sweep (`data_browser` / `scan_metadata` /
