@@ -40,6 +40,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
+- Exit-to-background no longer creates a second native tray surface on Plasma
+  Wayland: `MainWindow` initializes its tray reference before applying saved
+  preferences, so a startup-created `QSystemTrayIcon` cannot be orphaned and
+  recreated on the first close. Regression test:
+  `test_startup_tray_icon_reference_is_not_lost`.
+
 - Scan & Tag `ImageScannerWorker` now runs under `@gc_disabled_run` (large
   path-list emit on a QThread, same cyclic-GC class as #478). Browse dialog
   passes `DontUseNativeDialog`. Database-tab sweep:

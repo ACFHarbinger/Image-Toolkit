@@ -115,6 +115,11 @@ class MainWindow(
 
         vbox = QVBoxLayout()
         self.settings_window = None
+        # Must exist before startup preferences run: that path may construct a
+        # tray icon. Resetting it afterward loses the reference while the
+        # parented QSystemTrayIcon stays alive, so close-to-background creates
+        # a second native tray/SNI surface.
+        self._tray_icon: QSystemTrayIcon | None = None
 
         # --- Application Header ---
         header_widget = self._build_header(account_name, app_icon)
@@ -179,13 +184,6 @@ class MainWindow(
         self.setLayout(vbox)
         self.set_application_theme(self.current_theme)
 
-        # §2.12A — System tray icon. NOT auto-constructed -- see
-        # _lifecycle.py's showEvent() for why (a real, reproducible native
-        # SIGSEGV on this Plasma6/Wayland/Qt6 combination, not fixed by any
-        # startup-timing adjustment tried). _tray_icon stays None; anything
-        # that reads it (e.g. tray_notify()) already handles that safely.
-        self._tray_icon: QSystemTrayIcon | None = None
-
         # GUI/UX §2.8 — live OS color-scheme changes (e.g. user toggles dark mode in KDE/Windows)
         try:
 
@@ -233,4 +231,3 @@ class MainWindow(
         self.toast_manager.show_toast(message, toast_type, duration_ms)
 
 __all__ =  ["MainWindow", "show_main_status", "show_tray_notification"]
-
