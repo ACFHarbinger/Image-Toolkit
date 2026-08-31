@@ -1,8 +1,16 @@
+import contextlib
+import os
 import subprocess
+import tempfile
+import time
 from typing import Optional, Tuple, Union
 
 from moviepy.editor import VideoFileClip
 from PySide6.QtCore import QObject, QRunnable, Signal
+
+
+class _Cancelled(Exception):
+    """Raised inside the worker when the user cancels mid-ffmpeg."""
 
 
 class _GifWorkerSignals(QObject):
@@ -70,6 +78,40 @@ class GifCreationWorker(QRunnable):
 
         return keep
 
+    def _run_ffmpeg(self, cmd: list, phase: str) -> None:
+        """Run one ffmpeg pass without the stderr-PIPE deadlock.
+
+        The old code kept ``stderr=PIPE`` and never drained it until the
+        process exited, so a long encode that filled the ~64 KB pipe buffer
+        hung forever. stderr goes to a temp file instead (already quietened
+        to ``-loglevel error``); it is read back only on failure.
+        """
+        from gui.src.helpers.video.video_thumbnailer import media_backend_spawn_guard
+
+        with tempfile.TemporaryFile(mode="w+") as errf:
+            with media_backend_spawn_guard():
+                proc = subprocess.Popen(
+                    cmd,
+                    stdout=subprocess.DEVNULL,
+                    stderr=errf,
+                    stdin=subprocess.DEVNULL,
+                )
+            while proc.poll() is None:
+                if self._is_cancelled:
+                    proc.terminate()
+                    with contextlib.suppress(subprocess.TimeoutExpired):
+                        proc.wait(timeout=3)
+                    if proc.poll() is None:
+                        proc.kill()
+                    raise _Cancelled()
+                time.sleep(0.3)
+            if proc.returncode != 0:
+                errf.seek(0)
+                tail = errf.read()[-2000:]
+                raise RuntimeError(
+                    f"ffmpeg {phase} pass failed (code {proc.returncode})\n{tail}"
+                )
+
     def run(self):  # noqa: C901
         if self._is_cancelled:
             return
@@ -79,87 +121,70 @@ class GifCreationWorker(QRunnable):
         t_end = self.end_ms / 1000.0
 
         if self.use_ffmpeg:
+            palette_path = None
             try:
                 duration = t_end - t_start
-                cmd = ["ffmpeg", "-y"]
 
-                # Fast seek (input option)
-                cmd.extend(["-ss", str(t_start)])
-                cmd.extend(["-t", str(duration)])
-                cmd.extend(["-i", self.video_path])
-
-                # Construct complex filter for high quality GIF (palettegen + paletteuse)
-                # filters: select -> fps -> scale -> split -> [palettegen/paletteuse]
-
-                filter_chain = []
-
+                # Shared select/fps/scale/speed chain (everything except the
+                # palette step). Built once, reused by both passes.
+                chain = []
                 keep_regions = self._get_keep_regions(t_start, t_end)
                 if self.cuts_ms and keep_regions:
-                    select_expr = "+".join([f"between(t,{r[0]},{r[1]})" for r in keep_regions])
-                    filter_chain.append(f"select='{select_expr}'")
-                    filter_chain.append("setpts=N/FRAME_RATE/TB")
-
-                filter_chain.append(f"fps={self.fps}")
-
+                    select_expr = "+".join(
+                        [f"between(t,{r[0]},{r[1]})" for r in keep_regions]
+                    )
+                    chain.append(f"select='{select_expr}'")
+                    chain.append("setpts=N/FRAME_RATE/TB")
+                chain.append(f"fps={self.fps}")
                 if self.target_size:
                     w, h = self.target_size
-                    filter_chain.append(f"scale={w}:{h}:flags=lanczos")
-
-                # Speed
+                    chain.append(f"scale={w}:{h}:flags=lanczos")
                 if self.speed != 1.0:
-                    pts_mult = 1.0 / self.speed
-                    filter_chain.append(f"setpts={pts_mult}*PTS")
+                    chain.append(f"setpts={1.0 / self.speed}*PTS")
+                base_filters = ",".join(chain)
 
-                # Join base filters
-                base_filters = ",".join(filter_chain)
+                fd, palette_path = tempfile.mkstemp(prefix="itk_gifpalette_", suffix=".png")
+                os.close(fd)
 
-                # Add palette generation and usage
-                complex_filter = (
-                    f"{base_filters},split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse"
-                )
+                seek = ["-ss", str(t_start), "-t", str(duration)]
+                common = ["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-nostats"]
 
-                cmd.extend(["-vf", complex_filter])
-                cmd.append(self.output_path)
-
-                print(f"FFmpeg CMD: {cmd}")
+                # Two-pass palette: pass 1 streams the frames through
+                # `palettegen` writing only a 256-colour PNG; pass 2 streams
+                # them again applying it. The old single-pass
+                # `split[s0][s1];…palettegen…paletteuse` forced ffmpeg to
+                # buffer the *entire* scaled stream in RAM between the two
+                # branches — O(frames) memory for a long/high-res range.
+                pass1 = [
+                    *common, *seek, "-i", self.video_path,
+                    "-vf", f"{base_filters},palettegen=max_colors=256:stats_mode=diff",
+                    palette_path,
+                ]
+                pass2 = [
+                    *common, *seek, "-i", self.video_path, "-i", palette_path,
+                    "-lavfi", f"{base_filters}[x];[x][1:v]paletteuse=dither=bayer",
+                    self.output_path,
+                ]
 
                 self.signals.progress.emit(0, 100)
-
-                # Issue #81 crash family: serialize the ffmpeg fork against
-                # the first QMediaPlayer construction (QThread worker, may
-                # run concurrently with video playback opening). Guard only
-                # the fork, not the streaming read loop.
-                from gui.src.helpers.video.video_thumbnailer import media_backend_spawn_guard
-
-                with media_backend_spawn_guard():
-                    process = subprocess.Popen(
-                        cmd,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.PIPE,
-                        stdin=subprocess.DEVNULL,
-                        text=True,
-                    )
-
-                while process.poll() is None:
-                    if self._is_cancelled:
-                        process.terminate()
-                        self.signals.error.emit("Extraction cancelled by user.")
-                        return
-                    import time
-                    time.sleep(0.5)
-
-                if process.returncode != 0:
-                    raise RuntimeError(
-                        f"FFmpeg failed with return code {process.returncode}\n{process.stderr.read()}" # pyrefly: ignore [missing-attribute]
-                    )
-
+                self._run_ffmpeg(pass1, "palette")
+                self.signals.progress.emit(50, 100)
+                self._run_ffmpeg(pass2, "encode")
                 self.signals.progress.emit(100, 100)
                 self.signals.finished.emit(self.output_path)
 
+            except _Cancelled:
+                self.signals.error.emit("Extraction cancelled by user.")
             except Exception as e:
                 self.signals.error.emit(f"FFmpeg Error: {str(e)}")
+            finally:
+                if palette_path and os.path.exists(palette_path):
+                    with contextlib.suppress(OSError):
+                        os.remove(palette_path)
             return
 
+        base_clip = None
+        clip = None
         try:
             from moviepy.editor import concatenate_videoclips
             self.signals.progress.emit(10, 100)
@@ -197,3 +222,10 @@ class GifCreationWorker(QRunnable):
             )
         except Exception as e:
             self.signals.error.emit(str(e))
+        finally:
+            # MoviePy leaves an ffmpeg reader subprocess + file handle open per
+            # clip until .close(); the old code never closed either.
+            for _c in (clip, base_clip):
+                if _c is not None:
+                    with contextlib.suppress(Exception):
+                        _c.close()
