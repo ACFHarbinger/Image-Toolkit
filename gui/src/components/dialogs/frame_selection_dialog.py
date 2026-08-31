@@ -17,6 +17,8 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
+from gui.src.helpers.gc_safe import gc_disabled_run
+
 
 def extract_video_frame_via_ffmpeg(
     video_path: str, frame_idx: int, total_frames: int, fps: float
@@ -85,6 +87,7 @@ class _FrameWorker(QThread):
     def cancel(self):
         self._cancelled = True
 
+    @gc_disabled_run
     def run(self):
         frame = extract_video_frame_via_ffmpeg(
             self.video_path, self.frame_idx, self.total_frames, self.fps

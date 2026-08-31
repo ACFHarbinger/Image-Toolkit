@@ -29,13 +29,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
   path-list emit on a QThread, same cyclic-GC class as #478). Browse dialog
   passes `DontUseNativeDialog`. Database-tab sweep:
   `.agent/reports/grok/db_tabs_478_sweep_2026-08-31.md`.
+- GC-guard Tier-2 (#481): the heavy CV/torch/ffmpeg worker threads now run
+  under `@gc_disabled_run` (outermost, above any `@Slot()`), closing the
+  #478/#480 crash class for the extraction, conversion, merge/scan/search,
+  embedding, model-training, web-recon, and ASP stitch/mask workers — 38
+  worker classes covered. Static registry check + dynamic signal-probe tests
+  in `gui/test/helpers/test_gc_tier2_workers.py` (51 tests).
 
 ### Planned (tracked)
 
 - v1.1 native Windows desktop build (#471, blocked on a win-64 `sqlcipher`
   package — none on conda-forge).
-- GC-guard Tier-2: extend `@gc_disabled_run` to the heavy CV/torch/ffmpeg
-  worker threads (#481, follow-up to #480).
 - ASP: Phase 0.1 human coherence rating pass (#473); comparator coverage —
   Overmix 97/97 regen + Hugin/GT backfill (#474).
 

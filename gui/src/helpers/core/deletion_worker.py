@@ -7,6 +7,7 @@ from PySide6.QtCore import QMutex, QThread, QWaitCondition, Signal
 from send2trash import send2trash  # pyrefly: ignore [untyped-import]
 
 from gui.src.helpers.core.config_types import DeletionConfig
+from gui.src.helpers.gc_safe import gc_disabled_run
 
 
 class DeletionWorker(QThread):
@@ -35,6 +36,7 @@ class DeletionWorker(QThread):
         self.mutex.unlock()
         self.wait_condition.wakeOne()
 
+    @gc_disabled_run
     def run(self):  # noqa: C901
         try:
             target_path = self.config["target_path"]

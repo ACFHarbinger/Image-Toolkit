@@ -8,6 +8,8 @@ from typing import Optional, Tuple, Union
 import cv2
 from PySide6.QtCore import QObject, QRunnable, Signal
 
+from gui.src.helpers.gc_safe import gc_disabled_run
+
 from ...utils.sort_utils import natural_sort_key
 
 
@@ -108,6 +110,7 @@ class FrameExtractionWorker(QRunnable):
             fps = 23.976
         return fps
 
+    @gc_disabled_run
     def run(self):  # noqa: C901
         self.signals.started.emit()
         saved_files = []

@@ -5,6 +5,8 @@ from PySide6.QtCore import QObject, QRunnable, Qt, Signal, Slot
 from PySide6.QtGui import QImage
 from shiboken6 import Shiboken
 
+from gui.src.helpers.gc_safe import gc_disabled_run
+
 from .batch_image_loader_worker import native_load_batch
 
 
@@ -45,6 +47,7 @@ class ImageLoaderWorker(QRunnable):
         """Signals the worker to stop."""
         self._is_cancelled = True
 
+    @gc_disabled_run
     @Slot()
     def run(self):
         if self._is_cancelled:

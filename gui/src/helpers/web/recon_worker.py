@@ -19,6 +19,8 @@ import numpy as np
 from backend.src.web.recon import DatasetIndexer, ReconConfig, ReconEngine
 from PySide6.QtCore import QThread, Signal
 
+from gui.src.helpers.gc_safe import gc_disabled_run
+
 logger = logging.getLogger(__name__)
 
 
@@ -37,6 +39,7 @@ class IndexBuildWorker(QThread):
     def _cancelled(self) -> bool:
         return self.isInterruptionRequested()
 
+    @gc_disabled_run
     def run(self):
         try:
             def progress_callback(stage: str, d: int, t: int) -> None:
@@ -68,6 +71,7 @@ class ResolveWorker(QThread):
         self.cutout_rgb = cutout_rgb
         self.cutout_png = cutout_png
 
+    @gc_disabled_run
     def run(self):
         try:
             self.status.emit("Resolving identity...")
@@ -90,6 +94,7 @@ class BatchSuggestWorker(QThread):
         self.engine = engine
         self.paths = paths
 
+    @gc_disabled_run
     def run(self):
         try:
             self.status.emit(f"Analyzing {len(self.paths)} images...")

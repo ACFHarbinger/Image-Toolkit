@@ -5,6 +5,8 @@ from typing import List, Optional
 from backend.src.core.video.video_probe import probe_codecs
 from PySide6.QtCore import QObject, QRunnable, Signal
 
+from gui.src.helpers.gc_safe import gc_disabled_run
+
 
 class _CodecScanSignals(QObject):
     codec_ready = Signal(str, object, object)  # path, video_codec, audio_codec
@@ -26,6 +28,7 @@ class CodecScanWorker(QRunnable):
         if self.executor:
             self.executor.shutdown(wait=False, cancel_futures=True)
 
+    @gc_disabled_run
     def run(self):
         if self.is_cancelled or not self.paths:
             self.signals.finished.emit()

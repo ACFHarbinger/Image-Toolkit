@@ -3,6 +3,8 @@ import numpy as np
 from PIL import Image
 from PySide6.QtCore import QRunnable, Slot
 
+from gui.src.helpers.gc_safe import gc_disabled_run
+
 from .scan_signals import ScanSignals
 
 
@@ -17,6 +19,7 @@ class OrbTask(QRunnable):
         self.signals = ScanSignals()
         self.setAutoDelete(True)
 
+    @gc_disabled_run
     @Slot()
     def run(self):
         try:

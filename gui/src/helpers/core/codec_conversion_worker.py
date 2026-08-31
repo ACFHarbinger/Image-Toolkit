@@ -10,6 +10,7 @@ from backend.src.core.video.video_probe import probe_codecs
 from PySide6.QtCore import QThread, Signal
 
 from gui.src.helpers.core.config_types import CodecConversionConfig
+from gui.src.helpers.gc_safe import gc_disabled_run
 
 logger = logging.getLogger(__name__)
 
@@ -115,6 +116,7 @@ class CodecConversionWorker(QThread):
                 msg += f" ({self._skipped_count} already in the target codec, skipped)"
             self.finished_signal.emit(converted_count, msg)
 
+    @gc_disabled_run
     def run(self):
         try:
             files_to_convert: List[str] = list(self.config.get("files_to_convert", []))

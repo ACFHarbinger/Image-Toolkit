@@ -5,6 +5,8 @@ from backend.src.constants import HAS_NATIVE_IMAGING, SUPPORTED_VIDEO_FORMATS
 from backend.src.core import telemetry
 from PySide6.QtCore import QThread, Signal, Slot
 
+from gui.src.helpers.gc_safe import gc_disabled_run
+
 if HAS_NATIVE_IMAGING:
     import base
 
@@ -135,5 +137,6 @@ class VideoScannerWorker(QThread):
         except Exception as e:
             self.scan_error.emit(f"Critical error during scan: {e}")
 
+    @gc_disabled_run
     def run(self):
         self.run_scan()

@@ -8,6 +8,8 @@ from typing import Optional, Tuple, Union
 from moviepy.editor import VideoFileClip
 from PySide6.QtCore import QObject, QRunnable, Signal
 
+from gui.src.helpers.gc_safe import gc_disabled_run
+
 # Ensure this import matches your MoviePy version
 try:
     from moviepy.audio.io.AudioFileClip import AudioFileClip
@@ -170,6 +172,7 @@ class VideoExtractionWorker(QRunnable):
 
         return keep
 
+    @gc_disabled_run
     def run(self):  # noqa: C901
         if self._is_cancelled:
             return

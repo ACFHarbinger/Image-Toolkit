@@ -3,6 +3,8 @@ from typing import List, Optional
 
 from PySide6.QtCore import QThread, Signal
 
+from gui.src.helpers.gc_safe import gc_disabled_run
+
 
 class TagReviewWorker(QThread):
     """
@@ -39,6 +41,7 @@ class TagReviewWorker(QThread):
         self.model_repo = model_repo
         self.skip_already_tagged = skip_already_tagged
 
+    @gc_disabled_run
     def run(self):
         try:
             from backend.src.models.wrappers.wd_tagger_wrapper import WDTaggerWrapper

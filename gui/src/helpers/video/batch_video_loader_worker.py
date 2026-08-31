@@ -5,6 +5,8 @@ from PySide6.QtCore import QObject, QRunnable, Signal, Slot
 from PySide6.QtGui import QImage
 from shiboken6 import Shiboken
 
+from gui.src.helpers.gc_safe import gc_disabled_run
+
 from .video_thumbnailer import VideoThumbnailer, get_video_thumbnail_cache_path
 
 
@@ -36,6 +38,7 @@ class BatchVideoLoaderWorker(QRunnable):
         """Signals the worker to stop."""
         self._is_cancelled = True
 
+    @gc_disabled_run
     @Slot()
     def run(self):
         if self._is_cancelled:

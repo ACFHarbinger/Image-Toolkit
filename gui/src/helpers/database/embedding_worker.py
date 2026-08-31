@@ -18,6 +18,8 @@ from typing import List, Tuple
 
 from PySide6.QtCore import QThread, Signal
 
+from gui.src.helpers.gc_safe import gc_disabled_run
+
 
 class ImageEmbeddingWorker(QThread):
     progress = Signal(int, int)  # (current, total)
@@ -35,6 +37,7 @@ class ImageEmbeddingWorker(QThread):
     def cancel(self) -> None:
         self._should_stop = True
 
+    @gc_disabled_run
     def run(self):
         try:
             from backend.src.core.similarity.embedder import get_embedder

@@ -1,5 +1,7 @@
 from PySide6.QtCore import QThread, Signal
 
+from gui.src.helpers.gc_safe import gc_disabled_run
+
 
 class TrainingWorker(QThread):
     """
@@ -24,6 +26,7 @@ class TrainingWorker(QThread):
         self.is_running = True
         self._should_stop = False  # standardised cancellation flag (item 2.7)
 
+    @gc_disabled_run
     def run(self):
         try:
             import torch

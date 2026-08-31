@@ -3,6 +3,8 @@ from typing import Optional, Tuple
 from backend.src.core import ImageMerger
 from PySide6.QtCore import QThread, Signal
 
+from gui.src.helpers.gc_safe import gc_disabled_run
+
 
 class ScrollVideoExportWorker(QThread):
     """
@@ -33,6 +35,7 @@ class ScrollVideoExportWorker(QThread):
         self.scroll_axis = scroll_axis
         self.codec = codec
 
+    @gc_disabled_run
     def run(self):
         try:
             result_path = ImageMerger.export_scrolling_video(

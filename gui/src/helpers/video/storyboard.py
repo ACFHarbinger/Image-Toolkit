@@ -52,6 +52,7 @@ from gui.src.constants.helpers import (
     MIN_TILES,
     TILE_WIDTH,
 )
+from gui.src.helpers.gc_safe import gc_disabled_run
 from gui.src.helpers.video.video_thumbnailer import media_backend_spawn_guard
 
 
@@ -182,6 +183,7 @@ class StoryboardBuilder(QThread):
         if self._process is not None and self._process.poll() is None:
             self._process.terminate()
 
+    @gc_disabled_run
     def run(self):  # noqa: C901
         if self._cancelled:
             return

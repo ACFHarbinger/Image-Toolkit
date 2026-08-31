@@ -18,6 +18,8 @@ from backend.src.web import (
 )
 from PySide6.QtCore import QObject, QRunnable, Signal
 
+from gui.src.helpers.gc_safe import gc_disabled_run
+
 
 class _ReverseSearchWorkerSignals(QObject):
     """Signals emitted by :class:`ReverseSearchWorker`."""
@@ -77,6 +79,7 @@ class ReverseSearchWorker(QRunnable):
         if self._manager:
             self._manager.stop()
 
+    @gc_disabled_run
     def run(self) -> None:
         """Execute the search on a QThreadPool worker thread."""
         try:

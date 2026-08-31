@@ -10,6 +10,7 @@ from backend.src.core import ImageFormatConverter, VideoFormatConverter
 from PySide6.QtCore import QThread, Signal
 
 from gui.src.helpers.core.config_types import ConversionConfig
+from gui.src.helpers.gc_safe import gc_disabled_run
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +46,7 @@ class ConversionWorker(QThread):
         """Signals the worker to stop (alias for cancel)."""
         self.cancel()
 
+    @gc_disabled_run
     def run(self):  # noqa: C901
         try:
             # Config extraction

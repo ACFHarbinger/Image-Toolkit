@@ -10,6 +10,8 @@ from backend.src.core import WallpaperManager
 from PySide6.QtCore import QObject, QRunnable, Signal, Slot
 from screeninfo import Monitor
 
+from gui.src.helpers.gc_safe import gc_disabled_run
+
 
 class _WallpaperWorkerSignals(QObject):
     """
@@ -60,6 +62,7 @@ class WallpaperWorker(QRunnable):
             timestamp = time.strftime("[%H:%M:%S]")
             self.signals.status_update.emit(f"{timestamp} {message}")
 
+    @gc_disabled_run
     @Slot()
     def run(self):
         """

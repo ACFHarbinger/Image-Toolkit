@@ -13,6 +13,7 @@ from moviepy.editor import AudioFileClip, VideoFileClip, concatenate_videoclips
 from PySide6.QtCore import QObject, QRunnable, Signal
 
 from gui.src.helpers.core.config_types import ExtractionConfig
+from gui.src.helpers.gc_safe import gc_disabled_run
 
 
 def run_extraction_in_process(config: Union[ExtractionConfig, Dict[str, Any]]) -> Dict[str, Any]:  # noqa: C901
@@ -504,6 +505,7 @@ class QueueExecutionWorker(QRunnable):
     def cancel(self):
         self._is_cancelled = True
 
+    @gc_disabled_run
     def run(self):
         # Safety net (Bug 1): keep this worker (and therefore its signals
         # QObject, which has no Qt parent) alive from run() start to finish,

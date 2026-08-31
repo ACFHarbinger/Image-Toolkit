@@ -14,6 +14,8 @@ from PySide6.QtCore import (
     Slot,
 )
 
+from gui.src.helpers.gc_safe import gc_disabled_run
+
 from .tasks import OrbTask, PhashTask, SiameseTask, SiftTask, SsimTask
 
 logger = logging.getLogger(__name__)
@@ -63,6 +65,7 @@ class DuplicateScanWorker(QObject):
                 self.aggregator_loop.quit()
             raise InterruptedError("Scan cancelled by user.")
 
+    @gc_disabled_run
     @Slot()
     def run(self):  # noqa: C901
         try:

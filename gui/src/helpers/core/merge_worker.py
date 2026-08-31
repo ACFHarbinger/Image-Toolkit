@@ -7,6 +7,7 @@ from PIL import Image as PILImage
 from PySide6.QtCore import QThread, Signal
 
 from gui.src.helpers.core.config_types import MergeConfig
+from gui.src.helpers.gc_safe import gc_disabled_run
 
 
 class MergeWorker(QThread):
@@ -24,6 +25,7 @@ class MergeWorker(QThread):
         """Signal the worker to stop before the next checkpoint."""
         self._should_stop = True
 
+    @gc_disabled_run
     def run(self):
         try:
             output_path = self.config["output_path"]

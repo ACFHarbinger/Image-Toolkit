@@ -14,6 +14,8 @@ from typing import List, Tuple
 
 from PySide6.QtCore import QThread, Signal
 
+from gui.src.helpers.gc_safe import gc_disabled_run
+
 from ...constants import RECOMMENDATION_ENGINE_DIR
 
 
@@ -44,6 +46,7 @@ class ListingsEmbeddingWorker(QThread):
     def cancel(self) -> None:
         self._should_stop = True
 
+    @gc_disabled_run
     def run(self):
         try:
             _ensure_re_on_path()

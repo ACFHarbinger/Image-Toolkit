@@ -8,6 +8,8 @@ from typing import Optional, Tuple, Union
 from moviepy.editor import VideoFileClip
 from PySide6.QtCore import QObject, QRunnable, Signal
 
+from gui.src.helpers.gc_safe import gc_disabled_run
+
 
 class _Cancelled(Exception):
     """Raised inside the worker when the user cancels mid-ffmpeg."""
@@ -118,6 +120,7 @@ class GifCreationWorker(QRunnable):
                     f"ffmpeg {phase} pass failed (code {proc.returncode})\n{tail}"
                 )
 
+    @gc_disabled_run
     def run(self):  # noqa: C901
         if self._is_cancelled:
             return

@@ -19,6 +19,8 @@ from backend.src.core.similarity import SimilarityConfig, SimilarityEngine
 from backend.src.core.similarity.engine import ScanCancelled
 from PySide6.QtCore import QThread, Signal
 
+from gui.src.helpers.gc_safe import gc_disabled_run
+
 logger = logging.getLogger(__name__)
 
 
@@ -42,6 +44,7 @@ class SimilarityScanWorker(QThread):
     def _is_cancelled(self) -> bool:
         return self.isInterruptionRequested()
 
+    @gc_disabled_run
     def run(self):
         try:
             engine = SimilarityEngine(

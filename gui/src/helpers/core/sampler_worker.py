@@ -9,6 +9,7 @@ from backend.src.constants import SUPPORTED_VIDEO_FORMATS
 from PySide6.QtCore import QThread, Signal
 
 from gui.src.helpers.core.config_types import SamplerConfig
+from gui.src.helpers.gc_safe import gc_disabled_run
 
 
 def _get_pil_filter(name: str):
@@ -50,6 +51,7 @@ class SamplerWorker(QThread):
     def stop(self):
         self.cancel()
 
+    @gc_disabled_run
     def run(self):  # noqa: C901
         try:
             files: List[str] = self.config.get("files_to_process", [])

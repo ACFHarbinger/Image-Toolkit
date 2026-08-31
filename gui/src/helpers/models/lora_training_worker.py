@@ -1,5 +1,7 @@
 from PySide6.QtCore import QThread, Signal
 
+from gui.src.helpers.gc_safe import gc_disabled_run
+
 
 class LoRATrainingWorker(QThread):
     """
@@ -52,6 +54,7 @@ class LoRATrainingWorker(QThread):
         self.alpha = alpha
         self.lr = lr
 
+    @gc_disabled_run
     def run(self):
         """
         Executes the LoRA training loop.
