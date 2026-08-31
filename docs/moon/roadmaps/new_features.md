@@ -783,6 +783,52 @@ non-priority) for the cross-link.
 
 ---
 
+## 4.20 Cloud Sync tab restructure + Local Directory Sync {: #420-cloud-sync-local-directory-sync }
+
+**Status:** Priority 1, in progress (issue #479, 2026-08-31).
+
+**Goal:** synchronize the whole local `~/.image-toolkit/` directory with a
+remote `.image-toolkit/` folder on the user's cloud provider (Google Drive
+first; Dropbox / OneDrive via the existing `backend/src/web/cloud/*` clients).
+Broader than §4.19 (which is scoped to just the two encrypted settings
+files) — this covers configs, keybindings, user QSS, and opt-in data —
+while deliberately **not** attempting multi-writer database replication
+(that stays its own separately-scoped problem).
+
+**Part A — tab restructure.** The top-level **Cloud Synchronization** tab
+(`gui/src/tabs/web/drive_sync_tab/`, registered `_tab_registry.py:113`)
+becomes a container with a `QTabWidget`:
+
+- **"Sync Data" subtab** — today's entire behavior (provider switch, remote
+  map, folder browse/share, the DB-backed `_sync_worker`), moved into a new
+  `sync_data_subtab/` package.
+- The parent `DriveSyncTab` retains only shared logic: provider
+  selection / auth (`_auth_config`, `_provider_switch`, `gdrive_auth_helper`),
+  the UI lock (`_ui_lock`), `_defaults`, cross-subtab signal plumbing.
+- Every new/changed file **< 500 LoC**.
+
+**Part B — "Local Directory Sync" subtab.**
+
+- Bidirectional diff of `~/.image-toolkit/` ↔ remote `.image-toolkit/` by
+  relative path + mtime + size (content hash on tie).
+- Conflict policy: newer-wins default, with *prefer local / prefer remote /
+  ask* setting; remote dir auto-created; dry-run preview before first sync.
+- Dedicated GC-disabled QThread worker (mirrors
+  `google_drive_sync_worker.py`), progress + cancel.
+- **Security:** default exclude list keeps the vault keystore / key material
+  and anything carrying absolute host paths (logs, traces) out of the cloud;
+  editable include/exclude UI; one-time warning that contents of
+  `~/.image-toolkit/` will leave the machine. The `.vault` / `.p12` files are
+  AES-256-GCM but path leakage from logs is not.
+
+**Effort:** Medium–High. **Impact:** High (cross-device state, and the
+container refactor unblocks further cloud subtabs).
+
+**Tests:** subtab construction; the diff / conflict resolver as pure logic
+(no network); exclude-list enforcement.
+
+---
+
 ## Effort × Impact Matrix {: #effort--impact-matrix }
 
 *Effort* — **Low**: < 1 day · **Medium**: 1 day – 1 week · **High**: 1 – 2 weeks · **Very High**: 2+ weeks or external dependency
@@ -820,9 +866,10 @@ non-priority) for the cross-link.
 | 4.17 Media Loader — Web Media Downloader | [#417-media-loader--web-media-downloader](#417-media-loader--web-media-downloader) |
 | 4.18 Image Board Crawler — Rating Filter & SFW Board Support | [#418-image-board-crawler--rating-filter--sfw-board-support](#418-image-board-crawler--rating-filter--sfw-board-support) |
 | 4.19 Account-Linked Settings Sync (Google Drive) | [#419-account-linked-settings-sync-google-drive](#419-account-linked-settings-sync-google-drive) |
+| 4.20 Cloud Sync tab restructure + Local Directory Sync | [#420-cloud-sync-local-directory-sync](#420-cloud-sync-local-directory-sync) |
 
 ---
 
 ## Document History
 
-*Last updated: 2026-08-15 — §4.19 Account-Linked Settings Sync (Google Drive) added as a quick draft, deliberately not fully specced. Previous update same day: §4.18 Image Board Crawler rating filter and Safebooru board support added (planned, not yet implemented), motivated by the ASP SFW benchmark corpus roadmap. Previous update 2026-08-03: §4.17 Media Loader (Reddit + nhentai web media downloader tab) added and shipped same day, issue #182. Previous update 2026-07-17: §4.15 Extractor Tab Image Sub-Tab (multi-frame image splitter) added, implemented same day: Extractor tab split into Video/Image subtabs. Previous update 2026-07-11 (§4.14 storyboard scrub preview).*
+*Last updated: 2026-08-31 — §4.20 Cloud Sync tab restructure into subtabs + Local Directory Sync (~/.image-toolkit ↔ remote .image-toolkit) added, Priority 1 in progress (issue #479). Previous update 2026-08-15 — §4.19 Account-Linked Settings Sync (Google Drive) added as a quick draft, deliberately not fully specced. Previous update same day: §4.18 Image Board Crawler rating filter and Safebooru board support added (planned, not yet implemented), motivated by the ASP SFW benchmark corpus roadmap. Previous update 2026-08-03: §4.17 Media Loader (Reddit + nhentai web media downloader tab) added and shipped same day, issue #182. Previous update 2026-07-17: §4.15 Extractor Tab Image Sub-Tab (multi-frame image splitter) added, implemented same day: Extractor tab split into Video/Image subtabs. Previous update 2026-07-11 (§4.14 storyboard scrub preview).*

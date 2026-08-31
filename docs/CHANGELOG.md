@@ -11,11 +11,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - Docs stubs: `DEVELOPMENT.md`, `SECURITY.md`, `TESTING.md`, `GLOSSARY.md`, this changelog.
 - Agent coordination for docs/website migration under `.agent/cache/AGENT_BUS.md` and `.agent/reports/grok/`.
 
+### Fixed
+
+- SIGSEGV when loading the backup listings in a listings subtab (#478): `_SyncBackupWorker` parsed the decrypted backup with `json.loads` on its QThread; the allocations tripped CPython's cyclic collector *on that thread*, which then finalized a `QWidget` from the GUI's cyclic garbage off the GUI thread (`QWidget::~QWidget` → `deleteChildren` → segfault — the #461 class). `run()` now disables the cyclic GC for its lifetime and drops the DB/vault handles so their teardown stays on the GUI thread. Regression test in `gui/test/helpers/test_sync_backup_worker.py`.
+
 ### Planned (tracked)
 
 - v1.1 native Windows desktop build (#471); `--version`/`--help` for the frozen
   entry point (#475); frozen-bundle path-assumption audit (#476); first-run
   PostgreSQL prerequisite UX (#477).
+- Cloud Sync tab restructured into subtabs + a new Local Directory Sync subtab
+  (`~/.image-toolkit` ↔ remote `.image-toolkit`), roadmap §4.20 (#479).
 - ASP: `no_valid_edges` recovery via edgeless-graph edge re-proposal (#472);
   Phase 0.1 human coherence rating pass (#473); comparator coverage — Overmix
   97/97 regen + Hugin/GT backfill (#474).

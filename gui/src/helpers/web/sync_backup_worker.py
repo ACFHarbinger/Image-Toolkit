@@ -5,8 +5,17 @@ Sync target is the unified library database (Phase DB, DB.5): a session
 internal mutex makes cross-thread use from this QThread safe — and rows are
 merged through the legacy-dict repos instead of the old delete-all/reinsert
 against ``listings_secure.db`` (the pattern behind the data-loss incident).
+
+``run()`` disables the cyclic GC for its lifetime: ``json.loads`` of the
+decrypted backup allocates enough to trip the collection threshold *on this
+QThread*, and CPython's collector is process-global with no thread affinity —
+so a collectable ``QWidget`` left anywhere in the GUI's cyclic garbage gets
+``__del__``'d here, off the GUI thread, and ``QWidget::~QWidget`` segfaults
+(the #461 crash class). Refcounted frees are unaffected; the GUI thread's
+next allocation re-collects.
 """
 
+import gc
 import json
 import zipfile
 from pathlib import Path
@@ -54,6 +63,8 @@ class _SyncBackupWorker(QThread):
         self.params = params
 
     def run(self):
+        gc_was_enabled = gc.isenabled()
+        gc.disable()
         try:
             if self.task_type == "sync":
                 self.run_sync()
@@ -61,6 +72,13 @@ class _SyncBackupWorker(QThread):
                 self.run_backup()
         except Exception as e:
             self.sig_finished.emit(False, str(e), None)
+        finally:
+            if gc_was_enabled:
+                gc.enable()
+            # Drop strong refs to the DB / vault handles so teardown of those
+            # (some are QObjects) happens on the GUI thread via the parent, not
+            # here when this QThread object is later collected.
+            self.params = {}
 
     def run_sync(self):
         # 1. Load and decrypt remote entries
