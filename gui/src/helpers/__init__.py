@@ -36,6 +36,9 @@ from .web import (
     GoogleDriveSyncWorker as GoogleDriveSyncWorker,
 )
 from .web import (
+    LocalDirSyncWorker as LocalDirSyncWorker,
+)
+from .web import (
     OneDriveSyncWorker as OneDriveSyncWorker,
 )
 from .web.image_crawl_worker import ImageCrawlWorker as ImageCrawlWorker

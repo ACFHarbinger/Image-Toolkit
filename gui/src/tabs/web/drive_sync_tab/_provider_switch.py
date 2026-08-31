@@ -1,19 +1,18 @@
-"""Provider-combo change handler: toggles per-provider field visibility.
-
-Extracted from ``drive_sync_tab.py`` -- pure code motion, no logic change.
-"""
+"""Provider-combo change handler: toggles per-provider field visibility."""
 
 from __future__ import annotations
 
 
 class _ProviderSwitchMixin:
-    """Shows/hides provider-specific auth and sharing widgets."""
+    """Shows/hides provider-specific auth widgets and updates subtabs."""
+
+    def get_provider_text(self) -> str:
+        return self.provider_combo.currentText()
 
     def handle_provider_change(self, index: int):
         provider_text = self.provider_combo.currentText()
         is_google_service = provider_text.startswith("Google Drive (Service Account)")
         is_google_personal = provider_text.startswith("Google Drive (Personal Account)")
-        is_google = is_google_service or is_google_personal
 
         # Toggle Service Account widgets
         for w in (self.key_file_label, self.key_file_path, self.btn_browse_key):
@@ -29,19 +28,11 @@ class _ProviderSwitchMixin:
         ):
             w.setVisible(is_google_personal)
 
-        # Toggle Sharing widgets (only for Service Account)
-        for w in (
-            self.share_email_label,
-            self.share_email_input,
-            self.btn_share_folder,
-        ):
-            w.setVisible(is_google_service)  # Changed from setEnabled to setVisible
-
-        # View Map is specific to Google Drive implementation for now
-        self.btn_view_remote.setEnabled(is_google)
-
-        # Sync is now available for all implemented providers
-        self.sync_button.setEnabled(True)
+        # Notify subtabs
+        if hasattr(self, "sync_data_subtab"):
+            self.sync_data_subtab.update_provider_visibility(provider_text)
+        if hasattr(self, "local_dir_sync_subtab"):
+            self.local_dir_sync_subtab.update_provider_visibility(provider_text)
 
 
 __all__ = ["_ProviderSwitchMixin"]

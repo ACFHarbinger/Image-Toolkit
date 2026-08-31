@@ -1,7 +1,4 @@
-"""Tab-config collect/get_default_config/set_config for DriveSyncTab.
-
-Extracted from ``drive_sync_tab.py`` -- pure code motion, no logic change.
-"""
+"""Tab-config collect/get_default_config/set_config for DriveSyncTab."""
 
 from __future__ import annotations
 
@@ -17,31 +14,26 @@ class _ConfigMixin:
 
     def collect(self) -> dict:
         """Collects current settings from the UI."""
-        # Determine sync behaviors based on checked radio buttons
-        action_local = "upload"
-        if self.rb_delete_local.isChecked():
-            action_local = "delete_local"
-        elif self.rb_ignore_local.isChecked():
-            action_local = "ignore_local"
+        data_cfg = self.sync_data_subtab.collect()
+        local_cfg = self.local_dir_sync_subtab.collect()
 
-        action_remote = "download"
-        if self.rb_delete_remote.isChecked():
-            action_remote = "delete_remote"
-        elif self.rb_ignore_remote.isChecked():
-            action_remote = "ignore_remote"
-
-        return {
+        cfg = {
             "provider": self.provider_combo.currentText(),
             "key_file": self.key_file_path.text().strip(),
             "client_secrets_file": self.client_secrets_path.text().strip(),
             "token_file": self.token_file_path.text().strip(),
-            "local_path": self.local_path.text().strip(),
-            "remote_path": self.remote_path.text().strip(),
-            "dry_run": self.dry_run_checkbox.isChecked(),
-            "share_email": self.share_email_input.text().strip(),
-            "action_local_orphans": action_local,
-            "action_remote_orphans": action_remote,
+            # Legacy top-level mapping for sync data
+            "local_path": data_cfg.get("local_path", ""),
+            "remote_path": data_cfg.get("remote_path", ""),
+            "dry_run": data_cfg.get("dry_run", True),
+            "share_email": data_cfg.get("share_email", ""),
+            "action_local_orphans": data_cfg.get("action_local_orphans", "upload"),
+            "action_remote_orphans": data_cfg.get("action_remote_orphans", "download"),
+            # Structured subtab configs
+            "sync_data": data_cfg,
+            "local_dir_sync": local_cfg,
         }
+        return cfg
 
     def get_default_config(self) -> dict:
         return {
@@ -66,27 +58,13 @@ class _ConfigMixin:
             self.key_file_path.setText(config.get("key_file", ""))
             self.client_secrets_path.setText(config.get("client_secrets_file", ""))
             self.token_file_path.setText(config.get("token_file", ""))
-            self.local_path.setText(config.get("local_path", ""))
-            self.remote_path.setText(config.get("remote_path", ""))
-            self.dry_run_checkbox.setChecked(config.get("dry_run", True))
-            self.share_email_input.setText(config.get("share_email", ""))
 
-            # Restore Behavior Radio Buttons
-            act_local = config.get("action_local_orphans", "upload")
-            if act_local == "delete_local":
-                self.rb_delete_local.setChecked(True)
-            elif act_local == "ignore_local":
-                self.rb_ignore_local.setChecked(True)
-            else:
-                self.rb_upload.setChecked(True)
+            # Restore subtabs
+            sync_data_cfg = config.get("sync_data", config)
+            self.sync_data_subtab.set_config(sync_data_cfg)
 
-            act_remote = config.get("action_remote_orphans", "download")
-            if act_remote == "delete_remote":
-                self.rb_delete_remote.setChecked(True)
-            elif act_remote == "ignore_remote":
-                self.rb_ignore_remote.setChecked(True)
-            else:
-                self.rb_download.setChecked(True)
+            if "local_dir_sync" in config:
+                self.local_dir_sync_subtab.set_config(config["local_dir_sync"])
 
             print("DriveSyncTab configuration loaded.")
 

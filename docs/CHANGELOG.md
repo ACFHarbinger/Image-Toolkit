@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 - Docs stubs: `DEVELOPMENT.md`, `SECURITY.md`, `TESTING.md`, `GLOSSARY.md`, this changelog.
 - Agent coordination for docs/website migration under `.agent/cache/AGENT_BUS.md` and `.agent/reports/grok/`.
+- Cloud Sync tab restructure + Local Directory Sync (#479, roadmap §4.20): `DriveSyncTab` is now a container holding a `QTabWidget` with two subtabs: "Sync Data" (encapsulating existing database-backed drive sync in `sync_data_subtab/`) and "Local Directory Sync" (`local_dir_sync_subtab/`). Local Directory Sync provides bidirectional sync between `~/.image-toolkit/` and remote `.image-toolkit/` folders with pure-logic diffing/conflict resolution (`LocalDirSyncEngine`), configurable conflict policy (newer wins, prefer local, prefer remote), dry-run preview, progress tracking, and default exclude filters for private vault keys, keystores, and path-leaking log files. Tests in `gui/test/web/test_cloud_sync.py`.
 
 ### Fixed
 
@@ -26,8 +27,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
   UX (#477).
 - GC-guard Tier-2: extend `@gc_disabled_run` to the heavy CV/torch/ffmpeg
   worker threads (#481, follow-up to #480).
-- Cloud Sync tab restructured into subtabs + a new Local Directory Sync subtab
-  (`~/.image-toolkit` ↔ remote `.image-toolkit`), roadmap §4.20 (#479).
 - ASP: `no_valid_edges` recovery via edgeless-graph edge re-proposal (#472);
   Phase 0.1 human coherence rating pass (#473); comparator coverage — Overmix
   97/97 regen + Hugin/GT backfill (#474).
