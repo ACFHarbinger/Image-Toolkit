@@ -499,6 +499,70 @@ class _VideoSessionHistoryMixin:
             "speed": str(run.get("speed", "1.0")),
         }
 
+    def _on_recent_extraction_context_menu(
+        self: "VideoExtractorSubTabHostProtocol", pos
+    ) -> None:
+        """Right-click on a Recent Extractions entry: enqueue / load / delete it."""
+        from PySide6.QtWidgets import QMenu
+
+        view = self.combo_recent_extractions.view()
+        model_index = view.indexAt(pos)
+        row = model_index.row()
+        # Row 0 is the "Select a previous configuration..." placeholder.
+        if row <= 0 or (row - 1) >= len(getattr(self, "recent_runs", []) or []):
+            return
+        run = self.recent_runs[row - 1]
+
+        menu = QMenu(cast(QWidget, self))
+        act_queue = menu.addAction("➕ Add this to Queue")
+        act_queue.setEnabled(bool(getattr(self, "extraction_queue_enabled", False)))
+        act_load = menu.addAction("✏️ Load this Config")
+        menu.addSeparator()
+        act_delete = menu.addAction("🗑️ Delete from Recents")
+
+        chosen = menu.exec(view.viewport().mapToGlobal(pos))
+        if chosen is None:
+            return
+        if chosen is act_queue:
+            self._enqueue_recent_run(run)
+        elif chosen is act_load:
+            self.combo_recent_extractions.hidePopup()
+            self._reload_extraction(run)
+        elif chosen is act_delete:
+            self.combo_recent_extractions.hidePopup()
+            self.recent_runs.pop(row - 1)
+            self._save_extraction_history()
+            self._update_recent_extractions_ui()
+            self.extraction_status_label.setText("Removed 1 entry from recent extractions.")
+            self.extraction_status_label.show()
+
+    def _enqueue_recent_run(
+        self: "VideoExtractorSubTabHostProtocol", run: dict
+    ) -> None:
+        """Append a single recent-run config to the extraction queue."""
+        if not getattr(self, "extraction_queue_enabled", False):
+            QMessageBox.information(
+                cast(QWidget, self),
+                "Extraction Queue Disabled",
+                "Enable the Extraction Queue in Settings ▸ Extractor first.",
+            )
+            return
+        vpath = run.get("video_path", "")
+        if not vpath or not Path(vpath).exists():
+            QMessageBox.warning(
+                cast(QWidget, self),
+                "File Not Found",
+                f"The source video '{vpath}' no longer exists.",
+            )
+            return
+        self.combo_recent_extractions.hidePopup()
+        self.extraction_queue.append(self._recent_run_to_queue_config(run))
+        self._update_queue_ui()
+        self.extraction_status_label.setText(
+            f"Added 1 recent extraction to the queue. Queue size: {len(self.extraction_queue)}"
+        )
+        self.extraction_status_label.show()
+
     @Slot()
     def _add_recent_extractions_to_queue(self: "VideoExtractorSubTabHostProtocol") -> None:
         """Append the N most recent extraction configs to the extraction queue."""

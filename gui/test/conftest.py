@@ -214,6 +214,24 @@ def mock_image_toolkit_paths(tmp_path, monkeypatch):
     except Exception:
         pass
 
+    # Belt-and-braces: any module that did `from ...constants import
+    # IMAGE_TOOLKIT_DIR` holds its own name binding that patching `paths` /
+    # `constants` above does not reach. Sweep every already-imported module and
+    # repoint a stale binding at tmp_path so no test can write to the real
+    # ~/.image-toolkit (e.g. the extractor's .extraction_history.json).
+    _tmp_s = str(tmp_path)
+    for _name, _mod in list(sys.modules.items()):
+        # torch._classes and other lazy proxies raise on arbitrary getattr.
+        if _mod is None or _name.startswith(("torch.", "torch._")):
+            continue
+        try:
+            _val = _mod.__dict__.get("IMAGE_TOOLKIT_DIR")
+        except Exception:
+            continue
+        if _val is not None and str(_val) != _tmp_s:
+            with contextlib.suppress(Exception):
+                monkeypatch.setattr(_mod, "IMAGE_TOOLKIT_DIR", tmp_path, raising=False)
+
 
 @pytest.fixture(autouse=True, scope="function")
 def cleanup_active_workers_and_timers(q_app):

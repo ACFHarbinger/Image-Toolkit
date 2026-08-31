@@ -43,6 +43,12 @@ class _ExtractionPanelUIMixin:
         self.combo_recent_extractions.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
         )
+        # Right-click a dropdown entry to enqueue / load / delete just that one.
+        _recent_view = self.combo_recent_extractions.view()
+        _recent_view.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        _recent_view.customContextMenuRequested.connect(
+            self._on_recent_extraction_context_menu
+        )
         recent_layout.addWidget(self.combo_recent_extractions)
 
         self.btn_load_recent = QPushButton("Load Config")
