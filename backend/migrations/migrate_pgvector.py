@@ -43,12 +43,31 @@ def _load_pg_env() -> Dict[str, str]:
             line = line.strip()
             if line and not line.startswith("#") and "=" in line:
                 key, _, value = line.partition("=")
-                if key.strip().startswith("DB_"):
-                    env[key.strip()] = value.strip().strip("'\"")
+                k = key.strip()
+                v = value.strip().strip("'\"")
+                if k.startswith("DB_") or k.startswith("POSTGRES_") or k == "DATABASE_URL":
+                    env[k] = v
     # Environment variables override the file.
-    for key in ("DB_NAME", "DB_USER", "DB_PASSWORD", "DB_HOST", "DB_PORT"):
+    for key in (
+        "DATABASE_URL",
+        "DB_NAME", "DB_USER", "DB_PASSWORD", "DB_HOST", "DB_PORT",
+        "POSTGRES_DB", "POSTGRES_USER", "POSTGRES_PASSWORD", "POSTGRES_HOST", "POSTGRES_PORT",
+    ):
         if os.environ.get(key):
             env[key] = os.environ[key]
+
+    # Normalize POSTGRES_* aliases to DB_*
+    if "POSTGRES_DB" in env and "DB_NAME" not in env:
+        env["DB_NAME"] = env["POSTGRES_DB"]
+    if "POSTGRES_USER" in env and "DB_USER" not in env:
+        env["DB_USER"] = env["POSTGRES_USER"]
+    if "POSTGRES_PASSWORD" in env and "DB_PASSWORD" not in env:
+        env["DB_PASSWORD"] = env["POSTGRES_PASSWORD"]
+    if "POSTGRES_HOST" in env and "DB_HOST" not in env:
+        env["DB_HOST"] = env["POSTGRES_HOST"]
+    if "POSTGRES_PORT" in env and "DB_PORT" not in env:
+        env["DB_PORT"] = env["POSTGRES_PORT"]
+
     return env
 
 
@@ -57,14 +76,18 @@ def _postgres_provider() -> Dict[str, Iterable[tuple]]:
     import psycopg2  # deferred + guarded: package may be absent post-DB.6
 
     pg = _load_pg_env()
-    conn = psycopg2.connect(
-        dbname=pg.get("DB_NAME"),
-        user=pg.get("DB_USER"),
-        password=pg.get("DB_PASSWORD"),
-        host=pg.get("DB_HOST"),
-        port=pg.get("DB_PORT"),
-        connect_timeout=10,
-    )
+    db_url = pg.get("DATABASE_URL")
+    if db_url:
+        conn = psycopg2.connect(dsn=db_url, connect_timeout=10)
+    else:
+        conn = psycopg2.connect(
+            dbname=pg.get("DB_NAME", "image_toolkit"),
+            user=pg.get("DB_USER", "toolkit_user"),
+            password=pg.get("DB_PASSWORD"),
+            host=pg.get("DB_HOST", "localhost"),
+            port=pg.get("DB_PORT", 5432),
+            connect_timeout=10,
+        )
 
     def fetch(sql: str):
         with conn.cursor() as cur:
