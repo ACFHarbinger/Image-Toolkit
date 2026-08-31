@@ -15,7 +15,9 @@ Cloudflare / Oracle adapters are declared but not implemented yet.
 from __future__ import annotations
 
 from .cloud_job import CloudJob
+from .dispatcher import CloudExtractionDispatcher, DispatchResult
 from .gcd_adapter import GCDCloudRunAdapter
+from .gcs_client import GCSClient, parse_gs_uri
 from .provider_adapter import (
     CloudflareAdapter,
     CloudProviderAdapter,
@@ -29,17 +31,24 @@ from .usage import (
     UsageSummary,
     aggregate_usage_rows,
 )
+from .usage_store import DEFAULT_USAGE_PATH, UsageStore
 
 __all__ = [
     "CloudJob",
     "CloudProviderAdapter",
     "CloudRunResult",
+    "CloudExtractionDispatcher",
+    "DispatchResult",
     "GCDCloudRunAdapter",
+    "GCSClient",
+    "parse_gs_uri",
     "CloudflareAdapter",
     "OracleAdapter",
     "UsageRow",
     "UsageRowSource",
     "UsageSummary",
+    "UsageStore",
+    "DEFAULT_USAGE_PATH",
     "aggregate_usage_rows",
     "get_adapter",
 ]
