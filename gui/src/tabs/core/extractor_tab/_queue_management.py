@@ -7,6 +7,7 @@ Extracted from ``extractor_tab.py`` -- pure code motion, no logic change.
 
 from __future__ import annotations
 
+import contextlib
 import copy
 import os
 import time
@@ -336,9 +337,21 @@ class _QueueManagementMixin:
 
     def cancel_queue(self: "VideoExtractorSubTabHostProtocol"):
         """Cancel the active queue processing run."""
-        if self.active_queue_worker:
-            self.active_queue_worker.cancel()
+        w = self.active_queue_worker
+        if w is not None:
+            with contextlib.suppress(Exception):
+                w.cancel()
+        # Drop the reference immediately. The worker may still be winding its
+        # multiprocessing Pool down in the background and its async
+        # error/finished signal can be seconds away (or never, on a wedged
+        # ffmpeg child) -- a fresh "Process Queue" click must not be blocked
+        # by it. Handlers below no-op for any worker that is not the current
+        # one, so the stale signal is harmless.
+        self.active_queue_worker = None
         self._set_queue_processing_state(False)
+        self.extraction_progress_bar.hide()
+        self.extraction_status_label.setText("Queue cancelled.")
+        self.extraction_status_label.show()
 
     @Slot()
     def process_queue(self: "VideoExtractorSubTabHostProtocol"):
@@ -380,15 +393,28 @@ class _QueueManagementMixin:
             ),
         )
         self.active_queue_worker = worker
-        worker.signals.progress.connect(self._on_queue_progress)
-        worker.signals.item_completed.connect(self._on_queue_item_completed)
-        worker.signals.finished.connect(self._on_queue_processing_finished)
-        worker.signals.error.connect(self._on_queue_processing_error)
+        # Bind each connection to THIS worker so a late signal from a
+        # previously cancelled run can't stomp the current one (or restart a
+        # dead run). The handlers ignore any call whose worker is not current.
+        worker.signals.progress.connect(
+            lambda c, t, w=worker: self._on_queue_progress(c, t, w)
+        )
+        worker.signals.item_completed.connect(
+            lambda i, r, it, w=worker: self._on_queue_item_completed(i, r, it, w)
+        )
+        worker.signals.finished.connect(
+            lambda res, w=worker: self._on_queue_processing_finished(res, w)
+        )
+        worker.signals.error.connect(
+            lambda msg, w=worker: self._on_queue_processing_error(msg, w)
+        )
 
         self.operation_thread_pool.start(worker)
 
     @Slot(int, int)
-    def _on_queue_progress(self: "VideoExtractorSubTabHostProtocol", completed: int, total: int):
+    def _on_queue_progress(self: "VideoExtractorSubTabHostProtocol", completed: int, total: int, worker=None):
+        if worker is not None and worker is not self.active_queue_worker:
+            return
         self._queue_completed_count = completed
         self._queue_total_count = max(total, getattr(self, "_queue_total_count", total))
         self.extraction_progress_bar.setMaximum(max(total, 1))
@@ -455,7 +481,9 @@ class _QueueManagementMixin:
         }
 
     @Slot(int, dict, dict)
-    def _on_queue_item_completed(self: "VideoExtractorSubTabHostProtocol", index: int, res: dict, item: dict):
+    def _on_queue_item_completed(self: "VideoExtractorSubTabHostProtocol", index: int, res: dict, item: dict, worker=None):
+        if worker is not None and worker is not self.active_queue_worker:
+            return
         """Per-item completion: record the extraction into recent extractions
         (previously queue results never appeared there) and remove the
         finished item from the queue list promptly.
@@ -524,7 +552,9 @@ class _QueueManagementMixin:
                     path, label, path == getattr(self, "video_path", None)
                 )
 
-    def _on_queue_processing_finished(self: "VideoExtractorSubTabHostProtocol", results):
+    def _on_queue_processing_finished(self: "VideoExtractorSubTabHostProtocol", results, worker=None):
+        if worker is not None and worker is not self.active_queue_worker:
+            return
         self.active_queue_worker = None
         self._set_queue_processing_state(False)
         self.extraction_progress_bar.hide()
@@ -582,7 +612,9 @@ class _QueueManagementMixin:
 
         self._maybe_finish_close()
 
-    def _on_queue_processing_error(self: "VideoExtractorSubTabHostProtocol", error_msg):
+    def _on_queue_processing_error(self: "VideoExtractorSubTabHostProtocol", error_msg, worker=None):
+        if worker is not None and worker is not self.active_queue_worker:
+            return
         self.active_queue_worker = None
         self._set_queue_processing_state(False)
         self.extraction_progress_bar.hide()

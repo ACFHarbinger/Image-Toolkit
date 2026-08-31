@@ -16,6 +16,23 @@ from gui.src.helpers.core.config_types import ExtractionConfig
 from gui.src.helpers.gc_safe import gc_disabled_run
 
 
+def _extraction_pool_worker_init() -> None:
+    """Runs once per parallel-extraction child process.
+
+    Makes the workers the preferred OOM / earlyoom victims instead of the GUI:
+    if memory runs short mid-run the kernel (or earlyoom, which ranks by
+    ``oom_score``) kills a worker — a single failed extraction, recoverable —
+    rather than SIGTERM'ing the whole app. Also niced down so the GUI stays
+    responsive.
+    """
+    with contextlib.suppress(Exception):
+        os.nice(10)
+    with contextlib.suppress(OSError), open(
+        f"/proc/{os.getpid()}/oom_score_adj", "w"
+    ) as fh:
+        fh.write("700")
+
+
 def run_extraction_in_process(config: Union[ExtractionConfig, Dict[str, Any]]) -> Dict[str, Any]:  # noqa: C901
     def natural_sort_key(s):
         return [
@@ -534,7 +551,11 @@ class QueueExecutionWorker(QRunnable):
             total = len(self.queue_items)
             self.signals.progress.emit(0, total)
             try:
-                with Pool(processes=num_cores) as pool:
+                with Pool(
+                    processes=num_cores,
+                    initializer=_extraction_pool_worker_init,
+                    maxtasksperchild=1,
+                ) as pool:
                     async_results = [
                         pool.apply_async(run_extraction_in_process, (item,))
                         for item in self.queue_items
