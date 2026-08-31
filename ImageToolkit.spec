@@ -100,6 +100,19 @@ datas = [
     (os.path.join(ROOT_DIR, 'configs'), 'configs'),
 ]
 
+# Version: backend.src._version reads installed dist metadata first, then falls
+# back to the canonical root pyproject.toml. Ship both so the frozen app never
+# stamps "0.0.0+unknown" — copy_metadata for the editable-install path,
+# pyproject.toml (at parents[2] of backend/src/_version.py) for the fallback.
+from PyInstaller.utils.hooks import copy_metadata as _copy_metadata
+
+for _dist in ('image-toolkit-backend', 'image-toolkit-gui'):
+    try:
+        datas += _copy_metadata(_dist)
+    except Exception:
+        pass
+datas.append((os.path.join(ROOT_DIR, 'pyproject.toml'), '.'))
+
 # Database schemas if not covered by package
 schema_path = os.path.join(ROOT_DIR, 'backend', 'src', 'database', 'unified')
 if os.path.isdir(schema_path):
