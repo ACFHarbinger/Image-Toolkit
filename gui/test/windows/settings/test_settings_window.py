@@ -118,7 +118,7 @@ class TestSettingsWindowLogs:
         window.vault_manager = mock_vault
 
         # Setup mock paths
-        mock_root = tmp_path / "project_root"
+        mock_home_dir = tmp_path / "image-toolkit"
         mock_api = tmp_path / "api"
         mock_api.mkdir(parents=True, exist_ok=True)
         # Create a dummy token.json
@@ -128,14 +128,14 @@ class TestSettingsWindowLogs:
             json.dump({"token": "xyz"}, f)
 
         with (
-            patch("gui.src.windows.settings._credentials.ROOT_DIR", mock_root),
+            patch("gui.src.windows.settings._credentials.IMAGE_TOOLKIT_DIR", mock_home_dir),
             patch("gui.src.windows.settings._credentials.API_DIR", mock_api),
             patch.object(QMessageBox, "information") as mock_info,
         ):
             window._export_credentials_to_backup()
             mock_info.assert_called_once()
 
-            backup_dir = mock_root / "backup"
+            backup_dir = mock_home_dir / "backup"
             assert backup_dir.exists()
             assert (backup_dir / "google_api_key.json").exists()
             assert (backup_dir / "client_secret.json").exists()

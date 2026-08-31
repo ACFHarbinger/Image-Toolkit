@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import sys
 from pathlib import Path
 
 from backend.src.constants import (
@@ -436,6 +437,15 @@ class _ResetStateMixin:
         """
         active_dir = Path(LOCAL_SECRETS_DIR)
         template_dir = Path(SECRETS_DIR)
+        if getattr(sys, "frozen", False):
+            QMessageBox.warning(
+                self,
+                "Unavailable in packaged build",
+                "Syncing the vault into the repository's assets/secrets "
+                "template is a source-checkout workflow; the packaged build "
+                "keeps all vault state under ~/.image-toolkit/.",
+            )
+            return
         if not active_dir.exists():
             QMessageBox.warning(self, "Sync Error", "Active cryptography directory does not exist.")
             return

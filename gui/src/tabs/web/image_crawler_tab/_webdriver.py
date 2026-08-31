@@ -18,6 +18,15 @@ class _WebDriverMixin:
 
     def toggle_webdriver(self):
         if self.webdriver_process.state() == QProcess.ProcessState.NotRunning:
+            if getattr(sys, "frozen", False):
+                self.log_window.show()
+                self.log_window.append_log(
+                    "❌ Managed WebDriver launches "
+                    "backend/scripts/manage_webdriver.py with a separate "
+                    "Python — not available in the packaged build. Run from "
+                    "a source checkout to use it."
+                )
+                return
             self.log_window.show()
             self.log_window.append_log(
                 "🌐 Preparing Managed WebDriver (this may take a few seconds)..."
