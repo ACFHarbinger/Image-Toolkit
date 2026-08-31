@@ -58,7 +58,7 @@ class VirtualGalleryModel(QAbstractListModel):
         cache_maxsize: int = 300,
         worker_factory=None,
         shared_cache: Optional[LRUImageCache] = None,
-        fill_mode: bool = False,
+        fill_mode: bool = True,
         fill_limit: Optional[int] = None,
     ):
         super().__init__(parent)
@@ -72,11 +72,10 @@ class VirtualGalleryModel(QAbstractListModel):
         self._active_workers: set = set()
         self._generation: int = 0
 
-        # Optional background fill. Wallpaper used to fill every row in both
-        # linked panels immediately, which made a directory browse launch
-        # dozens of native decodes before a single thumbnail was visible.
-        # The normal path is viewport-prefetch; callers that genuinely need
-        # eager warming can still opt in.
+        # Background fill warms every row so a directory's thumbnails remain
+        # available even before the user scrolls to them. Dispatch is tightly
+        # bounded below; linked wallpaper panels therefore cannot create a
+        # decoder burst when they mirror one directory change.
         self.fill_mode = bool(fill_mode)
         self.fill_limit = fill_limit
         self._fill_max_in_flight = 2
