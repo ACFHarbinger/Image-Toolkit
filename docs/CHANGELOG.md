@@ -10,26 +10,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 - Docs stubs: `DEVELOPMENT.md`, `SECURITY.md`, `TESTING.md`, `GLOSSARY.md`, this changelog.
 - Agent coordination for docs/website migration under `.agent/cache/AGENT_BUS.md` and `.agent/reports/grok/`.
-- Cloud Sync tab restructure + Local Directory Sync (#479, roadmap §4.20): `DriveSyncTab` is now a container holding a `QTabWidget` with two subtabs: "Sync Data" (encapsulating existing database-backed drive sync in `sync_data_subtab/`) and "Local Directory Sync" (`local_dir_sync_subtab/`). Local Directory Sync provides bidirectional sync between `~/.image-toolkit/` and remote `.image-toolkit/` folders with pure-logic diffing/conflict resolution (`LocalDirSyncEngine`), configurable conflict policy (newer wins, prefer local, prefer remote), dry-run preview, progress tracking, and default exclude filters for private vault keys, keystores, and path-leaking log files. Tests in `gui/test/web/test_cloud_sync.py`.
-
-### Fixed
-
-- Frozen desktop entry (`gui/__main__.py`) now honors `-v`/`--version` and
-  `-h`/`--help` and exits before Qt bootstrap (#475). Version string is the
-  same `backend.src._version` source as `python backend/main.py -v`.
-- Off-thread QWidget-finalize crash class generalized (#480, follow-up to #478): new `gui/src/helpers/gc_safe.py` — `GcSafeThread` base, `@gc_disabled_run` decorator, `gc_disabled()` context manager — disables the process-global cyclic GC for a worker's whole `run()` so an allocation burst on a worker thread can never trigger a collection that finalizes GUI `QWidget` cycles off the GUI thread. `BaseQThreadWorker` / `BaseQRunnableWorker` now apply it to every `_execute()`; the audited JSON/listing/DB workers that override `run()` directly carry `@gc_disabled_run` (cloud sync ×3, image crawler, media loader, MAL sync, web requests, recommendation, Scan & Tag upsert, batch image loader; `_SyncBackupWorker` refactored onto the same guard). Tests in `gui/test/helpers/test_gc_safe.py`; audit in `.agent/reports/opencode/issue_480_gc_guard_audit_2026-08-31.md`.
-- Frozen-bundle path-assumption audit (#476): confirmed every `_MEIPASS` resource read resolves (QSS/SQL/YAML/schema/crypto/icon/submodules all bundled), moved the two remaining bundle-**write** hazards out of `ROOT_DIR` — credential export → `~/.image-toolkit/backup`, crawler screenshot default → `~/.image-toolkit/screenshots` when frozen — and added clear "unavailable in the packaged build" guards to the source-checkout-only subprocess features (wallpaper slideshow daemon ×2, managed WebDriver, ComfyUI server launch, LyCORIS training, vault→assets template sync). Full table: `.agent/reports/deepseek/issue_476_frozen_path_audit_2026-08-31.md`.
-- SIGSEGV when loading the backup listings in a listings subtab (#478): `_SyncBackupWorker` parsed the decrypted backup with `json.loads` on its QThread; the allocations tripped CPython's cyclic collector *on that thread*, which then finalized a `QWidget` from the GUI's cyclic garbage off the GUI thread (`QWidget::~QWidget` → `deleteChildren` → segfault — the #461 class). `run()` now disables the cyclic GC for its lifetime and drops the DB/vault handles so their teardown stays on the GUI thread. Regression test in `gui/test/helpers/test_sync_backup_worker.py`.
 
 ### Planned (tracked)
 
-- v1.1 native Windows desktop build (#471); first-run PostgreSQL prerequisite
-  UX (#477).
+- v1.1 native Windows desktop build (#471, blocked on a win-64 `sqlcipher`
+  package — none on conda-forge); first-run PostgreSQL prerequisite UX (#477).
 - GC-guard Tier-2: extend `@gc_disabled_run` to the heavy CV/torch/ffmpeg
   worker threads (#481, follow-up to #480).
-- ASP: `no_valid_edges` recovery via edgeless-graph edge re-proposal (#472);
-  Phase 0.1 human coherence rating pass (#473); comparator coverage — Overmix
-  97/97 regen + Hugin/GT backfill (#474).
+- ASP: Phase 0.1 human coherence rating pass (#473); comparator coverage —
+  Overmix 97/97 regen + Hugin/GT backfill (#474).
 
 ## [1.0.0] - 2026-08-31
 
@@ -39,6 +28,7 @@ build is deferred to 1.1 (no C++ toolchain path yet).
 
 ### Added
 
+- Cloud Sync tab restructure + Local Directory Sync (#479, roadmap §4.20): `DriveSyncTab` is now a container holding a `QTabWidget` with two subtabs: "Sync Data" (encapsulating existing database-backed drive sync in `sync_data_subtab/`) and "Local Directory Sync" (`local_dir_sync_subtab/`). Local Directory Sync provides bidirectional sync between `~/.image-toolkit/` and remote `.image-toolkit/` folders with pure-logic diffing/conflict resolution (`LocalDirSyncEngine`), configurable conflict policy (newer wins, prefer local, prefer remote), dry-run preview, progress tracking, and default exclude filters for private vault keys, keystores, and path-leaking log files. Tests in `gui/test/web/test_cloud_sync.py`.
 - Release packaging pipeline: `just release::bump` / `bundle-linux` / `bundle-windows` / `artifacts` recipes and `.github/workflows/release.yml` (Linux native build via pixi, pinned to `ubuntu-22.04` for glibc compatibility) producing the AppImage and `.deb` with `SHA256SUMS.txt` — a `v*` tag publishes a **draft** GitHub Release, `workflow_dispatch` defaults to a no-publish dry run. `ImageToolkit.spec` bundles the backend/gui/submodule code, assets, configs, DB schema SQL, icons, and the native `libitk_crypto` / `base` binaries, with frozen-bundle path resolution via `sys._MEIPASS` / executable directory.
 - Canonical version contract: the root `pyproject.toml` `[project].version` is the single source of truth; `just release::bump <semver>` rewrites every derived source (`pixi.toml`, `package.json`, gradle `versionName` + derived `versionCode`, and the `backend`/`gui`/`git` member `pyproject.toml`s), and the running app reports its true version from installed dist metadata (`--version`, About, window title, tray tooltip).
 - Prebuilt installation guide ([`INSTALL.md`](INSTALL.md)): AppImage / `.deb` install steps, the external PostgreSQL 14+ / `pgvector` (≥ 0.5.0) prerequisite (automated `just db-setup`, manual SQL bootstrap, `DATABASE_URL`), and the missing-DB fallback behavior.
@@ -62,6 +52,9 @@ build is deferred to 1.1 (no C++ toolchain path yet).
 
 ### Fixed
 
+- Frozen desktop entry (`gui/__main__.py`) now honors `-v`/`--version` and `-h`/`--help` and exits before Qt bootstrap (#475). Same `backend.src._version` source as `python backend/main.py -v`.
+- SIGSEGV loading the backup listings in a listings subtab (#478): `_SyncBackupWorker` parsed the decrypted backup with `json.loads` on its QThread; the allocations tripped CPython's cyclic collector *on that thread*, which finalized a `QWidget` from the GUI's cyclic garbage off the GUI thread (`QWidget::~QWidget` → `deleteChildren` → segfault — the #461 class). Generalized in #480: `gui/src/helpers/gc_safe.py` (`GcSafeThread` base, `@gc_disabled_run` decorator, `gc_disabled()` context manager) disables the process-global cyclic GC for a worker's whole `run()`. `BaseQThreadWorker` / `BaseQRunnableWorker` apply it to every `_execute()`; the JSON/listing/DB workers that override `run()` directly carry `@gc_disabled_run` (cloud sync ×3, image crawler, media loader, MAL sync, web requests, recommendation, Scan & Tag upsert, batch image loader, `_SyncBackupWorker`). Tests in `gui/test/helpers/{test_gc_safe,test_sync_backup_worker}.py`.
+- Frozen-bundle path-assumption audit (#476): every `_MEIPASS` resource read confirmed resolving (QSS/SQL/YAML/schema/crypto/icon/submodules bundled); two bundle-**write** hazards moved out of `ROOT_DIR` (credential export → `~/.image-toolkit/backup`, crawler screenshots → `~/.image-toolkit/screenshots` when frozen); "unavailable in the packaged build" guards added to source-checkout-only subprocess features (wallpaper slideshow daemon ×2, managed WebDriver, ComfyUI server launch, LyCORIS training, vault→assets template sync). Table: `.agent/reports/deepseek/issue_476_frozen_path_audit_2026-08-31.md`.
 - Frozen-bundle launch failures found during v1.0.0 smoke-testing and fixed before publish: (1) the AppImage crashed at `cv2` import — PyInstaller bundled the ubuntu-22.04 system `libcrypto.so.3` (OpenSSL 3.0.2) alongside conda's `libs2n.so.1` (needs `OPENSSL_3.4.0`, pulled via `pyarrow`); now the native crypto lib is built inside the pixi env against conda OpenSSL 3.6.3 and `LD_LIBRARY_PATH` is pinned to `$CONDA_PREFIX/lib` for the PyInstaller run so one consistent OpenSSL is bundled. (2) `moviepy` `PackageNotFoundError: imageio` — `ImageToolkit.spec` now `copy_metadata`s `imageio` / `imageio-ffmpeg` / `moviepy`. (3) `ModuleNotFoundError: asp_backend` — `gui/__main__.py` imported `backend.src.app` (which transitively needs the `asp_backend` submodule alias) before `register_submodule_packages`; the bootstrap is now hoisted above the first `backend.src` import and `repo_root` resolves from `sys._MEIPASS` when frozen. (4) 73 `.qml`, 11 `.qss` themes, and `.yaml`/`.sql`/`.qrc` resources were unbundled — added a recursive `collect_data_files` sweep of `gui/` and `backend/`.
 - Release-gate issue closures: #470's disconnected-edge-graph recovery validated on the full-97 ASP corpus (0 `disconnected_edge_graph` fallbacks versus 40 in the previous canonical baseline; Ground-Rule reference re-based to 18 RAW_ASP / 43 Safe-ASP / 36 SCANS); #461 closed as fixed after the dual-linked-panel stress pass (5 extra repeats, no SIGSEGV/SIGABRT); #373 (KDE wallpaper black screen) re-verified green and closed.
 - Gallery-crash class (#461): wallpaper scan browse now passes
