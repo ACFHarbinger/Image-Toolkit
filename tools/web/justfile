@@ -10,6 +10,13 @@ web-driver:
     @echo "🌐 Starting Managed Selenium WebDriver..."
     @source .venv/bin/activate && python backend/scripts/manage_webdriver.py start
 
+# Live Local Directory Sync against Drive folder `.image-toolkit`
+# Scratch local tree; opens a browser for OAuth if no cached token.
+# Usage: just web::live-gdrive-sync
+#        just web::live-gdrive-sync --yes
+live-gdrive-sync *args:
+    source .venv/bin/activate && python tools/web/live_gdrive_local_dir_sync.py {{args}}
+
 # Run the image crawler via CLI
 # Usage: just crawl "https://example.com/gallery" 20 "./downloads"
 crawl query limit="10" output="./downloads":

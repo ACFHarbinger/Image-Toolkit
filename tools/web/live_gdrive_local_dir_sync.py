@@ -271,6 +271,7 @@ def _parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
+    print("Image-Toolkit live Drive Local Directory Sync", flush=True)
     args = _parse_args()
     from backend.src.web.cloud.gdrive_file_client import GoogleDriveFileClient
     from gui.src.helpers.web.cloud.local_dir_sync_worker import LocalDirSyncWorker
