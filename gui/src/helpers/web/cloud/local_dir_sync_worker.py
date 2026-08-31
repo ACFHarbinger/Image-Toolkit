@@ -420,13 +420,30 @@ class LocalDirSyncWorker(QThread):
     def _build_provider_client(self):
         pt = self.provider_text
         if pt.startswith("Google Drive"):
+            # GoogleDriveSync only resolves the OAuth token + does a whole-
+            # folder C++ sync. Local Directory Sync needs per-file ops, so
+            # borrow its resolved access_token and drive the Drive v3 REST
+            # API directly (gdrive_file_client).
+            from backend.src.web.cloud.gdrive_file_client import GoogleDriveFileClient
             from backend.src.web.cloud.google_drive_sync import GoogleDriveSync
-            return GoogleDriveSync(
+
+            gds = GoogleDriveSync(
                 local_source_path=str(self.local_root),
                 drive_destination_folder_name=self.remote_folder,
-                dry_run=True,  # client used for listing/single ops
+                dry_run=True,
                 logger=self._log,
                 **self._google_kwargs(),
+            )
+            token = gds.config.get("access_token")
+            if not token:
+                raise RuntimeError(
+                    "Google Drive authentication failed — no access token "
+                    "(check the service-account key / client secrets in the vault)."
+                )
+            return GoogleDriveFileClient(
+                access_token=token,
+                root_name=self.remote_folder,
+                logger=self._log,
             )
         if pt == "Dropbox":
             from backend.src.web.cloud.dropbox_drive_sync import DropboxDriveSync
