@@ -5,23 +5,19 @@ Local side is a throwaway tree under ``~/Downloads/Data/Tests/`` — never
 ``~/.image-toolkit``. Remote side is the ``.image-toolkit`` folder already
 open in Drive (must be empty, or pass ``--force``).
 
-Auth (first match wins):
-
-  --token / $IT_GDRIVE_ACCESS_TOKEN
-  --service-account / $IT_GDRIVE_SERVICE_ACCOUNT_JSON   (JSON key file)
-  --token-file / $IT_GDRIVE_TOKEN_FILE                  (OAuth token.json)
-
-Examples::
+Auth: opens a browser Google login by default (same InstalledAppFlow as
+the desktop app). Cached at ``~/Downloads/Data/Tests/gdrive-e2e-token.json``
+so the next run skips the browser if the refresh token is still valid.
 
   source .venv/bin/activate
-  python tools/web/live_gdrive_local_dir_sync.py --token-file ~/token.json
-  IT_GDRIVE_ACCESS_TOKEN=ya29... python tools/web/live_gdrive_local_dir_sync.py
-  python tools/web/live_gdrive_local_dir_sync.py --service-account ./sa.json --yes
+  python tools/web/live_gdrive_local_dir_sync.py
 """
 
 from __future__ import annotations
 
 import argparse
+import getpass
+import json
 import os
 import sys
 from datetime import datetime
@@ -34,6 +30,9 @@ if str(_REPO) not in sys.path:
 _DRIVE_SCOPE = ["https://www.googleapis.com/auth/drive"]
 _REMOTE_FOLDER = ".image-toolkit"
 _SCRATCH_PARENT = Path.home() / "Downloads" / "Data" / "Tests"
+_E2E_TOKEN_FILE = _SCRATCH_PARENT / "gdrive-e2e-token.json"
+_CLIENT_SECRET_PLAIN = _REPO / "assets" / "api" / "client_secret.json"
+_CLIENT_SECRET_ENC = _REPO / "assets" / "api" / "client_secret.json.enc"
 
 _FORBIDDEN_SUFFIXES = (".vault", ".p12", ".pfx", ".pem", ".key")
 _FORBIDDEN_NAMES = {
@@ -86,6 +85,121 @@ def _forbidden(paths: list[str]) -> list[str]:
     return bad
 
 
+def _default_account() -> str:
+    secrets = Path.home() / ".image-toolkit" / "secrets"
+    stores = sorted(secrets.glob("my_keystore-*.p12"))
+    if not stores:
+        return "a"
+    stem = stores[0].stem  # my_keystore-a
+    _, _, suffix = stem.partition("-")
+    return suffix or "a"
+
+
+def _as_client_config(data: dict) -> dict:
+    if "installed" in data or "web" in data:
+        return data
+    return {"installed": data}
+
+
+def _load_json_file(path: Path) -> dict:
+    with path.open(encoding="utf-8") as fh:
+        data = json.load(fh)
+    if not isinstance(data, dict):
+        raise SystemExit(f"not a JSON object: {path}")
+    return data
+
+
+def _decrypt_client_secret(account: str, password: str) -> dict:
+    import backend.src.constants.crypto as udef
+    from backend.src.constants.paths import API_DIR
+    from backend.src.core.vault_manager import SecureJsonVault, VaultManager
+
+    udef.update_cryptographic_values(account)
+    vm = VaultManager()
+    vm.load_keystore(udef.KEYSTORE_FILE, password)
+    vm.get_secret_key(udef.KEY_ALIAS, password)
+    if not vm.secret_key:
+        raise SystemExit("could not derive the vault secret key (wrong password?)")
+    enc = Path(API_DIR) / "client_secret.json.enc"
+    if not enc.is_file():
+        enc = _CLIENT_SECRET_ENC
+    if not enc.is_file():
+        raise SystemExit(f"no encrypted OAuth client_secret at {enc}")
+    raw = SecureJsonVault(vm.secret_key, str(enc)).loadData()
+    data = json.loads(str(raw))
+    if not isinstance(data, dict):
+        raise SystemExit(f"decrypted client_secret is not a JSON object: {enc}")
+    return data
+
+
+def _load_client_secrets(args: argparse.Namespace) -> dict:
+    path = args.client_secrets or os.environ.get("IT_GDRIVE_CLIENT_SECRETS")
+    if path:
+        return _load_json_file(Path(path).expanduser())
+    if _CLIENT_SECRET_PLAIN.is_file():
+        return _load_json_file(_CLIENT_SECRET_PLAIN)
+    if _CLIENT_SECRET_ENC.is_file():
+        account = args.account or _default_account()
+        password = getpass.getpass(
+            f"Vault password for account '{account}' "
+            "(decrypts assets/api/client_secret.json.enc): "
+        )
+        if not password:
+            raise SystemExit("vault password required to start the browser OAuth flow")
+        return _decrypt_client_secret(account, password)
+    raise SystemExit(
+        "Need a Google OAuth desktop client JSON to open the browser.\n"
+        "Pass --client-secrets /path/to/client_secret.json "
+        "(the same file Cloud Sync imports as 'client_secret')."
+    )
+
+
+def _save_creds(creds, path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(creds.to_json())
+
+
+def _token_from_file(path: Path) -> str | None:
+    from google.auth.transport.requests import Request
+    from google.oauth2.credentials import Credentials
+
+    if not path.is_file():
+        return None
+    try:
+        creds = Credentials.from_authorized_user_file(str(path), _DRIVE_SCOPE)
+    except Exception:
+        return None
+    if creds.expired and creds.refresh_token:
+        try:
+            creds.refresh(Request())
+            _save_creds(creds, path)
+        except Exception:
+            return None
+    if creds.valid and creds.token:
+        return creds.token
+    return None
+
+
+def _browser_oauth(client_config: dict, save_to: Path) -> str:
+    from google_auth_oauthlib.flow import InstalledAppFlow
+
+    flow = InstalledAppFlow.from_client_config(
+        _as_client_config(client_config), scopes=_DRIVE_SCOPE
+    )
+    print("Opening a browser window for Google Drive authorization…", flush=True)
+    creds = flow.run_local_server(
+        port=0,
+        open_browser=True,
+        authorization_prompt_message="If the browser does not open, visit:\n{url}\n",
+        success_message="Drive access granted. You can close this tab and return to the terminal.",
+    )
+    if not creds or not creds.token:
+        raise SystemExit("browser OAuth did not produce an access token")
+    _save_creds(creds, save_to)
+    print(f"Saved refresh token to {save_to} (next run will skip the browser).")
+    return creds.token
+
+
 def _resolve_token(args: argparse.Namespace) -> str:
     token = (args.token or os.environ.get("IT_GDRIVE_ACCESS_TOKEN") or "").strip()
     if token:
@@ -105,36 +219,42 @@ def _resolve_token(args: argparse.Namespace) -> str:
             raise SystemExit(f"service-account file produced no token: {path}")
         return creds.token
 
-    token_file = args.token_file or os.environ.get("IT_GDRIVE_TOKEN_FILE")
-    if token_file:
-        from google.auth.transport.requests import Request
-        from google.oauth2.credentials import Credentials
+    save_to = Path(
+        args.token_file or os.environ.get("IT_GDRIVE_TOKEN_FILE") or _E2E_TOKEN_FILE
+    ).expanduser()
+    cached = _token_from_file(save_to)
+    if cached:
+        print(f"Using cached OAuth token from {save_to}")
+        return cached
 
-        path = Path(token_file).expanduser()
-        creds = Credentials.from_authorized_user_file(str(path), _DRIVE_SCOPE)
-        if creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        if not creds.valid or not creds.token:
-            raise SystemExit(
-                f"OAuth token file is not valid (refresh failed): {path}"
-            )
-        return creds.token
-
-    raise SystemExit(
-        "No Drive credentials. Pass one of:\n"
-        "  --token / $IT_GDRIVE_ACCESS_TOKEN\n"
-        "  --token-file / $IT_GDRIVE_TOKEN_FILE   (OAuth token.json from the app)\n"
-        "  --service-account / $IT_GDRIVE_SERVICE_ACCOUNT_JSON"
-    )
+    return _browser_oauth(_load_client_secrets(args), save_to)
 
 
 def _parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(
         description="Sync a fake local ~/.image-toolkit tree to Drive's .image-toolkit folder."
     )
-    p.add_argument("--token", default="", help="Raw Drive v3 access token")
-    p.add_argument("--token-file", default="", help="OAuth token.json (personal account)")
-    p.add_argument("--service-account", default="", help="Service-account JSON key")
+    p.add_argument(
+        "--token",
+        default="",
+        help="Raw Drive v3 access token (skips the browser)",
+    )
+    p.add_argument(
+        "--token-file",
+        default="",
+        help="OAuth token.json to reuse/write (default: ~/Downloads/Data/Tests/gdrive-e2e-token.json)",
+    )
+    p.add_argument(
+        "--client-secrets",
+        default="",
+        help="OAuth desktop client_secret.json (otherwise decrypted from the vault)",
+    )
+    p.add_argument(
+        "--account",
+        default="",
+        help="Vault account name used to decrypt client_secret.json.enc (default: auto)",
+    )
+    p.add_argument("--service-account", default="", help="Service-account JSON key (skips the browser)")
     p.add_argument(
         "--remote-folder",
         default=_REMOTE_FOLDER,
