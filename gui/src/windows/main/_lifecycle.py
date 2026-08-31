@@ -9,7 +9,7 @@ import contextlib
 import os
 import sys
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QPainter
 from PySide6.QtWidgets import (
     QApplication,
@@ -17,12 +17,38 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QScrollArea,
     QSystemTrayIcon,
+    QWidget,
 )
 
 from gui.src.styles.background_canvas import BackgroundCanvasController
 from gui.src.windows.settings.app_settings import AppSettings
 
 from ...utils.manager.shortcut_manager import get_registry
+
+
+def collect_background_windows(main: QWidget) -> list[QWidget]:
+    """Every *visible window* that must be hidden alongside the main window
+    when the app goes to background — each keeps its own taskbar entry, so
+    any left visible shows a second Image-Toolkit icon.
+
+    Uses ``QApplication.allWidgets()`` + ``isWindow()`` rather than
+    ``topLevelWidgets()``: the Settings and Cloud Compute windows (and the
+    ``QDialog(self)`` helpers) are created *parented to the main window*, so
+    they are real top-level windows with their own taskbar button but never
+    appear in ``topLevelWidgets()`` (which only returns parentless widgets).
+    """
+    windows: list[QWidget] = []
+    seen: set[int] = set()
+    for w in QApplication.allWidgets():
+        if w is main or id(w) in seen:
+            continue
+        seen.add(id(w))
+        if not w.isWindow() or not w.isVisible() or isinstance(w, QMenu):
+            continue
+        if w.windowType() in (Qt.WindowType.Popup, Qt.WindowType.ToolTip):
+            continue
+        windows.append(w)
+    return windows
 
 
 class _LifecycleMixin:
@@ -162,20 +188,28 @@ class _LifecycleMixin:
             AppSettings.set_mainwindow_geometry(self.saveGeometry())  # pyrefly: ignore [bad-argument-type]
             self._save_session_recovery()
             event.ignore()
-            self.hide()
-            # Hide every other open top-level window too (Settings, image
-            # preview/compare, slideshow queue, log window, …). Each is a
-            # Qt.Window and keeps its own taskbar entry, so leaving one visible
-            # shows a second Image-Toolkit icon while "in background".
-            self._bg_hidden_windows = []
-            for w in QApplication.topLevelWidgets():
-                if w is self or isinstance(w, QMenu) or not w.isVisible():
-                    continue
-                if w.windowType() in (Qt.WindowType.Popup, Qt.WindowType.ToolTip):
-                    continue
+
+            # Every other open window (Settings, Cloud Compute, image
+            # preview/compare, slideshow queue, log window, config dialogs …)
+            # keeps its own taskbar entry, so any left visible shows a second
+            # Image-Toolkit icon while "in background".
+            self._bg_hidden_windows = list(collect_background_windows(self))
+
+            # Defer the actual hide()s to the next event-loop turn. Hiding a
+            # window synchronously from inside closeEvent() after
+            # event.ignore() leaves a ghost taskbar button on Plasma 6 /
+            # Wayland (the compositor already saw the close request and never
+            # gets the unmap for the "still mapped, now hidden" window). Once
+            # closeEvent() has fully returned, hide() is a plain unmap and the
+            # entry goes away.
+            def _go_background(windows=tuple(self._bg_hidden_windows)):
+                for w in windows:
+                    with contextlib.suppress(Exception):
+                        w.hide()
                 with contextlib.suppress(Exception):
-                    w.hide()
-                    self._bg_hidden_windows.append(w)
+                    self.hide()
+
+            QTimer.singleShot(0, _go_background)
             if getattr(self, "_tray_icon", None) and self._tray_icon.isVisible():
                 self._tray_icon.showMessage(
                     "Image Toolkit",
@@ -236,10 +270,9 @@ class _LifecycleMixin:
 
         self._close_pending = True
         self.hide()
-        for window in list(QApplication.topLevelWidgets()):
-            if window is not self and window.isVisible():
-                with contextlib.suppress(Exception):
-                    window.hide()
+        for window in collect_background_windows(self):
+            with contextlib.suppress(Exception):
+                window.hide()
 
         from gui.src.components.dialogs.extraction_close_progress_dialog import (
             ExtractionCloseProgressDialog,

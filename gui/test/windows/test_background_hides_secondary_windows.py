@@ -1,7 +1,10 @@
-"""Exit-to-background must hide *every* top-level window, not just the main one.
+"""Exit-to-background must hide *every* window, not just the parentless ones.
 
-Leaving a secondary window (Settings, image preview, …) visible while the app
-is "in background" shows a second Image-Toolkit icon in the taskbar.
+Leaving a secondary window (Settings, Cloud Compute, image preview, config
+dialog …) visible while the app is "in background" shows a second
+Image-Toolkit icon in the taskbar. Settings / Cloud Compute are parented to
+the main window, so they never appear in ``QApplication.topLevelWidgets()`` —
+the regression that kept the second icon around.
 """
 
 from __future__ import annotations
@@ -9,63 +12,84 @@ from __future__ import annotations
 import contextlib
 
 import pytest
+from gui.src.windows.main._lifecycle import collect_background_windows
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QApplication, QMenu, QWidget
+from PySide6.QtWidgets import QWidget
 
 pytestmark = pytest.mark.gui
 
 
-def _hide_other_top_levels(main: QWidget) -> list[QWidget]:
-    """The loop from MainWindow.closeEvent's minimize-to-tray branch."""
-    hidden: list[QWidget] = []
-    for w in QApplication.topLevelWidgets():
-        if w is main or isinstance(w, QMenu) or not w.isVisible():
-            continue
-        if w.windowType() in (Qt.WindowType.Popup, Qt.WindowType.ToolTip):
-            continue
-        with contextlib.suppress(Exception):
-            w.hide()
-            hidden.append(w)
-    return hidden
-
-
-def test_secondary_windows_hidden_and_restored(q_app):
+def test_parentless_and_parented_windows_are_both_collected(q_app):
     main = QWidget()
     main.setWindowTitle("main")
-    settings = QWidget()
-    settings.setWindowTitle("settings")
-    preview = QWidget()
-    preview.setWindowTitle("preview")
-    for w in (main, settings, preview):
+    parentless = QWidget()
+    parentless.setWindowTitle("preview")  # e.g. an image preview window
+    # Settings / Cloud Compute are created as Window(self) — parented, but
+    # still real windows with their own taskbar button.
+    parented = QWidget(main)
+    parented.setWindowFlag(Qt.WindowType.Window, True)
+    parented.setWindowTitle("settings")
+
+    for w in (main, parentless, parented):
         w.show()
+    q_app.processEvents()
     try:
-        assert settings.isVisible() and preview.isVisible()
+        collected = collect_background_windows(main)
 
-        hidden = _hide_other_top_levels(main)
+        assert main not in collected
+        assert parentless in collected
+        assert parented in collected, (
+            "the parented Settings/Cloud-Compute-style window must be collected"
+        )
 
-        assert set(hidden) == {settings, preview}
-        assert not settings.isVisible()
-        assert not preview.isVisible()
-        assert main.isVisible()  # main is hidden separately by self.hide()
-
-        # _tray_show_window restores them
-        for w in hidden:
-            w.show()
-        assert settings.isVisible() and preview.isVisible()
+        for w in collected:
+            w.hide()
+        assert not parentless.isVisible()
+        assert not parented.isVisible()
     finally:
-        for w in (main, settings, preview):
-            w.close()
+        for w in (parented, parentless, main):
+            with contextlib.suppress(Exception):
+                w.close()
 
 
-def test_a_closed_secondary_window_is_not_tracked(q_app):
+def test_hidden_and_popup_windows_are_skipped(q_app):
     main = QWidget()
-    other = QWidget()
+    hidden_win = QWidget()
+    popup = QWidget(None, Qt.WindowType.Popup)
+    main.show()
+    hidden_win.show()
+    hidden_win.hide()
+    popup.show()
+    q_app.processEvents()
+    try:
+        collected = collect_background_windows(main)
+        assert hidden_win not in collected  # not visible
+        assert popup not in collected  # Popup type never has a taskbar entry
+    finally:
+        for w in (popup, hidden_win, main):
+            with contextlib.suppress(Exception):
+                w.close()
+
+
+def test_restore_shows_tracked_windows(q_app):
+    main = QWidget()
+    other = QWidget(main)
+    other.setWindowFlag(Qt.WindowType.Window, True)
     main.show()
     other.show()
-    other.hide()  # already not visible
+    q_app.processEvents()
     try:
-        hidden = _hide_other_top_levels(main)
-        assert other not in hidden
+        tracked = collect_background_windows(main)
+        for w in tracked:
+            w.hide()
+        assert not other.isVisible()
+
+        # mirrors _tray_show_window()
+        for w in tracked:
+            with contextlib.suppress(RuntimeError):
+                w.show()
+        assert other.isVisible()
     finally:
-        main.close()
-        other.close()
+        for w in (other, main):
+            with contextlib.suppress(Exception):
+                w.close()
