@@ -1,0 +1,39 @@
+# infra/cloud/cloudflare/wrangler.toml
+# Cloudflare Workers configuration for the Image Toolkit heavy-request
+# offload worker (queue consumer + R2 result store).
+
+name = "image-toolkit-worker"
+main = "src/worker.js"
+compatibility_date = "2024-09-01"
+workers_dev = true
+
+# Heavy jobs are async: the desktop app enqueues, the Worker consumes.
+[[queues.producers]]
+binding = "JOBS"
+queue = "image-toolkit-jobs"
+
+[[queues.consumers]]
+queue = "image-toolkit-jobs"
+max_batch_size = 1
+max_retries = 2
+dead_letter_queue = "image-toolkit-jobs-dlq"
+
+# R2 bucket for uploaded inputs and rendered outputs (frames, GIFs, generations).
+[[r2_buckets]]
+binding = "RESULTS"
+bucket_name = "image-toolkit-results"
+
+# D1 for job status / resource-usage rows the dashboards read.
+[[d1_databases]]
+binding = "JOBS_DB"
+database_name = "image-toolkit-jobs"
+database_id = "REPLACE_WITH_D1_ID"
+
+[vars]
+STAGE = "dev"
+
+# Secrets (wrangler secret put ...): CF_ACCOUNT_ID, CF_API_TOKEN,
+# GPU_PROVIDER_KEY  — Workers has no GPU; GPU generation is dispatched to a
+# Cloudflare AI / partner endpoint from the consumer.
+[observability]
+enabled = true

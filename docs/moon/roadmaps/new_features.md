@@ -829,6 +829,61 @@ container refactor unblocks further cloud subtabs).
 
 ---
 
+## 4.21 Cloud Compute Offload {: #421-cloud-compute-offload }
+
+**Status:** Planned (issue #486). PoC first: Extractor-tab extractions via
+Google Cloud (`gcd`).
+
+**Goal:** run the app's heavy requests — video-frame / GIF / clip extraction,
+deep-learning image generation — on a chosen managed cloud provider instead of
+the local machine, from a dedicated **Cloud Compute** window (Settings-window
+shape: left nav + stacked panes).
+
+**Window layout**
+
+- **Providers pane** — a card per platform (Google Cloud / Cloudflare / Oracle
+  Cloud; AWS/Azure later) with a detailed description, the hardware/shape
+  options it exposes (CPU-flex, L4/A10/A100 GPU, memory tiers), rough
+  cost-per-hour, region list, and cold-start behaviour. Selecting one sets the
+  active target.
+- **Request Builder pane** — define a heavy request the same way its local tab
+  does (source, range/params for extraction; prompt/model/steps/resolution for
+  generation), pick the shape, then **Run in Cloud** → the request is packaged
+  and dispatched to the provider's worker (`infra/cloud/<provider>/`), inputs
+  uploaded, outputs pulled back into the normal gallery / output dir on
+  completion. A queue view shows pending / running / done with cancel.
+- **Dashboards tab** — plots/charts of cloud-request resource usage over time:
+  per-job wall time, peak vCPU / GPU / memory, egress bytes, cost estimate,
+  success/failure rate, provider comparison. Data comes from the worker's
+  status/usage rows (Cloudflare D1 / Cloud Run logs+metrics / OCI monitoring).
+  Follow the `dataviz` skill for the charts.
+
+**Infra** (present): `infra/cloud/gcd/cloud-run-service.yaml` (Knative,
+CPU-flex now, GPU pool for generation), `infra/cloud/cloudflare/wrangler.toml`
+(Workers + Queues + R2 + D1), `infra/cloud/oracle/oci-container-instance.tf`
+(Container Instance, GPU shapes). Common contract: enqueue job JSON → worker
+runs a container image of the extraction / generation code → writes
+outputs + a usage row → app polls / webhooks for completion.
+
+**PoC scope (issue #487):** Extractor tab gains a "Run in Cloud (GCD)" path
+that dispatches one extraction config to the Cloud Run worker, uploads the
+source video (or a signed URL), downloads the produced frames, and records one
+usage row the Dashboards tab reads. No GPU, one provider, one request type.
+
+**Security:** provider credentials via `VaultManager` (never in configs — the
+`infra/` files use env/secret placeholders); the source-video upload path
+warns before anything leaves the machine (same rule as §4.20).
+
+**Effort:** Very High (external dependency, new window, per-provider adapters).
+**Impact:** Very High (differentiating — offloads the exact features that OOM
+the local box, see #483/#485).
+
+**Tests:** provider-descriptor rendering; request→job-JSON serialization
+(pure logic); dashboard aggregation from mock usage rows; the GCD adapter
+against a mocked Cloud Run endpoint.
+
+---
+
 ## Effort × Impact Matrix {: #effort--impact-matrix }
 
 *Effort* — **Low**: < 1 day · **Medium**: 1 day – 1 week · **High**: 1 – 2 weeks · **Very High**: 2+ weeks or external dependency
@@ -867,9 +922,10 @@ container refactor unblocks further cloud subtabs).
 | 4.18 Image Board Crawler — Rating Filter & SFW Board Support | [#418-image-board-crawler--rating-filter--sfw-board-support](#418-image-board-crawler--rating-filter--sfw-board-support) |
 | 4.19 Account-Linked Settings Sync (Google Drive) | [#419-account-linked-settings-sync-google-drive](#419-account-linked-settings-sync-google-drive) |
 | 4.20 Cloud Sync tab restructure + Local Directory Sync | [#420-cloud-sync-local-directory-sync](#420-cloud-sync-local-directory-sync) |
+| 4.21 Cloud Compute Offload | [#421-cloud-compute-offload](#421-cloud-compute-offload) |
 
 ---
 
 ## Document History
 
-*Last updated: 2026-08-31 — §4.20 Cloud Sync tab restructure into subtabs + Local Directory Sync (~/.image-toolkit ↔ remote .image-toolkit) added, Priority 1 in progress (issue #479). Previous update 2026-08-15 — §4.19 Account-Linked Settings Sync (Google Drive) added as a quick draft, deliberately not fully specced. Previous update same day: §4.18 Image Board Crawler rating filter and Safebooru board support added (planned, not yet implemented), motivated by the ASP SFW benchmark corpus roadmap. Previous update 2026-08-03: §4.17 Media Loader (Reddit + nhentai web media downloader tab) added and shipped same day, issue #182. Previous update 2026-07-17: §4.15 Extractor Tab Image Sub-Tab (multi-frame image splitter) added, implemented same day: Extractor tab split into Video/Image subtabs. Previous update 2026-07-11 (§4.14 storyboard scrub preview).*
+*Last updated: 2026-08-31 — §4.21 Cloud Compute Offload added (run heavy requests — extraction, DL generation — on a chosen cloud provider from a Settings-shaped window with per-platform hardware descriptions + a resource-usage dashboards tab; PoC = Extractor extractions via Google Cloud Run; infra/cloud/{gcd,cloudflare,oracle}/ configs added; issues #486/#487). Previous update same day — §4.20 Cloud Sync tab restructure into subtabs + Local Directory Sync (~/.image-toolkit ↔ remote .image-toolkit) added, Priority 1 in progress (issue #479). Previous update 2026-08-15 — §4.19 Account-Linked Settings Sync (Google Drive) added as a quick draft, deliberately not fully specced. Previous update same day: §4.18 Image Board Crawler rating filter and Safebooru board support added (planned, not yet implemented), motivated by the ASP SFW benchmark corpus roadmap. Previous update 2026-08-03: §4.17 Media Loader (Reddit + nhentai web media downloader tab) added and shipped same day, issue #182. Previous update 2026-07-17: §4.15 Extractor Tab Image Sub-Tab (multi-frame image splitter) added, implemented same day: Extractor tab split into Video/Image subtabs. Previous update 2026-07-11 (§4.14 storyboard scrub preview).*

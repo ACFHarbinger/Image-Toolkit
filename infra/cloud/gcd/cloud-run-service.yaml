@@ -1,0 +1,45 @@
+# infra/cloud/gcd/cloud-run-service.yaml
+# Google Cloud Run (Knative) service for the Image Toolkit heavy-request
+# worker. First PoC target: run Extractor-tab extractions in the cloud.
+#
+# Deploy:  gcloud run services replace infra/cloud/gcd/cloud-run-service.yaml \
+#            --region "$GCP_REGION"
+
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: image-toolkit-worker
+  labels:
+    app: image-toolkit
+    component: heavy-request-worker
+  annotations:
+    run.googleapis.com/launch-stage: BETA
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/minScale: "0"
+        autoscaling.knative.dev/maxScale: "8"
+        run.googleapis.com/execution-environment: gen2
+        # GPU pool for deep-learning image generation (comment out for the
+        # CPU-only extraction PoC).
+        run.googleapis.com/gpu-zonal-redundancy-disabled: "true"
+    spec:
+      timeoutSeconds: 3600
+      containerConcurrency: 1
+      containers:
+        - image: REGION-docker.pkg.dev/PROJECT_ID/image-toolkit/worker:latest
+          resources:
+            limits:
+              cpu: "4"
+              memory: 16Gi
+              # nvidia.com/gpu: "1"   # L4 for generation jobs
+          env:
+            - name: STAGE
+              value: dev
+            - name: RESULTS_BUCKET
+              value: image-toolkit-results
+            - name: JOBS_SUBSCRIPTION
+              value: image-toolkit-jobs-sub
+          ports:
+            - containerPort: 8080
