@@ -87,6 +87,19 @@ class TestImageCrawlTab:
             mock_worker.assert_called()
             mock_worker.return_value.start.assert_called()
 
+    def test_cancel_crawl_waits_unbounded_without_terminate(self, q_app):
+        with patch("gui.src.tabs.web.image_crawler_tab.manager.LogWindow"):
+            tab = ImageCrawlTab()
+            worker = MagicMock()
+            worker.isRunning.return_value = True
+            tab.worker = worker
+            tab.log_window = MagicMock()
+            with patch.object(tab, "on_crawl_done"):
+                tab.cancel_crawl()
+            worker.stop.assert_called_once()
+            worker.wait.assert_called_once_with()
+            worker.terminate.assert_not_called()
+
     def test_selection_mode_config(self, q_app):
         with patch("gui.src.tabs.web.image_crawler_tab.manager.LogWindow"):
             tab = ImageCrawlTab()

@@ -4,6 +4,8 @@ the semantic-results precedence branch in _filtered_entries()/
 _filtered_entities() (mirrors the existing recommendation-mode branch).
 """
 
+from unittest.mock import MagicMock
+
 import pytest
 from PySide6.QtCore import QEvent, Qt
 from PySide6.QtGui import QKeyEvent
@@ -94,6 +96,22 @@ class TestSeriesListingsSemanticSearch:
 
         assert tab._listing_card_size == old_size + 16
         assert tab._listing_card_map["m-1"].width() == old_size + 26
+
+    def test_rerun_recommendation_does_not_terminate_qthread(self, q_app, monkeypatch):
+        tab = SeriesListingsSubTab(vault_manager=None)
+        old = MagicMock()
+        old.isRunning.return_value = True
+        tab._active_rec_worker = old
+        fake_worker = MagicMock()
+        monkeypatch.setattr(
+            "gui.src.tabs.database.series_listings_subtab._recommendation.RecommendationWorker",
+            lambda *args, **kwargs: fake_worker,
+        )
+        tab._run_recommendation({"prompt": "x"})
+        old.terminate.assert_not_called()
+        old.requestInterruption.assert_called_once()
+        old.wait.assert_called_once_with()
+        fake_worker.start.assert_called_once()
 
 
 class TestEntityListingsSemanticSearch:

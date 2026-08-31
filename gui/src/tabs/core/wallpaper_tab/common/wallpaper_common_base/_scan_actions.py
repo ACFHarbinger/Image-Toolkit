@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, cast
 from PySide6.QtCore import Slot
 from PySide6.QtWidgets import QFileDialog, QMessageBox, QWidget
 
+from gui.src.constants.ui import DIALOG_OPTS
 from gui.src.helpers import ImageScannerWorker
 
 from ......utils.sort_utils import natural_sort_key
@@ -69,7 +70,9 @@ class _ScanActionsMixin:
 
         start_dir = self.last_browsed_scan_dir
         options = (
-            QFileDialog.Option.ShowDirsOnly | QFileDialog.Option.DontResolveSymlinks
+            DIALOG_OPTS
+            | QFileDialog.Option.ShowDirsOnly
+            | QFileDialog.Option.DontResolveSymlinks
         )
         directory = QFileDialog.getExistingDirectory(
             cast(QWidget, self), "Select directory to scan", start_dir, options

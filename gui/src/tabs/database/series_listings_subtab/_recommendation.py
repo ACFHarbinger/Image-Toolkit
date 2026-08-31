@@ -6,6 +6,8 @@ change.
 
 from __future__ import annotations
 
+import contextlib
+
 from PySide6.QtCore import Slot
 from PySide6.QtWidgets import QDialog, QMessageBox
 
@@ -30,8 +32,15 @@ class _RecommendationMixin:
             self._run_recommendation(dlg.get_inputs())
 
     def _run_recommendation(self, inputs: dict) -> None:
-        if self._active_rec_worker and self._active_rec_worker.isRunning():
-            self._active_rec_worker.terminate()
+        old = self._active_rec_worker
+        if old is not None:
+            with contextlib.suppress(Exception):
+                old.sig_finished.disconnect()
+                old.error.disconnect()
+                old.status.disconnect()
+            if old.isRunning():
+                old.requestInterruption()
+                old.wait()
 
         worker = RecommendationWorker(
             entries=self._entries,
