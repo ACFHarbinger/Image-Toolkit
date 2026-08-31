@@ -45,7 +45,10 @@ class _TrayMixin:
                 icon = self.style().standardIcon(QStyle.StandardPixmap.SP_ComputerIcon)
 
         self._tray_icon = QSystemTrayIcon(icon, parent=self)
-        tray_menu = QMenu()
+        # Parent the menu to the window so it shares the app's WM identity
+        # (app_id / WM_CLASS) — a parentless popup surface can otherwise be
+        # picked up as a separate taskbar entry on some Wayland compositors.
+        tray_menu = QMenu(self)
 
         show_action = tray_menu.addAction("Show Window")
         show_action.triggered.connect(self._tray_show_window)

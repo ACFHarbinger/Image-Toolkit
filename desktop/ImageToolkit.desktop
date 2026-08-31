@@ -7,3 +7,7 @@ Icon=Image-Toolkit/assets/images/ImageToolkit.png # <--- Full path to the icon f
 Terminal=false
 Type=Application
 Categories=Utility;Graphics;
+# Must match QApplication.setDesktopFileName("ImageToolkit") in backend/src/app.py
+# so X11 (WM_CLASS) and Wayland (app_id) group every window/tray surface into
+# one taskbar entry instead of spawning a second icon in background mode.
+StartupWMClass=ImageToolkit

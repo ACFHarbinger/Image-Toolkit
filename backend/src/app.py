@@ -224,11 +224,34 @@ def _install_shutdown_handlers(app, get_active_window) -> None:
     signal.signal(signal.SIGTERM, handle_interrupt)
 
 
+# Basename (no extension) of desktop/ImageToolkit.desktop — also the value of
+# StartupWMClass in that file. Keep the three in sync.
+APP_DESKTOP_FILE_NAME = "ImageToolkit"
+
+
+def set_app_identity(app) -> None:
+    """Give the process one stable window-manager identity.
+
+    Without a desktop-file name, Wayland (KWin) derives a fresh ``app_id`` for
+    surfaces created after the main window — notably the ``QSystemTrayIcon``
+    and its menu, built the first time the app minimises to background — so
+    the task manager shows a SECOND Image-Toolkit icon that never groups with
+    the first. Setting it here (and matching ``StartupWMClass`` in the
+    ``.desktop`` entry) makes every surface share one taskbar entry. Must run
+    before any window is shown.
+    """
+    app.setApplicationName("Image Toolkit")
+    app.setApplicationDisplayName("Image Toolkit")
+    app.setOrganizationName("Image-Toolkit")
+    app.setDesktopFileName(APP_DESKTOP_FILE_NAME)
+
+
 def launch_app(opts):
     _setup_logging(log_level=logging.DEBUG if getattr(opts, "verbose", False) else logging.INFO)
     sys.excepthook = log_uncaught_exceptions
 
     app = QApplication(sys.argv)
+    set_app_identity(app)
     lifecycle_memory.snapshot("qt_init")  # §12.5 (issue #70)
     _validate_settings()
     try:
