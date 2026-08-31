@@ -3,6 +3,7 @@ import multiprocessing
 import os
 import re
 import subprocess
+import tempfile
 import time
 from multiprocessing import Pool
 from pathlib import Path
@@ -277,6 +278,7 @@ def run_extraction_in_process(config: Union[ExtractionConfig, Dict[str, Any]]) -
             t_start = start_ms / 1000.0
             if end_ms == -1:  # open-ended: run to the end of the video
                 t_end = t_start + 1
+                cap = None
                 try:
                     cap = cv2.VideoCapture(video_path)
                     if cap.isOpened():
@@ -284,9 +286,11 @@ def run_extraction_in_process(config: Union[ExtractionConfig, Dict[str, Any]]) -
                         frames = float(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
                         if fps > 0 and frames > 0:
                             t_end = t_start + frames / fps
-                    cap.release()
                 except Exception:
                     pass  # fall back to t_start + 1 on probe failure
+                finally:
+                    if cap is not None:
+                        cap.release()
             else:
                 t_end = end_ms / 1000.0
             output_path = os.path.join(
@@ -296,18 +300,9 @@ def run_extraction_in_process(config: Union[ExtractionConfig, Dict[str, Any]]) -
 
             if use_ffmpeg:
                 duration = t_end - t_start
-                cmd = [
-                    "ffmpeg",
-                    "-y",
-                    "-ss",
-                    str(t_start),
-                    "-t",
-                    str(duration),
-                    "-i",
-                    video_path,
-                ]
+                common = ["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-nostats"]
                 if encoder_threads > 0:
-                    cmd.extend(["-threads", str(encoder_threads)])
+                    common.extend(["-threads", str(encoder_threads)])
 
                 filter_chain = []
                 keep_regions = get_keep_regions(t_start, t_end)
@@ -326,42 +321,68 @@ def run_extraction_in_process(config: Union[ExtractionConfig, Dict[str, Any]]) -
                     filter_chain.append(f"setpts={pts_mult}*PTS")
 
                 base_filters = ",".join(filter_chain)
-                complex_filter = (
-                    f"{base_filters},split[s0][s1];[s0]palettegen=max_colors={max_colors}[p];[s1][p]paletteuse"
-                )
-                cmd.extend(["-vf", complex_filter])
-                cmd.append(output_path)
+                fd, palette_path = tempfile.mkstemp(prefix="itk_queue_gifpalette_", suffix=".png")
+                os.close(fd)
+                try:
+                    seek = ["-ss", str(t_start), "-t", str(duration)]
+                    pass1 = [
+                        *common,
+                        *seek,
+                        "-i",
+                        video_path,
+                        "-vf",
+                        f"{base_filters},palettegen=max_colors={max_colors}:stats_mode=diff",
+                        palette_path,
+                    ]
+                    pass2 = [
+                        *common,
+                        *seek,
+                        "-i",
+                        video_path,
+                        "-i",
+                        palette_path,
+                        "-lavfi",
+                        f"{base_filters}[x];[x][1:v]paletteuse=dither=bayer",
+                        output_path,
+                    ]
 
-                # Issue #81 crash family (queue worker thread).
-                from gui.src.helpers.video.video_thumbnailer import media_backend_spawn_guard
-
-                with media_backend_spawn_guard():
-                    subprocess.run(
-                        cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-                    )
+                    # Queue items execute in a multiprocessing child. Each
+                    # pass streams frames rather than retaining the full GIF
+                    # range in the old split/palette graph.
+                    subprocess.run(pass1, check=True, capture_output=True, text=True)
+                    subprocess.run(pass2, check=True, capture_output=True, text=True)
+                finally:
+                    with contextlib.suppress(OSError):
+                        os.remove(palette_path)
                 return {"status": "success", "output_path": output_path}
             else:
-                base_clip = VideoFileClip(video_path).subclip(t_start, t_end)
-                keep_regions = get_keep_regions(t_start, t_end)
-                if cuts_ms and keep_regions:
-                    clips = []
-                    for start_sec, end_sec in keep_regions:
-                        if end_sec > start_sec:
-                            clips.append(base_clip.subclip(start_sec, end_sec))
-                    clip = concatenate_videoclips(clips) if clips else base_clip
-                else:
-                    clip = base_clip
-                if target_resolution:
-                    clip = clip.resize(newsize=target_resolution)
-                if speed != 1.0:
-                    clip = clip.speedx(speed)
-                write_kwargs = {"fps": fps, "logger": None}
-                if encoder_threads > 0:
-                    write_kwargs["threads"] = encoder_threads
-                clip.write_gif(output_path, **write_kwargs)
-                clip.close()
-                base_clip.close()
-                return {"status": "success", "output_path": output_path}
+                base_clip = None
+                clip = None
+                try:
+                    base_clip = VideoFileClip(video_path).subclip(t_start, t_end)
+                    keep_regions = get_keep_regions(t_start, t_end)
+                    if cuts_ms and keep_regions:
+                        clips = []
+                        for start_sec, end_sec in keep_regions:
+                            if end_sec > start_sec:
+                                clips.append(base_clip.subclip(start_sec, end_sec))
+                        clip = concatenate_videoclips(clips) if clips else base_clip
+                    else:
+                        clip = base_clip
+                    if target_resolution:
+                        clip = clip.resize(newsize=target_resolution)
+                    if speed != 1.0:
+                        clip = clip.speedx(speed)
+                    write_kwargs = {"fps": fps, "logger": None}
+                    if encoder_threads > 0:
+                        write_kwargs["threads"] = encoder_threads
+                    clip.write_gif(output_path, **write_kwargs)
+                    return {"status": "success", "output_path": output_path}
+                finally:
+                    for movie_clip in (clip, base_clip):
+                        if movie_clip is not None:
+                            with contextlib.suppress(Exception):
+                                movie_clip.close()
 
         elif t_type == "video":
             t_start = start_ms / 1000.0

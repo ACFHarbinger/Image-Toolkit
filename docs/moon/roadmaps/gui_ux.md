@@ -496,6 +496,8 @@ Use `asyncio.CancelledError` or a `threading.Event` as a cancellation token pass
 
 **2026-08-31 (GIF creation streaming — #484):** `ImageMerger._create_gif` (`backend/src/core/image/_gif_video.py`) no longer opens every source frame into a list and holds them decoded for the whole `save()`; it streams one frame at a time through a lazy generator passed as Pillow's `append_images`, closing each source once copied. Peak RSS Δ ~145.7→50.2 MiB on the 48-frame and 269.6→72.2 MiB on the 96-frame benchmark (byte-identical output). Before/after harness: `backend/benchmark/bench_gif_creation.py`.
 
+**2026-08-31 (queue extraction audit — #485):** queued GIFs use the same two-pass FFmpeg palette pipeline as direct exports; the queue's open-ended OpenCV probe and MoviePy GIF fallback now release resources on every path. A controlled two-worker start measurement keeps Linux `fork`: `spawn` added 0.687 s and ~92 MiB private memory per child before extraction.
+
 **2026-08-31 (GC-guard Tier-2 — #481):** Extended `@gc_disabled_run` to the heavy CV/torch/ffmpeg worker threads listed as Tier-2 in the #480 audit — extraction, conversion, merge/scan/search, codec, video/image loader, embedding, model-training, web-recon (torch/HNSW/Selenium), `_FrameWorker`, and the ASP stitch / graph-stitch / batch-stitch / mask-preview workers (asp_gui aliases). Decorator sits outermost above any `@Slot()`. Static registry check over 38 classes + dynamic signal-probe tests: `gui/test/helpers/test_gc_tier2_workers.py` (51 passed).
 
 ---
