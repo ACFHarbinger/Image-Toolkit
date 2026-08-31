@@ -30,6 +30,7 @@ from ....components import ScrubPreviewPopup
 from ....helpers import FrameExtractionWorker
 from ....helpers.core.queue_execution_worker import QueueExecutionWorker
 from ....helpers.video.storyboard import StoryboardBuilder, StoryboardMeta
+from ._cloud_dispatch import _CloudDispatchMixin
 from ._config_methods import _ConfigMethodsMixin
 from ._cuts_logic import _CutsLogicMixin
 from ._directory_scanning import _DirectoryScanningMixin
@@ -55,6 +56,7 @@ class VideoExtractorSubTab(
     _TagsLogicMixin,
     _ExtractionExecutionMixin,
     _ExtractionWorkersMixin,
+    _CloudDispatchMixin,
     _ExtractionPanelUIMixin,
     _QueueManagementMixin,
     _ConfigMethodsMixin,

@@ -192,6 +192,21 @@ class _ExtractionPanelUIMixin:
         self.btn_extract_video.clicked.connect(self.extract_range_as_video)
         self.btn_extract_video.setEnabled(False)
 
+        # Cloud Compute Offload PoC (#487): run the current range on Google
+        # Cloud Run instead of locally. Needs a Cloud Run URL in
+        # Cloud Compute ▸ Settings; the handler warns before uploading.
+        self.btn_run_on_gcd = QPushButton("☁ Run on GCD")
+        self.btn_run_on_gcd.setToolTip(
+            "Extract this range on Google Cloud Run (uploads the source video)"
+        )
+        self.btn_run_on_gcd.setStyleSheet(
+            "QPushButton { background-color: #1f6feb; color: white; font-weight: bold; }"
+            "QPushButton:hover { background-color: #1a5fce; }"
+            "QPushButton:disabled { background-color: #4b5563; color: #c4c7cc; }"
+        )
+        self.btn_run_on_gcd.clicked.connect(lambda: self.run_current_on_gcd("gif"))
+        self.btn_run_on_gcd.setEnabled(False)
+
         extract_actions_layout.addWidget(self.btn_set_start)
         extract_actions_layout.addWidget(self.btn_jump_start)
         extract_actions_layout.addWidget(self.btn_set_end)
@@ -199,6 +214,7 @@ class _ExtractionPanelUIMixin:
         extract_actions_layout.addWidget(self.btn_extract_range)
         extract_actions_layout.addWidget(self.btn_extract_video)
         extract_actions_layout.addWidget(self.btn_extract_gif)
+        extract_actions_layout.addWidget(self.btn_run_on_gcd)
         extract_actions_layout.addWidget(self.btn_cancel_extraction)
 
         extract_main_layout.addLayout(extract_actions_layout)

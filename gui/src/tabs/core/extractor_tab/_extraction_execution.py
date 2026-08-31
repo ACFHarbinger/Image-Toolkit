@@ -171,6 +171,12 @@ class _ExtractionExecutionMixin:
         self.btn_extract_video.setEnabled(
             enabled and self.end_time_ms > self.start_time_ms
         )
+        if hasattr(self, "btn_run_on_gcd"):
+            self.btn_run_on_gcd.setEnabled(
+                enabled
+                and self.end_time_ms > self.start_time_ms
+                and getattr(self, "_cloud_worker", None) is None
+            )
 
         # Also disable browsing while extracting to avoid path changes
         self.btn_browse.setEnabled(enabled)
