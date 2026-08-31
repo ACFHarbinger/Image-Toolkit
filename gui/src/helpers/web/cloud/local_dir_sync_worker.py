@@ -460,13 +460,20 @@ class LocalDirSyncWorker(QThread):
                 logger=self._log,
             )
         if pt == "OneDrive":
-            from backend.src.web.cloud.one_drive_sync import OneDriveSync
-            return OneDriveSync(
-                local_source_path=str(self.local_root),
-                drive_destination_folder_name=self.remote_folder,
-                client_id=self.auth_config.get("client_id", ""),
-                client_secret=self.auth_config.get("client_secret", ""),
-                dry_run=True,
+            # The C++ OneDriveSync only does a whole-folder sync. Local
+            # Directory Sync needs per-file ops, so borrow its resolved OAuth
+            # access_token and drive the MS Graph API directly.
+            from backend.src.web.cloud.onedrive_file_client import OneDriveFileClient
+
+            token = self.auth_config.get("access_token")
+            if not token:
+                raise RuntimeError(
+                    "OneDrive authentication failed — no access token "
+                    "(check the OneDrive token in the vault)."
+                )
+            return OneDriveFileClient(
+                access_token=token,
+                root_name=self.remote_folder,
                 logger=self._log,
             )
         raise ValueError(f"Unsupported provider: {self.provider_text}")

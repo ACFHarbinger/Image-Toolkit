@@ -788,8 +788,10 @@ non-priority) for the cross-link.
 **Status:** Completed (issue #479, 2026-08-31).
 
 **Goal:** synchronize the whole local `~/.image-toolkit/` directory with a
-remote `.image-toolkit/` folder on the user's cloud provider (Google Drive
-first; Dropbox / OneDrive via the existing `backend/src/web/cloud/*` clients).
+remote `.image-toolkit/` folder on the user's cloud provider. All three ship
+per-file clients now — Google Drive (`gdrive_file_client.py`), Dropbox
+(`dropbox_file_client.py`) and OneDrive (`onedrive_file_client.py`) — driving
+each provider's per-file REST API instead of the whole-folder-only C++ sync.
 Broader than §4.19 (which is scoped to just the two encrypted settings
 files) — this covers configs, keybindings, user QSS, and opt-in data —
 while deliberately **not** attempting multi-writer database replication

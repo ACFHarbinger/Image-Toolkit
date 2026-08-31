@@ -66,9 +66,14 @@ class _AuthConfigMixin:
             }
 
         elif provider_text == "OneDrive":
-            # Placeholder
+            # Placeholder: Assume 'onedrive_token' might be in vault or user manual entry
+            token = self.vault_manager.api_credentials.get("onedrive_token")
+            if not token:
+                # Prompt user or handle missing token
+                pass
             return {
                 "provider": "onedrive",
+                "access_token": token if token else "DUMMY_TOKEN_FOR_PLACEHOLDER",
                 "client_id": "DUMMY_ID",
                 "client_secret": "DUMMY_SECRET",
             }
