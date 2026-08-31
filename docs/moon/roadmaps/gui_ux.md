@@ -494,6 +494,8 @@ Use `asyncio.CancelledError` or a `threading.Event` as a cancellation token pass
 
 **2026-08-31 (worker-thread GC guard — #480):** Generalized the #478 fix into `gui/src/helpers/gc_safe.py` (`@gc_disabled_run` / `GcSafeThread` / `gc_disabled()`): the cyclic GC is disabled for a worker's whole `run()` so an allocation burst on a worker thread can never finalize GUI QWidget cycles off the GUI thread. Applied at `BaseQThreadWorker` / `BaseQRunnableWorker` and on the 11 direct-`run()` JSON/listing/DB workers; heavy CV/torch workers are listed as Tier-2 follow-ups in `.agent/reports/opencode/issue_480_gc_guard_audit_2026-08-31.md`.
 
+**2026-08-31 (GIF creation streaming — #484):** `ImageMerger._create_gif` (`backend/src/core/image/_gif_video.py`) no longer opens every source frame into a list and holds them decoded for the whole `save()`; it streams one frame at a time through a lazy generator passed as Pillow's `append_images`, closing each source once copied. Peak RSS Δ ~145.7→50.2 MiB on the 48-frame and 269.6→72.2 MiB on the 96-frame benchmark (byte-identical output). Before/after harness: `backend/benchmark/bench_gif_creation.py`.
+
 ---
 
 ## 2.8 Theme Support ✅ Partial (options A + D shipped — dark/light QSS toggle with per-theme accent-color override, `gui/src/windows/main/_theme.py` + `gui/src/styles/`; also UI density and a `load_user_qss_override` power-user hook) {: #28-theme-support }

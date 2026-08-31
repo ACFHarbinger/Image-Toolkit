@@ -26,36 +26,52 @@ class _GifVideoMixin:
         if not image_paths:
             raise ValueError("No images provided for GIF creation.")
 
-        # Open all images
-        images = [Image.open(p) for p in image_paths]
-
-        # Use first image as base size
-        base_size = images[0].size
-
-        # Normalize all frames to the base size
-        frames = []
-        for img in images:
-            if img.size != base_size:
-                # Resize using Lanczos for quality
-                frames.append(img.resize(base_size, Image.Resampling.LANCZOS))
-            else:
-                frames.append(img)
-
-        # Save GIF
         if output_path.lower().endswith(".png"):
             output_path = output_path[:-4] + ".gif"
 
-        frames[0].save(
+        # Stream frames: open/process one source at a time instead of holding
+        # every frame decoded in memory simultaneously. Pillow's GIF writer
+        # iterates ``append_images`` lazily (each element through
+        # ``ImageSequence.Iterator``) and copies each frame as it goes, so a
+        # generator that yields then closes its source keeps peak allocation to
+        # ~one frame (plus Pillow's in-flight copy) regardless of frame count.
+        first = Image.open(image_paths[0])
+        base_size = first.size
+        first_frame = (
+            first
+            if first.size == base_size
+            else first.resize(base_size, Image.Resampling.LANCZOS)
+        )
+        if first_frame is not first:
+            first.close()
+
+        def _frames() -> Image.Image:
+            for path in image_paths[1:]:
+                img = Image.open(path)
+                frame = (
+                    img.resize(base_size, Image.Resampling.LANCZOS)
+                    if img.size != base_size
+                    else img
+                )
+                try:
+                    yield frame
+                finally:
+                    # Pillow copies each frame before advancing to the next one,
+                    # so closing the source here never invalidates a frame the
+                    # writer is still using.
+                    img.close()
+
+        first_frame.save(
             output_path,
             format="GIF",
-            append_images=frames[1:],
+            append_images=_frames(),
             save_all=True,
             duration=duration,
             loop=0,
             optimize=True,
         )
 
-        return frames[0]
+        return first_frame
 
     @staticmethod
     def export_scrolling_video(  # noqa: C901
