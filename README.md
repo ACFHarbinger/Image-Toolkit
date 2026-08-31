@@ -117,6 +117,8 @@
   - [Benchmarking Suite & Utility Scripts](#benchmarking-suite--utility-scripts)
 - [Features](#-features)
 - [Installation & Setup](#-installation--setup)
+  - [Install from a Release (Desktop App)](#install-from-a-release-desktop-app)
+  - [Build from Source (Development)](#build-from-source-development)
 - [Running the Application](#️-running-the-application)
 - [CLI Commands Reference](#-cli-commands-reference)
 - [Usage](#-usage)
@@ -453,27 +455,59 @@ python backend/src/utils/check_import_times.py
 
 ## <a id="-installation--setup"></a>📦 Installation & Setup
 
-### System Requirements
+### Install from a Release (Desktop App)
 
-#### All Platforms
+Prebuilt desktop bundles are published on the
+[GitHub Releases](https://github.com/ACFHarbinger/Image-Toolkit/releases) page:
+a Linux **AppImage**, a **`.deb`** package, and a **Windows zip** (unsigned —
+expect a SmartScreen prompt; see the note in [`docs/INSTALL.md`](docs/INSTALL.md)).
+
+```bash
+# Linux AppImage
+chmod +x ImageToolkit-*-x86_64.AppImage
+./ImageToolkit-*-x86_64.AppImage
+
+# Debian / Ubuntu
+sudo dpkg -i image-toolkit_*_amd64.deb   # launches as `image-toolkit` or from the app menu
+```
+
+Windows: download `ImageToolkit-*-windows-x86_64.zip`, extract, and run
+`ImageToolkitApp.exe`.
+
+**Database prerequisite:** vector similarity search, anime training pipelines,
+and legacy migration need an external **PostgreSQL 14+ with the `pgvector`
+extension (≥ 0.5.0)** — it is not bundled. The app runs without it on local
+encrypted (SQLCipher) storage and disables only those features. Full setup
+(automated `just db-setup`, manual SQL, `DATABASE_URL`) is in
+[`docs/INSTALL.md`](docs/INSTALL.md).
+
+**Scope note:** the release ships the **PySide6 desktop app only**. The web
+frontend (React/Electron), browser extension, mobile apps, and Django API are
+not yet part of a release — build them from source as described below.
+
+### Build from Source (Development)
+
+#### System Requirements
+
+##### All Platforms
 - **Rust** (1.70+)
 - **Node.js** (18+) and npm
 - **PostgreSQL** (14+) with pgvector extension
 - **Python** (3.11+) for backend modules
 
-#### Linux
+##### Linux
 ```bash
 sudo apt update
 sudo apt install -y build-essential curl wget libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev binutils qdbus-qt6 qt6-base-dev-tools
 ```
 
-#### macOS
+##### macOS
 ```bash
 # Install Xcode Command Line Tools
 xcode-select --install
 ```
 
-#### Windows
+##### Windows
 - Install [Visual Studio C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/)
 - Install [WebView2](https://developer.microsoft.com/en-us/microsoft-edge/webview2/)
 

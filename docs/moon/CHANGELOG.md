@@ -1,3 +1,43 @@
+# S479 — 2026-08-31 (WS-E: release checklist, 1.0.0 changelog skeleton, README install)
+
+- `docs/RELEASE_CHECKLIST.md` (new): Coding-Assistants shape adapted —
+  pre-release (blockers, `just release::bump`, changelog freeze, CI green) →
+  annotated `vX.Y.Z` tag → `dry_run` dispatch + one RC rehearsal tag →
+  artifact review (AppImage / `.deb` / Windows zip / `SHA256SUMS.txt`) →
+  fresh-box smoke matrix incl. external Postgres and missing-DB fallback →
+  publish/post-publish. Unsigned-Windows, no-macOS, and
+  not-in-1.0.0-surface caveats noted.
+- `docs/CHANGELOG.md`: opened `## [1.0.0] - Unreleased` and moved the
+  shipping-surface `Unreleased` bullets under it, plus new Added bullets for
+  the release packaging pipeline (WS-C), version contract (WS-B), and
+  `docs/INSTALL.md`, and a Fixed bullet for the release-gate closures
+  (#470 validated, #461/#373 closed). Dev-infra items (docs stubs, agent
+  coordination) stay under `## [Unreleased]`. Note: the release plan named
+  `docs/moon/CHANGELOG.md`, but the Keep-a-Changelog `Unreleased` content
+  lives in `docs/CHANGELOG.md` (the mkdocs "Changelog" page); the skeleton
+  went there. Freeze (date it) only at tag time.
+- `README.md`: new "Install from a Release (Desktop App)" subsection —
+  Releases download (AppImage / `.deb` / unsigned Windows zip), the
+  external PostgreSQL 14+ / pgvector prerequisite, and the honest-scope
+  note (1.0.0 ships the PySide6 desktop app only; web frontend, extension,
+  mobile, Django API are build-from-source). From-source setup reorganized
+  under "Build from Source (Development)"; TOC and `mkdocs.yml` nav updated.
+
+---
+
+# S478 — 2026-08-31 (WS-D: #461 gallery-crash stress, #373 close-out)
+
+- #373 still green on current tree (`test_wallpaper.py` 9/9 plus
+  `test_qt_runtime_env.py`); two-phase KDE script + `LastVideo` URI write
+  unchanged. Closed.
+- #461 stress pass (`gui/test/core/test_gallery_crash_stress.py`): dual linked
+  `WallpaperTab` rapid dir-nav, startup-restore burst, teardown-during-load.
+  5 extra repeats, no SIGSEGV/SIGABRT. Closed as fixed in 1.0.0.
+- Wallpaper scan browse now passes `DIALOG_OPTS`. Crawler cancel and
+  recommendation re-run no longer `QThread.terminate()`.
+
+---
+
 # S477 — 2026-08-29 (Duplicate system-tray icon in background mode)
 
 - Fixed two identical Image Toolkit icons appearing in the system tray when
