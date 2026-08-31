@@ -6,7 +6,7 @@ import contextlib
 import os
 import shutil
 import subprocess
-from typing import List, Optional, Tuple
+from typing import Iterator, List, Optional, Tuple
 
 import numpy as np
 from loguru import logger
@@ -45,7 +45,7 @@ class _GifVideoMixin:
         if first_frame is not first:
             first.close()
 
-        def _frames() -> Image.Image:
+        def _frames() -> Iterator[Image.Image]:
             for path in image_paths[1:]:
                 img = Image.open(path)
                 frame = (

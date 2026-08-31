@@ -38,6 +38,8 @@ _ROOT = Path(__file__).resolve().parents[2]
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
+_DEFAULT_SCRATCH_ROOT = Path.home() / "Downloads" / "Data" / "Tests"
+
 _CHILD_CODE = """
 import gc, json, resource, sys, time
 from PIL import Image
@@ -144,14 +146,17 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     w, h = (int(x) for x in args.res.lower().split("x"))
-    tmp = tempfile.mkdtemp(prefix="imgtoolkit-gif-bench-")
+    _DEFAULT_SCRATCH_ROOT.mkdir(parents=True, exist_ok=True)
+    tmp = tempfile.mkdtemp(prefix="imgtoolkit-gif-bench-", dir=_DEFAULT_SCRATCH_ROOT)
     frames_dir = args.data_dir or Path(tmp)
     if args.data_dir:
         frames_dir.mkdir(parents=True, exist_ok=True)
     try:
         paths = _make_frames(frames_dir, args.frames, (w, h))
 
-        out_dir = Path(tempfile.mkdtemp(prefix="imgtoolkit-gif-out-"))
+        out_dir = Path(
+            tempfile.mkdtemp(prefix="imgtoolkit-gif-out-", dir=_DEFAULT_SCRATCH_ROOT)
+        )
         try:
             per_arm: dict[str, list[dict]] = {"legacy": [], "streaming": []}
             for _ in range(args.iterations):
