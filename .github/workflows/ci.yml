@@ -85,7 +85,7 @@ jobs:
         # collection, which pull the backend's real runtime deps (yaml,
         # loguru, cv2, scipy, pyside6, bs4, screeninfo, ...). --no-install-project
         # skips workspace-member deps, so those must be installed.
-        run: uv sync --frozen --all-packages --group dev
+        run: uv sync --frozen --package image-toolkit-backend --group dev
 
       - name: Run model contract tests (§5.16A / A.9)
         # All heavy deps (torch, kornia, etc.) are patched into sys.modules
@@ -121,7 +121,7 @@ jobs:
       - name: Install project dependencies (frozen)
         # conftest collection imports the backend's real deps; the C++ base
         # extension is still built explicitly in a later step.
-        run: uv sync --frozen --all-packages --group dev
+        run: uv sync --frozen --package image-toolkit-backend --package image-toolkit-gui --group dev
 
       - name: Install system C++ dependencies
         run: |
@@ -179,7 +179,7 @@ jobs:
       - name: Install project dependencies (frozen)
         # conftest collection imports the backend's real deps; the C++ base
         # extension is still built explicitly in a later step.
-        run: uv sync --frozen --all-packages --group dev
+        run: uv sync --frozen --package image-toolkit-backend --package image-toolkit-gui --group dev
 
       - name: Install system C++ dependencies
         run: |
