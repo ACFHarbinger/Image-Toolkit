@@ -16,6 +16,9 @@ def close_settings_windows(q_app):
     yield
     for widget in QApplication.topLevelWidgets():
         if isinstance(widget, SettingsWindow):
+            # Avoid the modal "unsaved settings?" QMessageBox in closeEvent,
+            # which blocks forever headless (CI hang, 2026-09-01).
+            widget._has_unsaved_settings = lambda: False
             widget.close()
             widget.deleteLater()
     for _ in range(5):
@@ -287,4 +290,4 @@ def test_settings_window_theme_layout_and_button_width(q_app, monkeypatch):
         parent_groupbox = parent_groupbox.parentWidget()
 
     assert parent_groupbox is not None
-    assert parent_groupbox.title() in ("Appearance", "Theme & Aesthetics Studio")
+    assert parent_groupbox.title() in ("Appearance", "Theme and Aesthetics Studio")

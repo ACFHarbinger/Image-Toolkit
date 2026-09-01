@@ -117,6 +117,17 @@ from gui.src.windows.settings.file_dialog_patch import apply_patch  # noqa: E402
 apply_patch()
 
 
+def _close_without_modal(widget) -> None:
+    """close() a top-level widget without its closeEvent blocking on a modal.
+
+    SettingsWindow.closeEvent pops an "unsaved settings?" QMessageBox and
+    spins dialog.exec() forever when no one clicks it (CI hang, 2026-09-01).
+    """
+    if hasattr(widget, "_has_unsaved_settings"):
+        widget._has_unsaved_settings = lambda: False
+    widget.close()
+
+
 @pytest.fixture(autouse=True)
 def isolate_persistent_settings(tmp_path, monkeypatch):
     """Per-test isolation for everything the app persists outside its data dir.
@@ -292,7 +303,7 @@ def cleanup_active_workers_and_timers(q_app):
     # Close and delete all top-level widgets to prevent leaks and styling hangs
     for widget in QApplication.topLevelWidgets():
         try:
-            widget.close()
+            _close_without_modal(widget)
             widget.deleteLater()
         except Exception:
             pass
