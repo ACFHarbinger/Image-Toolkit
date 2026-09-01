@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Play, Pause, RotateCcw, ShieldAlert, CheckCircle2 } from "lucide-react";
+import { ShieldAlert, CheckCircle2 } from "lucide-react";
 import "./HoldTimelineSlider.css";
 
 interface HoldTimelineSliderProps {
@@ -13,7 +13,6 @@ export default function HoldTimelineSlider({
 }: HoldTimelineSliderProps) {
   const [currentFrame, setCurrentFrame] = useState(3);
   const [selectedHold, setSelectedHold] = useState<number>(1);
-  const [isPlaying, setIsPlaying] = useState(false);
 
   const frames = [
     { id: 1, hold: 1, label: "Frame 01 (Hold 1 - Anticipation)", isKey: true, celPose: "pose-a" },

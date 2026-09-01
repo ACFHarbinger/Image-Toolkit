@@ -558,7 +558,6 @@ export default function RatingsDashboard() {
     m0Data,
     defectCorrelation,
     benchmarkSubsets,
-    meta,
   } = useRatingsData();
   const defectCounts = useDefectCounts(humanRatings?.evaluations);
 

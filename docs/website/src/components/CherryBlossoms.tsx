@@ -32,8 +32,17 @@ const Petal = ({ delay, duration, startX, startY, scale }: { delay: number, dura
   );
 };
 
+type PetalData = {
+  id: number;
+  delay: number;
+  duration: number;
+  startX: number;
+  startY: number;
+  scale: number;
+};
+
 export default function CherryBlossoms() {
-  const [petals, setPetals] = useState<any[]>([]);
+  const [petals, setPetals] = useState<PetalData[]>([]);
 
   useEffect(() => {
     // Generate petals only on client to avoid hydration mismatch

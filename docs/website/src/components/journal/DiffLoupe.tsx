@@ -1,5 +1,5 @@
 import React, { useState, useRef } from "react";
-import { ZoomIn, Eye, Layers } from "lucide-react";
+import { ZoomIn, Layers } from "lucide-react";
 import "./DiffLoupe.css";
 
 interface DiffLoupeProps {

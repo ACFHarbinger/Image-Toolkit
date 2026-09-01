@@ -8,9 +8,7 @@ const base = process.env.SITE_BASE || "/";
 
 export default defineConfig({
   base,
-  // The active documentation experience is now the React application. The
-  // previous Vue portal remains archived in docs/website_old while the React
-  // cutover is stabilized.
+  // The documentation experience is a single React application.
   plugins: [react()],
   server: {
     fs: {

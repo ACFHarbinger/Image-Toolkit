@@ -247,7 +247,7 @@ function main() {
     evaluations: latestEval,
   };
 
-  // Write dashboard-compatible flat map for the Vue/React ratings view
+  // Write dashboard-compatible flat map for the React ratings view
   fs.writeFileSync(
     path.join(OUT_DIR, "asp_evaluations.json"),
     JSON.stringify(latestEval, null, 2) + "\n"

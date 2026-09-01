@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 import torch
 
 from backend.src.models.wrappers.birefnet_wrapper import BiRefNetWrapper
@@ -43,6 +44,10 @@ class _OOMOnceModel:
         return [torch.zeros((len(batch), 1, 2, 2), device=batch.device)]
 
 
+# Forces wrapper.device = "cuda" to exercise the CUDA OOM-shrink path; the
+# wrapper then builds `torch.tensor(..., device="cuda")`, which really
+# initialises CUDA and raises on a driverless runner.
+@pytest.mark.gpu
 def test_mask_batch_shrinks_chunk_on_oom_instead_of_aborting(monkeypatch):
     wrapper = BiRefNetWrapper(device="cpu", inference_size=(4, 4))
     model = _OOMOnceModel()

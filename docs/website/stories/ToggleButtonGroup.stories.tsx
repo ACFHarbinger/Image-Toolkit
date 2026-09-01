@@ -10,22 +10,22 @@ export default meta;
 
 type Story = StoryObj<typeof ToggleButtonGroup>;
 
+function OutputFormatsControl() {
+  const [selected, setSelected] = useState<Set<string>>(new Set(["png", "webp"]));
+  return (
+    <ToggleButtonGroup
+      items={["png", "webp", "jpg", "avif"]}
+      selectedItems={selected}
+      onToggle={(item) => setSelected((prev) => {
+        const next = new Set(prev);
+        if (next.has(item)) next.delete(item);
+        else next.add(item);
+        return next;
+      })}
+    />
+  );
+}
+
 export const OutputFormats: Story = {
-  render: () => {
-    // eslint-disable-next-line react-hooks/rules-of-hooks -- Storybook render function, not a component
-    const [selected, setSelected] = useState<Set<string>>(new Set(["png", "webp"]));
-    return (
-      <ToggleButtonGroup
-        items={["png", "webp", "jpg", "avif"]}
-        selectedItems={selected}
-        onToggle={(item) =>
-          setSelected((prev) => {
-            const next = new Set(prev);
-            next.has(item) ? next.delete(item) : next.add(item);
-            return next;
-          })
-        }
-      />
-    );
-  },
+  render: () => <OutputFormatsControl />,
 };

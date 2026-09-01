@@ -1,5 +1,5 @@
 /** Motion variant seeds for docs-site demos. Prefer wiring `framer-motion`'s
- * Vue-compatible primitives (via `motion-v` or manual `AnimatePresence`
+ * Framework-neutral motion primitives (via `AnimatePresence` or manual
  * ports) when a hub panel needs a live enter/exit transition. */
 export const fadeVariants = {
   hidden: { opacity: 0 },

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Orbit, Layers, Sparkles } from "lucide-react";
+import { Orbit, Layers } from "lucide-react";
 import "./LayerStack3D.css";
 
 interface LayerStack3DProps {

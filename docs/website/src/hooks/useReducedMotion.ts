@@ -1,18 +1,13 @@
-import { onBeforeUnmount, onMounted, ref } from "vue";
+import { useEffect, useState } from "react";
 
 export function useReducedMotion() {
-  const prefersReduced = ref(false);
-  let mql: MediaQueryList | null = null;
-  const update = () => {
-    prefersReduced.value = mql?.matches ?? false;
-  };
-
-  onMounted(() => {
-    mql = window.matchMedia("(prefers-reduced-motion: reduce)");
+  const [prefersReduced, setPrefersReduced] = useState(false);
+  useEffect(() => {
+    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const update = () => setPrefersReduced(media.matches);
     update();
-    mql.addEventListener("change", update);
-  });
-  onBeforeUnmount(() => mql?.removeEventListener("change", update));
-
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
   return prefersReduced;
 }
