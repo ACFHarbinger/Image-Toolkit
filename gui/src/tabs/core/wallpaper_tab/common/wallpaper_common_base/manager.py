@@ -127,6 +127,10 @@ class WallpaperCommonBase(
         # Common attributes used or overridden by subclasses
         self.slideshow_timer = None
         self.current_wallpaper_worker = None
+        self._wallpaper_worker_serial = 0
+        self._active_wallpaper_worker_serial = None
+        self._wallpaper_worker_completion_relay = None
+        self._wallpaper_worker_ui_locked = False
         self.background_type = "Image"
         self.solid_color_hex = "#000000"
 

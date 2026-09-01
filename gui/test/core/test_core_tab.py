@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, mock_open, patch
 
 import cv2
 import pytest
+from PySide6.QtCore import QObject, QTimer, Signal
 from PySide6.QtWidgets import QApplication, QDialog, QWidget
 
 from gui.src.tabs.core.convert_tab import ConvertTab
@@ -74,9 +75,6 @@ class TestWallpaperTab:
                 "gui.src.tabs.core.wallpaper_tab.system_display_subtab._wallpaper_worker.WallpaperWorker"
             ),
             patch(
-                "gui.src.tabs.core.wallpaper_tab.common.wallpaper_common_base._scan_pipeline.ImageScannerWorker"
-            ),
-            patch(
                 "gui.src.tabs.core.wallpaper_tab.common.wallpaper_common_base._monitor_layout.get_monitors",
                 return_value=[mock_monitor],
             ),
@@ -105,6 +103,128 @@ class TestWallpaperTab:
 
         tab.system_display._update_background_type("Slideshow")
         assert tab.system_display.slideshow_group.isVisible()
+
+    def test_set_active_queue_wallpaper_keeps_slideshow_ui_enabled(
+        self, q_app, mock_deps, tmp_path
+    ):
+        class WorkerSignals(QObject):
+            status_update = Signal(str)
+            work_finished = Signal(bool, str)
+
+        class FakeWallpaperWorker:
+            instance = None
+
+            def __init__(self, *args, **kwargs):
+                self.signals = WorkerSignals()
+                self.stopped = False
+                FakeWallpaperWorker.instance = self
+
+            def stop(self):
+                self.stopped = True
+
+        first = tmp_path / "first.png"
+        second = tmp_path / "second.png"
+        first.write_bytes(b"first")
+        second.write_bytes(b"second")
+
+        with (
+            patch(
+                "gui.src.tabs.core.wallpaper_tab.system_display_subtab._wallpaper_worker.WallpaperWorker",
+                FakeWallpaperWorker,
+            ),
+            patch(
+                "gui.src.tabs.core.wallpaper_tab.system_display_subtab._wallpaper_worker.QThreadPool"
+            ),
+        ):
+            tab = WallpaperTab(db_tab_ref=MagicMock())
+            system = tab.system_display
+            system.background_type = "Slideshow"
+            system.monitor_image_paths["0"] = str(first)
+            system.monitor_slideshow_queues["0"] = [str(first), str(second)]
+            system.monitor_current_index["0"] = 0
+            system.set_wallpaper_btn.setText("Slideshow Running (Stop)")
+            system.slideshow_timer = QTimer(system)
+            system.slideshow_timer.start(60_000)
+
+            tab.monitor_display._set_specific_wallpaper("0", str(second), 1)
+
+            assert system.monitor_image_paths["0"] == str(second)
+            assert system.monitor_current_index["0"] == 1
+            for panel in (system, tab.monitor_display):
+                assert panel.gallery_scroll_area.isEnabled()
+                assert all(
+                    widget.isEnabled() for widget in panel.monitor_widgets.values()
+                )
+            assert FakeWallpaperWorker.instance is not None
+
+            FakeWallpaperWorker.instance.signals.work_finished.emit(
+                True, "Wallpaper applied successfully."
+            )
+            q_app.processEvents()
+
+            assert system.current_wallpaper_worker is None
+            for panel in (system, tab.monitor_display):
+                assert panel.gallery_scroll_area.isEnabled()
+                assert all(
+                    widget.isEnabled() for widget in panel.monitor_widgets.values()
+                )
+            assert system.set_wallpaper_btn.text() == "Slideshow Running (Stop)"
+            tab.close()
+
+    def test_locked_worker_completion_restores_ui_during_slideshow(
+        self, q_app, mock_deps, tmp_path
+    ):
+        class WorkerSignals(QObject):
+            status_update = Signal(str)
+            work_finished = Signal(bool, str)
+
+        class FakeWallpaperWorker:
+            instance = None
+
+            def __init__(self, *args, **kwargs):
+                self.signals = WorkerSignals()
+                FakeWallpaperWorker.instance = self
+
+            def stop(self):
+                pass
+
+        image = tmp_path / "wallpaper.png"
+        image.write_bytes(b"wallpaper")
+
+        with (
+            patch(
+                "gui.src.tabs.core.wallpaper_tab.system_display_subtab._wallpaper_worker.WallpaperWorker",
+                FakeWallpaperWorker,
+            ),
+            patch(
+                "gui.src.tabs.core.wallpaper_tab.system_display_subtab._wallpaper_worker.QThreadPool"
+            ),
+        ):
+            tab = WallpaperTab(db_tab_ref=MagicMock())
+            system = tab.system_display
+            system.background_type = "Slideshow"
+            system.monitor_image_paths["0"] = str(image)
+            system.monitor_slideshow_queues["0"] = [str(image)]
+            system.slideshow_timer = QTimer(system)
+            system.slideshow_timer.start(60_000)
+
+            system.run_wallpaper_worker(slideshow_mode=False)
+
+            assert not system.gallery_scroll_area.isEnabled()
+            assert all(
+                not widget.isEnabled() for widget in system.monitor_widgets.values()
+            )
+
+            assert FakeWallpaperWorker.instance is not None
+            FakeWallpaperWorker.instance.signals.work_finished.emit(
+                True, "Wallpaper applied successfully."
+            )
+            q_app.processEvents()
+
+            assert system.gallery_scroll_area.isEnabled()
+            assert all(widget.isEnabled() for widget in system.monitor_widgets.values())
+            assert system.set_wallpaper_btn.text() == "Slideshow Running (Stop)"
+            tab.close()
 
     def test_swap_monitors(self, q_app, mock_deps):
         tab = WallpaperTab(db_tab_ref=MagicMock())

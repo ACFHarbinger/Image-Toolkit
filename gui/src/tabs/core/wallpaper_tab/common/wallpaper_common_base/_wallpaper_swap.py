@@ -42,12 +42,20 @@ class _WallpaperSwapMixin:
         self.update_monitor_widget_ui(monitor_id)
         self.check_all_monitors_set()
 
-        if hasattr(self, "run_wallpaper_worker"):
-            self.run_wallpaper_worker()
-        else:
-            for peer in getattr(self, "linked_tabs", []):
-                if hasattr(peer, "run_wallpaper_worker"):
-                    peer.run_wallpaper_worker()
+        runner = self if hasattr(self, "run_wallpaper_worker") else None
+        if runner is None:
+            runner = next(
+                (
+                    peer
+                    for peer in getattr(self, "linked_tabs", [])
+                    if hasattr(peer, "run_wallpaper_worker")
+                ),
+                None,
+            )
+        if runner is not None:
+            timer = getattr(runner, "slideshow_timer", None)
+            slideshow_running = bool(timer and timer.isActive())
+            runner.run_wallpaper_worker(slideshow_mode=slideshow_running)
 
     def on_image_dropped(self: "WallpaperCommonBaseHostProtocol", monitor_id: str, image_path: str):
         self.on_images_dropped(monitor_id, [image_path])

@@ -53,6 +53,10 @@ class WallpaperCommonBaseHostProtocol(AbstractClassSingleGalleryHostProtocol, Pr
     # manager.WallpaperCommonBase's own class body) ---
     slideshow_timer: Optional[QTimer]
     current_wallpaper_worker: Optional[Any]
+    _wallpaper_worker_serial: int
+    _active_wallpaper_worker_serial: Optional[int]
+    _wallpaper_worker_completion_relay: Optional[Any]
+    _wallpaper_worker_ui_locked: bool
     set_wallpaper_btn: Optional[Any]
     background_type_combo: Optional[Any]
     background_type: str
