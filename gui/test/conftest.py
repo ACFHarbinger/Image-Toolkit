@@ -351,7 +351,9 @@ def cleanup_active_workers_and_timers(q_app):
 
     for _ in range(5):
         QApplication.processEvents()
-    QThreadPool.globalInstance().waitForDone(500)
+    # A test may have swapped in a fake pool without waitForDone().
+    with contextlib.suppress(AttributeError):
+        QThreadPool.globalInstance().waitForDone(500)
 
 
 @pytest.fixture(scope="session")
