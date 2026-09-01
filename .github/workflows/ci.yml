@@ -131,7 +131,7 @@ jobs:
       - name: Install system C++ dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libopencv-dev libssl-dev libfftw3-dev libsodium-dev libsqlcipher-dev ninja-build libeigen3-dev
+          sudo apt-get install -y libopencv-dev libssl-dev libfftw3-dev libsodium-dev libsqlcipher-dev ninja-build libeigen3-dev libpulse0 libegl1 libgl1 libxkbcommon0 libxcb-cursor0
 
       - name: Build native crypto library
         run: |
@@ -194,7 +194,7 @@ jobs:
       - name: Install system C++ dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libopencv-dev libssl-dev libfftw3-dev libsodium-dev libsqlcipher-dev ninja-build libeigen3-dev
+          sudo apt-get install -y libopencv-dev libssl-dev libfftw3-dev libsodium-dev libsqlcipher-dev ninja-build libeigen3-dev libpulse0 libegl1 libgl1 libxkbcommon0 libxcb-cursor0
 
       - name: Build native crypto library
         run: |
