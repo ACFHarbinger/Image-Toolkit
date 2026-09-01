@@ -1,5 +1,0 @@
-ruff
-black
-mypy
-pyinstaller
-pytest

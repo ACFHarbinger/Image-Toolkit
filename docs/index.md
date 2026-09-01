@@ -2,7 +2,7 @@
 
 **Image-Toolkit** is an integrated image database and editing framework that bridges high-performance computer vision (PyTorch, OpenCV, C++/pybind11) with robust web automation (Selenium) and cross-platform accessibility.
 
-Prefer a faster, searchable interface? The [Vue documentation site](app/) (`docs/website/`) renders every page here with instant search (⌘K), a collapsible sidebar, dark mode, and live Mermaid diagrams.
+You're already using it — this page is rendered by the [React documentation site](/) (`docs/website/`), which provides client-side navigation, dark mode, and live Mermaid diagrams. Head back to the [engineering hub](/) for the module explorer and quality dashboard.
 
 ---
 
@@ -67,7 +67,7 @@ graph TD
 npm run dev
 
 # Python PySide6 desktop GUI
-source .venv/bin/activate && python main.py
+source .venv/bin/activate && python backend/main.py
 
 # Hydra CLI (training, embedding, ComfyUI)
 python -m backend.dispatcher command=train

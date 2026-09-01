@@ -1,9 +1,0 @@
-django
-django-cors-headers
-numpy
-pillow
-psycopg2-binary
-pyside6
-python-dotenv
-selenium
-webdriver-manager
