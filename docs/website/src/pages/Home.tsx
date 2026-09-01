@@ -8,6 +8,8 @@ import {
 } from "lucide-react";
 import Viewfinder2D from "../components/Viewfinder2D";
 import PipelineDiagram from "../components/PipelineDiagram";
+import AureliaConvergence from "../frameworks/react/AureliaConvergence";
+import AstroVectorFlowField from "../frameworks/react/AstroVectorFlowField";
 import "../App.css";
 
 // Keep the optical demo out of the initial route chunk. The homepage remains
@@ -103,6 +105,17 @@ export default function Home() {
             </Link>
           </div>
         </motion.div>
+      </section>
+
+      <section className="relative z-10 py-28 px-8 max-w-[1400px] mx-auto border-t border-[rgba(0,240,255,0.2)]">
+        <div className="mb-10">
+          <span className="text-[#ffcf4a] text-xs font-mono tracking-[0.2em] font-bold uppercase">FRAMEWORK ISLANDS</span>
+          <h2 className="text-4xl md:text-5xl font-bold mt-4 tracking-tight text-[#00F0FF]" style={{ fontFamily: "Chakra Petch" }}>Specialists, kept isolated.</h2>
+        </div>
+        <div className="grid lg:grid-cols-2 gap-8">
+          <div className="hud-panel p-5"><AstroVectorFlowField height="320px" /></div>
+          <div className="hud-panel p-5"><AureliaConvergence /></div>
+        </div>
       </section>
 
       {/* Module Explorer - Prioritized Section */}

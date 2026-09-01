@@ -22,7 +22,7 @@ import VectorFlowField from "../VectorFlowField.astro";
     <script>
       // Mirror the host page's theme into this iframe document so the
       // (currentColor-driven) island doesn't default to the light palette
-      // inside a dark-mode host — see VectorFlowFieldWrapper.vue, which
+      // inside a dark-mode host — the React wrapper posts the host theme,
       // posts theme changes down via postMessage.
       window.addEventListener("message", (e) => {
         if (e.data?.type === "image-toolkit-theme") {

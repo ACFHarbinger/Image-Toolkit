@@ -80,6 +80,11 @@ jobs:
           key: uv-test-${{ runner.os }}-${{ hashFiles('uv.lock') }}
           restore-keys: uv-test-${{ runner.os }}-
 
+      - name: Init ASP submodule (asp_backend wrapper tests)
+        # test_wrapper_contracts.py imports asp_backend.models.wrappers.*
+        # (RoMa / ALIKED). Registered from submodules/ASP by conftest.
+        run: git submodule update --init submodules/ASP
+
       - name: Install project dependencies (frozen)
         # backend/test/conftest.py eagerly imports src.core / src.web at
         # collection, which pull the backend's real runtime deps (yaml,
@@ -88,9 +93,9 @@ jobs:
         run: uv sync --frozen --package image-toolkit-backend --group dev
 
       - name: Run model contract tests (§5.16A / A.9)
-        # All heavy deps (torch, kornia, etc.) are patched into sys.modules
-        # by the tests themselves — no GPU required, <1 s per test.
-        run: uv run pytest backend/test/models/ -q --tb=short
+        # Heavy deps are patched into sys.modules by the tests themselves;
+        # --skip-gpu drops the few that need a real CUDA device.
+        run: uv run pytest backend/test/models/ -q --tb=short --skip-gpu
         env:
           PYTHONPATH: .
 

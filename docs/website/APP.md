@@ -13,16 +13,13 @@ toolchains", citing an upstream ASP-repo backlog issue), and was rebuilt from sc
 this time with the full feature set intended from the start, rather than the earlier partial
 build. See `docs/moon/CHANGELOG.md` for both entries.
 
-## Why Vue as the primary shell
+## Why React as the primary shell
 
-The chrome (topbar, sidebar, search, theme toggle, doc rendering, the hub) is Vue 3 + Vite. Vue
-was chosen as the primary framework for parity with the equivalent site in the sibling
-`Project-Mobile-Fortress` repository, so contributors moving between this org's docs sites find
-the same architecture. It is *not* a statement that Vue is preferred over React elsewhere in
-Image-Toolkit — `frontend/` (the actual desktop app) is React + Tauri, and this site embeds that
-reality directly rather than reimplementing it.
+The chrome, documentation renderer, and engineering hub use React + Vite, matching the
+desktop frontend. The former Vue portal was removed so the deployed site has one primary UI
+runtime and one router.
 
-## Why framework islands, not just Vue everywhere
+## Why framework islands
 
 Three deliberate, non-trivial islands live under `src/frameworks/`, each demonstrating a
 different integration mechanic:
@@ -34,15 +31,14 @@ different integration mechanic:
   needs to be interactive beyond a hover/reveal.
 - **React** (`frameworks/react/`) — `ComponentGallery.tsx` imports Image-Toolkit's *real*
   `frontend/src/components/common/*` components directly (no port, no copy) and mounts them via
-  `ReactDOM.createRoot()` into a Vue-owned DOM node. Demonstrates the "live client-side mount"
+  React page. Demonstrates the "live client-side mount"
   pattern, and doubles as a way to sanity-check those shared components render correctly outside
   the desktop app's own Electron/Tauri shell. The same components are documented in isolation via
   Storybook (`stories/`), built standalone into `public/storybook/`.
 - **Aurelia 2** (`frameworks/aurelia/`) — `ann-convergence-app.ts`, a real Aurelia custom element
   with bindable state, a repeat.for-driven SVG render, and its own play/pause/reset lifecycle,
   mounted via `Aurelia.app({ host, component }).start()`. Demonstrates a framework whose own
-  component model (custom elements, binding commands) is fully independent of Vue's — the
-  starkest contrast among the three.
+  component model (custom elements, binding commands) is independent of React.
 
 Each island is real, working functionality tied to something true about Image-Toolkit — not a
 placeholder swapped in to tick a box:
@@ -62,12 +58,8 @@ is. `mkdocs build --strict` still runs in CI (`.github/workflows/docs.yml`) pure
 validation gate: it catches a broken nav entry or dead link before it can silently break this
 site's routing, without requiring a second deployed site to keep in sync.
 
-## Why the extra tooling scaffolding (Nuxt, Next, GraphQL schema, Vuex + TanStack Form)
+## Why the extra tooling scaffolding (Next and GraphQL schema)
 
-`stack/nuxt/` and `stack/next/` are alternate, SSR-capable surfaces over the same `src/` tree —
-not used by the default build, but present so an SSR requirement (e.g. pre-rendering doc pages
-for crawlers) has a starting point instead of a from-scratch migration. `src/graphql/schema.
-graphql` is a stub for a possible future docs/content API (serving nav + module data from a real
-backend instead of build-time TS constants) — no resolver exists yet. `src/libraries/vuex/`
-persists real UI state (the active hub tab, via `localStorage`); `src/libraries/form/` wraps
-TanStack Form for any future interactive doc-page forms.
+`stack/next/` is an alternate, SSR-capable React surface over the same `src/` tree. It is not
+used by the default build, but leaves a starting point if pages need pre-rendering. The GraphQL
+schema is a stub for a future documentation/content API; no resolver exists yet.

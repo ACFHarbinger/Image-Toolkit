@@ -2,7 +2,7 @@
 
 **Image-Toolkit** is an integrated image database and editing framework that bridges high-performance computer vision (PyTorch, OpenCV, C++/pybind11) with robust web automation (Selenium) and cross-platform accessibility.
 
-You're already using it — this page is rendered by the [Vue documentation site](/) (`docs/website/`), which renders every page here with instant search (⌘K), a collapsible sidebar, dark mode, and live Mermaid diagrams. Head back to the [engineering hub](/) for the module explorer, submodule ecosystem, and roadmap/benchmark panels.
+You're already using it — this page is rendered by the [React documentation site](/) (`docs/website/`), which provides client-side navigation, dark mode, and live Mermaid diagrams. Head back to the [engineering hub](/) for the module explorer and quality dashboard.
 
 ---
 

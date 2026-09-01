@@ -1,4 +1,4 @@
-// Framework-neutral — no Vue/React/Aurelia imports. Consumed by the Aurelia
+// Framework-neutral — no UI-runtime imports. Consumed by the Aurelia
 // ANN-convergence island (src/frameworks/aurelia/) via createSimulationController.
 export interface Point2D {
   x: number;

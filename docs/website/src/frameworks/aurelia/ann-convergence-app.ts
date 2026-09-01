@@ -83,7 +83,8 @@ export class AnnConvergenceApp {
   }
 
   togglePlay() {
-    this.playing ? this.pause() : this.play();
+    if (this.playing) this.pause();
+    else this.play();
   }
 
   reset() {

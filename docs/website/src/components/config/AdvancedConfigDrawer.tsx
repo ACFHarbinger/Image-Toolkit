@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Sliders, Search, Download, Copy, Check, RotateCcw, ChevronDown, ChevronRight, ShieldCheck, Cpu, Layers } from 'lucide-react';
+import { Sliders, Search, Copy, Check } from 'lucide-react';
 import { showAchievementToast } from '../../utils/achievementToast';
 
 export interface ConfigSchemaEntry {
@@ -7,11 +7,13 @@ export interface ConfigSchemaEntry {
   type: 'int' | 'float' | 'str' | 'bool';
   min?: number;
   max?: number;
-  defaultVal: any;
+  defaultVal: ConfigValue;
   description: string;
   category: string;
   isPrimary?: boolean;
 }
+
+type ConfigValue = string | number | boolean;
 
 export const ASP_CONFIG_MATRIX: ConfigSchemaEntry[] = [
   // ── Frame Selection & Hold Detection ──
@@ -102,8 +104,8 @@ export default function AdvancedConfigDrawer() {
   const [activeTab, setActiveTab] = useState<'primary' | 'advanced'>('primary');
   const [activeCategory, setActiveCategory] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [configValues, setConfigValues] = useState<Record<string, any>>(() => {
-    const initial: Record<string, any> = {};
+  const [configValues, setConfigValues] = useState<Record<string, ConfigValue>>(() => {
+    const initial: Record<string, ConfigValue> = {};
     ASP_CONFIG_MATRIX.forEach(entry => {
       initial[entry.key] = entry.defaultVal;
     });
@@ -158,7 +160,7 @@ export default function AdvancedConfigDrawer() {
     setConfigValues(updated);
   };
 
-  const handleValueChange = (key: string, val: any) => {
+  const handleValueChange = (key: string, val: ConfigValue) => {
     setConfigValues(prev => ({ ...prev, [key]: val }));
     setSelectedPreset('custom');
   };
@@ -329,7 +331,7 @@ export default function AdvancedConfigDrawer() {
                     </button>
                   ) : entry.type === 'str' ? (
                     <select
-                      value={val}
+                      value={typeof val === 'string' ? val : 'dis'}
                       onChange={e => handleValueChange(entry.key, e.target.value)}
                       className="bg-[#14161d] border border-[#1a1c23] text-xs font-mono text-[#00f0ff] px-3 py-1 rounded-lg outline-none focus:border-[#00f0ff]"
                     >
@@ -343,7 +345,7 @@ export default function AdvancedConfigDrawer() {
                         step={entry.type === 'float' ? '0.05' : '1'}
                         min={entry.min}
                         max={entry.max}
-                        value={val ?? 0}
+                        value={typeof val === 'number' ? val : 0}
                         onChange={e => handleValueChange(entry.key, entry.type === 'float' ? parseFloat(e.target.value) : parseInt(e.target.value, 10))}
                         className="w-24 bg-[#14161d] border border-[#1a1c23] text-xs font-mono text-[#00f0ff] px-2.5 py-1 rounded-lg text-right outline-none focus:border-[#00f0ff]"
                       />

@@ -9,7 +9,7 @@
 //   - Our SPA renders raw markdown through useDocs.ts/useMarkdown.ts with no
 //     relative-path resolution — <router-link>-free rendered HTML needs
 //     root-absolute "/api/typescript/..." paths (matching
-//     generate-nav.mjs's slugify()) or the links 404 against vue-router.
+//     generate-nav.mjs's slugify()) or the links 404 in React Router.
 //
 // This only rewrites the entry point (readme.md) and any files it linked
 // to that exist under out/ — it does not need to run recursively, because

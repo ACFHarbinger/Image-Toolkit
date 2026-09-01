@@ -4,14 +4,10 @@ import {
   BookOpen,
   Calendar,
   Clock,
-  Tag,
   ArrowLeft,
-  Share2,
   Sparkles,
-  Layers,
   ShieldCheck,
   AlertTriangle,
-  Info,
   ChevronRight,
   FlaskConical,
 } from "lucide-react";
@@ -348,7 +344,6 @@ export default function Journal() {
       <div className="journal-filter-bar">
         <div className="filter-tab-list">
           {["all", "Lab Note", "Methodology", "Case Study"].map((cat) => {
-            const key = cat.toLowerCase().replace(" ", "-");
             const isActive = selectedCategory.toLowerCase() === cat.toLowerCase();
             return (
               <button

@@ -1,0 +1,14 @@
+.framework-island { color: var(--text, #e2e8f0); }
+.astro-island-wrap { margin: 0.5rem 0; }
+.frame-shell { position: relative; overflow: hidden; border: 1px solid var(--border, #334155); border-radius: 10px; background: var(--surface, #0f172a); }
+.island-frame { display: block; width: 100%; border: 0; background: transparent; }
+.framework-island-loading, .framework-island-error { display: grid; min-height: 8rem; place-items: center; margin: 0; padding: 1rem; color: var(--text-muted, #94a3b8); text-align: center; }
+.aurelia-host .ann-root { font-family: inherit; color: var(--text, #e2e8f0); }
+.aurelia-host .kicker, .aurelia-host .step-label, .aurelia-host .subtitle { color: var(--text-muted, #94a3b8); }
+.aurelia-host .kicker { margin: 0 0 0.2rem; font-size: 0.68rem; letter-spacing: 0.08em; text-transform: uppercase; }
+.aurelia-host h2 { margin: 0 0 0.35rem; font-size: 1.05rem; }
+.aurelia-host .subtitle { margin: 0 0 0.75rem; font-size: 0.82rem; }
+.aurelia-host .controls { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; margin-bottom: 0.75rem; }
+.aurelia-host select, .aurelia-host button { padding: 0.4rem 0.75rem; border: 1px solid var(--border, #334155); border-radius: 8px; background: var(--surface-hover, #1e293b); color: var(--text, #e2e8f0); font-size: 0.8rem; font-weight: 600; }
+.aurelia-host button:hover { border-color: var(--accent, #22d3ee); color: var(--accent, #22d3ee); }
+.aurelia-host svg { display: block; width: 100%; height: auto; max-height: 320px; aspect-ratio: 1; }

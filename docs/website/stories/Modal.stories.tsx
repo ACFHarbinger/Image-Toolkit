@@ -13,6 +13,11 @@ export default meta;
 
 type Story = StoryObj<typeof Modal>;
 
+function InteractiveModal() {
+  const [open, setOpen] = useState(true);
+  return <Modal isVisible={open} type="info" content="Click the backdrop's Close button to dismiss." onClose={() => setOpen(false)} />;
+}
+
 export const Success: Story = {
   args: { isVisible: true, type: "success", content: "Conversion queued for: png, webp", onClose: () => {} },
 };
@@ -22,16 +27,5 @@ export const ErrorState: Story = {
 };
 
 export const Interactive: Story = {
-  render: () => {
-    // eslint-disable-next-line react-hooks/rules-of-hooks -- Storybook render function, not a component
-    const [open, setOpen] = useState(true);
-    return (
-      <Modal
-        isVisible={open}
-        type="info"
-        content="Click the backdrop's Close button to dismiss."
-        onClose={() => setOpen(false)}
-      />
-    );
-  },
+  render: () => <InteractiveModal />,
 };

@@ -6,6 +6,6 @@ actual configuration is grouped by concern under `stack/`.
 
 | Directory | Role |
 | --- | --- |
-| [`eslint/`](eslint/) | Flat ESLint config covering `.ts`/`.tsx`/`.vue` |
+| [`eslint/`](eslint/) | Flat ESLint config covering `.ts` and `.tsx` |
 | [`nuxt/`](nuxt/) | Alternate SSR-capable Nuxt 3 surface over `src/` (not part of the default build) |
 | [`next/`](next/) | Alternate Next.js surface over `src/frameworks/react/` (not part of the default build) |

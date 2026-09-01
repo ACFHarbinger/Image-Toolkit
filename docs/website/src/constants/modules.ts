@@ -1,6 +1,6 @@
 // Hand-curated (not generated) from .agent/AGENTS.md §4 and docs/ARCHITECTURE.md's
 // module dependency graph — feeds the "Module Explorer" hub panel
-// (src/frameworks/vue/components/hub/ModulesPanel.vue).
+// (the React home-page module explorer).
 import type { ModuleCard } from "../interfaces/types";
 
 export const moduleCards: ModuleCard[] = [

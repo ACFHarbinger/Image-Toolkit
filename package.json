@@ -33,6 +33,10 @@
     "docs-website:preview": "npm run preview --workspace=docs/website"
   },
   "devDependencies": {
-    "@types/react-dom": "^19.2.4"
+    "@types/react-dom": "^19.2.4",
+    "typescript": "^5.7.2"
+  },
+  "overrides": {
+    "esbuild": "0.28.2"
   }
 }
