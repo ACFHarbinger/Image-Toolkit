@@ -98,11 +98,57 @@ class TestWallpaperTab:
         tab = WallpaperTab(db_tab_ref=MagicMock())
         tab.show()  # Ensure widgets can be effectively visible
 
+        # Non-slideshow: Image
+        tab.system_display._update_background_type("Image")
+        assert tab.system_display.set_wallpaper_btn.isVisible()
+        assert tab.system_display.btn_fetch_current.isVisible()
+        assert tab.system_display.btn_skip_wallpapers.isVisible()
+        assert not tab.system_display.btn_daemon_toggle.isVisible()
+        assert not tab.system_display.btn_view_logs.isVisible()
+        assert not tab.system_display.interval_container.isVisible()
+        assert not tab.system_display.countdown_label.isVisible()
+
+        # Non-slideshow: Smart Video
+        tab.system_display._update_background_type("Smart Video")
+        assert tab.system_display.set_wallpaper_btn.isVisible()
+        assert tab.system_display.btn_fetch_current.isVisible()
+        assert tab.system_display.btn_skip_wallpapers.isVisible()
+        assert not tab.system_display.btn_daemon_toggle.isVisible()
+        assert not tab.system_display.btn_view_logs.isVisible()
+        assert not tab.system_display.interval_container.isVisible()
+        assert not tab.system_display.countdown_label.isVisible()
+
+        # Non-slideshow: Solid Color
         tab.system_display._update_background_type("Solid Color")
         assert tab.system_display.solid_color_widget.isVisible()
+        assert tab.system_display.set_wallpaper_btn.isVisible()
+        assert tab.system_display.btn_fetch_current.isVisible()
+        assert tab.system_display.btn_skip_wallpapers.isVisible()
+        assert not tab.system_display.btn_daemon_toggle.isVisible()
+        assert not tab.system_display.btn_view_logs.isVisible()
 
+        # Slideshow
         tab.system_display._update_background_type("Slideshow")
         assert tab.system_display.slideshow_group.isVisible()
+        assert tab.system_display.interval_container.isVisible()
+        assert tab.system_display.countdown_label.isVisible()
+        assert tab.system_display.btn_daemon_toggle.isVisible()
+        assert tab.system_display.btn_view_logs.isVisible()
+        assert tab.system_display.set_wallpaper_btn.isVisible()
+        assert tab.system_display.btn_fetch_current.isVisible()
+        assert tab.system_display.btn_skip_wallpapers.isVisible()
+
+        # Smart Video Slideshow
+        tab.system_display._update_background_type("Smart Video Slideshow")
+        assert tab.system_display.slideshow_group.isVisible()
+        assert tab.system_display.interval_container.isVisible()
+        assert tab.system_display.chk_video_runtime_interval.isVisible()
+        assert tab.system_display.countdown_label.isVisible()
+        assert tab.system_display.btn_daemon_toggle.isVisible()
+        assert tab.system_display.btn_view_logs.isVisible()
+        assert tab.system_display.set_wallpaper_btn.isVisible()
+        assert tab.system_display.btn_fetch_current.isVisible()
+        assert tab.system_display.btn_skip_wallpapers.isVisible()
 
     def test_set_active_queue_wallpaper_keeps_slideshow_ui_enabled(
         self, q_app, mock_deps, tmp_path

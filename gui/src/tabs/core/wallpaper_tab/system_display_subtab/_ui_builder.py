@@ -86,7 +86,6 @@ class _UIBuilderMixin:
         content_layout.addWidget(settings_group)
 
         self._build_gallery_section(content_layout)
-        self._build_action_row(content_layout)
 
         self.playback_order_combo.currentTextChanged.connect(self._sync_daemon_config)
         self.interval_min_spinbox.valueChanged.connect(self._sync_daemon_config)
@@ -95,6 +94,7 @@ class _UIBuilderMixin:
         self.video_style_combo.currentTextChanged.connect(self._sync_daemon_config)
         self.background_type_combo.currentTextChanged.connect(self._sync_daemon_config)
 
+        self._update_background_type(self.background_type)
         self.populate_monitor_layout()
         self.check_all_monitors_set()
         self.stop_slideshow()
@@ -125,20 +125,27 @@ class _UIBuilderMixin:
         slideshow_layout = QHBoxLayout(self.slideshow_group)
         slideshow_layout.setContentsMargins(0, 10, 0, 10)
 
-        slideshow_layout.addWidget(QLabel("Interval:"))
+        self.interval_container = QWidget()
+        interval_layout = QHBoxLayout(self.interval_container)
+        interval_layout.setContentsMargins(0, 0, 0, 0)
+        interval_layout.setSpacing(6)
+
+        interval_layout.addWidget(QLabel("Interval:"))
         self.interval_min_spinbox = QSpinBox()
         self.interval_min_spinbox.setRange(0, 60)
         self.interval_min_spinbox.setValue(5)
         self.interval_min_spinbox.setFixedWidth(50)
-        slideshow_layout.addWidget(self.interval_min_spinbox)
-        slideshow_layout.addWidget(QLabel("min"))
+        interval_layout.addWidget(self.interval_min_spinbox)
+        interval_layout.addWidget(QLabel("min"))
 
         self.interval_sec_spinbox = QSpinBox()
         self.interval_sec_spinbox.setRange(0, 59)
         self.interval_sec_spinbox.setValue(0)
         self.interval_sec_spinbox.setFixedWidth(50)
-        slideshow_layout.addWidget(self.interval_sec_spinbox)
-        slideshow_layout.addWidget(QLabel("sec"))
+        interval_layout.addWidget(self.interval_sec_spinbox)
+        interval_layout.addWidget(QLabel("sec"))
+
+        slideshow_layout.addWidget(self.interval_container)
 
         self.chk_video_runtime_interval = QCheckBox("Use Video Runtime as Interval")
         self.chk_video_runtime_interval.setToolTip(
@@ -161,6 +168,18 @@ class _UIBuilderMixin:
         )
         self.countdown_label.setFixedWidth(100)
         slideshow_layout.addWidget(self.countdown_label)
+
+        self.set_wallpaper_btn = QPushButton("Set Wallpaper")
+        self.set_wallpaper_btn.setStyleSheet(STYLE_START_ACTION)
+        apply_shadow_effect(
+            self.set_wallpaper_btn,
+            color_hex="#000000",
+            radius=8,
+            x_offset=0,
+            y_offset=3,
+        )
+        self.set_wallpaper_btn.clicked.connect(self.handle_set_wallpaper_click)
+        slideshow_layout.addWidget(self.set_wallpaper_btn)
 
         self.btn_daemon_toggle = QPushButton("Start Background Daemon")
         self.btn_daemon_toggle.setCheckable(True)
@@ -190,7 +209,7 @@ class _UIBuilderMixin:
             set_button_role(self.btn_daemon_toggle, "success")
 
         settings_layout.addWidget(self.slideshow_group)
-        self.slideshow_group.setVisible(False)
+        self.slideshow_group.setVisible(True)
 
         QTimer.singleShot(0, self._apply_vault_slideshow_defaults)
 
@@ -286,22 +305,7 @@ class _UIBuilderMixin:
         content_layout.addWidget(self.gallery, 1)
 
     def _build_action_row(self: "SystemDisplaySubTabHostProtocol", content_layout) -> None:
-        action_layout = QHBoxLayout()
-        action_layout.setSpacing(10)
-
-        self.set_wallpaper_btn = QPushButton("Set Wallpaper")
-        self.set_wallpaper_btn.setStyleSheet(STYLE_START_ACTION)
-        apply_shadow_effect(
-            self.set_wallpaper_btn,
-            color_hex="#000000",
-            radius=8,
-            x_offset=0,
-            y_offset=3,
-        )
-        self.set_wallpaper_btn.clicked.connect(self.handle_set_wallpaper_click)
-        action_layout.addWidget(self.set_wallpaper_btn, 1)
-
-        content_layout.addLayout(action_layout)
+        pass
 
 
 __all__ = ["_UIBuilderMixin"]

@@ -37,6 +37,7 @@ class SystemDisplaySubTab(
     Full-featured wallpaper setter with monitor layout, gallery,
     slideshow, daemon, and solid-color modes.
     """
+    interval_container: Any
     interval_min_spinbox: Any
     interval_sec_spinbox: Any
     chk_video_runtime_interval: Any

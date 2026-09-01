@@ -179,7 +179,18 @@ class _WallpaperWorkerMixin:
         self.set_wallpaper_btn.setText("Applying (Click to Stop)")
         self.set_wallpaper_btn.setStyleSheet(STYLE_STOP_ACTION)
         self.set_wallpaper_btn.setEnabled(True)
-        self.slideshow_group.setEnabled(False)
+        if hasattr(self, "btn_daemon_toggle"):
+            self.btn_daemon_toggle.setEnabled(False)
+        if hasattr(self, "btn_view_logs"):
+            self.btn_view_logs.setEnabled(False)
+        if hasattr(self, "btn_fetch_current"):
+            self.btn_fetch_current.setEnabled(False)
+        if hasattr(self, "btn_skip_wallpapers"):
+            self.btn_skip_wallpapers.setEnabled(False)
+        if hasattr(self, "interval_container"):
+            self.interval_container.setEnabled(False)
+        if hasattr(self, "chk_video_runtime_interval"):
+            self.chk_video_runtime_interval.setEnabled(False)
         self.gallery_scroll_area.setEnabled(False)  # pyrefly: ignore [missing-attribute]
         self.scan_directory_path.setEnabled(False)
         self.style_combo.setEnabled(False)
@@ -192,6 +203,18 @@ class _WallpaperWorkerMixin:
 
     def unlock_ui_for_wallpaper(self: "SystemDisplaySubTabHostProtocol"):
         self.slideshow_group.setEnabled(True)
+        if hasattr(self, "btn_daemon_toggle"):
+            self.btn_daemon_toggle.setEnabled(True)
+        if hasattr(self, "btn_view_logs"):
+            self.btn_view_logs.setEnabled(True)
+        if hasattr(self, "btn_fetch_current"):
+            self.btn_fetch_current.setEnabled(True)
+        if hasattr(self, "btn_skip_wallpapers"):
+            self.btn_skip_wallpapers.setEnabled(True)
+        if hasattr(self, "interval_container"):
+            self.interval_container.setEnabled(True)
+        if hasattr(self, "chk_video_runtime_interval"):
+            self.chk_video_runtime_interval.setEnabled(True)
         self.gallery_scroll_area.setEnabled(True)  # pyrefly: ignore [missing-attribute]
         self.scan_directory_path.setEnabled(True)
         self.style_combo.setEnabled(True)

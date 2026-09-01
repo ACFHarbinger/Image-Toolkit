@@ -45,6 +45,7 @@ class SystemDisplaySubTabHostProtocol(WallpaperCommonBaseHostProtocol, Protocol)
     # declarations for these fields (shared names with WallpaperCommonBase/
     # AbstractClassSingleGallery, deliberately loosened there to sidestep
     # the same cross-mixin conflicts these Any types avoid here).
+    interval_container: QWidget
     interval_min_spinbox: Any
     interval_sec_spinbox: Any
     chk_video_runtime_interval: Any

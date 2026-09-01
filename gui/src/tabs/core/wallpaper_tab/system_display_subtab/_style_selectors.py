@@ -55,18 +55,31 @@ class _StyleSelectorsMixin:
         is_slideshow = type_name == "Slideshow"
         is_video_slideshow = type_name == "Smart Video Slideshow"
         is_video_static = type_name == "Smart Video"
+        is_any_slideshow = is_slideshow or is_video_slideshow
 
-        self.slideshow_group.setVisible(is_slideshow or is_video_slideshow)
-        self.btn_daemon_toggle.setVisible(is_slideshow or is_video_slideshow)
-        self.btn_view_logs.setVisible(is_slideshow or is_video_slideshow)
+        self.slideshow_group.setVisible(True)
+        if hasattr(self, "interval_container"):
+            self.interval_container.setVisible(is_any_slideshow)
+        if hasattr(self, "countdown_label"):
+            self.countdown_label.setVisible(is_any_slideshow)
+        if hasattr(self, "btn_daemon_toggle"):
+            self.btn_daemon_toggle.setVisible(is_any_slideshow)
+        if hasattr(self, "btn_view_logs"):
+            self.btn_view_logs.setVisible(is_any_slideshow)
+        if hasattr(self, "set_wallpaper_btn"):
+            self.set_wallpaper_btn.setVisible(True)
+        if hasattr(self, "btn_fetch_current"):
+            self.btn_fetch_current.setVisible(True)
+        if hasattr(self, "btn_skip_wallpapers"):
+            self.btn_skip_wallpapers.setVisible(True)
         self.solid_color_widget.setVisible(is_solid_color)
 
         self.chk_video_runtime_interval.setVisible(is_video_slideshow)
         if not is_video_slideshow:
             self.chk_video_runtime_interval.setChecked(False)
 
-        self.playback_order_label.setVisible(is_slideshow or is_video_slideshow)
-        self.playback_order_combo.setVisible(is_slideshow or is_video_slideshow)
+        self.playback_order_label.setVisible(is_any_slideshow)
+        self.playback_order_combo.setVisible(is_any_slideshow)
 
         if is_video_static or is_video_slideshow:
             self.video_style_combo.show()
