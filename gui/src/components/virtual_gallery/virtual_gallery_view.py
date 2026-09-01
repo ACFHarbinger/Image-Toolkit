@@ -26,6 +26,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Optional
 
 from PySide6.QtCore import (
+    QEvent,
     QItemSelection,
     QMimeData,
     QModelIndex,
@@ -35,7 +36,7 @@ from PySide6.QtCore import (
     QUrl,
     Signal,
 )
-from PySide6.QtGui import QDrag, QMouseEvent, QPixmap, QWheelEvent
+from PySide6.QtGui import QCursor, QDrag, QMouseEvent, QPixmap, QWheelEvent
 from PySide6.QtWidgets import QAbstractItemView, QApplication, QListView
 
 from .delegate import VirtualGalleryDelegate
@@ -61,7 +62,10 @@ class VirtualGalleryView(QListView):
         self.setResizeMode(QListView.ResizeMode.Adjust)
         self.setMovement(QListView.Movement.Static)
         self.setUniformItemSizes(True)
-        self.setFlow(QListView.Flow.TopToBottom)
+        # IconMode must fill rows before wrapping downward. TopToBottom fills
+        # the viewport height first, then puts the remaining items in
+        # horizontal columns outside the visible gallery.
+        self.setFlow(QListView.Flow.LeftToRight)
         self.setWrapping(True)
         self.setSpacing(6)
         self.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
@@ -246,31 +250,28 @@ class VirtualGalleryView(QListView):
             super().wheelEvent(event)
 
     # ------------------------------------------------------------------
-    # Drag-to-drop (opt-in) — press an item, drag past a threshold to start
-    # a native ``QDrag`` carrying the selected file URLs. Used by the
-    # wallpaper tabs to drop a thumbnail onto a monitor or the graph view,
-    # both of which already accept ``text/uri-list`` drops. Disabled for
-    # every other tab.
-    #
-    # This deliberately uses ``QDrag`` rather than ``grabMouse()`` + a
-    # floating preview window: on Wayland ``QWidget.grabMouse()`` is a no-op
-    # for non-popup widgets ("This plugin supports grabbing the mouse only
-    # for popup windows"), which left the drag half-started and every
-    # subsequent click in the app routed to a widget that never got its
-    # release — the app went unclickable (but not frozen). The compositor
-    # owns the DnD grab for ``QDrag``, so it works on both X11 and Wayland.
+    # Drag-to-drop (opt-in). Wallpaper supplies an in-app drop resolver, so
+    # its drag uses an application event filter: unlike native Wayland DnD,
+    # this preserves wheel events while moving between the gallery and monitor
+    # cards. Handler-less callers retain a native QDrag fallback.
     # ------------------------------------------------------------------
 
     _CUSTOM_DRAG_THRESHOLD = 8
 
     def set_custom_drag_enabled(self, enabled: bool, drop_handler=None) -> None:
         """Enable/disable drag-to-drop. ``drop_handler`` is accepted for
-        backward compatibility but no longer used — the drop targets resolve
-        the drop natively via their own ``dropEvent``."""
+        the in-app Wallpaper drop target resolver."""
+        if getattr(self, "_manual_drag_active", False):
+            self._end_manual_drag(drop=False)
         self._custom_drag_enabled = bool(enabled)
         self._custom_drop_handler = drop_handler
         self._drag_source_path: Optional[str] = None
         self._drag_press_pos: Optional[QPoint] = None
+        self._manual_drag_active = False
+        self._manual_drag_source: Optional[str] = None
+        self._manual_drag_paths: list[str] = []
+        self._drag_preview_window = None
+        self._previous_drag_scroll_property = None
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
         super().mousePressEvent(event)
@@ -278,24 +279,48 @@ class VirtualGalleryView(QListView):
             getattr(self, "_custom_drag_enabled", False)
             and event.button() == Qt.MouseButton.LeftButton
         ):
+            # Clear any pending-drag state left over from a prior click that
+            # never crossed the threshold; only a press on an item re-arms it.
+            # Otherwise a later press on blank space would inherit a stale
+            # source path and be treated as a drag instead of a marquee.
+            self._drag_source_path = None
+            self._drag_press_pos = None
             index = self.indexAt(event.position().toPoint())
             if index.isValid() and self._gallery_model is not None:
                 self._drag_source_path = self._gallery_model.path_at(index.row())
                 self._drag_press_pos = event.position().toPoint()
 
     def mouseMoveEvent(self, event: QMouseEvent) -> None:
+        if getattr(self, "_manual_drag_active", False):
+            # A manual (in-app) drag is in flight; the application event
+            # filter owns the gesture. Forwarding to the base class here
+            # would let QAbstractItemView enter DragSelectingState and paint
+            # a rubber band under the running drag.
+            return
         enabled = getattr(self, "_custom_drag_enabled", False)
-        if enabled and self._drag_source_path and self._drag_press_pos is not None:
+        if (
+            enabled
+            and self._drag_source_path
+            and self._drag_press_pos is not None
+            and event.buttons() & Qt.MouseButton.LeftButton
+        ):
+            # Press landed on a thumbnail: this gesture is a drag-the-item,
+            # never a marquee. Swallow every move (not just post-threshold
+            # ones) so the base class never starts a rubber-band selection
+            # on an item press. Blank-space presses leave _drag_source_path
+            # unset and still fall through to the marquee below.
             moved = event.position().toPoint() - self._drag_press_pos
-            if (
-                event.buttons() & Qt.MouseButton.LeftButton
-                and abs(moved.x()) + abs(moved.y()) > self._CUSTOM_DRAG_THRESHOLD
-            ):
+            if abs(moved.x()) + abs(moved.y()) > self._CUSTOM_DRAG_THRESHOLD:
                 self._start_custom_drag()
-                return
+            return
         super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:
+        # A plain click on an item that never reached the drag threshold:
+        # drop the armed drag state so it can't leak into the next gesture.
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._drag_source_path = None
+            self._drag_press_pos = None
         # A click on empty viewport space should clear the current selection
         # unless the user is extending it (marquee / modifier-held) — the
         # QLabel galleries treat blank-area clicks as "deselect everything".
@@ -322,6 +347,10 @@ class VirtualGalleryView(QListView):
         if not paths:
             return
 
+        if callable(self._custom_drop_handler):
+            self._begin_manual_drag(source, paths, pm)
+            return
+
         drag = QDrag(self)
         mime = QMimeData()
         mime.setUrls([QUrl.fromLocalFile(p) for p in paths])
@@ -335,10 +364,8 @@ class VirtualGalleryView(QListView):
             )
             drag.setPixmap(pm)
             drag.setHotSpot(QPoint(pm.width() // 2, pm.height() // 2))
-        # Qt releases the source widget's left-button state while a native
-        # drag is active. Tell Wallpaper's application event filter that a
-        # drag is nevertheless in progress so its scroll area can still
-        # consume wheel events while the pointer is over a monitor target.
+        # Preserve the shared drag-active marker for handler-less callers that
+        # also install an application wheel filter.
         application = QApplication.instance()
         previous_drag_scroll = (
             application.property("image_toolkit_drag_scroll_active")
@@ -359,6 +386,138 @@ class VirtualGalleryView(QListView):
         # move would paint a rubber-band marquee. Mirror QAbstractItemView::
         # startDrag() and clear the interaction state.
         self.setState(QAbstractItemView.State.NoState)
+
+    def _begin_manual_drag(self, source: str, paths: list[str], pixmap: QPixmap) -> None:
+        """Start an in-app drag without Qt's native DnD event loop.
+
+        Wayland's native drag owns the pointer and consumes wheel events before
+        QApplication can route them. Wallpaper drops are entirely in-app, so an
+        application event filter can preserve wheel scrolling and still resolve
+        the release target by global position.
+        """
+        if self._manual_drag_active:
+            self._end_manual_drag(drop=False)
+        # Clear whatever interaction state the press left behind so the base
+        # class isn't mid-gesture (rubber band) once the manual drag ends.
+        self.setState(QAbstractItemView.State.NoState)
+        self._manual_drag_active = True
+        self._manual_drag_source = source
+        self._manual_drag_paths = list(paths)
+
+        app = QApplication.instance()
+        if app is not None:
+            self._previous_drag_scroll_property = app.property(
+                "image_toolkit_drag_scroll_active"
+            )
+            app.setProperty("image_toolkit_drag_scroll_active", True)
+            app.installEventFilter(self)
+
+        if not pixmap.isNull():
+            from gui.src.windows.drag_preview_window import DragPreviewWindow
+
+            preview = pixmap.scaled(
+                120,
+                120,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
+            self._drag_preview_window = DragPreviewWindow(preview)
+            self._drag_preview_window.update_position(QCursor.pos())
+            self._drag_preview_window.show()
+
+    def eventFilter(self, watched, event):
+        if not getattr(self, "_manual_drag_active", False):
+            return super().eventFilter(watched, event)
+
+        event_type = event.type()
+        if event_type == QEvent.Type.Wheel:
+            pixel_delta = event.pixelDelta().y()
+            delta = pixel_delta or event.angleDelta().y()
+            if self._scroll_active_drag(delta):
+                event.accept()
+                return True
+        elif event_type == QEvent.Type.MouseMove:
+            if not (QApplication.mouseButtons() & Qt.MouseButton.LeftButton):
+                self._end_manual_drag(drop=False)
+                return False
+            global_pos = self._event_global_pos(event)
+            if self._drag_preview_window is not None:
+                self._drag_preview_window.update_position(global_pos)
+            owner = self._wallpaper_scroll_owner()
+            if owner is not None and hasattr(owner, "_handle_autoscroll"):
+                owner._handle_autoscroll(global_pos)
+        elif event_type == QEvent.Type.MouseButtonRelease:
+            if event.button() == Qt.MouseButton.LeftButton:
+                self._end_manual_drag(drop=True, global_pos=self._event_global_pos(event))
+                event.accept()
+                return True
+        elif event_type == QEvent.Type.KeyPress and event.key() == Qt.Key.Key_Escape:
+            self._end_manual_drag(drop=False)
+            event.accept()
+            return True
+        return super().eventFilter(watched, event)
+
+    def _wallpaper_scroll_owner(self):
+        current = self.parentWidget()
+        while current is not None:
+            if getattr(current, "main_scroll_area", None) is not None:
+                return current
+            current = current.parentWidget()
+        return None
+
+    def _scroll_active_drag(self, delta_y: int) -> bool:
+        if not delta_y:
+            return False
+        owner = self._wallpaper_scroll_owner()
+        scroll_area = getattr(owner, "main_scroll_area", None) if owner else None
+        bar = scroll_area.verticalScrollBar() if scroll_area is not None else None
+        if bar is None or bar.maximum() <= bar.minimum():
+            bar = self.verticalScrollBar()
+        if bar.maximum() <= bar.minimum():
+            return False
+        old_value = bar.value()
+        bar.setValue(old_value - delta_y)
+        return bar.value() != old_value
+
+    @staticmethod
+    def _event_global_pos(event) -> QPoint:
+        global_position = getattr(event, "globalPosition", None)
+        if callable(global_position):
+            return global_position().toPoint()
+        return QCursor.pos()
+
+    def _end_manual_drag(
+        self, *, drop: bool, global_pos: Optional[QPoint] = None
+    ) -> None:
+        if not getattr(self, "_manual_drag_active", False):
+            return
+        app = QApplication.instance()
+        if app is not None:
+            app.removeEventFilter(self)
+            app.setProperty(
+                "image_toolkit_drag_scroll_active",
+                self._previous_drag_scroll_property,
+            )
+
+        source = self._manual_drag_source
+        paths = list(self._manual_drag_paths)
+        preview = self._drag_preview_window
+        self._manual_drag_active = False
+        self._manual_drag_source = None
+        self._manual_drag_paths.clear()
+        self._drag_preview_window = None
+        self._previous_drag_scroll_property = None
+        if preview is not None:
+            preview.close()
+            preview.deleteLater()
+
+        self.setState(QAbstractItemView.State.NoState)
+        if drop and source and callable(self._custom_drop_handler):
+            self._custom_drop_handler(source, paths, global_pos or QCursor.pos())
+
+    def closeEvent(self, event) -> None:
+        self._end_manual_drag(drop=False)
+        super().closeEvent(event)
 
     def _drag_preview_pixmap(self, path: Optional[str]) -> QPixmap:
         """Thumbnail pixmap for the dragged item, or a null pixmap."""

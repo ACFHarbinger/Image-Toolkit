@@ -24,8 +24,8 @@ from gui.src.components.virtual_gallery import (
     VirtualGalleryModel,
     VirtualGalleryView,
 )
-from PySide6.QtCore import QObject, QPoint, QRunnable, Qt, Signal
-from PySide6.QtGui import QImage
+from PySide6.QtCore import QObject, QPoint, QPointF, QRunnable, Qt, Signal
+from PySide6.QtGui import QImage, QWheelEvent
 from PySide6.QtWidgets import QApplication, QWidget
 
 pytestmark = pytest.mark.gui
@@ -379,6 +379,24 @@ def test_scroll_prefetch_schedules_exact_visible_buffered_range():
     view.close()
 
 
+def test_icon_rows_wrap_downward_and_every_item_is_vertically_reachable():
+    view = VirtualGalleryView()
+    model = _make_model(fill_mode=False)
+    view.setModel(model)
+    model.set_paths([f"/p/{i:04d}.png" for i in range(82)])
+    view.resize(520, 320)
+    view.show()
+    QApplication.processEvents()
+
+    assert view.flow() == view.Flow.LeftToRight
+    assert view.verticalScrollBar().maximum() > 0
+    assert view.horizontalScrollBar().maximum() == 0
+    assert view.jump_to_path("/p/0081.png") is True
+    QApplication.processEvents()
+    assert view.visualRect(model.index(81, 0)).intersects(view.viewport().rect())
+    view.close()
+
+
 def test_set_thumbnail_size_updates_grid_and_emits_layout_changed():
     view = VirtualGalleryView()
     model = _make_model()
@@ -427,11 +445,7 @@ def test_path_and_zoom_signals():
     view.close()
 
 
-# --- Drag-to-drop uses QDrag, never grabMouse() ------------------------------
-# (grabMouse() on a non-popup widget is a silent no-op on Wayland — "This
-# plugin supports grabbing the mouse only for popup windows" — which used to
-# half-start the drag and leave every click in the app dead-ending on a
-# widget that never got its release.)
+# --- Drag-to-drop: native fallback plus wheel-aware Wallpaper path -----------
 
 
 def test_start_drag_fires_a_qdrag_with_the_selected_file_urls(monkeypatch):
@@ -485,6 +499,190 @@ def test_start_drag_with_no_source_is_a_noop(monkeypatch):
     assert calls == []
     assert QWidget.mouseGrabber() is None
     view.close()
+
+
+def test_manual_wallpaper_drag_wheel_scrolls_outer_page(q_app):
+    from PySide6.QtWidgets import QScrollArea, QVBoxLayout
+
+    owner = QWidget()
+    owner.main_scroll_area = QScrollArea(owner)
+    content = QWidget()
+    content.setMinimumHeight(1800)
+    owner.main_scroll_area.setWidget(content)
+    owner.main_scroll_area.setWidgetResizable(True)
+    layout = QVBoxLayout(owner)
+    layout.addWidget(owner.main_scroll_area)
+
+    view = VirtualGalleryView(content)
+    model = _make_model(fill_mode=False)
+    view.setModel(model)
+    model.set_paths(["/a.png"])
+    drops = []
+    view.set_custom_drag_enabled(
+        True, lambda source, paths, pos: drops.append((source, paths, pos))
+    )
+    owner.resize(400, 300)
+    owner.show()
+    QApplication.processEvents()
+
+    bar = owner.main_scroll_area.verticalScrollBar()
+    assert bar.maximum() > 0
+    bar.setValue(bar.maximum() // 2)
+    before = bar.value()
+    view._drag_source_path = "/a.png"
+    view._drag_press_pos = QPoint(1, 1)
+    view._start_custom_drag()
+
+    assert view._manual_drag_active is True
+    wheel = QWheelEvent(
+        QPointF(20, 20),
+        QPointF(20, 20),
+        QPoint(),
+        QPoint(0, -120),
+        Qt.MouseButton.LeftButton,
+        Qt.KeyboardModifier.NoModifier,
+        Qt.ScrollPhase.ScrollUpdate,
+        False,
+    )
+    assert view.eventFilter(view, wheel) is True
+    assert bar.value() > before
+    view._end_manual_drag(drop=True, global_pos=QPoint(20, 20))
+    assert drops == [("/a.png", ["/a.png"], QPoint(20, 20))]
+    assert view._manual_drag_active is False
+    owner.close()
+
+
+def _mouse_event(kind, pos, *, button, buttons):
+    from PySide6.QtGui import QMouseEvent
+
+    p = QPointF(pos)
+    return QMouseEvent(
+        kind, p, p, button, buttons, Qt.KeyboardModifier.NoModifier
+    )
+
+
+def _wallpaper_view(q_app, n_paths=3):
+    from PySide6.QtWidgets import QScrollArea, QVBoxLayout
+
+    owner = QWidget()
+    owner.main_scroll_area = QScrollArea(owner)
+    content = QWidget()
+    owner.main_scroll_area.setWidget(content)
+    owner.main_scroll_area.setWidgetResizable(True)
+    QVBoxLayout(owner).addWidget(owner.main_scroll_area)
+
+    view = VirtualGalleryView(content)
+    model = _make_model(fill_mode=False)
+    view.setModel(model)
+    model.set_paths([f"/p/{i}.png" for i in range(n_paths)])
+    view.set_custom_drag_enabled(True, lambda *a: None)
+    owner.resize(500, 360)
+    owner.show()
+    QApplication.processEvents()
+    return owner, view, model
+
+
+def test_press_on_thumbnail_then_drag_never_starts_a_marquee(q_app):
+    from PySide6.QtCore import QEvent
+    from PySide6.QtWidgets import QAbstractItemView
+
+    owner, view, model = _wallpaper_view(q_app)
+    item_pos = view.visualRect(model.index(0, 0)).center()
+    assert view.indexAt(item_pos).isValid()
+
+    view.mousePressEvent(
+        _mouse_event(
+            QEvent.Type.MouseButtonPress, item_pos,
+            button=Qt.MouseButton.LeftButton, buttons=Qt.MouseButton.LeftButton,
+        )
+    )
+    # Sub-threshold move: must be swallowed, no rubber band.
+    view.mouseMoveEvent(
+        _mouse_event(
+            QEvent.Type.MouseMove, item_pos + QPoint(3, 2),
+            button=Qt.MouseButton.NoButton, buttons=Qt.MouseButton.LeftButton,
+        )
+    )
+    assert view.state() != QAbstractItemView.State.DragSelectingState
+
+    # Past-threshold move: starts the in-app drag, still no rubber band.
+    view.mouseMoveEvent(
+        _mouse_event(
+            QEvent.Type.MouseMove, item_pos + QPoint(40, 40),
+            button=Qt.MouseButton.NoButton, buttons=Qt.MouseButton.LeftButton,
+        )
+    )
+    assert view._manual_drag_active is True
+    assert view.state() != QAbstractItemView.State.DragSelectingState
+
+    view._end_manual_drag(drop=False)
+    owner.close()
+
+
+def test_press_on_blank_space_still_marquees(q_app):
+    from PySide6.QtCore import QEvent
+    from PySide6.QtWidgets import QAbstractItemView
+
+    owner, view, model = _wallpaper_view(q_app, n_paths=2)
+    blank = QPoint(view.viewport().width() - 6, view.viewport().height() - 6)
+    assert not view.indexAt(blank).isValid()
+
+    view.mousePressEvent(
+        _mouse_event(
+            QEvent.Type.MouseButtonPress, blank,
+            button=Qt.MouseButton.LeftButton, buttons=Qt.MouseButton.LeftButton,
+        )
+    )
+    assert view._drag_source_path is None
+    view.mouseMoveEvent(
+        _mouse_event(
+            QEvent.Type.MouseMove, blank - QPoint(60, 60),
+            button=Qt.MouseButton.NoButton, buttons=Qt.MouseButton.LeftButton,
+        )
+    )
+    assert view.state() == QAbstractItemView.State.DragSelectingState
+    owner.close()
+
+
+def test_stale_drag_source_from_prior_click_does_not_block_marquee(q_app):
+    from PySide6.QtCore import QEvent
+    from PySide6.QtWidgets import QAbstractItemView
+
+    owner, view, model = _wallpaper_view(q_app, n_paths=2)
+    item_pos = view.visualRect(model.index(0, 0)).center()
+
+    # Click an item without dragging, then release.
+    view.mousePressEvent(
+        _mouse_event(
+            QEvent.Type.MouseButtonPress, item_pos,
+            button=Qt.MouseButton.LeftButton, buttons=Qt.MouseButton.LeftButton,
+        )
+    )
+    view.mouseReleaseEvent(
+        _mouse_event(
+            QEvent.Type.MouseButtonRelease, item_pos,
+            button=Qt.MouseButton.LeftButton, buttons=Qt.MouseButton.NoButton,
+        )
+    )
+    assert view._drag_source_path is None
+
+    # A subsequent blank-space drag must marquee, not resurrect the drag.
+    blank = QPoint(view.viewport().width() - 6, view.viewport().height() - 6)
+    view.mousePressEvent(
+        _mouse_event(
+            QEvent.Type.MouseButtonPress, blank,
+            button=Qt.MouseButton.LeftButton, buttons=Qt.MouseButton.LeftButton,
+        )
+    )
+    view.mouseMoveEvent(
+        _mouse_event(
+            QEvent.Type.MouseMove, blank - QPoint(60, 60),
+            button=Qt.MouseButton.NoButton, buttons=Qt.MouseButton.LeftButton,
+        )
+    )
+    assert view._manual_drag_active is False
+    assert view.state() == QAbstractItemView.State.DragSelectingState
+    owner.close()
 
 
 def test_drag_preview_window_is_transparent_to_clicks():
