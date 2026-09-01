@@ -165,9 +165,10 @@ jobs:
       - name: Run GUI pytest
         # --skip-gpu lives in backend/test/conftest.py and is unregistered
         # in a gui-only process. --run-gui keeps @pytest.mark.gui tests.
-        # --timeout: a wedged QThread/event-loop test fails loudly instead
-        # of hanging the whole job.
-        run: uv run pytest gui/test -m "not slow" -q --tb=short --run-gui --timeout=120
+        # timeout-method=thread: a wedged Qt event loop ignores SIGALRM, so
+        # the default signal method never fires — the watchdog thread dumps
+        # every stack and hard-exits, naming the offending test.
+        run: uv run pytest gui/test -m "not slow" -q --tb=short --run-gui --timeout=120 --timeout-method=thread
         env:
           PYTHONPATH: .
           QT_QPA_PLATFORM: offscreen
@@ -236,7 +237,7 @@ jobs:
           QT_QPA_PLATFORM: offscreen
 
       - name: Run slow GUI pytest
-        run: uv run pytest gui/test -m "slow" -q --tb=short --run-gui --timeout=600 || [ $? -eq 5 ]
+        run: uv run pytest gui/test -m "slow" -q --tb=short --run-gui --timeout=600 --timeout-method=thread || [ $? -eq 5 ]
         env:
           PYTHONPATH: .
           QT_QPA_PLATFORM: offscreen
