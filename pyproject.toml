@@ -122,6 +122,14 @@ comfyui = [
 package = false
 # Rebuild the C++ extension if CMakeLists or source files change
 cache-keys = [{ file = "base/CMakeLists.txt" }, { file = "base/src/**/*.cpp" }, { file = "base/include/**/*.hpp" }]
+# ptlflow / romatch / transparent-background / ultralytics depend on
+# opencv-python (GUI build). Installing it next to opencv-python-headless
+# yields a split cv2: AttributeError: partially initialized module 'cv2'
+# has no attribute 'mat_wrapper'. Force the non-headless extra off every
+# platform so the workspace stays on the pinned headless wheel.
+override-dependencies = [
+    "opencv-python ; sys_platform == 'never'",
+]
 
 [tool.pyrefly]
 # Pyrefly 1.x config. Interpreter is auto-detected from `.venv/bin/python`.

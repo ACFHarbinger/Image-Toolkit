@@ -68,14 +68,16 @@ def test_queue_execution_worker_encoder_params_parsing():
     with patch("subprocess.run") as mock_run:
         res = run_extraction_in_process(config)
         assert res.get("status") == "success"
-        assert mock_run.called
-        cmd = mock_run.call_args[0][0]
-        # Check threads argument
-        assert "-threads" in cmd
-        idx = cmd.index("-threads")
-        assert cmd[idx + 1] == "4"
-        # Check max_colors in palettegen filter
-        vf_idx = cmd.index("-vf")
-        assert "max_colors=64" in cmd[vf_idx + 1]
-        # Check clamped fps filter
-        assert "fps=24" in cmd[vf_idx + 1]
+        assert mock_run.call_count == 2
+        pass1 = mock_run.call_args_list[0][0][0]
+        pass2 = mock_run.call_args_list[1][0][0]
+        for cmd in (pass1, pass2):
+            assert "-threads" in cmd
+            assert cmd[cmd.index("-threads") + 1] == "4"
+        vf_idx = pass1.index("-vf")
+        assert "max_colors=64" in pass1[vf_idx + 1]
+        assert "fps=24" in pass1[vf_idx + 1]
+        assert "palettegen" in pass1[vf_idx + 1]
+        lavfi_idx = pass2.index("-lavfi")
+        assert "paletteuse" in pass2[lavfi_idx + 1]
+        assert "fps=24" in pass2[lavfi_idx + 1]
