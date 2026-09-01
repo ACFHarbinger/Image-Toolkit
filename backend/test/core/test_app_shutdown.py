@@ -59,6 +59,28 @@ def test_persistent_slideshow_daemon_pids_require_active_config(tmp_path, monkey
     assert app_mod._persistent_slideshow_daemon_pids() == {101}
 
 
+def test_reaper_preserves_configured_daemon_process(tmp_path, monkeypatch):
+    daemon = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"])
+    worker = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"])
+    system_config = tmp_path / "slideshow.json"
+    system_pid = tmp_path / "slideshow.pid"
+    monitor_config = tmp_path / "monitor-slideshow.json"
+    system_config.write_text(json.dumps({"running": True}), encoding="utf-8")
+    system_pid.write_text(str(daemon.pid), encoding="utf-8")
+    monkeypatch.setattr(app_mod, "DAEMON_CONFIG_PATH", system_config)
+    monkeypatch.setattr(app_mod, "PID_PATH", system_pid)
+    monkeypatch.setattr(app_mod, "MONITOR_SLIDESHOW_DAEMON_CONFIG_PATH", monitor_config)
+    try:
+        app_mod._reap_child_processes()
+        assert psutil.pid_exists(daemon.pid)
+        assert not psutil.pid_exists(worker.pid)
+    finally:
+        with contextlib.suppress(Exception):
+            daemon.kill()
+        with contextlib.suppress(Exception):
+            daemon.wait(timeout=2)
+
+
 def test_reaper_preserves_persistent_daemon_process_tree(monkeypatch):
     class Process:
         def __init__(self, pid, parent=None):
