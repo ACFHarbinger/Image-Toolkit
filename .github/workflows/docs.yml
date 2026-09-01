@@ -217,7 +217,17 @@ jobs:
             --exclude-path archive
             --exclude-path docs/api
             --exclude-path docs/website/public
-            '**/*.md'
+            --exclude 'https://github\.com/ACFHarbinger/Anime-Stitch-Pipeline/blob/.*/moon/'
+            --exclude 'https://github\.com/ACFHarbinger/Cel-Shaded-Generator/blob/.*/moon/'
+            --exclude 'https://github\.com/users/ACFHarbinger/projects/'
+            --exclude 'https://www\.mdpi\.com'
+            --exclude 'https://www\.researchgate\.net'
+            --exclude 'https://www\.scirp\.org'
+            --root-dir .
+            README.md
+            frontend/README.md
+            'docs/**/*.md'
+            'git/**/*.md'
           fail: true
 
   # ── Job 4: Jupyter notebooks (non-GPU cells only) ──────────────────────

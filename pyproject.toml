@@ -183,13 +183,19 @@ python_functions = ["test_*", "*_test"]
 testpaths = [
     "gui/test",
     "backend/test",
-    "submodules/ASP/gui/test",
-    "submodules/ASP/backend/test",
-    "submodules/ASP/backend/benchmark/evaluation/test",
-    "submodules/CRE/test",
-    "submodules/CSG/gui/test",
-    "submodules/CSG/backend/test",
-    "submodules/HIE/gui/test",
+]
+# Submodule suites stay in their own packages. Collecting them from the
+# workspace root puts ASP/HIE `src` packages on sys.path and shadows
+# backend/src (vault_manager, ImageMerger, …). Run those trees explicitly:
+#   pytest submodules/ASP/backend/test …
+norecursedirs = [
+    ".git",
+    ".venv",
+    "node_modules",
+    "submodules",
+    "vendor",
+    "archive",
+    "build",
 ]
 
 markers = [
