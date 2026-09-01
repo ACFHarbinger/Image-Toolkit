@@ -138,7 +138,7 @@ class VirtualGallery(QWidget):
         selected = self.selected_files()
         if len(selected) < 2:
             return None
-        from ...windows import ImageCompareWindow
+        from ...windows.image_compare_window import ImageCompareWindow
         win = ImageCompareWindow(image_paths=selected, parent=parent or self)
         win.show()
         return win

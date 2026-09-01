@@ -201,6 +201,16 @@ jobs:
             --exclude 'https://ieeexplore\.ieee\.org'
             --exclude 'https://openaccess\.thecvf\.com'
             --exclude 'https://api\.jikan\.moe'
+            --exclude 'https://docs\.opencv\.org'
+            --exclude 'https://developer\.mozilla\.org'
+            --exclude 'https://www\.contributor-covenant\.org'
+            --exclude 'https://mypy-lang\.org'
+            --exclude 'https://www\.conventionalcommits\.org'
+            --exclude 'https://www\.openssl\.org'
+            --exclude 'https://pep8\.org'
+            --exclude 'https://scan\.coverity\.com'
+            --exclude 'https://discord\.gg'
+            --exclude-path node_modules
             '**/*.md'
           fail: true
 

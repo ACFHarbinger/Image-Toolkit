@@ -37,7 +37,7 @@ npm run dev     # Vite dev server
 npm run build
 ```
 
-See [DOCUMENTATION_STANDARDS.md](DOCUMENTATION_STANDARDS.md) and [docs/website/README.md](website/README.md).
+See [DOCUMENTATION_STANDARDS.md](DOCUMENTATION_STANDARDS.md) and [docs/website/APP.md](website/APP.md).
 
 ## Human ASP ratings
 

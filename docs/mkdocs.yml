@@ -12,6 +12,7 @@ site_dir: ../build/gen/site
 exclude_docs: |
   hooks.py
   sphinx/conf.py
+  website/README.md
 
 theme:
   name: material
@@ -134,9 +135,6 @@ nav:
       - Quick Start: readme.md
       - Development: DEVELOPMENT.md
       - Architecture: ARCHITECTURE.md
-      - C4 Architecture Model:
-          - Overview: STRUCTURIZR.md
-          - Exporting & Rendering: structurizr/README.md
       - Troubleshooting: TROUBLESHOOTING.md
       - Glossary: GLOSSARY.md
   - Tutorials:
