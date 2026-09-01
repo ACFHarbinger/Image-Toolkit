@@ -17,6 +17,31 @@ from PIL import Image, ImageDraw
 
 ROOT = Path("/home/pkhunter/Downloads/Data/Tests/release-1.0.0").resolve()
 TESTS_ROOT = Path("/home/pkhunter/Downloads/Data/Tests").resolve()
+REAL_LIBRARY_SOURCES = {
+    "gaming_image": Path(
+        "/home/pkhunter/Downloads/Data/Gaming/League_Of_Legends/min-kim-.jpg"
+    ),
+    "frame_image": Path(
+        "/home/pkhunter/Downloads/Data/Frames/Shinmai_Maou_no_Testament/"
+        "p145_119795388_by_TILKO.png"
+    ),
+    "animated_gif": Path(
+        "/home/pkhunter/Downloads/Data/Anime/Black_Lagoon/43603678_p0.gif"
+    ),
+    "extracted_video": Path(
+        "/home/pkhunter/Downloads/Data/Frames/Videos/"
+        "Akane wa Tsumare Somerareru - 01 [1080p-HEVC][hstream.moe]_"
+        "182927ms_185303ms.mp4"
+    ),
+}
+RELEASE_ARTIFACT_FILENAMES = frozenset(
+    {
+        "ImageToolkit-1.0.0-x86_64.appimage",
+        "ImageToolkit-1.0.0-x86_64.AppImage",
+        "image-toolkit_1.0.0_amd64.deb",
+        "SHA256SUMS.txt",
+    }
+)
 
 
 def ensure_safe_root() -> None:
@@ -226,6 +251,28 @@ def create_videos() -> None:
         target = root / name
         ffmpeg_video(target, size=size, duration=duration, audio=audio)
         copy(target, root / subdirectory / name)
+
+
+def create_real_library_fixtures() -> None:
+    """Copy a small, named sample from the user's existing media library."""
+    missing = [str(path) for path in REAL_LIBRARY_SOURCES.values() if not path.is_file()]
+    if missing:
+        raise RuntimeError("Missing required real-library fixture source(s): " + ", ".join(missing))
+
+    gaming = REAL_LIBRARY_SOURCES["gaming_image"]
+    frame = REAL_LIBRARY_SOURCES["frame_image"]
+    animation = REAL_LIBRARY_SOURCES["animated_gif"]
+    video = REAL_LIBRARY_SOURCES["extracted_video"]
+    copy(gaming, ROOT / "images" / "real-library" / "gaming-art.jpg")
+    copy(frame, ROOT / "images" / "real-library" / "source-frame.png")
+    copy(animation, ROOT / "images" / "real-library" / "animated-source.gif")
+    copy(video, ROOT / "video" / "real-library" / "extracted-clip.mp4")
+    copy(gaming, ROOT / "wallpaper-a" / "real-library-gaming.jpg")
+    copy(frame, ROOT / "wallpaper-b" / "real-library-frame.png")
+    copy(frame, ROOT / "stitch" / "real-library" / "frame-001.png")
+    copy(frame, ROOT / "manga" / "real-library" / "reference.png")
+    copy(gaming, ROOT / "models" / "datasets" / "real-library" / "gaming-art.jpg")
+    copy(video, ROOT / "listings" / "series-videos" / "Real_Library_Series" / "Real Library Series - 01.mp4")
 
 
 def create_wallpapers() -> None:
@@ -572,7 +619,13 @@ def write_inventory() -> None:
         ROOT / "evidence" / "checksums" / "SHA256SUMS.txt",
         ROOT / "evidence" / "reports" / "FIXTURE_MANIFEST.json",
     }
-    files = sorted(path for path in ROOT.rglob("*") if path.is_file() and path not in excluded)
+    files = sorted(
+        path
+        for path in ROOT.rglob("*")
+        if path.is_file()
+        and path not in excluded
+        and not (path.parent == ROOT and path.name in RELEASE_ARTIFACT_FILENAMES)
+    )
     checksums = []
     suffix_counts: Counter[str] = Counter()
     total_bytes = 0
@@ -609,6 +662,9 @@ def write_inventory() -> None:
             "wallpaper-b/unsupported.txt",
         ],
         "checkpoint_note": "Supply known-good licensed checkpoints separately.",
+        "real_library_sources": {
+            name: str(path) for name, path in REAL_LIBRARY_SOURCES.items()
+        },
     }
     manifest_path = ROOT / "evidence" / "reports" / "FIXTURE_MANIFEST.json"
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
@@ -633,6 +689,7 @@ def main() -> None:
     create_images()
     create_sheets()
     create_videos()
+    create_real_library_fixtures()
     create_wallpapers()
     create_stitch_fixtures()
     create_manga_fixtures()
