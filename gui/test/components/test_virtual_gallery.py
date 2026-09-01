@@ -301,10 +301,13 @@ def test_failed_load_lands_in_failed_and_is_not_retried():
 def test_stale_load_rejected_after_reset():
     model = _make_model(fill_mode=False)
     model.set_paths(["/a.png"])
-    _ = model.data(model.index(0, 0), Qt.ItemDataRole.DecorationRole)
+    # Arm the hold BEFORE submitting the worker: otherwise a fast pool can
+    # run it to completion before _STARTED.clear(), and the wait() below
+    # then blocks on a worker that already finished.
     _BLOCK.set()
     _STARTED.clear()
     try:
+        _ = model.data(model.index(0, 0), Qt.ItemDataRole.DecorationRole)
         assert _STARTED.wait(2.0), "fake worker never started"
         model.set_paths(["/b.png"])  # bumps generation; /a.png result is stale
         _BLOCK.clear()
@@ -320,11 +323,12 @@ def test_stale_load_rejected_after_reset():
 def test_cancel_loading_rejects_inflight():
     model = _make_model()
     model.set_paths(["/a.png", "/b.png"])
-    _ = model.data(model.index(0, 0), Qt.ItemDataRole.DecorationRole)
-    _ = model.data(model.index(1, 0), Qt.ItemDataRole.DecorationRole)
+    # Arm the hold before submitting the workers (see test_stale_load_*).
     _BLOCK.set()
     _STARTED.clear()
     try:
+        _ = model.data(model.index(0, 0), Qt.ItemDataRole.DecorationRole)
+        _ = model.data(model.index(1, 0), Qt.ItemDataRole.DecorationRole)
         assert _STARTED.wait(2.0), "fake worker never started"
         model.cancel_loading()
         _BLOCK.clear()
