@@ -11,9 +11,10 @@ from pathlib import Path
 
 from PIL import Image, ImageOps
 
-ROOT = Path("/home/pkhunter/Downloads/Data/Tests/release-1.0.0").resolve()
-TESTS_ROOT = Path("/home/pkhunter/Downloads/Data/Tests").resolve()
-DATA = Path("/home/pkhunter/Downloads/Data").resolve()
+DATA_HOME = Path.home() / "Downloads" / "Data"
+ROOT = (DATA_HOME / "Tests" / "release-1.0.0").resolve()
+TESTS_ROOT = (DATA_HOME / "Tests").resolve()
+DATA = DATA_HOME.resolve()
 ARTIFACTS = frozenset({"ImageToolkit-1.0.0-x86_64.appimage", "ImageToolkit-1.0.0-x86_64.AppImage", "image-toolkit_1.0.0_amd64.deb", "SHA256SUMS.txt"})
 FIXTURE_DIRS = ("images", "sheets", "video", "wallpaper-a", "wallpaper-b", "stitch", "manga", "models", "listings", "entity-recon", "reverse-search", "http-fixture", "cloud-sync", "local-directory-sync", "disposable", "evidence")
 IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp"}
