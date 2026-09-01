@@ -46,6 +46,16 @@ dev = [
     "ruff>=0.14.3",
 ]
 
+# Documentation portal and API-reference plugins. Keep this separate from
+# `dev` so contributors can opt into the MkDocs/Jupyter stack only when needed.
+docs = [
+    "griffe",
+    "mkdocs-jupyter",
+    "mkdocs-material",
+    "mkdocstrings[python]",
+    "pymdown-extensions",
+]
+
 # ComfyUI runtime dependencies.
 # Source: vendor/ComfyUI/requirements.txt + vendor/ComfyUI/manager_requirements.txt
 #   + vendor/ComfyUI/custom_nodes/ComfyUI-Impact-Pack/requirements.txt

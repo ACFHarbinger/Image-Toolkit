@@ -78,17 +78,8 @@ jobs:
           key: uv-docs-${{ runner.os }}-${{ hashFiles('uv.lock') }}
           restore-keys: uv-docs-${{ runner.os }}-
 
-      - name: Install Python dependencies (skip Rust build)
-        run: uv sync --frozen --group dev --no-install-project
-
-      - name: Install MkDocs and plugins
-        run: |
-          uv pip install \
-            mkdocs-material \
-            mkdocstrings[python] \
-            pymdown-extensions \
-            griffe \
-            mkdocs-jupyter
+      - name: Install Python and documentation dependencies (skip Rust build)
+        run: uv sync --frozen --group dev --group docs --no-install-project
 
       - name: Build MkDocs portal (strict — breaks on warnings)
         run: uv run mkdocs build --config-file docs/mkdocs.yml --strict --verbose

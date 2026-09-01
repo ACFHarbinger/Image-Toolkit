@@ -1,14 +1,13 @@
-"""MkDocs hooks — symlink docs/moon/ and research/ content into docs/ at build time.
+"""MkDocs hooks for link rewriting and missing API-reference stubs.
 
-Called by the `hooks:` key in mkdocs.yml. Creates the docs/roadmaps/,
-docs/research/, and stub API pages that the nav references.
+Moon documentation is read directly from ``docs/moon/``.  Never copy it into
+parallel source-tree directories during a documentation build.
 """
 
 from __future__ import annotations
 
 import os
 import re
-import shutil
 import urllib.parse
 from pathlib import Path
 
@@ -20,46 +19,7 @@ DEST_TO_SOURCE: dict[Path, Path] = {}
 
 
 def on_pre_build(config: dict) -> None:
-    """Copy roadmap and report sources into the docs tree before building."""
-    # Clean up old README.md files to prevent index.md conflicts
-    readme_path = DOCS / "README.md"
-    if readme_path.exists():
-        readme_path.unlink()
-    ts_readme_path = DOCS / "api" / "typescript" / "README.md"
-    if ts_readme_path.exists():
-        ts_readme_path.unlink()
-
-    # Pre-populate exact redirects for READMEs
-    SOURCE_TO_DEST[ROOT / "README.md"] = DOCS / "readme.md"
-    SOURCE_TO_DEST[DOCS / "README.md"] = DOCS / "readme.md"
-    SOURCE_TO_DEST[ROOT / "frontend" / "README.md"] = DOCS / "api" / "typescript" / "readme.md"
-    SOURCE_TO_DEST[DOCS / "api" / "typescript" / "README.md"] = DOCS / "api" / "typescript" / "readme.md"
-
-    _sync_dir(DOCS / "moon" / "roadmaps", DOCS / "roadmaps")
-    _sync_dir(DOCS / "moon", DOCS, only=["CHANGELOG.md"])
-    _sync_dir(DOCS / "moon", DOCS / "roadmaps", only=["ROADMAP.md"])
-    _sync_dir(ROOT, DOCS, only=["README.md"], rename={"README.md": "readme.md"})
-    _sync_dir(ROOT / "frontend", DOCS / "api" / "typescript", only=["README.md"], rename={"README.md": "readme.md"})
-    _sync_dir(
-        DOCS / "moon" / "research",
-        DOCS / "research",
-        rename={
-            "Analytics and Codebase Visualization Research.md": "analytics.md",
-            "Image_Generation_Research.md": "image_generation.md",
-        },
-    )
-    _sync_dir(
-        ROOT / "docs",
-        DOCS,
-        only=[
-            "ARCHITECTURE.md",
-            "BENCHMARKS.md",
-            "DEPENDENCY_POLICY.md",
-            "DOCUMENTATION_STANDARDS.md",
-            "TROUBLESHOOTING.md",
-            "STRUCTURIZR.md",
-        ],
-    )
+    """Register source paths without mutating the documentation tree."""
 
     # Populate self-mappings for other files under docs/
     for doc_file in DOCS.rglob("*.md"):
@@ -69,32 +29,6 @@ def on_pre_build(config: dict) -> None:
             SOURCE_TO_DEST[resolved] = resolved
 
     _ensure_stub_api_pages()
-
-
-def _sync_dir(
-    src: Path,
-    dst: Path,
-    *,
-    only: list[str] | None = None,
-    rename: dict[str, str] | None = None,
-) -> None:
-    dst.mkdir(parents=True, exist_ok=True)
-    for src_file in src.glob("*.md"):
-        target_name = (rename or {}).get(src_file.name, src_file.name)
-        if only and src_file.name not in only:
-            continue
-        dst_file = dst / target_name
-
-        src_file_resolved = src_file.resolve()
-        dst_file_resolved = dst_file.resolve()
-        SOURCE_TO_DEST[src_file_resolved] = dst_file_resolved
-        DEST_TO_SOURCE[dst_file_resolved] = src_file_resolved
-
-        if src_file_resolved == dst_file_resolved:
-            continue
-        shutil.copy2(src_file, dst_file)
-
-
 def on_page_markdown(markdown: str, page, config, files) -> str:
     """Rewrite relative markdown links to match the new docs structure."""
     # Fix TypeDoc rendering of array types like `type`[][] or `type`[] causing empty reference link warnings

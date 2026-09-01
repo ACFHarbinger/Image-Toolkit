@@ -1,9 +1,10 @@
 # ASP / Animation Module API
 
-::: backend.src.animation.core.pipeline
+The active ASP pipeline is maintained in the Anime-Stitch-Pipeline submodule.
+Its source and generated reference are available from the
+[ASP documentation portal](https://acfharbinger.github.io/Anime-Stitch-Pipeline/app/).
 
-::: backend.src.animation.rendering.compositing
-
-::: backend.src.animation.ingestion.frame_selection
-
-::: backend.src.animation.alignment.bundle_adjust
+Image-Toolkit keeps its local stitch-feedback helpers in
+`backend/src/animation/`. They are intentionally not rendered through
+`mkdocstrings`: this namespace has no package initializer, so static API
+collection would make the documentation build depend on runtime path setup.
