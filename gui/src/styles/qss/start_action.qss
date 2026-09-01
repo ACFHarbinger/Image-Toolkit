@@ -1,5 +1,5 @@
 QPushButton {
-    background-color: #cc3333;
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #6c5ce7, stop:1 #5843be);
     color: white;
     border: none;
     padding: 10px 18px;
@@ -7,14 +7,14 @@ QPushButton {
     font-weight: 600;
 }
 QPushButton:hover {
-    background-color: #e74c3c;
+    background: #6c5ce7;
 }
 QPushButton:pressed {
-    background-color: #992222;
+    background: #4c3aa8;
     padding-top: 12px;
     padding-bottom: 8px;
 }
 QPushButton:disabled {
-    background-color: #553333;
+    background-color: #4a4d6b;
     color: #888888;
 }

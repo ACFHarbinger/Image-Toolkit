@@ -171,13 +171,6 @@ class _UIBuilderMixin:
 
         self.set_wallpaper_btn = QPushButton("Set Wallpaper")
         self.set_wallpaper_btn.setStyleSheet(STYLE_START_ACTION)
-        apply_shadow_effect(
-            self.set_wallpaper_btn,
-            color_hex="#000000",
-            radius=8,
-            x_offset=0,
-            y_offset=3,
-        )
         self.set_wallpaper_btn.clicked.connect(self.handle_set_wallpaper_click)
         slideshow_layout.addWidget(self.set_wallpaper_btn)
 
