@@ -75,23 +75,29 @@ def _restore_real_backend_packages() -> None:
             _importlib.import_module(pkg)
 
 
-@pytest.fixture(autouse=True, scope="session")
-def _restore_real_models():
-    """Restore the real backend.src.models tree for backend tests even when
-    the gui conftest's heavy-import mocks loaded into the same pytest
-    process (#375). Runs after collection, before any backend test."""
-    _restore_real_backend_packages()
+def _restore_real_optional_modules() -> None:
+    """Drop gui-conftest MagicMocks for cv2 / torch.hub / diffusers.
 
-    # Backend tests need the real cv2 (model wrappers' structural tests do
-    # cv2.imread); the gui conftest mocks cv2 globally. Restore it here --
-    # in the backend-scoped fixture only, so gui tests (which need the
-    # mock) are unaffected (#375).
+    Must run at backend conftest import, *before* backend test modules
+    bind ``import cv2``. Deleting from sys.modules in a session fixture
+    is too late: collected modules keep the mock, so cv2.imread returns
+    MagicMock and C++ parity tests see mock.shape (#375 / CI round-7).
+    """
     from unittest.mock import MagicMock as _MagicMock
 
     for name in ("cv2", "torch.hub", "diffusers"):
         mod = sys.modules.get(name)
         if mod is not None and isinstance(mod, _MagicMock):
             del sys.modules[name]
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _restore_real_models():
+    """Restore the real backend.src.models tree for backend tests even when
+    the gui conftest's heavy-import mocks loaded into the same pytest
+    process (#375). Runs after collection, before any backend test."""
+    _restore_real_backend_packages()
+    _restore_real_optional_modules()
     yield
 
 
@@ -99,6 +105,7 @@ def _restore_real_models():
 # testpaths order), the gui mock is already in sys.modules as backend test
 # modules are imported during collection -- restore before that import.
 _restore_real_backend_packages()
+_restore_real_optional_modules()
 
 # Limit OpenCV threads to prevent CPU thrashing
 try:

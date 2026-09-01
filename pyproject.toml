@@ -189,8 +189,8 @@ python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*", "*Test"]
 python_functions = ["test_*", "*_test"]
 testpaths = [
-    "gui/test",
     "backend/test",
+    "gui/test",
 ]
 # Submodule suites stay in their own packages. Collecting them from the
 # workspace root puts ASP/HIE `src` packages on sys.path and shadows
