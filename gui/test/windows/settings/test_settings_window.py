@@ -682,7 +682,7 @@ class TestThemeStudioTab:
 
         window = SettingsWindow()
         names = [window.tab_widget.tabText(i) for i in range(window.tab_widget.count())]
-        assert any("Appearance & Themes" in n for n in names)
+        assert any("Appearance and Themes" in n for n in names)
         assert window.theme_studio is not None
         assert window.qss_editor is not None
 

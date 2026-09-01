@@ -1,4 +1,4 @@
-"""Appearance & Themes settings tab: Theme Studio + QSS editor (#438/#441).
+"""Appearance and Themes settings tab: Theme Studio + QSS editor (#438/#441).
 
 Builds a new settings tab hosting the ThemeStudioPanel (semantic palette,
 WCAG advisories, corners, typography, density axis, transactional preview)
@@ -25,7 +25,7 @@ from gui.src.theming.theme_tools import QssEditorWidget, export_theme_pack
 
 
 class _ThemeStudioMixin:
-    """Builds the Appearance & Themes tab and its apply/export plumbing."""
+    """Builds the Appearance and Themes tab and its apply/export plumbing."""
 
     def _build_theme_studio_tab(self) -> QWidget:
         tab = QWidget()

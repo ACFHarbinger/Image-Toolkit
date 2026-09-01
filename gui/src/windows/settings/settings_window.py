@@ -285,9 +285,9 @@ class SettingsWindow(
         shortcuts_tab_layout.addWidget(self._build_shortcuts_groupbox())
         self.tab_widget.addTab(shortcuts_tab, "⌨️ Shortcuts")
 
-        # Tab 7: Appearance & Themes (Theme Studio #438 + QSS editor #441)
+        # Tab 7: Appearance and Themes (Theme Studio #438 + QSS editor #441)
         theme_studio_tab = self._build_theme_studio_tab()
-        self.tab_widget.addTab(theme_studio_tab, "🎨 Appearance & Themes")
+        self.tab_widget.addTab(theme_studio_tab, "🎨 Appearance and Themes")
 
         # Tab 8: Bulk Pattern Update
         scroll_bulk, layout_bulk = create_tab_scroll_area()

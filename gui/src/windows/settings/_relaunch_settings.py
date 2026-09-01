@@ -393,7 +393,7 @@ class _RelaunchSettingsMixin:
         if hasattr(self, "extractor_fps_clamp_spinbox"):
             self.extractor_fps_clamp_spinbox.setValue(0)
 
-        # Reset Appearance & Theme Studio
+        # Reset Appearance and Theme Studio
         self.pref_accent_dark = "#00bcd4"
         self.pref_accent_light = "#007AFF"
         if hasattr(self, "_reset_palette_to_base_defaults"):
