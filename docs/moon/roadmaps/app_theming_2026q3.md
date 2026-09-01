@@ -102,7 +102,7 @@ organically without the cross-surface shape in mind.
   `asset_ref` for backgrounds distinct from token values, designed for
   reuse across all 3 surfaces from day one. Assigned: **Claude**.
 - **#438 — Theme Studio UI & Semantic Palette Customizer.** Settings
-  "🎨 Appearance & Themes" tab: 5-slot color picker, WCAG contrast meter
+  "🎨 Appearance and Themes" tab: 5-slot color picker, WCAG contrast meter
   (advisory), corner curvature, typography, shadows, density-as-an-axis.
   Transactional preview. Assigned: **deepseek**.
 - **#439 — Dynamic Palette Extraction.** $k$-means/median-cut color

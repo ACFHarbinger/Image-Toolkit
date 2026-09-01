@@ -37,10 +37,10 @@ from gui.src.theming.validate import contrast_warnings
 
 
 class _AppearanceMixin:
-    """Builds the Appearance & Theme Studio groupboxes and provides supporting helpers."""
+    """Builds the Appearance and Theme Studio groupboxes and provides supporting helpers."""
 
     def _build_appearance_section(self) -> QGroupBox:
-        appearance_groupbox = QGroupBox("Theme & Aesthetics Studio")
+        appearance_groupbox = QGroupBox("Theme and Aesthetics Studio")
         appearance_groupbox.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
         appearance_layout = QFormLayout(appearance_groupbox)
         appearance_layout.setContentsMargins(10, 10, 10, 10)
