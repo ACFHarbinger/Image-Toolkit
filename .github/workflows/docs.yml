@@ -102,6 +102,12 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: Init ASP submodule (base CMake sources)
+        # base/CMakeLists.txt and base/tests/CMakeLists.txt compile ASP
+        # matching/seam sources. Do not use checkout submodules: recursive —
+        # that would also clone vendor/OpenCV, ComfyUI, Hugin, etc.
+        run: git submodule update --init --depth 1 submodules/ASP
+
       - name: Install build dependencies
         run: |
           sudo apt-get update
