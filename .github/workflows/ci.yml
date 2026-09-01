@@ -158,6 +158,9 @@ jobs:
         run: uv run pytest backend/test gui/test --skip-gpu -m "not slow" -q --tb=short
         env:
           PYTHONPATH: .
+          # Some gui/test modules build a QApplication at import time; the
+          # headless runner has no display, so force Qt's offscreen plugin.
+          QT_QPA_PLATFORM: offscreen
 
   pytest-slow:
     name: Python slow integration tests
@@ -216,4 +219,5 @@ jobs:
         run: uv run pytest backend/test gui/test --skip-gpu -m "slow" -q --tb=short
         env:
           PYTHONPATH: .
+          QT_QPA_PLATFORM: offscreen
 
