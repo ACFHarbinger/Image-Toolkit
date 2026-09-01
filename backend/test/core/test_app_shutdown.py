@@ -6,6 +6,7 @@ Regression for the zombie-after-kill state (icons stay, terminal unusable).
 from __future__ import annotations
 
 import contextlib
+import json
 import subprocess
 import sys
 import time
@@ -39,6 +40,69 @@ def test_reap_child_processes_kills_descendants():
         for p in (child, grand):
             with contextlib.suppress(Exception):
                 p.kill()
+
+
+def test_persistent_slideshow_daemon_pids_require_active_config(tmp_path, monkeypatch):
+    system_config = tmp_path / "slideshow.json"
+    system_pid = tmp_path / "slideshow.pid"
+    monitor_config = tmp_path / "monitor-slideshow.json"
+    system_config.write_text(json.dumps({"running": True}), encoding="utf-8")
+    system_pid.write_text("101", encoding="utf-8")
+    monitor_config.write_text(json.dumps({"running": True, "pid": 202}), encoding="utf-8")
+    monkeypatch.setattr(app_mod, "DAEMON_CONFIG_PATH", system_config)
+    monkeypatch.setattr(app_mod, "PID_PATH", system_pid)
+    monkeypatch.setattr(app_mod, "MONITOR_SLIDESHOW_DAEMON_CONFIG_PATH", monitor_config)
+
+    assert app_mod._persistent_slideshow_daemon_pids() == {101, 202}
+
+    monitor_config.write_text(json.dumps({"running": False, "pid": 202}), encoding="utf-8")
+    assert app_mod._persistent_slideshow_daemon_pids() == {101}
+
+
+def test_reaper_preserves_persistent_daemon_process_tree(monkeypatch):
+    class Process:
+        def __init__(self, pid, parent=None):
+            self.pid = pid
+            self._parent = parent
+            self.terminated = False
+            self.killed = False
+
+        def parent(self):
+            return self._parent
+
+        def terminate(self):
+            self.terminated = True
+
+        def kill(self):
+            self.killed = True
+
+    daemon = Process(101)
+    daemon_child = Process(102, daemon)
+    worker = Process(201)
+
+    class Psutil:
+        class Root:
+            def children(self, recursive):
+                assert recursive is True
+                return [daemon, daemon_child, worker]
+
+        @staticmethod
+        def Process():
+            return Psutil.Root()
+
+        @staticmethod
+        def wait_procs(processes, timeout):
+            assert timeout == 2
+            return [], list(processes)
+
+    monkeypatch.setitem(sys.modules, "psutil", Psutil)
+    monkeypatch.setattr(app_mod, "_persistent_slideshow_daemon_pids", lambda: {daemon.pid})
+
+    app_mod._reap_child_processes()
+
+    assert not daemon.terminated and not daemon.killed
+    assert not daemon_child.terminated and not daemon_child.killed
+    assert worker.terminated and worker.killed
 
 
 def test_second_signal_forces_hard_exit(monkeypatch):

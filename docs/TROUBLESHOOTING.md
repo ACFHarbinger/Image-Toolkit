@@ -573,6 +573,25 @@ GitHub issue was filed.
 
 ---
 
+### Wallpaper slideshow stops after choosing **Quit** from background mode
+
+**Symptom:** A system-display or monitor-display slideshow is rotating while
+the app is hidden in background mode, but wallpaper changes stop immediately
+after choosing **Quit** from the tray menu.
+
+**Cause:** The app's shutdown safety reaper previously terminated every
+descendant process. The slideshow daemon is intentionally detached, but it is
+still a descendant of the app process, so a normal quit killed it along with
+transient extraction and conversion workers.
+
+**Fix:** Active slideshow daemons are identified from their persisted,
+`running: true` configuration and recorded PID before shutdown. The reaper
+now leaves that daemon and its children alone while continuing to stop normal
+transient workers. Restart the slideshow once if it was stopped by an older
+build; after updating, it continues changing wallpapers after **Quit**.
+
+---
+
 ## <a id="qt-multimedia--video-playback-decode-failures"></a>Qt Multimedia / Video Playback Decode Failures
 
 ### AV1 video shows a blank frame + `Failed to get pixel format` / `Get current frame error` spam

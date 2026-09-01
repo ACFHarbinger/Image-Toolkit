@@ -40,6 +40,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
+- Active wallpaper slideshow daemons now survive a real app exit, including
+  **Quit** from background mode. Shutdown still reaps transient workers, but
+  excludes the process tree of an explicitly configured system-display or
+  monitor-display daemon. Regression tests:
+  `backend/test/core/test_app_shutdown.py`.
 - Exit-to-background no longer creates a second native tray surface on Plasma
   Wayland. The saved preference defers `QSystemTrayIcon` creation until the
   first background close (avoiding the known pre-show Qt crash); its reference

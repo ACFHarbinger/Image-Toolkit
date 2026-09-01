@@ -1,5 +1,6 @@
 import atexit
 import contextlib
+import json
 import logging
 import logging.handlers
 import os
@@ -13,8 +14,14 @@ from PySide6.QtCore import QTimer
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
 
-from backend.src.constants import CTRL_C_TIMEOUT, ICON_FILE
+from backend.src.constants import (
+    CTRL_C_TIMEOUT,
+    DAEMON_CONFIG_PATH,
+    ICON_FILE,
+    MONITOR_SLIDESHOW_DAEMON_CONFIG_PATH,
+)
 from backend.src.constants.app import SETTINGS_PREFIX_TYPES, SETTINGS_SCHEMA
+from backend.src.constants.utils import PID_PATH
 from backend.src.core import lifecycle_memory, telemetry
 
 # ---------------------------------------------------------------------------
@@ -154,21 +161,73 @@ def log_uncaught_exceptions(ex_type, ex_value, ex_traceback):
     sys.__excepthook__(ex_type, ex_value, ex_traceback)
 
 
+def _persistent_slideshow_daemon_pids() -> set[int]:
+    """Return the PIDs of active slideshow daemons that must outlive the GUI."""
+    protected: set[int] = set()
+    sources = (
+        (DAEMON_CONFIG_PATH, PID_PATH),
+        (MONITOR_SLIDESHOW_DAEMON_CONFIG_PATH, None),
+    )
+    for config_path, pid_path in sources:
+        try:
+            with config_path.open(encoding="utf-8") as config_file:
+                config = json.load(config_file)
+            if not config.get("running"):
+                continue
+            raw_pid = pid_path.read_text(encoding="utf-8") if pid_path else config.get("pid")
+            pid = int(raw_pid)
+            if pid > 0:
+                protected.add(pid)
+        except (OSError, TypeError, ValueError, json.JSONDecodeError):
+            continue
+    return protected
+
+
+def _is_persistent_daemon_process(process, protected_pids: set[int]) -> bool:
+    """Whether ``process`` belongs to an explicitly active slideshow daemon."""
+    current = process
+    seen: set[int] = set()
+    while current is not None:
+        try:
+            pid = current.pid
+        except Exception:
+            return False
+        if pid in protected_pids:
+            return True
+        if pid in seen:
+            return False
+        seen.add(pid)
+        try:
+            current = current.parent()
+        except Exception:
+            return False
+    return False
+
+
 def _reap_child_processes() -> None:
-    """Terminate, then kill, every descendant process (ffmpeg / multiprocessing
-    workers / daemons). Left unreaped, they orphan on exit and keep the tray
-    icon + Wayland connection alive after the main window is gone."""
+    """Reap transient descendants without terminating active slideshow daemons.
+
+    The daemons deliberately call ``start_new_session=True`` and persist their
+    PID because they are expected to keep changing wallpapers after a normal
+    GUI exit. They are still process descendants, so the generic shutdown
+    reaper must exclude their process trees.
+    """
     try:
         import psutil
 
         kids = psutil.Process().children(recursive=True)
     except Exception:
         return
-    for c in kids:
+    protected_pids = _persistent_slideshow_daemon_pids()
+    reapable = [
+        child for child in kids
+        if not _is_persistent_daemon_process(child, protected_pids)
+    ]
+    for c in reapable:
         with contextlib.suppress(Exception):
             c.terminate()
     with contextlib.suppress(Exception):
-        _gone, alive = psutil.wait_procs(kids, timeout=2)
+        _gone, alive = psutil.wait_procs(reapable, timeout=2)
         for c in alive:
             with contextlib.suppress(Exception):
                 c.kill()
