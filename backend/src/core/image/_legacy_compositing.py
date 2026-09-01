@@ -131,7 +131,7 @@ class _LegacyCompositingMixin:
     @staticmethod
     def _neural_synthesis_blending(
         blended_region: np.ndarray,
-        device: str = "cuda" if torch.cuda.is_available() else "cpu",
+        device: Optional[str] = None,
     ) -> np.ndarray:
         """
         Uses AnimeGAN2 to refine the transition zone, ensuring structural and stylistic integrity.

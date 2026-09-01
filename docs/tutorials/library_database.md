@@ -58,8 +58,6 @@ Entries for people and organizations connected to your content.
 
 - **Associated Series** — links the entity to Series Listings entries (the mirror of the content side's Associated Entities) via **Select Series**. The read-only box shows linked titles and scrolls when the list is long.
 
-    ![Select Associated Series picker dialog](images/library_database/entity_listings_select_series_dialog.png)
-
 - **Associated Entities** — links entities *to each other* (a character to their voice actor, a person to their studio…) via **Select Entities** — same picker-dialog pattern, shown here alongside the detail panel it feeds.
 
     ![Entity detail panel with the Select Associated Entities dialog open beside it](images/library_database/entity_listings_detail_with_entities_dialog.png)
