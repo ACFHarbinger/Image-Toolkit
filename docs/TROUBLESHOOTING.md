@@ -545,20 +545,31 @@ batch. Measured on a 12 GB RTX 4080 laptop: VRAM peak 11.8 GB → 7.8 GB,
 Image Toolkit icons appear in the system tray, even with a single running
 instance.
 
-**Cause:** `_setup_tray_icon()` (`gui/src/windows/main/_tray.py`) rebuilt
-`self._tray_icon = QSystemTrayIcon(..., parent=self)` unconditionally. The
-previous `QSystemTrayIcon` stayed parented to the window (not garbage-
-collected) and stayed `.show()`n, so reassigning the attribute just hid the
-reference, not the icon. It was invoked twice: once from `_startup_prefs`
-when the pref is on at launch, and again from `closeEvent` whose guard
-(`_tray_icon is None or not _tray_icon.isVisible()`) re-triggered on the
-transient `not isVisible()` window that exists right after `.show()` on
-Wayland/Plasma before the tray host registers the icon.
+**Cause (verified on KDE Plasma 6.6.6 / Wayland):**
+`_apply_startup_preferences()` could construct `self._tray_icon` while the
+"close to background" pref was on at launch, and then `MainWindow.__init__`
+overwrote that attribute with `None`. The original, window-parented
+`QSystemTrayIcon` stayed alive and registered, so the first
+close-to-background built a *second* one — `org.kde.StatusNotifierWatcher`
+listed two Image Toolkit notifier registrations from the same
+`python backend/main.py` PID. (The earlier idempotent-`_setup_tray_icon()`
+and single-WM-`app_id` fixes did not close it; the reference reset was the
+real defect.)
 
-**Fix:** `_setup_tray_icon()` is now idempotent — if `self._tray_icon`
-already exists it just calls `.show()` and returns. `closeEvent` only
-*creates* when there is no icon yet, otherwise re-shows the existing one.
-A stray duplicate from a pre-fix session clears on restart.
+**Fix:** `self._tray_icon` is initialized before
+`_apply_startup_preferences()` runs, so it can no longer be orphaned and
+recreated. Native `QSystemTrayIcon` creation is deferred to the first
+background close (this also avoids the known pre-show Qt tray crash); the
+saved preference now only enables background mode. Regression tests:
+`test_startup_does_not_create_a_tray_icon`,
+`test_minimize_to_tray_pref_survives_init`
+(`gui/test/windows/test_main_window.py`). A stray duplicate from a pre-fix
+session clears on restart.
+
+**Fixed in:** commits `d11ffc7e` → `92e0dbb8` → `06e1ce49` (2026-08-31).
+Tracked on the agent bus (`.agent/bus/2026-08-31.md`) and
+`.agent/reports/chat/issue_2nd_taskbar_icon_2026-08-31.md`; no standalone
+GitHub issue was filed.
 
 ---
 
