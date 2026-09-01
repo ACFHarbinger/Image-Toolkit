@@ -20,7 +20,8 @@ from PySide6.QtWidgets import QApplication, QFileDialog, QMenu, QMessageBox, QWi
 from send2trash import send2trash  # pyrefly: ignore [untyped-import]
 
 from ....utils.sort_utils import natural_sort_key
-from ....windows import ImageCompareWindow, ImagePreviewWindow
+from ....windows.image_compare_window import ImageCompareWindow
+from ....windows.image_preview_window import ImagePreviewWindow
 
 if TYPE_CHECKING:
     from ..protos.abstract_class_two_galleries import AbstractClassTwoGalleriesHostProtocol
