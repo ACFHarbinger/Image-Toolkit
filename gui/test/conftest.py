@@ -128,6 +128,40 @@ def _close_without_modal(widget) -> None:
     widget.close()
 
 
+def _stop_widget_timers(widget) -> None:
+    """Stop every QTimer / slideshow / countdown timer under a widget so it
+    can't keep firing after its test ends."""
+    from PySide6.QtCore import QTimer
+    from PySide6.QtWidgets import QWidget
+
+    for timer in widget.findChildren(QTimer):
+        with contextlib.suppress(Exception):
+            timer.stop()
+    for subtab in widget.findChildren(QWidget):
+        for attr in ("slideshow_timer", "countdown_timer"):
+            with contextlib.suppress(Exception):
+                timer = getattr(subtab, attr, None)
+                if timer:
+                    timer.stop()
+
+
+@pytest.fixture(autouse=True)
+def _stub_monitor_detection(monkeypatch):
+    """``screeninfo.get_monitors()`` opens an X / hardware connection and
+    hangs on a headless CI runner (no ``$DISPLAY``). Give every wallpaper-tab
+    test a fixed fake monitor instead. Only ``_monitor_layout`` calls it."""
+    try:
+        from screeninfo import Monitor
+    except Exception:
+        return
+    fake = Monitor(name="CI-Display", x=0, y=0, width=1920, height=1080, is_primary=True)
+    with contextlib.suppress(Exception):
+        monkeypatch.setattr(
+            "gui.src.tabs.core.wallpaper_tab.common.wallpaper_common_base._monitor_layout.get_monitors",
+            lambda: [fake],
+        )
+
+
 @pytest.fixture(autouse=True)
 def isolate_persistent_settings(tmp_path, monkeypatch):
     """Per-test isolation for everything the app persists outside its data dir.
@@ -246,8 +280,8 @@ def mock_image_toolkit_paths(tmp_path, monkeypatch):
 
 @pytest.fixture(autouse=True, scope="function")
 def cleanup_active_workers_and_timers(q_app):
-    from PySide6.QtCore import QThreadPool, QTimer
-    from PySide6.QtWidgets import QApplication, QWidget
+    from PySide6.QtCore import QThreadPool
+    from PySide6.QtWidgets import QApplication
 
     started_workers = []
     original_start = QThreadPool.globalInstance().start
@@ -285,20 +319,7 @@ def cleanup_active_workers_and_timers(q_app):
     for widget in QApplication.topLevelWidgets():
         if id(widget) in preexisting:
             continue
-        for timer in widget.findChildren(QTimer):
-            with contextlib.suppress(Exception):
-                timer.stop()
-        for subtab in widget.findChildren(QWidget):
-            try:
-                if hasattr(subtab, "slideshow_timer") and subtab.slideshow_timer:
-                    subtab.slideshow_timer.stop()
-            except Exception:
-                pass
-            try:
-                if hasattr(subtab, "countdown_timer") and subtab.countdown_timer:
-                    subtab.countdown_timer.stop()
-            except Exception:
-                pass
+        _stop_widget_timers(widget)
 
     # Close and delete all top-level widgets to prevent leaks and styling hangs
     for widget in QApplication.topLevelWidgets():
