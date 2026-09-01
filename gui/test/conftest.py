@@ -146,6 +146,26 @@ def _stop_widget_timers(widget) -> None:
 
 
 @pytest.fixture(autouse=True)
+def _no_blocking_dialogs(monkeypatch):
+    """Modal QMessageBox popups block forever on a headless runner — many
+    GUI code paths fire ``QMessageBox.information/warning/...`` or spin
+    ``.exec()`` with no one to dismiss them (CI hangs, 2026-09-01). Make
+    them non-blocking no-ops. Tests that assert on a specific dialog patch
+    it themselves; monkeypatch stacking means the later (test-body) patch
+    wins."""
+    from PySide6.QtWidgets import QInputDialog, QMessageBox
+
+    ok = QMessageBox.StandardButton.Ok
+    yes = QMessageBox.StandardButton.Yes
+    for name in ("information", "warning", "critical", "about"):
+        monkeypatch.setattr(QMessageBox, name, staticmethod(lambda *a, **k: ok), raising=False)
+    monkeypatch.setattr(QMessageBox, "question", staticmethod(lambda *a, **k: yes), raising=False)
+    monkeypatch.setattr(QMessageBox, "exec", lambda self, *a, **k: ok, raising=False)
+    monkeypatch.setattr(QMessageBox, "exec_", lambda self, *a, **k: ok, raising=False)
+    monkeypatch.setattr(QInputDialog, "getText", staticmethod(lambda *a, **k: ("", False)), raising=False)
+
+
+@pytest.fixture(autouse=True)
 def _stub_monitor_detection(monkeypatch):
     """``screeninfo.get_monitors()`` opens an X / hardware connection and
     hangs on a headless CI runner (no ``$DISPLAY``). Give every wallpaper-tab
