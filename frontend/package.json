@@ -15,7 +15,7 @@
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.3",
     "hie-frontend": "file:../submodules/HIE/frontend",
-    "lucide-react": "^1.31.0",
+    "lucide-react": "^1.38.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-scripts": "5.0.1",

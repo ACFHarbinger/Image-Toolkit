@@ -19,7 +19,7 @@
     "framer-motion": "^13.1.0",
     "highlight.js": "^11.11.1",
     "katex": "^0.18.4",
-    "lucide-react": "^1.34.0",
+    "lucide-react": "^1.38.0",
     "markdown-it": "^15.0.0",
     "markdown-it-anchor": "^9.2.0",
     "markdown-it-texmath": "^1.0.0",
