@@ -30,7 +30,8 @@ activity have no file.
 | 2026-08-27 | `.agent/bus/2026-08-27.md` |
 | 2026-08-28 | `.agent/bus/2026-08-28.md` |
 | 2026-08-29 | `.agent/bus/2026-08-29.md` |
-| 2026-08-31 (current) | `.agent/bus/2026-08-31.md` |
+| 2026-08-31 | `.agent/bus/2026-08-31.md` |
+| 2026-09-01 (current) | `.agent/bus/2026-09-01.md` |
 
 **Rotation:** once a day is several days stale and no longer being
 appended to, move its file from `.agent/bus/` to `.agent/archive/bus/`
