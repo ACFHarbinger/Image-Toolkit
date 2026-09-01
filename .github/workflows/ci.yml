@@ -152,14 +152,21 @@ jobs:
           SITE_PKGS=$(uv run python -c "import site; print(site.getsitepackages()[0])")
           cp -f base*.so "$SITE_PKGS/" || true
 
-      - name: Run pytest
-        # Scope to this repo's trees. Root collection of submodules/*/test
-        # shadows backend/src as `src` and pulls ASP/HIE conftest helpers.
-        run: uv run pytest backend/test gui/test --skip-gpu -m "not slow" -q --tb=short
+      - name: Run backend pytest
+        # Separate process from gui/test: gui conftest replaces cv2 and
+        # backend.src.models with MagicMocks, which leaks into backend
+        # collection in a combined run (mock imread / ComfyUIManager).
+        run: uv run pytest backend/test --skip-gpu -m "not slow" -q --tb=short
         env:
           PYTHONPATH: .
-          # Some gui/test modules build a QApplication at import time; the
-          # headless runner has no display, so force Qt's offscreen plugin.
+          QT_QPA_PLATFORM: offscreen
+
+      - name: Run GUI pytest
+        # --skip-gpu lives in backend/test/conftest.py and is unregistered
+        # in a gui-only process. --run-gui keeps @pytest.mark.gui tests.
+        run: uv run pytest gui/test -m "not slow" -q --tb=short --run-gui
+        env:
+          PYTHONPATH: .
           QT_QPA_PLATFORM: offscreen
 
   pytest-slow:
@@ -215,8 +222,14 @@ jobs:
           SITE_PKGS=$(uv run python -c "import site; print(site.getsitepackages()[0])")
           cp -f base*.so "$SITE_PKGS/" || true
 
-      - name: Run slow pytest
-        run: uv run pytest backend/test gui/test --skip-gpu -m "slow" -q --tb=short
+      - name: Run slow backend pytest
+        run: uv run pytest backend/test --skip-gpu -m "slow" -q --tb=short
+        env:
+          PYTHONPATH: .
+          QT_QPA_PLATFORM: offscreen
+
+      - name: Run slow GUI pytest
+        run: uv run pytest gui/test -m "slow" -q --tb=short --run-gui
         env:
           PYTHONPATH: .
           QT_QPA_PLATFORM: offscreen
