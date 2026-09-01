@@ -21,6 +21,8 @@ mono_crash.*
 [Dd]ebugPublic/
 [Rr]elease/
 !tools/release/
+!backend/release/
+!backend/release/generate_release_fixtures.py
 [Rr]eleases/
 x64/
 x86/
