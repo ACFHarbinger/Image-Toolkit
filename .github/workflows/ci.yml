@@ -80,10 +80,12 @@ jobs:
           key: uv-test-${{ runner.os }}-${{ hashFiles('uv.lock') }}
           restore-keys: uv-test-${{ runner.os }}-
 
-      - name: Install project dependencies (frozen, skip Rust build)
-        # Root `dev` group includes pillow: backend/test/conftest.py imports PIL
-        # at collection, and --no-install-project skips workspace member deps.
-        run: uv sync --frozen --group dev --no-install-project
+      - name: Install project dependencies (frozen)
+        # backend/test/conftest.py eagerly imports src.core / src.web at
+        # collection, which pull the backend's real runtime deps (yaml,
+        # loguru, cv2, scipy, pyside6, bs4, screeninfo, ...). --no-install-project
+        # skips workspace-member deps, so those must be installed.
+        run: uv sync --frozen --group dev
 
       - name: Run model contract tests (§5.16A / A.9)
         # All heavy deps (torch, kornia, etc.) are patched into sys.modules
@@ -116,8 +118,10 @@ jobs:
           key: uv-pytest-${{ runner.os }}-${{ hashFiles('uv.lock') }}
           restore-keys: uv-pytest-${{ runner.os }}-
 
-      - name: Install project dependencies (frozen, skip C++ build)
-        run: uv sync --frozen --group dev --no-install-project
+      - name: Install project dependencies (frozen)
+        # conftest collection imports the backend's real deps; the C++ base
+        # extension is still built explicitly in a later step.
+        run: uv sync --frozen --group dev
 
       - name: Install system C++ dependencies
         run: |
@@ -128,6 +132,12 @@ jobs:
         run: |
           mkdir -p build/crypto
           cc -O2 -fPIC -shared -o build/crypto/libitk_crypto.so base/src/secret/itk_crypto.c -lcrypto
+
+      - name: Init ASP submodule (base CMake sources)
+        # base/CMakeLists.txt compiles ASP matching/seam sources. Targeted
+        # init only — not checkout submodules: recursive (that also pulls
+        # vendor/OpenCV, ComfyUI, Hugin). No --depth 1: see docs.yml.
+        run: git submodule update --init submodules/ASP
 
       - name: Build and install C++ base extension
         run: |
@@ -166,8 +176,10 @@ jobs:
           key: uv-pytest-${{ runner.os }}-${{ hashFiles('uv.lock') }}
           restore-keys: uv-pytest-${{ runner.os }}-
 
-      - name: Install project dependencies (frozen, skip C++ build)
-        run: uv sync --frozen --group dev --no-install-project
+      - name: Install project dependencies (frozen)
+        # conftest collection imports the backend's real deps; the C++ base
+        # extension is still built explicitly in a later step.
+        run: uv sync --frozen --group dev
 
       - name: Install system C++ dependencies
         run: |
@@ -178,6 +190,12 @@ jobs:
         run: |
           mkdir -p build/crypto
           cc -O2 -fPIC -shared -o build/crypto/libitk_crypto.so base/src/secret/itk_crypto.c -lcrypto
+
+      - name: Init ASP submodule (base CMake sources)
+        # base/CMakeLists.txt compiles ASP matching/seam sources. Targeted
+        # init only — not checkout submodules: recursive (that also pulls
+        # vendor/OpenCV, ComfyUI, Hugin). No --depth 1: see docs.yml.
+        run: git submodule update --init submodules/ASP
 
       - name: Build and install C++ base extension
         run: |
