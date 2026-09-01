@@ -138,11 +138,11 @@ jobs:
           mkdir -p build/crypto
           cc -O2 -fPIC -shared -o build/crypto/libitk_crypto.so base/src/secret/itk_crypto.c -lcrypto
 
-      - name: Init ASP submodule (base CMake sources)
-        # base/CMakeLists.txt compiles ASP matching/seam sources. Targeted
-        # init only — not checkout submodules: recursive (that also pulls
-        # vendor/OpenCV, ComfyUI, Hugin). No --depth 1: see docs.yml.
-        run: git submodule update --init submodules/ASP submodules/HIE
+      - name: Init submodules needed by CMake and GUI tests
+        # ASP+HIE: base/CMakeLists.txt sources. CSG: gui.tabs imports csg_gui.
+        # CRE: EncryptedSQLiteStore tests. Not checkout submodules: recursive
+        # (that also pulls vendor/OpenCV, ComfyUI, Hugin). No --depth 1.
+        run: git submodule update --init submodules/ASP submodules/HIE submodules/CSG submodules/CRE
 
       - name: Build and install C++ base extension
         run: |
@@ -153,7 +153,9 @@ jobs:
           cp -f base*.so "$SITE_PKGS/" || true
 
       - name: Run pytest
-        run: uv run pytest --skip-gpu -m "not slow" -q --tb=short
+        # Scope to this repo's trees. Root collection of submodules/*/test
+        # shadows backend/src as `src` and pulls ASP/HIE conftest helpers.
+        run: uv run pytest backend/test gui/test --skip-gpu -m "not slow" -q --tb=short
         env:
           PYTHONPATH: .
 
@@ -196,11 +198,11 @@ jobs:
           mkdir -p build/crypto
           cc -O2 -fPIC -shared -o build/crypto/libitk_crypto.so base/src/secret/itk_crypto.c -lcrypto
 
-      - name: Init ASP submodule (base CMake sources)
-        # base/CMakeLists.txt compiles ASP matching/seam sources. Targeted
-        # init only — not checkout submodules: recursive (that also pulls
-        # vendor/OpenCV, ComfyUI, Hugin). No --depth 1: see docs.yml.
-        run: git submodule update --init submodules/ASP submodules/HIE
+      - name: Init submodules needed by CMake and GUI tests
+        # ASP+HIE: base/CMakeLists.txt sources. CSG: gui.tabs imports csg_gui.
+        # CRE: EncryptedSQLiteStore tests. Not checkout submodules: recursive
+        # (that also pulls vendor/OpenCV, ComfyUI, Hugin). No --depth 1.
+        run: git submodule update --init submodules/ASP submodules/HIE submodules/CSG submodules/CRE
 
       - name: Build and install C++ base extension
         run: |
@@ -211,7 +213,7 @@ jobs:
           cp -f base*.so "$SITE_PKGS/" || true
 
       - name: Run slow pytest
-        run: uv run pytest --skip-gpu -m "slow" -q --tb=short
+        run: uv run pytest backend/test gui/test --skip-gpu -m "slow" -q --tb=short
         env:
           PYTHONPATH: .
 

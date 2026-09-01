@@ -71,7 +71,7 @@ git clone https://github.com/ACFHarbinger/Image-Toolkit.git
 cd Image-Toolkit
 
 # Add upstream remote
-git remote add upstream https://github.com/ACFPeacekeeper/Image-Toolkit.git
+git remote add upstream https://github.com/ACFHarbinger/Image-Toolkit.git
 ```
 
 ### 2.2 Environment Setup
