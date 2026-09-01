@@ -196,6 +196,6 @@ STYLE_SCAN_CANCEL = load_qss("scan_cancel.qss")
 SHARED_BUTTON_STYLE = load_qss("shared_button.qss")
 
 # --- Consistent Main Action Button Styles ---
-STYLE_START_ACTION = load_qss("shared_button.qss")
+STYLE_START_ACTION = load_qss("start_action.qss")
 STYLE_STOP_ACTION = load_qss("stop_action.qss")
 # -------------------------------------------

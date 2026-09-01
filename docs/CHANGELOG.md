@@ -92,7 +92,7 @@ build is deferred to 1.1 (no C++ toolchain path yet).
 
 ### Changed
 
-- System Display(s) subtab UI: moved the "Set Wallpaper" / "Start Slideshow" action button into the settings controls toolbar alongside the background daemon controls, and enabled "Fetch Current Wallpapers" and "Skip Current Wallpapers" buttons in non-slideshow background types.
+- System Display(s) subtab UI: moved the "Set Wallpaper" / "Start Slideshow" action button into the settings controls toolbar alongside the background daemon controls, styled it to match standard toolbar button size and shape with a distinct purple/indigo accent palette, and enabled "Fetch Current Wallpapers" and "Skip Current Wallpapers" buttons in non-slideshow background types.
 - Series and entity database listings now participate in the shared two-gallery foundation through a record-aware adapter: advanced search operators, keyboard card navigation, per-tab Ctrl+wheel sizing, persisted color-label borders, lifecycle state, and the existing 100-card pagination are consistent with image galleries.
 - Promoted duplicate card rendering, styling, and preview context menu logic out of per-tab implementations into `AbstractClassTwoGalleries` (`_CardRenderingMixin`).
 - Stripped hardcoded panel backgrounds and button colors across `gui/src/tabs/web/` (`DriveSyncTab`, `ImageCrawlTab`, `MediaLoaderTab`, `ReverseSearchTab`, `WebRequestsTab`, `EntityReconTab`), delegating to theme QSS and semantic button roles (`btn_success`/`btn_danger`).
