@@ -109,7 +109,7 @@ jobs:
         # No --depth 1: a shallow fetch only gets the branch tip, so it fails
         # ("did not contain <sha>") whenever the recorded gitlink lags ASP's
         # main by even one commit — e.g. right after an ASP push race.
-        run: git submodule update --init submodules/ASP
+        run: git submodule update --init submodules/ASP submodules/HIE
 
       - name: Install build dependencies
         run: |
