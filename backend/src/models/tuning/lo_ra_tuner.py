@@ -27,22 +27,10 @@ import os
 
 import torch
 import torch.nn.functional as F
-from accelerate import Accelerator
-from diffusers import (
-    AutoencoderKL,
-    DDPMScheduler,
-    DPMSolverMultistepScheduler,
-    StableDiffusionPipeline,
-    StableDiffusionXLPipeline,
-    UNet2DConditionModel,
-)
 from huggingface_hub import hf_hub_download
-from peft import LoraConfig, get_peft_model
 from PIL import Image
 from torch.utils.data import DataLoader, Dataset
-from torchvision import transforms
 from tqdm.auto import tqdm
-from transformers import CLIPTextModel, CLIPTextModelWithProjection, CLIPTokenizer
 
 from backend.src.constants import (  # noqa: F401
     SDXL_ATTN_TARGETS as SDXL_ATTN_TARGETS,
@@ -55,6 +43,36 @@ from backend.src.constants import (  # noqa: F401
 )
 
 logger = logging.getLogger(__name__)
+
+# accelerate / diffusers / peft / transformers / torchvision are imported lazily
+# via _ensure_heavy_imports(): they pull the transformers lazy-loader (CLIP/T5)
+# and are heavy + frozen-build-fragile. The DL tabs import this module at
+# MainWindow startup but only construct a LoRATuner when the user starts a run.
+_HEAVY_IMPORTS_DONE = False
+
+
+def _ensure_heavy_imports() -> None:
+    global _HEAVY_IMPORTS_DONE
+    global Accelerator, AutoencoderKL, DDPMScheduler, DPMSolverMultistepScheduler
+    global StableDiffusionPipeline, StableDiffusionXLPipeline, UNet2DConditionModel
+    global LoraConfig, get_peft_model, transforms
+    global CLIPTextModel, CLIPTextModelWithProjection, CLIPTokenizer
+    if _HEAVY_IMPORTS_DONE:
+        return
+    from accelerate import Accelerator
+    from diffusers import (
+        AutoencoderKL,
+        DDPMScheduler,
+        DPMSolverMultistepScheduler,
+        StableDiffusionPipeline,
+        StableDiffusionXLPipeline,
+        UNet2DConditionModel,
+    )
+    from peft import LoraConfig, get_peft_model
+    from torchvision import transforms
+    from transformers import CLIPTextModel, CLIPTextModelWithProjection, CLIPTokenizer
+
+    _HEAVY_IMPORTS_DONE = True
 
 
 class LoRATuner:
@@ -69,6 +87,7 @@ class LoRATuner:
     def __init__(
         self, model_id="OnomaAIResearch/Illustrious-XL-v2.0", output_dir="output_lora"
     ):
+        _ensure_heavy_imports()
         self.output_dir = output_dir
         os.makedirs(self.output_dir, exist_ok=True)
         self.accelerator = Accelerator(
@@ -412,6 +431,7 @@ class LoRATuner:
         lora_path=None,
         batch_size=1,
     ):
+        _ensure_heavy_imports()
         if LoRATuner.is_cancelled:
             return
 
