@@ -26,6 +26,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from .....components.tag_chip_widget import FlowLayout
 from .....styles import STYLE_START_ACTION, apply_shadow_effect, set_button_role
 
 if TYPE_CHECKING:
@@ -122,7 +123,11 @@ class _UIBuilderMixin:
 
     def _build_slideshow_group(self: "SystemDisplaySubTabHostProtocol", settings_layout) -> None:
         self.slideshow_group = QWidget()
-        slideshow_layout = QHBoxLayout(self.slideshow_group)
+        # FlowLayout, not QHBoxLayout: this row packs an interval control
+        # plus 5 buttons (incl. "Fetch Current Wallpapers"/"Skip Current
+        # Wallpapers") -- too wide for the app's 800px minimum width in a
+        # single non-wrapping row.
+        slideshow_layout = FlowLayout(self.slideshow_group)
         slideshow_layout.setContentsMargins(0, 10, 0, 10)
 
         self.interval_container = QWidget()
@@ -159,8 +164,6 @@ class _UIBuilderMixin:
             self._on_video_runtime_interval_toggled
         )
         slideshow_layout.addWidget(self.chk_video_runtime_interval)
-
-        slideshow_layout.addStretch(1)
 
         self.countdown_label = QLabel("Timer: --:--")
         self.countdown_label.setStyleSheet(
