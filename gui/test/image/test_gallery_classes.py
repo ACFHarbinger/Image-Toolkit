@@ -344,3 +344,45 @@ class TestMetaAbstractClassGallery:
         res = AbstractGalleryBase.join_list_str("foo bar .baz")
         assert res == ["foo", "bar", "baz"]
 
+
+class TestRecentDirsQSettingsStringQuirk:
+    """Regression: QSettings round-trips a single-element list as a bare
+    string on some backends. A prior browse leaving exactly one entry in
+    "recent_dirs" made the *next* browse-to-any-directory crash with
+    'str' object has no attribute 'remove' inside _add_recent_dir,
+    silently aborting the scan (caught by the app's uncaught-exception
+    handler, so the gallery just stayed empty with no user-visible
+    error). Found manually testing release checklist §4.3 item 5."""
+
+    def test_add_recent_dir_survives_bare_string_from_settings(
+        self, gallery, monkeypatch
+    ):
+        from gui.src.windows.settings.app_settings import AppSettings
+
+        # Simulate QSettings handing back a bare string instead of a
+        # one-item list for a previously-saved single recent dir.
+        monkeypatch.setattr(
+            AppSettings, "session", classmethod(lambda cls, *a, **k: "/a/b")
+        )
+        saved = {}
+        monkeypatch.setattr(
+            AppSettings,
+            "set_session",
+            classmethod(lambda cls, cn, key, value: saved.__setitem__(key, value)),
+        )
+
+        gallery._add_recent_dir("/a/b")  # same path as the "stored" one
+
+        assert saved["recent_dirs"] == ["/a/b"]
+
+    def test_get_recent_dirs_survives_bare_string_from_settings(
+        self, gallery, monkeypatch
+    ):
+        from gui.src.windows.settings.app_settings import AppSettings
+
+        monkeypatch.setattr(
+            AppSettings, "session", classmethod(lambda cls, *a, **k: "/a/b")
+        )
+
+        assert gallery._get_recent_dirs() == ["/a/b"]
+
