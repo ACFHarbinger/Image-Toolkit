@@ -23,6 +23,8 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
+from ....components.tag_chip_widget import FlowLayout
+
 if TYPE_CHECKING:
     from ..protos.extractor_tab import VideoExtractorSubTabHostProtocol
 
@@ -78,7 +80,10 @@ class _ExtractionPanelUIMixin:
         extract_main_layout.addLayout(recent_layout)
 
         # -- Row 1: Configuration --
-        extract_config_layout = QHBoxLayout()
+        # FlowLayout, not QHBoxLayout: 4 label+control groups (Output Size,
+        # GIF FPS, Engine, Extraction Speed) plus 2 checkboxes overflow the
+        # app's 800px minimum width in a single non-wrapping row.
+        extract_config_layout = FlowLayout()
 
         extract_config_layout.addWidget(QLabel("Output Size:"))
         self.combo_extract_size = QComboBox()
@@ -94,8 +99,6 @@ class _ExtractionPanelUIMixin:
         extract_config_layout.addWidget(self.check_extract_vertical)
         # ---------------------------------------------
 
-        extract_config_layout.addSpacing(20)
-
         extract_config_layout.addWidget(QLabel("GIF FPS:"))
         self.spin_gif_fps = QSpinBox()
         self.spin_gif_fps.setRange(1, 60)
@@ -106,13 +109,11 @@ class _ExtractionPanelUIMixin:
         self.check_mute_audio.setChecked(False)
         extract_config_layout.addWidget(self.check_mute_audio)
 
-        extract_config_layout.addSpacing(20)
         extract_config_layout.addWidget(QLabel("Engine:"))
         self.combo_engine = QComboBox()
         self.combo_engine.addItems(["FFmpeg", "MoviePy"])
         extract_config_layout.addWidget(self.combo_engine)
 
-        extract_config_layout.addSpacing(20)
         extract_config_layout.addWidget(QLabel("Extraction Speed:"))
         self.combo_speed = QComboBox()
         self.combo_speed.addItems(["0.25x", "0.5x", "1x", "1.5x", "2x", "4x"])
@@ -120,11 +121,13 @@ class _ExtractionPanelUIMixin:
         # Decoupled from player speed
         extract_config_layout.addWidget(self.combo_speed)
 
-        extract_config_layout.addStretch()
         extract_main_layout.addLayout(extract_config_layout)
 
         # -- Row 2: Actions --
-        extract_actions_layout = QHBoxLayout()
+        # FlowLayout: 9 buttons (Snapshot / Set Start+Go / Set End+Go /
+        # Extract Range / Extract Video / Extract GIF / Run on GCD / Cancel)
+        # in one row is the same overflow shape as Row 1 above.
+        extract_actions_layout = FlowLayout()
 
         self.btn_snapshot = QPushButton("📸 Snapshot Frame")
         self.btn_snapshot.clicked.connect(self.extract_single_frame)

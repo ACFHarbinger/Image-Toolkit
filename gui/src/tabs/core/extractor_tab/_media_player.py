@@ -27,6 +27,7 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QProgressBar,
     QPushButton,
+    QSizePolicy,
     QSlider,
     QSpinBox,
     QStyle,
@@ -109,7 +110,16 @@ class _MediaPlayerMixin:
 
         video_view = QGraphicsView(self.graphics_scene)
         self.video_view = video_view
-        video_view.setFixedSize(1920, 1080)
+        # The resolution control is a display-quality cap, not a requirement
+        # for the surrounding scroll area's width. A fixed 1920px canvas made
+        # every directory group above it overflow at the application's 800px
+        # minimum window width. Let the layout shrink the surface while
+        # retaining the selected resolution as its maximum size.
+        video_view.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred
+        )
+        video_view.setMinimumSize(0, 0)
+        video_view.setMaximumSize(1280, 720)
         video_view.setHorizontalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff
         )

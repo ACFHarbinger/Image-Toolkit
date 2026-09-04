@@ -34,6 +34,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from gui.src.components.tag_chip_widget import FlowLayout
 from gui.src.constants.elements import _MAX_SCALE, _MIN_SCALE, SUPPORTED_IMAGE_FILTER
 from gui.src.styles import set_button_role
 
@@ -271,7 +272,9 @@ class ImageExtractorSubTab(QWidget):
 
         # --- Frame layout parameters ---
         params_group = QGroupBox("Frame Layout")
-        params_layout = QHBoxLayout(params_group)
+        # FlowLayout, not QHBoxLayout: 6 label+control groups plus a
+        # checkbox overflow the app's 800px minimum width in one row.
+        params_layout = FlowLayout(params_group)
 
         params_layout.addWidget(QLabel("Arrangement:"))
         self.combo_arrangement = QComboBox()
@@ -279,7 +282,6 @@ class ImageExtractorSubTab(QWidget):
         self.combo_arrangement.currentTextChanged.connect(self._on_arrangement_changed)
         params_layout.addWidget(self.combo_arrangement)
 
-        params_layout.addSpacing(12)
         self.lbl_frame_w = QLabel("Frame Width:")
         self.spin_frame_w = QSpinBox()
         self.spin_frame_w.setRange(1, 100000)
@@ -296,7 +298,6 @@ class ImageExtractorSubTab(QWidget):
         params_layout.addWidget(self.lbl_frame_h)
         params_layout.addWidget(self.spin_frame_h)
 
-        params_layout.addSpacing(12)
         params_layout.addWidget(QLabel("Offset X:"))
         self.spin_offset_x = QSpinBox()
         self.spin_offset_x.setRange(0, 100000)
@@ -318,7 +319,6 @@ class ImageExtractorSubTab(QWidget):
         )
         params_layout.addWidget(self.spin_spacing)
 
-        params_layout.addSpacing(12)
         self.check_include_partial = QCheckBox("Include partial last frame")
         self.check_include_partial.setToolTip(
             "Also extract the trailing region when the image size is not an "
@@ -326,7 +326,6 @@ class ImageExtractorSubTab(QWidget):
         )
         params_layout.addWidget(self.check_include_partial)
 
-        params_layout.addStretch()
         layout.addWidget(params_group)
 
         for spin in (
@@ -362,7 +361,11 @@ class ImageExtractorSubTab(QWidget):
             "Wheel: zoom (cursor-anchored) · Drag: pan · Double-click: toggle overview / pixel view"
         )
         zoom_hint.setStyleSheet("color: #888; font-size: 10px; font-style: italic;")
-        zoom_bar.addWidget(zoom_hint)
+        # Word-wrap so the label's minimum width is one word, not the whole
+        # sentence -- otherwise this row alone pushes the tab past the app's
+        # 800px minimum width.
+        zoom_hint.setWordWrap(True)
+        zoom_bar.addWidget(zoom_hint, 1)
         zoom_bar.addStretch()
         self.info_label = QLabel("No image loaded.")
         self.info_label.setStyleSheet("color: #00BCD4; font-weight: bold;")
