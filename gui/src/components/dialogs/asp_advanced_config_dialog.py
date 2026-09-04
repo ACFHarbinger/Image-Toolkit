@@ -1,7 +1,7 @@
 """Advanced configuration dialog for Anime Stitch Pipeline (ASP).
 
-Exposes the full schema of registered ``ASP_*`` configuration parameters
-(73 keys) with a clean 20-key primary curated profile surface and expandable
+Exposes the full schema of registered ``ASP_*`` configuration parameters with
+a clean 20-key primary curated profile surface and expandable
 category drawers, live type/bound validation, preset profiles, and JSON/TOML export.
 """
 
@@ -151,13 +151,17 @@ def get_active_schema() -> dict[str, tuple]:
 
 
 CATEGORY_MAPPING = {
+    "Reproducibility": [
+        "ASP_DETERMINISTIC", "ASP_REPRO_SEED"
+    ],
     "Frame Selection": [
         "ASP_HOLD_THRESHOLD", "ASP_HOLD_DHASH_THRESH", "ASP_DHASH_EXACT_DROP",
         "ASP_HIGH_HOLD_RESPONSE", "ASP_HOLD_AVERAGE", "ASP_HOLD_BG_SUB",
         "ASP_BLUR_REJECT_THRESH",
         "ASP_CONTRAST_THRESH", "ASP_NEAR_DUP_LUMA", "ASP_TEMPORAL_VAR_THRESH",
         "ASP_OTSU_BG_CORR", "ASP_TWO_CHANNEL_SELECT", "ASP_POSE_WINDOW_PX",
-        "ASP_PHASE_AWARE_SELECT", "ASP_PHASE_CROSS_PENALTY", "ASP_MAX_SKIPPABLE_HOLD_SIZE",
+        "ASP_PHASE_AWARE_SELECT", "ASP_PHASE_CROSS_PENALTY", "ASP_SHOT_BOUNDARY_THRESH",
+        "ASP_MAX_SKIPPABLE_HOLD_SIZE",
         "ASP_POSE_REFINE_LOOK_RANGE", "ASP_POSE_REFINE_MIN_GAIN", "ASP_POSE_REFINE_MIN_ADV_FRAC",
         "ASP_POSE_REFINE_MAX_ADV_FRAC", "ASP_POSE_REFINE_SAME_HOLD_PENALTY",
         "ASP_POSE_PATH_SELECT", "ASP_POSE_PATH_SAFE"
@@ -167,11 +171,16 @@ CATEGORY_MAPPING = {
         "ASP_VIDEO_KEYFRAMES_ONLY"
     ],
     "Masking & Segmentation": [
-        "ASP_USE_SAM2"
+        "ASP_USE_SAM2", "ASP_TRAPPED_BALL", "ASP_TRAPPED_BALL_RADIUS",
+        "ASP_MASK_UNCERTAINTY"
     ],
     "Matching & Alignment": [
-        "ASP_MATCH_SPREAD_CEIL", "ASP_LOFTR_BG_RATIO_MIN", "ASP_SIMILARITY_MODE",
-        "ASP_ALIGN_GATE_DX", "ASP_BA_F_SCALE", "ASP_GNC_OUTER", "ASP_DY_CV_MAX",
+        "ASP_MATCH_SPREAD_CEIL", "ASP_LOFTR_BG_RATIO_MIN", "ASP_BG_MASKED_MATCHING",
+        "ASP_SIMILARITY_MODE", "ASP_USAC_MAGSAC", "ASP_ALIGN_GATE_DX",
+        "ASP_OVERLAP_PROPOSAL", "ASP_CLEANCP_RESOLVE",
+        "ASP_DEFER_MIN_GAP_TO_REGISTRATION_GATE", "ASP_DISABLE_PANORAMA_FALLBACK",
+        "ASP_BA_F_SCALE", "ASP_GNC_OUTER", "ASP_WAVE_CORRECT", "ASP_WAVE_CORRECT_KIND",
+        "ASP_DY_CV_MAX",
         "ASP_ST_INLIER_THRESHOLD", "ASP_ROT_TIGHT", "ASP_ROT_LOOSE", "ASP_SC_TIGHT",
         "ASP_SC_LOOSE", "ASP_MONO_TAU_MIN", "ASP_ROT_SCALE_CONSISTENCY_THRESH"
     ],
@@ -184,11 +193,15 @@ CATEGORY_MAPPING = {
         "ASP_GPU_MEDIAN", "ASP_COV_MIN_MULTI_PCT"
     ],
     "Compositing & Gain Compensation": [
-        "ASP_PHASE_COMPOSITE", "ASP_COHERENCE_V2", "ASP_GRAPHCUT_SEAM", "ASP_GC_FEATHER_PX",
+        "ASP_PHASE_COMPOSITE", "ASP_COHERENCE_V2", "ASP_PLATE_SINGLE_POSE",
+        "ASP_PLATE_MULTIPHASE", "ASP_PLATE_MULTIBAND", "ASP_PLATE_EDGE_PRESERVE",
+        "ASP_RESIDUAL_WARP", "ASP_RESIDUAL_WARP_SMOOTHING", "ASP_RESIDUAL_WARP_MAX_PX",
+        "ASP_RESIDUAL_WARP_MAX_BENDING", "ASP_GRAPHCUT_SEAM", "ASP_GC_FEATHER_PX",
         "ASP_BLOCKS_GAIN_COMP", "ASP_BLOCKS_LUM_COMP", "ASP_GLOBAL_GAIN_COMP",
         "ASP_JOINT_GAIN_SOLVE", "ASP_JOINT_GAIN_SIGMA_N", "ASP_JOINT_GAIN_SIGMA_G",
         "ASP_JOINT_GAIN_ROBUST", "ASP_SP_SOFT_PX", "ASP_BG_NORM_MIN_PX",
-        "ASP_POST_SEAM_WARN_THRESH"
+        "ASP_POST_SEAM_WARN_THRESH", "ASP_MULTIBAND_BLEND", "ASP_MULTIBAND_LEVELS",
+        "ASP_MULTIBAND_HF_LOCK"
     ],
     "C++ Acceleration": [
         "ASP_BATCH_GPU"
@@ -197,7 +210,7 @@ CATEGORY_MAPPING = {
 
 
 class AspAdvancedConfigDialog(QDialog):
-    """Interactive Configuration Dialog with 20-flag Primary profile and 73-flag Advanced drawer."""
+    """Interactive dialog with a 20-flag primary profile and full advanced drawer."""
 
     config_changed = Signal(dict)
 
@@ -263,7 +276,7 @@ class AspAdvancedConfigDialog(QDialog):
         primary_layout.addWidget(primary_scroll)
         self.tab_widget.addTab(primary_widget, "Primary Profile (20 Flags)")
 
-        # Advanced Tab (Full 73 flags categorized)
+        # Advanced Tab (full schema, categorized)
         advanced_widget = QWidget()
         advanced_layout = QVBoxLayout(advanced_widget)
         advanced_scroll = QScrollArea()
