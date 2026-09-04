@@ -2,7 +2,7 @@
 QWidget, QMainWindow, QDialog {
     background-color: $LIGHT_BG;
     color: $LIGHT_TEXT;
-    font-family: 'Segoe UI', 'Arial', sans-serif;
+    font-family: 'Inter', 'Segoe UI', 'Arial', sans-serif;
     font-size: 10pt;
 }
 
