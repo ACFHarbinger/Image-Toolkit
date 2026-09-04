@@ -185,6 +185,14 @@ for base_lib in (
 ):
     binaries.append((base_lib, '.'))
 
+# The native base extension links against CBLAS through OpenCV. PyInstaller
+# finds liblapack but not its sibling libcblas, leaving frozen launches unable
+# to import ``base`` on systems without the developer environment installed.
+for cblas_lib in glob.glob(
+    os.path.join(ROOT_DIR, '.pixi', 'envs', 'default', 'lib', 'libcblas.so.3')
+):
+    binaries.append((cblas_lib, '.'))
+
 # scikit-image (CSG colorization submodule -> colorization.optimal_transport
 # -> skimage.segmentation.slic) resolves its submodules lazily via lazy_loader,
 # so PyInstaller's static analysis misses them and the frozen app dies at
