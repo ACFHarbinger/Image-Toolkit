@@ -1510,6 +1510,14 @@ Directly replace `QTabWidget` with a fixed left `QListWidget` or custom sidebar 
 
 **Recommendation:** Option A. Establish `ModuleDescriptor` and `ShellLayoutManager` to future-proof the application architecture and provide seamless Rail vs. Top Bar layout switching.
 
+**Optional post-rollout decision — classic-shell fallback.** Enable the new
+shell by default. After real-user QA and release acceptance establish its
+usability, decide whether the classic category/tab shell remains a preference
+for one release cycle or indefinitely. The decision must be based on evidence:
+navigation completion, keyboard accessibility, session/config restoration,
+memory/startup behavior, and support burden — not a pre-implementation sunset
+date.
+
 ---
 
 ## 2.37 Anime Creative Suite Visual System & Presets
@@ -1686,5 +1694,4 @@ Maintain the uniform grid and show metadata solely through mouse hover tooltips.
 
 ## Document History
 
-*Last updated: 2026-09-04 — §2.36 Dual Navigation Shell & Modular Module Architecture, §2.37 Anime Creative Suite Visual System & Presets, §2.38 Universal Collapsible Context Inspector Panel, §2.39 Rich Telemetry Status Bar & System Monitoring, and §2.40 Advanced Gallery Presentation Modes & Custom Thumbnail Overlays added. Targets PySide6 (Qt 6.x) desktop application.*
-
+*Last updated: 2026-09-05 — §2.36 now records a post-rollout decision gate for the classic-shell fallback. Targets PySide6 (Qt 6.x) desktop application.*
