@@ -111,7 +111,7 @@ class FileDialogEventFilter(QObject):
                     background-color: #2d2d30;
                     color: white;
                     border: 1px solid #3e3e42;
-                    font-family: 'Segoe UI', Arial, sans-serif;
+                    font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
                     font-size: 12px;
                 }
                 QMenu::item {
@@ -133,7 +133,7 @@ class FileDialogEventFilter(QObject):
                     background-color: #ffffff;
                     color: #333;
                     border: 1px solid #ccc;
-                    font-family: 'Segoe UI', Arial, sans-serif;
+                    font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
                     font-size: 12px;
                 }
                 QMenu::item {

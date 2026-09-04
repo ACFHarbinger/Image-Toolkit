@@ -11,7 +11,7 @@ from pathlib import Path
 
 from gui.src.windows import LoginWindow, MainWindow
 from PySide6.QtCore import QTimer
-from PySide6.QtGui import QIcon
+from PySide6.QtGui import QFontDatabase, QIcon
 from PySide6.QtWidgets import QApplication
 
 from backend.src.constants import (
@@ -21,6 +21,7 @@ from backend.src.constants import (
     MONITOR_SLIDESHOW_DAEMON_CONFIG_PATH,
 )
 from backend.src.constants.app import SETTINGS_PREFIX_TYPES, SETTINGS_SCHEMA
+from backend.src.constants.paths import ASSETS_DIR
 from backend.src.constants.utils import PID_PATH
 from backend.src.core import lifecycle_memory, telemetry
 
@@ -305,12 +306,42 @@ def set_app_identity(app) -> None:
     app.setDesktopFileName(APP_DESKTOP_FILE_NAME)
 
 
+def _register_bundled_fonts() -> None:
+    """Load the bundled Inter faces so the UI renders identically everywhere.
+
+    The theme/QSS ask for ``Segoe UI`` (Windows-only); without this, a frozen
+    Qt with its own fontconfig falls back to a serif last-resort on Linux.
+    """
+    font_dir = ASSETS_DIR / "fonts"
+    if not font_dir.is_dir():
+        logger.warning("Bundled font dir not found: %s", font_dir)
+        return
+    loaded: set[str] = set()
+    faces = sorted(font_dir.glob("*.otf")) + sorted(font_dir.glob("*.ttf"))
+    for face in faces:
+        fid = QFontDatabase.addApplicationFont(str(face))
+        if fid == -1:
+            logger.warning("Failed to register bundled font: %s", face.name)
+            continue
+        loaded.update(QFontDatabase.applicationFontFamilies(fid))
+    logger.info("Registered %d bundled font faces; families: %s",
+                len(faces), sorted(loaded))
+    # Set the base application font directly too: a frozen Qt with its own
+    # (or no) fontconfig can otherwise resolve the QSS 'sans-serif' generic to
+    # a serif last-resort before the theme's own setFont runs.
+    if "Inter" in loaded:
+        from PySide6.QtGui import QFont
+
+        QApplication.instance().setFont(QFont("Inter", 10))
+
+
 def launch_app(opts):
     _setup_logging(log_level=logging.DEBUG if getattr(opts, "verbose", False) else logging.INFO)
     sys.excepthook = log_uncaught_exceptions
 
     app = QApplication(sys.argv)
     set_app_identity(app)
+    _register_bundled_fonts()
     lifecycle_memory.snapshot("qt_init")  # §12.5 (issue #70)
     _validate_settings()
     try:
