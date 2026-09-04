@@ -197,7 +197,13 @@ class _ViewControlsMixin:
             if self.check_player_vertical.isChecked():
                 w, h = h, w
             # -----------------------------------------------------------
-            cast(QWidget, self.video_view).setFixedSize(w, h)  # pyrefly: ignore [missing-attribute]
+            video_view = cast(QWidget, self.video_view)
+            # Keep the user's chosen player resolution as an upper bound.
+            # A fixed canvas forces the tab scroll area's content width to
+            # 1280--3840px and makes unrelated controls overflow in a normal
+            # 800px window.
+            video_view.setMaximumSize(w, h)
+            video_view.updateGeometry()
             self.fit_video_in_view()
 
     def is_path_selected(self: "VideoExtractorSubTabHostProtocol", path: str) -> bool:
