@@ -32,6 +32,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from gui.src.theming.presets import get_preset, list_presets
 from gui.src.theming.resolve import base_defaults, resolve_colors
 from gui.src.theming.schema import (
     VALID_BASES,
@@ -87,6 +88,19 @@ class ThemeStudioPanel(QWidget):
 
     def _build_ui(self) -> None:
         root = QVBoxLayout(self)
+
+        # Curated Theme Presets (§2.37)
+        preset_group = QGroupBox("Curated Presets // プリセット")
+        preset_layout = QHBoxLayout(preset_group)
+        self.preset_combo = QComboBox()
+        self.preset_combo.addItem("(Custom)")
+        for preset_name in list_presets():
+            self.preset_combo.addItem(preset_name)
+        self.preset_combo.currentTextChanged.connect(self._on_preset_changed)
+        preset_layout.addWidget(QLabel("Preset:"))
+        preset_layout.addWidget(self.preset_combo)
+        preset_layout.addStretch()
+        root.addWidget(preset_group)
 
         # Base theme
         base_group = QGroupBox("Base Theme")
@@ -184,21 +198,41 @@ class ThemeStudioPanel(QWidget):
         self.weight_combo.setCurrentText(pack.typography.weight)
         self.density_combo.setCurrentText(pack.density.mode)
         self.shadow_spin.setValue(pack.shadows.blur_radius_px)
+        # Update preset combo without firing edit cycle
+        if pack.name in list_presets():
+            self.preset_combo.blockSignals(True)
+            self.preset_combo.setCurrentText(pack.name)
+            self.preset_combo.blockSignals(False)
+        else:
+            self.preset_combo.blockSignals(True)
+            self.preset_combo.setCurrentText("(Custom)")
+            self.preset_combo.blockSignals(False)
         self._refresh_contrast()
+
+    def _on_preset_changed(self, preset_name: str) -> None:
+        if getattr(self, "_loading", False) or preset_name == "(Custom)":
+            return
+        preset = get_preset(preset_name)
+        if preset:
+            self._loading = True
+            self._pack = preset
+            self._load_from_pack(preset)
+            self._loading = False
+            self._on_edit()
 
     def _build_candidate(self) -> ThemePack:
         base = next(b for b, rb in self._base_radios.items() if rb.isChecked())
         overrides: dict[str, str] = {}
-        resolved = resolve_colors(self._pack if self._pack.base == base else ThemePack(name=self._pack.name, base=base))
+        base_def = base_defaults(base)
         for key, swatch in self._swatches.items():
             hex_val = swatch.text().strip().upper()
-            if hex_val and hex_val != getattr(resolved, key).upper():
+            if hex_val and hex_val != getattr(base_def, key).upper():
                 overrides[key] = hex_val.lower()
         font = self.font_combo.currentText()
         family = None if font == "System Default" else font
         corners = next(px for rb, px in self._corner_radios if rb.isChecked())
         return ThemePack(
-            name=self._pack.name,
+            name=self.preset_combo.currentText() if self.preset_combo.currentText() != "(Custom)" else "Custom",
             base=base,
             color_overrides=overrides,
             typography=TypographyTokens(
