@@ -39,7 +39,7 @@ from PySide6.QtWidgets import (
     QColorDialog,
     QComboBox,
     QFileDialog,
-    QHBoxLayout,
+    QGridLayout,
     QLabel,
     QMessageBox,
     QPushButton,
@@ -87,13 +87,14 @@ class MangaColorizationTab(QWidget):
     def _build_ui(self) -> None:
         layout = QVBoxLayout(self)
 
-        toolbar = QHBoxLayout()
+        toolbar = QGridLayout()
+        toolbar.setColumnStretch(2, 1)
 
         btn_load = QPushButton("Load Line Art…")
         btn_load.clicked.connect(self._browse_line_art)
-        toolbar.addWidget(btn_load)
+        toolbar.addWidget(btn_load, 0, 0)
 
-        toolbar.addWidget(QLabel("Mode:"))
+        toolbar.addWidget(QLabel("Mode:"), 0, 1)
         self.mode_combo = QComboBox()
         self.mode_combo.addItems(
             [
@@ -110,31 +111,31 @@ class MangaColorizationTab(QWidget):
             if idx not in _MODE_BACKENDS and idx not in _REFERENCE_MODE_BACKENDS:
                 mode_model.item(idx).setEnabled(False)
         self.mode_combo.currentIndexChanged.connect(self._on_mode_changed)
-        toolbar.addWidget(self.mode_combo)
+        toolbar.addWidget(self.mode_combo, 0, 2)
 
         self.btn_load_reference = QPushButton("Load Reference…")
         self.btn_load_reference.clicked.connect(self._browse_reference)
         self.btn_load_reference.setEnabled(False)
-        toolbar.addWidget(self.btn_load_reference)
+        toolbar.addWidget(self.btn_load_reference, 0, 3)
 
-        toolbar.addWidget(QLabel("Pen Color:"))
+        toolbar.addWidget(QLabel("Pen Color:"), 1, 0)
         self.btn_pen_color = QPushButton()
         self.btn_pen_color.setFixedWidth(40)
         self._pen_color = QColor(220, 40, 40)
         self._update_pen_color_swatch()
         self.btn_pen_color.clicked.connect(self._pick_pen_color)
-        toolbar.addWidget(self.btn_pen_color)
+        toolbar.addWidget(self.btn_pen_color, 1, 1)
 
-        toolbar.addWidget(QLabel("Pen Width:"))
+        toolbar.addWidget(QLabel("Pen Width:"), 1, 2)
         self.pen_width_slider = QSlider(Qt.Orientation.Horizontal)
         self.pen_width_slider.setRange(1, 60)
         self.pen_width_slider.setValue(12)
         self.pen_width_slider.setFixedWidth(120)
         self.pen_width_slider.valueChanged.connect(self._on_pen_width_changed)
-        toolbar.addWidget(self.pen_width_slider)
+        toolbar.addWidget(self.pen_width_slider, 1, 3)
 
         btn_clear = QPushButton("Clear Scribbles")
-        toolbar.addWidget(btn_clear)
+        toolbar.addWidget(btn_clear, 2, 0)
 
         self.chk_live_preview = QCheckBox("Live Preview")
         self.chk_live_preview.setToolTip(
@@ -143,17 +144,15 @@ class MangaColorizationTab(QWidget):
             "modes only."
         )
         self.chk_live_preview.toggled.connect(self._on_live_preview_toggled)
-        toolbar.addWidget(self.chk_live_preview)
+        toolbar.addWidget(self.chk_live_preview, 2, 1)
 
         self.btn_colorize = QPushButton("▶ Colorize")
         self.btn_colorize.clicked.connect(self._run_colorize)
-        toolbar.addWidget(self.btn_colorize)
+        toolbar.addWidget(self.btn_colorize, 2, 2)
 
         btn_export = QPushButton("💾 Export…")
         btn_export.clicked.connect(self._export_result)
-        toolbar.addWidget(btn_export)
-
-        toolbar.addStretch(1)
+        toolbar.addWidget(btn_export, 2, 3)
         layout.addLayout(toolbar)
 
         self.canvas = MangaCanvasEditor()

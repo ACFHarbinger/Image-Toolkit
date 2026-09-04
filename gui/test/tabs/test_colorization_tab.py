@@ -4,11 +4,23 @@ import pytest
 from csg_gui.tabs.colorization_tab import MangaColorizationTab
 from PySide6.QtCore import QPointF
 from PySide6.QtGui import QColor
+from PySide6.QtWidgets import QScrollArea
 
 pytestmark = pytest.mark.gui
 
 
 class TestMangaColorizationTab:
+    def test_toolbar_fits_the_host_minimum_width(self, q_app):
+        host = QScrollArea()
+        host.setWidgetResizable(True)
+        tab = MangaColorizationTab()
+        host.setWidget(tab)
+        host.resize(800, 700)
+        host.show()
+        q_app.processEvents()
+
+        assert host.horizontalScrollBar().maximum() == 0
+
     def test_constructs_with_only_implemented_modes_enabled(self, q_app):
         tab = MangaColorizationTab()
         assert tab.mode_combo.count() == 4
