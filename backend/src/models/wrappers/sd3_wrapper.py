@@ -1,7 +1,12 @@
 import os
 
 import torch
-from diffusers import StableDiffusion3Pipeline
+
+# `from diffusers import ...` is deferred into generate_image(): diffusers pulls
+# the transformers lazy-loader (CLIP/T5 encoders), which is heavy and, in a
+# frozen build, fragile. The DL tabs construct this wrapper at MainWindow
+# startup, so keeping the import here would load the whole stack before the
+# window even opens.
 
 
 class SD3Wrapper:
@@ -35,6 +40,8 @@ class SD3Wrapper:
         controlnet_path: str = None,
         controlnet_image_path: str = None,
     ):
+        from diffusers import StableDiffusion3Pipeline
+
         SD3Wrapper.is_cancelled = False
         print(f"Loading SD3 model from {model_path}...")
 

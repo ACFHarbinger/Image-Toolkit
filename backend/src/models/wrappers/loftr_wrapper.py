@@ -14,11 +14,16 @@ Legacy API (backward-compatible):
     H                = wrapper.get_transform(img1, img2)   # (3,3) homography
 """
 
+# NOTE: `import kornia.feature` is deferred into load() — kornia decorates
+# functions with @torch.jit.script, which needs original .py source at import
+# time (a problem in a frozen build), and it is pointless work at MainWindow
+# startup when LoFTR is only used on demand. See ImageToolkit.spec
+# module_collection_mode.
+
 import logging
 from typing import Optional, Tuple
 
 import cv2
-import kornia.feature as KF
 import numpy as np
 import torch
 
@@ -53,6 +58,8 @@ class LoFTRWrapper(ModelWrapper):
     def load(self) -> None:
         """Load the LoFTR outdoor model onto self.device."""
         if self.matcher is None:
+            import kornia.feature as KF
+
             logger.info("[LoFTR] Loading outdoor model …")
             self.matcher = KF.LoFTR(pretrained="outdoor").to(self.device)
         else:

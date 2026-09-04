@@ -95,9 +95,13 @@ third_party_hidden = [
 ]
 hidden_modules.update(third_party_hidden)
 
-# Datas to bundle
+# Datas to bundle.
+# NOTE: bundle only the asset subdirs the app needs at runtime. Never bundle
+# assets/secrets (real keystore/vault material) or assets/api (encrypted
+# credential blobs) — those must not ship in an artifact.
 datas = [
-    (os.path.join(ROOT_DIR, 'assets'), 'assets'),
+    (os.path.join(ROOT_DIR, 'assets', 'images'), 'assets/images'),
+    (os.path.join(ROOT_DIR, 'assets', 'fonts'), 'assets/fonts'),
     (os.path.join(ROOT_DIR, 'configs'), 'configs'),
 ]
 
@@ -118,6 +122,22 @@ for _dist in (
         datas += _copy_metadata(_dist)
     except Exception:
         pass
+
+# The deep-learning tab stack imports eagerly at MainWindow construction
+# (gui.src.tabs.models -> diffusers / transformers / accelerate). diffusers'
+# dependency_versions_check calls importlib.metadata.version() on its runtime
+# deps at import; without the .dist-info the frozen app dies with
+# "No package metadata was found for requests". recursive=True sweeps each
+# library's dependency closure.
+for _dist in (
+    'diffusers', 'transformers', 'accelerate', 'huggingface-hub',
+    'tokenizers', 'safetensors', 'requests',
+):
+    try:
+        datas += _copy_metadata(_dist, recursive=True)
+    except Exception:
+        pass
+
 datas.append((os.path.join(ROOT_DIR, 'pyproject.toml'), '.'))
 
 # Non-.py runtime resources loaded by path from the source packages — QML (73),
@@ -165,6 +185,24 @@ for base_lib in (
 ):
     binaries.append((base_lib, '.'))
 
+# scikit-image (CSG colorization submodule -> colorization.optimal_transport
+# -> skimage.segmentation.slic) resolves its submodules lazily via lazy_loader,
+# so PyInstaller's static analysis misses them and the frozen app dies at
+# MainWindow tab construction with "No module named 'skimage'". Pull the whole
+# package + its lazy-import deps.
+from PyInstaller.utils.hooks import collect_all as _collect_all
+# skimage/lazy_loader: CSG colorization submodule. diffusers: DL tab stack,
+# has no PyInstaller hook and resolves submodules lazily via _LazyModule.
+for _lazy_pkg in ('skimage', 'lazy_loader', 'imageio', 'tifffile', 'pywt',
+                  'networkx', 'diffusers'):
+    try:
+        _d, _b, _h = _collect_all(_lazy_pkg)
+        datas += _d
+        binaries += _b
+        hidden_modules.update(_h)
+    except Exception:
+        pass
+
 # Select application icon based on platform
 icon_ico = os.path.join(ROOT_DIR, 'assets', 'images', 'image_toolkit_icon.ico')
 icon_png = os.path.join(ROOT_DIR, 'assets', 'images', 'image_toolkit_icon.png')
@@ -184,7 +222,27 @@ a = Analysis(
     optimize=0,
     cipher=None,
     key=None,
+    # kornia (LoFTR matcher) and skimage decorate functions with
+    # @torch.jit.script / lazy_loader, both of which read original .py source
+    # at runtime — keep source files on disk alongside the bytecode.
+    module_collection_mode={
+        'kornia': 'pyz+py',
+        'skimage': 'pyz+py',
+    },
 )
+
+# The conda/pixi libfontconfig bakes its <dir>/<cachedir>/<include> paths to
+# `.pixi/envs/dev/...`, which don't exist on a user's machine — the frozen Qt
+# then resolves the QSS `sans-serif` generic to a serif last-resort (bundled
+# Inter shows correctly in the font DB but renders serif). Drop libfontconfig
+# so the frozen app uses the host's, which every desktop Linux ships and which
+# reads the real /etc/fonts config. (freetype/harfbuzz are pure rendering libs
+# with no baked paths — keep them for Qt ABI stability.) Bundled Inter +
+# addApplicationFont still give the app its own font on top of that.
+a.binaries = [
+    entry for entry in a.binaries
+    if not os.path.basename(entry[0]).startswith('libfontconfig.so')
+]
 
 pyz = PYZ(
     a.pure,
