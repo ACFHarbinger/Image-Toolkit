@@ -8,6 +8,7 @@ from gui.src.helpers.database.postgres_check import (
     PostgresStatus,
     check_postgres_reachability,
     load_postgres_config,
+    save_postgres_config,
     show_postgres_status_dialog,
 )
 
@@ -29,6 +30,63 @@ class TestPostgresCheck:
         assert cfg.get("DB_USER") == "custom_user"
         assert cfg.get("DB_HOST") == "192.168.1.100"
         assert cfg.get("DB_PORT") == "5433"
+
+    def test_saved_connection_uses_vault_password_before_dev_environment(
+        self, monkeypatch
+    ):
+        class Vault:
+            def load_account_credentials(self):
+                return {"postgres_connection": {"password": "vault-secret"}}
+
+        monkeypatch.setenv("POSTGRES_HOST", "dev-host")
+        with patch(
+            "gui.src.windows.settings.app_settings.AppSettings.postgres_connection",
+            return_value={
+                "DB_HOST": "saved-host",
+                "DB_PORT": "5433",
+                "DB_NAME": "saved-db",
+                "DB_USER": "saved-user",
+            },
+        ):
+            cfg = load_postgres_config(Vault())
+
+        assert cfg == {
+            "DB_HOST": "saved-host",
+            "DB_PORT": "5433",
+            "DB_NAME": "saved-db",
+            "DB_USER": "saved-user",
+            "DB_PASSWORD": "vault-secret",
+        }
+
+    def test_save_connection_keeps_password_out_of_qsettings(self):
+        class Vault:
+            def __init__(self):
+                self.credentials = {"account_name": "user"}
+                self.saved = None
+
+            def load_account_credentials(self):
+                return self.credentials
+
+            def save_data(self, value):
+                import json
+
+                self.saved = json.loads(value)
+                self.credentials = self.saved
+
+        vault = Vault()
+        config = {
+            "DB_HOST": "db.example.test",
+            "DB_PORT": "5432",
+            "DB_NAME": "images",
+            "DB_USER": "toolkit",
+        }
+        with patch(
+            "gui.src.windows.settings.app_settings.AppSettings.set_postgres_connection"
+        ) as set_settings:
+            save_postgres_config(vault, config, password="vault-secret")
+
+        set_settings.assert_called_once_with(config)
+        assert vault.saved["postgres_connection"] == {"password": "vault-secret"}
 
     def test_reachability_handles_unreachable_server_gracefully(self, monkeypatch):
         # Point to a non-existent port with immediate timeout

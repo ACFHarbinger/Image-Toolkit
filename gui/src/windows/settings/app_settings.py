@@ -128,6 +128,30 @@ class AppSettings:
     def set_minimize_to_tray(cls, enabled: bool) -> None:
         cls._q().setValue("preferences/minimize_to_tray", enabled)
 
+    @classmethod
+    def postgres_connection(cls) -> dict[str, str]:
+        """Return non-secret external PostgreSQL connection settings.
+
+        The password deliberately lives in the encrypted account vault, not
+        in QSettings.
+        """
+        fields = ("DB_HOST", "DB_PORT", "DB_NAME", "DB_USER")
+        return {
+            field: str(cls._q().value(f"postgres/{field}", ""))
+            for field in fields
+            if cls._q().value(f"postgres/{field}", "")
+        }
+
+    @classmethod
+    def set_postgres_connection(cls, config: dict[str, str]) -> None:
+        """Persist non-secret external PostgreSQL connection settings."""
+        for field in ("DB_HOST", "DB_PORT", "DB_NAME", "DB_USER"):
+            value = config.get(field, "")
+            if value:
+                cls._q().setValue(f"postgres/{field}", value)
+            else:
+                cls._q().remove(f"postgres/{field}")
+
 
     # ── Session namespace ─────────────────────────────────────────────────────
 
