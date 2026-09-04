@@ -1,9 +1,7 @@
 import hashlib
 import json
 import os
-import shutil
 import uuid
-from pathlib import Path
 
 import backend.src.constants as udef
 from backend.src.core.vault_manager import CryptographyLibNotBuiltError, VaultManager
@@ -317,7 +315,7 @@ class LoginWindow(QWidget):
             QWidget {{
                 background-color: {bg_color};
                 color: {text_color};
-                font-family: Arial;
+                font-family: 'Inter', Arial, sans-serif;
             }}
             #TitleLabel {{
                 font-size: 16pt;
@@ -430,30 +428,6 @@ class LoginWindow(QWidget):
             return None, None
         return username, password
 
-    def _copy_template_crypto_files(self):
-        """
-        Copies all files from assets/secrets to ~/.image-toolkit/secrets/
-        if they do not yet exist in the target directory.
-        """
-        template_dir = Path(udef.SECRETS_DIR)
-        target_dir = Path(udef.LOCAL_SECRETS_DIR)
-
-        if not template_dir.exists():
-            print(f"[LoginWindow] Warning: Template cryptography directory {template_dir} does not exist.")
-            return
-
-        target_dir.mkdir(parents=True, exist_ok=True)
-
-        try:
-            for item in template_dir.iterdir():
-                if item.is_file():
-                    dest_file = target_dir / item.name
-                    if not dest_file.exists():
-                        shutil.copy2(item, dest_file)
-                        print(f"[LoginWindow] Copied template crypto file: {item.name} -> {dest_file}")
-        except Exception as e:
-            print(f"[LoginWindow] Error copying template cryptography files: {e}")
-
     # Keep old public name for backward compat with any external callers
     def attempt_guest_login(self):
         """
@@ -464,7 +438,6 @@ class LoginWindow(QWidget):
 
     def attempt_login(self):  # noqa: C901
         """Tries to authenticate the user against the stored hash."""
-        self._copy_template_crypto_files()
         username, raw_password = self._get_credentials()
         if not username:
             return
@@ -662,7 +635,6 @@ class LoginWindow(QWidget):
             self._guest_anonymous()
             return
 
-        self._copy_template_crypto_files()
         username, raw_password = self._get_credentials()
         if not username:
             return
@@ -691,23 +663,24 @@ class LoginWindow(QWidget):
             # 3. Initialize the Vault Manager
             self.vault_manager = VaultManager()
 
-            # 4. Load the KeyStore (Creates empty KeyStore in memory)
-            self.vault_manager.load_keystore(udef.KEYSTORE_FILE, raw_password)  # pyrefly: ignore [bad-argument-type]
-
-            # 5. CRITICAL: Ensure Key Entry exists and save KeyStore file
+            # 4. Create the keystore file + key entry, then load it.
+            #    (The old JVM-backed load_keystore() created an empty in-memory
+            #    store on a missing file; the native one raises FileNotFoundError,
+            #    so a fresh account must call create_key_if_missing() first -- it
+            #    runs keystore_ensure() then load_keystore() internally.)
             self.vault_manager.create_key_if_missing(
                 udef.KEY_ALIAS,
                 udef.KEYSTORE_FILE,
                 raw_password,  # pyrefly: ignore [bad-argument-type]
             )
 
-            # 6. Retrieve the now-guaranteed secret key
+            # 5. Retrieve the now-guaranteed secret key
             self.vault_manager.get_secret_key(udef.KEY_ALIAS, raw_password)  # pyrefly: ignore [bad-argument-type]
 
-            # 7. Initialize the vault
+            # 6. Initialize the vault
             self.vault_manager.init_vault(udef.VAULT_FILE)
 
-            # 8. Save credentials (this handles hashing, salting, and saving)
+            # 7. Save credentials (this handles hashing, salting, and saving)
             self.vault_manager.save_account_credentials(username, raw_password)  # pyrefly: ignore [bad-argument-type]
 
             QMessageBox.information(self, "Success", f"Account '{username}' created and saved securely.")

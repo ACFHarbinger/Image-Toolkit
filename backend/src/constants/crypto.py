@@ -1,5 +1,4 @@
 import os
-import shutil
 import sys
 
 from .paths import BASE_KEYSTORE_FILE, BASE_PEPPER_FILE, BASE_VAULT_FILE, LOCAL_SECRETS_DIR
@@ -9,6 +8,10 @@ KEY_ALIAS = "my-aes-key"
 ACTIVE_SECRETS_DIR = str(LOCAL_SECRETS_DIR)
 
 def _get_active_path(base_path, suffix=None):
+    # `base_path` is used only for its filename shape; vault/keystore/pepper
+    # files are always created fresh under ACTIVE_SECRETS_DIR on first use.
+    # (No template is seeded from the repo/bundle — real secret material must
+    # never ship in an artifact.)
     os.makedirs(ACTIVE_SECRETS_DIR, exist_ok=True)
     filename = os.path.basename(base_path)
     name, ext = os.path.splitext(filename)
@@ -19,16 +22,7 @@ def _get_active_path(base_path, suffix=None):
         if safe_suffix:
             filename = f"{name}-{safe_suffix}{ext}"
 
-    active_path = os.path.join(ACTIVE_SECRETS_DIR, filename)
-    # If the active file does not exist, but the base template file does, copy it!
-    if not os.path.exists(active_path) and os.path.exists(base_path):
-        try:
-            shutil.copy2(base_path, active_path)
-            print(f"Copied template {base_path} to {active_path}", file=sys.stderr)
-        except Exception as e:
-            print(f"Error copying template {base_path} to {active_path}: {e}", file=sys.stderr)
-
-    return active_path
+    return os.path.join(ACTIVE_SECRETS_DIR, filename)
 
 # --- Active Dynamic Paths (Mutable) ---
 KEYSTORE_FILE = _get_active_path(BASE_KEYSTORE_FILE)

@@ -37,41 +37,83 @@ class TestLoginWindowKeyPress:
         window.close.assert_not_called()
 
 
-class TestLoginWindowCryptoAutoLoad:
-    def test_copy_template_crypto_files(self, q_app, tmp_path):
+class TestLoginWindowNoTemplateSeeding:
+    """Real secret material must never ship in an artifact, so the login flow
+    no longer seeds a keystore/vault from assets/secrets. A login attempt for
+    an unknown account must fail cleanly without materialising any secret file
+    from a template."""
+
+    def test_no_template_copy_helper(self, q_app):
+        assert not hasattr(LoginWindow(), "_copy_template_crypto_files")
+
+    def test_login_unknown_account_seeds_nothing(self, q_app, tmp_path, monkeypatch):
         from unittest.mock import patch
 
-        template_dir = tmp_path / "assets" / "secrets"
-        template_dir.mkdir(parents=True, exist_ok=True)
+        from backend.src.constants import crypto as crypto_consts
 
-        target_dir = tmp_path / "image-toolkit" / "secrets"
-
-        # Create template files
-        file1 = template_dir / "my_keystore.p12"
-        file1.write_text("keystore data")
-        file2 = template_dir / "pepper.txt"
-        file2.write_text("pepper data")
-
-        # Also create a file in target_dir beforehand to check it doesn't get overwritten
-        target_dir.mkdir(parents=True, exist_ok=True)
-        existing_file = target_dir / "pepper.txt"
-        existing_file.write_text("original pepper data")
+        secrets_dir = tmp_path / "secrets"
+        secrets_dir.mkdir()
+        monkeypatch.setattr(crypto_consts, "ACTIVE_SECRETS_DIR", str(secrets_dir))
 
         window = LoginWindow()
+        window._get_credentials = MagicMock(return_value=("ghost_acct", "whatever-123"))
 
         with (
-            patch("gui.src.windows.authentication.login_window.udef.SECRETS_DIR", template_dir),
-            patch("gui.src.windows.authentication.login_window.udef.LOCAL_SECRETS_DIR", target_dir),
+            patch("gui.src.windows.authentication.login_window.QMessageBox.critical") as critical,
+            patch("gui.src.windows.authentication.login_window.QMessageBox.warning"),
+            patch("gui.src.windows.authentication.login_window.QMessageBox.information"),
         ):
-            window._copy_template_crypto_files()
+            window.attempt_login()
 
-            # Check file1 (which didn't exist) was copied
-            assert (target_dir / "my_keystore.p12").exists()
-            assert (target_dir / "my_keystore.p12").read_text() == "keystore data"
+        assert not window.is_authenticated
+        critical.assert_called_once()  # clean error dialog, not a raw traceback
+        # A fresh pepper may be generated, but no keystore/vault may be seeded.
+        assert not list(secrets_dir.glob("*.p12"))
+        assert not list(secrets_dir.glob("*.vault"))
 
-            # Check file2 (which already existed) was not overwritten
-            assert (target_dir / "pepper.txt").exists()
-            assert (target_dir / "pepper.txt").read_text() == "original pepper data"
+
+class TestLoginWindowCreateAccount:
+    def test_create_account_builds_keystore_from_nothing(self, q_app, tmp_path, monkeypatch):
+        """Regression: create_account() must create the keystore before loading
+        it. The JVM-era load_keystore() made an empty in-memory store on a
+        missing file; the native one raises FileNotFoundError, so calling it
+        ahead of create_key_if_missing() broke first-run account creation in
+        the packaged app ("Keystore file not found: my_keystore-<name>.p12").
+        Uses the real VaultManager + native crypto lib against a tmp secrets
+        dir, with the asset-template copy stubbed out.
+        """
+        from unittest.mock import patch
+
+        from backend.src.constants import crypto as crypto_consts
+
+        secrets_dir = tmp_path / "secrets"
+        secrets_dir.mkdir()
+        monkeypatch.setattr(crypto_consts, "ACTIVE_SECRETS_DIR", str(secrets_dir))
+
+        window = LoginWindow()
+        window._load_api_files = MagicMock()
+        window.close = MagicMock()
+        window._get_credentials = MagicMock(return_value=("regr_acct", "regr-pass-123"))
+
+        listener = MagicMock()
+        window.login_successful.connect(listener)
+
+        with (
+            patch("gui.src.windows.authentication.login_window.QMessageBox.information"),
+            patch(
+                "gui.src.windows.authentication.login_window.QMessageBox.critical"
+            ) as critical,
+        ):
+            window.create_account()
+
+        critical.assert_not_called()
+        assert window.is_authenticated
+        assert (secrets_dir / "my_keystore-regr_acct.p12").exists()
+        assert (secrets_dir / "my_secure_data-regr_acct.vault").exists()
+        listener.assert_called_once_with(window.vault_manager)
+        window.close.assert_not_called()
+
+        window.vault_manager.shutdown()
 
 
 class TestLoginWindowPreferenceProfile:
@@ -82,7 +124,6 @@ class TestLoginWindowPreferenceProfile:
 
         # Create instance of LoginWindow
         window = LoginWindow()
-        window._copy_template_crypto_files = MagicMock()
         window._get_credentials = MagicMock(return_value=("testuser", "password"))
         window._load_api_files = MagicMock()
         window.close = MagicMock()
@@ -154,7 +195,6 @@ class TestLoginWindowPreferenceProfile:
 
         # Create instance of LoginWindow
         window = LoginWindow()
-        window._copy_template_crypto_files = MagicMock()
         window._get_credentials = MagicMock(return_value=("testuser", "password"))
         window._load_api_files = MagicMock()
         window.close = MagicMock()
