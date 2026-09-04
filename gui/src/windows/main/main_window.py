@@ -112,6 +112,12 @@ class MainWindow(
                 pass
 
         self.current_theme = initial_theme
+        # Prime the QPalette before building any tabs -- OptionalField and
+        # friends read QApplication.palette() at construction time, and on a
+        # frozen build with no platform-theme plugin it's still Qt's light
+        # default until set_application_theme() runs (which happens after
+        # _create_tabs() below). See _theme.py::prime_application_palette.
+        self.prime_application_palette(self.current_theme)
 
         vbox = QVBoxLayout()
         self.settings_window = None

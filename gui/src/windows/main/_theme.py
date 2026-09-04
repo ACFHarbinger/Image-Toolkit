@@ -87,6 +87,30 @@ def _build_palette(
 class _ThemeMixin:
     """Applies the dark/light stylesheet and handles manual theme toggling."""
 
+    def prime_application_palette(self, theme_name: str) -> None:
+        """Set the app QPalette for ``theme_name`` before any widgets exist.
+
+        ``MainWindow.__init__`` builds every tab (and so every
+        palette-reading widget, e.g. ``OptionalField``) before its own
+        ``set_application_theme()`` call runs. On a frozen build with no
+        platform-theme plugin, ``QApplication.palette()`` is still Qt's
+        light default at that point, so those widgets bake in the wrong
+        colors permanently. Call this first, right after ``current_theme``
+        is known and before building anything else; the later full
+        ``set_application_theme()`` call re-applies the same palette
+        (harmlessly) alongside the stylesheet/header/etc.
+        """
+        prefs = {}
+        if hasattr(self, "cached_creds") and self.cached_creds:
+            prefs = self.cached_creds.get("preferences", {})
+        if theme_name == "dark":
+            accent_color = prefs.get("accent_color_dark", DARK_ACCENT_COLOR)
+        else:
+            accent_color = prefs.get("accent_color_light", LIGHT_ACCENT_COLOR)
+        app = QApplication.instance()
+        if app is not None:
+            app.setPalette(_build_palette(theme_name, accent_color))
+
     def set_application_theme(self, theme_name):  # noqa: C901
         prefs = {}
         if hasattr(self, "cached_creds") and self.cached_creds:
