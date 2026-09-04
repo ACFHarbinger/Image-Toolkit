@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- GUI/UX Roadmap Expansion (§2.36–§2.40): added architectural and aesthetic roadmap specifications covering Dual Navigation Shell & Module Registry (`ModuleDescriptor` / Navigation Rail vs. Top Bar), Anime Creative Suite Visual System & Presets (Neo-Tokyo, Sakura, Evangelion, Catppuccin, Manga Ink, Danbooru Tag taxonomy palette), Universal Collapsible Context Inspector Panel (`Ctrl+I`), Rich Telemetry Status Bar (PostgreSQL latency, GPU VRAM monitor, active worker queue), and Advanced Gallery Presentation Modes (Masonry layout, toggleable thumbnail card overlays).
 - Cloud Compute Dashboards (#490): Qt-free `UsageRow` aggregation over worker
   `usage.json` and UI rows (wall time, peak RSS, egress, estimated Cloud Run
   cost, success rate, per-provider split) plus theme-aware QPainter charts

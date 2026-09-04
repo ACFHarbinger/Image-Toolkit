@@ -38,6 +38,13 @@
 - [2.31 Custom QSS User Theme Override](#231-custom-qss-user-theme-override)
 - [2.32 Window Layout and State Profiles](#232-window-layout-and-state-profiles)
 - [2.33 Extractor Tab Playback Engine — libmpv Integration](#233-extractor-tab-playback-engine--libmpv-integration)
+- [2.34 Custom Theme Engine & Semantic Color System](#234-custom-theme-engine--semantic-color-system)
+- [2.35 Full-Window Background Canvas & Glassmorphic Layering](#235-full-window-background-canvas--glassmorphic-layering)
+- [2.36 Dual Navigation Shell & Modular Module Architecture](#236-dual-navigation-shell--modular-module-architecture)
+- [2.37 Anime Creative Suite Visual System & Presets](#237-anime-creative-suite-visual-system--presets)
+- [2.38 Universal Collapsible Context Inspector Panel](#238-universal-collapsible-context-inspector-panel)
+- [2.39 Rich Telemetry Status Bar & System Monitoring](#239-rich-telemetry-status-bar--system-monitoring)
+- [2.40 Advanced Gallery Presentation Modes & Custom Thumbnail Overlays](#240-advanced-gallery-presentation-modes--custom-thumbnail-overlays)
 - [Effort × Impact Matrix](#effort--impact-matrix)
 - [Anchor Index](#anchor-index)
 
@@ -115,7 +122,23 @@ flowchart LR
         S230["§2.30 Accent Color ✅"]:::augment:::done
         S231["§2.31 Custom QSS Theme ✅"]:::augment:::done
         S232["§2.32 Layout Profiles ✅p"]:::augment:::active
+        S234["§2.34 Custom Theme Engine ✅p"]:::feature:::active
+        S235["§2.35 Background Canvas & Glass ✅p"]:::feature:::active
+        S237["§2.37 Anime Creative Suite Presets"]:::feature:::planned
         S230 --- S231
+        S234 --> S235
+        S234 --> S237
+    end
+
+    subgraph ARCH["🏛️ Modular Shell & Creative Studio"]
+        direction TB
+        S236["§2.36 Dual Navigation Shell & Module Registry"]:::feature:::planned
+        S238["§2.38 Universal Context Inspector Panel"]:::feature:::planned
+        S239["§2.39 Telemetry Status Bar"]:::augment:::planned
+        S240["§2.40 Gallery Presentation & Custom Overlays"]:::augment:::planned
+        S236 ==> S238
+        S236 --> S239
+        S238 --- S240
     end
 
     %% Cross-group dependencies
@@ -123,6 +146,9 @@ flowchart LR
     S28 --> S231
     S216 --- S229
     S25 --- S232
+    S216 ==> S236
+    S237 --- S236
+    S214 --> S240
 ```
 
 Each node's **fill colour** shows element type: blue = new feature, violet = augmentation, orange = performance optimisation. The **border colour** shows implementation status: thick green = complete, thick amber = partially shipped (✅p), thin slate = not yet started. **Edge style** encodes relationship: `==>` critical prerequisite (must land first), `-->` sequential dependency, `---` complements (parallel work).
@@ -1460,6 +1486,143 @@ layering: #440 (Gemini). Palette extraction from the active background:
 
 ---
 
+## 2.36 Dual Navigation Shell & Modular Module Architecture
+
+**Ergonomic pain point:**
+The current desktop shell navigates across 25+ tool surfaces by selecting one of 7 top-level categories from a `QComboBox` ("Select Category:") to replace the contents of a single `QTabWidget`. This two-tier dropdown + tab bar mechanism creates a disjointed mental model, lacks iconography and badge indicators, fails to take advantage of wide/ultrawide displays, and tightly couples all tab instances to `MainWindow`. Adding or editing tools requires invasive modifications across `main_window.py` and its mixins.
+
+### Implementation Options
+
+**A — Declarative Module Registry & Dynamic Shell Layout Manager [Recommended]**
+Decouple views and tools into declarative `ModuleDescriptor` records:
+- Each tool implements metadata: `id`, `title`, `japanese_subtext` (e.g., `ライブラリ`), `category`, `icon_name` (vector SVG key), `view_factory` (lazy widget loader), `shortcut`, and `badge_provider` (e.g. active crawl count).
+- `ShellLayoutManager` manages active views in a `QStackedWidget` and dynamically binds to either:
+  1. **Vertical Navigation Rail**: Modern left sidebar with category groups, tool icons, tooltips, and collapsible drawer (`Ctrl+B`).
+  2. **Top Segmented Ribbon**: Compact horizontal pill controls with category switcher for laptop displays.
+- Automatic registration into the Command Palette (`Ctrl+K` / `Ctrl+P`) and runtime layout switching with `Ctrl+Shift+L`.
+- *Pros:* Fully modular, plug-and-play architecture; tabs are decoupled and lazily loaded on first activation; caters to both widescreen monitors and compact screens.
+- *Cons:* Requires abstracting tab initialization into factory descriptors.
+
+**B — Hardcoded Vertical Sidebar**
+Directly replace `QTabWidget` with a fixed left `QListWidget` or custom sidebar inside `MainWindow`.
+- *Pros:* Simpler initial PR.
+- *Cons:* Loses the top-tab mode entirely for small displays and fails to provide a modular plugin architecture for future extensions.
+
+**Recommendation:** Option A. Establish `ModuleDescriptor` and `ShellLayoutManager` to future-proof the application architecture and provide seamless Rail vs. Top Bar layout switching.
+
+---
+
+## 2.37 Anime Creative Suite Visual System & Presets
+
+**Ergonomic pain point:**
+The default dark theme uses legacy Qt gradients and generic dark gray tones that lack aesthetic cohesion for an image toolkit centered on anime illustrations, manga editing, and generative vision models. Professional creative software (Clip Studio Paint, DaVinci Resolve, Adobe Lightroom) utilizes deep neutral studio slates that preserve color accuracy while offering high-contrast, customizable accents.
+
+### Implementation Options
+
+**A — Preset Theme Library, Danbooru Tag Palettes, & Bilingual Typography [Recommended]**
+Expand the Theme Studio token system (`ThemePack`) with:
+- **Curated Theme Presets**:
+  - *Neo-Tokyo* (Deep Obsidian `#0e0f14` + Neon Cyan `#00f0ff` & Hot Crimson `#ff2a6d`)
+  - *Sakura Blossom* (Soft Navy `#121118` + Sakura Pink `#ff70a6` & Violet `#a370f7`)
+  - *Evangelion 01* (Dark Slate `#0f111a` + Toxic Purple `#9b5de5` & Acid Green `#00f5d4`)
+  - *Catppuccin Mocha* (Pastel Dark `#1e1e2e` + Sapphire Blue `#89b4fa` & Mauve `#cba6f7`)
+  - *Manga Ink* (Monochrome Screentone `#121212` + Pure White `#f8fafc` & Slate `#64748b`)
+  - *Solarized Anime* (Studio Cyan `#002b36` + Amber Gold `#ffb703` & Teal `#2aa198`)
+- **Danbooru/e621 Tag Taxonomy Palette Tokens**: Standardized category badge colors (Character=Green `#55c57a`, Copyright=Purple `#c084fc`, Artist=Red `#f87171`, General=Cyan `#38bdf8`, Meta=Orange `#fb923c`).
+- **Anime Studio Bilingual Micro-Typography**: Optional sleek subtext headers (`LIBRARY // ライブラリ`, `EXTRACTOR // 抽出`, `STITCH // 結合`).
+- *Pros:* Delivers an authentic, visually striking creative suite atmosphere; makes art assets pop against neutral backdrops.
+- *Cons:* Requires theme token mapping across all legacy tab stylesheets.
+
+**B — Custom QSS Only**
+Rely solely on user-provided `user_theme.qss` stylesheets.
+- *Pros:* Zero built-in preset maintenance.
+- *Cons:* Poor out-of-the-box user experience; requires manual CSS coding for non-technical users.
+
+**Recommendation:** Option A. Ship curated presets in Theme Studio with real-time switching and preview.
+
+---
+
+## 2.38 Universal Collapsible Context Inspector Panel
+
+**Ergonomic pain point:**
+Image metadata, EXIF tags, resolution chips, rating controls, and tool parameters are scattered across disparate tab layouts. Users frequently need to inspect image details or adjust tool options without obscuring the primary gallery or canvas workspace.
+
+### Implementation Options
+
+**A — Universal Collapsible Right Inspector Panel (`Ctrl+I`) [Recommended]**
+Integrate a persistent, context-sensitive right sidebar hosted in a `QSplitter`:
+- **Gallery / Database Context**: Displays active image preview thumbnail, full EXIF metadata table, color label picker, star rating, resolution chip, and Danbooru tag chips with click-to-search actions.
+- **Tool Context (Stitch / Manga / Editor)**: Displays layer lists, parameter sliders, alignment adjustments, or cluster statistics.
+- **System Context**: Displays database health, cache usage, and quick-maintenance buttons.
+- **Detachable Floating Mode**: Can be popped out into an independent floating tool window for dual-monitor setups.
+- *Pros:* Consistent ergonomic hub across all tools; collapses cleanly (`Ctrl+I`) to maximize viewport space.
+- *Cons:* Requires mediator communication between active view selection and inspector provider.
+
+**B — Pop-up Modal Windows Only**
+Open independent modal dialogs whenever details or parameters need to be inspected.
+- *Pros:* Easy to implement per tab.
+- *Cons:* Clutters the desktop with floating windows and breaks keyboard flow.
+
+**Recommendation:** Option A. Implement the universal context inspector in a persistent `QSplitter`.
+
+---
+
+## 2.39 Rich Telemetry Status Bar & System Monitoring
+
+**Ergonomic pain point:**
+The bottom `QStatusBar` currently displays plain text notifications. It does not communicate vital system metrics necessary for high-throughput image processing and ML inference, such as PostgreSQL connection latency, GPU/VRAM allocation, or background worker task progress.
+
+### Implementation Options
+
+**A — Interactive Telemetry Status Bar Widgets [Recommended]**
+Transform the status bar with compact, theme-aware telemetry chips:
+- **Database Engine Chip**: Live ping indicator (`🟢 PostgreSQL + pgvector (12ms)`).
+- **GPU & VRAM Gauge**: Real-time VRAM allocation bar (`⚡ GPU: 6.4 / 24.0 GB`) for local PyTorch/CUDA and ComfyUI pipelines.
+- **Active Task Progress Ring**: Dynamic spinner for active Celery/QThread background jobs (e.g. `🔄 Crawling: 42/100`).
+- **Quick Theme / Layout Popover**: Clickable chip to toggle between Rail and Top Bar or swap active theme presets.
+- *Pros:* Instant system observability without opening separate diagnostic panels.
+- *Cons:* Light background timer required to sample GPU/process memory (bounded at 2-5s intervals).
+
+**B — Static Text Bar with Separate Dashboard Window**
+Keep the status bar simple and require opening the Settings or Cloud Compute window to view metrics.
+- *Pros:* Minimal code footprint in `MainWindow`.
+- *Cons:* Leaves the user unaware of background job completion, GPU OOM risks, or connection dropouts.
+
+**Recommendation:** Option A.
+
+---
+
+## 2.40 Advanced Gallery Presentation Modes & Custom Thumbnail Overlays
+
+**Ergonomic pain point:**
+The standard uniform grid crops anime illustrations with varied aspect ratios (tall manga panels, widescreen wallpapers, square icons) and offers limited control over which metadata indicators appear directly on thumbnail cards.
+
+### Implementation Options
+
+**A — Masonry & Justified Layouts with Toggleable Card Overlays [Recommended]**
+Upgrade the gallery engine ([AbstractGalleryBase](file:///home/pkhunter/Repositories/Repo/Image-Toolkit/gui/src/classes/base/gallery_base.py)) to support:
+- **Presentation Modes**:
+  1. *Uniform Grid* (Fixed square/card bounding box).
+  2. *Masonry Layout* (Variable height preserving natural illustration aspect ratios).
+  3. *Compact List View* (Dense rows for bulk file management and data triage).
+- **Configurable Overlay Badges** (Toggleable in Theme Studio / Gallery Settings):
+  - Danbooru Content Rating (`G`, `S`, `Q`, `E`)
+  - Resolution & Aspect Ratio chip (`3840×2160 • 16:9`)
+  - File Format & Bit Depth pill (`PNG • 24-bit`)
+  - Star Rating & Color Label badges
+  - Tag Count Chip (`🏷️ 24`)
+- *Pros:* Drastically enhances visual browsing of anime art; highly customizable card information density.
+- *Cons:* Masonry positioning requires incremental geometry calculations during virtual scrolling.
+
+**B — Fixed Grid Only with Static Tooltips**
+Maintain the uniform grid and show metadata solely through mouse hover tooltips.
+- *Pros:* Lower rendering complexity.
+- *Cons:* Forces cropping of non-square artwork and requires mouse hover to inspect basic properties.
+
+**Recommendation:** Option A.
+
+---
+
 ## Effort × Impact Matrix {: #effort--impact-matrix }
 
 *Effort* — **Low**: < 1 day · **Medium**: 1 day – 1 week · **High**: 1 – 2 weeks · **Very High**: 2+ weeks
@@ -1467,8 +1630,8 @@ layering: #440 (Gemini). Palette extraction from the active background:
 
 | **Effort ↓ / Impact →** | Low | Medium | High | Very High |
 |---|---|---|---|---|
-| **Low (<1d)** | §2.4B right-click context menu · §2.10 toast notifications · §2.14 thumbnail metadata overlay · §2.24 hover animations · §2.25 shortcut discovery overlay · §2.26 inline rename | §2.2B Ctrl+scroll zoom [Quick Win] · §2.5A session path persistence · §2.9 settings extensions · §2.12 system tray · §2.17 log panel · §2.18 image rating + labels · §2.31A QSS user override · §2.35C fit & scaling modes | §2.3A+C keyboard nav shortcuts · §2.7A progress bar + cancel button [Quick Win] · §2.32A auto-save geometry [Quick Win] | — |
-| **Medium (1d–1w)** | §2.19 contact sheet export | §2.2A slider control · §2.5B session restore dialog · §2.6B side-by-side before/after · §2.13 gallery filter+sort · §2.15 undo/redo deletions · §2.20A QSplitter persistence · §2.21 nav history · §2.27 multi-image compare · §2.28 global search · §2.29 configurable shortcuts · §2.30 accent colour + density · §2.34B dynamic palette extraction · §2.35B background playlist slideshow | §2.4A multi-select with QItemSelectionModel · §2.8A dark/light theme toggle · §2.8B dynamic colour extraction · §2.12B+C tray preview + context ops · §2.22 tag chip compound search · §2.32B named layout profiles · §2.34A semantic color palette · §2.35A full-window background canvas | §2.6A interactive zoom/pan preview · §2.16A command palette + registry |
+| **Low (<1d)** | §2.4B right-click context menu · §2.10 toast notifications · §2.14 thumbnail metadata overlay · §2.24 hover animations · §2.25 shortcut discovery overlay · §2.26 inline rename | §2.2B Ctrl+scroll zoom [Quick Win] · §2.5A session path persistence · §2.9 settings extensions · §2.12 system tray · §2.17 log panel · §2.18 image rating + labels · §2.31A QSS user override · §2.35C fit & scaling modes · §2.37B bilingual micro-typography · §2.39A telemetry status bar | §2.3A+C keyboard nav shortcuts · §2.7A progress bar + cancel button [Quick Win] · §2.32A auto-save geometry [Quick Win] · §2.37A anime theme presets | — |
+| **Medium (1d–1w)** | §2.19 contact sheet export | §2.2A slider control · §2.5B session restore dialog · §2.6B side-by-side before/after · §2.13 gallery filter+sort · §2.15 undo/redo deletions · §2.20A QSplitter persistence · §2.21 nav history · §2.27 multi-image compare · §2.28 global search · §2.29 configurable shortcuts · §2.30 accent colour + density · §2.34B dynamic palette extraction · §2.35B background playlist slideshow · §2.40B configurable thumbnail overlays | §2.4A multi-select with QItemSelectionModel · §2.8A dark/light theme toggle · §2.8B dynamic colour extraction · §2.12B+C tray preview + context ops · §2.22 tag chip compound search · §2.32B named layout profiles · §2.34A semantic color palette · §2.35A full-window background canvas · §2.36A dual navigation shell & module registry · §2.38A universal context inspector panel · §2.40A masonry gallery layout | §2.6A interactive zoom/pan preview · §2.16A command palette + registry |
 | **High (1–2w)** | — | §2.30C density modes (compact/comfortable/spacious) · §2.31B in-app QSS editor · §2.34C advanced in-app QSS editor | §2.23 accessibility audit · §2.29B global keybinding conflict detection | §2.1A QListView virtual scroll (full refactor) |
 | **Very High (2w+)** | — | §2.4E drag-and-drop reorder | §2.33A libmpv engine swap (spike, gated on JVM coexistence smoke test) | §4.12C named workspaces (superset of §2.29+§2.30+§2.32) |
 
@@ -1513,9 +1676,15 @@ layering: #440 (Gemini). Palette extraction from the active background:
 | 2.33 Extractor Tab Playback Engine — libmpv | [#233-extractor-tab-playback-engine--libmpv-integration](#233-extractor-tab-playback-engine--libmpv-integration) |
 | 2.34 Custom Theme Engine & Semantic Colors | [#234-custom-theme-engine--semantic-color-system](#234-custom-theme-engine--semantic-color-system) |
 | 2.35 Full-Window Background Canvas & Glassmorphism | [#235-full-window-background-canvas--glassmorphic-layering](#235-full-window-background-canvas--glassmorphic-layering) |
+| 2.36 Dual Navigation Shell & Modular Registry | [#236-dual-navigation-shell--modular-module-architecture](#236-dual-navigation-shell--modular-module-architecture) |
+| 2.37 Anime Creative Suite Visual System & Presets | [#237-anime-creative-suite-visual-system--presets](#237-anime-creative-suite-visual-system--presets) |
+| 2.38 Universal Collapsible Context Inspector | [#238-universal-collapsible-context-inspector-panel](#238-universal-collapsible-context-inspector-panel) |
+| 2.39 Rich Telemetry Status Bar | [#239-rich-telemetry-status-bar--system-monitoring](#239-rich-telemetry-status-bar--system-monitoring) |
+| 2.40 Advanced Gallery Presentation Modes | [#240-advanced-gallery-presentation-modes--custom-thumbnail-overlays](#240-advanced-gallery-presentation-modes--custom-thumbnail-overlays) |
 
 ---
 
 ## Document History
 
-*Last updated: 2026-08-18 — §2.34 Custom Theme Engine & Semantic Color System and §2.35 Full-Window Background Canvas & Glassmorphic Layering added. Previous update 2026-07-11. Targets PySide6 (Qt 6.x) desktop application.*
+*Last updated: 2026-09-04 — §2.36 Dual Navigation Shell & Modular Module Architecture, §2.37 Anime Creative Suite Visual System & Presets, §2.38 Universal Collapsible Context Inspector Panel, §2.39 Rich Telemetry Status Bar & System Monitoring, and §2.40 Advanced Gallery Presentation Modes & Custom Thumbnail Overlays added. Targets PySide6 (Qt 6.x) desktop application.*
+

@@ -1,3 +1,10 @@
+# S487 — 2026-09-04 (Antigravity: GUI/UX Roadmap §2.36–§2.40 Anime Creative Suite & Modular Shell)
+
+- `docs/moon/roadmaps/gui_ux.md`: Added roadmap sections §2.36 (Dual Navigation Shell & Modular Module Registry), §2.37 (Anime Creative Suite Visual System & Presets), §2.38 (Universal Collapsible Context Inspector Panel), §2.39 (Rich Telemetry Status Bar), and §2.40 (Advanced Gallery Presentation Modes & Custom Thumbnail Overlays).
+- Updated implementation timeline graph, TOC, anchor index, and effort-impact matrix.
+
+---
+
 # S486 — 2026-08-31 (Grok: #490 Cloud Compute Dashboards charts)
 
 - `backend/src/web/cloud/compute/usage.py`: `UsageRow` / `aggregate_usage_rows`
