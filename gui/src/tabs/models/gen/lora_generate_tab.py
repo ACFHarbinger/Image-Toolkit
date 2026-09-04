@@ -70,6 +70,11 @@ class LoRAGenerateTab(BaseGenerativeTab):
         diff_layout.addRow("Prompt:", self.prompt_edit)
         diff_layout.addRow("Negative Prompt:", self.neg_prompt_edit)
         lora_row = QHBoxLayout()
+        # The line edit's Expanding policy otherwise fills the row right up
+        # to the app's 800px minimum width, leaving the fixed-width Inspect
+        # button no slack against the vertical scrollbar this tab's content
+        # height forces -- capped so the button always has room.
+        self.lora_edit.setMaximumWidth(320)
         lora_row.addWidget(self.lora_edit)
         self._lora_inspect_btn = QPushButton("Inspect")
         self._lora_inspect_btn.setFixedWidth(68)
