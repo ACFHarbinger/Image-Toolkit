@@ -1486,7 +1486,17 @@ layering: #440 (Gemini). Palette extraction from the active background:
 
 ---
 
-## 2.36 Dual Navigation Shell & Modular Module Architecture
+## 2.36 Dual Navigation Shell & Modular Module Architecture ✅ Locked, unimplemented (2026-09-05 — issues #504, #509-514)
+
+**Runtime architecture finalized 2026-09-05** after a Claude + Codex
+brainstorm and user QA session — see
+`docs/moon/roadmaps/ui_architecture_2026q3.md` for the accepted
+module-catalog/lifecycle/event-bus design, the 6-step delivery
+sequence, and open decision gates. That document supersedes the
+`ModuleDescriptor`/`ShellLayoutManager` sketch below wherever they
+conflict (notably: `MainWindow` stays the composition root rather than
+`ShellLayoutManager` absorbing its mixins, and module descriptors are
+Page/Workspace/Route-typed rather than 1:1 with a widget).
 
 **Ergonomic pain point:**
 The current desktop shell navigates across 25+ tool surfaces by selecting one of 7 top-level categories from a `QComboBox` ("Select Category:") to replace the contents of a single `QTabWidget`. This two-tier dropdown + tab bar mechanism creates a disjointed mental model, lacks iconography and badge indicators, fails to take advantage of wide/ultrawide displays, and tightly couples all tab instances to `MainWindow`. Adding or editing tools requires invasive modifications across `main_window.py` and its mixins.
