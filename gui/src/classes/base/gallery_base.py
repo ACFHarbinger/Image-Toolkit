@@ -200,7 +200,14 @@ class AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery):
         if max_entries is None:
             max_entries = getattr(self, "recent_dirs_limit", 10)
         cn = self.__class__.__name__
-        dirs: list = AppSettings.session(cn, "recent_dirs", []) or []
+        dirs = AppSettings.session(cn, "recent_dirs", []) or []
+        # QSettings round-trips a single-element list as a bare string on
+        # some backends (a well-known QVariant quirk) -- normalize so a
+        # second browse to any directory after the list has shrunk to one
+        # entry doesn't crash with "'str' object has no attribute 'remove'".
+        if isinstance(dirs, str):
+            dirs = [dirs]
+        dirs = list(dirs)
         if path in dirs:
             dirs.remove(path)
         dirs.insert(0, path)
@@ -219,7 +226,11 @@ class AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery):
             if not prefs.get("restore_last_dir", True):
                 return []
         from gui.src.windows.settings.app_settings import AppSettings
-        return AppSettings.session(self.__class__.__name__, "recent_dirs", []) or []
+        dirs = AppSettings.session(self.__class__.__name__, "recent_dirs", []) or []
+        # Same QSettings single-element round-trip quirk as _add_recent_dir.
+        if isinstance(dirs, str):
+            dirs = [dirs]
+        return list(dirs)
 
     def _save_last_dir(self, path: str, main_win = None) -> None:
         if path and "Downloads/data" in path:
