@@ -13,7 +13,6 @@ from typing import List
 
 from PySide6.QtCore import QPoint, Qt, QTimer, Signal, Slot
 from PySide6.QtWidgets import (
-    QHBoxLayout,
     QLabel,
     QLineEdit,
     QPushButton,
@@ -22,6 +21,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from gui.src.components.tag_chip_widget import FlowLayout
 from gui.src.utils.cache.lru_image_cache import LRUImageCache
 
 from .widget import VirtualGallery
@@ -70,7 +70,11 @@ class VirtualDualGallery(QWidget):
         found_layout.setSpacing(4)
 
         # Found Header & Controls
-        found_header = QHBoxLayout()
+        # FlowLayout: label + search box + button still clip at this pane's
+        # width at the app's 800px minimum (the search box's minimum size
+        # floor is wider than the leftover space once the button is
+        # accounted for) -- wrap instead of hard-clipping.
+        found_header = FlowLayout()
         found_header.setSpacing(6)
         self.lbl_found_title = QLabel("Found (0)")
         self.lbl_found_title.setStyleSheet("font-weight: bold; color: #dcddde;")
@@ -89,7 +93,7 @@ class VirtualDualGallery(QWidget):
         self.btn_select_all.clicked.connect(self.select_all)
 
         found_header.addWidget(self.lbl_found_title)
-        found_header.addWidget(self.txt_found_search, 1)
+        found_header.addWidget(self.txt_found_search)
         found_header.addWidget(self.btn_select_all)
         found_layout.addLayout(found_header)
 
@@ -111,7 +115,11 @@ class VirtualDualGallery(QWidget):
         selected_layout.setSpacing(4)
 
         # Selected Header & Controls
-        selected_header = QHBoxLayout()
+        # FlowLayout, not QHBoxLayout: this pane is one half of a splitter,
+        # narrower than the full window -- the title + 2 buttons with no
+        # shrinkable widget between them clip at the app's 800px minimum
+        # width (splitter pane narrower still). FlowLayout wraps instead.
+        selected_header = FlowLayout()
         selected_header.setSpacing(6)
         self.lbl_selected_title = QLabel("Selected (0)")
         self.lbl_selected_title.setStyleSheet("font-weight: bold; color: #7289da;")
@@ -124,7 +132,6 @@ class VirtualDualGallery(QWidget):
         self.btn_compare.clicked.connect(self.compare_selected)
 
         selected_header.addWidget(self.lbl_selected_title)
-        selected_header.addStretch(1)
         selected_header.addWidget(self.btn_clear_selected)
         selected_header.addWidget(self.btn_compare)
         selected_layout.addLayout(selected_header)

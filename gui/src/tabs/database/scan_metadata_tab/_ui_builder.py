@@ -28,6 +28,7 @@ from PySide6.QtWidgets import (
 )
 
 from ....components import VirtualDualGallery
+from ....components.tag_chip_widget import FlowLayout
 from ....styles import apply_shadow_effect
 
 
@@ -67,7 +68,9 @@ class _UIBuilderMixin:
         scan_layout = QVBoxLayout()
         scan_layout.setContentsMargins(10, 20, 10, 10)
 
-        scan_dir_layout = QHBoxLayout()
+        # FlowLayout: the line edit's minimum width plus the Browse button
+        # clip at the app's 800px minimum width.
+        scan_dir_layout = FlowLayout()
         self.scan_directory_path = QLineEdit()
         self.scan_directory_path.setPlaceholderText("Select directory to scan...")
         self.scan_directory_path.returnPressed.connect(
@@ -196,7 +199,9 @@ class _UIBuilderMixin:
         )
         self.delete_selected_button.clicked.connect(self.delete_selected_images)
 
-        scan_action_layout = QHBoxLayout()
+        # FlowLayout: 4 buttons (2 with dynamic, longer count-suffixed text)
+        # overflow the app's 800px minimum width in one non-wrapping row.
+        scan_action_layout = FlowLayout()
         scan_action_layout.addWidget(self.view_new_only_button)
         scan_action_layout.addWidget(self.view_in_db_only_button)
         scan_action_layout.addWidget(self.upsert_button)
