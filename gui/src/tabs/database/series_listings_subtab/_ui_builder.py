@@ -40,8 +40,13 @@ class _UIBuilderMixin:
         # ---- Toolbar ----
         # FlowLayout, not QHBoxLayout: title + search box + several grouped
         # button pairs + 4 combos overflow the app's 800px minimum width in
-        # one non-wrapping row.
-        toolbar = FlowLayout()
+        # one non-wrapping row. Built with an explicit parent container
+        # (addWidget, not addLayout) -- a bare FlowLayout() added later via
+        # addLayout() can intermittently never settle to its real geometry,
+        # leaving widgets at Qt's raw top-level default size (640x480)
+        # instead of their laid-out size.
+        toolbar_container = QWidget()
+        toolbar = FlowLayout(toolbar_container)
         toolbar.setSpacing(8)
 
         title_lbl = QLabel("🎬 Series Listings")
@@ -208,7 +213,7 @@ class _UIBuilderMixin:
         backup_pair_vbox.addWidget(update_btn)
         toolbar.addWidget(backup_pair)
 
-        root.addLayout(toolbar)
+        root.addWidget(toolbar_container)
 
         # ---- Stats bar ----
         self.stats_label = QLabel("")

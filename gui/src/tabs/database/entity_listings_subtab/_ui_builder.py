@@ -40,8 +40,10 @@ class _UIBuilderMixin:
         # ---- Toolbar ----
         # FlowLayout, not QHBoxLayout: same overflow shape as
         # series_listings_subtab's toolbar (title + search + grouped button
-        # pairs + combos exceed the app's 800px minimum width).
-        toolbar = FlowLayout()
+        # pairs + combos exceed the app's 800px minimum width). Built with
+        # an explicit parent container -- see that file's comment for why.
+        toolbar_container = QWidget()
+        toolbar = FlowLayout(toolbar_container)
         toolbar.setSpacing(8)
 
         title_lbl = QLabel("👥 Entity Listings")
@@ -159,7 +161,7 @@ class _UIBuilderMixin:
         backup_pair_vbox.addWidget(update_btn)
         toolbar.addWidget(backup_pair)
 
-        root.addLayout(toolbar)
+        root.addWidget(toolbar_container)
 
         # ---- Stats bar ----
         self.stats_label = QLabel("")

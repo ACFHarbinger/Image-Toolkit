@@ -73,8 +73,13 @@ class VirtualDualGallery(QWidget):
         # FlowLayout: label + search box + button still clip at this pane's
         # width at the app's 800px minimum (the search box's minimum size
         # floor is wider than the leftover space once the button is
-        # accounted for) -- wrap instead of hard-clipping.
-        found_header = FlowLayout()
+        # accounted for) -- wrap instead of hard-clipping. Built with an
+        # explicit parent container (addWidget, not addLayout) -- a bare
+        # FlowLayout() added later via addLayout() can intermittently never
+        # settle to its real geometry, leaving widgets at Qt's raw
+        # top-level default size (640x480) instead of their laid-out size.
+        found_header_container = QWidget()
+        found_header = FlowLayout(found_header_container)
         found_header.setSpacing(6)
         self.lbl_found_title = QLabel("Found (0)")
         self.lbl_found_title.setStyleSheet("font-weight: bold; color: #dcddde;")
@@ -95,7 +100,7 @@ class VirtualDualGallery(QWidget):
         found_header.addWidget(self.lbl_found_title)
         found_header.addWidget(self.txt_found_search)
         found_header.addWidget(self.btn_select_all)
-        found_layout.addLayout(found_header)
+        found_layout.addWidget(found_header_container)
 
         # Found Virtual Gallery
         self.found_gallery = VirtualGallery(
@@ -119,7 +124,9 @@ class VirtualDualGallery(QWidget):
         # narrower than the full window -- the title + 2 buttons with no
         # shrinkable widget between them clip at the app's 800px minimum
         # width (splitter pane narrower still). FlowLayout wraps instead.
-        selected_header = FlowLayout()
+        # Parented container, see found_header's comment above for why.
+        selected_header_container = QWidget()
+        selected_header = FlowLayout(selected_header_container)
         selected_header.setSpacing(6)
         self.lbl_selected_title = QLabel("Selected (0)")
         self.lbl_selected_title.setStyleSheet("font-weight: bold; color: #7289da;")
@@ -134,7 +141,7 @@ class VirtualDualGallery(QWidget):
         selected_header.addWidget(self.lbl_selected_title)
         selected_header.addWidget(self.btn_clear_selected)
         selected_header.addWidget(self.btn_compare)
-        selected_layout.addLayout(selected_header)
+        selected_layout.addWidget(selected_header_container)
 
         # Selected Virtual Gallery
         self.selected_gallery = VirtualGallery(

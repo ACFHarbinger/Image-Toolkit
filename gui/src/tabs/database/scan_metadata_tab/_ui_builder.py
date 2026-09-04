@@ -15,6 +15,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QComboBox,
     QFormLayout,
+    QGridLayout,
     QGroupBox,
     QHBoxLayout,
     QLineEdit,
@@ -28,7 +29,6 @@ from PySide6.QtWidgets import (
 )
 
 from ....components import VirtualDualGallery
-from ....components.tag_chip_widget import FlowLayout
 from ....styles import apply_shadow_effect
 
 
@@ -68,10 +68,14 @@ class _UIBuilderMixin:
         scan_layout = QVBoxLayout()
         scan_layout.setContentsMargins(10, 20, 10, 10)
 
-        # FlowLayout: the line edit's minimum width plus the Browse button
-        # clip at the app's 800px minimum width.
-        scan_dir_layout = FlowLayout()
+        # Plain QHBoxLayout, not FlowLayout: only 2 widgets, so wrapping
+        # would just stack them awkwardly. The line edit's Expanding policy
+        # otherwise fills the row right up to the app's 800px minimum
+        # width, leaving the Browse button no room -- capped instead, same
+        # fix as LoRA Generate's Inspect button.
+        scan_dir_layout = QHBoxLayout()
         self.scan_directory_path = QLineEdit()
+        self.scan_directory_path.setMaximumWidth(500)
         self.scan_directory_path.setPlaceholderText("Select directory to scan...")
         self.scan_directory_path.returnPressed.connect(
             self.handle_scan_directory_return
@@ -199,13 +203,18 @@ class _UIBuilderMixin:
         )
         self.delete_selected_button.clicked.connect(self.delete_selected_images)
 
-        # FlowLayout: 4 buttons (2 with dynamic, longer count-suffixed text)
-        # overflow the app's 800px minimum width in one non-wrapping row.
-        scan_action_layout = FlowLayout()
-        scan_action_layout.addWidget(self.view_new_only_button)
-        scan_action_layout.addWidget(self.view_in_db_only_button)
-        scan_action_layout.addWidget(self.upsert_button)
-        scan_action_layout.addWidget(self.delete_selected_button)
+        # QGridLayout, not QHBoxLayout: 4 buttons (2 with dynamic, longer
+        # count-suffixed text) overflow the app's 800px minimum width in
+        # one non-wrapping row. A 2x2 grid (not FlowLayout) -- a bare
+        # heightForWidth FlowLayout nested this deep intermittently never
+        # settles to its real geometry on first show in this tab, leaving
+        # buttons at Qt's raw top-level default size (640x480) instead of
+        # their laid-out size; a plain grid has no such timing dependency.
+        scan_action_layout = QGridLayout()
+        scan_action_layout.addWidget(self.view_new_only_button, 0, 0)
+        scan_action_layout.addWidget(self.view_in_db_only_button, 0, 1)
+        scan_action_layout.addWidget(self.upsert_button, 1, 0)
+        scan_action_layout.addWidget(self.delete_selected_button, 1, 1)
 
         main_layout.addLayout(scan_action_layout)
 

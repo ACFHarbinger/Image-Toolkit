@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
     QSizePolicy,
     QSpinBox,
     QVBoxLayout,
+    QWidget,
 )
 
 from ....components.tag_chip_widget import FlowLayout
@@ -82,8 +83,13 @@ class _ExtractionPanelUIMixin:
         # -- Row 1: Configuration --
         # FlowLayout, not QHBoxLayout: 4 label+control groups (Output Size,
         # GIF FPS, Engine, Extraction Speed) plus 2 checkboxes overflow the
-        # app's 800px minimum width in a single non-wrapping row.
-        extract_config_layout = FlowLayout()
+        # app's 800px minimum width in a single non-wrapping row. Built with
+        # an explicit parent container (addWidget, not addLayout) -- a bare
+        # FlowLayout() added later via addLayout() can intermittently never
+        # settle to its real geometry, leaving widgets at Qt's raw
+        # top-level default size (640x480) instead of their laid-out size.
+        extract_config_container = QWidget()
+        extract_config_layout = FlowLayout(extract_config_container)
 
         extract_config_layout.addWidget(QLabel("Output Size:"))
         self.combo_extract_size = QComboBox()
@@ -121,13 +127,15 @@ class _ExtractionPanelUIMixin:
         # Decoupled from player speed
         extract_config_layout.addWidget(self.combo_speed)
 
-        extract_main_layout.addLayout(extract_config_layout)
+        extract_main_layout.addWidget(extract_config_container)
 
         # -- Row 2: Actions --
         # FlowLayout: 9 buttons (Snapshot / Set Start+Go / Set End+Go /
         # Extract Range / Extract Video / Extract GIF / Run on GCD / Cancel)
-        # in one row is the same overflow shape as Row 1 above.
-        extract_actions_layout = FlowLayout()
+        # in one row is the same overflow shape as Row 1 above. Parented
+        # container, see Row 1's comment.
+        extract_actions_container = QWidget()
+        extract_actions_layout = FlowLayout(extract_actions_container)
 
         self.btn_snapshot = QPushButton("📸 Snapshot Frame")
         self.btn_snapshot.clicked.connect(self.extract_single_frame)
@@ -220,7 +228,7 @@ class _ExtractionPanelUIMixin:
         extract_actions_layout.addWidget(self.btn_run_on_gcd)
         extract_actions_layout.addWidget(self.btn_cancel_extraction)
 
-        extract_main_layout.addLayout(extract_actions_layout)
+        extract_main_layout.addWidget(extract_actions_container)
 
         # -- Row 3: Cuts --
         extract_main_layout.addLayout(self._build_cuts_row())
