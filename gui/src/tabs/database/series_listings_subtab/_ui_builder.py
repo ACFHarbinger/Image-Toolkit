@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
 )
 
 from gui.src.components import MarqueeScrollArea
+from gui.src.components.tag_chip_widget import FlowLayout
 from gui.src.constants.listings import ENTRY_STATUS, ENTRY_TYPES
 from gui.src.elements.database.common.listings_common import _persist_splitter
 from gui.src.elements.database.display.detail_panel import _DetailPanel
@@ -37,13 +38,15 @@ class _UIBuilderMixin:
         root.setSpacing(8)
 
         # ---- Toolbar ----
-        toolbar = QHBoxLayout()
+        # FlowLayout, not QHBoxLayout: title + search box + several grouped
+        # button pairs + 4 combos overflow the app's 800px minimum width in
+        # one non-wrapping row.
+        toolbar = FlowLayout()
         toolbar.setSpacing(8)
 
         title_lbl = QLabel("🎬 Series Listings")
         title_lbl.setStyleSheet("font-size:18px;font-weight:bold;color:#00bcd4;")
         toolbar.addWidget(title_lbl)
-        toolbar.addStretch()
 
         self.search_box = QLineEdit()
         self.search_box.setPlaceholderText("🔍 Search titles…")
