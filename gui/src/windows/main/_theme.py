@@ -8,13 +8,23 @@ from __future__ import annotations
 import json
 import os
 
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QColor, QFont, QPalette
 from PySide6.QtWidgets import QApplication, QWidget
 
 from ...styles import (
     COMPACT_DENSITY_QSS,
     DARK_ACCENT_COLOR,
+    DARK_BG,
+    DARK_BORDER,
+    DARK_MUTED_TEXT,
+    DARK_SECONDARY_BG,
+    DARK_TEXT,
     LIGHT_ACCENT_COLOR,
+    LIGHT_BG,
+    LIGHT_BORDER,
+    LIGHT_MUTED_TEXT,
+    LIGHT_SECONDARY_BG,
+    LIGHT_TEXT,
     SPACIOUS_DENSITY_QSS,
     BackgroundCanvasController,
     BackgroundConfig,
@@ -23,6 +33,55 @@ from ...styles import (
     load_qss_with_overrides,
     load_user_qss_override,
 )
+
+
+def _build_palette(
+    theme_name: str,
+    accent_color: str,
+    *,
+    bg: str | None = None,
+    surface: str | None = None,
+    text: str | None = None,
+    muted: str | None = None,
+    border: str | None = None,
+) -> QPalette:
+    """Build a QPalette matching the QSS theme colors.
+
+    Frozen (PyInstaller) Qt ships no KDE/GTK platform-theme plugin, so
+    ``QApplication.palette()`` otherwise stays Qt's built-in *light*
+    default even under the dark QSS. Widgets that read the palette
+    directly instead of relying on the stylesheet (e.g. ``OptionalField``)
+    then render with the wrong colors. Setting the palette explicitly here
+    keeps them in sync with the active theme regardless of platform.
+
+    Explicit colors (from a resolved #437 ThemePack) win; otherwise fall
+    back to the built-in dark/light QSS var defaults.
+    """
+    if bg is None:
+        if theme_name == "dark":
+            bg, surface, text, muted, border = DARK_BG, DARK_SECONDARY_BG, DARK_TEXT, DARK_MUTED_TEXT, DARK_BORDER
+        else:
+            bg, surface, text, muted, border = LIGHT_BG, LIGHT_SECONDARY_BG, LIGHT_TEXT, LIGHT_MUTED_TEXT, LIGHT_BORDER
+
+    palette = QPalette()
+    for role in (QPalette.ColorRole.Window, QPalette.ColorRole.Button):
+        palette.setColor(role, QColor(bg))
+    for role in (
+        QPalette.ColorRole.WindowText,
+        QPalette.ColorRole.ButtonText,
+        QPalette.ColorRole.Text,
+        QPalette.ColorRole.ToolTipText,
+    ):
+        palette.setColor(role, QColor(text))
+    palette.setColor(QPalette.ColorRole.Base, QColor(surface))
+    palette.setColor(QPalette.ColorRole.AlternateBase, QColor(bg))
+    palette.setColor(QPalette.ColorRole.ToolTipBase, QColor(surface))
+    palette.setColor(QPalette.ColorRole.Mid, QColor(border))
+    palette.setColor(QPalette.ColorRole.Highlight, QColor(accent_color))
+    palette.setColor(QPalette.ColorRole.HighlightedText, QColor("white"))
+    for role in (QPalette.ColorRole.WindowText, QPalette.ColorRole.ButtonText, QPalette.ColorRole.Text):
+        palette.setColor(QPalette.ColorGroup.Disabled, role, QColor(muted))
+    return palette
 
 
 class _ThemeMixin:
@@ -89,9 +148,9 @@ class _ThemeMixin:
         effective_scale = font_scale + app_zoom
         if effective_scale != 100:
             scaled_pt = max(7, int(10 * effective_scale / 100))
-            QApplication.instance().setFont(QFont("Segoe UI", scaled_pt))  # pyrefly: ignore [missing-attribute]
+            QApplication.instance().setFont(QFont("Inter", scaled_pt))  # pyrefly: ignore [missing-attribute]
         else:
-            QApplication.instance().setFont(QFont("Segoe UI", 10))  # pyrefly: ignore [missing-attribute]
+            QApplication.instance().setFont(QFont("Inter", 10))  # pyrefly: ignore [missing-attribute]
 
         # §3.16 — append user custom QSS override if present
         qss += load_user_qss_override()
@@ -112,7 +171,10 @@ class _ThemeMixin:
         if corner_radius is not None and isinstance(corner_radius, (int, float)):
             qss += f"\nQPushButton, QComboBox, QLineEdit, QSpinBox {{ border-radius: {int(corner_radius)}px; }}\n"
 
-        self.setStyleSheet(qss) if "PYTEST_CURRENT_TEST" in os.environ else QApplication.instance().setStyleSheet(qss)  # pyrefly: ignore [missing-attribute]
+        app = QApplication.instance()
+        if app is not None:
+            app.setPalette(_build_palette(theme_name, accent_color))
+        self.setStyleSheet(qss) if "PYTEST_CURRENT_TEST" in os.environ else app.setStyleSheet(qss)  # pyrefly: ignore [missing-attribute]
 
         header_widget = self.findChild(QWidget, "header_widget")
         if header_widget:
@@ -171,9 +233,9 @@ class _ThemeMixin:
         scale = getattr(pack.typography, "scale_percent", 100)
         if scale != 100:
             scaled_pt = max(7, int(10 * scale / 100))
-            QApplication.instance().setFont(QFont("Segoe UI", scaled_pt))
+            QApplication.instance().setFont(QFont("Inter", scaled_pt))
         else:
-            QApplication.instance().setFont(QFont("Segoe UI", 10))
+            QApplication.instance().setFont(QFont("Inter", 10))
 
         # Raw QSS (expert escape hatch) then the user override hook.
         raw = getattr(pack, "raw_qss", None)
@@ -191,13 +253,26 @@ class _ThemeMixin:
         if bg_config.glassmorphism_enabled and (bg_config.image_path or effective_bg):
             qss += generate_glassmorphism_qss(bg_config, is_dark=(pack.base == "dark"))
 
-        self.setStyleSheet(qss) if "PYTEST_CURRENT_TEST" in os.environ else QApplication.instance().setStyleSheet(qss)
+        resolved = resolve_colors(pack)
+        app = QApplication.instance()
+        if app is not None:
+            app.setPalette(
+                _build_palette(
+                    pack.base,
+                    resolved.accent,
+                    bg=resolved.window_bg,
+                    surface=resolved.surface,
+                    text=resolved.text,
+                    muted=resolved.muted_text,
+                    border=resolved.border,
+                )
+            )
+        self.setStyleSheet(qss) if "PYTEST_CURRENT_TEST" in os.environ else app.setStyleSheet(qss)
 
         # Header restyle mirrors set_application_theme's behavior for the
         # resolved accent/window colors.
         header_widget = self.findChild(QWidget, "header_widget")
         if header_widget:
-            resolved = resolve_colors(pack)
             accent = resolved.accent
             window_bg = resolved.window_bg
             if bg_config.glassmorphism_enabled and (bg_config.image_path or effective_bg):
