@@ -10,9 +10,10 @@ dialogs pointing to INSTALL.md rather than raw stack traces.
 
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
-from typing import Dict, NamedTuple, Optional
+from typing import Any, Dict, NamedTuple, Optional
 
 from backend.src.constants import ROOT_DIR
 from PySide6.QtWidgets import QMessageBox, QWidget
@@ -27,8 +28,33 @@ class PostgresStatus(NamedTuple):
     message: str
 
 
-def load_postgres_config() -> Dict[str, str]:
-    """Load connection parameters from environment or env/vars.env."""
+def load_postgres_config(vault_manager: Any = None) -> Dict[str, str]:
+    """Load connection parameters from user settings or developer fallbacks."""
+    return _load_postgres_config(vault_manager)
+
+
+def _vault_postgres_config(vault_manager: Any) -> Dict[str, str]:
+    if vault_manager is None:
+        return {}
+    try:
+        config = vault_manager.load_account_credentials().get("postgres_connection", {})
+    except (AttributeError, OSError, RuntimeError, ValueError):
+        return {}
+    if not isinstance(config, dict):
+        return {}
+    password = config.get("password")
+    return {"DB_PASSWORD": str(password)} if password else {}
+
+
+def _load_postgres_config(vault_manager: Any = None) -> Dict[str, str]:
+    """Load user settings before the development environment fallbacks."""
+    from gui.src.windows.settings.app_settings import AppSettings
+
+    configured = AppSettings.postgres_connection()
+    if configured:
+        configured.update(_vault_postgres_config(vault_manager))
+        return configured
+
     env: Dict[str, str] = {}
     if ENV_FILE.exists():
         try:
@@ -62,7 +88,41 @@ def load_postgres_config() -> Dict[str, str]:
     return env
 
 
-def check_postgres_reachability(timeout: int = 2) -> PostgresStatus:
+def save_postgres_config(
+    vault_manager: Any, config: Dict[str, str], password: Optional[str] = None
+) -> None:
+    """Save connection metadata in QSettings and its password in the vault.
+
+    ``password=None`` preserves the existing vault password; an empty string
+    explicitly clears it.
+    """
+    if vault_manager is None:
+        raise ValueError("Unlock an account before saving PostgreSQL settings.")
+
+    from gui.src.windows.settings.app_settings import AppSettings
+
+    safe_config = {
+        field: str(config.get(field, ""))
+        for field in ("DB_HOST", "DB_PORT", "DB_NAME", "DB_USER")
+    }
+    AppSettings.set_postgres_connection(safe_config)
+
+    credentials = vault_manager.load_account_credentials()
+    vault_config = credentials.get("postgres_connection", {})
+    if not isinstance(vault_config, dict):
+        vault_config = {}
+    if password is not None:
+        if password:
+            vault_config["password"] = password
+        else:
+            vault_config.pop("password", None)
+    credentials["postgres_connection"] = vault_config
+    vault_manager.save_data(json.dumps(credentials))
+
+
+def check_postgres_reachability(
+    timeout: int = 2, vault_manager: Any = None
+) -> PostgresStatus:
     """Test connection to external PostgreSQL and verify pgvector extension.
 
     Runs quickly with a short timeout. Never raises exceptions.
@@ -80,7 +140,7 @@ def check_postgres_reachability(timeout: int = 2) -> PostgresStatus:
                 message="PostgreSQL client driver (psycopg2/psycopg) is not installed.",
             )
 
-    pg = load_postgres_config()
+    pg = _load_postgres_config(vault_manager)
     db_url = pg.get("DATABASE_URL")
 
     try:
@@ -131,9 +191,13 @@ def check_postgres_reachability(timeout: int = 2) -> PostgresStatus:
         )
 
 
-def show_postgres_status_dialog(parent: Optional[QWidget] = None, silent_if_ok: bool = False) -> PostgresStatus:
+def show_postgres_status_dialog(
+    parent: Optional[QWidget] = None,
+    silent_if_ok: bool = False,
+    vault_manager: Any = None,
+) -> PostgresStatus:
     """Check PostgreSQL reachability and present user-friendly guidance dialog."""
-    status = check_postgres_reachability()
+    status = check_postgres_reachability(vault_manager=vault_manager)
 
     if status.reachable and status.has_pgvector:
         if not silent_if_ok:
@@ -162,6 +226,8 @@ def show_postgres_status_dialog(parent: Optional[QWidget] = None, silent_if_ok: 
             "External PostgreSQL is currently unreachable or unconfigured.\n\n"
             "• The application is running normally using local SQLCipher encrypted storage (~/.image-toolkit/library.db).\n"
             "• Vector similarity search and training pipelines require PostgreSQL + pgvector.\n\n"
+            "To configure a connection, enter its host, port, database, user, and password "
+            "in Library Database → Management. The password is encrypted in your account vault.\n\n"
             "To set up PostgreSQL:\n"
             "    just db-setup\n"
             "or refer to docs/INSTALL.md for configuration options.",
@@ -174,5 +240,6 @@ __all__ = [
     "PostgresStatus",
     "check_postgres_reachability",
     "load_postgres_config",
+    "save_postgres_config",
     "show_postgres_status_dialog",
 ]

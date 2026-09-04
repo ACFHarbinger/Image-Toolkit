@@ -302,7 +302,63 @@ class _ConnectionStatsMixin:
         """Interactive reachability and pgvector diagnostic test."""
         from gui.src.helpers.database.postgres_check import show_postgres_status_dialog
 
-        show_postgres_status_dialog(parent=self, silent_if_ok=False)
+        show_postgres_status_dialog(
+            parent=self, silent_if_ok=False, vault_manager=self.vault_manager
+        )
+
+    def _postgres_config_from_fields(self):
+        return {
+            "DB_HOST": self.postgres_host_edit.text().strip(),
+            "DB_PORT": str(self.postgres_port_spin.value()),
+            "DB_NAME": self.postgres_db_edit.text().strip(),
+            "DB_USER": self.postgres_user_edit.text().strip(),
+        }
+
+    def save_postgres_settings(self):
+        """Persist non-secret fields in QSettings and the password in the vault."""
+        from gui.src.helpers.database.postgres_check import save_postgres_config
+
+        if not self.vault_manager or getattr(self.vault_manager, "is_guest", False):
+            QMessageBox.warning(
+                self,
+                "PostgreSQL Settings",
+                "Sign in to an account before saving a PostgreSQL password.",
+            )
+            return
+        config = self._postgres_config_from_fields()
+        if not all(config[field] for field in ("DB_HOST", "DB_NAME", "DB_USER")):
+            QMessageBox.warning(
+                self, "PostgreSQL Settings", "Host, database, and user are required."
+            )
+            return
+        try:
+            password = self.postgres_password_edit.text() or None
+            save_postgres_config(self.vault_manager, config, password)
+            self.postgres_password_edit.clear()
+            QMessageBox.information(
+                self,
+                "PostgreSQL Settings",
+                "Connection settings saved. The password is encrypted in your vault.",
+            )
+        except (OSError, RuntimeError, ValueError) as exc:
+            QMessageBox.critical(self, "PostgreSQL Settings", str(exc))
+
+    def clear_postgres_password(self):
+        """Remove the saved database password without exposing its value."""
+        from gui.src.helpers.database.postgres_check import save_postgres_config
+
+        if not self.vault_manager or getattr(self.vault_manager, "is_guest", False):
+            return
+        try:
+            save_postgres_config(
+                self.vault_manager, self._postgres_config_from_fields(), password=""
+            )
+            self.postgres_password_edit.clear()
+            QMessageBox.information(
+                self, "PostgreSQL Settings", "Saved PostgreSQL password cleared."
+            )
+        except (OSError, RuntimeError, ValueError) as exc:
+            QMessageBox.critical(self, "PostgreSQL Settings", str(exc))
 
 
 __all__ = ["_ConnectionStatsMixin"]
