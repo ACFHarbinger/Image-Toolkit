@@ -27,7 +27,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QCheckBox,
     QFileDialog,
-    QHBoxLayout,
+    QGridLayout,
     QLabel,
     QMessageBox,
     QPushButton,
@@ -53,32 +53,32 @@ class MangaPuppeteeringTab(QWidget):
     def _build_ui(self) -> None:
         layout = QVBoxLayout(self)
 
-        toolbar = QHBoxLayout()
+        toolbar = QGridLayout()
 
         btn_load = QPushButton("Load Image…")
         btn_load.clicked.connect(self._browse_image)
-        toolbar.addWidget(btn_load)
+        toolbar.addWidget(btn_load, 0, 0)
 
         self.chk_paint_mask = QCheckBox("Paint Mask")
         self.chk_paint_mask.setToolTip(
             "Paint the region to mesh. Uncheck to switch to dragging mesh vertices."
         )
         self.chk_paint_mask.toggled.connect(self._on_paint_mode_toggled)
-        toolbar.addWidget(self.chk_paint_mask)
+        toolbar.addWidget(self.chk_paint_mask, 0, 1)
 
-        toolbar.addWidget(QLabel("Mask Pen Width:"))
+        toolbar.addWidget(QLabel("Mask Pen Width:"), 0, 2)
         self.pen_width_slider = QSlider(Qt.Orientation.Horizontal)
         self.pen_width_slider.setRange(4, 100)
         self.pen_width_slider.setValue(24)
         self.pen_width_slider.setFixedWidth(120)
         self.pen_width_slider.valueChanged.connect(self._on_pen_width_changed)
-        toolbar.addWidget(self.pen_width_slider)
+        toolbar.addWidget(self.pen_width_slider, 0, 3)
 
         btn_clear_mask = QPushButton("Clear Mask")
         btn_clear_mask.clicked.connect(self._on_clear_mask)
-        toolbar.addWidget(btn_clear_mask)
+        toolbar.addWidget(btn_clear_mask, 1, 0)
 
-        toolbar.addWidget(QLabel("Grid Step:"))
+        toolbar.addWidget(QLabel("Grid Step:"), 1, 1)
         self.grid_step_spin = QSpinBox()
         self.grid_step_spin.setRange(4, 64)
         self.grid_step_spin.setValue(16)
@@ -87,17 +87,15 @@ class MangaPuppeteeringTab(QWidget):
             "(rigging.arap.generate_mesh). "
             "Smaller = finer mesh, more triangles to solve for."
         )
-        toolbar.addWidget(self.grid_step_spin)
+        toolbar.addWidget(self.grid_step_spin, 1, 2)
 
         self.btn_generate_mesh = QPushButton("▶ Generate Mesh")
         self.btn_generate_mesh.clicked.connect(self._on_generate_mesh)
-        toolbar.addWidget(self.btn_generate_mesh)
+        toolbar.addWidget(self.btn_generate_mesh, 1, 3)
 
         self.btn_reset_pose = QPushButton("↺ Reset Pose")
         self.btn_reset_pose.clicked.connect(self._on_reset_pose)
-        toolbar.addWidget(self.btn_reset_pose)
-
-        toolbar.addStretch(1)
+        toolbar.addWidget(self.btn_reset_pose, 1, 4)
         layout.addLayout(toolbar)
 
         self.editor = MeshOverlayEditor()

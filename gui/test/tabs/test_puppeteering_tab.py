@@ -4,6 +4,7 @@ import pytest
 from csg_gui.tabs.puppeteering_tab import MangaPuppeteeringTab
 from PySide6.QtCore import QPointF
 from PySide6.QtGui import QColor, QImage
+from PySide6.QtWidgets import QScrollArea
 
 pytestmark = pytest.mark.gui
 
@@ -25,6 +26,17 @@ def _tab_with_mask(size=150):
 
 
 class TestMangaPuppeteeringTab:
+    def test_toolbar_fits_the_host_minimum_width(self, q_app):
+        host = QScrollArea()
+        host.setWidgetResizable(True)
+        tab = MangaPuppeteeringTab()
+        host.setWidget(tab)
+        host.resize(800, 700)
+        host.show()
+        q_app.processEvents()
+
+        assert host.horizontalScrollBar().maximum() == 0
+
     def test_constructs_without_image(self, q_app):
         tab = MangaPuppeteeringTab()
         assert tab.editor.has_image() is False
