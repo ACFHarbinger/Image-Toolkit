@@ -1,4 +1,16 @@
+# S505 — 2026-09-05 (Antigravity: §2.22 Tag Chip UI and Compound Tag Search)
+
+- `gui/src/utils/tag_search_parser.py`: Created `CompoundTagQueryParser` and boolean evaluator supporting binary operators (`AND`/`&&`, `OR`/`||`), unary negation (`NOT`/`!`/`-tag`), grouping `( ... )`, quoted terms (`"blue eyes"`), and implicit space-separated conjunctions (`solo 1girl -chibi`).
+- `gui/src/utils/__init__.py`: Exported `CompoundTagQueryParser`, `evaluate_tag_query`, `extract_referenced_tags`, `parse_tag_query`, and `validate_tag_query`.
+- `gui/src/components/tag_chip_widget.py`: Added `matches_query(query: str)` to `TagChipGroup` and `TagChipEditor`, and exposed `tags()` accessor on `TagChipEditor`.
+- `gui/test/core/test_tag_search_parser.py`: Added 10 unit tests verifying AST parsing, boolean evaluation, operator precedence, quoted phrases, and syntax error validation (10/10 passed).
+- `gui/test/components/test_tag_chip_widget.py`: Added unit tests verifying `matches_query` on `TagChipGroup` and `TagChipEditor` (3/3 passed).
+- `docs/moon/roadmaps/gui_ux.md`: Marked §2.22 as fully shipped.
+
+---
+
 # S504 — 2026-09-05 (Antigravity: §2.14 Thumbnail Metadata Overlay & §2.24 Hover Highlights)
+
 
 - `gui/src/components/virtual_gallery/virtual_gallery_model.py`: Implemented rich multiline metadata tooltip formatting under `Qt.ItemDataRole.ToolTipRole` displaying filename, dimensions, format, star rating, content rating, and tag counts.
 - `gui/src/components/virtual_gallery/delegate.py`: Added mouse hover highlight rendering (`QStyle.StateFlag.State_MouseOver`) with translucent card glow.
