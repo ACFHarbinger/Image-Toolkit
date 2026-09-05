@@ -46,6 +46,9 @@ jobs:
         env:
           PYTHONPATH: .
 
+      - name: Run gui init-boundary checks (issue #530 / D9)
+        run: uv run python backend/validation/check_init_boundaries.py
+
       - name: mypy — strict modules (§5.5A / A.10)
         run: >
           uv run mypy

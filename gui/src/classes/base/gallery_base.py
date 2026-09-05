@@ -27,7 +27,6 @@ from typing import Dict, List, Optional
 
 from PySide6.QtCore import QPoint, QRect, Qt, QThreadPool, QTimer
 from PySide6.QtWidgets import (
-    QApplication,
     QComboBox,
     QFrame,
     QGridLayout,
@@ -38,6 +37,8 @@ from PySide6.QtWidgets import (
     QSlider,
     QWidget,
 )
+
+from gui.src.thumbnails import order_visible_first
 
 from ..meta.meta_abstract_class_gallery import MetaAbstractClassGallery
 
@@ -217,10 +218,11 @@ class AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery):
         """Return the MRU directory list for this tab class."""
         main_win = self.window()
         if not main_win:
-            for widget in QApplication.topLevelWidgets():
-                if hasattr(widget, "cached_creds"):
-                    main_win = widget
-                    break
+            from gui.src.windows.window_manager import WindowManager
+
+            main_win = WindowManager.instance().main_window()
+            if main_win is None:
+                main_win = WindowManager.instance().find(lambda w: hasattr(w, "cached_creds"))
         if main_win and hasattr(main_win, "cached_creds"):
             prefs = main_win.cached_creds.get("preferences", {})
             if not prefs.get("restore_last_dir", True):
@@ -238,10 +240,11 @@ class AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery):
         if not main_win:
             main_win = self.window()
         if not main_win:
-            for widget in QApplication.topLevelWidgets():
-                if hasattr(widget, "cached_creds"):
-                    main_win = widget
-                    break
+            from gui.src.windows.window_manager import WindowManager
+
+            main_win = WindowManager.instance().main_window()
+            if main_win is None:
+                main_win = WindowManager.instance().find(lambda w: hasattr(w, "cached_creds"))
         if main_win and hasattr(main_win, "cached_creds"):
             prefs = main_win.cached_creds.get("preferences", {})
             if not prefs.get("restore_last_dir", True):
@@ -253,10 +256,11 @@ class AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery):
         if not main_win:
             main_win = self.window()
         if not main_win:
-            for widget in QApplication.topLevelWidgets():
-                if hasattr(widget, "cached_creds"):
-                    main_win = widget
-                    break
+            from gui.src.windows.window_manager import WindowManager
+
+            main_win = WindowManager.instance().main_window()
+            if main_win is None:
+                main_win = WindowManager.instance().find(lambda w: hasattr(w, "cached_creds"))
         if main_win and hasattr(main_win, "cached_creds"):
             prefs = main_win.cached_creds.get("preferences", {})
             default_dir = prefs.get("default_open_dir", "").strip()
@@ -527,7 +531,9 @@ class AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery):
         the batch loaders (``common_start_chunked_load``) process their
         input list sequentially, so placing visible paths at the front
         ensures the user sees thumbnails populate top-to-bottom while
-        offscreen paths load later.
+        offscreen paths load later. Ordering itself is the shared
+        ``order_visible_first`` helper (#526); widget-to-viewport mapping
+        stays gallery-local.
         """
         if not paths or not scroll_area:
             return paths
@@ -536,15 +542,12 @@ class AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery):
             return paths
         visible_rect = viewport.rect()
 
-        visible_first: list = []
-        hidden_rest: list = []
+        visible = []
         for path in paths:
             card = path_to_widget.get(path)
             if card is not None and self.common_is_visible(card, viewport, visible_rect):
-                visible_first.append(path)
-            else:
-                hidden_rest.append(path)
-        return visible_first + hidden_rest
+                visible.append(path)
+        return order_visible_first(paths, visible=visible)
 
     # =========================================================================
     # Chunked sequential load scheduling (progressive gallery fill)

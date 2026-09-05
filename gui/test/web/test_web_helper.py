@@ -23,9 +23,9 @@ class TestWebRequestsWorker:
 
             worker = WebRequestsWorker({"url": "http://test.com"})
 
-            # Setup signal emission from the logic mock
-            # The worker connects logic signals to its own signals.
-            # We can verify that connection or trigger them.
+            # Setup event flow from the logic mock
+            # The worker bridges logic Observables to its own signals.
+            # We can verify that wiring or trigger it.
 
             status = []
             worker.status.connect(lambda s: status.append(s))
@@ -36,10 +36,10 @@ class TestWebRequestsWorker:
             # When run call logic.run()
             # We can make logic.run side effect emitting signals if we really want to test the connection.
             def side_effect():
-                # Manually emit signals via the mock objects that were connected?
-                # The worker connects: self.logic.on_status.connect(self.status.emit)
-                # So mock_inst.on_status is a MagicMock which has .connect called.
-                # We can't easily emit from a MagicMock signal unless we set it up as a real Signal or use callbacks.
+                # Manually publish via the mock objects that were subscribed?
+                # The worker bridges: self._status_bridge.attach(self.logic.on_status)
+                # so mock_inst.on_status is a MagicMock which has .subscribe called.
+                # We can't easily publish from a MagicMock unless we drive callbacks.
                 pass
 
             mock_inst.run.side_effect = side_effect

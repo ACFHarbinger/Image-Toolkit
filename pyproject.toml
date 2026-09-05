@@ -227,6 +227,28 @@ markers = [
 # ---------------------------------------------------------------------------
 [tool.importlinter]
 root_packages = ["backend", "gui"]
+# Required: the PySide contract below forbids an external package, which
+# import-linter only resolves when external packages join the graph.
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+# No PySide under backend/src/ outside the app.py launcher (D8/D9, issue
+# #530). Enforces what #529 built: backend is pure Python, Qt lives only
+# in gui/ plus the single allowlisted desktop entry point.
+name = "backend.src must not import PySide except via app.py"
+type = "forbidden"
+source_modules = ["backend.src"]
+forbidden_modules = ["PySide6"]
+# grimp records external imports at top-level granularity
+# (backend.src.app -> PySide6), so one entry covers QtCore/QtGui/QtWidgets.
+# The forbidden check is transitive: app.py legitimately pulls the GUI
+# (it is the allowlisted desktop launcher — see the GUI contract's own
+# app.py exclusion), which pulls Qt. The second entry cuts that one
+# legitimate chain so only illegitimate paths to PySide can break this.
+ignore_imports = [
+    "backend.src.app -> PySide6",
+    "backend.src.app -> gui.src.windows",
+]
 
 [[tool.importlinter.contracts]]
 # The production backend packages must never depend on the GUI.

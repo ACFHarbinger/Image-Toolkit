@@ -3,23 +3,22 @@ import time
 from typing import Dict
 
 import base  # Native extension
-from PySide6.QtCore import QObject, Signal
+
+from backend.src.events import Observable
 
 
-class ImageBoardCrawler(QObject):
+class ImageBoardCrawler:
     """
     Abstract Base Class for Image Board Crawlers.
     Now acts as a wrapper for the C++ implementation.
     """
 
-    # === SIGNALS ===
-    on_status = Signal(str)  # status message
-    on_image_saved = Signal(str)  # saved file path
-
     def __init__(self, config: dict):
-        super().__init__()
         self.config = config
         self._is_running = True
+        # === Events (issue #529: plain Observables, not Qt signals) ===
+        self.on_status: Observable[str] = Observable()  # status message
+        self.on_image_saved: Observable[str] = Observable()  # saved file path
         # §12.7 (issue #70) — per-crawl telemetry. The C++ extension
         # (base.run_board_crawler) makes the actual HTTP requests and only
         # calls back into Python via on_image_saved (one per successful
@@ -42,8 +41,8 @@ class ImageBoardCrawler(QObject):
             "elapsed_sec": None,
             "images_per_sec": None,
         }
-        self.on_image_saved.connect(self._record_image_saved)
-        self.on_status.connect(self._record_status_message)
+        self.on_image_saved.subscribe(self._record_image_saved)
+        self.on_status.subscribe(self._record_status_message)
 
     def _record_image_saved(self, _path: str) -> None:
         self.telemetry["images_saved"] += 1
@@ -61,11 +60,11 @@ class ImageBoardCrawler(QObject):
     def stop(self):
         """Sets the flag to stop the execution loop."""
         self._is_running = False
-        self.on_status.emit("Crawl cancellation pending...")
+        self.on_status.publish("Crawl cancellation pending...")
 
     def on_status_emitted(self, msg: str):
         """Glue method called by C++ to emit on_status signal."""
-        self.on_status.emit(msg)
+        self.on_status.publish(msg)
 
     def get_crawler_backend_name(self) -> str:
         """Returns the backend engine name passed to C++ base.run_board_crawler."""
@@ -100,7 +99,7 @@ class ImageBoardCrawler(QObject):
         """
         crawler_name = self.get_crawler_backend_name()
         selection_mode = self.config.get("selection_mode", "Download All (Default)")
-        self.on_status.emit(f"Crawl starting with selection mode: {selection_mode}")
+        self.on_status.publish(f"Crawl starting with selection mode: {selection_mode}")
 
         # Rating filter normalization (§4.18 / Issue #370)
         config_to_send = dict(self.config)
@@ -121,7 +120,7 @@ class ImageBoardCrawler(QObject):
             return total_downloaded
 
         except Exception as e:
-            self.on_status.emit(f"Critical Error in C++ crawler: {str(e)}")
+            self.on_status.publish(f"Critical Error in C++ crawler: {str(e)}")
             return 0
         finally:
             elapsed = time.perf_counter() - t0

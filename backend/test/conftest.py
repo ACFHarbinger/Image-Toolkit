@@ -569,7 +569,7 @@ def crawler(crawler_config):
     # Instantiate the crawler
     c = ImageCrawler(crawler_config)
 
-    # Mock the signals (since patching class-level Signal doesn't affect existing class)
+    # Mock the event channels (instance-attribute Observables, not Qt signals)
     c.on_status = MagicMock()
     c.on_image_saved = MagicMock()
 

@@ -25,7 +25,6 @@ from abc import ABC, abstractmethod
 from typing import List, Optional, Tuple
 
 import base  # Native C++ extension  # noqa: E402
-from PySide6.QtCore import QObject, Signal
 
 from backend.src.constants import (
     ENGINE_BING,
@@ -37,6 +36,7 @@ from backend.src.constants import (
     ENGINE_YANDEX,
     SUPPORTED_ENGINES,
 )
+from backend.src.events import Observable
 from backend.src.web.models import ReverseSearchResult
 
 log = logging.getLogger(__name__)
@@ -157,8 +157,8 @@ class GoogleSearchStrategy(ReverseSearchEngine):
         }
 
         try:
-            # _ProxyQObject is used so C++ can call on_status_emitted without
-            # the strategy itself needing to inherit from QObject.
+            # _StatusProxy is used so C++ can call on_status_emitted without
+            # the strategy itself needing Qt (plain duck-type, no QObject).
             proxy = _StatusProxy(self._emit_status)
             results_json: str = base.run_reverse_image_search(json.dumps(config), proxy)
             raw: List[dict] = json.loads(results_json)
@@ -308,28 +308,27 @@ class LocalCBIRStrategy(ReverseSearchEngine):
 
 # ── Manager ──────────────────────────────────────────────────────────────────
 
-class ReverseImageSearchManager(QObject):
+class ReverseImageSearchManager:
     """Selects and runs the appropriate :class:`ReverseSearchEngine` strategy.
 
     This is the single entry-point used by GUI workers; they never instantiate
     strategy objects directly.
 
-    Signals:
-        on_status (str): Emitted for status / progress updates.
+    Events:
+        on_status (str): Published for status / progress updates.
 
     Args:
         headless: Passed to :class:`GoogleSearchStrategy`.
         browser: Passed to :class:`GoogleSearchStrategy`.
     """
 
-    on_status = Signal(str)
-
     def __init__(
         self,
         headless: bool = False,
         browser: str = "brave",
     ) -> None:
-        super().__init__()
+        # === Events (issue #529: plain Observables, not Qt signals) ===
+        self.on_status: Observable[str] = Observable()
         self._headless = headless
         self._browser = browser
         self._active_strategy: Optional[ReverseSearchEngine] = None
@@ -338,7 +337,7 @@ class ReverseImageSearchManager(QObject):
         """Delegate a stop request to the currently active strategy."""
         if self._active_strategy:
             self._active_strategy.stop()
-        self.on_status.emit("Cancellation pending…")
+        self.on_status.publish("Cancellation pending…")
 
     def perform_reverse_search(
         self,
@@ -371,7 +370,7 @@ class ReverseImageSearchManager(QObject):
 
         search_image_path = resolve_search_image(image_path, roi)
         if search_image_path != image_path:
-            self.on_status.emit("Using cropped region for search…")
+            self.on_status.publish("Using cropped region for search…")
 
         strategy = self._build_strategy(engine_type)
         self._active_strategy = strategy
@@ -389,7 +388,7 @@ class ReverseImageSearchManager(QObject):
         return [r.to_dict() for r in results]
 
     def _build_strategy(self, engine_type: str) -> ReverseSearchEngine:
-        cb = self.on_status.emit
+        cb = self.on_status.publish
         if engine_type == ENGINE_GOOGLE:
             return GoogleSearchStrategy(
                 headless=self._headless,
@@ -422,12 +421,10 @@ class ReverseImageSearchManager(QObject):
 
 # ── Backward-compatibility alias ─────────────────────────────────────────────
 
-class ReverseImageSearchCrawler(QObject):
+class ReverseImageSearchCrawler:
     """Retained for backward compatibility.  New code should use
     :class:`ReverseImageSearchManager` with ``engine_type="google"``.
     """
-
-    on_status = Signal(str)
 
     def __init__(
         self,
@@ -436,15 +433,16 @@ class ReverseImageSearchCrawler(QObject):
         screenshot_dir=None,
         browser: str = "brave",
     ) -> None:
-        super().__init__()
+        # === Events (issue #529: plain Observables, not Qt signals) ===
+        self.on_status: Observable[str] = Observable()
         self._manager = ReverseImageSearchManager(headless=headless, browser=browser)
-        self._manager.on_status.connect(self.on_status)
+        self._manager.on_status.subscribe(self.on_status.publish)
 
     def stop(self) -> None:
         self._manager.stop()
 
     def on_status_emitted(self, msg: str) -> None:
-        self.on_status.emit(msg)
+        self.on_status.publish(msg)
 
     def perform_reverse_search(
         self,
