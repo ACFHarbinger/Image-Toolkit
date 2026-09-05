@@ -124,7 +124,7 @@ flowchart LR
         S232["§2.32 Layout Profiles ✅"]:::augment:::active
         S234["§2.34 Custom Theme Engine ✅p"]:::feature:::active
         S235["§2.35 Background Canvas & Glass ✅p"]:::feature:::active
-        S237["§2.37 Anime Creative Suite Presets"]:::feature:::planned
+        S237["§2.37 Anime Creative Suite Presets ✅"]:::feature:::done
         S230 --- S231
         S234 --> S235
         S234 --> S237
@@ -1548,7 +1548,13 @@ date.
 
 ---
 
-## 2.37 Anime Creative Suite Visual System & Presets
+## 2.37 Anime Creative Suite Visual System & Presets ✅ (2026-09-04) {: #237-anime-creative-suite-visual-system--presets }
+
+**Status:** Implemented. `ThemeStudioPanel` offers the curated preset
+library with transactional preview; `DANBOORU_TAG_COLORS` provides the
+shared tag taxonomy palette; and `BilingualHeader` supplies the optional
+English/Japanese micro-typography treatment. See the S487 changelog entry
+and the themed-component tests for coverage.
 
 **Ergonomic pain point:**
 The default dark theme uses legacy Qt gradients and generic dark gray tones that lack aesthetic cohesion for an image toolkit centered on anime illustrations, manga editing, and generative vision models. Professional creative software (Clip Studio Paint, DaVinci Resolve, Adobe Lightroom) utilizes deep neutral studio slates that preserve color accuracy while offering high-contrast, customizable accents.
