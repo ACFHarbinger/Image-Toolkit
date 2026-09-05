@@ -193,6 +193,7 @@ class _SessionRecoveryMixin:
     def _save_session_recovery(self) -> None:  # noqa: C901
         """Saves current active tab and tab configurations for session recovery."""
         if getattr(self, "_using_runtime_shell", False):
+            self._save_runtime_shell_session()
             return
         if not self.vault_manager or getattr(self.vault_manager, "is_guest", False) is True:
             return
