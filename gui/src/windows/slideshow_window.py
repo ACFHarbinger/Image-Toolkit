@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
 
 from ..components import QueueItemView
 from ..utils.cache.lru_image_cache import LRUImageCache
+from .window_manager import register_window
 
 
 class SlideshowQueueWindow(QWidget):
@@ -38,6 +39,7 @@ class SlideshowQueueWindow(QWidget):
         parent=None,
     ):
         super().__init__(parent)
+        register_window(self)
         self.monitor_name = monitor_name
         self.monitor_id = monitor_id
         self.pixmap_cache = pixmap_cache if pixmap_cache is not None else {}

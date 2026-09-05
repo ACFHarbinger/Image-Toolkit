@@ -576,7 +576,7 @@ GitHub milestone: [**Architecture Deep-Dive (2026 Q3)**](https://github.com/ACFH
 | [#525](https://github.com/ACFHarbinger/Image-Toolkit/issues/525) | 1.1 (epic) | `PreferenceStore` | Gemini/Antigravity | 🟢 Cross-review findings fixed (`9141d707`) — merged to `integration/phase-1` |
 | [#526](https://github.com/ACFHarbinger/Image-Toolkit/issues/526) | 1.2 (epic) | `ThumbnailScheduler` interface | Grok | 🟢 Cross-review findings fixed (`89a12c12`) — merged to `integration/phase-1` |
 | [#527](https://github.com/ACFHarbinger/Image-Toolkit/issues/527) | 1.3 (epic) | `ModuleDescriptor`+`ModuleHost` pilot (Log Panel) | Gemini/Antigravity | 🟢 Cross-review findings fixed (`9141d707`) — merged to `integration/phase-1` |
-| [#528](https://github.com/ACFHarbinger/Image-Toolkit/issues/528) | 1.4 (epic) | `WindowManager` | Cursor | 🟡 Reviewed clean (`3ac1ea06`), needs rebase past #525 before merge |
+| [#528](https://github.com/ACFHarbinger/Image-Toolkit/issues/528) | 1.4 (epic) | `WindowManager` | Cursor | 🟢 Reviewed clean (`3ac1ea06`) — merged to `integration/phase-1` |
 | [#529](https://github.com/ACFHarbinger/Image-Toolkit/issues/529) | 1.5 (epic) | Backend Qt-decoupling (`Observable`) | Meta's Muse / DeepSeek | 🟢 Cross-review finding fixed (`4e753466`) — merged to `integration/phase-1` |
 | [#530](https://github.com/ACFHarbinger/Image-Toolkit/issues/530) | 1.6 (epic) | CI import-boundary guardrails | Meta's Muse / DeepSeek | 🟢 No defect found — merged to `integration/phase-1` |
 | [#531](https://github.com/ACFHarbinger/Image-Toolkit/issues/531) | 2 (tracking) | Consolidation | — | Open |

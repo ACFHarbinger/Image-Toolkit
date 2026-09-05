@@ -27,6 +27,7 @@ from PySide6.QtWidgets import (
 
 from ..utils.manager.shortcut_manager import get_registry
 from .main import show_main_status
+from .window_manager import register_window
 
 
 class ImagePreviewWindow(QDialog):
@@ -77,6 +78,7 @@ class ImagePreviewWindow(QDialog):
             | Qt.WindowType.WindowMaximizeButtonHint
         )
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        register_window(self)
 
         # Zoom State
         self.current_zoom_factor: float = 1.0

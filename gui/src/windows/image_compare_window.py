@@ -36,6 +36,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from .window_manager import register_window
+
 
 class SynchronizedImagePane(QWidget):
     """Single image pane with zoom, pan, and coordinate synchronization signals."""
@@ -225,6 +227,7 @@ class ImageCompareWindow(QDialog):
             | Qt.WindowType.WindowMinMaxButtonsHint
             | Qt.WindowType.WindowCloseButtonHint
         )
+        register_window(self)
 
         self._build_ui()
         QTimer.singleShot(50, self.fit_to_window)
