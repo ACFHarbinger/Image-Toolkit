@@ -86,6 +86,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
+- Close-to-tray is now a device-owned QSettings preference (#523). Startup
+  and Settings no longer read legacy vault values; saves persist it for guest
+  sessions without serializing it into the vault. Regression coverage verifies
+  stale vault values cannot override the device setting.
 - Gallery thumbnails (`VirtualGalleryView`/`VirtualGalleryDelegate`) no longer render cropped on KDE Breeze/Kvantum styles: a non-square thumbnail was cut in half by the native style's own item-view icon painting, not by this codebase's aspect-preserving scaling. `VirtualGalleryDelegate.paint()` now paints the thumbnail itself via `QIcon.paint()` (style-independent) instead of delegating it to the active style. See `docs/TROUBLESHOOTING.md`.
 - `FlowLayout` (`gui/src/components/tag_chip_widget.py`) gained `addStretch()` support (a `QSpacerItem` that fills a row's leftover width, right-anchoring subsequent items while still wrapping at narrow widths) and now vertically centers a row's items against its tallest member instead of top-aligning all of them. Restores the Wallpaper tab's Interval/Timer/action-buttons row to its right-anchored grouping, lost when that row migrated from `QHBoxLayout` + `addStretch(1)` to `FlowLayout`. See `docs/TROUBLESHOOTING.md`.
 - Every tutorial image reference (`docs/tutorials/*.md`) was silently rewritten by `docs/hooks.py`'s link rewriter to a `github.com/.../blob/...` URL — an HTML page, not a raw image, so none of them ever rendered in the built docs site. The rewriter's pre-build file registry only covered `*.md` files despite its own comment saying otherwise; broadened to cover every file under `docs/`, so co-located image assets resolve to their local copy instead.

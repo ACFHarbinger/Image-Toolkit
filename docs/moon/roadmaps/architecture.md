@@ -100,6 +100,19 @@ flowchart LR
 
 ---
 
+## Current architecture refactor — Phase 0.3 complete
+
+**One-owner tray preference (#523, 2026-09-05).** Close-to-tray is now a
+device preference owned solely by `AppSettings`/QSettings. Startup and the
+Settings UI ignore legacy vault values; saving writes the device value even in
+guest mode and does not serialize it into vault preferences. This is the
+narrow Phase 0 proof case for the later typed `PreferenceStore` work, not a
+second preferences facade. Regression coverage verifies stale vault values
+cannot override the device setting and guest saves do not reintroduce vault
+ownership.
+
+---
+
 ## How to Use This Document
 
 Each section describes an architectural debt or infrastructure gap, all viable implementation options with trade-offs, and a recommendation. Items tagged **[Quick Win]** take under a day. Items tagged **[Research]** require prototyping.
