@@ -100,6 +100,12 @@ class ModuleCatalog:
     def all_descriptors(self) -> tuple[CatalogDescriptor, ...]:
         return tuple(self._descriptors[module_id] for module_id in self._order)
 
+    def categories(self) -> tuple[ModuleCategory, ...]:
+        return tuple(dict.fromkeys(descriptor.category for descriptor in self.all_descriptors()))
+
+    def by_category(self, category: ModuleCategory) -> tuple[CatalogDescriptor, ...]:
+        return tuple(descriptor for descriptor in self.all_descriptors() if descriptor.category == category)
+
     def search(self, query: str) -> tuple[CatalogDescriptor, ...]:
         needle = query.strip().lower()
         if not needle:

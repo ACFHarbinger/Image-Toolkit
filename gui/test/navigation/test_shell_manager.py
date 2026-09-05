@@ -1,59 +1,67 @@
-"""Tests for NavigationRailWidget, TopSegmentedRibbonWidget, and ShellLayoutManager (§2.36)."""
+"""Tests for NavigationRailWidget, TopSegmentedRibbonWidget, and ShellLayoutManager with ModuleCatalog (§2.36, #513)."""
 
 from __future__ import annotations
 
 import pytest
-from PySide6.QtWidgets import QLabel, QWidget
-
 from gui.src.components.navigation import (
     NavigationRailWidget,
     ShellLayoutManager,
     ShellNavMode,
     TopSegmentedRibbonWidget,
 )
-from gui.src.modules.descriptor import ModuleCategory, ModuleDescriptor
-from gui.src.modules.registry import ModuleRegistry
+from gui.src.modules.catalog import ModuleCatalog, PageDescriptor
+from gui.src.modules.context import ModuleContext, ModuleServices
+from gui.src.modules.descriptor import ModuleCategory
+from gui.src.modules.events import EventHub, NavigateIntent
+from gui.src.modules.runtime import ModuleRuntime, WidgetHandle
+from PySide6.QtWidgets import QLabel, QWidget
 
 pytestmark = pytest.mark.gui
 
 
 @pytest.fixture
-def sample_registry():
-    reg = ModuleRegistry()
-    reg.clear()
-    reg.register(
-        ModuleDescriptor(
-            id="sys.convert",
+def sample_catalog():
+    cat = ModuleCatalog()
+    cat.register(
+        PageDescriptor(
+            module_id="sys.convert",
             title="Convert",
             category=ModuleCategory.SYSTEM,
-            japanese_subtext="変換",
-            view_factory=lambda: QLabel("Convert View"),
+            factory=lambda ctx: WidgetHandle(QLabel("Convert View")),
         )
     )
-    reg.register(
-        ModuleDescriptor(
-            id="sys.merge",
+    cat.register(
+        PageDescriptor(
+            module_id="sys.merge",
             title="Merge",
             category=ModuleCategory.SYSTEM,
-            japanese_subtext="結合",
-            view_factory=lambda: QLabel("Merge View"),
+            factory=lambda ctx: WidgetHandle(QLabel("Merge View")),
         )
     )
-    reg.register(
-        ModuleDescriptor(
-            id="lib.search",
+    cat.register(
+        PageDescriptor(
+            module_id="lib.search",
             title="Search",
             category=ModuleCategory.LIBRARY,
-            japanese_subtext="検索",
-            view_factory=lambda: QLabel("Search View"),
+            factory=lambda ctx: WidgetHandle(QLabel("Search View")),
         )
     )
-    return reg
+    return cat
+
+
+@pytest.fixture
+def sample_context(q_app):
+    return ModuleContext(event_hub=EventHub(), services=ModuleServices())
+
+
+@pytest.fixture
+def sample_runtime(sample_catalog, sample_context):
+    return ModuleRuntime(sample_catalog, sample_context)
 
 
 class TestShellNavigation:
-    def test_navigation_rail_selection(self, q_app, sample_registry):
-        rail = NavigationRailWidget(sample_registry)
+    def test_navigation_rail_selection(self, q_app, sample_catalog):
+        rail = NavigationRailWidget(sample_catalog)
         selected = []
         rail.module_selected.connect(selected.append)
 
@@ -68,8 +76,8 @@ class TestShellNavigation:
         assert rail.active_category == ModuleCategory.SYSTEM
         assert rail.active_module_id == "sys.convert"
 
-    def test_top_segmented_ribbon(self, q_app, sample_registry):
-        ribbon = TopSegmentedRibbonWidget(sample_registry)
+    def test_top_segmented_ribbon(self, q_app, sample_catalog):
+        ribbon = TopSegmentedRibbonWidget(sample_catalog)
         selected = []
         ribbon.module_selected.connect(selected.append)
 
@@ -77,9 +85,9 @@ class TestShellNavigation:
         assert ribbon.active_module_id == "lib.search"
         assert ribbon.active_category == ModuleCategory.LIBRARY
 
-    def test_shell_layout_manager_mode_switching(self, q_app, sample_registry):
+    def test_shell_layout_manager_mode_switching(self, q_app, sample_runtime):
         container = QWidget()
-        manager = ShellLayoutManager(sample_registry, container, default_mode=ShellNavMode.RAIL)
+        manager = ShellLayoutManager(sample_runtime, container, default_mode=ShellNavMode.RAIL)
         container.show()
 
         assert manager.nav_mode == ShellNavMode.RAIL
@@ -92,9 +100,9 @@ class TestShellNavigation:
         assert manager.rail.isHidden()
         assert not manager.ribbon.isHidden()
 
-    def test_shell_lazy_mounting(self, q_app, sample_registry):
+    def test_shell_lazy_mounting(self, q_app, sample_runtime):
         container = QWidget()
-        manager = ShellLayoutManager(sample_registry, container)
+        manager = ShellLayoutManager(sample_runtime, container)
 
         assert manager.stack.count() == 0
         manager.activate_module("sys.convert")
@@ -104,3 +112,14 @@ class TestShellNavigation:
         manager.activate_module("lib.search")
         assert manager.stack.count() == 2
         assert manager.active_module_id == "lib.search"
+
+    def test_navigate_intent_activates_module(self, q_app, sample_runtime):
+        container = QWidget()
+        manager = ShellLayoutManager(sample_runtime, container)
+
+        # Publish NavigateIntent on event hub
+        sample_runtime.context.event_hub.publish(
+            NavigateIntent(origin="test", module_id="lib.search")
+        )
+        assert manager.active_module_id == "lib.search"
+        assert manager.stack.count() == 1

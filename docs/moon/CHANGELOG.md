@@ -1,3 +1,11 @@
+# S488 — 2026-09-05 (Antigravity: #513 Adapt Shell Navigation to ModuleCatalog and ModuleRuntime)
+
+- `gui/src/components/navigation/`: Adapted `NavigationRailWidget`, `TopSegmentedRibbonWidget`, and `ShellLayoutManager` to consume app-scoped `ModuleCatalog` and `ModuleRuntime` with `NavigateIntent` event subscriptions.
+- `gui/src/modules/catalog.py`: Added `categories()` and `by_category(category)` query methods to `ModuleCatalog`.
+- `gui/test/navigation/test_shell_manager.py`: Updated test fixtures and added `test_navigate_intent_activates_module` verifying typed intent handling and lazy mounting. (5/5 passed).
+
+---
+
 # S487 — 2026-09-04 (Antigravity: GUI/UX Roadmap §2.36–§2.40 Anime Creative Suite & Modular Shell)
 
 - `docs/moon/roadmaps/gui_ux.md`: Added roadmap sections §2.36 (Dual Navigation Shell & Modular Module Registry), §2.37 (Anime Creative Suite Visual System & Presets), §2.38 (Universal Collapsible Context Inspector Panel), §2.39 (Rich Telemetry Status Bar), and §2.40 (Advanced Gallery Presentation Modes & Custom Thumbnail Overlays).
