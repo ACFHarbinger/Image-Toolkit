@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import pytest
-from PySide6.QtWidgets import QWidget
-
 from gui.src.components.widgets.segmented_control import SegmentedControl
 from gui.src.components.widgets.telemetry_status_bar import TelemetryStatusBar
 from gui.src.components.widgets.toggle_switch import ToggleSwitch
@@ -55,3 +53,26 @@ class TestCreativeSuiteWidgets:
 
         bar.set_task_count(5)
         assert "5" in bar.task_chip.text()
+
+    def test_telemetry_status_bar_event_hub(self, q_app):
+        from gui.src.modules.events import EventHub, TelemetryUpdatedFact
+
+        hub = EventHub(q_app)
+        bar = TelemetryStatusBar(event_hub=hub)
+
+        hub.publish(
+            TelemetryUpdatedFact(
+                origin="db",
+                db_connected=True,
+                db_latency_ms=8.5,
+                task_count=3,
+                vram_allocated_gb=4.2,
+                vram_total_gb=24.0,
+                status_message="Indexing active",
+            )
+        )
+
+        assert "8ms" in bar.db_chip.text()
+        assert "3" in bar.task_chip.text()
+        assert "4.2/24.0 GB" in bar.gpu_chip.text()
+        assert "Indexing active" in bar._status_label.text()

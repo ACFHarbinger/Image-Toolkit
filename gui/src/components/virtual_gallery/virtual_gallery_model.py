@@ -51,6 +51,11 @@ class VirtualGalleryModel(QAbstractListModel):
     InDbRole = Qt.ItemDataRole.UserRole + 1
     SelectedRole = Qt.ItemDataRole.UserRole + 2
     PreviewRole = Qt.ItemDataRole.UserRole + 3
+    RatingRole = Qt.ItemDataRole.UserRole + 4
+    ResolutionRole = Qt.ItemDataRole.UserRole + 5
+    FormatRole = Qt.ItemDataRole.UserRole + 6
+    StarRatingRole = Qt.ItemDataRole.UserRole + 7
+    TagCountRole = Qt.ItemDataRole.UserRole + 8
 
     def __init__(
         self,
@@ -70,6 +75,11 @@ class VirtualGalleryModel(QAbstractListModel):
         self._in_db: set[str] = set()
         self._selected: set[str] = set()
         self._preview: set[str] = set()
+        self._ratings: dict[str, str] = {}
+        self._resolutions: dict[str, tuple[int, int]] = {}
+        self._formats: dict[str, str] = {}
+        self._star_ratings: dict[str, float] = {}
+        self._tag_counts: dict[str, int] = {}
         self._active_workers: set = set()
         self._generation: int = 0
 
@@ -239,9 +249,43 @@ class VirtualGalleryModel(QAbstractListModel):
                     [role],
                 )
 
+    def set_overlay_metadata(
+        self,
+        path: str,
+        *,
+        rating: Optional[str] = None,
+        resolution: Optional[tuple[int, int]] = None,
+        file_format: Optional[str] = None,
+        star_rating: Optional[float] = None,
+        tag_count: Optional[int] = None,
+    ) -> None:
+        """Set or update custom thumbnail overlay metadata for *path*."""
+        if rating is not None:
+            self._ratings[path] = rating
+        if resolution is not None:
+            self._resolutions[path] = resolution
+        if file_format is not None:
+            self._formats[path] = file_format
+        if star_rating is not None:
+            self._star_ratings[path] = star_rating
+        if tag_count is not None:
+            self._tag_counts[path] = tag_count
+        row = self.row_for_path(path)
+        if row >= 0:
+            self.dataChanged.emit(self.index(row, 0), self.index(row, 0))
+
+    def clear_overlay_metadata(self) -> None:
+        """Clear all stored overlay badges and metrics."""
+        self._ratings.clear()
+        self._resolutions.clear()
+        self._formats.clear()
+        self._star_ratings.clear()
+        self._tag_counts.clear()
+
     def clear(self) -> None:
         self._selected.clear()
         self._preview.clear()
+        self.clear_overlay_metadata()
         self.set_paths([])
 
     def rowCount(self, parent=None) -> int:
@@ -339,6 +383,16 @@ class VirtualGalleryModel(QAbstractListModel):
             return path in self._selected
         if role == self.PreviewRole:
             return path in self._preview
+        if role == self.RatingRole:
+            return self._ratings.get(path)
+        if role == self.ResolutionRole:
+            return self._resolutions.get(path)
+        if role == self.FormatRole:
+            return self._formats.get(path)
+        if role == self.StarRatingRole:
+            return self._star_ratings.get(path)
+        if role == self.TagCountRole:
+            return self._tag_counts.get(path)
         return None
 
     def flags(self, index: QModelIndex) -> Qt.ItemFlag:
