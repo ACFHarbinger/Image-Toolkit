@@ -81,7 +81,9 @@ class MainBackend(QObject):
         self._inference_tab = MetaCLIPInferenceTab()
 
         # Listings tab
-        self._listings_tab = ListingsTab(vault_manager=vault_manager)
+        self._listings_tab = ListingsTab(
+            vault_manager=vault_manager, event_hub=self.module_event_hub
+        )
 
         # Animation tab backends
         self._stitch_tab = StitchTabBackend(self)
