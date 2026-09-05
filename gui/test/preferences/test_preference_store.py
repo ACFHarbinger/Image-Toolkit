@@ -16,6 +16,16 @@ from gui.src.preferences import (
 )
 
 
+@pytest.fixture
+def isolated_store():
+    """Create an isolated store backed entirely by memory adapters for tests."""
+    store = PreferenceStore(lazy_adapters=True)
+    store.register_adapter(PreferenceScope.DEVICE, MemoryPreferenceAdapter())
+    store.register_adapter(PreferenceScope.ACCOUNT, MemoryPreferenceAdapter())
+    store.register_adapter(PreferenceScope.SESSION, MemoryPreferenceAdapter())
+    return store
+
+
 class TestPreferenceDefinitions:
     """Verify typed preference schema and coercion rules."""
 
@@ -244,15 +254,6 @@ class TestPreferenceStoreVaultWiring:
 
 class TestPreferenceStore:
     """Verify canonical PreferenceStore routing and single-source semantics."""
-
-    @pytest.fixture
-    def isolated_store(self):
-        """Create an isolated store backed entirely by memory adapters for tests."""
-        store = PreferenceStore(lazy_adapters=True)
-        store.register_adapter(PreferenceScope.DEVICE, MemoryPreferenceAdapter())
-        store.register_adapter(PreferenceScope.ACCOUNT, MemoryPreferenceAdapter())
-        store.register_adapter(PreferenceScope.SESSION, MemoryPreferenceAdapter())
-        return store
 
     def test_scope_routing_for_known_definitions(self, isolated_store):
         # DEVICE scope key
