@@ -44,6 +44,20 @@ def test_apply_startup_preferences_falls_back_to_appsettings_minimize_to_tray(q_
     )
 
 
+def test_apply_tray_preference_does_not_require_legacy_tab_preferences(q_app):
+    """The experimental shell does not run legacy tab preference setup."""
+    host = _make_startup_prefs_host()
+    host.cached_creds = {"preferences": {}}
+
+    with patch(
+        "gui.src.windows.settings.app_settings.AppSettings.minimize_to_tray",
+        return_value=True,
+    ):
+        host._apply_tray_preference(host.cached_creds["preferences"])
+
+    assert host._minimize_to_tray is True
+
+
 def test_apply_startup_preferences_respects_vault_value_when_appsettings_false(q_app):
     host = _make_startup_prefs_host()
     host.cached_creds = {"preferences": {"minimize_to_tray": True}}

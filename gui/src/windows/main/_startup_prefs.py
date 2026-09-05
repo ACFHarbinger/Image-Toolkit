@@ -262,6 +262,11 @@ class _StartupPrefsMixin:
             except Exception:
                 pass
 
+        self._apply_tray_preference(prefs)
+        self._apply_logging_preferences(prefs)
+
+    def _apply_tray_preference(self, prefs: dict) -> None:
+        """Apply the account/QSettings tray preference without constructing tabs."""
         # §2.12C — minimize to tray / background mode preference. Falls back
         # to the separate QSettings-backed store (AppSettings.minimize_to_tray())
         # the same way settings_window.py's checkbox-init already does --
@@ -289,6 +294,7 @@ class _StartupPrefsMixin:
         elif tray_icon is not None:
             tray_icon.hide()
 
+    def _apply_logging_preferences(self, prefs: dict) -> None:
         # §2.16F — logging preferences (GUI/UX §2.9F, issue #48). Local import:
         # backend.src.app imports from gui.src.windows.main, so a module-level
         # import here would be circular.
