@@ -13,10 +13,26 @@ from typing import Any
 from backend.src.constants import LOCAL_SOURCE_PATH
 
 from ...utils.cache.lru_image_cache import LRUImageCache
+from ..settings.app_settings import AppSettings
 
 
 class _StartupPrefsMixin:
     """Applies vault-stored preferences (thumbnail size, caches, dirs, ...) to every tab."""
+
+    def _apply_tray_preference(self) -> None:
+        """Apply the device-owned close-to-tray preference."""
+        minimize_to_tray = AppSettings.minimize_to_tray()
+        if hasattr(self, "set_minimize_to_tray"):
+            self.set_minimize_to_tray(minimize_to_tray)
+        tray_icon = getattr(self, "_tray_icon", None)
+        if minimize_to_tray:
+            # Creating QSystemTrayIcon before the first shown MainWindow is
+            # unstable on Plasma/Wayland. Defer construction to closeEvent;
+            # only revive an icon that was already created at runtime.
+            if tray_icon is not None and not tray_icon.isVisible():
+                tray_icon.show()
+        elif tray_icon is not None:
+            tray_icon.hide()
 
     def _sanitize_config_if_needed(self, config_data: dict) -> dict:
         """Removes local directory/file path fields from tab configurations if restore_last_dir is False."""
@@ -94,6 +110,7 @@ class _StartupPrefsMixin:
 
     def _apply_startup_preferences(self) -> None:  # noqa: C901
         """Apply vault-stored preferences to gallery tabs at startup (GUI/UX §2.16 A/B/C/E)."""
+        self._apply_tray_preference()
         prefs = self.cached_creds.get("preferences", {})
         if not prefs:
             return
@@ -261,23 +278,6 @@ class _StartupPrefsMixin:
                 wt.playback_order_combo.setCurrentText(order)  # pyrefly: ignore [missing-attribute]
             except Exception:
                 pass
-
-        # §2.12C — minimize to tray / background mode preference
-        minimize_to_tray = bool(
-            prefs.get("minimize_to_tray", False)
-            or prefs.get("close_to_tray", False)
-        )
-        if hasattr(self, "set_minimize_to_tray"):
-            self.set_minimize_to_tray(minimize_to_tray)
-        tray_icon = getattr(self, "_tray_icon", None)
-        if minimize_to_tray:
-            # Creating QSystemTrayIcon before the first shown MainWindow is
-            # unstable on Plasma/Wayland. Defer construction to closeEvent;
-            # only revive an icon that was already created at runtime.
-            if tray_icon is not None and not tray_icon.isVisible():
-                tray_icon.show()
-        elif tray_icon is not None:
-            tray_icon.hide()
 
         # §2.16F — logging preferences (GUI/UX §2.9F, issue #48). Local import:
         # backend.src.app imports from gui.src.windows.main, so a module-level

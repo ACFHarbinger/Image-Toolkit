@@ -667,6 +667,34 @@ class TestMinimizeToTraySettings:
         AppSettings.set_minimize_to_tray(False)
         assert AppSettings.minimize_to_tray() is False
 
+    def test_guest_save_keeps_tray_preference_out_of_vault(self, q_app):
+        """The volatile guest vault cannot own device close behaviour."""
+        from gui.src.windows.settings.app_settings import AppSettings
+
+        window = SettingsWindow()
+        window.minimize_to_tray_check.setChecked(True)
+        window.vault_manager = MagicMock()
+        window.vault_manager.is_guest = True
+        window.vault_manager.load_account_credentials.return_value = {
+            "theme": "dark",
+            "active_tab_configs": {},
+            "system_preference_profiles": {},
+            "preferences": {},
+        }
+        saved_data = {}
+        window._save_vault_data = MagicMock(side_effect=lambda data: saved_data.update(data) or True)
+        window._mark_settings_saved = MagicMock()
+        window.close = MagicMock()
+
+        try:
+            with patch.object(QMessageBox, "information"):
+                window._update_settings_logic()
+
+            assert AppSettings.minimize_to_tray() is True
+            assert "minimize_to_tray" not in saved_data["preferences"]
+        finally:
+            AppSettings.set_minimize_to_tray(False)
+
     def test_reset_settings_unchecks_minimize_to_tray(self, q_app):
         window = SettingsWindow()
         window.minimize_to_tray_check.setChecked(True)
@@ -786,4 +814,3 @@ class TestExtractorEncoderPreferences:
         assert window.extractor_encoder_threads_spinbox.value() == 0
         assert window.extractor_gif_max_colors_spinbox.value() == 256
         assert window.extractor_fps_clamp_spinbox.value() == 0
-
