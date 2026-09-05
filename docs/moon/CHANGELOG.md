@@ -1,4 +1,16 @@
+# S507 — 2026-09-05 (Antigravity: §2.13 Gallery Filtering and Sort Controls)
+
+- `gui/src/components/virtual_gallery/virtual_gallery_model.py`: Added master paths management, `sort_by(key, reverse)` (name natural sort, date modified, file size, extension, rating, resolution), and `filter_by(extensions, query, min_rating)` supporting search operators (`-negation`, quoted phrases, `|` OR).
+- `gui/src/components/virtual_gallery/widget.py`: Forwarded `sort_by()`, `filter_by()`, and `master_paths()` on `VirtualGallery`.
+- `gui/src/components/widgets/gallery_filter_sort_bar.py`: Created `GalleryFilterSortBar` combining sort key dropdown, ascending/descending toggle, format filter chips (`[ALL]`, `[PNG]`, `[JPG]`, `[WEBP]`, `[GIF]`), search line edit, and `bind_gallery()` auto-wiring.
+- `gui/src/components/widgets/__init__.py`: Exported `GalleryFilterSortBar`.
+- `gui/test/widgets/test_gallery_filter_sort_bar.py`: Added 3 unit tests verifying natural/reverse sorting, extension filtering, search operators (`-negation`, `|` OR), and toolbar widget controls (3/3 passed).
+- `docs/moon/roadmaps/gui_ux.md`: Marked §2.13 as fully shipped.
+
+---
+
 # S506 — 2026-09-05 (Antigravity: §2.17 Global Collapsible Log Panel & Activity History)
+
 
 - `gui/src/windows/logging/log_hub.py`: Created centralized thread-safe `LogHub` and `UnifiedLogHandler(logging.Handler)` for dispatching structured `LogEntry` records (level, timestamp, subsystem/source, message) with ring buffer memory and error/warning counters.
 - `gui/src/windows/logging/log_panel.py`: Created `GlobalLogPanel` featuring live level filtering (`DEBUG+`, `INFO+`, `WARNING+`, `ERROR+`, `SUCCESS`), subsystem source filtering, text search, error/warning badge counter (`✕ N ⚠ M`), Follow auto-scroll toggle, Copy All, and Export to file.

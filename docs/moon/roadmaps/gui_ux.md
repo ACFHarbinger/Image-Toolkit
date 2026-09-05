@@ -84,7 +84,7 @@ flowchart LR
         S22["§2.2 Thumbnail Size Control ✅"]:::augment:::done
         S23["§2.3 Keyboard Navigation ✅p"]:::augment:::active
         S24["§2.4 Bulk Selection ✅p"]:::feature:::active
-        S213["§2.13 Filter & Sort Controls ✅p"]:::feature:::active
+        S213["§2.13 Filter & Sort Controls ✅"]:::feature:::done
         S214["§2.14 Metadata Overlay ✅"]:::augment:::active
         S21 ==> S22
         S21 --> S213
@@ -744,9 +744,8 @@ Overlay a numeric badge on the tray icon when there are active operations (e.g.,
 
 **Recommendation:** A + B first. C as a settings toggle. D is a polish item.
 
----
+## 2.13 Gallery Filtering and Sort Controls ✅ Shipped (2026-09-05 — §A sort controls + §B format chips + §E search operators shipped — Complete) {: #213-gallery-filtering-and-sort-controls }
 
-## 2.13 Gallery Filtering and Sort Controls ✅ Partial (2026-06-10 — §A + §E) {: #213-gallery-filtering-and-sort-controls }
 
 **Pain point:** Current search is filename substring-only with no sort controls. Users cannot filter by extension, file size, date modified, image dimensions, or tags — all of which are meaningful for a large image database. The `_common_filter_string_list` in `MetaAbstractClassGallery` only does a `query in item.lower()` check.
 
