@@ -35,6 +35,7 @@ class VirtualGallery(QWidget):
         shared_cache=None,
         worker_factory=None,
         max_concurrent_loads: int = 2,
+        fill_mode: bool = True,
     ):
         super().__init__(parent)
         self.model = VirtualGalleryModel(
@@ -42,6 +43,7 @@ class VirtualGallery(QWidget):
             shared_cache=shared_cache,
             worker_factory=worker_factory,
             max_concurrent_loads=max_concurrent_loads,
+            fill_mode=fill_mode,
         )
         self.view = VirtualGalleryView(self)
         self.view.setModel(self.model)
