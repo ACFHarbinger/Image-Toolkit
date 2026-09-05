@@ -13,7 +13,6 @@ from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QPainter
 from PySide6.QtWidgets import (
     QApplication,
-    QMenu,
     QMessageBox,
     QScrollArea,
     QSystemTrayIcon,
@@ -22,6 +21,7 @@ from PySide6.QtWidgets import (
 
 from gui.src.styles.background_canvas import BackgroundCanvasController
 from gui.src.windows.settings.app_settings import AppSettings
+from gui.src.windows.window_manager import WindowManager
 
 from ...utils.manager.shortcut_manager import get_registry
 
@@ -31,24 +31,12 @@ def collect_background_windows(main: QWidget) -> list[QWidget]:
     when the app goes to background — each keeps its own taskbar entry, so
     any left visible shows a second Image-Toolkit icon.
 
-    Uses ``QApplication.allWidgets()`` + ``isWindow()`` rather than
-    ``topLevelWidgets()``: the Settings and Cloud Compute windows (and the
-    ``QDialog(self)`` helpers) are created *parented to the main window*, so
-    they are real top-level windows with their own taskbar button but never
-    appear in ``topLevelWidgets()`` (which only returns parentless widgets).
+    Uses ``WindowManager`` (#528) rather than ``QApplication.allWidgets()``:
+    parented windows (Log, ImagePreview, …) and parentless ones (Settings,
+    Cloud Compute) both register on construction, so the registry covers the
+    cases ``topLevelWidgets()`` misses without an O(N) widget-tree walk.
     """
-    windows: list[QWidget] = []
-    seen: set[int] = set()
-    for w in QApplication.allWidgets():
-        if w is main or id(w) in seen:
-            continue
-        seen.add(id(w))
-        if not w.isWindow() or not w.isVisible() or isinstance(w, QMenu):
-            continue
-        if w.windowType() in (Qt.WindowType.Popup, Qt.WindowType.ToolTip):
-            continue
-        windows.append(w)
-    return windows
+    return WindowManager.instance().visible_taskbar_windows(exclude=main)
 
 
 class _LifecycleMixin:

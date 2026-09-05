@@ -41,10 +41,9 @@ from dataclasses import dataclass, field
 from typing import List
 from urllib.parse import urlparse
 
-from PySide6.QtCore import QObject, Signal
-
 from backend.src.constants.web import _DIRECT_HOSTS, DOWNLOADERS__IMAGE_EXTS
 from backend.src.core import telemetry
+from backend.src.events import Observable
 from backend.src.web.downloaders._common import (
     MAX_ATTEMPTS,
     ON_EXISTS_DEFAULT,
@@ -74,16 +73,15 @@ class RedditDownloadConfig:
     on_exists: str = ON_EXISTS_DEFAULT
 
 
-class RedditDownloader(QObject):
+class RedditDownloader:
     """Downloads images/galleries/videos from a subreddit, user, or single post."""
 
-    on_status = Signal(str)
-    on_image_saved = Signal(str)
-    on_finished = Signal(int, str)
-    on_error = Signal(str)
-
     def __init__(self, config: RedditDownloadConfig | dict):
-        super().__init__()
+        # === Events (issue #529: plain Observables, not Qt signals) ===
+        self.on_status: Observable[str] = Observable()
+        self.on_image_saved: Observable[str] = Observable()
+        self.on_finished: Observable[tuple[int, str]] = Observable()
+        self.on_error: Observable[str] = Observable()
         self._config = (
             config
             if isinstance(config, RedditDownloadConfig)
@@ -94,7 +92,7 @@ class RedditDownloader(QObject):
 
     def stop(self) -> None:
         self._is_running = False
-        self.on_status.emit("Cancellation pending...")
+        self.on_status.publish("Cancellation pending...")
 
     def run(self) -> int:
         """Synchronous entry point — safe to call from a plain worker thread."""
@@ -125,7 +123,7 @@ class RedditDownloader(QObject):
 
             message = f"Finished. Downloaded {saved} file(s)."
             telemetry.emit("media-loader", "reddit.run.finished", saved=saved)
-            self.on_finished.emit(saved, message)
+            self.on_finished.publish((saved, message))
             return saved
         except Exception as exc:
             log.exception("Reddit download failed for %s", self._config.source)
@@ -133,7 +131,7 @@ class RedditDownloader(QObject):
                 "media-loader", "reddit.run.error",
                 source=self._config.source, error=repr(exc),
             )
-            self.on_error.emit(f"Critical error in Reddit downloader: {exc}")
+            self.on_error.publish(f"Critical error in Reddit downloader: {exc}")
             return 0
 
     def _fetch_posts(self) -> List[dict]:
@@ -183,12 +181,12 @@ class RedditDownloader(QObject):
             dest = resolve_dest_path(dest, self._config.on_exists)
             if dest is None:
                 # on_exists=skip and the file is already present.
-                self.on_status.emit(f"Skipped (exists): {filename}")
+                self.on_status.publish(f"Skipped (exists): {filename}")
                 continue
             if self._download_file(url, dest):
                 saved += 1
-                self.on_status.emit(f"Saved: {os.path.basename(dest)}")
-                self.on_image_saved.emit(dest)
+                self.on_status.publish(f"Saved: {os.path.basename(dest)}")
+                self.on_image_saved.publish(dest)
         return saved
 
     def _extract_media_urls(self, post: dict) -> List[str]:
@@ -262,7 +260,7 @@ class RedditDownloader(QObject):
             if attempt + 1 < MAX_ATTEMPTS:
                 backoff_sleep(attempt)
         if data is None:
-            self.on_status.emit(f"Failed to download {url}: {last_error}")
+            self.on_status.publish(f"Failed to download {url}: {last_error}")
             return False
 
         try:

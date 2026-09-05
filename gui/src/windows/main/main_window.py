@@ -24,6 +24,7 @@ from gui.src.windows.settings.app_settings import AppSettings
 from ...constants import NEW_LIMIT_MB
 from ..cloud import CloudComputeWindow
 from ..settings import SettingsWindow
+from ..window_manager import register_window
 from ._global_search import _GlobalSearchMixin
 from ._header_builder import _HeaderBuilderMixin
 from ._lifecycle import _LifecycleMixin
@@ -74,6 +75,7 @@ class MainWindow(
         # widget/QStackedWidget) -- named so the glassmorphism QSS's
         # `QWidget#central_widget` selector actually matches something (#449).
         self.setObjectName("central_widget")
+        register_window(self, role="main")
 
         # Store the authenticated vault manager instance
         self.vault_manager = vault_manager

@@ -44,6 +44,12 @@ check-relative-imports exclude_same_package="":
 check-nested-imports:
     uv run python backend/validation/check_nested_imports.py backend/src --ignore_factories
 
+# Check gui package-initializer import boundaries: no star imports in
+# gui/src/**/__init__.py, no eager submodule imports in
+# gui/src/windows/__init__.py (issue #530, D9 — fails CI, blocks merge)
+check-init-boundaries:
+    uv run python backend/validation/check_init_boundaries.py
+
 # Check for nested imports with a per-package summary table
 check-nested-imports-stats:
     uv run python backend/validation/check_nested_imports.py backend/src --ignore_factories --stats

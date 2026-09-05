@@ -104,6 +104,15 @@ session-recovery-triggered eager directory load with no size guard froze
 the test machine. See [`roadmaps/architecture.md`](roadmaps/architecture.md)
 §5.18 for full detail.
 
+**Architecture refactor — Phase 1 merged (2026-09-05):** all six contracts
+(#525 `PreferenceStore`, #526 `ThumbnailScheduler` interface, #527
+`ModuleDescriptor`+`ModuleHost` pilot, #528 `WindowManager`, #529 backend
+`Observable` decoupling, #530 CI import-boundary guardrails) implemented,
+cross-reviewed by Codex, every finding fixed with a verified regression
+test, merged to `main`. GitHub issues #525-#530 closed. See
+[`roadmaps/architecture.md`](roadmaps/architecture.md) §5.19 for full
+detail.
+
 *Last updated: 2026-08-31. Session S483: completed the frozen-bundle
 path-assumption audit (#476) — confirmed every `_MEIPASS` resource read
 resolves, moved the two remaining bundle-write hazards out of `ROOT_DIR`

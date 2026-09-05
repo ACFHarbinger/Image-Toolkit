@@ -9,6 +9,7 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QDialog, QHBoxLayout, QPushButton, QTabWidget, QVBoxLayout, QWidget
 
 from ...styles import apply_shadow_effect
+from ..window_manager import register_window
 from ._batch_tab import _BatchTab
 from ._image_tab import _ImageTab
 
@@ -36,6 +37,7 @@ class MetadataEditorWindow(QDialog):
             | Qt.WindowType.WindowMaximizeButtonHint
         )
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        register_window(self)
         self._paths = list(selected_paths)
 
         # ---- Fetch DB data ----

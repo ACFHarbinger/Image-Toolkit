@@ -560,6 +560,31 @@ its shape. Phase 0/1 GitHub epics + sub-issues are being cut now (see bus
 post). Phase 2/3 remain lighter-detail tracking issues until Phase 0/1
 substantially land, per their own exit criteria.
 
+**D20 — Phase 1 merged, all six contracts closed, 2026-09-05.** Per the
+user's direction, Claude took over the four open cross-review findings
+(rather than waiting on each owner) after Codex's cross-review of all
+six Phase 1 contracts: #525 (blocking — `attach_vault_credentials()` had
+no production caller), #526 (blocking — stale-completion generation
+race in `ThumbnailScheduler`), #527 (medium — invalid child routes
+navigated as valid), #529 (blocking — CLI `.connect()` on a migrated
+`Observable`). #528 and #530 reviewed clean. Every finding fixed with a
+regression test verified to fail pre-fix / pass post-fix. All six merged
+onto `integration/phase-1` then `main` (`dee43085`); 417/417 targeted
+tests, ruff clean on all 67 changed files (no full-suite run, per the
+resource rule). GitHub issues #525-#530 closed. Phase 2 (#531,
+consolidation of the four gallery implementations onto the now-shared
+`ThumbnailScheduler` contract) is unblocked whenever the team is ready.
+
+**D10 actioned, 2026-09-05 (same day).** The reverted UI Shell & Module
+Runtime re-land (D10's intent) has been started: docs reconciled
+(`docs/moon/roadmaps/ui_architecture_2026q3.md`'s status block now
+carries the crash history, cause decomposition, and the module-registry
+fork resolution), step 1 restarted (module/route inventory contract
+test recreated), and delegated to the team as `ui-arch-10..14` /
+#533-537. This is milestone #8's own tracking thread, not this report's
+Phase 0-3 — see that doc and `.agent/bus/2026-09-05.md` for detail,
+this entry is a cross-reference pointer only.
+
 ---
 
 ## 6. Open action items
@@ -573,18 +598,14 @@ GitHub milestone: [**Architecture Deep-Dive (2026 Q3)**](https://github.com/ACFH
 | [#522](https://github.com/ACFHarbinger/Image-Toolkit/issues/522) | 0.2 | Visible-first dispatch, all 4 galleries | Opencode (mimo) | ✅ Closed |
 | [#523](https://github.com/ACFHarbinger/Image-Toolkit/issues/523) | 0.3 | One-owner tray preference proof case | Codex | ✅ Closed |
 | [#524](https://github.com/ACFHarbinger/Image-Toolkit/issues/524) | 0.4 | Quarantine prototype → `protos/` + WallpaperTab forwarders | Gemini/Antigravity | ✅ Closed |
-| [#525](https://github.com/ACFHarbinger/Image-Toolkit/issues/525) | 1.1 (epic) | `PreferenceStore` | Gemini/Antigravity | 🟡 Ready for review (`4ecc54dc`) |
-| [#526](https://github.com/ACFHarbinger/Image-Toolkit/issues/526) | 1.2 (epic) | `ThumbnailScheduler` interface | Grok | Open — unblocked |
-| [#527](https://github.com/ACFHarbinger/Image-Toolkit/issues/527) | 1.3 (epic) | `ModuleDescriptor`+`ModuleHost` pilot (Log Panel) | Gemini/Antigravity | 🟡 Ready for review (`9601d9b5`) |
-| [#528](https://github.com/ACFHarbinger/Image-Toolkit/issues/528) | 1.4 (epic) | `WindowManager` | Cursor | Ready for review (`feature/phase-1-4-window-manager` @ `3ac1ea06`; GitHub close cites `dee43085` which is not on origin — verify before treating as merged) |
-| [#529](https://github.com/ACFHarbinger/Image-Toolkit/issues/529) | 1.5 (epic) | Backend Qt-decoupling (`Observable`) | Meta's Muse | Open — delegated |
-| [#530](https://github.com/ACFHarbinger/Image-Toolkit/issues/530) | 1.6 (epic) | CI import-boundary guardrails | Meta's Muse | Open — delegated |
+| [#525](https://github.com/ACFHarbinger/Image-Toolkit/issues/525) | 1.1 (epic) | `PreferenceStore` | Gemini/Antigravity | 🟢 Cross-review findings fixed (`9141d707`) — merged to `integration/phase-1` |
+| [#526](https://github.com/ACFHarbinger/Image-Toolkit/issues/526) | 1.2 (epic) | `ThumbnailScheduler` interface | Grok | 🟢 Cross-review findings fixed (`89a12c12`) — merged to `integration/phase-1` |
+| [#527](https://github.com/ACFHarbinger/Image-Toolkit/issues/527) | 1.3 (epic) | `ModuleDescriptor`+`ModuleHost` pilot (Log Panel) | Gemini/Antigravity | 🟢 Cross-review findings fixed (`9141d707`) — merged to `integration/phase-1` |
+| [#528](https://github.com/ACFHarbinger/Image-Toolkit/issues/528) | 1.4 (epic) | `WindowManager` | Cursor | 🟢 Reviewed clean (`3ac1ea06`) — merged to `integration/phase-1` |
+| [#529](https://github.com/ACFHarbinger/Image-Toolkit/issues/529) | 1.5 (epic) | Backend Qt-decoupling (`Observable`) | Meta's Muse / DeepSeek | 🟢 Cross-review finding fixed (`4e753466`) — merged to `integration/phase-1` |
+| [#530](https://github.com/ACFHarbinger/Image-Toolkit/issues/530) | 1.6 (epic) | CI import-boundary guardrails | Meta's Muse / DeepSeek | 🟢 No defect found — merged to `integration/phase-1` |
 | [#531](https://github.com/ACFHarbinger/Image-Toolkit/issues/531) | 2 (tracking) | Consolidation | — | Open |
 | [#532](https://github.com/ACFHarbinger/Image-Toolkit/issues/532) | 3 (tracking) | Optimization | — | Open |
-| [#533](https://github.com/ACFHarbinger/Image-Toolkit/issues/533) | ui-arch-10 | Rebase ModuleCatalog/Context/EventHub onto Phase 0/1 | Gemini/Antigravity | Open — implementation |
-| [#534](https://github.com/ACFHarbinger/Image-Toolkit/issues/534) | ui-arch-11 | Database/Listings/Scan typed intents | Cursor | Open — claimed (audit done; impl blocked on #533) |
-| [#535](https://github.com/ACFHarbinger/Image-Toolkit/issues/535) | ui-arch-12 | StitchWorkspace one host + 8 routes | Cursor | Open — claimed (audit done; impl blocked on #533) |
-| [#538](https://github.com/ACFHarbinger/Image-Toolkit/issues/538) | ui-arch-15 | Pre-implementation audit of reverted runtime | Codex | Open — in progress |
 
 **Phase 0 complete (2026-09-05).** All four sub-issues (#521-#524) shipped,
 verified via a D12 live-desktop pass on a combined `integration/phase-0`

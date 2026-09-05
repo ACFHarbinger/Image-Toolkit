@@ -1,9 +1,108 @@
 # UI Shell & Module Runtime Architecture (2026 Q3)
 
-**Status:** Locked, unimplemented (finalized 2026-09-05 after a Claude + Codex
-architecture brainstorm, user QA session same day). Tracked under milestone
-"UI Shell & Module Runtime Architecture" (#8). Feeds implementation of
-`docs/moon/roadmaps/gui_ux.md` §2.36-§2.40.
+**Status:** Locked design; implemented once, crashed, fully reverted;
+**re-land pending** on the Phase 0/1 contracts (2026-09-05, same day as the
+crash). Tracked under milestone "UI Shell & Module Runtime Architecture"
+(#8). Feeds implementation of `docs/moon/roadmaps/gui_ux.md` §2.36-§2.40.
+
+**What actually happened (2026-09-05, all same day):** this design was
+built and merged in full — issues #509-514 (module/route inventory,
+`ModuleCatalog`+`ModuleContext`+typed event hub+lifecycle runtime,
+Database/Listings/Scan typed-intent migration, `StitchWorkspace`,
+rail/ribbon shell mount, inspector/telemetry/theming/gallery-modes
+integration) plus a further layer of GUI/UX features built on top
+(§2.x: MotionKit, per-category theming, command palette, undo/redo, tag
+chips, gallery filter/sort, thumbnail zoom, inline rename, contact
+sheets, rating/color labels, window layout profiles, QSplitter
+persistence, log panel — issues #515-519). It then caused a real,
+reproducible crash and was **fully reverted** (`7559b1d2`,
+`git checkout b4f61deb -- gui/` + explicit deletion of everything `gui/`
+gained since). `docs/` and `.agent/` were deliberately left untouched by
+the revert, which is why this document — describing the reverted design
+— still reads as current.
+
+**The crash decomposes into two independent causes, only one of which
+this document is responsible for:**
+
+1. **Shell-specific, structural, unresolved:** eager module-mounting
+   combined with the rest of the day's changes produced a `QSocketNotifier`
+   cross-thread violation → SIGSEGV, then a second crash reproducing as
+   SIGKILL. This is not this design's first strike either — an earlier,
+   narrower attempt at eager mounting
+   (`4f95e94e Revert "feat(gui): eagerly mount every runtime-shell module
+   instead of lazy activation"`) was already reverted once *before* the
+   full revert. **Any re-land must structurally prevent eager mounting of
+   shell modules, not merely avoid it by convention** — e.g. a contract
+   test asserting lazy activation, not just code review discipline.
+2. **Not shell-specific, already fixed:** "general slowness and directory-
+   browsing freezes even with the experimental shell disabled" — this was
+   the §2.x feature layer's own bugs, and their root causes (unserialized
+   native-decode concurrency, non-visible-first thumbnail dispatch, GIF
+   decode with no disk-cache participation, an eager unbounded directory
+   auto-load) are exactly what Phase 0 of the architecture deep-dive
+   (`.agent/reports/team/architecture_deep_dive_2026-09-05.md`) locked
+   down and fixed, independently of this document, before this document's
+   own re-land could start.
+
+**Net assessment:** this design has one known, still-open structural
+defect (eager shell-module mounting) with a two-strike history, and its
+independent co-factors are gone. That is different from "this whole
+design is unsound" — treat the two causes separately when re-landing;
+don't let (2) being fixed be read as evidence (1) is fixed too, and
+don't re-litigate the whole design over a defect that's actually
+narrow and already understood.
+
+**Foundation now available that did not exist when this crashed:**
+Phase 0 (native-decode lock, visible-first dispatch, one-owner tray
+preference, non-destructive prototype quarantine) and Phase 1
+(`PreferenceStore` — including a natural home for this doc's §6
+per-account experimental-shell-setting requirement; `ThumbnailScheduler`
+interface; `ModuleDescriptor`+`ModuleHost` pilot; `WindowManager`;
+backend `Observable`/`QtEventBridge` Qt-decoupling; CI import-boundary
+guardrails) are both complete and merged (`.agent/reports/team/
+architecture_deep_dive_2026-09-05.md`, §5-7). D10 in that report records
+explicit intent to re-land this design on top of those contracts, not
+to re-run it as-is.
+
+**A module-registry naming collision to resolve before any re-land
+code lands** (see the git history for exact commits): there are now
+**three** separate `ModuleDescriptor`-shaped things, two of them sharing
+the literal path `gui/src/modules/`:
+
+1. `gui/src/protos/modules/{descriptor,registry}.py` — the original
+   quarantined prototype (`ef116f0b`), simple one-descriptor-per-widget
+   model, non-destructively parked per D11.
+2. The reverted runtime's `gui/src/modules/{catalog,context,events,
+   runtime,legacy_bridge}.py` (`a9d01085` et al., recoverable via
+   `git show <commit>:<path>` even though absent from the working tree)
+   — the actual implementation of *this* document's design: `Page`/
+   `Workspace`/`Route` descriptor kinds (directly solving §3's "Stitch is
+   one workspace, not eight modules"), `ModuleContext` (event hub +
+   non-widget services), lifecycle handles. Its `events.py` is a
+   GUI-thread `QObject`-based `EventHub` (Intents/Facts dataclasses,
+   versioned schema) — this is a *different, complementary* layer from
+   Phase 1's `Observable`, not a competing one: `Observable` solves
+   backend-thread-to-GUI-thread safety (the crash-class concern),
+   `EventHub` solves GUI-thread module-to-module coordination (widget
+   decoupling). They can coexist.
+3. Phase 1's shipped `gui/src/modules/{descriptor,host,registry}.py` +
+   `pilots/` (#527) — built fresh, independently of (2) since (2) was
+   invisible (quarantined+reverted) at the time, for a narrower
+   immediate goal (proving the `ModuleHost` pattern against the Log
+   Panel). Its `ModuleDescriptor` has `singleton`/`construction_policy`/
+   `child_routes` but no `Page`/`Workspace`/`Route` distinction — it
+   cannot yet model Stitch's 8-routes-one-host case the way (2) can.
+
+**Decided (user sign-off, 2026-09-05):** re-land proceeds now, on the
+Phase 0/1 contracts. (2)'s catalog/context/runtime design is the source
+of truth for re-landing this document's contract (it *is* this
+document, already built), rebased onto current `ModuleHost`/
+`WindowManager`/`PreferenceStore`/`Observable` rather than cherry-picked
+as-is (it predates all of Phase 0/1 and reintroduces their fixed bugs
+if reapplied verbatim). Fold Phase 1 #527's useful, narrower additions
+(the Log Panel pilot itself, its `singleton`/`construction_policy`
+fields where they don't conflict) into the richer model rather than
+maintaining two `ModuleDescriptor`s.
 
 ## Background
 
@@ -157,9 +256,41 @@ required to be exhaustive up front.
 
 ## Related
 
-- Feature-level issues: #504 (§2.36 shell/registry), #505 (§2.37 theme
-  presets, milestone "App Theming & Customization"), #506 (§2.38 inspector),
-  #507 (§2.39 telemetry), #508 (§2.40 gallery modes — depends on this
-  document's contracts per its bus note).
-- Runtime issues: see milestone "UI Shell & Module Runtime Architecture" (#8).
-- `.agent/bus/2026-09-05.md` for the full brainstorm thread.
+- Feature-level issues: #504 (§2.36 shell/registry, still open — the
+  parent tracking issue), #505 (§2.37 theme presets, closed, milestone
+  "App Theming & Customization"), #506 (§2.38 inspector, open), #507
+  (§2.39 telemetry, open), #508 (§2.40 gallery modes, open — depends on
+  this document's contracts per its bus note).
+- Runtime issues (all closed, all reverted): ui-arch-1..6 / #509-514,
+  plus follow-ups #515-519. See milestone "UI Shell & Module Runtime
+  Architecture" (#8).
+- **Re-land issues (delegated 2026-09-05):** ui-arch-10/#533 (rebase
+  catalog/context/event-hub/lifecycle onto Phase 0/1 contracts,
+  foundational — Gemini/Antigravity + Meta's Muse's anti-eager-mounting
+  contract test, Codex cross-review), ui-arch-11/#534 (Database/Listings/
+  Scan typed intents — DeepSeek), ui-arch-12/#535 (`StitchWorkspace` —
+  Grok), ui-arch-13/#536 (mount rail/ribbon behind `PreferenceStore`
+  experimental setting — Cursor), ui-arch-14/#537 (inspector/telemetry/
+  presets/gallery-modes — not yet delegated). #533 blocks #534/#535/#536;
+  #536 blocks #537 — sequential, not fully concurrent. **ui-arch-15/#538**
+  (Codex, parallel to #533, not blocking it) — read-only pre-implementation
+  audit of the reverted `catalog`/`context`/`events`/`runtime`/
+  `legacy_bridge` code and the shell-mounting commits, a pre-mortem
+  documenting exactly where eager-mounting lived and cross-checking the
+  old code against each Phase 0/1 invariant it predates; feeds #533 as a
+  starting brief.
+- Revert: `7559b1d2` (`git checkout b4f61deb -- gui/` + deletion of
+  everything gained since); the reverted implementation commits remain
+  recoverable via `git show <commit>:<path>` (e.g. `a9d01085` for the
+  runtime layer) even though absent from the working tree.
+- `.agent/bus/2026-09-05.md` for the full brainstorm thread **and** the
+  later crash/revert/root-cause narrative in the same file.
+- `.agent/reports/team/architecture_deep_dive_2026-09-05.md` — the
+  post-revert root-cause analysis and Phase 0/1 rebuild this document's
+  re-land now depends on. D10 records explicit re-land intent; D11
+  records the prototype-quarantine non-destructive intent.
+- `docs/moon/roadmaps/ui_module_inventory_2026q3.md` — the #509 baseline
+  inventory; still factually accurate against the live (reverted-to)
+  `_tab_registry.py`, but its own contract test
+  (`gui/test/modules/test_legacy_module_inventory.py`) was lost in the
+  revert and needs recreating before this document's step 1 restarts.

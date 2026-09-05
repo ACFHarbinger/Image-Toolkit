@@ -85,9 +85,9 @@ class TestRun:
 
         downloader = _downloader(tmp_path, gallery="111006")
         saved_paths = []
-        downloader.on_image_saved.connect(saved_paths.append)
+        downloader.on_image_saved.subscribe(saved_paths.append)
         finished = []
-        downloader.on_finished.connect(lambda count, msg: finished.append((count, msg)))
+        downloader.on_finished.subscribe(lambda payload: finished.append((payload[0], payload[1])))
 
         result = downloader.run()
 
@@ -106,7 +106,7 @@ class TestRun:
 
         downloader = _downloader(tmp_path, gallery="111006")
         errors = []
-        downloader.on_error.connect(errors.append)
+        downloader.on_error.subscribe(errors.append)
 
         result = downloader.run()
 
@@ -122,7 +122,7 @@ class TestRun:
 
         downloader = _downloader(tmp_path, gallery="111006")
         errors = []
-        downloader.on_error.connect(errors.append)
+        downloader.on_error.subscribe(errors.append)
 
         result = downloader.run()
 

@@ -153,9 +153,10 @@ def dispatch_web(args: dict) -> None:
 
             crawler = ImageCrawler(config)
 
-            # Connect signals to print to terminal for CLI usage
-            crawler.on_status.connect(lambda msg: print(f"[*] {msg}"))
-            crawler.on_finished.connect(lambda msg: print(f"[+] {msg}"))
+            # Subscribe to print to terminal for CLI usage (#529: crawler
+            # events are now Observable, not Qt Signal — no .connect()).
+            crawler.on_status.subscribe(lambda msg: print(f"[*] {msg}"))
+            crawler.on_finished.subscribe(lambda msg: print(f"[+] {msg}"))
 
             print(f"🚀 Starting web crawler for: {config['url']}")
             crawler.run()

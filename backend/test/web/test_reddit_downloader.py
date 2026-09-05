@@ -147,9 +147,9 @@ class TestRun:
 
         downloader = _downloader(tmp_path, source="EarthPorn")
         saved = []
-        downloader.on_image_saved.connect(saved.append)
+        downloader.on_image_saved.subscribe(saved.append)
         finished = []
-        downloader.on_finished.connect(lambda count, msg: finished.append((count, msg)))
+        downloader.on_finished.subscribe(lambda payload: finished.append((payload[0], payload[1])))
 
         result = downloader.run()
 
@@ -167,7 +167,7 @@ class TestRun:
 
         downloader = _downloader(tmp_path, source="EarthPorn")
         errors = []
-        downloader.on_error.connect(errors.append)
+        downloader.on_error.subscribe(errors.append)
 
         result = downloader.run()
 
