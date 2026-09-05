@@ -555,7 +555,7 @@ GitHub milestone: [**Architecture Deep-Dive (2026 Q3)**](https://github.com/ACFH
 | [#521](https://github.com/ACFHarbinger/Image-Toolkit/issues/521) | 0.1 | Native-decode serialization + GIF bypass audit | DeepSeek (opencode) |
 | [#522](https://github.com/ACFHarbinger/Image-Toolkit/issues/522) | 0.2 | Visible-first dispatch, all 4 galleries | Opencode (mimo) |
 | [#523](https://github.com/ACFHarbinger/Image-Toolkit/issues/523) | 0.3 | One-owner tray preference proof case | Codex |
-| [#524](https://github.com/ACFHarbinger/Image-Toolkit/issues/524) | 0.4 | Quarantine prototype → `protos/` + WallpaperTab forwarders | Gemini/Antigravity (in progress) |
+| [#524](https://github.com/ACFHarbinger/Image-Toolkit/issues/524) | 0.4 | Quarantine prototype → `protos/` + WallpaperTab forwarders | Gemini/Antigravity (ready for review) |
 | [#525](https://github.com/ACFHarbinger/Image-Toolkit/issues/525) | 1.1 (epic) | `PreferenceStore` | Gemini/Antigravity |
 | [#526](https://github.com/ACFHarbinger/Image-Toolkit/issues/526) | 1.2 (epic) | `ThumbnailScheduler` interface | Grok |
 | [#527](https://github.com/ACFHarbinger/Image-Toolkit/issues/527) | 1.3 (epic) | `ModuleDescriptor`+`ModuleHost` pilot (Log Panel) | Gemini/Antigravity |
