@@ -44,10 +44,12 @@ class VirtualDualGallery(QWidget):
         self,
         parent=None,
         cache_maxsize: int = 500,
-        worker_factory=None,
+        worker_factory: Optional[Callable[[], QThread]] = None,
+        persistence_key: Optional[str] = "VirtualDualGallery/main_splitter",
         orientation: Qt.Orientation = Qt.Orientation.Vertical,
     ):
         super().__init__(parent)
+        self._persistence_key = persistence_key
         self._shared_cache = LRUImageCache(maxsize=cache_maxsize)
         self._worker_factory = worker_factory
 
@@ -56,6 +58,12 @@ class VirtualDualGallery(QWidget):
         self._selected_paths: List[str] = []
 
         self._build_ui(orientation)
+        if self._persistence_key:
+            try:
+                from gui.src.windows.settings.splitter_persistence import persist_splitter
+                persist_splitter(self.splitter, self._persistence_key)
+            except Exception:
+                pass
         if hasattr(self, "zoom_control"):
             self.set_thumbnail_size(self.zoom_control.current_size)
 

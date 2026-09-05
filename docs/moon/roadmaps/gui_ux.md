@@ -984,9 +984,11 @@ A button that pushes the current gallery selection into the `ConvertTab`'s input
 
 ---
 
-## 2.20 Resizable Sidebar Panels and QSplitter Persistence ✅ Partial (2026-06-10 — §A shipped) {: #220-resizable-sidebar-panels-and-qsplitter-persistence }
+## 2.20 Resizable Sidebar Panels and QSplitter Persistence ✅ (2026-06-10 — §A listings splitters, 2026-09-05 — global QSplitter persistence helpers & dual gallery / compare window wiring) {: #220-resizable-sidebar-panels-and-qsplitter-persistence }
 
-**Pain point:** Gallery tabs use a fixed vertical stack layout. A collapsible metadata/tag sidebar would allow users to see image details and assign tags without opening a separate preview window, but no `QSplitter` exists in the core gallery base classes. Additionally, the `QSplitter` instances in `listings_tab.py`, `stitch_tab.py`, and `hybrid_stitch_panel.py` do not persist their sizes across sessions — they reset to defaults on every launch.
+**Shipped: Options A & B.**
+- **Option A & B (Splitter State Persistence & Helpers)**: Provided `persist_splitter()`, `save_splitter_state()`, and `restore_splitter_state()` under `gui/src/windows/settings/splitter_persistence.py`. Wired automated state restoration and move listener persistence across `VirtualDualGallery`, `ImageCompareWindow`, `SettingsShortcutsPane`, `ListingsTab`, and `StitchFeedbackTab`.
+- **Tests**: `gui/test/windows/settings/test_splitter_persistence.py` (3 unit tests).
 
 ### Options
 

@@ -1,3 +1,14 @@
+# S500 — 2026-09-05 (Antigravity: §2.20 Resizable Sidebar Panels & QSplitter State Persistence)
+
+- `gui/src/windows/settings/splitter_persistence.py`: Added `restore_splitter_state(splitter, key)` and `save_splitter_state(splitter, key)` along with `persist_splitter()`.
+- `gui/src/components/virtual_gallery/dual_widget.py`: Supported configurable `persistence_key` on `VirtualDualGallery` with auto-wired splitter restoration and synchronization.
+- `gui/src/windows/image_compare_window.py`: Wired splitter persistence for multi-pane side-by-side comparison view.
+- `gui/src/windows/settings/_shortcuts.py`: Wired splitter persistence for shortcut category/detail split pane.
+- `gui/test/windows/settings/test_splitter_persistence.py`: Added 3 unit tests verifying state save, restoration, auto-sync signals, and fallback handling (3/3 passed).
+- `docs/moon/roadmaps/gui_ux.md`: Marked §2.20 as shipped.
+
+---
+
 # S499 — 2026-09-05 (Antigravity: §2.10 In-App Toast Notification System Polish & Wiring)
 
 - `gui/src/components/widgets/toast_widget.py`: Added distinctive status icon badges (`✓`, `⚠`, `✕`, `ℹ`) with custom colored styling and spacing to `ToastWidget`.
