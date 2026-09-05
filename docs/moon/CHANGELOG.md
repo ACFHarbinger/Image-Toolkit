@@ -1,3 +1,60 @@
+# S525 — 2026-09-05 (Claude: byte-budget guard on ExtractorTab eager output-directory auto-load)
+
+- Live-testing `integration/phase-0` (D12 live-desktop pass) found a real
+  startup freeze/crash: session recovery's `set_config()` calls
+  `_load_existing_output_images()` unconditionally, which calls
+  `start_loading_gallery()` on every file in the tab's extraction-output
+  directory with zero size guard. Found in the wild: 101 files, 108GB total
+  (~1GB avg, uncompressed extracted frames) — decoding several huge files
+  concurrently on startup froze the host machine, requiring a hard reboot.
+- `MAX_PREVIEW_ITEMS` (the existing guard in `_directory_scanning.py`) is a
+  file-*count* cap and did not help — 101 files is well under its 1000
+  limit; the actual problem is total bytes, not file count.
+- `gui/src/tabs/core/extractor_tab/_media_player.py`: added a 500MB
+  combined-size budget on this specific eager-auto-load call site — over
+  budget, the load is skipped (logged) and `current_extracted_paths` is
+  still set so the tab knows what's there. Deliberately narrow (this one
+  call site, not the shared gallery-loading pipeline #522/#526 own).
+- Verified via two full app relaunches against the real 108GB directory:
+  stable memory throughout both, no freeze.
+
+---
+
+# S524 — 2026-09-05 (Claude: disk-cache the QImageReader/GIF decode path)
+
+- Live-testing `integration/phase-0` found GIF-heavy directories far
+  slower to load than before GIFs were routed off the native decoder
+  (#521's correctness fix — OpenCV's GIF support can silently return
+  valid-but-garbage frames). Root-caused without an app relaunch, via a
+  standalone script against a real GIF:
+  - `THUMBNAIL_CACHE_DIR` is only ever written by the native
+    `base.load_image_batch()` path; GIFs never touch it, so every GIF
+    view/scroll re-decoded from scratch, forever.
+  - `QImageReader.setScaledSize()` is a no-op for GIF decode cost — Qt's
+    GIF plugin always pays full-canvas decode regardless of requested
+    output size (scaled vs. full-size read timing identical in testing).
+- `gui/src/helpers/image/_qimagereader_disk_cache.py` (new): a disk cache
+  for this path, namespaced `qir_` so it can't collide with the native
+  cache's key scheme. Wired into `ImageLoaderWorker._load_via_qimagereader()`
+  and `BatchImageLoaderWorker._load_one_via_qimage()`.
+- Verified: 40x faster on a warm-cache read (0.0005s vs 0.0195s) against a
+  real GIF; confirmed in the live app across a relaunch (cache persists to
+  disk) — user-confirmed "super fast and responsive... behavior is as
+  intended."
+- Also found in passing, not fixed: the existing video-thumbnail disk cache
+  (`gui/src/classes/image/abstract_class_single_gallery/_disk_cache.py`)
+  passes `format=b"JPG"` (bytes) to `QImage.save()`, which raises
+  `ValueError` under this PySide6 version's overload resolution and is
+  silently swallowed by its own `except Exception` — likely a second,
+  pre-existing, unrelated latent bug (every video thumbnail may never
+  actually be hitting its disk cache either). Flagged on the bus for
+  whoever owns that file.
+- Wallpaper's `max_concurrent_loads=1` deliberately left untouched — set
+  that low specifically because Wallpaper directories can hold hundreds of
+  100-270MB GIFs (memory safety, see `fd26cedc`), not a caching bug.
+
+---
+
 # S523 — 2026-09-05 (Codex: Phase 0.3 device-owned tray preference)
 
 - `minimize_to_tray` / `close_to_tray` is now exclusively device-owned by
