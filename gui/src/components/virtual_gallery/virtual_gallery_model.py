@@ -469,7 +469,14 @@ class VirtualGalleryModel(QAbstractListModel):
             self._active_workers.discard(worker)
         current = self._scheduler.complete(path, generation)
         if not current:
-            self._loading.discard(path)
+            # Stale delivery from a cancelled generation. Do NOT touch
+            # _loading here (#526 cross-review): a cancel+requeue of the
+            # same path already re-added it to _loading for the *new*
+            # generation before this stale callback fires, so discarding
+            # it now would incorrectly clear the marker for the still
+            # in-flight current-generation request. If the path wasn't
+            # requeued at all, _loading was already fully cleared at the
+            # cancel() call site, so there is nothing to discard anyway.
             return
         if image is None or (isinstance(image, QImage) and image.isNull()):
             self._failed.add(path)

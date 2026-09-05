@@ -27,7 +27,11 @@ class DefaultThumbnailScheduler:
         self._max_in_flight = max(1, int(max_in_flight))
         self._queue: deque[str] = deque()
         self._queued: set[str] = set()
-        self._inflight: set[str] = set()
+        # Keyed by (generation-at-dispatch, path), not bare path: a stale
+        # completion for a cancelled-then-immediately-requeued path must
+        # only ever remove *its own* generation's entry, never the new
+        # generation's in-flight entry for the same path (#526 cross-review).
+        self._inflight: set[tuple[int, str]] = set()
 
     @property
     def generation(self) -> int:
@@ -71,15 +75,16 @@ class DefaultThumbnailScheduler:
             while self._queue:
                 path = self._queue.popleft()
                 self._queued.discard(path)
-                if path in self._inflight:
+                key = (self._generation, path)
+                if key in self._inflight:
                     continue
-                self._inflight.add(path)
+                self._inflight.add(key)
                 return path
             return None
 
     def complete(self, path: str, generation: int) -> bool:
         with self._lock:
-            self._inflight.discard(path)
+            self._inflight.discard((generation, path))
             self._queued.discard(path)
             return generation == self._generation
 
