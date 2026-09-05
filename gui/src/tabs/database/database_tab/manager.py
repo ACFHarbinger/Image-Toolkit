@@ -8,6 +8,15 @@ from backend.src.database.unified.facade import UnifiedImageDatabase as ImageDat
 from PySide6.QtCore import Property, Signal
 from PySide6.QtWidgets import QGroupBox, QScrollArea, QVBoxLayout, QWidget
 
+from gui.src.modules.events import (
+    DatabaseAvailabilityChanged,
+    EventHub,
+    GroupCatalogChanged,
+    SubgroupCatalogChanged,
+    TagCatalogChanged,
+)
+from gui.src.modules.library_service import LibraryDatabaseService
+
 from ._auto_populate import _AutoPopulateMixin
 from ._bulk_import import _BulkImportMixin
 from ._config import _ConfigMixin
@@ -43,22 +52,20 @@ class DatabaseTab(
     gone; the store opens with the vault session).
     """
 
-    def __init__(self, vault_manager=None):
+    def __init__(
+        self,
+        vault_manager=None,
+        *,
+        database_service: LibraryDatabaseService | None = None,
+        event_hub: EventHub | None = None,
+    ):
         super().__init__()
         self.vault_manager = vault_manager
-        self.db: Optional[ImageDatabase] = None
+        self.database_service = database_service or LibraryDatabaseService(vault_manager)
+        self.event_hub = event_hub
+        self.db: Optional[ImageDatabase] = self.database_service.db
         self._stats_text = "Not Connected"
         self.embedding_worker = None
-
-        # --- Tab References ---
-        # These are assigned by MainWindow after all tabs are initialized
-        self.scan_tab_ref = None
-        self.search_tab_ref = None
-        self.merge_tab_ref = None
-        self.delete_tab_ref = None
-        self.wallpaper_tab_ref = None
-        self.listings_tab_ref = None
-        self.main_window_ref = None
 
         self.old_edit_value = None
 
@@ -94,6 +101,28 @@ class DatabaseTab(
     @Property(str, notify=qml_stats_changed)
     def statsText(self):
         return self._stats_text
+
+    def _publish_database_availability(self, connected: bool) -> None:
+        if self.event_hub is not None:
+            self.event_hub.publish(
+                DatabaseAvailabilityChanged(origin="library.management", connected=connected)
+            )
+
+    def _publish_tag_catalog_changed(self) -> None:
+        if self.event_hub is not None:
+            self.event_hub.publish(TagCatalogChanged(origin="library.management"))
+
+    def _publish_group_catalog_changed(self, groups: list[str]) -> None:
+        if self.event_hub is not None:
+            self.event_hub.publish(
+                GroupCatalogChanged(origin="library.management", groups=tuple(groups))
+            )
+
+    def _publish_subgroup_catalog_changed(self, subgroups: list[tuple[str, str]]) -> None:
+        if self.event_hub is not None:
+            self.event_hub.publish(
+                SubgroupCatalogChanged(origin="library.management", subgroups=tuple(subgroups))
+            )
 
 
 __all__ = ["DatabaseTab"]
