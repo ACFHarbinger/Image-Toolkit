@@ -53,7 +53,17 @@ class ImageLoaderWorker(QRunnable):
         if self._is_cancelled:
             return
         try:
-            if HAS_NATIVE_IMAGING:
+            # GIFs never go through the native decoder: it decodes via
+            # OpenCV's cv::imread/imdecode, whose GIF support is absent or
+            # unreliable depending on the build. Rather than a clean
+            # failure, a misdecoded GIF can come back as a *valid but
+            # garbage* image (e.g. a tiny/degenerate buffer upscaled to
+            # the thumbnail size, rendering as a uniform solid-color
+            # block) -- so `q_img is not None and not err` below isn't
+            # enough to trust the result for this format. Qt's own
+            # QImage(path) loader supports GIF (as its first frame)
+            # reliably through Qt's built-in image plugins.
+            if HAS_NATIVE_IMAGING and not self.path.lower().endswith(".gif"):
                 # Returns list[(path, QImage | None, error: str)]
                 results = native_load_batch([self.path], self.target_size)
                 if self._is_cancelled:

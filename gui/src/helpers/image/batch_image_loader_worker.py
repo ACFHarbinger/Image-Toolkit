@@ -99,26 +99,53 @@ class BatchImageLoaderWorker(QRunnable):
         if self._is_cancelled:
             return
         try:
-            # 1. Fallback if no native imaging
-            if not HAS_NATIVE_IMAGING:
-                self._run_fallback()
-                return
+            # GIFs never go through the native decoder: it decodes via
+            # OpenCV's cv::imread/imdecode, whose GIF support is absent or
+            # unreliable depending on the build -- rather than a clean
+            # failure (which the per-file None-check below could catch),
+            # a misdecoded GIF can come back as a *valid but garbage*
+            # image (e.g. a tiny/degenerate buffer upscaled to the
+            # thumbnail size, rendering as a uniform solid-color block).
+            # Qt's own QImage(path) loader supports GIF (as its first
+            # frame) reliably through Qt's built-in image plugins.
+            gif_paths = [p for p in self.paths if p.lower().endswith(".gif")]
+            native_paths = [p for p in self.paths if not p.lower().endswith(".gif")]
 
-            # 2. Native C++ Parallel Path (reduced decode + disk cache + RGB out)
-            raw_results = native_load_batch(self.paths, self.target_size)
+            processed_results: list[tuple[str, QImage]] = []
 
-            if self._is_cancelled:
-                return
+            for path in gif_paths:
+                if self._is_cancelled:
+                    return
+                q_img = self._load_one_via_qimage(path)
+                processed_results.append((path, q_img))
+                self._safe_emit_result(path, q_img)
 
-            # Process results and EMIT IMMEDIATELY
-            processed_results = []
-            for path, q_img, _err in raw_results:
-                if q_img is None:
-                    q_img = QImage()
-                res = (path, q_img)
-                processed_results.append(res)
-                # Emit individual result for progressive UI updates
-                self._safe_emit_result(path, res[1])
+            if native_paths:
+                if not HAS_NATIVE_IMAGING:
+                    for path in native_paths:
+                        if self._is_cancelled:
+                            return
+                        q_img = self._load_one_via_qimage(path)
+                        processed_results.append((path, q_img))
+                        self._safe_emit_result(path, q_img)
+                else:
+                    # Native C++ Parallel Path (reduced decode + disk cache + RGB out)
+                    raw_results = native_load_batch(native_paths, self.target_size)
+
+                    if self._is_cancelled:
+                        return
+
+                    for path, q_img, _err in raw_results:
+                        if q_img is None:
+                            # The native decoder failed for just this one
+                            # file -- fall back to Qt's own QImage(path)
+                            # loader for this file specifically instead of
+                            # leaving its thumbnail permanently blank; the
+                            # batch-level `except Exception` below never
+                            # fires for a per-file failure like this.
+                            q_img = self._load_one_via_qimage(path)
+                        processed_results.append((path, q_img))
+                        self._safe_emit_result(path, q_img)
 
             with contextlib.suppress(RuntimeError):
                 self.signals.batch_result.emit(processed_results, self.paths)
@@ -135,29 +162,31 @@ class BatchImageLoaderWorker(QRunnable):
             if Shiboken.isValid(self.signals):
                 self.signals.deleteLater()
 
+    def _load_one_via_qimage(self, path: str) -> QImage:
+        """Load and scale a single file via Qt's own QImage plugins (slower
+        than the native path, but supports formats it can't decode)."""
+        try:
+            q_img = QImage(path)
+            if q_img.isNull():
+                return QImage()
+            return q_img.scaled(
+                self.target_size,
+                self.target_size,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
+        except Exception:
+            return QImage()
+
     def _run_fallback(self):
         """Fallback: load one by one using QImage (slow but safe)"""
         results = []
         for path in self.paths:
-            try:
-                if self._is_cancelled:
-                    break
-                q_img = QImage(path)
-                if not q_img.isNull():
-                    scaled = q_img.scaled(
-                        self.target_size,
-                        self.target_size,
-                        Qt.AspectRatioMode.KeepAspectRatio,
-                        Qt.TransformationMode.SmoothTransformation,
-                    )
-                    results.append((path, scaled))
-                    self._safe_emit_result(path, scaled)
-                else:
-                    results.append((path, QImage()))
-                    self._safe_emit_result(path, QImage())
-            except Exception:
-                results.append((path, QImage()))
-                self._safe_emit_result(path, QImage())
+            if self._is_cancelled:
+                break
+            scaled = self._load_one_via_qimage(path)
+            results.append((path, scaled))
+            self._safe_emit_result(path, scaled)
 
         with contextlib.suppress(RuntimeError):
             self.signals.batch_result.emit(results, self.paths)
