@@ -1,3 +1,14 @@
+# S523 — 2026-09-05 (Codex: Phase 0.3 device-owned tray preference)
+
+- `minimize_to_tray` / `close_to_tray` is now exclusively device-owned by
+  `AppSettings`/QSettings. Startup and the Settings UI ignore stale vault
+  keys; Settings persists the device value even in guest mode and never writes
+  it back into vault preferences. Added stale-vault and guest-save regression
+  coverage. This is the Phase 0 proof case before the full `PreferenceStore`
+  contract.
+
+---
+
 # S515 — 2026-09-05 (Gemini/Antigravity: Phase 0.4 prototype quarantine into protos/)
 
 - Issue #524 / Phase 0.4: Quarantined unwired prototype components into isolated `gui/src/protos/` package (`modules/descriptor.py`, `modules/registry.py`, `navigation/navigation_rail.py`, `navigation/segmented_ribbon.py`, `navigation/shell_manager.py`, `inspector/context_inspector.py`, `widgets/telemetry_status_bar.py`).
