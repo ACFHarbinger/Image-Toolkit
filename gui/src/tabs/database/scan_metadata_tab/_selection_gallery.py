@@ -18,11 +18,11 @@ class _SelectionGalleryMixin:
     def on_selection_changed(self) -> None:
         """Required by AbstractClassTwoGalleries base class."""
         self.populate_selected_images_gallery()
-        self.update_button_states(connected=(self.db_tab_ref.db is not None))
+        self.update_button_states(connected=(self.database_service.db is not None))
 
     def toggle_selection(self, path):
         if not path:
-            self.update_button_states(connected=(self.db_tab_ref.db is not None))
+            self.update_button_states(connected=(self.database_service.db is not None))
             return
         # The dual toggles the path in its selection set and emits
         # selection_changed, which syncs selected_image_paths back via
@@ -44,7 +44,7 @@ class _SelectionGalleryMixin:
             self.selected_image_paths - set(kept), key=natural_sort_key
         )
         self._selected_order = kept + missing
-        self.update_button_states(connected=(self.db_tab_ref.db is not None))
+        self.update_button_states(connected=(self.database_service.db is not None))
 
     def _push_selection_to_dual(self):
         """Apply ``selected_image_paths``/``_selected_order`` to the dual."""
@@ -59,7 +59,7 @@ class _SelectionGalleryMixin:
     def populate_selected_images_gallery(self):
         """Rebuild the dual's selected panel from the reconciled order."""
         self._push_selection_to_dual()
-        self.update_button_states(connected=(self.db_tab_ref.db is not None))
+        self.update_button_states(connected=(self.database_service.db is not None))
 
     def reorder_selected(self, dragged_path: str, target_path: str) -> None:
         """Drag-and-drop callback (kept for API compatibility): reorders
