@@ -1,3 +1,13 @@
+# S493 — 2026-09-05 (Antigravity: §2.26 Inline Rename & F2 In-Place Editing)
+
+- `gui/src/components/virtual_gallery/virtual_gallery_model.py`: Added `rename_path(old_path, new_path)` method with cache and overlay metadata migration across all roles.
+- `gui/src/components/virtual_gallery/virtual_gallery_view.py`: Added `path_renamed = Signal(str, str)` signal, `keyPressEvent` handling `F2`/`gallery.rename` shortcuts, character sanitization, and `rename_selected_file()` with `UndoManager` integration.
+- `gui/src/components/virtual_gallery/widget.py`: Added `path_renamed` forwarding signal and `rename_selected_file()` method on `VirtualGallery`.
+- `gui/test/gallery/test_inline_rename.py`: Added 3 unit tests verifying model metadata preservation, interactive rename with undo recovery, and illegal character sanitization (7/7 passed in test suite).
+- `docs/moon/roadmaps/gui_ux.md`: Marked §2.26 as shipped with Options A and B details.
+
+---
+
 # S492 — 2026-09-05 (Antigravity: §2.15 Undo/Redo for Destructive Operations)
 
 - `gui/src/utils/undo_manager.py`: Created `UndoManager`, `FileDeletionCommand` (session trash buffering with instant undo restoration), and `FileRenameCommand` built on `QUndoStack` with signal events and configurable trash isolation.

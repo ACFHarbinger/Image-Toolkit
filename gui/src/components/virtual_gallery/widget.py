@@ -10,6 +10,8 @@ gallery base classes stay untouched until a tab is migrated to this widget.
 
 from __future__ import annotations
 
+from typing import Optional
+
 from PySide6.QtCore import QPoint, Qt, Signal
 from PySide6.QtWidgets import QVBoxLayout, QWidget
 
@@ -23,6 +25,7 @@ class VirtualGallery(QWidget):
     path_clicked = Signal(str)
     path_activated = Signal(str)
     path_right_clicked = Signal(QPoint, str)
+    path_renamed = Signal(str, str)
     ctrl_wheel = Signal(int)
     selection_changed = Signal()
 
@@ -51,6 +54,7 @@ class VirtualGallery(QWidget):
         self.view.path_clicked.connect(self.path_clicked)
         self.view.path_activated.connect(self.path_activated)
         self.view.path_right_clicked.connect(self.path_right_clicked)
+        self.view.path_renamed.connect(self.path_renamed)
         self.view.ctrl_wheel.connect(self.ctrl_wheel)
         self.view.selectionModel().selectionChanged.connect(
             lambda *_: self.selection_changed.emit()
@@ -93,6 +97,10 @@ class VirtualGallery(QWidget):
 
     def jump_to_path(self, path: str) -> bool:
         return self.view.jump_to_path(path)
+
+    def rename_selected_file(self) -> Optional[str]:
+        """Trigger inline rename on the selected item via F2 (§2.26)."""
+        return self.view.rename_selected_file()
 
     def cancel_loading(self) -> None:
         self.model.cancel_loading()

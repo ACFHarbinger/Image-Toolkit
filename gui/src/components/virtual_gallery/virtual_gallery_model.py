@@ -304,6 +304,22 @@ class VirtualGalleryModel(QAbstractListModel):
         except ValueError:
             return -1
 
+    def rename_path(self, old_path: str, new_path: str) -> bool:
+        """Rename an item path in the model and transfer cached data (§2.26)."""
+        if old_path not in self._paths:
+            return False
+        idx = self._paths.index(old_path)
+        self._paths[idx] = new_path
+        pix = self._cache.pop(old_path, None)
+        if pix is not None:
+            self._cache[new_path] = pix
+        for store in (self._ratings, self._resolutions, self._formats, self._star_ratings, self._tag_counts):
+            if old_path in store:
+                store[new_path] = store.pop(old_path)
+        model_idx = self.index(idx, 0)
+        self.dataChanged.emit(model_idx, model_idx)
+        return True
+
     def set_thumbnail_size(self, size: int) -> None:
         """Change the served decoration size; cached QImages are rescaled on
         access, so zooming never reloads from disk. Emits ``layoutChanged``
