@@ -496,11 +496,14 @@ Compute |ASP - SCANS| per pixel and display as a colourmap overlay (e.g., hot co
 
 ---
 
-## 2.7 Progress and Cancellation ✅ Partial (2026-06-10 — §A stage progress + §B cancellable workers) {: #27-progress-and-cancellation }
+## 2.7 Progress and Cancellation ✅ Shipped (2026-06-10 — §A stage progress + §B cancellable workers, 2026-08-31 — worker lifecycle & GC guards shipped — Complete) {: #27-progress-and-cancellation }
 
-**Pain point:** Long-running operations show minimal progress feedback and cannot be cancelled without killing the process.
+**Shipped: Options A & B.**
+- **Option A (Stage-Level Progress)**: Emits stage-name signals across pipeline stages, displayed on status bars and progress indicators.
+- **Option B (Cancellable Workers & GC Protection)**: Cancellable QThreads with `_should_stop` flags across all worker threads. Audited and stabilized with `@gc_disabled_run` / `GcSafeThread` across 38 CV/torch/stitch worker classes (`gui/test/helpers/test_gc_tier2_workers.py`, 51 passed).
 
 ### Options
+
 
 **A — Stage-level progress bar for ASP**
 Emit a stage-name signal at the start of each of the 13 pipeline stages. Display current stage name + per-stage progress percentage in the StitchTab status bar.
@@ -1106,11 +1109,15 @@ Wire a `QCompleter` populated from `get_all_tags_from_db()` to the tag search fi
 
 ---
 
-## 2.23 Accessibility and Keyboard Tab Order ✅ Partial (2026-06-10 — §A accessible names on pagination widgets) {: #223-accessibility-and-keyboard-tab-order }
+## 2.23 Accessibility and Keyboard Tab Order ✅ Shipped (2026-06-10 — §A accessible names, 2026-09-05 — §B tab order & §E focus ring styles shipped — Complete) {: #223-accessibility-and-keyboard-tab-order }
 
-**Pain point:** No `setAccessibleName()` calls, no explicit `setTabOrder()`, and no testing with screen readers. High-contrast mode and font scaling are not addressed. For a power-user tool managing thousands of files, keyboard-only navigation (no mouse) is both an accessibility requirement and a daily-use efficiency gain.
+**Shipped: Options A, B, & E.**
+- **Option A (Accessible Names)**: Explicit `setAccessibleName` descriptions on navigation and interactive widgets.
+- **Option B (Logical Tab Order)**: Logical focus traversal across interactive toolbars and forms.
+- **Option E (Visible Focus Rings)**: Explicit `:focus` styles on buttons, inputs, list views, and tables across `dark.qss` and `light.qss`.
 
 ### Options
+
 
 **A — Accessible names on all interactive widgets [Quick Win]**
 Add `widget.setAccessibleName("descriptive name")` and `widget.setAccessibleDescription("...")` to all buttons, inputs, and gallery thumbnails. Required for screen readers (Orca on Linux, NVDA on Windows).
