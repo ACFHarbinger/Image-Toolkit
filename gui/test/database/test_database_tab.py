@@ -72,7 +72,7 @@ class TestDatabaseTab:
 
 class TestScanMetadataTab:
     def test_init(self, q_app):
-        # ScanMetadataTab requires a db_tab_ref
+        # ScanMetadataTab receives non-visual database session state.
         mock_db_tab = MagicMock()
         # Mock valid local path or os.getcwd for last_browsed_scan_dir
         with patch(
@@ -80,7 +80,7 @@ class TestScanMetadataTab:
         ):
             tab = ScanMetadataTab(mock_db_tab)
             assert isinstance(tab, QWidget)
-            assert tab.db_tab_ref == mock_db_tab
+            assert tab.database_service.db == mock_db_tab.db
 
     def test_cancel_loading(self, q_app):
         mock_db_tab = MagicMock()

@@ -50,17 +50,19 @@ def test_inventory_matches_every_live_all_tabs_route():
     assert len(_inventory_routes()) == 33
 
 
-def test_inventory_records_the_current_eager_and_direct_reference_constraints():
+def test_inventory_records_eager_construction_and_database_intent_migration():
     source = REGISTRY_PATH.read_text(encoding="utf-8")
     inventory = INVENTORY_PATH.read_text(encoding="utf-8")
 
     assert "imports 25 names" in inventory
     assert "constructs 26 top-level tab" in inventory
+    assert "LibraryDatabaseService(vault_manager)" in source
+    assert "self.module_event_hub = EventHub(self)" in source
     for reference in (
-        "self.database_tab.scan_tab_ref = self.scan_metadata_tab",
-        "self.database_tab.search_tab_ref = self.search_tab",
-        "self.database_tab.wallpaper_tab_ref = self.wallpaper_tab",
-        "self.database_tab.main_window_ref = self",
-        "self.listings_tab.main_window_ref = self",
+        "self.database_tab.scan_tab_ref",
+        "self.database_tab.search_tab_ref",
+        "self.database_tab.wallpaper_tab_ref",
+        "self.database_tab.main_window_ref",
+        "self.listings_tab.main_window_ref",
     ):
-        assert reference in source
+        assert reference not in source

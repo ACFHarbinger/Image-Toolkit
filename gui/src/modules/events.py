@@ -75,6 +75,38 @@ class TelemetryUpdatedFact(Fact):
     status_message: str | None = None
 
 
+@dataclass(frozen=True, kw_only=True, slots=True)
+class DatabaseAvailabilityChanged(Fact):
+    connected: bool
+
+
+@dataclass(frozen=True, kw_only=True, slots=True)
+class TagCatalogChanged(Fact):
+    """Tags or categories changed; consumers should rebuild their filters."""
+
+
+@dataclass(frozen=True, kw_only=True, slots=True)
+class GroupCatalogChanged(Fact):
+    groups: tuple[str, ...]
+
+
+@dataclass(frozen=True, kw_only=True, slots=True)
+class SubgroupCatalogChanged(Fact):
+    subgroups: tuple[tuple[str, str], ...]
+
+
+@dataclass(frozen=True, kw_only=True, slots=True)
+class FilterByTagIntent(Intent):
+    module_id: str
+    tag_name: str
+
+
+@dataclass(frozen=True, kw_only=True, slots=True)
+class ImportPathsIntent(Intent):
+    module_id: str
+    paths: tuple[str, ...]
+
+
 EventT = TypeVar("EventT", bound=ModuleEvent)
 
 
@@ -141,8 +173,12 @@ class EventHub(QObject):
 __all__ = [
     "EventHub",
     "EventSubscription",
+    "DatabaseAvailabilityChanged",
     "Fact",
     "InspectImageIntent",
+    "FilterByTagIntent",
+    "GroupCatalogChanged",
+    "ImportPathsIntent",
     "Intent",
     "ModuleActivated",
     "ModuleDeactivated",
@@ -151,4 +187,6 @@ __all__ = [
     "SelectionChangedFact",
     "TelemetryUpdatedFact",
     "ToggleInspectorIntent",
+    "SubgroupCatalogChanged",
+    "TagCatalogChanged",
 ]
