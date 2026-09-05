@@ -35,12 +35,23 @@ class NavigationRailWidget(QWidget):
 
     module_selected = Signal(str)  # module_id
 
+    # Width of icon_rail (56) + drawer_widget (200) -- the collapsible
+    # "sidebar" content, not counting the always-visible toggle strip.
+    _SIDEBAR_WIDTH = 256
+
     def __init__(self, catalog: ModuleCatalog, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.catalog = catalog
         self.active_category: Optional[ModuleCategory] = None
         self.active_module_id: Optional[str] = None
+        # Whether the *drawer* (per-category module list) is expanded --
+        # independent of _sidebar_expanded below.
         self._drawer_expanded: bool = True
+        # Whether the whole sidebar (icon rail + drawer) is expanded at all.
+        # Collapsing this gives the tab content the full window width; only
+        # the slim always-visible toggle strip remains, so it stays
+        # re-expandable without needing the keyboard shortcut.
+        self._sidebar_expanded: bool = True
         self._build_ui()
 
     def _build_ui(self) -> None:
@@ -49,7 +60,32 @@ class NavigationRailWidget(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
-        # 1. Left Icon Rail (slim vertical strip)
+        # 0. Always-visible toggle strip -- lives outside the collapsible
+        # sidebar_content so it stays clickable/discoverable when collapsed.
+        self.toggle_strip = QWidget()
+        self.toggle_strip.setObjectName("rail_toggle_strip")
+        self.toggle_strip.setFixedWidth(22)
+        strip_layout = QVBoxLayout(self.toggle_strip)
+        strip_layout.setContentsMargins(2, 8, 2, 8)
+        strip_layout.setSpacing(0)
+
+        self.toggle_btn = QToolButton()
+        self.toggle_btn.setText("◀")
+        self.toggle_btn.setFixedSize(18, 32)
+        self.toggle_btn.setToolTip("Collapse/Expand Sidebar (Ctrl+B)")
+        self.toggle_btn.clicked.connect(self.toggle_sidebar)
+        strip_layout.addWidget(self.toggle_btn)
+        strip_layout.addStretch()
+        layout.addWidget(self.toggle_strip)
+
+        # 1. Collapsible sidebar content (icon rail + drawer together).
+        self.sidebar_content = QWidget()
+        self.sidebar_content.setObjectName("rail_sidebar_content")
+        sidebar_layout = QHBoxLayout(self.sidebar_content)
+        sidebar_layout.setContentsMargins(0, 0, 0, 0)
+        sidebar_layout.setSpacing(0)
+
+        # 1a. Left Icon Rail (slim vertical strip)
         self.icon_rail = QWidget()
         self.icon_rail.setObjectName("icon_rail")
         self.icon_rail.setFixedWidth(56)
@@ -77,16 +113,16 @@ class NavigationRailWidget(QWidget):
         rail_layout.addStretch()
 
         # Drawer toggle button at bottom
-        self.toggle_btn = QToolButton()
-        self.toggle_btn.setText("◀" if self._drawer_expanded else "▶")
-        self.toggle_btn.setFixedSize(48, 32)
-        self.toggle_btn.setToolTip("Toggle Navigation Drawer (Ctrl+B)")
-        self.toggle_btn.clicked.connect(self.toggle_drawer)
-        rail_layout.addWidget(self.toggle_btn)
+        self.drawer_toggle_btn = QToolButton()
+        self.drawer_toggle_btn.setText("◀" if self._drawer_expanded else "▶")
+        self.drawer_toggle_btn.setFixedSize(48, 32)
+        self.drawer_toggle_btn.setToolTip("Toggle Navigation Drawer")
+        self.drawer_toggle_btn.clicked.connect(self.toggle_drawer)
+        rail_layout.addWidget(self.drawer_toggle_btn)
 
-        layout.addWidget(self.icon_rail)
+        sidebar_layout.addWidget(self.icon_rail)
 
-        # 2. Drawer Panel (tool list for active category)
+        # 1b. Drawer Panel (tool list for active category)
         self.drawer_widget = QWidget()
         self.drawer_widget.setObjectName("rail_drawer")
         self.drawer_widget.setFixedWidth(200)
@@ -110,16 +146,34 @@ class NavigationRailWidget(QWidget):
         self.module_scroll.setWidget(self.module_container)
         self.drawer_layout.addWidget(self.module_scroll)
 
-        layout.addWidget(self.drawer_widget)
+        sidebar_layout.addWidget(self.drawer_widget)
+        layout.addWidget(self.sidebar_content)
 
         # Initial selection
         cats = self.catalog.categories()
         if cats:
             self.select_category(cats[0])
 
+    def toggle_sidebar(self) -> None:
+        """Collapse/expand the entire sidebar (icon rail + drawer), giving
+        the active tab's content the full window width when collapsed. The
+        toggle strip itself stays visible so it's always re-expandable."""
+        self._sidebar_expanded = not self._sidebar_expanded
+        self.toggle_btn.setText("◀" if self._sidebar_expanded else "▶")
+        # self._sidebar_expanded now holds the *target* state -- animate
+        # toward it (0 -> full width when expanding, full width -> 0 when
+        # collapsing).
+        end_w = self._SIDEBAR_WIDTH if self._sidebar_expanded else 0
+        start_w = 0 if self._sidebar_expanded else self._SIDEBAR_WIDTH
+        try:
+            from gui.src.styles.motion_kit import MotionKit
+            MotionKit.slide_width(self.sidebar_content, start_w, end_w, duration_ms=MotionKit.BASE_MS)
+        except Exception:
+            self.sidebar_content.setVisible(self._sidebar_expanded)
+
     def toggle_drawer(self) -> None:
         self._drawer_expanded = not self._drawer_expanded
-        self.toggle_btn.setText("◀" if self._drawer_expanded else "▶")
+        self.drawer_toggle_btn.setText("◀" if self._drawer_expanded else "▶")
         start_w = 0 if self._drawer_expanded else 200
         end_w = 200 if self._drawer_expanded else 0
         try:

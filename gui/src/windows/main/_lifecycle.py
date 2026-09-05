@@ -158,7 +158,7 @@ class _LifecycleMixin:
             and event.key() == Qt.Key.Key_B
             and event.modifiers() == Qt.KeyboardModifier.ControlModifier
         ):
-            self.shell_layout_manager.rail.toggle_drawer()
+            self.shell_layout_manager.rail.toggle_sidebar()
             event.accept()
         elif (
             getattr(self, "_using_runtime_shell", False)
