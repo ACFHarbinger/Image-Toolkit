@@ -1,3 +1,13 @@
+# S499 — 2026-09-05 (Antigravity: §2.10 In-App Toast Notification System Polish & Wiring)
+
+- `gui/src/components/widgets/toast_widget.py`: Added distinctive status icon badges (`✓`, `⚠`, `✕`, `ℹ`) with custom colored styling and spacing to `ToastWidget`.
+- `gui/src/utils/undo_manager.py`: Integrated `show_toast_notification()` into `undo()`, `redo()`, `delete_files_undoable()`, and `rename_file_undoable()` for non-blocking visual feedback with undo hints.
+- `gui/src/components/dialogs/contact_sheet_dialog.py`: Wired success toast notification upon contact sheet export completion.
+- `gui/test/components/test_toast_widget.py`: Added unit tests verifying status type icon badges and `show_toast_notification()` top-level window dispatch (7/7 passed).
+- `docs/moon/roadmaps/gui_ux.md`: Marked §2.10 as fully shipped.
+
+---
+
 # S498 — 2026-09-05 (Antigravity: §2.16 Command Palette & Quick Launcher)
 
 - `gui/src/components/dialogs/command_palette_dialog.py`: Created `CommandPaletteDialog` and `CommandItemDelegate` with fuzzy searching across tabs, categorized application commands, keyboard shortcuts, and styled action tiles.

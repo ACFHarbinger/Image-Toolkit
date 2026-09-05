@@ -45,14 +45,27 @@ class ToastWidget(QWidget):
         }
         self.color = self.colors.get(self.toast_type, self.colors["info"])
 
+        self.type_icons = {
+            "success": "✓",
+            "warning": "⚠",
+            "error": "✕",
+            "info": "ℹ",
+        }
+
         self._setup_ui()
 
     def _setup_ui(self):
         layout = QHBoxLayout(self)
         layout.setContentsMargins(15, 10, 15, 10)
+        layout.setSpacing(10)
+
+        icon_char = self.type_icons.get(self.toast_type, "ℹ")
+        self.icon_label = QLabel(icon_char, self)
+        self.icon_label.setStyleSheet(f"color: {self.color.name()}; font-weight: bold; font-size: 15px;")
+        layout.addWidget(self.icon_label)
 
         self.label = QLabel(self.message, self)
-        self.label.setStyleSheet("color: white; font-weight: bold; font-size: 14px;")
+        self.label.setStyleSheet("color: white; font-weight: bold; font-size: 13px;")
         layout.addWidget(self.label)
 
         self.adjustSize()

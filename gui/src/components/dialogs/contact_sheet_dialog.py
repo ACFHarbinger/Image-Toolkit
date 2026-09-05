@@ -213,6 +213,11 @@ class ContactSheetDialog(QDialog):
     def _on_finished(self, out_path: str) -> None:
         self.progress_bar.setVisible(False)
         self.btn_generate.setEnabled(True)
+        try:
+            from ...windows.main._notify import show_toast_notification
+            show_toast_notification(f"Contact sheet saved: {Path(out_path).name}", "success")
+        except Exception:
+            pass
         QMessageBox.information(
             self,
             "Contact Sheet Created",

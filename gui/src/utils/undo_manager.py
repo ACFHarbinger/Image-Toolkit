@@ -152,6 +152,11 @@ class UndoManager(QObject):
             text = self.stack.undoText()
             self.stack.undo()
             self.undo_performed.emit(text)
+            try:
+                from ..windows.main._notify import show_toast_notification
+                show_toast_notification(f"Undid: {text}", "info")
+            except Exception:
+                pass
             return True
         return False
 
@@ -160,6 +165,11 @@ class UndoManager(QObject):
             text = self.stack.redoText()
             self.stack.redo()
             self.redo_performed.emit(text)
+            try:
+                from ..windows.main._notify import show_toast_notification
+                show_toast_notification(f"Redid: {text}", "info")
+            except Exception:
+                pass
             return True
         return False
 
@@ -193,6 +203,14 @@ class UndoManager(QObject):
             description=desc,
         )
         self.push(cmd)
+        try:
+            from ..windows.main._notify import show_toast_notification
+            show_toast_notification(
+                f"Moved {len(paths)} file{'s' if len(paths) != 1 else ''} to trash (Ctrl+Z to undo)",
+                "warning",
+            )
+        except Exception:
+            pass
 
     def rename_file_undoable(
         self,
@@ -210,6 +228,14 @@ class UndoManager(QObject):
             description=desc,
         )
         self.push(cmd)
+        try:
+            from ..windows.main._notify import show_toast_notification
+            show_toast_notification(
+                f"Renamed to {os.path.basename(new_path)} (Ctrl+Z to undo)",
+                "info",
+            )
+        except Exception:
+            pass
 
     def clear_trash(self, trash_dir: Optional[Path] = None) -> None:
         """Purge session trash directory contents."""
