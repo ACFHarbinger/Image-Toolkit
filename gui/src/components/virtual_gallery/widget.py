@@ -151,5 +151,15 @@ class VirtualGallery(QWidget):
         win.show()
         return win
 
+    def generate_contact_sheet(self, parent=None):
+        """Open a ContactSheetDialog for the selected or loaded files (§2.19B)."""
+        paths = self.selected_files() or self.paths()
+        if not paths:
+            return None
+        from ..dialogs.contact_sheet_dialog import ContactSheetDialog
+        dlg = ContactSheetDialog(paths, parent=parent or self)
+        dlg.exec()
+        return dlg
+
 
 __all__ = ["VirtualGallery"]

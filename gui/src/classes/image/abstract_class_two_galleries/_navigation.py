@@ -78,7 +78,7 @@ class _NavigationMixin:
             if hasattr(widget, "setToolTip"):
                 widget.setToolTip(os.path.basename(new_path))
 
-    # --- EXPORT SELECTION (GUI/UX §2.19A) ---
+    # --- EXPORT SELECTION (GUI/UX §2.19A/B) ---
     def _export_selection_as_paths(self: "AbstractClassTwoGalleriesHostProtocol") -> None:
         """Write the currently selected file paths to a user-chosen TXT file (Ctrl+E)."""
         paths = self.selected_files or self.found_files
@@ -100,6 +100,17 @@ class _NavigationMixin:
             self._show_status(f"Exported {len(paths)} paths → {os.path.basename(dest)}")
         except OSError as exc:
             QMessageBox.critical(cast(QWidget, self), "Export Error", str(exc))
+
+    def _generate_contact_sheet(self: "AbstractClassTwoGalleriesHostProtocol") -> None:
+        """Open the ContactSheetDialog to export a tiled proof sheet (§2.19B)."""
+        from ....components.dialogs.contact_sheet_dialog import ContactSheetDialog
+
+        paths = self.selected_files or self.found_files
+        if not paths:
+            self._show_status("Nothing to export — gallery is empty.")
+            return
+        dlg = ContactSheetDialog(paths, parent=cast(QWidget, self))
+        dlg.exec()
 
     # --- DIRECTORY NAVIGATION (GUI/UX §2.21A/D) ---
     def _navigate_to_dir(self: "AbstractClassTwoGalleriesHostProtocol", path: str) -> None:

@@ -943,9 +943,12 @@ A row of star icons above the gallery: clicking "≥ 3 stars" filters the visibl
 
 ---
 
-## 2.19 Gallery Export and Contact Sheet ✅ Partial (2026-06-10 — §A+C shipped) {: #219-gallery-export-and-contact-sheet }
+## 2.19 Gallery Export and Contact Sheet ✅ (2026-09-05 — Options A, B, and C shipped) {: #219-gallery-export-and-contact-sheet }
 
-**Pain point:** There is no way to export the current gallery selection as a list of paths or as a visual contact sheet (proof sheet). Workarounds require external tools. The `ConvertTab` handles format conversion but not gallery-selection-based export.
+**Shipped: Options A, B, and C.**
+- **Option A & C (Path & Directory Export)**: "Export Paths… (Ctrl+E)" and "Copy Selection to Folder…" in gallery context menus and shortcuts.
+- **Option B (Contact Sheet Generator)**: `generate_contact_sheet()` engine (`gui/src/utils/contact_sheet_generator.py`) and `ContactSheetDialog` (`gui/src/components/dialogs/contact_sheet_dialog.py`). Parameterizes columns (1–16), thumbnail box sizes (128/256/384/512px), cell padding, outer margins, background color, and filename captions with threaded generation to PNG/JPEG/PDF. Wired to `AbstractClassTwoGalleries` and `VirtualGallery`.
+- **Tests**: `gui/test/dialogs/test_contact_sheet.py` (2 unit tests).
 
 ### Options
 
