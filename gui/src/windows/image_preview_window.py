@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from shiboken6 import Shiboken
 
 from ..utils.manager.shortcut_manager import get_registry
 from .main import show_main_status
@@ -193,11 +194,24 @@ class ImagePreviewWindow(QDialog):
 
         # --- FIX: Emit the deferred signal emission for initial highlighting ---
         QTimer.singleShot(
-            100, lambda: self.path_changed.emit("INITIAL_LOAD_TRIGGER", self.image_path)
+            100,
+            lambda: self._run_if_alive(
+                lambda: self.path_changed.emit("INITIAL_LOAD_TRIGGER", self.image_path)
+            ),
         )
 
         self.setFocus()  # Initial focus
 
+    def _run_if_alive(self, callback) -> None:
+        """Invoke ``callback`` only if this window's C++ object still exists.
+
+        ``QTimer.singleShot`` callbacks can fire after the window has already
+        been closed and deleted (e.g. a fast close, or test teardown) --
+        calling back into a destroyed QObject raises
+        ``RuntimeError: Internal C++ object ... already deleted``.
+        """
+        if Shiboken.isValid(self):
+            callback()
 
     # --- MODIFIED: Resize Event Handler ---
     def resizeEvent(self, event):
@@ -289,8 +303,13 @@ class ImagePreviewWindow(QDialog):
             current_size.height() + 50, self.max_height
         )  # 50 is padding/title bar
 
-        # Schedule the resize to ensure it happens after the layout is fully built
-        QTimer.singleShot(0, lambda: self.resize(QSize(target_width, target_height)))
+        # Schedule the resize to ensure it happens after the layout is fully
+        # built. The window can be closed/deleted before this fires (e.g. in
+        # rapid test teardown, or a user closing the preview immediately) --
+        # guard against resizing an already-destroyed C++ object.
+        QTimer.singleShot(
+            0, lambda: self._run_if_alive(lambda: self.resize(QSize(target_width, target_height)))
+        )
 
     # --- MODIFIED: load_image supports GIF ---
     def load_image(self, path: str, initial_load: bool = False) -> bool:
@@ -449,7 +468,7 @@ class ImagePreviewWindow(QDialog):
         super().mousePressEvent(event)
 
         # Defer the focus call slightly to allow the mouse event chain to complete
-        QTimer.singleShot(0, self.setFocus)
+        QTimer.singleShot(0, lambda: self._run_if_alive(self.setFocus))
 
     # --- END FIX ---
 
@@ -808,4 +827,4 @@ class ImagePreviewWindow(QDialog):
             self.load_image(new_path)
 
         # --- FIX: Restore focus after navigation ---
-        QTimer.singleShot(0, self.setFocus)
+        QTimer.singleShot(0, lambda: self._run_if_alive(self.setFocus))
