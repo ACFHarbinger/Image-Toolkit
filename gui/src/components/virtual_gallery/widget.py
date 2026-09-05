@@ -66,8 +66,12 @@ class VirtualGallery(QWidget):
         """Replace the item list and reset the scroll position."""
         self.model.set_paths(paths)
         self.view.scrollToTop()
+        # Report the initial visible range so _fill_all can reorder for
+        # visible-first dispatch (issue #522).  fill() must come after
+        # set_visible_range so the queue is ordered correctly.
         self.view.reset_prefetch()
         self.view._prefetch_visible()
+        self.model.fill()
 
     def clear(self) -> None:
         self.model.set_paths([])

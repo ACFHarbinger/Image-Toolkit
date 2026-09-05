@@ -262,7 +262,14 @@ class _LoadingPipelineMixin:
             self._load_all_page_images()
 
     def _load_all_page_images(self: "AbstractClassSingleGalleryHostProtocol"):
-        """Triggers loading for all images in the current paginated view."""
+        """Triggers loading for all images in the current paginated view.
+
+        Paths are reordered so that thumbnails visible in the viewport are
+        dispatched first (visible-first dispatch, issue #522).  The batch
+        loader processes its input list sequentially, so placing visible
+        paths at the front ensures the user sees thumbnails populate
+        immediately while offscreen paths load later.
+        """
         if not self._paginated_paths:
             return
 
@@ -288,6 +295,14 @@ class _LoadingPipelineMixin:
             for p in paths_to_load
             if p.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
         ]
+
+        # Visible-first dispatch: sort so viewport-visible thumbnails load first
+        image_paths = self._sort_paths_by_visibility(
+            image_paths, self.gallery_scroll_area, self.path_to_card_widget
+        )
+        video_paths = self._sort_paths_by_visibility(
+            video_paths, self.gallery_scroll_area, self.path_to_card_widget
+        )
 
         if video_paths:
             for p in video_paths:

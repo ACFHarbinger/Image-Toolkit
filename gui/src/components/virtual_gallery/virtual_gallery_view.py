@@ -181,6 +181,9 @@ class VirtualGalleryView(QListView):
         lo, hi = self._visible_row_range(self._prefetch_buffer)
         if lo < 0 or hi < 0:
             return
+        # Inform the model of the visible range so _fill_all can
+        # reorder its queue for visible-first dispatch (issue #522).
+        self._gallery_model.set_visible_range(lo, hi)
         if (lo, hi) == self._last_prefetched_range:
             return
         self._last_prefetched_range = (lo, hi)
