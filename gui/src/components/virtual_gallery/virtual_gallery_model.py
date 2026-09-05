@@ -27,13 +27,16 @@ from __future__ import annotations
 
 import os
 from collections import deque
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from PySide6.QtCore import QAbstractListModel, QModelIndex, Qt, QThreadPool
 from PySide6.QtGui import QIcon, QImage, QPixmap
 from shiboken6 import Shiboken
 
 from gui.src.utils.cache.lru_image_cache import LRUImageCache
+
+_UNSET = object()
+
 
 
 class VirtualGalleryModel(QAbstractListModel):
@@ -69,6 +72,13 @@ class VirtualGalleryModel(QAbstractListModel):
     ):
         super().__init__(parent)
         self._paths: List[str] = []
+        self._master_paths: List[str] = []
+        self._sort_key: str = "name"
+        self._sort_reverse: bool = False
+        self._filter_extensions: Optional[set[str]] = None
+        self._filter_query: str = ""
+        self._filter_min_rating: float = 0.0
+
         self._cache = shared_cache if shared_cache is not None else LRUImageCache(maxsize=cache_maxsize)
         self._loading: set[str] = set()
         self._failed: set[str] = set()
@@ -113,21 +123,115 @@ class VirtualGalleryModel(QAbstractListModel):
     # ------------------------------------------------------------------
 
     def set_paths(self, paths) -> None:
-        """Replace the whole item list. In-flight loads become stale."""
+        """Replace the whole master item list and re-apply active sort/filters."""
+        self._master_paths = list(paths)
+        self._reapply_filter_and_sort()
+
+    def master_paths(self) -> List[str]:
+        """Return full master path list prior to filtering."""
+        return list(self._master_paths)
+
+    def sort_by(self, key: str = "name", reverse: bool = False) -> None:
+        """Sort gallery rows by key: 'name', 'date', 'size', 'extension', 'rating', 'resolution'."""
+        self._sort_key = key.lower()
+        self._sort_reverse = bool(reverse)
+        self._reapply_filter_and_sort()
+
+    def filter_by(
+        self,
+        extensions: Any = _UNSET,
+        query: Any = _UNSET,
+        min_rating: Any = _UNSET,
+    ) -> None:
+        """Filter gallery rows by extensions, search query, or minimum star rating."""
+        if extensions is not _UNSET:
+            if extensions is None or len(extensions) == 0:
+                self._filter_extensions = None
+            else:
+                self._filter_extensions = {
+                    ext.lower().lstrip(".") for ext in extensions if ext
+                }
+        if query is not _UNSET:
+            self._filter_query = (query or "").strip()
+        if min_rating is not _UNSET:
+            self._filter_min_rating = float(min_rating or 0.0)
+        self._reapply_filter_and_sort()
+
+
+    def _sort_key_func(self, path: str):
+        from gui.src.utils.sort_utils import natural_sort_key
+
+        k = self._sort_key
+        if k == "date":
+            try:
+                return os.path.getmtime(path)
+            except OSError:
+                return 0.0
+        elif k == "size":
+            try:
+                return os.path.getsize(path)
+            except OSError:
+                return 0
+        elif k in ("extension", "type"):
+            return os.path.splitext(path)[1].lower()
+        elif k == "rating":
+            return self._star_ratings.get(path, 0.0)
+        elif k == "resolution":
+            w, h = self._resolutions.get(path, (0, 0))
+            return w * h
+        else:  # "name" or fallback
+            return natural_sort_key(os.path.basename(path))
+
+    def _matches_filter(self, path: str) -> bool:
+        # Extension filter
+        if self._filter_extensions:
+            ext = os.path.splitext(path)[1].lower().lstrip(".")
+            if ext not in self._filter_extensions:
+                return False
+
+        # Min star rating filter
+        if self._filter_min_rating > 0 and self._star_ratings.get(path, 0.0) < self._filter_min_rating:
+            return False
+
+
+        # Text search query with operators (negation -term, quoted phrase, or |)
+        if self._filter_query:
+            q = self._filter_query
+            basename = os.path.basename(path).lower()
+            if q.startswith("-") and len(q) > 1:
+                term = q[1:].strip().lower()
+                if term in basename:
+                    return False
+            elif "|" in q:
+                terms = [t.strip().lower() for t in q.split("|") if t.strip()]
+                if terms and not any(t in basename for t in terms):
+                    return False
+            elif q.startswith('"') and q.endswith('"') and len(q) >= 2:
+                phrase = q[1:-1].lower()
+                if phrase not in basename:
+                    return False
+            else:
+                if q.lower() not in basename:
+                    return False
+
+        return True
+
+    def _reapply_filter_and_sort(self) -> None:
+        filtered = [p for p in self._master_paths if self._matches_filter(p)]
+        sorted_paths = sorted(filtered, key=self._sort_key_func, reverse=self._sort_reverse)
+
         self._generation += 1
         self._cancel_workers()
         self.beginResetModel()
-        self._paths = list(paths)
+        self._paths = sorted_paths
         self._loading.clear()
         self._failed.clear()
-        # The pool keeps queued/running runnables alive, so dropping the refs
-        # here only releases finished workers; their late deliveries are
-        # rejected by the generation check below.
         self._active_workers.clear()
         self._fill_queue.clear()
         self.endResetModel()
         if self.fill_mode:
             self._fill_all()
+
 
     def _fill_all(self) -> None:
         """Queue every not-yet-cached path for a continuous background load."""
@@ -383,6 +487,30 @@ class VirtualGalleryModel(QAbstractListModel):
     # QAbstractListModel
     # ------------------------------------------------------------------
 
+    def _format_tooltip(self, path: str) -> str:
+        name = os.path.basename(path)
+        res = self._resolutions.get(path)
+        res_str = f"{res[0]} × {res[1]}" if res else ""
+        fmt = self._formats.get(path) or os.path.splitext(path)[1].upper().lstrip(".")
+        star = self._star_ratings.get(path)
+        rating = self._ratings.get(path)
+        tags = self._tag_counts.get(path)
+
+        details = []
+        if res_str:
+            details.append(f"Dimensions: {res_str}")
+        if fmt:
+            details.append(f"Format: {fmt}")
+        if star:
+            details.append(f"Rating: ★ {star}")
+        if rating:
+            details.append(f"Content: {str(rating).upper()}")
+        if tags:
+            details.append(f"Tags: {tags}")
+
+        detail_lines = "\n".join(details)
+        return f"{name}\n{detail_lines}" if details else name
+
     def data(self, index: QModelIndex, role: int = Qt.ItemDataRole.DisplayRole):
         if not index.isValid() or not (0 <= index.row() < len(self._paths)):
             return None
@@ -390,47 +518,21 @@ class VirtualGalleryModel(QAbstractListModel):
         if role == Qt.ItemDataRole.DecorationRole:
             return self._decoration_for(path)
         if role == Qt.ItemDataRole.ToolTipRole:
-            name = os.path.basename(path)
-            res = self._resolutions.get(path)
-            res_str = f"{res[0]} × {res[1]}" if res else ""
-            fmt = self._formats.get(path) or os.path.splitext(path)[1].upper().lstrip(".")
-            star = self._star_ratings.get(path)
-            rating = self._ratings.get(path)
-            tags = self._tag_counts.get(path)
+            return self._format_tooltip(path)
 
-            details = []
-            if res_str:
-                details.append(f"Dimensions: {res_str}")
-            if fmt:
-                details.append(f"Format: {fmt}")
-            if star:
-                details.append(f"Rating: ★ {star}")
-            if rating:
-                details.append(f"Content: {str(rating).upper()}")
-            if tags:
-                details.append(f"Tags: {tags}")
+        role_map = {
+            self.PathRole: path,
+            self.InDbRole: path in self._in_db,
+            self.SelectedRole: path in self._selected,
+            self.PreviewRole: path in self._preview,
+            self.RatingRole: self._ratings.get(path),
+            self.ResolutionRole: self._resolutions.get(path),
+            self.FormatRole: self._formats.get(path),
+            self.StarRatingRole: self._star_ratings.get(path),
+            self.TagCountRole: self._tag_counts.get(path),
+        }
+        return role_map.get(role)
 
-            detail_lines = "\n".join(details)
-            return f"{name}\n{detail_lines}" if details else name
-        if role == self.PathRole:
-            return path
-        if role == self.InDbRole:
-            return path in self._in_db
-        if role == self.SelectedRole:
-            return path in self._selected
-        if role == self.PreviewRole:
-            return path in self._preview
-        if role == self.RatingRole:
-            return self._ratings.get(path)
-        if role == self.ResolutionRole:
-            return self._resolutions.get(path)
-        if role == self.FormatRole:
-            return self._formats.get(path)
-        if role == self.StarRatingRole:
-            return self._star_ratings.get(path)
-        if role == self.TagCountRole:
-            return self._tag_counts.get(path)
-        return None
 
     def flags(self, index: QModelIndex) -> Qt.ItemFlag:
         if not index.isValid():

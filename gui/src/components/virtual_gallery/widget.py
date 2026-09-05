@@ -76,11 +76,26 @@ class VirtualGallery(QWidget):
     def clear(self) -> None:
         self.model.set_paths([])
 
+    def master_paths(self) -> list[str]:
+        return self.model.master_paths()
+
+    def sort_by(self, key: str = "name", reverse: bool = False) -> None:
+        self.model.sort_by(key=key, reverse=reverse)
+
+    def filter_by(
+        self,
+        extensions: Optional[set[str]] = None,
+        query: Optional[str] = None,
+        min_rating: Optional[float] = None,
+    ) -> None:
+        self.model.filter_by(extensions=extensions, query=query, min_rating=min_rating)
+
     def count(self) -> int:
         return self.model.rowCount()
 
     @property
     def thumbnail_size(self) -> int:
+
         return self.model.thumbnail_size
 
     def set_thumbnail_size(self, size: int) -> None:
