@@ -1,3 +1,14 @@
+# S496 — 2026-09-05 (Antigravity: §2.19B Contact Sheet Generator)
+
+- `gui/src/utils/contact_sheet_generator.py`: Created `generate_contact_sheet()` PIL engine supporting custom grid columns, thumbnail dimensions, padding, outer margins, background color, and auto-truncated filename labels.
+- `gui/src/components/dialogs/contact_sheet_dialog.py`: Created threaded `ContactSheetDialog` with interactive layout controls, size presets (128/256/384/512px), background color picker, and PNG/JPEG/PDF export.
+- `gui/src/classes/image/`: Added `_generate_contact_sheet()` to `AbstractClassTwoGalleries` and wired "Generate Contact Sheet…" to the right-click context menu.
+- `gui/src/components/virtual_gallery/widget.py`: Added `generate_contact_sheet()` helper method on `VirtualGallery`.
+- `gui/test/dialogs/test_contact_sheet.py`: Added 2 unit tests verifying grid dimension calculation, file creation, and dialog options.
+- `docs/moon/roadmaps/gui_ux.md`: Marked §2.19 as shipped with Options A, B, and C details.
+
+---
+
 # S495 — 2026-09-05 (Antigravity: §2.25 Keyboard Shortcut Discovery Overlay)
 
 - `gui/src/components/dialogs/shortcut_discovery_dialog.py`: Created `ShortcutDiscoveryDialog` featuring scope filtering tabs (`All`, `General`, `Gallery`, `Preview`, `Stitch`, `Convert`, `Merge`), real-time search with match counters, custom `KeycapBadgeDelegate` rendering `<kbd>`-styled keycaps with modifier separation, and `ScopeBadgeDelegate` rendering accent pills.
