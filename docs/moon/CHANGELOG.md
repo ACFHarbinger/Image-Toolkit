@@ -1,3 +1,14 @@
+# S523 — 2026-09-05 (Codex: Phase 0.3 device-owned tray preference)
+
+- `minimize_to_tray` / `close_to_tray` is now exclusively device-owned by
+  `AppSettings`/QSettings. Startup and the Settings UI ignore stale vault
+  keys; Settings persists the device value even in guest mode and never writes
+  it back into vault preferences. Added stale-vault and guest-save regression
+  coverage. This is the Phase 0 proof case before the full `PreferenceStore`
+  contract.
+
+---
+
 # S512 — 2026-09-05 (Antigravity: Navigation Rail Sidebar Toggle & Interaction Polish)
 
 - `gui/src/components/navigation/navigation_rail.py`:
