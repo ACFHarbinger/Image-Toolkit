@@ -23,7 +23,7 @@ class _FileActionsMixin:
     """Remove-from-DB, delete-file, properties dialog, context menu, preview."""
 
     def handle_remove_from_db(self, file_path: str):
-        db = self.db_tab_ref.db
+        db = self.database_service.db
         if not db:
             QMessageBox.warning(
                 self, "Database Error", "Please connect to the database first."
@@ -69,7 +69,7 @@ class _FileActionsMixin:
                 self, "Delete Error", "File not found or path is invalid."
             )
             return
-        db = self.db_tab_ref.db
+        db = self.database_service.db
         if not db:
             QMessageBox.warning(
                 self,
@@ -249,7 +249,7 @@ class _FileActionsMixin:
 
         preview = ImagePreviewWindow(
             image_path=file_path,
-            db_tab_ref=self.db_tab_ref,
+            db_tab_ref=self.database_service,
             parent=self,
             all_paths=all_paths,
             start_index=start_index,

@@ -19,7 +19,7 @@ class _TagFiltersMixin:
     """Tag-type checkbox row and the tag list it filters."""
 
     def _get_tags_from_db(self) -> List[Dict[str, str]]:
-        db = self.db_tab_ref.db
+        db = self.database_service.db
         if not db:
             return []
         try:
@@ -33,7 +33,7 @@ class _TagFiltersMixin:
         """{category_name: color} from tag_categories, data-driven instead
         of a hardcoded literal so custom/extended categories pick up their
         real color automatically."""
-        db = self.db_tab_ref.db
+        db = self.database_service.db
         if not db:
             return {}
         try:
