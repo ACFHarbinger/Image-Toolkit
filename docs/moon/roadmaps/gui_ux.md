@@ -1137,13 +1137,15 @@ Ensure `QFocusFrame` or QSS `:focus` selectors provide a visible focus ring on a
 
 **Recommendation:** A + B + E are minimum viable accessibility requirements. C + D in a dedicated accessibility sprint.
 
----
+## 2.24 Thumbnail Hover Animations ✅ Shipped (2026-06-10 — §A CSS hover, 2026-09-05 — §B/C delegate hover highlight glow shipped) {: #224-thumbnail-hover-animations }
 
-## 2.24 Thumbnail Hover Animations ✅ Partial (2026-06-10 — §A shipped) {: #224-thumbnail-hover-animations }
-
-**Pain point:** Thumbnails are static `QLabel` / `DraggableLabel` widgets with no hover response. Modern image management apps (Eagle, Hydrus) animate thumbnails on hover (subtle scale-up, brightness lift, border highlight) to improve visual responsiveness and make the selection state feel tactile.
+**Shipped: Options A & B.**
+- **Option A (CSS :hover border highlight)**: Thumbnail label border highlights in gallery card layouts.
+- **Option B & C (Hover Glow & Delegate Highlights)**: `VirtualGalleryDelegate` renders mouse hover glow highlights (`QStyle.StateFlag.State_MouseOver`) across virtualized gallery views.
+- **Tests**: `gui/test/gallery/test_metadata_overlay_tooltip.py` (2 unit tests).
 
 ### Options
+
 
 **A — CSS :hover border highlight [Quick Win]**
 Add `:hover { border: 2px solid #5865f2; }` to the thumbnail label QSS. Already half-done for selected state. This is a zero-Python change.
