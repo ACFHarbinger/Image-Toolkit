@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QScrollArea,
     QVBoxLayout,
+    QWidget,
 )
 
 from ..utils.manager.shortcut_manager import get_registry
@@ -136,15 +137,28 @@ class ImagePreviewWindow(QDialog):
         # Layout for image display and navigation controls
         main_content_layout = QHBoxLayout()
         main_content_layout.setContentsMargins(0, 0, 0, 0)
+        main_content_layout.setSpacing(0)
 
         # Add navigation buttons and image area
         main_content_layout.addWidget(self.btn_prev, 0, Qt.AlignmentFlag.AlignVCenter)
         main_content_layout.addWidget(self.scroll_area, 1)
         main_content_layout.addWidget(self.btn_next, 0, Qt.AlignmentFlag.AlignVCenter)
 
+        # Inline metadata sidebar panel (§2.11C)
+        self._setup_info_panel()
+        main_content_layout.addWidget(self._info_panel, 0)
+
         # Final layout (VBox to hold everything)
         vbox = QVBoxLayout(self)
+        vbox.setContentsMargins(0, 0, 0, 0)
         vbox.addLayout(main_content_layout)
+
+        # Fullscreen idle cursor auto-hide timer (§2.11A)
+        self.setMouseTracking(True)
+        self._idle_cursor_timer = QTimer(self)
+        self._idle_cursor_timer.setInterval(3000)
+        self._idle_cursor_timer.setSingleShot(True)
+        self._idle_cursor_timer.timeout.connect(self._hide_cursor_if_fullscreen)
 
         # 4. Setup Shortcuts (GUI/UX §2.29 — registry-driven)
         _reg = get_registry()
@@ -170,6 +184,7 @@ class ImagePreviewWindow(QDialog):
         )
 
         self._update_navigation_button_state()
+        self._update_info_panel()
 
         self.showMaximized()
         self.setFocusPolicy(
@@ -182,6 +197,7 @@ class ImagePreviewWindow(QDialog):
         )
 
         self.setFocus()  # Initial focus
+
 
     # --- MODIFIED: Resize Event Handler ---
     def resizeEvent(self, event):
@@ -331,7 +347,10 @@ class ImagePreviewWindow(QDialog):
         self.current_zoom_factor = self._calculate_fit_scale()
 
         self.update_image_display()
+        if hasattr(self, "_info_panel") and self._info_panel.isVisible():
+            self._update_info_panel()
         return True
+
 
     # --- END MODIFIED load_image ---
 
@@ -449,8 +468,141 @@ class ImagePreviewWindow(QDialog):
     def _toggle_fullscreen(self) -> None:
         if self.isFullScreen():
             self.showMaximized()
+            self.setCursor(Qt.CursorShape.ArrowCursor)
+            self._idle_cursor_timer.stop()
+            self.btn_prev.setVisible(True)
+            self.btn_next.setVisible(True)
         else:
             self.showFullScreen()
+            self.btn_prev.setVisible(False)
+            self.btn_next.setVisible(False)
+            self._idle_cursor_timer.start()
+
+    def _hide_cursor_if_fullscreen(self) -> None:
+        if self.isFullScreen():
+            self.setCursor(Qt.CursorShape.BlankCursor)
+
+    def mouseMoveEvent(self, event: QMouseEvent) -> None:
+        self.setCursor(Qt.CursorShape.ArrowCursor)
+        if self.isFullScreen():
+            self._idle_cursor_timer.start()
+        super().mouseMoveEvent(event)
+
+    # --- GUI/UX §2.11C — Inline Metadata / EXIF Sidebar ---
+    def _setup_info_panel(self) -> None:
+        self._info_panel = QWidget(self)
+        self._info_panel.setFixedWidth(280)
+        self._info_panel.setStyleSheet(
+            "QWidget { background-color: #1a1b26; color: #c0caf5; border-left: 1px solid #292e42; }"
+            "QLabel { font-size: 11px; padding: 2px 4px; }"
+        )
+        self._info_panel.setVisible(False)
+
+        panel_layout = QVBoxLayout(self._info_panel)
+        panel_layout.setContentsMargins(8, 8, 8, 8)
+        panel_layout.setSpacing(6)
+
+        header_lbl = QLabel("<b>IMAGE INFORMATION</b>", self._info_panel)
+        header_lbl.setStyleSheet("color: #7aa2f7; font-size: 12px; font-weight: bold; border-bottom: 1px solid #292e42; padding-bottom: 4px;")
+        panel_layout.addWidget(header_lbl)
+
+        self._info_scroll = QScrollArea(self._info_panel)
+        self._info_scroll.setWidgetResizable(True)
+        self._info_scroll.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self._info_scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
+
+        self._info_content = QWidget()
+        self._info_content_layout = QVBoxLayout(self._info_content)
+        self._info_content_layout.setContentsMargins(0, 0, 0, 0)
+        self._info_content_layout.setSpacing(4)
+        self._info_content_layout.addStretch()
+
+        self._info_scroll.setWidget(self._info_content)
+        panel_layout.addWidget(self._info_scroll, 1)
+
+    def _toggle_info_panel(self) -> None:
+        is_visible = self._info_panel.isVisible()
+        self._info_panel.setVisible(not is_visible)
+        if not is_visible:
+            self._update_info_panel()
+
+    def _update_info_panel(self) -> None:
+        if not hasattr(self, "_info_content_layout"):
+            return
+        # Clear previous rows
+        while self._info_content_layout.count() > 1:
+            item = self._info_content_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+        meta = self._extract_image_metadata(self.image_path)
+        for key, val in meta.items():
+            row = QWidget(self._info_content)
+            row_layout = QVBoxLayout(row)
+            row_layout.setContentsMargins(0, 2, 0, 2)
+            row_layout.setSpacing(1)
+
+            k_lbl = QLabel(key, row)
+            k_lbl.setStyleSheet("color: #7982a9; font-size: 10px; font-weight: 600; text-transform: uppercase;")
+            v_lbl = QLabel(str(val), row)
+            v_lbl.setWordWrap(True)
+            v_lbl.setStyleSheet("color: #c0caf5; font-size: 11px;")
+
+            row_layout.addWidget(k_lbl)
+            row_layout.addWidget(v_lbl)
+            self._info_content_layout.insertWidget(self._info_content_layout.count() - 1, row)
+
+    def _extract_image_metadata(self, path: str) -> dict[str, str]:
+        data: dict[str, str] = {}
+        if not path or not os.path.exists(path):
+            return data
+        data["File Name"] = os.path.basename(path)
+        data["Directory"] = os.path.dirname(path)
+        try:
+            size_bytes = os.path.getsize(path)
+            if size_bytes < 1024:
+                data["File Size"] = f"{size_bytes} B"
+            elif size_bytes < 1024 * 1024:
+                data["File Size"] = f"{size_bytes / 1024:.1f} KB"
+            else:
+                data["File Size"] = f"{size_bytes / (1024 * 1024):.2f} MB"
+            mtime = os.path.getmtime(path)
+            from datetime import datetime
+            data["Modified"] = datetime.fromtimestamp(mtime).strftime("%Y-%m-%d %H:%M:%S")
+        except OSError:
+            pass
+
+        try:
+            from PIL import ExifTags, Image
+            with Image.open(path) as img:
+                w, h = img.size
+                data["Dimensions"] = f"{w} × {h} px"
+                if h > 0:
+                    data["Aspect Ratio"] = f"{w / h:.2f}:1"
+                data["Format"] = str(img.format or os.path.splitext(path)[1].upper().lstrip("."))
+                data["Color Mode"] = str(img.mode)
+
+                exif_raw = img._getexif() if hasattr(img, "_getexif") else None
+                if exif_raw:
+                    for tag_id, val in exif_raw.items():
+                        tag_name = ExifTags.TAGS.get(tag_id, str(tag_id))
+                        if tag_name in (
+                            "Make",
+                            "Model",
+                            "LensModel",
+                            "ExposureTime",
+                            "FNumber",
+                            "ISOSpeedRatings",
+                            "FocalLength",
+                            "DateTimeOriginal",
+                            "Software",
+                        ):
+                            data[f"EXIF {tag_name}"] = str(val)
+        except Exception:
+            orig = self._get_original_size()
+            if not orig.isNull() and orig.width() > 0:
+                data["Dimensions"] = f"{orig.width()} × {orig.height()} px"
+        return data
 
     # --- GUI/UX §2.11B — Fit-to-width / fit-to-height / 100% zoom ---
     def _fit_to_width(self) -> None:
@@ -491,6 +643,11 @@ class ImagePreviewWindow(QDialog):
         fs_action.triggered.connect(self._toggle_fullscreen)
         menu.addAction(fs_action)
 
+        info_label = "Hide Metadata Info (I)" if self._info_panel.isVisible() else "Show Metadata Info (I)"
+        info_action = QAction(info_label, self)
+        info_action.triggered.connect(self._toggle_info_panel)
+        menu.addAction(info_action)
+
         menu.addSeparator()
         for label, slot in (
             ("Fit to Width (W)", self._fit_to_width),
@@ -512,10 +669,15 @@ class ImagePreviewWindow(QDialog):
 
         menu.addSeparator()
 
-        # --- COPY ACTION ---
+        # --- COPY ACTIONS (§2.11F) ---
         copy_action = QAction("Copy Image (Ctrl+C)", self)
         copy_action.triggered.connect(self.copy_image_to_clipboard)
         menu.addAction(copy_action)
+
+        copy_path_action = QAction("Copy File Path (Ctrl+Shift+C)", self)
+        copy_path_action.triggered.connect(self.copy_path_to_clipboard)
+        menu.addAction(copy_path_action)
+
         menu.addSeparator()
 
         close_action = QAction("Close This Preview (Ctrl+W)", self)
@@ -573,6 +735,11 @@ class ImagePreviewWindow(QDialog):
                 f"Copied to clipboard: {os.path.basename(self.image_path)}"
             )
 
+    def copy_path_to_clipboard(self):
+        """Copies the current file path string to the system clipboard (§2.11F)."""
+        QApplication.clipboard().setText(self.image_path)
+        show_main_status(f"Copied path to clipboard: {self.image_path}")
+
     def keyPressEvent(self, event: QKeyEvent):
         """Key navigation/actions — §2.29 registry-driven (zoom via QShortcut above)."""
         reg = get_registry()
@@ -589,6 +756,12 @@ class ImagePreviewWindow(QDialog):
             self.close()
         elif reg.matches(event, "preview.copy"):
             self.copy_image_to_clipboard()
+        elif reg.matches(event, "preview.copy_path"):
+            self.copy_path_to_clipboard()
+        elif reg.matches(event, "preview.toggle_info") or (
+            key == Qt.Key.Key_I and no_mod
+        ):
+            self._toggle_info_panel()
         elif reg.matches(event, "preview.fullscreen") or (
             key == Qt.Key.Key_F and no_mod
         ):
@@ -607,6 +780,7 @@ class ImagePreviewWindow(QDialog):
             super().keyPressEvent(event)
             return
         event.accept()
+
 
     def _navigate(self, direction: int):
         """Cycles the current image index and loads the new image."""

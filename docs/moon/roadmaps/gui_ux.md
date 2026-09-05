@@ -674,9 +674,15 @@ A collapsible side panel (right edge) accumulating all operation results as a sc
 
 ---
 
-## 2.11 Image Preview Window Enhancements ✅ Partial (2026-06-10 — §A fullscreen, §B fit modes, §D rotation shipped) {: #211-image-preview-window-enhancements }
+## 2.11 Image Preview Window Enhancements ✅ Shipped (2026-09-05 — Options A, B, C, D, F shipped — Complete) {: #211-image-preview-window-enhancements }
 
-**Pain point:** The `ImagePreviewWindow` already has zoom/pan (Ctrl+scroll), left/right arrow navigation, and GIF support. It is missing: fullscreen mode, fit-to-width mode, EXIF metadata panel, rotation, and the "mini-map" navigator that professional viewers show when zoomed in.
+**Shipped: Options A, B, C, D, & F.**
+- **Option A (Fullscreen Mode & Auto-Hide Cursor)**: `F11` / `F` fullscreen toggling, hiding navigation buttons, and a 3-second idle cursor auto-hide timer (`QTimer` + blank cursor).
+- **Option B (Fit Modes & 100% Zoom)**: `W` (Fit to Width), `H` (Fit to Height), `1` (Actual Pixels 100% Zoom).
+- **Option C (Inline EXIF / File Metadata Sidebar)**: Collapsible metadata panel (`I` hotkey / context menu) displaying file dimensions, aspect ratio, file size, format, color mode, modified date, and detailed camera EXIF tags.
+- **Option D (Rotation Controls)**: `R` (Rotate 90° CW) and `L` (Rotate 90° CCW).
+- **Option F (Clipboard Copy)**: Copy image data (`Ctrl+C`) and copy file path string (`Ctrl+Shift+C`) to system clipboard.
+- **Tests**: `gui/test/windows/test_image_preview_window.py` (1 unit test covering metadata inspection, fit modes, rotation, fullscreen, clipboard copy, navigation).
 
 ### Options
 
@@ -714,7 +720,14 @@ Already implemented for static images; verify it works for GIFs (copies current 
 
 ---
 
-## 2.12 System Tray Integration ✅ Partial (2026-06-10 — §A+B+C shipped) {: #212-system-tray-integration }
+## 2.12 System Tray Integration ✅ Shipped (2026-09-05 — Options A, B, C, D shipped — Complete) {: #212-system-tray-integration }
+
+**Shipped: Options A, B, C, & D.**
+- **Option A (Daemon Status & Dynamic Tooltip)**: `QSystemTrayIcon` with daemon status indicator, context menu ("Show Window", "Next Wallpaper", "Quit"), and dynamic tooltip status updates via `update_tray_status()`.
+- **Option B (Balloon Notifications)**: OS balloon notifications via `tray_notify()`.
+- **Option C (Minimize-to-Tray)**: Opt-in `_minimize_to_tray` setting with clean geometry and session recovery persistence before hiding.
+- **Option D (Tray Icon Badge)**: Numeric task badge overlays dynamically painted onto the tray icon via `set_tray_badge(count)`.
+- **Tests**: `gui/test/windows/test_minimize_to_tray_settings_save.py` (13 unit tests).
 
 **Pain point:** The slideshow daemon runs as a background Rust binary, but the app has no system tray icon. When the main window is minimised, there is no way to check the daemon status, trigger wallpaper rotation, or receive a notification when a long batch job completes.
 
