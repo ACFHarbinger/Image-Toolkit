@@ -272,16 +272,82 @@ order"?
 
 *(awaiting responses)*
 
-### Q5 (user): —
+### Q5 (user, 2026-09-05): answered Q4 — see §5 Decisions.
 
-*(reserved — add your own questions/priorities here whenever ready)*
+*(Moved to §5 — testing philosophy is settled: both, (a) first.)*
+
+### Q6 (Claude, 2026-09-05): brainstorm round 2 — questions for the user
+
+Kicking off the direct back-and-forth per the user's request. Posted in
+chat; answers will land here once settled.
+
+*(awaiting user)*
 
 ---
 
 ## 5. Decisions
 
-*(Empty until the team converges on something in §4. Format: decision,
-rationale, who signed off, date.)*
+**D1 — Testing philosophy (resolves Q4), 2026-09-05.** Both a live/manual
+smoke-test tier and stricter isolation boundaries, not either/or —
+priority order (a) then (b). Rationale (user): (a) is cheaper and pays
+off immediately, including for validating new prototype tabs/PoC
+algorithms *before* they're built out to whatever isolation boundaries
+(b) eventually defines. (b) is the long-term guiding principle we return
+to for architecture/implementation decisions, but doesn't replace (a) —
+(a) stays useful indefinitely, not just as a stopgap until (b) lands.
+Signed off: user.
+
+**D2 — Sequencing (resolves Q1), 2026-09-05.** Lock Grok's three
+invariants — (a) one process-wide serialized native-decode entry point
+with GIF/animated formats bypassed to Qt, (b) visible-first thumbnail
+dispatch by default, (c) one-owner preferences — as **hard preconditions**
+before starting any `ModuleDescriptor`/`ModuleHost` catalog pilot; the
+pilot does not run in parallel with invariant work. Rationale: this
+week's crash came directly from touching gallery/concurrency without
+these in place — the pilot shouldn't inherit a still-shaky foundation.
+Signed off: user.
+
+**D3 — Gallery risk profile (resolves Q3), 2026-09-05.** Fix each of the
+four gallery implementations (`AbstractClassSingleGallery`,
+`AbstractClassTwoGalleries`, `VirtualGalleryModel`, Wallpaper's override)
+**in place** first — visible-first dispatch, GIF bypass, one cancellation
+discipline, applied identically but not merged — then unify onto one
+`ThumbnailScheduler` contract later, once each is individually stable.
+Rationale: smaller/isolated diffs, each independently testable/shippable;
+this week's crash came from exactly this kind of broad gallery-loading
+change. Signed off: user.
+
+**D4 — Initiative scope/priority, 2026-09-05.** Architecture work is now
+the team's main focus. IT v1.0.0 release blockers (git-history purge, CI
+rebuild) proceed only as needed/blocking, not run at parallel priority.
+Signed off: user.
+
+**D5 — GitHub issue granularity, 2026-09-05.** One epic per contract
+(`PreferenceStore`, `ThumbnailScheduler`, `ModuleDescriptor`+`ModuleHost`,
+`WindowManager`, narrow app-services/events, CI import-boundary
+guardrails), with sub-issues per migration step inside each epic — mirrors
+Codex's phased sequencing and lets different agents claim sub-issues
+independently. Signed off: user.
+
+**D6 — Pacing, 2026-09-05.** Once the D2 invariant-lock phase is
+complete, multiple agents may work different contracts concurrently
+rather than one contract at a time end-to-end. Team accepts the added
+bus-coordination overhead this implies. Signed off: user.
+
+**D7 — Backend Qt-decoupling shape (resolves Q2), 2026-09-05.** The 6
+`QObject`/`Signal`-based files under `backend/src/web/*` (crawlers,
+clients, downloaders) move off Qt entirely — explicitly not the
+"keep signals + thread-affinity assertion" lightweight option. Shape
+chosen: a minimal non-Qt pub/sub primitive (a small
+`Observable`/callback-registry class) that the GUI layer adapts to real
+Qt signals only at the boundary — not raw positional callbacks threaded
+through every constructor, which gets unwieldy once a crawler needs
+progress/error/complete/per-item events. Rationale: makes "backend has
+zero Qt imports" an enforceable invariant (ties into D-pending CI
+guardrail work), more scalable/testable than N callback params. Signed
+off: user ("no reason to keep it lightweight"); exact shape chosen by
+Claude — **flagged for objections** from Codex/DeepSeek/Opencode, who did
+the original backend-coupling findings, before implementation starts.
 
 ---
 
@@ -290,3 +356,130 @@ rationale, who signed off, date.)*
 *(Concrete follow-ups once decisions land — e.g. "reconcile
 `ui_module_inventory_2026q3.md`," "write the import-boundary CI check."
 Empty until decisions start landing.)*
+
+---
+
+## 7. Draft refactor roadmap proposal (v1, Claude + user, 2026-09-05)
+
+**Status: DRAFT for team review.** Sequencing follows D2/D3/D6. Everyone
+— please critique, counter-propose, or post your own draft here (or
+reference/link one on the bus) before we take a final pass and cut this
+into the real roadmap doc + GitHub issues.
+
+### Phase 0 — Invariant lock (blocking; nothing in Phase 1 starts until this lands)
+
+0.1. **Serialized native-decode + GIF/animated bypass.** Confirm
+     `NATIVE_IMAGE_BATCH_LOCK`/`NATIVE_SCAN_LOCK`
+     (`backend/src/constants/core.py:22-23`) actually guard *every*
+     native-decode call site, not just the ones this week's session
+     touched; confirm the `QImageReader`-based GIF/animated fallback
+     (proven pattern in `_gallery_label.py`, applied to
+     `batch_image_loader_worker.py`/`image_loader_worker.py` this
+     session, then reverted with everything else) is re-applied and
+     covers every decode path, not just the two worker files.
+0.2. **Visible-first thumbnail dispatch, applied to each of the four
+     gallery implementations independently** (not unified yet — that's
+     Phase 2 per D3). Minimum bar: a visible-cell request must never be
+     starved behind an unbounded background-fill queue, in all four.
+0.3. **One-owner preferences.** For every preference key currently
+     touched by 2+ of {vault `preferences` dict, `AppSettings`/
+     `QSettings`, ad-hoc per-file fallback logic}, pick the single
+     canonical owner and update every read/write site to match — starting
+     with `minimize_to_tray`/`close_to_tray` (the key that already
+     regressed once) as the proof case. This is a narrower, faster
+     version of the full `PreferenceStore` contract (Phase 1.1) — Phase 0
+     just kills the *current* multi-owner bugs; Phase 1.1 builds the
+     lasting typed contract.
+0.4. **Quarantine unwired prototype code** (Grok's finding:
+     `gui/src/modules/registry.py`, `components/navigation/`, inspector,
+     telemetry bar) so it cannot get pulled into the live shell via a
+     wildcard import while unfinished — move it out of any `__init__.py`
+     wildcard's reach, or gate it behind an explicit, currently-off flag.
+
+**Exit criteria for Phase 0:** all four items landed and merged; a
+regression pass against this week's concrete bug catalog
+([[ui-update-fragility-2026-09-05]]) shows none of them reproduce.
+
+### Phase 1 — Parallel contract builds (post-Phase-0; per D6, concurrent across agents is fine)
+
+Each of these is its own GitHub epic (per D5), with sub-issues for the
+steps below. Suggested (not mandatory) agent ownership in brackets —
+first-come on the bus otherwise.
+
+1. **`PreferenceStore`** — typed key ownership (`account`/`device`/
+   `session`), one read/write route; vault and `QSettings` become
+   adapters, not competing sources. Builds on the Phase 0.3 proof case.
+2. **`ThumbnailScheduler` contract (interface only, not the unification
+   itself — that's Phase 2 per D3)** — define the shared
+   scheduling/cancellation/generation interface all four gallery impls
+   will eventually implement; each impl keeps its own
+   pagination/rendering internals for now.
+3. **`ModuleDescriptor` + `ModuleHost`** — pilot on one non-Stitch,
+   low-blast-radius category first (per Codex's original proposal).
+   Descriptor exposes child routes so Stitch stays one lifetime-owned
+   workspace instead of eight independent modules, once it's this
+   contract's turn.
+4. **`WindowManager`** (Opencode/mimo's 5th contract) — replaces both
+   `topLevelWidgets()` discovery (`_notify.py`,
+   `gallery_base.py:218-277`) and `allWidgets()` traversal
+   (`_lifecycle.py:29-51`). Windows register on construction, deregister
+   on close.
+5. **Backend Qt-decoupling** (per D7) — non-Qt `Observable`/
+   callback-registry primitive for the 6 `backend/src/web/*` files;
+   GUI-side adapter converts to real Qt signals only at the boundary.
+   **Shape flagged for Codex/DeepSeek/Opencode review before starting**
+   (see D7).
+6. **CI import-boundary guardrails** (DeepSeek's proposal) — enforce, not
+   just document: no `import *` in `gui/src/**/__init__.py`
+   (`components/__init__.py`, `constants/__init__.py`, `tabs/__init__.py`
+   confirmed genuine hubs; `windows/__init__.py` is explicit imports but
+   still eagerly loads every window submodule — worth a lighter-weight
+   "no eager backend-heavy imports at package `__init__` time" rule too);
+   no PySide import under `backend/src/` outside one allowlisted Qt entry
+   point. Turns the import-graph and backend-coupling problems into red
+   CI checks instead of hopes.
+
+**Exit criteria for Phase 1:** each contract has landed, has its own
+tests, and at least one real call site migrated to prove it out (doesn't
+need every call site migrated yet — that's ongoing, tracked as its own
+epic's remaining sub-issues).
+
+### Phase 2 — Consolidation
+
+- Unify the four gallery implementations onto the `ThumbnailScheduler`
+  contract from Phase 1.2, now that each is independently stable (D3).
+- Migrate tabs off the 11-14-mixin-per-class pattern onto the new
+  contracts, one tab/event at a time (Codex's original migration-order
+  guidance) — fixing the two live MRO violations
+  (`database_tab/manager.py`, `data_browser_tab/manager.py` putting
+  `QWidget` first) as part of whichever tab's turn comes up naturally,
+  not as a rushed standalone patch.
+- Reconcile `docs/moon/roadmaps/ui_module_inventory_2026q3.md` and
+  `ui_architecture_2026q3.md` to describe actual shipped state, not the
+  reverted/unwired shell.
+- Fix `WallpaperTab`'s silently-no-op'd `hasattr`-guarded methods (tray
+  daemon toggle, cross-tab search results) once its slice of the
+  migration lands — make missing methods fail loudly during development
+  instead of silently no-op'ing.
+
+### Phase 3 — Optimization pass (deferred until structural work is stable)
+
+- Import-graph slimming beyond the wildcard-hub removals (lazy imports
+  where genuinely safe, now that the CI guardrail prevents new
+  regressions).
+- Revisit thumbnail cache sizing/concurrency now that `ThumbnailScheduler`
+  gives one place to tune it, instead of four.
+- Any other perf wins surfaced along the way but deliberately deferred so
+  they don't destabilize the structural refactor.
+
+### Open questions for the team on this draft
+
+- Does anyone want to challenge D2 (strict invariant lock) now that it's
+  written out as Phase 0 with concrete exit criteria — is the scope
+  right, or too broad/narrow?
+- Phase 1 ownership: should we claim specific contracts per agent now
+  (avoids collision) or let it be first-come on the bus once Phase 0
+  lands?
+- Is Phase 0.3's "narrower PreferenceStore proof case" the right scope,
+  or should one-owner preferences just *be* the start of the full
+  `PreferenceStore` contract (merging Phase 0.3 into Phase 1.1)?
