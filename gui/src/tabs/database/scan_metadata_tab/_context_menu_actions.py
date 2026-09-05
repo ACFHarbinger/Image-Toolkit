@@ -39,7 +39,7 @@ class _ContextMenuActionsMixin:
         menu.addSeparator()
 
         # Remove from Database option
-        db_connected = self.db_tab_ref.db is not None
+        db_connected = self.database_service.db is not None
         remove_db_action = QAction("🔌 Remove from Database", self)
         remove_db_action.setEnabled(db_connected)
         remove_db_action.triggered.connect(lambda: self.remove_image_from_db(path))
@@ -52,7 +52,7 @@ class _ContextMenuActionsMixin:
         menu.exec(global_pos)
 
     def remove_image_from_db(self, path: str):
-        db = self.db_tab_ref.db
+        db = self.database_service.db
         if not db:
             return
 
@@ -87,7 +87,7 @@ class _ContextMenuActionsMixin:
                 QMessageBox.critical(self, "Error", f"Failed to remove image from database: {e}")
 
     def _view_image_properties(self, file_path: str):
-        db = self.db_tab_ref.db
+        db = self.database_service.db
         path = Path(file_path)
         file_size = os.path.getsize(file_path) if os.path.exists(file_path) else 0
         file_mtime = os.path.getmtime(file_path) if os.path.exists(file_path) else "N/A"
@@ -171,7 +171,7 @@ class _ContextMenuActionsMixin:
         # Pass the full filtered list so user can navigate next/prev in preview window even if paginated here
         preview = ImagePreviewWindow(
             image_path=image_path,
-            db_tab_ref=self.db_tab_ref,
+            database_service=self.database_service,
             parent=self,
             all_paths=self.scan_filtered_list,
             start_index=(

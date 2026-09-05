@@ -1,6 +1,12 @@
 from asp_gui.tabs.stitch_tab_backend import StitchTabBackend
 from PySide6.QtCore import Property, QObject, Signal, Slot
 
+from gui.src.modules import (
+    LIBRARY_DATABASE_SERVICE,
+    EventHub,
+    LibraryDatabaseService,
+    ModuleServices,
+)
 from gui.src.tabs import (
     ConvertTab,
     DatabaseTab,
@@ -31,19 +37,37 @@ class MainBackend(QObject):
         super().__init__()
         self.vault_manager = vault_manager
 
-        # Initialize Tabs
-        # Note: We pass minimal args where possible. Some tabs depend on others (e.g. search depends on db).
+        # Shared non-visual library service + event hub (issue #534): the
+        # database-family tabs now depend on the service, never a DatabaseTab
+        # widget. Kept in sync with _tab_registry's composition root.
+        self.module_event_hub = EventHub(self)
+        self.module_services = ModuleServices()
+        self.library_database_service = LibraryDatabaseService(vault_manager)
+        self.module_services.register(
+            LIBRARY_DATABASE_SERVICE, self.library_database_service
+        )
 
-        self._database_tab = DatabaseTab()
-        self._search_tab = SearchTab(self._database_tab, dropdown=True)
-        self._scan_metadata_tab = ScanMetadataTab(self._database_tab)
+        # Initialize Tabs
+        self._database_tab = DatabaseTab(
+            vault_manager,
+            database_service=self.library_database_service,
+            event_hub=self.module_event_hub,
+        )
+        self._search_tab = SearchTab(
+            self.library_database_service, self.module_event_hub, dropdown=True
+        )
+        self._scan_metadata_tab = ScanMetadataTab(
+            self.library_database_service, self.module_event_hub
+        )
 
         self._convert_tab = ConvertTab(dropdown=True)
         self._merge_tab = MergeTab()
         # SimilarityTab is the refactored Delete tab (keeps its delete API)
         self._delete_tab = SimilarityTab(dropdown=True)
         self._extractor_tab = ExtractorTab()
-        self._wallpaper_tab = WallpaperTab(self._database_tab)
+        self._wallpaper_tab = WallpaperTab(
+            self.library_database_service, self.module_event_hub
+        )
 
         self._crawler_tab = ImageCrawlTab()
         self._drive_sync_tab = DriveSyncTab(vault_manager)
@@ -67,12 +91,8 @@ class MainBackend(QObject):
         self._log_backend = LogBackend()
         self._slideshow_backend = SlideshowBackend(self)
 
-        # Link Tabs
-        self._database_tab.scan_tab_ref = self._scan_metadata_tab
-        self._database_tab.search_tab_ref = self._search_tab
-        self._database_tab.merge_tab_ref = self._merge_tab
-        self._database_tab.delete_tab_ref = self._delete_tab
-        self._database_tab.wallpaper_tab_ref = self._wallpaper_tab
+        # Cross-tab coupling removed (issue #534): database-family tabs
+        # coordinate via ModuleServices + EventHub intents, not widget refs.
 
         # Cache account name
         self._account_name = "User"

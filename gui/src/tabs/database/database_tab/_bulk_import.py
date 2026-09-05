@@ -96,8 +96,7 @@ class _BulkImportMixin:
 
             # Final refresh and update
             self.refresh_tags_list()
-            if self.scan_tab_ref:
-                self.scan_tab_ref._setup_tag_checkboxes()
+            self._publish_tag_catalog_changed()
             self.update_statistics()
 
             QMessageBox.information(
