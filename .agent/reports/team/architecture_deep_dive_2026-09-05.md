@@ -95,38 +95,72 @@ question for the team on which philosophy to commit to (see Q&A).
 
 In rough priority order per the five passes:
 
-1. `backend/src/core/telemetry.py:88-112` + `backend/src/constants/core.py:22-23`
-   — the actual crash-class lock and its orphaned warning comment.
+1. `backend/src/constants/core.py:22-23` (the actual lock definitions) +
+   `backend/src/core/telemetry.py:45` (the import) and its surrounding
+   warning-comment block (currently ~lines 66-115, documentation not code)
+   — the crash-class lock and its orphaned warning comment.
+   **[Corrected 2026-09-05: the original `telemetry.py:88-112` citation
+   pointed entirely at comment lines, not code — see bus note.]**
 2. `gui/src/components/virtual_gallery/virtual_gallery_model.py:39-136,384-386`
    — the fourth gallery-loading contract; `fill_mode` default and the
-   `_ensure_loading` no-op-if-already-claimed bug.
+   `_ensure_loading` no-op-if-already-claimed bug. (Verified accurate.)
 3. `gui/src/windows/main/_tab_registry.py` — the eager 25-tab graph and
-   `*_tab_ref` cross-wiring.
+   `*_tab_ref` cross-wiring. (No line range cited; file exists as named.)
 4. `gui/src/windows/settings/_relaunch_settings.py` vs. `app_settings.py`
    vs. `_startup_prefs.py:265-271` — the three-file dual-settings problem.
-5. `gui/src/components/__init__.py`, `gui/src/windows/__init__.py`,
-   `gui/src/constants/__init__.py`, `gui/src/tabs/__init__.py` — the four
-   wildcard-import hubs.
+   (Verified accurate — 265-271 is the `minimize_to_tray` fallback block.)
+5. `gui/src/components/__init__.py`, `gui/src/constants/__init__.py`,
+   `gui/src/tabs/__init__.py` — three genuine `import *` wildcard hubs.
+   **[Corrected: `gui/src/windows/__init__.py` was dropped from this list
+   — it uses explicit named imports, not `import *`; it still eagerly
+   imports every window submodule, which is a real but different issue
+   (collapsed/heavy import graph, not a wildcard hub) — see Q&A if worth
+   tracking separately.]**
 6. `gui/src/windows/main/_notify.py` + `gui/src/classes/base/gallery_base.py:218-277`
-   — `topLevelWidgets()` as an implicit service locator.
-7. `gui/src/windows/main/_lifecycle.py:29-51` — `allWidgets()` O(N) walk.
+   — `topLevelWidgets()` as an implicit service locator. (Verified accurate.)
+7. `gui/src/windows/main/_lifecycle.py:29-51` — `allWidgets()` O(N) walk in
+   `collect_background_windows()`. (Verified accurate.)
 8. `backend/src/app.py`, `backend/src/web/crawlers/image_crawler.py`,
    `backend/src/web/crawlers/image_board_crawler.py`,
    `backend/src/web/clients/web_requests.py`,
    `backend/src/web/downloaders/reddit_downloader.py` — Qt coupling in the
-   supposedly non-GUI layer (6 files total have this pattern).
-9. `gui/src/tabs/database/database_tab/manager.py` — live MRO-rule
-   violation (QWidget first).
+   supposedly non-GUI layer (6 files total have this pattern). (Verified
+   all five files exist as named.)
+9. `gui/src/tabs/database/database_tab/manager.py:25-35` — live MRO-rule
+   violation (`class DatabaseTab(QWidget, _UIConnectionMixin, ...)` — QWidget
+   first). (Verified accurate.)
 10. `gui/src/tabs/core/wallpaper_tab/manager.py` vs.
-    `search_tab/_tab_communication.py:104` vs. `_tray.py:86-96` —
-    `WallpaperTab` not implementing methods called on it.
+    `gui/src/tabs/database/search_tab/_tab_communication.py:104` vs.
+    `gui/src/windows/main/_tray.py:86-96` — `WallpaperTab` not implementing
+    methods called on it.
+    **[Corrected: both cross-reference files were at the wrong path —
+    `_tab_communication.py` lives under `tabs/database/search_tab/`, not
+    `tabs/core/search_tab/`; `_tray.py` lives under `windows/main/`, not
+    `wallpaper_tab/`. Line numbers themselves (104, 86-96) were accurate
+    once the path is fixed.]**
 11. `docs/moon/roadmaps/ui_module_inventory_2026q3.md:58-79` and
     `docs/moon/roadmaps/ui_architecture_2026q3.md` — currently describe
     deleted/unwired code as shipped; needs reconciling regardless of
-    what the team decides next.
+    what the team decides next. (Verified accurate — 58-79 is the
+    "Direct-object coupling baseline and #511 migration" + "Contract"
+    sections, the file's final 22 lines.)
 12. `gui/src/classes/image/abstract_class_single_gallery/_loading_pipeline.py`
-    vs. `_found_gallery_load.py` (two-galleries) vs. `wallpaper_common_base/manager.py`
-    — the four divergent loading contracts, side by side.
+    vs. `gui/src/classes/image/abstract_class_two_galleries/_found_gallery_load.py`
+    vs. `wallpaper_common_base/manager.py`
+    — the four divergent loading contracts, side by side. (Verified all
+    three files exist as named.)
+
+**Audit note (2026-09-05):** every citation above was re-verified against
+the actual file contents/line numbers after the user flagged that item 1's
+`telemetry.py:88-112` pointed at comments, not code. Two other citations
+(items 5 and 10) also had errors — one file wrongly included as a
+wildcard-import hub, two files cited at plausible-but-wrong paths. All
+other line-number citations (items 2, 4, 6, 7, 9, 11) checked out exactly
+as originally written. Root cause of the errors: not a systematic
+comment-miscounting tool bug as first suspected, but ordinary manual
+transcription slips by the agents compiling their independent passes —
+worth agents double-checking citations with `sed -n` before posting in
+future rounds.
 
 ---
 
