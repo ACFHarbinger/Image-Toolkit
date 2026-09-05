@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import pytest
-from PySide6.QtWidgets import QWidget
-
 from gui.src.components.inspector import ContextInspectorPanel
 
 pytestmark = pytest.mark.gui
@@ -49,3 +47,49 @@ class TestContextInspectorPanel:
         panel.clear_context()
         assert panel.filename_label.text() == "--"
         assert panel.exif_table.rowCount() == 0
+
+    def test_event_hub_integration(self, q_app):
+        from gui.src.modules.events import (
+            EventHub,
+            InspectImageIntent,
+            NavigateIntent,
+            SelectionChangedFact,
+            ToggleInspectorIntent,
+        )
+
+        hub = EventHub(q_app)
+        panel = ContextInspectorPanel(event_hub=hub)
+
+        # InspectImageIntent
+        hub.publish(
+            InspectImageIntent(
+                origin="gallery",
+                file_path="/tmp/art.png",
+                resolution=(1920, 1080),
+                tags=(("character", ("Hatsune Miku",)),),
+                metadata=(("Rating", "Safe"),),
+            )
+        )
+        assert panel.filename_label.text() == "art.png"
+        assert panel.res_badge.text() == "1920 × 1080"
+        assert panel.fmt_badge.text() == "PNG"
+
+        # ToggleInspectorIntent
+        hub.publish(ToggleInspectorIntent(origin="test", visible=False))
+        assert not panel.isVisible()
+        hub.publish(ToggleInspectorIntent(origin="test", visible=True))
+        assert panel.isVisible()
+
+        # SelectionChangedFact
+        hub.publish(SelectionChangedFact(origin="test", paths=("/tmp/miku.png",), active_path="/tmp/miku.png"))
+        assert panel.filename_label.text() == "miku.png"
+
+        # Tag click publishes NavigateIntent
+        nav_intents = []
+        hub.subscribe(NavigateIntent, nav_intents.append)
+
+        panel.set_image_context("/tmp/art.png", tags={"character": ["Miku"]})
+        panel._on_tag_chip_clicked("Miku")
+        assert len(nav_intents) == 1
+        assert nav_intents[0].module_id == "lib.search"
+        assert nav_intents[0].state == (("query", "Miku"),)

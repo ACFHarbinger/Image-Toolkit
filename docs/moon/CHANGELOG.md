@@ -1,3 +1,14 @@
+# S489 — 2026-09-05 (Antigravity: #514 Inspector, Telemetry, and Gallery Presentation Modes)
+
+- `gui/src/components/gallery/`: Added `GalleryPresentationMode` (`UNIFORM_GRID`, `MASONRY`, `COMPACT_LIST`), `GalleryOverlayConfig`, and Danbooru rating colors.
+- `gui/src/components/virtual_gallery/`: Enhanced `VirtualGalleryModel` with overlay metadata roles, `VirtualGalleryDelegate` with customizable badge rendering (rating, resolution, format, star rating, tag count), and `VirtualGalleryView` with presentation mode switching.
+- `gui/src/components/inspector/context_inspector.py`: Wired `ContextInspectorPanel` to `EventHub` (`InspectImageIntent`, `SelectionChangedFact`, `ToggleInspectorIntent`).
+- `gui/src/components/widgets/telemetry_status_bar.py`: Wired `TelemetryStatusBar` to `EventHub` (`TelemetryUpdatedFact`).
+- `gui/src/modules/events.py`: Added `InspectImageIntent`, `SelectionChangedFact`, `ToggleInspectorIntent`, and `TelemetryUpdatedFact` event dataclasses.
+- 11 unit tests passing across `gui/test/gallery/test_presentation_mode.py`, `gui/test/inspector/test_context_inspector.py`, and `gui/test/widgets/test_creative_suite_widgets.py` (125 total passing in suite).
+
+---
+
 # S488 — 2026-09-05 (Antigravity: #513 Adapt Shell Navigation to ModuleCatalog and ModuleRuntime)
 
 - `gui/src/components/navigation/`: Adapted `NavigationRailWidget`, `TopSegmentedRibbonWidget`, and `ShellLayoutManager` to consume app-scoped `ModuleCatalog` and `ModuleRuntime` with `NavigateIntent` event subscriptions.

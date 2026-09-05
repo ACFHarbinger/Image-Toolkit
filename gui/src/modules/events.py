@@ -46,6 +46,35 @@ class ModuleDeactivated(Fact):
     module_id: str
 
 
+@dataclass(frozen=True, kw_only=True, slots=True)
+class SelectionChangedFact(Fact):
+    paths: tuple[str, ...] = ()
+    active_path: str | None = None
+
+
+@dataclass(frozen=True, kw_only=True, slots=True)
+class InspectImageIntent(Intent):
+    file_path: str
+    resolution: tuple[int, int] | None = None
+    tags: tuple[tuple[str, tuple[str, ...]], ...] = ()
+    metadata: tuple[tuple[str, str], ...] = ()
+
+
+@dataclass(frozen=True, kw_only=True, slots=True)
+class ToggleInspectorIntent(Intent):
+    visible: bool | None = None
+
+
+@dataclass(frozen=True, kw_only=True, slots=True)
+class TelemetryUpdatedFact(Fact):
+    db_connected: bool | None = None
+    db_latency_ms: float | None = None
+    task_count: int | None = None
+    vram_allocated_gb: float | None = None
+    vram_total_gb: float | None = None
+    status_message: str | None = None
+
+
 EventT = TypeVar("EventT", bound=ModuleEvent)
 
 
@@ -113,9 +142,13 @@ __all__ = [
     "EventHub",
     "EventSubscription",
     "Fact",
+    "InspectImageIntent",
     "Intent",
     "ModuleActivated",
     "ModuleDeactivated",
     "ModuleEvent",
     "NavigateIntent",
+    "SelectionChangedFact",
+    "TelemetryUpdatedFact",
+    "ToggleInspectorIntent",
 ]

@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
-import os
 from typing import Optional
+
 from PySide6.QtCore import QTimer, Signal
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QStatusBar, QWidget
+
+from gui.src.modules.events import EventHub, EventSubscription, TelemetryUpdatedFact
 
 
 class TelemetryStatusBar(QStatusBar):
@@ -14,17 +16,47 @@ class TelemetryStatusBar(QStatusBar):
     layout_toggle_requested = Signal()
     theme_dialog_requested = Signal()
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
+    def __init__(
+        self,
+        parent: Optional[QWidget] = None,
+        event_hub: Optional[EventHub] = None,
+    ) -> None:
         super().__init__(parent)
         self.setSizeGripEnabled(False)
         self.setMaximumHeight(26)
+        self._event_hub: Optional[EventHub] = None
+        self._subscriptions: list[EventSubscription] = []
         self._build_ui()
+
+        if event_hub is not None:
+            self.bind_event_hub(event_hub)
 
         # Telemetry update timer (sampled every 3 seconds)
         self._timer = QTimer(self)
         self._timer.timeout.connect(self._sample_telemetry)
         self._timer.start(3000)
         self._sample_telemetry()
+
+    def bind_event_hub(self, event_hub: EventHub) -> None:
+        """Bind status bar to EventHub for typed telemetry fact subscriptions."""
+        self._event_hub = event_hub
+        for sub in self._subscriptions:
+            sub.disconnect()
+        self._subscriptions.clear()
+
+        self._subscriptions.append(
+            event_hub.subscribe(TelemetryUpdatedFact, self._on_telemetry_fact, owner=self)
+        )
+
+    def _on_telemetry_fact(self, fact: TelemetryUpdatedFact) -> None:
+        if fact.db_connected is not None:
+            self.set_db_status(fact.db_connected, fact.db_latency_ms)
+        if fact.task_count is not None:
+            self.set_task_count(fact.task_count)
+        if fact.vram_allocated_gb is not None and fact.vram_total_gb is not None:
+            self.gpu_chip.setText(f"⚡ VRAM: {fact.vram_allocated_gb:.1f}/{fact.vram_total_gb:.1f} GB")
+        if fact.status_message is not None:
+            self.set_status_message(fact.status_message)
 
     def _build_ui(self) -> None:
         # Left status text area
