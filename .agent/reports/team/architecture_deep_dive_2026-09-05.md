@@ -521,6 +521,23 @@ process note above, going forward claim-then-code (not code-then-claim)
 is the expected order. Signed off: user ("let each agent select what work
 he wants to perform of the open workload tasks").
 
+**D18 — Remaining Phase 0/1 ownership (0.1, 0.2, 1.4, 1.5, 1.6),
+2026-09-05.** Per D16 (Phase 0 assigned by user+Claude, not self-claimed)
+and the user's "let us assign now the remaining unallocated tasks":
+**DeepSeek (opencode)** takes **0.1** (#521, native-decode/GIF audit —
+matches their deepest backend/native-decode investigation, including
+finding the 7th Qt-coupled file and scoping D8), **1.5** (#529, backend
+Qt-decoupling — same investigation thread), and **1.6** (#530, CI
+guardrails — their own originally-proposed contract, report §3).
+**Opencode (mimo)** takes **0.2** (#522, visible-first dispatch on all
+four galleries — matches their most complete gallery-implementation
+enumeration, report §1 finding 3) and **1.4** (#528, `WindowManager` —
+their own originally-proposed contract, report §3). All 13 tracking
+issues (#520-#532) now have an owner or are epic/tracking parents. Either
+agent may object/swap on the bus if they'd rather trade an item; not
+locked so hard it can't be renegotiated, just assigned so work can start.
+Signed off: user.
+
 **Roadmap status:** §7 below is no longer DRAFT — decisions D1-D17 lock
 its shape. Phase 0/1 GitHub epics + sub-issues are being cut now (see bus
 post). Phase 2/3 remain lighter-detail tracking issues until Phase 0/1
@@ -535,21 +552,20 @@ GitHub milestone: [**Architecture Deep-Dive (2026 Q3)**](https://github.com/ACFH
 | Issue | Phase | Contract/item | Owner |
 |---|---|---|---|
 | [#520](https://github.com/ACFHarbinger/Image-Toolkit/issues/520) | 0 (epic) | Invariant lock | — |
-| [#521](https://github.com/ACFHarbinger/Image-Toolkit/issues/521) | 0.1 | Native-decode serialization + GIF bypass audit | open |
-| [#522](https://github.com/ACFHarbinger/Image-Toolkit/issues/522) | 0.2 | Visible-first dispatch, all 4 galleries | open |
+| [#521](https://github.com/ACFHarbinger/Image-Toolkit/issues/521) | 0.1 | Native-decode serialization + GIF bypass audit | DeepSeek (opencode) |
+| [#522](https://github.com/ACFHarbinger/Image-Toolkit/issues/522) | 0.2 | Visible-first dispatch, all 4 galleries | Opencode (mimo) |
 | [#523](https://github.com/ACFHarbinger/Image-Toolkit/issues/523) | 0.3 | One-owner tray preference proof case | Codex |
 | [#524](https://github.com/ACFHarbinger/Image-Toolkit/issues/524) | 0.4 | Quarantine prototype → `protos/` + WallpaperTab forwarders | Gemini/Antigravity (in progress) |
 | [#525](https://github.com/ACFHarbinger/Image-Toolkit/issues/525) | 1.1 (epic) | `PreferenceStore` | Gemini/Antigravity |
 | [#526](https://github.com/ACFHarbinger/Image-Toolkit/issues/526) | 1.2 (epic) | `ThumbnailScheduler` interface | Grok |
 | [#527](https://github.com/ACFHarbinger/Image-Toolkit/issues/527) | 1.3 (epic) | `ModuleDescriptor`+`ModuleHost` pilot (Log Panel) | Gemini/Antigravity |
-| [#528](https://github.com/ACFHarbinger/Image-Toolkit/issues/528) | 1.4 (epic) | `WindowManager` | **unclaimed** |
-| [#529](https://github.com/ACFHarbinger/Image-Toolkit/issues/529) | 1.5 (epic) | Backend Qt-decoupling (`Observable`) | **unclaimed** |
-| [#530](https://github.com/ACFHarbinger/Image-Toolkit/issues/530) | 1.6 (epic) | CI import-boundary guardrails | **unclaimed** |
+| [#528](https://github.com/ACFHarbinger/Image-Toolkit/issues/528) | 1.4 (epic) | `WindowManager` | Opencode (mimo) |
+| [#529](https://github.com/ACFHarbinger/Image-Toolkit/issues/529) | 1.5 (epic) | Backend Qt-decoupling (`Observable`) | DeepSeek (opencode) |
+| [#530](https://github.com/ACFHarbinger/Image-Toolkit/issues/530) | 1.6 (epic) | CI import-boundary guardrails | DeepSeek (opencode) |
 | [#531](https://github.com/ACFHarbinger/Image-Toolkit/issues/531) | 2 (tracking) | Consolidation | — |
 | [#532](https://github.com/ACFHarbinger/Image-Toolkit/issues/532) | 3 (tracking) | Optimization | — |
 
-**Claim #528/#529/#530 by posting on the bus** (D17 — first-come, no
-further user sign-off needed). Sub-issues for #525-#530 get filed once
+**All items now assigned (D18).** Sub-issues for #525-#530 get filed once
 Phase 0 (#520) lands and each contract's shape is drafted in more detail.
 
 ---
