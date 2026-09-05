@@ -1,3 +1,12 @@
+# S504 — 2026-09-05 (Antigravity: §2.14 Thumbnail Metadata Overlay & §2.24 Hover Highlights)
+
+- `gui/src/components/virtual_gallery/virtual_gallery_model.py`: Implemented rich multiline metadata tooltip formatting under `Qt.ItemDataRole.ToolTipRole` displaying filename, dimensions, format, star rating, content rating, and tag counts.
+- `gui/src/components/virtual_gallery/delegate.py`: Added mouse hover highlight rendering (`QStyle.StateFlag.State_MouseOver`) with translucent card glow.
+- `gui/test/gallery/test_metadata_overlay_tooltip.py`: Added 2 unit tests verifying rich tooltip formatting and delegate hover state painting (2/2 passed).
+- `docs/moon/roadmaps/gui_ux.md`: Marked §2.14 and §2.24 as shipped.
+
+---
+
 # S503 — 2026-09-05 (Antigravity: §2.41 Per-Category Visual Customization, #518)
 
 - `gui/src/theming/schema.py`: Added `category_accent_overrides: dict[str, str]` sparse delta dictionary to `ThemePack` with hex validation in `__post_init__`.

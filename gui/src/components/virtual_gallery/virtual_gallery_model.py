@@ -390,7 +390,28 @@ class VirtualGalleryModel(QAbstractListModel):
         if role == Qt.ItemDataRole.DecorationRole:
             return self._decoration_for(path)
         if role == Qt.ItemDataRole.ToolTipRole:
-            return os.path.basename(path)
+            name = os.path.basename(path)
+            res = self._resolutions.get(path)
+            res_str = f"{res[0]} × {res[1]}" if res else ""
+            fmt = self._formats.get(path) or os.path.splitext(path)[1].upper().lstrip(".")
+            star = self._star_ratings.get(path)
+            rating = self._ratings.get(path)
+            tags = self._tag_counts.get(path)
+
+            details = []
+            if res_str:
+                details.append(f"Dimensions: {res_str}")
+            if fmt:
+                details.append(f"Format: {fmt}")
+            if star:
+                details.append(f"Rating: ★ {star}")
+            if rating:
+                details.append(f"Content: {str(rating).upper()}")
+            if tags:
+                details.append(f"Tags: {tags}")
+
+            detail_lines = "\n".join(details)
+            return f"{name}\n{detail_lines}" if details else name
         if role == self.PathRole:
             return path
         if role == self.InDbRole:
