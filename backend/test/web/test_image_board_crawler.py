@@ -28,33 +28,33 @@ def test_telemetry_starts_zeroed():
 
 def test_on_image_saved_increments_counter():
     crawler = _crawler()
-    crawler.on_image_saved.emit("/tmp/img1.jpg")
-    crawler.on_image_saved.emit("/tmp/img2.jpg")
+    crawler.on_image_saved.publish("/tmp/img1.jpg")
+    crawler.on_image_saved.publish("/tmp/img2.jpg")
     assert crawler.telemetry["images_saved"] == 2
 
 
 def test_status_message_counts_timeout():
     crawler = _crawler()
-    crawler.on_status.emit("Request to page 3 timed out, retrying")
+    crawler.on_status.publish("Request to page 3 timed out, retrying")
     assert crawler.telemetry["timeout_count"] == 1
     assert crawler.telemetry["status_messages"] == 1
 
 
 def test_status_message_counts_captcha():
     crawler = _crawler()
-    crawler.on_status.emit("CAPTCHA challenge encountered, pausing")
+    crawler.on_status.publish("CAPTCHA challenge encountered, pausing")
     assert crawler.telemetry["captcha_count"] == 1
 
 
 def test_status_message_counts_error():
     crawler = _crawler()
-    crawler.on_status.emit("Critical Error in C++ crawler: connection refused")
+    crawler.on_status.publish("Critical Error in C++ crawler: connection refused")
     assert crawler.telemetry["error_count"] == 1
 
 
 def test_normal_status_message_not_miscounted():
     crawler = _crawler()
-    crawler.on_status.emit("Crawl starting with selection mode: Download All (Default)")
+    crawler.on_status.publish("Crawl starting with selection mode: Download All (Default)")
     assert crawler.telemetry["status_messages"] == 1
     assert crawler.telemetry["timeout_count"] == 0
     assert crawler.telemetry["captcha_count"] == 0
@@ -64,8 +64,8 @@ def test_normal_status_message_not_miscounted():
 @patch("backend.src.web.crawlers.image_board_crawler.base")
 def test_run_records_elapsed_and_throughput(mock_base):
     def _fake_run(crawler_name, config_json, callback_obj):
-        callback_obj.on_image_saved.emit("/tmp/a.jpg")
-        callback_obj.on_image_saved.emit("/tmp/b.jpg")
+        callback_obj.on_image_saved.publish("/tmp/a.jpg")
+        callback_obj.on_image_saved.publish("/tmp/b.jpg")
         return 2
 
     mock_base.run_board_crawler.side_effect = _fake_run
