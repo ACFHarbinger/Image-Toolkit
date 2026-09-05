@@ -907,9 +907,13 @@ Upgrade the existing `LogWindow` (`gui/src/windows/log_window.py`) in-place: rep
 
 ---
 
-## 2.18 Image Rating and Color Labels ✅ Partial (2026-06-10 — §B+C shipped) {: #218-image-rating-and-color-labels }
+## 2.18 Image Rating and Color Labels ✅ (2026-09-05 — Options A, B, C, and D shipped) {: #218-image-rating-and-color-labels }
 
-**Pain point:** The database has a tag system but no first-class rating or label mechanism. Industry-standard image management apps (Lightroom, digiKam, Eagle) use star ratings (1–5) and color labels (red/yellow/green/blue/purple/grey) as the primary curation workflow. These cannot be replicated using free-text tags.
+**Shipped: Options A, B, C, and D.**
+- **Option A & C (Star Badges & Color Borders)**: Star rating overlays rendered via `VirtualGalleryDelegate` (`★ 4.5`) and color border styling per image in gallery cards and virtual galleries.
+- **Option B (Color Label Menu & Persistence)**: 6 color swatches (red, orange, yellow, green, blue, purple) in right-click context menu and `AppSettings.label(path)` / `AppSettings.star_rating(path)` persistence.
+- **Option D (Rating & Label Filter Bar)**: Dedicated `RatingFilterBar` (`gui/src/components/widgets/rating_filter_bar.py`) providing instant gallery filtering by star rating (`All`, `★ 1+` … `★ 5`) and color swatches.
+- **Tests**: `gui/test/widgets/test_rating_filter_bar.py` (5 unit tests).
 
 ### Options
 

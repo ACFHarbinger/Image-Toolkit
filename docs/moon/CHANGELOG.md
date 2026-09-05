@@ -1,3 +1,12 @@
+# S497 — 2026-09-05 (Antigravity: §2.18 Image Star Rating & Color Label Filtering)
+
+- `gui/src/components/widgets/rating_filter_bar.py`: Created `RatingFilterBar` supporting star rating filter buttons (`All`, `★ 1+` … `★ 5`), 6 color label swatches, and reset controls with `filter_changed` signal.
+- `gui/src/windows/settings/app_settings.py`: Added `star_rating(path)` and `set_star_rating(path, rating)` typed accessors.
+- `gui/test/widgets/test_rating_filter_bar.py`: Added 5 unit tests verifying star and label matching logic, filter signals, resets, and settings persistence.
+- `docs/moon/roadmaps/gui_ux.md`: Marked §2.18 as shipped with Options A, B, C, and D details.
+
+---
+
 # S496 — 2026-09-05 (Antigravity: §2.19B Contact Sheet Generator)
 
 - `gui/src/utils/contact_sheet_generator.py`: Created `generate_contact_sheet()` PIL engine supporting custom grid columns, thumbnail dimensions, padding, outer margins, background color, and auto-truncated filename labels.
