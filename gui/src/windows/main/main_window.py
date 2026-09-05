@@ -24,6 +24,7 @@ from gui.src.windows.settings.app_settings import AppSettings
 from ...constants import NEW_LIMIT_MB
 from ..cloud import CloudComputeWindow
 from ..settings import SettingsWindow
+from ..window_manager import register_window
 from ._global_search import _GlobalSearchMixin
 from ._header_builder import _HeaderBuilderMixin
 from ._lifecycle import _LifecycleMixin
@@ -74,6 +75,7 @@ class MainWindow(
         # widget/QStackedWidget) -- named so the glassmorphism QSS's
         # `QWidget#central_widget` selector actually matches something (#449).
         self.setObjectName("central_widget")
+        register_window(self, role="main")
 
         # Store the authenticated vault manager instance
         self.vault_manager = vault_manager
@@ -99,6 +101,20 @@ class MainWindow(
                 if getattr(self.vault_manager, "is_guest", False) is True:
                     account_name = f"{account_name} (Guest)"
                 initial_theme = self.cached_creds.get("theme", "dark")
+                # #525 cross-review: wire the ACCOUNT scope to the real,
+                # just-authenticated credentials + vault manager so
+                # PreferenceStore reads/writes for account-scoped keys
+                # (recursive_scan, favourite_directories, mal_fetch_method,
+                # theme, ...) resolve against this session's actual account
+                # instead of an empty adapter -- previously nothing ever
+                # called attach_vault_credentials() in production, so an
+                # ACCOUNT-scope write appeared to work in-process but was
+                # discarded on restart.
+                from gui.src.preferences import PreferenceStore
+
+                PreferenceStore.instance().attach_vault_credentials(
+                    self.cached_creds, self.vault_manager, account_name
+                )
             except Exception as e:
                 print(f"Warning: Failed to load account credentials or theme: {e}")
 

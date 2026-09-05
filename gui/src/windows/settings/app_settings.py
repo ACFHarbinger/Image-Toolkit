@@ -58,49 +58,49 @@ class AppSettings:
     @classmethod
     def mainwindow_geometry(cls) -> bytes | None:
         """Stored main-window geometry (``restoreGeometry`` bytes)."""
-        return cls._q().value("mainwindow/geometry")
+        from gui.src.preferences import PreferenceStore, PrefKeys
+        return PreferenceStore.instance().get(PrefKeys.MAINWINDOW_GEOMETRY)
 
     @classmethod
     def set_mainwindow_geometry(cls, data: bytes) -> None:
+        from gui.src.preferences import PreferenceStore, PrefKeys
+        PreferenceStore.instance().set(PrefKeys.MAINWINDOW_GEOMETRY, data)
         cls._q().setValue("mainwindow/geometry", data)
 
     @classmethod
     def recursive_scan(cls) -> bool:
         """Return True if recursive directory scanning is enabled, False otherwise."""
-        val = cls._q().value("preferences/recursive_scan")
-        if val is not None:
-            if isinstance(val, str):
-                return val.lower() == "true"
-            return bool(val)
-
-        from PySide6.QtWidgets import QApplication
-        for widget in QApplication.topLevelWidgets():
-            if hasattr(widget, "cached_creds") and widget.cached_creds:
-                prefs = widget.cached_creds.get("preferences", {})
-                if "recursive_scan" in prefs:
-                    return bool(prefs["recursive_scan"])
-        return True
+        # #528 (WindowManager) proposed replacing the old topLevelWidgets()
+        # scan here with a WindowManager.find() lookup, but #525 already
+        # superseded the whole method: PreferenceStore's attached
+        # VaultPreferenceAdapter resolves this directly against the real
+        # session's credentials, no widget-tree walk of any kind needed.
+        from gui.src.preferences import PreferenceStore, PrefKeys
+        return bool(PreferenceStore.instance().get(PrefKeys.RECURSIVE_SCAN))
 
     @classmethod
     def set_recursive_scan(cls, enabled: bool) -> None:
-        cls._q().setValue("preferences/recursive_scan", enabled)
+        # ACCOUNT-scope key: PreferenceStore's VaultPreferenceAdapter is the
+        # single writer (persists through the vault boundary itself, #525
+        # cross-review) -- no second QSettings write.
+        from gui.src.preferences import PreferenceStore, PrefKeys
+        PreferenceStore.instance().set(PrefKeys.RECURSIVE_SCAN, enabled)
 
     @classmethod
     def favourite_directories(cls) -> list[str]:
         """Return the list of favourite directories."""
-        val = cls._q().value("preferences/favourite_directories")
-        if val is None:
-            return []
-        if isinstance(val, str):
-            if not val:
-                return []
-            return [val]
-        return [str(x) for x in val]
+        from gui.src.preferences import PreferenceStore, PrefKeys
+        return PreferenceStore.instance().get(PrefKeys.FAVOURITE_DIRECTORIES)
 
     @classmethod
     def set_favourite_directories(cls, dirs: list[str]) -> None:
-        """Store the list of favourite directories."""
-        cls._q().setValue("preferences/favourite_directories", dirs)
+        """Store the list of favourite directories.
+
+        ACCOUNT-scope key -- PreferenceStore's vault adapter is the single
+        writer; no second QSettings write (#525 cross-review).
+        """
+        from gui.src.preferences import PreferenceStore, PrefKeys
+        PreferenceStore.instance().set(PrefKeys.FAVOURITE_DIRECTORIES, dirs)
 
     @classmethod
     def mal_fetch_method(cls) -> str:
@@ -108,24 +108,26 @@ class AppSettings:
 
         See backend/src/web/clients/mal_dispatcher.py for what each means.
         """
-        return str(cls._q().value("preferences/mal_fetch_method", "jikan"))
+        from gui.src.preferences import PreferenceStore, PrefKeys
+        return str(PreferenceStore.instance().get(PrefKeys.MAL_FETCH_METHOD))
 
     @classmethod
     def set_mal_fetch_method(cls, method: str) -> None:
-        cls._q().setValue("preferences/mal_fetch_method", method)
+        # ACCOUNT-scope key: single writer via PreferenceStore's vault
+        # adapter, no second QSettings write (#525 cross-review).
+        from gui.src.preferences import PreferenceStore, PrefKeys
+        PreferenceStore.instance().set(PrefKeys.MAL_FETCH_METHOD, method)
 
     @classmethod
     def minimize_to_tray(cls) -> bool:
         """Return True if closing the app minimizes to background tray state."""
-        val = cls._q().value("preferences/minimize_to_tray")
-        if val is not None:
-            if isinstance(val, str):
-                return val.lower() == "true"
-            return bool(val)
-        return False
+        from gui.src.preferences import PreferenceStore, PrefKeys
+        return bool(PreferenceStore.instance().get(PrefKeys.MINIMIZE_TO_TRAY))
 
     @classmethod
     def set_minimize_to_tray(cls, enabled: bool) -> None:
+        from gui.src.preferences import PreferenceStore, PrefKeys
+        PreferenceStore.instance().set(PrefKeys.MINIMIZE_TO_TRAY, enabled)
         cls._q().setValue("preferences/minimize_to_tray", enabled)
 
     @classmethod

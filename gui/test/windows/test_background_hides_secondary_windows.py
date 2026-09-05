@@ -5,6 +5,9 @@ dialog …) visible while the app is "in background" shows a second
 Image-Toolkit icon in the taskbar. Settings / Cloud Compute are parented to
 the main window, so they never appear in ``QApplication.topLevelWidgets()`` —
 the regression that kept the second icon around.
+
+As of #528 these windows (and any other taskbar windows) must be registered
+with ``WindowManager``; ``collect_background_windows`` reads the registry.
 """
 
 from __future__ import annotations
@@ -13,10 +16,18 @@ import contextlib
 
 import pytest
 from gui.src.windows.main._lifecycle import collect_background_windows
+from gui.src.windows.window_manager import WindowManager, register_window
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QWidget
 
 pytestmark = pytest.mark.gui
+
+
+@pytest.fixture(autouse=True)
+def _reset_window_manager():
+    WindowManager.reset()
+    yield
+    WindowManager.reset()
 
 
 def test_parentless_and_parented_windows_are_both_collected(q_app):
@@ -29,6 +40,10 @@ def test_parentless_and_parented_windows_are_both_collected(q_app):
     parented = QWidget(main)
     parented.setWindowFlag(Qt.WindowType.Window, True)
     parented.setWindowTitle("settings")
+
+    register_window(main, role="main")
+    register_window(parentless)
+    register_window(parented)
 
     for w in (main, parentless, parented):
         w.show()
@@ -56,6 +71,9 @@ def test_hidden_and_popup_windows_are_skipped(q_app):
     main = QWidget()
     hidden_win = QWidget()
     popup = QWidget(None, Qt.WindowType.Popup)
+    register_window(main, role="main")
+    register_window(hidden_win)
+    register_window(popup)
     main.show()
     hidden_win.show()
     hidden_win.hide()
@@ -75,6 +93,8 @@ def test_restore_shows_tracked_windows(q_app):
     main = QWidget()
     other = QWidget(main)
     other.setWindowFlag(Qt.WindowType.Window, True)
+    register_window(main, role="main")
+    register_window(other)
     main.show()
     other.show()
     q_app.processEvents()
