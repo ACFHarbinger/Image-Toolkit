@@ -262,10 +262,20 @@ class _StartupPrefsMixin:
             except Exception:
                 pass
 
-        # §2.12C — minimize to tray / background mode preference
+        # §2.12C — minimize to tray / background mode preference. Falls back
+        # to the separate QSettings-backed store (AppSettings.minimize_to_tray())
+        # the same way settings_window.py's checkbox-init already does --
+        # without this fallback here too, the checkbox could show correctly
+        # checked (since it reads AppSettings as a fallback) while this method
+        # -- which is what actually governs close-to-tray behavior on every
+        # boot -- silently disagreed and reset to off whenever the vault-
+        # stored copy of the preference lagged the QSettings one.
+        from gui.src.windows.settings.app_settings import AppSettings
+
         minimize_to_tray = bool(
             prefs.get("minimize_to_tray", False)
             or prefs.get("close_to_tray", False)
+            or AppSettings.minimize_to_tray()
         )
         if hasattr(self, "set_minimize_to_tray"):
             self.set_minimize_to_tray(minimize_to_tray)
