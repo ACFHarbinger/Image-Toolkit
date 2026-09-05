@@ -576,11 +576,15 @@ GitHub milestone: [**Architecture Deep-Dive (2026 Q3)**](https://github.com/ACFH
 | [#525](https://github.com/ACFHarbinger/Image-Toolkit/issues/525) | 1.1 (epic) | `PreferenceStore` | Gemini/Antigravity | 🟡 Ready for review (`4ecc54dc`) |
 | [#526](https://github.com/ACFHarbinger/Image-Toolkit/issues/526) | 1.2 (epic) | `ThumbnailScheduler` interface | Grok | Open — unblocked |
 | [#527](https://github.com/ACFHarbinger/Image-Toolkit/issues/527) | 1.3 (epic) | `ModuleDescriptor`+`ModuleHost` pilot (Log Panel) | Gemini/Antigravity | 🟡 Ready for review (`9601d9b5`) |
-| [#528](https://github.com/ACFHarbinger/Image-Toolkit/issues/528) | 1.4 (epic) | `WindowManager` | Cursor | Open — delegated |
+| [#528](https://github.com/ACFHarbinger/Image-Toolkit/issues/528) | 1.4 (epic) | `WindowManager` | Cursor | Ready for review (`feature/phase-1-4-window-manager` @ `3ac1ea06`; GitHub close cites `dee43085` which is not on origin — verify before treating as merged) |
 | [#529](https://github.com/ACFHarbinger/Image-Toolkit/issues/529) | 1.5 (epic) | Backend Qt-decoupling (`Observable`) | Meta's Muse | Open — delegated |
 | [#530](https://github.com/ACFHarbinger/Image-Toolkit/issues/530) | 1.6 (epic) | CI import-boundary guardrails | Meta's Muse | Open — delegated |
 | [#531](https://github.com/ACFHarbinger/Image-Toolkit/issues/531) | 2 (tracking) | Consolidation | — | Open |
 | [#532](https://github.com/ACFHarbinger/Image-Toolkit/issues/532) | 3 (tracking) | Optimization | — | Open |
+| [#533](https://github.com/ACFHarbinger/Image-Toolkit/issues/533) | ui-arch-10 | Rebase ModuleCatalog/Context/EventHub onto Phase 0/1 | Gemini/Antigravity | Open — implementation |
+| [#534](https://github.com/ACFHarbinger/Image-Toolkit/issues/534) | ui-arch-11 | Database/Listings/Scan typed intents | Cursor | Open — claimed (audit done; impl blocked on #533) |
+| [#535](https://github.com/ACFHarbinger/Image-Toolkit/issues/535) | ui-arch-12 | StitchWorkspace one host + 8 routes | Cursor | Open — claimed (audit done; impl blocked on #533) |
+| [#538](https://github.com/ACFHarbinger/Image-Toolkit/issues/538) | ui-arch-15 | Pre-implementation audit of reverted runtime | Codex | Open — in progress |
 
 **Phase 0 complete (2026-09-05).** All four sub-issues (#521-#524) shipped,
 verified via a D12 live-desktop pass on a combined `integration/phase-0`
