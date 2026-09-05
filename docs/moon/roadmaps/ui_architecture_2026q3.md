@@ -264,6 +264,15 @@ required to be exhaustive up front.
 - Runtime issues (all closed, all reverted): ui-arch-1..6 / #509-514,
   plus follow-ups #515-519. See milestone "UI Shell & Module Runtime
   Architecture" (#8).
+- **Re-land issues (delegated 2026-09-05):** ui-arch-10/#533 (rebase
+  catalog/context/event-hub/lifecycle onto Phase 0/1 contracts,
+  foundational — Gemini/Antigravity + Meta's Muse's anti-eager-mounting
+  contract test, Codex cross-review), ui-arch-11/#534 (Database/Listings/
+  Scan typed intents — DeepSeek), ui-arch-12/#535 (`StitchWorkspace` —
+  Grok), ui-arch-13/#536 (mount rail/ribbon behind `PreferenceStore`
+  experimental setting — Cursor), ui-arch-14/#537 (inspector/telemetry/
+  presets/gallery-modes — not yet delegated). #533 blocks #534/#535/#536;
+  #536 blocks #537 — sequential, not fully concurrent.
 - Revert: `7559b1d2` (`git checkout b4f61deb -- gui/` + deletion of
   everything gained since); the reverted implementation commits remain
   recoverable via `git show <commit>:<path>` (e.g. `a9d01085` for the
