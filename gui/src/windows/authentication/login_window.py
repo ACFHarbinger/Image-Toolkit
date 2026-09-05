@@ -605,7 +605,8 @@ class LoginWindow(QWidget):
                 self,
                 "Cryptography Library Not Built",
                 "The cryptography module hasn't been built yet.\n\n"
-                "Run `just build-crypto` from the repo root, then try again.",
+                "Run `just build-base` from the repo root (builds the native "
+                "backend, including crypto), then try again.",
             )
             self._reset_auth_transition()
         except FileNotFoundError:
@@ -701,7 +702,8 @@ class LoginWindow(QWidget):
                 self,
                 "Cryptography Library Not Built",
                 "The cryptography module hasn't been built yet.\n\n"
-                "Run `just build-crypto` from the repo root, then try again.",
+                "Run `just build-base` from the repo root (builds the native "
+                "backend, including crypto), then try again.",
             )
             if self.vault_manager:
                 self.vault_manager.shutdown()

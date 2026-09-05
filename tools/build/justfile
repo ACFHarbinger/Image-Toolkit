@@ -7,6 +7,9 @@ set working-directory := '../..'
 
 # Build C++ base extension (pybind11, OpenCV, Eigen3, OpenMP required).
 # Replaces the former Rust/maturin build-base (Phase 7: batch/ renamed to base/).
+# Also builds+installs libitk_crypto.so (the itk_crypto CMake target below) --
+# a plain OpenSSL-linked C shared lib loaded via ctypes at runtime, not part
+# of the pybind11 base module itself, but no longer a separate manual step.
 build-base:
     @echo "Building C++ base extension..."
     PKG_CONFIG_PATH="/usr/lib/x86_64-linux-gnu/pkgconfig:$(pwd)/.pixi/envs/default/lib/pkgconfig:$PKG_CONFIG_PATH" cmake -B build/base base/ \
@@ -19,7 +22,10 @@ build-base:
         && cmake --install build/base
     @echo "base extension built and installed."
 
-# Build native cryptography library (C/OpenSSL, replaces the retired Kotlin JAR)
+# Build native cryptography library standalone (C/OpenSSL, replaces the
+# retired Kotlin JAR). Already built as part of build-base above (see
+# base/CMakeLists.txt's itk_crypto target); this is a lighter-weight rebuild
+# path for iterating on base/src/secret/itk_crypto.c alone.
 build-crypto:
     @echo "Building native cryptography library..."
     mkdir -p build/crypto
