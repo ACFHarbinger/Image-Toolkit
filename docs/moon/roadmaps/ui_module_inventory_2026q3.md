@@ -1,7 +1,15 @@
 # Legacy Module and Route Inventory (2026 Q3)
 
-**Status:** Baseline for #509. This records the live `MainWindow` registry
-before the module runtime exists; it changes no UI behavior.
+**Status:** Baseline for #509 (closed, reverted — see
+`docs/moon/roadmaps/ui_architecture_2026q3.md`'s status block for the
+full crash/revert history). This inventory itself is **still factually
+accurate**: the module runtime it was a baseline *for* was reverted back
+to the exact eager-`_tab_registry.py` state this table describes, so
+nothing here needs correcting. What's stale is only the **Contract**
+section below — `gui/test/modules/test_legacy_module_inventory.py` was
+lost in the revert along with everything else `#509` added. Recreate
+that contract test before this inventory is relied on again as a static
+check (e.g. before restarting the re-land's own step 1).
 
 ## Construction baseline
 
@@ -77,3 +85,21 @@ Request/reply database operations remain explicit service APIs.
 table to the live `all_tabs` dictionary and asserts the documented eager-import
 and direct-reference baseline. A route rename, addition, removal, or coupling
 change must update this inventory deliberately before #510 consumes it.
+
+**Reverted, needs recreating (2026-09-05):** this test file was added by
+#509 and removed in full along with the rest of `gui/`'s day-of changes
+(`7559b1d2`). The table above remains accurate against current
+`_tab_registry.py` (verified by direct diff, not re-derived from the old
+test), so recreating the test is a mechanical re-add, not a re-audit —
+do it before this inventory is next consumed by a re-land step.
+
+## Direct-object coupling baseline: post-revert status
+
+The "#511 migration" section above describes work that was **also
+reverted** along with the rest of that day's `gui/` changes — `SearchTab`,
+`ScanMetadataTab`, and `WallpaperTab` are back to taking `database_tab`
+(a live `QWidget`) directly, `DatabaseTab`/`ListingsTab` are back to
+holding `main_window_ref`, and there is no `LibraryDatabaseService` or
+typed navigation/filter/path-import intent in the current tree. Read
+that section as design record / what a re-land will do again, not as a
+description of current live behavior.
