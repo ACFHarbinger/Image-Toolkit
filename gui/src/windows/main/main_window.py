@@ -181,6 +181,10 @@ class MainWindow(
         # apply and returns early.
         self._minimize_to_tray: bool = False
 
+        # The runtime shell deliberately skips legacy tab preference wiring,
+        # but close-to-tray belongs to the window rather than any tab.
+        self._apply_tray_preference(self.cached_creds.get("preferences", {}))
+
         # GUI/UX §2.16 — wire vault preferences to runtime at startup
         if not self._using_runtime_shell:
             self._apply_startup_preferences()
