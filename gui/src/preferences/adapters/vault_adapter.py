@@ -5,6 +5,7 @@ Vault adapter for account-scoped preferences (§1.1, #525).
 
 from __future__ import annotations
 
+import contextlib
 import copy
 from threading import RLock
 from typing import Any
@@ -100,6 +101,23 @@ class VaultPreferenceAdapter(PreferenceAdapter):
                 if section not in self._credentials or not isinstance(self._credentials[section], dict):
                     self._credentials[section] = {}
                 self._credentials[section][subkey] = copy.deepcopy(value)
+            self._persist()
+
+    def _persist(self) -> None:
+        """Write the current credentials snapshot through to the vault boundary.
+
+        Single-owner contract (#525 cross-review): an ACCOUNT-scope write
+        must survive restart on its own — no second writer (e.g. QSettings)
+        may be relied on to persist it. ``VaultManager.save_data`` already
+        handles guest sessions (volatile in-memory, never touches disk), so
+        this is safe to call unconditionally whenever a manager is attached.
+        """
+        import json
+
+        if self._vault_manager is None:
+            return
+        with contextlib.suppress(Exception):
+            self._vault_manager.save_data(json.dumps(self._credentials))
 
     def contains(self, key: str) -> bool:
         with self._lock:
@@ -134,6 +152,7 @@ class VaultPreferenceAdapter(PreferenceAdapter):
                 sec_dict = self._credentials.get(section, {})
                 if isinstance(sec_dict, dict):
                     sec_dict.pop(subkey, None)
+            self._persist()
 
     def all_keys(self) -> list[str]:
         with self._lock:
