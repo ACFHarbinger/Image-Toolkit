@@ -307,10 +307,14 @@ class _RelaunchSettingsMixin:
 
 
             if self._save_vault_data(user_data):
-                # Also save to QSettings (only if not in Guest mode)
+                # This is a non-sensitive UI preference.  Guest vault data is
+                # deliberately volatile, so retain it in QSettings as well.
+                AppSettings.set_minimize_to_tray(self.minimize_to_tray_check.isChecked())
+
+                # Other settings remain account-scoped and must not outlive a
+                # guest session.
                 if getattr(self.vault_manager, "is_guest", False) is not True:
                     AppSettings.set_recursive_scan(self.recursive_scan_check.isChecked())
-                    AppSettings.set_minimize_to_tray(self.minimize_to_tray_check.isChecked())
                     AppSettings.set_favourite_directories(user_data["preferences"]["favourite_directories"])  # pyrefly: ignore [bad-argument-type]
                     AppSettings.set_mal_fetch_method(self.mal_fetch_method_combo.currentData())
                 if self.main_window_ref:
