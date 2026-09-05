@@ -84,7 +84,7 @@ class TopSegmentedRibbonWidget(QWidget):
             if w:
                 w.deleteLater()
 
-        modules = self.catalog.by_category(category)
+        modules = self.catalog.navigable_by_category(category)
         for mod in modules:
             btn = QPushButton(mod.title)
             btn.setObjectName(f"ribbon_btn_{mod.module_id}")

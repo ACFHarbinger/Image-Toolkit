@@ -265,7 +265,7 @@ class _CrudMixin:
 
     def search_images_with_selected_tag(self):
         """DB.8c: "click a tag anywhere -> search images with this tag."
-        Publishes a filter intent followed by navigation to Image Search.
+        Navigates before publishing the filter so a lazy target can subscribe.
         """
         current_row = self.tags_table.currentRow()
         if current_row < 0:
@@ -280,10 +280,10 @@ class _CrudMixin:
             QMessageBox.warning(self, "Error", "Search navigation is unavailable.")
             return
 
+        self.event_hub.publish(NavigateIntent(origin="library.management", module_id="library.search"))
         self.event_hub.publish(
             FilterByTagIntent(origin="library.management", module_id="library.search", tag_name=tag_name)
         )
-        self.event_hub.publish(NavigateIntent(origin="library.management", module_id="library.search"))
 
     def search_listings_with_selected_tag(self):
         """DB.8c: "click a tag anywhere -> search listings with this tag."
@@ -293,7 +293,7 @@ class _CrudMixin:
         tags/genres, not just titles (SearchRepo.filter_media(),
         DB.5) -- no new filter UI needed, just set the existing box.
 
-        Publishes a Listings filter intent followed by navigation.
+        Navigates before publishing the Listings filter so a lazy target can subscribe.
         """
         current_row = self.tags_table.currentRow()
         if current_row < 0:
@@ -308,10 +308,10 @@ class _CrudMixin:
             QMessageBox.warning(self, "Error", "Listings navigation is unavailable.")
             return
 
+        self.event_hub.publish(NavigateIntent(origin="library.management", module_id="library.listings"))
         self.event_hub.publish(
             FilterByTagIntent(origin="library.management", module_id="library.listings", tag_name=tag_name)
         )
-        self.event_hub.publish(NavigateIntent(origin="library.management", module_id="library.listings"))
 
 
 __all__ = ["_CrudMixin"]

@@ -115,6 +115,7 @@ class SettingsWindow(
         self.pref_recent_dirs_count = _p.get("recent_dirs_count", 10)
         self.pref_startup_category = _p.get("startup_category", "System Tools")
         self.pref_startup_tab = _p.get("startup_tab", "")
+        self.pref_experimental_runtime_shell = _p.get("experimental_runtime_shell", False) is True
 
         self.pref_slideshow_min = _p.get("slideshow_interval_min", 5)
         self.pref_slideshow_sec = _p.get("slideshow_interval_sec", 0)

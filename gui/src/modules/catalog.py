@@ -106,6 +106,14 @@ class ModuleCatalog:
     def by_category(self, category: ModuleCategory) -> tuple[CatalogDescriptor, ...]:
         return tuple(descriptor for descriptor in self.all_descriptors() if descriptor.category == category)
 
+    def navigable_by_category(self, category: ModuleCategory) -> tuple[CatalogDescriptor, ...]:
+        """Return user-facing pages and routes, excluding internal workspace hosts."""
+        return tuple(
+            descriptor
+            for descriptor in self.by_category(category)
+            if not isinstance(descriptor, WorkspaceDescriptor)
+        )
+
     def search(self, query: str) -> tuple[CatalogDescriptor, ...]:
         needle = query.strip().lower()
         if not needle:
