@@ -7,6 +7,19 @@
 
 ---
 
+# S516 — 2026-09-05 (Opencode: Phase 0.2 visible-first thumbnail dispatch)
+
+- Issue #522 / Phase 0.2: Visible-first thumbnail dispatch across all four gallery implementations.
+- `gui/src/classes/base/gallery_base.py`: added `_sort_paths_by_visibility()` helper that checks each card widget's intersection with the scroll area viewport and reorders paths so visible cards come first.
+- `gui/src/classes/image/abstract_class_single_gallery/_loading_pipeline.py`: `_load_all_page_images()` now calls `_sort_paths_by_visibility()` on both `image_paths` and `video_paths` before dispatching to the batch loader.
+- `gui/src/classes/image/abstract_class_two_galleries/_found_gallery_populate.py`: `_load_all_found_page_images()` applies the same visibility sort before batch dispatch.
+- `gui/src/components/virtual_gallery/virtual_gallery_model.py`: added `set_visible_range(lo, hi)` for the view to report visible rows, `fill()` to trigger/re-trigger fill with visible-range awareness, and `_reorder_fill_queue()` to reorder an already-populated queue so visible rows come first. `_fill_all()` now splits paths into visible/rest before queuing.
+- `gui/src/components/virtual_gallery/virtual_gallery_view.py`: `_prefetch_visible()` now calls `model.set_visible_range(lo, hi)` on scroll to keep the model informed of the visible row range.
+- `gui/src/components/virtual_gallery/widget.py`: `VirtualGallery.set_paths()` now calls `model.fill()` after the view reports the initial visible range, so the first fill batch covers visible thumbnails.
+- Tests: `gui/test/components/test_virtual_gallery.py` (30/30), `gui/test/image/test_gallery_loading_pipeline.py` (11/11), `gui/test/image/test_gallery_classes.py` (24/24).
+
+---
+
 # S514 — 2026-09-05 (Grok: WallpaperTab Search/tray forwarders)
 
 - `gui/src/tabs/core/wallpaper_tab/manager.py`: `display_scan_results`, `toggle_daemon`, `_cycle_slideshow_wallpaper`, and `btn_daemon_toggle` now forward to `SystemDisplaySubTab` (was a silent `hasattr` no-op from Search and the tray).
