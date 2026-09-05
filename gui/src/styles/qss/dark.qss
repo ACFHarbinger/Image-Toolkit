@@ -137,3 +137,13 @@ QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
     border: none;
     background: none;
 }
+
+/* --- Focus Rings (Accessibility §2.23E) --- */
+QPushButton:focus, QToolButton:focus {
+    border: 2px solid $DARK_ACCENT_COLOR;
+}
+
+QListView:focus, QListWidget:focus, QTreeView:focus, QTableView:focus {
+    border: 1px solid $DARK_ACCENT_COLOR;
+}
+

@@ -350,11 +350,13 @@ Extend A/B so each tab remembers its own thumbnail size independently (e.g., con
 
 ---
 
-## 2.3 Keyboard Navigation ✅ Partial (2026-06-10 — §A arrow-key navigation in both gallery base classes; §B satisfied via §2.29, corrected 2026-07-27 — see below) {: #23-keyboard-navigation }
+## 2.3 Keyboard Navigation ✅ Shipped (2026-06-10 — §A arrow navigation, §B satisfied via §2.29, 2026-09-05 — §C discovery & full coverage — Complete) {: #23-keyboard-navigation }
 
-**Pain point:** Common operations require mouse interaction. Power users expect keyboard shortcuts for gallery navigation, preview, and operations.
+**Shipped: Options A, B, & C.**
+- **Option A (Arrow Key Navigation)**: Left/Right/Up/Down navigation across gallery thumbnails, Enter/Space preview activation, Delete/F2 file operations.
+- **Option B (Configurable Keybindings Table)**: Configurable keyboard shortcut registry (`ShortcutRegistry` under `gui/src/utils/manager/shortcut_manager.py`) with JSON persistence in `~/.image-toolkit/keybindings.json` and interactive Settings editor across `General`, `Gallery`, `Preview`, `Stitch`, `Convert`, and `Merge` scopes.
+- **Option C (Operation Hotkeys & Discovery)**: Fixed and remappable hotkeys discoverable via button tooltips, Command Palette (`Ctrl+K`, §2.16), and searchable Shortcut Discovery overlay (`Ctrl+/` / `F1`, §2.25).
 
-### Options
 
 **A — Arrow key gallery navigation**
 Left/right/up/down select the adjacent thumbnail. Enter opens the full-size preview. Delete triggers the deletion workflow.
