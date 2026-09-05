@@ -1,3 +1,14 @@
+# S492 — 2026-09-05 (Antigravity: §2.15 Undo/Redo for Destructive Operations)
+
+- `gui/src/utils/undo_manager.py`: Created `UndoManager`, `FileDeletionCommand` (session trash buffering with instant undo restoration), and `FileRenameCommand` built on `QUndoStack` with signal events and configurable trash isolation.
+- `gui/src/utils/manager/shortcut_manager.py`: Registered `general.undo` (`Ctrl+Z`) and `general.redo` (`Ctrl+Shift+Z`) actions.
+- `gui/src/windows/main/_lifecycle.py`: Wired `general.undo` and `general.redo` keyPressEvent dispatching in `MainWindow`.
+- `gui/src/classes/image/`: Wired `general.undo` and `general.redo` shortcuts in `AbstractClassSingleGallery` and `AbstractClassTwoGalleries`.
+- `gui/test/utils/test_undo_manager.py`: Added 4 unit tests verifying file deletion undo/redo, file rename undo/redo, undo stack signals, and trash purging (22/22 passing).
+- `docs/moon/roadmaps/gui_ux.md`: Marked §2.15 as shipped with Options A, B, and C details.
+
+---
+
 # S491 — 2026-09-05 (Antigravity: §2.2 Gallery Thumbnail Zoom Controls & Presets)
 
 - `gui/src/components/widgets/thumbnail_zoom_control.py`: Created reusable `ThumbnailZoomControl` component combining a 48–512px slider, live px readout, S/M/L/XL (96/160/240/384px) preset buttons, step zoom API, and per-tab `QSettings` size persistence.

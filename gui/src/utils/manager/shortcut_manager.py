@@ -65,6 +65,18 @@ SHORTCUT_REGISTRY: list[dict] = [
         "scope": "General",
         "default": "Ctrl+Shift+M",
     },
+    {
+        "id": "general.undo",
+        "description": "Undo the last file deletion or edit",
+        "scope": "General",
+        "default": "Ctrl+Z",
+    },
+    {
+        "id": "general.redo",
+        "description": "Redo the previously undone action",
+        "scope": "General",
+        "default": "Ctrl+Shift+Z",
+    },
     # Stitch — ASP stitch tab actions
     {
         "id": "stitch.run",

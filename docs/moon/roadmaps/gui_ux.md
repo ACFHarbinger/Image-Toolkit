@@ -94,7 +94,7 @@ flowchart LR
         direction TB
         S25["§2.5 Session Persistence ✅"]:::augment:::done
         S27["§2.7 Progress & Cancel ✅p"]:::augment:::active
-        S215["§2.15 Undo/Redo ✅p"]:::feature:::active
+        S215["§2.15 Undo/Redo ✅"]:::feature:::done
         S216["§2.16 Command Palette ✅p"]:::feature:::active
         S221["§2.21 Dir Nav History ✅p"]:::augment:::active
         S222["§2.22 Tag Chip UI ✅p"]:::feature:::active
@@ -815,7 +815,8 @@ After a 500ms hover delay, fire a background `QRunnable` to read EXIF from the f
 
 ---
 
-## 2.15 Undo/Redo for Destructive Operations ✅ Partial (2026-06-10 — §A shipped) {: #215-undoredo-for-destructive-operations }
+## 2.15 Undo/Redo for Destructive Operations ✅ (2026-09-05: A + B + C) {: #215-undoredo-for-destructive-operations }
+**Shipped:** `send2trash` integration across all delete call sites (Option A), full `QUndoStack` subsystem with `UndoManager`, `FileDeletionCommand` (session trash buffering & instant restoration), `FileRenameCommand` (Option B & C), `Ctrl+Z` / `Ctrl+Shift+Z` / `Ctrl+Y` shortcut dispatch in `MainWindow` and gallery base classes, and test isolation support.
 
 **Pain point:** File deletions across `DeleteTab`, `WallpaperTab`, `SearchTab`, and `ConvertTab` are permanent and cannot be undone. "This cannot be undone!" appears in 6+ QMessageBox dialogs but there is no recovery path. No `QUndoStack` infrastructure exists anywhere in the GUI.
 
@@ -842,8 +843,6 @@ Only queue rename and tag-change operations for undo (lower risk than file moves
 A dedicated `RecycleBinTab` showing files moved there by the app. Each item shows original path, deletion time, and "Restore" / "Permanently Delete" buttons.
 - Pros: Explicit in-app recovery UI. Clear mental model.
 - Cons: Significant UI effort. Must track metadata (original path) persistently.
-
-**Recommendation:** A immediately (send2trash is the highest-safety, lowest-effort change). B for in-app undo on rename/move operations. D as a long-term QoL feature.
 
 ---
 

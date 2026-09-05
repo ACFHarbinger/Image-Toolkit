@@ -162,6 +162,16 @@ class _LifecycleMixin:
         elif get_registry().matches(event, "general.load_tab_config"):
             self._open_load_tab_config_dialog()
             event.accept()
+        elif get_registry().matches(event, "general.undo"):
+            from gui.src.utils.undo_manager import UndoManager
+
+            UndoManager.instance().undo()
+            event.accept()
+        elif get_registry().matches(event, "general.redo"):
+            from gui.src.utils.undo_manager import UndoManager
+
+            UndoManager.instance().redo()
+            event.accept()
         elif (
             event.key() == Qt.Key.Key_Slash and event.modifiers() == Qt.KeyboardModifier.ControlModifier
         ) or event.key() == Qt.Key.Key_F1:

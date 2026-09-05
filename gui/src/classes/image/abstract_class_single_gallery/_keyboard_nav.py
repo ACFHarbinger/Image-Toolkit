@@ -99,6 +99,16 @@ class _KeyboardNavMixin:
         elif reg.matches(event, "gallery.rename"): # pyrefly: ignore [bad-argument-type]
             self._rename_selected_file()
             event.accept()
+        elif reg.matches(event, "general.undo"): # pyrefly: ignore [bad-argument-type]
+            from ....utils.undo_manager import UndoManager
+
+            UndoManager.instance().undo()
+            event.accept()
+        elif reg.matches(event, "general.redo"): # pyrefly: ignore [bad-argument-type]
+            from ....utils.undo_manager import UndoManager
+
+            UndoManager.instance().redo()
+            event.accept()
         else:
             super().keyPressEvent(event)  # type: ignore[misc,safe-super] # pyrefly: ignore [bad-argument-type]
 
