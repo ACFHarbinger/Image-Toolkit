@@ -131,6 +131,19 @@ class AppSettings:
         cls._q().setValue("preferences/minimize_to_tray", enabled)
 
     @classmethod
+    def runtime_shell_enabled(cls) -> bool:
+        """Return True if this account opted into the experimental runtime shell."""
+        from gui.src.modules.runtime_shell_flag import runtime_shell_enabled
+
+        return runtime_shell_enabled()
+
+    @classmethod
+    def set_runtime_shell_enabled(cls, enabled: bool) -> None:
+        from gui.src.preferences import PreferenceStore, PrefKeys
+
+        PreferenceStore.instance().set(PrefKeys.EXPERIMENTAL_RUNTIME_SHELL, bool(enabled))
+
+    @classmethod
     def postgres_connection(cls) -> dict[str, str]:
         """Return non-secret external PostgreSQL connection settings.
 

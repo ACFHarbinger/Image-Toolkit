@@ -15,6 +15,8 @@ class _SaveTabConfigMixin:
     """Ctrl+S: capture the active tab's current config and save it as a named profile."""
 
     def _open_save_tab_config_dialog(self) -> None:
+        if getattr(self, "_using_runtime_shell", False):
+            return
         active_category = self.command_combo.currentText()
         active_tab_index = self.tabs.currentIndex()
         active_tab_name = self.tabs.tabText(active_tab_index) if active_tab_index >= 0 else None
