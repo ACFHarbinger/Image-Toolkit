@@ -11,44 +11,44 @@ import urllib.parse
 
 import requests
 from bs4 import BeautifulSoup
-from PySide6.QtCore import QObject, Signal
+
+from backend.src.events import Observable
 
 
-class ImageCrawler(QObject):
+class ImageCrawler:
     """
     Advanced Python Image Crawler supporting Action Sequences, URL replacements,
     and Selenium / requests fallback parsing for general web scraping.
     """
 
-    on_status = Signal(str)
-    on_image_saved = Signal(str)
-    on_finished = Signal(str)
-
     def __init__(self, config: dict):
-        super().__init__()
         self.config = config
         self._is_running = True
+        # === Events (issue #529: plain Observables, not Qt signals) ===
+        self.on_status: Observable[str] = Observable()
+        self.on_image_saved: Observable[str] = Observable()
+        self.on_finished: Observable[str] = Observable()
 
     def stop(self):
         self._is_running = False
-        self.on_status.emit("Cancellation pending...")
+        self.on_status.publish("Cancellation pending...")
 
     def on_status_emitted(self, msg: str):
-        self.on_status.emit(msg)
+        self.on_status.publish(msg)
 
     def on_error_emitted(self, msg: str):
-        self.on_status.emit(f"ERROR: {msg}")
+        self.on_status.publish(f"ERROR: {msg}")
 
     def run(self) -> int:  # noqa: C901
         download_dir = self.config.get("download_dir", "downloads")
         os.makedirs(download_dir, exist_ok=True)
 
         selection_mode = self.config.get("selection_mode", "Download All (Default)")
-        self.on_status.emit(f"🌐 Crawl starting with selection mode: {selection_mode}")
+        self.on_status.publish(f"🌐 Crawl starting with selection mode: {selection_mode}")
 
         base_url = self.config.get("url", "").strip()
         if not base_url:
-            self.on_status.emit("❌ Error: No target URL specified.")
+            self.on_status.publish("❌ Error: No target URL specified.")
             return 0
 
         replace_str = self.config.get("replace_str")
@@ -74,7 +74,7 @@ class ImageCrawler(QObject):
                 if new_url not in target_urls:
                     target_urls.append(new_url)
 
-        self.on_status.emit(f"🌐 Target pages queued ({len(target_urls)}): {', '.join(target_urls)}")
+        self.on_status.publish(f"🌐 Target pages queued ({len(target_urls)}): {', '.join(target_urls)}")
 
         skip_first = int(self.config.get("skip_first", 0) or 0)
         skip_last = int(self.config.get("skip_last", 0) or 0)
@@ -95,10 +95,10 @@ class ImageCrawler(QObject):
         try:
             for page_idx, target_url in enumerate(target_urls):
                 if not self._is_running:
-                    self.on_status.emit("🛑 Crawl cancelled by user.")
+                    self.on_status.publish("🛑 Crawl cancelled by user.")
                     break
 
-                self.on_status.emit(
+                self.on_status.publish(
                     f"🌐 Page {page_idx + 1}/{len(target_urls)}: Navigating to {target_url}"
                 )
 
@@ -121,12 +121,12 @@ class ImageCrawler(QObject):
                         if parsed_urls:
                             extracted_urls.extend(parsed_urls)
                         else:
-                            self.on_status.emit("ℹ️ Selenium extracted 0 images. Using HTTP fallback parser...")
+                            self.on_status.publish("ℹ️ Selenium extracted 0 images. Using HTTP fallback parser...")
                             extracted_urls.extend(
                                 self._process_requests_page(session, target_url, session_headers)
                             )
                     except Exception as e:
-                        self.on_status.emit(
+                        self.on_status.publish(
                             f"⚠️ Selenium navigation error: {e}. Falling back to HTTP parser..."
                         )
                         extracted_urls.extend(
@@ -153,7 +153,7 @@ class ImageCrawler(QObject):
                     if skip_last > 0 and len(urls_to_download) > skip_last:
                         urls_to_download = urls_to_download[:-skip_last]
 
-                self.on_status.emit(
+                self.on_status.publish(
                     f"📷 Found {len(urls_to_download)} downloadable image(s) on page {page_idx + 1}."
                 )
 
@@ -183,8 +183,8 @@ class ImageCrawler(QObject):
                             "skip_first": skip_first,
                             "skip_last": skip_last,
                         }
-                        self.on_image_saved.emit(json.dumps(meta))
-                        self.on_status.emit(
+                        self.on_image_saved.publish(json.dumps(meta))
+                        self.on_status.publish(
                             f"✅ Saved [{downloaded_count}] (Page {page_idx + 1} #{pos_on_page}): {os.path.basename(saved_path)}"
                         )
 
@@ -196,8 +196,8 @@ class ImageCrawler(QObject):
                     driver.quit()
 
         message = f"Crawl finished. Downloaded **{downloaded_count}** image(s)!"
-        self.on_status.emit(message)
-        self.on_finished.emit(message)
+        self.on_status.publish(message)
+        self.on_finished.publish(message)
         return downloaded_count
 
     def _find_browser_binary(self, browser_name: str) -> str | None:  # noqa: C901
@@ -276,7 +276,7 @@ class ImageCrawler(QObject):
                 if headless:
                     ff_options.add_argument("-headless")
                 driver = webdriver.Firefox(options=ff_options)
-                self.on_status.emit("🌐 Initialized local Firefox session.")
+                self.on_status.publish("🌐 Initialized local Firefox session.")
                 return driver
 
             # Chromium-based options (Brave, Chrome, Edge)
@@ -301,7 +301,7 @@ class ImageCrawler(QObject):
                     dbg_options = ChromeOptions()
                     dbg_options.add_experimental_option("debuggerAddress", "127.0.0.1:9222")
                     driver = webdriver.Chrome(options=dbg_options)
-                    self.on_status.emit(f"🌐 Connected to active {browser_name.title()} debugging session (port 9222).")
+                    self.on_status.publish(f"🌐 Connected to active {browser_name.title()} debugging session (port 9222).")
                     return driver
                 except Exception:
                     pass
@@ -312,7 +312,7 @@ class ImageCrawler(QObject):
                     driver = webdriver.Remote(
                         command_executor="http://localhost:9515", options=options
                     )
-                    self.on_status.emit(f"🌐 Connected to Managed WebDriver service on port 9515 ({browser_name.title()}).")
+                    self.on_status.publish(f"🌐 Connected to Managed WebDriver service on port 9515 ({browser_name.title()}).")
                     return driver
                 except Exception:
                     pass
@@ -337,18 +337,18 @@ class ImageCrawler(QObject):
                     dbg_options = ChromeOptions()
                     dbg_options.add_experimental_option("debuggerAddress", "127.0.0.1:9222")
                     driver = webdriver.Chrome(options=dbg_options)
-                    self.on_status.emit(f"🌐 Initialized local {browser_name.title()} browser session.")
+                    self.on_status.publish(f"🌐 Initialized local {browser_name.title()} browser session.")
                     return driver
                 except Exception as ex:
-                    self.on_status.emit(f"⚠️ Brave subprocess launch warning: {ex}")
+                    self.on_status.publish(f"⚠️ Brave subprocess launch warning: {ex}")
 
             # 4. Fallback to direct Chrome/Chromium launch
             driver = webdriver.Chrome(options=options)
-            self.on_status.emit(f"🌐 Initialized local {browser_name.title()} session.")
+            self.on_status.publish(f"🌐 Initialized local {browser_name.title()} session.")
             return driver
 
         except Exception as e:
-            self.on_status.emit(
+            self.on_status.publish(
                 f"ℹ️ WebDriver not connected ({e}). Using high-performance HTTP crawler."
             )
             return None
@@ -450,7 +450,7 @@ class ImageCrawler(QObject):
                         extracted.append(cleaned)
 
         except Exception as e:
-            self.on_status.emit(f"⚠️ HTTP request error for {page_url}: {e}")
+            self.on_status.publish(f"⚠️ HTTP request error for {page_url}: {e}")
 
         return extracted
 
@@ -546,6 +546,6 @@ class ImageCrawler(QObject):
             return out_path
 
         except Exception as e:
-            self.on_status.emit(f"⚠️ Download failed for {img_url}: {e}")
+            self.on_status.publish(f"⚠️ Download failed for {img_url}: {e}")
 
         return None

@@ -17,7 +17,7 @@ def test_stop():
 
     crawler.stop()
     assert crawler._is_running is False
-    crawler.on_status.emit.assert_called_once_with("Cancellation pending...")
+    crawler.on_status.publish.assert_called_once_with("Cancellation pending...")
 
 
 def test_on_status_emitted():
@@ -26,7 +26,7 @@ def test_on_status_emitted():
     crawler.on_status = MagicMock()
 
     crawler.on_status_emitted("Test status message")
-    crawler.on_status.emit.assert_called_once_with("Test status message")
+    crawler.on_status.publish.assert_called_once_with("Test status message")
 
 
 def test_on_error_emitted():
@@ -35,7 +35,7 @@ def test_on_error_emitted():
     crawler.on_status = MagicMock()
 
     crawler.on_error_emitted("Test error message")
-    crawler.on_status.emit.assert_called_once_with("ERROR: Test error message")
+    crawler.on_status.publish.assert_called_once_with("ERROR: Test error message")
 
 
 def test_clean_image_url():
@@ -69,9 +69,9 @@ def test_run_success(mock_download, mock_requests_page, mock_init_driver):
     result = crawler.run()
 
     assert result == 1
-    call_args = crawler.on_image_saved.emit.call_args[0][0]
+    call_args = crawler.on_image_saved.publish.call_args[0][0]
     assert "/tmp/img1.jpg" in call_args
     assert "https://example.com" in call_args
-    crawler.on_finished.emit.assert_called_once_with(
+    crawler.on_finished.publish.assert_called_once_with(
         "Crawl finished. Downloaded **1** image(s)!"
     )

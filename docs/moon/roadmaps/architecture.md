@@ -1321,6 +1321,35 @@ verification before the Phase 0 gate is called fully closed.
 
 ---
 
+## §5.19 Phase 1 — Six architectural contracts (merged, cross-reviewed) {: #519-phase-1--six-architectural-contracts }
+
+Six independent contracts extracted per D3's decomposition, delegated
+across the team and worked concurrently per D6. All six landed a first
+implementation, all went through Codex's cross-review, and every
+finding raised (blocking or otherwise) was addressed before merge.
+
+| Item | Status | Description |
+|------|--------|-------------|
+| §5.19A | ✅ Shipped | **#525 — `PreferenceStore`**: typed key ownership across `DEVICE`/`ACCOUNT`/`SESSION` scopes (`gui/src/preferences/`), pluggable adapters (`QSettingsPreferenceAdapter`, `VaultPreferenceAdapter`, `MemoryPreferenceAdapter`). Cross-review found `attach_vault_credentials()` had no production caller (ACCOUNT-scope writes were silently discarded on restart) — wired into `MainWindow.__init__`'s login boundary, vault adapter now persists through `vault_manager.save_data()`, QSettings second-writer removed from the three ACCOUNT-scope `AppSettings` setters. |
+| §5.19B | ✅ Shipped | **#526 — `ThumbnailScheduler` interface**: shared scheduling/cancellation/generation contract (`gui/src/thumbnails/`), interface-only — the four gallery implementations aren't unified yet (Phase 2). Cross-review found a stale-completion race (`complete()` didn't check generation before discarding from `_inflight`, letting a cancelled-then-requeued path free the wrong generation's slot) — fixed by keying in-flight work by `(generation, path)`. |
+| §5.19C | ✅ Shipped | **#527 — `ModuleDescriptor` + `ModuleHost` pilot**: production `gui/src/modules/` contract (separate from quarantined `protos/`), piloted against the Log Panel. Cross-review found an unresolvable child route (`resolve_route("module/missing")`) navigated as if valid — fixed to return no match; non-singleton host remount limitation documented rather than silently mis-supported. |
+| §5.19D | ✅ Shipped | **#528 — `WindowManager`**: register-on-construct/deregister-on-close window registry (`gui/src/windows/window_manager.py`) replacing `topLevelWidgets()`/`allWidgets()` discovery in `_notify.py`, `_lifecycle.py`, and `gallery_base.py`. Reviewed clean, no defect found. |
+| §5.19E | ✅ Shipped | **#529 — Backend Qt-decoupling (`Observable`)**: `backend/src/events.py`'s `Observable` replaces `QObject`/`Signal` in all 6 `backend/src/web/*` files (the same architectural family as this repo's documented `QSocketNotifier` SIGSEGV crash class); `gui/src/qt_event_bridge.py`'s `QtEventBridge` adapts to real Qt signals at the GUI boundary via `QueuedConnection`. Cross-review found the CLI crawl path (`backend/controllers/backend_dispatch.py`) still called the removed `.connect()` — migrated to `.subscribe()`. |
+| §5.19F | ✅ Shipped | **#530 — CI import-boundary guardrails**: import-linter contract enforcing no PySide under `backend/src/` outside `app.py`; `backend/validation/check_init_boundaries.py` enforcing no `import *` in `gui/src/**/__init__.py` and a lazy PEP 562 `windows/__init__.py`. Reviewed clean, no defect found. |
+
+**Dependencies:** none of the six block each other — worked concurrently per D6, accepted bus-coordination overhead.
+
+**Cross-review + merge (2026-09-05):** Codex cross-reviewed all six against
+their implementations; four of six had at least one real finding (§5.19A,
+§5.19B, §5.19C, §5.19E — see table above), two were clean (§5.19D,
+§5.19F). Every finding was fixed (with a regression test verified to fail
+against the pre-fix code and pass post-fix) before merging all six onto
+`integration/phase-1` and then `main` (`dee43085`). Targeted verification:
+417/417 tests across the touched suites, ruff clean on all 67 changed
+files — no full-suite run per the resource rule.
+
+---
+
 ## Anchor Index
 
 | Section | Anchor |
@@ -1359,3 +1388,5 @@ verification before the Phase 0 gate is called fully closed.
 *Updated 2026-09-05: Added §5.18 (Phase 0 — Architecture Deep-Dive). §5.18A (#521 native-decode lock) and §5.18B (#522 visible-first thumbnail dispatch) shipped. §5.18D (#524 prototype quarantine + WallpaperTab fix) shipped. §5.18C (#523 tray preference wiring) claimed, not started. See `docs/moon/CHANGELOG.md` S515–S516 and `.agent/reports/team/architecture_deep_dive_2026-09-05.md` for full detail.*
 
 *Updated 2026-09-05 (later same day): §5.18C (#523) shipped. Ran a D12 live-desktop pass on a combined `integration/phase-0` branch (§5.18A–D merged) against real large data — found and shipped two more fixes along the way, neither a regression from §5.18A–D themselves: §5.18E (GIF disk-cache — the QImageReader fallback path had no disk caching at all) and §5.18F (a session-recovery-triggered eager directory load with no size guard, which froze the test machine against a real 108GB directory). User confirmed the app runs stably through login and gallery loading on real adversarial data after both fixes. See `docs/moon/CHANGELOG.md` S523–S525 and `.agent/bus/2026-09-05.md` for full detail.*
+
+*Updated 2026-09-05 (Phase 1): Added §5.19 (Phase 1 — six architectural contracts: `PreferenceStore`, `ThumbnailScheduler` interface, `ModuleDescriptor`+`ModuleHost` pilot, `WindowManager`, backend `Observable` decoupling, CI import-boundary guardrails). All six implemented, cross-reviewed by Codex, every finding fixed, merged to `main` (`dee43085`). GitHub issues #525-#530 closed. See `docs/moon/CHANGELOG.md` S526 and `.agent/bus/2026-09-05.md` for full detail.*

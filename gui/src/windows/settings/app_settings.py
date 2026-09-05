@@ -70,6 +70,11 @@ class AppSettings:
     @classmethod
     def recursive_scan(cls) -> bool:
         """Return True if recursive directory scanning is enabled, False otherwise."""
+        # #528 (WindowManager) proposed replacing the old topLevelWidgets()
+        # scan here with a WindowManager.find() lookup, but #525 already
+        # superseded the whole method: PreferenceStore's attached
+        # VaultPreferenceAdapter resolves this directly against the real
+        # session's credentials, no widget-tree walk of any kind needed.
         from gui.src.preferences import PreferenceStore, PrefKeys
         return bool(PreferenceStore.instance().get(PrefKeys.RECURSIVE_SCAN))
 

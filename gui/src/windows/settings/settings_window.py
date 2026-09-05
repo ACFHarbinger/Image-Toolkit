@@ -33,6 +33,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from ..window_manager import register_window
 from ._appearance import _AppearanceMixin
 from ._credentials import _CredentialsMixin
 from ._misc_sections import _MiscSectionsMixin
@@ -68,6 +69,7 @@ class SettingsWindow(
         self.main_window_ref = parent
 
         super().__init__(None, Qt.WindowType.Window)
+        register_window(self)
 
         self.setWindowTitle("Application Settings")
         self.setMinimumSize(800, 600)  # Increased height slightly
