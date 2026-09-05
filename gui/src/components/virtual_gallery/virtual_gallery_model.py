@@ -21,18 +21,21 @@ Thumbnails are loaded on a dedicated ``QThreadPool`` by the same
 for its row so the view repaints just that cell. Loads are generation-tagged
 and stale deliveries (from before a ``set_paths``/``cancel_loading``) are
 dropped, mirroring the gallery base classes' ``_load_generation`` protocol.
+
+Fill-queue ordering, generation tracking, and cancel are owned by a
+``ThumbnailScheduler`` (#526). Pagination/rendering stay in this model.
 """
 
 from __future__ import annotations
 
 import os
-from collections import deque
 from typing import List, Optional
 
 from PySide6.QtCore import QAbstractListModel, QModelIndex, Qt, QThreadPool
 from PySide6.QtGui import QIcon, QImage, QPixmap
 from shiboken6 import Shiboken
 
+from gui.src.thumbnails import DefaultThumbnailScheduler, ThumbnailScheduler
 from gui.src.utils.cache.lru_image_cache import LRUImageCache
 
 
@@ -61,6 +64,7 @@ class VirtualGalleryModel(QAbstractListModel):
         fill_mode: bool = True,
         fill_limit: Optional[int] = None,
         max_concurrent_loads: int = 2,
+        scheduler: Optional[ThumbnailScheduler] = None,
     ):
         super().__init__(parent)
         self._paths: List[str] = []
@@ -71,7 +75,9 @@ class VirtualGalleryModel(QAbstractListModel):
         self._selected: set[str] = set()
         self._preview: set[str] = set()
         self._active_workers: set = set()
-        self._generation: int = 0
+        self._scheduler: ThumbnailScheduler = scheduler or DefaultThumbnailScheduler(
+            max_in_flight=max_concurrent_loads
+        )
 
         # Background fill warms every row so a directory's thumbnails remain
         # available even before the user scrolls to them. Dispatch is tightly
@@ -79,8 +85,7 @@ class VirtualGalleryModel(QAbstractListModel):
         # native decoder surfaces such as Wallpaper.
         self.fill_mode = bool(fill_mode)
         self.fill_limit = fill_limit
-        self._fill_max_in_flight = max(1, int(max_concurrent_loads))
-        self._fill_queue: deque = deque()
+        self._fill_max_in_flight = self._scheduler.max_in_flight
 
         self.thumbnail_size: int = 180
         # Deferred leaf import: the helpers barrel (`gui.src.helpers`) pulls
@@ -104,6 +109,11 @@ class VirtualGalleryModel(QAbstractListModel):
         self._visible_row_lo: int = 0
         self._visible_row_hi: int = -1  # -1 = no range known yet
 
+    @property
+    def _generation(self) -> int:
+        """Live scheduler generation. Stale worker deliveries compare against this."""
+        return self._scheduler.generation
+
     # ------------------------------------------------------------------
     # Visible-range tracking (issue #522)
     # ------------------------------------------------------------------
@@ -126,7 +136,7 @@ class VirtualGalleryModel(QAbstractListModel):
         visible range is known so that visible-first dispatch (issue #522)
         can order the queue correctly from the start.
         """
-        self._generation += 1
+        self._scheduler.cancel()
         self._cancel_workers()
         self.beginResetModel()
         self._paths = list(paths)
@@ -136,7 +146,6 @@ class VirtualGalleryModel(QAbstractListModel):
         # here only releases finished workers; their late deliveries are
         # rejected by the generation check below.
         self._active_workers.clear()
-        self._fill_queue.clear()
         self.endResetModel()
 
     def fill(self) -> None:
@@ -159,7 +168,7 @@ class VirtualGalleryModel(QAbstractListModel):
         ensures the user sees thumbnails populate immediately while
         offscreen paths load later.
         """
-        gen = self._generation
+        gen = self._scheduler.generation
         paths = [
             p for p in self._paths
             if p not in self._cache and p not in self._loading and p not in self._failed
@@ -169,9 +178,9 @@ class VirtualGalleryModel(QAbstractListModel):
         if not paths:
             return
 
-        # Visible-first reorder: split into visible-row paths and the rest.
-        # Build a path→row map once (O(n)) instead of calling list.index()
-        # per path (O(n²)).
+        # Visible-first reorder via the shared scheduler. Build a path→row
+        # map once (O(n)) instead of calling list.index() per path (O(n²)).
+        visible_paths: list[str] = []
         if self._visible_row_hi >= self._visible_row_lo:
             visible_set = set(
                 range(self._visible_row_lo, self._visible_row_hi + 1)
@@ -180,21 +189,19 @@ class VirtualGalleryModel(QAbstractListModel):
             visible_paths = [
                 p for p in paths if path_to_row.get(p, -1) in visible_set
             ]
-            rest_paths = [
-                p for p in paths if path_to_row.get(p, -1) not in visible_set
-            ]
-            paths = visible_paths + rest_paths
 
         self._loading.update(paths)
-        self._fill_queue.extend(paths)
+        self._scheduler.enqueue(paths, visible=visible_paths or None)
         for _ in range(self._fill_max_in_flight):
             self._dispatch_fill(gen)
 
     def _dispatch_fill(self, gen: int) -> None:
         """Dispatch the next queued fill path (chained on completion)."""
-        if gen != self._generation or not self._fill_queue:
+        if not self._scheduler.is_current(gen):
             return
-        path = self._fill_queue.popleft()
+        path = self._scheduler.take_next()
+        if path is None:
+            return
         worker = self.worker_factory(path, self.thumbnail_size)
         worker.load_generation = gen
         worker.signals.result.connect(
@@ -337,11 +344,10 @@ class VirtualGalleryModel(QAbstractListModel):
 
     def cancel_loading(self) -> None:
         """Stop and drain queued/in-flight loads before returning."""
-        self._generation += 1
+        self._scheduler.cancel()
         self._cancel_workers()
         self._loading.clear()
         self._failed.clear()
-        self._fill_queue.clear()
 
     def _cancel_workers(self) -> None:
         """Stop and drain work before a directory/model generation swap.
@@ -363,7 +369,7 @@ class VirtualGalleryModel(QAbstractListModel):
     def has_pending_loads(self) -> bool:
         """Whether queued, running, or not-yet-delivered loads remain."""
         return bool(
-            self._fill_queue
+            self._scheduler.has_pending()
             or self._active_workers
             or self._loading
             or self.thread_pool.activeThreadCount()
@@ -440,7 +446,7 @@ class VirtualGalleryModel(QAbstractListModel):
         if path in self._cache or path in self._loading or path in self._failed:
             return
         self._loading.add(path)
-        gen = self._generation
+        gen = self._scheduler.generation
         worker = self.worker_factory(path, self.thumbnail_size)
         worker.load_generation = gen
         worker.signals.result.connect(
@@ -461,7 +467,8 @@ class VirtualGalleryModel(QAbstractListModel):
         # reused here).
         if worker is not None:
             self._active_workers.discard(worker)
-        if generation != self._generation:
+        current = self._scheduler.complete(path, generation)
+        if not current:
             self._loading.discard(path)
             return
         if image is None or (isinstance(image, QImage) and image.isNull()):
