@@ -39,6 +39,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from gui.src.thumbnails import order_visible_first
+
 from ..meta.meta_abstract_class_gallery import MetaAbstractClassGallery
 
 # ---------------------------------------------------------------------------
@@ -527,7 +529,9 @@ class AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery):
         the batch loaders (``common_start_chunked_load``) process their
         input list sequentially, so placing visible paths at the front
         ensures the user sees thumbnails populate top-to-bottom while
-        offscreen paths load later.
+        offscreen paths load later. Ordering itself is the shared
+        ``order_visible_first`` helper (#526); widget-to-viewport mapping
+        stays gallery-local.
         """
         if not paths or not scroll_area:
             return paths
@@ -536,15 +540,12 @@ class AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery):
             return paths
         visible_rect = viewport.rect()
 
-        visible_first: list = []
-        hidden_rest: list = []
+        visible = []
         for path in paths:
             card = path_to_widget.get(path)
             if card is not None and self.common_is_visible(card, viewport, visible_rect):
-                visible_first.append(path)
-            else:
-                hidden_rest.append(path)
-        return visible_first + hidden_rest
+                visible.append(path)
+        return order_visible_first(paths, visible=visible)
 
     # =========================================================================
     # Chunked sequential load scheduling (progressive gallery fill)
