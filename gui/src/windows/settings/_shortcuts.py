@@ -106,12 +106,6 @@ class _ShortcutsMixin:
         splitter.setStretchFactor(1, 1)
         vbox.addWidget(splitter, 1)
 
-        try:
-            from gui.src.windows.settings.splitter_persistence import persist_splitter
-            persist_splitter(splitter, "SettingsShortcutsPane/splitter")
-        except Exception:
-            pass
-
         self._shortcut_scope_list.currentItemChanged.connect(self._on_shortcut_scope_changed)
         if self._shortcut_scope_list.count():
             self._shortcut_scope_list.setCurrentRow(0)

@@ -1,15 +1,15 @@
 from unittest.mock import patch
 
 import pytest
-from gui.src.windows.cloud.cloud_compute_window import CloudComputeWindow
-from gui.src.windows.cloud.cloud_settings_pane import CloudSettingsPane
-from gui.src.windows.cloud.dashboards_pane import DashboardsPane
-from gui.src.windows.cloud.provider_card import (
+from gui.src.windows.cloud_compute.cloud_compute_window import CloudComputeWindow
+from gui.src.windows.cloud_compute.cloud_settings_pane import CloudSettingsPane
+from gui.src.windows.cloud_compute.dashboards_pane import DashboardsPane
+from gui.src.windows.cloud_compute.provider_card import (
     ProviderDescriptor,
     ProviderDescriptorCard,
 )
-from gui.src.windows.cloud.providers_pane import ProvidersPane
-from gui.src.windows.cloud.request_builder_pane import RequestBuilderPane
+from gui.src.windows.cloud_compute.providers_pane import ProvidersPane
+from gui.src.windows.cloud_compute.request_builder_pane import RequestBuilderPane
 from PySide6.QtWidgets import QLabel, QMessageBox
 
 pytestmark = pytest.mark.gui

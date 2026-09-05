@@ -26,9 +26,6 @@ class _LoadTabConfigMixin:
     """Meta+S: pick a saved configuration for the active tab and apply it."""
 
     def _open_load_tab_config_dialog(self) -> None:
-        if getattr(self, "_using_runtime_shell", False):
-            self.show_status("Tab configuration profiles are unavailable in the experimental shell.")
-            return
         active_category = self.command_combo.currentText()
         active_tab_index = self.tabs.currentIndex()
         active_tab_name = self.tabs.tabText(active_tab_index) if active_tab_index >= 0 else None

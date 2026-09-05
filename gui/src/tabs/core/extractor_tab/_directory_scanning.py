@@ -69,14 +69,9 @@ class _DirectoryScanningMixin:
 
         self.btn_browse = QPushButton("Browse...")
         self.btn_browse.clicked.connect(self.browse_directory)
-        self._btn_nav_back, self._btn_nav_forward = self.create_nav_history_buttons(self._navigate_to_dir)
-        self._btn_recent_dirs = self.create_recent_dirs_button(self._navigate_to_dir)
 
         dir_layout.addWidget(self.line_edit_dir)
         dir_layout.addWidget(self.btn_browse)
-        dir_layout.addWidget(self._btn_nav_back)
-        dir_layout.addWidget(self._btn_nav_forward)
-        dir_layout.addWidget(self._btn_recent_dirs)
 
         self.main_layout.addWidget(dir_select_group)
 
@@ -115,24 +110,15 @@ class _DirectoryScanningMixin:
         source_layout.addWidget(self.source_scroll)
         self.main_layout.addWidget(self.source_group)
 
-    def _navigate_to_dir(self, d: str) -> None:
-        if not d or not os.path.exists(d):
-            return
-        self.line_edit_dir.setText(d)
-        self.last_browsed_scan_dir = d
-        self._add_recent_dir(d)
-        self._save_last_dir(d)
-        if hasattr(self, "_btn_recent_dirs") and hasattr(self._btn_recent_dirs, "refresh_menu"):
-            self._btn_recent_dirs.refresh_menu()
-        self.scan_directory(d)
-
     @Slot()
     def browse_directory(self: "VideoExtractorSubTabHostProtocol"):
         d = QFileDialog.getExistingDirectory(
             cast(QWidget, self), "Select Source Directory", self.last_browsed_scan_dir
         )
         if d:
-            self._navigate_to_dir(d)
+            self.last_browsed_scan_dir = d
+            self._save_last_dir(d)
+            self.scan_directory(d)
 
     def _load_last_extraction_dir(self: "VideoExtractorSubTabHostProtocol", default: str = "") -> str:
         from gui.src.windows.settings.app_settings import AppSettings

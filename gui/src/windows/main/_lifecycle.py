@@ -147,26 +147,8 @@ class _LifecycleMixin:
             if self.vault_manager is not None:
                 self.vault_manager.shutdown()
             QApplication.quit()
-        elif get_registry().matches(event, "general.command_palette") or (event.key() == Qt.Key.Key_K and event.modifiers() == Qt.KeyboardModifier.ControlModifier):
-            self._open_command_palette()
-            event.accept()
         elif event.key() == Qt.Key.Key_T and event.modifiers() == Qt.KeyboardModifier.ControlModifier:
             self._open_tab_search()
-            event.accept()
-        elif (
-            getattr(self, "_using_runtime_shell", False)
-            and event.key() == Qt.Key.Key_B
-            and event.modifiers() == Qt.KeyboardModifier.ControlModifier
-        ):
-            self.shell_layout_manager.rail.toggle_sidebar()
-            event.accept()
-        elif (
-            getattr(self, "_using_runtime_shell", False)
-            and event.key() == Qt.Key.Key_L
-            and event.modifiers()
-            == (Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.ShiftModifier)
-        ):
-            self.shell_layout_manager.toggle_nav_mode()
             event.accept()
         elif get_registry().matches(event, "general.global_search"):
             self._open_global_search()
@@ -179,16 +161,6 @@ class _LifecycleMixin:
             event.accept()
         elif get_registry().matches(event, "general.load_tab_config"):
             self._open_load_tab_config_dialog()
-            event.accept()
-        elif get_registry().matches(event, "general.undo"):
-            from gui.src.utils.undo_manager import UndoManager
-
-            UndoManager.instance().undo()
-            event.accept()
-        elif get_registry().matches(event, "general.redo"):
-            from gui.src.utils.undo_manager import UndoManager
-
-            UndoManager.instance().redo()
             event.accept()
         elif (
             event.key() == Qt.Key.Key_Slash and event.modifiers() == Qt.KeyboardModifier.ControlModifier
@@ -270,9 +242,6 @@ class _LifecycleMixin:
                     if tab:
                         with contextlib.suppress(Exception):
                             tab.close()
-
-        if getattr(self, "module_runtime", None) is not None:
-            self.module_runtime.dispose()
 
         if self.vault_manager is not None:
             self.vault_manager.shutdown()

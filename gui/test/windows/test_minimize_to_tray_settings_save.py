@@ -218,30 +218,3 @@ class TestNoDuplicateTrayIcon:
             host._setup_tray_icon()
             mock_show.assert_called_once()
         assert host._tray_icon is first
-
-    def test_set_tray_badge_and_status(self, q_app):
-        """set_tray_badge updates icon and update_tray_status updates tooltip."""
-        from gui.src.windows.main._tray import _TrayMixin
-        from PySide6.QtWidgets import QWidget
-
-        class Host(_TrayMixin, QWidget):
-            def __init__(self):
-                QWidget.__init__(self)
-                self._quit_application = MagicMock()
-
-        host = Host()
-        host._setup_tray_icon()
-        assert host._tray_icon is not None
-
-        # Badge count > 0 draws overlay
-        host.set_tray_badge(5)
-        assert not host._tray_icon.icon().isNull()
-
-        # Badge count 0 resets to base icon
-        host.set_tray_badge(0)
-        assert not host._tray_icon.icon().isNull()
-
-        # Tooltip status update
-        host.update_tray_status("Processing 3 jobs")
-        assert "Processing 3 jobs" in host._tray_icon.toolTip()
-

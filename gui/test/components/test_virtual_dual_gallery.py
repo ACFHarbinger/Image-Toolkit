@@ -1,7 +1,7 @@
 """Unit tests for VirtualDualGallery composite (GUI/UX §2.1 & §2.4 dual-panel)."""
 
 import pytest
-from gui.src.components.gallery import VirtualDualGallery
+from gui.src.components.virtual_gallery import VirtualDualGallery
 from PySide6.QtGui import QColor, QImage
 
 pytestmark = pytest.mark.gui
@@ -57,21 +57,10 @@ def test_dual_gallery_population_and_selection(sample_paths, q_app):
     dg.select_all()
     assert dg.count_selected() == 4
 
-    # 3. Invert Selection (§2.4E)
-    dg.invert_selection()
-    assert dg.count_selected() == 0
-
-    dg.toggle_selection(sample_paths[0])
-    assert dg.count_selected() == 1
-    dg.invert_selection()
-    assert dg.count_selected() == 3
-    assert sample_paths[0] not in dg.selected_paths()
-
-    # 4. Deselect All
+    # 3. Deselect All
     dg.deselect_all()
     assert dg.count_selected() == 0
     dg.close()
-
 
 
 def test_dual_gallery_search_filtering(sample_paths, q_app):

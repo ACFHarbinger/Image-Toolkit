@@ -78,7 +78,7 @@ class _NavigationMixin:
             if hasattr(widget, "setToolTip"):
                 widget.setToolTip(os.path.basename(new_path))
 
-    # --- EXPORT SELECTION (GUI/UX §2.19A/B) ---
+    # --- EXPORT SELECTION (GUI/UX §2.19A) ---
     def _export_selection_as_paths(self: "AbstractClassTwoGalleriesHostProtocol") -> None:
         """Write the currently selected file paths to a user-chosen TXT file (Ctrl+E)."""
         paths = self.selected_files or self.found_files
@@ -101,17 +101,6 @@ class _NavigationMixin:
         except OSError as exc:
             QMessageBox.critical(cast(QWidget, self), "Export Error", str(exc))
 
-    def _generate_contact_sheet(self: "AbstractClassTwoGalleriesHostProtocol") -> None:
-        """Open the ContactSheetDialog to export a tiled proof sheet (§2.19B)."""
-        from ....components.dialogs.contact_sheet_dialog import ContactSheetDialog
-
-        paths = self.selected_files or self.found_files
-        if not paths:
-            self._show_status("Nothing to export — gallery is empty.")
-            return
-        dlg = ContactSheetDialog(paths, parent=cast(QWidget, self))
-        dlg.exec()
-
     # --- DIRECTORY NAVIGATION (GUI/UX §2.21A/D) ---
     def _navigate_to_dir(self: "AbstractClassTwoGalleriesHostProtocol", path: str) -> None:
         """Subclasses override to load *path* as the active gallery directory."""
@@ -124,7 +113,6 @@ class _NavigationMixin:
         if current and (not self._dir_back_stack or self._dir_back_stack[-1] != current):
             self._dir_back_stack.append(current)
         self._dir_forward_stack.clear()
-        self._update_nav_history_buttons()
 
     def _dir_go_back(self: "AbstractClassTwoGalleriesHostProtocol") -> Optional[str]:
         """Return the previous directory, or None if no history."""
@@ -132,7 +120,6 @@ class _NavigationMixin:
             return None
         prev = self._dir_back_stack.pop()
         self._dir_forward_stack.append(self.last_browsed_dir)
-        self._update_nav_history_buttons()
         return prev
 
     def _dir_go_forward(self: "AbstractClassTwoGalleriesHostProtocol") -> Optional[str]:
@@ -141,7 +128,6 @@ class _NavigationMixin:
             return None
         nxt = self._dir_forward_stack.pop()
         self._dir_back_stack.append(self.last_browsed_dir)
-        self._update_nav_history_buttons()
         return nxt
 
 

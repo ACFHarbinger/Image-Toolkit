@@ -14,9 +14,6 @@ class _TabSearchMixin:
 
     def _open_tab_search(self) -> None:
         """Show a floating tab-name filter popup (§2.16C)."""
-        if getattr(self, "_using_runtime_shell", False):
-            self._open_runtime_module_search()
-            return
         all_entries: list[tuple[str, str, str]] = []
         for category, tabs_in_cat in self.all_tabs.items():
             for tab_name in tabs_in_cat:
@@ -71,50 +68,6 @@ class _TabSearchMixin:
             if self.tabs.tabText(i) == tab_name:
                 self.tabs.setCurrentIndex(i)
                 return
-
-    def _open_runtime_module_search(self) -> None:
-        """Search catalog descriptors and activate the selected lazy module."""
-        descriptors = tuple(
-            descriptor
-            for category in self.module_catalog.categories()
-            for descriptor in self.module_catalog.navigable_by_category(category)
-        )
-        dlg = QDialog(self, Qt.WindowType.Popup | Qt.WindowType.FramelessWindowHint)
-        dlg.setWindowTitle("Go to Module")
-        dlg.setFixedWidth(400)
-        layout = QVBoxLayout(dlg)
-        layout.setContentsMargins(6, 6, 6, 6)
-        layout.setSpacing(4)
-        search_input = QLineEdit(placeholderText="Type to filter modules…")
-        list_widget = QListWidget()
-        list_widget.setMaximumHeight(260)
-        layout.addWidget(search_input)
-        layout.addWidget(list_widget)
-
-        def populate(text: str) -> None:
-            list_widget.clear()
-            query = text.strip().lower()
-            for descriptor in descriptors:
-                label = f"{descriptor.title}  —  {descriptor.category.value}"
-                if not query or query in label.lower() or query in descriptor.module_id:
-                    item = QListWidgetItem(label)
-                    item.setData(Qt.ItemDataRole.UserRole, descriptor.module_id)
-                    list_widget.addItem(item)
-            if list_widget.count():
-                list_widget.setCurrentRow(0)
-
-        def activate(item=None) -> None:
-            item = item or list_widget.currentItem()
-            if item is not None:
-                self.shell_layout_manager.activate_module(item.data(Qt.ItemDataRole.UserRole))
-                dlg.accept()
-
-        search_input.textChanged.connect(populate)
-        search_input.returnPressed.connect(activate)
-        list_widget.itemActivated.connect(activate)
-        list_widget.itemDoubleClicked.connect(activate)
-        populate("")
-        dlg.exec()
 
 
 __all__ = ["_TabSearchMixin"]

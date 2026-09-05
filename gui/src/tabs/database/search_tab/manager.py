@@ -7,15 +7,6 @@ from typing import Dict, List, Optional
 from PySide6.QtCore import Signal
 
 from gui.src.helpers import SearchWorker
-from gui.src.modules.events import (
-    DatabaseAvailabilityChanged,
-    EventHub,
-    FilterByTagIntent,
-    GroupCatalogChanged,
-    SubgroupCatalogChanged,
-    TagCatalogChanged,
-)
-from gui.src.modules.library_service import coerce_library_database_service
 
 from ....classes import AbstractClassTwoGalleries
 from ._config import _ConfigMixin
@@ -56,14 +47,11 @@ class SearchTab(
     # Signal to send image to another tab: (target_tab_name, image_path)
     send_to_tab_signal = Signal(str, str)
 
-    def __init__(self, database_service=None, event_hub: EventHub | None = None, dropdown=True, **legacy):
+    def __init__(self, db_tab_ref, dropdown=True):
         # Initialize Base Class (Two Galleries)
         super().__init__()
 
-        self.database_service = coerce_library_database_service(
-            database_service if database_service is not None else legacy.pop("db_tab_ref", None)
-        )
-        self.event_hub = event_hub or EventHub(self)
+        self.db_tab_ref = db_tab_ref
         self.dropdown = dropdown
 
         self.open_preview_windows = []
@@ -76,27 +64,6 @@ class SearchTab(
         self._all_tags_cache: List[Dict] = []
 
         self._build_ui()
-        self.event_hub.subscribe(FilterByTagIntent, self._on_filter_by_tag, owner=self)
-        self.event_hub.subscribe(TagCatalogChanged, self._on_tag_catalog_changed, owner=self)
-        self.event_hub.subscribe(GroupCatalogChanged, self._on_group_catalog_changed, owner=self)
-        self.event_hub.subscribe(SubgroupCatalogChanged, self._on_subgroup_catalog_changed, owner=self)
-        self.event_hub.subscribe(DatabaseAvailabilityChanged, self._on_database_availability_changed, owner=self)
-
-    def _on_filter_by_tag(self, intent: FilterByTagIntent) -> None:
-        if intent.module_id == "library.search":
-            self.search_by_tag(intent.tag_name)
-
-    def _on_tag_catalog_changed(self, _event: TagCatalogChanged) -> None:
-        self._setup_tag_checkboxes()
-
-    def _on_group_catalog_changed(self, event: GroupCatalogChanged) -> None:
-        self.populate_groups_list(list(event.groups))
-
-    def _on_subgroup_catalog_changed(self, event: SubgroupCatalogChanged) -> None:
-        self.populate_subgroups_detailed(list(event.subgroups))
-
-    def _on_database_availability_changed(self, event: DatabaseAvailabilityChanged) -> None:
-        self.update_search_button_state(event.connected)
 
 
 __all__ = ["SearchTab"]

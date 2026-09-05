@@ -1,24 +1,23 @@
-"""Vertical Navigation Rail component for modern creative suite layout (§2.36, #513)."""
+"""Vertical Navigation Rail component for modern creative suite layout (§2.36)."""
 
 from __future__ import annotations
 
 from typing import Optional
-
-from PySide6.QtCore import QPointF, QSize, Qt, Signal
-from PySide6.QtGui import QColor, QIcon, QPainter, QPainterPath, QPen, QPixmap
+from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtWidgets import (
     QButtonGroup,
     QHBoxLayout,
     QLabel,
     QPushButton,
     QScrollArea,
+    QSizePolicy,
     QToolButton,
     QVBoxLayout,
     QWidget,
 )
 
-from gui.src.modules.catalog import ModuleCatalog
-from gui.src.modules.descriptor import ModuleCategory
+from gui.src.modules.descriptor import ModuleCategory, ModuleDescriptor
+from gui.src.modules.registry import ModuleRegistry
 
 CATEGORY_ICONS: dict[ModuleCategory, str] = {
     ModuleCategory.SYSTEM: "⚙️",
@@ -31,58 +30,17 @@ CATEGORY_ICONS: dict[ModuleCategory, str] = {
 }
 
 
-def _create_chevron_icon(direction: str = "left", size: int = 16, color_hex: str = "#d0d0d0") -> QIcon:
-    """Render a crisp, anti-aliased vector chevron icon (left or right)."""
-    pixmap = QPixmap(size, size)
-    pixmap.fill(Qt.GlobalColor.transparent)
-
-    painter = QPainter(pixmap)
-    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-
-    pen = QPen(QColor(color_hex), 2.0)
-    pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-    pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
-    painter.setPen(pen)
-
-    path = QPainterPath()
-    w = float(size)
-    h = float(size)
-    if direction == "left":
-        path.moveTo(QPointF(w * 0.62, h * 0.25))
-        path.lineTo(QPointF(w * 0.38, h * 0.50))
-        path.lineTo(QPointF(w * 0.62, h * 0.75))
-    else:
-        path.moveTo(QPointF(w * 0.38, h * 0.25))
-        path.lineTo(QPointF(w * 0.62, h * 0.50))
-        path.lineTo(QPointF(w * 0.38, h * 0.75))
-
-    painter.drawPath(path)
-    painter.end()
-    return QIcon(pixmap)
-
-
 class NavigationRailWidget(QWidget):
     """Left vertical navigation rail with collapsible category drawer."""
 
     module_selected = Signal(str)  # module_id
 
-    # Width of icon_rail (56) + drawer_widget (200) -- the collapsible
-    # "sidebar" content, not counting the always-visible toggle strip.
-    _SIDEBAR_WIDTH = 256
-
-    def __init__(self, catalog: ModuleCatalog, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, registry: ModuleRegistry, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
-        self.catalog = catalog
+        self.registry = registry
         self.active_category: Optional[ModuleCategory] = None
         self.active_module_id: Optional[str] = None
-        # Whether the *drawer* (per-category module list) is expanded --
-        # independent of _sidebar_expanded below.
         self._drawer_expanded: bool = True
-        # Whether the whole sidebar (icon rail + drawer) is expanded at all.
-        # Collapsing this gives the tab content the full window width; only
-        # the slim always-visible toggle strip remains, so it stays
-        # re-expandable without needing the keyboard shortcut.
-        self._sidebar_expanded: bool = True
         self._build_ui()
 
     def _build_ui(self) -> None:
@@ -91,35 +49,7 @@ class NavigationRailWidget(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
-        # 0. Always-visible toggle strip -- lives outside the collapsible
-        # sidebar_content so it stays clickable/discoverable when collapsed.
-        self.toggle_strip = QWidget()
-        self.toggle_strip.setObjectName("rail_toggle_strip")
-        self.toggle_strip.setFixedWidth(22)
-        strip_layout = QVBoxLayout(self.toggle_strip)
-        strip_layout.setContentsMargins(2, 8, 2, 8)
-        strip_layout.setSpacing(0)
-
-        self.toggle_btn = QToolButton()
-        self.toggle_btn.setObjectName("rail_toggle_btn")
-        self.toggle_btn.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
-        self.toggle_btn.setIcon(_create_chevron_icon("left"))
-        self.toggle_btn.setIconSize(QSize(14, 14))
-        self.toggle_btn.setFixedSize(18, 36)
-        self.toggle_btn.setToolTip("Collapse/Expand Sidebar (Ctrl+B)")
-        self.toggle_btn.clicked.connect(self.toggle_sidebar)
-        strip_layout.addWidget(self.toggle_btn)
-        strip_layout.addStretch()
-        layout.addWidget(self.toggle_strip)
-
-        # 1. Collapsible sidebar content (icon rail + drawer together).
-        self.sidebar_content = QWidget()
-        self.sidebar_content.setObjectName("rail_sidebar_content")
-        sidebar_layout = QHBoxLayout(self.sidebar_content)
-        sidebar_layout.setContentsMargins(0, 0, 0, 0)
-        sidebar_layout.setSpacing(0)
-
-        # 1a. Left Icon Rail (slim vertical strip)
+        # 1. Left Icon Rail (slim vertical strip)
         self.icon_rail = QWidget()
         self.icon_rail.setObjectName("icon_rail")
         self.icon_rail.setFixedWidth(56)
@@ -131,7 +61,7 @@ class NavigationRailWidget(QWidget):
         self.cat_group = QButtonGroup(self)
         self.cat_buttons: dict[ModuleCategory, QToolButton] = {}
 
-        for cat in self.catalog.categories():
+        for cat in self.registry.categories():
             icon_char = CATEGORY_ICONS.get(cat, "📦")
             btn = QToolButton()
             btn.setText(icon_char)
@@ -147,19 +77,16 @@ class NavigationRailWidget(QWidget):
         rail_layout.addStretch()
 
         # Drawer toggle button at bottom
-        self.drawer_toggle_btn = QToolButton()
-        self.drawer_toggle_btn.setObjectName("rail_drawer_toggle_btn")
-        self.drawer_toggle_btn.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
-        self.drawer_toggle_btn.setIcon(_create_chevron_icon("left" if self._drawer_expanded else "right"))
-        self.drawer_toggle_btn.setIconSize(QSize(14, 14))
-        self.drawer_toggle_btn.setFixedSize(48, 32)
-        self.drawer_toggle_btn.setToolTip("Toggle Navigation Drawer")
-        self.drawer_toggle_btn.clicked.connect(self.toggle_drawer)
-        rail_layout.addWidget(self.drawer_toggle_btn)
+        self.toggle_btn = QToolButton()
+        self.toggle_btn.setText("◀" if self._drawer_expanded else "▶")
+        self.toggle_btn.setFixedSize(48, 32)
+        self.toggle_btn.setToolTip("Toggle Navigation Drawer (Ctrl+B)")
+        self.toggle_btn.clicked.connect(self.toggle_drawer)
+        rail_layout.addWidget(self.toggle_btn)
 
-        sidebar_layout.addWidget(self.icon_rail)
+        layout.addWidget(self.icon_rail)
 
-        # 1b. Drawer Panel (tool list for active category)
+        # 2. Drawer Panel (tool list for active category)
         self.drawer_widget = QWidget()
         self.drawer_widget.setObjectName("rail_drawer")
         self.drawer_widget.setFixedWidth(200)
@@ -183,64 +110,17 @@ class NavigationRailWidget(QWidget):
         self.module_scroll.setWidget(self.module_container)
         self.drawer_layout.addWidget(self.module_scroll)
 
-        sidebar_layout.addWidget(self.drawer_widget)
-        layout.addWidget(self.sidebar_content)
+        layout.addWidget(self.drawer_widget)
 
         # Initial selection
-        cats = self.catalog.categories()
+        cats = self.registry.categories()
         if cats:
             self.select_category(cats[0])
 
-    def toggle_sidebar(self) -> None:
-        """Collapse/expand the entire sidebar (icon rail + drawer), giving
-        the active tab's content the full window width when collapsed. The
-        toggle strip itself stays visible so it's always re-expandable."""
-        self._sidebar_expanded = not self._sidebar_expanded
-        self.toggle_btn.setIcon(_create_chevron_icon("left" if self._sidebar_expanded else "right"))
-        # self._sidebar_expanded now holds the *target* state -- animate
-        # toward it (0 -> full width when expanding, full width -> 0 when
-        # collapsing).
-        end_w = self._SIDEBAR_WIDTH if self._sidebar_expanded else 0
-        start_w = 0 if self._sidebar_expanded else self._SIDEBAR_WIDTH
-        try:
-            from gui.src.styles.motion_kit import MotionKit
-            MotionKit.slide_width(
-                self.sidebar_content,
-                start_w,
-                end_w,
-                duration_ms=160,
-                easing=MotionKit.EASING_DEFAULT,
-            )
-        except Exception:
-            self.sidebar_content.setVisible(self._sidebar_expanded)
-
     def toggle_drawer(self) -> None:
         self._drawer_expanded = not self._drawer_expanded
-        self.drawer_toggle_btn.setIcon(_create_chevron_icon("left" if self._drawer_expanded else "right"))
-        start_w = 0 if self._drawer_expanded else 200
-        end_w = 200 if self._drawer_expanded else 0
-        try:
-            from gui.src.styles.motion_kit import MotionKit
-            MotionKit.slide_width(
-                self.drawer_widget,
-                start_w,
-                end_w,
-                duration_ms=160,
-                easing=MotionKit.EASING_DEFAULT,
-            )
-        except Exception:
-            self.drawer_widget.setVisible(self._drawer_expanded)
-
-    def apply_category_accents(self, overrides: dict[str, str]) -> None:
-        """Apply category-specific accent overrides (§2.41, #518)."""
-        self._category_accent_overrides = {k.lower(): v for k, v in overrides.items()}
-        for cat, btn in self.cat_buttons.items():
-            cat_key = cat.name.lower()
-            if cat_key in self._category_accent_overrides:
-                accent = self._category_accent_overrides[cat_key]
-                btn.setStyleSheet(f"QToolButton:checked {{ border-left: 3px solid {accent}; background: rgba(255,255,255,0.08); }}")
-        if self.active_category:
-            self.select_category(self.active_category)
+        self.drawer_widget.setVisible(self._drawer_expanded)
+        self.toggle_btn.setText("◀" if self._drawer_expanded else "▶")
 
     def select_category(self, category: ModuleCategory) -> None:
         self.active_category = category
@@ -256,9 +136,6 @@ class NavigationRailWidget(QWidget):
             ModuleCategory.MANGA: "マンガ",
             ModuleCategory.EDITOR: "エディタ",
         }.get(category, "")
-        cat_key = category.name.lower()
-        accent = getattr(self, "_category_accent_overrides", {}).get(cat_key, "#00bcd4")
-        self.drawer_header.setStyleSheet(f"font-weight: bold; font-size: 11pt; padding: 4px; color: {accent};")
         self.drawer_header.setText(f"{category.value.upper()}\n{jp_text}" if jp_text else category.value.upper())
 
         # Clear existing tool buttons
@@ -269,26 +146,27 @@ class NavigationRailWidget(QWidget):
                 widget.deleteLater()
 
         # Add buttons for modules in this category
-        modules = self.catalog.navigable_by_category(category)
+        modules = self.registry.by_category(category)
         for mod in modules:
-            sub = f" // {mod.japanese_subtext}" if getattr(mod, 'japanese_subtext', None) else ""
+            sub = f" // {mod.japanese_subtext}" if mod.japanese_subtext else ""
             btn = QPushButton(f"{mod.title}{sub}")
-            btn.setObjectName(f"module_btn_{mod.module_id}")
+            btn.setObjectName(f"module_btn_{mod.id}")
             btn.setCheckable(True)
             btn.setStyleSheet("text-align: left; padding: 6px 10px; font-size: 9pt;")
-            if mod.module_id == self.active_module_id:
+            if mod.id == self.active_module_id:
                 btn.setChecked(True)
-            btn.clicked.connect(lambda _=False, m=mod.module_id: self._on_module_clicked(m))
+            btn.clicked.connect(lambda _=False, m=mod.id: self._on_module_clicked(m))
             self.module_list_layout.addWidget(btn)
 
         self.module_list_layout.addStretch()
 
         # Select first module if active not in this category
-        if modules and (not self.active_module_id or self.catalog.require(self.active_module_id).category != category):
-            self._on_module_clicked(modules[0].module_id)
+        if modules and (not self.active_module_id or self.registry.get(self.active_module_id).category != category):
+            self._on_module_clicked(modules[0].id)
 
     def _on_module_clicked(self, module_id: str) -> None:
         self.active_module_id = module_id
+        # Update checked state among buttons
         for i in range(self.module_list_layout.count()):
             item = self.module_list_layout.itemAt(i)
             widget = item.widget()
@@ -297,7 +175,7 @@ class NavigationRailWidget(QWidget):
         self.module_selected.emit(module_id)
 
     def set_active_module(self, module_id: str) -> None:
-        mod = self.catalog.get(module_id)
+        mod = self.registry.get(module_id)
         if mod:
             if mod.category != self.active_category:
                 self.select_category(mod.category)

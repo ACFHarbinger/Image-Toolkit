@@ -11,21 +11,11 @@ from gui.src.helpers.image.image_scan_worker import ImageScannerWorker
 
 class TestImageLoaderWorker:
     def test_run(self, q_app):
-        # Non-native fallback now goes through QImageReader (matching the
-        # already-proven-correct pattern in wallpaper_common_base's
-        # _get_or_generate_thumbnail) instead of the bare QImage(path)
-        # constructor -- see image_loader_worker.py's
-        # _load_via_qimagereader docstring for why.
-        with patch("gui.src.helpers.image.image_loader_worker.QImageReader") as MockReader:
-            mock_reader = MagicMock()
-            MockReader.return_value = mock_reader
-            mock_reader.size.return_value = MagicMock(isValid=lambda: False)
-            mock_read_result = MagicMock()
-            mock_read_result.isNull.return_value = False
-            mock_read_result.width.return_value = 500
-            mock_read_result.height.return_value = 500
-            mock_read_result.scaled.return_value = MagicMock()
-            mock_reader.read.return_value = mock_read_result
+        with patch("gui.src.helpers.image.image_loader_worker.QImage") as MockQImage:
+            mock_inst = MagicMock()
+            MockQImage.return_value = mock_inst
+            mock_inst.isNull.return_value = False
+            mock_inst.scaled.return_value = MagicMock()
 
             worker = ImageLoaderWorker("/tmp/fake.jpg", 100)
 
@@ -37,16 +27,13 @@ class TestImageLoaderWorker:
 
             assert len(results) == 1
             assert results[0][0] == "/tmp/fake.jpg"
-            mock_read_result.scaled.assert_called()
+            mock_inst.scaled.assert_called()
 
     def test_run_failure(self, q_app):
-        with patch("gui.src.helpers.image.image_loader_worker.QImageReader") as MockReader:
-            mock_reader = MagicMock()
-            MockReader.return_value = mock_reader
-            mock_reader.size.return_value = MagicMock(isValid=lambda: False)
-            mock_read_result = MagicMock()
-            mock_read_result.isNull.return_value = True  # Load failed
-            mock_reader.read.return_value = mock_read_result
+        with patch("gui.src.helpers.image.image_loader_worker.QImage") as MockQImage:
+            mock_inst = MagicMock()
+            MockQImage.return_value = mock_inst
+            mock_inst.isNull.return_value = True  # Load failed
 
             worker = ImageLoaderWorker("/tmp/bad.jpg", 100)
 

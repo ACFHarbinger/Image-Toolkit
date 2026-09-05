@@ -1,7 +1,7 @@
 """Tests for ImageCompareWindow and multi-image comparison view (GUI/UX §2.27)."""
 
 import pytest
-from gui.src.components.gallery import VirtualGallery
+from gui.src.components.virtual_gallery import VirtualGallery
 from gui.src.windows.image_compare_window import ImageCompareWindow
 from PySide6.QtCore import QPoint, Qt
 from PySide6.QtGui import QColor, QImage, QKeyEvent

@@ -61,17 +61,6 @@ class _ScanLoadingMixin:
         else:
             self.browse_scan_directory()
 
-    def _navigate_to_dir(self, directory: str) -> None:
-        if not directory or not Path(directory).is_dir():
-            return
-        self.last_browsed_scan_dir = directory
-        self._add_recent_dir(directory)
-        self._save_last_dir(directory)
-        if hasattr(self, "_btn_recent_dirs") and hasattr(self._btn_recent_dirs, "refresh_menu"):
-            self._btn_recent_dirs.refresh_menu()
-        self.scan_directory_path.setText(directory)
-        self.populate_scan_image_gallery(directory)
-
     def browse_scan_directory(self):
         start_dir = self.last_browsed_scan_dir
         options = (
@@ -83,7 +72,9 @@ class _ScanLoadingMixin:
             self, "Select directory to scan", start_dir, options
         )
         if directory:
-            self._navigate_to_dir(directory)
+            self.last_browsed_scan_dir = directory
+            self.scan_directory_path.setText(directory)
+            self.populate_scan_image_gallery(directory)
 
     def populate_scan_image_gallery(self, directory: str, is_refresh: bool = False):
         self.scanned_dir = directory
@@ -150,9 +141,9 @@ class _ScanLoadingMixin:
         )  # Sort by default
 
         # FILTERING LOGIC
-        if self.database_service.db is not None:
+        if self.db_tab_ref.db is not None:
             if self.view_new_only:
-                db = self.database_service.db
+                db = self.db_tab_ref.db
                 paths_not_in_db = []
                 for path in self.scan_image_list:
                     if not db.get_image_by_path(path):
@@ -160,7 +151,7 @@ class _ScanLoadingMixin:
                 self.scan_filtered_list = sorted(paths_not_in_db, key=natural_sort_key)
 
             elif self.view_in_db_only:
-                db = self.database_service.db
+                db = self.db_tab_ref.db
                 paths_in_db = []
                 for path in self.scan_image_list:
                     if db.get_image_by_path(path):
@@ -184,7 +175,7 @@ class _ScanLoadingMixin:
         self.dual.set_found_paths(self.scan_filtered_list)
 
         # Batch DB check for in-database styling
-        db = self.database_service.db
+        db = self.db_tab_ref.db
         in_db = set()
         if db and self.scan_filtered_list:
             try:

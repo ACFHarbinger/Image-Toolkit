@@ -125,22 +125,6 @@ def to_qss_vars(resolved: ColorTokens, *, prefix: str) -> dict[str, str]:
     }
 
 
-def resolve_category_accent(pack: ThemePack, category: Any) -> str:
-    """Resolve accent color for a specific ModuleCategory/category id (§2.41, #518)."""
-    keys_to_try = []
-    if hasattr(category, "name"):
-        keys_to_try.append(category.name.lower())
-    if hasattr(category, "value"):
-        keys_to_try.append(str(category.value).lower())
-    raw_str = str(category).lower()
-    keys_to_try.extend([raw_str, raw_str.replace(" ", "_"), raw_str.replace("_", " ")])
-
-    for k in keys_to_try:
-        if k in pack.category_accent_overrides:
-            return pack.category_accent_overrides[k]
-    return resolve_colors(pack).accent
-
-
 def resolve_to_qss_vars(pack: ThemePack) -> dict[str, str]:
     """Convenience: resolve_colors + to_qss_vars in one call, using
     ``pack.base`` for the $VAR prefix."""
@@ -150,7 +134,6 @@ def resolve_to_qss_vars(pack: ThemePack) -> dict[str, str]:
 __all__ = [
     "base_defaults",
     "resolve_colors",
-    "resolve_category_accent",
     "derive_accent_variants",
     "to_qss_vars",
     "resolve_to_qss_vars",

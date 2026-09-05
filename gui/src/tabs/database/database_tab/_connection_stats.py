@@ -33,7 +33,6 @@ class _ConnectionStatsMixin:
                 return
 
             self.db = ImageDatabase(session_db)
-            self.database_service.db = self.db
             self.update_statistics()
             self.update_button_states(connected=True)
             self._refresh_all_group_combos()
@@ -43,7 +42,8 @@ class _ConnectionStatsMixin:
             self.refresh_subgroups_list()
             self.refresh_image_registry()
 
-            self._publish_tag_catalog_changed()
+            if self.scan_tab_ref:
+                self.scan_tab_ref._setup_tag_checkboxes()
 
             if not silent:
                 QMessageBox.information(
@@ -54,7 +54,6 @@ class _ConnectionStatsMixin:
                 self, "Error", f"Failed to open the library database:\n{str(e)}"
             )
             self.update_button_states(connected=False)
-            self._publish_database_availability(False)
             self.stats_label.setText("Library Unavailable")
 
     def reset_database(self):
@@ -109,7 +108,8 @@ class _ConnectionStatsMixin:
             self.refresh_subgroups_list()
             self.refresh_image_registry()
 
-            self._publish_tag_catalog_changed()
+            if self.scan_tab_ref:
+                self.scan_tab_ref._setup_tag_checkboxes()
 
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to reset database:\n{str(e)}")
@@ -255,7 +255,8 @@ class _ConnectionStatsMixin:
             self.existing_subgroups_filter_combo.clear()
             self.existing_subgroups_filter_combo.addItems([""] + group_list)
 
-            self._publish_group_catalog_changed(group_list)
+            if self.search_tab_ref and hasattr(self.search_tab_ref, "groups_list_widget"):
+                self.search_tab_ref.populate_groups_list(group_list)
 
         except Exception as e:
             print(f"Error refreshing group combos: {e}")
@@ -266,9 +267,13 @@ class _ConnectionStatsMixin:
     def refresh_subgroup_autocomplete(self):
         if not self.db:
             return
+        if not self.search_tab_ref or not hasattr(
+            self.search_tab_ref, "subgroups_list_widget"
+        ):
+            return
         try:
             detailed = self.db.get_all_subgroups_detailed()
-            self._publish_subgroup_catalog_changed(detailed)
+            self.search_tab_ref.populate_subgroups_detailed(detailed)
         except Exception as e:
             print(f"Error refreshing subgroup list data: {e}")
 
@@ -287,7 +292,11 @@ class _ConnectionStatsMixin:
         self.btn_remove_subgroup.setEnabled(connected)
         self.btn_remove_tag.setEnabled(connected)
 
-        self._publish_database_availability(connected)
+        if self.scan_tab_ref:
+            self.scan_tab_ref.update_button_states(connected)
+
+        if self.search_tab_ref:
+            self.search_tab_ref.update_search_button_state(connected)
 
     def check_postgres_status(self):
         """Interactive reachability and pgvector diagnostic test."""

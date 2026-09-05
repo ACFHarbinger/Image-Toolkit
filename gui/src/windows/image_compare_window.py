@@ -352,12 +352,6 @@ class ImageCompareWindow(QDialog):
             self.panes.append(pane)
             self.splitter.addWidget(pane)
 
-        try:
-            from gui.src.windows.settings.splitter_persistence import persist_splitter
-            persist_splitter(self.splitter, "ImageCompareWindow/main_splitter")
-        except Exception:
-            pass
-
         sbs_layout.addWidget(self.splitter)
         self.stack.addWidget(self.side_by_side_widget)
 

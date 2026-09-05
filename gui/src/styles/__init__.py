@@ -10,7 +10,6 @@ from .background_canvas import (
     BackgroundConfig,
     generate_glassmorphism_qss,
 )
-from .motion_kit import MotionKit
 
 
 def parse_theme_vars() -> dict:

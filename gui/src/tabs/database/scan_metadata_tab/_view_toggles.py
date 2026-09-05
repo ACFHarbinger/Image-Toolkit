@@ -18,7 +18,7 @@ class _ViewTogglesMixin:
 
     @Slot(bool)
     def toggle_new_only_view(self, checked: bool):
-        db_connected = self.database_service.db is not None
+        db_connected = self.db_tab_ref.db is not None
         if not db_connected and checked:
             QMessageBox.warning(
                 self,
@@ -43,7 +43,7 @@ class _ViewTogglesMixin:
 
     @Slot(bool)
     def toggle_in_db_only_view(self, checked: bool):
-        db_connected = self.database_service.db is not None
+        db_connected = self.db_tab_ref.db is not None
         if not db_connected and checked:
             QMessageBox.warning(
                 self,

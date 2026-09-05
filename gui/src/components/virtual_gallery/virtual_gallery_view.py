@@ -21,7 +21,8 @@ The view adds the behaviours the QLabel galleries' ``ClickableLabel`` and
 * ``QItemSelectionModel``-backed selection (§2.4) with ``selected_paths()``.
 """
 
-import os
+from __future__ import annotations
+
 from typing import TYPE_CHECKING, Optional
 
 from PySide6.QtCore import (
@@ -35,27 +36,10 @@ from PySide6.QtCore import (
     QUrl,
     Signal,
 )
-from PySide6.QtGui import (
-    QCursor,
-    QDrag,
-    QKeyEvent,
-    QMouseEvent,
-    QPixmap,
-    QWheelEvent,
-)
-from PySide6.QtWidgets import (
-    QAbstractItemView,
-    QApplication,
-    QInputDialog,
-    QListView,
-    QMessageBox,
-)
+from PySide6.QtGui import QCursor, QDrag, QMouseEvent, QPixmap, QWheelEvent
+from PySide6.QtWidgets import QAbstractItemView, QApplication, QListView
 
 from .delegate import VirtualGalleryDelegate
-from .presentation_mode import (
-    GalleryOverlayConfig,
-    GalleryPresentationMode,
-)
 
 if TYPE_CHECKING:
     from .virtual_gallery_model import VirtualGalleryModel
@@ -67,7 +51,6 @@ class VirtualGalleryView(QListView):
     path_clicked = Signal(str)
     path_activated = Signal(str)
     path_right_clicked = Signal(QPoint, str)
-    path_renamed = Signal(str, str)
     ctrl_wheel = Signal(int)
 
     def __init__(self, parent=None, prefetch_buffer: int = 40):
@@ -129,43 +112,6 @@ class VirtualGalleryView(QListView):
         self.setIconSize(QSize(size, size))
         self.setGridSize(QSize(size + 16, size + 16 + 14))
 
-    def set_presentation_mode(self, mode: GalleryPresentationMode) -> None:
-        """Switch between Uniform Grid, Masonry, and Compact List view modes (§2.40)."""
-        self._presentation_mode = mode
-        if mode == GalleryPresentationMode.COMPACT_LIST:
-            self.setViewMode(QListView.ViewMode.ListMode)
-            self.setFlow(QListView.Flow.TopToBottom)
-            self.setWrapping(False)
-            self.setGridSize(QSize())
-            self.setIconSize(QSize(48, 48))
-        elif mode == GalleryPresentationMode.MASONRY:
-            self.setViewMode(QListView.ViewMode.IconMode)
-            self.setFlow(QListView.Flow.LeftToRight)
-            self.setWrapping(True)
-            self.setUniformItemSizes(False)
-            if self._gallery_model is not None:
-                size = self._gallery_model.thumbnail_size
-                self.setIconSize(QSize(size, size))
-                self.setGridSize(QSize(size + 12, size + 40))
-        else:  # UNIFORM_GRID
-            self.setViewMode(QListView.ViewMode.IconMode)
-            self.setFlow(QListView.Flow.LeftToRight)
-            self.setWrapping(True)
-            self.setUniformItemSizes(True)
-            self._apply_grid_size()
-        self.viewport().update()
-
-    def set_overlay_config(self, config: GalleryOverlayConfig) -> None:
-        """Configure thumbnail overlay badges on the item delegate."""
-        delegate = self.itemDelegate()
-        if isinstance(delegate, VirtualGalleryDelegate):
-            delegate.set_overlay_config(config)
-            self.viewport().update()
-
-    @property
-    def presentation_mode(self) -> GalleryPresentationMode:
-        return getattr(self, "_presentation_mode", GalleryPresentationMode.UNIFORM_GRID)
-
     # ------------------------------------------------------------------
     # Selection helpers (§2.4)
     # ------------------------------------------------------------------
@@ -207,24 +153,6 @@ class VirtualGalleryView(QListView):
         sm = self.selectionModel()
         if sm is not None:
             sm.clearSelection()
-
-    def invert_selection(self) -> None:
-        """Invert the selection across all gallery items (§2.4E)."""
-        if self._gallery_model is None:
-            return
-        n = self._gallery_model.rowCount()
-        if n == 0:
-            return
-        sm = self.selectionModel()
-        if sm is not None:
-            selection = QItemSelection(
-                self._gallery_model.index(0, 0),
-                self._gallery_model.index(n - 1, 0),
-            )
-            sm.select(
-                selection, sm.SelectionFlag.Toggle | sm.SelectionFlag.Rows
-            )
-
 
     def jump_to_path(self, path: str) -> bool:
         """Scroll to the row for *path* (returns False if unknown)."""
@@ -320,79 +248,6 @@ class VirtualGalleryView(QListView):
             event.accept()
         else:
             super().wheelEvent(event)
-
-    def keyPressEvent(self, event: QKeyEvent) -> None:
-        from gui.src.utils.manager.shortcut_manager import get_registry
-        from gui.src.utils.undo_manager import UndoManager
-
-        reg = get_registry()
-        if reg.matches(event, "gallery.rename") or event.key() == Qt.Key.Key_F2:
-            self.rename_selected_file()
-            event.accept()
-        elif reg.matches(event, "gallery.select_all"):
-            self.select_all()
-            event.accept()
-        elif reg.matches(event, "gallery.deselect_all"):
-            self.clear_selection()
-            event.accept()
-        elif reg.matches(event, "gallery.invert_selection"):
-            self.invert_selection()
-            event.accept()
-        elif reg.matches(event, "general.undo"):
-            UndoManager.instance().undo()
-            event.accept()
-        elif reg.matches(event, "general.redo"):
-            UndoManager.instance().redo()
-            event.accept()
-        else:
-            super().keyPressEvent(event)
-
-
-    def rename_selected_file(self) -> Optional[str]:
-        """Trigger inline rename on the active/selected gallery item via F2 (§2.26)."""
-        selected = self.selected_paths()
-        target = selected[0] if selected else None
-        if target is None and self._gallery_model and self._gallery_model.rowCount() > 0:
-            target = self._gallery_model.path_at(0)
-        if not target or not os.path.exists(target):
-            return None
-
-        old_name = os.path.basename(target)
-        stem, ext = os.path.splitext(old_name)
-        new_stem, ok = QInputDialog.getText(
-            self, "Rename File (F2)", "New filename (without extension):", text=stem
-        )
-        if not ok or not new_stem.strip() or new_stem.strip() == stem:
-            return None
-
-        new_stem = new_stem.strip()
-        for ch in r'\/:*?"<>|':
-            new_stem = new_stem.replace(ch, "_")
-
-        new_path = os.path.join(os.path.dirname(target), new_stem + ext)
-        if os.path.exists(new_path):
-            QMessageBox.warning(
-                self, "Rename Conflict", f"A file named '{new_stem + ext}' already exists."
-            )
-            return None
-
-        try:
-            from gui.src.utils.undo_manager import UndoManager
-
-            def _on_renamed(old_p: str, new_p: str) -> None:
-                if self._gallery_model:
-                    self._gallery_model.rename_path(old_p, new_p)
-                self.path_renamed.emit(old_p, new_p)
-
-            UndoManager.instance().rename_file_undoable(
-                old_path=target,
-                new_path=new_path,
-                on_renamed=_on_renamed,
-            )
-            return new_path
-        except Exception as exc:
-            QMessageBox.critical(self, "Rename Error", str(exc))
-            return None
 
     # ------------------------------------------------------------------
     # Drag-to-drop (opt-in). Wallpaper supplies an in-app drop resolver, so

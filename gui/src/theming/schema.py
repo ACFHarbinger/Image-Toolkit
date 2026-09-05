@@ -223,7 +223,6 @@ class ThemePack:
     motion: MotionTokens = field(default_factory=MotionTokens)
     density: DensityTokens = field(default_factory=DensityTokens)
     backgrounds: tuple[BackgroundTokens, ...] = field(default_factory=tuple)
-    category_accent_overrides: dict[str, str] = field(default_factory=dict)
     #: Material-You/PyWal-style extraction toggle (round-1 Q&A: off by
     #: default so it never fights a hand-picked palette). Stored per-pack
     #: so re-opening a pack that had it enabled re-derives consistently.
@@ -244,8 +243,6 @@ class ThemePack:
             raise ThemeSchemaError(f"unknown color token key(s) in overrides: {sorted(unknown)}")
         for key, value in self.color_overrides.items():
             _validate_hex_color(value, field_name=f"color_overrides[{key!r}]")
-        for cat, val in self.category_accent_overrides.items():
-            _validate_hex_color(val, field_name=f"category_accent_overrides[{cat!r}]")
         if self.schema_version != SCHEMA_VERSION:
             raise ThemeSchemaError(
                 f"unsupported schema_version {self.schema_version}; this build reads {SCHEMA_VERSION}"
