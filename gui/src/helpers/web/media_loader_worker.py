@@ -34,6 +34,7 @@ from backend.src.web import (
 from PySide6.QtCore import QObject, Signal
 
 from gui.src.helpers.gc_safe import gc_disabled_run
+from gui.src.qt_event_bridge import QtEventBridge
 
 
 class MediaLoaderWorker(QObject):
@@ -50,6 +51,17 @@ class MediaLoaderWorker(QObject):
         self.config = config
         self._downloader = None
         self._thread: Optional[threading.Thread] = None
+        # Bridges are QObjects: construct here on the GUI thread, attach in
+        # _ensure_downloader once the backend object exists (issue #529).
+        # No detach: the bridge lives and dies with this worker, and
+        # detaching on cancel() would drop the downloader's on_finished.
+        self._status_bridge = QtEventBridge(self.status.emit, parent=self)
+        self._saved_bridge = QtEventBridge(self.media_saved.emit, parent=self)
+        self._finished_bridge = QtEventBridge(
+            lambda payload: self.sig_finished.emit(payload[0], payload[1]),
+            parent=self,
+        )
+        self._error_bridge = QtEventBridge(self.error.emit, parent=self)
 
     def isRunning(self) -> bool:
         return self._thread is not None and self._thread.is_alive()
@@ -91,10 +103,10 @@ class MediaLoaderWorker(QObject):
             downloader = NhentaiDownloader(self.config)
         else:
             return
-        downloader.on_status.connect(self.status.emit)
-        downloader.on_image_saved.connect(self.media_saved.emit)
-        downloader.on_finished.connect(self.sig_finished.emit)
-        downloader.on_error.connect(self.error.emit)
+        self._status_bridge.attach(downloader.on_status)
+        self._saved_bridge.attach(downloader.on_image_saved)
+        self._finished_bridge.attach(downloader.on_finished)
+        self._error_bridge.attach(downloader.on_error)
         self._downloader = downloader
 
     @gc_disabled_run

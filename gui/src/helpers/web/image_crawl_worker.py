@@ -11,6 +11,7 @@ from backend.src.web import (
 from PySide6.QtCore import QThread, Signal
 
 from gui.src.helpers.gc_safe import gc_disabled_run
+from gui.src.qt_event_bridge import QtEventBridge
 
 
 class ImageCrawlWorker(QThread):
@@ -24,6 +25,33 @@ class ImageCrawlWorker(QThread):
         super().__init__()
         self.config = config
         self.crawler = None
+        self._downloaded = 0
+        # Bridges are QObjects: construct here on the GUI thread, attach in
+        # run() once the crawler exists (issue #529).
+        self._status_bridge = QtEventBridge(self.status.emit, parent=self)
+        self._saved_bridge = QtEventBridge(self._on_image_saved, parent=self)
+
+    def _on_image_saved(self, meta_or_path) -> None:
+        self._downloaded += 1
+
+        # Backend emits json.dumps(meta); parse only for status log display.
+        # Always re-emit as a str — Signal(str) works safely across threads.
+        if isinstance(meta_or_path, str) and meta_or_path.strip().startswith("{"):
+            with contextlib.suppress(Exception):
+                meta = json.loads(meta_or_path)
+                path = meta.get("path", "")
+                global_id = meta.get("global_id", self._downloaded)
+                page_num = meta.get("page_num", 1)
+                pos_on_page = meta.get("index_on_page", self._downloaded)
+                self.status.emit(
+                    f"Saved [{global_id}] (Page {page_num} #{pos_on_page}): {os.path.basename(path)}"
+                )
+            self.image_downloaded.emit(meta_or_path)
+            return
+
+        path = meta_or_path if isinstance(meta_or_path, str) else str(meta_or_path)
+        self.status.emit(f"Saved: {os.path.basename(path)}")
+        self.image_downloaded.emit(path)
 
     def stop(self):
         """Stop the underlying crawler instance and interrupt thread."""
@@ -54,48 +82,28 @@ class ImageCrawlWorker(QThread):
                 crawler = ImageCrawler(self.config)
 
             self.crawler = crawler
+            self._downloaded = 0
 
-            downloaded = 0
+            # Bridge backend Observables onto the GUI thread (issue #529).
+            self._status_bridge.attach(crawler.on_status)
+            self._saved_bridge.attach(crawler.on_image_saved)
+            try:
+                self.status.emit(f"Starting {crawler_type.title()} Crawl...")
 
-            def on_saved(meta_or_path):
-                nonlocal downloaded
-                downloaded += 1
+                # Run the crawler
+                final_count = crawler.run()
 
-                # Backend emits json.dumps(meta); parse only for status log display.
-                # Always re-emit as a str — Signal(str) works safely across threads.
-                if isinstance(meta_or_path, str) and meta_or_path.strip().startswith("{"):
-                    with contextlib.suppress(Exception):
-                        meta = json.loads(meta_or_path)
-                        path = meta.get("path", "")
-                        global_id = meta.get("global_id", downloaded)
-                        page_num = meta.get("page_num", 1)
-                        pos_on_page = meta.get("index_on_page", downloaded)
-                        self.status.emit(
-                            f"Saved [{global_id}] (Page {page_num} #{pos_on_page}): {os.path.basename(path)}"
-                        )
-                    self.image_downloaded.emit(meta_or_path)
-                    return
+                # Fallback if the crawler doesn't return a count
+                if final_count is None:
+                    final_count = self._downloaded
 
-                path = meta_or_path if isinstance(meta_or_path, str) else str(meta_or_path)
-                self.status.emit(f"Saved: {os.path.basename(path)}")
-                self.image_downloaded.emit(path)
+                self.sig_finished.emit(
+                    final_count, f"Crawl finished. Downloaded **{final_count}** image(s)!"
+                )
 
-            # Connect signals
-            crawler.on_status.connect(self.status.emit)
-            crawler.on_image_saved.connect(on_saved)
-
-            self.status.emit(f"Starting {crawler_type.title()} Crawl...")
-
-            # Run the crawler
-            final_count = crawler.run()
-
-            # Fallback if the crawler doesn't return a count
-            if final_count is None:
-                final_count = downloaded
-
-            self.sig_finished.emit(
-                final_count, f"Crawl finished. Downloaded **{final_count}** image(s)!"
-            )
+            finally:
+                self._status_bridge.detach()
+                self._saved_bridge.detach()
 
         except Exception as e:
             self.error.emit(f"Critical Worker Error: {e}")
