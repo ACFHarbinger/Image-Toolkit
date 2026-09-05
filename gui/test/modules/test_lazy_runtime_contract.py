@@ -24,7 +24,7 @@ from gui.src.modules import (
     build_application_catalog,
 )
 from gui.src.modules.events import EventHub, ModuleActivated
-from PySide6.QtWidgets import QLabel
+from PySide6.QtWidgets import QApplication, QLabel
 
 
 class CountingHandle(WidgetHandle):
@@ -330,9 +330,12 @@ def test_runtime_dispose_disposes_only_created_modules(module_context):
     assert runtime.active_module_id is None
 
 
-def test_application_catalog_contains_all_33_routes_without_eager_mounting():
+def test_application_catalog_contains_all_33_routes_without_eager_mounting(q_app):
     """Verify build_application_catalog registers all 33 routes with zero widget instantiation."""
+    before = set(map(id, QApplication.allWidgets()))
     catalog = build_application_catalog(dropdown=True, enable_manager=False, enable_stitch=True)
+    created = [w for w in QApplication.allWidgets() if id(w) not in before]
+    assert created == [], f"catalog construction eagerly mounted widgets: {created!r}"
     descriptors = catalog.all_descriptors()
 
     # 25 pages + 1 workspace + 8 routes = 34 total descriptors
