@@ -8,7 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- Global Log Panel & Activity History (§2.17): created `LogHub` and `UnifiedLogHandler` (`gui/src/windows/logging/log_hub.py`) capturing application and Python `logging` events into structured `LogEntry` records with ring-buffer memory and error/warning telemetry counters. Added `GlobalLogPanel` (`gui/src/windows/logging/log_panel.py`) supporting real-time level filtering (`DEBUG+`, `INFO+`, `WARNING+`, `ERROR+`, `SUCCESS`), subsystem source filtering, search filtering, badge status indicators, and export. Tests: `gui/test/windows/test_log_panel.py` (4/4 passed).
 - Tag Chip UI & Compound Tag Search (§2.22, #127): implemented `CompoundTagQueryParser` (`gui/src/utils/tag_search_parser.py`) supporting boolean operators (`AND`/`&&`, `OR`/`||`), prefix negation (`NOT`/`!`/`-tag`), grouping `( ... )`, quoted terms, and implicit conjunctions. Added `matches_query()` on `TagChipGroup` and `TagChipEditor` (`gui/src/components/tag_chip_widget.py`). Tests: `gui/test/core/test_tag_search_parser.py` (10/10 passed), `gui/test/components/test_tag_chip_widget.py` (3/3 passed).
+
 - Thumbnail Metadata Overlay & Hover Highlights (§2.14, §2.24): added rich multiline metadata tooltip formatting on `VirtualGalleryModel` (`gui/src/components/virtual_gallery/virtual_gallery_model.py`) and mouse hover card glow painting on `VirtualGalleryDelegate` (`gui/src/components/virtual_gallery/delegate.py`). Tests: `gui/test/gallery/test_metadata_overlay_tooltip.py` (2/2 passed).
 
 - Per-Category Visual Customization (§2.41, #518): added `category_accent_overrides` sparse delta mapping to `ThemePack` (`gui/src/theming/schema.py`) and `resolve_category_accent()` helper (`gui/src/theming/resolve.py`). Wired dynamic category accent tinting in `NavigationRailWidget` and `TopSegmentedRibbonWidget`. Tests: `gui/test/theming/test_category_accents.py` (3/3 passed).
