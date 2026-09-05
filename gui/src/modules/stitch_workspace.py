@@ -5,10 +5,9 @@ Feature-flagged Image Stitching workspace registration (§2.36, #533, #535).
 
 from __future__ import annotations
 
-import os
 from typing import TYPE_CHECKING, Any
 
-from gui.src.preferences import PreferenceStore
+from gui.src.preferences import PreferenceStore, PrefKeys
 
 from .catalog import ModuleCatalog, RouteDescriptor, WorkspaceDescriptor
 from .descriptor import ModuleCategory
@@ -17,7 +16,6 @@ from .runtime import ModuleHandle
 if TYPE_CHECKING:
     from .context import ModuleContext
 
-STITCH_WORKSPACE_FLAG = "IMAGE_TOOLKIT_STITCH_WORKSPACE"
 STITCH_WORKSPACE_ID = "stitch"
 STITCH_ROUTES = (
     ("stitch.stitch", "stitch", "Stitch"),
@@ -33,12 +31,9 @@ _ROUTE_INDEX = {route_key: index for index, (_module_id, route_key, _title) in e
 
 
 def stitch_workspace_enabled(preference_store: PreferenceStore | None = None) -> bool:
-    """Return whether the unmounted workspace experiment is enabled."""
+    """Return whether this account enables the experimental workspace."""
     store = preference_store or PreferenceStore.instance()
-    val = store.get("experimental.stitch_workspace", None)
-    if val is not None:
-        return bool(val)
-    return os.environ.get(STITCH_WORKSPACE_FLAG, "0") == "1"
+    return bool(store.get(PrefKeys.EXPERIMENTAL_STITCH_WORKSPACE))
 
 
 class StitchWorkspaceHandle(ModuleHandle):
@@ -68,10 +63,15 @@ def create_stitch_workspace(_context: ModuleContext) -> StitchWorkspaceHandle:
     return StitchWorkspaceHandle(StitchTab())
 
 
-def register_stitch_workspace(catalog: ModuleCatalog, *, enabled: bool | None = None) -> bool:
+def register_stitch_workspace(
+    catalog: ModuleCatalog,
+    *,
+    enabled: bool | None = None,
+    preference_store: PreferenceStore | None = None,
+) -> bool:
     """Register the one host and eight routes when the experiment is enabled."""
     if enabled is None:
-        enabled = stitch_workspace_enabled()
+        enabled = stitch_workspace_enabled(preference_store)
     if not enabled:
         return False
 
@@ -105,7 +105,6 @@ def register_stitch_workspace(catalog: ModuleCatalog, *, enabled: bool | None = 
 
 __all__ = [
     "STITCH_ROUTES",
-    "STITCH_WORKSPACE_FLAG",
     "STITCH_WORKSPACE_ID",
     "StitchWorkspaceHandle",
     "create_stitch_workspace",

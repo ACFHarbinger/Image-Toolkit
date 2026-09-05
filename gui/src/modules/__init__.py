@@ -54,7 +54,6 @@ from .registry import ModuleRegistry
 from .runtime import ModuleHandle, ModuleRuntime, WidgetHandle
 from .stitch_workspace import (
     STITCH_ROUTES,
-    STITCH_WORKSPACE_FLAG,
     STITCH_WORKSPACE_ID,
     StitchWorkspaceHandle,
     create_stitch_workspace,
@@ -97,7 +96,6 @@ __all__ = [
     "RouteDescriptor",
     "SelectionChangedFact",
     "STITCH_ROUTES",
-    "STITCH_WORKSPACE_FLAG",
     "STITCH_WORKSPACE_ID",
     "StitchWorkspaceHandle",
     "SubgroupCatalogChanged",

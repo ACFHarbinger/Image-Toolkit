@@ -24,6 +24,8 @@ from gui.src.modules import (
     build_application_catalog,
 )
 from gui.src.modules.events import EventHub, ModuleActivated
+from gui.src.modules.stitch_workspace import stitch_workspace_enabled
+from gui.src.preferences import MemoryPreferenceAdapter, PreferenceScope, PreferenceStore, PrefKeys
 from PySide6.QtWidgets import QApplication, QLabel
 
 
@@ -358,3 +360,15 @@ def test_application_catalog_contains_all_33_routes_without_eager_mounting(q_app
     assert catalog.require("stitch.canvas").title == "Canvas"
     assert catalog.require("manga.colorization").title == "Colorization"
     assert catalog.require("editor.hybrid").title == "Hybrid Editor"
+
+
+def test_stitch_routes_are_account_gated_but_inventory_can_opt_in(q_app):
+    store = PreferenceStore(lazy_adapters=True)
+    store.register_adapter(PreferenceScope.ACCOUNT, MemoryPreferenceAdapter())
+
+    assert stitch_workspace_enabled(store) is False
+    assert build_application_catalog(preference_store=store).get("stitch.canvas") is None
+
+    store.set(PrefKeys.EXPERIMENTAL_STITCH_WORKSPACE, True)
+    assert stitch_workspace_enabled(store) is True
+    assert build_application_catalog(preference_store=store).get("stitch.canvas") is not None

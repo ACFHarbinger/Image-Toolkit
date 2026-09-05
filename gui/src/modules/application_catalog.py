@@ -8,6 +8,8 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
+from gui.src.preferences import PreferenceStore
+
 from .catalog import ModuleCatalog, PageDescriptor
 from .descriptor import ModuleCategory
 from .library_service import LIBRARY_DATABASE_SERVICE
@@ -107,9 +109,14 @@ def build_application_catalog(
     *,
     dropdown: bool = True,
     enable_manager: bool = False,
-    enable_stitch: bool = True,
+    enable_stitch: bool | None = None,
+    preference_store: PreferenceStore | None = None,
 ) -> ModuleCatalog:
-    """Build all production descriptors without constructing their widgets."""
+    """Build production descriptors without constructing widgets.
+
+    ``enable_stitch`` is an explicit test/rollout override; production uses
+    the account-owned preference when it is omitted.
+    """
     catalog = ModuleCatalog()
 
     pages = (
@@ -150,7 +157,11 @@ def build_application_catalog(
             )
         )
 
-    register_stitch_workspace(catalog, enabled=enable_stitch)
+    register_stitch_workspace(
+        catalog,
+        enabled=enable_stitch,
+        preference_store=preference_store,
+    )
     return catalog
 
 
