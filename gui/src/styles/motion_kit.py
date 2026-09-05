@@ -2,23 +2,17 @@
 
 from __future__ import annotations
 
-from typing import Callable, List, Optional
+from typing import Callable, Optional
+
 from PySide6.QtCore import (
     QEasingCurve,
-    QObject,
-    QParallelAnimationGroup,
     QPropertyAnimation,
-    QSequentialAnimationGroup,
-    Qt,
 )
 from PySide6.QtWidgets import (
     QGraphicsOpacityEffect,
-    QSplitter,
     QStackedWidget,
     QWidget,
 )
-
-from gui.src.windows.settings.app_settings import AppSettings
 
 
 class MotionKit:
@@ -38,6 +32,10 @@ class MotionKit:
     @classmethod
     def is_reduce_motion_enabled(cls) -> bool:
         """Check if user or system requested reduced motion."""
+        # Keep styles importable before the windows package: MainWindow itself
+        # imports styles while its settings hierarchy is still initializing.
+        from gui.src.windows.settings.app_settings import AppSettings
+
         val = AppSettings.get("preferences/reduce_motion")
         if val is not None:
             if isinstance(val, str):
