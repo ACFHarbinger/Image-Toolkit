@@ -5,8 +5,8 @@
 - `gui/src/modules/`: `ModuleDescriptor` protocol and `ModuleRegistry` for declarative tool registration, categories, search, and lazy mounting.
 - `gui/src/components/navigation/`: `NavigationRailWidget` (vertical icon rail + collapsible drawer), `TopSegmentedRibbonWidget` (horizontal segmented pill bar), and `ShellLayoutManager` (runtime Rail vs. Top Bar mode switching).
 - `gui/src/components/widgets/`: Animated `ToggleSwitch`, `SegmentedControl`, and `TelemetryStatusBar` with live DB/VRAM/task chips.
-- `gui/src/components/inspector/`: `ContextInspectorPanel` for image preview, EXIF tables, resolution badges, and Danbooru tag chips.
-- 15 unit tests added across `gui/test/theming/test_presets.py`, `gui/test/modules/test_registry.py`, `gui/test/navigation/test_shell_manager.py`, `gui/test/widgets/test_creative_suite_widgets.py`, and `gui/test/inspector/test_context_inspector.py` (all passed).
+- `gui/src/components/labels/bilingual_header.py`: `BilingualHeader` widget for English titles paired with Japanese micro-typography subtext and accent bars.
+- 18 unit tests added across `gui/test/theming/test_presets.py`, `gui/test/modules/test_registry.py`, `gui/test/navigation/test_shell_manager.py`, `gui/test/widgets/test_creative_suite_widgets.py`, `gui/test/inspector/test_context_inspector.py`, and `gui/test/labels/test_bilingual_header.py` (all passed).
 
 ---
 

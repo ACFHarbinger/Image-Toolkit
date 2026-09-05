@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- Bilingual Micro-Typography Header (`BilingualHeader` in `gui/src/components/labels/bilingual_header.py`, §2.37, #505): reusable header component pairing English titles with Japanese micro-typography subtext and accent indicator bars. Tests: `gui/test/labels/test_bilingual_header.py` (3/3 passed).
 - Anime Creative Suite presets & Theme Studio integration (§2.37): added `gui/src/theming/presets.py` containing curated presets (*Neo-Tokyo*, *Sakura Blossom*, *Evangelion 01*, *Catppuccin Mocha*, *Manga Ink*, *Solarized Anime*, *Catppuccin Latte*, *Paper Modern*) and standard Danbooru tag taxonomy colors. Wired preset switcher with transactional preview into `ThemeStudioPanel` (`gui/src/theming/theme_studio.py`). Tests: `gui/test/theming/test_presets.py` (3/3 passed).
 - Declarative Module Architecture & Registry (§2.36): added `ModuleDescriptor` protocol and `ModuleRegistry` (`gui/src/modules/`) for decoupled tool registration, category organization, search, and lazy widget mounting. Tests: `gui/test/modules/test_registry.py` (3/3 passed).
 - Dual Navigation Shell (`NavigationRailWidget`, `TopSegmentedRibbonWidget`, `ShellLayoutManager` in `gui/src/components/navigation/`, §2.36): supports runtime toggling between a vertical left Navigation Rail and horizontal segmented ribbon controls with stacked viewport management. Tests: `gui/test/navigation/test_shell_manager.py` (4/4 passed).
