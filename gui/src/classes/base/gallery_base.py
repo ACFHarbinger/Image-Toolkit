@@ -36,6 +36,7 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QPushButton,
     QSlider,
+    QToolButton,
     QWidget,
 )
 
@@ -241,6 +242,89 @@ class AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery):
         from gui.src.components.widgets.recent_directories_picker import RecentDirectoriesPicker
         cb = on_selected if on_selected is not None else getattr(self, "_navigate_to_dir", None)
         return RecentDirectoriesPicker(self.__class__.__name__, self, on_directory_selected=cb)
+
+    # =========================================================================
+    # Directory Navigation History (GUI/UX §2.21)
+    # =========================================================================
+
+    def _navigate_to_dir(self, path: str) -> None:
+        """Load *path* as the active directory. Subclasses may override."""
+
+    def _push_dir_history(self, path: str) -> None:
+        """Record directory in history before navigating to a new path."""
+        if not path:
+            return
+        current = getattr(self, "last_browsed_dir", "") or getattr(self, "last_browsed_scan_dir", "") or path
+        if current and (not self._dir_back_stack or self._dir_back_stack[-1] != current):
+            self._dir_back_stack.append(current)
+        self._dir_forward_stack.clear()
+        self._update_nav_history_buttons()
+
+    def _dir_go_back(self) -> Optional[str]:
+        """Pop and return the previous directory, or None if history is empty."""
+        if not self._dir_back_stack:
+            return None
+        current = getattr(self, "last_browsed_dir", "") or getattr(self, "last_browsed_scan_dir", "")
+        prev = self._dir_back_stack.pop()
+        if current:
+            self._dir_forward_stack.append(current)
+        self._update_nav_history_buttons()
+        return prev
+
+    def _dir_go_forward(self) -> Optional[str]:
+        """Pop and return the next directory from the forward stack, or None."""
+        if not self._dir_forward_stack:
+            return None
+        current = getattr(self, "last_browsed_dir", "") or getattr(self, "last_browsed_scan_dir", "")
+        nxt = self._dir_forward_stack.pop()
+        if current:
+            self._dir_back_stack.append(current)
+        self._update_nav_history_buttons()
+        return nxt
+
+    def _update_nav_history_buttons(self) -> None:
+        """Update enabled state on all registered back/forward buttons."""
+        can_back = len(self._dir_back_stack) > 0
+        can_forward = len(self._dir_forward_stack) > 0
+        for btn_back, btn_forward in getattr(self, "_nav_history_buttons", []):
+            btn_back.setEnabled(can_back)
+            btn_forward.setEnabled(can_forward)
+
+    def create_nav_history_buttons(
+        self, on_navigate: Optional[Callable[[str], None]] = None
+    ) -> tuple[QToolButton, QToolButton]:
+        """Create and return (btn_back, btn_forward) toolbar buttons for directory history."""
+        cb = on_navigate if on_navigate is not None else getattr(self, "_navigate_to_dir", None)
+
+        btn_back = QToolButton(self)
+        btn_back.setText("◀")
+        btn_back.setToolTip("Navigate to previous directory (Alt+Left)")
+        btn_back.setEnabled(len(self._dir_back_stack) > 0)
+        btn_back.setObjectName("btn_nav_back")
+
+        btn_forward = QToolButton(self)
+        btn_forward.setText("▶")
+        btn_forward.setToolTip("Navigate to next directory (Alt+Right)")
+        btn_forward.setEnabled(len(self._dir_forward_stack) > 0)
+        btn_forward.setObjectName("btn_nav_forward")
+
+        def _on_back():
+            prev = self._dir_go_back()
+            if prev and cb:
+                cb(prev)
+
+        def _on_forward():
+            nxt = self._dir_go_forward()
+            if nxt and cb:
+                cb(nxt)
+
+        btn_back.clicked.connect(_on_back)
+        btn_forward.clicked.connect(_on_forward)
+
+        if not hasattr(self, "_nav_history_buttons"):
+            self._nav_history_buttons = []
+        self._nav_history_buttons.append((btn_back, btn_forward))
+        return btn_back, btn_forward
 
     def _save_last_dir(self, path: str, main_win = None) -> None:
         if path and "Downloads/data" in path:

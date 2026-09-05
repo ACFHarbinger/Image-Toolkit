@@ -22,12 +22,14 @@ class _DirHistoryMixin:
         if current and (not self._dir_back_stack or self._dir_back_stack[-1] != current):
             self._dir_back_stack.append(current)
         self._dir_forward_stack.clear()
+        self._update_nav_history_buttons()
 
     def _dir_go_back(self: "AbstractClassSingleGalleryHostProtocol") -> Optional[str]:
         if not self._dir_back_stack:
             return None
         prev = self._dir_back_stack.pop()
         self._dir_forward_stack.append(self.last_browsed_scan_dir)
+        self._update_nav_history_buttons()
         return prev
 
     def _dir_go_forward(self: "AbstractClassSingleGalleryHostProtocol") -> Optional[str]:
@@ -35,6 +37,7 @@ class _DirHistoryMixin:
             return None
         nxt = self._dir_forward_stack.pop()
         self._dir_back_stack.append(self.last_browsed_scan_dir)
+        self._update_nav_history_buttons()
         return nxt
 
 

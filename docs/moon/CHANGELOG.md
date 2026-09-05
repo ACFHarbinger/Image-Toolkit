@@ -1,3 +1,13 @@
+# S494 — 2026-09-05 (Antigravity: §2.21 Directory Navigation History Back/Forward UI)
+
+- `gui/src/classes/base/gallery_base.py`: Added `create_nav_history_buttons()` returning interactive `◀` Back and `▶` Forward `QToolButton`s with automatic enabled state tracking, `_update_nav_history_buttons()`, `_push_dir_history()`, `_dir_go_back()`, and `_dir_go_forward()`.
+- `gui/src/classes/image/`: Updated `AbstractClassSingleGallery` and `AbstractClassTwoGalleries` navigation mixins to invoke `_update_nav_history_buttons()`.
+- `gui/src/tabs/core/`: Integrated `create_nav_history_buttons()` into `FormatSubTab`, `CodecSubTab`, `SamplerSubTab`, `MergeTab`, `SimilarityTab`, `VideoExtractorSubTab`, and `ScanMetadataTab`.
+- `gui/test/navigation/test_dir_navigation_history.py`: Added 2 unit tests verifying history stacks and button enabled states.
+- `docs/moon/roadmaps/gui_ux.md`: Marked §2.21 as shipped with Options A and D details.
+
+---
+
 # S493 — 2026-09-05 (Antigravity: §2.26 Inline Rename & F2 In-Place Editing)
 
 - `gui/src/components/virtual_gallery/virtual_gallery_model.py`: Added `rename_path(old_path, new_path)` method with cache and overlay metadata migration across all roles.
