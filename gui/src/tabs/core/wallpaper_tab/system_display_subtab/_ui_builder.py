@@ -165,6 +165,12 @@ class _UIBuilderMixin:
         )
         slideshow_layout.addWidget(self.chk_video_runtime_interval)
 
+        # Right-anchors Timer + the action buttons as a group, same as the
+        # QHBoxLayout.addStretch(1) this row had before it became a
+        # FlowLayout (f588bc27) -- FlowLayout.addStretch() (§ tag_chip_widget)
+        # now supports this while still wrapping at narrow widths.
+        slideshow_layout.addStretch(1)
+
         self.countdown_label = QLabel("Timer: --:--")
         self.countdown_label.setStyleSheet(
             "color: #2ecc71; font-weight: bold; font-size: 14px;"
