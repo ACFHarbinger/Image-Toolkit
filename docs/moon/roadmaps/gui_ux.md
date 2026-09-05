@@ -1006,9 +1006,11 @@ Use `PyQtADS` (Python bindings for Qt Advanced Docking System) for full drag-and
 
 ---
 
-## 2.21 Directory Navigation History (Back / Forward) ✅ Partial (2026-06-10 — §A+D shipped for FormatTab) {: #221-directory-navigation-history-back--forward }
+## 2.21 Directory Navigation History (Back / Forward) ✅ (2026-09-05 — Options A & D shipped) {: #221-directory-navigation-history-back--forward }
 
-**Pain point:** Every gallery tab's "Browse" button opens a `QFileDialog` and loads the new directory, discarding the previous path. There is no back/forward navigation. Users who accidentally navigate away from a directory must re-browse manually.
+**Shipped: Options A & D.**
+- **Option A & D (Back/Forward History & MRU Dropdown)**: Base class `AbstractGalleryBase` maintains `deque(maxlen=20)` for `_dir_back_stack` and `_dir_forward_stack`. Reusable `create_nav_history_buttons()` provides tactile `◀` Back and `▶` Forward toolbar buttons with dynamic enabled-state tracking and `Alt+Left` / `Alt+Right` navigation across `FormatSubTab`, `CodecSubTab`, `SamplerSubTab`, `MergeTab`, `SimilarityTab`, `VideoExtractorSubTab`, and `ScanMetadataTab`.
+- **Tests**: `gui/test/navigation/test_dir_navigation_history.py` (2 unit tests).
 
 ### Options
 

@@ -113,6 +113,7 @@ class _NavigationMixin:
         if current and (not self._dir_back_stack or self._dir_back_stack[-1] != current):
             self._dir_back_stack.append(current)
         self._dir_forward_stack.clear()
+        self._update_nav_history_buttons()
 
     def _dir_go_back(self: "AbstractClassTwoGalleriesHostProtocol") -> Optional[str]:
         """Return the previous directory, or None if no history."""
@@ -120,6 +121,7 @@ class _NavigationMixin:
             return None
         prev = self._dir_back_stack.pop()
         self._dir_forward_stack.append(self.last_browsed_dir)
+        self._update_nav_history_buttons()
         return prev
 
     def _dir_go_forward(self: "AbstractClassTwoGalleriesHostProtocol") -> Optional[str]:
@@ -128,6 +130,7 @@ class _NavigationMixin:
             return None
         nxt = self._dir_forward_stack.pop()
         self._dir_back_stack.append(self.last_browsed_dir)
+        self._update_nav_history_buttons()
         return nxt
 
 

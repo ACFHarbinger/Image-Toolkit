@@ -69,10 +69,13 @@ class _DirectoryScanningMixin:
 
         self.btn_browse = QPushButton("Browse...")
         self.btn_browse.clicked.connect(self.browse_directory)
+        self._btn_nav_back, self._btn_nav_forward = self.create_nav_history_buttons(self._navigate_to_dir)
         self._btn_recent_dirs = self.create_recent_dirs_button(self._navigate_to_dir)
 
         dir_layout.addWidget(self.line_edit_dir)
         dir_layout.addWidget(self.btn_browse)
+        dir_layout.addWidget(self._btn_nav_back)
+        dir_layout.addWidget(self._btn_nav_forward)
         dir_layout.addWidget(self._btn_recent_dirs)
 
         self.main_layout.addWidget(dir_select_group)

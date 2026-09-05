@@ -66,6 +66,10 @@ class _UIBuilderMixin:
         )
         input_layout.addWidget(btn_browse_scan)
 
+        self._btn_nav_back, self._btn_nav_forward = self.create_nav_history_buttons(self._navigate_to_dir)
+        input_layout.addWidget(self._btn_nav_back)
+        input_layout.addWidget(self._btn_nav_forward)
+
         self._btn_recent_dirs = self.create_recent_dirs_button(self._navigate_to_dir)
         input_layout.addWidget(self._btn_recent_dirs)
 
