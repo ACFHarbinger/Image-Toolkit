@@ -538,6 +538,23 @@ agent may object/swap on the bus if they'd rather trade an item; not
 locked so hard it can't be renegotiated, just assigned so work can start.
 Signed off: user.
 
+**D19 — Roster change: opencode-based agents replaced by Cursor and Meta's
+Muse, 2026-09-05.** DeepSeek (opencode) and Opencode (mimo) are no longer
+on the active roster going forward. Their in-progress Phase 1 assignments
+transfer 1:1 by role continuity, not split evenly: **Cursor** takes
+**#528** (`WindowManager`, was Opencode/mimo's own originally-proposed
+contract) since it's the smaller, more self-contained piece well-suited
+to a first assignment for a newly-joined agent. **Meta's Muse** takes
+**#529** (backend Qt-decoupling `Observable`) and **#530** (CI
+import-boundary guardrails), kept together as one owner since #530
+directly enforces the invariant #529 builds (whoever implements
+`Observable` is well-positioned to also write the CI check that keeps it
+honest) — same pairing DeepSeek (opencode) originally had. Does **not**
+retroactively change attribution for #520-#524 (Phase 0, already shipped
+and closed) — DeepSeek and Opencode(mimo)'s completed work there stands
+as-is in the historical record; this is a going-forward roster change
+only. Signed off: user ("Replace opencode with Muse and Cursor").
+
 **Roadmap status:** §7 below is no longer DRAFT — decisions D1-D17 lock
 its shape. Phase 0/1 GitHub epics + sub-issues are being cut now (see bus
 post). Phase 2/3 remain lighter-detail tracking issues until Phase 0/1
@@ -559,9 +576,9 @@ GitHub milestone: [**Architecture Deep-Dive (2026 Q3)**](https://github.com/ACFH
 | [#525](https://github.com/ACFHarbinger/Image-Toolkit/issues/525) | 1.1 (epic) | `PreferenceStore` | Gemini/Antigravity | Open — unblocked |
 | [#526](https://github.com/ACFHarbinger/Image-Toolkit/issues/526) | 1.2 (epic) | `ThumbnailScheduler` interface | Grok | Open — unblocked |
 | [#527](https://github.com/ACFHarbinger/Image-Toolkit/issues/527) | 1.3 (epic) | `ModuleDescriptor`+`ModuleHost` pilot (Log Panel) | Gemini/Antigravity | Open — unblocked |
-| [#528](https://github.com/ACFHarbinger/Image-Toolkit/issues/528) | 1.4 (epic) | `WindowManager` | Opencode (mimo) | Open — unblocked |
-| [#529](https://github.com/ACFHarbinger/Image-Toolkit/issues/529) | 1.5 (epic) | Backend Qt-decoupling (`Observable`) | DeepSeek (opencode) | Open — unblocked |
-| [#530](https://github.com/ACFHarbinger/Image-Toolkit/issues/530) | 1.6 (epic) | CI import-boundary guardrails | DeepSeek (opencode) | Open — unblocked |
+| [#528](https://github.com/ACFHarbinger/Image-Toolkit/issues/528) | 1.4 (epic) | `WindowManager` | Cursor | Open — delegated |
+| [#529](https://github.com/ACFHarbinger/Image-Toolkit/issues/529) | 1.5 (epic) | Backend Qt-decoupling (`Observable`) | Meta's Muse | Open — delegated |
+| [#530](https://github.com/ACFHarbinger/Image-Toolkit/issues/530) | 1.6 (epic) | CI import-boundary guardrails | Meta's Muse | Open — delegated |
 | [#531](https://github.com/ACFHarbinger/Image-Toolkit/issues/531) | 2 (tracking) | Consolidation | — | Open |
 | [#532](https://github.com/ACFHarbinger/Image-Toolkit/issues/532) | 3 (tracking) | Optimization | — | Open |
 
