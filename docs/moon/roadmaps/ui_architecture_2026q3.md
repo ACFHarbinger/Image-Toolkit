@@ -93,18 +93,16 @@ the literal path `gui/src/modules/`:
    `child_routes` but no `Page`/`Workspace`/`Route` distinction — it
    cannot yet model Stitch's 8-routes-one-host case the way (2) can.
 
-**Recommendation (not yet decided — needs sign-off before code):**
-treat (2)'s catalog/context/runtime design as the source of truth for
-re-landing this document's contract (it *is* this document, already
-built), rebased onto current `ModuleHost`/`WindowManager`/
-`PreferenceStore`/`Observable` rather than cherry-picked as-is (it
-predates all of Phase 0/1 and reintroduces their fixed bugs if
-reapplied verbatim). Fold Phase 1 #527's useful, narrower additions
+**Decided (user sign-off, 2026-09-05):** re-land proceeds now, on the
+Phase 0/1 contracts. (2)'s catalog/context/runtime design is the source
+of truth for re-landing this document's contract (it *is* this
+document, already built), rebased onto current `ModuleHost`/
+`WindowManager`/`PreferenceStore`/`Observable` rather than cherry-picked
+as-is (it predates all of Phase 0/1 and reintroduces their fixed bugs
+if reapplied verbatim). Fold Phase 1 #527's useful, narrower additions
 (the Log Panel pilot itself, its `singleton`/`construction_policy`
 fields where they don't conflict) into the richer model rather than
-maintaining two `ModuleDescriptor`s. This is a real fork point, not a
-detail — get explicit confirmation before writing code that depends on
-either lineage.
+maintaining two `ModuleDescriptor`s.
 
 ## Background
 
