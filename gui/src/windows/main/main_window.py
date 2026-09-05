@@ -99,6 +99,20 @@ class MainWindow(
                 if getattr(self.vault_manager, "is_guest", False) is True:
                     account_name = f"{account_name} (Guest)"
                 initial_theme = self.cached_creds.get("theme", "dark")
+                # #525 cross-review: wire the ACCOUNT scope to the real,
+                # just-authenticated credentials + vault manager so
+                # PreferenceStore reads/writes for account-scoped keys
+                # (recursive_scan, favourite_directories, mal_fetch_method,
+                # theme, ...) resolve against this session's actual account
+                # instead of an empty adapter -- previously nothing ever
+                # called attach_vault_credentials() in production, so an
+                # ACCOUNT-scope write appeared to work in-process but was
+                # discarded on restart.
+                from gui.src.preferences import PreferenceStore
+
+                PreferenceStore.instance().attach_vault_credentials(
+                    self.cached_creds, self.vault_manager, account_name
+                )
             except Exception as e:
                 print(f"Warning: Failed to load account credentials or theme: {e}")
 
