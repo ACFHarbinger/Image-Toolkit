@@ -26,10 +26,21 @@ project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 repo_root = os.path.dirname(project_root)
 test_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, project_root)
-if repo_root not in sys.path:
-    sys.path.insert(0, repo_root)
 if test_dir not in sys.path:
     sys.path.insert(0, test_dir)
+# NOTE: repo_root must win over test_dir — backend/test/base/ is a real
+# parity-test package (not a stray fixture) that shares its top-level name
+# with the compiled `base` C++ extension living at repo_root. pytest's own
+# import machinery already puts repo_root in sys.path (backend/ has an
+# __init__.py chain up to it), just not necessarily at the front, so an
+# `if repo_root not in sys.path` guard here would silently no-op and leave
+# test_dir (inserted above) ahead of it — exactly the bug. Removing any
+# existing entry first guarantees repo_root ends up at position 0,
+# checked before test_dir, whenever backend/test/database (or any other
+# backend/test subset) is collected without backend/test/base.
+while repo_root in sys.path:
+    sys.path.remove(repo_root)
+sys.path.insert(0, repo_root)
 build_base = os.path.join(repo_root, "build", "base")
 if os.path.exists(build_base) and build_base not in sys.path:
     sys.path.insert(0, build_base)
