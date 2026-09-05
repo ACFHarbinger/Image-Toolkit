@@ -166,7 +166,11 @@ class _FoundGalleryPopulateMixin:
             self._load_all_found_page_images()
 
     def _load_all_found_page_images(self: "AbstractClassTwoGalleriesHostProtocol"):
-        """Triggers loading for all images in the current found gallery paginated view."""
+        """Triggers loading for all images in the current found gallery paginated view.
+
+        Paths are reordered so that thumbnails visible in the viewport are
+        dispatched first (visible-first dispatch, issue #522).
+        """
         if (
             not hasattr(self, "_paginated_found_paths")
             or not self._paginated_found_paths
@@ -198,6 +202,14 @@ class _FoundGalleryPopulateMixin:
             for p in paths_to_load
             if p.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
         ]
+
+        # Visible-first dispatch: sort so viewport-visible thumbnails load first
+        image_paths = self._sort_paths_by_visibility(
+            image_paths, self.found_gallery_scroll, self.path_to_label_map
+        )
+        video_paths = self._sort_paths_by_visibility(
+            video_paths, self.found_gallery_scroll, self.path_to_label_map
+        )
 
         if video_paths:
             for p in video_paths:

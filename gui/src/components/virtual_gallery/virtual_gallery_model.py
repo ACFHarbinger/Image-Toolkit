@@ -98,6 +98,23 @@ class VirtualGalleryModel(QAbstractListModel):
 
         self._placeholder_pixmap: Optional[QPixmap] = None
 
+        # Visible-range tracking for visible-first fill dispatch (issue #522).
+        # Updated by the view on scroll so _fill_all can prioritize rows the
+        # user can actually see.
+        self._visible_row_lo: int = 0
+        self._visible_row_hi: int = -1  # -1 = no range known yet
+
+    # ------------------------------------------------------------------
+    # Visible-range tracking (issue #522)
+    # ------------------------------------------------------------------
+
+    def set_visible_range(self, lo: int, hi: int) -> None:
+        """Called by the view on scroll to inform the model which rows are
+        currently visible.  Used by ``_fill_all`` to reorder the fill queue
+        so viewport-visible thumbnails load first."""
+        self._visible_row_lo = max(0, lo)
+        self._visible_row_hi = hi
+
     # ------------------------------------------------------------------
     # Public data API (mirrors the tab-facing bits of the QLabel galleries)
     # ------------------------------------------------------------------
@@ -119,8 +136,29 @@ class VirtualGalleryModel(QAbstractListModel):
         if self.fill_mode:
             self._fill_all()
 
+    def fill(self) -> None:
+        """Re-trigger background fill with visible-range reordering.
+
+        Called by the view after ``set_visible_range`` so that
+        visible-first dispatch (issue #522) can reorder the queue
+        using the actual viewport range.  Safe to call even if a
+        previous ``_fill_all`` already populated the queue — paths
+        already queued are not duplicated, but the queue is reordered
+        so visible rows come first.
+        """
+        if self.fill_mode:
+            self._reorder_fill_queue()
+
     def _fill_all(self) -> None:
-        """Queue every not-yet-cached path for a continuous background load."""
+        """Queue every not-yet-cached path for a continuous background load.
+
+        Paths are reordered so that rows visible in the viewport (as
+        reported by ``set_visible_range``) are dispatched first
+        (visible-first dispatch, issue #522).  The fill chain processes
+        its queue sequentially, so placing visible paths at the front
+        ensures the user sees thumbnails populate immediately while
+        offscreen paths load later.
+        """
         gen = self._generation
         paths = [
             p for p in self._paths
@@ -130,10 +168,64 @@ class VirtualGalleryModel(QAbstractListModel):
             paths = paths[: self.fill_limit]
         if not paths:
             return
+
+        # Visible-first reorder: split into visible-row paths and the rest.
+        # _visible_row_lo/_hi are row indices in self._paths (the full list),
+        # so we map them to the filtered `paths` subset via index lookup.
+        if self._visible_row_hi >= self._visible_row_lo:
+            visible_set = set(
+                range(self._visible_row_lo, self._visible_row_hi + 1)
+            )
+            visible_paths = [
+                p for p in paths if self._paths.index(p) in visible_set
+            ]
+            rest_paths = [
+                p for p in paths if self._paths.index(p) not in visible_set
+            ]
+            paths = visible_paths + rest_paths
+
         self._loading.update(paths)
         self._fill_queue.extend(paths)
         for _ in range(self._fill_max_in_flight):
             self._dispatch_fill(gen)
+
+    def _reorder_fill_queue(self) -> None:
+        """Reorder an already-populated ``_fill_queue`` so that paths whose
+        rows are in the visible range (``_visible_row_lo`` ..
+        ``_visible_row_hi``) come first.  Called by ``fill()`` after the
+        view reports the initial visible range, so the first batch of
+        dispatched workers covers visible thumbnails (issue #522).
+
+        Paths already dequeued and in-flight are not affected; only
+        not-yet-dispatched entries are reordered.
+        """
+        if not self._fill_queue or self._visible_row_hi < self._visible_row_lo:
+            return
+        visible_set = set(
+            range(self._visible_row_lo, self._visible_row_hi + 1)
+        )
+        visible: list = []
+        rest: list = []
+        for path in list(self._fill_queue):
+            try:
+                idx = self._paths.index(path)
+            except ValueError:
+                rest.append(path)
+                continue
+            if idx in visible_set:
+                visible.append(path)
+            else:
+                rest.append(path)
+        self._fill_queue.clear()
+        self._fill_queue.extend(visible + rest)
+        # Kick the chain if it stalled (all workers finished before the
+        # reorder arrived).
+        gen = self._generation
+        if self.thread_pool.activeThreadCount() < self._fill_max_in_flight:
+            for _ in range(
+                self._fill_max_in_flight - self.thread_pool.activeThreadCount()
+            ):
+                self._dispatch_fill(gen)
 
     def _dispatch_fill(self, gen: int) -> None:
         """Dispatch the next queued fill path (chained on completion)."""
