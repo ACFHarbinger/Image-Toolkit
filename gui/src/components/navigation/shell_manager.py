@@ -35,6 +35,7 @@ class ShellLayoutManager(QObject):
 
     module_changed = Signal(str)
     nav_mode_changed = Signal(str)
+    navigation_rejected = Signal(str, str)  # (module_id, reason)
 
     def __init__(
         self,
@@ -159,17 +160,18 @@ class ShellLayoutManager(QObject):
 
     def _on_navigate_intent(self, intent: NavigateIntent) -> None:
         if intent.state:
-            # Codex #538 combined review (MEDIUM): activate_module(module_id)
-            # has no channel to carry NavigateIntent.state through, so it was
-            # being silently dropped -- no consumer of restoration/deep-link
-            # state exists on this path yet. Surface the loss loudly instead
-            # of hiding it until a real state-carrying activation API lands.
-            log.warning(
-                "NavigateIntent.state dropped: %s carries %d state pair(s) "
-                "the runtime shell does not yet forward to the activated module",
-                intent.module_id,
-                len(intent.state),
-            )
+            # Codex #538 combined re-review (MEDIUM): a warning log is
+            # visibility, not preservation or a deliberate rejection --
+            # activate_module(module_id) has no channel to carry
+            # NavigateIntent.state through, and no consumer of restoration/
+            # deep-link state exists on this path yet. Rather than silently
+            # navigate to a partially specified target, reject the intent
+            # outright via a defined, observable failure signal. Real state
+            # threading is future work once a consumer actually needs it.
+            reason = f"state not supported ({len(intent.state)} pair(s) dropped)"
+            log.warning("NavigateIntent to %s rejected: %s", intent.module_id, reason)
+            self.navigation_rejected.emit(intent.module_id, reason)
+            return
         self.activate_module(self.resolve_navigate_target(intent))
 
     def clear_mounted(self) -> None:
