@@ -97,9 +97,9 @@ flowchart LR
         S25["§2.5 Session Persistence ✅"]:::augment:::done
         S27["§2.7 Progress & Cancel ✅p"]:::augment:::active
         S215["§2.15 Undo/Redo ✅"]:::feature:::done
-        S216["§2.16 Command Palette ✅p"]:::feature:::active
-        S221["§2.21 Dir Nav History ✅p"]:::augment:::active
-        S222["§2.22 Tag Chip UI ✅p"]:::feature:::active
+        S216["§2.16 Command Palette ✅"]:::feature:::done
+        S221["§2.21 Dir Nav History ✅"]:::augment:::done
+        S222["§2.22 Tag Chip UI ✅"]:::feature:::done
         S227["§2.27 Multi-Image Compare ✅"]:::feature:::done
         S228["§2.28 Global Search ✅"]:::feature:::done
         S222 --> S228
@@ -1054,7 +1054,7 @@ Add a dropdown (▼ button beside the path input) showing the 10 most recent pat
 
 ---
 
-## 2.22 Tag Chip UI and Compound Tag Search ✅ Partial (2026-07-30 — §A TagChipWidget + §D TagCompleter shipped, issue #127 — In review) {: #222-tag-chip-ui-and-compound-tag-search }
+## 2.22 Tag Chip UI and Compound Tag Search ✅ Shipped (2026-09-05 — §A TagChipWidget + §C CompoundTagQueryParser + §D TagCompleter shipped, issue #127 — Complete) {: #222-tag-chip-ui-and-compound-tag-search }
 
 **Pain point:** The search and scan metadata tabs use `QListWidget` for tag display (implemented to avoid per-QCheckBox memory cost). While this is correct for large tag sets, the visual style is a plain list item — not a modern chip/badge that makes tag relationships scannable at a glance.
 

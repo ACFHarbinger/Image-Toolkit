@@ -155,6 +155,12 @@ class TagChipGroup(QWidget):
         """Return list of currently active/selected tag strings."""
         return [c.tag_text for c in self._chips if c.is_active()]
 
+    def matches_query(self, query: str) -> bool:
+        """Check if selected tags satisfy a compound tag query expression."""
+        from ..utils.tag_search_parser import evaluate_tag_query
+
+        return evaluate_tag_query(query, self.get_selected_tags())
+
     def remove_tag(self, tag_text: str) -> None:
         """Remove a specific tag chip from the group."""
         to_remove = [c for c in self._chips if c.tag_text == tag_text]
@@ -169,6 +175,7 @@ class TagChipGroup(QWidget):
 
     def _on_chip_toggled(self, tag_text: str, active: bool) -> None:
         self.selection_changed.emit(self.get_selected_tags())
+
 
 
 class FlowLayout(QLayout):
@@ -297,9 +304,20 @@ class TagChipEditor(QWidget):
     def text(self) -> str:
         return ", ".join(self._tags)
 
+    def tags(self) -> List[str]:
+        """Return raw list of tags currently present in the editor."""
+        return list(self._tags)
+
+    def matches_query(self, query: str) -> bool:
+        """Check if current tags satisfy a compound tag query expression."""
+        from ..utils.tag_search_parser import evaluate_tag_query
+
+        return evaluate_tag_query(query, self._tags)
+
     def clear(self) -> None:
         self._set_tags([])
         self.add_edit.clear()
+
 
     # ---- Autocomplete wiring --------------------------------------------
 
