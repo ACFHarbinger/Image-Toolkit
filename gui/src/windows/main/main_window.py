@@ -27,6 +27,7 @@ from ..settings import SettingsWindow
 from ._global_search import _GlobalSearchMixin
 from ._header_builder import _HeaderBuilderMixin
 from ._lifecycle import _LifecycleMixin
+from ._command_palette import _CommandPaletteMixin
 from ._load_tab_config import _LoadTabConfigMixin
 from ._notify import show_main_status, show_tray_notification
 from ._runtime_shell import _RuntimeShellMixin
@@ -53,6 +54,7 @@ class MainWindow(
     _ThemeMixin,
     _TrayMixin,
     _TabSearchMixin,
+    _CommandPaletteMixin,
     _GlobalSearchMixin,
     _WorkflowTemplatesMixin,
     _ShortcutOverlayMixin,

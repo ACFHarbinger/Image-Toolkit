@@ -147,6 +147,9 @@ class _LifecycleMixin:
             if self.vault_manager is not None:
                 self.vault_manager.shutdown()
             QApplication.quit()
+        elif get_registry().matches(event, "general.command_palette") or (event.key() == Qt.Key.Key_K and event.modifiers() == Qt.KeyboardModifier.ControlModifier):
+            self._open_command_palette()
+            event.accept()
         elif event.key() == Qt.Key.Key_T and event.modifiers() == Qt.KeyboardModifier.ControlModifier:
             self._open_tab_search()
             event.accept()

@@ -66,6 +66,12 @@ SHORTCUT_REGISTRY: list[dict] = [
         "default": "Ctrl+Shift+M",
     },
     {
+        "id": "general.command_palette",
+        "description": "Open the Command Palette / Quick Launcher",
+        "scope": "General",
+        "default": "Ctrl+K",
+    },
+    {
         "id": "general.undo",
         "description": "Undo the last file deletion or edit",
         "scope": "General",
