@@ -85,7 +85,7 @@ flowchart LR
         S23["§2.3 Keyboard Navigation ✅p"]:::augment:::active
         S24["§2.4 Bulk Selection ✅p"]:::feature:::active
         S213["§2.13 Filter & Sort Controls ✅p"]:::feature:::active
-        S214["§2.14 Metadata Overlay ✅p"]:::augment:::active
+        S214["§2.14 Metadata Overlay ✅"]:::augment:::active
         S21 ==> S22
         S21 --> S213
         S21 --> S214
@@ -782,9 +782,11 @@ Extend `_common_filter_string_list` to support: `-query` (exclude), `"exact phra
 
 ---
 
-## 2.14 Thumbnail Metadata Overlay ✅ Partial (2026-06-10 — §A shipped) {: #214-thumbnail-metadata-overlay }
+## 2.14 Thumbnail Metadata Overlay ✅ (2026-06-10 — §A shipped, 2026-09-05 — Options B & C rich metadata tooltips & badges shipped) {: #214-thumbnail-metadata-overlay }
 
-**Pain point:** Hovering a thumbnail shows no information. To know the filename, dimensions, or file size of an image, the user must double-click to open the full preview or navigate to an external tool. The `DraggableLabel` / `ClickableLabel` components in `gui/src/components/` have no hover overlay.
+**Shipped: Options A, B, & C.**
+- **Options A, B, & C (Overlays & Rich Tooltips)**: `VirtualGalleryDelegate` paints configurable overlay badges (rating, resolution, format, star rating, tag counts) and mouse hover glow highlights (§2.24). `VirtualGalleryModel` formats multiline rich metadata tooltips on `Qt.ItemDataRole.ToolTipRole` containing filename, dimensions, format, star rating, content rating, and tag counts.
+- **Tests**: `gui/test/gallery/test_metadata_overlay_tooltip.py` (2 unit tests).
 
 ### Options
 

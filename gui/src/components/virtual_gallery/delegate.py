@@ -76,6 +76,15 @@ class VirtualGalleryDelegate(QStyledItemDelegate):
             painter.drawRect(option.rect.adjusted(d, d, -d, -d))
             painter.restore()
 
+        # Hover Highlight (§2.24)
+        from PySide6.QtWidgets import QStyle
+        if option.state & QStyle.StateFlag.State_MouseOver:
+            painter.save()
+            painter.setPen(QPen(QColor(255, 255, 255, 70), 1))
+            painter.setBrush(QBrush(QColor(255, 255, 255, 25)))
+            painter.drawRoundedRect(option.rect.adjusted(1, 1, -1, -1), 4, 4)
+            painter.restore()
+
         # 2. Thumbnail Overlays (§2.40)
         self._paint_overlays(painter, option.rect, model, index)
 
