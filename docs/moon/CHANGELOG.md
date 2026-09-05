@@ -1,4 +1,21 @@
+# S508 — 2026-09-05 (Antigravity: §2.11 Image Preview Window Enhancements & §2.12 System Tray Integration)
+
+- `gui/src/windows/image_preview_window.py`:
+  - Added collapsible inline metadata/EXIF sidebar (`_info_panel`) toggled via `I` key or context menu, displaying file properties (name, directory, size, dimensions, aspect ratio, format, color mode, modified date) and camera EXIF metadata tags (`Pillow.ExifTags`).
+  - Added `copy_path_to_clipboard()` (`Ctrl+Shift+C`) and `preview.copy_path` in shortcut registry and context menu.
+  - Added fullscreen idle mouse auto-hide timer (`_idle_cursor_timer`, `_hide_cursor_if_fullscreen()`, `mouseMoveEvent`) hiding the cursor after 3 seconds of inactivity.
+- `gui/src/windows/main/_tray.py`:
+  - Added `set_tray_badge(count: int)` drawing anti-aliased numeric task badge circles on `_base_tray_icon` when operations are active.
+  - Added `update_tray_status(text: str)` dynamically updating tray tooltip status.
+- `gui/src/utils/manager/shortcut_manager.py`: Registered `preview.toggle_info` (`I`) and `preview.copy_path` (`Ctrl+Shift+C`).
+- `gui/test/windows/test_image_preview_window.py`: Added comprehensive unit tests for metadata extraction, fit modes, rotation, fullscreen, clipboard copy, and navigation (1/1 passed).
+- `gui/test/windows/test_minimize_to_tray_settings_save.py`: Added unit test `test_set_tray_badge_and_status` verifying badge icon rendering and tooltip status updates (13/13 passed).
+- `docs/moon/roadmaps/gui_ux.md`: Marked §2.11 and §2.12 as fully shipped.
+
+---
+
 # S507 — 2026-09-05 (Antigravity: §2.13 Gallery Filtering and Sort Controls)
+
 
 - `gui/src/components/virtual_gallery/virtual_gallery_model.py`: Added master paths management, `sort_by(key, reverse)` (name natural sort, date modified, file size, extension, rating, resolution), and `filter_by(extensions, query, min_rating)` supporting search operators (`-negation`, quoted phrases, `|` OR).
 - `gui/src/components/virtual_gallery/widget.py`: Forwarded `sort_by()`, `filter_by()`, and `master_paths()` on `VirtualGallery`.

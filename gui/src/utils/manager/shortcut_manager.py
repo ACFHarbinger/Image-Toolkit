@@ -292,7 +292,20 @@ SHORTCUT_REGISTRY: list[dict] = [
         "scope": "Preview",
         "default": "L",
     },
+    {
+        "id": "preview.copy_path",
+        "description": "Copy current image file path to clipboard",
+        "scope": "Preview",
+        "default": "Ctrl+Shift+C",
+    },
+    {
+        "id": "preview.toggle_info",
+        "description": "Toggle inline file metadata and EXIF inspector sidebar",
+        "scope": "Preview",
+        "default": "I",
+    },
 ]
+
 
 
 class ShortcutRegistry:
