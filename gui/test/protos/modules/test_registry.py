@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-import pytest
-from PySide6.QtWidgets import QLabel, QWidget
-
-from gui.src.modules.descriptor import ModuleCategory, ModuleDescriptor
-from gui.src.modules.registry import ModuleRegistry
+from gui.src.protos.modules.descriptor import ModuleCategory, ModuleDescriptor
+from gui.src.protos.modules.registry import ModuleRegistry
+from PySide6.QtWidgets import QLabel
 
 
 class TestModuleRegistry:
