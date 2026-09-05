@@ -592,6 +592,79 @@ build; after updating, it continues changing wallpapers after **Quit**.
 
 ---
 
+### "Close to background tray icon" resets to off after a full restart (recurring)
+
+**Symptom:** Enable **Settings → Startup and Profiles → Close to background
+tray icon**, save, and the checkbox itself keeps showing as checked on every
+subsequent visit to Settings — but a full app restart silently drops the
+actual behavior (the app quits normally on close instead of minimizing to
+tray), as if the setting had never been saved. This has recurred more than
+once; each prior fix addressed only one of the two places this preference is
+read.
+
+**Cause:** This preference is stored in two places: the encrypted account
+vault's `preferences.minimize_to_tray` (`gui/src/windows/settings/
+_relaunch_settings.py`'s save handler), and a separate, simpler
+`AppSettings`/`QSettings`-backed key (`AppSettings.minimize_to_tray()` /
+`set_minimize_to_tray()`, `gui/src/windows/settings/app_settings.py`).
+`settings_window.py`'s checkbox-init already falls back to the `AppSettings`
+copy when the vault copy is absent or stale (`prefs.get("minimize_to_tray")
+or prefs.get("close_to_tray") or AppSettings.minimize_to_tray()`), which is
+why the checkbox always *looks* correctly saved. `gui/src/windows/main/
+_startup_prefs.py`'s `_apply_startup_preferences()` — the code that actually
+governs close-to-tray behavior on every boot — had no such fallback, so
+whenever the vault-stored copy of the preference lagged the `AppSettings`
+one, it silently disagreed with what the checkbox displayed and reset the
+real behavior to off.
+
+**Fix:** Added the same `AppSettings.minimize_to_tray()` fallback to
+`_apply_startup_preferences()`'s read of this preference, so the behavior
+that actually runs on every boot can no longer disagree with what the
+Settings checkbox shows. Regression tests in `gui/test/windows/
+test_minimize_to_tray_startup_fallback.py` cover both directions: an
+`AppSettings`-only value still applies, and a real vault value still wins
+when `AppSettings` disagrees. **If this recurs a third time,** look for a
+*third* place this preference gets read (a new code path added later that
+reads `cached_creds` directly without going through either fallback) rather
+than re-patching either of these two call sites again.
+
+---
+
+### Wallpaper tab's "Browse..." button (Scan Directory row) renders invisible but is still clickable
+
+**Symptom:** The **Browse...** button next to **Scan Directory (Image
+Source)** doesn't render at all — the row shows just the empty directory
+path field with a blank gap where the button should be — but clicking in
+that exact spot still opens the directory picker. Reproduces on a real KDE
+Plasma Wayland session; does **not** reproduce in offscreen/headless test
+renders, even using the exact same theme stylesheet.
+
+**Cause:** `btn_browse_scan` (`gui/src/tabs/core/wallpaper_tab/
+system_display_subtab/_ui_builder.py`) was the only button in its row with
+`apply_shadow_effect()` (a `QGraphicsDropShadowEffect`) applied — its
+visible siblings (**Set Wallpaper**, **Start Background Daemon**, **View
+Daemon Logs**, **Fetch/Skip Current Wallpapers**) don't use it. A
+`QGraphicsDropShadowEffect` combined with a QSS gradient background is a
+known class of Qt graphics-effect compositing bug on some platforms/
+compositors — the effect's own paint path can end up painting only the
+shadow, not the widget's actual content, while the widget itself stays
+fully functional (still receives and handles clicks normally). Offscreen
+platform rendering doesn't reproduce this, since it doesn't fully emulate
+real graphics-effect compositing — synthetic renders using the exact
+committed theme stylesheet showed the button rendering correctly, which is
+why the bug wasn't caught by test coverage alone.
+
+**Fix:** Removed the shadow effect from this specific button (it was purely
+decorative). If a similarly invisible-but-functional button turns up
+elsewhere, check whether it's the odd one out among its row-mates for
+calling `apply_shadow_effect()` — `gui/src/tabs/core/similarity_tab/
+_ui_builder.py`, `_directory_browse.py`, and `gui/src/tabs/core/merge_tab/
+_ui_config.py` / `_ui_gallery_canvas.py` all call it on several buttons and
+haven't been individually verified on real hardware the way this one now
+has.
+
+---
+
 ### Portrait/landscape gallery thumbnails render cropped on KDE Breeze/Kvantum
 
 **Symptom:** A non-square (portrait or landscape) thumbnail in any virtualized

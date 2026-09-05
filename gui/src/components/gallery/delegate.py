@@ -22,7 +22,7 @@ from PySide6.QtCore import QRect, QRectF, Qt
 from PySide6.QtGui import QBrush, QColor, QFont, QIcon, QPainter, QPen
 from PySide6.QtWidgets import QApplication, QStyle, QStyledItemDelegate, QStyleOptionViewItem
 
-from gui.src.components.gallery.presentation_mode import (
+from .presentation_mode import (
     RATING_COLORS,
     GalleryOverlayConfig,
 )

@@ -76,6 +76,42 @@ class TestShellNavigation:
         assert rail.active_category == ModuleCategory.SYSTEM
         assert rail.active_module_id == "sys.convert"
 
+    def test_navigation_rail_sidebar_toggle(self, q_app, sample_catalog):
+        from PySide6.QtCore import Qt
+
+        rail = NavigationRailWidget(sample_catalog)
+        assert rail._sidebar_expanded is True
+        assert rail.toggle_btn.objectName() == "rail_toggle_btn"
+        assert rail.toggle_btn.focusPolicy() == Qt.FocusPolicy.StrongFocus
+        assert not rail.toggle_btn.icon().isNull()
+
+        # Toggle sidebar closed
+        rail.toggle_sidebar()
+        assert rail._sidebar_expanded is False
+        assert not rail.toggle_btn.icon().isNull()
+
+        # Toggle sidebar open
+        rail.toggle_sidebar()
+        assert rail._sidebar_expanded is True
+
+    def test_navigation_rail_drawer_toggle(self, q_app, sample_catalog):
+        from PySide6.QtCore import Qt
+
+        rail = NavigationRailWidget(sample_catalog)
+        assert rail._drawer_expanded is True
+        assert rail.drawer_toggle_btn.objectName() == "rail_drawer_toggle_btn"
+        assert rail.drawer_toggle_btn.focusPolicy() == Qt.FocusPolicy.StrongFocus
+        assert not rail.drawer_toggle_btn.icon().isNull()
+
+        # Toggle drawer closed
+        rail.toggle_drawer()
+        assert rail._drawer_expanded is False
+        assert not rail.drawer_toggle_btn.icon().isNull()
+
+        # Toggle drawer open
+        rail.toggle_drawer()
+        assert rail._drawer_expanded is True
+
     def test_top_segmented_ribbon(self, q_app, sample_catalog):
         ribbon = TopSegmentedRibbonWidget(sample_catalog)
         selected = []

@@ -3,8 +3,8 @@ import sys
 from pathlib import Path
 from unittest.mock import patch
 
-from gui.src.components.virtual_gallery.virtual_gallery_model import VirtualGalleryModel
-from gui.src.components.virtual_gallery.widget import VirtualGallery
+from gui.src.components.gallery.virtual_gallery_model import VirtualGalleryModel
+from gui.src.components.gallery.widget import VirtualGallery
 from gui.src.utils.undo_manager import UndoManager
 from PySide6.QtWidgets import QApplication
 

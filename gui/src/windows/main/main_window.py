@@ -22,7 +22,7 @@ from gui.src.components.widgets.toast_widget import ToastManager
 from gui.src.windows.settings.app_settings import AppSettings
 
 from ...constants import NEW_LIMIT_MB
-from ..cloud_compute import CloudComputeWindow
+from ..cloud import CloudComputeWindow
 from ..settings import SettingsWindow
 from ._command_palette import _CommandPaletteMixin
 from ._global_search import _GlobalSearchMixin

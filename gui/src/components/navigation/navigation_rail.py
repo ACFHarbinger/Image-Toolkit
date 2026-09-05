@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from typing import Optional
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import QPointF, QSize, Qt, Signal
+from PySide6.QtGui import QColor, QIcon, QPainter, QPainterPath, QPen, QPixmap
 from PySide6.QtWidgets import (
     QButtonGroup,
     QHBoxLayout,
@@ -28,6 +29,36 @@ CATEGORY_ICONS: dict[ModuleCategory, str] = {
     ModuleCategory.MANGA: "🎨",
     ModuleCategory.EDITOR: "🖌️",
 }
+
+
+def _create_chevron_icon(direction: str = "left", size: int = 16, color_hex: str = "#d0d0d0") -> QIcon:
+    """Render a crisp, anti-aliased vector chevron icon (left or right)."""
+    pixmap = QPixmap(size, size)
+    pixmap.fill(Qt.GlobalColor.transparent)
+
+    painter = QPainter(pixmap)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+    pen = QPen(QColor(color_hex), 2.0)
+    pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+    pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+    painter.setPen(pen)
+
+    path = QPainterPath()
+    w = float(size)
+    h = float(size)
+    if direction == "left":
+        path.moveTo(QPointF(w * 0.62, h * 0.25))
+        path.lineTo(QPointF(w * 0.38, h * 0.50))
+        path.lineTo(QPointF(w * 0.62, h * 0.75))
+    else:
+        path.moveTo(QPointF(w * 0.38, h * 0.25))
+        path.lineTo(QPointF(w * 0.62, h * 0.50))
+        path.lineTo(QPointF(w * 0.38, h * 0.75))
+
+    painter.drawPath(path)
+    painter.end()
+    return QIcon(pixmap)
 
 
 class NavigationRailWidget(QWidget):
@@ -70,8 +101,11 @@ class NavigationRailWidget(QWidget):
         strip_layout.setSpacing(0)
 
         self.toggle_btn = QToolButton()
-        self.toggle_btn.setText("◀")
-        self.toggle_btn.setFixedSize(18, 32)
+        self.toggle_btn.setObjectName("rail_toggle_btn")
+        self.toggle_btn.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.toggle_btn.setIcon(_create_chevron_icon("left"))
+        self.toggle_btn.setIconSize(QSize(14, 14))
+        self.toggle_btn.setFixedSize(18, 36)
         self.toggle_btn.setToolTip("Collapse/Expand Sidebar (Ctrl+B)")
         self.toggle_btn.clicked.connect(self.toggle_sidebar)
         strip_layout.addWidget(self.toggle_btn)
@@ -114,7 +148,10 @@ class NavigationRailWidget(QWidget):
 
         # Drawer toggle button at bottom
         self.drawer_toggle_btn = QToolButton()
-        self.drawer_toggle_btn.setText("◀" if self._drawer_expanded else "▶")
+        self.drawer_toggle_btn.setObjectName("rail_drawer_toggle_btn")
+        self.drawer_toggle_btn.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.drawer_toggle_btn.setIcon(_create_chevron_icon("left" if self._drawer_expanded else "right"))
+        self.drawer_toggle_btn.setIconSize(QSize(14, 14))
         self.drawer_toggle_btn.setFixedSize(48, 32)
         self.drawer_toggle_btn.setToolTip("Toggle Navigation Drawer")
         self.drawer_toggle_btn.clicked.connect(self.toggle_drawer)
@@ -159,7 +196,7 @@ class NavigationRailWidget(QWidget):
         the active tab's content the full window width when collapsed. The
         toggle strip itself stays visible so it's always re-expandable."""
         self._sidebar_expanded = not self._sidebar_expanded
-        self.toggle_btn.setText("◀" if self._sidebar_expanded else "▶")
+        self.toggle_btn.setIcon(_create_chevron_icon("left" if self._sidebar_expanded else "right"))
         # self._sidebar_expanded now holds the *target* state -- animate
         # toward it (0 -> full width when expanding, full width -> 0 when
         # collapsing).
@@ -167,18 +204,30 @@ class NavigationRailWidget(QWidget):
         start_w = 0 if self._sidebar_expanded else self._SIDEBAR_WIDTH
         try:
             from gui.src.styles.motion_kit import MotionKit
-            MotionKit.slide_width(self.sidebar_content, start_w, end_w, duration_ms=MotionKit.BASE_MS)
+            MotionKit.slide_width(
+                self.sidebar_content,
+                start_w,
+                end_w,
+                duration_ms=160,
+                easing=MotionKit.EASING_DEFAULT,
+            )
         except Exception:
             self.sidebar_content.setVisible(self._sidebar_expanded)
 
     def toggle_drawer(self) -> None:
         self._drawer_expanded = not self._drawer_expanded
-        self.drawer_toggle_btn.setText("◀" if self._drawer_expanded else "▶")
+        self.drawer_toggle_btn.setIcon(_create_chevron_icon("left" if self._drawer_expanded else "right"))
         start_w = 0 if self._drawer_expanded else 200
         end_w = 200 if self._drawer_expanded else 0
         try:
             from gui.src.styles.motion_kit import MotionKit
-            MotionKit.slide_width(self.drawer_widget, start_w, end_w, duration_ms=MotionKit.BASE_MS)
+            MotionKit.slide_width(
+                self.drawer_widget,
+                start_w,
+                end_w,
+                duration_ms=160,
+                easing=MotionKit.EASING_DEFAULT,
+            )
         except Exception:
             self.drawer_widget.setVisible(self._drawer_expanded)
 
