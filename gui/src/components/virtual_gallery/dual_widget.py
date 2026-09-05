@@ -9,9 +9,9 @@ selection/filtering state without page caps or sequential layout rebuilds.
 from __future__ import annotations
 
 import os
-from typing import List
+from typing import Callable, List, Optional
 
-from PySide6.QtCore import QPoint, Qt, QTimer, Signal, Slot
+from PySide6.QtCore import QPoint, Qt, QThread, QTimer, Signal, Slot
 from PySide6.QtWidgets import (
     QLabel,
     QLineEdit,
@@ -297,6 +297,11 @@ class VirtualDualGallery(QWidget):
         """Mark the full set of preview-open paths (amber border) on both panels."""
         self.found_gallery.set_preview(paths)
         self.selected_gallery.set_preview(paths)
+
+    def mark_preview(self, path: str, preview: bool) -> None:
+        """Toggle one path's preview-open mark on both panels without touching others."""
+        self.found_gallery.mark_preview(path, preview)
+        self.selected_gallery.mark_preview(path, preview)
 
     def _on_ctrl_wheel(self, delta: int) -> None:
         """Step thumbnail zoom on Ctrl+wheel (§2.2 Option B)."""
