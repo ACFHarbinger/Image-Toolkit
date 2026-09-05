@@ -55,7 +55,7 @@ routes on the same machine.
 | manga.puppeteering | Manga | Puppeteering | self.manga_puppeteering_tab | page |
 | editor.hybrid | Image Editor | Hybrid Editor | self.hie_editor_tab | page |
 
-## Direct-object coupling baseline
+## Direct-object coupling baseline and #511 migration
 
 Constructor-time dependencies already require a live database widget:
 `SearchTab(database_tab)`, `ScanMetadataTab(database_tab)`, and
@@ -63,10 +63,13 @@ Constructor-time dependencies already require a live database widget:
 references to Scan, Search, Merge, Similarity, Wallpaper, and Listings;
 `DatabaseTab` and `ListingsTab` retain `main_window_ref` for navigation.
 
-This is the first migration cluster for #511. The replacement is typed
-navigation intents plus domain-owned facts; request/reply database operations
-remain explicit service APIs. #509 does not add an adapter or change these
-references.
+The #511 migration removes these Database-family widget links. `SearchTab`,
+`ScanMetadataTab`, and `WallpaperTab` now receive `LibraryDatabaseService`
+(database handle + vault session, never a QWidget) at construction. Typed
+navigation/filter/path-import intents replace widget calls; database
+availability and catalog changes are facts. The legacy shell temporarily
+routes navigation intents until `ModuleRuntime` mounts the real catalog.
+Request/reply database operations remain explicit service APIs.
 
 ## Contract
 

@@ -141,9 +141,9 @@ class _ScanLoadingMixin:
         )  # Sort by default
 
         # FILTERING LOGIC
-        if self.db_tab_ref.db is not None:
+        if self.database_service.db is not None:
             if self.view_new_only:
-                db = self.db_tab_ref.db
+                db = self.database_service.db
                 paths_not_in_db = []
                 for path in self.scan_image_list:
                     if not db.get_image_by_path(path):
@@ -151,7 +151,7 @@ class _ScanLoadingMixin:
                 self.scan_filtered_list = sorted(paths_not_in_db, key=natural_sort_key)
 
             elif self.view_in_db_only:
-                db = self.db_tab_ref.db
+                db = self.database_service.db
                 paths_in_db = []
                 for path in self.scan_image_list:
                     if db.get_image_by_path(path):
@@ -175,7 +175,7 @@ class _ScanLoadingMixin:
         self.dual.set_found_paths(self.scan_filtered_list)
 
         # Batch DB check for in-database styling
-        db = self.db_tab_ref.db
+        db = self.database_service.db
         in_db = set()
         if db and self.scan_filtered_list:
             try:

@@ -1,16 +1,22 @@
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QTabWidget, QVBoxLayout, QWidget
 
+from gui.src.modules.events import EventHub, ImportPathsIntent
+from gui.src.modules.library_service import coerce_library_database_service
+
 from .monitor_display_subtab import MonitorDisplaySubTab
 from .system_display_subtab import SystemDisplaySubTab
 
 
 class WallpaperTab(QWidget):
-    def __init__(self, db_tab_ref):
+    def __init__(self, database_service=None, event_hub: EventHub | None = None, **legacy):
         super().__init__()
+        database_service = coerce_library_database_service(
+            database_service if database_service is not None else legacy.pop("db_tab_ref", None)
+        )
         self._tab_widget = QTabWidget()
 
-        self.system_display = SystemDisplaySubTab(db_tab_ref)
+        self.system_display = SystemDisplaySubTab(database_service)
         self.monitor_display = MonitorDisplaySubTab()
 
         # Link them for updates
@@ -76,6 +82,11 @@ class WallpaperTab(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self._tab_widget)
+        (event_hub or EventHub(self)).subscribe(ImportPathsIntent, self._on_import_paths, owner=self)
+
+    def _on_import_paths(self, intent: ImportPathsIntent) -> None:
+        if intent.module_id == "system.wallpaper":
+            self.system_display.display_scan_results(list(intent.paths))
 
     def closeEvent(self, event):
         # QWidget.close() does not cascade to child widgets, so the nested

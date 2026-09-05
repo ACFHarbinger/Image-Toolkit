@@ -58,7 +58,7 @@ class _AutoListingsMixin:
         if not touched_group_names:
             return
 
-        vault_manager = getattr(self.db_tab_ref, "vault_manager", None)
+        vault_manager = getattr(self.database_service, "vault_manager", None)
         raw_db = get_library_db(vault_manager, parent=self)
         if raw_db is None:
             return  # vault locked or session unavailable -- silently skip
