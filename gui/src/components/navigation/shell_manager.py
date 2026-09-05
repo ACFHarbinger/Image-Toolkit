@@ -107,7 +107,13 @@ class ShellLayoutManager(QObject):
             self._mounted_widgets.add(widget)
             self.stack.addWidget(widget)
 
-        self.stack.setCurrentWidget(widget)
+        target_idx = self.stack.indexOf(widget)
+        try:
+            from gui.src.styles.motion_kit import MotionKit
+            MotionKit.animate_stacked_switch(self.stack, target_idx, duration_ms=MotionKit.FAST_MS)
+        except Exception:
+            self.stack.setCurrentWidget(widget)
+
         self._active_module_id = module_id
 
         # Sync both navigation widgets

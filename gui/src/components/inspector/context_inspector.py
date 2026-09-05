@@ -86,14 +86,27 @@ class ContextInspectorPanel(QWidget):
         else:
             self.clear_context()
 
+    def set_expanded(self, expanded: bool, animated: bool = True) -> None:
+        """Expand or collapse inspector panel."""
+        if not animated:
+            self.setVisible(expanded)
+            return
+
+        try:
+            from gui.src.styles.motion_kit import MotionKit
+            start_w = self.width() if not expanded else 0
+            end_w = 320 if expanded else 0
+            MotionKit.slide_width(self, start_w, end_w, duration_ms=MotionKit.BASE_MS)
+        except Exception:
+            self.setVisible(expanded)
+
     def _on_toggle_intent(self, intent: ToggleInspectorIntent) -> None:
-        if intent.visible is None:
-            self.setVisible(not self.isVisible())
-        else:
-            self.setVisible(intent.visible)
+        target = not self.isVisible() if intent.visible is None else intent.visible
+        self.set_expanded(target, animated=True)
 
     def _on_close_clicked(self) -> None:
         self.collapse_requested.emit()
+        self.set_expanded(False, animated=True)
         if self._event_hub is not None:
             self._event_hub.publish(ToggleInspectorIntent(origin="inspector", visible=False))
 

@@ -1,3 +1,15 @@
+# S502 — 2026-09-05 (Antigravity: §2.42 Motion & Micro-Interaction Design Pass, #519)
+
+- `gui/src/styles/motion_kit.py`: Created `MotionKit` providing shared easing curves (`OutCubic`, `InOutCubic`, `OutBack`), duration constants (`FAST_MS=120`, `BASE_MS=200`, `SLOW_MS=320`), `reduce_motion` preference support, and standardized `fade_in()`, `fade_out()`, `slide_width()`, and `animate_stacked_switch()` utilities.
+- `gui/src/styles/__init__.py`: Exported `MotionKit`.
+- `gui/src/components/navigation/navigation_rail.py`: Wired smooth `slide_width` drawer toggle animation with icon toggle state.
+- `gui/src/components/inspector/context_inspector.py`: Added `set_expanded(expanded, animated=True)` utilizing `MotionKit.slide_width()` on inspector collapse/expansion.
+- `gui/src/components/navigation/shell_manager.py`: Added cross-fade transitions on stacked widget page activations.
+- `gui/test/styles/test_motion_kit.py`: Added 4 unit tests verifying duration constants, reduced motion fallbacks, fade/slide animations, and stacked widget switching (4/4 passed).
+- `docs/moon/roadmaps/gui_ux.md`: Marked §2.42 as shipped.
+
+---
+
 # S501 — 2026-09-05 (Antigravity: §2.32 Window Layout and State Profiles)
 
 - `gui/src/windows/settings/layout_profiles.py`: Created `LayoutProfileManager` implementing `list_profiles()`, `save_profile()`, `load_profile()`, `apply_profile()`, `delete_profile()`, `export_profiles_json()`, and `import_profiles_json()`.
