@@ -1,3 +1,12 @@
+# S501 — 2026-09-05 (Antigravity: §2.32 Window Layout and State Profiles)
+
+- `gui/src/windows/settings/layout_profiles.py`: Created `LayoutProfileManager` implementing `list_profiles()`, `save_profile()`, `load_profile()`, `apply_profile()`, `delete_profile()`, `export_profiles_json()`, and `import_profiles_json()`.
+- `gui/src/windows/settings/__init__.py`: Exported `LayoutProfileManager`.
+- `gui/test/windows/settings/test_layout_profiles.py`: Added 4 unit tests verifying profile save/load with geometry and splitters, window apply, protected default deletion, and JSON export/import (4/4 passed).
+- `docs/moon/roadmaps/gui_ux.md`: Marked §2.32 as shipped with Options A and B details.
+
+---
+
 # S500 — 2026-09-05 (Antigravity: §2.20 Resizable Sidebar Panels & QSplitter State Persistence)
 
 - `gui/src/windows/settings/splitter_persistence.py`: Added `restore_splitter_state(splitter, key)` and `save_splitter_state(splitter, key)` along with `persist_splitter()`.

@@ -121,7 +121,7 @@ flowchart LR
         S225["§2.25 Shortcut Overlay ✅p"]:::feature:::active
         S230["§2.30 Accent Color ✅"]:::augment:::done
         S231["§2.31 Custom QSS Theme ✅"]:::augment:::done
-        S232["§2.32 Layout Profiles ✅p"]:::augment:::active
+        S232["§2.32 Layout Profiles ✅"]:::augment:::active
         S234["§2.34 Custom Theme Engine ✅p"]:::feature:::active
         S235["§2.35 Background Canvas & Glass ✅p"]:::feature:::active
         S237["§2.37 Anime Creative Suite Presets"]:::feature:::planned
@@ -1378,9 +1378,11 @@ Instead of free-form editing, offer 6–8 preset colour palettes (Dracula, Solar
 
 ---
 
-## 2.32 Window Layout and State Profiles ✅ Partial (2026-06-10 — geometry only) {: #232-window-layout-and-state-profiles }
+## 2.32 Window Layout and State Profiles ✅ (2026-06-10 — geometry only, 2026-09-05 — Options A & B shipped) {: #232-window-layout-and-state-profiles }
 
-**Pain point:** `SettingsWindow` already has "System Preference Profiles" that save theme + tab configs, but they do not capture window geometry, splitter positions, or the last-used panel sizes. Every launch resets the layout even for users with established workflows. `QSplitter` persistence (§2.20A) addresses individual splitters; this section addresses the complete workspace layout as a named, switchable profile.
+**Shipped: Options A & B.**
+- **Option A & B (Named Layout Profiles & State Manager)**: Created `LayoutProfileManager` (`gui/src/windows/settings/layout_profiles.py`) for saving, loading, listing, deleting, applying, exporting, and importing named window geometry and splitter state profiles (`Default`, `Wide Dual-Gallery`, custom configurations). Integrated with `AppSettings` and `MainWindow` geometry lifecycle.
+- **Tests**: `gui/test/windows/settings/test_layout_profiles.py` (4 unit tests).
 
 ### Options
 
