@@ -173,6 +173,38 @@ class TestShellNavigation:
         assert isinstance(handle, CountingHandle)
         assert handle.activations == ["graph"]
 
+    def test_navigate_intent_state_loss_is_logged_not_silent(self, q_app, sample_runtime, caplog):
+        """Codex #538 combined review (MEDIUM): activate_module(module_id) has
+        no channel to carry NavigateIntent.state through -- no consumer exists
+        yet. The navigation must still succeed, but the loss must be visible
+        (a warning), not silently swallowed.
+        """
+        container = QWidget()
+        manager = ShellLayoutManager(sample_runtime, container)
+
+        with caplog.at_level("WARNING"):
+            sample_runtime.context.event_hub.publish(
+                NavigateIntent(
+                    origin="test",
+                    module_id="system.convert",
+                    state=(("selected_path", "/tmp/a.png"),),
+                )
+            )
+
+        assert manager.active_module_id == "system.convert"
+        assert any("state" in r.message.lower() for r in caplog.records)
+
+    def test_navigate_intent_without_state_does_not_warn(self, q_app, sample_runtime, caplog):
+        container = QWidget()
+        ShellLayoutManager(sample_runtime, container)
+
+        with caplog.at_level("WARNING"):
+            sample_runtime.context.event_hub.publish(
+                NavigateIntent(origin="test", module_id="system.convert")
+            )
+
+        assert caplog.records == []
+
     def test_clear_mounted_before_dispose(self, q_app, sample_runtime):
         container = QWidget()
         manager = ShellLayoutManager(sample_runtime, container)
