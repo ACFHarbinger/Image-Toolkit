@@ -272,7 +272,13 @@ required to be exhaustive up front.
   Grok), ui-arch-13/#536 (mount rail/ribbon behind `PreferenceStore`
   experimental setting — Cursor), ui-arch-14/#537 (inspector/telemetry/
   presets/gallery-modes — not yet delegated). #533 blocks #534/#535/#536;
-  #536 blocks #537 — sequential, not fully concurrent.
+  #536 blocks #537 — sequential, not fully concurrent. **ui-arch-15/#538**
+  (Codex, parallel to #533, not blocking it) — read-only pre-implementation
+  audit of the reverted `catalog`/`context`/`events`/`runtime`/
+  `legacy_bridge` code and the shell-mounting commits, a pre-mortem
+  documenting exactly where eager-mounting lived and cross-checking the
+  old code against each Phase 0/1 invariant it predates; feeds #533 as a
+  starting brief.
 - Revert: `7559b1d2` (`git checkout b4f61deb -- gui/` + deletion of
   everything gained since); the reverted implementation commits remain
   recoverable via `git show <commit>:<path>` (e.g. `a9d01085` for the
