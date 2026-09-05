@@ -1,3 +1,12 @@
+# S495 — 2026-09-05 (Antigravity: §2.25 Keyboard Shortcut Discovery Overlay)
+
+- `gui/src/components/dialogs/shortcut_discovery_dialog.py`: Created `ShortcutDiscoveryDialog` featuring scope filtering tabs (`All`, `General`, `Gallery`, `Preview`, `Stitch`, `Convert`, `Merge`), real-time search with match counters, custom `KeycapBadgeDelegate` rendering `<kbd>`-styled keycaps with modifier separation, and `ScopeBadgeDelegate` rendering accent pills.
+- `gui/src/windows/main/_shortcuts.py`: Updated `_ShortcutOverlayMixin` to launch the modern `ShortcutDiscoveryDialog`.
+- `gui/test/dialogs/test_shortcut_discovery_dialog.py`: Added 4 unit tests covering table population, scope filtering, search queries, and custom item delegates.
+- `docs/moon/roadmaps/gui_ux.md`: Marked §2.25 as shipped with Options A and B details.
+
+---
+
 # S494 — 2026-09-05 (Antigravity: §2.21 Directory Navigation History Back/Forward UI)
 
 - `gui/src/classes/base/gallery_base.py`: Added `create_nav_history_buttons()` returning interactive `◀` Back and `▶` Forward `QToolButton`s with automatic enabled state tracking, `_update_nav_history_buttons()`, `_push_dir_history()`, `_dir_go_back()`, and `_dir_go_forward()`.
