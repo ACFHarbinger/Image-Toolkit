@@ -138,6 +138,21 @@ class _LifecycleMixin:
         elif event.key() == Qt.Key.Key_T and event.modifiers() == Qt.KeyboardModifier.ControlModifier:
             self._open_tab_search()
             event.accept()
+        elif (
+            getattr(self, "_using_runtime_shell", False)
+            and event.key() == Qt.Key.Key_B
+            and event.modifiers() == Qt.KeyboardModifier.ControlModifier
+        ):
+            self.shell_layout_manager.rail.toggle_drawer()
+            event.accept()
+        elif (
+            getattr(self, "_using_runtime_shell", False)
+            and event.key() == Qt.Key.Key_L
+            and event.modifiers()
+            == (Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.ShiftModifier)
+        ):
+            self.shell_layout_manager.toggle_nav_mode()
+            event.accept()
         elif get_registry().matches(event, "general.global_search"):
             self._open_global_search()
             event.accept()
@@ -231,6 +246,9 @@ class _LifecycleMixin:
                         with contextlib.suppress(Exception):
                             tab.close()
 
+        if getattr(self, "_using_runtime_shell", False):
+            self._dispose_runtime_shell()
+
         if self.vault_manager is not None:
             self.vault_manager.shutdown()
 
@@ -245,6 +263,13 @@ class _LifecycleMixin:
         """
         AppSettings.set_mainwindow_geometry(self.saveGeometry())  # pyrefly: ignore [bad-argument-type]
         self._save_session_recovery()
+        # Codex #538 combined review (HIGH): closeEvent() already disposes the
+        # runtime shell before vault shutdown; this tray-Quit path bypasses
+        # closeEvent (per the docstring above) and skipped it entirely, so
+        # mounted module handles never got deactivate()/dispose() and the host
+        # stack was never detached. Same disposal, same ordering.
+        if getattr(self, "_using_runtime_shell", False):
+            self._dispose_runtime_shell()
         if self.vault_manager is not None:
             self.vault_manager.shutdown()
         QApplication.quit()
