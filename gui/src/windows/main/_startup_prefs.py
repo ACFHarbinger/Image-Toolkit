@@ -111,6 +111,9 @@ class _StartupPrefsMixin:
     def _apply_startup_preferences(self) -> None:  # noqa: C901
         """Apply vault-stored preferences to gallery tabs at startup (GUI/UX §2.16 A/B/C/E)."""
         self._apply_tray_preference()
+        if getattr(self, "_using_runtime_shell", False):
+            # Classic tab/category wiring is N/A on the experimental shell path.
+            return
         prefs = self.cached_creds.get("preferences", {})
         if not prefs:
             return

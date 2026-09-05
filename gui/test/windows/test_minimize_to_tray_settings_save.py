@@ -178,6 +178,50 @@ class TestQuitApplication:
         assert call_order.index("geometry") < call_order.index("quit")
         assert call_order.index("save") < call_order.index("quit")
 
+    def test_runtime_shell_disposed_before_quit(self, q_app):
+        """Codex #538 combined review (HIGH): closeEvent() already disposes
+        the runtime shell before vault shutdown, but _quit_application()
+        (the tray-Quit path, which bypasses closeEvent per its own docstring)
+        skipped that disposal entirely -- mounted module handles never got
+        deactivate()/dispose() and the host stack was never detached.
+        """
+        host = _make_lifecycle_host(minimize_to_tray=True)
+        host._using_runtime_shell = True
+        host._dispose_runtime_shell = MagicMock()
+
+        with patch("gui.src.windows.main._lifecycle.AppSettings"), \
+             patch("gui.src.windows.main._lifecycle.QApplication.quit"):
+            host._quit_application()
+
+        host._dispose_runtime_shell.assert_called_once()
+
+    def test_runtime_shell_disposal_skipped_when_not_using_runtime_shell(self, q_app):
+        """The classic-shell path must not pay for/call a disposal hook it
+        never set up -- _using_runtime_shell defaults to False/unset."""
+        host = _make_lifecycle_host(minimize_to_tray=True)
+        host._dispose_runtime_shell = MagicMock()
+
+        with patch("gui.src.windows.main._lifecycle.AppSettings"), \
+             patch("gui.src.windows.main._lifecycle.QApplication.quit"):
+            host._quit_application()
+
+        host._dispose_runtime_shell.assert_not_called()
+
+    def test_runtime_shell_disposed_before_vault_shutdown(self, q_app):
+        """Strict ordering: shell disposal must complete before vault
+        shutdown, matching closeEvent()'s own ordering."""
+        call_order = []
+        host = _make_lifecycle_host(minimize_to_tray=True)
+        host._using_runtime_shell = True
+        host._dispose_runtime_shell = MagicMock(side_effect=lambda: call_order.append("dispose_shell"))
+        host.vault_manager.shutdown.side_effect = lambda: call_order.append("vault_shutdown")
+
+        with patch("gui.src.windows.main._lifecycle.AppSettings"), \
+             patch("gui.src.windows.main._lifecycle.QApplication.quit"):
+            host._quit_application()
+
+        assert call_order == ["dispose_shell", "vault_shutdown"]
+
 
 # ---------------------------------------------------------------------------
 # No duplicate tray icon (bug: two identical icons in background mode)

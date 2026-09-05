@@ -18,6 +18,9 @@ class _SessionRecoveryMixin:
 
     def _restore_session_recovery(self) -> None:  # noqa: C901
         """Restores the previously opened tab and configurations on startup."""
+        if getattr(self, "_using_runtime_shell", False):
+            # Session parity for the rail/ribbon shell is #516 / out of #536.
+            return
         if not self.vault_manager or not self.cached_creds:
             return
 
@@ -192,6 +195,8 @@ class _SessionRecoveryMixin:
 
     def _save_session_recovery(self) -> None:  # noqa: C901
         """Saves current active tab and tab configurations for session recovery."""
+        if getattr(self, "_using_runtime_shell", False):
+            return
         if not self.vault_manager or getattr(self.vault_manager, "is_guest", False) is True:
             return
 

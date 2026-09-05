@@ -14,6 +14,10 @@ class _TabSearchMixin:
 
     def _open_tab_search(self) -> None:
         """Show a floating tab-name filter popup (§2.16C)."""
+        if getattr(self, "_using_runtime_shell", False):
+            self._open_runtime_module_search()
+            return
+
         all_entries: list[tuple[str, str, str]] = []
         for category, tabs_in_cat in self.all_tabs.items():
             for tab_name in tabs_in_cat:
@@ -53,6 +57,61 @@ class _TabSearchMixin:
             category, tab_name = item.data(Qt.ItemDataRole.UserRole)
             self.command_combo.setCurrentText(category)
             QTimer.singleShot(0, lambda: self._select_tab_by_name(tab_name))
+            dlg.accept()
+
+        search_input.textChanged.connect(_populate)
+        search_input.returnPressed.connect(_activate)
+        list_widget.itemActivated.connect(_activate)
+        list_widget.itemDoubleClicked.connect(_activate)
+
+        _populate("")
+        dlg.exec()
+
+    def _open_runtime_module_search(self) -> None:
+        """Ctrl+T for the experimental shell: filter catalog routes and activate."""
+        catalog = getattr(self, "module_catalog", None)
+        manager = getattr(self, "shell_layout_manager", None)
+        if catalog is None or manager is None:
+            return
+
+        entries = [
+            (mod.module_id, f"{mod.title}  —  {mod.category.value}")
+            for mod in catalog.navigable()
+        ]
+
+        dlg = QDialog(self, Qt.WindowType.Popup | Qt.WindowType.FramelessWindowHint)
+        dlg.setWindowTitle("Go to Module")
+        dlg.setFixedWidth(400)
+        layout = QVBoxLayout(dlg)
+        layout.setContentsMargins(6, 6, 6, 6)
+        layout.setSpacing(4)
+
+        search_input = QLineEdit()
+        search_input.setPlaceholderText("Type to filter modules…")
+        layout.addWidget(search_input)
+
+        list_widget = QListWidget()
+        list_widget.setMaximumHeight(260)
+        layout.addWidget(list_widget)
+
+        def _populate(text: str) -> None:
+            list_widget.clear()
+            q = text.strip().lower()
+            for module_id, label in entries:
+                if not q or q in module_id.lower() or q in label.lower():
+                    item = QListWidgetItem(label)
+                    item.setData(Qt.ItemDataRole.UserRole, module_id)
+                    list_widget.addItem(item)
+            if list_widget.count():
+                list_widget.setCurrentRow(0)
+
+        def _activate(item=None) -> None:
+            if item is None:
+                item = list_widget.currentItem()
+            if item is None:
+                return
+            module_id = item.data(Qt.ItemDataRole.UserRole)
+            manager.activate_module(module_id)
             dlg.accept()
 
         search_input.textChanged.connect(_populate)

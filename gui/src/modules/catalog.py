@@ -130,6 +130,27 @@ class ModuleCatalog:
         """Return all registered descriptors belonging to a category."""
         return tuple(d for d in self.all_descriptors() if d.category == category)
 
+    def categories(self) -> tuple[ModuleCategory, ...]:
+        """Return categories that have at least one navigable entry, in enum order."""
+        present = {d.category for d in self.navigable()}
+        return tuple(cat for cat in ModuleCategory if cat in present)
+
+    def navigable(self) -> tuple[PageDescriptor | RouteDescriptor, ...]:
+        """Pages and routes the shell may activate; workspace hosts are excluded."""
+        return tuple(
+            d
+            for d in self.all_descriptors()
+            if isinstance(d, (PageDescriptor, RouteDescriptor))
+        )
+
+    def navigable_by_category(
+        self, category: ModuleCategory
+    ) -> tuple[PageDescriptor | RouteDescriptor, ...]:
+        """Navigable descriptors for one category, sorted by order_index then id."""
+        items = [d for d in self.navigable() if d.category == category]
+        items.sort(key=lambda d: (d.order_index, d.module_id))
+        return tuple(items)
+
     def search(self, query: str) -> tuple[CatalogDescriptor, ...]:
         """Search descriptors by module_id, title, category, or search terms."""
         needle = query.strip().lower()
