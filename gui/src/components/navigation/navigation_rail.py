@@ -128,6 +128,17 @@ class NavigationRailWidget(QWidget):
         except Exception:
             self.drawer_widget.setVisible(self._drawer_expanded)
 
+    def apply_category_accents(self, overrides: dict[str, str]) -> None:
+        """Apply category-specific accent overrides (§2.41, #518)."""
+        self._category_accent_overrides = {k.lower(): v for k, v in overrides.items()}
+        for cat, btn in self.cat_buttons.items():
+            cat_key = cat.name.lower()
+            if cat_key in self._category_accent_overrides:
+                accent = self._category_accent_overrides[cat_key]
+                btn.setStyleSheet(f"QToolButton:checked {{ border-left: 3px solid {accent}; background: rgba(255,255,255,0.08); }}")
+        if self.active_category:
+            self.select_category(self.active_category)
+
     def select_category(self, category: ModuleCategory) -> None:
         self.active_category = category
         if category in self.cat_buttons:
@@ -142,6 +153,9 @@ class NavigationRailWidget(QWidget):
             ModuleCategory.MANGA: "マンガ",
             ModuleCategory.EDITOR: "エディタ",
         }.get(category, "")
+        cat_key = category.name.lower()
+        accent = getattr(self, "_category_accent_overrides", {}).get(cat_key, "#00bcd4")
+        self.drawer_header.setStyleSheet(f"font-weight: bold; font-size: 11pt; padding: 4px; color: {accent};")
         self.drawer_header.setText(f"{category.value.upper()}\n{jp_text}" if jp_text else category.value.upper())
 
         # Clear existing tool buttons

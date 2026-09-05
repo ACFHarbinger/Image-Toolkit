@@ -1,3 +1,13 @@
+# S503 — 2026-09-05 (Antigravity: §2.41 Per-Category Visual Customization, #518)
+
+- `gui/src/theming/schema.py`: Added `category_accent_overrides: dict[str, str]` sparse delta dictionary to `ThemePack` with hex validation in `__post_init__`.
+- `gui/src/theming/resolve.py`: Added `resolve_category_accent(pack, category)` resolving sparse category overrides with fallback to base/global accent.
+- `gui/src/components/navigation/navigation_rail.py` & `segmented_ribbon.py`: Added `apply_category_accents()` methods and wired dynamic category accent tinting on drawer headers and active category pills.
+- `gui/test/theming/test_category_accents.py`: Added 3 unit tests verifying schema validation, category resolution fallbacks, and UI component accent application (3/3 passed; 96/96 theming tests passing).
+- `docs/moon/roadmaps/gui_ux.md`: Marked §2.41 as shipped.
+
+---
+
 # S502 — 2026-09-05 (Antigravity: §2.42 Motion & Micro-Interaction Design Pass, #519)
 
 - `gui/src/styles/motion_kit.py`: Created `MotionKit` providing shared easing curves (`OutCubic`, `InOutCubic`, `OutBack`), duration constants (`FAST_MS=120`, `BASE_MS=200`, `SLOW_MS=320`), `reduce_motion` preference support, and standardized `fade_in()`, `fade_out()`, `slide_width()`, and `animate_stacked_switch()` utilities.

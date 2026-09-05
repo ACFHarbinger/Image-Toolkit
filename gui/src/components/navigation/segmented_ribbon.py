@@ -76,6 +76,12 @@ class TopSegmentedRibbonWidget(QWidget):
         if isinstance(cat, ModuleCategory):
             self._populate_category(cat)
 
+    def apply_category_accents(self, overrides: dict[str, str]) -> None:
+        """Apply category-specific accent overrides (§2.41, #518)."""
+        self._category_accent_overrides = {k.lower(): v for k, v in overrides.items()}
+        if self.active_category:
+            self._populate_category(self.active_category)
+
     def _populate_category(self, category: ModuleCategory) -> None:
         self.active_category = category
         while self.pills_layout.count():
@@ -84,12 +90,17 @@ class TopSegmentedRibbonWidget(QWidget):
             if w:
                 w.deleteLater()
 
+        cat_key = category.name.lower()
+        accent = getattr(self, "_category_accent_overrides", {}).get(cat_key, "#00bcd4")
         modules = self.catalog.navigable_by_category(category)
         for mod in modules:
             btn = QPushButton(mod.title)
             btn.setObjectName(f"ribbon_btn_{mod.module_id}")
             btn.setCheckable(True)
-            btn.setStyleSheet("padding: 6px 14px; border-radius: 12px; font-weight: 500;")
+            btn.setStyleSheet(
+                f"QPushButton {{ padding: 6px 14px; border-radius: 12px; font-weight: 500; }}"
+                f"QPushButton:checked {{ background: {accent}; color: white; }}"
+            )
             if mod.module_id == self.active_module_id:
                 btn.setChecked(True)
             btn.clicked.connect(lambda _=False, m=mod.module_id: self._on_pill_clicked(m))

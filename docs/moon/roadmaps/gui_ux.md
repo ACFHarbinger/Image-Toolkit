@@ -1676,9 +1676,11 @@ Maintain the uniform grid and show metadata solely through mouse hover tooltips.
 
 ---
 
-## 2.41 Per-Tab / Per-Category Visual Customization {: #241-per-tab-per-category-visual-customization }
+## 2.41 Per-Tab / Per-Category Visual Customization ✅ (2026-09-05 — Option A shipped, #518) {: #241-per-tab-per-category-visual-customization }
 
-**Ergonomic pain point:** Theming today (§2.30, §2.34, §2.37) is global — one accent color, one density, one preset for the whole app. A user working across very different contexts in one session (System Tools vs. Deep Learning vs. Manga) has no visual way to tell categories apart at a glance beyond the nav rail/ribbon label itself, and can't give a category its own accent without recoloring everything.
+**Shipped: Option A.**
+- **Option A (Per-Category Accent Overrides)**: Added `category_accent_overrides` sparse delta mapping to `ThemePack` (`gui/src/theming/schema.py`), `resolve_category_accent()` helper (`gui/src/theming/resolve.py`), and wired category tinting in `NavigationRailWidget` and `TopSegmentedRibbonWidget`.
+- **Tests**: `gui/test/theming/test_category_accents.py` (3 unit tests).
 
 ### Implementation Options
 
