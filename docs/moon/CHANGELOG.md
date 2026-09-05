@@ -1,3 +1,109 @@
+# S525 — 2026-09-05 (Claude: byte-budget guard on ExtractorTab eager output-directory auto-load)
+
+- Live-testing `integration/phase-0` (D12 live-desktop pass) found a real
+  startup freeze/crash: session recovery's `set_config()` calls
+  `_load_existing_output_images()` unconditionally, which calls
+  `start_loading_gallery()` on every file in the tab's extraction-output
+  directory with zero size guard. Found in the wild: 101 files, 108GB total
+  (~1GB avg, uncompressed extracted frames) — decoding several huge files
+  concurrently on startup froze the host machine, requiring a hard reboot.
+- `MAX_PREVIEW_ITEMS` (the existing guard in `_directory_scanning.py`) is a
+  file-*count* cap and did not help — 101 files is well under its 1000
+  limit; the actual problem is total bytes, not file count.
+- `gui/src/tabs/core/extractor_tab/_media_player.py`: added a 500MB
+  combined-size budget on this specific eager-auto-load call site — over
+  budget, the load is skipped (logged) and `current_extracted_paths` is
+  still set so the tab knows what's there. Deliberately narrow (this one
+  call site, not the shared gallery-loading pipeline #522/#526 own).
+- Verified via two full app relaunches against the real 108GB directory:
+  stable memory throughout both, no freeze.
+
+---
+
+# S524 — 2026-09-05 (Claude: disk-cache the QImageReader/GIF decode path)
+
+- Live-testing `integration/phase-0` found GIF-heavy directories far
+  slower to load than before GIFs were routed off the native decoder
+  (#521's correctness fix — OpenCV's GIF support can silently return
+  valid-but-garbage frames). Root-caused without an app relaunch, via a
+  standalone script against a real GIF:
+  - `THUMBNAIL_CACHE_DIR` is only ever written by the native
+    `base.load_image_batch()` path; GIFs never touch it, so every GIF
+    view/scroll re-decoded from scratch, forever.
+  - `QImageReader.setScaledSize()` is a no-op for GIF decode cost — Qt's
+    GIF plugin always pays full-canvas decode regardless of requested
+    output size (scaled vs. full-size read timing identical in testing).
+- `gui/src/helpers/image/_qimagereader_disk_cache.py` (new): a disk cache
+  for this path, namespaced `qir_` so it can't collide with the native
+  cache's key scheme. Wired into `ImageLoaderWorker._load_via_qimagereader()`
+  and `BatchImageLoaderWorker._load_one_via_qimage()`.
+- Verified: 40x faster on a warm-cache read (0.0005s vs 0.0195s) against a
+  real GIF; confirmed in the live app across a relaunch (cache persists to
+  disk) — user-confirmed "super fast and responsive... behavior is as
+  intended."
+- Also found in passing, not fixed: the existing video-thumbnail disk cache
+  (`gui/src/classes/image/abstract_class_single_gallery/_disk_cache.py`)
+  passes `format=b"JPG"` (bytes) to `QImage.save()`, which raises
+  `ValueError` under this PySide6 version's overload resolution and is
+  silently swallowed by its own `except Exception` — likely a second,
+  pre-existing, unrelated latent bug (every video thumbnail may never
+  actually be hitting its disk cache either). Flagged on the bus for
+  whoever owns that file.
+- Wallpaper's `max_concurrent_loads=1` deliberately left untouched — set
+  that low specifically because Wallpaper directories can hold hundreds of
+  100-270MB GIFs (memory safety, see `fd26cedc`), not a caching bug.
+
+---
+
+# S523 — 2026-09-05 (Codex: Phase 0.3 device-owned tray preference)
+
+- `minimize_to_tray` / `close_to_tray` is now exclusively device-owned by
+  `AppSettings`/QSettings. Startup and the Settings UI ignore stale vault
+  keys; Settings persists the device value even in guest mode and never writes
+  it back into vault preferences. Added stale-vault and guest-save regression
+  coverage. This is the Phase 0 proof case before the full `PreferenceStore`
+  contract.
+
+---
+
+# S515 — 2026-09-05 (Gemini/Antigravity: Phase 0.4 prototype quarantine into protos/)
+
+- Issue #524 / Phase 0.4: Quarantined unwired prototype components into isolated `gui/src/protos/` package (`modules/descriptor.py`, `modules/registry.py`, `navigation/navigation_rail.py`, `navigation/segmented_ribbon.py`, `navigation/shell_manager.py`, `inspector/context_inspector.py`, `widgets/telemetry_status_bar.py`).
+- Isolated corresponding unit tests under `gui/test/protos/` (`test_registry.py`, `test_shell_manager.py`, `test_context_inspector.py`, `test_telemetry_status_bar.py`).
+- Confirmed no live package `__init__.py` imports from `protos/`.
+- Tests: `gui/test/protos/` (10/10 passed), `gui/test/widgets/test_creative_suite_widgets.py` (2/2 passed).
+
+---
+
+# S516 — 2026-09-05 (Opencode: Phase 0.2 visible-first thumbnail dispatch)
+
+- Issue #522 / Phase 0.2: Visible-first thumbnail dispatch across all four gallery implementations.
+- `gui/src/classes/base/gallery_base.py`: added `_sort_paths_by_visibility()` helper that checks each card widget's intersection with the scroll area viewport and reorders paths so visible cards come first.
+- `gui/src/classes/image/abstract_class_single_gallery/_loading_pipeline.py`: `_load_all_page_images()` now calls `_sort_paths_by_visibility()` on both `image_paths` and `video_paths` before dispatching to the batch loader.
+- `gui/src/classes/image/abstract_class_two_galleries/_found_gallery_populate.py`: `_load_all_found_page_images()` applies the same visibility sort before batch dispatch.
+- `gui/src/components/virtual_gallery/virtual_gallery_model.py`: added `set_visible_range(lo, hi)` for the view to report visible rows, `fill()` to trigger/re-trigger fill with visible-range awareness, and `_reorder_fill_queue()` to reorder an already-populated queue so visible rows come first. `_fill_all()` now splits paths into visible/rest before queuing.
+- `gui/src/components/virtual_gallery/virtual_gallery_view.py`: `_prefetch_visible()` now calls `model.set_visible_range(lo, hi)` on scroll to keep the model informed of the visible row range.
+- `gui/src/components/virtual_gallery/widget.py`: `VirtualGallery.set_paths()` now calls `model.fill()` after the view reports the initial visible range, so the first fill batch covers visible thumbnails.
+- Tests: `gui/test/components/test_virtual_gallery.py` (30/30), `gui/test/image/test_gallery_loading_pipeline.py` (11/11), `gui/test/image/test_gallery_classes.py` (24/24).
+
+---
+
+# S514 — 2026-09-05 (Grok: WallpaperTab Search/tray forwarders)
+
+- `gui/src/tabs/core/wallpaper_tab/manager.py`: `display_scan_results`, `toggle_daemon`, `_cycle_slideshow_wallpaper`, and `btn_daemon_toggle` now forward to `SystemDisplaySubTab` (was a silent `hasattr` no-op from Search and the tray).
+- `gui/test/core/test_core_tab.py`: `test_forwards_search_and_tray_apis_to_system_display`.
+
+---
+
+# S513 — 2026-09-05 (Grok: restore FlowLayout stretch lost in gui/ revert)
+
+- `gui/src/components/tag_chip_widget.py`: restored `FlowLayout.addStretch()` and two-phase layout (right-anchor leftover width; vertically center shorter items). Dropped by `7559b1d2`.
+- `gui/src/tabs/core/wallpaper_tab/system_display_subtab/_ui_builder.py`: restored `slideshow_layout.addStretch(1)` between the video-runtime checkbox and Timer label.
+- `gui/src/components/virtual_gallery/virtual_gallery_model.py`: default `ImageLoaderWorker` now imports from the leaf module, not the `gui.src.helpers` barrel.
+- `gui/test/components/test_tag_chip_widget.py`: 4/4 (two new stretch/wrap tests).
+
+---
+
 # S512 — 2026-09-05 (Antigravity: Navigation Rail Sidebar Toggle & Interaction Polish)
 
 - `gui/src/components/navigation/navigation_rail.py`:

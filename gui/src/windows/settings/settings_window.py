@@ -106,11 +106,7 @@ class SettingsWindow(
         self.pref_initial_cache = _p.get("initial_cache_maxsize", 300)
         self.pref_restore_last_dir = _p.get("restore_last_dir", True)
         self.pref_restore_last_tab = _p.get("restore_last_tab", False)
-        self.pref_minimize_to_tray = bool(
-            _p.get("minimize_to_tray", False)
-            or _p.get("close_to_tray", False)
-            or AppSettings.minimize_to_tray()
-        )
+        self.pref_minimize_to_tray = AppSettings.minimize_to_tray()
         self.pref_default_open_dir = _p.get("default_open_dir", "")
         self.pref_recent_dirs_count = _p.get("recent_dirs_count", 10)
         self.pref_startup_category = _p.get("startup_category", "System Tools")

@@ -94,6 +94,23 @@ class TestWallpaperTab:
         assert len(tab.monitor_display._monitors) == 1
         assert tab.monitor_display._monitors[0].name == "Display1"
 
+    def test_forwards_search_and_tray_apis_to_system_display(self, q_app, mock_deps):
+        tab = WallpaperTab(db_tab_ref=MagicMock())
+        tab.system_display.display_scan_results = MagicMock()
+        tab.system_display.toggle_daemon = MagicMock()
+        tab.system_display._cycle_slideshow_wallpaper = MagicMock()
+
+        tab.display_scan_results(["/tmp/a.png"])
+        tab.toggle_daemon(True)
+        tab._cycle_slideshow_wallpaper(increment=False)
+
+        tab.system_display.display_scan_results.assert_called_once_with(["/tmp/a.png"])
+        tab.system_display.toggle_daemon.assert_called_once_with(True)
+        tab.system_display._cycle_slideshow_wallpaper.assert_called_once_with(
+            increment=False
+        )
+        assert tab.btn_daemon_toggle is tab.system_display.btn_daemon_toggle
+
     def test_update_background_type(self, q_app, mock_deps):
         tab = WallpaperTab(db_tab_ref=MagicMock())
         tab.show()  # Ensure widgets can be effectively visible

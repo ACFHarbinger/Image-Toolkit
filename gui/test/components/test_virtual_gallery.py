@@ -234,14 +234,16 @@ def test_decoration_request_is_lazy():
 def test_default_model_warms_the_full_directory():
     model = VirtualGalleryModel(worker_factory=_FakeLoaderWorker)
     model.set_paths(["/a.png", "/b.png"])
+    model.fill()  # trigger fill after set_paths (visible-first protocol)
     assert model._loading == {"/a.png", "/b.png"}
 
 
 def test_set_paths_eagerly_fills_all_rows():
-    """The default fill mode pre-loads every row on set_paths (no scroll /
-    decoration request needed) so images are cached before the user scrolls."""
+    """fill() after set_paths pre-loads every row (no scroll / decoration
+    request needed) so images are cached before the user scrolls."""
     model = _make_model()  # fill_mode=True by default
     model.set_paths([f"/p/{i:04d}.png" for i in range(20)])
+    model.fill()  # trigger fill after set_paths (visible-first protocol)
 
     # No data()/prefetch call: the whole list is queued for loading.
     assert model._loading == {f"/p/{i:04d}.png" for i in range(20)}
@@ -255,6 +257,29 @@ def test_set_paths_eagerly_fills_all_rows():
     assert len(model._cache) == 20
     assert model._loading == set()
     assert model._active_workers == set()
+
+
+def test_visible_first_dispatch_first_worker_in_visible_range():
+    """Regression: the first dispatched workers must cover visible-row paths
+    (issue #522 blocking fix).  Without the fix, set_paths() triggered
+    _fill_all() before the view reported its visible range, so the first
+    workers were file-order offscreen paths."""
+    paths = [f"/p/{i:04d}.png" for i in range(200)]
+    model = VirtualGalleryModel(
+        worker_factory=_FakeLoaderWorker
+    )
+    model.set_paths(paths)
+    # Simulate the view reporting that rows 50-60 are visible.
+    model.set_visible_range(50, 60)
+    model.fill()
+
+    # The first dispatched workers must be from the visible range [50..60].
+    visible_paths = set(paths[50:61])
+    active_paths = {w.path for w in model._active_workers}
+    assert active_paths <= visible_paths, (
+        f"Offscreen workers dispatched before visible: "
+        f"{active_paths - visible_paths}"
+    )
 
 
 def test_loaded_thumbnail_lands_in_cache_and_emits_data_changed():
