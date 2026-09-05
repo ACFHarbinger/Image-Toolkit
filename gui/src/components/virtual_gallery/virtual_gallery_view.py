@@ -21,8 +21,7 @@ The view adds the behaviours the QLabel galleries' ``ClickableLabel`` and
 * ``QItemSelectionModel``-backed selection (§2.4) with ``selected_paths()``.
 """
 
-from __future__ import annotations
-
+import os
 from typing import TYPE_CHECKING, Optional
 
 from PySide6.QtCore import (
@@ -36,8 +35,21 @@ from PySide6.QtCore import (
     QUrl,
     Signal,
 )
-from PySide6.QtGui import QCursor, QDrag, QMouseEvent, QPixmap, QWheelEvent
-from PySide6.QtWidgets import QAbstractItemView, QApplication, QListView
+from PySide6.QtGui import (
+    QCursor,
+    QDrag,
+    QKeyEvent,
+    QMouseEvent,
+    QPixmap,
+    QWheelEvent,
+)
+from PySide6.QtWidgets import (
+    QAbstractItemView,
+    QApplication,
+    QInputDialog,
+    QListView,
+    QMessageBox,
+)
 
 from gui.src.components.gallery.presentation_mode import (
     GalleryOverlayConfig,
@@ -56,6 +68,7 @@ class VirtualGalleryView(QListView):
     path_clicked = Signal(str)
     path_activated = Signal(str)
     path_right_clicked = Signal(QPoint, str)
+    path_renamed = Signal(str, str)
     ctrl_wheel = Signal(int)
 
     def __init__(self, parent=None, prefetch_buffer: int = 40):
@@ -290,6 +303,69 @@ class VirtualGalleryView(QListView):
             event.accept()
         else:
             super().wheelEvent(event)
+
+    def keyPressEvent(self, event: QKeyEvent) -> None:
+        from gui.src.utils.manager.shortcut_manager import get_registry
+        from gui.src.utils.undo_manager import UndoManager
+
+        reg = get_registry()
+        if reg.matches(event, "gallery.rename") or event.key() == Qt.Key.Key_F2:
+            self.rename_selected_file()
+            event.accept()
+        elif reg.matches(event, "general.undo"):
+            UndoManager.instance().undo()
+            event.accept()
+        elif reg.matches(event, "general.redo"):
+            UndoManager.instance().redo()
+            event.accept()
+        else:
+            super().keyPressEvent(event)
+
+    def rename_selected_file(self) -> Optional[str]:
+        """Trigger inline rename on the active/selected gallery item via F2 (§2.26)."""
+        selected = self.selected_paths()
+        target = selected[0] if selected else None
+        if target is None and self._gallery_model and self._gallery_model.rowCount() > 0:
+            target = self._gallery_model.path_at(0)
+        if not target or not os.path.exists(target):
+            return None
+
+        old_name = os.path.basename(target)
+        stem, ext = os.path.splitext(old_name)
+        new_stem, ok = QInputDialog.getText(
+            self, "Rename File (F2)", "New filename (without extension):", text=stem
+        )
+        if not ok or not new_stem.strip() or new_stem.strip() == stem:
+            return None
+
+        new_stem = new_stem.strip()
+        for ch in r'\/:*?"<>|':
+            new_stem = new_stem.replace(ch, "_")
+
+        new_path = os.path.join(os.path.dirname(target), new_stem + ext)
+        if os.path.exists(new_path):
+            QMessageBox.warning(
+                self, "Rename Conflict", f"A file named '{new_stem + ext}' already exists."
+            )
+            return None
+
+        try:
+            from gui.src.utils.undo_manager import UndoManager
+
+            def _on_renamed(old_p: str, new_p: str) -> None:
+                if self._gallery_model:
+                    self._gallery_model.rename_path(old_p, new_p)
+                self.path_renamed.emit(old_p, new_p)
+
+            UndoManager.instance().rename_file_undoable(
+                old_path=target,
+                new_path=new_path,
+                on_renamed=_on_renamed,
+            )
+            return new_path
+        except Exception as exc:
+            QMessageBox.critical(self, "Rename Error", str(exc))
+            return None
 
     # ------------------------------------------------------------------
     # Drag-to-drop (opt-in). Wallpaper supplies an in-app drop resolver, so

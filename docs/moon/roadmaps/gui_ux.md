@@ -1162,9 +1162,12 @@ Show the 3–4 most relevant shortcuts for the current tab in the status bar (§
 
 ---
 
-## 2.26 Inline Rename ✅ Partial (2026-06-10 — §B shipped: context-menu rename via F2) {: #226-inline-rename }
+## 2.26 Inline Rename ✅ (2026-09-05 — Options A & B shipped with Undo/Redo integration) {: #226-inline-rename }
 
-**Pain point:** Renaming a file requires the user to leave the app, open a file manager, rename, and return. No inline rename (F2) exists in any gallery tab, despite the `DraggableLabel` and `ClickableLabel` components being potential hosts for in-place `QLineEdit` editing.
+**Shipped: Options A & B with Undo/Redo.**
+- **Option A & B (`F2` / Context Menu Rename)**: Pressing `F2` or choosing "Rename..." triggers an input dialog pre-filled with the current basename, sanitizes forbidden filename characters, renames the file via `UndoManager.rename_file_undoable()`, updates `VirtualGalleryModel` paths and overlay metadata (ratings, resolutions, formats, tag counts, cached pixmaps), and emits `path_renamed(old_path, new_path)`.
+- **Undo/Redo Recovery**: Fully undoable with `Ctrl+Z` / `Ctrl+Shift+Z`.
+- **Tests**: `gui/test/gallery/test_inline_rename.py` (3 unit tests).
 
 ### Options
 
