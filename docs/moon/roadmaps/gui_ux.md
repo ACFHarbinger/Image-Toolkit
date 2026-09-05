@@ -92,7 +92,7 @@ flowchart LR
 
     subgraph WF["⚡ Workflow & Productivity"]
         direction TB
-        S25["§2.5 Session Persistence"]:::augment:::planned
+        S25["§2.5 Session Persistence ✅"]:::augment:::done
         S27["§2.7 Progress & Cancel ✅p"]:::augment:::active
         S215["§2.15 Undo/Redo ✅p"]:::feature:::active
         S216["§2.16 Command Palette ✅p"]:::feature:::active
@@ -425,7 +425,8 @@ One-click select all / deselect all / invert. Common in batch photo editors.
 
 ---
 
-## 2.5 Session Persistence
+## 2.5 Session Persistence ✅ (2026-09-05: A + C) {: #25-session-persistence }
+**Shipped:** Per-tab last browsed directory persistence via `AppSettings.set_session` / `_save_last_dir` (Option A), and reusable `RecentDirectoriesPicker` dropdown tool button component (Option C) displaying MRU directory paths with elision, clear history action, and fast navigation across `SamplerSubTab`, `MergeTab`, `SimilarityTab`, `VideoExtractorSubTab`, `ScanMetadataTab`, `FormatSubTab`, and `CodecSubTab`.
 
 **Pain point:** Every app restart requires re-browsing to the last directory. For consistent workflows this is repetitive friction.
 
@@ -450,8 +451,6 @@ Show the 10 most recently browsed directories in a dropdown per tab. No auto-res
 Save/load named "workspace" profiles that capture the full session state (B). Expose as a menu: `File → Workspaces → [Save / Load]`.
 - Pros: Enables project-based workflows (e.g., "novel reading session" vs "wallpaper curation").
 - Cons: Significant effort. Better deferred until B proves valuable.
-
-**Recommendation:** A immediately. C as a follow-on. B is overkill for now.
 
 ---
 

@@ -38,6 +38,9 @@ class _DirectoryBrowseMixin:
         self.input_path.setText(path)
         self.last_browsed_dir = path
         self._add_recent_dir(path)
+        self._save_last_dir(path)
+        if hasattr(self, "_btn_recent_dirs") and hasattr(self._btn_recent_dirs, "refresh_menu"):
+            self._btn_recent_dirs.refresh_menu()
         self.scan_directory_visual()
 
     def _show_recent_dirs_menu(self) -> None:

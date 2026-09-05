@@ -28,15 +28,24 @@ class _ScanInputMixin:
                 self, "Invalid Path", "The entered path is not a valid directory."
             )
 
+    def _navigate_to_dir(self, d: str) -> None:
+        if not d or not os.path.isdir(d):
+            return
+        self.scan_directory_path.setText(d)
+        self.last_browsed_scan_dir = d
+        self._add_recent_dir(d)
+        self._save_last_dir(d)
+        if hasattr(self, "_btn_recent_dirs") and hasattr(self._btn_recent_dirs, "refresh_menu"):
+            self._btn_recent_dirs.refresh_menu()
+        self.populate_scan_gallery(d)
+
     @Slot()
     def browse_and_scan_directory(self):
         d = QFileDialog.getExistingDirectory(
             self, "Select Directory to Scan", self.last_browsed_scan_dir
         )
         if d:
-            self.scan_directory_path.setText(d)
-            self.last_browsed_scan_dir = d
-            self.populate_scan_gallery(d)
+            self._navigate_to_dir(d)
 
     @Slot()
     def browse_output_directory(self):
