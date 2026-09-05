@@ -49,7 +49,18 @@ class ModuleHostWidget(QWidget):
             self._mount_module(descriptor)
 
     def _mount_module(self, descriptor: ModuleDescriptor) -> QWidget:
-        """Mount module's widget into the internal stack if not already mounted."""
+        """Mount module's widget into the internal stack if not already mounted.
+
+        NOTE (#527 cross-review): the host caches by ``descriptor.id`` here
+        regardless of ``descriptor.singleton``. ``singleton=False`` only
+        changes whether ``ModuleDescriptor.get_widget()`` caches onto
+        ``self.instance``; the host itself always mounts a module's widget
+        at most once per host lifetime and reuses it on every subsequent
+        ``navigate_to`` — non-singleton (fresh-widget-per-activation)
+        modules are not yet supported by ``ModuleHostWidget``. Document
+        this rather than silently mis-support it until a real non-singleton
+        pilot needs unmount/rebuild semantics.
+        """
         if descriptor.id in self._mounted_widgets:
             return self._mounted_widgets[descriptor.id]
 

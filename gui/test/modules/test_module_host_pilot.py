@@ -103,9 +103,11 @@ class TestModuleRegistry:
         assert r is not None
         assert r.route_id == "seam"
 
-        # Invalid child route
+        # Invalid child route -- must read as "no match" entirely (#527
+        # cross-review), not resolve to the top-level module as if no
+        # child had been requested.
         d, r = reg.resolve_route("stitch/unknown")
-        assert d is desc
+        assert d is None
         assert r is None
 
         # Non-existent module
@@ -163,6 +165,31 @@ class TestModuleHostWidget:
         # module_changed should not fire again since module_id is same
         assert len(change_events) == 1
         assert len(nav_events) == 2
+
+    def test_unknown_child_route_does_not_navigate(self, q_app):
+        """#527 cross-review: navigating to an unresolvable child route
+        must be a no-op -- it must not mount/activate the module as if
+        the invalid route were valid.
+        """
+        host = ModuleHostWidget()
+        desc = ModuleDescriptor(
+            id="pilot_mod",
+            title="Pilot Module",
+            category=ModuleCategory.SYSTEM,
+            construction_policy=ConstructionPolicy.LAZY,
+            view_factory=lambda: QLabel("Hosted View"),
+            child_routes=[ModuleRoute("sub", "Sub Route")],
+        )
+        host.register_module(desc)
+
+        nav_events = []
+        host.module_navigated.connect(lambda mod_id, route: nav_events.append((mod_id, route)))
+
+        result = host.navigate_to("pilot_mod/nonexistent")
+        assert result is None
+        assert not host.is_mounted("pilot_mod")
+        assert host.active_module_id is None
+        assert nav_events == []
 
 
 class TestLogPanelPilot:

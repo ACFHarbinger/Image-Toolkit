@@ -75,9 +75,11 @@ class AppSettings:
 
     @classmethod
     def set_recursive_scan(cls, enabled: bool) -> None:
+        # ACCOUNT-scope key: PreferenceStore's VaultPreferenceAdapter is the
+        # single writer (persists through the vault boundary itself, #525
+        # cross-review) -- no second QSettings write.
         from gui.src.preferences import PreferenceStore, PrefKeys
         PreferenceStore.instance().set(PrefKeys.RECURSIVE_SCAN, enabled)
-        cls._q().setValue("preferences/recursive_scan", enabled)
 
     @classmethod
     def favourite_directories(cls) -> list[str]:
@@ -87,10 +89,13 @@ class AppSettings:
 
     @classmethod
     def set_favourite_directories(cls, dirs: list[str]) -> None:
-        """Store the list of favourite directories."""
+        """Store the list of favourite directories.
+
+        ACCOUNT-scope key -- PreferenceStore's vault adapter is the single
+        writer; no second QSettings write (#525 cross-review).
+        """
         from gui.src.preferences import PreferenceStore, PrefKeys
         PreferenceStore.instance().set(PrefKeys.FAVOURITE_DIRECTORIES, dirs)
-        cls._q().setValue("preferences/favourite_directories", dirs)
 
     @classmethod
     def mal_fetch_method(cls) -> str:
@@ -103,9 +108,10 @@ class AppSettings:
 
     @classmethod
     def set_mal_fetch_method(cls, method: str) -> None:
+        # ACCOUNT-scope key: single writer via PreferenceStore's vault
+        # adapter, no second QSettings write (#525 cross-review).
         from gui.src.preferences import PreferenceStore, PrefKeys
         PreferenceStore.instance().set(PrefKeys.MAL_FETCH_METHOD, method)
-        cls._q().setValue("preferences/mal_fetch_method", method)
 
     @classmethod
     def minimize_to_tray(cls) -> bool:

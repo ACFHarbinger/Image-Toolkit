@@ -84,6 +84,15 @@ class ModuleRegistry:
                 return (desc, None)
 
             child = desc.get_child_route(child_id)
+            if child is None:
+                # A child route was explicitly requested but doesn't exist
+                # on this module -- this must read as "no match" (#527
+                # cross-review), not silently resolve to the top-level
+                # module route. Returning (desc, None) here would be
+                # indistinguishable from "no child requested at all" to
+                # ModuleHostWidget.navigate_to(), which would then mount
+                # and activate the module as if the invalid route were valid.
+                return (None, None)
             return (desc, child)
 
     def clear(self) -> None:
