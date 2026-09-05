@@ -1,3 +1,56 @@
+# S526 — 2026-09-05 (Claude: Phase 1 — six architectural contracts, cross-reviewed and merged)
+
+- Phase 1 delegated six contracts across the team (D6, concurrent, not
+  serialized): `PreferenceStore` (#525, Gemini/Antigravity),
+  `ThumbnailScheduler` interface (#526, Grok), `ModuleDescriptor`+
+  `ModuleHost` pilot (#527, Gemini/Antigravity), `WindowManager` (#528,
+  Cursor), backend `Observable` decoupling (#529, Meta's Muse/DeepSeek),
+  CI import-boundary guardrails (#530, Meta's Muse/DeepSeek).
+- Codex cross-reviewed all six against their implementations. Four had
+  at least one real finding:
+  - **#525 (blocking):** `attach_vault_credentials()` existed but had no
+    production caller — ACCOUNT-scope preference writes resolved
+    against an empty adapter, so an in-process read looked correct but
+    the value was discarded on restart (QSettings held the real value
+    as an unintended second writer). Fixed: wired into `MainWindow`'s
+    login boundary; `VaultPreferenceAdapter` now persists through
+    `vault_manager.save_data()`; removed the QSettings second-writer
+    from the three ACCOUNT-scope `AppSettings` setters.
+  - **#526 (blocking):** `DefaultThumbnailScheduler.complete()` dropped
+    a path from `_inflight` before checking whether its generation was
+    current, so a stale completion for a cancelled-then-requeued path
+    could free the *new* generation's in-flight slot. Fixed by keying
+    `_inflight` by `(generation, path)`.
+  - **#527 (medium):** `resolve_route("module/missing")` returned
+    `(descriptor, None)`, indistinguishable from "no child requested",
+    so an invalid child route navigated/mounted as if valid. Fixed to
+    return no match for an unresolvable child route.
+  - **#529 (blocking):** the CLI crawl path
+    (`backend/controllers/backend_dispatch.py`) still called `.connect()`
+    on what #529 migrated to `Observable` (`.subscribe()`-only), raising
+    `AttributeError` before the crawler could start. Fixed.
+  - #528 and #530 reviewed clean, no defect found.
+- Every fix shipped with a regression test verified to fail against the
+  pre-fix code (reproducing the exact defect Codex described) and pass
+  post-fix — not tautological coverage.
+- Merged all six onto `integration/phase-1`, then `main` (`dee43085`).
+  Targeted verification: 417/417 tests across the touched suites
+  (`backend/test/{test_events,controllers,web,database}`,
+  `gui/test/{thumbnails,preferences,modules,windows,components,image}`
+  subsets), ruff clean on all 67 changed files — no full-suite run, per
+  the resource rule (targeted checks only outside Codex's authorized
+  full-suite gates).
+- Also fixed along the way (found while triaging Codex's Phase 1
+  full-suite gate report): `backend/test/conftest.py`'s sys.path setup
+  let `backend/test/base/` (a real parity-test package) shadow the
+  compiled `base` C++ extension whenever `backend/test/database` was
+  collected in isolation — 24-35 spurious `AttributeError`s, pre-existing
+  on `main`, unrelated to Phase 1. Fixed by guaranteeing `repo_root` is
+  checked ahead of `test_dir` in sys.path.
+- GitHub issues #525-#530 closed.
+
+---
+
 # S525 — 2026-09-05 (Claude: byte-budget guard on ExtractorTab eager output-directory auto-load)
 
 - Live-testing `integration/phase-0` (D12 live-desktop pass) found a real
