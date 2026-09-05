@@ -110,6 +110,15 @@ class VirtualGallery(QWidget):
     def clear_selection(self) -> None:
         self.view.clear_selection()
 
+    def deselect_all(self) -> None:
+        """Alias matching clear_selection."""
+        self.view.clear_selection()
+
+    def invert_selection(self) -> None:
+        """Invert selection across all loaded items (§2.4E)."""
+        self.view.invert_selection()
+
+
     def jump_to_path(self, path: str) -> bool:
         return self.view.jump_to_path(path)
 

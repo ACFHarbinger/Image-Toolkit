@@ -154,6 +154,12 @@ SHORTCUT_REGISTRY: list[dict] = [
         "default": "Ctrl+D",
     },
     {
+        "id": "gallery.invert_selection",
+        "description": "Invert selection of gallery images",
+        "scope": "Gallery",
+        "default": "Ctrl+I",
+    },
+    {
         "id": "gallery.nav_left",
         "description": "Move gallery focus left",
         "scope": "Gallery",

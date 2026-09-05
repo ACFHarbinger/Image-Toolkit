@@ -50,6 +50,26 @@ class _SelectionOpsMixin:
             self._update_found_card_styles()
             self.on_selection_changed()
 
+    @Slot()
+    def invert_selection(self: "AbstractClassTwoGalleriesHostProtocol"):
+        """Invert selection of currently visible found items (§2.4E)."""
+        if hasattr(self, "dual") and hasattr(self.dual, "invert_selection"):
+            self.dual.invert_selection()
+            return
+
+        current_page_paths = self.common_get_paginated_slice(
+            self.found_files, self.found_current_page, self.found_page_size
+        )
+        new_selected = [p for p in self.selected_files if p not in current_page_paths]
+        for path in current_page_paths:
+            if path not in self.selected_files:
+                new_selected.append(path)
+        self.selected_files = new_selected
+        self.refresh_selected_panel()
+        self._update_found_card_styles()
+        self.on_selection_changed()
+
+
     def _update_found_card_styles(self: "AbstractClassTwoGalleriesHostProtocol"):
         """Helper to re-evaluate and apply style to all currently loaded/visible found cards."""
         for path, widget in self.path_to_label_map.items():

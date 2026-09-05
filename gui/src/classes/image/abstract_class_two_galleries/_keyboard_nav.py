@@ -30,7 +30,11 @@ class _KeyboardNavMixin:
         elif reg.matches(event, "gallery.deselect_all"):  # pyrefly: ignore [bad-argument-type]
             self.deselect_all_items()
             event.accept()
+        elif reg.matches(event, "gallery.invert_selection"):  # pyrefly: ignore [bad-argument-type]
+            self.invert_selection()
+            event.accept()
         elif reg.matches(event, "gallery.nav_left"):  # pyrefly: ignore [bad-argument-type]
+
             self._navigate_gallery(Qt.Key.Key_Left)
             event.accept()
         elif reg.matches(event, "gallery.nav_right"):  # pyrefly: ignore [bad-argument-type]

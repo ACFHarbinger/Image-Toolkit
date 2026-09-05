@@ -391,9 +391,14 @@ Optional mode toggle: press `v` to enter visual navigation mode, use hjkl for mo
 
 ---
 
-## 2.4 Bulk Selection and Operations ✅ Partial (2026-06-10 — §B Shift+click range + §C right-click context menu) {: #24-bulk-selection-and-operations }
+## 2.4 Bulk Selection and Operations ✅ Shipped (2026-09-05 — Options B, C, D, E shipped — Complete) {: #24-bulk-selection-and-operations }
 
-**Pain point:** No way to select multiple images across the gallery and apply operations (convert, delete, tag) to all at once. Every operation is per-image or per-directory.
+**Shipped: Options B, C, D, & E.**
+- **Option B (Shift+Click Range & Ctrl+Click Multi-Select)**: Native `ExtendedSelection` model in `VirtualGalleryView` (`QListView`) and `QItemSelectionModel` integration.
+- **Option C (Context Menu Batch Operations)**: Context menu actions across single and dual galleries for batch delete, copy paths, compare selected, contact sheet export, and color labeling.
+- **Option D (Lasso / Rubber Band Selection)**: `setSelectionRectVisible(True)` enabled in `VirtualGalleryView` allowing live rectangular marquee drag-selection.
+- **Option E ("Select All", "Deselect All", and "Invert Selection" Toolbar Buttons & Shortcuts)**: Dedicated `Select All`, `Clear Selection`, and `Invert` buttons on `VirtualDualGallery` found header, `invert_selection()` methods on `VirtualGallery`, `VirtualGalleryView`, `VirtualDualGallery`, `_SelectionOpsMixin` (two galleries), and `_SelectionMixin` (single gallery), plus `gallery.select_all` (`Ctrl+A`), `gallery.deselect_all` (`Ctrl+D`), and `gallery.invert_selection` (`Ctrl+I`) keyboard shortcuts.
+- **Tests**: `gui/test/components/test_bulk_selection.py` (5 unit tests) and `gui/test/components/test_virtual_dual_gallery.py` (5 unit tests).
 
 ### Options
 
@@ -425,6 +430,7 @@ One-click select all / deselect all / invert. Common in batch photo editors.
 **Recommendation:** B + C together — standard patterns users already know. E is a trivial follow-on. D is better deferred until §2.1A is implemented.
 
 ---
+
 
 ## 2.5 Session Persistence ✅ (2026-09-05: A + C) {: #25-session-persistence }
 **Shipped:** Per-tab last browsed directory persistence via `AppSettings.set_session` / `_save_last_dir` (Option A), and reusable `RecentDirectoriesPicker` dropdown tool button component (Option C) displaying MRU directory paths with elision, clear history action, and fast navigation across `SamplerSubTab`, `MergeTab`, `SimilarityTab`, `VideoExtractorSubTab`, `ScanMetadataTab`, `FormatSubTab`, and `CodecSubTab`.

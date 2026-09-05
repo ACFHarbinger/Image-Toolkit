@@ -209,6 +209,24 @@ class VirtualGalleryView(QListView):
         if sm is not None:
             sm.clearSelection()
 
+    def invert_selection(self) -> None:
+        """Invert the selection across all gallery items (§2.4E)."""
+        if self._gallery_model is None:
+            return
+        n = self._gallery_model.rowCount()
+        if n == 0:
+            return
+        sm = self.selectionModel()
+        if sm is not None:
+            selection = QItemSelection(
+                self._gallery_model.index(0, 0),
+                self._gallery_model.index(n - 1, 0),
+            )
+            sm.select(
+                selection, sm.SelectionFlag.Toggle | sm.SelectionFlag.Rows
+            )
+
+
     def jump_to_path(self, path: str) -> bool:
         """Scroll to the row for *path* (returns False if unknown)."""
         if self._gallery_model is None:
@@ -312,6 +330,15 @@ class VirtualGalleryView(QListView):
         if reg.matches(event, "gallery.rename") or event.key() == Qt.Key.Key_F2:
             self.rename_selected_file()
             event.accept()
+        elif reg.matches(event, "gallery.select_all"):
+            self.select_all()
+            event.accept()
+        elif reg.matches(event, "gallery.deselect_all"):
+            self.clear_selection()
+            event.accept()
+        elif reg.matches(event, "gallery.invert_selection"):
+            self.invert_selection()
+            event.accept()
         elif reg.matches(event, "general.undo"):
             UndoManager.instance().undo()
             event.accept()
@@ -320,6 +347,7 @@ class VirtualGalleryView(QListView):
             event.accept()
         else:
             super().keyPressEvent(event)
+
 
     def rename_selected_file(self) -> Optional[str]:
         """Trigger inline rename on the active/selected gallery item via F2 (§2.26)."""

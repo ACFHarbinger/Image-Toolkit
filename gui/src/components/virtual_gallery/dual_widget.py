@@ -108,9 +108,15 @@ class VirtualDualGallery(QWidget):
         self.btn_select_all = QPushButton("Select All")
         self.btn_select_all.clicked.connect(self.select_all)
 
+        self.btn_invert = QPushButton("Invert")
+        self.btn_invert.setToolTip("Invert selection (Ctrl+I)")
+        self.btn_invert.clicked.connect(self.invert_selection)
+
         found_header.addWidget(self.lbl_found_title)
         found_header.addWidget(self.txt_found_search)
         found_header.addWidget(self.btn_select_all)
+        found_header.addWidget(self.btn_invert)
+
 
         # Zoom Control (§2.2 Options A, C, D)
         parent_class = self.parent().__class__.__name__ if self.parent() else None
@@ -254,6 +260,17 @@ class VirtualDualGallery(QWidget):
             self._refresh_selected_view()
             self._sync_selected_marks()
             self.selection_changed.emit()
+
+    def invert_selection(self) -> None:
+        """Invert selection across visible found images (§2.4E)."""
+        new_selected = [
+            p for p in self._filtered_found_paths if p not in self._selected_paths
+        ]
+        self._selected_paths = new_selected
+        self._refresh_selected_view()
+        self._sync_selected_marks()
+        self.selection_changed.emit()
+
 
     def remove_selected(self, path: str) -> None:
         if path in self._selected_paths:
