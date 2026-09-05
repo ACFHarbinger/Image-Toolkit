@@ -1,13 +1,16 @@
-"""Shell layout manager coordinating Rail vs. Top Bar navigation and viewport stacking (§2.36)."""
+"""Shell layout manager coordinating Rail vs. Top Bar navigation and ModuleRuntime (§2.36, #513)."""
 
 from __future__ import annotations
 
 from enum import Enum
 from typing import Optional
+
 from PySide6.QtCore import QObject, Signal
 from PySide6.QtWidgets import QHBoxLayout, QStackedWidget, QVBoxLayout, QWidget
 
-from gui.src.modules.registry import ModuleRegistry
+from gui.src.modules.events import NavigateIntent
+from gui.src.modules.runtime import ModuleRuntime
+
 from .navigation_rail import NavigationRailWidget
 from .segmented_ribbon import TopSegmentedRibbonWidget
 
@@ -18,30 +21,37 @@ class ShellNavMode(str, Enum):
 
 
 class ShellLayoutManager(QObject):
-    """Coordinates dynamic shell navigation and lazy viewport mounting."""
+    """Coordinates dynamic shell navigation, lazy viewport mounting, and runtime activation."""
 
     module_changed = Signal(str)  # active module_id
     nav_mode_changed = Signal(str)  # new mode value
 
     def __init__(
         self,
-        registry: ModuleRegistry,
+        runtime: ModuleRuntime,
         container_widget: QWidget,
         default_mode: ShellNavMode = ShellNavMode.RAIL,
     ) -> None:
         super().__init__(container_widget)
-        self.registry = registry
+        self.runtime = runtime
+        self.catalog = runtime.catalog
+        self.context = runtime.context
         self.container = container_widget
         self.nav_mode = default_mode
         self._active_module_id: Optional[str] = None
-        self._mounted_widgets: dict[str, QWidget] = {}
+        self._mounted_widgets: set[QWidget] = set()
 
         self.stack = QStackedWidget()
-        self.rail = NavigationRailWidget(registry)
-        self.ribbon = TopSegmentedRibbonWidget(registry)
+        self.rail = NavigationRailWidget(self.catalog)
+        self.ribbon = TopSegmentedRibbonWidget(self.catalog)
 
         self.rail.module_selected.connect(self.activate_module)
         self.ribbon.module_selected.connect(self.activate_module)
+
+        # Subscribe to NavigateIntent on the event hub
+        self._nav_sub = self.context.event_hub.subscribe(
+            NavigateIntent, self._on_navigate_intent, owner=self
+        )
 
         self._build_layout()
 
@@ -90,19 +100,13 @@ class ShellLayoutManager(QObject):
         self.set_nav_mode(new_mode)
 
     def activate_module(self, module_id: str) -> None:
-        if module_id == self._active_module_id:
-            return
-        desc = self.registry.get(module_id)
-        if not desc:
-            return
+        handle = self.runtime.activate(module_id)
+        widget = handle.widget
 
-        # Lazy mount into stack if not already mounted
-        if module_id not in self._mounted_widgets:
-            widget = desc.get_widget()
-            self._mounted_widgets[module_id] = widget
+        if widget not in self._mounted_widgets:
+            self._mounted_widgets.add(widget)
             self.stack.addWidget(widget)
 
-        widget = self._mounted_widgets[module_id]
         self.stack.setCurrentWidget(widget)
         self._active_module_id = module_id
 
@@ -116,6 +120,9 @@ class ShellLayoutManager(QObject):
         self.ribbon.blockSignals(False)
 
         self.module_changed.emit(module_id)
+
+    def _on_navigate_intent(self, intent: NavigateIntent) -> None:
+        self.activate_module(intent.module_id)
 
     @property
     def active_module_id(self) -> Optional[str]:

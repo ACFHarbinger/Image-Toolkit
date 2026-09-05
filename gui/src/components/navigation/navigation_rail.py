@@ -1,23 +1,23 @@
-"""Vertical Navigation Rail component for modern creative suite layout (§2.36)."""
+"""Vertical Navigation Rail component for modern creative suite layout (§2.36, #513)."""
 
 from __future__ import annotations
 
 from typing import Optional
-from PySide6.QtCore import QSize, Qt, Signal
+
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QButtonGroup,
     QHBoxLayout,
     QLabel,
     QPushButton,
     QScrollArea,
-    QSizePolicy,
     QToolButton,
     QVBoxLayout,
     QWidget,
 )
 
-from gui.src.modules.descriptor import ModuleCategory, ModuleDescriptor
-from gui.src.modules.registry import ModuleRegistry
+from gui.src.modules.catalog import ModuleCatalog
+from gui.src.modules.descriptor import ModuleCategory
 
 CATEGORY_ICONS: dict[ModuleCategory, str] = {
     ModuleCategory.SYSTEM: "⚙️",
@@ -35,9 +35,9 @@ class NavigationRailWidget(QWidget):
 
     module_selected = Signal(str)  # module_id
 
-    def __init__(self, registry: ModuleRegistry, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, catalog: ModuleCatalog, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
-        self.registry = registry
+        self.catalog = catalog
         self.active_category: Optional[ModuleCategory] = None
         self.active_module_id: Optional[str] = None
         self._drawer_expanded: bool = True
@@ -61,7 +61,7 @@ class NavigationRailWidget(QWidget):
         self.cat_group = QButtonGroup(self)
         self.cat_buttons: dict[ModuleCategory, QToolButton] = {}
 
-        for cat in self.registry.categories():
+        for cat in self.catalog.categories():
             icon_char = CATEGORY_ICONS.get(cat, "📦")
             btn = QToolButton()
             btn.setText(icon_char)
@@ -113,7 +113,7 @@ class NavigationRailWidget(QWidget):
         layout.addWidget(self.drawer_widget)
 
         # Initial selection
-        cats = self.registry.categories()
+        cats = self.catalog.categories()
         if cats:
             self.select_category(cats[0])
 
@@ -146,27 +146,26 @@ class NavigationRailWidget(QWidget):
                 widget.deleteLater()
 
         # Add buttons for modules in this category
-        modules = self.registry.by_category(category)
+        modules = self.catalog.by_category(category)
         for mod in modules:
-            sub = f" // {mod.japanese_subtext}" if mod.japanese_subtext else ""
+            sub = f" // {mod.japanese_subtext}" if getattr(mod, 'japanese_subtext', None) else ""
             btn = QPushButton(f"{mod.title}{sub}")
-            btn.setObjectName(f"module_btn_{mod.id}")
+            btn.setObjectName(f"module_btn_{mod.module_id}")
             btn.setCheckable(True)
             btn.setStyleSheet("text-align: left; padding: 6px 10px; font-size: 9pt;")
-            if mod.id == self.active_module_id:
+            if mod.module_id == self.active_module_id:
                 btn.setChecked(True)
-            btn.clicked.connect(lambda _=False, m=mod.id: self._on_module_clicked(m))
+            btn.clicked.connect(lambda _=False, m=mod.module_id: self._on_module_clicked(m))
             self.module_list_layout.addWidget(btn)
 
         self.module_list_layout.addStretch()
 
         # Select first module if active not in this category
-        if modules and (not self.active_module_id or self.registry.get(self.active_module_id).category != category):
-            self._on_module_clicked(modules[0].id)
+        if modules and (not self.active_module_id or self.catalog.require(self.active_module_id).category != category):
+            self._on_module_clicked(modules[0].module_id)
 
     def _on_module_clicked(self, module_id: str) -> None:
         self.active_module_id = module_id
-        # Update checked state among buttons
         for i in range(self.module_list_layout.count()):
             item = self.module_list_layout.itemAt(i)
             widget = item.widget()
@@ -175,7 +174,7 @@ class NavigationRailWidget(QWidget):
         self.module_selected.emit(module_id)
 
     def set_active_module(self, module_id: str) -> None:
-        mod = self.registry.get(module_id)
+        mod = self.catalog.get(module_id)
         if mod:
             if mod.category != self.active_category:
                 self.select_category(mod.category)
