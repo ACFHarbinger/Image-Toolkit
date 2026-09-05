@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from PySide6.QtCore import Qt
 
+from gui.src.modules.events import EventHub, FilterByTagIntent, NavigateIntent
 from gui.src.tabs.database.database_tab import DatabaseTab
 from gui.src.tabs.database.search_tab import SearchTab
 
@@ -83,37 +84,40 @@ class TestSearchImagesWithTag:
             tab.search_images_with_selected_tag()
             mock_warn.assert_called_once()
 
-    def test_no_search_tab_ref_warns(self, q_app):
+    def test_no_event_hub_warns(self, q_app):
         tab = DatabaseTab()
         tab.tags_table.setRowCount(1)
         from PySide6.QtWidgets import QTableWidgetItem
 
         tab.tags_table.setItem(0, 0, QTableWidgetItem("sunset"))
         tab.tags_table.setCurrentCell(0, 0)
-        tab.search_tab_ref = None
-
         with patch(
             "gui.src.tabs.database.database_tab._crud.QMessageBox.warning"
         ) as mock_warn:
             tab.search_images_with_selected_tag()
             mock_warn.assert_called_once()
 
-    def test_dispatches_to_search_tab_ref(self, q_app):
-        tab = DatabaseTab()
+    def test_dispatches_filter_then_navigation_intents(self, q_app):
+        hub = EventHub(q_app)
+        tab = DatabaseTab(event_hub=hub)
         from PySide6.QtWidgets import QTableWidgetItem
 
         tab.tags_table.setRowCount(1)
         tab.tags_table.setItem(0, 0, QTableWidgetItem("sunset"))
         tab.tags_table.setCurrentCell(0, 0)
-        mock_search_tab = MagicMock()
-        tab.search_tab_ref = mock_search_tab
+        received = []
+        hub.subscribe(FilterByTagIntent, received.append)
+        hub.subscribe(NavigateIntent, received.append)
 
         with patch(
             "gui.src.tabs.database.database_tab._crud.QMessageBox.information"
         ):
             tab.search_images_with_selected_tag()
 
-        mock_search_tab.search_by_tag.assert_called_once_with("sunset")
+        assert [(type(event), event.module_id) for event in received] == [
+            (FilterByTagIntent, "library.search"),
+            (NavigateIntent, "library.search"),
+        ]
 
 
 class TestSearchListingsWithTag:
@@ -125,60 +129,51 @@ class TestSearchListingsWithTag:
             tab.search_listings_with_selected_tag()
             mock_warn.assert_called_once()
 
-    def test_no_listings_tab_ref_warns(self, q_app):
+    def test_no_event_hub_warns(self, q_app):
         tab = DatabaseTab()
         from PySide6.QtWidgets import QTableWidgetItem
 
         tab.tags_table.setRowCount(1)
         tab.tags_table.setItem(0, 0, QTableWidgetItem("sunset"))
         tab.tags_table.setCurrentCell(0, 0)
-        tab.listings_tab_ref = None
-
         with patch(
             "gui.src.tabs.database.database_tab._crud.QMessageBox.warning"
         ) as mock_warn:
             tab.search_listings_with_selected_tag()
             mock_warn.assert_called_once()
 
-    def test_dispatches_to_listings_tab_and_switches_main_window(self, q_app):
-        tab = DatabaseTab()
+    def test_dispatches_listings_filter_then_navigation_intents(self, q_app):
+        hub = EventHub(q_app)
+        tab = DatabaseTab(event_hub=hub)
         from PySide6.QtWidgets import QTableWidgetItem
 
         tab.tags_table.setRowCount(1)
         tab.tags_table.setItem(0, 0, QTableWidgetItem("sunset"))
         tab.tags_table.setCurrentCell(0, 0)
 
-        mock_listings_tab = MagicMock()
-        tab.listings_tab_ref = mock_listings_tab
-        mock_mw = MagicMock()
-        tab.main_window_ref = mock_mw
+        received = []
+        hub.subscribe(FilterByTagIntent, received.append)
+        hub.subscribe(NavigateIntent, received.append)
 
         tab.search_listings_with_selected_tag()
 
-        mock_listings_tab.tab_widget.setCurrentWidget.assert_called_once_with(
-            mock_listings_tab.series_listings
-        )
-        mock_listings_tab.series_listings.search_box.setText.assert_called_once_with(
-            "sunset"
-        )
-        mock_mw.command_combo.setCurrentText.assert_called_once_with("Library Database")
-        mock_mw._select_tab_by_name.assert_called_once_with("Listings")
+        assert [(type(event), event.module_id) for event in received] == [
+            (FilterByTagIntent, "library.listings"),
+            (NavigateIntent, "library.listings"),
+        ]
 
-    def test_no_main_window_ref_shows_info_instead(self, q_app):
-        tab = DatabaseTab()
+    def test_listings_navigation_uses_hub_without_legacy_window_ref(self, q_app):
+        hub = EventHub(q_app)
+        tab = DatabaseTab(event_hub=hub)
         from PySide6.QtWidgets import QTableWidgetItem
 
         tab.tags_table.setRowCount(1)
         tab.tags_table.setItem(0, 0, QTableWidgetItem("sunset"))
         tab.tags_table.setCurrentCell(0, 0)
-        tab.listings_tab_ref = MagicMock()
-        tab.main_window_ref = None
-
-        with patch(
-            "gui.src.tabs.database.database_tab._crud.QMessageBox.information"
-        ) as mock_info:
-            tab.search_listings_with_selected_tag()
-            mock_info.assert_called_once()
+        received = []
+        hub.subscribe(NavigateIntent, received.append)
+        tab.search_listings_with_selected_tag()
+        assert received[0].module_id == "library.listings"
 
 
 class TestSearchTabFilterByGroup:

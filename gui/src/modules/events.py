@@ -73,6 +73,9 @@ class TelemetryUpdatedFact(Fact):
     vram_allocated_gb: float | None = None
     vram_total_gb: float | None = None
     status_message: str | None = None
+
+
+@dataclass(frozen=True, kw_only=True, slots=True)
 class DatabaseAvailabilityChanged(Fact):
     connected: bool
 
