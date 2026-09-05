@@ -549,24 +549,28 @@ substantially land, per their own exit criteria.
 
 GitHub milestone: [**Architecture Deep-Dive (2026 Q3)**](https://github.com/ACFHarbinger/Image-Toolkit/milestone/9)
 
-| Issue | Phase | Contract/item | Owner |
-|---|---|---|---|
-| [#520](https://github.com/ACFHarbinger/Image-Toolkit/issues/520) | 0 (epic) | Invariant lock | — |
-| [#521](https://github.com/ACFHarbinger/Image-Toolkit/issues/521) | 0.1 | Native-decode serialization + GIF bypass audit | DeepSeek (opencode) |
-| [#522](https://github.com/ACFHarbinger/Image-Toolkit/issues/522) | 0.2 | Visible-first dispatch, all 4 galleries | Opencode (mimo) |
-| [#523](https://github.com/ACFHarbinger/Image-Toolkit/issues/523) | 0.3 | One-owner tray preference proof case | Codex |
-| [#524](https://github.com/ACFHarbinger/Image-Toolkit/issues/524) | 0.4 | Quarantine prototype → `protos/` + WallpaperTab forwarders | Gemini/Antigravity (ready for review) |
-| [#525](https://github.com/ACFHarbinger/Image-Toolkit/issues/525) | 1.1 (epic) | `PreferenceStore` | Gemini/Antigravity |
-| [#526](https://github.com/ACFHarbinger/Image-Toolkit/issues/526) | 1.2 (epic) | `ThumbnailScheduler` interface | Grok |
-| [#527](https://github.com/ACFHarbinger/Image-Toolkit/issues/527) | 1.3 (epic) | `ModuleDescriptor`+`ModuleHost` pilot (Log Panel) | Gemini/Antigravity |
-| [#528](https://github.com/ACFHarbinger/Image-Toolkit/issues/528) | 1.4 (epic) | `WindowManager` | Opencode (mimo) |
-| [#529](https://github.com/ACFHarbinger/Image-Toolkit/issues/529) | 1.5 (epic) | Backend Qt-decoupling (`Observable`) | DeepSeek (opencode) |
-| [#530](https://github.com/ACFHarbinger/Image-Toolkit/issues/530) | 1.6 (epic) | CI import-boundary guardrails | DeepSeek (opencode) |
-| [#531](https://github.com/ACFHarbinger/Image-Toolkit/issues/531) | 2 (tracking) | Consolidation | — |
-| [#532](https://github.com/ACFHarbinger/Image-Toolkit/issues/532) | 3 (tracking) | Optimization | — |
+| Issue | Phase | Contract/item | Owner | Status |
+|---|---|---|---|---|
+| [#520](https://github.com/ACFHarbinger/Image-Toolkit/issues/520) | 0 (epic) | Invariant lock | — | ✅ Closed — merged to `main` (`e833ecec`) |
+| [#521](https://github.com/ACFHarbinger/Image-Toolkit/issues/521) | 0.1 | Native-decode serialization + GIF bypass audit | DeepSeek (opencode) | ✅ Closed |
+| [#522](https://github.com/ACFHarbinger/Image-Toolkit/issues/522) | 0.2 | Visible-first dispatch, all 4 galleries | Opencode (mimo) | ✅ Closed |
+| [#523](https://github.com/ACFHarbinger/Image-Toolkit/issues/523) | 0.3 | One-owner tray preference proof case | Codex | ✅ Closed |
+| [#524](https://github.com/ACFHarbinger/Image-Toolkit/issues/524) | 0.4 | Quarantine prototype → `protos/` + WallpaperTab forwarders | Gemini/Antigravity | ✅ Closed |
+| [#525](https://github.com/ACFHarbinger/Image-Toolkit/issues/525) | 1.1 (epic) | `PreferenceStore` | Gemini/Antigravity | Open — unblocked |
+| [#526](https://github.com/ACFHarbinger/Image-Toolkit/issues/526) | 1.2 (epic) | `ThumbnailScheduler` interface | Grok | Open — unblocked |
+| [#527](https://github.com/ACFHarbinger/Image-Toolkit/issues/527) | 1.3 (epic) | `ModuleDescriptor`+`ModuleHost` pilot (Log Panel) | Gemini/Antigravity | Open — unblocked |
+| [#528](https://github.com/ACFHarbinger/Image-Toolkit/issues/528) | 1.4 (epic) | `WindowManager` | Opencode (mimo) | Open — unblocked |
+| [#529](https://github.com/ACFHarbinger/Image-Toolkit/issues/529) | 1.5 (epic) | Backend Qt-decoupling (`Observable`) | DeepSeek (opencode) | Open — unblocked |
+| [#530](https://github.com/ACFHarbinger/Image-Toolkit/issues/530) | 1.6 (epic) | CI import-boundary guardrails | DeepSeek (opencode) | Open — unblocked |
+| [#531](https://github.com/ACFHarbinger/Image-Toolkit/issues/531) | 2 (tracking) | Consolidation | — | Open |
+| [#532](https://github.com/ACFHarbinger/Image-Toolkit/issues/532) | 3 (tracking) | Optimization | — | Open |
 
-**All items now assigned (D18).** Sub-issues for #525-#530 get filed once
-Phase 0 (#520) lands and each contract's shape is drafted in more detail.
+**Phase 0 complete (2026-09-05).** All four sub-issues (#521-#524) shipped,
+verified via a D12 live-desktop pass on a combined `integration/phase-0`
+branch (not just unit-test-green — two real bugs found and fixed along the
+way, see §5.18E/F in `docs/moon/roadmaps/architecture.md`), merged to
+`main` (`e833ecec`), and closed. **Phase 1 (#525-#530) is now unblocked
+per D2** — agents may start their claimed contracts.
 
 ---
 
