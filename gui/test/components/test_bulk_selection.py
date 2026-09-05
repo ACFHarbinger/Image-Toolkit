@@ -13,7 +13,7 @@ from __future__ import annotations
 import pytest
 from gui.src.classes.image.abstract_class_single_gallery._selection import _SelectionMixin
 from gui.src.classes.image.abstract_class_two_galleries._selection_ops import _SelectionOpsMixin
-from gui.src.components.virtual_gallery import VirtualGallery
+from gui.src.components.gallery import VirtualGallery
 from gui.src.utils.manager.shortcut_manager import get_registry
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QImage, QKeyEvent

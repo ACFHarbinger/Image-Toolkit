@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import pytest
+from gui.src.components.gallery.delegate import VirtualGalleryDelegate
 from gui.src.components.gallery.presentation_mode import (
     GalleryOverlayConfig,
     GalleryPresentationMode,
 )
-from gui.src.components.virtual_gallery.delegate import VirtualGalleryDelegate
-from gui.src.components.virtual_gallery.virtual_gallery_model import VirtualGalleryModel
-from gui.src.components.virtual_gallery.virtual_gallery_view import VirtualGalleryView
+from gui.src.components.gallery.virtual_gallery_model import VirtualGalleryModel
+from gui.src.components.gallery.virtual_gallery_view import VirtualGalleryView
 from PySide6.QtCore import QObject, QRect, QRunnable, Qt, Signal
 from PySide6.QtGui import QImage, QPainter, QPixmap
 from PySide6.QtWidgets import QListView, QStyleOptionViewItem

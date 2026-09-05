@@ -206,3 +206,48 @@ QListView:focus, QListWidget:focus, QTreeView:focus, QTableView:focus {
     font-weight: 700;
 }
 
+/* --- Navigation Rail Sidebar Toggle Strip & Buttons --- */
+#rail_toggle_strip {
+    background: $LIGHT_BG;
+    border-right: 1px solid $LIGHT_BORDER;
+}
+#rail_toggle_btn {
+    background: $LIGHT_SECONDARY_BG;
+    color: $LIGHT_TEXT;
+    border: 1px solid $LIGHT_BORDER;
+    border-radius: 4px;
+    padding: 0px;
+}
+#rail_toggle_btn:hover {
+    background: $LIGHT_ACCENT_COLOR;
+    border-color: $LIGHT_ACCENT_HOVER;
+    color: white;
+}
+#rail_toggle_btn:pressed {
+    background: $LIGHT_ACCENT_PRESSED;
+    color: white;
+}
+#rail_toggle_btn:focus {
+    border: 2px solid $LIGHT_ACCENT_COLOR;
+}
+
+#rail_drawer_toggle_btn {
+    background: $LIGHT_SECONDARY_BG;
+    color: $LIGHT_TEXT;
+    border: 1px solid $LIGHT_BORDER;
+    border-radius: 4px;
+    padding: 2px;
+}
+#rail_drawer_toggle_btn:hover {
+    background: $LIGHT_ACCENT_COLOR;
+    border-color: $LIGHT_ACCENT_HOVER;
+    color: white;
+}
+#rail_drawer_toggle_btn:pressed {
+    background: $LIGHT_ACCENT_PRESSED;
+    color: white;
+}
+#rail_drawer_toggle_btn:focus {
+    border: 2px solid $LIGHT_ACCENT_COLOR;
+}
+

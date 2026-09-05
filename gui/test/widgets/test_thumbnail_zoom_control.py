@@ -1,6 +1,6 @@
 import sys
 
-from gui.src.components.virtual_gallery.dual_widget import VirtualDualGallery
+from gui.src.components.gallery.dual_widget import VirtualDualGallery
 from gui.src.components.widgets.thumbnail_zoom_control import ThumbnailZoomControl
 from gui.src.windows.settings.app_settings import AppSettings
 from gui.src.windows.settings.thumbnail_size import load_thumbnail_size

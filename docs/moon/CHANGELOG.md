@@ -1,3 +1,24 @@
+# S512 — 2026-09-05 (Antigravity: Navigation Rail Sidebar Toggle & Interaction Polish)
+
+- `gui/src/components/navigation/navigation_rail.py`:
+  - Added `_create_chevron_icon(direction)` rendering anti-aliased vector chevron paths (`<` / `>`) via `QPainterPath` for `toggle_btn` and `drawer_toggle_btn`, replacing raw character glyphs with dynamic collapse/expand orientation.
+  - Set `Qt.FocusPolicy.StrongFocus` on both toggle buttons so they are reachable via Tab navigation.
+  - Tuned `MotionKit.slide_width()` duration to 160ms for sidebar/drawer width transitions with `OutCubic` easing.
+- `gui/src/styles/qss/dark.qss` & `gui/src/styles/qss/light.qss`: Added dedicated QSS rules for `#rail_toggle_strip`, `#rail_toggle_btn`, and `#rail_drawer_toggle_btn` with distinct `:hover`, `:pressed`, and `:focus` states.
+- `gui/test/navigation/test_shell_manager.py`: Added unit tests `test_navigation_rail_sidebar_toggle` and `test_navigation_rail_drawer_toggle` (7/7 passed).
+- `gui/src/windows/__init__.py`: Fixed import path for `CloudComputeWindow` (`.cloud.cloud_compute_window`).
+
+---
+
+# S511 — 2026-09-05 (Antigravity: §4.7E Slideshow Health Check & §4.9 Safetensors Viewer verification)
+
+- `backend/src/utils/display/slideshow_daemon.py`: Added `_is_valid_image(path)` verifying file existence, regular file status, and non-empty size. Updated `_advance_all(monitor_state)` to defensively loop and skip missing or corrupt images across monitor queues without crashing or infinite looping.
+- `backend/test/core/test_slideshow_daemon_health_check.py`: Added 3 unit tests verifying image validation, skipping missing images, and graceful looping (3/3 passed).
+- `gui/test/dialogs/test_safetensors_inspector_dialog.py`: Added unit tests for `SafetensorsInspectorDialog` covering model spec tree population, SHA256 integrity match verification, and metadata clipboard copy (3/3 passed).
+- `docs/moon/roadmaps/new_features.md`: Marked §4.7 Option E and §4.9 Options A & D as shipped.
+
+---
+
 # S510 — 2026-09-05 (Claude: fix gallery thumbnail crop, FlowLayout right-anchoring, and broken tutorial image links)
 
 - `gui/src/components/virtual_gallery/delegate.py`: `VirtualGalleryDelegate.paint()` no longer delegates full item painting to `QStyledItemDelegate.paint()`/the active `QStyle`. It now asks the style to draw only background/selection/hover chrome (icon stripped from the style option via `initStyleOption()`), then paints the thumbnail itself with `QIcon.paint()`. Fixes portrait/landscape thumbnails rendering cropped under KDE Breeze/Kvantum (the crop lived inside the style's own `CE_ItemViewItem` icon-painting code, not this codebase's provably aspect-preserving scaling pipeline).

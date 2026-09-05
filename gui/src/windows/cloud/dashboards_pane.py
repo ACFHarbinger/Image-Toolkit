@@ -31,7 +31,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from gui.src.windows.cloud_compute.usage_charts import (
+from gui.src.windows.cloud.usage_charts import (
     _BarChart,
     _GroupedBarChart,
     bars_from_duration,

@@ -18,7 +18,7 @@ import threading
 import time
 
 import pytest
-from gui.src.components.virtual_gallery import (
+from gui.src.components.gallery import (
     VirtualDualGallery,
     VirtualGallery,
     VirtualGalleryModel,
@@ -156,7 +156,7 @@ def test_marks_persist_across_set_paths():
 
 
 def test_delegate_paints_state_borders():
-    from gui.src.components.virtual_gallery.delegate import VirtualGalleryDelegate
+    from gui.src.components.gallery.delegate import VirtualGalleryDelegate
     from PySide6.QtGui import QPainter, QPixmap
     from PySide6.QtWidgets import QStyle, QStyleOptionViewItem
 

@@ -1,7 +1,7 @@
 """Unit tests for VirtualDualGallery composite (GUI/UX §2.1 & §2.4 dual-panel)."""
 
 import pytest
-from gui.src.components.virtual_gallery import VirtualDualGallery
+from gui.src.components.gallery import VirtualDualGallery
 from PySide6.QtGui import QColor, QImage
 
 pytestmark = pytest.mark.gui

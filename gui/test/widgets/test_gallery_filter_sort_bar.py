@@ -1,7 +1,7 @@
 """Unit tests for GalleryFilterSortBar and VirtualGalleryModel filtering & sorting (§2.13)."""
 
 import pytest
-from gui.src.components.virtual_gallery.virtual_gallery_model import VirtualGalleryModel
+from gui.src.components.gallery.virtual_gallery_model import VirtualGalleryModel
 from gui.src.components.widgets.gallery_filter_sort_bar import GalleryFilterSortBar
 from PySide6.QtCore import QObject, Signal
 

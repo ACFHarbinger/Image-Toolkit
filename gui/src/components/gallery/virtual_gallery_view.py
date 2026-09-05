@@ -51,12 +51,11 @@ from PySide6.QtWidgets import (
     QMessageBox,
 )
 
-from gui.src.components.gallery.presentation_mode import (
+from .delegate import VirtualGalleryDelegate
+from .presentation_mode import (
     GalleryOverlayConfig,
     GalleryPresentationMode,
 )
-
-from .delegate import VirtualGalleryDelegate
 
 if TYPE_CHECKING:
     from .virtual_gallery_model import VirtualGalleryModel
