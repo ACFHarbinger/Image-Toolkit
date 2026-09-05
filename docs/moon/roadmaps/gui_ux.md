@@ -108,7 +108,7 @@ flowchart LR
         direction TB
         S28["§2.8 Theme Support"]:::feature:::planned
         S29["§2.9 Settings Window"]:::augment:::planned
-        S210["§2.10 Toast Notifications ✅p"]:::feature:::active
+        S210["§2.10 Toast Notifications ✅"]:::feature:::active
         S212["§2.12 System Tray ✅p"]:::feature:::active
         S217["§2.17 Log Panel ✅p"]:::feature:::active
         S229["§2.29 Configurable Shortcuts ✅"]:::augment:::done
@@ -640,7 +640,7 @@ Two related additions. First, Session Recovery Level gained a fourth option, "Cu
 
 ---
 
-## 2.10 In-App Toast Notification System ✅ Partial (2026-06-10 — §C shipped, 2026-08-07 — §A shipped) {: #210-in-app-toast-notification-system }
+## 2.10 In-App Toast Notification System ✅ (2026-06-10 — §C shipped, 2026-08-07 — §A shipped, 2026-09-05 — icon badges & global action wiring shipped) {: #210-in-app-toast-notification-system }
 
 **Pain point:** Every operation result — file saved, cache cleared, duplicate found, export finished — triggers a blocking `QMessageBox` that interrupts the user's workflow. For background operations (slideshow daemon ticks, RLHF auto-score, WebDriver status) there is no non-blocking feedback path at all.
 
