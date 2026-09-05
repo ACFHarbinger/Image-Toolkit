@@ -66,9 +66,9 @@ def build_application_catalog(*, dropdown: bool, enable_manager: bool) -> Module
         return WallpaperTab(context.services.require(LIBRARY_DATABASE_SERVICE), context.event_hub)
 
     def listings_tab(context: ModuleContext):
-        from gui.src.tabs.database import ListingsTab
+        from gui.src import tabs
 
-        return ListingsTab(
+        return tabs.ListingsTab(
             vault_manager=context.services.require("vault_manager"), event_hub=context.event_hub
         )
 

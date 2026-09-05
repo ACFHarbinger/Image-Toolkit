@@ -56,3 +56,54 @@ def test_application_catalog_constructs_a_page_only_when_activated(q_app, monkey
 
     assert first is second
     assert constructions == [{"dropdown": False}]
+
+
+def test_every_production_route_has_a_constructible_factory(q_app, monkeypatch):
+    constructions: list[str] = []
+
+    def fake_tab(name: str):
+        class FakeTab(QWidget):
+            def __init__(self, *args, **kwargs) -> None:
+                super().__init__()
+                constructions.append(name)
+
+        return FakeTab
+
+    fake_tabs = types.ModuleType("gui.src.tabs")
+    for name in (
+        "ComfyUITab", "ConvertTab", "DatabaseTab", "DataBrowserTab", "DriveSyncTab",
+        "EntityReconTab", "ExtractorTab", "HieEditorTab", "ImageCrawlTab", "ListingsTab",
+        "MangaAnimationTab", "MangaColorizationTab", "MangaPuppeteeringTab", "MediaLoaderTab",
+        "MergeTab", "MetaCLIPInferenceTab", "R3GANEvaluateTab", "ReverseImageSearchTab",
+        "ScanMetadataTab", "SearchTab", "SimilarityTab", "UnifiedGenerateTab", "UnifiedTrainTab",
+        "WallpaperTab", "WebRequestsTab",
+    ):
+        setattr(fake_tabs, name, fake_tab(name))
+    monkeypatch.setitem(sys.modules, "gui.src.tabs", fake_tabs)
+    import gui.src
+
+    monkeypatch.setattr(gui.src, "tabs", fake_tabs, raising=False)
+
+    class FakeStitchTab(QWidget):
+        def __init__(self) -> None:
+            super().__init__()
+            self._tab_widget = types.SimpleNamespace(setCurrentIndex=lambda _index: None)
+            constructions.append("StitchTab")
+
+    monkeypatch.setitem(sys.modules, "asp_gui", types.ModuleType("asp_gui"))
+    asp_elements = types.ModuleType("asp_gui.elements")
+    asp_elements.StitchTab = FakeStitchTab
+    monkeypatch.setitem(sys.modules, "asp_gui.elements", asp_elements)
+
+    catalog = build_application_catalog(dropdown=False, enable_manager=False)
+    services = ModuleServices()
+    services.register("vault_manager", object())
+    services.register(LIBRARY_DATABASE_SERVICE, LibraryDatabaseService(None))
+    runtime = ModuleRuntime(catalog, ModuleContext(EventHub(q_app), services))
+
+    for descriptor in catalog.all_descriptors():
+        if descriptor.kind != ModuleKind.WORKSPACE:
+            runtime.activate(descriptor.module_id)
+
+    assert len(constructions) == 26
+    assert constructions.count("StitchTab") == 1
