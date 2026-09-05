@@ -44,8 +44,10 @@ class _UIConfigMixin:
         apply_shadow_effect(
             btn_browse_scan, color_hex="#000000", radius=8, x_offset=0, y_offset=3
         )
+        self._btn_recent_dirs = self.create_recent_dirs_button(self._navigate_to_dir)
         scan_dir_layout.addWidget(self.scan_directory_path)
         scan_dir_layout.addWidget(btn_browse_scan)
+        scan_dir_layout.addWidget(self._btn_recent_dirs)
         target_layout.addRow("Input path:", scan_dir_layout)
         content_layout.addWidget(target_group)
 

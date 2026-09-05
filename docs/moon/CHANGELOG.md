@@ -1,3 +1,14 @@
+# S490 — 2026-09-05 (Antigravity: §2.5 Session Persistence & Recent Directories Dropdown)
+
+- `gui/src/components/widgets/recent_directories_picker.py`: Created reusable `RecentDirectoriesPicker` dropdown tool button displaying up to 10 MRU directory paths with elided rendering, full-path tooltips, clear history action, and `directory_selected` signal.
+- `gui/src/classes/base/gallery_base.py`: Added `create_recent_dirs_button` and `_clear_recent_dirs` helper methods to `AbstractGalleryBase`.
+- `gui/src/tabs/core/`: Integrated `RecentDirectoriesPicker` and directory session persistence into `SamplerSubTab`, `MergeTab`, `SimilarityTab`, `VideoExtractorSubTab`, `FormatSubTab`, and `CodecSubTab`.
+- `gui/src/tabs/database/scan_metadata_tab/`: Integrated `RecentDirectoriesPicker` into scan directory configuration row.
+- `gui/test/components/test_recent_directories_picker.py`: Added 4 unit tests verifying MRU ordering, elision, signal emission, and clearing actions.
+- `docs/moon/roadmaps/gui_ux.md`: Marked §2.5 as shipped with Options A and C details.
+
+---
+
 # S489 — 2026-09-05 (Antigravity: #514 Inspector, Telemetry, and Gallery Presentation Modes)
 
 - `gui/src/components/gallery/`: Added `GalleryPresentationMode` (`UNIFORM_GRID`, `MASONRY`, `COMPACT_LIST`), `GalleryOverlayConfig`, and Danbooru rating colors.

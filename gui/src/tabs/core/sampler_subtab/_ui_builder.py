@@ -57,6 +57,8 @@ class _UIBuilderMixin:
         )
         input_row.addWidget(self.input_path)
         input_row.addWidget(btn_browse)
+        self._btn_recent_dirs = self.create_recent_dirs_button(self._navigate_to_dir)
+        input_row.addWidget(self._btn_recent_dirs)
         input_form.addRow("Input path:", input_row)
         content_layout.addWidget(input_group)
 

@@ -89,6 +89,8 @@ class _UIBuilderMixin:
 
         scan_dir_layout.addWidget(self.scan_directory_path)
         scan_dir_layout.addWidget(btn_browse_scan)
+        self._btn_recent_dirs = self.create_recent_dirs_button(self._navigate_to_dir)
+        scan_dir_layout.addWidget(self._btn_recent_dirs)
         scan_layout.addLayout(scan_dir_layout)
         scan_group.setLayout(scan_layout)
         content_layout.addWidget(scan_group)

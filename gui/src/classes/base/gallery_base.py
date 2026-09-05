@@ -23,7 +23,7 @@ import os
 import re as _re
 from abc import abstractmethod
 from collections import deque
-from typing import Dict, List, Optional
+from typing import Callable, Dict, List, Optional
 
 from PySide6.QtCore import QPoint, QRect, Qt, QThreadPool, QTimer
 from PySide6.QtWidgets import (
@@ -227,10 +227,20 @@ class AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery):
                 return []
         from gui.src.windows.settings.app_settings import AppSettings
         dirs = AppSettings.session(self.__class__.__name__, "recent_dirs", []) or []
-        # Same QSettings single-element round-trip quirk as _add_recent_dir.
         if isinstance(dirs, str):
             dirs = [dirs]
         return list(dirs)
+
+    def _clear_recent_dirs(self) -> None:
+        """Clear the MRU directory list for this tab class."""
+        from gui.src.windows.settings.app_settings import AppSettings
+        AppSettings.set_session(self.__class__.__name__, "recent_dirs", [])
+
+    def create_recent_dirs_button(self, on_selected: Optional[Callable[[str], None]] = None) -> QWidget:
+        """Create and return a configured RecentDirectoriesPicker for this tab."""
+        from gui.src.components.widgets.recent_directories_picker import RecentDirectoriesPicker
+        cb = on_selected if on_selected is not None else getattr(self, "_navigate_to_dir", None)
+        return RecentDirectoriesPicker(self.__class__.__name__, self, on_directory_selected=cb)
 
     def _save_last_dir(self, path: str, main_win = None) -> None:
         if path and "Downloads/data" in path:

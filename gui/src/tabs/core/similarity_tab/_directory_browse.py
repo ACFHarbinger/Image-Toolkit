@@ -17,15 +17,24 @@ from ....styles import apply_shadow_effect
 class _DirectoryBrowseMixin:
     """Browse source/reference directories, validate targets, toggle extensions."""
 
+    def _navigate_to_dir(self, d: str) -> None:
+        if not d or not os.path.isdir(d):
+            return
+        self.target_path.setText(d)
+        self.last_browsed_dir = d
+        self._add_recent_dir(d)
+        self._save_last_dir(d)
+        if hasattr(self, "_btn_recent_dirs") and hasattr(self._btn_recent_dirs, "refresh_menu"):
+            self._btn_recent_dirs.refresh_menu()
+        self.browse_and_populate()
+
     def browse_directory(self):
         start = getattr(self, "last_browsed_dir", "") or ""
         d = QFileDialog.getExistingDirectory(
             self, "Select Source Directory", start,
             QFileDialog.Option.DontUseNativeDialog)
         if d:
-            self.target_path.setText(d)
-            self.last_browsed_dir = d
-            self.browse_and_populate()
+            self._navigate_to_dir(d)
 
     def browse_and_populate(self):
         """Browsing just lists the directory into the gallery (fast, main-thread).

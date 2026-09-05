@@ -26,9 +26,18 @@ class _DirectoryBrowseMixin:
             QFileDialog.Option.DontUseNativeDialog,
         )
         if path:
-            self.input_path.setText(path)
-            self.last_browsed_dir = path
-            self._scan_and_load()
+            self._navigate_to_dir(path)
+
+    def _navigate_to_dir(self, path: str) -> None:
+        if not os.path.isdir(path) and not os.path.isfile(path):
+            return
+        self.input_path.setText(path)
+        self.last_browsed_dir = path
+        self._add_recent_dir(path)
+        self._save_last_dir(path)
+        if hasattr(self, "_btn_recent_dirs") and hasattr(self._btn_recent_dirs, "refresh_menu"):
+            self._btn_recent_dirs.refresh_menu()
+        self._scan_and_load()
 
     @Slot()
     def _browse_output(self):
