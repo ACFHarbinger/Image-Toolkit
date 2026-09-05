@@ -45,6 +45,8 @@
 - [2.38 Universal Collapsible Context Inspector Panel](#238-universal-collapsible-context-inspector-panel)
 - [2.39 Rich Telemetry Status Bar & System Monitoring](#239-rich-telemetry-status-bar--system-monitoring)
 - [2.40 Advanced Gallery Presentation Modes & Custom Thumbnail Overlays](#240-advanced-gallery-presentation-modes--custom-thumbnail-overlays)
+- [2.41 Per-Tab / Per-Category Visual Customization](#241-per-tab-per-category-visual-customization)
+- [2.42 Motion & Micro-Interaction Design Pass](#242-motion--micro-interaction-design-pass)
 - [Effort × Impact Matrix](#effort--impact-matrix)
 - [Anchor Index](#anchor-index)
 
@@ -1674,6 +1676,46 @@ Maintain the uniform grid and show metadata solely through mouse hover tooltips.
 
 ---
 
+## 2.41 Per-Tab / Per-Category Visual Customization {: #241-per-tab-per-category-visual-customization }
+
+**Ergonomic pain point:** Theming today (§2.30, §2.34, §2.37) is global — one accent color, one density, one preset for the whole app. A user working across very different contexts in one session (System Tools vs. Deep Learning vs. Manga) has no visual way to tell categories apart at a glance beyond the nav rail/ribbon label itself, and can't give a category its own accent without recoloring everything.
+
+### Implementation Options
+
+**A — Per-category accent override on top of the global theme [Recommended]**
+Extend `ThemePack`/Theme Studio with an optional per-`ModuleCategory` accent-color override (and optionally icon tint), stored as a sparse delta keyed by category id — categories with no override inherit the global accent unchanged. Applied via the existing semantic-token pipeline (§2.34) rather than a second parallel styling system: the nav rail/ribbon's active-item indicator, category header, and that category's tab chrome pick up the override; card/dialog surfaces stay on the global palette so content doesn't become illegible.
+- *Pros:* Builds on tokens/`ThemePack` infrastructure that already exists; sparse-delta storage means zero cost for users who never touch it; strong "orient at a glance" value for the module-runtime shell (§2.36) once it's the default.
+- *Cons:* Needs a affordance in Theme Studio to pick a category then override its accent — one more UI surface to design, even if small.
+
+**B — Per-tab custom icon only, no color override**
+Let users assign a custom icon (from a small built-in set or an imported SVG) to any tab/module without any color customization.
+- *Pros:* Trivial to implement, no palette/contrast risk at all.
+- *Cons:* Much weaker "orient at a glance" value than color; doesn't address the actual pain point as directly.
+
+**Recommendation:** Option A. Gate it behind the module-runtime shell (§2.36) being enabled, since the old `QComboBox`+`QTabWidget` shell has no natural place to render a per-category accent.
+
+---
+
+## 2.42 Motion & Micro-Interaction Design Pass {: #242-motion--micro-interaction-design-pass }
+
+**Ergonomic pain point:** Existing motion is limited to thumbnail hover animations (§2.24) and toast fade-in/out (§2.10). Tab switches, panel collapse/expand (inspector §2.38, splitters §2.20), and shell navigation (rail/ribbon §2.36) all happen as instant, un-eased state changes — functional, but visually abrupt compared to the "professional creative suite" feel §2.37 is aiming for elsewhere.
+
+### Implementation Options
+
+**A — Shared `QPropertyAnimation` easing kit applied to existing transition points [Recommended]**
+A small shared module (easing curves + duration constants, e.g. `fast=120ms`/`base=200ms`/`slow=320ms`, all `QEasingCurve.OutCubic`-family) applied consistently to: inspector panel expand/collapse (§2.38), nav-rail collapse (`Ctrl+B`, §2.36), stacked-widget module switches (cross-fade or slide, gated on GPU/compositing capability), and splitter drag-release settle (§2.20). No new dependency — pure Qt `QPropertyAnimation`/`QGraphicsOpacityEffect`.
+- *Pros:* One shared kit keeps motion consistent app-wide instead of each panel inventing its own; cheap to extend to future components; respects an OS-level "reduce motion" accessibility setting by checking it once in the kit and no-op'ing everywhere.
+- *Cons:* Touches several existing components' show/hide code paths — needs care not to reintroduce Qt layout-timing bugs of the kind already found once this session (`FlowLayout`).
+
+**B — Per-component ad-hoc animations, no shared kit**
+Let each component (inspector, rail, splitters) implement its own animation independently as those features get touched.
+- *Pros:* Lower coordination cost, no upfront shared-module design.
+- *Cons:* Inconsistent timing/easing across the app; no single place to honor a "reduce motion" preference; the exact kind of duplication this codebase has been actively unwinding all session (see the architecture brainstorm's whole premise).
+
+**Recommendation:** Option A. Build the shared kit first, then apply it to inspector/rail/module-switch/splitter in that order (cheapest, most-visible wins first).
+
+---
+
 ## Effort × Impact Matrix {: #effort--impact-matrix }
 
 *Effort* — **Low**: < 1 day · **Medium**: 1 day – 1 week · **High**: 1 – 2 weeks · **Very High**: 2+ weeks
@@ -1732,9 +1774,11 @@ Maintain the uniform grid and show metadata solely through mouse hover tooltips.
 | 2.38 Universal Collapsible Context Inspector | [#238-universal-collapsible-context-inspector-panel](#238-universal-collapsible-context-inspector-panel) |
 | 2.39 Rich Telemetry Status Bar | [#239-rich-telemetry-status-bar--system-monitoring](#239-rich-telemetry-status-bar--system-monitoring) |
 | 2.40 Advanced Gallery Presentation Modes | [#240-advanced-gallery-presentation-modes--custom-thumbnail-overlays](#240-advanced-gallery-presentation-modes--custom-thumbnail-overlays) |
+| 2.41 Per-Tab Visual Customization | [#241-per-tab-per-category-visual-customization](#241-per-tab-per-category-visual-customization) |
+| 2.42 Motion & Micro-Interaction Design Pass | [#242-motion--micro-interaction-design-pass](#242-motion--micro-interaction-design-pass) |
 
 ---
 
 ## Document History
 
-*Last updated: 2026-09-05 — §2.36 now records a post-rollout decision gate for the classic-shell fallback. Targets PySide6 (Qt 6.x) desktop application.*
+*Last updated: 2026-09-05 — added §2.41 (per-tab/per-category visual customization) and §2.42 (motion & micro-interaction design pass); reconciled stale §2.9/§2.34-2.36/§2.38-2.40 status headers against actual shipped state. Targets PySide6 (Qt 6.x) desktop application.*
