@@ -314,3 +314,19 @@ class TestPreferenceStore:
 
         with pytest.raises(ValueError):
             isolated_store.set(constrained_key, 99)
+
+
+class TestRuntimeShellPreference:
+    """#536 prep: experimental runtime shell ACCOUNT gate defaults off."""
+
+    def test_runtime_shell_default_false_and_set_get(self, isolated_store):
+        from gui.src.modules.runtime_shell_flag import runtime_shell_enabled
+
+        assert PrefKeys.EXPERIMENTAL_RUNTIME_SHELL.default is False
+        assert PrefKeys.EXPERIMENTAL_RUNTIME_SHELL.scope is PreferenceScope.ACCOUNT
+        assert isolated_store.get(PrefKeys.EXPERIMENTAL_RUNTIME_SHELL) is False
+        assert runtime_shell_enabled(isolated_store) is False
+
+        isolated_store.set(PrefKeys.EXPERIMENTAL_RUNTIME_SHELL, True)
+        assert isolated_store.get(PrefKeys.EXPERIMENTAL_RUNTIME_SHELL) is True
+        assert runtime_shell_enabled(isolated_store) is True
