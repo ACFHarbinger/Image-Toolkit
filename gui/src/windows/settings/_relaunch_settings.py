@@ -89,6 +89,15 @@ class _RelaunchSettingsMixin:
         )
         session_layout.addRow(self.minimize_to_tray_check)
 
+        self.runtime_shell_check = QCheckBox(
+            "Experimental runtime shell (rail/ribbon navigation — requires restart)"
+        )
+        self.runtime_shell_check.setChecked(self.pref_runtime_shell)
+        self.runtime_shell_check.setToolTip(
+            "When enabled, MainWindow mounts the ModuleRuntime rail/ribbon shell instead of "
+            "the classic category combo + tabs. Default is off; change takes effect after restart."
+        )
+        session_layout.addRow(self.runtime_shell_check)
 
         self.recent_dirs_count_spinbox = QSpinBox()
         self.recent_dirs_count_spinbox.setRange(1, 50)
@@ -301,6 +310,7 @@ class _RelaunchSettingsMixin:
                 # Close-to-tray is device-owned: guest vault data is volatile
                 # and account vaults must not override this window behaviour.
                 AppSettings.set_minimize_to_tray(self.minimize_to_tray_check.isChecked())
+                AppSettings.set_runtime_shell_enabled(self.runtime_shell_check.isChecked())
 
                 # These remaining values are account-scoped.
                 if getattr(self.vault_manager, "is_guest", False) is not True:
@@ -358,6 +368,8 @@ class _RelaunchSettingsMixin:
         self.restore_last_dir_check.setChecked(True)
         self.restore_last_tab_check.setChecked(False)
         self.minimize_to_tray_check.setChecked(False)
+        if hasattr(self, "runtime_shell_check"):
+            self.runtime_shell_check.setChecked(False)
 
         self.recent_dirs_count_spinbox.setValue(10)
         self.session_recovery_combo.setCurrentText("None")

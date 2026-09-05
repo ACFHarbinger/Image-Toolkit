@@ -109,6 +109,7 @@ class SettingsWindow(
         self.pref_restore_last_dir = _p.get("restore_last_dir", True)
         self.pref_restore_last_tab = _p.get("restore_last_tab", False)
         self.pref_minimize_to_tray = AppSettings.minimize_to_tray()
+        self.pref_runtime_shell = AppSettings.runtime_shell_enabled()
         self.pref_default_open_dir = _p.get("default_open_dir", "")
         self.pref_recent_dirs_count = _p.get("recent_dirs_count", 10)
         self.pref_startup_category = _p.get("startup_category", "System Tools")

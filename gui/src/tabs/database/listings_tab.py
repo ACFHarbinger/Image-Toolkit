@@ -5,6 +5,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from gui.src.modules.events import EventHub, FilterByTagIntent
+
 from ...constants.listings import (
     ENTITIES_FILE,  # noqa: F401
     LISTINGS_FILE,  # noqa: F401
@@ -18,7 +20,7 @@ from .series_listings_subtab import SeriesListingsSubTab
 class ListingsTab(QWidget):
     """Media tracking and entity listing tab."""
 
-    def __init__(self, parent=None, vault_manager=None):
+    def __init__(self, parent=None, vault_manager=None, event_hub: EventHub | None = None):
         super().__init__(parent)
         self.vault_manager = vault_manager
 
@@ -44,17 +46,13 @@ class ListingsTab(QWidget):
         self.tab_widget.addTab(self.series_listings, "🎬 Series Listings")
         self.tab_widget.addTab(self.entity_listings, "👥 Entity Listings")
         layout.addWidget(self.tab_widget)
+        if event_hub is not None:
+            event_hub.subscribe(FilterByTagIntent, self._on_filter_by_tag, owner=self)
 
-    # DB.8a cross-tab navigation: MainWindow assigns this post-construction
-    # (mirrors search_tab_ref/merge_tab_ref in _tab_registry.py); forwarded
-    # to series_listings, which forwards it to its detail panel.
-    @property
-    def main_window_ref(self):
-        return self.series_listings.main_window_ref
-
-    @main_window_ref.setter
-    def main_window_ref(self, value):
-        self.series_listings.main_window_ref = value
+    def _on_filter_by_tag(self, intent: FilterByTagIntent) -> None:
+        if intent.module_id == "library.listings":
+            self.tab_widget.setCurrentWidget(self.series_listings)
+            self.series_listings.search_box.setText(intent.tag_name)
 
     def collect(self) -> dict:
         return {"active_subtab_index": self.tab_widget.currentIndex()}

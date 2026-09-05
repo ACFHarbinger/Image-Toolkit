@@ -8,6 +8,9 @@ from PySide6.QtCore import QThreadPool, QTimer
 from PySide6.QtGui import QImage
 from PySide6.QtWidgets import QWidget
 
+from gui.src.modules.events import DatabaseAvailabilityChanged, EventHub, ImportPathsIntent, TagCatalogChanged
+from gui.src.modules.library_service import coerce_library_database_service
+
 from ....classes import AbstractClassTwoGalleries
 from ....helpers import UpsertWorker
 from ._auto_listings import _AutoListingsMixin
@@ -51,9 +54,12 @@ class ScanMetadataTab(
     Manages file and directory metadata scanning, image preview gallery, and batch database operations.
     """
 
-    def __init__(self, db_tab_ref):
+    def __init__(self, database_service=None, event_hub: EventHub | None = None, **legacy):
         super().__init__()
-        self.db_tab_ref = db_tab_ref
+        self.database_service = coerce_library_database_service(
+            database_service if database_service is not None else legacy.pop("db_tab_ref", None)
+        )
+        self.event_hub = event_hub or EventHub(self)
 
         self.scan_image_list: list[str] = []
         # Holds the list currently being viewed (filtered by "New Only" or "In DB Only" if active)
@@ -116,6 +122,21 @@ class ScanMetadataTab(
         self._lazy_load_timer.timeout.connect(self._process_visible_items)
 
         self._build_ui()
+        self.event_hub.subscribe(ImportPathsIntent, self._on_import_paths, owner=self)
+        self.event_hub.subscribe(TagCatalogChanged, self._on_tag_catalog_changed, owner=self)
+        self.event_hub.subscribe(DatabaseAvailabilityChanged, self._on_database_availability_changed, owner=self)
+
+    def _on_import_paths(self, intent: ImportPathsIntent) -> None:
+        if intent.module_id != "library.scan":
+            return
+        self.process_scan_results(list(intent.paths))
+        self.view_db_only_button.setChecked(False)
+
+    def _on_tag_catalog_changed(self, _event: TagCatalogChanged) -> None:
+        self._setup_tag_checkboxes()
+
+    def _on_database_availability_changed(self, event: DatabaseAvailabilityChanged) -> None:
+        self.update_button_states(event.connected)
 
 
 __all__ = ["ScanMetadataTab"]
