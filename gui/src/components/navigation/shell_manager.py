@@ -99,6 +99,28 @@ class ShellLayoutManager(QObject):
         new_mode = ShellNavMode.TOP_BAR if self.nav_mode == ShellNavMode.RAIL else ShellNavMode.RAIL
         self.set_nav_mode(new_mode)
 
+    def mount_all_modules(self) -> None:
+        """Eagerly construct and stack every module's widget up front.
+
+        The runtime shell originally activated modules lazily -- a module's
+        widget was only constructed the first time it was navigated to --
+        which made switching to any not-yet-visited tab noticeably slow
+        (the widget's full construction cost paid mid-interaction instead
+        of once at startup). Front-loading construction here trades a
+        slightly longer shell startup for every tab switch afterward being
+        instant, matching the legacy QTabWidget shell's behavior (which
+        already eagerly builds every tab in _create_tabs()). Construction
+        only (via ModuleRuntime.handle_for(), not .activate()) -- no
+        activation/deactivation lifecycle or ModuleActivated events fire
+        for modules that aren't actually being switched to.
+        """
+        for descriptor in self.catalog.all_descriptors():
+            handle = self.runtime.handle_for(descriptor.module_id)
+            widget = handle.widget
+            if widget not in self._mounted_widgets:
+                self._mounted_widgets.add(widget)
+                self.stack.addWidget(widget)
+
     def activate_module(self, module_id: str) -> None:
         handle = self.runtime.activate(module_id)
         widget = handle.widget

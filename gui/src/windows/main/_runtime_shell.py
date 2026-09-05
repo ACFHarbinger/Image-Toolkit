@@ -47,6 +47,11 @@ class _RuntimeShellMixin:
         self.shell_layout_manager = ShellLayoutManager(
             self.module_runtime, self.runtime_shell_container
         )
+        # Construct every module's widget up front rather than lazily on
+        # first navigation -- lazy activation made switching to any
+        # not-yet-visited tab noticeably slow. See mount_all_modules()'s
+        # docstring.
+        self.shell_layout_manager.mount_all_modules()
         self.shell_layout_manager.activate_module("system.convert")
         return self.runtime_shell_container
 
