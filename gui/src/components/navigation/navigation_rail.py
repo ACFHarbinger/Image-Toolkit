@@ -146,7 +146,7 @@ class NavigationRailWidget(QWidget):
                 widget.deleteLater()
 
         # Add buttons for modules in this category
-        modules = self.catalog.by_category(category)
+        modules = self.catalog.navigable_by_category(category)
         for mod in modules:
             sub = f" // {mod.japanese_subtext}" if getattr(mod, 'japanese_subtext', None) else ""
             btn = QPushButton(f"{mod.title}{sub}")

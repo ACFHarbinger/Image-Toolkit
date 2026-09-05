@@ -35,6 +35,7 @@ class _TabCommunicationMixin:
             )
             return
         sorted_selection = sorted(list(self.selected_files), key=natural_sort_key)
+        self.event_hub.publish(NavigateIntent(origin="library.search", module_id="library.scan"))
         self.event_hub.publish(
             ImportPathsIntent(
                 origin="library.search",
@@ -42,7 +43,6 @@ class _TabCommunicationMixin:
                 paths=tuple(sorted_selection),
             )
         )
-        self.event_hub.publish(NavigateIntent(origin="library.search", module_id="library.scan"))
         QMessageBox.information(
             self,
             "Images Sent",
@@ -54,10 +54,10 @@ class _TabCommunicationMixin:
         if not paths:
             QMessageBox.information(self, "No Selection", "No images selected.")
             return
+        self.event_hub.publish(NavigateIntent(origin="library.search", module_id="system.merge"))
         self.event_hub.publish(
             ImportPathsIntent(origin="library.search", module_id="system.merge", paths=tuple(paths))
         )
-        self.event_hub.publish(NavigateIntent(origin="library.search", module_id="system.merge"))
         QMessageBox.information(
             self, "Images Sent", f"Sent {len(paths)} images to the Merge Tab."
         )
@@ -67,10 +67,10 @@ class _TabCommunicationMixin:
         if not paths:
             QMessageBox.information(self, "No Selection", "No images selected.")
             return
+        self.event_hub.publish(NavigateIntent(origin="library.search", module_id="system.similarity"))
         self.event_hub.publish(
             ImportPathsIntent(origin="library.search", module_id="system.similarity", paths=tuple(paths))
         )
-        self.event_hub.publish(NavigateIntent(origin="library.search", module_id="system.similarity"))
         QMessageBox.information(
             self, "Images Sent", f"Sent {len(paths)} images to the Delete Tab."
         )
@@ -80,10 +80,10 @@ class _TabCommunicationMixin:
         if not paths:
             QMessageBox.information(self, "No Selection", "No images selected.")
             return
+        self.event_hub.publish(NavigateIntent(origin="library.search", module_id="system.wallpaper"))
         self.event_hub.publish(
             ImportPathsIntent(origin="library.search", module_id="system.wallpaper", paths=tuple(paths))
         )
-        self.event_hub.publish(NavigateIntent(origin="library.search", module_id="system.wallpaper"))
         QMessageBox.information(
             self, "Images Sent", f"Sent {len(paths)} images to the Wallpaper Tab."
         )

@@ -253,6 +253,9 @@ class _LifecycleMixin:
                         with contextlib.suppress(Exception):
                             tab.close()
 
+        if getattr(self, "module_runtime", None) is not None:
+            self.module_runtime.dispose()
+
         if self.vault_manager is not None:
             self.vault_manager.shutdown()
 

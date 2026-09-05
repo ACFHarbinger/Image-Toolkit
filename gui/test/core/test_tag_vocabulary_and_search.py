@@ -97,7 +97,7 @@ class TestSearchImagesWithTag:
             tab.search_images_with_selected_tag()
             mock_warn.assert_called_once()
 
-    def test_dispatches_filter_then_navigation_intents(self, q_app):
+    def test_dispatches_navigation_then_filter_intents(self, q_app):
         hub = EventHub(q_app)
         tab = DatabaseTab(event_hub=hub)
         from PySide6.QtWidgets import QTableWidgetItem
@@ -115,8 +115,8 @@ class TestSearchImagesWithTag:
             tab.search_images_with_selected_tag()
 
         assert [(type(event), event.module_id) for event in received] == [
-            (FilterByTagIntent, "library.search"),
             (NavigateIntent, "library.search"),
+            (FilterByTagIntent, "library.search"),
         ]
 
 
@@ -142,7 +142,7 @@ class TestSearchListingsWithTag:
             tab.search_listings_with_selected_tag()
             mock_warn.assert_called_once()
 
-    def test_dispatches_listings_filter_then_navigation_intents(self, q_app):
+    def test_dispatches_listings_navigation_then_filter_intents(self, q_app):
         hub = EventHub(q_app)
         tab = DatabaseTab(event_hub=hub)
         from PySide6.QtWidgets import QTableWidgetItem
@@ -158,8 +158,8 @@ class TestSearchListingsWithTag:
         tab.search_listings_with_selected_tag()
 
         assert [(type(event), event.module_id) for event in received] == [
-            (FilterByTagIntent, "library.listings"),
             (NavigateIntent, "library.listings"),
+            (FilterByTagIntent, "library.listings"),
         ]
 
     def test_listings_navigation_uses_hub_without_legacy_window_ref(self, q_app):
