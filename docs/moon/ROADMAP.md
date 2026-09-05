@@ -91,11 +91,18 @@ Controlled asymmetry now has control-derived previews; portable schema v5 adds
 editable mixed numeric/descriptive identity cards and identity comparisons; all
 nine lessons are fully authored through cel values and capstone (S354).
 
-**Architecture refactor — Phase 0.3 complete (#523, 2026-09-05):**
-`minimize_to_tray`/`close_to_tray` is now device-owned by QSettings, with no
-vault fallback or vault write. This narrow one-owner proof case is the
-prerequisite for the planned typed `PreferenceStore`; see
-[`roadmaps/architecture.md`](roadmaps/architecture.md).
+**Architecture refactor — Phase 0 verified via live-desktop pass (2026-09-05):**
+All four Phase 0 items (#521 native-decode lock, #522 visible-first
+thumbnail dispatch, #523 device-owned tray preference, #524 prototype
+quarantine) merged onto a combined `integration/phase-0` branch and run
+live, twice, against real large/adversarial data — a 108GB video-frames
+directory and a 109GB GIF directory — rather than unit-test-green alone.
+Found and fixed two more bugs along the way, both pre-existing and not
+caused by #521–#524 themselves: GIF thumbnails had no disk-cache
+participation at all (every view re-decoded from scratch), and a
+session-recovery-triggered eager directory load with no size guard froze
+the test machine. See [`roadmaps/architecture.md`](roadmaps/architecture.md)
+§5.18 for full detail.
 
 *Last updated: 2026-08-31. Session S483: completed the frozen-bundle
 path-assumption audit (#476) — confirmed every `_MEIPASS` resource read
