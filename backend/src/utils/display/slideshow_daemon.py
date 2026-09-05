@@ -364,12 +364,25 @@ def run() -> None:  # noqa: C901
 
 
 # ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
+def _is_valid_image(path: str) -> bool:
+    """Return True if path exists, is a regular file, and is non-empty."""
+    try:
+        p = Path(path)
+        return p.is_file() and p.stat().st_size > 0
+    except Exception:
+        return False
+
 
 def _advance_all(monitor_state: dict) -> None:
     for _mid, state in monitor_state.items():
-        state["index"] = (state["index"] + 1) % len(state["paths"])
+        total = len(state["paths"])
+        if total == 0:
+            continue
+        for _ in range(total):
+            state["index"] = (state["index"] + 1) % total
+            candidate = state["paths"][state["index"]]
+            if _is_valid_image(candidate):
+                break
 
 
 def _apply_all(monitor_state: dict, de: str, qdbus: str | None, raw_style: str, monitors: list) -> None:

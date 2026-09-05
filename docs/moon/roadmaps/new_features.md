@@ -366,9 +366,11 @@ When syncing from Dropbox/GDrive (§3.5-adjacent), compare incoming files agains
 
 ---
 
-## 4.7 Slideshow Improvements
+## 4.7 Slideshow Improvements — ✅ Option E implemented
 
-**Pain point:** Slideshow daemon exists (`base/src/utils/slideshow_daemon.rs`) but has minimal configuration. Users want timing, ordering, and filtering control.
+**Pain point:** Slideshow daemon exists (`backend/src/utils/display/slideshow_daemon.py`) but has minimal configuration. Users want timing, ordering, and filtering control.
+
+**Status:** Option E (Image health check before rotation) is implemented in `backend/src/utils/display/slideshow_daemon.py::_advance_all` with `_is_valid_image` verifying file existence, regular file status, and non-empty file size, gracefully skipping missing or corrupted images in rotation without crashing or infinite looping (verified by `backend/test/core/test_slideshow_daemon_health_check.py`).
 
 ### Options
 
@@ -393,7 +395,7 @@ Animate transitions between wallpapers by pre-rendering a short sequence and cyc
 - Pros: Polish.
 - Cons: Requires D-Bus calls at ~30fps during transition (KDE may rate-limit). High effort for aesthetic-only improvement.
 
-**E — Image health check before rotation**
+**E — Image health check before rotation [Shipped]**
 Before advancing the slideshow, verify the next image is accessible and valid (exists, not corrupt). Skip to the next if not.
 - Pros: Prevents blank/error wallpaper state. Defensive improvement.
 - Cons: Adds a file check to the rotation loop.
@@ -439,13 +441,19 @@ Ship a set of pre-built workflow templates (upscale, denoise, colorise, inpaint 
 
 ---
 
-## 4.9 Safetensors Metadata Viewer
+## 4.9 Safetensors Metadata Viewer — ✅ Options A, D implemented
 
 **Pain point:** `safetensors_metadata.py` exists but is not exposed in the GUI. Users managing LoRA and checkpoint files want to inspect metadata without external tools.
 
+**Status:** Options A (read-only metadata & tensor summary modal dialog) and D (SHA256 model hash verification) are implemented:
+- **`SafetensorsInspectorDialog`** (`gui/src/components/dialogs/safetensors_inspector_dialog.py`): Non-blocking metadata and tensor inspect dialog displaying file size, parameter counts, dtype breakdown, parsed model spec (LoRA rank, alpha, base model, trigger words), user metadata tree, sortable tensor slice tree, copy to clipboard, and asynchronous SHA256 integrity verification with `✓ MATCHED` / `✗ MISMATCH` indicators.
+- **`backend/src/utils/data/safetensors_metadata.py`**: `read_metadata()`, `parse_model_spec()`, and `calculate_file_hash()`.
+- **GUI Integration**: "Inspect .safetensors..." buttons wired in `lora_train_tab.py` and `lora_generate_tab.py`.
+- **Tests**: `gui/test/dialogs/test_safetensors_inspector_dialog.py` and `backend/test/test_safetensors_metadata.py`.
+
 ### Options
 
-**A — "Inspect Model" button in LoRA/generate tabs [Quick Win]**
+**A — "Inspect Model" button in LoRA/generate tabs [Quick Win] [Shipped]**
 Load any `.safetensors` file and display its metadata in a read-only `QDialog` with a `QTreeWidget` (key-value tree for nested metadata).
 - Metadata fields: training parameters, trigger words, base model, hash, file size, architecture.
 - Pros: Quick-win improvement to existing tabs. Minimal new code.
@@ -462,7 +470,7 @@ Select two model files and display their metadata side-by-side for comparison (e
 - Pros: Useful for evaluating training progress.
 - Cons: Niche use case. Better as a follow-on to A or B.
 
-**D — Model hash verification**
+**D — Model hash verification [Shipped]**
 Display the sha256/blake3 hash of the model file alongside the embedded metadata hash (if present). Show a green/red indicator for integrity verification.
 - Pros: Security and provenance benefit.
 - Cons: Hashing large files takes a few seconds (3–5s for a 6 GB model). Should run asynchronously.
