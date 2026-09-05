@@ -24,10 +24,10 @@ from gui.src.windows.settings.app_settings import AppSettings
 from ...constants import NEW_LIMIT_MB
 from ..cloud_compute import CloudComputeWindow
 from ..settings import SettingsWindow
+from ._command_palette import _CommandPaletteMixin
 from ._global_search import _GlobalSearchMixin
 from ._header_builder import _HeaderBuilderMixin
 from ._lifecycle import _LifecycleMixin
-from ._command_palette import _CommandPaletteMixin
 from ._load_tab_config import _LoadTabConfigMixin
 from ._notify import show_main_status, show_tray_notification
 from ._runtime_shell import _RuntimeShellMixin
@@ -219,7 +219,9 @@ class MainWindow(
             self.restoreGeometry(_geom)
         else:
             self.showMaximized()
-        if not self._using_runtime_shell:
+        if self._using_runtime_shell:
+            QTimer.singleShot(0, self._restore_runtime_shell_session)
+        else:
             QTimer.singleShot(0, self._restore_session_recovery)
 
     def open_settings_window(self):
