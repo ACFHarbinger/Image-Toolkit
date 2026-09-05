@@ -435,20 +435,47 @@ class _MediaPlayerMixin:
         self.operation_thread_pool.waitForDone(2000)
         super().closeEvent(event)  # type: ignore[misc,safe-super]
 
+    # Extracted-frame output directories can hold a handful of very large
+    # files (uncompressed/high-res frames -- 101 files totalling 108GB
+    # observed in the wild) rather than many small ones, so
+    # MAX_PREVIEW_ITEMS (a *count* cap, see _directory_scanning.py) does
+    # nothing to protect against this. This is a *byte* budget for the
+    # eager auto-load specifically -- found 2026-09-05 after this path,
+    # triggered unconditionally by session-recovery's set_config(), froze
+    # the host machine (thread/memory explosion decoding several ~1GB
+    # files concurrently, same class as the crash this week's Phase 0
+    # invariants exist to prevent).
+    _AUTO_LOAD_OUTPUT_IMAGES_BYTE_BUDGET = 500 * 1024 * 1024  # 500MB
+
     def _load_existing_output_images(self: "VideoExtractorSubTabHostProtocol"):
         valid_extensions = {".jpg", ".jpeg", ".png", ".bmp", ".gif", ".mp4"}
         found_paths = []
+        total_bytes = 0
 
         if self.extraction_dir.exists():
             for entry in self.extraction_dir.iterdir():
                 if entry.is_file() and entry.suffix.lower() in valid_extensions:
                     full_path = str(entry.absolute())
                     found_paths.append(full_path)
+                    with contextlib.suppress(OSError):
+                        total_bytes += entry.stat().st_size
 
         found_paths.sort(key=natural_sort_key)
 
         if found_paths:
             self.current_extracted_paths = found_paths
+            if total_bytes > self._AUTO_LOAD_OUTPUT_IMAGES_BYTE_BUDGET:
+                print(
+                    f"[safety-guard] Skipping eager auto-load of "
+                    f"{len(found_paths)} existing output file(s) "
+                    f"({total_bytes / (1024 * 1024):.0f}MB total, over the "
+                    f"{self._AUTO_LOAD_OUTPUT_IMAGES_BYTE_BUDGET / (1024 * 1024):.0f}MB "
+                    "auto-load budget) for "
+                    f"{self.extraction_dir} -- use the tab's refresh/reload "
+                    "action to load it explicitly.",
+                    flush=True,
+                )
+                return
             self.start_loading_gallery(
                 self.current_extracted_paths, pixmap_cache=self._initial_pixmap_cache # pyrefly: ignore [bad-argument-type]
             )
