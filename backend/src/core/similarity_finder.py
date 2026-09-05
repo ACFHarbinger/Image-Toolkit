@@ -7,6 +7,7 @@ import numpy as np
 from PIL import Image
 
 from backend.src.constants import SSIM_C1, SSIM_C2
+from backend.src.core.telemetry import NATIVE_IMAGE_BATCH_LOCK
 
 
 class SimilarityFinder:
@@ -45,7 +46,8 @@ class SimilarityFinder:
 
         try:
             # C++ returns HashMap<group_name, Vec<path>>
-            return base.find_similar_images_phash(directory, extensions, threshold)
+            with NATIVE_IMAGE_BATCH_LOCK:
+                return base.find_similar_images_phash(directory, extensions, threshold)
         except Exception as e:
             print(f"Error in find_similar_phash (C++): {e}", file=sys.stderr)
             return {}

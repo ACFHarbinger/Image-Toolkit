@@ -4,10 +4,12 @@ from __future__ import annotations
 
 from enum import Enum
 from typing import Optional
+
 from PySide6.QtCore import QObject, Signal
 from PySide6.QtWidgets import QHBoxLayout, QStackedWidget, QVBoxLayout, QWidget
 
-from gui.src.modules.registry import ModuleRegistry
+from gui.src.protos.modules.registry import ModuleRegistry
+
 from .navigation_rail import NavigationRailWidget
 from .segmented_ribbon import TopSegmentedRibbonWidget
 

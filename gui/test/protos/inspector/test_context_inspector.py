@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from PySide6.QtWidgets import QWidget
-
-from gui.src.components.inspector import ContextInspectorPanel
+from gui.src.protos.inspector import ContextInspectorPanel
 
 pytestmark = pytest.mark.gui
 

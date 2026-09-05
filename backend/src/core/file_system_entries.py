@@ -4,6 +4,8 @@ from pathlib import Path
 
 import base
 
+from backend.src.core.telemetry import NATIVE_SCAN_LOCK
+
 
 class FSETool:
     """
@@ -83,9 +85,10 @@ class FSETool:
         """
         try:
             # C++ extension expects string args
-            return base.get_files_by_extension(
-                str(directory), str(extension), recursive
-            )
+            with NATIVE_SCAN_LOCK:
+                return base.get_files_by_extension(
+                    str(directory), str(extension), recursive
+                )
         except Exception as e:
             print(f"Error in FSETool.get_files_by_extension (C++): {e}")
             # Fallback (though ideally we shouldn't fail)

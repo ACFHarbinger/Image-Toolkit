@@ -3,17 +3,16 @@
 from __future__ import annotations
 
 import os
-from typing import Any, Optional
+from typing import Optional
+
 from PySide6.QtCore import QSize, Qt, Signal
-from PySide6.QtGui import QColor, QPixmap
+from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
     QPushButton,
     QScrollArea,
-    QSizePolicy,
-    QStackedWidget,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,

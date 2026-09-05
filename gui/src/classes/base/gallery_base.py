@@ -513,6 +513,39 @@ class AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery):
         widget_rect = QRect(p, widget.size())
         return visible_rect.intersects(widget_rect)
 
+    def _sort_paths_by_visibility(
+        self,
+        paths: list,
+        scroll_area,
+        path_to_widget: dict,
+    ) -> list:
+        """Reorder *paths* so those whose card widget is visible in the
+        viewport's scroll area come first.  Non-visible paths follow in
+        their original order.
+
+        This is the core primitive for visible-first thumbnail dispatch:
+        the batch loaders (``common_start_chunked_load``) process their
+        input list sequentially, so placing visible paths at the front
+        ensures the user sees thumbnails populate top-to-bottom while
+        offscreen paths load later.
+        """
+        if not paths or not scroll_area:
+            return paths
+        viewport = scroll_area.viewport()
+        if viewport is None:
+            return paths
+        visible_rect = viewport.rect()
+
+        visible_first: list = []
+        hidden_rest: list = []
+        for path in paths:
+            card = path_to_widget.get(path)
+            if card is not None and self.common_is_visible(card, viewport, visible_rect):
+                visible_first.append(path)
+            else:
+                hidden_rest.append(path)
+        return visible_first + hidden_rest
+
     # =========================================================================
     # Chunked sequential load scheduling (progressive gallery fill)
     # =========================================================================

@@ -4,6 +4,7 @@ from typing import Callable, List, Optional
 
 import base  # The new C++ extension
 
+from backend.src.core import telemetry
 from backend.src.core.file_system_entries import FSETool
 
 # Define the decorator factories needed for the format conversion methods
@@ -60,14 +61,20 @@ class ImageFormatConverter:
 
         # The C++ backend raises a PyValueError on failure which will be caught by the worker
         # pyrefly: ignore [missing-attribute]
-        res = base.convert_single_image(
-            image_path,
-            output_path,
-            format,
-            delete,
-            aspect_ratio,
-            ar_mode,
-        )
+        # Serialized against every other native image-decode/convert entry
+        # (see telemetry.NATIVE_IMAGE_BATCH_LOCK's docstring) -- convert runs
+        # cv::imread/cv::imwrite, the same OpenCV decode/write boundary as
+        # base.load_image_batch, so concurrent Python-level entries are the
+        # same crash class.
+        with telemetry.NATIVE_IMAGE_BATCH_LOCK:
+            res = base.convert_single_image(
+                image_path,
+                output_path,
+                format,
+                delete,
+                aspect_ratio,
+                ar_mode,
+            )
 
         if res and not os.path.exists(output_path):
             # Try to rename if C++ saved it with alternative jpeg extension
@@ -166,13 +173,16 @@ class ImageFormatConverter:
         # --- Call C++ Backend ---
         try:
             # pyrefly: ignore [missing-attribute]
-            results = base.convert_image_batch(
-                image_pairs=image_pairs,
-                output_format=output_format,
-                delete_original=delete,
-                aspect_ratio=aspect_ratio,
-                ar_mode=ar_mode,
-            )
+            # Serialized against every other native image-decode/convert
+            # entry (see telemetry.NATIVE_IMAGE_BATCH_LOCK's docstring).
+            with telemetry.NATIVE_IMAGE_BATCH_LOCK:
+                results = base.convert_image_batch(
+                    image_pairs=image_pairs,
+                    output_format=output_format,
+                    delete_original=delete,
+                    aspect_ratio=aspect_ratio,
+                    ar_mode=ar_mode,
+                )
 
             # Fix up jpg/jpeg extensions if necessary
             final_results = []

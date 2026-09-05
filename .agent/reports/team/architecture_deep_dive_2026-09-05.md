@@ -822,3 +822,80 @@ I am claiming **Phase 0.4** (Quarantine prototype code into `protos/` submodule 
 Since I built the UI prototypes, I have the context on exactly which components and registry files need to be quarantined out of the active GUI import graph. I will start this immediately on an isolated feature branch.
 
 — Gemini / Antigravity
+
+---
+
+## 8. Phase 1.5 (#529) design de-risk — DeepSeek (opencode), 2026-09-05
+
+Status: **design scoping / verification only — no Phase 1 code landed.** Phase 0
+is not yet on `main` (0.1/0.2/0.3/0.4 all still on branches), so per the D2
+gate the #529 implementation itself is held; this de-risks it so it can start
+immediately once Phase 0 lands. This validates Claude's reference
+implementation against the real code.
+
+**Verified against our stack (not just the reference):** PySide6 6.10.0 /
+Qt 6.10.0. `Qt.ConnectionType.QueuedConnection` and `Signal(object)` both
+available — Claude's `QtEventBridge` shape is valid as-is. No version-driven
+change needed to the reference.
+
+**Actual signal surface (the 6 `backend/src/web/*` files)** — nearly
+identical, 4 events each, which makes the conversion mechanical:
+
+| Signal | Type | Delivery |
+|---|---|---|
+| `on_status` | `Signal(str)` | high-rate progress/status text → **coalesce** |
+| `on_image_saved` | `Signal(str)` | per-file result → **per-event** |
+| `on_finished` | `Signal(int,str)` / `Signal(str)` | completion → **per-event** |
+| `on_error` | `Signal(str)` | rare → per-event |
+| `on_results` (ReverseImageSearchCrawler only) | `Signal(list)` | per-event (`List[dict]`) |
+
+**Critical wrinkle vs. D7 (must be in the epic):** the backend classes are
+**hybrid** — they emit the signals above *and* return a synchronous value from
+their entry method (e.g. `ImageCrawler.run()` returns `final_count`, consumed
+at `gui/src/helpers/web/image_crawl_worker.py:90`;
+`ReverseImageSearchManager` returns `List[dict]`). D7 explicitly keeps
+request/reply out of the event bus. So the conversion is: **only the events
+become `Observable[T]`; the `run()`/`stop()`/`search()` methods remain regular
+synchronous calls returning their values.** Do not push the entry method's
+return into the bus.
+
+**Direct crash-class evidence to cite in the epic:**
+`gui/src/helpers/web/media_loader_worker.py:1-22` — its docstring documents the
+exact `QSocketNotifier: Socket notifiers cannot be enabled or disabled from
+another thread` / `corrupted size vs. prev_size` SIGSEGV, and the current
+*workaround*: construct `NhentaiDownloader`/`RedditDownloader` on the GUI
+thread (not in `QThread.run()`) to avoid instantiating Qt's per-thread event
+dispatcher (a glib `QSocketNotifier` on a wake-up pipe whose fds get reused by
+the downloader's `requests` sockets). Removing QObject from the backend
+downloaders eliminates the dispatcher on the worker thread entirely and makes
+that whole workaround unnecessary — this is precisely what D7's non-Qt
+`Observable` buys us.
+
+**Conversion plan (per contract):**
+1. `backend/events.py` — `Observable[T]` (RLock, token-based subscribe →
+   unsubscribe, exception-isolated publish). Zero Qt (CI guardrail #530 checks
+   this).
+2. Each of the 6 web classes: drop `QObject` base + `= Signal` defs; add
+   `self.on_status: Observable[str] = Observable()` etc.; `run()`/`stop()`/
+   `search()` unchanged signatures, return values unchanged; internal
+   `self.on_status.emit(x)` → `self.on_status.publish(x)`, `x.emit` →
+   `x.publish`.
+3. GUI adapters: a `QtEventBridge` per event (QObject on the GUI thread,
+   `Signal(object)` + `@Slot(object)` wired with `Qt.QueuedConnection`),
+   constructed in the gui-side worker/window. The worker no longer needs the
+   "construct downloader on the GUI thread" constraint (crash workaround
+   removed).
+4. Coalescing bridge variant for `on_status` (buffer latest under a lock,
+   parameterless wake signal, drain-latest in the slot) — use for
+   `on_status` only; keep `on_image_saved`/`on_finished`/`on_error`/
+   `on_results` on the plain per-event bridge.
+
+**Test/verification per D12:** after conversion, the offscreen worker tests for
+`image_crawl_worker`/`media_loader_worker`/`web_requests_worker`/
+`reverse_search_worker` must pass with the backends no longer being QObjects,
+and the existing `QObject`-in-backend assertion in #530 is the guardrail that
+prevents regression.
+
+**Blast-radius note:** this touches crawler/downloader worker threads — the
+historical crash class. Per the process, I'll land it on an isolated branch for
+review after Phase 0 merges, not before.
