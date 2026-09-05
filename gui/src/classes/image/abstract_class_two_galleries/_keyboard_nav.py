@@ -70,6 +70,16 @@ class _KeyboardNavMixin:
                 event.accept()
             else:
                 super().keyPressEvent(event)
+        elif reg.matches(event, "general.undo"):  # pyrefly: ignore [bad-argument-type]
+            from ....utils.undo_manager import UndoManager
+
+            UndoManager.instance().undo()
+            event.accept()
+        elif reg.matches(event, "general.redo"):  # pyrefly: ignore [bad-argument-type]
+            from ....utils.undo_manager import UndoManager
+
+            UndoManager.instance().redo()
+            event.accept()
         else:
             super().keyPressEvent(event)  # type: ignore[misc,safe-super] # pyrefly: ignore [bad-argument-type]
 
