@@ -7,13 +7,14 @@ another thread``). The downloader QObject must be constructed on the GUI
 thread; only ``downloader.run()`` may run on a plain ``threading.Thread``.
 These tests exercise the worker's dispatch/forwarding logic only (the real
 downloaders have their own unit tests in ``backend/test/web/``), using a
-fake downloader with real Qt signals so emissions actually forward.
+fake downloader with real Observables so emissions actually forward through
+the worker's QtEventBridges.
 """
 
 import threading
 from unittest.mock import patch
 
-from PySide6.QtCore import QObject, Signal
+from backend.src.events import Observable
 
 from gui.src.helpers.web.media_loader_worker import MediaLoaderWorker
 
@@ -25,26 +26,26 @@ def _seen_config_capture(seen: dict, config):
     return fake
 
 
-class _FakeDownloader(QObject):
-    on_status = Signal(str)
-    on_image_saved = Signal(str)
-    on_finished = Signal(int, str)
-    on_error = Signal(str)
+class _FakeDownloader:
+    """Mirrors the real backend downloaders' event surface (issue #529)."""
 
     def __init__(self, config):
-        super().__init__()
         self.config = config
         self.stopped = False
         self.ran = False
+        self.on_status: Observable[str] = Observable()
+        self.on_image_saved: Observable[str] = Observable()
+        self.on_finished: Observable[tuple[int, str]] = Observable()
+        self.on_error: Observable[str] = Observable()
 
     def stop(self):
         self.stopped = True
 
     def run(self):
         self.ran = True
-        self.on_status.emit("working...")
-        self.on_image_saved.emit("/tmp/fake.jpg")
-        self.on_finished.emit(1, "Finished. Downloaded 1 file(s).")
+        self.on_status.publish("working...")
+        self.on_image_saved.publish("/tmp/fake.jpg")
+        self.on_finished.publish((1, "Finished. Downloaded 1 file(s)."))
 
 
 def _run_worker(q_app, source, config, downloader_cls, patch_target):
@@ -61,6 +62,9 @@ def _run_worker(q_app, source, config, downloader_cls, patch_target):
         worker.error.connect(errors.append)
 
         worker.run()
+        # Bridge delivery is queued (Qt.QueuedConnection) even on the test
+        # thread — pump the loop so forwarded events land before asserting.
+        q_app.processEvents()
 
         return worker, statuses, saved, finished, errors
 
@@ -100,9 +104,9 @@ class TestMediaLoaderWorkerDispatch:
             "gui.src.helpers.web.media_loader_worker.RedditDownloader",
         )
 
-        # The downloader QObject is created on the GUI thread (this test
-        # calls run() synchronously) and kept there -- destroying it from
-        # the worker thread is the crash. Signals still forward.
+        # The downloader is created on the GUI thread (this test calls
+        # run() synchronously) and kept there -- destroying it from the
+        # worker thread is the crash. Events still forward via the bridges.
         assert "working..." in statuses
         assert saved == ["/tmp/fake.jpg"]
         assert finished == [(1, "Finished. Downloaded 1 file(s).")]
