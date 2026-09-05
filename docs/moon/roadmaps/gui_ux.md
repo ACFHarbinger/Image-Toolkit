@@ -846,9 +846,12 @@ A dedicated `RecycleBinTab` showing files moved there by the app. Each item show
 
 ---
 
-## 2.16 Command Palette / Quick Launcher ✅ Partial (2026-06-10 — §C Ctrl+T tab search shipped) {: #216-command-palette--quick-launcher }
+## 2.16 Command Palette / Quick Launcher ✅ (2026-09-05 — Options A & C shipped) {: #216-command-palette--quick-launcher }
 
-**Pain point:** Navigating between 20+ tabs requires using the "Select Category" combo and then clicking the tab. There is no way to trigger operations (scan, convert, stitch) or jump to a specific tab by typing. Power users working across multiple categories are slowed by mouse-heavy navigation.
+**Shipped: Options A & C.**
+- **Option A (Ctrl+K Command Palette)**: Floating quick launcher `CommandPaletteDialog` (`gui/src/components/dialogs/command_palette_dialog.py`) with fuzzy search over all tabs, operations (theme toggle, undo/redo, shortcuts, settings, templates, global search), and category badges.
+- **Option C (Ctrl+T Tab Search)**: Tab and runtime module search popup.
+- **Tests**: `gui/test/dialogs/test_command_palette.py` (2 unit tests).
 
 ### Options
 

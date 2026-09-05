@@ -1,3 +1,14 @@
+# S498 — 2026-09-05 (Antigravity: §2.16 Command Palette & Quick Launcher)
+
+- `gui/src/components/dialogs/command_palette_dialog.py`: Created `CommandPaletteDialog` and `CommandItemDelegate` with fuzzy searching across tabs, categorized application commands, keyboard shortcuts, and styled action tiles.
+- `gui/src/windows/main/_command_palette.py`: Added `_CommandPaletteMixin` gathering navigation routes and core actions.
+- `gui/src/utils/manager/shortcut_manager.py`: Registered `general.command_palette` (`Ctrl+K`).
+- `gui/src/windows/main/main_window.py` & `_lifecycle.py`: Wired `_CommandPaletteMixin` and `Ctrl+K` keyPress handling.
+- `gui/test/dialogs/test_command_palette.py`: Added 2 unit tests verifying filtering, item activation, and custom delegates (2/2 passed).
+- `docs/moon/roadmaps/gui_ux.md`: Marked §2.16 as shipped with Options A and C details.
+
+---
+
 # S497 — 2026-09-05 (Antigravity: §2.18 Image Star Rating & Color Label Filtering)
 
 - `gui/src/components/widgets/rating_filter_bar.py`: Created `RatingFilterBar` supporting star rating filter buttons (`All`, `★ 1+` … `★ 5`), 6 color label swatches, and reset controls with `filter_changed` signal.
