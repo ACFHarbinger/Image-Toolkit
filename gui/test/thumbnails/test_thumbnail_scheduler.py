@@ -86,3 +86,29 @@ class TestDefaultThumbnailScheduler:
         scheduler.enqueue(["/b.png"])
         assert scheduler.complete("/a.png", gen) is False
         assert scheduler.take_next() == "/b.png"
+
+    def test_same_path_cancel_and_requeue_regression(self):
+        """Codex cross-review of #526: a stale completion for a path that
+        was cancelled then immediately re-enqueued/re-taken under a new
+        generation must not free the *new* generation's in-flight slot nor
+        let take_next() hand the same path back out a second time while it
+        is genuinely still running.
+        """
+        scheduler = DefaultThumbnailScheduler(max_in_flight=1)
+        scheduler.enqueue(["/a.png", "/b.png"])
+        gen0 = scheduler.generation
+        assert scheduler.take_next() == "/a.png"  # in-flight under gen0
+
+        gen1 = scheduler.cancel()
+        scheduler.enqueue(["/a.png"])
+        assert scheduler.take_next() == "/a.png"  # in-flight under gen1
+
+        # Late gen0 completion arrives after the requeue.
+        assert scheduler.complete("/a.png", gen0) is False
+        # The slot must still be considered occupied by gen1's "/a.png" —
+        # not freed by the stale gen0 completion.
+        assert scheduler.take_next() is None
+        assert scheduler.has_pending() is True  # gen1's "/a.png" still in-flight
+
+        # The genuine gen1 completion for the same path releases the slot.
+        assert scheduler.complete("/a.png", gen1) is True
