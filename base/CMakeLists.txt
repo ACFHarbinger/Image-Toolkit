@@ -110,6 +110,23 @@ else()
 endif()
 
 # ---------------------------------------------------------------------------
+# Native cryptography library (formerly the retired Kotlin JAR; now plain C
+# living alongside the rest of base::secret). Built as its own shared object
+# rather than folded into the pybind11 `base` extension because it's loaded
+# via ctypes at runtime (backend/src/core/vault_manager.py), not imported as
+# a Python module -- but it's part of the base build now, not a separate
+# `just build-crypto` step someone can forget to run.
+# ---------------------------------------------------------------------------
+if(OpenSSL_FOUND OR OPENSSL_FOUND)
+    enable_language(C)
+    add_library(itk_crypto SHARED src/secret/itk_crypto.c)
+    target_link_libraries(itk_crypto PRIVATE OpenSSL::Crypto)
+    install(TARGETS itk_crypto DESTINATION .)
+else()
+    message(WARNING "base: OpenSSL NOT found — libitk_crypto.so (account vault encryption) will NOT be built. Login will fail until OpenSSL is available and base is rebuilt.")
+endif()
+
+# ---------------------------------------------------------------------------
 # Phase 5: cpp-httplib + nlohmann/json (header-only, auto-fetched via FetchContent)
 # ---------------------------------------------------------------------------
 FetchContent_Declare(
