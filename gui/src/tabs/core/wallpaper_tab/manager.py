@@ -135,3 +135,29 @@ class WallpaperTab(QWidget):
     @property
     def qml_status_changed(self):
         return self.system_display.qml_status_changed
+
+    def _require_system_display(self):
+        sd = getattr(self, "system_display", None)
+        if sd is None:
+            raise NotImplementedError(
+                "WallpaperTab.system_display is missing; tray/search "
+                "forwarders cannot run"
+            )
+        return sd
+
+    def display_scan_results(self, image_paths: list) -> None:
+        """Search/cross-tab entry: host the scan on System Display."""
+        self._require_system_display().display_scan_results(image_paths)
+
+    def toggle_daemon(self, checked: bool) -> None:
+        """Tray 'Toggle Daemon' entry: the daemon lives on System Display."""
+        self._require_system_display().toggle_daemon(checked)
+
+    def _cycle_slideshow_wallpaper(self, increment: bool = True) -> None:
+        """Tray 'Next Wallpaper' entry."""
+        self._require_system_display()._cycle_slideshow_wallpaper(increment=increment)
+
+    @property
+    def btn_daemon_toggle(self):
+        """Tray reads checked-state from the System Display toggle button."""
+        return self._require_system_display().btn_daemon_toggle
