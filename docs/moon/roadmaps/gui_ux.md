@@ -1134,9 +1134,11 @@ When an image is added to the selection, animate a check mark icon overlaid on t
 
 ---
 
-## 2.25 Keyboard Shortcut Discovery Overlay ✅ Partial (2026-06-10 — §A Ctrl+/ table shipped) {: #225-keyboard-shortcut-discovery-overlay }
+## 2.25 Keyboard Shortcut Discovery Overlay ✅ (2026-09-05 — Options A & B shipped with Keycap and Scope badge delegates) {: #225-keyboard-shortcut-discovery-overlay }
 
-**Pain point:** The app has various keyboard shortcuts scattered across tabs (`Ctrl+C` in preview, `Del` for delete, `Enter` for preview open) but there is no in-app reference for them. Users discover shortcuts accidentally. No `F1` help or `?` overlay exists.
+**Shipped: Options A & B.**
+- **Option A & B (Searchable Cheat Sheet & Keycap Badges)**: Dedicated `ShortcutDiscoveryDialog` (`gui/src/components/dialogs/shortcut_discovery_dialog.py`) opened with `Ctrl+/` or `F1`. Features scope filter pill tabs (`All`, `General`, `Gallery`, `Preview`, `Stitch`, `Convert`, `Merge`), live search with match counts, customized `KeycapBadgeDelegate` rendering `<kbd>`-style rounded keycaps with modifier separation, and `ScopeBadgeDelegate` rendering color-coded scope pills.
+- **Tests**: `gui/test/dialogs/test_shortcut_discovery_dialog.py` (4 unit tests).
 
 ### Options
 
