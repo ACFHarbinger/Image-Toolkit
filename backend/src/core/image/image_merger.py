@@ -10,6 +10,7 @@ from loguru import logger
 from PIL import Image
 
 from backend.src.constants import BACKEND_DIR, AlignMode
+from backend.src.core import telemetry
 
 from .. import FSETool
 
@@ -183,10 +184,12 @@ class ImageMerger(
             rust_align = "stretch"  # I implemented "stretch" in C++ to mean resize.
 
         if direction == "horizontal":
-            base.merge_images_horizontal(image_paths, output_path, spacing, rust_align)
+            with telemetry.NATIVE_IMAGE_BATCH_LOCK:
+                base.merge_images_horizontal(image_paths, output_path, spacing, rust_align)
             return Image.open(output_path)
         elif direction == "vertical":
-            base.merge_images_vertical(image_paths, output_path, spacing, rust_align)
+            with telemetry.NATIVE_IMAGE_BATCH_LOCK:
+                base.merge_images_vertical(image_paths, output_path, spacing, rust_align)
             return Image.open(output_path)
         elif direction == "grid":
             if grid_size is None:
@@ -194,7 +197,8 @@ class ImageMerger(
             rows, cols = grid_size
             if len(image_paths) > rows * cols:
                 raise ValueError("More images provided than the grid slots can hold.")
-            base.merge_images_grid(image_paths, output_path, rows, cols, spacing)
+            with telemetry.NATIVE_IMAGE_BATCH_LOCK:
+                base.merge_images_grid(image_paths, output_path, rows, cols, spacing)
             return Image.open(output_path)
         elif direction == "panorama":
             ek = engine_kwargs or {}

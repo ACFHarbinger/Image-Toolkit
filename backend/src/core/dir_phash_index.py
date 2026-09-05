@@ -28,7 +28,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from backend.src.constants import IMAGE_TOOLKIT_DIR
-from backend.src.constants.core import _U64, CORE_DIR_PHASH_INDEX__IMG_EXTS
+from backend.src.constants.core import _U64, CORE_DIR_PHASH_INDEX__IMG_EXTS, NATIVE_SCAN_LOCK
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +80,8 @@ def _scan_tree(root: str, recursive: bool) -> List[str]:
     try:
         import base  # C++ fast path
 
-        return list(base.scan_files_multi([root], list(CORE_DIR_PHASH_INDEX__IMG_EXTS), recursive))
+        with NATIVE_SCAN_LOCK:
+            return list(base.scan_files_multi([root], list(CORE_DIR_PHASH_INDEX__IMG_EXTS), recursive))
     except Exception:
         pass
 
