@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from ..window_manager import register_window
 from .cloud_settings_pane import CloudSettingsPane
 from .dashboards_pane import DashboardsPane
 from .providers_pane import ProvidersPane
@@ -32,6 +33,7 @@ class CloudComputeWindow(QWidget):
 
     def __init__(self, parent: Optional[QWidget] = None):
         super().__init__(None, Qt.WindowType.Window)
+        register_window(self)
         self.main_window_ref = parent
         self.vault_manager = getattr(parent, "vault_manager", None) if parent else None
 

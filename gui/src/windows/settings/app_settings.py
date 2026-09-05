@@ -73,12 +73,17 @@ class AppSettings:
                 return val.lower() == "true"
             return bool(val)
 
-        from PySide6.QtWidgets import QApplication
-        for widget in QApplication.topLevelWidgets():
-            if hasattr(widget, "cached_creds") and widget.cached_creds:
-                prefs = widget.cached_creds.get("preferences", {})
-                if "recursive_scan" in prefs:
-                    return bool(prefs["recursive_scan"])
+        from gui.src.windows.window_manager import WindowManager
+
+        main = WindowManager.instance().main_window()
+        if main is None:
+            main = WindowManager.instance().find(
+                lambda w: hasattr(w, "cached_creds") and bool(getattr(w, "cached_creds", None))
+            )
+        if main is not None:
+            prefs = main.cached_creds.get("preferences", {})
+            if "recursive_scan" in prefs:
+                return bool(prefs["recursive_scan"])
         return True
 
     @classmethod

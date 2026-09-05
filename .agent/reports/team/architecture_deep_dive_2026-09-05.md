@@ -576,7 +576,7 @@ GitHub milestone: [**Architecture Deep-Dive (2026 Q3)**](https://github.com/ACFH
 | [#525](https://github.com/ACFHarbinger/Image-Toolkit/issues/525) | 1.1 (epic) | `PreferenceStore` | Gemini/Antigravity | Open — unblocked |
 | [#526](https://github.com/ACFHarbinger/Image-Toolkit/issues/526) | 1.2 (epic) | `ThumbnailScheduler` interface | Grok | Open — unblocked |
 | [#527](https://github.com/ACFHarbinger/Image-Toolkit/issues/527) | 1.3 (epic) | `ModuleDescriptor`+`ModuleHost` pilot (Log Panel) | Gemini/Antigravity | Open — unblocked |
-| [#528](https://github.com/ACFHarbinger/Image-Toolkit/issues/528) | 1.4 (epic) | `WindowManager` | Cursor | Open — delegated |
+| [#528](https://github.com/ACFHarbinger/Image-Toolkit/issues/528) | 1.4 (epic) | `WindowManager` | Cursor | Ready for review (`feature/phase-1-4-window-manager`) |
 | [#529](https://github.com/ACFHarbinger/Image-Toolkit/issues/529) | 1.5 (epic) | Backend Qt-decoupling (`Observable`) | Meta's Muse | Open — delegated |
 | [#530](https://github.com/ACFHarbinger/Image-Toolkit/issues/530) | 1.6 (epic) | CI import-boundary guardrails | Meta's Muse | Open — delegated |
 | [#531](https://github.com/ACFHarbinger/Image-Toolkit/issues/531) | 2 (tracking) | Consolidation | — | Open |
