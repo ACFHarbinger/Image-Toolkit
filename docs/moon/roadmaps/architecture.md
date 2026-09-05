@@ -1290,7 +1290,7 @@ No further gui/src directory-level reorg work is currently outstanding.
 
 ---
 
-## §5.18 Phase 0 — Architecture Deep-Dive (in progress) {: #518-phase-0--architecture-deep-dive }
+## §5.18 Phase 0 — Architecture Deep-Dive (D12 live-desktop pass verified) {: #518-phase-0--architecture-deep-dive }
 
 Targeted fixes that address known architectural pain points before larger
 refactors. Items are ordered by dependency; all but §5.18B are independent
@@ -1300,10 +1300,24 @@ and can be parallelised after §5.18A lands.
 |------|--------|-------------|
 | §5.18A | ✅ Shipped | **#521 — Native-decode lock**: `NATIVE_IMAGE_BATCH_LOCK` / `NATIVE_SCAN_LOCK` in `backend/src/constants/core.py`; serialises native-image-batch and native-scan paths to prevent concurrent OpenMP thrash. |
 | §5.18B | ✅ Shipped | **#522 — Visible-first thumbnail dispatch**: reorder load queues so viewport-visible thumbnails are dispatched first across all four gallery implementations (`AbstractClassSingleGallery`, `AbstractClassTwoGalleries`, `VirtualGalleryModel`, `VirtualGalleryView`). Core helper `_sort_paths_by_visibility()` in `gallery_base.py`; `VirtualGalleryModel.set_visible_range()` + `_reorder_fill_queue()`. |
-| §5.18C | Claimed | **#523 — Tray preference wiring**: ensure tray-related preferences are correctly applied at startup and persisted. |
+| §5.18C | ✅ Shipped | **#523 — Tray preference wiring**: `minimize_to_tray`/`close_to_tray` is now exclusively device-owned by `AppSettings`/QSettings, no vault fallback or vault write. |
 | §5.18D | ✅ Shipped | **#524 — Prototype quarantine + WallpaperTab fix**: isolate unwired prototype components into `gui/src/protos/`; restore `WallpaperTab` Search/tray API forwarding. |
+| §5.18E | ✅ Shipped | **GIF disk-cache** (found during D12 live testing, not a numbered issue): the `QImageReader` fallback GIFs use since §5.18A had no disk-cache participation — every view/scroll re-decoded from scratch. New `gui/src/helpers/image/_qimagereader_disk_cache.py`; 40x faster on warm-cache reads, user-confirmed in the live app. |
+| §5.18F | ✅ Shipped | **Session-recovery freeze guard** (found during D12 live testing, not a numbered issue): `ExtractorTab._load_existing_output_images()` eagerly loaded an entire extraction-output directory with no size guard, froze the host machine against a real 108GB/101-file directory. Added a 500MB byte budget on that specific call site. |
 
-**Dependencies:** §5.18B requires §5.18A to land first (D2 gate). §5.18C and §5.18D are independent.
+**Dependencies:** §5.18B requires §5.18A to land first (D2 gate). §5.18C–§5.18F are independent of each other.
+
+**D12 live-desktop pass (2026-09-05):** all four original items (§5.18A–D)
+merged onto a combined `integration/phase-0` branch and run live, twice,
+against real large/adversarial data (a 108GB video-frames directory, a
+109GB GIF directory) rather than just unit-test-green. Found and fixed
+§5.18E and §5.18F along the way — neither is a regression from §5.18A–D
+individually, both are pre-existing bugs the live pass surfaced. User
+confirmed the app runs stably through login, `MainWindow` construction,
+and gallery loading afterward. §5.18C's (#523) and §5.18D's (#524) own
+specific behaviors (tray persistence, quarantine correctness) were not
+the focus of this pass and should still get their own targeted
+verification before the Phase 0 gate is called fully closed.
 
 ---
 
@@ -1342,4 +1356,6 @@ and can be parallelised after §5.18A lands.
 
 *Updated 2026-07-29: §5.17: the 3 deferred giants (`stitch_tab.py` 5,032, `extractor_tab.py` 3,268, `settings_window.py` 2,505 code lines) split via Option B and shipped under a fresh issue #122, closing out §5.17's Option B entirely — every file-size offender identified across the original audit and issue #121's follow-up is now split. Sequenced smallest-to-largest per Option E (`settings_window.py` → `extractor_tab.py` → `stitch_tab.py`), each as its own commit (`e209a793`, `da84e270`, `d6532a4c`). `settings_window.py`'s `__init__` (~1,113 of its 2,505 lines) required decomposing the constructor into `_build_*_section()` helpers before a mixin split was possible — confirming Option B's documented caveat about single-giant-`__init__` files. `extractor_tab.py`'s crash-history-sensitive lazy `QMediaPlayer`/`QAudioOutput`/`QGraphicsVideoItem` construction and `cancel_loading()` teardown ordering (`.agent/cache/gallery_crash_deleteorphaned_2026-07-27.md`) moved verbatim. `stitch_tab.py` decomposed cleanly along its 8 pre-existing sub-tab features (Stitch/Graph/Adjust/Canvas/Stats/Sequence/Hybrid/Animation Clusters), plus its ~1,200 lines of standalone node-graph/match-editor/thumbnail-picker helper classes extracted into their own modules; two methods (`_build_stitch_panel`, `_stats_build_recommendations`) kept whole as documented over-limit exceptions, same precedent as `_progress_pipeline.py`. Verified end-to-end: `ast.parse` + live MRO checks on all 3 packages, scoped test runs (`settings_window` 27/27, `stitch_tab` 27/27; `extractor_tab`'s `QMediaPlayer` tests hit the pre-existing, already-documented JVM/Qt-Multimedia crash class, reproduced identically against the pristine original file, confirming no regression), `ruff check` (only pre-existing findings), `uv run lint-imports` (all 3 contracts kept), and a regenerated `docs/module_graph.html` (768 modules, 1,237 edges, 0 unexplained cross-layer violations). §5.17 overall moves from High to Medium priority — Options A (CI-enforced gate) and D (LoC dashboard) remain the only open sub-items. See GitHub issue #122 (tracking this work).*
 
-*Updated 2026-09-05: Added §5.18 (Phase 0 — Architecture Deep-Dive). §5.18A (#521 native-decode lock) and §5.18B (#522 visible-first thumbnail dispatch) shipped. §5.18D (#524 prototype quarantine + WallpaperTab fix) shipped. §5.18C (#523 tray preference wiring) claimed, not started. See `docs/moon/CHANGELOG.md` S515–S516 and `.agent/reports/team/architecture_deep_dive_2026-09-05.md` for full detail.**
+*Updated 2026-09-05: Added §5.18 (Phase 0 — Architecture Deep-Dive). §5.18A (#521 native-decode lock) and §5.18B (#522 visible-first thumbnail dispatch) shipped. §5.18D (#524 prototype quarantine + WallpaperTab fix) shipped. §5.18C (#523 tray preference wiring) claimed, not started. See `docs/moon/CHANGELOG.md` S515–S516 and `.agent/reports/team/architecture_deep_dive_2026-09-05.md` for full detail.*
+
+*Updated 2026-09-05 (later same day): §5.18C (#523) shipped. Ran a D12 live-desktop pass on a combined `integration/phase-0` branch (§5.18A–D merged) against real large data — found and shipped two more fixes along the way, neither a regression from §5.18A–D themselves: §5.18E (GIF disk-cache — the QImageReader fallback path had no disk caching at all) and §5.18F (a session-recovery-triggered eager directory load with no size guard, which froze the test machine against a real 108GB directory). User confirmed the app runs stably through login and gallery loading on real adversarial data after both fixes. See `docs/moon/CHANGELOG.md` S523–S525 and `.agent/bus/2026-09-05.md` for full detail.*
