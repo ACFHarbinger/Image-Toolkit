@@ -35,6 +35,36 @@ QPushButton#btn_danger {
     background: $LIGHT_DANGER;
 }
 
+/* --- Tool Buttons (nav history, drawer toggle, nav-rail category icons) ---
+   QPushButton's gradient theme never applied to QToolButton, so every one
+   of these rendered as a bare native-style circle (no app theming at all). */
+QToolButton {
+    background: $LIGHT_SECONDARY_BG;
+    color: $LIGHT_TEXT;
+    border: 1px solid $LIGHT_BORDER;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-weight: 600;
+}
+QToolButton:hover {
+    background: $LIGHT_ACCENT_COLOR;
+    color: white;
+}
+QToolButton:pressed {
+    background: $LIGHT_ACCENT_PRESSED;
+    color: white;
+}
+QToolButton:disabled {
+    background-color: $LIGHT_BORDER;
+    color: $LIGHT_MUTED_TEXT;
+    border-color: $LIGHT_BORDER;
+}
+QToolButton:checked {
+    background: $LIGHT_ACCENT_COLOR;
+    color: white;
+    border: 1px solid $LIGHT_ACCENT_HOVER;
+}
+
 /* --- Tab Widget Styling --- */
 QTabWidget::pane {
     border: 1px solid $LIGHT_BORDER;
@@ -144,7 +174,35 @@ QPushButton:focus, QToolButton:focus {
     border: 2px solid $LIGHT_ACCENT_COLOR;
 }
 
+/* Gallery/list hard edges -- previously only appeared on :focus, so a
+   VirtualGalleryView with no keyboard focus had no visible border at all
+   (unlike QGroupBox sections, which always have one). */
+QListView, QListWidget, QTreeView, QTableView {
+    border: 1px solid $LIGHT_BORDER;
+    border-radius: 6px;
+}
 QListView:focus, QListWidget:focus, QTreeView:focus, QTableView:focus {
     border: 1px solid $LIGHT_ACCENT_COLOR;
+}
+
+/* --- Navigation Rail (§2.36) active-tab indication ---
+   Category icon buttons are QToolButton (styled above); the drawer's
+   per-module list buttons are plain QPushButton and need their own
+   :checked rule since the generic QPushButton rule above has no
+   distinct checked state. */
+#rail_drawer QPushButton {
+    background: transparent;
+    color: $LIGHT_TEXT;
+    border: none;
+    border-radius: 4px;
+    font-weight: 500;
+}
+#rail_drawer QPushButton:hover {
+    background: rgba(0, 0, 0, 0.06);
+}
+#rail_drawer QPushButton:checked {
+    background: $LIGHT_ACCENT_COLOR;
+    color: white;
+    font-weight: 700;
 }
 
