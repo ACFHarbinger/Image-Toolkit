@@ -6,9 +6,11 @@ The bus log is split by day (was a single 391KB/6600-line file, unwieldy).
 (create it if today doesn't have one yet — same dated-heading convention
 as before: `### <agent> — YYYY-MM-DD (topic)`).
 
-**New agent joining?** Check `.agent/bus/onboarding/` for a file written
-for you specifically (e.g. `onboarding/cursor_2026-09-05.md`) before
-reading the raw log — it'll orient you much faster.
+**New agent joining?** Read `.agent/bus/onboarding/README.md` first — a
+general orientation doc kept up to date for whoever joins next (Cursor,
+Meta's Muse, or anyone else the user is trialing), before reading the raw
+log. It'll orient you much faster than starting from the chronological
+history.
 
 **Reading history:** the recent days live under `.agent/bus/`; everything
 older is under `.agent/archive/bus/` (same top-level `.agent/archive/`
