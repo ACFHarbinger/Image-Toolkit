@@ -665,6 +665,45 @@ has.
 
 ---
 
+### GIF thumbnails in any gallery render as a solid-color block instead of the actual frame
+
+**Symptom:** A `.gif` file's row in any virtualized gallery
+(`VirtualGalleryView`) shows a flat, uniform-colored thumbnail card instead
+of the actual first-frame content — not blank/transparent (that's what the
+loading placeholder looks like), a solid fill. Hovering, clicking, and
+selecting the row all work normally, its tooltip/metadata is correct, and
+other places that generate a thumbnail for the *same* file (e.g. the
+Wallpaper tab's per-monitor preview, `_get_or_generate_thumbnail()` in
+`gui/src/tabs/core/wallpaper_tab/common/wallpaper_common_base/
+_gallery_label.py`) render it correctly — only the gallery grid's own
+thumbnail is wrong. Other formats (PNG/JPEG/WebP/etc.) in the same
+directory render fine.
+
+**Cause:** the gallery grid's per-cell thumbnail loaders
+(`gui/src/helpers/image/image_loader_worker.py`'s `ImageLoaderWorker` —
+`VirtualGalleryModel`'s default `worker_factory` — and
+`batch_image_loader_worker.py`'s `BatchImageLoaderWorker`) try the native
+C++ decoder first, which decodes via OpenCV's `cv::imread`/`cv::imdecode`.
+OpenCV's GIF codec support is either absent or unreliable depending on the
+build. Critically, it doesn't fail *cleanly* for a GIF — instead of
+returning an empty/null result (which the existing `if q_img is None:`
+per-file fallback check would have caught), it can return a **valid but
+garbage** decode: e.g. a tiny/degenerate buffer that gets upscaled to the
+thumbnail size via `cv::resize`, rendering as a uniform solid-color block.
+Since the result isn't `None` and carries no error string, none of the
+existing fallback paths ever triggered for this specific failure mode.
+
+**Fix:** both loaders now route `.gif` paths around the native decoder
+entirely, straight to Qt's own `QImage(path)` loader (which reliably
+decodes GIF, as its first frame, through Qt's built-in image plugins) —
+rather than trying the native path and hoping to detect a bad result after
+the fact. If a similarly wrong-but-not-null thumbnail turns up for another
+format, the fix is the same shape: don't trust `q_img is not None` alone
+as "the native decode succeeded correctly" for a format OpenCV's build
+might not actually support.
+
+---
+
 ### Portrait/landscape gallery thumbnails render cropped on KDE Breeze/Kvantum
 
 **Symptom:** A non-square (portrait or landscape) thumbnail in any virtualized
