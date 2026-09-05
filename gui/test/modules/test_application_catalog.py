@@ -27,6 +27,7 @@ def test_application_catalog_has_every_legacy_route_without_constructing_widgets
     assert catalog.require("library.management").title == "Management"
     assert catalog.require("stitch.canvas").title == "Canvas"
     assert catalog.require("editor.hybrid").title == "Hybrid Editor"
+    assert len(catalog.navigable_by_category(catalog.require("stitch").category)) == 8
 
 
 def test_application_catalog_constructs_a_page_only_when_activated(q_app, monkeypatch):

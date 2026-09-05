@@ -74,7 +74,11 @@ class _TabSearchMixin:
 
     def _open_runtime_module_search(self) -> None:
         """Search catalog descriptors and activate the selected lazy module."""
-        descriptors = self.module_catalog.all_descriptors()
+        descriptors = tuple(
+            descriptor
+            for category in self.module_catalog.categories()
+            for descriptor in self.module_catalog.navigable_by_category(category)
+        )
         dlg = QDialog(self, Qt.WindowType.Popup | Qt.WindowType.FramelessWindowHint)
         dlg.setWindowTitle("Go to Module")
         dlg.setFixedWidth(400)
