@@ -19,6 +19,14 @@ from .legacy_bridge import LegacyNavigationBridge
 from .library_service import LIBRARY_DATABASE_SERVICE, LibraryDatabaseService
 from .registry import ModuleRegistry
 from .runtime import ModuleHandle, ModuleRuntime, WidgetHandle
+from .stitch_workspace import (
+    STITCH_ROUTES,
+    STITCH_WORKSPACE_FLAG,
+    STITCH_WORKSPACE_ID,
+    StitchWorkspaceHandle,
+    register_stitch_workspace,
+    stitch_workspace_enabled,
+)
 
 __all__ = [
     "DatabaseAvailabilityChanged",
@@ -42,8 +50,14 @@ __all__ = [
     "NavigateIntent",
     "PageDescriptor",
     "RouteDescriptor",
+    "STITCH_ROUTES",
+    "STITCH_WORKSPACE_FLAG",
+    "STITCH_WORKSPACE_ID",
+    "StitchWorkspaceHandle",
     "SubgroupCatalogChanged",
     "TagCatalogChanged",
     "WidgetHandle",
     "WorkspaceDescriptor",
+    "register_stitch_workspace",
+    "stitch_workspace_enabled",
 ]
