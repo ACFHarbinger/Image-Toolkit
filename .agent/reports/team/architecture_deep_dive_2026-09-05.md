@@ -560,6 +560,21 @@ its shape. Phase 0/1 GitHub epics + sub-issues are being cut now (see bus
 post). Phase 2/3 remain lighter-detail tracking issues until Phase 0/1
 substantially land, per their own exit criteria.
 
+**D20 — Phase 1 merged, all six contracts closed, 2026-09-05.** Per the
+user's direction, Claude took over the four open cross-review findings
+(rather than waiting on each owner) after Codex's cross-review of all
+six Phase 1 contracts: #525 (blocking — `attach_vault_credentials()` had
+no production caller), #526 (blocking — stale-completion generation
+race in `ThumbnailScheduler`), #527 (medium — invalid child routes
+navigated as valid), #529 (blocking — CLI `.connect()` on a migrated
+`Observable`). #528 and #530 reviewed clean. Every finding fixed with a
+regression test verified to fail pre-fix / pass post-fix. All six merged
+onto `integration/phase-1` then `main` (`dee43085`); 417/417 targeted
+tests, ruff clean on all 67 changed files (no full-suite run, per the
+resource rule). GitHub issues #525-#530 closed. Phase 2 (#531,
+consolidation of the four gallery implementations onto the now-shared
+`ThumbnailScheduler` contract) is unblocked whenever the team is ready.
+
 ---
 
 ## 6. Open action items
