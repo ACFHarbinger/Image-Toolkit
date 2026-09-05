@@ -27,7 +27,6 @@ from typing import Dict, List, Optional
 
 from PySide6.QtCore import QPoint, QRect, Qt, QThreadPool, QTimer
 from PySide6.QtWidgets import (
-    QApplication,
     QComboBox,
     QFrame,
     QGridLayout,
@@ -217,10 +216,11 @@ class AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery):
         """Return the MRU directory list for this tab class."""
         main_win = self.window()
         if not main_win:
-            for widget in QApplication.topLevelWidgets():
-                if hasattr(widget, "cached_creds"):
-                    main_win = widget
-                    break
+            from gui.src.windows.window_manager import WindowManager
+
+            main_win = WindowManager.instance().main_window()
+            if main_win is None:
+                main_win = WindowManager.instance().find(lambda w: hasattr(w, "cached_creds"))
         if main_win and hasattr(main_win, "cached_creds"):
             prefs = main_win.cached_creds.get("preferences", {})
             if not prefs.get("restore_last_dir", True):
@@ -238,10 +238,11 @@ class AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery):
         if not main_win:
             main_win = self.window()
         if not main_win:
-            for widget in QApplication.topLevelWidgets():
-                if hasattr(widget, "cached_creds"):
-                    main_win = widget
-                    break
+            from gui.src.windows.window_manager import WindowManager
+
+            main_win = WindowManager.instance().main_window()
+            if main_win is None:
+                main_win = WindowManager.instance().find(lambda w: hasattr(w, "cached_creds"))
         if main_win and hasattr(main_win, "cached_creds"):
             prefs = main_win.cached_creds.get("preferences", {})
             if not prefs.get("restore_last_dir", True):
@@ -253,10 +254,11 @@ class AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery):
         if not main_win:
             main_win = self.window()
         if not main_win:
-            for widget in QApplication.topLevelWidgets():
-                if hasattr(widget, "cached_creds"):
-                    main_win = widget
-                    break
+            from gui.src.windows.window_manager import WindowManager
+
+            main_win = WindowManager.instance().main_window()
+            if main_win is None:
+                main_win = WindowManager.instance().find(lambda w: hasattr(w, "cached_creds"))
         if main_win and hasattr(main_win, "cached_creds"):
             prefs = main_win.cached_creds.get("preferences", {})
             default_dir = prefs.get("default_open_dir", "").strip()

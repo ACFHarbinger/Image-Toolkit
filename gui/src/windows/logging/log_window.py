@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
 )
 
 from gui.src.constants import LEVEL_COLORS
+from gui.src.windows.window_manager import register_window
 
 
 class LogWindow(QWidget):
@@ -22,6 +23,7 @@ class LogWindow(QWidget):
 
     def __init__(self, tab_name: str = "Log", parent=None):
         super().__init__(parent, Qt.WindowType.Window)
+        register_window(self)
         self.setWindowTitle(f"{tab_name} — Log")
         self.setMinimumSize(720, 420)
         self.setStyleSheet("background:#1e1e1e; color:#cccccc;")
