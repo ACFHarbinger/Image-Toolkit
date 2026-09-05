@@ -91,6 +91,12 @@ Controlled asymmetry now has control-derived previews; portable schema v5 adds
 editable mixed numeric/descriptive identity cards and identity comparisons; all
 nine lessons are fully authored through cel values and capstone (S354).
 
+**Architecture refactor — Phase 0.3 complete (#523, 2026-09-05):**
+`minimize_to_tray`/`close_to_tray` is now device-owned by QSettings, with no
+vault fallback or vault write. This narrow one-owner proof case is the
+prerequisite for the planned typed `PreferenceStore`; see
+[`roadmaps/architecture.md`](roadmaps/architecture.md).
+
 *Last updated: 2026-08-31. Session S483: completed the frozen-bundle
 path-assumption audit (#476) — confirmed every `_MEIPASS` resource read
 resolves, moved the two remaining bundle-write hazards out of `ROOT_DIR`
