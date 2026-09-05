@@ -21,8 +21,16 @@ DEST_TO_SOURCE: dict[Path, Path] = {}
 def on_pre_build(config: dict) -> None:
     """Register source paths without mutating the documentation tree."""
 
-    # Populate self-mappings for other files under docs/
-    for doc_file in DOCS.rglob("*.md"):
+    # Populate self-mappings for other files under docs/ -- must cover every
+    # file, not just *.md: image/asset links resolved in on_page_markdown()
+    # only skip the GitHub-blob-URL rewrite when the target is already in
+    # SOURCE_TO_DEST, so restricting this glob to Markdown left every
+    # ![](images/...) reference pointing at a GitHub blob page (an HTML
+    # page, not a raw image) instead of the copy mkdocs itself places
+    # alongside the built page.
+    for doc_file in DOCS.rglob("*"):
+        if not doc_file.is_file():
+            continue
         resolved = doc_file.resolve()
         if resolved not in DEST_TO_SOURCE:
             DEST_TO_SOURCE[resolved] = resolved
