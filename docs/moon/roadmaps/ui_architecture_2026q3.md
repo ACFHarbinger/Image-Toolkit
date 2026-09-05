@@ -278,7 +278,12 @@ required to be exhaustive up front.
   `legacy_bridge` code and the shell-mounting commits, a pre-mortem
   documenting exactly where eager-mounting lived and cross-checking the
   old code against each Phase 0/1 invariant it predates; feeds #533 as a
-  starting brief.
+  starting brief. **ui-arch-12/#535 audit** (Grok, 2026-09-05, blocked on
+  #533 for implementation):
+  `.agent/reports/grok/ui_arch_12_stitch_workspace_audit_2026-09-05.md`
+  — live `StitchTab` addTab order still matches the eight inventory
+  routes; do not cherry-pick `dc28226d` (wrong types, index coupling,
+  dual-instance vs `_create_tabs()`, env flag vs `PreferenceStore`).
 - Revert: `7559b1d2` (`git checkout b4f61deb -- gui/` + deletion of
   everything gained since); the reverted implementation commits remain
   recoverable via `git show <commit>:<path>` (e.g. `a9d01085` for the
