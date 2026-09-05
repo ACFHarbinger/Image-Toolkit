@@ -8,8 +8,6 @@ from __future__ import annotations
 
 from PySide6.QtWidgets import QInputDialog, QMessageBox
 
-from gui.src.modules.events import FilterByTagIntent, NavigateIntent
-
 
 class _CrudMixin:
     """Create and remove groups/subgroups/tags."""
@@ -101,7 +99,8 @@ class _CrudMixin:
             self.new_tag_type_combo.setCurrentIndex(0)
             self.refresh_tags_list()
             self.update_statistics()
-            self._publish_tag_catalog_changed()
+            if self.scan_tab_ref:
+                self.scan_tab_ref._setup_tag_checkboxes()
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to create tags:\n{str(e)}")
 
@@ -201,7 +200,8 @@ class _CrudMixin:
                 self.db.delete_tag(tag_name)
                 self.refresh_tags_list()
                 self.update_statistics()
-                self._publish_tag_catalog_changed()
+                if self.scan_tab_ref:
+                    self.scan_tab_ref._setup_tag_checkboxes()
                 QMessageBox.information(self, "Success", f"Tag '{tag_name}' removed.")
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Failed to remove tag:\n{str(e)}")
@@ -256,7 +256,8 @@ class _CrudMixin:
             self.db.merge_tags(source_name, dest_name)
             self.refresh_tags_list()
             self.update_statistics()
-            self._publish_tag_catalog_changed()
+            if self.scan_tab_ref:
+                self.scan_tab_ref._setup_tag_checkboxes()
             QMessageBox.information(
                 self, "Success", f"'{source_name}' merged into '{dest_name}'."
             )
@@ -265,7 +266,11 @@ class _CrudMixin:
 
     def search_images_with_selected_tag(self):
         """DB.8c: "click a tag anywhere -> search images with this tag."
-        Navigates before publishing the filter so a lazy target can subscribe.
+        Filters the Search tab's state via DatabaseTab.search_tab_ref
+        (the same cross-tab reference every "Send To..." action in
+        SearchTab already uses) and switches MainWindow to it directly --
+        see search_listings_with_selected_tag()'s docstring for the
+        tab-activation mechanism this reuses.
         """
         current_row = self.tags_table.currentRow()
         if current_row < 0:
@@ -276,14 +281,19 @@ class _CrudMixin:
         item = self.tags_table.item(current_row, 0)
         tag_name = item.text()  # pyrefly: ignore [missing-attribute]
 
-        if self.event_hub is None:
-            QMessageBox.warning(self, "Error", "Search navigation is unavailable.")
+        if not self.search_tab_ref:
+            QMessageBox.warning(self, "Error", "Search Tab reference not found.")
             return
 
-        self.event_hub.publish(NavigateIntent(origin="library.management", module_id="library.search"))
-        self.event_hub.publish(
-            FilterByTagIntent(origin="library.management", module_id="library.search", tag_name=tag_name)
-        )
+        self.search_tab_ref.search_by_tag(tag_name)
+        if self.main_window_ref is not None:
+            self.main_window_ref.command_combo.setCurrentText("Library Database")
+            self.main_window_ref._select_tab_by_name("Image Search")
+        else:
+            QMessageBox.information(
+                self, "Search Started",
+                f"Searching images tagged '{tag_name}' in the Search tab.",
+            )
 
     def search_listings_with_selected_tag(self):
         """DB.8c: "click a tag anywhere -> search listings with this tag."
@@ -293,7 +303,12 @@ class _CrudMixin:
         tags/genres, not just titles (SearchRepo.filter_media(),
         DB.5) -- no new filter UI needed, just set the existing box.
 
-        Navigates before publishing the Listings filter so a lazy target can subscribe.
+        Reuses the real tab-activation mechanism MainWindow's Ctrl+T tab
+        search already exercises internally (command_combo +
+        _select_tab_by_name -- see gui/src/windows/main/_tab_search.py's
+        _activate()), via DatabaseTab.main_window_ref/listings_tab_ref,
+        both threaded in by gui/src/windows/main/_tab_registry.py the same
+        way as every other *_tab_ref on this class.
         """
         current_row = self.tags_table.currentRow()
         if current_row < 0:
@@ -304,14 +319,22 @@ class _CrudMixin:
         item = self.tags_table.item(current_row, 0)
         tag_name = item.text()  # pyrefly: ignore [missing-attribute]
 
-        if self.event_hub is None:
-            QMessageBox.warning(self, "Error", "Listings navigation is unavailable.")
+        if not self.listings_tab_ref:
+            QMessageBox.warning(self, "Error", "Listings Tab reference not found.")
             return
 
-        self.event_hub.publish(NavigateIntent(origin="library.management", module_id="library.listings"))
-        self.event_hub.publish(
-            FilterByTagIntent(origin="library.management", module_id="library.listings", tag_name=tag_name)
-        )
+        series_listings = self.listings_tab_ref.series_listings
+        self.listings_tab_ref.tab_widget.setCurrentWidget(series_listings)
+        series_listings.search_box.setText(tag_name)
+
+        if self.main_window_ref is not None:
+            self.main_window_ref.command_combo.setCurrentText("Library Database")
+            self.main_window_ref._select_tab_by_name("Listings")
+        else:
+            QMessageBox.information(
+                self, "Search Started",
+                f"Searching listings tagged '{tag_name}' in the Listings tab.",
+            )
 
 
 __all__ = ["_CrudMixin"]

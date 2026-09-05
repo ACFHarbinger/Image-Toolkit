@@ -56,9 +56,9 @@ class SystemDisplaySubTab(
     status_timer: Any
     countdown_timer: Optional[QTimer]
 
-    def __init__(self, database_service):
+    def __init__(self, db_tab_ref):
         super().__init__()
-        self.database_service = database_service
+        self.db_tab_ref = db_tab_ref
 
         self.countdown_timer: Optional[QTimer] = None
         self.time_remaining_sec: int = 0

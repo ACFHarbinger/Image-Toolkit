@@ -285,7 +285,8 @@ class _RefreshEditMixin:
                 if item.text() != new_name:
                     item.setText(new_name)
                 self.update_statistics()
-                self._publish_tag_catalog_changed()
+                if self.scan_tab_ref:
+                    self.scan_tab_ref._setup_tag_checkboxes()
             except Exception as e:
                 if "UNIQUE" in str(e):
                     QMessageBox.warning(

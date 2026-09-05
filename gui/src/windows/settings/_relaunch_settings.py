@@ -89,13 +89,6 @@ class _RelaunchSettingsMixin:
         )
         session_layout.addRow(self.minimize_to_tray_check)
 
-        self.experimental_runtime_shell_check = QCheckBox("Use experimental lazy runtime shell (restart required)")
-        self.experimental_runtime_shell_check.setChecked(self.pref_experimental_runtime_shell)
-        self.experimental_runtime_shell_check.setToolTip(
-            "Opt in to the catalog-driven navigation shell. The established tab shell remains the default."
-        )
-        session_layout.addRow(self.experimental_runtime_shell_check)
-
 
         self.recent_dirs_count_spinbox = QSpinBox()
         self.recent_dirs_count_spinbox.setRange(1, 50)
@@ -273,7 +266,6 @@ class _RelaunchSettingsMixin:
                 "restore_last_dir": self.restore_last_dir_check.isChecked(),
                 "restore_last_tab": self.restore_last_tab_check.isChecked(),
                 "minimize_to_tray": self.minimize_to_tray_check.isChecked(),
-                "experimental_runtime_shell": self.experimental_runtime_shell_check.isChecked(),
                 "default_open_dir": self.default_dir_input.text().strip().replace("Downloads/data", "Downloads/Data"),
                 "recent_dirs_count": self.recent_dirs_count_spinbox.value(),
                 "startup_category": self.startup_category_combo.currentText(),
@@ -307,14 +299,10 @@ class _RelaunchSettingsMixin:
 
 
             if self._save_vault_data(user_data):
-                # This is a non-sensitive UI preference.  Guest vault data is
-                # deliberately volatile, so retain it in QSettings as well.
-                AppSettings.set_minimize_to_tray(self.minimize_to_tray_check.isChecked())
-
-                # Other settings remain account-scoped and must not outlive a
-                # guest session.
+                # Also save to QSettings (only if not in Guest mode)
                 if getattr(self.vault_manager, "is_guest", False) is not True:
                     AppSettings.set_recursive_scan(self.recursive_scan_check.isChecked())
+                    AppSettings.set_minimize_to_tray(self.minimize_to_tray_check.isChecked())
                     AppSettings.set_favourite_directories(user_data["preferences"]["favourite_directories"])  # pyrefly: ignore [bad-argument-type]
                     AppSettings.set_mal_fetch_method(self.mal_fetch_method_combo.currentData())
                 if self.main_window_ref:
@@ -368,7 +356,6 @@ class _RelaunchSettingsMixin:
         self.restore_last_dir_check.setChecked(True)
         self.restore_last_tab_check.setChecked(False)
         self.minimize_to_tray_check.setChecked(False)
-        self.experimental_runtime_shell_check.setChecked(False)
 
         self.recent_dirs_count_spinbox.setValue(10)
         self.session_recovery_combo.setCurrentText("None")

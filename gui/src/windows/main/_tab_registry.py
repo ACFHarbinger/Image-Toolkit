@@ -13,14 +13,6 @@ class _TabRegistryMixin:
         # Deferred import: these tab modules transitively import a lot of the
         # app, and importing them at gui.src.windows.main module load time
         # would be circular.
-        from ...modules import (
-            LIBRARY_DATABASE_SERVICE,
-            EventHub,
-            ImportPathsIntent,
-            LibraryDatabaseService,
-            ModuleServices,
-            NavigateIntent,
-        )
         from ...tabs import (
             ComfyUITab,
             ConvertTab,
@@ -52,27 +44,12 @@ class _TabRegistryMixin:
 
         # pyrefly: ignore [missing-attribute]
         vault_manager = self.vault_manager
-        self.module_event_hub = EventHub(self)
-        self.module_services = ModuleServices()
-        self.library_database_service = LibraryDatabaseService(vault_manager)
-        self.module_services.register(LIBRARY_DATABASE_SERVICE, self.library_database_service)
 
         # --- Tab Initialization ---
-        self.database_tab = DatabaseTab(
-            vault_manager,
-            database_service=self.library_database_service,
-            event_hub=self.module_event_hub,
-        )
+        self.database_tab = DatabaseTab(vault_manager)
         self.data_browser_tab = DataBrowserTab(vault_manager)
-        self.search_tab = SearchTab(
-            self.library_database_service,
-            self.module_event_hub,
-            dropdown=dropdown,
-        )
-        self.scan_metadata_tab = ScanMetadataTab(
-            self.library_database_service,
-            self.module_event_hub,
-        )
+        self.search_tab = SearchTab(self.database_tab, dropdown=dropdown)
+        self.scan_metadata_tab = ScanMetadataTab(self.database_tab)  # pyrefly: ignore [bad-instantiation]
         self.convert_tab = ConvertTab(dropdown=dropdown)
         self.merge_tab = MergeTab()
         self.delete_tab = SimilarityTab(dropdown=dropdown)
@@ -81,13 +58,10 @@ class _TabRegistryMixin:
         self.entity_recon_tab = EntityReconTab()
         self.drive_sync_tab = DriveSyncTab(vault_manager)
         self.media_loader_tab = MediaLoaderTab()
-        self.wallpaper_tab = WallpaperTab(
-            self.library_database_service,
-            self.module_event_hub,
-        )
+        self.wallpaper_tab = WallpaperTab(self.database_tab)
         self.web_requests_tab = WebRequestsTab()
         self.extractor_tab = ExtractorTab()  # pyrefly: ignore [bad-instantiation]
-        self.listings_tab = ListingsTab(vault_manager=vault_manager, event_hub=self.module_event_hub)
+        self.listings_tab = ListingsTab(vault_manager=vault_manager)
         self.train_tab = UnifiedTrainTab()
         self.generate_tab = UnifiedGenerateTab()
         self.eval_tab = R3GANEvaluateTab()
@@ -99,10 +73,22 @@ class _TabRegistryMixin:
         self.manga_puppeteering_tab = MangaPuppeteeringTab()
         self.hie_editor_tab = HieEditorTab()
 
-        # Merge and Similarity have not migrated to lifecycle contracts yet;
-        # route their legacy path imports through the hub instead of DatabaseTab.
-        self.module_event_hub.subscribe(ImportPathsIntent, self._handle_legacy_path_import, owner=self)
-        self.module_event_hub.subscribe(NavigateIntent, self._activate_legacy_module, owner=self)
+        # --- LINK TABS (Critical for Cross-Tab Communication) ---
+        self.database_tab.scan_tab_ref = self.scan_metadata_tab
+        self.database_tab.search_tab_ref = self.search_tab
+        self.database_tab.merge_tab_ref = self.merge_tab
+        self.database_tab.delete_tab_ref = self.delete_tab
+        self.database_tab.wallpaper_tab_ref = self.wallpaper_tab
+        self.database_tab.listings_tab_ref = self.listings_tab
+
+        # DB.8a/8c cross-tab navigation (Library Database <-> Listings):
+        # both directions need to activate a tab that isn't just within
+        # their own tab family, reusing the real tab-activation mechanism
+        # MainWindow's Ctrl+T tab search already exercises internally
+        # (command_combo + _select_tab_by_name -- see _tab_search.py's
+        # _activate()).
+        self.database_tab.main_window_ref = self
+        self.listings_tab.main_window_ref = self
 
         self.all_tabs = {
             "System Tools": {
@@ -155,32 +141,6 @@ class _TabRegistryMixin:
                 "Hybrid Editor": self.hie_editor_tab,
             },
         }
-
-    def _activate_legacy_module(self, intent) -> None:
-        """Temporary old-shell router while ModuleRuntime is not mounted."""
-        targets = {
-            "library.listings": ("Library Database", "Listings"),
-            "library.search": ("Library Database", "Image Search"),
-            "library.scan": ("Library Database", "Scan and Tag"),
-            "system.merge": ("System Tools", "Merge"),
-            "system.similarity": ("System Tools", "Similarity"),
-            "system.wallpaper": ("System Tools", "Wallpaper"),
-        }
-        target = targets.get(intent.module_id)
-        if target is None:
-            return
-        category, tab_name = target
-        self.command_combo.setCurrentText(category)
-        self._select_tab_by_name(tab_name)
-
-    def _handle_legacy_path_import(self, intent) -> None:
-        if intent.module_id == "system.merge":
-            self.merge_tab.display_scan_results(list(intent.paths))
-        elif intent.module_id == "system.similarity":
-            self.delete_tab.clear_galleries()
-            self.delete_tab.duplicate_results = {"imported": list(intent.paths)}
-            self.delete_tab.status_label.setText(f"Imported {len(intent.paths)} files from Search.")
-            self.delete_tab.start_loading_thumbnails(list(intent.paths))
 
 
 __all__ = ["_TabRegistryMixin"]

@@ -44,7 +44,6 @@ class _TrayMixin:
             else:
                 icon = self.style().standardIcon(QStyle.StandardPixmap.SP_ComputerIcon)
 
-        self._base_tray_icon = icon
         self._tray_icon = QSystemTrayIcon(icon, parent=self)
         # Parent the menu to the window so it shares the app's WM identity
         # (app_id / WM_CLASS) — a parentless popup surface can otherwise be
@@ -103,6 +102,7 @@ class _TrayMixin:
         ):
             self._tray_show_window()
 
+
     def tray_notify(self, title: str, message: str, timeout_ms: int = 4000) -> None:
         """Show a tray balloon notification (§2.12B). No-op when tray is unavailable."""
         if self._tray_icon and self._tray_icon.isVisible():
@@ -111,56 +111,6 @@ class _TrayMixin:
     def set_minimize_to_tray(self, enabled: bool) -> None:
         """Toggle minimize-to-tray behaviour (§2.12C). Controlled via settings."""
         self._minimize_to_tray = enabled
-
-    def set_tray_badge(self, count: int) -> None:
-        """Draw a small numeric badge circle on the tray icon when count > 0 (§2.12D)."""
-        if not self._tray_icon or not hasattr(self, "_base_tray_icon"):
-            return
-        if count <= 0:
-            self._tray_icon.setIcon(self._base_tray_icon)
-            return
-
-        from PySide6.QtCore import Qt
-        from PySide6.QtGui import QBrush, QColor, QFont, QPainter
-
-        pixmap = self._base_tray_icon.pixmap(32, 32)
-        if pixmap.isNull():
-            from PySide6.QtGui import QPixmap
-            pixmap = QPixmap(32, 32)
-            pixmap.fill(Qt.GlobalColor.transparent)
-
-
-        painter = QPainter(pixmap)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-
-        badge_radius = 8
-        center_x = 32 - badge_radius
-        center_y = 32 - badge_radius
-        painter.setBrush(QBrush(QColor("#e74c3c")))
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.drawEllipse(center_x - badge_radius, center_y - badge_radius, badge_radius * 2, badge_radius * 2)
-
-        painter.setPen(QColor("#ffffff"))
-        font = QFont("Sans-Serif", 8, QFont.Weight.Bold)
-        painter.setFont(font)
-        text = str(count) if count < 100 else "99+"
-        painter.drawText(
-            center_x - badge_radius,
-            center_y - badge_radius,
-            badge_radius * 2,
-            badge_radius * 2,
-            Qt.AlignmentFlag.AlignCenter,
-            text,
-        )
-        painter.end()
-
-        self._tray_icon.setIcon(QIcon(pixmap))
-
-    def update_tray_status(self, status_text: str) -> None:
-        """Update tray tooltip dynamically with daemon / task status (§2.12A)."""
-        if self._tray_icon:
-            self._tray_icon.setToolTip(f"Image Toolkit — {status_text}")
-
 
 
 __all__ = ["_TrayMixin"]

@@ -1,5 +1,5 @@
 from .authentication import LoginWindow
-from .cloud.cloud_compute_window import CloudComputeWindow
+from .cloud_compute import CloudComputeWindow
 from .drag_preview_window import DragPreviewWindow
 from .image_compare_window import ImageCompareWindow
 from .image_preview_window import ImagePreviewWindow

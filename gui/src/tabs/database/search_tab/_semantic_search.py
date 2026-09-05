@@ -52,7 +52,7 @@ class _SemanticSearchMixin:
         self.current_semantic_worker: Optional[SemanticSearchWorker] = None
 
     def perform_semantic_search(self):
-        db = self.database_service.db
+        db = self.db_tab_ref.db
         if not db:
             QMessageBox.warning(self, "Error", "Please connect to the database first.")
             return
@@ -123,7 +123,7 @@ class _SemanticSearchMixin:
         """"Find similar" context-menu action -- query by *file_path*'s own
         embedding (computed on the fly; not persisted, unlike the
         Management backfill's stored embeddings)."""
-        db = self.database_service.db
+        db = self.db_tab_ref.db
         if not db:
             QMessageBox.warning(self, "Error", "Please connect to the database first.")
             return

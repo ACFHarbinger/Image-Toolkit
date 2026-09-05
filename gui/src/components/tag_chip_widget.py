@@ -13,13 +13,12 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLayout,
-    QLayoutItem,
     QLineEdit,
     QPushButton,
     QSizePolicy,
-    QSpacerItem,
     QVBoxLayout,
     QWidget,
+    QWidgetItem,
 )
 
 
@@ -156,12 +155,6 @@ class TagChipGroup(QWidget):
         """Return list of currently active/selected tag strings."""
         return [c.tag_text for c in self._chips if c.is_active()]
 
-    def matches_query(self, query: str) -> bool:
-        """Check if selected tags satisfy a compound tag query expression."""
-        from ..utils.tag_search_parser import evaluate_tag_query
-
-        return evaluate_tag_query(query, self.get_selected_tags())
-
     def remove_tag(self, tag_text: str) -> None:
         """Remove a specific tag chip from the group."""
         to_remove = [c for c in self._chips if c.tag_text == tag_text]
@@ -178,7 +171,6 @@ class TagChipGroup(QWidget):
         self.selection_changed.emit(self.get_selected_tags())
 
 
-
 class FlowLayout(QLayout):
     """Minimal wrapping row layout (the standard Qt "Flow Layout" example
     pattern) -- QHBoxLayout doesn't wrap, and a real tag list needs to
@@ -186,24 +178,11 @@ class FlowLayout(QLayout):
 
     def __init__(self, parent: Optional[QWidget] = None, spacing: int = 6) -> None:
         super().__init__(parent)
-        self._items: List[QLayoutItem] = []
+        self._items: List[QWidgetItem] = []
         self.setSpacing(spacing)
 
     def addItem(self, item) -> None:  # noqa: N802 -- Qt override
         self._items.append(item)
-
-    def addStretch(self, stretch: int = 1) -> None:  # noqa: N802 -- mirrors QBoxLayout.addStretch
-        """Insert a flexible gap (QHBoxLayout.addStretch()'s equivalent,
-        adapted for a layout that also wraps). Items placed after this on
-        the same wrapped row are pushed to that row's right edge; if the
-        row doesn't fit, wrapping still happens normally. Only whether
-        *stretch* is truthy matters -- weighted multi-stretch rows aren't
-        supported since no caller has needed it."""
-        if stretch <= 0:
-            return
-        self._items.append(
-            QSpacerItem(0, 0, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
-        )
 
     def count(self) -> int:
         return len(self._items)
@@ -245,73 +224,29 @@ class FlowLayout(QLayout):
         return size
 
     def _do_layout(self, rect: QRect, test_only: bool) -> int:
+        x, y = rect.x(), rect.y()
+        line_height = 0
         spacing = self.spacing()
-        available_width = rect.width()
 
-        # Phase 1: group items into wrapped rows, using the same boundary
-        # test as before a stretch spacer existed. A spacer's sizeHint()
-        # is (0, 0), so it never itself forces an early wrap.
-        rows: List[List[QLayoutItem]] = []
-        current_row: List[QLayoutItem] = []
-        row_width = 0
         for item in self._items:
             widget = item.widget()
             if widget is not None and not widget.isVisible():
                 continue
-            hint_w = item.sizeHint().width()
-            added_w = hint_w if not current_row else hint_w + spacing
-            if current_row and row_width + added_w > available_width:
-                rows.append(current_row)
-                current_row = []
-                added_w = hint_w
-                row_width = 0
-            current_row.append(item)
-            row_width += added_w
-        if current_row:
-            rows.append(current_row)
+            hint = item.sizeHint()
+            next_x = x + hint.width() + spacing
+            if next_x - spacing > rect.right() and line_height > 0:
+                x = rect.x()
+                y = y + line_height + spacing
+                next_x = x + hint.width() + spacing
+                line_height = 0
 
-        # Phase 2: position each row, expanding any addStretch() spacers to
-        # fill that row's leftover width -- right-anchoring whatever comes
-        # after the spacer, mirroring QHBoxLayout.addStretch(). Items
-        # shorter than the row's tallest item are vertically centered
-        # against it instead of all sharing one top-aligned y -- otherwise
-        # a short label (e.g. a countdown timer) sits flush with the top
-        # of a row containing much taller buttons instead of lining up
-        # with their vertical center.
-        y = rect.y()
-        total_height = 0
-        for row in rows:
-            spacers = [it for it in row if isinstance(it, QSpacerItem)]
-            fixed_width = sum(
-                it.sizeHint().width() for it in row if not isinstance(it, QSpacerItem)
-            )
-            if len(row) > 1:
-                fixed_width += spacing * (len(row) - 1)
-            leftover = max(0, available_width - fixed_width)
-            per_spacer = leftover // len(spacers) if spacers else 0
+            if not test_only:
+                item.setGeometry(QRect(QPoint(x, y), hint))
 
-            line_height = max(
-                (it.sizeHint().height() for it in row if not isinstance(it, QSpacerItem)),
-                default=0,
-            )
+            x = next_x
+            line_height = max(line_height, hint.height())
 
-            x = rect.x()
-            for item in row:
-                if isinstance(item, QSpacerItem):
-                    if not test_only:
-                        item.setGeometry(QRect(x, y, per_spacer, line_height))
-                    x += per_spacer
-                else:
-                    hint = item.sizeHint()
-                    if not test_only:
-                        item_y = y + (line_height - hint.height()) // 2
-                        item.setGeometry(QRect(QPoint(x, item_y), hint))
-                    x += hint.width()
-                x += spacing
-            y += line_height + spacing
-            total_height += line_height + spacing
-
-        return max(0, total_height - spacing)
+        return y + line_height - rect.y()
 
 
 class TagChipEditor(QWidget):
@@ -362,20 +297,9 @@ class TagChipEditor(QWidget):
     def text(self) -> str:
         return ", ".join(self._tags)
 
-    def tags(self) -> List[str]:
-        """Return raw list of tags currently present in the editor."""
-        return list(self._tags)
-
-    def matches_query(self, query: str) -> bool:
-        """Check if current tags satisfy a compound tag query expression."""
-        from ..utils.tag_search_parser import evaluate_tag_query
-
-        return evaluate_tag_query(query, self._tags)
-
     def clear(self) -> None:
         self._set_tags([])
         self.add_edit.clear()
-
 
     # ---- Autocomplete wiring --------------------------------------------
 

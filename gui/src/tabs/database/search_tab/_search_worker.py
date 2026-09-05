@@ -23,7 +23,7 @@ class _SearchWorkerMixin:
             self.perform_search()
 
     def perform_search(self):
-        db = self.database_service.db
+        db = self.db_tab_ref.db
         if not db:
             QMessageBox.warning(self, "Error", "Please connect to the database first.")
             return

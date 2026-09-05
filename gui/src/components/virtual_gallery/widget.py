@@ -10,8 +10,6 @@ gallery base classes stay untouched until a tab is migrated to this widget.
 
 from __future__ import annotations
 
-from typing import Optional
-
 from PySide6.QtCore import QPoint, Qt, Signal
 from PySide6.QtWidgets import QVBoxLayout, QWidget
 
@@ -25,7 +23,6 @@ class VirtualGallery(QWidget):
     path_clicked = Signal(str)
     path_activated = Signal(str)
     path_right_clicked = Signal(QPoint, str)
-    path_renamed = Signal(str, str)
     ctrl_wheel = Signal(int)
     selection_changed = Signal()
 
@@ -35,7 +32,6 @@ class VirtualGallery(QWidget):
         shared_cache=None,
         worker_factory=None,
         max_concurrent_loads: int = 2,
-        fill_mode: bool = True,
     ):
         super().__init__(parent)
         self.model = VirtualGalleryModel(
@@ -43,7 +39,6 @@ class VirtualGallery(QWidget):
             shared_cache=shared_cache,
             worker_factory=worker_factory,
             max_concurrent_loads=max_concurrent_loads,
-            fill_mode=fill_mode,
         )
         self.view = VirtualGalleryView(self)
         self.view.setModel(self.model)
@@ -56,7 +51,6 @@ class VirtualGallery(QWidget):
         self.view.path_clicked.connect(self.path_clicked)
         self.view.path_activated.connect(self.path_activated)
         self.view.path_right_clicked.connect(self.path_right_clicked)
-        self.view.path_renamed.connect(self.path_renamed)
         self.view.ctrl_wheel.connect(self.ctrl_wheel)
         self.view.selectionModel().selectionChanged.connect(
             lambda *_: self.selection_changed.emit()
@@ -78,26 +72,11 @@ class VirtualGallery(QWidget):
     def clear(self) -> None:
         self.model.set_paths([])
 
-    def master_paths(self) -> list[str]:
-        return self.model.master_paths()
-
-    def sort_by(self, key: str = "name", reverse: bool = False) -> None:
-        self.model.sort_by(key=key, reverse=reverse)
-
-    def filter_by(
-        self,
-        extensions: Optional[set[str]] = None,
-        query: Optional[str] = None,
-        min_rating: Optional[float] = None,
-    ) -> None:
-        self.model.filter_by(extensions=extensions, query=query, min_rating=min_rating)
-
     def count(self) -> int:
         return self.model.rowCount()
 
     @property
     def thumbnail_size(self) -> int:
-
         return self.model.thumbnail_size
 
     def set_thumbnail_size(self, size: int) -> None:
@@ -112,21 +91,8 @@ class VirtualGallery(QWidget):
     def clear_selection(self) -> None:
         self.view.clear_selection()
 
-    def deselect_all(self) -> None:
-        """Alias matching clear_selection."""
-        self.view.clear_selection()
-
-    def invert_selection(self) -> None:
-        """Invert selection across all loaded items (§2.4E)."""
-        self.view.invert_selection()
-
-
     def jump_to_path(self, path: str) -> bool:
         return self.view.jump_to_path(path)
-
-    def rename_selected_file(self) -> Optional[str]:
-        """Trigger inline rename on the selected item via F2 (§2.26)."""
-        return self.view.rename_selected_file()
 
     def cancel_loading(self) -> None:
         self.model.cancel_loading()
@@ -176,16 +142,6 @@ class VirtualGallery(QWidget):
         win = ImageCompareWindow(image_paths=selected, parent=parent or self)
         win.show()
         return win
-
-    def generate_contact_sheet(self, parent=None):
-        """Open a ContactSheetDialog for the selected or loaded files (§2.19B)."""
-        paths = self.selected_files() or self.paths()
-        if not paths:
-            return None
-        from ..dialogs.contact_sheet_dialog import ContactSheetDialog
-        dlg = ContactSheetDialog(paths, parent=parent or self)
-        dlg.exec()
-        return dlg
 
 
 __all__ = ["VirtualGallery"]

@@ -3,30 +3,23 @@
 from __future__ import annotations
 
 import os
-from typing import Optional
-
+from typing import Any, Optional
 from PySide6.QtCore import QSize, Qt, Signal
-from PySide6.QtGui import QPixmap
+from PySide6.QtGui import QColor, QPixmap
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
     QPushButton,
     QScrollArea,
+    QSizePolicy,
+    QStackedWidget,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
     QWidget,
 )
 
-from gui.src.modules.events import (
-    EventHub,
-    EventSubscription,
-    InspectImageIntent,
-    NavigateIntent,
-    SelectionChangedFact,
-    ToggleInspectorIntent,
-)
 from gui.src.theming.presets import DANBOORU_TAG_COLORS
 
 
@@ -36,86 +29,12 @@ class ContextInspectorPanel(QWidget):
     collapse_requested = Signal()
     tag_clicked = Signal(str)  # tag_name clicked for quick filter/search
 
-    def __init__(
-        self,
-        parent: Optional[QWidget] = None,
-        event_hub: Optional[EventHub] = None,
-    ) -> None:
+    def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.setObjectName("context_inspector")
         self.setMinimumWidth(260)
         self.setMaximumWidth(420)
-        self._event_hub: Optional[EventHub] = None
-        self._subscriptions: list[EventSubscription] = []
         self._build_ui()
-        if event_hub is not None:
-            self.bind_event_hub(event_hub)
-
-    def bind_event_hub(self, event_hub: EventHub) -> None:
-        """Bind panel to EventHub for typed intent and fact subscriptions."""
-        self._event_hub = event_hub
-        for sub in self._subscriptions:
-            sub.disconnect()
-        self._subscriptions.clear()
-
-        self._subscriptions.append(
-            event_hub.subscribe(InspectImageIntent, self._on_inspect_intent, owner=self)
-        )
-        self._subscriptions.append(
-            event_hub.subscribe(SelectionChangedFact, self._on_selection_fact, owner=self)
-        )
-        self._subscriptions.append(
-            event_hub.subscribe(ToggleInspectorIntent, self._on_toggle_intent, owner=self)
-        )
-
-    def _on_inspect_intent(self, intent: InspectImageIntent) -> None:
-        tags_dict: dict[str, list[str]] = {k: list(v) for k, v in intent.tags} if intent.tags else {}
-        meta_dict: dict[str, str] = dict(intent.metadata) if intent.metadata else {}
-        self.set_image_context(
-            file_path=intent.file_path,
-            resolution=intent.resolution,
-            tags=tags_dict or None,
-            metadata=meta_dict or None,
-        )
-
-    def _on_selection_fact(self, fact: SelectionChangedFact) -> None:
-        if fact.active_path:
-            self.set_image_context(file_path=fact.active_path)
-        elif fact.paths:
-            self.set_image_context(file_path=fact.paths[0])
-        else:
-            self.clear_context()
-
-    def set_expanded(self, expanded: bool, animated: bool = True) -> None:
-        """Expand or collapse inspector panel."""
-        if not animated:
-            self.setVisible(expanded)
-            return
-
-        try:
-            from gui.src.styles.motion_kit import MotionKit
-            start_w = self.width() if not expanded else 0
-            end_w = 320 if expanded else 0
-            MotionKit.slide_width(self, start_w, end_w, duration_ms=MotionKit.BASE_MS)
-        except Exception:
-            self.setVisible(expanded)
-
-    def _on_toggle_intent(self, intent: ToggleInspectorIntent) -> None:
-        target = not self.isVisible() if intent.visible is None else intent.visible
-        self.set_expanded(target, animated=True)
-
-    def _on_close_clicked(self) -> None:
-        self.collapse_requested.emit()
-        self.set_expanded(False, animated=True)
-        if self._event_hub is not None:
-            self._event_hub.publish(ToggleInspectorIntent(origin="inspector", visible=False))
-
-    def _on_tag_chip_clicked(self, tag: str) -> None:
-        self.tag_clicked.emit(tag)
-        if self._event_hub is not None:
-            self._event_hub.publish(
-                NavigateIntent(origin="inspector", module_id="lib.search", state=(("query", tag),))
-            )
 
     def _build_ui(self) -> None:
         root_layout = QVBoxLayout(self)
@@ -133,7 +52,7 @@ class ContextInspectorPanel(QWidget):
         self.close_btn.setFixedSize(24, 24)
         self.close_btn.setToolTip("Collapse Inspector (Ctrl+I)")
         self.close_btn.setStyleSheet("QPushButton { background: transparent; border: none; font-size: 11pt; color: #888; } QPushButton:hover { color: #fff; background: rgba(255,255,255,0.1); border-radius: 12px; }")
-        self.close_btn.clicked.connect(self._on_close_clicked)
+        self.close_btn.clicked.connect(self.collapse_requested)
         header_layout.addWidget(self.close_btn)
         root_layout.addLayout(header_layout)
 
@@ -261,7 +180,7 @@ class ContextInspectorPanel(QWidget):
                 for t in tag_list[:6]:
                     chip = QPushButton(t)
                     chip.setStyleSheet(f"background: {style_token['bg']}; color: {style_token['text']}; border: 1px solid {style_token['border']}; border-radius: 3px; padding: 1px 5px; font-size: 7.5pt;")
-                    chip.clicked.connect(lambda _=False, tag=t: self._on_tag_chip_clicked(tag))
+                    chip.clicked.connect(lambda _=False, tag=t: self.tag_clicked.emit(tag))
                     row.addWidget(chip)
                 row.addStretch()
                 self.tags_layout.addLayout(row)

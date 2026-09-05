@@ -14,10 +14,12 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QMenu,
     QProgressBar,
     QPushButton,
     QScrollArea,
     QSpinBox,
+    QToolButton,
     QVBoxLayout,
     QWidget,
 )
@@ -66,11 +68,14 @@ class _UIBuilderMixin:
         )
         input_layout.addWidget(btn_browse_scan)
 
-        self._btn_nav_back, self._btn_nav_forward = self.create_nav_history_buttons(self._navigate_to_dir)
-        input_layout.addWidget(self._btn_nav_back)
-        input_layout.addWidget(self._btn_nav_forward)
-
-        self._btn_recent_dirs = self.create_recent_dirs_button(self._navigate_to_dir)
+        self._btn_recent_dirs = QToolButton()
+        self._btn_recent_dirs.setText("▼")
+        self._btn_recent_dirs.setToolTip("Recent directories")
+        self._btn_recent_dirs.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        self._btn_recent_dirs.setFixedWidth(24)
+        self._recent_dirs_menu = QMenu(self._btn_recent_dirs)
+        self._btn_recent_dirs.setMenu(self._recent_dirs_menu)
+        self._btn_recent_dirs.clicked.connect(self._show_recent_dirs_menu)
         input_layout.addWidget(self._btn_recent_dirs)
 
         v_input_group.addLayout(input_layout)

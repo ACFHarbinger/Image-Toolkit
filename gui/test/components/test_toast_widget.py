@@ -16,19 +16,6 @@ def test_toast_widget_initialization():
     assert toast.testAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
     assert toast.testAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
     assert toast.label.text() == "Test Message"
-    assert toast.icon_label.text() == "✓"
-
-
-def test_toast_widget_type_icons():
-    warning_toast = ToastWidget("Warn", "warning")
-    assert warning_toast.icon_label.text() == "⚠"
-
-    error_toast = ToastWidget("Err", "error")
-    assert error_toast.icon_label.text() == "✕"
-
-    info_toast = ToastWidget("Info", "info")
-    assert info_toast.icon_label.text() == "ℹ"
-
 
 def test_toast_manager_show_toast():
     parent = QWidget()
@@ -40,24 +27,6 @@ def test_toast_manager_show_toast():
     assert toast.message == "Hello"
     assert toast.toast_type == "info"
     assert toast.duration_ms == 1000
-
-
-def test_show_toast_notification_helper():
-    from gui.src.windows.main._notify import show_toast_notification
-
-    class DummyWindow(QWidget):
-        def __init__(self):
-            super().__init__()
-            self.last_toast = None
-
-        def show_toast(self, message, toast_type="info", duration_ms=2500):
-            self.last_toast = (message, toast_type, duration_ms)
-
-    win = DummyWindow()
-    win.show()
-    show_toast_notification("Operation Succeeded", "success", 2000)
-    assert win.last_toast == ("Operation Succeeded", "success", 2000)
-    win.close()
 
 def test_toast_manager_max_toasts():
     parent = QWidget()

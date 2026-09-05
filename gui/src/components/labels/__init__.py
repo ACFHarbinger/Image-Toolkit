@@ -1,4 +1,3 @@
-from .bilingual_header import BilingualHeader as BilingualHeader
 from .clickable_label import ClickableLabel as ClickableLabel
 from .double_clickable_label import (
     DoubleClickableLabel as DoubleClickableLabel,

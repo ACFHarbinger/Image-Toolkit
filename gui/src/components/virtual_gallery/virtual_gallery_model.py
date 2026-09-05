@@ -27,16 +27,13 @@ from __future__ import annotations
 
 import os
 from collections import deque
-from typing import Any, List, Optional
+from typing import List, Optional
 
 from PySide6.QtCore import QAbstractListModel, QModelIndex, Qt, QThreadPool
 from PySide6.QtGui import QIcon, QImage, QPixmap
 from shiboken6 import Shiboken
 
 from gui.src.utils.cache.lru_image_cache import LRUImageCache
-
-_UNSET = object()
-
 
 
 class VirtualGalleryModel(QAbstractListModel):
@@ -54,11 +51,6 @@ class VirtualGalleryModel(QAbstractListModel):
     InDbRole = Qt.ItemDataRole.UserRole + 1
     SelectedRole = Qt.ItemDataRole.UserRole + 2
     PreviewRole = Qt.ItemDataRole.UserRole + 3
-    RatingRole = Qt.ItemDataRole.UserRole + 4
-    ResolutionRole = Qt.ItemDataRole.UserRole + 5
-    FormatRole = Qt.ItemDataRole.UserRole + 6
-    StarRatingRole = Qt.ItemDataRole.UserRole + 7
-    TagCountRole = Qt.ItemDataRole.UserRole + 8
 
     def __init__(
         self,
@@ -72,24 +64,12 @@ class VirtualGalleryModel(QAbstractListModel):
     ):
         super().__init__(parent)
         self._paths: List[str] = []
-        self._master_paths: List[str] = []
-        self._sort_key: str = "name"
-        self._sort_reverse: bool = False
-        self._filter_extensions: Optional[set[str]] = None
-        self._filter_query: str = ""
-        self._filter_min_rating: float = 0.0
-
         self._cache = shared_cache if shared_cache is not None else LRUImageCache(maxsize=cache_maxsize)
         self._loading: set[str] = set()
         self._failed: set[str] = set()
         self._in_db: set[str] = set()
         self._selected: set[str] = set()
         self._preview: set[str] = set()
-        self._ratings: dict[str, str] = {}
-        self._resolutions: dict[str, tuple[int, int]] = {}
-        self._formats: dict[str, str] = {}
-        self._star_ratings: dict[str, float] = {}
-        self._tag_counts: dict[str, int] = {}
         self._active_workers: set = set()
         self._generation: int = 0
 
@@ -123,115 +103,21 @@ class VirtualGalleryModel(QAbstractListModel):
     # ------------------------------------------------------------------
 
     def set_paths(self, paths) -> None:
-        """Replace the whole master item list and re-apply active sort/filters."""
-        self._master_paths = list(paths)
-        self._reapply_filter_and_sort()
-
-    def master_paths(self) -> List[str]:
-        """Return full master path list prior to filtering."""
-        return list(self._master_paths)
-
-    def sort_by(self, key: str = "name", reverse: bool = False) -> None:
-        """Sort gallery rows by key: 'name', 'date', 'size', 'extension', 'rating', 'resolution'."""
-        self._sort_key = key.lower()
-        self._sort_reverse = bool(reverse)
-        self._reapply_filter_and_sort()
-
-    def filter_by(
-        self,
-        extensions: Any = _UNSET,
-        query: Any = _UNSET,
-        min_rating: Any = _UNSET,
-    ) -> None:
-        """Filter gallery rows by extensions, search query, or minimum star rating."""
-        if extensions is not _UNSET:
-            if extensions is None or len(extensions) == 0:
-                self._filter_extensions = None
-            else:
-                self._filter_extensions = {
-                    ext.lower().lstrip(".") for ext in extensions if ext
-                }
-        if query is not _UNSET:
-            self._filter_query = (query or "").strip()
-        if min_rating is not _UNSET:
-            self._filter_min_rating = float(min_rating or 0.0)
-        self._reapply_filter_and_sort()
-
-
-    def _sort_key_func(self, path: str):
-        from gui.src.utils.sort_utils import natural_sort_key
-
-        k = self._sort_key
-        if k == "date":
-            try:
-                return os.path.getmtime(path)
-            except OSError:
-                return 0.0
-        elif k == "size":
-            try:
-                return os.path.getsize(path)
-            except OSError:
-                return 0
-        elif k in ("extension", "type"):
-            return os.path.splitext(path)[1].lower()
-        elif k == "rating":
-            return self._star_ratings.get(path, 0.0)
-        elif k == "resolution":
-            w, h = self._resolutions.get(path, (0, 0))
-            return w * h
-        else:  # "name" or fallback
-            return natural_sort_key(os.path.basename(path))
-
-    def _matches_filter(self, path: str) -> bool:
-        # Extension filter
-        if self._filter_extensions:
-            ext = os.path.splitext(path)[1].lower().lstrip(".")
-            if ext not in self._filter_extensions:
-                return False
-
-        # Min star rating filter
-        if self._filter_min_rating > 0 and self._star_ratings.get(path, 0.0) < self._filter_min_rating:
-            return False
-
-
-        # Text search query with operators (negation -term, quoted phrase, or |)
-        if self._filter_query:
-            q = self._filter_query
-            basename = os.path.basename(path).lower()
-            if q.startswith("-") and len(q) > 1:
-                term = q[1:].strip().lower()
-                if term in basename:
-                    return False
-            elif "|" in q:
-                terms = [t.strip().lower() for t in q.split("|") if t.strip()]
-                if terms and not any(t in basename for t in terms):
-                    return False
-            elif q.startswith('"') and q.endswith('"') and len(q) >= 2:
-                phrase = q[1:-1].lower()
-                if phrase not in basename:
-                    return False
-            else:
-                if q.lower() not in basename:
-                    return False
-
-        return True
-
-    def _reapply_filter_and_sort(self) -> None:
-        filtered = [p for p in self._master_paths if self._matches_filter(p)]
-        sorted_paths = sorted(filtered, key=self._sort_key_func, reverse=self._sort_reverse)
-
+        """Replace the whole item list. In-flight loads become stale."""
         self._generation += 1
         self._cancel_workers()
         self.beginResetModel()
-        self._paths = sorted_paths
+        self._paths = list(paths)
         self._loading.clear()
         self._failed.clear()
+        # The pool keeps queued/running runnables alive, so dropping the refs
+        # here only releases finished workers; their late deliveries are
+        # rejected by the generation check below.
         self._active_workers.clear()
         self._fill_queue.clear()
         self.endResetModel()
         if self.fill_mode:
             self._fill_all()
-
 
     def _fill_all(self) -> None:
         """Queue every not-yet-cached path for a continuous background load."""
@@ -353,43 +239,9 @@ class VirtualGalleryModel(QAbstractListModel):
                     [role],
                 )
 
-    def set_overlay_metadata(
-        self,
-        path: str,
-        *,
-        rating: Optional[str] = None,
-        resolution: Optional[tuple[int, int]] = None,
-        file_format: Optional[str] = None,
-        star_rating: Optional[float] = None,
-        tag_count: Optional[int] = None,
-    ) -> None:
-        """Set or update custom thumbnail overlay metadata for *path*."""
-        if rating is not None:
-            self._ratings[path] = rating
-        if resolution is not None:
-            self._resolutions[path] = resolution
-        if file_format is not None:
-            self._formats[path] = file_format
-        if star_rating is not None:
-            self._star_ratings[path] = star_rating
-        if tag_count is not None:
-            self._tag_counts[path] = tag_count
-        row = self.row_for_path(path)
-        if row >= 0:
-            self.dataChanged.emit(self.index(row, 0), self.index(row, 0))
-
-    def clear_overlay_metadata(self) -> None:
-        """Clear all stored overlay badges and metrics."""
-        self._ratings.clear()
-        self._resolutions.clear()
-        self._formats.clear()
-        self._star_ratings.clear()
-        self._tag_counts.clear()
-
     def clear(self) -> None:
         self._selected.clear()
         self._preview.clear()
-        self.clear_overlay_metadata()
         self.set_paths([])
 
     def rowCount(self, parent=None) -> int:
@@ -407,22 +259,6 @@ class VirtualGalleryModel(QAbstractListModel):
             return self._paths.index(path)
         except ValueError:
             return -1
-
-    def rename_path(self, old_path: str, new_path: str) -> bool:
-        """Rename an item path in the model and transfer cached data (§2.26)."""
-        if old_path not in self._paths:
-            return False
-        idx = self._paths.index(old_path)
-        self._paths[idx] = new_path
-        pix = self._cache.pop(old_path, None)
-        if pix is not None:
-            self._cache[new_path] = pix
-        for store in (self._ratings, self._resolutions, self._formats, self._star_ratings, self._tag_counts):
-            if old_path in store:
-                store[new_path] = store.pop(old_path)
-        model_idx = self.index(idx, 0)
-        self.dataChanged.emit(model_idx, model_idx)
-        return True
 
     def set_thumbnail_size(self, size: int) -> None:
         """Change the served decoration size; cached QImages are rescaled on
@@ -487,30 +323,6 @@ class VirtualGalleryModel(QAbstractListModel):
     # QAbstractListModel
     # ------------------------------------------------------------------
 
-    def _format_tooltip(self, path: str) -> str:
-        name = os.path.basename(path)
-        res = self._resolutions.get(path)
-        res_str = f"{res[0]} × {res[1]}" if res else ""
-        fmt = self._formats.get(path) or os.path.splitext(path)[1].upper().lstrip(".")
-        star = self._star_ratings.get(path)
-        rating = self._ratings.get(path)
-        tags = self._tag_counts.get(path)
-
-        details = []
-        if res_str:
-            details.append(f"Dimensions: {res_str}")
-        if fmt:
-            details.append(f"Format: {fmt}")
-        if star:
-            details.append(f"Rating: ★ {star}")
-        if rating:
-            details.append(f"Content: {str(rating).upper()}")
-        if tags:
-            details.append(f"Tags: {tags}")
-
-        detail_lines = "\n".join(details)
-        return f"{name}\n{detail_lines}" if details else name
-
     def data(self, index: QModelIndex, role: int = Qt.ItemDataRole.DisplayRole):
         if not index.isValid() or not (0 <= index.row() < len(self._paths)):
             return None
@@ -518,21 +330,16 @@ class VirtualGalleryModel(QAbstractListModel):
         if role == Qt.ItemDataRole.DecorationRole:
             return self._decoration_for(path)
         if role == Qt.ItemDataRole.ToolTipRole:
-            return self._format_tooltip(path)
-
-        role_map = {
-            self.PathRole: path,
-            self.InDbRole: path in self._in_db,
-            self.SelectedRole: path in self._selected,
-            self.PreviewRole: path in self._preview,
-            self.RatingRole: self._ratings.get(path),
-            self.ResolutionRole: self._resolutions.get(path),
-            self.FormatRole: self._formats.get(path),
-            self.StarRatingRole: self._star_ratings.get(path),
-            self.TagCountRole: self._tag_counts.get(path),
-        }
-        return role_map.get(role)
-
+            return os.path.basename(path)
+        if role == self.PathRole:
+            return path
+        if role == self.InDbRole:
+            return path in self._in_db
+        if role == self.SelectedRole:
+            return path in self._selected
+        if role == self.PreviewRole:
+            return path in self._preview
+        return None
 
     def flags(self, index: QModelIndex) -> Qt.ItemFlag:
         if not index.isValid():

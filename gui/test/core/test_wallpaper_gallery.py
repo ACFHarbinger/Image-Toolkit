@@ -23,7 +23,7 @@ def _paths(tmp_path, n):
 
 
 def _make_system(q_app, tmp_path, n=8):
-    tab = SystemDisplaySubTab(database_service=types.SimpleNamespace(db=None))
+    tab = SystemDisplaySubTab(db_tab_ref=types.SimpleNamespace(db=None))
     tab.start_loading_gallery(_paths(tmp_path, n))
     return tab
 

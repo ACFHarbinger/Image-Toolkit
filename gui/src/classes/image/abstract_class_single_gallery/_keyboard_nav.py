@@ -75,11 +75,7 @@ class _KeyboardNavMixin:
         elif reg.matches(event, "gallery.deselect_all"): # pyrefly: ignore [bad-argument-type]
             self.deselect_all_items()
             event.accept()
-        elif reg.matches(event, "gallery.invert_selection"): # pyrefly: ignore [bad-argument-type]
-            self.invert_selection()
-            event.accept()
         elif reg.matches(event, "gallery.export_paths"): # pyrefly: ignore [bad-argument-type]
-
             self._export_selection_as_paths()
             event.accept()
         elif reg.matches(event, "gallery.copy_to_folder"): # pyrefly: ignore [bad-argument-type]
@@ -102,16 +98,6 @@ class _KeyboardNavMixin:
             event.accept()
         elif reg.matches(event, "gallery.rename"): # pyrefly: ignore [bad-argument-type]
             self._rename_selected_file()
-            event.accept()
-        elif reg.matches(event, "general.undo"): # pyrefly: ignore [bad-argument-type]
-            from ....utils.undo_manager import UndoManager
-
-            UndoManager.instance().undo()
-            event.accept()
-        elif reg.matches(event, "general.redo"): # pyrefly: ignore [bad-argument-type]
-            from ....utils.undo_manager import UndoManager
-
-            UndoManager.instance().redo()
             event.accept()
         else:
             super().keyPressEvent(event)  # type: ignore[misc,safe-super] # pyrefly: ignore [bad-argument-type]

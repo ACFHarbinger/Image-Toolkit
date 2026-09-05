@@ -8,8 +8,6 @@ from __future__ import annotations
 
 from PySide6.QtWidgets import QMessageBox
 
-from gui.src.modules.events import ImportPathsIntent, NavigateIntent
-
 from ....utils.sort_utils import natural_sort_key
 
 
@@ -34,15 +32,20 @@ class _TabCommunicationMixin:
                 "Please select at least one image to open in the Scan Tab.",
             )
             return
-        sorted_selection = sorted(list(self.selected_files), key=natural_sort_key)
-        self.event_hub.publish(NavigateIntent(origin="library.search", module_id="library.scan"))
-        self.event_hub.publish(
-            ImportPathsIntent(
-                origin="library.search",
-                module_id="library.scan",
-                paths=tuple(sorted_selection),
+        if (
+            not self.db_tab_ref
+            or not hasattr(self.db_tab_ref, "scan_tab_ref")
+            or not self.db_tab_ref.scan_tab_ref
+        ):
+            QMessageBox.warning(
+                self, "Configuration Error", "Scan Metadata Tab reference not found."
             )
-        )
+            return
+        scan_tab = self.db_tab_ref.scan_tab_ref
+        sorted_selection = sorted(list(self.selected_files), key=natural_sort_key)
+        scan_tab.process_scan_results(sorted_selection)
+        if hasattr(scan_tab, "view_db_only_button"):
+            scan_tab.view_db_only_button.setChecked(False)
         QMessageBox.information(
             self,
             "Images Sent",
@@ -54,10 +57,13 @@ class _TabCommunicationMixin:
         if not paths:
             QMessageBox.information(self, "No Selection", "No images selected.")
             return
-        self.event_hub.publish(NavigateIntent(origin="library.search", module_id="system.merge"))
-        self.event_hub.publish(
-            ImportPathsIntent(origin="library.search", module_id="system.merge", paths=tuple(paths))
-        )
+        if (
+            not hasattr(self.db_tab_ref, "merge_tab_ref")
+            or not self.db_tab_ref.merge_tab_ref
+        ):
+            QMessageBox.warning(self, "Error", "Merge Tab reference not found.")
+            return
+        self.db_tab_ref.merge_tab_ref.display_scan_results(paths)
         QMessageBox.information(
             self, "Images Sent", f"Sent {len(paths)} images to the Merge Tab."
         )
@@ -67,10 +73,19 @@ class _TabCommunicationMixin:
         if not paths:
             QMessageBox.information(self, "No Selection", "No images selected.")
             return
-        self.event_hub.publish(NavigateIntent(origin="library.search", module_id="system.similarity"))
-        self.event_hub.publish(
-            ImportPathsIntent(origin="library.search", module_id="system.similarity", paths=tuple(paths))
-        )
+        if (
+            not hasattr(self.db_tab_ref, "delete_tab_ref")
+            or not self.db_tab_ref.delete_tab_ref
+        ):
+            QMessageBox.warning(self, "Error", "Delete Tab reference not found.")
+            return
+        delete_tab = self.db_tab_ref.delete_tab_ref
+        delete_tab.clear_galleries()
+        delete_tab.duplicate_results = {
+            "imported": paths
+        }  # Adapt data structure for delete tab
+        delete_tab.status_label.setText(f"Imported {len(paths)} files from Search.")
+        delete_tab.start_loading_thumbnails(paths)
         QMessageBox.information(
             self, "Images Sent", f"Sent {len(paths)} images to the Delete Tab."
         )
@@ -80,10 +95,13 @@ class _TabCommunicationMixin:
         if not paths:
             QMessageBox.information(self, "No Selection", "No images selected.")
             return
-        self.event_hub.publish(NavigateIntent(origin="library.search", module_id="system.wallpaper"))
-        self.event_hub.publish(
-            ImportPathsIntent(origin="library.search", module_id="system.wallpaper", paths=tuple(paths))
-        )
+        if (
+            not hasattr(self.db_tab_ref, "wallpaper_tab_ref")
+            or not self.db_tab_ref.wallpaper_tab_ref
+        ):
+            QMessageBox.warning(self, "Error", "Wallpaper Tab reference not found.")
+            return
+        self.db_tab_ref.wallpaper_tab_ref.display_scan_results(paths)
         QMessageBox.information(
             self, "Images Sent", f"Sent {len(paths)} images to the Wallpaper Tab."
         )

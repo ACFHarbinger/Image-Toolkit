@@ -29,7 +29,7 @@ class _GalleryCardsMixin:
         return card
 
     def _get_tags_from_db(self) -> List[Dict[str, str]]:
-        db = self.database_service.db
+        db = self.db_tab_ref.db
         if not db:
             return []
         try:

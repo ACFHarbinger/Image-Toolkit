@@ -27,7 +27,7 @@ from PySide6.QtWidgets import (
 )
 
 from .....components.tag_chip_widget import FlowLayout
-from .....styles import STYLE_START_ACTION, set_button_role
+from .....styles import STYLE_START_ACTION, apply_shadow_effect, set_button_role
 
 if TYPE_CHECKING:
     from ...protos.system_display_subtab import SystemDisplaySubTabHostProtocol
@@ -165,12 +165,6 @@ class _UIBuilderMixin:
         )
         slideshow_layout.addWidget(self.chk_video_runtime_interval)
 
-        # Right-anchors Timer + the action buttons as a group, same as the
-        # QHBoxLayout.addStretch(1) this row had before it became a
-        # FlowLayout (f588bc27) -- FlowLayout.addStretch() (§ tag_chip_widget)
-        # now supports this while still wrapping at narrow widths.
-        slideshow_layout.addStretch(1)
-
         self.countdown_label = QLabel("Timer: --:--")
         self.countdown_label.setStyleSheet(
             "color: #2ecc71; font-weight: bold; font-size: 14px;"
@@ -290,13 +284,9 @@ class _UIBuilderMixin:
         )
         btn_browse_scan = QPushButton("Browse...")
         btn_browse_scan.clicked.connect(self.browse_scan_directory)
-        # No apply_shadow_effect() here -- it's the only button in this row
-        # (unlike Set Wallpaper/Start Daemon/View Logs/Fetch/Skip, none of
-        # which use it) and a QGraphicsDropShadowEffect combined with this
-        # button's QSS gradient background rendered it fully invisible
-        # (though still clickable/functional) on a real KDE Plasma Wayland
-        # session -- a known class of Qt graphics-effect compositing bug
-        # that offscreen/headless test rendering can't reproduce.
+        apply_shadow_effect(
+            btn_browse_scan, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+        )
         scan_dir_layout.addWidget(self.scan_directory_path)
         scan_dir_layout.addWidget(btn_browse_scan)
         settings_layout.addLayout(scan_dir_layout)

@@ -1,22 +1,21 @@
-"""Top Segmented Ribbon navigation component for compact/laptop view (§2.36, #513)."""
+"""Top Segmented Ribbon navigation component for compact/laptop view (§2.36)."""
 
 from __future__ import annotations
 
-import contextlib
 from typing import Optional
-
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QComboBox,
     QHBoxLayout,
     QLabel,
     QPushButton,
+    QScrollArea,
     QSizePolicy,
     QWidget,
 )
 
-from gui.src.modules.catalog import ModuleCatalog
-from gui.src.modules.descriptor import ModuleCategory
+from gui.src.modules.descriptor import ModuleCategory, ModuleDescriptor
+from gui.src.modules.registry import ModuleRegistry
 
 
 class TopSegmentedRibbonWidget(QWidget):
@@ -24,9 +23,9 @@ class TopSegmentedRibbonWidget(QWidget):
 
     module_selected = Signal(str)  # module_id
 
-    def __init__(self, catalog: ModuleCatalog, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, registry: ModuleRegistry, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
-        self.catalog = catalog
+        self.registry = registry
         self.active_category: Optional[ModuleCategory] = None
         self.active_module_id: Optional[str] = None
         self._build_ui()
@@ -43,7 +42,7 @@ class TopSegmentedRibbonWidget(QWidget):
         layout.addWidget(cat_label)
 
         self.cat_combo = QComboBox()
-        for cat in self.catalog.categories():
+        for cat in self.registry.categories():
             self.cat_combo.addItem(cat.value, cat)
         self.cat_combo.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         self.cat_combo.currentIndexChanged.connect(self._on_cat_combo_changed)
@@ -64,23 +63,19 @@ class TopSegmentedRibbonWidget(QWidget):
         layout.addStretch()
 
         # Initialize
-        cats = self.catalog.categories()
+        cats = self.registry.categories()
         if cats:
             self._populate_category(cats[0])
 
     def _on_cat_combo_changed(self, idx: int) -> None:
         cat = self.cat_combo.itemData(idx)
         if isinstance(cat, str):
-            with contextlib.suppress(ValueError):
+            try:
                 cat = ModuleCategory(cat)
+            except ValueError:
+                pass
         if isinstance(cat, ModuleCategory):
             self._populate_category(cat)
-
-    def apply_category_accents(self, overrides: dict[str, str]) -> None:
-        """Apply category-specific accent overrides (§2.41, #518)."""
-        self._category_accent_overrides = {k.lower(): v for k, v in overrides.items()}
-        if self.active_category:
-            self._populate_category(self.active_category)
 
     def _populate_category(self, category: ModuleCategory) -> None:
         self.active_category = category
@@ -90,24 +85,19 @@ class TopSegmentedRibbonWidget(QWidget):
             if w:
                 w.deleteLater()
 
-        cat_key = category.name.lower()
-        accent = getattr(self, "_category_accent_overrides", {}).get(cat_key, "#00bcd4")
-        modules = self.catalog.navigable_by_category(category)
+        modules = self.registry.by_category(category)
         for mod in modules:
             btn = QPushButton(mod.title)
-            btn.setObjectName(f"ribbon_btn_{mod.module_id}")
+            btn.setObjectName(f"ribbon_btn_{mod.id}")
             btn.setCheckable(True)
-            btn.setStyleSheet(
-                f"QPushButton {{ padding: 6px 14px; border-radius: 12px; font-weight: 500; }}"
-                f"QPushButton:checked {{ background: {accent}; color: white; }}"
-            )
-            if mod.module_id == self.active_module_id:
+            btn.setStyleSheet("padding: 6px 14px; border-radius: 12px; font-weight: 500;")
+            if mod.id == self.active_module_id:
                 btn.setChecked(True)
-            btn.clicked.connect(lambda _=False, m=mod.module_id: self._on_pill_clicked(m))
+            btn.clicked.connect(lambda _=False, m=mod.id: self._on_pill_clicked(m))
             self.pills_layout.addWidget(btn)
 
-        if modules and (not self.active_module_id or self.catalog.require(self.active_module_id).category != category):
-            self._on_pill_clicked(modules[0].module_id)
+        if modules and (not self.active_module_id or self.registry.get(self.active_module_id).category != category):
+            self._on_pill_clicked(modules[0].id)
 
     def _on_pill_clicked(self, module_id: str) -> None:
         self.active_module_id = module_id
@@ -119,7 +109,7 @@ class TopSegmentedRibbonWidget(QWidget):
         self.module_selected.emit(module_id)
 
     def set_active_module(self, module_id: str) -> None:
-        mod = self.catalog.get(module_id)
+        mod = self.registry.get(module_id)
         if mod:
             if mod.category != self.active_category:
                 for i in range(self.cat_combo.count()):

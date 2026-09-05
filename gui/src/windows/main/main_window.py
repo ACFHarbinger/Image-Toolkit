@@ -22,15 +22,13 @@ from gui.src.components.widgets.toast_widget import ToastManager
 from gui.src.windows.settings.app_settings import AppSettings
 
 from ...constants import NEW_LIMIT_MB
-from ..cloud import CloudComputeWindow
+from ..cloud_compute import CloudComputeWindow
 from ..settings import SettingsWindow
-from ._command_palette import _CommandPaletteMixin
 from ._global_search import _GlobalSearchMixin
 from ._header_builder import _HeaderBuilderMixin
 from ._lifecycle import _LifecycleMixin
 from ._load_tab_config import _LoadTabConfigMixin
 from ._notify import show_main_status, show_tray_notification
-from ._runtime_shell import _RuntimeShellMixin
 from ._save_tab_config import _SaveTabConfigMixin
 from ._session_recovery import _SessionRecoveryMixin
 from ._shortcuts import _ShortcutOverlayMixin
@@ -49,12 +47,10 @@ class MainWindow(
     # (closeEvent, keyPressEvent, showEvent, wheelEvent) override same-named
     # methods QWidget itself defines, and would otherwise be silently shadowed.
     _HeaderBuilderMixin,
-    _RuntimeShellMixin,
     _TabRegistryMixin,
     _ThemeMixin,
     _TrayMixin,
     _TabSearchMixin,
-    _CommandPaletteMixin,
     _GlobalSearchMixin,
     _WorkflowTemplatesMixin,
     _ShortcutOverlayMixin,
@@ -135,42 +131,36 @@ class MainWindow(
         header_widget = self._build_header(account_name, app_icon)
         vbox.addWidget(header_widget)
 
-        self._using_runtime_shell = self._runtime_shell_enabled()
-        if self._using_runtime_shell:
-            # No legacy widgets are constructed in this branch.  Keeping the
-            # old shell below intact makes this preference an immediate rollback.
-            self.all_tabs = {}
-            self.command_combo = None
-            self.tabs = None
-            vbox.addWidget(self._create_runtime_shell(dropdown=dropdown, enable_manager=enable_manager))
-        else:
-            # --- Tab Initialization / LINK TABS / all_tabs dict ---
-            self._create_tabs(dropdown, enable_manager)
+        # --- Tab Initialization / LINK TABS / all_tabs dict ---
+        self._create_tabs(dropdown, enable_manager)
 
-            # --- Command Selection (built after all_tabs so the list is always in sync) ---
-            command_layout = QHBoxLayout()
-            command_label = QLabel("Select Category:")
-            command_label.setStyleSheet("font-weight: 600;")
-            command_layout.addWidget(command_label)
+        # --- APPLY ACTIVE DEFAULT CONFIGURATIONS ---
+        # Note: We wait to apply these configs until after startup preferences are applied
 
-            self.command_combo = QComboBox()
-            self.command_combo.addItems(list(self.all_tabs.keys()))
-            self.command_combo.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
-            command_layout.addWidget(self.command_combo)
-            command_layout.addStretch()
-            vbox.addLayout(command_layout)
+        # --- Command Selection (built after all_tabs so the list is always in sync) ---
+        command_layout = QHBoxLayout()
+        command_label = QLabel("Select Category:")
+        command_label.setStyleSheet("font-weight: 600;")
+        command_layout.addWidget(command_label)
 
-            self.tabs = QTabWidget()
-            vbox.addWidget(self.tabs)
+        self.command_combo = QComboBox()
+        self.command_combo.addItems(list(self.all_tabs.keys()))
+        self.command_combo.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
+        command_layout.addWidget(self.command_combo)
+        command_layout.addStretch()
+        vbox.addLayout(command_layout)
 
-            # §2.35 — background canvas update connections
-            from gui.src.styles.background_canvas import BackgroundCanvasController
-            BackgroundCanvasController.instance().background_changed.connect(self.update)
-            self.tabs.currentChanged.connect(lambda _: self.update())
+        self.tabs = QTabWidget()
+        vbox.addWidget(self.tabs)
 
-            # Connect after populating so the initial currentTextChanged fires correctly.
-            self.command_combo.currentTextChanged.connect(self.on_command_changed)
-            self.on_command_changed(self.command_combo.currentText())
+        # §2.35 — background canvas update connections
+        from gui.src.styles.background_canvas import BackgroundCanvasController
+        BackgroundCanvasController.instance().background_changed.connect(self.update)
+        self.tabs.currentChanged.connect(lambda _: self.update())
+
+        # Connect after populating so the initial currentTextChanged fires correctly.
+        self.command_combo.currentTextChanged.connect(self.on_command_changed)
+        self.on_command_changed(self.command_combo.currentText())
 
 
         # Default before _apply_startup_preferences() so a saved
@@ -181,13 +171,8 @@ class MainWindow(
         # apply and returns early.
         self._minimize_to_tray: bool = False
 
-        # The runtime shell deliberately skips legacy tab preference wiring,
-        # but close-to-tray belongs to the window rather than any tab.
-        self._apply_tray_preference(self.cached_creds.get("preferences", {}))
-
         # GUI/UX §2.16 — wire vault preferences to runtime at startup
-        if not self._using_runtime_shell:
-            self._apply_startup_preferences()
+        self._apply_startup_preferences()
 
         # Apply tab configs after global preferences so profile settings take priority (deferred)
         # self._apply_active_tab_configs() is now called in the deferred do_restore function below to avoid layout race conditions.
@@ -223,10 +208,7 @@ class MainWindow(
             self.restoreGeometry(_geom)
         else:
             self.showMaximized()
-        if self._using_runtime_shell:
-            QTimer.singleShot(0, self._restore_runtime_shell_session)
-        else:
-            QTimer.singleShot(0, self._restore_session_recovery)
+        QTimer.singleShot(0, self._restore_session_recovery)
 
     def open_settings_window(self):
         if not self.settings_window:

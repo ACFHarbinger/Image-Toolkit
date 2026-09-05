@@ -76,11 +76,7 @@ class _UIBuilderMixin:
         btn_browse_scan = QPushButton("Browse...")
         btn_browse_scan.clicked.connect(self.browse_directory)
         apply_shadow_effect(btn_browse_scan, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
-        self._btn_nav_back, self._btn_nav_forward = self.create_nav_history_buttons(self._navigate_to_dir)
-        browse_layout.addWidget(self._btn_nav_back)
-        browse_layout.addWidget(self._btn_nav_forward)
-        self._btn_recent_dirs = self.create_recent_dirs_button(self._navigate_to_dir)
-        browse_layout.addWidget(self._btn_recent_dirs)
+        browse_layout.addWidget(btn_browse_scan)
         target_layout.addRow("Source path (required):", browse_layout)
 
         # Target (optional): a second directory to compare the Source against.

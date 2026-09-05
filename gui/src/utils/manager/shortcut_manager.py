@@ -65,24 +65,6 @@ SHORTCUT_REGISTRY: list[dict] = [
         "scope": "General",
         "default": "Ctrl+Shift+M",
     },
-    {
-        "id": "general.command_palette",
-        "description": "Open the Command Palette / Quick Launcher",
-        "scope": "General",
-        "default": "Ctrl+K",
-    },
-    {
-        "id": "general.undo",
-        "description": "Undo the last file deletion or edit",
-        "scope": "General",
-        "default": "Ctrl+Z",
-    },
-    {
-        "id": "general.redo",
-        "description": "Redo the previously undone action",
-        "scope": "General",
-        "default": "Ctrl+Shift+Z",
-    },
     # Stitch — ASP stitch tab actions
     {
         "id": "stitch.run",
@@ -152,12 +134,6 @@ SHORTCUT_REGISTRY: list[dict] = [
         "description": "Deselect all images",
         "scope": "Gallery",
         "default": "Ctrl+D",
-    },
-    {
-        "id": "gallery.invert_selection",
-        "description": "Invert selection of gallery images",
-        "scope": "Gallery",
-        "default": "Ctrl+I",
     },
     {
         "id": "gallery.nav_left",
@@ -298,20 +274,7 @@ SHORTCUT_REGISTRY: list[dict] = [
         "scope": "Preview",
         "default": "L",
     },
-    {
-        "id": "preview.copy_path",
-        "description": "Copy current image file path to clipboard",
-        "scope": "Preview",
-        "default": "Ctrl+Shift+C",
-    },
-    {
-        "id": "preview.toggle_info",
-        "description": "Toggle inline file metadata and EXIF inspector sidebar",
-        "scope": "Preview",
-        "default": "I",
-    },
 ]
-
 
 
 class ShortcutRegistry:

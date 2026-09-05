@@ -18,7 +18,7 @@ class _GroupFiltersMixin:
     @Slot()
     def _refresh_groups_from_db(self):
         """Load groups and detailed subgroups from the DB and populate both lists."""
-        db = self.database_service.db
+        db = self.db_tab_ref.db
         if not db:
             return
         try:
@@ -123,7 +123,7 @@ class _GroupFiltersMixin:
         self.perform_search()
 
     def update_search_button_state(self, connected: Optional[bool] = None):
-        db_connected = self.database_service.db is not None if connected is None else connected
+        db_connected = self.db_tab_ref.db is not None if connected is None else connected
         self.search_button.setEnabled(db_connected)
 
         if not db_connected:

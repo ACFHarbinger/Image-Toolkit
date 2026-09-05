@@ -158,19 +158,6 @@ class WallpaperCommonBase(
             shared_cache=self._initial_pixmap_cache,
             worker_factory=_gallery_worker,
             max_concurrent_loads=1,
-            # Eager background-fill (warm every row before the user scrolls
-            # to it) assumes loads are cheap. Wallpaper directories can hold
-            # hundreds of huge files (multi-hundred-MB GIFs observed in the
-            # wild); with max_concurrent_loads=1, the fill queue marks every
-            # path "loading" up front and grinds through them one at a time
-            # in file-list order, so a currently-visible row can sit behind
-            # hundreds of off-screen ones for minutes with nothing to show.
-            # Disabled here so loading is purely on-demand for what the view
-            # actually asks for (visible cells) -- the same demand-driven
-            # behavior the pre-virtualization QLabel-grid gallery had, where
-            # only the current page's widgets ever existed to request a
-            # thumbnail in the first place.
-            fill_mode=False,
         )
         gallery.setMinimumHeight(600)
         gallery.path_clicked.connect(self.toggle_selection)

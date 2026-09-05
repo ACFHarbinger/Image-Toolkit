@@ -19,7 +19,7 @@ class _UpsertOpsMixin:
 
     def perform_upsert_operation(self):
         """Open the MetadataEditorWindow for the currently selected images."""
-        db = self.database_service.db
+        db = self.db_tab_ref.db
         if not db:
             QMessageBox.warning(self, "Error", "Connect to database first.")
             return
@@ -39,7 +39,7 @@ class _UpsertOpsMixin:
         (width/height) runs off the GUI thread; the actual DB writes are
         applied on the main thread in one batched transaction once the
         worker finishes, in ``_on_upsert_prepared`` below."""
-        db = self.database_service.db
+        db = self.db_tab_ref.db
         if not db or not results:
             return
         if self.current_upsert_worker is not None:
@@ -77,7 +77,7 @@ class _UpsertOpsMixin:
     def _on_upsert_prepared(self, prepared: list):  # noqa: C901
         """Apply all prepared entries in one transaction (main thread —
         DB writes are not done on the worker thread)."""
-        db = self.database_service.db
+        db = self.db_tab_ref.db
         if not db:
             return
         success_count = 0
@@ -138,7 +138,7 @@ class _UpsertOpsMixin:
             QMessageBox.critical(self, "Error", str(e))
 
     def delete_selected_images(self):
-        db = self.database_service.db
+        db = self.db_tab_ref.db
         if not db:
             return
         if (

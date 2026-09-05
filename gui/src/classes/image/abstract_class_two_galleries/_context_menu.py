@@ -102,10 +102,6 @@ class _ContextMenuMixin:
         export_act.triggered.connect(self._export_selection_as_paths)
         menu.addAction(export_act)
 
-        contact_sheet_act = QAction("Generate Contact Sheet…", menu)
-        contact_sheet_act.triggered.connect(self._generate_contact_sheet)
-        menu.addAction(contact_sheet_act)
-
         copy_act = QAction("Copy Selection to Folder…", menu)
         copy_act.triggered.connect(self._copy_selection_to_folder)
         menu.addAction(copy_act)

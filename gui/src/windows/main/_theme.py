@@ -253,14 +253,13 @@ class _ThemeMixin:
         elif mode == "spacious":
             qss += SPACIOUS_DENSITY_QSS
 
-        # Typography: font family and scale percent mapped onto the application font.
+        # Typography: scale percent maps onto the existing font path.
         scale = getattr(pack.typography, "scale_percent", 100)
-        family = getattr(pack.typography, "font_family", None) or "Inter"
         if scale != 100:
             scaled_pt = max(7, int(10 * scale / 100))
-            QApplication.instance().setFont(QFont(family, scaled_pt))
+            QApplication.instance().setFont(QFont("Inter", scaled_pt))
         else:
-            QApplication.instance().setFont(QFont(family, 10))
+            QApplication.instance().setFont(QFont("Inter", 10))
 
         # Raw QSS (expert escape hatch) then the user override hook.
         raw = getattr(pack, "raw_qss", None)
