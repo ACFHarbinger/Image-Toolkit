@@ -19,6 +19,7 @@ from backend.src.web import (
 from PySide6.QtCore import QObject, QRunnable, Signal
 
 from gui.src.helpers.gc_safe import gc_disabled_run
+from gui.src.qt_event_bridge import QtEventBridge
 
 
 class _ReverseSearchWorkerSignals(QObject):
@@ -72,6 +73,10 @@ class ReverseSearchWorker(QRunnable):
         self.top_k = top_k
         self.signals = _ReverseSearchWorkerSignals()
 
+        # Bridge is a QObject: construct here on the GUI thread, attach in
+        # run() once the manager exists (issue #529).
+        self._status_bridge = QtEventBridge(self.signals.status.emit)
+
         self._manager: Optional[ReverseImageSearchManager] = None
 
     def cancel(self) -> None:
@@ -87,7 +92,7 @@ class ReverseSearchWorker(QRunnable):
                 headless=False,
                 browser=self.browser,
             )
-            self._manager.on_status.connect(self.signals.status)
+            self._status_bridge.attach(self._manager.on_status)
 
             engine_label = {
                 ENGINE_GOOGLE: "Google Lens",
@@ -114,4 +119,5 @@ class ReverseSearchWorker(QRunnable):
         except Exception as exc:
             self.signals.error.emit(str(exc))
         finally:
+            self._status_bridge.detach()
             self._manager = None
