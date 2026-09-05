@@ -112,7 +112,7 @@ flowchart LR
         S29["§2.9 Settings Window"]:::augment:::planned
         S210["§2.10 Toast Notifications ✅"]:::feature:::active
         S212["§2.12 System Tray ✅p"]:::feature:::active
-        S217["§2.17 Log Panel ✅p"]:::feature:::active
+        S217["§2.17 Log Panel ✅"]:::feature:::done
         S229["§2.29 Configurable Shortcuts ✅"]:::augment:::done
         S212 --- S217
     end
@@ -884,7 +884,8 @@ Maintain a `deque` of the last 10 operations run (scan, convert, stitch, etc.) w
 
 ---
 
-## 2.17 Global Collapsible Log Panel ✅ Partial (2026-06-10 — §D shipped: LogWindow upgraded) {: #217-global-collapsible-log-panel }
+## 2.17 Global Collapsible Log Panel ✅ Shipped (2026-09-05 — §A GlobalLogPanel + §B LogHub + §D LogWindow level coloring shipped — Complete) {: #217-global-collapsible-log-panel }
+
 
 **Pain point:** `LogWindow` exists but is instantiated per-tab and opens as a floating child window. Each tab that has logging opens a separate window. There is no unified log view across the app, and `print()` calls from the backend are never captured to any UI element.
 

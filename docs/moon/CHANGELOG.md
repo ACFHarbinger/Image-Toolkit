@@ -1,4 +1,15 @@
+# S506 — 2026-09-05 (Antigravity: §2.17 Global Collapsible Log Panel & Activity History)
+
+- `gui/src/windows/logging/log_hub.py`: Created centralized thread-safe `LogHub` and `UnifiedLogHandler(logging.Handler)` for dispatching structured `LogEntry` records (level, timestamp, subsystem/source, message) with ring buffer memory and error/warning counters.
+- `gui/src/windows/logging/log_panel.py`: Created `GlobalLogPanel` featuring live level filtering (`DEBUG+`, `INFO+`, `WARNING+`, `ERROR+`, `SUCCESS`), subsystem source filtering, text search, error/warning badge counter (`✕ N ⚠ M`), Follow auto-scroll toggle, Copy All, and Export to file.
+- `gui/src/windows/logging/__init__.py`: Exported `LogHub`, `LogEntry`, `UnifiedLogHandler`, `get_log_hub`, and `GlobalLogPanel`.
+- `gui/test/windows/test_log_panel.py`: Added 4 unit tests verifying log entry formatting, ring buffer eviction, warning/error counters, unified logging handler emission, level filtering, search filtering, and panel clear (4/4 passed).
+- `docs/moon/roadmaps/gui_ux.md`: Marked §2.17 as fully shipped.
+
+---
+
 # S505 — 2026-09-05 (Antigravity: §2.22 Tag Chip UI and Compound Tag Search)
+
 
 - `gui/src/utils/tag_search_parser.py`: Created `CompoundTagQueryParser` and boolean evaluator supporting binary operators (`AND`/`&&`, `OR`/`||`), unary negation (`NOT`/`!`/`-tag`), grouping `( ... )`, quoted terms (`"blue eyes"`), and implicit space-separated conjunctions (`solo 1girl -chibi`).
 - `gui/src/utils/__init__.py`: Exported `CompoundTagQueryParser`, `evaluate_tag_query`, `extract_referenced_tags`, `parse_tag_query`, and `validate_tag_query`.
