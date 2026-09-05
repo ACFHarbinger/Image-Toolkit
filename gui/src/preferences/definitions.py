@@ -215,6 +215,13 @@ class PrefKeys:
         value_type=bool,
         description="Enable the experimental Stitch workspace routes for this account",
     )
+    EXPERIMENTAL_RUNTIME_SHELL = PreferenceDefinition(
+        key="experimental/runtime_shell",
+        scope=PreferenceScope.ACCOUNT,
+        default=False,
+        value_type=bool,
+        description="Enable the experimental rail/ribbon runtime shell for this account",
+    )
 
 
 ALL_KNOWN_DEFINITIONS: list[PreferenceDefinition] = [
@@ -235,6 +242,7 @@ ALL_KNOWN_DEFINITIONS: list[PreferenceDefinition] = [
     PrefKeys.DEFAULT_OPEN_DIR,
     PrefKeys.RECENT_DIRS_COUNT,
     PrefKeys.EXPERIMENTAL_STITCH_WORKSPACE,
+    PrefKeys.EXPERIMENTAL_RUNTIME_SHELL,
 ]
 
 __all__ = [
