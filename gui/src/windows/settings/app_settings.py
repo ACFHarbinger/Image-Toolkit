@@ -188,7 +188,7 @@ class AppSettings:
     def set_listings_splitter(cls, key: str, value: bytes) -> None:
         cls._q().setValue(f"splitter/{key}", value)
 
-    # ── Labels namespace ──────────────────────────────────────────────────────
+    # ── Labels & Ratings namespace ────────────────────────────────────────────
 
     @classmethod
     def label(cls, path: str) -> str | None:
@@ -198,6 +198,16 @@ class AppSettings:
     @classmethod
     def set_label(cls, path: str, color_key: str) -> None:
         cls._q().setValue(f"labels/{path}", color_key)
+
+    @classmethod
+    def star_rating(cls, path: str) -> float | None:
+        """Return the star rating (0-5) stored for *path*, or ``None``."""
+        val = cls._q().value(f"ratings/{path}")
+        return float(val) if val is not None else None
+
+    @classmethod
+    def set_star_rating(cls, path: str, rating: float) -> None:
+        cls._q().setValue(f"ratings/{path}", float(rating))
 
     # ── Raw access ────────────────────────────────────────────────────────────
 
