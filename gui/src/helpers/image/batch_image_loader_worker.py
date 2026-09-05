@@ -10,6 +10,8 @@ from shiboken6 import Shiboken
 from gui.src.constants.helpers import _NATIVE_SUPPORTS_RGB_CACHE
 from gui.src.helpers.gc_safe import gc_disabled_run
 
+from ._qimagereader_disk_cache import load_qir_cached, save_qir_cached
+
 if HAS_NATIVE_IMAGING:
     import base
 
@@ -170,8 +172,20 @@ class BatchImageLoaderWorker(QRunnable):
         partial-canvas GIF disposal method not being resolved), where
         QImageReader.read() -- the same approach already proven correct for
         the Wallpaper monitor-preview thumbnail (_gallery_label.py's
-        _get_or_generate_thumbnail) -- decodes it properly."""
+        _get_or_generate_thumbnail) -- decodes it properly.
+
+        Disk-cached (see ``_qimagereader_disk_cache.py``): Qt's GIF plugin
+        does not support scaled decoding -- setScaledSize() only resizes
+        the *output*, verified empirically -- so without caching, every
+        view/scroll of a GIF-heavy directory re-paid full-canvas decode
+        cost from scratch, which is what made this path far slower than
+        before GIFs were routed off the native decoder.
+        """
         try:
+            cached = load_qir_cached(path, self.target_size)
+            if cached is not None:
+                return cached
+
             reader = QImageReader(path)
             source_size = reader.size()
             target = QSize(self.target_size, self.target_size)
@@ -187,6 +201,7 @@ class BatchImageLoaderWorker(QRunnable):
                     Qt.AspectRatioMode.KeepAspectRatio,
                     Qt.TransformationMode.SmoothTransformation,
                 )
+            save_qir_cached(path, self.target_size, image)
             return image
         except Exception:
             return QImage()
