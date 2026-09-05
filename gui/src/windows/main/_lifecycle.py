@@ -263,6 +263,13 @@ class _LifecycleMixin:
         """
         AppSettings.set_mainwindow_geometry(self.saveGeometry())  # pyrefly: ignore [bad-argument-type]
         self._save_session_recovery()
+        # Codex #538 combined review (HIGH): closeEvent() already disposes the
+        # runtime shell before vault shutdown; this tray-Quit path bypasses
+        # closeEvent (per the docstring above) and skipped it entirely, so
+        # mounted module handles never got deactivate()/dispose() and the host
+        # stack was never detached. Same disposal, same ordering.
+        if getattr(self, "_using_runtime_shell", False):
+            self._dispose_runtime_shell()
         if self.vault_manager is not None:
             self.vault_manager.shutdown()
         QApplication.quit()

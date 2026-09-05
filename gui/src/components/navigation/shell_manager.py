@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from enum import Enum
 from typing import Optional
 
@@ -14,6 +15,8 @@ from gui.src.modules.runtime import ModuleRuntime
 
 from .navigation_rail import NavigationRailWidget
 from .segmented_ribbon import TopSegmentedRibbonWidget
+
+log = logging.getLogger(__name__)
 
 
 class ShellNavMode(str, Enum):
@@ -155,6 +158,18 @@ class ShellLayoutManager(QObject):
         return intent.module_id
 
     def _on_navigate_intent(self, intent: NavigateIntent) -> None:
+        if intent.state:
+            # Codex #538 combined review (MEDIUM): activate_module(module_id)
+            # has no channel to carry NavigateIntent.state through, so it was
+            # being silently dropped -- no consumer of restoration/deep-link
+            # state exists on this path yet. Surface the loss loudly instead
+            # of hiding it until a real state-carrying activation API lands.
+            log.warning(
+                "NavigateIntent.state dropped: %s carries %d state pair(s) "
+                "the runtime shell does not yet forward to the activated module",
+                intent.module_id,
+                len(intent.state),
+            )
         self.activate_module(self.resolve_navigate_target(intent))
 
     def clear_mounted(self) -> None:
