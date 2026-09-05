@@ -5,6 +5,7 @@ from gui.src.components.widgets.resource_simulator_dashboard import (
 )
 from gui.src.components.widgets.segmented_control import SegmentedControl
 from gui.src.components.widgets.telemetry_status_bar import TelemetryStatusBar
+from gui.src.components.widgets.thumbnail_zoom_control import ThumbnailZoomControl
 from gui.src.components.widgets.toast_widget import ToastWidget
 from gui.src.components.widgets.toggle_switch import ToggleSwitch
 
@@ -14,6 +15,7 @@ __all__ = [
     "ResourceSimulatorDashboard",
     "SegmentedControl",
     "TelemetryStatusBar",
+    "ThumbnailZoomControl",
     "ToastWidget",
     "ToggleSwitch",
 ]

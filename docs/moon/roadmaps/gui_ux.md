@@ -79,7 +79,7 @@ flowchart LR
     subgraph GC["🖼️ Gallery Core"]
         direction TB
         S21["§2.1 Virtual Scroll Gallery"]:::perf:::planned
-        S22["§2.2 Thumbnail Size Control"]:::augment:::planned
+        S22["§2.2 Thumbnail Size Control ✅"]:::augment:::done
         S23["§2.3 Keyboard Navigation ✅p"]:::augment:::active
         S24["§2.4 Bulk Selection ✅p"]:::feature:::active
         S213["§2.13 Filter & Sort Controls ✅p"]:::feature:::active
@@ -319,7 +319,8 @@ Maintain a fixed pool of ~N_visible `QLabel` widgets. On scroll events, reassign
 
 ---
 
-## 2.2 Gallery Thumbnail Size Control
+## 2.2 Gallery Thumbnail Size Control ✅ (2026-09-05: A + B + C + D) {: #22-gallery-thumbnail-size-control }
+**Shipped:** Reusable `ThumbnailZoomControl` component (`gui/src/components/widgets/thumbnail_zoom_control.py`) combining live slider (Option A), Ctrl+scroll zooming in `VirtualGallery` / `VirtualDualGallery` / `AbstractGalleryBase` (Option B), S/M/L/XL preset buttons (Option C), and per-tab persistent size memory via `AppSettings.session(class_name, "thumbnail_size")` and `save_thumbnail_size` / `load_thumbnail_size` (Option D).
 
 **Pain point:** Fixed thumbnail size suits neither 4K monitors nor laptops. Users managing large libraries want smaller thumbnails; users doing quality review want larger ones.
 
@@ -336,7 +337,7 @@ Intercept `wheelEvent` with `Ctrl` modifier in the gallery widget to resize thum
 - Cons: Ctrl+scroll conflict with text editors if the gallery has keyboard focus unexpectedly.
 
 **C — Preset buttons (S/M/L/XL)**
-Four fixed sizes (64/128/192/256px) as toggle buttons in the toolbar. Less flexible but harder to mis-click to an unusable size.
+Four fixed sizes (96/160/240/384px) as toggle buttons in the toolbar. Less flexible but harder to mis-click to an unusable size.
 - Pros: Discoverable. Safe range.
 - Cons: Limited flexibility.
 
@@ -344,8 +345,6 @@ Four fixed sizes (64/128/192/256px) as toggle buttons in the toolbar. Less flexi
 Extend A/B so each tab remembers its own thumbnail size independently (e.g., convert tab prefers larger, database tab prefers smaller).
 - Pros: Workflow-aware sizing.
 - Cons: More `QSettings` keys to manage.
-
-**Recommendation:** B is the most intuitive (no UI chrome). Combine with A for explicit control. D as a follow-on once A is stable.
 
 ---
 

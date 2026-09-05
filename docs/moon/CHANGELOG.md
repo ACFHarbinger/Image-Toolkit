@@ -1,3 +1,13 @@
+# S491 — 2026-09-05 (Antigravity: §2.2 Gallery Thumbnail Zoom Controls & Presets)
+
+- `gui/src/components/widgets/thumbnail_zoom_control.py`: Created reusable `ThumbnailZoomControl` component combining a 48–512px slider, live px readout, S/M/L/XL (96/160/240/384px) preset buttons, step zoom API, and per-tab `QSettings` size persistence.
+- `gui/src/components/virtual_gallery/dual_widget.py`: Integrated `ThumbnailZoomControl` into `VirtualDualGallery` found header, wired Ctrl+wheel zoom handling across both Found and Selected galleries, and bound startup thumbnail size restoration.
+- `gui/src/classes/base/gallery_base.py`: Added S/M/L/XL preset buttons to `common_create_pagination_ui` next to the thumbnail slider.
+- `gui/test/widgets/test_thumbnail_zoom_control.py`: Added 6 unit tests verifying slider snapping, preset button clicks, Ctrl+wheel step zooming, per-tab persistence, and `VirtualDualGallery` zoom synchronization (11/11 passing).
+- `docs/moon/roadmaps/gui_ux.md`: Marked §2.2 as shipped with Options A, B, C, and D details.
+
+---
+
 # S490 — 2026-09-05 (Antigravity: §2.5 Session Persistence & Recent Directories Dropdown)
 
 - `gui/src/components/widgets/recent_directories_picker.py`: Created reusable `RecentDirectoriesPicker` dropdown tool button displaying up to 10 MRU directory paths with elided rendering, full-path tooltips, clear history action, and `directory_selected` signal.

@@ -405,6 +405,25 @@ class AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery):
         thumb_size_lbl.setMinimumWidth(44)
         thumb_size_lbl.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
 
+        # Preset buttons (§2.2 Option C)
+        preset_s = QPushButton("S")
+        preset_s.setFixedWidth(24)
+        preset_s.setToolTip("Small (96px)")
+        preset_m = QPushButton("M")
+        preset_m.setFixedWidth(24)
+        preset_m.setToolTip("Medium (160px)")
+        preset_l = QPushButton("L")
+        preset_l.setFixedWidth(24)
+        preset_l.setToolTip("Large (240px)")
+        preset_xl = QPushButton("XL")
+        preset_xl.setFixedWidth(26)
+        preset_xl.setToolTip("Extra Large (384px)")
+
+        preset_s.clicked.connect(lambda: thumb_slider.setValue(96))
+        preset_m.clicked.connect(lambda: thumb_slider.setValue(160))
+        preset_l.clicked.connect(lambda: thumb_slider.setValue(240))
+        preset_xl.clicked.connect(lambda: thumb_slider.setValue(384))
+
         layout.addWidget(lbl)
         layout.addWidget(combo)
         layout.addWidget(sort_lbl)
@@ -418,6 +437,10 @@ class AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery):
         layout.addWidget(btn_next)
         layout.addWidget(_make_vline())
         layout.addWidget(QLabel("⊞"))
+        layout.addWidget(preset_s)
+        layout.addWidget(preset_m)
+        layout.addWidget(preset_l)
+        layout.addWidget(preset_xl)
         layout.addWidget(thumb_slider)
         layout.addWidget(thumb_size_lbl)
 
@@ -431,6 +454,10 @@ class AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery):
             "thumb_size_lbl": thumb_size_lbl,
             "sort_combo": sort_combo,
             "sort_dir_btn": sort_dir_btn,
+            "preset_s": preset_s,
+            "preset_m": preset_m,
+            "preset_l": preset_l,
+            "preset_xl": preset_xl,
         }
         return container, controls
 
