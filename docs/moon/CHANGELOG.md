@@ -1,4 +1,21 @@
+# S509 — 2026-09-05 (Antigravity: §2.4 Bulk Selection and Multi-Item Operations)
+
+- `gui/src/components/virtual_gallery/virtual_gallery_view.py`: Added `invert_selection()` method utilizing `QItemSelectionModel.SelectionFlag.Toggle` across all items, and wired `gallery.select_all` (`Ctrl+A`), `gallery.deselect_all` (`Ctrl+D`), and `gallery.invert_selection` (`Ctrl+I`) in `keyPressEvent`.
+- `gui/src/components/virtual_gallery/widget.py`: Added `invert_selection()` and `deselect_all()` forwarding methods on `VirtualGallery`.
+- `gui/src/components/virtual_gallery/dual_widget.py`: Added `invert_selection()` method and interactive `Invert` button on `found_header`.
+- `gui/src/classes/image/abstract_class_two_galleries/_selection_ops.py`: Added `invert_selection()` slot to `_SelectionOpsMixin`.
+- `gui/src/classes/image/abstract_class_two_galleries/_keyboard_nav.py`: Added `gallery.invert_selection` handling to `_KeyboardNavMixin`.
+- `gui/src/classes/image/abstract_class_single_gallery/_selection.py`: Added `invert_selection()` slot to `_SelectionMixin`.
+- `gui/src/classes/image/abstract_class_single_gallery/_keyboard_nav.py`: Added `gallery.invert_selection` handling to `_KeyboardNavMixin`.
+- `gui/src/utils/manager/shortcut_manager.py`: Registered `gallery.invert_selection` (`Ctrl+I`).
+- `gui/test/components/test_bulk_selection.py`: Added 5 unit tests for bulk selection, invert selection, shortcut dispatching, and mixin behavior (5/5 passed).
+- `gui/test/components/test_virtual_dual_gallery.py`: Added invert selection assertions (5/5 passed).
+- `docs/moon/roadmaps/gui_ux.md`: Marked §2.4 as fully shipped.
+
+---
+
 # S508 — 2026-09-05 (Antigravity: §2.11 Image Preview Window Enhancements & §2.12 System Tray Integration)
+
 
 - `gui/src/windows/image_preview_window.py`:
   - Added collapsible inline metadata/EXIF sidebar (`_info_panel`) toggled via `I` key or context menu, displaying file properties (name, directory, size, dimensions, aspect ratio, format, color mode, modified date) and camera EXIF metadata tags (`Pillow.ExifTags`).

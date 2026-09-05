@@ -75,7 +75,11 @@ class _KeyboardNavMixin:
         elif reg.matches(event, "gallery.deselect_all"): # pyrefly: ignore [bad-argument-type]
             self.deselect_all_items()
             event.accept()
+        elif reg.matches(event, "gallery.invert_selection"): # pyrefly: ignore [bad-argument-type]
+            self.invert_selection()
+            event.accept()
         elif reg.matches(event, "gallery.export_paths"): # pyrefly: ignore [bad-argument-type]
+
             self._export_selection_as_paths()
             event.accept()
         elif reg.matches(event, "gallery.copy_to_folder"): # pyrefly: ignore [bad-argument-type]

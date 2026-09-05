@@ -56,6 +56,28 @@ class _SelectionMixin:
                         self.update_card_style(widget, False)
             self.on_selection_changed()
 
+    @Slot()
+    def invert_selection(self: "AbstractClassSingleGalleryHostProtocol"):
+        """Inverts the selection of currently visible items (§2.4E)."""
+        if hasattr(self, "gallery") and hasattr(self.gallery, "invert_selection"):
+            self.gallery.invert_selection()
+            return
+
+        paginated_paths = self.common_get_paginated_slice(
+            self.gallery_image_paths, self.current_page, self.page_size
+        )
+        new_selected = [p for p in self.selected_files if p not in paginated_paths]
+        for path in paginated_paths:
+            if path not in self.selected_files:
+                new_selected.append(path)
+        self.selected_files = new_selected
+        for path in paginated_paths:
+            widget = self.path_to_card_widget.get(path)
+            if widget:
+                self.update_card_style(widget, path in self.selected_files)
+        self.on_selection_changed()
+
+
     @Slot(str)
     def toggle_selection(self: "AbstractClassSingleGalleryHostProtocol", path: str):
         """Toggle the selection state of a gallery item."""
