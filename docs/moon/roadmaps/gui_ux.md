@@ -1696,9 +1696,11 @@ Let users assign a custom icon (from a small built-in set or an imported SVG) to
 
 ---
 
-## 2.42 Motion & Micro-Interaction Design Pass {: #242-motion--micro-interaction-design-pass }
+## 2.42 Motion & Micro-Interaction Design Pass ✅ (2026-09-05 — Option A shipped, #519) {: #242-motion--micro-interaction-design-pass }
 
-**Ergonomic pain point:** Existing motion is limited to thumbnail hover animations (§2.24) and toast fade-in/out (§2.10). Tab switches, panel collapse/expand (inspector §2.38, splitters §2.20), and shell navigation (rail/ribbon §2.36) all happen as instant, un-eased state changes — functional, but visually abrupt compared to the "professional creative suite" feel §2.37 is aiming for elsewhere.
+**Shipped: Option A.**
+- **Option A (Shared Easing & Motion Kit)**: Created `MotionKit` (`gui/src/styles/motion_kit.py`) with standard durations (`FAST_MS=120`, `BASE_MS=200`, `SLOW_MS=320`), easing curves (`OutCubic`, `InOutCubic`, `OutBack`), `reduce_motion` accessibility check, smooth `slide_width()` and `fade_in()` transitions for `NavigationRailWidget` drawer toggle, `ContextInspectorPanel` expansion/collapse, and `ShellLayoutManager` stacked widget page switches.
+- **Tests**: `gui/test/styles/test_motion_kit.py` (4 unit tests).
 
 ### Implementation Options
 

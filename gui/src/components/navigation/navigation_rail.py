@@ -119,8 +119,14 @@ class NavigationRailWidget(QWidget):
 
     def toggle_drawer(self) -> None:
         self._drawer_expanded = not self._drawer_expanded
-        self.drawer_widget.setVisible(self._drawer_expanded)
         self.toggle_btn.setText("◀" if self._drawer_expanded else "▶")
+        start_w = 0 if self._drawer_expanded else 200
+        end_w = 200 if self._drawer_expanded else 0
+        try:
+            from gui.src.styles.motion_kit import MotionKit
+            MotionKit.slide_width(self.drawer_widget, start_w, end_w, duration_ms=MotionKit.BASE_MS)
+        except Exception:
+            self.drawer_widget.setVisible(self._drawer_expanded)
 
     def select_category(self, category: ModuleCategory) -> None:
         self.active_category = category
