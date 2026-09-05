@@ -592,6 +592,64 @@ build; after updating, it continues changing wallpapers after **Quit**.
 
 ---
 
+### Portrait/landscape gallery thumbnails render cropped on KDE Breeze/Kvantum
+
+**Symptom:** A non-square (portrait or landscape) thumbnail in any virtualized
+gallery (`VirtualGalleryView`) renders cut off — a tall portrait image shows
+only its top half — while square thumbnails look fine. Reproduces under KDE
+Plasma with the Breeze or Kvantum widget style; does **not** reproduce under
+Fusion, offscreen/headless test runs, or on other styles.
+
+**Cause:** every thumbnail-scaling step (the native C++ `base.load_image_batch`
+resize, its disk-cache path, and every Python-side `QPixmap.scaled(...,
+KeepAspectRatio, ...)` call) is correctly aspect-preserving and was verified
+never to produce a pixmap larger than its target box. The crop instead comes
+from Breeze/Kvantum's own `CE_ItemViewItem` control-painting code, which
+mishandles a non-square decoration pixmap inside `QListView`'s icon box —
+this lives inside the style plugin, not this codebase, which is why it only
+reproduces under those specific styles.
+
+**Fix:** `VirtualGalleryDelegate.paint()` (`gui/src/components/virtual_gallery/
+delegate.py`) no longer calls `QStyledItemDelegate.paint()` for the full item.
+It asks the active style to draw only the background/selection/hover chrome
+(with the icon stripped from the style option), then paints the thumbnail
+itself via `QIcon.paint()` — a generic, style-independent, aspect-preserving
+routine — sidestepping the buggy style code entirely regardless of which
+style is active.
+
+---
+
+### Wallpaper/gallery toolbar rows lost their right-anchored button group
+
+**Symptom:** A row built from the app's custom wrapping `FlowLayout`
+(`gui/src/components/tag_chip_widget.py`) — e.g. the Wallpaper tab's
+Interval/Timer/action-buttons row — packs everything flush against the left
+edge with a large empty gap on the right, instead of the Timer + action
+buttons sitting as a right-anchored group the way they used to. A shorter
+item mixed into a row with taller items (e.g. the `Timer` label next to
+36px-tall buttons) also sat flush with the row's top instead of lining up
+with the taller items' vertical center.
+
+**Cause:** `FlowLayout` was introduced (and later adopted by several rows,
+including this one) purely as a left-packing wrapping layout with no concept
+of `QHBoxLayout.addStretch()` — when a row that used to be a `QHBoxLayout`
+with a trailing `addStretch(1)` was migrated to `FlowLayout` to fix overflow
+at the app's 800px minimum width, the stretch call was dropped (`FlowLayout`
+had nothing to do with it), silently losing the right-anchored grouping.
+Separately, `FlowLayout` positioned every item in a row at the same top-aligned
+`y`, so items shorter than the row's tallest member never got centered
+against it.
+
+**Fix:** `FlowLayout` gained a real `addStretch()`, implemented as a
+`QSpacerItem` that the layout expands to fill a row's leftover width —
+right-anchoring whatever comes after it while still wrapping normally at
+narrow widths instead of overflowing. It also now vertically centers each
+row's items against that row's tallest member instead of top-aligning all of
+them. The Wallpaper tab's slideshow row (`_ui_builder.py`) had its
+`addStretch(1)` call restored at its original position.
+
+---
+
 ## <a id="qt-multimedia--video-playback-decode-failures"></a>Qt Multimedia / Video Playback Decode Failures
 
 ### AV1 video shows a blank frame + `Failed to get pixel format` / `Get current frame error` spam
