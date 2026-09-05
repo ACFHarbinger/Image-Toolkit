@@ -576,9 +576,9 @@ Allow users to choose a custom accent colour (used for selected thumbnails, prog
 
 ---
 
-## 2.9 Settings Window Extensions
+## 2.9 Settings Window Extensions ✅ Shipped (2026-08-22 — all items A-H below confirmed wired) {: #29-settings-window-extensions }
 
-**Status:** Partially implemented (2026-05-31). The base settings window now includes Gallery & Display, Startup & Session, Performance & Cache, Slideshow Defaults, Logging, and Reset State sections. The items below describe the remaining work to make these settings take effect at runtime.
+**Status:** Fully implemented. The base settings window now includes Gallery & Display, Startup & Session, Performance & Cache, Slideshow Defaults, Logging, and Reset State sections, and every "Remaining Work" item A-H below is confirmed live-wired (not just persisted).
 
 ### Implemented (2026-05-31)
 
@@ -1430,7 +1430,7 @@ Keep `QMediaPlayer` as the engine; rely on the storyboard preview (§4.14) for t
 
 ---
 
-## 2.34 Custom Theme Engine & Semantic Color System ✅ Locked, unimplemented (2026-08-18 — issues #437-441) {: #234-custom-theme-engine--semantic-color-system }
+## 2.34 Custom Theme Engine & Semantic Color System ✅ Shipped (2026-08-18 — issues #437-441, closed) {: #234-custom-theme-engine--semantic-color-system }
 
 **Pain point:** The application currently provides a binary Dark/Light theme toggle with fixed accent colors. Users have diverse display calibrations, aesthetic preferences, and accessibility requirements (e.g. high-contrast surfaces, custom typography, or personalized branding). There is currently no unified semantic color customization interface, dynamic color extraction engine, or in-app style editing with live preview.
 
@@ -1467,7 +1467,7 @@ subtab behind the explicit expert toggle.
 
 ---
 
-## 2.35 Full-Window Background Canvas & Glassmorphic Layering ✅ Locked, unimplemented (2026-08-18 — issues #437, #439, #440) {: #235-full-window-background-canvas--glassmorphic-layering }
+## 2.35 Full-Window Background Canvas & Glassmorphic Layering ✅ Shipped (2026-08-18 — issues #437, #439, #440, closed) {: #235-full-window-background-canvas--glassmorphic-layering }
 
 **Pain point:** Application windows and tab content render against solid, opaque background surfaces. Users cannot personalize their workspace with custom background art, photo collections, or modern translucent "glassmorphic" (Mica / acrylic / frosted glass) layered surfaces.
 
@@ -1504,7 +1504,7 @@ layering: #440 (Gemini). Palette extraction from the active background:
 
 ---
 
-## 2.36 Dual Navigation Shell & Modular Module Architecture ✅ Locked, unimplemented (2026-09-05 — issues #504, #509-514)
+## 2.36 Dual Navigation Shell & Modular Module Architecture ✅ Shipped, experimental/opt-in (2026-09-05 — issues #504, #509-515, closed)
 
 **Runtime architecture finalized 2026-09-05** after a Claude + Codex
 brainstorm and user QA session — see
@@ -1515,6 +1515,15 @@ sequence, and open decision gates. That document supersedes the
 conflict (notably: `MainWindow` stays the composition root rather than
 `ShellLayoutManager` absorbing its mixins, and module descriptors are
 Page/Workspace/Route-typed rather than 1:1 with a widget).
+
+**Current status:** the full runtime (catalog, event bus, Database/Search/
+Scan/Wallpaper intent migration, StitchWorkspace, rail/ribbon shell,
+inspector/telemetry/gallery integration — §2.38/§2.39/§2.40) is merged to
+`main` and functional, but only reachable behind a per-account
+`experimental_runtime_shell` preference (default off). The classic
+category-combo + `QTabWidget` shell remains the default for all users.
+Retiring it is an explicit, still-open post-rollout decision gated on
+keyboard-nav/session-restore/Ctrl+T parity — not yet scheduled.
 
 **Ergonomic pain point:**
 The current desktop shell navigates across 25+ tool surfaces by selecting one of 7 top-level categories from a `QComboBox` ("Select Category:") to replace the contents of a single `QTabWidget`. This two-tier dropdown + tab bar mechanism creates a disjointed mental model, lacks iconography and badge indicators, fails to take advantage of wide/ultrawide displays, and tightly couples all tab instances to `MainWindow`. Adding or editing tools requires invasive modifications across `main_window.py` and its mixins.
@@ -1584,7 +1593,7 @@ Rely solely on user-provided `user_theme.qss` stylesheets.
 
 ---
 
-## 2.38 Universal Collapsible Context Inspector Panel
+## 2.38 Universal Collapsible Context Inspector Panel ✅ Shipped (2026-09-05 — issue #506, closed, part of #514) {: #238-universal-collapsible-context-inspector-panel }
 
 **Ergonomic pain point:**
 Image metadata, EXIF tags, resolution chips, rating controls, and tool parameters are scattered across disparate tab layouts. Users frequently need to inspect image details or adjust tool options without obscuring the primary gallery or canvas workspace.
@@ -1609,7 +1618,7 @@ Open independent modal dialogs whenever details or parameters need to be inspect
 
 ---
 
-## 2.39 Rich Telemetry Status Bar & System Monitoring
+## 2.39 Rich Telemetry Status Bar & System Monitoring ✅ Shipped (2026-09-05 — issue #507, closed, part of #514) {: #239-rich-telemetry-status-bar--system-monitoring }
 
 **Ergonomic pain point:**
 The bottom `QStatusBar` currently displays plain text notifications. It does not communicate vital system metrics necessary for high-throughput image processing and ML inference, such as PostgreSQL connection latency, GPU/VRAM allocation, or background worker task progress.
@@ -1634,7 +1643,7 @@ Keep the status bar simple and require opening the Settings or Cloud Compute win
 
 ---
 
-## 2.40 Advanced Gallery Presentation Modes & Custom Thumbnail Overlays
+## 2.40 Advanced Gallery Presentation Modes & Custom Thumbnail Overlays ✅ Shipped (2026-09-05 — issue #508, closed, part of #514) {: #240-advanced-gallery-presentation-modes--custom-thumbnail-overlays }
 
 **Ergonomic pain point:**
 The standard uniform grid crops anime illustrations with varied aspect ratios (tall manga panels, widescreen wallpapers, square icons) and offers limited control over which metadata indicators appear directly on thumbnail cards.
