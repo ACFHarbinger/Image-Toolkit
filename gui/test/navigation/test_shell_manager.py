@@ -173,14 +173,20 @@ class TestShellNavigation:
         assert isinstance(handle, CountingHandle)
         assert handle.activations == ["graph"]
 
-    def test_navigate_intent_state_loss_is_logged_not_silent(self, q_app, sample_runtime, caplog):
-        """Codex #538 combined review (MEDIUM): activate_module(module_id) has
-        no channel to carry NavigateIntent.state through -- no consumer exists
-        yet. The navigation must still succeed, but the loss must be visible
-        (a warning), not silently swallowed.
+    def test_navigate_intent_with_state_is_rejected_not_partially_applied(
+        self, q_app, sample_runtime, caplog
+    ):
+        """Codex #538 combined re-review (MEDIUM): a warning-and-proceed was
+        not acceptable -- activate_module(module_id) has no channel to carry
+        NavigateIntent.state through, and no consumer exists yet. A state-
+        bearing intent must be rejected outright (a defined failure signal),
+        never partially applied by silently dropping the state and
+        navigating anyway.
         """
         container = QWidget()
         manager = ShellLayoutManager(sample_runtime, container)
+        rejections: list[tuple[str, str]] = []
+        manager.navigation_rejected.connect(lambda mod_id, reason: rejections.append((mod_id, reason)))
 
         with caplog.at_level("WARNING"):
             sample_runtime.context.event_hub.publish(
@@ -191,8 +197,11 @@ class TestShellNavigation:
                 )
             )
 
-        assert manager.active_module_id == "system.convert"
-        assert any("state" in r.message.lower() for r in caplog.records)
+        # Rejected, not activated -- must NOT be a partially-applied navigation.
+        assert manager.active_module_id is None
+        assert not sample_runtime.is_created("system.convert")
+        assert rejections == [("system.convert", "state not supported (1 pair(s) dropped)")]
+        assert any("rejected" in r.message.lower() for r in caplog.records)
 
     def test_navigate_intent_without_state_does_not_warn(self, q_app, sample_runtime, caplog):
         container = QWidget()

@@ -95,6 +95,23 @@ class TestRuntimeShellDeferredActivation:
         assert stub_main_window._factory_calls == {"system.convert": 1}
         assert stub_main_window.shell_layout_manager.active_module_id == "system.convert"
 
+    def test_dispose_before_event_loop_does_not_create(self, stub_main_window):
+        """Codex #538 combined re-review (HIGH): a bare
+        QTimer.singleShot(0, ...) is not retained or cancelable -- if the
+        shell is disposed before that turn (e.g. a close/tray-Quit during
+        startup), the queued callback must not still fire and recreate
+        Convert after clear_mounted()/ModuleRuntime.dispose().
+        """
+        stub_main_window._create_runtime_shell(dropdown=True, enable_manager=False)
+        # Dispose BEFORE any event-loop turn runs -- the queued activation
+        # timer must be cancelled, not merely raced against.
+        stub_main_window._dispose_runtime_shell()
+        QApplication.processEvents()
+
+        assert stub_main_window._factory_calls == {}
+        assert not stub_main_window.module_runtime.is_created("system.convert")
+        assert stub_main_window.shell_layout_manager.stack.count() == 0
+
 
 class TestRuntimeShellQuitDisposal:
     def test_dispose_runtime_shell_clears_stack_and_disposes_runtime(self, stub_main_window):
