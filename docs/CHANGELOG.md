@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Fixed
+
+- UI Prototype Quarantine (Issue #524 / Phase 0.4): isolated unwired prototype components (`ModuleRegistry`, `NavigationRailWidget`, `TopSegmentedRibbonWidget`, `ShellLayoutManager`, `ContextInspectorPanel`, `TelemetryStatusBar`) into non-live `gui/src/protos/` with tests under `gui/test/protos/`, preventing transitive leaks into the live GUI import graph. Tests: `gui/test/protos/` (10/10 passed).
+- `WallpaperTab` now forwards Search/tray APIs (`display_scan_results`, `toggle_daemon`, `_cycle_slideshow_wallpaper`, `btn_daemon_toggle`) to `SystemDisplaySubTab` instead of silently no-op'ing via `hasattr`. Tests: `gui/test/core/test_core_tab.py::TestWallpaperTab::test_forwards_search_and_tray_apis_to_system_display`.
+- Restored `FlowLayout.addStretch()` and vertical centering (`gui/src/components/tag_chip_widget.py`) plus the Wallpaper slideshow row's `addStretch(1)` — both were lost in the `7559b1d2` `gui/` revert while `docs/TROUBLESHOOTING.md` still described them as live. Tests: `gui/test/components/test_tag_chip_widget.py` (4/4).
+
 ### Added
 
 - Navigation Rail Sidebar Toggle & Interaction Polish (§2.36): added `_create_chevron_icon()` in `NavigationRailWidget` (`gui/src/components/navigation/navigation_rail.py`) with anti-aliased vector chevron paths, explicit Tab focus policy (`StrongFocus`), dedicated QSS styling for `#rail_toggle_strip`, `#rail_toggle_btn`, and `#rail_drawer_toggle_btn` in `dark.qss` and `light.qss`, and tuned 160ms `OutCubic` transition timing. Tests: `gui/test/navigation/test_shell_manager.py` (7/7 passed).

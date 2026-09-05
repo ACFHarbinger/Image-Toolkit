@@ -3,21 +3,21 @@
 from __future__ import annotations
 
 from typing import Optional
-from PySide6.QtCore import QSize, Qt, Signal
+
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QButtonGroup,
     QHBoxLayout,
     QLabel,
     QPushButton,
     QScrollArea,
-    QSizePolicy,
     QToolButton,
     QVBoxLayout,
     QWidget,
 )
 
-from gui.src.modules.descriptor import ModuleCategory, ModuleDescriptor
-from gui.src.modules.registry import ModuleRegistry
+from gui.src.protos.modules.descriptor import ModuleCategory
+from gui.src.protos.modules.registry import ModuleRegistry
 
 CATEGORY_ICONS: dict[ModuleCategory, str] = {
     ModuleCategory.SYSTEM: "⚙️",
