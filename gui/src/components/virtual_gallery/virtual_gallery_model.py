@@ -83,11 +83,11 @@ class VirtualGalleryModel(QAbstractListModel):
         self._fill_queue: deque = deque()
 
         self.thumbnail_size: int = 180
-        # Deferred: gui.src.helpers pulls a heavy chain (windows -> settings ->
-        # asp_backend) that needs the submodule bootstrap; only resolve it when
-        # a model is actually constructed (app/tests always have the bootstrap).
+        # Deferred leaf import: the helpers barrel (`gui.src.helpers`) pulls
+        # crawlers, SimilarityEngine, ImageMerger, and ASP. Only resolve the
+        # loader when a model is actually constructed.
         if worker_factory is None:
-            from gui.src.helpers import ImageLoaderWorker
+            from gui.src.helpers.image.image_loader_worker import ImageLoaderWorker
 
             worker_factory = ImageLoaderWorker
         self.worker_factory = worker_factory

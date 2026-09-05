@@ -2,20 +2,21 @@
 
 from __future__ import annotations
 
+import contextlib
 from typing import Optional
+
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QComboBox,
     QHBoxLayout,
     QLabel,
     QPushButton,
-    QScrollArea,
     QSizePolicy,
     QWidget,
 )
 
-from gui.src.modules.descriptor import ModuleCategory, ModuleDescriptor
-from gui.src.modules.registry import ModuleRegistry
+from gui.src.protos.modules.descriptor import ModuleCategory
+from gui.src.protos.modules.registry import ModuleRegistry
 
 
 class TopSegmentedRibbonWidget(QWidget):
@@ -70,10 +71,8 @@ class TopSegmentedRibbonWidget(QWidget):
     def _on_cat_combo_changed(self, idx: int) -> None:
         cat = self.cat_combo.itemData(idx)
         if isinstance(cat, str):
-            try:
+            with contextlib.suppress(ValueError):
                 cat = ModuleCategory(cat)
-            except ValueError:
-                pass
         if isinstance(cat, ModuleCategory):
             self._populate_category(cat)
 

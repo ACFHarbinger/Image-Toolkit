@@ -1,3 +1,28 @@
+# S515 — 2026-09-05 (Gemini/Antigravity: Phase 0.4 prototype quarantine into protos/)
+
+- Issue #524 / Phase 0.4: Quarantined unwired prototype components into isolated `gui/src/protos/` package (`modules/descriptor.py`, `modules/registry.py`, `navigation/navigation_rail.py`, `navigation/segmented_ribbon.py`, `navigation/shell_manager.py`, `inspector/context_inspector.py`, `widgets/telemetry_status_bar.py`).
+- Isolated corresponding unit tests under `gui/test/protos/` (`test_registry.py`, `test_shell_manager.py`, `test_context_inspector.py`, `test_telemetry_status_bar.py`).
+- Confirmed no live package `__init__.py` imports from `protos/`.
+- Tests: `gui/test/protos/` (10/10 passed), `gui/test/widgets/test_creative_suite_widgets.py` (2/2 passed).
+
+---
+
+# S514 — 2026-09-05 (Grok: WallpaperTab Search/tray forwarders)
+
+- `gui/src/tabs/core/wallpaper_tab/manager.py`: `display_scan_results`, `toggle_daemon`, `_cycle_slideshow_wallpaper`, and `btn_daemon_toggle` now forward to `SystemDisplaySubTab` (was a silent `hasattr` no-op from Search and the tray).
+- `gui/test/core/test_core_tab.py`: `test_forwards_search_and_tray_apis_to_system_display`.
+
+---
+
+# S513 — 2026-09-05 (Grok: restore FlowLayout stretch lost in gui/ revert)
+
+- `gui/src/components/tag_chip_widget.py`: restored `FlowLayout.addStretch()` and two-phase layout (right-anchor leftover width; vertically center shorter items). Dropped by `7559b1d2`.
+- `gui/src/tabs/core/wallpaper_tab/system_display_subtab/_ui_builder.py`: restored `slideshow_layout.addStretch(1)` between the video-runtime checkbox and Timer label.
+- `gui/src/components/virtual_gallery/virtual_gallery_model.py`: default `ImageLoaderWorker` now imports from the leaf module, not the `gui.src.helpers` barrel.
+- `gui/test/components/test_tag_chip_widget.py`: 4/4 (two new stretch/wrap tests).
+
+---
+
 # S512 — 2026-09-05 (Antigravity: Navigation Rail Sidebar Toggle & Interaction Polish)
 
 - `gui/src/components/navigation/navigation_rail.py`:
