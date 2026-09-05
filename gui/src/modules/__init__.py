@@ -52,6 +52,7 @@ from .library_service import (
 from .pilots import create_log_panel_descriptor
 from .registry import ModuleRegistry
 from .runtime import ModuleHandle, ModuleRuntime, WidgetHandle
+from .runtime_shell_flag import runtime_shell_enabled
 from .stitch_workspace import (
     STITCH_ROUTES,
     STITCH_WORKSPACE_ID,
@@ -109,5 +110,6 @@ __all__ = [
     "create_log_panel_descriptor",
     "create_stitch_workspace",
     "register_stitch_workspace",
+    "runtime_shell_enabled",
     "stitch_workspace_enabled",
 ]
