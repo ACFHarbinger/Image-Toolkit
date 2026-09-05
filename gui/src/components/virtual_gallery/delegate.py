@@ -18,9 +18,9 @@ from __future__ import annotations
 
 from typing import Optional
 
-from PySide6.QtCore import QRectF, Qt
-from PySide6.QtGui import QBrush, QColor, QFont, QPainter, QPen
-from PySide6.QtWidgets import QStyledItemDelegate
+from PySide6.QtCore import QRect, QRectF, Qt
+from PySide6.QtGui import QBrush, QColor, QFont, QIcon, QPainter, QPen
+from PySide6.QtWidgets import QApplication, QStyle, QStyledItemDelegate, QStyleOptionViewItem
 
 from gui.src.components.gallery.presentation_mode import (
     RATING_COLORS,
@@ -47,7 +47,7 @@ class VirtualGalleryDelegate(QStyledItemDelegate):
         self.overlay_config = config
 
     def paint(self, painter: QPainter, option, index) -> None:
-        super().paint(painter, option, index)
+        self._paint_background_and_icon(painter, option, index)
         model = index.model()
         if model is None:
             return
@@ -77,7 +77,6 @@ class VirtualGalleryDelegate(QStyledItemDelegate):
             painter.restore()
 
         # Hover Highlight (§2.24)
-        from PySide6.QtWidgets import QStyle
         if option.state & QStyle.StateFlag.State_MouseOver:
             painter.save()
             painter.setPen(QPen(QColor(255, 255, 255, 70), 1))
@@ -87,6 +86,38 @@ class VirtualGalleryDelegate(QStyledItemDelegate):
 
         # 2. Thumbnail Overlays (§2.40)
         self._paint_overlays(painter, option.rect, model, index)
+
+    def _paint_background_and_icon(self, painter: QPainter, option, index) -> None:
+        """Paint the item's background/selection chrome via the native style,
+        then paint the thumbnail icon ourselves.
+
+        KDE's Breeze (and Kvantum) widget style crops non-square decoration
+        pixmaps to their icon box instead of letterboxing them -- a portrait
+        thumbnail comes out cut in half vertically. That crop happens inside
+        the style's own ``CE_ItemViewItem`` control painting, which is why it
+        never reproduces with Qt's built-in styles (Fusion) or in headless/
+        offscreen tests. Asking the style to draw the item with no icon at
+        all, then painting the icon ourselves via ``QIcon.paint`` (a generic,
+        style-independent, aspect-preserving routine), keeps native
+        background/selection/hover chrome while sidestepping the buggy icon
+        path entirely.
+        """
+        opt = QStyleOptionViewItem(option)
+        self.initStyleOption(opt, index)
+        icon = opt.icon
+        decoration_size = opt.decorationSize
+
+        opt.icon = QIcon()
+        opt.features &= ~QStyleOptionViewItem.ViewItemFeature.HasDecoration
+
+        widget = option.widget
+        style = widget.style() if widget is not None else QApplication.style()
+        style.drawControl(QStyle.ControlElement.CE_ItemViewItem, opt, painter, widget)
+
+        if not icon.isNull() and decoration_size.isValid() and not decoration_size.isEmpty():
+            icon_rect = QRect(0, 0, decoration_size.width(), decoration_size.height())
+            icon_rect.moveCenter(option.rect.center())
+            icon.paint(painter, icon_rect, Qt.AlignmentFlag.AlignCenter)
 
     def _paint_overlays(self, painter: QPainter, rect: QRectF, model, index) -> None:
         cfg = self.overlay_config
