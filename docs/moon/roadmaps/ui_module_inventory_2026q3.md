@@ -86,12 +86,11 @@ table to the live `all_tabs` dictionary and asserts the documented eager-import
 and direct-reference baseline. A route rename, addition, removal, or coupling
 change must update this inventory deliberately before #510 consumes it.
 
-**Reverted, needs recreating (2026-09-05):** this test file was added by
-#509 and removed in full along with the rest of `gui/`'s day-of changes
-(`7559b1d2`). The table above remains accurate against current
-`_tab_registry.py` (verified by direct diff, not re-derived from the old
-test), so recreating the test is a mechanical re-add, not a re-audit —
-do it before this inventory is next consumed by a re-land step.
+**Recreated (2026-09-05):** this test file was added by #509, removed in
+full along with the rest of `gui/`'s day-of changes (`7559b1d2`), and has
+now been restored verbatim as step 1 of the re-land — a mechanical
+re-add, not a re-audit, since the table was already confirmed accurate.
+Both assertions pass against current `_tab_registry.py`.
 
 ## Direct-object coupling baseline: post-revert status
 
