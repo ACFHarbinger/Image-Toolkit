@@ -575,6 +575,16 @@ resource rule). GitHub issues #525-#530 closed. Phase 2 (#531,
 consolidation of the four gallery implementations onto the now-shared
 `ThumbnailScheduler` contract) is unblocked whenever the team is ready.
 
+**D10 actioned, 2026-09-05 (same day).** The reverted UI Shell & Module
+Runtime re-land (D10's intent) has been started: docs reconciled
+(`docs/moon/roadmaps/ui_architecture_2026q3.md`'s status block now
+carries the crash history, cause decomposition, and the module-registry
+fork resolution), step 1 restarted (module/route inventory contract
+test recreated), and delegated to the team as `ui-arch-10..14` /
+#533-537. This is milestone #8's own tracking thread, not this report's
+Phase 0-3 — see that doc and `.agent/bus/2026-09-05.md` for detail,
+this entry is a cross-reference pointer only.
+
 ---
 
 ## 6. Open action items
