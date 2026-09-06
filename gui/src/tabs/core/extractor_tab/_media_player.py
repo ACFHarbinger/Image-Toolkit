@@ -118,7 +118,22 @@ class _MediaPlayerMixin:
         video_view.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred
         )
-        video_view.setMinimumSize(0, 0)
+        # Regression fix (part 2 -- see the video_row comment below for
+        # part 1): the width fix alone still left the view's HEIGHT at a
+        # near-zero sizeHint (confirmed live: 1280x26). This tab's whole
+        # page lives inside a QScrollArea with setWidgetResizable(True),
+        # which forces the content widget's WIDTH to match the viewport
+        # (letting Expanding widgets claim real extra width) but does NOT
+        # force any extra HEIGHT -- the page is naturally taller than the
+        # viewport and scrolls, so every section, including this one, only
+        # ever gets exactly its own sizeHint height with nothing forcing
+        # it taller, regardless of stretch factors. An explicit minimum
+        # height (well under the 720 cap for every entry in
+        # available_resolutions, so it never exceeds a chosen maximum)
+        # gives it a real floor instead of relying on ancestor-injected
+        # extra space that never arrives. Confirmed empirically in a
+        # QScrollArea-with-many-siblings reproduction before landing this.
+        video_view.setMinimumSize(0, 360)
         video_view.setMaximumSize(1280, 720)
         video_view.setHorizontalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff
@@ -134,9 +149,28 @@ class _MediaPlayerMixin:
         video_view.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         video_view.customContextMenuRequested.connect(self.show_video_context_menu)
 
-        self.player_inner_layout.addWidget(
-            video_view, 1, Qt.AlignmentFlag.AlignCenter
-        )
+        # Regression fix: `addWidget(video_view, 1, Qt.AlignmentFlag.AlignCenter)`
+        # told Qt's layout to size the widget to its sizeHint() instead of
+        # filling the cell -- for a QGraphicsView with an empty/near-empty
+        # scene, that sizeHint() is tiny (confirmed empirically: ~70x70
+        # with any non-zero alignment flag, including AlignHCenter alone,
+        # vs. correctly filling up to the 1280x720 cap with none), so the
+        # video frame rendered but squeezed into a postage-stamp view
+        # regardless of the "Player Size" selection.
+        #
+        # Fix: wrap video_view in its own QHBoxLayout with stretches on
+        # both sides so it still centers when the window is wider than
+        # its 1280x720 cap, but give video_view a large stretch factor
+        # (not just an Expanding size policy) relative to the two
+        # side-stretches so it actually claims the available width up to
+        # that cap first -- an equal stretch factor on all three items
+        # would split space evenly instead and reproduce a smaller version
+        # of the same bug (verified empirically before landing this).
+        video_row = QHBoxLayout()
+        video_row.addStretch(1)
+        video_row.addWidget(video_view, 100)
+        video_row.addStretch(1)
+        self.player_inner_layout.addLayout(video_row, 1)
 
         # QMediaPlayer/QAudioOutput are constructed lazily (see the
         # media_player/audio_output properties below) on first real use
@@ -339,6 +373,17 @@ class _MediaPlayerMixin:
         if self._video_item is None:
             self._video_item = QGraphicsVideoItem()
             self.graphics_scene.addItem(self._video_item)
+            # nativeSize() is (0, 0) until Qt Multimedia's backend has
+            # actually probed/decoded the stream, which happens
+            # asynchronously after setVideoOutput() -- re-run
+            # fit_video_in_view() once the real dimensions are known so
+            # the item gets sized to the video's own aspect ratio rather
+            # than staying at whatever (possibly empty) size it had when
+            # first constructed. See fit_video_in_view()'s own comment
+            # for why this matters.
+            self._video_item.nativeSizeChanged.connect(
+                lambda _size: self.fit_video_in_view()
+            )
         return self._video_item
 
     @property
