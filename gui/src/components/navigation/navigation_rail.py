@@ -120,13 +120,39 @@ class NavigationRailWidget(QWidget):
         self.drawer_widget.setVisible(self._drawer_expanded)
         self.toggle_btn.setText("◀" if self._drawer_expanded else "▶")
 
+    def apply_category_accents(self, overrides: dict[str, str]) -> None:
+        """Apply category-specific accent overrides (§2.41, #518)."""
+        self._category_accent_overrides = {k.lower(): v for k, v in overrides.items()}
+        for cat, btn in self.cat_buttons.items():
+            cat_key = cat.name.lower()
+            if cat_key in self._category_accent_overrides:
+                accent = self._category_accent_overrides[cat_key]
+                btn.setStyleSheet(
+                    f"QToolButton:checked {{ border-left: 3px solid {accent}; background: rgba(255,255,255,0.08); }}"
+                )
+        if self.active_category:
+            self.select_category(self.active_category)
+
     def select_category(self, category: ModuleCategory) -> None:
         """Paint the drawer for *category* without activating any module."""
         self.active_category = category
         if category in self.cat_buttons:
             self.cat_buttons[category].setChecked(True)
 
-        self.drawer_header.setText(category.value.upper())
+        jp_text = {
+            ModuleCategory.SYSTEM: "システム",
+            ModuleCategory.LIBRARY: "ライブラリ",
+            ModuleCategory.WEB: "ウェブ",
+            ModuleCategory.DEEP_LEARNING: "深層学習",
+            ModuleCategory.STITCHING: "ステッチ",
+            ModuleCategory.MANGA: "マンガ",
+            ModuleCategory.EDITOR: "エディタ",
+            ModuleCategory.DEVELOPER: "開発ツール",
+        }.get(category, "")
+        cat_key = category.name.lower()
+        accent = getattr(self, "_category_accent_overrides", {}).get(cat_key, "#00bcd4")
+        self.drawer_header.setStyleSheet(f"font-weight: bold; font-size: 11pt; padding: 4px; color: {accent};")
+        self.drawer_header.setText(f"{category.value.upper()}\n{jp_text}" if jp_text else category.value.upper())
 
         while self.module_list_layout.count():
             item = self.module_list_layout.takeAt(0)

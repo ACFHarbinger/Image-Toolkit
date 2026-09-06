@@ -166,6 +166,13 @@ class PrefKeys:
         value_type=str,
         description="Active application theme name ('dark', 'light', etc.)",
     )
+    CATEGORY_ACCENTS = PreferenceDefinition(
+        key="preferences/category_accents",
+        scope=PreferenceScope.ACCOUNT,
+        default={},
+        value_type=dict,
+        description="Sparse per-category accent color hex overrides (§2.41, #518/#541)",
+    )
     STARTUP_CATEGORY = PreferenceDefinition(
         key="preferences/startup_category",
         scope=PreferenceScope.ACCOUNT,
