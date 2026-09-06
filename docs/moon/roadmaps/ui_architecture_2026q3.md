@@ -264,21 +264,32 @@ required to be exhaustive up front.
 - Runtime issues (all closed, all reverted): ui-arch-1..6 / #509-514,
   plus follow-ups #515-519. See milestone "UI Shell & Module Runtime
   Architecture" (#8).
-- **Re-land issues (delegated 2026-09-05):** ui-arch-10/#533 (rebase
-  catalog/context/event-hub/lifecycle onto Phase 0/1 contracts,
-  foundational — Gemini/Antigravity + Meta's Muse's anti-eager-mounting
+- **Re-land issues, steps 2-5 (all closed, all merged to `main`, all
+  D12-verified 2026-09-06):** ui-arch-10/#533 (catalog/context/event-hub/
+  lifecycle, Gemini/Antigravity + Meta's Muse's anti-eager-mounting
   contract test, Codex cross-review), ui-arch-11/#534 (Database/Listings/
-  Scan typed intents — DeepSeek), ui-arch-12/#535 (`StitchWorkspace` —
-  Grok), ui-arch-13/#536 (mount rail/ribbon behind `PreferenceStore`
-  experimental setting — Cursor), ui-arch-14/#537 (inspector/telemetry/
-  presets/gallery-modes — not yet delegated). #533 blocks #534/#535/#536;
-  #536 blocks #537 — sequential, not fully concurrent. **ui-arch-15/#538**
-  (Codex, parallel to #533, not blocking it) — read-only pre-implementation
-  audit of the reverted `catalog`/`context`/`events`/`runtime`/
-  `legacy_bridge` code and the shell-mounting commits, a pre-mortem
-  documenting exactly where eager-mounting lived and cross-checking the
-  old code against each Phase 0/1 invariant it predates; feeds #533 as a
-  starting brief.
+  Scan typed intents, DeepSeek — needed one follow-up fix, `MainBackend`'s
+  second construction path wasn't wiring `ListingsTab`'s event hub),
+  ui-arch-12/#535 (`StitchWorkspace`, Grok), ui-arch-13/#536 (rail/ribbon
+  shell behind `PreferenceStore`, Cursor — needed two review-and-fix
+  rounds: eager activation + tray-Quit lifecycle leak, then a dispose-race
+  in the fix itself + a state-rejection re-review). Merged in two
+  integration waves (`a90d9fc4`); Codex's authorized live-desktop smoke
+  passed on the merged tree (real app, real vault, flag on, cross-category
+  navigation, code-0 exit, no crash).
+- **ui-arch-15/#538** (Codex, closed) — read-only pre-implementation audit
+  of the reverted `catalog`/`context`/`events`/`runtime`/`legacy_bridge`
+  code and the shell-mounting commits; fed #533's rebase and both
+  combined cross-reviews of #534/#536.
+- **Step 6, split into four sequential sub-issues (2026-09-06):** the
+  original ui-arch-14/#537 covered too much ground as one issue.
+  **ui-arch-16/#539** (Context Inspector, §2.38/#506 — delegated to
+  Gemini/Antigravity, ready to start), **ui-arch-17/#540** (Telemetry
+  status bar, §2.39/#507 — blocked on #539), **ui-arch-18/#541** (theme
+  presets + per-category accents, §2.37/#505 + §2.41/#518, supersedes
+  #518 — blocked on #540), **ui-arch-19/#542** (gallery presentation
+  modes, §2.40/#508, deliberately last — highest blast radius, needs its
+  own D12 pass like #536 got — blocked on #541).
 - Revert: `7559b1d2` (`git checkout b4f61deb -- gui/` + deletion of
   everything gained since); the reverted implementation commits remain
   recoverable via `git show <commit>:<path>` (e.g. `a9d01085` for the
