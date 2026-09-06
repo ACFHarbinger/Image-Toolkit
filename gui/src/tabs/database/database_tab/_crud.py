@@ -1,125 +1,133 @@
-"""Create/remove methods for groups, subgroups, and tags on ``DatabaseTab``.
-
-Extracted from ``database_tab.py`` -- pure code motion, no logic change
-(see ``_ui_connection.py``'s docstring).
-"""
+"""Create/remove controller for groups, subgroups, and tags on ``DatabaseTab`` (§5.17, #544)."""
 
 from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
 
 from PySide6.QtWidgets import QInputDialog, QMessageBox
 
 from gui.src.modules.events import FilterByTagIntent, NavigateIntent
 
+if TYPE_CHECKING:
+    pass
 
-class _CrudMixin:
-    """Create and remove groups/subgroups/tags."""
 
-    def create_new_group(self):
-        if not self.db:
-            QMessageBox.warning(self, "Error", "Please connect to a database first")
+class DatabaseCrudController:
+    """Create and remove groups/subgroups/tags for DatabaseTab."""
+
+    def __init__(self, tab: Any) -> None:
+        self.tab = tab
+
+    def create_new_group(self) -> None:
+        tab = self.tab
+        if not tab.db:
+            QMessageBox.warning(tab, "Error", "Please connect to a database first")
             return
-        group_names_str = self.new_group_name_edit.text().strip()
+        group_names_str = tab.new_group_name_edit.text().strip()
         group_names = [
             name.strip() for name in group_names_str.split(",") if name.strip()
         ]
         if not group_names:
-            QMessageBox.warning(self, "Error", "Group Name(s) cannot be empty.")
+            QMessageBox.warning(tab, "Error", "Group Name(s) cannot be empty.")
             return
         try:
             count = 0
             for name in group_names:
-                self.db.add_group(name)
+                tab.db.add_group(name)
                 count += 1
             QMessageBox.information(
-                self, "Success", f"Successfully created {count} group(s)."
+                tab, "Success", f"Successfully created {count} group(s)."
             )
-            self.new_group_name_edit.clear()
-            self.refresh_groups_list()
-            self.update_statistics()
+            tab.new_group_name_edit.clear()
+            tab.refresh_groups_list()
+            tab.update_statistics()
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to create groups:\n{str(e)}")
+            QMessageBox.critical(tab, "Error", f"Failed to create groups:\n{str(e)}")
 
-    def create_new_subgroup(self):
-        if not self.db:
-            QMessageBox.warning(self, "Error", "Please connect to a database first")
+    def create_new_subgroup(self) -> None:
+        tab = self.tab
+        if not tab.db:
+            QMessageBox.warning(tab, "Error", "Please connect to a database first")
             return
-        parent_group = self.new_subgroup_parent_combo.currentText().strip()
+        parent_group = tab.new_subgroup_parent_combo.currentText().strip()
         if not parent_group:
             QMessageBox.warning(
-                self, "Error", "You must select or enter a Parent Group."
+                tab, "Error", "You must select or enter a Parent Group."
             )
             return
-        subgroup_names_str = self.new_subgroup_name_edit.text().strip()
+        subgroup_names_str = tab.new_subgroup_name_edit.text().strip()
         subgroup_names = [
             name.strip() for name in subgroup_names_str.split(",") if name.strip()
         ]
         if not subgroup_names:
-            QMessageBox.warning(self, "Error", "Subgroup Name(s) cannot be empty.")
+            QMessageBox.warning(tab, "Error", "Subgroup Name(s) cannot be empty.")
             return
         try:
-            self.db.add_group(parent_group)
+            tab.db.add_group(parent_group)
             count = 0
             for name in subgroup_names:
-                self.db.add_subgroup(name, parent_group)
+                tab.db.add_subgroup(name, parent_group)
                 count += 1
             QMessageBox.information(
-                self,
+                tab,
                 "Success",
                 f"Successfully created {count} subgroup(s) for '{parent_group}'.",
             )
-            self.new_subgroup_name_edit.clear()
-            self._refresh_all_group_combos()
-            self.new_subgroup_parent_combo.setCurrentText(parent_group)
-            if self.existing_subgroups_filter_combo.currentText() == parent_group:
-                self.refresh_subgroups_list()
-            self.refresh_subgroup_autocomplete()
-            self.update_statistics()
+            tab.new_subgroup_name_edit.clear()
+            tab._refresh_all_group_combos()
+            tab.new_subgroup_parent_combo.setCurrentText(parent_group)
+            if tab.existing_subgroups_filter_combo.currentText() == parent_group:
+                tab.refresh_subgroups_list()
+            tab.refresh_subgroup_autocomplete()
+            tab.update_statistics()
         except Exception as e:
             QMessageBox.critical(
-                self, "Error", f"Failed to create subgroups:\n{str(e)}"
+                tab, "Error", f"Failed to create subgroups:\n{str(e)}"
             )
 
-    def create_new_tag(self):
-        if not self.db:
-            QMessageBox.warning(self, "Error", "Please connect to a database first")
+    def create_new_tag(self) -> None:
+        tab = self.tab
+        if not tab.db:
+            QMessageBox.warning(tab, "Error", "Please connect to a database first")
             return
-        tag_names_str = self.new_tag_name_edit.text().strip()
-        tag_type = self.new_tag_type_combo.currentText().strip().title()
+        tag_names_str = tab.new_tag_name_edit.text().strip()
+        tag_type = tab.new_tag_type_combo.currentText().strip().title()
         tag_names = [name.strip() for name in tag_names_str.split(",") if name.strip()]
         if not tag_names:
-            QMessageBox.warning(self, "Error", "Tag Name(s) cannot be empty.")
+            QMessageBox.warning(tab, "Error", "Tag Name(s) cannot be empty.")
             return
         try:
             count = 0
             for name in tag_names:
-                self.db.add_tag(name, tag_type if tag_type else None)
+                tab.db.add_tag(name, tag_type if tag_type else None)
                 count += 1
             QMessageBox.information(
-                self, "Success", f"Successfully created/updated {count} tag(s)."
+                tab, "Success", f"Successfully created/updated {count} tag(s)."
             )
-            self.new_tag_name_edit.clear()
-            self.new_tag_type_combo.setCurrentIndex(0)
-            self.refresh_tags_list()
-            self.update_statistics()
-            self._publish_tag_catalog_changed()
+            tab.new_tag_name_edit.clear()
+            tab.new_tag_type_combo.setCurrentIndex(0)
+            tab.refresh_tags_list()
+            tab.update_statistics()
+            tab._publish_tag_catalog_changed()
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to create tags:\n{str(e)}")
+            QMessageBox.critical(tab, "Error", f"Failed to create tags:\n{str(e)}")
 
-    def remove_selected_group(self):
-        self.old_edit_value = None
-        if not self.db:
-            QMessageBox.warning(self, "Error", "Please connect to a database first")
+    def remove_selected_group(self) -> None:
+        tab = self.tab
+        tab.old_edit_value = None
+        if not tab.db:
+            QMessageBox.warning(tab, "Error", "Please connect to a database first")
             return
-        current_row = self.groups_table.currentRow()
+        current_row = tab.groups_table.currentRow()
         if current_row < 0:
             QMessageBox.warning(
-                self, "Error", "Please select a group from the list to remove."
+                tab, "Error", "Please select a group from the list to remove."
             )
             return
-        item = self.groups_table.item(current_row, 0)
+        item = tab.groups_table.item(current_row, 0)
         group_name = item.text()  # pyrefly: ignore [missing-attribute]
         confirm = QMessageBox.question(
-            self,
+            tab,
             "Confirm Delete",
             f"Are you sure you want to delete the group '{group_name}'?\n\n"
             f"WARNING: This will also delete ALL associated subgroups.",
@@ -127,36 +135,39 @@ class _CrudMixin:
         )
         if confirm == QMessageBox.StandardButton.Yes:
             try:
-                self.db.delete_group(group_name)
-                self.refresh_groups_list()
-                self.refresh_subgroups_list()
-                self.refresh_subgroup_autocomplete()
-                self.update_statistics()
+                tab.db.delete_group(group_name)
+                tab.refresh_groups_list()
+                tab.refresh_subgroups_list()
+                tab.refresh_subgroup_autocomplete()
+                tab.update_statistics()
                 QMessageBox.information(
-                    self, "Success", f"Group '{group_name}' and its subgroups removed."
+                    tab, "Success", f"Group '{group_name}' and its subgroups removed."
                 )
             except Exception as e:
                 QMessageBox.critical(
-                    self, "Error", f"Failed to remove group:\n{str(e)}"
+                    tab, "Error", f"Failed to remove group:\n{str(e)}"
                 )
 
-    def remove_selected_subgroup(self):
-        self.old_edit_value = None
-        if not self.db:
-            QMessageBox.warning(self, "Error", "Please connect to a database first")
+    remove_selected_groups = remove_selected_group
+
+    def remove_selected_subgroup(self) -> None:
+        tab = self.tab
+        tab.old_edit_value = None
+        if not tab.db:
+            QMessageBox.warning(tab, "Error", "Please connect to a database first")
             return
-        current_row = self.subgroups_table.currentRow()
+        current_row = tab.subgroups_table.currentRow()
         if current_row < 0:
             QMessageBox.warning(
-                self, "Error", "Please select a subgroup from the list to remove."
+                tab, "Error", "Please select a subgroup from the list to remove."
             )
             return
-        item_subgroup = self.subgroups_table.item(current_row, 0)
-        item_group = self.subgroups_table.item(current_row, 1)
+        item_subgroup = tab.subgroups_table.item(current_row, 0)
+        item_group = tab.subgroups_table.item(current_row, 1)
         subgroup_name = item_subgroup.text()  # pyrefly: ignore [missing-attribute]
         group_name = item_group.text()  # pyrefly: ignore [missing-attribute]
         confirm = QMessageBox.question(
-            self,
+            tab,
             "Confirm Delete",
             f"Are you sure you want to delete the subgroup '{subgroup_name}' from group '{group_name}'?\n\n"
             f"(Note: This only removes the subgroup from this list. Images already using this name will not be affected.)",
@@ -164,33 +175,36 @@ class _CrudMixin:
         )
         if confirm == QMessageBox.StandardButton.Yes:
             try:
-                self.db.delete_subgroup(subgroup_name, group_name)
-                self.refresh_subgroups_list()
-                self.refresh_subgroup_autocomplete()
-                self.update_statistics()
+                tab.db.delete_subgroup(subgroup_name, group_name)
+                tab.refresh_subgroups_list()
+                tab.refresh_subgroup_autocomplete()
+                tab.update_statistics()
                 QMessageBox.information(
-                    self, "Success", f"Subgroup '{subgroup_name}' removed."
+                    tab, "Success", f"Subgroup '{subgroup_name}' removed."
                 )
             except Exception as e:
                 QMessageBox.critical(
-                    self, "Error", f"Failed to remove subgroup:\n{str(e)}"
+                    tab, "Error", f"Failed to remove subgroup:\n{str(e)}"
                 )
 
-    def remove_selected_tag(self):
-        self.old_edit_value = None
-        if not self.db:
-            QMessageBox.warning(self, "Error", "Please connect to a database first")
+    remove_selected_subgroups = remove_selected_subgroup
+
+    def remove_selected_tag(self) -> None:
+        tab = self.tab
+        tab.old_edit_value = None
+        if not tab.db:
+            QMessageBox.warning(tab, "Error", "Please connect to a database first")
             return
-        current_row = self.tags_table.currentRow()
+        current_row = tab.tags_table.currentRow()
         if current_row < 0:
             QMessageBox.warning(
-                self, "Error", "Please select a tag from the list to remove."
+                tab, "Error", "Please select a tag from the list to remove."
             )
             return
-        item = self.tags_table.item(current_row, 0)
+        item = tab.tags_table.item(current_row, 0)
         tag_name = item.text()  # pyrefly: ignore [missing-attribute]
         confirm = QMessageBox.question(
-            self,
+            tab,
             "Confirm Delete",
             f"Are you sure you want to delete the tag '{tag_name}'?\n\n"
             f"WARNING: This will also remove this tag from ALL images that use it.",
@@ -198,40 +212,39 @@ class _CrudMixin:
         )
         if confirm == QMessageBox.StandardButton.Yes:
             try:
-                self.db.delete_tag(tag_name)
-                self.refresh_tags_list()
-                self.update_statistics()
-                self._publish_tag_catalog_changed()
-                QMessageBox.information(self, "Success", f"Tag '{tag_name}' removed.")
+                tab.db.delete_tag(tag_name)
+                tab.refresh_tags_list()
+                tab.update_statistics()
+                tab._publish_tag_catalog_changed()
+                QMessageBox.information(tab, "Success", f"Tag '{tag_name}' removed.")
             except Exception as e:
-                QMessageBox.critical(self, "Error", f"Failed to remove tag:\n{str(e)}")
+                QMessageBox.critical(tab, "Error", f"Failed to remove tag:\n{str(e)}")
 
-    def merge_selected_tag(self):
-        """DB.8c: repoint every image/media reference from the selected
-        (source) tag to a chosen destination tag, then drop the source --
-        cleans up the case/underscore duplicates the old CSV-genre split
-        used to produce."""
-        if not self.db:
-            QMessageBox.warning(self, "Error", "Please connect to a database first")
+    remove_selected_tags = remove_selected_tag
+
+    def merge_selected_tag(self) -> None:
+        tab = self.tab
+        if not tab.db:
+            QMessageBox.warning(tab, "Error", "Please connect to a database first")
             return
-        current_row = self.tags_table.currentRow()
+        current_row = tab.tags_table.currentRow()
         if current_row < 0:
             QMessageBox.warning(
-                self, "Error", "Please select a tag from the list to merge."
+                tab, "Error", "Please select a tag from the list to merge."
             )
             return
-        item = self.tags_table.item(current_row, 0)
+        item = tab.tags_table.item(current_row, 0)
         source_name = item.text()  # pyrefly: ignore [missing-attribute]
 
-        candidates = [t for t in self.db.get_all_tags() if t != source_name]
+        candidates = [t for t in tab.db.get_all_tags() if t != source_name]
         if not candidates:
             QMessageBox.information(
-                self, "Merge Tags", "There is no other tag to merge into."
+                tab, "Merge Tags", "There is no other tag to merge into."
             )
             return
 
         dest_name, ok = QInputDialog.getItem(
-            self,
+            tab,
             "Merge Tags",
             f"Merge '{source_name}' into which tag?\n\n"
             f"Every image/media reference to '{source_name}' will be "
@@ -243,7 +256,7 @@ class _CrudMixin:
             return
 
         confirm = QMessageBox.question(
-            self,
+            tab,
             "Confirm Merge",
             f"Merge '{source_name}' into '{dest_name}'? This cannot be undone.",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
@@ -253,65 +266,58 @@ class _CrudMixin:
             return
 
         try:
-            self.db.merge_tags(source_name, dest_name)
-            self.refresh_tags_list()
-            self.update_statistics()
-            self._publish_tag_catalog_changed()
+            tab.db.merge_tags(source_name, dest_name)
+            tab.refresh_tags_list()
+            tab.update_statistics()
+            tab._publish_tag_catalog_changed()
             QMessageBox.information(
-                self, "Success", f"'{source_name}' merged into '{dest_name}'."
+                tab, "Success", f"'{source_name}' merged into '{dest_name}'."
             )
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to merge tags:\n{str(e)}")
+            QMessageBox.critical(tab, "Error", f"Failed to merge tags:\n{str(e)}")
 
-    def search_images_with_selected_tag(self):
-        """DB.8c: "click a tag anywhere -> search images with this tag."
-        Publishes a filter intent followed by navigation to Image Search.
-        """
-        current_row = self.tags_table.currentRow()
+    def search_images_with_selected_tag(self) -> None:
+        tab = self.tab
+        current_row = tab.tags_table.currentRow()
         if current_row < 0:
             QMessageBox.warning(
-                self, "Error", "Please select a tag from the list first."
+                tab, "Error", "Please select a tag from the list first."
             )
             return
-        item = self.tags_table.item(current_row, 0)
+        item = tab.tags_table.item(current_row, 0)
         tag_name = item.text()  # pyrefly: ignore [missing-attribute]
 
-        if self.event_hub is None:
-            QMessageBox.warning(self, "Error", "Search navigation is unavailable.")
+        if tab.event_hub is None:
+            QMessageBox.warning(tab, "Error", "Search navigation is unavailable.")
             return
 
-        self.event_hub.publish(
+        tab.event_hub.publish(
             FilterByTagIntent(origin="library.management", module_id="library.search", tag_name=tag_name)
         )
-        self.event_hub.publish(NavigateIntent(origin="library.management", module_id="library.search"))
+        tab.event_hub.publish(NavigateIntent(origin="library.management", module_id="library.search"))
 
-    def search_listings_with_selected_tag(self):
-        """DB.8c: "click a tag anywhere -> search listings with this tag."
-        Entities have no tags in the unified schema (only media_items and
-        images do -- see backend/src/database/unified/schema.sql), so this
-        targets Series Listings only. Its search box already matches
-        tags/genres, not just titles (SearchRepo.filter_media(),
-        DB.5) -- no new filter UI needed, just set the existing box.
-
-        Publishes a Listings filter intent followed by navigation.
-        """
-        current_row = self.tags_table.currentRow()
+    def search_listings_with_selected_tag(self) -> None:
+        tab = self.tab
+        current_row = tab.tags_table.currentRow()
         if current_row < 0:
             QMessageBox.warning(
-                self, "Error", "Please select a tag from the list first."
+                tab, "Error", "Please select a tag from the list first."
             )
             return
-        item = self.tags_table.item(current_row, 0)
+        item = tab.tags_table.item(current_row, 0)
         tag_name = item.text()  # pyrefly: ignore [missing-attribute]
 
-        if self.event_hub is None:
-            QMessageBox.warning(self, "Error", "Listings navigation is unavailable.")
+        if tab.event_hub is None:
+            QMessageBox.warning(tab, "Error", "Listings navigation is unavailable.")
             return
 
-        self.event_hub.publish(
+        tab.event_hub.publish(
             FilterByTagIntent(origin="library.management", module_id="library.listings", tag_name=tag_name)
         )
-        self.event_hub.publish(NavigateIntent(origin="library.management", module_id="library.listings"))
+        tab.event_hub.publish(NavigateIntent(origin="library.management", module_id="library.listings"))
 
 
-__all__ = ["_CrudMixin"]
+# Backward-compatible alias
+_CrudMixin = DatabaseCrudController
+
+__all__ = ["DatabaseCrudController", "_CrudMixin"]
