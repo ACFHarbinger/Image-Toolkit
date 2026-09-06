@@ -1,36 +1,40 @@
-"""Tab-config persistence (``collect``/``get_default_config``/``set_config``).
-
-Extracted from ``database_tab.py`` -- pure code motion, no logic change
-(see ``_ui_connection.py``'s docstring).
-"""
+"""Tab-config persistence controller for ``DatabaseTab`` (§5.17, #544)."""
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Any
+
 from PySide6.QtWidgets import QMessageBox
 
+if TYPE_CHECKING:
+    pass
 
-class _ConfigMixin:
+
+class DatabaseConfigController:
     """Tab-level config persistence hooks used by the profile system."""
 
+    def __init__(self, tab: Any) -> None:
+        self.tab = tab
+
     def collect(self) -> dict:
-        # The unified library needs no connection settings (and the old
-        # format's stored db_password was a security wart — deliberately
-        # not emitted anymore).
-        return {"auto_open": self.db is not None}
+        return {"auto_open": self.tab.db is not None}
 
     def get_default_config(self) -> dict:
         return {"auto_open": True}
 
-    def set_config(self, config: dict):
+    def set_config(self, config: dict) -> None:
+        tab = self.tab
         try:
-            # Legacy configs carried Postgres credentials — ignored now.
-            if config.get("auto_open", True) and self.db is None:
-                self.connect_database(silent=True)
+            if config.get("auto_open", True) and tab.db is None:
+                tab.connect_database(silent=True)
         except Exception as e:
             print(f"Error applying DatabaseTab config: {e}")
             QMessageBox.warning(
-                self, "Config Error", f"Failed to apply some settings: {e}"
+                tab, "Config Error", f"Failed to apply some settings: {e}"
             )
 
 
-__all__ = ["_ConfigMixin"]
+# Backward-compatible alias
+_ConfigMixin = DatabaseConfigController
+
+__all__ = ["DatabaseConfigController", "_ConfigMixin"]
