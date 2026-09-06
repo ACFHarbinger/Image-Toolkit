@@ -12,6 +12,10 @@ Two hard rules (fail CI, block merge):
    that cannot execute eagerly are allowed at module level: function-local
    imports and ``if TYPE_CHECKING:`` blocks. As a consistency pin, every
    ``__all__`` entry must have a matching ``_LAZY_EXPORTS`` key.
+3. No module-level import of a submodule GUI/backend package (``asp_gui``,
+   ``csg_gui``, ``hie_tab``, ``asp_backend``, ``csg_backend``) in any
+   ``gui/src/**/__init__.py`` (ui-arch-27/#549) — ``gui.src.tabs`` resolves
+   those lazily so classic startup and isolated tests don't import them.
 
 Example:
     >>> python backend/validation/check_init_boundaries.py
@@ -73,6 +77,36 @@ def check_windows_init_lazy(init_path: Path) -> list[str]:
     return violations
 
 
+SUBMODULE_ROOTS = frozenset({"asp_gui", "csg_gui", "hie_tab", "asp_backend", "csg_backend"})
+
+
+def check_no_eager_submodule_imports(init_path: Path) -> list[str]:
+    """Rule 3: no module-level import of a submodule package in an initializer."""
+    tree = ast.parse(init_path.read_text(encoding="utf-8"))
+    violations = []
+    statements = []
+    for node in tree.body:
+        if isinstance(node, ast.Try):  # try/except ImportError still imports eagerly
+            statements.extend(node.body)
+        else:
+            statements.append(node)
+    for node in statements:
+        if _is_type_checking_if(node):
+            continue
+        roots = []
+        if isinstance(node, ast.ImportFrom) and node.module and not node.level:
+            roots = [node.module.split(".")[0]]
+        elif isinstance(node, ast.Import):
+            roots = [alias.name.split(".")[0] for alias in node.names]
+        for root in roots:
+            if root in SUBMODULE_ROOTS:
+                violations.append(
+                    f"{init_path}:{node.lineno}: eager {root} import "
+                    f"(resolve it lazily via __getattr__, see gui/src/tabs/__init__.py)"
+                )
+    return violations
+
+
 def _literal_str_list(node: ast.AST) -> list[str] | None:
     if isinstance(node, (ast.List, ast.Tuple)) and all(
         isinstance(e, ast.Constant) and isinstance(e.value, str) for e in node.elts
@@ -122,6 +156,7 @@ def main() -> int:
 
     for init_path in sorted(gui_src.rglob("__init__.py")):
         violations.extend(check_no_star_imports(init_path))
+        violations.extend(check_no_eager_submodule_imports(init_path))
 
     windows_init = gui_src / "windows" / "__init__.py"
     if windows_init.exists():
@@ -134,7 +169,7 @@ def main() -> int:
     if violations:
         print(f"{len(violations)} init-boundary violation(s); see issue #530.")
         return 1
-    print("init boundaries OK: no star imports, windows/__init__ stays lazy.")
+    print("init boundaries OK: no star imports, no eager submodule imports, windows/__init__ stays lazy.")
     return 0
 
 
