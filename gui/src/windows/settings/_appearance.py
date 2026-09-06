@@ -138,75 +138,13 @@ class _AppearanceMixin:
         appearance_layout.addRow("Color Extraction & A11y:", extract_row)
 
         # ------------------------------------------------------------------
-        # 3. Full-Window Background Canvas & Glassmorphism
-        # ------------------------------------------------------------------
-        bg_config_dict = self.pref_background_config if isinstance(self.pref_background_config, dict) else {}
-        self._bg_config = BackgroundConfig.from_dict(bg_config_dict)
-
-        bg_path_row = QHBoxLayout()
-        self.bg_path_input = QLineEdit(self._bg_config.image_path)
-        self.bg_path_input.setMinimumHeight(32)
-        self.bg_path_input.setPlaceholderText("Select background image path (e.g. .png, .jpg, .webp)...")
-        self.bg_path_input.textChanged.connect(self._on_bg_path_changed)
-        btn_browse_bg = QPushButton("Browse...")
-        btn_browse_bg.setMinimumHeight(32)
-        btn_browse_bg.setMinimumWidth(95)
-        btn_browse_bg.setStyleSheet("QPushButton { padding: 4px 12px; }")
-        btn_browse_bg.clicked.connect(self._browse_background_image)
-        btn_clear_bg = QPushButton("Clear")
-        btn_clear_bg.setMinimumHeight(32)
-        btn_clear_bg.setMinimumWidth(75)
-        btn_clear_bg.setStyleSheet("QPushButton { padding: 4px 12px; }")
-        btn_clear_bg.clicked.connect(lambda: self.bg_path_input.clear())
-        bg_path_row.addWidget(self.bg_path_input)
-        bg_path_row.addWidget(btn_browse_bg)
-        bg_path_row.addWidget(btn_clear_bg)
-        appearance_layout.addRow("Background Image:", bg_path_row)
-
-        # Fit Mode & Glassmorphism Row
-        fit_glass_row = QHBoxLayout()
-        self.bg_fit_combo = QComboBox()
-        self.bg_fit_combo.setMinimumHeight(30)
-        self.bg_fit_combo.addItems(["Cover", "Contain", "Center", "Tile"])
-        idx = self.bg_fit_combo.findText(self._bg_config.fit_mode.capitalize())
-        if idx >= 0:
-            self.bg_fit_combo.setCurrentIndex(idx)
-        fit_glass_row.addWidget(QLabel("Fit:"))
-        fit_glass_row.addWidget(self.bg_fit_combo)
-
-        self.glassmorphism_check = QCheckBox("Translucent Glassmorphism (Frosted Cards)")
-        self.glassmorphism_check.setChecked(self._bg_config.glassmorphism_enabled or bool(self._bg_config.image_path))
-        fit_glass_row.addSpacing(16)
-        fit_glass_row.addWidget(self.glassmorphism_check)
-        fit_glass_row.addStretch()
-        appearance_layout.addRow("Canvas Mode:", fit_glass_row)
-
-        # Opacity & Blur Sliders
-        sliders_row = QHBoxLayout()
-        sliders_row.addWidget(QLabel("Opacity:"))
-        self.bg_opacity_slider = QSlider(Qt.Orientation.Horizontal)
-        self.bg_opacity_slider.setRange(10, 100)
-        self.bg_opacity_slider.setValue(int(self._bg_config.opacity * 100))
-        self.bg_opacity_label = QLabel(f"{self.bg_opacity_slider.value()}%")
-        self.bg_opacity_label.setFixedWidth(40)
-        self.bg_opacity_slider.valueChanged.connect(
-            lambda v: self.bg_opacity_label.setText(f"{v}%")
-        )
-        sliders_row.addWidget(self.bg_opacity_slider)
-        sliders_row.addWidget(self.bg_opacity_label)
-
-        sliders_row.addSpacing(16)
-        sliders_row.addWidget(QLabel("Backdrop Blur:"))
-        self.bg_blur_spin = QSpinBox()
-        self.bg_blur_spin.setMinimumHeight(30)
-        self.bg_blur_spin.setRange(0, 30)
-        self.bg_blur_spin.setSuffix(" px")
-        self.bg_blur_spin.setValue(self._bg_config.blur_radius)
-        self.bg_blur_spin.setToolTip("Gaussian backdrop blur radius (0 = off, smooth 4-16px)")
-        sliders_row.addWidget(self.bg_blur_spin)
-        sliders_row.addStretch()
-        appearance_layout.addRow("Canvas Effects:", sliders_row)
-
+        # 3. Full-Window Background Canvas & Glassmorphism -- MOVED (regression
+        # fix): this section is now built by _build_background_section() and
+        # placed in the "Appearance and Themes" tab (_theme_studio_mixin.py),
+        # not here. It used to live in this groupbox, under "Display and
+        # Media" -- reported missing from "Appearance and Themes" because
+        # that's where users actually expect a "choose your custom wallpaper"
+        # control to be, next to the rest of theming. See _build_background_section().
         # ------------------------------------------------------------------
         # 4. Widget Styling, Typography & Density
         # ------------------------------------------------------------------
@@ -278,6 +216,93 @@ class _AppearanceMixin:
 
         return appearance_groupbox
 
+    def _build_background_section(self) -> QGroupBox:
+        """Custom wallpaper / full-window background canvas + glassmorphism.
+
+        Regression fix: this used to be built inline inside
+        _build_appearance_section() above and placed under the "Display and
+        Media" settings tab. When the newer Theme Studio tab (#438/#441)
+        became "Appearance and Themes", this section stayed behind in its
+        old location -- reported missing because that's not where users
+        look for a "choose your custom wallpaper" control anymore. Split
+        into its own groupbox so _theme_studio_mixin.py can place it in the
+        tab it now belongs in, without touching the rest of the old
+        appearance section (base theme / palette / corner radius / zoom)
+        this pass isn't scoped to de-duplicate.
+        """
+        bg_groupbox = QGroupBox("Custom Wallpaper // Background Canvas")
+        bg_groupbox.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
+        bg_layout = QFormLayout(bg_groupbox)
+        bg_layout.setContentsMargins(10, 10, 10, 10)
+
+        bg_config_dict = self.pref_background_config if isinstance(self.pref_background_config, dict) else {}
+        self._bg_config = BackgroundConfig.from_dict(bg_config_dict)
+
+        bg_path_row = QHBoxLayout()
+        self.bg_path_input = QLineEdit(self._bg_config.image_path)
+        self.bg_path_input.setMinimumHeight(32)
+        self.bg_path_input.setPlaceholderText("Select background image path (e.g. .png, .jpg, .webp)...")
+        self.bg_path_input.textChanged.connect(self._on_bg_path_changed)
+        btn_browse_bg = QPushButton("Browse...")
+        btn_browse_bg.setMinimumHeight(32)
+        btn_browse_bg.setMinimumWidth(95)
+        btn_browse_bg.setStyleSheet("QPushButton { padding: 4px 12px; }")
+        btn_browse_bg.clicked.connect(self._browse_background_image)
+        btn_clear_bg = QPushButton("Clear")
+        btn_clear_bg.setMinimumHeight(32)
+        btn_clear_bg.setMinimumWidth(75)
+        btn_clear_bg.setStyleSheet("QPushButton { padding: 4px 12px; }")
+        btn_clear_bg.clicked.connect(lambda: self.bg_path_input.clear())
+        bg_path_row.addWidget(self.bg_path_input)
+        bg_path_row.addWidget(btn_browse_bg)
+        bg_path_row.addWidget(btn_clear_bg)
+        bg_layout.addRow("Background Image:", bg_path_row)
+
+        # Fit Mode & Glassmorphism Row
+        fit_glass_row = QHBoxLayout()
+        self.bg_fit_combo = QComboBox()
+        self.bg_fit_combo.setMinimumHeight(30)
+        self.bg_fit_combo.addItems(["Cover", "Contain", "Center", "Tile"])
+        idx = self.bg_fit_combo.findText(self._bg_config.fit_mode.capitalize())
+        if idx >= 0:
+            self.bg_fit_combo.setCurrentIndex(idx)
+        fit_glass_row.addWidget(QLabel("Fit:"))
+        fit_glass_row.addWidget(self.bg_fit_combo)
+
+        self.glassmorphism_check = QCheckBox("Translucent Glassmorphism (Frosted Cards)")
+        self.glassmorphism_check.setChecked(self._bg_config.glassmorphism_enabled or bool(self._bg_config.image_path))
+        fit_glass_row.addSpacing(16)
+        fit_glass_row.addWidget(self.glassmorphism_check)
+        fit_glass_row.addStretch()
+        bg_layout.addRow("Canvas Mode:", fit_glass_row)
+
+        # Opacity & Blur Sliders
+        sliders_row = QHBoxLayout()
+        sliders_row.addWidget(QLabel("Opacity:"))
+        self.bg_opacity_slider = QSlider(Qt.Orientation.Horizontal)
+        self.bg_opacity_slider.setRange(10, 100)
+        self.bg_opacity_slider.setValue(int(self._bg_config.opacity * 100))
+        self.bg_opacity_label = QLabel(f"{self.bg_opacity_slider.value()}%")
+        self.bg_opacity_label.setFixedWidth(40)
+        self.bg_opacity_slider.valueChanged.connect(
+            lambda v: self.bg_opacity_label.setText(f"{v}%")
+        )
+        sliders_row.addWidget(self.bg_opacity_slider)
+        sliders_row.addWidget(self.bg_opacity_label)
+
+        sliders_row.addSpacing(16)
+        sliders_row.addWidget(QLabel("Backdrop Blur:"))
+        self.bg_blur_spin = QSpinBox()
+        self.bg_blur_spin.setMinimumHeight(30)
+        self.bg_blur_spin.setRange(0, 30)
+        self.bg_blur_spin.setSuffix(" px")
+        self.bg_blur_spin.setValue(self._bg_config.blur_radius)
+        self.bg_blur_spin.setToolTip("Gaussian backdrop blur radius (0 = off, smooth 4-16px)")
+        sliders_row.addWidget(self.bg_blur_spin)
+        sliders_row.addStretch()
+        bg_layout.addRow("Canvas Effects:", sliders_row)
+
+        return bg_groupbox
 
     # ------------------------------------------------------------------
     # --- Supporting Actions & Helpers ---------------------------------

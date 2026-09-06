@@ -45,6 +45,12 @@ class _ThemeStudioMixin:
         )
         layout.addWidget(self.theme_studio)
 
+        # Custom wallpaper / background canvas (regression fix -- this
+        # control used to live here, under whatever tab predated Theme
+        # Studio's introduction, and got left behind under "Display and
+        # Media" when this tab was built; see _build_background_section()).
+        layout.addWidget(self._build_background_section())
+
         # Export row (cross-surface theme pack, #441).
         export_row = QHBoxLayout()
         export_row.addWidget(QLabel("Portable theme pack:"))
