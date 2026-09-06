@@ -1,7 +1,7 @@
 # GUI Architecture & Code Analysis (Draft — shared, edit me)
 
-**Author:** DeepSeek | **Date:** 2026-09-06 | **Status:** DRAFT — shared document; the user and all agents should edit/add before this becomes a locked refactoring roadmap.
-**Target:** `gui/` on `main` (`ee91cd01`).
+**Authors:** DeepSeek (draft F1–F16 + roadmap skeleton); Grok (independent pass F17–F26 + answers to §7) | **Date:** 2026-09-06 | **Status:** DRAFT — shared document; the user and all agents should edit/add before this becomes a locked refactoring roadmap.
+**Target:** `gui/` on `main` (`ebb3afdd`; DeepSeek's measurements were against `ee91cd01`).
 
 This is the start of a detailed, comprehensive analysis of the GUI architecture and code
 implementation, toward making the app more modular and component-based, respecting DRY,
@@ -227,3 +227,81 @@ implementations (F2, F9) needs the D12 live-desktop bar, not just green tests �
 
 *This is a starting point — add findings, correct severity, and tie each to a GitHub
 issue/epic. Then we turn this into the locked `ui-architecture` refactoring roadmap.*
+
+---
+
+## 8. Grok independent pass (2026-09-06) — new evidence, not a restatement of F1–F16
+
+Read DeepSeek's draft, then re-measured `gui/` on `main`. Agree with the four-phase skeleton and with F1/F6 as the two biggest remaining structural jobs. Below is what that draft under-counted or missed. Citations are against this tree.
+
+### Corrections to the draft
+
+- **F1 DatabaseTab count is stale.** On current `main`, `DatabaseTab` is `class DatabaseTab(QWidget)` with composed controllers (`gui/src/tabs/database/database_tab/manager.py:35`). It should drop out of the "19 mixin tabs" list. `DataBrowserTab` mixins now precede `QWidget` (`data_browser_tab/manager.py:17-28`) — MRO-safe, still mixin-shaped. Remaining wide-mixin surface is **MainWindow + ~18 tabs/subtabs**.
+- **F9 under-counts `QThread`.** DeepSeek's "a few `QThread`/`moveToThread`" is wrong as a census. `gui/src/helpers/` still has **~25 `QThread` subclasses** (conversion, deletion, merge, sampler, codec, scan, embed, upsert, recommendation, LoRA/training, MAL sync, recon, crawl, web-requests, local-dir sync, storyboard, frame-selection, …) plus a dedicated `BaseQThreadWorker` next to `BaseQRunnableWorker` (`helpers/base.py:7-28`). The *thumbnail* path is QRunnable-healthy; the *heavy job* path is still a second threading dialect.
+
+### F17. Two construction graphs for one app  [HIGH]
+
+Classic shell (`main_window.py:159-186`) still calls `_create_tabs()` and **eagerly constructs ~25 tab objects** before show. Runtime shell (`:152-158`) is lazy via `ModuleRuntime`. Default is classic. `gui/src/tabs/__init__.py:1-7` still imports `asp_gui`, `csg_gui`, and `hie_tab` at package load, so even a "small" tab import pulls Stitch/Manga/HIE.
+
+This is the same eager-mount family as the 2026-09-05 SIGSEGV, just on the default path rather than the experimental one. #530 stopped `import *`; it did not stop eager *construction*. **Recommendation:** treat "classic `_create_tabs` constructs everything" as the next crash-class invariant to shrink — not by deleting classic (parity/#516), but by making classic tab construction lazy-on-first-category-select, reusing catalog factories. D12 required.
+
+### F18. `MonitorDisplaySubTab` still skips mixin `super()`  [HIGH — live MRO landmine]
+
+`gui/src/tabs/core/wallpaper_tab/monitor_display_subtab/manager.py:64-65`:
+
+```python
+def __init__(self, parent=None):
+    WallpaperCommonBase.__init__(self)
+```
+
+WallpaperCommonBase itself is a 15-mixin class. Calling the base `__init__` by name **skips every mixin `__init__`** on that MRO. Flagged in the 09-05 deep-dive; still live. Any later mixin that grows an `__init__` will silently no-op. **Hotfix:** `super().__init__()` (and `setParent` after). Small, testable, should not wait for a Wallpaper composition pass.
+
+### F19. Settings still dual-writes `MainWindow.cached_creds`  [HIGH — same class as the tray regression]
+
+`PreferenceStore.attach_vault_credentials()` is wired at login (`main_window.py:115-119`). Settings appearance/relaunch **still mutate the in-memory vault dict directly**:
+
+- `_appearance.py:474-487` reads/writes `main_window_ref.cached_creds["preferences"]`
+- `_relaunch_settings.py:320-334` assigns `main_window_ref.cached_creds = user_data` and `hasattr`-calls `_apply_startup_preferences`
+
+That is the dual-source pattern Phase 0.3 / #525 existed to kill. F6 (drop `main_window_ref`) is the lasting fix; **F19 is the hotfix**: those writes must go through `PreferenceStore` ACCOUNT keys or they will desync again on guest/restart. 44 `main_window_ref` hits remain, all in settings + `cloud_compute_window.py` + a `None` on detail-panel.
+
+### F20. Seventeen `_UIBuilderMixin` classes with the same name  [MEDIUM — DRY]
+
+`class _UIBuilderMixin` is defined independently in **17 files** (search, scan, listings×2, similarity, format, codec, sampler, crawler, drive-sync, media-loader, entity-recon, cbir-train, system-display, data-browser, detail-panel, display view). They do not share a type. #544's `DatabaseUIBuilder` is the right shape; the copy-paste name is a lie. **Recommendation:** one `SectionedFormBuilder` / layout helper for "labeled rows + groupboxes"; tab-specific widgets stay local. Do not invent a 17th mixin.
+
+### F21. Card rendering is still forked after #543  [MEDIUM]
+
+`create_card_widget` exists twice: `abstract_class_single_gallery/_card_rendering.py:94` and `abstract_class_two_galleries/_card_rendering.py:32` (extra `is_selected`). Scheduler unification did not touch this. Listing galleries (`ListingGalleryBase` → TwoGalleries) inherit the two-gallery fork. VirtualGallery is a third card surface (delegate + overlay roles). **Recommendation:** Phase 3 after #543 D12 — one card factory + one selection/highlight helper; keep pagination differences.
+
+### F22. `MainWindow` is still a 16-mixin composition root  [MEDIUM]
+
+`main_window.py:46-66`: header, runtime-shell, tab-registry, theme, tray, tab-search, global-search, workflows, shortcuts, save/load tab-config, startup prefs, session recovery, zoom, lifecycle, then `QWidget`. The comment about mixin-before-QWidget is load-bearing (`closeEvent`/`keyPressEvent`/`showEvent`/`wheelEvent`). #544's DatabaseTab template does **not** apply here without extracting those Qt overrides into a real window object. **Recommendation:** do not "DatabaseTab" MainWindow in one PR. Peel one event at a time (tray, theme, zoom already have files) onto services; keep the MRO comment until the last override moves.
+
+### F23. Classic vs catalog factory drift  [MEDIUM]
+
+`_tab_registry.py:61-89` constructs tabs with `(library_database_service, event_hub)` for Database/Search/Scan/Wallpaper. `application_catalog.py` has the same constructors behind `try/except TypeError` fallbacks. Two sources of truth for "how to build a tab." A ctor change that only updates one path will look tested on classic and fail on the experimental shell (or the reverse). **Recommendation:** classic `_create_tabs` should call the catalog factories (or a shared `build_tab(id, context)`), not duplicate kwargs.
+
+### F24. Notification helpers still duck-type  [LOW]
+
+`_notify.py` uses `WindowManager` (good, #528) then `hasattr(w, "tray_notify"|"show_status"|"show_toast")`. Silent no-op if the protocol drifts. **Recommendation:** a tiny `StatusSink` protocol on MainWindow; missing method should log, not `hasattr`-pass.
+
+### F25. `processEvents` leftovers are concentrated  [MEDIUM]
+
+Live `QApplication.processEvents()` remains in drive-sync UI lock + two sync subtabs, similarity deletion, and `library_session.py:151`. Wallpaper already documents why it **removed** the same call (`_monitor_selection.py:63-86` — reentrant timers). **Recommendation:** treat wallpaper's comment as the rule; replace the drive-sync/similarity pumps with a single-shot `QTimer` or a progress fact. Don't add new `processEvents`.
+
+### F26. Import barrel still pulls optional native UIs  [MEDIUM]
+
+`gui/src/tabs/__init__.py` named-imports `StitchTab`/`Manga*`/`HieEditorTab` from submodules at package import. `_tab_registry` then `from ...tabs import StitchTab, ...`. Classic startup therefore always imports ASP/CSG/HIE GUI even if the user never opens those categories. **Recommendation:** lazy-import those three inside `_create_tabs` / catalog factories only.
+
+---
+
+## 9. Grok answers to §7 (signed, 2026-09-06)
+
+1. **Mixin migration order:** risk-first, but **skip gallery-owning tabs until #543 D12 is green**. Next after DatabaseTab: `DataBrowserTab` (already MRO-fixed, 6 mixins, no gallery), then `DriveSyncTab` / `EntityReconTab` (no gallery). Leave `SearchTab`/`ScanMetadataTab`/`ExtractorTab`/`WallpaperCommonBase` until the scheduler unification has a live pass — those are the crash family.
+2. **Settings decoupling:** `WindowService` + `PreferenceStore`, not a pile of new EventHub intents for zoom/geometry. Intents for "relaunch / apply tab configs"; store for theme/tray/zoom. F19 (stop writing `cached_creds` by hand) can land before the full F6 extract.
+3. **`db_tab_ref` rename:** one pass with a short alias shim (`db_tab_ref=` kwargs still accepted, warn once). Preview contexts are too many for a silent rename.
+4. **Gallery merge beyond scheduler:** Phase 3 (#532). #543 is scheduling only; F21 card/selection merge is a second D12. Do not combine with mixin migration of Search/Scan.
+5. **Eviction:** don't pick a magic N. Measure RSS of runtime-shell with 3 vs 8 mounted modules on Harbinger's machine after #543 D12; set LRU from that number. Until then, dispose on account-switch only (already specified, not implemented).
+
+— Grok, 2026-09-06
+
