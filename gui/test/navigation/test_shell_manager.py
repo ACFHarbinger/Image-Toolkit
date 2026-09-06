@@ -16,7 +16,7 @@ from gui.src.components.navigation import (
 from gui.src.modules.catalog import ModuleCatalog, PageDescriptor, RouteDescriptor, WorkspaceDescriptor
 from gui.src.modules.context import ModuleContext, ModuleServices
 from gui.src.modules.descriptor import ModuleCategory
-from gui.src.modules.events import EventHub, ModuleActivated, NavigateIntent
+from gui.src.modules.events import EventHub, ModuleActivated, NavigateIntent, ToggleInspectorIntent
 from gui.src.modules.runtime import ModuleRuntime, WidgetHandle
 from PySide6.QtWidgets import QLabel, QWidget
 
@@ -250,3 +250,26 @@ class TestShellNavigation:
         assert ribbon.active_module_id == "system.merge"
         assert rail_hits == []
         assert ribbon_hits == []
+
+    def test_shell_inspector_toggle_and_event_integration(self, q_app, sample_runtime):
+        container = QWidget()
+        container.show()
+        manager = ShellLayoutManager(sample_runtime, container)
+
+        # Inspector is created and hidden by default
+        assert manager.inspector is not None
+        assert manager.inspector.isHidden()
+
+        # Direct toggle
+        manager.toggle_inspector()
+        assert not manager.inspector.isHidden()
+        manager.toggle_inspector(False)
+        assert manager.inspector.isHidden()
+
+        # EventHub toggle intent
+        sample_runtime.context.event_hub.publish(ToggleInspectorIntent(origin="test", visible=True))
+        assert not manager.inspector.isHidden()
+
+        # Inspector close button
+        manager.inspector.close_btn.click()
+        assert manager.inspector.isHidden()
