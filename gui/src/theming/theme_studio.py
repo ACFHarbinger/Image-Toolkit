@@ -198,6 +198,7 @@ class ThemeStudioPanel(QWidget):
         self.weight_combo.setCurrentText(pack.typography.weight)
         self.density_combo.setCurrentText(pack.density.mode)
         self.shadow_spin.setValue(pack.shadows.blur_radius_px)
+        self._category_accent_overrides = dict(getattr(pack, "category_accent_overrides", {}))
         # Update preset combo without firing edit cycle
         if pack.name in list_presets():
             self.preset_combo.blockSignals(True)
@@ -235,6 +236,7 @@ class ThemeStudioPanel(QWidget):
             name=self.preset_combo.currentText() if self.preset_combo.currentText() != "(Custom)" else "Custom",
             base=base,
             color_overrides=overrides,
+            category_accent_overrides=dict(getattr(self, "_category_accent_overrides", self._pack.category_accent_overrides)),
             typography=TypographyTokens(
                 font_family=family,
                 scale_percent=self.scale_spin.value(),
