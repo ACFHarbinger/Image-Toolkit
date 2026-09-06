@@ -42,6 +42,12 @@ from gui.src.constants.utils import _KEYBINDINGS_PATH
 SHORTCUT_REGISTRY: list[dict] = [
     # General — app-wide actions, not scoped to a single widget
     {
+        "id": "general.toggle_inspector",
+        "description": "Toggle Context Inspector Panel",
+        "scope": "General",
+        "default": "Ctrl+I",
+    },
+    {
         "id": "general.save_tab_config",
         "description": "Save current tab's configuration as a named profile",
         "scope": "General",
