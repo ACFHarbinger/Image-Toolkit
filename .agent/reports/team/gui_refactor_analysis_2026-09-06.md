@@ -312,6 +312,17 @@ sharpened exit criteria.
 - **1.9 Preferences store split** (sharpens #525) — vault = secrets only;
   preferences/tab-configs in a per-key store; no whole-blob rewrites.
   Exit: `save_data(json.dumps(creds))` sites → 0 outside auth.
+- **1.11 Reusable UI Primitives in `components/`** (Gemini) — extract
+  `PathPickerWidget` (line-edit + browse button + MRU + `apply_patch` safety)
+  and `TabularDataView` / `TabularDataModel` (virtualized `QAbstractTableModel`)
+  to absorb duplicated directory picking and `QTableWidget` allocations across tabs.
+  Exit: 6 `_directory_browse.py` mixins replaced; 0 new `QTableWidget` instances.
+- **1.12 Raw `threading.Thread` Elimination & Unbounded Wait Guard** (Gemini) —
+  migrate 15 raw `threading.Thread` sites in `models/` tabs and `library_session.py`
+  to `BaseQThreadWorker`; replace unbounded `waitForDone(-1)` in
+  `virtual_gallery_model.py:410`, `_scan_loading.py:43`, and
+  `image_extractor_subtab.py:609` with bounded drain timeouts.
+  Exit: 0 raw `threading.Thread` in `gui/src`; 0 `waitForDone(-1)` on GUI thread.
 
 **Phase 2 additions (consolidation):**
 
@@ -325,6 +336,14 @@ sharpened exit criteria.
   session recovery and the extractor player (§5.4); closes #546's family.
 - **2.e Error-boundary policy** — replace the 81 silent swallows with logged
   ones; `RuntimeError`-on-deleted-object guards get one shared helper.
+- **2.h Standardized Task Progress & Async DB Operations** (Gemini) — provide
+  a `TaskProgressSession` context manager for long tasks. Move synchronous
+  filesystem traversal and sequential SQL loops (`_auto_populate.py`,
+  `_bulk_import.py`) off the GUI thread to background workers with batch
+  transactions. Exit: 0 multi-second synchronous DB loops on GUI thread.
+- **2.i WallpaperTab State Decoupling** (Gemini) — replace cross-subtab mutable
+  dictionary aliasing (`manager.py:27-34`) with an encapsulated
+  `WallpaperQueueService`. Exit: 0 shared mutable dict references across subtabs.
 
 **Phase 3 (optimization) sharpened:**
 
@@ -356,16 +375,33 @@ no `gui.src` widgets. #530's linter enforces all three.
 - **Q-A (§5.1):** `protos/` vs `components/` prototype duplication — delete
   the `protos/` copy now that the re-land is live, or keep both until D10's
   re-land is complete?
+  *(Gemini / Antigravity, 2026-09-06):* Keep until #536/D10 is verified and
+  stably active in production, then delete `protos/` copies. History preserves them.
 - **Q-B (§3.1):** who takes the clone collapses? They are disjoint from
   Phase 0/1 crash-class work and can start now without violating D2.
+  *(Gemini / Antigravity, 2026-09-06):* Gemini can take the listings-subtab pair
+  (`entity_listings_subtab/` ↔ `series_listings_subtab/`) and/or the import dialogs
+  (`directory_import_dialog.py` ↔ `entity_directory_import_dialog.py`). Having
+  proved the tab composition template in #544, these are isolated parameterizable
+  widgets with zero overlap with crash-class code.
 - **Q-C (§9, 1.7):** adopt the existing `BaseQThreadWorker` as-is, or
   first fix its `error` signal to carry the exception object (currently
   `str(exc)`) so callers can branch on type?
+  *(Gemini / Antigravity, 2026-09-06):* Strongly recommend fixing first to
+  carry the `Exception` object (`Signal(object)`). String-only errors force
+  callers to do string scraping, lose tracebacks, and cannot be caught by type.
 - **Q-D (§4):** is a hard "no `setStyleSheet` outside theming" rule
   acceptable, or do we need an allowlist for one-off widgets (overlays,
   canvas)?
+  *(Gemini / Antigravity, 2026-09-06):* Needs an allowlist for canvas and dynamic
+  overlays (`canvas_base.py`, `scrub_preview_popup.py`), but static component
+  colors must strictly use theme tokens.
 - **Q-E (§9 target shape):** `features/<name>/` layout vs keeping
   `tabs/<name>/` names — pure naming, but it decides every later import path.
+  *(Gemini / Antigravity, 2026-09-06):* Keep `tabs/<name>/`. Renaming 291 files
+  creates massive rebase friction across ongoing branches (#543, #546, #535)
+  with zero runtime benefit. Adopt the internal structure (`view.py` +
+  `controller.py` + `config.py`) inside each existing tab directory instead.
 
 ---
 
@@ -386,3 +422,103 @@ Scripts are in `tools/dev/gui_audit/` (`python tools/dev/gui_audit/gui_audit.py 
 - `git log --since="60 days ago" --name-only -i --grep="fix\|bug\|regress\|crash" -- gui/src`.
 
 — Claude, 2026-09-06
+
+---
+
+## 12. Gemini / Antigravity — 2026-09-06 — independent pass
+
+Baseline `main` @ `de2872f6`. Re-ran `gui_audit.py` and `dup_finder.py`; reviewed DeepSeek's F1–F16, Grok's F17–F26, and Claude's §1–§10. All citations below verified with `sed -n '<range>p' <file>` on current `main`.
+
+### 12.1 Composition & Missing UI Primitives
+- **Confirmations**: DatabaseTab composition migration (#544) holds (inherits only `QWidget`, 34/34 tests green). 18 tabs remain wide-mixin.
+- **G-1 (Missing Primitives: `PathPickerWidget` / `DirectoryBrowserWidget`)**:
+  - **Evidence**: 32 files call `QFileDialog.getExistingDirectory`. 6 tabs (`format_subtab`, `codec_subtab`, `sampler_subtab`, `similarity_tab`, `media_loader_tab`, `image_crawler_tab`) implement independent `_directory_browse.py` mixin clones (e.g. `tabs/core/codec_subtab/_directory_browse.py:17-45` vs `tabs/core/format_subtab/_directory_browse.py:17-45`).
+  - **Smell**: Each mixin probes undeclared host attributes (`last_browsed_dir`, `input_path`, `_recent_dirs_menu`, `scan_directory_visual`).
+  - **Target**: Extract `gui/src/components/widgets/path_picker.py`. Encapsulates `QLineEdit` + browse button + MRU popup + monkeypatched dialog safety (`apply_patch` / `DontUseNativeDialog`).
+- **G-2 (Missing Primitives: `TabularDataView` / `TabularDataModel`)**:
+  - **Evidence**: `data_browser_tab/_query.py:138-154`, `database_tab/_refresh_edit.py:32-150`, `scan_metadata_tab/_auto_listings.py:138-160`, `entity_recon_tab/_batch_builder.py:42-44`, and `windows/cloud/dashboards_pane.py:177-183` all use raw `QTableWidget` + per-cell `QTableWidgetItem` allocations.
+  - **Smell**: Querying 2,000 rows with 10 columns allocates 20,000 Python/C++ wrapper objects and iterates cells three times (`setItem`, `_style_fk_cells`, `_apply_cell_edit_flags`) on the main thread, necessitating `self.data_table.blockSignals(True)`.
+  - **Target**: Reusable `QAbstractTableModel` in `components/views/data_table_view.py`. Virtualized viewport rendering, zero item allocation per cell, instant sorting/filtering.
+- **G-3 (WallpaperTab State Aliasing & Circular References)**:
+  - **Evidence**: `gui/src/tabs/core/wallpaper_tab/manager.py:27-34`:
+    ```python
+    self.monitor_display.monitor_image_paths = self.system_display.monitor_image_paths
+    self.monitor_display.monitor_slideshow_queues = self.system_display.monitor_slideshow_queues
+    self.monitor_display.monitor_current_index = self.system_display.monitor_current_index
+    self.monitor_display.monitor_history = self.system_display.monitor_history
+    self.monitor_display._initial_pixmap_cache = self.system_display._initial_pixmap_cache
+    self.monitor_display.set_system_display_ref(self.system_display)
+    self.system_display.set_system_display_ref(self.monitor_display)
+    ```
+  - **Smell**: Subtabs share mutable internal dictionaries directly without synchronization, and cross-reference each other symmetrically (note `system_display.system_display_ref` points to `monitor_display`).
+  - **Target**: Move shared monitor queues to an encapsulated `WallpaperQueueController` service.
+
+### 12.2 DRY Violations & Unreported Semantic Duplication
+- **G-4 (15 Raw `threading.Thread` sites bypassed worker audit)**:
+  - `gui_audit.py` measures `QThread` and `QRunnable` subclasses, completely missing raw `threading.Thread` calls in generative/training tabs:
+    - `tabs/models/gen/lora_generate_tab.py:320`: `threading.Thread(target=self.run_generation, kwargs=config)` (non-daemon!).
+    - `tabs/models/delta/lora_train_tab.py:261`: `threading.Thread(target=self.run_training, kwargs=config, daemon=True)`.
+    - `tabs/models/gen/comfy_generate_tab.py:339, 393, 445`: 3 threads for worker startup, queue workflow, and log streaming.
+    - `tabs/models/delta/cbir_train_tab/_index_builder.py:77` and `_training_worker.py:76`: thread targets emitting Qt signals (`self.sig_index_done.emit`, `self.sig_done.emit`) directly across thread boundaries.
+    - `tabs/models/gen/ddm_generate_tab.py:147`.
+    - `helpers/database/library_session.py:148`.
+    - `helpers/web/media_loader_worker.py:53, 74`.
+  - **Target**: Unify onto `BaseQThreadWorker` or `QThreadPool` tasks.
+- **G-5 (Main-Thread Synchronous GAN Inference)**:
+  - **Evidence**: `tabs/models/gen/gan_generate_tab.py:86-93`:
+    ```python
+    device = torch.device(self.device)
+    gan = GAN(z_dim=100, channels=3, n_filters=32, n_blocks=3, device=device)
+    gan.load_checkpoint(checkpoint_path)
+    count = self.spin_gen_count.value()
+    images_tensor = gan.generate_image(num_images=count)
+    ```
+  - **Smell**: Model loading and image tensor generation run synchronously on the GUI thread inside `generate_images()`, freezing the entire desktop UI during generation.
+  - **Target**: Offload to `QRunnable` inference worker.
+
+### 12.3 Styling & Theme Integrity
+- Confirm Claude's 648 `setStyleSheet` and 962 inline hex literals.
+- **G-6 (Hardcoded Theme Presuppositions)**:
+  - `windows/cloud/dashboards_pane.py:118` and `windows/cloud/request_builder_pane.py:197` hardcode `"QTableWidget { background-color: #0d1117; border: 1px solid #30363d; }"`.
+  - Violates Light theme presets and causes illegible dark-on-light artifacting. All styles must read `theme.color("surface")` / `theme.color("border")`.
+
+### 12.4 Correctness Findings & Hotfix Candidates
+1. **Tier 1 (Immediate Hotfixes — low risk, high value)**:
+   - **F18 (Grok)**: `tabs/core/wallpaper_tab/monitor_display_subtab/manager.py:64-65`: `WallpaperCommonBase.__init__(self)` skips 14 mixins in MRO. Change to `super().__init__()`.
+   - **F19 (Grok)**: `windows/settings/_appearance.py:483-486` and `_relaunch_settings.py:320-334`: Stop directly mutating `main_window_ref.cached_creds["preferences"]`; route through `PreferenceStore.set()`.
+   - **F14**: `backend/src/utils/display/monitor_slideshow_daemon.py:52`: Guard `atexit.register(lambda: getattr(base, "run_monitor_slideshow", lambda _: None)("stop"))` to eliminate `AttributeError` tracebacks in test/headless environments.
+   - **F26 (Grok)**: `tabs/__init__.py:1-7`: Defer eager package-level imports of `asp_gui`, `csg_gui`, and `hie_tab`.
+2. **Tier 2 (Defect & Leak Guards)**:
+   - **G-7 (Tray Quit Bypasses Tab Cleanup)**:
+     - In `windows/main/_lifecycle.py:245-251`, `closeEvent` iterates `all_tabs` and invokes `tab.close()` to cancel workers/timers.
+     - In `windows/main/_lifecycle.py:260-279` (`_quit_application` used by the tray Quit action), `tab.close()` is completely omitted. Quitting via tray leaves background worker threads unjoined and uncancelled while Qt terminates.
+     - **Fix**: Add tab cleanup loop to `_quit_application()`.
+   - **G-8 (Unbounded `waitForDone(-1)` on GUI thread)**:
+     - `components/virtual_gallery/virtual_gallery_model.py:410`: `self.thread_pool.waitForDone(-1)`
+     - `tabs/database/scan_metadata_tab/_scan_loading.py:43`: `self.thread_pool.waitForDone(-1)`
+     - `tabs/core/image_extractor_subtab.py:609`: `self.operation_thread_pool.waitForDone(-1)`
+     - **Fix**: Bound all drain calls to `_WORKER_DRAIN_TIMEOUT_MS` (2000 ms) as already established in gallery lifecycles.
+   - **G-9 (`library_session.py` Thread + ProcessEvents Spinloop)**:
+     - `helpers/database/library_session.py:148-154`:
+       ```python
+       thread = threading.Thread(target=work, daemon=True)
+       thread.start()
+       while thread.is_alive():
+           QApplication.processEvents()
+           thread.join(0.05)
+       ```
+     - Re-entrancy hazard on the main thread; replace with signal-driven `QEventLoop` or standard `BaseQThreadWorker`.
+
+### 12.5 Performance & Resource Lifecycle
+- **G-10 (Synchronous DB Loops on Main Thread)**:
+  - `database_tab/_auto_populate.py:67-95`: iterates directories and issues sequential `tab.db.add_group` / `tab.db.add_subgroup` queries on the GUI thread.
+  - `database_tab/_bulk_import.py:87-100`: issues sequential `tab.db.add_tag` queries per tag on the GUI thread.
+  - While a `QProgressDialog` is shown, the main thread is pinned; batch transactions and worker delegation are needed.
+- **G-11 (Asymmetric Lifecycle Deferral)**:
+  - `windows/main/_lifecycle.py:280-330` (`_defer_close_for_extractions`) implements 7 hardcoded `hasattr` checks against `extractor_tab` only. Other long-running jobs (video conversion, training, cloud sync) lack any deferred close mechanism. A general `TaskLifecycleRegistry` is needed.
+
+### 12.6 Test Surface & Verification Invariants
+- `HostProtocol` conformance test suite (M1) is the essential missing verification harness for all remaining mixin tabs.
+- Tests touching tables (`DataBrowserTab`, `DatabaseTab`) should assert virtual model row counts and zero GUI thread stalls rather than mocking `QTableWidget` items.
+
+— Gemini / Antigravity, 2026-09-06
