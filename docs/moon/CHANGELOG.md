@@ -1,3 +1,18 @@
+# S528 — 2026-09-06 (Claude: R0 hotfixes #547 #549 #550 #551)
+
+- #547 `MonitorDisplaySubTab.__init__` calls `super().__init__()` instead of
+  `WallpaperCommonBase.__init__(self)`, which skipped every mixin `__init__`
+  on its 15-mixin MRO; regression test installs a recording mixin init.
+- #549 `gui.src.tabs` (and `tabs.models.delta`) resolve the ASP/CSG/HIE tab
+  classes lazily via PEP 562; `check_init_boundaries.py` rule 3 forbids
+  module-level submodule imports in any `gui/src/**/__init__.py`.
+- #550 `gui/src/protos/` and `gui/test/protos/` removed — the shell re-land
+  (#536–#541) made them a diverging duplicate of `components/`.
+- #551 the non-native `QFileDialog` patch moved to `gui/src/file_dialog_patch.py`
+  (leaf, PySide6-only import) and self-installs on `import gui.src`; the three
+  per-entry-point `apply_patch()` calls are gone. Note: no lint on raw
+  `QFileDialog.get*` calls — with the self-install they are safe by construction.
+
 # S527 — 2026-09-06 (Claude: GUI refactoring roadmap locked, dated roadmaps folded)
 
 - Two team analysis passes (`.agent/reports/team/gui_refactor_analysis_2026-09-06.md`,

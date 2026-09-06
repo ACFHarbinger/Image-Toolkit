@@ -1,3 +1,13 @@
+"""Non-native ``QFileDialog`` with a favourites sidebar, installed process-wide.
+
+``DontUseNativeDialog`` is mandatory on Linux (GTK portal + JPype JVM →
+``__dynamic_cast`` SIGSEGV, see docs/ARCHITECTURE.md). ``apply_patch()`` runs
+once on ``import gui.src`` (ui-arch-29/#551), so the 80 static
+``QFileDialog.get*`` call sites are safe without each entry point remembering
+to install it. Depends on PySide6 only at import; ``AppSettings`` is resolved
+lazily so this stays a leaf module.
+"""
+
 import os
 import shutil
 
@@ -5,7 +15,11 @@ from PySide6.QtCore import QEvent, QObject, QSortFilterProxyModel, Qt, QUrl
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QAbstractItemView, QFileDialog, QInputDialog, QMenu, QMessageBox
 
-from .app_settings import AppSettings
+
+def _app_settings():
+    from gui.src.windows.settings.app_settings import AppSettings
+
+    return AppSettings
 
 
 class FileDialogEventFilter(QObject):
@@ -17,14 +31,14 @@ class FileDialogEventFilter(QObject):
         norm_path = os.path.normpath(path)
         if is_fav:
             new_favs = [f for f in favs if os.path.normpath(f) != norm_path]
-            AppSettings.set_favourite_directories(new_favs) # pyrefly: ignore [missing-attribute]
+            _app_settings().set_favourite_directories(new_favs) # pyrefly: ignore [missing-attribute]
             self.dialog._sync_sidebar() # pyrefly: ignore [missing-attribute]
             QMessageBox.information(self.dialog, "Favourite Removed", f"Removed from favourites:\n{path}")
         else:
             norm_favs = [os.path.normpath(f) for f in favs]
             if norm_path not in norm_favs:
                 favs.append(path)
-                AppSettings.set_favourite_directories(favs) # pyrefly: ignore [missing-attribute]
+                _app_settings().set_favourite_directories(favs) # pyrefly: ignore [missing-attribute]
                 self.dialog._sync_sidebar() # pyrefly: ignore [missing-attribute]
                 QMessageBox.information(self.dialog, "Favourite Added", f"Added to favourites:\n{path}")
 
@@ -104,7 +118,7 @@ class FileDialogEventFilter(QObject):
         menu = QMenu(watched)
 
         # Premium Modern Styling matching the application theme
-        is_dark = AppSettings.get("preferences/theme", "dark") == "dark"
+        is_dark = _app_settings().get("preferences/theme", "dark") == "dark"
         if is_dark:
             menu.setStyleSheet("""
                 QMenu {
@@ -150,7 +164,7 @@ class FileDialogEventFilter(QObject):
                 }
             """)
 
-        favs = AppSettings.favourite_directories() # pyrefly: ignore [missing-attribute]
+        favs = _app_settings().favourite_directories() # pyrefly: ignore [missing-attribute]
         norm_path = os.path.normpath(path)
         norm_favs = [os.path.normpath(f) for f in favs]
         is_fav = norm_path in norm_favs
@@ -201,7 +215,7 @@ class CustomFileDialog(QFileDialog):
         super().setOption(option, on)
 
     def _sync_sidebar(self):
-        favs = AppSettings.favourite_directories() # pyrefly: ignore [missing-attribute]
+        favs = _app_settings().favourite_directories() # pyrefly: ignore [missing-attribute]
         norm_favs = {os.path.normpath(p) for p in favs}
         system_urls = []
         for url in self._default_sidebar_urls:
@@ -272,7 +286,15 @@ def my_getSaveFileName(parent=None, caption="", dir="", filter="", selectedFilte
             return selected[0], dialog.selectedNameFilter()
     return "", ""
 
+_PATCHED = False
+
+
 def apply_patch():
+    """Idempotent; called from ``gui/src/__init__.py``."""
+    global _PATCHED
+    if _PATCHED:
+        return
+    _PATCHED = True
     QFileDialog.getExistingDirectory = staticmethod(my_getExistingDirectory)
     QFileDialog.getOpenFileName = staticmethod(my_getOpenFileName)
     QFileDialog.getOpenFileNames = staticmethod(my_getOpenFileNames)
