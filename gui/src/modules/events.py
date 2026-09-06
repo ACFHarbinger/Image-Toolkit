@@ -121,6 +121,9 @@ class SelectionChangedFact(Fact):
 
     paths: tuple[str, ...] = ()
     active_path: str | None = None
+    resolution: tuple[int, int] | None = None
+    tags: tuple[tuple[str, tuple[str, ...]], ...] = ()
+    metadata: tuple[tuple[str, str], ...] = ()
 
 
 @dataclass(frozen=True, kw_only=True, slots=True)

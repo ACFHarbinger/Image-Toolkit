@@ -90,5 +90,13 @@ class _RuntimeShellMixin:
         if runtime is not None:
             runtime.dispose()
 
+    def _toggle_context_inspector(self) -> None:
+        """Publish ToggleInspectorIntent across EventHub."""
+        hub = getattr(self, "module_event_hub", None)
+        if hub is not None:
+            from gui.src.modules.events import ToggleInspectorIntent
+
+            hub.publish(ToggleInspectorIntent(origin="main_window"))
+
 
 __all__ = ["_RuntimeShellMixin"]

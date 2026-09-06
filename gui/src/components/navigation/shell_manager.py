@@ -9,6 +9,7 @@ from typing import Optional
 from PySide6.QtCore import QObject, Signal
 from PySide6.QtWidgets import QHBoxLayout, QStackedWidget, QVBoxLayout, QWidget
 
+from gui.src.components.inspector import ContextInspectorPanel
 from gui.src.modules.catalog import RouteDescriptor, WorkspaceDescriptor
 from gui.src.modules.events import NavigateIntent
 from gui.src.modules.runtime import ModuleRuntime
@@ -55,6 +56,8 @@ class ShellLayoutManager(QObject):
         self.stack = QStackedWidget()
         self.rail = NavigationRailWidget(self.catalog)
         self.ribbon = TopSegmentedRibbonWidget(self.catalog)
+        self.inspector = ContextInspectorPanel(event_hub=self.context.event_hub)
+        self.inspector.hide()
 
         self.rail.module_selected.connect(self.activate_module)
         self.ribbon.module_selected.connect(self.activate_module)
@@ -79,6 +82,7 @@ class ShellLayoutManager(QObject):
 
         self.body_layout.addWidget(self.rail)
         self.body_layout.addWidget(self.stack, 1)
+        self.body_layout.addWidget(self.inspector)
 
         self.root_layout.addWidget(self.body_widget, 1)
         self._apply_nav_mode_visibility()
@@ -106,6 +110,13 @@ class ShellLayoutManager(QObject):
     def toggle_nav_mode(self) -> None:
         new_mode = ShellNavMode.TOP_BAR if self.nav_mode == ShellNavMode.RAIL else ShellNavMode.RAIL
         self.set_nav_mode(new_mode)
+
+    def toggle_inspector(self, visible: Optional[bool] = None) -> None:
+        """Toggle or set inspector panel visibility."""
+        if visible is None:
+            self.inspector.setVisible(self.inspector.isHidden())
+        else:
+            self.inspector.setVisible(visible)
 
     def activate_module(self, module_id: str) -> None:
         """Mount (if needed), select, then activate — ModuleActivated after mount."""
