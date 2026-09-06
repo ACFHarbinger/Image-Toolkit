@@ -10,7 +10,7 @@ from gui.src.components.gallery.presentation_mode import (
 from gui.src.components.virtual_gallery.delegate import VirtualGalleryDelegate
 from gui.src.components.virtual_gallery.virtual_gallery_model import VirtualGalleryModel
 from gui.src.components.virtual_gallery.virtual_gallery_view import VirtualGalleryView
-from PySide6.QtCore import QObject, QRect, QRunnable, Qt, Signal
+from PySide6.QtCore import QObject, QRect, QRunnable, QSize, Qt, Signal
 from PySide6.QtGui import QImage, QPainter, QPixmap
 from PySide6.QtWidgets import QListView, QStyleOptionViewItem
 
@@ -116,11 +116,37 @@ class TestGalleryPresentationMode:
         view.set_presentation_mode(GalleryPresentationMode.MASONRY)
         assert view.presentation_mode == GalleryPresentationMode.MASONRY
         assert view.viewMode() == QListView.ViewMode.IconMode
+        assert view.gridSize().isValid() is False
+
+        model.set_overlay_metadata("/images/art1.png", resolution=(1200, 600))
+        model.set_overlay_metadata("/images/art2.png", resolution=(600, 1200))
+        delegate = view.itemDelegate()
+        first_hint = delegate.sizeHint(QStyleOptionViewItem(), model.index(0, 0))
+        second_hint = delegate.sizeHint(QStyleOptionViewItem(), model.index(1, 0))
+        assert first_hint.height() != second_hint.height()
 
         # Update overlay config
         custom_cfg = GalleryOverlayConfig(show_rating=False, show_tag_count=False)
         view.set_overlay_config(custom_cfg)
         assert view.itemDelegate().overlay_config.show_rating is False
+
+    def test_compact_list_geometry_survives_thumbnail_size_and_model_changes(self, q_app):
+        view = VirtualGalleryView()
+        first = VirtualGalleryModel(worker_factory=DummyLoaderWorker, fill_mode=False)
+        first.set_paths(["/images/art1.png"])
+        view.setModel(first)
+        view.set_presentation_mode(GalleryPresentationMode.COMPACT_LIST)
+
+        view.set_thumbnail_size(96)
+        assert view.presentation_mode == GalleryPresentationMode.COMPACT_LIST
+        assert view.iconSize() == QSize(48, 48)
+        assert view.gridSize().isValid() is False
+
+        replacement = VirtualGalleryModel(worker_factory=DummyLoaderWorker, fill_mode=False)
+        replacement.set_paths(["/images/art2.png"])
+        view.setModel(replacement)
+        assert view.iconSize() == QSize(48, 48)
+        assert view.gridSize().isValid() is False
 
     def test_empty_space_right_click_offers_presentation_menu(self, q_app, monkeypatch):
         """This is currently the only reachable UI path to
