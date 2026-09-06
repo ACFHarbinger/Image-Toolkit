@@ -6,6 +6,7 @@ import pytest
 from PySide6.QtCore import QObject, QRunnable, Signal
 from PySide6.QtGui import QImage
 
+from gui.src.thumbnails import ThumbnailScheduler
 from gui.test.image.test_gallery_classes import ConcreteSingleGallery, ConcreteTwoGalleries
 
 pytestmark = pytest.mark.gui
@@ -168,6 +169,35 @@ class TestDrainGuard:
         gallery.cancel_loading()
         assert pool.wait_calls == 1
         assert gallery._load_generation == 2
+
+
+class TestThumbnailSchedulerUnification:
+    def test_single_gallery_cancel_uses_shared_scheduler(self, single_gallery):
+        gallery = single_gallery
+        assert isinstance(gallery._thumbnail_scheduler, ThumbnailScheduler)
+        gen0 = gallery._load_generation
+        gallery.cancel_loading()
+        gallery.cancel_loading()
+        assert gallery._load_generation == gen0 + 2
+        assert gallery._thumbnail_scheduler.generation == gallery._load_generation
+
+    def test_two_galleries_cancel_uses_shared_scheduler(self, two_galleries):
+        gallery = two_galleries
+        assert isinstance(gallery._thumbnail_scheduler, ThumbnailScheduler)
+        gen0 = gallery._load_generation
+        gallery.cancel_loading()
+        gallery.cancel_loading()
+        assert gallery._load_generation == gen0 + 2
+        assert gallery._thumbnail_scheduler.generation == gallery._load_generation
+
+    def test_chunked_load_takes_from_scheduler_queue(self, single_gallery):
+        gallery = single_gallery
+        paths = [f"p{i}.jpg" for i in range(8)]
+        gallery._trigger_batch_found_load(paths)
+        assert gallery.thread_pool.started
+        worker = gallery.thread_pool.started[0]
+        assert list(worker.paths) == paths
+        assert gallery._thumbnail_scheduler.has_pending()
 
 
 class TestCacheSizing:

@@ -38,7 +38,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from gui.src.thumbnails import order_visible_first
+from gui.src.thumbnails import DefaultThumbnailScheduler, ThumbnailScheduler, order_visible_first
 
 from ..meta.meta_abstract_class_gallery import MetaAbstractClassGallery
 
@@ -98,8 +98,11 @@ class AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery):
         self.thread_pool = QThreadPool()
         self.thread_pool.setMaxThreadCount(max(2, min(8, os.cpu_count() or 4)))
         self._active_workers: set = set()
-        # Generation counter: invalidates queued load-chunks after cancel/restart
-        self._load_generation: int = 0
+        # Shared fill-queue / generation / cancel (#543). 64 = 4 in-flight
+        # chunks × 16 paths, matching ``common_start_chunked_load`` defaults.
+        self._thumbnail_scheduler: ThumbnailScheduler = DefaultThumbnailScheduler(
+            max_in_flight=64
+        )
 
         # --- Resize debouncing ------------------------------------------------
         self._resize_timer = QTimer()
@@ -125,6 +128,11 @@ class AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery):
 
         # --- Open preview windows list ----------------------------------------
         self.open_preview_windows: List[QWidget] = []
+
+    @property
+    def _load_generation(self) -> int:
+        """Live scheduler generation. Stale chunk deliveries compare against this."""
+        return self._thumbnail_scheduler.generation
 
     # =========================================================================
     # Abstract interface
@@ -578,21 +586,27 @@ class AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery):
         worker cleanup; the per-result slots remain wired only for the
         single-shot ImageLoaderWorker/VideoLoaderWorker paths.
 
-        Cancellation: `cancel_loading` implementations bump
-        ``self._load_generation``; queued continuations from an older
-        generation are dropped.
+        Cancellation: `cancel_loading` implementations call
+        ``_thumbnail_scheduler.cancel()``; queued continuations from an
+        older generation are dropped.
         """
         if not paths:
             return
-        gen = self._load_generation
-        chunks = deque(
-            paths[i : i + chunk_size] for i in range(0, len(paths), chunk_size)
-        )
+        scheduler = self._thumbnail_scheduler
+        gen = scheduler.generation
+        scheduler.enqueue(paths)
 
         def start_next(*_args):
-            if gen != self._load_generation or not chunks:
+            if not scheduler.is_current(gen):
                 return
-            chunk = chunks.popleft()
+            chunk: list = []
+            for _ in range(chunk_size):
+                path = scheduler.take_next()
+                if path is None:
+                    break
+                chunk.append(path)
+            if not chunk:
+                return
             worker = worker_factory(chunk)
             # Tag with the generation active at dispatch time so the result
             # handler (batch_slot) can tell a stale delivery (this chunk's
@@ -600,17 +614,21 @@ class AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery):
             # directories again while it was in flight) from a current one,
             # and skip touching any gallery widget for a stale result --
             # this chunk's own queued signal isn't cancelled by bumping
-            # _load_generation, only the not-yet-dispatched *next* chunk is
-            # (see the `gen != self._load_generation` check above).
+            # generation, only the not-yet-dispatched *next* chunk is.
             worker.load_generation = gen
-            if batch_slot is not None:
-                worker.signals.batch_result.connect(batch_slot)
-            # Chain: when this chunk finishes, dispatch the next one
-            worker.signals.batch_result.connect(start_next)
+
+            def on_batch(*args, _chunk=chunk, _gen=gen):
+                for path in _chunk:
+                    scheduler.complete(path, _gen)
+                if batch_slot is not None:
+                    batch_slot(*args)
+                start_next()
+
+            worker.signals.batch_result.connect(on_batch)
             self._active_workers.add(worker)
             self.thread_pool.start(worker)
 
-        for _ in range(min(max_in_flight, len(chunks))):
+        for _ in range(max_in_flight):
             start_next()
 
     # =========================================================================

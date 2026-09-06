@@ -77,6 +77,13 @@ class TestDefaultThumbnailScheduler:
         scheduler.enqueue(["/a.png", "/c.png"])
         assert scheduler.queued_paths() == ("/a.png", "/b.png", "/c.png")
 
+    def test_enqueue_skips_inflight_path(self):
+        scheduler = DefaultThumbnailScheduler(max_in_flight=1)
+        scheduler.enqueue(["/a.png", "/b.png"])
+        assert scheduler.take_next() == "/a.png"
+        scheduler.enqueue(["/a.png", "/c.png"])
+        assert scheduler.queued_paths() == ("/b.png", "/c.png")
+
     def test_stale_complete_does_not_revive_cancelled_queue(self):
         scheduler = DefaultThumbnailScheduler(max_in_flight=1)
         scheduler.enqueue(["/a.png"])

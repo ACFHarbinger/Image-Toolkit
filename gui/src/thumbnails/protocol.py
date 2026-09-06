@@ -2,9 +2,9 @@
 ================================
 Shared scheduling/cancellation/generation-tracking contract (§1.2, #526).
 
-Interface-only. Each gallery keeps its own pagination and rendering;
-unification onto one implementation is Phase 2 (#531). Queue state stays
-encapsulated — no EventHub / status-bar broadcast in this pass.
+Galleries keep their own pagination and rendering. Fill-queue,
+generation, and cancel go through this contract (#543). Queue state
+stays encapsulated — no EventHub / status-bar broadcast.
 """
 
 from __future__ import annotations
