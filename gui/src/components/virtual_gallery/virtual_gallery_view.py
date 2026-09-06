@@ -39,6 +39,11 @@ from PySide6.QtCore import (
 from PySide6.QtGui import QCursor, QDrag, QMouseEvent, QPixmap, QWheelEvent
 from PySide6.QtWidgets import QAbstractItemView, QApplication, QListView
 
+from gui.src.components.gallery.presentation_mode import (
+    GalleryOverlayConfig,
+    GalleryPresentationMode,
+)
+
 from .delegate import VirtualGalleryDelegate
 
 if TYPE_CHECKING:
@@ -111,6 +116,43 @@ class VirtualGalleryView(QListView):
         # Room around the icon for spacing plus a filename line (§2.14A).
         self.setIconSize(QSize(size, size))
         self.setGridSize(QSize(size + 16, size + 16 + 14))
+
+    def set_presentation_mode(self, mode: GalleryPresentationMode) -> None:
+        """Switch between Uniform Grid, Masonry, and Compact List view modes (§2.40)."""
+        self._presentation_mode = mode
+        if mode == GalleryPresentationMode.COMPACT_LIST:
+            self.setViewMode(QListView.ViewMode.ListMode)
+            self.setFlow(QListView.Flow.TopToBottom)
+            self.setWrapping(False)
+            self.setGridSize(QSize())
+            self.setIconSize(QSize(48, 48))
+        elif mode == GalleryPresentationMode.MASONRY:
+            self.setViewMode(QListView.ViewMode.IconMode)
+            self.setFlow(QListView.Flow.LeftToRight)
+            self.setWrapping(True)
+            self.setUniformItemSizes(False)
+            if self._gallery_model is not None:
+                size = self._gallery_model.thumbnail_size
+                self.setIconSize(QSize(size, size))
+                self.setGridSize(QSize(size + 12, size + 40))
+        else:  # UNIFORM_GRID
+            self.setViewMode(QListView.ViewMode.IconMode)
+            self.setFlow(QListView.Flow.LeftToRight)
+            self.setWrapping(True)
+            self.setUniformItemSizes(True)
+            self._apply_grid_size()
+        self.viewport().update()
+
+    def set_overlay_config(self, config: GalleryOverlayConfig) -> None:
+        """Configure thumbnail overlay badges on the item delegate."""
+        delegate = self.itemDelegate()
+        if isinstance(delegate, VirtualGalleryDelegate):
+            delegate.set_overlay_config(config)
+            self.viewport().update()
+
+    @property
+    def presentation_mode(self) -> GalleryPresentationMode:
+        return getattr(self, "_presentation_mode", GalleryPresentationMode.UNIFORM_GRID)
 
     # ------------------------------------------------------------------
     # Selection helpers (§2.4)
