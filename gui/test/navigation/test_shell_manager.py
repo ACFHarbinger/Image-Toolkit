@@ -18,7 +18,8 @@ from gui.src.modules.context import ModuleContext, ModuleServices
 from gui.src.modules.descriptor import ModuleCategory
 from gui.src.modules.events import EventHub, ModuleActivated, NavigateIntent, ToggleInspectorIntent
 from gui.src.modules.runtime import ModuleRuntime, WidgetHandle
-from PySide6.QtWidgets import QLabel, QWidget
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QLabel, QPushButton, QWidget
 
 pytestmark = pytest.mark.gui
 
@@ -273,3 +274,28 @@ class TestShellNavigation:
         # Inspector close button
         manager.inspector.close_btn.click()
         assert manager.inspector.isHidden()
+
+    def test_rail_and_ribbon_items_are_keyboard_reachable(self, q_app, sample_catalog):
+        """#516 item 1 (keyboard-nav parity): rail category buttons and
+        ribbon module buttons must accept keyboard focus (Tab/Shift+Tab),
+        and the rail's categories must be a QButtonGroup so arrow-key
+        group navigation works natively, matching what the legacy
+        QComboBox + QTabWidget shell gets for free from Qt.
+        """
+        rail = NavigationRailWidget(sample_catalog)
+        for category, btn in rail.cat_buttons.items():
+            assert btn.focusPolicy() != Qt.FocusPolicy.NoFocus, (
+                f"rail category button for {category} is not keyboard-focusable"
+            )
+        assert rail.cat_group.exclusive() is True
+
+        ribbon = TopSegmentedRibbonWidget(sample_catalog)
+        ribbon._populate_category(ModuleCategory.SYSTEM)
+        module_buttons = [
+            w for w in ribbon.findChildren(QPushButton) if w.isCheckable()
+        ]
+        assert module_buttons, "ribbon produced no module buttons to check"
+        for btn in module_buttons:
+            assert btn.focusPolicy() != Qt.FocusPolicy.NoFocus, (
+                f"ribbon module button {btn.text()!r} is not keyboard-focusable"
+            )
