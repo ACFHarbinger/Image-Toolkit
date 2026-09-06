@@ -97,12 +97,12 @@ class VirtualGalleryView(QListView):
 
         self._gallery_model = model if isinstance(model, VirtualGalleryModel) else None
         if self._gallery_model is not None:
-            self._apply_grid_size()
+            self._apply_presentation_geometry()
 
     def set_thumbnail_size(self, size: int) -> None:
         if self._gallery_model is not None:
             self._gallery_model.set_thumbnail_size(size)
-            self._apply_grid_size()
+            self._apply_presentation_geometry()
 
     def thumbnail_size(self) -> int:
         if self._gallery_model is not None:
@@ -117,6 +117,25 @@ class VirtualGalleryView(QListView):
         self.setIconSize(QSize(size, size))
         self.setGridSize(QSize(size + 16, size + 16 + 14))
 
+    def _apply_presentation_geometry(self) -> None:
+        """Reapply the selected mode after model or thumbnail-size changes."""
+        mode = self.presentation_mode
+        delegate = self.itemDelegate()
+        if isinstance(delegate, VirtualGalleryDelegate):
+            delegate.set_masonry_enabled(mode == GalleryPresentationMode.MASONRY)
+        if mode == GalleryPresentationMode.COMPACT_LIST:
+            self.setIconSize(QSize(48, 48))
+            self.setGridSize(QSize())
+        elif mode == GalleryPresentationMode.MASONRY:
+            if self._gallery_model is not None:
+                size = self._gallery_model.thumbnail_size
+                self.setIconSize(QSize(size, size))
+            # QSize() delegates variable row geometry to Qt via sizeHint();
+            # the hint reads only already-resident overlay metadata.
+            self.setGridSize(QSize())
+        else:
+            self._apply_grid_size()
+
     def set_presentation_mode(self, mode: GalleryPresentationMode) -> None:
         """Switch between Uniform Grid, Masonry, and Compact List view modes (§2.40)."""
         self._presentation_mode = mode
@@ -124,23 +143,18 @@ class VirtualGalleryView(QListView):
             self.setViewMode(QListView.ViewMode.ListMode)
             self.setFlow(QListView.Flow.TopToBottom)
             self.setWrapping(False)
-            self.setGridSize(QSize())
-            self.setIconSize(QSize(48, 48))
+            self.setUniformItemSizes(True)
         elif mode == GalleryPresentationMode.MASONRY:
             self.setViewMode(QListView.ViewMode.IconMode)
             self.setFlow(QListView.Flow.LeftToRight)
             self.setWrapping(True)
             self.setUniformItemSizes(False)
-            if self._gallery_model is not None:
-                size = self._gallery_model.thumbnail_size
-                self.setIconSize(QSize(size, size))
-                self.setGridSize(QSize(size + 12, size + 40))
         else:  # UNIFORM_GRID
             self.setViewMode(QListView.ViewMode.IconMode)
             self.setFlow(QListView.Flow.LeftToRight)
             self.setWrapping(True)
             self.setUniformItemSizes(True)
-            self._apply_grid_size()
+        self._apply_presentation_geometry()
         self.viewport().update()
 
     def set_overlay_config(self, config: GalleryOverlayConfig) -> None:

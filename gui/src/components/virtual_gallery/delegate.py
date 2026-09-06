@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from PySide6.QtCore import QRectF, Qt
+from PySide6.QtCore import QRectF, QSize, Qt
 from PySide6.QtGui import QBrush, QColor, QFont, QPen
 from PySide6.QtWidgets import QStyledItemDelegate
 
@@ -42,9 +42,30 @@ class VirtualGalleryDelegate(QStyledItemDelegate):
     ) -> None:
         super().__init__(parent)
         self.overlay_config: GalleryOverlayConfig = overlay_config or GalleryOverlayConfig()
+        self._masonry_enabled = False
 
     def set_overlay_config(self, config: GalleryOverlayConfig) -> None:
         self.overlay_config = config
+
+    def set_masonry_enabled(self, enabled: bool) -> None:
+        """Use bounded in-memory metadata for Qt's native variable-size layout."""
+        self._masonry_enabled = enabled
+
+    def sizeHint(self, option, index) -> QSize:
+        if not self._masonry_enabled:
+            return super().sizeHint(option, index)
+
+        model = index.model()
+        size = max(32, int(getattr(model, "thumbnail_size", 180)))
+        resolution_role = getattr(model, "ResolutionRole", -1)
+        resolution = model.data(index, resolution_role) if model is not None else None
+        width = size + 12
+        if isinstance(resolution, (tuple, list)) and len(resolution) == 2:
+            source_width, source_height = resolution
+            if isinstance(source_width, int) and isinstance(source_height, int) and source_width > 0:
+                image_height = round(size * source_height / source_width)
+                return QSize(width, max(64, min(size * 2, image_height)) + 40)
+        return QSize(width, size + 40)
 
     def paint(self, painter, option, index) -> None:
         super().paint(painter, option, index)
