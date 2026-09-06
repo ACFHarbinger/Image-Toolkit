@@ -196,6 +196,14 @@ class MainWindow(
         # GUI/UX §2.16 — wire vault preferences to runtime at startup
         if not self._using_runtime_shell:
             self._apply_startup_preferences()
+        else:
+            # #516: _apply_startup_preferences() is gated off entirely on the
+            # runtime shell path (classic tab/category wiring is N/A there),
+            # but that meant the device-owned tray preference -- read from
+            # PreferenceStore via AppSettings, not tab-coupled at all -- was
+            # never applied either, leaving _minimize_to_tray stuck at its
+            # hardcoded False default regardless of what the user configured.
+            self._apply_tray_preference()
 
         # Apply tab configs after global preferences so profile settings take priority (deferred)
         # self._apply_active_tab_configs() is now called in the deferred do_restore function below to avoid layout race conditions.

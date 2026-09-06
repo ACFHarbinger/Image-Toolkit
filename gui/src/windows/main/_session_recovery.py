@@ -16,20 +16,13 @@ from PySide6.QtCore import QTimer
 class _SessionRecoveryMixin:
     """Restores/persists the active tab and per-tab configs across launches."""
 
-    def _restore_session_recovery(self) -> None:  # noqa: C901
-        """Restores the previously opened tab and configurations on startup."""
-        if getattr(self, "_using_runtime_shell", False):
-            # Session parity for the rail/ribbon shell is #516 / out of #536.
-            return
-        if not self.vault_manager or not self.cached_creds:
-            return
+    def _load_recovery_data(self) -> dict:
+        """Load (but don't act on) the encrypted session-recovery payload.
 
-        prefs = self.cached_creds.get("preferences", {})
-        recovery_level = prefs.get("session_recovery_level", "None")
-        if recovery_level == "Currrent Tab":
-            recovery_level = "Current Tab"
-        restore_last_tab = prefs.get("restore_last_tab", False)
-
+        Shared by both the classic-shell and runtime-shell restore paths
+        (#516) -- the file format and fallback-to-cached_creds behavior are
+        identical; only what each path does with the resulting dict differs.
+        """
         username = getattr(self.vault_manager, "account_name", None)
         recovery_data = {}
         # Guest vaults have no SecureJsonVault / secret_key — skip encrypted recovery entirely.
@@ -52,7 +45,95 @@ class _SessionRecoveryMixin:
         if not recovery_data:
             # Fallback to cached_creds if no file was decrypted (backward compatibility)
             recovery_data = self.cached_creds.get("session_recovery_data") or {}
+        return recovery_data
 
+    def _runtime_shell_startup_module_id(self, category_name: str, tab_name: str):
+        """Resolve legacy startup_category/startup_tab preference strings to a
+        catalog module_id (#516) -- these prefs store the classic shell's
+        human category/tab names, which match the catalog's own
+        category/title fields since both come from the same 33-route
+        inventory (docs/moon/roadmaps/ui_module_inventory_2026q3.md)."""
+        catalog = getattr(self, "module_catalog", None)
+        if catalog is None:
+            return None
+        for mod in catalog.navigable():
+            if tab_name and mod.title == tab_name:
+                return mod.module_id
+        if category_name:
+            for mod in catalog.navigable():
+                if mod.category.value == category_name:
+                    return mod.module_id
+        return None
+
+    def _restore_runtime_shell_session_recovery(self) -> None:
+        """Runtime-shell equivalent of _restore_session_recovery (#516).
+
+        Deliberately narrower than the classic path: modules mount lazily,
+        so only the target (about-to-activate) module's config is restored.
+        The classic path's tiered "reset last_browsed_dir on every OTHER
+        tab" directory hygiene doesn't apply here -- those modules haven't
+        been constructed at all, so there's nothing on them to reset.
+        """
+        manager = getattr(self, "shell_layout_manager", None)
+        catalog = getattr(self, "module_catalog", None)
+        if manager is None or catalog is None or not self.vault_manager or not self.cached_creds:
+            return
+
+        prefs = self.cached_creds.get("preferences", {})
+        recovery_level = prefs.get("session_recovery_level", "None")
+        if recovery_level == "Currrent Tab":
+            recovery_level = "Current Tab"
+        restore_last_tab = prefs.get("restore_last_tab", False)
+
+        recovery_data = self._load_recovery_data()
+        active_module_id = recovery_data.get("active_module_id")
+        tab_configs = recovery_data.get("tab_configs", {})
+
+        target_module_id = None
+        if restore_last_tab and active_module_id and catalog.get(active_module_id) is not None:
+            target_module_id = active_module_id
+        if target_module_id is None:
+            target_module_id = self._runtime_shell_startup_module_id(
+                prefs.get("startup_category", ""), prefs.get("startup_tab", "")
+            )
+
+        if target_module_id and catalog.get(target_module_id) is not None:
+            manager.activate_module(target_module_id)
+
+        if recovery_level == "None" or not tab_configs or not target_module_id:
+            return
+
+        # Same 150ms defer as the classic path: let the layout settle before
+        # calling set_config() on the freshly-activated module's widget.
+        def do_restore():
+            runtime = getattr(self, "module_runtime", None)
+            if runtime is None or not runtime.is_created(target_module_id):
+                return
+            handle = runtime.handle_for(target_module_id)
+            widget = getattr(handle, "widget", None)
+            if widget is not None:
+                self._restore_tab_config_instance(widget, tab_configs, "")
+
+        if "PYTEST_CURRENT_TEST" in os.environ:
+            do_restore()
+        else:
+            QTimer.singleShot(150, do_restore)
+
+    def _restore_session_recovery(self) -> None:  # noqa: C901
+        """Restores the previously opened tab and configurations on startup."""
+        if getattr(self, "_using_runtime_shell", False):
+            self._restore_runtime_shell_session_recovery()
+            return
+        if not self.vault_manager or not self.cached_creds:
+            return
+
+        prefs = self.cached_creds.get("preferences", {})
+        recovery_level = prefs.get("session_recovery_level", "None")
+        if recovery_level == "Currrent Tab":
+            recovery_level = "Current Tab"
+        restore_last_tab = prefs.get("restore_last_tab", False)
+
+        recovery_data = self._load_recovery_data()
         active_category = recovery_data.get("active_category")
         active_tab_name = recovery_data.get("active_tab")
         tab_configs = recovery_data.get("tab_configs", {})
@@ -193,9 +274,82 @@ class _SessionRecoveryMixin:
         else:
             print(f"[RECOVERY] recovery_level='{recovery_level}' — no set_config called")
 
+    def _save_runtime_shell_session_recovery(self) -> None:  # noqa: C901
+        """Runtime-shell equivalent of _save_session_recovery (#516)."""
+        if not self.vault_manager or getattr(self.vault_manager, "is_guest", False) is True:
+            return
+        manager = getattr(self, "shell_layout_manager", None)
+        if manager is None:
+            return
+
+        try:
+            creds = self.vault_manager.load_account_credentials()
+            if not creds:
+                return
+
+            prefs = creds.get("preferences", {})
+            recovery_level = prefs.get("session_recovery_level", "None")
+            if recovery_level == "Currrent Tab":
+                recovery_level = "Current Tab"
+            restore_last_tab = prefs.get("restore_last_tab", False)
+
+            username = getattr(self.vault_manager, "account_name", None)
+            if not username:
+                return
+
+            needs_recovery_data = recovery_level != "None" or restore_last_tab
+            recovery_data = {}
+            if needs_recovery_data:
+                active_module_id = manager.active_module_id
+
+                tab_configs = {}
+                if recovery_level != "None" and active_module_id:
+                    runtime = getattr(self, "module_runtime", None)
+                    widget = None
+                    if runtime is not None and runtime.is_created(active_module_id):
+                        widget = getattr(runtime.handle_for(active_module_id), "widget", None)
+                    if widget is not None and hasattr(widget, "collect") and callable(widget.collect):
+                        try:
+                            tab_configs[type(widget).__name__] = widget.collect()
+                        except Exception as e:
+                            print(f"Warning: Failed to collect config from {type(widget).__name__}: {e}")
+
+                recovery_data = {
+                    "active_module_id": active_module_id,
+                    "tab_configs": tab_configs,
+                }
+
+                for recovery_dir in (os.path.expanduser("~/.image-toolkit/recovery"),):
+                    try:
+                        os.makedirs(recovery_dir, exist_ok=True)
+                        enc_file_path = os.path.join(recovery_dir, f"recovery_{username}.enc")
+                        SecureJsonVault = self.vault_manager.SecureJsonVault
+                        secret_key = self.vault_manager.secret_key
+                        temp_file_vault = SecureJsonVault(secret_key, enc_file_path)
+                        temp_file_vault.saveData(json.dumps(recovery_data))
+                        break
+                    except Exception as e:
+                        print(f"Warning: Failed to save recovery data to {recovery_dir}: {e}")
+
+                creds["session_recovery_data"] = recovery_data
+            else:
+                creds["session_recovery_data"] = {}
+                for recovery_dir in (os.path.expanduser("~/.image-toolkit/recovery"),):
+                    enc_file_path = os.path.join(recovery_dir, f"recovery_{username}.enc")
+                    if os.path.exists(enc_file_path):
+                        try:
+                            os.remove(enc_file_path)
+                        except Exception as e:
+                            print(f"Warning: Failed to remove recovery file: {e}")
+
+            self.vault_manager.save_data(json.dumps(creds))
+        except Exception as e:
+            print(f"Warning: Failed to save runtime-shell session recovery data: {e}")
+
     def _save_session_recovery(self) -> None:  # noqa: C901
         """Saves current active tab and tab configurations for session recovery."""
         if getattr(self, "_using_runtime_shell", False):
+            self._save_runtime_shell_session_recovery()
             return
         if not self.vault_manager or getattr(self.vault_manager, "is_guest", False) is True:
             return
