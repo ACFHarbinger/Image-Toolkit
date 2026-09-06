@@ -121,3 +121,54 @@ class TestGalleryPresentationMode:
         custom_cfg = GalleryOverlayConfig(show_rating=False, show_tag_count=False)
         view.set_overlay_config(custom_cfg)
         assert view.itemDelegate().overlay_config.show_rating is False
+
+    def test_empty_space_right_click_offers_presentation_menu(self, q_app, monkeypatch):
+        """This is currently the only reachable UI path to
+        set_presentation_mode()/set_overlay_config() in the live app --
+        item right-clicks stay delegated to path_right_clicked (existing
+        convention, unaffected)."""
+        view = VirtualGalleryView()
+        model = VirtualGalleryModel(worker_factory=DummyLoaderWorker, fill_mode=False)
+        model.set_paths([])  # empty model -- every position is "empty space"
+        view.setModel(model)
+        view.resize(400, 400)
+
+        built_menus = []
+        real_build = view._build_presentation_menu
+
+        def _spy_build():
+            menu = real_build()
+            built_menus.append(menu)
+            return menu
+
+        monkeypatch.setattr(view, "_build_presentation_menu", _spy_build)
+        monkeypatch.setattr(view, "_show_presentation_menu", lambda pos: view._build_presentation_menu())
+
+        item_clicks = []
+        view.path_right_clicked.connect(lambda pos, path: item_clicks.append(path))
+
+        pos = view.viewport().rect().center()
+        assert not view.indexAt(pos).isValid()
+        view._on_context_menu(pos)
+
+        assert len(built_menus) == 1
+        assert item_clicks == []
+
+    def test_presentation_menu_switches_mode_and_toggles_overlay(self, q_app):
+        view = VirtualGalleryView()
+        model = VirtualGalleryModel(worker_factory=DummyLoaderWorker, fill_mode=False)
+        model.set_paths([])
+        view.setModel(model)
+
+        menu = view._build_presentation_menu()
+
+        mode_menu = next(a.menu() for a in menu.actions() if a.text() == "Presentation Mode")
+        masonry_action = next(a for a in mode_menu.actions() if a.text() == "Masonry")
+        masonry_action.trigger()
+        assert view.presentation_mode == GalleryPresentationMode.MASONRY
+
+        overlay_menu = next(a.menu() for a in menu.actions() if a.text() == "Thumbnail Overlays")
+        rating_action = next(a for a in overlay_menu.actions() if a.text() == "Rating Badge")
+        assert rating_action.isChecked() is True
+        rating_action.trigger()
+        assert view.itemDelegate().overlay_config.show_rating is False
