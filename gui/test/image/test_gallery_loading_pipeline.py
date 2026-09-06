@@ -128,6 +128,16 @@ class TestSingleSignalRendering:
 
         assert len(calls) == len(paths)
 
+    def test_selected_batch_slot_is_qobject_method_not_lambda(self, two_galleries):
+        """#543: a lambda batch_slot runs on the worker thread."""
+        gallery = two_galleries
+        paths = ["a.jpg", "b.jpg"]
+        widgets = {p: gallery.create_card_widget(p, None, True) for p in paths}
+        gallery._trigger_batch_selected_load(paths, widgets)
+        assert gallery._on_batch_selected_loaded.__self__ is gallery
+        worker = gallery.thread_pool.started[0]
+        worker.signals.batch_result.emit([(p, _img()) for p in paths], paths)
+
 
 class TestDrainGuard:
     def test_second_cancel_in_cycle_skips_drain(self, single_gallery):
