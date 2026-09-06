@@ -15,13 +15,17 @@ from ._ui_builder import _UIBuilderMixin
 
 
 class DataBrowserTab(
-    QWidget,
+    # Phase 2 (ui-arch-21/#531): mixins must precede QWidget -- see
+    # DatabaseTab's own comment (same file family) for the full rationale.
+    # No mixin here overrides a Qt virtual method; behavior-preserving,
+    # verified against gui/test/database/test_data_browser_tab.py.
     _UIBuilderMixin,
     _QueryMixin,
     _NavigationMixin,
     _FiltersMixin,
     _EditMixin,
     _ExportMixin,
+    QWidget,
 ):
     """DB.9: raw-table browser over the unified library store.
 

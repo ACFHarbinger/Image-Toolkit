@@ -32,7 +32,14 @@ from ._ui_tags import _UITagsMixin
 
 
 class DatabaseTab(
-    QWidget,
+    # Phase 2 (ui-arch-21/#531): mixins must precede QWidget -- listing
+    # QWidget first silently lets Qt's own virtual methods (closeEvent,
+    # keyPressEvent, etc.) shadow a same-named mixin override with no
+    # error, a landmine for the next one added (see main_window.py's own
+    # MRO-hazard comment for the established convention this codebase
+    # uses everywhere else). No mixin here currently overrides a Qt
+    # virtual, so this reorder is behavior-preserving -- verified via
+    # gui/test/database/test_database_tab.py.
     _UIConnectionMixin,
     _UIGroupsMixin,
     _UISubgroupsMixin,
@@ -45,6 +52,7 @@ class DatabaseTab(
     _ContextMenusMixin,
     _ConfigMixin,
     _AutoPopulateMixin,
+    QWidget,
 ):
     """
     Library management: statistics display and tag/group population on the
