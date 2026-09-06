@@ -6,7 +6,7 @@ import logging
 from enum import Enum
 from typing import Optional
 
-from PySide6.QtCore import QObject, Signal
+from PySide6.QtCore import QObject, QTimer, Signal
 from PySide6.QtWidgets import QHBoxLayout, QStackedWidget, QVBoxLayout, QWidget
 
 from gui.src.components.inspector import ContextInspectorPanel
@@ -68,6 +68,11 @@ class ShellLayoutManager(QObject):
 
         self._build_layout()
 
+        self._init_accents_timer = QTimer(self)
+        self._init_accents_timer.setSingleShot(True)
+        self._init_accents_timer.timeout.connect(self._apply_initial_category_accents)
+        self._init_accents_timer.start(0)
+
     def _build_layout(self) -> None:
         self.root_layout = QVBoxLayout(self.container)
         self.root_layout.setContentsMargins(0, 0, 0, 0)
@@ -117,6 +122,18 @@ class ShellLayoutManager(QObject):
             self.inspector.setVisible(self.inspector.isHidden())
         else:
             self.inspector.setVisible(visible)
+
+    def apply_category_accents(self, overrides: dict[str, str]) -> None:
+        """Apply category-specific accent overrides to rail and ribbon (§2.41, #518)."""
+        self.rail.apply_category_accents(overrides)
+        self.ribbon.apply_category_accents(overrides)
+
+    def _apply_initial_category_accents(self) -> None:
+        from gui.src.preferences.definitions import PrefKeys
+
+        accents = self.context.preference_store.get(PrefKeys.CATEGORY_ACCENTS)
+        if accents and isinstance(accents, dict):
+            self.apply_category_accents(accents)
 
     def activate_module(self, module_id: str) -> None:
         """Mount (if needed), select, then activate — ModuleActivated after mount."""
@@ -187,6 +204,9 @@ class ShellLayoutManager(QObject):
 
     def clear_mounted(self) -> None:
         """Remove host-stack widgets before ``ModuleRuntime.dispose()``."""
+        timer = getattr(self, "_init_accents_timer", None)
+        if timer is not None:
+            timer.stop()
         while self.stack.count():
             widget = self.stack.widget(0)
             self.stack.removeWidget(widget)
