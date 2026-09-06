@@ -89,6 +89,9 @@ class _RuntimeShellMixin:
         runtime = getattr(self, "module_runtime", None)
         if runtime is not None:
             runtime.dispose()
+        status_bar = getattr(self, "_status_bar", None)
+        if status_bar is not None and hasattr(status_bar, "dispose"):
+            status_bar.dispose()
 
     def _toggle_context_inspector(self) -> None:
         """Publish ToggleInspectorIntent across EventHub."""
