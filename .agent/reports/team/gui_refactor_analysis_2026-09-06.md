@@ -323,6 +323,15 @@ sharpened exit criteria.
   `virtual_gallery_model.py:410`, `_scan_loading.py:43`, and
   `image_extractor_subtab.py:609` with bounded drain timeouts.
   Exit: 0 raw `threading.Thread` in `gui/src`; 0 `waitForDone(-1)` on GUI thread.
+- **1.13 File operations + deletion policy** (Cursor) — register typed
+  `confirm_deletions`/`send_to_trash` preferences; add `DesktopIntegration`
+  and `FileOperationService` with policy/result objects. Exit: zero direct
+  platform-launch branches or filesystem deletion calls in views; one
+  confirm/disposition/domain matrix suite.
+- **1.14 Import-cost boundary** (Cursor) — replace `helpers/` and `tabs/`
+  eager barrels with leaf imports and contracts-only `__init__` files. Exit:
+  zero production `from gui.src.helpers import ...`; CI import-smoke proves an
+  unrelated leaf import does not load web/cloud/native/ML packages.
 
 **Phase 2 additions (consolidation):**
 
@@ -344,11 +353,21 @@ sharpened exit criteria.
 - **2.i WallpaperTab State Decoupling** (Gemini) — replace cross-subtab mutable
   dictionary aliasing (`manager.py:27-34`) with an encapsulated
   `WallpaperQueueService`. Exit: 0 shared mutable dict references across subtabs.
+- **2.j Preview-window controller** (Cursor) — extend `PreviewContext` with an
+  owner/path-keyed controller. Exit: zero tab-owned preview-window lists and
+  one tested open/focus/close-all lifecycle.
+- **2.k Telemetry sampler** (Cursor) — move Torch/CUDA and DB probes off the
+  GUI timer into one background service publishing facts. Exit: telemetry
+  widgets render facts only; a slow probe cannot stall the GUI heartbeat.
 
 **Phase 3 (optimization) sharpened:**
 
 - one pixmap budget across the 7 caches (§5.7); lazy heavy imports (§5.8);
   `DirectoryScanService` for the ~30 blocking-IO sites (§5.3).
+- **3.a Process resource budget** (Cursor) — preserve per-owner cancellation
+  domains while centrally limiting pools, native decodes, subprocesses and
+  GPU jobs. Exit: every pool/executor appears in a static inventory and a
+  stress test stays within configured process-wide concurrency.
 
 **Target package shape (proposal, for discussion — not a mandate):**
 
@@ -522,3 +541,198 @@ Baseline `main` @ `de2872f6`. Re-ran `gui_audit.py` and `dup_finder.py`; reviewe
 - Tests touching tables (`DataBrowserTab`, `DatabaseTab`) should assert virtual model row counts and zero GUI thread stalls rather than mocking `QTableWidget` items.
 
 — Gemini / Antigravity, 2026-09-06
+
+---
+
+## 13. Cursor — 2026-09-06 — independent pass
+
+Baseline `main` @ `8a693020`. Re-ran both audit scripts; their headline
+counts match §1 except for expected movement on the live branch
+(`_build_ui` definitions are now 46 and config methods are 34/32/27).
+Additional reproducible greps used below:
+
+```bash
+rg -l 'explorer\.exe|xdg-open|\["open"|os\.startfile|QDesktopServices' gui/src -g '*.py'
+rg -l 'send2trash|send_to_trash' gui/src -g '*.py'
+rg -l 'from gui\.src\.helpers import|from \.{2,}helpers import' gui/src -g '*.py'
+rg 'QThreadPool\(\)|QTimer\(\)' gui/src -g '*.py'
+```
+
+### 13.1 Composition and import boundaries
+
+**C-1 — `gui.src.helpers` is an unmeasured eager import hub [HIGH].**
+`helpers/__init__.py:1-47` eagerly re-exports 33 worker groups. Thirty-nine
+GUI files import that barrel; importing one scanner therefore imports
+conversion, deletion, database embedding, video extraction, four cloud
+providers, crawlers, and reverse search. Twenty-seven helper files import
+`backend`/`base` at module scope; the barrel also reaches module-level
+`cv2`/NumPy through `duplicate_scan_worker.py:4-7` and
+`queue_execution_worker.py:12`. `helpers/web/__init__.py:1-22` repeats the
+same pattern for every web integration.
+
+This extends F26 beyond `tabs/__init__.py`: replacing wildcard imports did
+not make package barrels lazy. Call sites should import leaf modules, and
+package `__init__` files should expose contracts/types only. Exit criterion:
+zero production `from gui.src.helpers import ...` call sites and an
+import-smoke assertion that a leaf image-worker import does not load web,
+cloud, OpenCV, or ML modules.
+
+**C-2 — preview-window ownership is still distributed [MEDIUM].**
+Thirty-one files reference `open_preview_windows` or
+`open_image_preview_windows`. Tabs append windows independently (for example
+`sampler_subtab/_preview_context.py:31-45`,
+`merge_tab/_preview_context.py:33-45`, and
+`scan_metadata_tab/_context_menu_actions.py:174-187`), while highlight slots
+remove the signal sender and eleven lifecycle implementations close their own
+lists. `ImagePreviewWindow` already registers with `WindowManager`
+(`image_preview_window.py:80-81`), but the registry cannot query by owner or
+media path.
+
+F4's proposed `PreviewContext` should therefore include a
+`PreviewWindowController` keyed by `(owner_id, media_path)`, rather than only
+renaming constructor data. Exit criterion: no tab-owned preview-window lists;
+open/focus/close-all and highlight cleanup have one owner and one contract
+test.
+
+### 13.2 DRY and shared platform services
+
+**C-3 — desktop open/reveal behavior is copied across 14 files [MEDIUM].**
+Implementations variously use blocking `subprocess.run`, detached
+`subprocess.Popen`, `os.startfile`, DBus `ShowItems`, and
+`QDesktopServices`. Compare `elements/database/common/listings_common.py:84-117`
+(selects the file, DBus fallback),
+`database/search_tab/_file_actions.py:264-281` (opens only the parent
+directory and blocks the GUI), and
+`abstract_class_two_galleries/_context_menu.py:133-156` (opens media with
+suppressed child output). Their semantics and error UI differ.
+
+Extract `DesktopIntegration.open_path()` and `reveal_path()` with
+non-blocking process launch, URL encoding, capability fallback, and typed
+errors. Exit criterion: zero direct `explorer.exe`/`xdg-open`/`open`/
+`os.startfile` branches outside that service.
+
+**C-4 — deletion is several inconsistent policy engines [HIGH].**
+Fifteen files implement deletion/trash behavior. The Search path reads
+`send_to_trash` from `MainWindow.cached_creds`, always prompts, mutates the
+filesystem and database, then rebuilds search
+(`search_tab/_file_actions.py:80-119`). Scan does the same preference read
+and always prompts but has different collection cleanup
+(`scan_metadata_tab/_context_menu_actions.py:134-166`). The shared
+two-gallery context menu reads only `confirm_deletions`, then always calls
+`send2trash` (`abstract_class_two_galleries/_context_menu.py:216-248`), so
+the user's permanent-delete choice is ignored on that surface. Neither
+`confirm_deletions` nor `send_to_trash` is registered in
+`preferences/definitions.py:94-253`.
+
+Add typed ACCOUNT keys plus a `FileOperationService` with an immutable
+`DeletionPolicy(confirm, disposition)` and a result listing successes and
+failures. Views remain responsible only for confirmation presentation and
+domain-state reconciliation. Exit criterion: one filesystem deletion
+implementation, zero reads through `window().cached_creds`, and a matrix test
+covering confirm on/off × trash/permanent × single/batch × DB-backed/plain.
+
+### 13.3 Styling and theme integrity
+
+I confirm §4 and G-6. C-3's platform service should return typed failures
+rather than opening a bespoke `QMessageBox`, and C-4's deletion service
+should do the same. This matters to theming as well as testability: common
+error presentation can then be one themed component instead of each file
+constructing modal dialogs and inline styles independently.
+
+### 13.4 Correctness and hotfix candidates
+
+**Small hotfix — MediaLoader worker retention and close race [HIGH].**
+`MediaLoaderWorker._ensure_downloader()` permanently attaches four
+`QtEventBridge`s to backend Observables
+(`helpers/web/media_loader_worker.py:98-109`), and `run()` has no `finally`
+detach (`:112-145`). The comment at `:54-57` says the bridge “lives and dies
+with this worker,” but the Observable owns the bridge's bound `post`
+callback, creating a retention chain back to the worker/downloader. Each new
+download replaces `MediaLoaderTab.worker` (`media_loader_tab/_download_worker.py:83-88`)
+without disposing the completed graph. The tab has no `closeEvent`; closing
+it while the raw Python thread is active neither cancels nor joins it.
+
+Add idempotent `dispose()` that cancels, bounded-joins, detaches all bridges,
+and clears `_downloader`; call it on completion/error, before replacement,
+and from tab teardown. Also make `QtEventBridge` detach on owner destruction
+as a backstop. Targeted test: repeated workers leave zero Observable
+subscribers, and tab close during a blocked fake downloader produces no late
+slot delivery.
+
+**Small hotfix — lazy-load timer survives cancellation [MEDIUM].**
+`ScanMetadataTab` creates an unparented `_lazy_load_timer` and connects it to
+`_process_visible_items` (`scan_metadata_tab/manager.py:118-122`).
+`_ScanLoadingMixin.cancel_loading()` and `_stop_running_threads()`
+(`_scan_loading.py:24-54`) do not stop it. A scroll debounce queued just
+before module disposal can therefore run after gallery teardown. Parent the
+timer to the tab and stop it in cancellation; test by arming it, cancelling,
+advancing the event loop, and asserting no processing callback.
+
+**Correctness — telemetry reports object existence as connectivity [MEDIUM].**
+`TelemetryStatusBar._sample_telemetry()` marks DB connected whenever the
+service and its `db` attribute are non-`None`
+(`components/widgets/telemetry_status_bar.py:290-295`), not when the
+connection is healthy. The component can show green after disconnect.
+Subscribe to `DatabaseAvailabilityChanged` or query a non-blocking service
+snapshot; never infer connectivity from object existence.
+
+### 13.5 Performance and resource lifecycle
+
+**C-5 — telemetry cold-start work was deferred, not removed [MEDIUM].**
+The status bar explicitly records that `_sample_telemetry()` costs about
+0.9 seconds cold, yet schedules it at the next event-loop turn
+(`telemetry_status_bar.py:64-84`). The callback imports Torch, probes CUDA,
+and queries device properties on the GUI thread (`:275-288`). This preserves
+constructor timing but can freeze the first rendered frame, then repeats on a
+3-second GUI timer.
+
+Move sampling to one long-lived telemetry service/worker and publish
+`TelemetryUpdatedFact`; the status bar should only render facts. Exit:
+Torch/CUDA and DB probes never execute on the GUI thread, with a heartbeat
+test proving the event loop remains responsive during a slow probe.
+
+**C-6 — local pools avoid one deadlock but have no process budget [MEDIUM].**
+Five explicit local `QThreadPool()` constructors coexist with global-pool
+users. Every gallery instance receives a dedicated pool capped at eight
+threads (`classes/base/gallery_base.py:85-100`), while Scan, virtual gallery,
+Extractor and ImageExtractor own additional pools. On the eager classic
+shell, concurrent tabs can therefore multiply CPU/native-decode pressure;
+cache budgeting (§5.7) alone does not bound worker resources.
+
+Keep per-owner cancellation domains, but allocate permits through a shared
+`ResourceBudget`/scheduler (CPU, native-decode, subprocess, GPU) rather than
+independent thread-count guesses. Exit: a static inventory accounts for
+every pool/executor and a stress test asserts configured process-wide
+concurrency without using a shared-pool teardown wait.
+
+### 13.6 Test and roadmap deltas
+
+Add these contracts to §9:
+
+- **1.13 File operations and deletion policy:** typed preferences,
+  `DesktopIntegration`, `FileOperationService`, and policy/result objects.
+  Exit criteria are C-3/C-4's zero-direct-call counts and deletion matrix.
+- **1.14 Import-cost boundary:** leaf imports only for `helpers/` and
+  `tabs/`; CI import-smoke denies optional web/cloud/native/ML packages for
+  unrelated leaf imports.
+- **2.j Preview-window controller:** one owner-aware registry and no
+  tab-local window lists.
+- **2.k Telemetry sampler:** background sampling + facts only in the widget.
+- **3.a Process resource budget:** retain independent cancellation domains
+  while centrally limiting pools, native decodes, subprocesses, and GPU jobs.
+
+Answers to §10:
+
+- **Q-A:** keep `protos/` only through the live D10/D12 gate, then delete it
+  in the same milestone; two editable copies are not a sustainable fallback.
+- **Q-B:** Cursor can take the file-operation/deletion-policy slice after the
+  roadmap is locked; it is disjoint from gallery scheduling if views retain
+  their current state-refresh callbacks.
+- **Q-C:** use `Signal(object)`, but carry a frozen `WorkerFailure`
+  (`exception`, traceback text, task id) rather than a bare exception.
+- **Q-D:** allow dynamic style assembly only in a centralized theming helper;
+  canvas/overlay callers may supply geometry/state, not literal colors.
+- **Q-E:** keep `tabs/<name>/` during migration. Enforce internal
+  view/controller/config boundaries before considering a zero-value rename.
+
+— Cursor, 2026-09-06
