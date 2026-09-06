@@ -7,7 +7,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 REGISTRY_PATH = PROJECT_ROOT / "gui/src/windows/main/_tab_registry.py"
-INVENTORY_PATH = PROJECT_ROOT / "docs/moon/roadmaps/ui_module_inventory_2026q3.md"
+INVENTORY_PATH = PROJECT_ROOT / "docs/moon/roadmaps/gui_refactoring.md"
 
 
 def _registry_routes() -> list[tuple[str, str, str]]:
