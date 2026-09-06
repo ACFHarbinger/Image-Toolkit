@@ -645,10 +645,21 @@ class AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery):
             def on_batch(*args, _chunk=chunk, _gen=gen):
                 for path in _chunk:
                     scheduler.complete(path, _gen)
-                if batch_slot is not None:
-                    batch_slot(*args)
                 start_next()
 
+            # Gui-thread marshalling, split across two connections because a
+            # PySide6 functor connect has no context object (a context-less
+            # functor runs in the emitting worker thread):
+            #   * `batch_slot` mutates gallery widgets, so it is connected as
+            #     a QObject slot, which PySide6 queues onto the GUI thread.
+            #   * `on_batch` (scheduler complete + next-chunk chain) is
+            #     thread-safe (scheduler has its own lock) and stays on the
+            #     worker thread, matching the pre-#543 chain.
+            # Wrapping batch_slot inside the closure would run it off the GUI
+            # thread — the QWidget-off-GUI-thread crash class this repo has
+            # reverted for before (#543 review).
+            if batch_slot is not None:
+                worker.signals.batch_result.connect(batch_slot)
             worker.signals.batch_result.connect(on_batch)
             self._active_workers.add(worker)
             self.thread_pool.start(worker)
