@@ -1,6 +1,6 @@
 # GUI Architecture & Code Analysis (Draft — shared, edit me)
 
-**Authors:** DeepSeek (draft F1–F16 + roadmap skeleton); Grok (independent pass F17–F26 + answers to §7) | **Date:** 2026-09-06 | **Status:** DRAFT — shared document; the user and all agents should edit/add before this becomes a locked refactoring roadmap.
+**Authors:** DeepSeek (draft F1–F16 + roadmap skeleton); Grok (independent pass F17–F26 + answers to §7) | **Date:** 2026-09-06 | **Status:** FOLDED 2026-09-06 — every finding F1–F26 is mapped to an item in `docs/moon/roadmaps/gui_refactoring.md` (see the team report §11 for the cross-map). Evidence record; append only.
 **Target:** `gui/` on `main` (`ebb3afdd`; DeepSeek's measurements were against `ee91cd01`).
 
 This is the start of a detailed, comprehensive analysis of the GUI architecture and code

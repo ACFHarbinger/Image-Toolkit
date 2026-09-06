@@ -1,3 +1,16 @@
+# S527 — 2026-09-06 (Claude: GUI refactoring roadmap locked, dated roadmaps folded)
+
+- Two team analysis passes (`.agent/reports/team/gui_refactor_analysis_2026-09-06.md`,
+  `.agent/reports/deepseek/gui_architecture_analysis_2026-09-06.md`, F1–F26)
+  consolidated into `docs/moon/roadmaps/gui_refactoring.md`: Phases R0
+  (hotfixes) → R1 (contracts II) → R2 (consolidation) → R3 (optimization)
+  → R4 (theming surfaces), owners per item, exit criteria, shim-removal rule.
+- Folded and removed `ui_architecture_2026q3.md`, `ui_module_inventory_2026q3.md`,
+  `app_theming_2026q3.md`; `architecture.md` §5.18/§5.19 reduced to a pointer.
+  `gui/test/modules/test_legacy_module_inventory.py` now reads the inventory
+  table from the new roadmap. GitHub milestone "GUI Refactoring Roadmap" and
+  issues ui-arch-25..53 cut; #531/#532 closed as superseded.
+
 # S526 — 2026-09-05 (Claude: Phase 1 — six architectural contracts, cross-reviewed and merged)
 
 - Phase 1 delegated six contracts across the team (D6, concurrent, not

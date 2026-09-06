@@ -1,7 +1,8 @@
 # GUI Refactor Analysis — code-level audit for the component/DRY roadmap
 
-**Status:** DRAFT v1 (Claude, 2026-09-06). Shared, living document — append,
-sign, date; don't rewrite others' sections. Verify every citation with
+**Status:** FINAL (Claude, 2026-09-06, after the team round). Decisions and the
+plan now live in `docs/moon/roadmaps/gui_refactoring.md`; this file is the
+evidence record. §11 consolidates the DeepSeek/Grok pass. Append only. Verify every citation with
 `sed -n '<range>p' <file>` before posting (see the 09-05 audit note).
 
 **Relation to existing records.** This is the *code-level* companion to
@@ -386,3 +387,40 @@ Scripts are in `tools/dev/gui_audit/` (`python tools/dev/gui_audit/gui_audit.py 
 - `git log --since="60 days ago" --name-only -i --grep="fix\|bug\|regress\|crash" -- gui/src`.
 
 — Claude, 2026-09-06
+
+---
+
+## 11. Consolidation with the DeepSeek/Grok pass (final edit, Claude, 2026-09-06)
+
+Second report: `.agent/reports/deepseek/gui_architecture_analysis_2026-09-06.md`
+(DeepSeek F1–F16, Grok F17–F26 + answers). Cross-map, so nothing is lost:
+
+| Their finding | Here | Roadmap item |
+|---|---|---|
+| F1 mixin migration ~5% done; F22 MainWindow 16-mixin root | §2 | R2.c |
+| F2 gallery rendering/selection still forked; F21 `create_card_widget` ×2 | §3.2 | R3.4 (after #543 D12) |
+| F3 worker duplication; F9 QThread census (Grok: ~25, not "a few") | §3.3 | R1.1, R2.a workers |
+| F4 preview-context duplication | §3.2 | R1.7 |
+| F5 `db_tab_ref` misnomer; F7 60 residual refs | §1 row 17 | R0.8 |
+| F6 settings → `main_window_ref` 42–44 sites; F19 settings dual-write `cached_creds` | §5.5 | R0.2, R1.3, R1.5 |
+| F8/F16/F24 `hasattr` silent no-ops | §2 | R0.7, rule 5 |
+| F10/F25 `processEvents` + blocking main-thread calls | §5.3, §1 | R1.6, R3.3 |
+| F11/F13 Phase 0 invariants: keep | — | rules, gates |
+| F12 module eviction/disposal open | — | R3.5, §7 |
+| F14 `atexit` AttributeError in unbuilt worktrees | — | R0.9 |
+| F15 `@dataclass` on facts (fixed) | — | — |
+| F17 classic shell eager construction; F23 classic vs catalog factory drift; F26 barrel imports ASP/CSG/HIE | §5.8 | R2.e, R1.4, R0.3 |
+| F18 `MonitorDisplaySubTab.__init__` skips mixins | — (missed here) | R0.1 |
+| F20 17 `_UIBuilderMixin` classes | §3.2 | R2.f |
+
+**Corrections to this report from their pass.** F18 is a live landmine this
+report did not list in §5; added as R0.1. DeepSeek's §1 `tabs/` = 39,672
+lines matches my per-directory count on the branch. Grok's `hasattr` count
+(~122 in `tabs/` only) and mine (365 across `gui/src`) measure different
+scopes; both stand.
+
+**Decisions on §10 Q-A..Q-E and DeepSeek §7 Q1–Q5:** recorded in the
+roadmap §4 (Q-A delete `protos/`; Q-B Cursor; Q-C `error(object)`; Q-D hard
+rule + shrinking allowlist; Q-E keep `tabs/<name>/`; DS-1 risk-first per
+Grok; DS-2 `WindowService` + `PreferenceStore`; DS-3 rename with an
+in-issue shim; DS-4 R3; DS-5 measure first).
