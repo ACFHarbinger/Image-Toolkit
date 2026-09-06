@@ -36,8 +36,13 @@ from PySide6.QtCore import (
     QUrl,
     Signal,
 )
-from PySide6.QtGui import QCursor, QDrag, QMouseEvent, QPixmap, QWheelEvent
-from PySide6.QtWidgets import QAbstractItemView, QApplication, QListView
+from PySide6.QtGui import QAction, QActionGroup, QCursor, QDrag, QMouseEvent, QPixmap, QWheelEvent
+from PySide6.QtWidgets import QAbstractItemView, QApplication, QListView, QMenu
+
+from gui.src.components.gallery.presentation_mode import (
+    GalleryOverlayConfig,
+    GalleryPresentationMode,
+)
 
 from .delegate import VirtualGalleryDelegate
 
@@ -92,12 +97,12 @@ class VirtualGalleryView(QListView):
 
         self._gallery_model = model if isinstance(model, VirtualGalleryModel) else None
         if self._gallery_model is not None:
-            self._apply_grid_size()
+            self._apply_presentation_geometry()
 
     def set_thumbnail_size(self, size: int) -> None:
         if self._gallery_model is not None:
             self._gallery_model.set_thumbnail_size(size)
-            self._apply_grid_size()
+            self._apply_presentation_geometry()
 
     def thumbnail_size(self) -> int:
         if self._gallery_model is not None:
@@ -111,6 +116,57 @@ class VirtualGalleryView(QListView):
         # Room around the icon for spacing plus a filename line (§2.14A).
         self.setIconSize(QSize(size, size))
         self.setGridSize(QSize(size + 16, size + 16 + 14))
+
+    def _apply_presentation_geometry(self) -> None:
+        """Reapply the selected mode after model or thumbnail-size changes."""
+        mode = self.presentation_mode
+        delegate = self.itemDelegate()
+        if isinstance(delegate, VirtualGalleryDelegate):
+            delegate.set_masonry_enabled(mode == GalleryPresentationMode.MASONRY)
+        if mode == GalleryPresentationMode.COMPACT_LIST:
+            self.setIconSize(QSize(48, 48))
+            self.setGridSize(QSize())
+        elif mode == GalleryPresentationMode.MASONRY:
+            if self._gallery_model is not None:
+                size = self._gallery_model.thumbnail_size
+                self.setIconSize(QSize(size, size))
+            # QSize() delegates variable row geometry to Qt via sizeHint();
+            # the hint reads only already-resident overlay metadata.
+            self.setGridSize(QSize())
+        else:
+            self._apply_grid_size()
+
+    def set_presentation_mode(self, mode: GalleryPresentationMode) -> None:
+        """Switch between Uniform Grid, Masonry, and Compact List view modes (§2.40)."""
+        self._presentation_mode = mode
+        if mode == GalleryPresentationMode.COMPACT_LIST:
+            self.setViewMode(QListView.ViewMode.ListMode)
+            self.setFlow(QListView.Flow.TopToBottom)
+            self.setWrapping(False)
+            self.setUniformItemSizes(True)
+        elif mode == GalleryPresentationMode.MASONRY:
+            self.setViewMode(QListView.ViewMode.IconMode)
+            self.setFlow(QListView.Flow.LeftToRight)
+            self.setWrapping(True)
+            self.setUniformItemSizes(False)
+        else:  # UNIFORM_GRID
+            self.setViewMode(QListView.ViewMode.IconMode)
+            self.setFlow(QListView.Flow.LeftToRight)
+            self.setWrapping(True)
+            self.setUniformItemSizes(True)
+        self._apply_presentation_geometry()
+        self.viewport().update()
+
+    def set_overlay_config(self, config: GalleryOverlayConfig) -> None:
+        """Configure thumbnail overlay badges on the item delegate."""
+        delegate = self.itemDelegate()
+        if isinstance(delegate, VirtualGalleryDelegate):
+            delegate.set_overlay_config(config)
+            self.viewport().update()
+
+    @property
+    def presentation_mode(self) -> GalleryPresentationMode:
+        return getattr(self, "_presentation_mode", GalleryPresentationMode.UNIFORM_GRID)
 
     # ------------------------------------------------------------------
     # Selection helpers (§2.4)
@@ -232,6 +288,60 @@ class VirtualGalleryView(QListView):
             path = self._gallery_model.path_at(index.row())
             if path is not None:
                 self.path_right_clicked.emit(self.viewport().mapToGlobal(pos), path)
+            return
+        # Empty-space right-click: the view's own presentation controls
+        # (§2.40, #542). Item right-clicks stay delegated to path_right_clicked
+        # so consuming tabs build their own per-item menus (existing
+        # convention) -- this menu is purely the view's own display state,
+        # no tab coupling, and is currently the only way to reach
+        # set_presentation_mode()/set_overlay_config() from the live app.
+        self._show_presentation_menu(self.viewport().mapToGlobal(pos))
+
+    def _show_presentation_menu(self, global_pos: QPoint) -> None:
+        self._build_presentation_menu().exec(global_pos)
+
+    def _build_presentation_menu(self) -> QMenu:
+        """Build (but don't show) the presentation/overlay menu -- split out
+        from _show_presentation_menu so tests can drive its actions without
+        invoking QMenu.exec()'s real event-loop popup."""
+        menu = QMenu(self)
+
+        mode_menu = menu.addMenu("Presentation Mode")
+        mode_group = QActionGroup(mode_menu)
+        mode_group.setExclusive(True)
+        current_mode = self.presentation_mode
+        for mode, label in (
+            (GalleryPresentationMode.UNIFORM_GRID, "Uniform Grid"),
+            (GalleryPresentationMode.MASONRY, "Masonry"),
+            (GalleryPresentationMode.COMPACT_LIST, "Compact List"),
+        ):
+            action = QAction(label, mode_menu, checkable=True)
+            action.setChecked(mode == current_mode)
+            action.triggered.connect(lambda _checked=False, m=mode: self.set_presentation_mode(m))
+            mode_group.addAction(action)
+            mode_menu.addAction(action)
+        menu.addMenu(mode_menu)
+
+        overlay_menu = menu.addMenu("Thumbnail Overlays")
+        delegate = self.itemDelegate()
+        config = getattr(delegate, "overlay_config", None) if isinstance(delegate, VirtualGalleryDelegate) else None
+        if config is not None:
+            for attr, label in (
+                ("show_rating", "Rating Badge"),
+                ("show_resolution", "Resolution"),
+                ("show_format", "Format"),
+                ("show_star_rating", "Star Rating"),
+                ("show_tag_count", "Tag Count"),
+            ):
+                action = QAction(label, overlay_menu, checkable=True)
+                action.setChecked(bool(getattr(config, attr, False)))
+                action.toggled.connect(
+                    lambda checked, a=attr, c=config: (setattr(c, a, checked), self.set_overlay_config(c))
+                )
+                overlay_menu.addAction(action)
+        menu.addMenu(overlay_menu)
+
+        return menu
 
     def _on_double_clicked(self, index: QModelIndex) -> None:
         if self._gallery_model is not None and index.isValid():
