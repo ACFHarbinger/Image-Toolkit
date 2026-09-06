@@ -321,7 +321,10 @@ sharpened exit criteria.
   migrate 15 raw `threading.Thread` sites in `models/` tabs and `library_session.py`
   to `BaseQThreadWorker`; replace unbounded `waitForDone(-1)` in
   `virtual_gallery_model.py:410`, `_scan_loading.py:43`, and
-  `image_extractor_subtab.py:609` with bounded drain timeouts.
+  `image_extractor_subtab.py:609` with bounded drain timeouts. The two
+  constants in `constants/classes.py:7-10` are also `-1`; change them to a
+  genuinely bounded value rather than treating their names as proof of a
+  timeout.
   Exit: 0 raw `threading.Thread` in `gui/src`; 0 `waitForDone(-1)` on GUI thread.
 - **1.13 File operations + deletion policy** (Cursor) — register typed
   `confirm_deletions`/`send_to_trash` preferences; add `DesktopIntegration`
@@ -332,6 +335,12 @@ sharpened exit criteria.
   eager barrels with leaf imports and contracts-only `__init__` files. Exit:
   zero production `from gui.src.helpers import ...`; CI import-smoke proves an
   unrelated leaf import does not load web/cloud/native/ML packages.
+- **1.15 Cross-shell intent delivery + one composition root** (Cursor
+  follow-up) — queue target intents until lazy construction, make targets own
+  typed handlers, and build classic/runtime/QML tabs from one factory map.
+  Exit: Search path handoff works for Merge/Similarity/Scan/Wallpaper on both
+  shells; one module-id-to-constructor definition; zero MainWindow import
+  handlers.
 
 **Phase 2 additions (consolidation):**
 
@@ -734,5 +743,92 @@ Answers to §10:
   canvas/overlay callers may supply geometry/state, not literal colors.
 - **Q-E:** keep `tabs/<name>/` during migration. Enforce internal
   view/controller/config boundaries before considering a zero-value rename.
+
+— Cursor, 2026-09-06
+
+### 13.7 Parallel-audit follow-up: defects that change priority
+
+Four independent read-only passes completed after §13 was committed. The
+following were re-checked on the same tree and should be incorporated before
+the roadmap is locked.
+
+**C-7 — cross-tab path handoff is broken on both shell paths [CRITICAL].**
+Search publishes `ImportPathsIntent` *before* `NavigateIntent` for Scan,
+Merge, Similarity and Wallpaper
+(`search_tab/_tab_communication.py:29-88`). The runtime shell subscribes only
+to navigation (`components/navigation/shell_manager.py:65-68`), so a lazy
+target does not exist to receive the first intent. The production catalog
+also constructs Merge and Similarity through `_tab(...)`, which discards
+`ModuleContext` (`modules/application_catalog.py:90-96,121-130`).
+
+The classic fallback is independently broken: its import handler calls
+`self.merge_tab.display_scan_results(...)`
+(`windows/main/_tab_registry.py:176-183`), but that method exists only in the
+Wallpaper stack, not Merge. Search → Merge therefore raises `AttributeError`;
+Search → Scan/Wallpaper has no legacy handler at all.
+
+Fix before runtime-shell rollout: introduce queued target delivery owned by a
+single navigation/import controller, activate or construct the target, then
+deliver to a typed `PathImportReceiver`. Test all four targets on classic and
+runtime shells, including intent-before-first-mount.
+
+**C-8 — runtime disposal bypasses tab cleanup [HIGH].**
+`WidgetHandle.dispose()` only calls `deleteLater()`
+(`modules/runtime.py:39-53`). Runtime-shell `all_tabs` is empty, so the
+classic MainWindow loop cannot trigger tab `closeEvent` cancellation.
+Activated Extractor, Merge, Wallpaper, Search or training workers can
+therefore outlive a disposed widget. Define a module lifecycle contract:
+`close/cancel → bounded drain → detach subscriptions → deleteLater`, and test
+it with a mounted fake worker. This is more urgent than generic module LRU.
+
+**C-9 — the gallery “timeout” constants are actually unbounded [HIGH].**
+`constants/classes.py:7-10` assigns `-1` to both drain timeout constants.
+Consequently the ostensibly bounded waits in single/two-gallery lifecycle
+code are infinite. This corrects the earlier G-8 wording that cited a
+pre-existing 2000 ms gallery standard. Exit: no `waitForDone(-1)` directly or
+through constants; a hung-worker close test returns within the configured
+deadline and logs the unresolved task.
+
+**Immediate logic/thread hotfix queue (all code paths verified):**
+
+1. `helpers/core/duplicate_scan_worker.py:189-190` runs SIFT
+   `_chunked_compare` twice; the first pass evicts its cache, so the second
+   overwrites valid results with an empty result. Delete the duplicate call
+   and add a known-descriptor regression test.
+2. `search_tab/_search_worker.py:25-57` assigns each new worker to
+   `current_search_worker`, but completion slots do not validate sender
+   identity. Filter paths call `perform_search()` directly
+   (`_tag_filters.py:160`, `_group_filters.py:123`), so stale search A can
+   clear worker B and overwrite B's UI. Cancel previous work and gate every
+   terminal slot by worker/generation.
+3. `cbir_train_tab/_training_worker.py:62-78` calls
+   `_ckpt_path.setText(...)` from a raw Python thread. Emit the path and
+   update the widget in a GUI-thread slot.
+4. Merge and Reverse Search wire `scan_finished` but not `scan_error`
+   (`merge_tab/_scan_input.py:74-80`,
+   `reverse_search_tab.py:285-291`). An invalid/unreadable directory can
+   leave the UI stuck in its scanning state. Connect a shared terminal error
+   handler and test UI reset.
+5. The LoRA QML route starts a non-daemon generation thread
+   (`lora_generate_tab.py:320-321`), unlike its other entry point. The
+   lasting fix is WorkerBase adoption; the immediate guard is bounded
+   cancellation/teardown.
+
+**Additional demonstrated GUI-thread workloads to schedule:**
+
+- Entity Recon decodes with OpenCV and performs click segmentation on the
+  GUI thread (`entity_recon_tab/_source_image.py:28-59`).
+- Crawler duplicate detection walks directories and computes SHA-256/pHash
+  synchronously (`components/dialogs/crawler_selection_dialogs.py:632-755`).
+- Full-size preview/compare windows decode `QPixmap(path)` on the GUI thread;
+  compare retains all input pixmaps rather than only the active pair
+  (`image_preview_window.py:319-327`,
+  `image_compare_window.py:219,509-545`).
+- Virtual gallery fill defaults can enqueue every uncached path and retain
+  full `_loading`/`_failed` sets (`virtual_gallery_model.py:77-97,171-206`).
+
+These extend `DirectoryScanService`, `TaskProgressSession`, virtualized
+models and the shared resource budget already proposed; they do not justify
+new parallel frameworks.
 
 — Cursor, 2026-09-06
