@@ -832,3 +832,266 @@ models and the shared resource budget already proposed; they do not justify
 new parallel frameworks.
 
 — Cursor, 2026-09-06
+
+---
+
+## 14. Codex — 2026-09-06 — independent pass
+
+### 14.0 Scope, evidence and verdict
+
+Read the current bus, this report (Claude, Gemini and Cursor), DeepSeek's
+draft including Grok's additions, and the earlier decision record. Audited
+GUI source identical to `main` at `8a693020`; the starting checkout
+`b71c7eb8` additionally contains Cursor's report updates. #543 remains on
+a separate branch: its pending D12 gate is not evidence about this baseline.
+This pass changes analysis and diagnostic tooling only.
+
+**Verdict:** prioritize ownership and observable behavior before mass
+composition conversion. A worker base, service name or typed event is useful
+only when callers actually share its cancellation, persistence and delivery
+contract. The current code violates those contracts at several boundaries.
+Local rewrites of coherent components are appropriate; neither whole-app
+replacement nor purely mechanical mixin conversion addresses these failures.
+
+Re-ran both supplied audit scripts. Confirmed 25 classes with at least five
+bases, 23 files over 500 lines, 131 functions over 80 lines, and 86 normalized
+duplicate windows for the import-dialog pair. These are triage indicators,
+not defect counts. The duplicate detector strips string contents and counts
+overlapping windows; its example selection (`dup_finder.py:35-44`) can show
+locations belonging to a different pair when a block occurs in several files.
+Do not estimate saved LOC by multiplying window counts by 12, or approve a
+shared abstraction without reading both behaviors.
+
+Added `tools/dev/gui_audit/contract_probes.py`: actual guard/adapter/bridge
+code, fake vault objects, one `QCoreApplication`, no desktop, filesystem writes,
+real credentials, or heavy jobs. All four reported failure-mechanism flags
+were `true`. This establishes the mechanisms below; it does not reproduce
+a native crash or measure production latency/RSS. No full suite or live pass ran.
+
+### 14.1 Composition and component boundaries
+
+**CX-1 — #544 is a migration step, not yet a decoupled-controller template
+[MEDIUM, code-confirmed].** `database_tab/manager.py:64-71` constructs seven
+controllers with the entire tab. `database_tab/_auto_populate.py:19-30`
+accepts `tab: Any`, and `:67-95` directly traverses directories, calls the DB
+and updates progress within the same operation. The inheritance improvement
+is real; the dependency, state and GUI-thread work remain. Disagree with §2's
+claim that *any* move to composition removes type suppressions and `hasattr`.
+It can merely relocate the same implicit host contract.
+
+Target: a tab owns widgets and presentation; a controller accepts a narrow
+view port plus library/task services; a domain operation takes immutable
+inputs and returns typed results. Keep existing tab facades while migrating.
+Exit: the operation can run with fake services and no QWidget; its controller
+does not require arbitrary tab attributes. Prioritize a small DB operation as
+the demonstration before copying #544 across every tab.
+
+**CX-2 — lifecycle must represent pending cleanup [HIGH, confirms C-8/C-9].**
+`modules/runtime.py:49-53` only schedules widget deletion; gallery cancellation
+in `virtual_gallery_model.py:397-411` relies on a full pool drain before
+dropping worker references. `constants/classes.py:7-10` is indeed `-1`.
+Changing these constants to 2000 and continuing deletion after timeout can
+invalidate objects still used by native workers. A timeout detects incomplete
+cleanup; it does not complete it.
+
+Proposed lifecycle: active → cancelling → drained → disposed, with a separate
+timed-out/pending state retaining worker and signal ownership. Invalidate
+deliveries, stop accepting work, cancel cooperatively, await terminal signals
+without blocking the GUI, then release widgets. Uninterruptible work needs a
+longer-lived owner or a process boundary. Apply one contract to window close,
+tray quit, module disposal and account changes. Inactive-module policy must
+distinguish rendering work from user-started jobs that should continue.
+
+### 14.2 DRY and execution contracts
+
+**CX-3 — overlapping GC guards violate their safety guarantee [HIGH,
+mechanism reproduced].** `helpers/gc_safe.py:40-53` snapshots process-global
+GC state independently per invocation. Sequence: A enters (records enabled),
+B enters (records disabled), A exits (enables GC), B is still running.
+The probe exercises that legal overlapping-worker ordering deterministically.
+Both worker bases adopt this guard (`helpers/base.py:115,188`), so requiring
+every worker to inherit them would propagate the defect.
+
+Fix prerequisite for §9 1.7: one synchronized process-level guard coordinator,
+restoring prior state only when the last participant exits. This alone does
+not prove Qt finalization stays on the GUI thread: explicit `gc.collect()` and
+unguarded allocating threads need their own policy. Verify overlapping exits
+in both orders, exceptions and an initially disabled collector. Treat the
+native-crash impact as a risk supported by the guard's own documented rationale,
+not as a crash reproduced by this audit.
+
+**Worker adoption exit criteria need revision.** `BaseQThreadWorker.run()`
+and `BaseQRunnableWorker.run()` delegate successful completion to `_execute()`;
+their terminal signaling and pre-start cancellation differ. A common class
+name does not ensure exactly one terminal outcome. Specify task ID/generation,
+success/failure/cancelled outcome, progress throttling, receiver ownership and
+exception handling first. Retain adapters for QThread, QRunnable and Python
+threads where appropriate; a zero-raw-thread count is not a correctness test.
+
+Confirm the import-dialog/codec/listings clone opportunities in §3. Avoid a
+single generic worker that hides native image/video decode locks, subprocess
+termination or streaming progress behind an untyped callable. Share lifecycle
+and batching policy while keeping those execution strategies explicit.
+
+### 14.3 Styling and state ownership
+
+Confirm theme-token consolidation as a maintenance priority. Prefer linting
+literal semantic colors and unauthorized theme ownership over banning every
+`setStyleSheet` invocation; applying a centrally generated style can be valid.
+Test state changes across dark/light themes, selection, disabled controls and
+native desktop rendering. Keep pixel overlays and image content outside the
+semantic UI-color rule.
+
+**Appearance preview needs a transaction [MEDIUM, code-confirmed design gap].**
+`windows/settings/_appearance.py:467-490` intentionally previews without saving,
+but mutates `MainWindow.cached_creds`. Routing each preview directly through
+ACCOUNT `PreferenceStore.set()` would persist provisional choices. This
+qualifies F19's proposed immediate replacement: use an in-memory preview
+overlay with Apply/Cancel semantics, then commit a validated preference patch
+once. Test Cancel, failed save and another component changing preferences
+while the dialog is open.
+
+### 14.4 Correctness and hotfix candidates
+
+**CX-4 — settings Save can overwrite its own newly saved values [HIGH,
+mechanism reproduced and production sequence traced].**
+`preferences/adapters/vault_adapter.py:30,42` deep-copies the whole credential
+snapshot. Settings writes a fresh full dictionary in
+`windows/settings/_relaunch_settings.py:309`, then calls ACCOUNT setters at
+`:317-319`. These setters persist the adapter's older full snapshot
+(`vault_adapter.py:91-120`), potentially reverting theme, tab configurations
+or other values saved moments earlier. Assigning `cached_creds` at `:326`
+does not refresh the adapter. The fake-vault probe demonstrates an unrelated
+new theme reverted by a subsequent recursive-scan update.
+
+This strengthens F19 from possible desynchronization to a specific lost-update
+path. Scope the fix around one credential writer with atomic patch/batch
+updates, revision handling and coherent snapshots for readers. Test the exact
+Settings save sequence, unrelated field preservation and fresh reads after
+restart. Do not convert 40 fields to 40 independently encrypted whole-vault writes.
+
+**CX-5 — preference persistence failures appear successful [HIGH,
+reproduced].** `vault_adapter.py:119-120` suppresses all persistence exceptions
+after mutating memory. `PreferenceStore.set()` then notifies subscribers
+(`preferences/store.py:205-212`). A failing fake vault returns normally and
+the new in-memory value remains visible. Surface a typed save failure and
+define rollback or explicit dirty/retry behavior; success notifications must
+mean committed state. Test an unavailable vault and a failing encryption/write
+boundary without touching real credentials.
+
+**CX-6 — detaching an event bridge does not cancel queued deliveries
+[MEDIUM, reproduced contract gap].** `qt_event_bridge.py:46-59` unsubscribes
+future publisher callbacks but always delivers already-queued `_incoming`
+events. The probe posts an old result, detaches, then processes the event
+queue and observes the callback. This is not necessarily a bug for consumers
+that want to drain; it becomes unsafe if detach is used as disposal or session
+isolation. Qualifies C-4's worker-disposal proposal: define drain versus discard,
+add receiver/session generation checks, and test reattach as well as detach.
+
+Confirmed by direct code reading: C-7's classic Merge call mismatch and
+import-before-navigation sequence; stale Search terminal slots in
+`search_tab/_search_worker.py:25-73`; duplicate SIFT calls in
+`helpers/core/duplicate_scan_worker.py:189-190`; CBIR's background
+`_ckpt_path.setText` in `_training_worker.py:62-78`. These belong in the first
+correctness tranche. Call the handoff defect HIGH under this repository's
+severity scheme, rather than CRITICAL without schema/security impact.
+
+### 14.5 Performance and resource optimization
+
+**Cache limits must count bytes and all owners.**
+`utils/cache/lru_image_cache.py:25-40,59-65` caps entries, not bytes; even its
+named `LRU_CACHE_CEILING` is not enforced inside construction/resize. Do not
+describe that constant as a universal allocation limit. Account for image
+dimensions, row stride, decoded originals, in-flight results and displayed
+pixmaps as well as cached thumbnails. Avoid double-counting shared image
+storage when interpreting totals. Budget per process with per-owner shares;
+retain bounded viewport lookahead and cancellation domains.
+
+Prioritize GUI-thread decode/inference/DB loops already confirmed in §12/§13
+over renaming modules. A worker refactor also needs bounded completion queues:
+offloading compute while posting one UI update per file can still starve the
+event loop. Batch table/list updates and coalesce progress by task ID.
+
+Validate optimization with staged measurements: import-only; login; first
+module mount; directory load; inactive modules; cancel/close; account switch.
+Record GUI heartbeat delay, RSS high-water and post-drain retained memory,
+active tasks/threads, decode count and pending callbacks. Choose numerical
+budgets after baseline measurements under the resource rule. AST counts and
+historical RSS logs cannot establish a speedup or attribute current startup
+cost to a particular import.
+
+### 14.6 Disagreements, uncertainty and verification
+
+- **F18/G-7 constructor claim is overstated.** MonitorDisplay explicitly
+  enters `WallpaperCommonBase.__init__` (`monitor_display_subtab/manager.py:65`),
+  whose `super().__init__()` exists (`common/wallpaper_common_base/manager.py:96`).
+  It bypasses earlier monitor-specific mixins, not every base initializer.
+  The scanned monitor mixins define no `__init__` today. Cooperative `super`
+  is sensible preventive cleanup; no missing initialization bug was established.
+- **F29 shared wallpaper dictionaries:** confirmed aliasing, but shared mutable
+  GUI-thread state is not itself proof of a data race. An explicit queue owner
+  clarifies mutation; demonstrate cross-thread access or inconsistent consumers
+  before assigning a concurrency defect severity.
+- **F30:** emitting Qt signals from a Python thread is not itself a QWidget
+  violation. Inspect receiver affinity and connection type; the CBIR direct
+  widget write is the concrete violation. Replacing the thread class alone
+  does not repair a context-less callback.
+- **§6 “zero geometry assertions” is incorrect on this baseline.** Examples:
+  `gui/test/components/test_virtual_gallery.py:425` checks `visualRect`, and
+  `gui/test/gallery/test_presentation_mode.py:126` compares size hints. These
+  do not establish native desktop paint correctness, so keep D12 while making
+  the coverage gap precise. A name/grep census cannot prove zero pixel tests.
+- **§9 1.9 vault = secrets only:** this changes the accepted ACCOUNT storage
+  design, not merely its implementation. Solve single-writer lost updates first;
+  discuss privacy/migration/rollback before moving account settings to plaintext.
+- **§13 worker-retention diagnosis:** an Observable/bridge reference cycle is
+  not alone proof of a permanent leak; identify an external root or demonstrate
+  collection failure. Explicit detach/disposal remains worthwhile regardless.
+- **#546:** existing reports contain hypotheses, not a proven paint-time cause.
+  Do not prescribe a player rewrite as the diagnosis; obtain the requested
+  native-size/transform/viewport trace before choosing its repair.
+
+Regression criteria: inverse completion order; cancel immediately before
+delivery; restart with the same path; dispose during blocked work; preview
+then Cancel; failed save; lazy target receiving a command before first mount.
+Use real production adapters/constructors at integration boundaries. A fake
+worker that emits only synchronously cannot verify cross-thread delivery.
+
+### 14.7 Roadmap deltas and answers for consolidation
+
+These amend §9's proposals; they are not authorization to implement the whole
+roadmap. Preserve earlier D1–D20 decisions and the deferred shell-retirement call.
+
+| Order / delta | Deliverable | Exit criterion |
+|---|---|---|
+| 1.16, before broad 1.7 adoption | GC coordination + task terminal contract (CX-3) | Overlapping guard and cancellation/error ordering checks pass; GUI delivery asserted |
+| 1.17, sharpen 1.9 | Atomic account updates + persistence failures (CX-4/5) | Settings cannot revert unrelated values; failures never report committed success |
+| Revise 1.12 and C-8 | Asynchronous lifecycle, retain ownership after timeout | Hung task does not freeze UI or lose its live signal/worker owners |
+| Extend 1.15 | Mount-and-deliver command transaction | Every target acknowledges success/failure; no success toast for dropped paths |
+| Extend 2.e | Bridge disposal/drain semantics (CX-6) | Old session callbacks cannot mutate a new session after reattach |
+| Refine 2.c | Narrow controller/service ports (CX-1) | One behavior tested without a tab object before wider conversion |
+| Refine 2.b/1.9 | Preview/apply/cancel state transaction | Preview is reversible and only Apply persists |
+| Refine 3.a | Byte-aware memory + task/delivery budgets | Measured responsiveness and retained-memory gates across lifecycle stages |
+
+First tranche: fix confirmed lost updates, GC overlap, thread-affinity writes,
+stale search results and duplicate SIFT comparison. Second: delivery and disposal
+contracts. Third: migrate one reusable component at a time using those contracts;
+then optimize with measurements. Validate gallery changes through the existing
+D12 gate. Keep report consolidation separate from issue closure.
+
+**Answers to §10 (Codex):** Q-A: retain quarantine until an explicit inventory
+maps every prototype capability to retained/relanded/discarded status; do not
+change the accepted non-destructive policy from duplication counts alone.
+Q-B: start with import dialogs after a behavior matrix; listings inherit gallery
+behavior, so “disjoint files” does not establish zero gallery risk. Q-C: fix GC
+and terminal semantics first; prefer a bounded immutable failure DTO (code,
+message, task ID, formatted diagnostic) over retaining exception tracebacks and
+their object graphs indefinitely. Q-D: enforce token ownership with documented
+rendering exceptions. Q-E: keep existing `tabs/` paths; require explicit component
+dependencies rather than a broad folder rename.
+
+**Decision still needed:** should account preferences remain encrypted under
+the existing adapter, with transactional writes, or move to a separate store?
+This extends §9 1.9's persistence-policy proposal, not an assumed migration.
+
+— Codex, 2026-09-06
