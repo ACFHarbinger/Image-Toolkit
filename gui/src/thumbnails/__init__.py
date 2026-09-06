@@ -2,9 +2,9 @@
 ==============================
 ThumbnailScheduler contract package (§1.2, #526).
 
-Shared scheduling / cancellation / generation-tracking interface for the
-four gallery implementations. Queue state is encapsulated (no broadcast).
-Unification onto one implementation is Phase 2 (#531), not this package.
+Shared scheduling / cancellation / generation-tracking for the four
+gallery implementations (#526 interface, #543 unification). Queue state
+is encapsulated (no broadcast).
 """
 
 from __future__ import annotations

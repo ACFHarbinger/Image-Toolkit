@@ -153,6 +153,9 @@ class WallpaperCommonBase(
                 return VideoLoaderWorker(path, target_size)
             return ImageLoaderWorker(path, target_size)
 
+        # max_concurrent_loads=1 is the Wallpaper ThumbnailScheduler cap
+        # (#543 / native-decode crash class). VirtualGallery owns the
+        # scheduler; this wrapper only constructs the widget.
         gallery = VirtualGallery(
             self,
             shared_cache=self._initial_pixmap_cache,
