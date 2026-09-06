@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import threading
+from unittest.mock import patch
 
 import pytest
 from gui.src.components.widgets.telemetry_status_bar import (
@@ -140,6 +141,34 @@ class TestTelemetryStatusBar:
         assert "DB: Ready" in bar.db_chip.text()
 
         bar.dispose()
+
+    def test_construction_does_not_sample_synchronously(self, q_app):
+        """Codex-style review finding: _sample_telemetry() does `import
+        torch` + torch.cuda.is_available() (~0.9s cold measured), so
+        calling it synchronously in __init__ would block MainWindow
+        construction by that much for every experimental-shell user.
+        It must be deferred to the next event-loop turn instead.
+        """
+        with patch.object(TelemetryStatusBar, "_sample_telemetry") as mock_sample:
+            bar = TelemetryStatusBar(sample_interval_ms=3000)
+            # Not called yet -- still queued for the next event-loop turn.
+            mock_sample.assert_not_called()
+
+            QCoreApplication.processEvents()
+            mock_sample.assert_called_once()
+
+            bar.dispose()
+
+    def test_dispose_before_initial_sample_does_not_sample(self, q_app):
+        """The deferred first sample must be cancelable: disposing before
+        it fires must not still run it afterward (same #536 dispose-race
+        class)."""
+        with patch.object(TelemetryStatusBar, "_sample_telemetry") as mock_sample:
+            bar = TelemetryStatusBar(sample_interval_ms=3000)
+            bar.dispose()
+            QCoreApplication.processEvents()
+
+            mock_sample.assert_not_called()
 
     def test_layout_toggle_requested_signal(self, q_app):
         bar = TelemetryStatusBar(sample_interval_ms=0)

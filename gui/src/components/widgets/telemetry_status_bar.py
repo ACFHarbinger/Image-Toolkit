@@ -59,12 +59,29 @@ class TelemetryStatusBar(QStatusBar):
         if hub is not None:
             self.bind_event_hub(hub)
 
+        self._disposed = False
+
         # Telemetry update timer
         self._timer = QTimer(self)
         self._timer.timeout.connect(self._sample_telemetry)
         if sample_interval_ms > 0:
             self._timer.start(sample_interval_ms)
-            self._sample_telemetry()
+            # Defer the first sample off the constructor path: _sample_telemetry()
+            # does `import torch` + torch.cuda.is_available(), which measures
+            # ~0.9s cold (import + CUDA context init) -- calling it synchronously
+            # here would block MainWindow.__init__ by that much for every user
+            # with the experimental runtime shell enabled. Same "don't do heavy
+            # work during construction" rule the #536/#538 anti-eager-mounting
+            # contract enforces for module factories.
+            #
+            # A bare QTimer.singleShot(0, ...) isn't retained or cancelable
+            # (the same #536 dispose-race lesson): retain a real timer so
+            # dispose() can stop it, plus guard the callback itself in case
+            # it's already in the event queue when disposal runs.
+            self._initial_sample_timer = QTimer(self)
+            self._initial_sample_timer.setSingleShot(True)
+            self._initial_sample_timer.timeout.connect(self._sample_telemetry)
+            self._initial_sample_timer.start(0)
 
     def bind_event_hub(self, event_hub: EventHub) -> None:
         """Bind status bar to EventHub for typed telemetry fact subscriptions."""
@@ -255,6 +272,8 @@ class TelemetryStatusBar(QStatusBar):
             self.gpu_chip.setText('⚡ VRAM: --')
 
     def _sample_telemetry(self) -> None:
+        if self._disposed:
+            return
         # GPU / Compute
         try:
             import torch
@@ -276,8 +295,11 @@ class TelemetryStatusBar(QStatusBar):
 
     def dispose(self) -> None:
         """Clean up timers and subscriptions on shutdown."""
+        self._disposed = True
         if hasattr(self, '_timer') and self._timer is not None:
             self._timer.stop()
+        if hasattr(self, '_initial_sample_timer') and self._initial_sample_timer is not None:
+            self._initial_sample_timer.stop()
         if hasattr(self, '_coalesce_timer') and self._coalesce_timer is not None:
             self._coalesce_timer.stop()
         if hasattr(self, '_status_reset_timer') and self._status_reset_timer is not None:
