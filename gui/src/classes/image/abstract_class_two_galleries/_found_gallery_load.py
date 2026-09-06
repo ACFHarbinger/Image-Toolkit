@@ -74,6 +74,7 @@ class _FoundGalleryLoadMixin:
                 chunk, self.thumbnail_size
             ),
             batch_slot=self._on_batch_found_loaded,
+            stream_key="found",
         )
 
     def _trigger_video_found_load(self: "AbstractClassTwoGalleriesHostProtocol", path: str):
@@ -161,6 +162,7 @@ class _FoundGalleryLoadMixin:
                 chunk, self.thumbnail_size
             ),
             batch_slot=self._on_batch_found_loaded,
+            stream_key="found",
         )
 
     @Slot(list, list)
