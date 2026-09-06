@@ -153,9 +153,7 @@ class _LifecycleMixin:
         ):
             self.shell_layout_manager.toggle_nav_mode()
             event.accept()
-        elif (
-            event.key() == Qt.Key.Key_I and event.modifiers() == Qt.KeyboardModifier.ControlModifier
-        ) or get_registry().matches(event, "general.toggle_inspector"):
+        elif get_registry().matches(event, "general.toggle_inspector"):
             self._toggle_context_inspector()
             event.accept()
         elif get_registry().matches(event, "general.global_search"):
