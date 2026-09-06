@@ -137,3 +137,50 @@ def test_shell_manager_category_accents_and_prefs(q_app, tmp_path, monkeypatch):
 
     manager.clear_mounted()
     runtime.dispose()
+
+
+def test_shell_manager_accents_apply_through_real_deferred_timer(q_app):
+    """The existing test above calls _apply_initial_category_accents()
+    directly, which never actually exercises the deferred QTimer path
+    (#540's "no blocking work during construction" lesson) -- verify the
+    real event-loop-driven behavior: not applied synchronously in
+    __init__, applied after one event-loop turn, and cancelable if
+    clear_mounted() runs before that turn.
+    """
+    from PySide6.QtCore import QCoreApplication
+
+    store = PreferenceStore()
+    store.set(PrefKeys.CATEGORY_ACCENTS, {"system": "#e0245e"})
+
+    catalog = ModuleCatalog()
+    catalog.register(
+        PageDescriptor(
+            module_id="sys.test",
+            title="System Test",
+            category=ModuleCategory.SYSTEM,
+            factory=lambda ctx: QWidget(),
+        )
+    )
+    context = ModuleContext(
+        event_hub=EventHub(q_app), services=ModuleServices(), preference_store=store
+    )
+    runtime = ModuleRuntime(catalog, context)
+    container = QWidget()
+
+    # Positive path: applies naturally after one event-loop turn.
+    manager = ShellLayoutManager(runtime, container, default_mode=ShellNavMode.RAIL)
+    assert not getattr(manager.rail, "_category_accent_overrides", {})
+    QCoreApplication.processEvents()
+    assert manager.rail._category_accent_overrides.get("system") == "#e0245e"
+    manager.clear_mounted()
+    runtime.dispose()
+
+    # Cancellation path: disposing before the deferred turn runs must
+    # prevent it from firing at all.
+    runtime2 = ModuleRuntime(catalog, context)
+    container2 = QWidget()
+    manager2 = ShellLayoutManager(runtime2, container2, default_mode=ShellNavMode.RAIL)
+    manager2.clear_mounted()
+    QCoreApplication.processEvents()
+    assert not getattr(manager2.rail, "_category_accent_overrides", {})
+    runtime2.dispose()
