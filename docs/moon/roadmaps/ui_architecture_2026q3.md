@@ -1,9 +1,13 @@
 # UI Shell & Module Runtime Architecture (2026 Q3)
 
-**Status:** Locked design; implemented once, crashed, fully reverted;
-**re-land pending** on the Phase 0/1 contracts (2026-09-05, same day as the
-crash). Tracked under milestone "UI Shell & Module Runtime Architecture"
-(#8). Feeds implementation of `docs/moon/roadmaps/gui_ux.md` §2.36-§2.40.
+**Status:** ✅ Re-landed and shipped (2026-09-06). Implemented once,
+crashed, fully reverted, then rebuilt on the Phase 0/1 contracts as
+ui-arch-10 through ui-arch-19 plus the ui-arch-8 parity follow-up
+(#516), each cross-reviewed and, where it touched the crash-adjacent
+gallery/shell-mounting code, verified with a real D12 live-desktop pass
+— not green-tests-alone. Milestone "UI Shell & Module Runtime
+Architecture" (#8) is closed, 18/18 issues, zero open. Feeds
+`docs/moon/roadmaps/gui_ux.md` §2.36-§2.40, all now shipped.
 
 **What actually happened (2026-09-05, all same day):** this design was
 built and merged in full — issues #509-514 (module/route inventory,
@@ -301,7 +305,21 @@ required to be exhaustive up front.
   re-land now depends on. D10 records explicit re-land intent; D11
   records the prototype-quarantine non-destructive intent.
 - `docs/moon/roadmaps/ui_module_inventory_2026q3.md` — the #509 baseline
-  inventory; still factually accurate against the live (reverted-to)
-  `_tab_registry.py`, but its own contract test
-  (`gui/test/modules/test_legacy_module_inventory.py`) was lost in the
-  revert and needs recreating before this document's step 1 restarts.
+  inventory, now describing the pre-re-land legacy state the runtime
+  shell replaced (still live behind the `experimental/runtime_shell`
+  `PreferenceStore` flag, default off — the classic shell stays this
+  document's own baseline until the §6 fallback-retirement question is
+  decided).
+
+## Closing note (2026-09-06)
+
+This document's re-land is complete: ui-arch-10 through ui-arch-19 plus
+the ui-arch-8 parity follow-up (#516) all shipped, cross-reviewed, and
+D12-verified where it mattered. Remaining open items are tracked
+elsewhere, not here: §6's fallback-shell-retirement decision (one
+release vs. permanent preference vs. neither) is still open, now with
+real parity evidence (#516) to decide from; Phase 2 (`ui-arch-21`/#531)
+covers gallery-implementation consolidation onto `ThumbnailScheduler`
+and tab-mixin migration, a separate initiative from this document's own
+scope. See `.agent/reports/team/architecture_deep_dive_2026-09-05.md`
+§7 for Phase 2/3.

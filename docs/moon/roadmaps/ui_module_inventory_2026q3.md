@@ -1,15 +1,19 @@
 # Legacy Module and Route Inventory (2026 Q3)
 
-**Status:** Baseline for #509 (closed, reverted — see
-`docs/moon/roadmaps/ui_architecture_2026q3.md`'s status block for the
-full crash/revert history). This inventory itself is **still factually
-accurate**: the module runtime it was a baseline *for* was reverted back
-to the exact eager-`_tab_registry.py` state this table describes, so
-nothing here needs correcting. What's stale is only the **Contract**
-section below — `gui/test/modules/test_legacy_module_inventory.py` was
-lost in the revert along with everything else `#509` added. Recreate
-that contract test before this inventory is relied on again as a static
-check (e.g. before restarting the re-land's own step 1).
+**Status:** Baseline for #509, now re-landed and shipped (2026-09-06) —
+see `docs/moon/roadmaps/ui_architecture_2026q3.md`'s status block for
+the full crash/revert/re-land history. This table describes the
+**classic shell's** eager `_tab_registry.py` state, which stays live
+and default (the runtime shell mounts behind the `experimental/
+runtime_shell` `PreferenceStore` flag, off by default, until §6's
+fallback-retirement question is decided) — so the table itself remains
+accurate for its stated purpose. `gui/test/modules/
+test_legacy_module_inventory.py` (recreated in the re-land) still
+passes against it. The "Direct-object coupling" sections below describe
+the classic path specifically; the re-landed typed-intent/
+`LibraryDatabaseService` alternative now lives permanently in
+`gui/src/main_backend.py`/`gui/src/modules/library_service.py`, active
+only when the runtime shell is enabled.
 
 ## Construction baseline
 
@@ -63,42 +67,36 @@ routes on the same machine.
 | manga.puppeteering | Manga | Puppeteering | self.manga_puppeteering_tab | page |
 | editor.hybrid | Image Editor | Hybrid Editor | self.hie_editor_tab | page |
 
-## Direct-object coupling baseline and #511 migration
+## Direct-object coupling baseline (classic shell, default path)
 
-Constructor-time dependencies already require a live database widget:
+Constructor-time dependencies require a live database widget:
 `SearchTab(database_tab)`, `ScanMetadataTab(database_tab)`, and
 `WallpaperTab(database_tab)`. After construction, `DatabaseTab` retains direct
 references to Scan, Search, Merge, Similarity, Wallpaper, and Listings;
 `DatabaseTab` and `ListingsTab` retain `main_window_ref` for navigation.
+This is the classic shell's own coupling and is unaffected by the
+runtime shell's parallel path below — it's what Phase 2's tab-mixin
+migration (`ui-arch-21`/#531) will eventually replace outright, once the
+runtime shell (or its successor) is the sole shell.
 
-The #511 migration removes these Database-family widget links. `SearchTab`,
-`ScanMetadataTab`, and `WallpaperTab` now receive `LibraryDatabaseService`
-(database handle + vault session, never a QWidget) at construction. Typed
-navigation/filter/path-import intents replace widget calls; database
-availability and catalog changes are facts. The legacy shell temporarily
-routes navigation intents until `ModuleRuntime` mounts the real catalog.
-Request/reply database operations remain explicit service APIs.
+## Typed-intent alternative (runtime shell path, ui-arch-11/#534, shipped)
+
+`SearchTab`, `ScanMetadataTab`, and `WallpaperTab` also accept an
+optional `(database_service, event_hub)` pair — `LibraryDatabaseService`
+(database handle + vault session, never a `QWidget`) plus typed
+navigation/filter/path-import intents, with database availability and
+catalog changes delivered as facts. `gui/src/main_backend.py` and
+`gui/src/windows/main/_tab_registry.py` (when the runtime shell is
+active) both inject the shared instance; the classic shell's direct
+`database_tab` construction (above) is the fallback when neither is
+supplied, keeping both paths live in the same tab classes rather than
+forking them.
 
 ## Contract
 
 `gui/test/modules/test_legacy_module_inventory.py` statically compares this
 table to the live `all_tabs` dictionary and asserts the documented eager-import
-and direct-reference baseline. A route rename, addition, removal, or coupling
-change must update this inventory deliberately before #510 consumes it.
-
-**Recreated (2026-09-05):** this test file was added by #509, removed in
-full along with the rest of `gui/`'s day-of changes (`7559b1d2`), and has
-now been restored verbatim as step 1 of the re-land — a mechanical
-re-add, not a re-audit, since the table was already confirmed accurate.
-Both assertions pass against current `_tab_registry.py`.
-
-## Direct-object coupling baseline: post-revert status
-
-The "#511 migration" section above describes work that was **also
-reverted** along with the rest of that day's `gui/` changes — `SearchTab`,
-`ScanMetadataTab`, and `WallpaperTab` are back to taking `database_tab`
-(a live `QWidget`) directly, `DatabaseTab`/`ListingsTab` are back to
-holding `main_window_ref`, and there is no `LibraryDatabaseService` or
-typed navigation/filter/path-import intent in the current tree. Read
-that section as design record / what a re-land will do again, not as a
-description of current live behavior.
+and direct-reference baseline for the classic shell. A route rename, addition,
+removal, or coupling change must update this inventory deliberately.
+Recreated verbatim during the re-land after being lost in the `7559b1d2`
+revert; passes against current `_tab_registry.py`.
