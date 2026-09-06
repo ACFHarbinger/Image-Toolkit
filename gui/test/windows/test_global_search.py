@@ -49,6 +49,22 @@ class TestGlobalSearch:
             for _cat, _name, gallery in window._iter_gallery_tabs()
         )
 
+    def test_iter_gallery_tabs_finds_wallpaper_tab_subdisplays(self, q_app):
+        """#545 (architecture deep-dive finding): WallpaperTab's files were
+        silently excluded from global search -- neither the tab itself nor
+        either subtab (system_display/monitor_display) was ever checked,
+        since master_image_paths lives on wallpaper_common_base, one level
+        below the top-level WallpaperTab object all_tabs holds."""
+        window, _vault = self._make_window(q_app)
+        window.wallpaper_tab.system_display.master_image_paths = ["wall1.png", "wall2.png"]
+
+        matched = [
+            gallery
+            for _cat, _name, gallery in window._iter_gallery_tabs()
+            if gallery is window.wallpaper_tab.system_display
+        ]
+        assert matched, "WallpaperTab's system_display should be discoverable by global search"
+
     def test_open_global_search_jumps_to_match(self, q_app):
         window, _vault = self._make_window(q_app)
         window.convert_tab.format_subtab.master_found_files = ["foo.jpg", "bar_target.jpg"]
