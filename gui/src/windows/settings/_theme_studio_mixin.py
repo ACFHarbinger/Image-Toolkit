@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QPushButton,
+    QScrollArea,
     QVBoxLayout,
     QWidget,
 )
@@ -28,8 +29,17 @@ class _ThemeStudioMixin:
     """Builds the Appearance and Themes tab and its apply/export plumbing."""
 
     def _build_theme_studio_tab(self) -> QWidget:
+        # Wrapped in a QScrollArea (regression fix -- this tab is the only
+        # one of the settings window's tabs built without one, unlike the
+        # `create_tab_scroll_area()` helper every sibling tab uses in
+        # settings_window.py. Without it, adding the relocated background
+        # section (see _build_background_section()) pushed this tab's total
+        # content past the available height and Qt compressed everything,
+        # including the ThemeStudioPanel's own Typography row, into
+        # unreadably small widgets).
         tab = QWidget()
-        layout = QVBoxLayout(tab)
+        content = QWidget()
+        layout = QVBoxLayout(content)
         layout.setContentsMargins(15, 15, 15, 15)
         layout.setSpacing(15)
 
@@ -69,6 +79,13 @@ class _ThemeStudioMixin:
         layout.addWidget(qss_group)
 
         layout.addStretch()
+
+        scroll = QScrollArea(tab)
+        scroll.setWidgetResizable(True)
+        scroll.setWidget(content)
+        outer_layout = QVBoxLayout(tab)
+        outer_layout.setContentsMargins(0, 0, 0, 0)
+        outer_layout.addWidget(scroll)
         return tab
 
     def _apply_theme_pack_cb(self, pack: ThemePack) -> None:
