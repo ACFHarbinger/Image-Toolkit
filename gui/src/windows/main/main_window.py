@@ -204,10 +204,23 @@ class MainWindow(
         if hasattr(self, "cloud_compute_button"):
             self.cloud_compute_button.clicked.connect(self.open_cloud_compute_window)
 
-        # §2.10C — non-blocking status bar at the bottom of the main window
-        self._status_bar = QStatusBar()
-        self._status_bar.setSizeGripEnabled(False)
-        self._status_bar.setMaximumHeight(24)
+        # §2.10C / §2.39 — status bar at the bottom of the main window
+        if self._using_runtime_shell:
+            from gui.src.components.widgets.telemetry_status_bar import TelemetryStatusBar
+
+            self._status_bar = TelemetryStatusBar(
+                parent=self,
+                event_hub=self.module_event_hub,
+                context=self.module_context,
+            )
+            if hasattr(self, "shell_layout_manager"):
+                self._status_bar.layout_toggle_requested.connect(
+                    self.shell_layout_manager.toggle_nav_mode
+                )
+        else:
+            self._status_bar = QStatusBar()
+            self._status_bar.setSizeGripEnabled(False)
+            self._status_bar.setMaximumHeight(24)
         vbox.addWidget(self._status_bar)
 
         self.setLayout(vbox)
