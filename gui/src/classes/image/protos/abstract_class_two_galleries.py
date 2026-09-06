@@ -162,6 +162,7 @@ class AbstractClassTwoGalleriesHostProtocol(Protocol):
         batch_slot: Any = None,
         chunk_size: int = 16,
         max_in_flight: int = 4,
+        stream_key: str = "default",
     ) -> None: ...
     def common_show_placeholder(self, layout: Optional[QGridLayout], text: str, columns: int) -> None: ...
 

@@ -50,7 +50,7 @@ class _LifecycleMixin:
     def cancel_loading(self: "AbstractClassSingleGalleryHostProtocol"):
         """Stops all active timers and background workers."""
         # Invalidate any queued (not yet dispatched) load chunks
-        self._thumbnail_scheduler.cancel()
+        self.cancel_thumbnail_schedulers()
         if self._populate_timer.isActive():
             self._populate_timer.stop()
         if self._resize_timer.isActive():

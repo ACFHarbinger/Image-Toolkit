@@ -197,7 +197,49 @@ class TestThumbnailSchedulerUnification:
         assert gallery.thread_pool.started
         worker = gallery.thread_pool.started[0]
         assert list(worker.paths) == paths
-        assert gallery._thumbnail_scheduler.has_pending()
+        assert gallery._thumbnail_scheduler_for("single").has_pending()
+
+    def test_concurrent_streams_keep_factories_and_slots_isolated(self, two_galleries):
+        gallery = two_galleries
+        delivered = []
+
+        def factory(stream):
+            def make_worker(paths):
+                worker = _FakeBatchWorker(paths, 180)
+                worker.stream = stream
+                return worker
+            return make_worker
+
+        gallery.common_start_chunked_load(
+            ["found-1.jpg", "found-2.jpg"],
+            factory("found"),
+            batch_slot=lambda _results, paths: delivered.append(("found", paths)),
+            chunk_size=1,
+            max_in_flight=1,
+            stream_key="found",
+        )
+        gallery.common_start_chunked_load(
+            ["selected-1.jpg", "selected-2.jpg"],
+            factory("selected"),
+            batch_slot=lambda _results, paths: delivered.append(("selected", paths)),
+            chunk_size=1,
+            max_in_flight=1,
+            stream_key="selected",
+        )
+
+        found_first, selected_first = gallery.thread_pool.started
+        assert (found_first.stream, found_first.paths) == ("found", ["found-1.jpg"])
+        assert (selected_first.stream, selected_first.paths) == ("selected", ["selected-1.jpg"])
+
+        found_first.signals.batch_result.emit([], found_first.paths)
+        selected_first.signals.batch_result.emit([], selected_first.paths)
+        found_second, selected_second = gallery.thread_pool.started[2:]
+        assert (found_second.stream, found_second.paths) == ("found", ["found-2.jpg"])
+        assert (selected_second.stream, selected_second.paths) == ("selected", ["selected-2.jpg"])
+        assert delivered == [
+            ("found", ["found-1.jpg"]),
+            ("selected", ["selected-1.jpg"]),
+        ]
 
 
 class TestCacheSizing:

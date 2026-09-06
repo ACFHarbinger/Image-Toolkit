@@ -154,6 +154,7 @@ class AbstractClassSingleGalleryHostProtocol(Protocol):
         batch_slot: Any = None,
         chunk_size: int = 16,
         max_in_flight: int = 4,
+        stream_key: str = "default",
     ) -> None: ...
 
     # Shared helpers (AbstractGalleryBase)

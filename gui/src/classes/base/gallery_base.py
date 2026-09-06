@@ -98,11 +98,16 @@ class AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery):
         self.thread_pool = QThreadPool()
         self.thread_pool.setMaxThreadCount(max(2, min(8, os.cpu_count() or 4)))
         self._active_workers: set = set()
-        # Shared fill-queue / generation / cancel (#543). 64 = 4 in-flight
-        # chunks × 16 paths, matching ``common_start_chunked_load`` defaults.
+        # Keep queues isolated by gallery panel.  Found and selected panels can
+        # load concurrently and need different worker factories/result slots;
+        # sharing one FIFO lets either continuation drain the other's paths.
+        # 64 = 4 in-flight chunks × 16 paths, matching the defaults below.
         self._thumbnail_scheduler: ThumbnailScheduler = DefaultThumbnailScheduler(
             max_in_flight=64
         )
+        self._thumbnail_schedulers: dict[str, ThumbnailScheduler] = {
+            "default": self._thumbnail_scheduler,
+        }
 
         # --- Resize debouncing ------------------------------------------------
         self._resize_timer = QTimer()
@@ -133,6 +138,25 @@ class AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery):
     def _load_generation(self) -> int:
         """Live scheduler generation. Stale chunk deliveries compare against this."""
         return self._thumbnail_scheduler.generation
+
+    def _thumbnail_scheduler_for(self, stream_key: str) -> ThumbnailScheduler:
+        """Return the scheduler owned by one independent gallery load stream."""
+        scheduler = self._thumbnail_schedulers.get(stream_key)
+        if scheduler is not None:
+            return scheduler
+
+        scheduler = DefaultThumbnailScheduler(max_in_flight=64)
+        # A stream can be created after a cancellation; align it with the
+        # generation used by single-image/video workers and result handlers.
+        for _ in range(self._thumbnail_scheduler.generation):
+            scheduler.cancel()
+        self._thumbnail_schedulers[stream_key] = scheduler
+        return scheduler
+
+    def cancel_thumbnail_schedulers(self) -> None:
+        """Invalidate queued continuations for every active gallery stream."""
+        for scheduler in self._thumbnail_schedulers.values():
+            scheduler.cancel()
 
     # =========================================================================
     # Abstract interface
@@ -568,6 +592,7 @@ class AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery):
         batch_slot=None,
         chunk_size: int = 16,
         max_in_flight: int = 4,
+        stream_key: str = "default",
     ) -> None:
         """Dispatch *paths* to workers in sequential chunks.
 
@@ -586,13 +611,13 @@ class AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery):
         worker cleanup; the per-result slots remain wired only for the
         single-shot ImageLoaderWorker/VideoLoaderWorker paths.
 
-        Cancellation: `cancel_loading` implementations call
-        ``_thumbnail_scheduler.cancel()``; queued continuations from an
-        older generation are dropped.
+        Each ``stream_key`` owns a queue, so concurrent found and selected
+        panels cannot dispatch paths with each other's factory or result slot.
+        ``cancel_loading`` invalidates every stream's queued continuations.
         """
         if not paths:
             return
-        scheduler = self._thumbnail_scheduler
+        scheduler = self._thumbnail_scheduler_for(stream_key)
         gen = scheduler.generation
         scheduler.enqueue(paths)
 

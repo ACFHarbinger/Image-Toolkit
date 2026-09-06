@@ -149,6 +149,7 @@ class _SelectedPanelMixin:
             batch_slot=lambda results, paths_arg, w=widgets: self._on_batch_selected_loaded(
                 results, w
             ),
+            stream_key="selected",
         )
 
     def _on_batch_selected_loaded(
