@@ -42,13 +42,22 @@ from backend.src.core import WallpaperManager  # noqa: E402
 from backend.src.core.wallpaper import find_qdbus_binary  # noqa: E402
 from backend.src.utils.display.slideshow_daemon import _is_session_locked  # noqa: E402
 
+
 # Safety net: the native scheduler holds a reference to the Python
 # apply_callback closure between start() and stop(). If the process exits
 # without an explicit stop() (e.g. a caller forgets, or the app is closed
 # some other way), that reference would otherwise be released during C++
 # static destruction *after* the interpreter has finalized -- which
 # crashes (PyThreadState_Get without the GIL). Always stop() on exit.
-atexit.register(lambda: base.run_monitor_slideshow("stop")) # pyrefly: ignore [missing-attribute]
+def _stop_scheduler_at_exit() -> None:
+    # Unbuilt trees have no native scheduler, so resolve at exit time and
+    # skip instead of raising AttributeError into every test log (R0.9).
+    stop = getattr(base, "run_monitor_slideshow", None)
+    if stop is not None:
+        stop("stop")
+
+
+atexit.register(_stop_scheduler_at_exit)
 
 
 def _video_runtime(path: str) -> Optional[float]:
