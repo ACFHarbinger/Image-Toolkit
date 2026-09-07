@@ -120,3 +120,23 @@ class TestStartupLiveness:
         tab._check_daemon_status_on_startup()
         assert tab._daemon_active_monitor_id == "2"
         assert tab.buttons == 1
+
+
+class TestAtexitGuard:
+    def test_missing_scheduler_is_silent(self, monkeypatch):
+        from backend.src.utils.display import monitor_slideshow_daemon as daemon
+
+        calls = []
+        monkeypatch.setattr(daemon, "base", type("B", (), {})())
+        daemon._stop_scheduler_at_exit()
+        assert calls == []
+
+    def test_present_scheduler_receives_stop(self, monkeypatch):
+        from backend.src.utils.display import monitor_slideshow_daemon as daemon
+
+        calls = []
+        monkeypatch.setattr(
+            daemon, "base", type("B", (), {"run_monitor_slideshow": calls.append})()
+        )
+        daemon._stop_scheduler_at_exit()
+        assert calls == ["stop"]
