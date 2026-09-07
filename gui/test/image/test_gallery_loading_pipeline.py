@@ -6,6 +6,7 @@ import pytest
 from PySide6.QtCore import QObject, QRunnable, Signal
 from PySide6.QtGui import QImage
 
+from gui.src.thumbnails import ThumbnailScheduler
 from gui.test.image.test_gallery_classes import ConcreteSingleGallery, ConcreteTwoGalleries
 
 pytestmark = pytest.mark.gui
@@ -127,6 +128,16 @@ class TestSingleSignalRendering:
 
         assert len(calls) == len(paths)
 
+    def test_selected_batch_slot_is_qobject_method_not_lambda(self, two_galleries):
+        """#543: a lambda batch_slot runs on the worker thread."""
+        gallery = two_galleries
+        paths = ["a.jpg", "b.jpg"]
+        widgets = {p: gallery.create_card_widget(p, None, True) for p in paths}
+        gallery._trigger_batch_selected_load(paths, widgets)
+        assert gallery._on_batch_selected_loaded.__self__ is gallery
+        worker = gallery.thread_pool.started[0]
+        worker.signals.batch_result.emit([(p, _img()) for p in paths], paths)
+
 
 class TestDrainGuard:
     def test_second_cancel_in_cycle_skips_drain(self, single_gallery):
@@ -168,6 +179,77 @@ class TestDrainGuard:
         gallery.cancel_loading()
         assert pool.wait_calls == 1
         assert gallery._load_generation == 2
+
+
+class TestThumbnailSchedulerUnification:
+    def test_single_gallery_cancel_uses_shared_scheduler(self, single_gallery):
+        gallery = single_gallery
+        assert isinstance(gallery._thumbnail_scheduler, ThumbnailScheduler)
+        gen0 = gallery._load_generation
+        gallery.cancel_loading()
+        gallery.cancel_loading()
+        assert gallery._load_generation == gen0 + 2
+        assert gallery._thumbnail_scheduler.generation == gallery._load_generation
+
+    def test_two_galleries_cancel_uses_shared_scheduler(self, two_galleries):
+        gallery = two_galleries
+        assert isinstance(gallery._thumbnail_scheduler, ThumbnailScheduler)
+        gen0 = gallery._load_generation
+        gallery.cancel_loading()
+        gallery.cancel_loading()
+        assert gallery._load_generation == gen0 + 2
+        assert gallery._thumbnail_scheduler.generation == gallery._load_generation
+
+    def test_chunked_load_takes_from_scheduler_queue(self, single_gallery):
+        gallery = single_gallery
+        paths = [f"p{i}.jpg" for i in range(8)]
+        gallery._trigger_batch_found_load(paths)
+        assert gallery.thread_pool.started
+        worker = gallery.thread_pool.started[0]
+        assert list(worker.paths) == paths
+        assert gallery._thumbnail_scheduler_for("single").has_pending()
+
+    def test_concurrent_streams_keep_factories_and_slots_isolated(self, two_galleries):
+        gallery = two_galleries
+        delivered = []
+
+        def factory(stream):
+            def make_worker(paths):
+                worker = _FakeBatchWorker(paths, 180)
+                worker.stream = stream
+                return worker
+            return make_worker
+
+        gallery.common_start_chunked_load(
+            ["found-1.jpg", "found-2.jpg"],
+            factory("found"),
+            batch_slot=lambda _results, paths: delivered.append(("found", paths)),
+            chunk_size=1,
+            max_in_flight=1,
+            stream_key="found",
+        )
+        gallery.common_start_chunked_load(
+            ["selected-1.jpg", "selected-2.jpg"],
+            factory("selected"),
+            batch_slot=lambda _results, paths: delivered.append(("selected", paths)),
+            chunk_size=1,
+            max_in_flight=1,
+            stream_key="selected",
+        )
+
+        found_first, selected_first = gallery.thread_pool.started
+        assert (found_first.stream, found_first.paths) == ("found", ["found-1.jpg"])
+        assert (selected_first.stream, selected_first.paths) == ("selected", ["selected-1.jpg"])
+
+        found_first.signals.batch_result.emit([], found_first.paths)
+        selected_first.signals.batch_result.emit([], selected_first.paths)
+        found_second, selected_second = gallery.thread_pool.started[2:]
+        assert (found_second.stream, found_second.paths) == ("found", ["found-2.jpg"])
+        assert (selected_second.stream, selected_second.paths) == ("selected", ["selected-2.jpg"])
+        assert delivered == [
+            ("found", ["found-1.jpg"]),
+            ("selected", ["selected-1.jpg"]),
+        ]
 
 
 class TestCacheSizing:

@@ -116,6 +116,7 @@ class _LoadingPipelineMixin:
                 chunk, self.thumbnail_size
             ),
             batch_slot=self._on_batch_images_loaded,
+            stream_key="single",
         )
 
     def _trigger_video_load(self: "AbstractClassSingleGalleryHostProtocol", path: str):
