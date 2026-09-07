@@ -73,7 +73,7 @@ from .database import (
     database_tab as database_tab,
 )
 from .database import (
-    entity_listings_subtab as entity_listings_subtab,
+    listings_subtab as listings_subtab,
 )
 from .database import (
     listings_tab as listings_tab,
@@ -83,9 +83,6 @@ from .database import (
 )
 from .database import (
     search_tab as search_tab,
-)
-from .database import (
-    series_listings_subtab as series_listings_subtab,
 )
 from .models import (
     ComfyUITab as ComfyUITab,

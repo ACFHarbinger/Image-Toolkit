@@ -11,8 +11,8 @@ from PySide6.QtCore import QEvent, Qt
 from PySide6.QtGui import QKeyEvent
 
 from gui.src.classes import AbstractClassTwoGalleries
-from gui.src.tabs.database.entity_listings_subtab import EntityListingsSubTab
-from gui.src.tabs.database.series_listings_subtab import SeriesListingsSubTab
+from gui.src.tabs.database.listings_subtab import EntityListingsSubTab
+from gui.src.tabs.database.listings_subtab import SeriesListingsSubTab
 
 pytestmark = pytest.mark.gui
 
@@ -104,7 +104,7 @@ class TestSeriesListingsSemanticSearch:
         tab._active_rec_worker = old
         fake_worker = MagicMock()
         monkeypatch.setattr(
-            "gui.src.tabs.database.series_listings_subtab._recommendation.RecommendationWorker",
+            "gui.src.tabs.database.listings_subtab._series_recommendation.RecommendationWorker",
             lambda *args, **kwargs: fake_worker,
         )
         tab._run_recommendation({"prompt": "x"})
