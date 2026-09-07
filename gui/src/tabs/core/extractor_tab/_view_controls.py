@@ -16,9 +16,10 @@ from typing import TYPE_CHECKING, cast
 from PySide6.QtCore import QEvent, QObject, Qt, QUrl, Slot
 from PySide6.QtGui import QKeyEvent, QMouseEvent, QResizeEvent, QWheelEvent
 from PySide6.QtMultimedia import QMediaPlayer
-from PySide6.QtWidgets import QGraphicsView, QLabel, QLineEdit, QMessageBox, QStyle, QWidget
+from PySide6.QtWidgets import QLabel, QLineEdit, QMessageBox, QStyle, QWidget
 
 from ....components import ClickableLabel
+from ._video_view import VideoView
 
 if TYPE_CHECKING:
     from ..protos.extractor_tab import VideoExtractorSubTabHostProtocol
@@ -152,6 +153,7 @@ class _ViewControlsMixin:
 
         return super().eventFilter(watched, event)  # type: ignore[misc]
 
+    @Slot()
     def fit_video_in_view(self: "VideoExtractorSubTabHostProtocol"):
         # Don't force video_item's lazy construction (see the property
         # above) just from a resize event before any video has actually
@@ -160,7 +162,6 @@ class _ViewControlsMixin:
         # trigger this laziness exists to avoid.
         if self._video_item is None:
             return
-        video_view = cast(QGraphicsView, self.video_view)
         # Regression (root-caused to 4d33faeb, "resolve remaining Extractor
         # tab overflow at 800px minimum width"): this used to size the item
         # to the VIEWPORT's raw rect, which forces the item's own aspect
@@ -177,10 +178,13 @@ class _ViewControlsMixin:
         #
         # Fix: size the item to the video's own native aspect ratio (once
         # known -- see video_item's nativeSizeChanged connection) and let
-        # fitInView's KeepAspectRatio scale+letterbox it within whatever
-        # viewport space is actually available, instead of forcing the
-        # item's own shape to match that viewport.
-        native_size = self.video_item.nativeSize()
+        # VideoView.fit_video_item scale+letterbox it within whatever
+        # space its own sizing (aspect-derived fixed height, see
+        # _video_view.py) actually gives it, instead of forcing the
+        # item's own shape to match the viewport.
+        video_view = cast(VideoView, self.video_view)
+        video_item = self._video_item
+        native_size = video_item.nativeSize()
         if not native_size.isEmpty():
             w, h = native_size.width(), native_size.height()
             aspect = (w / h) if h else 0
@@ -198,23 +202,22 @@ class _ViewControlsMixin:
             # than rendering a postage-stamp sliver from data we can't
             # trust.
             if 0.2 <= aspect <= 5.0:
-                self.video_item.setSize(native_size)
-        video_view.fitInView(self.video_item, Qt.AspectRatioMode.KeepAspectRatio)
+                video_item.setSize(native_size)
+        video_view.fit_video_item(video_item)
 
     def toggle_fullscreen(self: "VideoExtractorSubTabHostProtocol"):
         player_container = cast(QWidget, self.player_container)
-        video_view = cast(QWidget, self.video_view)
+        video_view = cast(VideoView, self.video_view)
         if player_container.isFullScreen():
+            video_view.set_fullscreen(False)
             player_container.setWindowFlags(Qt.WindowType.Widget)
             player_container.showNormal()
             self.player_layout_container.addWidget(player_container)
             self.change_resolution(self.combo_resolution.currentIndex())
         else:
+            video_view.set_fullscreen(True)
             player_container.setWindowFlags(Qt.WindowType.Window)
             player_container.showFullScreen()
-            video_view.setFixedSize(16777215, 16777215)  # pyrefly: ignore [missing-attribute]
-            video_view.setMinimumSize(0, 0)  # pyrefly: ignore [missing-attribute]
-            video_view.setMaximumSize(16777215, 16777215)  # pyrefly: ignore [missing-attribute]
             player_container.setFocus()
 
     @Slot(QResizeEvent)
@@ -233,13 +236,12 @@ class _ViewControlsMixin:
             if self.check_player_vertical.isChecked():
                 w, h = h, w
             # -----------------------------------------------------------
-            video_view = cast(QWidget, self.video_view)
+            video_view = cast(VideoView, self.video_view)
             # Keep the user's chosen player resolution as an upper bound.
             # A fixed canvas forces the tab scroll area's content width to
             # 1280--3840px and makes unrelated controls overflow in a normal
             # 800px window.
-            video_view.setMaximumSize(w, h)
-            video_view.updateGeometry()
+            video_view.set_display_size(w, h)
             self.fit_video_in_view()
 
     def is_path_selected(self: "VideoExtractorSubTabHostProtocol", path: str) -> bool:
@@ -286,8 +288,8 @@ class _ViewControlsMixin:
             self.volume_slider.setVisible(True)
 
             self.info_label.setVisible(False)
-            self.media_player.setSource(QUrl.fromLocalFile(self.video_path))
             self.media_player.setVideoOutput(self.video_item)
+            self.media_player.setSource(QUrl.fromLocalFile(self.video_path))
             # QAudioOutput is constructed on demand only (issue #81: its
             # construction aborts the process in this environment). Attach
             # it if the user already has one.

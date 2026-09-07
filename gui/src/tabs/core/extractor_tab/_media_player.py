@@ -49,6 +49,7 @@ from ....helpers.video.video_thumbnailer import (
     mark_media_backend_loaded,
 )
 from ....utils.sort_utils import natural_sort_key
+from ._video_view import VideoView
 
 if TYPE_CHECKING:
     from ..protos.extractor_tab import VideoExtractorSubTabHostProtocol
@@ -108,39 +109,19 @@ class _MediaPlayerMixin:
         self._video_item: Optional[QGraphicsVideoItem] = None
         self.graphics_scene = QGraphicsScene(cast(QObject, self))
 
-        video_view = QGraphicsView(self.graphics_scene)
+        video_view = VideoView(self.graphics_scene)
         self.video_view = video_view
-        # The resolution control is a display-quality cap, not a requirement
-        # for the surrounding scroll area's width. A fixed 1920px canvas made
-        # every directory group above it overflow at the application's 800px
-        # minimum window width. Let the layout shrink the surface while
-        # retaining the selected resolution as its maximum size.
+        # VideoView contains oversized canvases so the other sections keep
+        # fitting the window when the user chooses 1440p or 4K.
         video_view.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred
         )
-        # Regression fix (part 2 -- see the video_row comment below for
-        # part 1): the width fix alone still left the view's HEIGHT at a
-        # near-zero sizeHint (confirmed live: 1280x26). This tab's whole
-        # page lives inside a QScrollArea with setWidgetResizable(True),
-        # which forces the content widget's WIDTH to match the viewport
-        # (letting Expanding widgets claim real extra width) but does NOT
-        # force any extra HEIGHT -- the page is naturally taller than the
-        # viewport and scrolls, so every section, including this one, only
-        # ever gets exactly its own sizeHint height with nothing forcing
-        # it taller, regardless of stretch factors. An explicit minimum
-        # height (well under the 720 cap for every entry in
-        # available_resolutions, so it never exceeds a chosen maximum)
-        # gives it a real floor instead of relying on ancestor-injected
-        # extra space that never arrives. Confirmed empirically in a
-        # QScrollArea-with-many-siblings reproduction before landing this.
-        video_view.setMinimumSize(0, 360)
-        video_view.setMaximumSize(1280, 720)
-        video_view.setHorizontalScrollBarPolicy(
-            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
-        )
-        video_view.setVerticalScrollBarPolicy(
-            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
-        )
+        # VideoView (see _video_view.py) computes its own fixed height from
+        # the selected resolution's aspect ratio at resizeEvent time -- a
+        # more principled fix for the same QScrollArea-gives-no-surplus-
+        # height problem the HEAD-side static setMinimumSize(0, 360) hack
+        # (dropped here) was working around. Re-fit whenever it resizes.
+        video_view.viewport_resized.connect(self.fit_video_in_view)
         video_view.setVisible(True)
 
         # Install event filters on the view AND its viewport for robust wheel capture
@@ -153,23 +134,18 @@ class _MediaPlayerMixin:
         # told Qt's layout to size the widget to its sizeHint() instead of
         # filling the cell -- for a QGraphicsView with an empty/near-empty
         # scene, that sizeHint() is tiny (confirmed empirically: ~70x70
-        # with any non-zero alignment flag, including AlignHCenter alone,
-        # vs. correctly filling up to the 1280x720 cap with none), so the
-        # video frame rendered but squeezed into a postage-stamp view
-        # regardless of the "Player Size" selection.
-        #
-        # Fix: wrap video_view in its own QHBoxLayout with stretches on
-        # both sides so it still centers when the window is wider than
-        # its 1280x720 cap, but give video_view a large stretch factor
-        # (not just an Expanding size policy) relative to the two
-        # side-stretches so it actually claims the available width up to
-        # that cap first -- an equal stretch factor on all three items
-        # would split space evenly instead and reproduce a smaller version
-        # of the same bug (verified empirically before landing this).
+        # with any non-zero alignment flag, including AlignHCenter alone),
+        # so the video frame rendered but squeezed into a postage-stamp
+        # view regardless of the "Player Size" selection. Center the
+        # capped view with sibling stretches instead of an alignment flag,
+        # with a large relative stretch factor on the view itself so it
+        # claims the available width up to VideoView's own cap first
+        # (equal stretch on all three would split space evenly instead and
+        # reproduce a smaller version of the same bug).
         video_row = QHBoxLayout()
-        video_row.addStretch(1)
+        video_row.addStretch()
         video_row.addWidget(video_view, 100)
-        video_row.addStretch(1)
+        video_row.addStretch()
         self.player_inner_layout.addLayout(video_row, 1)
 
         # QMediaPlayer/QAudioOutput are constructed lazily (see the
@@ -379,8 +355,11 @@ class _MediaPlayerMixin:
             # fit_video_in_view() once the real dimensions are known so
             # the item gets sized to the video's own aspect ratio rather
             # than staying at whatever (possibly empty) size it had when
-            # first constructed. See fit_video_in_view()'s own comment
-            # for why this matters.
+            # first constructed. A lambda (rather than connecting the
+            # bound method directly) resolves self.fit_video_in_view at
+            # call time instead of capturing it at connect time, so tests
+            # can still patch.object(video_tab, "fit_video_in_view") after
+            # the item already exists.
             self._video_item.nativeSizeChanged.connect(
                 lambda _size: self.fit_video_in_view()
             )

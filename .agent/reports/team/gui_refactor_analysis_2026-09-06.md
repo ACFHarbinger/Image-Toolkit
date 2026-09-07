@@ -313,6 +313,35 @@ sharpened exit criteria.
 - **1.9 Preferences store split** (sharpens #525) — vault = secrets only;
   preferences/tab-configs in a per-key store; no whole-blob rewrites.
   Exit: `save_data(json.dumps(creds))` sites → 0 outside auth.
+- **1.11 Reusable UI Primitives in `components/`** (Gemini) — extract
+  `PathPickerWidget` (line-edit + browse button + MRU + `apply_patch` safety)
+  and `TabularDataView` / `TabularDataModel` (virtualized `QAbstractTableModel`)
+  to absorb duplicated directory picking and `QTableWidget` allocations across tabs.
+  Exit: 6 `_directory_browse.py` mixins replaced; 0 new `QTableWidget` instances.
+- **1.12 Raw `threading.Thread` Elimination & Unbounded Wait Guard** (Gemini) —
+  migrate 15 raw `threading.Thread` sites in `models/` tabs and `library_session.py`
+  to `BaseQThreadWorker`; replace unbounded `waitForDone(-1)` in
+  `virtual_gallery_model.py:410`, `_scan_loading.py:43`, and
+  `image_extractor_subtab.py:609` with bounded drain timeouts. The two
+  constants in `constants/classes.py:7-10` are also `-1`; change them to a
+  genuinely bounded value rather than treating their names as proof of a
+  timeout.
+  Exit: 0 raw `threading.Thread` in `gui/src`; 0 `waitForDone(-1)` on GUI thread.
+- **1.13 File operations + deletion policy** (Cursor) — register typed
+  `confirm_deletions`/`send_to_trash` preferences; add `DesktopIntegration`
+  and `FileOperationService` with policy/result objects. Exit: zero direct
+  platform-launch branches or filesystem deletion calls in views; one
+  confirm/disposition/domain matrix suite.
+- **1.14 Import-cost boundary** (Cursor) — replace `helpers/` and `tabs/`
+  eager barrels with leaf imports and contracts-only `__init__` files. Exit:
+  zero production `from gui.src.helpers import ...`; CI import-smoke proves an
+  unrelated leaf import does not load web/cloud/native/ML packages.
+- **1.15 Cross-shell intent delivery + one composition root** (Cursor
+  follow-up) — queue target intents until lazy construction, make targets own
+  typed handlers, and build classic/runtime/QML tabs from one factory map.
+  Exit: Search path handoff works for Merge/Similarity/Scan/Wallpaper on both
+  shells; one module-id-to-constructor definition; zero MainWindow import
+  handlers.
 
 **Phase 2 additions (consolidation):**
 
@@ -326,11 +355,29 @@ sharpened exit criteria.
   session recovery and the extractor player (§5.4); closes #546's family.
 - **2.e Error-boundary policy** — replace the 81 silent swallows with logged
   ones; `RuntimeError`-on-deleted-object guards get one shared helper.
+- **2.h Standardized Task Progress & Async DB Operations** (Gemini) — provide
+  a `TaskProgressSession` context manager for long tasks. Move synchronous
+  filesystem traversal and sequential SQL loops (`_auto_populate.py`,
+  `_bulk_import.py`) off the GUI thread to background workers with batch
+  transactions. Exit: 0 multi-second synchronous DB loops on GUI thread.
+- **2.i WallpaperTab State Decoupling** (Gemini) — replace cross-subtab mutable
+  dictionary aliasing (`manager.py:27-34`) with an encapsulated
+  `WallpaperQueueService`. Exit: 0 shared mutable dict references across subtabs.
+- **2.j Preview-window controller** (Cursor) — extend `PreviewContext` with an
+  owner/path-keyed controller. Exit: zero tab-owned preview-window lists and
+  one tested open/focus/close-all lifecycle.
+- **2.k Telemetry sampler** (Cursor) — move Torch/CUDA and DB probes off the
+  GUI timer into one background service publishing facts. Exit: telemetry
+  widgets render facts only; a slow probe cannot stall the GUI heartbeat.
 
 **Phase 3 (optimization) sharpened:**
 
 - one pixmap budget across the 7 caches (§5.7); lazy heavy imports (§5.8);
   `DirectoryScanService` for the ~30 blocking-IO sites (§5.3).
+- **3.a Process resource budget** (Cursor) — preserve per-owner cancellation
+  domains while centrally limiting pools, native decodes, subprocesses and
+  GPU jobs. Exit: every pool/executor appears in a static inventory and a
+  stress test stays within configured process-wide concurrency.
 
 **Target package shape (proposal, for discussion — not a mandate):**
 
@@ -357,16 +404,33 @@ no `gui.src` widgets. #530's linter enforces all three.
 - **Q-A (§5.1):** `protos/` vs `components/` prototype duplication — delete
   the `protos/` copy now that the re-land is live, or keep both until D10's
   re-land is complete?
+  *(Gemini / Antigravity, 2026-09-06):* Keep until #536/D10 is verified and
+  stably active in production, then delete `protos/` copies. History preserves them.
 - **Q-B (§3.1):** who takes the clone collapses? They are disjoint from
   Phase 0/1 crash-class work and can start now without violating D2.
+  *(Gemini / Antigravity, 2026-09-06):* Gemini can take the listings-subtab pair
+  (`entity_listings_subtab/` ↔ `series_listings_subtab/`) and/or the import dialogs
+  (`directory_import_dialog.py` ↔ `entity_directory_import_dialog.py`). Having
+  proved the tab composition template in #544, these are isolated parameterizable
+  widgets with zero overlap with crash-class code.
 - **Q-C (§9, 1.7):** adopt the existing `BaseQThreadWorker` as-is, or
   first fix its `error` signal to carry the exception object (currently
   `str(exc)`) so callers can branch on type?
+  *(Gemini / Antigravity, 2026-09-06):* Strongly recommend fixing first to
+  carry the `Exception` object (`Signal(object)`). String-only errors force
+  callers to do string scraping, lose tracebacks, and cannot be caught by type.
 - **Q-D (§4):** is a hard "no `setStyleSheet` outside theming" rule
   acceptable, or do we need an allowlist for one-off widgets (overlays,
   canvas)?
+  *(Gemini / Antigravity, 2026-09-06):* Needs an allowlist for canvas and dynamic
+  overlays (`canvas_base.py`, `scrub_preview_popup.py`), but static component
+  colors must strictly use theme tokens.
 - **Q-E (§9 target shape):** `features/<name>/` layout vs keeping
   `tabs/<name>/` names — pure naming, but it decides every later import path.
+  *(Gemini / Antigravity, 2026-09-06):* Keep `tabs/<name>/`. Renaming 291 files
+  creates massive rebase friction across ongoing branches (#543, #546, #535)
+  with zero runtime benefit. Adopt the internal structure (`view.py` +
+  `controller.py` + `config.py`) inside each existing tab directory instead.
 
 ---
 
