@@ -19,6 +19,11 @@ set(CMAKE_POLICY_DEFAULT_CMP0167 OLD)
 project(base CXX)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+set(
+    IMAGE_TOOLKIT_PIXI_LIB
+    "${CMAKE_CURRENT_SOURCE_DIR}/../.pixi/envs/default/lib"
+    CACHE PATH "Pixi runtime library directory"
+)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -266,9 +271,9 @@ target_link_libraries(base PRIVATE
 # libraries loaded later by PySide6/Qt. Verify with `readelf -d base.so`
 # — must say RUNPATH, never RPATH.
 target_link_options(base PRIVATE
-    "-Wl,-rpath,${CMAKE_CURRENT_SOURCE_DIR}/../.pixi/envs/default/lib"
+    "-Wl,-rpath,${IMAGE_TOOLKIT_PIXI_LIB}"
     "-Wl,--enable-new-dtags")
-target_link_directories(base PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../.pixi/envs/default/lib)
+target_link_directories(base PRIVATE ${IMAGE_TOOLKIT_PIXI_LIB})
 
 if(CUDA_FOUND)
     target_compile_definitions(base PRIVATE HAVE_CUDA=1)
@@ -289,7 +294,7 @@ endif()
 # Install alongside base.so in the Python root directory
 # ---------------------------------------------------------------------------
 set_target_properties(base PROPERTIES
-    INSTALL_RPATH "${CMAKE_CURRENT_SOURCE_DIR}/../.pixi/envs/default/lib"
+    INSTALL_RPATH "${IMAGE_TOOLKIT_PIXI_LIB}"
 )
 install(TARGETS base DESTINATION .)
 
