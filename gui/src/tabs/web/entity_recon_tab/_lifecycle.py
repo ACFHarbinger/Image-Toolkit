@@ -5,6 +5,9 @@ Extracted from ``entity_recon_tab.py`` -- pure code motion, no logic change.
 
 from __future__ import annotations
 
+import logging
+
+logger = logging.getLogger(__name__)
 
 class _LifecycleMixin:
     """Interrupts/joins any active worker threads on cancel or window close."""
@@ -16,7 +19,7 @@ class _LifecycleMixin:
                 t.quit()
                 t.wait()
             except Exception:  # noqa: BLE001
-                pass
+                logger.debug("Suppressed Exception in _LifecycleMixin.cancel_loading", exc_info=True)
         self._threads.clear()
 
     def closeEvent(self, event):

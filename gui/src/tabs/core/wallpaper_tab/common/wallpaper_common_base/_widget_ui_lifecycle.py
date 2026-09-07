@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import contextlib
 import json
+import logging
 import os
 from typing import TYPE_CHECKING, Optional
 
@@ -16,7 +17,11 @@ from PySide6.QtCore import QThread, QTimer
 from PySide6.QtWidgets import QApplication
 from shiboken6 import Shiboken as sip
 
+from gui.src.qt_object_guard import deleted_qobject_guard
+
 from ......windows import SlideshowQueueWindow
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from ....protos.wallpaper_common_base import WallpaperCommonBaseHostProtocol
@@ -63,7 +68,7 @@ class _WidgetUiLifecycleMixin:
                 self.slideshow_timer.stop()
                 self.slideshow_timer.deleteLater()
             except Exception:
-                pass
+                logger.debug("Suppressed Exception in _WidgetUiLifecycleMixin.closeEvent", exc_info=True)
             self.slideshow_timer = None
 
         if hasattr(self, "countdown_timer") and self.countdown_timer:
@@ -71,7 +76,7 @@ class _WidgetUiLifecycleMixin:
                 self.countdown_timer.stop()
                 self.countdown_timer.deleteLater()
             except Exception:
-                pass
+                logger.debug("Suppressed Exception in _WidgetUiLifecycleMixin.closeEvent", exc_info=True)
             self.countdown_timer = None
 
         if hasattr(self, "_pagination_debounce_timer") and self._pagination_debounce_timer:
@@ -79,7 +84,7 @@ class _WidgetUiLifecycleMixin:
                 self._pagination_debounce_timer.stop()
                 self._pagination_debounce_timer.deleteLater()
             except Exception:
-                pass
+                logger.debug("Suppressed Exception in _WidgetUiLifecycleMixin.closeEvent", exc_info=True)
             self._pagination_debounce_timer = None  # pyrefly: ignore [bad-assignment]
 
         # Cancel the incremental directory iterator and defensively drain any
@@ -90,16 +95,16 @@ class _WidgetUiLifecycleMixin:
             try:
                 if sip.isValid(win):
                     win.close()
-            except RuntimeError:
-                pass
+            except RuntimeError as exc:
+                deleted_qobject_guard(exc, "_WidgetUiLifecycleMixin.closeEvent")
         self.open_queue_windows: list = []
 
         for win in list(self.open_image_preview_windows):
             try:
                 if sip.isValid(win):
                     win.close()
-            except RuntimeError:
-                pass
+            except RuntimeError as exc:
+                deleted_qobject_guard(exc, "_WidgetUiLifecycleMixin.closeEvent")
         self.open_image_preview_windows: list = []
 
         super().closeEvent(event)  # type: ignore[misc,safe-super]

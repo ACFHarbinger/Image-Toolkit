@@ -14,6 +14,8 @@ from PySide6.QtCore import Qt, Slot
 from PySide6.QtGui import QColor, QPainter, QPixmap
 from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
+from gui.src.qt_object_guard import deleted_qobject_guard
+
 if TYPE_CHECKING:
     from ..protos.abstract_class_single_gallery import AbstractClassSingleGalleryHostProtocol
 
@@ -60,8 +62,8 @@ class _CardRenderingMixin:
                     card.setProperty("original_style", None)
                 else:
                     self.update_card_style(card, self.is_path_selected(path))
-            except RuntimeError:
-                pass
+            except RuntimeError as exc:
+                deleted_qobject_guard(exc, "_CardRenderingMixin.update_preview_highlight.reset_card")
 
         reset_card(old_path, self.path_to_card_widget.get(old_path))
         if gallery is not None and hasattr(gallery, "mark_preview"):
@@ -84,8 +86,8 @@ class _CardRenderingMixin:
                 current = card.styleSheet().strip()
                 sep = "" if not current or current.endswith(";") else ";"
                 card.setStyleSheet(f"{current}{sep} border: 4px solid #f39c12;")
-            except RuntimeError:
-                pass
+            except RuntimeError as exc:
+                deleted_qobject_guard(exc, "_CardRenderingMixin.update_preview_highlight.highlight_card")
 
         highlight_card(new_path, self.path_to_card_widget.get(new_path))
         if gallery is not None and hasattr(gallery, "mark_preview"):

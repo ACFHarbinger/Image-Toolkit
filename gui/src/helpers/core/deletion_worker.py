@@ -1,3 +1,4 @@
+import logging
 import os
 from typing import Any, Dict, Union
 
@@ -9,6 +10,7 @@ from send2trash import send2trash  # pyrefly: ignore [untyped-import]
 from gui.src.helpers.core.config_types import DeletionConfig
 from gui.src.helpers.gc_safe import gc_disabled_run
 
+logger = logging.getLogger(__name__)
 
 class DeletionWorker(QThread):
     progress = Signal(int, int)  # (deleted, total)
@@ -138,7 +140,7 @@ class DeletionWorker(QThread):
                         send2trash(file_path)
                         deleted += 1
                     except Exception:
-                        pass
+                        logger.debug("Suppressed Exception in DeletionWorker.run", exc_info=True)
                 else:
                     if FileDeleter.delete_path(file_path):
                         deleted += 1

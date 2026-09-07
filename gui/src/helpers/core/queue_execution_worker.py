@@ -1,4 +1,5 @@
 import contextlib
+import logging
 import multiprocessing
 import os
 import re
@@ -16,6 +17,7 @@ from PySide6.QtCore import QObject, QRunnable, Signal
 from gui.src.helpers.core.config_types import ExtractionConfig
 from gui.src.helpers.gc_safe import gc_disabled_run
 
+logger = logging.getLogger(__name__)
 
 def _extraction_pool_worker_init() -> None:
     """Runs once per parallel-extraction child process.
@@ -287,7 +289,7 @@ def run_extraction_in_process(config: Union[ExtractionConfig, Dict[str, Any]]) -
                         if fps > 0 and frames > 0:
                             t_end = t_start + frames / fps
                 except Exception:
-                    pass  # fall back to t_start + 1 on probe failure
+                    logger.debug("Suppressed Exception in run_extraction_in_process", exc_info=True)
                 finally:
                     if cap is not None:
                         cap.release()
@@ -472,7 +474,7 @@ def run_extraction_in_process(config: Union[ExtractionConfig, Dict[str, Any]]) -
                         original_audio_clip = AudioFileClip(video_path)
                         base_clip.audio = original_audio_clip
                     except Exception:
-                        pass
+                        logger.debug("Suppressed Exception in run_extraction_in_process", exc_info=True)
                     audio_codec = "aac"
 
                 subclipped_base = base_clip.subclip(t_start, t_end)

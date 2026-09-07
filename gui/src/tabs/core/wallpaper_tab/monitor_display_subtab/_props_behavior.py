@@ -12,6 +12,8 @@ from typing import TYPE_CHECKING, cast
 from PySide6.QtCore import QPoint, Qt, QTimer, Slot
 from PySide6.QtWidgets import QInputDialog, QListWidgetItem, QMenu, QWidget
 
+from gui.src.qt_object_guard import deleted_qobject_guard
+
 from ..graph import NodeItem, is_video
 from ..graph.data_schema import NodeData
 
@@ -41,8 +43,8 @@ class _PropsBehaviorMixin:
                 self._props_apply.setVisible(False)
                 self._props_edges_grp.setVisible(False)
                 self._props_node_id = None
-            except RuntimeError:
-                pass
+            except RuntimeError as exc:
+                deleted_qobject_guard(exc, "_PropsBehaviorMixin._on_selection_changed.do_selection_update")
         QTimer.singleShot(0, do_selection_update)
 
     def _show_node_in_props(self: "MonitorDisplaySubTabHostProtocol", nd: NodeData):

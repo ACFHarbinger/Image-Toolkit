@@ -5,12 +5,14 @@ Card creation and styling are promoted to AbstractClassTwoGalleries (§Issue 446
 
 from __future__ import annotations
 
+import logging
 from typing import Dict, List, Optional
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QPixmap
 from PySide6.QtWidgets import QListWidgetItem, QWidget
 
+logger = logging.getLogger(__name__)
 
 class _GalleryCardsMixin:
     """Tag checkbox population and DB-card creation helper for ScanMetadataTab."""
@@ -35,7 +37,7 @@ class _GalleryCardsMixin:
         try:
             return db.get_all_tags_with_categories()
         except Exception:
-            pass
+            logger.debug("Suppressed Exception in _GalleryCardsMixin._get_tags_from_db", exc_info=True)
         return []
 
     def _setup_tag_checkboxes(self):

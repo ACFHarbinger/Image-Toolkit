@@ -6,6 +6,7 @@ change (see ``_ui_builder.py``'s docstring).
 
 from __future__ import annotations
 
+import logging
 import os
 from pathlib import Path
 
@@ -16,6 +17,7 @@ from send2trash import send2trash  # pyrefly: ignore [untyped-import]
 
 from ....windows import ImagePreviewWindow
 
+logger = logging.getLogger(__name__)
 
 class _ContextMenuActionsMixin:
     """Right-click menu, DB/file properties dialog, delete, and preview window."""
@@ -98,7 +100,7 @@ class _ContextMenuActionsMixin:
                 width = pixmap.width()
                 height = pixmap.height()
         except Exception:
-            pass
+            logger.debug("Suppressed Exception in _ContextMenuActionsMixin._view_image_properties", exc_info=True)
         file_info = f"""
         --- **FILE SYSTEM PROPERTIES** ---
         **Filename:** {path.name}

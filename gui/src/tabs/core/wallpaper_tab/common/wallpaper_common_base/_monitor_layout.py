@@ -6,6 +6,7 @@ change (see ``_monitor_selection.py``'s docstring).
 
 from __future__ import annotations
 
+import logging
 import platform
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, Optional, cast
@@ -15,6 +16,8 @@ from PySide6.QtWidgets import QLabel, QMessageBox, QWidget
 from screeninfo import get_monitors
 
 from ......components import MonitorDropView
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from ....protos.wallpaper_common_base import WallpaperCommonBaseHostProtocol
@@ -143,7 +146,7 @@ class _MonitorLayoutMixin:
                     )
                     current_paths = self._get_rotated_map_for_ui(raw_paths)
             except Exception:
-                pass
+                logger.debug("Suppressed Exception in _MonitorLayoutMixin._get_current_system_image_paths_for_all", exc_info=True)
         return current_paths
 
 
