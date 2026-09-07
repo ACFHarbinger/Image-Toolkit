@@ -91,10 +91,7 @@ class _ThemeStudioMixin:
     def _apply_theme_pack_cb(self, pack: ThemePack) -> None:
         """Live-apply a candidate pack via the main window's theme mixin."""
         self.theme_pack = pack
-        if self.main_window_ref is not None and hasattr(
-            self.main_window_ref, "apply_theme_pack"
-        ):
-            self.main_window_ref.apply_theme_pack(pack)
+        self.window_service.apply_theme_pack(pack)
 
     def _export_current_theme(self) -> None:
         dest, _selected = QFileDialog.getSaveFileName(

@@ -27,6 +27,7 @@ from ...constants import NEW_LIMIT_MB
 from ..cloud import CloudComputeWindow
 from ..settings import SettingsWindow
 from ..window_manager import register_window
+from ..window_service import WindowService
 from ._global_search import _GlobalSearchMixin
 from ._header_builder import _HeaderBuilderMixin
 from ._lifecycle import _LifecycleMixin
@@ -81,6 +82,7 @@ class MainWindow(
         # `QWidget#central_widget` selector actually matches something (#449).
         self.setObjectName("central_widget")
         register_window(self, role="main")
+        self.window_service = WindowService(self)
 
         # Store the authenticated vault manager instance
         self.vault_manager = vault_manager
@@ -260,7 +262,7 @@ class MainWindow(
 
     def open_settings_window(self):
         if not self.settings_window:
-            self.settings_window = SettingsWindow(self)
+            self.settings_window = SettingsWindow(window_service=self.window_service)
             self.settings_window.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
             self.settings_window.destroyed.connect(lambda: self._reset_settings_window_ref())
         self.settings_window.show()
