@@ -1,5 +1,11 @@
 # 2026-09-07 — Extractor player geometry (#546)
 
+- Follow-up: Player Size now selects rendered canvas dimensions beyond the
+  window width. Local video scrollbars expose the oversized canvas; 1440p
+  and 4K no longer collapse to the same enlargement as 1080p. Live decode
+  measured distinct sizes across all four choices; regression coverage also
+  verifies that shrinking the window preserves the selected enlargement.
+
 - Player height now follows the selected canvas aspect and available width;
   the previous 360px floor left rendered video unchanged when selecting 1080p.
 - Viewport resize signals refit the video after layout, including fullscreen

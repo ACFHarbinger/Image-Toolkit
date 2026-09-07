@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, cast
 from PySide6.QtCore import QEvent, QObject, Qt, QUrl, Slot
 from PySide6.QtGui import QKeyEvent, QMouseEvent, QResizeEvent, QWheelEvent
 from PySide6.QtMultimedia import QMediaPlayer
-from PySide6.QtWidgets import QGraphicsView, QLabel, QLineEdit, QMessageBox, QStyle, QWidget
+from PySide6.QtWidgets import QLabel, QLineEdit, QMessageBox, QStyle, QWidget
 
 from ....components import ClickableLabel
 from ._video_view import VideoView
@@ -162,13 +162,12 @@ class _ViewControlsMixin:
         # trigger this laziness exists to avoid.
         if self._video_item is None:
             return
-        video_view = cast(QGraphicsView, self.video_view)
+        video_view = cast(VideoView, self.video_view)
         video_item = self._video_item
         native_size = video_item.nativeSize()
         if not native_size.isEmpty():
             video_item.setSize(native_size)
-        video_view.setSceneRect(video_item.sceneBoundingRect())
-        video_view.fitInView(video_item, Qt.AspectRatioMode.KeepAspectRatio)
+        video_view.fit_video_item(video_item)
 
     def toggle_fullscreen(self: "VideoExtractorSubTabHostProtocol"):
         player_container = cast(QWidget, self.player_container)
