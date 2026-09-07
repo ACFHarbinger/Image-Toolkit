@@ -8,10 +8,13 @@ change, to keep the file under the codebase's 500-code-line convention
 
 from __future__ import annotations
 
+import logging
 import subprocess
 from typing import Dict, List, Optional, Tuple
 
 from ..graph.data_schema import GraphData, NodeData
+
+logger = logging.getLogger(__name__)
 
 _VIDEO_DURATION_CACHE: Dict[str, float] = {}
 
@@ -37,7 +40,7 @@ def _get_video_duration(path: str) -> Optional[float]:
             _VIDEO_DURATION_CACHE[path] = dur
             return dur
     except Exception:
-        pass
+        logger.debug("Suppressed Exception in _get_video_duration", exc_info=True)
     try:
         import cv2  # type: ignore
         cap = cv2.VideoCapture(path)
@@ -49,7 +52,7 @@ def _get_video_duration(path: str) -> Optional[float]:
             _VIDEO_DURATION_CACHE[path] = dur
             return dur
     except Exception:
-        pass
+        logger.debug("Suppressed Exception in _get_video_duration", exc_info=True)
     return None
 
 
@@ -88,6 +91,8 @@ def _build_traversal(graph: GraphData) -> List[Tuple[str, float]]:
         return [(nd.file_path, _node_duration(nd))]
 
     from collections import defaultdict
+
+
     adj: Dict[str, List] = defaultdict(list)
     for src in graph.nodes:
         src_edges = sorted(

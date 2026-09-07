@@ -8,6 +8,7 @@ unit-tested without a Qt event loop or real cloud credentials.
 from __future__ import annotations
 
 import gc
+import logging
 import os
 import time
 from dataclasses import dataclass, field
@@ -16,6 +17,8 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from PySide6.QtCore import QThread, Signal
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Security: default exclude patterns for files that must not leave the machine.
@@ -149,7 +152,7 @@ class LocalDirSyncEngine:
                     st = abs_path.stat()
                     result[relpath] = {"mtime": st.st_mtime, "size": st.st_size}
                 except OSError:
-                    pass
+                    logger.debug("Suppressed OSError in LocalDirSyncEngine._local_files", exc_info=True)
         return result
 
     def _resolve_conflict(self, diff: FileDiff) -> str:

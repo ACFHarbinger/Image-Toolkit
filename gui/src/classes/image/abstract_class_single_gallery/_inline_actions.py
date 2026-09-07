@@ -6,11 +6,14 @@ logic change.
 
 from __future__ import annotations
 
+import logging
 import os
 import shutil
 from typing import TYPE_CHECKING, cast
 
 from PySide6.QtWidgets import QFileDialog, QInputDialog, QMessageBox, QWidget
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from ..protos.abstract_class_single_gallery import AbstractClassSingleGalleryHostProtocol
@@ -57,7 +60,7 @@ class _InlineActionsMixin:
                 idx = lst.index(target)
                 lst[idx] = new_path
             except (ValueError, AttributeError):
-                pass
+                logger.debug("Suppressed (ValueError, AttributeError) in _InlineActionsMixin._rename_selected_file", exc_info=True)
 
         widget = getattr(self, "path_to_card_widget", {}).pop(target, None)
         if widget is not None:

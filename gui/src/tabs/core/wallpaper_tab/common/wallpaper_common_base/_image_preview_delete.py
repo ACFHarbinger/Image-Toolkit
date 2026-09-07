@@ -6,6 +6,7 @@ change (see ``_monitor_selection.py``'s docstring).
 
 from __future__ import annotations
 
+import logging
 import os
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
@@ -18,6 +19,8 @@ from send2trash import send2trash  # pyrefly: ignore [untyped-import]
 
 from ......services import PreviewContext, get_preview_service
 from ......utils.sort_utils import natural_sort_key
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from ....protos.wallpaper_common_base import WallpaperCommonBaseHostProtocol
@@ -37,7 +40,7 @@ class _ImagePreviewDeleteMixin:
                     )
                 )
         except Exception:
-            pass
+            logger.debug("Suppressed Exception in _ImagePreviewDeleteMixin._confirm_deletions_enabled", exc_info=True)
         return True
 
     def _confirm_delete(self: "WallpaperCommonBaseHostProtocol", action_name: str, filename: str) -> bool:

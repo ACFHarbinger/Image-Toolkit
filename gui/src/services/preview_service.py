@@ -17,6 +17,8 @@ from backend.src.constants import SUPPORTED_VIDEO_FORMATS
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QMessageBox, QWidget
 
+from gui.src.qt_object_guard import deleted_qobject_guard
+
 
 def launch_external_player(file_path: str, parent: Optional[QWidget] = None) -> bool:
     """Launch the platform external video player for a given file path.
@@ -141,8 +143,8 @@ class PreviewService:
                     win.close()
                     if win in self._open_windows:
                         self._open_windows.remove(win)
-            except (RuntimeError, ReferenceError):
-                pass
+            except (RuntimeError, ReferenceError) as exc:
+                deleted_qobject_guard(exc, "PreviewService.close_preview")
 
     def close_all(self) -> None:
         """Close all tracked preview windows."""
@@ -158,8 +160,8 @@ class PreviewService:
             try:
                 _ = win.windowTitle()
                 valid.append(win)
-            except (RuntimeError, ReferenceError):
-                pass
+            except (RuntimeError, ReferenceError) as exc:
+                deleted_qobject_guard(exc, "PreviewService._prune_dead_windows")
         self._open_windows = valid
 
     @property

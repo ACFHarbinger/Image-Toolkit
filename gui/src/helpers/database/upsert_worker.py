@@ -14,7 +14,7 @@ writes are deferred back to the main thread (see ``ScanMetadataTab``'s
 implicit commit per image — this, not the decode itself, was the dominant
 cost on large batches.
 """
-
+import logging
 from typing import Any, Dict, List
 
 from PySide6.QtCore import QThread, Signal
@@ -22,6 +22,7 @@ from PySide6.QtGui import QImage
 
 from gui.src.helpers.gc_safe import gc_disabled_run
 
+logger = logging.getLogger(__name__)
 
 class UpsertWorker(QThread):
     progress = Signal(int, int)  # (current, total)
@@ -52,7 +53,7 @@ class UpsertWorker(QThread):
                         width = q_img.width()
                         height = q_img.height()
                 except Exception:
-                    pass
+                    logger.debug("Suppressed Exception in UpsertWorker.run", exc_info=True)
                 prepared.append(
                     {
                         "path": path,

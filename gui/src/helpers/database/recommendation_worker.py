@@ -19,7 +19,6 @@ from ...constants import RECOMMENDATION_ENGINE_DIR
 
 logger = logging.getLogger(__name__)
 
-
 def _ensure_re_on_path() -> None:
     """Add CRE/ to sys.path so ``from src.X import Y`` works."""
     path = str(RECOMMENDATION_ENGINE_DIR)
@@ -253,7 +252,7 @@ class RecommendationWorker(QThread):
             if profile_payloads:
                 return HistoryProfile.from_payloads(profile_payloads)
         except Exception:
-            pass  # history boost is best-effort
+            logger.debug("Suppressed Exception in RecommendationWorker._build_history_profile", exc_info=True)
         return None
 
     @gc_disabled_run

@@ -6,6 +6,7 @@ Extracted from ``search_tab.py`` -- pure code motion, no logic change
 
 from __future__ import annotations
 
+import logging
 from typing import Dict, List, Optional
 
 from PySide6.QtCore import Qt, Slot
@@ -14,6 +15,7 @@ from PySide6.QtWidgets import QListWidgetItem
 
 from ....utils.sort_utils import natural_sort_key
 
+logger = logging.getLogger(__name__)
 
 class _TagFiltersMixin:
     """Tag-type checkbox row and the tag list it filters."""
@@ -26,7 +28,7 @@ class _TagFiltersMixin:
             db_tags = db.get_all_tags_with_categories()
             return sorted(db_tags, key=lambda x: natural_sort_key(x["name"]))
         except Exception:
-            pass
+            logger.debug("Suppressed Exception in _TagFiltersMixin._get_tags_from_db", exc_info=True)
         return []
 
     def _get_category_colors(self) -> Dict[str, str]:
