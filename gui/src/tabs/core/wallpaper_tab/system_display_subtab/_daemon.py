@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import contextlib
 import json
+import logging
 import os
 import platform
 import subprocess
@@ -23,6 +24,7 @@ from PySide6.QtWidgets import QMessageBox, QWidget
 
 from .....styles import set_button_role
 
+logger = logging.getLogger(__name__)
 
 def _write_daemon_config_atomic(data: dict) -> None:
     """Write the daemon config atomically.
@@ -87,7 +89,7 @@ class _DaemonMixin:
             if not self.slideshow_group.isVisible():
                 self.slideshow_group.setVisible(True)
         except Exception:
-            pass
+            logger.debug("Suppressed Exception in _DaemonMixin._start_daemon_countdown_if_active", exc_info=True)
 
     def _get_daemon_script_path(self: "SystemDisplaySubTabHostProtocol"):
         script_path = ROOT_DIR / "backend" / "src" / "utils" / "display" / "slideshow_daemon.py"
@@ -160,7 +162,7 @@ class _DaemonMixin:
             data["running"] = False
             _write_daemon_config_atomic(data)
         except Exception:
-            pass
+            logger.debug("Suppressed Exception in _DaemonMixin._reconcile_daemon_liveness_on_startup", exc_info=True)
         return False
 
     def _record_daemon_pid(self, pid: int) -> None:
@@ -168,7 +170,7 @@ class _DaemonMixin:
             PID_PATH.parent.mkdir(parents=True, exist_ok=True)
             PID_PATH.write_text(str(pid))
         except Exception:
-            pass
+            logger.debug("Suppressed Exception in _DaemonMixin._record_daemon_pid", exc_info=True)
 
     def _sync_daemon_config(self: "SystemDisplaySubTabHostProtocol"):
         if not self._is_daemon_running_config():
@@ -188,7 +190,7 @@ class _DaemonMixin:
                             monitor_history[k] = v
                     self.monitor_history = monitor_history
         except Exception:
-            pass
+            logger.debug("Suppressed Exception in _DaemonMixin._sync_daemon_config", exc_info=True)
 
         style_to_use = (
             f"SmartVideoWallpaper::{self.video_style}"
@@ -242,7 +244,7 @@ class _DaemonMixin:
                             monitor_history[k] = v
                     self.monitor_history = monitor_history
         except Exception:
-            pass
+            logger.debug("Suppressed Exception in _DaemonMixin.toggle_daemon", exc_info=True)
 
         style_to_use = (
             f"SmartVideoWallpaper::{self.video_style}"

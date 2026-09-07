@@ -6,7 +6,9 @@ Extracted from ``codec_subtab.py`` -- pure code motion, no logic change.
 from __future__ import annotations
 
 import contextlib
+import logging
 
+logger = logging.getLogger(__name__)
 
 class _LifecycleMixin:
     """Cancels the codec-scan/conversion workers and closes preview windows."""
@@ -29,7 +31,7 @@ class _LifecycleMixin:
                 elif hasattr(self.worker, "cancel"):
                     self.worker.cancel()
             except Exception:
-                pass
+                logger.debug("Suppressed Exception in _LifecycleMixin.cancel_loading", exc_info=True)
 
         for win in list(self.open_preview_windows):
             with contextlib.suppress(Exception):

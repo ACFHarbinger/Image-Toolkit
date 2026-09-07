@@ -1,3 +1,4 @@
+import logging
 import os
 from typing import Optional
 
@@ -8,6 +9,8 @@ from PySide6.QtWidgets import QGraphicsItem, QGraphicsObject
 
 from .....helpers.video.video_thumbnailer import VideoThumbnailer, get_video_thumbnail_cache_path
 from .data_schema import NodeData
+
+logger = logging.getLogger(__name__)
 
 NODE_W = 140
 NODE_H = 115
@@ -56,7 +59,7 @@ class NodeItem(QGraphicsObject):
                 self._pixmap = pm.scaled(120, 72, Qt.AspectRatioMode.KeepAspectRatio,
                                          Qt.TransformationMode.SmoothTransformation)
         except Exception:
-            pass
+            logger.debug("Suppressed Exception in NodeItem._load_thumbnail", exc_info=True)
 
     def refresh_thumbnail(self):
         self._pixmap = None

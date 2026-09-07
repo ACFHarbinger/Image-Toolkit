@@ -1,4 +1,5 @@
 import contextlib
+import logging
 import os
 import subprocess
 import threading
@@ -11,9 +12,11 @@ from PySide6.QtCore import QThread, Signal
 from gui.src.helpers.core.config_types import SamplerConfig
 from gui.src.helpers.gc_safe import gc_disabled_run
 
+logger = logging.getLogger(__name__)
 
 def _get_pil_filter(name: str):
     from PIL import Image
+
 
     return {
         "lanczos": Image.Resampling.LANCZOS,
@@ -225,7 +228,8 @@ class SamplerWorker(QThread):
 
             frames: List[Image.Image] = []
             durations: List[int] = []
-            try:
+            # EOFError ends the frame iteration: expected PIL control flow, not a failure.
+            with contextlib.suppress(EOFError):
                 while True:
                     if self._is_cancelled:
                         return False
@@ -233,8 +237,6 @@ class SamplerWorker(QThread):
                     frames.append(frame.resize((new_w, new_h), filt))
                     durations.append(gif.info.get("duration", 100))
                     gif.seek(gif.tell() + 1)
-            except EOFError:
-                pass
 
             if not frames:
                 return False
@@ -332,5 +334,5 @@ class SamplerWorker(QThread):
                 w_str, h_str = result.stdout.strip().split("x", 1)
                 return int(w_str), int(h_str)
         except Exception:
-            pass
+            logger.debug("Suppressed Exception in SamplerWorker._probe_video_dims", exc_info=True)
         return 1920, 1080

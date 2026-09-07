@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 from typing import Dict, List, Optional, Tuple
 
@@ -13,6 +14,7 @@ from ..window_manager import register_window
 from ._batch_tab import _BatchTab
 from ._image_tab import _ImageTab
 
+logger = logging.getLogger(__name__)
 
 class MetadataEditorWindow(QDialog):
     """Tabbed dialog for editing metadata across selected images before saving."""
@@ -49,7 +51,7 @@ class MetadataEditorWindow(QDialog):
             subgroups = db.get_all_subgroups_detailed() or []
             tags_data = db.get_all_tags_with_categories() or []
         except Exception:
-            pass
+            logger.debug("Suppressed Exception in MetadataEditorWindow.__init__", exc_info=True)
 
         # ---- Build per-image tabs first (batch tab references them) ----
         self._image_tabs: List[_ImageTab] = [

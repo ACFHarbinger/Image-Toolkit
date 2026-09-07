@@ -5,11 +5,13 @@ Extracted from ``monitor_drop_view.py`` -- pure code motion, no logic change.
 
 from __future__ import annotations
 
+import logging
 import os
 from typing import Optional
 
 from PySide6.QtWidgets import QApplication
 
+logger = logging.getLogger(__name__)
 
 class _MonitorInfoMixin:
     """Resolves the real monitor name/resolution (via EDID) and updates labels."""
@@ -26,6 +28,8 @@ class _MonitorInfoMixin:
 
         import glob
         import re
+
+
         port_name = self.monitor.name
         if not isinstance(port_name, str) or not port_name:
             return None
@@ -89,7 +93,7 @@ class _MonitorInfoMixin:
                     if parsed:
                         return parsed
                 except Exception:
-                    pass
+                    logger.debug("Suppressed Exception in _MonitorInfoMixin.get_real_monitor_name", exc_info=True)
 
         # Try normalized matching (e.g. HDMI-1 -> HDMI-A-1)
         m = re.match(r'([a-zA-Z]+)-?(\d+)', port_name)
@@ -107,7 +111,7 @@ class _MonitorInfoMixin:
                             if parsed:
                                 return parsed
                         except Exception:
-                            pass
+                            logger.debug("Suppressed Exception in _MonitorInfoMixin.get_real_monitor_name", exc_info=True)
         return None
 
     def get_resolved_dimensions(self) -> tuple[float | int, float | int]:
@@ -209,7 +213,7 @@ class _MonitorInfoMixin:
                         edid = f.read()
                     return parse_resolution(edid)
                 except Exception:
-                    pass
+                    logger.debug("Suppressed Exception in _MonitorInfoMixin.get_real_monitor_resolution.read_resolution", exc_info=True)
             return None
 
         # Try exact match first

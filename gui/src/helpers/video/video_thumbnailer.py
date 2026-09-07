@@ -1,5 +1,6 @@
 import contextlib
 import hashlib
+import logging
 import os
 import shutil
 import subprocess
@@ -13,6 +14,7 @@ from backend.src.core import telemetry
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QImage
 
+logger = logging.getLogger(__name__)
 
 def _decode_span(tool: str, video_path: str):
     """telemetry.span() around a QImage decode -- this is the suspected
@@ -147,7 +149,7 @@ class VideoThumbnailer:
                         return self._crop_to_square(img, size)
                     return img
             except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
-                pass  # Fallback
+                logger.debug("Suppressed (subprocess.CalledProcessError, subprocess.TimeoutExpired) in VideoThumbnailer.generate", exc_info=True)
 
         # Strategy 2: FFmpeg (Optimized input seeking)
         if self.has_ffmpeg:
@@ -201,6 +203,6 @@ class VideoThumbnailer:
                             return self._crop_to_square(img, size)
                         return img
                 except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
-                    pass
+                    logger.debug("Suppressed (subprocess.CalledProcessError, subprocess.TimeoutExpired) in VideoThumbnailer.generate", exc_info=True)
 
         return None

@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import math
 import os
 import subprocess
@@ -55,6 +56,7 @@ from gui.src.constants.helpers import (
 from gui.src.helpers.gc_safe import gc_disabled_run
 from gui.src.helpers.video.video_thumbnailer import media_backend_spawn_guard
 
+logger = logging.getLogger(__name__)
 
 def probe_duration_ms(video_path: str) -> int:
     try:
@@ -84,7 +86,7 @@ def probe_duration_ms(video_path: str) -> int:
         if result.returncode == 0 and result.stdout.strip():
             return int(float(result.stdout.strip()) * 1000)
     except (OSError, subprocess.TimeoutExpired, ValueError):
-        pass
+        logger.debug("Suppressed (OSError, subprocess.TimeoutExpired, ValueError) in probe_duration_ms", exc_info=True)
     return 0
 
 

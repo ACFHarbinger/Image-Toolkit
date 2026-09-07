@@ -8,6 +8,7 @@ Supports comparing 2 or more images with:
 
 from __future__ import annotations
 
+import logging
 import os
 from typing import List
 
@@ -38,6 +39,7 @@ from PySide6.QtWidgets import (
 
 from .window_manager import register_window
 
+logger = logging.getLogger(__name__)
 
 class SynchronizedImagePane(QWidget):
     """Single image pane with zoom, pan, and coordinate synchronization signals."""
@@ -536,7 +538,7 @@ class ImageCompareWindow(QDialog):
                 rgb[:, :, :3] = np.clip(rgb[:, :, :3].astype(np.float32) * self._diff_multiplier, 0, 255).astype(np.uint8)
                 diff_pixmap = QPixmap.fromImage(img)
             except Exception:
-                pass
+                logger.debug("Suppressed Exception in ImageCompareWindow._render_difference", exc_info=True)
 
         new_w = max(1, int(diff_pixmap.width() * self.current_zoom_factor))
         new_h = max(1, int(diff_pixmap.height() * self.current_zoom_factor))

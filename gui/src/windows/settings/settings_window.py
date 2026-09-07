@@ -8,6 +8,7 @@ construction into the seven-tab layout.
 
 from __future__ import annotations
 
+import logging
 import os
 
 from PySide6.QtCore import Qt
@@ -46,6 +47,7 @@ from ._tab_config_management import _TabConfigMixin
 from ._theme_studio_mixin import _ThemeStudioMixin
 from .app_settings import AppSettings
 
+logger = logging.getLogger(__name__)
 
 class SettingsWindow(
     _ProfileManagementMixin,
@@ -95,7 +97,7 @@ class SettingsWindow(
                 self.system_profiles = creds.get("system_preference_profiles", {})
                 self.preferences = creds.get("preferences", {})
             except Exception:
-                pass
+                logger.debug("Suppressed Exception in SettingsWindow.__init__", exc_info=True)
 
         # Unpack preference values with defaults
         _p = self.preferences

@@ -11,12 +11,15 @@ dialogs pointing to INSTALL.md rather than raw stack traces.
 from __future__ import annotations
 
 import json
+import logging
 import os
 from pathlib import Path
 from typing import Any, Dict, NamedTuple, Optional
 
 from backend.src.constants import ROOT_DIR
 from PySide6.QtWidgets import QMessageBox, QWidget
+
+logger = logging.getLogger(__name__)
 
 ENV_FILE = Path(ROOT_DIR) / "env" / "vars.env"
 
@@ -67,7 +70,7 @@ def _load_postgres_config(vault_manager: Any = None) -> Dict[str, str]:
                     if k.startswith("DB_") or k.startswith("POSTGRES_") or k == "DATABASE_URL":
                         env[k] = v
         except OSError:
-            pass
+            logger.debug("Suppressed OSError in _load_postgres_config", exc_info=True)
 
     # Environment variables override the file.
     if os.environ.get("POSTGRES_DB"):
@@ -100,6 +103,7 @@ def save_postgres_config(
         raise ValueError("Unlock an account before saving PostgreSQL settings.")
 
     from gui.src.windows.settings.app_settings import AppSettings
+
 
     safe_config = {
         field: str(config.get(field, ""))
