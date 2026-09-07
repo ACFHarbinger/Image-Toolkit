@@ -60,7 +60,8 @@ class DefaultThumbnailScheduler:
     ) -> None:
         ordered = order_visible_first(paths, visible)
         with self._lock:
-            pending = self._queued | self._inflight
+            pending = set(self._queued)
+            pending.update(path for _gen, path in self._inflight)
             for path in ordered:
                 if path in pending:
                     continue

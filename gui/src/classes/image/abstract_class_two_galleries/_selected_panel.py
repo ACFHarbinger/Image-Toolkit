@@ -11,7 +11,7 @@ import weakref
 from typing import TYPE_CHECKING, Dict, List, Optional
 
 from backend.src.constants import SUPPORTED_VIDEO_FORMATS
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Slot
 from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtWidgets import QWidget
 from shiboken6 import Shiboken
@@ -143,18 +143,21 @@ class _SelectedPanelMixin:
     def _trigger_batch_selected_load(
         self: "AbstractClassTwoGalleriesHostProtocol", paths: List[str], widgets: Dict[str, QWidget]
     ):
+        self._selected_batch_widgets = widgets
         self.common_start_chunked_load(
             paths,
             worker_factory=lambda chunk: BatchImageLoaderWorker(
                 chunk, self.thumbnail_size
             ),
-            batch_slot=lambda results, paths_arg, w=widgets: self._on_batch_selected_loaded(
-                results, w
-            ),
+            # Bound QObject slot so PySide6 queues onto the GUI thread.
+            # A lambda here would run in the worker thread (#543).
+            batch_slot=self._on_batch_selected_loaded,
+            stream_key="selected",
         )
 
+    @Slot(list, list)
     def _on_batch_selected_loaded(
-        self: "AbstractClassTwoGalleriesHostProtocol", results: List[tuple], widgets: Dict[str, QWidget]
+        self: "AbstractClassTwoGalleriesHostProtocol", results: List[tuple], requested_paths: List[str]
     ):
         # self may already be a dead QObject by the time this queued
         # (cross-thread) signal is delivered (e.g. mid-teardown) --
@@ -187,7 +190,9 @@ class _SelectedPanelMixin:
                     cache_path = self._get_disk_cache_path(path)
                     if not os.path.exists(cache_path):
                         image.save(cache_path, b"JPG")
-            widget = widgets.get(path)
+            widget = self.selected_card_map.get(path) or getattr(
+                self, "_selected_batch_widgets", {}
+            ).get(path)
             if widget:
                 try:
                     display_pixmap = (
