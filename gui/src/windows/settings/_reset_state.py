@@ -309,15 +309,8 @@ class _ResetStateMixin:
                 )
 
             # Immediately notify tabs to reload / clear history
-            if self.main_window_ref:
-                for cat_tabs in self.main_window_ref.all_tabs.values():
-                    for tab in cat_tabs.values():
-                        if hasattr(tab, "_load_extraction_history") and callable(tab._load_extraction_history):
-                            tab._load_extraction_history()
-                        if hasattr(tab, "_update_recent_extractions_ui") and callable(
-                            tab._update_recent_extractions_ui
-                        ):
-                            tab._update_recent_extractions_ui()
+            if self.window_service.available:
+                self.window_service.reload_extraction_history()
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to reset extraction history:\n{e}")
 
