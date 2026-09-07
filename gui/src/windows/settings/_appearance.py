@@ -448,22 +448,28 @@ class _AppearanceMixin:
             return
         self.pref_app_zoom += 10
         self._zoom_label.setText(self._zoom_label_text())
-        self._preview_appearance()
+        zoom = self.window_service.zoom_in()
+        if zoom is not None:
+            self.pref_app_zoom = zoom
+            self._zoom_label.setText(self._zoom_label_text())
 
     def _zoom_out(self) -> None:
         if self.pref_app_zoom <= -50:
             return
         self.pref_app_zoom -= 10
         self._zoom_label.setText(self._zoom_label_text())
-        self._preview_appearance()
+        zoom = self.window_service.zoom_out()
+        if zoom is not None:
+            self.pref_app_zoom = zoom
+            self._zoom_label.setText(self._zoom_label_text())
 
     def _preview_appearance(self) -> None:
         """Apply current theme, color palette, background, and glassmorphism live without saving."""
-        if not self.main_window_ref:
+        if not self.window_service.available:
             return
 
         selected_theme = "dark" if self.dark_theme_radio.isChecked() else "light"
-        prefs = dict(self.preferences)
+        prefs = self.window_service.preferences()
 
         prefs["accent_color_dark"] = self._current_colors.get("accent", self.pref_accent_dark)
         prefs["accent_color_light"] = self._current_colors.get("accent", self.pref_accent_light)
@@ -479,8 +485,7 @@ class _AppearanceMixin:
         BackgroundCanvasController.instance().set_config(bg_cfg)
 
         # Trigger theme reload
-        self.main_window_ref.set_application_theme(selected_theme, preferences=prefs)
-        self.main_window_ref.update()
+        self.window_service.preview_appearance(selected_theme, prefs)
 
 
 __all__ = ["_AppearanceMixin"]

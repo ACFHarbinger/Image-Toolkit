@@ -1,3 +1,15 @@
+# S534 — 2026-09-07 (Codex: R1.3 #558 / ui-arch-36 WindowService)
+
+- Added `WindowService`, the narrow application-window interface consumed by
+  Settings. Settings no longer keeps or inspects `MainWindow`; geometry,
+  zoom, theme preview/application, restart, tab refresh, and account-cache
+  replacement now cross that service boundary. Focused service-contract tests
+  cover the settings-facing behaviors.
+- `update_settings()` routes the new credentials snapshot through
+  `_refresh_account_credentials()` (#548) rather than writing `cached_creds`
+  directly, reconciled during this merge so #558 doesn't reintroduce the
+  stale-adapter race #548 just fixed.
+
 # S533 — 2026-09-07 (Codex: settings account-preference ownership, #548)
 
 - Settings now commits its account preference snapshot before refreshing the

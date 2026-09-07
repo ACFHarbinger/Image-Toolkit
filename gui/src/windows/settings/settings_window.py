@@ -35,6 +35,7 @@ from PySide6.QtWidgets import (
 )
 
 from ..window_manager import register_window
+from ..window_service import WindowService
 from ._appearance import _AppearanceMixin
 from ._credentials import _CredentialsMixin
 from ._misc_sections import _MiscSectionsMixin
@@ -66,9 +67,8 @@ class SettingsWindow(
     A standalone widget for the application settings, displayed as a modal window.
     """
 
-    def __init__(self, parent=None):
-        # Store a reference to the main window to call theme switching
-        self.main_window_ref = parent
+    def __init__(self, parent=None, *, window_service: WindowService | None = None):
+        self.window_service = window_service or WindowService(parent)
 
         super().__init__(None, Qt.WindowType.Window)
         register_window(self)
@@ -76,8 +76,7 @@ class SettingsWindow(
         self.setWindowTitle("Application Settings")
         self.setMinimumSize(800, 600)  # Increased height slightly
 
-        # Reference to the Vault Manager from MainWindow
-        self.vault_manager = self.main_window_ref.vault_manager if self.main_window_ref else None
+        self.vault_manager = self.window_service.vault_manager
 
         # Load initial credentials and settings
         self.current_account_name = "N/A"

@@ -195,9 +195,9 @@ class _RelaunchSettingsMixin:
         )
 
         if reply == QMessageBox.StandardButton.Yes:
-            if self.main_window_ref and hasattr(self.main_window_ref, "restart_application"):
+            if self.window_service.restart_application():
                 # Assuming restart_application handles closing the current instance and starting a new one
-                self.main_window_ref.restart_application()
+                return
             else:
                 # Fallback solution: close current app and advise user to restart
                 QMessageBox.critical(
@@ -235,8 +235,7 @@ class _RelaunchSettingsMixin:
             try:
                 self.vault_manager.update_account_password(self.current_account_name, new_password)
 
-                if self.main_window_ref:
-                    self.main_window_ref.update_header()
+                self.window_service.update_header()
 
                 QMessageBox.information(
                     self,
@@ -318,26 +317,23 @@ class _RelaunchSettingsMixin:
                 # Close-to-tray is device-owned: guest vault data is volatile
                 # and account vaults must not override this window behaviour.
                 AppSettings.set_minimize_to_tray(self.minimize_to_tray_check.isChecked())
-                from gui.src.preferences import PreferenceStore
 
-                PreferenceStore.instance().attach_vault_credentials(
-                    user_data, self.vault_manager, self.current_account_name
-                )
-                if self.main_window_ref:
-                    old_active_configs = (
-                        dict(self.main_window_ref.cached_creds.get("active_tab_configs", {}))
-                        if getattr(self.main_window_ref, "cached_creds", None)
-                        else {}
+                # These remaining values are account-scoped.
+                if getattr(self.vault_manager, "is_guest", False) is not True:
+                    AppSettings.set_recursive_scan(self.recursive_scan_check.isChecked())
+                    AppSettings.set_favourite_directories(user_data["preferences"]["favourite_directories"])  # pyrefly: ignore [bad-argument-type]
+                    AppSettings.set_mal_fetch_method(self.mal_fetch_method_combo.currentData())
+                if self.window_service.available:
+                    # update_settings() installs the new snapshot through
+                    # _refresh_account_credentials() (attach_vault_credentials()
+                    # + cached_creds in one step, #548), then applies
+                    # minimize-to-tray/theme/startup-prefs/active-tab-configs
+                    # -- see window_service.py.
+                    self.window_service.update_settings(
+                        user_data,
+                        minimize_to_tray=self.minimize_to_tray_check.isChecked(),
+                        theme=selected_theme,
                     )
-                    self.main_window_ref._refresh_account_credentials(user_data)
-                    if hasattr(self.main_window_ref, "set_minimize_to_tray"):
-                        self.main_window_ref.set_minimize_to_tray(self.minimize_to_tray_check.isChecked())
-                    if selected_theme:
-                        self.main_window_ref.set_application_theme(selected_theme)
-                    if hasattr(self.main_window_ref, "_apply_startup_preferences"):
-                        self.main_window_ref._apply_startup_preferences()
-                    if hasattr(self.main_window_ref, "_apply_active_tab_configs"):
-                        self.main_window_ref._apply_active_tab_configs(previous_configs=old_active_configs)
                     QMessageBox.information(self, "Success", "Settings updated and saved successfully.")
 
 

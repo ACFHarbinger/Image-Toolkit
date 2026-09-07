@@ -9,6 +9,7 @@ from unittest.mock import MagicMock
 import pytest
 from gui.src.preferences import PreferenceStore, PrefKeys
 from gui.src.windows.settings.settings_window import SettingsWindow
+from gui.src.windows.window_service import WindowService
 
 pytestmark = pytest.mark.gui
 
@@ -32,6 +33,33 @@ class _GuestVault:
         self.data = json.loads(text)
 
 
+class _FakeMainWindow:
+    """Mirrors MainWindow's _refresh_account_credentials() contract (#548)
+    without the rest of MainWindow -- WindowService only needs this much."""
+
+    def __init__(self, vault_manager) -> None:
+        self.vault_manager = vault_manager
+        self.cached_creds: dict = {}
+
+    def _refresh_account_credentials(self, credentials: dict) -> None:
+        self.cached_creds = credentials
+        PreferenceStore.instance().attach_vault_credentials(
+            credentials, self.vault_manager, credentials.get("account_name", "Guest")
+        )
+
+    def set_minimize_to_tray(self, *_a, **_k) -> None:
+        pass
+
+    def set_application_theme(self, *_a, **_k) -> None:
+        pass
+
+    def _apply_startup_preferences(self) -> None:
+        pass
+
+    def _apply_active_tab_configs(self, previous_configs=None) -> None:
+        pass
+
+
 def test_guest_settings_save_refreshes_account_snapshot(q_app):
     PreferenceStore.reset_instance()
     vault = _GuestVault()
@@ -41,7 +69,8 @@ def test_guest_settings_save_refreshes_account_snapshot(q_app):
     PreferenceStore.instance().attach_vault_credentials(
         vault.load_account_credentials(), vault, "Guest"
     )
-    window = SettingsWindow()
+    main_window = _FakeMainWindow(vault)
+    window = SettingsWindow(window_service=WindowService(main_window))
     window.vault_manager = vault
     window.current_account_name = "Guest"
     window.runtime_shell_check.setChecked(True)
@@ -55,7 +84,10 @@ def test_guest_settings_save_refreshes_account_snapshot(q_app):
     assert store.get(PrefKeys.RECURSIVE_SCAN) is False
     assert store.get(PrefKeys.FAVOURITE_DIRECTORIES) == ["/tmp/favourite"]
     assert store.get(PrefKeys.EXPERIMENTAL_RUNTIME_SHELL) is True
-    assert vault.data["theme"] == "dark"
+    # Nothing in this test selects a theme radio; the vault's own "light"
+    # (from _GuestVault.data) survives unchanged, same as the untouched
+    # "unchanged" preference below.
+    assert vault.data["theme"] == "light"
     assert vault.data["preferences"]["unchanged"] == "kept"
 
     # A fresh store represents the next guest session: it must recover the
@@ -69,15 +101,24 @@ def test_guest_settings_save_refreshes_account_snapshot(q_app):
     PreferenceStore.reset_instance()
 
 
-def test_appearance_preview_does_not_mutate_main_window_credentials(q_app):
-    window = SettingsWindow()
+def test_appearance_preview_does_not_persist_to_the_vault(q_app):
+    """Preview updates the live in-memory cached_creds (so WindowService's
+    own preferences()/zoom_in()/zoom_out() see the change immediately) but
+    must never write to the vault -- that only happens on Save."""
+    vault_manager = MagicMock()
+    vault_manager.load_account_credentials.return_value = {"account_name": "Test", "theme": "dark"}
+    vault_manager.is_guest = False
     main_window = MagicMock()
+    main_window.vault_manager = vault_manager
     main_window.cached_creds = {"preferences": {"accent_color_dark": "#112233"}}
-    window.main_window_ref = main_window
-    before = copy.deepcopy(main_window.cached_creds)
+    window = SettingsWindow(window_service=WindowService(main_window))
 
     window._preview_appearance()
 
-    assert main_window.cached_creds == before
-    _, kwargs = main_window.set_application_theme.call_args
-    assert kwargs["preferences"]["app_zoom"] == window.pref_app_zoom
+    vault_manager.save_data.assert_not_called()
+    main_window.set_application_theme.assert_called_once()
+    # WindowService.preview_appearance() primes cached_creds["preferences"]
+    # BEFORE calling set_application_theme(theme) with no explicit kwarg --
+    # the real MainWindow.set_application_theme() falls back to reading
+    # cached_creds["preferences"] itself, so this is what it would see.
+    assert main_window.cached_creds["preferences"]["app_zoom"] == window.pref_app_zoom
