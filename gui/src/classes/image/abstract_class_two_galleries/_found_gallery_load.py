@@ -22,6 +22,8 @@ from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtWidgets import QLabel
 from shiboken6 import Shiboken
 
+from gui.src.qt_object_guard import deleted_qobject_guard
+
 from ....helpers import BatchImageLoaderWorker, BatchVideoLoaderWorker, VideoLoaderWorker
 
 if TYPE_CHECKING:
@@ -146,8 +148,8 @@ class _FoundGalleryLoadMixin:
                         img_label.setStyleSheet("border: 1px dashed #666; color: #999;")
                 else:
                     self.update_card_pixmap(widget, pixmap)
-            except RuntimeError:
-                pass
+            except RuntimeError as exc:
+                deleted_qobject_guard(exc, "_FoundGalleryLoadMixin._on_found_image_loaded")
 
     def _trigger_batch_found_load(self: "AbstractClassTwoGalleriesHostProtocol", paths: List[str]):
         if not hasattr(self, "found_loading_paths"):

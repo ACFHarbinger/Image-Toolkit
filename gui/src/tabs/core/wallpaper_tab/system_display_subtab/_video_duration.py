@@ -7,12 +7,14 @@ change, to keep the file under the codebase's 500-code-line convention
 
 from __future__ import annotations
 
+import logging
 import os
 import subprocess
 from typing import Optional
 
 from gui.src.constants.elements import _VIDEO_DURATION_CACHE
 
+logger = logging.getLogger(__name__)
 
 def _is_video(path: str) -> bool:
     from backend.src.constants import SUPPORTED_VIDEO_FORMATS
@@ -41,9 +43,10 @@ def _get_video_duration(path: str) -> Optional[float]:
             _VIDEO_DURATION_CACHE[path] = dur
             return dur
     except Exception:
-        pass
+        logger.debug("Suppressed Exception in _get_video_duration", exc_info=True)
     try:
         import cv2  # type: ignore
+
 
         cap = cv2.VideoCapture(path)
         fps = cap.get(cv2.CAP_PROP_FPS)
@@ -54,7 +57,7 @@ def _get_video_duration(path: str) -> Optional[float]:
             _VIDEO_DURATION_CACHE[path] = dur
             return dur
     except Exception:
-        pass
+        logger.debug("Suppressed Exception in _get_video_duration", exc_info=True)
     return None
 
 

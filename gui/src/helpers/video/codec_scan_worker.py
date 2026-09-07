@@ -1,4 +1,5 @@
 import concurrent.futures
+import logging
 import os
 from typing import List, Optional
 
@@ -7,6 +8,7 @@ from PySide6.QtCore import QObject, QRunnable, Signal
 
 from gui.src.helpers.gc_safe import gc_disabled_run
 
+logger = logging.getLogger(__name__)
 
 class _CodecScanSignals(QObject):
     codec_ready = Signal(str, object, object)  # path, video_codec, audio_codec
@@ -45,6 +47,7 @@ class CodecScanWorker(QRunnable):
                 # first QMediaPlayer construction -- serialize each fork.
                 from gui.src.helpers.video.video_thumbnailer import media_backend_spawn_guard
 
+
                 def _probe_guarded(path):
                     with media_backend_spawn_guard():
                         return probe_codecs(path)
@@ -63,6 +66,6 @@ class CodecScanWorker(QRunnable):
                         video_codec, audio_codec = None, None
                     self.signals.codec_ready.emit(path, video_codec, audio_codec)
         except Exception:
-            pass
+            logger.debug("Suppressed Exception in CodecScanWorker.run", exc_info=True)
         finally:
             self.signals.finished.emit()

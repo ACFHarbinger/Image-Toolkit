@@ -7,6 +7,7 @@ change (see ``_ui_graph_canvas.py``'s docstring).
 from __future__ import annotations
 
 import json
+import logging
 import platform
 import subprocess
 import sys
@@ -16,6 +17,8 @@ from backend.src.constants import MONITOR_SLIDESHOW_DAEMON_CONFIG_PATH, ROOT_DIR
 from backend.src.utils.display import monitor_slideshow_daemon as _monitor_slideshow
 from PySide6.QtCore import Slot
 from PySide6.QtWidgets import QMessageBox, QWidget
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from ...protos.monitor_display_subtab import MonitorDisplaySubTabHostProtocol
@@ -173,7 +176,7 @@ class _SlideshowDaemonMixin:
             with open(MONITOR_SLIDESHOW_DAEMON_CONFIG_PATH, "w") as f:
                 json.dump(config, f, indent=2)
         except Exception:
-            pass
+            logger.debug("Suppressed Exception in _SlideshowDaemonMixin._start_daemon_slideshow", exc_info=True)
 
         self._daemon_active_monitor_id = monitor_id
         self._update_slideshow_buttons()
@@ -188,7 +191,7 @@ class _SlideshowDaemonMixin:
                 with open(MONITOR_SLIDESHOW_DAEMON_CONFIG_PATH, "w") as f:
                     json.dump(config, f, indent=2)
         except Exception:
-            pass
+            logger.debug("Suppressed Exception in _SlideshowDaemonMixin._stop_daemon_slideshow", exc_info=True)
         self._daemon_active_monitor_id = None
         self._update_slideshow_buttons()
         self._update_queue_status_label()

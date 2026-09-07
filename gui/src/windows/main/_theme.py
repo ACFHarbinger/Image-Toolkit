@@ -6,6 +6,7 @@ Extracted from ``main_window.py`` -- pure code motion, no logic change.
 from __future__ import annotations
 
 import json
+import logging
 import os
 
 from PySide6.QtGui import QColor, QFont, QPalette
@@ -34,6 +35,7 @@ from ...styles import (
     load_user_qss_override,
 )
 
+logger = logging.getLogger(__name__)
 
 def _build_palette(
     theme_name: str,
@@ -131,7 +133,7 @@ class _ThemeMixin:
                     resolved = resolve_colors(pack)
                     overrides.update(to_qss_vars(resolved, prefix="DARK"))
                 except Exception:
-                    pass
+                    logger.debug("Suppressed Exception in _ThemeMixin.set_application_theme", exc_info=True)
             qss = load_qss_with_overrides("dark.qss", overrides)
             self.current_theme = "dark"
             hover_bg = "#5f646c"
@@ -151,7 +153,7 @@ class _ThemeMixin:
                     resolved = resolve_colors(pack)
                     overrides.update(to_qss_vars(resolved, prefix="LIGHT"))
                 except Exception:
-                    pass
+                    logger.debug("Suppressed Exception in _ThemeMixin.set_application_theme", exc_info=True)
             qss = load_qss_with_overrides("light.qss", overrides)
             self.current_theme = "light"
             hover_bg = "#cccccc"
@@ -321,7 +323,7 @@ class _ThemeMixin:
                 self.vault_manager.save_data(json.dumps(creds))
                 self.cached_creds = creds
             except Exception:
-                pass
+                logger.debug("Suppressed Exception in _ThemeMixin._toggle_theme", exc_info=True)
 
 
 __all__ = ["_ThemeMixin"]

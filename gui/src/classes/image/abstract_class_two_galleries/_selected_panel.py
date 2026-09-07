@@ -16,6 +16,8 @@ from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtWidgets import QWidget
 from shiboken6 import Shiboken
 
+from gui.src.qt_object_guard import deleted_qobject_guard
+
 from ....components import ClickableLabel
 from ....helpers import BatchImageLoaderWorker, ImageLoaderWorker
 from ....utils.cache.lru_image_cache import LRU_CACHE_CEILING
@@ -192,8 +194,8 @@ class _SelectedPanelMixin:
                         QPixmap.fromImage(image) if isinstance(image, QImage) else image
                     )
                     self.update_card_pixmap(widget, display_pixmap)
-                except RuntimeError:
-                    pass
+                except RuntimeError as exc:
+                    deleted_qobject_guard(exc, "_SelectedPanelMixin._on_batch_selected_loaded")
 
     def _trigger_priority_load(self: "AbstractClassTwoGalleriesHostProtocol", path: str, target_widget: QWidget):
         weak_widget = weakref.ref(target_widget)

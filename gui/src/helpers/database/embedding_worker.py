@@ -13,13 +13,14 @@ thread via ``sig_finished`` -- the keyed ``base.database.Database``
 handle is not safe to share across threads (DB.2's risk register: "repos
 never share statements across threads").
 """
-
+import logging
 from typing import List, Tuple
 
 from PySide6.QtCore import QThread, Signal
 
 from gui.src.helpers.gc_safe import gc_disabled_run
 
+logger = logging.getLogger(__name__)
 
 class ImageEmbeddingWorker(QThread):
     progress = Signal(int, int)  # (current, total)
@@ -71,6 +72,7 @@ class ImageEmbeddingWorker(QThread):
             try:
                 from backend.src.core.similarity.embedder import unload_all
 
+
                 unload_all()
             except Exception:
-                pass
+                logger.debug("Suppressed Exception in ImageEmbeddingWorker.run", exc_info=True)

@@ -21,6 +21,8 @@ from .....styles import STYLE_STOP_ACTION, set_button_role
 from ._daemon import _write_daemon_config_atomic
 from ._video_duration import _get_video_duration, _is_video
 
+logger = logging.getLogger(__name__)
+
 if TYPE_CHECKING:
     from ...protos.system_display_subtab import SystemDisplaySubTabHostProtocol
 
@@ -176,7 +178,7 @@ class _SlideshowMixin:
                             self.time_remaining_sec = remaining
                             self.countdown_label.setToolTip("")
             except Exception:
-                pass
+                logger.debug("Suppressed Exception in _SlideshowMixin.update_countdown", exc_info=True)
 
         if self.time_remaining_sec > 0:
             self.time_remaining_sec -= 1
@@ -236,7 +238,7 @@ class _SlideshowMixin:
                     self.time_remaining_sec = self.interval_sec
                     self.update_countdown()
             except Exception:
-                pass
+                logger.debug("Suppressed Exception in _SlideshowMixin.skip_current_wallpapers", exc_info=True)
         elif self.slideshow_timer and self.slideshow_timer.isActive():
             self.slideshow_timer.start(self.interval_sec * 1000)
             self.time_remaining_sec = self.interval_sec

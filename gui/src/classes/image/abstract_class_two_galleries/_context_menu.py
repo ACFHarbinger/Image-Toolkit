@@ -7,6 +7,7 @@ logic change (see ``_navigation.py``'s docstring).
 from __future__ import annotations
 
 import contextlib
+import logging
 import os
 import platform
 import shutil
@@ -22,6 +23,8 @@ from send2trash import send2trash  # pyrefly: ignore [untyped-import]
 from ....utils.sort_utils import natural_sort_key
 from ....windows.image_compare_window import ImageCompareWindow
 from ....windows.image_preview_window import ImagePreviewWindow
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from ..protos.abstract_class_two_galleries import AbstractClassTwoGalleriesHostProtocol
@@ -222,7 +225,7 @@ class _ContextMenuMixin:
             if main_win and hasattr(main_win, "cached_creds"):
                 return bool(main_win.cached_creds.get("preferences", {}).get("confirm_deletions", True))
         except Exception:
-            pass
+            logger.debug("Suppressed Exception in _ContextMenuMixin._confirm_deletions_enabled", exc_info=True)
         return True
 
     def _trash_path(self: "AbstractClassTwoGalleriesHostProtocol", path: str) -> None:

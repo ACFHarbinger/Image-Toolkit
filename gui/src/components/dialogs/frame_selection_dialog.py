@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
 )
 
 from gui.src.helpers.gc_safe import gc_disabled_run
+from gui.src.qt_object_guard import deleted_qobject_guard
 
 
 def extract_video_frame_via_ffmpeg(
@@ -314,8 +315,8 @@ class FrameSelectionDialog(QDialog):
                     self._frame_worker.cancel()
                     self._frame_worker.signals.frame_ready.disconnect()
                     self._frame_worker.signals.failed.disconnect()
-            except RuntimeError:
-                pass
+            except RuntimeError as exc:
+                deleted_qobject_guard(exc, "FrameSelectionDialog._start_frame_worker")
             self._frame_worker = None
 
         frame_idx = self.slider.value()
@@ -356,8 +357,8 @@ class FrameSelectionDialog(QDialog):
                 if self._frame_worker.isRunning():
                     self._frame_worker.cancel()
                     self._frame_worker.wait()
-            except RuntimeError:
-                pass
+            except RuntimeError as exc:
+                deleted_qobject_guard(exc, "FrameSelectionDialog.closeEvent")
         if self.cap:
             self.cap.release()
         super().closeEvent(event)

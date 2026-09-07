@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 from backend.src._version import __version__
 from backend.src.core.vault_manager import VaultManager
 from PySide6.QtCore import Qt, QTimer
@@ -42,6 +44,7 @@ from ._tray import _TrayMixin
 from ._workflow_templates import _WorkflowTemplatesMixin
 from ._zoom import _ZoomMixin
 
+logger = logging.getLogger(__name__)
 
 class MainWindow(
     # Mixins MUST precede QWidget in MRO order (see gui/src/tabs/core/merge_tab/
@@ -114,6 +117,7 @@ class MainWindow(
                 # discarded on restart.
                 from gui.src.preferences import PreferenceStore
 
+
                 PreferenceStore.instance().attach_vault_credentials(
                     self.cached_creds, self.vault_manager, account_name
                 )
@@ -127,7 +131,7 @@ class MainWindow(
                 os_scheme = QGuiApplication.styleHints().colorScheme()
                 initial_theme = "light" if os_scheme == Qt.ColorScheme.Light else "dark"
             except Exception:
-                pass
+                logger.debug("Suppressed Exception in MainWindow.__init__", exc_info=True)
 
         self.current_theme = initial_theme
         # Prime the QPalette before building any tabs -- OptionalField and
@@ -244,7 +248,7 @@ class MainWindow(
 
             QGuiApplication.styleHints().colorSchemeChanged.connect(_on_os_scheme_changed)
         except Exception:
-            pass
+            logger.debug("Suppressed Exception in MainWindow.__init__", exc_info=True)
 
         # §3.17 — restore saved window geometry (before showMaximized so it can override)
         _geom = AppSettings.mainwindow_geometry()
