@@ -9,6 +9,8 @@ from __future__ import annotations
 import contextlib
 from typing import TYPE_CHECKING
 
+from gui.src.qt_object_guard import deleted_qobject_guard
+
 if TYPE_CHECKING:
     from ...protos.system_display_subtab import SystemDisplaySubTabHostProtocol
 
@@ -61,16 +63,16 @@ class _LifecycleMixin:
             try:
                 if win.isVisible():
                     win.close()
-            except RuntimeError:
-                pass
+            except RuntimeError as exc:
+                deleted_qobject_guard(exc, "_LifecycleMixin.cancel_loading")
         self.open_queue_windows.clear()
 
         for win in list(self.open_image_preview_windows):
             try:
                 if win.isVisible():
                     win.close()
-            except RuntimeError:
-                pass
+            except RuntimeError as exc:
+                deleted_qobject_guard(exc, "_LifecycleMixin.cancel_loading")
         self.open_image_preview_windows.clear()
 
         if daemon_live:

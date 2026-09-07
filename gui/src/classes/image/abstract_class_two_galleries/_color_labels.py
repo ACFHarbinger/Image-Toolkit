@@ -12,6 +12,8 @@ from typing import TYPE_CHECKING, Dict, Optional
 from PySide6.QtCore import Slot
 from PySide6.QtWidgets import QWidget
 
+from gui.src.qt_object_guard import deleted_qobject_guard
+
 if TYPE_CHECKING:
     from ..protos.abstract_class_two_galleries import AbstractClassTwoGalleriesHostProtocol
 
@@ -80,8 +82,8 @@ class _ColorLabelsMixin:
                 else:
                     # Fallback: ensure the selection style is correct
                     self.update_card_style(card, self.is_path_selected(path))
-            except RuntimeError:
-                pass
+            except RuntimeError as exc:
+                deleted_qobject_guard(exc, "_ColorLabelsMixin.update_preview_highlight.reset_card")
 
         # 1. Restore style for the old card (found gallery and selected gallery)
         reset_card(old_path, self.path_to_label_map.get(old_path))
@@ -111,8 +113,8 @@ class _ColorLabelsMixin:
                 current = card.styleSheet().strip()
                 sep = "" if not current or current.endswith(";") else ";"
                 card.setStyleSheet(f"{current}{sep} border: 4px solid #f39c12;")
-            except RuntimeError:
-                pass
+            except RuntimeError as exc:
+                deleted_qobject_guard(exc, "_ColorLabelsMixin.update_preview_highlight.highlight_card")
 
         # 2. Apply highlight to the new card
         highlight_card(new_path, self.path_to_label_map.get(new_path))

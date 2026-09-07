@@ -6,6 +6,7 @@ Extracted from ``extractor_tab.py`` -- pure code motion, no logic change.
 
 from __future__ import annotations
 
+import logging
 import os
 import time
 from pathlib import Path
@@ -19,6 +20,8 @@ from PySide6.QtWidgets import QLabel, QLineEdit, QMessageBox, QWidget
 from ....components import ClickableLabel
 from ....helpers import GifCreationWorker, VideoExtractionWorker
 from ....helpers.video.video_thumbnailer import VideoThumbnailer
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from ..protos.extractor_tab import VideoExtractorSubTabHostProtocol
@@ -359,7 +362,7 @@ class _ExtractionWorkersMixin:
                 else:
                     return int(parts[0]) * 1000
         except Exception:
-            pass
+            logger.debug("Suppressed Exception in _ExtractionWorkersMixin._parse_time", exc_info=True)
         return None
 
     def refresh_time_display(self: "VideoExtractorSubTabHostProtocol"):

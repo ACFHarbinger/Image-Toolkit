@@ -1,3 +1,4 @@
+import logging
 import os
 import uuid
 from collections import defaultdict
@@ -17,10 +18,13 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
+from gui.src.qt_object_guard import deleted_qobject_guard
+
 from .data_schema import EdgeData, GraphData, NodeData
 from .edge_item import EdgeItem
 from .node_item import NODE_H, NODE_W, NodeItem, is_video
 
+logger = logging.getLogger(__name__)
 
 class _PickNodeDialog(QDialog):
     """Simple list dialog to pick a node by label."""
@@ -103,6 +107,8 @@ def _build_live_edges(graph: GraphData) -> set:
 
     The runtime logic always follows the **lowest-numbered** outgoing edge
     from each node. An edge is live only if:
+
+
       - its source node is visited during the traversal (reachable from basis
         along first-edges only), and
       - it is that node's edge #1 (the single edge the runtime will take).
@@ -358,8 +364,8 @@ class WallpaperGraphScene(QGraphicsScene):
             try:
                 old_hovered._hovered_orange = False
                 old_hovered.update()
-            except RuntimeError:
-                pass
+            except RuntimeError as exc:
+                deleted_qobject_guard(exc, "WallpaperGraphScene._end_connection_mode")
         self._hovered_target_node = None
         self._connecting_source_node_id = None
         self._temp_connection_pos = None
@@ -404,14 +410,14 @@ class WallpaperGraphScene(QGraphicsScene):
                 try:
                     old_hovered._hovered_orange = False
                     old_hovered.update()
-                except RuntimeError:
-                    pass
+                except RuntimeError as exc:
+                    deleted_qobject_guard(exc, "WallpaperGraphScene.handle_connection_move")
             if hovered_node:
                 try:
                     hovered_node._hovered_orange = True # pyrefly: ignore [missing-attribute]
                     hovered_node.update()
-                except RuntimeError:
-                    pass
+                except RuntimeError as exc:
+                    deleted_qobject_guard(exc, "WallpaperGraphScene.handle_connection_move")
             self._hovered_target_node = hovered_node
 
     def drawForeground(self, painter: QPainter, rect: QRect | QRectF):
@@ -444,7 +450,7 @@ class WallpaperGraphScene(QGraphicsScene):
             painter.drawPath(path)
             painter.restore()
         except Exception:
-            pass
+            logger.debug("Suppressed Exception in WallpaperGraphScene.drawForeground", exc_info=True)
 
     def mouseMoveEvent(self, event):
         if getattr(self, "_connecting_source_node_id", None):

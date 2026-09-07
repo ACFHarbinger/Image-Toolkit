@@ -6,6 +6,7 @@ Extracted from ``merge_tab.py`` -- pure code motion, no logic change
 
 from __future__ import annotations
 
+import logging
 import os
 import shutil
 import tempfile
@@ -21,6 +22,7 @@ from ....components import ScrollVideoExportDialog
 from ....helpers import MergeWorker, ScrollVideoExportWorker
 from ....windows import ImagePreviewWindow
 
+logger = logging.getLogger(__name__)
 
 class _MergeExecutionMixin:
     """Run/cancel the merge worker and drive the post-merge result dialog."""
@@ -28,6 +30,7 @@ class _MergeExecutionMixin:
     def keyPressEvent(self, event: QKeyEvent):
         """Dispatch Merge-tab shortcuts before gallery navigation."""
         from ....utils.manager.shortcut_manager import get_registry
+
 
         reg = get_registry()
         if reg.matches(event, "merge.run"):
@@ -62,7 +65,7 @@ class _MergeExecutionMixin:
                 worker.error.disconnect()
                 worker.progress.disconnect()
             except Exception:
-                pass
+                logger.debug("Suppressed Exception in _MergeExecutionMixin.cleanup_merge_worker", exc_info=True)
             worker.cancel()
             worker.requestInterruption()
             worker.quit()
@@ -163,7 +166,7 @@ class _MergeExecutionMixin:
 
         preview_window = ImagePreviewWindow(
             image_path=result_path,
-            db_tab_ref=None,
+            database_service=None,
             parent=self,
             all_paths=[result_path],
             start_index=0,

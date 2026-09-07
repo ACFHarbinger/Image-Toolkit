@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import base64
 import contextlib
+import logging
 import os
 
 from PySide6.QtCore import QByteArray
@@ -24,6 +25,7 @@ from PySide6.QtWidgets import (
 
 from .app_settings import AppSettings
 
+logger = logging.getLogger(__name__)
 
 class _ProfileManagementMixin:
     """Builds the System Preference Profiles groupbox and owns profile CRUD logic."""
@@ -120,7 +122,7 @@ class _ProfileManagementMixin:
                 geom_bytes = self.main_window_ref.saveGeometry()
                 profile_data["layout_geometry"] = base64.b64encode(bytes(geom_bytes)).decode("ascii")
             except Exception:
-                pass
+                logger.debug("Suppressed Exception in _ProfileManagementMixin._get_current_ui_preferences", exc_info=True)
 
         splitters_dict: dict = {}
         for key in AppSettings.all_keys():
@@ -389,14 +391,14 @@ class _ProfileManagementMixin:
                 geom_bytes = QByteArray(base64.b64decode(geom_b64))
                 self.main_window_ref.restoreGeometry(geom_bytes)
             except Exception:
-                pass
+                logger.debug("Suppressed Exception in _ProfileManagementMixin._apply_layout_from_profile", exc_info=True)
 
         for key, val_b64 in profile_data.get("layout_splitters", {}).items():
             try:
                 state_bytes = QByteArray(base64.b64decode(val_b64))
                 AppSettings.set(key, state_bytes)
             except Exception:
-                pass
+                logger.debug("Suppressed Exception in _ProfileManagementMixin._apply_layout_from_profile", exc_info=True)
 
     def _load_selected_profile(self):
         """Loads the selected profile into the UI elements."""

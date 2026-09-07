@@ -1,5 +1,6 @@
 import contextlib
 import hashlib
+import logging
 import os
 from typing import Any, Dict, List, Tuple, Union
 
@@ -23,6 +24,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+logger = logging.getLogger(__name__)
 
 # Helper for computing Hamming distance between two 64-bit integers
 def _hamming64(a: int, b: int) -> int:
@@ -100,6 +102,7 @@ class ClickableImageCard(QFrame):
         if pixmap.isNull() and os.path.exists(clean_path):
             with contextlib.suppress(Exception):
                 from PIL import Image, ImageQt
+
 
                 pil_img = Image.open(clean_path)
                 pil_img.thumbnail((150, 150))
@@ -227,14 +230,14 @@ class ManualSelectionDialog(QDialog):
                     if self.download_dir:
                         break
                 except Exception:
-                    pass
+                    logger.debug("Suppressed Exception in ManualSelectionDialog.__init__", exc_info=True)
             if hasattr(p, "download_dir"):
                 try:
                     self.download_dir = str(p.download_dir).strip()
                     if self.download_dir:
                         break
                 except Exception:
-                    pass
+                    logger.debug("Suppressed Exception in ManualSelectionDialog.__init__", exc_info=True)
             p = p.parent() if hasattr(p, "parent") and callable(p.parent) else None
 
         self.setup_ui()

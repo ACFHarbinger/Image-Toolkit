@@ -12,7 +12,6 @@ All heavy compute happens either in C++ with the GIL released (hashing,
 VP-tree, HNSW, SSIM/ORB/SIFT) or inside torch forward passes (embeddings);
 progress/cancellation flow through Qt signals (queued to the GUI thread).
 """
-
 import logging
 
 from backend.src.core.similarity import SimilarityConfig, SimilarityEngine
@@ -22,7 +21,6 @@ from PySide6.QtCore import QThread, Signal
 from gui.src.helpers.gc_safe import gc_disabled_run
 
 logger = logging.getLogger(__name__)
-
 
 class SimilarityScanWorker(QThread):
     # NOTE: these custom signals intentionally shadow QThread's built-in
@@ -69,4 +67,4 @@ class SimilarityScanWorker(QThread):
 
                 unload_all()
             except Exception:
-                pass
+                logger.debug("Suppressed Exception in SimilarityScanWorker.run", exc_info=True)
