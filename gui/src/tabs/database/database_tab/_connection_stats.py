@@ -1,10 +1,8 @@
-"""Connection lifecycle + statistics methods for ``DatabaseTab``.
-
-Extracted from ``database_tab.py`` -- pure code motion, no logic change
-(see ``_ui_connection.py``'s docstring).
-"""
+"""Connection lifecycle + statistics controller for ``DatabaseTab`` (§5.17, #544)."""
 
 from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
 
 from backend.src.database.unified.facade import UnifiedImageDatabase as ImageDatabase
 from PySide6.QtWidgets import QInputDialog, QMessageBox
@@ -13,57 +11,65 @@ from gui.src.constants.elements import EMBED_MODEL
 from gui.src.helpers.database.embedding_worker import ImageEmbeddingWorker
 from gui.src.helpers.database.library_session import get_library_db
 
+if TYPE_CHECKING:
+    pass
 
-class _ConnectionStatsMixin:
+
+class DatabaseConnectionController:
     """Open/reset the library store, refresh statistics, toggle button state."""
 
-    def connect_database(self, silent: bool = False):
+    def __init__(self, tab: Any) -> None:
+        self.tab = tab
+
+    def connect_database(self, silent: bool = False) -> None:
         """Open the unified library store (Argon2id runs once per session)."""
+        tab = self.tab
         try:
-            session_db = get_library_db(self.vault_manager, parent=self)
+            session_db = get_library_db(tab.vault_manager, parent=tab)
             if session_db is None:
                 if not silent:
                     QMessageBox.warning(
-                        self,
+                        tab,
                         "Vault Locked",
                         "The unified library requires an unlocked vault. "
                         "Log in first, then press 'Open Library'.",
                     )
-                self.update_button_states(connected=False)
+                tab.update_button_states(connected=False)
                 return
 
-            self.db = ImageDatabase(session_db)
-            self.database_service.db = self.db
-            self.update_statistics()
-            self.update_button_states(connected=True)
-            self._refresh_all_group_combos()
-            self.refresh_subgroup_autocomplete()
-            self.refresh_tags_list()
-            self.refresh_groups_list()
-            self.refresh_subgroups_list()
-            self.refresh_image_registry()
+            tab.db = ImageDatabase(session_db)
+            tab.database_service.db = tab.db
+            tab.update_statistics()
+            tab.update_button_states(connected=True)
+            tab._refresh_all_group_combos()
+            tab.refresh_subgroup_autocomplete()
+            tab.refresh_tags_list()
+            tab.refresh_groups_list()
+            tab.refresh_subgroups_list()
+            tab.refresh_image_registry()
 
-            self._publish_tag_catalog_changed()
+            tab._publish_tag_catalog_changed()
 
             if not silent:
                 QMessageBox.information(
-                    self, "Success", "Unified library opened."
+                    tab, "Success", "Unified library opened."
                 )
         except Exception as e:
             QMessageBox.critical(
-                self, "Error", f"Failed to open the library database:\n{str(e)}"
+                tab, "Error", f"Failed to open the library database:\n{str(e)}"
             )
-            self.update_button_states(connected=False)
-            self._publish_database_availability(False)
-            self.stats_label.setText("Library Unavailable")
+            tab.update_button_states(connected=False)
+            tab._publish_database_availability(False)
+            tab.stats_label.setText("Library Unavailable")
 
-    def reset_database(self):
-        if not self.db:
-            QMessageBox.warning(self, "Error", "Please connect to a database first")
+    def reset_database(self) -> None:
+        tab = self.tab
+        if not tab.db:
+            QMessageBox.warning(tab, "Error", "Please connect to a database first")
             return
 
         confirm1 = QMessageBox.question(
-            self,
+            tab,
             "Confirm Destructive Action",
             "Are you absolutely sure you want to reset the database?\n\n"
             "ALL DATA (images, tags, groups, subgroups) will be PERMANENTLY DELETED.",
@@ -72,11 +78,11 @@ class _ConnectionStatsMixin:
         )
 
         if confirm1 == QMessageBox.StandardButton.No:
-            QMessageBox.information(self, "Cancelled", "Database reset was cancelled.")
+            QMessageBox.information(tab, "Cancelled", "Database reset was cancelled.")
             return
 
         text, ok = QInputDialog.getText(
-            self,
+            tab,
             "Final Confirmation",
             "This is your final warning. This action cannot be undone.\n"
             "This will DROP all tables and recreate the schema.\n\n"
@@ -84,41 +90,42 @@ class _ConnectionStatsMixin:
         )
 
         if not ok:
-            QMessageBox.information(self, "Cancelled", "Database reset was cancelled.")
+            QMessageBox.information(tab, "Cancelled", "Database reset was cancelled.")
             return
 
         if text.strip() != "RESET":
             QMessageBox.warning(
-                self,
+                tab,
                 "Cancelled",
                 "Input did not match 'RESET'. Database reset was cancelled.",
             )
             return
 
         try:
-            self.db.reset_database()
+            tab.db.reset_database()
             QMessageBox.information(
-                self, "Success", "Database has been reset successfully."
+                tab, "Success", "Database has been reset successfully."
             )
 
-            self.update_statistics()
-            self._refresh_all_group_combos()
-            self.refresh_subgroup_autocomplete()
-            self.refresh_tags_list()
-            self.refresh_groups_list()
-            self.refresh_subgroups_list()
-            self.refresh_image_registry()
+            tab.update_statistics()
+            tab._refresh_all_group_combos()
+            tab.refresh_subgroup_autocomplete()
+            tab.refresh_tags_list()
+            tab.refresh_groups_list()
+            tab.refresh_subgroups_list()
+            tab.refresh_image_registry()
 
-            self._publish_tag_catalog_changed()
+            tab._publish_tag_catalog_changed()
 
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to reset database:\n{str(e)}")
+            QMessageBox.critical(tab, "Error", f"Failed to reset database:\n{str(e)}")
 
-    def update_statistics(self):
-        if not self.db:
+    def update_statistics(self) -> None:
+        tab = self.tab
+        if not tab.db:
             return
         try:
-            stats = self.db.get_statistics()
+            stats = tab.db.get_statistics()
 
             # Format file size
             total_bytes = stats.get("total_file_size", 0)
@@ -147,56 +154,61 @@ class _ConnectionStatsMixin:
                 f"Subgroups: {stats.get('total_subgroups', 0)}\n"
                 f"Last Sync: {last_sync_str}"
             )
-            self.stats_label.setText(stats_text)
+            tab.stats_label.setText(stats_text)
+            tab._stats_text = stats_text
+            tab.qml_stats_changed.emit()
         except Exception as e:
-            self.stats_label.setText(f"Error getting statistics: {str(e)}")
+            tab.stats_label.setText(f"Error getting statistics: {str(e)}")
 
-    def run_vacuum(self):
-        if not self.db:
+    def run_vacuum(self) -> None:
+        tab = self.tab
+        if not tab.db:
             return
         try:
-            self.db.maintenance_vacuum(full=False)
-            QMessageBox.information(self, "Success", "Database vacuum completed.")
+            tab.db.maintenance_vacuum(full=False)
+            QMessageBox.information(tab, "Success", "Database vacuum completed.")
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Vacuum failed: {e}")
+            QMessageBox.critical(tab, "Error", f"Vacuum failed: {e}")
 
-    def run_reindex(self):
-        if not self.db:
+    def run_reindex(self) -> None:
+        tab = self.tab
+        if not tab.db:
             return
         try:
-            self.db.maintenance_reindex()
-            QMessageBox.information(self, "Success", "Database reindex completed.")
+            tab.db.maintenance_reindex()
+            QMessageBox.information(tab, "Success", "Database reindex completed.")
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Reindex failed: {e}")
+            QMessageBox.critical(tab, "Error", f"Reindex failed: {e}")
 
-    def run_embed_backfill(self):
+    def run_embed_backfill(self) -> None:
         """DB.7: compute+store semantic embeddings for images that don't
         have one yet. Runs in the background (ImageEmbeddingWorker,
         QThread); the DB write happens back on this (main) thread, in one
         transaction, once the whole batch's vectors are ready -- the
         keyed Database handle is not safe to share across threads."""
-        if not self.db:
+        tab = self.tab
+        if not tab.db:
             return
-        if getattr(self, "embedding_worker", None) is not None:
+        if getattr(tab, "embedding_worker", None) is not None:
             QMessageBox.information(
-                self, "Already Running", "An embedding backfill is already in progress."
+                tab, "Already Running", "An embedding backfill is already in progress."
             )
             return
 
         try:
-            pending = self.db.count_unembedded_images(EMBED_MODEL)
+            pending = tab.db.count_unembedded_images(EMBED_MODEL)
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to check embedding status: {e}")
+            QMessageBox.critical(tab, "Error", f"Failed to check embedding status: {e}")
             return
 
         if pending == 0:
             QMessageBox.information(
-                self, "Up to Date", "Every image already has a semantic embedding."
+                tab, "Up to Date", "Every image already has a semantic embedding."
             )
             return
 
         confirm = QMessageBox.question(
-            self,
+            tab,
             "Embed Images",
             f"{pending} image(s) have no semantic embedding yet. Compute them now?\n\n"
             "This runs a local CLIP model over each image and may take a "
@@ -207,111 +219,119 @@ class _ConnectionStatsMixin:
         if confirm == QMessageBox.StandardButton.No:
             return
 
-        items = self.db.list_unembedded_images(EMBED_MODEL, limit=pending)
-        self.btn_embed_backfill.setEnabled(False)
-        self.btn_embed_backfill.setText("🧠 Embedding… 0/%d" % len(items))
+        items = tab.db.list_unembedded_images(EMBED_MODEL, limit=pending)
+        tab.btn_embed_backfill.setEnabled(False)
+        tab.btn_embed_backfill.setText("🧠 Embedding… 0/%d" % len(items))
 
         worker = ImageEmbeddingWorker(items, model=EMBED_MODEL)
         worker.progress.connect(self._on_embed_progress)
         worker.sig_finished.connect(self._on_embed_finished)
         worker.error.connect(self._on_embed_error)
         worker.finished.connect(worker.deleteLater)
-        worker.finished.connect(lambda: setattr(self, "embedding_worker", None))
-        self.embedding_worker = worker
+        worker.finished.connect(lambda: setattr(tab, "embedding_worker", None))
+        tab.embedding_worker = worker
         worker.start()
 
+    run_embedding_backfill = run_embed_backfill
+
     def _on_embed_progress(self, current: int, total: int) -> None:
-        self.btn_embed_backfill.setText(f"🧠 Embedding… {current}/{total}")
+        self.tab.btn_embed_backfill.setText(f"🧠 Embedding… {current}/{total}")
 
     def _on_embed_finished(self, results: list) -> None:
-        self.btn_embed_backfill.setEnabled(True)
-        self.btn_embed_backfill.setText("🧠 Embed Unembedded Images")
-        if not self.db:
+        tab = self.tab
+        tab.btn_embed_backfill.setEnabled(True)
+        tab.btn_embed_backfill.setText("🧠 Embed Unembedded Images")
+        if not tab.db:
             return
         try:
-            with self.db.transaction():
+            with tab.db.transaction():
                 for image_id, model, vector in results:
-                    self.db.upsert_image_embedding(image_id, model, vector)
+                    tab.db.upsert_image_embedding(image_id, model, vector)
             QMessageBox.information(
-                self, "Success", f"Embedded {len(results)} image(s)."
+                tab, "Success", f"Embedded {len(results)} image(s)."
             )
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to store embeddings: {e}")
+            QMessageBox.critical(tab, "Error", f"Failed to store embeddings: {e}")
 
     def _on_embed_error(self, message: str) -> None:
-        self.btn_embed_backfill.setEnabled(True)
-        self.btn_embed_backfill.setText("🧠 Embed Unembedded Images")
-        QMessageBox.warning(self, "Embedding Failed", message)
+        self.tab.btn_embed_backfill.setEnabled(True)
+        self.tab.btn_embed_backfill.setText("🧠 Embed Unembedded Images")
+        QMessageBox.warning(self.tab, "Embedding Failed", message)
 
-    def _refresh_all_group_combos(self):
-        if not self.db:
+    def _refresh_all_group_combos(self) -> None:
+        tab = self.tab
+        if not tab.db:
             return
         try:
-            group_list = self.db.get_all_groups()
+            group_list = tab.db.get_all_groups()
 
-            self.new_subgroup_parent_combo.clear()
-            self.new_subgroup_parent_combo.addItems([""] + group_list)
+            tab.new_subgroup_parent_combo.clear()
+            tab.new_subgroup_parent_combo.addItems([""] + group_list)
 
-            self.existing_subgroups_filter_combo.clear()
-            self.existing_subgroups_filter_combo.addItems([""] + group_list)
+            tab.existing_subgroups_filter_combo.clear()
+            tab.existing_subgroups_filter_combo.addItems([""] + group_list)
 
-            self._publish_group_catalog_changed(group_list)
+            tab._publish_group_catalog_changed(group_list)
 
         except Exception as e:
             print(f"Error refreshing group combos: {e}")
             QMessageBox.critical(
-                self, "Error", f"Failed to refresh group dropdowns:\n{str(e)}"
+                tab, "Error", f"Failed to refresh group dropdowns:\n{str(e)}"
             )
 
-    def refresh_subgroup_autocomplete(self):
-        if not self.db:
+    def refresh_subgroup_autocomplete(self) -> None:
+        tab = self.tab
+        if not tab.db:
             return
         try:
-            detailed = self.db.get_all_subgroups_detailed()
-            self._publish_subgroup_catalog_changed(detailed)
+            detailed = tab.db.get_all_subgroups_detailed()
+            tab._publish_subgroup_catalog_changed(detailed)
         except Exception as e:
             print(f"Error refreshing subgroup list data: {e}")
 
-    def update_button_states(self, connected: bool):
-        self.btn_connect.setVisible(not connected)
-        self.btn_reset_db.setVisible(connected)
-        self.btn_vacuum.setVisible(connected)
-        self.btn_reindex.setVisible(connected)
-        self.btn_embed_backfill.setVisible(connected)
+    def update_button_states(self, connected: bool) -> None:
+        tab = self.tab
+        tab.btn_connect.setVisible(not connected)
+        tab.btn_reset_db.setVisible(connected)
+        tab.btn_vacuum.setVisible(connected)
+        tab.btn_reindex.setVisible(connected)
+        tab.btn_embed_backfill.setVisible(connected)
 
-        self.populate_group.setEnabled(connected)
-        self.btn_auto_populate.setEnabled(connected)
-        self.btn_import_tags.setEnabled(connected)
+        tab.populate_group.setEnabled(connected)
+        tab.btn_auto_populate.setEnabled(connected)
+        tab.btn_import_tags.setEnabled(connected)
 
-        self.btn_remove_group.setEnabled(connected)
-        self.btn_remove_subgroup.setEnabled(connected)
-        self.btn_remove_tag.setEnabled(connected)
+        tab.btn_remove_group.setEnabled(connected)
+        tab.btn_remove_subgroup.setEnabled(connected)
+        tab.btn_remove_tag.setEnabled(connected)
 
-        self._publish_database_availability(connected)
+        tab._publish_database_availability(connected)
 
-    def check_postgres_status(self):
+    def check_postgres_status(self) -> None:
         """Interactive reachability and pgvector diagnostic test."""
         from gui.src.helpers.database.postgres_check import show_postgres_status_dialog
 
         show_postgres_status_dialog(
-            parent=self, silent_if_ok=False, vault_manager=self.vault_manager
+            parent=self.tab, silent_if_ok=False, vault_manager=self.tab.vault_manager
         )
 
-    def _postgres_config_from_fields(self):
+    def _postgres_config_from_fields(self) -> dict[str, str]:
+        tab = self.tab
         return {
-            "DB_HOST": self.postgres_host_edit.text().strip(),
-            "DB_PORT": str(self.postgres_port_spin.value()),
-            "DB_NAME": self.postgres_db_edit.text().strip(),
-            "DB_USER": self.postgres_user_edit.text().strip(),
+            "DB_HOST": tab.postgres_host_edit.text().strip(),
+            "DB_PORT": str(tab.postgres_port_spin.value()),
+            "DB_NAME": tab.postgres_db_edit.text().strip(),
+            "DB_USER": tab.postgres_user_edit.text().strip(),
         }
 
-    def save_postgres_settings(self):
+    def save_postgres_settings(self) -> None:
         """Persist non-secret fields in QSettings and the password in the vault."""
+        tab = self.tab
         from gui.src.helpers.database.postgres_check import save_postgres_config
 
-        if not self.vault_manager or getattr(self.vault_manager, "is_guest", False):
+        if not tab.vault_manager or getattr(tab.vault_manager, "is_guest", False):
             QMessageBox.warning(
-                self,
+                tab,
                 "PostgreSQL Settings",
                 "Sign in to an account before saving a PostgreSQL password.",
             )
@@ -319,37 +339,41 @@ class _ConnectionStatsMixin:
         config = self._postgres_config_from_fields()
         if not all(config[field] for field in ("DB_HOST", "DB_NAME", "DB_USER")):
             QMessageBox.warning(
-                self, "PostgreSQL Settings", "Host, database, and user are required."
+                tab, "PostgreSQL Settings", "Host, database, and user are required."
             )
             return
         try:
-            password = self.postgres_password_edit.text() or None
-            save_postgres_config(self.vault_manager, config, password)
-            self.postgres_password_edit.clear()
+            password = tab.postgres_password_edit.text() or None
+            save_postgres_config(tab.vault_manager, config, password)
+            tab.postgres_password_edit.clear()
             QMessageBox.information(
-                self,
+                tab,
                 "PostgreSQL Settings",
                 "Connection settings saved. The password is encrypted in your vault.",
             )
         except (OSError, RuntimeError, ValueError) as exc:
-            QMessageBox.critical(self, "PostgreSQL Settings", str(exc))
+            QMessageBox.critical(tab, "PostgreSQL Settings", str(exc))
 
-    def clear_postgres_password(self):
+    def clear_postgres_password(self) -> None:
         """Remove the saved database password without exposing its value."""
+        tab = self.tab
         from gui.src.helpers.database.postgres_check import save_postgres_config
 
-        if not self.vault_manager or getattr(self.vault_manager, "is_guest", False):
+        if not tab.vault_manager or getattr(tab.vault_manager, "is_guest", False):
             return
         try:
             save_postgres_config(
-                self.vault_manager, self._postgres_config_from_fields(), password=""
+                tab.vault_manager, self._postgres_config_from_fields(), password=""
             )
-            self.postgres_password_edit.clear()
+            tab.postgres_password_edit.clear()
             QMessageBox.information(
-                self, "PostgreSQL Settings", "Saved PostgreSQL password cleared."
+                tab, "PostgreSQL Settings", "Saved PostgreSQL password cleared."
             )
         except (OSError, RuntimeError, ValueError) as exc:
-            QMessageBox.critical(self, "PostgreSQL Settings", str(exc))
+            QMessageBox.critical(tab, "PostgreSQL Settings", str(exc))
 
 
-__all__ = ["_ConnectionStatsMixin"]
+# Backward-compatible alias
+_ConnectionStatsMixin = DatabaseConnectionController
+
+__all__ = ["DatabaseConnectionController", "_ConnectionStatsMixin"]

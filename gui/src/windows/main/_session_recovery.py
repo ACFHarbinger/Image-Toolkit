@@ -52,7 +52,7 @@ class _SessionRecoveryMixin:
         catalog module_id (#516) -- these prefs store the classic shell's
         human category/tab names, which match the catalog's own
         category/title fields since both come from the same 33-route
-        inventory (docs/moon/roadmaps/ui_module_inventory_2026q3.md)."""
+        inventory (docs/moon/roadmaps/gui_refactoring.md §2.4)."""
         catalog = getattr(self, "module_catalog", None)
         if catalog is None:
             return None

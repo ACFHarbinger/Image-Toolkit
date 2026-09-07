@@ -29,9 +29,6 @@ from .dialogs import (
     AspAdvancedConfigDialog as AspAdvancedConfigDialog,
 )
 from .dialogs import (
-    BatchStitchDialog as BatchStitchDialog,
-)
-from .dialogs import (
     DeduplicationPruningDialog as DeduplicationPruningDialog,
 )
 from .dialogs import (
@@ -148,3 +145,12 @@ from .virtual_gallery import (
 from .virtual_gallery import (
     VirtualGalleryView as VirtualGalleryView,
 )
+
+
+def __getattr__(name):
+    # BatchStitchDialog (ASP submodule) is lazy in .dialogs (ui-arch-27/#549).
+    if name == "BatchStitchDialog":
+        from . import dialogs
+
+        return dialogs.BatchStitchDialog
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

@@ -1290,63 +1290,13 @@ No further gui/src directory-level reorg work is currently outstanding.
 
 ---
 
-## §5.18 Phase 0 — Architecture Deep-Dive (D12 live-desktop pass verified) {: #518-phase-0--architecture-deep-dive }
+## §5.18 / §5.19 Phase 0 and Phase 1 — moved {: #518-phase-0--architecture-deep-dive }
 
-Targeted fixes that address known architectural pain points before larger
-refactors. Items are ordered by dependency; all but §5.18B are independent
-and can be parallelised after §5.18A lands.
-
-| Item | Status | Description |
-|------|--------|-------------|
-| §5.18A | ✅ Shipped | **#521 — Native-decode lock**: `NATIVE_IMAGE_BATCH_LOCK` / `NATIVE_SCAN_LOCK` in `backend/src/constants/core.py`; serialises native-image-batch and native-scan paths to prevent concurrent OpenMP thrash. |
-| §5.18B | ✅ Shipped | **#522 — Visible-first thumbnail dispatch**: reorder load queues so viewport-visible thumbnails are dispatched first across all four gallery implementations (`AbstractClassSingleGallery`, `AbstractClassTwoGalleries`, `VirtualGalleryModel`, `VirtualGalleryView`). Core helper `_sort_paths_by_visibility()` in `gallery_base.py`; `VirtualGalleryModel.set_visible_range()` + `_reorder_fill_queue()`. |
-| §5.18C | ✅ Shipped | **#523 — Tray preference wiring**: `minimize_to_tray`/`close_to_tray` is now exclusively device-owned by `AppSettings`/QSettings, no vault fallback or vault write. |
-| §5.18D | ✅ Shipped | **#524 — Prototype quarantine + WallpaperTab fix**: isolate unwired prototype components into `gui/src/protos/`; restore `WallpaperTab` Search/tray API forwarding. |
-| §5.18E | ✅ Shipped | **GIF disk-cache** (found during D12 live testing, not a numbered issue): the `QImageReader` fallback GIFs use since §5.18A had no disk-cache participation — every view/scroll re-decoded from scratch. New `gui/src/helpers/image/_qimagereader_disk_cache.py`; 40x faster on warm-cache reads, user-confirmed in the live app. |
-| §5.18F | ✅ Shipped | **Session-recovery freeze guard** (found during D12 live testing, not a numbered issue): `ExtractorTab._load_existing_output_images()` eagerly loaded an entire extraction-output directory with no size guard, froze the host machine against a real 108GB/101-file directory. Added a 500MB byte budget on that specific call site. |
-
-**Dependencies:** §5.18B requires §5.18A to land first (D2 gate). §5.18C–§5.18F are independent of each other.
-
-**D12 live-desktop pass (2026-09-05):** all four original items (§5.18A–D)
-merged onto a combined `integration/phase-0` branch and run live, twice,
-against real large/adversarial data (a 108GB video-frames directory, a
-109GB GIF directory) rather than just unit-test-green. Found and fixed
-§5.18E and §5.18F along the way — neither is a regression from §5.18A–D
-individually, both are pre-existing bugs the live pass surfaced. User
-confirmed the app runs stably through login, `MainWindow` construction,
-and gallery loading afterward. §5.18C's (#523) and §5.18D's (#524) own
-specific behaviors (tray persistence, quarantine correctness) were not
-the focus of this pass and should still get their own targeted
-verification before the Phase 0 gate is called fully closed.
-
----
-
-## §5.19 Phase 1 — Six architectural contracts (merged, cross-reviewed) {: #519-phase-1--six-architectural-contracts }
-
-Six independent contracts extracted per D3's decomposition, delegated
-across the team and worked concurrently per D6. All six landed a first
-implementation, all went through Codex's cross-review, and every
-finding raised (blocking or otherwise) was addressed before merge.
-
-| Item | Status | Description |
-|------|--------|-------------|
-| §5.19A | ✅ Shipped | **#525 — `PreferenceStore`**: typed key ownership across `DEVICE`/`ACCOUNT`/`SESSION` scopes (`gui/src/preferences/`), pluggable adapters (`QSettingsPreferenceAdapter`, `VaultPreferenceAdapter`, `MemoryPreferenceAdapter`). Cross-review found `attach_vault_credentials()` had no production caller (ACCOUNT-scope writes were silently discarded on restart) — wired into `MainWindow.__init__`'s login boundary, vault adapter now persists through `vault_manager.save_data()`, QSettings second-writer removed from the three ACCOUNT-scope `AppSettings` setters. |
-| §5.19B | ✅ Shipped | **#526 — `ThumbnailScheduler` interface**: shared scheduling/cancellation/generation contract (`gui/src/thumbnails/`), interface-only — the four gallery implementations aren't unified yet (Phase 2). Cross-review found a stale-completion race (`complete()` didn't check generation before discarding from `_inflight`, letting a cancelled-then-requeued path free the wrong generation's slot) — fixed by keying in-flight work by `(generation, path)`. |
-| §5.19C | ✅ Shipped | **#527 — `ModuleDescriptor` + `ModuleHost` pilot**: production `gui/src/modules/` contract (separate from quarantined `protos/`), piloted against the Log Panel. Cross-review found an unresolvable child route (`resolve_route("module/missing")`) navigated as if valid — fixed to return no match; non-singleton host remount limitation documented rather than silently mis-supported. |
-| §5.19D | ✅ Shipped | **#528 — `WindowManager`**: register-on-construct/deregister-on-close window registry (`gui/src/windows/window_manager.py`) replacing `topLevelWidgets()`/`allWidgets()` discovery in `_notify.py`, `_lifecycle.py`, and `gallery_base.py`. Reviewed clean, no defect found. |
-| §5.19E | ✅ Shipped | **#529 — Backend Qt-decoupling (`Observable`)**: `backend/src/events.py`'s `Observable` replaces `QObject`/`Signal` in all 6 `backend/src/web/*` files (the same architectural family as this repo's documented `QSocketNotifier` SIGSEGV crash class); `gui/src/qt_event_bridge.py`'s `QtEventBridge` adapts to real Qt signals at the GUI boundary via `QueuedConnection`. Cross-review found the CLI crawl path (`backend/controllers/backend_dispatch.py`) still called the removed `.connect()` — migrated to `.subscribe()`. |
-| §5.19F | ✅ Shipped | **#530 — CI import-boundary guardrails**: import-linter contract enforcing no PySide under `backend/src/` outside `app.py`; `backend/validation/check_init_boundaries.py` enforcing no `import *` in `gui/src/**/__init__.py` and a lazy PEP 562 `windows/__init__.py`. Reviewed clean, no defect found. |
-
-**Dependencies:** none of the six block each other — worked concurrently per D6, accepted bus-coordination overhead.
-
-**Cross-review + merge (2026-09-05):** Codex cross-reviewed all six against
-their implementations; four of six had at least one real finding (§5.19A,
-§5.19B, §5.19C, §5.19E — see table above), two were clean (§5.19D,
-§5.19F). Every finding was fixed (with a regression test verified to fail
-against the pre-fix code and pass post-fix) before merging all six onto
-`integration/phase-1` and then `main` (`dee43085`). Targeted verification:
-417/417 tests across the touched suites, ruff clean on all 67 changed
-files — no full-suite run per the resource rule.
+Phase 0 (invariant lock, #520–#524) and Phase 1 (six contracts, #525–#530)
+shipped 2026-09-05. Their tables now live in
+[`gui_refactoring.md`](gui_refactoring.md) §2.1 and §2.2, the single
+roadmap for the GUI refactor (Phases R0–R4). This document keeps the
+non-GUI architecture items (§5.1–§5.17) only.
 
 ---
 

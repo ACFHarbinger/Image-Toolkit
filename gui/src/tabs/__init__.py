@@ -1,10 +1,13 @@
-from asp_gui.tabs import StitchTab, StitchTabBackend  # noqa: F401
-from csg_gui.tabs import (  # noqa: F401
-    MangaAnimationTab,
-    MangaColorizationTab,
-    MangaPuppeteeringTab,
-)
-from hie_tab import HieEditorTab  # noqa: F401
+"""Tab classes.
+
+The three submodule GUIs (ASP Stitch, CSG Manga, HIE editor) are lazily
+re-exported (ui-arch-27/#549): importing this package must not import
+``asp_gui``/``csg_gui``/``hie_tab``. Classic startup and the module catalog
+resolve them on first attribute access (PEP 562 ``__getattr__``). Guarded by
+``backend/validation/check_init_boundaries.py`` rule 3.
+"""
+
+import importlib
 
 from .core import (
     ConvertTab as ConvertTab,
@@ -153,3 +156,20 @@ from .web import (
 from .web import (
     web_requests_tab as web_requests_tab,
 )
+
+_LAZY_SUBMODULE_EXPORTS = {
+    "StitchTab": "asp_gui.tabs",
+    "StitchTabBackend": "asp_gui.tabs",
+    "MangaAnimationTab": "csg_gui.tabs",
+    "MangaColorizationTab": "csg_gui.tabs",
+    "MangaPuppeteeringTab": "csg_gui.tabs",
+    "HieEditorTab": "hie_tab",
+}
+
+
+def __getattr__(name):
+    if name in _LAZY_SUBMODULE_EXPORTS:
+        value = getattr(importlib.import_module(_LAZY_SUBMODULE_EXPORTS[name]), name)
+        globals()[name] = value
+        return value
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

@@ -1,7 +1,4 @@
-try:
-    from asp_gui.dialogs.batch_stitch_dialog import BatchStitchDialog
-except ImportError:
-    BatchStitchDialog = None  # type: ignore[assignment, misc]
+import importlib
 
 from .add_tag_dialog import AddTagDialog
 from .asp_advanced_config_dialog import AspAdvancedConfigDialog
@@ -42,3 +39,19 @@ __all__ = [
     "TagReviewDialog",
     "ThumbnailFilePicker",
 ]
+
+# ASP's BatchStitchDialog is resolved lazily (ui-arch-27/#549): importing this
+# package must not import ``asp_gui``. ``None`` when the submodule is absent,
+# matching the previous try/except contract.
+_LAZY_SUBMODULE_EXPORTS = {"BatchStitchDialog": "asp_gui.dialogs.batch_stitch_dialog"}
+
+
+def __getattr__(name):
+    if name in _LAZY_SUBMODULE_EXPORTS:
+        try:
+            value = getattr(importlib.import_module(_LAZY_SUBMODULE_EXPORTS[name]), name)
+        except ImportError:
+            value = None
+        globals()[name] = value
+        return value
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

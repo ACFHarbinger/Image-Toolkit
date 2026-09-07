@@ -547,7 +547,7 @@ custom app background image, across all three of the project's UI
 surfaces (PySide6 desktop app, `dev/app` devtool Tauri/React app, and the
 docs website) — not just the PySide6 app this section originally scoped.
 Full brainstorm-stage design doc:
-[`app_theming_2026q3.md`](app_theming_2026q3.md). This section stays as
+[`gui_refactoring.md` §2.5](gui_refactoring.md). This section stays as
 history for what shipped in the smaller original scope; new work happens
 in that doc.
 
@@ -1493,7 +1493,7 @@ QSS previews apply transactionally and roll back to the last valid snapshot.
 Raw QSS uses a safe styling mode by default, with an explicit expert toggle
 for unrestricted selectors/properties. Shared JSON schema: #437 (foundational,
 blocks the rest). Theme Studio UI: #438 (deepseek). QSS editor + export/
-import: #441 (deepseek). See `app_theming_2026q3.md` for the full design.
+import: #441 (deepseek). See `gui_refactoring.md` §2.5 for the folded design.
 
 **Recommendation:** Implement A as the default visual customizer, integrate B
 as an opt-in background-derived palette action, and provide C in an Advanced
@@ -1542,7 +1542,7 @@ layering: #440 (Gemini). Palette extraction from the active background:
 
 **Runtime architecture finalized 2026-09-05** after a Claude + Codex
 brainstorm and user QA session — see
-`docs/moon/roadmaps/ui_architecture_2026q3.md` for the accepted
+`docs/moon/roadmaps/gui_refactoring.md` §2.3 for the accepted
 module-catalog/lifecycle/event-bus design, the 6-step delivery
 sequence, and open decision gates. That document supersedes the
 `ModuleDescriptor`/`ShellLayoutManager` sketch below wherever they

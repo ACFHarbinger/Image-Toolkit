@@ -26,12 +26,7 @@ register_submodule_packages(repo_root)
 
 from backend.src.app import launch_app  # noqa: E402
 
-from gui.src.windows.settings.file_dialog_patch import apply_patch  # noqa: E402
-
 os.environ.setdefault("QT_FFMPEG_DECODING_HW_DEVICE_TYPES", "")
-
-# Apply the patch to add the favorites side bar to the file dialogs
-apply_patch()
 
 # Suppress RequestsDependencyWarning: urllib3/chardet version mismatch
 # This can happen when transitive dependencies (like comfyui-manager) pull in
