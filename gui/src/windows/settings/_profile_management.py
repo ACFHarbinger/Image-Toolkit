@@ -117,10 +117,11 @@ class _ProfileManagementMixin:
         }
 
         # §4.12 — bundle current window geometry and splitter states
-        if self.main_window_ref:
+        if self.window_service.available:
             try:
-                geom_bytes = self.main_window_ref.saveGeometry()
-                profile_data["layout_geometry"] = base64.b64encode(bytes(geom_bytes)).decode("ascii")
+                geom_bytes = self.window_service.save_geometry()
+                if geom_bytes is not None:
+                    profile_data["layout_geometry"] = base64.b64encode(bytes(geom_bytes)).decode("ascii")
             except Exception:
                 logger.debug("Suppressed Exception in _ProfileManagementMixin._get_current_ui_preferences", exc_info=True)
 
@@ -386,10 +387,10 @@ class _ProfileManagementMixin:
         the next time ``persist_splitter`` is called for that key).
         """
         geom_b64 = profile_data.get("layout_geometry")
-        if geom_b64 and self.main_window_ref:
+        if geom_b64 and self.window_service.available:
             try:
                 geom_bytes = QByteArray(base64.b64decode(geom_b64))
-                self.main_window_ref.restoreGeometry(geom_bytes)
+                self.window_service.restore_geometry(geom_bytes)
             except Exception:
                 logger.debug("Suppressed Exception in _ProfileManagementMixin._apply_layout_from_profile", exc_info=True)
 

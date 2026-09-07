@@ -448,10 +448,9 @@ class _AppearanceMixin:
             return
         self.pref_app_zoom += 10
         self._zoom_label.setText(self._zoom_label_text())
-        if self.main_window_ref and hasattr(self.main_window_ref, "zoom_in"):
-            self.main_window_ref.zoom_in()
-            mw_prefs = getattr(self.main_window_ref, "cached_creds", {}).get("preferences", {})
-            self.pref_app_zoom = mw_prefs.get("app_zoom", self.pref_app_zoom)
+        zoom = self.window_service.zoom_in()
+        if zoom is not None:
+            self.pref_app_zoom = zoom
             self._zoom_label.setText(self._zoom_label_text())
 
     def _zoom_out(self) -> None:
@@ -459,19 +458,18 @@ class _AppearanceMixin:
             return
         self.pref_app_zoom -= 10
         self._zoom_label.setText(self._zoom_label_text())
-        if self.main_window_ref and hasattr(self.main_window_ref, "zoom_out"):
-            self.main_window_ref.zoom_out()
-            mw_prefs = getattr(self.main_window_ref, "cached_creds", {}).get("preferences", {})
-            self.pref_app_zoom = mw_prefs.get("app_zoom", self.pref_app_zoom)
+        zoom = self.window_service.zoom_out()
+        if zoom is not None:
+            self.pref_app_zoom = zoom
             self._zoom_label.setText(self._zoom_label_text())
 
     def _preview_appearance(self) -> None:
         """Apply current theme, color palette, background, and glassmorphism live without saving."""
-        if not self.main_window_ref:
+        if not self.window_service.available:
             return
 
         selected_theme = "dark" if self.dark_theme_radio.isChecked() else "light"
-        prefs = dict(getattr(self.main_window_ref, "cached_creds", {}).get("preferences", {}))
+        prefs = self.window_service.preferences()
 
         prefs["accent_color_dark"] = self._current_colors.get("accent", self.pref_accent_dark)
         prefs["accent_color_light"] = self._current_colors.get("accent", self.pref_accent_light)
@@ -481,18 +479,12 @@ class _AppearanceMixin:
         prefs["corner_radius"] = self.corner_radius_combo.currentData()
         prefs["background_config"] = self._get_background_config_dict()
 
-        if hasattr(self.main_window_ref, "cached_creds"):
-            if not self.main_window_ref.cached_creds:
-                self.main_window_ref.cached_creds = {}
-            self.main_window_ref.cached_creds["preferences"] = prefs
-
         # Update background canvas controller
         bg_cfg = BackgroundConfig.from_dict(prefs["background_config"])
         BackgroundCanvasController.instance().set_config(bg_cfg)
 
         # Trigger theme reload
-        self.main_window_ref.set_application_theme(selected_theme)
-        self.main_window_ref.update()
+        self.window_service.preview_appearance(selected_theme, prefs)
 
 
 __all__ = ["_AppearanceMixin"]

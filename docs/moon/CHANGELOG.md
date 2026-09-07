@@ -1,3 +1,11 @@
+# S531 — 2026-09-07 (Codex: R1.3 #558 / ui-arch-36 WindowService)
+
+- Added `WindowService`, the narrow application-window interface consumed by
+  Settings. Settings no longer keeps or inspects `MainWindow`; geometry,
+  zoom, theme preview/application, restart, tab refresh, and account-cache
+  replacement now cross that service boundary. Focused service-contract tests
+  cover the settings-facing behaviors.
+
 # S530 — 2026-09-07 (Gemini: R1.7 #562 / ui-arch-40 PreviewContext value object and PreviewService)
 
 - #562 `PreviewContext` dataclass and `PreviewService` implemented in `gui/src/services/` (`preview_service.py`). Encapsulates video/image dispatch, platform external players, window activation deduplication, and lifecycle management.

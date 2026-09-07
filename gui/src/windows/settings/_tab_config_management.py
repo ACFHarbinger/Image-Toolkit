@@ -199,12 +199,10 @@ class _TabConfigMixin:
 
     def _get_tab_mapping(self):
         """
-        Retrieves the tab structure from the main window reference, if available.
+        Retrieves the tab structure from the window service, if available.
         This defines the category -> tab_name -> tab_instance mapping.
         """
-        if not self.main_window_ref or not hasattr(self.main_window_ref, "all_tabs"):
-            return {}
-        return self.main_window_ref.all_tabs
+        return self.window_service.all_tabs()
 
     def _get_all_tab_names_uncategorized(self):
         """
