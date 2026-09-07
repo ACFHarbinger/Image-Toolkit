@@ -1,3 +1,10 @@
+# S529 — 2026-09-07 (Cursor: #563 R2.a listings pair collapsed)
+
+- `entity_listings_subtab/` and `series_listings_subtab/` merged into
+  `listings_subtab/`: one package, shared `_backup_sync.py` driven by
+  `ListingsProfile`, kind-specific mixins prefixed `_entity_*` / `_series_*`.
+  Old directories removed; 24 targeted listings tests pass.
+
 # S528 — 2026-09-06 (Claude: R0 hotfixes #547 #549 #550 #551)
 
 - #547 `MonitorDisplaySubTab.__init__` calls `super().__init__()` instead of

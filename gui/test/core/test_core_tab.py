@@ -871,7 +871,7 @@ class TestListingsTab:
         # via the series/entity listings subtabs' initial load.
         with (
             patch(
-                "gui.src.tabs.database.series_listings_subtab._backup_sync.get_library_db",
+                "gui.src.tabs.database.listings_subtab._backup_sync.get_library_db",
                 return_value=MagicMock(),
             ),
             patch(
