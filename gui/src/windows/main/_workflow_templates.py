@@ -56,7 +56,7 @@ class _WorkflowTemplatesMixin:
             creds = self.vault_manager.load_account_credentials()
             creds["workflow_templates"] = templates
             self.vault_manager.save_data(json.dumps(creds))
-            self.cached_creds = creds
+            self._refresh_account_credentials(creds)
             return True
         except Exception as e:
             QMessageBox.critical(self, "Workflow Templates", f"Failed to save workflow templates:\n{e}")

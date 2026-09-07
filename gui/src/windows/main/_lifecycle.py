@@ -68,7 +68,7 @@ class _LifecycleMixin:
 
     def update_header(self):
         try:
-            self.cached_creds = self.vault_manager.load_account_credentials()
+            self._refresh_account_credentials(self.vault_manager.load_account_credentials())
             account_name = self.cached_creds.get("account_name", "Authenticated User")
         except Exception:
             account_name = "Authenticated User"

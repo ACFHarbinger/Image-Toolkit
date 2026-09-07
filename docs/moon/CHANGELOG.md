@@ -1,3 +1,13 @@
+# S529 — 2026-09-07 (Codex: settings account-preference ownership, #548)
+
+- Settings now commits its account preference snapshot before refreshing the
+  main window and `PreferenceStore`; it no longer writes `cached_creds` or
+  lets a stale adapter snapshot overwrite a newly saved setting.
+- Appearance preview is in-memory only. Ctrl+wheel zoom also persists through
+  `PreferenceStore`, keeping `cached_creds` a refreshed UI snapshot rather
+  than a writable settings store. Guest-restart and preview regressions cover
+  the failure mode.
+
 # S528 — 2026-09-06 (Claude: R0 hotfixes #547 #549 #550 #551)
 
 - #547 `MonitorDisplaySubTab.__init__` calls `super().__init__()` instead of

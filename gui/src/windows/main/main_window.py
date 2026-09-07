@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
 )
 
 from gui.src.components.widgets.toast_widget import ToastManager
+from gui.src.preferences import PreferenceStore
 from gui.src.windows.settings.app_settings import AppSettings
 
 from ...constants import NEW_LIMIT_MB
@@ -98,25 +99,13 @@ class MainWindow(
         self.cached_creds = {}
         if self.vault_manager is not None:
             try:
-                self.cached_creds = self.vault_manager.load_account_credentials()
+                self._refresh_account_credentials(
+                    self.vault_manager.load_account_credentials()
+                )
                 account_name = self.cached_creds.get("account_name", "Authenticated User")
                 if getattr(self.vault_manager, "is_guest", False) is True:
                     account_name = f"{account_name} (Guest)"
                 initial_theme = self.cached_creds.get("theme", "dark")
-                # #525 cross-review: wire the ACCOUNT scope to the real,
-                # just-authenticated credentials + vault manager so
-                # PreferenceStore reads/writes for account-scoped keys
-                # (recursive_scan, favourite_directories, mal_fetch_method,
-                # theme, ...) resolve against this session's actual account
-                # instead of an empty adapter -- previously nothing ever
-                # called attach_vault_credentials() in production, so an
-                # ACCOUNT-scope write appeared to work in-process but was
-                # discarded on restart.
-                from gui.src.preferences import PreferenceStore
-
-                PreferenceStore.instance().attach_vault_credentials(
-                    self.cached_creds, self.vault_manager, account_name
-                )
             except Exception as e:
                 print(f"Warning: Failed to load account credentials or theme: {e}")
 
@@ -253,6 +242,15 @@ class MainWindow(
         else:
             self.showMaximized()
         QTimer.singleShot(0, self._restore_session_recovery)
+
+    def _refresh_account_credentials(self, credentials: dict) -> None:
+        """Install one committed account snapshot for UI and preferences."""
+        self.cached_creds = credentials
+        PreferenceStore.instance().attach_vault_credentials(
+            credentials,
+            self.vault_manager,
+            credentials.get("account_name", "Authenticated User"),
+        )
 
     def open_settings_window(self):
         if not self.settings_window:

@@ -111,10 +111,12 @@ class _ThemeMixin:
         if app is not None:
             app.setPalette(_build_palette(theme_name, accent_color))
 
-    def set_application_theme(self, theme_name):  # noqa: C901
-        prefs = {}
-        if hasattr(self, "cached_creds") and self.cached_creds:
-            prefs = self.cached_creds.get("preferences", {})
+    def set_application_theme(self, theme_name, *, preferences: dict | None = None):  # noqa: C901
+        prefs = preferences
+        if prefs is None:
+            prefs = {}
+            if hasattr(self, "cached_creds") and self.cached_creds:
+                prefs = self.cached_creds.get("preferences", {})
 
         density = prefs.get("ui_density", "Comfortable")
 
@@ -319,7 +321,7 @@ class _ThemeMixin:
                 creds = self.vault_manager.load_account_credentials()
                 creds["theme"] = new_theme
                 self.vault_manager.save_data(json.dumps(creds))
-                self.cached_creds = creds
+                self._refresh_account_credentials(creds)
             except Exception:
                 pass
 
