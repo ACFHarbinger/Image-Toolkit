@@ -62,7 +62,9 @@ class MonitorDisplaySubTab(
     """
 
     def __init__(self, parent=None):
-        WallpaperCommonBase.__init__(self)
+        # super(), not WallpaperCommonBase.__init__: calling the base by name
+        # skipped every mixin __init__ on this 15-mixin MRO (ui-arch-25/#547).
+        super().__init__()
         if parent:
             self.setParent(parent)
         self._monitors: List[Monitor] = []

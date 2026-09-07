@@ -176,6 +176,7 @@ nav:
       - Performance: moon/roadmaps/performance.md
       - New Features: moon/roadmaps/new_features.md
       - GUI / UX: moon/roadmaps/gui_ux.md
+      - GUI Refactoring: moon/roadmaps/gui_refactoring.md
       - Content Generation: moon/roadmaps/content_generation.md
       - Development Tool: moon/roadmaps/development_tool.md
       - Documentation: moon/roadmaps/documentation.md

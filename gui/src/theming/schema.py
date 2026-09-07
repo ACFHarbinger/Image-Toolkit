@@ -10,7 +10,7 @@ math) lives in the four issues that consume this schema (#438-441), not
 here.
 
 Design commitments this schema encodes (from the locked roadmap,
-docs/moon/roadmaps/app_theming_2026q3.md):
+docs/moon/roadmaps/gui_refactoring.md §2.5):
 
 - **Base + override-delta model.** A ``ThemePack`` is a ``base`` (``"dark"``
   or ``"light"``) plus a *sparse* ``color_overrides`` dict -- only the

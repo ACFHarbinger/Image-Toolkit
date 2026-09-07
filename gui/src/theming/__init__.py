@@ -1,5 +1,5 @@
 """Portable theme-pack schema, resolution, storage, and WCAG advisories
-(#437, App Theming & Customization -- docs/moon/roadmaps/app_theming_2026q3.md).
+(#437, App Theming & Customization -- docs/moon/roadmaps/gui_refactoring.md §2.5).
 
 Foundational module: the data model + load/save/validate that #438
 (Theme Studio UI), #439 (dynamic palette extraction), #440 (background

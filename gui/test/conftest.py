@@ -112,9 +112,7 @@ from git.scripts._submodule_bootstrap import register_submodule_packages  # noqa
 
 register_submodule_packages(str(project_root))
 
-from gui.src.windows.settings.file_dialog_patch import apply_patch  # noqa: E402
-
-apply_patch()
+import gui.src  # noqa: E402,F401  -- installs the QFileDialog patch (ui-arch-29/#551)
 
 
 def _close_without_modal(widget) -> None:

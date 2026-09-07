@@ -1,29 +1,33 @@
-"""Auto-populate groups/subgroups from ``LOCAL_SOURCE_PATH``.
-
-Extracted from ``database_tab.py`` -- pure code motion, no logic change
-(see ``_ui_connection.py``'s docstring).
-"""
+"""Auto-populate controller for groups/subgroups from ``LOCAL_SOURCE_PATH`` (§5.17, #544)."""
 
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 from backend.src.constants import LOCAL_SOURCE_PATH
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QMessageBox, QProgressDialog
 
+if TYPE_CHECKING:
+    pass
 
-class _AutoPopulateMixin:
+
+class DatabaseAutoPopulateController:
     """Scan ``LOCAL_SOURCE_PATH`` to sync groups/subgroups from disk layout."""
 
-    def auto_populate_from_source(self):  # noqa: C901
+    def __init__(self, tab: Any) -> None:
+        self.tab = tab
+
+    def auto_populate_from_source(self) -> None:  # noqa: C901
         """
         Scans LOCAL_SOURCE_PATH.
         Level 1 Directories -> Groups
         Level 2 Directories -> Subgroups for that Group
         """
-        if not self.db:
-            QMessageBox.warning(self, "Error", "Please connect to a database first")
+        tab = self.tab
+        if not tab.db:
+            QMessageBox.warning(tab, "Error", "Please connect to a database first")
             return
 
         # Resolve to absolute path to avoid ambiguity
@@ -31,13 +35,13 @@ class _AutoPopulateMixin:
 
         if not source_path.exists():
             QMessageBox.critical(
-                self, "Path Error", f"The source path does not exist:\n{source_path}"
+                tab, "Path Error", f"The source path does not exist:\n{source_path}"
             )
             return
 
         # Simple confirmation
         confirm = QMessageBox.question(
-            self,
+            tab,
             "Confirm Sync",
             f"This will scan the following directory:\n\n{source_path}\n\n"
             "Top-level folders will be added as Groups.\n"
@@ -49,7 +53,7 @@ class _AutoPopulateMixin:
             return
 
         # Progress Dialog
-        progress = QProgressDialog("Scanning directories...", "Cancel", 0, 0, self)
+        progress = QProgressDialog("Scanning directories...", "Cancel", 0, 0, tab)
         progress.setWindowModality(Qt.WindowModality.WindowModal)
         progress.setMinimumDuration(0)
         progress.show()
@@ -71,7 +75,7 @@ class _AutoPopulateMixin:
 
                     try:
                         # Add Group to DB (ImageDatabase handles "ON CONFLICT DO NOTHING")
-                        self.db.add_group(group_name)
+                        tab.db.add_group(group_name)
                         groups_added += 1
 
                         # Iterate Level 2 (Subgroups)
@@ -86,13 +90,12 @@ class _AutoPopulateMixin:
 
                                 try:
                                     # Add Subgroup to DB
-                                    self.db.add_subgroup(subgroup_name, group_name)
+                                    tab.db.add_subgroup(subgroup_name, group_name)
                                     subgroups_added += 1
                                 except Exception as e_sub:
                                     print(
                                         f"Error adding subgroup {subgroup_name}: {e_sub}"
                                     )
-                                    # Don't stop the whole process for one subgroup error
                                     pass
 
                     except Exception as e_group:
@@ -101,11 +104,11 @@ class _AutoPopulateMixin:
             progress.close()
 
             # Refresh UIs
-            self.refresh_groups_list()
-            self._refresh_all_group_combos()
-            self.refresh_subgroup_autocomplete()
-            self.refresh_subgroups_list()
-            self.update_statistics()
+            tab.refresh_groups_list()
+            tab._refresh_all_group_combos()
+            tab.refresh_subgroup_autocomplete()
+            tab.refresh_subgroups_list()
+            tab.update_statistics()
 
             msg = (
                 f"Scan Finished.\n\n"
@@ -119,13 +122,16 @@ class _AutoPopulateMixin:
                 if len(errors) > 5:
                     msg += "\n..."
 
-            QMessageBox.information(self, "Sync Complete", msg)
+            QMessageBox.information(tab, "Sync Complete", msg)
 
         except Exception as e:
             progress.close()
             QMessageBox.critical(
-                self, "Sync Error", f"An error occurred during scanning:\n{str(e)}"
+                tab, "Sync Error", f"An error occurred during scanning:\n{str(e)}"
             )
 
 
-__all__ = ["_AutoPopulateMixin"]
+# Backward-compatible alias
+_AutoPopulateMixin = DatabaseAutoPopulateController
+
+__all__ = ["DatabaseAutoPopulateController", "_AutoPopulateMixin"]
