@@ -7,8 +7,8 @@ rationale and the ordered plan; use the issues for status.
 
 **Integration branch (2026-09-07, user decision):** every remaining item in
 this milestone lands on `milestone/gui-refactoring-roadmap`
-([PR](https://github.com/ACFHarbinger/Image-Toolkit/pulls) — search open PRs
-for the branch name), not `main` directly. One branch + PR per milestone from
+([PR #576](https://github.com/ACFHarbinger/Image-Toolkit/pull/576)), not
+`main` directly. One branch + PR per milestone from
 now on; the PR merges to `main` once every issue under #10 is closed. Item
 branches (`feature/ui-arch-NN-<slug>`) merge into the milestone branch, same
 review/D12 gates as before — see §1's workflow line.
