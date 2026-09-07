@@ -1,3 +1,13 @@
+# 2026-09-07 — Extractor player geometry (#546)
+
+- Player height now follows the selected canvas aspect and available width;
+  the previous 360px floor left rendered video unchanged when selecting 1080p.
+- Viewport resize signals refit the video after layout, including fullscreen
+  transitions, without a queued callback surviving tab teardown.
+- Four sizing regressions and six external-player tests pass. Visible Qt
+  playback verified 720p → 1080p growth from 1270×715 to 1516×853 rendered
+  pixels. The broader session-recovery lifecycle work remains open.
+
 # S526 — 2026-09-05 (Claude: Phase 1 — six architectural contracts, cross-reviewed and merged)
 
 - Phase 1 delegated six contracts across the team (D6, concurrent, not

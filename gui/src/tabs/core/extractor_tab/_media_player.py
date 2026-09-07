@@ -49,6 +49,7 @@ from ....helpers.video.video_thumbnailer import (
     mark_media_backend_loaded,
 )
 from ....utils.sort_utils import natural_sort_key
+from ._video_view import VideoView
 
 if TYPE_CHECKING:
     from ..protos.extractor_tab import VideoExtractorSubTabHostProtocol
@@ -108,7 +109,7 @@ class _MediaPlayerMixin:
         self._video_item: Optional[QGraphicsVideoItem] = None
         self.graphics_scene = QGraphicsScene(cast(QObject, self))
 
-        video_view = QGraphicsView(self.graphics_scene)
+        video_view = VideoView(self.graphics_scene)
         self.video_view = video_view
         # The resolution control is a display-quality cap, not a requirement
         # for the surrounding scroll area's width. A fixed 1920px canvas made
@@ -118,10 +119,7 @@ class _MediaPlayerMixin:
         video_view.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred
         )
-        # A scroll area only guarantees its child's width.  Without a real
-        # height floor, this empty-scene view collapses to its tiny size hint.
-        video_view.setMinimumSize(0, 360)
-        video_view.setMaximumSize(1280, 720)
+        video_view.viewport_resized.connect(self.fit_video_in_view)
         video_view.setHorizontalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff
         )
@@ -347,9 +345,7 @@ class _MediaPlayerMixin:
             self.graphics_scene.addItem(self._video_item)
             # The stream dimensions arrive asynchronously after a source is
             # probed, so the initial fit cannot reliably know the aspect.
-            self._video_item.nativeSizeChanged.connect(
-                lambda _size: self.fit_video_in_view()
-            )
+            self._video_item.nativeSizeChanged.connect(self.fit_video_in_view)
         return self._video_item
 
     @property
