@@ -182,10 +182,12 @@ class _ContextMenuMixin:
         except ValueError:
             start_index = 0
 
-        db_tab_ref = getattr(self, "db_tab_ref", None)
+        database_service = getattr(self, "database_service", None)
+        if database_service is None:
+            database_service = getattr(self, "db_tab_ref", None)
         preview = ImagePreviewWindow(
             image_path=path,
-            db_tab_ref=db_tab_ref,
+            database_service=database_service,
             parent=cast(QWidget, self),
             all_paths=all_paths,
             start_index=start_index,

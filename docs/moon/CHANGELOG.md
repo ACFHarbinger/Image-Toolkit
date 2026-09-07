@@ -1,3 +1,8 @@
+# S529 — 2026-09-07 (Gemini: R0 hotfix #554 / ui-arch-32 ImagePreviewWindow database_service migration)
+
+- #554 `ImagePreviewWindow.__init__` parameter `db_tab_ref` migrated to `database_service`; all 10 internal call sites across `abstract_class_two_galleries`, `extractor_tab`, `format_subtab`, `merge_tab`, `sampler_subtab`, `similarity_tab`, `wallpaper_tab`, and `search_tab` updated.
+- Legacy `db_tab_ref` parameter and property shim removed in-issue per exit criteria (0 `db_tab_ref` kwargs remain); tests added in `gui/test/windows/test_image_preview_window.py`.
+
 # S528 — 2026-09-06 (Claude: R0 hotfixes #547 #549 #550 #551)
 
 - #547 `MonitorDisplaySubTab.__init__` calls `super().__init__()` instead of

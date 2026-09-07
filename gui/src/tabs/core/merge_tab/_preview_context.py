@@ -34,7 +34,7 @@ class _PreviewContextMixin:
 
         window = ImagePreviewWindow(
             image_path=image_path,
-            db_tab_ref=None,
+            database_service=None,
             parent=self,
             all_paths=target_list,
             start_index=start_index,
