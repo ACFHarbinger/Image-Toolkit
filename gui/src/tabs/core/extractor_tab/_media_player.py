@@ -111,21 +111,12 @@ class _MediaPlayerMixin:
 
         video_view = VideoView(self.graphics_scene)
         self.video_view = video_view
-        # The resolution control is a display-quality cap, not a requirement
-        # for the surrounding scroll area's width. A fixed 1920px canvas made
-        # every directory group above it overflow at the application's 800px
-        # minimum window width. Let the layout shrink the surface while
-        # retaining the selected resolution as its maximum size.
+        # VideoView contains oversized canvases so the other sections keep
+        # fitting the window when the user chooses 1440p or 4K.
         video_view.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred
         )
         video_view.viewport_resized.connect(self.fit_video_in_view)
-        video_view.setHorizontalScrollBarPolicy(
-            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
-        )
-        video_view.setVerticalScrollBarPolicy(
-            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
-        )
         video_view.setVisible(True)
 
         # Install event filters on the view AND its viewport for robust wheel capture

@@ -77,9 +77,21 @@ def test_resolution_changes_rendered_size_in_real_scroll_layout(q_app):
             q_app.processEvents()
         assert tab.video_view.height() > first_height
         assert tab.video_view.transform().m11() > first_scale
+        previous_scale = tab.video_view.transform().m11()
+        for index in (2, 3):
+            tab.combo_resolution.setCurrentIndex(index)
+            for _ in range(5):
+                q_app.processEvents()
+            assert tab.video_view.transform().m11() > previous_scale
+            previous_scale = tab.video_view.transform().m11()
+            assert tab.video_view.horizontalScrollBar().maximum() > 0
+            assert tab.video_view.verticalScrollBar().maximum() > 0
+            assert owner.width() == 1800
+        # Shrinking the window must not silently shrink the chosen canvas.
         owner.resize(800, 1000)
         for _ in range(5):
             q_app.processEvents()
         assert tab.video_view.width() <= 800
+        assert tab.video_view.transform().m11() == previous_scale
         assert tab.video_view.height() == pytest.approx(tab.video_view.width() * 9 / 16, abs=1)
     owner.close()
