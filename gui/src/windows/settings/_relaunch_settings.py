@@ -262,8 +262,10 @@ class _RelaunchSettingsMixin:
             user_data["active_tab_configs"] = new_active_configs
             user_data["system_preference_profiles"] = self.system_profiles
 
-            # Persist new preference settings
-            user_data["preferences"] = {
+            # Preserve preferences this dialog does not own, then commit its
+            # controls as one account snapshot.
+            preferences = dict(user_data.get("preferences", {}))
+            preferences.update({
                 "thumbnail_size": self.thumbnail_size_spinbox.value(),
                 "page_size": int(self.page_size_combo.currentText()),
                 "confirm_deletions": self.confirm_deletions_check.isChecked(),
@@ -303,6 +305,12 @@ class _RelaunchSettingsMixin:
                 "favourite_directories": [
                     self.fav_list_widget.item(i).text() for i in range(self.fav_list_widget.count())
                 ],
+                "mal_fetch_method": self.mal_fetch_method_combo.currentData(),
+            })
+            user_data["preferences"] = preferences
+            user_data["experimental"] = {
+                **dict(user_data.get("experimental", {})),
+                "runtime_shell": self.runtime_shell_check.isChecked(),
             }
 
 
@@ -310,20 +318,18 @@ class _RelaunchSettingsMixin:
                 # Close-to-tray is device-owned: guest vault data is volatile
                 # and account vaults must not override this window behaviour.
                 AppSettings.set_minimize_to_tray(self.minimize_to_tray_check.isChecked())
-                AppSettings.set_runtime_shell_enabled(self.runtime_shell_check.isChecked())
+                from gui.src.preferences import PreferenceStore
 
-                # These remaining values are account-scoped.
-                if getattr(self.vault_manager, "is_guest", False) is not True:
-                    AppSettings.set_recursive_scan(self.recursive_scan_check.isChecked())
-                    AppSettings.set_favourite_directories(user_data["preferences"]["favourite_directories"])  # pyrefly: ignore [bad-argument-type]
-                    AppSettings.set_mal_fetch_method(self.mal_fetch_method_combo.currentData())
+                PreferenceStore.instance().attach_vault_credentials(
+                    user_data, self.vault_manager, self.current_account_name
+                )
                 if self.main_window_ref:
                     old_active_configs = (
                         dict(self.main_window_ref.cached_creds.get("active_tab_configs", {}))
                         if getattr(self.main_window_ref, "cached_creds", None)
                         else {}
                     )
-                    self.main_window_ref.cached_creds = user_data
+                    self.main_window_ref._refresh_account_credentials(user_data)
                     if hasattr(self.main_window_ref, "set_minimize_to_tray"):
                         self.main_window_ref.set_minimize_to_tray(self.minimize_to_tray_check.isChecked())
                     if selected_theme:

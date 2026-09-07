@@ -238,7 +238,7 @@ concurrently (D6). "Gate" = D12 live pass required in addition to Codex review.
 | ID | Item | Evidence | Owner | Exit | Issue |
 |---|---|---|---|---|---|
 | R0.1 | `MonitorDisplaySubTab.__init__` → `super().__init__()` (skips 15 mixin inits today) | F18 | Claude | test asserting every mixin `__init__` on the MRO ran | ui-arch-25 (#547) |
-| R0.2 | Settings stop writing `MainWindow.cached_creds`; go through `PreferenceStore` ACCOUNT keys | F19, §5.5 | Codex | `cached_creds` writes outside login → 0; guest restart test | ui-arch-26 (#548) |
+| R0.2 | Settings stop writing `MainWindow.cached_creds`; go through `PreferenceStore` ACCOUNT keys | F19, §5.5 | Codex | Implemented: settings has no direct cache writes; account snapshots refresh through the login-boundary helper; guest-restart regression passes. D12 settings-persistence pass pending. | ui-arch-26 (#548) |
 | R0.3 | Lazy-import `StitchTab` / `Manga*` / `HieEditorTab` inside `_create_tabs` and catalog factories | F26 | Claude | `import gui.src.tabs` no longer imports `asp_gui`/`csg_gui`/`hie_tab`; boundary check extended | ui-arch-27 (#549) |
 | R0.4 | Remove `gui/src/protos/` + `gui/test/protos/` (Q-A) | §5.1 | Claude | dirs gone, nothing imports them | ui-arch-28 (#550) |
 | R0.5 | `QFileDialog` safety self-installs on `gui.src` import; raw static calls linted | §5.6 | Claude | `apply_patch()` call sites → 1; lint rule | ui-arch-29 (#551) |

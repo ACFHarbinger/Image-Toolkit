@@ -8,6 +8,8 @@ from __future__ import annotations
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QWheelEvent
 
+from gui.src.preferences import PreferenceStore
+
 
 class _ZoomMixin:
     """Ctrl+Wheel-driven global zoom in/out, layered on top of font_scale."""
@@ -16,22 +18,24 @@ class _ZoomMixin:
         """Increase the global app zoom by 10% (max +100%) and reapply theme."""
         if not hasattr(self, "cached_creds") or not self.cached_creds:
             return
-        prefs = self.cached_creds.setdefault("preferences", {})
+        prefs = self.cached_creds.get("preferences", {})
         current = prefs.get("app_zoom", 0)
         if current >= 100:  # cap at +100% on top of font_scale
             return
-        prefs["app_zoom"] = current + 10
+        PreferenceStore.instance().set("preferences/app_zoom", current + 10)
+        self._refresh_account_credentials(self.vault_manager.load_account_credentials())
         self.set_application_theme(self.current_theme)
 
     def zoom_out(self) -> None:
         """Decrease the global app zoom by 10% (min −50%) and reapply theme."""
         if not hasattr(self, "cached_creds") or not self.cached_creds:
             return
-        prefs = self.cached_creds.setdefault("preferences", {})
+        prefs = self.cached_creds.get("preferences", {})
         current = prefs.get("app_zoom", 0)
         if current <= -50:  # floor at −50%
             return
-        prefs["app_zoom"] = current - 10
+        PreferenceStore.instance().set("preferences/app_zoom", current - 10)
+        self._refresh_account_credentials(self.vault_manager.load_account_credentials())
         self.set_application_theme(self.current_theme)
 
     def wheelEvent(self, event: QWheelEvent) -> None:  # type: ignore[override]
