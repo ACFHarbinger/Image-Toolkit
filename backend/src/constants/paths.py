@@ -29,10 +29,13 @@ CONFIGS_DIR = ROOT_DIR / "configs"
 
 # Files
 _crypto_lib_name = "libitk_crypto.dll" if sys.platform == "win32" else "libitk_crypto.so"
-if (ROOT_DIR / "build" / "crypto" / _crypto_lib_name).exists():
-    CRYPTO_LIB_FILE = str(ROOT_DIR / "build" / "crypto" / _crypto_lib_name)
-elif (ROOT_DIR / _crypto_lib_name).exists():
+# ``build-base`` installs the supported crypto library at the project root.
+# Prefer it over the legacy standalone build directory so a stale artifact
+# cannot shadow the library produced with the active base extension.
+if (ROOT_DIR / _crypto_lib_name).exists():
     CRYPTO_LIB_FILE = str(ROOT_DIR / _crypto_lib_name)
+elif (ROOT_DIR / "build" / "crypto" / _crypto_lib_name).exists():
+    CRYPTO_LIB_FILE = str(ROOT_DIR / "build" / "crypto" / _crypto_lib_name)
 elif getattr(sys, "frozen", False) and (Path(sys.executable).resolve().parent / _crypto_lib_name).exists():
     CRYPTO_LIB_FILE = str(Path(sys.executable).resolve().parent / _crypto_lib_name)
 else:
