@@ -161,8 +161,44 @@ class _ViewControlsMixin:
         if self._video_item is None:
             return
         video_view = cast(QGraphicsView, self.video_view)
-        rect = video_view.viewport().rect()
-        self.video_item.setSize(rect.size())
+        # Regression (root-caused to 4d33faeb, "resolve remaining Extractor
+        # tab overflow at 800px minimum width"): this used to size the item
+        # to the VIEWPORT's raw rect, which forces the item's own aspect
+        # ratio to match whatever the surrounding layout happens to give
+        # it -- QGraphicsVideoItem stretches its decoded frame to fill its
+        # own size(), so any mismatch between that forced size and the
+        # video's real aspect ratio crops/distorts the picture. Before
+        # 4d33faeb this was mostly invisible because video_view.setFixedSize
+        # kept the viewport at a fixed ~16:9-ish resolution matching most
+        # test videos closely enough; once that became setMaximumSize-only,
+        # the real viewport aspect started varying far more, and the
+        # distortion became visible (confirmed live: a 890x480, ~1.85:1
+        # video rendered as a tall, narrow, heavily cropped strip).
+        #
+        # Fix: size the item to the video's own native aspect ratio (once
+        # known -- see video_item's nativeSizeChanged connection) and let
+        # fitInView's KeepAspectRatio scale+letterbox it within whatever
+        # viewport space is actually available, instead of forcing the
+        # item's own shape to match that viewport.
+        native_size = self.video_item.nativeSize()
+        if not native_size.isEmpty():
+            w, h = native_size.width(), native_size.height()
+            aspect = (w / h) if h else 0
+            # Some real-world files carry corrupted/unusual aspect-ratio
+            # metadata (confirmed live: an h264 stream with SAR
+            # 40230968:40208865 -- an oddly "computed"-looking, non-
+            # standard fraction -- made Qt Multimedia's own FFmpeg backend
+            # report nativeSize() as 35x480 for what ffprobe confirms is
+            # actually an 890x480, ~1.85:1 frame). That isn't something
+            # this codebase can correct -- Qt is relaying bad container
+            # metadata, not misusing good metadata. Sanity-clamp to a
+            # plausible aspect ratio range (wider than 5:1 or narrower
+            # than 1:5 covers real ultra-wide/portrait content with
+            # margin) and leave the item's existing size alone rather
+            # than rendering a postage-stamp sliver from data we can't
+            # trust.
+            if 0.2 <= aspect <= 5.0:
+                self.video_item.setSize(native_size)
         video_view.fitInView(self.video_item, Qt.AspectRatioMode.KeepAspectRatio)
 
     def toggle_fullscreen(self: "VideoExtractorSubTabHostProtocol"):
