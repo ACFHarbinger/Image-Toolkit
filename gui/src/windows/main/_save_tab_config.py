@@ -82,7 +82,7 @@ class _SaveTabConfigMixin:
             creds["tab_configurations"] = tab_configurations
 
             self.vault_manager.save_data(json.dumps(creds))
-            self.cached_creds = creds
+            self._refresh_account_credentials(creds)
 
             QMessageBox.information(
                 self,
