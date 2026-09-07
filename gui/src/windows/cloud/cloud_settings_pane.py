@@ -6,6 +6,7 @@ endpoints and API keys without leaking plaintext secrets to disk.
 
 from __future__ import annotations
 
+import logging
 from typing import Any, Dict, Optional
 
 from PySide6.QtWidgets import (
@@ -21,6 +22,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+logger = logging.getLogger(__name__)
 
 class CloudSettingsPane(QWidget):
     """Configuration pane for cloud provider endpoints and Vault-backed credentials."""
@@ -153,7 +155,7 @@ class CloudSettingsPane(QWidget):
             self.cf_account_id.setText(cloud_cfg.get("cf_account_id", ""))
             self.cf_api_token.setText(cloud_cfg.get("cf_api_token", ""))
         except Exception:
-            pass
+            logger.debug("Suppressed Exception in CloudSettingsPane._load_from_vault", exc_info=True)
 
     def get_config_dict(self) -> Dict[str, Any]:
         return {

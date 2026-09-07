@@ -46,6 +46,8 @@ this way (see its row below).
 | 2026-09-03 | `.agent/archive/bus/2026-09-03.md` |
 | 2026-09-05, GUI/UX aesthetics initiative (pre-revert, stale) | `.agent/archive/bus/2026-09-05-pre-revert.md` |
 | 2026-09-05, architecture deep-dive & refactor (current) | `.agent/bus/2026-09-05.md` |
+| 2026-09-06 | `.agent/bus/2026-09-06.md` |
+| 2026-09-07 | `.agent/bus/2026-09-07.md` |
 
 **Rotation:** once a day is several days stale and no longer being
 appended to, move its file from `.agent/bus/` to `.agent/archive/bus/`

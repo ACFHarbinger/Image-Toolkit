@@ -19,11 +19,13 @@ established convention rather than introducing a new one.
 from __future__ import annotations
 
 import hashlib
+import logging
 from pathlib import Path
 
 from backend.src.constants import THUMBNAIL_CACHE_DIR
 from PySide6.QtGui import QImage
 
+logger = logging.getLogger(__name__)
 
 def qir_cache_path(path: str, target_size: int) -> Path:
     key = hashlib.md5(f"{path}:{target_size}".encode("utf-8")).hexdigest()
@@ -53,7 +55,7 @@ def save_qir_cached(path: str, target_size: int, image: QImage) -> None:
         # separately, not fixed here.
         image.save(str(qir_cache_path(path, target_size)), "PNG")
     except Exception:
-        pass
+        logger.debug("Suppressed Exception in save_qir_cached", exc_info=True)
 
 
 __all__ = ["qir_cache_path", "load_qir_cached", "save_qir_cached"]

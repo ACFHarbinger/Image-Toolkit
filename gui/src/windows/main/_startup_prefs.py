@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import copy
 import inspect
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -15,6 +16,7 @@ from backend.src.constants import LOCAL_SOURCE_PATH
 from ...utils.cache.lru_image_cache import LRUImageCache
 from ..settings.app_settings import AppSettings
 
+logger = logging.getLogger(__name__)
 
 class _StartupPrefsMixin:
     """Applies vault-stored preferences (thumbnail size, caches, dirs, ...) to every tab."""
@@ -280,7 +282,7 @@ class _StartupPrefsMixin:
                 order = prefs.get("slideshow_order", "Sequential")
                 wt.playback_order_combo.setCurrentText(order)  # pyrefly: ignore [missing-attribute]
             except Exception:
-                pass
+                logger.debug("Suppressed Exception in _StartupPrefsMixin._apply_startup_preferences", exc_info=True)
 
         # §2.16F — logging preferences (GUI/UX §2.9F, issue #48). Local import:
         # backend.src.app imports from gui.src.windows.main, so a module-level
@@ -292,7 +294,7 @@ class _StartupPrefsMixin:
                 bool(prefs.get("file_logging_enabled", False)),
             )
         except Exception:
-            pass
+            logger.debug("Suppressed Exception in _StartupPrefsMixin._apply_startup_preferences", exc_info=True)
 
 
 

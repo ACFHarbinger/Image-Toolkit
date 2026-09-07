@@ -1,3 +1,4 @@
+import logging
 import platform
 import re
 import shutil
@@ -22,6 +23,8 @@ from gui.src.constants.listings import (
     LISTINGS_FILE,  # noqa: F401
     VIDEO_IMPORT_EXTS,
 )
+
+logger = logging.getLogger(__name__)
 
 # NOTE (Phase DB, DB.5): save_content_entry_to_db / save_entity_entry_to_db /
 # fetch_entity_name_map were removed — persistence goes through
@@ -216,7 +219,7 @@ def generate_thumbnail_from_file(file_path: str, dest_path: str) -> bool:  # noq
                         return True
                     cap.release()
             except Exception:
-                pass
+                logger.debug("Suppressed Exception in generate_thumbnail_from_file", exc_info=True)
         except Exception as e:
             print(f"Failed to extract video thumbnail: {e}")
             return False

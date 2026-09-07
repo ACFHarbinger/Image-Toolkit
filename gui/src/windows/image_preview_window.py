@@ -46,7 +46,7 @@ class ImagePreviewWindow(QDialog):
     def __init__(
         self,
         image_path: str,
-        db_tab_ref=None,
+        database_service=None,
         parent=None,
         all_paths: Optional[List[str]] = None,
         start_index: int = 0,
@@ -58,7 +58,7 @@ class ImagePreviewWindow(QDialog):
         self.current_index = start_index
 
         self.image_path = self.all_paths[self.current_index]
-        self.db_tab_ref = db_tab_ref
+        self.database_service = database_service
         self.parent_tab = parent
 
         # State trackers for animation and scaling

@@ -6,6 +6,7 @@ Extracted from ``search_tab.py`` -- pure code motion, no logic change
 
 from __future__ import annotations
 
+import logging
 import os
 import platform
 import subprocess
@@ -18,6 +19,7 @@ from send2trash import send2trash  # pyrefly: ignore [untyped-import]
 
 from ....windows import ImagePreviewWindow
 
+logger = logging.getLogger(__name__)
 
 class _FileActionsMixin:
     """Remove-from-DB, delete-file, properties dialog, context menu, preview."""
@@ -222,7 +224,7 @@ class _FileActionsMixin:
             if window_instance in self.open_preview_windows:
                 self.open_preview_windows.remove(window_instance)
         except (RuntimeError, ValueError):
-            pass
+            logger.debug("Suppressed (RuntimeError, ValueError) in _FileActionsMixin.remove_preview_window", exc_info=True)
 
     def open_file_preview(self, file_path: str):
         if not file_path or not os.path.exists(file_path):
@@ -249,7 +251,7 @@ class _FileActionsMixin:
 
         preview = ImagePreviewWindow(
             image_path=file_path,
-            db_tab_ref=self.database_service,
+            database_service=self.database_service,
             parent=self,
             all_paths=all_paths,
             start_index=start_index,

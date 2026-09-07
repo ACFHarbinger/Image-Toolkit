@@ -7,10 +7,13 @@ convention (§5.17).
 
 from __future__ import annotations
 
+import logging
 import os
 from typing import TYPE_CHECKING, Optional, cast
 
 from PySide6.QtWidgets import QFileDialog, QInputDialog, QMessageBox, QWidget
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from ..protos.abstract_class_two_galleries import AbstractClassTwoGalleriesHostProtocol
@@ -67,7 +70,7 @@ class _NavigationMixin:
                 idx = lst.index(old_path)
                 lst[idx] = new_path
             except ValueError:
-                pass
+                logger.debug("Suppressed ValueError in _NavigationMixin._replace_path_in_lists", exc_info=True)
         if old_path in self.path_to_label_map:
             widget = self.path_to_label_map.pop(old_path)
             self.path_to_label_map[new_path] = widget

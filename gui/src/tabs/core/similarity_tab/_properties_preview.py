@@ -17,7 +17,7 @@ from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QMenu, QMessageBox
 
 from ....components import PropertyComparisonDialog
-from ....windows import ImagePreviewWindow
+from ....services import PreviewContext, get_preview_service
 
 
 class _PropertiesPreviewMixin:
@@ -120,20 +120,15 @@ class _PropertiesPreviewMixin:
     def open_full_preview(self, image_path: str):
         full_list = self.found_files
         target_list = full_list if full_list else list(self.selected_files)
-        if not target_list:
-            target_list = [image_path]
-        elif image_path not in target_list:
-            target_list.append(image_path)
-        try:
-            start_index = target_list.index(image_path)
-        except ValueError:
-            start_index = 0
-        preview = ImagePreviewWindow(image_path=image_path, db_tab_ref=None, parent=self,
-                                     all_paths=target_list, start_index=start_index)
-        preview.path_changed.connect(self.update_preview_highlight)
-        preview.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
-        preview.show()
-        self.open_preview_windows.append(preview)
+        context = PreviewContext(
+            path=image_path,
+            items=target_list if target_list else [image_path],
+            parent=self,
+            on_path_changed=getattr(self, "update_preview_highlight", None),
+        )
+        preview = get_preview_service().open_preview(context)
+        if preview and hasattr(self, "open_preview_windows") and preview not in self.open_preview_windows:
+            self.open_preview_windows.append(preview)
 
 
 __all__ = ["_PropertiesPreviewMixin"]
