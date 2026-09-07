@@ -1,3 +1,10 @@
+# S531 — 2026-09-07 (Cursor: #563 R2.a listings pair collapsed)
+
+- `entity_listings_subtab/` and `series_listings_subtab/` merged into
+  `listings_subtab/`: one package, shared `_backup_sync.py` driven by
+  `ListingsProfile`, kind-specific mixins prefixed `_entity_*` / `_series_*`.
+  Old directories removed; 24 targeted listings tests pass.
+
 # S530 — 2026-09-07 (Gemini: R1.7 #562 / ui-arch-40 PreviewContext value object and PreviewService)
 
 - #562 `PreviewContext` dataclass and `PreviewService` implemented in `gui/src/services/` (`preview_service.py`). Encapsulates video/image dispatch, platform external players, window activation deduplication, and lifecycle management.

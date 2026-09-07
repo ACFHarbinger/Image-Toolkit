@@ -1,13 +1,10 @@
-"""Encrypted-backup sync/update workflows via ``_SyncBackupWorker``.
-
-Extracted from ``entity_listings_subtab.py`` -- pure code motion, no logic
-change.
-"""
+"""Encrypted-backup sync/update workflows shared by entity and series listings."""
 
 from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import TYPE_CHECKING, Any, List
 
 import backend.src.constants as udef
 from PySide6.QtCore import Qt, Slot
@@ -16,12 +13,29 @@ from PySide6.QtWidgets import QMessageBox, QProgressDialog
 from gui.src.helpers.database.library_session import get_library_db
 from gui.src.helpers.web.sync_backup_worker import _SyncBackupWorker
 
+if TYPE_CHECKING:
+    from .profile import ListingsProfile
+
 
 class _BackupSyncMixin:
-    """Synchronizes/updates the encrypted entities backup file."""
+    """Synchronizes/updates the encrypted listings backup file."""
+
+    _listings_profile: ListingsProfile
+
+    def _local_entries(self) -> List[dict[str, Any]]:
+        if self._listings_profile.kind == "entity":
+            return self._entities
+        return self._entries
+
+    def _set_local_entries(self, entries: List[dict[str, Any]]) -> None:
+        if self._listings_profile.kind == "entity":
+            self._entities = entries
+        else:
+            self._entries = entries
 
     @Slot()
     def _synchronize_listings(self):
+        profile = self._listings_profile
         if not self.vault_manager or not self.vault_manager.secret_key:
             QMessageBox.warning(
                 self,
@@ -32,13 +46,14 @@ class _BackupSyncMixin:
 
         secrets_dir = Path(udef.ROOT_DIR) / "assets" / "secrets"
         secrets_dir.mkdir(parents=True, exist_ok=True)
-        enc_file_path = str(secrets_dir / "entities.json.enc")
+        enc_file_path = str(secrets_dir / profile.enc_filename)
 
         if not os.path.exists(enc_file_path):
             QMessageBox.warning(
                 self,
                 "Backup Not Found",
-                "No encrypted entities backup file found to synchronize from. Use 'Update Backup' first to generate it.",
+                f"No encrypted {profile.item_noun} backup file found to synchronize from. "
+                "Use 'Update Backup' first to generate it.",
             )
             return
 
@@ -51,7 +66,6 @@ class _BackupSyncMixin:
             )
             return
 
-        # Create progress dialog
         self.progress_dialog = QProgressDialog(
             "Starting synchronization...", "", 0, 100, self
         )
@@ -66,14 +80,13 @@ class _BackupSyncMixin:
         )
         self.progress_dialog.show()
 
-        # Start background thread
         self._sync_worker = _SyncBackupWorker(
             "sync",
-            "Entity",
+            profile.sync_worker_label,
             {
                 "vault_manager": self.vault_manager,
                 "enc_file_path": enc_file_path,
-                "local_entries": self._entities,
+                "local_entries": self._local_entries(),
                 "db": db,
             },
         )
@@ -88,13 +101,14 @@ class _BackupSyncMixin:
             dlg.setValue(percent)
 
     def _on_sync_finished(self, success, message, result_data):
+        profile = self._listings_profile
         if getattr(self, "progress_dialog", None):
             self.progress_dialog.close()
-            self.progress_dialog = None # pyrefly: ignore [bad-assignment]
+            self.progress_dialog = None  # pyrefly: ignore [bad-assignment]
 
         if success:
             merged_entries, synced_imgs = result_data
-            self._entities = merged_entries
+            self._set_local_entries(merged_entries)
             self._rebuild_gallery()
 
             img_info = (
@@ -105,7 +119,9 @@ class _BackupSyncMixin:
             QMessageBox.information(
                 self,
                 "Synchronization Complete",
-                f"Successfully synchronized entities!\nMerged local and backup entries to a total of {len(merged_entries)} entries.{img_info}",
+                f"Successfully synchronized {profile.sync_success_noun}!\n"
+                f"Merged local and backup entries to a total of {len(merged_entries)} entries."
+                f"{img_info}",
             )
         else:
             QMessageBox.critical(
@@ -116,6 +132,7 @@ class _BackupSyncMixin:
 
     @Slot()
     def _update_encrypted_backup(self):
+        profile = self._listings_profile
         if not self.vault_manager or not self.vault_manager.secret_key:
             QMessageBox.warning(
                 self,
@@ -126,9 +143,8 @@ class _BackupSyncMixin:
 
         secrets_dir = Path(udef.ROOT_DIR) / "assets" / "secrets"
         secrets_dir.mkdir(parents=True, exist_ok=True)
-        enc_file_path = str(secrets_dir / "entities.json.enc")
+        enc_file_path = str(secrets_dir / profile.enc_filename)
 
-        # Create progress dialog
         self.progress_dialog = QProgressDialog("Starting backup...", "", 0, 100, self)
         self.progress_dialog.setWindowTitle("Updating Backup")
         self.progress_dialog.setWindowModality(Qt.WindowModality.ApplicationModal)
@@ -141,14 +157,13 @@ class _BackupSyncMixin:
         )
         self.progress_dialog.show()
 
-        # Start background thread
         self._backup_worker = _SyncBackupWorker(
             "backup",
-            "Entity",
+            profile.sync_worker_label,
             {
                 "vault_manager": self.vault_manager,
                 "enc_file_path": enc_file_path,
-                "entries": self._entities,
+                "entries": self._local_entries(),
             },
         )
         self._backup_worker.progress.connect(self._on_backup_progress)
@@ -162,9 +177,10 @@ class _BackupSyncMixin:
             dlg.setValue(percent)
 
     def _on_backup_finished(self, success, message, result_data):
+        profile = self._listings_profile
         if getattr(self, "progress_dialog", None):
             self.progress_dialog.close()
-            self.progress_dialog = None # pyrefly: ignore [bad-assignment]
+            self.progress_dialog = None  # pyrefly: ignore [bad-assignment]
 
         if success:
             backup_count = result_data
@@ -173,10 +189,12 @@ class _BackupSyncMixin:
                 if backup_count
                 else ""
             )
+            entries = self._local_entries()
             QMessageBox.information(
                 self,
                 "Backup Updated",
-                f"Successfully generated encrypted backup entities file with {len(self._entities)} entries.{img_info}",
+                f"Successfully generated encrypted backup {profile.backup_doc_label} file "
+                f"with {len(entries)} entries.{img_info}",
             )
         else:
             QMessageBox.critical(
