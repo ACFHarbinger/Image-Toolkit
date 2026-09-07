@@ -249,7 +249,7 @@ class _FileActionsMixin:
 
         preview = ImagePreviewWindow(
             image_path=file_path,
-            db_tab_ref=self.database_service,
+            database_service=self.database_service,
             parent=self,
             all_paths=all_paths,
             start_index=start_index,

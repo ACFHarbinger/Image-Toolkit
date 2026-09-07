@@ -105,7 +105,7 @@ class _ImagePreviewDeleteMixin:
                 return
         window = ImagePreviewWindow(
             image_path=image_path,
-            db_tab_ref=None,
+            database_service=None,
             parent=cast(QWidget, self),
             all_paths=all_paths_list,
             start_index=start_index,

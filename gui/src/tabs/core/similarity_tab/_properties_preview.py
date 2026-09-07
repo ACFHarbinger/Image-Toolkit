@@ -128,7 +128,7 @@ class _PropertiesPreviewMixin:
             start_index = target_list.index(image_path)
         except ValueError:
             start_index = 0
-        preview = ImagePreviewWindow(image_path=image_path, db_tab_ref=None, parent=self,
+        preview = ImagePreviewWindow(image_path=image_path, database_service=None, parent=self,
                                      all_paths=target_list, start_index=start_index)
         preview.path_changed.connect(self.update_preview_highlight)
         preview.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)

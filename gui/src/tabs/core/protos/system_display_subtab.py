@@ -26,7 +26,7 @@ from .wallpaper_common_base import WallpaperCommonBaseHostProtocol
 
 class SystemDisplaySubTabHostProtocol(WallpaperCommonBaseHostProtocol, Protocol):
     # --- Data state (manager.__init__ / class body) ---
-    db_tab_ref: Any
+    database_service: Any
     _scan_dir_restore_timer: QTimer
     _pending_restore_dir: Optional[str]
     wallpaper_style: str

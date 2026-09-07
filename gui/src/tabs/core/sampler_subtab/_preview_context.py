@@ -33,7 +33,7 @@ class _PreviewContextMixin:
             idx = 0
         preview = ImagePreviewWindow(
             image_path=path,
-            db_tab_ref=None,
+            database_service=None,
             parent=self,
             all_paths=all_paths,
             start_index=idx,

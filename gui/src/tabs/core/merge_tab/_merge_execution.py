@@ -163,7 +163,7 @@ class _MergeExecutionMixin:
 
         preview_window = ImagePreviewWindow(
             image_path=result_path,
-            db_tab_ref=None,
+            database_service=None,
             parent=self,
             all_paths=[result_path],
             start_index=0,
