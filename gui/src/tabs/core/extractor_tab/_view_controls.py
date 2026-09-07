@@ -13,12 +13,13 @@ import subprocess
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
-from PySide6.QtCore import QEvent, QObject, Qt, QTimer, QUrl, Slot
+from PySide6.QtCore import QEvent, QObject, Qt, QUrl, Slot
 from PySide6.QtGui import QKeyEvent, QMouseEvent, QResizeEvent, QWheelEvent
 from PySide6.QtMultimedia import QMediaPlayer
 from PySide6.QtWidgets import QGraphicsView, QLabel, QLineEdit, QMessageBox, QStyle, QWidget
 
 from ....components import ClickableLabel
+from ._video_view import VideoView
 
 if TYPE_CHECKING:
     from ..protos.extractor_tab import VideoExtractorSubTabHostProtocol
@@ -152,6 +153,7 @@ class _ViewControlsMixin:
 
         return super().eventFilter(watched, event)  # type: ignore[misc]
 
+    @Slot()
     def fit_video_in_view(self: "VideoExtractorSubTabHostProtocol"):
         # Don't force video_item's lazy construction (see the property
         # above) just from a resize event before any video has actually
@@ -162,29 +164,25 @@ class _ViewControlsMixin:
             return
         video_view = cast(QGraphicsView, self.video_view)
         video_item = self._video_item
-        try:
-            native_size = video_item.nativeSize()
-        except RuntimeError:
-            # A queued post-layout refit can arrive while its tab is closing.
-            return
+        native_size = video_item.nativeSize()
         if not native_size.isEmpty():
             video_item.setSize(native_size)
+        video_view.setSceneRect(video_item.sceneBoundingRect())
         video_view.fitInView(video_item, Qt.AspectRatioMode.KeepAspectRatio)
 
     def toggle_fullscreen(self: "VideoExtractorSubTabHostProtocol"):
         player_container = cast(QWidget, self.player_container)
-        video_view = cast(QWidget, self.video_view)
+        video_view = cast(VideoView, self.video_view)
         if player_container.isFullScreen():
+            video_view.set_fullscreen(False)
             player_container.setWindowFlags(Qt.WindowType.Widget)
             player_container.showNormal()
             self.player_layout_container.addWidget(player_container)
             self.change_resolution(self.combo_resolution.currentIndex())
         else:
+            video_view.set_fullscreen(True)
             player_container.setWindowFlags(Qt.WindowType.Window)
             player_container.showFullScreen()
-            video_view.setFixedSize(16777215, 16777215)  # pyrefly: ignore [missing-attribute]
-            video_view.setMinimumSize(0, 0)  # pyrefly: ignore [missing-attribute]
-            video_view.setMaximumSize(16777215, 16777215)  # pyrefly: ignore [missing-attribute]
             player_container.setFocus()
 
     @Slot(QResizeEvent)
@@ -203,13 +201,12 @@ class _ViewControlsMixin:
             if self.check_player_vertical.isChecked():
                 w, h = h, w
             # -----------------------------------------------------------
-            video_view = cast(QWidget, self.video_view)
+            video_view = cast(VideoView, self.video_view)
             # Keep the user's chosen player resolution as an upper bound.
             # A fixed canvas forces the tab scroll area's content width to
             # 1280--3840px and makes unrelated controls overflow in a normal
             # 800px window.
-            video_view.setMaximumSize(w, h)
-            video_view.updateGeometry()
+            video_view.set_display_size(w, h)
             self.fit_video_in_view()
 
     def is_path_selected(self: "VideoExtractorSubTabHostProtocol", path: str) -> bool:
@@ -265,9 +262,6 @@ class _ViewControlsMixin:
                 self.media_player.setAudioOutput(self._audio_output)
             self.btn_play.setEnabled(True)
             self.change_resolution(self.combo_resolution.currentIndex())
-            # Visibility and layout settle after this slot returns.  This
-            # covers streams whose native size does not change between tabs.
-            QTimer.singleShot(0, self.fit_video_in_view)
         else:
             # Keep the internal player's source loaded (it drives the
             # slider/timestamps -- see the info label) but detach its
