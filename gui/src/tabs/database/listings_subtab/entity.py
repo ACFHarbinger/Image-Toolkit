@@ -1,4 +1,4 @@
-"""``EntityListingsSubTab`` -- composed from per-concern mixins."""
+"""Entity listings subtab — one half of the unified listings package (#563)."""
 
 from __future__ import annotations
 
@@ -11,19 +11,17 @@ from gui.src.elements.database.display.common.listing_gallery_base import (
 )
 
 from ._backup_sync import _BackupSyncMixin
-from ._card_actions import _CardActionsMixin
-from ._directory_import import _DirectoryImportMixin
-from ._filters import _FiltersMixin
-from ._gallery import _GalleryMixin
-from ._persistence import _PersistenceMixin
-from ._semantic_search import _SemanticSearchMixin
-from ._ui_builder import _UIBuilderMixin
+from ._entity_card_actions import _CardActionsMixin
+from ._entity_directory_import import _DirectoryImportMixin
+from ._entity_filters import _FiltersMixin
+from ._entity_gallery import _GalleryMixin
+from ._entity_persistence import _PersistenceMixin
+from ._entity_semantic_search import _SemanticSearchMixin
+from ._entity_ui_builder import _UIBuilderMixin
+from .profile import ENTITY_PROFILE
 
 
 class EntityListingsSubTab(
-    # Mixins MUST precede QWidget in MRO order (see gui/src/tabs/core/
-    # merge_tab/manager.py for the bug this pattern fixes): _GalleryMixin's
-    # resizeEvent/showEvent override methods QWidget itself defines.
     _UIBuilderMixin,
     _PersistenceMixin,
     _GalleryMixin,
@@ -34,12 +32,13 @@ class EntityListingsSubTab(
     _DirectoryImportMixin,
     ListingGalleryBase,
 ):
-    listings_changed = Signal()  # emitted when listings.json is updated by cross-sync
+    listings_changed = Signal()
 
     def __init__(self, parent=None, vault_manager=None):
         super().__init__()
         if parent is not None:
             self.setParent(parent)
+        self._listings_profile = ENTITY_PROFILE
         self.vault_manager = vault_manager
         self._entities: List[Dict[str, Any]] = []
         self._selected_id: Optional[str] = None
@@ -48,12 +47,9 @@ class EntityListingsSubTab(
         self._search_query = ""
         self._listing_page = 0
         self._listing_page_size = 100
-
-        # Semantic (BGE-M3) search state (DB.7)
         self._semantic_search_results: Optional[List[Tuple[str, float]]] = None
         self._active_semantic_worker = None
         self._active_embed_worker = None
-
         self._build_ui()
 
 
