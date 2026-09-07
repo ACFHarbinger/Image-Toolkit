@@ -12,9 +12,11 @@ set working-directory := '../..'
 # of the pybind11 base module itself, but no longer a separate manual step.
 build-base:
     @echo "Building C++ base extension..."
-    PKG_CONFIG_PATH="/usr/lib/x86_64-linux-gnu/pkgconfig:$(pwd)/.pixi/envs/default/lib/pkgconfig:$PKG_CONFIG_PATH" cmake -B build/base base/ \
+    build_shared_root="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")" && \
+    PKG_CONFIG_PATH="/usr/lib/x86_64-linux-gnu/pkgconfig:$build_shared_root/.pixi/envs/default/lib/pkgconfig:$PKG_CONFIG_PATH" cmake -B build/base base/ \
         -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_PREFIX_PATH="$(pwd)/opencv/install;$(pwd)/.pixi/envs/default" \
+        -DCMAKE_PREFIX_PATH="$build_shared_root/opencv/install;$build_shared_root/.pixi/envs/default" \
+        -DIMAGE_TOOLKIT_PIXI_LIB="$build_shared_root/.pixi/envs/default/lib" \
         -DCMAKE_INSTALL_PREFIX="." \
         -DPython_EXECUTABLE="$$(which python)" \
         -DBASE_BUILD_TESTS=OFF \
