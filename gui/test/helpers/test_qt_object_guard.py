@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 
 import pytest
-
 from gui.src.qt_object_guard import deleted_qobject_guard, is_deleted_qobject_error
 
 
