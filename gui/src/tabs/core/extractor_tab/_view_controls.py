@@ -13,7 +13,7 @@ import subprocess
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
-from PySide6.QtCore import QEvent, QObject, Qt, QUrl, Slot
+from PySide6.QtCore import QEvent, QObject, Qt, QTimer, QUrl, Slot
 from PySide6.QtGui import QKeyEvent, QMouseEvent, QResizeEvent, QWheelEvent
 from PySide6.QtMultimedia import QMediaPlayer
 from PySide6.QtWidgets import QGraphicsView, QLabel, QLineEdit, QMessageBox, QStyle, QWidget
@@ -161,9 +161,15 @@ class _ViewControlsMixin:
         if self._video_item is None:
             return
         video_view = cast(QGraphicsView, self.video_view)
-        rect = video_view.viewport().rect()
-        self.video_item.setSize(rect.size())
-        video_view.fitInView(self.video_item, Qt.AspectRatioMode.KeepAspectRatio)
+        video_item = self._video_item
+        try:
+            native_size = video_item.nativeSize()
+        except RuntimeError:
+            # A queued post-layout refit can arrive while its tab is closing.
+            return
+        if not native_size.isEmpty():
+            video_item.setSize(native_size)
+        video_view.fitInView(video_item, Qt.AspectRatioMode.KeepAspectRatio)
 
     def toggle_fullscreen(self: "VideoExtractorSubTabHostProtocol"):
         player_container = cast(QWidget, self.player_container)
@@ -250,8 +256,8 @@ class _ViewControlsMixin:
             self.volume_slider.setVisible(True)
 
             self.info_label.setVisible(False)
-            self.media_player.setSource(QUrl.fromLocalFile(self.video_path))
             self.media_player.setVideoOutput(self.video_item)
+            self.media_player.setSource(QUrl.fromLocalFile(self.video_path))
             # QAudioOutput is constructed on demand only (issue #81: its
             # construction aborts the process in this environment). Attach
             # it if the user already has one.
@@ -259,6 +265,9 @@ class _ViewControlsMixin:
                 self.media_player.setAudioOutput(self._audio_output)
             self.btn_play.setEnabled(True)
             self.change_resolution(self.combo_resolution.currentIndex())
+            # Visibility and layout settle after this slot returns.  This
+            # covers streams whose native size does not change between tabs.
+            QTimer.singleShot(0, self.fit_video_in_view)
         else:
             # Keep the internal player's source loaded (it drives the
             # slider/timestamps -- see the info label) but detach its

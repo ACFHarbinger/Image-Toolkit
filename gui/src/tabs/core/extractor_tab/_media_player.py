@@ -118,7 +118,9 @@ class _MediaPlayerMixin:
         video_view.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred
         )
-        video_view.setMinimumSize(0, 0)
+        # A scroll area only guarantees its child's width.  Without a real
+        # height floor, this empty-scene view collapses to its tiny size hint.
+        video_view.setMinimumSize(0, 360)
         video_view.setMaximumSize(1280, 720)
         video_view.setHorizontalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff
@@ -134,9 +136,13 @@ class _MediaPlayerMixin:
         video_view.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         video_view.customContextMenuRequested.connect(self.show_video_context_menu)
 
-        self.player_inner_layout.addWidget(
-            video_view, 1, Qt.AlignmentFlag.AlignCenter
-        )
+        # Alignment makes QBoxLayout constrain a QGraphicsView to its size
+        # hint.  Center the capped view with sibling stretches instead.
+        video_row = QHBoxLayout()
+        video_row.addStretch()
+        video_row.addWidget(video_view, 100)
+        video_row.addStretch()
+        self.player_inner_layout.addLayout(video_row, 1)
 
         # QMediaPlayer/QAudioOutput are constructed lazily (see the
         # media_player/audio_output properties below) on first real use
@@ -339,6 +345,11 @@ class _MediaPlayerMixin:
         if self._video_item is None:
             self._video_item = QGraphicsVideoItem()
             self.graphics_scene.addItem(self._video_item)
+            # The stream dimensions arrive asynchronously after a source is
+            # probed, so the initial fit cannot reliably know the aspect.
+            self._video_item.nativeSizeChanged.connect(
+                lambda _size: self.fit_video_in_view()
+            )
         return self._video_item
 
     @property
