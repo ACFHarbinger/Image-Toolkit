@@ -336,3 +336,14 @@ longer gated on it.
   `ui_module_inventory_2026q3.md`, `app_theming_2026q3.md`, and
   `architecture.md` §5.18/§5.19; locks R0–R4 from the two 2026-09-06 analysis
   reports; issues `ui-arch-25..53` (#547–#575) cut; #543/#544 moved to the milestone; #531/#532 closed as superseded.
+- 2026-09-07 — `milestone/gui-refactoring-roadmap` integration branch opened
+  (user decision: one branch + PR per milestone, from now on); remaining
+  queue delegated to the full team in §6.
+
+## 9. Milestone branch tracking (`milestone/gui-refactoring-roadmap`)
+
+Merge-to-`main` checklist for this branch's own PR — every issue below
+must be closed first (§6 has the current owner/queue per agent):
+
+- [x] #543, #544 (partial — Grok's gallery-owning half + MainWindow remain), #547, #548 (code done, D12 pending), #549, #550, #551, #552, #554, #555, #558 (code done, D12 pending), #562, #563 (partial — listings half only)
+- [ ] #544 (remainder), #553, #556, #557, #559, #560, #561, #563 (remainder), #564, #565, #566, #567, #568, #569, #570, #571, #572, #573, #574, #575
