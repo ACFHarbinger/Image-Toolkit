@@ -5,6 +5,14 @@ Tracking unit of record: GitHub milestone **GUI Refactoring Roadmap** (#10) and
 the `ui-arch-25+` issues listed per item below. This document is the design
 rationale and the ordered plan; use the issues for status.
 
+**Integration branch (2026-09-07, user decision):** every remaining item in
+this milestone lands on `milestone/gui-refactoring-roadmap`
+([PR](https://github.com/ACFHarbinger/Image-Toolkit/pulls) — search open PRs
+for the branch name), not `main` directly. One branch + PR per milestone from
+now on; the PR merges to `main` once every issue under #10 is closed. Item
+branches (`feature/ui-arch-NN-<slug>`) merge into the milestone branch, same
+review/D12 gates as before — see §1's workflow line.
+
 **Supersedes and folds in** (all removed or reduced to pointers on the same
 day, so there is one place to look):
 
@@ -58,11 +66,14 @@ RESOURCE RULE in `AGENTS.md` still applies: no benchmark or full-suite runs
 outside the Codex/Harbinger chain.
 
 **Workflow per item.** Claim on the bus → isolated worktree on
-`feature/ui-arch-NN-<slug>` → targeted tests + `ruff` + `py_compile` +
+`feature/ui-arch-NN-<slug>` (branched off `milestone/gui-refactoring-roadmap`,
+not `main`) → targeted tests + `ruff` + `py_compile` +
 `backend/validation/check_init_boundaries.py` → bus post with commit hash →
-Codex review → D12 if gated → merge to `main` → shim checklist emptied →
-close issue. Docs land with the code (`docs/moon/CHANGELOG.md` entry, this
-file's status column).
+Codex review → D12 if gated → merge to `milestone/gui-refactoring-roadmap` →
+shim checklist emptied → close issue. Docs land with the code
+(`docs/moon/CHANGELOG.md` entry, this file's status column). The milestone
+branch itself merges to `main` via its own PR once #10 has zero open issues —
+see the note under Status above.
 
 ---
 
@@ -269,7 +280,7 @@ concurrently (D6). "Gate" = D12 live pass required in addition to Codex review.
 | R2.d | Explicit lifecycle state machines replacing `singleShot` ordering: session recovery and the extractor player (`NotLoaded → Restored → PlayerReady → Playing`), closing #546's family | §5.4 | Claude | D12 | #546 closed; 0 timer-ordered restore steps | ui-arch-43 (#565) |
 | R2.e | Classic shell: lazy tab construction on first category select via the R1.4 factory, or retirement (§7 decision). Measures per-module import/activation cost. | F17 | Grok | D12 | classic startup constructs ≤ 1 category | ui-arch-44 (#566) |
 | R2.f | `SectionedFormBuilder` replacing the 17 same-named `_UIBuilderMixin` classes and the 300-line `_build_ui` functions | F20, §1 | Gemini | — | 0 `_UIBuilderMixin`; no `_build_ui` > 80 lines | ui-arch-45 (#567) |
-| R2.g | #543 gallery unification onto `ThumbnailScheduler` (in flight; blocked on its D12 pass) | D3 | Grok | D12 | merged | ui-arch-22 (#543) |
+| R2.g | #543 gallery unification onto `ThumbnailScheduler` | D3 | Grok | D12 | **done — merged 2026-09-07, D12-verified** | ui-arch-22 (#543) |
 
 ### R3 — Optimization and resource
 
@@ -286,8 +297,8 @@ concurrently (D6). "Gate" = D12 live pass required in addition to Codex review.
 
 | ID | Item | Owner | Issue |
 |---|---|---|---|
-| R4.1 | Docs website: shared JSON token schema → CSS custom properties | unassigned | ui-arch-52 (#574) |
-| R4.2 | DevTool app: `index.css` → token custom properties | unassigned | ui-arch-53 (#575) |
+| R4.1 | Docs website: shared JSON token schema → CSS custom properties | Cursor (after R2.b) | ui-arch-52 (#574) |
+| R4.2 | DevTool app: `index.css` → token custom properties | Cursor (after R2.b) | ui-arch-53 (#575) |
 
 ---
 
@@ -295,16 +306,17 @@ concurrently (D6). "Gate" = D12 live pass required in addition to Codex review.
 
 | Agent | Items |
 |---|---|
-| Claude | R0.1, R0.3, R0.4, R0.5, R1.2, R2.d, R3.2, R3.6; roadmap steward |
-| Grok | R2.g (#543), R2.e, R2.c gallery-owning tabs + MainWindow, R3.1, R3.4, R3.5 |
-| Gemini / Antigravity | R0.8, R1.7, R2.c non-gallery tabs, R2.f |
-| Meta's Muse | R0.6, R0.7, R0.9, R1.1, R1.6, R2.a workers, R3.3 |
-| Chat / Codex | R0.2, R1.3, R1.4, R1.5; mandatory cross-review of every item |
-| Cursor | R2.a listings/dialogs/codec-format, R2.b |
+| Claude | ~~R0.1, R0.3, R0.4, R0.5~~ done. **Remaining: R1.2 (#557), R2.d (#565), R3.2 (#569), R3.6 (#573).** Roadmap steward. |
+| Grok | ~~R2.g (#543)~~ done, D12-verified 2026-09-07. **Remaining: R2.c gallery-owning tabs + MainWindow (#544, now unblocked), R3.1 (#568), R3.4 (#571, now unblocked), R3.5 (#572). R2.e (#566) stays gated on R1.4.** |
+| Gemini / Antigravity | ~~R0.8, R1.7~~ done. **Remaining: R2.c non-gallery tabs (#544 — DriveSync, EntityRecon, MediaLoader, ImageCrawl, CBIRTrain, Sampler, in that order), R2.f (#567).** |
+| Meta's Muse | ~~R0.6, R0.9~~ done. **Remaining: R0.7 (#553), R1.1 (#556), R1.6 (#561), R2.a extractor/sync workers (#563 continuation, gated on R1.1), R3.3 (#570).** |
+| Chat / Codex | ~~R0.2 (#548), R1.3 (#558)~~ code-complete, D12 settings-persistence pass pending explicit authorization. **Remaining: R1.4 (#559 — re-claim, prior worktree was cleaned up unstarted), R1.5 (#560, now unblocked).** Mandatory cross-review of every item — largely unresponsive since 2026-09-06; Claude has been standing in as reviewer of last resort. |
+| Cursor | ~~R2.a listings pair (#563)~~ done. **Remaining: R2.a import-dialog pair + codec/format pair (#563 continuation), R2.b (#564), R4.1 (#574, new), R4.2 (#575, new, after R2.b).** |
 
-Dependencies: R1.1 before R2.a workers; R1.4 before R2.e; R0.2 before R1.5;
-#543 D12 before any gallery-owning R2.c tab and before R3.4; R2.a codec/format
-and listings before their R2.c migration.
+Dependencies: R1.1 before R2.a workers; R1.4 before R2.e; R0.2 before R1.5
+(both done); R2.a codec/format and listings before their R2.c migration.
+**#543 D12 is done (2026-09-07)** — gallery-owning R2.c tabs and R3.4 are no
+longer gated on it.
 
 ---
 
