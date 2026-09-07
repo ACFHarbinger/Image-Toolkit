@@ -541,7 +541,13 @@ class TestExtractorTab:
             assert isinstance(tab, QWidget)
 
     def test_player_canvas_shrinks_at_minimum_window_width(self, q_app):
-        """The player must not widen the Video tab beyond its 800px shell."""
+        """The Video tab's own page must not widen beyond its 800px shell
+        even though the player canvas can be wider than the window (#546,
+        S532): Player Size selects a real rendered-canvas resolution
+        independent of viewport width, exposed locally via VideoView's own
+        scrollbars, rather than being clamped down to whatever the window
+        happens to be -- that clamping was itself the bug this test used
+        to encode (see 4d33faeb, superseded by S532)."""
         with (
             patch("gui.src.tabs.core.extractor_tab._media_player.QMediaPlayer"),
             patch("gui.src.tabs.core.extractor_tab._media_player.QAudioOutput"),
@@ -552,10 +558,16 @@ class TestExtractorTab:
             q_app.processEvents()
 
             video_tab = tab.video_subtab
-            assert video_tab.video_view.width() <= (
+            # The outer tab page itself does not grow/scroll horizontally...
+            assert video_tab.tab_scroll_area.horizontalScrollBar().maximum() == 0
+            # ...even though the canvas at the default 1280x720 resolution
+            # is wider than the 800px shell -- it would scroll locally
+            # within VideoView instead once a video is loaded and gives
+            # its scene a real sceneRect (not exercised here; no video is
+            # loaded in this test).
+            assert video_tab.video_view.width() > (
                 video_tab.tab_scroll_area.viewport().width()
             )
-            assert video_tab.tab_scroll_area.horizontalScrollBar().maximum() == 0
             tab.close()
 
     def test_cancel_loading_does_not_stop_player(self, q_app):

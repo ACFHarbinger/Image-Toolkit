@@ -1,3 +1,20 @@
+# S532 — 2026-09-07 (Codex: Extractor player geometry, #546)
+
+- Follow-up: Player Size now selects rendered canvas dimensions beyond the
+  window width. Local video scrollbars expose the oversized canvas; 1440p
+  and 4K no longer collapse to the same enlargement as 1080p. Live decode
+  measured distinct sizes across all four choices; regression coverage also
+  verifies that shrinking the window preserves the selected enlargement.
+- Player height now follows the selected canvas aspect and available width
+  via the new `VideoView` widget (`_video_view.py`); the previous 360px
+  floor (merged in from `fix/extractor-video-player-sizing`, reconciled
+  with this approach) left rendered video unchanged when selecting 1080p.
+- Viewport resize signals refit the video after layout, including
+  fullscreen transitions, without a queued callback surviving tab teardown.
+- Four sizing regressions and six external-player tests pass. Visible Qt
+  playback verified 720p → 1080p growth from 1270×715 to 1516×853 rendered
+  pixels. The broader session-recovery lifecycle work remains open.
+
 # S531 — 2026-09-07 (Cursor: #563 R2.a listings pair collapsed)
 
 - `entity_listings_subtab/` and `series_listings_subtab/` merged into
