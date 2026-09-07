@@ -9,12 +9,12 @@ from __future__ import annotations
 import contextlib
 import os
 
-from PySide6.QtCore import QPoint, Qt, Slot
+from PySide6.QtCore import QPoint, Slot
 from PySide6.QtGui import QAction, QImage
 from PySide6.QtWidgets import QApplication, QMenu, QMessageBox
 from send2trash import send2trash  # pyrefly: ignore [untyped-import]
 
-from ....windows import ImagePreviewWindow
+from ....services import PreviewContext, get_preview_service
 
 
 class _PreviewContextMixin:
@@ -25,24 +25,15 @@ class _PreviewContextMixin:
         target_list = (
             list(self.gallery_image_paths) if self.gallery_image_paths else [image_path]
         )
-        if image_path not in target_list:
-            target_list.append(image_path)
-        try:
-            start_index = target_list.index(image_path)
-        except ValueError:
-            start_index = 0
-
-        window = ImagePreviewWindow(
-            image_path=image_path,
-            database_service=None,
+        context = PreviewContext(
+            path=image_path,
+            items=target_list,
             parent=self,
-            all_paths=target_list,
-            start_index=start_index,
+            on_path_changed=getattr(self, "update_preview_highlight", None),
         )
-        window.path_changed.connect(self.update_preview_highlight)
-        window.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
-        window.show()
-        self.open_preview_windows.append(window)
+        window = get_preview_service().open_preview(context)
+        if window and hasattr(self, "open_preview_windows") and window not in self.open_preview_windows:
+            self.open_preview_windows.append(window)
 
     @Slot(QPoint, str)
     def show_image_context_menu(self, global_pos: QPoint, path: str):

@@ -1,3 +1,9 @@
+# S530 — 2026-09-07 (Gemini: R1.7 #562 / ui-arch-40 PreviewContext value object and PreviewService)
+
+- #562 `PreviewContext` dataclass and `PreviewService` implemented in `gui/src/services/` (`preview_service.py`). Encapsulates video/image dispatch, platform external players, window activation deduplication, and lifecycle management.
+- Migrated duplicated preview plumbing across `format_subtab`, `merge_tab`, `sampler_subtab`, `codec_subtab`, `similarity_tab`, and `wallpaper_tab` to `PreviewContext` and `get_preview_service().open_preview`.
+- Unit tests added in `gui/test/services/test_preview_service.py` covering value object initialization, video dispatch, window deduplication, and cleanup.
+
 # S529 — 2026-09-07 (Gemini: R0 hotfix #554 / ui-arch-32 ImagePreviewWindow database_service migration)
 
 - #554 `ImagePreviewWindow.__init__` parameter `db_tab_ref` migrated to `database_service`; all 10 internal call sites across `abstract_class_two_galleries`, `extractor_tab`, `format_subtab`, `merge_tab`, `sampler_subtab`, `similarity_tab`, `wallpaper_tab`, and `search_tab` updated.

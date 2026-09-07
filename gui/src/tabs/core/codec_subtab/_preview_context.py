@@ -5,13 +5,11 @@ Extracted from ``codec_subtab.py`` -- pure code motion, no logic change.
 
 from __future__ import annotations
 
-import os
-import platform
-import subprocess
-
 from PySide6.QtCore import QPoint, Slot
 from PySide6.QtGui import QAction
-from PySide6.QtWidgets import QMenu, QMessageBox
+from PySide6.QtWidgets import QMenu
+
+from ....services import PreviewContext, get_preview_service
 
 
 class _PreviewContextMixin:
@@ -19,27 +17,7 @@ class _PreviewContextMixin:
 
     @Slot(str)
     def handle_full_image_preview(self, video_path: str):
-        if not os.path.exists(video_path):
-            return
-        try:
-            if platform.system() == "Windows":
-                os.startfile(video_path)  # pyrefly: ignore [missing-attribute]
-            elif platform.system() == "Linux":
-                subprocess.Popen(
-                    ["xdg-open", video_path],
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                )
-            else:
-                subprocess.Popen(
-                    ["open", video_path],
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                )
-        except Exception as e:
-            QMessageBox.warning(
-                self, "Video Error", f"Could not launch video player: {e}"
-            )
+        get_preview_service().open_preview(PreviewContext(path=video_path, parent=self))
 
     @Slot(QPoint, str)
     def show_image_context_menu(self, global_pos: QPoint, path: str):

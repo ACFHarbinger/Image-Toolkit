@@ -6,22 +6,18 @@ change (see ``_monitor_selection.py``'s docstring).
 
 from __future__ import annotations
 
-import contextlib
 import os
-import platform
-import subprocess
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, cast
 
 from backend.src.constants import SUPPORTED_VIDEO_FORMATS
-from PySide6.QtCore import QPoint, Qt, Slot
+from PySide6.QtCore import QPoint, Slot
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QMenu, QMessageBox, QWidget
 from send2trash import send2trash  # pyrefly: ignore [untyped-import]
-from shiboken6 import Shiboken as sip
 
+from ......services import PreviewContext, get_preview_service
 from ......utils.sort_utils import natural_sort_key
-from ......windows import ImagePreviewWindow
 
 if TYPE_CHECKING:
     from ....protos.wallpaper_common_base import WallpaperCommonBaseHostProtocol
@@ -64,75 +60,20 @@ class _ImagePreviewDeleteMixin:
             self.handle_full_image_preview(image_path)
 
     def handle_full_image_preview(self: "WallpaperCommonBaseHostProtocol", image_path: str):
-        if image_path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
-            try:
-                if platform.system() == "Windows":
-                    start_fn = getattr(os, "startfile", None)
-                    if start_fn:
-                        start_fn(image_path)
-                elif platform.system() == "Linux":
-                    subprocess.Popen(
-                        ["xdg-open", image_path],
-                        stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL,
-                    )
-                else:
-                    subprocess.Popen(
-                        ["open", image_path],
-                        stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL,
-                    )
-            except Exception as e:
-                QMessageBox.warning(
-                    cast(QWidget, self), "Video Error", f"Could not launch video player: {e}"
-                )
-            return
-
         all_paths_list = (
             sorted(self.gallery_image_paths, key=natural_sort_key)
             if self.gallery_image_paths
             else [image_path]
         )
-        try:
-            start_index = all_paths_list.index(image_path)
-        except ValueError:
-            all_paths_list = [image_path]
-            start_index = 0
-
-        for win in list(self.open_image_preview_windows):
-            if isinstance(win, ImagePreviewWindow) and win.image_path == image_path:
-                win.activateWindow()
-                return
-        window = ImagePreviewWindow(
-            image_path=image_path,
-            database_service=None,
+        context = PreviewContext(
+            path=image_path,
+            items=all_paths_list,
             parent=cast(QWidget, self),
-            all_paths=all_paths_list,
-            start_index=start_index,
+            on_path_changed=getattr(self, "update_preview_highlight", None),
         )
-        window.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
-        if hasattr(window, "path_changed"):
-            window.path_changed.connect(self.update_preview_highlight)
-
-        self.open_image_preview_windows = [
-            w for w in self.open_image_preview_windows if not sip.isValid(w)
-        ]
-
-        def remove_closed_win(event: Any):
-            # Emit the standard WINDOW_CLOSED cleanup so the gallery clears the
-            # amber preview highlight (the default closeEvent is replaced here).
-            with contextlib.suppress(RuntimeError):
-                window.path_changed.emit(window.image_path, "WINDOW_CLOSED")
-            self.open_image_preview_windows = [
-                w
-                for w in self.open_image_preview_windows
-                if w != window and sip.isValid(w)
-            ]
-            event.accept()
-
-        window.closeEvent = remove_closed_win  # type: ignore[method-assign]
-        window.show()
-        self.open_image_preview_windows.append(window)
+        window = get_preview_service().open_preview(context)
+        if window and hasattr(self, "open_image_preview_windows") and window not in self.open_image_preview_windows:
+            self.open_image_preview_windows.append(window)
 
     @Slot(QPoint, str)
     def show_image_context_menu(self: "WallpaperCommonBaseHostProtocol", global_pos: QPoint, path: str):

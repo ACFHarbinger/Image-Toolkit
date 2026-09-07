@@ -5,14 +5,12 @@ Extracted from ``sampler_subtab.py`` -- pure code motion, no logic change.
 
 from __future__ import annotations
 
-import os
-
-from PySide6.QtCore import QPoint, Qt, Slot
+from PySide6.QtCore import QPoint, Slot
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QMenu
 
+from ....services import PreviewContext, get_preview_service
 from ....utils.sort_utils import natural_sort_key
-from ....windows import ImagePreviewWindow
 
 
 class _PreviewContextMixin:
@@ -20,29 +18,20 @@ class _PreviewContextMixin:
 
     @Slot(str)
     def _preview_image(self, path: str):
-        if not os.path.exists(path):
-            return
         all_paths = (
             sorted(self.found_files, key=natural_sort_key)
             if self.found_files
             else [path]
         )
-        try:
-            idx = all_paths.index(path)
-        except ValueError:
-            idx = 0
-        preview = ImagePreviewWindow(
-            image_path=path,
-            database_service=None,
+        context = PreviewContext(
+            path=path,
+            items=all_paths,
             parent=self,
-            all_paths=all_paths,
-            start_index=idx,
+            on_path_changed=getattr(self, "update_preview_highlight", None),
         )
-        preview.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
-        if hasattr(preview, "path_changed"):
-            preview.path_changed.connect(self.update_preview_highlight)  # pyrefly: ignore [missing-attribute]
-        preview.show()
-        self.open_preview_windows.append(preview)
+        preview = get_preview_service().open_preview(context)
+        if preview and hasattr(self, "open_preview_windows") and preview not in self.open_preview_windows:
+            self.open_preview_windows.append(preview)
 
     @Slot(QPoint, str)
     def _context_menu(self, pos: QPoint, path: str):
