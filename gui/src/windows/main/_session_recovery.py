@@ -414,7 +414,7 @@ class MainSessionRecoveryController(WindowBoundController):
                         except Exception as e:
                             print(f"Warning: Failed to remove recovery file: {e}")
 
-            self.vault_manager.save_data(json.dumps(creds))
+            self.vault_manager.save_account_snapshot(creds)
         except Exception as e:
             print(f"Warning: Failed to save runtime-shell session recovery data: {e}")
 
@@ -520,7 +520,7 @@ class MainSessionRecoveryController(WindowBoundController):
                         except Exception as e:
                             print(f"Warning: Failed to remove recovery file: {e}")
 
-            self.vault_manager.save_data(json.dumps(creds))
+            self.vault_manager.save_account_snapshot(creds)
         except Exception as e:
             print(f"Warning: Failed to save session recovery data: {e}")
 
