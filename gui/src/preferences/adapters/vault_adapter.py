@@ -112,12 +112,11 @@ class VaultPreferenceAdapter(PreferenceAdapter):
         handles guest sessions (volatile in-memory, never touches disk), so
         this is safe to call unconditionally whenever a manager is attached.
         """
-        import json
 
         if self._vault_manager is None:
             return
         with contextlib.suppress(Exception):
-            self._vault_manager.save_data(json.dumps(self._credentials))
+            self._vault_manager.save_account_snapshot(self._credentials)
 
     def contains(self, key: str) -> bool:
         with self._lock:
