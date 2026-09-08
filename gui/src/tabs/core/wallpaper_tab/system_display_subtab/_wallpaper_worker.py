@@ -8,14 +8,15 @@ from __future__ import annotations
 
 import contextlib
 import platform
-from typing import TYPE_CHECKING, Dict, Optional, cast
+from typing import TYPE_CHECKING, Dict, Optional
 
 from backend.src.core import WallpaperManager
 from PySide6.QtCore import QEvent, QObject, QThreadPool, Signal, Slot
-from PySide6.QtWidgets import QApplication, QMessageBox, QWidget
+from PySide6.QtWidgets import QApplication, QMessageBox
 
 from .....helpers import ImageScannerWorker, WallpaperWorker
 from .....theming.theme_api import qss
+from ._tab_bound import TabBoundController
 
 if TYPE_CHECKING:
     from ...protos.system_display_subtab import SystemDisplaySubTabHostProtocol
@@ -39,7 +40,7 @@ class _WallpaperWorkerCompletionRelay(QObject):
         )
 
 
-class _WallpaperWorkerMixin:
+class SystemDisplayWallpaperWorkerController(TabBoundController):
     """Run/stop the wallpaper-setting worker; lock/unlock UI; handle results."""
 
     current_wallpaper_worker: Optional[WallpaperWorker]
@@ -53,16 +54,14 @@ class _WallpaperWorkerMixin:
         final_path_map: Dict[str, Optional[str]]
 
         if self.background_type == "Solid Color":
-            path_map = {
-                str(mid): self.solid_color_hex for mid in range(len(self.monitors))
-            }
+            path_map = {str(mid): self.solid_color_hex for mid in range(len(self.monitors))}
             style_to_use = "SolidColor"
             final_path_map = path_map
         else:
             if not any(self.monitor_image_paths.values()):
                 if not slideshow_mode:
                     QMessageBox.warning(
-                        cast(QWidget, self),
+                        self.tab,
                         "Incomplete",
                         "No images/videos have been dropped on the monitors.",
                     )
@@ -70,7 +69,7 @@ class _WallpaperWorkerMixin:
 
             if ImageScannerWorker is None:
                 QMessageBox.warning(
-                        cast(QWidget, self),
+                    self.tab,
                     "Missing Helpers",
                     "The ImageScannerWorker or ImageLoaderWorker could not be imported.",
                 )
@@ -133,9 +132,7 @@ class _WallpaperWorkerMixin:
                 wallpaper_style=style_to_use,
             )
             self.current_wallpaper_worker = worker
-            relay = _WallpaperWorkerCompletionRelay(
-                worker_serial, ui_locked, cast(QObject, self)
-            )
+            relay = _WallpaperWorkerCompletionRelay(worker_serial, ui_locked, self.tab)
             self._wallpaper_worker_completion_relay = relay
             worker.signals.status.connect(self.handle_wallpaper_status)
             worker.signals.finished.connect(relay.forward)
@@ -153,7 +150,7 @@ class _WallpaperWorkerMixin:
             if ui_locked:
                 self.unlock_ui_for_wallpaper()
             QMessageBox.critical(
-                cast(QWidget, self),
+                self.tab,
                 "Wallpaper Error",
                 f"Failed to start the wallpaper worker:\n{exc}",
             )
@@ -227,9 +224,7 @@ class _WallpaperWorkerMixin:
         for widget in self.monitor_widgets.values():
             widget.setEnabled(True)
         self._update_background_type(self.background_type)
-        slideshow_running = bool(
-            self.slideshow_timer and self.slideshow_timer.isActive()
-        )
+        slideshow_running = bool(self.slideshow_timer and self.slideshow_timer.isActive())
         if slideshow_running:
             self.set_wallpaper_btn.setText("Slideshow Running (Stop)")
             self.set_wallpaper_btn.setStyleSheet(qss("stop_action_btn"))
@@ -266,21 +261,18 @@ class _WallpaperWorkerMixin:
             if relay is not None:
                 relay.deleteLater()
 
-    def _process_wallpaper_finished(
-        self: "SystemDisplaySubTabHostProtocol", success: bool, message: str
-    ):
+    def _process_wallpaper_finished(self: "SystemDisplaySubTabHostProtocol", success: bool, message: str):
         is_slideshow_active = self.slideshow_timer and self.slideshow_timer.isActive()
         if success:
             if not is_slideshow_active and self.background_type != "Solid Color":
-                QMessageBox.information(
-                        cast(QWidget, self), "Success", "Wallpaper has been updated!")
+                QMessageBox.information(self.tab, "Success", "Wallpaper has been updated!")
                 for monitor_id, path in self.monitor_image_paths.items():
                     if path and monitor_id in self.monitor_widgets:
                         thumb = self._get_or_generate_thumbnail(path)
                         self.monitor_widgets[monitor_id].set_image(path, thumb)
             elif self.background_type == "Solid Color":
                 QMessageBox.information(
-                        cast(QWidget, self),
+                    self.tab,
                     "Success",
                     f"Solid color background set to {self.solid_color_hex}!",
                 )
@@ -290,9 +282,7 @@ class _WallpaperWorkerMixin:
                     print(f"Slideshow Error: Failed to set wallpaper: {message}")
                     self.stop_slideshow()
                 else:
-                    QMessageBox.critical(
-                        cast(QWidget, self), "Error", f"Failed to set wallpaper:\n{message}"
-                    )
+                    QMessageBox.critical(self.tab, "Error", f"Failed to set wallpaper:\n{message}")
 
     def _apply_vault_slideshow_defaults(self: "SystemDisplaySubTabHostProtocol"):
         main_win = self.window()
@@ -310,4 +300,8 @@ class _WallpaperWorkerMixin:
             self.playback_order_combo.setCurrentText(vault_order)
 
 
-__all__ = ["_WallpaperWorkerMixin"]
+__all__ = ["SystemDisplayWallpaperWorkerController"]
+
+_WallpaperWorkerMixin = (
+    SystemDisplayWallpaperWorkerController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
+)

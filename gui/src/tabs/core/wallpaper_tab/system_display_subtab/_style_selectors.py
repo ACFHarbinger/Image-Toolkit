@@ -12,18 +12,21 @@ from typing import TYPE_CHECKING, Mapping, Optional, Tuple, Union, cast
 from backend.src.constants import WALLPAPER_STYLES
 from PySide6.QtCore import Slot
 from PySide6.QtGui import QColor
-from PySide6.QtWidgets import QColorDialog, QWidget
+from PySide6.QtWidgets import QColorDialog
 
 from .....theming.theme_api import qss
+from ._tab_bound import TabBoundController
 
 if TYPE_CHECKING:
     from ...protos.system_display_subtab import SystemDisplaySubTabHostProtocol
 
 
-class _StyleSelectorsMixin:
+class SystemDisplayStyleSelectorsController(TabBoundController):
     """Resolve platform-relevant styles and wire the style/background-type combos."""
 
-    def _get_relevant_styles(self: "SystemDisplaySubTabHostProtocol") -> Mapping[str, Optional[Union[str, int, Tuple[str, str]]]]:
+    def _get_relevant_styles(
+        self: "SystemDisplaySubTabHostProtocol",
+    ) -> Mapping[str, Optional[Union[str, int, Tuple[str, str]]]]:
         system = platform.system()
         if system == "Windows":
             return cast(Mapping[str, Optional[Union[str, int, Tuple[str, str]]]], WALLPAPER_STYLES["Windows"])
@@ -116,9 +119,7 @@ class _StyleSelectorsMixin:
     @Slot()
     def select_solid_color(self: "SystemDisplaySubTabHostProtocol"):
         initial_color = QColor(self.solid_color_hex)
-        color = QColorDialog.getColor(
-            initial_color, cast(QWidget, self), "Select Solid Background Color"
-        )
+        color = QColorDialog.getColor(initial_color, self.tab, "Select Solid Background Color")
         if color.isValid():
             self.solid_color_hex = color.name().upper()
             self.solid_color_preview.setStyleSheet(
@@ -127,4 +128,8 @@ class _StyleSelectorsMixin:
             self.check_all_monitors_set()
 
 
-__all__ = ["_StyleSelectorsMixin"]
+__all__ = ["SystemDisplayStyleSelectorsController"]
+
+_StyleSelectorsMixin = (
+    SystemDisplayStyleSelectorsController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
+)

@@ -1,24 +1,32 @@
-"""ui-arch-25/#547: MonitorDisplaySubTab must run every mixin __init__ on its MRO."""
+"""ui-arch-23/#544: MonitorDisplaySubTab composes controllers; WallpaperCommonBase init still runs."""
 
 from __future__ import annotations
 
 import pytest
 
-from gui.src.tabs.core.wallpaper_tab.monitor_display_subtab import MonitorDisplaySubTab, _lifecycle
+from gui.src.tabs.core.wallpaper_tab.common.wallpaper_common_base import WallpaperCommonBase
+from gui.src.tabs.core.wallpaper_tab.monitor_display_subtab import MonitorDisplaySubTab
+from gui.src.tabs.core.wallpaper_tab.monitor_display_subtab._lifecycle import (
+    MonitorDisplayLifecycleController,
+)
 
 pytestmark = pytest.mark.gui
 
 
-def test_mixin_init_on_the_mro_is_reached(q_app, monkeypatch):
+def test_lifecycle_controller_is_constructed(q_app, monkeypatch):
     calls: list[str] = []
+    orig = MonitorDisplayLifecycleController.__init__
 
-    def _recording_init(self, *args, **kwargs):
+    def _recording_init(self, tab):
         calls.append("lifecycle")
-        super(_lifecycle._LifecycleMixin, self).__init__(*args, **kwargs)
+        orig(self, tab)
 
-    monkeypatch.setattr(_lifecycle._LifecycleMixin, "__init__", _recording_init, raising=False)
+    monkeypatch.setattr(MonitorDisplayLifecycleController, "__init__", _recording_init)
     tab = MonitorDisplaySubTab()
     try:
-        assert calls == ["lifecycle"], "a mixin __init__ added to the MRO was skipped"
+        assert calls == ["lifecycle"]
+        assert isinstance(tab.lifecycle_controller, MonitorDisplayLifecycleController)
+        assert tab.lifecycle_controller.tab is tab
+        assert MonitorDisplaySubTab.__bases__ == (WallpaperCommonBase,)
     finally:
         tab.close()

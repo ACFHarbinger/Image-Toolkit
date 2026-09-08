@@ -18,13 +18,15 @@ from typing import TYPE_CHECKING, List, Optional, cast
 
 from backend.src.utils.display import monitor_slideshow_daemon as _monitor_slideshow
 from PySide6.QtCore import Slot
-from PySide6.QtWidgets import QMessageBox, QWidget
+from PySide6.QtWidgets import QMessageBox
+
+from ._tab_bound import TabBoundController
 
 if TYPE_CHECKING:
     from ...protos.monitor_display_subtab import MonitorDisplaySubTabHostProtocol
 
 
-class _SlideshowInAppMixin:
+class MonitorDisplaySlideshowInAppController(TabBoundController):
     """Start/stop the in-app (foreground-process) wallpaper slideshow."""
 
     _inapp_active_monitor_id: Optional[str]
@@ -44,23 +46,24 @@ class _SlideshowInAppMixin:
         queue = self.monitor_slideshow_queues.get(monitor_id, [])
         if not queue:
             QMessageBox.information(
-                cast(QWidget, self), "Empty Queue",
-                "This display's Wallpaper Queue is empty. Use 'Export to Queue' "
-                "or drop files onto the monitor first.",
+                self.tab,
+                "Empty Queue",
+                "This display's Wallpaper Queue is empty. Use 'Export to Queue' or drop files onto the monitor first.",
             )
             self._update_slideshow_buttons()
             return
         if self._daemon_active_monitor_id == monitor_id:
             QMessageBox.warning(
-                cast(QWidget, self), "Slideshow Conflict",
-                "The Slideshow Daemon is running for this display. "
-                "Stop it before starting the in-app slideshow.",
+                self.tab,
+                "Slideshow Conflict",
+                "The Slideshow Daemon is running for this display. Stop it before starting the in-app slideshow.",
             )
             self._update_slideshow_buttons()
             return
         if self._inapp_active_monitor_id and self._inapp_active_monitor_id != monitor_id:
             reply = QMessageBox.question(
-                cast(QWidget, self), "Slideshow Already Running",
+                self.tab,
+                "Slideshow Already Running",
                 "The in-app slideshow is already running for another display "
                 f"(Monitor {self._inapp_active_monitor_id}). Only one display "
                 "can run it at a time. Switch it to this display?",
@@ -80,10 +83,7 @@ class _SlideshowInAppMixin:
             style = getattr(self._system_display_ref, "wallpaper_style", style)
             video_style = getattr(self._system_display_ref, "video_style", video_style)
 
-        other_paths = {
-            mid: p for mid, p in self.monitor_image_paths.items()
-            if mid != monitor_id and p
-        }
+        other_paths = {mid: p for mid, p in self.monitor_image_paths.items() if mid != monitor_id and p}
 
         try:
             _monitor_slideshow.start(
@@ -96,8 +96,7 @@ class _SlideshowInAppMixin:
                 other_paths=other_paths,
             )
         except Exception as e:
-            QMessageBox.critical(
-                cast(QWidget, self), "Error", f"Failed to start in-app slideshow: {e}")
+            QMessageBox.critical(self.tab, "Error", f"Failed to start in-app slideshow: {e}")
             self._update_slideshow_buttons()
             return
 
@@ -136,4 +135,8 @@ class _SlideshowInAppMixin:
         self.check_all_monitors_set()
 
 
-__all__ = ["_SlideshowInAppMixin"]
+__all__ = ["MonitorDisplaySlideshowInAppController"]
+
+_SlideshowInAppMixin = (
+    MonitorDisplaySlideshowInAppController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
+)

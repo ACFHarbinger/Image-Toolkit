@@ -7,7 +7,7 @@ convention (§5.17).
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional, cast
+from typing import TYPE_CHECKING, Optional
 
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import (
@@ -29,12 +29,13 @@ from PySide6.QtWidgets import (
 from .....components.tag_chip_widget import FlowLayout
 from .....styles import apply_shadow_effect, set_button_role
 from .....theming.theme_api import color, qss
+from ._tab_bound import TabBoundController
 
 if TYPE_CHECKING:
     from ...protos.system_display_subtab import SystemDisplaySubTabHostProtocol
 
 
-class _UIBuilderMixin:
+class SystemDisplayUIBuilder(TabBoundController):
     """Builds the scrollable content area: monitor layout, settings, gallery, action bar."""
 
     gallery_layout: Optional[QGridLayout]
@@ -49,30 +50,26 @@ class _UIBuilderMixin:
         self.main_scroll_area.setWidgetResizable(True)
         self.main_scroll_area.setWidget(content_widget)
 
-        main_layout = QVBoxLayout(cast(QWidget, self))
+        main_layout = QVBoxLayout(self.tab)
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.addWidget(self.main_scroll_area)
-        cast(QWidget, self).setLayout(main_layout)
+        self.tab.setLayout(main_layout)
 
-        cast(QWidget, self).setAcceptDrops(True)
+        self.tab.setAcceptDrops(True)
 
         app = QApplication.instance()
         if app is not None:
-            self_widget = cast(QWidget, self)
+            self_widget = self.tab
             app.installEventFilter(self_widget)
             # Nothing calls removeEventFilter on a plain deleteLater()/GC
             # teardown (only close() runs closeEvent), so also drop the
             # app-wide filter the moment the C++ object is destroyed --
             # otherwise every subsequent event in the whole app routes
             # through a dead wrapper and the UI stops responding to clicks.
-            self_widget.destroyed.connect(
-                lambda *_a, _app=app, _obj=self_widget: _app.removeEventFilter(_obj)
-            )
+            self_widget.destroyed.connect(lambda *_a, _app=app, _obj=self_widget: _app.removeEventFilter(_obj))
         self.main_scroll_area.viewport().setAcceptDrops(True)
 
-        layout_group = self.create_monitor_layout_section(
-            "Monitor Layout (Drag to Reorder, Drop images/videos to set)"
-        )
+        layout_group = self.create_monitor_layout_section("Monitor Layout (Drag to Reorder, Drop images/videos to set)")
         content_layout.addWidget(layout_group)
 
         settings_group = QGroupBox("Wallpaper Settings")
@@ -114,9 +111,7 @@ class _UIBuilderMixin:
             ]
         )
         self.background_type_combo.setCurrentText(self.background_type)
-        self.background_type_combo.currentTextChanged.connect(
-            self._update_background_type
-        )
+        self.background_type_combo.currentTextChanged.connect(self._update_background_type)
         background_type_layout.addWidget(QLabel("Background Type:"))
         background_type_layout.addWidget(self.background_type_combo)
         background_type_layout.addStretch(1)
@@ -161,9 +156,7 @@ class _UIBuilderMixin:
             "can't be determined."
         )
         self.chk_video_runtime_interval.setVisible(False)
-        self.chk_video_runtime_interval.toggled.connect(
-            self._on_video_runtime_interval_toggled
-        )
+        self.chk_video_runtime_interval.toggled.connect(self._on_video_runtime_interval_toggled)
         slideshow_layout.addWidget(self.chk_video_runtime_interval)
 
         # Right-anchors Timer + the action buttons as a group, same as the
@@ -252,9 +245,7 @@ class _UIBuilderMixin:
         style_layout.addWidget(self.style_combo)
 
         self.video_style_combo = QComboBox()
-        self.video_style_combo.addItems(
-            ["Stretch", "Keep Proportions", "Scaled and Cropped"]
-        )
+        self.video_style_combo.addItems(["Stretch", "Keep Proportions", "Scaled and Cropped"])
         self.video_style_combo.setCurrentText(self.video_style)
         self.video_style_combo.currentTextChanged.connect(self._update_video_style)
         self.video_style_combo.setVisible(False)
@@ -267,9 +258,7 @@ class _UIBuilderMixin:
         self.playback_order_label = QLabel("Order:")
         style_layout.addWidget(self.playback_order_label)
         self.playback_order_combo = QComboBox()
-        self.playback_order_combo.addItems(
-            ["Sequential", "Reverse Sequential", "Random"]
-        )
+        self.playback_order_combo.addItems(["Sequential", "Reverse Sequential", "Random"])
         self.playback_order_combo.setCurrentText("Sequential")
         self.playback_order_combo.setFixedWidth(120)
         style_layout.addWidget(self.playback_order_combo)
@@ -308,4 +297,5 @@ class _UIBuilderMixin:
         pass
 
 
-__all__ = ["_UIBuilderMixin"]
+__all__ = ["SystemDisplayUIBuilder"]
+
