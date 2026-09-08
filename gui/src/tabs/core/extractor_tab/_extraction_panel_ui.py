@@ -129,26 +129,53 @@ class _ExtractionPanelUIMixin:
 
         extract_main_layout.addWidget(extract_config_container)
 
-        # -- Row 2: Actions --
-        # FlowLayout: 9 buttons (Snapshot / Set Start+Go / Set End+Go /
-        # Extract Range / Extract Video / Extract GIF / Run on GCD / Cancel)
-        # in one row is the same overflow shape as Row 1 above. Parented
-        # container, see Row 1's comment.
-        extract_actions_container = QWidget()
-        extract_actions_layout = FlowLayout(extract_actions_container)
-
-        self.btn_snapshot = QPushButton("📸 Snapshot Frame")
-        self.btn_snapshot.clicked.connect(self.extract_single_frame)
-        self.btn_snapshot.setEnabled(False)
-        extract_actions_layout.addWidget(self.btn_snapshot)
-        extract_actions_layout.addWidget(QLabel("|"))
-
+        # -- Row 2: Snapshot + Start/End range (left-aligned) --
         self.start_time_ms = 0
         self.end_time_ms = 0
         self.cut_start_ms = 0
         self.cut_end_ms = 0
         self.cuts_ms: List[Tuple[int, int]] = []
         self.tags_ms: List[Tuple[int, str]] = []
+
+        range_row = QHBoxLayout()
+
+        self.btn_snapshot = QPushButton("📸 Snapshot Frame")
+        self.btn_snapshot.clicked.connect(self.extract_single_frame)
+        self.btn_snapshot.setEnabled(False)
+        range_row.addWidget(self.btn_snapshot)
+        range_row.addWidget(QLabel("|"))
+
+        self.btn_set_start = QPushButton("Set Start [00:00]")
+        self.btn_set_start.clicked.connect(self.set_range_start)
+        self.btn_set_start.setEnabled(False)
+        range_row.addWidget(self.btn_set_start)
+
+        self.btn_jump_start = QPushButton("Go")
+        self.btn_jump_start.setFixedWidth(40)
+        self.btn_jump_start.clicked.connect(self.jump_to_range_start)
+        self.btn_jump_start.setEnabled(False)
+        range_row.addWidget(self.btn_jump_start)
+
+        self.btn_set_end = QPushButton("Set End [00:00]")
+        self.btn_set_end.clicked.connect(self.set_range_end)
+        self.btn_set_end.setEnabled(False)
+        range_row.addWidget(self.btn_set_end)
+
+        self.btn_jump_end = QPushButton("Go")
+        self.btn_jump_end.setFixedWidth(40)
+        self.btn_jump_end.clicked.connect(self.jump_to_range_end)
+        self.btn_jump_end.setEnabled(False)
+        range_row.addWidget(self.btn_jump_end)
+
+        range_row.addStretch()
+        extract_main_layout.addLayout(range_row)
+
+        # -- Row 3: Extraction Actions --
+        # FlowLayout: action buttons (Extract Range / Extract Video /
+        # Extract GIF / Run on GCD / Cancel) that may overflow at narrow
+        # widths. Parented container — see Row 1's comment.
+        extract_actions_container = QWidget()
+        extract_actions_layout = FlowLayout(extract_actions_container)
 
         self.btn_cancel_extraction = QPushButton("🛑 Cancel Extraction")
         self.btn_cancel_extraction.setStyleSheet(
@@ -159,23 +186,6 @@ class _ExtractionPanelUIMixin:
         self.btn_cancel_extraction.clicked.connect(self.cancel_extraction)
         self.btn_cancel_extraction.hide()
 
-        self.btn_set_start = QPushButton("Set Start [00:00]")
-        self.btn_set_start.clicked.connect(self.set_range_start)
-        self.btn_set_start.setEnabled(False)
-
-        self.btn_jump_start = QPushButton("Go")
-        self.btn_jump_start.setFixedWidth(40)
-        self.btn_jump_start.clicked.connect(self.jump_to_range_start)
-        self.btn_jump_start.setEnabled(False)
-
-        self.btn_set_end = QPushButton("Set End [00:00]")
-        self.btn_set_end.clicked.connect(self.set_range_end)
-        self.btn_set_end.setEnabled(False)
-
-        self.btn_jump_end = QPushButton("Go")
-        self.btn_jump_end.setFixedWidth(40)
-        self.btn_jump_end.clicked.connect(self.jump_to_range_end)
-        self.btn_jump_end.setEnabled(False)
         self.btn_extract_range = QPushButton("🎞️ Extract Range")
         self.btn_extract_range.setStyleSheet(
             "QPushButton { background-color: #168f88; color: white; font-weight: bold; }"
@@ -218,10 +228,6 @@ class _ExtractionPanelUIMixin:
         self.btn_run_on_gcd.clicked.connect(lambda: self.run_current_on_gcd("gif"))
         self.btn_run_on_gcd.setEnabled(False)
 
-        extract_actions_layout.addWidget(self.btn_set_start)
-        extract_actions_layout.addWidget(self.btn_jump_start)
-        extract_actions_layout.addWidget(self.btn_set_end)
-        extract_actions_layout.addWidget(self.btn_jump_end)
         extract_actions_layout.addWidget(self.btn_extract_range)
         extract_actions_layout.addWidget(self.btn_extract_video)
         extract_actions_layout.addWidget(self.btn_extract_gif)
@@ -230,10 +236,10 @@ class _ExtractionPanelUIMixin:
 
         extract_main_layout.addWidget(extract_actions_container)
 
-        # -- Row 3: Cuts --
+        # -- Row 4: Cuts --
         extract_main_layout.addLayout(self._build_cuts_row())
 
-        # -- Row 4: Advanced Extraction Options --
+        # -- Row 5: Advanced Extraction Options --
         extract_adv_layout = QHBoxLayout()
         extract_adv_layout.addWidget(QLabel("Frame Interval:"))
         self.spin_interval = QSpinBox()
@@ -267,10 +273,10 @@ class _ExtractionPanelUIMixin:
         extract_adv_layout.addStretch()
         extract_main_layout.addLayout(extract_adv_layout)
 
-        # -- Row 5: Tags --
+        # -- Row 6: Tags --
         extract_main_layout.addLayout(self._build_tags_row())
 
-        # -- Row 6: Progress --
+        # -- Row 7: Progress --
         self.extraction_progress_bar = QProgressBar()
         self.extraction_progress_bar.setTextVisible(True)
         self.extraction_progress_bar.setAlignment(Qt.AlignmentFlag.AlignCenter)
