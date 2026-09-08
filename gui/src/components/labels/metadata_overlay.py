@@ -52,14 +52,30 @@ class MetadataOverlay(QFrame):
         basename = os.path.basename(self.file_path)
         self.filename_label.setText(basename)
 
-        # Dimensions (lazy load)
+        # Dimensions (lazy load). Huge GIFs must not go through
+        # QImageReader -- that is the gallery browse crash.
         if os.path.exists(self.file_path):
-            reader = QImageReader(self.file_path)
-            size = reader.size()
-            if size.isValid():
-                self.dim_label.setText(f"{size.width()} × {size.height()}")
+            from gui.src.helpers.image._qimagereader_disk_cache import (
+                is_oversized_gif,
+                read_gif_logical_screen,
+            )
+
+            gif_screen = (
+                read_gif_logical_screen(self.file_path)
+                if self.file_path.lower().endswith(".gif")
+                else None
+            )
+            if gif_screen is not None:
+                self.dim_label.setText(f"{gif_screen[0]} × {gif_screen[1]}")
+            elif is_oversized_gif(self.file_path):
+                self.dim_label.setText("GIF")
             else:
-                self.dim_label.setText("Unknown dims")
+                reader = QImageReader(self.file_path)
+                size = reader.size()
+                if size.isValid():
+                    self.dim_label.setText(f"{size.width()} × {size.height()}")
+                else:
+                    self.dim_label.setText("Unknown dims")
 
             # File size
             try:

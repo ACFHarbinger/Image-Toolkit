@@ -206,3 +206,54 @@ class VideoThumbnailer:
                     logger.debug("Suppressed (subprocess.CalledProcessError, subprocess.TimeoutExpired) in VideoThumbnailer.generate", exc_info=True)
 
         return None
+
+    def generate_gif_poster(self, gif_path: str, size: int) -> QImage | None:
+        """First-frame poster for a GIF that is too large for QImageReader.
+
+        ffmpegthumbnailer seeks to 15% of duration, which on a multi-GB
+        extraction GIF means reading a huge prefix. This path probes a
+        tiny header, reads frame 0 only, and scales in-pipeline.
+        """
+        if not self.has_ffmpeg or not os.path.exists(gif_path):
+            return None
+        if size is None or size <= 0:
+            size = 180
+        cmd = self._get_nice_prefix() + [
+            "ffmpeg",
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-probesize",
+            "65536",
+            "-analyzeduration",
+            "0",
+            "-i",
+            gif_path,
+            "-an",
+            "-vframes",
+            "1",
+            "-vf",
+            f"scale={size}:-1",
+            "-f",
+            "image2",
+            "-c:v",
+            "mjpeg",
+            "pipe:1",
+        ]
+        try:
+            with media_backend_spawn_guard():
+                result = subprocess.run(
+                    cmd, capture_output=True, check=True, timeout=30.0
+                )
+            img = QImage()
+            with _decode_span("ffmpeg-gif-poster", gif_path):
+                decode_ok = img.loadFromData(result.stdout)
+            if decode_ok:
+                return img
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+            logger.debug(
+                "Suppressed (subprocess.CalledProcessError, subprocess.TimeoutExpired) "
+                "in VideoThumbnailer.generate_gif_poster",
+                exc_info=True,
+            )
+        return None
