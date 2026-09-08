@@ -12,16 +12,17 @@ from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtWidgets import QFileDialog
 
 from ....constants import DIALOG_OPTS, RECON_IMAGE_FILTER
+from ._tab_bound import TabBoundController
 
 logger = logging.getLogger(__name__)
 
 
-class _SourceImageMixin:
+class EntityReconSourceController(TabBoundController):
     """Loads the source image and dispatches click-to-segment requests."""
 
     def _browse_source(self):
         start = os.path.dirname(self._source_path) if self._source_path else ""
-        path, _ = QFileDialog.getOpenFileName(self, "Select Source Image", start, RECON_IMAGE_FILTER, options=DIALOG_OPTS)
+        path, _ = QFileDialog.getOpenFileName(self.tab, "Select Source Image", start, RECON_IMAGE_FILTER, options=DIALOG_OPTS)
         if path:
             self._load_source(path)
 
@@ -72,4 +73,6 @@ class _SourceImageMixin:
         self.image_label.set_source_pixmap(pix, w, h)
 
 
-__all__ = ["_SourceImageMixin"]
+_SourceImageMixin = EntityReconSourceController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
+
+__all__ = ["EntityReconSourceController", "_SourceImageMixin"]

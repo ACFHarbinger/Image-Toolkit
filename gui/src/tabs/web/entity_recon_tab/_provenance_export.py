@@ -9,9 +9,10 @@ from backend.src.web.recon import export_provenance
 from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 from ....constants import DIALOG_OPTS
+from ._tab_bound import TabBoundController
 
 
-class _ProvenanceExportMixin:
+class EntityReconExportController(TabBoundController):
     """Exports the last resolved provenance report to JSON or CSV."""
 
     def _export(self, fmt: str):
@@ -20,7 +21,7 @@ class _ProvenanceExportMixin:
             return
         ext = "csv" if fmt == "csv" else "json"
         path, _ = QFileDialog.getSaveFileName(
-            self, "Export Provenance", f"provenance.{ext}", f"{ext.upper()} (*.{ext})", options=DIALOG_OPTS
+            self.tab, "Export Provenance", f"provenance.{ext}", f"{ext.upper()} (*.{ext})", options=DIALOG_OPTS
         )
         if not path:
             return
@@ -28,7 +29,9 @@ class _ProvenanceExportMixin:
             export_provenance(self._report, path, fmt=ext)
             self._set_status(f"Exported provenance to {path}")
         except Exception as e:  # noqa: BLE001
-            QMessageBox.critical(self, "Export Failed", str(e))
+            QMessageBox.critical(self.tab, "Export Failed", str(e))
 
 
-__all__ = ["_ProvenanceExportMixin"]
+_ProvenanceExportMixin = EntityReconExportController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
+
+__all__ = ["EntityReconExportController", "_ProvenanceExportMixin"]

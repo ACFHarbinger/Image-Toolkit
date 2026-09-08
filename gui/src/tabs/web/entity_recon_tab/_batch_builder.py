@@ -12,18 +12,19 @@ from PySide6.QtWidgets import QFileDialog, QMessageBox, QTableWidgetItem
 
 from ....constants import DIALOG_OPTS, RECON_IMAGE_FILTER
 from ....helpers.web.recon_worker import BatchSuggestWorker
+from ._tab_bound import TabBoundController
 
 logger = logging.getLogger(__name__)
 
 
-class _BatchBuilderMixin:
+class EntityReconBatchController(TabBoundController):
     """Suggests identities for a batch of images and moves approved ones."""
 
     def _browse_batch(self):
         if self._engine is None:
-            QMessageBox.information(self, "No Index", "Build the identity index first.")
+            QMessageBox.information(self.tab, "No Index", "Build the identity index first.")
             return
-        paths, _ = QFileDialog.getOpenFileNames(self, "Select Images", "", RECON_IMAGE_FILTER, options=DIALOG_OPTS)
+        paths, _ = QFileDialog.getOpenFileNames(self.tab, "Select Images", "", RECON_IMAGE_FILTER, options=DIALOG_OPTS)
         paths = [p for p in paths if os.path.isfile(p)]
         if not paths:
             return
@@ -73,4 +74,6 @@ class _BatchBuilderMixin:
         self._set_status(f"Moved {moved} images into identity folders.")
 
 
-__all__ = ["_BatchBuilderMixin"]
+_BatchBuilderMixin = EntityReconBatchController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
+
+__all__ = ["EntityReconBatchController", "_BatchBuilderMixin"]
