@@ -1,8 +1,13 @@
 # S542 — 2026-09-08 (Grok: #568 R3.1 PixmapBudget)
 
-- One `PixmapBudget` dataclass owns LRU thumbnail cache sizes (card thumb,
-  single gallery, two-gallery found/selected, virtual dual, virtual model,
-  ceiling). Call sites construct `LRUImageCache` from those fields.
+- One `PixmapBudget` owns LRU thumbnail cache *and* the process-wide
+  resident cap. Per-role sizes (card thumb, single gallery, two-gallery
+  found/selected, virtual dual, virtual model) are derived from it;
+  every `LRUImageCache` constructed with the default budget registers
+  there. Inserts that would push the sum of resident entries past
+  `total_entries` (800, same number as `LRU_CACHE_CEILING`) evict the
+  globally oldest thumbnail, from whichever cache holds it. Isolated
+  caches (`budget=None`) stay local-only for tests/benches.
 
 # S535 — 2026-09-08 (Grok: huge-GIF gallery thumbnails)
 
