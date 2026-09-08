@@ -499,14 +499,6 @@ class VirtualGalleryModel(QAbstractListModel):
     def _ensure_loading(self, path: str) -> None:
         if path in self._cache or path in self._loading or path in self._failed:
             return
-        from gui.src.helpers.image._qimagereader_disk_cache import (
-            is_oversized_gif,
-            oversized_gif_placeholder,
-        )
-
-        if is_oversized_gif(path):
-            self._cache[path] = oversized_gif_placeholder(self.thumbnail_size)
-            return
         self._loading.add(path)
         gen = self._scheduler.generation
         worker = self.worker_factory(path, self.thumbnail_size)

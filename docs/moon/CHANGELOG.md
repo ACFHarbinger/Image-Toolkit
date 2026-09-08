@@ -1,12 +1,13 @@
 # S535 — 2026-09-08 (Grok: huge-GIF gallery thumbnails)
 
 - Gallery / wallpaper / extractor thumbnail loads no longer run Qt's GIF
-  plugin on multi-hundred-MB extraction GIFs. Files over 32MB get a
-  placeholder: no `QImageReader`, no ffmpeg-from-worker (both are the
-  `QSocketNotifier` crash class). Hover metadata reads the 10-byte GIF
-  header only; preview refuses `QMovie` on those files. Smaller GIFs
-  still use `QImageReader`. The GIF plugin is primed on the GUI thread
-  at startup next to JPEG.
+  plugin on multi-hundred-MB extraction GIFs. Files over 32MB decode
+  **frame 0 only via Pillow** (no `QImageReader`, no ffmpeg-from-worker —
+  both are the `QSocketNotifier` crash class), then wrap the RGB buffer
+  in `QImage`. Hover metadata still reads the 10-byte GIF header only;
+  preview still refuses `QMovie` on those files. Smaller GIFs still use
+  `QImageReader`. The GIF plugin is primed on the GUI thread at startup
+  next to JPEG.
 - Reproduced as `QSocketNotifier` SIGSEGV/SIGABRT after browsing
   `~/Downloads/Data/Frames/Cinematography/` (101 GIFs, ~108GB). Extractor
   session-recovery already skipped the eager output auto-load; explicit
