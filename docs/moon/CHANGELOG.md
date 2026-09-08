@@ -1,3 +1,9 @@
+# S537 — 2026-09-08 (Grok: oversized GIF preview playback)
+
+- Full-size preview plays GIFs over 32MB with `PillowGifPlayer` (QTimer +
+  Pillow `seek()`, one frame in memory). `QMovie` is still skipped on
+  those files. Small GIFs still use `QMovie`.
+
 # S536 — 2026-09-08 (Grok: oversized GIF full-size preview)
 
 - Full-size preview no longer shows a blank placeholder for GIFs over
