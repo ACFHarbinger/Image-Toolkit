@@ -213,6 +213,18 @@ class ShellLayoutManager(QObject):
         self._mounted_widgets.clear()
         self._active_module_id = None
 
+    def dispose_for_account_switch(self, account_id: Optional[str]) -> Optional[str]:
+        """Unmount widgets and dispose handles for a new account (#572 / DS-5).
+
+        Returns the previously active module id so the caller can remount it
+        against the new account context.
+        """
+        previous = self._active_module_id
+        self.clear_mounted()
+        self.runtime.replace_account(account_id)
+        self.context = self.runtime.context
+        return previous
+
     @property
     def active_module_id(self) -> Optional[str]:
         return self._active_module_id
