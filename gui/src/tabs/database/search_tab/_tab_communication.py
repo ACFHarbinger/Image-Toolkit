@@ -11,9 +11,10 @@ from PySide6.QtWidgets import QMessageBox
 from gui.src.modules.events import ImportPathsIntent, NavigateIntent
 
 from ....utils.sort_utils import natural_sort_key
+from ._tab_bound import TabBoundController
 
 
-class _TabCommunicationMixin:
+class SearchTabCommunicationController(TabBoundController):
     """Hand off the current selection to another tab's own gallery/state."""
 
     def _get_target_selection(self, single_path=None):
@@ -29,7 +30,7 @@ class _TabCommunicationMixin:
     def send_selection_to_scan_tab(self):
         if not self.selected_files:
             QMessageBox.information(
-                self,
+                self.tab,
                 "No Selection",
                 "Please select at least one image to open in the Scan Tab.",
             )
@@ -44,7 +45,7 @@ class _TabCommunicationMixin:
         )
         self.event_hub.publish(NavigateIntent(origin="library.search", module_id="library.scan"))
         QMessageBox.information(
-            self,
+            self.tab,
             "Images Sent",
             f"Successfully sent {len(sorted_selection)} images to the Scan Metadata Tab.",
         )
@@ -52,41 +53,43 @@ class _TabCommunicationMixin:
     def send_selection_to_merge_tab(self, single_path=None):
         paths = self._get_target_selection(single_path)
         if not paths:
-            QMessageBox.information(self, "No Selection", "No images selected.")
+            QMessageBox.information(self.tab, "No Selection", "No images selected.")
             return
         self.event_hub.publish(
             ImportPathsIntent(origin="library.search", module_id="system.merge", paths=tuple(paths))
         )
         self.event_hub.publish(NavigateIntent(origin="library.search", module_id="system.merge"))
         QMessageBox.information(
-            self, "Images Sent", f"Sent {len(paths)} images to the Merge Tab."
+            self.tab, "Images Sent", f"Sent {len(paths)} images to the Merge Tab."
         )
 
     def send_selection_to_delete_tab(self, single_path=None):
         paths = self._get_target_selection(single_path)
         if not paths:
-            QMessageBox.information(self, "No Selection", "No images selected.")
+            QMessageBox.information(self.tab, "No Selection", "No images selected.")
             return
         self.event_hub.publish(
             ImportPathsIntent(origin="library.search", module_id="system.similarity", paths=tuple(paths))
         )
         self.event_hub.publish(NavigateIntent(origin="library.search", module_id="system.similarity"))
         QMessageBox.information(
-            self, "Images Sent", f"Sent {len(paths)} images to the Delete Tab."
+            self.tab, "Images Sent", f"Sent {len(paths)} images to the Delete Tab."
         )
 
     def send_selection_to_wallpaper_tab(self, single_path=None):
         paths = self._get_target_selection(single_path)
         if not paths:
-            QMessageBox.information(self, "No Selection", "No images selected.")
+            QMessageBox.information(self.tab, "No Selection", "No images selected.")
             return
         self.event_hub.publish(
             ImportPathsIntent(origin="library.search", module_id="system.wallpaper", paths=tuple(paths))
         )
         self.event_hub.publish(NavigateIntent(origin="library.search", module_id="system.wallpaper"))
         QMessageBox.information(
-            self, "Images Sent", f"Sent {len(paths)} images to the Wallpaper Tab."
+            self.tab, "Images Sent", f"Sent {len(paths)} images to the Wallpaper Tab."
         )
 
 
-__all__ = ["_TabCommunicationMixin"]
+_TabCommunicationMixin = SearchTabCommunicationController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
+
+__all__ = ["SearchTabCommunicationController", "_TabCommunicationMixin"]

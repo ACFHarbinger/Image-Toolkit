@@ -11,8 +11,10 @@ from PySide6.QtWidgets import QMessageBox
 
 from gui.src.helpers import SearchWorker
 
+from ._tab_bound import TabBoundController
 
-class _SearchWorkerMixin:
+
+class SearchWorkerController(TabBoundController):
     """Start/cancel the background SearchWorker and react to its outcomes."""
 
     @Slot()
@@ -25,7 +27,7 @@ class _SearchWorkerMixin:
     def perform_search(self):
         db = self.database_service.db
         if not db:
-            QMessageBox.warning(self, "Error", "Please connect to the database first.")
+            QMessageBox.warning(self.tab, "Error", "Please connect to the database first.")
             return
 
         query_params = {
@@ -61,7 +63,7 @@ class _SearchWorkerMixin:
         self.current_search_worker = None
         self._reset_search_ui("Search Failed.")
         QMessageBox.critical(
-            self, "Search Error", f"An error occurred during search:\n{error_msg}"
+            self.tab, "Search Error", f"An error occurred during search:\n{error_msg}"
         )
         self.results_count_label.setText(f"Error: {error_msg}")
 
@@ -84,4 +86,6 @@ class _SearchWorkerMixin:
         self.results_count_label.setText(message)
 
 
-__all__ = ["_SearchWorkerMixin"]
+_SearchWorkerMixin = SearchWorkerController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
+
+__all__ = ["SearchWorkerController", "_SearchWorkerMixin"]

@@ -25,9 +25,10 @@ from PySide6.QtWidgets import (
 
 from ....helpers import SemanticSearchWorker
 from ....styles import apply_shadow_effect
+from ._tab_bound import TabBoundController
 
 
-class _SemanticSearchMixin:
+class SearchSemanticController(TabBoundController):
     """"Search by Meaning" natural-language box."""
 
     def _build_semantic_search_section(self, layout: QVBoxLayout) -> None:
@@ -54,12 +55,12 @@ class _SemanticSearchMixin:
     def perform_semantic_search(self):
         db = self.database_service.db
         if not db:
-            QMessageBox.warning(self, "Error", "Please connect to the database first.")
+            QMessageBox.warning(self.tab, "Error", "Please connect to the database first.")
             return
         query = self.semantic_query_edit.text().strip()
         if not query:
             QMessageBox.information(
-                self, "Semantic Search", "Enter a description to search by meaning."
+                self.tab, "Semantic Search", "Enter a description to search by meaning."
             )
             return
         if self.current_semantic_worker is not None:
@@ -114,7 +115,7 @@ class _SemanticSearchMixin:
 
     def _on_semantic_search_error(self, message: str) -> None:
         self._reset_semantic_ui("Semantic search failed.")
-        QMessageBox.critical(self, "Semantic Search Error", message)
+        QMessageBox.critical(self.tab, "Semantic Search Error", message)
 
     def _on_semantic_search_cancelled(self) -> None:
         self._reset_semantic_ui("Semantic search cancelled.")
@@ -125,11 +126,11 @@ class _SemanticSearchMixin:
         Management backfill's stored embeddings)."""
         db = self.database_service.db
         if not db:
-            QMessageBox.warning(self, "Error", "Please connect to the database first.")
+            QMessageBox.warning(self.tab, "Error", "Please connect to the database first.")
             return
         if self.current_semantic_worker is not None:
             QMessageBox.information(
-                self, "Busy", "A semantic search is already in progress."
+                self.tab, "Busy", "A semantic search is already in progress."
             )
             return
 
@@ -150,4 +151,6 @@ class _SemanticSearchMixin:
         QThreadPool.globalInstance().start(worker)
 
 
-__all__ = ["_SemanticSearchMixin"]
+_SemanticSearchMixin = SearchSemanticController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
+
+__all__ = ["SearchSemanticController", "_SemanticSearchMixin"]

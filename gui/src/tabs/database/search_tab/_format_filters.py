@@ -11,9 +11,10 @@ from typing import List, Optional
 from PySide6.QtCore import Slot
 
 from ....styles import apply_shadow_effect
+from ._tab_bound import TabBoundController
 
 
-class _FormatFiltersMixin:
+class SearchFormatFiltersController(TabBoundController):
     """Toggle/add-all/remove-all image-format filter buttons."""
 
     def toggle_format(self, fmt, checked):
@@ -59,4 +60,6 @@ class _FormatFiltersMixin:
             ]
 
 
-__all__ = ["_FormatFiltersMixin"]
+_FormatFiltersMixin = SearchFormatFiltersController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
+
+__all__ = ["SearchFormatFiltersController", "_FormatFiltersMixin"]

@@ -11,8 +11,10 @@ from typing import List, Optional
 from PySide6.QtCore import Qt, Slot
 from PySide6.QtWidgets import QListWidgetItem
 
+from ._tab_bound import TabBoundController
 
-class _GroupFiltersMixin:
+
+class SearchGroupFiltersController(TabBoundController):
     """Group/subgroup checkbox lists, kept in sync with the database."""
 
     @Slot()
@@ -138,4 +140,6 @@ class _GroupFiltersMixin:
         self._db_was_connected = db_connected
 
 
-__all__ = ["_GroupFiltersMixin"]
+_GroupFiltersMixin = SearchGroupFiltersController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
+
+__all__ = ["SearchGroupFiltersController", "_GroupFiltersMixin"]

@@ -11,9 +11,10 @@ from PySide6.QtCore import Slot
 from PySide6.QtWidgets import QLabel
 
 from ....components import DraggableLabel
+from ._tab_bound import TabBoundController
 
 
-class _GalleryCardsMixin:
+class SearchGalleryCardsController(TabBoundController):
     """Gallery refresh/selection mapping onto the virtual dual gallery."""
 
     def create_gallery_label(self, path: str, size: int) -> QLabel:
@@ -51,4 +52,6 @@ class _GalleryCardsMixin:
         self.deselect_all_items()
 
 
-__all__ = ["_GalleryCardsMixin"]
+_GalleryCardsMixin = SearchGalleryCardsController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
+
+__all__ = ["SearchGalleryCardsController", "_GalleryCardsMixin"]

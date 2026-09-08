@@ -26,13 +26,14 @@ from gui.src.constants.elements import _SEARCH_BUTTON_STYLE
 
 from ....components import OptionalField, VirtualDualGallery
 from ....styles import apply_shadow_effect
+from ._tab_bound import TabBoundController
 
 
-class _UIBuilderMixin:
+class SearchUIBuilder(TabBoundController):
     """Builds the search-criteria form, both galleries, and search controls."""
 
     def _build_ui(self):
-        layout = QVBoxLayout(self)
+        layout = QVBoxLayout(self.tab)
 
         search_group = QGroupBox("Search Database")
         form_layout = QFormLayout(search_group)
@@ -291,7 +292,7 @@ class _UIBuilderMixin:
         # 2. Found + Selected galleries (VirtualDualGallery replaces the two
         # MarqueeScrollArea + QGridLayout grids; pagination is dropped and
         # selection lives in the dual gallery's selection models).
-        self.dual = VirtualDualGallery(self)
+        self.dual = VirtualDualGallery(self.tab)
         self.dual.found_activated.connect(self._open_preview_for)
         self.dual.found_right_clicked.connect(self._on_found_card_right_clicked)
         self.dual.selected_activated.connect(self._open_preview_for)
@@ -300,4 +301,6 @@ class _UIBuilderMixin:
         layout.addWidget(self.dual, stretch=1)
 
 
-__all__ = ["_UIBuilderMixin"]
+_UIBuilderMixin = SearchUIBuilder  # COMPAT(ui-arch-23): remove after callers drop the mixin name
+
+__all__ = ["SearchUIBuilder", "_UIBuilderMixin"]

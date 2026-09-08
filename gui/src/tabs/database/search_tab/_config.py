@@ -11,8 +11,10 @@ from typing import Any, Dict
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QMessageBox
 
+from ._tab_bound import TabBoundController
 
-class _ConfigMixin:
+
+class SearchConfigController(TabBoundController):
     """Save/restore group/subgroup/tag/format filter selections."""
 
     def collect(self) -> Dict[str, Any]:
@@ -73,12 +75,14 @@ class _ConfigMixin:
             else:
                 self.input_formats_edit.setText(" ".join(formats))
             QMessageBox.information(
-                self, "Config Loaded", "Search configuration applied successfully."
+                self.tab, "Config Loaded", "Search configuration applied successfully."
             )
         except Exception as e:
             QMessageBox.critical(
-                self, "Config Error", f"Failed to apply search configuration:\n{e}"
+                self.tab, "Config Error", f"Failed to apply search configuration:\n{e}"
             )
 
 
-__all__ = ["_ConfigMixin"]
+_ConfigMixin = SearchConfigController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
+
+__all__ = ["SearchConfigController", "_ConfigMixin"]

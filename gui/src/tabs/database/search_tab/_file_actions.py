@@ -18,22 +18,24 @@ from PySide6.QtWidgets import QMenu, QMessageBox, QWidget
 from send2trash import send2trash  # pyrefly: ignore [untyped-import]
 
 from ....windows import ImagePreviewWindow
+from ._tab_bound import TabBoundController
 
 logger = logging.getLogger(__name__)
 
-class _FileActionsMixin:
+
+class SearchFileActionsController(TabBoundController):
     """Remove-from-DB, delete-file, properties dialog, context menu, preview."""
 
     def handle_remove_from_db(self, file_path: str):
         db = self.database_service.db
         if not db:
             QMessageBox.warning(
-                self, "Database Error", "Please connect to the database first."
+                self.tab, "Database Error", "Please connect to the database first."
             )
             return
         filename = os.path.basename(file_path)
         reply = QMessageBox.question(
-            self,
+            self.tab,
             "Confirm Database Removal",
             f"Are you sure you want to remove the entry for **{filename}** from the database?\n\nThe physical image file WILL NOT be deleted.",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
@@ -52,29 +54,29 @@ class _FileActionsMixin:
                     self.selected_files.remove(file_path)
                 self.perform_search()
                 QMessageBox.information(
-                    self,
+                    self.tab,
                     "Success",
                     f"Database entry for **{filename}** removed successfully.",
                 )
             else:
                 QMessageBox.warning(
-                    self, "Warning", f"No database entry found for file: {filename}"
+                    self.tab, "Warning", f"No database entry found for file: {filename}"
                 )
         except Exception as e:
             QMessageBox.critical(
-                self, "Removal Failed", f"Could not remove database entry:\n{e}"
+                self.tab, "Removal Failed", f"Could not remove database entry:\n{e}"
             )
 
     def handle_delete_image(self, file_path: str):
         if not file_path or not os.path.exists(file_path):
             QMessageBox.warning(
-                self, "Delete Error", "File not found or path is invalid."
+                self.tab, "Delete Error", "File not found or path is invalid."
             )
             return
         db = self.database_service.db
         if not db:
             QMessageBox.warning(
-                self,
+                self.tab,
                 "Delete Error",
                 "Database connection required for file and DB deletion.",
             )
@@ -88,7 +90,7 @@ class _FileActionsMixin:
         action_name = "Trash" if send_to_trash_enabled else "Permanent Delete"
 
         reply = QMessageBox.question(
-            self,
+            self.tab,
             f"Confirm {action_name}",
             f"Are you sure you want to {action_name.lower()} the file:\n\n**{filename}**\n\nThis action cannot be undone!",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
@@ -117,17 +119,17 @@ class _FileActionsMixin:
 
             self.perform_search()
             QMessageBox.information(
-                self, f"Moved to {action_name}", f"Moved to {action_name}: {filename}"
+                self.tab, f"Moved to {action_name}", f"Moved to {action_name}: {filename}"
             )
         except Exception as e:
             QMessageBox.critical(
-                self, "Deletion Failed", f"Could not delete the file:\n{e}"
+                self.tab, "Deletion Failed", f"Could not delete the file:\n{e}"
             )
 
     def show_image_properties(self, file_path: str):
         if not file_path or not os.path.exists(file_path):
             QMessageBox.warning(
-                self, "Invalid Path", f"File not found at path:\n{file_path}"
+                self.tab, "Invalid Path", f"File not found at path:\n{file_path}"
             )
             return
         try:
@@ -156,33 +158,33 @@ class _FileActionsMixin:
                 f"**Size:** {format_size(stats.st_size)}\n"
                 f"**Last Modified:** {last_modified}\n"
             )
-            msg = QMessageBox(self)
+            msg = QMessageBox(self.tab)
             msg.setWindowTitle("Image Properties")
             msg.setText(properties_text)
             msg.setIcon(QMessageBox.Icon.Information)
             msg.setStyleSheet("QLabel{min-width: 400px;}")
             msg.exec()
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to retrieve properties: {e}")
+            QMessageBox.critical(self.tab, "Error", f"Failed to retrieve properties: {e}")
 
     def show_context_menu(self, pos: QPoint, file_path: str, widget: QWidget):
-        menu = QMenu(self)
-        properties_action = QAction("🖼️ Show Image Properties", self)
+        menu = QMenu(self.tab)
+        properties_action = QAction("🖼️ Show Image Properties", self.tab)
         properties_action.triggered.connect(
             lambda: self.show_image_properties(file_path)
         )
         menu.addAction(properties_action)
-        preview_action = QAction("👁️ Open Full Preview", self)
+        preview_action = QAction("👁️ Open Full Preview", self.tab)
         preview_action.triggered.connect(lambda: self.open_file_preview(file_path))
         menu.addAction(preview_action)
-        dir_action = QAction("📂 Open File Location", self)
+        dir_action = QAction("📂 Open File Location", self.tab)
         dir_action.triggered.connect(lambda: self.open_file_directory(file_path))
         menu.addAction(dir_action)
         similar_action = QAction("🧠 Find Similar Images (semantic)", self)
         similar_action.triggered.connect(lambda: self.find_similar_images(file_path))
         menu.addAction(similar_action)
         menu.addSeparator()
-        remove_db_action = QAction("❌ Remove from Database Only", self)
+        remove_db_action = QAction("❌ Remove from Database Only", self.tab)
         remove_db_action.triggered.connect(
             lambda: self.handle_remove_from_db(file_path)
         )
@@ -192,20 +194,20 @@ class _FileActionsMixin:
         menu.addAction(delete_action)
         menu.addSeparator()
         send_menu = menu.addMenu("Send To...")
-        merge_action = QAction("Merge Tab", self)
+        merge_action = QAction("Merge Tab", self.tab)
         merge_action.triggered.connect(
             lambda: self.send_selection_to_merge_tab(file_path)
         )
         send_menu.addAction(merge_action)
-        wallpaper_action = QAction("Wallpaper Tab", self)
+        wallpaper_action = QAction("Wallpaper Tab", self.tab)
         wallpaper_action.triggered.connect(
             lambda: self.send_selection_to_wallpaper_tab(file_path)
         )
         send_menu.addAction(wallpaper_action)
-        scan_action = QAction("Scan Metadata Tab", self)
+        scan_action = QAction("Scan Metadata Tab", self.tab)
         scan_action.triggered.connect(lambda: self.send_selection_to_scan_tab())
         send_menu.addAction(scan_action)
-        delete_tab_action = QAction("Similarity Tab", self)
+        delete_tab_action = QAction("Similarity Tab", self.tab)
         delete_tab_action.triggered.connect(
             lambda: self.send_selection_to_delete_tab(file_path)
         )
@@ -214,7 +216,7 @@ class _FileActionsMixin:
 
         is_selected = file_path in self.selected_files
         toggle_text = "Deselect" if is_selected else "Select"
-        toggle_action = QAction(toggle_text, self)
+        toggle_action = QAction(toggle_text, self.tab)
         toggle_action.triggered.connect(lambda: self.toggle_selection(file_path))
         menu.addAction(toggle_action)
         menu.exec(QCursor.pos())
@@ -229,7 +231,7 @@ class _FileActionsMixin:
     def open_file_preview(self, file_path: str):
         if not file_path or not os.path.exists(file_path):
             QMessageBox.warning(
-                self, "Invalid Path", f"File not found at path:\n{file_path}"
+                self.tab, "Invalid Path", f"File not found at path:\n{file_path}"
             )
             return
         for window in self.open_preview_windows:
@@ -252,7 +254,7 @@ class _FileActionsMixin:
         preview = ImagePreviewWindow(
             image_path=file_path,
             database_service=self.database_service,
-            parent=self,
+            parent=self.tab,
             all_paths=all_paths,
             start_index=start_index,
         )
@@ -267,7 +269,7 @@ class _FileActionsMixin:
     def open_file_directory(self, file_path: str):
         if not file_path or not os.path.exists(file_path):
             QMessageBox.warning(
-                self, "Invalid Path", f"File not found at path:\n{file_path}"
+                self.tab, "Invalid Path", f"File not found at path:\n{file_path}"
             )
             return
         directory = os.path.dirname(file_path)
@@ -280,7 +282,9 @@ class _FileActionsMixin:
             else:
                 subprocess.run(["xdg-open", directory])
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to open directory:\n{e}")
+            QMessageBox.critical(self.tab, "Error", f"Failed to open directory:\n{e}")
 
 
-__all__ = ["_FileActionsMixin"]
+_FileActionsMixin = SearchFileActionsController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
+
+__all__ = ["SearchFileActionsController", "_FileActionsMixin"]

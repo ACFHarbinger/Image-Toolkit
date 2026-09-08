@@ -11,9 +11,10 @@ from typing import Any, Dict, List
 from PySide6.QtCore import Qt
 
 from ....utils.sort_utils import natural_sort_key
+from ._tab_bound import TabBoundController
 
 
-class _QmlWrappersMixin:
+class SearchQmlController(TabBoundController):
     """QML entry points for starting a search, clearing filters, and results."""
 
     def execute_search(self):
@@ -62,4 +63,6 @@ class _QmlWrappersMixin:
         self.clear_galleries(clear_data=True)
 
 
-__all__ = ["_QmlWrappersMixin"]
+_QmlWrappersMixin = SearchQmlController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
+
+__all__ = ["SearchQmlController", "_QmlWrappersMixin"]
