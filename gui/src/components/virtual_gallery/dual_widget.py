@@ -22,7 +22,7 @@ from PySide6.QtWidgets import (
 )
 
 from gui.src.components.tag_chip_widget import FlowLayout
-from gui.src.utils.cache.lru_image_cache import LRUImageCache
+from gui.src.utils.cache.lru_image_cache import DEFAULT_PIXMAP_BUDGET, LRUImageCache
 
 from .widget import VirtualGallery
 
@@ -42,7 +42,7 @@ class VirtualDualGallery(QWidget):
     def __init__(
         self,
         parent=None,
-        cache_maxsize: int = 500,
+        cache_maxsize: int = DEFAULT_PIXMAP_BUDGET.virtual_dual_shared,
         worker_factory=None,
         orientation: Qt.Orientation = Qt.Orientation.Vertical,
     ):

@@ -20,7 +20,7 @@ from gui.src.qt_object_guard import deleted_qobject_guard
 
 from ....components import ClickableLabel
 from ....helpers import BatchImageLoaderWorker, ImageLoaderWorker
-from ....utils.cache.lru_image_cache import LRU_CACHE_CEILING
+from ....utils.cache.lru_image_cache import DEFAULT_PIXMAP_BUDGET, LRU_CACHE_CEILING
 from ...mixins import install_drag_reorder
 
 if TYPE_CHECKING:
@@ -53,7 +53,10 @@ class _SelectedPanelMixin:
         if self._selected_pixmap_cache.maxsize <= LRU_CACHE_CEILING:
             self._selected_pixmap_cache.resize(
                 min(
-                    max(200, min(self.selected_page_size, len(self.selected_files))),
+                    max(
+                        DEFAULT_PIXMAP_BUDGET.two_galleries_selected,
+                        min(self.selected_page_size, len(self.selected_files)),
+                    ),
                     LRU_CACHE_CEILING,
                 )
             )

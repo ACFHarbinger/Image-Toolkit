@@ -8,11 +8,11 @@ from PySide6.QtWidgets import QApplication, QLabel
 
 from gui.src.constants.helpers import _INFLIGHT_PATHS
 from gui.src.helpers.image.batch_image_loader_worker import BatchImageLoaderWorker
-from gui.src.utils.cache.lru_image_cache import LRUImageCache
+from gui.src.utils.cache.lru_image_cache import DEFAULT_PIXMAP_BUDGET, LRUImageCache
 
 # Shared LRU cache: stores scaled QImages keyed by absolute path.
 # 250 entries ≈ ~30 MB at 130×130 RGBA — well within budget.
-_CARD_THUMB_CACHE: LRUImageCache = LRUImageCache(maxsize=250)
+_CARD_THUMB_CACHE: LRUImageCache = LRUImageCache(maxsize=DEFAULT_PIXMAP_BUDGET.card_thumb)
 
 # path -> [(label, width, height), ...]
 _ThumbWaiter = Tuple[QLabel, int, int]
