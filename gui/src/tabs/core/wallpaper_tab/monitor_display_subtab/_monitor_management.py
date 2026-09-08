@@ -12,12 +12,13 @@ from PySide6.QtCore import QTimer, Slot
 from screeninfo import Monitor
 
 from ..graph.data_schema import GraphData
+from ._tab_bound import TabBoundController
 
 if TYPE_CHECKING:
     from ...protos.monitor_display_subtab import MonitorDisplaySubTabHostProtocol
 
 
-class _MonitorManagementMixin:
+class MonitorDisplayMonitorManagementController(TabBoundController):
     """Update the monitor list and react to monitor selection changes."""
 
     _current_monitor_id: Optional[str]
@@ -29,26 +30,15 @@ class _MonitorManagementMixin:
         if monitors:
             self._stack.setCurrentIndex(1)
             # Auto-select the first monitor on update if nothing is selected or current is invalid
-            if not self._current_monitor_id or self._current_monitor_id not in self.monitor_widgets and self.monitor_widgets:
+            if (
+                not self._current_monitor_id
+                or self._current_monitor_id not in self.monitor_widgets
+                and self.monitor_widgets
+            ):
                 first_id = next(iter(self.monitor_widgets.keys()))
                 self._select_monitor(first_id)
         else:
             self._stack.setCurrentIndex(0)
-
-    def populate_monitor_layout(self: "MonitorDisplaySubTabHostProtocol"):
-        super().populate_monitor_layout()  # type: ignore[safe-super]
-
-        # If we have a system display reference, sync the images to our newly created widgets!
-        if hasattr(self, "_system_display_ref") and self._system_display_ref:
-            for mid, sys_widget in self._system_display_ref.monitor_widgets.items():
-                widget = self.monitor_widgets.get(mid)
-                if widget and sys_widget.image_path:
-                    thumb = self._system_display_ref._get_or_generate_thumbnail(sys_widget.image_path)
-                    widget.set_image(sys_widget.image_path, thumb)
-
-        # Re-apply selection style to current selected monitor if it exists
-        if self._current_monitor_id and self._current_monitor_id in self.monitor_widgets:
-            self.monitor_widgets[self._current_monitor_id].set_selected(True)
 
     @Slot(str)
     def _on_monitor_selected(self: "MonitorDisplaySubTabHostProtocol", monitor_id: str):
@@ -65,4 +55,8 @@ class _MonitorManagementMixin:
         QTimer.singleShot(50, self._fit_view)
 
 
-__all__ = ["_MonitorManagementMixin"]
+__all__ = ["MonitorDisplayMonitorManagementController"]
+
+_MonitorManagementMixin = (
+    MonitorDisplayMonitorManagementController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
+)

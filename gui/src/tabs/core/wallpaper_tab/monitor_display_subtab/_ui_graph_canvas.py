@@ -7,7 +7,7 @@ convention (§5.17).
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional, cast
+from typing import TYPE_CHECKING, Optional
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
@@ -27,12 +27,13 @@ from PySide6.QtWidgets import (
 from .....styles import apply_shadow_effect, set_button_role
 from .....theming.theme_api import color, qss
 from ..graph import WallpaperGraphScene, WallpaperGraphView
+from ._tab_bound import TabBoundController
 
 if TYPE_CHECKING:
     from ...protos.monitor_display_subtab import MonitorDisplaySubTabHostProtocol
 
 
-class _UIGraphCanvasMixin:
+class MonitorDisplayUIGraphCanvas(TabBoundController):
     """Builds the placeholder/graph-content stack, toolbar, canvas, and gallery."""
 
     scan_directory_path: Optional[QLineEdit]
@@ -40,7 +41,7 @@ class _UIGraphCanvasMixin:
     gallery_layout: Optional[QGridLayout]
 
     def _build_ui(self: "MonitorDisplaySubTabHostProtocol"):
-        root = QVBoxLayout(cast(QWidget, self))
+        root = QVBoxLayout(self.tab)
         root.setContentsMargins(6, 6, 6, 6)
         root.setSpacing(6)
 
@@ -73,7 +74,7 @@ class _UIGraphCanvasMixin:
         self._build_graph_toolbar(graph_lyt)
 
         # Scene + View
-        self._scene = WallpaperGraphScene(self)
+        self._scene = WallpaperGraphScene(self.tab)
         self._scene.node_edit_requested.connect(self._edit_node)
         self._scene.graph_changed.connect(self._on_graph_changed)
         self._scene.selectionChanged.connect(self._on_selection_changed)
@@ -150,8 +151,15 @@ class _UIGraphCanvasMixin:
         set_button_role(self._btn_clear_graph, "danger")
         self._btn_clear_graph.clicked.connect(self._clear_canvas)
 
-        for btn in [self._btn_add_node, self._btn_self_edge, self._btn_connect,
-                    self._btn_delete, btn_reset_view, self._btn_set_start, self._btn_clear_graph]:
+        for btn in [
+            self._btn_add_node,
+            self._btn_self_edge,
+            self._btn_connect,
+            self._btn_delete,
+            btn_reset_view,
+            self._btn_set_start,
+            self._btn_clear_graph,
+        ]:
             btn.setFixedHeight(36)
             tb.addWidget(btn)
         graph_lyt.addLayout(tb)
@@ -191,8 +199,7 @@ class _UIGraphCanvasMixin:
         set_button_role(self._btn_daemon_slideshow, "success")
         self._btn_daemon_slideshow.clicked.connect(self._toggle_daemon_slideshow)
 
-        for btn in [self._btn_export_queue, self._btn_preview,
-                    self._btn_inapp_slideshow, self._btn_daemon_slideshow]:
+        for btn in [self._btn_export_queue, self._btn_preview, self._btn_inapp_slideshow, self._btn_daemon_slideshow]:
             btn.setFixedHeight(36)
             bottom_tb.addWidget(btn)
 
@@ -249,4 +256,5 @@ class _UIGraphCanvasMixin:
         return gallery_panel
 
 
-__all__ = ["_UIGraphCanvasMixin"]
+__all__ = ["MonitorDisplayUIGraphCanvas"]
+
