@@ -5,8 +5,10 @@ Extracted from ``image_crawler_tab.py`` -- pure code motion, no logic change.
 
 from __future__ import annotations
 
+from ._tab_bound import TabBoundController
 
-class _BoardSettingsMixin:
+
+class ImageCrawlBoardController(TabBoundController):
     """Switches settings-stack pages and updates board-specific auth labels."""
 
     def update_board_auth_labels(self, index: int):
@@ -58,4 +60,7 @@ class _BoardSettingsMixin:
             self.update_board_auth_labels(index)
 
 
-__all__ = ["_BoardSettingsMixin"]
+# COMPAT(ui-arch-23): legacy mixin alias
+_BoardSettingsMixin = ImageCrawlBoardController
+
+__all__ = ["ImageCrawlBoardController", "_BoardSettingsMixin"]
