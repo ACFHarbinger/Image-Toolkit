@@ -31,13 +31,14 @@ from PySide6.QtWidgets import (
 from ....components import VirtualDualGallery
 from ....styles import apply_shadow_effect
 from ....theming.theme_api import color, qss
+from ._tab_bound import TabBoundController
 
 
-class _UIBuilderMixin:
+class ScanUIBuilder(TabBoundController):
     """Builds the scan-directory bar, both galleries, metadata group, and action buttons."""
 
     def _build_ui(self):
-        main_layout = QVBoxLayout(self)
+        main_layout = QVBoxLayout(self.tab)
 
         # --- Scrollable Content Setup ---
         page_scroll = QScrollArea()
@@ -78,15 +79,11 @@ class _UIBuilderMixin:
         self.scan_directory_path = QLineEdit()
         self.scan_directory_path.setMaximumWidth(500)
         self.scan_directory_path.setPlaceholderText("Select directory to scan...")
-        self.scan_directory_path.returnPressed.connect(
-            self.handle_scan_directory_return
-        )
+        self.scan_directory_path.returnPressed.connect(self.handle_scan_directory_return)
 
         btn_browse_scan = QPushButton("Browse...")
         btn_browse_scan.clicked.connect(self.browse_scan_directory)
-        apply_shadow_effect(
-            btn_browse_scan, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3
-        )
+        apply_shadow_effect(btn_browse_scan, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3)
 
         scan_dir_layout.addWidget(self.scan_directory_path)
         scan_dir_layout.addWidget(btn_browse_scan)
@@ -103,7 +100,7 @@ class _UIBuilderMixin:
         # (virtual-scroll, GUI/UX §2.1 Option A — replaces the two
         # MarqueeScrollArea + QGridLayout grids; pagination is dropped and
         # selection lives in the dual gallery's selection models).
-        self.dual = VirtualDualGallery(self)
+        self.dual = VirtualDualGallery(self.tab)
         self.dual.found_activated.connect(self._view_single_image_preview)
         self.dual.found_right_clicked.connect(self.show_image_context_menu)
         self.dual.selected_activated.connect(self._view_single_image_preview)
@@ -119,9 +116,7 @@ class _UIBuilderMixin:
 
     def _build_metadata_group(self, content_layout) -> None:
         # --- Metadata Group Box ---
-        self.metadata_group = QGroupBox(
-            "Batch Metadata (Applies to ALL Selected Images)"
-        )
+        self.metadata_group = QGroupBox("Batch Metadata (Applies to ALL Selected Images)")
         self.metadata_group.setVisible(False)
         metadata_vbox = QVBoxLayout(self.metadata_group)
 
@@ -132,9 +127,7 @@ class _UIBuilderMixin:
         self.group_combo.setEditable(True)
         self.group_combo.setPlaceholderText("Enter or select Group/Series name...")
         # pyrefly: ignore [missing-attribute]
-        self.group_combo.lineEdit().returnPressed.connect(
-            lambda: self.upsert_button.click()
-        )
+        self.group_combo.lineEdit().returnPressed.connect(lambda: self.upsert_button.click())
         group_layout.addWidget(self.group_combo)
         form_layout.addRow("Group Name:", group_layout)
 
@@ -143,9 +136,7 @@ class _UIBuilderMixin:
         self.subgroup_combo.setEditable(True)
         self.subgroup_combo.setPlaceholderText("Enter or select Subgroup name...")
         # pyrefly: ignore [missing-attribute]
-        self.subgroup_combo.lineEdit().returnPressed.connect(
-            lambda: self.upsert_button.click()
-        )
+        self.subgroup_combo.lineEdit().returnPressed.connect(lambda: self.upsert_button.click())
         subgroup_layout.addWidget(self.subgroup_combo)
         form_layout.addRow("Subgroup Name:", subgroup_layout)
 
@@ -185,9 +176,7 @@ class _UIBuilderMixin:
 
         self.upsert_button = QPushButton("Add/Update Database Data")
         self.upsert_button.setObjectName("btn_success")
-        apply_shadow_effect(
-            self.upsert_button, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3
-        )
+        apply_shadow_effect(self.upsert_button, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3)
         self.upsert_button.clicked.connect(self.perform_upsert_operation)
 
         self.delete_selected_button = QPushButton("Delete Images Data from Database")
@@ -236,7 +225,7 @@ class _UIBuilderMixin:
             btn_page.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)  # pyrefly: ignore [missing-attribute]
 
         # Explicitly attaching a menu ensures the arrow style appears
-        btn_page.setMenu(QMenu(self))
+        btn_page.setMenu(QMenu(self.tab))
 
         # Set default values
         combo.setCurrentText("100")
@@ -255,4 +244,6 @@ class _UIBuilderMixin:
         return container, combo, btn_prev, btn_next, btn_page
 
 
-__all__ = ["_UIBuilderMixin"]
+_UIBuilderMixin = ScanUIBuilder  # COMPAT(ui-arch-23): remove after callers drop the mixin name
+
+__all__ = ["ScanUIBuilder", "_UIBuilderMixin"]

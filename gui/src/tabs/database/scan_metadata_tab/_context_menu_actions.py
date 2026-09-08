@@ -16,39 +16,41 @@ from PySide6.QtWidgets import QMenu, QMessageBox
 from send2trash import send2trash  # pyrefly: ignore [untyped-import]
 
 from ....windows import ImagePreviewWindow
+from ._tab_bound import TabBoundController
 
 logger = logging.getLogger(__name__)
 
-class _ContextMenuActionsMixin:
+
+class ScanContextMenuController(TabBoundController):
     """Right-click menu, DB/file properties dialog, delete, and preview window."""
 
     @Slot(QPoint, str)
     def show_image_context_menu(self, global_pos: QPoint, path: str):
-        menu = QMenu(self)
-        view_props_action = QAction("🖼️ View Properties (File/DB)", self)
+        menu = QMenu(self.tab)
+        view_props_action = QAction("🖼️ View Properties (File/DB)", self.tab)
         view_props_action.triggered.connect(lambda: self._view_image_properties(path))
         menu.addAction(view_props_action)
         menu.addSeparator()
-        view_action = QAction("View Full Size Preview", self)
+        view_action = QAction("View Full Size Preview", self.tab)
         view_action.triggered.connect(lambda: self._view_single_image_preview(path))
         menu.addAction(view_action)
         menu.addSeparator()
         is_selected = path in self.selected_image_paths
         toggle_text = "Deselect" if is_selected else "Select"
-        toggle_action = QAction(toggle_text, self)
+        toggle_action = QAction(toggle_text, self.tab)
         toggle_action.triggered.connect(lambda: self.toggle_selection(path))
         menu.addAction(toggle_action)
         menu.addSeparator()
 
         # Remove from Database option
         db_connected = self.database_service.db is not None
-        remove_db_action = QAction("🔌 Remove from Database", self)
+        remove_db_action = QAction("🔌 Remove from Database", self.tab)
         remove_db_action.setEnabled(db_connected)
         remove_db_action.triggered.connect(lambda: self.remove_image_from_db(path))
         menu.addAction(remove_db_action)
         menu.addSeparator()
 
-        delete_action = QAction("🗑️ Delete Image File (Permanent)", self)
+        delete_action = QAction("🗑️ Delete Image File (Permanent)", self.tab)
         delete_action.triggered.connect(lambda: self.handle_delete_image(path))
         menu.addAction(delete_action)
         menu.exec(global_pos)
@@ -61,7 +63,7 @@ class _ContextMenuActionsMixin:
         filename = Path(path).name
         if (
             QMessageBox.question(
-                self,
+                self.tab,
                 "Confirm Removal",
                 f"Are you sure you want to remove '{filename}' from the database?\n\nThis will only delete the database metadata; the image file will remain on disk.",
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
@@ -83,10 +85,10 @@ class _ContextMenuActionsMixin:
                 if self.view_in_db_only or self.view_new_only:
                     self._load_current_scan_page()
 
-                QMessageBox.information(self, "Success", f"Removed '{filename}' from the database.")
+                QMessageBox.information(self.tab, "Success", f"Removed '{filename}' from the database.")
 
             except Exception as e:
-                QMessageBox.critical(self, "Error", f"Failed to remove image from database: {e}")
+                QMessageBox.critical(self.tab, "Error", f"Failed to remove image from database: {e}")
 
     def _view_image_properties(self, file_path: str):
         db = self.database_service.db
@@ -129,9 +131,7 @@ class _ContextMenuActionsMixin:
                 db_info += f"\nError querying database: {e}"
         else:
             db_info += "\nDatabase is not connected."
-        QMessageBox.information(
-            self, f"Image Properties: {path.name}", file_info + db_info
-        )
+        QMessageBox.information(self.tab, f"Image Properties: {path.name}", file_info + db_info)
 
     def handle_delete_image(self, path: str):
         prefs = {}
@@ -143,7 +143,7 @@ class _ContextMenuActionsMixin:
 
         if (
             QMessageBox.question(
-                self,
+                self.tab,
                 f"Confirm {action_name}",
                 f"Move {os.path.basename(path)} to {action_name}?",
             )
@@ -165,7 +165,7 @@ class _ContextMenuActionsMixin:
                 self._refresh_scan_gallery()
                 self.populate_selected_images_gallery()
             except Exception as e:
-                QMessageBox.critical(self, "Error", str(e))
+                QMessageBox.critical(self.tab, "Error", str(e))
 
     def _view_single_image_preview(self, image_path: str):
         if not os.path.exists(image_path):
@@ -174,13 +174,9 @@ class _ContextMenuActionsMixin:
         preview = ImagePreviewWindow(
             image_path=image_path,
             database_service=self.database_service,
-            parent=self,
+            parent=self.tab,
             all_paths=self.scan_filtered_list,
-            start_index=(
-                self.scan_filtered_list.index(image_path)
-                if image_path in self.scan_filtered_list
-                else 0
-            ),
+            start_index=(self.scan_filtered_list.index(image_path) if image_path in self.scan_filtered_list else 0),
         )
         preview.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         if hasattr(preview, "path_changed"):
@@ -189,4 +185,6 @@ class _ContextMenuActionsMixin:
         self.open_preview_windows.append(preview)
 
 
-__all__ = ["_ContextMenuActionsMixin"]
+_ContextMenuActionsMixin = ScanContextMenuController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
+
+__all__ = ["ScanContextMenuController", "_ContextMenuActionsMixin"]
