@@ -257,12 +257,51 @@ class MainWindow(
 
     def _refresh_account_credentials(self, credentials: dict) -> None:
         """Install one committed account snapshot for UI and preferences."""
+        previous = (self.cached_creds or {}).get("account_name")
         self.cached_creds = credentials
+        new_name = credentials.get("account_name", "Authenticated User")
         PreferenceStore.instance().attach_vault_credentials(
             credentials,
             self.vault_manager,
-            credentials.get("account_name", "Authenticated User"),
+            new_name,
         )
+        # Same-account preference writes (theme/zoom/tab config) must not
+        # tear down mounted modules. Identity change is DS-5 / #572.
+        if previous is not None and previous != new_name:
+            self._dispose_modules_for_account_switch(new_name)
+
+    def _dispose_modules_for_account_switch(self, account_id: str) -> None:
+        """Drop mounted module widgets and gallery pixmap caches (#572)."""
+        import contextlib
+
+        if getattr(self, "_using_runtime_shell", False):
+            manager = getattr(self, "shell_layout_manager", None)
+            previous = None
+            if manager is not None:
+                previous = manager.dispose_for_account_switch(account_id)
+                self.module_context = manager.context
+            runtime = getattr(self, "module_runtime", None)
+            if runtime is not None:
+                self.module_context = runtime.context
+            if previous and manager is not None:
+                manager.activate_module(previous)
+            return
+        for category in getattr(self, "all_tabs", {}).values():
+            for tab in category.values():
+                if not tab:
+                    continue
+                cancel = getattr(tab, "cancel_loading", None)
+                if callable(cancel):
+                    with contextlib.suppress(Exception):
+                        cancel()
+                for attr in (
+                    "_found_pixmap_cache",
+                    "_selected_pixmap_cache",
+                    "_initial_pixmap_cache",
+                ):
+                    cache = getattr(tab, attr, None)
+                    if cache is not None and hasattr(cache, "clear"):
+                        cache.clear()
 
     def open_settings_window(self):
         if not self.settings_window:

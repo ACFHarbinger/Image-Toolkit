@@ -1,3 +1,11 @@
+# S555 — 2026-09-12 (Grok: #572 R3.5 account-switch dispose, resynced)
+
+- Runtime shell disposes every mounted module handle when `account_name`
+  actually changes, then remounts the previous route. Classic shell cancels
+  loads and clears gallery pixmap caches. Same-account theme/zoom/config
+  writes do not dispose. LRU idle-eviction remains gated on a live 3-vs-8
+  RSS measurement (DS-5); no threshold invented.
+
 # S552 — 2026-09-11 (Cursor: #544 listings composition)
 
 - `EntityListingsSubTab` / `SeriesListingsSubTab` inherit `ListingGalleryBase`
