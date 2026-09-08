@@ -274,27 +274,11 @@ class _LoadingPipelineMixin:
         if not self._paginated_paths:
             return
 
-        from gui.src.helpers.image._qimagereader_disk_cache import (
-            is_oversized_gif,
-            oversized_gif_placeholder,
-        )
-
         paths_to_load = []
         for path in self._paginated_paths:
             if path in self._initial_pixmap_cache:
                 continue
             if path in self._loading_paths:
-                continue
-            if is_oversized_gif(path):
-                self._initial_pixmap_cache[path] = oversized_gif_placeholder(
-                    self.thumbnail_size
-                )
-                widget = self.path_to_card_widget.get(path)
-                if widget is not None:
-                    self.update_card_pixmap(
-                        widget,
-                        QPixmap.fromImage(self._initial_pixmap_cache[path]),
-                    )
                 continue
             paths_to_load.append(path)
 
