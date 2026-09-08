@@ -19,23 +19,22 @@ Usage
   ``@gc_disabled_run``. Works identically for ``QThread.run()``,
   ``QRunnable.run()`` (QThreadPool threads), and plain
   ``threading.Thread`` targets.
-- New ``QThread`` workers that don't need the full base-class contract can
-  subclass :class:`GcSafeThread` and implement ``_execute()``.
+- New workers must subclass :class:`gui.src.helpers.base.BaseQThreadWorker`
+  / :class:`gui.src.helpers.base.BaseQRunnableWorker` (R1.1, #556) — raw
+  ``QThread``/``QRunnable`` subclasses in ``helpers/`` fail CI
+  (``backend/validation/check_worker_base.py``).
 """
 
 from __future__ import annotations
 
 import gc
 import threading
-from abc import abstractmethod
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from functools import wraps
 from typing import Any
 
-from PySide6.QtCore import QThread
-
-__all__ = ["GcSafeThread", "gc_disabled", "gc_disabled_run"]
+__all__ = ["gc_disabled", "gc_disabled_run"]
 
 _gc_lock = threading.Lock()
 _gc_disabled_count = 0
@@ -74,19 +73,3 @@ def gc_disabled_run(func: Callable[..., Any]) -> Callable[..., Any]:
             return func(*args, **kwargs)
 
     return _guarded
-
-
-class GcSafeThread(QThread):
-    """``QThread`` base whose ``_execute()`` runs with the cyclic GC disabled.
-
-    Prefer :class:`gui.src.helpers.base.BaseQThreadWorker` when its
-    signals / cancel / error-routing contract fits — it is guarded too.
-    """
-
-    @abstractmethod
-    def _execute(self) -> None:
-        """Worker logic; runs with the cyclic GC disabled."""
-
-    def run(self) -> None:
-        with gc_disabled():
-            self._execute()

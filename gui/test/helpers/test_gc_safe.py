@@ -14,7 +14,7 @@ import gc
 
 import pytest
 from gui.src.helpers.base import BaseQRunnableWorker, BaseQThreadWorker
-from gui.src.helpers.gc_safe import GcSafeThread, gc_disabled, gc_disabled_run
+from gui.src.helpers.gc_safe import gc_disabled, gc_disabled_run
 
 
 def test_context_manager_disables_and_restores():
@@ -136,20 +136,6 @@ def test_decorator_leaves_disabled_if_already_disabled():
         assert gc.isenabled() is False
     finally:
         gc.enable()
-
-
-def test_gc_safe_thread_runs_execute_with_gc_disabled():
-    seen = {}
-
-    class _Worker(GcSafeThread):
-        def _execute(self) -> None:
-            seen["enabled_during"] = gc.isenabled()
-
-    assert gc.isenabled(), "test precondition: GC starts enabled"
-    # run() directly, on the test thread — same as the #478 regression test.
-    _Worker().run()
-    assert seen["enabled_during"] is False
-    assert gc.isenabled() is True
 
 
 def test_base_qthread_worker_guards_execute():

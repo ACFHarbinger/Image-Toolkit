@@ -138,7 +138,7 @@ class DuplicateScanWorker(QObject):
                     else:
                         task = OrbTask(path)
 
-                    task.signals.result.connect(self._on_task_result)
+                    task.signals.finished.connect(self._on_task_result)
                     self.thread_pool.start(task)
 
                 # Block execution here until all tasks report back via signals

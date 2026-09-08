@@ -55,6 +55,8 @@ class _IdentityResolutionMixin:
 
     def _on_resolved(self, res):
         self._set_busy(False)
+        if res is None:
+            return  # cancelled or failed (error was reported separately)
         self._report = res.report
         self.name_label.setText(res.name or "Unknown")
         self.conf_bar.setValue(int(round(res.confidence * 100)))

@@ -12,10 +12,10 @@ from typing import Any, Dict, Union
 
 import cv2
 from moviepy.editor import AudioFileClip, VideoFileClip, concatenate_videoclips
-from PySide6.QtCore import QObject, QRunnable, Signal
+from PySide6.QtCore import Signal
 
+from gui.src.helpers.base import BaseQRunnableWorker, _WorkerSignals
 from gui.src.helpers.core.config_types import ExtractionConfig
-from gui.src.helpers.gc_safe import gc_disabled_run
 
 logger = logging.getLogger(__name__)
 
@@ -534,15 +534,11 @@ def run_extraction_in_process(config: Union[ExtractionConfig, Dict[str, Any]]) -
 _RUNNING_WORKERS: set = set()
 
 
-class _QueueWorkerSignals(QObject):
-    started = Signal()
-    progress = Signal(int, int)  # (completed, total) — §5.9 Option C
+class _QueueWorkerSignals(_WorkerSignals):
     item_completed = Signal(int, dict, dict)  # (index, result, original item)
-    finished = Signal(list)
-    error = Signal(str)
 
 
-class QueueExecutionWorker(QRunnable):
+class QueueExecutionWorker(BaseQRunnableWorker):
     def __init__(
         self, queue_items: list, parallel: bool = False, max_workers: int | None = None
     ):
@@ -556,8 +552,7 @@ class QueueExecutionWorker(QRunnable):
     def cancel(self):
         self._is_cancelled = True
 
-    @gc_disabled_run
-    def run(self):
+    def _execute(self) -> object:
         # Safety net (Bug 1): keep this worker (and therefore its signals
         # QObject, which has no Qt parent) alive from run() start to finish,
         # even if the tab drops its active_queue_worker reference mid-run. A
@@ -565,19 +560,18 @@ class QueueExecutionWorker(QRunnable):
         # a deleted C++ object -> RuntimeError: Signal source has been deleted.
         _RUNNING_WORKERS.add(self)
         try:
-            self._run_impl()
+            return self._run_impl()
         except Exception as exc:
-            # Never let the exception escape run(): Qt logs it as an "Error
-            # calling Python override of QRunnable::run()" and, crucially,
-            # neither finished nor error is emitted -> the tab's
-            # active_queue_worker is never cleared and the queue wedges.
+            # Never let the exception escape: neither finished nor error
+            # would be emitted -> the tab's active_queue_worker is never
+            # cleared and the queue wedges.
             with contextlib.suppress(Exception):
                 self.signals.error.emit(f"Queue worker crashed: {exc}")
+            return None
         finally:
             _RUNNING_WORKERS.discard(self)
 
     def _run_impl(self):
-        self.signals.started.emit()
         results = []
 
         if self.parallel:
@@ -651,4 +645,4 @@ class QueueExecutionWorker(QRunnable):
                 self.signals.item_completed.emit(i, res, item)
 
         self.signals.progress.emit(total, total)
-        self.signals.finished.emit(results)
+        return results

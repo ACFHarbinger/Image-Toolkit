@@ -102,7 +102,7 @@ class _DeletionMixin:
         self.worker = DeletionWorker(config)
         self.worker.confirm_signal.connect(self.handle_confirmation_request)
         self.worker.progress.connect(self.update_progress)
-        self.worker.sig_finished.connect(self.on_deletion_done)
+        self.worker.finished.connect(self.on_deletion_done)
         self.worker.error.connect(self.on_deletion_error)
         self.worker.start()
 
@@ -142,18 +142,23 @@ class _DeletionMixin:
     def update_progress(self, deleted, total):
         self.status_label.setText(f"Deleted {deleted} of {total}...")
 
-    def on_deletion_done(self, count, msg):
+    def on_deletion_done(self, result):
         self.btn_delete_files.setEnabled(len(self.selected_files) > 0)
         self.btn_delete_directory.setEnabled(True)
+        if result is None:
+            self.status_label.setText("Failed.")
+            self.worker = None
+            return
+        count, msg = result
         self.status_label.setText(msg)
         QMessageBox.information(self, "Complete", msg)
         self.worker = None
 
-    def on_deletion_error(self, msg):
+    def on_deletion_error(self, exc: Exception):
         self.btn_delete_files.setEnabled(True)
         self.btn_delete_directory.setEnabled(True)
         self.status_label.setText("Failed.")
-        QMessageBox.critical(self, "Error", msg)
+        QMessageBox.critical(self, "Error", str(exc))
         self.worker = None
 
 
