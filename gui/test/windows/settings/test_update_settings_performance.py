@@ -21,7 +21,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from gui.src.utils.cache.lru_image_cache import LRUImageCache
-from gui.src.windows.main._startup_prefs import _StartupPrefsMixin
+from gui.src.windows.main._startup_prefs import MainStartupPrefsController
 
 pytestmark = pytest.mark.gui
 
@@ -59,8 +59,9 @@ class DummyExtractorTab(DummyTab):
         self._load_last_extraction_dir = MagicMock(return_value="/mock/frames")
 
 
-class DummyMainWindow(_StartupPrefsMixin):
+class DummyMainWindow:
     def __init__(self):
+        self._startup = MainStartupPrefsController(self)
         self.cached_creds = {
             "preferences": {
                 "thumbnail_size": 200,
@@ -92,6 +93,12 @@ class DummyMainWindow(_StartupPrefsMixin):
                 "Extractor": self.extractor_tab,
             },
         }
+
+    def _apply_active_tab_configs(self, previous_configs: dict | None = None) -> None:
+        self._startup._apply_active_tab_configs(previous_configs=previous_configs)
+
+    def _apply_startup_preferences(self) -> None:
+        self._startup._apply_startup_preferences()
 
 
 

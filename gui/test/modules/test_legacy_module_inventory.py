@@ -55,7 +55,7 @@ def test_inventory_records_lazy_construction_and_database_intent_migration():
     assert "Classic startup builds ≤ 1 category" in inventory
     assert "_ensure_category()" in inventory
     assert "LibraryDatabaseService(vault_manager)" in source
-    assert "self.module_event_hub = EventHub(self)" in source
+    assert "self.module_event_hub = EventHub(self.tab)" in source
     assert "_ensure_category" in source
     assert "build_tab" in source
     for reference in (

@@ -6,17 +6,63 @@ Extracted from ``main_window.py`` -- pure code motion, no logic change.
 from __future__ import annotations
 
 import json
+import logging
 import os
+from collections.abc import Callable
 
 from backend.src.constants import LOCAL_SOURCE_PATH
+from PySide6.QtCore import QTimer
 
 from gui.src.contracts.tab_config import ConfigCollectible, ConfigSettable, apply_tab_config
 
-from ._session_recovery_state import SessionRecoveryState, _SessionRecoveryStateMixin
+from ._session_recovery_state import SessionRecoveryState
+from ._window_bound import WindowBoundController
+
+logger = logging.getLogger(__name__)
 
 
-class _SessionRecoveryMixin(_SessionRecoveryStateMixin):
-    """Restores/persists the active tab and per-tab configs across launches."""
+class MainSessionRecoveryController(WindowBoundController):
+    """Restores/persists the active tab and per-tab configs across launches.
+
+    Owns the #565 session-recovery state machine so composition does not
+    drop `_SessionRecoveryStateMixin` from the window MRO.
+    """
+
+    def _set_session_recovery_state(self, new_state: SessionRecoveryState) -> None:
+        old_state = getattr(self.tab, "_session_recovery_state", SessionRecoveryState.NOT_LOADED)
+        self.tab._session_recovery_state = new_state
+        if old_state is new_state:
+            return
+        logger.info("[session-recovery] %s -> %s", old_state.value, new_state.value)
+
+    def _restore_when_ready(
+        self,
+        is_ready: Callable[[], bool],
+        action: Callable[[], None],
+        *,
+        retry_ms: int = 16,
+        max_retries: int = 30,
+        _attempt: int = 0,
+    ) -> None:
+        """Run *action* once *is_ready* reports true (poll, not a fixed delay)."""
+        if "PYTEST_CURRENT_TEST" in os.environ:
+            self._set_session_recovery_state(SessionRecoveryState.CATEGORY_READY)
+            action()
+            return
+        if is_ready() or _attempt >= max_retries:
+            self._set_session_recovery_state(SessionRecoveryState.CATEGORY_READY)
+            action()
+            return
+        QTimer.singleShot(
+            retry_ms,
+            lambda: self._restore_when_ready(
+                is_ready,
+                action,
+                retry_ms=retry_ms,
+                max_retries=max_retries,
+                _attempt=_attempt + 1,
+            ),
+        )
 
     def _load_recovery_data(self) -> dict:
         """Load (but don't act on) the encrypted session-recovery payload.
@@ -479,4 +525,5 @@ class _SessionRecoveryMixin(_SessionRecoveryStateMixin):
             print(f"Warning: Failed to save session recovery data: {e}")
 
 
-__all__ = ["_SessionRecoveryMixin"]
+__all__ = ["MainSessionRecoveryController"]
+

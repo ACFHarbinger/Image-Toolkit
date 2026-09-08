@@ -245,13 +245,17 @@ class TestNoDuplicateTrayIcon:
     def test_setup_tray_icon_is_idempotent(self, q_app):
         """Calling _setup_tray_icon twice must not create a second
         QSystemTrayIcon -- the second call re-shows the first."""
-        from gui.src.windows.main._tray import _TrayMixin
+        from gui.src.windows.main._tray import MainTrayController
         from PySide6.QtWidgets import QWidget
 
-        class Host(_TrayMixin, QWidget):
+        class Host(QWidget):
             def __init__(self):
                 QWidget.__init__(self)
                 self._quit_application = MagicMock()
+                self._tray = MainTrayController(self)
+
+            def _setup_tray_icon(self, app_icon=None) -> None:
+                self._tray._setup_tray_icon(app_icon)
 
         host = Host()
         host._setup_tray_icon()

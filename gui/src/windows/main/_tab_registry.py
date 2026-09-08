@@ -12,6 +12,8 @@ import time
 from collections.abc import Iterator
 from typing import Any
 
+from ._window_bound import WindowBoundController
+
 logger = logging.getLogger(__name__)
 
 # module_id, category, title, live_expression, factory_id
@@ -92,7 +94,7 @@ def classic_factory_ids_for(category: str) -> list[str]:
     return ids
 
 
-class _TabRegistryMixin:
+class MainTabRegistryController(WindowBoundController):
     """Builds tab instances lazily and the category → {name: tab} map."""
 
     def _create_tabs(self, dropdown: bool, enable_manager: bool) -> None:
@@ -108,7 +110,7 @@ class _TabRegistryMixin:
         )
 
         vault_manager = self.vault_manager
-        self.module_event_hub = EventHub(self)
+        self.module_event_hub = EventHub(self.tab)
         self.module_services = ModuleServices()
         self.module_services.register("vault_manager", vault_manager)
         self.library_database_service = LibraryDatabaseService(vault_manager)
@@ -132,8 +134,8 @@ class _TabRegistryMixin:
                 setattr(self, attr, None)
             self.all_tabs[category][title] = None
 
-        self.module_event_hub.subscribe(ImportPathsIntent, self._handle_legacy_path_import, owner=self)
-        self.module_event_hub.subscribe(NavigateIntent, self._activate_legacy_module, owner=self)
+        self.module_event_hub.subscribe(ImportPathsIntent, self._handle_legacy_path_import, owner=self.tab)
+        self.module_event_hub.subscribe(NavigateIntent, self._activate_legacy_module, owner=self.tab)
 
     def _begin_classic_tab_construction(self) -> None:
         """End the init deferral and build the currently selected category."""
@@ -231,4 +233,9 @@ class _TabRegistryMixin:
             self.delete_tab.start_loading_thumbnails(list(intent.paths))
 
 
-__all__ = ["CLASSIC_TAB_ROUTES", "_TabRegistryMixin", "classic_category_order", "classic_factory_ids_for"]
+__all__ = [
+    "CLASSIC_TAB_ROUTES",
+    "MainTabRegistryController",
+    "classic_category_order",
+    "classic_factory_ids_for",
+]
