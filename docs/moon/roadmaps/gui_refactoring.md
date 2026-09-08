@@ -249,7 +249,7 @@ concurrently (D6). "Gate" = D12 live pass required in addition to Codex review.
 | ID | Item | Evidence | Owner | Exit | Issue |
 |---|---|---|---|---|---|
 | R0.1 | `MonitorDisplaySubTab.__init__` → `super().__init__()` (skips 15 mixin inits today) | F18 | Claude | test asserting every mixin `__init__` on the MRO ran | ui-arch-25 (#547) |
-| R0.2 | Settings stop writing `MainWindow.cached_creds`; go through `PreferenceStore` ACCOUNT keys | F19, §5.5 | Codex | Implemented: settings has no direct cache writes; account snapshots refresh through the login-boundary helper; guest-restart regression passes. D12 settings-persistence pass pending. | ui-arch-26 (#548) |
+| R0.2 | Settings stop writing `MainWindow.cached_creds`; go through `PreferenceStore` ACCOUNT keys | F19, §5.5 | Codex | **Done, D12-verified 2026-09-08.** | ui-arch-26 (#548) |
 | R0.3 | Lazy-import `StitchTab` / `Manga*` / `HieEditorTab` inside `_create_tabs` and catalog factories | F26 | Claude | `import gui.src.tabs` no longer imports `asp_gui`/`csg_gui`/`hie_tab`; boundary check extended | ui-arch-27 (#549) |
 | R0.4 | Remove `gui/src/protos/` + `gui/test/protos/` (Q-A) | §5.1 | Claude | dirs gone, nothing imports them | ui-arch-28 (#550) |
 | R0.5 | `QFileDialog` safety self-installs on `gui.src` import; raw static calls linted | §5.6 | Claude | `apply_patch()` call sites → 1; lint rule | ui-arch-29 (#551) |
@@ -264,7 +264,7 @@ concurrently (D6). "Gate" = D12 live pass required in addition to Codex review.
 |---|---|---|---|---|---|
 | R1.1 | Worker base adoption: every `QThread`/`QRunnable` in `helpers/` on `BaseQThreadWorker`/`BaseQRunnableWorker`; signals `finished`/`error(object)`/`progress`; one `cancel()`; one shared teardown replacing the 11 `_lifecycle.py` clones; lint rule | §3.3, F3, F9, Q-C | Muse | 0 raw subclasses; 1 signal vocabulary; ⚙ rule live | ui-arch-34 (#556) |
 | R1.2 | `TabConfig` contract: `Protocol` + dataclass schema + version for `get_default_config`/`collect`/`set_config`; session recovery, Ctrl+S, Settings consume it | §3.2 | Claude | `hasattr(tab, "collect")` → 0; 33 implementers typed | ui-arch-35 (#557) |
-| R1.3 | `WindowService` + settings decoupling: `windows/settings/*` drops `main_window_ref` (44 sites) | F6, F7 | Codex | `main_window_ref` in settings → 0; focused service contract; cross-review + D12 settings-persistence gate pending | ui-arch-36 (#558) |
+| R1.3 | `WindowService` + settings decoupling: `windows/settings/*` drops `main_window_ref` (44 sites) | F6, F7 | Codex | **Done, D12-verified 2026-09-08.** | ui-arch-36 (#558) |
 | R1.4 | One `build_tab(module_id, context)` factory used by both classic `_create_tabs` and the catalog; inventory test keeps passing | F23 | Codex | one constructor path; `try/except TypeError` fallbacks gone | ui-arch-37 (#559) |
 | R1.5 | Preferences store split: vault = secrets; preferences/tab-configs per-key in `PreferenceStore`; no whole-blob `save_data(json.dumps(creds))` outside auth | §5.5, R0.2 | Codex | 12 vault-write sites → auth only | ui-arch-38 (#560) |
 | R1.6 | `DirectoryScanService` worker (cancellable generation token) replacing the ~30 blocking IO sites and the six `_directory_browse.py` copies | §5.3, §3.2 | Muse | 0 `os.listdir`/`scandir`/`rglob`/decode in slots | ui-arch-39 (#561) |
@@ -310,7 +310,7 @@ concurrently (D6). "Gate" = D12 live pass required in addition to Codex review.
 | Grok | ~~R2.g (#543)~~ done, D12-verified 2026-09-07. **Remaining: R2.c gallery-owning tabs + MainWindow (#544, now unblocked), R3.1 (#568), R3.4 (#571, now unblocked), R3.5 (#572). R2.e (#566) stays gated on R1.4.** |
 | Gemini / Antigravity | ~~R0.8, R1.7~~ done. **Remaining: R2.c non-gallery tabs (#544 — DriveSync, EntityRecon, MediaLoader, ImageCrawl, CBIRTrain, Sampler, in that order), R2.f (#567).** |
 | Meta's Muse | ~~R0.6, R0.9~~ done. **Remaining: R0.7 (#553), R1.1 (#556), R1.6 (#561), R2.a extractor/sync workers (#563 continuation, gated on R1.1), R3.3 (#570).** |
-| Chat / Codex | ~~R0.2 (#548), R1.3 (#558)~~ code-complete, D12 settings-persistence pass pending explicit authorization. **Remaining: R1.4 (#559 — re-claim, prior worktree was cleaned up unstarted), R1.5 (#560, now unblocked).** Mandatory cross-review of every item — largely unresponsive since 2026-09-06; Claude has been standing in as reviewer of last resort. |
+| Chat / Codex | ~~R0.2 (#548), R1.3 (#558)~~ done, D12-verified 2026-09-08. **Remaining: R1.4 (#559 — re-claim, prior worktree was cleaned up unstarted), R1.5 (#560, no remaining blocker).** Mandatory cross-review of every item — largely unresponsive since 2026-09-06; Claude has been standing in as reviewer of last resort. |
 | Cursor | ~~R2.a listings pair (#563)~~ done. **Remaining: R2.a import-dialog pair + codec/format pair (#563 continuation), R2.b (#564), R4.1 (#574, new), R4.2 (#575, new, after R2.b).** |
 
 Dependencies: R1.1 before R2.a workers; R1.4 before R2.e; R0.2 before R1.5
@@ -345,5 +345,5 @@ longer gated on it.
 Merge-to-`main` checklist for this branch's own PR — every issue below
 must be closed first (§6 has the current owner/queue per agent):
 
-- [x] #543, #544 (partial — Grok's gallery-owning half + MainWindow remain), #547, #548 (code done, D12 pending), #549, #550, #551, #552, #554, #555, #558 (code done, D12 pending), #562, #563 (partial — listings half only)
+- [x] #543, #544 (partial — Grok's gallery-owning half + MainWindow remain), #547, #548, #549, #550, #551, #552, #554, #555, #558, #562, #563 (partial — listings half only)
 - [ ] #544 (remainder), #553, #556, #557, #559, #560, #561, #563 (remainder), #564, #565, #566, #567, #568, #569, #570, #571, #572, #573, #574, #575
