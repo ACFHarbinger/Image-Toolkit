@@ -3,14 +3,14 @@ import contextlib
 import numpy as np
 from backend.src.constants import HAS_NATIVE_IMAGING, THUMBNAIL_CACHE_DIR
 from backend.src.core import telemetry
-from PySide6.QtCore import QObject, QRunnable, QSize, Qt, Signal, Slot
-from PySide6.QtGui import QImage, QImageReader
+from PySide6.QtCore import QObject, QRunnable, Signal, Slot
+from PySide6.QtGui import QImage
 from shiboken6 import Shiboken
 
 from gui.src.constants.helpers import _NATIVE_SUPPORTS_RGB_CACHE
 from gui.src.helpers.gc_safe import gc_disabled_run
 
-from ._qimagereader_disk_cache import load_qir_cached, save_qir_cached
+from ._qimagereader_disk_cache import load_qir_thumbnail
 
 if HAS_NATIVE_IMAGING:
     import base
@@ -165,44 +165,9 @@ class BatchImageLoaderWorker(QRunnable):
                 self.signals.deleteLater()
 
     def _load_one_via_qimage(self, path: str) -> QImage:
-        """Load and scale a single file via QImageReader rather than the
-        bare QImage(path) constructor -- for multi-frame formats (GIF) the
-        constructor can return a technically-non-null but wrongly-
-        composited first frame (e.g. a flat/near-blank frame from a
-        partial-canvas GIF disposal method not being resolved), where
-        QImageReader.read() -- the same approach already proven correct for
-        the Wallpaper monitor-preview thumbnail (_gallery_label.py's
-        _get_or_generate_thumbnail) -- decodes it properly.
-
-        Disk-cached (see ``_qimagereader_disk_cache.py``): Qt's GIF plugin
-        does not support scaled decoding -- setScaledSize() only resizes
-        the *output*, verified empirically -- so without caching, every
-        view/scroll of a GIF-heavy directory re-paid full-canvas decode
-        cost from scratch, which is what made this path far slower than
-        before GIFs were routed off the native decoder.
-        """
+        """Shared QIR/GIF-poster thumbnail path (see load_qir_thumbnail)."""
         try:
-            cached = load_qir_cached(path, self.target_size)
-            if cached is not None:
-                return cached
-
-            reader = QImageReader(path)
-            source_size = reader.size()
-            target = QSize(self.target_size, self.target_size)
-            if source_size.isValid():
-                source_size.scale(target, Qt.AspectRatioMode.KeepAspectRatio)
-                reader.setScaledSize(source_size)
-            image = reader.read()
-            if image.isNull():
-                return QImage()
-            if image.width() > self.target_size or image.height() > self.target_size:
-                image = image.scaled(
-                    target,
-                    Qt.AspectRatioMode.KeepAspectRatio,
-                    Qt.TransformationMode.SmoothTransformation,
-                )
-            save_qir_cached(path, self.target_size, image)
-            return image
+            return load_qir_thumbnail(path, self.target_size)
         except Exception:
             return QImage()
 

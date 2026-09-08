@@ -20,12 +20,23 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import os
+import threading
 from pathlib import Path
 
 from backend.src.constants import THUMBNAIL_CACHE_DIR
-from PySide6.QtGui import QImage
+from PySide6.QtCore import QSize, Qt
+from PySide6.QtGui import QImage, QImageReader
 
 logger = logging.getLogger(__name__)
+
+# Qt's GIF plugin does not scaled-decode, and with
+# QImageReader.setAllocationLimit(10000) it will try to materialize
+# multi-GB extraction GIFs. ffmpeg-from-a-QThreadPool-worker is the
+# same QSocketNotifier crash class (fork vs Qt Multimedia). Oversized
+# GIFs therefore get a placeholder: no QImageReader, no ffmpeg.
+QIR_GIF_BYTE_BUDGET = 32 * 1024 * 1024
+_gif_decode_lock = threading.Lock()
 
 def qir_cache_path(path: str, target_size: int) -> Path:
     key = hashlib.md5(f"{path}:{target_size}".encode("utf-8")).hexdigest()
@@ -58,4 +69,97 @@ def save_qir_cached(path: str, target_size: int, image: QImage) -> None:
         logger.debug("Suppressed Exception in save_qir_cached", exc_info=True)
 
 
-__all__ = ["qir_cache_path", "load_qir_cached", "save_qir_cached"]
+def _file_size(path: str) -> int:
+    try:
+        return os.path.getsize(path)
+    except OSError:
+        return 0
+
+
+def _qir_read(path: str, target_size: int) -> QImage:
+    reader = QImageReader(path)
+    source_size = reader.size()
+    target = QSize(target_size, target_size)
+    if source_size.isValid():
+        source_size.scale(target, Qt.AspectRatioMode.KeepAspectRatio)
+        reader.setScaledSize(source_size)
+    image = reader.read()
+    if image.isNull():
+        return QImage()
+    if image.width() > target_size or image.height() > target_size:
+        image = image.scaled(
+            target,
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation,
+        )
+    return image
+
+
+def is_oversized_gif(path: str) -> bool:
+    return path.lower().endswith(".gif") and _file_size(path) > QIR_GIF_BYTE_BUDGET
+
+
+def oversized_gif_placeholder(target_size: int) -> QImage:
+    size = max(int(target_size), 8)
+    image = QImage(size, size, QImage.Format.Format_RGB32)
+    image.fill(0xFF2C2F33)
+    return image
+
+
+def read_gif_logical_screen(path: str) -> tuple[int, int] | None:
+    """Width/height from the GIF header only -- never constructs QImageReader."""
+    try:
+        with open(path, "rb") as handle:
+            header = handle.read(10)
+    except OSError:
+        return None
+    if len(header) < 10 or header[:6] not in (b"GIF87a", b"GIF89a"):
+        return None
+    width = int.from_bytes(header[6:8], "little")
+    height = int.from_bytes(header[8:10], "little")
+    if width <= 0 or height <= 0:
+        return None
+    return width, height
+
+
+def load_qir_thumbnail(path: str, target_size: int) -> QImage:
+    """Load a thumbnail, using the QIR disk cache.
+
+    Small GIFs still go through Qt's GIF plugin (first frame). Oversized
+    GIFs never construct ``QImageReader`` and never spawn ffmpeg -- both
+    of those paths SIGSEGV/SIGABRT this process on the Cinematography
+    corpus. A cheap placeholder is cached instead.
+    """
+    cached = load_qir_cached(path, target_size)
+    if cached is not None:
+        return cached
+
+    is_gif = path.lower().endswith(".gif")
+    try:
+        if is_gif:
+            with _gif_decode_lock:
+                if _file_size(path) > QIR_GIF_BYTE_BUDGET:
+                    image = oversized_gif_placeholder(target_size)
+                else:
+                    image = _qir_read(path, target_size)
+        else:
+            image = _qir_read(path, target_size)
+    except Exception:
+        logger.debug("Suppressed Exception in load_qir_thumbnail", exc_info=True)
+        return QImage()
+
+    if not image.isNull():
+        save_qir_cached(path, target_size, image)
+    return image
+
+
+__all__ = [
+    "QIR_GIF_BYTE_BUDGET",
+    "qir_cache_path",
+    "load_qir_cached",
+    "save_qir_cached",
+    "load_qir_thumbnail",
+    "is_oversized_gif",
+    "oversized_gif_placeholder",
+    "read_gif_logical_screen",
+]
