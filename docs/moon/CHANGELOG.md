@@ -1,3 +1,11 @@
+# S535 — 2026-09-08 (Codex: R1.4 #559 / shared tab factory)
+
+- Added `build_tab(module_id, context)` as the sole construction path for the
+  classic tab registry and runtime catalog. Removed all catalog constructor
+  `TypeError` fallbacks; factory options are carried explicitly in
+  `ModuleContext`. Regression coverage exercises real database-family
+  constructors and verifies catalog option forwarding.
+
 # S534 — 2026-09-07 (Codex: R1.3 #558 / ui-arch-36 WindowService)
 
 - Added `WindowService`, the narrow application-window interface consumed by
