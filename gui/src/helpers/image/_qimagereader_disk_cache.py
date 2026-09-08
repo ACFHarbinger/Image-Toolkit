@@ -20,12 +20,23 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import os
+import threading
 from pathlib import Path
 
 from backend.src.constants import THUMBNAIL_CACHE_DIR
-from PySide6.QtGui import QImage
+from PySide6.QtCore import QSize, Qt
+from PySide6.QtGui import QImage, QImageReader
 
 logger = logging.getLogger(__name__)
+
+# Qt's GIF plugin does not scaled-decode (setScaledSize only resizes the
+# output) and with QImageReader.setAllocationLimit(10000) it will try to
+# materialize multi-hundred-MB / multi-GB extraction GIFs on a worker
+# thread -- the Cinematography 101×~1GB directory crash. First-frame
+# posters for files over this size go through ffmpeg instead.
+QIR_GIF_BYTE_BUDGET = 32 * 1024 * 1024
+_gif_decode_lock = threading.Lock()
 
 def qir_cache_path(path: str, target_size: int) -> Path:
     key = hashlib.md5(f"{path}:{target_size}".encode("utf-8")).hexdigest()
@@ -58,4 +69,74 @@ def save_qir_cached(path: str, target_size: int, image: QImage) -> None:
         logger.debug("Suppressed Exception in save_qir_cached", exc_info=True)
 
 
-__all__ = ["qir_cache_path", "load_qir_cached", "save_qir_cached"]
+def _file_size(path: str) -> int:
+    try:
+        return os.path.getsize(path)
+    except OSError:
+        return 0
+
+
+def _qir_read(path: str, target_size: int) -> QImage:
+    reader = QImageReader(path)
+    source_size = reader.size()
+    target = QSize(target_size, target_size)
+    if source_size.isValid():
+        source_size.scale(target, Qt.AspectRatioMode.KeepAspectRatio)
+        reader.setScaledSize(source_size)
+    image = reader.read()
+    if image.isNull():
+        return QImage()
+    if image.width() > target_size or image.height() > target_size:
+        image = image.scaled(
+            target,
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation,
+        )
+    return image
+
+
+def _gif_poster_via_ffmpeg(path: str, target_size: int) -> QImage:
+    from gui.src.helpers.video.video_thumbnailer import VideoThumbnailer
+
+    poster = VideoThumbnailer().generate_gif_poster(path, target_size)
+    return poster if poster is not None else QImage()
+
+
+def load_qir_thumbnail(path: str, target_size: int) -> QImage:
+    """Load a thumbnail, using the QIR disk cache.
+
+    Small GIFs still go through Qt's GIF plugin (first frame). Oversized
+    GIFs never construct ``QImageReader`` -- ffmpeg extracts a scaled
+    first frame instead. One lock serializes GIF work so a visible-first
+    burst cannot decode many huge files at once.
+    """
+    cached = load_qir_cached(path, target_size)
+    if cached is not None:
+        return cached
+
+    is_gif = path.lower().endswith(".gif")
+    try:
+        if is_gif:
+            with _gif_decode_lock:
+                if _file_size(path) > QIR_GIF_BYTE_BUDGET:
+                    image = _gif_poster_via_ffmpeg(path, target_size)
+                else:
+                    image = _qir_read(path, target_size)
+        else:
+            image = _qir_read(path, target_size)
+    except Exception:
+        logger.debug("Suppressed Exception in load_qir_thumbnail", exc_info=True)
+        return QImage()
+
+    if not image.isNull():
+        save_qir_cached(path, target_size, image)
+    return image
+
+
+__all__ = [
+    "QIR_GIF_BYTE_BUDGET",
+    "qir_cache_path",
+    "load_qir_cached",
+    "save_qir_cached",
+    "load_qir_thumbnail",
+]

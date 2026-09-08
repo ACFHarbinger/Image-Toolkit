@@ -10,8 +10,8 @@ import os
 from typing import TYPE_CHECKING, Optional
 
 from backend.src.constants import SUPPORTED_VIDEO_FORMATS
-from PySide6.QtCore import QSize, Qt
-from PySide6.QtGui import QImage, QImageReader, QPixmap
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtWidgets import QLabel
 
 from ......components import DraggableLabel
@@ -54,22 +54,12 @@ class _GalleryLabelMixin:
                 if thumb:
                     self._initial_pixmap_cache[path] = thumb.toImage()
             elif os.path.exists(path):
-                reader = QImageReader(path)
-                source_size = reader.size()
-                target_size = QSize(self.thumbnail_size, self.thumbnail_size)
-                if source_size.isValid():
-                    source_size.scale(
-                        target_size, Qt.AspectRatioMode.KeepAspectRatio
-                    )
-                    reader.setScaledSize(source_size)
-                image = reader.read()
+                from gui.src.helpers.image._qimagereader_disk_cache import (
+                    load_qir_thumbnail,
+                )
+
+                image = load_qir_thumbnail(path, self.thumbnail_size)
                 if not image.isNull():
-                    if image.width() > self.thumbnail_size or image.height() > self.thumbnail_size:
-                        image = image.scaled(
-                            target_size,
-                            Qt.AspectRatioMode.KeepAspectRatio,
-                            Qt.TransformationMode.SmoothTransformation,
-                        )
                     self._initial_pixmap_cache[path] = image
                     thumb = QPixmap.fromImage(image)
         return thumb

@@ -1,3 +1,17 @@
+# S535 — 2026-09-08 (Grok: huge-GIF gallery thumbnails)
+
+- Gallery / wallpaper / extractor thumbnail loads no longer run Qt's GIF
+  plugin on multi-hundred-MB extraction GIFs. Files over 32MB take an
+  ffmpeg first-frame poster (tiny probe, frame 0 only, scaled in-pipeline)
+  under one decode lock; smaller GIFs still use `QImageReader`. The GIF
+  image plugin is primed on the GUI thread at startup next to JPEG, so
+  the first worker-thread decode is not the process's first plugin load.
+- Reproduced as `QSocketNotifier` SIGSEGV after browsing
+  `~/Downloads/Data/Frames/Cinematography/` (101 GIFs, ~108GB). Extractor
+  session-recovery already skipped the eager output auto-load; explicit
+  gallery browse still went through `QImageReader.read()` with a 10GB
+  allocation cap.
+
 # S534 — 2026-09-07 (Codex: R1.3 #558 / ui-arch-36 WindowService)
 
 - Added `WindowService`, the narrow application-window interface consumed by
