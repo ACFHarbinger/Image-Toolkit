@@ -112,9 +112,9 @@ class _SemanticSearchMixin:
         self._reset_semantic_ui(f"Semantic search: {len(hits)} match(es).")
         self._display_ranked_results(hits)
 
-    def _on_semantic_search_error(self, message: str) -> None:
+    def _on_semantic_search_error(self, exc: Exception) -> None:
         self._reset_semantic_ui("Semantic search failed.")
-        QMessageBox.critical(self, "Semantic Search Error", message)
+        QMessageBox.critical(self, "Semantic Search Error", str(exc))
 
     def _on_semantic_search_cancelled(self) -> None:
         self._reset_semantic_ui("Semantic search cancelled.")

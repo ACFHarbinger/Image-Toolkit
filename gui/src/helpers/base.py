@@ -8,7 +8,7 @@ Classes
 BaseQThreadWorker
     Base for heavy ``QThread`` workers (``ConversionWorker``,
     ``DeletionWorker``, ``StitchWorker``, …).  Provides:
-      - ``sig_finished``, ``error``, ``progress`` signals.
+      - ``finished``, ``error(object)``, ``progress`` signals (rule 3, R1.1).
       - ``cancel()`` / ``stop()`` — sets ``self._cancelled = True``.
       - ``run()`` — wraps ``_execute()`` in a try/except so unhandled
         exceptions always route to ``error`` rather than crashing silently,
@@ -32,7 +32,7 @@ Usage
 ``QThread`` subclass::
 
     class MyWorker(BaseQThreadWorker):
-        sig_finished = Signal(str)   # narrow type
+        finished = Signal(str)   # narrow type
 
         def __init__(self, path: str) -> None:
             super().__init__()
@@ -40,7 +40,7 @@ Usage
 
         def _execute(self) -> None:
             result = do_work(self._path)
-            self.sig_finished.emit(result)
+            self.finished.emit(result)
 
 ``QRunnable`` subclass::
 
@@ -77,18 +77,22 @@ class BaseQThreadWorker(QThread):
     Signals
     -------
     finished : Signal(object)
-        Emitted when ``_execute()`` completes.  Subclasses typically
-        re-declare this with a narrower type.
-    error : Signal(str)
-        Emitted when an unhandled exception escapes ``_execute()``.
+        Emitted once at thread end with the ``_execute()`` return value
+        (``None`` when there is no payload, or when ``_execute()`` raised
+        and ``error`` fired instead). Payload slots must tolerate ``None``.
+        Subclasses typically re-declare this with a narrower type.
+    error : Signal(object)
+        Emitted with the exception object when an unhandled exception
+        escapes ``_execute()`` (Q-C, R1.1). Connecting slots call
+        ``str(exc)`` themselves.
     progress : Signal(int, int)
         Emitted as ``(completed, total)`` (see §5.9 Option C,
         ``docs/moon/roadmaps/architecture.md``). Connecting slots should call
         ``progress_bar.setMaximum(total)`` then ``.setValue(completed)``.
     """
 
-    sig_finished = Signal(object)
-    error = Signal(str)
+    finished = Signal(object)
+    error = Signal(object)
     progress = Signal(int, int)
 
     def __init__(self) -> None:
@@ -103,15 +107,26 @@ class BaseQThreadWorker(QThread):
     stop = cancel
 
     @abstractmethod
-    def _execute(self) -> None:
-        """Worker logic. Override this instead of ``run()``."""
+    def _execute(self) -> object:
+        """Worker logic. Override this instead of ``run()``.
+
+        The return value is delivered to ``finished`` subscribers. Return
+        ``None`` when there is no result payload.
+        """
 
     @gc_disabled_run
     def run(self) -> None:
+        # ``finished`` fires at thread end like the native QThread signal it
+        # replaces (same timing: teardown/cleanup slots keep working), with
+        # the ``_execute()`` return value as payload — ``None`` on failure,
+        # so payload slots must tolerate ``None``. Failures additionally
+        # emit ``error`` with the exception object.
         try:
-            self._execute()
+            result = self._execute()
         except Exception as exc:
             self._handle_exception(exc)
+            result = None
+        self.finished.emit(result)
 
     def _handle_exception(self, exc: Exception) -> None:
         """Three-tier error handler.
@@ -139,7 +154,7 @@ class BaseQThreadWorker(QThread):
                 logger.error("Unhandled exception in worker", exc_info=exc)
         except ImportError:
             logger.error("Unhandled exception in worker", exc_info=exc)
-        self.error.emit(str(exc))
+        self.error.emit(exc)
 
 
 class _WorkerSignals(QObject):
@@ -151,7 +166,7 @@ class _WorkerSignals(QObject):
     """
 
     finished = Signal(object)
-    error = Signal(str)
+    error = Signal(object)
     progress = Signal(int, int)  # (completed, total) — see §5.9 Option C
     cancelled = Signal()
 
@@ -194,4 +209,4 @@ class BaseQRunnableWorker(QRunnable):
         try:
             self._execute()
         except Exception as exc:
-            self.signals.error.emit(str(exc))
+            self.signals.error.emit(exc)
