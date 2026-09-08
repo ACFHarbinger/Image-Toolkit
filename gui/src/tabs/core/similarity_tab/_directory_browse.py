@@ -13,16 +13,17 @@ from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 from ....styles import apply_shadow_effect
 from ....theming.theme_api import color, qss
+from ._tab_bound import TabBoundController
 
 
-class _DirectoryBrowseMixin:
+class SimilarityDirectoryBrowseController(TabBoundController):
     """Browse source/reference directories, validate targets, toggle extensions."""
 
     def browse_directory(self):
         start = getattr(self, "last_browsed_dir", "") or ""
         d = QFileDialog.getExistingDirectory(
-            self, "Select Source Directory", start,
-            QFileDialog.Option.DontUseNativeDialog)
+            self.tab, "Select Source Directory", start, QFileDialog.Option.DontUseNativeDialog
+        )
         if d:
             self.target_path.setText(d)
             self.last_browsed_dir = d
@@ -40,8 +41,8 @@ class _DirectoryBrowseMixin:
     def browse_reference_directory(self):
         start = self.reference_path.text() if os.path.isdir(self.reference_path.text()) else ""
         d = QFileDialog.getExistingDirectory(
-            self, "Select Source / Reference Directory", start,
-            QFileDialog.Option.DontUseNativeDialog)
+            self.tab, "Select Source / Reference Directory", start, QFileDialog.Option.DontUseNativeDialog
+        )
         if d:
             self.reference_path.setText(d)
             self._sim_config.reference_dir = d
@@ -56,8 +57,8 @@ class _DirectoryBrowseMixin:
     def browse_target_qml(self, current_path=""):
         starting_dir = current_path if os.path.isdir(current_path) else ""
         d = QFileDialog.getExistingDirectory(
-            self, "Select Directory to Scan", starting_dir,
-            QFileDialog.Option.DontUseNativeDialog)
+            self.tab, "Select Directory to Scan", starting_dir, QFileDialog.Option.DontUseNativeDialog
+        )
         if d:
             self.target_path.setText(d)
             self.qml_input_path_changed.emit(d)
@@ -67,10 +68,10 @@ class _DirectoryBrowseMixin:
     def is_valid(self, mode: str):
         p = self.target_path.text().strip()
         if not p or not os.path.exists(p):
-            QMessageBox.warning(self, "Invalid", "Select valid file/folder.")
+            QMessageBox.warning(self.tab, "Invalid", "Select valid file/folder.")
             return False
         if mode == "directory" and not os.path.isdir(p):
-            QMessageBox.warning(self, "Invalid", "Directory required.")
+            QMessageBox.warning(self.tab, "Invalid", "Directory required.")
             return False
         return True
 
@@ -96,4 +97,8 @@ class _DirectoryBrowseMixin:
             self.toggle_extension(ext, False)
 
 
-__all__ = ["_DirectoryBrowseMixin"]
+__all__ = ["SimilarityDirectoryBrowseController", "_DirectoryBrowseMixin"]
+
+_DirectoryBrowseMixin = (
+    SimilarityDirectoryBrowseController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
+)
