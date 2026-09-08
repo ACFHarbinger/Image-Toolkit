@@ -14,10 +14,12 @@ from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QListWidgetItem
 
 from ....utils.sort_utils import natural_sort_key
+from ._tab_bound import TabBoundController
 
 logger = logging.getLogger(__name__)
 
-class _TagFiltersMixin:
+
+class SearchTagFiltersController(TabBoundController):
     """Tag-type checkbox row and the tag list it filters."""
 
     def _get_tags_from_db(self) -> List[Dict[str, str]]:
@@ -162,4 +164,6 @@ class _TagFiltersMixin:
         self.perform_search()
 
 
-__all__ = ["_TagFiltersMixin"]
+_TagFiltersMixin = SearchTagFiltersController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
+
+__all__ = ["SearchTagFiltersController", "_TagFiltersMixin"]
