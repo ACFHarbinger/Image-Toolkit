@@ -1,8 +1,4 @@
-"""Full UI construction for ``DataBrowserTab``.
-
-Extracted the same way every other tab in this package is -- pure
-composition, no logic beyond widget construction and wiring.
-"""
+"""Full UI construction for ``DataBrowserTab``."""
 
 from __future__ import annotations
 
@@ -24,15 +20,15 @@ from PySide6.QtWidgets import (
 )
 
 from ....styles import apply_shadow_effect
-from ._er_view import _ERViewMixin
+from ._tab_bound import TabBoundController
 
 
-class _UIBuilderMixin(_ERViewMixin):
+class DataBrowserUIBuilder(TabBoundController):
     """Builds the table picker, WHERE filter, grid, pagination, export, and
     Schema/ER sub-view controls."""
 
     def _build_ui(self) -> None:
-        layout = QVBoxLayout(self)
+        layout = QVBoxLayout(self.tab)
 
         picker_group = QGroupBox("Table")
         picker_layout = QHBoxLayout(picker_group)
@@ -61,7 +57,7 @@ class _UIBuilderMixin(_ERViewMixin):
         self.view_tabs.addTab(self._build_er_view(), "Schema")
         layout.addWidget(self.view_tabs)
 
-        self.setLayout(layout)
+        self.tab.setLayout(layout)
         self._set_controls_enabled(False)
 
     def _build_grid_view(self) -> QWidget:
@@ -176,4 +172,6 @@ class _UIBuilderMixin(_ERViewMixin):
             widget.setEnabled(enabled)
 
 
-__all__ = ["_UIBuilderMixin"]
+_UIBuilderMixin = DataBrowserUIBuilder  # COMPAT(ui-arch-23): remove after callers drop the mixin name
+
+__all__ = ["DataBrowserUIBuilder", "_UIBuilderMixin"]

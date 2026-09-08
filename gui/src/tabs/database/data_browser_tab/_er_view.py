@@ -28,12 +28,12 @@ than silently dropped):
 
 from __future__ import annotations
 
+import math
 from typing import Dict, List
 
 from PySide6.QtCore import QLineF, QPointF, Qt
 from PySide6.QtGui import QBrush, QColor, QFont, QPainter, QPen, QPolygonF
 from PySide6.QtWidgets import (
-    QGraphicsItem,
     QGraphicsLineItem,
     QGraphicsPolygonItem,
     QGraphicsRectItem,
@@ -54,79 +54,85 @@ from gui.src.constants.elements import (
     _TITLE_HEIGHT,
 )
 
+from ._tab_bound import TabBoundController
+
 
 def _bucket_for(table: str) -> str:
     for bucket, names in _BUCKET_TABLES.items():
         if table in names:
             return bucket
-    return "other"
+    return "media"
 
 
 class _TableCardItem(QGraphicsRectItem):
-    """One table's card: title bar + PK-starred/FK-annotated column rows.
-    Clicking anywhere on the card notifies *on_click* with the table name."""
+    """Visual card for a single table in the schema view: header with table
+    name, followed by rows for each column. PK columns have a star; FK
+    columns show the target table. Clicking the card navigates the grid
+    to that table."""
 
     def __init__(self, table_name: str, columns: List[Dict], fk_by_column: Dict[str, Dict], on_click):
-        height = _TITLE_HEIGHT + max(1, len(columns)) * _ROW_HEIGHT + 8
+        height = _TITLE_HEIGHT + max(1, len(columns)) * _ROW_HEIGHT
         super().__init__(0, 0, _CARD_WIDTH, height)
         self.table_name = table_name
-        self._on_click = on_click
-        self.setBrush(QBrush(QColor("#2c2f33")))
-        self.setPen(QPen(QColor("#4f545c"), 1))
-        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
-        self.setAcceptHoverEvents(True)
+        self.on_click = on_click
+        self.setBrush(QBrush(QColor("#2f3136")))
+        self.setPen(QPen(QColor("#7289da"), 1.5))
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setToolTip(f"Click to open {table_name!r} in the Grid view")
 
-        title = QGraphicsSimpleTextItem(table_name, self)
-        title_font = QFont()
-        title_font.setBold(True)
-        title.setFont(title_font)
-        title.setBrush(QBrush(QColor("#ffffff")))
-        title.setPos(6, 4)
+        # Title bar
+        title_rect = QGraphicsRectItem(0, 0, _CARD_WIDTH, _TITLE_HEIGHT, parent=self)
+        title_rect.setBrush(QBrush(QColor("#202225")))
+        title_rect.setPen(QPen(Qt.PenStyle.NoPen))
+        title_text = QGraphicsSimpleTextItem(table_name, parent=self)
+        font = QFont()
+        font.setBold(True)
+        title_text.setFont(font)
+        title_text.setBrush(QBrush(QColor("#ffffff")))
+        title_text.setPos(8, 4)
 
-        divider = QGraphicsLineItem(0, _TITLE_HEIGHT, _CARD_WIDTH, _TITLE_HEIGHT, self)
-        divider.setPen(QPen(QColor("#4f545c"), 1))
-
-        for i, col in enumerate(columns):
+        # Columns
+        y = _TITLE_HEIGHT
+        for col in columns:
             name = col["name"]
-            label = f"★ {name}" if col.get("pk") else name
-            fk = fk_by_column.get(name)
-            if fk:
-                label = f"{label}  -> {fk['ref_table']}.{fk['ref_column']}"
-            row = QGraphicsSimpleTextItem(label, self)
-            row.setBrush(QBrush(QColor("#f2b900" if col.get("pk") else "#dcddde")))
-            row.setPos(6, _TITLE_HEIGHT + i * _ROW_HEIGHT + 2)
+            prefix = "★ " if col["pk"] else "  "
+            suffix = ""
+            if name in fk_by_column:
+                suffix = f" → {fk_by_column[name]['ref_table']}"
+            label = f"{prefix}{name}{suffix}"
+            item = QGraphicsSimpleTextItem(label, parent=self)
+            item.setBrush(QBrush(QColor("#e0e0e0") if col["pk"] else QColor("#b9bbbe")))
+            item.setPos(8, y + 2)
+            y += _ROW_HEIGHT
 
     def anchor_point_toward(self, other_center: QPointF) -> QPointF:
-        """Point on this card's border closest to *other_center* -- edges
-        connect card edges, not arbitrary card interiors."""
+        """Find the edge intersection point on this card that faces
+        *other_center*, so relationship lines anchor to the card perimeter
+        instead of pointing into its center."""
+        card_center = self.sceneBoundingRect().center()
         rect = self.sceneBoundingRect()
-        center = rect.center()
-        line = QLineF(center, other_center)
-        for edge in (
-            QLineF(rect.topLeft(), rect.topRight()),
-            QLineF(rect.topRight(), rect.bottomRight()),
-            QLineF(rect.bottomRight(), rect.bottomLeft()),
-            QLineF(rect.bottomLeft(), rect.topLeft()),
-        ):
-            # PySide6's QLineF.intersects(other) takes one argument and
-            # returns (IntersectionType, QPointF) -- not the PyQt5-style
-            # out-parameter signature.
-            intersection_type, point = line.intersects(edge)
-            if intersection_type == QLineF.IntersectionType.BoundedIntersection:
-                return point
-        return center
+        dx = other_center.x() - card_center.x()
+        dy = other_center.y() - card_center.y()
+        if abs(dx) > abs(dy):
+            # Exits left or right
+            x = rect.right() if dx > 0 else rect.left()
+            # Intercept on the vertical edge
+            y = card_center.y() + (dy / (dx if dx != 0 else 1.0)) * (x - card_center.x())
+            y = max(rect.top(), min(rect.bottom(), y))
+            return QPointF(x, y)
+        # Exits top or bottom
+        y = rect.bottom() if dy > 0 else rect.top()
+        x = card_center.x() + (dx / (dy if dy != 0 else 1.0)) * (y - card_center.y())
+        x = max(rect.left(), min(rect.right(), x))
+        return QPointF(x, y)
 
     def mousePressEvent(self, event) -> None:
+        if event.button() == Qt.MouseButton.LeftButton and self.on_click:
+            self.on_click(self.table_name)
         super().mousePressEvent(event)
-        if event.button() == Qt.MouseButton.LeftButton:
-            self._on_click(self.table_name)
 
 
 class ERGraphicsView(QGraphicsView):
-    """Minimal pan/zoom view for the schema scene -- deliberately not a
-    reuse of the wallpaper tab's node-editor graph view (see this
+    """Pannable/zoomable view over the schema scene (see the containing
     module's docstring)."""
 
     def __init__(self, scene: QGraphicsScene, parent=None):
@@ -142,7 +148,7 @@ class ERGraphicsView(QGraphicsView):
         self.scale(factor, factor)
 
 
-class _ERViewMixin:
+class DataBrowserERViewController(TabBoundController):
     """Builds and populates the Schema (ER) sub-view."""
 
     def _build_er_view(self) -> QWidget:
@@ -221,7 +227,6 @@ class _ERViewMixin:
         # simplification of a full crow's-foot glyph, see module docstring.
         direction = QLineF(start, end)
         angle = direction.angle()
-        import math
         arrow_size = 8.0
         a1 = end - QPointF(
             math.cos(math.radians(angle - 150)) * arrow_size,
@@ -242,4 +247,6 @@ class _ERViewMixin:
         self.table_combo.setCurrentText(table_name)
 
 
-__all__ = ["_ERViewMixin", "ERGraphicsView"]
+_ERViewMixin = DataBrowserERViewController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
+
+__all__ = ["DataBrowserERViewController", "_ERViewMixin", "ERGraphicsView"]
