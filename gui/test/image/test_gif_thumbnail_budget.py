@@ -38,11 +38,9 @@ def test_small_gif_thumbnails_via_qimage_reader(q_app, tmp_path, monkeypatch):
     assert img.height() <= 32
 
 
-def test_oversized_gif_skips_qimage_reader(q_app, tmp_path, monkeypatch):
+def test_oversized_gif_skips_qimage_reader_and_ffmpeg(q_app, tmp_path, monkeypatch):
     _isolate_cache(monkeypatch, tmp_path)
     gif = _write_gif(tmp_path / "huge.gif")
-    poster = QImage(16, 10, QImage.Format.Format_RGB32)
-    poster.fill(0)
 
     def _fail_reader(*_args, **_kwargs):
         raise AssertionError("QImageReader must not open oversized GIFs")
@@ -55,14 +53,11 @@ def test_oversized_gif_skips_qimage_reader(q_app, tmp_path, monkeypatch):
         "gui.src.helpers.image._qimagereader_disk_cache.QImageReader",
         _fail_reader,
     )
-    monkeypatch.setattr(
-        "gui.src.helpers.image._qimagereader_disk_cache._gif_poster_via_ffmpeg",
-        lambda _path, _size: poster,
-    )
 
     img = load_qir_thumbnail(str(gif), 32)
     assert not img.isNull()
-    assert img.width() == 16
+    assert img.width() == 32
+    assert img.height() == 32
 
 
 def test_cached_oversized_gif_does_not_redecode(q_app, tmp_path, monkeypatch):
@@ -77,10 +72,6 @@ def test_cached_oversized_gif_does_not_redecode(q_app, tmp_path, monkeypatch):
     monkeypatch.setattr(
         "gui.src.helpers.image._qimagereader_disk_cache.QImageReader",
         _fail_reader,
-    )
-    monkeypatch.setattr(
-        "gui.src.helpers.image._qimagereader_disk_cache._gif_poster_via_ffmpeg",
-        lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("cache hit")),
     )
     second = load_qir_thumbnail(str(gif), 32)
     assert not second.isNull()
@@ -108,14 +99,20 @@ def test_image_loader_worker_uses_shared_thumbnail_path(q_app, tmp_path, monkeyp
     assert not out.isNull()
 
 
-def test_ffmpeg_gif_poster_reads_first_frame(q_app, tmp_path):
-    from gui.src.helpers.video.video_thumbnailer import VideoThumbnailer
+def test_read_gif_logical_screen(tmp_path):
+    from gui.src.helpers.image._qimagereader_disk_cache import read_gif_logical_screen
 
-    thumb = VideoThumbnailer()
-    if not thumb.has_ffmpeg:
-        pytest.skip("ffmpeg unavailable")
-    gif = _write_gif(tmp_path / "poster.gif")
-    img = thumb.generate_gif_poster(str(gif), 24)
-    assert img is not None
-    assert not img.isNull()
-    assert img.width() <= 24 or img.height() <= 24
+    gif = _write_gif(tmp_path / "header.gif")
+    assert read_gif_logical_screen(str(gif)) == (12, 8)
+
+
+def test_is_oversized_gif_uses_byte_budget(tmp_path, monkeypatch):
+    from gui.src.helpers.image._qimagereader_disk_cache import is_oversized_gif
+
+    gif = _write_gif(tmp_path / "page.gif")
+    assert is_oversized_gif(str(gif)) is False
+    monkeypatch.setattr(
+        "gui.src.helpers.image._qimagereader_disk_cache._file_size",
+        lambda _path: QIR_GIF_BYTE_BUDGET + 1,
+    )
+    assert is_oversized_gif(str(gif)) is True

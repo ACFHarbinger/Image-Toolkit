@@ -30,11 +30,11 @@ from PySide6.QtGui import QImage, QImageReader
 
 logger = logging.getLogger(__name__)
 
-# Qt's GIF plugin does not scaled-decode (setScaledSize only resizes the
-# output) and with QImageReader.setAllocationLimit(10000) it will try to
-# materialize multi-hundred-MB / multi-GB extraction GIFs on a worker
-# thread -- the Cinematography 101×~1GB directory crash. First-frame
-# posters for files over this size go through ffmpeg instead.
+# Qt's GIF plugin does not scaled-decode, and with
+# QImageReader.setAllocationLimit(10000) it will try to materialize
+# multi-GB extraction GIFs. ffmpeg-from-a-QThreadPool-worker is the
+# same QSocketNotifier crash class (fork vs Qt Multimedia). Oversized
+# GIFs therefore get a placeholder: no QImageReader, no ffmpeg.
 QIR_GIF_BYTE_BUDGET = 32 * 1024 * 1024
 _gif_decode_lock = threading.Lock()
 
@@ -95,20 +95,40 @@ def _qir_read(path: str, target_size: int) -> QImage:
     return image
 
 
-def _gif_poster_via_ffmpeg(path: str, target_size: int) -> QImage:
-    from gui.src.helpers.video.video_thumbnailer import VideoThumbnailer
+def is_oversized_gif(path: str) -> bool:
+    return path.lower().endswith(".gif") and _file_size(path) > QIR_GIF_BYTE_BUDGET
 
-    poster = VideoThumbnailer().generate_gif_poster(path, target_size)
-    return poster if poster is not None else QImage()
+
+def oversized_gif_placeholder(target_size: int) -> QImage:
+    size = max(int(target_size), 8)
+    image = QImage(size, size, QImage.Format.Format_RGB32)
+    image.fill(0xFF2C2F33)
+    return image
+
+
+def read_gif_logical_screen(path: str) -> tuple[int, int] | None:
+    """Width/height from the GIF header only -- never constructs QImageReader."""
+    try:
+        with open(path, "rb") as handle:
+            header = handle.read(10)
+    except OSError:
+        return None
+    if len(header) < 10 or header[:6] not in (b"GIF87a", b"GIF89a"):
+        return None
+    width = int.from_bytes(header[6:8], "little")
+    height = int.from_bytes(header[8:10], "little")
+    if width <= 0 or height <= 0:
+        return None
+    return width, height
 
 
 def load_qir_thumbnail(path: str, target_size: int) -> QImage:
     """Load a thumbnail, using the QIR disk cache.
 
     Small GIFs still go through Qt's GIF plugin (first frame). Oversized
-    GIFs never construct ``QImageReader`` -- ffmpeg extracts a scaled
-    first frame instead. One lock serializes GIF work so a visible-first
-    burst cannot decode many huge files at once.
+    GIFs never construct ``QImageReader`` and never spawn ffmpeg -- both
+    of those paths SIGSEGV/SIGABRT this process on the Cinematography
+    corpus. A cheap placeholder is cached instead.
     """
     cached = load_qir_cached(path, target_size)
     if cached is not None:
@@ -119,7 +139,7 @@ def load_qir_thumbnail(path: str, target_size: int) -> QImage:
         if is_gif:
             with _gif_decode_lock:
                 if _file_size(path) > QIR_GIF_BYTE_BUDGET:
-                    image = _gif_poster_via_ffmpeg(path, target_size)
+                    image = oversized_gif_placeholder(target_size)
                 else:
                     image = _qir_read(path, target_size)
         else:
@@ -139,4 +159,7 @@ __all__ = [
     "load_qir_cached",
     "save_qir_cached",
     "load_qir_thumbnail",
+    "is_oversized_gif",
+    "oversized_gif_placeholder",
+    "read_gif_logical_screen",
 ]
