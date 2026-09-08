@@ -4,6 +4,7 @@ from typing import List, Optional
 from PySide6.QtCore import QSize, Qt, QTimer, Signal
 from PySide6.QtGui import (
     QAction,
+    QImage,
     QKeyEvent,
     QKeySequence,
     QMouseEvent,
@@ -25,6 +26,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
+from ..helpers.image.gif_player import PillowGifPlayer
 from ..utils.manager.shortcut_manager import get_registry
 from .main import show_main_status
 from .window_manager import register_window
@@ -65,6 +67,8 @@ class ImagePreviewWindow(QDialog):
         self.current_movie: Optional[QMovie] = None  # NEW: QMovie object for GIFs
         self.original_pixmap: QPixmap = QPixmap()  # QPixmap object for static images
         self.is_animated: bool = False  # NEW: Flag if current file is a GIF
+        self._gif_player = PillowGifPlayer(self)
+        self._gif_player.frame_ready.connect(self._on_pillow_gif_frame)
 
         # Flag to prevent recursion/initial noise during setup
         self._is_handling_resize = False
@@ -288,30 +292,20 @@ class ImagePreviewWindow(QDialog):
         file_extension = os.path.splitext(path)[1].lower()
         self.is_animated = file_extension == ".gif"
 
-        # Stop and clear any previous movie
-        if self.current_movie:
-            self.current_movie.stop()
-            self.current_movie.deleteLater()
-            self.current_movie = None
-            self.image_label.clear()
+        self._stop_gif_playback()
+        self.image_label.clear()
 
         if self.is_animated:
-            from gui.src.helpers.image._qimagereader_disk_cache import (
-                gif_first_frame,
-                is_oversized_gif,
-            )
+            from gui.src.helpers.image._qimagereader_disk_cache import is_oversized_gif
 
             if is_oversized_gif(path):
                 # QMovie on multi-hundred-MB GIFs is the crash class.
-                # Show frame 0 as a static pixmap (Pillow, no Qt GIF plugin).
-                frame = gif_first_frame(path, max_edge=1920)
-                if frame.isNull():
+                # Pillow seek() plays frames without the Qt GIF plugin.
+                if not self._gif_player.start(path, max_edge=1920):
                     self.setWindowTitle(
                         f"Image Preview - Error Loading {os.path.basename(path)}"
                     )
                     return False
-                self.is_animated = False
-                self.original_pixmap = QPixmap.fromImage(frame)
                 self.current_movie = None
             else:
                 # --- Handle GIF (QMovie) ---
@@ -454,10 +448,26 @@ class ImagePreviewWindow(QDialog):
 
     # --- END FIX ---
 
+    def _stop_gif_playback(self) -> None:
+        if self.current_movie:
+            self.current_movie.stop()
+            self.current_movie.deleteLater()
+            self.current_movie = None
+        if getattr(self, "_gif_player", None) is not None:
+            self._gif_player.stop()
+
+    def _on_pillow_gif_frame(self, image: QImage) -> None:
+        if image.isNull():
+            return
+        self.original_pixmap = QPixmap.fromImage(image)
+        if not self.original_pixmap.isNull() and hasattr(self, "scroll_area"):
+            self.update_image_display()
+
     def closeEvent(self, event):
         """
         Overrides the close event to emit a cleanup signal to the parent tab.
         """
+        self._stop_gif_playback()
         # --- FIX: Emit signal to de-highlight the current image in the parent gallery ---
         # Ensure synchronous emission to guarantee the parent processes the style reset
         # before this object is destroyed (by WA_DeleteOnClose).
