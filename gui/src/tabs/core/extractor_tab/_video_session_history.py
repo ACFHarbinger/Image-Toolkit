@@ -15,16 +15,17 @@ from typing import TYPE_CHECKING, List, Optional, cast
 
 from backend.src.constants import IMAGE_TOOLKIT_DIR
 from PySide6.QtCore import QUrl, Slot
-from PySide6.QtWidgets import QFileDialog, QLabel, QMessageBox, QWidget
+from PySide6.QtWidgets import QFileDialog, QLabel, QMessageBox
 
 from ....components import ClickableLabel
 from ._player_lifecycle import PlayerLifecycleState
+from ._tab_bound import TabBoundController
 
 if TYPE_CHECKING:
     from ..protos.extractor_tab import VideoExtractorSubTabHostProtocol
 
 
-class _VideoSessionHistoryMixin:
+class ExtractorVideoSessionHistoryController(TabBoundController):
     """Active-video-tabs bar, per-video config persistence, and the
     extraction-history JSON."""
 
@@ -150,7 +151,7 @@ class _VideoSessionHistoryMixin:
         # Don't allow closing the last tab
         if self.active_videos_tabbar.count() <= 1:
             QMessageBox.information(
-                cast(QWidget, self), "Cannot Close", "Cannot close the last active video."
+                self.tab, "Cannot Close", "Cannot close the last active video."
             )
             return
 
@@ -278,7 +279,7 @@ class _VideoSessionHistoryMixin:
     @Slot()
     def browse_extraction_directory(self: "VideoExtractorSubTabHostProtocol"):
         d = QFileDialog.getExistingDirectory(
-            cast(QWidget, self), "Select Extraction Directory", self.last_browsed_extraction_dir
+            self.tab, "Select Extraction Directory", self.last_browsed_extraction_dir
         )
         if d:
             new_path = Path(d)
@@ -537,7 +538,7 @@ class _VideoSessionHistoryMixin:
             return
         run = self.recent_runs[row - 1]
 
-        menu = QMenu(cast(QWidget, self))
+        menu = QMenu(self.tab)
         act_queue = menu.addAction("➕ Add this to Queue")
         act_queue.setEnabled(bool(getattr(self, "extraction_queue_enabled", False)))
         act_load = menu.addAction("✏️ Load this Config")
@@ -566,7 +567,7 @@ class _VideoSessionHistoryMixin:
         """Append a single recent-run config to the extraction queue."""
         if not getattr(self, "extraction_queue_enabled", False):
             QMessageBox.information(
-                cast(QWidget, self),
+                self.tab,
                 "Extraction Queue Disabled",
                 "Enable the Extraction Queue in Settings ▸ Extractor first.",
             )
@@ -574,7 +575,7 @@ class _VideoSessionHistoryMixin:
         vpath = run.get("video_path", "")
         if not vpath or not Path(vpath).exists():
             QMessageBox.warning(
-                cast(QWidget, self),
+                self.tab,
                 "File Not Found",
                 f"The source video '{vpath}' no longer exists.",
             )
@@ -593,14 +594,14 @@ class _VideoSessionHistoryMixin:
         runs = getattr(self, "recent_runs", []) or []
         if not runs:
             QMessageBox.information(
-                cast(QWidget, self),
+                self.tab,
                 "No Recent Extractions",
                 "There are no recent extractions to enqueue yet.",
             )
             return
         if not getattr(self, "extraction_queue_enabled", False):
             QMessageBox.information(
-                cast(QWidget, self),
+                self.tab,
                 "Extraction Queue Disabled",
                 "Enable the Extraction Queue in Settings ▸ Extractor first.",
             )
@@ -634,7 +635,7 @@ class _VideoSessionHistoryMixin:
         index = self.combo_recent_extractions.currentIndex()
         if index <= 0:
             QMessageBox.warning(
-                cast(QWidget, self), "Error", "Please select a valid configuration from the list."
+                self.tab, "Error", "Please select a valid configuration from the list."
             )
             return
 
@@ -642,7 +643,7 @@ class _VideoSessionHistoryMixin:
         if run_data:
             self._reload_extraction(run_data)
             QMessageBox.information(
-                cast(QWidget, self), "Success", "Extraction configuration loaded successfully."
+                self.tab, "Success", "Extraction configuration loaded successfully."
             )
 
     def _clear_output_gallery(self: "VideoExtractorSubTabHostProtocol"):
@@ -695,4 +696,5 @@ class _VideoSessionHistoryMixin:
         self.btn_jump_end.setEnabled(False)
 
 
-__all__ = ["_VideoSessionHistoryMixin"]
+__all__ = ["ExtractorVideoSessionHistoryController"]
+

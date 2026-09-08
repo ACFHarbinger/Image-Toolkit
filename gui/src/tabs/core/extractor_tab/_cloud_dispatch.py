@@ -8,24 +8,23 @@ record a usage row for the Cloud Compute Dashboards tab.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, cast
+from typing import TYPE_CHECKING, Any, Dict
 
-from PySide6.QtWidgets import QMessageBox, QWidget
+from PySide6.QtWidgets import QMessageBox
 
 from ....helpers.core.cloud_extraction_worker import (
     CloudConfigError,
     CloudExtractionWorker,
     build_dispatcher,
 )
+from ._tab_bound import TabBoundController
 
 if TYPE_CHECKING:
     from ..protos.extractor_tab import VideoExtractorSubTabHostProtocol
 
 
-class _CloudDispatchMixin:
+class ExtractorCloudDispatchController(TabBoundController):
     """"☁ Run on GCD" — mirrors the local GIF path but on Google Cloud Run."""
-
-    _cloud_worker = None
 
     def _current_cloud_config(self: "VideoExtractorSubTabHostProtocol", mode: str = "gif") -> Dict[str, Any]:
         start = int(getattr(self, "start_time_ms", 0) or 0)
@@ -53,16 +52,16 @@ class _CloudDispatchMixin:
 
     def run_current_on_gcd(self: "VideoExtractorSubTabHostProtocol", mode: str = "gif") -> None:
         if self._cloud_worker is not None:
-            QMessageBox.information(cast(QWidget, self), "Cloud Extraction",
+            QMessageBox.information(self.tab, "Cloud Extraction",
                                    "A cloud extraction is already running.")
             return
         if not getattr(self, "video_path", None):
-            QMessageBox.warning(cast(QWidget, self), "No Video", "Load a video first.")
+            QMessageBox.warning(self.tab, "No Video", "Load a video first.")
             return
         start = int(getattr(self, "start_time_ms", 0) or 0)
         end = int(getattr(self, "end_time_ms", 0) or 0)
         if end <= start:
-            QMessageBox.warning(cast(QWidget, self), "No Range",
+            QMessageBox.warning(self.tab, "No Range",
                                 "Set a start and end point for the range first.")
             return
 
@@ -70,11 +69,11 @@ class _CloudDispatchMixin:
         try:  # fail early with a helpful message if config is missing
             build_dispatcher(vault, str(self.extraction_dir))
         except CloudConfigError as exc:
-            QMessageBox.warning(cast(QWidget, self), "Cloud Not Configured", str(exc))
+            QMessageBox.warning(self.tab, "Cloud Not Configured", str(exc))
             return
 
         if QMessageBox.question(
-            cast(QWidget, self),
+            self.tab,
             "Upload to Google Cloud?",
             f"This uploads '{Path(self.video_path).name}' to your Google Cloud "
             "Storage bucket and runs the extraction on Cloud Run. Continue?",
@@ -125,7 +124,8 @@ class _CloudDispatchMixin:
             return
         self.extraction_status_label.setText("Cloud extraction failed.")
         self.extraction_status_label.show()
-        QMessageBox.warning(cast(QWidget, self), "Cloud Extraction Failed", str(exc))
+        QMessageBox.warning(self.tab, "Cloud Extraction Failed", str(exc))
 
 
-__all__ = ["_CloudDispatchMixin"]
+__all__ = ["ExtractorCloudDispatchController"]
+

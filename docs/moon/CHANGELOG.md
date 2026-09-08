@@ -1,3 +1,11 @@
+# S553 — 2026-09-12 (Grok: #544 VideoExtractorSubTab composition, resynced)
+
+- `VideoExtractorSubTab` inherits `AbstractClassSingleGallery` only. Mixins
+  are composed `TabBoundController`s; QWidget parents use `self.tab`.
+  `cancel_loading` / `closeEvent` / `resizeEvent` stay on the subtab for
+  `super()`. #565 player lifecycle is a controller too. Outer `ExtractorTab`
+  wrapper unchanged. Player-adjacent — D12.
+
 # S552 — 2026-09-11 (Cursor: #544 listings composition)
 
 - `EntityListingsSubTab` / `SeriesListingsSubTab` inherit `ListingGalleryBase`

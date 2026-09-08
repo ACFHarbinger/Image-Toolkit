@@ -8,11 +8,13 @@ from gui.src.components.dialogs.extraction_close_progress_dialog import (
     TaskCloseProgressDialog,
 )
 from gui.src.tabs.core.extractor_tab._queue_management import (
-    _QueueManagementMixin,
+    ExtractorQueueManagementController,
 )
 
 
-class DummyQueueHost(_QueueManagementMixin):
+class DummyQueueHost:
+    """Stand-in tab for queue-controller unit tests (ui-arch-23 composition)."""
+
     def __init__(self):
         self.btn_process_queue = MagicMock()
         self.btn_clear_queue = MagicMock()
@@ -26,6 +28,13 @@ class DummyQueueHost(_QueueManagementMixin):
         self._inprocess_status = []
         self._inprocess_awaiting_confirm = False
         self._close_progress_dialog = None
+        self._ctrl = ExtractorQueueManagementController(self)
+
+    def __getattr__(self, name):
+        impl = getattr(type(self._ctrl), name, None)
+        if impl is None:
+            raise AttributeError(name)
+        return getattr(self._ctrl, name)
 
 
 def test_task_close_progress_dialog_lifecycle(q_app):

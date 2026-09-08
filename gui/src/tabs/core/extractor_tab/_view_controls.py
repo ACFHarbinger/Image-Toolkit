@@ -13,20 +13,20 @@ import subprocess
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
-from PySide6.QtCore import QEvent, QObject, Qt, QUrl, Slot
-from PySide6.QtGui import QKeyEvent, QMouseEvent, QResizeEvent, QWheelEvent
+from PySide6.QtCore import Qt, QUrl, Slot
 from PySide6.QtMultimedia import QMediaPlayer
-from PySide6.QtWidgets import QLabel, QLineEdit, QMessageBox, QStyle, QWidget
+from PySide6.QtWidgets import QLabel, QMessageBox, QStyle, QWidget
 
 from ....components import ClickableLabel
 from ._player_lifecycle import PlayerLifecycleState
+from ._tab_bound import TabBoundController
 from ._video_view import VideoView
 
 if TYPE_CHECKING:
     from ..protos.extractor_tab import VideoExtractorSubTabHostProtocol
 
 
-class _ViewControlsMixin:
+class ExtractorViewControlsController(TabBoundController):
     """Event filtering, view resizing/fullscreen, resolution swapping, and
     internal/external player-mode toggling."""
 
@@ -63,96 +63,6 @@ class _ViewControlsMixin:
         if skip_ms <= 0:
             return
         self._seek_to(min(self.slider.value() + skip_ms, duration_ms))
-
-    def eventFilter(self: "VideoExtractorSubTabHostProtocol", watched: QObject, event: QEvent  # noqa: C901
-    ) -> bool:
-        if self.lbl_current_time and watched is self.lbl_current_time and event.type() == QEvent.Type.MouseButtonPress:
-                edit_current_time = cast(QLineEdit, self.edit_current_time)
-                self.lbl_current_time.hide()
-                edit_current_time.setText(self.lbl_current_time.text())
-                edit_current_time.show()
-                edit_current_time.setFocus()
-                edit_current_time.selectAll()
-                return True
-
-        if self.edit_current_time and watched is self.edit_current_time:
-            if event.type() == QEvent.Type.KeyPress:
-                if cast(QKeyEvent, event).key() == Qt.Key.Key_Escape:
-                    self._cancel_time_edit()
-                    return True
-            elif event.type() == QEvent.Type.FocusOut:
-                # Only cancel if it's not a return press (which also triggers focus out in some cases)
-                self._cancel_time_edit()
-                return True
-
-        # MANDATORY: Intercept mouse wheel events over any player-related object
-        # This performs seeking AND locks the page position by consuming the event.
-        if event.type() == QEvent.Type.Wheel:
-            is_view = self.video_view and watched is self.video_view
-            is_viewport = (
-                self.video_view
-                and hasattr(self.video_view, "viewport")
-                and watched is self.video_view.viewport()
-            )
-            is_container = self.player_container and watched is self.player_container
-
-            if is_view or is_viewport or is_container:
-                # Only perform seek logic if the video is loaded and we are in internal player mode
-                duration_ms = self._current_duration_ms()
-                if self.use_internal_player and duration_ms > 0:
-                    delta = cast(QWheelEvent, event).angleDelta().y()
-                    # Jump by configured ms per scroll tick
-                    step = self.wheel_seek_ms if delta > 0 else -self.wheel_seek_ms
-                    current_pos = self.slider.value()
-                    new_pos = max(0, min(current_pos + step, duration_ms))
-                    self._seek_to(new_pos)
-
-                # ALWAYS accept the event and return True.
-                # This explicitly blocks the parent QScrollArea from shifting the player's alignment.
-                event.accept()
-                return True
-
-        if self.video_view and watched is self.video_view and self.use_internal_player:
-            # toggle play on click
-            if (
-                event.type() == QEvent.Type.MouseButtonPress
-                and cast(QMouseEvent, event).button() == Qt.MouseButton.LeftButton
-            ):
-                self.toggle_playback()
-                return True
-
-            # --- Arrow Keys for Video Seeking (When video has focus) ---
-            if event.type() == QEvent.Type.KeyPress:
-                key_event = cast(QKeyEvent, event)
-                if key_event.key() == Qt.Key.Key_Right:
-                    # Seek forward
-                    pos = self.slider.value()
-                    duration = self._current_duration_ms()
-                    new_pos = min(pos + self.wheel_seek_ms, duration)
-                    self._seek_to(new_pos)
-                    return True
-                elif key_event.key() == Qt.Key.Key_Left:
-                    # Seek backward
-                    pos = self.slider.value()
-                    new_pos = max(0, pos - self.wheel_seek_ms)
-                    self._seek_to(new_pos)
-                    return True
-                elif key_event.key() == Qt.Key.Key_Escape:
-                    if (
-                        self.player_container
-                        and self.player_container.isFullScreen()
-                    ):
-                        self.toggle_fullscreen()
-                        return True
-
-        if self.player_container and watched is self.player_container:
-            if event.type() == QEvent.Type.KeyPress and cast(QKeyEvent, event).key() == Qt.Key.Key_Escape and self.player_container.isFullScreen():
-                self.toggle_fullscreen()
-                return True
-            if event.type() == QEvent.Type.Resize and self.video_view and self.video_view.isVisible():
-                self.fit_video_in_view()
-
-        return super().eventFilter(watched, event)  # type: ignore[misc]
 
     @Slot()
     def fit_video_in_view(self: "VideoExtractorSubTabHostProtocol"):
@@ -220,12 +130,6 @@ class _ViewControlsMixin:
             player_container.setWindowFlags(Qt.WindowType.Window)
             player_container.showFullScreen()
             player_container.setFocus()
-
-    @Slot(QResizeEvent)
-    def resizeEvent(self: "VideoExtractorSubTabHostProtocol", event: QResizeEvent):
-        super().resizeEvent(event)  # type: ignore[safe-super]
-        if self.video_view and self.video_view.isVisible():
-            self.fit_video_in_view()
 
     @Slot(int)
     def change_resolution(self: "VideoExtractorSubTabHostProtocol", index: int):
@@ -369,14 +273,14 @@ class _ViewControlsMixin:
                     )
                     return
             QMessageBox.warning(
-                cast(QWidget, self),
+                self.tab,
                 "External Player",
                 "No external video player found. Install a player (e.g. "
                 "Haruna, mpv, VLC) or set one as the system default.",
             )
         except Exception as e:
             QMessageBox.warning(
-                cast(QWidget, self),
+                self.tab,
                 "External Player",
                 f"Could not launch external player: {e}",
             )
@@ -448,8 +352,9 @@ class _ViewControlsMixin:
         if self.use_internal_player:
             self.btn_play.setEnabled(False)
             QMessageBox.critical(
-                cast(QWidget, self), "Video Error", f"Media Player Error: {error_string}"
+                self.tab, "Video Error", f"Media Player Error: {error_string}"
             )
 
 
-__all__ = ["_ViewControlsMixin"]
+__all__ = ["ExtractorViewControlsController"]
+
