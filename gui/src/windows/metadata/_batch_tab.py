@@ -20,10 +20,12 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from gui.src.theming.theme_api import qss
+
 from ...styles import apply_shadow_effect
 from ._cluster_entry import _ClusterEntry
 from ._image_tab import _ImageTab
-from ._shared import _GROUP_STYLE, _INPUT_STYLE, _checked_tags, _make_tag_list
+from ._shared import _checked_tags, _make_tag_list
 
 
 class _BatchTab(QWidget):
@@ -51,7 +53,7 @@ class _BatchTab(QWidget):
 
         # --- Apply-to-all section ---
         all_box = QGroupBox("Apply to ALL Images")
-        all_box.setStyleSheet(_GROUP_STYLE)
+        all_box.setStyleSheet(qss("metadata_group"))
         all_form = QFormLayout(all_box)
         all_form.setContentsMargins(8, 16, 8, 8)
 
@@ -59,14 +61,14 @@ class _BatchTab(QWidget):
         self._all_group.setEditable(True)
         self._all_group.setPlaceholderText("Group…")
         self._all_group.addItems([""] + groups)
-        self._all_group.setStyleSheet(_INPUT_STYLE)
+        self._all_group.setStyleSheet(qss("metadata_input"))
         self._all_group.currentTextChanged.connect(self._refresh_all_subgroups)
         all_form.addRow("Group:", self._all_group)
 
         self._all_subgroup = QComboBox()
         self._all_subgroup.setEditable(True)
         self._all_subgroup.setPlaceholderText("Subgroup…")
-        self._all_subgroup.setStyleSheet(_INPUT_STYLE)
+        self._all_subgroup.setStyleSheet(qss("metadata_input"))
         self._refresh_all_subgroups()
         all_form.addRow("Subgroup:", self._all_subgroup)
 
@@ -74,12 +76,8 @@ class _BatchTab(QWidget):
         all_form.addRow("Tags:", self._all_tags)
 
         apply_all_btn = QPushButton("⬇  Apply to All Image Tabs")
-        apply_all_btn.setStyleSheet(
-            "QPushButton { background: #5865f2; color: white; font-weight: bold; "
-            "padding: 8px 14px; border-radius: 6px; }"
-            "QPushButton:hover { background: #4752c4; }"
-        )
-        apply_shadow_effect(apply_all_btn, "#000000", 6, 0, 2)
+        apply_all_btn.setStyleSheet(qss("metadata_btn_apply_all"))
+        apply_shadow_effect(apply_all_btn, "black", 6, 0, 2)
         apply_all_btn.clicked.connect(self._apply_all)
         all_form.addRow("", apply_all_btn)
         root.addWidget(all_box)
@@ -89,21 +87,14 @@ class _BatchTab(QWidget):
         clusters_hdr.addWidget(QLabel("Clusters (optional — override specific image subsets):"))
         clusters_hdr.addStretch()
         add_cluster_btn = QPushButton("+ Add Cluster")
-        add_cluster_btn.setStyleSheet(
-            "QPushButton { background: #2ecc71; color: white; padding: 5px 12px; border-radius: 5px; }"
-            "QPushButton:hover { background: #27ae60; }"
-        )
+        add_cluster_btn.setStyleSheet(qss("metadata_btn_add_cluster"))
         add_cluster_btn.clicked.connect(self._add_cluster)
         clusters_hdr.addWidget(add_cluster_btn)
         root.addLayout(clusters_hdr)
 
         apply_clusters_btn = QPushButton("⬇  Apply All Clusters to Image Tabs")
-        apply_clusters_btn.setStyleSheet(
-            "QPushButton { background: #e67e22; color: white; font-weight: bold; "
-            "padding: 7px 14px; border-radius: 6px; }"
-            "QPushButton:hover { background: #ca6f1e; }"
-        )
-        apply_shadow_effect(apply_clusters_btn, "#000000", 6, 0, 2)
+        apply_clusters_btn.setStyleSheet(qss("metadata_btn_apply_clusters"))
+        apply_shadow_effect(apply_clusters_btn, "black", 6, 0, 2)
         apply_clusters_btn.clicked.connect(self._apply_clusters)
         root.addWidget(apply_clusters_btn)
 
@@ -117,7 +108,7 @@ class _BatchTab(QWidget):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setWidget(self._cluster_container)
-        scroll.setStyleSheet("QScrollArea { border: 1px solid #4f545c; border-radius: 6px; }")
+        scroll.setStyleSheet(qss("metadata_scroll_bordered"))
         root.addWidget(scroll, 1)
 
     # ------------------------------------------------------------------ helpers

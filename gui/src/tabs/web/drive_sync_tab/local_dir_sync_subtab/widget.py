@@ -34,6 +34,7 @@ from .....helpers.web.cloud.local_dir_sync_worker import (
     LocalDirSyncWorker,
 )
 from .....styles import apply_shadow_effect, set_button_role
+from .....theming.theme_api import color, qss
 from .....windows.logging import LogWindow
 
 
@@ -70,7 +71,7 @@ class LocalDirSyncSubtab(QWidget):
             "are excluded by default."
         )
         sec_label.setWordWrap(True)
-        sec_label.setStyleSheet("color: #e67e22; font-weight: bold;")
+        sec_label.setStyleSheet(qss("drive_sync_section_warning"))
         sec_layout.addWidget(sec_label)
 
         # ------------------ PATHS CONFIG ------------------
@@ -81,7 +82,7 @@ class LocalDirSyncSubtab(QWidget):
         local_row = QHBoxLayout()
         self.local_path_input = QLineEdit(str(Path.home() / ".image-toolkit"))
         btn_browse_local = QPushButton("Browse")
-        apply_shadow_effect(btn_browse_local, "#000000", 8, 0, 3)
+        apply_shadow_effect(btn_browse_local, color("window_bg"), 8, 0, 3)
         btn_browse_local.clicked.connect(self._browse_local_dir)
         local_row.addWidget(self.local_path_input)
         local_row.addWidget(btn_browse_local)
@@ -103,7 +104,7 @@ class LocalDirSyncSubtab(QWidget):
 
         # Conflict resolution policy
         policy_label = QLabel("Conflict Resolution Policy (when modified on both sides):")
-        policy_label.setStyleSheet("font-weight: bold; color: #3498db;")
+        policy_label.setStyleSheet(qss("drive_sync_label_local"))
         opt_layout.addWidget(policy_label)
 
         self.bg_policy = QButtonGroup(self)
@@ -135,10 +136,10 @@ class LocalDirSyncSubtab(QWidget):
         ctrl_layout = QHBoxLayout()
         self.dry_run_checkbox = QCheckBox("Perform Dry Run (Simulate plan only)")
         self.dry_run_checkbox.setChecked(True)
-        self.dry_run_checkbox.setStyleSheet("QCheckBox { color: #f1c40f; font-weight: bold; }")
+        self.dry_run_checkbox.setStyleSheet(qss("drive_sync_dry_run_bold"))
 
         self.btn_view_plan = QPushButton("Preview Sync Plan")
-        apply_shadow_effect(self.btn_view_plan, "#000000", 8, 0, 3)
+        apply_shadow_effect(self.btn_view_plan, color("window_bg"), 8, 0, 3)
         self.btn_view_plan.clicked.connect(self._preview_plan)
 
         ctrl_layout.addWidget(self.dry_run_checkbox)
@@ -153,7 +154,7 @@ class LocalDirSyncSubtab(QWidget):
         # Main sync button
         self.sync_button = QPushButton("Run Directory Sync Now")
         set_button_role(self.sync_button, "success")
-        apply_shadow_effect(self.sync_button, "#000000", 8, 0, 3)
+        apply_shadow_effect(self.sync_button, color("window_bg"), 8, 0, 3)
         self.sync_button.clicked.connect(self._toggle_sync)
 
         # Assemble main layout

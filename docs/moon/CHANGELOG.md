@@ -1,3 +1,15 @@
+# S533 — 2026-09-08 (Cursor: #564 complete + #574/#575 cross-surface tokens)
+
+- Finished R2.b styling migration: all `gui/src/` surfaces (`components/`,
+  `elements/`, `windows/`, `tabs/`, `classes/`, `helpers/`) now use
+  `theme_api.color()` / `qss()`; `styling_allowlist.txt` empty; audit → 0.
+- Added ~200 component QSS fragments, palette modules for wallpaper graph / ER
+  view, and `apply_stylesheet()` helper for app-level QSS.
+- **#574:** shared JSON token schema (`gui/src/theming/tokens/`), export script,
+  docs website `theme-tokens.generated.css` + `gen:theme-tokens` npm script.
+- **#575:** devtool app wired to same token JSON via generated CSS + `:root`
+  aliases in `dev/app/src/index.css`.
+
 # S532 — 2026-09-08 (Cursor: #564 theme token API + components styling migration)
 
 - Added `gui/src/theming/theme_api.py` with `color()` / `qss()` runtime helpers

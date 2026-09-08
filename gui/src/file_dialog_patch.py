@@ -15,6 +15,8 @@ from PySide6.QtCore import QEvent, QObject, QSortFilterProxyModel, Qt, QUrl
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QAbstractItemView, QFileDialog, QInputDialog, QMenu, QMessageBox
 
+from gui.src.theming.theme_api import qss
+
 
 def _app_settings():
     from gui.src.windows.settings.app_settings import AppSettings
@@ -119,50 +121,7 @@ class FileDialogEventFilter(QObject):
 
         # Premium Modern Styling matching the application theme
         is_dark = _app_settings().get("preferences/theme", "dark") == "dark"
-        if is_dark:
-            menu.setStyleSheet("""
-                QMenu {
-                    background-color: #2d2d30;
-                    color: white;
-                    border: 1px solid #3e3e42;
-                    font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
-                    font-size: 12px;
-                }
-                QMenu::item {
-                    padding: 6px 20px;
-                }
-                QMenu::item:selected {
-                    background-color: #00bcd4;
-                    color: black;
-                }
-                QMenu::separator {
-                    height: 1px;
-                    background-color: #3e3e42;
-                    margin: 4px 0px;
-                }
-            """)
-        else:
-            menu.setStyleSheet("""
-                QMenu {
-                    background-color: #ffffff;
-                    color: #333;
-                    border: 1px solid #ccc;
-                    font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
-                    font-size: 12px;
-                }
-                QMenu::item {
-                    padding: 6px 20px;
-                }
-                QMenu::item:selected {
-                    background-color: #007AFF;
-                    color: white;
-                }
-                QMenu::separator {
-                    height: 1px;
-                    background-color: #ccc;
-                    margin: 4px 0px;
-                }
-            """)
+        menu.setStyleSheet(qss("file_dialog_menu_dark" if is_dark else "file_dialog_menu_light", base="dark" if is_dark else "light"))
 
         favs = _app_settings().favourite_directories() # pyrefly: ignore [missing-attribute]
         norm_path = os.path.normpath(path)

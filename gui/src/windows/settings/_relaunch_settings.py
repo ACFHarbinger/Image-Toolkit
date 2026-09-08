@@ -25,6 +25,8 @@ from PySide6.QtWidgets import (
     QSpinBox,
 )
 
+from gui.src.theming.theme_api import color
+
 from .app_settings import AppSettings
 
 
@@ -410,8 +412,8 @@ class _RelaunchSettingsMixin:
             self.extractor_fps_clamp_spinbox.setValue(0)
 
         # Reset Appearance and Theme Studio
-        self.pref_accent_dark = "#00bcd4"
-        self.pref_accent_light = "#007AFF"
+        self.pref_accent_dark = color("accent", base="dark")
+        self.pref_accent_light = color("accent", base="light")
         if hasattr(self, "_reset_palette_to_base_defaults"):
             self._reset_palette_to_base_defaults()
         if hasattr(self, "bg_path_input"):

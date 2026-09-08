@@ -33,6 +33,8 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
+from gui.src.theming.theme_api import qss
+
 
 class _ResetStateMixin:
     """Builds the Login/Vault Sync, Logging, and Reset State groupboxes and their handlers."""
@@ -63,7 +65,7 @@ class _ResetStateMixin:
             "Synchronize active cryptography files between your home directory (~/.image-toolkit/secrets) "
             "and the repository templates (assets/secrets)."
         )
-        vault_sync_desc.setStyleSheet("color: #aaa; font-size: 11px;")
+        vault_sync_desc.setStyleSheet(qss("settings_desc_label", FONT_SIZE="11px"))
         vault_sync_desc.setWordWrap(True)
         vault_sync_layout.addWidget(vault_sync_desc)
 
@@ -72,14 +74,14 @@ class _ResetStateMixin:
         self.btn_sync_vault.setToolTip(
             "Copy active keystore, vault, and pepper files from ~/.image-toolkit/secrets to the repository template directory."
         )
-        self.btn_sync_vault.setStyleSheet("background-color: #7b1fa2; color: white; font-weight: bold;")
+        self.btn_sync_vault.setStyleSheet(qss("settings_btn_purple"))
         self.btn_sync_vault.clicked.connect(self._sync_vault_to_assets)
 
         self.btn_load_vault = QPushButton("Load Vault 📥")
         self.btn_load_vault.setToolTip(
             "Overwrite active files in ~/.image-toolkit/secrets with template files from the repository directory."
         )
-        self.btn_load_vault.setStyleSheet("background-color: #2c3e50; color: white; font-weight: bold;")
+        self.btn_load_vault.setStyleSheet(qss("settings_btn_neutral_dark"))
         self.btn_load_vault.clicked.connect(self._load_vault_from_assets)
 
         btn_layout.addWidget(self.btn_sync_vault)
@@ -140,7 +142,7 @@ class _ResetStateMixin:
         self.btn_clear_cache.setToolTip(
             "Delete all cached thumbnail files from disk. They will be regenerated on next gallery load."
         )
-        self.btn_clear_cache.setStyleSheet("background-color: #e67e22; color: white; font-weight: bold;")
+        self.btn_clear_cache.setStyleSheet(qss("settings_btn_warning"))
         self.btn_clear_cache.clicked.connect(self._clear_thumbnail_cache)
         cache_row.addWidget(cache_info, 1)
         cache_row.addWidget(self.btn_clear_cache)
@@ -154,7 +156,7 @@ class _ResetStateMixin:
         daemon_info.setWordWrap(True)
         self.btn_reset_daemon = QPushButton("Reset Slideshow Daemon")
         self.btn_reset_daemon.setToolTip("Delete the daemon PID file and remove the slideshow config JSON file.")
-        self.btn_reset_daemon.setStyleSheet("background-color: #e67e22; color: white; font-weight: bold;")
+        self.btn_reset_daemon.setStyleSheet(qss("settings_btn_warning"))
         self.btn_reset_daemon.clicked.connect(self._reset_slideshow_daemon)
         daemon_row.addWidget(daemon_info, 1)
         daemon_row.addWidget(self.btn_reset_daemon)
@@ -170,7 +172,7 @@ class _ResetStateMixin:
         self.btn_reset_history.setToolTip(
             "Deletes the .extraction_history.json file on disk and resets the dropdown selection list."
         )
-        self.btn_reset_history.setStyleSheet("background-color: #e67e22; color: white; font-weight: bold;")
+        self.btn_reset_history.setStyleSheet(qss("settings_btn_warning"))
         self.btn_reset_history.clicked.connect(self._reset_extraction_history)
         history_row.addWidget(history_info, 1)
         history_row.addWidget(self.btn_reset_history)
@@ -184,7 +186,7 @@ class _ResetStateMixin:
         logs_info.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         self.btn_clear_logs = QPushButton("Clear All Logs")
         self.btn_clear_logs.setToolTip("Delete all application and daemon log files from disk.")
-        self.btn_clear_logs.setStyleSheet("background-color: #e67e22; color: white; font-weight: bold;")
+        self.btn_clear_logs.setStyleSheet(qss("settings_btn_warning"))
         self.btn_clear_logs.clicked.connect(self._clear_application_logs)
         logs_row.addWidget(logs_info, 1)
         logs_row.addWidget(self.btn_clear_logs)
@@ -201,7 +203,7 @@ class _ResetStateMixin:
         self.btn_clear_tab_configs.setToolTip(
             "Wipe tab_configurations, active_tab_configs, and system_preference_profiles from the vault."
         )
-        self.btn_clear_tab_configs.setStyleSheet("background-color: #c0392b; color: white; font-weight: bold;")
+        self.btn_clear_tab_configs.setStyleSheet(qss("dialog_btn_danger"))
         self.btn_clear_tab_configs.clicked.connect(self._clear_tab_configs)
         tab_cfg_row.addWidget(tab_cfg_info, 1)
         tab_cfg_row.addWidget(self.btn_clear_tab_configs)

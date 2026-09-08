@@ -1,0 +1,2 @@
+border: 3px solid $DARK_SUCCESS;
+background-color: rgba(46, 204, 113, 0.15);

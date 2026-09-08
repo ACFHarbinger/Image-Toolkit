@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
 
 from gui.src.components.widgets.toast_widget import ToastManager
 from gui.src.preferences import PreferenceStore
+from gui.src.theming.theme_api import qss
 from gui.src.windows.settings.app_settings import AppSettings
 
 from ...constants import NEW_LIMIT_MB
@@ -161,7 +162,7 @@ class MainWindow(
             # --- Command Selection (built after all_tabs so the list is always in sync) ---
             command_layout = QHBoxLayout()
             command_label = QLabel("Select Category:")
-            command_label.setStyleSheet("font-weight: 600;")
+            command_label.setStyleSheet(qss("main_command_label"))
             command_layout.addWidget(command_label)
 
             self.command_combo = QComboBox()

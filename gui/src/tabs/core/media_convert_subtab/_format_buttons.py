@@ -10,6 +10,7 @@ from PySide6.QtCore import Slot
 from PySide6.QtWidgets import QPushButton
 
 from ....styles import apply_shadow_effect
+from ....theming.theme_api import color, qss
 
 
 class _FormatButtonsMixin:
@@ -18,8 +19,8 @@ class _FormatButtonsMixin:
     def _add_format_button(self, fmt, layout):
         btn = QPushButton(fmt)
         btn.setCheckable(True)
-        btn.setStyleSheet("QPushButton:hover {  }")
-        apply_shadow_effect(btn, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
+        btn.setStyleSheet(qss("btn_hover_empty"))
+        apply_shadow_effect(btn, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3)
         btn.clicked.connect(lambda checked, f=fmt: self.toggle_format(f, checked))
         layout.addWidget(btn)
         self.format_buttons[fmt] = btn
@@ -63,20 +64,15 @@ class _FormatButtonsMixin:
         btn = self.format_buttons[fmt]
         if checked:
             self.selected_formats.add(fmt) # pyrefly: ignore [missing-attribute]
-            btn.setStyleSheet(
-                """
-                QPushButton:checked {  color: white; }
-                QPushButton:hover {  }
-            """
-            )
+            btn.setStyleSheet(qss("toggle_btn_checked"))
             apply_shadow_effect(
-                btn, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+                btn, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3
             )
         else:
             self.selected_formats.discard(fmt) # pyrefly: ignore [missing-attribute]
-            btn.setStyleSheet("QPushButton:hover {  }")
+            btn.setStyleSheet(qss("btn_hover_empty"))
             apply_shadow_effect(
-                btn, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+                btn, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3
             )
 
     @Slot()

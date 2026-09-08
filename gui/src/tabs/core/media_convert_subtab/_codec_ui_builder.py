@@ -25,7 +25,8 @@ from PySide6.QtWidgets import (
 )
 
 from ....components import OptionalField, VirtualDualGallery
-from ....styles import SHARED_BUTTON_STYLE, apply_shadow_effect
+from ....styles import apply_shadow_effect
+from ....theming.theme_api import color, qss
 from ._codec_constants import (
     AUDIO_CODEC_OPTIONS,
     COMMON_SOURCE_AUDIO_CODECS,
@@ -44,7 +45,7 @@ class _UIBuilderMixin:
 
         page_scroll = QScrollArea()
         page_scroll.setWidgetResizable(True)
-        page_scroll.setStyleSheet("QScrollArea { border: none; }")
+        page_scroll.setStyleSheet(qss("scroll_area_borderless"))
 
         content_widget = QWidget()
         content_layout = QVBoxLayout(content_widget)
@@ -64,7 +65,7 @@ class _UIBuilderMixin:
         btn_browse_scan = QPushButton("Browse...")
         btn_browse_scan.clicked.connect(self.browse_directory_and_scan)
         apply_shadow_effect(
-            btn_browse_scan, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+            btn_browse_scan, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3
         )
         input_layout.addWidget(btn_browse_scan)
 
@@ -128,7 +129,7 @@ class _UIBuilderMixin:
         btn_output = QPushButton("Browse...")
         btn_output.clicked.connect(self.browse_output)
         apply_shadow_effect(
-            btn_output, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+            btn_output, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3
         )
         h_output_dir.addWidget(self.output_path)
         h_output_dir.addWidget(btn_output)
@@ -190,17 +191,12 @@ class _UIBuilderMixin:
         self.multicore_checkbox.setToolTip(
             "Process multiple files in parallel across multiple CPU cores."
         )
-        self.multicore_checkbox.setStyleSheet(
-            """
-            QCheckBox::indicator { width: 16px; height: 16px; border: 1px solid #555; border-radius: 3px;  }
-            QCheckBox::indicator:checked {  border: 1px solid #4CAF50; image: url(./src/gui/assets/check.png); }
-        """
-        )
+        self.multicore_checkbox.setStyleSheet(qss("convert_checkbox"))
         self.multicore_checkbox.setChecked(True)
         settings_layout.addRow(self.multicore_checkbox)
 
         self.delete_checkbox = QCheckBox("Delete original files after conversion")
-        self.delete_checkbox.setStyleSheet(self.multicore_checkbox.styleSheet())
+        self.delete_checkbox.setStyleSheet(qss("convert_checkbox"))
         self.delete_checkbox.setChecked(False)
         settings_layout.addRow(self.delete_checkbox)
 
@@ -211,10 +207,7 @@ class _UIBuilderMixin:
         self.convert_progress_bar = QProgressBar()
         self.convert_progress_bar.setTextVisible(True)
         self.convert_progress_bar.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.convert_progress_bar.setStyleSheet(
-            "QProgressBar {  color: white; border: 1px solid #4f545c; border-radius: 4px; padding: 2px; }"
-            "QProgressBar::chunk {  border-radius: 4px; }"
-        )
+        self.convert_progress_bar.setStyleSheet(qss("convert_progress_bar"))
         self.convert_progress_bar.setMinimum(0)
         self.convert_progress_bar.setMaximum(100)
         self.convert_progress_bar.setValue(0)
@@ -246,9 +239,9 @@ class _UIBuilderMixin:
         button_layout.setContentsMargins(0, 0, 0, 0)
 
         self.btn_convert_all = QPushButton("Convert All in Directory")
-        self.btn_convert_all.setStyleSheet(SHARED_BUTTON_STYLE)
+        self.btn_convert_all.setStyleSheet(qss("shared_button"))
         apply_shadow_effect(
-            self.btn_convert_all, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+            self.btn_convert_all, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3
         )
         self.btn_convert_all.clicked.connect(
             lambda: self.start_conversion_worker(use_selection=False)
@@ -256,10 +249,10 @@ class _UIBuilderMixin:
         button_layout.addWidget(self.btn_convert_all)
 
         self.btn_convert_contents = QPushButton("Convert Selected Files (0)")
-        self.btn_convert_contents.setStyleSheet(SHARED_BUTTON_STYLE)
+        self.btn_convert_contents.setStyleSheet(qss("shared_button"))
         apply_shadow_effect(
             self.btn_convert_contents,
-            color_hex="#000000",
+            color_hex=color("window_bg"),
             radius=8,
             x_offset=0,
             y_offset=3,
@@ -273,9 +266,7 @@ class _UIBuilderMixin:
 
         self.status_label = QLabel("Ready.")
         self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.status_label.setStyleSheet(
-            "color: #666; font-style: italic; padding: 8px;"
-        )
+        self.status_label.setStyleSheet(qss("status_label_padded"))
         content_layout.addWidget(self.status_label)
 
         page_scroll.setWidget(content_widget)

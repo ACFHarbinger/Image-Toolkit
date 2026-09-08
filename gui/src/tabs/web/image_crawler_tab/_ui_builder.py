@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
 
 from ....components import OptionalField
 from ....styles import apply_shadow_effect, set_button_role
+from ....theming.theme_api import color, qss
 
 
 class _UIBuilderMixin:
@@ -78,7 +79,7 @@ class _UIBuilderMixin:
         btn_browse_download = QPushButton("Browse...")
         btn_browse_download.clicked.connect(self.browse_download_directory)
         apply_shadow_effect(
-            btn_browse_download, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+            btn_browse_download, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3
         )
         download_dir_layout.addWidget(self.download_dir_path)
         download_dir_layout.addWidget(btn_browse_download)
@@ -93,7 +94,7 @@ class _UIBuilderMixin:
         btn_browse_screenshot = QPushButton("Browse...")
         btn_browse_screenshot.clicked.connect(self.browse_screenshot_directory)
         apply_shadow_effect(
-            btn_browse_screenshot, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+            btn_browse_screenshot, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3
         )
         screenshot_dir_layout.addWidget(self.screenshot_dir_path)
         screenshot_dir_layout.addWidget(btn_browse_screenshot)
@@ -127,9 +128,7 @@ class _UIBuilderMixin:
         # Progress and Status
         self.status_label = QLabel("Ready.")
         self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.status_label.setStyleSheet(
-            "color: #aaa; font-style: italic; padding: 8px;"
-        )
+        self.status_label.setStyleSheet(qss("status_label_padded"))
         main_layout.addWidget(self.status_label)
 
         self.progress_bar = QProgressBar()
@@ -146,7 +145,7 @@ class _UIBuilderMixin:
         self.run_button = QPushButton("Run Crawler")
         set_button_role(self.run_button, "success")
         apply_shadow_effect(
-            self.run_button, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+            self.run_button, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3
         )
         self.run_button.clicked.connect(self.start_crawl)
 
@@ -159,7 +158,7 @@ class _UIBuilderMixin:
         self.webdriver_button = QPushButton("🌐 Start WebDriver Service")
         set_button_role(self.webdriver_button, "success")
         apply_shadow_effect(
-            self.webdriver_button, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+            self.webdriver_button, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3
         )
         self.webdriver_button.clicked.connect(self.toggle_webdriver)
         self.button_layout.addWidget(
@@ -171,7 +170,7 @@ class _UIBuilderMixin:
         self.cancel_button = QPushButton("Cancel Crawl")
         set_button_role(self.cancel_button, "danger")
         apply_shadow_effect(
-            self.cancel_button, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+            self.cancel_button, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3
         )
         self.cancel_button.clicked.connect(self.cancel_crawl)
         self.cancel_button.hide()
@@ -351,7 +350,7 @@ class _UIBuilderMixin:
         # API Doc Link Label (to be placed dynamically)
         self.api_doc_link = QLabel("")
         self.api_doc_link.setOpenExternalLinks(True)
-        self.api_doc_link.setStyleSheet("padding: 5px; font-size: 10px; color: #aaa;")
+        self.api_doc_link.setStyleSheet(qss("crawler_api_doc_link"))
         layout.addWidget(self.api_doc_link)  # Add here initially
 
         # Auth Group

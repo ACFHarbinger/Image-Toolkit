@@ -12,7 +12,7 @@ from PySide6.QtGui import QKeyEvent
 from PySide6.QtWidgets import QMessageBox
 
 from ....helpers import ConversionWorker
-from ....styles import SHARED_BUTTON_STYLE
+from ....theming.theme_api import qss
 
 
 class _ConversionWorkerMixin:
@@ -68,11 +68,7 @@ class _ConversionWorkerMixin:
         )
         button_to_cancel.setEnabled(True)
         button_to_cancel.setText("Cancel Conversion")
-        button_to_cancel.setStyleSheet(
-            """
-            QPushButton {  color: white; font-weight: bold; }
-        """
-        )
+        button_to_cancel.setStyleSheet(qss("btn_cancel_active"))
 
         self.status_label.setText(f"Converting {len(files_for_conversion)} files...") # pyrefly: ignore [missing-attribute]
         self.convert_progress_bar.show()  # Show the new progress bar
@@ -102,10 +98,10 @@ class _ConversionWorkerMixin:
         # Reset UI elements
         self.btn_convert_all.setEnabled(True)
         self.btn_convert_all.setText("Convert All in Directory")
-        self.btn_convert_all.setStyleSheet(SHARED_BUTTON_STYLE)
+        self.btn_convert_all.setStyleSheet(qss("shared_button"))
 
         self.on_selection_changed()
-        self.btn_convert_contents.setStyleSheet(SHARED_BUTTON_STYLE)
+        self.btn_convert_contents.setStyleSheet(qss("shared_button"))
 
         self.convert_progress_bar.hide()
         self.convert_progress_bar.setValue(0)  # Reset value

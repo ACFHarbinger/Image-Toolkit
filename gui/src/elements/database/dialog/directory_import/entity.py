@@ -28,6 +28,7 @@ from gui.src.elements.database.common.listings_common import _persist_splitter
 from gui.src.elements.database.dialog.common.base_directory_import_dialog import (
     BaseDirectoryImportDialog,
 )
+from gui.src.theming.theme_api import qss
 
 from ._shared import (
     build_confirm_button_row,
@@ -76,7 +77,7 @@ class _EntityDirectoryImportDialog(BaseDirectoryImportDialog):
         left_vbox.setSpacing(6)
 
         self._status_lbl = QLabel(self._profile.status_idle_text)
-        self._status_lbl.setStyleSheet("color:#888; font-size:11px;")
+        self._status_lbl.setStyleSheet(qss("directory_import_status_label"))
         left_vbox.addWidget(self._status_lbl)
 
         self._table = make_results_table(
@@ -130,7 +131,7 @@ class _EntityDirectoryImportDialog(BaseDirectoryImportDialog):
             "</small>"
         )
         info_lbl.setWordWrap(True)
-        info_lbl.setStyleSheet("color:#888; font-size:10px; border:none;")
+        info_lbl.setStyleSheet(qss("directory_import_info_label"))
         right_vbox.addWidget(info_lbl)
         splitter.addWidget(right)
 

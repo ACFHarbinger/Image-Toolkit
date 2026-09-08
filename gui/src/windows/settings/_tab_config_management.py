@@ -22,6 +22,8 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
+from gui.src.theming.theme_api import qss
+
 
 class _TabConfigMixin:
     """Builds the Preferences and Tab Default Configuration sections and their handlers."""
@@ -49,7 +51,7 @@ class _TabConfigMixin:
 
             # Add category label
             category_label = QLabel(f"--- {category_name} ---")
-            category_label.setStyleSheet("font-weight: bold; margin-top: 5px;")
+            category_label.setStyleSheet(qss("settings_category_label"))
             all_categories_layout.addWidget(category_label)
 
             # Create a FormLayout for tabs within this category
@@ -127,7 +129,7 @@ class _TabConfigMixin:
 
         # Existing Delete Button
         self.btn_delete_config = QPushButton("Delete Selected Config")
-        self.btn_delete_config.setStyleSheet("background-color: #e74c3c; color: white;")
+        self.btn_delete_config.setStyleSheet(qss("dialog_btn_danger"))
         self.btn_delete_config.clicked.connect(self._delete_selected_tab_config)
         # Set policy to expand horizontally
         self.btn_delete_config.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
@@ -145,14 +147,14 @@ class _TabConfigMixin:
 
         self.btn_export_config = QPushButton("Export Config to JSON 📤")
         self.btn_export_config.setToolTip("Save the currently selected/edited configuration to a .json file")
-        self.btn_export_config.setStyleSheet("background-color: #7b1fa2; color: white; font-weight: bold;")
+        self.btn_export_config.setStyleSheet(qss("settings_btn_purple"))
         self.btn_export_config.clicked.connect(self._export_selected_tab_config)
         self.btn_export_config.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         transfer_buttons_layout.addWidget(self.btn_export_config)
 
         self.btn_import_config = QPushButton("Import Config from JSON 📥")
         self.btn_import_config.setToolTip("Load a configuration from a .json file and save it for its tab")
-        self.btn_import_config.setStyleSheet("background-color: #2c3e50; color: white; font-weight: bold;")
+        self.btn_import_config.setStyleSheet(qss("settings_btn_neutral_dark"))
         self.btn_import_config.clicked.connect(self._import_tab_config_from_json)
         self.btn_import_config.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         transfer_buttons_layout.addWidget(self.btn_import_config)
@@ -181,7 +183,7 @@ class _TabConfigMixin:
 
         self.btn_save_current = QPushButton("Save Current Configuration")
         self.btn_save_current.setToolTip("Capture current values from the active tab and save them")
-        self.btn_save_current.setStyleSheet("background-color: #007AFF; color: white; font-weight: bold;")
+        self.btn_save_current.setStyleSheet(qss("settings_btn_accent"))
         self.btn_save_current.clicked.connect(self._capture_and_save_current_config)
 
         save_buttons_layout.addWidget(self.btn_create_default)

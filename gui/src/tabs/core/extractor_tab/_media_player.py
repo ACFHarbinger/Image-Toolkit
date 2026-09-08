@@ -48,6 +48,7 @@ from ....helpers.video.video_thumbnailer import (
     MEDIA_BACKEND_LOAD_LOCK,
     mark_media_backend_loaded,
 )
+from ....theming.theme_api import qss
 from ....utils.sort_utils import natural_sort_key
 from ._video_view import VideoView
 
@@ -93,7 +94,7 @@ class _MediaPlayerMixin:
 
         player_container = QWidget()
         self.player_container = player_container
-        player_container.setStyleSheet("")
+        player_container.setStyleSheet(qss("transparent_bg"))
         self.player_inner_layout = QVBoxLayout(player_container)
         self.player_inner_layout.setContentsMargins(0, 0, 0, 0)
 
@@ -246,9 +247,7 @@ class _MediaPlayerMixin:
         edit_current_time.setFixedWidth(85)
         edit_current_time.setVisible(False)
         edit_current_time.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        edit_current_time.setStyleSheet(
-            "QLineEdit {  color: #00BCD4; border: 1px solid #4f545c; border-radius: 4px; font-family: monospace; }"
-        )
+        edit_current_time.setStyleSheet(qss("extractor_line_edit"))
         edit_current_time.returnPressed.connect(self._jump_to_edited_time)
         edit_current_time.installEventFilter(cast(QObject, self))
 
@@ -314,9 +313,7 @@ class _MediaPlayerMixin:
         self.info_label = QLabel(
             "Video is playing externally. Use slider to select timestamps."
         )
-        self.info_label.setStyleSheet(
-            "color: #aaa; font-style: italic; font-size: 11px;"
-        )
+        self.info_label.setStyleSheet(qss("extractor_info_italic"))
         self.info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.info_label.setVisible(False)
         self.player_inner_layout.addWidget(self.info_label)
@@ -326,11 +323,7 @@ class _MediaPlayerMixin:
         self.storyboard_progress_bar.setFormat("Generating scrub preview... %p%")
         self.storyboard_progress_bar.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.storyboard_progress_bar.setFixedHeight(14)
-        self.storyboard_progress_bar.setStyleSheet(
-            "QProgressBar {  color: #aaa; border: 1px solid #4f545c;"
-            " border-radius: 4px; font-size: 10px; }"
-            "QProgressBar::chunk {  border-radius: 4px; }"
-        )
+        self.storyboard_progress_bar.setStyleSheet(qss("storyboard_progress_bar"))
         self.storyboard_progress_bar.setMinimum(0)
         self.storyboard_progress_bar.setMaximum(100)
         self.storyboard_progress_bar.setValue(0)

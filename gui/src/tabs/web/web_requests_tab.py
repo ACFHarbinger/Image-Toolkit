@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
 
 from ...helpers import WebRequestsWorker
 from ...styles import set_button_role
+from ...theming.theme_api import qss
 from ...windows.logging import LogWindow
 
 
@@ -81,9 +82,7 @@ class WebRequestsTab(QWidget):
         # Request List
         self.request_list_widget = QListWidget()
         self.request_list_widget.setMinimumHeight(150)
-        self.request_list_widget.setStyleSheet(
-            "QListWidget { border: 1px solid #4f545c; border-radius: 4px; }"
-        )
+        self.request_list_widget.setStyleSheet(qss("bordered_list_widget"))
         self.request_list_widget.setContextMenuPolicy(
             Qt.ContextMenuPolicy.CustomContextMenu
         )
@@ -127,9 +126,7 @@ class WebRequestsTab(QWidget):
         # Action List
         self.action_list_widget = QListWidget()
         self.action_list_widget.setMinimumHeight(150)
-        self.action_list_widget.setStyleSheet(
-            "QListWidget { border: 1px solid #4f545c; border-radius: 4px; }"
-        )
+        self.action_list_widget.setStyleSheet(qss("bordered_list_widget"))
         self.action_list_widget.setContextMenuPolicy(
             Qt.ContextMenuPolicy.CustomContextMenu
         )
@@ -144,9 +141,7 @@ class WebRequestsTab(QWidget):
         # --- Progress and Status ---
         self.status_label = QLabel("Ready.")
         self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.status_label.setStyleSheet(
-            "color: #aaa; font-style: italic; padding: 8px;"
-        )
+        self.status_label.setStyleSheet(qss("status_label_padded"))
         main_layout.addWidget(self.status_label)
 
         self.progress_bar = QProgressBar()

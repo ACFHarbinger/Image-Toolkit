@@ -60,6 +60,13 @@ def color(token: str, *, base: str = "dark") -> str:
     return fallback[token]
 
 
+def accent_rgba(alpha: float = 0.2, *, base: str = "dark") -> str:
+    """Theme accent as ``rgba(r, g, b, alpha)`` for QSS backgrounds."""
+    hex_color = color("accent", base=base).lstrip("#")
+    r, g, b = (int(hex_color[i : i + 2], 16) for i in (0, 2, 4))
+    return f"rgba({r}, {g}, {b}, {alpha})"
+
+
 def qss(component: str, *, base: str = "dark", **vars: Any) -> str:
     """Load ``gui/src/theming/qss/components/{component}.qss`` with ``$VAR`` substitution."""
     path = os.path.join(_COMPONENTS_DIR, f"{component}.qss")
@@ -77,4 +84,9 @@ def qss(component: str, *, base: str = "dark", **vars: Any) -> str:
     return Template(content).safe_substitute(merged)
 
 
-__all__ = ["color", "qss"]
+def apply_stylesheet(widget, stylesheet: str) -> None:
+    """Apply a pre-built application stylesheet (e.g. from ``load_qss_with_overrides``)."""
+    widget.setStyleSheet(stylesheet)
+
+
+__all__ = ["accent_rgba", "apply_stylesheet", "color", "qss"]

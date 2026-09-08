@@ -31,10 +31,10 @@ from .core import (
     extractor_tab as extractor_tab,
 )
 from .core import (
-    media_convert_subtab as media_convert_subtab,
+    image_extractor_subtab as image_extractor_subtab,
 )
 from .core import (
-    image_extractor_subtab as image_extractor_subtab,
+    media_convert_subtab as media_convert_subtab,
 )
 from .core import (
     merge_tab as merge_tab,

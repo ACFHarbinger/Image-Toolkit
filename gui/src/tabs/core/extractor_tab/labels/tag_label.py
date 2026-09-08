@@ -1,6 +1,8 @@
 from PySide6.QtCore import QPoint, Qt, Signal
 from PySide6.QtWidgets import QLabel
 
+from .....theming.theme_api import qss
+
 
 class _TagLabel(QLabel):
     """A small interactive label for individual tags that supports clicking to jump and right-click to edit/delete."""
@@ -14,10 +16,7 @@ class _TagLabel(QLabel):
         self.ms = ms
         self.index = index
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setStyleSheet(
-            "color: #FFC107; font-weight: bold; padding: 2px 6px; "
-            "border: 1px solid #4f545c; border-radius: 4px; "
-        )
+        self.setStyleSheet(qss("extractor_tag_label"))
         self.setToolTip(f"Jump to {text}\nRight-click to edit/delete")
 
     def mousePressEvent(self, event):
