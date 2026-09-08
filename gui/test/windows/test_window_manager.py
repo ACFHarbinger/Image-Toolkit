@@ -7,6 +7,7 @@ import contextlib
 import pytest
 from gui.src.windows.main._lifecycle import collect_background_windows
 from gui.src.windows.main._notify import (
+    StatusSink,
     show_main_status,
     show_toast_notification,
     show_tray_notification,
@@ -97,6 +98,30 @@ def test_notify_helpers_noop_without_main(q_app):
     show_main_status("x")
     show_toast_notification("x")
     show_tray_notification("t", "m")
+
+
+def test_notify_helpers_warn_on_protocol_drift(q_app, caplog):
+    # A registered main window missing the StatusSink methods is a bug:
+    # it must log, never silently swallow (R0.7, #553).
+    import logging
+
+    main = QWidget()
+    register_window(main, role="main")
+    assert not isinstance(main, StatusSink)
+    with caplog.at_level(logging.WARNING, logger="gui.src.windows.main._notify"):
+        show_main_status("x")
+        show_toast_notification("x")
+        show_tray_notification("t", "m")
+    assert "protocol drift" in caplog.text
+
+
+def test_main_window_implements_status_sink():
+    # Pins the R0.7 contract without constructing the window: the three
+    # sink methods live across MainWindow's mixins.
+    from gui.src.windows.main.main_window import MainWindow
+
+    for method in ("tray_notify", "show_status", "show_toast"):
+        assert callable(getattr(MainWindow, method, None)), method
 
 
 def test_collect_background_windows_uses_registry(q_app):
