@@ -36,7 +36,7 @@ from PySide6.QtGui import QIcon, QImage, QPixmap
 from shiboken6 import Shiboken
 
 from gui.src.thumbnails import DefaultThumbnailScheduler, ThumbnailScheduler
-from gui.src.utils.cache.lru_image_cache import LRUImageCache
+from gui.src.utils.cache.lru_image_cache import DEFAULT_PIXMAP_BUDGET, LRUImageCache
 
 
 class VirtualGalleryModel(QAbstractListModel):
@@ -63,7 +63,7 @@ class VirtualGalleryModel(QAbstractListModel):
     def __init__(
         self,
         parent=None,
-        cache_maxsize: int = 300,
+        cache_maxsize: int = DEFAULT_PIXMAP_BUDGET.virtual_model,
         worker_factory=None,
         shared_cache: Optional[LRUImageCache] = None,
         fill_mode: bool = True,

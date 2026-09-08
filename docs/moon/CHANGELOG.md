@@ -1,3 +1,9 @@
+# S542 — 2026-09-08 (Grok: #568 R3.1 PixmapBudget)
+
+- One `PixmapBudget` dataclass owns LRU thumbnail cache sizes (card thumb,
+  single gallery, two-gallery found/selected, virtual dual, virtual model,
+  ceiling). Call sites construct `LRUImageCache` from those fields.
+
 # S535 — 2026-09-08 (Grok: huge-GIF gallery thumbnails)
 
 - Gallery / wallpaper / extractor thumbnail loads no longer run Qt's GIF

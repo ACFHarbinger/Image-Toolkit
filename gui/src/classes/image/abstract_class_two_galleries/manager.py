@@ -10,7 +10,7 @@ from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import QGridLayout, QLabel, QWidget
 
 from ....components import MarqueeScrollArea
-from ....utils.cache.lru_image_cache import LRUImageCache
+from ....utils.cache.lru_image_cache import DEFAULT_PIXMAP_BUDGET, LRUImageCache
 from ...base.gallery_base import AbstractGalleryBase
 from ._card_rendering import _CardRenderingMixin
 from ._color_labels import _ColorLabelsMixin
@@ -62,8 +62,12 @@ class AbstractClassTwoGalleries(
 
         self.path_to_label_map: Dict[str, QWidget] = {}
         self.selected_card_map: Dict[str, QWidget] = {}
-        self._selected_pixmap_cache = LRUImageCache(maxsize=200)
-        self._found_pixmap_cache = LRUImageCache(maxsize=300)
+        self._selected_pixmap_cache = LRUImageCache(
+            maxsize=DEFAULT_PIXMAP_BUDGET.two_galleries_selected
+        )
+        self._found_pixmap_cache = LRUImageCache(
+            maxsize=DEFAULT_PIXMAP_BUDGET.two_galleries_found
+        )
         self.found_loading_paths: Set[str] = set()
         self._loading_paths: Set[str] = set()
 

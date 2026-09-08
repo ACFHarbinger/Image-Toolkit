@@ -1,4 +1,5 @@
 from collections import OrderedDict
+from dataclasses import dataclass
 
 from PySide6.QtGui import QImage
 
@@ -10,6 +11,31 @@ from PySide6.QtGui import QImage
 # (512px, ~1MB/QImage) this ceiling bounds one cache to ~800MB instead of
 # unbounded/swap-thrashing on multi-thousand-image directories.
 LRU_CACHE_CEILING = 800
+
+
+@dataclass(frozen=True)
+class PixmapBudget:
+    """Per-role LRU thumbnail cache sizes (R3.1 / #568).
+
+    Each ``LRUImageCache`` is independent and clamps to ``ceiling`` on its
+    own; the sum of the six defaults is not required to be ``<= ceiling``.
+    ``virtual_dual_shared`` is 500 because Found+Selected share one cache
+    (``dual_widget``), unlike the per-panel 300/200 two-gallery caches.
+    """
+
+    card_thumb: int = 250
+    single_gallery: int = 300
+    two_galleries_selected: int = 200
+    two_galleries_found: int = 300
+    virtual_dual_shared: int = 500  # dual_widget current default
+    virtual_model: int = 300
+    ceiling: int = LRU_CACHE_CEILING
+
+    def clamp(self, size: int) -> int:
+        return min(size, self.ceiling)
+
+
+DEFAULT_PIXMAP_BUDGET = PixmapBudget()
 
 
 class LRUImageCache:
