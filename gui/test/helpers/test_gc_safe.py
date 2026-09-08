@@ -181,3 +181,21 @@ def test_base_qrunnable_worker_restores_gc_when_execute_raises():
 
     _Task().run()  # exception routes to the signals.error, not the caller
     assert gc.isenabled() is True
+
+
+def test_base_qrunnable_worker_cancel_emits_finished_none_without_executing():
+    executed = False
+    finished: list[object] = []
+
+    class _Task(BaseQRunnableWorker):
+        def _execute(self) -> None:
+            nonlocal executed
+            executed = True
+
+    task = _Task()
+    task.signals.finished.connect(finished.append)
+    task.cancel()
+    task.run()
+
+    assert executed is False
+    assert finished == [None]

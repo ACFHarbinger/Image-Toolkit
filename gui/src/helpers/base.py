@@ -212,6 +212,7 @@ class BaseQRunnableWorker(QRunnable):
     def run(self) -> None:
         if self._cancelled:
             self.signals.cancelled.emit()
+            self.signals.finished.emit(None)
             return
         try:
             result = self._execute()
