@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (
 )
 
 
-class _UIBuilderMixin:
+class DetailPanelUIBuilder:
     """Builds the image preview, form fields, episode list, and action buttons."""
 
     def _build_ui(self) -> None:
@@ -32,6 +32,12 @@ class _UIBuilderMixin:
         layout.setContentsMargins(12, 12, 12, 12)
         layout.setSpacing(10)
 
+        self._build_preview_and_tools(layout)
+        self._build_form_fields(layout)
+        self._build_tags_and_episodes(layout)
+        self._build_action_buttons(layout)
+
+    def _build_preview_and_tools(self, layout: QVBoxLayout) -> None:
         # Image preview setup from BaseDetailPanel
         self.img_preview.setFixedSize(160, 160)
         self.img_preview.setText("No Image")
@@ -66,7 +72,7 @@ class _UIBuilderMixin:
         img_row.addStretch()
         layout.addLayout(img_row)
 
-        # Form
+    def _build_form_fields(self, layout: QVBoxLayout) -> None:
         form = QFormLayout()
         form.setSpacing(8)
 
@@ -98,8 +104,6 @@ class _UIBuilderMixin:
 
         # Associated Entities selection row
         self.assoc_entities_ids = []
-        # QTextEdit (not QLabel) so the field can scroll instead of clipping
-        # once the associated-entity list grows past its fixed height.
         self.f_assoc_entities_display = QTextEdit()
         self.f_assoc_entities_display.setReadOnly(True)
         self.f_assoc_entities_display.setPlaceholderText("None selected")
@@ -160,10 +164,7 @@ class _UIBuilderMixin:
         form.addRow("Review / Notes", self.f_review)
         layout.addLayout(form)
 
-        # --- All Tags (grouped by category) Section ---
-        # Genres/Tags plus tags carried transitively through associated
-        # entities (Danbooru-style tag overhaul) -- replaces the old
-        # standalone Genres/Tags text fields entirely.
+    def _build_tags_and_episodes(self, layout: QVBoxLayout) -> None:
         tags_group = QGroupBox("All Tags (by Category)")
         tags_group.setStyleSheet(qss("detail_panel_group_accent"))
         tags_group_layout = QVBoxLayout(tags_group)
@@ -181,7 +182,7 @@ class _UIBuilderMixin:
         tags_group_layout.addWidget(self.grouped_tags_display)
         layout.addWidget(tags_group)
 
-        # --- Episode List Section ---
+        # Episode List Section
         self.episode_group = QGroupBox("Episodes / Chapters / Parts")
         self.episode_group.setStyleSheet(qss("detail_panel_group_accent"))
         eg_layout = QVBoxLayout(self.episode_group)
@@ -195,7 +196,7 @@ class _UIBuilderMixin:
         eg_layout.addWidget(add_ep_btn)
         layout.addWidget(self.episode_group)
 
-        # Action buttons
+    def _build_action_buttons(self, layout: QVBoxLayout) -> None:
         btn_row = QHBoxLayout()
         self.save_btn = QPushButton("💾 Save")
         self.save_btn.setStyleSheet(qss("shared_button"))
@@ -213,4 +214,4 @@ class _UIBuilderMixin:
         layout.addStretch()
 
 
-__all__ = ["_UIBuilderMixin"]
+__all__ = ["DetailPanelUIBuilder"]

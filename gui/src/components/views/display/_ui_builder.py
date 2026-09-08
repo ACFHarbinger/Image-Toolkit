@@ -11,7 +11,7 @@ from PySide6.QtWidgets import QLabel, QVBoxLayout
 from gui.src.theming.theme_api import qss
 
 
-class _UIBuilderMixin:
+class MonitorDropViewUIBuilder:
     """Builds the top/bottom info labels and applies the default drop-target style."""
 
     def _build_ui(self) -> None:
@@ -54,4 +54,4 @@ class _UIBuilderMixin:
         self.setStyleSheet(qss("monitor_drop_default"))
 
 
-__all__ = ["_UIBuilderMixin"]
+__all__ = ["MonitorDropViewUIBuilder"]

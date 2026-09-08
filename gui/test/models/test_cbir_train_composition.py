@@ -30,7 +30,6 @@ from gui.src.tabs.models.delta.cbir_train_tab._training_worker import (
 )
 from gui.src.tabs.models.delta.cbir_train_tab._ui_builder import (
     CBIRTrainUIBuilder,
-    _UIBuilderMixin,
 )
 
 pytestmark = pytest.mark.gui
@@ -69,7 +68,6 @@ class TestCBIRTrainComposition:
         assert _LossToggleMixin is CBIRTrainLossToggleController
         assert _TelemetrySlotsMixin is CBIRTrainTelemetryController
         assert _TrainingWorkerMixin is CBIRTrainWorkerController
-        assert _UIBuilderMixin is CBIRTrainUIBuilder
 
     def test_tab_bound_controller_attribute_proxy(self, q_app):
         tab = CBIRTrainTab()

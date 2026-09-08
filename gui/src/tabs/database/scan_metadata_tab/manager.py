@@ -23,7 +23,7 @@ from ._lazy_loading import _LazyLoadingMixin
 from ._pagination import _PaginationMixin
 from ._scan_loading import _ScanLoadingMixin
 from ._selection_gallery import _SelectionGalleryMixin
-from ._ui_builder import _UIBuilderMixin
+from ._ui_builder import ScanMetadataUIBuilder
 from ._upsert_ops import _UpsertOpsMixin
 from ._view_toggles import _ViewTogglesMixin
 
@@ -35,7 +35,7 @@ class ScanMetadataTab(
     # create_card_widget, handle_marquee_selection, keyPressEvent,
     # on_selection_changed, resizeEvent, toggle_selection, update_card_pixmap)
     # override same-named methods AbstractClassTwoGalleries itself defines.
-    _UIBuilderMixin,
+    ScanMetadataUIBuilder,
     _PaginationMixin,
     _KeyboardSelectionMixin,
     _LayoutReflowMixin,

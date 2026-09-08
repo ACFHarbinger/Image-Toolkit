@@ -12,7 +12,7 @@ from ._format_conversion_worker import _ConversionWorkerMixin
 from ._format_directory_browse import _DirectoryBrowseMixin
 from ._format_preview_context import _PreviewContextMixin
 from ._format_qml_handlers import _QmlHandlersMixin
-from ._format_ui_builder import _UIBuilderMixin
+from ._format_ui_builder import FormatUIBuilder
 from ._gallery_cards import _GalleryCardsMixin
 from ._lifecycle import _LifecycleMixin
 
@@ -23,7 +23,7 @@ class FormatSubTab(
     # fixes): several mixin methods here (_navigate_to_dir, cancel_loading,
     # closeEvent, create_card_widget, on_selection_changed, update_card_pixmap)
     # override same-named methods AbstractClassTwoGalleries itself defines.
-    _UIBuilderMixin,
+    FormatUIBuilder,
     _FormatButtonsMixin,
     _GalleryCardsMixin,
     _PreviewContextMixin,

@@ -15,7 +15,7 @@ from ._lifecycle import SamplerLifecycleController, _LifecycleMixin
 from ._preview_context import SamplerPreviewController, _PreviewContextMixin
 from ._resample_worker import SamplerWorkerController, _ResampleWorkerMixin
 from ._scale_mode import SamplerScaleModeController, _ScaleModeMixin
-from ._ui_builder import SamplerUIBuilder, _UIBuilderMixin
+from ._ui_builder import SamplerUIBuilder
 
 
 class SamplerSubTab(AbstractClassTwoGalleries):
@@ -144,5 +144,4 @@ __all__ = [
     "_PreviewContextMixin",
     "_ResampleWorkerMixin",
     "_ScaleModeMixin",
-    "_UIBuilderMixin",
 ]

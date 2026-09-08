@@ -25,12 +25,20 @@ from .sync_data_subtab import SyncDataSubtab
 
 
 class DriveSyncUIBuilder(TabBoundController):
-    """Builds the shared cloud auth group and hosting QTabWidget."""
+    """Builds the shared cloud auth group and hosting QTabWidget (§5 R2.f, #567)."""
 
     def _build_ui(self) -> None:
         main_layout = QVBoxLayout(self.tab)
 
-        # ------------------ SHARED AUTH CONFIG GROUP ------------------
+        self._build_auth_config_group(main_layout)
+        self._build_subtabs(main_layout)
+        self._setup_compat_proxies()
+
+        self.provider_combo.currentIndexChanged.connect(self.handle_provider_change)
+        self.load_configuration_defaults()
+        self.handle_provider_change(0)
+
+    def _build_auth_config_group(self, main_layout: QVBoxLayout) -> None:
         config_group = QGroupBox("Cloud Provider & Authentication")
         config_layout = QVBoxLayout(config_group)
 
@@ -89,7 +97,7 @@ class DriveSyncUIBuilder(TabBoundController):
 
         main_layout.addWidget(config_group)
 
-        # ------------------ SUBTABS CONTAINER ------------------
+    def _build_subtabs(self, main_layout: QVBoxLayout) -> None:
         self.subtab_widget = QTabWidget()
 
         self.sync_data_subtab = SyncDataSubtab(
@@ -108,6 +116,7 @@ class DriveSyncUIBuilder(TabBoundController):
 
         main_layout.addWidget(self.subtab_widget)
 
+    def _setup_compat_proxies(self) -> None:
         # Compatibility proxies
         self.local_path = self.sync_data_subtab.local_path
         self.remote_path = self.sync_data_subtab.remote_path
@@ -123,11 +132,6 @@ class DriveSyncUIBuilder(TabBoundController):
         self.rb_download = self.sync_data_subtab.rb_download
         self.rb_delete_remote = self.sync_data_subtab.rb_delete_remote
         self.rb_ignore_remote = self.sync_data_subtab.rb_ignore_remote
-
-        self.provider_combo.currentIndexChanged.connect(self.handle_provider_change)
-
-        self.load_configuration_defaults()
-        self.handle_provider_change(0)
 
 
 __all__ = ["DriveSyncUIBuilder"]
