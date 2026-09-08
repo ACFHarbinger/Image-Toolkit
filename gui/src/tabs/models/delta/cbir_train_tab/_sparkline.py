@@ -41,9 +41,7 @@ class _SparkLine(QLabel):
             return
         lo, hi = min(self._values), max(self._values)
         span = hi - lo or 1e-9
-        bar = "".join(
-            self._BLOCKS[min(8, int(((v - lo) / span) * 8))] for v in self._values
-        )
+        bar = "".join(self._BLOCKS[min(8, int(((v - lo) / span) * 8))] for v in self._values)
         self.setText(f"{self._label}  {bar}  {self._values[-1]:.4f}")
 
 
