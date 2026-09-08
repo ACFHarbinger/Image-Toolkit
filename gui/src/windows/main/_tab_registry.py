@@ -18,37 +18,11 @@ class _TabRegistryMixin:
             EventHub,
             ImportPathsIntent,
             LibraryDatabaseService,
+            ModuleContext,
             ModuleServices,
             NavigateIntent,
+            build_tab,
         )
-        from ...tabs import (
-            ComfyUITab,
-            ConvertTab,
-            DatabaseTab,
-            DataBrowserTab,
-            DriveSyncTab,
-            EntityReconTab,
-            ExtractorTab,
-            HieEditorTab,
-            ImageCrawlTab,
-            MangaAnimationTab,
-            MangaColorizationTab,
-            MangaPuppeteeringTab,
-            MediaLoaderTab,
-            MergeTab,
-            MetaCLIPInferenceTab,
-            R3GANEvaluateTab,
-            ReverseImageSearchTab,
-            ScanMetadataTab,
-            SearchTab,
-            SimilarityTab,
-            StitchTab,
-            UnifiedGenerateTab,
-            UnifiedTrainTab,
-            WallpaperTab,
-            WebRequestsTab,
-        )
-        from ...tabs.database import ListingsTab
 
         # pyrefly: ignore [missing-attribute]
         vault_manager = self.vault_manager
@@ -56,48 +30,40 @@ class _TabRegistryMixin:
         self.module_services = ModuleServices()
         self.library_database_service = LibraryDatabaseService(vault_manager)
         self.module_services.register(LIBRARY_DATABASE_SERVICE, self.library_database_service)
+        self.module_context = ModuleContext(
+            event_hub=self.module_event_hub,
+            services=self.module_services,
+            dropdown=dropdown,
+            enable_manager=enable_manager,
+        )
 
         # --- Tab Initialization ---
-        self.database_tab = DatabaseTab(
-            vault_manager,
-            database_service=self.library_database_service,
-            event_hub=self.module_event_hub,
-        )
-        self.data_browser_tab = DataBrowserTab(vault_manager)
-        self.search_tab = SearchTab(
-            self.library_database_service,
-            self.module_event_hub,
-            dropdown=dropdown,
-        )
-        self.scan_metadata_tab = ScanMetadataTab(
-            self.library_database_service,
-            self.module_event_hub,
-        )
-        self.convert_tab = ConvertTab(dropdown=dropdown)
-        self.merge_tab = MergeTab()
-        self.delete_tab = SimilarityTab(dropdown=dropdown)
-        self.crawler_tab = ImageCrawlTab()
-        self.reverse_search_tab = ReverseImageSearchTab()  # pyrefly: ignore [bad-instantiation]
-        self.entity_recon_tab = EntityReconTab()
-        self.drive_sync_tab = DriveSyncTab(vault_manager)
-        self.media_loader_tab = MediaLoaderTab()
-        self.wallpaper_tab = WallpaperTab(
-            self.library_database_service,
-            self.module_event_hub,
-        )
-        self.web_requests_tab = WebRequestsTab()
-        self.extractor_tab = ExtractorTab()  # pyrefly: ignore [bad-instantiation]
-        self.listings_tab = ListingsTab(vault_manager=vault_manager, event_hub=self.module_event_hub)
-        self.train_tab = UnifiedTrainTab()
-        self.generate_tab = UnifiedGenerateTab()
-        self.eval_tab = R3GANEvaluateTab()
-        self.inference_tab = MetaCLIPInferenceTab()
-        self.comfyui_tab = ComfyUITab(enable_manager=enable_manager)
-        self.stitch_tab = StitchTab()
-        self.manga_colorization_tab = MangaColorizationTab()
-        self.manga_animation_tab = MangaAnimationTab()
-        self.manga_puppeteering_tab = MangaPuppeteeringTab()
-        self.hie_editor_tab = HieEditorTab()
+        self.database_tab = build_tab("library.management", self.module_context)
+        self.data_browser_tab = build_tab("library.data-browser", self.module_context)
+        self.search_tab = build_tab("library.search", self.module_context)
+        self.scan_metadata_tab = build_tab("library.scan", self.module_context)
+        self.convert_tab = build_tab("system.convert", self.module_context)
+        self.merge_tab = build_tab("system.merge", self.module_context)
+        self.delete_tab = build_tab("system.similarity", self.module_context)
+        self.crawler_tab = build_tab("web.crawler", self.module_context)
+        self.reverse_search_tab = build_tab("web.reverse-search", self.module_context)
+        self.entity_recon_tab = build_tab("web.entity-recon", self.module_context)
+        self.drive_sync_tab = build_tab("web.drive-sync", self.module_context)
+        self.media_loader_tab = build_tab("web.media-loader", self.module_context)
+        self.wallpaper_tab = build_tab("system.wallpaper", self.module_context)
+        self.web_requests_tab = build_tab("web.requests", self.module_context)
+        self.extractor_tab = build_tab("system.extractor", self.module_context)
+        self.listings_tab = build_tab("library.listings", self.module_context)
+        self.train_tab = build_tab("ml.training", self.module_context)
+        self.generate_tab = build_tab("ml.generation", self.module_context)
+        self.eval_tab = build_tab("ml.evaluation", self.module_context)
+        self.inference_tab = build_tab("ml.inference", self.module_context)
+        self.comfyui_tab = build_tab("ml.comfyui", self.module_context)
+        self.stitch_tab = build_tab("stitch.workspace", self.module_context)
+        self.manga_colorization_tab = build_tab("manga.colorization", self.module_context)
+        self.manga_animation_tab = build_tab("manga.animation", self.module_context)
+        self.manga_puppeteering_tab = build_tab("manga.puppeteering", self.module_context)
+        self.hie_editor_tab = build_tab("editor.hybrid", self.module_context)
 
         # Merge and Similarity have not migrated to lifecycle contracts yet;
         # route their legacy path imports through the hub instead of DatabaseTab.
