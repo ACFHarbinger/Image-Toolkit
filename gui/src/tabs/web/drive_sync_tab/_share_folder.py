@@ -9,9 +9,10 @@ from PySide6.QtCore import QThreadPool, Slot
 from PySide6.QtWidgets import QMessageBox
 
 from ....helpers import GoogleDriveSyncWorker
+from ._tab_bound import TabBoundController
 
 
-class _ShareFolderMixin:
+class DriveSyncShareFolderController(TabBoundController):
     """Dispatches and handles the remote-folder sharing action."""
 
     def share_remote_folder(self):
@@ -20,7 +21,7 @@ class _ShareFolderMixin:
         auth_config = self._build_auth_config()
         if not auth_config or auth_config.get("mode") != "service_account":
             QMessageBox.warning(
-                self, "Error", "Sharing is only available for Google Service Accounts."
+                self.tab, "Error", "Sharing is only available for Google Service Accounts."
             )
             return
 
@@ -53,11 +54,13 @@ class _ShareFolderMixin:
         self.log_window.append_log(final)
         if success:
             QMessageBox.information(
-                self, "Share Success", "Folder sharing action completed."
+                self.tab, "Share Success", "Folder sharing action completed."
             )
         else:
-            QMessageBox.critical(self, "Share Failed", message)
+            QMessageBox.critical(self.tab, "Share Failed", message)
         self.current_worker = None
 
 
-__all__ = ["_ShareFolderMixin"]
+_ShareFolderMixin = DriveSyncShareFolderController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
+
+__all__ = ["DriveSyncShareFolderController", "_ShareFolderMixin"]

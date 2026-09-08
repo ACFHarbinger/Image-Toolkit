@@ -18,15 +18,16 @@ from PySide6.QtWidgets import (
 )
 
 from ....styles import apply_shadow_effect
+from ._tab_bound import TabBoundController
 from .local_dir_sync_subtab import LocalDirSyncSubtab
 from .sync_data_subtab import SyncDataSubtab
 
 
-class _UIBuilderMixin:
+class DriveSyncUIBuilder(TabBoundController):
     """Builds the shared cloud auth group and hosting QTabWidget."""
 
     def _build_ui(self) -> None:
-        main_layout = QVBoxLayout(self)
+        main_layout = QVBoxLayout(self.tab)
 
         # ------------------ SHARED AUTH CONFIG GROUP ------------------
         config_group = QGroupBox("Cloud Provider & Authentication")
@@ -97,12 +98,12 @@ class _UIBuilderMixin:
         self.sync_data_subtab = SyncDataSubtab(
             get_auth_config=self._build_auth_config,
             get_provider_text=self.get_provider_text,
-            parent=self,
+            parent=self.tab,
         )
         self.local_dir_sync_subtab = LocalDirSyncSubtab(
             get_auth_config=self._build_auth_config,
             get_provider_text=self.get_provider_text,
-            parent=self,
+            parent=self.tab,
         )
 
         self.subtab_widget.addTab(self.sync_data_subtab, "Sync Data")
@@ -132,4 +133,6 @@ class _UIBuilderMixin:
         self.handle_provider_change(0)
 
 
-__all__ = ["_UIBuilderMixin"]
+_UIBuilderMixin = DriveSyncUIBuilder  # COMPAT(ui-arch-23): remove after callers drop the mixin name
+
+__all__ = ["DriveSyncUIBuilder", "_UIBuilderMixin"]

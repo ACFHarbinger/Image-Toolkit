@@ -8,9 +8,10 @@ from __future__ import annotations
 from PySide6.QtWidgets import QApplication
 
 from ....styles import set_button_role
+from ._tab_bound import TabBoundController
 
 
-class _UILockMixin:
+class DriveSyncUILockController(TabBoundController):
     """Enables/disables config widgets while a sync job (or minor action) runs."""
 
     def lock_ui(self, message: str, is_running: bool = False, clear_log: bool = False):
@@ -73,4 +74,6 @@ class _UILockMixin:
         self.handle_provider_change(self.provider_combo.currentIndex())
 
 
-__all__ = ["_UILockMixin"]
+_UILockMixin = DriveSyncUILockController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
+
+__all__ = ["DriveSyncUILockController", "_UILockMixin"]

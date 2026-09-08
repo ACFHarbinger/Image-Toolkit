@@ -11,8 +11,10 @@ from typing import Any, Dict, Optional
 import backend.src.constants as udef
 from PySide6.QtWidgets import QMessageBox
 
+from ._tab_bound import TabBoundController
 
-class _AuthConfigMixin:
+
+class DriveSyncAuthController(TabBoundController):
     """Builds the worker auth-config dict for the currently selected provider."""
 
     def _build_auth_config(self) -> Optional[Dict[str, Any]]:
@@ -28,7 +30,7 @@ class _AuthConfigMixin:
 
             if not sa_data:
                 QMessageBox.warning(
-                    self, "Error", "Service Account Key data not loaded from vault."
+                    self.tab, "Error", "Service Account Key data not loaded from vault."
                 )
                 return None
 
@@ -41,11 +43,11 @@ class _AuthConfigMixin:
 
             if not cs_data:
                 QMessageBox.warning(
-                    self, "Error", "Client Secrets data not loaded from vault."
+                    self.tab, "Error", "Client Secrets data not loaded from vault."
                 )
                 return None
             if not token_file:
-                QMessageBox.warning(self, "Error", "Token File path cannot be empty.")
+                QMessageBox.warning(self.tab, "Error", "Token File path cannot be empty.")
                 return None
 
             return {
@@ -81,4 +83,6 @@ class _AuthConfigMixin:
         return None
 
 
-__all__ = ["_AuthConfigMixin"]
+_AuthConfigMixin = DriveSyncAuthController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
+
+__all__ = ["DriveSyncAuthController", "_AuthConfigMixin"]

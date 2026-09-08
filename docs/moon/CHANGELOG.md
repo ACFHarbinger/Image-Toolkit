@@ -1,3 +1,12 @@
+# S539 — 2026-09-08 (Gemini: #544 DriveSyncTab composition)
+
+- `DriveSyncTab` inherits `QWidget` directly without mixins. The 10 mixins
+  are composed controllers (`TabBoundController` proxy + `self.tab` for
+  QWidget parents). Facade delegation on `DriveSyncTab` preserves all
+  public/internal call interfaces and QML properties/slots. COMPAT
+  aliases keep the old mixin names. Second non-gallery #544 tab
+  composition migration (R2.c).
+
 # S535 — 2026-09-08 (Grok: huge-GIF gallery thumbnails)
 
 - Gallery / wallpaper / extractor thumbnail loads no longer run Qt's GIF
