@@ -9,9 +9,10 @@ from PySide6.QtCore import QThreadPool, Slot
 from PySide6.QtWidgets import QMessageBox
 
 from ....helpers import GoogleDriveSyncWorker
+from ._tab_bound import TabBoundController
 
 
-class _RemoteMapMixin:
+class DriveSyncRemoteMapController(TabBoundController):
     """Dispatches and handles the read-only remote-map dry-run action."""
 
     def view_remote_map(self):
@@ -23,7 +24,7 @@ class _RemoteMapMixin:
 
         remote_path = self.remote_path.text().strip()
         if not remote_path:
-            QMessageBox.warning(self, "Error", "Remote path cannot be empty.")
+            QMessageBox.warning(self.tab, "Error", "Remote path cannot be empty.")
             return
 
         self.lock_ui_minor(message="Viewing Remote Map…", clear_log=True)
@@ -50,8 +51,10 @@ class _RemoteMapMixin:
         final = f"\nFINAL STATUS: Remote Map View {'Completed' if success else 'Failed'}. {message}"
         self.log_window.append_log(final)
         if not success and "Dry Run incomplete" not in message:
-            QMessageBox.critical(self, "Map View Failed", message)
+            QMessageBox.critical(self.tab, "Map View Failed", message)
         self.current_worker = None
 
 
-__all__ = ["_RemoteMapMixin"]
+_RemoteMapMixin = DriveSyncRemoteMapController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
+
+__all__ = ["DriveSyncRemoteMapController", "_RemoteMapMixin"]

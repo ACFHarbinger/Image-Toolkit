@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+from ._tab_bound import TabBoundController
 
-class _ProviderSwitchMixin:
+
+class DriveSyncProviderController(TabBoundController):
     """Shows/hides provider-specific auth widgets and updates subtabs."""
 
     def get_provider_text(self) -> str:
@@ -35,4 +37,6 @@ class _ProviderSwitchMixin:
             self.local_dir_sync_subtab.update_provider_visibility(provider_text)
 
 
-__all__ = ["_ProviderSwitchMixin"]
+_ProviderSwitchMixin = DriveSyncProviderController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
+
+__all__ = ["DriveSyncProviderController", "_ProviderSwitchMixin"]

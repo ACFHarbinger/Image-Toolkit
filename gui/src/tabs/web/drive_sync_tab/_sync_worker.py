@@ -11,9 +11,10 @@ from PySide6.QtCore import QThreadPool, Slot
 from PySide6.QtWidgets import QMessageBox
 
 from ....helpers import DropboxDriveSyncWorker, GoogleDriveSyncWorker, OneDriveSyncWorker
+from ._tab_bound import TabBoundController
 
 
-class _SyncWorkerMixin:
+class DriveSyncSyncWorkerController(TabBoundController):
     """Starts/stops the main sync job and reacts to status/finished signals."""
 
     def toggle_sync(self):
@@ -49,10 +50,10 @@ class _SyncWorkerMixin:
         share_email = None
 
         if not os.path.isdir(local_path):
-            QMessageBox.warning(self, "Error", f"Local folder invalid:\n{local_path}")
+            QMessageBox.warning(self.tab, "Error", f"Local folder invalid:\n{local_path}")
             return
         if not remote_path:
-            QMessageBox.warning(self, "Error", "Remote path cannot be empty.")
+            QMessageBox.warning(self.tab, "Error", "Remote path cannot be empty.")
             return
 
         if auth_config.get("mode") == "service_account":
@@ -108,7 +109,6 @@ class _SyncWorkerMixin:
 
     @Slot(str)
     def handle_status_update(self, msg: str):
-        super().handle_status_update(msg) if hasattr(super(), 'handle_status_update') else None # pyrefly: ignore [missing-attribute]
         self.log_window.append_log(msg)
         self._log_text += msg + "\n"
         self.qml_log_changed.emit()
@@ -125,13 +125,13 @@ class _SyncWorkerMixin:
         self.current_worker = None
 
         if not success and "manually cancelled" not in message:
-            QMessageBox.critical(self, "Sync Failed", message)
+            QMessageBox.critical(self.tab, "Sync Failed", message)
             return
 
         # --- DRY RUN CONFIRMATION LOGIC ---
         if success and was_dry_run:
             reply = QMessageBox.question(
-                self,
+                self.tab,
                 "Dry Run Completed",
                 "The Dry Run finished successfully.\n\n"
                 "Do you want to apply these changes now (Execute LIVE Sync)?",
@@ -146,4 +146,6 @@ class _SyncWorkerMixin:
                 self.run_sync_now(clear_log=False, force_live=True)
 
 
-__all__ = ["_SyncWorkerMixin"]
+_SyncWorkerMixin = DriveSyncSyncWorkerController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
+
+__all__ = ["DriveSyncSyncWorkerController", "_SyncWorkerMixin"]

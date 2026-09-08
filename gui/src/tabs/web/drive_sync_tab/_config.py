@@ -8,8 +8,10 @@ from pathlib import Path
 import backend.src.constants as udef
 from PySide6.QtWidgets import QMessageBox
 
+from ._tab_bound import TabBoundController
 
-class _ConfigMixin:
+
+class DriveSyncConfigController(TabBoundController):
     """Collects/restores the full DriveSyncTab UI state as a config dict."""
 
     def collect(self) -> dict:
@@ -71,8 +73,10 @@ class _ConfigMixin:
         except Exception as e:
             print(f"Error applying DriveSyncTab config: {e}")
             QMessageBox.warning(
-                self, "Config Error", f"Failed to apply some settings: {e}"
+                self.tab, "Config Error", f"Failed to apply some settings: {e}"
             )
 
 
-__all__ = ["_ConfigMixin"]
+_ConfigMixin = DriveSyncConfigController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
+
+__all__ = ["DriveSyncConfigController", "_ConfigMixin"]

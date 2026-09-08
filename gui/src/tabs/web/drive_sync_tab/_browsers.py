@@ -10,27 +10,29 @@ from typing import Optional
 
 from PySide6.QtWidgets import QFileDialog, QLineEdit
 
+from ._tab_bound import TabBoundController
 
-class _BrowsersMixin:
+
+class DriveSyncBrowsersController(TabBoundController):
     """Browse dialogs for the auth key files and the local sync directory."""
 
     def browse_key_file(self):
         path, _ = QFileDialog.getOpenFileName(
-            self, "Select Service Account Key", str(Path.home()), "JSON (*.json)"
+            self.tab, "Select Service Account Key", str(Path.home()), "JSON (*.json)"
         )
         if path:
             self.key_file_path.setText(path)
 
     def browse_client_secrets_file(self):
         path, _ = QFileDialog.getOpenFileName(
-            self, "Select Client Secrets File", str(Path.home()), "JSON (*.json)"
+            self.tab, "Select Client Secrets File", str(Path.home()), "JSON (*.json)"
         )
         if path:
             self.client_secrets_path.setText(path)
 
     def browse_local_directory(self):
         dir_ = QFileDialog.getExistingDirectory(
-            self,
+            self.tab,
             "Select Local Source Folder",
             self.local_path.text() or str(Path.home()),
         )
@@ -40,7 +42,7 @@ class _BrowsersMixin:
     def browse_directory(self, line_edit: Optional[QLineEdit] = None):
         line_edit = line_edit or self.local_path
         dir_ = QFileDialog.getExistingDirectory(
-            self, "Select Folder", line_edit.text() or str(Path.home())
+            self.tab, "Select Folder", line_edit.text() or str(Path.home())
         )
         if dir_:
             line_edit.setText(dir_)
@@ -57,4 +59,6 @@ class _BrowsersMixin:
         pass
 
 
-__all__ = ["_BrowsersMixin"]
+_BrowsersMixin = DriveSyncBrowsersController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
+
+__all__ = ["DriveSyncBrowsersController", "_BrowsersMixin"]
