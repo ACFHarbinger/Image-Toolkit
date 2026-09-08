@@ -116,7 +116,8 @@ def _gif_first_frame_via_pillow(path: str, target_size: int) -> QImage:
     """Decode only frame 0 with Pillow and wrap the RGB buffer in QImage.
 
     Does not construct QImageReader, QMovie, or ffmpeg. ``n_frames`` is
-    never read -- that would scan the whole file.
+    never read -- that would scan the whole file. ``Image.thumbnail``
+    only downscales, so a 1280x720 frame requested at 1920 stays native.
     """
     from PIL import Image
 
@@ -131,6 +132,12 @@ def _gif_first_frame_via_pillow(path: str, target_size: int) -> QImage:
     rgb = frame.tobytes()
     image = QImage(rgb, width, height, 3 * width, QImage.Format.Format_RGB888)
     return image.copy()
+
+
+def gif_first_frame(path: str, max_edge: int = 1920) -> QImage:
+    """Public first-frame decode for gallery thumbs and full-size preview."""
+    with _gif_decode_lock:
+        return _gif_first_frame_via_pillow(path, max_edge)
 
 
 def read_gif_logical_screen(path: str) -> tuple[int, int] | None:
@@ -190,5 +197,6 @@ __all__ = [
     "load_qir_thumbnail",
     "is_oversized_gif",
     "oversized_gif_placeholder",
+    "gif_first_frame",
     "read_gif_logical_screen",
 ]

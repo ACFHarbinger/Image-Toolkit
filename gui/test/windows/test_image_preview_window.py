@@ -52,6 +52,25 @@ def test_preview_window_legacy_db_tab_ref_rejected(sample_image, q_app):
         )
 
 
+def test_oversized_gif_preview_shows_first_frame(q_app, tmp_path, monkeypatch):
+    from gui.src.helpers.image._qimagereader_disk_cache import QIR_GIF_BYTE_BUDGET
+    from PIL import Image
+
+    gif = tmp_path / "huge.gif"
+    Image.new("RGB", (40, 24), color=(255, 0, 0)).save(gif, format="GIF")
+    monkeypatch.setattr(
+        "gui.src.helpers.image._qimagereader_disk_cache._file_size",
+        lambda _path: QIR_GIF_BYTE_BUDGET + 1,
+    )
+    win = ImagePreviewWindow(image_path=str(gif), all_paths=[str(gif)])
+    assert win.is_animated is False
+    assert win.current_movie is None
+    assert not win.original_pixmap.isNull()
+    assert win.original_pixmap.width() == 40
+    assert win.original_pixmap.height() == 24
+    win.close()
+
+
 def test_preview_window_navigation(sample_images, q_app):
     mock_service = MagicMock()
     p1, p2 = sample_images

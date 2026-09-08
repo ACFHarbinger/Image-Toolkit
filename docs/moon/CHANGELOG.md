@@ -1,3 +1,9 @@
+# S536 — 2026-09-08 (Grok: oversized GIF full-size preview)
+
+- Full-size preview no longer shows a blank placeholder for GIFs over
+  32MB. Frame 0 is decoded with Pillow (same path as gallery thumbs) and
+  displayed as a static pixmap. `QMovie` is still skipped on those files.
+
 # S535 — 2026-09-08 (Grok: huge-GIF gallery thumbnails)
 
 - Gallery / wallpaper / extractor thumbnail loads no longer run Qt's GIF
