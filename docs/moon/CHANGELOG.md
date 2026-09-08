@@ -28,7 +28,7 @@
   `media_convert_subtab/`; unified `_gallery_cards.py` and `_lifecycle.py`.
 - Resync onto #573: `gui.src.theming` is a PEP 562 lazy facade so
   `theme_api` / `file_dialog_patch` no longer import numpy/PIL via
-  `palette` at package import (keeps the R3.6 isolated-import bound).
+  `palette` at package import (keeps R3.6 isolated-import bound).
 
 # S548 — 2026-09-11 (Grok: R2.e #566 / classic-shell lazy tab construction)
 
@@ -70,6 +70,14 @@
   - `drive_sync_tab/local_dir_sync_subtab/widget.py`: removed redundant `processEvents()` flush in `_lock_ui`.
   - `drive_sync_tab/sync_data_subtab/widget.py`: removed redundant `processEvents()` flushes in `_lock_ui` and `_lock_ui_minor`.
 - Added `tools/dev/gui_audit/check_no_process_events.py` and regression test `gui/test/test_no_process_events.py` asserting zero live `processEvents()` calls in `gui/src`.
+
+# S541 — 2026-09-08 (Gemini: #544 MediaLoaderTab composition)
+
+- `MediaLoaderTab` inherits `QWidget` directly without mixins. The 4 mixins
+  are composed controllers (`TabBoundController` proxy + `self.tab` for
+  QWidget parents). Facade delegation on `MediaLoaderTab` preserves all
+  public/internal call interfaces. COMPAT aliases keep the old mixin
+  names. Fourth non-gallery #544 tab composition migration (R2.c).
 
 # S535 — 2026-09-08 (Grok: huge-GIF gallery thumbnails)
 

@@ -9,18 +9,22 @@ from __future__ import annotations
 from PySide6.QtCore import Slot
 from PySide6.QtWidgets import QFileDialog
 
+from ._tab_bound import TabBoundController
 
-class _DirectoryBrowseMixin:
+
+class MediaLoaderDirectoryController(TabBoundController):
     """Browse-for-directory handler for the download path."""
 
     @Slot()
     def browse_download_directory(self):
         directory = QFileDialog.getExistingDirectory(
-            self, "Select Download Directory", self.last_browsed_download_dir
+            self.tab, "Select Download Directory", self.last_browsed_download_dir
         )
         if directory:
             self.download_dir_path.setText(directory)
             self.last_browsed_download_dir = directory
 
 
-__all__ = ["_DirectoryBrowseMixin"]
+_DirectoryBrowseMixin = MediaLoaderDirectoryController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
+
+__all__ = ["MediaLoaderDirectoryController", "_DirectoryBrowseMixin"]
