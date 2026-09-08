@@ -10,9 +10,14 @@ from typing import TYPE_CHECKING, Optional
 from backend.src.constants import SUPPORTED_VIDEO_FORMATS
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QImage, QPixmap
-from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QLabel, QWidget
 
-from ....components import ClickableLabel
+from gui.src.components.gallery.card_factory import (
+    IN_DB_COLOR,
+    SELECTION_COLOR,
+    create_gallery_card,
+)
+from gui.src.components.labels.clickable_label import ClickableLabel
 
 if TYPE_CHECKING:
     from ..protos.abstract_class_two_galleries import AbstractClassTwoGalleriesHostProtocol
@@ -35,54 +40,21 @@ class _CardRenderingMixin:
         pixmap: Optional[QPixmap],
         is_selected: bool,
     ) -> QWidget:
-        thumb_size = self.thumbnail_size
-        card_wrapper = self.create_gallery_label(path, thumb_size)
-
-        if isinstance(card_wrapper, ClickableLabel):
-            card_layout = QVBoxLayout(card_wrapper)
-            card_layout.setContentsMargins(0, 0, 0, 0)
-
-            img_label = QLabel()
-            img_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            img_label.setFixedSize(thumb_size, thumb_size)
-
-            card_wrapper.set_image_label(img_label)
-            card_layout.addWidget(img_label)
-            card_wrapper.setLayout(card_layout)
-            target_label = img_label
-        else:
-            target_label = card_wrapper
-
-        if hasattr(card_wrapper, "set_selected_style"):
-            card_wrapper.style_callback = self._update_card_style
-
-        if pixmap and not pixmap.isNull():
-            scaled = (
-                pixmap.scaled(
-                    thumb_size,
-                    thumb_size,
-                    Qt.AspectRatioMode.KeepAspectRatio,
-                    Qt.TransformationMode.SmoothTransformation,
-                )
-                if (pixmap.width() > thumb_size or pixmap.height() > thumb_size)
-                else pixmap
-            )
-            target_label.setPixmap(scaled)
-        else:
-            target_label.setText("Loading...")
-            if path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
-                target_label.setStyleSheet("color: #3498db; border: 2px dashed #3498db;")
-            else:
-                target_label.setStyleSheet("color: #999; border: 1px dashed #666;")
-
-        card_wrapper.setProperty("gallery_path", path)
-        self._update_card_style(target_label, is_selected)
-
+        is_video = path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
+        card_wrapper = create_gallery_card(
+            path=path,
+            pixmap=pixmap,
+            thumb_size=self.thumbnail_size,
+            selected=is_selected,
+            variant="two",
+            create_label=self.create_gallery_label,
+            update_style=self._update_card_style,
+            is_video=is_video,
+        )
         if hasattr(card_wrapper, "path_double_clicked"):
             card_wrapper.path_double_clicked.connect(self._open_preview_for)
         if hasattr(card_wrapper, "path_right_clicked"):
             card_wrapper.path_right_clicked.connect(self._on_found_card_right_clicked)
-
         return card_wrapper
 
     def update_card_pixmap(
@@ -145,11 +117,13 @@ class _CardRenderingMixin:
 
         if is_selected:
             img_label.setStyleSheet(
-                "border: 3px solid #5865f2; background-color: rgba(88, 101, 242, 0.25);"
+                f"border: 3px solid {SELECTION_COLOR}; "
+                "background-color: rgba(88, 101, 242, 0.25);"
             )
         elif is_in_db:
             img_label.setStyleSheet(
-                "border: 3px solid #2ecc71; background-color: rgba(46, 204, 113, 0.20);"
+                f"border: 3px solid {IN_DB_COLOR}; "
+                "background-color: rgba(46, 204, 113, 0.20);"
             )
         else:
             label_color = self._LABEL_COLORS.get(self._get_color_label(path) or "", "") if path else ""

@@ -12,6 +12,7 @@ from gui.src.classes.image.abstract_class_two_galleries import (
     AbstractClassTwoGalleries,
 )
 from gui.src.components import MarqueeScrollArea
+from gui.src.components.gallery.card_factory import create_gallery_card
 
 pytestmark = pytest.mark.gui
 
@@ -88,6 +89,32 @@ class ConcreteTwoGalleries(AbstractClassTwoGalleries):
 
     def on_selection_changed(self):
         self.selection_changed_called += 1
+
+    def get_default_config(self) -> dict:
+        return {}
+
+    def set_config(self, config: dict) -> None:
+        pass
+
+
+class FactoryBackedSingleGallery(AbstractClassSingleGallery):
+    """Uses the mixin ``create_card_widget`` (no stub) so the shared factory
+    is the production path.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.gallery_scroll_area = QScrollArea()
+        self.gallery_widget = QWidget()
+        self.gallery_layout = QGridLayout()
+        self.gallery_widget.setLayout(self.gallery_layout)
+        self.gallery_scroll_area.setWidget(self.gallery_widget)
+
+    def create_gallery_label(self, path: str, size: int) -> QLabel:
+        label = QLabel()
+        label.file_path = path
+        label.setFixedSize(size, size)
+        return label
 
     def get_default_config(self) -> dict:
         return {}
@@ -312,6 +339,53 @@ class TestAbstractClassTwoGalleries:
         img_label = card.findChild(QLabel)
         assert img_label is not None
         assert "5865f2" in img_label.styleSheet()
+
+    def test_create_card_widget_uses_shared_factory(self, q_app, monkeypatch):
+        calls = []
+        real = create_gallery_card
+
+        def spy(**kwargs):
+            calls.append(kwargs)
+            return real(**kwargs)
+
+        monkeypatch.setattr(
+            "gui.src.classes.image.abstract_class_two_galleries"
+            "._card_rendering.create_gallery_card",
+            spy,
+        )
+        gallery = AbstractClassTwoGalleries()
+        pix = QPixmap(32, 32)
+        pix.fill()
+        card = gallery.create_card_widget("factory_two.png", pix, is_selected=False)
+        assert calls
+        assert calls[0]["variant"] == "two"
+        assert calls[0]["path"] == "factory_two.png"
+        assert card.property("gallery_path") == "factory_two.png"
+
+
+class TestGalleryCardFactoryWiring:
+    def test_single_create_card_widget_uses_shared_factory(self, q_app, monkeypatch):
+        calls = []
+        real = create_gallery_card
+
+        def spy(**kwargs):
+            calls.append(kwargs)
+            return real(**kwargs)
+
+        monkeypatch.setattr(
+            "gui.src.classes.image.abstract_class_single_gallery"
+            "._card_rendering.create_gallery_card",
+            spy,
+        )
+        gallery = FactoryBackedSingleGallery()
+        pix = QPixmap(32, 32)
+        pix.fill()
+        card = gallery.create_card_widget("factory_single.jpg", pix)
+        assert calls
+        assert calls[0]["variant"] == "single"
+        assert calls[0]["path"] == "factory_single.jpg"
+        assert card.property("gallery_path") == "factory_single.jpg"
+        assert card.findChild(QLabel) is not None
 
 
 class TestMetaAbstractClassGallery:

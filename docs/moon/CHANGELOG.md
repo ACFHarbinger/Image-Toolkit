@@ -1,3 +1,10 @@
+# S544 — 2026-09-08 (Grok: #571 R3.4 gallery card factory)
+
+- Single-gallery and two-gallery `create_card_widget` paths share one
+  `card_factory` module; highlight helper is shared. Pagination stays
+  per-base. VirtualGallery keeps delegate painting and uses the highlight
+  helper. D12 before merge.
+
 # S535 — 2026-09-08 (Grok: huge-GIF gallery thumbnails)
 
 - Gallery / wallpaper / extractor thumbnail loads no longer run Qt's GIF

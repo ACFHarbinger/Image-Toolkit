@@ -12,6 +12,12 @@ from typing import TYPE_CHECKING, Dict, Optional
 from PySide6.QtCore import Slot
 from PySide6.QtWidgets import QWidget
 
+from gui.src.components.gallery.card_factory import (
+    DEFAULT_BORDER_COLOR,
+    SELECTION_COLOR,
+    apply_preview_highlight,
+    reset_preview_highlight,
+)
 from gui.src.qt_object_guard import deleted_qobject_guard
 
 if TYPE_CHECKING:
@@ -55,12 +61,12 @@ class _ColorLabelsMixin:
             widget.set_selected_style(is_selected)
         else:
             if is_selected:
-                color, width = "#5865f2", "3px"
+                color, width = SELECTION_COLOR, "3px"
             else:
                 # Show color label border when not selected (§2.18C)
                 path = widget.property("gallery_path")
                 label_color = self._LABEL_COLORS.get(self._get_color_label(path) or "", "") if path else ""
-                color = label_color or "#4f545c"
+                color = label_color or DEFAULT_BORDER_COLOR
                 width = "2px" if label_color else "1px"
             widget.setStyleSheet(f"border: {width} solid {color};")
 
@@ -72,16 +78,13 @@ class _ColorLabelsMixin:
         dual = getattr(self, "dual", None)
 
         def reset_card(path, card):
-            if not card or not path:
-                return
             try:
-                orig = card.property("original_style")
-                if orig is not None:
-                    card.setStyleSheet(orig)
-                    card.setProperty("original_style", None)
-                else:
-                    # Fallback: ensure the selection style is correct
-                    self.update_card_style(card, self.is_path_selected(path))
+                reset_preview_highlight(
+                    card,
+                    path,
+                    is_selected=self.is_path_selected(path) if path else False,
+                    update_style=self.update_card_style,
+                )
             except RuntimeError as exc:
                 deleted_qobject_guard(exc, "_ColorLabelsMixin.update_preview_highlight.reset_card")
 
@@ -99,20 +102,13 @@ class _ColorLabelsMixin:
             return
 
         def highlight_card(path, card):
-            if not card or not path:
-                return
             try:
-                # Ensure it has the correct selection state first
-                self.update_card_style(card, self.is_path_selected(path))
-
-                # Store style if not already stored
-                if card.property("original_style") is None:
-                    card.setProperty("original_style", card.styleSheet())
-
-                # Apply amber highlight border to the card wrapper
-                current = card.styleSheet().strip()
-                sep = "" if not current or current.endswith(";") else ";"
-                card.setStyleSheet(f"{current}{sep} border: 4px solid #f39c12;")
+                apply_preview_highlight(
+                    card,
+                    path,
+                    is_selected=self.is_path_selected(path) if path else False,
+                    update_style=self.update_card_style,
+                )
             except RuntimeError as exc:
                 deleted_qobject_guard(exc, "_ColorLabelsMixin.update_preview_highlight.highlight_card")
 
