@@ -34,25 +34,31 @@ logger = logging.getLogger(__name__)
 # QImageReader.setAllocationLimit(10000) it will try to materialize
 # multi-GB extraction GIFs. ffmpeg-from-a-QThreadPool-worker is the
 # same QSocketNotifier crash class (fork vs Qt Multimedia). Oversized
-# GIFs therefore get a placeholder: no QImageReader, no ffmpeg.
+# GIFs take a Pillow first-frame (no Qt plugin, no subprocess) under
+# one lock, then wrap the RGB buffer in QImage.
 QIR_GIF_BYTE_BUDGET = 32 * 1024 * 1024
+_PILGIF_CACHE_PREFIX = "qir_pilgif"
 _gif_decode_lock = threading.Lock()
 
-def qir_cache_path(path: str, target_size: int) -> Path:
+def qir_cache_path(path: str, target_size: int, prefix: str = "qir") -> Path:
     key = hashlib.md5(f"{path}:{target_size}".encode("utf-8")).hexdigest()
-    return THUMBNAIL_CACHE_DIR / f"qir_{key}.png"
+    return THUMBNAIL_CACHE_DIR / f"{prefix}_{key}.png"
 
 
-def load_qir_cached(path: str, target_size: int) -> QImage | None:
+def load_qir_cached(
+    path: str, target_size: int, prefix: str = "qir"
+) -> QImage | None:
     """Return the cached decode, or ``None`` on a cache miss/corrupt entry."""
-    cache_path = qir_cache_path(path, target_size)
+    cache_path = qir_cache_path(path, target_size, prefix=prefix)
     if not cache_path.exists():
         return None
     image = QImage(str(cache_path))
     return image if not image.isNull() else None
 
 
-def save_qir_cached(path: str, target_size: int, image: QImage) -> None:
+def save_qir_cached(
+    path: str, target_size: int, image: QImage, prefix: str = "qir"
+) -> None:
     """Best-effort write; a failed cache write must never fail the load."""
     if image.isNull():
         return
@@ -64,7 +70,7 @@ def save_qir_cached(path: str, target_size: int, image: QImage) -> None:
         # disk cache (_disk_cache.py) uses the bytes form and silently
         # swallows the resulting exception the same way -- flagged
         # separately, not fixed here.
-        image.save(str(qir_cache_path(path, target_size)), "PNG")
+        image.save(str(qir_cache_path(path, target_size, prefix=prefix)), "PNG")
     except Exception:
         logger.debug("Suppressed Exception in save_qir_cached", exc_info=True)
 
@@ -106,6 +112,27 @@ def oversized_gif_placeholder(target_size: int) -> QImage:
     return image
 
 
+def _gif_first_frame_via_pillow(path: str, target_size: int) -> QImage:
+    """Decode only frame 0 with Pillow and wrap the RGB buffer in QImage.
+
+    Does not construct QImageReader, QMovie, or ffmpeg. ``n_frames`` is
+    never read -- that would scan the whole file.
+    """
+    from PIL import Image
+
+    size = max(int(target_size), 8)
+    with Image.open(path) as source:
+        source.seek(0)
+        frame = source.convert("RGB")
+    frame.thumbnail((size, size), Image.Resampling.BILINEAR)
+    width, height = frame.size
+    if width <= 0 or height <= 0:
+        return QImage()
+    rgb = frame.tobytes()
+    image = QImage(rgb, width, height, 3 * width, QImage.Format.Format_RGB888)
+    return image.copy()
+
+
 def read_gif_logical_screen(path: str) -> tuple[int, int] | None:
     """Width/height from the GIF header only -- never constructs QImageReader."""
     try:
@@ -126,30 +153,32 @@ def load_qir_thumbnail(path: str, target_size: int) -> QImage:
     """Load a thumbnail, using the QIR disk cache.
 
     Small GIFs still go through Qt's GIF plugin (first frame). Oversized
-    GIFs never construct ``QImageReader`` and never spawn ffmpeg -- both
-    of those paths SIGSEGV/SIGABRT this process on the Cinematography
-    corpus. A cheap placeholder is cached instead.
+    GIFs use Pillow frame 0 (no Qt plugin, no ffmpeg). Placeholders are
+    memory-only so a failed decode cannot poison the disk cache.
     """
-    cached = load_qir_cached(path, target_size)
+    is_gif = path.lower().endswith(".gif")
+    oversized = is_gif and _file_size(path) > QIR_GIF_BYTE_BUDGET
+    cache_prefix = _PILGIF_CACHE_PREFIX if oversized else "qir"
+    cached = load_qir_cached(path, target_size, prefix=cache_prefix)
     if cached is not None:
         return cached
 
-    is_gif = path.lower().endswith(".gif")
     try:
         if is_gif:
             with _gif_decode_lock:
                 if _file_size(path) > QIR_GIF_BYTE_BUDGET:
-                    image = oversized_gif_placeholder(target_size)
+                    image = _gif_first_frame_via_pillow(path, target_size)
                 else:
                     image = _qir_read(path, target_size)
         else:
             image = _qir_read(path, target_size)
     except Exception:
         logger.debug("Suppressed Exception in load_qir_thumbnail", exc_info=True)
-        return QImage()
+        return oversized_gif_placeholder(target_size) if oversized else QImage()
 
-    if not image.isNull():
-        save_qir_cached(path, target_size, image)
+    if image.isNull():
+        return oversized_gif_placeholder(target_size) if oversized else image
+    save_qir_cached(path, target_size, image, prefix=cache_prefix)
     return image
 
 

@@ -38,7 +38,7 @@ def test_small_gif_thumbnails_via_qimage_reader(q_app, tmp_path, monkeypatch):
     assert img.height() <= 32
 
 
-def test_oversized_gif_skips_qimage_reader_and_ffmpeg(q_app, tmp_path, monkeypatch):
+def test_oversized_gif_uses_pillow_not_qimage_reader(q_app, tmp_path, monkeypatch):
     _isolate_cache(monkeypatch, tmp_path)
     gif = _write_gif(tmp_path / "huge.gif")
 
@@ -56,8 +56,10 @@ def test_oversized_gif_skips_qimage_reader_and_ffmpeg(q_app, tmp_path, monkeypat
 
     img = load_qir_thumbnail(str(gif), 32)
     assert not img.isNull()
-    assert img.width() == 32
-    assert img.height() == 32
+    assert img.width() <= 32
+    assert img.height() <= 32
+    # First frame of the red 12x8 GIF, not the square placeholder.
+    assert (img.width(), img.height()) != (32, 32)
 
 
 def test_cached_oversized_gif_does_not_redecode(q_app, tmp_path, monkeypatch):
