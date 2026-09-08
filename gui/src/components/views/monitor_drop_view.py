@@ -13,7 +13,7 @@ from .display._drag_drop import _DragDropMixin
 from .display._image_display import _ImageDisplayMixin
 from .display._monitor_info import _MonitorInfoMixin
 from .display._mouse_events import _MouseEventsMixin
-from .display._ui_builder import _UIBuilderMixin
+from .display._ui_builder import MonitorDropViewUIBuilder
 
 
 class MonitorDropView(
@@ -22,7 +22,7 @@ class MonitorDropView(
     # methods here (text, resizeEvent, mouseDoubleClickEvent, mousePressEvent,
     # mouseMoveEvent, dragEnterEvent, dragMoveEvent, dragLeaveEvent, dropEvent,
     # contextMenuEvent) override same-named methods QLabel itself defines.
-    _UIBuilderMixin,
+    MonitorDropViewUIBuilder,
     _MonitorInfoMixin,
     _ContextMenuMixin,
     _MouseEventsMixin,

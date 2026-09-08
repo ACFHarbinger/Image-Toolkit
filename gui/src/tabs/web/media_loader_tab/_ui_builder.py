@@ -30,12 +30,18 @@ SOURCE_NHENTAI = 1
 
 
 class MediaLoaderUIBuilder(TabBoundController):
-    """Builds the source-type stack, output settings, and run controls."""
+    """Builds the source-type stack, output settings, and run controls (§5 R2.f, #567)."""
 
     def _build_ui(self) -> None:
         main_layout = QVBoxLayout(self.tab)
+        self._build_source_selection(main_layout)
+        self._build_stacked_settings(main_layout)
+        self._build_output_settings(main_layout)
+        self._build_run_controls(main_layout)
+        main_layout.addStretch(1)
+        self.on_source_changed(self.source_combo.currentIndex())
 
-        # --- 1. Source Selection ---
+    def _build_source_selection(self, main_layout: QVBoxLayout) -> None:
         source_layout = QHBoxLayout()
         source_layout.addWidget(QLabel("<b>Source:</b>"))
 
@@ -43,10 +49,9 @@ class MediaLoaderUIBuilder(TabBoundController):
         self.source_combo.addItems(["Reddit", "nhentai"])
         self.source_combo.currentIndexChanged.connect(self.on_source_changed)
         source_layout.addWidget(self.source_combo, 1)
-
         main_layout.addLayout(source_layout)
 
-        # --- 2. Stacked Widget for Source-Specific Settings ---
+    def _build_stacked_settings(self, main_layout: QVBoxLayout) -> None:
         self.settings_stack = QStackedWidget()
 
         self.page_reddit = QWidget()
@@ -59,7 +64,7 @@ class MediaLoaderUIBuilder(TabBoundController):
 
         main_layout.addWidget(self.settings_stack)
 
-        # --- 3. Shared Output Settings ---
+    def _build_output_settings(self, main_layout: QVBoxLayout) -> None:
         output_group = QGroupBox("Output Configuration")
         output_layout = QFormLayout(output_group)
         output_layout.setContentsMargins(10, 20, 10, 10)
@@ -82,7 +87,7 @@ class MediaLoaderUIBuilder(TabBoundController):
 
         main_layout.addWidget(output_group)
 
-        # --- 4. Run Controls ---
+    def _build_run_controls(self, main_layout: QVBoxLayout) -> None:
         self.status_label = QLabel("Ready.")
         self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.status_label.setStyleSheet(qss("status_label_padded"))
@@ -106,10 +111,6 @@ class MediaLoaderUIBuilder(TabBoundController):
         self.cancel_button.clicked.connect(self.cancel_download)
         self.cancel_button.hide()
         main_layout.addWidget(self.cancel_button)
-
-        main_layout.addStretch(1)
-
-        self.on_source_changed(self.source_combo.currentIndex())
 
     def _setup_reddit_page(self) -> None:
         layout = QVBoxLayout(self.page_reddit)
@@ -163,6 +164,4 @@ class MediaLoaderUIBuilder(TabBoundController):
         layout.addStretch(1)
 
 
-_UIBuilderMixin = MediaLoaderUIBuilder  # COMPAT(ui-arch-23): remove after callers drop the mixin name
-
-__all__ = ["MediaLoaderUIBuilder", "_UIBuilderMixin", "SOURCE_REDDIT", "SOURCE_NHENTAI"]
+__all__ = ["MediaLoaderUIBuilder", "SOURCE_REDDIT", "SOURCE_NHENTAI"]

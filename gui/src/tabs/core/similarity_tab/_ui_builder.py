@@ -29,7 +29,7 @@ from ....styles import apply_shadow_effect
 from ....theming.theme_api import color, qss
 
 
-class _UIBuilderMixin:
+class SimilarityUIBuilder:
     """Builds the directories/settings groups, both galleries, and action buttons."""
 
     def _build_ui(self):
@@ -83,8 +83,8 @@ class _UIBuilderMixin:
         ref_layout = QHBoxLayout()
         self.reference_path = QLineEdit()
         self.reference_path.setPlaceholderText(
-            "Optional — compare Source against another directory (leave empty to "
-            "search within Source)...")
+            "Optional — compare Source against another directory (leave empty to search within Source)..."
+        )
         ref_layout.addWidget(self.reference_path)
         btn_browse_ref = QPushButton("Browse...")
         btn_browse_ref.clicked.connect(self.browse_reference_directory)
@@ -236,4 +236,4 @@ class _UIBuilderMixin:
         content_layout.addWidget(self.status_label)
 
 
-__all__ = ["_UIBuilderMixin"]
+__all__ = ["SimilarityUIBuilder"]

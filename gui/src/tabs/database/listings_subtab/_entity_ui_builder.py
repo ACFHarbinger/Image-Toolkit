@@ -1,7 +1,6 @@
 """Widget construction for ``EntityListingsSubTab`` (``_build_ui``).
 
-Extracted from ``entity_listings_subtab.py`` -- pure code motion, no logic
-change.
+Extracted from ``entity.py`` -- pure code motion, no logic change.
 """
 
 from __future__ import annotations
@@ -20,7 +19,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from gui.src.components import MarqueeScrollArea
+from gui.src.components.containers.marquee_scroll_area import MarqueeScrollArea
 from gui.src.components.tag_chip_widget import FlowLayout
 from gui.src.constants.listings import ENTITY_ROLES, ENTITY_TYPES
 from gui.src.elements.database.common.listings_common import _persist_splitter
@@ -32,7 +31,7 @@ from ._tab_bound import TabBoundController
 
 
 class EntityListingsUIBuilder(TabBoundController):
-    """Builds the toolbar, stats bar, and gallery/detail splitter."""
+    """Builds the toolbar, stats bar, and gallery/detail splitter (§5 R2.f, #567)."""
 
     def _build_ui(self) -> None:
         # ---- Root layout ----
@@ -40,11 +39,28 @@ class EntityListingsUIBuilder(TabBoundController):
         root.setContentsMargins(12, 12, 12, 8)
         root.setSpacing(8)
 
-        # ---- Toolbar ----
-        # FlowLayout, not QHBoxLayout: same overflow shape as
-        # series_listings_subtab's toolbar (title + search + grouped button
-        # pairs + combos exceed the app's 800px minimum width). Built with
-        # an explicit parent container -- see that file's comment for why.
+        self._build_toolbar(root)
+
+        self.stats_label = QLabel("")
+        self.stats_label.setStyleSheet(qss("listings_stats"))
+        root.addWidget(self.stats_label)
+
+        self._build_splitter(root)
+
+        # Context Menu for Gallery background
+        self.gallery_scroll.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.gallery_scroll.customContextMenuRequested.connect(self._show_gallery_context_menu)
+
+        # Load data
+        self._load_data()
+        self._rebuild_gallery()
+        self._detail.clear_for_new()
+
+        # Debounced resize for EntityListingsSubTab.
+        self._resize_timer.setSingleShot(True)
+        self._resize_timer.setInterval(120)
+
+    def _build_toolbar(self, root: QVBoxLayout) -> None:
         toolbar_container = QWidget()
         toolbar = FlowLayout(toolbar_container)
         toolbar.setSpacing(8)
@@ -90,7 +106,7 @@ class EntityListingsUIBuilder(TabBoundController):
         self.sort_order_combo.currentTextChanged.connect(self._on_sort_changed)
         toolbar.addWidget(self.sort_order_combo)
 
-        # ── Semantic search pair (stacked vertically, DB.7) ───────────
+        # Semantic search pair
         _semantic_pair = QWidget()
         _semantic_vbox = QVBoxLayout(_semantic_pair)
         _semantic_vbox.setContentsMargins(0, 0, 0, 0)
@@ -119,7 +135,7 @@ class EntityListingsUIBuilder(TabBoundController):
         self.clear_semantic_btn.hide()
         toolbar.addWidget(self.clear_semantic_btn)
 
-        # ── Pair 1: Add Entity (top) / Import Dir (bottom) ──────────────
+        # Pair 1: Add Entity / Import Dir
         entity_pair = QWidget()
         entity_pair_vbox = QVBoxLayout(entity_pair)
         entity_pair_vbox.setContentsMargins(0, 0, 0, 0)
@@ -142,7 +158,7 @@ class EntityListingsUIBuilder(TabBoundController):
         entity_pair_vbox.addWidget(import_dir_btn)
         toolbar.addWidget(entity_pair)
 
-        # ── Pair 2: Load Backup (top) / Sync Backup (bottom) ─────────
+        # Pair 2: Load Backup / Sync Backup
         backup_pair = QWidget()
         backup_pair_vbox = QVBoxLayout(backup_pair)
         backup_pair_vbox.setContentsMargins(0, 0, 0, 0)
@@ -166,12 +182,7 @@ class EntityListingsUIBuilder(TabBoundController):
 
         root.addWidget(toolbar_container)
 
-        # ---- Stats bar ----
-        self.stats_label = QLabel("")
-        self.stats_label.setStyleSheet(qss("listings_stats"))
-        root.addWidget(self.stats_label)
-
-        # ---- Splitter: gallery | detail ----
+    def _build_splitter(self, root: QVBoxLayout) -> None:
         splitter = QSplitter(Qt.Orientation.Horizontal)
 
         # Gallery
@@ -206,7 +217,7 @@ class EntityListingsUIBuilder(TabBoundController):
         gallery_vbox.addLayout(pager)
         splitter.addWidget(gallery_container)
 
-        # Detail panel (wrapped in a scroll area)
+        # Detail panel
         detail_scroll = QScrollArea()
         detail_scroll.setWidgetResizable(True)
         detail_scroll.setStyleSheet(qss("bordered_scroll_area"))
@@ -220,19 +231,6 @@ class EntityListingsUIBuilder(TabBoundController):
         splitter.setSizes([680, 340])
         splitter.setHandleWidth(6)
         root.addWidget(splitter, 1)
-
-        # Context Menu for Gallery background
-        self.gallery_scroll.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self.gallery_scroll.customContextMenuRequested.connect(self._show_gallery_context_menu)
-
-        # ---- Load data ----
-        self._load_data()
-        self._rebuild_gallery()
-        self._detail.clear_for_new()
-
-        # Debounced resize for EntityListingsSubTab.
-        self._resize_timer.setSingleShot(True)
-        self._resize_timer.setInterval(120)
 
 
 __all__ = ["EntityListingsUIBuilder"]

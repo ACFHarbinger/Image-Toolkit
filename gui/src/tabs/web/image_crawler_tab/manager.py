@@ -15,7 +15,7 @@ from ._board_settings import ImageCrawlBoardController, _BoardSettingsMixin
 from ._config import ImageCrawlConfigController, _ConfigMixin
 from ._crawl_worker import ImageCrawlWorkerController, _CrawlWorkerMixin
 from ._directory_browse import ImageCrawlDirectoryController, _DirectoryBrowseMixin
-from ._ui_builder import ImageCrawlUIBuilder, _UIBuilderMixin
+from ._ui_builder import ImageCrawlUIBuilder
 from ._webdriver import ImageCrawlWebDriverController, _WebDriverMixin
 
 
@@ -181,6 +181,5 @@ __all__ = [
     "_ConfigMixin",
     "_CrawlWorkerMixin",
     "_DirectoryBrowseMixin",
-    "_UIBuilderMixin",
     "_WebDriverMixin",
 ]

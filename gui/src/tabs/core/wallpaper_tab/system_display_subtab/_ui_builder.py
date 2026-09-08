@@ -34,7 +34,7 @@ if TYPE_CHECKING:
     from ...protos.system_display_subtab import SystemDisplaySubTabHostProtocol
 
 
-class _UIBuilderMixin:
+class SystemDisplayUIBuilder:
     """Builds the scrollable content area: monitor layout, settings, gallery, action bar."""
 
     gallery_layout: Optional[QGridLayout]
@@ -65,14 +65,10 @@ class _UIBuilderMixin:
             # app-wide filter the moment the C++ object is destroyed --
             # otherwise every subsequent event in the whole app routes
             # through a dead wrapper and the UI stops responding to clicks.
-            self_widget.destroyed.connect(
-                lambda *_a, _app=app, _obj=self_widget: _app.removeEventFilter(_obj)
-            )
+            self_widget.destroyed.connect(lambda *_a, _app=app, _obj=self_widget: _app.removeEventFilter(_obj))
         self.main_scroll_area.viewport().setAcceptDrops(True)
 
-        layout_group = self.create_monitor_layout_section(
-            "Monitor Layout (Drag to Reorder, Drop images/videos to set)"
-        )
+        layout_group = self.create_monitor_layout_section("Monitor Layout (Drag to Reorder, Drop images/videos to set)")
         content_layout.addWidget(layout_group)
 
         settings_group = QGroupBox("Wallpaper Settings")
@@ -114,9 +110,7 @@ class _UIBuilderMixin:
             ]
         )
         self.background_type_combo.setCurrentText(self.background_type)
-        self.background_type_combo.currentTextChanged.connect(
-            self._update_background_type
-        )
+        self.background_type_combo.currentTextChanged.connect(self._update_background_type)
         background_type_layout.addWidget(QLabel("Background Type:"))
         background_type_layout.addWidget(self.background_type_combo)
         background_type_layout.addStretch(1)
@@ -161,9 +155,7 @@ class _UIBuilderMixin:
             "can't be determined."
         )
         self.chk_video_runtime_interval.setVisible(False)
-        self.chk_video_runtime_interval.toggled.connect(
-            self._on_video_runtime_interval_toggled
-        )
+        self.chk_video_runtime_interval.toggled.connect(self._on_video_runtime_interval_toggled)
         slideshow_layout.addWidget(self.chk_video_runtime_interval)
 
         # Right-anchors Timer + the action buttons as a group, same as the
@@ -220,9 +212,7 @@ class _UIBuilderMixin:
 
         self.solid_color_preview = QLabel(" ")
         self.solid_color_preview.setFixedSize(20, 20)
-        self.solid_color_preview.setStyleSheet(
-            qss("dynamic_color_preview", BG_COLOR=self.solid_color_hex)
-        )
+        self.solid_color_preview.setStyleSheet(qss("dynamic_color_preview", BG_COLOR=self.solid_color_hex))
 
         btn_select_color = QPushButton("Select Color...")
         btn_select_color.clicked.connect(self.select_solid_color)
@@ -252,9 +242,7 @@ class _UIBuilderMixin:
         style_layout.addWidget(self.style_combo)
 
         self.video_style_combo = QComboBox()
-        self.video_style_combo.addItems(
-            ["Stretch", "Keep Proportions", "Scaled and Cropped"]
-        )
+        self.video_style_combo.addItems(["Stretch", "Keep Proportions", "Scaled and Cropped"])
         self.video_style_combo.setCurrentText(self.video_style)
         self.video_style_combo.currentTextChanged.connect(self._update_video_style)
         self.video_style_combo.setVisible(False)
@@ -267,9 +255,7 @@ class _UIBuilderMixin:
         self.playback_order_label = QLabel("Order:")
         style_layout.addWidget(self.playback_order_label)
         self.playback_order_combo = QComboBox()
-        self.playback_order_combo.addItems(
-            ["Sequential", "Reverse Sequential", "Random"]
-        )
+        self.playback_order_combo.addItems(["Sequential", "Reverse Sequential", "Random"])
         self.playback_order_combo.setCurrentText("Sequential")
         self.playback_order_combo.setFixedWidth(120)
         style_layout.addWidget(self.playback_order_combo)
@@ -288,9 +274,7 @@ class _UIBuilderMixin:
         )
         btn_browse_scan = QPushButton("Browse...")
         btn_browse_scan.clicked.connect(self.browse_scan_directory)
-        apply_shadow_effect(
-            btn_browse_scan, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3
-        )
+        apply_shadow_effect(btn_browse_scan, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3)
         scan_dir_layout.addWidget(self.scan_directory_path)
         scan_dir_layout.addWidget(btn_browse_scan)
         settings_layout.addLayout(scan_dir_layout)
@@ -308,4 +292,4 @@ class _UIBuilderMixin:
         pass
 
 
-__all__ = ["_UIBuilderMixin"]
+__all__ = ["SystemDisplayUIBuilder"]

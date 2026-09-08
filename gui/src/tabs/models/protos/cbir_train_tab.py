@@ -29,7 +29,7 @@ from ..delta.cbir_train_tab._sparkline import _SparkLine
 
 
 class CBIRTrainTabHostProtocol(Protocol):
-    # Dataset / architecture / loss / training widgets (built in _UIBuilderMixin)
+    # Dataset / architecture / loss / training widgets (built in CBIRTrainUIBuilder)
     _img_dir: QLineEdit
     _out_dir: QLineEdit
     _val_split: QDoubleSpinBox

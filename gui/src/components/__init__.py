@@ -39,6 +39,9 @@ _LAZY_EXPORTS = {
     "merge_canvas_item": ".elements",
     "optional_field": ".elements",
     "scrub_preview_popup": ".elements",
+    # .forms
+    "FormSection": ".forms",
+    "SectionedFormBuilder": ".forms",
     # .labels
     "ClickableLabel": ".labels",
     "DoubleClickableLabel": ".labels",
@@ -109,6 +112,8 @@ __all__ = [
     "monitor_drop_view",
     "opaque_viewport",
     "queue_item_view",
+    "FormSection",
+    "SectionedFormBuilder",
     "VirtualDualGallery",
     "VirtualGallery",
     "VirtualGalleryDelegate",
