@@ -13,8 +13,10 @@ from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QStyle, QWidget
 
 from gui.src.theming.theme_api import qss
 
+from ._window_bound import WindowBoundController
 
-class _HeaderBuilderMixin:
+
+class MainHeaderBuilderController(WindowBoundController):
     """Builds the top header bar and wires the theme/settings buttons."""
 
     def _build_header(self, account_name: str, app_icon) -> QWidget:
@@ -73,4 +75,5 @@ class _HeaderBuilderMixin:
         return header_widget
 
 
-__all__ = ["_HeaderBuilderMixin"]
+__all__ = ["MainHeaderBuilderController"]
+

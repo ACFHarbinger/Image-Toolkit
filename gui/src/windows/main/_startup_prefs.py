@@ -15,11 +15,11 @@ from backend.src.constants import LOCAL_SOURCE_PATH
 from ...contracts.tab_config import ConfigSettable, apply_tab_config
 from ...utils.cache.lru_image_cache import DEFAULT_PIXMAP_BUDGET, LRUImageCache
 from ..settings.app_settings import AppSettings
+from ._window_bound import WindowBoundController
 
 logger = logging.getLogger(__name__)
 
-
-class _StartupPrefsMixin:
+class MainStartupPrefsController(WindowBoundController):
     """Applies vault-stored preferences (thumbnail size, caches, dirs, ...) to every tab."""
 
     def _apply_tray_preference(self) -> None:
@@ -279,4 +279,5 @@ class _StartupPrefsMixin:
                 tab.refresh_time_display()
 
 
-__all__ = ["_StartupPrefsMixin"]
+__all__ = ["MainStartupPrefsController"]
+
