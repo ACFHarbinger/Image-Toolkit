@@ -10,8 +10,10 @@ import contextlib
 
 from gui.src.helpers.worker_teardown import close_windows, stop_workers
 
+from ._tab_bound import TabBoundController
 
-class _LifecycleMixin:
+
+class SimilarityLifecycleController(TabBoundController):
     """Cancel the similarity/deletion workers and close preview windows."""
 
     def cancel_loading(self):
@@ -27,4 +29,6 @@ class _LifecycleMixin:
         super().closeEvent(event)
 
 
-__all__ = ["_LifecycleMixin"]
+__all__ = ["SimilarityLifecycleController", "_LifecycleMixin"]
+
+_LifecycleMixin = SimilarityLifecycleController  # COMPAT(ui-arch-23): remove after callers drop the mixin name

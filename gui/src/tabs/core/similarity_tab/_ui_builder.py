@@ -27,14 +27,15 @@ from PySide6.QtWidgets import (
 from ....components import OptionalField, VirtualDualGallery
 from ....styles import apply_shadow_effect
 from ....theming.theme_api import color, qss
+from ._tab_bound import TabBoundController
 
 
-class _UIBuilderMixin:
+class SimilarityUIBuilder(TabBoundController):
     """Builds the directories/settings groups, both galleries, and action buttons."""
 
     def _build_ui(self):
         # --- Main Layout ---
-        main_layout = QVBoxLayout(self)
+        main_layout = QVBoxLayout(self.tab)
         page_scroll = QScrollArea()
         page_scroll.setWidgetResizable(True)
         page_scroll.setStyleSheet(qss("scroll_area_borderless"))
@@ -49,7 +50,7 @@ class _UIBuilderMixin:
 
         page_scroll.setWidget(content_widget)
         main_layout.addWidget(page_scroll)
-        self.setLayout(main_layout)
+        self.tab.setLayout(main_layout)
         self.clear_galleries()
 
     def _build_directories_and_settings(self, content_layout) -> QFormLayout:
@@ -83,8 +84,8 @@ class _UIBuilderMixin:
         ref_layout = QHBoxLayout()
         self.reference_path = QLineEdit()
         self.reference_path.setPlaceholderText(
-            "Optional — compare Source against another directory (leave empty to "
-            "search within Source)...")
+            "Optional — compare Source against another directory (leave empty to search within Source)..."
+        )
         ref_layout.addWidget(self.reference_path)
         btn_browse_ref = QPushButton("Browse...")
         btn_browse_ref.clicked.connect(self.browse_reference_directory)
@@ -151,7 +152,7 @@ class _UIBuilderMixin:
         # A. Found + Selected galleries (virtual-scroll, GUI/UX §2.1 Option A).
         # Replaces the two MarqueeScrollArea + QGridLayout grids; pagination is
         # dropped and selection lives in the dual gallery's selection models.
-        self.dual = VirtualDualGallery(self)
+        self.dual = VirtualDualGallery(self.tab)
         self.dual.found_activated.connect(self._open_preview_for)
         self.dual.found_right_clicked.connect(self._on_found_card_right_clicked)
         self.dual.selected_activated.connect(self._open_preview_for)
@@ -236,4 +237,6 @@ class _UIBuilderMixin:
         content_layout.addWidget(self.status_label)
 
 
-__all__ = ["_UIBuilderMixin"]
+__all__ = ["SimilarityUIBuilder", "_UIBuilderMixin"]
+
+_UIBuilderMixin = SimilarityUIBuilder  # COMPAT(ui-arch-23): remove after callers drop the mixin name
