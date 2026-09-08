@@ -9,16 +9,17 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QDialog, QHeaderView, QLineEdit, QTableWidget, QTableWidgetItem, QVBoxLayout
 
 from ...utils.manager.shortcut_manager import get_registry
+from ._window_bound import WindowBoundController
 
 
-class _ShortcutOverlayMixin:
+class MainShortcutOverlayController(WindowBoundController):
     """Displays every registered keyboard shortcut in a searchable table."""
 
     def _open_shortcut_overlay(self) -> None:
         reg = get_registry()
         all_actions = reg.get_all()
 
-        dlg = QDialog(self)
+        dlg = QDialog(self.tab)
         dlg.setWindowTitle("Keyboard Shortcuts  (Ctrl+/)")
         dlg.resize(560, 460)
         layout = QVBoxLayout(dlg)
@@ -63,4 +64,6 @@ class _ShortcutOverlayMixin:
         dlg.exec()
 
 
-__all__ = ["_ShortcutOverlayMixin"]
+__all__ = ["MainShortcutOverlayController", "_ShortcutOverlayMixin"]
+
+_ShortcutOverlayMixin = MainShortcutOverlayController  # COMPAT(ui-arch-23): remove after callers drop the mixin name

@@ -15,10 +15,11 @@ from backend.src.constants import LOCAL_SOURCE_PATH
 
 from ...utils.cache.lru_image_cache import LRUImageCache
 from ..settings.app_settings import AppSettings
+from ._window_bound import WindowBoundController
 
 logger = logging.getLogger(__name__)
 
-class _StartupPrefsMixin:
+class MainStartupPrefsController(WindowBoundController):
     """Applies vault-stored preferences (thumbnail size, caches, dirs, ...) to every tab."""
 
     def _apply_tray_preference(self) -> None:
@@ -186,7 +187,7 @@ class _StartupPrefsMixin:
                         obj_any: Any = obj
                         if hasattr(obj_any, "last_browsed_scan_dir"):
                             if hasattr(obj_any, "_load_last_dir"):
-                                obj_any.last_browsed_scan_dir = obj_any._load_last_dir(default_dir, main_win=self)
+                                obj_any.last_browsed_scan_dir = obj_any._load_last_dir(default_dir, main_win=self.tab)
                             elif (
                                 not restore_last_dir
                                 or getattr(obj_any, "last_browsed_scan_dir", "") == LOCAL_SOURCE_PATH
@@ -199,7 +200,7 @@ class _StartupPrefsMixin:
                                 )
                         if hasattr(obj_any, "last_browsed_dir"):
                             if hasattr(obj_any, "_load_last_dir"):
-                                obj_any.last_browsed_dir = obj_any._load_last_dir(default_dir, main_win=self)
+                                obj_any.last_browsed_dir = obj_any._load_last_dir(default_dir, main_win=self.tab)
                             elif (
                                 not restore_last_dir
                                 or getattr(obj_any, "last_browsed_dir", "") == LOCAL_SOURCE_PATH
@@ -298,4 +299,6 @@ class _StartupPrefsMixin:
 
 
 
-__all__ = ["_StartupPrefsMixin"]
+__all__ = ["MainStartupPrefsController", "_StartupPrefsMixin"]
+
+_StartupPrefsMixin = MainStartupPrefsController  # COMPAT(ui-arch-23): remove after callers drop the mixin name

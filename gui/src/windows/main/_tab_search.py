@@ -8,8 +8,10 @@ from __future__ import annotations
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import QDialog, QLineEdit, QListWidget, QListWidgetItem, QVBoxLayout
 
+from ._window_bound import WindowBoundController
 
-class _TabSearchMixin:
+
+class MainTabSearchController(WindowBoundController):
     """Show a floating tab-name filter popup and jump to the chosen tab."""
 
     def _open_tab_search(self) -> None:
@@ -23,7 +25,7 @@ class _TabSearchMixin:
             for tab_name in tabs_in_cat:
                 all_entries.append((category, tab_name, f"{tab_name}  —  {category}"))
 
-        dlg = QDialog(self, Qt.WindowType.Popup | Qt.WindowType.FramelessWindowHint)
+        dlg = QDialog(self.tab, Qt.WindowType.Popup | Qt.WindowType.FramelessWindowHint)
         dlg.setWindowTitle("Go to Tab")
         dlg.setFixedWidth(400)
         layout = QVBoxLayout(dlg)
@@ -79,7 +81,7 @@ class _TabSearchMixin:
             for mod in catalog.navigable()
         ]
 
-        dlg = QDialog(self, Qt.WindowType.Popup | Qt.WindowType.FramelessWindowHint)
+        dlg = QDialog(self.tab, Qt.WindowType.Popup | Qt.WindowType.FramelessWindowHint)
         dlg.setWindowTitle("Go to Module")
         dlg.setFixedWidth(400)
         layout = QVBoxLayout(dlg)
@@ -129,4 +131,6 @@ class _TabSearchMixin:
                 return
 
 
-__all__ = ["_TabSearchMixin"]
+__all__ = ["MainTabSearchController", "_TabSearchMixin"]
+
+_TabSearchMixin = MainTabSearchController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
