@@ -20,13 +20,16 @@ instead of silently failing.
 
 from __future__ import annotations
 
+import os
 from typing import List, Optional
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QInputDialog, QMenu, QMessageBox
 
+from ._tab_bound import TabBoundController
 
-class _LibraryLinkMixin:
+
+class EntityReconLibraryLinkController(TabBoundController):
     """Right-click "Link to Library Entity" on a local provenance match."""
 
     def _on_prov_context_menu(self, pos) -> None:
@@ -38,7 +41,7 @@ class _LibraryLinkMixin:
             return
         path = data[1]
 
-        menu = QMenu(self)
+        menu = QMenu(self.tab)
         link_action = menu.addAction("🔗 Link to Library Entity")
         action = menu.exec(self.prov_tree.viewport().mapToGlobal(pos))
         if action == link_action:
@@ -49,7 +52,7 @@ class _LibraryLinkMixin:
 
         if not session.is_open():
             QMessageBox.information(
-                self,
+                self.tab,
                 "Library Not Open",
                 "The unified library isn't open yet. Open the Database or "
                 "Listings tab first (this unlocks it for the whole app), "
@@ -60,14 +63,12 @@ class _LibraryLinkMixin:
         name = self.name_label.text().strip()
         if not name or name == "Unknown":
             QMessageBox.information(
-                self, "No Identity", "Resolve an identity with a known name first."
+                self.tab, "No Identity", "Resolve an identity with a known name first."
             )
             return
 
-        import os
-
         if not os.path.exists(path):
-            QMessageBox.warning(self, "Error", f"File not found:\n{path}")
+            QMessageBox.warning(self.tab, "Error", f"File not found:\n{path}")
             return
 
         db = session.get_session()
@@ -87,10 +88,10 @@ class _LibraryLinkMixin:
 
             entity_repo.link_image(entity_id, image_id)
             QMessageBox.information(
-                self, "Linked", f"Linked this image to entity '{name}'."
+                self.tab, "Linked", f"Linked this image to entity '{name}'."
             )
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to link image to entity:\n{e}")
+            QMessageBox.critical(self.tab, "Error", f"Failed to link image to entity:\n{e}")
 
     def _resolve_entity_id(self, entity_repo, name: str) -> Optional[str]:
         """Find (or, with confirmation, create) the entity matching *name*.
@@ -118,7 +119,7 @@ class _LibraryLinkMixin:
             if len(candidates) == 1 or candidates[0][1].lower() == norm_target:
                 entity_id, entity_name = candidates[0]
                 confirm = QMessageBox.question(
-                    self,
+                    self.tab,
                     "Link to Entity",
                     f"Link this image to existing entity '{entity_name}'?",
                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
@@ -128,7 +129,7 @@ class _LibraryLinkMixin:
 
             labels = [f"{n}" for _, n in candidates]
             choice, ok = QInputDialog.getItem(
-                self,
+                self.tab,
                 "Link to Entity",
                 f"Multiple entities are close to '{name}'. Pick one, or "
                 "cancel to create a new entity instead:",
@@ -142,7 +143,7 @@ class _LibraryLinkMixin:
             return None
 
         confirm = QMessageBox.question(
-            self,
+            self.tab,
             "Create Entity",
             f"No entity named '{name}' exists in the library yet. Create "
             "one and link this image to it?",
@@ -154,4 +155,6 @@ class _LibraryLinkMixin:
         return entity_repo.save_entity({"name": name})
 
 
-__all__ = ["_LibraryLinkMixin"]
+_LibraryLinkMixin = EntityReconLibraryLinkController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
+
+__all__ = ["EntityReconLibraryLinkController", "_LibraryLinkMixin"]

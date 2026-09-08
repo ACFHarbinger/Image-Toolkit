@@ -16,11 +16,12 @@ from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import QMessageBox, QTreeWidgetItem
 
 from ....helpers.web.recon_worker import ResolveWorker
+from ._tab_bound import TabBoundController
 
 logger = logging.getLogger(__name__)
 
 
-class _IdentityResolutionMixin:
+class EntityReconIdentityController(TabBoundController):
     """Resolves the current subject and renders the result/provenance tree."""
 
     def _resolve(self):
@@ -28,7 +29,7 @@ class _IdentityResolutionMixin:
             self._set_status("Load an image first.")
             return
         if self._engine is None:
-            QMessageBox.information(self, "No Index", "Build the identity index first.")
+            QMessageBox.information(self.tab, "No Index", "Build the identity index first.")
             return
         from backend.src.web.recon import segmenter
 
@@ -106,4 +107,6 @@ class _IdentityResolutionMixin:
             logger.warning("open_in_file_manager failed: %s", e)
 
 
-__all__ = ["_IdentityResolutionMixin"]
+_IdentityResolutionMixin = EntityReconIdentityController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
+
+__all__ = ["EntityReconIdentityController", "_IdentityResolutionMixin"]
