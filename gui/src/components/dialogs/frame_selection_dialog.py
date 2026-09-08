@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
 
 from gui.src.helpers.gc_safe import gc_disabled_run
 from gui.src.qt_object_guard import deleted_qobject_guard
+from gui.src.theming.theme_api import qss
 
 
 def extract_video_frame_via_ffmpeg(
@@ -130,62 +131,20 @@ class FrameSelectionDialog(QDialog):
         self._load_file()
 
     def _init_ui(self):
-        self.setStyleSheet("""
-            QDialog {
-                background-color: #2c2f33;
-                color: #ffffff;
-            }
-            QLabel {
-                color: #ffffff;
-            }
-            QPushButton {
-                background-color: #7289da;
-                color: white;
-                border-radius: 4px;
-                padding: 6px 12px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #677bc4;
-            }
-            QSlider::groove:horizontal {
-                border: 1px solid #4f545c;
-                height: 8px;
-                background: #1a1c1e;
-                border-radius: 4px;
-            }
-            QSlider::handle:horizontal {
-                background: #00bcd4;
-                border: 1px solid #0097a7;
-                width: 18px;
-                margin: -5px 0;
-                border-radius: 9px;
-            }
-            QSpinBox {
-                background-color: #1a1c1e;
-                color: white;
-                border: 1px solid #4f545c;
-                border-radius: 4px;
-                padding: 4px;
-            }
-        """)
+        self.setStyleSheet(qss("frame_selection_dialog"))
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(12)
 
         self.info_lbl = QLabel(f"File: {self.p.name}")
-        self.info_lbl.setStyleSheet(
-            "font-weight: bold; font-size: 13px; color: #00bcd4;"
-        )
+        self.info_lbl.setStyleSheet(qss("frame_selection_info"))
         layout.addWidget(self.info_lbl)
 
         self.preview_lbl = QLabel("Loading preview...")
         self.preview_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.preview_lbl.setMinimumSize(400, 400)
-        self.preview_lbl.setStyleSheet(
-            "background-color: #1a1c1e; border: 2px solid #4f545c; border-radius: 8px;"
-        )
+        self.preview_lbl.setStyleSheet(qss("frame_selection_preview"))
         layout.addWidget(self.preview_lbl, 1)
 
         self.controls_layout = QHBoxLayout()
@@ -193,7 +152,7 @@ class FrameSelectionDialog(QDialog):
 
         btns_layout = QHBoxLayout()
         self.cancel_btn = QPushButton("Cancel")
-        self.cancel_btn.setStyleSheet("background-color: #4f545c;")
+        self.cancel_btn.setStyleSheet(qss("frame_selection_cancel_btn"))
         self.cancel_btn.clicked.connect(self.reject)
 
         self.save_btn = QPushButton("Select Frame / Page")

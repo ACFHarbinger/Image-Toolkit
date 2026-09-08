@@ -1,0 +1,6 @@
+QFrame#metric_card {
+    background-color: $DARK_SECONDARY_BG;
+    border: 1px solid $DARK_BORDER;
+    border-radius: 6px;
+    padding: 6px;
+}

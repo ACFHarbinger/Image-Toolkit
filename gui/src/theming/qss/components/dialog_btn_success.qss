@@ -1,0 +1,4 @@
+background-color: $DARK_SUCCESS;
+color: white;
+font-weight: bold;
+padding: 10px;

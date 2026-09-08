@@ -1,3 +1,13 @@
+# S532 — 2026-09-08 (Cursor: #564 theme token API + components styling migration)
+
+- Added `gui/src/theming/theme_api.py` with `color()` / `qss()` runtime helpers
+  bridging semantic tokens onto existing `THEME_VARS` / `resolve_colors`.
+- Starter component QSS fragments under `gui/src/theming/qss/components/`.
+- Added `tools/dev/gui_audit/check_unauthorized_styling.py` with shrinking
+  allowlist baseline (components/ clean; tabs/elements/windows remain).
+- Migrated all `gui/src/components/` inline hex / raw `setStyleSheet` to the
+  token API.
+
 # S531 — 2026-09-08 (Cursor: #563 R2.a codec/format pair collapsed)
 
 - `codec_subtab/` and `format_subtab/` merged into `media_convert_subtab/`:

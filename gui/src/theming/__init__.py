@@ -42,6 +42,7 @@ from .storage import (
     theme_pack_from_dict,
     theme_pack_to_dict,
 )
+from .theme_api import color, qss
 from .validate import WCAG_AA_LARGE_TEXT, WCAG_AA_NORMAL_TEXT, ContrastWarning, contrast_ratio, contrast_warnings
 
 __all__ = [
@@ -90,4 +91,7 @@ __all__ = [
     # palette extraction
     "PaletteExtractionResult",
     "extract_palette",
+    # runtime token API (#564)
+    "color",
+    "qss",
 ]

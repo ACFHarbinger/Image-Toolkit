@@ -311,7 +311,7 @@ concurrently (D6). "Gate" = D12 live pass required in addition to Codex review.
 | Gemini / Antigravity | ~~R0.8, R1.7~~ done. **Remaining: R2.c non-gallery tabs (#544 — DriveSync, EntityRecon, MediaLoader, ImageCrawl, CBIRTrain, Sampler, in that order), R2.f (#567).** |
 | Meta's Muse | ~~R0.6, R0.9~~ done. **Remaining: R0.7 (#553), R1.1 (#556), R1.6 (#561), R2.a extractor/sync workers (#563 continuation, gated on R1.1), R3.3 (#570).** |
 | Chat / Codex | ~~R0.2 (#548), R1.3 (#558)~~ done, D12-verified 2026-09-08. **Remaining: R1.4 (#559 — re-claim, prior worktree was cleaned up unstarted), R1.5 (#560, no remaining blocker).** Mandatory cross-review of every item — largely unresponsive since 2026-09-06; Claude has been standing in as reviewer of last resort. |
-| Cursor | ~~R2.a listings pair (#563)~~ done. **Remaining: R2.a import-dialog pair + codec/format pair (#563 continuation), R2.b (#564), R4.1 (#574, new), R4.2 (#575, new, after R2.b).** |
+| Cursor | ~~R2.a listings/import-dialog/codec-format (#563)~~ done. **Remaining: R2.b (#564 partial — components done, elements/windows/tabs next), R4.1 (#574, new), R4.2 (#575, new, after R2.b).** |
 
 Dependencies: R1.1 before R2.a workers; R1.4 before R2.e; R0.2 before R1.5
 (both done); R2.a codec/format and listings before their R2.c migration.
@@ -345,5 +345,5 @@ longer gated on it.
 Merge-to-`main` checklist for this branch's own PR — every issue below
 must be closed first (§6 has the current owner/queue per agent):
 
-- [x] #543, #544 (partial — Grok's gallery-owning half + MainWindow remain), #547, #548, #549, #550, #551, #552, #554, #555, #558, #562, #563 (partial — listings half only)
-- [ ] #544 (remainder), #553, #556, #557, #559, #560, #561, #563 (remainder), #564, #565, #566, #567, #568, #569, #570, #571, #572, #573, #574, #575
+- [x] #543, #544 (partial — Grok's gallery-owning half + MainWindow remain), #547, #548, #549, #550, #551, #552, #554, #555, #558, #562, #563 (Cursor: listings + import-dialog + codec/format)
+- [ ] #544 (remainder), #553, #556, #557, #559, #560, #561, #564 (partial — components migrated; elements/windows/tabs remain), #565, #566, #567, #568, #569, #570, #571, #572, #573, #574, #575
