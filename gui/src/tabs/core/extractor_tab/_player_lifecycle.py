@@ -29,6 +29,8 @@ import enum
 import logging
 from typing import TYPE_CHECKING, Optional
 
+from ._tab_bound import TabBoundController
+
 if TYPE_CHECKING:
     from ..protos.extractor_tab import VideoExtractorSubTabHostProtocol
 
@@ -46,7 +48,7 @@ class PlayerLifecycleState(enum.Enum):
     PLAYING = "playing"
 
 
-class _PlayerLifecycleMixin:
+class ExtractorPlayerLifecycleController(TabBoundController):
     """Owns the current :class:`PlayerLifecycleState` and its transitions."""
 
     _player_lifecycle_state: PlayerLifecycleState = PlayerLifecycleState.NOT_LOADED
@@ -72,4 +74,4 @@ class _PlayerLifecycleMixin:
             self.fit_video_in_view()
 
 
-__all__ = ["PlayerLifecycleState", "_PlayerLifecycleMixin"]
+__all__ = ["PlayerLifecycleState", "ExtractorPlayerLifecycleController"]
