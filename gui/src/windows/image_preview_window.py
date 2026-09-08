@@ -297,37 +297,40 @@ class ImagePreviewWindow(QDialog):
 
         if self.is_animated:
             from gui.src.helpers.image._qimagereader_disk_cache import (
+                gif_first_frame,
                 is_oversized_gif,
-                oversized_gif_placeholder,
             )
 
             if is_oversized_gif(path):
-                placeholder = QPixmap.fromImage(oversized_gif_placeholder(256))
-                self.original_pixmap = placeholder
+                # QMovie on multi-hundred-MB GIFs is the crash class.
+                # Show frame 0 as a static pixmap (Pillow, no Qt GIF plugin).
+                frame = gif_first_frame(path, max_edge=1920)
+                if frame.isNull():
+                    self.setWindowTitle(
+                        f"Image Preview - Error Loading {os.path.basename(path)}"
+                    )
+                    return False
+                self.is_animated = False
+                self.original_pixmap = QPixmap.fromImage(frame)
                 self.current_movie = None
-                self.image_label.setPixmap(placeholder)
-                self.setWindowTitle(
-                    f"Image Preview - {os.path.basename(path)} (too large to animate)"
-                )
-                return True
+            else:
+                # --- Handle GIF (QMovie) ---
+                new_movie = QMovie(path)
 
-            # --- Handle GIF (QMovie) ---
-            new_movie = QMovie(path)
+                if not new_movie.isValid():
+                    self.setWindowTitle(
+                        f"Image Preview - Error Loading {os.path.basename(path)}"
+                    )
+                    return False
 
-            if not new_movie.isValid():
-                self.setWindowTitle(
-                    f"Image Preview - Error Loading {os.path.basename(path)}"
-                )
-                return False
+                self.current_movie = new_movie
+                self.image_label.setMovie(self.current_movie)
 
-            self.current_movie = new_movie
-            self.image_label.setMovie(self.current_movie)
+                # Since QMovie scaling is handled differently, we start it now
+                self.current_movie.start()
 
-            # Since QMovie scaling is handled differently, we start it now
-            self.current_movie.start()
-
-            # Get the base size of the GIF for scaling calculation
-            self.original_pixmap = QPixmap()  # Clear static pixmap state
+                # Get the base size of the GIF for scaling calculation
+                self.original_pixmap = QPixmap()  # Clear static pixmap state
 
         else:
             # --- Handle Static Image (QPixmap) ---
