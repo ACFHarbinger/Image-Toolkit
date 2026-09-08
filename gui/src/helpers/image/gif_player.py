@@ -7,6 +7,8 @@ frame in memory. No Qt image plugin, no ffmpeg.
 
 from __future__ import annotations
 
+import contextlib
+
 from PySide6.QtCore import QObject, QTimer, Signal
 from PySide6.QtGui import QImage
 
@@ -46,10 +48,8 @@ class PillowGifPlayer(QObject):
     def stop(self) -> None:
         self._timer.stop()
         if self._im is not None:
-            try:
+            with contextlib.suppress(Exception):
                 self._im.close()
-            except Exception:
-                pass
             self._im = None
         self._index = 0
 
