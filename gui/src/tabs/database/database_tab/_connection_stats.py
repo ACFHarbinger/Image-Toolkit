@@ -225,7 +225,7 @@ class DatabaseConnectionController:
 
         worker = ImageEmbeddingWorker(items, model=EMBED_MODEL)
         worker.progress.connect(self._on_embed_progress)
-        worker.sig_finished.connect(self._on_embed_finished)
+        worker.finished.connect(self._on_embed_finished)
         worker.error.connect(self._on_embed_error)
         worker.finished.connect(worker.deleteLater)
         worker.finished.connect(lambda: setattr(tab, "embedding_worker", None))
@@ -241,6 +241,8 @@ class DatabaseConnectionController:
         tab = self.tab
         tab.btn_embed_backfill.setEnabled(True)
         tab.btn_embed_backfill.setText("🧠 Embed Unembedded Images")
+        if not results:
+            return  # cancelled or failed (error was reported separately)
         if not tab.db:
             return
         try:
@@ -253,10 +255,10 @@ class DatabaseConnectionController:
         except Exception as e:
             QMessageBox.critical(tab, "Error", f"Failed to store embeddings: {e}")
 
-    def _on_embed_error(self, message: str) -> None:
+    def _on_embed_error(self, exc: Exception) -> None:
         self.tab.btn_embed_backfill.setEnabled(True)
         self.tab.btn_embed_backfill.setText("🧠 Embed Unembedded Images")
-        QMessageBox.warning(self.tab, "Embedding Failed", message)
+        QMessageBox.warning(self.tab, "Embedding Failed", str(exc))
 
     def _refresh_all_group_combos(self) -> None:
         tab = self.tab
