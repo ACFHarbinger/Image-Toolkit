@@ -12,8 +12,14 @@ from typing import TYPE_CHECKING, Optional
 from backend.src.constants import SUPPORTED_VIDEO_FORMATS
 from PySide6.QtCore import Qt, Slot
 from PySide6.QtGui import QColor, QPainter, QPixmap
-from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QLabel, QWidget
 
+from gui.src.components.gallery.card_factory import (
+    VIDEO_COLOR,
+    apply_preview_highlight,
+    create_gallery_card,
+    reset_preview_highlight,
+)
 from gui.src.qt_object_guard import deleted_qobject_guard
 
 if TYPE_CHECKING:
@@ -38,7 +44,7 @@ class _CardRenderingMixin:
             is_video = path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
             if is_video:
                 label.setStyleSheet(
-                    "border: 2px solid #3498db; background-color: transparent;"
+                    f"border: 2px solid {VIDEO_COLOR}; background-color: transparent;"
                 )
             else:
                 label.setStyleSheet(
@@ -53,15 +59,13 @@ class _CardRenderingMixin:
         gallery = getattr(self, "gallery", None)
 
         def reset_card(path, card):
-            if not card or not path:
-                return
             try:
-                orig = card.property("original_style")
-                if orig is not None:
-                    card.setStyleSheet(orig)
-                    card.setProperty("original_style", None)
-                else:
-                    self.update_card_style(card, self.is_path_selected(path))
+                reset_preview_highlight(
+                    card,
+                    path,
+                    is_selected=self.is_path_selected(path) if path else False,
+                    update_style=self.update_card_style,
+                )
             except RuntimeError as exc:
                 deleted_qobject_guard(exc, "_CardRenderingMixin.update_preview_highlight.reset_card")
 
@@ -77,15 +81,13 @@ class _CardRenderingMixin:
             return
 
         def highlight_card(path, card):
-            if not card or not path:
-                return
             try:
-                self.update_card_style(card, self.is_path_selected(path))
-                if card.property("original_style") is None:
-                    card.setProperty("original_style", card.styleSheet())
-                current = card.styleSheet().strip()
-                sep = "" if not current or current.endswith(";") else ";"
-                card.setStyleSheet(f"{current}{sep} border: 4px solid #f39c12;")
+                apply_preview_highlight(
+                    card,
+                    path,
+                    is_selected=self.is_path_selected(path) if path else False,
+                    update_style=self.update_card_style,
+                )
             except RuntimeError as exc:
                 deleted_qobject_guard(exc, "_CardRenderingMixin.update_preview_highlight.highlight_card")
 
@@ -94,46 +96,23 @@ class _CardRenderingMixin:
             gallery.mark_preview(new_path, True)
 
     def create_card_widget(self: "AbstractClassSingleGalleryHostProtocol", path: str, pixmap: Optional[QPixmap]) -> QWidget:
-        container = QWidget()
-        container.setFixedSize(self.approx_item_width, self.approx_item_width)
-
-        layout = QVBoxLayout(container)
-        layout.setContentsMargins(5, 5, 5, 5)
-        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-        # Factory method
-        label = self.create_gallery_label(path, self.thumbnail_size)
-        # label.setAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent) # Removed to fix artifacts
-
-        # Initial State
         is_video = path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
-
-        if (pixmap and not pixmap.isNull()) or (
-            hasattr(self, "_failed_paths") and path in self._failed_paths
-        ):
-            self.update_card_pixmap(container, pixmap, label_ref=label)
-        else:
-            # Default "Loading..." State
-            label.clear()
-            label.setText("Loading...")
-            if is_video:
-                label.setStyleSheet(
-                    "border: 2px solid #3498db; color: #3498db; "
-                    "font-weight: bold; background-color: rgba(20, 24, 32, 0.35);"
-                )
-            else:
-                label.setStyleSheet(
-                    "border: 1px dashed rgba(255, 255, 255, 0.20); color: #888; "
-                    "font-size: 10px; background-color: rgba(20, 24, 32, 0.35);"
-                )
-
-        layout.addWidget(label)
-
-        # Apply Initial Style
-        is_selected = path in self.selected_files
-        self.update_card_style(container, is_selected)
-
-        return container
+        failed = hasattr(self, "_failed_paths") and path in self._failed_paths
+        return create_gallery_card(
+            path=path,
+            pixmap=pixmap,
+            thumb_size=self.thumbnail_size,
+            selected=path in self.selected_files,
+            variant="single",
+            approx_item_width=self.approx_item_width,
+            create_label=self.create_gallery_label,
+            update_style=self.update_card_style,
+            failed=bool(failed),
+            is_video=is_video,
+            apply_pixmap=lambda container, pix, label: self.update_card_pixmap(
+                container, pix, label_ref=label
+            ),
+        )
 
     def update_card_pixmap(
         self: "AbstractClassSingleGalleryHostProtocol",
@@ -159,7 +138,8 @@ class _CardRenderingMixin:
                 # Match ExtractorTab style ("VIDEO" text, Blue border)
                 label.setText("VIDEO")
                 label.setStyleSheet(
-                    "border: 2px solid #3498db; color: #3498db; font-weight: bold; background-color: rgba(20, 24, 32, 0.35);"
+                    f"border: 2px solid {VIDEO_COLOR}; color: {VIDEO_COLOR}; "
+                    "font-weight: bold; background-color: rgba(20, 24, 32, 0.35);"
                 )
             else:
                 label.setText("No Thumbnail")
@@ -191,7 +171,7 @@ class _CardRenderingMixin:
 
             if is_video:
                 label.setStyleSheet(
-                    "border: 2px solid #3498db; background-color: transparent;"
+                    f"border: 2px solid {VIDEO_COLOR}; background-color: transparent;"
                 )
             else:
                 label.setStyleSheet(

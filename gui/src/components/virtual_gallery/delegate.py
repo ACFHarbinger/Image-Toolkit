@@ -22,6 +22,7 @@ from PySide6.QtCore import QRectF, QSize, Qt
 from PySide6.QtGui import QBrush, QColor, QFont, QPen
 from PySide6.QtWidgets import QStyledItemDelegate
 
+from gui.src.components.gallery.card_factory import highlight_border_spec
 from gui.src.components.gallery.presentation_mode import (
     RATING_COLORS,
     GalleryOverlayConfig,
@@ -29,11 +30,13 @@ from gui.src.components.gallery.presentation_mode import (
 
 
 class VirtualGalleryDelegate(QStyledItemDelegate):
-    """Draws state borders and custom thumbnail overlay badges on gallery cells."""
+    """Draws state borders and custom thumbnail overlay badges on gallery cells.
 
-    _IN_DB_COLOR = QColor("#2ecc71")
-    _SELECTED_COLOR = QColor("#5865f2")
-    _PREVIEW_COLOR = QColor("#f39c12")
+    VirtualGallery stays a paint path (QListView + this delegate) rather than
+    wrapping QWidget cards from ``create_gallery_card``; viewport culling
+    depends on that. Border colors/priority still come from the shared
+    highlight helper.
+    """
 
     def __init__(
         self,
@@ -81,19 +84,13 @@ class VirtualGalleryDelegate(QStyledItemDelegate):
         except (AttributeError, TypeError):
             preview = selected = in_db = False
 
-        if preview:
-            color, width = self._PREVIEW_COLOR, 4
-        elif selected:
-            color, width = self._SELECTED_COLOR, 3
-        elif in_db:
-            color, width = self._IN_DB_COLOR, 3
-        else:
-            color, width = None, 0
-
-        if color and width > 0:
+        hex_color, width = highlight_border_spec(
+            preview=preview, selected=selected, in_db=in_db
+        )
+        if hex_color and width > 0:
             d = width // 2
             painter.save()
-            painter.setPen(QPen(color, width))
+            painter.setPen(QPen(QColor(hex_color), width))
             painter.drawRect(option.rect.adjusted(d, d, -d, -d))
             painter.restore()
 
