@@ -83,7 +83,15 @@ def test_run_is_gc_guarded(module_name: str, class_name: str):
     module = importlib.import_module(module_name)
     klass = getattr(module, class_name)
     run = klass.__dict__.get("run")
-    assert run is not None, f"{class_name} must define its own run()"
+    if run is None:
+        # R1.1 (#556): workers on the shared bases inherit the guarded
+        # run() instead of defining their own.
+        from gui.src.helpers.base import BaseQRunnableWorker, BaseQThreadWorker
+
+        assert issubclass(klass, (BaseQThreadWorker, BaseQRunnableWorker)), (
+            f"{class_name} must define its own run() or inherit a base one"
+        )
+        run = klass.run
     assert run.__code__ is _GUARD_CODE, (
         f"{class_name}.run must be wrapped by @gc_disabled_run (#478/#481 "
         "crash class: cyclic GC on a worker thread finalizes QWidgets "

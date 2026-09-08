@@ -26,6 +26,7 @@ Usage
 from __future__ import annotations
 
 import gc
+import threading
 from abc import abstractmethod
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
@@ -37,20 +38,36 @@ from PySide6.QtCore import QThread
 __all__ = ["GcSafeThread", "gc_disabled", "gc_disabled_run"]
 
 
+_state_lock = threading.Lock()
+_active_guards = 0
+_restore_enabled = True
+
+
 @contextmanager
 def gc_disabled() -> Iterator[None]:
     """Run the enclosed block with the cyclic GC disabled.
 
-    Restores the prior state afterwards — including leaving it disabled if
-    it was already off when the block was entered.
+    Process-level coordinator (R1.1, #556): overlapping guards nest by
+    count — only the outermost entry disables, only the outermost exit
+    restores the state captured at that entry. An inner guard exiting
+    while an outer one is still active must NOT re-enable collection,
+    or a worker thread could finalize GUI garbage off the GUI thread
+    (the #478 crash class). Leaving an already-disabled collector
+    disabled is preserved.
     """
-    was_enabled = gc.isenabled()
-    gc.disable()
+    global _active_guards, _restore_enabled
+    with _state_lock:
+        if _active_guards == 0:
+            _restore_enabled = gc.isenabled()
+            gc.disable()
+        _active_guards += 1
     try:
         yield
     finally:
-        if was_enabled:
-            gc.enable()
+        with _state_lock:
+            _active_guards -= 1
+            if _active_guards == 0 and _restore_enabled:
+                gc.enable()
 
 
 def gc_disabled_run(func: Callable[..., Any]) -> Callable[..., Any]:
