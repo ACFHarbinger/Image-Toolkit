@@ -1,4 +1,3 @@
-from .cloud.cloud_drive_sync_signals import CloudDriveSyncWorkerSignals
 from .cloud.dropbox_drive_sync_worker import DropboxDriveSyncWorker
 from .cloud.google_drive_sync_worker import GoogleDriveSyncWorker
 from .cloud.local_dir_sync_worker import (
@@ -23,7 +22,6 @@ from .sync_backup_worker import _SyncBackupWorker
 from .web_requests_worker import WebRequestsWorker
 
 __all__ = [
-    "CloudDriveSyncWorkerSignals",
     "ConflictPolicy",
     "DEFAULT_EXCLUDES",
     "DropboxDriveSyncWorker",

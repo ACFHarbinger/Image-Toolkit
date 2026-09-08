@@ -105,9 +105,9 @@ class TestVideoScannerWorker:
             worker = VideoScannerWorker([str(d)])
 
             finished_signals = []
-            worker.scan_finished.connect(lambda r: finished_signals.append(r))
+            worker.finished.connect(lambda r: finished_signals.append(r))
 
-            worker.run_scan()
+            worker.run()  # directly, same thread — direct delivery
 
             assert len(finished_signals) == 1
             found = finished_signals[0]
@@ -118,12 +118,15 @@ class TestVideoScannerWorker:
         worker = VideoScannerWorker([])
 
         error_signals = []
+        finished_signals = []
         worker.scan_error.connect(lambda e: error_signals.append(e))
+        worker.finished.connect(lambda r: finished_signals.append(r))
 
-        worker.run_scan()
+        worker.run()  # directly, same thread — direct delivery
 
         assert len(error_signals) == 1
         assert "No valid directories" in error_signals[0]
+        assert finished_signals == [None]
 
 
 # --- VideoLoaderWorker / BatchVideoLoaderWorker Tests ---
@@ -149,7 +152,7 @@ class TestVideoLoaderWorker:
 
             worker = VideoLoaderWorker("/tmp/fake.mp4", 100)
             results = []
-            worker.signals.result.connect(lambda p, img: results.append((p, img)))
+            worker.stream.result.connect(lambda p, img: results.append((p, img)))
 
             worker.run()
 
@@ -171,7 +174,7 @@ class TestVideoLoaderWorker:
             worker.thumbnailer.generate.return_value = mock_image
 
             results = []
-            worker.signals.result.connect(lambda p, img: results.append((p, img)))
+            worker.stream.result.connect(lambda p, img: results.append((p, img)))
 
             worker.run()
 
@@ -197,7 +200,7 @@ class TestBatchVideoLoaderWorker:
             worker.thumbnailer.generate.return_value = mock_image
 
             batch_results = []
-            worker.signals.batch_result.connect(
+            worker.stream.batch_result.connect(
                 lambda results, paths: batch_results.append((results, paths))
             )
 

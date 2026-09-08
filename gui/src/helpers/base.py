@@ -32,15 +32,14 @@ Usage
 ``QThread`` subclass::
 
     class MyWorker(BaseQThreadWorker):
-        finished = Signal(str)   # narrow type
+        # inherits finished = Signal(object); payload here is a str
 
         def __init__(self, path: str) -> None:
             super().__init__()
             self._path = path
 
-        def _execute(self) -> None:
-            result = do_work(self._path)
-            self.finished.emit(result)
+        def _execute(self) -> object:
+            return do_work(self._path)  # base emits it via finished
 
 ``QRunnable`` subclass::
 
@@ -49,9 +48,8 @@ Usage
             super().__init__()
             self._path = path
 
-        def _execute(self) -> None:
-            result = do_work(self._path)
-            self.signals.finished.emit(result)
+        def _execute(self) -> object:
+            return do_work(self._path)  # base emits it via signals.finished
 """
 
 from __future__ import annotations
@@ -80,7 +78,8 @@ class BaseQThreadWorker(QThread):
         Emitted once at thread end with the ``_execute()`` return value
         (``None`` when there is no payload, or when ``_execute()`` raised
         and ``error`` fired instead). Payload slots must tolerate ``None``.
-        Subclasses typically re-declare this with a narrower type.
+        Subclasses may narrow this (``Signal(list)``/``Signal(dict)``/…);
+        ``None`` passes through typed signals and ``@Slot`` decorators.
     error : Signal(object)
         Emitted with the exception object when an unhandled exception
         escapes ``_execute()`` (Q-C, R1.1). Connecting slots call
@@ -168,6 +167,7 @@ class _WorkerSignals(QObject):
     finished = Signal(object)
     error = Signal(object)
     progress = Signal(int, int)  # (completed, total) — see §5.9 Option C
+    status = Signal(str)  # log-line channel (kept per-worker convention, R1.1)
     cancelled = Signal()
 
 
@@ -180,9 +180,12 @@ class BaseQRunnableWorker(QRunnable):
     Lifecycle
     ---------
     1. ``run()`` checks ``self._cancelled`` before calling ``_execute()``.
-    2. ``_execute()`` contains the task logic; unhandled exceptions are
-       routed to ``self.signals.error``.
-    3. ``cancel()`` sets ``self._cancelled = True``; ``_execute()`` can
+    2. ``_execute()`` contains the task logic and returns its result;
+       unhandled exceptions are routed to ``self.signals.error``.
+    3. ``run()`` emits ``signals.finished`` with the return value
+       (``None`` on failure/cancel) — same contract as
+       ``BaseQThreadWorker``.
+    4. ``cancel()`` sets ``self._cancelled = True``; ``_execute()`` can
        poll this flag for cooperative early exit.
     """
 
@@ -197,8 +200,12 @@ class BaseQRunnableWorker(QRunnable):
         self._cancelled = True
 
     @abstractmethod
-    def _execute(self) -> None:
-        """Task logic. Override this instead of ``run()``."""
+    def _execute(self) -> object:
+        """Task logic. Override this instead of ``run()``.
+
+        The return value is delivered to ``signals.finished``. Return
+        ``None`` when there is no result payload.
+        """
 
     @gc_disabled_run
     @Slot()
@@ -207,6 +214,8 @@ class BaseQRunnableWorker(QRunnable):
             self.signals.cancelled.emit()
             return
         try:
-            self._execute()
+            result = self._execute()
         except Exception as exc:
             self.signals.error.emit(exc)
+            result = None
+        self.signals.finished.emit(result)

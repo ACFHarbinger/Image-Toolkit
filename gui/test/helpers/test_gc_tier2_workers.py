@@ -121,8 +121,8 @@ def _run_and_probe(worker, signal) -> _GcProbe:
 def test_conversion_worker_quick_error_path_runs_gced(tmp_path):
     from gui.src.helpers.core.conversion_worker import ConversionWorker
 
-    w = ConversionWorker({})  # no files → error_signal "No files to convert."
-    probe = _run_and_probe(w, w.error_signal)
+    w = ConversionWorker({})  # no files → base error "No files to convert."
+    probe = _run_and_probe(w, w.error)
     assert probe.seen.get("enabled_during") is False
 
 
@@ -163,7 +163,7 @@ def test_storyboard_builder_zero_duration_runs_gced(tmp_path):
     video = tmp_path / "v.mp4"
     video.write_bytes(b"0")  # _cache_dir_for() os.stat()s it; never decoded
     w = StoryboardBuilder(str(video), duration_ms=0)
-    probe = _run_and_probe(w, w.failed)  # "Unknown video duration."
+    probe = _run_and_probe(w, w.error)  # "Unknown video duration."
     assert probe.seen.get("enabled_during") is False
 
 
@@ -187,7 +187,7 @@ def test_queue_execution_worker_empty_queue_runs_gced():
     from gui.src.helpers.core.queue_execution_worker import QueueExecutionWorker
 
     w = QueueExecutionWorker([])
-    probe = _run_and_probe(w, w.signals.started)
+    probe = _run_and_probe(w, w.signals.finished)
     assert probe.seen.get("enabled_during") is False
 
 
@@ -206,7 +206,7 @@ def test_phash_task_runs_gced(tmp_path):
     img = tmp_path / "img.png"
     Image.new("RGB", (8, 8), "red").save(img)
     t = PhashTask(str(img))
-    probe = _run_and_probe(t, t.signals.result)
+    probe = _run_and_probe(t, t.signals.finished)
     assert probe.seen.get("enabled_during") is False
 
 

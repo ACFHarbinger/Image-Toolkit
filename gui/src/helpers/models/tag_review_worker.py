@@ -1,12 +1,12 @@
 from pathlib import Path
 from typing import List, Optional
 
-from PySide6.QtCore import QThread, Signal
+from PySide6.QtCore import Signal
 
-from gui.src.helpers.gc_safe import gc_disabled_run
+from gui.src.helpers.base import BaseQThreadWorker
 
 
-class TagReviewWorker(QThread):
+class TagReviewWorker(BaseQThreadWorker):
     """
     Runs WD14 auto-tagging over a dataset folder off the GUI thread, for the
     human-in-the-loop tag review queue (new_features.md §4.4C).
@@ -23,8 +23,8 @@ class TagReviewWorker(QThread):
     sig_progress = Signal(int, int)  # done, total
     # image_path, [(tag, confidence, category, checked_by_default), ...]
     sig_result = Signal(str, list)
-    sig_finished = Signal()
-    error = Signal(str)
+    sig_item_error = Signal(str)  # per-image failure; scan continues
+    finished = Signal(object)  # None (always) — results stream via sig_result
 
     def __init__(
         self,
@@ -41,43 +41,37 @@ class TagReviewWorker(QThread):
         self.model_repo = model_repo
         self.skip_already_tagged = skip_already_tagged
 
-    @gc_disabled_run
-    def run(self):
-        try:
-            from backend.src.models.wrappers.wd_tagger_wrapper import WDTaggerWrapper
+    def _execute(self) -> object:
+        from backend.src.models.wrappers.wd_tagger_wrapper import WDTaggerWrapper
 
-            if not WDTaggerWrapper.is_available():
-                self.error.emit(
-                    "WD14 tagger unavailable (missing onnxruntime / "
-                    "huggingface_hub) — cannot build the review queue."
+        if not WDTaggerWrapper.is_available():
+            raise RuntimeError(
+                "WD14 tagger unavailable (missing onnxruntime / "
+                "huggingface_hub) — cannot build the review queue."
+            )
+
+        wd = WDTaggerWrapper(model_repo=self.model_repo, threshold=self.general_thresh)
+
+        todo = [
+            p
+            for p in self.image_paths
+            if not (self.skip_already_tagged and p.with_suffix(".txt").exists())
+        ]
+        total = len(todo)
+        for i, path in enumerate(todo):
+            try:
+                auto, review = wd.tag_with_review(
+                    str(path),
+                    threshold=self.general_thresh,
+                    review_threshold=self.review_thresh,
                 )
-                return
-
-            wd = WDTaggerWrapper(model_repo=self.model_repo, threshold=self.general_thresh)
-
-            todo = [
-                p
-                for p in self.image_paths
-                if not (self.skip_already_tagged and p.with_suffix(".txt").exists())
-            ]
-            total = len(todo)
-            for i, path in enumerate(todo):
-                try:
-                    auto, review = wd.tag_with_review(
-                        str(path),
-                        threshold=self.general_thresh,
-                        review_threshold=self.review_thresh,
-                    )
-                    entries = [
-                        (t["tag"], t["confidence"], t["category"], True) for t in auto
-                    ] + [
-                        (t["tag"], t["confidence"], t["category"], False) for t in review
-                    ]
-                    self.sig_result.emit(str(path), entries)
-                except Exception as exc:
-                    self.error.emit(f"Tagging failed for {path.name}: {exc}")
-                self.sig_progress.emit(i + 1, total)
-
-            self.sig_finished.emit()
-        except Exception as e:
-            self.error.emit(f"Tag review worker failed: {e}")
+                entries = [
+                    (t["tag"], t["confidence"], t["category"], True) for t in auto
+                ] + [
+                    (t["tag"], t["confidence"], t["category"], False) for t in review
+                ]
+                self.sig_result.emit(str(path), entries)
+            except Exception as exc:
+                self.sig_item_error.emit(f"Tagging failed for {path.name}: {exc}")
+            self.sig_progress.emit(i + 1, total)
+        return None

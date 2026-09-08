@@ -1,13 +1,10 @@
 import imagehash
 from PIL import Image
-from PySide6.QtCore import QRunnable, Slot
 
-from gui.src.helpers.gc_safe import gc_disabled_run
-
-from .scan_signals import ScanSignals
+from gui.src.helpers.base import BaseQRunnableWorker
 
 
-class PhashTask(QRunnable):
+class PhashTask(BaseQRunnableWorker):
     """
     Task to compute perceptual hash for a single image.
     """
@@ -15,17 +12,13 @@ class PhashTask(QRunnable):
     def __init__(self, path: str):
         super().__init__()
         self.path = path
-        self.signals = ScanSignals()
-        self.setAutoDelete(True)
 
-    @gc_disabled_run
-    @Slot()
-    def run(self):
+    def _execute(self) -> object:
         try:
             with Image.open(self.path) as img:
                 # Compute hash
                 img_hash = imagehash.average_hash(img)
-                self.signals.result.emit((self.path, img_hash))
+                return (self.path, img_hash)
         except Exception:
-            # On failure, emit None so the main counter still increments
-            self.signals.result.emit((self.path, None))
+            # On failure, return None so the main counter still increments
+            return (self.path, None)

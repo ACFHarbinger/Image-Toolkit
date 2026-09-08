@@ -48,7 +48,7 @@ class TestTrainingWorker:
             worker.log_signal.connect(lambda s: logs.append(s))
 
             finished = []
-            worker.finished_signal.connect(lambda: finished.append(True))
+            worker.finished.connect(lambda r: finished.append(r))
 
             worker.run()
 
@@ -59,7 +59,7 @@ class TestTrainingWorker:
             MockGAN.assert_called()
             MockGAN.return_value.train.assert_called()
 
-            assert len(finished) == 1
+            assert finished == [True]
             assert "Training complete." in logs[-1]
 
     def test_run_dataset_error(self, q_app):
@@ -93,9 +93,12 @@ class TestTrainingWorker:
             worker = TrainingWorker("/tmp", "/tmp", 1, 1, 0.1, 10, "cpu")
 
             errors = []
-            worker.error_signal.connect(lambda e: errors.append(e))
+            finished = []
+            worker.error.connect(lambda e: errors.append(e))
+            worker.finished.connect(lambda r: finished.append(r))
 
             worker.run()
 
             assert len(errors) == 1
-            assert "Dataset Error" in errors[0]
+            assert "Dataset Error" in str(errors[0])
+            assert finished == [None]

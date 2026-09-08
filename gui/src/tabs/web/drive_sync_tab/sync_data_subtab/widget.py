@@ -315,8 +315,8 @@ class SyncDataSubtab(QWidget):
             self._unlock_ui()
             return
 
-        self.current_worker.signals.status_update.connect(self._on_status_update)
-        self.current_worker.signals.sync_finished.connect(self._on_sync_finished)
+        self.current_worker.signals.status.connect(self._on_status_update)
+        self.current_worker.signals.finished.connect(self._on_sync_finished)
         QThreadPool.globalInstance().start(self.current_worker)
 
     @Slot(str)
@@ -324,9 +324,14 @@ class SyncDataSubtab(QWidget):
         self.log_window.append_log(msg)
         self.status_update.emit(msg)
 
-    @Slot(bool, str, bool)
-    def _on_sync_finished(self, success: bool, message: str, was_dry_run: bool) -> None:
+    @Slot(object)
+    def _on_sync_finished(self, result) -> None:
         self._unlock_ui()
+        if result is None:  # BaseException escape; error channel has no UI here
+            self.log_window.append_log("\nFINAL STATUS: Sync Failed. Worker failed unexpectedly.")
+            self.current_worker = None
+            return
+        success, message, was_dry_run = result
         mode = "DRY RUN" if was_dry_run else "LIVE"
         status = "Completed" if success else "Failed"
         self.log_window.append_log(f"\nFINAL STATUS: {mode} Sync {status}. {message}")
@@ -374,8 +379,8 @@ class SyncDataSubtab(QWidget):
             remote_path=remote_path,
             dry_run=True,
         )
-        worker.signals.status_update.connect(self._on_status_update)
-        worker.signals.sync_finished.connect(lambda *_: self._unlock_ui_minor())
+        worker.signals.status.connect(self._on_status_update)
+        worker.signals.finished.connect(lambda *_: self._unlock_ui_minor())
         QThreadPool.globalInstance().start(worker)
 
     def _share_remote_folder(self) -> None:
