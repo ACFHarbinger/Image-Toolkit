@@ -177,6 +177,11 @@ class _FoundGalleryPopulateMixin:
         ):
             return
 
+        from gui.src.helpers.image._qimagereader_disk_cache import (
+            is_oversized_gif,
+            oversized_gif_placeholder,
+        )
+
         paths_to_load = []
         for path in self._paginated_found_paths:
             if path in self._found_pixmap_cache:
@@ -185,6 +190,13 @@ class _FoundGalleryPopulateMixin:
                 hasattr(self, "found_loading_paths")
                 and path in self.found_loading_paths
             ):
+                continue
+            if is_oversized_gif(path):
+                placeholder = oversized_gif_placeholder(self.thumbnail_size)
+                self._found_pixmap_cache[path] = placeholder
+                widget = self.path_to_label_map.get(path)
+                if widget is not None:
+                    self.update_card_pixmap(widget, QPixmap.fromImage(placeholder))
                 continue
             paths_to_load.append(path)
 

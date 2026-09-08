@@ -296,6 +296,21 @@ class ImagePreviewWindow(QDialog):
             self.image_label.clear()
 
         if self.is_animated:
+            from gui.src.helpers.image._qimagereader_disk_cache import (
+                is_oversized_gif,
+                oversized_gif_placeholder,
+            )
+
+            if is_oversized_gif(path):
+                placeholder = QPixmap.fromImage(oversized_gif_placeholder(256))
+                self.original_pixmap = placeholder
+                self.current_movie = None
+                self.image_label.setPixmap(placeholder)
+                self.setWindowTitle(
+                    f"Image Preview - {os.path.basename(path)} (too large to animate)"
+                )
+                return True
+
             # --- Handle GIF (QMovie) ---
             new_movie = QMovie(path)
 

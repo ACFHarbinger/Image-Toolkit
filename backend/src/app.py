@@ -437,6 +437,26 @@ def launch_app(opts):
         tid=threading.get_ident(),
     )
 
+    # Same first-plugin-load crash class as JPEG: gallery workers decode
+    # GIF first frames on the QThreadPool. Prime the GIF plugin here so
+    # that dlopen happens on the GUI thread. A 1x1 GIF89a, not a file.
+    _prime_gif = bytes.fromhex(
+        "47494638396101000100800000000000ffffff21f90401000000002c"
+        "00000000010001000002024401003b"
+    )
+    _prime_gif_img = _QImagePrime()
+    _prime_gif_ok = _prime_gif_img.loadFromData(_prime_gif, "GIF")
+    print(
+        f"[startup-probe-guard] GIF plugin primed on main thread "
+        f"(decode_ok={_prime_gif_ok})",
+        flush=True,
+    )
+    telemetry.emit(
+        "startup", "gif_plugin.primed",
+        decode_ok=_prime_gif_ok,
+        tid=threading.get_ident(),
+    )
+
     def launch_main_gui(vault_manager):
         """
         Creates and shows the MainWindow after successful authentication.
