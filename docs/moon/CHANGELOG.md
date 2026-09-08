@@ -1,3 +1,9 @@
+# S530 — 2026-09-08 (Cursor: #563 R2.a import-dialog pair collapsed)
+
+- `directory_import_dialog.py` and `entity_directory_import_dialog.py` merged
+  into `dialog/directory_import/` with shared `_shared.py` helpers and
+  kind-specific `series.py` / `entity.py`. Old files removed.
+
 # S535 — 2026-09-08 (Grok: huge-GIF gallery thumbnails)
 
 - Gallery / wallpaper / extractor thumbnail loads no longer run Qt's GIF

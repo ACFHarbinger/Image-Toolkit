@@ -1,24 +1,23 @@
+"""Video-directory import dialog for series listings."""
+
+from __future__ import annotations
+
 import re
 from pathlib import Path
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
-    QAbstractItemView,
-    QCheckBox,
     QComboBox,
     QFileDialog,
     QFormLayout,
     QGroupBox,
     QHBoxLayout,
-    QHeaderView,
     QLabel,
     QLineEdit,
     QMessageBox,
     QPushButton,
     QSpinBox,
     QSplitter,
-    QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
     QWidget,
@@ -33,30 +32,35 @@ from gui.src.elements.database.common.listings_common import (
 from gui.src.elements.database.dialog.common.base_directory_import_dialog import (
     BaseDirectoryImportDialog,
 )
-from gui.src.styles import SHARED_BUTTON_STYLE
+
+from ._shared import (
+    build_confirm_button_row,
+    build_selection_button_row,
+    make_checkbox_cell,
+    make_results_table,
+    make_status_item,
+)
+from .profile import SERIES_PROFILE
 
 
 class _DirectoryImportDialog(BaseDirectoryImportDialog):
-    """One-shot wizard: pick a directory of video files → review detected
-    series → configure shared metadata → confirm or cancel import."""
+    """Pick a video directory, review detected series, configure metadata, import."""
 
-    def __init__(self, existing_titles: "set[str]", parent=None):
-        super().__init__("📂 Import Listings from Video Directory", parent)
-        self._existing_titles = existing_titles  # lowercase normalised set
-        self._scan_result: dict = {}  # {series_name: [(ep_num, path), ...]}
+    def __init__(self, existing_titles: set[str], parent=None):
+        self._profile = SERIES_PROFILE
+        super().__init__(self._profile.window_title, parent)
+        self._existing_titles = existing_titles
+        self._scan_result: dict = {}
 
         root = QVBoxLayout(self)
         root.setContentsMargins(14, 14, 14, 14)
         root.setSpacing(10)
 
-        # ── Directory picker row ──────────────────────────────────────
-        dir_group = QGroupBox("Video Directory")
+        dir_group = QGroupBox(self._profile.directory_group_title)
         dir_row = QHBoxLayout(dir_group)
         dir_row.setSpacing(6)
         self._dir_edit = QLineEdit()
-        self._dir_edit.setPlaceholderText(
-            "Select the folder that contains your video files…"
-        )
+        self._dir_edit.setPlaceholderText(self._profile.directory_placeholder)
         self._dir_edit.setReadOnly(True)
         browse_btn = QPushButton("📁 Browse…")
         browse_btn.setFixedWidth(100)
@@ -69,84 +73,50 @@ class _DirectoryImportDialog(BaseDirectoryImportDialog):
         dir_row.addWidget(scan_btn)
         root.addWidget(dir_group)
 
-        # ── Middle: table left | options right ────────────────────────
         splitter = QSplitter(Qt.Orientation.Horizontal)
-
-        # Left — detected-series table
         left = QWidget()
         left_vbox = QVBoxLayout(left)
         left_vbox.setContentsMargins(0, 0, 0, 0)
         left_vbox.setSpacing(6)
 
-        self._status_lbl = QLabel("Scan a directory to detect series.")
+        self._status_lbl = QLabel(self._profile.status_idle_text)
         self._status_lbl.setStyleSheet("color:#888; font-size:11px;")
         left_vbox.addWidget(self._status_lbl)
 
-        self._table = QTableWidget(0, 4)
-        self._table.setHorizontalHeaderLabels(["", "Series Name", "Episodes", "Status"])
-        self._table.horizontalHeader().setSectionResizeMode(
-            1, QHeaderView.ResizeMode.Stretch
+        self._table = make_results_table(
+            ["", "Series Name", "Episodes", "Status"],
+            stretch_columns=(1,),
         )
-        self._table.setColumnWidth(0, 32)
         self._table.setColumnWidth(2, 72)
-        self._table.setColumnWidth(3, 120)
-        self._table.verticalHeader().hide()
-        self._table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-        self._table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        self._table.setAlternatingRowColors(True)
-        self._table.setStyleSheet(
-            "QTableWidget { background:#23272a; alternate-background-color:#252830;"
-            "  border:1px solid #4f545c; border-radius:6px; gridline-color:#3a3d42; }"
-            "QTableWidget::item { color:white; padding:3px; }"
-            "QTableWidget::item:selected { background:#00bcd4; color:black; }"
-            "QHeaderView::section { background:#2c2f33; color:#888; border:none; padding:4px; }"
-        )
         left_vbox.addWidget(self._table, 1)
-
-        sel_row = QHBoxLayout()
-        sel_all_btn = QPushButton("☑ Select All New")
-        sel_all_btn.setFixedHeight(36)
-        sel_all_btn.setStyleSheet("padding: 6px 12px;")
-        sel_all_btn.clicked.connect(self._select_all_new)
-        sel_none_btn = QPushButton("☐ Deselect All")
-        sel_none_btn.setFixedHeight(36)
-        sel_none_btn.setStyleSheet("padding: 6px 12px;")
-        sel_none_btn.clicked.connect(self._deselect_all)
-        sel_row.addWidget(sel_all_btn)
-        sel_row.addWidget(sel_none_btn)
-        sel_row.addStretch()
-        left_vbox.addLayout(sel_row)
+        left_vbox.addLayout(
+            build_selection_button_row(self._select_all_new, self._deselect_all)
+        )
         splitter.addWidget(left)
 
-        # Right — metadata options
         right = QWidget()
         right_vbox = QVBoxLayout(right)
         right_vbox.setContentsMargins(6, 0, 0, 0)
         right_vbox.setSpacing(8)
 
-        meta_group = QGroupBox("Metadata Applied to All New Entries")
+        meta_group = QGroupBox(self._profile.metadata_group_title)
         meta_form = QFormLayout(meta_group)
         meta_form.setSpacing(8)
 
         self._f_type = QComboBox()
         self._f_type.addItems(ENTRY_TYPES)
         self._f_type.setCurrentText("Anime")
-
         self._f_status = QComboBox()
         self._f_status.addItems(ENTRY_STATUS)
         self._f_status.setCurrentText("Plan to Watch")
-
         self._f_year = QSpinBox()
         self._f_year.setRange(0, 2100)
         self._f_year.setValue(0)
         self._f_year.setSpecialValueText("Unknown")
-
         self._f_genres = QLineEdit()
         self._f_genres.setPlaceholderText("e.g. Action, Comedy")
-
         self._f_tags = QLineEdit()
         self._f_tags.setPlaceholderText("e.g. subbed, seasonal")
-
         self._f_creator = QLineEdit()
         self._f_creator.setPlaceholderText("Studio / Author (optional)")
 
@@ -177,28 +147,17 @@ class _DirectoryImportDialog(BaseDirectoryImportDialog):
         splitter.addWidget(right)
 
         splitter.setSizes([520, 300])
-        _persist_splitter(splitter, "directory_import_dialog")
+        _persist_splitter(splitter, self._profile.splitter_key)
         root.addWidget(splitter, 1)
 
-        # ── Confirm / cancel ──────────────────────────────────────────
-        btn_row = QHBoxLayout()
-        btn_row.addStretch()
-        cancel_btn = QPushButton("Cancel")
-        cancel_btn.setFixedWidth(90)
-        cancel_btn.clicked.connect(self.reject)
         self._import_btn = QPushButton("📥 Import Selected")
-        self._import_btn.setStyleSheet(SHARED_BUTTON_STYLE)
-        self._import_btn.setFixedWidth(150)
-        self._import_btn.setEnabled(False)
         self._import_btn.clicked.connect(self.accept)
-        btn_row.addWidget(cancel_btn)
-        btn_row.addWidget(self._import_btn)
-        root.addLayout(btn_row)
+        root.addLayout(build_confirm_button_row(self._import_btn, self.reject))
 
     def _browse(self):
         directory = QFileDialog.getExistingDirectory(
             self,
-            "Select Video Directory",
+            self._profile.browse_dialog_title,
             self._directory or str(Path.home()),
             QFileDialog.Option.ShowDirsOnly
             | QFileDialog.Option.DontResolveSymlinks
@@ -206,11 +165,11 @@ class _DirectoryImportDialog(BaseDirectoryImportDialog):
         )
         if directory:
             self._directory = directory
-            self._dir_edit.setText(directory) # pyrefly: ignore [missing-attribute]
+            self._dir_edit.setText(directory)
             self._do_filename_scan()
 
     def _do_filename_scan(self):
-        directory = self._dir_edit.text().strip() or self._directory # pyrefly: ignore [missing-attribute]
+        directory = self._dir_edit.text().strip() or self._directory
         if not directory or not Path(directory).is_dir():
             QMessageBox.warning(
                 self, "Invalid Directory", "Please select a valid directory first."
@@ -221,29 +180,25 @@ class _DirectoryImportDialog(BaseDirectoryImportDialog):
         self._populate_table()
 
     def _do_subdirectory_scan(self):
-        directory = self._dir_edit.text().strip() or self._directory # pyrefly: ignore [missing-attribute]
+        directory = self._dir_edit.text().strip() or self._directory
         if not directory or not Path(directory).is_dir():
             QMessageBox.warning(
                 self, "Invalid Directory", "Please select a valid directory first."
             )
             return
         self._directory = directory
-
         self._scan_result = {}
         p = Path(directory)
         pattern = re.compile(r"^[^\W_]+(?:_[^\W_]+)*$", re.UNICODE)
 
         from gui.src.windows.settings.app_settings import AppSettings
+
         recursive = AppSettings.recursive_scan()
 
         try:
             for child in p.iterdir():
                 if child.is_dir() and pattern.match(child.name):
-                    # parse series name by splitting on underscores and joining with space
-                    parts = child.name.split("_")
-                    series_name = " ".join(parts)
-
-                    # scan child directory for video files
+                    series_name = " ".join(child.name.split("_"))
                     episodes = []
                     try:
                         if recursive:
@@ -258,18 +213,14 @@ class _DirectoryImportDialog(BaseDirectoryImportDialog):
                             continue
                         if entry.suffix.lower() not in VIDEO_IMPORT_EXTS:
                             continue
-
-                        # Extract episode number
                         if " - " in entry.name:
                             _, ep_num = _parse_video_series(entry.name)
                         else:
                             m = re.search(r"(\d+)", entry.name)
                             ep_num = int(m.group(1)) if m else None
-
                         episodes.append((ep_num, str(entry.absolute())))
 
                     if episodes:
-                        # Sort episodes: None episodes go last, otherwise numeric order
                         episodes.sort(key=lambda x: (x[0] is None, x[0] or 0))
                         self._scan_result[series_name] = episodes
         except Exception as e:
@@ -279,7 +230,7 @@ class _DirectoryImportDialog(BaseDirectoryImportDialog):
         self._populate_table()
 
     def _populate_table(self):
-        self._table.setRowCount(0) # pyrefly: ignore [missing-attribute]
+        self._table.setRowCount(0)
         new_count = exists_count = 0
 
         for series_name, episodes in sorted(
@@ -291,55 +242,37 @@ class _DirectoryImportDialog(BaseDirectoryImportDialog):
             else:
                 new_count += 1
 
-            row = self._table.rowCount() # pyrefly: ignore [missing-attribute]
-            self._table.insertRow(row) # pyrefly: ignore [missing-attribute]
+            row = self._table.rowCount()
+            self._table.insertRow(row)
+            self._table.setCellWidget(row, 0, make_checkbox_cell(not already))
 
-            # Col 0 – checkbox (wrapped in a centred container)
-            chk = QCheckBox()
-            chk.setChecked(not already)
-            chk.setStyleSheet("QCheckBox { margin-left:6px; }")
-            container = QWidget()
-            c_lay = QHBoxLayout(container)
-            c_lay.addWidget(chk)
-            c_lay.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            c_lay.setContentsMargins(0, 0, 0, 0)
-            self._table.setCellWidget(row, 0, container) # pyrefly: ignore [missing-attribute]
-
-            # Col 1 – series name (store original as UserRole for retrieval)
             name_item = QTableWidgetItem(series_name)
             name_item.setData(Qt.ItemDataRole.UserRole, series_name)
             name_item.setToolTip(series_name)
-            self._table.setItem(row, 1, name_item) # pyrefly: ignore [missing-attribute]
+            self._table.setItem(row, 1, name_item)
 
-            # Col 2 – episode count
             ep_item = QTableWidgetItem(str(len(episodes)))
             ep_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-            self._table.setItem(row, 2, ep_item) # pyrefly: ignore [missing-attribute]
-
-            # Col 3 – new / already-exists badge
-            if already:
-                st_item = QTableWidgetItem("⚠ Already exists")
-                st_item.setForeground(QColor("#f39c12"))
-            else:
-                st_item = QTableWidgetItem("✓ New")
-                st_item.setForeground(QColor("#2ecc71"))
-            self._table.setItem(row, 3, st_item) # pyrefly: ignore [missing-attribute]
+            self._table.setItem(row, 2, ep_item)
+            self._table.setItem(row, 3, make_status_item(already))
 
         total = len(self._scan_result)
         self._status_lbl.setText(
-            f"Found {total} series — {new_count} new, {exists_count} already in listings."
+            f"Found {total} series — {new_count} new, {exists_count} already in "
+            f"{self._profile.import_noun}."
         )
         self._import_btn.setEnabled(total > 0)
 
-    def get_selected_series(self) -> "list[str]":
-        """Return the list of series names whose checkboxes are ticked."""
+    def get_selected_series(self) -> list[str]:
+        from PySide6.QtWidgets import QCheckBox
+
         selected = []
-        for row in range(self._table.rowCount()): # pyrefly: ignore [missing-attribute]
-            cw = self._table.cellWidget(row, 0) # pyrefly: ignore [missing-attribute]
+        for row in range(self._table.rowCount()):
+            cw = self._table.cellWidget(row, 0)
             if cw:
                 chk = cw.findChild(QCheckBox)
                 if chk and chk.isChecked():
-                    item = self._table.item(row, 1) # pyrefly: ignore [missing-attribute]
+                    item = self._table.item(row, 1)
                     if item:
                         selected.append(item.data(Qt.ItemDataRole.UserRole))
         return selected
@@ -356,3 +289,6 @@ class _DirectoryImportDialog(BaseDirectoryImportDialog):
             "tags": self._f_tags.text().strip(),
             "creator": self._f_creator.text().strip(),
         }
+
+
+__all__ = ["_DirectoryImportDialog"]
