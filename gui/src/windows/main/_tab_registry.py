@@ -5,8 +5,10 @@ Extracted from ``MainWindow.__init__`` -- pure code motion, no logic change.
 
 from __future__ import annotations
 
+from ._window_bound import WindowBoundController
 
-class _TabRegistryMixin:
+
+class MainTabRegistryController(WindowBoundController):
     """Builds every tab instance and the category → {name: tab} map."""
 
     def _create_tabs(self, dropdown: bool, enable_manager: bool) -> None:
@@ -52,7 +54,7 @@ class _TabRegistryMixin:
 
         # pyrefly: ignore [missing-attribute]
         vault_manager = self.vault_manager
-        self.module_event_hub = EventHub(self)
+        self.module_event_hub = EventHub(self.tab)
         self.module_services = ModuleServices()
         self.library_database_service = LibraryDatabaseService(vault_manager)
         self.module_services.register(LIBRARY_DATABASE_SERVICE, self.library_database_service)
@@ -183,4 +185,6 @@ class _TabRegistryMixin:
             self.delete_tab.start_loading_thumbnails(list(intent.paths))
 
 
-__all__ = ["_TabRegistryMixin"]
+__all__ = ["MainTabRegistryController", "_TabRegistryMixin"]
+
+_TabRegistryMixin = MainTabRegistryController  # COMPAT(ui-arch-23): remove after callers drop the mixin name

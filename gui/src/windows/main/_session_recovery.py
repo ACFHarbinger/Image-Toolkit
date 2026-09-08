@@ -12,8 +12,10 @@ import os
 from backend.src.constants import LOCAL_SOURCE_PATH
 from PySide6.QtCore import QTimer
 
+from ._window_bound import WindowBoundController
 
-class _SessionRecoveryMixin:
+
+class MainSessionRecoveryController(WindowBoundController):
     """Restores/persists the active tab and per-tab configs across launches."""
 
     def _load_recovery_data(self) -> dict:
@@ -452,4 +454,6 @@ class _SessionRecoveryMixin:
             print(f"Warning: Failed to save session recovery data: {e}")
 
 
-__all__ = ["_SessionRecoveryMixin"]
+__all__ = ["MainSessionRecoveryController", "_SessionRecoveryMixin"]
+
+_SessionRecoveryMixin = MainSessionRecoveryController  # COMPAT(ui-arch-23): remove after callers drop the mixin name

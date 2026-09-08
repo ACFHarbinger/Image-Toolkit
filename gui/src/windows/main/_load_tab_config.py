@@ -21,8 +21,10 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
+from ._window_bound import WindowBoundController
 
-class _LoadTabConfigMixin:
+
+class MainLoadTabConfigController(WindowBoundController):
     """Meta+S: pick a saved configuration for the active tab and apply it."""
 
     def _open_load_tab_config_dialog(self) -> None:
@@ -33,7 +35,7 @@ class _LoadTabConfigMixin:
         active_tab_name = self.tabs.tabText(active_tab_index) if active_tab_index >= 0 else None
 
         if not active_category or not active_tab_name:
-            QMessageBox.warning(self, "Load Configuration", "No active tab to load a configuration for.")
+            QMessageBox.warning(self.tab, "Load Configuration", "No active tab to load a configuration for.")
             return
 
         tab_instance = self.all_tabs.get(active_category, {}).get(active_tab_name)
@@ -46,14 +48,14 @@ class _LoadTabConfigMixin:
             return
 
         if not self.vault_manager:
-            QMessageBox.critical(self, "Load Configuration", "Vault manager is not available.")
+            QMessageBox.critical(self.tab, "Load Configuration", "Vault manager is not available.")
             return
 
         tab_class_name = type(tab_instance).__name__
         try:
             creds = self.vault_manager.load_account_credentials()
         except Exception as e:
-            QMessageBox.critical(self, "Load Configuration", f"Failed to read saved configurations:\n{e}")
+            QMessageBox.critical(self.tab, "Load Configuration", f"Failed to read saved configurations:\n{e}")
             return
 
         saved_configs = creds.get("tab_configurations", {}).get(tab_class_name, {})
@@ -65,7 +67,7 @@ class _LoadTabConfigMixin:
             )
             return
 
-        dlg = QDialog(self)
+        dlg = QDialog(self.tab)
         dlg.setWindowTitle("Load Tab Configuration")
         # Default height was 360x~100 (QDialog auto-sizing to its layout's
         # size hint) -- with more than 2-3 saved configs, the list only
@@ -103,11 +105,13 @@ class _LoadTabConfigMixin:
         try:
             tab_instance.set_config(config_data)
         except Exception as e:
-            QMessageBox.critical(self, "Load Configuration", f"Failed to apply configuration '{config_name}':\n{e}")
+            QMessageBox.critical(self.tab, "Load Configuration", f"Failed to apply configuration '{config_name}':\n{e}")
             return
 
         if hasattr(self, "show_status"):
             self.show_status(f"Loaded configuration '{config_name}'.")
 
 
-__all__ = ["_LoadTabConfigMixin"]
+__all__ = ["MainLoadTabConfigController", "_LoadTabConfigMixin"]
+
+_LoadTabConfigMixin = MainLoadTabConfigController  # COMPAT(ui-arch-23): remove after callers drop the mixin name

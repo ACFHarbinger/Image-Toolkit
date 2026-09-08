@@ -1,3 +1,9 @@
+# S543 — 2026-09-08 (Grok: #544 MainWindow composition, non-Qt mixins)
+
+- `MainWindow` keeps `_LifecycleMixin` and `_ZoomMixin` on the MRO (F22:
+  Qt overrides stay). The other 13 mixins are composed controllers.
+  Follow-up PRs will move one Qt override each.
+
 # S535 — 2026-09-08 (Grok: huge-GIF gallery thumbnails)
 
 - Gallery / wallpaper / extractor thumbnail loads no longer run Qt's GIF

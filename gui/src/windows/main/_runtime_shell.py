@@ -18,8 +18,10 @@ from gui.src.modules import (
 )
 from gui.src.preferences import PreferenceStore
 
+from ._window_bound import WindowBoundController
 
-class _RuntimeShellMixin:
+
+class MainRuntimeShellController(WindowBoundController):
     """Own the experimental shell without changing the legacy shell path."""
 
     def _runtime_shell_enabled(self) -> bool:
@@ -27,7 +29,7 @@ class _RuntimeShellMixin:
 
     def _create_runtime_shell(self, *, dropdown: bool, enable_manager: bool) -> QWidget:
         preference_store = PreferenceStore.instance()
-        self.module_event_hub = EventHub(self)
+        self.module_event_hub = EventHub(self.tab)
         self.module_services = ModuleServices()
         self.module_services.register("vault_manager", self.vault_manager)
         self.library_database_service = LibraryDatabaseService(self.vault_manager)
@@ -44,7 +46,7 @@ class _RuntimeShellMixin:
             account_id=self.cached_creds.get("account_name"),
         )
         self.module_runtime = ModuleRuntime(self.module_catalog, self.module_context)
-        self.runtime_shell_container = QWidget(self)
+        self.runtime_shell_container = QWidget(self.tab)
         self.shell_layout_manager = ShellLayoutManager(
             self.module_runtime, self.runtime_shell_container
         )
@@ -64,7 +66,7 @@ class _RuntimeShellMixin:
         # explicit disposed flag -- belt-and-suspenders, matching the
         # weakref+destroyed double-guard pattern WindowManager (#528) uses
         # for the same class of "did this already go away" race.
-        self._initial_activation_timer = QTimer(self)
+        self._initial_activation_timer = QTimer(self.tab)
         self._initial_activation_timer.setSingleShot(True)
         self._initial_activation_timer.timeout.connect(self._activate_initial_runtime_module)
         self._initial_activation_timer.start(0)
@@ -102,4 +104,6 @@ class _RuntimeShellMixin:
             hub.publish(ToggleInspectorIntent(origin="main_window"))
 
 
-__all__ = ["_RuntimeShellMixin"]
+__all__ = ["MainRuntimeShellController", "_RuntimeShellMixin"]
+
+_RuntimeShellMixin = MainRuntimeShellController  # COMPAT(ui-arch-23): remove after callers drop the mixin name

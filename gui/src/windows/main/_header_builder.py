@@ -11,8 +11,10 @@ from PySide6.QtCore import QSize
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QStyle, QWidget
 
+from ._window_bound import WindowBoundController
 
-class _HeaderBuilderMixin:
+
+class MainHeaderBuilderController(WindowBoundController):
     """Builds the top header bar and wires the theme/settings buttons."""
 
     def _build_header(self, account_name: str, app_icon) -> QWidget:
@@ -97,4 +99,6 @@ class _HeaderBuilderMixin:
         return header_widget
 
 
-__all__ = ["_HeaderBuilderMixin"]
+__all__ = ["MainHeaderBuilderController", "_HeaderBuilderMixin"]
+
+_HeaderBuilderMixin = MainHeaderBuilderController  # COMPAT(ui-arch-23): remove after callers drop the mixin name

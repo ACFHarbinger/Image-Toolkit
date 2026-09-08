@@ -12,8 +12,10 @@ from backend.src._version import __version__
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QMenu, QStyle, QSystemTrayIcon
 
+from ._window_bound import WindowBoundController
 
-class _TrayMixin:
+
+class MainTrayController(WindowBoundController):
     """Builds the tray icon/menu and handles tray-triggered actions."""
 
     def _setup_tray_icon(self, app_icon=None) -> None:
@@ -44,11 +46,11 @@ class _TrayMixin:
             else:
                 icon = self.style().standardIcon(QStyle.StandardPixmap.SP_ComputerIcon)
 
-        self._tray_icon = QSystemTrayIcon(icon, parent=self)
+        self._tray_icon = QSystemTrayIcon(icon, parent=self.tab)
         # Parent the menu to the window so it shares the app's WM identity
         # (app_id / WM_CLASS) — a parentless popup surface can otherwise be
         # picked up as a separate taskbar entry on some Wayland compositors.
-        tray_menu = QMenu(self)
+        tray_menu = QMenu(self.tab)
 
         show_action = tray_menu.addAction("Show Window")
         show_action.triggered.connect(self._tray_show_window)
@@ -113,4 +115,6 @@ class _TrayMixin:
         self._minimize_to_tray = enabled
 
 
-__all__ = ["_TrayMixin"]
+__all__ = ["MainTrayController", "_TrayMixin"]
+
+_TrayMixin = MainTrayController  # COMPAT(ui-arch-23): remove after callers drop the mixin name

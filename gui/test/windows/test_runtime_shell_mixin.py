@@ -13,7 +13,7 @@ import pytest
 from gui.src.modules import ModuleCategory
 from gui.src.modules.catalog import ModuleCatalog, PageDescriptor
 from gui.src.preferences import PreferenceStore
-from gui.src.windows.main._runtime_shell import _RuntimeShellMixin
+from gui.src.windows.main._runtime_shell import MainRuntimeShellController
 from PySide6.QtWidgets import QApplication, QWidget
 
 pytestmark = pytest.mark.gui
@@ -70,11 +70,20 @@ def stub_main_window(q_app, monkeypatch):
         _fake_build_application_catalog,
     )
 
-    class _Stub(_RuntimeShellMixin, QWidget):
+    class _Stub(QWidget):
         def __init__(self):
             super().__init__()
             self.vault_manager = None
             self.cached_creds = {}
+            self._runtime = MainRuntimeShellController(self)
+
+        def _create_runtime_shell(self, *, dropdown: bool, enable_manager: bool):
+            return self._runtime._create_runtime_shell(
+                dropdown=dropdown, enable_manager=enable_manager
+            )
+
+        def _dispose_runtime_shell(self) -> None:
+            self._runtime._dispose_runtime_shell()
 
     stub = _Stub()
     stub._factory_calls = calls

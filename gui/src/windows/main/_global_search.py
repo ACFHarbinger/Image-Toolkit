@@ -14,6 +14,8 @@ from PySide6.QtWidgets import QDialog, QLineEdit, QListWidget, QListWidgetItem, 
 
 from gui.src.constants.windows import _MAX_RESULTS, _NESTED_GALLERY_ATTRS
 
+from ._window_bound import WindowBoundController
+
 # ConvertTab is a plain QWidget composing three gallery subtabs rather than
 # being (or delegating to, like ExtractorTab's __getattr__) a gallery base
 # itself -- these are the attribute names to look under one level down.
@@ -21,7 +23,7 @@ from gui.src.constants.windows import _MAX_RESULTS, _NESTED_GALLERY_ATTRS
 # Cap results so a huge library doesn't build an unbounded popup list.
 
 
-class _GlobalSearchMixin:
+class MainGlobalSearchController(WindowBoundController):
     """Search across every loaded gallery tab's file paths and jump to a hit."""
 
     def _iter_gallery_tabs(self):
@@ -52,7 +54,7 @@ class _GlobalSearchMixin:
             for path in paths or []:
                 all_entries.append((category, tab_name, path, gallery))
 
-        dlg = QDialog(self, Qt.WindowType.Popup | Qt.WindowType.FramelessWindowHint)
+        dlg = QDialog(self.tab, Qt.WindowType.Popup | Qt.WindowType.FramelessWindowHint)
         dlg.setWindowTitle("Search All Tabs")
         dlg.setFixedWidth(520)
         layout = QVBoxLayout(dlg)
@@ -105,4 +107,6 @@ class _GlobalSearchMixin:
         dlg.exec()
 
 
-__all__ = ["_GlobalSearchMixin"]
+__all__ = ["MainGlobalSearchController", "_GlobalSearchMixin"]
+
+_GlobalSearchMixin = MainGlobalSearchController  # COMPAT(ui-arch-23): remove after callers drop the mixin name

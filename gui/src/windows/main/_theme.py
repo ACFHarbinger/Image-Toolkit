@@ -34,6 +34,7 @@ from ...styles import (
     load_qss_with_overrides,
     load_user_qss_override,
 )
+from ._window_bound import WindowBoundController
 
 logger = logging.getLogger(__name__)
 
@@ -86,7 +87,7 @@ def _build_palette(
     return palette
 
 
-class _ThemeMixin:
+class MainThemeController(WindowBoundController):
     """Applies the dark/light stylesheet and handles manual theme toggling."""
 
     def prime_application_palette(self, theme_name: str) -> None:
@@ -328,4 +329,6 @@ class _ThemeMixin:
                 logger.debug("Suppressed Exception in _ThemeMixin._toggle_theme", exc_info=True)
 
 
-__all__ = ["_ThemeMixin"]
+__all__ = ["MainThemeController", "_ThemeMixin"]
+
+_ThemeMixin = MainThemeController  # COMPAT(ui-arch-23): remove after callers drop the mixin name

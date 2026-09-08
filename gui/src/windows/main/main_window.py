@@ -1,4 +1,4 @@
-"""``MainWindow`` -- composed from per-concern mixins."""
+"""``MainWindow`` -- composed controllers plus Qt-override mixins (F22 / #544)."""
 
 from __future__ import annotations
 
@@ -29,45 +29,32 @@ from ..cloud import CloudComputeWindow
 from ..settings import SettingsWindow
 from ..window_manager import register_window
 from ..window_service import WindowService
-from ._global_search import _GlobalSearchMixin
-from ._header_builder import _HeaderBuilderMixin
+from ._global_search import MainGlobalSearchController
+from ._header_builder import MainHeaderBuilderController
 from ._lifecycle import _LifecycleMixin
-from ._load_tab_config import _LoadTabConfigMixin
+from ._load_tab_config import MainLoadTabConfigController
 from ._notify import show_main_status, show_tray_notification
-from ._runtime_shell import _RuntimeShellMixin
-from ._save_tab_config import _SaveTabConfigMixin
-from ._session_recovery import _SessionRecoveryMixin
-from ._shortcuts import _ShortcutOverlayMixin
-from ._startup_prefs import _StartupPrefsMixin
-from ._tab_registry import _TabRegistryMixin
-from ._tab_search import _TabSearchMixin
-from ._theme import _ThemeMixin
-from ._tray import _TrayMixin
-from ._workflow_templates import _WorkflowTemplatesMixin
+from ._runtime_shell import MainRuntimeShellController
+from ._save_tab_config import MainSaveTabConfigController
+from ._session_recovery import MainSessionRecoveryController
+from ._shortcuts import MainShortcutOverlayController
+from ._startup_prefs import MainStartupPrefsController
+from ._tab_registry import MainTabRegistryController
+from ._tab_search import MainTabSearchController
+from ._theme import MainThemeController
+from ._tray import MainTrayController
+from ._workflow_templates import MainWorkflowTemplatesController
 from ._zoom import _ZoomMixin
 
 logger = logging.getLogger(__name__)
 
+
 class MainWindow(
-    # Mixins MUST precede QWidget in MRO order (see gui/src/tabs/core/merge_tab/
-    # manager.py for the bug this pattern fixes): several mixin methods here
-    # (closeEvent, keyPressEvent, showEvent, wheelEvent) override same-named
-    # methods QWidget itself defines, and would otherwise be silently shadowed.
-    _HeaderBuilderMixin,
-    _RuntimeShellMixin,
-    _TabRegistryMixin,
-    _ThemeMixin,
-    _TrayMixin,
-    _TabSearchMixin,
-    _GlobalSearchMixin,
-    _WorkflowTemplatesMixin,
-    _ShortcutOverlayMixin,
-    _SaveTabConfigMixin,
-    _LoadTabConfigMixin,
-    _StartupPrefsMixin,
-    _SessionRecoveryMixin,
-    _ZoomMixin,
+    # F22: Qt virtuals stay on mixins still in the MRO. Follow-up PRs move
+    # one override each. Mixins MUST precede QWidget so closeEvent /
+    # keyPressEvent / showEvent / wheelEvent / paintEvent are not shadowed.
     _LifecycleMixin,
+    _ZoomMixin,
     QWidget,
 ):
     def __init__(
@@ -89,6 +76,22 @@ class MainWindow(
         self.vault_manager = vault_manager
         self.enable_manager = enable_manager
         self.toast_manager = ToastManager(self)
+
+        # Composed controllers (ui-arch-23, #544). ``tab`` on each is this
+        # MainWindow (a QWidget) — same TabBoundController API as Search/Scan.
+        self.header_builder = MainHeaderBuilderController(self)
+        self.runtime_shell = MainRuntimeShellController(self)
+        self.tab_registry = MainTabRegistryController(self)
+        self.theme_controller = MainThemeController(self)
+        self.tray_controller = MainTrayController(self)
+        self.tab_search = MainTabSearchController(self)
+        self.global_search = MainGlobalSearchController(self)
+        self.workflow_templates = MainWorkflowTemplatesController(self)
+        self.shortcut_overlay = MainShortcutOverlayController(self)
+        self.save_tab_config = MainSaveTabConfigController(self)
+        self.load_tab_config = MainLoadTabConfigController(self)
+        self.startup_prefs = MainStartupPrefsController(self)
+        self.session_recovery = MainSessionRecoveryController(self)
 
         self.setWindowTitle(f"Image Database and Edit Toolkit — v{__version__}")
         self.setMinimumWidth(800)
@@ -287,4 +290,151 @@ class MainWindow(
         """Show a floating toast notification (GUI/UX §2.10A)."""
         self.toast_manager.show_toast(message, toast_type, duration_ms)
 
-__all__ =  ["MainWindow", "show_main_status", "show_tray_notification"]
+    # --- Facade delegation (composed controllers) ---
+    def _build_header(self, account_name: str, app_icon) -> QWidget:
+        return self.header_builder._build_header(account_name, app_icon)
+
+    def _runtime_shell_enabled(self) -> bool:
+        return self.runtime_shell._runtime_shell_enabled()
+
+    def _create_runtime_shell(self, *, dropdown: bool, enable_manager: bool) -> QWidget:
+        return self.runtime_shell._create_runtime_shell(
+            dropdown=dropdown, enable_manager=enable_manager
+        )
+
+    def _activate_initial_runtime_module(self) -> None:
+        self.runtime_shell._activate_initial_runtime_module()
+
+    def _dispose_runtime_shell(self) -> None:
+        self.runtime_shell._dispose_runtime_shell()
+
+    def _toggle_context_inspector(self) -> None:
+        self.runtime_shell._toggle_context_inspector()
+
+    def _create_tabs(self, dropdown: bool, enable_manager: bool) -> None:
+        self.tab_registry._create_tabs(dropdown, enable_manager)
+
+    def _activate_legacy_module(self, intent) -> None:
+        self.tab_registry._activate_legacy_module(intent)
+
+    def _handle_legacy_path_import(self, intent) -> None:
+        self.tab_registry._handle_legacy_path_import(intent)
+
+    def prime_application_palette(self, theme_name: str) -> None:
+        self.theme_controller.prime_application_palette(theme_name)
+
+    def set_application_theme(self, theme_name, *, preferences: dict | None = None):
+        self.theme_controller.set_application_theme(theme_name, preferences=preferences)
+
+    def apply_theme_pack(self, pack) -> None:
+        self.theme_controller.apply_theme_pack(pack)
+
+    def _toggle_theme(self) -> None:
+        self.theme_controller._toggle_theme()
+
+    def _setup_tray_icon(self, app_icon=None) -> None:
+        self.tray_controller._setup_tray_icon(app_icon)
+
+    def _tray_show_window(self) -> None:
+        self.tray_controller._tray_show_window()
+
+    def _tray_toggle_daemon(self) -> None:
+        self.tray_controller._tray_toggle_daemon()
+
+    def _tray_next_wallpaper(self) -> None:
+        self.tray_controller._tray_next_wallpaper()
+
+    def _on_tray_activated(self, reason) -> None:
+        self.tray_controller._on_tray_activated(reason)
+
+    def tray_notify(self, title: str, message: str, timeout_ms: int = 4000) -> None:
+        self.tray_controller.tray_notify(title, message, timeout_ms)
+
+    def set_minimize_to_tray(self, enabled: bool) -> None:
+        self.tray_controller.set_minimize_to_tray(enabled)
+
+    def _open_tab_search(self) -> None:
+        self.tab_search._open_tab_search()
+
+    def _open_runtime_module_search(self) -> None:
+        self.tab_search._open_runtime_module_search()
+
+    def _select_tab_by_name(self, tab_name: str) -> None:
+        self.tab_search._select_tab_by_name(tab_name)
+
+    def _iter_gallery_tabs(self):
+        return self.global_search._iter_gallery_tabs()
+
+    def _open_global_search(self) -> None:
+        self.global_search._open_global_search()
+
+    def _load_workflow_templates(self) -> dict:
+        return self.workflow_templates._load_workflow_templates()
+
+    def _save_workflow_templates(self, templates: dict) -> bool:
+        return self.workflow_templates._save_workflow_templates(templates)
+
+    def _open_workflow_templates_dialog(self) -> None:
+        self.workflow_templates._open_workflow_templates_dialog()
+
+    def _run_workflow_template(self, name: str) -> None:
+        self.workflow_templates._run_workflow_template(name)
+
+    def _open_workflow_template_builder(self) -> None:
+        self.workflow_templates._open_workflow_template_builder()
+
+    def _open_shortcut_overlay(self) -> None:
+        self.shortcut_overlay._open_shortcut_overlay()
+
+    def _open_save_tab_config_dialog(self) -> None:
+        self.save_tab_config._open_save_tab_config_dialog()
+
+    def _save_tab_config_to_vault(self, tab_instance, config_name: str) -> None:
+        self.save_tab_config._save_tab_config_to_vault(tab_instance, config_name)
+
+    def _open_load_tab_config_dialog(self) -> None:
+        self.load_tab_config._open_load_tab_config_dialog()
+
+    def _load_tab_config_into(self, tab_instance, config_data: dict, config_name: str) -> None:
+        self.load_tab_config._load_tab_config_into(tab_instance, config_data, config_name)
+
+    def _apply_tray_preference(self) -> None:
+        self.startup_prefs._apply_tray_preference()
+
+    def _sanitize_config_if_needed(self, config_data: dict) -> dict:
+        return self.startup_prefs._sanitize_config_if_needed(config_data)
+
+    def _apply_active_tab_configs(self, previous_configs: dict | None = None) -> None:
+        self.startup_prefs._apply_active_tab_configs(previous_configs=previous_configs)
+
+    def _apply_startup_preferences(self) -> None:
+        self.startup_prefs._apply_startup_preferences()
+
+    def _load_recovery_data(self) -> dict:
+        return self.session_recovery._load_recovery_data()
+
+    def _runtime_shell_startup_module_id(self, category_name: str, tab_name: str):
+        return self.session_recovery._runtime_shell_startup_module_id(category_name, tab_name)
+
+    def _restore_runtime_shell_session_recovery(self) -> None:
+        self.session_recovery._restore_runtime_shell_session_recovery()
+
+    def _restore_session_recovery(self) -> None:
+        self.session_recovery._restore_session_recovery()
+
+    def _restore_tab_config_instance(self, tab_instance, tab_configs, error_context: str) -> None:
+        self.session_recovery._restore_tab_config_instance(tab_instance, tab_configs, error_context)
+
+    def _do_restore_configs(self, recovery_level, active_category, active_tab_name, tab_configs) -> None:
+        self.session_recovery._do_restore_configs(
+            recovery_level, active_category, active_tab_name, tab_configs
+        )
+
+    def _save_runtime_shell_session_recovery(self) -> None:
+        self.session_recovery._save_runtime_shell_session_recovery()
+
+    def _save_session_recovery(self) -> None:
+        self.session_recovery._save_session_recovery()
+
+
+__all__ = ["MainWindow", "show_main_status", "show_tray_notification"]

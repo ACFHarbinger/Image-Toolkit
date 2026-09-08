@@ -13,12 +13,13 @@ other test in this suite exercises either).
 
 from __future__ import annotations
 
+import contextlib
 from unittest.mock import patch
 
 import pytest
 from gui.src.modules.catalog import ModuleCatalog, PageDescriptor
 from gui.src.modules.descriptor import ModuleCategory
-from gui.src.windows.main._session_recovery import _SessionRecoveryMixin
+from gui.src.windows.main._session_recovery import MainSessionRecoveryController
 from gui.test.fixtures.mock_vault_manager import MockVaultManager, cleanup_recovery_files
 
 pytestmark = pytest.mark.gui
@@ -84,7 +85,7 @@ def _make_catalog() -> ModuleCatalog:
     return catalog
 
 
-class _Host(_SessionRecoveryMixin):
+class _Host:
     def __init__(self, vault_manager, cached_creds):
         self.vault_manager = vault_manager
         self.cached_creds = cached_creds
@@ -92,10 +93,17 @@ class _Host(_SessionRecoveryMixin):
         self.module_catalog = _make_catalog()
         self.shell_layout_manager = _FakeShellLayoutManager(self.module_runtime)
         self._using_runtime_shell = True
+        self._session = MainSessionRecoveryController(self)
 
     def _sanitize_config_if_needed(self, config_data):
-        # Real implementation lives in _StartupPrefsMixin; not under test here.
+        # Real implementation lives in MainStartupPrefsController; not under test here.
         return config_data
+
+    def _save_session_recovery(self) -> None:
+        self._session._save_session_recovery()
+
+    def _restore_session_recovery(self) -> None:
+        self._session._restore_session_recovery()
 
 
 @pytest.fixture(autouse=True)
@@ -245,8 +253,9 @@ class TestRuntimeShellTrayPreferenceApplied:
         from PySide6.QtWidgets import QApplication
 
         for widget in QApplication.topLevelWidgets():
-            widget.close()
-            widget.deleteLater()
+            with contextlib.suppress(RuntimeError):
+                widget.close()
+                widget.deleteLater()
         for _ in range(5):
             QApplication.processEvents()
         cleanup_recovery_files()
@@ -285,8 +294,9 @@ class TestRuntimeShellCtrlTModuleSearch:
         from PySide6.QtWidgets import QApplication
 
         for widget in QApplication.topLevelWidgets():
-            widget.close()
-            widget.deleteLater()
+            with contextlib.suppress(RuntimeError):
+                widget.close()
+                widget.deleteLater()
         for _ in range(5):
             QApplication.processEvents()
         cleanup_recovery_files()
@@ -299,6 +309,7 @@ class TestRuntimeShellCtrlTModuleSearch:
         classic all_tabs-based dialog (which would AttributeError -- the
         runtime shell path sets self.all_tabs = {})."""
         from gui.src.windows.main._runtime_shell import _RuntimeShellMixin
+        from gui.src.windows.main._tab_search import MainTabSearchController
         from gui.src.windows.main.main_window import MainWindow
         from PySide6.QtCore import Qt
         from PySide6.QtGui import QKeyEvent
@@ -311,7 +322,7 @@ class TestRuntimeShellCtrlTModuleSearch:
         window = MainWindow(vault_manager=vault)  # pyrefly: ignore [bad-argument-type]
         QApplication.processEvents()
 
-        with patch("gui.src.windows.main.main_window.MainWindow._open_runtime_module_search") as mock_open:
+        with patch.object(MainTabSearchController, "_open_runtime_module_search") as mock_open:
             event = QKeyEvent(QKeyEvent.Type.KeyPress, Qt.Key.Key_T, Qt.KeyboardModifier.ControlModifier)
             window.keyPressEvent(event)
             mock_open.assert_called_once()
