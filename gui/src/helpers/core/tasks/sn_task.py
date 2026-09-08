@@ -1,11 +1,7 @@
-from PySide6.QtCore import QRunnable, Slot
-
-from gui.src.helpers.gc_safe import gc_disabled_run
-
-from .scan_signals import ScanSignals
+from gui.src.helpers.base import BaseQRunnableWorker
 
 
-class SiameseTask(QRunnable):
+class SiameseTask(BaseQRunnableWorker):
     """
     Task to compute Deep Learning Embeddings (Siamese/One-Shot).
     """
@@ -13,12 +9,8 @@ class SiameseTask(QRunnable):
     def __init__(self, path: str):
         super().__init__()
         self.path = path
-        self.signals = ScanSignals()
-        self.setAutoDelete(True)
 
-    @gc_disabled_run
-    @Slot()
-    def run(self):
+    def _execute(self) -> object:
         try:
             from backend.src.models.core.siamese_network import SiameseModelLoader
 
@@ -30,10 +22,8 @@ class SiameseTask(QRunnable):
             embedding = loader.get_embedding(self.path)
 
             if embedding is not None:
-                self.signals.result.emit((self.path, embedding))
-            else:
-                self.signals.result.emit((self.path, None))
-
+                return (self.path, embedding)
+            return (self.path, None)
         except Exception:
             # In case torch is not installed or other critical error
-            self.signals.result.emit((self.path, None))
+            return (self.path, None)

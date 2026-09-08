@@ -214,10 +214,10 @@ class VirtualGalleryModel(QAbstractListModel):
             return
         worker = self.worker_factory(path, self.thumbnail_size)
         worker.load_generation = gen
-        worker.signals.result.connect(
+        worker.stream.result.connect(
             lambda p, img, g=gen, wk=worker: self._on_thumbnail_loaded(p, img, g, wk)
         )
-        worker.signals.result.connect(lambda *_, g=gen: self._dispatch_fill(g))
+        worker.stream.result.connect(lambda *_, g=gen: self._dispatch_fill(g))
         self._active_workers.add(worker)
         self.thread_pool.start(worker)
 
@@ -503,7 +503,7 @@ class VirtualGalleryModel(QAbstractListModel):
         gen = self._scheduler.generation
         worker = self.worker_factory(path, self.thumbnail_size)
         worker.load_generation = gen
-        worker.signals.result.connect(
+        worker.stream.result.connect(
             lambda p, img, g=gen, wk=worker: self._on_thumbnail_loaded(p, img, g, wk)
         )
         self._active_workers.add(worker)

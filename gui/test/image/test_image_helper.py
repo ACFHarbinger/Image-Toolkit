@@ -21,7 +21,7 @@ class TestImageLoaderWorker:
 
             # Catch signals
             results = []
-            worker.signals.result.connect(lambda p, px: results.append((p, px)))
+            worker.stream.result.connect(lambda p, px: results.append((p, px)))
 
             worker.run()
 
@@ -38,7 +38,7 @@ class TestImageLoaderWorker:
             worker = ImageLoaderWorker("/tmp/bad.jpg", 100)
 
             results = []
-            worker.signals.result.connect(lambda p, px: results.append((p, px)))
+            worker.stream.result.connect(lambda p, px: results.append((p, px)))
 
             worker.run()
 
@@ -65,9 +65,9 @@ class TestImageScannerWorker:
             worker = ImageScannerWorker([str(d)])
 
             finished_signals = []
-            worker.scan_finished.connect(lambda r: finished_signals.append(r))
+            worker.finished.connect(lambda r: finished_signals.append(r))
 
-            worker.run_scan()
+            worker.run()  # directly, same thread — direct delivery
 
             assert len(finished_signals) == 1
             found = finished_signals[0]
@@ -78,12 +78,15 @@ class TestImageScannerWorker:
         worker = ImageScannerWorker([])
 
         error_signals = []
+        finished_signals = []
         worker.scan_error.connect(lambda e: error_signals.append(e))
+        worker.finished.connect(lambda r: finished_signals.append(r))
 
-        worker.run_scan()
+        worker.run()  # directly, same thread — direct delivery
 
         assert len(error_signals) == 1
         assert "No valid directories" in error_signals[0]
+        assert finished_signals == [None]
 
 
 class TestBatchImageLoaderWorker:
@@ -104,7 +107,7 @@ class TestBatchImageLoaderWorker:
 
             results = []
             # batch_result emits list of (path, QImage)
-            worker.signals.batch_result.connect(lambda res: results.append(res))
+            worker.stream.batch_result.connect(lambda res: results.append(res))
 
             worker.run()
 
@@ -128,7 +131,7 @@ class TestBatchImageLoaderWorker:
             worker = BatchImageLoaderWorker(paths, 100)
 
             results = []
-            worker.signals.batch_result.connect(lambda res: results.append(res))
+            worker.stream.batch_result.connect(lambda res: results.append(res))
 
             worker.run()
 

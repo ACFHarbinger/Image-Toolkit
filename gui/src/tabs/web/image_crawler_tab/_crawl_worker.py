@@ -142,9 +142,9 @@ class _CrawlWorkerMixin:
         self.downloaded_files = []
         self.worker = ImageCrawlWorker(config)
         self.worker.status.connect(self.log_window.append_log)
-        self.worker.error.connect(self.log_window.append_log)
+        self.worker.error.connect(lambda exc: self.log_window.append_log(str(exc)))
         self.worker.image_downloaded.connect(self.downloaded_files.append)
-        self.worker.sig_finished.connect(self.on_crawl_done)
+        self.worker.finished.connect(self.on_crawl_done)
         self.worker.start()
 
     @Slot()
@@ -200,7 +200,8 @@ class _CrawlWorkerMixin:
         except Exception as e:
             print(f"[CrawlWorker] Error removing pruned file: {e}")
 
-    def on_crawl_done(self, count, message):  # noqa: C901
+    def on_crawl_done(self, result):  # noqa: C901
+        count, message = result if result is not None else (0, "Crawl failed (see error).")
         self.run_button.show()
         self.cancel_button.hide()
         self.progress_bar.hide()

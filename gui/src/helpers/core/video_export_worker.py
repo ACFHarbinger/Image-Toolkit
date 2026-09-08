@@ -1,20 +1,19 @@
 from typing import Optional, Tuple
 
 from backend.src.core import ImageMerger
-from PySide6.QtCore import QThread, Signal
+from PySide6.QtCore import Signal
 
-from gui.src.helpers.gc_safe import gc_disabled_run
+from gui.src.helpers.base import BaseQThreadWorker
 
 
-class ScrollVideoExportWorker(QThread):
+class ScrollVideoExportWorker(BaseQThreadWorker):
     """
     Runs `ImageMerger.export_scrolling_video` off the GUI thread (roadmap
     §4.2 — Export Stitched Panorama to Scrolling Video). Mirrors the
     MergeWorker signal pattern used elsewhere in the Merge tab.
     """
 
-    sig_finished = Signal(str)  # output path
-    error = Signal(str)
+    finished = Signal(object)  # output path str, None on failure/cancel
 
     def __init__(
         self,
@@ -35,10 +34,9 @@ class ScrollVideoExportWorker(QThread):
         self.scroll_axis = scroll_axis
         self.codec = codec
 
-    @gc_disabled_run
-    def run(self):
+    def _execute(self) -> object:
         try:
-            result_path = ImageMerger.export_scrolling_video(
+            return ImageMerger.export_scrolling_video(
                 self.image_path,
                 self.output_path,
                 scroll_speed_px_per_frame=self.scroll_speed_px_per_frame,
@@ -47,6 +45,5 @@ class ScrollVideoExportWorker(QThread):
                 scroll_axis=self.scroll_axis,
                 codec=self.codec,
             )
-            self.sig_finished.emit(result_path)
         except Exception as e:
-            self.error.emit(f"Scrolling video export failed: {e}")
+            raise RuntimeError(f"Scrolling video export failed: {e}") from e
