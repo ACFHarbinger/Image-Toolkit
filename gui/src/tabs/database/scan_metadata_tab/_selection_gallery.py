@@ -10,9 +10,10 @@ manual/insertion order the dual provides.
 from __future__ import annotations
 
 from ....utils.sort_utils import natural_sort_key
+from ._tab_bound import TabBoundController
 
 
-class _SelectionGalleryMixin:
+class ScanSelectionController(TabBoundController):
     """Toggle/marquee selection and sync the dual gallery's selected panel."""
 
     def on_selection_changed(self) -> None:
@@ -40,9 +41,7 @@ class _SelectionGalleryMixin:
         self.selected_image_paths = set(self.dual.selected_paths())
         ordered = self._selected_order
         kept = [p for p in ordered if p in self.selected_image_paths]
-        missing = sorted(
-            self.selected_image_paths - set(kept), key=natural_sort_key
-        )
+        missing = sorted(self.selected_image_paths - set(kept), key=natural_sort_key)
         self._selected_order = kept + missing
         self.update_button_states(connected=(self.database_service.db is not None))
 
@@ -50,9 +49,7 @@ class _SelectionGalleryMixin:
         """Apply ``selected_image_paths``/``_selected_order`` to the dual."""
         ordered = self._selected_order
         kept = [p for p in ordered if p in self.selected_image_paths]
-        missing = sorted(
-            self.selected_image_paths - set(kept), key=natural_sort_key
-        )
+        missing = sorted(self.selected_image_paths - set(kept), key=natural_sort_key)
         self._selected_order = kept + missing
         self.dual.set_selected_paths(self._selected_order)
 
@@ -66,10 +63,10 @@ class _SelectionGalleryMixin:
         ``_selected_order`` and pushes it back to the dual."""
         from ....classes.mixins import compute_reordered
 
-        self._selected_order = compute_reordered(
-            self._selected_order, dragged_path, target_path
-        )
+        self._selected_order = compute_reordered(self._selected_order, dragged_path, target_path)
         self._push_selection_to_dual()
 
 
-__all__ = ["_SelectionGalleryMixin"]
+_SelectionGalleryMixin = ScanSelectionController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
+
+__all__ = ["ScanSelectionController", "_SelectionGalleryMixin"]

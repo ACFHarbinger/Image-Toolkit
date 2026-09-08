@@ -12,8 +12,10 @@ from typing import Any, Dict
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QMessageBox
 
+from ._tab_bound import TabBoundController
 
-class _ConfigMixin:
+
+class ScanConfigController(TabBoundController):
     """Save/restore scan directory, view filter, and batch-metadata form state."""
 
     def refresh_image_directory(self):
@@ -32,8 +34,7 @@ class _ConfigMixin:
                 "tags": [
                     self.tags_list_widget.item(i).data(Qt.ItemDataRole.UserRole)
                     for i in range(self.tags_list_widget.count())
-                    if self.tags_list_widget.item(i).checkState()
-                    == Qt.CheckState.Checked
+                    if self.tags_list_widget.item(i).checkState() == Qt.CheckState.Checked
                 ],
             },
         }
@@ -70,16 +71,18 @@ class _ConfigMixin:
                         else Qt.CheckState.Unchecked
                     )
             QMessageBox.information(
-                self,
+                self.tab,
                 "Config Loaded",
                 "Scan metadata configuration applied successfully.",
             )
         except Exception as e:
             QMessageBox.critical(
-                self,
+                self.tab,
                 "Config Error",
                 f"Failed to apply scan metadata configuration:\n{e}",
             )
 
 
-__all__ = ["_ConfigMixin"]
+_ConfigMixin = ScanConfigController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
+
+__all__ = ["ScanConfigController", "_ConfigMixin"]

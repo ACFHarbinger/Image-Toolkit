@@ -1,4 +1,4 @@
-""""New Only"/"In DB Only" view toggle buttons + button-state refresh.
+""" "New Only"/"In DB Only" view toggle buttons + button-state refresh.
 
 Extracted from ``scan_metadata_tab.py`` -- pure code motion, no logic
 change (see ``_ui_builder.py``'s docstring).
@@ -9,19 +9,21 @@ from __future__ import annotations
 from PySide6.QtCore import Slot
 from PySide6.QtWidgets import QMessageBox
 
+from ._tab_bound import TabBoundController
 
-class _ViewTogglesMixin:
+
+class ScanViewTogglesController(TabBoundController):
     """Mutually-exclusive New-Only/In-DB-Only filter toggles and button-state refresh."""
 
     def handle_scan_error(self, message: str):
-        QMessageBox.warning(self, "Error Scanning", message)
+        QMessageBox.warning(self.tab, "Error Scanning", message)
 
     @Slot(bool)
     def toggle_new_only_view(self, checked: bool):
         db_connected = self.database_service.db is not None
         if not db_connected and checked:
             QMessageBox.warning(
-                self,
+                self.tab,
                 "Database Required",
                 "Please connect to the database to filter by database content.",
             )
@@ -46,7 +48,7 @@ class _ViewTogglesMixin:
         db_connected = self.database_service.db is not None
         if not db_connected and checked:
             QMessageBox.warning(
-                self,
+                self.tab,
                 "Database Required",
                 "Please connect to the database to filter by database content.",
             )
@@ -79,4 +81,6 @@ class _ViewTogglesMixin:
         self.delete_selected_button.setEnabled(connected and selection_count > 0)
 
 
-__all__ = ["_ViewTogglesMixin"]
+_ViewTogglesMixin = ScanViewTogglesController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
+
+__all__ = ["ScanViewTogglesController", "_ViewTogglesMixin"]
