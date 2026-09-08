@@ -5,16 +5,16 @@ from __future__ import annotations
 from PySide6.QtCore import Signal
 
 from ....classes import AbstractClassTwoGalleries
-from ._aspect_ratio import _AspectRatioMixin
-from ._config import _ConfigMixin
-from ._conversion_worker import _ConversionWorkerMixin
-from ._directory_browse import _DirectoryBrowseMixin
+from ._format_aspect_ratio import _AspectRatioMixin
 from ._format_buttons import _FormatButtonsMixin
+from ._format_config import _ConfigMixin
+from ._format_conversion_worker import _ConversionWorkerMixin
+from ._format_directory_browse import _DirectoryBrowseMixin
+from ._format_preview_context import _PreviewContextMixin
+from ._format_qml_handlers import _QmlHandlersMixin
+from ._format_ui_builder import _UIBuilderMixin
 from ._gallery_cards import _GalleryCardsMixin
 from ._lifecycle import _LifecycleMixin
-from ._preview_context import _PreviewContextMixin
-from ._qml_handlers import _QmlHandlersMixin
-from ._ui_builder import _UIBuilderMixin
 
 
 class FormatSubTab(

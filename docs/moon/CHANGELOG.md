@@ -1,3 +1,9 @@
+# S531 — 2026-09-08 (Cursor: #563 R2.a codec/format pair collapsed)
+
+- `codec_subtab/` and `format_subtab/` merged into `media_convert_subtab/`:
+  unified `_gallery_cards.py` and `_lifecycle.py`; kind-specific mixins
+  prefixed `_codec_*` / `_format_*`. Old packages removed.
+
 # S530 — 2026-09-08 (Cursor: #563 R2.a import-dialog pair collapsed)
 
 - `directory_import_dialog.py` and `entity_directory_import_dialog.py` merged

@@ -9,7 +9,7 @@ import os
 
 from PySide6.QtWidgets import QMessageBox
 
-from ._constants import AUDIO_CODEC_OPTIONS, SPEED_OPTIONS, VIDEO_CODEC_OPTIONS
+from ._codec_constants import AUDIO_CODEC_OPTIONS, SPEED_OPTIONS, VIDEO_CODEC_OPTIONS
 
 
 class _ConfigMixin:

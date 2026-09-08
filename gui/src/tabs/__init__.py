@@ -25,16 +25,13 @@ from .core import (
     WallpaperTab as WallpaperTab,
 )
 from .core import (
-    codec_subtab as codec_subtab,
-)
-from .core import (
     convert_tab as convert_tab,
 )
 from .core import (
     extractor_tab as extractor_tab,
 )
 from .core import (
-    format_subtab as format_subtab,
+    media_convert_subtab as media_convert_subtab,
 )
 from .core import (
     image_extractor_subtab as image_extractor_subtab,

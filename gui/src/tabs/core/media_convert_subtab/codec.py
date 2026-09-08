@@ -6,15 +6,15 @@ from typing import Optional, Set
 
 from ....classes import AbstractClassTwoGalleries
 from ....helpers import CodecConversionWorker, CodecScanWorker
+from ._codec_config import _ConfigMixin
+from ._codec_conversion_worker import _ConversionWorkerMixin
+from ._codec_directory_browse import _DirectoryBrowseMixin
 from ._codec_filters import _CodecFiltersMixin
+from ._codec_preview_context import _PreviewContextMixin
 from ._codec_probe import _CodecProbeMixin
-from ._config import _ConfigMixin
-from ._conversion_worker import _ConversionWorkerMixin
-from ._directory_browse import _DirectoryBrowseMixin
+from ._codec_ui_builder import _UIBuilderMixin
 from ._gallery_cards import _GalleryCardsMixin
 from ._lifecycle import _LifecycleMixin
-from ._preview_context import _PreviewContextMixin
-from ._ui_builder import _UIBuilderMixin
 
 
 class CodecSubTab(

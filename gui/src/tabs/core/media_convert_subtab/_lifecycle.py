@@ -1,7 +1,4 @@
-"""Worker teardown overrides for CodecSubTab.
-
-Extracted from ``codec_subtab.py`` -- pure code motion, no logic change.
-"""
+"""Worker/window teardown overrides for CodecSubTab and FormatSubTab."""
 
 from __future__ import annotations
 
@@ -10,8 +7,9 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 class _LifecycleMixin:
-    """Cancels the codec-scan/conversion workers and closes preview windows."""
+    """Cancels scan/conversion workers and closes open preview windows."""
 
     def cancel_loading(self):
         super().cancel_loading()
@@ -19,9 +17,10 @@ class _LifecycleMixin:
         if hasattr(self, "dual"):
             self.dual.cancel_loading()
 
-        if self._codec_scan_worker:
+        scan_worker = getattr(self, "_codec_scan_worker", None)
+        if scan_worker:
             with contextlib.suppress(Exception):
-                self._codec_scan_worker.stop()
+                scan_worker.stop()
             self._codec_scan_worker = None
 
         if self.worker:
@@ -31,7 +30,10 @@ class _LifecycleMixin:
                 elif hasattr(self.worker, "cancel"):
                     self.worker.cancel()
             except Exception:
-                logger.debug("Suppressed Exception in _LifecycleMixin.cancel_loading", exc_info=True)
+                logger.debug(
+                    "Suppressed Exception in _LifecycleMixin.cancel_loading",
+                    exc_info=True,
+                )
 
         for win in list(self.open_preview_windows):
             with contextlib.suppress(Exception):

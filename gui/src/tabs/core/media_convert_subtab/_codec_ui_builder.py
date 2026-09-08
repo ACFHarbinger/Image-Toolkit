@@ -26,7 +26,7 @@ from PySide6.QtWidgets import (
 
 from ....components import OptionalField, VirtualDualGallery
 from ....styles import SHARED_BUTTON_STYLE, apply_shadow_effect
-from ._constants import (
+from ._codec_constants import (
     AUDIO_CODEC_OPTIONS,
     COMMON_SOURCE_AUDIO_CODECS,
     COMMON_SOURCE_VIDEO_CODECS,
