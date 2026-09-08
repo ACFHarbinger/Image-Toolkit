@@ -1,13 +1,13 @@
 import contextlib
 
 from backend.src.constants import HAS_NATIVE_IMAGING
-from PySide6.QtCore import QObject, QRunnable, QSize, Qt, Signal, Slot
-from PySide6.QtGui import QImage, QImageReader
+from PySide6.QtCore import QObject, QRunnable, Signal, Slot
+from PySide6.QtGui import QImage
 from shiboken6 import Shiboken
 
 from gui.src.helpers.gc_safe import gc_disabled_run
 
-from ._qimagereader_disk_cache import load_qir_cached, save_qir_cached
+from ._qimagereader_disk_cache import load_qir_thumbnail
 from .batch_image_loader_worker import native_load_batch
 
 
@@ -85,44 +85,8 @@ class ImageLoaderWorker(QRunnable):
 
     @staticmethod
     def _load_via_qimagereader(path: str, target_size: int) -> QImage:
-        """Load and scale via QImageReader rather than the bare QImage(path)
-        constructor -- for multi-frame formats (GIF) the constructor can
-        return a technically-non-null but wrongly-composited first frame
-        (e.g. a flat/near-blank frame from a partial-canvas GIF disposal
-        method not being resolved), where QImageReader.read() -- the same
-        approach already proven correct for the Wallpaper monitor-preview
-        thumbnail (_gallery_label.py's _get_or_generate_thumbnail) --
-        decodes it properly.
-
-        Disk-cached (unlike the native batch path's own caching, this one
-        is ours -- see ``_qimagereader_disk_cache.py``): Qt's GIF plugin
-        does not support scaled decoding (setScaledSize() only resizes the
-        *output*, verified empirically -- a 1200x678 GIF decodes in ~8ms
-        whether or not a smaller scaled size is requested), so paying full-
-        canvas decode cost on every view/scroll made GIF-heavy directories
-        far slower than before this format was routed off the native path.
-        """
-        cached = load_qir_cached(path, target_size)
-        if cached is not None:
-            return cached
-
-        reader = QImageReader(path)
-        source_size = reader.size()
-        target = QSize(target_size, target_size)
-        if source_size.isValid():
-            source_size.scale(target, Qt.AspectRatioMode.KeepAspectRatio)
-            reader.setScaledSize(source_size)
-        image = reader.read()
-        if image.isNull():
-            return QImage()
-        if image.width() > target_size or image.height() > target_size:
-            image = image.scaled(
-                target,
-                Qt.AspectRatioMode.KeepAspectRatio,
-                Qt.TransformationMode.SmoothTransformation,
-            )
-        save_qir_cached(path, target_size, image)
-        return image
+        """Shared QIR/GIF-poster thumbnail path (see load_qir_thumbnail)."""
+        return load_qir_thumbnail(path, target_size)
 
     def _safe_emit(self, path, image):
         with contextlib.suppress(RuntimeError):
