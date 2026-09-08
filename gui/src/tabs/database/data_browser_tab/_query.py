@@ -6,8 +6,10 @@ from __future__ import annotations
 
 from PySide6.QtWidgets import QMessageBox, QTableWidgetItem
 
+from ._tab_bound import TabBoundController
 
-class _QueryMixin:
+
+class DataBrowserQueryController(TabBoundController):
     """Open the store, list tables, and run/paginate the read-only grid query."""
 
     def connect_browser(self, silent: bool = False) -> None:
@@ -16,11 +18,11 @@ class _QueryMixin:
         from gui.src.helpers.database.library_session import get_library_db
 
         try:
-            session_db = get_library_db(self.vault_manager, parent=self)
+            session_db = get_library_db(self.vault_manager, parent=self.tab)
             if session_db is None:
                 if not silent:
                     QMessageBox.warning(
-                        self,
+                        self.tab,
                         "Vault Locked",
                         "The Data Browser requires an unlocked vault. Log "
                         "in first, then reopen this tab.",
@@ -34,7 +36,7 @@ class _QueryMixin:
         except Exception as e:
             if not silent:
                 QMessageBox.critical(
-                    self, "Error", f"Failed to open the library database:\n{e}"
+                    self.tab, "Error", f"Failed to open the library database:\n{e}"
                 )
             self._set_controls_enabled(False)
 
@@ -44,7 +46,7 @@ class _QueryMixin:
         try:
             tables = self.browser_repo.list_tables()
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to list tables:\n{e}")
+            QMessageBox.critical(self.tab, "Error", f"Failed to list tables:\n{e}")
             return
 
         previous = self.table_combo.currentText()
@@ -111,10 +113,10 @@ class _QueryMixin:
                 offset=self.current_offset,
             )
         except ValueError as e:
-            QMessageBox.warning(self, "Invalid Filter", str(e))
+            QMessageBox.warning(self.tab, "Invalid Filter", str(e))
             return
         except Exception as e:
-            QMessageBox.critical(self, "Query Error", str(e))
+            QMessageBox.critical(self.tab, "Query Error", str(e))
             return
 
         self.current_columns = columns
@@ -154,4 +156,6 @@ class _QueryMixin:
             self.data_table.blockSignals(False)
 
 
-__all__ = ["_QueryMixin"]
+_QueryMixin = DataBrowserQueryController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
+
+__all__ = ["DataBrowserQueryController", "_QueryMixin"]

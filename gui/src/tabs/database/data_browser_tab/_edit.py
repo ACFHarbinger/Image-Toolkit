@@ -24,8 +24,10 @@ from __future__ import annotations
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QMessageBox
 
+from ._tab_bound import TabBoundController
 
-class _EditMixin:
+
+class DataBrowserEditController(TabBoundController):
     """Edit-mode toggle + confirmed, validated single-cell writes."""
 
     def _on_edit_mode_toggled(self, checked: bool) -> None:
@@ -72,7 +74,7 @@ class _EditMixin:
         pk_column_name = self.current_columns[self.pk_column_index]
 
         confirm = QMessageBox.question(
-            self,
+            self.tab,
             "Confirm Edit",
             f"Change {column_name!r} from {old_text!r} to {new_value!r} "
             f"for {pk_column_name} = {pk_value!r}?",
@@ -88,11 +90,11 @@ class _EditMixin:
                 self.current_table, pk_column_name, pk_value, column_name, new_value,
             )
         except ValueError as e:
-            QMessageBox.warning(self, "Edit Rejected", str(e))
+            QMessageBox.warning(self.tab, "Edit Rejected", str(e))
             self._revert_cell(row, col, old_text)
             return
         except Exception as e:
-            QMessageBox.critical(self, "Edit Failed", str(e))
+            QMessageBox.critical(self.tab, "Edit Failed", str(e))
             self._revert_cell(row, col, old_text)
             return
 
@@ -109,4 +111,6 @@ class _EditMixin:
         self.data_table.blockSignals(False)
 
 
-__all__ = ["_EditMixin"]
+_EditMixin = DataBrowserEditController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
+
+__all__ = ["DataBrowserEditController", "_EditMixin"]

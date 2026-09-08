@@ -20,6 +20,8 @@ from PySide6.QtWidgets import QListWidgetItem, QMessageBox
 
 from gui.src.constants.elements import _FK_CELL_COLOR
 
+from ._tab_bound import TabBoundController
+
 
 def _sql_literal(value: Any) -> str:
     """Format *value* as a literal for the (unparameterized) WHERE-clause
@@ -37,7 +39,7 @@ def _sql_literal(value: Any) -> str:
     return text
 
 
-class _NavigationMixin:
+class DataBrowserNavigationController(TabBoundController):
     """FK-cell navigation + reverse-references panel."""
 
     def _refresh_fk_metadata(self) -> None:
@@ -143,7 +145,7 @@ class _NavigationMixin:
         tables = [self.table_combo.itemText(i) for i in range(self.table_combo.count())]
         if table not in tables:
             QMessageBox.warning(
-                self, "Navigate", f"Table {table!r} is not available in this store."
+                self.tab, "Navigate", f"Table {table!r} is not available in this store."
             )
             return
 
@@ -155,4 +157,6 @@ class _NavigationMixin:
         self._run_query()
 
 
-__all__ = ["_NavigationMixin"]
+_NavigationMixin = DataBrowserNavigationController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
+
+__all__ = ["DataBrowserNavigationController", "_NavigationMixin", "_sql_literal"]
