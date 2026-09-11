@@ -10,7 +10,6 @@ import os
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple, Union, cast
 
-import cv2
 from PySide6.QtCore import Qt, Slot
 from PySide6.QtMultimedia import QMediaPlayer
 from PySide6.QtWidgets import QDialog, QMessageBox, QStyle, QWidget
@@ -34,6 +33,8 @@ class _ExtractionExecutionMixin:
         target_size = self.extraction_res_map.get(selected_key)
         if selected_key == "Native":
             if self.video_path and os.path.exists(self.video_path):
+                import cv2
+
                 cap = cv2.VideoCapture(self.video_path)
                 w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
                 h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -54,22 +55,12 @@ class _ExtractionExecutionMixin:
             return
 
         # Pause player if running
-        if (
-            self.use_internal_player
-            and self.media_player.playbackState()
-            == QMediaPlayer.PlaybackState.PlayingState
-        ):
+        if self.use_internal_player and self.media_player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
             self.media_player.pause()
-            self.btn_play.setIcon(
-                self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay)
-            )
+            self.btn_play.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay))
 
         # Use current player position as starting point if possible
-        start_ms = (
-            self.media_player.position()
-            if self.use_internal_player
-            else self.start_time_ms
-        )
+        start_ms = self.media_player.position() if self.use_internal_player else self.start_time_ms
 
         dlg = FrameSelectionDialog(self.video_path, start_ms=start_ms, parent=cast(QWidget, self))
         if dlg.exec() == QDialog.DialogCode.Accepted:
@@ -136,9 +127,7 @@ class _ExtractionExecutionMixin:
                         widget = self.source_path_to_widget[self.video_path]
                         label = widget.findChild(ClickableLabel)
                         if label:
-                            self._update_source_label_style(
-                                self.video_path, label, True
-                            )
+                            self._update_source_label_style(self.video_path, label, True)
 
                     self.start_loading_gallery([str(out_path)], append=True)
                     self.current_extracted_paths = self.gallery_image_paths[:]
@@ -162,20 +151,12 @@ class _ExtractionExecutionMixin:
             self._validate_cut_range()
             self._update_cuts_label()
 
-        self.btn_extract_range.setEnabled(
-            enabled and self.end_time_ms > self.start_time_ms
-        )
-        self.btn_extract_gif.setEnabled(
-            enabled and self.end_time_ms > self.start_time_ms
-        )
-        self.btn_extract_video.setEnabled(
-            enabled and self.end_time_ms > self.start_time_ms
-        )
+        self.btn_extract_range.setEnabled(enabled and self.end_time_ms > self.start_time_ms)
+        self.btn_extract_gif.setEnabled(enabled and self.end_time_ms > self.start_time_ms)
+        self.btn_extract_video.setEnabled(enabled and self.end_time_ms > self.start_time_ms)
         if hasattr(self, "btn_run_on_gcd"):
             self.btn_run_on_gcd.setEnabled(
-                enabled
-                and self.end_time_ms > self.start_time_ms
-                and getattr(self, "_cloud_worker", None) is None
+                enabled and self.end_time_ms > self.start_time_ms and getattr(self, "_cloud_worker", None) is None
             )
 
         # Also disable browsing while extracting to avoid path changes
@@ -210,53 +191,33 @@ class _ExtractionExecutionMixin:
     def extract_range(self: "VideoExtractorSubTabHostProtocol"):
         if not self.video_path:
             return
-        metadata = self._record_extraction_start(
-            "range", self.start_time_ms, self.end_time_ms
-        )
+        metadata = self._record_extraction_start("range", self.start_time_ms, self.end_time_ms)
         if self.use_internal_player:
             self.media_player.pause()
-            self.btn_play.setIcon(
-                self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay)
-            )
-        self._run_extraction(
-            self.start_time_ms, self.end_time_ms, is_range=True, metadata=metadata
-        )
+            self.btn_play.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay))
+        self._run_extraction(self.start_time_ms, self.end_time_ms, is_range=True, metadata=metadata)
 
     @Slot()
     def extract_range_as_gif(self: "VideoExtractorSubTabHostProtocol"):
         if not self.video_path:
             return
-        metadata = self._record_extraction_start(
-            "gif", self.start_time_ms, self.end_time_ms
-        )
+        metadata = self._record_extraction_start("gif", self.start_time_ms, self.end_time_ms)
         if self.use_internal_player:
             self.media_player.pause()
-            self.btn_play.setIcon(
-                self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay)
-            )
-        self._run_gif_extraction(
-            self.start_time_ms, self.end_time_ms, metadata=metadata
-        )
+            self.btn_play.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay))
+        self._run_gif_extraction(self.start_time_ms, self.end_time_ms, metadata=metadata)
 
     @Slot()
     def extract_range_as_video(self: "VideoExtractorSubTabHostProtocol"):
         if not self.video_path:
             return
-        metadata = self._record_extraction_start(
-            "video", self.start_time_ms, self.end_time_ms
-        )
+        metadata = self._record_extraction_start("video", self.start_time_ms, self.end_time_ms)
         if self.use_internal_player:
             self.media_player.pause()
-            self.btn_play.setIcon(
-                self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay)
-            )
-        self._run_video_extraction(
-            self.start_time_ms, self.end_time_ms, metadata=metadata
-        )
+            self.btn_play.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay))
+        self._run_video_extraction(self.start_time_ms, self.end_time_ms, metadata=metadata)
 
-    def _record_extraction_start(
-        self: "VideoExtractorSubTabHostProtocol", mode: str, start: int, end: int
-    ) -> dict:
+    def _record_extraction_start(self: "VideoExtractorSubTabHostProtocol", mode: str, start: int, end: int) -> dict:
         """Persist a run before any extraction work can fail."""
         metadata = self._get_current_extraction_metadata()
         metadata.update(mode=mode, start_ms=start, end_ms=end)
@@ -270,9 +231,7 @@ class _ExtractionExecutionMixin:
         is_range: bool,
         metadata: Optional[dict] = None,
     ):
-        active_metadata = metadata or self._record_extraction_start(
-            "range" if is_range else "single", start, end
-        )
+        active_metadata = metadata or self._record_extraction_start("range" if is_range else "single", start, end)
         target_size = self._get_target_size()
 
         if self.extraction_queue_enabled:

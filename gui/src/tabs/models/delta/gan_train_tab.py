@@ -1,7 +1,6 @@
 import os
 from pathlib import Path
 
-import torch
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
@@ -30,9 +29,21 @@ class GANTrainTab(QWidget):
 
     def __init__(self):
         super().__init__()
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self._device: str | None = None
         self.training_thread = None
         self.init_ui()
+
+    @property
+    def device(self) -> str:
+        if self._device is None:
+            import torch
+
+            self._device = "cuda" if torch.cuda.is_available() else "cpu"
+        return self._device
+
+    @device.setter
+    def device(self, value: str) -> None:
+        self._device = value
 
     def init_ui(self):
         layout = QVBoxLayout(self)
@@ -42,9 +53,7 @@ class GANTrainTab(QWidget):
 
         # Data Path
         self.txt_data_path = QLineEdit()
-        self.txt_data_path.setPlaceholderText(
-            "Path to dataset folder (containing subfolders)"
-        )
+        self.txt_data_path.setPlaceholderText("Path to dataset folder (containing subfolders)")
         btn_data_path = QPushButton("Browse")
         btn_data_path.clicked.connect(lambda: self.browse_folder(self.txt_data_path))
 

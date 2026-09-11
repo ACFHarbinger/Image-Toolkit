@@ -1,6 +1,3 @@
-import numpy as np
-from PIL import Image
-
 from gui.src.helpers.base import BaseQRunnableWorker
 
 
@@ -20,6 +17,9 @@ class SsimTask(BaseQRunnableWorker):
 
     def _execute(self) -> object:
         try:
+            import numpy as np
+            from PIL import Image
+
             # --- ROBUST LOAD ---
             # Use PIL for initial load to handle edge-case formats/palettes better than cv2
             pil_img_rgba = Image.open(self.path).convert("RGBA")

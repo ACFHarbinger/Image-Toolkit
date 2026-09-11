@@ -8,8 +8,13 @@ Exit criteria:
 
 from __future__ import annotations
 
+import os
+from pathlib import Path
 import subprocess
 import sys
+
+_REPO_ROOT = str(Path(__file__).resolve().parents[2])
+_ENV = {**os.environ, "PYTHONPATH": _REPO_ROOT}
 
 
 def test_toast_widget_isolated_import_module_count():
@@ -25,6 +30,8 @@ def test_toast_widget_isolated_import_module_count():
         capture_output=True,
         text=True,
         check=True,
+        cwd=_REPO_ROOT,
+        env=_ENV,
     )
     count = int(result.stdout.strip())
     assert count < 300, f"Expected < 300 modules, got {count}"
@@ -43,6 +50,8 @@ def test_gc_safe_isolated_import_module_count():
         capture_output=True,
         text=True,
         check=True,
+        cwd=_REPO_ROOT,
+        env=_ENV,
     )
     count = int(result.stdout.strip())
     assert count < 200, f"Expected < 200 modules, got {count}"
@@ -61,6 +70,8 @@ def test_app_settings_isolated_import_module_count():
         capture_output=True,
         text=True,
         check=True,
+        cwd=_REPO_ROOT,
+        env=_ENV,
     )
     count = int(result.stdout.strip())
     assert count < 200, f"Expected < 200 modules, got {count}"
