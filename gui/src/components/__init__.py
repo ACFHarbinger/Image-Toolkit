@@ -1,156 +1,126 @@
-from .containers import (
-    CanvasBase as CanvasBase,
-)
-from .containers import (
-    DraggableMonitorContainer as DraggableMonitorContainer,
-)
-from .containers import (
-    MarqueeScrollArea as MarqueeScrollArea,
-)
-from .containers import (
-    MergeCanvas as MergeCanvas,
-)
-from .containers import (
-    canvas_base as canvas_base,
-)
-from .containers import (
-    draggable_monitor_container as draggable_monitor_container,
-)
-from .containers import (
-    marquee_scroll_area as marquee_scroll_area,
-)
-from .containers import (
-    merge_canvas as merge_canvas,
-)
-from .dialogs import (
-    AddTagDialog as AddTagDialog,
-)
-from .dialogs import (
-    AspAdvancedConfigDialog as AspAdvancedConfigDialog,
-)
-from .dialogs import (
-    DeduplicationPruningDialog as DeduplicationPruningDialog,
-)
-from .dialogs import (
-    DuplicateConfigDialog as DuplicateConfigDialog,
-)
-from .dialogs import (
-    ExtractionCloseProgressDialog as ExtractionCloseProgressDialog,
-)
-from .dialogs import (
-    FrameSelectionDialog as FrameSelectionDialog,
-)
-from .dialogs import (
-    ManualSelectionDialog as ManualSelectionDialog,
-)
-from .dialogs import (
-    ProcessCloseProgressDialog as ProcessCloseProgressDialog,
-)
-from .dialogs import (
-    PropertyComparisonDialog as PropertyComparisonDialog,
-)
-from .dialogs import (
-    SafetensorsInspectorDialog as SafetensorsInspectorDialog,
-)
-from .dialogs import (
-    ScrollVideoExportDialog as ScrollVideoExportDialog,
-)
-from .dialogs import (
-    TagReviewDialog as TagReviewDialog,
-)
-from .dialogs import (
-    TaskCloseProgressDialog as TaskCloseProgressDialog,
-)
-from .dialogs import (
-    ThumbnailFilePicker as ThumbnailFilePicker,
-)
-from .dialogs import (
-    extract_video_frame_via_ffmpeg as extract_video_frame_via_ffmpeg,
-)
-from .dialogs import (
-    run_duplicate_scan as run_duplicate_scan,
-)
-from .elements import (
-    MergeCanvasItem as MergeCanvasItem,
-)
-from .elements import (
-    OptionalField as OptionalField,
-)
-from .elements import (
-    ScrubPreviewPopup as ScrubPreviewPopup,
-)
-from .elements import (
-    merge_canvas_item as merge_canvas_item,
-)
-from .elements import (
-    optional_field as optional_field,
-)
-from .elements import (
-    scrub_preview_popup as scrub_preview_popup,
-)
-from .labels import (
-    ClickableLabel as ClickableLabel,
-)
-from .labels import (
-    DoubleClickableLabel as DoubleClickableLabel,
-)
-from .labels import (
-    DraggableLabel as DraggableLabel,
-)
-from .labels import (
-    clickable_label as clickable_label,
-)
-from .labels import (
-    double_clickable_label as double_clickable_label,
-)
-from .labels import (
-    draggable_label as draggable_label,
-)
-from .labels import (
-    metadata_overlay as metadata_overlay,
-)
-from .views import (
-    MonitorDropView as MonitorDropView,
-)
-from .views import (
-    OpaqueViewport as OpaqueViewport,
-)
-from .views import (
-    QueueItemView as QueueItemView,
-)
-from .views import (
-    display as display,
-)
-from .views import (
-    monitor_drop_view as monitor_drop_view,
-)
-from .views import (
-    opaque_viewport as opaque_viewport,
-)
-from .views import (
-    queue_item_view as queue_item_view,
-)
-from .virtual_gallery import (
-    VirtualDualGallery as VirtualDualGallery,
-)
-from .virtual_gallery import (
-    VirtualGallery as VirtualGallery,
-)
-from .virtual_gallery import (
-    VirtualGalleryDelegate as VirtualGalleryDelegate,
-)
-from .virtual_gallery import (
-    VirtualGalleryModel as VirtualGalleryModel,
-)
-from .virtual_gallery import (
-    VirtualGalleryView as VirtualGalleryView,
-)
+"""Reusable UI components — lazily re-exported (issues #530, #573, R3.6)."""
+
+from __future__ import annotations
+
+import importlib
+
+_LAZY_EXPORTS = {
+    # .containers
+    "CanvasBase": ".containers",
+    "DraggableMonitorContainer": ".containers",
+    "MarqueeScrollArea": ".containers",
+    "MergeCanvas": ".containers",
+    "canvas_base": ".containers",
+    "draggable_monitor_container": ".containers",
+    "marquee_scroll_area": ".containers",
+    "merge_canvas": ".containers",
+    # .dialogs
+    "AddTagDialog": ".dialogs",
+    "AspAdvancedConfigDialog": ".dialogs",
+    "BatchStitchDialog": ".dialogs",
+    "DeduplicationPruningDialog": ".dialogs",
+    "DuplicateConfigDialog": ".dialogs",
+    "ExtractionCloseProgressDialog": ".dialogs",
+    "FrameSelectionDialog": ".dialogs",
+    "ManualSelectionDialog": ".dialogs",
+    "ProcessCloseProgressDialog": ".dialogs",
+    "PropertyComparisonDialog": ".dialogs",
+    "SafetensorsInspectorDialog": ".dialogs",
+    "ScrollVideoExportDialog": ".dialogs",
+    "TagReviewDialog": ".dialogs",
+    "TaskCloseProgressDialog": ".dialogs",
+    "ThumbnailFilePicker": ".dialogs",
+    "extract_video_frame_via_ffmpeg": ".dialogs",
+    "run_duplicate_scan": ".dialogs",
+    # .elements
+    "MergeCanvasItem": ".elements",
+    "OptionalField": ".elements",
+    "ScrubPreviewPopup": ".elements",
+    "merge_canvas_item": ".elements",
+    "optional_field": ".elements",
+    "scrub_preview_popup": ".elements",
+    # .labels
+    "ClickableLabel": ".labels",
+    "DoubleClickableLabel": ".labels",
+    "DraggableLabel": ".labels",
+    "clickable_label": ".labels",
+    "double_clickable_label": ".labels",
+    "draggable_label": ".labels",
+    "metadata_overlay": ".labels",
+    # .views
+    "MonitorDropView": ".views",
+    "OpaqueViewport": ".views",
+    "QueueItemView": ".views",
+    "display": ".views",
+    "monitor_drop_view": ".views",
+    "opaque_viewport": ".views",
+    "queue_item_view": ".views",
+    # .virtual_gallery
+    "VirtualDualGallery": ".virtual_gallery",
+    "VirtualGallery": ".virtual_gallery",
+    "VirtualGalleryDelegate": ".virtual_gallery",
+    "VirtualGalleryModel": ".virtual_gallery",
+    "VirtualGalleryView": ".virtual_gallery",
+}
+
+__all__ = [
+    "CanvasBase",
+    "DraggableMonitorContainer",
+    "MarqueeScrollArea",
+    "MergeCanvas",
+    "canvas_base",
+    "draggable_monitor_container",
+    "marquee_scroll_area",
+    "merge_canvas",
+    "AddTagDialog",
+    "AspAdvancedConfigDialog",
+    "BatchStitchDialog",
+    "DeduplicationPruningDialog",
+    "DuplicateConfigDialog",
+    "ExtractionCloseProgressDialog",
+    "FrameSelectionDialog",
+    "ManualSelectionDialog",
+    "ProcessCloseProgressDialog",
+    "PropertyComparisonDialog",
+    "SafetensorsInspectorDialog",
+    "ScrollVideoExportDialog",
+    "TagReviewDialog",
+    "TaskCloseProgressDialog",
+    "ThumbnailFilePicker",
+    "extract_video_frame_via_ffmpeg",
+    "run_duplicate_scan",
+    "MergeCanvasItem",
+    "OptionalField",
+    "ScrubPreviewPopup",
+    "merge_canvas_item",
+    "optional_field",
+    "scrub_preview_popup",
+    "ClickableLabel",
+    "DoubleClickableLabel",
+    "DraggableLabel",
+    "clickable_label",
+    "double_clickable_label",
+    "draggable_label",
+    "metadata_overlay",
+    "MonitorDropView",
+    "OpaqueViewport",
+    "QueueItemView",
+    "display",
+    "monitor_drop_view",
+    "opaque_viewport",
+    "queue_item_view",
+    "VirtualDualGallery",
+    "VirtualGallery",
+    "VirtualGalleryDelegate",
+    "VirtualGalleryModel",
+    "VirtualGalleryView",
+]
 
 
-def __getattr__(name):
-    # BatchStitchDialog (ASP submodule) is lazy in .dialogs (ui-arch-27/#549).
-    if name == "BatchStitchDialog":
-        from . import dialogs
-
-        return dialogs.BatchStitchDialog
+def __getattr__(name: str):
+    if name in _LAZY_EXPORTS:
+        module = importlib.import_module(_LAZY_EXPORTS[name], __name__)
+        value = getattr(module, name)
+        globals()[name] = value
+        return value
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

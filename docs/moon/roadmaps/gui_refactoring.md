@@ -291,7 +291,7 @@ concurrently (D6). "Gate" = D12 live pass required in addition to Codex review.
 | R3.3 | Remove the 7 live `processEvents()` (single-shot timer or progress fact) | F25 | Gemini / Antigravity | 0 | ui-arch-48 (#570) |
 | R3.4 | Gallery card/selection merge: one card factory + one highlight helper across single/two/virtual | F21, DS-4 | Grok | `create_card_widget` ×1 | ui-arch-49 (#571) |
 | R3.5 | Module widget eviction: measure 3 vs 8 mounted modules, set LRU from data; account-switch disposal | F12, DS-5 | Grok | numbers on the bus; policy implemented | ui-arch-50 (#572) |
-| R3.6 | Import-graph slimming beyond the wildcard removals; `windows/__init__.py` eager imports; `helpers/__init__.py` barrel | old Phase 3 | Claude | `import gui.src.components.widgets.toast_widget` < 300 modules | ui-arch-51 (#573) |
+| R3.6 | Import-graph slimming beyond the wildcard removals; `windows/__init__.py` eager imports; `helpers/__init__.py` barrel | old Phase 3 | Gemini / Antigravity | `import gui.src.components.widgets.toast_widget` < 300 modules | ui-arch-51 (#573) |
 
 ### R4 — Theming surfaces (deferred, from app-theming Phase 2/3)
 
@@ -306,12 +306,12 @@ concurrently (D6). "Gate" = D12 live pass required in addition to Codex review.
 
 | Agent | Items |
 |---|---|
-| Claude | ~~R0.1, R0.3, R0.4, R0.5~~ done. **Remaining: R1.2 (#557), R2.d (#565), R3.2 (#569), R3.6 (#573).** Roadmap steward. |
-| Grok | ~~R2.g (#543)~~ done, D12-verified 2026-09-07. **Remaining: R2.c gallery-owning tabs + MainWindow (#544, now unblocked), R3.1 (#568), R3.4 (#571, now unblocked), R3.5 (#572). R2.e (#566) stays gated on R1.4.** |
-| Gemini / Antigravity | ~~R0.8, R1.7, R2.c (all 7 non-gallery tabs), R2.f (#567), R3.3 (#570)~~ done. |
-| Meta's Muse | ~~R0.6, R0.9, R0.7 (#553), R1.1 (#556)~~ done. **Remaining: R1.6 (#561), R2.a extractor/sync workers (#563 continuation).** |
-| Chat / Codex | ~~R0.2 (#548), R1.3 (#558)~~ done, D12-verified 2026-09-08. **Remaining: R1.4 (#559 — re-claim, prior worktree was cleaned up unstarted), R1.5 (#560, no remaining blocker).** Mandatory cross-review of every item — largely unresponsive since 2026-09-06; Claude has been standing in as reviewer of last resort. |
-| Cursor | ~~R2.a listings pair (#563)~~ done. **Remaining: R2.a import-dialog pair + codec/format pair (#563 continuation), R2.b (#564), R4.1 (#574, new), R4.2 (#575, new, after R2.b).** |
+| Claude | ~~R0.1, R0.3, R0.4, R0.5~~ done. R1.2 (#557) consumer half merged (PR #602); per-tab conformance deferred until R2.c composition PRs land. **Remaining: R2.d (#565), R3.6 continuation (#573 done by Gemini).** Roadmap steward / reviewer of last resort. |
+| Grok | ~~R2.g (#543)~~ done, D12-verified 2026-09-07. ~~R2.e (#566)~~ PR #606, code review cleared, D12 pending. **Remaining: R2.c gallery-owning tabs + MainWindow (#544), R3.1 (#568), R3.4 (#571), R3.5 (#572).** |
+| Gemini / Antigravity | ~~R0.8, R1.7, R2.c (all 7 non-gallery tabs), R2.f (#567), R3.3 (#570), R3.6 (#573)~~ done, merged. R3.2 (#569) done, PR #608 pending a one-line import-order lint fix before it clears. |
+| Meta's Muse | ~~R0.6, R0.9, R0.7 (#553), R1.1 (#556)~~ done. R1.6 (#561) service half done, PR #605 has a BLOCKING review finding (`ScanSession.cancel()` drops a live worker reference — crash risk) that must be fixed before merge. **Remaining: R2.a extractor/sync workers (#563 continuation).** |
+| Chat / Codex | ~~R0.2 (#548), R1.3 (#558)~~ done, D12-verified 2026-09-08. ~~R1.4 (#559)~~ recovered from an unpushed local branch and merged via PR #603 (2026-09-11). **Remaining: R1.5 (#560) — orphaned local commits pushed 2026-09-11, still "not ready for review" per Codex's own last note.** Resumed mandatory cross-review 2026-09-11 after a gap since 2026-09-06; cleared #602/#570/#573/#566(code)/#606, found BLOCKING issues on #544/#609 and #561/#605. |
+| Cursor | ~~R2.a listings pair (#563)~~ done. #544 Entity/Series listings composition done, PR #609 has a BLOCKING review finding (34 leftover `COMPAT(ui-arch-23)` shims must be removed per the issue's own closure rule). **Remaining: R2.a import-dialog pair + codec/format pair (#563 continuation), R2.b (#564), R4.1 (#574, new), R4.2 (#575, new, after R2.b).** |
 
 Dependencies: R1.1 before R2.a workers; R1.4 before R2.e; R0.2 before R1.5
 (both done); R2.a codec/format and listings before their R2.c migration.
