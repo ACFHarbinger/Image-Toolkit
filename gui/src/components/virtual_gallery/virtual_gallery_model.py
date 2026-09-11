@@ -215,9 +215,13 @@ class VirtualGalleryModel(QAbstractListModel):
         worker = self.worker_factory(path, self.thumbnail_size)
         worker.load_generation = gen
         worker.signals.result.connect(
-            lambda p, img, g=gen, wk=worker: self._on_thumbnail_loaded(p, img, g, wk)
+            lambda p, img, g=gen, wk=worker: self._on_thumbnail_loaded(p, img, g, wk),
+            Qt.ConnectionType.QueuedConnection,
         )
-        worker.signals.result.connect(lambda *_, g=gen: self._dispatch_fill(g))
+        worker.signals.result.connect(
+            lambda *_, g=gen: self._dispatch_fill(g),
+            Qt.ConnectionType.QueuedConnection,
+        )
         self._active_workers.add(worker)
         self.thread_pool.start(worker)
 
@@ -504,7 +508,8 @@ class VirtualGalleryModel(QAbstractListModel):
         worker = self.worker_factory(path, self.thumbnail_size)
         worker.load_generation = gen
         worker.signals.result.connect(
-            lambda p, img, g=gen, wk=worker: self._on_thumbnail_loaded(p, img, g, wk)
+            lambda p, img, g=gen, wk=worker: self._on_thumbnail_loaded(p, img, g, wk),
+            Qt.ConnectionType.QueuedConnection,
         )
         self._active_workers.add(worker)
         self.thread_pool.start(worker)

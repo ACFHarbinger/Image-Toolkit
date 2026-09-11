@@ -26,6 +26,7 @@ Usage
 from __future__ import annotations
 
 import gc
+import threading
 from abc import abstractmethod
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
@@ -36,21 +37,32 @@ from PySide6.QtCore import QThread
 
 __all__ = ["GcSafeThread", "gc_disabled", "gc_disabled_run"]
 
+_gc_lock = threading.Lock()
+_gc_disabled_count = 0
+_initial_gc_enabled = True
+
 
 @contextmanager
 def gc_disabled() -> Iterator[None]:
     """Run the enclosed block with the cyclic GC disabled.
 
-    Restores the prior state afterwards — including leaving it disabled if
-    it was already off when the block was entered.
+    Thread-safe refcounted: ensures that when multiple worker threads run
+    concurrently, one thread finishing does not prematurely re-enable GC
+    while other worker threads are still executing.
     """
-    was_enabled = gc.isenabled()
-    gc.disable()
+    global _gc_disabled_count, _initial_gc_enabled
+    with _gc_lock:
+        if _gc_disabled_count == 0:
+            _initial_gc_enabled = gc.isenabled()
+            gc.disable()
+        _gc_disabled_count += 1
     try:
         yield
     finally:
-        if was_enabled:
-            gc.enable()
+        with _gc_lock:
+            _gc_disabled_count -= 1
+            if _gc_disabled_count == 0 and _initial_gc_enabled:
+                gc.enable()
 
 
 def gc_disabled_run(func: Callable[..., Any]) -> Callable[..., Any]:
