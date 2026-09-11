@@ -30,24 +30,29 @@ from PySide6.QtGui import QImage, QImageReader
 
 logger = logging.getLogger(__name__)
 
-# Qt's GIF plugin does not scaled-decode, and with
-# QImageReader.setAllocationLimit(10000) it will try to materialize
-# multi-GB extraction GIFs. ffmpeg-from-a-QThreadPool-worker is the
-# same QSocketNotifier crash class (fork vs Qt Multimedia). Oversized
-# GIFs take a Pillow first-frame (no Qt plugin, no subprocess) under
-# one lock, then wrap the RGB buffer in QImage.
+# Qt's GIF plugin registers socket notifiers on the *calling thread's* event
+# loop.  When that thread is a QThreadPool worker, those notifiers point to a
+# file descriptor that becomes invalid as soon as the pool recycles the thread
+# -- Qt then logs "QSocketNotifier: Invalid socket N and type 'Read',
+# disabling..." which corrupts the heap bookkeeping and triggers SIGABRT.
+# ffmpeg-from-a-QThreadPool-worker is the same crash class (fork vs Qt
+# Multimedia).  The fix for both is the same: never construct QImageReader for
+# GIFs on a background thread.  load_qir_thumbnail routes ALL GIFs through
+# _gif_first_frame_via_pillow, which uses Pillow's C-level file IO and never
+# touches Qt's event dispatcher.  The 32 MB budget is kept as a documentation
+# marker and for is_oversized_gif() (still used externally), but is no longer
+# used as a branch condition inside load_qir_thumbnail.
 QIR_GIF_BYTE_BUDGET = 32 * 1024 * 1024
 _PILGIF_CACHE_PREFIX = "qir_pilgif"
 _gif_decode_lock = threading.Lock()
+
 
 def qir_cache_path(path: str, target_size: int, prefix: str = "qir") -> Path:
     key = hashlib.md5(f"{path}:{target_size}".encode("utf-8")).hexdigest()
     return THUMBNAIL_CACHE_DIR / f"{prefix}_{key}.png"
 
 
-def load_qir_cached(
-    path: str, target_size: int, prefix: str = "qir"
-) -> QImage | None:
+def load_qir_cached(path: str, target_size: int, prefix: str = "qir") -> QImage | None:
     """Return the cached decode, or ``None`` on a cache miss/corrupt entry."""
     cache_path = qir_cache_path(path, target_size, prefix=prefix)
     if not cache_path.exists():
@@ -56,9 +61,7 @@ def load_qir_cached(
     return image if not image.isNull() else None
 
 
-def save_qir_cached(
-    path: str, target_size: int, image: QImage, prefix: str = "qir"
-) -> None:
+def save_qir_cached(path: str, target_size: int, image: QImage, prefix: str = "qir") -> None:
     """Best-effort write; a failed cache write must never fail the load."""
     if image.isNull():
         return
@@ -159,32 +162,38 @@ def read_gif_logical_screen(path: str) -> tuple[int, int] | None:
 def load_qir_thumbnail(path: str, target_size: int) -> QImage:
     """Load a thumbnail, using the QIR disk cache.
 
-    Small GIFs still go through Qt's GIF plugin (first frame). Oversized
-    GIFs use Pillow frame 0 (no Qt plugin, no ffmpeg). Placeholders are
-    memory-only so a failed decode cannot poison the disk cache.
+    All GIFs are decoded via Pillow (first frame), regardless of file size.
+    QImageReader's GIF plugin registers socket notifiers on the calling
+    thread's event loop; using it from a QThreadPool worker thread causes
+    "QSocketNotifier: Invalid socket N and type 'Read', disabling..." →
+    heap corruption → SIGABRT when the pool recycles the thread.
+    Non-GIF images still use _qir_read (QImageReader), which is safe on
+    worker threads for those formats.
     """
     is_gif = path.lower().endswith(".gif")
-    oversized = is_gif and _file_size(path) > QIR_GIF_BYTE_BUDGET
-    cache_prefix = _PILGIF_CACHE_PREFIX if oversized else "qir"
+    # All GIFs share the Pillow-decoded cache namespace so existing cache
+    # entries from either the old oversized branch or this new unified branch
+    # are reused without a rebuild.
+    cache_prefix = _PILGIF_CACHE_PREFIX if is_gif else "qir"
     cached = load_qir_cached(path, target_size, prefix=cache_prefix)
     if cached is not None:
         return cached
 
     try:
         if is_gif:
+            # Pillow: C-level file IO only, no Qt event loop, no socket
+            # notifiers.  Serialised by _gif_decode_lock so concurrent worker
+            # threads don't race on the same GIF file.
             with _gif_decode_lock:
-                if _file_size(path) > QIR_GIF_BYTE_BUDGET:
-                    image = _gif_first_frame_via_pillow(path, target_size)
-                else:
-                    image = _qir_read(path, target_size)
+                image = _gif_first_frame_via_pillow(path, target_size)
         else:
             image = _qir_read(path, target_size)
     except Exception:
         logger.debug("Suppressed Exception in load_qir_thumbnail", exc_info=True)
-        return oversized_gif_placeholder(target_size) if oversized else QImage()
+        return QImage()
 
     if image.isNull():
-        return oversized_gif_placeholder(target_size) if oversized else image
+        return image
     save_qir_cached(path, target_size, image, prefix=cache_prefix)
     return image
 
