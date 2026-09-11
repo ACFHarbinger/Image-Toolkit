@@ -6,17 +6,18 @@ Extracted from ``main_window.py`` -- pure code motion, no logic change.
 from __future__ import annotations
 
 import copy
-import inspect
 import logging
 from pathlib import Path
 from typing import Any
 
 from backend.src.constants import LOCAL_SOURCE_PATH
 
+from ...contracts.tab_config import ConfigSettable, apply_tab_config
 from ...utils.cache.lru_image_cache import LRUImageCache
 from ..settings.app_settings import AppSettings
 
 logger = logging.getLogger(__name__)
+
 
 class _StartupPrefsMixin:
     """Applies vault-stored preferences (thumbnail size, caches, dirs, ...) to every tab."""
@@ -99,13 +100,9 @@ class _StartupPrefsMixin:
                         config_data = saved_tab_configs[tab_class_name][config_name]
                         config_data = self._sanitize_config_if_needed(config_data)
 
-                        if hasattr(tab_instance, "set_config") and callable(tab_instance.set_config):
+                        if isinstance(tab_instance, ConfigSettable):
                             try:
-                                sig = inspect.signature(tab_instance.set_config)
-                                if "quiet" in sig.parameters:
-                                    tab_instance.set_config(config_data, quiet=True)  # pyrefly: ignore [unexpected-keyword]
-                                else:
-                                    tab_instance.set_config(config_data)
+                                apply_tab_config(tab_instance, config_data, quiet=True)
                                 print(f"Applied active config '{config_name}' to {tab_class_name}")
                             except Exception as e:
                                 print(f"Error applying config to {tab_class_name}: {e}")
