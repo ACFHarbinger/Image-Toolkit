@@ -132,6 +132,8 @@ class _WorkflowTemplatesMixin:
             category = step.get("category")
             tab_name = step.get("tab_name")
             config_name = step.get("config_name")
+            if category:
+                self._ensure_category(category)
             tab_instance = self.all_tabs.get(category, {}).get(tab_name)
             if tab_instance is None:
                 continue
@@ -186,6 +188,8 @@ class _WorkflowTemplatesMixin:
             config_combo.clear()
             config_combo.addItem("(no config — just switch here)")
             category = category_combo.currentText()
+            if category:
+                self._ensure_category(category)
             tab_instance = self.all_tabs.get(category, {}).get(tab_name)
             if tab_instance is not None:
                 class_name = type(tab_instance).__name__
