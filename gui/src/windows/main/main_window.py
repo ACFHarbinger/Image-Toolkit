@@ -180,9 +180,11 @@ class MainWindow(
             BackgroundCanvasController.instance().background_changed.connect(self.update)
             self.tabs.currentChanged.connect(lambda _: self.update())
 
-            # Connect after populating so the initial currentTextChanged fires correctly.
+            # R2.e: do not construct the combo's first category here. Startup
+            # prefs and session recovery may still change the selection;
+            # construction runs once from _restore_session_recovery (timer 0).
+            self._classic_defer_construction = True
             self.command_combo.currentTextChanged.connect(self.on_command_changed)
-            self.on_command_changed(self.command_combo.currentText())
 
         # Default before _apply_startup_preferences() so a saved
         # "minimize to tray" preference isn't stomped back to False by the

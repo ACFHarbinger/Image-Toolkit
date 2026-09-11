@@ -130,17 +130,17 @@ gallery presentation modes (#542, own D12 pass).
 ### 2.4 Module and route inventory (classic shell baseline)
 
 `gui/test/modules/test_legacy_module_inventory.py` statically compares this
-table to the live `all_tabs` dictionary in `gui/src/windows/main/_tab_registry.py`.
+table to `CLASSIC_TAB_ROUTES` in `gui/src/windows/main/_tab_registry.py`.
 A route rename, addition, removal, or coupling change must update this
 table deliberately.
 
-Construction baseline: `_TabRegistryMixin._create_tabs()` imports 25 names
-from `gui.src.tabs`, one additional `ListingsTab` symbol, and directly
-constructs 26 top-level tab objects before the window shows. All 33
-navigable routes are therefore eager on the classic path; the eight Image
-Stitching routes are views owned by one `StitchTab`. Per-module import
-timings are not inferred from this table (entangled with optional
-ML/submodule imports); R2.e measures them.
+Construction baseline (R2.e / #566): `_create_tabs()` registers hub, services,
+and the title map, then `_ensure_category()` constructs tabs through
+`build_tab()` on first category select. Classic startup builds ≤ 1 category
+(the restored last tab, else the startup-category preference, else System
+Tools). The eight Image Stitching routes remain views owned by one
+`StitchTab` (`stitch.workspace`). Per-module import/activation timings are
+logged from `build_tab` / `_classic_construction_log`.
 
 | Module ID | Category | Current title | Live expression | Runtime kind |
 |---|---|---|---|---|
@@ -265,7 +265,7 @@ concurrently (D6). "Gate" = D12 live pass required in addition to Codex review.
 | R1.1 | Worker base adoption: every `QThread`/`QRunnable` in `helpers/` on `BaseQThreadWorker`/`BaseQRunnableWorker`; signals `finished`/`error(object)`/`progress`; one `cancel()`; one shared teardown replacing the 11 `_lifecycle.py` clones; lint rule | §3.3, F3, F9, Q-C | Muse | 0 raw subclasses; 1 signal vocabulary; ⚙ rule live | ui-arch-34 (#556) |
 | R1.2 | `TabConfig` contract: `Protocol` + dataclass schema + version for `get_default_config`/`collect`/`set_config`; session recovery, Ctrl+S, Settings consume it | §3.2 | Claude | `hasattr(tab, "collect")` → 0; 33 implementers typed | ui-arch-35 (#557) |
 | R1.3 | `WindowService` + settings decoupling: `windows/settings/*` drops `main_window_ref` (44 sites) | F6, F7 | Codex | **Done, D12-verified 2026-09-08.** | ui-arch-36 (#558) |
-| R1.4 | One `build_tab(module_id, context)` factory used by both classic `_create_tabs` and the catalog; inventory test keeps passing | F23 | Codex | one constructor path; `try/except TypeError` fallbacks gone | ui-arch-37 (#559) |
+| R1.4 | One `build_tab(module_id, context)` factory used by both classic `_create_tabs` and the catalog; inventory test keeps passing | F23 | Codex | implementation ready: one constructor path; catalog `TypeError` fallbacks gone; mandatory review pending | ui-arch-37 (#559) |
 | R1.5 | Preferences store split: vault = secrets; preferences/tab-configs per-key in `PreferenceStore`; no whole-blob `save_data(json.dumps(creds))` outside auth | §5.5, R0.2 | Codex | 12 vault-write sites → auth only | ui-arch-38 (#560) |
 | R1.6 | `DirectoryScanService` worker (cancellable generation token) replacing the ~30 blocking IO sites and the six `_directory_browse.py` copies | §5.3, §3.2 | Muse | 0 `os.listdir`/`scandir`/`rglob`/decode in slots | ui-arch-39 (#561) |
 | R1.7 | `PreviewContext` value object + one preview service replacing the `_preview_context.py` / `_properties_preview.py` copies | F4 | Gemini | one preview entry point | ui-arch-40 (#562) |
@@ -288,10 +288,10 @@ concurrently (D6). "Gate" = D12 live pass required in addition to Codex review.
 |---|---|---|---|---|---|
 | R3.1 | One pixmap budget across the 7 `LRUImageCache` instances; sizing in one place | §5.7 | Grok | one `PixmapBudget`; per-tab sizes derived | ui-arch-46 (#568) |
 | R3.2 | Startup footprint: heavy imports (`cv2`/`PIL`/`numpy`/`torch`, 27 files) moved into functions; RSS at login/main window measured before/after | §5.8 | Claude | measured delta posted; no module-level heavy import in `gui/src` ⚙ | ui-arch-47 (#569) |
-| R3.3 | Remove the 7 live `processEvents()` (single-shot timer or progress fact) | F25 | Muse | 0 | ui-arch-48 (#570) |
+| R3.3 | Remove the 7 live `processEvents()` (single-shot timer or progress fact) | F25 | Gemini / Antigravity | 0 | ui-arch-48 (#570) |
 | R3.4 | Gallery card/selection merge: one card factory + one highlight helper across single/two/virtual | F21, DS-4 | Grok | `create_card_widget` ×1 | ui-arch-49 (#571) |
 | R3.5 | Module widget eviction: measure 3 vs 8 mounted modules, set LRU from data; account-switch disposal | F12, DS-5 | Grok | numbers on the bus; policy implemented | ui-arch-50 (#572) |
-| R3.6 | Import-graph slimming beyond the wildcard removals; `windows/__init__.py` eager imports; `helpers/__init__.py` barrel | old Phase 3 | Claude | `import gui.src.components.widgets.toast_widget` < 300 modules | ui-arch-51 (#573) |
+| R3.6 | Import-graph slimming beyond the wildcard removals; `windows/__init__.py` eager imports; `helpers/__init__.py` barrel | old Phase 3 | Gemini / Antigravity | `import gui.src.components.widgets.toast_widget` < 300 modules | ui-arch-51 (#573) |
 
 ### R4 — Theming surfaces (deferred, from app-theming Phase 2/3)
 
@@ -306,12 +306,12 @@ concurrently (D6). "Gate" = D12 live pass required in addition to Codex review.
 
 | Agent | Items |
 |---|---|
-| Claude | ~~R0.1, R0.3, R0.4, R0.5~~ done. **Remaining: R1.2 (#557), R2.d (#565), R3.2 (#569), R3.6 (#573).** Roadmap steward. |
-| Grok | ~~R2.g (#543)~~ done, D12-verified 2026-09-07. **Remaining: R2.c gallery-owning tabs + MainWindow (#544, now unblocked), R3.1 (#568), R3.4 (#571, now unblocked), R3.5 (#572). R2.e (#566) stays gated on R1.4.** |
-| Gemini / Antigravity | ~~R0.8, R1.7~~ done. **Remaining: R2.c non-gallery tabs (#544 — DriveSync, EntityRecon, MediaLoader, ImageCrawl, CBIRTrain, Sampler, in that order), R2.f (#567).** |
-| Meta's Muse | ~~R0.6, R0.9~~ done. **Remaining: R0.7 (#553), R1.1 (#556), R1.6 (#561), R2.a extractor/sync workers (#563 continuation, gated on R1.1), R3.3 (#570).** |
-| Chat / Codex | ~~R0.2 (#548), R1.3 (#558)~~ done, D12-verified 2026-09-08. **Remaining: R1.4 (#559 — re-claim, prior worktree was cleaned up unstarted), R1.5 (#560, no remaining blocker).** Mandatory cross-review of every item — largely unresponsive since 2026-09-06; Claude has been standing in as reviewer of last resort. |
-| Cursor | ~~R2.a listings/import-dialog/codec-format (#563)~~ done. ~~R2.b (#564)~~ done. ~~R4.1 (#574)~~ done. ~~R4.2 (#575)~~ done. **Remaining: none.** |
+| Claude | ~~R0.1, R0.3, R0.4, R0.5~~ done. R1.2 (#557) consumer half merged (PR #602); per-tab conformance deferred until R2.c composition PRs land. **Remaining: R2.d (#565).** Roadmap steward / reviewer of last resort. |
+| Grok | ~~R2.g (#543)~~ done, D12-verified 2026-09-07. ~~R2.e (#566)~~ PR #606, D12-verified 2026-09-11 (real login, real vault/data; startup builds only the restored category, switching category lazily built exactly that category's tabs, session recovery restored real state, clean quit) — merged. **Remaining: R2.c gallery-owning tabs + MainWindow (#544), R3.1 (#568), R3.4 (#571), R3.5 (#572).** |
+| Gemini / Antigravity | ~~R0.8, R1.7, R2.c (all 7 non-gallery tabs), R2.f (#567), R3.3 (#570), R3.6 (#573)~~ done, merged. R3.2 (#569) done, PR #608 pending a one-line import-order lint fix before it clears. |
+| Meta's Muse | ~~R0.6, R0.9, R0.7 (#553), R1.1 (#556)~~ done. R1.6 (#561) service half done, PR #605 has a BLOCKING review finding (`ScanSession.cancel()` drops a live worker reference — crash risk) that must be fixed before merge. **Remaining: R2.a extractor/sync workers (#563 continuation).** |
+| Chat / Codex | ~~R0.2 (#548), R1.3 (#558)~~ done, D12-verified 2026-09-08. ~~R1.4 (#559)~~ recovered from an unpushed local branch and merged via PR #603 (2026-09-11). **Remaining: R1.5 (#560) — orphaned local commits pushed 2026-09-11, still "not ready for review" per Codex's own last note.** Resumed mandatory cross-review 2026-09-11 after a gap since 2026-09-06; cleared #602/#570/#573/#566(code)/#606, found BLOCKING issues on #544/#609 and #561/#605. |
+| Cursor | ~~R2.a listings pair (#563)~~ done. #544 Entity/Series listings composition done, PR #609 COMPAT shims stripped (re-review). **#585** (import-dialog + codec/format + #564/#574/#575) resynced onto milestone after #570/#573/#566. |
 
 Dependencies: R1.1 before R2.a workers; R1.4 before R2.e; R0.2 before R1.5
 (both done); R2.a codec/format and listings before their R2.c migration.

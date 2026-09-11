@@ -1,156 +1,13 @@
-"""Tab classes.
+"""Tab classes — lazily re-exported (issues #530, #549, #573, R3.6)."""
 
-The three submodule GUIs (ASP Stitch, CSG Manga, HIE editor) are lazily
-re-exported (ui-arch-27/#549): importing this package must not import
-``asp_gui``/``csg_gui``/``hie_tab``. Classic startup and the module catalog
-resolve them on first attribute access (PEP 562 ``__getattr__``). Guarded by
-``backend/validation/check_init_boundaries.py`` rule 3.
-"""
+from __future__ import annotations
 
 import importlib
 
-from .core import (
-    ConvertTab as ConvertTab,
-)
-from .core import (
-    ExtractorTab as ExtractorTab,
-)
-from .core import (
-    MergeTab as MergeTab,
-)
-from .core import (
-    SimilarityTab as SimilarityTab,
-)
-from .core import (
-    WallpaperTab as WallpaperTab,
-)
-from .core import (
-    convert_tab as convert_tab,
-)
-from .core import (
-    extractor_tab as extractor_tab,
-)
-from .core import (
-    image_extractor_subtab as image_extractor_subtab,
-)
-from .core import (
-    media_convert_subtab as media_convert_subtab,
-)
-from .core import (
-    merge_tab as merge_tab,
-)
-from .core import (
-    sampler_subtab as sampler_subtab,
-)
-from .core import (
-    similarity_tab as similarity_tab,
-)
-from .core import (
-    wallpaper_tab as wallpaper_tab,
-)
-from .database import (
-    DatabaseTab as DatabaseTab,
-)
-from .database import (
-    DataBrowserTab as DataBrowserTab,
-)
-from .database import (
-    ListingsTab as ListingsTab,
-)
-from .database import (
-    ScanMetadataTab as ScanMetadataTab,
-)
-from .database import (
-    SearchTab as SearchTab,
-)
-from .database import (
-    data_browser_tab as data_browser_tab,
-)
-from .database import (
-    database_tab as database_tab,
-)
-from .database import (
-    listings_subtab as listings_subtab,
-)
-from .database import (
-    listings_tab as listings_tab,
-)
-from .database import (
-    scan_metadata_tab as scan_metadata_tab,
-)
-from .database import (
-    search_tab as search_tab,
-)
-from .models import (
-    ComfyUITab as ComfyUITab,
-)
-from .models import (
-    MetaCLIPInferenceTab as MetaCLIPInferenceTab,
-)
-from .models import (
-    R3GANEvaluateTab as R3GANEvaluateTab,
-)
-from .models import (
-    UnifiedGenerateTab as UnifiedGenerateTab,
-)
-from .models import (
-    UnifiedTrainTab as UnifiedTrainTab,
-)
-from .models import (
-    delta as delta,
-)
-from .models import (
-    gen as gen,
-)
-from .models import (
-    generate_tab as generate_tab,
-)
-from .models import (
-    meta_clip_inference_tab as meta_clip_inference_tab,
-)
-from .models import (
-    r3gan_evaluate_tab as r3gan_evaluate_tab,
-)
-from .models import (
-    train_tab as train_tab,
-)
-from .web import (
-    DriveSyncTab as DriveSyncTab,
-)
-from .web import (
-    EntityReconTab as EntityReconTab,
-)
-from .web import (
-    ImageCrawlTab as ImageCrawlTab,
-)
-from .web import (
-    MediaLoaderTab as MediaLoaderTab,
-)
-from .web import (
-    ReverseImageSearchTab as ReverseImageSearchTab,
-)
-from .web import (
-    WebRequestsTab as WebRequestsTab,
-)
-from .web import (
-    drive_sync_tab as drive_sync_tab,
-)
-from .web import (
-    entity_recon_tab as entity_recon_tab,
-)
-from .web import (
-    image_crawler_tab as image_crawler_tab,
-)
-from .web import (
-    media_loader_tab as media_loader_tab,
-)
-from .web import (
-    reverse_search_tab as reverse_search_tab,
-)
-from .web import (
-    web_requests_tab as web_requests_tab,
-)
-
+# Public contract checked by gui/test/modules/test_tabs_init_lazy.py (#549):
+# the submodule-GUI subset of _LAZY_EXPORTS, kept as its own name so a
+# caller can enumerate just the lazy submodule boundary without depending
+# on _LAZY_EXPORTS' full shape.
 _LAZY_SUBMODULE_EXPORTS = {
     "StitchTab": "asp_gui.tabs",
     "StitchTabBackend": "asp_gui.tabs",
@@ -160,10 +17,147 @@ _LAZY_SUBMODULE_EXPORTS = {
     "HieEditorTab": "hie_tab",
 }
 
+_LAZY_EXPORTS = {
+    # Submodules (ui-arch-27/#549) — kept as literal entries, not
+    # `**_LAZY_SUBMODULE_EXPORTS`: check_init_boundaries.py's AST checker
+    # requires every _LAZY_EXPORTS key to be a plain string constant, and a
+    # dict-unpack key isn't one.
+    "StitchTab": "asp_gui.tabs",
+    "StitchTabBackend": "asp_gui.tabs",
+    "MangaAnimationTab": "csg_gui.tabs",
+    "MangaColorizationTab": "csg_gui.tabs",
+    "MangaPuppeteeringTab": "csg_gui.tabs",
+    "HieEditorTab": "hie_tab",
+    # Core tabs
+    "ConvertTab": ".core.convert_tab",
+    "ExtractorTab": ".core.extractor_tab",
+    "MergeTab": ".core.merge_tab",
+    "SimilarityTab": ".core.similarity_tab",
+    "WallpaperTab": ".core.wallpaper_tab",
+    "convert_tab": ".core",
+    "extractor_tab": ".core",
+    "image_extractor_subtab": ".core",
+    "media_convert_subtab": ".core",
+    "merge_tab": ".core",
+    "sampler_subtab": ".core",
+    "similarity_tab": ".core",
+    "wallpaper_tab": ".core",
+    # Database tabs
+    "DatabaseTab": ".database.database_tab",
+    "DataBrowserTab": ".database.data_browser_tab",
+    "ListingsTab": ".database.listings_tab",
+    "ScanMetadataTab": ".database.scan_metadata_tab",
+    "SearchTab": ".database.search_tab",
+    "database_tab": ".database",
+    "data_browser_tab": ".database",
+    "listings_subtab": ".database",
+    "listings_tab": ".database",
+    "scan_metadata_tab": ".database",
+    "search_tab": ".database",
+    # Models tabs
+    "CBIRTrainTab": ".models.cbir_train_tab",
+    "ComfyUITab": ".models.comfyui_tab",
+    "MetaCLIPInferenceTab": ".models.meta_clip_inference_tab",
+    "R3GANEvaluateTab": ".models.r3gan_evaluate_tab",
+    "UnifiedGenerateTab": ".models.unified_generate_tab",
+    "UnifiedTrainTab": ".models.unified_train_tab",
+    "cbir_train_tab": ".models",
+    "comfyui_tab": ".models",
+    "meta_clip_inference_tab": ".models",
+    "r3gan_evaluate_tab": ".models",
+    "unified_generate_tab": ".models",
+    "unified_train_tab": ".models",
+    # Web tabs
+    "DriveSyncTab": ".web.drive_sync_tab",
+    "EntityReconTab": ".web.entity_recon_tab",
+    "ImageCrawlTab": ".web.image_crawler_tab",
+    "MediaLoaderTab": ".web.media_loader_tab",
+    "ReverseImageSearchTab": ".web.reverse_search_tab",
+    "WebRequestsTab": ".web.web_requests_tab",
+    "drive_sync_tab": ".web",
+    "entity_recon_tab": ".web",
+    "image_crawler_tab": ".web",
+    "media_loader_tab": ".web",
+    "reverse_search_tab": ".web",
+    "web_requests_tab": ".web",
+    # Subpackages
+    "core": ".core",
+    "database": ".database",
+    "models": ".models",
+    "web": ".web",
+}
 
-def __getattr__(name):
-    if name in _LAZY_SUBMODULE_EXPORTS:
-        value = getattr(importlib.import_module(_LAZY_SUBMODULE_EXPORTS[name]), name)
+__all__ = [
+    "ConvertTab",
+    "ExtractorTab",
+    "MergeTab",
+    "SimilarityTab",
+    "WallpaperTab",
+    "convert_tab",
+    "extractor_tab",
+    "image_extractor_subtab",
+    "media_convert_subtab",
+    "merge_tab",
+    "sampler_subtab",
+    "similarity_tab",
+    "wallpaper_tab",
+    "DatabaseTab",
+    "DataBrowserTab",
+    "ListingsTab",
+    "ScanMetadataTab",
+    "SearchTab",
+    "database_tab",
+    "data_browser_tab",
+    "listings_subtab",
+    "listings_tab",
+    "scan_metadata_tab",
+    "search_tab",
+    "CBIRTrainTab",
+    "ComfyUITab",
+    "MetaCLIPInferenceTab",
+    "R3GANEvaluateTab",
+    "UnifiedGenerateTab",
+    "UnifiedTrainTab",
+    "cbir_train_tab",
+    "comfyui_tab",
+    "meta_clip_inference_tab",
+    "r3gan_evaluate_tab",
+    "unified_generate_tab",
+    "unified_train_tab",
+    "DriveSyncTab",
+    "EntityReconTab",
+    "ImageCrawlTab",
+    "MediaLoaderTab",
+    "ReverseImageSearchTab",
+    "WebRequestsTab",
+    "drive_sync_tab",
+    "entity_recon_tab",
+    "image_crawler_tab",
+    "media_loader_tab",
+    "reverse_search_tab",
+    "web_requests_tab",
+    "StitchTab",
+    "StitchTabBackend",
+    "MangaAnimationTab",
+    "MangaColorizationTab",
+    "MangaPuppeteeringTab",
+    "HieEditorTab",
+    "core",
+    "database",
+    "models",
+    "web",
+]
+
+
+def __getattr__(name: str):
+    if name in _LAZY_EXPORTS:
+        target = _LAZY_EXPORTS[name]
+        if target.startswith("."):
+            module = importlib.import_module(target, __name__)
+            value = getattr(module, name) if target.count(".") > 1 else module
+        else:
+            module = importlib.import_module(target)
+            value = getattr(module, name)
         globals()[name] = value
         return value
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
