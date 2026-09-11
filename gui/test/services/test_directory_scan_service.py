@@ -187,6 +187,51 @@ def test_session_generations_and_cancel(tree):
     session.cancel()
 
 
+def test_session_cancel_retains_running_worker(tree, monkeypatch):
+    # Codex BLOCKING finding on PR #605: cancel() must not drop the last
+    # reference to a worker still alive after the bounded join — that is
+    # the QThread-destroyed-while-running abort. It retains the worker
+    # (and its callback) for later safe retirement instead.
+    from unittest.mock import MagicMock
+
+    import gui.src.helpers.core.directory_scan_worker as worker_mod
+
+    class _HungWorker:
+        def __init__(self, request):
+            self.request = request
+            self.cancel_called = False
+            self._running = True
+            self.finished = MagicMock()
+
+        def start(self):
+            pass
+
+        def cancel(self):
+            self.cancel_called = True
+
+        def wait(self, ms=None):
+            return False
+
+        def isRunning(self):
+            return self._running
+
+    monkeypatch.setattr(worker_mod, "DirectoryScanWorker", _HungWorker)
+    session = ScanSession()
+    received = []
+    gen = session.scan(ScanRequest(path=str(tree)), received.append)
+    session.cancel()
+    assert session._workers.get(gen) is not None
+    assert session._callbacks.get(gen) is not None
+    worker = session._workers[gen]
+    assert worker.cancel_called
+    # Thread later exits: the next cancel retires it cleanly.
+    worker._running = False
+    session.cancel()
+    assert session._workers == {}
+    assert session._callbacks == {}
+    assert received == []
+
+
 def test_session_stale_delivery_dropped(tree):
     # A duplicate delivery from a superseded generation must not reach
     # the old callback, even if its worker was already retired.

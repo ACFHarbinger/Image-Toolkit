@@ -194,8 +194,9 @@ class ScanSession:
     has exited (verified with ``wait()`` on the GUI thread) before
     dropping the reference. Dropping the last Python reference of a
     ``QThread`` while it is still running aborts the process
-    (``QThread: Destroyed while thread is still running``), so workers
-    are never released from inside their own delivery slot.
+    (``QThread: Destroyed while thread is still running``), so a worker
+    whose bounded join times out is *retained* — in both ``cancel()``
+    and delivery — and retired by a later scan/cancel/delivery.
     """
 
     #: Bounded join when retiring a worker (ms). Workers checkpoint
@@ -214,24 +215,38 @@ class ScanSession:
         """Current generation (bumped once per :meth:`scan`)."""
         return self._generation
 
+    def _release(self, worker: object) -> bool:
+        """Bounded join; True when the worker reference may be dropped."""
+        wait = getattr(worker, "wait", None)
+        if callable(wait):
+            try:
+                wait(self.JOIN_TIMEOUT_MS)
+            except RuntimeError as exc:
+                deleted_qobject_guard(exc, "ScanSession worker join")
+        is_running = getattr(worker, "isRunning", None)
+        return not callable(is_running) or not is_running()
+
     def cancel(self) -> None:
-        """Cancel all in-flight scans and join their threads (bounded)."""
+        """Cancel all in-flight scans and join their threads (bounded).
+
+        A worker still alive after the join is retained for later safe
+        retirement, never released while running.
+        """
         workers = self._workers
-        callbacks = self._callbacks
         self._workers = {}
-        self._callbacks = {}
         for worker in workers.values():
             cancel = getattr(worker, "cancel", None)
             if callable(cancel):
                 cancel()
-        for worker in workers.values():
-            wait = getattr(worker, "wait", None)
-            if callable(wait):
-                try:
-                    wait(self.JOIN_TIMEOUT_MS)
-                except RuntimeError as exc:
-                    deleted_qobject_guard(exc, "ScanSession.cancel join")
-        callbacks.clear()
+        for generation, worker in workers.items():
+            if self._release(worker):
+                self._callbacks.pop(generation, None)
+            else:
+                # Join timed out with the thread still alive: retain the
+                # reference (and its callback) for a later scan/cancel/
+                # delivery to retire — releasing it here would destroy a
+                # running QThread and abort the process.
+                self._workers[generation] = worker
 
     def scan(
         self,
@@ -271,21 +286,13 @@ class ScanSession:
         generation, payload = item  # type: ignore[misc]
         worker = self._workers.pop(generation, None)
         callback = self._callbacks.pop(generation, None)
-        if worker is not None:
-            wait = getattr(worker, "wait", None)
-            if callable(wait):
-                try:
-                    wait(self.JOIN_TIMEOUT_MS)
-                except RuntimeError as exc:
-                    deleted_qobject_guard(exc, "ScanSession delivery join")
-            is_running = getattr(worker, "isRunning", None)
-            if callable(is_running) and is_running():
-                # Join timed out with the thread still alive: keep the
-                # reference (retired on the next scan/cancel) rather than
-                # destroy a running QThread, which aborts the process.
-                self._workers[generation] = worker
-                if callback is not None:
-                    self._callbacks[generation] = callback
+        if worker is not None and not self._release(worker):
+            # Join timed out with the thread still alive: keep the
+            # reference (retired on the next scan/cancel) rather than
+            # destroy a running QThread, which aborts the process.
+            self._workers[generation] = worker
+            if callback is not None:
+                self._callbacks[generation] = callback
         if generation != self._generation:
             return
         if payload is None or callback is None:
