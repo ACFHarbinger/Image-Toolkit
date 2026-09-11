@@ -9,7 +9,7 @@ from __future__ import annotations
 import os
 
 from PySide6.QtCore import Slot
-from PySide6.QtWidgets import QApplication, QMessageBox
+from PySide6.QtWidgets import QMessageBox
 from send2trash import send2trash  # pyrefly: ignore [untyped-import]
 
 from ....helpers import DeletionWorker
@@ -98,7 +98,6 @@ class _DeletionMixin:
         self.btn_delete_files.setEnabled(False)
         self.btn_delete_directory.setEnabled(False)
         self.status_label.setText(f"Starting {mode} deletion...")
-        QApplication.processEvents()
         self.worker = DeletionWorker(config)
         self.worker.confirm_signal.connect(self.handle_confirmation_request)
         self.worker.progress.connect(self.update_progress)

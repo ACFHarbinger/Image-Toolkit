@@ -16,7 +16,6 @@ from typing import Any, Callable, Dict, Optional
 import backend.src.constants as udef
 from PySide6.QtCore import QThreadPool, Signal, Slot
 from PySide6.QtWidgets import (
-    QApplication,
     QButtonGroup,
     QCheckBox,
     QGroupBox,
@@ -430,7 +429,6 @@ class SyncDataSubtab(QWidget):
             w.setEnabled(enabled)
         if clear_log:
             self.log_window.clear_log()
-        QApplication.processEvents()
 
     def _unlock_ui(self) -> None:
         self._lock_ui(message="Run Synchronization Now", is_running=False)
@@ -441,7 +439,6 @@ class SyncDataSubtab(QWidget):
         self.btn_view_remote.setEnabled(False)
         self.btn_share_folder.setEnabled(False)
         self.sync_button.setEnabled(False)
-        QApplication.processEvents()
 
     def _unlock_ui_minor(self) -> None:
         self.btn_view_remote.setEnabled(True)

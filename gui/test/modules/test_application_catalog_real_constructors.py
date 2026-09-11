@@ -19,6 +19,7 @@ separate branches again.
 """
 
 import pytest
+from gui.src.modules import application_catalog
 from gui.src.modules.application_catalog import build_application_catalog
 from gui.src.modules.context import ModuleContext, ModuleServices
 from gui.src.modules.events import EventHub
@@ -66,3 +67,29 @@ def test_cross_category_navigation_sequence(runtime):
     # both stay independently created, no duplicate/second host
     assert runtime.is_created("system.convert")
     assert runtime.is_created("library.search")
+
+
+def test_catalog_factory_delegates_options_to_shared_tab_factory(q_app, monkeypatch):
+    received = []
+
+    # WidgetHandle only needs a QWidget at runtime; keep this test focused on
+    # the catalog-to-factory contract rather than a concrete tab implementation.
+    from PySide6.QtWidgets import QWidget
+
+    monkeypatch.setattr(
+        application_catalog,
+        "build_tab",
+        lambda module_id, context: (
+            received.append((module_id, context.dropdown, context.enable_manager)) or QWidget()
+        ),
+    )
+    catalog = build_application_catalog(dropdown=False, enable_manager=True)
+    context = ModuleContext(event_hub=EventHub(q_app), services=ModuleServices())
+
+    catalog.require("system.convert").factory(context)
+    catalog.require("ml.comfyui").factory(context)
+
+    assert received == [
+        ("system.convert", False, True),
+        ("ml.comfyui", False, True),
+    ]

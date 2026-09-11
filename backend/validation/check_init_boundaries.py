@@ -127,12 +127,21 @@ def check_lazy_map_consistent(init_path: Path, tree: ast.AST) -> list[str]:
     """Every __all__ entry needs a _LAZY_EXPORTS key (same file)."""
     all_names = exports = None
     for node in tree.body:
-        if isinstance(node, ast.Assign) and len(node.targets) == 1:
-            target = node.targets[0]
-            if isinstance(target, ast.Name) and target.id == "__all__":
-                all_names = _literal_str_list(node.value)
-            elif isinstance(target, ast.Name) and target.id == "_LAZY_EXPORTS":
-                exports = _literal_str_dict_keys(node.value)
+        target_id = None
+        target_val = None
+        if isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name):
+            target_id = node.targets[0].id
+            target_val = node.value
+        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+            target_id = node.target.id
+            target_val = node.value
+
+        if target_id == "__all__" and target_val:
+            all_names = _literal_str_list(target_val)
+        elif target_id in ("_LAZY_EXPORTS", "_LAZY_SUBMODULE_EXPORTS") and target_val:
+            keys = _literal_str_dict_keys(target_val)
+            if keys:
+                exports = (exports or []) + keys
     if all_names is None or exports is None:
         return [
             f"{init_path}:1: __all__ and _LAZY_EXPORTS must be plain "
@@ -158,18 +167,25 @@ def main() -> int:
         violations.extend(check_no_star_imports(init_path))
         violations.extend(check_no_eager_submodule_imports(init_path))
 
-    windows_init = gui_src / "windows" / "__init__.py"
-    if windows_init.exists():
-        violations.extend(check_windows_init_lazy(windows_init))
-    else:
-        violations.append(f"{windows_init}: missing")
+    lazy_facades = [
+        gui_src / "windows" / "__init__.py",
+        gui_src / "windows" / "settings" / "__init__.py",
+        gui_src / "components" / "__init__.py",
+        gui_src / "helpers" / "__init__.py",
+        gui_src / "tabs" / "__init__.py",
+    ]
+    for init_path in lazy_facades:
+        if init_path.exists():
+            violations.extend(check_windows_init_lazy(init_path))
+        else:
+            violations.append(f"{init_path}: missing")
 
     for violation in violations:
         print(violation)
     if violations:
         print(f"{len(violations)} init-boundary violation(s); see issue #530.")
         return 1
-    print("init boundaries OK: no star imports, no eager submodule imports, windows/__init__ stays lazy.")
+    print("init boundaries OK: no star imports, no eager submodule imports, lazy facades stay lazy.")
     return 0
 
 

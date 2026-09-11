@@ -11,7 +11,6 @@ from typing import Any, Callable, Dict, Optional, Tuple
 
 from PySide6.QtCore import Signal, Slot
 from PySide6.QtWidgets import (
-    QApplication,
     QButtonGroup,
     QCheckBox,
     QFileDialog,
@@ -348,7 +347,6 @@ class LocalDirSyncSubtab(QWidget):
         self.rb_newer_wins.setEnabled(enabled)
         self.rb_prefer_local.setEnabled(enabled)
         self.rb_prefer_remote.setEnabled(enabled)
-        QApplication.processEvents()
 
     def _unlock_ui(self) -> None:
         self._lock_ui(is_running=False, dry_run=False)
