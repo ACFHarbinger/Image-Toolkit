@@ -3,6 +3,9 @@ from .core.codec_conversion_worker import (
 )
 from .core.conversion_worker import ConversionWorker as ConversionWorker
 from .core.deletion_worker import DeletionWorker as DeletionWorker
+from .core.directory_scan_worker import (
+    DirectoryScanWorker as DirectoryScanWorker,
+)
 from .core.duplicate_scan_worker import DuplicateScanWorker as DuplicateScanWorker
 from .core.merge_worker import MergeWorker as MergeWorker
 from .core.sampler_worker import SamplerWorker as SamplerWorker

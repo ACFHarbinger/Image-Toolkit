@@ -53,12 +53,8 @@ class _DirectoryBrowseMixin:
         else:
             for d in dirs:
                 act = self._recent_dirs_menu.addAction(d)
-                act.triggered.connect(
-                    lambda checked=False, p=d: self._navigate_to_dir(p)
-                )
-        self._recent_dirs_menu.exec(
-            self._btn_recent_dirs.mapToGlobal(self._btn_recent_dirs.rect().bottomLeft())
-        )
+                act.triggered.connect(lambda checked=False, p=d: self._navigate_to_dir(p))
+        self._recent_dirs_menu.exec(self._btn_recent_dirs.mapToGlobal(self._btn_recent_dirs.rect().bottomLeft()))
 
     @Slot()
     def browse_output(self):
@@ -78,11 +74,7 @@ class _DirectoryBrowseMixin:
         # Determine strict filter list
         if self.dropdown and self.selected_formats:
             input_formats = list(self.selected_formats)
-        elif (
-            not self.dropdown
-            and hasattr(self, "input_formats")
-            and self.input_formats.text().strip()
-        ):
+        elif not self.dropdown and hasattr(self, "input_formats") and self.input_formats.text().strip():
             input_formats = self.join_list_str(self.input_formats.text().strip())
         else:
             # Fallback: All supported formats (Images + Videos)
@@ -90,22 +82,19 @@ class _DirectoryBrowseMixin:
             img_formats = [f.lower() for f in SUPPORTED_IMG_FORMATS]
             input_formats = vid_formats + img_formats
 
-        paths = []
+        from gui.src.services.directory_scan_service import (
+            ScanRequest,
+            collect_files,
+        )
         from gui.src.windows.settings.app_settings import AppSettings
-        if AppSettings.recursive_scan():
-            for root, _, files in os.walk(p):
-                for file in files:
-                    file_ext = os.path.splitext(file)[1].lstrip(".").lower()
-                    if not input_formats or file_ext in input_formats:
-                        paths.append(os.path.join(root, file))
-        else:
-            with os.scandir(p) as it:
-                for entry in it:
-                    if entry.is_file():
-                        file_ext = os.path.splitext(entry.name)[1].lstrip(".").lower()
-                        if not input_formats or file_ext in input_formats:
-                            paths.append(entry.path)
-        return paths
+
+        return collect_files(
+            ScanRequest(
+                path=p,
+                extensions=input_formats,
+                recursive=AppSettings.recursive_scan(),
+            )
+        )
 
     @Slot()
     def scan_directory_visual(self):
