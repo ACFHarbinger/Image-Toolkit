@@ -52,9 +52,10 @@ class _ConfigMixin:
                 self.view_new_only_button.setChecked(config["view_new_only"])
 
             if "scan_directory" in config:
-                self.scan_directory_path.setText(config.get("scan_directory", ""))
-                if os.path.isdir(config["scan_directory"]):
-                    self.populate_scan_image_gallery(config["scan_directory"])
+                scan_dir = config.get("scan_directory") or ""
+                self.scan_directory_path.setText(scan_dir)
+                if scan_dir and os.path.isdir(scan_dir):
+                    self.populate_scan_image_gallery(scan_dir)
 
             if "batch_metadata" in config:
                 metadata = config.get("batch_metadata", {})
