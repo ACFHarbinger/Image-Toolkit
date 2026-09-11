@@ -17,6 +17,8 @@ from gui.src.helpers.database.listings_semantic_search_worker import (
     ListingsSemanticSearchWorker,
 )
 
+from ._tab_bound import TabBoundController
+
 
 def _entity_embedding_text(entity: dict) -> str:
     parts = [entity.get("name") or ""]
@@ -30,14 +32,14 @@ def _entity_embedding_text(entity: dict) -> str:
     return ". ".join(p for p in parts if p)
 
 
-class _SemanticSearchMixin:
-    """"Search by Meaning" + "Build Search Index" toolbar actions."""
+class EntityListingsSemanticController(TabBoundController):
+    """ "Search by Meaning" + "Build Search Index" toolbar actions."""
 
     @Slot()
     def _on_semantic_search(self) -> None:
         if not self.vault_manager or not self.vault_manager.raw_password:
             QMessageBox.information(
-                self,
+                self.tab,
                 "Secure Access Required",
                 "You must be logged in to search by meaning.",
             )
@@ -46,17 +48,16 @@ class _SemanticSearchMixin:
             return
 
         query, ok = QInputDialog.getText(
-            self,
+            self.tab,
             "Search by Meaning",
-            "Describe who you're looking for, e.g. \"director known for "
-            "space westerns\":",
+            'Describe who you\'re looking for, e.g. "director known for space westerns":',
         )
         if not ok or not query.strip():
             return
 
-        db = get_library_db(self.vault_manager, parent=self)
+        db = get_library_db(self.vault_manager, parent=self.tab)
         if db is None:
-            QMessageBox.warning(self, "Error", "The library database is unavailable.")
+            QMessageBox.warning(self.tab, "Error", "The library database is unavailable.")
             return
 
         worker = ListingsSemanticSearchWorker(db, domain="entity", text=query.strip(), top_k=50)
@@ -69,9 +70,7 @@ class _SemanticSearchMixin:
     def _on_semantic_search_finished(self, hits: List[Tuple[str, float, str]]) -> None:
         self._active_semantic_worker = None
         if not hits:
-            self.stats_label.setText(
-                "🧠 No semantic matches (index may be empty -- try 'Build Search Index')."
-            )
+            self.stats_label.setText("🧠 No semantic matches (index may be empty -- try 'Build Search Index').")
             return
         self._semantic_search_results = [(h[0], h[1]) for h in hits]
         self.clear_semantic_btn.show()
@@ -80,7 +79,7 @@ class _SemanticSearchMixin:
 
     def _on_semantic_search_error(self, message: str) -> None:
         self._active_semantic_worker = None
-        QMessageBox.warning(self, "Semantic Search Error", message)
+        QMessageBox.warning(self.tab, "Semantic Search Error", message)
         self.stats_label.setText("🧠 Semantic search failed.")
 
     def _clear_semantic_search(self) -> None:
@@ -94,26 +93,20 @@ class _SemanticSearchMixin:
         one yet. No dedicated listings "Management" tab exists, so this
         lives right next to the search entry point that needs it."""
         if not self.vault_manager or not self.vault_manager.raw_password:
-            QMessageBox.information(
-                self, "Secure Access Required", "You must be logged in to do this."
-            )
+            QMessageBox.information(self.tab, "Secure Access Required", "You must be logged in to do this.")
             return
         if self._active_embed_worker is not None:
-            QMessageBox.information(
-                self, "Already Running", "An index build is already in progress."
-            )
+            QMessageBox.information(self.tab, "Already Running", "An index build is already in progress.")
             return
 
         repo = self._entity_repo()
         if repo is None:
-            QMessageBox.warning(self, "Error", "The library database is unavailable.")
+            QMessageBox.warning(self.tab, "Error", "The library database is unavailable.")
             return
 
         pending_ids = repo.list_unembedded(ListingsEmbeddingWorker.MODEL, limit=100000)
         if not pending_ids:
-            QMessageBox.information(
-                self, "Up to Date", "Every entity already has a search embedding."
-            )
+            QMessageBox.information(self.tab, "Up to Date", "Every entity already has a search embedding.")
             return
 
         by_id = {e["id"]: e for e in self._entities}
@@ -124,7 +117,7 @@ class _SemanticSearchMixin:
         ]
 
         confirm = QMessageBox.question(
-            self,
+            self.tab,
             "Build Search Index",
             f"{len(items)} entit(y/ies) need indexing for semantic search. "
             "This runs a local BGE-M3 model and may take a while for a "
@@ -136,9 +129,7 @@ class _SemanticSearchMixin:
             return
 
         worker = ListingsEmbeddingWorker(items)
-        worker.progress.connect(
-            lambda cur, tot: self.stats_label.setText(f"🧠 Indexing… {cur}/{tot}")
-        )
+        worker.progress.connect(lambda cur, tot: self.stats_label.setText(f"🧠 Indexing… {cur}/{tot}"))
         worker.sig_finished.connect(self._on_build_search_index_finished)
         worker.error.connect(self._on_build_search_index_error)
         self._active_embed_worker = worker
@@ -152,17 +143,17 @@ class _SemanticSearchMixin:
         try:
             for entity_id, model, vector in results:
                 repo.upsert_embedding(entity_id, model, vector)
-            QMessageBox.information(
-                self, "Success", f"Indexed {len(results)} entit(y/ies)."
-            )
+            QMessageBox.information(self.tab, "Success", f"Indexed {len(results)} entit(y/ies).")
             self.stats_label.setText(f"🧠 Indexed {len(results)} entit(y/ies).")
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to store embeddings: {e}")
+            QMessageBox.critical(self.tab, "Error", f"Failed to store embeddings: {e}")
 
     def _on_build_search_index_error(self, message: str) -> None:
         self._active_embed_worker = None
-        QMessageBox.warning(self, "Index Build Failed", message)
+        QMessageBox.warning(self.tab, "Index Build Failed", message)
         self.stats_label.setText("🧠 Index build failed.")
 
 
-__all__ = ["_SemanticSearchMixin"]
+_SemanticSearchMixin = EntityListingsSemanticController  # COMPAT(ui-arch-23): remove after callers drop mixin names
+
+__all__ = ["EntityListingsSemanticController", "_SemanticSearchMixin"]

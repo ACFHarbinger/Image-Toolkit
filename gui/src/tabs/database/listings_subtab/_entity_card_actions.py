@@ -12,8 +12,10 @@ from PySide6.QtCore import Slot
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QMenu, QMessageBox
 
+from ._tab_bound import TabBoundController
 
-class _CardActionsMixin:
+
+class EntityListingsCardActionsController(TabBoundController):
     """Per-card actions, the gallery context menu, and save/delete slots."""
 
     @Slot(str)
@@ -25,7 +27,7 @@ class _CardActionsMixin:
 
     def _on_card_delete_requested(self, entity_id: str):
         reply = QMessageBox.question(
-            self,
+            self.tab,
             "Confirm Delete",
             "Permanently remove this entity from your listings?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
@@ -34,12 +36,12 @@ class _CardActionsMixin:
             self._on_entity_deleted(entity_id)
 
     def _show_gallery_context_menu(self, pos):
-        menu = QMenu(self)
+        menu = QMenu(self.tab)
         menu.setStyleSheet(
             "QMenu { background:#2c2f33; color:white; border:1px solid #4f545c; }"
             "QMenu::item:selected { background:#00bcd4; color:black; }"
         )
-        add_act = QAction("＋ Add New Entity", self)
+        add_act = QAction("＋ Add New Entity", self.tab)
         add_act.triggered.connect(self._on_add_new)
         menu.addAction(add_act)
         menu.exec(self.gallery_scroll.mapToGlobal(pos))
@@ -51,9 +53,7 @@ class _CardActionsMixin:
 
     @Slot(dict)
     def _on_entity_saved(self, entity: Dict[str, Any]):
-        idx = next(
-            (i for i, e in enumerate(self._entities) if e["id"] == entity["id"]), None
-        )
+        idx = next((i for i, e in enumerate(self._entities) if e["id"] == entity["id"]), None)
         if idx is not None:
             self._entities[idx] = entity
         else:
@@ -85,4 +85,6 @@ class _CardActionsMixin:
         self._rebuild_gallery()
 
 
-__all__ = ["_CardActionsMixin"]
+_CardActionsMixin = EntityListingsCardActionsController  # COMPAT(ui-arch-23): remove after callers drop mixin names
+
+__all__ = ["EntityListingsCardActionsController", "_CardActionsMixin"]

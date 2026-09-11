@@ -23,34 +23,35 @@ from PySide6.QtWidgets import QDialog, QMessageBox
 from gui.src.elements.database.dialog.directory_import_dialog import _DirectoryImportDialog
 from gui.src.helpers.database.library_session import get_library_db
 
+from ._tab_bound import TabBoundController
 
-class _DirectoryImportMixin:
+
+class SeriesListingsDirectoryImportController(TabBoundController):
     """Runs the directory-import wizard and creates listings for new series."""
 
     @Slot()
     def _on_import_from_directory(self):
         """Open the directory-import wizard and create listings for new series."""
         existing_titles = {e.get("title", "").lower() for e in self._entries}
-        dlg = _DirectoryImportDialog(existing_titles, parent=self)
+        dlg = _DirectoryImportDialog(existing_titles, parent=self.tab)
         if dlg.exec() != QDialog.DialogCode.Accepted:
             return
 
         selected_series = dlg.get_selected_series()
         if not selected_series:
             QMessageBox.information(
-                self,
+                self.tab,
                 "Nothing to Import",
                 "No series were selected. Nothing was imported.",
             )
             return
 
-        raw_db = get_library_db(self.vault_manager, parent=self)
+        raw_db = get_library_db(self.vault_manager, parent=self.tab)
         if raw_db is None:
             QMessageBox.warning(
-                self,
+                self.tab,
                 "Not Saved",
-                "The vault is locked (no active password), so nothing was "
-                "imported.",
+                "The vault is locked (no active password), so nothing was imported.",
             )
             return
 
@@ -107,7 +108,7 @@ class _DirectoryImportMixin:
 
         if not new_entries:
             QMessageBox.information(
-                self,
+                self.tab,
                 "No New Entries",
                 "All selected series already had listings — nothing was added.",
             )
@@ -119,9 +120,7 @@ class _DirectoryImportMixin:
         # series, so a large import doesn't repeat the group scan.
         group_id_by_name = {}
         try:
-            for row in raw_db.query(
-                "SELECT id, name FROM groups", ()
-            ):
+            for row in raw_db.query("SELECT id, name FROM groups", ()):
                 group_id_by_name[row[1].strip().lower()] = row[0]
         except Exception:
             group_id_by_name = {}
@@ -139,7 +138,7 @@ class _DirectoryImportMixin:
         except Exception as e:
             raw_db.rollback()
             QMessageBox.critical(
-                self,
+                self.tab,
                 "Import Failed",
                 f"Failed to import series to the library database:\n{e}\n\n"
                 "No entries were saved (the whole batch was rolled back).",
@@ -150,11 +149,14 @@ class _DirectoryImportMixin:
             self._entries.insert(0, entry)
         self._rebuild_gallery()
         QMessageBox.information(
-            self,
+            self.tab,
             "Import Complete",
-            f"Successfully imported {created} new listing"
-            f"{'s' if created != 1 else ''}.",
+            f"Successfully imported {created} new listing{'s' if created != 1 else ''}.",
         )
 
 
-__all__ = ["_DirectoryImportMixin"]
+_DirectoryImportMixin = (
+    SeriesListingsDirectoryImportController  # COMPAT(ui-arch-23): remove after callers drop mixin names
+)
+
+__all__ = ["SeriesListingsDirectoryImportController", "_DirectoryImportMixin"]

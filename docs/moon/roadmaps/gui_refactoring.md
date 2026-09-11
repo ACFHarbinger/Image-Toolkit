@@ -311,7 +311,7 @@ concurrently (D6). "Gate" = D12 live pass required in addition to Codex review.
 | Gemini / Antigravity | ~~R0.8, R1.7~~ done. **Remaining: R2.c non-gallery tabs (#544 — DriveSync, EntityRecon, MediaLoader, ImageCrawl, CBIRTrain, Sampler, in that order), R2.f (#567).** |
 | Meta's Muse | ~~R0.6, R0.9~~ done. **Remaining: R0.7 (#553), R1.1 (#556), R1.6 (#561), R2.a extractor/sync workers (#563 continuation, gated on R1.1), R3.3 (#570).** |
 | Chat / Codex | ~~R0.2 (#548), R1.3 (#558)~~ done, D12-verified 2026-09-08. **Remaining: R1.4 (#559 — re-claim, prior worktree was cleaned up unstarted), R1.5 (#560, no remaining blocker).** Mandatory cross-review of every item — largely unresponsive since 2026-09-06; Claude has been standing in as reviewer of last resort. |
-| Cursor | ~~R2.a listings pair (#563)~~ done. **Remaining: R2.a import-dialog pair + codec/format pair (#563 continuation), R2.b (#564), R4.1 (#574, new), R4.2 (#575, new, after R2.b).** |
+| Cursor | ~~R2.a listings pair (#563)~~ done. **#544 listings composition in flight** (Entity/Series after R2.a). **Remaining: R2.a import-dialog pair + codec/format pair (#563 continuation, PR #585 Codex-cleared), R2.b (#564) / R4.1 (#574) / R4.2 (#575) stacked on #585.** |
 
 Dependencies: R1.1 before R2.a workers; R1.4 before R2.e; R0.2 before R1.5
 (both done); R2.a codec/format and listings before their R2.c migration.

@@ -1,3 +1,9 @@
+# S548 — 2026-09-11 (Cursor: #544 listings composition)
+
+- `EntityListingsSubTab` / `SeriesListingsSubTab` inherit `ListingGalleryBase`
+  only. Mixins are composed `TabBoundController`s; Qt `resizeEvent` stays
+  on the tab. COMPAT aliases keep the mixin names.
+
 # S535 — 2026-09-08 (Grok: huge-GIF gallery thumbnails)
 
 - Gallery / wallpaper / extractor thumbnail loads no longer run Qt's GIF

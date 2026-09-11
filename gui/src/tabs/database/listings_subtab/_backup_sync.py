@@ -13,11 +13,13 @@ from PySide6.QtWidgets import QMessageBox, QProgressDialog
 from gui.src.helpers.database.library_session import get_library_db
 from gui.src.helpers.web.sync_backup_worker import _SyncBackupWorker
 
+from ._tab_bound import TabBoundController
+
 if TYPE_CHECKING:
     from .profile import ListingsProfile
 
 
-class _BackupSyncMixin:
+class ListingsBackupSyncController(TabBoundController):
     """Synchronizes/updates the encrypted listings backup file."""
 
     _listings_profile: ListingsProfile
@@ -38,7 +40,7 @@ class _BackupSyncMixin:
         profile = self._listings_profile
         if not self.vault_manager or not self.vault_manager.secret_key:
             QMessageBox.warning(
-                self,
+                self.tab,
                 "Authentication Required",
                 "Vault manager is not initialized or active. Please log in to sync.",
             )
@@ -50,34 +52,30 @@ class _BackupSyncMixin:
 
         if not os.path.exists(enc_file_path):
             QMessageBox.warning(
-                self,
+                self.tab,
                 "Backup Not Found",
                 f"No encrypted {profile.item_noun} backup file found to synchronize from. "
                 "Use 'Update Backup' first to generate it.",
             )
             return
 
-        db = get_library_db(self.vault_manager, parent=self)
+        db = get_library_db(self.vault_manager, parent=self.tab)
         if db is None:
             QMessageBox.warning(
-                self,
+                self.tab,
                 "Library Unavailable",
                 "The unified library database could not be opened; cannot sync.",
             )
             return
 
-        self.progress_dialog = QProgressDialog(
-            "Starting synchronization...", "", 0, 100, self
-        )
+        self.progress_dialog = QProgressDialog("Starting synchronization...", "", 0, 100, self.tab)
         self.progress_dialog.setWindowTitle("Synchronizing Backup")
         self.progress_dialog.setWindowModality(Qt.WindowModality.ApplicationModal)
         self.progress_dialog.setMinimumDuration(0)
         self.progress_dialog.setValue(0)
         self.progress_dialog.setAutoClose(False)
         self.progress_dialog.setAutoReset(False)
-        self.progress_dialog.setWindowFlags(
-            self.progress_dialog.windowFlags() & ~Qt.WindowType.WindowCloseButtonHint
-        )
+        self.progress_dialog.setWindowFlags(self.progress_dialog.windowFlags() & ~Qt.WindowType.WindowCloseButtonHint)
         self.progress_dialog.show()
 
         self._sync_worker = _SyncBackupWorker(
@@ -111,13 +109,9 @@ class _BackupSyncMixin:
             self._set_local_entries(merged_entries)
             self._rebuild_gallery()
 
-            img_info = (
-                f"\nAlso restored {synced_imgs} missing image(s) from backup."
-                if synced_imgs
-                else ""
-            )
+            img_info = f"\nAlso restored {synced_imgs} missing image(s) from backup." if synced_imgs else ""
             QMessageBox.information(
-                self,
+                self.tab,
                 "Synchronization Complete",
                 f"Successfully synchronized {profile.sync_success_noun}!\n"
                 f"Merged local and backup entries to a total of {len(merged_entries)} entries."
@@ -125,7 +119,7 @@ class _BackupSyncMixin:
             )
         else:
             QMessageBox.critical(
-                self,
+                self.tab,
                 "Sync Error",
                 f"An error occurred during synchronization:\n{message}",
             )
@@ -135,7 +129,7 @@ class _BackupSyncMixin:
         profile = self._listings_profile
         if not self.vault_manager or not self.vault_manager.secret_key:
             QMessageBox.warning(
-                self,
+                self.tab,
                 "Authentication Required",
                 "Vault manager is not initialized or active. Please log in to update backup.",
             )
@@ -145,16 +139,14 @@ class _BackupSyncMixin:
         secrets_dir.mkdir(parents=True, exist_ok=True)
         enc_file_path = str(secrets_dir / profile.enc_filename)
 
-        self.progress_dialog = QProgressDialog("Starting backup...", "", 0, 100, self)
+        self.progress_dialog = QProgressDialog("Starting backup...", "", 0, 100, self.tab)
         self.progress_dialog.setWindowTitle("Updating Backup")
         self.progress_dialog.setWindowModality(Qt.WindowModality.ApplicationModal)
         self.progress_dialog.setMinimumDuration(0)
         self.progress_dialog.setValue(0)
         self.progress_dialog.setAutoClose(False)
         self.progress_dialog.setAutoReset(False)
-        self.progress_dialog.setWindowFlags(
-            self.progress_dialog.windowFlags() & ~Qt.WindowType.WindowCloseButtonHint
-        )
+        self.progress_dialog.setWindowFlags(self.progress_dialog.windowFlags() & ~Qt.WindowType.WindowCloseButtonHint)
         self.progress_dialog.show()
 
         self._backup_worker = _SyncBackupWorker(
@@ -184,24 +176,22 @@ class _BackupSyncMixin:
 
         if success:
             backup_count = result_data
-            img_info = (
-                f"\nAlso backed up {backup_count} image(s) to multi-part archive."
-                if backup_count
-                else ""
-            )
+            img_info = f"\nAlso backed up {backup_count} image(s) to multi-part archive." if backup_count else ""
             entries = self._local_entries()
             QMessageBox.information(
-                self,
+                self.tab,
                 "Backup Updated",
                 f"Successfully generated encrypted backup {profile.backup_doc_label} file "
                 f"with {len(entries)} entries.{img_info}",
             )
         else:
             QMessageBox.critical(
-                self,
+                self.tab,
                 "Backup Error",
                 f"An error occurred while generating backup:\n{message}",
             )
 
 
-__all__ = ["_BackupSyncMixin"]
+_BackupSyncMixin = ListingsBackupSyncController  # COMPAT(ui-arch-23): remove after callers drop mixin names
+
+__all__ = ["ListingsBackupSyncController", "_BackupSyncMixin"]

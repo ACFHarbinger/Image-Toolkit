@@ -27,13 +27,15 @@ from gui.src.elements.database.common.listings_common import _persist_splitter
 from gui.src.elements.database.display.detail_panel import _DetailPanel
 from gui.src.styles import SHARED_BUTTON_STYLE, apply_shadow_effect
 
+from ._tab_bound import TabBoundController
 
-class _UIBuilderMixin:
+
+class SeriesListingsUIBuilder(TabBoundController):
     """Builds the toolbar, stats bar, and gallery/detail splitter."""
 
     def _build_ui(self) -> None:
         # ---- Root layout ----
-        root = QVBoxLayout(self)
+        root = QVBoxLayout(self.tab)
         root.setContentsMargins(12, 12, 12, 8)
         root.setSpacing(8)
 
@@ -284,4 +286,6 @@ class _UIBuilderMixin:
         self._resize_timer.setInterval(120)
 
 
-__all__ = ["_UIBuilderMixin"]
+_UIBuilderMixin = SeriesListingsUIBuilder  # COMPAT(ui-arch-23): remove after callers drop mixin names
+
+__all__ = ["SeriesListingsUIBuilder", "_UIBuilderMixin"]

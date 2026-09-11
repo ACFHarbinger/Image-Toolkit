@@ -15,14 +15,16 @@ from PySide6.QtWidgets import QMessageBox
 
 from gui.src.helpers.database.library_session import get_library_db
 
+from ._tab_bound import TabBoundController
 
-class _PersistenceMixin:
+
+class EntityListingsPersistenceController(TabBoundController):
     """Loads/saves entities against the unified library database."""
 
     def _load_data(self):
         self._entities = []
 
-        db = get_library_db(self.vault_manager, parent=self)
+        db = get_library_db(self.vault_manager, parent=self.tab)
         if db is None:
             return
         try:
@@ -30,7 +32,7 @@ class _PersistenceMixin:
         except Exception as e:
             logging.exception("[EntityListingsSubTab] Failed to load from library DB")
             QMessageBox.critical(
-                self,
+                self.tab,
                 "Library Database Unavailable",
                 "Could not load entities from the unified library database:\n"
                 f"{e}\n\n"
@@ -41,12 +43,12 @@ class _PersistenceMixin:
 
     def _entity_repo(self) -> Optional[EntityRepo]:
         """Return an EntityRepo on the session DB, or None when the vault is locked."""
-        db = get_library_db(self.vault_manager, parent=self)
+        db = get_library_db(self.vault_manager, parent=self.tab)
         return EntityRepo(db) if db is not None else None
 
     def _search_repo(self) -> Optional[SearchRepo]:
         """Return a SearchRepo on the session DB, or None when the vault is locked."""
-        db = get_library_db(self.vault_manager, parent=self)
+        db = get_library_db(self.vault_manager, parent=self.tab)
         return SearchRepo(db) if db is not None else None
 
     def _upsert_entity(self, entity: Dict[str, Any]) -> bool:
@@ -61,7 +63,7 @@ class _PersistenceMixin:
         repo = self._entity_repo()
         if repo is None:
             QMessageBox.warning(
-                self,
+                self.tab,
                 "Not Saved",
                 "The vault is locked (no active password), so this entity was "
                 "NOT written to the library database. It will be lost when "
@@ -74,7 +76,7 @@ class _PersistenceMixin:
         except Exception as e:
             logging.exception("[EntityListingsSubTab] Failed to upsert entity")
             QMessageBox.critical(
-                self,
+                self.tab,
                 "Save Failed",
                 f"Failed to save '{entity.get('name', '')}' to the library "
                 f"database:\n{e}\n\n"
@@ -93,11 +95,13 @@ class _PersistenceMixin:
         except Exception as e:
             logging.exception("[EntityListingsSubTab] Failed to delete entity")
             QMessageBox.critical(
-                self,
+                self.tab,
                 "Delete Failed",
                 f"Failed to delete entity from the library database:\n{e}",
             )
             return False
 
 
-__all__ = ["_PersistenceMixin"]
+_PersistenceMixin = EntityListingsPersistenceController  # COMPAT(ui-arch-23): remove after callers drop mixin names
+
+__all__ = ["EntityListingsPersistenceController", "_PersistenceMixin"]

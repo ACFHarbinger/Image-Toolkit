@@ -8,8 +8,10 @@ from __future__ import annotations
 
 from PySide6.QtCore import Slot
 
+from ._tab_bound import TabBoundController
 
-class _FiltersMixin:
+
+class SeriesListingsFiltersController(TabBoundController):
     """Wires the search box and filter/sort combos to gallery rebuilds."""
 
     @Slot(str)
@@ -36,4 +38,6 @@ class _FiltersMixin:
         self._rebuild_gallery()
 
 
-__all__ = ["_FiltersMixin"]
+_FiltersMixin = SeriesListingsFiltersController  # COMPAT(ui-arch-23): remove after callers drop mixin names
+
+__all__ = ["SeriesListingsFiltersController", "_FiltersMixin"]

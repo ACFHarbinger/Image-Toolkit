@@ -16,15 +16,17 @@ from PySide6.QtWidgets import QMessageBox
 
 from gui.src.helpers.database.library_session import get_library_db
 
+from ._tab_bound import TabBoundController
 
-class _PersistenceMixin:
+
+class SeriesListingsPersistenceController(TabBoundController):
     """Loads/saves content entries against the unified library database."""
 
     def _load_data(self):
         self._entries = []
         self._all_entities = []
 
-        db = get_library_db(self.vault_manager, parent=self)
+        db = get_library_db(self.vault_manager, parent=self.tab)
         if db is None:
             return
         try:
@@ -33,7 +35,7 @@ class _PersistenceMixin:
         except Exception as e:
             logging.exception("[SeriesListingsSubTab] Failed to load from library DB")
             QMessageBox.critical(
-                self,
+                self.tab,
                 "Library Database Unavailable",
                 "Could not load listings from the unified library database:\n"
                 f"{e}\n\n"
@@ -44,12 +46,12 @@ class _PersistenceMixin:
 
     def _media_repo(self) -> Optional[MediaRepo]:
         """Return a MediaRepo on the session DB, or None when the vault is locked."""
-        db = get_library_db(self.vault_manager, parent=self)
+        db = get_library_db(self.vault_manager, parent=self.tab)
         return MediaRepo(db) if db is not None else None
 
     def _search_repo(self) -> Optional[SearchRepo]:
         """Return a SearchRepo on the session DB, or None when the vault is locked."""
-        db = get_library_db(self.vault_manager, parent=self)
+        db = get_library_db(self.vault_manager, parent=self.tab)
         return SearchRepo(db) if db is not None else None
 
     def _upsert_entry(self, entry: Dict[str, Any]) -> bool:
@@ -65,7 +67,7 @@ class _PersistenceMixin:
         repo = self._media_repo()
         if repo is None:
             QMessageBox.warning(
-                self,
+                self.tab,
                 "Not Saved",
                 "The vault is locked (no active password), so this entry was "
                 "NOT written to the library database. It will be lost when "
@@ -78,7 +80,7 @@ class _PersistenceMixin:
         except Exception as e:
             logging.exception("[SeriesListingsSubTab] Failed to upsert entry")
             QMessageBox.critical(
-                self,
+                self.tab,
                 "Save Failed",
                 f"Failed to save '{entry.get('title', '')}' to the library "
                 f"database:\n{e}\n\n"
@@ -97,11 +99,13 @@ class _PersistenceMixin:
         except Exception as e:
             logging.exception("[SeriesListingsSubTab] Failed to delete entry")
             QMessageBox.critical(
-                self,
+                self.tab,
                 "Delete Failed",
                 f"Failed to delete entry from the library database:\n{e}",
             )
             return False
 
 
-__all__ = ["_PersistenceMixin"]
+_PersistenceMixin = SeriesListingsPersistenceController  # COMPAT(ui-arch-23): remove after callers drop mixin names
+
+__all__ = ["SeriesListingsPersistenceController", "_PersistenceMixin"]
