@@ -288,7 +288,7 @@ concurrently (D6). "Gate" = D12 live pass required in addition to Codex review.
 |---|---|---|---|---|---|
 | R3.1 | One pixmap budget across the 7 `LRUImageCache` instances; sizing in one place | §5.7 | Grok | one `PixmapBudget`; per-tab sizes derived | ui-arch-46 (#568) |
 | R3.2 | Startup footprint: heavy imports (`cv2`/`PIL`/`numpy`/`torch`, 27 files) moved into functions; RSS at login/main window measured before/after | §5.8 | Claude | measured delta posted; no module-level heavy import in `gui/src` ⚙ | ui-arch-47 (#569) |
-| R3.3 | Remove the 7 live `processEvents()` (single-shot timer or progress fact) | F25 | Muse | 0 | ui-arch-48 (#570) |
+| R3.3 | Remove the 7 live `processEvents()` (single-shot timer or progress fact) | F25 | Gemini / Antigravity | 0 | ui-arch-48 (#570) |
 | R3.4 | Gallery card/selection merge: one card factory + one highlight helper across single/two/virtual | F21, DS-4 | Grok | `create_card_widget` ×1 | ui-arch-49 (#571) |
 | R3.5 | Module widget eviction: measure 3 vs 8 mounted modules, set LRU from data; account-switch disposal | F12, DS-5 | Grok | numbers on the bus; policy implemented | ui-arch-50 (#572) |
 | R3.6 | Import-graph slimming beyond the wildcard removals; `windows/__init__.py` eager imports; `helpers/__init__.py` barrel | old Phase 3 | Claude | `import gui.src.components.widgets.toast_widget` < 300 modules | ui-arch-51 (#573) |
@@ -308,8 +308,8 @@ concurrently (D6). "Gate" = D12 live pass required in addition to Codex review.
 |---|---|
 | Claude | ~~R0.1, R0.3, R0.4, R0.5~~ done. **Remaining: R1.2 (#557), R2.d (#565), R3.2 (#569), R3.6 (#573).** Roadmap steward. |
 | Grok | ~~R2.g (#543)~~ done, D12-verified 2026-09-07. **Remaining: R2.c gallery-owning tabs + MainWindow (#544, now unblocked), R3.1 (#568), R3.4 (#571, now unblocked), R3.5 (#572). R2.e (#566) stays gated on R1.4.** |
-| Gemini / Antigravity | ~~R0.8, R1.7~~ done. **Remaining: R2.c non-gallery tabs (#544 — DriveSync, EntityRecon, MediaLoader, ImageCrawl, CBIRTrain, Sampler, in that order), R2.f (#567).** |
-| Meta's Muse | ~~R0.6, R0.9~~ done. **Remaining: R0.7 (#553), R1.1 (#556), R1.6 (#561), R2.a extractor/sync workers (#563 continuation, gated on R1.1), R3.3 (#570).** |
+| Gemini / Antigravity | ~~R0.8, R1.7, R2.c (all 7 non-gallery tabs), R2.f (#567), R3.3 (#570)~~ done. |
+| Meta's Muse | ~~R0.6, R0.9, R0.7 (#553), R1.1 (#556)~~ done. **Remaining: R1.6 (#561), R2.a extractor/sync workers (#563 continuation).** |
 | Chat / Codex | ~~R0.2 (#548), R1.3 (#558)~~ done, D12-verified 2026-09-08. **Remaining: R1.4 (#559 — re-claim, prior worktree was cleaned up unstarted), R1.5 (#560, no remaining blocker).** Mandatory cross-review of every item — largely unresponsive since 2026-09-06; Claude has been standing in as reviewer of last resort. |
 | Cursor | ~~R2.a listings pair (#563)~~ done. **Remaining: R2.a import-dialog pair + codec/format pair (#563 continuation), R2.b (#564), R4.1 (#574, new), R4.2 (#575, new, after R2.b).** |
 
