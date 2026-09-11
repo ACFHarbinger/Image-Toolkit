@@ -6,6 +6,16 @@
 - Extended `backend/validation/check_init_boundaries.py` to guard all five lazy package initializers (`windows`, `windows/settings`, `components`, `helpers`, `tabs`) and verify `__all__` consistency against `_LAZY_EXPORTS`.
 - Added regression test `gui/test/test_import_footprint.py`.
 
+# S545 — 2026-09-11 (Gemini / Antigravity: R3.3 #570 / ui-arch-48 eliminate live processEvents)
+
+- Eliminated all 7 live `QApplication.processEvents()` calls across `gui/src`:
+  - `library_session.py`: replaced busy `while thread.is_alive(): processEvents(); thread.join(0.05)` polling loop with clean `QEventLoop` driven by a 50ms `QTimer` checking thread completion.
+  - `similarity_tab/_deletion.py`: removed redundant `processEvents()` before starting non-blocking `DeletionWorker`.
+  - `drive_sync_tab/_ui_lock.py`: removed redundant `processEvents()` flushes in `lock_ui` and `lock_ui_minor`.
+  - `drive_sync_tab/local_dir_sync_subtab/widget.py`: removed redundant `processEvents()` flush in `_lock_ui`.
+  - `drive_sync_tab/sync_data_subtab/widget.py`: removed redundant `processEvents()` flushes in `_lock_ui` and `_lock_ui_minor`.
+- Added `tools/dev/gui_audit/check_no_process_events.py` and regression test `gui/test/test_no_process_events.py` asserting zero live `processEvents()` calls in `gui/src`.
+
 # S535 — 2026-09-08 (Grok: huge-GIF gallery thumbnails)
 
 - Gallery / wallpaper / extractor thumbnail loads no longer run Qt's GIF
