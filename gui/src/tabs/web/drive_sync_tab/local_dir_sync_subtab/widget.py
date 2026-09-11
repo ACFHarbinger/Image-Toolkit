@@ -286,6 +286,11 @@ class LocalDirSyncSubtab(QWidget):
         self.current_worker.status.connect(self._on_status)
         self.current_worker.progress.connect(self._on_progress)
         self.current_worker.finished.connect(self._on_finished)
+        # Unexpected failure inside the worker (base error channel) — fold
+        # into the single result channel so the UI always unlocks.
+        self.current_worker.error.connect(
+            lambda err, d=dry_run: self._on_finished(False, f"Local Directory Sync failed: {err}", d)
+        )
         self.current_worker.start()
 
     @Slot(str)
@@ -299,10 +304,14 @@ class LocalDirSyncSubtab(QWidget):
             self.progress_bar.setMaximum(total)
             self.progress_bar.setValue(done)
 
-    @Slot(bool, str, bool)
-    def _on_finished(self, success: bool, message: str, was_dry_run: bool) -> None:
+    @Slot(object)
+    def _on_finished(self, result) -> None:
         self._unlock_ui()
         self.progress_bar.setVisible(False)
+        if result is None:  # failure/cancel — error path already reported
+            self.current_worker = None
+            return
+        success, message, was_dry_run = result
         mode = "DRY RUN" if was_dry_run else "LIVE"
         status = "Success" if success else "Failed"
         self.log_window.append_log(f"\n[{mode}] Directory Sync {status}: {message}")

@@ -52,21 +52,20 @@ class _DirectoryBrowseMixin:
 
         vid_exts = {f.lstrip(".").lower() for f in SUPPORTED_VIDEO_FORMATS}
         img_exts = {f.lower() for f in SUPPORTED_IMG_FORMATS} | {"gif"}
-        all_exts = vid_exts | img_exts
 
-        paths = []
+        from gui.src.services.directory_scan_service import (
+            ScanRequest,
+            collect_files,
+        )
         from gui.src.windows.settings.app_settings import AppSettings
-        if AppSettings.recursive_scan():
-            for root, _, files in os.walk(p):
-                for f in files:
-                    if os.path.splitext(f)[1].lstrip(".").lower() in all_exts:
-                        paths.append(os.path.join(root, f))
-        else:
-            with os.scandir(p) as it:
-                for entry in it:
-                    if entry.is_file() and os.path.splitext(entry.name)[1].lstrip(".").lower() in all_exts:
-                        paths.append(entry.path)
-        return paths
+
+        return collect_files(
+            ScanRequest(
+                path=p,
+                extensions=vid_exts | img_exts,
+                recursive=AppSettings.recursive_scan(),
+            )
+        )
 
     def _scan_and_load(self):
         paths = self._collect_paths()

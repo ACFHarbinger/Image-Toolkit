@@ -96,7 +96,7 @@ class _ScanLoadingMixin:
             self.scan_worker = ImageScannerWorker(directory)
             self.scan_thread = self.scan_worker
 
-            self.scan_worker.scan_finished.connect(self.process_scan_results)
+            self.scan_worker.finished.connect(self.process_scan_results)
             self.scan_worker.scan_error.connect(self.handle_scan_error)
 
             self.scan_worker.finished.connect(self.on_scan_thread_finished)
@@ -121,14 +121,14 @@ class _ScanLoadingMixin:
         """Wrapper for QML to upsert selected images."""
         self.perform_upsert_operation()
 
-    @Slot()
-    def on_scan_thread_finished(self):
+    @Slot(object)
+    def on_scan_thread_finished(self, _result=None):
         self.scan_thread = None
         self.scan_worker = None
 
-    @Slot(list)
-    def process_scan_results(self, image_paths: list[str]):
-        if self._loading_cancelled:
+    @Slot(object)
+    def process_scan_results(self, image_paths):
+        if image_paths is None or self._loading_cancelled:
             return
         self.scan_image_list = image_paths
         self.apply_scan_filters()

@@ -2,14 +2,11 @@ import time
 from typing import Any, Dict, Optional
 
 from backend.src.web import GoogleDriveSync
-from PySide6.QtCore import QRunnable
 
-from gui.src.helpers.gc_safe import gc_disabled_run
-
-from .cloud_drive_sync_signals import CloudDriveSyncWorkerSignals
+from gui.src.helpers.base import BaseQRunnableWorker
 
 
-class GoogleDriveSyncWorker(QRunnable):
+class GoogleDriveSyncWorker(BaseQRunnableWorker):
     def __init__(
         self,
         auth_config: Dict[str, Any],
@@ -31,24 +28,22 @@ class GoogleDriveSyncWorker(QRunnable):
         self.action_local = action_local_orphans
         self.action_remote = action_remote_orphans
 
-        self.signals = CloudDriveSyncWorkerSignals()
         self._is_running = True
 
     def _log(self, message: str):
         # Only log if still running
         if self._is_running:
             timestamp = time.strftime("[%H:%M:%S]")
-            self.signals.status_update.emit(f"{timestamp} {message}")
+            self.signals.status.emit(f"{timestamp} {message}")
 
-    @gc_disabled_run
-    def run(self):
-        self.signals.status_update.emit("\n" + "=" * 50)
+    def _execute(self) -> object:
+        self.signals.status.emit("\n" + "=" * 50)
         self._log("--- Google Drive Sync Initiated ---")
         self._log(f"Authentication Mode: {self.auth_mode.upper()}")
         self._log(f"Sync Mode: {'DRY RUN' if self.dry_run else 'LIVE'}")
         self._log(f"Action for Local Orphans: {self.action_local.upper()}")
         self._log(f"Action for Remote Orphans: {self.action_remote.upper()}")
-        self.signals.status_update.emit("=" * 50 + "\n")
+        self.signals.status.emit("=" * 50 + "\n")
 
         success = False
         final_message = "Cancelled by user."
@@ -95,11 +90,9 @@ class GoogleDriveSyncWorker(QRunnable):
             success = False
             final_message = "Synchronization manually cancelled."
 
-        if self._is_running:
-            # Pass self.dry_run status back to UI
-            self.signals.sync_finished.emit(success, final_message, self.dry_run)
+        return (success, final_message, self.dry_run)
 
     def stop(self):
         if self._is_running:
             self._is_running = False
-            self.signals.status_update.emit("\n!!! SYNCHRONIZATION INTERRUPTED !!!")
+            self.signals.status.emit("\n!!! SYNCHRONIZATION INTERRUPTED !!!")

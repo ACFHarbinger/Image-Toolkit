@@ -7,22 +7,9 @@ if platform.system() == "Windows":
 from typing import Any, Dict, List, Optional
 
 from backend.src.core import WallpaperManager
-from PySide6.QtCore import QObject, QRunnable, Signal, Slot
 from screeninfo import Monitor
 
-from gui.src.helpers.gc_safe import gc_disabled_run
-
-
-class _WallpaperWorkerSignals(QObject):
-    """
-    Defines the signals available from a running WallpaperWorker.
-    """
-
-    # Signal emitted with status updates (str)
-    status_update = Signal(str)
-
-    # Signal emitted when work is finished (bool success, str message)
-    work_finished = Signal(bool, str)
+from gui.src.helpers.base import BaseQRunnableWorker
 
 
 class _InterruptedError(Exception):
@@ -31,7 +18,7 @@ class _InterruptedError(Exception):
     pass
 
 
-class WallpaperWorker(QRunnable):
+class WallpaperWorker(BaseQRunnableWorker):
     """
     Worker thread to apply wallpaper using WallpaperManager.
     """
@@ -51,7 +38,6 @@ class WallpaperWorker(QRunnable):
         self.path_map = path_map
         self.monitors = monitors
         self.wallpaper_style = wallpaper_style  # Store the selected style
-        self.signals = _WallpaperWorkerSignals()
         self.is_running = True
         # Alias so tooling that checks for the standardised pattern (2.7) works.
         self._should_stop = False
@@ -60,11 +46,9 @@ class WallpaperWorker(QRunnable):
         """Emits a status update signal if the worker is still running."""
         if self.is_running:
             timestamp = time.strftime("[%H:%M:%S]")
-            self.signals.status_update.emit(f"{timestamp} {message}")
+            self.signals.status.emit(f"{timestamp} {message}")
 
-    @gc_disabled_run
-    @Slot()
-    def run(self):
+    def _execute(self) -> object:
         """
         Execute the worker's task: applying the wallpaper.
         Initializes and uninitializes the COM apartment if on Windows.
@@ -116,10 +100,8 @@ class WallpaperWorker(QRunnable):
                 comtypes.CoUninitialize()
                 self._log("Windows COM apartment uninitialized.")
 
-            if self.is_running:
-                self._log(f"Worker finished. Success: {success}")
-                # Emit final signal
-                self.signals.work_finished.emit(success, message)
+        self._log(f"Worker finished. Success: {success}")
+        return (success, message)
 
     def stop(self):
         """Signal the worker to stop (sets both is_running and _should_stop)."""

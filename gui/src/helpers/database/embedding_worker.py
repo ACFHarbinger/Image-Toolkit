@@ -9,23 +9,21 @@ loaded in-process).
 Only embedding *computation* (``backend.src.core.similarity.embedder``,
 torch releases the GIL during the forward pass) happens on this
 background thread. The database write is deferred back to the main
-thread via ``sig_finished`` -- the keyed ``base.database.Database``
+thread via ``finished`` -- the keyed ``base.database.Database``
 handle is not safe to share across threads (DB.2's risk register: "repos
 never share statements across threads").
 """
 import logging
 from typing import List, Tuple
 
-from PySide6.QtCore import QThread, Signal
+from PySide6.QtCore import Signal
 
-from gui.src.helpers.gc_safe import gc_disabled_run
+from gui.src.helpers.base import BaseQThreadWorker
 
 logger = logging.getLogger(__name__)
 
-class ImageEmbeddingWorker(QThread):
-    progress = Signal(int, int)  # (current, total)
-    sig_finished = Signal(list)  # [(image_id, model, vector), ...], ready for one transaction
-    error = Signal(str)
+class ImageEmbeddingWorker(BaseQThreadWorker):
+    finished = Signal(list)  # [(image_id, model, vector), ...], ready for one transaction
 
     def __init__(self, items: List[Tuple[int, str]], model: str = "openclip"):
         """*items*: [(image_id, file_path), ...] -- e.g. from
@@ -33,13 +31,8 @@ class ImageEmbeddingWorker(QThread):
         super().__init__()
         self.items = items
         self.model = model
-        self._should_stop = False
 
-    def cancel(self) -> None:
-        self._should_stop = True
-
-    @gc_disabled_run
-    def run(self):
+    def _execute(self) -> object:
         try:
             from backend.src.core.similarity.embedder import get_embedder
 
@@ -49,15 +42,15 @@ class ImageEmbeddingWorker(QThread):
                     "No embedding backend available (open_clip/torch not "
                     "installed) -- semantic search backfill skipped."
                 )
-                return
+                return None
 
             total = len(self.items)
             results: List[Tuple[int, str, object]] = []
             batch_size = 16
             id_by_path = {}
             for i in range(0, total, batch_size):
-                if self._should_stop:
-                    return
+                if self._cancelled:
+                    return None
                 chunk = self.items[i:i + batch_size]
                 id_by_path.update({path: image_id for image_id, path in chunk})
                 vectors = embedder.embed_batch([path for _, path in chunk])
@@ -65,9 +58,7 @@ class ImageEmbeddingWorker(QThread):
                     results.append((id_by_path[path], embedder.name, vector))
                 self.progress.emit(min(i + batch_size, total), total)
 
-            self.sig_finished.emit(results)
-        except Exception as exc:
-            self.error.emit(str(exc))
+            return results
         finally:
             try:
                 from backend.src.core.similarity.embedder import unload_all
@@ -75,4 +66,4 @@ class ImageEmbeddingWorker(QThread):
 
                 unload_all()
             except Exception:
-                logger.debug("Suppressed Exception in ImageEmbeddingWorker.run", exc_info=True)
+                logger.debug("Suppressed Exception in ImageEmbeddingWorker._execute", exc_info=True)

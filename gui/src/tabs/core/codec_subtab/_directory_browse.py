@@ -49,12 +49,8 @@ class _DirectoryBrowseMixin:
         else:
             for d in dirs:
                 act = self._recent_dirs_menu.addAction(d)
-                act.triggered.connect(
-                    lambda checked=False, p=d: self._navigate_to_dir(p)
-                )
-        self._recent_dirs_menu.exec(
-            self._btn_recent_dirs.mapToGlobal(self._btn_recent_dirs.rect().bottomLeft())
-        )
+                act.triggered.connect(lambda checked=False, p=d: self._navigate_to_dir(p))
+        self._recent_dirs_menu.exec(self._btn_recent_dirs.mapToGlobal(self._btn_recent_dirs.rect().bottomLeft()))
 
     @Slot()
     def browse_output(self):
@@ -75,22 +71,19 @@ class _DirectoryBrowseMixin:
             return []
 
         vid_formats = [f.lstrip(".").lower() for f in SUPPORTED_VIDEO_FORMATS]
-        paths = []
+        from gui.src.services.directory_scan_service import (
+            ScanRequest,
+            collect_files,
+        )
         from gui.src.windows.settings.app_settings import AppSettings
-        if AppSettings.recursive_scan():
-            for root, _, files in os.walk(p):
-                for file in files:
-                    file_ext = os.path.splitext(file)[1].lstrip(".").lower()
-                    if file_ext in vid_formats:
-                        paths.append(os.path.join(root, file))
-        else:
-            with os.scandir(p) as it:
-                for entry in it:
-                    if entry.is_file():
-                        file_ext = os.path.splitext(entry.name)[1].lstrip(".").lower()
-                        if file_ext in vid_formats:
-                            paths.append(entry.path)
-        return paths
+
+        return collect_files(
+            ScanRequest(
+                path=p,
+                extensions=vid_formats,
+                recursive=AppSettings.recursive_scan(),
+            )
+        )
 
     @Slot()
     def scan_directory_visual(self):

@@ -39,9 +39,11 @@ class _ShareFolderMixin:
             dry_run=self.dry_run_checkbox.isChecked(),
             user_email_to_share_with=share_email,
         )
-        self.current_worker.signals.status_update.connect(self.handle_status_update)
-        self.current_worker.signals.sync_finished.connect(
-            lambda s, m, d: self.handle_share_finished(s, m)
+        self.current_worker.signals.status.connect(self.handle_status_update)
+        self.current_worker.signals.finished.connect(
+            lambda res: self.handle_share_finished(
+                *(res if res is not None else (False, "Share worker failed."))
+            )
         )
 
         QThreadPool.globalInstance().start(self.current_worker)

@@ -6,10 +6,9 @@ change (see ``_ui_builder.py``'s docstring).
 
 from __future__ import annotations
 
-import contextlib
 from typing import TYPE_CHECKING
 
-from gui.src.qt_object_guard import deleted_qobject_guard
+from gui.src.helpers.worker_teardown import close_windows, stop_workers
 
 if TYPE_CHECKING:
     from ...protos.system_display_subtab import SystemDisplaySubTabHostProtocol
@@ -25,13 +24,12 @@ class _LifecycleMixin:
     def cancel_loading(self: "SystemDisplaySubTabHostProtocol"):
         super().cancel_loading()  # type: ignore[safe-super]
 
-        if self.img_scanner_worker:
-            with contextlib.suppress(Exception):
-                self.img_scanner_worker.stop()
-
-        if self.vid_scanner_worker:
-            with contextlib.suppress(Exception):
-                self.vid_scanner_worker.stop()
+        # Fire-and-forget (as before): scanner threads die off on their own.
+        stop_workers(
+            getattr(self, "img_scanner_worker", None),
+            getattr(self, "vid_scanner_worker", None),
+            join=False,
+        )
 
         if (
             getattr(self, "_pagination_debounce_timer", None) is not None
@@ -49,31 +47,11 @@ class _LifecycleMixin:
         ):
             self.countdown_timer.stop()
 
-        for win in list(self.open_queue_windows):
-            with contextlib.suppress(Exception):
-                win.close()
-        self.open_queue_windows.clear()
-
-        for win in list(self.open_image_preview_windows):
-            with contextlib.suppress(Exception):
-                win.close()
-        self.open_image_preview_windows.clear()
-
-        for win in list(self.open_queue_windows):
-            try:
-                if win.isVisible():
-                    win.close()
-            except RuntimeError as exc:
-                deleted_qobject_guard(exc, "_LifecycleMixin.cancel_loading")
-        self.open_queue_windows.clear()
-
-        for win in list(self.open_image_preview_windows):
-            try:
-                if win.isVisible():
-                    win.close()
-            except RuntimeError as exc:
-                deleted_qobject_guard(exc, "_LifecycleMixin.cancel_loading")
-        self.open_image_preview_windows.clear()
+        # (Was two passes per list — a plain close-all plus a guarded
+        # isVisible re-close. One guarded pass closes everything once.)
+        close_windows(
+            self, "open_queue_windows", "open_image_preview_windows"
+        )
 
         if daemon_live:
             self._start_daemon_countdown_if_active()

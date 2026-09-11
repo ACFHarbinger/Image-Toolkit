@@ -6,23 +6,14 @@ from pathlib import Path
 from typing import Optional, Tuple, Union
 
 import cv2
-from PySide6.QtCore import QObject, QRunnable, Signal
 
-from gui.src.helpers.gc_safe import gc_disabled_run
+from gui.src.helpers.base import BaseQRunnableWorker
 
 from ...utils.sort_utils import natural_sort_key
 
 
-# --- Worker Signals ---
-class _ExtractorSignals(QObject):
-    started = Signal()
-    progress = Signal(int, int)  # (percent, 100) — §5.9 Option C; no natural item count
-    finished = Signal(list)  # Returns list of saved paths
-    error = Signal(str)
-
-
 # --- Worker Logic (OpenCV) ---
-class FrameExtractionWorker(QRunnable):
+class FrameExtractionWorker(BaseQRunnableWorker):
     """
     Background worker to extract frames using OpenCV or FFmpeg.
     """
@@ -92,7 +83,6 @@ class FrameExtractionWorker(QRunnable):
         self.smart_method = smart_method
         self.encoder_threads = max(0, int(encoder_threads))
         self.fps_clamp = max(0, int(fps_clamp))
-        self.signals = _ExtractorSignals()
         self._is_cancelled = False
         self.fps = min(fps, fps_clamp) if fps_clamp > 0 else fps
 
@@ -110,16 +100,13 @@ class FrameExtractionWorker(QRunnable):
             fps = 23.976
         return fps
 
-    @gc_disabled_run
-    def run(self):  # noqa: C901
-        self.signals.started.emit()
+    def _execute(self) -> object:  # noqa: C901
         saved_files = []
 
         self.fps = self._get_fps()
 
         if self.smart_extract:
-            self._run_smart_extraction(saved_files, self.fps)
-            return
+            return self._run_smart_extraction(saved_files, self.fps)
 
         # --- REGULAR EXTRACTION (Replaces OpenCV with FFmpeg for robustness) ---
         try:
@@ -222,7 +209,7 @@ class FrameExtractionWorker(QRunnable):
                 saved_files.append(final_path)
 
             self.signals.progress.emit(100, 100)
-            self.signals.finished.emit(saved_files)
+            return saved_files
 
         except Exception as e:
             self.signals.error.emit(str(e))
@@ -340,7 +327,7 @@ class FrameExtractionWorker(QRunnable):
                 saved_files.append(final_path)
 
             self.signals.progress.emit(100, 100)
-            self.signals.finished.emit(saved_files)
+            return saved_files
         except Exception as e:
             self.signals.error.emit(str(e))
 
