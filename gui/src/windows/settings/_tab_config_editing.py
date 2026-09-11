@@ -11,6 +11,8 @@ from pathlib import Path
 
 from PySide6.QtWidgets import QFileDialog, QMessageBox
 
+from gui.src.contracts.tab_config import ConfigCollectible, ConfigDefaultable, ConfigSettable
+
 
 class _TabConfigEditingMixin:
     """Owns the config-editor CRUD methods used by the Tab Default Configuration section."""
@@ -20,7 +22,7 @@ class _TabConfigEditingMixin:
         self.config_name_input.clear()  # Clear config name
         tab_instance = self._get_tab_instance_by_display_name(tab_display_name)
 
-        if tab_instance and hasattr(tab_instance, "get_default_config"):
+        if isinstance(tab_instance, ConfigDefaultable):
             try:
                 default_config = tab_instance.get_default_config()
                 default_json = json.dumps(default_config, indent=4)
@@ -309,7 +311,7 @@ class _TabConfigEditingMixin:
             QMessageBox.warning(self, "Error", "Could not find active tab instance to capture from.")
             return
 
-        if not hasattr(tab_instance, "collect"):
+        if not isinstance(tab_instance, ConfigCollectible):
             QMessageBox.warning(
                 self,
                 "Error",
@@ -408,7 +410,7 @@ class _TabConfigEditingMixin:
 
             tab_class_name = type(target_tab_instance).__name__
 
-            if hasattr(target_tab_instance, "set_config") and callable(target_tab_instance.set_config):
+            if isinstance(target_tab_instance, ConfigSettable):
                 target_tab_instance.set_config(config_data)
 
                 config_display_name = f"'{config_name}'" if config_name else "'(Default)'"
