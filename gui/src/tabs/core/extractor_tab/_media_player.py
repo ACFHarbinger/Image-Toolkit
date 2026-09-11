@@ -569,10 +569,11 @@ class _MediaPlayerMixin:
             return
 
         self._storyboard_builder = StoryboardBuilder(self.video_path, duration_ms, self)
-        self._storyboard_builder.finished_ok.connect(self._on_storyboard_ready)
-        self._storyboard_builder.failed.connect(self._on_storyboard_failed)
+        self._storyboard_builder.finished.connect(self._on_storyboard_ready)
+        self._storyboard_builder.error.connect(self._on_storyboard_failed_err)
         self._storyboard_builder.progress_changed.connect(self._on_storyboard_progress)
-        self._storyboard_builder.finished.connect(self._storyboard_builder.deleteLater)
+        builder = self._storyboard_builder
+        self._storyboard_builder.finished.connect(lambda _r=None: builder.deleteLater())
         self.storyboard_progress_bar.setValue(0)
         self.storyboard_progress_bar.show()
         self._storyboard_builder.start()
@@ -588,8 +589,11 @@ class _MediaPlayerMixin:
         self.storyboard_progress_bar.setMaximum(max(duration_ms, 1))
         self.storyboard_progress_bar.setValue(elapsed_ms)
 
-    @Slot(str)
-    def _on_storyboard_ready(self: "VideoExtractorSubTabHostProtocol", meta_path: str):
+    @Slot(object)
+    def _on_storyboard_ready(self: "VideoExtractorSubTabHostProtocol", meta_path):
+        if meta_path is None:  # failure/cancel — failed path already reported
+            self._on_storyboard_failed("Storyboard build produced no output.")
+            return
         self.storyboard_progress_bar.hide()
         try:
             meta = StoryboardMeta.load(Path(meta_path))
@@ -610,6 +614,9 @@ class _MediaPlayerMixin:
         self._storyboard_pages = pages
         self._storyboard_meta = meta
         self._storyboard_builder = None
+
+    def _on_storyboard_failed_err(self: "VideoExtractorSubTabHostProtocol", err: object):
+        self._on_storyboard_failed(str(err))
 
     @Slot(str)
     def _on_storyboard_failed(self: "VideoExtractorSubTabHostProtocol", message: str):

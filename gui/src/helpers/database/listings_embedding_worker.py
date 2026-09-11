@@ -12,9 +12,9 @@ inventing a new embedding pathway -- same principle DB.7's image side used
 
 from typing import List, Tuple
 
-from PySide6.QtCore import QThread, Signal
+from PySide6.QtCore import Signal
 
-from gui.src.helpers.gc_safe import gc_disabled_run
+from gui.src.helpers.base import BaseQThreadWorker
 
 from ...constants import RECOMMENDATION_ENGINE_DIR
 
@@ -27,49 +27,39 @@ def _ensure_re_on_path() -> None:
         sys.path.insert(0, path)
 
 
-class ListingsEmbeddingWorker(QThread):
+class ListingsEmbeddingWorker(BaseQThreadWorker):
     """*owner_type*: "media_item" or "entity" -- selects which text-building
     function is used; *items*: [(id, text), ...], already composed by the
     caller (e.g. "{title}. {type}. {genres}. {review}" for a media item)."""
 
-    progress = Signal(int, int)  # (current, total)
-    sig_finished = Signal(list)  # [(owner_id, model, vector), ...], ready for one transaction
-    error = Signal(str)
+    finished = Signal(list)  # [(owner_id, model, vector), ...], ready for one transaction
 
     MODEL = "bge-m3"
 
     def __init__(self, items: List[Tuple[str, str]]):
         super().__init__()
         self.items = items
-        self._should_stop = False
 
-    def cancel(self) -> None:
-        self._should_stop = True
-
-    @gc_disabled_run
-    def run(self):
+    def _execute(self) -> object:
+        _ensure_re_on_path()
         try:
-            _ensure_re_on_path()
-            try:
-                from src.data.embedder import Embedder  # pyrefly: ignore [missing-import]
-            except ImportError as exc:
-                self.error.emit(
-                    "BGE-M3 embedder unavailable (FlagEmbedding not "
-                    f"installed, or CRE not present): {exc}"
-                )
-                return
+            from src.data.embedder import Embedder  # pyrefly: ignore [missing-import]
+        except ImportError as exc:
+            self.error.emit(
+                "BGE-M3 embedder unavailable (FlagEmbedding not "
+                f"installed, or CRE not present): {exc}"
+            )
+            return None
 
-            embedder = Embedder()
-            total = len(self.items)
-            results: List[Tuple[str, str, object]] = []
-            for i, (owner_id, text) in enumerate(self.items):
-                if self._should_stop:
-                    return
-                if text and text.strip():
-                    vector = embedder.embed_dense(text)
-                    results.append((owner_id, self.MODEL, vector))
-                self.progress.emit(i + 1, total)
+        embedder = Embedder()
+        total = len(self.items)
+        results: List[Tuple[str, str, object]] = []
+        for i, (owner_id, text) in enumerate(self.items):
+            if self._cancelled:
+                return None
+            if text and text.strip():
+                vector = embedder.embed_dense(text)
+                results.append((owner_id, self.MODEL, vector))
+            self.progress.emit(i + 1, total)
 
-            self.sig_finished.emit(results)
-        except Exception as exc:
-            self.error.emit(str(exc))
+        return results

@@ -106,7 +106,7 @@ def _flush_thumbnail_batch() -> None:
             continue
         worker = BatchImageLoaderWorker(paths, worker_size)
         _ACTIVE_BATCHES.add(worker)
-        worker.signals.batch_result.connect(
+        worker.stream.batch_result.connect(
             lambda results, requested, w=worker: _on_batch_loaded(
                 results, requested, w
             )

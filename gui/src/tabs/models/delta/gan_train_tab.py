@@ -143,17 +143,19 @@ class GANTrainTab(QWidget):
         )
 
         self.training_thread.log_signal.connect(self.log)
-        self.training_thread.error_signal.connect(self.on_training_error)
-        self.training_thread.finished_signal.connect(self.on_training_finished)
+        self.training_thread.error.connect(self.on_training_error)
+        self.training_thread.finished.connect(self.on_training_finished)
         self.training_thread.start()
 
         self.preview_timer.start(5000)
 
-    def on_training_error(self, msg):
-        QMessageBox.critical(self, "Training Error", msg)
+    def on_training_error(self, err):
+        QMessageBox.critical(self, "Training Error", str(err))
         self.reset_training_ui()
 
-    def on_training_finished(self):
+    def on_training_finished(self, result=None):
+        if result is None:  # failure/cancel — error path already reported
+            return
         QMessageBox.information(self, "Success", "Training Completed Successfully!")
         self.reset_training_ui()
 

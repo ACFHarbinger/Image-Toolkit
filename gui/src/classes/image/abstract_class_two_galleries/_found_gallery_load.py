@@ -88,7 +88,7 @@ class _FoundGalleryLoadMixin:
         self.found_loading_paths.add(path)
         worker = VideoLoaderWorker(path, self.thumbnail_size)
         worker.load_generation = self._load_generation
-        worker.signals.result.connect(self._on_found_image_loaded)
+        worker.stream.result.connect(self._on_found_image_loaded)
         self._active_workers.add(worker)
         self.thread_pool.start(worker)
 

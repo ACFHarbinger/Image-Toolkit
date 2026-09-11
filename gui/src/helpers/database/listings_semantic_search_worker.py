@@ -72,4 +72,4 @@ class ListingsSemanticSearchWorker(BaseQRunnableWorker):
                 vector, top_k=self.top_k, model=self.MODEL,
                 type_filter=self.type_filter,
             )
-        self.signals.finished.emit(hits)
+        return hits

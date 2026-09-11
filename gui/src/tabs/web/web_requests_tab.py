@@ -274,8 +274,8 @@ class WebRequestsTab(QWidget):
             # --- Connect worker signals to log window and status ---
             self.worker.status.connect(self.log_window.append_log)
             self.worker.status.connect(self.status_label.setText)  # Show last status
-            self.worker.error.connect(self.log_window.append_log)
-            self.worker.sig_finished.connect(self.on_requests_done)
+            self.worker.error.connect(self._on_requests_error)
+            self.worker.finished.connect(self._on_requests_finished)
 
             self.worker.start()
         except ImportError:
@@ -301,6 +301,16 @@ class WebRequestsTab(QWidget):
                 self.log_window.append_log(f"Error during cancel: {e}")
         else:
             self.on_requests_done("Worker was not running.")
+
+    def _on_requests_finished(self, message):
+        if message is None:  # failure/cancel — error path already reported
+            return
+        self.on_requests_done(message)
+
+    def _on_requests_error(self, err):
+        message = f"Error: {err}"
+        self.log_window.append_log(message)
+        self.on_requests_done(message)
 
     def on_requests_done(self, message):
         self.run_button.show()

@@ -2,10 +2,7 @@
 
 from __future__ import annotations
 
-import contextlib
-import logging
-
-logger = logging.getLogger(__name__)
+from gui.src.helpers.worker_teardown import close_windows, stop_workers
 
 
 class _LifecycleMixin:
@@ -17,28 +14,16 @@ class _LifecycleMixin:
         if hasattr(self, "dual"):
             self.dual.cancel_loading()
 
-        scan_worker = getattr(self, "_codec_scan_worker", None)
-        if scan_worker:
-            with contextlib.suppress(Exception):
-                scan_worker.stop()
-            self._codec_scan_worker = None
+        # Fire-and-forget (as before): pool/QThread workers die off on
+        # their own; the finished slots already tolerate teardown.
+        stop_workers(
+            getattr(self, "_codec_scan_worker", None),
+            getattr(self, "worker", None),
+            join=False,
+        )
+        self._codec_scan_worker = None
 
-        if self.worker:
-            try:
-                if hasattr(self.worker, "stop"):
-                    self.worker.stop()
-                elif hasattr(self.worker, "cancel"):
-                    self.worker.cancel()
-            except Exception:
-                logger.debug(
-                    "Suppressed Exception in _LifecycleMixin.cancel_loading",
-                    exc_info=True,
-                )
-
-        for win in list(self.open_preview_windows):
-            with contextlib.suppress(Exception):
-                win.close()
-        self.open_preview_windows.clear()
+        close_windows(self, "open_preview_windows")
 
     def closeEvent(self, event):
         self.cancel_conversion()

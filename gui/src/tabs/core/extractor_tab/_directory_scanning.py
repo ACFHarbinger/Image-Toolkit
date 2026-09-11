@@ -257,10 +257,10 @@ class _DirectoryScanningMixin:
         if paths_needing_thumbnail:
             _generation = self._extractor_scan_generation
             worker = BatchVideoLoaderWorker(paths_needing_thumbnail, 120, crop_square=True)
-            worker.signals.result.connect(
+            worker.stream.result.connect(
                 lambda p, img, _gen=_generation: self._on_source_video_thumbnail(p, img, _gen)
             )
-            worker.signals.batch_result.connect(
+            worker.stream.batch_result.connect(
                 lambda results, paths, _gen=_generation: self._on_source_scan_batch_finished(_gen)
             )
             telemetry.emit(

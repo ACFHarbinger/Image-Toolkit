@@ -42,9 +42,8 @@ class _SimilarityScanMixin:
         self._sim_worker = SimilarityScanWorker(self._sim_config)
         self._sim_worker.status.connect(self._on_sim_status)
         self._sim_worker.progress.connect(self.scan_progress)
-        self._sim_worker.sig_finished.connect(self._on_sim_scan_finished)
+        self._sim_worker.finished.connect(self._on_sim_scan_report)
         self._sim_worker.error.connect(self._on_sim_scan_error)
-        self._sim_worker.cancelled.connect(self._on_sim_scan_cancelled)
         self._sim_worker.start()
 
     @Slot(str, str)
@@ -92,6 +91,13 @@ class _SimilarityScanMixin:
         self._set_running(False)
 
     @Slot(object)
+    def _on_sim_scan_report(self, report):
+        if report is None:  # failure or user cancel — see error / cancelled paths
+            self._on_sim_scan_cancelled()
+            return
+        self._on_sim_scan_finished(report)
+
+    @Slot(object)
     def _on_sim_scan_finished(self, report: SimilarityReport):
         self._report = report
         self._ref_set = set()
@@ -113,8 +119,9 @@ class _SimilarityScanMixin:
         if flattened:
             self.start_loading_thumbnails(sorted(flattened, key=natural_sort_key))
 
-    @Slot(str)
-    def _on_sim_scan_error(self, message: str):
+    @Slot(object)
+    def _on_sim_scan_error(self, err: object):
+        message = str(err)
         self._finalize_scan()
         self.status_label.setText(f"Scan failed: {message}")
         self.scan_status_changed.emit(f"Scan failed: {message}")
