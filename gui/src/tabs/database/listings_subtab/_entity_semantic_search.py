@@ -78,9 +78,9 @@ class _SemanticSearchMixin:
         self.stats_label.setText(f"🧠 {len(hits)} semantic match(es).")
         self._rebuild_gallery()
 
-    def _on_semantic_search_error(self, message: str) -> None:
+    def _on_semantic_search_error(self, exc: Exception) -> None:
         self._active_semantic_worker = None
-        QMessageBox.warning(self, "Semantic Search Error", message)
+        QMessageBox.warning(self, "Semantic Search Error", str(exc))
         self.stats_label.setText("🧠 Semantic search failed.")
 
     def _clear_semantic_search(self) -> None:
@@ -139,13 +139,15 @@ class _SemanticSearchMixin:
         worker.progress.connect(
             lambda cur, tot: self.stats_label.setText(f"🧠 Indexing… {cur}/{tot}")
         )
-        worker.sig_finished.connect(self._on_build_search_index_finished)
+        worker.finished.connect(self._on_build_search_index_finished)
         worker.error.connect(self._on_build_search_index_error)
         self._active_embed_worker = worker
         worker.start()
 
     def _on_build_search_index_finished(self, results: list) -> None:
         self._active_embed_worker = None
+        if not results:
+            return  # cancelled or failed (error was reported separately)
         repo = self._entity_repo()
         if repo is None:
             return
@@ -159,9 +161,9 @@ class _SemanticSearchMixin:
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to store embeddings: {e}")
 
-    def _on_build_search_index_error(self, message: str) -> None:
+    def _on_build_search_index_error(self, exc: Exception) -> None:
         self._active_embed_worker = None
-        QMessageBox.warning(self, "Index Build Failed", message)
+        QMessageBox.warning(self, "Index Build Failed", str(exc))
         self.stats_label.setText("🧠 Index build failed.")
 
 

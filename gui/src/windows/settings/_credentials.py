@@ -32,6 +32,8 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
+from gui.src.theming.theme_api import qss
+
 from .app_settings import AppSettings
 
 
@@ -105,7 +107,7 @@ class _CredentialsMixin:
             "You can export unencrypted versions of these files to the backup directory, "
             "import new JSON credential files, or delete existing credentials."
         )
-        credentials_desc.setStyleSheet("color: #aaa; font-size: 11px;")
+        credentials_desc.setStyleSheet(qss("settings_desc_label", FONT_SIZE="11px"))
         credentials_desc.setWordWrap(True)
         credentials_layout.addWidget(credentials_desc)
 
@@ -118,22 +120,22 @@ class _CredentialsMixin:
         creds_btn_layout = QHBoxLayout()
         self.btn_export_creds = QPushButton("Export to Backup 📤")
         self.btn_export_creds.setToolTip("Export unencrypted versions of loaded credentials to the backup directory.")
-        self.btn_export_creds.setStyleSheet("background-color: #27ae60; color: white; font-weight: bold;")
+        self.btn_export_creds.setStyleSheet(qss("settings_btn_success"))
         self.btn_export_creds.clicked.connect(self._export_credentials_to_backup)
 
         self.btn_import_cred = QPushButton("Import Credential 📥")
         self.btn_import_cred.setToolTip("Select a new JSON credential file to encrypt and load into the vault.")
-        self.btn_import_cred.setStyleSheet("background-color: #2980b9; color: white; font-weight: bold;")
+        self.btn_import_cred.setStyleSheet(qss("settings_btn_accent"))
         self.btn_import_cred.clicked.connect(self._import_credential)
 
         self.btn_edit_cred = QPushButton("Edit Credential ✏️")
         self.btn_edit_cred.setToolTip("View and edit the JSON values of the selected credential.")
-        self.btn_edit_cred.setStyleSheet("background-color: #f39c12; color: white; font-weight: bold;")
+        self.btn_edit_cred.setStyleSheet(qss("settings_btn_warning_edit"))
         self.btn_edit_cred.clicked.connect(self._edit_credential)
 
         self.btn_delete_cred = QPushButton("Delete Credential ❌")
         self.btn_delete_cred.setToolTip("Delete the selected credential from the vault and disk.")
-        self.btn_delete_cred.setStyleSheet("background-color: #c0392b; color: white; font-weight: bold;")
+        self.btn_delete_cred.setStyleSheet(qss("dialog_btn_danger"))
         self.btn_delete_cred.clicked.connect(self._delete_credential)
 
         creds_btn_layout.addWidget(self.btn_export_creds)
@@ -155,7 +157,7 @@ class _CredentialsMixin:
             "Configure your favourite directories. These directories will appear in the sidebar "
             "of all directory browsing and scan windows."
         )
-        fav_dir_desc.setStyleSheet("color: #aaa; font-size: 11px;")
+        fav_dir_desc.setStyleSheet(qss("settings_desc_label", FONT_SIZE="11px"))
         fav_dir_desc.setWordWrap(True)
         fav_dir_layout.addWidget(fav_dir_desc)
 
@@ -172,12 +174,12 @@ class _CredentialsMixin:
 
         self.btn_add_fav_browse = QPushButton("Browse to Add 📁")
         self.btn_add_fav_browse.setToolTip("Browse the filesystem to select a directory to add to favourites.")
-        self.btn_add_fav_browse.setStyleSheet("background-color: #2980b9; color: white; font-weight: bold;")
+        self.btn_add_fav_browse.setStyleSheet(qss("settings_btn_accent"))
         self.btn_add_fav_browse.clicked.connect(self._browse_add_favourite)
 
         self.btn_remove_fav = QPushButton("Remove Selected ❌")
         self.btn_remove_fav.setToolTip("Remove the selected directory from your favourites list.")
-        self.btn_remove_fav.setStyleSheet("background-color: #c0392b; color: white; font-weight: bold;")
+        self.btn_remove_fav.setStyleSheet(qss("dialog_btn_danger"))
         self.btn_remove_fav.clicked.connect(self._remove_selected_favourite)
 
         fav_buttons_layout.addWidget(self.btn_add_fav_browse)
@@ -191,7 +193,7 @@ class _CredentialsMixin:
         self.fav_path_input.setPlaceholderText("Or paste/type absolute folder path here...")
 
         self.btn_add_fav_path = QPushButton("Add Path ➕")
-        self.btn_add_fav_path.setStyleSheet("background-color: #27ae60; color: white; font-weight: bold;")
+        self.btn_add_fav_path.setStyleSheet(qss("settings_btn_success"))
         self.btn_add_fav_path.clicked.connect(self._add_manual_favourite)
 
         fav_manual_layout.addWidget(self.fav_path_input, 1)
@@ -210,7 +212,7 @@ class _CredentialsMixin:
             "Bulk update any config fields/settings paths, tab configurations, "
             "or startup preference profiles matching a pattern or substring."
         )
-        bulk_desc.setStyleSheet("color: #aaa; font-size: 11px;")
+        bulk_desc.setStyleSheet(qss("settings_desc_label", FONT_SIZE="11px"))
         bulk_desc.setWordWrap(True)
         bulk_layout.addRow(bulk_desc)
 
@@ -244,11 +246,11 @@ class _CredentialsMixin:
         btn_layout = QHBoxLayout()
         self.btn_bulk_preview = QPushButton("Preview Changes")
         self.btn_bulk_preview.clicked.connect(self._preview_bulk_update)
-        self.btn_bulk_preview.setStyleSheet("background-color: #34495e; color: white; font-weight: bold;")
+        self.btn_bulk_preview.setStyleSheet(qss("settings_btn_secondary"))
 
         self.btn_bulk_apply = QPushButton("Apply Bulk Update")
         self.btn_bulk_apply.clicked.connect(self._apply_bulk_update)
-        self.btn_bulk_apply.setStyleSheet("background-color: #e74c3c; color: white; font-weight: bold;")
+        self.btn_bulk_apply.setStyleSheet(qss("dialog_btn_danger"))
 
         btn_layout.addWidget(self.btn_bulk_preview)
         btn_layout.addWidget(self.btn_bulk_apply)
@@ -408,7 +410,7 @@ class _CredentialsMixin:
 
         editor = QTextEdit()
         editor.setPlainText(current_json_str)
-        editor.setStyleSheet("font-family: monospace;")
+        editor.setStyleSheet(qss("settings_monospace_editor"))
         layout.addWidget(editor)
 
         # Buttons
@@ -545,7 +547,7 @@ class _CredentialsMixin:
         layout = QVBoxLayout(dialog)
 
         info_label = QLabel(f"The following {len(changes)} change(s) would be made:")
-        info_label.setStyleSheet("font-weight: bold;")
+        info_label.setStyleSheet(qss("settings_emphasis_label"))
         layout.addWidget(info_label)
 
         text_edit = QTextEdit()

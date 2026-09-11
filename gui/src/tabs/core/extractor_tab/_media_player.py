@@ -48,6 +48,7 @@ from ....helpers.video.video_thumbnailer import (
     MEDIA_BACKEND_LOAD_LOCK,
     mark_media_backend_loaded,
 )
+from ....theming.theme_api import qss
 from ....utils.sort_utils import natural_sort_key
 from ._video_view import VideoView
 
@@ -93,7 +94,7 @@ class _MediaPlayerMixin:
 
         player_container = QWidget()
         self.player_container = player_container
-        player_container.setStyleSheet("")
+        player_container.setStyleSheet(qss("transparent_bg"))
         self.player_inner_layout = QVBoxLayout(player_container)
         self.player_inner_layout.setContentsMargins(0, 0, 0, 0)
 
@@ -246,9 +247,7 @@ class _MediaPlayerMixin:
         edit_current_time.setFixedWidth(85)
         edit_current_time.setVisible(False)
         edit_current_time.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        edit_current_time.setStyleSheet(
-            "QLineEdit {  color: #00BCD4; border: 1px solid #4f545c; border-radius: 4px; font-family: monospace; }"
-        )
+        edit_current_time.setStyleSheet(qss("extractor_line_edit"))
         edit_current_time.returnPressed.connect(self._jump_to_edited_time)
         edit_current_time.installEventFilter(cast(QObject, self))
 
@@ -314,9 +313,7 @@ class _MediaPlayerMixin:
         self.info_label = QLabel(
             "Video is playing externally. Use slider to select timestamps."
         )
-        self.info_label.setStyleSheet(
-            "color: #aaa; font-style: italic; font-size: 11px;"
-        )
+        self.info_label.setStyleSheet(qss("extractor_info_italic"))
         self.info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.info_label.setVisible(False)
         self.player_inner_layout.addWidget(self.info_label)
@@ -326,11 +323,7 @@ class _MediaPlayerMixin:
         self.storyboard_progress_bar.setFormat("Generating scrub preview... %p%")
         self.storyboard_progress_bar.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.storyboard_progress_bar.setFixedHeight(14)
-        self.storyboard_progress_bar.setStyleSheet(
-            "QProgressBar {  color: #aaa; border: 1px solid #4f545c;"
-            " border-radius: 4px; font-size: 10px; }"
-            "QProgressBar::chunk {  border-radius: 4px; }"
-        )
+        self.storyboard_progress_bar.setStyleSheet(qss("storyboard_progress_bar"))
         self.storyboard_progress_bar.setMinimum(0)
         self.storyboard_progress_bar.setMaximum(100)
         self.storyboard_progress_bar.setValue(0)
@@ -576,10 +569,11 @@ class _MediaPlayerMixin:
             return
 
         self._storyboard_builder = StoryboardBuilder(self.video_path, duration_ms, self)
-        self._storyboard_builder.finished_ok.connect(self._on_storyboard_ready)
-        self._storyboard_builder.failed.connect(self._on_storyboard_failed)
+        self._storyboard_builder.finished.connect(self._on_storyboard_ready)
+        self._storyboard_builder.error.connect(self._on_storyboard_failed_err)
         self._storyboard_builder.progress_changed.connect(self._on_storyboard_progress)
-        self._storyboard_builder.finished.connect(self._storyboard_builder.deleteLater)
+        builder = self._storyboard_builder
+        self._storyboard_builder.finished.connect(lambda _r=None: builder.deleteLater())
         self.storyboard_progress_bar.setValue(0)
         self.storyboard_progress_bar.show()
         self._storyboard_builder.start()
@@ -595,8 +589,11 @@ class _MediaPlayerMixin:
         self.storyboard_progress_bar.setMaximum(max(duration_ms, 1))
         self.storyboard_progress_bar.setValue(elapsed_ms)
 
-    @Slot(str)
-    def _on_storyboard_ready(self: "VideoExtractorSubTabHostProtocol", meta_path: str):
+    @Slot(object)
+    def _on_storyboard_ready(self: "VideoExtractorSubTabHostProtocol", meta_path):
+        if meta_path is None:  # failure/cancel — failed path already reported
+            self._on_storyboard_failed("Storyboard build produced no output.")
+            return
         self.storyboard_progress_bar.hide()
         try:
             meta = StoryboardMeta.load(Path(meta_path))
@@ -617,6 +614,9 @@ class _MediaPlayerMixin:
         self._storyboard_pages = pages
         self._storyboard_meta = meta
         self._storyboard_builder = None
+
+    def _on_storyboard_failed_err(self: "VideoExtractorSubTabHostProtocol", err: object):
+        self._on_storyboard_failed(str(err))
 
     @Slot(str)
     def _on_storyboard_failed(self: "VideoExtractorSubTabHostProtocol", message: str):

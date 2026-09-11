@@ -8,6 +8,8 @@ from __future__ import annotations
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import QLabel, QVBoxLayout
 
+from gui.src.theming.theme_api import qss
+
 
 class _UIBuilderMixin:
     """Builds the top/bottom info labels and applies the default drop-target style."""
@@ -38,50 +40,18 @@ class _UIBuilderMixin:
 
         self.top_label = QLabel(self)
         self.top_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.top_label.setStyleSheet("""
-            QLabel {
-                color: #ffffff;
-                font-weight: bold;
-                font-size: 11px;
-                background-color: rgba(14, 18, 24, 0.55);
-                border: 1px solid rgba(255, 255, 255, 0.15);
-                border-radius: 4px;
-                padding: 2px 6px;
-            }
-        """)
+        self.top_label.setStyleSheet(qss("monitor_drop_top_label"))
 
         self.bottom_label = QLabel(self)
         self.bottom_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.bottom_label.setStyleSheet("""
-            QLabel {
-                color: #ecf0f1;
-                font-size: 10px;
-                background-color: rgba(14, 18, 24, 0.55);
-                border: 1px solid rgba(255, 255, 255, 0.15);
-                border-radius: 4px;
-                padding: 2px 6px;
-            }
-        """)
+        self.bottom_label.setStyleSheet(qss("monitor_drop_bottom_label"))
 
         layout.addWidget(self.top_label, 0, Qt.AlignmentFlag.AlignTop)
         layout.addStretch(1)
         layout.addWidget(self.bottom_label, 0, Qt.AlignmentFlag.AlignBottom)
 
         self.update_text()
-        self.default_style = """
-            QLabel {
-                background-color: rgba(20, 24, 32, 0.35);
-                border: 2px dashed rgba(255, 255, 255, 0.20);
-                border-radius: 8px;
-                color: #b9bbbe;
-                font-size: 14px;
-            }
-            QLabel[dragging="true"] {
-                border: 2px solid #5865f2;
-                background-color: rgba(64, 68, 75, 0.65);
-            }
-        """
-        self.setStyleSheet(self.default_style)
+        self.setStyleSheet(qss("monitor_drop_default"))
 
 
 __all__ = ["_UIBuilderMixin"]

@@ -7,9 +7,11 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
+from gui.src.constants.listings import RATING_STAR_COLOR
 from gui.src.elements.database.common.listings_common import open_file_location, open_web_link
 from gui.src.elements.database.dialog.episode_dialog import _EpisodeDialog
 from gui.src.helpers.image import apply_thumbnail_to_label
+from gui.src.theming.theme_api import qss
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton
 
@@ -27,7 +29,7 @@ class _EpisodeListMixin:
 
         for ep in sorted_eps:
             row = QFrame()
-            row.setStyleSheet("QFrame{background:#23272a; border-radius:4px; padding:2px;}")
+            row.setStyleSheet(qss("detail_panel_episode_row"))
             rl = QHBoxLayout(row)
             rl.setContentsMargins(6, 4, 6, 4)
 
@@ -46,14 +48,14 @@ class _EpisodeListMixin:
                 40,
                 worker_size=80,
                 placeholder_text="No Img",
-                placeholder_style=("background:#1a1c1e; border-radius:3px; color:#555; font-size:8px;"),
+                placeholder_component="detail_panel_thumb_placeholder",
             )
             rl.addWidget(t_lbl)
             info = QLabel(f"<b>#{num}</b> {title}")
             rl.addWidget(info, 1)
             if rating:
                 r_lbl = QLabel("★" * rating)
-                r_lbl.setStyleSheet("color:#f1c40f; font-size:10px;")
+                r_lbl.setStyleSheet(qss("database_card_rating_small", STAR_COLOR=RATING_STAR_COLOR))
                 rl.addWidget(r_lbl)
 
             local_file = ep.get("local_file", "")
@@ -63,9 +65,7 @@ class _EpisodeListMixin:
                 file_btn = QPushButton("📁")
                 file_btn.setFixedSize(24, 24)
                 file_btn.setToolTip(f"Open: {local_file}")
-                file_btn.setStyleSheet(
-                    "background-color:#16a085; color:white; font-size:10px; font-weight:bold; border-radius:3px;"
-                )
+                file_btn.setStyleSheet(qss("detail_panel_ep_file_btn"))
                 file_btn.clicked.connect(lambda _, path=local_file: open_file_location(path))
                 rl.addWidget(file_btn)
 
@@ -73,9 +73,7 @@ class _EpisodeListMixin:
                 link_btn = QPushButton("🌐")
                 link_btn.setFixedSize(24, 24)
                 link_btn.setToolTip(f"Open Link: {web_link}")
-                link_btn.setStyleSheet(
-                    "background-color:#2980b9; color:white; font-size:10px; font-weight:bold; border-radius:3px;"
-                )
+                link_btn.setStyleSheet(qss("detail_panel_ep_link_btn"))
                 link_btn.clicked.connect(lambda _, url=web_link: open_web_link(url))
                 rl.addWidget(link_btn)
 

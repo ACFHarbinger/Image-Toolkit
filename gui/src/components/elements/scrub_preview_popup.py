@@ -4,6 +4,8 @@ from PySide6.QtCore import QPoint, Qt
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
+from gui.src.theming.theme_api import qss
+
 
 class ScrubPreviewPopup(QWidget):
     """Small floating thumbnail + timestamp shown above a video player's
@@ -38,23 +40,16 @@ class ScrubPreviewPopup(QWidget):
         layout.setAlignment(Qt.AlignmentFlag.AlignHCenter)
 
         self._thumb_label = QLabel()
-        self._thumb_label.setStyleSheet(
-            "border: 2px solid #4f545c; border-radius: 4px; background-color: #000;"
-        )
+        self._thumb_label.setStyleSheet(qss("scrub_preview_thumb"))
         layout.addWidget(self._thumb_label)
 
         self._time_label = QLabel()
         self._time_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._time_label.setStyleSheet(
-            "color: white; font-weight: bold; background-color: #1e1f22;"
-            "border-radius: 3px; padding: 2px 6px;"
-        )
+        self._time_label.setStyleSheet(qss("scrub_preview_time"))
         layout.addWidget(self._time_label)
 
         self.setAutoFillBackground(True)
-        self.setStyleSheet(
-            "ScrubPreviewPopup { background-color: #2c2f33; border: 1px solid #4f545c; border-radius: 6px; }"
-        )
+        self.setStyleSheet(qss("scrub_preview_popup"))
 
     def show_at(
         self,

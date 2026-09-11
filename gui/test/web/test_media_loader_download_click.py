@@ -45,7 +45,7 @@ def _fake_run(self):
     dl = _FakeFastDownloader(self.config)
     self._downloader = dl
     dl.on_status.connect(self.status.emit)
-    dl.on_finished.connect(self.sig_finished.emit)
+    dl.on_finished.connect(lambda c, m: self.finished.emit((c, m)))
     self.status.emit("Starting nhentai download...")
     dl.run()
 
