@@ -14,6 +14,9 @@
   with shared `_shared.py` helpers and kind-specific `series.py` / `entity.py`.
 - **#563 codec/format:** `codec_subtab/` and `format_subtab/` merged into
   `media_convert_subtab/`; unified `_gallery_cards.py` and `_lifecycle.py`.
+- Resync onto #573: `gui.src.theming` is a PEP 562 lazy facade so
+  `theme_api` / `file_dialog_patch` no longer import numpy/PIL via
+  `palette` at package import (keeps the R3.6 isolated-import bound).
 
 # S548 — 2026-09-11 (Grok: R2.e #566 / classic-shell lazy tab construction)
 

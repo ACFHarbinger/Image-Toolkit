@@ -15,13 +15,17 @@ from PySide6.QtCore import QEvent, QObject, QSortFilterProxyModel, Qt, QUrl
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QAbstractItemView, QFileDialog, QInputDialog, QMenu, QMessageBox
 
-from gui.src.theming.theme_api import qss
-
 
 def _app_settings():
     from gui.src.windows.settings.app_settings import AppSettings
 
     return AppSettings
+
+
+def _qss(*args, **kwargs):
+    from gui.src.theming.theme_api import qss
+
+    return qss(*args, **kwargs)
 
 
 class FileDialogEventFilter(QObject):
@@ -121,7 +125,7 @@ class FileDialogEventFilter(QObject):
 
         # Premium Modern Styling matching the application theme
         is_dark = _app_settings().get("preferences/theme", "dark") == "dark"
-        menu.setStyleSheet(qss("file_dialog_menu_dark" if is_dark else "file_dialog_menu_light", base="dark" if is_dark else "light"))
+        menu.setStyleSheet(_qss("file_dialog_menu_dark" if is_dark else "file_dialog_menu_light", base="dark" if is_dark else "light"))
 
         favs = _app_settings().favourite_directories() # pyrefly: ignore [missing-attribute]
         norm_path = os.path.normpath(path)
