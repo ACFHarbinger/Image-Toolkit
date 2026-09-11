@@ -8,6 +8,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 from gui.src.elements.database.common.listings_common import normalize_id_list
+from gui.src.theming.theme_api import qss
 from PySide6.QtCore import QTimer
 
 
@@ -70,7 +71,7 @@ class _EntryLifecycleMixin:
         self.f_review.clear()
         self.img_preview.clear()
         self.img_preview.setText("No Image")
-        self.img_preview.setStyleSheet("border:2px dashed #4f545c;border-radius:8px;color:#888;font-size:12px;")
+        self.img_preview.setStyleSheet(qss("detail_panel_img_preview_empty"))
         self._refresh_episode_list()
         self.del_btn.setVisible(False)
         self.episode_group.setVisible(False)

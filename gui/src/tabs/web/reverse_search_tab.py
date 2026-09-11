@@ -24,6 +24,7 @@ from ...classes import AbstractClassSingleGallery
 from ...components import VirtualGallery
 from ...helpers import ImageScannerWorker, ReverseSearchWorker
 from ...styles import apply_shadow_effect, set_button_role
+from ...theming.theme_api import qss
 from ...utils.sort_utils import natural_sort_key
 from ...windows import ImagePreviewWindow
 
@@ -195,7 +196,7 @@ class ReverseImageSearchTab(AbstractClassSingleGallery):
         action_row = QHBoxLayout()
 
         self.lbl_selected_path = QLabel("No image selected")
-        self.lbl_selected_path.setStyleSheet("color: #aaa; font-style: italic;")
+        self.lbl_selected_path.setStyleSheet(qss("muted_label"))
 
         self.btn_search = QPushButton("Search Selected Image")
         set_button_role(self.btn_search, "success")

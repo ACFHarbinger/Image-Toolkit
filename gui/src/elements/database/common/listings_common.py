@@ -23,6 +23,7 @@ from gui.src.constants.listings import (
     LISTINGS_FILE,  # noqa: F401
     VIDEO_IMPORT_EXTS,
 )
+from gui.src.theming.theme_api import qss
 
 logger = logging.getLogger(__name__)
 
@@ -327,9 +328,6 @@ def resolve_entity_id_for_mal_name(
 def _badge(text: str, color: str) -> QLabel:
     lbl = QLabel(text)
     lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-    lbl.setStyleSheet(
-        f"background:{color}; color:white; font-size:9px; font-weight:bold;"
-        f"border-radius:4px; padding:1px 5px;"
-    )
+    lbl.setStyleSheet(qss("listings_badge", BG=color))
     return lbl
 

@@ -1,0 +1,5 @@
+QPushButton:checked {
+    color: $DARK_TEXT;
+}
+QPushButton:hover {
+}

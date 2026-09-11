@@ -42,6 +42,7 @@ from PySide6.QtWidgets import (
 from ....components import ClickableLabel, MarqueeScrollArea
 from ....constants import MAX_PREVIEW_ITEMS
 from ....helpers import BatchVideoLoaderWorker
+from ....theming.theme_api import qss
 from ....utils.guard.startup_probe_guard import startup_settle_remaining_ms
 from ....utils.sort_utils import natural_sort_key
 
@@ -287,7 +288,7 @@ class _DirectoryScanningMixin:
         """Creates a placeholder widget with 'Loading...' state for the source gallery."""
         thumb_size = 120
         container = QWidget()
-        container.setStyleSheet("background: transparent;")
+        container.setStyleSheet(qss("transparent_bg"))
         layout = QVBoxLayout(container)
         layout.setContentsMargins(5, 5, 5, 5)
 
@@ -295,9 +296,7 @@ class _DirectoryScanningMixin:
         clickable_label.setFixedSize(thumb_size, thumb_size)
         clickable_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         clickable_label.setText("Loading...")
-        clickable_label.setStyleSheet(
-            "border: 1px dashed #666; color: #888; font-size: 10px;"
-        )
+        clickable_label.setStyleSheet(qss("source_label_loading"))
 
         clickable_label.path_clicked.connect(self.load_media)
         clickable_label.path_right_clicked.connect(self.show_source_context_menu)
@@ -319,9 +318,7 @@ class _DirectoryScanningMixin:
         )
         name_label.setText(elided_text)
         name_label.setToolTip(file_name)
-        name_label.setStyleSheet(
-            "color: #bbb; font-size: 10px; border: none; padding-top: 2px;"
-        )
+        name_label.setStyleSheet(qss("source_name_label"))
 
         layout.addWidget(name_label)
         return container
@@ -464,45 +461,29 @@ class _DirectoryScanningMixin:
         )
 
         if selected:
-            label.setStyleSheet("border: 3px solid #3498db; border-radius: 4px;")
+            label.setStyleSheet(qss("source_label_selected"))
         elif is_other_open:
             if label.text() == "VIDEO":
-                label.setStyleSheet(
-                    "border: 2px solid #9b59b6; color: #9b59b6; font-weight: bold;  border-radius: 4px;"
-                )
+                label.setStyleSheet(qss("source_label_other_open_video"))
             elif label.text() == "No Preview" or label.text() == "Loading...":
-                label.setStyleSheet(
-                    "border: 2px solid #9b59b6; color: #9b59b6; border-radius: 4px;"
-                )
+                label.setStyleSheet(qss("source_label_other_open_text"))
             else:
-                label.setStyleSheet("border: 2px solid #9b59b6; border-radius: 4px;")
+                label.setStyleSheet(qss("source_label_other_open"))
         else:
             if label.text() == "VIDEO":
                 if has_extracted:
-                    label.setStyleSheet(
-                        "border: 2px solid #2ecc71; color: #2ecc71; font-weight: bold;  border-radius: 4px;"
-                    )
+                    label.setStyleSheet(qss("source_label_video_extracted"))
                 else:
-                    label.setStyleSheet(
-                        "border: 2px solid #3498db; color: #3498db; font-weight: bold;  border-radius: 4px;"
-                    )
+                    label.setStyleSheet(qss("source_label_video_default"))
             elif label.text() == "No Preview":
-                label.setStyleSheet(
-                    "border: 1px dashed #666; color: #888; border-radius: 4px;"
-                )
+                label.setStyleSheet(qss("source_label_no_preview"))
             elif label.text() == "Loading...":
-                label.setStyleSheet(
-                    "border: 1px dashed #666; color: #888; font-size: 10px; border-radius: 4px;"
-                )
+                label.setStyleSheet(qss("source_label_loading"))
             else:
                 if has_extracted:
-                    label.setStyleSheet(
-                        "border: 2px solid #2ecc71; border-radius: 4px;"
-                    )
+                    label.setStyleSheet(qss("source_label_extracted"))
                 else:
-                    label.setStyleSheet(
-                        "border: 2px solid #4f545c; border-radius: 4px;"
-                    )
+                    label.setStyleSheet(qss("source_label_default"))
 
 
 __all__ = ["_DirectoryScanningMixin"]

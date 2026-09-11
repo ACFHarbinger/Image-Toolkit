@@ -1,0 +1,13 @@
+{
+  "base": "dark",
+  "colors": {
+    "accent": "#00bcd4",
+    "surface": "#2d2d30",
+    "window_bg": "#1e1e1e",
+    "text": "#cccccc",
+    "muted_text": "#888888",
+    "border": "#3e3e3e",
+    "accent_hover": "#00a3b8",
+    "accent_pressed": "#008ea1"
+  }
+}

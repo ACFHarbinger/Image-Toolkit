@@ -9,7 +9,7 @@ from PySide6.QtCore import Slot
 from PySide6.QtWidgets import QMessageBox
 
 from ....helpers import SamplerWorker
-from ....styles import SHARED_BUTTON_STYLE
+from ....theming.theme_api import qss
 
 
 class _ResampleWorkerMixin:
@@ -72,9 +72,7 @@ class _ResampleWorkerMixin:
         cancel_btn = self.btn_selected if use_selection else self.btn_all
         cancel_btn.setEnabled(True)
         cancel_btn.setText("Cancel")
-        cancel_btn.setStyleSheet(
-            "QPushButton {  color: white; font-weight: bold; }"
-        )
+        cancel_btn.setStyleSheet(qss("btn_cancel_active"))
 
         n = len(config["files_to_process"])
         self.status_label.setText(f"Resampling {n} file(s)…") # pyrefly: ignore [missing-attribute]
@@ -95,9 +93,9 @@ class _ResampleWorkerMixin:
         count, msg = result
         self.btn_all.setEnabled(True)
         self.btn_all.setText("Resample All in Directory")
-        self.btn_all.setStyleSheet(SHARED_BUTTON_STYLE)
+        self.btn_all.setStyleSheet(qss("shared_button"))
         self.on_selection_changed()
-        self.btn_selected.setStyleSheet(SHARED_BUTTON_STYLE)
+        self.btn_selected.setStyleSheet(qss("shared_button"))
         self.progress_bar.hide()
         self.progress_bar.setValue(0)
         self.status_label.setText(msg) # pyrefly: ignore [missing-attribute]

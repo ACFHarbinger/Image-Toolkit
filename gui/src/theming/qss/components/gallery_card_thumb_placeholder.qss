@@ -1,0 +1,4 @@
+background: $DARK_BG;
+border-radius: 3px;
+color: $DARK_MUTED_TEXT;
+font-size: 8px;

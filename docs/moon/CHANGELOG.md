@@ -1,3 +1,23 @@
+# S550 — 2026-09-08 (Cursor: #564 complete + #574/#575 cross-surface tokens)
+
+- Finished R2.b styling migration: all `gui/src/` surfaces (`components/`,
+  `elements/`, `windows/`, `tabs/`, `classes/`, `helpers/`) now use
+  `theme_api.color()` / `qss()`; `styling_allowlist.txt` empty; audit → 0.
+- Added ~200 component QSS fragments, palette modules for wallpaper graph / ER
+  view, and `apply_stylesheet()` helper for app-level QSS.
+- **#574:** shared JSON token schema (`gui/src/theming/tokens/`), export script,
+  docs website `theme-tokens.generated.css` + `gen:theme-tokens` npm script.
+- **#575:** devtool app wired to same token JSON via generated CSS + `:root`
+  aliases in `dev/app/src/index.css`.
+- **#563 import-dialog:** `directory_import_dialog.py` and
+  `entity_directory_import_dialog.py` merged into `dialog/directory_import/`
+  with shared `_shared.py` helpers and kind-specific `series.py` / `entity.py`.
+- **#563 codec/format:** `codec_subtab/` and `format_subtab/` merged into
+  `media_convert_subtab/`; unified `_gallery_cards.py` and `_lifecycle.py`.
+- Resync onto #573: `gui.src.theming` is a PEP 562 lazy facade so
+  `theme_api` / `file_dialog_patch` no longer import numpy/PIL via
+  `palette` at package import (keeps the R3.6 isolated-import bound).
+
 # S548 — 2026-09-11 (Grok: R2.e #566 / classic-shell lazy tab construction)
 
 - Classic `_create_tabs` no longer constructs ~26 tab widgets before show.

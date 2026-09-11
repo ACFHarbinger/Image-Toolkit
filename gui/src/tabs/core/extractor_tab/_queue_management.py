@@ -34,6 +34,7 @@ from ....components import ClickableLabel, VirtualGallery
 from ....helpers import ImageLoaderWorker, VideoLoaderWorker
 from ....helpers.core.queue_execution_worker import QueueExecutionWorker
 from ....styles import set_button_role
+from ....theming.theme_api import qss
 
 if TYPE_CHECKING:
     from ..protos.extractor_tab import VideoExtractorSubTabHostProtocol
@@ -187,9 +188,7 @@ class _QueueManagementMixin:
 
         self.extraction_status_label = QLabel("Ready.")
         self.extraction_status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.extraction_status_label.setStyleSheet(
-            "color: #666; font-style: italic; padding: 8px;"
-        )
+        self.extraction_status_label.setStyleSheet(qss("status_label_padded"))
         self.extraction_status_label.hide()
         self.main_layout.addWidget(self.extraction_status_label)
 
@@ -210,9 +209,7 @@ class _QueueManagementMixin:
             return
 
         menu = QMenu(cast(QWidget, self))
-        menu.setStyleSheet(
-            "QMenu {  color: white; border: 1px solid #4f545c; }"
-        )
+        menu.setStyleSheet(qss("extractor_menu"))
         load_action = menu.addAction("✏️ Load Configurations")
         remove_action = menu.addAction("❌ Remove")
 

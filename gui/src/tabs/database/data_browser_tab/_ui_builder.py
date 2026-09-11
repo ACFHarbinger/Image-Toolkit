@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
 )
 
 from ....styles import apply_shadow_effect
+from ....theming.theme_api import color, qss
 from ._er_view import _ERViewMixin
 
 
@@ -44,13 +45,13 @@ class _UIBuilderMixin(_ERViewMixin):
 
         self.btn_refresh_tables = QPushButton("Refresh")
         apply_shadow_effect(
-            self.btn_refresh_tables, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+            self.btn_refresh_tables, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3
         )
         self.btn_refresh_tables.clicked.connect(self.refresh_table_list)
         picker_layout.addWidget(self.btn_refresh_tables)
 
         self.row_count_label = QLabel("Not connected.")
-        self.row_count_label.setStyleSheet("color: #aaa; font-style: italic;")
+        self.row_count_label.setStyleSheet(qss("muted_label"))
         picker_layout.addWidget(self.row_count_label)
         picker_layout.addStretch()
 
@@ -81,7 +82,7 @@ class _UIBuilderMixin(_ERViewMixin):
 
         self.btn_apply_filter = QPushButton("Apply")
         apply_shadow_effect(
-            self.btn_apply_filter, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+            self.btn_apply_filter, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3
         )
         self.btn_apply_filter.clicked.connect(self._apply_filter)
         filter_layout.addWidget(self.btn_apply_filter)
@@ -123,11 +124,11 @@ class _UIBuilderMixin(_ERViewMixin):
         refs_layout = QVBoxLayout(refs_panel)
         refs_layout.setContentsMargins(0, 0, 0, 0)
         refs_label = QLabel("Referenced By")
-        refs_label.setStyleSheet("font-weight: bold;")
+        refs_label.setStyleSheet(qss("font_bold"))
         refs_layout.addWidget(refs_label)
         self.refs_hint_label = QLabel("Select a row to see incoming references.")
         self.refs_hint_label.setWordWrap(True)
-        self.refs_hint_label.setStyleSheet("color: #aaa; font-style: italic;")
+        self.refs_hint_label.setStyleSheet(qss("muted_label"))
         refs_layout.addWidget(self.refs_hint_label)
         self.refs_list = QListWidget()
         self.refs_list.itemClicked.connect(self._on_reverse_ref_clicked)

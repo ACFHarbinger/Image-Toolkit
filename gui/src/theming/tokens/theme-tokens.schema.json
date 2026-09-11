@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://image-toolkit.dev/schemas/theme-tokens.schema.json",
+  "title": "Image Toolkit portable color tokens",
+  "description": "Cross-surface semantic color tokens aligned with gui/src/theming/schema.py COLOR_TOKEN_KEYS plus derived accent variants from resolve.derive_accent_variants.",
+  "type": "object",
+  "required": ["base", "colors"],
+  "additionalProperties": false,
+  "properties": {
+    "base": {
+      "type": "string",
+      "enum": ["dark", "light"],
+      "description": "Base theme id (matches schema.VALID_BASES)."
+    },
+    "colors": {
+      "type": "object",
+      "required": [
+        "accent",
+        "surface",
+        "window_bg",
+        "text",
+        "muted_text",
+        "border",
+        "accent_hover",
+        "accent_pressed"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "accent": { "$ref": "#/$defs/hexColor" },
+        "surface": { "$ref": "#/$defs/hexColor" },
+        "window_bg": { "$ref": "#/$defs/hexColor" },
+        "text": { "$ref": "#/$defs/hexColor" },
+        "muted_text": { "$ref": "#/$defs/hexColor" },
+        "border": { "$ref": "#/$defs/hexColor" },
+        "accent_hover": { "$ref": "#/$defs/hexColor" },
+        "accent_pressed": { "$ref": "#/$defs/hexColor" }
+      }
+    }
+  },
+  "$defs": {
+    "hexColor": {
+      "type": "string",
+      "pattern": "^#[0-9A-Fa-f]{6}$"
+    }
+  }
+}

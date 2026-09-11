@@ -16,6 +16,8 @@ from send2trash import send2trash  # pyrefly: ignore [untyped-import]
 
 from gui.src.elements.database.dialog.advanced_search_dialog import _AdvancedSearchDialog
 
+from ....theming.theme_api import qss
+
 
 class _CardActionsMixin:
     """Advanced search, per-card actions, and the gallery context menu."""
@@ -99,10 +101,7 @@ class _CardActionsMixin:
 
     def _show_gallery_context_menu(self, pos):
         menu = QMenu(self)
-        menu.setStyleSheet(
-            "QMenu { background:#2c2f33; color:white; border:1px solid #4f545c; }"
-            "QMenu::item:selected { background:#00bcd4; color:black; }"
-        )
+        menu.setStyleSheet(qss("context_menu_dark"))
         add_act = QAction("＋ Add New Content", self)
         add_act.triggered.connect(self._on_add_new)
         menu.addAction(add_act)

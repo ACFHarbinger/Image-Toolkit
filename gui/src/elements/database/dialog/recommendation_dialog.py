@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
 )
 
 from gui.src.constants.listings import ENTRY_TYPES
+from gui.src.theming.theme_api import qss
 
 
 class _RecommendationDialog(QDialog):
@@ -31,20 +32,7 @@ class _RecommendationDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("🌟 Content Recommendation")
         self.setMinimumSize(560, 540)
-        self.setStyleSheet(
-            "QDialog { background: #1e1a2e; color: white; }"
-            "QLabel { color: #ce93d8; font-weight: bold; font-size: 12px; }"
-            "QLineEdit, QTextEdit {"
-            "  background: #2c2f33; color: white;"
-            "  border: 1px solid #7b1fa2; border-radius: 4px; padding: 4px;"
-            "}"
-            "QComboBox {"
-            "  background: #2c2f33; color: white;"
-            "  border: 1px solid #7b1fa2; border-radius: 4px; padding: 4px;"
-            "}"
-            "QComboBox::drop-down { border: none; }"
-            "QComboBox QAbstractItemView { background: #2c2f33; color: white; }"
-        )
+        self.setStyleSheet(qss("recommendation_dialog"))
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(16, 16, 16, 12)
@@ -52,20 +40,20 @@ class _RecommendationDialog(QDialog):
 
         # Header
         header = QLabel("🌟 Recommend Content")
-        header.setStyleSheet("font-size: 16px; font-weight: bold; color: #ce93d8;")
+        header.setStyleSheet(qss("recommendation_title"))
         layout.addWidget(header)
 
         desc = QLabel(
             "Describe what you're looking for. Fill in keyword fields, the prompt, or both.\n"
             "When both are provided, results are fused with Reciprocal Rank Fusion."
         )
-        desc.setStyleSheet("color: #aaa; font-size: 11px; font-weight: normal;")
+        desc.setStyleSheet(qss("recommendation_desc"))
         desc.setWordWrap(True)
         layout.addWidget(desc)
 
         sep = QFrame()
         sep.setFrameShape(QFrame.Shape.HLine)
-        sep.setStyleSheet("color: #4f545c;")
+        sep.setStyleSheet(qss("recommendation_separator"))
         layout.addWidget(sep)
 
         # Structured filters
@@ -75,25 +63,25 @@ class _RecommendationDialog(QDialog):
         form.setContentsMargins(0, 0, 0, 0)
 
         type_label = QLabel("Type:")
-        type_label.setStyleSheet("color: #ce93d8; font-weight: bold;")
+        type_label.setStyleSheet(qss("recommendation_form_label"))
         self.type_combo = QComboBox()
         self.type_combo.addItems(["All Types"] + ENTRY_TYPES)
         form.addRow(type_label, self.type_combo)
 
         genres_label = QLabel("Genres:")
-        genres_label.setStyleSheet("color: #ce93d8; font-weight: bold;")
+        genres_label.setStyleSheet(qss("recommendation_form_label"))
         self.genres_edit = QLineEdit()
         self.genres_edit.setPlaceholderText("e.g. Action, Sci-Fi, Psychological")
         form.addRow(genres_label, self.genres_edit)
 
         tags_label = QLabel("Tags:")
-        tags_label.setStyleSheet("color: #ce93d8; font-weight: bold;")
+        tags_label.setStyleSheet(qss("recommendation_form_label"))
         self.tags_edit = QLineEdit()
         self.tags_edit.setPlaceholderText("e.g. time-travel, mecha, philosophical")
         form.addRow(tags_label, self.tags_edit)
 
         entities_label = QLabel("Entities:")
-        entities_label.setStyleSheet("color: #ce93d8; font-weight: bold;")
+        entities_label.setStyleSheet(qss("recommendation_form_label"))
         self.entities_edit = QLineEdit()
         self.entities_edit.setPlaceholderText("e.g. Makoto Shinkai, MAPPA, Yoko Taro")
         form.addRow(entities_label, self.entities_edit)
@@ -120,22 +108,13 @@ class _RecommendationDialog(QDialog):
 
         cancel_btn = QPushButton("Cancel")
         cancel_btn.setFixedWidth(90)
-        cancel_btn.setStyleSheet(
-            "QPushButton { background:#2f3136; color:white; border:1px solid #4f545c;"
-            " border-radius:4px; padding:6px; font-weight:bold; }"
-            "QPushButton:hover { background:#4f545c; }"
-        )
+        cancel_btn.setStyleSheet(qss("database_dialog_cancel_btn"))
         cancel_btn.clicked.connect(self.reject)
         btns.addWidget(cancel_btn)
 
         run_btn = QPushButton("🌟 Run Recommendation")
         run_btn.setFixedWidth(180)
-        run_btn.setStyleSheet(
-            "QPushButton { background:#7b1fa2; color:white; border:none;"
-            " border-radius:4px; padding:6px; font-weight:bold; }"
-            "QPushButton:hover { background:#9c27b0; }"
-            "QPushButton:pressed { background:#6a1b9a; }"
-        )
+        run_btn.setStyleSheet(qss("recommendation_run_btn"))
         run_btn.clicked.connect(self.accept)
         run_btn.setDefault(True)
         btns.addWidget(run_btn)

@@ -22,6 +22,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from gui.src.theming.theme_api import color, qss
+
 
 @dataclass
 class ProviderDescriptor:
@@ -75,14 +77,19 @@ class ProviderDescriptorCard(QFrame):
         header_layout.setSpacing(8)
 
         self.title_label = QLabel(self.descriptor.name)
-        self.title_label.setStyleSheet("font-size: 13pt; font-weight: bold; color: #f0f6fc;")
+        self.title_label.setStyleSheet(qss("cloud_window_title"))
         header_layout.addWidget(self.title_label)
 
+        badge_rgb = self._hex_to_rgb(self.descriptor.badge_color)
         self.badge_label = QLabel(f" {self.descriptor.badge_text} ")
         self.badge_label.setStyleSheet(
-            f"background-color: rgba({self._hex_to_rgb(self.descriptor.badge_color)}, 0.20);"
-            f"color: {self.descriptor.badge_color}; border: 1px solid {self.descriptor.badge_color};"
-            "border-radius: 4px; font-size: 8.5pt; font-weight: bold; padding: 2px 6px;"
+            qss(
+                "cloud_provider_badge",
+                BADGE_COLOR=self.descriptor.badge_color,
+                BADGE_R=badge_rgb[0],
+                BADGE_G=badge_rgb[1],
+                BADGE_B=badge_rgb[2],
+            )
         )
         header_layout.addWidget(self.badge_label)
         header_layout.addStretch(1)
@@ -99,34 +106,31 @@ class ProviderDescriptorCard(QFrame):
         # ── Description ──────────────────────────────────────────────────────
         self.desc_label = QLabel(self.descriptor.description)
         self.desc_label.setWordWrap(True)
-        self.desc_label.setStyleSheet("color: #8b949e; font-size: 9.5pt; line-height: 1.3;")
+        self.desc_label.setStyleSheet(qss("cloud_window_subtitle"))
         layout.addWidget(self.desc_label)
 
         # ── Specs KPI Grid ───────────────────────────────────────────────────
         specs_container = QFrame()
-        specs_container.setStyleSheet(
-            "background-color: #0d1117; border: 1px solid #30363d; border-radius: 6px;"
-        )
+        specs_container.setStyleSheet(qss("cloud_specs_panel"))
         specs_layout = QGridLayout(specs_container)
         specs_layout.setContentsMargins(12, 10, 12, 10)
         specs_layout.setHorizontalSpacing(16)
         specs_layout.setVerticalSpacing(8)
 
-        def make_kpi(col: int, row: int, label: str, value: str, color: str = "#c9d1d9"):
+        def make_kpi(col: int, row: int, label: str, value: str, value_color: str) -> None:
             lbl_title = QLabel(label.upper())
-            lbl_title.setStyleSheet("color: #6e7681; font-size: 7.5pt; font-weight: bold; letter-spacing: 0.5px;")
+            lbl_title.setStyleSheet(qss("resource_category_label"))
             lbl_val = QLabel(value)
-            lbl_val.setStyleSheet(f"color: {color}; font-size: 9pt; font-weight: 600;")
+            lbl_val.setStyleSheet(qss("resource_value_dynamic", VALUE_COLOR=value_color))
             specs_layout.addWidget(lbl_title, row * 2, col)
             specs_layout.addWidget(lbl_val, row * 2 + 1, col)
 
-        make_kpi(0, 0, "Compute Shape", self.descriptor.cpu_shapes, "#79c0ff")
-        make_kpi(1, 0, "Memory Tier", self.descriptor.memory_tiers, "#56d364")
-        make_kpi(2, 0, "GPU Acceleration", self.descriptor.gpu_options, "#d2a8ff")
-
-        make_kpi(0, 1, "Cold Start Latency", self.descriptor.cold_start, "#f0883e")
-        make_kpi(1, 1, "Estimated Cost", self.descriptor.cost_estimate, "#56d364")
-        make_kpi(2, 1, "Target Service", self.descriptor.target_service, "#8b949e")
+        make_kpi(0, 0, "Compute Shape", self.descriptor.cpu_shapes, color("accent_hover"))
+        make_kpi(1, 0, "Memory Tier", self.descriptor.memory_tiers, color("success"))
+        make_kpi(2, 0, "GPU Acceleration", self.descriptor.gpu_options, color("accent"))
+        make_kpi(0, 1, "Cold Start Latency", self.descriptor.cold_start, color("accent_hover"))
+        make_kpi(1, 1, "Estimated Cost", self.descriptor.cost_estimate, color("success"))
+        make_kpi(2, 1, "Target Service", self.descriptor.target_service, color("muted_text"))
 
         layout.addWidget(specs_container)
 
@@ -135,15 +139,12 @@ class ProviderDescriptorCard(QFrame):
         footer_layout.setSpacing(10)
 
         lbl_region = QLabel("Target Region:")
-        lbl_region.setStyleSheet("color: #8b949e; font-size: 8.5pt; font-weight: bold;")
+        lbl_region.setStyleSheet(qss("cloud_window_subtitle"))
         footer_layout.addWidget(lbl_region)
 
         self.region_combo = QComboBox()
         self.region_combo.addItems(self.descriptor.regions)
-        self.region_combo.setStyleSheet(
-            "QComboBox { background-color: #21262d; border: 1px solid #30363d; "
-            "color: #c9d1d9; border-radius: 4px; padding: 3px 8px; font-size: 8.5pt; min-width: 140px; }"
-        )
+        self.region_combo.setStyleSheet(qss("cloud_region_combo"))
         footer_layout.addWidget(self.region_combo)
 
         footer_layout.addStretch(1)
@@ -151,7 +152,7 @@ class ProviderDescriptorCard(QFrame):
         if self.descriptor.config_file:
             lbl_cfg = QLabel(f"📄 Config: <code>{self.descriptor.config_file}</code>")
             lbl_cfg.setTextFormat(Qt.TextFormat.RichText)
-            lbl_cfg.setStyleSheet("color: #6e7681; font-size: 8pt;")
+            lbl_cfg.setStyleSheet(qss("resource_category_label"))
             footer_layout.addWidget(lbl_cfg)
 
         layout.addLayout(footer_layout)
@@ -177,35 +178,17 @@ class ProviderDescriptorCard(QFrame):
         return self.region_combo.currentText()
 
     def _update_selection_style(self) -> None:
+        object_name = self.objectName()
         if self._is_selected:
-            self.setStyleSheet(
-                "QFrame#" + self.objectName() + " {"
-                "  background-color: #161b22; border: 2px solid #58a6ff; border-radius: 8px;"
-                "}"
-            )
-            self.btn_select.setStyleSheet(
-                "QPushButton { background-color: #1f6feb; color: white; border: 1px solid #388bfd;"
-                "border-radius: 4px; padding: 5px 12px; font-weight: bold; font-size: 9pt; }"
-            )
+            self.setStyleSheet(qss("cloud_provider_card_selected", OBJECT_NAME=object_name))
+            self.btn_select.setStyleSheet(qss("cloud_provider_btn_active"))
         else:
-            self.setStyleSheet(
-                "QFrame#" + self.objectName() + " {"
-                "  background-color: #161b22; border: 1px solid #30363d; border-radius: 8px;"
-                "}"
-                "QFrame#" + self.objectName() + ":hover {"
-                "  border: 1px solid #58a6ff; background-color: #1c2128;"
-                "}"
-            )
-            self.btn_select.setStyleSheet(
-                "QPushButton { background-color: #21262d; color: #c9d1d9; border: 1px solid #30363d;"
-                "border-radius: 4px; padding: 5px 12px; font-size: 9pt; }"
-                "QPushButton:hover { background-color: #30363d; color: #f0f6fc; border-color: #8b949e; }"
-            )
+            self.setStyleSheet(qss("cloud_provider_card_default", OBJECT_NAME=object_name))
+            self.btn_select.setStyleSheet(qss("cloud_provider_btn_select"))
 
     @staticmethod
-    def _hex_to_rgb(hex_str: str) -> str:
+    def _hex_to_rgb(hex_str: str) -> tuple[int, int, int]:
         h = hex_str.lstrip("#")
         if len(h) == 6:
-            r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
-            return f"{r}, {g}, {b}"
-        return "88, 166, 255"
+            return int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+        return 88, 166, 255

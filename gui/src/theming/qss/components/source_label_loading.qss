@@ -1,0 +1,4 @@
+border: 1px dashed $DARK_MUTED_TEXT;
+color: $DARK_MUTED_TEXT;
+font-size: 10px;
+border-radius: 4px;
