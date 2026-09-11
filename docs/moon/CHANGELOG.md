@@ -1,3 +1,11 @@
+# S546 — 2026-09-11 (Gemini / Antigravity: R3.6 #573 / ui-arch-51 import-graph slimming)
+
+- Converted `gui/src/components/__init__.py`, `gui/src/helpers/__init__.py`, `gui/src/tabs/__init__.py`, and `gui/src/windows/settings/__init__.py` from eager re-export barrels to PEP 562 `__getattr__` lazy facades over explicit `_LAZY_EXPORTS`.
+- Isolated GUI component imports now load only their direct dependencies: `import gui.src.components.widgets.toast_widget` loads 210 modules (reduced from >3,600); `gc_safe` and `AppSettings` isolated imports load 155 modules.
+- Isolated GUI tests no longer require `submodules/ASP` bootstrap / `asp_backend` availability.
+- Extended `backend/validation/check_init_boundaries.py` to guard all five lazy package initializers (`windows`, `windows/settings`, `components`, `helpers`, `tabs`) and verify `__all__` consistency against `_LAZY_EXPORTS`.
+- Added regression test `gui/test/test_import_footprint.py`.
+
 # S535 — 2026-09-08 (Grok: huge-GIF gallery thumbnails)
 
 - Gallery / wallpaper / extractor thumbnail loads no longer run Qt's GIF
