@@ -76,9 +76,12 @@ class ImageLoaderWorker(QRunnable):
                         return
 
             scaled = self._load_via_qimagereader(self.path, self.target_size)
+            if self._is_cancelled:
+                return
             self._safe_emit(self.path, scaled)
         except Exception:
-            self._safe_emit(self.path, QImage())
+            if not self._is_cancelled:
+                self._safe_emit(self.path, QImage())
         finally:
             if Shiboken.isValid(self.signals):
                 self.signals.deleteLater()
