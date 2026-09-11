@@ -4,8 +4,24 @@ from __future__ import annotations
 
 import importlib
 
+# Public contract checked by gui/test/modules/test_tabs_init_lazy.py (#549):
+# the submodule-GUI subset of _LAZY_EXPORTS, kept as its own name so a
+# caller can enumerate just the lazy submodule boundary without depending
+# on _LAZY_EXPORTS' full shape.
+_LAZY_SUBMODULE_EXPORTS = {
+    "StitchTab": "asp_gui.tabs",
+    "StitchTabBackend": "asp_gui.tabs",
+    "MangaAnimationTab": "csg_gui.tabs",
+    "MangaColorizationTab": "csg_gui.tabs",
+    "MangaPuppeteeringTab": "csg_gui.tabs",
+    "HieEditorTab": "hie_tab",
+}
+
 _LAZY_EXPORTS = {
-    # Submodules (ui-arch-27/#549)
+    # Submodules (ui-arch-27/#549) — kept as literal entries, not
+    # `**_LAZY_SUBMODULE_EXPORTS`: check_init_boundaries.py's AST checker
+    # requires every _LAZY_EXPORTS key to be a plain string constant, and a
+    # dict-unpack key isn't one.
     "StitchTab": "asp_gui.tabs",
     "StitchTabBackend": "asp_gui.tabs",
     "MangaAnimationTab": "csg_gui.tabs",

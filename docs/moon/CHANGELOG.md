@@ -1,3 +1,26 @@
+# S548 — 2026-09-11 (Grok: R2.e #566 / classic-shell lazy tab construction)
+
+- Classic `_create_tabs` no longer constructs ~26 tab widgets before show.
+  `CLASSIC_TAB_ROUTES` is the inventory; `_ensure_category` builds one
+  category at a time through `build_tab` on first select. Startup constructs
+  the restored/startup category only. Unopened categories stay unbuilt;
+  "All Tabs" session save keeps prior configs for those and applies them
+  when the category is later constructed.
+- `build_tab` imports each tab from its leaf module (stitch/manga/HIE still
+  via the lazy `gui.src.tabs` getattr) and logs activation time.
+- Stacked on #559 / PR #603. D12-verified 2026-09-11 (real login, real vault,
+  real data): startup builds only the restored category's tabs; switching to
+  "Library Database" built exactly that category's 5 tabs on first select;
+  session recovery restored the real ExtractorTab video config; clean quit.
+
+# S547 — 2026-09-08 (Codex: R1.4 #559 / shared tab factory)
+
+- Added `build_tab(module_id, context)` as the sole construction path for the
+  classic tab registry and runtime catalog. Removed all catalog constructor
+  `TypeError` fallbacks; factory options are carried explicitly in
+  `ModuleContext`. Regression coverage exercises real database-family
+  constructors and verifies catalog option forwarding.
+
 # S546 — 2026-09-11 (Gemini / Antigravity: R3.6 #573 / ui-arch-51 import-graph slimming)
 
 - Converted `gui/src/components/__init__.py`, `gui/src/helpers/__init__.py`, `gui/src/tabs/__init__.py`, and `gui/src/windows/settings/__init__.py` from eager re-export barrels to PEP 562 `__getattr__` lazy facades over explicit `_LAZY_EXPORTS`.

@@ -18,6 +18,7 @@ from ..settings.app_settings import AppSettings
 
 logger = logging.getLogger(__name__)
 
+
 class _StartupPrefsMixin:
     """Applies vault-stored preferences (thumbnail size, caches, dirs, ...) to every tab."""
 
@@ -86,6 +87,8 @@ class _StartupPrefsMixin:
 
         for _category, tabs_in_category in self.all_tabs.items():
             for tab_instance in tabs_in_category.values():
+                if tab_instance is None:
+                    continue
                 tab_class_name = type(tab_instance).__name__
 
                 if tab_class_name in active_configs:
@@ -120,175 +123,25 @@ class _StartupPrefsMixin:
         if not prefs:
             return
 
-        # §2.16A — thumbnail size and page size
-        thumb_size = int(prefs.get("thumbnail_size", 180))
-        page_size = int(prefs.get("page_size", 100))
-        # §2.16B — LRU cache sizes
-        found_cache = int(prefs.get("found_cache_maxsize", 300))
-        selected_cache = int(prefs.get("selected_cache_maxsize", 200))
-        initial_cache = int(prefs.get("initial_cache_maxsize", 300))
-
-        # NEW: Extractor seek interval and recent extractions count
-        extractor_seek_ms = int(prefs.get("extractor_seek_ms", 100))
-        recent_extractions_count = int(prefs.get("recent_extractions_count", 10))
-        extractor_time_format = prefs.get("extractor_time_format", "m:s:ms")
-
-        # §2.9G — recent (browsed) directories MRU limit
-        recent_dirs_count = int(prefs.get("recent_dirs_count", 10))
-
-        restore_last_dir = prefs.get("restore_last_dir", True)
-
-        default_dir = prefs.get("default_open_dir", "").strip() or LOCAL_SOURCE_PATH
-        if default_dir and "Downloads/data" in default_dir:
-            default_dir = default_dir.replace("Downloads/data", "Downloads/Data")
-
         for cat_tabs in self.all_tabs.values():
             for tab in cat_tabs.values():
-                # Thumbnail and page size (§2.16A)
-                if hasattr(tab, "thumbnail_size"):
-                    tab.thumbnail_size = thumb_size  # pyrefly: ignore [missing-attribute]
-                    if hasattr(tab, "padding_width"):
-                        tab.approx_item_width = thumb_size + tab.padding_width + 20  # pyrefly: ignore [missing-attribute]
-                for attr in ("found_page_size", "selected_page_size", "page_size"):
-                    if hasattr(tab, attr):
-                        setattr(tab, attr, page_size)
-                # LRU caches (§2.16B) — resize in-place to preserve cached thumbnails
-                for attr, size in (
-                    ("_found_pixmap_cache", found_cache),
-                    ("_selected_pixmap_cache", selected_cache),
-                    ("_initial_pixmap_cache", initial_cache),
-                ):
-                    if hasattr(tab, attr):
-                        cache = getattr(tab, attr, None)
-                        if cache is not None and hasattr(cache, "resize"):
-                            cache.resize(size)
-                        else:
-                            setattr(tab, attr, LRUImageCache(maxsize=size))
-
-                # Recent (browsed) directories MRU limit (§2.9G) — every gallery
-                # tab/subtab inherits AbstractGalleryBase.recent_dirs_limit,
-                # consumed by _add_recent_dir() as its default max_entries.
-                # ConvertTab is a plain QWidget wrapper around FormatSubTab /
-                # CodecSubTab / SamplerSubTab, so those nested subtabs (the
-                # actual _add_recent_dir callers) must be reached explicitly.
-                for _rd_obj in (
-                    tab,
-                    getattr(tab, "format_subtab", None),
-                    getattr(tab, "codec_subtab", None),
-                    getattr(tab, "sampler_subtab", None),
-                ):
-                    if _rd_obj is not None and hasattr(_rd_obj, "recent_dirs_limit"):
-                        _rd_obj.recent_dirs_limit = recent_dirs_count  # pyrefly: ignore [missing-attribute]
-
-                # Update directory configuration for the tab
-                for obj in (tab, getattr(tab, "format_tab", None)):
-                    if obj is not None:
-                        obj_any: Any = obj
-                        if hasattr(obj_any, "last_browsed_scan_dir"):
-                            if hasattr(obj_any, "_load_last_dir"):
-                                obj_any.last_browsed_scan_dir = obj_any._load_last_dir(default_dir, main_win=self)
-                            elif (
-                                not restore_last_dir
-                                or getattr(obj_any, "last_browsed_scan_dir", "") == LOCAL_SOURCE_PATH
-                                or not getattr(obj_any, "last_browsed_scan_dir", "")
-                            ):
-                                obj_any.last_browsed_scan_dir = default_dir
-                            if obj_any.last_browsed_scan_dir and "Downloads/data" in obj_any.last_browsed_scan_dir:
-                                obj_any.last_browsed_scan_dir = obj_any.last_browsed_scan_dir.replace(
-                                    "Downloads/data", "Downloads/Data"
-                                )
-                        if hasattr(obj_any, "last_browsed_dir"):
-                            if hasattr(obj_any, "_load_last_dir"):
-                                obj_any.last_browsed_dir = obj_any._load_last_dir(default_dir, main_win=self)
-                            elif (
-                                not restore_last_dir
-                                or getattr(obj_any, "last_browsed_dir", "") == LOCAL_SOURCE_PATH
-                                or not getattr(obj_any, "last_browsed_dir", "")
-                            ):
-                                obj_any.last_browsed_dir = default_dir
-                            if obj_any.last_browsed_dir and "Downloads/data" in obj_any.last_browsed_dir:
-                                obj_any.last_browsed_dir = obj_any.last_browsed_dir.replace(
-                                    "Downloads/data", "Downloads/Data"
-                                )
-
-                # ExtractorTab specific directory update
-                if type(tab).__name__ == "ExtractorTab":
-                    tab_any: Any = tab
-                    default_extraction_dir = Path(default_dir) / "Frames"
-                    saved = tab_any._load_last_extraction_dir(str(default_extraction_dir))
-                    if saved and "Downloads/data" in saved:
-                        saved = saved.replace("Downloads/data", "Downloads/Data")
-                    # Respect the user's previously-browsed extraction directory.
-                    # Blindly forcing the default here silently discarded the
-                    # user's chosen output dir on every launch, so GIFs/PNGs
-                    # appeared in the gallery (which reads extraction_dir) but
-                    # not in the user's actual output directory.
-                    target_dir = Path(saved) if (saved and Path(saved).exists()) else default_extraction_dir
-                    current_dir = getattr(tab_any, "extraction_dir", None)
-                    if current_dir != target_dir:
-                        tab_any.extraction_dir = target_dir
-                        tab_any.extraction_dir.mkdir(parents=True, exist_ok=True)
-                        tab_any.last_browsed_extraction_dir = str(tab_any.extraction_dir)
-                        tab_any.line_edit_extract_dir.setText(str(tab_any.extraction_dir))
-                        tab_any._refresh_extracted_stems_cache()
-                        tab_any._load_existing_output_images()
-
-
-                # Apply Extractor seek interval
-                if hasattr(tab, "wheel_seek_ms"):
-                    tab.wheel_seek_ms = extractor_seek_ms  # pyrefly: ignore [missing-attribute]
-
-                # Apply Extractor recent limit
-                if hasattr(tab, "recent_extractions_limit"):
-                    tab.recent_extractions_limit = recent_extractions_count  # pyrefly: ignore [missing-attribute]
-                    if hasattr(tab, "_apply_new_extractions_limit") and callable(tab._apply_new_extractions_limit):
-                        tab._apply_new_extractions_limit()
-
-                # Apply Extractor queue setting
-                if hasattr(tab, "extraction_queue_enabled"):
-                    tab.extraction_queue_enabled = prefs.get(  # pyrefly: ignore [missing-attribute]
-                        "enable_extraction_queue", False
-                    )
-                    tab.parallel_extraction_processors = max(
-                        1, int(prefs.get("parallel_extraction_processors", 4))
-                    )
-                    tab.encoder_threads = int(prefs.get("extractor_encoder_threads", 0))
-                    tab.gif_max_colors = int(prefs.get("extractor_gif_max_colors", 256))
-                    tab.fps_clamp = int(prefs.get("extractor_fps_clamp", 0))
-                    if hasattr(tab, "_on_queue_toggle_changed") and callable(tab._on_queue_toggle_changed):
-                        tab._on_queue_toggle_changed()
-
-                # Apply Extractor time display format
-                if hasattr(tab, "time_display_format"):
-                    tab.time_display_format = extractor_time_format  # pyrefly: ignore [missing-attribute]
-                    if hasattr(tab, "refresh_time_display") and callable(tab.refresh_time_display):
-                        tab.refresh_time_display()
+                if tab is None:
+                    continue
+                self._apply_gallery_prefs_to_tab(tab, prefs)
 
         # §2.16C — startup category
         startup_cat = prefs.get("startup_category", "")
         if startup_cat and startup_cat in self.all_tabs:
             self.command_combo.setCurrentText(startup_cat)
 
-        # §2.16E — slideshow defaults to WallpaperTab
-        if hasattr(self, "wallpaper_tab"):
-            wt = self.wallpaper_tab
-            try:
-                wt.interval_min_spinbox.setValue(  # pyrefly: ignore [missing-attribute]
-                    int(prefs.get("slideshow_interval_min", 5))
-                )
-                wt.interval_sec_spinbox.setValue(  # pyrefly: ignore [missing-attribute]
-                    int(prefs.get("slideshow_interval_sec", 0))
-                )
-                order = prefs.get("slideshow_order", "Sequential")
-                wt.playback_order_combo.setCurrentText(order)  # pyrefly: ignore [missing-attribute]
-            except Exception:
-                logger.debug("Suppressed Exception in _StartupPrefsMixin._apply_startup_preferences", exc_info=True)
+        self._apply_wallpaper_slideshow_prefs()
 
         # §2.16F — logging preferences (GUI/UX §2.9F, issue #48). Local import:
         # backend.src.app imports from gui.src.windows.main, so a module-level
         # import here would be circular.
         try:
             from backend.src.app import _reconfigure_logging
+
             _reconfigure_logging(
                 prefs.get("log_level", "INFO"),
                 bool(prefs.get("file_logging_enabled", False)),
@@ -296,6 +149,135 @@ class _StartupPrefsMixin:
         except Exception:
             logger.debug("Suppressed Exception in _StartupPrefsMixin._apply_startup_preferences", exc_info=True)
 
+    def _apply_wallpaper_slideshow_prefs(self) -> None:
+        wt = getattr(self, "wallpaper_tab", None)
+        if wt is None:
+            return
+        prefs = getattr(self, "cached_creds", {}).get("preferences", {}) or {}
+        try:
+            wt.interval_min_spinbox.setValue(  # pyrefly: ignore [missing-attribute]
+                int(prefs.get("slideshow_interval_min", 5))
+            )
+            wt.interval_sec_spinbox.setValue(  # pyrefly: ignore [missing-attribute]
+                int(prefs.get("slideshow_interval_sec", 0))
+            )
+            order = prefs.get("slideshow_order", "Sequential")
+            wt.playback_order_combo.setCurrentText(order)  # pyrefly: ignore [missing-attribute]
+        except Exception:
+            logger.debug("Suppressed Exception in _StartupPrefsMixin._apply_wallpaper_slideshow_prefs", exc_info=True)
+
+    def _apply_gallery_prefs_to_tab(self, tab: Any, prefs: dict) -> None:  # noqa: C901
+        if tab is None or not prefs:
+            return
+        thumb_size = int(prefs.get("thumbnail_size", 180))
+        page_size = int(prefs.get("page_size", 100))
+        found_cache = int(prefs.get("found_cache_maxsize", 300))
+        selected_cache = int(prefs.get("selected_cache_maxsize", 200))
+        initial_cache = int(prefs.get("initial_cache_maxsize", 300))
+        extractor_seek_ms = int(prefs.get("extractor_seek_ms", 100))
+        recent_extractions_count = int(prefs.get("recent_extractions_count", 10))
+        extractor_time_format = prefs.get("extractor_time_format", "m:s:ms")
+        recent_dirs_count = int(prefs.get("recent_dirs_count", 10))
+        restore_last_dir = prefs.get("restore_last_dir", True)
+        default_dir = prefs.get("default_open_dir", "").strip() or LOCAL_SOURCE_PATH
+        if default_dir and "Downloads/data" in default_dir:
+            default_dir = default_dir.replace("Downloads/data", "Downloads/Data")
+
+        if hasattr(tab, "thumbnail_size"):
+            tab.thumbnail_size = thumb_size  # pyrefly: ignore [missing-attribute]
+            if hasattr(tab, "padding_width"):
+                tab.approx_item_width = thumb_size + tab.padding_width + 20  # pyrefly: ignore [missing-attribute]
+        for attr in ("found_page_size", "selected_page_size", "page_size"):
+            if hasattr(tab, attr):
+                setattr(tab, attr, page_size)
+        for attr, size in (
+            ("_found_pixmap_cache", found_cache),
+            ("_selected_pixmap_cache", selected_cache),
+            ("_initial_pixmap_cache", initial_cache),
+        ):
+            if hasattr(tab, attr):
+                cache = getattr(tab, attr, None)
+                if cache is not None and hasattr(cache, "resize"):
+                    cache.resize(size)
+                else:
+                    setattr(tab, attr, LRUImageCache(maxsize=size))
+
+        for _rd_obj in (
+            tab,
+            getattr(tab, "format_subtab", None),
+            getattr(tab, "codec_subtab", None),
+            getattr(tab, "sampler_subtab", None),
+        ):
+            if _rd_obj is not None and hasattr(_rd_obj, "recent_dirs_limit"):
+                _rd_obj.recent_dirs_limit = recent_dirs_count  # pyrefly: ignore [missing-attribute]
+
+        for obj in (tab, getattr(tab, "format_tab", None)):
+            if obj is not None:
+                obj_any: Any = obj
+                if hasattr(obj_any, "last_browsed_scan_dir"):
+                    if hasattr(obj_any, "_load_last_dir"):
+                        obj_any.last_browsed_scan_dir = obj_any._load_last_dir(default_dir, main_win=self)
+                    elif (
+                        not restore_last_dir
+                        or getattr(obj_any, "last_browsed_scan_dir", "") == LOCAL_SOURCE_PATH
+                        or not getattr(obj_any, "last_browsed_scan_dir", "")
+                    ):
+                        obj_any.last_browsed_scan_dir = default_dir
+                    if obj_any.last_browsed_scan_dir and "Downloads/data" in obj_any.last_browsed_scan_dir:
+                        obj_any.last_browsed_scan_dir = obj_any.last_browsed_scan_dir.replace(
+                            "Downloads/data", "Downloads/Data"
+                        )
+                if hasattr(obj_any, "last_browsed_dir"):
+                    if hasattr(obj_any, "_load_last_dir"):
+                        obj_any.last_browsed_dir = obj_any._load_last_dir(default_dir, main_win=self)
+                    elif (
+                        not restore_last_dir
+                        or getattr(obj_any, "last_browsed_dir", "") == LOCAL_SOURCE_PATH
+                        or not getattr(obj_any, "last_browsed_dir", "")
+                    ):
+                        obj_any.last_browsed_dir = default_dir
+                    if obj_any.last_browsed_dir and "Downloads/data" in obj_any.last_browsed_dir:
+                        obj_any.last_browsed_dir = obj_any.last_browsed_dir.replace("Downloads/data", "Downloads/Data")
+
+        if type(tab).__name__ == "ExtractorTab":
+            tab_any: Any = tab
+            default_extraction_dir = Path(default_dir) / "Frames"
+            saved = tab_any._load_last_extraction_dir(str(default_extraction_dir))
+            if saved and "Downloads/data" in saved:
+                saved = saved.replace("Downloads/data", "Downloads/Data")
+            target_dir = Path(saved) if (saved and Path(saved).exists()) else default_extraction_dir
+            current_dir = getattr(tab_any, "extraction_dir", None)
+            if current_dir != target_dir:
+                tab_any.extraction_dir = target_dir
+                tab_any.extraction_dir.mkdir(parents=True, exist_ok=True)
+                tab_any.last_browsed_extraction_dir = str(tab_any.extraction_dir)
+                tab_any.line_edit_extract_dir.setText(str(tab_any.extraction_dir))
+                tab_any._refresh_extracted_stems_cache()
+                tab_any._load_existing_output_images()
+
+        if hasattr(tab, "wheel_seek_ms"):
+            tab.wheel_seek_ms = extractor_seek_ms  # pyrefly: ignore [missing-attribute]
+
+        if hasattr(tab, "recent_extractions_limit"):
+            tab.recent_extractions_limit = recent_extractions_count  # pyrefly: ignore [missing-attribute]
+            if hasattr(tab, "_apply_new_extractions_limit") and callable(tab._apply_new_extractions_limit):
+                tab._apply_new_extractions_limit()
+
+        if hasattr(tab, "extraction_queue_enabled"):
+            tab.extraction_queue_enabled = prefs.get(  # pyrefly: ignore [missing-attribute]
+                "enable_extraction_queue", False
+            )
+            tab.parallel_extraction_processors = max(1, int(prefs.get("parallel_extraction_processors", 4)))
+            tab.encoder_threads = int(prefs.get("extractor_encoder_threads", 0))
+            tab.gif_max_colors = int(prefs.get("extractor_gif_max_colors", 256))
+            tab.fps_clamp = int(prefs.get("extractor_fps_clamp", 0))
+            if hasattr(tab, "_on_queue_toggle_changed") and callable(tab._on_queue_toggle_changed):
+                tab._on_queue_toggle_changed()
+
+        if hasattr(tab, "time_display_format"):
+            tab.time_display_format = extractor_time_format  # pyrefly: ignore [missing-attribute]
+            if hasattr(tab, "refresh_time_display") and callable(tab.refresh_time_display):
+                tab.refresh_time_display()
 
 
 __all__ = ["_StartupPrefsMixin"]
