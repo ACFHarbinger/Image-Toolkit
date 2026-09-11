@@ -130,17 +130,17 @@ gallery presentation modes (#542, own D12 pass).
 ### 2.4 Module and route inventory (classic shell baseline)
 
 `gui/test/modules/test_legacy_module_inventory.py` statically compares this
-table to the live `all_tabs` dictionary in `gui/src/windows/main/_tab_registry.py`.
+table to `CLASSIC_TAB_ROUTES` in `gui/src/windows/main/_tab_registry.py`.
 A route rename, addition, removal, or coupling change must update this
 table deliberately.
 
-Construction baseline: `_TabRegistryMixin._create_tabs()` imports 25 names
-from `gui.src.tabs`, one additional `ListingsTab` symbol, and directly
-constructs 26 top-level tab objects before the window shows. All 33
-navigable routes are therefore eager on the classic path; the eight Image
-Stitching routes are views owned by one `StitchTab`. Per-module import
-timings are not inferred from this table (entangled with optional
-ML/submodule imports); R2.e measures them.
+Construction baseline (R2.e / #566): `_create_tabs()` registers hub, services,
+and the title map, then `_ensure_category()` constructs tabs through
+`build_tab()` on first category select. Classic startup builds ≤ 1 category
+(the restored last tab, else the startup-category preference, else System
+Tools). The eight Image Stitching routes remain views owned by one
+`StitchTab` (`stitch.workspace`). Per-module import/activation timings are
+logged from `build_tab` / `_classic_construction_log`.
 
 | Module ID | Category | Current title | Live expression | Runtime kind |
 |---|---|---|---|---|
@@ -307,7 +307,7 @@ concurrently (D6). "Gate" = D12 live pass required in addition to Codex review.
 | Agent | Items |
 |---|---|
 | Claude | ~~R0.1, R0.3, R0.4, R0.5~~ done. **Remaining: R1.2 (#557), R2.d (#565), R3.2 (#569), R3.6 (#573).** Roadmap steward. |
-| Grok | ~~R2.g (#543)~~ done, D12-verified 2026-09-07. **Remaining: R2.c gallery-owning tabs + MainWindow (#544, now unblocked), R3.1 (#568), R3.4 (#571, now unblocked), R3.5 (#572). R2.e (#566) stays gated on R1.4.** |
+| Grok | ~~R2.g (#543)~~ done, D12-verified 2026-09-07. **Remaining: R2.c gallery-owning tabs + MainWindow (#544, PRs open), R3.1 (#568), R3.4 (#571), R3.5 (#572), R2.e (#566, stacked on #559 / PR #603, D12 pending).** |
 | Gemini / Antigravity | ~~R0.8, R1.7~~ done. **Remaining: R2.c non-gallery tabs (#544 — DriveSync, EntityRecon, MediaLoader, ImageCrawl, CBIRTrain, Sampler, in that order), R2.f (#567).** |
 | Meta's Muse | ~~R0.6, R0.9~~ done. **Remaining: R0.7 (#553), R1.1 (#556), R1.6 (#561), R2.a extractor/sync workers (#563 continuation, gated on R1.1), R3.3 (#570).** |
 | Chat / Codex | ~~R0.2 (#548), R1.3 (#558)~~ done, D12-verified 2026-09-08. **Remaining: R1.4 (#559 — re-claim, prior worktree was cleaned up unstarted), R1.5 (#560, no remaining blocker).** Mandatory cross-review of every item — largely unresponsive since 2026-09-06; Claude has been standing in as reviewer of last resort. |

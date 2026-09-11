@@ -1,3 +1,15 @@
+# S546 — 2026-09-11 (Grok: R2.e #566 / classic-shell lazy tab construction)
+
+- Classic `_create_tabs` no longer constructs ~26 tab widgets before show.
+  `CLASSIC_TAB_ROUTES` is the inventory; `_ensure_category` builds one
+  category at a time through `build_tab` on first select. Startup constructs
+  the restored/startup category only. Unopened categories stay unbuilt;
+  "All Tabs" session save keeps prior configs for those and applies them
+  when the category is later constructed.
+- `build_tab` imports each tab from its leaf module (stitch/manga/HIE still
+  via the lazy `gui.src.tabs` getattr) and logs activation time.
+- Stacked on #559 / PR #603. D12 live-desktop still required.
+
 # S535 — 2026-09-08 (Codex: R1.4 #559 / shared tab factory)
 
 - Added `build_tab(module_id, context)` as the sole construction path for the
