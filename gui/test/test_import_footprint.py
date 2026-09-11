@@ -9,9 +9,9 @@ Exit criteria:
 from __future__ import annotations
 
 import os
-from pathlib import Path
 import subprocess
 import sys
+from pathlib import Path
 
 _REPO_ROOT = str(Path(__file__).resolve().parents[2])
 _ENV = {**os.environ, "PYTHONPATH": _REPO_ROOT}
