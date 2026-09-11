@@ -103,8 +103,4 @@ class EntityListingsDirectoryImportController(TabBoundController):
             )
 
 
-_DirectoryImportMixin = (
-    EntityListingsDirectoryImportController  # COMPAT(ui-arch-23): remove after callers drop mixin names
-)
-
-__all__ = ["EntityListingsDirectoryImportController", "_DirectoryImportMixin"]
+__all__ = ["EntityListingsDirectoryImportController"]

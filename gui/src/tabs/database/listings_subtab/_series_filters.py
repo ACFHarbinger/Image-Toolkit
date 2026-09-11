@@ -38,6 +38,4 @@ class SeriesListingsFiltersController(TabBoundController):
         self._rebuild_gallery()
 
 
-_FiltersMixin = SeriesListingsFiltersController  # COMPAT(ui-arch-23): remove after callers drop mixin names
-
-__all__ = ["SeriesListingsFiltersController", "_FiltersMixin"]
+__all__ = ["SeriesListingsFiltersController"]

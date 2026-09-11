@@ -102,6 +102,4 @@ class EntityListingsPersistenceController(TabBoundController):
             return False
 
 
-_PersistenceMixin = EntityListingsPersistenceController  # COMPAT(ui-arch-23): remove after callers drop mixin names
-
-__all__ = ["EntityListingsPersistenceController", "_PersistenceMixin"]
+__all__ = ["EntityListingsPersistenceController"]

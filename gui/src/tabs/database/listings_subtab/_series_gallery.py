@@ -169,6 +169,4 @@ class SeriesListingsGalleryController(TabBoundController):
         self._rebuild_gallery()
 
 
-_GalleryMixin = SeriesListingsGalleryController  # COMPAT(ui-arch-23): remove after callers drop mixin names
-
-__all__ = ["SeriesListingsGalleryController", "_GalleryMixin", "_SORT_KEY_MAP"]
+__all__ = ["SeriesListingsGalleryController", "_SORT_KEY_MAP"]

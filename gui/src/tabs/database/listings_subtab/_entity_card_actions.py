@@ -85,6 +85,4 @@ class EntityListingsCardActionsController(TabBoundController):
         self._rebuild_gallery()
 
 
-_CardActionsMixin = EntityListingsCardActionsController  # COMPAT(ui-arch-23): remove after callers drop mixin names
-
-__all__ = ["EntityListingsCardActionsController", "_CardActionsMixin"]
+__all__ = ["EntityListingsCardActionsController"]

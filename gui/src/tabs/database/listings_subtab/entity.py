@@ -176,14 +176,4 @@ class EntityListingsSubTab(ListingGalleryBase):
         return self.directory_import._on_import_from_directory()
 
 
-# COMPAT(ui-arch-23): remove after callers drop mixin names
-_UIBuilderMixin = EntityListingsUIBuilder
-_PersistenceMixin = EntityListingsPersistenceController
-_GalleryMixin = EntityListingsGalleryController
-_CardActionsMixin = EntityListingsCardActionsController
-_FiltersMixin = EntityListingsFiltersController
-_SemanticSearchMixin = EntityListingsSemanticController
-_BackupSyncMixin = ListingsBackupSyncController
-_DirectoryImportMixin = EntityListingsDirectoryImportController
-
 __all__ = ["EntityListingsSubTab"]

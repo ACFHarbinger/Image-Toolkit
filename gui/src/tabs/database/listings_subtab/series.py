@@ -202,15 +202,4 @@ class SeriesListingsSubTab(ListingGalleryBase):
         return self.directory_import._on_import_from_directory()
 
 
-# COMPAT(ui-arch-23): remove after callers drop mixin names
-_UIBuilderMixin = SeriesListingsUIBuilder
-_PersistenceMixin = SeriesListingsPersistenceController
-_GalleryMixin = SeriesListingsGalleryController
-_CardActionsMixin = SeriesListingsCardActionsController
-_RecommendationMixin = SeriesListingsRecommendationController
-_FiltersMixin = SeriesListingsFiltersController
-_SemanticSearchMixin = SeriesListingsSemanticController
-_BackupSyncMixin = ListingsBackupSyncController
-_DirectoryImportMixin = SeriesListingsDirectoryImportController
-
 __all__ = ["SeriesListingsSubTab"]

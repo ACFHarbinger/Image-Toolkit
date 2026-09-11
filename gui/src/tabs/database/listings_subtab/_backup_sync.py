@@ -192,6 +192,4 @@ class ListingsBackupSyncController(TabBoundController):
             )
 
 
-_BackupSyncMixin = ListingsBackupSyncController  # COMPAT(ui-arch-23): remove after callers drop mixin names
-
-__all__ = ["ListingsBackupSyncController", "_BackupSyncMixin"]
+__all__ = ["ListingsBackupSyncController"]

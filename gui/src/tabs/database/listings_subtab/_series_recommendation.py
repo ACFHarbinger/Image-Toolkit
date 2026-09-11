@@ -70,8 +70,4 @@ class SeriesListingsRecommendationController(TabBoundController):
         self._rebuild_gallery()
 
 
-_RecommendationMixin = (
-    SeriesListingsRecommendationController  # COMPAT(ui-arch-23): remove after callers drop mixin names
-)
-
-__all__ = ["SeriesListingsRecommendationController", "_RecommendationMixin"]
+__all__ = ["SeriesListingsRecommendationController"]

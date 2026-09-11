@@ -33,6 +33,4 @@ class EntityListingsFiltersController(TabBoundController):
         self._rebuild_gallery()
 
 
-_FiltersMixin = EntityListingsFiltersController  # COMPAT(ui-arch-23): remove after callers drop mixin names
-
-__all__ = ["EntityListingsFiltersController", "_FiltersMixin"]
+__all__ = ["EntityListingsFiltersController"]

@@ -148,6 +148,4 @@ class SeriesListingsCardActionsController(TabBoundController):
                 self._detail.load_entry(entry, cached_entities=self._all_entities)
 
 
-_CardActionsMixin = SeriesListingsCardActionsController  # COMPAT(ui-arch-23): remove after callers drop mixin names
-
-__all__ = ["SeriesListingsCardActionsController", "_CardActionsMixin"]
+__all__ = ["SeriesListingsCardActionsController"]

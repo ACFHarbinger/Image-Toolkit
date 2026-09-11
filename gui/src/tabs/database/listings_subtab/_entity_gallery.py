@@ -150,6 +150,4 @@ class EntityListingsGalleryController(TabBoundController):
         self._rebuild_gallery()
 
 
-_GalleryMixin = EntityListingsGalleryController  # COMPAT(ui-arch-23): remove after callers drop mixin names
-
-__all__ = ["EntityListingsGalleryController", "_GalleryMixin", "ENTITY_LISTINGS_SUBTAB__SORT_KEY_MAP"]
+__all__ = ["EntityListingsGalleryController", "ENTITY_LISTINGS_SUBTAB__SORT_KEY_MAP"]

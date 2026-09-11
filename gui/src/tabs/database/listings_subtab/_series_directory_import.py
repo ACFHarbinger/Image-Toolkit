@@ -155,8 +155,4 @@ class SeriesListingsDirectoryImportController(TabBoundController):
         )
 
 
-_DirectoryImportMixin = (
-    SeriesListingsDirectoryImportController  # COMPAT(ui-arch-23): remove after callers drop mixin names
-)
-
-__all__ = ["SeriesListingsDirectoryImportController", "_DirectoryImportMixin"]
+__all__ = ["SeriesListingsDirectoryImportController"]

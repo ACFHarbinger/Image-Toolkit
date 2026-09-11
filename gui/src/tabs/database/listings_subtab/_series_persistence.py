@@ -106,6 +106,4 @@ class SeriesListingsPersistenceController(TabBoundController):
             return False
 
 
-_PersistenceMixin = SeriesListingsPersistenceController  # COMPAT(ui-arch-23): remove after callers drop mixin names
-
-__all__ = ["SeriesListingsPersistenceController", "_PersistenceMixin"]
+__all__ = ["SeriesListingsPersistenceController"]

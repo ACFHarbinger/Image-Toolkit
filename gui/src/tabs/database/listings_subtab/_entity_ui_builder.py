@@ -234,6 +234,4 @@ class EntityListingsUIBuilder(TabBoundController):
         self._resize_timer.setInterval(120)
 
 
-_UIBuilderMixin = EntityListingsUIBuilder  # COMPAT(ui-arch-23): remove after callers drop mixin names
-
-__all__ = ["EntityListingsUIBuilder", "_UIBuilderMixin"]
+__all__ = ["EntityListingsUIBuilder"]

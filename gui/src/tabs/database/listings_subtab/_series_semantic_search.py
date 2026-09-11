@@ -166,6 +166,4 @@ class SeriesListingsSemanticController(TabBoundController):
         self.stats_label.setText("🧠 Index build failed.")
 
 
-_SemanticSearchMixin = SeriesListingsSemanticController  # COMPAT(ui-arch-23): remove after callers drop mixin names
-
-__all__ = ["SeriesListingsSemanticController", "_SemanticSearchMixin"]
+__all__ = ["SeriesListingsSemanticController"]
