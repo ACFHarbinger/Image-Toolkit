@@ -1,0 +1,1 @@
+QPushButton { padding: $PADDING; $FONT_WEIGHT }

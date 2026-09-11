@@ -173,6 +173,7 @@ def main() -> int:
         gui_src / "components" / "__init__.py",
         gui_src / "helpers" / "__init__.py",
         gui_src / "tabs" / "__init__.py",
+        gui_src / "theming" / "__init__.py",
     ]
     for init_path in lazy_facades:
         if init_path.exists():

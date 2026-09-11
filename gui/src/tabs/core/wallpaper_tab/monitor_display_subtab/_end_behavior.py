@@ -12,6 +12,7 @@ from PySide6.QtCore import Slot
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QWidget
 
+from .....theming.theme_api import qss
 from ..graph.data_schema import GraphData
 
 if TYPE_CHECKING:
@@ -74,7 +75,7 @@ class _EndBehaviorMixin:
 
     def _refresh_end_color_preview(self: "MonitorDisplaySubTabHostProtocol"):
         self._end_color_preview.setStyleSheet(
-            f"background-color:{self._end_color_current}; border:1px solid #4f545c;"
+            qss("dynamic_color_preview", BG_COLOR=self._end_color_current)
         )
 
     def _update_end_jump_combo(self: "MonitorDisplaySubTabHostProtocol"):

@@ -39,6 +39,7 @@ from PySide6.QtWidgets import (
 
 from gui.src.constants.components import _PREVIEW_MAX
 from gui.src.helpers.models.tag_review_worker import TagReviewWorker
+from gui.src.theming.theme_api import qss
 
 
 class TagReviewDialog(QDialog):
@@ -97,7 +98,7 @@ class TagReviewDialog(QDialog):
         self._preview_label = QLabel()
         self._preview_label.setFixedSize(_PREVIEW_MAX, _PREVIEW_MAX)
         self._preview_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._preview_label.setStyleSheet("background: #111;")
+        self._preview_label.setStyleSheet(qss("tag_review_preview"))
         top.addWidget(self._preview_label)
 
         self._tags_box = QGroupBox("Predicted tags")

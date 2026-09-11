@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
 
 from ....helpers.models.training_worker import TrainingWorker
 from ....styles import set_button_role
+from ....theming.theme_api import qss
 
 
 class GANTrainTab(QWidget):
@@ -101,7 +102,7 @@ class GANTrainTab(QWidget):
         # Preview Area
         self.lbl_preview = QLabel("Latest Training Sample")
         self.lbl_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.lbl_preview.setStyleSheet("border: 2px dashed #aaa; padding: 10px;")
+        self.lbl_preview.setStyleSheet(qss("gan_preview_placeholder"))
         self.lbl_preview.setMinimumHeight(200)
         layout.addWidget(self.lbl_preview)
 

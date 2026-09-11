@@ -23,6 +23,8 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
+from gui.src.theming.theme_api import color, qss
+
 from .app_settings import AppSettings
 
 logger = logging.getLogger(__name__)
@@ -47,16 +49,16 @@ class _ProfileManagementMixin:
 
         self.btn_use_profile = QPushButton("Use Profile")
         self.btn_use_profile.setToolTip("Load the selected profile's settings and apply them to the app immediately")
-        self.btn_use_profile.setStyleSheet("background-color: #27ae60; color: white;")
+        self.btn_use_profile.setStyleSheet(qss("settings_btn_success"))
         self.btn_use_profile.clicked.connect(self._use_selected_profile)
 
         self.btn_update_profile = QPushButton("Update Profile")
         self.btn_update_profile.setToolTip("Update the selected profile with the current settings from the UI fields")
-        self.btn_update_profile.setStyleSheet("background-color: #2980b9; color: white;")
+        self.btn_update_profile.setStyleSheet(qss("settings_btn_accent"))
         self.btn_update_profile.clicked.connect(self._update_selected_profile)
 
         self.btn_delete_profile = QPushButton("Delete Profile")
-        self.btn_delete_profile.setStyleSheet("background-color: #e74c3c; color: white;")
+        self.btn_delete_profile.setStyleSheet(qss("dialog_btn_danger"))
         self.btn_delete_profile.clicked.connect(self._delete_selected_profile)
 
         profile_select_layout.addWidget(QLabel("Profile:"))
@@ -75,7 +77,7 @@ class _ProfileManagementMixin:
 
         self.btn_save_profile = QPushButton("Save Current Settings as Profile")
         self.btn_save_profile.setToolTip("Save the current state of Theme and Tab Configs above as a new profile")
-        self.btn_save_profile.setStyleSheet("background-color: #2ecc71; color: white;")
+        self.btn_save_profile.setStyleSheet(qss("settings_btn_success"))
         self.btn_save_profile.clicked.connect(self._save_current_as_profile)
 
         profile_create_layout.addWidget(QLabel("Name:"))
@@ -234,8 +236,8 @@ class _ProfileManagementMixin:
         self.pref_extractor_gif_max_colors = _p.get("extractor_gif_max_colors", 256)
         self.pref_extractor_fps_clamp = _p.get("extractor_fps_clamp", 0)
         self.pref_session_recovery = _p.get("session_recovery_level", "None")
-        self.pref_accent_dark = _p.get("accent_color_dark", "#00bcd4")
-        self.pref_accent_light = _p.get("accent_color_light", "#007AFF")
+        self.pref_accent_dark = _p.get("accent_color_dark", color("accent", base="dark"))
+        self.pref_accent_light = _p.get("accent_color_light", color("accent", base="light"))
         self.pref_font_scale = _p.get("font_scale", 100)
         self.pref_ui_density = _p.get("ui_density", "Comfortable")
         self.pref_recursive_scan = _p.get("recursive_scan", True)

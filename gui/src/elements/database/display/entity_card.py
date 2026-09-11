@@ -5,12 +5,14 @@ from gui.src.constants.listings import (
     ENTITY_PLACEHOLDER,
     ENTITY_ROLE_COLORS,
     ENTITY_TYPE_COLORS,
+    RATING_STAR_COLOR,
 )
 from gui.src.elements.database.common.listings_common import (
     _badge,
     open_file_location,
 )
 from gui.src.elements.database.display.common.base_card import BaseCard
+from gui.src.theming.theme_api import qss
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QMenu, QVBoxLayout
@@ -27,11 +29,7 @@ class _EntityCard(BaseCard):
         )
         self.entity = entity
         self.setObjectName("entity_card")
-        self.set_base_card_style(
-            "QWidget#entity_card{background:rgba(20, 24, 32, 0.45);border:2px solid rgba(255, 255, 255, 0.12);"
-            "border-radius:8px;}"
-            "QWidget#entity_card:hover{border:2px solid #00bcd4;background:rgba(28, 34, 46, 0.60);}"
-        )
+        self.set_base_card_style("database_entity_card")
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(6, 6, 6, 6)
@@ -44,7 +42,7 @@ class _EntityCard(BaseCard):
         name_lbl = QLabel(entity.get("name", "Unnamed"))
         name_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         name_lbl.setWordWrap(False)
-        name_lbl.setStyleSheet("color:#ffffff;font-weight:bold;font-size:11px;border:none;")
+        name_lbl.setStyleSheet(qss("database_card_title"))
         name_lbl.setFixedWidth(self.card_size - 4)
         fm = name_lbl.fontMetrics()
         name_lbl.setText(
@@ -62,8 +60,8 @@ class _EntityCard(BaseCard):
         badge_row.setSpacing(4)
         t = entity.get("type", "Other")
         r = entity.get("role", "Other")
-        badge_row.addWidget(_badge(t, ENTITY_TYPE_COLORS.get(t, "#607d8b")))
-        badge_row.addWidget(_badge(r[:9], ENTITY_ROLE_COLORS.get(r, "#607d8b")))
+        badge_row.addWidget(_badge(t, ENTITY_TYPE_COLORS.get(t, ENTITY_TYPE_COLORS["Other"])))
+        badge_row.addWidget(_badge(r[:9], ENTITY_ROLE_COLORS.get(r, ENTITY_ROLE_COLORS["Other"])))
         layout.addLayout(badge_row)
 
         # Associated series or credits count
@@ -80,7 +78,7 @@ class _EntityCard(BaseCard):
         if info_text:
             info_lbl = QLabel(info_text)
             info_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            info_lbl.setStyleSheet("color:#888; font-size:10px; border:none;")
+            info_lbl.setStyleSheet(qss("database_card_muted_info"))
             info_lbl.setFixedWidth(self.card_size - 10)
             info_lbl.setText(
                 fm.elidedText(
@@ -101,15 +99,12 @@ class _EntityCard(BaseCard):
             stars = "★" * rating + "☆" * (10 - rating)
             r_lbl = QLabel(stars[:10])
             r_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            r_lbl.setStyleSheet("color:#f1c40f;font-size:9px;border:none;")
+            r_lbl.setStyleSheet(qss("database_card_rating", STAR_COLOR=RATING_STAR_COLOR))
             layout.addWidget(r_lbl, alignment=Qt.AlignmentFlag.AlignHCenter)
 
     def _show_context_menu(self, pos):
         menu = QMenu(self)
-        menu.setStyleSheet(
-            "QMenu { background:#2c2f33; color:white; border:1px solid #4f545c; }"
-            "QMenu::item:selected { background:#00bcd4; color:black; }"
-        )
+        menu.setStyleSheet(qss("thumbnail_picker_menu"))
 
         edit_act = QAction("✎ Edit Details", self)
         edit_act.triggered.connect(lambda: self.clicked.emit(self._id))

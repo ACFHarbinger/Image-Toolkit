@@ -6,7 +6,7 @@ and creative workflows, plus standardized Danbooru/e621 tag taxonomy palette map
 
 from __future__ import annotations
 
-from .schema import CornerTokens, DensityTokens, ShadowTokens, ThemePack, TypographyTokens
+from .schema import CornerTokens, ShadowTokens, ThemePack, TypographyTokens
 
 #: Danbooru/e621 standard tag taxonomy colors
 DANBOORU_TAG_COLORS: dict[str, dict[str, str]] = {

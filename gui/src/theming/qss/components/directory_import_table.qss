@@ -1,0 +1,21 @@
+QTableWidget {
+    background: $DARK_SECONDARY_BG;
+    alternate-background-color: #252830;
+    border: 1px solid $DARK_BORDER;
+    border-radius: 6px;
+    gridline-color: #3a3d42;
+}
+QTableWidget::item {
+    color: $DARK_TEXT;
+    padding: 3px;
+}
+QTableWidget::item:selected {
+    background: $DARK_ACCENT_COLOR;
+    color: black;
+}
+QHeaderView::section {
+    background: $DARK_BG;
+    color: $DARK_MUTED_TEXT;
+    border: none;
+    padding: 4px;
+}

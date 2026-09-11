@@ -15,7 +15,7 @@ from PySide6.QtCore import QEvent, QObject, QThreadPool, Signal, Slot
 from PySide6.QtWidgets import QApplication, QMessageBox, QWidget
 
 from .....helpers import ImageScannerWorker, WallpaperWorker
-from .....styles import STYLE_START_ACTION, STYLE_STOP_ACTION
+from .....theming.theme_api import qss
 
 if TYPE_CHECKING:
     from ...protos.system_display_subtab import SystemDisplaySubTabHostProtocol
@@ -180,7 +180,7 @@ class _WallpaperWorkerMixin:
 
     def lock_ui_for_wallpaper(self: "SystemDisplaySubTabHostProtocol"):
         self.set_wallpaper_btn.setText("Applying (Click to Stop)")
-        self.set_wallpaper_btn.setStyleSheet(STYLE_STOP_ACTION)
+        self.set_wallpaper_btn.setStyleSheet(qss("stop_action_btn"))
         self.set_wallpaper_btn.setEnabled(True)
         if hasattr(self, "btn_daemon_toggle"):
             self.btn_daemon_toggle.setEnabled(False)
@@ -232,10 +232,10 @@ class _WallpaperWorkerMixin:
         )
         if slideshow_running:
             self.set_wallpaper_btn.setText("Slideshow Running (Stop)")
-            self.set_wallpaper_btn.setStyleSheet(STYLE_STOP_ACTION)
+            self.set_wallpaper_btn.setStyleSheet(qss("stop_action_btn"))
             self.set_wallpaper_btn.setEnabled(True)
         else:
-            self.set_wallpaper_btn.setStyleSheet(STYLE_START_ACTION)
+            self.set_wallpaper_btn.setStyleSheet(qss("start_action_btn"))
             self.check_all_monitors_set()
         QApplication.sendPostedEvents(None, QEvent.Type.Paint)
 

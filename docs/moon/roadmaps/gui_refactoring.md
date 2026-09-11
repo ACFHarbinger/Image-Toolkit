@@ -191,9 +191,9 @@ raw QSS both first-class (expert toggle for raw QSS); hybrid migration of the
 typography, shadows, motion as theme axes; one global background playlist
 clock with per-tab static override; palette extraction off by default;
 WCAG contrast as warnings; transactional preview with rollback. Phase 2
-(docs website tokens) and Phase 3 (devtool app tokens) never started — §5 R4.
-The "file by file" QSS migration is exactly what R2.b finishes: the engine
-exists, 648 `setStyleSheet` sites and 962 inline hex literals bypass it.
+(docs website tokens) and Phase 3 (devtool app tokens) landed 2026-09-08
+(#574, #575). R2.b (#564) finished the file-by-file QSS migration across
+`gui/src/` — styling audit reports 0 unauthorized violations.
 
 ---
 
@@ -311,7 +311,7 @@ concurrently (D6). "Gate" = D12 live pass required in addition to Codex review.
 | Gemini / Antigravity | ~~R0.8, R1.7, R2.c (all 7 non-gallery tabs), R2.f (#567), R3.3 (#570), R3.6 (#573)~~ done, merged. R3.2 (#569) done, PR #608 pending a one-line import-order lint fix before it clears. |
 | Meta's Muse | ~~R0.6, R0.9, R0.7 (#553), R1.1 (#556)~~ done. R1.6 (#561) service half done, PR #605 has a BLOCKING review finding (`ScanSession.cancel()` drops a live worker reference — crash risk) that must be fixed before merge. **Remaining: R2.a extractor/sync workers (#563 continuation).** |
 | Chat / Codex | ~~R0.2 (#548), R1.3 (#558)~~ done, D12-verified 2026-09-08. ~~R1.4 (#559)~~ recovered from an unpushed local branch and merged via PR #603 (2026-09-11). **Remaining: R1.5 (#560) — orphaned local commits pushed 2026-09-11, still "not ready for review" per Codex's own last note.** Resumed mandatory cross-review 2026-09-11 after a gap since 2026-09-06; cleared #602/#570/#573/#566(code)/#606, found BLOCKING issues on #544/#609 and #561/#605. |
-| Cursor | ~~R2.a listings pair (#563)~~ done. #544 Entity/Series listings composition done, PR #609 has a BLOCKING review finding (34 leftover `COMPAT(ui-arch-23)` shims must be removed per the issue's own closure rule). **Remaining: R2.a import-dialog pair + codec/format pair (#563 continuation), R2.b (#564), R4.1 (#574, new), R4.2 (#575, new, after R2.b).** |
+| Cursor | ~~R2.a listings pair (#563)~~ done. #544 Entity/Series listings composition done, PR #609 COMPAT shims stripped (re-review). **#585** (import-dialog + codec/format + #564/#574/#575) resynced onto milestone after #570/#573/#566. |
 
 Dependencies: R1.1 before R2.a workers; R1.4 before R2.e; R0.2 before R1.5
 (both done); R2.a codec/format and listings before their R2.c migration.
@@ -345,5 +345,6 @@ longer gated on it.
 Merge-to-`main` checklist for this branch's own PR — every issue below
 must be closed first (§6 has the current owner/queue per agent):
 
-- [x] #543, #544 (partial — Grok's gallery-owning half + MainWindow remain), #547, #548, #549, #550, #551, #552, #554, #555, #558, #562, #563 (partial — listings half only)
-- [ ] #544 (remainder), #553, #556, #557, #559, #560, #561, #563 (remainder), #564, #565, #566, #567, #568, #569, #570, #571, #572, #573, #574, #575
+- [x] #543, #544 (partial — Grok's gallery-owning half + MainWindow remain), #547, #548, #549, #550, #551, #552, #554, #555, #558, #562, #563 (Cursor: listings + import-dialog + codec/format)
+- [ ] #544 (remainder), #553, #556, #557, #559, #560, #561, #565, #566, #567, #568, #569, #570, #571, #572, #573
+- [x] #564, #574, #575 (Cursor: full gui/src styling migration + cross-surface tokens)

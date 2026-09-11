@@ -34,6 +34,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from gui.src.theming.theme_api import color, qss
+
 from ..window_manager import register_window
 from ..window_service import WindowService
 from ._appearance import _AppearanceMixin
@@ -132,8 +134,8 @@ class SettingsWindow(
         self.pref_extractor_gif_max_colors = _p.get("extractor_gif_max_colors", 256)
         self.pref_extractor_fps_clamp = _p.get("extractor_fps_clamp", 0)
         self.pref_session_recovery = _p.get("session_recovery_level", "None")
-        self.pref_accent_dark = _p.get("accent_color_dark", "#00bcd4")
-        self.pref_accent_light = _p.get("accent_color_light", "#007AFF")
+        self.pref_accent_dark = _p.get("accent_color_dark", color("accent", base="dark"))
+        self.pref_accent_light = _p.get("accent_color_light", color("accent", base="light"))
         self.pref_font_scale = _p.get("font_scale", 100)
         self.pref_ui_density = _p.get("ui_density", "Comfortable")
         self.pref_app_zoom = _p.get("app_zoom", 0)
@@ -158,24 +160,32 @@ class SettingsWindow(
         main_layout = QVBoxLayout(self)
 
         # Determine initial styles based on loaded vault theme
-        is_light_theme = self.initial_theme == "light"
-
-        # Theme colors for the header
-        header_widget_bg = "#ffffff" if is_light_theme else "#2d2d30"
-        header_label_color = "#1e1e1e" if is_light_theme else "white"
-        accent_color = "#007AFF" if is_light_theme else "#00bcd4"
+        theme_base = "light" if self.initial_theme == "light" else "dark"
 
         # --- Header Bar ---
         header_widget = QWidget()
         header_widget.setObjectName("header_widget")
         header_widget.setStyleSheet(
-            f"background-color: {header_widget_bg}; padding: 10px; border-bottom: 2px solid {accent_color};"
+            qss(
+                "settings_header",
+                base=theme_base,
+                HEADER_BG=color("surface", base=theme_base),
+                ACCENT=color("accent", base=theme_base),
+            )
         )
         header_layout = QHBoxLayout(header_widget)
         header_layout.setContentsMargins(10, 5, 10, 5)
 
         title_label = QLabel("Application Settings")
-        title_label.setStyleSheet(f"color: {header_label_color}; font-size: 14pt; font-weight: bold;")
+        title_label.setStyleSheet(
+            qss(
+                "settings_header_title",
+                base=theme_base,
+                TITLE_COLOR=color("text", base=theme_base)
+                if theme_base == "light"
+                else "white",
+            )
+        )
         header_layout.addWidget(title_label)
         header_layout.addStretch(1)
 
@@ -203,26 +213,43 @@ class SettingsWindow(
         # --- Create QTabWidget and Add Tabs ---
         self.tab_widget = QTabWidget()
 
-        # Modern Premium Theme Styles for QTabWidget
-        if is_light_theme:
+        if theme_base == "light":
             self.tab_widget.setStyleSheet(
-                "QTabWidget::pane { border: 1px solid #dcdcdc; background: white; }"
-                "QTabBar::tab { background: #f0f0f0; color: #333; padding: 10px 15px; border: 1px solid #dcdcdc; border-bottom: none; border-top-left-radius: 4px; border-top-right-radius: 4px; }"
-                "QTabBar::tab:selected { background: white; border-bottom: 2px solid #007AFF; font-weight: bold; }"
-                "QTabBar::tab:hover { background: #e5e5e5; }"
+                qss(
+                    "settings_tab_widget",
+                    base="light",
+                    TAB_BORDER=color("border", base="light"),
+                    TAB_PANE_BG=color("surface", base="light"),
+                    TAB_BG=color("window_bg", base="light"),
+                    TAB_TEXT=color("text", base="light"),
+                    TAB_SELECTED_BG=color("surface", base="light"),
+                    TAB_SELECTED_TEXT=color("text", base="light"),
+                    ACCENT=color("accent", base="light"),
+                    TAB_HOVER_BG=color("border", base="light"),
+                    TAB_HOVER_TEXT=color("text", base="light"),
+                )
             )
         else:
             self.tab_widget.setStyleSheet(
-                "QTabWidget::pane { border: 1px solid #3e3e42; background: #1e1e1e; }"
-                "QTabBar::tab { background: #2d2d30; color: #aaa; padding: 10px 15px; border: 1px solid #3e3e42; border-bottom: none; border-top-left-radius: 4px; border-top-right-radius: 4px; }"
-                "QTabBar::tab:selected { background: #1e1e1e; color: white; border-bottom: 2px solid #00bcd4; font-weight: bold; }"
-                "QTabBar::tab:hover { background: #3e3e42; color: white; }"
+                qss(
+                    "settings_tab_widget",
+                    base="dark",
+                    TAB_BORDER=color("border", base="dark"),
+                    TAB_PANE_BG=color("window_bg", base="dark"),
+                    TAB_BG=color("surface", base="dark"),
+                    TAB_TEXT=color("muted_text", base="dark"),
+                    TAB_SELECTED_BG=color("window_bg", base="dark"),
+                    TAB_SELECTED_TEXT="white",
+                    ACCENT=color("accent", base="dark"),
+                    TAB_HOVER_BG=color("border", base="dark"),
+                    TAB_HOVER_TEXT="white",
+                )
             )
 
         def create_tab_scroll_area():
             scroll = QScrollArea()
             scroll.setWidgetResizable(True)
-            scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
+            scroll.setStyleSheet(qss("pane_scroll_area"))
             container = QWidget()
             layout = QVBoxLayout(container)
             layout.setContentsMargins(15, 15, 15, 15)
@@ -314,14 +341,14 @@ class SettingsWindow(
         # 1.5. Reload Button (New) 🆕
         self.reload_button = QPushButton("Reload settings")
         self.reload_button.setObjectName("reload_button")
-        self.reload_button.setStyleSheet("background-color: #34495e; color: white; font-weight: bold;")
+        self.reload_button.setStyleSheet(qss("settings_btn_secondary"))
         self.reload_button.clicked.connect(self.reload_settings)
         self.reload_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
         # 2. Refresh Button (New) 🆕
         self.refresh_button = QPushButton("Refresh Application (Relaunch) 🔄")
         self.refresh_button.setObjectName("refresh_button")
-        self.refresh_button.setStyleSheet("background-color: #f1c40f; color: black; font-weight: bold;")
+        self.refresh_button.setStyleSheet(qss("settings_btn_highlight"))
         self.refresh_button.clicked.connect(self._refresh_application)
         self.refresh_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
@@ -379,9 +406,9 @@ class SettingsWindow(
         cancel = dialog.addButton("Cancel", QMessageBox.ButtonRole.RejectRole)
         discard = dialog.addButton("Exit Without Saving", QMessageBox.ButtonRole.DestructiveRole)
         save = dialog.addButton("Exit", QMessageBox.ButtonRole.AcceptRole)
-        cancel.setStyleSheet("background-color: #4b5563; color: white; font-weight: bold;")
-        discard.setStyleSheet("background-color: #c0392b; color: white; font-weight: bold;")
-        save.setStyleSheet("background-color: #16803c; color: white; font-weight: bold;")
+        cancel.setStyleSheet(qss("settings_btn_neutral"))
+        discard.setStyleSheet(qss("dialog_btn_danger"))
+        save.setStyleSheet(qss("dialog_btn_success"))
         dialog.setDefaultButton(cancel)
         dialog.exec()
         if dialog.clickedButton() is save:

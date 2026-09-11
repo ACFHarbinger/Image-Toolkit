@@ -12,6 +12,8 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QPixmap
 from PySide6.QtWidgets import QListWidgetItem, QWidget
 
+from ....theming.theme_api import color
+
 logger = logging.getLogger(__name__)
 
 class _GalleryCardsMixin:
@@ -53,7 +55,7 @@ class _GalleryCardsMixin:
             item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
             item.setCheckState(Qt.CheckState.Unchecked)
 
-            item.setForeground(QColor(tag_data.get("color") or "#95a5a6"))
+            item.setForeground(QColor(tag_data.get("color") or color("muted_text")))
 
             self.tags_list_widget.addItem(item)
 
