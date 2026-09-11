@@ -83,7 +83,7 @@ class _DownloadWorkerMixin:
         self.worker = MediaLoaderWorker(source, config)
         self.worker.status.connect(self.status_label.setText)
         self.worker.media_saved.connect(self._on_media_saved)
-        self.worker.sig_finished.connect(self._on_download_finished)
+        self.worker.finished.connect(self._on_download_finished)
         self.worker.error.connect(self._on_download_error)
         self.worker.start()
 
@@ -96,7 +96,8 @@ class _DownloadWorkerMixin:
     def _on_media_saved(self, path: str) -> None:
         self.saved_count = getattr(self, "saved_count", 0) + 1
 
-    def _on_download_finished(self, count: int, message: str) -> None:
+    def _on_download_finished(self, result) -> None:
+        count, message = result
         self.run_button.show()
         self.cancel_button.hide()
         self.progress_bar.hide()

@@ -3,12 +3,12 @@ import contextlib
 import numpy as np
 from backend.src.constants import HAS_NATIVE_IMAGING, THUMBNAIL_CACHE_DIR
 from backend.src.core import telemetry
-from PySide6.QtCore import QObject, QRunnable, Signal, Slot
+from PySide6.QtCore import QObject, Signal
 from PySide6.QtGui import QImage
 from shiboken6 import Shiboken
 
 from gui.src.constants.helpers import _NATIVE_SUPPORTS_RGB_CACHE
-from gui.src.helpers.gc_safe import gc_disabled_run
+from gui.src.helpers.base import BaseQRunnableWorker
 
 from ._qimagereader_disk_cache import load_qir_thumbnail
 
@@ -70,14 +70,14 @@ def native_load_batch(paths: list[str], target_size: int) -> list[tuple[str, QIm
     ]
 
 
-class _BatchLoaderSignals(QObject):
+class _BatchLoaderSignalsStream(QObject):
     # Emits (file_path, loaded_QImage)
     result = Signal(str, QImage)
     # Emits list of (file_path, loaded_QImage), and list of requested_paths
     batch_result = Signal(list, list)
 
 
-class BatchImageLoaderWorker(QRunnable):
+class BatchImageLoaderWorker(BaseQRunnableWorker):
     """
     Worker task to load and scale a BATCH of images using C++.
     Supports running in a separate process/executor if provided.
@@ -87,18 +87,14 @@ class BatchImageLoaderWorker(QRunnable):
         super().__init__()
         self.paths = paths
         self.target_size = target_size
-        self.signals = _BatchLoaderSignals()
-        self._is_cancelled = False
-        self.setAutoDelete(True)
+        self.stream = _BatchLoaderSignalsStream()
 
     def stop(self):
         """Signals the worker to stop."""
-        self._is_cancelled = True
+        self.cancel()
 
-    @gc_disabled_run
-    @Slot()
-    def run(self):
-        if self._is_cancelled:
+    def _execute(self) -> object:
+        if self._cancelled:
             return
         try:
             # GIFs never go through the native decoder: it decodes via
@@ -116,7 +112,7 @@ class BatchImageLoaderWorker(QRunnable):
             processed_results: list[tuple[str, QImage]] = []
 
             for path in gif_paths:
-                if self._is_cancelled:
+                if self._cancelled:
                     return
                 q_img = self._load_one_via_qimage(path)
                 processed_results.append((path, q_img))
@@ -125,7 +121,7 @@ class BatchImageLoaderWorker(QRunnable):
             if native_paths:
                 if not HAS_NATIVE_IMAGING:
                     for path in native_paths:
-                        if self._is_cancelled:
+                        if self._cancelled:
                             return
                         q_img = self._load_one_via_qimage(path)
                         processed_results.append((path, q_img))
@@ -134,7 +130,7 @@ class BatchImageLoaderWorker(QRunnable):
                     # Native C++ Parallel Path (reduced decode + disk cache + RGB out)
                     raw_results = native_load_batch(native_paths, self.target_size)
 
-                    if self._is_cancelled:
+                    if self._cancelled:
                         return
 
                     for path, q_img, _err in raw_results:
@@ -150,19 +146,19 @@ class BatchImageLoaderWorker(QRunnable):
                         self._safe_emit_result(path, q_img)
 
             with contextlib.suppress(RuntimeError):
-                self.signals.batch_result.emit(processed_results, self.paths)
+                self.stream.batch_result.emit(processed_results, self.paths)
         except Exception:
             # A failure anywhere in the native path (unexpected return shape,
             # decode error, etc.) must not leave the gallery's placeholders
             # stuck in "Loading..." forever -- fall back to the safe
             # one-by-one QImage path instead.
-            if not self._is_cancelled:
+            if not self._cancelled:
                 self._run_fallback()
         finally:
             # Crucial: Ensure the QObject signals stay alive until the event loop
             # can deliver any pending signals. deleteLater() schedules this safely.
-            if Shiboken.isValid(self.signals):
-                self.signals.deleteLater()
+            if Shiboken.isValid(self.stream):
+                self.stream.deleteLater()
 
     def _load_one_via_qimage(self, path: str) -> QImage:
         """Shared QIR/GIF-poster thumbnail path (see load_qir_thumbnail)."""
@@ -175,15 +171,15 @@ class BatchImageLoaderWorker(QRunnable):
         """Fallback: load one by one using QImage (slow but safe)"""
         results = []
         for path in self.paths:
-            if self._is_cancelled:
+            if self._cancelled:
                 break
             scaled = self._load_one_via_qimage(path)
             results.append((path, scaled))
             self._safe_emit_result(path, scaled)
 
         with contextlib.suppress(RuntimeError):
-            self.signals.batch_result.emit(results, self.paths)
+            self.stream.batch_result.emit(results, self.paths)
 
     def _safe_emit_result(self, path, image):
         with contextlib.suppress(RuntimeError):
-            self.signals.result.emit(path, image)
+            self.stream.result.emit(path, image)

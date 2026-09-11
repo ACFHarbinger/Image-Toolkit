@@ -6,22 +6,15 @@ import time
 from typing import Optional, Tuple, Union
 
 from moviepy.editor import VideoFileClip
-from PySide6.QtCore import QObject, QRunnable, Signal
 
-from gui.src.helpers.gc_safe import gc_disabled_run
+from gui.src.helpers.base import BaseQRunnableWorker
 
 
 class _Cancelled(Exception):
     """Raised inside the worker when the user cancels mid-ffmpeg."""
 
 
-class _GifWorkerSignals(QObject):
-    progress = Signal(int, int)  # (percent, 100) — §5.9 Option C; no natural item count
-    finished = Signal(str)
-    error = Signal(str)
-
-
-class GifCreationWorker(QRunnable):
+class GifCreationWorker(BaseQRunnableWorker):
     def __init__(
         self,
         video_path: str,
@@ -50,7 +43,6 @@ class GifCreationWorker(QRunnable):
         self.encoder_threads = max(0, int(encoder_threads))
         self.max_colors = max(16, min(256, int(max_colors)))
         self.fps_clamp = max(0, int(fps_clamp))
-        self.signals = _GifWorkerSignals()
         self._is_cancelled = False
 
     def cancel(self):
@@ -120,8 +112,7 @@ class GifCreationWorker(QRunnable):
                     f"ffmpeg {phase} pass failed (code {proc.returncode})\n{tail}"
                 )
 
-    @gc_disabled_run
-    def run(self):  # noqa: C901
+    def _execute(self) -> object:  # noqa: C901
         if self._is_cancelled:
             return
 
@@ -182,7 +173,7 @@ class GifCreationWorker(QRunnable):
                 self.signals.progress.emit(50, 100)
                 self._run_ffmpeg(pass2, "encode")
                 self.signals.progress.emit(100, 100)
-                self.signals.finished.emit(self.output_path)
+                return self.output_path
 
             except _Cancelled:
                 self.signals.error.emit("Extraction cancelled by user.")
@@ -228,7 +219,7 @@ class GifCreationWorker(QRunnable):
             )  # logger=None to avoid stdout clutter
 
             self.signals.progress.emit(100, 100)
-            self.signals.finished.emit(self.output_path)
+            return self.output_path
 
         except ImportError:
             self.signals.error.emit(
