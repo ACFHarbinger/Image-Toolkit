@@ -12,7 +12,7 @@ import copy
 import os
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, List, Optional, Tuple, cast
+from typing import TYPE_CHECKING, Any, List, Tuple, cast
 
 from backend.src.constants import SUPPORTED_VIDEO_FORMATS
 from PySide6.QtCore import QPoint, Qt, Slot
@@ -27,7 +27,6 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QVBoxLayout,
-    QWidget,
 )
 
 from ....components import ClickableLabel, VirtualGallery
@@ -35,6 +34,7 @@ from ....helpers import ImageLoaderWorker, VideoLoaderWorker
 from ....helpers.core.queue_execution_worker import QueueExecutionWorker
 from ....styles import set_button_role
 from ....theming.theme_api import qss
+from ._tab_bound import TabBoundController
 
 if TYPE_CHECKING:
     from ..protos.extractor_tab import VideoExtractorSubTabHostProtocol
@@ -70,18 +70,8 @@ def _inprocess_row_label(idx: int, item: dict, status: str) -> str:
     return f"{icon} {idx + 1}. [{t_type}] {v_name} ({start_fmt} - {end_fmt})"
 
 
-class _QueueManagementMixin:
+class ExtractorQueueManagementController(TabBoundController):
     """Extraction queue management and the Results Gallery / Queue section."""
-
-    active_queue_worker: Optional[QueueExecutionWorker] = None
-    _close_progress_dialog: Optional[Any] = None
-    _close_when_finished: Optional[Any] = None
-    _queue_total_count: int = 0
-    _queue_completed_count: int = 0
-    _current_queue_item_title: str = ""
-    inprocess_items: List[dict] = []
-    _inprocess_status: List[str] = []
-    _inprocess_awaiting_confirm: bool = False
 
     def set_close_progress_dialog(self: "VideoExtractorSubTabHostProtocol", dialog: Any) -> None:
         """Attach the TaskCloseProgressDialog to receive live progress updates."""
@@ -97,7 +87,7 @@ class _QueueManagementMixin:
                 return VideoLoaderWorker(path, target_size)
             return ImageLoaderWorker(path, target_size)
 
-        self.gallery = VirtualGallery(self, worker_factory=_gallery_worker)
+        self.gallery = VirtualGallery(self.tab, worker_factory=_gallery_worker)
         self.gallery.setMinimumHeight(600)
         self.gallery.path_clicked.connect(self.handle_thumbnail_single_click)
         self.gallery.path_activated.connect(self.handle_thumbnail_double_click)
@@ -208,7 +198,7 @@ class _QueueManagementMixin:
         if idx < 0 or idx >= len(self.extraction_queue):
             return
 
-        menu = QMenu(cast(QWidget, self))
+        menu = QMenu(self.tab)
         menu.setStyleSheet(qss("extractor_menu"))
         load_action = menu.addAction("✏️ Load Configurations")
         remove_action = menu.addAction("❌ Remove")
@@ -233,7 +223,7 @@ class _QueueManagementMixin:
         v_path = item.get("video_path")
         if not v_path or not os.path.exists(v_path):
             QMessageBox.warning(
-                cast(QWidget, self), "File Not Found", f"The video file '{v_path}' no longer exists."
+                self.tab, "File Not Found", f"The video file '{v_path}' no longer exists."
             )
             return
 
@@ -775,7 +765,7 @@ class _QueueManagementMixin:
             self._set_queue_processing_state(False)
             if errors:
                 QMessageBox.warning(
-                    cast(QWidget, self),
+                    self.tab,
                     "Queue Extraction Completed with Errors",
                     f"Processed {len(self.inprocess_items)} queue item(s). "
                     f"{len(errors)} error(s):\n" + "\n".join(errors)
@@ -783,7 +773,7 @@ class _QueueManagementMixin:
                 )
             else:
                 QMessageBox.information(
-                    cast(QWidget, self),
+                    self.tab,
                     "Extractions Completed",
                     f"Queue execution complete — processed all "
                     f"{len(self.inprocess_items)} item(s), extracted {len(all_paths)} file(s)."
@@ -826,7 +816,7 @@ class _QueueManagementMixin:
             self._inprocess_awaiting_confirm = True
             self._set_queue_processing_state(False)
             QMessageBox.warning(
-                cast(QWidget, self),
+                self.tab,
                 "Queue Processing Error",
                 f"{error_msg}\n\nClick OK to clear the In Process queue.",
             )
@@ -838,7 +828,7 @@ class _QueueManagementMixin:
         """Re-entry path: Process Queue was clicked while a finished batch is
         still awaiting acknowledgement. Confirm and clear it."""
         QMessageBox.information(
-            cast(QWidget, self),
+            self.tab,
             "Extractions Completed",
             "The previous batch has finished. Click OK to clear the "
             "In Process queue, then press Process Queue again.",
@@ -896,4 +886,5 @@ class _QueueManagementMixin:
         return (0, 1, "")
 
 
-__all__ = ["_QueueManagementMixin"]
+__all__ = ["ExtractorQueueManagementController"]
+

@@ -6,7 +6,7 @@ Extracted from ``extractor_tab.py`` -- pure code motion, no logic change.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QPoint, Qt, Slot
 from PySide6.QtGui import QAction
@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
 )
 
 from ....theming.theme_api import qss
+from ._tab_bound import TabBoundController
 
 if TYPE_CHECKING:
     from ..protos.extractor_tab import VideoExtractorSubTabHostProtocol
@@ -33,7 +34,7 @@ if TYPE_CHECKING:
 # here would create a circular import when this module is loaded first.
 
 
-class _TagsLogicMixin:
+class ExtractorTagsLogicController(TabBoundController):
     """Timestamp tags, their UI row, and the video-surface context menu."""
 
     def _build_tags_row(self: "VideoExtractorSubTabHostProtocol") -> QHBoxLayout:
@@ -87,7 +88,7 @@ class _TagsLogicMixin:
 
         proposed_name = f"Tag {len(self.tags_ms) + 1}"
         label, ok = QInputDialog.getText(
-            cast(QWidget, self), "Add Tag", f"Enter label for tag at {formatted}:", text=proposed_name
+            self.tab, "Add Tag", f"Enter label for tag at {formatted}:", text=proposed_name
         )
         if ok and label:
             self.tags_ms.append((current_ms, label))
@@ -137,7 +138,7 @@ class _TagsLogicMixin:
         if not sender:
             return
 
-        menu = QMenu(cast(QWidget, self))
+        menu = QMenu(self.tab)
         menu.setStyleSheet(qss("extractor_menu"))
 
         # 1. Jump to Tag Submenu
@@ -145,22 +146,22 @@ class _TagsLogicMixin:
             jump_menu = menu.addMenu("📍 Jump to Tag")
             jump_menu.setStyleSheet(qss("extractor_menu_highlight"))
             for ms, label in self.tags_ms:
-                action = QAction(f"{label} ({self._format_time(ms)})", cast(QWidget, self))
+                action = QAction(f"{label} ({self._format_time(ms)})", self.tab)
                 action.triggered.connect(lambda _, m=ms: self.jump_to_tag_time(m))
                 jump_menu.addAction(action)
             menu.addSeparator()
 
         # 2. Add Tag at current pos
-        add_tag_action = QAction("🏷️ Add Tag Here", cast(QWidget, self))
+        add_tag_action = QAction("🏷️ Add Tag Here", self.tab)
         add_tag_action.triggered.connect(self.add_tag)
         menu.addAction(add_tag_action)
 
         # 3. Range actions
-        set_start_action = QAction("🎞️ Set Range Start", cast(QWidget, self))
+        set_start_action = QAction("🎞️ Set Range Start", self.tab)
         set_start_action.triggered.connect(self.set_range_start)
         menu.addAction(set_start_action)
 
-        set_end_action = QAction("🎞️ Set Range End", cast(QWidget, self))
+        set_end_action = QAction("🎞️ Set Range End", self.tab)
         set_end_action.triggered.connect(self.set_range_end)
         menu.addAction(set_end_action)
 
@@ -168,7 +169,7 @@ class _TagsLogicMixin:
 
         # 4. Extraction triggers (convenience)
         if self.end_time_ms > self.start_time_ms:
-            extract_vid_action = QAction("🎬 Extract Video Range", cast(QWidget, self))
+            extract_vid_action = QAction("🎬 Extract Video Range", self.tab)
             extract_vid_action.triggered.connect(self.extract_range_as_video)
             menu.addAction(extract_vid_action)
 
@@ -186,20 +187,20 @@ class _TagsLogicMixin:
 
     @Slot(QPoint, int)
     def show_tag_context_menu(self: "VideoExtractorSubTabHostProtocol", global_pos: QPoint, index: int):
-        menu = QMenu(cast(QWidget, self))
+        menu = QMenu(self.tab)
 
-        jump_action = QAction("📍 Jump to Tag", cast(QWidget, self))
+        jump_action = QAction("📍 Jump to Tag", self.tab)
         jump_action.triggered.connect(
             lambda: self.jump_to_tag_time(self.tags_ms[index][0])
         )
         menu.addAction(jump_action)
         menu.addSeparator()
 
-        edit_action = QAction("Edit Tag", cast(QWidget, self))
+        edit_action = QAction("Edit Tag", self.tab)
         edit_action.triggered.connect(lambda: self.edit_tag(index))
         menu.addAction(edit_action)
 
-        delete_action = QAction("Delete Tag", cast(QWidget, self))
+        delete_action = QAction("Delete Tag", self.tab)
         delete_action.triggered.connect(lambda: self.delete_tag(index))
         menu.addAction(delete_action)
 
@@ -211,13 +212,13 @@ class _TagsLogicMixin:
             formatted_time = self._format_time(ms)
 
             new_label, ok = QInputDialog.getText(
-                cast(QWidget, self), "Edit Tag", f"Label for tag at {formatted_time}:", text=label
+                self.tab, "Edit Tag", f"Label for tag at {formatted_time}:", text=label
             )
             if ok and new_label:
                 # Also allow editing time? Let's just do label for now as it's easier.
                 # Actually, editing time would be good too.
                 new_time_str, ok_time = QInputDialog.getText(
-                    cast(QWidget, self),
+                    self.tab,
                     "Edit Tag Time",
                     f"Time for '{new_label}':",
                     text=formatted_time,
@@ -230,7 +231,7 @@ class _TagsLogicMixin:
                         self._update_tags_ui()
                     else:
                         QMessageBox.warning(
-                            cast(QWidget, self), "Invalid Format", "Invalid time format."
+                            self.tab, "Invalid Format", "Invalid time format."
                         )
 
     def delete_tag(self: "VideoExtractorSubTabHostProtocol", index: int):
@@ -286,4 +287,5 @@ class _TagsLogicMixin:
         )
 
 
-__all__ = ["_TagsLogicMixin"]
+__all__ = ["ExtractorTagsLogicController"]
+

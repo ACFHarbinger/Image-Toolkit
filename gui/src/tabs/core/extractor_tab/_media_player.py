@@ -12,7 +12,7 @@ import contextlib
 from pathlib import Path
 from typing import TYPE_CHECKING, List, Optional, cast
 
-from PySide6.QtCore import QObject, QPoint, Qt, Slot
+from PySide6.QtCore import QPoint, Qt, Slot
 from PySide6.QtGui import QPixmap
 from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
 from PySide6.QtMultimediaWidgets import QGraphicsVideoItem
@@ -50,14 +50,14 @@ from ....helpers.video.video_thumbnailer import (
 )
 from ....theming.theme_api import qss
 from ....utils.sort_utils import natural_sort_key
-from ._player_lifecycle import PlayerLifecycleState
+from ._tab_bound import TabBoundController
 from ._video_view import VideoView
 
 if TYPE_CHECKING:
     from ..protos.extractor_tab import VideoExtractorSubTabHostProtocol
 
 
-class _MediaPlayerMixin:
+class ExtractorMediaPlayerController(TabBoundController):
     """Lazy QMediaPlayer/QGraphicsVideoItem, slider seeking, and storyboard
     scrub-preview drag handling."""
 
@@ -109,7 +109,7 @@ class _MediaPlayerMixin:
         # See .agent/cache/gallery_crash_deleteorphaned_2026-07-27.md
         # Addendum 14.
         self._video_item: Optional[QGraphicsVideoItem] = None
-        self.graphics_scene = QGraphicsScene(cast(QObject, self))
+        self.graphics_scene = QGraphicsScene(self.tab)
 
         video_view = VideoView(self.graphics_scene)
         self.video_view = video_view
@@ -127,8 +127,8 @@ class _MediaPlayerMixin:
         video_view.setVisible(True)
 
         # Install event filters on the view AND its viewport for robust wheel capture
-        video_view.installEventFilter(cast(QObject, self))
-        video_view.viewport().installEventFilter(cast(QObject, self))
+        video_view.installEventFilter(self.tab)
+        video_view.viewport().installEventFilter(self.tab)
         video_view.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         video_view.customContextMenuRequested.connect(self.show_video_context_menu)
 
@@ -241,7 +241,7 @@ class _MediaPlayerMixin:
         self.lbl_current_time = lbl_current_time
         lbl_current_time.setCursor(Qt.CursorShape.PointingHandCursor)
         lbl_current_time.setToolTip("Click to jump to time")
-        lbl_current_time.installEventFilter(cast(QObject, self))
+        lbl_current_time.installEventFilter(self.tab)
 
         edit_current_time = QLineEdit()
         self.edit_current_time = edit_current_time
@@ -250,7 +250,7 @@ class _MediaPlayerMixin:
         edit_current_time.setAlignment(Qt.AlignmentFlag.AlignCenter)
         edit_current_time.setStyleSheet(qss("extractor_line_edit"))
         edit_current_time.returnPressed.connect(self._jump_to_edited_time)
-        edit_current_time.installEventFilter(cast(QObject, self))
+        edit_current_time.installEventFilter(self.tab)
 
         self.slider = QSlider(Qt.Orientation.Horizontal)
         self.slider.setRange(0, 0)
@@ -332,7 +332,7 @@ class _MediaPlayerMixin:
         self.player_inner_layout.addWidget(self.storyboard_progress_bar)
 
         self.player_layout_container.addWidget(player_container)
-        player_container.installEventFilter(cast(QObject, self))
+        player_container.installEventFilter(self.tab)
 
         video_container_layout.addWidget(player_group)
         self.main_layout.addWidget(self.video_container_widget)
@@ -411,48 +411,6 @@ class _MediaPlayerMixin:
                     if pending_pos is not None and pending_pos > 0:
                         self._media_player.setPosition(pending_pos)
         return self._media_player
-
-    def cancel_loading(self: "VideoExtractorSubTabHostProtocol"):
-        """Stops all active media players, timers, and background workers.
-
-        Deliberately does NOT stop the storyboard scrub-preview builder: the
-        base class's refresh_gallery_view() (and therefore every search/sort/
-        pagination change and every post-extraction gallery reload, e.g.
-        extract_single_frame()'s start_loading_gallery(append=True) call)
-        calls this method purely to cancel in-flight gallery thumbnail
-        workers -- it has nothing to do with the video player. Stopping the
-        storyboard here silently broke the drag-preview popup after every
-        snapshot/extraction until the user switched videos or restarted.
-        Storyboard teardown is handled explicitly by load_media() (on actual
-        video switch) and closeEvent() (on tab close) instead.
-        """
-        super().cancel_loading()  # type: ignore[safe-super]
-
-        if hasattr(self, "gallery"):
-            self.gallery.cancel_loading()
-
-        if self.active_extraction_worker:
-            self.active_extraction_worker.cancel()
-            self.active_extraction_worker = None
-
-        if self.active_queue_worker:
-            self.active_queue_worker.cancel()
-
-        # Close sub-windows
-        for win in list(self.open_preview_windows):
-            with contextlib.suppress(Exception):
-                win.close()
-        self.open_preview_windows.clear()
-
-    def closeEvent(self: "VideoExtractorSubTabHostProtocol", event):
-        """Cleanup processes on close."""
-        self.cancel_loading()
-        self._stop_storyboard()
-        self._set_player_lifecycle_state(PlayerLifecycleState.NOT_LOADED)
-        self.operation_thread_pool.clear()
-        # Never hold the UI indefinitely on a stuck codec/subprocess.
-        self.operation_thread_pool.waitForDone(2000)
-        super().closeEvent(event)  # type: ignore[misc,safe-super]
 
     # Extracted-frame output directories can hold a handful of very large
     # files (uncompressed/high-res frames -- 101 files totalling 108GB
@@ -570,7 +528,7 @@ class _MediaPlayerMixin:
         if duration_ms <= 0:
             return
 
-        self._storyboard_builder = StoryboardBuilder(self.video_path, duration_ms, self)
+        self._storyboard_builder = StoryboardBuilder(self.video_path, duration_ms, self.tab)
         self._storyboard_builder.finished.connect(self._on_storyboard_ready)
         self._storyboard_builder.error.connect(self._on_storyboard_failed_err)
         self._storyboard_builder.progress_changed.connect(self._on_storyboard_progress)
@@ -686,4 +644,5 @@ class _MediaPlayerMixin:
         self._drag_settle_timer.start()
 
 
-__all__ = ["_MediaPlayerMixin"]
+__all__ = ["ExtractorMediaPlayerController"]
+

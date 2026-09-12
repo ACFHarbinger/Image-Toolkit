@@ -26,12 +26,13 @@ from PySide6.QtWidgets import (
 
 from ....components.tag_chip_widget import FlowLayout
 from ....theming.theme_api import qss
+from ._tab_bound import TabBoundController
 
 if TYPE_CHECKING:
     from ..protos.extractor_tab import VideoExtractorSubTabHostProtocol
 
 
-class _ExtractionPanelUIMixin:
+class ExtractorExtractionPanelUIController(TabBoundController):
     """Builds the "4. Extraction Controls" groupbox and adds it to
     self.main_layout."""
 
@@ -279,4 +280,5 @@ class _ExtractionPanelUIMixin:
         self.extract_group.setVisible(False)
 
 
-__all__ = ["_ExtractionPanelUIMixin"]
+__all__ = ["ExtractorExtractionPanelUIController"]
+
