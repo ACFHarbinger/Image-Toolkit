@@ -11,8 +11,10 @@ from typing import Any, Dict
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QMessageBox
 
+from ._tab_bound import TabBoundController
 
-class _ConfigMixin:
+
+class SearchConfigController(TabBoundController):
     """Save/restore group/subgroup/tag/format filter selections."""
 
     def collect(self) -> Dict[str, Any]:
@@ -39,11 +41,7 @@ class _ConfigMixin:
             selected_groups = set(config.get("group_names", []) or [])
             for i in range(self.groups_list_widget.count()):
                 item = self.groups_list_widget.item(i)
-                item.setCheckState(
-                    Qt.CheckState.Checked
-                    if item.text() in selected_groups
-                    else Qt.CheckState.Unchecked
-                )
+                item.setCheckState(Qt.CheckState.Checked if item.text() in selected_groups else Qt.CheckState.Unchecked)
             # Restore subgroup selections
             selected_subgroups = set(config.get("subgroup_names", []) or [])
             for i in range(self.subgroups_list_widget.count()):
@@ -72,13 +70,9 @@ class _ConfigMixin:
                         self.toggle_format(fmt, True)
             else:
                 self.input_formats_edit.setText(" ".join(formats))
-            QMessageBox.information(
-                self, "Config Loaded", "Search configuration applied successfully."
-            )
+            QMessageBox.information(self.tab, "Config Loaded", "Search configuration applied successfully.")
         except Exception as e:
-            QMessageBox.critical(
-                self, "Config Error", f"Failed to apply search configuration:\n{e}"
-            )
+            QMessageBox.critical(self.tab, "Config Error", f"Failed to apply search configuration:\n{e}")
 
 
-__all__ = ["_ConfigMixin"]
+__all__ = ["SearchConfigController"]

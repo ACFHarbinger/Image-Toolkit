@@ -170,6 +170,15 @@
   `card_factory` module; highlight helper is shared. Pagination stays
   per-base. VirtualGallery keeps delegate painting and uses the highlight
   helper. D12 before merge.
+
+# S556 — 2026-09-08 (Grok: #544 SearchTab composition)
+
+- `SearchTab` inherits `AbstractClassTwoGalleries` only. The 12 mixins are
+  composed controllers (`TabBoundController` proxy + `self.tab` for
+  QWidget parents). `cancel_loading` / `closeEvent` stay on the tab so
+  `super()` still hits the gallery base. COMPAT aliases keep the old
+  mixin names. First gallery-owning #544 tab after #543's D12.
+
 # S535 — 2026-09-08 (Grok: huge-GIF gallery thumbnails)
 
 - Gallery / wallpaper / extractor thumbnail loads no longer run Qt's GIF

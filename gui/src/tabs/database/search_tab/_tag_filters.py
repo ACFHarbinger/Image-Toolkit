@@ -15,10 +15,12 @@ from PySide6.QtWidgets import QListWidgetItem
 
 from ....theming.theme_api import color
 from ....utils.sort_utils import natural_sort_key
+from ._tab_bound import TabBoundController
 
 logger = logging.getLogger(__name__)
 
-class _TagFiltersMixin:
+
+class SearchTagFiltersController(TabBoundController):
     """Tag-type checkbox row and the tag list it filters."""
 
     def _get_tags_from_db(self) -> List[Dict[str, str]]:
@@ -29,7 +31,7 @@ class _TagFiltersMixin:
             db_tags = db.get_all_tags_with_categories()
             return sorted(db_tags, key=lambda x: natural_sort_key(x["name"]))
         except Exception:
-            logger.debug("Suppressed Exception in _TagFiltersMixin._get_tags_from_db", exc_info=True)
+            logger.debug("Suppressed Exception in SearchTagFiltersController._get_tags_from_db", exc_info=True)
         return []
 
     def _get_category_colors(self) -> Dict[str, str]:
@@ -84,11 +86,7 @@ class _TagFiltersMixin:
             item = QListWidgetItem(tag_name.replace("_", " ").title())
             item.setData(Qt.ItemDataRole.UserRole, tag_name)
             item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
-            item.setCheckState(
-                Qt.CheckState.Checked
-                if tag_name in previously_checked
-                else Qt.CheckState.Unchecked
-            )
+            item.setCheckState(Qt.CheckState.Checked if tag_name in previously_checked else Qt.CheckState.Unchecked)
             text_color = color_map.get(tag_category, color("muted_text"))
             item.setForeground(QColor(text_color))
             self.tags_list_widget.addItem(item)
@@ -125,9 +123,7 @@ class _TagFiltersMixin:
             item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
             # All categories start checked; preserve state on refresh
             is_checked = (not previously_checked_types) or (t in previously_checked_types)
-            item.setCheckState(
-                Qt.CheckState.Checked if is_checked else Qt.CheckState.Unchecked
-            )
+            item.setCheckState(Qt.CheckState.Checked if is_checked else Qt.CheckState.Unchecked)
             item.setForeground(QColor(color_map.get(t, color("muted_text"))))
             self.tag_types_list_widget.addItem(item)
         self.tag_types_list_widget.blockSignals(False)
@@ -163,4 +159,4 @@ class _TagFiltersMixin:
         self.perform_search()
 
 
-__all__ = ["_TagFiltersMixin"]
+__all__ = ["SearchTagFiltersController"]
