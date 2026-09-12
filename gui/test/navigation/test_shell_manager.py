@@ -299,3 +299,22 @@ class TestShellNavigation:
             assert btn.focusPolicy() != Qt.FocusPolicy.NoFocus, (
                 f"ribbon module button {btn.text()!r} is not keyboard-focusable"
             )
+
+    def test_dispose_for_account_switch_unmounts_and_returns_previous(
+        self, q_app, sample_runtime
+    ):
+        container = QWidget()
+        manager = ShellLayoutManager(sample_runtime, container)
+        manager.activate_module("system.convert")
+        manager.activate_module("system.merge")
+        assert manager.active_module_id == "system.merge"
+        assert sample_runtime.is_created("system.merge")
+
+        previous = manager.dispose_for_account_switch("account-b")
+
+        assert previous == "system.merge"
+        assert manager.active_module_id is None
+        assert manager.stack.count() == 0
+        assert not sample_runtime.is_created("system.merge")
+        assert sample_runtime.context.account_id == "account-b"
+        assert manager.context is sample_runtime.context

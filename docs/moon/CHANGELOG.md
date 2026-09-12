@@ -14,6 +14,14 @@
   readable helpers across all affected tabs, ensuring zero `_build_ui` methods exceed
   80 lines.
 
+# S554 — 2026-09-12 (Grok: #572 R3.5 account-switch dispose, resynced)
+
+- Runtime shell disposes every mounted module handle when `account_name`
+  actually changes, then remounts the previous route. Classic shell cancels
+  loads and clears gallery pixmap caches. Same-account theme/zoom/config
+  writes do not dispose. LRU idle-eviction remains gated on a live 3-vs-8
+  RSS measurement (DS-5); no threshold invented.
+
 # S552 — 2026-09-11 (Cursor: #544 listings composition)
 
 - `EntityListingsSubTab` / `SeriesListingsSubTab` inherit `ListingGalleryBase`
@@ -87,7 +95,6 @@
   - `drive_sync_tab/sync_data_subtab/widget.py`: removed redundant `processEvents()` flushes in `_lock_ui` and `_lock_ui_minor`.
 - Added `tools/dev/gui_audit/check_no_process_events.py` and regression test `gui/test/test_no_process_events.py` asserting zero live `processEvents()` calls in `gui/src`.
 
-<<<<<<< HEAD
 # S538 — 2026-09-08 (Gemini: #544 DataBrowserTab composition)
 
 - `DataBrowserTab` inherits `QWidget` directly without mixins. The 6 mixins
