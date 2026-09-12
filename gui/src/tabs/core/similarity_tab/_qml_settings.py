@@ -12,8 +12,10 @@ from backend.src.core.similarity import SimilarityConfig, TriageRules
 from PySide6.QtCore import Slot
 from PySide6.QtWidgets import QFileDialog
 
+from ._tab_bound import TabBoundController
 
-class _QmlSettingsMixin:
+
+class SimilarityQmlSettingsController(TabBoundController):
     """QML-facing similarity-config/triage-rules accessors and reference-dir picker."""
 
     @Slot("QVariantMap")
@@ -48,8 +50,8 @@ class _QmlSettingsMixin:
     def browse_reference_qml(self, current_path=""):
         starting = current_path if os.path.isdir(current_path) else ""
         d = QFileDialog.getExistingDirectory(
-            self, "Select Reference Directory", starting,
-            QFileDialog.Option.DontUseNativeDialog)
+            self.tab, "Select Reference Directory", starting, QFileDialog.Option.DontUseNativeDialog
+        )
         if d:
             self._sim_config.reference_dir = d
             self.reference_dir_changed.emit(d)
@@ -62,4 +64,6 @@ class _QmlSettingsMixin:
         self.reference_dir_changed.emit("")
 
 
-__all__ = ["_QmlSettingsMixin"]
+__all__ = ["SimilarityQmlSettingsController", "_QmlSettingsMixin"]
+
+_QmlSettingsMixin = SimilarityQmlSettingsController  # COMPAT(ui-arch-23): remove after callers drop the mixin name

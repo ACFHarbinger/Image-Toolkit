@@ -187,6 +187,13 @@
   `cancel_loading` stay on the tab for `super()`. COMPAT aliases keep
   the old mixin names.
 
+# S558 — 2026-09-08 (Grok: #544 SimilarityTab composition)
+
+- `SimilarityTab` inherits `AbstractClassTwoGalleries` only. The 12
+  mixins are composed `TabBoundController`s; QWidget parents use
+  `self.tab`. `cancel_loading` / `closeEvent` stay on the tab for
+  `super()`. COMPAT aliases keep the old mixin names.
+
 # S535 — 2026-09-08 (Grok: huge-GIF gallery thumbnails)
 
 - Gallery / wallpaper / extractor thumbnail loads no longer run Qt's GIF

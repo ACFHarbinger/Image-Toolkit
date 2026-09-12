@@ -14,10 +14,12 @@ from backend.src.constants import SUPPORTED_IMG_FORMATS
 from backend.src.core.similarity import SimilarityConfig, TriageRules
 from PySide6.QtWidgets import QMessageBox
 
+from ._tab_bound import TabBoundController
+
 logger = logging.getLogger(__name__)
 
 
-class _ConfigMixin:
+class SimilarityConfigController(TabBoundController):
     """Save/restore directories, scan settings, extensions, and similarity config."""
 
     def collect(self, mode: str = "files") -> Dict[str, Any]:
@@ -43,8 +45,7 @@ class _ConfigMixin:
 
     @staticmethod
     def join_list_str(text: str):
-        return [item.strip().lstrip(".")
-                for item in text.replace(",", " ").split() if item.strip()]
+        return [item.strip().lstrip(".") for item in text.replace(",", " ").split() if item.strip()]
 
     def get_default_config(self) -> dict:
         extensions = SUPPORTED_IMG_FORMATS if self.dropdown else "jpg png"
@@ -91,7 +92,9 @@ class _ConfigMixin:
                 self._triage_rules = TriageRules.from_dict(config["triage"])
         except Exception as e:
             logger.error("Error applying SimilarityTab config: %s", e)
-            QMessageBox.warning(self, "Config Error", f"Failed to apply some settings: {e}")
+            QMessageBox.warning(self.tab, "Config Error", f"Failed to apply some settings: {e}")
 
 
-__all__ = ["_ConfigMixin"]
+__all__ = ["SimilarityConfigController", "_ConfigMixin"]
+
+_ConfigMixin = SimilarityConfigController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
