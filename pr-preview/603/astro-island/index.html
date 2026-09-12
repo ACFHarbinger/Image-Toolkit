@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Vector flow field — Image-Toolkit</title>
+    <!--
+      Committed fallback: if `npm run build:astro` fails in an environment
+      where Astro's toolchain can't run (see docs/website/package.json's
+      "build:astro" — it deliberately falls back rather than failing the
+      whole site build), this hand-written equivalent of
+      src/frameworks/astro/VectorFlowField.astro keeps the island real
+      instead of showing a broken iframe. A successful `astro build` always
+      overwrites this file with the real static-rendered output.
+
+      NOTE: astro build/storybook build empty their outDir even when they
+      subsequently fail, so a failed *local* build attempt (e.g. this repo's
+      dev sandbox, which hit a Node 25 + `cookie` ESM interop bug unrelated
+      to this project's code) can wipe this file from the working tree. CI
+      always starts from a fresh checkout, so the committed version here is
+      what actually ships if `astro build` fails there too — just don't
+      `npm run build` locally between edits to this file without recommitting.
+    -->
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: transparent;
+      }
+      body {
+        padding: 0.25rem;
+        font-family: Inter, system-ui, -apple-system, sans-serif;
+        color: #191324;
+      }
+      html[data-theme="dark"] body {
+        color: #f1edfb;
+      }
+      header {
+        margin-bottom: 0.5rem;
+      }
+      .kicker {
+        margin: 0 0 0.2rem;
+        font-size: 0.68rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        opacity: 0.65;
+      }
+      h2 {
+        margin: 0 0 0.35rem;
+        font-size: 1.15rem;
+      }
+      .subtitle {
+        margin: 0 0 0.6rem;
+        font-size: 0.82rem;
+        opacity: 0.75;
+        max-width: 42rem;
+      }
+      svg {
+        width: 100%;
+        height: auto;
+        display: block;
+      }
+      .point {
+        fill: currentColor;
+        opacity: 0.35;
+      }
+      .query {
+        fill: #7c3aed;
+        stroke: #fff;
+        stroke-width: 1;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <p class="kicker">Framework island · Astro (static fallback)</p>
+      <h2>Vector flow field</h2>
+      <p class="subtitle">
+        Query points (◆) finding their k nearest neighbors across a scattered embedding
+        projection (illustrative — not live pgvector data).
+      </p>
+    </header>
+    <svg id="vff-svg" viewBox="0 0 720 380" role="img" aria-label="Vector flow field"></svg>
+    <script>
+      window.addEventListener("message", (e) => {
+        if (e.data && e.data.type === "image-toolkit-theme") {
+          document.documentElement.setAttribute("data-theme", e.data.theme);
+        }
+      });
+
+      function mulberry32(a) {
+        return function next() {
+          a += 0x6d2b79f5;
+          let t = a;
+          t = Math.imul(t ^ (t >>> 15), t | 1);
+          t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+          return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+      }
+
+      const rand = mulberry32(2024);
+      const width = 720,
+        height = 380,
+        pad = 24,
+        pointCount = 140,
+        queryCount = 5,
+        k = 6;
+
+      const points = Array.from({ length: pointCount }, () => ({
+        x: pad + rand() * (width - pad * 2),
+        y: pad + rand() * (height - pad * 2),
+      }));
+      const queries = Array.from({ length: queryCount }, () => ({
+        x: pad + rand() * (width - pad * 2),
+        y: pad + rand() * (height - pad * 2),
+      }));
+
+      const sqDist = (a, b) => (a.x - b.x) ** 2 + (a.y - b.y) ** 2;
+      const NS = "http://www.w3.org/2000/svg";
+      const svg = document.getElementById("vff-svg");
+
+      for (const q of queries) {
+        const ranked = points
+          .map((p) => ({ p, dist: Math.sqrt(sqDist(q, p)) }))
+          .sort((a, b) => a.dist - b.dist)
+          .slice(0, k);
+        const maxDist = ranked[ranked.length - 1]?.dist || 1;
+        ranked.forEach((r, i) => {
+          const distNorm = r.dist / maxDist;
+          const hue = 265 - distNorm * 100;
+          const line = document.createElementNS(NS, "line");
+          line.setAttribute("x1", q.x);
+          line.setAttribute("y1", q.y);
+          line.setAttribute("x2", r.p.x);
+          line.setAttribute("y2", r.p.y);
+          line.setAttribute("stroke", `hsl(${hue}, 80%, 62%)`);
+          line.setAttribute("stroke-width", i === 0 ? "1.6" : "0.8");
+          line.setAttribute("stroke-opacity", String(0.75 - i * 0.06));
+          svg.appendChild(line);
+        });
+      }
+      for (const p of points) {
+        const c = document.createElementNS(NS, "circle");
+        c.setAttribute("cx", p.x);
+        c.setAttribute("cy", p.y);
+        c.setAttribute("r", "2.4");
+        c.setAttribute("class", "point");
+        svg.appendChild(c);
+      }
+      for (const q of queries) {
+        const path = document.createElementNS(NS, "path");
+        path.setAttribute("transform", `translate(${q.x}, ${q.y})`);
+        path.setAttribute("d", "M0,-7 L7,0 L0,7 L-7,0 Z");
+        path.setAttribute("class", "query");
+        svg.appendChild(path);
+      }
+    </script>
+  </body>
+</html>
