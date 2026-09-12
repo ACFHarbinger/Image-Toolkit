@@ -10,6 +10,7 @@ from PySide6.QtWidgets import QDialog, QFileDialog, QMessageBox
 from gui.src.components import DoubleClickableLabel
 from gui.src.constants.listings import LISTING_IMAGES_DIR
 from gui.src.helpers.image.card_thumb_worker import invalidate_thumbnail_cache
+from gui.src.theming.theme_api import qss
 from gui.src.utils.image_load import IMAGE_FILE_DIALOG_FILTER, load_qimage
 
 
@@ -18,13 +19,13 @@ class BaseSubItemDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle(title)
         self.setMinimumWidth(400)
-        self.setStyleSheet("background:#2c2f33; color:white;")
+        self.setStyleSheet(qss("database_dialog_bg"))
         self.image_path = ""
         self._item_id = str(uuid.uuid4())
         self.img_preview = DoubleClickableLabel()
         self.img_preview.setFixedSize(120, 120)
         self.img_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.img_preview.setStyleSheet("border:1px dashed #4f545c; border-radius:4px;")
+        self.img_preview.setStyleSheet(qss("detail_panel_sub_img_preview"))
 
     def _listing_image_basename(self, source_path: str) -> Optional[str]:
         """Return a filename under LISTING_IMAGES_DIR, or None to skip copying."""

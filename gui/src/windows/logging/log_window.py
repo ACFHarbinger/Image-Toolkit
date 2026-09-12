@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
 )
 
 from gui.src.constants import LEVEL_COLORS
+from gui.src.theming.theme_api import qss
 from gui.src.windows.window_manager import register_window
 
 
@@ -26,7 +27,7 @@ class LogWindow(QWidget):
         register_window(self)
         self.setWindowTitle(f"{tab_name} — Log")
         self.setMinimumSize(720, 420)
-        self.setStyleSheet("background:#1e1e1e; color:#cccccc;")
+        self.setStyleSheet(qss("log_window"))
 
         root = QVBoxLayout(self)
         root.setContentsMargins(8, 8, 8, 8)
@@ -36,10 +37,7 @@ class LogWindow(QWidget):
         self.log_output = QPlainTextEdit()
         self.log_output.setReadOnly(True)
         self.log_output.setFont(QFont("Monospace", 9))
-        self.log_output.setStyleSheet(
-            "QPlainTextEdit{background:#1e1e1e;color:#cccccc;"
-            "border:1px solid #2c2f33;border-radius:4px;}"
-        )
+        self.log_output.setStyleSheet(qss("log_output"))
         root.addWidget(self.log_output, 1)
 
         # Toolbar
@@ -59,11 +57,7 @@ class LogWindow(QWidget):
         ):
             btn = QPushButton(label)
             btn.setFixedHeight(28)
-            btn.setStyleSheet(
-                "QPushButton{background:#2c2f33;color:#cccccc;border:1px solid #4f545c;"
-                "border-radius:4px;padding:0 10px;}"
-                "QPushButton:hover{background:#4f545c;}"
-            )
+            btn.setStyleSheet(qss("log_toolbar_btn"))
             btn.clicked.connect(slot)
             bar.addWidget(btn)
 

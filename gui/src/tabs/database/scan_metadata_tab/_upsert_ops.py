@@ -51,7 +51,7 @@ class _UpsertOpsMixin:
         worker = UpsertWorker(results)
         self.current_upsert_worker = worker
         worker.progress.connect(self._on_upsert_progress)
-        worker.sig_finished.connect(self._on_upsert_prepared)
+        worker.finished.connect(self._on_upsert_prepared)
         worker.error.connect(self._on_upsert_error)
         worker.finished.connect(self._cleanup_upsert_worker)
         worker.start()
@@ -69,14 +69,16 @@ class _UpsertOpsMixin:
     def _on_upsert_progress(self, current: int, total: int):
         self.upsert_button.setText(f"Upserting {current}/{total}...")
 
-    @Slot(str)
-    def _on_upsert_error(self, message: str):
-        QMessageBox.critical(self, "Error", message)
+    @Slot(object)
+    def _on_upsert_error(self, exc: Exception):
+        QMessageBox.critical(self, "Error", str(exc))
 
     @Slot(list)
     def _on_upsert_prepared(self, prepared: list):  # noqa: C901
         """Apply all prepared entries in one transaction (main thread —
         DB writes are not done on the worker thread)."""
+        if not prepared:
+            return  # cancelled or failed (error was reported separately)
         db = self.database_service.db
         if not db:
             return

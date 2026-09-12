@@ -11,6 +11,7 @@ from typing import List, Optional
 from PySide6.QtCore import Slot
 
 from ....styles import apply_shadow_effect
+from ....theming.theme_api import color
 
 
 class _FormatFiltersMixin:
@@ -25,7 +26,7 @@ class _FormatFiltersMixin:
         # Theme QSS handles :checked/:hover states; no inline styles needed
         apply_shadow_effect(
             self.format_buttons[fmt],
-            color_hex="#000000",
+            color_hex=color("window_bg"),
             radius=8,
             x_offset=0,
             y_offset=3,

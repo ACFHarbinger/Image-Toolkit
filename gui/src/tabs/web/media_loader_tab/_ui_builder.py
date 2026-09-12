@@ -23,15 +23,17 @@ from PySide6.QtWidgets import (
 from gui.src.constants.elements import SOURCE_REDDIT
 
 from ....styles import apply_shadow_effect, set_button_role
+from ....theming.theme_api import color, qss
+from ._tab_bound import TabBoundController
 
 SOURCE_NHENTAI = 1
 
 
-class _UIBuilderMixin:
+class MediaLoaderUIBuilder(TabBoundController):
     """Builds the source-type stack, output settings, and run controls."""
 
     def _build_ui(self) -> None:
-        main_layout = QVBoxLayout(self)
+        main_layout = QVBoxLayout(self.tab)
 
         # --- 1. Source Selection ---
         source_layout = QHBoxLayout()
@@ -67,9 +69,7 @@ class _UIBuilderMixin:
         self.download_dir_path.setText(self.last_browsed_download_dir)
         btn_browse_download = QPushButton("Browse...")
         btn_browse_download.clicked.connect(self.browse_download_directory)
-        apply_shadow_effect(
-            btn_browse_download, color_hex="#000000", radius=8, x_offset=0, y_offset=3
-        )
+        apply_shadow_effect(btn_browse_download, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3)
         download_dir_layout.addWidget(self.download_dir_path)
         download_dir_layout.addWidget(btn_browse_download)
         output_layout.addRow("Download Dir:", download_dir_layout)
@@ -85,9 +85,7 @@ class _UIBuilderMixin:
         # --- 4. Run Controls ---
         self.status_label = QLabel("Ready.")
         self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.status_label.setStyleSheet(
-            "color: #aaa; font-style: italic; padding: 8px;"
-        )
+        self.status_label.setStyleSheet(qss("status_label_padded"))
         main_layout.addWidget(self.status_label)
 
         self.progress_bar = QProgressBar()
@@ -98,17 +96,13 @@ class _UIBuilderMixin:
 
         self.run_button = QPushButton("Download")
         set_button_role(self.run_button, "success")
-        apply_shadow_effect(
-            self.run_button, color_hex="#000000", radius=8, x_offset=0, y_offset=3
-        )
+        apply_shadow_effect(self.run_button, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3)
         self.run_button.clicked.connect(self.start_download)
         main_layout.addWidget(self.run_button)
 
         self.cancel_button = QPushButton("Cancel")
         set_button_role(self.cancel_button, "danger")
-        apply_shadow_effect(
-            self.cancel_button, color_hex="#000000", radius=8, x_offset=0, y_offset=3
-        )
+        apply_shadow_effect(self.cancel_button, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3)
         self.cancel_button.clicked.connect(self.cancel_download)
         self.cancel_button.hide()
         main_layout.addWidget(self.cancel_button)
@@ -130,9 +124,7 @@ class _UIBuilderMixin:
         form.addRow("Mode:", self.reddit_mode_combo)
 
         self.reddit_source_input = QLineEdit()
-        self.reddit_source_input.setPlaceholderText(
-            "e.g. EarthPorn, u/someuser, or a full post URL"
-        )
+        self.reddit_source_input.setPlaceholderText("e.g. EarthPorn, u/someuser, or a full post URL")
         form.addRow("Subreddit / User / URL:", self.reddit_source_input)
 
         self.reddit_sort_combo = QComboBox()
@@ -148,9 +140,7 @@ class _UIBuilderMixin:
         self.reddit_download_images_chk.setChecked(True)
         form.addRow("", self.reddit_download_images_chk)
 
-        self.reddit_download_videos_chk = QCheckBox(
-            "Videos (v.redd.it, video-only stream — no audio)"
-        )
+        self.reddit_download_videos_chk = QCheckBox("Videos (v.redd.it, video-only stream — no audio)")
         self.reddit_download_videos_chk.setChecked(True)
         form.addRow("", self.reddit_download_videos_chk)
 
@@ -166,13 +156,13 @@ class _UIBuilderMixin:
         form.setContentsMargins(10, 20, 10, 10)
 
         self.nhentai_gallery_input = QLineEdit()
-        self.nhentai_gallery_input.setPlaceholderText(
-            "Gallery id (177013) or full URL (https://nhentai.net/g/177013/)"
-        )
+        self.nhentai_gallery_input.setPlaceholderText("Gallery id (177013) or full URL (https://nhentai.net/g/177013/)")
         form.addRow("Gallery:", self.nhentai_gallery_input)
 
         layout.addWidget(group)
         layout.addStretch(1)
 
 
-__all__ = ["_UIBuilderMixin", "SOURCE_REDDIT", "SOURCE_NHENTAI"]
+_UIBuilderMixin = MediaLoaderUIBuilder  # COMPAT(ui-arch-23): remove after callers drop the mixin name
+
+__all__ = ["MediaLoaderUIBuilder", "_UIBuilderMixin", "SOURCE_REDDIT", "SOURCE_NHENTAI"]

@@ -13,22 +13,30 @@ from PySide6.QtCore import QRectF, Qt
 from PySide6.QtGui import QColor, QFont, QPainter, QPalette, QPen
 from PySide6.QtWidgets import QWidget
 
-# Validated adjacent categorical order (dataviz skill / ASP reports).
-_DARK_SERIES = ("#2a78d6", "#eb6834", "#3dbebf", "#e8c547")
-_LIGHT_SERIES = ("#175fb8", "#c24e20", "#1a8a8c", "#b79212")
+from gui.src.theming.theme_api import color
+
+
+def _series_colors(*, base: str = "dark") -> tuple[str, ...]:
+    return (
+        color("accent", base=base),
+        color("accent_hover", base=base),
+        color("success", base=base),
+        color("muted_text", base=base),
+    )
 
 
 def chart_theme_from_palette(palette: QPalette) -> dict:
     window = palette.color(QPalette.ColorRole.Window)
     dark = window.lightness() < 140
     text = palette.color(QPalette.ColorRole.WindowText)
+    base = "dark" if dark else "light"
     return {
         "dark": dark,
         "bg": window,
         "text": text,
         "grid": QColor(255, 255, 255, 28) if dark else QColor(0, 0, 0, 28),
         "axis": QColor(text.red(), text.green(), text.blue(), 160),
-        "series": [QColor(c) for c in (_DARK_SERIES if dark else _LIGHT_SERIES)],
+        "series": [QColor(c) for c in _series_colors(base=base)],
     }
 
 

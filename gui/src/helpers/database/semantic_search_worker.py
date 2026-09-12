@@ -85,4 +85,4 @@ class SemanticSearchWorker(BaseQRunnableWorker):
         )
         if self.exclude_image_id is not None:
             hits = [h for h in hits if h[0] != self.exclude_image_id]
-        self.signals.finished.emit(hits[: self.top_k])
+        return hits[: self.top_k]

@@ -9,10 +9,11 @@ from PySide6.QtCore import Slot
 from PySide6.QtWidgets import QMessageBox
 
 from ....helpers import SamplerWorker
-from ....styles import SHARED_BUTTON_STYLE
+from ....theming.theme_api import qss
+from ._tab_bound import TabBoundController
 
 
-class _ResampleWorkerMixin:
+class SamplerWorkerController(TabBoundController):
     """Starts/reacts to the SamplerWorker background resample job."""
 
     def _collect_config(self, use_selection: bool) -> dict:
@@ -25,21 +26,13 @@ class _ResampleWorkerMixin:
             "Nearest Neighbor": "nearest",
         }
         fmt_text = self.out_format_combo.currentText()
-        out_fmt = (
-            None
-            if fmt_text.startswith("Keep") or "---" in fmt_text
-            else fmt_text.lower()
-        )
+        out_fmt = None if fmt_text.startswith("Keep") or "---" in fmt_text else fmt_text.lower()
         return {
             "files_to_process": files,
             "scale_mode": scale_mode,
             "scale_factor": self.scale_factor_spin.value(),
-            "target_width": self.dim_w_spin.value()
-            if scale_mode == "dimensions"
-            else None,
-            "target_height": self.dim_h_spin.value()
-            if scale_mode == "dimensions"
-            else None,
+            "target_width": self.dim_w_spin.value() if scale_mode == "dimensions" else None,
+            "target_height": self.dim_h_spin.value() if scale_mode == "dimensions" else None,
             "preserve_aspect_ratio": self.preserve_ar_cb.isChecked(),
             "algorithm": algo_map.get(self.algorithm_combo.currentText(), "lanczos"),
             "output_format": out_fmt,
@@ -54,16 +47,16 @@ class _ResampleWorkerMixin:
         if self.worker and self.worker.isRunning():
             self.worker.cancel()
             self.worker.wait()
-            self._on_done(0, "**Resampling cancelled**")
+            self._on_done((0, "**Resampling cancelled**"))
             return
 
         config = self._collect_config(use_selection)
         if not config["files_to_process"]:
-            QMessageBox.warning(self, "No Files", "No files to resample.")
+            QMessageBox.warning(self.tab, "No Files", "No files to resample.")
             return
 
         self.worker = SamplerWorker(config)
-        self.worker.sig_finished.connect(self._on_done)
+        self.worker.finished.connect(self._on_done)
         self.worker.error.connect(self._on_error)
         self.worker.progress_update.connect(self._on_progress)
 
@@ -72,40 +65,45 @@ class _ResampleWorkerMixin:
         cancel_btn = self.btn_selected if use_selection else self.btn_all
         cancel_btn.setEnabled(True)
         cancel_btn.setText("Cancel")
-        cancel_btn.setStyleSheet(
-            "QPushButton {  color: white; font-weight: bold; }"
-        )
+        cancel_btn.setStyleSheet(qss("btn_cancel_active"))
 
         n = len(config["files_to_process"])
-        self.status_label.setText(f"Resampling {n} file(s)…") # pyrefly: ignore [missing-attribute]
+        self.status_label.setText(f"Resampling {n} file(s)…")  # pyrefly: ignore [missing-attribute]
         self.progress_bar.show()
-        self.worker.start()
+        self.tab.worker.start()
 
     @Slot(int, int)
     def _on_progress(self, completed: int, total: int):
         self.progress_bar.setMaximum(max(total, 1))
         self.progress_bar.setValue(completed)
         pct = int(completed / total * 100) if total else 0
-        self.status_label.setText(f"Resampling… {pct}% complete") # pyrefly: ignore [missing-attribute]
+        self.status_label.setText(f"Resampling… {pct}% complete")  # pyrefly: ignore [missing-attribute]
 
-    @Slot(int, str)
-    def _on_done(self, count: int, msg: str):
+    @Slot(object)
+    def _on_done(self, result):
+        if result is None:  # failure — error path already reported
+            return
+        count, msg = result
         self.btn_all.setEnabled(True)
         self.btn_all.setText("Resample All in Directory")
-        self.btn_all.setStyleSheet(SHARED_BUTTON_STYLE)
+        self.btn_all.setStyleSheet(qss("shared_button"))
         self.on_selection_changed()
-        self.btn_selected.setStyleSheet(SHARED_BUTTON_STYLE)
+        self.btn_selected.setStyleSheet(qss("shared_button"))
         self.progress_bar.hide()
         self.progress_bar.setValue(0)
-        self.status_label.setText(msg) # pyrefly: ignore [missing-attribute]
-        self.worker = None
+        self.status_label.setText(msg)  # pyrefly: ignore [missing-attribute]
+        self.tab.worker = None
         if "cancelled" not in msg.lower():
-            QMessageBox.information(self, "Complete", msg)
+            QMessageBox.information(self.tab, "Complete", msg)
 
     @Slot(str)
-    def _on_error(self, msg: str):
+    def _on_error(self, err):
+        msg = str(err)
         self._on_done(0, msg)
-        QMessageBox.critical(self, "Error", msg)
+        QMessageBox.critical(self.tab, "Error", msg)
 
 
-__all__ = ["_ResampleWorkerMixin"]
+# COMPAT(ui-arch-23): legacy mixin alias
+_ResampleWorkerMixin = SamplerWorkerController
+
+__all__ = ["SamplerWorkerController", "_ResampleWorkerMixin"]

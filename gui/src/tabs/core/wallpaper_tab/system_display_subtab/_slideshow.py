@@ -17,7 +17,8 @@ from backend.src.constants import DAEMON_CONFIG_PATH
 from PySide6.QtCore import QObject, QTimer, Slot
 from PySide6.QtWidgets import QMessageBox, QWidget
 
-from .....styles import STYLE_STOP_ACTION, set_button_role
+from .....styles import set_button_role
+from .....theming.theme_api import qss
 from ._daemon import _write_daemon_config_atomic
 from ._video_duration import _get_video_duration, _is_video
 
@@ -156,7 +157,7 @@ class _SlideshowMixin:
             )
         self._cycle_slideshow_wallpaper(increment=False)
         self.set_wallpaper_btn.setText("Slideshow Running (Stop)")
-        self.set_wallpaper_btn.setStyleSheet(STYLE_STOP_ACTION)
+        self.set_wallpaper_btn.setStyleSheet(qss("stop_action_btn"))
         self.set_wallpaper_btn.setEnabled(True)
 
     def update_countdown(self: "SystemDisplaySubTabHostProtocol"):

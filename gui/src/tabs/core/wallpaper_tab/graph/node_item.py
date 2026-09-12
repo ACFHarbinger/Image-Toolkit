@@ -8,6 +8,33 @@ from PySide6.QtGui import QBrush, QColor, QFont, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import QGraphicsItem, QGraphicsObject
 
 from .....helpers.video.video_thumbnailer import VideoThumbnailer, get_video_thumbnail_cache_path
+from .....theming.theme_api import color
+from .....theming.wallpaper_graph_palette import (
+    NODE_BASIS_BADGE_TEXT,
+    NODE_BASIS_BG,
+    NODE_BASIS_BG_SEL,
+    NODE_BASIS_BORDER,
+    NODE_BASIS_BORDER_SEL,
+    NODE_HOVER_ORANGE_BG,
+    NODE_HOVER_ORANGE_BORDER,
+    NODE_SINK_BADGE_TEXT,
+    NODE_SINK_BG,
+    NODE_SINK_BG_SEL,
+    NODE_SINK_BORDER,
+    NODE_SINK_BORDER_SEL,
+    NODE_STEP_BADGE_TEXT,
+    NODE_STEP_BG,
+    NODE_STEP_BG_SEL,
+    NODE_STEP_BORDER,
+    NODE_STEP_BORDER_SEL,
+    NODE_THUMB_PLACEHOLDER_BG,
+    NODE_THUMB_PLACEHOLDER_ICON,
+    NODE_UNREACHABLE_BADGE_TEXT,
+    NODE_UNREACHABLE_BG,
+    NODE_UNREACHABLE_BG_SEL,
+    NODE_UNREACHABLE_BORDER,
+    NODE_UNREACHABLE_BORDER_SEL,
+)
 from .data_schema import NodeData
 
 logger = logging.getLogger(__name__)
@@ -76,24 +103,24 @@ class NodeItem(QGraphicsObject):
         is_sel = self.isSelected()
 
         if getattr(self, "_hovered_orange", False):
-            bg_col = QColor("#e67e22")
-            border_col = QColor("#d35400")
+            bg_col = QColor(NODE_HOVER_ORANGE_BG)
+            border_col = QColor(NODE_HOVER_ORANGE_BORDER)
             border_w = 2
         elif role == "basis":
-            bg_col = QColor("#2d3b1e") if is_sel else QColor("#2a3520")
-            border_col = QColor("#ffeaa7") if is_sel else QColor("#f1c40f")
+            bg_col = QColor(NODE_BASIS_BG_SEL) if is_sel else QColor(NODE_BASIS_BG)
+            border_col = QColor(NODE_BASIS_BORDER_SEL) if is_sel else QColor(NODE_BASIS_BORDER)
             border_w = 4 if is_sel else 3
         elif role == "sink":
-            bg_col = QColor("#3b1a2d") if is_sel else QColor("#2e1a2b")
-            border_col = QColor("#ff7eb3") if is_sel else QColor("#e056b8")
+            bg_col = QColor(NODE_SINK_BG_SEL) if is_sel else QColor(NODE_SINK_BG)
+            border_col = QColor(NODE_SINK_BORDER_SEL) if is_sel else QColor(NODE_SINK_BORDER)
             border_w = 4 if is_sel else 3
         elif role == "unreachable":
-            bg_col = QColor("#3a2020") if is_sel else QColor("#2e2020")
-            border_col = QColor("#ff7675") if is_sel else QColor("#7f4040")
+            bg_col = QColor(NODE_UNREACHABLE_BG_SEL) if is_sel else QColor(NODE_UNREACHABLE_BG)
+            border_col = QColor(NODE_UNREACHABLE_BORDER_SEL) if is_sel else QColor(NODE_UNREACHABLE_BORDER)
             border_w = 4 if is_sel else 2
         else:
-            bg_col = QColor("#1a2b3c") if is_sel else QColor("#131c26")
-            border_col = QColor("#00ffff") if is_sel else QColor("#3498db")
+            bg_col = QColor(NODE_STEP_BG_SEL) if is_sel else QColor(NODE_STEP_BG)
+            border_col = QColor(NODE_STEP_BORDER_SEL) if is_sel else QColor(NODE_STEP_BORDER)
             border_w = 4 if is_sel else 2
 
         painter.setBrush(QBrush(bg_col))
@@ -103,26 +130,26 @@ class NodeItem(QGraphicsObject):
         # Role badge strip
         if role == "basis":
             badge = QRectF(1, 1, 42, 13)
-            painter.fillRect(badge, QColor("#f1c40f"))
-            painter.setPen(QPen(QColor("#1a1a00")))
+            painter.fillRect(badge, QColor(NODE_BASIS_BORDER))
+            painter.setPen(QPen(QColor(NODE_BASIS_BADGE_TEXT)))
             painter.setFont(QFont("Arial", 6, QFont.Weight.Bold))
             painter.drawText(badge, Qt.AlignmentFlag.AlignCenter, "START")
         elif role == "sink":
             badge = QRectF(1, 1, 36, 13)
-            painter.fillRect(badge, QColor("#e056b8"))
-            painter.setPen(QPen(QColor("#1a001a")))
+            painter.fillRect(badge, QColor(NODE_SINK_BORDER))
+            painter.setPen(QPen(QColor(NODE_SINK_BADGE_TEXT)))
             painter.setFont(QFont("Arial", 6, QFont.Weight.Bold))
             painter.drawText(badge, Qt.AlignmentFlag.AlignCenter, "END")
         elif role == "unreachable":
             badge = QRectF(1, 1, 52, 13)
-            painter.fillRect(badge, QColor("#7f4040"))
-            painter.setPen(QPen(QColor("#ffcccc")))
+            painter.fillRect(badge, QColor(NODE_UNREACHABLE_BORDER))
+            painter.setPen(QPen(QColor(NODE_UNREACHABLE_BADGE_TEXT)))
             painter.setFont(QFont("Arial", 6, QFont.Weight.Bold))
             painter.drawText(badge, Qt.AlignmentFlag.AlignCenter, "SKIPPED")
         else:
             badge = QRectF(1, 1, 38, 13)
-            painter.fillRect(badge, QColor("#3498db"))
-            painter.setPen(QPen(QColor("#001a33")))
+            painter.fillRect(badge, QColor(NODE_STEP_BORDER))
+            painter.setPen(QPen(QColor(NODE_STEP_BADGE_TEXT)))
             painter.setFont(QFont("Arial", 6, QFont.Weight.Bold))
             painter.drawText(badge, Qt.AlignmentFlag.AlignCenter, "STEP")
 
@@ -136,8 +163,8 @@ class NodeItem(QGraphicsObject):
             ry = thumb_rect.y() + (thumb_rect.height() - ph) / 2
             painter.drawPixmap(int(rx), int(ry), self._pixmap)
         else:
-            painter.fillRect(thumb_rect, QColor("#23272a"))
-            painter.setPen(QPen(QColor("#7289da")))
+            painter.fillRect(thumb_rect, QColor(NODE_THUMB_PLACEHOLDER_BG))
+            painter.setPen(QPen(QColor(NODE_THUMB_PLACEHOLDER_ICON)))
             painter.setFont(QFont("Arial", 14))
             icon = "\U0001f3ac" if is_video(self.node_data.file_path) else "\U0001f5bc\ufe0f"
             painter.drawText(thumb_rect, Qt.AlignmentFlag.AlignCenter, icon)
@@ -146,7 +173,7 @@ class NodeItem(QGraphicsObject):
         fname = os.path.basename(self.node_data.file_path)
         if len(fname) > 19:
             fname = fname[:16] + "..."
-        painter.setPen(QPen(QColor("#ffffff")))
+        painter.setPen(QPen(QColor(color("text"))))
         painter.setFont(QFont("Arial", 7, QFont.Weight.Bold))
         painter.drawText(QRectF(2, 80, NODE_W - 4, 16),
                          Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextSingleLine, fname)
@@ -157,7 +184,7 @@ class NodeItem(QGraphicsObject):
         else:
             s = self.node_data.duration_sec
             dur_text = f"{int(s//60)}m {int(s%60)}s" if s >= 60 else f"{s:.0f}s"
-        painter.setPen(QPen(QColor("#b9bbbe")))
+        painter.setPen(QPen(QColor(color("muted_text"))))
         painter.setFont(QFont("Arial", 7))
         painter.drawText(QRectF(2, 97, NODE_W - 4, 14),
                          Qt.AlignmentFlag.AlignCenter, dur_text)

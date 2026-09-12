@@ -20,6 +20,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from ....theming.theme_api import qss
+
 if TYPE_CHECKING:
     from ..protos.extractor_tab import VideoExtractorSubTabHostProtocol
 
@@ -58,10 +60,10 @@ class _CutsLogicMixin:
         self.cuts_scroll.setVerticalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff
         )
-        self.cuts_scroll.setStyleSheet("background: transparent;")
+        self.cuts_scroll.setStyleSheet(qss("transparent_bg"))
 
         self.cuts_container = QWidget()
-        self.cuts_container.setStyleSheet("background: transparent;")
+        self.cuts_container.setStyleSheet(qss("transparent_bg"))
         self.cuts_layout = QHBoxLayout(self.cuts_container)
         self.cuts_layout.setContentsMargins(0, 5, 0, 5)
         self.cuts_layout.setSpacing(8)
@@ -152,7 +154,7 @@ class _CutsLogicMixin:
 
         if not self.cuts_ms:
             none_label = QLabel("Cuts: None")
-            none_label.setStyleSheet("color: #666; font-style: italic;")
+            none_label.setStyleSheet(qss("muted_label"))
             self.cuts_layout.addWidget(none_label)
             self.btn_clear_cuts.setEnabled(False)
         else:

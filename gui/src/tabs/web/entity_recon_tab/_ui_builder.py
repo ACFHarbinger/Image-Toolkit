@@ -29,18 +29,19 @@ from PySide6.QtWidgets import (
     QTableWidget,
     QTreeWidget,
     QVBoxLayout,
-    QWidget,
 )
 
 from ....styles import apply_shadow_effect
+from ....theming.theme_api import color, qss
 from ._clickable_label import _ClickableImageLabel
+from ._tab_bound import TabBoundController
 
 
-class _UIBuilderMixin:
+class EntityReconUIBuilder(TabBoundController):
     """Builds the config bar, three-pane splitter, and batch dataset builder."""
 
     def _build_ui(self):
-        root = QVBoxLayout(self)
+        root = QVBoxLayout(self.tab)
 
         # --- dataset / config bar ------------------------------------------
         cfg_group = QGroupBox("Identity Dataset and Discovery")
@@ -55,128 +56,122 @@ class _UIBuilderMixin:
         ds_row.addWidget(btn_ds)
         self.btn_build = QPushButton("Build Identity Index")
         self.btn_build.clicked.connect(self._build_index)
-        apply_shadow_effect(self.btn_build, "#000000", 8, 0, 3)
+        apply_shadow_effect(self.btn_build, color("window_bg"), 8, 0, 3)
         ds_row.addWidget(self.btn_build)
         cfg_form.addRow("Dataset root:", ds_row)
 
         opts_row = QHBoxLayout()
+        opts_row.addWidget(QLabel("Embedding mode:"))
         self.embed_combo = QComboBox()
-        self.embed_combo.addItem("Faces (ArcFace)", EMBED_FACE)
-        self.embed_combo.addItem("Characters / objects (CLIP)", EMBED_CLIP)
+        self.embed_combo.addItem("Face (InsightFace)", EMBED_FACE)
+        self.embed_combo.addItem("Whole image (CLIP)", EMBED_CLIP)
         self.embed_combo.currentIndexChanged.connect(self._on_embed_changed)
-        opts_row.addWidget(QLabel("Embedding:"))
         opts_row.addWidget(self.embed_combo)
-        opts_row.addSpacing(16)
-        self.scope_combo = QComboBox()
-        self.scope_combo.addItem("Local only (offline)", SCOPE_LOCAL)
-        self.scope_combo.addItem("Web only", SCOPE_WEB)
-        self.scope_combo.addItem("Local + Web", SCOPE_BOTH)
-        self.scope_combo.setToolTip(
-            "Local only — resolve against the local identity index, fully offline.\n"
-            "Web only — reverse-image web discovery only (skips the local index).\n"
-            "Local + Web — try the local index first, fall back to web on no match."
-        )
-        self.scope_combo.setCurrentIndex(self.scope_combo.findData(getattr(self._config, "search_scope", SCOPE_LOCAL)))
-        self.scope_combo.currentIndexChanged.connect(self._on_scope_changed)
-        opts_row.addWidget(QLabel("Search scope:"))
-        opts_row.addWidget(self.scope_combo)
-        opts_row.addStretch(1)
-        cfg_form.addRow("Options:", opts_row)
-        # Apply the initial scope so privacy_mode/search_scope start consistent.
-        self._apply_scope(getattr(self._config, "search_scope", SCOPE_LOCAL))
-        root.addWidget(cfg_group)
 
-        self.progress = QProgressBar()
-        self.progress.setRange(0, 0)
-        self.progress.setTextVisible(False)
-        self.progress.hide()
-        root.addWidget(self.progress)
+        opts_row.addSpacing(16)
+        opts_row.addWidget(QLabel("Search scope:"))
+        self.scope_combo = QComboBox()
+        self.scope_combo.addItem("Local dataset only (offline)", SCOPE_LOCAL)
+        self.scope_combo.addItem("Web discovery only", SCOPE_WEB)
+        self.scope_combo.addItem("Local + Web fallback", SCOPE_BOTH)
+        self.scope_combo.setCurrentIndex(0)
+        self.scope_combo.currentIndexChanged.connect(self._on_scope_changed)
+        opts_row.addWidget(self.scope_combo)
+
+        opts_row.addStretch(1)
+        cfg_form.addRow("Discovery scope:", opts_row)
+
+        root.addWidget(cfg_group)
 
         # --- three-pane splitter -------------------------------------------
         splitter = QSplitter(Qt.Orientation.Horizontal)
 
-        # Left: source + segmentation
-        left = QWidget()
-        left_v = QVBoxLayout(left)
-        left_v.addWidget(QLabel("Source"))
+        # Pane 1: Source image & segmentation
+        p1 = QGroupBox("Source Subject")
+        p1_v = QVBoxLayout(p1)
+        p1_top = QHBoxLayout()
+        btn_src = QPushButton("Load Image...")
+        btn_src.clicked.connect(self._browse_source)
+        apply_shadow_effect(btn_src, color("window_bg"), 8, 0, 3)
+        p1_top.addWidget(btn_src)
+        p1_top.addStretch(1)
+        p1_v.addLayout(p1_top)
+
+        self.scroll = QScrollArea()
+        self.scroll.setWidgetResizable(True)
         self.image_label = _ClickableImageLabel()
         self.image_label.clicked.connect(self._on_image_clicked)
-        img_scroll = QScrollArea()
-        img_scroll.setWidgetResizable(True)
-        img_scroll.setWidget(self.image_label)
-        left_v.addWidget(img_scroll, 1)
-        src_btns = QHBoxLayout()
-        btn_load = QPushButton("Load Image...")
-        btn_load.clicked.connect(self._browse_source)
-        src_btns.addWidget(btn_load)
+        self.scroll.setWidget(self.image_label)
+        p1_v.addWidget(self.scroll, 1)
+
         self.btn_resolve = QPushButton("Resolve Identity")
         self.btn_resolve.clicked.connect(self._resolve)
-        apply_shadow_effect(self.btn_resolve, "#000000", 8, 0, 3)
-        src_btns.addWidget(self.btn_resolve)
-        left_v.addLayout(src_btns)
-        self.hint_label = QLabel("Click a subject in the image to segment it, or Resolve the whole frame.")
-        self.hint_label.setWordWrap(True)
-        self.hint_label.setStyleSheet("color: #99aab5; font-size: 11px;")
-        left_v.addWidget(self.hint_label)
-        splitter.addWidget(left)
+        apply_shadow_effect(self.btn_resolve, color("window_bg"), 8, 0, 3)
+        p1_v.addWidget(self.btn_resolve)
+        splitter.addWidget(p1)
 
-        # Center: identity card
-        center = QWidget()
-        center_v = QVBoxLayout(center)
-        center_v.addWidget(QLabel("Identity"))
-        card = QGroupBox()
-        card_v = QVBoxLayout(card)
+        # Pane 2: Identity result card
+        p2 = QGroupBox("Identity")
+        p2_v = QVBoxLayout(p2)
         self.name_label = QLabel("—")
-        self.name_label.setStyleSheet("font-size: 20px; font-weight: bold; color: #ffffff;")
+        self.name_label.setStyleSheet(qss("entity_recon_title"))
         self.name_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        card_v.addWidget(self.name_label)
+        self.name_label.setWordWrap(True)
+        p2_v.addWidget(self.name_label)
+
         self.conf_bar = QProgressBar()
         self.conf_bar.setRange(0, 100)
         self.conf_bar.setValue(0)
-        self.conf_bar.setFormat("%p%")
-        card_v.addWidget(self.conf_bar)
-        self.method_label = QLabel("Method: —")
-        self.method_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.method_label.setStyleSheet("color: #b9bbbe;")
-        card_v.addWidget(self.method_label)
-        self.origin_label = QLabel("Origin: —")
-        self.origin_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.origin_label.setStyleSheet("color: #b9bbbe;")
-        card_v.addWidget(self.origin_label)
-        card_v.addStretch(1)
-        exp_row = QHBoxLayout()
-        self.btn_export_json = QPushButton("Export JSON")
-        self.btn_export_json.clicked.connect(lambda: self._export("json"))
-        self.btn_export_csv = QPushButton("Export CSV")
-        self.btn_export_csv.clicked.connect(lambda: self._export("csv"))
-        exp_row.addWidget(self.btn_export_json)
-        exp_row.addWidget(self.btn_export_csv)
-        card_v.addLayout(exp_row)
-        center_v.addWidget(card, 1)
-        splitter.addWidget(center)
+        self.conf_bar.setTextVisible(True)
+        self.conf_bar.setFormat("Confidence: %p%")
+        p2_v.addWidget(self.conf_bar)
 
-        # Right: provenance trail
-        right = QWidget()
-        right_v = QVBoxLayout(right)
-        right_v.addWidget(QLabel("Provenance"))
+        self.method_label = QLabel("Method: —")
+        self.origin_label = QLabel("Origin: —")
+        p2_v.addWidget(self.method_label)
+        p2_v.addWidget(self.origin_label)
+
+        p2_v.addStretch(1)
+        splitter.addWidget(p2)
+
+        # Pane 3: Provenance tree & export
+        p3 = QGroupBox("Provenance & Evidence")
+        p3_v = QVBoxLayout(p3)
         self.prov_tree = QTreeWidget()
-        self.prov_tree.setHeaderLabels(["Source", "Score"])
-        self.prov_tree.setRootIsDecorated(True)
-        self.prov_tree.itemDoubleClicked.connect(self._on_prov_activated)
+        self.prov_tree.setHeaderLabels(["Source / Match", "Score / Hits"])
+        self.prov_tree.header().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        self.prov_tree.itemActivated.connect(self._on_prov_activated)
         self.prov_tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.prov_tree.customContextMenuRequested.connect(self._on_prov_context_menu)
-        self.prov_tree.header().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-        right_v.addWidget(self.prov_tree, 1)
-        splitter.addWidget(right)
+        p3_v.addWidget(self.prov_tree, 1)
 
-        splitter.setSizes([420, 320, 380])
+        exp_h = QHBoxLayout()
+        btn_json = QPushButton("Export JSON")
+        btn_json.clicked.connect(lambda: self._export("json"))
+        exp_h.addWidget(btn_json)
+        btn_csv = QPushButton("Export CSV")
+        btn_csv.clicked.connect(lambda: self._export("csv"))
+        exp_h.addWidget(btn_csv)
+        exp_h.addStretch(1)
+        p3_v.addLayout(exp_h)
+        splitter.addWidget(p3)
+
+        splitter.setStretchFactor(0, 3)
+        splitter.setStretchFactor(1, 2)
+        splitter.setStretchFactor(2, 3)
         root.addWidget(splitter, 1)
+
+        # --- progress & status ---------------------------------------------
+        self.progress = QProgressBar()
+        self.progress.setRange(0, 0)
+        self.progress.setVisible(False)
+        root.addWidget(self.progress)
 
         # --- batch dataset builder -----------------------------------------
         batch_group = QGroupBox("Batch Dataset Builder")
         batch_v = QVBoxLayout(batch_group)
 
-        # Target directory: approved images are moved into
+        # Target directory row: where approved identity folders should be created,
         # <target>/<FirstName_LastName>/. Defaults to the dataset root, or —
         # when blank — next to each source image (original behaviour).
         target_row = QHBoxLayout()
@@ -208,8 +203,8 @@ class _UIBuilderMixin:
         root.addWidget(batch_group)
 
         self.status_label = QLabel("Ready. Build an identity index to begin.")
-        self.status_label.setStyleSheet("color: #b9bbbe;")
+        self.status_label.setStyleSheet(qss("entity_recon_meta"))
         root.addWidget(self.status_label)
 
 
-__all__ = ["_UIBuilderMixin"]
+__all__ = ["EntityReconUIBuilder"]

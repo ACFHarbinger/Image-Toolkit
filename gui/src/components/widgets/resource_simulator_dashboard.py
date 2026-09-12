@@ -21,6 +21,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from gui.src.theming.theme_api import color, qss
+
 log = logging.getLogger(__name__)
 
 
@@ -38,49 +40,33 @@ class MetricCard(QFrame):
         super().__init__(parent)
         self.setObjectName("metric_card")
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-        self.setStyleSheet(
-            """
-            QFrame#metric_card {
-                background-color: #21262d;
-                border: 1px solid #30363d;
-                border-radius: 6px;
-                padding: 6px;
-            }
-            """
-        )
+        self.setStyleSheet(qss("resource_metric_card"))
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(6, 6, 6, 6)
         layout.setSpacing(2)
 
-        # Header with category & icon
         header_layout = QHBoxLayout()
         header_layout.setContentsMargins(0, 0, 0, 0)
         header_layout.setSpacing(4)
 
         if icon:
             self.icon_label = QLabel(icon)
-            self.icon_label.setStyleSheet("font-size: 11px;")
+            self.icon_label.setStyleSheet(qss("resource_icon_label"))
             header_layout.addWidget(self.icon_label)
 
         self.category_label = QLabel(category.upper())
-        self.category_label.setStyleSheet(
-            "font-size: 9.5px; font-weight: 700; color: #c9d1d9; letter-spacing: 0.5px;"
-        )
+        self.category_label.setStyleSheet(qss("resource_category_label"))
         header_layout.addWidget(self.category_label)
         header_layout.addStretch(1)
         layout.addLayout(header_layout)
 
-        # Value
         self.value_label = QLabel(initial_value)
-        self.value_label.setStyleSheet(
-            "font-size: 14px; font-weight: 700; color: #79c0ff;"
-        )
+        self.value_label.setStyleSheet(qss("resource_value_default"))
         layout.addWidget(self.value_label)
 
-        # Subtitle
         self.subtext_label = QLabel(initial_subtext)
-        self.subtext_label.setStyleSheet("font-size: 9.5px; color: #b1bac4;")
+        self.subtext_label.setStyleSheet(qss("resource_subtext"))
         self.subtext_label.setWordWrap(True)
         layout.addWidget(self.subtext_label)
 
@@ -93,32 +79,19 @@ class MetricCard(QFrame):
         self.value_label.setText(value)
         if subtext is not None:
             self.subtext_label.setText(subtext)
-        if value_color:
-            self.value_label.setStyleSheet(
-                f"font-size: 14px; font-weight: 700; color: {value_color};"
-            )
-        else:
-            self.value_label.setStyleSheet(
-                "font-size: 14px; font-weight: 700; color: #79c0ff;"
-            )
+        tone = value_color or color("accent")
+        self.value_label.setStyleSheet(
+            qss("resource_value_dynamic", VALUE_COLOR=tone)
+        )
 
 
 class ResourceSimulatorDashboard(QFrame):
     """Dashboard widget visualizing parallel extraction resource simulation."""
 
-    # Per-worker cost. Extraction workers are multiprocessing.Pool processes
-    # running a full ffmpeg + OpenCV (+ optional ML) frame pipeline; measured
-    # real usage is ~3.5-4 GiB each, not the 1 GiB this widget assumed before
-    # #483. Override via update_simulation(per_worker_mib=...) once a measured
-    # value is available.
     BASE_RAM_MIB = 512
     PER_WORKER_RAM_MIB = 4096
-    # Reserve for the kernel, the desktop, and this app's own growth during a
-    # run (GUI + thumbnails + decoded previews) before calling RAM "available".
     OS_RESERVE_FRACTION = 0.12
     OS_RESERVE_MIN_GIB = 2
-    # Below this much total swap, exhausting RAM means a thrash freeze (no
-    # clean OOM-kill), not "paging may be slow" — escalate the warning.
     LOW_SWAP_GIB = 4
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
@@ -128,22 +101,12 @@ class ResourceSimulatorDashboard(QFrame):
         self._build_ui()
 
     def _build_ui(self) -> None:
-        self.setStyleSheet(
-            """
-            QFrame#resource_simulator_dashboard {
-                background-color: #161b22;
-                border: 1px solid #30363d;
-                border-radius: 8px;
-                padding: 10px;
-            }
-            """
-        )
+        self.setStyleSheet(qss("resource_dashboard_root"))
 
         root_layout = QVBoxLayout(self)
         root_layout.setContentsMargins(10, 10, 10, 10)
         root_layout.setSpacing(10)
 
-        # --- 1. Dashboard Header ---
         header_layout = QHBoxLayout()
         header_layout.setContentsMargins(0, 0, 0, 0)
 
@@ -151,33 +114,21 @@ class ResourceSimulatorDashboard(QFrame):
         title_box.setSpacing(1)
 
         title_lbl = QLabel("📊 Resource Allocation Simulator")
-        title_lbl.setStyleSheet("font-size: 12px; font-weight: 700; color: #f0f6fc;")
+        title_lbl.setStyleSheet(qss("resource_title"))
         subtitle_lbl = QLabel("Real-time memory & swap overhead modeling for parallel extraction workers")
-        subtitle_lbl.setStyleSheet("font-size: 9.5px; color: #c9d1d9;")
+        subtitle_lbl.setStyleSheet(qss("resource_subtitle"))
 
         title_box.addWidget(title_lbl)
         title_box.addWidget(subtitle_lbl)
         header_layout.addLayout(title_box)
         header_layout.addStretch(1)
 
-        # Status badge
         self.status_badge = QLabel("⏸️ Queue Disabled")
         self.status_badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.status_badge.setStyleSheet(
-            """
-            background-color: #21262d;
-            color: #f0f6fc;
-            border: 1px solid #484f58;
-            border-radius: 10px;
-            padding: 3px 10px;
-            font-size: 10px;
-            font-weight: 700;
-            """
-        )
+        self.status_badge.setStyleSheet(qss("resource_status_badge_idle"))
         header_layout.addWidget(self.status_badge)
         root_layout.addLayout(header_layout)
 
-        # --- 2. Metric KPI Cards ---
         cards_layout = QHBoxLayout()
         cards_layout.setSpacing(6)
         cards_layout.setContentsMargins(0, 0, 0, 0)
@@ -196,29 +147,18 @@ class ResourceSimulatorDashboard(QFrame):
         cards_layout.addWidget(self.card_swap)
         root_layout.addLayout(cards_layout)
 
-        # --- 3. Visual Gauges & Progress Bars ---
         gauges_box = QFrame()
-        gauges_box.setStyleSheet(
-            """
-            QFrame {
-                background-color: #0d1117;
-                border: 1px solid #30363d;
-                border-radius: 6px;
-                padding: 6px;
-            }
-            """
-        )
+        gauges_box.setStyleSheet(qss("resource_panel_frame"))
         gauges_layout = QVBoxLayout(gauges_box)
         gauges_layout.setContentsMargins(8, 6, 8, 6)
         gauges_layout.setSpacing(6)
 
-        # RAM Meter Row
         ram_label_row = QHBoxLayout()
         ram_label_row.setContentsMargins(0, 0, 0, 0)
         self.ram_bar_title = QLabel("RAM Demand vs Available Memory")
-        self.ram_bar_title.setStyleSheet("font-size: 10px; font-weight: 600; color: #f0f6fc;")
+        self.ram_bar_title.setStyleSheet(qss("resource_bar_title"))
         self.ram_bar_value_lbl = QLabel("0%")
-        self.ram_bar_value_lbl.setStyleSheet("font-size: 10px; font-weight: 700; color: #79c0ff;")
+        self.ram_bar_value_lbl.setStyleSheet(qss("resource_bar_value_accent"))
         ram_label_row.addWidget(self.ram_bar_title)
         ram_label_row.addStretch(1)
         ram_label_row.addWidget(self.ram_bar_value_lbl)
@@ -229,16 +169,15 @@ class ResourceSimulatorDashboard(QFrame):
         self.ram_progress_bar.setValue(0)
         self.ram_progress_bar.setTextVisible(False)
         self.ram_progress_bar.setFixedHeight(8)
-        self._set_progress_bar_style(self.ram_progress_bar, "#56d364")
+        self._set_progress_bar_style(self.ram_progress_bar, color("success"))
         gauges_layout.addWidget(self.ram_progress_bar)
 
-        # Swap Meter Row
         swap_label_row = QHBoxLayout()
         swap_label_row.setContentsMargins(0, 0, 0, 0)
         self.swap_bar_title = QLabel("Swap Overhead Risk")
-        self.swap_bar_title.setStyleSheet("font-size: 10px; font-weight: 600; color: #f0f6fc;")
+        self.swap_bar_title.setStyleSheet(qss("resource_bar_title"))
         self.swap_bar_value_lbl = QLabel("0.0 GiB (Clean)")
-        self.swap_bar_value_lbl.setStyleSheet("font-size: 10px; font-weight: 700; color: #56d364;")
+        self.swap_bar_value_lbl.setStyleSheet(qss("resource_bar_value_success"))
         swap_label_row.addWidget(self.swap_bar_title)
         swap_label_row.addStretch(1)
         swap_label_row.addWidget(self.swap_bar_value_lbl)
@@ -249,53 +188,31 @@ class ResourceSimulatorDashboard(QFrame):
         self.swap_progress_bar.setValue(0)
         self.swap_progress_bar.setTextVisible(False)
         self.swap_progress_bar.setFixedHeight(8)
-        self._set_progress_bar_style(self.swap_progress_bar, "#56d364")
+        self._set_progress_bar_style(self.swap_progress_bar, color("success"))
         gauges_layout.addWidget(self.swap_progress_bar)
 
         root_layout.addWidget(gauges_box)
 
-        # --- 4. Summary & Advisory Box ---
         summary_box = QFrame()
-        summary_box.setStyleSheet(
-            """
-            QFrame {
-                background-color: #21262d;
-                border: 1px solid #30363d;
-                border-radius: 6px;
-                padding: 6px;
-            }
-            """
-        )
+        summary_box.setStyleSheet(qss("resource_panel_frame"))
         summary_layout = QVBoxLayout(summary_box)
         summary_layout.setContentsMargins(8, 6, 8, 6)
         summary_layout.setSpacing(3)
 
         self.advisory_label = QLabel()
         self.advisory_label.setWordWrap(True)
-        self.advisory_label.setStyleSheet("font-size: 10.5px; font-weight: 500; color: #f0f6fc;")
+        self.advisory_label.setStyleSheet(qss("resource_advisory"))
         summary_layout.addWidget(self.advisory_label)
 
         self.summary_label = QLabel()
         self.summary_label.setWordWrap(True)
-        self.summary_label.setStyleSheet("font-size: 9.5px; color: #c9d1d9;")
+        self.summary_label.setStyleSheet(qss("resource_subtext"))
         summary_layout.addWidget(self.summary_label)
 
         root_layout.addWidget(summary_box)
 
-    def _set_progress_bar_style(self, bar: QProgressBar, color: str) -> None:
-        bar.setStyleSheet(
-            f"""
-            QProgressBar {{
-                background-color: #21262d;
-                border: 1px solid #484f58;
-                border-radius: 4px;
-            }}
-            QProgressBar::chunk {{
-                background-color: {color};
-                border-radius: 3px;
-            }}
-            """
-        )
+    def _set_progress_bar_style(self, bar: QProgressBar, chunk_color: str) -> None:
+        bar.setStyleSheet(qss("resource_progress_bar", CHUNK_COLOR=chunk_color))
 
     def update_simulation(
         self,
@@ -310,32 +227,23 @@ class ResourceSimulatorDashboard(QFrame):
         """Update dashboard state based on worker count and system memory metrics."""
         gib = 1024 ** 3
         mib = 1024 ** 2
+        muted = color("text")
 
         if not enabled:
             self.status_badge.setText("⏸️ Queue Disabled")
-            self.status_badge.setStyleSheet(
-                """
-                background-color: #21262d;
-                color: #f0f6fc;
-                border: 1px solid #484f58;
-                border-radius: 10px;
-                padding: 3px 10px;
-                font-size: 10px;
-                font-weight: 700;
-                """
-            )
-            self.card_workers.set_data("Disabled", "Queue execution off", "#c9d1d9")
-            self.card_est_ram.set_data("0.0 GiB", "No parallel buffer", "#c9d1d9")
+            self.status_badge.setStyleSheet(qss("resource_status_badge_idle"))
+            self.card_workers.set_data("Disabled", "Queue execution off", muted)
+            self.card_est_ram.set_data("0.0 GiB", "No parallel buffer", muted)
             try:
                 mem = psutil.virtual_memory()
                 self.card_sys_ram.set_data(
                     f"{mem.available / gib:.1f} GiB",
                     f"Total: {mem.total / gib:.1f} GiB",
-                    "#c9d1d9",
+                    muted,
                 )
             except Exception:
-                self.card_sys_ram.set_data("-- GiB", "System RAM", "#c9d1d9")
-            self.card_swap.set_data("0.0 GiB", "No risk", "#c9d1d9")
+                self.card_sys_ram.set_data("-- GiB", "System RAM", muted)
+            self.card_swap.set_data("0.0 GiB", "No risk", muted)
 
             self.ram_progress_bar.setValue(0)
             self.ram_bar_value_lbl.setText("0%")
@@ -349,7 +257,6 @@ class ResourceSimulatorDashboard(QFrame):
             )
             return
 
-        # Enabled simulation calculation
         try:
             memory = psutil.virtual_memory()
             avail_bytes = ram_available if ram_available is not None else memory.available
@@ -369,65 +276,53 @@ class ResourceSimulatorDashboard(QFrame):
         per_worker = (per_worker_mib or self.PER_WORKER_RAM_MIB) * mib
         estimated_ram = (self.BASE_RAM_MIB * mib) + workers * per_worker
 
-        # "Available" minus a reserve for the kernel, the desktop, and this
-        # app's own growth during the run — comparing raw psutil `.available`
-        # is what let #483 report "Optimal" for an OOM config.
         os_reserve = max(self.OS_RESERVE_MIN_GIB * gib, int(total_bytes * self.OS_RESERVE_FRACTION))
         usable_bytes = max(avail_bytes - os_reserve, 1)
 
         low_swap = total_swap_bytes < self.LOW_SWAP_GIB * gib
         potential_swap = max(estimated_ram - usable_bytes, 0)
-        # On a small-swap box, filling RAM = thrash freeze, not slow paging.
         freeze_risk = low_swap and estimated_ram > usable_bytes * 0.85
 
-        # Percent calculations (against usable, not raw available)
         ram_demand_pct = int(min(100, round((estimated_ram / usable_bytes) * 100)))
         if total_swap_bytes > 0 and potential_swap > 0:
             swap_demand_pct = int(min(100, round((potential_swap / total_swap_bytes) * 100)))
         else:
             swap_demand_pct = 0
 
-        # Card data updates
+        accent = color("accent")
+        danger = color("danger")
+        success = color("success")
+        warning = color("accent_hover")
+
         worker_str = f"{workers} Process" if workers == 1 else f"{workers} Processes"
         self.card_workers.set_data(
             worker_str,
             f"~{self.BASE_RAM_MIB} MiB base + {per_worker / gib:.1f} GiB/ea",
-            "#79c0ff",
+            accent,
         )
         self.card_est_ram.set_data(
             f"~{estimated_ram / gib:.1f} GiB",
             "Peak, est.",
-            "#79c0ff" if (potential_swap == 0 and not freeze_risk) else "#ff7b72",
+            accent if (potential_swap == 0 and not freeze_risk) else danger,
         )
         self.card_sys_ram.set_data(
             f"{usable_bytes / gib:.1f} GiB",
             f"Free {avail_bytes / gib:.1f} · reserve {os_reserve / gib:.1f} · total {total_bytes / gib:.1f}",
-            "#79c0ff",
+            accent,
         )
 
         if potential_swap > 0 or freeze_risk:
             self.card_swap.set_data(
                 f"~{potential_swap / gib:.1f} GiB",
                 f"Swap free: {free_swap_bytes / gib:.1f} GiB",
-                "#ff7b72",
+                danger,
             )
-            # Warning status
             self.status_badge.setText("🧊 Freeze Risk" if freeze_risk else "🔴 Swap Warning")
-            self.status_badge.setStyleSheet(
-                """
-                background-color: rgba(248, 81, 73, 0.25);
-                color: #ff7b72;
-                border: 1px solid #f85149;
-                border-radius: 10px;
-                padding: 3px 10px;
-                font-size: 10px;
-                font-weight: 700;
-                """
-            )
-            self._set_progress_bar_style(self.ram_progress_bar, "#ff7b72")
-            self._set_progress_bar_style(self.swap_progress_bar, "#ff7b72")
-            self.ram_bar_value_lbl.setStyleSheet("font-size: 10px; font-weight: 700; color: #ff7b72;")
-            self.swap_bar_value_lbl.setStyleSheet("font-size: 10px; font-weight: 700; color: #ff7b72;")
+            self.status_badge.setStyleSheet(qss("resource_status_badge_danger"))
+            self._set_progress_bar_style(self.ram_progress_bar, danger)
+            self._set_progress_bar_style(self.swap_progress_bar, danger)
+            self.ram_bar_value_lbl.setStyleSheet(qss("resource_bar_value_danger"))
+            self.swap_bar_value_lbl.setStyleSheet(qss("resource_bar_value_danger"))
             self.swap_bar_value_lbl.setText(f"~{potential_swap / gib:.1f} GiB Paging")
             if freeze_risk:
                 self.advisory_label.setText(
@@ -446,25 +341,14 @@ class ResourceSimulatorDashboard(QFrame):
             self.card_swap.set_data(
                 "0.0 GiB",
                 f"Swap free: {free_swap_bytes / gib:.1f} GiB",
-                "#f0b72f",
+                warning,
             )
-            # Moderate status
             self.status_badge.setText("🟡 Moderate Load")
-            self.status_badge.setStyleSheet(
-                """
-                background-color: rgba(187, 128, 9, 0.25);
-                color: #f0b72f;
-                border: 1px solid #d29922;
-                border-radius: 10px;
-                padding: 3px 10px;
-                font-size: 10px;
-                font-weight: 700;
-                """
-            )
-            self._set_progress_bar_style(self.ram_progress_bar, "#f0b72f")
-            self._set_progress_bar_style(self.swap_progress_bar, "#56d364")
-            self.ram_bar_value_lbl.setStyleSheet("font-size: 10px; font-weight: 700; color: #f0b72f;")
-            self.swap_bar_value_lbl.setStyleSheet("font-size: 10px; font-weight: 700; color: #56d364;")
+            self.status_badge.setStyleSheet(qss("resource_status_badge_warning"))
+            self._set_progress_bar_style(self.ram_progress_bar, warning)
+            self._set_progress_bar_style(self.swap_progress_bar, success)
+            self.ram_bar_value_lbl.setStyleSheet(qss("resource_bar_value_warning"))
+            self.swap_bar_value_lbl.setStyleSheet(qss("resource_bar_value_success"))
             self.swap_bar_value_lbl.setText("0.0 GiB (Clean)")
             self.advisory_label.setText(
                 f"⚡ Elevated footprint (~{ram_demand_pct}% of the {usable_bytes / gib:.1f} GiB usable). "
@@ -475,25 +359,14 @@ class ResourceSimulatorDashboard(QFrame):
             self.card_swap.set_data(
                 "0.0 GiB",
                 f"Swap free: {free_swap_bytes / gib:.1f} GiB",
-                "#56d364",
+                success,
             )
-            # Optimal status
             self.status_badge.setText("🟢 Optimal Headroom")
-            self.status_badge.setStyleSheet(
-                """
-                background-color: rgba(46, 160, 67, 0.25);
-                color: #56d364;
-                border: 1px solid #3fb950;
-                border-radius: 10px;
-                padding: 3px 10px;
-                font-size: 10px;
-                font-weight: 700;
-                """
-            )
-            self._set_progress_bar_style(self.ram_progress_bar, "#56d364")
-            self._set_progress_bar_style(self.swap_progress_bar, "#56d364")
-            self.ram_bar_value_lbl.setStyleSheet("font-size: 10px; font-weight: 700; color: #56d364;")
-            self.swap_bar_value_lbl.setStyleSheet("font-size: 10px; font-weight: 700; color: #56d364;")
+            self.status_badge.setStyleSheet(qss("resource_status_badge_ok"))
+            self._set_progress_bar_style(self.ram_progress_bar, success)
+            self._set_progress_bar_style(self.swap_progress_bar, success)
+            self.ram_bar_value_lbl.setStyleSheet(qss("resource_bar_value_success"))
+            self.swap_bar_value_lbl.setStyleSheet(qss("resource_bar_value_success"))
             self.swap_bar_value_lbl.setText("0.0 GiB (Clean)")
             self.advisory_label.setText(
                 f"✓ Comfortable: ~{ram_demand_pct}% of the {usable_bytes / gib:.1f} GiB usable "
@@ -506,7 +379,6 @@ class ResourceSimulatorDashboard(QFrame):
 
         self.swap_progress_bar.setValue(swap_demand_pct)
 
-        # Update the technical summary text
         self.summary_label.setText(
             f"~{workers} × {per_worker / gib:.1f} GiB + {self.BASE_RAM_MIB} MiB ≈ "
             f"{estimated_ram / gib:.1f} GiB peak RAM vs {usable_bytes / gib:.1f} GiB usable RAM "

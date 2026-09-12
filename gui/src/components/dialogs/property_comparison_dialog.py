@@ -13,6 +13,8 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
+from gui.src.theming.theme_api import color
+
 
 class PropertyComparisonDialog(QDialog):
     """
@@ -72,8 +74,8 @@ class PropertyComparisonDialog(QDialog):
         table.verticalHeader().setVisible(False)
 
         current_row = 0
-        section_color_1 = QColor("#2c2f33")
-        section_color_2 = QColor("#23272a")
+        section_color_1 = QColor(color("surface"))
+        section_color_2 = QColor(color("window_bg"))
 
         for i, key in enumerate(section_keys):
             bg_color = section_color_1 if i % 2 == 0 else section_color_2

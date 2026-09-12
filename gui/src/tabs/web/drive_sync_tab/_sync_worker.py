@@ -11,9 +11,10 @@ from PySide6.QtCore import QThreadPool, Slot
 from PySide6.QtWidgets import QMessageBox
 
 from ....helpers import DropboxDriveSyncWorker, GoogleDriveSyncWorker, OneDriveSyncWorker
+from ._tab_bound import TabBoundController
 
 
-class _SyncWorkerMixin:
+class DriveSyncSyncWorkerController(TabBoundController):
     """Starts/stops the main sync job and reacts to status/finished signals."""
 
     def toggle_sync(self):
@@ -49,10 +50,10 @@ class _SyncWorkerMixin:
         share_email = None
 
         if not os.path.isdir(local_path):
-            QMessageBox.warning(self, "Error", f"Local folder invalid:\n{local_path}")
+            QMessageBox.warning(self.tab, "Error", f"Local folder invalid:\n{local_path}")
             return
         if not remote_path:
-            QMessageBox.warning(self, "Error", "Remote path cannot be empty.")
+            QMessageBox.warning(self.tab, "Error", "Remote path cannot be empty.")
             return
 
         if auth_config.get("mode") == "service_account":
@@ -93,29 +94,30 @@ class _SyncWorkerMixin:
         }
 
         if provider_text.startswith("Google Drive"):
-            self.current_worker = GoogleDriveSyncWorker(
-                **common_args, user_email_to_share_with=share_email
-            )
+            self.current_worker = GoogleDriveSyncWorker(**common_args, user_email_to_share_with=share_email)
         elif provider_text == "Dropbox":
             self.current_worker = DropboxDriveSyncWorker(**common_args)
         elif provider_text == "OneDrive":
             self.current_worker = OneDriveSyncWorker(**common_args)
 
-        self.current_worker.signals.status_update.connect(self.handle_status_update) # pyrefly: ignore [missing-attribute]
-        self.current_worker.signals.sync_finished.connect(self.handle_sync_finished) # pyrefly: ignore [missing-attribute]
+        self.current_worker.signals.status.connect(self.handle_status_update)  # pyrefly: ignore [missing-attribute]
+        self.current_worker.signals.finished.connect(self.handle_sync_finished)  # pyrefly: ignore [missing-attribute]
 
-        QThreadPool.globalInstance().start(self.current_worker) # pyrefly: ignore [no-matching-overload]
+        QThreadPool.globalInstance().start(self.current_worker)  # pyrefly: ignore [no-matching-overload]
 
     @Slot(str)
     def handle_status_update(self, msg: str):
-        super().handle_status_update(msg) if hasattr(super(), 'handle_status_update') else None # pyrefly: ignore [missing-attribute]
         self.log_window.append_log(msg)
         self._log_text += msg + "\n"
         self.qml_log_changed.emit()
 
-    @Slot(bool, str, bool)
-    def handle_sync_finished(self, success: bool, message: str, was_dry_run: bool):
+    @Slot(object)
+    def handle_sync_finished(self, result):
         self.unlock_ui()
+        if result is None:  # BaseException escape; error channel has no UI here
+            self.current_worker = None
+            return
+        success, message, was_dry_run = result
         status_str = "Completed" if success else "Failed"
         mode_str = "DRY RUN" if was_dry_run else "LIVE"
 
@@ -125,25 +127,22 @@ class _SyncWorkerMixin:
         self.current_worker = None
 
         if not success and "manually cancelled" not in message:
-            QMessageBox.critical(self, "Sync Failed", message)
+            QMessageBox.critical(self.tab, "Sync Failed", message)
             return
 
         # --- DRY RUN CONFIRMATION LOGIC ---
         if success and was_dry_run:
             reply = QMessageBox.question(
-                self,
+                self.tab,
                 "Dry Run Completed",
-                "The Dry Run finished successfully.\n\n"
-                "Do you want to apply these changes now (Execute LIVE Sync)?",
+                "The Dry Run finished successfully.\n\nDo you want to apply these changes now (Execute LIVE Sync)?",
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 QMessageBox.StandardButton.No,
             )
 
             if reply == QMessageBox.StandardButton.Yes:
-                self.log_window.append_log(
-                    "\nUser confirmed application of changes. Starting LIVE run..."
-                )
+                self.log_window.append_log("\nUser confirmed application of changes. Starting LIVE run...")
                 self.run_sync_now(clear_log=False, force_live=True)
 
 
-__all__ = ["_SyncWorkerMixin"]
+__all__ = ["DriveSyncSyncWorkerController"]

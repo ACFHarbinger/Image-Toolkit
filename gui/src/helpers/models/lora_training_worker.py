@@ -1,9 +1,9 @@
-from PySide6.QtCore import QThread, Signal
+from PySide6.QtCore import Signal
 
-from gui.src.helpers.gc_safe import gc_disabled_run
+from gui.src.helpers.base import BaseQThreadWorker
 
 
-class LoRATrainingWorker(QThread):
+class LoRATrainingWorker(BaseQThreadWorker):
     """
     Background worker thread to handle LoRA fine-tuning for Illustrious-XL v2.0.
     Ensures the GUI remains responsive during the heavy training process.
@@ -11,8 +11,7 @@ class LoRATrainingWorker(QThread):
 
     log_signal = Signal(str)
     progress_signal = Signal(int, int)  # (completed, total) — §5.9 Option C; currently unemitted
-    finished_signal = Signal()
-    error_signal = Signal(str)
+    finished = Signal(object)  # True on success, None on failure/cancel
 
     def __init__(
         self,
@@ -54,55 +53,48 @@ class LoRATrainingWorker(QThread):
         self.alpha = alpha
         self.lr = lr
 
-    @gc_disabled_run
-    def run(self):
+    def _execute(self) -> object:
         """
         Executes the LoRA training loop.
         """
-        try:
-            from backend.src.models.tuning.lo_ra_tuner import LoRATuner
+        from backend.src.models.tuning.lo_ra_tuner import LoRATuner
 
-            self.log_signal.emit(f"Initializing LoRATuner for {self.model_id}...")
+        self.log_signal.emit(f"Initializing LoRATuner for {self.model_id}...")
 
-            # 1. Initialize Tuner
-            tuner = LoRATuner(model_id=self.model_id, output_dir=self.output_dir)
+        # 1. Initialize Tuner
+        tuner = LoRATuner(model_id=self.model_id, output_dir=self.output_dir)
 
-            # 2. Configure LoRA parameters
-            self.log_signal.emit(
-                f"Configuring LoRA: Rank={self.rank}, Alpha={self.alpha}"
-            )
-            tuner.configure_lora(rank=self.rank, alpha=self.alpha)
+        # 2. Configure LoRA parameters
+        self.log_signal.emit(
+            f"Configuring LoRA: Rank={self.rank}, Alpha={self.alpha}"
+        )
+        tuner.configure_lora(rank=self.rank, alpha=self.alpha)
 
-            # 3. Start Training
-            self.log_signal.emit(f"Starting training on dataset: {self.data_path}")
-            self.log_signal.emit(f"Trigger Word: {self.trigger_word}")
-            if self.pruned_tags:
-                self.log_signal.emit(f"Pruning tags: {', '.join(self.pruned_tags)}")
+        # 3. Start Training
+        self.log_signal.emit(f"Starting training on dataset: {self.data_path}")
+        self.log_signal.emit(f"Trigger Word: {self.trigger_word}")
+        if self.pruned_tags:
+            self.log_signal.emit(f"Pruning tags: {', '.join(self.pruned_tags)}")
 
-            # We use a custom progress update if the backend supports it,
-            # otherwise we just monitor the tuner's status.
-            tuner.train(
-                data_dir=self.data_path,
-                instance_prompt=self.trigger_word,
-                epochs=self.epochs,
-                learning_rate=self.lr,
-                batch_size=self.batch_size,
-                pruned_tags=self.pruned_tags,
-            )
+        # We use a custom progress update if the backend supports it,
+        # otherwise we just monitor the tuner's status.
+        tuner.train(
+            data_dir=self.data_path,
+            instance_prompt=self.trigger_word,
+            epochs=self.epochs,
+            learning_rate=self.lr,
+            batch_size=self.batch_size,
+            pruned_tags=self.pruned_tags,
+        )
 
-            # Check if process was cancelled
-            if LoRATuner.is_cancelled:
-                self.log_signal.emit("Training process was cancelled by user.")
-            else:
-                self.log_signal.emit(
-                    f"Training complete! LoRA weights saved to {self.output_dir}"
-                )
-                self.finished_signal.emit()
-
-        except Exception as e:
-            error_msg = f"LoRA Training Error: {str(e)}"
-            self.log_signal.emit(error_msg)
-            self.error_signal.emit(error_msg)
+        # Check if process was cancelled
+        if LoRATuner.is_cancelled:
+            self.log_signal.emit("Training process was cancelled by user.")
+            return None
+        self.log_signal.emit(
+            f"Training complete! LoRA weights saved to {self.output_dir}"
+        )
+        return True
 
     def stop(self):
         """
@@ -111,3 +103,4 @@ class LoRATrainingWorker(QThread):
         from backend.src.models.tuning.lo_ra_tuner import LoRATuner
 
         LoRATuner.cancel_process()
+        self.requestInterruption()

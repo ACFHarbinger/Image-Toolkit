@@ -18,6 +18,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from gui.src.theming.theme_api import color, qss
+
 from .provider_card import ProviderDescriptor, ProviderDescriptorCard
 
 
@@ -31,7 +33,7 @@ class ProvidersPane(QWidget):
             provider_id="gcd",
             name="Google Cloud Run (GCD)",
             badge_text="Active PoC Target",
-            badge_color="#56d364",
+            badge_color=color("success"),
             description=(
                 "Serverless container compute powered by Knative. Runs isolated extraction "
                 "workers with automatic scaling from 0 to 8 instances. Ideal for high-throughput "
@@ -56,7 +58,7 @@ class ProvidersPane(QWidget):
             provider_id="cloudflare",
             name="Cloudflare Workers & Queues",
             badge_text="Planned / Edge Queue",
-            badge_color="#f0883e",
+            badge_color=color("accent_hover"),
             description=(
                 "Ultra-low-latency edge queue consumer backed by Cloudflare R2 bucket storage "
                 "and D1 analytics database. Coordinates asynchronous batch jobs across 300+ global PoPs "
@@ -76,7 +78,7 @@ class ProvidersPane(QWidget):
             provider_id="oracle",
             name="Oracle Cloud Infrastructure (OCI)",
             badge_text="Planned / GPU Shapes",
-            badge_color="#d2a8ff",
+            badge_color=color("accent"),
             description=(
                 "High-performance OCI Container Instances running on AMD E4 or Ampere A1 Flex cores, "
                 "with dedicated NVIDIA A10 Tensor Core GPUs available for deep-learning image generation "
@@ -100,7 +102,7 @@ class ProvidersPane(QWidget):
             provider_id="aws",
             name="Amazon Web Services (AWS)",
             badge_text="Roadmap / Fargate",
-            badge_color="#8b949e",
+            badge_color=color("muted_text"),
             description=(
                 "Serverless container execution on AWS Fargate with S3 results storage "
                 "and SQS asynchronous job queuing."
@@ -135,14 +137,12 @@ class ProvidersPane(QWidget):
 
         # ── Banner: Active Provider Summary ──────────────────────────────────
         self.banner_frame = QFrame()
-        self.banner_frame.setStyleSheet(
-            "background-color: #161b22; border: 1px solid #30363d; border-radius: 6px;"
-        )
+        self.banner_frame.setStyleSheet(qss("cloud_active_banner"))
         banner_layout = QHBoxLayout(self.banner_frame)
         banner_layout.setContentsMargins(14, 10, 14, 10)
 
         self.banner_label = QLabel()
-        self.banner_label.setStyleSheet("color: #f0f6fc; font-size: 10pt; font-weight: bold;")
+        self.banner_label.setStyleSheet(qss("cloud_banner_title"))
         banner_layout.addWidget(self.banner_label)
         banner_layout.addStretch(1)
 
@@ -155,13 +155,13 @@ class ProvidersPane(QWidget):
             "Jobs are packaged into containerized workloads and executed remotely."
         )
         intro_label.setWordWrap(True)
-        intro_label.setStyleSheet("color: #8b949e; font-size: 9.5pt; line-height: 1.4;")
+        intro_label.setStyleSheet(qss("cloud_window_subtitle"))
         main_layout.addWidget(intro_label)
 
         # ── Scrollable Provider Cards List ───────────────────────────────────
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
-        scroll_area.setStyleSheet("QScrollArea { border: none; background: transparent; }")
+        scroll_area.setStyleSheet(qss("pane_scroll_area"))
 
         cards_container = QWidget()
         cards_layout = QVBoxLayout(cards_container)
@@ -193,9 +193,11 @@ class ProvidersPane(QWidget):
         if selected_card:
             p_name = selected_card.descriptor.name
             region = selected_card.selected_region()
+            accent = color("accent")
+            accent_hover = color("accent_hover")
             self.banner_label.setText(
-                f"⚡ Active Offload Target: <span style='color:#58a6ff;'>{p_name}</span> "
-                f"&nbsp;•&nbsp; Region: <span style='color:#79c0ff;'>{region}</span>"
+                f"⚡ Active Offload Target: <span style='color:{accent};'>{p_name}</span> "
+                f"&nbsp;•&nbsp; Region: <span style='color:{accent_hover};'>{region}</span>"
             )
         else:
             self.banner_label.setText("⚡ Active Offload Target: None")

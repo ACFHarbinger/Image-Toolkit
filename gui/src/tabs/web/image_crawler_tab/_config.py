@@ -8,8 +8,10 @@ from __future__ import annotations
 from backend.src.constants import LOCAL_SOURCE_PATH
 from PySide6.QtWidgets import QMessageBox
 
+from ._tab_bound import TabBoundController
 
-class _ConfigMixin:
+
+class ImageCrawlConfigController(TabBoundController):
     """Collects/restores the full ImageCrawlTab UI state as a config dict."""
 
     def collect(self) -> dict:
@@ -131,9 +133,10 @@ class _ConfigMixin:
 
         except Exception as e:
             print(f"Error applying ImageCrawlTab config: {e}")
-            QMessageBox.warning(
-                self, "Config Error", f"Failed to apply some settings: {e}"
-            )
+            QMessageBox.warning(self.tab, "Config Error", f"Failed to apply some settings: {e}")
 
 
-__all__ = ["_ConfigMixin"]
+# COMPAT(ui-arch-23): legacy mixin alias
+_ConfigMixin = ImageCrawlConfigController
+
+__all__ = ["ImageCrawlConfigController", "_ConfigMixin"]

@@ -8,27 +8,31 @@ from __future__ import annotations
 from PySide6.QtCore import Slot
 from PySide6.QtWidgets import QFileDialog
 
+from ._tab_bound import TabBoundController
 
-class _DirectoryBrowseMixin:
+
+class ImageCrawlDirectoryController(TabBoundController):
     """Browse-for-directory handlers for the download and screenshot paths."""
 
     @Slot()
     def browse_download_directory(self):
-        super().browse_download_directory() if hasattr(super(), 'browse_download_directory') else None # pyrefly: ignore [missing-attribute]
-        directory = QFileDialog.getExistingDirectory(self, "Select Download Directory", self.last_browsed_download_dir)
+        directory = QFileDialog.getExistingDirectory(
+            self.tab, "Select Download Directory", self.tab.last_browsed_download_dir
+        )
         if directory:
             self.download_dir_path.setText(directory)
-            self.last_browsed_download_dir = directory
+            self.tab.last_browsed_download_dir = directory
             self.qml_settings_changed.emit()
 
     @Slot()
     def browse_screenshot_directory(self):
-        d = QFileDialog.getExistingDirectory(
-            self, "Screenshot Dir", self.last_browsed_screenshot_dir
-        )
+        d = QFileDialog.getExistingDirectory(self.tab, "Screenshot Dir", self.tab.last_browsed_screenshot_dir)
         if d:
-            self.last_browsed_screenshot_dir = d
+            self.tab.last_browsed_screenshot_dir = d
             self.screenshot_dir_path.setText(d)
 
 
-__all__ = ["_DirectoryBrowseMixin"]
+# COMPAT(ui-arch-23): legacy mixin alias
+_DirectoryBrowseMixin = ImageCrawlDirectoryController
+
+__all__ = ["ImageCrawlDirectoryController", "_DirectoryBrowseMixin"]
