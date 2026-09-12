@@ -6,7 +6,6 @@ Extracted from ``cbir_train_tab.py`` -- pure code motion, no logic change.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
@@ -31,16 +30,14 @@ from PySide6.QtWidgets import (
 from .....styles import set_button_role
 from .....theming.theme_api import qss
 from ._sparkline import _SparkLine
-
-if TYPE_CHECKING:
-    from ...protos.cbir_train_tab import CBIRTrainTabHostProtocol
+from ._tab_bound import TabBoundController
 
 
-class _UIBuilderMixin:
+class CBIRTrainUIBuilder(TabBoundController):
     """Builds the config/telemetry splitter panels."""
 
-    def _init_ui(self: "CBIRTrainTabHostProtocol") -> None:
-        root = QVBoxLayout(cast(QWidget, self))
+    def init_ui(self) -> None:
+        root = QVBoxLayout(self.tab)
         root.setSpacing(6)
 
         # Left / Right splitter so config and log sit side-by-side on wide screens
@@ -147,12 +144,8 @@ class _UIBuilderMixin:
         lgl = QFormLayout(lg)
 
         self._loss_fn = QComboBox()
-        self._loss_fn.addItem(
-            "InfoNCE / NT-Xent  (SimCLR — recommended, batch≥64)", "infonce"
-        )
-        self._loss_fn.addItem(
-            "TripletMargin  (classic, works well at smaller batch sizes)", "triplet"
-        )
+        self._loss_fn.addItem("InfoNCE / NT-Xent  (SimCLR — recommended, batch≥64)", "infonce")
+        self._loss_fn.addItem("TripletMargin  (classic, works well at smaller batch sizes)", "triplet")
         self._loss_fn.currentIndexChanged.connect(self._on_loss_changed)
         lgl.addRow("Loss function:", self._loss_fn)
 
@@ -162,8 +155,7 @@ class _UIBuilderMixin:
         self._temperature.setDecimals(3)
         self._temperature.setSingleStep(0.01)
         self._temperature.setToolTip(
-            "InfoNCE softmax temperature τ.  Lower values → sharper distribution.\n"
-            "Typical range: 0.05–0.20."
+            "InfoNCE softmax temperature τ.  Lower values → sharper distribution.\nTypical range: 0.05–0.20."
         )
         lgl.addRow("Temperature (τ):", self._temperature)
 
@@ -181,8 +173,7 @@ class _UIBuilderMixin:
         self._jitter.setValue(0.5)
         self._jitter.setDecimals(2)
         self._jitter.setToolTip(
-            "Colour-jitter augmentation strength.  0 = disabled.  "
-            "Higher values teach more colour-invariant embeddings."
+            "Colour-jitter augmentation strength.  0 = disabled.  Higher values teach more colour-invariant embeddings."
         )
         lgl.addRow("Colour jitter strength:", self._jitter)
 
@@ -201,9 +192,7 @@ class _UIBuilderMixin:
         self._batch_size.setRange(8, 512)
         self._batch_size.setValue(64)
         self._batch_size.setSingleStep(8)
-        self._batch_size.setToolTip(
-            "InfoNCE loss quality scales with batch size — aim for 64+ if VRAM allows."
-        )
+        self._batch_size.setToolTip("InfoNCE loss quality scales with batch size — aim for 64+ if VRAM allows.")
         tgl.addRow("Batch size:", self._batch_size)
 
         self._lr = QDoubleSpinBox()
@@ -254,9 +243,7 @@ class _UIBuilderMixin:
         fgl.addRow("Checkpoint:", row_ckpt)
 
         self._index_img_dir = QLineEdit()
-        self._index_img_dir.setPlaceholderText(
-            "Image library to index (defaults to training image dir)"
-        )
+        self._index_img_dir.setPlaceholderText("Image library to index (defaults to training image dir)")
         btn_idx_img = QPushButton("Browse…")
         btn_idx_img.setFixedWidth(80)
         btn_idx_img.clicked.connect(lambda: self._browse_dir(self._index_img_dir))
@@ -343,6 +330,8 @@ class _UIBuilderMixin:
 
         splitter.setSizes([420, 420])
 
+    _init_ui = init_ui
+
     @staticmethod
     def _make_metric_label(title: str, value: str) -> QLabel:
         w = QLabel(f"<b>{title}</b><br/>{value}")
@@ -351,4 +340,7 @@ class _UIBuilderMixin:
         return w
 
 
-__all__ = ["_UIBuilderMixin"]
+# COMPAT(ui-arch-23): legacy mixin alias
+_UIBuilderMixin = CBIRTrainUIBuilder
+
+__all__ = ["CBIRTrainUIBuilder", "_UIBuilderMixin"]

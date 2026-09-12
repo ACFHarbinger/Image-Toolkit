@@ -113,6 +113,14 @@
   public/internal call interfaces. COMPAT aliases keep the old mixin
   names. Fifth non-gallery #544 tab composition migration (R2.c).
 
+# S543 — 2026-09-08 (Gemini: #544 CBIRTrainTab composition)
+
+- `CBIRTrainTab` inherits `QWidget` directly without mixins. The 7 mixins
+  are composed controllers (`TabBoundController` proxy + `self.tab` for
+  QWidget parents). Facade delegation on `CBIRTrainTab` preserves all
+  public/internal call interfaces. COMPAT aliases keep the old mixin
+  names. Sixth non-gallery #544 tab composition migration (R2.c).
+
 # S535 — 2026-09-08 (Grok: huge-GIF gallery thumbnails)
 
 - Gallery / wallpaper / extractor thumbnail loads no longer run Qt's GIF
