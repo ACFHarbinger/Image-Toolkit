@@ -88,6 +88,15 @@
   aliases keep the old mixin names. Second non-gallery #544 tab
   composition migration (R2.c).
 
+# S540 — 2026-09-08 (Gemini: #544 EntityReconTab composition)
+
+- `EntityReconTab` inherits `QWidget` directly without mixins. The 11 mixins
+  are composed controllers (`TabBoundController` proxy + `self.tab` for
+  QWidget parents). Facade delegation on `EntityReconTab` preserves all
+  public/internal call interfaces. `closeEvent` directly overrides
+  `QWidget` with zero MRO hazard. COMPAT aliases keep the old mixin
+  names. Third non-gallery #544 tab composition migration (R2.c).
+
 # S535 — 2026-09-08 (Grok: huge-GIF gallery thumbnails)
 
 - Gallery / wallpaper / extractor thumbnail loads no longer run Qt's GIF

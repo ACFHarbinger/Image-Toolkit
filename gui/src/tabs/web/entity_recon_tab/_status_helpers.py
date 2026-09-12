@@ -5,8 +5,10 @@ Extracted from ``entity_recon_tab.py`` -- pure code motion, no logic change.
 
 from __future__ import annotations
 
+from ._tab_bound import TabBoundController
 
-class _StatusHelpersMixin:
+
+class EntityReconStatusController(TabBoundController):
     """Small helpers for updating the status label and busy button state."""
 
     def _set_status(self, msg: str):
@@ -18,4 +20,4 @@ class _StatusHelpersMixin:
         self.btn_resolve.setEnabled(not busy)
 
 
-__all__ = ["_StatusHelpersMixin"]
+__all__ = ["EntityReconStatusController"]

@@ -7,8 +7,10 @@ from __future__ import annotations
 
 from backend.src.web.recon.config import SCOPE_BOTH, SCOPE_LOCAL, SCOPE_WEB
 
+from ._tab_bound import TabBoundController
 
-class _ConfigMixin:
+
+class EntityReconConfigController(TabBoundController):
     """Pushes embed-mode/search-scope combo changes onto the ReconConfig."""
 
     def _on_embed_changed(self, _idx: int):
@@ -35,4 +37,4 @@ class _ConfigMixin:
         self._set_status(msg)
 
 
-__all__ = ["_ConfigMixin"]
+__all__ = ["EntityReconConfigController"]
