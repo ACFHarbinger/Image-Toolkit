@@ -10,6 +10,7 @@ lazily so this stays a leaf module.
 
 import os
 import shutil
+import weakref
 
 from PySide6.QtCore import QEvent, QObject, QSortFilterProxyModel, Qt, QUrl
 from PySide6.QtGui import QAction
@@ -31,7 +32,11 @@ def _qss(*args, **kwargs):
 class FileDialogEventFilter(QObject):
     def __init__(self, dialog: QFileDialog):
         super().__init__(dialog)
-        self.dialog = dialog
+        self._dialog_ref = weakref.ref(dialog)
+
+    @property
+    def dialog(self) -> QFileDialog | None:
+        return self._dialog_ref()
 
     def _handle_favorite_action(self, path, favs, is_fav):
         norm_path = os.path.normpath(path)
@@ -158,6 +163,13 @@ class FileDialogEventFilter(QObject):
 class CustomFileDialog(QFileDialog):
     def __init__(self, parent=None, caption="", directory="", filter=""):
         super().__init__(parent, caption, directory, filter)
+        # No WA_DeleteOnClose: these dialogs are always run via exec()'s
+        # nested event loop, and accept()/close() posts the WA_DeleteOnClose
+        # deferred-delete event onto that same nested loop — it gets
+        # processed (deleting the C++ object) before exec() returns control
+        # to the caller, so selectedFiles() below would already be reading a
+        # dead pointer. deleteLater() after exec() returns (below) is the
+        # actual safe teardown point.
         self.setOption(QFileDialog.Option.DontUseNativeDialog, True)
         self._default_sidebar_urls = self.sidebarUrls()
         self._sync_sidebar()
@@ -178,7 +190,7 @@ class CustomFileDialog(QFileDialog):
         super().setOption(option, on)
 
     def _sync_sidebar(self):
-        favs = _app_settings().favourite_directories() # pyrefly: ignore [missing-attribute]
+        favs = _app_settings().favourite_directories()  # pyrefly: ignore [missing-attribute]
         norm_favs = {os.path.normpath(p) for p in favs}
         system_urls = []
         for url in self._default_sidebar_urls:
@@ -194,60 +206,76 @@ class CustomFileDialog(QFileDialog):
         for view in self.findChildren(QAbstractItemView):
             view.installEventFilter(self._filter)
 
+
 def my_getExistingDirectory(parent=None, caption="", dir="", options=QFileDialog.Option.ShowDirsOnly):
     dialog = CustomFileDialog(parent, caption, dir)
-    dialog.setFileMode(QFileDialog.FileMode.Directory)
-    dialog.setOptions(options | QFileDialog.Option.DontUseNativeDialog)
-    if dialog.exec() == QFileDialog.DialogCode.Accepted:
-        selected = dialog.selectedFiles()
-        if selected:
-            return selected[0]
-    return ""
+    try:
+        dialog.setFileMode(QFileDialog.FileMode.Directory)
+        dialog.setOptions(options | QFileDialog.Option.DontUseNativeDialog)
+        if dialog.exec() == QFileDialog.DialogCode.Accepted:
+            selected = dialog.selectedFiles()
+            if selected:
+                return selected[0]
+        return ""
+    finally:
+        dialog.deleteLater()
+
 
 # pyrefly: ignore [no-matching-overload]
 def my_getOpenFileName(parent=None, caption="", dir="", filter="", selectedFilter="", options=None):
     if options is None:
-        options = QFileDialog.Option() # pyrefly: ignore [no-matching-overload]
+        options = QFileDialog.Option()  # pyrefly: ignore [no-matching-overload]
     dialog = CustomFileDialog(parent, caption, dir, filter)
-    dialog.setFileMode(QFileDialog.FileMode.ExistingFile)
-    dialog.setOptions(options | QFileDialog.Option.DontUseNativeDialog)
-    if selectedFilter:
-        dialog.selectNameFilter(selectedFilter)
-    if dialog.exec() == QFileDialog.DialogCode.Accepted:
-        selected = dialog.selectedFiles()
-        if selected:
-            return selected[0], dialog.selectedNameFilter()
-    return "", ""
+    try:
+        dialog.setFileMode(QFileDialog.FileMode.ExistingFile)
+        dialog.setOptions(options | QFileDialog.Option.DontUseNativeDialog)
+        if selectedFilter:
+            dialog.selectNameFilter(selectedFilter)
+        if dialog.exec() == QFileDialog.DialogCode.Accepted:
+            selected = dialog.selectedFiles()
+            if selected:
+                return selected[0], dialog.selectedNameFilter()
+        return "", ""
+    finally:
+        dialog.deleteLater()
+
 
 # pyrefly: ignore [no-matching-overload]
 def my_getOpenFileNames(parent=None, caption="", dir="", filter="", selectedFilter="", options=None):
     if options is None:
-        options = QFileDialog.Option() # pyrefly: ignore [no-matching-overload]
+        options = QFileDialog.Option()  # pyrefly: ignore [no-matching-overload]
     dialog = CustomFileDialog(parent, caption, dir, filter)
-    dialog.setFileMode(QFileDialog.FileMode.ExistingFiles)
-    dialog.setOptions(options | QFileDialog.Option.DontUseNativeDialog)
-    if selectedFilter:
-        dialog.selectNameFilter(selectedFilter)
-    if dialog.exec() == QFileDialog.DialogCode.Accepted:
-        selected = dialog.selectedFiles()
-        return selected, dialog.selectedNameFilter()
-    return [], ""
+    try:
+        dialog.setFileMode(QFileDialog.FileMode.ExistingFiles)
+        dialog.setOptions(options | QFileDialog.Option.DontUseNativeDialog)
+        if selectedFilter:
+            dialog.selectNameFilter(selectedFilter)
+        if dialog.exec() == QFileDialog.DialogCode.Accepted:
+            selected = dialog.selectedFiles()
+            return selected, dialog.selectedNameFilter()
+        return [], ""
+    finally:
+        dialog.deleteLater()
+
 
 # pyrefly: ignore [no-matching-overload]
 def my_getSaveFileName(parent=None, caption="", dir="", filter="", selectedFilter="", options=None):
     if options is None:
-        options = QFileDialog.Option() # pyrefly: ignore [no-matching-overload]
+        options = QFileDialog.Option()  # pyrefly: ignore [no-matching-overload]
     dialog = CustomFileDialog(parent, caption, dir, filter)
-    dialog.setFileMode(QFileDialog.FileMode.AnyFile)
-    dialog.setAcceptMode(QFileDialog.AcceptMode.AcceptSave)
-    dialog.setOptions(options | QFileDialog.Option.DontUseNativeDialog)
-    if selectedFilter:
-        dialog.selectNameFilter(selectedFilter)
-    if dialog.exec() == QFileDialog.DialogCode.Accepted:
-        selected = dialog.selectedFiles()
-        if selected:
-            return selected[0], dialog.selectedNameFilter()
-    return "", ""
+    try:
+        dialog.setFileMode(QFileDialog.FileMode.AnyFile)
+        dialog.setAcceptMode(QFileDialog.AcceptMode.AcceptSave)
+        dialog.setOptions(options | QFileDialog.Option.DontUseNativeDialog)
+        if selectedFilter:
+            dialog.selectNameFilter(selectedFilter)
+        if dialog.exec() == QFileDialog.DialogCode.Accepted:
+            selected = dialog.selectedFiles()
+            if selected:
+                return selected[0], dialog.selectedNameFilter()
+        return "", ""
+    finally:
+        dialog.deleteLater()
 
 _PATCHED = False
 
