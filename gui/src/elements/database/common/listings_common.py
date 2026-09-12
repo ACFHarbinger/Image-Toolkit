@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import backend.src.constants as udef
-import cv2
 from PySide6.QtCore import QSize, Qt, QUrl
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtPdf import QPdfDocument
@@ -73,7 +72,7 @@ def _backup_referenced_images(prefix: str, data_list: List[Dict[str, Any]]):
 
     try:
         for file_path in files_to_backup:
-            if zf.fp.tell() + file_path.stat().st_size > max_size_bytes and zf.filelist: # pyrefly: ignore [missing-attribute]
+            if zf.fp.tell() + file_path.stat().st_size > max_size_bytes and zf.filelist:  # pyrefly: ignore [missing-attribute]
                 zf.close()
                 part_idx += 1
                 current_zip_path = migrations_dir / f"{prefix}.part{part_idx}.zip"
@@ -132,13 +131,12 @@ def open_web_link(url_str: str):
 def _persist_splitter(splitter, key: str) -> None:
     """Wire a QSplitter to QSettings so its position survives restarts (GUI/UX §2.20A)."""
     from gui.src.windows.settings.app_settings import AppSettings
+
     state = AppSettings.listings_splitter(key)
     if state:
         splitter.restoreState(state)
 
-    splitter.splitterMoved.connect(
-        lambda: AppSettings.set_listings_splitter(key, splitter.saveState())
-    )
+    splitter.splitterMoved.connect(lambda: AppSettings.set_listings_splitter(key, splitter.saveState()))
 
 
 def generate_thumbnail_from_file(file_path: str, dest_path: str) -> bool:  # noqa: C901
@@ -172,6 +170,8 @@ def generate_thumbnail_from_file(file_path: str, dest_path: str) -> bool:  # noq
     # 3. Video formats
     elif suffix in (".mp4", ".mkv", ".avi", ".mov", ".webm", ".flv", ".m4v"):
         try:
+            import cv2
+
             # First, probe metadata cleanly using OpenCV (doesn't trigger decoding)
             try:
                 cap = cv2.VideoCapture(
@@ -195,14 +195,10 @@ def generate_thumbnail_from_file(file_path: str, dest_path: str) -> bool:  # noq
             target_frame = min(max(1, total_frames // 10), total_frames - 1)
 
             # Try ultra-robust software ffmpeg extraction first
-            frame = extract_video_frame_via_ffmpeg(
-                str(p.absolute()), target_frame, total_frames, fps
-            )
+            frame = extract_video_frame_via_ffmpeg(str(p.absolute()), target_frame, total_frames, fps)
             if frame is None:
                 # Try frame 0 as fallback
-                frame = extract_video_frame_via_ffmpeg(
-                    str(p.absolute()), 0, total_frames, fps
-                )
+                frame = extract_video_frame_via_ffmpeg(str(p.absolute()), 0, total_frames, fps)
 
             if frame is not None:
                 cv2.imwrite(dest_path, frame)
@@ -250,6 +246,7 @@ def _scan_video_directory(directory: str) -> "dict[str, list[tuple]]":
     series' list sorted by episode number (None episodes go last).
     """
     from gui.src.windows.settings.app_settings import AppSettings
+
     recursive = AppSettings.recursive_scan()
 
     result: dict = {}
@@ -286,9 +283,7 @@ def _mal_name_lookup_key(name: str) -> str:
     return name.strip().lower()
 
 
-def resolve_entity_id_for_mal_name(
-    name: str, name_index: Dict[str, str]
-) -> Optional[str]:
+def resolve_entity_id_for_mal_name(name: str, name_index: Dict[str, str]) -> Optional[str]:
     """Match a MAL person/org name against local entity display names.
 
     Tries exact match, single-name duplication (``Tomoko`` → ``Tomoko Tomoko``),
@@ -330,4 +325,3 @@ def _badge(text: str, color: str) -> QLabel:
     lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
     lbl.setStyleSheet(qss("listings_badge", BG=color))
     return lbl
-
