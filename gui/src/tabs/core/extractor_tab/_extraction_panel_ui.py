@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
 )
 
 from ....components.tag_chip_widget import FlowLayout
+from ....theming.theme_api import qss
 
 if TYPE_CHECKING:
     from ..protos.extractor_tab import VideoExtractorSubTabHostProtocol
@@ -178,38 +179,22 @@ class _ExtractionPanelUIMixin:
         extract_actions_layout = FlowLayout(extract_actions_container)
 
         self.btn_cancel_extraction = QPushButton("🛑 Cancel Extraction")
-        self.btn_cancel_extraction.setStyleSheet(
-            "QPushButton {  color: white; font-weight: bold; border-radius: 4px; padding: 4px 12px; }"
-            "QPushButton:hover {  }"
-            "QPushButton:disabled {  color: #888; }"
-        )
+        self.btn_cancel_extraction.setStyleSheet(qss("extractor_btn_cancel"))
         self.btn_cancel_extraction.clicked.connect(self.cancel_extraction)
         self.btn_cancel_extraction.hide()
 
         self.btn_extract_range = QPushButton("🎞️ Extract Range")
-        self.btn_extract_range.setStyleSheet(
-            "QPushButton { background-color: #168f88; color: white; font-weight: bold; }"
-            "QPushButton:hover { background-color: #10736e; }"
-            "QPushButton:disabled { background-color: #4b5563; color: #c4c7cc; }"
-        )
+        self.btn_extract_range.setStyleSheet(qss("extractor_btn_range"))
         self.btn_extract_range.clicked.connect(self.extract_range)
         self.btn_extract_range.setEnabled(False)
 
         self.btn_extract_gif = QPushButton("GIF Extract as GIF")
-        self.btn_extract_gif.setStyleSheet(
-            "QPushButton { background-color: #8e44ad; color: white; font-weight: bold; }"
-            "QPushButton:hover { background-color: #70368a; }"
-            "QPushButton:disabled { background-color: #4b5563; color: #c4c7cc; }"
-        )
+        self.btn_extract_gif.setStyleSheet(qss("extractor_btn_gif"))
         self.btn_extract_gif.clicked.connect(self.extract_range_as_gif)
         self.btn_extract_gif.setEnabled(False)
 
         self.btn_extract_video = QPushButton("MP4 Extract as Video")
-        self.btn_extract_video.setStyleSheet(
-            "QPushButton { background-color: #d97706; color: white; font-weight: bold; }"
-            "QPushButton:hover { background-color: #b45309; }"
-            "QPushButton:disabled { background-color: #4b5563; color: #c4c7cc; }"
-        )
+        self.btn_extract_video.setStyleSheet(qss("extractor_btn_video"))
         self.btn_extract_video.clicked.connect(self.extract_range_as_video)
         self.btn_extract_video.setEnabled(False)
 
@@ -220,11 +205,7 @@ class _ExtractionPanelUIMixin:
         self.btn_run_on_gcd.setToolTip(
             "Extract this range on Google Cloud Run (uploads the source video)"
         )
-        self.btn_run_on_gcd.setStyleSheet(
-            "QPushButton { background-color: #1f6feb; color: white; font-weight: bold; }"
-            "QPushButton:hover { background-color: #1a5fce; }"
-            "QPushButton:disabled { background-color: #4b5563; color: #c4c7cc; }"
-        )
+        self.btn_run_on_gcd.setStyleSheet(qss("extractor_btn_gcd"))
         self.btn_run_on_gcd.clicked.connect(lambda: self.run_current_on_gcd("gif"))
         self.btn_run_on_gcd.setEnabled(False)
 
@@ -280,10 +261,7 @@ class _ExtractionPanelUIMixin:
         self.extraction_progress_bar = QProgressBar()
         self.extraction_progress_bar.setTextVisible(True)
         self.extraction_progress_bar.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.extraction_progress_bar.setStyleSheet(
-            "QProgressBar {  color: white; border: 1px solid #4f545c; border-radius: 4px; padding: 2px; height: 20px; }"
-            "QProgressBar::chunk {  border-radius: 4px; }"
-        )
+        self.extraction_progress_bar.setStyleSheet(qss("extractor_progress_bar"))
         self.extraction_progress_bar.setMinimum(0)
         self.extraction_progress_bar.setMaximum(100)
         self.extraction_progress_bar.setValue(0)
@@ -292,9 +270,7 @@ class _ExtractionPanelUIMixin:
 
         self.extraction_status_label = QLabel("Ready.")
         self.extraction_status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.extraction_status_label.setStyleSheet(
-            "color: #00BCD4; font-style: italic; padding: 4px; font-weight: bold;"
-        )
+        self.extraction_status_label.setStyleSheet(qss("extractor_status_label"))
         self.extraction_status_label.hide()
         extract_main_layout.addWidget(self.extraction_status_label)
 

@@ -114,6 +114,19 @@ class TestImageCrawlTab:
             tab.selection_mode_combo.setCurrentIndex(2)
             assert tab.selection_mode_combo.currentText() == "Automated Selection"
 
+    def test_on_crawl_done_none_payload_restores_ui(self, q_app):
+        # R1.1 (#556): base run() emits finished(None) on cancel/failure.
+        # The slot must restore the UI without touching downloaded_files.
+        with patch("gui.src.tabs.web.image_crawler_tab.manager.LogWindow"):
+            tab = ImageCrawlTab()
+            tab.downloaded_files = ["/tmp/img1.png"]
+
+            tab.on_crawl_done(None)
+
+            assert not tab.run_button.isHidden()
+            assert tab.cancel_button.isHidden()
+            assert "failed" in tab.status_label.text().lower()
+
     def test_on_crawl_done_manual_selection_accept(self, q_app):
         with (
             patch("gui.src.tabs.web.image_crawler_tab.manager.LogWindow"),
@@ -134,7 +147,7 @@ class TestImageCrawlTab:
             mock_dialog.get_pruned_paths.return_value = ["/tmp/img2.png"]
             mock_dialog_class.return_value = mock_dialog
 
-            tab.on_crawl_done(2, "Crawl finished. Downloaded **2** image(s)!")
+            tab.on_crawl_done((2, "Crawl finished. Downloaded **2** image(s)!"))
 
             # /tmp/img2.png should be removed along with its metadata
             mock_remove.assert_any_call("/tmp/img2.png")
@@ -162,7 +175,7 @@ class TestImageCrawlTab:
             mock_dialog.exec.return_value = 0  # Rejected
             mock_dialog_class.return_value = mock_dialog
 
-            tab.on_crawl_done(2, "Crawl finished. Downloaded **2** image(s)!")
+            tab.on_crawl_done((2, "Crawl finished. Downloaded **2** image(s)!"))
 
             # Both files and their metadata should be removed
             mock_remove.assert_any_call("/tmp/img1.png")
@@ -201,7 +214,7 @@ class TestImageCrawlTab:
             mock_prune_dialog.checkboxes = {"/tmp/img1.png": chk1, "/tmp/img2.png": chk2}
             mock_prune_dialog_class.return_value = mock_prune_dialog
 
-            tab.on_crawl_done(2, "Crawl finished. Downloaded **2** image(s)!")
+            tab.on_crawl_done((2, "Crawl finished. Downloaded **2** image(s)!"))
 
             # /tmp/img2.png and metadata should be removed
             mock_remove.assert_any_call("/tmp/img2.png")
@@ -229,7 +242,7 @@ class TestImageCrawlTab:
             mock_config_dialog.exec.return_value = 0  # Rejected
             mock_config_dialog_class.return_value = mock_config_dialog
 
-            tab.on_crawl_done(2, "Crawl finished. Downloaded **2** image(s)!")
+            tab.on_crawl_done((2, "Crawl finished. Downloaded **2** image(s)!"))
 
             # All files and metadata should be removed
             mock_remove.assert_any_call("/tmp/img1.png")

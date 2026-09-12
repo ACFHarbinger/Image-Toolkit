@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
 )
 
 from ....styles import apply_shadow_effect
+from ....theming.theme_api import color, qss
 
 if TYPE_CHECKING:
     pass
@@ -46,7 +47,7 @@ def build_subgroups_section(tab: Any, populate_layout: QVBoxLayout) -> None:
     tab.btn_create_subgroup = QPushButton("Create Subgroup(s)")
     apply_shadow_effect(
         tab.btn_create_subgroup,
-        color_hex="#000000",
+        color_hex=color("window_bg"),
         radius=8,
         x_offset=0,
         y_offset=3,
@@ -80,7 +81,7 @@ def build_subgroups_section(tab: Any, populate_layout: QVBoxLayout) -> None:
     tab.btn_refresh_subgroups = QPushButton("Refresh Group Filters")
     apply_shadow_effect(
         tab.btn_refresh_subgroups,
-        color_hex="#000000",
+        color_hex=color("window_bg"),
         radius=8,
         x_offset=0,
         y_offset=3,
@@ -92,7 +93,7 @@ def build_subgroups_section(tab: Any, populate_layout: QVBoxLayout) -> None:
     tab.btn_remove_subgroup.setObjectName("btn_danger")
     apply_shadow_effect(
         tab.btn_remove_subgroup,
-        color_hex="#000000",
+        color_hex=color("window_bg"),
         radius=8,
         x_offset=0,
         y_offset=3,
@@ -119,7 +120,7 @@ def build_subgroups_section(tab: Any, populate_layout: QVBoxLayout) -> None:
     tab.subgroups_table.setSelectionMode(
         QAbstractItemView.SelectionMode.SingleSelection
     )
-    tab.subgroups_table.setStyleSheet(tab.groups_table.styleSheet())
+    tab.subgroups_table.setStyleSheet(qss("table_widget"))
     tab.subgroups_table.setSizePolicy(
         QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
     )

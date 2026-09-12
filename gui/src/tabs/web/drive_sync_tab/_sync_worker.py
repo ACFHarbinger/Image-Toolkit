@@ -94,18 +94,16 @@ class DriveSyncSyncWorkerController(TabBoundController):
         }
 
         if provider_text.startswith("Google Drive"):
-            self.current_worker = GoogleDriveSyncWorker(
-                **common_args, user_email_to_share_with=share_email
-            )
+            self.current_worker = GoogleDriveSyncWorker(**common_args, user_email_to_share_with=share_email)
         elif provider_text == "Dropbox":
             self.current_worker = DropboxDriveSyncWorker(**common_args)
         elif provider_text == "OneDrive":
             self.current_worker = OneDriveSyncWorker(**common_args)
 
-        self.current_worker.signals.status_update.connect(self.handle_status_update) # pyrefly: ignore [missing-attribute]
-        self.current_worker.signals.sync_finished.connect(self.handle_sync_finished) # pyrefly: ignore [missing-attribute]
+        self.current_worker.signals.status.connect(self.handle_status_update)  # pyrefly: ignore [missing-attribute]
+        self.current_worker.signals.finished.connect(self.handle_sync_finished)  # pyrefly: ignore [missing-attribute]
 
-        QThreadPool.globalInstance().start(self.current_worker) # pyrefly: ignore [no-matching-overload]
+        QThreadPool.globalInstance().start(self.current_worker)  # pyrefly: ignore [no-matching-overload]
 
     @Slot(str)
     def handle_status_update(self, msg: str):
@@ -113,9 +111,13 @@ class DriveSyncSyncWorkerController(TabBoundController):
         self._log_text += msg + "\n"
         self.qml_log_changed.emit()
 
-    @Slot(bool, str, bool)
-    def handle_sync_finished(self, success: bool, message: str, was_dry_run: bool):
+    @Slot(object)
+    def handle_sync_finished(self, result):
         self.unlock_ui()
+        if result is None:  # BaseException escape; error channel has no UI here
+            self.current_worker = None
+            return
+        success, message, was_dry_run = result
         status_str = "Completed" if success else "Failed"
         mode_str = "DRY RUN" if was_dry_run else "LIVE"
 
@@ -133,16 +135,13 @@ class DriveSyncSyncWorkerController(TabBoundController):
             reply = QMessageBox.question(
                 self.tab,
                 "Dry Run Completed",
-                "The Dry Run finished successfully.\n\n"
-                "Do you want to apply these changes now (Execute LIVE Sync)?",
+                "The Dry Run finished successfully.\n\nDo you want to apply these changes now (Execute LIVE Sync)?",
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 QMessageBox.StandardButton.No,
             )
 
             if reply == QMessageBox.StandardButton.Yes:
-                self.log_window.append_log(
-                    "\nUser confirmed application of changes. Starting LIVE run..."
-                )
+                self.log_window.append_log("\nUser confirmed application of changes. Starting LIVE run...")
                 self.run_sync_now(clear_log=False, force_live=True)
 
 

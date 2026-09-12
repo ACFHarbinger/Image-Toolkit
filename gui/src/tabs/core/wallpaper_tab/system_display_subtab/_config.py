@@ -20,6 +20,7 @@ from backend.src.core import telemetry
 from PySide6.QtWidgets import QMessageBox, QWidget
 
 from .....components import DraggableMonitorContainer, MonitorDropView
+from .....theming.theme_api import color, qss
 
 if TYPE_CHECKING:
     from ...protos.system_display_subtab import SystemDisplaySubTabHostProtocol
@@ -68,7 +69,7 @@ class _ConfigMixin:
             "interval_seconds": 0,
             "use_video_runtime_interval": False,
             "background_type": "Image",
-            "solid_color_hex": "#000000",
+            "solid_color_hex": color("window_bg"),
             "monitor_order": [],
             "monitor_layout": [],
         }
@@ -130,9 +131,9 @@ class _ConfigMixin:
                     config.get("use_video_runtime_interval", False)
                 )
             if "solid_color_hex" in config:
-                self.solid_color_hex = config.get("solid_color_hex", "#000000")
+                self.solid_color_hex = config.get("solid_color_hex", color("window_bg"))
                 self.solid_color_preview.setStyleSheet(
-                    f"background-color: {self.solid_color_hex}; border: 1px solid #4f545c;"
+                    qss("dynamic_color_preview", BG_COLOR=self.solid_color_hex)
                 )
             if "background_type" in config:
                 self.background_type_combo.setCurrentText(

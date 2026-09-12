@@ -1,0 +1,10 @@
+QCheckBox::indicator {
+    width: 16px;
+    height: 16px;
+    border: 1px solid $DARK_BORDER;
+    border-radius: 3px;
+}
+QCheckBox::indicator:checked {
+    border: 1px solid $DARK_SUCCESS;
+    image: url(./src/gui/assets/check.png);
+}

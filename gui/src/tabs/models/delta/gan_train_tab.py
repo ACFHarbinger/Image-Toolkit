@@ -1,7 +1,6 @@
 import os
 from pathlib import Path
 
-import torch
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
@@ -20,6 +19,7 @@ from PySide6.QtWidgets import (
 
 from ....helpers.models.training_worker import TrainingWorker
 from ....styles import set_button_role
+from ....theming.theme_api import qss
 
 
 class GANTrainTab(QWidget):
@@ -29,9 +29,21 @@ class GANTrainTab(QWidget):
 
     def __init__(self):
         super().__init__()
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self._device: str | None = None
         self.training_thread = None
         self.init_ui()
+
+    @property
+    def device(self) -> str:
+        if self._device is None:
+            import torch
+
+            self._device = "cuda" if torch.cuda.is_available() else "cpu"
+        return self._device
+
+    @device.setter
+    def device(self, value: str) -> None:
+        self._device = value
 
     def init_ui(self):
         layout = QVBoxLayout(self)
@@ -41,9 +53,7 @@ class GANTrainTab(QWidget):
 
         # Data Path
         self.txt_data_path = QLineEdit()
-        self.txt_data_path.setPlaceholderText(
-            "Path to dataset folder (containing subfolders)"
-        )
+        self.txt_data_path.setPlaceholderText("Path to dataset folder (containing subfolders)")
         btn_data_path = QPushButton("Browse")
         btn_data_path.clicked.connect(lambda: self.browse_folder(self.txt_data_path))
 
@@ -101,7 +111,7 @@ class GANTrainTab(QWidget):
         # Preview Area
         self.lbl_preview = QLabel("Latest Training Sample")
         self.lbl_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.lbl_preview.setStyleSheet("border: 2px dashed #aaa; padding: 10px;")
+        self.lbl_preview.setStyleSheet(qss("gan_preview_placeholder"))
         self.lbl_preview.setMinimumHeight(200)
         layout.addWidget(self.lbl_preview)
 
@@ -142,17 +152,19 @@ class GANTrainTab(QWidget):
         )
 
         self.training_thread.log_signal.connect(self.log)
-        self.training_thread.error_signal.connect(self.on_training_error)
-        self.training_thread.finished_signal.connect(self.on_training_finished)
+        self.training_thread.error.connect(self.on_training_error)
+        self.training_thread.finished.connect(self.on_training_finished)
         self.training_thread.start()
 
         self.preview_timer.start(5000)
 
-    def on_training_error(self, msg):
-        QMessageBox.critical(self, "Training Error", msg)
+    def on_training_error(self, err):
+        QMessageBox.critical(self, "Training Error", str(err))
         self.reset_training_ui()
 
-    def on_training_finished(self):
+    def on_training_finished(self, result=None):
+        if result is None:  # failure/cancel — error path already reported
+            return
         QMessageBox.information(self, "Success", "Training Completed Successfully!")
         self.reset_training_ui()
 

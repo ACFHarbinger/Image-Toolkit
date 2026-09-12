@@ -1,0 +1,7 @@
+background-color: $DARK_SECONDARY_BG;
+color: $DARK_TEXT;
+border: 1px solid $DARK_BORDER;
+border-radius: 10px;
+padding: 3px 10px;
+font-size: 10px;
+font-weight: 700;

@@ -15,7 +15,7 @@ from PySide6.QtWidgets import (
 )
 
 from gui.src.elements.database.dialog.common.base_sub_item_dialog import BaseSubItemDialog
-from gui.src.styles import SHARED_BUTTON_STYLE
+from gui.src.theming.theme_api import qss
 
 
 class _CreditDialog(BaseSubItemDialog):
@@ -73,7 +73,7 @@ class _CreditDialog(BaseSubItemDialog):
         # Buttons
         btns = QHBoxLayout()
         save_btn = QPushButton("Save")
-        save_btn.setStyleSheet(SHARED_BUTTON_STYLE)
+        save_btn.setStyleSheet(qss("shared_button"))
         save_btn.clicked.connect(self.accept)
         cancel_btn = QPushButton("Cancel")
         cancel_btn.clicked.connect(self.reject)

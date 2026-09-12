@@ -21,6 +21,8 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
+from gui.src.contracts.tab_config import ConfigSettable
+
 
 class _LoadTabConfigMixin:
     """Meta+S: pick a saved configuration for the active tab and apply it."""
@@ -37,7 +39,7 @@ class _LoadTabConfigMixin:
             return
 
         tab_instance = self.all_tabs.get(active_category, {}).get(active_tab_name)
-        if tab_instance is None or not hasattr(tab_instance, "set_config") or not callable(tab_instance.set_config):
+        if not isinstance(tab_instance, ConfigSettable):
             QMessageBox.warning(
                 self,
                 "Load Configuration",

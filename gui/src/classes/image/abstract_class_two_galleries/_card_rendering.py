@@ -12,6 +12,8 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
+from gui.src.theming.theme_api import accent_rgba, qss
+
 from ....components import ClickableLabel
 
 if TYPE_CHECKING:
@@ -71,9 +73,9 @@ class _CardRenderingMixin:
         else:
             target_label.setText("Loading...")
             if path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
-                target_label.setStyleSheet("color: #3498db; border: 2px dashed #3498db;")
+                target_label.setStyleSheet(qss("gallery_card_video_loading_dashed"))
             else:
-                target_label.setStyleSheet("color: #999; border: 1px dashed #666;")
+                target_label.setStyleSheet(qss("gallery_card_no_thumbnail"))
 
         card_wrapper.setProperty("gallery_path", path)
         self._update_card_style(target_label, is_selected)
@@ -145,25 +147,27 @@ class _CardRenderingMixin:
 
         if is_selected:
             img_label.setStyleSheet(
-                "border: 3px solid #5865f2; background-color: rgba(88, 101, 242, 0.25);"
+                qss(
+                    "gallery_card_selected",
+                    BORDER_WIDTH="3px",
+                    ACCENT_BG=accent_rgba(0.25),
+                )
             )
         elif is_in_db:
-            img_label.setStyleSheet(
-                "border: 3px solid #2ecc71; background-color: rgba(46, 204, 113, 0.20);"
-            )
+            img_label.setStyleSheet(qss("gallery_card_in_db"))
         else:
             label_color = self._LABEL_COLORS.get(self._get_color_label(path) or "", "") if path else ""
             if label_color:
-                img_label.setStyleSheet(f"border: 2px solid {label_color}; background-color: rgba(20, 24, 32, 0.35);")
-            elif img_label.pixmap() and not img_label.pixmap().isNull():
                 img_label.setStyleSheet(
-                    "border: 1px solid rgba(255, 255, 255, 0.15); background-color: rgba(20, 24, 32, 0.35);"
+                    qss("gallery_card_label_colored", BORDER_COLOR=label_color)
                 )
+            elif img_label.pixmap() and not img_label.pixmap().isNull():
+                img_label.setStyleSheet(qss("gallery_card_pixmap"))
             else:
                 if img_label.text() in ("Loading...", "Loading…", "Error"):
                     pass
                 else:
-                    img_label.setStyleSheet("border: 1px dashed rgba(255, 255, 255, 0.20); color: #999; background-color: rgba(20, 24, 32, 0.25);")
+                    img_label.setStyleSheet(qss("gallery_card_loading_image"))
 
     def _update_found_card_styles(self: "AbstractClassTwoGalleriesHostProtocol") -> None:
         """Re-evaluate and apply style to all currently visible found cards."""

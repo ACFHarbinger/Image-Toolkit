@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
 )
 
 from ....styles import apply_shadow_effect
+from ....theming.theme_api import color, qss
 from ._tab_bound import TabBoundController
 from .local_dir_sync_subtab import LocalDirSyncSubtab
 from .sync_data_subtab import SyncDataSubtab
@@ -44,7 +45,7 @@ class DriveSyncUIBuilder(TabBoundController):
                 "OneDrive",
             ]
         )
-        self.provider_combo.setStyleSheet("QComboBox { font-weight: bold; }")
+        self.provider_combo.setStyleSheet(qss("combo_bold"))
         provider_layout.addWidget(QLabel("Cloud Provider:"))
         provider_layout.addWidget(self.provider_combo)
         config_layout.addLayout(provider_layout)
@@ -52,12 +53,10 @@ class DriveSyncUIBuilder(TabBoundController):
         # Service Account Key
         self.key_file_label = QLabel("Service Account Key File:")
         key_layout = QHBoxLayout()
-        self.key_file_path = QLineEdit(
-            os.path.join(Path.home(), udef.SERVICE_ACCOUNT_FILE)
-        )
+        self.key_file_path = QLineEdit(os.path.join(Path.home(), udef.SERVICE_ACCOUNT_FILE))
         self.key_file_path.setPlaceholderText("Path to service_account_key.json")
         self.btn_browse_key = QPushButton("Browse")
-        apply_shadow_effect(self.btn_browse_key, "#000000", 8, 0, 3)
+        apply_shadow_effect(self.btn_browse_key, color("window_bg"), 8, 0, 3)
         self.btn_browse_key.clicked.connect(self.browse_key_file)
         key_layout.addWidget(self.key_file_path)
         key_layout.addWidget(self.btn_browse_key)
@@ -65,12 +64,10 @@ class DriveSyncUIBuilder(TabBoundController):
         # Personal Account: Client Secrets
         self.client_secrets_label = QLabel("Client Secrets File:")
         client_secrets_layout = QHBoxLayout()
-        self.client_secrets_path = QLineEdit(
-            os.path.join(Path.home(), udef.CLIENT_SECRETS_FILE)
-        )
+        self.client_secrets_path = QLineEdit(os.path.join(Path.home(), udef.CLIENT_SECRETS_FILE))
         self.client_secrets_path.setPlaceholderText("Path to client_secrets.json")
         self.btn_browse_client_secrets = QPushButton("Browse")
-        apply_shadow_effect(self.btn_browse_client_secrets, "#000000", 8, 0, 3)
+        apply_shadow_effect(self.btn_browse_client_secrets, color("window_bg"), 8, 0, 3)
         self.btn_browse_client_secrets.clicked.connect(self.browse_client_secrets_file)
         client_secrets_layout.addWidget(self.client_secrets_path)
         client_secrets_layout.addWidget(self.btn_browse_client_secrets)

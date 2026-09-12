@@ -32,6 +32,8 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
+from gui.src.contracts.tab_config import ConfigSettable
+
 
 class _WorkflowTemplatesMixin:
     """Build, save, and run cross-tab workflow templates."""
@@ -132,10 +134,12 @@ class _WorkflowTemplatesMixin:
             category = step.get("category")
             tab_name = step.get("tab_name")
             config_name = step.get("config_name")
+            if category:
+                self._ensure_category(category)
             tab_instance = self.all_tabs.get(category, {}).get(tab_name)
             if tab_instance is None:
                 continue
-            if config_name and hasattr(tab_instance, "set_config"):
+            if config_name and isinstance(tab_instance, ConfigSettable):
                 config_data = tab_configurations.get(type(tab_instance).__name__, {}).get(config_name)
                 if config_data is not None:
                     tab_instance.set_config(config_data)
@@ -186,6 +190,8 @@ class _WorkflowTemplatesMixin:
             config_combo.clear()
             config_combo.addItem("(no config — just switch here)")
             category = category_combo.currentText()
+            if category:
+                self._ensure_category(category)
             tab_instance = self.all_tabs.get(category, {}).get(tab_name)
             if tab_instance is not None:
                 class_name = type(tab_instance).__name__
