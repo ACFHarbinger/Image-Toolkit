@@ -1,3 +1,9 @@
+# S551 — 2026-09-11 (Gemini / Antigravity: R3.2 #569 / ui-arch-47 lazy heavy imports)
+
+- Moved all module-level heavy imports (`cv2`, `PIL`/`Pillow`, `numpy`, and `torch`, 27 statements across 19 GUI files) into functions, methods, and workers that require them.
+- Avoided ~492 MB of RSS overhead during GUI initialization (PyTorch: +460 MB, OpenCV: +13 MB, NumPy: +15 MB, PIL: +4 MB). Importing `gui.src` now loads 0 heavy scientific/vision packages at module load time.
+- Added AST audit tool `tools/dev/gui_audit/check_no_module_heavy_imports.py` and regression test `gui/test/test_no_module_heavy_imports.py`.
+
 # S550 — 2026-09-08 (Cursor: #564 complete + #574/#575 cross-surface tokens)
 
 - Finished R2.b styling migration: all `gui/src/` surfaces (`components/`,

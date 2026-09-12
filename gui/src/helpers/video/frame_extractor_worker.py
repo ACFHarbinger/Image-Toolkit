@@ -5,8 +5,6 @@ import time
 from pathlib import Path
 from typing import Optional, Tuple, Union
 
-import cv2
-
 from gui.src.helpers.base import BaseQRunnableWorker
 
 from ...utils.sort_utils import natural_sort_key
@@ -22,12 +20,7 @@ class FrameExtractionWorker(BaseQRunnableWorker):
         if not self.cuts_ms:
             return [(0.0, t_end - t_start)]
 
-        sorted_cuts = sorted(
-            [
-                (max(t_start, c[0] / 1000.0), min(t_end, c[1] / 1000.0))
-                for c in self.cuts_ms
-            ]
-        )
+        sorted_cuts = sorted([(max(t_start, c[0] / 1000.0), min(t_end, c[1] / 1000.0)) for c in self.cuts_ms])
         merged_cuts = []
         for c in sorted_cuts:
             if c[0] >= c[1]:
@@ -88,6 +81,8 @@ class FrameExtractionWorker(BaseQRunnableWorker):
 
     def _get_fps(self) -> float:
         """Get video FPS to calculate timestamps."""
+        import cv2
+
         cap = cv2.VideoCapture(self.video_path)
         if not cap.isOpened():
             return 23.976
@@ -127,9 +122,7 @@ class FrameExtractionWorker(BaseQRunnableWorker):
                     (self.end_ms / 1000.0 if self.end_ms != -1 else t_start + 1),
                 )
                 if keep_regions:
-                    select_expr = "+".join(
-                        [f"between(t,{r[0]},{r[1]})" for r in keep_regions]
-                    )
+                    select_expr = "+".join([f"between(t,{r[0]},{r[1]})" for r in keep_regions])
                     filters.append(f"select='{select_expr}'")
 
             if self.frame_interval > 1:
@@ -168,9 +161,7 @@ class FrameExtractionWorker(BaseQRunnableWorker):
             from gui.src.helpers.video.video_thumbnailer import media_backend_spawn_guard
 
             with media_backend_spawn_guard():
-                process = subprocess.Popen(
-                    cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
-                )
+                process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             while process.poll() is None:
                 if self._is_cancelled:
                     process.terminate()
@@ -179,31 +170,23 @@ class FrameExtractionWorker(BaseQRunnableWorker):
                 time.sleep(0.5)
 
             if process.returncode != 0:
-                self.signals.error.emit(f"FFmpeg failed: {process.stderr.read()}") # pyrefly: ignore [missing-attribute]
+                self.signals.error.emit(f"FFmpeg failed: {process.stderr.read()}")  # pyrefly: ignore [missing-attribute]
                 return
 
             # Rename temp files to timestamp-based names
             tmp_files = sorted(
-                [
-                    f
-                    for f in os.listdir(self.output_dir)
-                    if f.startswith(f"{video_name}_tmp_") and f.endswith(".png")
-                ]
+                [f for f in os.listdir(self.output_dir) if f.startswith(f"{video_name}_tmp_") and f.endswith(".png")]
             )
             for i, f in enumerate(tmp_files):
                 # Calculate approximate MS
                 # Frame N (0-indexed) at start_ms + (N * interval * 1000 / self.fps)
-                current_ms = self.start_ms + int(
-                    i * self.frame_interval * (1000.0 / self.fps)
-                )
+                current_ms = self.start_ms + int(i * self.frame_interval * (1000.0 / self.fps))
                 new_name = f"{video_name}_{current_ms}ms.png"
 
                 # Check for duplicates if multiple extractions land on same ms
                 final_path = os.path.join(self.output_dir, new_name)
                 if os.path.exists(final_path):
-                    final_path = os.path.join(
-                        self.output_dir, f"{video_name}_{current_ms}ms_{i}.png"
-                    )
+                    final_path = os.path.join(self.output_dir, f"{video_name}_{current_ms}ms_{i}.png")
 
                 os.rename(os.path.join(self.output_dir, f), final_path)
                 saved_files.append(final_path)
@@ -230,9 +213,7 @@ class FrameExtractionWorker(BaseQRunnableWorker):
             filters = []
             keep_regions = self._get_keep_regions(t_start, t_end)
             if self.cuts_ms and keep_regions:
-                select_expr = "+".join(
-                    [f"between(t,{r[0]},{r[1]})" for r in keep_regions]
-                )
+                select_expr = "+".join([f"between(t,{r[0]},{r[1]})" for r in keep_regions])
                 filters.append(f"select='{select_expr}'")
 
             if self.frame_interval > 1:
@@ -281,9 +262,7 @@ class FrameExtractionWorker(BaseQRunnableWorker):
             from gui.src.helpers.video.video_thumbnailer import media_backend_spawn_guard
 
             with media_backend_spawn_guard():
-                process = subprocess.Popen(
-                    cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
-                )
+                process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             while process.poll() is None:
                 if self._is_cancelled:
                     process.terminate()
@@ -292,17 +271,13 @@ class FrameExtractionWorker(BaseQRunnableWorker):
                 time.sleep(0.5)
 
             if process.returncode != 0:
-                self.signals.error.emit(f"FFmpeg failed: {process.stderr.read()}") # pyrefly: ignore [missing-attribute]
+                self.signals.error.emit(f"FFmpeg failed: {process.stderr.read()}")  # pyrefly: ignore [missing-attribute]
                 return
 
             prefix = f"{video_name}_smart_tmp_{temp_id}_"
             tmp_files = sorted(
-                [
-                    f
-                    for f in os.listdir(self.output_dir)
-                    if f.startswith(prefix) and f.endswith(".png")
-                ],
-                key=natural_sort_key
+                [f for f in os.listdir(self.output_dir) if f.startswith(prefix) and f.endswith(".png")],
+                key=natural_sort_key,
             )
 
             for f in tmp_files:
