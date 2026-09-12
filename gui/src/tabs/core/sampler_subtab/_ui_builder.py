@@ -27,18 +27,20 @@ from PySide6.QtWidgets import (
 )
 
 from ....components import VirtualDualGallery
-from ....styles import SHARED_BUTTON_STYLE, apply_shadow_effect
+from ....styles import apply_shadow_effect
+from ....theming.theme_api import color, qss
+from ._tab_bound import TabBoundController
 
 
-class _UIBuilderMixin:
+class SamplerUIBuilder(TabBoundController):
     """Builds the input/settings/output groups, progress bars, and galleries."""
 
-    def _build_ui(self) -> None:
-        main_layout = QVBoxLayout(self)
+    def build_ui(self) -> None:
+        main_layout = QVBoxLayout(self.tab)
 
         page_scroll = QScrollArea()
         page_scroll.setWidgetResizable(True)
-        page_scroll.setStyleSheet("QScrollArea { border: none; }")
+        page_scroll.setStyleSheet(qss("scroll_area_borderless"))
 
         content_widget = QWidget()
         content_layout = QVBoxLayout(content_widget)
@@ -52,9 +54,7 @@ class _UIBuilderMixin:
         self.input_path.setPlaceholderText("Directory or single file to resample…")
         btn_browse = QPushButton("Browse…")
         btn_browse.clicked.connect(self._browse_input)
-        apply_shadow_effect(
-            btn_browse, color_hex="#000000", radius=8, x_offset=0, y_offset=3
-        )
+        apply_shadow_effect(btn_browse, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3)
         input_row.addWidget(self.input_path)
         input_row.addWidget(btn_browse)
         input_form.addRow("Input path:", input_row)
@@ -66,7 +66,7 @@ class _UIBuilderMixin:
 
         # Scale mode radio buttons
         mode_row = QHBoxLayout()
-        self._scale_mode_group = QButtonGroup(self)
+        self._scale_mode_group = QButtonGroup(self.tab)
         self._radio_factor = QRadioButton("Scale factor")
         self._radio_dims = QRadioButton("Target dimensions")
         self._radio_factor.setChecked(True)
@@ -128,9 +128,7 @@ class _UIBuilderMixin:
 
         # Algorithm
         self.algorithm_combo = QComboBox()
-        self.algorithm_combo.addItems(
-            ["Lanczos", "Bicubic", "Bilinear", "Nearest Neighbor"]
-        )
+        self.algorithm_combo.addItems(["Lanczos", "Bicubic", "Bilinear", "Nearest Neighbor"])
         self.algorithm_combo.setToolTip(
             "Lanczos: highest quality, slower\n"
             "Bicubic: good quality, moderate speed\n"
@@ -140,19 +138,14 @@ class _UIBuilderMixin:
         settings_form.addRow("Algorithm:", self.algorithm_combo)
 
         # Checkboxes
-        _cb_style = (
-            "QCheckBox::indicator { width: 16px; height: 16px; border: 1px solid #555; "
-            "border-radius: 3px;  }"
-            "QCheckBox::indicator:checked {  border: 1px solid #4CAF50; }"
-        )
         self.multicore_cb = QCheckBox("Multi-core processing (faster for batches)")
         self.multicore_cb.setChecked(True)
-        self.multicore_cb.setStyleSheet(_cb_style)
+        self.multicore_cb.setStyleSheet(qss("convert_checkbox"))
         settings_form.addRow(self.multicore_cb)
 
         self.delete_cb = QCheckBox("Delete originals after resampling")
         self.delete_cb.setChecked(False)
-        self.delete_cb.setStyleSheet(_cb_style)
+        self.delete_cb.setStyleSheet(qss("convert_checkbox"))
         settings_form.addRow(self.delete_cb)
 
         content_layout.addWidget(settings_group)
@@ -175,17 +168,13 @@ class _UIBuilderMixin:
         self.out_dir_edit.setPlaceholderText("Leave blank to save alongside originals")
         btn_out_browse = QPushButton("Browse…")
         btn_out_browse.clicked.connect(self._browse_output)
-        apply_shadow_effect(
-            btn_out_browse, color_hex="#000000", radius=8, x_offset=0, y_offset=3
-        )
+        apply_shadow_effect(btn_out_browse, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3)
         out_dir_row.addWidget(self.out_dir_edit)
         out_dir_row.addWidget(btn_out_browse)
         out_form.addRow("Output directory:", out_dir_row)
 
         self.prefix_edit = QLineEdit()
-        self.prefix_edit.setPlaceholderText(
-            "e.g. 'upscaled_'  (leave blank to auto-suffix)"
-        )
+        self.prefix_edit.setPlaceholderText("e.g. 'upscaled_'  (leave blank to auto-suffix)")
         out_form.addRow("Filename prefix:", self.prefix_edit)
 
         content_layout.addWidget(out_group)
@@ -194,11 +183,7 @@ class _UIBuilderMixin:
         self.progress_bar = QProgressBar()
         self.progress_bar.setTextVisible(True)
         self.progress_bar.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.progress_bar.setStyleSheet(
-            "QProgressBar {  color: white; border: 1px solid #4f545c; "
-            "border-radius: 4px; padding: 2px; }"
-            "QProgressBar::chunk {  border-radius: 4px; }"
-        )
+        self.progress_bar.setStyleSheet(qss("convert_progress_bar"))
         self.progress_bar.setRange(0, 100)
         self.progress_bar.setValue(0)
         self.progress_bar.hide()
@@ -212,7 +197,7 @@ class _UIBuilderMixin:
         # Found + Selected galleries (virtual-scroll, GUI/UX §2.1 Option A).
         # Replaces the two MarqueeScrollArea + QGridLayout grids; pagination is
         # dropped and selection lives in the dual gallery's selection models.
-        self.dual = VirtualDualGallery(self)
+        self.dual = VirtualDualGallery(self.tab)
         self.dual.found_right_clicked.connect(self.show_image_context_menu)
         self.dual.found_activated.connect(self.handle_full_image_preview)
         self.dual.selected_right_clicked.connect(self.show_image_context_menu)
@@ -228,21 +213,15 @@ class _UIBuilderMixin:
         btn_row.setContentsMargins(0, 0, 0, 0)
 
         self.btn_all = QPushButton("Resample All in Directory")
-        self.btn_all.setStyleSheet(SHARED_BUTTON_STYLE)
-        apply_shadow_effect(
-            self.btn_all, color_hex="#000000", radius=8, x_offset=0, y_offset=3
-        )
+        self.btn_all.setStyleSheet(qss("shared_button"))
+        apply_shadow_effect(self.btn_all, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3)
         self.btn_all.clicked.connect(lambda: self._start_worker(use_selection=False))
 
         self.btn_selected = QPushButton("Resample Selected (0)")
-        self.btn_selected.setStyleSheet(SHARED_BUTTON_STYLE)
+        self.btn_selected.setStyleSheet(qss("shared_button"))
         self.btn_selected.setEnabled(False)
-        apply_shadow_effect(
-            self.btn_selected, color_hex="#000000", radius=8, x_offset=0, y_offset=3
-        )
-        self.btn_selected.clicked.connect(
-            lambda: self._start_worker(use_selection=True)
-        )
+        apply_shadow_effect(self.btn_selected, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3)
+        self.btn_selected.clicked.connect(lambda: self._start_worker(use_selection=True))
 
         btn_row.addWidget(self.btn_all)
         btn_row.addWidget(self.btn_selected)
@@ -250,9 +229,7 @@ class _UIBuilderMixin:
 
         self.status_label = QLabel("Ready.")
         self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.status_label.setStyleSheet(
-            "color: #666; font-style: italic; padding: 8px;"
-        )
+        self.status_label.setStyleSheet(qss("status_label_padded"))
         content_layout.addWidget(self.status_label)
 
         page_scroll.setWidget(content_widget)
@@ -260,5 +237,10 @@ class _UIBuilderMixin:
 
         self.clear_galleries()
 
+    _build_ui = build_ui
 
-__all__ = ["_UIBuilderMixin"]
+
+# COMPAT(ui-arch-23): legacy mixin alias
+_UIBuilderMixin = SamplerUIBuilder
+
+__all__ = ["SamplerUIBuilder", "_UIBuilderMixin"]

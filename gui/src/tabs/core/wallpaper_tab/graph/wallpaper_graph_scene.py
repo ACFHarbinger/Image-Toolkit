@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
 
 from gui.src.qt_object_guard import deleted_qobject_guard
 
+from .....theming.wallpaper_graph_palette import GRAPH_HIGHLIGHT
 from .data_schema import EdgeData, GraphData, NodeData
 from .edge_item import EdgeItem
 from .node_item import NODE_H, NODE_W, NodeItem, is_video
@@ -443,7 +444,7 @@ class WallpaperGraphScene(QGraphicsScene):
 
             painter.save()
             painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-            color = QColor("#f39c12")
+            color = QColor(GRAPH_HIGHLIGHT)
             pen = QPen(color, 2, Qt.PenStyle.DashLine)
             painter.setPen(pen)
             painter.setBrush(Qt.BrushStyle.NoBrush)

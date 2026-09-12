@@ -1,0 +1,1 @@
+background-color: $DARK_SECONDARY_BG; padding: 10px; border-bottom: 2px solid $DARK_ACCENT_COLOR;

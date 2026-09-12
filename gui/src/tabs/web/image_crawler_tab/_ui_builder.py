@@ -24,13 +24,15 @@ from PySide6.QtWidgets import (
 
 from ....components import OptionalField
 from ....styles import apply_shadow_effect, set_button_role
+from ....theming.theme_api import color, qss
+from ._tab_bound import TabBoundController
 
 
-class _UIBuilderMixin:
+class ImageCrawlUIBuilder(TabBoundController):
     """Builds the crawler-type stack, output/selection groups, and run controls."""
 
-    def _build_ui(self) -> None:
-        main_layout = QVBoxLayout(self)
+    def build_ui(self) -> None:
+        main_layout = QVBoxLayout(self.tab)
 
         # --- 1. Crawler Type Selection ---
         type_layout = QHBoxLayout()
@@ -45,9 +47,7 @@ class _UIBuilderMixin:
                 "Image Board Crawler (Sankaku Complex API)",
             ]
         )
-        self.crawler_type_combo.currentIndexChanged.connect(
-            self.on_crawler_type_changed
-        )
+        self.crawler_type_combo.currentIndexChanged.connect(self.on_crawler_type_changed)
         type_layout.addWidget(self.crawler_type_combo, 1)
 
         main_layout.addLayout(type_layout)
@@ -77,9 +77,7 @@ class _UIBuilderMixin:
         self.download_dir_path.setText(self.last_browsed_download_dir)
         btn_browse_download = QPushButton("Browse...")
         btn_browse_download.clicked.connect(self.browse_download_directory)
-        apply_shadow_effect(
-            btn_browse_download, color_hex="#000000", radius=8, x_offset=0, y_offset=3
-        )
+        apply_shadow_effect(btn_browse_download, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3)
         download_dir_layout.addWidget(self.download_dir_path)
         download_dir_layout.addWidget(btn_browse_download)
         download_layout.addRow("Download Dir:", download_dir_layout)
@@ -87,22 +85,16 @@ class _UIBuilderMixin:
         # Screenshot (General only mostly, but kept shared for simplicity)
         screenshot_dir_layout = QHBoxLayout()
         self.screenshot_dir_path = QLineEdit()
-        self.screenshot_dir_path.setPlaceholderText(
-            "Optional: directory for screenshots"
-        )
+        self.screenshot_dir_path.setPlaceholderText("Optional: directory for screenshots")
         btn_browse_screenshot = QPushButton("Browse...")
         btn_browse_screenshot.clicked.connect(self.browse_screenshot_directory)
-        apply_shadow_effect(
-            btn_browse_screenshot, color_hex="#000000", radius=8, x_offset=0, y_offset=3
-        )
+        apply_shadow_effect(btn_browse_screenshot, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3)
         screenshot_dir_layout.addWidget(self.screenshot_dir_path)
         screenshot_dir_layout.addWidget(btn_browse_screenshot)
 
         screenshot_container = QWidget()
         screenshot_container.setLayout(screenshot_dir_layout)
-        self.screenshot_field = OptionalField(
-            "Screenshot Dir", screenshot_container, start_open=False
-        )
+        self.screenshot_field = OptionalField("Screenshot Dir", screenshot_container, start_open=False)
         download_layout.addRow(self.screenshot_field)
 
         main_layout.addWidget(download_group)
@@ -127,9 +119,7 @@ class _UIBuilderMixin:
         # Progress and Status
         self.status_label = QLabel("Ready.")
         self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.status_label.setStyleSheet(
-            "color: #aaa; font-style: italic; padding: 8px;"
-        )
+        self.status_label.setStyleSheet(qss("status_label_padded"))
         main_layout.addWidget(self.status_label)
 
         self.progress_bar = QProgressBar()
@@ -145,45 +135,37 @@ class _UIBuilderMixin:
 
         self.run_button = QPushButton("Run Crawler")
         set_button_role(self.run_button, "success")
-        apply_shadow_effect(
-            self.run_button, color_hex="#000000", radius=8, x_offset=0, y_offset=3
-        )
+        apply_shadow_effect(self.run_button, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3)
         self.run_button.clicked.connect(self.start_crawl)
 
         # --- WebDriver Management ---
-        self.webdriver_process = QProcess(self)
+        self.webdriver_process = QProcess(self.tab)
         self.webdriver_process.readyReadStandardOutput.connect(self.on_webdriver_stdout)
         self.webdriver_process.readyReadStandardError.connect(self.on_webdriver_stderr)
         self.webdriver_process.finished.connect(self.on_webdriver_finished)
 
         self.webdriver_button = QPushButton("🌐 Start WebDriver Service")
         set_button_role(self.webdriver_button, "success")
-        apply_shadow_effect(
-            self.webdriver_button, color_hex="#000000", radius=8, x_offset=0, y_offset=3
-        )
+        apply_shadow_effect(self.webdriver_button, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3)
         self.webdriver_button.clicked.connect(self.toggle_webdriver)
-        self.button_layout.addWidget(
-            self.webdriver_button, 0, Qt.AlignmentFlag.AlignBottom
-        )
+        self.button_layout.addWidget(self.webdriver_button, 0, Qt.AlignmentFlag.AlignBottom)
 
         self.button_layout.addWidget(self.run_button, 0, Qt.AlignmentFlag.AlignBottom)
 
         self.cancel_button = QPushButton("Cancel Crawl")
         set_button_role(self.cancel_button, "danger")
-        apply_shadow_effect(
-            self.cancel_button, color_hex="#000000", radius=8, x_offset=0, y_offset=3
-        )
+        apply_shadow_effect(self.cancel_button, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3)
         self.cancel_button.clicked.connect(self.cancel_crawl)
         self.cancel_button.hide()
-        self.button_layout.addWidget(
-            self.cancel_button, 0, Qt.AlignmentFlag.AlignBottom
-        )
+        self.button_layout.addWidget(self.cancel_button, 0, Qt.AlignmentFlag.AlignBottom)
 
         main_layout.addWidget(self.button_container)
         main_layout.addStretch(1)
 
         # Initial State
         self.on_crawler_type_changed(self.crawler_type_combo.currentIndex())
+
+    _build_ui = build_ui
 
     def setup_general_page(self):
         layout = QVBoxLayout(self.page_general)
@@ -288,12 +270,8 @@ class _UIBuilderMixin:
 
         self.action_list_widget = QListWidget()
         self.action_list_widget.setMinimumHeight(150)
-        self.action_list_widget.setContextMenuPolicy(
-            Qt.ContextMenuPolicy.CustomContextMenu
-        )
-        self.action_list_widget.customContextMenuRequested.connect(
-            self.show_context_menu
-        )
+        self.action_list_widget.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.action_list_widget.customContextMenuRequested.connect(self.show_context_menu)
         act_layout.addWidget(self.action_list_widget)
 
         # List controls
@@ -351,7 +329,7 @@ class _UIBuilderMixin:
         # API Doc Link Label (to be placed dynamically)
         self.api_doc_link = QLabel("")
         self.api_doc_link.setOpenExternalLinks(True)
-        self.api_doc_link.setStyleSheet("padding: 5px; font-size: 10px; color: #aaa;")
+        self.api_doc_link.setStyleSheet(qss("crawler_api_doc_link"))
         layout.addWidget(self.api_doc_link)  # Add here initially
 
         # Auth Group
@@ -374,4 +352,7 @@ class _UIBuilderMixin:
         layout.addStretch(1)
 
 
-__all__ = ["_UIBuilderMixin"]
+# COMPAT(ui-arch-23): legacy mixin alias
+_UIBuilderMixin = ImageCrawlUIBuilder
+
+__all__ = ["ImageCrawlUIBuilder", "_UIBuilderMixin"]

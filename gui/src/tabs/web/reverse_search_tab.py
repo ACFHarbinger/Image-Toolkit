@@ -24,6 +24,7 @@ from ...classes import AbstractClassSingleGallery
 from ...components import VirtualGallery
 from ...helpers import ImageScannerWorker, ReverseSearchWorker
 from ...styles import apply_shadow_effect, set_button_role
+from ...theming.theme_api import qss
 from ...utils.sort_utils import natural_sort_key
 from ...windows import ImagePreviewWindow
 
@@ -195,7 +196,7 @@ class ReverseImageSearchTab(AbstractClassSingleGallery):
         action_row = QHBoxLayout()
 
         self.lbl_selected_path = QLabel("No image selected")
-        self.lbl_selected_path.setStyleSheet("color: #aaa; font-style: italic;")
+        self.lbl_selected_path.setStyleSheet(qss("muted_label"))
 
         self.btn_search = QPushButton("Search Selected Image")
         set_button_role(self.btn_search, "success")
@@ -268,7 +269,7 @@ class ReverseImageSearchTab(AbstractClassSingleGallery):
             if self.scan_thread.isRunning():
                 if self.scan_worker:
                     with contextlib.suppress(Exception):
-                        self.scan_worker.scan_finished.disconnect()
+                        self.scan_worker.finished.disconnect(self.on_scan_finished)
                 self.scan_thread.quit()
                 self.scan_thread.wait()
             self.scan_thread.deleteLater()
@@ -286,14 +287,16 @@ class ReverseImageSearchTab(AbstractClassSingleGallery):
         self.scan_worker = ImageScannerWorker(directory)
         self.scan_thread = self.scan_worker
 
-        self.scan_worker.scan_finished.connect(self.on_scan_finished)
+        self.scan_worker.finished.connect(self.on_scan_finished)
         self.scan_worker.finished.connect(self.scan_worker.deleteLater)
-        self.scan_worker.finished.connect(lambda: setattr(self, "scan_thread", None))
+        self.scan_worker.finished.connect(lambda _r=None: setattr(self, "scan_thread", None))
 
         self.scan_worker.start()
 
-    @Slot(list)
-    def on_scan_finished(self, paths: list):
+    @Slot(object)
+    def on_scan_finished(self, paths):
+        if paths is None:  # failure/cancel — error path already reported
+            return
         count = len(paths)
         self.status_label.setText(f"Scan complete. Found {count} images.")
         if count == 0:
@@ -333,7 +336,7 @@ class ReverseImageSearchTab(AbstractClassSingleGallery):
             if self.scan_thread.isRunning():
                 if self.scan_worker:
                     with contextlib.suppress(Exception):
-                        self.scan_worker.scan_finished.disconnect()
+                        self.scan_worker.finished.disconnect(self.on_scan_finished)
                 self.scan_thread.quit()
                 self.scan_thread.wait()
             self.scan_thread = None
@@ -433,6 +436,9 @@ class ReverseImageSearchTab(AbstractClassSingleGallery):
     def on_search_finished(self, results: list):
         self._active_worker = None
         self.btn_search.setEnabled(True)
+        if results is None:
+            self.status_label.setText("Search failed.")
+            return
         self.status_label.setText(f"Search complete. Found {len(results)} results.")
 
         if not results:
@@ -453,12 +459,12 @@ class ReverseImageSearchTab(AbstractClassSingleGallery):
         msg.setDetailedText(result_text)
         msg.exec()
 
-    @Slot(str)
-    def on_search_error(self, err: str):
+    @Slot(object)
+    def on_search_error(self, exc: Exception):
         self._active_worker = None
         self.btn_search.setEnabled(True)
         self.status_label.setText("Error occurred.")
-        QMessageBox.critical(self, "Search Failed", err)
+        QMessageBox.critical(self, "Search Failed", str(exc))
 
     def toggle_resolution_inputs(self):
         enabled = self.check_filter_res.isChecked()

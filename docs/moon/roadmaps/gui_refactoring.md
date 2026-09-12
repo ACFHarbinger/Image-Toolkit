@@ -130,17 +130,17 @@ gallery presentation modes (#542, own D12 pass).
 ### 2.4 Module and route inventory (classic shell baseline)
 
 `gui/test/modules/test_legacy_module_inventory.py` statically compares this
-table to the live `all_tabs` dictionary in `gui/src/windows/main/_tab_registry.py`.
+table to `CLASSIC_TAB_ROUTES` in `gui/src/windows/main/_tab_registry.py`.
 A route rename, addition, removal, or coupling change must update this
 table deliberately.
 
-Construction baseline: `_TabRegistryMixin._create_tabs()` imports 25 names
-from `gui.src.tabs`, one additional `ListingsTab` symbol, and directly
-constructs 26 top-level tab objects before the window shows. All 33
-navigable routes are therefore eager on the classic path; the eight Image
-Stitching routes are views owned by one `StitchTab`. Per-module import
-timings are not inferred from this table (entangled with optional
-ML/submodule imports); R2.e measures them.
+Construction baseline (R2.e / #566): `_create_tabs()` registers hub, services,
+and the title map, then `_ensure_category()` constructs tabs through
+`build_tab()` on first category select. Classic startup builds ≤ 1 category
+(the restored last tab, else the startup-category preference, else System
+Tools). The eight Image Stitching routes remain views owned by one
+`StitchTab` (`stitch.workspace`). Per-module import/activation timings are
+logged from `build_tab` / `_classic_construction_log`.
 
 | Module ID | Category | Current title | Live expression | Runtime kind |
 |---|---|---|---|---|
@@ -191,9 +191,9 @@ raw QSS both first-class (expert toggle for raw QSS); hybrid migration of the
 typography, shadows, motion as theme axes; one global background playlist
 clock with per-tab static override; palette extraction off by default;
 WCAG contrast as warnings; transactional preview with rollback. Phase 2
-(docs website tokens) and Phase 3 (devtool app tokens) never started — §5 R4.
-The "file by file" QSS migration is exactly what R2.b finishes: the engine
-exists, 648 `setStyleSheet` sites and 962 inline hex literals bypass it.
+(docs website tokens) and Phase 3 (devtool app tokens) landed 2026-09-08
+(#574, #575). R2.b (#564) finished the file-by-file QSS migration across
+`gui/src/` — styling audit reports 0 unauthorized violations.
 
 ---
 
@@ -265,7 +265,7 @@ concurrently (D6). "Gate" = D12 live pass required in addition to Codex review.
 | R1.1 | Worker base adoption: every `QThread`/`QRunnable` in `helpers/` on `BaseQThreadWorker`/`BaseQRunnableWorker`; signals `finished`/`error(object)`/`progress`; one `cancel()`; one shared teardown replacing the 11 `_lifecycle.py` clones; lint rule | §3.3, F3, F9, Q-C | Muse | 0 raw subclasses; 1 signal vocabulary; ⚙ rule live | ui-arch-34 (#556) |
 | R1.2 | `TabConfig` contract: `Protocol` + dataclass schema + version for `get_default_config`/`collect`/`set_config`; session recovery, Ctrl+S, Settings consume it | §3.2 | Claude | `hasattr(tab, "collect")` → 0; 33 implementers typed | ui-arch-35 (#557) |
 | R1.3 | `WindowService` + settings decoupling: `windows/settings/*` drops `main_window_ref` (44 sites) | F6, F7 | Codex | **Done, D12-verified 2026-09-08.** | ui-arch-36 (#558) |
-| R1.4 | One `build_tab(module_id, context)` factory used by both classic `_create_tabs` and the catalog; inventory test keeps passing | F23 | Codex | one constructor path; `try/except TypeError` fallbacks gone | ui-arch-37 (#559) |
+| R1.4 | One `build_tab(module_id, context)` factory used by both classic `_create_tabs` and the catalog; inventory test keeps passing | F23 | Codex | implementation ready: one constructor path; catalog `TypeError` fallbacks gone; mandatory review pending | ui-arch-37 (#559) |
 | R1.5 | Preferences store split: vault = secrets; preferences/tab-configs per-key in `PreferenceStore`; no whole-blob `save_data(json.dumps(creds))` outside auth | §5.5, R0.2 | Codex | 12 vault-write sites → auth only | ui-arch-38 (#560) |
 | R1.6 | `DirectoryScanService` worker (cancellable generation token) replacing the ~30 blocking IO sites and the six `_directory_browse.py` copies | §5.3, §3.2 | Muse | 0 `os.listdir`/`scandir`/`rglob`/decode in slots | ui-arch-39 (#561) |
 | R1.7 | `PreviewContext` value object + one preview service replacing the `_preview_context.py` / `_properties_preview.py` copies | F4 | Gemini | one preview entry point | ui-arch-40 (#562) |
@@ -276,7 +276,7 @@ concurrently (D6). "Gate" = D12 live pass required in addition to Codex review.
 |---|---|---|---|---|---|---|
 | R2.a | Clone collapse, one PR each: entity/series listings subtabs → one parameterised `ListingsSubTab`; the two directory-import dialogs; codec/format subtabs → one `MediaConvertSubTab` with a format strategy; dropbox/onedrive sync workers; frame/gif/video extractor workers + `run_extraction_in_process` (480 lines) → one pipeline | §3.1 | Cursor (listings, dialogs, codec/format); Muse (workers) | D12 for extractor workers | each pair → one module; dup windows for the pair → 0 | ui-arch-41 (#563) |
 | R2.b | Theme tokens + styling lint: `theme.color()`/`theme.qss(component=)` API; migrate `components/` → `elements/` → `windows/` → `tabs/`; CI rule with shrinking allowlist; finishes app-theming's file-by-file QSS migration | §4, 2.5 | Cursor | Breeze/Kvantum live check | metrics row 5–6 → 0 | ui-arch-42 (#564) |
-| R2.c | Composition migration, #544 template, one tab per PR, in this order: DataBrowser, DriveSync, EntityRecon, MediaLoader, ImageCrawl, CBIRTrain, Sampler, then (after R2.a) the merged listings and convert subtabs, then (after #543 D12) Search, ScanMetadata, Similarity, Extractor, Wallpaper family; `MainWindow` last, one Qt override per PR (F22). `HostProtocol` conformance test per tab while mixins remain. | §2, F1, F22, DS-1 | Gemini (non-gallery), Grok (gallery-owning + MainWindow) | D12 for gallery-owning tabs and MainWindow | metrics row 1 | ui-arch-23 (#544, continues) |
+| R2.c | Composition migration, #544 template, one tab per PR, in this order: DataBrowser, DriveSync, EntityRecon, MediaLoader, ImageCrawl, CBIRTrain, Sampler, then (after R2.a) the merged listings and convert subtabs, then (after #543 D12) Search, ScanMetadata, Similarity, Extractor, Wallpaper family; `MainWindow` last, one Qt override per PR (F22). `HostProtocol` conformance test per tab while mixins remain. | §2, F1, F22, DS-1 | Split 2026-09-12 (the PRs pre-existed under Grok's branches; not actually merged before this despite an earlier roadmap note to the contrary): **Kimi** — ~~DataBrowser (#578), DriveSync (#580), EntityRecon (#581)~~ merged; Search (#577) remains, D12-gated. **Qwen** — ~~MediaLoader (#586), ImageCrawl (#587), CBIRTrain (#588), Sampler (#590)~~ merged; ScanMetadata (#582), Similarity (#591) remain, both D12-gated. **Grok** — Extractor (#595), Wallpaper family (#593), `MainWindow` (#594, last) | D12 for gallery-owning tabs and MainWindow | metrics row 1 | ui-arch-23 (#544, continues) |
 | R2.d | Explicit lifecycle state machines replacing `singleShot` ordering: session recovery and the extractor player (`NotLoaded → Restored → PlayerReady → Playing`), closing #546's family | §5.4 | Claude | D12 | #546 closed; 0 timer-ordered restore steps | ui-arch-43 (#565) |
 | R2.e | Classic shell: lazy tab construction on first category select via the R1.4 factory, or retirement (§7 decision). Measures per-module import/activation cost. | F17 | Grok | D12 | classic startup constructs ≤ 1 category | ui-arch-44 (#566) |
 | R2.f | `SectionedFormBuilder` replacing the 17 same-named `_UIBuilderMixin` classes and the 300-line `_build_ui` functions | F20, §1 | Gemini | — | 0 `_UIBuilderMixin`; no `_build_ui` > 80 lines | ui-arch-45 (#567) |
@@ -286,12 +286,12 @@ concurrently (D6). "Gate" = D12 live pass required in addition to Codex review.
 
 | ID | Item | Evidence | Owner | Exit | Issue |
 |---|---|---|---|---|---|
-| R3.1 | One pixmap budget across the 7 `LRUImageCache` instances; sizing in one place | §5.7 | Grok | one `PixmapBudget`; per-tab sizes derived | ui-arch-46 (#568) |
-| R3.2 | Startup footprint: heavy imports (`cv2`/`PIL`/`numpy`/`torch`, 27 files) moved into functions; RSS at login/main window measured before/after | §5.8 | Claude | measured delta posted; no module-level heavy import in `gui/src` ⚙ | ui-arch-47 (#569) |
-| R3.3 | Remove the 7 live `processEvents()` (single-shot timer or progress fact) | F25 | Muse | 0 | ui-arch-48 (#570) |
-| R3.4 | Gallery card/selection merge: one card factory + one highlight helper across single/two/virtual | F21, DS-4 | Grok | `create_card_widget` ×1 | ui-arch-49 (#571) |
+| R3.1 | One pixmap budget across the 7 `LRUImageCache` instances; sizing in one place | §5.7 | Kimi (reassigned 2026-09-12, PR #589 already open) | one `PixmapBudget`; per-tab sizes derived | ui-arch-46 (#568) |
+| R3.2 | Startup footprint: heavy imports (`cv2`/`PIL`/`numpy`/`torch`, 27 files) moved into functions; RSS at login/main window measured before/after | §5.8 | Gemini / Antigravity | measured delta posted; no module-level heavy import in `gui/src` ⚙ | ui-arch-47 (#569) |
+| R3.3 | Remove the 7 live `processEvents()` (single-shot timer or progress fact) | F25 | Gemini / Antigravity | 0 | ui-arch-48 (#570) |
+| R3.4 | Gallery card/selection merge: one card factory + one highlight helper across single/two/virtual | F21, DS-4 | Kimi (reassigned 2026-09-12, PR #592 already open) | `create_card_widget` ×1 | ui-arch-49 (#571) |
 | R3.5 | Module widget eviction: measure 3 vs 8 mounted modules, set LRU from data; account-switch disposal | F12, DS-5 | Grok | numbers on the bus; policy implemented | ui-arch-50 (#572) |
-| R3.6 | Import-graph slimming beyond the wildcard removals; `windows/__init__.py` eager imports; `helpers/__init__.py` barrel | old Phase 3 | Claude | `import gui.src.components.widgets.toast_widget` < 300 modules | ui-arch-51 (#573) |
+| R3.6 | Import-graph slimming beyond the wildcard removals; `windows/__init__.py` eager imports; `helpers/__init__.py` barrel | old Phase 3 | Gemini / Antigravity | `import gui.src.components.widgets.toast_widget` < 300 modules | ui-arch-51 (#573) |
 
 ### R4 — Theming surfaces (deferred, from app-theming Phase 2/3)
 
@@ -306,12 +306,14 @@ concurrently (D6). "Gate" = D12 live pass required in addition to Codex review.
 
 | Agent | Items |
 |---|---|
-| Claude | ~~R0.1, R0.3, R0.4, R0.5~~ done. **Remaining: R1.2 (#557), R2.d (#565), R3.2 (#569), R3.6 (#573).** Roadmap steward. |
-| Grok | ~~R2.g (#543)~~ done, D12-verified 2026-09-07. **Remaining: R2.c gallery-owning tabs + MainWindow (#544, now unblocked), R3.1 (#568), R3.4 (#571, now unblocked), R3.5 (#572). R2.e (#566) stays gated on R1.4.** |
-| Gemini / Antigravity | ~~R0.8, R1.7~~ done. **Remaining: R2.c non-gallery tabs (#544 — DriveSync, EntityRecon, MediaLoader, ImageCrawl, CBIRTrain, Sampler, in that order), R2.f (#567).** |
-| Meta's Muse | ~~R0.6, R0.9~~ done. **Remaining: R0.7 (#553), R1.1 (#556), R1.6 (#561), R2.a extractor/sync workers (#563 continuation, gated on R1.1), R3.3 (#570).** |
-| Chat / Codex | ~~R0.2 (#548), R1.3 (#558)~~ done, D12-verified 2026-09-08. **Remaining: R1.4 (#559 — re-claim, prior worktree was cleaned up unstarted), R1.5 (#560, no remaining blocker).** Mandatory cross-review of every item — largely unresponsive since 2026-09-06; Claude has been standing in as reviewer of last resort. |
-| Cursor | ~~R2.a listings pair (#563)~~ done. **Remaining: R2.a import-dialog pair + codec/format pair (#563 continuation), R2.b (#564), R4.1 (#574, new), R4.2 (#575, new, after R2.b).** |
+| Claude | ~~R0.1, R0.3, R0.4, R0.5~~ done. R1.2 (#557) consumer half merged (PR #602); per-tab conformance deferred until R2.c composition PRs land. ~~R2.d (#565)~~ PR #611, D12-verified 2026-09-12 (real login, real vault/data; `[session-recovery] not_loaded -> category_ready -> configs_restored` and `[player-lifecycle] not_loaded -> restored` both logged cleanly, ExtractorTab config restored correctly, #546's mis-sized-player regression confirmed fixed, clean quit) — merged. Also fixed a live D12 crash (#610, `CustomFileDialog` deletion) unrelated to #565 but found mid-session. **No items remaining.** Roadmap steward / reviewer of last resort. |
+| Grok | ~~R2.g (#543)~~ done, D12-verified 2026-09-07. ~~R2.e (#566)~~ PR #606, D12-verified 2026-09-11 (real login, real vault/data; startup builds only the restored category, switching category lazily built exactly that category's tabs, session recovery restored real state, clean quit) — merged. R2.c/R3.5 split three ways 2026-09-12 to bring on Kimi/Qwen — see below. **Remaining (Grok's share): MainWindow composition (PR #594, last — after every other R2.c tab lands), Extractor (#595), Wallpaper family (#593), R3.5 module eviction (#572, PR #596).** |
+| Kimi | Onboarded 2026-09-12. ~~DataBrowserTab (#578), DriveSyncTab (#580), EntityReconTab (#581)~~ merged 2026-09-12 (non-gallery, code-review only, no D12 required). **Remaining, blocked on D12 (gallery-owning, live pass not yet run): SearchTab (#577), R3.1 PixmapBudget (#568, PR #589), R3.4 card factory (#571, PR #592).** |
+| Qwen | Onboarded 2026-09-12. ~~MediaLoaderTab (#586), ImageCrawlTab (#587), CBIRTrainTab (#588), SamplerSubTab (#590)~~ merged 2026-09-12 (non-gallery, code-review only, no D12 required). **Remaining, blocked on D12 (gallery-owning per R2.c's own ordering — Search/ScanMetadata/Similarity/Extractor/Wallpaper — despite an earlier claim to the contrary): ScanMetadataTab (#582, also has an open gate question from Codex on its dual galleries), SimilarityTab (#591).** |
+| Gemini / Antigravity | ~~R0.8, R1.7, R2.f (#567 partial — SectionedFormBuilder logic itself lands, but conflicts with the 2026-09-12 composition merges on 6 of 7 tabs' `_ui_builder.py` remain unresolved, see bus), R3.2 (#569), R3.3 (#570), R3.6 (#573)~~ mostly done. **Correction 2026-09-12: the roadmap previously (incorrectly) credited "R2.c (all 7 non-gallery tabs)" to this row as merged via PR #608 — #608 was only R3.2/#569 (lazy imports); the 7 non-gallery R2.c tabs were still-open PRs under Grok's branches until Kimi/Qwen merged them today. Removing that claim.** **Remaining: reconcile PR #597 (SectionedFormBuilder) against the now-merged composition architecture — see bus post for the 6 files needing your judgment call on which `_build_ui` restructuring is final.** |
+| Meta's Muse | ~~R0.6, R0.9, R0.7 (#553), R1.1 (#556)~~ done. ~~R1.6 (#561)~~ BLOCKING finding fixed, merged (PR #605). **Remaining: R2.a extractor/sync workers (#563 continuation).** |
+| Chat / Codex | ~~R0.2 (#548), R1.3 (#558)~~ done, D12-verified 2026-09-08. ~~R1.4 (#559)~~ recovered from an unpushed local branch and merged via PR #603 (2026-09-11). **Remaining: R1.5 (#560) — orphaned local commits pushed 2026-09-11, still "not ready for review" per Codex's own last note.** Resumed mandatory cross-review 2026-09-11 after a gap since 2026-09-06; cleared #602/#570/#573/#566(code)/#606/#608/#609(code)/#610/#565, found and fixed a BLOCKING settings-persistence defect during #609 D12 (`eaeb1704`, ported to milestone via #614). **#609 D12: PASS** (live, user + Codex, 2026-09-12). |
+| Cursor | ~~R2.a listings pair (#563)~~ done. ~~#585~~ (import-dialog + codec/format + #564/#574/#575) merged. ~~#544 Entity/Series listings composition (PR #609)~~ code-cleared and D12-passed 2026-09-12 — merged. |
 
 Dependencies: R1.1 before R2.a workers; R1.4 before R2.e; R0.2 before R1.5
 (both done); R2.a codec/format and listings before their R2.c migration.
@@ -345,5 +347,6 @@ longer gated on it.
 Merge-to-`main` checklist for this branch's own PR — every issue below
 must be closed first (§6 has the current owner/queue per agent):
 
-- [x] #543, #544 (partial — Grok's gallery-owning half + MainWindow remain), #547, #548, #549, #550, #551, #552, #554, #555, #558, #562, #563 (partial — listings half only)
-- [ ] #544 (remainder), #553, #556, #557, #559, #560, #561, #563 (remainder), #564, #565, #566, #567, #568, #569, #570, #571, #572, #573, #574, #575
+- [x] #543, #544 (partial — Grok's gallery-owning half + MainWindow remain), #547, #548, #549, #550, #551, #552, #554, #555, #558, #562, #563 (Cursor: listings + import-dialog + codec/format)
+- [ ] #544 (remainder), #553, #556, #557, #559, #560, #561, #565, #566, #567, #568, #569, #570, #571, #572, #573
+- [x] #564, #574, #575 (Cursor: full gui/src styling migration + cross-surface tokens)

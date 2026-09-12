@@ -11,6 +11,7 @@ from gui.src.modules.context import ModuleContext
 from gui.src.modules.events import EventHub, EventSubscription, TelemetryUpdatedFact
 from gui.src.modules.library_service import LIBRARY_DATABASE_SERVICE
 from gui.src.qt_event_bridge import QtEventBridge
+from gui.src.theming.theme_api import qss
 
 
 def create_telemetry_bridge(
@@ -164,7 +165,7 @@ class TelemetryStatusBar(QStatusBar):
     def _build_ui(self) -> None:
         # Left status text area
         self._status_label = QLabel('Ready // 待機中')
-        self._status_label.setStyleSheet('color: #aaaaaa; padding-left: 6px; font-size: 8.5pt;')
+        self._status_label.setStyleSheet(qss("telemetry_status_label"))
         self.addWidget(self._status_label, 1)
 
         # Right Telemetry Chips
@@ -175,42 +176,25 @@ class TelemetryStatusBar(QStatusBar):
 
         # 1. Database connection chip
         self.db_chip = QLabel('🟢 DB: Ready')
-        self.db_chip.setStyleSheet(
-            'background: rgba(85, 197, 122, 0.15); color: #55c57a; '
-            'border: 1px solid rgba(85, 197, 122, 0.3); border-radius: 4px; '
-            'padding: 2px 6px; font-size: 8pt;'
-        )
+        self.db_chip.setStyleSheet(qss("telemetry_db_ok"))
         self.db_chip.setToolTip('PostgreSQL + pgvector connection status')
         chip_layout.addWidget(self.db_chip)
 
         # 2. GPU / VRAM usage chip
         self.gpu_chip = QLabel('⚡ VRAM: --')
-        self.gpu_chip.setStyleSheet(
-            'background: rgba(0, 240, 255, 0.12); color: #00f0ff; '
-            'border: 1px solid rgba(0, 240, 255, 0.25); border-radius: 4px; '
-            'padding: 2px 6px; font-size: 8pt;'
-        )
+        self.gpu_chip.setStyleSheet(qss("telemetry_gpu_chip"))
         self.gpu_chip.setToolTip('GPU Compute & VRAM telemetry')
         chip_layout.addWidget(self.gpu_chip)
 
         # 3. Worker task status
         self.task_chip = QLabel('🔄 Tasks: 0')
-        self.task_chip.setStyleSheet(
-            'background: rgba(192, 132, 252, 0.12); color: #c084fc; '
-            'border: 1px solid rgba(192, 132, 252, 0.25); border-radius: 4px; '
-            'padding: 2px 6px; font-size: 8pt;'
-        )
+        self.task_chip.setStyleSheet(qss("telemetry_task_idle"))
         self.task_chip.setToolTip('Active background tasks & workers')
         chip_layout.addWidget(self.task_chip)
 
         # 4. Layout switcher button chip
         self.layout_btn = QPushButton('☰ Nav')
-        self.layout_btn.setStyleSheet(
-            'QPushButton { background: rgba(255, 255, 255, 0.08); color: #cccccc; '
-            'border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 4px; '
-            'padding: 2px 8px; font-size: 8pt; } '
-            'QPushButton:hover { background: rgba(255, 255, 255, 0.15); }'
-        )
+        self.layout_btn.setStyleSheet(qss("telemetry_layout_btn"))
         self.layout_btn.setToolTip('Toggle Navigation Mode (Rail vs. Top Bar, Ctrl+Shift+L)')
         self.layout_btn.clicked.connect(self.layout_toggle_requested.emit)
         chip_layout.addWidget(self.layout_btn)
@@ -234,34 +218,18 @@ class TelemetryStatusBar(QStatusBar):
         if connected:
             text = f'🟢 DB: {latency_ms:.0f}ms' if latency_ms is not None else '🟢 DB: Ready'
             self.db_chip.setText(text)
-            self.db_chip.setStyleSheet(
-                'background: rgba(85, 197, 122, 0.15); color: #55c57a; '
-                'border: 1px solid rgba(85, 197, 122, 0.3); border-radius: 4px; '
-                'padding: 2px 6px; font-size: 8pt;'
-            )
+            self.db_chip.setStyleSheet(qss("telemetry_db_ok"))
         else:
             self.db_chip.setText('🔴 DB: Disconnected')
-            self.db_chip.setStyleSheet(
-                'background: rgba(248, 113, 113, 0.15); color: #f87171; '
-                'border: 1px solid rgba(248, 113, 113, 0.3); border-radius: 4px; '
-                'padding: 2px 6px; font-size: 8pt;'
-            )
+            self.db_chip.setStyleSheet(qss("telemetry_db_err"))
 
     def set_task_count(self, count: int) -> None:
         if count > 0:
             self.task_chip.setText(f'🔄 Tasks: {count}')
-            self.task_chip.setStyleSheet(
-                'background: rgba(251, 146, 60, 0.15); color: #fb923c; '
-                'border: 1px solid rgba(251, 146, 60, 0.3); border-radius: 4px; '
-                'padding: 2px 6px; font-size: 8pt;'
-            )
+            self.task_chip.setStyleSheet(qss("telemetry_task_busy"))
         else:
             self.task_chip.setText('🔄 Tasks: 0')
-            self.task_chip.setStyleSheet(
-                'background: rgba(192, 132, 252, 0.12); color: #c084fc; '
-                'border: 1px solid rgba(192, 132, 252, 0.25); border-radius: 4px; '
-                'padding: 2px 6px; font-size: 8pt;'
-            )
+            self.task_chip.setStyleSheet(qss("telemetry_task_idle"))
 
     def set_vram_status(self, allocated_gb: Optional[float], total_gb: Optional[float]) -> None:
         if allocated_gb is not None and total_gb is not None:

@@ -8,6 +8,8 @@ from __future__ import annotations
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QLabel, QSizePolicy
 
+from gui.src.theming.theme_api import qss
+
 
 class _SparkLine(QLabel):
     """Rolling unicode sparkline showing up to MAX_POINTS scalar values."""
@@ -22,7 +24,7 @@ class _SparkLine(QLabel):
         self.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.setFixedHeight(20)
-        self.setStyleSheet("font-family: monospace; font-size: 11px;")
+        self.setStyleSheet(qss("monospace_small"))
 
     def push(self, v: float) -> None:
         self._values.append(v)
@@ -39,9 +41,7 @@ class _SparkLine(QLabel):
             return
         lo, hi = min(self._values), max(self._values)
         span = hi - lo or 1e-9
-        bar = "".join(
-            self._BLOCKS[min(8, int(((v - lo) / span) * 8))] for v in self._values
-        )
+        bar = "".join(self._BLOCKS[min(8, int(((v - lo) / span) * 8))] for v in self._values)
         self.setText(f"{self._label}  {bar}  {self._values[-1]:.4f}")
 
 

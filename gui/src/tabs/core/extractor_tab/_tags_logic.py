@@ -22,6 +22,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from ....theming.theme_api import qss
+
 if TYPE_CHECKING:
     from ..protos.extractor_tab import VideoExtractorSubTabHostProtocol
 
@@ -52,15 +54,15 @@ class _TagsLogicMixin:
         self.tags_scroll.setVerticalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff
         )
-        self.tags_scroll.setStyleSheet("background: transparent;")
+        self.tags_scroll.setStyleSheet(qss("transparent_bg"))
 
         self.tags_scroll.setVerticalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff
         )
-        self.tags_scroll.setStyleSheet("background: transparent;")
+        self.tags_scroll.setStyleSheet(qss("transparent_bg"))
 
         self.tags_container = QWidget()
-        self.tags_container.setStyleSheet("background: transparent;")
+        self.tags_container.setStyleSheet(qss("transparent_bg"))
         self.tags_layout = QHBoxLayout(self.tags_container)
         self.tags_layout.setContentsMargins(0, 5, 0, 5)
         self.tags_layout.setSpacing(8)
@@ -107,7 +109,7 @@ class _TagsLogicMixin:
 
         if not self.tags_ms:
             none_label = QLabel("Tags: None")
-            none_label.setStyleSheet("color: #666; font-style: italic;")
+            none_label.setStyleSheet(qss("muted_label"))
             self.tags_layout.addWidget(none_label)
             self.btn_clear_tags.setEnabled(False)
         else:
@@ -136,16 +138,12 @@ class _TagsLogicMixin:
             return
 
         menu = QMenu(cast(QWidget, self))
-        menu.setStyleSheet(
-            "QMenu {  color: white; border: 1px solid #4f545c; }"
-        )
+        menu.setStyleSheet(qss("extractor_menu"))
 
         # 1. Jump to Tag Submenu
         if self.tags_ms:
             jump_menu = menu.addMenu("📍 Jump to Tag")
-            jump_menu.setStyleSheet(
-                "QMenu {  color: #FFC107; }"
-            )
+            jump_menu.setStyleSheet(qss("extractor_menu_highlight"))
             for ms, label in self.tags_ms:
                 action = QAction(f"{label} ({self._format_time(ms)})", cast(QWidget, self))
                 action.triggered.connect(lambda _, m=ms: self.jump_to_tag_time(m))

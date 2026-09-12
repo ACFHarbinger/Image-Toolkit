@@ -19,9 +19,10 @@ from typing import List, Optional
 from PySide6.QtWidgets import QLineEdit
 
 from ._navigation import _sql_literal
+from ._tab_bound import TabBoundController
 
 
-class _FiltersMixin:
+class DataBrowserFiltersController(TabBoundController):
     """Per-column filter fields, composed with the main WHERE box."""
 
     def _clear_column_filters(self) -> None:
@@ -56,4 +57,4 @@ class _FiltersMixin:
         return " AND ".join(conditions) if conditions else None
 
 
-__all__ = ["_FiltersMixin"]
+__all__ = ["DataBrowserFiltersController"]

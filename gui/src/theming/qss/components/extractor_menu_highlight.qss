@@ -1,0 +1,3 @@
+QMenu {
+    color: $DARK_ACCENT_HOVER;
+}

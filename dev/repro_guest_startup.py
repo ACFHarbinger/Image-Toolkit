@@ -175,7 +175,7 @@ def _schedule_wallpaper_hammer():
 
 _LoginWindowCls.show = _auto_guest_show
 
-from gui.src.windows.settings.file_dialog_patch import apply_patch  # noqa: E402
+from gui.src.file_dialog_patch import apply_patch  # noqa: E402
 
 apply_patch()
 

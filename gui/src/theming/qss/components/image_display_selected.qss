@@ -1,0 +1,6 @@
+QLabel {
+    background-color: rgba(46, 204, 113, 0.25);
+    border: 3px solid $DARK_SUCCESS;
+    border-radius: 8px;
+    color: white;
+}

@@ -1,14 +1,7 @@
-import cv2
-import numpy as np
-from PIL import Image
-from PySide6.QtCore import QRunnable, Slot
-
-from gui.src.helpers.gc_safe import gc_disabled_run
-
-from .scan_signals import ScanSignals
+from gui.src.helpers.base import BaseQRunnableWorker
 
 
-class SiftTask(QRunnable):
+class SiftTask(BaseQRunnableWorker):
     """
     Task to compute SIFT descriptors for a single image.
     Uses Euclidean Distance (L2) norms, unlike ORB's Hamming distance.
@@ -17,16 +10,16 @@ class SiftTask(QRunnable):
     def __init__(self, path: str):
         super().__init__()
         self.path = path
-        self.signals = ScanSignals()
-        self.setAutoDelete(True)
 
-    @gc_disabled_run
-    @Slot()
-    def run(self):
+    def _execute(self) -> object:
         try:
+            import cv2
+            import numpy as np
+            from PIL import Image
+
             # Initialize SIFT (Local instance is thread-safer)
             # limiting nfeatures helps performance while maintaining accuracy
-            sift = cv2.SIFT_create(nfeatures=1000) # pyrefly: ignore [missing-attribute]
+            sift = cv2.SIFT_create(nfeatures=1000)  # pyrefly: ignore [missing-attribute]
 
             # --- ROBUST LOAD (Standardized pipeline) ---
             pil_img_rgba = Image.open(self.path).convert("RGBA")
@@ -40,9 +33,7 @@ class SiftTask(QRunnable):
             # SIFT returns float descriptors.
             # We check if we have enough features to make a valid comparison.
             if des is not None and len(des) > 10:
-                self.signals.result.emit((self.path, des))
-            else:
-                self.signals.result.emit((self.path, None))
-
+                return (self.path, des)
+            return (self.path, None)
         except Exception:
-            self.signals.result.emit((self.path, None))
+            return (self.path, None)

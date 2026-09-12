@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
 
 from ....helpers import SemanticSearchWorker
 from ....styles import apply_shadow_effect
+from ....theming.theme_api import color
 
 
 class _SemanticSearchMixin:
@@ -43,7 +44,7 @@ class _SemanticSearchMixin:
 
         self.semantic_search_button = QPushButton("Search by Meaning")
         apply_shadow_effect(
-            self.semantic_search_button, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+            self.semantic_search_button, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3
         )
         self.semantic_search_button.clicked.connect(self.perform_semantic_search)
         group_layout.addWidget(self.semantic_search_button)
@@ -109,12 +110,15 @@ class _SemanticSearchMixin:
         self._perform_found_search()
 
     def _on_semantic_search_finished(self, hits: list) -> None:
+        if hits is None:
+            self._reset_semantic_ui("Semantic search failed.")
+            return
         self._reset_semantic_ui(f"Semantic search: {len(hits)} match(es).")
         self._display_ranked_results(hits)
 
-    def _on_semantic_search_error(self, message: str) -> None:
+    def _on_semantic_search_error(self, exc: Exception) -> None:
         self._reset_semantic_ui("Semantic search failed.")
-        QMessageBox.critical(self, "Semantic Search Error", message)
+        QMessageBox.critical(self, "Semantic Search Error", str(exc))
 
     def _on_semantic_search_cancelled(self) -> None:
         self._reset_semantic_ui("Semantic search cancelled.")

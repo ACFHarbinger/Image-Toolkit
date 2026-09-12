@@ -1,0 +1,6 @@
+QFrame {
+    background-color: $DARK_BG;
+    border: 1px solid $DARK_BORDER;
+    border-radius: 6px;
+    padding: 6px;
+}

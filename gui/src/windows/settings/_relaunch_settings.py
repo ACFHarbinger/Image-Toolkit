@@ -25,6 +25,9 @@ from PySide6.QtWidgets import (
     QSpinBox,
 )
 
+from gui.src.theming.theme_api import color
+
+from ...preferences import PreferenceStore
 from .app_settings import AppSettings
 
 
@@ -314,6 +317,15 @@ class _RelaunchSettingsMixin:
 
 
             if self._save_vault_data(user_data):
+                # The direct snapshot save above succeeds before the typed
+                # AppSettings writes below. Rebase their adapter first: it
+                # otherwise persists its stale pre-save snapshot and drops
+                # newly added account values such as experimental/runtime_shell.
+                PreferenceStore.instance().attach_vault_credentials(
+                    user_data,
+                    self.vault_manager,
+                    user_data.get("account_name", self.current_account_name),
+                )
                 # Close-to-tray is device-owned: guest vault data is volatile
                 # and account vaults must not override this window behaviour.
                 AppSettings.set_minimize_to_tray(self.minimize_to_tray_check.isChecked())
@@ -410,8 +422,8 @@ class _RelaunchSettingsMixin:
             self.extractor_fps_clamp_spinbox.setValue(0)
 
         # Reset Appearance and Theme Studio
-        self.pref_accent_dark = "#00bcd4"
-        self.pref_accent_light = "#007AFF"
+        self.pref_accent_dark = color("accent", base="dark")
+        self.pref_accent_light = color("accent", base="light")
         if hasattr(self, "_reset_palette_to_base_defaults"):
             self._reset_palette_to_base_defaults()
         if hasattr(self, "bg_path_input"):
