@@ -1,3 +1,9 @@
+# S539 — 2026-09-12 (Codex: R1.4 #559 / shared tab factory)
+
+- Added `build_tab(module_id, context)` as the construction path for the
+  classic tab registry and runtime catalog. Factory options now travel through
+  `ModuleContext`; regression coverage verifies option forwarding.
+
 # S538 — 2026-09-12 (Codex: R1.5 #560 / account-state boundary)
 
 - Added `VaultManager.save_account_snapshot()` as the GUI account-state
