@@ -57,6 +57,4 @@ class DataBrowserFiltersController(TabBoundController):
         return " AND ".join(conditions) if conditions else None
 
 
-_FiltersMixin = DataBrowserFiltersController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
-
-__all__ = ["DataBrowserFiltersController", "_FiltersMixin"]
+__all__ = ["DataBrowserFiltersController"]

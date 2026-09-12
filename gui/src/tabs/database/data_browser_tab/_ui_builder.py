@@ -172,6 +172,4 @@ class DataBrowserUIBuilder(TabBoundController):
             widget.setEnabled(enabled)
 
 
-_UIBuilderMixin = DataBrowserUIBuilder  # COMPAT(ui-arch-23): remove after callers drop the mixin name
-
-__all__ = ["DataBrowserUIBuilder", "_UIBuilderMixin"]
+__all__ = ["DataBrowserUIBuilder"]
