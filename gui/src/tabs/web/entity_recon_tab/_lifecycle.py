@@ -5,24 +5,16 @@ Extracted from ``entity_recon_tab.py`` -- pure code motion, no logic change.
 
 from __future__ import annotations
 
-import logging
+from gui.src.helpers.worker_teardown import stop_workers
 
 from ._tab_bound import TabBoundController
-
-logger = logging.getLogger(__name__)
 
 
 class EntityReconLifecycleController(TabBoundController):
     """Interrupts/joins any active worker threads on cancel or window close."""
 
     def cancel_loading(self):
-        for t in list(self._threads):
-            try:
-                t.requestInterruption()
-                t.quit()
-                t.wait()
-            except Exception:  # noqa: BLE001
-                logger.debug("Suppressed Exception in cancel_loading", exc_info=True)
+        stop_workers(*list(getattr(self, "_threads", [])))
         self._threads.clear()
 
     def closeEvent(self, event):

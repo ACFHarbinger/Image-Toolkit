@@ -1,7 +1,5 @@
 import os
 
-import torch
-from backend.src.models.core.gan import GAN
 from PySide6.QtCore import Qt, Slot
 from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtWidgets import (
@@ -27,8 +25,20 @@ class GANGenerateTab(QWidget):
 
     def __init__(self):
         super().__init__()
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self._device: str | None = None
         self.init_ui()
+
+    @property
+    def device(self) -> str:
+        if self._device is None:
+            import torch
+
+            self._device = "cuda" if torch.cuda.is_available() else "cpu"
+        return self._device
+
+    @device.setter
+    def device(self, value: str) -> None:
+        self._device = value
 
     def init_ui(self):
         layout = QVBoxLayout(self)
@@ -67,9 +77,7 @@ class GANGenerateTab(QWidget):
         layout.addWidget(self.scroll_area)
 
     def browse_file(self, line_edit):
-        path, _ = QFileDialog.getOpenFileName(
-            self, "Select Checkpoint", "", "PyTorch Models (*.pth *.pt)"
-        )
+        path, _ = QFileDialog.getOpenFileName(self, "Select Checkpoint", "", "PyTorch Models (*.pth *.pt)")
         if path:
             line_edit.setText(path)
 
@@ -80,8 +88,11 @@ class GANGenerateTab(QWidget):
             return
 
         try:
+            import torch
+            from backend.src.models.core.gan import GAN
+
             for i in reversed(range(self.gen_grid.count())):
-                self.gen_grid.itemAt(i).widget().setParent(None) # pyrefly: ignore [missing-attribute]
+                self.gen_grid.itemAt(i).widget().setParent(None)  # pyrefly: ignore [missing-attribute]
 
             device = torch.device(self.device)
             gan = GAN(z_dim=100, channels=3, n_filters=32, n_blocks=3, device=device)
@@ -110,9 +121,7 @@ class GANGenerateTab(QWidget):
 
                 lbl = QLabel()
                 pixmap = QPixmap.fromImage(q_img)
-                lbl.setPixmap(
-                    pixmap.scaled(128, 128, Qt.AspectRatioMode.KeepAspectRatio)
-                )
+                lbl.setPixmap(pixmap.scaled(128, 128, Qt.AspectRatioMode.KeepAspectRatio))
                 lbl.setFrameShape(QFrame.Shape.Box)
 
                 self.gen_grid.addWidget(lbl, row, col)

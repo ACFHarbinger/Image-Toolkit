@@ -1,0 +1,7 @@
+background-color: rgba(187, 128, 9, 0.25);
+color: $DARK_ACCENT_HOVER;
+border: 1px solid $DARK_ACCENT_PRESSED;
+border-radius: 10px;
+padding: 3px 10px;
+font-size: 10px;
+font-weight: 700;

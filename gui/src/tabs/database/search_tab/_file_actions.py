@@ -17,6 +17,7 @@ from PySide6.QtGui import QAction, QCursor, QPixmap
 from PySide6.QtWidgets import QMenu, QMessageBox, QWidget
 from send2trash import send2trash  # pyrefly: ignore [untyped-import]
 
+from ....theming.theme_api import qss
 from ....windows import ImagePreviewWindow
 
 logger = logging.getLogger(__name__)
@@ -160,7 +161,7 @@ class _FileActionsMixin:
             msg.setWindowTitle("Image Properties")
             msg.setText(properties_text)
             msg.setIcon(QMessageBox.Icon.Information)
-            msg.setStyleSheet("QLabel{min-width: 400px;}")
+            msg.setStyleSheet(qss("msgbox_label"))
             msg.exec()
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to retrieve properties: {e}")

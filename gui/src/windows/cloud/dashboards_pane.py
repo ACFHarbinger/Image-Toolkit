@@ -31,6 +31,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from gui.src.theming.theme_api import color, qss
 from gui.src.windows.cloud.usage_charts import (
     _BarChart,
     _GroupedBarChart,
@@ -56,7 +57,7 @@ class DashboardsPane(QWidget):
 
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
-        scroll_area.setStyleSheet("QScrollArea { border: none; background: transparent; }")
+        scroll_area.setStyleSheet(qss("pane_scroll_area"))
 
         container = QWidget()
         layout = QVBoxLayout(container)
@@ -67,11 +68,11 @@ class DashboardsPane(QWidget):
         kpi_grid = QGridLayout()
         kpi_grid.setSpacing(10)
 
-        self.card_total_jobs = self._create_kpi_card("Total Jobs", "0", "#79c0ff")
-        self.card_total_time = self._create_kpi_card("Compute Time", "0s", "#56d364")
-        self.card_egress = self._create_kpi_card("Data Transferred", "0 MB", "#f0883e")
-        self.card_cost = self._create_kpi_card("Estimated Spend", "$0.00", "#d2a8ff")
-        self.card_success_rate = self._create_kpi_card("Success Rate", "100%", "#56d364")
+        self.card_total_jobs = self._create_kpi_card("Total Jobs", "0", color("accent_hover"))
+        self.card_total_time = self._create_kpi_card("Compute Time", "0s", color("success"))
+        self.card_egress = self._create_kpi_card("Data Transferred", "0 MB", color("accent_hover"))
+        self.card_cost = self._create_kpi_card("Estimated Spend", "$0.00", color("accent"))
+        self.card_success_rate = self._create_kpi_card("Success Rate", "100%", color("success"))
 
         kpi_grid.addWidget(self.card_total_jobs, 0, 0)
         kpi_grid.addWidget(self.card_total_time, 0, 1)
@@ -83,15 +84,13 @@ class DashboardsPane(QWidget):
 
         # ── Visual Telemetry & Chart Slot ────────────────────────────────────
         group_charts = QGroupBox("Resource Trends & Performance")
-        group_charts.setStyleSheet("QGroupBox { font-weight: bold; color: #f0f6fc; }")
+        group_charts.setStyleSheet(qss("cloud_section_title"))
         chart_layout = QVBoxLayout(group_charts)
         chart_layout.setContentsMargins(14, 14, 14, 14)
 
         self.chart_container = QFrame()
         self.chart_container.setObjectName("usage_chart_container")
-        self.chart_container.setStyleSheet(
-            "QFrame#usage_chart_container { border: 1px solid #30363d; border-radius: 8px; min-height: 180px; }"
-        )
+        self.chart_container.setStyleSheet(qss("cloud_chart_container"))
         chart_inner_layout = QHBoxLayout(self.chart_container)
         chart_inner_layout.setContentsMargins(4, 4, 4, 4)
         chart_inner_layout.setSpacing(8)
@@ -105,7 +104,7 @@ class DashboardsPane(QWidget):
 
         # ── Historical Usage Rows Table ──────────────────────────────────────
         group_table = QGroupBox("Cloud Usage Log")
-        group_table.setStyleSheet("QGroupBox { font-weight: bold; color: #f0f6fc; }")
+        group_table.setStyleSheet(qss("cloud_section_title"))
         table_layout = QVBoxLayout(group_table)
         table_layout.setContentsMargins(12, 12, 12, 12)
 
@@ -114,22 +113,14 @@ class DashboardsPane(QWidget):
             "Timestamp", "Job ID", "Provider", "Task", "Duration", "Egress", "Cost Est."
         ])
         self.table_usage.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-        self.table_usage.setStyleSheet(
-            "QTableWidget { background-color: #0d1117; border: 1px solid #30363d; "
-            "color: #c9d1d9; gridline-color: #21262d; }"
-            "QHeaderView::section { background-color: #161b22; color: #8b949e; font-weight: bold; padding: 4px; }"
-        )
+        self.table_usage.setStyleSheet(qss("table_widget"))
         self.table_usage.setMinimumHeight(180)
         table_layout.addWidget(self.table_usage)
 
         # Refresh / Clear actions
         tbl_btn_layout = QHBoxLayout()
         self.btn_refresh = QPushButton("Refresh Telemetry")
-        self.btn_refresh.setStyleSheet(
-            "QPushButton { background-color: #21262d; color: #c9d1d9; border: 1px solid #30363d; "
-            "border-radius: 4px; padding: 5px 12px; font-size: 8.5pt; }"
-            "QPushButton:hover { background-color: #30363d; color: #f0f6fc; }"
-        )
+        self.btn_refresh.setStyleSheet(qss("cloud_btn_secondary_sm"))
         self.btn_refresh.clicked.connect(self._refresh_metrics)
         tbl_btn_layout.addWidget(self.btn_refresh)
         tbl_btn_layout.addStretch(1)
@@ -140,22 +131,20 @@ class DashboardsPane(QWidget):
         scroll_area.setWidget(container)
         main_layout.addWidget(scroll_area)
 
-    def _create_kpi_card(self, title: str, value: str, color: str) -> QFrame:
+    def _create_kpi_card(self, title: str, value: str, value_color: str) -> QFrame:
         card = QFrame()
-        card.setStyleSheet(
-            "QFrame { background-color: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 10px; }"
-        )
+        card.setStyleSheet(qss("resource_metric_card"))
         card_layout = QVBoxLayout(card)
         card_layout.setContentsMargins(8, 6, 8, 6)
         card_layout.setSpacing(4)
 
         lbl_title = QLabel(title.upper())
-        lbl_title.setStyleSheet("color: #8b949e; font-size: 7.5pt; font-weight: bold; letter-spacing: 0.5px;")
+        lbl_title.setStyleSheet(qss("resource_category_label"))
         card_layout.addWidget(lbl_title)
 
         lbl_val = QLabel(value)
         lbl_val.setObjectName(f"kpi_val_{title.lower().replace(' ', '_')}")
-        lbl_val.setStyleSheet(f"color: {color}; font-size: 14pt; font-weight: bold;")
+        lbl_val.setStyleSheet(qss("resource_value_dynamic", VALUE_COLOR=value_color))
         card_layout.addWidget(lbl_val)
 
         return card

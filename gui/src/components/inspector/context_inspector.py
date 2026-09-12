@@ -30,6 +30,7 @@ from gui.src.modules.events import (
     ToggleInspectorIntent,
 )
 from gui.src.theming.presets import DANBOORU_TAG_COLORS
+from gui.src.theming.theme_api import qss
 
 
 class ContextInspectorPanel(QWidget):
@@ -134,17 +135,14 @@ class ContextInspectorPanel(QWidget):
         # 1. Header with bilingual title and close button
         header_layout = QHBoxLayout()
         self.title_label = QLabel("◈ INSPECTOR // 情報")
-        self.title_label.setStyleSheet("font-weight: bold; font-size: 10.5pt; color: #00f0ff;")
+        self.title_label.setStyleSheet(qss("context_inspector_title"))
         header_layout.addWidget(self.title_label)
         header_layout.addStretch()
 
         self.close_btn = QPushButton("✕")
         self.close_btn.setFixedSize(24, 24)
         self.close_btn.setToolTip("Collapse Inspector (Ctrl+I)")
-        self.close_btn.setStyleSheet(
-            "QPushButton { background: transparent; border: none; font-size: 11pt; color: #888; } "
-            "QPushButton:hover { color: #fff; background: rgba(255,255,255,0.1); border-radius: 12px; }"
-        )
+        self.close_btn.setStyleSheet(qss("context_inspector_close_btn"))
         self.close_btn.clicked.connect(self._on_close_clicked)
         header_layout.addWidget(self.close_btn)
         root_layout.addLayout(header_layout)
@@ -152,7 +150,7 @@ class ContextInspectorPanel(QWidget):
         # Divider
         divider = QFrame()
         divider.setFrameShape(QFrame.Shape.HLine)
-        divider.setStyleSheet("background: rgba(255, 255, 255, 0.1); max-height: 1px;")
+        divider.setStyleSheet(qss("context_inspector_divider"))
         root_layout.addWidget(divider)
 
         # 2. Scrollable Body
@@ -169,7 +167,7 @@ class ContextInspectorPanel(QWidget):
         self.preview_label = QLabel()
         self.preview_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.preview_label.setFixedHeight(180)
-        self.preview_label.setStyleSheet("background: rgba(0, 0, 0, 0.25); border-radius: 6px;")
+        self.preview_label.setStyleSheet(qss("context_inspector_preview"))
         self.preview_label.setText("No Image Selected\n選択なし")
         self.content_layout.addWidget(self.preview_label)
 
@@ -181,23 +179,17 @@ class ContextInspectorPanel(QWidget):
 
         self.filename_label = QLabel("--")
         self.filename_label.setWordWrap(True)
-        self.filename_label.setStyleSheet("font-weight: 600; font-size: 9.5pt;")
+        self.filename_label.setStyleSheet(qss("context_inspector_filename"))
         info_layout.addWidget(self.filename_label)
 
         # Badges row (Resolution pill, Format pill)
         badges_layout = QHBoxLayout()
         self.res_badge = QLabel("-- × --")
-        self.res_badge.setStyleSheet(
-            "background: rgba(0, 240, 255, 0.12); color: #00f0ff; "
-            "border: 1px solid rgba(0, 240, 255, 0.25); border-radius: 4px; padding: 2px 6px; font-size: 8pt;"
-        )
+        self.res_badge.setStyleSheet(qss("context_inspector_res_badge"))
         badges_layout.addWidget(self.res_badge)
 
         self.fmt_badge = QLabel("--")
-        self.fmt_badge.setStyleSheet(
-            "background: rgba(255, 255, 255, 0.08); color: #cccccc; "
-            "border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 4px; padding: 2px 6px; font-size: 8pt;"
-        )
+        self.fmt_badge.setStyleSheet(qss("context_inspector_fmt_badge"))
         badges_layout.addWidget(self.fmt_badge)
         badges_layout.addStretch()
         info_layout.addLayout(badges_layout)
@@ -205,7 +197,7 @@ class ContextInspectorPanel(QWidget):
 
         # 3. Tags Container
         self.tags_header = QLabel("🏷️ TAGS // タグ")
-        self.tags_header.setStyleSheet("font-weight: bold; font-size: 8.5pt; color: #aaaaaa;")
+        self.tags_header.setStyleSheet(qss("context_inspector_section_header"))
         self.content_layout.addWidget(self.tags_header)
 
         self.tags_container = QWidget()
@@ -216,7 +208,7 @@ class ContextInspectorPanel(QWidget):
 
         # 4. Metadata / EXIF Table
         self.exif_header = QLabel("📋 METADATA // メタデータ")
-        self.exif_header.setStyleSheet("font-weight: bold; font-size: 8.5pt; color: #aaaaaa;")
+        self.exif_header.setStyleSheet(qss("context_inspector_section_header"))
         self.content_layout.addWidget(self.exif_header)
 
         self.exif_table = QTableWidget(0, 2)
@@ -277,15 +269,20 @@ class ContextInspectorPanel(QWidget):
                 style_token = DANBOORU_TAG_COLORS.get(category.lower(), DANBOORU_TAG_COLORS["general"])
                 row = QHBoxLayout()
                 cat_tag = QLabel(f"{category}:")
-                cat_tag.setStyleSheet(f"color: {style_token['text']}; font-weight: 600; font-size: 8pt;")
+                cat_tag.setStyleSheet(
+                    qss("context_inspector_tag_category", TAG_COLOR=style_token["text"])
+                )
                 row.addWidget(cat_tag)
 
                 for t in tag_list[:6]:
                     chip = QPushButton(t)
                     chip.setStyleSheet(
-                        f"background: {style_token['bg']}; color: {style_token['text']}; "
-                        f"border: 1px solid {style_token['border']}; border-radius: 3px; "
-                        "padding: 1px 5px; font-size: 7.5pt;"
+                        qss(
+                            "context_inspector_tag_chip",
+                            TAG_BG=style_token["bg"],
+                            TAG_TEXT=style_token["text"],
+                            TAG_BORDER=style_token["border"],
+                        )
                     )
                     chip.clicked.connect(lambda _=False, tag=t: self._on_tag_chip_clicked(tag))
                     row.addWidget(chip)

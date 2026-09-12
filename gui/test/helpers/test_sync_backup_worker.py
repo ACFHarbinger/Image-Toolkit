@@ -38,7 +38,7 @@ def test_run_restores_gc_even_on_exception():
 
     w = _SyncBackupWorker("backup", "Content", {"entries": []})
     w.run_backup = _boom  # type: ignore[method-assign]
-    # sig_finished.emit on a bare QThread with no receiver is a no-op here.
+    # finished.emit with no receiver is a no-op here.
     w.run()
 
     assert gc.isenabled() is True

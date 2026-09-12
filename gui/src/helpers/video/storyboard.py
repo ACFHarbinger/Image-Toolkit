@@ -40,8 +40,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from PIL import Image
-from PySide6.QtCore import QThread, Signal
+from PySide6.QtCore import Signal
 
 from gui.src.constants.helpers import (
     _MAX_PAGE_RAW_MB,
@@ -53,10 +52,11 @@ from gui.src.constants.helpers import (
     MIN_TILES,
     TILE_WIDTH,
 )
-from gui.src.helpers.gc_safe import gc_disabled_run
+from gui.src.helpers.base import BaseQThreadWorker
 from gui.src.helpers.video.video_thumbnailer import media_backend_spawn_guard
 
 logger = logging.getLogger(__name__)
+
 
 def probe_duration_ms(video_path: str) -> int:
     try:
@@ -163,16 +163,17 @@ class StoryboardMeta:
         return cls(**json.loads(meta_path.read_text()))
 
 
-class StoryboardBuilder(QThread):
+class StoryboardBuilder(BaseQThreadWorker):
     """Builds a (possibly multi-page) storyboard sprite sheet for a single
     video in the background."""
 
-    finished_ok = Signal(str)  # meta_path
-    failed = Signal(str)
+    finished = Signal(object)  # meta_path str, None on failure/cancel
     progress_changed = Signal(int, int)  # (elapsed_ms, duration_ms) — §5.9 Option C
 
     def __init__(self, video_path: str, duration_ms: int, parent=None):
-        super().__init__(parent)
+        super().__init__()
+        if parent is not None:
+            self.setParent(parent)
         self.video_path = video_path
         self.duration_ms = max(0, duration_ms)
         self.cache_dir = _cache_dir_for(video_path)
@@ -182,16 +183,16 @@ class StoryboardBuilder(QThread):
 
     def cancel(self):
         self._cancelled = True
+        self.requestInterruption()
         if self._process is not None and self._process.poll() is None:
             self._process.terminate()
 
-    @gc_disabled_run
-    def run(self):  # noqa: C901
-        if self._cancelled:
-            return
+    def _execute(self) -> object:  # noqa: C901
+        if self._cancelled or self.isInterruptionRequested():
+            return None
         if self.duration_ms <= 0:
-            self.failed.emit("Unknown video duration.")
-            return
+            self.error.emit(RuntimeError("Unknown video duration."))
+            return None
 
         interval_ms = max(MIN_INTERVAL_MS, self.duration_ms // MAX_TOTAL_TILES)
         est_tiles = max(1, self.duration_ms // interval_ms)
@@ -200,7 +201,7 @@ class StoryboardBuilder(QThread):
 
         with tempfile.TemporaryDirectory(prefix="storyboard_") as tmpdir:
             if self._cancelled:
-                return
+                return None
             tile_pattern = os.path.join(tmpdir, "tile_%06d.jpg")
             cmd = [
                 "ffmpeg",
@@ -245,29 +246,32 @@ class StoryboardBuilder(QThread):
                         self.progress_changed.emit(elapsed_ms, self.duration_ms)
                 self._process.wait()
             except OSError as exc:
-                self.failed.emit(str(exc))
-                return
+                self.error.emit(RuntimeError(str(exc)))
+                return None
             finally:
                 self._process = None
 
             if self._cancelled:
-                return
+                return None
 
             tile_paths = sorted(Path(tmpdir).glob("tile_*.jpg"))
             if not tile_paths:
-                self.failed.emit("No thumbnails extracted.")
-                return
+                self.error.emit(RuntimeError("No thumbnails extracted."))
+                return None
 
             try:
                 self._composite(tile_paths, interval_ms)
             except Exception as exc:
-                self.failed.emit(str(exc))
-                return
+                self.error.emit(RuntimeError(str(exc)))
+                return None
 
-        if not self._cancelled:
-            self.finished_ok.emit(str(self.meta_path))
+        if self._cancelled:
+            return None
+        return str(self.meta_path)
 
     def _composite(self, tile_paths: List[Path], interval_ms: int) -> None:
+        from PIL import Image
+
         count = len(tile_paths)
         with Image.open(tile_paths[0]) as first:
             tw, th = first.size

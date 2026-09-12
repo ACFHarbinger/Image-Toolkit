@@ -32,6 +32,7 @@ from PySide6.QtWidgets import (
 )
 
 from ....styles import apply_shadow_effect
+from ....theming.theme_api import color, qss
 from ._clickable_label import _ClickableImageLabel
 from ._tab_bound import TabBoundController
 
@@ -55,7 +56,7 @@ class EntityReconUIBuilder(TabBoundController):
         ds_row.addWidget(btn_ds)
         self.btn_build = QPushButton("Build Identity Index")
         self.btn_build.clicked.connect(self._build_index)
-        apply_shadow_effect(self.btn_build, "#000000", 8, 0, 3)
+        apply_shadow_effect(self.btn_build, color("window_bg"), 8, 0, 3)
         ds_row.addWidget(self.btn_build)
         cfg_form.addRow("Dataset root:", ds_row)
 
@@ -91,7 +92,7 @@ class EntityReconUIBuilder(TabBoundController):
         p1_top = QHBoxLayout()
         btn_src = QPushButton("Load Image...")
         btn_src.clicked.connect(self._browse_source)
-        apply_shadow_effect(btn_src, "#000000", 8, 0, 3)
+        apply_shadow_effect(btn_src, color("window_bg"), 8, 0, 3)
         p1_top.addWidget(btn_src)
         p1_top.addStretch(1)
         p1_v.addLayout(p1_top)
@@ -105,7 +106,7 @@ class EntityReconUIBuilder(TabBoundController):
 
         self.btn_resolve = QPushButton("Resolve Identity")
         self.btn_resolve.clicked.connect(self._resolve)
-        apply_shadow_effect(self.btn_resolve, "#000000", 8, 0, 3)
+        apply_shadow_effect(self.btn_resolve, color("window_bg"), 8, 0, 3)
         p1_v.addWidget(self.btn_resolve)
         splitter.addWidget(p1)
 
@@ -113,7 +114,7 @@ class EntityReconUIBuilder(TabBoundController):
         p2 = QGroupBox("Identity")
         p2_v = QVBoxLayout(p2)
         self.name_label = QLabel("—")
-        self.name_label.setStyleSheet("font-size: 20pt; font-weight: bold; color: #ffffff;")
+        self.name_label.setStyleSheet(qss("entity_recon_title"))
         self.name_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.name_label.setWordWrap(True)
         p2_v.addWidget(self.name_label)
@@ -202,7 +203,7 @@ class EntityReconUIBuilder(TabBoundController):
         root.addWidget(batch_group)
 
         self.status_label = QLabel("Ready. Build an identity index to begin.")
-        self.status_label.setStyleSheet("color: #b9bbbe;")
+        self.status_label.setStyleSheet(qss("entity_recon_meta"))
         root.addWidget(self.status_label)
 
 

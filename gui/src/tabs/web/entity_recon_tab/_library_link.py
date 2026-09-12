@@ -62,9 +62,7 @@ class EntityReconLibraryLinkController(TabBoundController):
 
         name = self.name_label.text().strip()
         if not name or name == "Unknown":
-            QMessageBox.information(
-                self.tab, "No Identity", "Resolve an identity with a known name first."
-            )
+            QMessageBox.information(self.tab, "No Identity", "Resolve an identity with a known name first.")
             return
 
         if not os.path.exists(path):
@@ -87,9 +85,7 @@ class EntityReconLibraryLinkController(TabBoundController):
                 return  # user cancelled
 
             entity_repo.link_image(entity_id, image_id)
-            QMessageBox.information(
-                self.tab, "Linked", f"Linked this image to entity '{name}'."
-            )
+            QMessageBox.information(self.tab, "Linked", f"Linked this image to entity '{name}'.")
         except Exception as e:
             QMessageBox.critical(self.tab, "Error", f"Failed to link image to entity:\n{e}")
 
@@ -131,8 +127,7 @@ class EntityReconLibraryLinkController(TabBoundController):
             choice, ok = QInputDialog.getItem(
                 self.tab,
                 "Link to Entity",
-                f"Multiple entities are close to '{name}'. Pick one, or "
-                "cancel to create a new entity instead:",
+                f"Multiple entities are close to '{name}'. Pick one, or cancel to create a new entity instead:",
                 labels,
                 editable=False,
             )
@@ -145,8 +140,7 @@ class EntityReconLibraryLinkController(TabBoundController):
         confirm = QMessageBox.question(
             self.tab,
             "Create Entity",
-            f"No entity named '{name}' exists in the library yet. Create "
-            "one and link this image to it?",
+            f"No entity named '{name}' exists in the library yet. Create one and link this image to it?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No,
         )

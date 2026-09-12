@@ -40,12 +40,13 @@ class EntityReconWorkerController(TabBoundController):
             self._warmed_modes.add(mode)
 
     def _run_worker(self, worker, on_finished):
-        # Workers are QThread subclasses (override run(), no event loop). A plain
-        # QThread + moveToThread spins a glib socket-notifier event dispatcher in
-        # the worker thread which SIGSEGVs under the live JVM.
+        # Workers are BaseQThreadWorker subclasses (inherited run(), no event
+        # loop). A plain QThread + moveToThread spins a glib socket-notifier
+        # event dispatcher in the worker thread which SIGSEGVs under the live
+        # JVM.
         worker.status.connect(self._set_status)
-        worker.sig_finished.connect(on_finished)
-        worker.sig_finished.connect(lambda *_: self._reap_worker(worker))
+        worker.finished.connect(on_finished)
+        worker.finished.connect(lambda *_: self._reap_worker(worker))
         worker.error.connect(self._on_worker_error)
         worker.error.connect(lambda *_: self._reap_worker(worker))
         self._threads.append(worker)
@@ -57,9 +58,9 @@ class EntityReconWorkerController(TabBoundController):
         worker.wait()
         worker.deleteLater()
 
-    def _on_worker_error(self, message: str):
+    def _on_worker_error(self, exc: Exception):
         self._set_busy(False)
-        self._set_status(f"Error: {message}")
+        self._set_status(f"Error: {exc}")
 
 
 _WorkerPlumbingMixin = EntityReconWorkerController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
