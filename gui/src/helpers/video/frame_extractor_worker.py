@@ -5,24 +5,13 @@ import time
 from pathlib import Path
 from typing import Optional, Tuple, Union
 
-import cv2
-from PySide6.QtCore import QObject, QRunnable, Signal
-
-from gui.src.helpers.gc_safe import gc_disabled_run
+from gui.src.helpers.base import BaseQRunnableWorker
 
 from ...utils.sort_utils import natural_sort_key
 
 
-# --- Worker Signals ---
-class _ExtractorSignals(QObject):
-    started = Signal()
-    progress = Signal(int, int)  # (percent, 100) — §5.9 Option C; no natural item count
-    finished = Signal(list)  # Returns list of saved paths
-    error = Signal(str)
-
-
 # --- Worker Logic (OpenCV) ---
-class FrameExtractionWorker(QRunnable):
+class FrameExtractionWorker(BaseQRunnableWorker):
     """
     Background worker to extract frames using OpenCV or FFmpeg.
     """
@@ -31,12 +20,7 @@ class FrameExtractionWorker(QRunnable):
         if not self.cuts_ms:
             return [(0.0, t_end - t_start)]
 
-        sorted_cuts = sorted(
-            [
-                (max(t_start, c[0] / 1000.0), min(t_end, c[1] / 1000.0))
-                for c in self.cuts_ms
-            ]
-        )
+        sorted_cuts = sorted([(max(t_start, c[0] / 1000.0), min(t_end, c[1] / 1000.0)) for c in self.cuts_ms])
         merged_cuts = []
         for c in sorted_cuts:
             if c[0] >= c[1]:
@@ -92,12 +76,13 @@ class FrameExtractionWorker(QRunnable):
         self.smart_method = smart_method
         self.encoder_threads = max(0, int(encoder_threads))
         self.fps_clamp = max(0, int(fps_clamp))
-        self.signals = _ExtractorSignals()
         self._is_cancelled = False
         self.fps = min(fps, fps_clamp) if fps_clamp > 0 else fps
 
     def _get_fps(self) -> float:
         """Get video FPS to calculate timestamps."""
+        import cv2
+
         cap = cv2.VideoCapture(self.video_path)
         if not cap.isOpened():
             return 23.976
@@ -110,16 +95,13 @@ class FrameExtractionWorker(QRunnable):
             fps = 23.976
         return fps
 
-    @gc_disabled_run
-    def run(self):  # noqa: C901
-        self.signals.started.emit()
+    def _execute(self) -> object:  # noqa: C901
         saved_files = []
 
         self.fps = self._get_fps()
 
         if self.smart_extract:
-            self._run_smart_extraction(saved_files, self.fps)
-            return
+            return self._run_smart_extraction(saved_files, self.fps)
 
         # --- REGULAR EXTRACTION (Replaces OpenCV with FFmpeg for robustness) ---
         try:
@@ -140,9 +122,7 @@ class FrameExtractionWorker(QRunnable):
                     (self.end_ms / 1000.0 if self.end_ms != -1 else t_start + 1),
                 )
                 if keep_regions:
-                    select_expr = "+".join(
-                        [f"between(t,{r[0]},{r[1]})" for r in keep_regions]
-                    )
+                    select_expr = "+".join([f"between(t,{r[0]},{r[1]})" for r in keep_regions])
                     filters.append(f"select='{select_expr}'")
 
             if self.frame_interval > 1:
@@ -181,9 +161,7 @@ class FrameExtractionWorker(QRunnable):
             from gui.src.helpers.video.video_thumbnailer import media_backend_spawn_guard
 
             with media_backend_spawn_guard():
-                process = subprocess.Popen(
-                    cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
-                )
+                process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             while process.poll() is None:
                 if self._is_cancelled:
                     process.terminate()
@@ -192,37 +170,29 @@ class FrameExtractionWorker(QRunnable):
                 time.sleep(0.5)
 
             if process.returncode != 0:
-                self.signals.error.emit(f"FFmpeg failed: {process.stderr.read()}") # pyrefly: ignore [missing-attribute]
+                self.signals.error.emit(f"FFmpeg failed: {process.stderr.read()}")  # pyrefly: ignore [missing-attribute]
                 return
 
             # Rename temp files to timestamp-based names
             tmp_files = sorted(
-                [
-                    f
-                    for f in os.listdir(self.output_dir)
-                    if f.startswith(f"{video_name}_tmp_") and f.endswith(".png")
-                ]
+                [f for f in os.listdir(self.output_dir) if f.startswith(f"{video_name}_tmp_") and f.endswith(".png")]
             )
             for i, f in enumerate(tmp_files):
                 # Calculate approximate MS
                 # Frame N (0-indexed) at start_ms + (N * interval * 1000 / self.fps)
-                current_ms = self.start_ms + int(
-                    i * self.frame_interval * (1000.0 / self.fps)
-                )
+                current_ms = self.start_ms + int(i * self.frame_interval * (1000.0 / self.fps))
                 new_name = f"{video_name}_{current_ms}ms.png"
 
                 # Check for duplicates if multiple extractions land on same ms
                 final_path = os.path.join(self.output_dir, new_name)
                 if os.path.exists(final_path):
-                    final_path = os.path.join(
-                        self.output_dir, f"{video_name}_{current_ms}ms_{i}.png"
-                    )
+                    final_path = os.path.join(self.output_dir, f"{video_name}_{current_ms}ms_{i}.png")
 
                 os.rename(os.path.join(self.output_dir, f), final_path)
                 saved_files.append(final_path)
 
             self.signals.progress.emit(100, 100)
-            self.signals.finished.emit(saved_files)
+            return saved_files
 
         except Exception as e:
             self.signals.error.emit(str(e))
@@ -243,9 +213,7 @@ class FrameExtractionWorker(QRunnable):
             filters = []
             keep_regions = self._get_keep_regions(t_start, t_end)
             if self.cuts_ms and keep_regions:
-                select_expr = "+".join(
-                    [f"between(t,{r[0]},{r[1]})" for r in keep_regions]
-                )
+                select_expr = "+".join([f"between(t,{r[0]},{r[1]})" for r in keep_regions])
                 filters.append(f"select='{select_expr}'")
 
             if self.frame_interval > 1:
@@ -294,9 +262,7 @@ class FrameExtractionWorker(QRunnable):
             from gui.src.helpers.video.video_thumbnailer import media_backend_spawn_guard
 
             with media_backend_spawn_guard():
-                process = subprocess.Popen(
-                    cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
-                )
+                process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             while process.poll() is None:
                 if self._is_cancelled:
                     process.terminate()
@@ -305,17 +271,13 @@ class FrameExtractionWorker(QRunnable):
                 time.sleep(0.5)
 
             if process.returncode != 0:
-                self.signals.error.emit(f"FFmpeg failed: {process.stderr.read()}") # pyrefly: ignore [missing-attribute]
+                self.signals.error.emit(f"FFmpeg failed: {process.stderr.read()}")  # pyrefly: ignore [missing-attribute]
                 return
 
             prefix = f"{video_name}_smart_tmp_{temp_id}_"
             tmp_files = sorted(
-                [
-                    f
-                    for f in os.listdir(self.output_dir)
-                    if f.startswith(prefix) and f.endswith(".png")
-                ],
-                key=natural_sort_key
+                [f for f in os.listdir(self.output_dir) if f.startswith(prefix) and f.endswith(".png")],
+                key=natural_sort_key,
             )
 
             for f in tmp_files:
@@ -340,7 +302,7 @@ class FrameExtractionWorker(QRunnable):
                 saved_files.append(final_path)
 
             self.signals.progress.emit(100, 100)
-            self.signals.finished.emit(saved_files)
+            return saved_files
         except Exception as e:
             self.signals.error.emit(str(e))
 

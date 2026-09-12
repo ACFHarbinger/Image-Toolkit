@@ -1,0 +1,2 @@
+border: 2px dashed $DARK_MUTED_TEXT;
+padding: 10px;

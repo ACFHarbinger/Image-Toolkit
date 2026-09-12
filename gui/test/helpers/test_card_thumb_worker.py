@@ -16,7 +16,7 @@ class _FakeWorker:
     def __init__(self, paths, target_size):
         self.paths = paths
         self.target_size = target_size
-        self.signals = type("Signals", (), {"batch_result": _FakeSignal()})()
+        self.stream = type("Signals", (), {"batch_result": _FakeSignal()})()
 
 
 class _FakePool:

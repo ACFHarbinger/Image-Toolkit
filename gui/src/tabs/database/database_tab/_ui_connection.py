@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
 )
 
 from ....styles import apply_shadow_effect
+from ....theming.theme_api import color
 
 if TYPE_CHECKING:
     pass
@@ -33,7 +34,7 @@ def build_connection_section(tab: Any, main_layout: QVBoxLayout) -> None:
         "Normally this happens automatically at login."
     )
     apply_shadow_effect(
-        tab.btn_connect, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+        tab.btn_connect, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3
     )
     tab.btn_connect.clicked.connect(tab.connect_database)
     tab.button_conn_layout.addWidget(tab.btn_connect)
@@ -41,7 +42,7 @@ def build_connection_section(tab: Any, main_layout: QVBoxLayout) -> None:
     tab.btn_reset_db = QPushButton("⚠️ Reset Database (Drop All Data)")
     tab.btn_reset_db.setObjectName("btn_danger")
     apply_shadow_effect(
-        tab.btn_reset_db, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+        tab.btn_reset_db, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3
     )
     tab.btn_reset_db.clicked.connect(tab.reset_database)
     tab.btn_reset_db.hide()
@@ -50,7 +51,7 @@ def build_connection_section(tab: Any, main_layout: QVBoxLayout) -> None:
     # Management Buttons
     tab.btn_vacuum = QPushButton("🧹 Vacuum Database")
     apply_shadow_effect(
-        tab.btn_vacuum, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+        tab.btn_vacuum, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3
     )
     tab.btn_vacuum.clicked.connect(tab.run_vacuum)
     tab.btn_vacuum.hide()
@@ -58,7 +59,7 @@ def build_connection_section(tab: Any, main_layout: QVBoxLayout) -> None:
 
     tab.btn_reindex = QPushButton("🔍 Reindex Database")
     apply_shadow_effect(
-        tab.btn_reindex, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+        tab.btn_reindex, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3
     )
     tab.btn_reindex.clicked.connect(tab.run_reindex)
     tab.btn_reindex.hide()
@@ -70,7 +71,7 @@ def build_connection_section(tab: Any, main_layout: QVBoxLayout) -> None:
         "have one yet, enabling text/find-similar search (DB.7)."
     )
     apply_shadow_effect(
-        tab.btn_embed_backfill, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+        tab.btn_embed_backfill, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3
     )
     tab.btn_embed_backfill.clicked.connect(tab.run_embed_backfill)
     tab.btn_embed_backfill.hide()
@@ -82,7 +83,7 @@ def build_connection_section(tab: Any, main_layout: QVBoxLayout) -> None:
         "The app operates normally on local SQLCipher storage."
     )
     apply_shadow_effect(
-        tab.btn_check_postgres, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+        tab.btn_check_postgres, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3
     )
     tab.btn_check_postgres.clicked.connect(tab.check_postgres_status)
     tab.button_conn_layout.addWidget(tab.btn_check_postgres)

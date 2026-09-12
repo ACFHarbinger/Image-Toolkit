@@ -1,0 +1,6 @@
+QPushButton {
+    padding: 6px 14px;
+    font-size: 9pt;
+    font-weight: 500;
+    $BORDER_STYLE
+}

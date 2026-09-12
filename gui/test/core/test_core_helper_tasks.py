@@ -12,7 +12,6 @@ from PIL import Image
 # Import the tasks
 from gui.src.helpers.core.tasks.orb_task import OrbTask
 from gui.src.helpers.core.tasks.phask_task import PhashTask
-from gui.src.helpers.core.tasks.scan_signals import ScanSignals
 from gui.src.helpers.core.tasks.sift_task import SiftTask
 from gui.src.helpers.core.tasks.sn_task import SiameseTask
 from gui.src.helpers.core.tasks.ssim_task import SsimTask
@@ -42,13 +41,11 @@ class TestCoreHelperTasks:
 
         patch.stopall()
 
-    def test_scan_signals(self):
-        """Test ScanSignals initialization"""
-        signals = ScanSignals()
-        assert signals is not None
-        # Verify signals are present
-        assert hasattr(signals, "result")
-        assert hasattr(signals, "error")
+    def test_shared_finished_carrier(self):
+        """Scan tasks use the shared _WorkerSignals finished channel (R1.1)."""
+        task = OrbTask("/tmp/test_image.jpg")
+        assert hasattr(task.signals, "finished")
+        assert hasattr(task.signals, "error")
 
     def test_orb_task_success(self):
         """Test OrbTask successfully computes descriptors"""
@@ -57,7 +54,7 @@ class TestCoreHelperTasks:
 
         # Mock signals
         mock_emit = MagicMock()
-        task.signals.result.connect(mock_emit)
+        task.signals.finished.connect(mock_emit)
 
         # Mock cv2 ORB
         mock_orb_detector = MagicMock()
@@ -87,7 +84,7 @@ class TestCoreHelperTasks:
         task = OrbTask(path)
 
         mock_emit = MagicMock()
-        task.signals.result.connect(mock_emit)
+        task.signals.finished.connect(mock_emit)
 
         # Raise exception during processing
         self.mock_image_open.side_effect = Exception("Load error")
@@ -101,7 +98,7 @@ class TestCoreHelperTasks:
         path = "/tmp/test.jpg"
         task = OrbTask(path)
         mock_emit = MagicMock()
-        task.signals.result.connect(mock_emit)
+        task.signals.finished.connect(mock_emit)
 
         mock_orb = MagicMock()
         # less than 10 descriptors
@@ -118,7 +115,7 @@ class TestCoreHelperTasks:
         path = "/tmp/phash.jpg"
         task = PhashTask(path)
         mock_emit = MagicMock()
-        task.signals.result.connect(mock_emit)
+        task.signals.finished.connect(mock_emit)
 
         # Mock imagehash
         with patch("imagehash.average_hash") as mock_hash_func:
@@ -136,7 +133,7 @@ class TestCoreHelperTasks:
         path = "/tmp/bad_phash.jpg"
         task = PhashTask(path)
         mock_emit = MagicMock()
-        task.signals.result.connect(mock_emit)
+        task.signals.finished.connect(mock_emit)
 
         self.mock_image_open.side_effect = Exception("Fail")
 
@@ -149,7 +146,7 @@ class TestCoreHelperTasks:
         path = "/tmp/sift.jpg"
         task = SiftTask(path)
         mock_emit = MagicMock()
-        task.signals.result.connect(mock_emit)
+        task.signals.finished.connect(mock_emit)
 
         mock_sift = MagicMock()
         dummy_des = np.ones((20, 128), dtype=float)
@@ -166,7 +163,7 @@ class TestCoreHelperTasks:
         path = "/tmp/sift_fail.jpg"
         task = SiftTask(path)
         mock_emit = MagicMock()
-        task.signals.result.connect(mock_emit)
+        task.signals.finished.connect(mock_emit)
 
         self.mock_image_open.side_effect = Exception("Fail")
 
@@ -179,7 +176,7 @@ class TestCoreHelperTasks:
         path = "/tmp/sift.jpg"
         task = SiftTask(path)
         mock_emit = MagicMock()
-        task.signals.result.connect(mock_emit)
+        task.signals.finished.connect(mock_emit)
 
         mock_sift = MagicMock()
         dummy_des = np.ones((5, 128), dtype=float)
@@ -195,7 +192,7 @@ class TestCoreHelperTasks:
         path = "/tmp/sn.jpg"
         task = SiameseTask(path)
         mock_emit = MagicMock()
-        task.signals.result.connect(mock_emit)
+        task.signals.finished.connect(mock_emit)
 
         # Mock singleton loader
         mock_loader = MagicMock()
@@ -213,7 +210,7 @@ class TestCoreHelperTasks:
         path = "/tmp/sn_fail.jpg"
         task = SiameseTask(path)
         mock_emit = MagicMock()
-        task.signals.result.connect(mock_emit)
+        task.signals.finished.connect(mock_emit)
 
         mock_loader = MagicMock()
         mock_loader.get_embedding.side_effect = Exception("Model Error")
@@ -228,7 +225,7 @@ class TestCoreHelperTasks:
         path = "/tmp/sn_none.jpg"
         task = SiameseTask(path)
         mock_emit = MagicMock()
-        task.signals.result.connect(mock_emit)
+        task.signals.finished.connect(mock_emit)
 
         mock_loader = MagicMock()
         mock_loader.get_embedding.return_value = None
@@ -243,7 +240,7 @@ class TestCoreHelperTasks:
         path = "/tmp/ssim.jpg"
         task = SsimTask(path)
         mock_emit = MagicMock()
-        task.signals.result.connect(mock_emit)
+        task.signals.finished.connect(mock_emit)
 
         # Override the common setup which returns a real numpy array
         # We need a Mock object to mock the .astype method call
@@ -267,7 +264,7 @@ class TestCoreHelperTasks:
         path = "/tmp/ssim_fail.jpg"
         task = SsimTask(path)
         mock_emit = MagicMock()
-        task.signals.result.connect(mock_emit)
+        task.signals.finished.connect(mock_emit)
 
         self.mock_image_open.side_effect = Exception("Fail")
 

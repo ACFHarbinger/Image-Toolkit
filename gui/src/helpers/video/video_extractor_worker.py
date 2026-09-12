@@ -6,9 +6,8 @@ import tempfile
 from typing import Optional, Tuple, Union
 
 from moviepy.editor import VideoFileClip
-from PySide6.QtCore import QObject, QRunnable, Signal
 
-from gui.src.helpers.gc_safe import gc_disabled_run
+from gui.src.helpers.base import BaseQRunnableWorker
 
 # Ensure this import matches your MoviePy version
 try:
@@ -19,12 +18,6 @@ except ImportError:
 
 class _Cancelled(Exception):
     """Raised inside the worker when the user cancels mid-ffmpeg."""
-
-
-class _VideoWorkerSignals(QObject):
-    progress = Signal(int, int)  # (percent, 100) — §5.9 Option C; no natural item count
-    finished = Signal(str)
-    error = Signal(str)
 
 
 def _ffmpeg_thread_count(requested: int) -> int:
@@ -54,7 +47,7 @@ def parse_ffmpeg_progress_line(line: str, duration_s: float) -> Optional[int]:
     return int(min(99, max(0, (us / 1_000_000.0) / duration_s * 100)))
 
 
-class VideoExtractionWorker(QRunnable):
+class VideoExtractionWorker(BaseQRunnableWorker):
     def __init__(
         self,
         video_path: str,
@@ -81,7 +74,6 @@ class VideoExtractionWorker(QRunnable):
         self.cuts_ms = cuts_ms or []
         self.encoder_threads = max(0, int(encoder_threads))
         self.fps_clamp = max(0, int(fps_clamp))
-        self.signals = _VideoWorkerSignals()
         self._is_cancelled = False
 
     def cancel(self):
@@ -172,8 +164,7 @@ class VideoExtractionWorker(QRunnable):
 
         return keep
 
-    @gc_disabled_run
-    def run(self):  # noqa: C901
+    def _execute(self) -> object:  # noqa: C901
         if self._is_cancelled:
             return
 
@@ -273,7 +264,7 @@ class VideoExtractionWorker(QRunnable):
                 self.signals.progress.emit(0, 100)
                 self._run_ffmpeg(cmd, duration)
                 self.signals.progress.emit(100, 100)
-                self.signals.finished.emit(self.output_path)
+                return self.output_path
 
             except _Cancelled:
                 self.signals.error.emit("Extraction cancelled by user.")
@@ -352,7 +343,7 @@ class VideoExtractionWorker(QRunnable):
             )
 
             self.signals.progress.emit(100, 100)
-            self.signals.finished.emit(self.output_path)
+            return self.output_path
 
         except ImportError:
             self.signals.error.emit(

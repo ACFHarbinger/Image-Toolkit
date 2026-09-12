@@ -16,6 +16,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from gui.src.theming.theme_api import qss
+
 
 class TaskCloseProgressDialog(QDialog):
     """
@@ -58,25 +60,22 @@ class TaskCloseProgressDialog(QDialog):
         layout.setSpacing(12)
 
         self.lbl_header = QLabel(header)
-        self.lbl_header.setStyleSheet("font-size: 14px; font-weight: bold;")
+        self.lbl_header.setStyleSheet(qss("task_close_header"))
         layout.addWidget(self.lbl_header)
 
         self.lbl_subtext = QLabel(subtext)
-        self.lbl_subtext.setStyleSheet("color: #888888; font-size: 11px;")
+        self.lbl_subtext.setStyleSheet(qss("muted_label"))
         layout.addWidget(self.lbl_subtext)
 
         self.progress_bar = QProgressBar()
         self.progress_bar.setRange(0, self.total_items)
         self.progress_bar.setValue(self.completed_items)
         self.progress_bar.setTextVisible(True)
-        self.progress_bar.setStyleSheet(
-            "QProgressBar { border: 1px solid #444; border-radius: 4px; text-align: center; height: 20px; }"
-            "QProgressBar::chunk { background-color: #3498db; border-radius: 3px; }"
-        )
+        self.progress_bar.setStyleSheet(qss("task_close_progress"))
         layout.addWidget(self.progress_bar)
 
         self.lbl_status = QLabel(f"Processed {self.completed_items} of {self.total_items} {self.item_unit}")
-        self.lbl_status.setStyleSheet("font-size: 11px;")
+        self.lbl_status.setStyleSheet(qss("task_close_status"))
         layout.addWidget(self.lbl_status)
 
         btn_layout = QHBoxLayout()
@@ -84,20 +83,13 @@ class TaskCloseProgressDialog(QDialog):
         btn_layout.addStretch()
 
         self.btn_cancel = QPushButton(cancel_text)
-        self.btn_cancel.setStyleSheet(
-            "QPushButton { padding: 6px 14px; border-radius: 4px; border: 1px solid #777; }"
-            "QPushButton:hover { background-color: #e74c3c; color: white; border-color: #c0392b; }"
-        )
+        self.btn_cancel.setStyleSheet(qss("task_close_cancel_btn"))
         self.btn_cancel.clicked.connect(self._handle_cancel)
         btn_layout.addWidget(self.btn_cancel)
 
         self.btn_ok = QPushButton("OK")
         self.btn_ok.setEnabled(False)
-        self.btn_ok.setStyleSheet(
-            "QPushButton { padding: 6px 20px; border-radius: 4px; background-color: #555; color: #aaa; }"
-            "QPushButton:enabled { background-color: #3498db; color: white; font-weight: bold; }"
-            "QPushButton:enabled:hover { background-color: #2980b9; }"
-        )
+        self.btn_ok.setStyleSheet(qss("task_close_ok_btn"))
         self.btn_ok.clicked.connect(self._handle_confirm)
         btn_layout.addWidget(self.btn_ok)
 

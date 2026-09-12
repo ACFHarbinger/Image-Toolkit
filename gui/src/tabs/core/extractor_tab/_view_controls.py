@@ -19,6 +19,7 @@ from PySide6.QtMultimedia import QMediaPlayer
 from PySide6.QtWidgets import QLabel, QLineEdit, QMessageBox, QStyle, QWidget
 
 from ....components import ClickableLabel
+from ._player_lifecycle import PlayerLifecycleState
 from ._video_view import VideoView
 
 if TYPE_CHECKING:
@@ -412,11 +413,13 @@ class _ViewControlsMixin:
             self.btn_play.setIcon(
                 self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay)
             )
+            self._set_player_lifecycle_state(PlayerLifecycleState.PLAYER_READY)
         else:
             self.media_player.play()
             self.btn_play.setIcon(
                 self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPause)
             )
+            self._set_player_lifecycle_state(PlayerLifecycleState.PLAYING)
 
     @Slot(int)
     def position_changed(self: "VideoExtractorSubTabHostProtocol", position: int):

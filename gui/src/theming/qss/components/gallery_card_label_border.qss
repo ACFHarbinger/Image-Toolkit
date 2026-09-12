@@ -1,0 +1,1 @@
+border: $BORDER_WIDTH solid $BORDER_COLOR;

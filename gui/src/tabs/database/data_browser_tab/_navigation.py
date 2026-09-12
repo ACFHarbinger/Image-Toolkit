@@ -144,9 +144,7 @@ class DataBrowserNavigationController(TabBoundController):
             return
         tables = [self.table_combo.itemText(i) for i in range(self.table_combo.count())]
         if table not in tables:
-            QMessageBox.warning(
-                self.tab, "Navigate", f"Table {table!r} is not available in this store."
-            )
+            QMessageBox.warning(self.tab, "Navigate", f"Table {table!r} is not available in this store.")
             return
 
         self.table_combo.setCurrentText(table)  # triggers _on_table_changed if it changed

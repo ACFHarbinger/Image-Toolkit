@@ -12,6 +12,8 @@ from backend.src.constants import SUPPORTED_VIDEO_FORMATS
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap, QResizeEvent
 
+from gui.src.theming.theme_api import qss
+
 
 class _ImageDisplayMixin:
     """Sets/clears the displayed thumbnail and applies selection/video styling."""
@@ -57,60 +59,28 @@ class _ImageDisplayMixin:
 
             # Apply border style
             if self.property("selected"):
-                self.setStyleSheet("""
-                    QLabel {
-                        background-color: rgba(46, 204, 113, 0.25);
-                        border: 3px solid #2ecc71;
-                        border-radius: 8px;
-                        color: white;
-                    }
-                """)
+                self.setStyleSheet(qss("image_display_selected"))
             elif is_video:
-                self.setStyleSheet(
-                    """
-                    QLabel {
-                        background-color: rgba(20, 24, 32, 0.35);
-                        border: 2px solid #3498db;
-                        border-radius: 8px;
-                    }
-                """
-                )
+                self.setStyleSheet(qss("image_display_video"))
             else:
-                self.setStyleSheet(self.default_style)
+                self.setStyleSheet(qss("monitor_drop_default"))
             return
 
         # 3. Fallback (No thumbnail/image found)
         self._current_pixmap = None # pyrefly: ignore [bad-assignment]
         self.setPixmap(QPixmap())
         if self.property("selected"):
-            self.setStyleSheet("""
-                QLabel {
-                    background-color: rgba(46, 204, 113, 0.25);
-                    border: 3px solid #2ecc71;
-                    border-radius: 8px;
-                    color: white;
-                }
-            """)
+            self.setStyleSheet(qss("image_display_selected"))
         elif is_video:
             # Video Fallback (If thumbnail is None, or generation failed)
             filename = os.path.basename(file_path)
             self.setText(f"\n\n🎥 VIDEO SET:\n{filename}")
-            self.setStyleSheet(
-                """
-                QLabel {
-                    background-color: rgba(44, 62, 80, 0.50);
-                    border: 2px solid #3498db;
-                    color: #ecf0f1;
-                    font-size: 13px;
-                    border-radius: 8px;
-                }
-            """
-            )
+            self.setStyleSheet(qss("image_display_video_fallback"))
         else:
             # Error State or Default Drag and Drop text
             self.image_path = None
             self.update_text()  # Sets the default "Drag and Drop Image Here" text
-            self.setStyleSheet(self.default_style)
+            self.setStyleSheet(qss("monitor_drop_default"))
 
     def clear(self):
         self.image_path = None
@@ -118,44 +88,24 @@ class _ImageDisplayMixin:
         self.setPixmap(QPixmap())
         self.update_text()
         if self.property("selected"):
-            self.setStyleSheet("""
-                QLabel {
-                    background-color: rgba(46, 204, 113, 0.25);
-                    border: 3px solid #2ecc71;
-                    border-radius: 8px;
-                    color: white;
-                }
-            """)
+            self.setStyleSheet(qss("image_display_selected"))
         else:
-            self.setStyleSheet(self.default_style)
+            self.setStyleSheet(qss("monitor_drop_default"))
 
     def set_selected(self, selected: bool):
         self.setProperty("selected", selected)
         if selected:
-            self.setStyleSheet("""
-                QLabel {
-                    background-color: rgba(46, 204, 113, 0.25);
-                    border: 3px solid #2ecc71;
-                    border-radius: 8px;
-                    color: white;
-                }
-            """)
+            self.setStyleSheet(qss("image_display_selected"))
         else:
             # Restore standard style based on whether it has image/video
             if self.image_path:
                 is_video = self.image_path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
                 if is_video:
-                    self.setStyleSheet("""
-                        QLabel {
-                            background-color: rgba(20, 24, 32, 0.35);
-                            border: 2px solid #3498db;
-                            border-radius: 8px;
-                        }
-                    """)
+                    self.setStyleSheet(qss("image_display_video"))
                 else:
-                    self.setStyleSheet(self.default_style)
+                    self.setStyleSheet(qss("monitor_drop_default"))
             else:
-                self.setStyleSheet(self.default_style)
+                self.setStyleSheet(qss("monitor_drop_default"))
         self.style().polish(self)
 
     def resizeEvent(self, event: QResizeEvent):

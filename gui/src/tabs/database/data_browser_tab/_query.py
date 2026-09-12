@@ -24,8 +24,7 @@ class DataBrowserQueryController(TabBoundController):
                     QMessageBox.warning(
                         self.tab,
                         "Vault Locked",
-                        "The Data Browser requires an unlocked vault. Log "
-                        "in first, then reopen this tab.",
+                        "The Data Browser requires an unlocked vault. Log in first, then reopen this tab.",
                     )
                 self._set_controls_enabled(False)
                 return
@@ -35,9 +34,7 @@ class DataBrowserQueryController(TabBoundController):
             self._set_controls_enabled(True)
         except Exception as e:
             if not silent:
-                QMessageBox.critical(
-                    self.tab, "Error", f"Failed to open the library database:\n{e}"
-                )
+                QMessageBox.critical(self.tab, "Error", f"Failed to open the library database:\n{e}")
             self._set_controls_enabled(False)
 
     def refresh_table_list(self) -> None:

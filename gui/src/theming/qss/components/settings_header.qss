@@ -1,0 +1,1 @@
+background-color: $HEADER_BG; padding: 10px; border-bottom: 2px solid $ACCENT;

@@ -76,8 +76,7 @@ class DataBrowserEditController(TabBoundController):
         confirm = QMessageBox.question(
             self.tab,
             "Confirm Edit",
-            f"Change {column_name!r} from {old_text!r} to {new_value!r} "
-            f"for {pk_column_name} = {pk_value!r}?",
+            f"Change {column_name!r} from {old_text!r} to {new_value!r} for {pk_column_name} = {pk_value!r}?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No,
         )
@@ -87,7 +86,11 @@ class DataBrowserEditController(TabBoundController):
 
         try:
             self.browser_repo.update_cell(
-                self.current_table, pk_column_name, pk_value, column_name, new_value,
+                self.current_table,
+                pk_column_name,
+                pk_value,
+                column_name,
+                new_value,
             )
         except ValueError as e:
             QMessageBox.warning(self.tab, "Edit Rejected", str(e))

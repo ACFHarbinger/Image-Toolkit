@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
 )
 
 from gui.src.components.tag_chip_widget import FlowLayout
+from gui.src.theming.theme_api import qss
 from gui.src.utils.cache.lru_image_cache import LRUImageCache
 
 from .widget import VirtualGallery
@@ -82,7 +83,7 @@ class VirtualDualGallery(QWidget):
         found_header = FlowLayout(found_header_container)
         found_header.setSpacing(6)
         self.lbl_found_title = QLabel("Found (0)")
-        self.lbl_found_title.setStyleSheet("font-weight: bold; color: #dcddde;")
+        self.lbl_found_title.setStyleSheet(qss("gallery_panel_title"))
 
         self.txt_found_search = QLineEdit()
         self.txt_found_search.setPlaceholderText("Filter found images…")
@@ -129,7 +130,7 @@ class VirtualDualGallery(QWidget):
         selected_header = FlowLayout(selected_header_container)
         selected_header.setSpacing(6)
         self.lbl_selected_title = QLabel("Selected (0)")
-        self.lbl_selected_title.setStyleSheet("font-weight: bold; color: #7289da;")
+        self.lbl_selected_title.setStyleSheet(qss("gallery_selected_title"))
 
         self.btn_clear_selected = QPushButton("Deselect All")
         self.btn_clear_selected.clicked.connect(self.deselect_all)

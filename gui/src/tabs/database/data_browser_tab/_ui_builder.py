@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
 )
 
 from ....styles import apply_shadow_effect
+from ....theming.theme_api import color, qss
 from ._tab_bound import TabBoundController
 
 
@@ -39,14 +40,12 @@ class DataBrowserUIBuilder(TabBoundController):
         picker_layout.addWidget(self.table_combo)
 
         self.btn_refresh_tables = QPushButton("Refresh")
-        apply_shadow_effect(
-            self.btn_refresh_tables, color_hex="#000000", radius=8, x_offset=0, y_offset=3
-        )
+        apply_shadow_effect(self.btn_refresh_tables, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3)
         self.btn_refresh_tables.clicked.connect(self.refresh_table_list)
         picker_layout.addWidget(self.btn_refresh_tables)
 
         self.row_count_label = QLabel("Not connected.")
-        self.row_count_label.setStyleSheet("color: #aaa; font-style: italic;")
+        self.row_count_label.setStyleSheet(qss("muted_label"))
         picker_layout.addWidget(self.row_count_label)
         picker_layout.addStretch()
 
@@ -69,16 +68,13 @@ class DataBrowserUIBuilder(TabBoundController):
         filter_layout = QHBoxLayout()
         self.where_edit = QLineEdit()
         self.where_edit.setPlaceholderText(
-            "Optional WHERE clause, e.g. file_path LIKE '%.png' (read-only; "
-            "no INSERT/UPDATE/DELETE/DROP/etc.)"
+            "Optional WHERE clause, e.g. file_path LIKE '%.png' (read-only; no INSERT/UPDATE/DELETE/DROP/etc.)"
         )
         self.where_edit.returnPressed.connect(self._apply_filter)
         filter_layout.addWidget(self.where_edit)
 
         self.btn_apply_filter = QPushButton("Apply")
-        apply_shadow_effect(
-            self.btn_apply_filter, color_hex="#000000", radius=8, x_offset=0, y_offset=3
-        )
+        apply_shadow_effect(self.btn_apply_filter, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3)
         self.btn_apply_filter.clicked.connect(self._apply_filter)
         filter_layout.addWidget(self.btn_apply_filter)
 
@@ -107,9 +103,7 @@ class DataBrowserUIBuilder(TabBoundController):
         self.data_table = QTableWidget()
         self.data_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.data_table.setAlternatingRowColors(True)
-        self.data_table.horizontalHeader().setSectionResizeMode(
-            QHeaderView.ResizeMode.Interactive
-        )
+        self.data_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
         self.data_table.setSortingEnabled(True)
         self.data_table.cellClicked.connect(self._on_cell_clicked)
         self.data_table.itemSelectionChanged.connect(self._on_row_selection_changed)
@@ -119,11 +113,11 @@ class DataBrowserUIBuilder(TabBoundController):
         refs_layout = QVBoxLayout(refs_panel)
         refs_layout.setContentsMargins(0, 0, 0, 0)
         refs_label = QLabel("Referenced By")
-        refs_label.setStyleSheet("font-weight: bold;")
+        refs_label.setStyleSheet(qss("font_bold"))
         refs_layout.addWidget(refs_label)
         self.refs_hint_label = QLabel("Select a row to see incoming references.")
         self.refs_hint_label.setWordWrap(True)
-        self.refs_hint_label.setStyleSheet("color: #aaa; font-style: italic;")
+        self.refs_hint_label.setStyleSheet(qss("muted_label"))
         refs_layout.addWidget(self.refs_hint_label)
         self.refs_list = QListWidget()
         self.refs_list.itemClicked.connect(self._on_reverse_ref_clicked)
@@ -165,9 +159,15 @@ class DataBrowserUIBuilder(TabBoundController):
 
     def _set_controls_enabled(self, enabled: bool) -> None:
         for widget in (
-            self.table_combo, self.where_edit, self.btn_apply_filter,
-            self.btn_clear_filter, self.edit_mode_checkbox, self.btn_prev_page,
-            self.btn_next_page, self.btn_export_csv, self.btn_export_json,
+            self.table_combo,
+            self.where_edit,
+            self.btn_apply_filter,
+            self.btn_clear_filter,
+            self.edit_mode_checkbox,
+            self.btn_prev_page,
+            self.btn_next_page,
+            self.btn_export_csv,
+            self.btn_export_json,
         ):
             widget.setEnabled(enabled)
 
