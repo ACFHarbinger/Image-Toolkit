@@ -38,6 +38,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from gui.src.theming.theme_api import qss
 from gui.src.thumbnails import DefaultThumbnailScheduler, ThumbnailScheduler, order_visible_first
 
 from ..meta.meta_abstract_class_gallery import MetaAbstractClassGallery
@@ -342,9 +343,7 @@ class AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery):
         lbl.setToolTip(name)
         lbl.setMaximumWidth(max_w)
         lbl.setFixedHeight(label_h)
-        lbl.setStyleSheet(
-            "color: #bbb; font-size: 8pt; padding: 0 2px; background: transparent;"
-        )
+        lbl.setStyleSheet(qss("gallery_thumb_filename"))
         layout.addWidget(lbl)
         # If the card has an explicitly constrained height (setFixedSize), expand
         # it to accommodate the label. Cards without a fixed height are unaffected
@@ -659,8 +658,8 @@ class AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery):
             # thread — the QWidget-off-GUI-thread crash class this repo has
             # reverted for before (#543 review).
             if batch_slot is not None:
-                worker.signals.batch_result.connect(batch_slot)
-            worker.signals.batch_result.connect(on_batch)
+                worker.stream.batch_result.connect(batch_slot)
+            worker.stream.batch_result.connect(on_batch)
             self._active_workers.add(worker)
             self.thread_pool.start(worker)
 
@@ -692,7 +691,7 @@ class AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery):
                 item.widget().deleteLater() # pyrefly: ignore [missing-attribute]
         lbl = QLabel(text)
         lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        lbl.setStyleSheet("color: #b9bbbe; padding: 20px; font-style: italic;")
+        lbl.setStyleSheet(qss("gallery_placeholder"))
         lbl.is_placeholder = True # pyrefly: ignore [missing-attribute]
         layout.addWidget(lbl, 0, 0, 1, columns, Qt.AlignmentFlag.AlignCenter)
 
@@ -706,20 +705,7 @@ class AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery):
         """Create a styled search QLineEdit with hint text."""
         search_input = QLineEdit()
         search_input.setPlaceholderText(placeholder_text)
-        search_input.setStyleSheet(
-            """
-            QLineEdit {
-                padding: 5px;
-                border-radius: 4px;
-                border: 1px solid #4f545c;
-                background-color: #202225;
-                color: white;
-            }
-            QLineEdit:focus {
-                border: 1px solid #5865f2;
-            }
-            """
-        )
+        search_input.setStyleSheet(qss("gallery_search_input"))
         return search_input
 
     # =========================================================================

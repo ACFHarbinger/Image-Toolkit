@@ -5,15 +5,17 @@ Extracted from ``main_window.py`` -- pure code motion, no logic change.
 
 from __future__ import annotations
 
-import inspect
 import json
 import os
 
 from backend.src.constants import LOCAL_SOURCE_PATH
-from PySide6.QtCore import QTimer
+
+from gui.src.contracts.tab_config import ConfigCollectible, ConfigSettable, apply_tab_config
+
+from ._session_recovery_state import SessionRecoveryState, _SessionRecoveryStateMixin
 
 
-class _SessionRecoveryMixin:
+class _SessionRecoveryMixin(_SessionRecoveryStateMixin):
     """Restores/persists the active tab and per-tab configs across launches."""
 
     def _load_recovery_data(self) -> dict:
@@ -103,27 +105,36 @@ class _SessionRecoveryMixin:
         if recovery_level == "None" or not tab_configs or not target_module_id:
             return
 
-        # Same 150ms defer as the classic path: let the layout settle before
-        # calling set_config() on the freshly-activated module's widget.
-        def do_restore():
+        def target_widget():
             runtime = getattr(self, "module_runtime", None)
             if runtime is None or not runtime.is_created(target_module_id):
-                return
+                return None
             handle = runtime.handle_for(target_module_id)
-            widget = getattr(handle, "widget", None)
+            return getattr(handle, "widget", None)
+
+        def is_ready() -> bool:
+            widget = target_widget()
+            return widget is not None and widget.isVisible() and widget.size().height() > 0
+
+        def do_restore():
+            widget = target_widget()
             if widget is not None:
                 self._restore_tab_config_instance(widget, tab_configs, "")
+            self._set_session_recovery_state(SessionRecoveryState.CONFIGS_RESTORED)
 
-        if "PYTEST_CURRENT_TEST" in os.environ:
-            do_restore()
-        else:
-            QTimer.singleShot(150, do_restore)
+        self._restore_when_ready(is_ready, do_restore)
 
     def _restore_session_recovery(self) -> None:  # noqa: C901
         """Restores the previously opened tab and configurations on startup."""
         if getattr(self, "_using_runtime_shell", False):
             self._restore_runtime_shell_session_recovery()
             return
+        try:
+            self._restore_classic_session_recovery()
+        finally:
+            self._begin_classic_tab_construction()
+
+    def _restore_classic_session_recovery(self) -> None:  # noqa: C901
         if not self.vault_manager or not self.cached_creds:
             return
 
@@ -137,6 +148,8 @@ class _SessionRecoveryMixin:
         active_category = recovery_data.get("active_category")
         active_tab_name = recovery_data.get("active_tab")
         tab_configs = recovery_data.get("tab_configs", {})
+        self._pending_tab_configs = tab_configs or {}
+        self._lazy_recovery_level = recovery_level
 
         # --- Tab/category selection: independent of recovery_level (which now only
         # controls CONFIG restoration below). "Restore last opened tab on startup"
@@ -157,6 +170,10 @@ class _SessionRecoveryMixin:
 
         if target_category and target_category in self.all_tabs:
             self.command_combo.setCurrentText(target_category)
+
+        # Build the selected category before wrapping tabs or applying configs.
+        self._begin_classic_tab_construction()
+
         if target_tab_name:
             for index in range(self.tabs.count()):
                 if self.tabs.tabText(index) == target_tab_name:
@@ -217,24 +234,34 @@ class _SessionRecoveryMixin:
                 pass
 
         if recovery_level == "None":
+            self._lazy_configs_primed = True
             return
 
-        # Defer config restoration by 150ms to ensure the UI layout has fully settled and shown
+        if recovery_level in ("Current Tab", "Current Category") and active_category:
+            # Config restore targets the saved tab/category even when the
+            # visible combo stays on the default (restore_last_tab off).
+            self._ensure_category(active_category)
+
+        def is_ready() -> bool:
+            widget = self.tabs.currentWidget()
+            return (
+                self.isVisible()
+                and widget is not None
+                and widget.isVisible()
+                and widget.size().height() > 0
+            )
+
         def do_restore():
             self._do_restore_configs(recovery_level, active_category, active_tab_name, tab_configs)
+            self._set_session_recovery_state(SessionRecoveryState.CONFIGS_RESTORED)
 
-        if "PYTEST_CURRENT_TEST" in os.environ:
-            do_restore()
-        else:
-            QTimer.singleShot(150, do_restore)
+        self._restore_when_ready(is_ready, do_restore)
 
     def _restore_tab_config_instance(self, tab_instance, tab_configs, error_context: str) -> None:
+        if tab_instance is None:
+            return
         tab_class_name = type(tab_instance).__name__
-        if not (
-            tab_class_name in tab_configs
-            and hasattr(tab_instance, "set_config")
-            and callable(tab_instance.set_config)
-        ):
+        if not (tab_class_name in tab_configs and isinstance(tab_instance, ConfigSettable)):
             return
         try:
             sanitized_cfg = self._sanitize_config_if_needed(tab_configs[tab_class_name])
@@ -243,11 +270,7 @@ class _SessionRecoveryMixin:
                 print(
                     f"[RECOVERY] Restoring {tab_class_name}: active_videos_config has {len(avc)} entries, video_path='{sanitized_cfg.get('video_path', '')}'"
                 )
-            sig = inspect.signature(tab_instance.set_config)
-            if "quiet" in sig.parameters:
-                tab_instance.set_config(sanitized_cfg, quiet=True)  # pyrefly: ignore [unexpected-keyword]
-            else:
-                tab_instance.set_config(sanitized_cfg)
+            apply_tab_config(tab_instance, sanitized_cfg, quiet=True)
         except Exception as e:
             print(
                 f"Warning: Failed to restore config to {tab_class_name} during session recovery{error_context}: {e}"
@@ -261,11 +284,13 @@ class _SessionRecoveryMixin:
         if recovery_level == "All Tabs":
             for tabs_in_category in self.all_tabs.values():
                 for tab_instance in tabs_in_category.values():
-                    self._restore_tab_config_instance(tab_instance, tab_configs, "")
+                    if tab_instance is not None:
+                        self._restore_tab_config_instance(tab_instance, tab_configs, "")
         elif recovery_level == "Current Category":
             if active_category:
                 for tab_instance in self.all_tabs.get(active_category, {}).values():
-                    self._restore_tab_config_instance(tab_instance, tab_configs, " (Current Category)")
+                    if tab_instance is not None:
+                        self._restore_tab_config_instance(tab_instance, tab_configs, " (Current Category)")
         elif recovery_level == "Current Tab":
             if active_category and active_tab_name:
                 tab_instance = self.all_tabs.get(active_category, {}).get(active_tab_name)
@@ -273,6 +298,7 @@ class _SessionRecoveryMixin:
                     self._restore_tab_config_instance(tab_instance, tab_configs, "")
         else:
             print(f"[RECOVERY] recovery_level='{recovery_level}' — no set_config called")
+        self._lazy_configs_primed = True
 
     def _save_runtime_shell_session_recovery(self) -> None:  # noqa: C901
         """Runtime-shell equivalent of _save_session_recovery (#516)."""
@@ -308,7 +334,7 @@ class _SessionRecoveryMixin:
                     widget = None
                     if runtime is not None and runtime.is_created(active_module_id):
                         widget = getattr(runtime.handle_for(active_module_id), "widget", None)
-                    if widget is not None and hasattr(widget, "collect") and callable(widget.collect):
+                    if isinstance(widget, ConfigCollectible):
                         try:
                             tab_configs[type(widget).__name__] = widget.collect()
                         except Exception as e:
@@ -384,23 +410,24 @@ class _SessionRecoveryMixin:
 
                 tab_configs = {}
                 if recovery_level == "All Tabs":
+                    tab_configs = dict(creds.get("session_recovery_data", {}).get("tab_configs") or {})
                     for _category, tabs_in_category in self.all_tabs.items():
                         for tab_instance in tabs_in_category.values():
-                            if hasattr(tab_instance, "collect") and callable(tab_instance.collect):
+                            if isinstance(tab_instance, ConfigCollectible):
                                 try:
                                     tab_configs[type(tab_instance).__name__] = tab_instance.collect()
                                 except Exception as e:
                                     print(f"Warning: Failed to collect config from {type(tab_instance).__name__}: {e}")
                 elif recovery_level == "Current Category" and active_category:
                     for tab_instance in self.all_tabs.get(active_category, {}).values():
-                        if hasattr(tab_instance, "collect") and callable(tab_instance.collect):
+                        if isinstance(tab_instance, ConfigCollectible):
                             try:
                                 tab_configs[type(tab_instance).__name__] = tab_instance.collect()
                             except Exception as e:
                                 print(f"Warning: Failed to collect config from {type(tab_instance).__name__}: {e}")
                 elif recovery_level == "Current Tab" and active_category and active_tab_name:
                     tab_instance = self.all_tabs.get(active_category, {}).get(active_tab_name)
-                    if tab_instance and hasattr(tab_instance, "collect") and callable(tab_instance.collect):
+                    if isinstance(tab_instance, ConfigCollectible):
                         try:
                             cfg = tab_instance.collect()
                             tab_class_name = type(tab_instance).__name__

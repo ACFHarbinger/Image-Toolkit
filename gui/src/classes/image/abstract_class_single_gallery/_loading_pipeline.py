@@ -123,7 +123,7 @@ class _LoadingPipelineMixin:
         self._loading_paths.add(path)
         worker = VideoLoaderWorker(path, self.thumbnail_size)
         worker.load_generation = self._load_generation
-        worker.signals.result.connect(
+        worker.stream.result.connect(
             self._on_single_image_loaded
         )  # Reuse same handler
         self._active_workers.add(worker)
@@ -324,7 +324,7 @@ class _LoadingPipelineMixin:
         self._loading_paths.add(path)
         worker = ImageLoaderWorker(path, self.thumbnail_size)
         worker.load_generation = self._load_generation
-        worker.signals.result.connect(self._on_single_image_loaded)
+        worker.stream.result.connect(self._on_single_image_loaded)
 
         self._active_workers.add(worker)
         self.thread_pool.start(worker)

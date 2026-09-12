@@ -8,6 +8,7 @@ from PySide6.QtWidgets import QApplication, QLabel
 
 from gui.src.constants.helpers import _INFLIGHT_PATHS
 from gui.src.helpers.image.batch_image_loader_worker import BatchImageLoaderWorker
+from gui.src.theming.theme_api import qss
 from gui.src.utils.cache.lru_image_cache import DEFAULT_PIXMAP_BUDGET, LRUImageCache
 
 # Shared LRU cache: stores scaled QImages keyed by absolute path.
@@ -71,7 +72,7 @@ def _dispatch_thumbnail(path: str, img: QImage) -> None:
         try:
             if label.property("_thumb_path") == path:
                 label.setPixmap(_scale_to_label(pix, width, height))
-                label.setStyleSheet("")
+                label.setStyleSheet(qss("transparent_bg"))
         except RuntimeError:
             continue
 
@@ -105,11 +106,7 @@ def _flush_thumbnail_batch() -> None:
             continue
         worker = BatchImageLoaderWorker(paths, worker_size)
         _ACTIVE_BATCHES.add(worker)
-        worker.signals.batch_result.connect(
-            lambda results, requested, w=worker: _on_batch_loaded(
-                results, requested, w
-            )
-        )
+        worker.stream.batch_result.connect(lambda results, requested, w=worker: _on_batch_loaded(results, requested, w))
         QThreadPool.globalInstance().start(worker)
 
 
@@ -134,8 +131,8 @@ def apply_thumbnail_to_label(
     *,
     worker_size: Optional[int] = None,
     placeholder_text: str = "",
-    placeholder_style: str = "",
-    loading_style: str = "background:#1a1c1e; border-radius:3px;",
+    placeholder_component: str = "gallery_card_thumb_placeholder",
+    loading_style: str | None = None,
 ) -> None:
     """Populate *label* with a thumbnail for *path*, using cache or async load."""
     label.setProperty("_thumb_path", path or "")
@@ -143,8 +140,8 @@ def apply_thumbnail_to_label(
     if not path:
         label.clear()
         label.setText(placeholder_text)
-        if placeholder_style:
-            label.setStyleSheet(placeholder_style)
+        if placeholder_text:
+            label.setStyleSheet(qss(placeholder_component))
         return
 
     from pathlib import Path
@@ -152,17 +149,17 @@ def apply_thumbnail_to_label(
     if not Path(path).exists():
         label.clear()
         label.setText(placeholder_text)
-        if placeholder_style:
-            label.setStyleSheet(placeholder_style)
+        if placeholder_text:
+            label.setStyleSheet(qss(placeholder_component))
         return
 
     cached = _CARD_THUMB_CACHE.get(path)
     if cached is not None:
         label.setPixmap(_scale_to_label(QPixmap.fromImage(cached), width, height))
-        label.setStyleSheet("")
+        label.setStyleSheet(qss("transparent_bg"))
         return
 
     label.clear()
     label.setText("")
-    label.setStyleSheet(loading_style)
+    label.setStyleSheet(loading_style or qss("gallery_card_thumb_loading"))
     _queue_thumbnail_load(path, label, width, height, worker_size or max(width, height))

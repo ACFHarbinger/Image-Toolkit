@@ -10,6 +10,8 @@ import json
 
 from PySide6.QtWidgets import QDialog, QDialogButtonBox, QLabel, QLineEdit, QMessageBox, QVBoxLayout
 
+from gui.src.contracts.tab_config import ConfigCollectible
+
 
 class _SaveTabConfigMixin:
     """Ctrl+S: capture the active tab's current config and save it as a named profile."""
@@ -26,7 +28,7 @@ class _SaveTabConfigMixin:
             return
 
         tab_instance = self.all_tabs.get(active_category, {}).get(active_tab_name)
-        if tab_instance is None or not hasattr(tab_instance, "collect") or not callable(tab_instance.collect):
+        if not isinstance(tab_instance, ConfigCollectible):
             QMessageBox.warning(
                 self,
                 "Save Configuration",

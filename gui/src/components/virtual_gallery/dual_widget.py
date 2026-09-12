@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
 )
 
 from gui.src.components.tag_chip_widget import FlowLayout
+from gui.src.theming.theme_api import qss
 from gui.src.utils.cache.lru_image_cache import DEFAULT_PIXMAP_BUDGET, LRUImageCache
 
 from .widget import VirtualGallery
@@ -82,7 +83,7 @@ class VirtualDualGallery(QWidget):
         found_header = FlowLayout(found_header_container)
         found_header.setSpacing(6)
         self.lbl_found_title = QLabel("Found (0)")
-        self.lbl_found_title.setStyleSheet("font-weight: bold; color: #dcddde;")
+        self.lbl_found_title.setStyleSheet(qss("gallery_panel_title"))
 
         self.txt_found_search = QLineEdit()
         self.txt_found_search.setPlaceholderText("Filter found images…")
@@ -129,7 +130,7 @@ class VirtualDualGallery(QWidget):
         selected_header = FlowLayout(selected_header_container)
         selected_header.setSpacing(6)
         self.lbl_selected_title = QLabel("Selected (0)")
-        self.lbl_selected_title.setStyleSheet("font-weight: bold; color: #7289da;")
+        self.lbl_selected_title.setStyleSheet(qss("gallery_selected_title"))
 
         self.btn_clear_selected = QPushButton("Deselect All")
         self.btn_clear_selected.clicked.connect(self.deselect_all)
@@ -251,10 +252,7 @@ class VirtualDualGallery(QWidget):
         if not query:
             self._filtered_found_paths = list(self._master_found_paths)
         else:
-            self._filtered_found_paths = [
-                p for p in self._master_found_paths
-                if query in os.path.basename(p).lower()
-            ]
+            self._filtered_found_paths = [p for p in self._master_found_paths if query in os.path.basename(p).lower()]
 
         self.found_gallery.set_paths(self._filtered_found_paths)
         self.lbl_found_title.setText(f"Found ({len(self._filtered_found_paths):,})")
@@ -314,6 +312,7 @@ class VirtualDualGallery(QWidget):
         if len(self._selected_paths) < 2:
             return None
         from gui.src.windows.image_compare_window import ImageCompareWindow
+
         win = ImageCompareWindow(image_paths=self._selected_paths, parent=parent or self)
         win.show()
         self.compare_requested.emit(self._selected_paths)

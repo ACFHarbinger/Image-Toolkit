@@ -8,31 +8,19 @@ from __future__ import annotations
 
 import contextlib
 
+from gui.src.helpers.worker_teardown import close_windows, stop_workers
+
 
 class _LifecycleMixin:
     """Cancel the similarity/deletion workers and close preview windows."""
 
     def cancel_loading(self):
-        worker = getattr(self, "_sim_worker", None)
-        if worker and worker.isRunning():
-            worker.requestInterruption()
-            worker.wait()
-        if self.worker and hasattr(self.worker, "isRunning") and self.worker.isRunning():
-            with contextlib.suppress(Exception):
-                if hasattr(self.worker, "stop"):
-                    self.worker.stop()
-                elif hasattr(self.worker, "cancel"):
-                    self.worker.cancel()
-                self.worker.requestInterruption()
-                self.worker.wait()
+        stop_workers(getattr(self, "_sim_worker", None), getattr(self, "worker", None))
         with contextlib.suppress(Exception):
             super().cancel_loading()
         if hasattr(self, "dual"):
             self.dual.cancel_loading()
-        for win in list(self.open_preview_windows):
-            with contextlib.suppress(Exception):
-                win.close()
-        self.open_preview_windows.clear()
+        close_windows(self, "open_preview_windows")
 
     def closeEvent(self, event):
         self.cancel_loading()

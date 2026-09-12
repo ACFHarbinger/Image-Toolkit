@@ -33,6 +33,8 @@ from gui.src.styles.background_canvas import BackgroundCanvasController, Backgro
 from gui.src.theming.palette import extract_palette
 from gui.src.theming.resolve import base_defaults
 from gui.src.theming.schema import ColorTokens
+from gui.src.theming.theme_api import color as theme_color
+from gui.src.theming.theme_api import qss
 from gui.src.theming.validate import contrast_warnings
 
 
@@ -53,8 +55,8 @@ class _AppearanceMixin:
         self.light_theme_radio = QRadioButton("Light Base")
         self.dark_theme_radio.setMinimumWidth(180)
         self.light_theme_radio.setMinimumWidth(180)
-        self.dark_theme_radio.setStyleSheet("QRadioButton { min-width: 180px; padding: 4px; }")
-        self.light_theme_radio.setStyleSheet("QRadioButton { min-width: 180px; padding: 4px; }")
+        self.dark_theme_radio.setStyleSheet(qss("settings_radio_wide"))
+        self.light_theme_radio.setStyleSheet(qss("settings_radio_wide"))
 
         if self.initial_theme == "light":
             self.light_theme_radio.setChecked(True)
@@ -97,11 +99,13 @@ class _AppearanceMixin:
             col_box = QVBoxLayout()
             col_box.setSpacing(3)
             lbl = QLabel(label_name)
-            lbl.setStyleSheet("font-size: 8.5pt; font-weight: 500; color: #aaaaaa;")
+            lbl.setStyleSheet(
+                qss("settings_desc_label", FONT_SIZE="8.5pt", FONT_WEIGHT="font-weight: 500;")
+            )
             swatch = QPushButton()
             swatch.setFixedSize(65, 32)
             swatch.setToolTip(f"Click to pick custom {label_name} colour")
-            col_val = self._current_colors.get(token_key, "#00bcd4")
+            col_val = self._current_colors.get(token_key, theme_color("accent"))
             self._update_swatch_color(swatch, col_val)
             swatch.clicked.connect(lambda _, k=token_key: self._pick_palette_color(k))
             self._palette_swatches[token_key] = swatch
@@ -113,7 +117,9 @@ class _AppearanceMixin:
         btn_reset_palette = QPushButton("Reset Defaults")
         btn_reset_palette.setMinimumHeight(32)
         btn_reset_palette.setMinimumWidth(120)
-        btn_reset_palette.setStyleSheet("QPushButton { padding: 4px 12px; font-weight: 500; }")
+        btn_reset_palette.setStyleSheet(
+            qss("settings_btn_compact", PADDING="4px 12px", FONT_WEIGHT="font-weight: 500;")
+        )
         btn_reset_palette.clicked.connect(self._reset_palette_to_base_defaults)
         palette_grid.addSpacing(12)
         palette_grid.addWidget(btn_reset_palette, alignment=Qt.AlignmentFlag.AlignBottom)
@@ -125,7 +131,9 @@ class _AppearanceMixin:
         self.btn_extract_palette = QPushButton("🎨 Auto-Extract from Background")
         self.btn_extract_palette.setMinimumHeight(32)
         self.btn_extract_palette.setMinimumWidth(230)
-        self.btn_extract_palette.setStyleSheet("QPushButton { padding: 4px 14px; font-weight: 500; }")
+        self.btn_extract_palette.setStyleSheet(
+            qss("settings_btn_compact", PADDING="4px 14px", FONT_WEIGHT="font-weight: 500;")
+        )
         self.btn_extract_palette.setToolTip("Derive harmonious semantic colors automatically from the active background image (Material You style)")
         self.btn_extract_palette.clicked.connect(self._extract_palette_from_current_background)
         extract_row.addWidget(self.btn_extract_palette)
@@ -190,12 +198,12 @@ class _AppearanceMixin:
         btn_zoom_out = QPushButton("Zoom −")
         btn_zoom_out.setMinimumHeight(32)
         btn_zoom_out.setMinimumWidth(85)
-        btn_zoom_out.setStyleSheet("QPushButton { padding: 4px 10px; }")
+        btn_zoom_out.setStyleSheet(qss("settings_btn_compact", PADDING="4px 10px", FONT_WEIGHT=""))
         btn_zoom_out.clicked.connect(self._zoom_out)
         btn_zoom_in = QPushButton("Zoom +")
         btn_zoom_in.setMinimumHeight(32)
         btn_zoom_in.setMinimumWidth(85)
-        btn_zoom_in.setStyleSheet("QPushButton { padding: 4px 10px; }")
+        btn_zoom_in.setStyleSheet(qss("settings_btn_compact", PADDING="4px 10px", FONT_WEIGHT=""))
         btn_zoom_in.clicked.connect(self._zoom_in)
         self._zoom_label = QLabel(self._zoom_label_text())
         zoom_preview_row.addWidget(btn_zoom_out)
@@ -207,7 +215,9 @@ class _AppearanceMixin:
         btn_preview = QPushButton("✨ Apply Live Preview")
         btn_preview.setMinimumHeight(34)
         btn_preview.setMinimumWidth(170)
-        btn_preview.setStyleSheet("QPushButton { padding: 6px 16px; font-weight: bold; }")
+        btn_preview.setStyleSheet(
+            qss("settings_btn_compact", PADDING="6px 16px", FONT_WEIGHT="font-weight: bold;")
+        )
         btn_preview.setToolTip("Immediately preview theme, colors, background canvas, and glassmorphic styling")
         btn_preview.clicked.connect(self._preview_appearance)
         zoom_preview_row.addWidget(btn_preview)
@@ -246,12 +256,12 @@ class _AppearanceMixin:
         btn_browse_bg = QPushButton("Browse...")
         btn_browse_bg.setMinimumHeight(32)
         btn_browse_bg.setMinimumWidth(95)
-        btn_browse_bg.setStyleSheet("QPushButton { padding: 4px 12px; }")
+        btn_browse_bg.setStyleSheet(qss("settings_btn_compact", PADDING="4px 12px", FONT_WEIGHT=""))
         btn_browse_bg.clicked.connect(self._browse_background_image)
         btn_clear_bg = QPushButton("Clear")
         btn_clear_bg.setMinimumHeight(32)
         btn_clear_bg.setMinimumWidth(75)
-        btn_clear_bg.setStyleSheet("QPushButton { padding: 4px 12px; }")
+        btn_clear_bg.setStyleSheet(qss("settings_btn_compact", PADDING="4px 12px", FONT_WEIGHT=""))
         btn_clear_bg.clicked.connect(lambda: self.bg_path_input.clear())
         bg_path_row.addWidget(self.bg_path_input)
         bg_path_row.addWidget(btn_browse_bg)
@@ -312,7 +322,7 @@ class _AppearanceMixin:
         base = "dark" if self.dark_theme_radio.isChecked() else "light"
         defaults = base_defaults(base).as_dict()
         for k in ("surface", "window_bg", "text", "muted_text", "border"):
-            self._current_colors[k] = defaults.get(k, self._current_colors.get(k, "#00bcd4"))
+            self._current_colors[k] = defaults.get(k, self._current_colors.get(k, theme_color("accent", base=base)))
             if k in self._palette_swatches:
                 self._update_swatch_color(self._palette_swatches[k], self._current_colors[k])
         self._update_contrast_status()
@@ -320,24 +330,28 @@ class _AppearanceMixin:
     def _update_swatch_color(self, button: QPushButton, hex_color: str) -> None:
         c = QColor(hex_color)
         if not c.isValid():
-            c = QColor("#888888")
+            c = QColor(theme_color("muted_text"))
         button.setStyleSheet(
-            f"QPushButton {{ background-color: {c.name()}; border: 1px solid #666; border-radius: 4px; }}"
-            f"QPushButton:hover {{ border: 1px solid #fff; }}"
+            qss(
+                "settings_palette_swatch",
+                SWATCH_BG=c.name(),
+                SWATCH_BORDER=theme_color("border"),
+                SWATCH_BORDER_HOVER=theme_color("text"),
+            )
         )
 
     _update_swatch = _update_swatch_color
 
     def _pick_palette_color(self, token_key: str) -> None:
-        current_val = self._current_colors.get(token_key, "#00bcd4")
-        color = QColorDialog.getColor(
+        current_val = self._current_colors.get(token_key, theme_color("accent"))
+        picked = QColorDialog.getColor(
             QColor(current_val),
             self,
             f"Choose {token_key.capitalize()} Color",
             QColorDialog.ColorDialogOption.DontUseNativeDialog,
         )
-        if color.isValid():
-            hex_val = color.name()
+        if picked.isValid():
+            hex_val = picked.name()
             self._current_colors[token_key] = hex_val
             if token_key in self._palette_swatches:
                 self._update_swatch_color(self._palette_swatches[token_key], hex_val)
@@ -363,21 +377,22 @@ class _AppearanceMixin:
     def _update_contrast_status(self) -> None:
         "dark" if self.dark_theme_radio.isChecked() else "light"
         try:
+            defaults = base_defaults("dark" if self.dark_theme_radio.isChecked() else "light")
             tokens = ColorTokens(
-                accent=self._current_colors.get("accent", "#00bcd4"),
-                surface=self._current_colors.get("surface", "#2d2d30"),
-                window_bg=self._current_colors.get("window_bg", "#1e1e1e"),
-                text=self._current_colors.get("text", "#cccccc"),
-                muted_text=self._current_colors.get("muted_text", "#888888"),
-                border=self._current_colors.get("border", "#3e3e3e"),
+                accent=self._current_colors.get("accent", defaults.accent),
+                surface=self._current_colors.get("surface", defaults.surface),
+                window_bg=self._current_colors.get("window_bg", defaults.window_bg),
+                text=self._current_colors.get("text", defaults.text),
+                muted_text=self._current_colors.get("muted_text", defaults.muted_text),
+                border=self._current_colors.get("border", defaults.border),
             )
             warnings = contrast_warnings(tokens)
             if not warnings:
                 self.contrast_status_label.setText("✓ WCAG 2.1 Contrast: Optimal")
-                self.contrast_status_label.setStyleSheet("color: #4caf50; font-size: 8.5pt;")
+                self.contrast_status_label.setStyleSheet(qss("settings_contrast_ok"))
             else:
                 self.contrast_status_label.setText(f"ℹ WCAG Contrast: {len(warnings)} mild advisory notice(s)")
-                self.contrast_status_label.setStyleSheet("color: #ffb74d; font-size: 8.5pt;")
+                self.contrast_status_label.setStyleSheet(qss("settings_contrast_warn"))
                 self.contrast_status_label.setToolTip("\n".join(str(w) for w in warnings))
         except Exception:
             self.contrast_status_label.setText("Contrast: OK")

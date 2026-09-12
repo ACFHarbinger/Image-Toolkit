@@ -4,18 +4,18 @@ import os
 from typing import List, Optional
 
 from backend.src.core.video.video_probe import probe_codecs
-from PySide6.QtCore import QObject, QRunnable, Signal
+from PySide6.QtCore import Signal
 
-from gui.src.helpers.gc_safe import gc_disabled_run
+from gui.src.helpers.base import BaseQRunnableWorker, _WorkerSignals
 
 logger = logging.getLogger(__name__)
 
-class _CodecScanSignals(QObject):
+
+class _CodecScanSignals(_WorkerSignals):
     codec_ready = Signal(str, object, object)  # path, video_codec, audio_codec
-    finished = Signal()
 
 
-class CodecScanWorker(QRunnable):
+class CodecScanWorker(BaseQRunnableWorker):
     """Probes the video/audio codec of a batch of files in parallel background threads."""
 
     def __init__(self, paths: List[str]):
@@ -30,11 +30,9 @@ class CodecScanWorker(QRunnable):
         if self.executor:
             self.executor.shutdown(wait=False, cancel_futures=True)
 
-    @gc_disabled_run
-    def run(self):
+    def _execute(self) -> object:
         if self.is_cancelled or not self.paths:
-            self.signals.finished.emit()
-            return
+            return None
 
         max_workers = min(os.cpu_count() or 4, 8)
         try:
@@ -68,4 +66,5 @@ class CodecScanWorker(QRunnable):
         except Exception:
             logger.debug("Suppressed Exception in CodecScanWorker.run", exc_info=True)
         finally:
-            self.signals.finished.emit()
+            self.executor = None
+        return None

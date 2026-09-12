@@ -13,5 +13,5 @@ class SearchWorker(BaseQRunnableWorker):
         matching_files = self.db.search_images(**self.query_params)
         if self._cancelled:
             self.signals.cancelled.emit()
-        else:
-            self.signals.finished.emit(matching_files)
+            return None
+        return matching_files

@@ -1,0 +1,17 @@
+QFrame {
+    background-color: $BASE;
+    border: 1px solid $BORDER;
+    border-radius: 3px;
+}
+QLabel {
+    color: $TEXT;
+    font-weight: 600;
+}
+QPushButton#OptionalFieldToggleBtn {
+    color: $TEXT;
+    background-color: transparent;
+    border: none;
+}
+QPushButton#OptionalFieldToggleBtn:hover {
+    background-color: $HOVER;
+}

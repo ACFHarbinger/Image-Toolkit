@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Optional
+
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QButtonGroup, QHBoxLayout, QPushButton, QWidget
+
+from gui.src.theming.theme_api import qss
 
 
 class SegmentedControl(QWidget):
@@ -44,7 +47,9 @@ class SegmentedControl(QWidget):
             else:
                 border_style = "border-radius: 0px; border-right: none; border-left: none;"
 
-            btn.setStyleSheet(f"QPushButton {{ padding: 6px 14px; font-size: 9pt; font-weight: 500; {border_style} }}")
+            btn.setStyleSheet(
+                qss("segmented_control_btn", BORDER_STYLE=border_style)
+            )
             btn.clicked.connect(lambda _=False, k=key: self._on_btn_clicked(k))
             self.group.addButton(btn)
             self._buttons[key] = btn

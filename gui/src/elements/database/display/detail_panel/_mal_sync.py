@@ -25,12 +25,16 @@ class _MalSyncMixin:
         self.btn_mal.setText("Fetching...")
         self.btn_mal.setEnabled(False)
         self._mal_worker = MalSyncWorker(title)
-        self._mal_worker.sig_finished.connect(self._on_mal_finished)
+        self._mal_worker.finished.connect(self._on_mal_finished)
         self._mal_worker.error.connect(self._on_mal_error)
         self._mal_worker.start()
 
     @Slot(dict)
     def _on_mal_finished(self, data: dict):
+        if not data:
+            self.btn_mal.setText("Auto-Fill from MAL")
+            self.btn_mal.setEnabled(True)
+            return  # cancelled or failed (error was reported separately)
         synopsis = data.get("synopsis", "")
         if synopsis:
             self.f_summary.setPlainText(synopsis)
@@ -81,9 +85,9 @@ class _MalSyncMixin:
             return
         self._refresh_grouped_tags_display()
 
-    @Slot(str)
-    def _on_mal_error(self, message: str):
-        QMessageBox.critical(self, "MAL Fetch Error", message)
+    @Slot(object)
+    def _on_mal_error(self, exc: Exception):
+        QMessageBox.critical(self, "MAL Fetch Error", str(exc))
         self.btn_mal.setText("Auto-Fill from MAL")
         self.btn_mal.setEnabled(True)
 

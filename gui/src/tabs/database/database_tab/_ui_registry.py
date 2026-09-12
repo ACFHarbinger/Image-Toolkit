@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
 )
 
 from ....styles import apply_shadow_effect
+from ....theming.theme_api import color, qss
 
 if TYPE_CHECKING:
     pass
@@ -33,13 +34,13 @@ def build_registry_section(tab: Any, populate_layout: QVBoxLayout) -> None:
     registry_info = QLabel(
         "All image paths currently indexed in the database, with their associated group and subgroup."
     )
-    registry_info.setStyleSheet("color: #aaa; font-style: italic; font-size: 12px;")
+    registry_info.setStyleSheet(qss("registry_info"))
     registry_info.setWordWrap(True)
     registry_header.addWidget(registry_info, 1)
 
     tab.btn_refresh_registry = QPushButton("↻ Refresh")
     apply_shadow_effect(
-        tab.btn_refresh_registry, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+        tab.btn_refresh_registry, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3
     )
     tab.btn_refresh_registry.clicked.connect(tab.refresh_image_registry)
     registry_header.addWidget(tab.btn_refresh_registry)
@@ -81,7 +82,7 @@ def build_registry_section(tab: Any, populate_layout: QVBoxLayout) -> None:
     tab.image_registry_table.setEditTriggers(
         QAbstractItemView.EditTrigger.NoEditTriggers
     )
-    tab.image_registry_table.setStyleSheet(tab.groups_table.styleSheet())
+    tab.image_registry_table.setStyleSheet(qss("table_widget"))
     tab.image_registry_table.setSizePolicy(
         QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
     )

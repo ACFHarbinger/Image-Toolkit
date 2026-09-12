@@ -39,6 +39,7 @@ from ._extraction_panel_ui import _ExtractionPanelUIMixin
 from ._extraction_workers import _ExtractionWorkersMixin
 from ._gallery_selection import _GallerySelectionMixin
 from ._media_player import _MediaPlayerMixin
+from ._player_lifecycle import PlayerLifecycleState, _PlayerLifecycleMixin
 from ._qml_handlers import _QmlHandlersMixin
 from ._queue_management import _QueueManagementMixin
 from ._tags_logic import _TagsLogicMixin
@@ -47,6 +48,7 @@ from ._view_controls import _ViewControlsMixin
 
 
 class VideoExtractorSubTab(
+    _PlayerLifecycleMixin,
     _MediaPlayerMixin,
     _DirectoryScanningMixin,
     _VideoSessionHistoryMixin,
@@ -78,6 +80,7 @@ class VideoExtractorSubTab(
             max(2, min(8, os.cpu_count() or 4))
         )
         self.video_path: Optional[str] = None
+        self._player_lifecycle_state = PlayerLifecycleState.NOT_LOADED
         self.current_extracted_paths: List[str] = []
         self.selected_paths: Set[str] = set()
         self.duration_ms = 0
