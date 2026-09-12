@@ -8,7 +8,7 @@ from __future__ import annotations
 from PySide6.QtCore import QThreadPool, Slot
 from PySide6.QtWidgets import QMessageBox
 
-from ....helpers import GoogleDriveSyncWorker
+from ....helpers import CloudDriveSyncWorker
 from ._tab_bound import TabBoundController
 
 
@@ -31,7 +31,8 @@ class DriveSyncShareFolderController(TabBoundController):
         self.lock_ui_minor(message="Sharing Folder…", clear_log=True)
         self.log_window.show()
 
-        self.current_worker = GoogleDriveSyncWorker(
+        self.current_worker = CloudDriveSyncWorker(
+            "google",
             auth_config=auth_config,
             local_path=self.local_path.text().strip(),
             remote_path=remote_path,

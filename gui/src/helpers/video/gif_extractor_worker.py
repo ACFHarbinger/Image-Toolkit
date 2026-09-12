@@ -1,17 +1,15 @@
 import contextlib
 import os
-import subprocess
 import tempfile
-import time
 from typing import Optional, Tuple, Union
 
 from moviepy.editor import VideoFileClip
 
 from gui.src.helpers.base import BaseQRunnableWorker
-
-
-class _Cancelled(Exception):
-    """Raised inside the worker when the user cancels mid-ffmpeg."""
+from gui.src.helpers.video.extraction_pipeline import (
+    ExtractionCancelled as _Cancelled,
+)
+from gui.src.helpers.video.extraction_pipeline import get_keep_regions, run_ffmpeg
 
 
 class GifCreationWorker(BaseQRunnableWorker):
@@ -49,68 +47,20 @@ class GifCreationWorker(BaseQRunnableWorker):
         self._is_cancelled = True
 
     def _get_keep_regions(self, t_start: float, t_end: float):
-        if not self.cuts_ms:
-            return [(0.0, t_end - t_start)]
-
-        sorted_cuts = sorted([(max(t_start, c[0]/1000.0), min(t_end, c[1]/1000.0)) for c in self.cuts_ms])
-        merged_cuts = []
-        for c in sorted_cuts:
-            if c[0] >= c[1]:
-                continue
-            if not merged_cuts:
-                merged_cuts.append(c)
-            else:
-                last = merged_cuts[-1]
-                if c[0] <= last[1]:
-                    merged_cuts[-1] = (last[0], max(last[1], c[1]))
-                else:
-                    merged_cuts.append(c)
-
-        keep = []
-        current = t_start
-        for c_start, c_end in merged_cuts:
-            if c_start > current:
-                keep.append((current - t_start, c_start - t_start))
-            current = max(current, c_end)
-
-        if current < t_end:
-            keep.append((current - t_start, t_end - t_start))
-
-        return keep
+        return get_keep_regions(self.cuts_ms, t_start, t_end)
 
     def _run_ffmpeg(self, cmd: list, phase: str) -> None:
         """Run one ffmpeg pass without the stderr-PIPE deadlock.
 
-        The old code kept ``stderr=PIPE`` and never drained it until the
-        process exited, so a long encode that filled the ~64 KB pipe buffer
-        hung forever. stderr goes to a temp file instead (already quietened
-        to ``-loglevel error``); it is read back only on failure.
+        Shared implementation lives in :mod:`extraction_pipeline` (same
+        temp-errfile, terminate/wait/kill as before — see #484); this
+        wrapper keeps the historical method and per-phase failure text.
         """
-        from gui.src.helpers.video.video_thumbnailer import media_backend_spawn_guard
-
-        with tempfile.TemporaryFile(mode="w+") as errf:
-            with media_backend_spawn_guard():
-                proc = subprocess.Popen(
-                    cmd,
-                    stdout=subprocess.DEVNULL,
-                    stderr=errf,
-                    stdin=subprocess.DEVNULL,
-                )
-            while proc.poll() is None:
-                if self._is_cancelled:
-                    proc.terminate()
-                    with contextlib.suppress(subprocess.TimeoutExpired):
-                        proc.wait(timeout=3)
-                    if proc.poll() is None:
-                        proc.kill()
-                    raise _Cancelled()
-                time.sleep(0.3)
-            if proc.returncode != 0:
-                errf.seek(0)
-                tail = errf.read()[-2000:]
-                raise RuntimeError(
-                    f"ffmpeg {phase} pass failed (code {proc.returncode})\n{tail}"
-                )
+        run_ffmpeg(
+            cmd,
+            f"ffmpeg {phase} pass failed (code ",
+            is_cancelled=lambda: self._is_cancelled,
+        )
 
     def _execute(self) -> object:  # noqa: C901
         if self._is_cancelled:
@@ -130,9 +80,7 @@ class GifCreationWorker(BaseQRunnableWorker):
                 chain = []
                 keep_regions = self._get_keep_regions(t_start, t_end)
                 if self.cuts_ms and keep_regions:
-                    select_expr = "+".join(
-                        [f"between(t,{r[0]},{r[1]})" for r in keep_regions]
-                    )
+                    select_expr = "+".join([f"between(t,{r[0]},{r[1]})" for r in keep_regions])
                     chain.append(f"select='{select_expr}'")
                     chain.append("setpts=N/FRAME_RATE/TB")
                 chain.append(f"fps={self.fps}")
@@ -158,13 +106,23 @@ class GifCreationWorker(BaseQRunnableWorker):
                 # buffer the *entire* scaled stream in RAM between the two
                 # branches — O(frames) memory for a long/high-res range.
                 pass1 = [
-                    *common, *seek, "-i", self.video_path,
-                    "-vf", f"{base_filters},palettegen=max_colors={self.max_colors}:stats_mode=diff",
+                    *common,
+                    *seek,
+                    "-i",
+                    self.video_path,
+                    "-vf",
+                    f"{base_filters},palettegen=max_colors={self.max_colors}:stats_mode=diff",
                     palette_path,
                 ]
                 pass2 = [
-                    *common, *seek, "-i", self.video_path, "-i", palette_path,
-                    "-lavfi", f"{base_filters}[x];[x][1:v]paletteuse=dither=bayer",
+                    *common,
+                    *seek,
+                    "-i",
+                    self.video_path,
+                    "-i",
+                    palette_path,
+                    "-lavfi",
+                    f"{base_filters}[x];[x][1:v]paletteuse=dither=bayer",
                     self.output_path,
                 ]
 
@@ -189,6 +147,7 @@ class GifCreationWorker(BaseQRunnableWorker):
         clip = None
         try:
             from moviepy.editor import concatenate_videoclips
+
             self.signals.progress.emit(10, 100)
 
             base_clip = VideoFileClip(self.video_path).subclip(t_start, t_end)
@@ -205,18 +164,16 @@ class GifCreationWorker(BaseQRunnableWorker):
 
             # Resize if target_size is provided (width, height)
             if self.target_size:
-                clip = clip.resize(newsize=self.target_size) # pyrefly: ignore [missing-attribute]
+                clip = clip.resize(newsize=self.target_size)  # pyrefly: ignore [missing-attribute]
 
             if self.speed != 1.0:
-                clip = clip.speedx(self.speed) # pyrefly: ignore [missing-attribute]
+                clip = clip.speedx(self.speed)  # pyrefly: ignore [missing-attribute]
 
             self.signals.progress.emit(30, 100)
             write_kwargs = {"fps": self.fps, "logger": None}
             if self.encoder_threads > 0:
                 write_kwargs["threads"] = self.encoder_threads
-            clip.write_gif(
-                self.output_path, **write_kwargs
-            )  # logger=None to avoid stdout clutter
+            clip.write_gif(self.output_path, **write_kwargs)  # logger=None to avoid stdout clutter
 
             self.signals.progress.emit(100, 100)
             return self.output_path
