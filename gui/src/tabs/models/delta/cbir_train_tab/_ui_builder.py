@@ -34,18 +34,17 @@ from ._tab_bound import TabBoundController
 
 
 class CBIRTrainUIBuilder(TabBoundController):
-    """Builds the config/telemetry splitter panels."""
+    """Builds the config/telemetry splitter panels (§5 R2.f, #567)."""
 
     def init_ui(self) -> None:
         root = QVBoxLayout(self.tab)
         root.setSpacing(6)
 
-        # Left / Right splitter so config and log sit side-by-side on wide screens
         splitter = QSplitter(Qt.Orientation.Horizontal)
         splitter.setChildrenCollapsible(False)
         root.addWidget(splitter, 1)
 
-        # ── Left panel: configuration ──────────────────────────────────────
+        # Left panel: configuration
         left = QWidget()
         left_layout = QVBoxLayout(left)
         left_layout.setContentsMargins(0, 0, 4, 0)
@@ -56,7 +55,21 @@ class CBIRTrainUIBuilder(TabBoundController):
         left_scroll.setWidget(left)
         splitter.addWidget(left_scroll)
 
-        # Dataset ──────────────────────────────────────────────────────────
+        self._build_dataset_group(left_layout)
+        self._build_backbone_group(left_layout)
+        self._build_loss_group(left_layout)
+        self._build_training_group(left_layout)
+        self._build_faiss_group(left_layout)
+        left_layout.addStretch()
+
+        # Right panel: telemetry
+        self._build_telemetry_panel(splitter)
+        splitter.setSizes([420, 420])
+
+    _init_ui = init_ui
+    _build_ui = init_ui
+
+    def _build_dataset_group(self, left_layout: QVBoxLayout) -> None:
         dg = QGroupBox("Dataset")
         dgl = QFormLayout(dg)
 
@@ -89,7 +102,7 @@ class CBIRTrainUIBuilder(TabBoundController):
 
         left_layout.addWidget(dg)
 
-        # Backbone / Architecture ──────────────────────────────────────────
+    def _build_backbone_group(self, left_layout: QVBoxLayout) -> None:
         bg = QGroupBox("Backbone / Architecture")
         bgl = QFormLayout(bg)
 
@@ -106,7 +119,7 @@ class CBIRTrainUIBuilder(TabBoundController):
         self._embed_dim = QComboBox()
         for d in [64, 128, 256, 512]:
             self._embed_dim.addItem(str(d), d)
-        self._embed_dim.setCurrentIndex(2)  # 256
+        self._embed_dim.setCurrentIndex(2)
         self._embed_dim.setToolTip(
             "Projection head output dimension.  Smaller → faster search and less RAM.  "
             "Larger → higher discriminative capacity."
@@ -139,7 +152,7 @@ class CBIRTrainUIBuilder(TabBoundController):
 
         left_layout.addWidget(bg)
 
-        # Loss ──────────────────────────────────────────────────────────────
+    def _build_loss_group(self, left_layout: QVBoxLayout) -> None:
         lg = QGroupBox("Loss Function")
         lgl = QFormLayout(lg)
 
@@ -179,7 +192,7 @@ class CBIRTrainUIBuilder(TabBoundController):
 
         left_layout.addWidget(lg)
 
-        # Training ──────────────────────────────────────────────────────────
+    def _build_training_group(self, left_layout: QVBoxLayout) -> None:
         tg = QGroupBox("Training")
         tgl = QFormLayout(tg)
 
@@ -228,7 +241,7 @@ class CBIRTrainUIBuilder(TabBoundController):
 
         left_layout.addWidget(tg)
 
-        # FAISS index builder ───────────────────────────────────────────────
+    def _build_faiss_group(self, left_layout: QVBoxLayout) -> None:
         fg = QGroupBox("FAISS Index Builder  (post-training step)")
         fgl = QFormLayout(fg)
 
@@ -274,9 +287,8 @@ class CBIRTrainUIBuilder(TabBoundController):
         fgl.addRow("Progress:", self._index_progress)
 
         left_layout.addWidget(fg)
-        left_layout.addStretch()
 
-        # ── Right panel: live telemetry ─────────────────────────────────────
+    def _build_telemetry_panel(self, splitter: QSplitter) -> None:
         right = QWidget()
         right_layout = QVBoxLayout(right)
         right_layout.setContentsMargins(4, 0, 0, 0)
@@ -340,7 +352,4 @@ class CBIRTrainUIBuilder(TabBoundController):
         return w
 
 
-# COMPAT(ui-arch-23): legacy mixin alias
-_UIBuilderMixin = CBIRTrainUIBuilder
-
-__all__ = ["CBIRTrainUIBuilder", "_UIBuilderMixin"]
+__all__ = ["CBIRTrainUIBuilder"]

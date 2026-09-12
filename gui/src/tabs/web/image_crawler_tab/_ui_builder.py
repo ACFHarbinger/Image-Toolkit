@@ -29,12 +29,21 @@ from ._tab_bound import TabBoundController
 
 
 class ImageCrawlUIBuilder(TabBoundController):
-    """Builds the crawler-type stack, output/selection groups, and run controls."""
+    """Builds the crawler-type stack, output/selection groups, and run controls (§5 R2.f, #567)."""
 
     def build_ui(self) -> None:
         main_layout = QVBoxLayout(self.tab)
 
-        # --- 1. Crawler Type Selection ---
+        self._build_crawler_type_selector(main_layout)
+        self._build_settings_stack(main_layout)
+        self._build_output_configuration(main_layout)
+        self._build_selection_mode(main_layout)
+        self._build_run_controls(main_layout)
+
+        # Initial State
+        self.on_crawler_type_changed(self.crawler_type_combo.currentIndex())
+
+    def _build_crawler_type_selector(self, main_layout: QVBoxLayout) -> None:
         type_layout = QHBoxLayout()
         type_layout.addWidget(QLabel("<b>Crawler Type:</b>"))
 
@@ -49,25 +58,22 @@ class ImageCrawlUIBuilder(TabBoundController):
         )
         self.crawler_type_combo.currentIndexChanged.connect(self.on_crawler_type_changed)
         type_layout.addWidget(self.crawler_type_combo, 1)
-
         main_layout.addLayout(type_layout)
 
-        # --- 2. Stacked Widget for Specific Settings ---
+    def _build_settings_stack(self, main_layout: QVBoxLayout) -> None:
         self.settings_stack = QStackedWidget()
 
-        # PAGE 1: General Crawler Settings
         self.page_general = QWidget()
         self.setup_general_page()
         self.settings_stack.addWidget(self.page_general)
 
-        # PAGE 2: Image Board Settings
         self.page_board = QWidget()
         self.setup_board_page()
         self.settings_stack.addWidget(self.page_board)
 
         main_layout.addWidget(self.settings_stack)
 
-        # --- 3. Shared Download Settings ---
+    def _build_output_configuration(self, main_layout: QVBoxLayout) -> None:
         download_group = QGroupBox("Output Configuration")
         download_layout = QFormLayout(download_group)
         download_layout.setContentsMargins(10, 20, 10, 10)
@@ -82,7 +88,6 @@ class ImageCrawlUIBuilder(TabBoundController):
         download_dir_layout.addWidget(btn_browse_download)
         download_layout.addRow("Download Dir:", download_dir_layout)
 
-        # Screenshot (General only mostly, but kept shared for simplicity)
         screenshot_dir_layout = QHBoxLayout()
         self.screenshot_dir_path = QLineEdit()
         self.screenshot_dir_path.setPlaceholderText("Optional: directory for screenshots")
@@ -99,7 +104,7 @@ class ImageCrawlUIBuilder(TabBoundController):
 
         main_layout.addWidget(download_group)
 
-        # --- 3b. Selection and Deduplication Mode ---
+    def _build_selection_mode(self, main_layout: QVBoxLayout) -> None:
         selection_group = QGroupBox("Deduplication and Selection Mode")
         selection_layout = QFormLayout(selection_group)
         selection_layout.setContentsMargins(10, 20, 10, 10)
@@ -115,8 +120,7 @@ class ImageCrawlUIBuilder(TabBoundController):
         selection_layout.addRow("Selection Mode:", self.selection_mode_combo)
         main_layout.addWidget(selection_group)
 
-        # --- 4. Run Controls ---
-        # Progress and Status
+    def _build_run_controls(self, main_layout: QVBoxLayout) -> None:
         self.status_label = QLabel("Ready.")
         self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.status_label.setStyleSheet(qss("status_label_padded"))
@@ -128,7 +132,6 @@ class ImageCrawlUIBuilder(TabBoundController):
         self.progress_bar.hide()
         main_layout.addWidget(self.progress_bar)
 
-        # Run/Cancel Button Container
         self.button_container = QWidget()
         self.button_layout = QVBoxLayout(self.button_container)
         self.button_layout.setContentsMargins(0, 0, 0, 0)
@@ -161,9 +164,6 @@ class ImageCrawlUIBuilder(TabBoundController):
 
         main_layout.addWidget(self.button_container)
         main_layout.addStretch(1)
-
-        # Initial State
-        self.on_crawler_type_changed(self.crawler_type_combo.currentIndex())
 
     _build_ui = build_ui
 
@@ -352,7 +352,4 @@ class ImageCrawlUIBuilder(TabBoundController):
         layout.addStretch(1)
 
 
-# COMPAT(ui-arch-23): legacy mixin alias
-_UIBuilderMixin = ImageCrawlUIBuilder
-
-__all__ = ["ImageCrawlUIBuilder", "_UIBuilderMixin"]
+__all__ = ["ImageCrawlUIBuilder"]

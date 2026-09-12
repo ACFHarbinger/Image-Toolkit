@@ -12,7 +12,7 @@ from ._codec_directory_browse import _DirectoryBrowseMixin
 from ._codec_filters import _CodecFiltersMixin
 from ._codec_preview_context import _PreviewContextMixin
 from ._codec_probe import _CodecProbeMixin
-from ._codec_ui_builder import _UIBuilderMixin
+from ._codec_ui_builder import CodecUIBuilder
 from ._gallery_cards import _GalleryCardsMixin
 from ._lifecycle import _LifecycleMixin
 
@@ -23,7 +23,7 @@ class CodecSubTab(
     # fixes): several mixin methods here (_navigate_to_dir, cancel_loading,
     # closeEvent, create_card_widget, on_selection_changed, update_card_pixmap)
     # override same-named methods AbstractClassTwoGalleries itself defines.
-    _UIBuilderMixin,
+    CodecUIBuilder,
     _CodecFiltersMixin,
     _GalleryCardsMixin,
     _PreviewContextMixin,

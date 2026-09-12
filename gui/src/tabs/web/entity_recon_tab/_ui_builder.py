@@ -38,12 +38,27 @@ from ._tab_bound import TabBoundController
 
 
 class EntityReconUIBuilder(TabBoundController):
-    """Builds the config bar, three-pane splitter, and batch dataset builder."""
+    """Builds the config bar, three-pane splitter, and batch dataset builder (§5 R2.f, #567)."""
 
-    def _build_ui(self):
+    def _build_ui(self) -> None:
         root = QVBoxLayout(self.tab)
 
-        # --- dataset / config bar ------------------------------------------
+        self._build_config_group(root)
+
+        # --- progress & status ---------------------------------------------
+        self.progress = QProgressBar()
+        self.progress.setRange(0, 0)
+        self.progress.setVisible(False)
+        root.addWidget(self.progress)
+
+        self._build_three_pane_splitter(root)
+        self._build_batch_group(root)
+
+        self.status_label = QLabel("Ready. Build an identity index to begin.")
+        self.status_label.setStyleSheet(qss("entity_recon_meta"))
+        root.addWidget(self.status_label)
+
+    def _build_config_group(self, root: QVBoxLayout) -> None:
         cfg_group = QGroupBox("Identity Dataset and Discovery")
         cfg_form = QFormLayout(cfg_group)
 
@@ -83,7 +98,7 @@ class EntityReconUIBuilder(TabBoundController):
 
         root.addWidget(cfg_group)
 
-        # --- three-pane splitter -------------------------------------------
+    def _build_three_pane_splitter(self, root: QVBoxLayout) -> None:
         splitter = QSplitter(Qt.Orientation.Horizontal)
 
         # Pane 1: Source image & segmentation
@@ -161,13 +176,7 @@ class EntityReconUIBuilder(TabBoundController):
         splitter.setStretchFactor(2, 3)
         root.addWidget(splitter, 1)
 
-        # --- progress & status ---------------------------------------------
-        self.progress = QProgressBar()
-        self.progress.setRange(0, 0)
-        self.progress.setVisible(False)
-        root.addWidget(self.progress)
-
-        # --- batch dataset builder -----------------------------------------
+    def _build_batch_group(self, root: QVBoxLayout) -> None:
         batch_group = QGroupBox("Batch Dataset Builder")
         batch_v = QVBoxLayout(batch_group)
 
@@ -194,17 +203,15 @@ class EntityReconUIBuilder(TabBoundController):
         batch_btns.addWidget(self.btn_approve)
         batch_btns.addStretch(1)
         batch_v.addLayout(batch_btns)
+
         self.batch_table = QTableWidget(0, 3)
         self.batch_table.setHorizontalHeaderLabels(["Image", "Suggested identity", "Score"])
         self.batch_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         self.batch_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.batch_table.setMaximumHeight(180)
         batch_v.addWidget(self.batch_table)
-        root.addWidget(batch_group)
 
-        self.status_label = QLabel("Ready. Build an identity index to begin.")
-        self.status_label.setStyleSheet(qss("entity_recon_meta"))
-        root.addWidget(self.status_label)
+        root.addWidget(batch_group)
 
 
 __all__ = ["EntityReconUIBuilder"]

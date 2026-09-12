@@ -29,7 +29,7 @@ from ._search_worker import _SearchWorkerMixin
 from ._semantic_search import _SemanticSearchMixin
 from ._tab_communication import _TabCommunicationMixin
 from ._tag_filters import _TagFiltersMixin
-from ._ui_builder import _UIBuilderMixin
+from ._ui_builder import SearchUIBuilder
 
 
 class SearchTab(
@@ -39,7 +39,7 @@ class SearchTab(
     # cancel_loading, closeEvent, create_card_widget, get_default_config,
     # on_selection_changed, set_config, update_card_pixmap) override
     # same-named methods AbstractClassTwoGalleries itself defines.
-    _UIBuilderMixin,
+    SearchUIBuilder,
     _GalleryCardsMixin,
     _SearchWorkerMixin,
     _SemanticSearchMixin,

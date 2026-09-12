@@ -27,7 +27,7 @@ from ....styles import apply_shadow_effect
 from ....theming.theme_api import color, qss
 
 
-class _UIBuilderMixin:
+class SearchUIBuilder:
     """Builds the search-criteria form, both galleries, and search controls."""
 
     def _build_ui(self):
@@ -61,9 +61,7 @@ class _UIBuilderMixin:
         # Refresh button for groups/subgroups
         self.btn_refresh_groups = QPushButton("Refresh Groups")
         self.btn_refresh_groups.setFixedWidth(140)
-        apply_shadow_effect(
-            self.btn_refresh_groups, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3
-        )
+        apply_shadow_effect(self.btn_refresh_groups, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3)
         self.btn_refresh_groups.clicked.connect(self._refresh_groups_from_db)
 
         # --- Groups (checkable list) ---
@@ -118,9 +116,7 @@ class _UIBuilderMixin:
     def _build_filename_and_formats(self, form_layout: QFormLayout) -> None:
         self.filename_edit = QLineEdit()
         self.filename_edit.setPlaceholderText("e.g., *.png, img_001, etc (Optional)")
-        self.filename_field = OptionalField(
-            "Filename pattern", self.filename_edit, start_open=False
-        )
+        self.filename_field = OptionalField("Filename pattern", self.filename_edit, start_open=False)
         form_layout.addRow(self.filename_field)
 
         # --- Input formats ---
@@ -132,12 +128,8 @@ class _UIBuilderMixin:
             for fmt in SUPPORTED_IMG_FORMATS:
                 btn = QPushButton(fmt)
                 btn.setCheckable(True)
-                apply_shadow_effect(
-                    btn, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3
-                )
-                btn.clicked.connect(
-                    lambda checked, f=fmt: self.toggle_format(f, checked)
-                )
+                apply_shadow_effect(btn, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3)
+                btn.clicked.connect(lambda checked, f=fmt: self.toggle_format(f, checked))
                 btn_layout.addWidget(btn)
                 self.format_buttons[fmt] = btn
             formats_layout.addLayout(btn_layout)
@@ -145,9 +137,7 @@ class _UIBuilderMixin:
             all_btn_layout = QHBoxLayout()
             self.btn_add_all = QPushButton("Add All")
             self.btn_add_all.setObjectName("btn_success")
-            apply_shadow_effect(
-                self.btn_add_all, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3
-            )
+            apply_shadow_effect(self.btn_add_all, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3)
             self.btn_add_all.clicked.connect(self.add_all_formats)
 
             self.btn_remove_all = QPushButton("Remove All")
@@ -167,9 +157,7 @@ class _UIBuilderMixin:
 
             formats_container = QWidget()
             formats_container.setLayout(formats_layout)
-            self.formats_field = OptionalField(
-                "Input formats", formats_container, start_open=False
-            )
+            self.formats_field = OptionalField("Input formats", formats_container, start_open=False)
             form_layout.addRow(self.formats_field)
         else:
             self.input_formats_edit = QLineEdit()
@@ -181,9 +169,7 @@ class _UIBuilderMixin:
         # --- Refresh Tags Button ---
         self.btn_refresh_tags = QPushButton("Refresh Tags")
         self.btn_refresh_tags.setFixedWidth(120)
-        apply_shadow_effect(
-            self.btn_refresh_tags, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3
-        )
+        apply_shadow_effect(self.btn_refresh_tags, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3)
         self.btn_refresh_tags.clicked.connect(self._setup_tag_checkboxes)
 
         # --- Tag Type Filter (checkable; all start checked) ---
@@ -237,9 +223,7 @@ class _UIBuilderMixin:
         # Search button
         self.search_button = QPushButton("Search Database")
         self.search_button.setStyleSheet(qss("search_button"))
-        apply_shadow_effect(
-            self.search_button, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3
-        )
+        apply_shadow_effect(self.search_button, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3)
         self.search_button.clicked.connect(self.toggle_search)
         layout.addWidget(self.search_button)
 
@@ -261,9 +245,7 @@ class _UIBuilderMixin:
         # 1. Search Results header (kept for the live result count)
         results_header_layout = QHBoxLayout()
 
-        results_title_label = QLabel(
-            "Search Results (Ctrl+A: Select All | Ctrl+D: Deselect All)"
-        )
+        results_title_label = QLabel("Search Results (Ctrl+A: Select All | Ctrl+D: Deselect All)")
         results_title_label.setStyleSheet(qss("results_title"))
         results_header_layout.addWidget(results_title_label)
 
@@ -287,4 +269,4 @@ class _UIBuilderMixin:
         layout.addWidget(self.dual, stretch=1)
 
 
-__all__ = ["_UIBuilderMixin"]
+__all__ = ["SearchUIBuilder"]

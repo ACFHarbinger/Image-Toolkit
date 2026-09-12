@@ -28,7 +28,6 @@ from gui.src.tabs.web.image_crawler_tab._directory_browse import (
 )
 from gui.src.tabs.web.image_crawler_tab._ui_builder import (
     ImageCrawlUIBuilder,
-    _UIBuilderMixin,
 )
 from gui.src.tabs.web.image_crawler_tab._webdriver import (
     ImageCrawlWebDriverController,
@@ -71,7 +70,6 @@ class TestImageCrawlComposition:
         assert _ConfigMixin is ImageCrawlConfigController
         assert _CrawlWorkerMixin is ImageCrawlWorkerController
         assert _DirectoryBrowseMixin is ImageCrawlDirectoryController
-        assert _UIBuilderMixin is ImageCrawlUIBuilder
         assert _WebDriverMixin is ImageCrawlWebDriverController
 
     def test_tab_bound_controller_attribute_proxy(self, q_app):

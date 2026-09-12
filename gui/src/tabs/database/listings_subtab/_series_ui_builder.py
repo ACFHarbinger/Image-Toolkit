@@ -1,7 +1,6 @@
 """Widget construction for ``SeriesListingsSubTab`` (``_build_ui``).
 
-Extracted from ``series_listings_subtab.py`` -- pure code motion, no logic
-change.
+Extracted from ``series.py`` -- pure code motion, no logic change.
 """
 
 from __future__ import annotations
@@ -20,7 +19,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from gui.src.components import MarqueeScrollArea
+from gui.src.components.containers.marquee_scroll_area import MarqueeScrollArea
 from gui.src.components.tag_chip_widget import FlowLayout
 from gui.src.constants.listings import ENTRY_STATUS, ENTRY_TYPES
 from gui.src.elements.database.common.listings_common import _persist_splitter
@@ -32,7 +31,7 @@ from ._tab_bound import TabBoundController
 
 
 class SeriesListingsUIBuilder(TabBoundController):
-    """Builds the toolbar, stats bar, and gallery/detail splitter."""
+    """Builds the toolbar, stats bar, and gallery/detail splitter (§5 R2.f, #567)."""
 
     def _build_ui(self) -> None:
         # ---- Root layout ----
@@ -40,14 +39,28 @@ class SeriesListingsUIBuilder(TabBoundController):
         root.setContentsMargins(12, 12, 12, 8)
         root.setSpacing(8)
 
-        # ---- Toolbar ----
-        # FlowLayout, not QHBoxLayout: title + search box + several grouped
-        # button pairs + 4 combos overflow the app's 800px minimum width in
-        # one non-wrapping row. Built with an explicit parent container
-        # (addWidget, not addLayout) -- a bare FlowLayout() added later via
-        # addLayout() can intermittently never settle to its real geometry,
-        # leaving widgets at Qt's raw top-level default size (640x480)
-        # instead of their laid-out size.
+        self._build_toolbar(root)
+
+        self.stats_label = QLabel("")
+        self.stats_label.setStyleSheet(qss("listings_stats"))
+        root.addWidget(self.stats_label)
+
+        self._build_splitter(root)
+
+        # Context Menu for Gallery background
+        self.gallery_scroll.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.gallery_scroll.customContextMenuRequested.connect(self._show_gallery_context_menu)
+
+        # Load data
+        self._load_data()
+        self._rebuild_gallery()
+        self._detail.clear_for_new()
+
+        # Debounced resize — avoid rebuilding the gallery on every pixel of a drag.
+        self._resize_timer.setSingleShot(True)
+        self._resize_timer.setInterval(120)
+
+    def _build_toolbar(self, root: QVBoxLayout) -> None:
         toolbar_container = QWidget()
         toolbar = FlowLayout(toolbar_container)
         toolbar.setSpacing(8)
@@ -62,7 +75,7 @@ class SeriesListingsUIBuilder(TabBoundController):
         self.search_box.textChanged.connect(self._on_search)
         toolbar.addWidget(self.search_box)
 
-        # ── Search / Recommend pair (stacked vertically) ─────────────
+        # Search / Recommend pair
         _search_rec_pair = QWidget()
         _search_rec_vbox = QVBoxLayout(_search_rec_pair)
         _search_rec_vbox.setContentsMargins(0, 0, 0, 0)
@@ -84,7 +97,7 @@ class SeriesListingsUIBuilder(TabBoundController):
         _search_rec_vbox.addWidget(rec_btn)
         toolbar.addWidget(_search_rec_pair)
 
-        # ── Semantic search pair (stacked vertically, DB.7) ───────────
+        # Semantic search pair
         _semantic_pair = QWidget()
         _semantic_vbox = QVBoxLayout(_semantic_pair)
         _semantic_vbox.setContentsMargins(0, 0, 0, 0)
@@ -106,7 +119,7 @@ class SeriesListingsUIBuilder(TabBoundController):
         _semantic_vbox.addWidget(build_index_btn)
         toolbar.addWidget(_semantic_pair)
 
-        # ── Clear pair (stacked vertically, hidden until active) ──────
+        # Clear pair
         _clear_pair = QWidget()
         _clear_vbox = QVBoxLayout(_clear_pair)
         _clear_vbox.setContentsMargins(0, 0, 0, 0)
@@ -169,7 +182,7 @@ class SeriesListingsUIBuilder(TabBoundController):
         self.sort_order_combo.currentTextChanged.connect(self._on_sort_changed)
         toolbar.addWidget(self.sort_order_combo)
 
-        # ── Pair 1: Add Entry (top) / Import Dir (bottom) ──────────────
+        # Pair 1: Add Entry / Import Dir
         entry_pair = QWidget()
         entry_pair_vbox = QVBoxLayout(entry_pair)
         entry_pair_vbox.setContentsMargins(0, 0, 0, 0)
@@ -194,7 +207,7 @@ class SeriesListingsUIBuilder(TabBoundController):
         entry_pair_vbox.addWidget(import_dir_btn)
         toolbar.addWidget(entry_pair)
 
-        # ── Pair 2: Load Backup (top) / Sync Backup (bottom) ─────────
+        # Pair 2: Load Backup / Sync Backup
         backup_pair = QWidget()
         backup_pair_vbox = QVBoxLayout(backup_pair)
         backup_pair_vbox.setContentsMargins(0, 0, 0, 0)
@@ -218,12 +231,7 @@ class SeriesListingsUIBuilder(TabBoundController):
 
         root.addWidget(toolbar_container)
 
-        # ---- Stats bar ----
-        self.stats_label = QLabel("")
-        self.stats_label.setStyleSheet(qss("listings_stats"))
-        root.addWidget(self.stats_label)
-
-        # ---- Splitter: gallery | detail ----
+    def _build_splitter(self, root: QVBoxLayout) -> None:
         splitter = QSplitter(Qt.Orientation.Horizontal)
 
         # Gallery
@@ -258,7 +266,7 @@ class SeriesListingsUIBuilder(TabBoundController):
         gallery_vbox.addLayout(pager)
         splitter.addWidget(gallery_container)
 
-        # Detail panel (wrapped in a scroll area)
+        # Detail panel
         detail_scroll = QScrollArea()
         detail_scroll.setWidgetResizable(True)
         detail_scroll.setStyleSheet(qss("bordered_scroll_area"))
@@ -272,19 +280,6 @@ class SeriesListingsUIBuilder(TabBoundController):
         splitter.setSizes([680, 340])
         splitter.setHandleWidth(6)
         root.addWidget(splitter, 1)
-
-        # Context Menu for Gallery background
-        self.gallery_scroll.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self.gallery_scroll.customContextMenuRequested.connect(self._show_gallery_context_menu)
-
-        # ---- Load data ----
-        self._load_data()
-        self._rebuild_gallery()
-        self._detail.clear_for_new()
-
-        # Debounced resize — avoid rebuilding the gallery on every pixel of a drag.
-        self._resize_timer.setSingleShot(True)
-        self._resize_timer.setInterval(120)
 
 
 __all__ = ["SeriesListingsUIBuilder"]

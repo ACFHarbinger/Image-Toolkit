@@ -34,7 +34,6 @@ from gui.src.tabs.core.sampler_subtab._scale_mode import (
 )
 from gui.src.tabs.core.sampler_subtab._ui_builder import (
     SamplerUIBuilder,
-    _UIBuilderMixin,
 )
 
 pytestmark = pytest.mark.gui
@@ -76,7 +75,6 @@ class TestSamplerComposition:
         assert _PreviewContextMixin is SamplerPreviewController
         assert _ResampleWorkerMixin is SamplerWorkerController
         assert _ScaleModeMixin is SamplerScaleModeController
-        assert _UIBuilderMixin is SamplerUIBuilder
 
     def test_tab_bound_controller_attribute_proxy(self, q_app):
         tab = SamplerSubTab()
