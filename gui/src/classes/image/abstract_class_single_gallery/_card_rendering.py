@@ -12,8 +12,13 @@ from typing import TYPE_CHECKING, Optional
 from backend.src.constants import SUPPORTED_VIDEO_FORMATS
 from PySide6.QtCore import Qt, Slot
 from PySide6.QtGui import QColor, QPainter, QPixmap
-from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QLabel, QWidget
 
+from gui.src.components.gallery.card_factory import (
+    apply_preview_highlight,
+    create_gallery_card,
+    reset_preview_highlight,
+)
 from gui.src.qt_object_guard import deleted_qobject_guard
 from gui.src.theming.theme_api import accent_rgba, color, qss
 
@@ -54,12 +59,13 @@ class _CardRenderingMixin:
         gallery = getattr(self, "gallery", None)
 
         def reset_card(path, card):
-            if not card or not path:
-                return
             try:
-                if card.property("preview_highlighted"):
-                    card.setProperty("preview_highlighted", False)
-                    self.update_card_style(card, self.is_path_selected(path))
+                reset_preview_highlight(
+                    card,
+                    path,
+                    is_selected=self.is_path_selected(path) if path else False,
+                    update_style=self.update_card_style,
+                )
             except RuntimeError as exc:
                 deleted_qobject_guard(exc, "_CardRenderingMixin.update_preview_highlight.reset_card")
 
@@ -71,18 +77,17 @@ class _CardRenderingMixin:
             sender_win = self.sender()
             if sender_win in self.open_preview_windows:
                 with contextlib.suppress(ValueError):
-                    self.open_preview_windows.remove(sender_win) # pyrefly: ignore [bad-argument-type]
+                    self.open_preview_windows.remove(sender_win)  # pyrefly: ignore [bad-argument-type]
             return
 
         def highlight_card(path, card):
-            if not card or not path:
-                return
             try:
-                self.update_card_style(card, self.is_path_selected(path))
-                if not card.property("preview_highlighted"):
-                    card.setProperty("preview_highlighted", True)
-                    current = card.styleSheet().strip()
-                    card.setStyleSheet(qss("gallery_card_preview_overlay", BASE_STYLE=current))
+                apply_preview_highlight(
+                    card,
+                    path,
+                    is_selected=self.is_path_selected(path) if path else False,
+                    update_style=self.update_card_style,
+                )
             except RuntimeError as exc:
                 deleted_qobject_guard(exc, "_CardRenderingMixin.update_preview_highlight.highlight_card")
 
@@ -90,41 +95,24 @@ class _CardRenderingMixin:
         if gallery is not None and hasattr(gallery, "mark_preview"):
             gallery.mark_preview(new_path, True)
 
-    def create_card_widget(self: "AbstractClassSingleGalleryHostProtocol", path: str, pixmap: Optional[QPixmap]) -> QWidget:
-        container = QWidget()
-        container.setFixedSize(self.approx_item_width, self.approx_item_width)
-
-        layout = QVBoxLayout(container)
-        layout.setContentsMargins(5, 5, 5, 5)
-        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-        # Factory method
-        label = self.create_gallery_label(path, self.thumbnail_size)
-        # label.setAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent) # Removed to fix artifacts
-
-        # Initial State
+    def create_card_widget(
+        self: "AbstractClassSingleGalleryHostProtocol", path: str, pixmap: Optional[QPixmap]
+    ) -> QWidget:
         is_video = path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
-
-        if (pixmap and not pixmap.isNull()) or (
-            hasattr(self, "_failed_paths") and path in self._failed_paths
-        ):
-            self.update_card_pixmap(container, pixmap, label_ref=label)
-        else:
-            # Default "Loading..." State
-            label.clear()
-            label.setText("Loading...")
-            if is_video:
-                label.setStyleSheet(qss("gallery_card_video_loading"))
-            else:
-                label.setStyleSheet(qss("gallery_card_loading_image"))
-
-        layout.addWidget(label)
-
-        # Apply Initial Style
-        is_selected = path in self.selected_files
-        self.update_card_style(container, is_selected)
-
-        return container
+        failed = hasattr(self, "_failed_paths") and path in self._failed_paths
+        return create_gallery_card(
+            path=path,
+            pixmap=pixmap,
+            thumb_size=self.thumbnail_size,
+            selected=path in self.selected_files,
+            variant="single",
+            approx_item_width=self.approx_item_width,
+            create_label=self.create_gallery_label,
+            update_style=self.update_card_style,
+            failed=bool(failed),
+            is_video=is_video,
+            apply_pixmap=lambda container, pix, label: self.update_card_pixmap(container, pix, label_ref=label),
+        )
 
     def update_card_pixmap(
         self: "AbstractClassSingleGalleryHostProtocol",
@@ -159,10 +147,7 @@ class _CardRenderingMixin:
 
         # 2. Check Success State
         if pixmap and not pixmap.isNull():
-            if (
-                pixmap.width() > self.thumbnail_size
-                or pixmap.height() > self.thumbnail_size
-            ):
+            if pixmap.width() > self.thumbnail_size or pixmap.height() > self.thumbnail_size:
                 scaled = pixmap.scaled(
                     self.thumbnail_size,
                     self.thumbnail_size,
