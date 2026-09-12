@@ -36,10 +36,12 @@ class _RemoteMapMixin:
             dry_run=True,
             user_email_to_share_with=None,
         )
-        self.current_worker.signals.status_update.connect(self.handle_status_update)
-        self.current_worker.signals.sync_finished.connect(
+        self.current_worker.signals.status.connect(self.handle_status_update)
+        self.current_worker.signals.finished.connect(
             # Proxy lambda to ignore the dry_run boolean for this specific action
-            lambda s, m, d: self.handle_view_finished(s, m)
+            lambda res: self.handle_view_finished(
+                *(res if res is not None else (False, "Remote map worker failed."))
+            )
         )
 
         QThreadPool.globalInstance().start(self.current_worker)

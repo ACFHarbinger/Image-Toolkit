@@ -1,8 +1,6 @@
 import logging
 from typing import Any, Dict, List, Optional, Tuple
 
-import cv2
-import numpy as np
 from backend.src.constants import SSIM_C1, SSIM_C2
 from backend.src.core import DuplicateFinder, SimilarityFinder
 from PySide6.QtCore import (
@@ -55,6 +53,7 @@ class DuplicateScanWorker(QObject):
 
         if recursive is None:
             from gui.src.windows.settings.app_settings import AppSettings
+
             self.recursive = AppSettings.recursive_scan()
         else:
             self.recursive = recursive
@@ -78,9 +77,7 @@ class DuplicateScanWorker(QObject):
                 self.status.emit("Listing all supported files...")
 
                 # Reusing the image listing utility from SimilarityFinder
-                images = SimilarityFinder.get_images_list(
-                    self.directory, self.extensions, recursive=self.recursive
-                )
+                images = SimilarityFinder.get_images_list(self.directory, self.extensions, recursive=self.recursive)
 
                 if not images:
                     self.finished.emit({})
@@ -108,9 +105,7 @@ class DuplicateScanWorker(QObject):
             # --- 2. PARALLEL PROCESSING (pHash / ORB) ---
             elif self.method in ["phash", "orb", "sift", "ssim", "siamese"]:
                 self.status.emit("Indexing images...")
-                images = SimilarityFinder.get_images_list(
-                    self.directory, self.extensions, recursive=self.recursive
-                )
+                images = SimilarityFinder.get_images_list(self.directory, self.extensions, recursive=self.recursive)
                 self.total_files = len(images)
 
                 if self.total_files == 0:
@@ -120,9 +115,7 @@ class DuplicateScanWorker(QObject):
                 # Start the Aggregation Loop
                 self.aggregator_loop = QEventLoop()
 
-                self.status.emit(
-                    f"Queueing {self.total_files} images for processing..."
-                )
+                self.status.emit(f"Queueing {self.total_files} images for processing...")
 
                 # Submit all tasks
                 for path in images:
@@ -138,7 +131,7 @@ class DuplicateScanWorker(QObject):
                     else:
                         task = OrbTask(path)
 
-                    task.signals.result.connect(self._on_task_result)
+                    task.signals.finished.connect(self._on_task_result)
                     self.thread_pool.start(task)
 
                 # Block execution here until all tasks report back via signals
@@ -152,36 +145,31 @@ class DuplicateScanWorker(QObject):
                 if self.method == "phash":
                     results = self._compare_phash(self.scan_cache)
                 elif self.method == "ssim":
+                    import cv2
 
                     def _ssim_sim(img1, img2) -> bool:
                         mu1 = cv2.GaussianBlur(img1, (11, 11), 1.5)
                         mu1_sq = mu1 * mu1
-                        sigma1_sq = (
-                            cv2.GaussianBlur(img1 * img1, (11, 11), 1.5) - mu1_sq
-                        )
+                        sigma1_sq = cv2.GaussianBlur(img1 * img1, (11, 11), 1.5) - mu1_sq
                         mu2 = cv2.GaussianBlur(img2, (11, 11), 1.5)
                         mu2_sq = mu2 * mu2
-                        sigma2_sq = (
-                            cv2.GaussianBlur(img2 * img2, (11, 11), 1.5) - mu2_sq
-                        )
+                        sigma2_sq = cv2.GaussianBlur(img2 * img2, (11, 11), 1.5) - mu2_sq
                         mu1_mu2 = mu1 * mu2
                         sigma12 = cv2.GaussianBlur(img1 * img2, (11, 11), 1.5) - mu1_mu2
                         num = (2 * mu1_mu2 + SSIM_C1) * (2 * sigma12 + SSIM_C2)
-                        den = (mu1_sq + mu2_sq + SSIM_C1) * (
-                            sigma1_sq + sigma2_sq + SSIM_C2
-                        )
+                        den = (mu1_sq + mu2_sq + SSIM_C1) * (sigma1_sq + sigma2_sq + SSIM_C2)
                         return cv2.mean(num / den)[0] > 0.90
 
                     results = self._chunked_compare("ssim", _ssim_sim)
                 elif self.method == "sift":
+                    import cv2
+
                     _bf = cv2.BFMatcher(cv2.NORM_L2, crossCheck=False)
 
                     def _sift_sim(des1, des2) -> bool:
                         try:
                             matches = _bf.knnMatch(des1, des2, k=2)
-                            good = [
-                                m for m, n in matches if m.distance < 0.75 * n.distance
-                            ]
+                            good = [m for m, n in matches if m.distance < 0.75 * n.distance]
                             return len(good) > 10 and (len(good) / len(des1)) > 0.20
                         except Exception:
                             return False
@@ -239,9 +227,7 @@ class DuplicateScanWorker(QObject):
         boundaries so correctness is identical to the single-pass algorithm.
         """
         all_paths = sorted(self.scan_cache.keys())
-        chunks = [
-            all_paths[i : i + chunk_size] for i in range(0, len(all_paths), chunk_size)
-        ]
+        chunks = [all_paths[i : i + chunk_size] for i in range(0, len(all_paths), chunk_size)]
         n_chunks = len(chunks)
 
         # Union-Find for transitive grouping
@@ -331,6 +317,8 @@ class DuplicateScanWorker(QObject):
         """
         Sequential comparison using Structural Similarity Index.
         """
+        import cv2
+
         results = {}
         ungrouped = list(cache.keys())
         gid = 0
@@ -361,9 +349,7 @@ class DuplicateScanWorker(QObject):
 
                 # Formula: (2*mu1*mu2 + C1) * (2*sig12 + C2) / ((mu1^2 + mu2^2 + C1) * (sig1^2 + sig2^2 + C2))
                 numerator = (2 * mu1_mu2 + SSIM_C1) * (2 * sigma12 + SSIM_C2)
-                denominator = (mu1_sq + mu2_sq + SSIM_C1) * (
-                    sigma1_sq + sigma2_sq + SSIM_C2
-                )
+                denominator = (mu1_sq + mu2_sq + SSIM_C1) * (sigma1_sq + sigma2_sq + SSIM_C2)
 
                 ssim_map = numerator / denominator
                 score = cv2.mean(ssim_map)[0]
@@ -387,6 +373,8 @@ class DuplicateScanWorker(QObject):
         """
         Sequential comparison of cached descriptors.
         """
+        import cv2
+
         results = {}
         bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
         ungrouped = list(cache.keys())
@@ -423,6 +411,8 @@ class DuplicateScanWorker(QObject):
         """
         Sequential comparison of SIFT descriptors using L2 Norm.
         """
+        import cv2
+
         results = {}
         # SIFT uses Euclidean Distance (NORM_L2), not Hamming
         bf = cv2.BFMatcher(cv2.NORM_L2, crossCheck=False)
@@ -472,6 +462,8 @@ class DuplicateScanWorker(QObject):
         """
         Matrix-based Cosine Similarity comparison for Embeddings.
         """
+        import numpy as np
+
         results = {}
         paths = list(cache.keys())
         if not paths:

@@ -25,15 +25,18 @@ from gui.src.components.tag_chip_widget import FlowLayout
 from gui.src.constants.listings import ENTITY_ROLES, ENTITY_TYPES
 from gui.src.elements.database.common.listings_common import _persist_splitter
 from gui.src.elements.database.display.entity_detail_panel import _EntityDetailPanel
-from gui.src.styles import SHARED_BUTTON_STYLE, apply_shadow_effect
+from gui.src.styles import apply_shadow_effect
+
+from ....theming.theme_api import qss
+from ._tab_bound import TabBoundController
 
 
-class _UIBuilderMixin:
+class EntityListingsUIBuilder(TabBoundController):
     """Builds the toolbar, stats bar, and gallery/detail splitter."""
 
     def _build_ui(self) -> None:
         # ---- Root layout ----
-        root = QVBoxLayout(self)
+        root = QVBoxLayout(self.tab)
         root.setContentsMargins(12, 12, 12, 8)
         root.setSpacing(8)
 
@@ -47,7 +50,7 @@ class _UIBuilderMixin:
         toolbar.setSpacing(8)
 
         title_lbl = QLabel("👥 Entity Listings")
-        title_lbl.setStyleSheet("font-size:18px;font-weight:bold;color:#00bcd4;")
+        title_lbl.setStyleSheet(qss("listings_title"))
         toolbar.addWidget(title_lbl)
 
         self.search_box = QLineEdit()
@@ -94,13 +97,13 @@ class _UIBuilderMixin:
         _semantic_vbox.setSpacing(3)
 
         semantic_btn = QPushButton("🧠 Search by\nMeaning")
-        semantic_btn.setStyleSheet(SHARED_BUTTON_STYLE)
+        semantic_btn.setStyleSheet(qss("shared_button"))
         semantic_btn.setFixedWidth(140)
         semantic_btn.clicked.connect(self._on_semantic_search)
         apply_shadow_effect(semantic_btn)
 
         build_index_btn = QPushButton("⚙️ Build Search\nIndex")
-        build_index_btn.setStyleSheet(SHARED_BUTTON_STYLE)
+        build_index_btn.setStyleSheet(qss("shared_button"))
         build_index_btn.setFixedWidth(140)
         build_index_btn.clicked.connect(self._on_build_search_index)
         apply_shadow_effect(build_index_btn)
@@ -123,13 +126,13 @@ class _UIBuilderMixin:
         entity_pair_vbox.setSpacing(3)
 
         add_btn = QPushButton("＋ Add Entity")
-        add_btn.setStyleSheet(SHARED_BUTTON_STYLE)
+        add_btn.setStyleSheet(qss("shared_button"))
         add_btn.setFixedWidth(120)
         add_btn.clicked.connect(self._on_add_new)
         apply_shadow_effect(add_btn)
 
         import_dir_btn = QPushButton("📂 Import Dir")
-        import_dir_btn.setStyleSheet(SHARED_BUTTON_STYLE)
+        import_dir_btn.setStyleSheet(qss("shared_button"))
         import_dir_btn.setFixedWidth(120)
         import_dir_btn.setToolTip("Scan an entity image directory and auto-create listings.")
         import_dir_btn.clicked.connect(self._on_import_from_directory)
@@ -146,13 +149,13 @@ class _UIBuilderMixin:
         backup_pair_vbox.setSpacing(3)
 
         sync_btn = QPushButton("🔄 Load Backup")
-        sync_btn.setStyleSheet(SHARED_BUTTON_STYLE)
+        sync_btn.setStyleSheet(qss("shared_button"))
         sync_btn.setFixedWidth(130)
         sync_btn.clicked.connect(self._synchronize_listings)
         apply_shadow_effect(sync_btn)
 
         update_btn = QPushButton("⚡ Sync Backup")
-        update_btn.setStyleSheet(SHARED_BUTTON_STYLE)
+        update_btn.setStyleSheet(qss("shared_button"))
         update_btn.setFixedWidth(130)
         update_btn.clicked.connect(self._update_encrypted_backup)
         apply_shadow_effect(update_btn)
@@ -165,7 +168,7 @@ class _UIBuilderMixin:
 
         # ---- Stats bar ----
         self.stats_label = QLabel("")
-        self.stats_label.setStyleSheet("color:#888;font-size:11px;")
+        self.stats_label.setStyleSheet(qss("listings_stats"))
         root.addWidget(self.stats_label)
 
         # ---- Splitter: gallery | detail ----
@@ -179,7 +182,7 @@ class _UIBuilderMixin:
 
         self.gallery_scroll = MarqueeScrollArea()
         self.gallery_scroll.setWidgetResizable(True)
-        self.gallery_scroll.setStyleSheet("QScrollArea{border:1px solid #4f545c;border-radius:8px;}")
+        self.gallery_scroll.setStyleSheet(qss("bordered_scroll_area"))
         self._grid_widget = QWidget()
         self._grid = QGridLayout(self._grid_widget)
         self._grid.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
@@ -206,7 +209,7 @@ class _UIBuilderMixin:
         # Detail panel (wrapped in a scroll area)
         detail_scroll = QScrollArea()
         detail_scroll.setWidgetResizable(True)
-        detail_scroll.setStyleSheet("QScrollArea{border:1px solid #4f545c;border-radius:8px;}")
+        detail_scroll.setStyleSheet(qss("bordered_scroll_area"))
         self._detail = _EntityDetailPanel(vault_manager=self.vault_manager)
         self._detail.saved.connect(self._on_entity_saved)
         self._detail.deleted.connect(self._on_entity_deleted)
@@ -232,4 +235,4 @@ class _UIBuilderMixin:
         self._resize_timer.setInterval(120)
 
 
-__all__ = ["_UIBuilderMixin"]
+__all__ = ["EntityListingsUIBuilder"]

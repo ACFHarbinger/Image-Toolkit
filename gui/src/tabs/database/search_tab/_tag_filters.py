@@ -13,6 +13,7 @@ from PySide6.QtCore import Qt, Slot
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QListWidgetItem
 
+from ....theming.theme_api import color
 from ....utils.sort_utils import natural_sort_key
 from ._tab_bound import TabBoundController
 
@@ -85,12 +86,8 @@ class SearchTagFiltersController(TabBoundController):
             item = QListWidgetItem(tag_name.replace("_", " ").title())
             item.setData(Qt.ItemDataRole.UserRole, tag_name)
             item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
-            item.setCheckState(
-                Qt.CheckState.Checked
-                if tag_name in previously_checked
-                else Qt.CheckState.Unchecked
-            )
-            text_color = color_map.get(tag_category, "#95a5a6")
+            item.setCheckState(Qt.CheckState.Checked if tag_name in previously_checked else Qt.CheckState.Unchecked)
+            text_color = color_map.get(tag_category, color("muted_text"))
             item.setForeground(QColor(text_color))
             self.tags_list_widget.addItem(item)
         self.tags_list_widget.blockSignals(False)
@@ -126,10 +123,8 @@ class SearchTagFiltersController(TabBoundController):
             item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
             # All categories start checked; preserve state on refresh
             is_checked = (not previously_checked_types) or (t in previously_checked_types)
-            item.setCheckState(
-                Qt.CheckState.Checked if is_checked else Qt.CheckState.Unchecked
-            )
-            item.setForeground(QColor(color_map.get(t, "#95a5a6")))
+            item.setCheckState(Qt.CheckState.Checked if is_checked else Qt.CheckState.Unchecked)
+            item.setForeground(QColor(color_map.get(t, color("muted_text"))))
             self.tag_types_list_widget.addItem(item)
         self.tag_types_list_widget.blockSignals(False)
 

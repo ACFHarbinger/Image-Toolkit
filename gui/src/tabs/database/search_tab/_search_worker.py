@@ -55,17 +55,18 @@ class SearchWorkerController(TabBoundController):
     @Slot(list)
     def on_search_finished(self, matching_files: list):
         self.current_search_worker = None
+        if matching_files is None:
+            self._reset_search_ui("Search failed.")
+            return
         self._reset_search_ui(f"Search Complete. Found {len(matching_files)} images.")
         self.display_results(matching_files)
 
-    @Slot(str)
-    def on_search_error(self, error_msg: str):
+    @Slot(object)
+    def on_search_error(self, exc: Exception):
         self.current_search_worker = None
         self._reset_search_ui("Search Failed.")
-        QMessageBox.critical(
-            self.tab, "Search Error", f"An error occurred during search:\n{error_msg}"
-        )
-        self.results_count_label.setText(f"Error: {error_msg}")
+        QMessageBox.critical(self.tab, "Search Error", f"An error occurred during search:\n{exc}")
+        self.results_count_label.setText(f"Error: {exc}")
 
     @Slot()
     def on_search_cancelled(self):

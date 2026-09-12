@@ -41,11 +41,7 @@ class SearchConfigController(TabBoundController):
             selected_groups = set(config.get("group_names", []) or [])
             for i in range(self.groups_list_widget.count()):
                 item = self.groups_list_widget.item(i)
-                item.setCheckState(
-                    Qt.CheckState.Checked
-                    if item.text() in selected_groups
-                    else Qt.CheckState.Unchecked
-                )
+                item.setCheckState(Qt.CheckState.Checked if item.text() in selected_groups else Qt.CheckState.Unchecked)
             # Restore subgroup selections
             selected_subgroups = set(config.get("subgroup_names", []) or [])
             for i in range(self.subgroups_list_widget.count()):
@@ -74,13 +70,9 @@ class SearchConfigController(TabBoundController):
                         self.toggle_format(fmt, True)
             else:
                 self.input_formats_edit.setText(" ".join(formats))
-            QMessageBox.information(
-                self.tab, "Config Loaded", "Search configuration applied successfully."
-            )
+            QMessageBox.information(self.tab, "Config Loaded", "Search configuration applied successfully.")
         except Exception as e:
-            QMessageBox.critical(
-                self.tab, "Config Error", f"Failed to apply search configuration:\n{e}"
-            )
+            QMessageBox.critical(self.tab, "Config Error", f"Failed to apply search configuration:\n{e}")
 
 
 _ConfigMixin = SearchConfigController  # COMPAT(ui-arch-23): remove after callers drop the mixin name

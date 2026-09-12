@@ -11,6 +11,7 @@ from gui.src.components.grouped_tags_display import GroupedTagsDisplay
 from gui.src.constants.listings import (
     ENTITY_ROLES,
     ENTITY_TYPES,
+    RATING_STAR_COLOR,
 )
 from gui.src.elements.database.dialog import (
     _AssociatedContentDialog,
@@ -20,7 +21,8 @@ from gui.src.elements.database.dialog.credit_dialog import _CreditDialog
 from gui.src.elements.database.display.common.base_detail_panel import BaseDetailPanel
 from gui.src.helpers.database.library_session import get_library_db
 from gui.src.helpers.image import apply_thumbnail_to_label
-from gui.src.styles import SHARED_BUTTON_STYLE, apply_shadow_effect
+from gui.src.styles import apply_shadow_effect
+from gui.src.theming.theme_api import qss
 from PySide6.QtCore import Qt, QTimer, Signal, Slot
 from PySide6.QtWidgets import (
     QComboBox,
@@ -60,9 +62,7 @@ class _EntityDetailPanel(BaseDetailPanel):
         # Image preview setup from BaseDetailPanel
         self.img_preview.setFixedSize(160, 160)
         self.img_preview.setText("No Image")
-        self.img_preview.setStyleSheet(
-            "border:2px dashed #4f545c;border-radius:8px;color:#888;font-size:12px;"
-        )
+        self.img_preview.setStyleSheet(qss("detail_panel_img_preview_empty"))
 
         img_row = QHBoxLayout()
         img_row.addWidget(self.img_preview)
@@ -137,7 +137,7 @@ class _EntityDetailPanel(BaseDetailPanel):
         # This entity's own tags plus tags carried transitively through
         # associated series (Danbooru-style tag overhaul).
         tags_group = QGroupBox("All Tags (by Category)")
-        tags_group.setStyleSheet("QGroupBox{font-weight:bold; color:#00bcd4;}")
+        tags_group.setStyleSheet(qss("detail_panel_group_accent"))
         tags_group_layout = QVBoxLayout(tags_group)
 
         tags_header_row = QHBoxLayout()
@@ -155,7 +155,7 @@ class _EntityDetailPanel(BaseDetailPanel):
 
         # --- Credit List Section ---
         self.credits_group = QGroupBox("Works / Credits / Appearances")
-        self.credits_group.setStyleSheet("QGroupBox{font-weight:bold; color:#00bcd4;}")
+        self.credits_group.setStyleSheet(qss("detail_panel_group_accent"))
         cg_layout = QVBoxLayout(self.credits_group)
 
         self.credit_list_layout = QVBoxLayout()
@@ -169,13 +169,13 @@ class _EntityDetailPanel(BaseDetailPanel):
 
         # --- Linked Images Section (DB.8b: entity <-> images) ---
         self.linked_images_group = QGroupBox("Linked Images")
-        self.linked_images_group.setStyleSheet("QGroupBox{font-weight:bold; color:#00bcd4;}")
+        self.linked_images_group.setStyleSheet(qss("detail_panel_group_accent"))
         lig_layout = QVBoxLayout(self.linked_images_group)
 
         self.linked_images_scroll = QScrollArea()
         self.linked_images_scroll.setWidgetResizable(True)
         self.linked_images_scroll.setFixedHeight(90)
-        self.linked_images_scroll.setStyleSheet("QScrollArea{border:none;}")
+        self.linked_images_scroll.setStyleSheet(qss("scroll_area_borderless"))
         self.linked_images_container = QWidget()
         self.linked_images_layout = QHBoxLayout(self.linked_images_container)
         self.linked_images_layout.setContentsMargins(0, 0, 0, 0)
@@ -192,16 +192,12 @@ class _EntityDetailPanel(BaseDetailPanel):
         # Action buttons
         btn_row = QHBoxLayout()
         self.save_btn = QPushButton("💾 Save")
-        self.save_btn.setStyleSheet(SHARED_BUTTON_STYLE)
+        self.save_btn.setStyleSheet(qss("shared_button"))
         self.save_btn.clicked.connect(self._on_save)
         apply_shadow_effect(self.save_btn)
 
         self.del_btn = QPushButton("🗑 Delete")
-        self.del_btn.setStyleSheet(
-            "QPushButton{background:#c0392b;color:white;font-weight:bold;"
-            "padding:10px;border-radius:8px;}"
-            "QPushButton:hover{background:#e74c3c;}"
-        )
+        self.del_btn.setStyleSheet(qss("detail_panel_delete_btn"))
         self.del_btn.clicked.connect(self._on_delete)
         apply_shadow_effect(self.del_btn)
 
@@ -254,9 +250,7 @@ class _EntityDetailPanel(BaseDetailPanel):
         self.grouped_tags_display.set_grouped_tags({})
         self.img_preview.clear()
         self.img_preview.setText("No Image")
-        self.img_preview.setStyleSheet(
-            "border:2px dashed #4f545c;border-radius:8px;color:#888;font-size:12px;"
-        )
+        self.img_preview.setStyleSheet(qss("detail_panel_img_preview_empty"))
         self._refresh_credit_list()
         self._refresh_linked_images()
         self.del_btn.setVisible(False)
@@ -324,9 +318,7 @@ class _EntityDetailPanel(BaseDetailPanel):
 
         for cr in sorted_credits:
             row = QFrame()
-            row.setStyleSheet(
-                "QFrame{background:#23272a; border-radius:4px; padding:2px;}"
-            )
+            row.setStyleSheet(qss("detail_panel_episode_row"))
             rl = QHBoxLayout(row)
             rl.setContentsMargins(6, 4, 6, 4)
 
@@ -346,9 +338,7 @@ class _EntityDetailPanel(BaseDetailPanel):
                 40,
                 worker_size=80,
                 placeholder_text="No Img",
-                placeholder_style=(
-                    "background:#1a1c1e; border-radius:3px; color:#555; font-size:8px;"
-                ),
+                placeholder_component="detail_panel_thumb_placeholder",
             )
             rl.addWidget(t_lbl)
 
@@ -358,7 +348,7 @@ class _EntityDetailPanel(BaseDetailPanel):
             rl.addWidget(info, 1)
             if rating:
                 r_lbl = QLabel("★" * rating)
-                r_lbl.setStyleSheet("color:#f1c40f; font-size:10px;")
+                r_lbl.setStyleSheet(qss("database_card_rating_small", STAR_COLOR=RATING_STAR_COLOR))
                 rl.addWidget(r_lbl)
 
             edit_btn = QPushButton("✎")
@@ -412,16 +402,14 @@ class _EntityDetailPanel(BaseDetailPanel):
                 70,
                 worker_size=100,
                 placeholder_text="No Img",
-                placeholder_style=(
-                    "background:#1a1c1e; border-radius:3px; color:#555; font-size:8px;"
-                ),
+                placeholder_component="detail_panel_thumb_placeholder",
             )
             thumb.setToolTip(img["file_path"])
             cell_layout.addWidget(thumb)
 
             remove_btn = QPushButton("✕ Unlink")
             remove_btn.setFixedHeight(18)
-            remove_btn.setStyleSheet("font-size:9px; padding:0px;")
+            remove_btn.setStyleSheet(qss("detail_panel_unlink_btn"))
             remove_btn.clicked.connect(
                 lambda _, image_id=img["id"]: self._unlink_image(image_id)
             )

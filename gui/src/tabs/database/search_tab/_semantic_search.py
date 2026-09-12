@@ -25,27 +25,24 @@ from PySide6.QtWidgets import (
 
 from ....helpers import SemanticSearchWorker
 from ....styles import apply_shadow_effect
+from ....theming.theme_api import color
 from ._tab_bound import TabBoundController
 
 
 class SearchSemanticController(TabBoundController):
-    """"Search by Meaning" natural-language box."""
+    """ "Search by Meaning" natural-language box."""
 
     def _build_semantic_search_section(self, layout: QVBoxLayout) -> None:
         group = QGroupBox("🧠 Semantic Search (find images by meaning, not filename)")
         group_layout = QHBoxLayout(group)
 
         self.semantic_query_edit = QLineEdit()
-        self.semantic_query_edit.setPlaceholderText(
-            "Describe what you're looking for, e.g. \"a sunset over water\"…"
-        )
+        self.semantic_query_edit.setPlaceholderText('Describe what you\'re looking for, e.g. "a sunset over water"…')
         self.semantic_query_edit.returnPressed.connect(self.perform_semantic_search)
         group_layout.addWidget(self.semantic_query_edit)
 
         self.semantic_search_button = QPushButton("Search by Meaning")
-        apply_shadow_effect(
-            self.semantic_search_button, color_hex="#000000", radius=8, x_offset=0, y_offset=3
-        )
+        apply_shadow_effect(self.semantic_search_button, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3)
         self.semantic_search_button.clicked.connect(self.perform_semantic_search)
         group_layout.addWidget(self.semantic_search_button)
 
@@ -59,9 +56,7 @@ class SearchSemanticController(TabBoundController):
             return
         query = self.semantic_query_edit.text().strip()
         if not query:
-            QMessageBox.information(
-                self.tab, "Semantic Search", "Enter a description to search by meaning."
-            )
+            QMessageBox.information(self.tab, "Semantic Search", "Enter a description to search by meaning.")
             return
         if self.current_semantic_worker is not None:
             return
@@ -110,18 +105,21 @@ class SearchSemanticController(TabBoundController):
         self._perform_found_search()
 
     def _on_semantic_search_finished(self, hits: list) -> None:
+        if hits is None:
+            self._reset_semantic_ui("Semantic search failed.")
+            return
         self._reset_semantic_ui(f"Semantic search: {len(hits)} match(es).")
         self._display_ranked_results(hits)
 
-    def _on_semantic_search_error(self, message: str) -> None:
+    def _on_semantic_search_error(self, exc: Exception) -> None:
         self._reset_semantic_ui("Semantic search failed.")
-        QMessageBox.critical(self.tab, "Semantic Search Error", message)
+        QMessageBox.critical(self.tab, "Semantic Search Error", str(exc))
 
     def _on_semantic_search_cancelled(self) -> None:
         self._reset_semantic_ui("Semantic search cancelled.")
 
     def find_similar_images(self, file_path: str) -> None:
-        """"Find similar" context-menu action -- query by *file_path*'s own
+        """ "Find similar" context-menu action -- query by *file_path*'s own
         embedding (computed on the fly; not persisted, unlike the
         Management backfill's stored embeddings)."""
         db = self.database_service.db
@@ -129,9 +127,7 @@ class SearchSemanticController(TabBoundController):
             QMessageBox.warning(self.tab, "Error", "Please connect to the database first.")
             return
         if self.current_semantic_worker is not None:
-            QMessageBox.information(
-                self.tab, "Busy", "A semantic search is already in progress."
-            )
+            QMessageBox.information(self.tab, "Busy", "A semantic search is already in progress.")
             return
 
         image_row = db.get_image_by_path(file_path)
@@ -142,7 +138,10 @@ class SearchSemanticController(TabBoundController):
         self.progress_bar.show()
 
         worker = SemanticSearchWorker(
-            db, image_path=file_path, top_k=100, exclude_image_id=exclude_id,
+            db,
+            image_path=file_path,
+            top_k=100,
+            exclude_image_id=exclude_id,
         )
         worker.signals.finished.connect(self._on_semantic_search_finished)
         worker.signals.error.connect(self._on_semantic_search_error)

@@ -11,6 +11,7 @@ from PySide6.QtWidgets import QLabel, QScrollArea, QVBoxLayout, QWidget
 from ....classes import AbstractClassSingleGallery
 from ....components import ClickableLabel
 from ....helpers import ImageScannerWorker, MergeWorker
+from ....theming.theme_api import qss
 from ._canvas_controls import _CanvasControlsMixin
 from ._config_persistence import _ConfigPersistenceMixin
 from ._lifecycle_qml import _LifecycleQmlMixin
@@ -81,7 +82,7 @@ class MergeTab(
 
         self.page_scroll = QScrollArea()
         self.page_scroll.setWidgetResizable(True)
-        self.page_scroll.setStyleSheet("QScrollArea { border: none; }")
+        self.page_scroll.setStyleSheet(qss("scroll_area_borderless"))
         self.page_scroll.installEventFilter(self)
         self.page_scroll.viewport().installEventFilter(self)
 

@@ -18,6 +18,7 @@ from PySide6.QtCore import QUrl, Slot
 from PySide6.QtWidgets import QFileDialog, QLabel, QMessageBox, QWidget
 
 from ....components import ClickableLabel
+from ._player_lifecycle import PlayerLifecycleState
 
 if TYPE_CHECKING:
     from ..protos.extractor_tab import VideoExtractorSubTabHostProtocol
@@ -195,6 +196,8 @@ class _VideoSessionHistoryMixin:
         if ext == ".gif":
             self.video_container_widget.setVisible(False)
             self.extract_group.setVisible(False)
+            # No internal player exists for a GIF selection either way.
+            self._set_player_lifecycle_state(PlayerLifecycleState.NOT_LOADED, video_path=file_path)
             if defer_player:
                 # Session-recovery restore: set up all UI state but do NOT
                 # touch the Qt Multimedia player (issue #81 crash family).
@@ -264,11 +267,13 @@ class _VideoSessionHistoryMixin:
             # player / forking ffmpeg during the startup burst -- with the
             # JVM loaded -- reliably aborts the process (issue #81).
             self._media_load_pending = True
+            self._set_player_lifecycle_state(PlayerLifecycleState.RESTORED, video_path=file_path)
             return
 
         self._media_load_pending = False
         self._apply_player_mode()
         self._start_storyboard()
+        self._set_player_lifecycle_state(PlayerLifecycleState.PLAYER_READY, video_path=file_path)
 
     @Slot()
     def browse_extraction_directory(self: "VideoExtractorSubTabHostProtocol"):

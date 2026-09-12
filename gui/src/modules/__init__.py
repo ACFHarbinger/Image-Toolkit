@@ -61,6 +61,7 @@ from .stitch_workspace import (
     register_stitch_workspace,
     stitch_workspace_enabled,
 )
+from .tab_factory import build_tab
 
 __all__ = [
     "CatalogDescriptor",
@@ -106,6 +107,7 @@ __all__ = [
     "WidgetHandle",
     "WorkspaceDescriptor",
     "build_application_catalog",
+    "build_tab",
     "coerce_library_database_service",
     "create_log_panel_descriptor",
     "create_stitch_workspace",

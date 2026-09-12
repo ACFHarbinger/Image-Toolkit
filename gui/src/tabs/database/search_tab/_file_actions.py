@@ -17,6 +17,7 @@ from PySide6.QtGui import QAction, QCursor, QPixmap
 from PySide6.QtWidgets import QMenu, QMessageBox, QWidget
 from send2trash import send2trash  # pyrefly: ignore [untyped-import]
 
+from ....theming.theme_api import qss
 from ....windows import ImagePreviewWindow
 from ._tab_bound import TabBoundController
 
@@ -29,9 +30,7 @@ class SearchFileActionsController(TabBoundController):
     def handle_remove_from_db(self, file_path: str):
         db = self.database_service.db
         if not db:
-            QMessageBox.warning(
-                self.tab, "Database Error", "Please connect to the database first."
-            )
+            QMessageBox.warning(self.tab, "Database Error", "Please connect to the database first.")
             return
         filename = os.path.basename(file_path)
         reply = QMessageBox.question(
@@ -59,19 +58,13 @@ class SearchFileActionsController(TabBoundController):
                     f"Database entry for **{filename}** removed successfully.",
                 )
             else:
-                QMessageBox.warning(
-                    self.tab, "Warning", f"No database entry found for file: {filename}"
-                )
+                QMessageBox.warning(self.tab, "Warning", f"No database entry found for file: {filename}")
         except Exception as e:
-            QMessageBox.critical(
-                self.tab, "Removal Failed", f"Could not remove database entry:\n{e}"
-            )
+            QMessageBox.critical(self.tab, "Removal Failed", f"Could not remove database entry:\n{e}")
 
     def handle_delete_image(self, file_path: str):
         if not file_path or not os.path.exists(file_path):
-            QMessageBox.warning(
-                self.tab, "Delete Error", "File not found or path is invalid."
-            )
+            QMessageBox.warning(self.tab, "Delete Error", "File not found or path is invalid.")
             return
         db = self.database_service.db
         if not db:
@@ -118,25 +111,17 @@ class SearchFileActionsController(TabBoundController):
                 self.selected_files.remove(file_path)
 
             self.perform_search()
-            QMessageBox.information(
-                self.tab, f"Moved to {action_name}", f"Moved to {action_name}: {filename}"
-            )
+            QMessageBox.information(self.tab, f"Moved to {action_name}", f"Moved to {action_name}: {filename}")
         except Exception as e:
-            QMessageBox.critical(
-                self.tab, "Deletion Failed", f"Could not delete the file:\n{e}"
-            )
+            QMessageBox.critical(self.tab, "Deletion Failed", f"Could not delete the file:\n{e}")
 
     def show_image_properties(self, file_path: str):
         if not file_path or not os.path.exists(file_path):
-            QMessageBox.warning(
-                self.tab, "Invalid Path", f"File not found at path:\n{file_path}"
-            )
+            QMessageBox.warning(self.tab, "Invalid Path", f"File not found at path:\n{file_path}")
             return
         try:
             stats = os.stat(file_path)
-            last_modified = time.strftime(
-                "%Y-%m-%d %H:%M:%S", time.localtime(stats.st_mtime)
-            )
+            last_modified = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(stats.st_mtime))
 
             def format_size(size_bytes):
                 for unit in ["B", "KB", "MB", "GB"]:
@@ -146,11 +131,7 @@ class SearchFileActionsController(TabBoundController):
                 return f"{size_bytes:.2f} TB"
 
             pixmap = QPixmap(file_path)
-            dimensions = (
-                f"{pixmap.width()} x {pixmap.height()} pixels"
-                if not pixmap.isNull()
-                else "N/A"
-            )
+            dimensions = f"{pixmap.width()} x {pixmap.height()} pixels" if not pixmap.isNull() else "N/A"
             properties_text = (
                 f"**Filename:** {os.path.basename(file_path)}\n"
                 f"**Full Path:** {file_path}\n"
@@ -162,7 +143,7 @@ class SearchFileActionsController(TabBoundController):
             msg.setWindowTitle("Image Properties")
             msg.setText(properties_text)
             msg.setIcon(QMessageBox.Icon.Information)
-            msg.setStyleSheet("QLabel{min-width: 400px;}")
+            msg.setStyleSheet(qss("msgbox_label"))
             msg.exec()
         except Exception as e:
             QMessageBox.critical(self.tab, "Error", f"Failed to retrieve properties: {e}")
@@ -170,9 +151,7 @@ class SearchFileActionsController(TabBoundController):
     def show_context_menu(self, pos: QPoint, file_path: str, widget: QWidget):
         menu = QMenu(self.tab)
         properties_action = QAction("🖼️ Show Image Properties", self.tab)
-        properties_action.triggered.connect(
-            lambda: self.show_image_properties(file_path)
-        )
+        properties_action.triggered.connect(lambda: self.show_image_properties(file_path))
         menu.addAction(properties_action)
         preview_action = QAction("👁️ Open Full Preview", self.tab)
         preview_action.triggered.connect(lambda: self.open_file_preview(file_path))
@@ -185,9 +164,7 @@ class SearchFileActionsController(TabBoundController):
         menu.addAction(similar_action)
         menu.addSeparator()
         remove_db_action = QAction("❌ Remove from Database Only", self.tab)
-        remove_db_action.triggered.connect(
-            lambda: self.handle_remove_from_db(file_path)
-        )
+        remove_db_action.triggered.connect(lambda: self.handle_remove_from_db(file_path))
         menu.addAction(remove_db_action)
         delete_action = QAction("🗑️ Delete Image File (Permanent)", self)
         delete_action.triggered.connect(lambda: self.handle_delete_image(file_path))
@@ -195,22 +172,16 @@ class SearchFileActionsController(TabBoundController):
         menu.addSeparator()
         send_menu = menu.addMenu("Send To...")
         merge_action = QAction("Merge Tab", self.tab)
-        merge_action.triggered.connect(
-            lambda: self.send_selection_to_merge_tab(file_path)
-        )
+        merge_action.triggered.connect(lambda: self.send_selection_to_merge_tab(file_path))
         send_menu.addAction(merge_action)
         wallpaper_action = QAction("Wallpaper Tab", self.tab)
-        wallpaper_action.triggered.connect(
-            lambda: self.send_selection_to_wallpaper_tab(file_path)
-        )
+        wallpaper_action.triggered.connect(lambda: self.send_selection_to_wallpaper_tab(file_path))
         send_menu.addAction(wallpaper_action)
         scan_action = QAction("Scan Metadata Tab", self.tab)
         scan_action.triggered.connect(lambda: self.send_selection_to_scan_tab())
         send_menu.addAction(scan_action)
         delete_tab_action = QAction("Similarity Tab", self.tab)
-        delete_tab_action.triggered.connect(
-            lambda: self.send_selection_to_delete_tab(file_path)
-        )
+        delete_tab_action.triggered.connect(lambda: self.send_selection_to_delete_tab(file_path))
         send_menu.addAction(delete_tab_action)
         menu.addSeparator()
 
@@ -226,13 +197,13 @@ class SearchFileActionsController(TabBoundController):
             if window_instance in self.open_preview_windows:
                 self.open_preview_windows.remove(window_instance)
         except (RuntimeError, ValueError):
-            logger.debug("Suppressed (RuntimeError, ValueError) in _FileActionsMixin.remove_preview_window", exc_info=True)
+            logger.debug(
+                "Suppressed (RuntimeError, ValueError) in _FileActionsMixin.remove_preview_window", exc_info=True
+            )
 
     def open_file_preview(self, file_path: str):
         if not file_path or not os.path.exists(file_path):
-            QMessageBox.warning(
-                self.tab, "Invalid Path", f"File not found at path:\n{file_path}"
-            )
+            QMessageBox.warning(self.tab, "Invalid Path", f"File not found at path:\n{file_path}")
             return
         for window in self.open_preview_windows:
             if hasattr(window, "image_path") and window.image_path == file_path:
@@ -260,17 +231,13 @@ class SearchFileActionsController(TabBoundController):
         )
         if hasattr(preview, "path_changed"):
             preview.path_changed.connect(self.update_preview_highlight)  # pyrefly: ignore [missing-attribute]
-        preview.finished.connect(
-            lambda result, p=preview: self.remove_preview_window(p)
-        )
+        preview.finished.connect(lambda result, p=preview: self.remove_preview_window(p))
         preview.show()
         self.open_preview_windows.append(preview)
 
     def open_file_directory(self, file_path: str):
         if not file_path or not os.path.exists(file_path):
-            QMessageBox.warning(
-                self.tab, "Invalid Path", f"File not found at path:\n{file_path}"
-            )
+            QMessageBox.warning(self.tab, "Invalid Path", f"File not found at path:\n{file_path}")
             return
         directory = os.path.dirname(file_path)
         system = platform.system()

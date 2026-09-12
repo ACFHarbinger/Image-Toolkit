@@ -55,13 +55,9 @@ class SearchTabCommunicationController(TabBoundController):
         if not paths:
             QMessageBox.information(self.tab, "No Selection", "No images selected.")
             return
-        self.event_hub.publish(
-            ImportPathsIntent(origin="library.search", module_id="system.merge", paths=tuple(paths))
-        )
+        self.event_hub.publish(ImportPathsIntent(origin="library.search", module_id="system.merge", paths=tuple(paths)))
         self.event_hub.publish(NavigateIntent(origin="library.search", module_id="system.merge"))
-        QMessageBox.information(
-            self.tab, "Images Sent", f"Sent {len(paths)} images to the Merge Tab."
-        )
+        QMessageBox.information(self.tab, "Images Sent", f"Sent {len(paths)} images to the Merge Tab.")
 
     def send_selection_to_delete_tab(self, single_path=None):
         paths = self._get_target_selection(single_path)
@@ -72,9 +68,7 @@ class SearchTabCommunicationController(TabBoundController):
             ImportPathsIntent(origin="library.search", module_id="system.similarity", paths=tuple(paths))
         )
         self.event_hub.publish(NavigateIntent(origin="library.search", module_id="system.similarity"))
-        QMessageBox.information(
-            self.tab, "Images Sent", f"Sent {len(paths)} images to the Delete Tab."
-        )
+        QMessageBox.information(self.tab, "Images Sent", f"Sent {len(paths)} images to the Delete Tab.")
 
     def send_selection_to_wallpaper_tab(self, single_path=None):
         paths = self._get_target_selection(single_path)
@@ -85,11 +79,11 @@ class SearchTabCommunicationController(TabBoundController):
             ImportPathsIntent(origin="library.search", module_id="system.wallpaper", paths=tuple(paths))
         )
         self.event_hub.publish(NavigateIntent(origin="library.search", module_id="system.wallpaper"))
-        QMessageBox.information(
-            self.tab, "Images Sent", f"Sent {len(paths)} images to the Wallpaper Tab."
-        )
+        QMessageBox.information(self.tab, "Images Sent", f"Sent {len(paths)} images to the Wallpaper Tab.")
 
 
-_TabCommunicationMixin = SearchTabCommunicationController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
+_TabCommunicationMixin = (
+    SearchTabCommunicationController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
+)
 
 __all__ = ["SearchTabCommunicationController", "_TabCommunicationMixin"]

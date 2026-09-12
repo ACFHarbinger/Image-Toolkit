@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 
+from gui.src.constants.ui import RATING_COLORS
+
 
 class GalleryPresentationMode(str, Enum):
     """Layout presentation modes for image galleries."""
@@ -12,15 +14,6 @@ class GalleryPresentationMode(str, Enum):
     UNIFORM_GRID = "uniform_grid"
     MASONRY = "masonry"
     COMPACT_LIST = "compact_list"
-
-
-RATING_COLORS: dict[str, str] = {
-    "g": "#55c57a",  # General - Green
-    "s": "#38bdf8",  # Sensitive - Cyan
-    "q": "#fb923c",  # Questionable - Orange
-    "e": "#f87171",  # Explicit - Red
-}
-
 
 @dataclass(slots=True)
 class GalleryOverlayConfig:
