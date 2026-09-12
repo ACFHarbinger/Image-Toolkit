@@ -12,15 +12,16 @@ from PySide6.QtCore import Slot
 from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 from ....utils.sort_utils import natural_sort_key
+from ._tab_bound import TabBoundController
 
 
-class _DirectoryBrowseMixin:
+class SamplerDirectoryController(TabBoundController):
     """Directory/file pickers and the supported-file scan pipeline."""
 
     @Slot()
     def _browse_input(self):
         path = QFileDialog.getExistingDirectory(
-            self,
+            self.tab,
             "Select input directory",
             self.last_browsed_dir,
             QFileDialog.Option.DontUseNativeDialog,
@@ -33,7 +34,7 @@ class _DirectoryBrowseMixin:
     @Slot()
     def _browse_output(self):
         path = QFileDialog.getExistingDirectory(
-            self,
+            self.tab,
             "Select output directory",
             "",
             QFileDialog.Option.DontUseNativeDialog,
@@ -70,10 +71,13 @@ class _DirectoryBrowseMixin:
     def _scan_and_load(self):
         paths = self._collect_paths()
         if not paths:
-            QMessageBox.information(self, "No Files", "No supported files found.")
+            QMessageBox.information(self.tab, "No Files", "No supported files found.")
             self.clear_galleries()
             return
         self.start_loading_thumbnails(sorted(paths, key=natural_sort_key))
 
 
-__all__ = ["_DirectoryBrowseMixin"]
+# COMPAT(ui-arch-23): legacy mixin alias
+_DirectoryBrowseMixin = SamplerDirectoryController
+
+__all__ = ["SamplerDirectoryController", "_DirectoryBrowseMixin"]

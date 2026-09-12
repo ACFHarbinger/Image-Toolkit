@@ -121,6 +121,14 @@
   public/internal call interfaces. COMPAT aliases keep the old mixin
   names. Sixth non-gallery #544 tab composition migration (R2.c).
 
+# S544 — 2026-09-08 (Gemini: #544 SamplerSubTab composition)
+
+- `SamplerSubTab` inherits `AbstractClassTwoGalleries` directly without mixins.
+  The 8 mixins are composed controllers (`TabBoundController` proxy + `self.tab`
+  for QWidget parents). Facade delegation on `SamplerSubTab` preserves all
+  public/internal call interfaces. COMPAT aliases keep the old mixin names.
+  Seventh and final non-gallery #544 tab composition migration (R2.c).
+
 # S535 — 2026-09-08 (Grok: huge-GIF gallery thumbnails)
 
 - Gallery / wallpaper / extractor thumbnail loads no longer run Qt's GIF
