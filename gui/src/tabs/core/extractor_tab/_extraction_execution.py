@@ -8,20 +8,21 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple, Union, cast
+from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple, Union
 
 from PySide6.QtCore import Qt, Slot
 from PySide6.QtMultimedia import QMediaPlayer
-from PySide6.QtWidgets import QDialog, QMessageBox, QStyle, QWidget
+from PySide6.QtWidgets import QDialog, QMessageBox, QStyle
 
 from ....components import ClickableLabel, FrameSelectionDialog
 from ....helpers import FrameExtractionWorker
+from ._tab_bound import TabBoundController
 
 if TYPE_CHECKING:
     from ..protos.extractor_tab import VideoExtractorSubTabHostProtocol
 
 
-class _ExtractionExecutionMixin:
+class ExtractorExtractionExecutionController(TabBoundController):
     """Snapshot/range extraction triggers, target-resolution resolution,
     and the FrameExtractionWorker dispatch path."""
 
@@ -62,7 +63,7 @@ class _ExtractionExecutionMixin:
         # Use current player position as starting point if possible
         start_ms = self.media_player.position() if self.use_internal_player else self.start_time_ms
 
-        dlg = FrameSelectionDialog(self.video_path, start_ms=start_ms, parent=cast(QWidget, self))
+        dlg = FrameSelectionDialog(self.video_path, start_ms=start_ms, parent=self.tab)
         if dlg.exec() == QDialog.DialogCode.Accepted:
             timestamp_ms = int(dlg.selected_frame_idx / dlg.fps * 1000)
             if self.extraction_queue_enabled:
@@ -132,7 +133,7 @@ class _ExtractionExecutionMixin:
                     self.start_loading_gallery([str(out_path)], append=True)
                     self.current_extracted_paths = self.gallery_image_paths[:]
                 else:
-                    QMessageBox.critical(cast(QWidget, self), "Error", "Failed to save snapshot.")
+                    QMessageBox.critical(self.tab, "Error", "Failed to save snapshot.")
 
     def _set_extraction_buttons_enabled(self: "VideoExtractorSubTabHostProtocol", enabled: bool):
         """Helper to enable/disable all extraction-related buttons."""
@@ -299,7 +300,8 @@ class _ExtractionExecutionMixin:
         self.extraction_status_label.hide()
         self._active_metadata = None
         if "cancelled" not in error_msg.lower():
-            QMessageBox.warning(cast(QWidget, self), "Extraction Error", error_msg)
+            QMessageBox.warning(self.tab, "Extraction Error", error_msg)
 
 
-__all__ = ["_ExtractionExecutionMixin"]
+__all__ = ["ExtractorExtractionExecutionController"]
+

@@ -1,20 +1,19 @@
 """Composed VideoExtractorSubTab: state bootstrap + section wiring.
 
-Extracted from ``extractor_tab.py`` -- pure code motion, no logic change.
-The bulk of the original monolithic ``__init__`` (UI section construction)
-now lives in each mixin's own ``_build_*_section()`` method; this
-``__init__`` keeps only state bootstrap and the call order.
+Phase 2 (ui-arch-23/#544): mixins collapsed into composed controllers.
+Gallery inheritance stays -- this subtab owns one virtual gallery.
 """
 
 from __future__ import annotations
 
+import contextlib
 import os
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set, cast
 
 from backend.src.constants import LOCAL_SOURCE_PATH
-from PySide6.QtCore import QThreadPool, QTimer, Signal
-from PySide6.QtGui import QPixmap
+from PySide6.QtCore import QEvent, QObject, Qt, QThreadPool, QTimer, Signal
+from PySide6.QtGui import QKeyEvent, QMouseEvent, QPixmap, QResizeEvent, QWheelEvent
 from PySide6.QtWidgets import (
     QGraphicsView,
     QLabel,
@@ -26,48 +25,56 @@ from PySide6.QtWidgets import (
 )
 
 from ....classes import AbstractClassSingleGallery
-from ....components import ScrubPreviewPopup
+from ....components import ClickableLabel, ScrubPreviewPopup
 from ....helpers import FrameExtractionWorker
 from ....helpers.core.queue_execution_worker import QueueExecutionWorker
 from ....helpers.video.storyboard import StoryboardBuilder, StoryboardMeta
-from ._cloud_dispatch import _CloudDispatchMixin
-from ._config_methods import _ConfigMethodsMixin
-from ._cuts_logic import _CutsLogicMixin
-from ._directory_scanning import _DirectoryScanningMixin
-from ._extraction_execution import _ExtractionExecutionMixin
-from ._extraction_panel_ui import _ExtractionPanelUIMixin
-from ._extraction_workers import _ExtractionWorkersMixin
-from ._gallery_selection import _GallerySelectionMixin
-from ._media_player import _MediaPlayerMixin
-from ._player_lifecycle import PlayerLifecycleState, _PlayerLifecycleMixin
-from ._qml_handlers import _QmlHandlersMixin
-from ._queue_management import _QueueManagementMixin
-from ._tags_logic import _TagsLogicMixin
-from ._video_session_history import _VideoSessionHistoryMixin
-from ._view_controls import _ViewControlsMixin
+from ._cloud_dispatch import ExtractorCloudDispatchController
+from ._config_methods import ExtractorConfigMethodsController
+from ._cuts_logic import ExtractorCutsLogicController
+from ._directory_scanning import ExtractorDirectoryScanningController
+from ._extraction_execution import ExtractorExtractionExecutionController
+from ._extraction_panel_ui import ExtractorExtractionPanelUIController
+from ._extraction_workers import ExtractorExtractionWorkersController
+from ._gallery_selection import ExtractorGallerySelectionController
+from ._media_player import ExtractorMediaPlayerController
+from ._player_lifecycle import ExtractorPlayerLifecycleController, PlayerLifecycleState
+from ._qml_handlers import ExtractorQmlHandlersController
+from ._queue_management import ExtractorQueueManagementController
+from ._tags_logic import ExtractorTagsLogicController
+from ._video_session_history import ExtractorVideoSessionHistoryController
+from ._view_controls import ExtractorViewControlsController
+
+_CONTROLLER_ATTRS = (
+    "player_lifecycle",
+    "media",
+    "directory",
+    "session",
+    "view_controls",
+    "gallery_selection",
+    "cuts",
+    "tags",
+    "extraction",
+    "workers",
+    "cloud",
+    "panel_ui",
+    "queue",
+    "config_controller",
+    "qml",
+)
 
 
-class VideoExtractorSubTab(
-    _PlayerLifecycleMixin,
-    _MediaPlayerMixin,
-    _DirectoryScanningMixin,
-    _VideoSessionHistoryMixin,
-    _ViewControlsMixin,
-    _GallerySelectionMixin,
-    _CutsLogicMixin,
-    _TagsLogicMixin,
-    _ExtractionExecutionMixin,
-    _ExtractionWorkersMixin,
-    _CloudDispatchMixin,
-    _ExtractionPanelUIMixin,
-    _QueueManagementMixin,
-    _ConfigMethodsMixin,
-    _QmlHandlersMixin,
-    AbstractClassSingleGallery,
-):
-    # Signals for QML
+class VideoExtractorSubTab(AbstractClassSingleGallery):
+    """Video frame extractor subtab.
+
+    Phase 2 (ui-arch-23/#544): mixins collapsed into composed controllers.
+    Gallery inheritance stays. Player lifecycle (#565) is a controller too.
+    """
+
     qml_source_path_changed = Signal(str)
     qml_extraction_status = Signal(str)
+
+    _AUTO_LOAD_OUTPUT_IMAGES_BYTE_BUDGET = 500 * 1024 * 1024  # 500MB
 
     def __init__(self):
         super().__init__()
@@ -107,6 +114,12 @@ class VideoExtractorSubTab(
         self._inprocess_status: List[str] = []
         self._inprocess_awaiting_confirm: bool = False
         self.active_queue_worker: Optional[QueueExecutionWorker] = None
+        self._close_progress_dialog: Optional[Any] = None
+        self._close_when_finished: Optional[Any] = None
+        self._queue_total_count = 0
+        self._queue_completed_count = 0
+        self._current_queue_item_title = ""
+        self._cloud_worker = None
         self.time_display_format = "m:s:ms"
 
         self.use_internal_player = True
@@ -127,6 +140,23 @@ class VideoExtractorSubTab(
         self._drag_settle_timer = QTimer(self)
         self._drag_settle_timer.setSingleShot(True)
         self._drag_settle_timer.setInterval(200)
+
+        self.player_lifecycle = ExtractorPlayerLifecycleController(self)
+        self.media = ExtractorMediaPlayerController(self)
+        self.directory = ExtractorDirectoryScanningController(self)
+        self.session = ExtractorVideoSessionHistoryController(self)
+        self.view_controls = ExtractorViewControlsController(self)
+        self.gallery_selection = ExtractorGallerySelectionController(self)
+        self.cuts = ExtractorCutsLogicController(self)
+        self.tags = ExtractorTagsLogicController(self)
+        self.extraction = ExtractorExtractionExecutionController(self)
+        self.workers = ExtractorExtractionWorkersController(self)
+        self.cloud = ExtractorCloudDispatchController(self)
+        self.panel_ui = ExtractorExtractionPanelUIController(self)
+        self.queue = ExtractorQueueManagementController(self)
+        self.config_controller = ExtractorConfigMethodsController(self)
+        self.qml = ExtractorQmlHandlersController(self)
+
         self._drag_settle_timer.timeout.connect(self._on_drag_settled)
         # video_view/player_container/lbl_current_time/edit_current_time are
         # only assigned partway through _build_player_section() below, but
@@ -195,13 +225,187 @@ class VideoExtractorSubTab(
         self.main_layout = QVBoxLayout(self.content_widget)
         self.tab_scroll_area.setWidget(self.content_widget)
 
-        self._build_directory_section()
-        self._build_player_section()
-        self._build_extraction_settings_section()
-        self._build_results_section()
+        self.directory._build_directory_section()
+        self.media._build_player_section()
+        self.panel_ui._build_extraction_settings_section()
+        self.queue._build_results_section()
 
         self._load_existing_output_images()
         self._update_recent_extractions_ui()
+
+    def __getattr__(self, name: str):
+        for key in _CONTROLLER_ATTRS:
+            ctrl = self.__dict__.get(key)
+            if ctrl is None:
+                continue
+            impl = getattr(type(ctrl), name, None)
+            if impl is None:
+                continue
+            if isinstance(impl, property) or callable(impl):
+                return getattr(ctrl, name)
+        raise AttributeError(f"{type(self).__name__!r} object has no attribute {name!r}")
+
+    def cancel_loading(self):
+        """Stops all active media players, timers, and background workers.
+
+        Deliberately does NOT stop the storyboard scrub-preview builder: the
+        base class's refresh_gallery_view() (and therefore every search/sort/
+        pagination change and every post-extraction gallery reload, e.g.
+        extract_single_frame()'s start_loading_gallery(append=True) call)
+        calls this method purely to cancel in-flight gallery thumbnail
+        workers -- it has nothing to do with the video player. Stopping the
+        storyboard here silently broke the drag-preview popup after every
+        snapshot/extraction until the user switched videos or restarted.
+        Storyboard teardown is handled explicitly by load_media() (on actual
+        video switch) and closeEvent() (on tab close) instead.
+        """
+        super().cancel_loading()
+
+        if hasattr(self, "gallery"):
+            self.gallery.cancel_loading()
+
+        if self.active_extraction_worker:
+            self.active_extraction_worker.cancel()
+            self.active_extraction_worker = None
+
+        if self.active_queue_worker:
+            self.active_queue_worker.cancel()
+
+        for win in list(self.open_preview_windows):
+            with contextlib.suppress(Exception):
+                win.close()
+        self.open_preview_windows.clear()
+
+    def closeEvent(self, event):
+        """Cleanup processes on close."""
+        self.cancel_loading()
+        self._stop_storyboard()
+        self._set_player_lifecycle_state(PlayerLifecycleState.NOT_LOADED)
+        self.operation_thread_pool.clear()
+        self.operation_thread_pool.waitForDone(2000)
+        super().closeEvent(event)
+
+    def resizeEvent(self, event: QResizeEvent):
+        super().resizeEvent(event)
+        if self.video_view and self.video_view.isVisible():
+            self.fit_video_in_view()
+
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:  # noqa: C901
+        if self.lbl_current_time and watched is self.lbl_current_time and event.type() == QEvent.Type.MouseButtonPress:
+                edit_current_time = cast(QLineEdit, self.edit_current_time)
+                self.lbl_current_time.hide()
+                edit_current_time.setText(self.lbl_current_time.text())
+                edit_current_time.show()
+                edit_current_time.setFocus()
+                edit_current_time.selectAll()
+                return True
+
+        if self.edit_current_time and watched is self.edit_current_time:
+            if event.type() == QEvent.Type.KeyPress:
+                if cast(QKeyEvent, event).key() == Qt.Key.Key_Escape:
+                    self._cancel_time_edit()
+                    return True
+            elif event.type() == QEvent.Type.FocusOut:
+                self._cancel_time_edit()
+                return True
+
+        if event.type() == QEvent.Type.Wheel:
+            is_view = self.video_view and watched is self.video_view
+            is_viewport = (
+                self.video_view
+                and hasattr(self.video_view, "viewport")
+                and watched is self.video_view.viewport()
+            )
+            is_container = self.player_container and watched is self.player_container
+
+            if is_view or is_viewport or is_container:
+                duration_ms = self._current_duration_ms()
+                if self.use_internal_player and duration_ms > 0:
+                    delta = cast(QWheelEvent, event).angleDelta().y()
+                    step = self.wheel_seek_ms if delta > 0 else -self.wheel_seek_ms
+                    current_pos = self.slider.value()
+                    new_pos = max(0, min(current_pos + step, duration_ms))
+                    self._seek_to(new_pos)
+
+                event.accept()
+                return True
+
+        if self.video_view and watched is self.video_view and self.use_internal_player:
+            if (
+                event.type() == QEvent.Type.MouseButtonPress
+                and cast(QMouseEvent, event).button() == Qt.MouseButton.LeftButton
+            ):
+                self.toggle_playback()
+                return True
+
+            if event.type() == QEvent.Type.KeyPress:
+                key_event = cast(QKeyEvent, event)
+                if key_event.key() == Qt.Key.Key_Right:
+                    pos = self.slider.value()
+                    duration = self._current_duration_ms()
+                    new_pos = min(pos + self.wheel_seek_ms, duration)
+                    self._seek_to(new_pos)
+                    return True
+                elif key_event.key() == Qt.Key.Key_Left:
+                    pos = self.slider.value()
+                    new_pos = max(0, pos - self.wheel_seek_ms)
+                    self._seek_to(new_pos)
+                    return True
+                elif key_event.key() == Qt.Key.Key_Escape:
+                    if (
+                        self.player_container
+                        and self.player_container.isFullScreen()
+                    ):
+                        self.toggle_fullscreen()
+                        return True
+
+        if self.player_container and watched is self.player_container:
+            if event.type() == QEvent.Type.KeyPress and cast(QKeyEvent, event).key() == Qt.Key.Key_Escape and self.player_container.isFullScreen():
+                self.toggle_fullscreen()
+                return True
+            if event.type() == QEvent.Type.Resize and self.video_view and self.video_view.isVisible():
+                self.fit_video_in_view()
+
+        return super().eventFilter(watched, event)
+
+    @property
+    def video_item(self):
+        return self.media.video_item
+
+    @property
+    def audio_output(self):
+        return self.media.audio_output
+
+    @property
+    def media_player(self):
+        return self.media.media_player
+
+    def create_gallery_label(self, path: str, size: int) -> ClickableLabel:
+        return self.view_controls.create_gallery_label(path, size)
+
+    def is_path_selected(self, path: str) -> bool:
+        return self.view_controls.is_path_selected(path)
+
+    def handle_marquee_selection(self, marquee_selection: Set[str], is_ctrl: bool):
+        return self.gallery_selection.handle_marquee_selection(marquee_selection, is_ctrl)
+
+    def refresh_gallery_view(self):
+        return self.gallery_selection.refresh_gallery_view()
+
+    def clear_gallery_widgets(self):
+        return self.gallery_selection.clear_gallery_widgets()
+
+    def _generate_video_thumbnail(self, path: str) -> Optional[QPixmap]:
+        return self.workers._generate_video_thumbnail(path)
+
+    def get_default_config(self) -> Dict[str, Any]:
+        return self.config_controller.get_default_config()
+
+    def collect(self) -> Dict[str, Any]:
+        return self.config_controller.collect()
+
+    def set_config(self, config: Dict[str, Any], quiet: bool = False):
+        return self.config_controller.set_config(config, quiet=quiet)
 
 
 __all__ = ["VideoExtractorSubTab"]
