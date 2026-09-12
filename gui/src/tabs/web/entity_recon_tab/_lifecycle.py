@@ -7,8 +7,10 @@ from __future__ import annotations
 
 from gui.src.helpers.worker_teardown import stop_workers
 
+from ._tab_bound import TabBoundController
 
-class _LifecycleMixin:
+
+class EntityReconLifecycleController(TabBoundController):
     """Interrupts/joins any active worker threads on cancel or window close."""
 
     def cancel_loading(self):
@@ -17,7 +19,6 @@ class _LifecycleMixin:
 
     def closeEvent(self, event):
         self.cancel_loading()
-        super().closeEvent(event)
 
 
-__all__ = ["_LifecycleMixin"]
+__all__ = ["EntityReconLifecycleController"]

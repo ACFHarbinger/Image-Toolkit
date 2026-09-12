@@ -12,14 +12,15 @@ from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 from ....constants import DIALOG_OPTS
 from ....helpers.web.recon_worker import IndexBuildWorker
+from ._tab_bound import TabBoundController
 
 
-class _DatasetIndexingMixin:
+class EntityReconDatasetController(TabBoundController):
     """Browse for the dataset root and build/track the identity index."""
 
     def _browse_dataset(self):
         start = self.dataset_edit.text() if os.path.isdir(self.dataset_edit.text()) else ""
-        d = QFileDialog.getExistingDirectory(self, "Select Dataset Root", start, DIALOG_OPTS)
+        d = QFileDialog.getExistingDirectory(self.tab, "Select Dataset Root", start, DIALOG_OPTS)
         if d:
             self.dataset_edit.setText(d)
             self._config.dataset_root = d
@@ -30,14 +31,14 @@ class _DatasetIndexingMixin:
 
     def _browse_target(self):
         start = self.target_edit.text() if os.path.isdir(self.target_edit.text()) else ""
-        d = QFileDialog.getExistingDirectory(self, "Select Target Directory", start, DIALOG_OPTS)
+        d = QFileDialog.getExistingDirectory(self.tab, "Select Target Directory", start, DIALOG_OPTS)
         if d:
             self.target_edit.setText(d)
 
     def _build_index(self):
         root_dir = self.dataset_edit.text().strip()
         if not root_dir or not os.path.isdir(root_dir):
-            QMessageBox.warning(self, "Invalid Dataset", "Select a valid dataset root directory.")
+            QMessageBox.warning(self.tab, "Invalid Dataset", "Select a valid dataset root directory.")
             return
         self._config.dataset_root = root_dir
         self._set_busy(True)
@@ -57,4 +58,4 @@ class _DatasetIndexingMixin:
         self._set_status(f"Index ready: {stats.get('indexed', 0)} images, {stats.get('labels', 0)} identities.")
 
 
-__all__ = ["_DatasetIndexingMixin"]
+__all__ = ["EntityReconDatasetController"]
