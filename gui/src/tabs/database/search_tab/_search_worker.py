@@ -87,6 +87,4 @@ class SearchWorkerController(TabBoundController):
         self.results_count_label.setText(message)
 
 
-_SearchWorkerMixin = SearchWorkerController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
-
-__all__ = ["SearchWorkerController", "_SearchWorkerMixin"]
+__all__ = ["SearchWorkerController"]

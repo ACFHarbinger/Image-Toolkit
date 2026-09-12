@@ -75,6 +75,4 @@ class SearchConfigController(TabBoundController):
             QMessageBox.critical(self.tab, "Config Error", f"Failed to apply search configuration:\n{e}")
 
 
-_ConfigMixin = SearchConfigController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
-
-__all__ = ["SearchConfigController", "_ConfigMixin"]
+__all__ = ["SearchConfigController"]

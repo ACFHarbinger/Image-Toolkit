@@ -82,8 +82,4 @@ class SearchTabCommunicationController(TabBoundController):
         QMessageBox.information(self.tab, "Images Sent", f"Sent {len(paths)} images to the Wallpaper Tab.")
 
 
-_TabCommunicationMixin = (
-    SearchTabCommunicationController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
-)
-
-__all__ = ["SearchTabCommunicationController", "_TabCommunicationMixin"]
+__all__ = ["SearchTabCommunicationController"]

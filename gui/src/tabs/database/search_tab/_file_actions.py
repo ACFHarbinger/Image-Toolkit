@@ -198,7 +198,8 @@ class SearchFileActionsController(TabBoundController):
                 self.open_preview_windows.remove(window_instance)
         except (RuntimeError, ValueError):
             logger.debug(
-                "Suppressed (RuntimeError, ValueError) in _FileActionsMixin.remove_preview_window", exc_info=True
+                "Suppressed (RuntimeError, ValueError) in SearchFileActionsController.remove_preview_window",
+                exc_info=True,
             )
 
     def open_file_preview(self, file_path: str):
@@ -252,6 +253,4 @@ class SearchFileActionsController(TabBoundController):
             QMessageBox.critical(self.tab, "Error", f"Failed to open directory:\n{e}")
 
 
-_FileActionsMixin = SearchFileActionsController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
-
-__all__ = ["SearchFileActionsController", "_FileActionsMixin"]
+__all__ = ["SearchFileActionsController"]

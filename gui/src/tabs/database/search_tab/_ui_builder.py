@@ -270,6 +270,4 @@ class SearchUIBuilder(TabBoundController):
         layout.addWidget(self.dual, stretch=1)
 
 
-_UIBuilderMixin = SearchUIBuilder  # COMPAT(ui-arch-23): remove after callers drop the mixin name
-
-__all__ = ["SearchUIBuilder", "_UIBuilderMixin"]
+__all__ = ["SearchUIBuilder"]

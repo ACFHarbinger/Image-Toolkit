@@ -57,6 +57,4 @@ class SearchFormatFiltersController(TabBoundController):
             return [f.strip().lstrip(".").lower() for f in formats_str.replace(",", " ").split() if f.strip()]
 
 
-_FormatFiltersMixin = SearchFormatFiltersController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
-
-__all__ = ["SearchFormatFiltersController", "_FormatFiltersMixin"]
+__all__ = ["SearchFormatFiltersController"]

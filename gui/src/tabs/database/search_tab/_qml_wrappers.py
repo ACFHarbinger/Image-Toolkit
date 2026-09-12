@@ -63,6 +63,4 @@ class SearchQmlController(TabBoundController):
         self.clear_galleries(clear_data=True)
 
 
-_QmlWrappersMixin = SearchQmlController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
-
-__all__ = ["SearchQmlController", "_QmlWrappersMixin"]
+__all__ = ["SearchQmlController"]
