@@ -50,6 +50,4 @@ class DataBrowserExportController(TabBoundController):
             QMessageBox.critical(self.tab, "Export JSON", f"Failed to export:\n{e}")
 
 
-_ExportMixin = DataBrowserExportController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
-
-__all__ = ["DataBrowserExportController", "_ExportMixin"]
+__all__ = ["DataBrowserExportController"]

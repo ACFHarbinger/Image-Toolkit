@@ -114,6 +114,4 @@ class DataBrowserEditController(TabBoundController):
         self.data_table.blockSignals(False)
 
 
-_EditMixin = DataBrowserEditController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
-
-__all__ = ["DataBrowserEditController", "_EditMixin"]
+__all__ = ["DataBrowserEditController"]

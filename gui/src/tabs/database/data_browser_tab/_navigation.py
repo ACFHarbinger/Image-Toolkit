@@ -155,6 +155,4 @@ class DataBrowserNavigationController(TabBoundController):
         self._run_query()
 
 
-_NavigationMixin = DataBrowserNavigationController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
-
-__all__ = ["DataBrowserNavigationController", "_NavigationMixin", "_sql_literal"]
+__all__ = ["DataBrowserNavigationController", "_sql_literal"]

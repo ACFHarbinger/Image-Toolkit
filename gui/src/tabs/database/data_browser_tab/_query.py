@@ -153,6 +153,4 @@ class DataBrowserQueryController(TabBoundController):
             self.data_table.blockSignals(False)
 
 
-_QueryMixin = DataBrowserQueryController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
-
-__all__ = ["DataBrowserQueryController", "_QueryMixin"]
+__all__ = ["DataBrowserQueryController"]

@@ -254,6 +254,4 @@ class DataBrowserERViewController(TabBoundController):
         self.table_combo.setCurrentText(table_name)
 
 
-_ERViewMixin = DataBrowserERViewController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
-
-__all__ = ["DataBrowserERViewController", "_ERViewMixin", "ERGraphicsView"]
+__all__ = ["DataBrowserERViewController", "ERGraphicsView"]
