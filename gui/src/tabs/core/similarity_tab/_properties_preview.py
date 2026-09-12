@@ -17,9 +17,10 @@ from PySide6.QtWidgets import QMenu, QMessageBox
 
 from ....components import PropertyComparisonDialog
 from ....services import PreviewContext, get_preview_service
+from ._tab_bound import TabBoundController
 
 
-class _PropertiesPreviewMixin:
+class SimilarityPropertiesPreviewController(TabBoundController):
     """File/DB properties, right-click context menu, comparison dialog, preview."""
 
     def _prefs(self) -> dict:
@@ -52,25 +53,25 @@ class _PropertiesPreviewMixin:
 
     @Slot(QPoint, str)
     def show_image_context_menu(self, global_pos: QPoint, path: str):
-        menu = QMenu(self)
-        prop_action = QAction("🖼️ Show Image Properties", self)
+        menu = QMenu(self.tab)
+        prop_action = QAction("🖼️ Show Image Properties", self.tab)
         prop_action.triggered.connect(lambda: self.show_image_properties_dialog(path))
         menu.addAction(prop_action)
         if len(self.selected_files) > 1:
-            cmp_action = QAction("📊 Compare Selected Properties", self)
+            cmp_action = QAction("📊 Compare Selected Properties", self.tab)
             cmp_action.triggered.connect(self.show_comparison_dialog)
             menu.addAction(cmp_action)
         menu.addSeparator()
-        view_action = QAction("🔍 View Full Size Preview", self)
+        view_action = QAction("🔍 View Full Size Preview", self.tab)
         view_action.triggered.connect(lambda: self.open_full_preview(path))
         menu.addAction(view_action)
         is_selected = path in self.selected_files
         toggle_text = "Deselect (Keep)" if is_selected else "Select (Mark for Delete)"
-        toggle_action = QAction(toggle_text, self)
+        toggle_action = QAction(toggle_text, self.tab)
         toggle_action.triggered.connect(lambda: self.toggle_selection(path))
         menu.addAction(toggle_action)
         menu.addSeparator()
-        delete_action = QAction("🗑️ Delete This File", self)
+        delete_action = QAction("🗑️ Delete This File", self.tab)
         delete_action.triggered.connect(lambda: self.delete_single_file(path))
         menu.addAction(delete_action)
         menu.exec(global_pos)
@@ -79,13 +80,13 @@ class _PropertiesPreviewMixin:
     def show_image_properties_dialog(self, path: str):
         properties = self.get_image_properties(path)
         if "Error" in properties:
-            QMessageBox.critical(self, "Error Reading File", properties["Error"])
+            QMessageBox.critical(self.tab, "Error Reading File", properties["Error"])
             return
         prop_text = f"**File:** {os.path.basename(path)}\n**Path:** {path}\n\n**Technical Details**\n"
         for key, value in properties.items():
             if key not in ["Path", "File Name"]:
                 prop_text += f"  - **{key}:** {value}\n"
-        msg = QMessageBox(self)
+        msg = QMessageBox(self.tab)
         msg.setWindowTitle("Image Properties")
         msg.setTextFormat(Qt.TextFormat.MarkdownText)
         msg.setText(prop_text)
@@ -95,12 +96,12 @@ class _PropertiesPreviewMixin:
     @Slot()
     def show_comparison_dialog(self):
         if not self.selected_files:
-            QMessageBox.warning(self, "No Selection", "Please select at least one image to compare.")
+            QMessageBox.warning(self.tab, "No Selection", "Please select at least one image to compare.")
             return
         selected_paths = list(self.selected_files)
         if len(selected_paths) > 10:
             reply = QMessageBox.question(
-                self,
+                self.tab,
                 "Large Selection",
                 f"Selected {len(selected_paths)} images. Compare first 10?",
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
@@ -116,7 +117,7 @@ class _PropertiesPreviewMixin:
                 property_list.append(self.get_image_properties(path))
             else:
                 property_list.append({"File Name": os.path.basename(path), "Path": path, "Error": "File not found."})
-        dialog = PropertyComparisonDialog(property_list, self)
+        dialog = PropertyComparisonDialog(property_list, self.tab)
         dialog.exec()
 
     def open_full_preview(self, image_path: str):
@@ -125,7 +126,7 @@ class _PropertiesPreviewMixin:
         context = PreviewContext(
             path=image_path,
             items=target_list if target_list else [image_path],
-            parent=self,
+            parent=self.tab,
             on_path_changed=getattr(self, "update_preview_highlight", None),
         )
         preview = get_preview_service().open_preview(context)
@@ -133,4 +134,8 @@ class _PropertiesPreviewMixin:
             self.open_preview_windows.append(preview)
 
 
-__all__ = ["_PropertiesPreviewMixin"]
+__all__ = ["SimilarityPropertiesPreviewController", "_PropertiesPreviewMixin"]
+
+_PropertiesPreviewMixin = (
+    SimilarityPropertiesPreviewController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
+)

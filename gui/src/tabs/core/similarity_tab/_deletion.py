@@ -13,9 +13,10 @@ from PySide6.QtWidgets import QMessageBox
 from send2trash import send2trash  # pyrefly: ignore [untyped-import]
 
 from ....helpers import DeletionWorker
+from ._tab_bound import TabBoundController
 
 
-class _DeletionMixin:
+class SimilarityDeletionController(TabBoundController):
     """Delete selected/single files or a whole directory, with progress/confirm."""
 
     def delete_selected_duplicates(self):
@@ -27,9 +28,11 @@ class _DeletionMixin:
         action_name = "Trash" if send_to_trash_enabled else "Permanent Delete"
         if self._confirm_deletions_enabled() and self.confirm_checkbox.isChecked():
             reply = QMessageBox.question(
-                self, "Confirm Batch Delete",
+                self.tab,
+                "Confirm Batch Delete",
                 f"Move **{count}** selected files to {action_name}?",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            )
             if reply == QMessageBox.StandardButton.No:
                 return
         deleted_count = 0
@@ -53,7 +56,7 @@ class _DeletionMixin:
         msg = f"Moved {deleted_count} files to {action_name}."
         if errors:
             msg += "\nErrors:\n" + "\n".join(errors[:5])
-        QMessageBox.information(self, f"Move to {action_name} Complete", msg)
+        QMessageBox.information(self.tab, f"Move to {action_name} Complete", msg)
 
     @Slot()
     def delete_selected_files_qml(self):
@@ -66,9 +69,12 @@ class _DeletionMixin:
         action_name = "Trash" if send_to_trash_enabled else "Permanent Delete"
         if self._confirm_deletions_enabled():
             reply = QMessageBox.question(
-                self, "Confirm Deletion", f"Move to {action_name}:\n{filename}",
+                self.tab,
+                "Confirm Deletion",
+                f"Move to {action_name}:\n{filename}",
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.No)
+                QMessageBox.StandardButton.No,
+            )
             if reply == QMessageBox.StandardButton.No:
                 return
         try:
@@ -84,17 +90,15 @@ class _DeletionMixin:
             self.refresh_selected_panel()
             self.on_selection_changed()
             self.status_label.setText(f"Moved to {action_name}: {filename}")
-            QMessageBox.information(self, f"Moved to {action_name}", f"Moved to {action_name}: {filename}")
+            QMessageBox.information(self.tab, f"Moved to {action_name}", f"Moved to {action_name}: {filename}")
         except Exception as e:
-            QMessageBox.critical(self, "Deletion Failed", f"Error: {e}")
+            QMessageBox.critical(self.tab, "Deletion Failed", f"Error: {e}")
 
     def start_deletion(self, mode: str):
         if not self.is_valid(mode):
             return
         config = self.collect(mode)
-        config["require_confirm"] = (
-            self._confirm_deletions_enabled() and self.confirm_checkbox.isChecked()
-        )
+        config["require_confirm"] = self._confirm_deletions_enabled() and self.confirm_checkbox.isChecked()
         self.btn_delete_files.setEnabled(False)
         self.btn_delete_directory.setEnabled(False)
         self.status_label.setText(f"Starting {mode} deletion...")
@@ -129,13 +133,14 @@ class _DeletionMixin:
         if not self._confirm_deletions_enabled():
             self.worker.set_confirmation_response(True)
             return
-        title = ("Confirm Directory Deletion"
-                 if total_items == 1 and "directory" in message
-                 else "Confirm File Deletion")
+        title = "Confirm Directory Deletion" if total_items == 1 and "directory" in message else "Confirm File Deletion"
         reply = QMessageBox.question(
-            self, title, message,
+            self.tab,
+            title,
+            message,
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No)
+            QMessageBox.StandardButton.No,
+        )
         self.worker.set_confirmation_response(reply == QMessageBox.StandardButton.Yes)
 
     def update_progress(self, deleted, total):
@@ -150,15 +155,17 @@ class _DeletionMixin:
             return
         count, msg = result
         self.status_label.setText(msg)
-        QMessageBox.information(self, "Complete", msg)
+        QMessageBox.information(self.tab, "Complete", msg)
         self.worker = None
 
     def on_deletion_error(self, exc: Exception):
         self.btn_delete_files.setEnabled(True)
         self.btn_delete_directory.setEnabled(True)
         self.status_label.setText("Failed.")
-        QMessageBox.critical(self, "Error", str(exc))
+        QMessageBox.critical(self.tab, "Error", str(exc))
         self.worker = None
 
 
-__all__ = ["_DeletionMixin"]
+__all__ = ["SimilarityDeletionController", "_DeletionMixin"]
+
+_DeletionMixin = SimilarityDeletionController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
