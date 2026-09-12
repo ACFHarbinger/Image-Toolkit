@@ -12,6 +12,7 @@ from PySide6.QtCore import Slot
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QMenu, QMessageBox
 
+from ....theming.theme_api import qss
 from ._tab_bound import TabBoundController
 
 
@@ -37,10 +38,7 @@ class EntityListingsCardActionsController(TabBoundController):
 
     def _show_gallery_context_menu(self, pos):
         menu = QMenu(self.tab)
-        menu.setStyleSheet(
-            "QMenu { background:#2c2f33; color:white; border:1px solid #4f545c; }"
-            "QMenu::item:selected { background:#00bcd4; color:black; }"
-        )
+        menu.setStyleSheet(qss("context_menu_dark"))
         add_act = QAction("＋ Add New Entity", self.tab)
         add_act.triggered.connect(self._on_add_new)
         menu.addAction(add_act)

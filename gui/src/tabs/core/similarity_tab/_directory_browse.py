@@ -12,6 +12,7 @@ from PySide6.QtCore import Slot
 from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 from ....styles import apply_shadow_effect
+from ....theming.theme_api import color, qss
 
 
 class _DirectoryBrowseMixin:
@@ -77,12 +78,12 @@ class _DirectoryBrowseMixin:
         btn = self.extension_buttons[ext]
         if checked:
             self.selected_extensions.add(ext)
-            btn.setStyleSheet("QPushButton:checked {  color: white; }")
-            apply_shadow_effect(btn, "#000000", 8, 0, 3)
+            btn.setStyleSheet(qss("extension_btn_checked"))
+            apply_shadow_effect(btn, color("window_bg"), 8, 0, 3)
         else:
             self.selected_extensions.discard(ext)
-            btn.setStyleSheet("QPushButton:hover {  }")
-            apply_shadow_effect(btn, "#000000", 8, 0, 3)
+            btn.setStyleSheet(qss("btn_hover_empty"))
+            apply_shadow_effect(btn, color("window_bg"), 8, 0, 3)
 
     def add_all_extensions(self):
         for ext, btn in self.extension_buttons.items():

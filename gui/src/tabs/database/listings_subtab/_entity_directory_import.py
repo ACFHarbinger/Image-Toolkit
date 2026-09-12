@@ -16,7 +16,7 @@ from PySide6.QtCore import Slot
 from PySide6.QtWidgets import QDialog, QMessageBox
 
 from gui.src.constants.listings import LISTING_IMAGES_DIR
-from gui.src.elements.database.dialog.entity_directory_import_dialog import _EntityDirectoryImportDialog
+from gui.src.elements.database.dialog.directory_import import _EntityDirectoryImportDialog
 
 from ._tab_bound import TabBoundController
 

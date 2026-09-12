@@ -130,13 +130,15 @@ class EntityListingsSemanticController(TabBoundController):
 
         worker = ListingsEmbeddingWorker(items)
         worker.progress.connect(lambda cur, tot: self.stats_label.setText(f"🧠 Indexing… {cur}/{tot}"))
-        worker.sig_finished.connect(self._on_build_search_index_finished)
+        worker.finished.connect(self._on_build_search_index_finished)
         worker.error.connect(self._on_build_search_index_error)
         self._active_embed_worker = worker
         worker.start()
 
     def _on_build_search_index_finished(self, results: list) -> None:
         self._active_embed_worker = None
+        if not results:
+            return  # cancelled or failed (error was reported separately)
         repo = self._entity_repo()
         if repo is None:
             return

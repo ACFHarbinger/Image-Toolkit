@@ -27,7 +27,8 @@ from PySide6.QtWidgets import (
 )
 
 from .....components.tag_chip_widget import FlowLayout
-from .....styles import STYLE_START_ACTION, apply_shadow_effect, set_button_role
+from .....styles import apply_shadow_effect, set_button_role
+from .....theming.theme_api import color, qss
 
 if TYPE_CHECKING:
     from ...protos.system_display_subtab import SystemDisplaySubTabHostProtocol
@@ -171,14 +172,12 @@ class _UIBuilderMixin:
         slideshow_layout.addStretch(1)
 
         self.countdown_label = QLabel("Timer: --:--")
-        self.countdown_label.setStyleSheet(
-            "color: #2ecc71; font-weight: bold; font-size: 14px;"
-        )
+        self.countdown_label.setStyleSheet(qss("wallpaper_countdown_ok_lg"))
         self.countdown_label.setFixedWidth(100)
         slideshow_layout.addWidget(self.countdown_label)
 
         self.set_wallpaper_btn = QPushButton("Set Wallpaper")
-        self.set_wallpaper_btn.setStyleSheet(STYLE_START_ACTION)
+        self.set_wallpaper_btn.setStyleSheet(qss("start_action_btn"))
         self.set_wallpaper_btn.clicked.connect(self.handle_set_wallpaper_click)
         slideshow_layout.addWidget(self.set_wallpaper_btn)
 
@@ -222,7 +221,7 @@ class _UIBuilderMixin:
         self.solid_color_preview = QLabel(" ")
         self.solid_color_preview.setFixedSize(20, 20)
         self.solid_color_preview.setStyleSheet(
-            f"background-color: {self.solid_color_hex}; border: 1px solid #4f545c;"
+            qss("dynamic_color_preview", BG_COLOR=self.solid_color_hex)
         )
 
         btn_select_color = QPushButton("Select Color...")
@@ -290,7 +289,7 @@ class _UIBuilderMixin:
         btn_browse_scan = QPushButton("Browse...")
         btn_browse_scan.clicked.connect(self.browse_scan_directory)
         apply_shadow_effect(
-            btn_browse_scan, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+            btn_browse_scan, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3
         )
         scan_dir_layout.addWidget(self.scan_directory_path)
         scan_dir_layout.addWidget(btn_browse_scan)

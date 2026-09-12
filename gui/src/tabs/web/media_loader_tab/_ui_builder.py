@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
 from gui.src.constants.elements import SOURCE_REDDIT
 
 from ....styles import apply_shadow_effect, set_button_role
+from ....theming.theme_api import color, qss
 
 SOURCE_NHENTAI = 1
 
@@ -68,7 +69,7 @@ class _UIBuilderMixin:
         btn_browse_download = QPushButton("Browse...")
         btn_browse_download.clicked.connect(self.browse_download_directory)
         apply_shadow_effect(
-            btn_browse_download, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+            btn_browse_download, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3
         )
         download_dir_layout.addWidget(self.download_dir_path)
         download_dir_layout.addWidget(btn_browse_download)
@@ -85,9 +86,7 @@ class _UIBuilderMixin:
         # --- 4. Run Controls ---
         self.status_label = QLabel("Ready.")
         self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.status_label.setStyleSheet(
-            "color: #aaa; font-style: italic; padding: 8px;"
-        )
+        self.status_label.setStyleSheet(qss("status_label_padded"))
         main_layout.addWidget(self.status_label)
 
         self.progress_bar = QProgressBar()
@@ -99,7 +98,7 @@ class _UIBuilderMixin:
         self.run_button = QPushButton("Download")
         set_button_role(self.run_button, "success")
         apply_shadow_effect(
-            self.run_button, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+            self.run_button, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3
         )
         self.run_button.clicked.connect(self.start_download)
         main_layout.addWidget(self.run_button)
@@ -107,7 +106,7 @@ class _UIBuilderMixin:
         self.cancel_button = QPushButton("Cancel")
         set_button_role(self.cancel_button, "danger")
         apply_shadow_effect(
-            self.cancel_button, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+            self.cancel_button, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3
         )
         self.cancel_button.clicked.connect(self.cancel_download)
         self.cancel_button.hide()

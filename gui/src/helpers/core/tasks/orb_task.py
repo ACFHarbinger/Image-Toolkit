@@ -1,14 +1,11 @@
 import cv2
 import numpy as np
 from PIL import Image
-from PySide6.QtCore import QRunnable, Slot
 
-from gui.src.helpers.gc_safe import gc_disabled_run
-
-from .scan_signals import ScanSignals
+from gui.src.helpers.base import BaseQRunnableWorker
 
 
-class OrbTask(QRunnable):
+class OrbTask(BaseQRunnableWorker):
     """
     Task to compute ORB descriptors for a single image.
     """
@@ -16,12 +13,8 @@ class OrbTask(QRunnable):
     def __init__(self, path: str):
         super().__init__()
         self.path = path
-        self.signals = ScanSignals()
-        self.setAutoDelete(True)
 
-    @gc_disabled_run
-    @Slot()
-    def run(self):
+    def _execute(self) -> object:
         try:
             # Initialize ORB (local instance per thread is safer)
             orb = cv2.ORB_create(nfeatures=500) # pyrefly: ignore [missing-attribute]
@@ -41,9 +34,8 @@ class OrbTask(QRunnable):
             kp, des = orb.detectAndCompute(img_np, None)
 
             if des is not None and len(des) > 10:
-                self.signals.result.emit((self.path, des))
-            else:
-                self.signals.result.emit((self.path, None))
-
+                return (self.path, des)
+            return (self.path, None)
         except Exception:
-            self.signals.result.emit((self.path, None))
+            # On failure, return None so the main counter still increments
+            return (self.path, None)

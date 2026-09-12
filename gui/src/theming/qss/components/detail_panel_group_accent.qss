@@ -1,0 +1,4 @@
+QGroupBox {
+    font-weight: bold;
+    color: $DARK_ACCENT_COLOR;
+}

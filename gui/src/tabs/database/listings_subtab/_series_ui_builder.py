@@ -25,8 +25,9 @@ from gui.src.components.tag_chip_widget import FlowLayout
 from gui.src.constants.listings import ENTRY_STATUS, ENTRY_TYPES
 from gui.src.elements.database.common.listings_common import _persist_splitter
 from gui.src.elements.database.display.detail_panel import _DetailPanel
-from gui.src.styles import SHARED_BUTTON_STYLE, apply_shadow_effect
+from gui.src.styles import apply_shadow_effect
 
+from ....theming.theme_api import qss
 from ._tab_bound import TabBoundController
 
 
@@ -52,7 +53,7 @@ class SeriesListingsUIBuilder(TabBoundController):
         toolbar.setSpacing(8)
 
         title_lbl = QLabel("🎬 Series Listings")
-        title_lbl.setStyleSheet("font-size:18px;font-weight:bold;color:#00bcd4;")
+        title_lbl.setStyleSheet(qss("listings_title"))
         toolbar.addWidget(title_lbl)
 
         self.search_box = QLineEdit()
@@ -68,13 +69,13 @@ class SeriesListingsUIBuilder(TabBoundController):
         _search_rec_vbox.setSpacing(3)
 
         adv_search_btn = QPushButton("🔍 Advanced")
-        adv_search_btn.setStyleSheet(SHARED_BUTTON_STYLE)
+        adv_search_btn.setStyleSheet(qss("shared_button"))
         adv_search_btn.setFixedWidth(120)
         adv_search_btn.clicked.connect(self._on_advanced_search)
         apply_shadow_effect(adv_search_btn)
 
         rec_btn = QPushButton("🌟 Recommend")
-        rec_btn.setStyleSheet(SHARED_BUTTON_STYLE)
+        rec_btn.setStyleSheet(qss("shared_button"))
         rec_btn.setFixedWidth(120)
         rec_btn.clicked.connect(self._on_recommend_content)
         apply_shadow_effect(rec_btn)
@@ -90,13 +91,13 @@ class SeriesListingsUIBuilder(TabBoundController):
         _semantic_vbox.setSpacing(3)
 
         semantic_btn = QPushButton("🧠 Search by\nMeaning")
-        semantic_btn.setStyleSheet(SHARED_BUTTON_STYLE)
+        semantic_btn.setStyleSheet(qss("shared_button"))
         semantic_btn.setFixedWidth(140)
         semantic_btn.clicked.connect(self._on_semantic_search)
         apply_shadow_effect(semantic_btn)
 
         build_index_btn = QPushButton("⚙️ Build Search\nIndex")
-        build_index_btn.setStyleSheet(SHARED_BUTTON_STYLE)
+        build_index_btn.setStyleSheet(qss("shared_button"))
         build_index_btn.setFixedWidth(140)
         build_index_btn.clicked.connect(self._on_build_search_index)
         apply_shadow_effect(build_index_btn)
@@ -175,13 +176,13 @@ class SeriesListingsUIBuilder(TabBoundController):
         entry_pair_vbox.setSpacing(3)
 
         add_btn = QPushButton("＋ Add Entry")
-        add_btn.setStyleSheet(SHARED_BUTTON_STYLE)
+        add_btn.setStyleSheet(qss("shared_button"))
         add_btn.setFixedWidth(120)
         add_btn.clicked.connect(self._on_add_new)
         apply_shadow_effect(add_btn)
 
         import_dir_btn = QPushButton("📂 Import Dir")
-        import_dir_btn.setStyleSheet(SHARED_BUTTON_STYLE)
+        import_dir_btn.setStyleSheet(qss("shared_button"))
         import_dir_btn.setFixedWidth(120)
         import_dir_btn.setToolTip(
             "Scan a video directory and auto-create listings\nfor series that don't already have an entry."
@@ -200,13 +201,13 @@ class SeriesListingsUIBuilder(TabBoundController):
         backup_pair_vbox.setSpacing(3)
 
         sync_btn = QPushButton("🔄 Load Backup")
-        sync_btn.setStyleSheet(SHARED_BUTTON_STYLE)
+        sync_btn.setStyleSheet(qss("shared_button"))
         sync_btn.setFixedWidth(130)
         sync_btn.clicked.connect(self._synchronize_listings)
         apply_shadow_effect(sync_btn)
 
         update_btn = QPushButton("⚡ Sync Backup")
-        update_btn.setStyleSheet(SHARED_BUTTON_STYLE)
+        update_btn.setStyleSheet(qss("shared_button"))
         update_btn.setFixedWidth(130)
         update_btn.clicked.connect(self._update_encrypted_backup)
         apply_shadow_effect(update_btn)
@@ -219,7 +220,7 @@ class SeriesListingsUIBuilder(TabBoundController):
 
         # ---- Stats bar ----
         self.stats_label = QLabel("")
-        self.stats_label.setStyleSheet("color:#888;font-size:11px;")
+        self.stats_label.setStyleSheet(qss("listings_stats"))
         root.addWidget(self.stats_label)
 
         # ---- Splitter: gallery | detail ----
@@ -233,7 +234,7 @@ class SeriesListingsUIBuilder(TabBoundController):
 
         self.gallery_scroll = MarqueeScrollArea()
         self.gallery_scroll.setWidgetResizable(True)
-        self.gallery_scroll.setStyleSheet("QScrollArea{border:1px solid #4f545c;border-radius:8px;}")
+        self.gallery_scroll.setStyleSheet(qss("bordered_scroll_area"))
         self._grid_widget = QWidget()
         self._grid = QGridLayout(self._grid_widget)
         self._grid.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
@@ -260,7 +261,7 @@ class SeriesListingsUIBuilder(TabBoundController):
         # Detail panel (wrapped in a scroll area)
         detail_scroll = QScrollArea()
         detail_scroll.setWidgetResizable(True)
-        detail_scroll.setStyleSheet("QScrollArea{border:1px solid #4f545c;border-radius:8px;}")
+        detail_scroll.setStyleSheet(qss("bordered_scroll_area"))
         self._detail = _DetailPanel(vault_manager=self.vault_manager)
         self._detail.saved.connect(self._on_entry_saved)
         self._detail.deleted.connect(self._on_entry_deleted)

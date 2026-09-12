@@ -89,7 +89,10 @@ class ListingsBackupSyncController(TabBoundController):
             },
         )
         self._sync_worker.progress.connect(self._on_sync_progress)
-        self._sync_worker.sig_finished.connect(self._on_sync_finished)
+        self._sync_worker.finished.connect(self._on_sync_finished)
+        self._sync_worker.error.connect(
+            lambda err: self._on_sync_finished((False, str(err), None))
+        )
         self._sync_worker.start()
 
     def _on_sync_progress(self, percent, text):
@@ -98,12 +101,15 @@ class ListingsBackupSyncController(TabBoundController):
             dlg.setLabelText(text)
             dlg.setValue(percent)
 
-    def _on_sync_finished(self, success, message, result_data):
+    def _on_sync_finished(self, result):
         profile = self._listings_profile
         if getattr(self, "progress_dialog", None):
             self.progress_dialog.close()
             self.progress_dialog = None  # pyrefly: ignore [bad-assignment]
 
+        if result is None:
+            return  # cancelled (no result channel message by design)
+        success, message, result_data = result
         if success:
             merged_entries, synced_imgs = result_data
             self._set_local_entries(merged_entries)
@@ -159,7 +165,10 @@ class ListingsBackupSyncController(TabBoundController):
             },
         )
         self._backup_worker.progress.connect(self._on_backup_progress)
-        self._backup_worker.sig_finished.connect(self._on_backup_finished)
+        self._backup_worker.finished.connect(self._on_backup_finished)
+        self._backup_worker.error.connect(
+            lambda err: self._on_backup_finished((False, str(err), None))
+        )
         self._backup_worker.start()
 
     def _on_backup_progress(self, percent, text):
@@ -168,12 +177,15 @@ class ListingsBackupSyncController(TabBoundController):
             dlg.setLabelText(text)
             dlg.setValue(percent)
 
-    def _on_backup_finished(self, success, message, result_data):
+    def _on_backup_finished(self, result):
         profile = self._listings_profile
         if getattr(self, "progress_dialog", None):
             self.progress_dialog.close()
             self.progress_dialog = None  # pyrefly: ignore [bad-assignment]
 
+        if result is None:
+            return  # cancelled (no result channel message by design)
+        success, message, result_data = result
         if success:
             backup_count = result_data
             img_info = f"\nAlso backed up {backup_count} image(s) to multi-part archive." if backup_count else ""

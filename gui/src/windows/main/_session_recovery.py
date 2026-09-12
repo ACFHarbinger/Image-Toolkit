@@ -5,12 +5,13 @@ Extracted from ``main_window.py`` -- pure code motion, no logic change.
 
 from __future__ import annotations
 
-import inspect
 import json
 import os
 
 from backend.src.constants import LOCAL_SOURCE_PATH
 from PySide6.QtCore import QTimer
+
+from gui.src.contracts.tab_config import ConfigCollectible, ConfigSettable, apply_tab_config
 
 
 class _SessionRecoveryMixin:
@@ -250,11 +251,7 @@ class _SessionRecoveryMixin:
         if tab_instance is None:
             return
         tab_class_name = type(tab_instance).__name__
-        if not (
-            tab_class_name in tab_configs
-            and hasattr(tab_instance, "set_config")
-            and callable(tab_instance.set_config)
-        ):
+        if not (tab_class_name in tab_configs and isinstance(tab_instance, ConfigSettable)):
             return
         try:
             sanitized_cfg = self._sanitize_config_if_needed(tab_configs[tab_class_name])
@@ -263,11 +260,7 @@ class _SessionRecoveryMixin:
                 print(
                     f"[RECOVERY] Restoring {tab_class_name}: active_videos_config has {len(avc)} entries, video_path='{sanitized_cfg.get('video_path', '')}'"
                 )
-            sig = inspect.signature(tab_instance.set_config)
-            if "quiet" in sig.parameters:
-                tab_instance.set_config(sanitized_cfg, quiet=True)  # pyrefly: ignore [unexpected-keyword]
-            else:
-                tab_instance.set_config(sanitized_cfg)
+            apply_tab_config(tab_instance, sanitized_cfg, quiet=True)
         except Exception as e:
             print(
                 f"Warning: Failed to restore config to {tab_class_name} during session recovery{error_context}: {e}"
@@ -331,7 +324,7 @@ class _SessionRecoveryMixin:
                     widget = None
                     if runtime is not None and runtime.is_created(active_module_id):
                         widget = getattr(runtime.handle_for(active_module_id), "widget", None)
-                    if widget is not None and hasattr(widget, "collect") and callable(widget.collect):
+                    if isinstance(widget, ConfigCollectible):
                         try:
                             tab_configs[type(widget).__name__] = widget.collect()
                         except Exception as e:
@@ -410,23 +403,21 @@ class _SessionRecoveryMixin:
                     tab_configs = dict(creds.get("session_recovery_data", {}).get("tab_configs") or {})
                     for _category, tabs_in_category in self.all_tabs.items():
                         for tab_instance in tabs_in_category.values():
-                            if tab_instance is None:
-                                continue
-                            if hasattr(tab_instance, "collect") and callable(tab_instance.collect):
+                            if isinstance(tab_instance, ConfigCollectible):
                                 try:
                                     tab_configs[type(tab_instance).__name__] = tab_instance.collect()
                                 except Exception as e:
                                     print(f"Warning: Failed to collect config from {type(tab_instance).__name__}: {e}")
                 elif recovery_level == "Current Category" and active_category:
                     for tab_instance in self.all_tabs.get(active_category, {}).values():
-                        if hasattr(tab_instance, "collect") and callable(tab_instance.collect):
+                        if isinstance(tab_instance, ConfigCollectible):
                             try:
                                 tab_configs[type(tab_instance).__name__] = tab_instance.collect()
                             except Exception as e:
                                 print(f"Warning: Failed to collect config from {type(tab_instance).__name__}: {e}")
                 elif recovery_level == "Current Tab" and active_category and active_tab_name:
                     tab_instance = self.all_tabs.get(active_category, {}).get(active_tab_name)
-                    if tab_instance and hasattr(tab_instance, "collect") and callable(tab_instance.collect):
+                    if isinstance(tab_instance, ConfigCollectible):
                         try:
                             cfg = tab_instance.collect()
                             tab_class_name = type(tab_instance).__name__

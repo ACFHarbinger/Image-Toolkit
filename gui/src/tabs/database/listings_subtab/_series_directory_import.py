@@ -20,7 +20,7 @@ from backend.src.database.unified.media_repo import MediaRepo
 from PySide6.QtCore import Slot
 from PySide6.QtWidgets import QDialog, QMessageBox
 
-from gui.src.elements.database.dialog.directory_import_dialog import _DirectoryImportDialog
+from gui.src.elements.database.dialog.directory_import import _DirectoryImportDialog
 from gui.src.helpers.database.library_session import get_library_db
 
 from ._tab_bound import TabBoundController

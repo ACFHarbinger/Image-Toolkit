@@ -16,6 +16,7 @@ from PySide6.QtWidgets import QLabel
 
 from gui.src.constants.elements import _SORT_KEY_MAP
 from gui.src.elements.database.display.listing_card import _ListingCard
+from gui.src.theming.theme_api import qss
 
 from ._tab_bound import TabBoundController
 
@@ -140,7 +141,7 @@ class SeriesListingsGalleryController(TabBoundController):
         if not visible:
             placeholder = QLabel("No entries found.\nClick '＋ Add Entry' to get started.")
             placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            placeholder.setStyleSheet("color:#555;font-size:14px;")
+            placeholder.setStyleSheet(qss("listings_empty_placeholder"))
             self._grid.addWidget(placeholder, 0, 0)
         else:
             cols = max(

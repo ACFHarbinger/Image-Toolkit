@@ -32,6 +32,7 @@ from PySide6.QtWidgets import (
 from .....constants import DRY_RUN
 from .....helpers import DropboxDriveSyncWorker, GoogleDriveSyncWorker, OneDriveSyncWorker
 from .....styles import apply_shadow_effect, set_button_role
+from .....theming.theme_api import color, qss
 from .....windows.logging import LogWindow
 
 
@@ -75,7 +76,7 @@ class SyncDataSubtab(QWidget):
         self.local_path = QLineEdit(udef.LOCAL_SOURCE_PATH)
         self.local_path.setPlaceholderText("Local directory to synchronize")
         btn_browse_local = QPushButton("Browse Local Dir")
-        apply_shadow_effect(btn_browse_local, "#000000", 8, 0, 3)
+        apply_shadow_effect(btn_browse_local, color("window_bg"), 8, 0, 3)
         btn_browse_local.clicked.connect(self._browse_local)
         local_layout.addWidget(self.local_path)
         local_layout.addWidget(btn_browse_local)
@@ -94,7 +95,7 @@ class SyncDataSubtab(QWidget):
             "Optional: user email to grant Editor access"
         )
         self.btn_share_folder = QPushButton("Share Folder Now")
-        apply_shadow_effect(self.btn_share_folder, "#000000", 8, 0, 3)
+        apply_shadow_effect(self.btn_share_folder, color("window_bg"), 8, 0, 3)
         self.btn_share_folder.clicked.connect(self._share_remote_folder)
         share_layout.addWidget(QLabel("Share folder with:"))
         share_layout.addWidget(self.share_email_input)
@@ -111,15 +112,15 @@ class SyncDataSubtab(QWidget):
         behavior_layout = QVBoxLayout(behavior_group)
 
         lbl_lo = QLabel("Action for files found ONLY Locally (Local Orphans):")
-        lbl_lo.setStyleSheet("font-weight: bold; color: #3498db;")
+        lbl_lo.setStyleSheet(qss("drive_sync_label_local"))
         behavior_layout.addWidget(lbl_lo)
         self._bg_local = QButtonGroup(self)
         self.rb_upload = QRadioButton("Upload to Remote (Merge)")
         self.rb_upload.setChecked(True)
         self.rb_delete_local = QRadioButton("Delete from Local (Mirror Remote)")
-        self.rb_delete_local.setStyleSheet("color: #e74c3c;")
+        self.rb_delete_local.setStyleSheet(qss("drive_sync_rb_delete"))
         self.rb_ignore_local = QRadioButton("Do Nothing (Ignore)")
-        self.rb_ignore_local.setStyleSheet("color: #95a5a6;")
+        self.rb_ignore_local.setStyleSheet(qss("drive_sync_rb_ignore"))
         for rb in (self.rb_upload, self.rb_delete_local, self.rb_ignore_local):
             self._bg_local.addButton(rb)
         lo_row = QHBoxLayout()
@@ -130,15 +131,15 @@ class SyncDataSubtab(QWidget):
 
         behavior_layout.addSpacing(8)
         lbl_ro = QLabel("Action for files found ONLY on Remote (Remote Orphans):")
-        lbl_ro.setStyleSheet("font-weight: bold; color: #2ecc71;")
+        lbl_ro.setStyleSheet(qss("drive_sync_label_remote"))
         behavior_layout.addWidget(lbl_ro)
         self._bg_remote = QButtonGroup(self)
         self.rb_download = QRadioButton("Download to Local (Merge)")
         self.rb_download.setChecked(True)
         self.rb_delete_remote = QRadioButton("Delete from Remote (Mirror Local)")
-        self.rb_delete_remote.setStyleSheet("color: #e74c3c;")
+        self.rb_delete_remote.setStyleSheet(qss("drive_sync_rb_delete"))
         self.rb_ignore_remote = QRadioButton("Do Nothing (Ignore)")
-        self.rb_ignore_remote.setStyleSheet("color: #95a5a6;")
+        self.rb_ignore_remote.setStyleSheet(qss("drive_sync_rb_ignore"))
         for rb in (self.rb_download, self.rb_delete_remote, self.rb_ignore_remote):
             self._bg_remote.addButton(rb)
         ro_row = QHBoxLayout()
@@ -151,9 +152,9 @@ class SyncDataSubtab(QWidget):
         options_row = QHBoxLayout()
         self.dry_run_checkbox = QCheckBox("Perform Dry Run (Simulate only)")
         self.dry_run_checkbox.setChecked(DRY_RUN)
-        self.dry_run_checkbox.setStyleSheet("QCheckBox { color: #f1c40f; }")
+        self.dry_run_checkbox.setStyleSheet(qss("drive_sync_dry_run"))
         self.btn_view_remote = QPushButton("View Remote Files Map")
-        apply_shadow_effect(self.btn_view_remote, "#000000", 8, 0, 3)
+        apply_shadow_effect(self.btn_view_remote, color("window_bg"), 8, 0, 3)
         self.btn_view_remote.clicked.connect(self._view_remote_map)
         options_row.addWidget(self.dry_run_checkbox)
         options_row.addStretch()
@@ -162,7 +163,7 @@ class SyncDataSubtab(QWidget):
         # --- Sync button ---
         self.sync_button = QPushButton("Run Synchronization Now")
         set_button_role(self.sync_button, "success")
-        apply_shadow_effect(self.sync_button, "#000000", 8, 0, 3)
+        apply_shadow_effect(self.sync_button, color("window_bg"), 8, 0, 3)
         self.sync_button.clicked.connect(self._toggle_sync)
 
         main_layout.addWidget(config_group)
@@ -314,8 +315,8 @@ class SyncDataSubtab(QWidget):
             self._unlock_ui()
             return
 
-        self.current_worker.signals.status_update.connect(self._on_status_update)
-        self.current_worker.signals.sync_finished.connect(self._on_sync_finished)
+        self.current_worker.signals.status.connect(self._on_status_update)
+        self.current_worker.signals.finished.connect(self._on_sync_finished)
         QThreadPool.globalInstance().start(self.current_worker)
 
     @Slot(str)
@@ -323,9 +324,14 @@ class SyncDataSubtab(QWidget):
         self.log_window.append_log(msg)
         self.status_update.emit(msg)
 
-    @Slot(bool, str, bool)
-    def _on_sync_finished(self, success: bool, message: str, was_dry_run: bool) -> None:
+    @Slot(object)
+    def _on_sync_finished(self, result) -> None:
         self._unlock_ui()
+        if result is None:  # BaseException escape; error channel has no UI here
+            self.log_window.append_log("\nFINAL STATUS: Sync Failed. Worker failed unexpectedly.")
+            self.current_worker = None
+            return
+        success, message, was_dry_run = result
         mode = "DRY RUN" if was_dry_run else "LIVE"
         status = "Completed" if success else "Failed"
         self.log_window.append_log(f"\nFINAL STATUS: {mode} Sync {status}. {message}")
@@ -373,8 +379,8 @@ class SyncDataSubtab(QWidget):
             remote_path=remote_path,
             dry_run=True,
         )
-        worker.signals.status_update.connect(self._on_status_update)
-        worker.signals.sync_finished.connect(lambda *_: self._unlock_ui_minor())
+        worker.signals.status.connect(self._on_status_update)
+        worker.signals.finished.connect(lambda *_: self._unlock_ui_minor())
         QThreadPool.globalInstance().start(worker)
 
     def _share_remote_folder(self) -> None:

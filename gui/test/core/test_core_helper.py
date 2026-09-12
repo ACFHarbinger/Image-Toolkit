@@ -37,7 +37,7 @@ class TestConversionWorker:
 
             # Use a list to separate signals from potentially mocked ones
             finished_signals = []
-            worker.finished_signal.connect(lambda c, m: finished_signals.append((c, m)))
+            worker.finished.connect(lambda result: finished_signals.append(result))
 
             worker.run()
 
@@ -65,7 +65,7 @@ class TestConversionWorker:
 
             worker = ConversionWorker(config)
             finished_signals = []
-            worker.finished_signal.connect(lambda c, m: finished_signals.append((c, m)))
+            worker.finished.connect(lambda result: finished_signals.append(result))
 
             worker.run()
 
@@ -105,7 +105,7 @@ class TestDeletionWorker:
             worker = DeletionWorker(config)
 
             finished_signals = []
-            worker.sig_finished.connect(lambda c, m: finished_signals.append((c, m)))
+            worker.finished.connect(lambda result: finished_signals.append(result))
 
             mock_deleter.delete_path.return_value = True
 
@@ -132,7 +132,7 @@ class TestDeletionWorker:
             worker = DeletionWorker(config)
 
             finished_signals = []
-            worker.sig_finished.connect(lambda c, m: finished_signals.append((c, m)))
+            worker.finished.connect(lambda result: finished_signals.append(result))
 
             mock_deleter.delete_path.return_value = True
 
@@ -214,10 +214,7 @@ class TestWallpaperWorker:
             worker = WallpaperWorker({ "0": "/tmp/img.jpg" }, [], None)
 
             finished_signals = []
-            # Signal is on .signals and named work_finished
-            worker.signals.work_finished.connect(
-                lambda s, m: finished_signals.append((s, m))
-            )
+            worker.signals.finished.connect(finished_signals.append)
 
             worker.run()
 

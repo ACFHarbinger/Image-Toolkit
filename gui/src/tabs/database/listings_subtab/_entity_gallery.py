@@ -15,6 +15,7 @@ from PySide6.QtWidgets import QLabel
 
 from gui.src.constants.elements import ENTITY_LISTINGS_SUBTAB__SORT_KEY_MAP
 from gui.src.elements.database.display.entity_card import _EntityCard
+from gui.src.theming.theme_api import qss
 
 from ._tab_bound import TabBoundController
 
@@ -118,7 +119,7 @@ class EntityListingsGalleryController(TabBoundController):
         if not visible:
             placeholder = QLabel("No entities found.\nClick '＋ Add Entity' to get started.")
             placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            placeholder.setStyleSheet("color:#555;font-size:14px;")
+            placeholder.setStyleSheet(qss("listings_empty_placeholder"))
             self._grid.addWidget(placeholder, 0, 0)
         else:
             cols = max(

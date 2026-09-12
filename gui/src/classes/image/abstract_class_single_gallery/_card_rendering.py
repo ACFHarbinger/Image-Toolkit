@@ -15,6 +15,7 @@ from PySide6.QtGui import QColor, QPainter, QPixmap
 from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
 from gui.src.qt_object_guard import deleted_qobject_guard
+from gui.src.theming.theme_api import accent_rgba, color, qss
 
 if TYPE_CHECKING:
     from ..protos.abstract_class_single_gallery import AbstractClassSingleGalleryHostProtocol
@@ -31,19 +32,19 @@ class _CardRenderingMixin:
 
         if is_selected:
             label.setStyleSheet(
-                "border: 2px solid #5865f2; background-color: rgba(88, 101, 242, 0.2);"
+                qss(
+                    "gallery_card_selected",
+                    BORDER_WIDTH="2px",
+                    ACCENT_BG=accent_rgba(0.2),
+                )
             )
         else:
             path = getattr(label, "file_path", getattr(label, "path", ""))
             is_video = path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
             if is_video:
-                label.setStyleSheet(
-                    "border: 2px solid #3498db; background-color: transparent;"
-                )
+                label.setStyleSheet(qss("gallery_card_video"))
             else:
-                label.setStyleSheet(
-                    "border: 1px solid #4f545c; background-color: transparent;"
-                )
+                label.setStyleSheet(qss("gallery_card_default_border"))
 
     @Slot(str, str)
     def update_preview_highlight(self: "AbstractClassSingleGalleryHostProtocol", old_path: str, new_path: str):
@@ -56,11 +57,8 @@ class _CardRenderingMixin:
             if not card or not path:
                 return
             try:
-                orig = card.property("original_style")
-                if orig is not None:
-                    card.setStyleSheet(orig)
-                    card.setProperty("original_style", None)
-                else:
+                if card.property("preview_highlighted"):
+                    card.setProperty("preview_highlighted", False)
                     self.update_card_style(card, self.is_path_selected(path))
             except RuntimeError as exc:
                 deleted_qobject_guard(exc, "_CardRenderingMixin.update_preview_highlight.reset_card")
@@ -81,11 +79,10 @@ class _CardRenderingMixin:
                 return
             try:
                 self.update_card_style(card, self.is_path_selected(path))
-                if card.property("original_style") is None:
-                    card.setProperty("original_style", card.styleSheet())
-                current = card.styleSheet().strip()
-                sep = "" if not current or current.endswith(";") else ";"
-                card.setStyleSheet(f"{current}{sep} border: 4px solid #f39c12;")
+                if not card.property("preview_highlighted"):
+                    card.setProperty("preview_highlighted", True)
+                    current = card.styleSheet().strip()
+                    card.setStyleSheet(qss("gallery_card_preview_overlay", BASE_STYLE=current))
             except RuntimeError as exc:
                 deleted_qobject_guard(exc, "_CardRenderingMixin.update_preview_highlight.highlight_card")
 
@@ -117,15 +114,9 @@ class _CardRenderingMixin:
             label.clear()
             label.setText("Loading...")
             if is_video:
-                label.setStyleSheet(
-                    "border: 2px solid #3498db; color: #3498db; "
-                    "font-weight: bold; background-color: rgba(20, 24, 32, 0.35);"
-                )
+                label.setStyleSheet(qss("gallery_card_video_loading"))
             else:
-                label.setStyleSheet(
-                    "border: 1px dashed rgba(255, 255, 255, 0.20); color: #888; "
-                    "font-size: 10px; background-color: rgba(20, 24, 32, 0.35);"
-                )
+                label.setStyleSheet(qss("gallery_card_loading_image"))
 
         layout.addWidget(label)
 
@@ -158,14 +149,10 @@ class _CardRenderingMixin:
             if is_video:
                 # Match ExtractorTab style ("VIDEO" text, Blue border)
                 label.setText("VIDEO")
-                label.setStyleSheet(
-                    "border: 2px solid #3498db; color: #3498db; font-weight: bold; background-color: rgba(20, 24, 32, 0.35);"
-                )
+                label.setStyleSheet(qss("gallery_card_video_loading"))
             else:
                 label.setText("No Thumbnail")
-                label.setStyleSheet(
-                    "border: 2px solid #e74c3c; color: #e74c3c; font-weight: bold; background-color: rgba(20, 24, 32, 0.35);"
-                )
+                label.setStyleSheet(qss("gallery_card_failed"))
 
             label.show()
             return
@@ -190,34 +177,27 @@ class _CardRenderingMixin:
             label.setText("")
 
             if is_video:
-                label.setStyleSheet(
-                    "border: 2px solid #3498db; background-color: transparent;"
-                )
+                label.setStyleSheet(qss("gallery_card_video"))
             else:
-                label.setStyleSheet(
-                    "border: 1px solid rgba(255, 255, 255, 0.15); background-color: transparent;"
-                )
+                label.setStyleSheet(qss("gallery_card_pixmap"))
 
         # 3. Loading/Empty State
         else:
             label.setText("Load Failed")
-            label.setStyleSheet(
-                "border: 1px solid #e74c3c; color: #e74c3c; font-size: 10px; background-color: rgba(20, 24, 32, 0.35);"
-            )
+            label.setStyleSheet(qss("gallery_card_load_failed"))
 
     def _generate_error_pixmap(self: "AbstractClassSingleGalleryHostProtocol") -> QPixmap:
         """Generates a visual placeholder for failed loads."""
         size = self.thumbnail_size
         pixmap = QPixmap(size, size)
-        pixmap.fill(QColor("#2c2f33"))
+        pixmap.fill(QColor(color("surface")))
 
         painter = QPainter(pixmap)
-        # Red border
-        painter.setPen(QColor("#e74c3c"))
+        danger = QColor(color("danger"))
+        painter.setPen(danger)
         painter.drawRect(0, 0, size - 1, size - 1)
 
-        # Text
-        painter.setPen(QColor("#e74c3c"))
+        painter.setPen(danger)
         painter.drawText(pixmap.rect(), Qt.AlignmentFlag.AlignCenter, "No Thumbnail")
         painter.end()
 

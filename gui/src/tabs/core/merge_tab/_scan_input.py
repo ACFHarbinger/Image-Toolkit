@@ -75,12 +75,12 @@ class _ScanInputMixin:
         worker = ImageScannerWorker(directory)
         self.current_scan_worker = worker
         self.current_scan_thread = worker
-        worker.scan_finished.connect(self.on_scan_finished)
+        worker.finished.connect(self.on_scan_finished)
         worker.finished.connect(self.cleanup_scan_thread_ref)
         worker.start()
 
-    @Slot()
-    def cleanup_scan_thread_ref(self):
+    @Slot(object)
+    def cleanup_scan_thread_ref(self, _result=None):
         sender = self.sender()
         if sender:
             sender.deleteLater()
@@ -99,15 +99,18 @@ class _ScanInputMixin:
         with contextlib.suppress(Exception):
             thread.finished.disconnect(self.cleanup_scan_thread_ref)
 
-        def clean_up_func(t=thread):
+        def clean_up_func(t=thread, _result=None):
             self._threads_to_cleanup.discard(t)
             t.deleteLater()
 
         thread.finished.connect(clean_up_func)
 
-    @Slot(list)
+    @Slot(object)
     def on_scan_finished(self, paths):
         if not paths:
+            # None = failure/cancel (scan_error already reported); [] = empty dir
+            if paths is None:
+                return
             QMessageBox.information(
                 self, "No Files", f"No supported images found in {self.scanned_dir}"
             )

@@ -37,7 +37,7 @@ class SeriesListingsRecommendationController(TabBoundController):
         old = self._active_rec_worker
         if old is not None:
             with contextlib.suppress(Exception):
-                old.sig_finished.disconnect()
+                old.finished.disconnect()
                 old.error.disconnect()
                 old.status.disconnect()
             if old.isRunning():
@@ -51,15 +51,17 @@ class SeriesListingsRecommendationController(TabBoundController):
             top_k=50,
             parent=self.tab,
         )
-        worker.sig_finished.connect(self._on_recommendation_results)
+        worker.finished.connect(self._on_recommendation_results)
         worker.error.connect(lambda e: QMessageBox.warning(self.tab, "Recommendation Error", e))
         worker.status.connect(lambda msg: self.stats_label.setText(f"🌟 {msg}"))
         self._active_rec_worker = worker
         self.stats_label.setText("🌟 Running recommendations…")
         worker.start()
 
-    @Slot(list)
-    def _on_recommendation_results(self, results: list) -> None:
+    @Slot(object)
+    def _on_recommendation_results(self, results) -> None:
+        if results is None:  # failure/cancel — error path already reported
+            return
         self._recommendation_results = results
         self.clear_rec_btn.show()
         self._rebuild_gallery()

@@ -7,30 +7,29 @@ from typing import Any, Dict, List, Optional, Union
 
 from backend.src.constants import SUPPORTED_IMG_FORMATS, SUPPORTED_VIDEO_FORMATS
 from backend.src.core import ImageFormatConverter, VideoFormatConverter
-from PySide6.QtCore import QThread, Signal
+from PySide6.QtCore import Signal
 
+from gui.src.helpers.base import BaseQThreadWorker
 from gui.src.helpers.core.config_types import ConversionConfig
-from gui.src.helpers.gc_safe import gc_disabled_run
 
 logger = logging.getLogger(__name__)
 
 
-class ConversionWorker(QThread):
-    progress_signal = Signal(int, int)  # (completed, total) — §5.9 Option C
-    finished_signal = Signal(int, str)  # (count, message)
-    error_signal = Signal(str)
+class ConversionWorker(BaseQThreadWorker):
+    progress = Signal(int, int)  # (completed, total) — §5.9 Option C
+    finished = Signal(tuple)  # (count, message)
 
     def __init__(self, config: Union[ConversionConfig, Dict[str, Any]]):
         super().__init__()
         self.config = config
-        self._is_cancelled = False
+        self._cancelled = False
         self.active_processes = set()
         self.process_lock = threading.Lock()
         self._executor: Optional[ThreadPoolExecutor] = None
 
     def cancel(self):
         """Safely cancels all current operations."""
-        self._is_cancelled = True
+        super().cancel()
 
         # Shutdown executor immediately
         if self._executor:
@@ -46,8 +45,7 @@ class ConversionWorker(QThread):
         """Signals the worker to stop (alias for cancel)."""
         self.cancel()
 
-    @gc_disabled_run
-    def run(self):  # noqa: C901
+    def _execute(self) -> object:  # noqa: C901
         try:
             # Config extraction
             files_to_convert: List[str] = self.config.get("files_to_convert", [])
@@ -71,12 +69,11 @@ class ConversionWorker(QThread):
                         files_to_convert.append(input_path)
 
             if not files_to_convert:
-                self.error_signal.emit("No files to convert.")
-                return
+                raise RuntimeError("No files to convert.")
 
             total_files = len(files_to_convert)
             converted_count = 0
-            self.progress_signal.emit(0, total_files)
+            self.progress.emit(0, total_files)
 
             # Define format sets for quick lookup
             img_formats = set(f.lstrip(".") for f in SUPPORTED_IMG_FORMATS)
@@ -91,7 +88,7 @@ class ConversionWorker(QThread):
 
                 futures = []
                 for idx, input_file in enumerate(files_to_convert):
-                    if self._is_cancelled:
+                    if self._cancelled:
                         break
                     futures.append(
                         self._executor.submit(
@@ -106,7 +103,7 @@ class ConversionWorker(QThread):
 
                 failures = []
                 for idx, future in enumerate(as_completed(futures)):
-                    if self._is_cancelled:
+                    if self._cancelled:
                         break
                     try:
                         success = future.result()
@@ -115,7 +112,7 @@ class ConversionWorker(QThread):
                     except Exception as e:
                         failures.append(str(e))
 
-                    self.progress_signal.emit(idx + 1, total_files)
+                    self.progress.emit(idx + 1, total_files)
 
                 self._executor.shutdown(wait=True)
                 self._executor = None
@@ -123,7 +120,7 @@ class ConversionWorker(QThread):
                 failures = []
                 # Sequential Execution (Existing)
                 for idx, input_file in enumerate(files_to_convert):
-                    if self._is_cancelled:
+                    if self._cancelled:
                         break
                     try:
                         if self._convert_single_file(
@@ -133,25 +130,21 @@ class ConversionWorker(QThread):
                     except Exception as e:
                         failures.append(str(e))
 
-                    self.progress_signal.emit(idx + 1, total_files)
+                    self.progress.emit(idx + 1, total_files)
 
-            if self._is_cancelled:
-                self.finished_signal.emit(converted_count, "**Conversion Cancelled**")
+            if self._cancelled:
+                return (converted_count, "**Conversion Cancelled**")
             elif failures:
                 summary = f"Processed {converted_count}/{total_files} successfully.\n{len(failures)} error(s) occurred."
                 if len(failures) == 1:
                     summary += f"\n\nError: {failures[0]}"
                 else:
                     summary += "\n\nFirst few errors:\n - " + "\n - ".join(failures[:3])
-                self.finished_signal.emit(converted_count, summary)
+                return (converted_count, summary)
             else:
-                self.finished_signal.emit(
+                return (
                     converted_count, f"Processed {converted_count} file(s)!"
                 )
-
-        except Exception as e:
-            self.progress_signal.emit(0, 0)
-            self.error_signal.emit(str(e))
         finally:
             if self._executor:
                 self._executor.shutdown(wait=False)
@@ -160,7 +153,7 @@ class ConversionWorker(QThread):
         self, input_file, idx, total_files, img_formats, vid_formats
     ) -> bool:
         """Internal helper to convert a single file. Thread-safe."""
-        if self._is_cancelled:
+        if self._cancelled:
             return False
 
         if not os.path.exists(input_file):
