@@ -13,10 +13,12 @@ from PySide6.QtGui import QColor, QPixmap
 from PySide6.QtWidgets import QListWidgetItem, QWidget
 
 from ....theming.theme_api import color
+from ._tab_bound import TabBoundController
 
 logger = logging.getLogger(__name__)
 
-class _GalleryCardsMixin:
+
+class ScanGalleryCardsController(TabBoundController):
     """Tag checkbox population and DB-card creation helper for ScanMetadataTab."""
 
     def _create_gallery_card(
@@ -60,4 +62,6 @@ class _GalleryCardsMixin:
             self.tags_list_widget.addItem(item)
 
 
-__all__ = ["_GalleryCardsMixin"]
+_GalleryCardsMixin = ScanGalleryCardsController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
+
+__all__ = ["ScanGalleryCardsController", "_GalleryCardsMixin"]

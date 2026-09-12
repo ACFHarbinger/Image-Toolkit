@@ -16,9 +16,10 @@ from gui.src.constants.ui import DIALOG_OPTS
 from gui.src.helpers import ImageScannerWorker
 
 from ....utils.sort_utils import natural_sort_key
+from ._tab_bound import TabBoundController
 
 
-class _ScanLoadingMixin:
+class ScanLoadingController(TabBoundController):
     """Browse/scan the input directory, manage the scanner thread, and apply filters."""
 
     # --- THREAD SAFETY CLEANUP METHOD ---
@@ -63,14 +64,8 @@ class _ScanLoadingMixin:
 
     def browse_scan_directory(self):
         start_dir = self.last_browsed_scan_dir
-        options = (
-            DIALOG_OPTS
-            | QFileDialog.Option.ShowDirsOnly
-            | QFileDialog.Option.DontResolveSymlinks
-        )
-        directory = QFileDialog.getExistingDirectory(
-            self, "Select directory to scan", start_dir, options
-        )
+        options = DIALOG_OPTS | QFileDialog.Option.ShowDirsOnly | QFileDialog.Option.DontResolveSymlinks
+        directory = QFileDialog.getExistingDirectory(self.tab, "Select directory to scan", start_dir, options)
         if directory:
             self.last_browsed_scan_dir = directory
             self.scan_directory_path.setText(directory)
@@ -136,9 +131,7 @@ class _ScanLoadingMixin:
     def apply_scan_filters(self):
         """Filters the raw scan list based on settings (Show New Only) and feeds
         the virtual found gallery."""
-        self.scan_filtered_list = sorted(
-            self.scan_image_list, key=natural_sort_key
-        )  # Sort by default
+        self.scan_filtered_list = sorted(self.scan_image_list, key=natural_sort_key)  # Sort by default
 
         # FILTERING LOGIC
         if self.database_service.db is not None:
@@ -195,4 +188,6 @@ class _ScanLoadingMixin:
         self.dual.found_gallery.model.set_in_db(in_db)
 
 
-__all__ = ["_ScanLoadingMixin"]
+_ScanLoadingMixin = ScanLoadingController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
+
+__all__ = ["ScanLoadingController", "_ScanLoadingMixin"]

@@ -31,13 +31,14 @@ from PySide6.QtWidgets import (
 from ....components import VirtualDualGallery
 from ....styles import apply_shadow_effect
 from ....theming.theme_api import color, qss
+from ._tab_bound import TabBoundController
 
 
-class ScanMetadataUIBuilder:
+class ScanUIBuilder(TabBoundController):
     """Builds the scan-directory bar, both galleries, metadata group, and action buttons."""
 
     def _build_ui(self):
-        main_layout = QVBoxLayout(self)
+        main_layout = QVBoxLayout(self.tab)
 
         # --- Scrollable Content Setup ---
         page_scroll = QScrollArea()
@@ -99,7 +100,7 @@ class ScanMetadataUIBuilder:
         # (virtual-scroll, GUI/UX §2.1 Option A — replaces the two
         # MarqueeScrollArea + QGridLayout grids; pagination is dropped and
         # selection lives in the dual gallery's selection models).
-        self.dual = VirtualDualGallery(self)
+        self.dual = VirtualDualGallery(self.tab)
         self.dual.found_activated.connect(self._view_single_image_preview)
         self.dual.found_right_clicked.connect(self.show_image_context_menu)
         self.dual.selected_activated.connect(self._view_single_image_preview)
@@ -224,7 +225,7 @@ class ScanMetadataUIBuilder:
             btn_page.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)  # pyrefly: ignore [missing-attribute]
 
         # Explicitly attaching a menu ensures the arrow style appears
-        btn_page.setMenu(QMenu(self))
+        btn_page.setMenu(QMenu(self.tab))
 
         # Set default values
         combo.setCurrentText("100")
@@ -243,4 +244,6 @@ class ScanMetadataUIBuilder:
         return container, combo, btn_prev, btn_next, btn_page
 
 
-__all__ = ["ScanMetadataUIBuilder"]
+_UIBuilderMixin = ScanUIBuilder  # COMPAT(ui-arch-23): remove after callers drop the mixin name
+
+__all__ = ["ScanUIBuilder", "_UIBuilderMixin"]

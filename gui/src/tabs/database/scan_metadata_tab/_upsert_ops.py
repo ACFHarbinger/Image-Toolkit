@@ -12,23 +12,24 @@ from PySide6.QtWidgets import QMessageBox
 from gui.src.helpers import UpsertWorker
 
 from ....windows import MetadataEditorWindow
+from ._tab_bound import TabBoundController
 
 
-class _UpsertOpsMixin:
+class ScanUpsertController(TabBoundController):
     """Open the metadata editor, run the background upsert worker, and DB-delete."""
 
     def perform_upsert_operation(self):
         """Open the MetadataEditorWindow for the currently selected images."""
         db = self.database_service.db
         if not db:
-            QMessageBox.warning(self, "Error", "Connect to database first.")
+            QMessageBox.warning(self.tab, "Error", "Connect to database first.")
             return
         if not self.selected_image_paths:
-            QMessageBox.warning(self, "No Selection", "Select at least one image first.")
+            QMessageBox.warning(self.tab, "No Selection", "Select at least one image first.")
             return
 
         paths = sorted(self.selected_image_paths)
-        dialog = MetadataEditorWindow(paths, db, parent=self)
+        dialog = MetadataEditorWindow(paths, db, parent=self.tab)
         dialog.metadata_confirmed.connect(self._execute_upsert)
         dialog.show()
 
@@ -71,7 +72,7 @@ class _UpsertOpsMixin:
 
     @Slot(object)
     def _on_upsert_error(self, exc: Exception):
-        QMessageBox.critical(self, "Error", str(exc))
+        QMessageBox.critical(self.tab, "Error", str(exc))
 
     @Slot(list)
     def _on_upsert_prepared(self, prepared: list):  # noqa: C901
@@ -127,9 +128,7 @@ class _UpsertOpsMixin:
             if self.view_new_only:
                 self._refresh_scan_gallery()
 
-            QMessageBox.information(
-                self, "Success", f"Upserted {success_count} images."
-            )
+            QMessageBox.information(self.tab, "Success", f"Upserted {success_count} images.")
             self.update_button_states(True)
 
             # DB.8d (scoped): offer to auto-create/link a listing for any
@@ -137,7 +136,7 @@ class _UpsertOpsMixin:
             self._maybe_offer_auto_listings(sorted(touched_group_names))
 
         except Exception as e:
-            QMessageBox.critical(self, "Error", str(e))
+            QMessageBox.critical(self.tab, "Error", str(e))
 
     def delete_selected_images(self):
         db = self.database_service.db
@@ -145,7 +144,7 @@ class _UpsertOpsMixin:
             return
         if (
             QMessageBox.question(
-                self,
+                self.tab,
                 "Confirm",
                 f"Delete {len(self.selected_image_paths)} entries from DB?",
             )
@@ -158,7 +157,9 @@ class _UpsertOpsMixin:
 
                 self.dual.found_gallery.model.mark_in_db(path, False)
 
-            QMessageBox.information(self, "Success", "Deleted entries.")
+            QMessageBox.information(self.tab, "Success", "Deleted entries.")
 
 
-__all__ = ["_UpsertOpsMixin"]
+_UpsertOpsMixin = ScanUpsertController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
+
+__all__ = ["ScanUpsertController", "_UpsertOpsMixin"]
