@@ -87,6 +87,7 @@
   - `drive_sync_tab/sync_data_subtab/widget.py`: removed redundant `processEvents()` flushes in `_lock_ui` and `_lock_ui_minor`.
 - Added `tools/dev/gui_audit/check_no_process_events.py` and regression test `gui/test/test_no_process_events.py` asserting zero live `processEvents()` calls in `gui/src`.
 
+<<<<<<< HEAD
 # S538 — 2026-09-08 (Gemini: #544 DataBrowserTab composition)
 
 - `DataBrowserTab` inherits `QWidget` directly without mixins. The 6 mixins
@@ -144,6 +145,17 @@
   for QWidget parents). Facade delegation on `SamplerSubTab` preserves all
   public/internal call interfaces. COMPAT aliases keep the old mixin names.
   Seventh and final non-gallery #544 tab composition migration (R2.c).
+
+# S545 — 2026-09-08 (Grok: #568 R3.1 PixmapBudget)
+
+- One `PixmapBudget` owns LRU thumbnail cache *and* the process-wide
+  resident cap. Per-role sizes (card thumb, single gallery, two-gallery
+  found/selected, virtual dual, virtual model) are derived from it;
+  every `LRUImageCache` constructed with the default budget registers
+  there. Inserts that would push the sum of resident entries past
+  `total_entries` (800, same number as `LRU_CACHE_CEILING`) evict the
+  globally oldest thumbnail, from whichever cache holds it. Isolated
+  caches (`budget=None`) stay local-only for tests/benches.
 
 # S535 — 2026-09-08 (Grok: huge-GIF gallery thumbnails)
 

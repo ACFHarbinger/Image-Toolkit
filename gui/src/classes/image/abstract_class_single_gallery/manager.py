@@ -10,7 +10,7 @@ from backend.src.constants import LOCAL_SOURCE_PATH
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import QGridLayout, QLabel, QScrollArea, QWidget
 
-from ....utils.cache.lru_image_cache import LRUImageCache
+from ....utils.cache.lru_image_cache import DEFAULT_PIXMAP_BUDGET, LRUImageCache
 from ...base.gallery_base import AbstractGalleryBase
 from ._card_rendering import _CardRenderingMixin
 from ._dir_history import _DirHistoryMixin
@@ -59,7 +59,7 @@ class AbstractClassSingleGallery(
         self.gallery_image_paths: List[str] = []
         self.selected_files: List[str] = []
         self.path_to_card_widget: Dict[str, QWidget] = {}
-        self._initial_pixmap_cache = LRUImageCache(maxsize=300)
+        self._initial_pixmap_cache = LRUImageCache(maxsize=DEFAULT_PIXMAP_BUDGET.single_gallery)
 
         # --- Pagination State ---
         self.page_size = 100
