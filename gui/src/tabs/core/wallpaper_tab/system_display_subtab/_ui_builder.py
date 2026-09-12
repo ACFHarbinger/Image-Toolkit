@@ -86,12 +86,18 @@ class SystemDisplayUIBuilder(TabBoundController):
 
         self._build_gallery_section(content_layout)
 
-        self.playback_order_combo.currentTextChanged.connect(self._sync_daemon_config)
-        self.interval_min_spinbox.valueChanged.connect(self._sync_daemon_config)
-        self.interval_sec_spinbox.valueChanged.connect(self._sync_daemon_config)
-        self.style_combo.currentTextChanged.connect(self._sync_daemon_config)
-        self.video_style_combo.currentTextChanged.connect(self._sync_daemon_config)
-        self.background_type_combo.currentTextChanged.connect(self._sync_daemon_config)
+        # Connected to the real controller method, not the manager's
+        # `_delegate()` facade: that wrapper's `*args, **kwargs` signature
+        # defeats Qt/PySide's automatic slot-arity adaptation, so a signal
+        # emitting a value (str/int) gets forwarded verbatim into
+        # `_sync_daemon_config()`, which takes none -- TypeError at click
+        # time, not import time.
+        self.playback_order_combo.currentTextChanged.connect(self.daemon_controller._sync_daemon_config)
+        self.interval_min_spinbox.valueChanged.connect(self.daemon_controller._sync_daemon_config)
+        self.interval_sec_spinbox.valueChanged.connect(self.daemon_controller._sync_daemon_config)
+        self.style_combo.currentTextChanged.connect(self.daemon_controller._sync_daemon_config)
+        self.video_style_combo.currentTextChanged.connect(self.daemon_controller._sync_daemon_config)
+        self.background_type_combo.currentTextChanged.connect(self.daemon_controller._sync_daemon_config)
 
         self._update_background_type(self.background_type)
         self.populate_monitor_layout()
@@ -176,7 +182,7 @@ class SystemDisplayUIBuilder(TabBoundController):
 
         self.btn_daemon_toggle = QPushButton("Start Background Daemon")
         self.btn_daemon_toggle.setCheckable(True)
-        self.btn_daemon_toggle.clicked.connect(self.toggle_daemon)
+        self.btn_daemon_toggle.clicked.connect(self.daemon_controller.toggle_daemon)
         slideshow_layout.addWidget(self.btn_daemon_toggle)
 
         self.btn_view_logs = QPushButton("View Daemon Logs")

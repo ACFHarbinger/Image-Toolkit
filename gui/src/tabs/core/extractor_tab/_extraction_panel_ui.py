@@ -129,6 +129,38 @@ class ExtractorExtractionPanelUIController(TabBoundController):
         # Decoupled from player speed
         extract_config_layout.addWidget(self.combo_speed)
 
+        # -- Row 5: Advanced Extraction Options --
+        extract_config_layout.addWidget(QLabel("Frame Interval:"))
+        self.spin_interval = QSpinBox()
+        self.spin_interval.setRange(1, 1000)
+        self.spin_interval.setValue(1)
+        self.spin_interval.setSuffix(" frames")
+        extract_config_layout.addWidget(self.spin_interval)
+
+        extract_config_layout.setSpacing(20)
+        self.check_smart_extract = QCheckBox("Smart Extract (FFmpeg)")
+        self.check_smart_extract.setToolTip(
+            "Use FFmpeg filters to only extract unique frames or scene changes"
+        )
+        extract_config_layout.addWidget(self.check_smart_extract)
+
+        self.combo_smart_method = QComboBox()
+        self.combo_smart_method.addItems(
+            [
+                "mpdecimate (De-duplicate)",
+                "scene (0.1)",
+                "scene (0.2)",
+                "scene (0.4)",
+                "scene (0.6)",
+            ]
+        )
+        self.combo_smart_method.setCurrentText("mpdecimate (De-duplicate)")
+        self.combo_smart_method.setEnabled(False)
+        self.check_smart_extract.toggled.connect(self.combo_smart_method.setEnabled)
+        extract_config_layout.addWidget(self.combo_smart_method)
+
+        extract_config_layout.addStretch()
+
         extract_main_layout.addWidget(extract_config_container)
 
         # -- Row 2: Start/End range + Snapshot (left-aligned) --
@@ -140,6 +172,13 @@ class ExtractorExtractionPanelUIController(TabBoundController):
         self.tags_ms: List[Tuple[int, str]] = []
 
         range_row = QHBoxLayout()
+
+        self.btn_snapshot = QPushButton("📸 Snapshot Frame")
+        self.btn_snapshot.clicked.connect(self.extract_single_frame)
+        self.btn_snapshot.setEnabled(False)
+        range_row.addWidget(self.btn_snapshot)
+
+        range_row.addWidget(QLabel("|"))
         range_row.addStretch()
 
         self.btn_set_start = QPushButton("Set Start [00:00]")
@@ -164,18 +203,11 @@ class ExtractorExtractionPanelUIController(TabBoundController):
         self.btn_jump_end.setEnabled(False)
         range_row.addWidget(self.btn_jump_end)
 
-        range_row.addWidget(QLabel("|"))
-
-        self.btn_snapshot = QPushButton("📸 Snapshot Frame")
-        self.btn_snapshot.clicked.connect(self.extract_single_frame)
-        self.btn_snapshot.setEnabled(False)
-        range_row.addWidget(self.btn_snapshot)
-
         extract_main_layout.addLayout(range_row)
 
         # -- Row 3: Extraction Actions --
-        # FlowLayout: action buttons (Extract Range / Extract Video /
-        # Extract GIF / Run on GCD / Cancel) that may overflow at narrow
+        # FlowLayout: action buttons (Run on Cloud / Extract Range /
+        # Extract Video / Extract GIF / Cancel) that may overflow at narrow
         # widths. Parented container — see Row 1's comment.
         extract_actions_container = QWidget()
         extract_actions_layout = FlowLayout(extract_actions_container)
@@ -200,22 +232,22 @@ class ExtractorExtractionPanelUIController(TabBoundController):
         self.btn_extract_video.clicked.connect(self.extract_range_as_video)
         self.btn_extract_video.setEnabled(False)
 
-        # Cloud Compute Offload PoC (#487): run the current range on Google
-        # Cloud Run instead of locally. Needs a Cloud Run URL in
+        # Cloud Compute Offload PoC (#487): run the current range on a
+        # cloud provider instead of locally. Needs a provider configured in
         # Cloud Compute ▸ Settings; the handler warns before uploading.
-        self.btn_run_on_gcd = QPushButton("☁ Run on GCD")
+        self.btn_run_on_gcd = QPushButton("☁ Run on Cloud")
         self.btn_run_on_gcd.setToolTip(
-            "Extract this range on Google Cloud Run (uploads the source video)"
+            "Extract this range on the configured cloud provider (uploads the source video)"
         )
         self.btn_run_on_gcd.setStyleSheet(qss("extractor_btn_gcd"))
         self.btn_run_on_gcd.clicked.connect(lambda: self.run_current_on_gcd("gif"))
         self.btn_run_on_gcd.setEnabled(False)
 
+        extract_actions_layout.addWidget(self.btn_run_on_gcd)
         extract_actions_layout.addStretch()
         extract_actions_layout.addWidget(self.btn_extract_range)
         extract_actions_layout.addWidget(self.btn_extract_video)
         extract_actions_layout.addWidget(self.btn_extract_gif)
-        extract_actions_layout.addWidget(self.btn_run_on_gcd)
         extract_actions_layout.addWidget(self.btn_cancel_extraction)
 
         extract_main_layout.addWidget(extract_actions_container)
@@ -223,44 +255,10 @@ class ExtractorExtractionPanelUIController(TabBoundController):
         # -- Row 4: Cuts --
         extract_main_layout.addLayout(self._build_cuts_row())
 
-        # -- Row 5: Advanced Extraction Options --
-        extract_adv_layout = QHBoxLayout()
-        extract_adv_layout.addWidget(QLabel("Frame Interval:"))
-        self.spin_interval = QSpinBox()
-        self.spin_interval.setRange(1, 1000)
-        self.spin_interval.setValue(1)
-        self.spin_interval.setSuffix(" frames")
-        extract_adv_layout.addWidget(self.spin_interval)
-
-        extract_adv_layout.addSpacing(20)
-        self.check_smart_extract = QCheckBox("Smart Extract (FFmpeg)")
-        self.check_smart_extract.setToolTip(
-            "Use FFmpeg filters to only extract unique frames or scene changes"
-        )
-        extract_adv_layout.addWidget(self.check_smart_extract)
-
-        self.combo_smart_method = QComboBox()
-        self.combo_smart_method.addItems(
-            [
-                "mpdecimate (De-duplicate)",
-                "scene (0.1)",
-                "scene (0.2)",
-                "scene (0.4)",
-                "scene (0.6)",
-            ]
-        )
-        self.combo_smart_method.setCurrentText("mpdecimate (De-duplicate)")
-        self.combo_smart_method.setEnabled(False)
-        self.check_smart_extract.toggled.connect(self.combo_smart_method.setEnabled)
-        extract_adv_layout.addWidget(self.combo_smart_method)
-
-        extract_adv_layout.addStretch()
-        extract_main_layout.addLayout(extract_adv_layout)
-
-        # -- Row 6: Tags --
+        # -- Row 5: Tags --
         extract_main_layout.addLayout(self._build_tags_row())
 
-        # -- Row 7: Progress --
+        # -- Row 6: Progress --
         self.extraction_progress_bar = QProgressBar()
         self.extraction_progress_bar.setTextVisible(True)
         self.extraction_progress_bar.setAlignment(Qt.AlignmentFlag.AlignCenter)

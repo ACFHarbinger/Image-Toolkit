@@ -95,7 +95,14 @@ class ExtractorMediaPlayerController(TabBoundController):
 
         player_container = QWidget()
         self.player_container = player_container
-        player_container.setStyleSheet(qss("transparent_bg"))
+        # ID-scoped selector, not the bare `qss("transparent_bg")` fragment:
+        # an unscoped local stylesheet on an ancestor widget suppresses the
+        # app-level QPushButton {...} rule for every descendant button in
+        # this subtree (confirmed: Skip Ahead / fullscreen buttons lost
+        # their theme background entirely). Scoping to this widget's own
+        # object name keeps the transparency without breaking the cascade.
+        player_container.setObjectName("extractor_player_container")
+        player_container.setStyleSheet("QWidget#extractor_player_container { background-color: transparent; }")
         self.player_inner_layout = QVBoxLayout(player_container)
         self.player_inner_layout.setContentsMargins(0, 0, 0, 0)
 
