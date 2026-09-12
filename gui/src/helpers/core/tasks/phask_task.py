@@ -1,6 +1,3 @@
-import imagehash
-from PIL import Image
-
 from gui.src.helpers.base import BaseQRunnableWorker
 
 
@@ -15,6 +12,9 @@ class PhashTask(BaseQRunnableWorker):
 
     def _execute(self) -> object:
         try:
+            import imagehash
+            from PIL import Image
+
             with Image.open(self.path) as img:
                 # Compute hash
                 img_hash = imagehash.average_hash(img)

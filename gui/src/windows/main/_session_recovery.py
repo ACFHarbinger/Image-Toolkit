@@ -9,12 +9,13 @@ import json
 import os
 
 from backend.src.constants import LOCAL_SOURCE_PATH
-from PySide6.QtCore import QTimer
 
 from gui.src.contracts.tab_config import ConfigCollectible, ConfigSettable, apply_tab_config
 
+from ._session_recovery_state import SessionRecoveryState, _SessionRecoveryStateMixin
 
-class _SessionRecoveryMixin:
+
+class _SessionRecoveryMixin(_SessionRecoveryStateMixin):
     """Restores/persists the active tab and per-tab configs across launches."""
 
     def _load_recovery_data(self) -> dict:
@@ -104,21 +105,24 @@ class _SessionRecoveryMixin:
         if recovery_level == "None" or not tab_configs or not target_module_id:
             return
 
-        # Same 150ms defer as the classic path: let the layout settle before
-        # calling set_config() on the freshly-activated module's widget.
-        def do_restore():
+        def target_widget():
             runtime = getattr(self, "module_runtime", None)
             if runtime is None or not runtime.is_created(target_module_id):
-                return
+                return None
             handle = runtime.handle_for(target_module_id)
-            widget = getattr(handle, "widget", None)
+            return getattr(handle, "widget", None)
+
+        def is_ready() -> bool:
+            widget = target_widget()
+            return widget is not None and widget.isVisible() and widget.size().height() > 0
+
+        def do_restore():
+            widget = target_widget()
             if widget is not None:
                 self._restore_tab_config_instance(widget, tab_configs, "")
+            self._set_session_recovery_state(SessionRecoveryState.CONFIGS_RESTORED)
 
-        if "PYTEST_CURRENT_TEST" in os.environ:
-            do_restore()
-        else:
-            QTimer.singleShot(150, do_restore)
+        self._restore_when_ready(is_ready, do_restore)
 
     def _restore_session_recovery(self) -> None:  # noqa: C901
         """Restores the previously opened tab and configurations on startup."""
@@ -238,14 +242,20 @@ class _SessionRecoveryMixin:
             # visible combo stays on the default (restore_last_tab off).
             self._ensure_category(active_category)
 
-        # Defer config restoration by 150ms to ensure the UI layout has fully settled and shown
+        def is_ready() -> bool:
+            widget = self.tabs.currentWidget()
+            return (
+                self.isVisible()
+                and widget is not None
+                and widget.isVisible()
+                and widget.size().height() > 0
+            )
+
         def do_restore():
             self._do_restore_configs(recovery_level, active_category, active_tab_name, tab_configs)
+            self._set_session_recovery_state(SessionRecoveryState.CONFIGS_RESTORED)
 
-        if "PYTEST_CURRENT_TEST" in os.environ:
-            do_restore()
-        else:
-            QTimer.singleShot(150, do_restore)
+        self._restore_when_ready(is_ready, do_restore)
 
     def _restore_tab_config_instance(self, tab_instance, tab_configs, error_context: str) -> None:
         if tab_instance is None:

@@ -12,8 +12,6 @@ import shutil
 import tempfile
 from typing import Dict, Optional
 
-import cv2
-from PIL import Image as PILImage
 from PySide6.QtCore import Q_ARG, QEventLoop, QMetaObject, Qt, Slot
 from PySide6.QtGui import QKeyEvent, QPixmap
 from PySide6.QtWidgets import QApplication, QDialog, QFileDialog, QMessageBox
@@ -24,13 +22,13 @@ from ....windows import ImagePreviewWindow
 
 logger = logging.getLogger(__name__)
 
+
 class _MergeExecutionMixin:
     """Run/cancel the merge worker and drive the post-merge result dialog."""
 
     def keyPressEvent(self, event: QKeyEvent):
         """Dispatch Merge-tab shortcuts before gallery navigation."""
         from ....utils.manager.shortcut_manager import get_registry
-
 
         reg = get_registry()
         if reg.matches(event, "merge.run"):
@@ -116,6 +114,8 @@ class _MergeExecutionMixin:
         self.cancel_button.setVisible(True)
         self.status_label.setText("Merging…")
 
+        import cv2
+
         if cv2.ocl.haveOpenCL():
             cv2.ocl.finish()
 
@@ -123,9 +123,7 @@ class _MergeExecutionMixin:
         self.current_merge_worker = worker
         self.current_merge_thread = worker
 
-        worker.progress.connect(
-            lambda c, t: self.status_label.setText(f"Merging {c}/{t}")
-        )
+        worker.progress.connect(lambda c, t: self.status_label.setText(f"Merging {c}/{t}"))
 
         worker.error.connect(self.on_merge_error)
 
@@ -181,24 +179,16 @@ class _MergeExecutionMixin:
         confirm.setWindowTitle("Save Merged Image?")
 
         if self.pending_save_path:
-            confirm.setText(
-                f"Merge successful. Save to configured output?\n\n{self.pending_save_path}"
-            )
+            confirm.setText(f"Merge successful. Save to configured output?\n\n{self.pending_save_path}")
             save_text = "Save"
         else:
             confirm.setText("Merge successful. Choose an action:")
             save_text = "Save As…"
 
-        copy_btn = confirm.addButton(
-            "Copy to Clipboard", QMessageBox.ButtonRole.ActionRole
-        )
-        export_video_btn = confirm.addButton(
-            "Export as Video…", QMessageBox.ButtonRole.ActionRole
-        )
+        copy_btn = confirm.addButton("Copy to Clipboard", QMessageBox.ButtonRole.ActionRole)
+        export_video_btn = confirm.addButton("Export as Video…", QMessageBox.ButtonRole.ActionRole)
         save_btn = confirm.addButton(save_text, QMessageBox.ButtonRole.AcceptRole)
-        save_add_btn = confirm.addButton(
-            "Save and Add to Canvas", QMessageBox.ButtonRole.AcceptRole
-        )
+        save_add_btn = confirm.addButton("Save and Add to Canvas", QMessageBox.ButtonRole.AcceptRole)
         confirm.addButton("Discard", QMessageBox.ButtonRole.DestructiveRole)
         confirm.addButton(QMessageBox.StandardButton.Cancel)
         confirm.exec()
@@ -227,8 +217,7 @@ class _MergeExecutionMixin:
                             self,
                             "Overwrite?",
                             f"File already exists:\n{self.pending_save_path}\nOverwrite?",
-                            QMessageBox.StandardButton.Yes
-                            | QMessageBox.StandardButton.No,
+                            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                         )
                         if overwrite != QMessageBox.StandardButton.Yes:
                             self.cleanup_temp_file()
@@ -237,28 +226,14 @@ class _MergeExecutionMixin:
                     saved_final_path = self.pending_save_path
                     self.temp_file_path = None
                     self.last_output_dir = os.path.dirname(saved_final_path)
-                    QMessageBox.information(
-                        self, "Success", f"Saved to {saved_final_path}"
-                    )
+                    QMessageBox.information(self, "Success", f"Saved to {saved_final_path}")
                 except Exception as e:
-                    QMessageBox.critical(
-                        self, "Save Error", f"Failed to move file: {e}"
-                    )
+                    QMessageBox.critical(self, "Save Error", f"Failed to move file: {e}")
                     self.cleanup_temp_file()
             else:
-                filter_str = (
-                    "GIF (*.gif)"
-                    if result_path.lower().endswith(".gif")
-                    else "PNG (*.png)"
-                )
-                start_dir = (
-                    self.last_output_dir
-                    if self.last_output_dir
-                    else self.last_browsed_scan_dir
-                )
-                out, _ = QFileDialog.getSaveFileName(
-                    self, "Save Merged Image", start_dir, filter_str
-                )
+                filter_str = "GIF (*.gif)" if result_path.lower().endswith(".gif") else "PNG (*.png)"
+                start_dir = self.last_output_dir if self.last_output_dir else self.last_browsed_scan_dir
+                out, _ = QFileDialog.getSaveFileName(self, "Save Merged Image", start_dir, filter_str)
                 if out:
                     try:
                         shutil.move(result_path, out)
@@ -291,6 +266,8 @@ class _MergeExecutionMixin:
         the normal Save/Copy/Discard flow still applies afterwards.
         """
         try:
+            from PIL import Image as PILImage
+
             with PILImage.open(result_path) as im:
                 img_size = im.size
         except Exception as e:
@@ -302,9 +279,7 @@ class _MergeExecutionMixin:
             return
         params = dialog.get_values()
 
-        start_dir = (
-            self.last_output_dir if self.last_output_dir else self.last_browsed_scan_dir
-        )
+        start_dir = self.last_output_dir if self.last_output_dir else self.last_browsed_scan_dir
         default_name = os.path.splitext(os.path.basename(result_path))[0] + "_scroll.mp4"
         start_path = os.path.join(start_dir, default_name) if start_dir else default_name
 

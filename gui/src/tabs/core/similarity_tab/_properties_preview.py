@@ -11,7 +11,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict
 
-from PIL import Image
 from PySide6.QtCore import QPoint, Qt, Slot
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QMenu, QMessageBox
@@ -40,6 +39,8 @@ class _PropertiesPreviewMixin:
         except OSError:
             props["File Size"] = "N/A"
         try:
+            from PIL import Image
+
             img = Image.open(file_path)
             props["Width"] = f"{img.width} px"
             props["Height"] = f"{img.height} px"
@@ -99,10 +100,12 @@ class _PropertiesPreviewMixin:
         selected_paths = list(self.selected_files)
         if len(selected_paths) > 10:
             reply = QMessageBox.question(
-                self, "Large Selection",
+                self,
+                "Large Selection",
                 f"Selected {len(selected_paths)} images. Compare first 10?",
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.Yes)
+                QMessageBox.StandardButton.Yes,
+            )
             if reply == QMessageBox.StandardButton.Yes:
                 selected_paths = selected_paths[:10]
             else:
@@ -112,8 +115,7 @@ class _PropertiesPreviewMixin:
             if Path(path).exists():
                 property_list.append(self.get_image_properties(path))
             else:
-                property_list.append({"File Name": os.path.basename(path), "Path": path,
-                                      "Error": "File not found."})
+                property_list.append({"File Name": os.path.basename(path), "Path": path, "Error": "File not found."})
         dialog = PropertyComparisonDialog(property_list, self)
         dialog.exec()
 
