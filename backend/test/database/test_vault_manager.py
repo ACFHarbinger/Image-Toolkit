@@ -55,6 +55,18 @@ class VaultManagerTest:
         vm.save_data(payload)
         assert vm.load_data() == payload
 
+    def test_save_account_snapshot_serializes_credentials(self, vm, tmp_path):
+        keystore = str(tmp_path / "snapshot.p12")
+        vault = str(tmp_path / "snapshot.vault")
+        vm.create_key_if_missing("snapshot", keystore, "snapshot-pass")
+        vm.get_secret_key("snapshot", "snapshot-pass")
+        vm.init_vault(vault)
+
+        credentials = {"account_name": "alice", "preferences": {"theme": "dark"}}
+        vm.save_account_snapshot(credentials)
+
+        assert json.loads(vm.load_data()) == credentials
+
     def test_create_key_if_missing_is_idempotent(self, vm, tmp_path):
         keystore = str(tmp_path / "idem.p12")
         vm.create_key_if_missing("idem-alias", keystore, "pass")
