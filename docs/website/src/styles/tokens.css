@@ -1,16 +1,18 @@
+@import "./theme-tokens.generated.css";
+
 :root {
   /* Optic Lab: shared semantic palette. Components should consume these
      meanings instead of inventing page-specific colors. */
-  --it-ink: #111111;
+  --it-ink: var(--it-color-window-bg);
   --it-ink-deep: #0a0a0a;
-  --it-surface: #161616;
+  --it-surface: var(--it-color-surface);
   --it-surface-raised: #1d1d1d;
   --it-paper: #f8f6f0;
-  --it-text: #f4f1eb;
-  --it-text-muted: #8c8a82;
-  --it-text-faint: #666666;
+  --it-text: var(--it-color-text);
+  --it-text-muted: var(--it-color-muted-text);
+  --it-text-faint: var(--it-color-muted-text);
   --it-silver: #d4d0c6;
-  --it-optic-cyan: #80e5e0;
+  --it-optic-cyan: var(--it-color-accent);
   --it-optic-magenta: #c72c6a;
   --it-optic-violet: #9a8cff;
   --it-review-amber: #d4af37;

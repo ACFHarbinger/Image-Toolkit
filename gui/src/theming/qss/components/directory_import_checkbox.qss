@@ -1,0 +1,3 @@
+QCheckBox {
+    margin-left: 6px;
+}

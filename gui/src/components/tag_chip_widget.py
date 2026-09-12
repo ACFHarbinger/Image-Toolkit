@@ -22,6 +22,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from gui.src.theming.theme_api import qss
+
 
 class TagChipWidget(QWidget):
     """
@@ -69,7 +71,7 @@ class TagChipWidget(QWidget):
             self.close_btn = QPushButton("×", self)
             self.close_btn.setFixedSize(14, 14)
             self.close_btn.setFlat(True)
-            self.close_btn.setStyleSheet("border: none; font-weight: bold; padding: 0px;")
+            self.close_btn.setStyleSheet(qss("chip_close_btn"))
             self.close_btn.clicked.connect(self._on_remove)
             layout.addWidget(self.close_btn)
 
@@ -77,19 +79,8 @@ class TagChipWidget(QWidget):
         self._update_style()
 
     def _update_style(self) -> None:
-        bg_color = "#3A3D4E" if not self._active else "#2D6CBE"
-        text_color = "#E0E0E0" if not self._active else "#FFFFFF"
-        border_color = "#555A70" if not self._active else "#4A90E2"
-
         self.setStyleSheet(
-            f"QWidget {{"
-            f"  background-color: {bg_color};"
-            f"  color: {text_color};"
-            f"  border: 1px solid {border_color};"
-            f"  border-radius: 10px;"
-            f"  font-size: 11px;"
-            f"  font-weight: 500;"
-            f"}}"
+            qss("tag_chip_active" if self._active else "tag_chip_inactive")
         )
 
     def is_active(self) -> bool:

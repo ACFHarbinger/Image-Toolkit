@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
 )
 
 from ....styles import apply_shadow_effect
+from ....theming.theme_api import color
 
 
 class _UIConfigMixin:
@@ -42,7 +43,7 @@ class _UIConfigMixin:
         btn_browse_scan = QPushButton("Browse Input…")
         btn_browse_scan.clicked.connect(self.browse_and_scan_directory)
         apply_shadow_effect(
-            btn_browse_scan, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+            btn_browse_scan, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3
         )
         scan_dir_layout.addWidget(self.scan_directory_path)
         scan_dir_layout.addWidget(btn_browse_scan)
@@ -62,7 +63,7 @@ class _UIConfigMixin:
         btn_browse_out = QPushButton("Browse Output…")
         btn_browse_out.clicked.connect(self.browse_output_directory)
         apply_shadow_effect(
-            btn_browse_out, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+            btn_browse_out, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3
         )
         out_dir_layout.addWidget(self.output_directory_path)
         out_dir_layout.addWidget(btn_browse_out)

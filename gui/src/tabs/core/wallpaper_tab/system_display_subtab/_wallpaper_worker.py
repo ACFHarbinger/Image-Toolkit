@@ -15,7 +15,7 @@ from PySide6.QtCore import QEvent, QObject, QThreadPool, Signal, Slot
 from PySide6.QtWidgets import QApplication, QMessageBox, QWidget
 
 from .....helpers import ImageScannerWorker, WallpaperWorker
-from .....styles import STYLE_START_ACTION, STYLE_STOP_ACTION
+from .....theming.theme_api import qss
 
 if TYPE_CHECKING:
     from ...protos.system_display_subtab import SystemDisplaySubTabHostProtocol
@@ -29,8 +29,11 @@ class _WallpaperWorkerCompletionRelay(QObject):
         self._worker_serial = worker_serial
         self._ui_locked = ui_locked
 
-    @Slot(bool, str)
-    def forward(self, success: bool, message: str):
+    @Slot(object)
+    def forward(self, result):
+        if result is None:  # BaseException escape; nothing delivered
+            result = (False, "Wallpaper worker failed unexpectedly.")
+        success, message = result
         self.completed.emit(
             self._worker_serial, self._ui_locked, success, message
         )
@@ -134,14 +137,14 @@ class _WallpaperWorkerMixin:
                 worker_serial, ui_locked, cast(QObject, self)
             )
             self._wallpaper_worker_completion_relay = relay
-            worker.signals.status_update.connect(self.handle_wallpaper_status)
-            worker.signals.work_finished.connect(relay.forward)
+            worker.signals.status.connect(self.handle_wallpaper_status)
+            worker.signals.finished.connect(relay.forward)
             relay.completed.connect(self._handle_wallpaper_worker_finished)
             QThreadPool.globalInstance().start(worker)
         except Exception as exc:
             if worker is not None and relay is not None:
                 with contextlib.suppress(Exception):
-                    worker.signals.work_finished.disconnect(relay.forward)
+                    worker.signals.finished.disconnect(relay.forward)
                 relay.deleteLater()
             self.current_wallpaper_worker = None
             self._active_wallpaper_worker_serial = None
@@ -167,7 +170,7 @@ class _WallpaperWorkerMixin:
             try:
                 if relay is not None:
                     with contextlib.suppress(Exception):
-                        worker.signals.work_finished.disconnect(relay.forward)
+                        worker.signals.finished.disconnect(relay.forward)
                     relay.deleteLater()
                 worker.stop()
                 self.handle_wallpaper_status("Manual stop requested.")
@@ -177,7 +180,7 @@ class _WallpaperWorkerMixin:
 
     def lock_ui_for_wallpaper(self: "SystemDisplaySubTabHostProtocol"):
         self.set_wallpaper_btn.setText("Applying (Click to Stop)")
-        self.set_wallpaper_btn.setStyleSheet(STYLE_STOP_ACTION)
+        self.set_wallpaper_btn.setStyleSheet(qss("stop_action_btn"))
         self.set_wallpaper_btn.setEnabled(True)
         if hasattr(self, "btn_daemon_toggle"):
             self.btn_daemon_toggle.setEnabled(False)
@@ -229,10 +232,10 @@ class _WallpaperWorkerMixin:
         )
         if slideshow_running:
             self.set_wallpaper_btn.setText("Slideshow Running (Stop)")
-            self.set_wallpaper_btn.setStyleSheet(STYLE_STOP_ACTION)
+            self.set_wallpaper_btn.setStyleSheet(qss("stop_action_btn"))
             self.set_wallpaper_btn.setEnabled(True)
         else:
-            self.set_wallpaper_btn.setStyleSheet(STYLE_START_ACTION)
+            self.set_wallpaper_btn.setStyleSheet(qss("start_action_btn"))
             self.check_all_monitors_set()
         QApplication.sendPostedEvents(None, QEvent.Type.Paint)
 

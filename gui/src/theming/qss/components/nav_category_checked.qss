@@ -1,0 +1,4 @@
+QToolButton:checked {
+    border-left: 3px solid $ACCENT;
+    background: rgba(255, 255, 255, 0.08);
+}

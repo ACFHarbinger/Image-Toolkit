@@ -18,6 +18,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from gui.src.theming.theme_api import color, qss
+
 
 class LoginWindow(QWidget):
     """
@@ -277,104 +279,40 @@ class LoginWindow(QWidget):
 
     def apply_styles(self):
         """Applies styling based on the current self.current_theme."""
-        is_guest_mode = (self._mode == self._MODE_GUEST)
+        base = self.current_theme
+        is_guest_mode = self._mode == self._MODE_GUEST
 
-        if self.current_theme == "dark":
-            bg_color      = "#2d2d30"
-            text_color    = "#ffffff"
-            title_color   = "#00bcd4" if not is_guest_mode else "#ffb300"
-            input_bg      = "#3e3e42"
-            input_border  = "#5f646c"
-            btn_bg        = "#00bcd4"
-            btn_hover     = "#00e5ff"
-            theme_btn_color = "#00bcd4"
-            guest_btn_bg    = "#e65100"
-            guest_btn_hover = "#ff6d00"
-            account_btn_bg    = "#0288d1"
-            account_btn_hover = "#039be5"
-            guest_info_color = "#ffb300"
+        if is_guest_mode:
+            title_color = color("accent_hover", base=base)
+            guest_info_color = color("accent_hover", base=base)
         else:
-            bg_color      = "#f4f4f4"
-            text_color    = "#2d2d30"
-            title_color   = "#007AFF" if not is_guest_mode else "#e65100"
-            input_bg      = "#ffffff"
-            input_border  = "#cccccc"
-            btn_bg        = "#007AFF"
-            btn_hover     = "#0056b3"
-            theme_btn_color = "#007AFF"
-            guest_btn_bg    = "#e65100"
-            guest_btn_hover = "#ff6d00"
-            account_btn_bg    = "#1976d2"
-            account_btn_hover = "#1565c0"
-            guest_info_color = "#e65100"
+            title_color = color("accent", base=base)
+            guest_info_color = color("accent_hover", base=base)
 
-        guest_toggle_bg    = guest_btn_bg    if self._mode == self._MODE_NORMAL else account_btn_bg
-        guest_toggle_hover = guest_btn_hover if self._mode == self._MODE_NORMAL else account_btn_hover
+        if self._mode == self._MODE_NORMAL:
+            guest_toggle_bg = color("accent_hover", base=base)
+            guest_toggle_hover = color("accent_pressed", base=base)
+        else:
+            guest_toggle_bg = color("accent", base=base)
+            guest_toggle_hover = color("accent_hover", base=base)
 
-        qss = f"""
-            QWidget {{
-                background-color: {bg_color};
-                color: {text_color};
-                font-family: 'Inter', Arial, sans-serif;
-            }}
-            #TitleLabel {{
-                font-size: 16pt;
-                font-weight: bold;
-                color: {title_color};
-            }}
-            #GuestInfoLabel {{
-                color: {guest_info_color};
-                font-size: 10pt;
-                font-style: italic;
-            }}
-            QLineEdit {{
-                background-color: {input_bg};
-                border: 1px solid {input_border};
-                padding: 8px;
-                border-radius: 5px;
-                color: {text_color};
-            }}
-            QPushButton {{
-                background-color: {btn_bg};
-                border: none;
-                padding: 10px 15px;
-                border-radius: 5px;
-                font-weight: bold;
-                color: #ffffff;
-            }}
-            QPushButton:hover {{
-                background-color: {btn_hover};
-            }}
-
-            /* Theme Button Specific Style */
-            #ThemeButton {{
-                background-color: transparent;
-                color: {theme_btn_color};
-                font-size: 16pt;
-                padding: 0;
-                border: none;
-            }}
-            #ThemeButton:hover {{
-                color: {btn_hover};
-            }}
-
-            /* Guest Mode Toggle — pill shaped, distinctly coloured */
-            #GuestToggleButton {{
-                background-color: {guest_toggle_bg};
-                border: none;
-                padding: 6px 16px;
-                border-radius: 12px;
-                font-weight: bold;
-                font-size: 9pt;
-                color: #ffffff;
-                min-width: 120px;
-                max-width: 160px;
-            }}
-            #GuestToggleButton:hover {{
-                background-color: {guest_toggle_hover};
-            }}
-        """
-        self.setStyleSheet(qss)
+        self.setStyleSheet(
+            qss(
+                "login_window",
+                base=base,
+                BG_COLOR=color("surface" if base == "dark" else "window_bg", base=base),
+                TEXT_COLOR=color("text", base=base),
+                TITLE_COLOR=title_color,
+                INPUT_BG=color("border" if base == "dark" else "surface", base=base),
+                INPUT_BORDER=color("border", base=base),
+                BTN_BG=color("accent", base=base),
+                BTN_HOVER=color("accent_hover", base=base),
+                THEME_BTN_COLOR=color("accent", base=base),
+                GUEST_INFO_COLOR=guest_info_color,
+                GUEST_TOGGLE_BG=guest_toggle_bg,
+                GUEST_TOGGLE_HOVER=guest_toggle_hover,
+            )
+        )
 
     # ── Guest login helpers ─────────────────────────────────────────────────────
 
@@ -497,8 +435,8 @@ class LoginWindow(QWidget):
                         if item == "Default":
                             new_theme = "dark"
                             new_configs = {}
-                            new_accent_dark = "#00bcd4"
-                            new_accent_light = "#007AFF"
+                            new_accent_dark = color("accent", base="dark")
+                            new_accent_light = color("accent", base="light")
                             new_font_scale = 100
                             new_ui_density = "Comfortable"
 

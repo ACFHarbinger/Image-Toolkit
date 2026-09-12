@@ -1,13 +1,7 @@
-import numpy as np
-from PIL import Image
-from PySide6.QtCore import QRunnable, Slot
-
-from gui.src.helpers.gc_safe import gc_disabled_run
-
-from .scan_signals import ScanSignals
+from gui.src.helpers.base import BaseQRunnableWorker
 
 
-class SsimTask(QRunnable):
+class SsimTask(BaseQRunnableWorker):
     """
     Task to prepare an image for SSIM comparison.
 
@@ -19,14 +13,13 @@ class SsimTask(QRunnable):
     def __init__(self, path: str):
         super().__init__()
         self.path = path
-        self.signals = ScanSignals()
-        self.setAutoDelete(True)
         self.process_size = (256, 256)  # Fixed size for SSIM comparison
 
-    @gc_disabled_run
-    @Slot()
-    def run(self):
+    def _execute(self) -> object:
         try:
+            import numpy as np
+            from PIL import Image
+
             # --- ROBUST LOAD ---
             # Use PIL for initial load to handle edge-case formats/palettes better than cv2
             pil_img_rgba = Image.open(self.path).convert("RGBA")
@@ -39,6 +32,6 @@ class SsimTask(QRunnable):
             # Convert to Numpy float32 for OpenCV processing
             img_np = np.array(pil_img).astype(np.float32)
 
-            self.signals.result.emit((self.path, img_np))
+            return (self.path, img_np)
         except Exception:
-            self.signals.result.emit((self.path, None))
+            return (self.path, None)

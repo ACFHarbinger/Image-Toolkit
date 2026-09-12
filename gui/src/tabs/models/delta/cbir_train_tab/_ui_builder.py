@@ -29,6 +29,7 @@ from PySide6.QtWidgets import (
 )
 
 from .....styles import set_button_role
+from .....theming.theme_api import qss
 from ._sparkline import _SparkLine
 
 if TYPE_CHECKING:
@@ -321,7 +322,7 @@ class _UIBuilderMixin:
 
         # Recall@K display
         self._recall_label = QLabel("Recall@1: —   Recall@5: —   Recall@10: —")
-        self._recall_label.setStyleSheet("font-family: monospace; font-size: 12px;")
+        self._recall_label.setStyleSheet(qss("monospace_medium"))
         right_layout.addWidget(self._recall_label)
 
         # Metric grid
@@ -337,7 +338,7 @@ class _UIBuilderMixin:
         # Log box
         self._log_box = QTextEdit()
         self._log_box.setReadOnly(True)
-        self._log_box.setStyleSheet("font-family: monospace; font-size: 11px;")
+        self._log_box.setStyleSheet(qss("monospace_small"))
         right_layout.addWidget(self._log_box, 1)
 
         splitter.setSizes([420, 420])
@@ -346,9 +347,7 @@ class _UIBuilderMixin:
     def _make_metric_label(title: str, value: str) -> QLabel:
         w = QLabel(f"<b>{title}</b><br/>{value}")
         w.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        w.setStyleSheet(
-            "border:1px solid #555; border-radius:4px; padding:4px; min-width:90px;"
-        )
+        w.setStyleSheet(qss("cbir_metric_label"))
         return w
 
 

@@ -16,26 +16,13 @@ from backend.src.web import (
     ENGINE_TINEYE,
     ReverseImageSearchManager,
 )
-from PySide6.QtCore import QObject, QRunnable, Signal
 
-from gui.src.helpers.gc_safe import gc_disabled_run
+from gui.src.helpers.base import BaseQRunnableWorker
 from gui.src.qt_event_bridge import QtEventBridge
 
 
-class _ReverseSearchWorkerSignals(QObject):
-    """Signals emitted by :class:`ReverseSearchWorker`."""
-
-    finished = Signal(list)
-    """Emitted with a list of result dicts (keys: url, resolution, score, engine, title)."""
-
-    error = Signal(str)
-    """Emitted with an error message string on unhandled exceptions."""
-
-    status = Signal(str)
-    """Emitted with a progress/status string during the search."""
-
-
-class ReverseSearchWorker(QRunnable):
+class ReverseSearchWorker(BaseQRunnableWorker):
+    """Payload: ``finished`` carries List[dict] (url, resolution, score, engine, title)."""
     """Thread-pool worker that runs a reverse image search without blocking the GUI.
 
     Args:
@@ -71,10 +58,9 @@ class ReverseSearchWorker(QRunnable):
         self.search_mode = search_mode
         self.keep_open = keep_open
         self.top_k = top_k
-        self.signals = _ReverseSearchWorkerSignals()
 
         # Bridge is a QObject: construct here on the GUI thread, attach in
-        # run() once the manager exists (issue #529).
+        # _execute() once the manager exists (issue #529).
         self._status_bridge = QtEventBridge(self.signals.status.emit)
 
         self._manager: Optional[ReverseImageSearchManager] = None
@@ -84,16 +70,14 @@ class ReverseSearchWorker(QRunnable):
         if self._manager:
             self._manager.stop()
 
-    @gc_disabled_run
-    def run(self) -> None:
+    def _execute(self) -> object:
         """Execute the search on a QThreadPool worker thread."""
+        self._manager = ReverseImageSearchManager(
+            headless=False,
+            browser=self.browser,
+        )
+        self._status_bridge.attach(self._manager.on_status)
         try:
-            self._manager = ReverseImageSearchManager(
-                headless=False,
-                browser=self.browser,
-            )
-            self._status_bridge.attach(self._manager.on_status)
-
             engine_label = {
                 ENGINE_GOOGLE: "Google Lens",
                 ENGINE_TINEYE: "TinEye",
@@ -102,7 +86,7 @@ class ReverseSearchWorker(QRunnable):
 
             self.signals.status.emit(f"Starting {engine_label} search…")
 
-            results = self._manager.perform_reverse_search(
+            return self._manager.perform_reverse_search(
                 image_path=self.image_path,
                 engine_type=self.engine_type,
                 # Google-specific
@@ -114,10 +98,6 @@ class ReverseSearchWorker(QRunnable):
                 limit=self.top_k,
                 top_k=self.top_k,
             )
-            self.signals.finished.emit(results)
-
-        except Exception as exc:
-            self.signals.error.emit(str(exc))
         finally:
             self._status_bridge.detach()
             self._manager = None
