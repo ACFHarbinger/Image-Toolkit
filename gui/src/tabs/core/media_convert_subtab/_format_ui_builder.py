@@ -12,62 +12,49 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
-    QFormLayout,
-    QGroupBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QMenu,
     QProgressBar,
     QPushButton,
-    QScrollArea,
     QSpinBox,
     QToolButton,
     QVBoxLayout,
     QWidget,
 )
 
-from ....components import OptionalField, VirtualDualGallery
+from ....components import OptionalField, SectionedFormBuilder, VirtualDualGallery
 from ....styles import apply_shadow_effect
 from ....theming.theme_api import color, qss
 
 
-class _UIBuilderMixin:
-    """Builds every widget/layout that makes up the FormatSubTab UI."""
+class FormatUIBuilder:
+    """Builds every widget/layout that makes up the FormatSubTab UI (§5 R2.f, #567)."""
 
     def _build_ui(self) -> None:
-        # --- UI Setup ---
         main_layout = QVBoxLayout(self)
+        builder = SectionedFormBuilder(self, scrollable=True)
 
-        # Page Scroll Area
-        page_scroll = QScrollArea()
-        page_scroll.setWidgetResizable(True)
-        page_scroll.setStyleSheet(qss("scroll_area_borderless"))
+        self._build_targets_section(builder)
+        self._build_settings_section(builder)
+        self._build_aspect_ratio_section(builder)
+        self._build_progress_and_gallery(builder)
+        self._build_actions_and_status(builder)
 
-        content_widget = QWidget()
-        content_layout = QVBoxLayout(content_widget)
+        builder.build(main_layout)
+        self.clear_galleries()
+        self.on_output_format_changed(self.output_format_combo.currentText())
 
-        # --- 1. Convert Targets Group ---
-        target_group = QGroupBox("Convert Targets")
-        target_layout = QFormLayout(target_group)
-        v_input_group = QVBoxLayout()
+    def _build_targets_section(self, builder: SectionedFormBuilder) -> None:
+        sec = builder.add_section("Convert Targets")
 
-        # Input path
-        input_layout = QHBoxLayout()
         self.input_path = QLineEdit()
-        self.input_path.setPlaceholderText(
-            "Path to directory containing images for conversion..."
-        )
-        input_layout.addWidget(self.input_path)
+        self.input_path.setPlaceholderText("Path to directory containing images for conversion...")
 
         btn_browse_scan = QPushButton("Browse...")
         btn_browse_scan.clicked.connect(self.browse_directory_and_scan)
-        apply_shadow_effect(
-            btn_browse_scan, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3
-        )
-        input_layout.addWidget(btn_browse_scan)
 
-        # §2.21D — MRU recent-dirs dropdown button
         self._btn_recent_dirs = QToolButton()
         self._btn_recent_dirs.setText("▼")
         self._btn_recent_dirs.setToolTip("Recent directories")
@@ -76,17 +63,17 @@ class _UIBuilderMixin:
         self._recent_dirs_menu = QMenu(self._btn_recent_dirs)
         self._btn_recent_dirs.setMenu(self._recent_dirs_menu)
         self._btn_recent_dirs.clicked.connect(self._show_recent_dirs_menu)
-        input_layout.addWidget(self._btn_recent_dirs)
 
-        v_input_group.addLayout(input_layout)
-        target_layout.addRow("Input path:", v_input_group)
-        content_layout.addWidget(target_group)
+        sec.add_path_picker(
+            self.input_path,
+            btn_browse_scan,
+            label="Input path:",
+            recent_btn=self._btn_recent_dirs,
+        )
 
-        # --- 2. Convert Settings Group ---
-        settings_group = QGroupBox("Convert Settings")
-        settings_layout = QFormLayout(settings_group)
+    def _build_settings_section(self, builder: SectionedFormBuilder) -> None:
+        sec = builder.add_section("Convert Settings")
 
-        # Output format
         self.output_format_combo = QComboBox()
         self.output_format_combo.addItems(["--- Images ---"])
         formatted_formats = [f for f in SUPPORTED_IMG_FORMATS]
@@ -97,37 +84,27 @@ class _UIBuilderMixin:
         self.output_format_combo.addItems(video_formats)
 
         self.output_format_combo.setCurrentText("png")
-        self.output_format_combo.currentTextChanged.connect(
-            self.on_output_format_changed
-        )
-        settings_layout.addRow("Output format:", self.output_format_combo)
+        self.output_format_combo.currentTextChanged.connect(self.on_output_format_changed)
+        sec.add_row("Output format:", self.output_format_combo)
 
-        # New Video Engine Selection
         self.engine_combo = QComboBox()
         self.engine_combo.addItems(["Auto (Recommended)", "FFmpeg", "MoviePy"])
         self.engine_combo.setToolTip("Select the engine used for video conversion.")
-        self.engine_label = QLabel("Video Engine:")  # Keep ref to hide/show
-        settings_layout.addRow(self.engine_label, self.engine_combo)
+        self.engine_label = QLabel("Video Engine:")
+        sec.add_row(self.engine_label, self.engine_combo)
 
-        # Output path and Filename Prefix (UPDATED LAYOUT)
+        # Output path and Filename Prefix
         output_settings_container = QVBoxLayout()
-
-        # Output Directory Path
         h_output_dir = QHBoxLayout()
         self.output_path = QLineEdit()
-        self.output_path.setPlaceholderText(
-            "Leave blank to save in the input directory"
-        )
+        self.output_path.setPlaceholderText("Leave blank to save in the input directory")
         btn_output = QPushButton("Browse...")
         btn_output.clicked.connect(self.browse_output)
-        apply_shadow_effect(
-            btn_output, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3
-        )
+        apply_shadow_effect(btn_output, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3)
         h_output_dir.addWidget(self.output_path)
         h_output_dir.addWidget(btn_output)
         output_settings_container.addLayout(h_output_dir)
 
-        # Output Filename Prefix (NEW)
         h_output_name = QHBoxLayout()
         self.output_filename_prefix = QLineEdit()
         self.output_filename_prefix.setPlaceholderText(
@@ -139,10 +116,8 @@ class _UIBuilderMixin:
 
         output_path_container = QWidget()
         output_path_container.setLayout(output_settings_container)
-        self.output_field = OptionalField(
-            "Output Directory and Filename", output_path_container, start_open=False
-        )
-        settings_layout.addRow(self.output_field)
+        self.output_field = OptionalField("Output Directory and Filename", output_path_container, start_open=False)
+        sec.add_row(self.output_field)
 
         # Input formats
         self.selected_formats: Optional[Set[str]] = None
@@ -154,17 +129,13 @@ class _UIBuilderMixin:
             for fmt in SUPPORTED_IMG_FORMATS:
                 self._add_format_button(fmt, btn_layout)
             formats_layout.addLayout(btn_layout)
-            self.formats_layout_ref = (
-                formats_layout  # Store ref to clear later if needed
-            )
+            self.formats_layout_ref = formats_layout
             self.format_btn_layout = btn_layout
 
             all_btn_layout = QHBoxLayout()
             self.btn_add_all = QPushButton("Add All")
             self.btn_add_all.setStyleSheet(qss("btn_success_solid"))
-            apply_shadow_effect(
-                self.btn_add_all, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3
-            )
+            apply_shadow_effect(self.btn_add_all, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3)
             self.btn_add_all.clicked.connect(self.add_all_formats)
             self.btn_remove_all = QPushButton("Remove All")
             self.btn_remove_all.setStyleSheet(qss("btn_danger_solid"))
@@ -182,65 +153,48 @@ class _UIBuilderMixin:
 
             formats_container = QWidget()
             formats_container.setLayout(formats_layout)
-            self.formats_field = OptionalField(
-                "Input formats to filter", formats_container, start_open=False
-            )
-            settings_layout.addRow(self.formats_field)
+            self.formats_field = OptionalField("Input formats to filter", formats_container, start_open=False)
+            sec.add_row(self.formats_field)
         else:
             self.input_formats = QLineEdit()
             self.input_formats.setPlaceholderText("e.g. .jpg .png .gif")
-            settings_layout.addRow("Input formats (optional):", self.input_formats)
+            sec.add_row("Input formats (optional):", self.input_formats)
 
-        self.multicore_checkbox = QCheckBox(
-            "Multi-core Processing (Faster for Batches)"
-        )
-        self.multicore_checkbox.setToolTip(
-            "Process multiple files in parallel across multiple CPU cores."
-        )
+        self.multicore_checkbox = QCheckBox("Multi-core Processing (Faster for Batches)")
+        self.multicore_checkbox.setToolTip("Process multiple files in parallel across multiple CPU cores.")
         self.multicore_checkbox.setStyleSheet(qss("convert_checkbox"))
         self.multicore_checkbox.setChecked(True)
-        settings_layout.addRow(self.multicore_checkbox)
+        sec.add_row(self.multicore_checkbox)
 
         self.delete_checkbox = QCheckBox("Delete original files after conversion")
         self.delete_checkbox.setStyleSheet(qss("convert_checkbox"))
         self.delete_checkbox.setChecked(False)
-        settings_layout.addRow(self.delete_checkbox)
+        sec.add_row(self.delete_checkbox)
 
-        content_layout.addWidget(settings_group)
-
-        # --- 3. Aspect Ratio Group ---
-        ar_group = QGroupBox("Aspect Ratio")
-        ar_layout = QFormLayout(ar_group)
+    def _build_aspect_ratio_section(self, builder: SectionedFormBuilder) -> None:
+        sec = builder.add_section("Aspect Ratio")
 
         self.enable_ar_checkbox = QCheckBox("Change Aspect Ratio")
-        self.enable_ar_checkbox.setToolTip(
-            "Enable to resize, crop, or pad images to a specific aspect ratio."
-        )
+        self.enable_ar_checkbox.setToolTip("Enable to resize, crop, or pad images to a specific aspect ratio.")
         self.enable_ar_checkbox.toggled.connect(self.toggle_ar_controls)
-        ar_layout.addRow(self.enable_ar_checkbox)
+        sec.add_row(self.enable_ar_checkbox)
 
-        # AR Controls
         ar_controls_layout = QHBoxLayout()
 
-        # Mode Selection
         self.ar_mode_combo = QComboBox()
         self.ar_mode_combo.addItems(["Crop", "Pad", "Stretch"])
         self.ar_mode_combo.setToolTip(
-            "Crop: Cuts the image to fit.\n"
-            "Pad: Adds background bars (Letterbox).\n"
-            "Stretch: Distorts image to fit."
+            "Crop: Cuts the image to fit.\nPad: Adds background bars (Letterbox).\nStretch: Distorts image to fit."
         )
         ar_controls_layout.addWidget(QLabel("Mode:"))
         ar_controls_layout.addWidget(self.ar_mode_combo)
 
-        # Preset Selection
         self.ar_combo = QComboBox()
         self.ar_combo.addItems(["16:9", "4:3", "1:1", "9:16", "3:2", "Custom"])
         self.ar_combo.currentTextChanged.connect(self.on_ar_combo_change)
         ar_controls_layout.addWidget(QLabel("Ratio:"))
         ar_controls_layout.addWidget(self.ar_combo)
 
-        # Custom W/H
         self.ar_w = QSpinBox()
         self.ar_w.setRange(1, 99999)
         self.ar_w.setValue(16)
@@ -261,17 +215,12 @@ class _UIBuilderMixin:
 
         self.ar_controls_widget = QWidget()
         self.ar_controls_widget.setLayout(ar_controls_layout)
-        self.ar_controls_widget.setEnabled(False)  # Start disabled
-        self.ar_custom_container.setVisible(
-            False
-        )  # Start hidden (preset 16:9 selected)
+        self.ar_controls_widget.setEnabled(False)
+        self.ar_custom_container.setVisible(False)
 
-        ar_layout.addRow(self.ar_controls_widget)
-        content_layout.addWidget(ar_group)
+        sec.add_row(self.ar_controls_widget)
 
-        # --- 4. Galleries ---
-
-        # Conversion Progress Bar
+    def _build_progress_and_gallery(self, builder: SectionedFormBuilder) -> None:
         self.convert_progress_bar = QProgressBar()
         self.convert_progress_bar.setTextVisible(True)
         self.convert_progress_bar.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -280,40 +229,31 @@ class _UIBuilderMixin:
         self.convert_progress_bar.setMaximum(100)
         self.convert_progress_bar.setValue(0)
         self.convert_progress_bar.hide()
-        content_layout.addWidget(self.convert_progress_bar)
+        builder.add_widget(self.convert_progress_bar)
 
-        # Scan Progress Bar (Existing)
         self.scan_progress_bar = QProgressBar()
         self.scan_progress_bar.setTextVisible(False)
         self.scan_progress_bar.hide()
-        content_layout.addWidget(self.scan_progress_bar)
+        builder.add_widget(self.scan_progress_bar)
 
-        # Found + Selected galleries (virtual-scroll, GUI/UX §2.1 Option A).
-        # Replaces the two MarqueeScrollArea + QGridLayout grids; pagination is
-        # dropped and selection lives in the dual gallery's selection models.
         self.dual = VirtualDualGallery(self)
         self.dual.found_right_clicked.connect(self.show_image_context_menu)
         self.dual.found_activated.connect(self.handle_full_image_preview)
         self.dual.selected_right_clicked.connect(self.show_image_context_menu)
         self.dual.selected_activated.connect(self.handle_full_image_preview)
         self.dual.selection_changed.connect(self._sync_selection_from_dual)
-        content_layout.addWidget(self.dual, 1)
+        builder.add_widget(self.dual)
+        builder.add_stretch(1)
 
-        content_layout.addStretch(1)
-
-        # --- Buttons ---
+    def _build_actions_and_status(self, builder: SectionedFormBuilder) -> None:
         button_container = QWidget()
         button_layout = QHBoxLayout(button_container)
         button_layout.setContentsMargins(0, 0, 0, 0)
 
         self.btn_convert_all = QPushButton("Convert All in Directory")
         self.btn_convert_all.setStyleSheet(qss("shared_button"))
-        apply_shadow_effect(
-            self.btn_convert_all, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3
-        )
-        self.btn_convert_all.clicked.connect(
-            lambda: self.start_conversion_worker(use_selection=False)
-        )
+        apply_shadow_effect(self.btn_convert_all, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3)
+        self.btn_convert_all.clicked.connect(lambda: self.start_conversion_worker(use_selection=False))
         button_layout.addWidget(self.btn_convert_all)
 
         self.btn_convert_contents = QPushButton("Convert Selected Files (0)")
@@ -325,26 +265,15 @@ class _UIBuilderMixin:
             x_offset=0,
             y_offset=3,
         )
-        self.btn_convert_contents.clicked.connect(
-            lambda: self.start_conversion_worker(use_selection=True)
-        )
+        self.btn_convert_contents.clicked.connect(lambda: self.start_conversion_worker(use_selection=True))
         button_layout.addWidget(self.btn_convert_contents)
 
-        content_layout.addWidget(button_container)
+        builder.add_widget(button_container)
 
         self.status_label = QLabel("Ready.")
         self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.status_label.setStyleSheet(qss("status_label_padded"))
-        content_layout.addWidget(self.status_label)
-
-        page_scroll.setWidget(content_widget)
-        main_layout.addWidget(page_scroll)
-
-        # Initial Clear
-        self.clear_galleries()
-
-        # Trigger initial state
-        self.on_output_format_changed(self.output_format_combo.currentText())
+        builder.add_widget(self.status_label)
 
 
-__all__ = ["_UIBuilderMixin"]
+__all__ = ["FormatUIBuilder"]

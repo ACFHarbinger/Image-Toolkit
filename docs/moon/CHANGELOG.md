@@ -1,3 +1,19 @@
+# S553 — 2026-09-12 (Antigravity: R2.f #567 SectionedFormBuilder & UIBuilder clean-up)
+
+- Introduced `SectionedFormBuilder` and `FormSection` in `gui/src/components/forms/`
+  providing a standardized builder for labeled form rows, section headers,
+  collapsible containers, and two-column/flow layout sections.
+- Replaced all duplicate `_UIBuilderMixin` classes across tabs and components
+  with distinct, appropriately named builder classes (`CodecUIBuilder`,
+  `FormatUIBuilder`, `SamplerUIBuilder`, `EntityListingsUIBuilder`, `SeriesListingsUIBuilder`,
+  `CBIRTrainUIBuilder`, `DriveSyncUIBuilder`, `EntityReconUIBuilder`,
+  `ImageCrawlerUIBuilder`, `MediaLoaderUIBuilder`, `MonitorDropViewUIBuilder`,
+  `DetailPanelUIBuilder`, `SimilarityUIBuilder`, `SystemDisplayUIBuilder`,
+  `DataBrowserUIBuilder`, `ScanMetadataUIBuilder`, `SearchUIBuilder`).
+- Decomposed monolithic `_build_ui` and `_init_ui` methods (>80 lines) into small,
+  readable helpers across all affected tabs, ensuring zero `_build_ui` methods exceed
+  80 lines.
+
 # S552 — 2026-09-11 (Cursor: #544 listings composition)
 
 - `EntityListingsSubTab` / `SeriesListingsSubTab` inherit `ListingGalleryBase`

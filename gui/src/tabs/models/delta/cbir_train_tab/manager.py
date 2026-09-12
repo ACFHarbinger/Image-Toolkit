@@ -8,13 +8,13 @@ from typing import Any, Optional
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QLabel, QLineEdit, QWidget
 
-from ._browsers import CBIRTrainBrowsersController, _BrowsersMixin
-from ._config import CBIRTrainConfigController, _ConfigMixin
-from ._index_builder import CBIRTrainIndexController, _IndexBuilderMixin
-from ._loss_toggle import CBIRTrainLossToggleController, _LossToggleMixin
-from ._telemetry_slots import CBIRTrainTelemetryController, _TelemetrySlotsMixin
-from ._training_worker import CBIRTrainWorkerController, _TrainingWorkerMixin
-from ._ui_builder import CBIRTrainUIBuilder, _UIBuilderMixin
+from ._browsers import CBIRTrainBrowsersController
+from ._config import CBIRTrainConfigController
+from ._index_builder import CBIRTrainIndexController
+from ._loss_toggle import CBIRTrainLossToggleController
+from ._telemetry_slots import CBIRTrainTelemetryController
+from ._training_worker import CBIRTrainWorkerController
+from ._ui_builder import CBIRTrainUIBuilder
 
 
 class CBIRTrainTab(QWidget):
@@ -116,13 +116,4 @@ class CBIRTrainTab(QWidget):
         return self.config_controller.get_default_config()
 
 
-__all__ = [
-    "CBIRTrainTab",
-    "_BrowsersMixin",
-    "_ConfigMixin",
-    "_IndexBuilderMixin",
-    "_LossToggleMixin",
-    "_TelemetrySlotsMixin",
-    "_TrainingWorkerMixin",
-    "_UIBuilderMixin",
-]
+__all__ = ["CBIRTrainTab"]

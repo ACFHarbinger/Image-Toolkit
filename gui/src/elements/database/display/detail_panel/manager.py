@@ -15,11 +15,11 @@ from ._grouped_tags import _GroupedTagsMixin
 from ._image_actions import _ImageActionsMixin
 from ._mal_sync import _MalSyncMixin
 from ._save_delete import _SaveDeleteMixin
-from ._ui_builder import _UIBuilderMixin
+from ._ui_builder import DetailPanelUIBuilder
 
 
 class _DetailPanel(
-    _UIBuilderMixin,
+    DetailPanelUIBuilder,
     _ImageActionsMixin,
     _AssociatedEntitiesMixin,
     _GroupedTagsMixin,

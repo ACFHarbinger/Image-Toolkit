@@ -25,7 +25,7 @@ from ._qml_properties import _QmlPropertiesMixin
 from ._qml_settings import _QmlSettingsMixin
 from ._similarity_scan import _SimilarityScanMixin
 from ._triage_selection import _TriageSelectionMixin
-from ._ui_builder import _UIBuilderMixin
+from ._ui_builder import SimilarityUIBuilder
 
 
 class SimilarityTab(
@@ -35,7 +35,7 @@ class SimilarityTab(
     # create_card_widget, get_default_config, on_selection_changed,
     # set_config, toggle_selection, update_card_pixmap) override same-named
     # methods AbstractClassTwoGalleries itself defines.
-    _UIBuilderMixin,
+    SimilarityUIBuilder,
     _QmlPropertiesMixin,
     _LegacyScanMixin,
     _SimilarityScanMixin,
@@ -65,24 +65,20 @@ class SimilarityTab(
     clusters_changed = Signal()
     scan_running_changed = Signal(bool)
     scan_progress = Signal(int, int)
-    diff_ready = Signal(str, float)          # rendered mask path, changed_ratio
-    consolidation_done = Signal(str)         # human-readable summary
+    diff_ready = Signal(str, float)  # rendered mask path, changed_ratio
+    consolidation_done = Signal(str)  # human-readable summary
     reference_dir_changed = Signal(str)
     confidence_threshold_changed = Signal(float)
     selection_changed_qml = Signal()
 
-    scanRunning = Property(
-        bool, _QmlPropertiesMixin._get_scan_running, notify=scan_running_changed
-    )
+    scanRunning = Property(bool, _QmlPropertiesMixin._get_scan_running, notify=scan_running_changed)
     confidenceThreshold = Property(
         float,
         _QmlPropertiesMixin._get_conf_threshold,
         _QmlPropertiesMixin._set_conf_threshold,
         notify=confidence_threshold_changed,
     )
-    selectedFiles = Property(
-        "QStringList", _QmlPropertiesMixin._get_selected_files, notify=selection_changed_qml
-    )
+    selectedFiles = Property("QStringList", _QmlPropertiesMixin._get_selected_files, notify=selection_changed_qml)
 
     def __init__(self, dropdown=True):
         super().__init__()

@@ -12,7 +12,7 @@ from ._daemon import _DaemonMixin
 from ._lifecycle import _LifecycleMixin
 from ._slideshow import _SlideshowMixin
 from ._style_selectors import _StyleSelectorsMixin
-from ._ui_builder import _UIBuilderMixin
+from ._ui_builder import SystemDisplayUIBuilder
 from ._wallpaper_worker import _WallpaperWorkerMixin
 
 
@@ -23,7 +23,7 @@ class SystemDisplaySubTab(
     # _DaemonMixin's _is_daemon_running_config override same-named methods
     # WallpaperCommonBase (or its own AbstractClassSingleGallery ancestor)
     # already defines.
-    _UIBuilderMixin,
+    SystemDisplayUIBuilder,
     _DaemonMixin,
     _StyleSelectorsMixin,
     _SlideshowMixin,
@@ -37,6 +37,7 @@ class SystemDisplaySubTab(
     Full-featured wallpaper setter with monitor layout, gallery,
     slideshow, daemon, and solid-color modes.
     """
+
     interval_container: Any
     interval_min_spinbox: Any
     interval_sec_spinbox: Any
