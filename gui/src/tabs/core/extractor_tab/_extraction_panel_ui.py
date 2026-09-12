@@ -130,7 +130,7 @@ class _ExtractionPanelUIMixin:
 
         extract_main_layout.addWidget(extract_config_container)
 
-        # -- Row 2: Snapshot + Start/End range (left-aligned) --
+        # -- Row 2: Start/End range + Snapshot (left-aligned) --
         self.start_time_ms = 0
         self.end_time_ms = 0
         self.cut_start_ms = 0
@@ -139,12 +139,6 @@ class _ExtractionPanelUIMixin:
         self.tags_ms: List[Tuple[int, str]] = []
 
         range_row = QHBoxLayout()
-
-        self.btn_snapshot = QPushButton("📸 Snapshot Frame")
-        self.btn_snapshot.clicked.connect(self.extract_single_frame)
-        self.btn_snapshot.setEnabled(False)
-        range_row.addWidget(self.btn_snapshot)
-        range_row.addWidget(QLabel("|"))
 
         self.btn_set_start = QPushButton("Set Start [00:00]")
         self.btn_set_start.clicked.connect(self.set_range_start)
@@ -167,6 +161,13 @@ class _ExtractionPanelUIMixin:
         self.btn_jump_end.clicked.connect(self.jump_to_range_end)
         self.btn_jump_end.setEnabled(False)
         range_row.addWidget(self.btn_jump_end)
+
+        range_row.addWidget(QLabel("|"))
+
+        self.btn_snapshot = QPushButton("📸 Snapshot Frame")
+        self.btn_snapshot.clicked.connect(self.extract_single_frame)
+        self.btn_snapshot.setEnabled(False)
+        range_row.addWidget(self.btn_snapshot)
 
         range_row.addStretch()
         extract_main_layout.addLayout(range_row)
