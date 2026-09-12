@@ -7,8 +7,10 @@ from __future__ import annotations
 
 import backend.src.constants as udef
 
+from ._tab_bound import TabBoundController
 
-class _DefaultsMixin:
+
+class DriveSyncDefaultsController(TabBoundController):
     """Populates the config fields with their default values."""
 
     def load_configuration_defaults(self):
@@ -20,4 +22,4 @@ class _DefaultsMixin:
         self.share_email_input.setText("")
 
 
-__all__ = ["_DefaultsMixin"]
+__all__ = ["DriveSyncDefaultsController"]

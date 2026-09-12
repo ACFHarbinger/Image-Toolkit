@@ -326,8 +326,7 @@ class LocalDirSyncSubtab(QWidget):
             reply = QMessageBox.question(
                 self,
                 "Dry Run Completed",
-                "Dry run completed successfully with no errors.\n\n"
-                "Would you like to execute LIVE synchronization now?",
+                "Dry run completed successfully with no errors.\n\nWould you like to execute LIVE synchronization now?",
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 QMessageBox.StandardButton.No,
             )

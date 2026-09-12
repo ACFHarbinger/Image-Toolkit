@@ -9,9 +9,10 @@ from PySide6.QtCore import QThreadPool, Slot
 from PySide6.QtWidgets import QMessageBox
 
 from ....helpers import GoogleDriveSyncWorker
+from ._tab_bound import TabBoundController
 
 
-class _ShareFolderMixin:
+class DriveSyncShareFolderController(TabBoundController):
     """Dispatches and handles the remote-folder sharing action."""
 
     def share_remote_folder(self):
@@ -19,9 +20,7 @@ class _ShareFolderMixin:
             return
         auth_config = self._build_auth_config()
         if not auth_config or auth_config.get("mode") != "service_account":
-            QMessageBox.warning(
-                self, "Error", "Sharing is only available for Google Service Accounts."
-            )
+            QMessageBox.warning(self.tab, "Error", "Sharing is only available for Google Service Accounts.")
             return
 
         remote_path = self.remote_path.text().strip()
@@ -41,9 +40,7 @@ class _ShareFolderMixin:
         )
         self.current_worker.signals.status.connect(self.handle_status_update)
         self.current_worker.signals.finished.connect(
-            lambda res: self.handle_share_finished(
-                *(res if res is not None else (False, "Share worker failed."))
-            )
+            lambda res: self.handle_share_finished(*(res if res is not None else (False, "Share worker failed.")))
         )
 
         QThreadPool.globalInstance().start(self.current_worker)
@@ -54,12 +51,10 @@ class _ShareFolderMixin:
         final = f"\nFINAL STATUS: Share Action {'Completed' if success else 'Failed'}. {message}"
         self.log_window.append_log(final)
         if success:
-            QMessageBox.information(
-                self, "Share Success", "Folder sharing action completed."
-            )
+            QMessageBox.information(self.tab, "Share Success", "Folder sharing action completed.")
         else:
-            QMessageBox.critical(self, "Share Failed", message)
+            QMessageBox.critical(self.tab, "Share Failed", message)
         self.current_worker = None
 
 
-__all__ = ["_ShareFolderMixin"]
+__all__ = ["DriveSyncShareFolderController"]
