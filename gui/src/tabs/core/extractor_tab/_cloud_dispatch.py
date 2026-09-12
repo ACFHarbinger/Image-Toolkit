@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 
 
 class ExtractorCloudDispatchController(TabBoundController):
-    """"☁ Run on GCD" — mirrors the local GIF path but on Google Cloud Run."""
+    """"☁ Run on Cloud" — mirrors the local GIF path but on a cloud provider."""
 
     def _current_cloud_config(self: "VideoExtractorSubTabHostProtocol", mode: str = "gif") -> Dict[str, Any]:
         start = int(getattr(self, "start_time_ms", 0) or 0)
