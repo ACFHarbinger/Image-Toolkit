@@ -15,7 +15,7 @@ from PySide6.QtGui import QImage, QPixmap
 
 from ....components import ClickableLabel
 from ....helpers import ImageLoaderWorker
-from ....utils.cache.lru_image_cache import LRU_CACHE_CEILING
+from ....utils.cache.lru_image_cache import DEFAULT_PIXMAP_BUDGET, LRU_CACHE_CEILING
 
 if TYPE_CHECKING:
     from ..protos.abstract_class_two_galleries import AbstractClassTwoGalleriesHostProtocol
@@ -37,7 +37,10 @@ class _FoundGalleryPopulateMixin:
         if self._found_pixmap_cache.maxsize <= LRU_CACHE_CEILING:
             self._found_pixmap_cache.resize(
                 min(
-                    max(300, min(self.found_page_size, len(self.found_files))),
+                    max(
+                        DEFAULT_PIXMAP_BUDGET.two_galleries_found,
+                        min(self.found_page_size, len(self.found_files)),
+                    ),
                     LRU_CACHE_CEILING,
                 )
             )

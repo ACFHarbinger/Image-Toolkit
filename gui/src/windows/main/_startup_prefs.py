@@ -13,7 +13,7 @@ from typing import Any
 from backend.src.constants import LOCAL_SOURCE_PATH
 
 from ...contracts.tab_config import ConfigSettable, apply_tab_config
-from ...utils.cache.lru_image_cache import LRUImageCache
+from ...utils.cache.lru_image_cache import DEFAULT_PIXMAP_BUDGET, LRUImageCache
 from ..settings.app_settings import AppSettings
 
 logger = logging.getLogger(__name__)
@@ -167,9 +167,12 @@ class _StartupPrefsMixin:
             return
         thumb_size = int(prefs.get("thumbnail_size", 180))
         page_size = int(prefs.get("page_size", 100))
-        found_cache = int(prefs.get("found_cache_maxsize", 300))
-        selected_cache = int(prefs.get("selected_cache_maxsize", 200))
-        initial_cache = int(prefs.get("initial_cache_maxsize", 300))
+        # §2.16B — LRU cache sizes (defaults from PixmapBudget so they
+        # cannot drift from the construction sites).
+        budget = DEFAULT_PIXMAP_BUDGET
+        found_cache = int(prefs.get("found_cache_maxsize", budget.two_galleries_found))
+        selected_cache = int(prefs.get("selected_cache_maxsize", budget.two_galleries_selected))
+        initial_cache = int(prefs.get("initial_cache_maxsize", budget.single_gallery))
         extractor_seek_ms = int(prefs.get("extractor_seek_ms", 100))
         recent_extractions_count = int(prefs.get("recent_extractions_count", 10))
         extractor_time_format = prefs.get("extractor_time_format", "m:s:ms")

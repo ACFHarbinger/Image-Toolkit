@@ -23,7 +23,7 @@ from PySide6.QtWidgets import (
 
 from gui.src.components.tag_chip_widget import FlowLayout
 from gui.src.theming.theme_api import qss
-from gui.src.utils.cache.lru_image_cache import LRUImageCache
+from gui.src.utils.cache.lru_image_cache import DEFAULT_PIXMAP_BUDGET, LRUImageCache
 
 from .widget import VirtualGallery
 
@@ -43,7 +43,7 @@ class VirtualDualGallery(QWidget):
     def __init__(
         self,
         parent=None,
-        cache_maxsize: int = 500,
+        cache_maxsize: int = DEFAULT_PIXMAP_BUDGET.virtual_dual_shared,
         worker_factory=None,
         orientation: Qt.Orientation = Qt.Orientation.Vertical,
     ):
@@ -252,10 +252,7 @@ class VirtualDualGallery(QWidget):
         if not query:
             self._filtered_found_paths = list(self._master_found_paths)
         else:
-            self._filtered_found_paths = [
-                p for p in self._master_found_paths
-                if query in os.path.basename(p).lower()
-            ]
+            self._filtered_found_paths = [p for p in self._master_found_paths if query in os.path.basename(p).lower()]
 
         self.found_gallery.set_paths(self._filtered_found_paths)
         self.lbl_found_title.setText(f"Found ({len(self._filtered_found_paths):,})")
@@ -315,6 +312,7 @@ class VirtualDualGallery(QWidget):
         if len(self._selected_paths) < 2:
             return None
         from gui.src.windows.image_compare_window import ImageCompareWindow
+
         win = ImageCompareWindow(image_paths=self._selected_paths, parent=parent or self)
         win.show()
         self.compare_requested.emit(self._selected_paths)
