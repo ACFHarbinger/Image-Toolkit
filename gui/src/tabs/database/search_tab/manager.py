@@ -200,6 +200,9 @@ class SearchTab(AbstractClassTwoGalleries):
     def _on_tag_type_changed(self):
         return self.tag_filters._on_tag_type_changed()
 
+    def _display_ranked_results(self, hits: list) -> None:
+        return self.semantic._display_ranked_results(hits)
+
     def _on_semantic_search_finished(self, hits: list) -> None:
         return self.semantic._on_semantic_search_finished(hits)
 
