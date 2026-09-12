@@ -163,7 +163,13 @@ class FileDialogEventFilter(QObject):
 class CustomFileDialog(QFileDialog):
     def __init__(self, parent=None, caption="", directory="", filter=""):
         super().__init__(parent, caption, directory, filter)
-        self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
+        # No WA_DeleteOnClose: these dialogs are always run via exec()'s
+        # nested event loop, and accept()/close() posts the WA_DeleteOnClose
+        # deferred-delete event onto that same nested loop — it gets
+        # processed (deleting the C++ object) before exec() returns control
+        # to the caller, so selectedFiles() below would already be reading a
+        # dead pointer. deleteLater() after exec() returns (below) is the
+        # actual safe teardown point.
         self.setOption(QFileDialog.Option.DontUseNativeDialog, True)
         self._default_sidebar_urls = self.sidebarUrls()
         self._sync_sidebar()
