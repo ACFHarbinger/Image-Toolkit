@@ -105,6 +105,14 @@
   public/internal call interfaces. COMPAT aliases keep the old mixin
   names. Fourth non-gallery #544 tab composition migration (R2.c).
 
+# S542 — 2026-09-08 (Gemini: #544 ImageCrawlTab composition)
+
+- `ImageCrawlTab` inherits `QWidget` directly without mixins. The 7 mixins
+  are composed controllers (`TabBoundController` proxy + `self.tab` for
+  QWidget parents). Facade delegation on `ImageCrawlTab` preserves all
+  public/internal call interfaces. COMPAT aliases keep the old mixin
+  names. Fifth non-gallery #544 tab composition migration (R2.c).
+
 # S535 — 2026-09-08 (Grok: huge-GIF gallery thumbnails)
 
 - Gallery / wallpaper / extractor thumbnail loads no longer run Qt's GIF
