@@ -14,19 +14,20 @@ from __future__ import annotations
 import os
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, cast
+from typing import TYPE_CHECKING, Any, Dict
 
 from backend.src.core import telemetry
-from PySide6.QtWidgets import QMessageBox, QWidget
+from PySide6.QtWidgets import QMessageBox
 
 from .....components import DraggableMonitorContainer, MonitorDropView
 from .....theming.theme_api import color, qss
+from ._tab_bound import TabBoundController
 
 if TYPE_CHECKING:
     from ...protos.system_display_subtab import SystemDisplaySubTabHostProtocol
 
 
-class _ConfigMixin:
+class SystemDisplayConfigController(TabBoundController):
     """Save/restore monitor layout, style/interval settings, and queue state."""
 
     def collect(self: "SystemDisplaySubTabHostProtocol") -> dict:
@@ -57,9 +58,7 @@ class _ConfigMixin:
         }
 
     def get_default_config(self: "SystemDisplaySubTabHostProtocol") -> Dict[str, Any]:
-        default_style = (
-            self.style_combo.itemText(0) if self.style_combo.count() > 0 else "Fill"
-        )
+        default_style = self.style_combo.itemText(0) if self.style_combo.count() > 0 else "Fill"
         return {
             "scan_directory": "",
             "wallpaper_style": default_style,
@@ -76,13 +75,15 @@ class _ConfigMixin:
 
     def set_config(self: "SystemDisplaySubTabHostProtocol", config: Dict[str, Any]):  # noqa: C901
         print(
-            f"[thread-lifecycle] t={time.monotonic():.3f} panel={id(self):x} "
+            f"[thread-lifecycle] t={time.monotonic():.3f} panel={id(self.tab):x} "
             f"set_config() called, scan_directory={config.get('scan_directory')!r}",
             flush=True,
         )
         telemetry.emit(
-            "thread-lifecycle", "set_config.called",
-            panel=id(self), scan_directory=config.get("scan_directory"),
+            "thread-lifecycle",
+            "set_config.called",
+            panel=id(self.tab),
+            scan_directory=config.get("scan_directory"),
         )
         try:
             if "scan_directory" in config:
@@ -101,23 +102,23 @@ class _ConfigMixin:
                     # restore, not race it with a second independent timer.
                     self._pending_restore_dir = config["scan_directory"]
                     print(
-                        f"[thread-lifecycle] t={time.monotonic():.3f} panel={id(self):x} "
+                        f"[thread-lifecycle] t={time.monotonic():.3f} panel={id(self.tab):x} "
                         f"(re)starting scan-dir restore timer for {self._pending_restore_dir!r} "
                         f"(was_active={self._scan_dir_restore_timer.isActive()})",
                         flush=True,
                     )
                     telemetry.emit(
-                        "thread-lifecycle", "scan_dir_restore_timer.restart",
-                        panel=id(self), directory=self._pending_restore_dir,
+                        "thread-lifecycle",
+                        "scan_dir_restore_timer.restart",
+                        panel=id(self.tab),
+                        directory=self._pending_restore_dir,
                         was_active=self._scan_dir_restore_timer.isActive(),
                     )
                     self._scan_dir_restore_timer.start(250)
             if "wallpaper_style" in config:
                 self.style_combo.setCurrentText(config.get("wallpaper_style", "Fill"))
             if "video_style" in config:
-                self.video_style_combo.setCurrentText(
-                    config.get("video_style", "Scaled and Cropped")
-                )
+                self.video_style_combo.setCurrentText(config.get("video_style", "Scaled and Cropped"))
             if "slideshow_enabled" in config:
                 enabled = config.get("slideshow_enabled", False)
                 if enabled:
@@ -127,40 +128,30 @@ class _ConfigMixin:
             if "interval_seconds" in config:
                 self.interval_sec_spinbox.setValue(config.get("interval_seconds", 0))
             if "use_video_runtime_interval" in config:
-                self.chk_video_runtime_interval.setChecked(
-                    config.get("use_video_runtime_interval", False)
-                )
+                self.chk_video_runtime_interval.setChecked(config.get("use_video_runtime_interval", False))
             if "solid_color_hex" in config:
                 self.solid_color_hex = config.get("solid_color_hex", color("window_bg"))
                 self.solid_color_preview.setStyleSheet(
                     qss("dynamic_color_preview", BG_COLOR=self.solid_color_hex)
                 )
             if "background_type" in config:
-                self.background_type_combo.setCurrentText(
-                    config.get("background_type", "Image")
-                )
+                self.background_type_combo.setCurrentText(config.get("background_type", "Image"))
             if "playback_order" in config:
-                self.playback_order_combo.setCurrentText(
-                    config.get("playback_order", "Sequential")
-                )
+                self.playback_order_combo.setCurrentText(config.get("playback_order", "Sequential"))
 
             layout_restored = False
-            if "monitor_layout" in config and config["monitor_layout"] and isinstance(self.monitor_layout_container, DraggableMonitorContainer):
-                    self.monitor_layout_container.set_layout_structure(
-                        config["monitor_layout"], self.monitor_widgets
-                    )
-                    layout_restored = True
-
             if (
-                not layout_restored
-                and "monitor_order" in config
-                and config["monitor_order"]
+                "monitor_layout" in config
+                and config["monitor_layout"]
+                and isinstance(self.monitor_layout_container, DraggableMonitorContainer)
             ):
+                self.monitor_layout_container.set_layout_structure(config["monitor_layout"], self.monitor_widgets)
+                layout_restored = True
+
+            if not layout_restored and "monitor_order" in config and config["monitor_order"]:
                 target_order = config["monitor_order"]
                 present_monitor_ids = set(self.monitor_widgets.keys())
-                valid_order = [
-                    mid for mid in target_order if mid in present_monitor_ids
-                ]
+                valid_order = [mid for mid in target_order if mid in present_monitor_ids]
 
                 if isinstance(self.monitor_layout_container, DraggableMonitorContainer):
                     self.monitor_layout_container.clear_widgets()
@@ -193,9 +184,7 @@ class _ConfigMixin:
                             self.monitor_image_paths[mid] = None
                             self.monitor_widgets[mid].clear()
         except Exception as e:
-            QMessageBox.critical(
-                cast(QWidget, self), "Config Error", f"Failed to apply wallpaper configuration:\n{e}"
-            )
+            QMessageBox.critical(self.tab, "Config Error", f"Failed to apply wallpaper configuration:\n{e}")
 
         if self._is_daemon_running_config():
             self._start_daemon_countdown_if_active()
@@ -212,16 +201,19 @@ class _ConfigMixin:
         .agent/cache/gallery_crash_deleteorphaned_2026-07-27.md.
         """
         print(
-            f"[thread-lifecycle] t={time.monotonic():.3f} panel={id(self):x} "
+            f"[thread-lifecycle] t={time.monotonic():.3f} panel={id(self.tab):x} "
             f"scan-dir restore timer FIRED for {self._pending_restore_dir!r}",
             flush=True,
         )
         telemetry.emit(
-            "thread-lifecycle", "scan_dir_restore_timer.fired",
-            panel=id(self), directory=self._pending_restore_dir,
+            "thread-lifecycle",
+            "scan_dir_restore_timer.fired",
+            panel=id(self.tab),
+            directory=self._pending_restore_dir,
         )
         if self._pending_restore_dir and os.path.isdir(self._pending_restore_dir):
             self.populate_scan_image_gallery(self._pending_restore_dir)
 
 
-__all__ = ["_ConfigMixin"]
+__all__ = ["SystemDisplayConfigController"]
+

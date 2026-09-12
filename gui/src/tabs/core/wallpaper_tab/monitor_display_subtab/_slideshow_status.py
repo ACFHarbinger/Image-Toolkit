@@ -12,12 +12,13 @@ from typing import TYPE_CHECKING, Optional
 from backend.src.utils.display import monitor_slideshow_daemon as _monitor_slideshow
 
 from .....styles import set_button_role
+from ._tab_bound import TabBoundController
 
 if TYPE_CHECKING:
     from ...protos.monitor_display_subtab import MonitorDisplaySubTabHostProtocol
 
 
-class _SlideshowStatusMixin:
+class MonitorDisplaySlideshowStatusController(TabBoundController):
     """Refresh the in-app/daemon toggle buttons and the queue position/timer labels."""
 
     def _update_slideshow_buttons(self: "MonitorDisplaySubTabHostProtocol"):
@@ -27,22 +28,14 @@ class _SlideshowStatusMixin:
 
         self._btn_inapp_slideshow.blockSignals(True)
         self._btn_inapp_slideshow.setChecked(inapp_running)
-        self._btn_inapp_slideshow.setText(
-            "⏹ Stop In-App Slideshow" if inapp_running else "▶ Start In-App Slideshow"
-        )
-        set_button_role(
-            self._btn_inapp_slideshow, "danger" if inapp_running else "success"
-        )
+        self._btn_inapp_slideshow.setText("⏹ Stop In-App Slideshow" if inapp_running else "▶ Start In-App Slideshow")
+        set_button_role(self._btn_inapp_slideshow, "danger" if inapp_running else "success")
         self._btn_inapp_slideshow.blockSignals(False)
 
         self._btn_daemon_slideshow.blockSignals(True)
         self._btn_daemon_slideshow.setChecked(daemon_running)
-        self._btn_daemon_slideshow.setText(
-            "⏹ Stop Slideshow Daemon" if daemon_running else "⏱ Start Slideshow Daemon"
-        )
-        set_button_role(
-            self._btn_daemon_slideshow, "danger" if daemon_running else "success"
-        )
+        self._btn_daemon_slideshow.setText("⏹ Stop Slideshow Daemon" if daemon_running else "⏱ Start Slideshow Daemon")
+        set_button_role(self._btn_daemon_slideshow, "danger" if daemon_running else "success")
         self._btn_daemon_slideshow.blockSignals(False)
 
     def _update_queue_status_label(self: "MonitorDisplaySubTabHostProtocol"):
@@ -88,4 +81,8 @@ class _SlideshowStatusMixin:
             self._queue_timer_label.setText("Timer: --:--")
 
 
-__all__ = ["_SlideshowStatusMixin"]
+__all__ = ["MonitorDisplaySlideshowStatusController"]
+
+_SlideshowStatusMixin = (
+    MonitorDisplaySlideshowStatusController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
+)

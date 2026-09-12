@@ -7,19 +7,20 @@ change (see ``_ui_graph_canvas.py``'s docstring).
 from __future__ import annotations
 
 import os
-from typing import TYPE_CHECKING, List, cast
+from typing import TYPE_CHECKING, List
 
 from backend.src.constants import SUPPORTED_VIDEO_FORMATS
 from PySide6.QtCore import Slot
-from PySide6.QtWidgets import QMessageBox, QWidget
+from PySide6.QtWidgets import QMessageBox
 
+from ._tab_bound import TabBoundController
 from ._traversal import _build_traversal, _get_video_duration
 
 if TYPE_CHECKING:
     from ...protos.monitor_display_subtab import MonitorDisplaySubTabHostProtocol
 
 
-class _SequenceExportMixin:
+class MonitorDisplaySequenceExportController(TabBoundController):
     """Traversal summary label, Export-to-Queue, and queue-duration bookkeeping."""
 
     # ---- Sequence summary -------------------------------------------------
@@ -41,9 +42,7 @@ class _SequenceExportMixin:
             parts.append(f"[{i}] {fname} ({dur:.0f}s)")
         total = sum(d for _, d in seq)
         self._seq_label.setText(
-            f"Sequence ({len(seq)} step{'s' if len(seq) != 1 else ''},"
-            f" ~{total:.0f}s total):  "
-            + "  →  ".join(parts)
+            f"Sequence ({len(seq)} step{'s' if len(seq) != 1 else ''}, ~{total:.0f}s total):  " + "  →  ".join(parts)
         )
 
     # ---- Export to Queue ---------------------------------------------------
@@ -58,7 +57,8 @@ class _SequenceExportMixin:
         seq = _build_traversal(graph)
         if not seq:
             QMessageBox.information(
-                cast(QWidget, self), "Empty Sequence",
+                self.tab,
+                "Empty Sequence",
                 "Add nodes and edges to build a sequence before exporting to the queue.",
             )
             return
@@ -83,7 +83,8 @@ class _SequenceExportMixin:
         self._update_queue_status_label()
 
         QMessageBox.information(
-                cast(QWidget, self), "Exported to Queue",
+            self.tab,
+            "Exported to Queue",
             f"Appended {len(seq)} item{'s' if len(seq) != 1 else ''} from the graph "
             f"to the Wallpaper Queue, each with its own duration from the graph.",
         )
@@ -108,29 +109,14 @@ class _SequenceExportMixin:
         queue = self.monitor_slideshow_queues.get(monitor_id, [])
         durations = self._queue_durations.setdefault(monitor_id, [])
         if len(durations) < len(queue):
-            durations.extend(
-                self._default_entry_duration(p) for p in queue[len(durations):]
-            )
+            durations.extend(self._default_entry_duration(p) for p in queue[len(durations) :])
         elif len(durations) > len(queue):
-            del durations[len(queue):]
+            del durations[len(queue) :]
         return durations
 
-    @Slot(str, list)
-    def on_queue_reordered(self: "MonitorDisplaySubTabHostProtocol", monitor_id: str, new_queue: List[str]):
-        super().on_queue_reordered(monitor_id, new_queue)  # type: ignore[safe-super]
-        # A manual drag-reorder in the Wallpaper Queue window carries no
-        # duration metadata, so the old index-aligned durations no longer
-        # correspond to the right entries. Reset rather than risk silently
-        # misapplying a stale duration to the wrong item; the next
-        # reconcile recomputes sane per-item defaults.
-        self._queue_durations[monitor_id] = []
 
-    def handle_item_swap_request(self: "MonitorDisplaySubTabHostProtocol", s_mid: str, s_idx: int, t_mid: str, t_idx: int):
-        s_durs = self._reconcile_queue_durations(s_mid)
-        t_durs = self._reconcile_queue_durations(t_mid)
-        super().handle_item_swap_request(s_mid, s_idx, t_mid, t_idx)  # type: ignore[safe-super]
-        if s_idx < len(s_durs) and t_idx < len(t_durs):
-            s_durs[s_idx], t_durs[t_idx] = t_durs[t_idx], s_durs[s_idx]
+__all__ = ["MonitorDisplaySequenceExportController"]
 
-
-__all__ = ["_SequenceExportMixin"]
+_SequenceExportMixin = (
+    MonitorDisplaySequenceExportController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
+)

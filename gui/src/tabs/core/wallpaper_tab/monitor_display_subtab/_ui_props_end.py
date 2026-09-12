@@ -6,9 +6,9 @@ Extracted from ``MonitorDisplaySubTab`` -- pure code motion, no logic change
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional, cast
+from typing import TYPE_CHECKING, Optional
 
-from PySide6.QtCore import QObject, Qt
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QButtonGroup,
     QComboBox,
@@ -24,12 +24,13 @@ from PySide6.QtWidgets import (
 )
 
 from .....theming.theme_api import color, qss
+from ._tab_bound import TabBoundController
 
 if TYPE_CHECKING:
     from ...protos.monitor_display_subtab import MonitorDisplaySubTabHostProtocol
 
 
-class _UIPropsEndMixin:
+class MonitorDisplayUIPropsEnd(TabBoundController):
     """Builds the "Node Properties" panel and the "End of Graph Behavior" bar."""
 
     def _build_props_panel(self: "MonitorDisplaySubTabHostProtocol") -> QGroupBox:
@@ -49,7 +50,7 @@ class _UIPropsEndMixin:
         mode_lyt = QVBoxLayout(mode_grp)
         self._props_radio_fixed = QRadioButton("Fixed duration")
         self._props_radio_runtime = QRadioButton("Full video runtime")
-        self._props_bg = QButtonGroup(cast(QObject, self))
+        self._props_bg = QButtonGroup(self.tab)
         self._props_bg.addButton(self._props_radio_fixed)
         self._props_bg.addButton(self._props_radio_runtime)
         mode_lyt.addWidget(self._props_radio_fixed)
@@ -73,10 +74,7 @@ class _UIPropsEndMixin:
         edges_grp = QGroupBox("Outgoing Edges")
         edges_lyt = QVBoxLayout(edges_grp)
 
-        edges_hint = QLabel(
-            "Playback always follows the topmost edge first. Drag to "
-            "reorder, right-click to remove."
-        )
+        edges_hint = QLabel("Playback always follows the topmost edge first. Drag to reorder, right-click to remove.")
         edges_hint.setWordWrap(True)
         edges_hint.setStyleSheet(qss("wallpaper_edges_hint"))
         edges_lyt.addWidget(edges_hint)
@@ -87,14 +85,10 @@ class _UIPropsEndMixin:
         self._props_edges_list.setDefaultDropAction(Qt.DropAction.MoveAction)
         self._props_edges_list.setMaximumHeight(140)
         self._props_edges_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self._props_edges_list.customContextMenuRequested.connect(
-            self._props_edges_context_menu
-        )
+        self._props_edges_list.customContextMenuRequested.connect(self._props_edges_context_menu)
         edges_lyt.addWidget(self._props_edges_list)
         # Populated on drop via the model's rowsMoved signal
-        self._props_edges_list.model().rowsMoved.connect(
-            self._on_props_edges_reordered
-        )
+        self._props_edges_list.model().rowsMoved.connect(self._on_props_edges_reordered)
 
         add_edge_row = QHBoxLayout()
         self._props_edge_target_combo = QComboBox()
@@ -104,8 +98,7 @@ class _UIPropsEndMixin:
         self._props_edge_repeat_spin.setRange(1, 999)
         self._props_edge_repeat_spin.setValue(1)
         self._props_edge_repeat_spin.setToolTip(
-            "Number of times the target wallpaper repeats back-to-back "
-            "when this edge is taken"
+            "Number of times the target wallpaper repeats back-to-back when this edge is taken"
         )
         self._props_edge_repeat_spin.setFixedWidth(56)
         add_edge_row.addWidget(self._props_edge_repeat_spin)
@@ -120,9 +113,7 @@ class _UIPropsEndMixin:
 
         # Track which node is being shown in the panel
         self._props_node_id: Optional[str] = None
-        self._props_radio_fixed.toggled.connect(
-            lambda on: self._props_dur.setEnabled(on)
-        )
+        self._props_radio_fixed.toggled.connect(lambda on: self._props_dur.setEnabled(on))
 
         # Initially hide the editable parts
         mode_grp.setVisible(False)
@@ -145,13 +136,15 @@ class _UIPropsEndMixin:
         lyt.setContentsMargins(6, 14, 6, 6)
 
         self._end_combo = QComboBox()
-        self._end_combo.addItems([
-            "Repeat Graph",
-            "Solid Color",
-            "Stay on Last Wallpaper",
-            "Return to First Wallpaper",
-            "Jump to Specific Wallpaper",
-        ])
+        self._end_combo.addItems(
+            [
+                "Repeat Graph",
+                "Solid Color",
+                "Stay on Last Wallpaper",
+                "Return to First Wallpaper",
+                "Jump to Specific Wallpaper",
+            ]
+        )
         self._end_combo.currentIndexChanged.connect(self._on_end_behavior_changed)
         lyt.addWidget(self._end_combo)
 
@@ -175,4 +168,5 @@ class _UIPropsEndMixin:
         return grp
 
 
-__all__ = ["_UIPropsEndMixin"]
+__all__ = ["MonitorDisplayUIPropsEnd"]
+
