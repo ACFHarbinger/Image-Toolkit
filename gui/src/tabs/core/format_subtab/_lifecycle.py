@@ -5,10 +5,8 @@ Extracted from ``format_subtab.py`` -- pure code motion, no logic change.
 
 from __future__ import annotations
 
-import contextlib
-import logging
+from gui.src.helpers.worker_teardown import close_windows, stop_worker
 
-logger = logging.getLogger(__name__)
 
 class _LifecycleMixin:
     """Cancels the conversion worker and closes open preview windows."""
@@ -20,21 +18,11 @@ class _LifecycleMixin:
         if hasattr(self, "dual"):
             self.dual.cancel_loading()
 
-        if self.worker:
-            try:
-                # Use stop() which we just added as an alias for cancel()
-                if hasattr(self.worker, "stop"):
-                    self.worker.stop()
-                elif hasattr(self.worker, "cancel"):
-                    self.worker.cancel()
-            except Exception:
-                logger.debug("Suppressed Exception in _LifecycleMixin.cancel_loading", exc_info=True)
+        # Fire-and-forget (as before): the finished slots tolerate teardown.
+        stop_worker(getattr(self, "worker", None), join=False)
 
         # Close sub-windows
-        for win in list(self.open_preview_windows):
-            with contextlib.suppress(Exception):
-                win.close()
-        self.open_preview_windows.clear()
+        close_windows(self, "open_preview_windows")
 
     def closeEvent(self, event):
         """Cleanup processes on close."""

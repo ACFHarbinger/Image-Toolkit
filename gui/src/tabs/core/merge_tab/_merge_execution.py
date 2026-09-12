@@ -61,7 +61,7 @@ class _MergeExecutionMixin:
         self.current_merge_thread = None
         if worker is not None:
             try:
-                worker.sig_finished.disconnect()
+                worker.finished.disconnect()
                 worker.error.disconnect()
                 worker.progress.disconnect()
             except Exception:
@@ -130,6 +130,8 @@ class _MergeExecutionMixin:
         worker.error.connect(self.on_merge_error)
 
         def invoke_cleanup(path):
+            if path is None:
+                return  # cancelled or failed; on_merge_error handles the UI
             # pyrefly: ignore [no-matching-overload]
             QMetaObject.invokeMethod(
                 self,
@@ -138,7 +140,7 @@ class _MergeExecutionMixin:
                 Q_ARG(str, path),
             )
 
-        worker.sig_finished.connect(invoke_cleanup)
+        worker.finished.connect(invoke_cleanup)
         worker.start()
 
     @Slot(str)
@@ -147,13 +149,13 @@ class _MergeExecutionMixin:
         self.reset_ui_state()
         self.show_preview_and_confirm(result_path)
 
-    def on_merge_error(self, msg: str):
+    def on_merge_error(self, exc: Exception):
         self.cleanup_merge_worker()
         self.cleanup_temp_file()
         self.on_selection_changed()
         self.reset_ui_state()
         self.status_label.setText("Failed.")
-        QMessageBox.critical(self, "Error", msg)
+        QMessageBox.critical(self, "Error", str(exc))
 
     @Slot(str)
     def show_preview_and_confirm(self, result_path: str):
@@ -335,15 +337,17 @@ class _MergeExecutionMixin:
         loop = QEventLoop()
         outcome: Dict[str, Optional[str]] = {"path": None, "error": None}
 
-        def on_finished(path: str):
+        def on_finished(path):
+            if path is None:  # failure — on_error quits the loop instead
+                return
             outcome["path"] = path
             loop.quit()
 
-        def on_error(msg: str):
-            outcome["error"] = msg
+        def on_error(err):
+            outcome["error"] = str(err)
             loop.quit()
 
-        worker.sig_finished.connect(on_finished)
+        worker.finished.connect(on_finished)
         worker.error.connect(on_error)
         worker.start()
         loop.exec()

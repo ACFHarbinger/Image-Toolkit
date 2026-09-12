@@ -54,7 +54,7 @@ class _ResampleWorkerMixin:
         if self.worker and self.worker.isRunning():
             self.worker.cancel()
             self.worker.wait()
-            self._on_done(0, "**Resampling cancelled**")
+            self._on_done((0, "**Resampling cancelled**"))
             return
 
         config = self._collect_config(use_selection)
@@ -63,7 +63,7 @@ class _ResampleWorkerMixin:
             return
 
         self.worker = SamplerWorker(config)
-        self.worker.sig_finished.connect(self._on_done)
+        self.worker.finished.connect(self._on_done)
         self.worker.error.connect(self._on_error)
         self.worker.progress_update.connect(self._on_progress)
 
@@ -88,8 +88,11 @@ class _ResampleWorkerMixin:
         pct = int(completed / total * 100) if total else 0
         self.status_label.setText(f"Resampling… {pct}% complete") # pyrefly: ignore [missing-attribute]
 
-    @Slot(int, str)
-    def _on_done(self, count: int, msg: str):
+    @Slot(object)
+    def _on_done(self, result):
+        if result is None:  # failure — error path already reported
+            return
+        count, msg = result
         self.btn_all.setEnabled(True)
         self.btn_all.setText("Resample All in Directory")
         self.btn_all.setStyleSheet(SHARED_BUTTON_STYLE)
@@ -103,7 +106,8 @@ class _ResampleWorkerMixin:
             QMessageBox.information(self, "Complete", msg)
 
     @Slot(str)
-    def _on_error(self, msg: str):
+    def _on_error(self, err):
+        msg = str(err)
         self._on_done(0, msg)
         QMessageBox.critical(self, "Error", msg)
 

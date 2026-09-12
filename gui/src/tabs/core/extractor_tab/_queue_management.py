@@ -567,7 +567,7 @@ class _QueueManagementMixin:
             lambda res, w=worker: self._on_queue_processing_finished(res, w)
         )
         worker.signals.error.connect(
-            lambda msg, w=worker: self._on_queue_processing_error(msg, w)
+            lambda msg, w=worker: self._on_queue_processing_error(str(msg), w)
         )
 
         self.operation_thread_pool.start(worker)
@@ -728,6 +728,8 @@ class _QueueManagementMixin:
         self.active_queue_worker = None
         self.extraction_progress_bar.hide()
         self.extraction_status_label.hide()
+        if results is None:  # failure/cancel — error path already reported
+            return
 
         # Resolve any item still shown as pending/processing from the final
         # results burst (parallel mode), then keep the In Process list on

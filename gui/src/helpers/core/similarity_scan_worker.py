@@ -16,20 +16,16 @@ import logging
 
 from backend.src.core.similarity import SimilarityConfig, SimilarityEngine
 from backend.src.core.similarity.engine import ScanCancelled
-from PySide6.QtCore import QThread, Signal
+from PySide6.QtCore import Signal
 
-from gui.src.helpers.gc_safe import gc_disabled_run
+from gui.src.helpers.base import BaseQThreadWorker
 
 logger = logging.getLogger(__name__)
 
-class SimilarityScanWorker(QThread):
-    # NOTE: these custom signals intentionally shadow QThread's built-in
-    # ``finished``/``started`` — callers must use these, not QThread.finished.
-    sig_finished = Signal(object)        # SimilarityReport
-    error = Signal(str)
+class SimilarityScanWorker(BaseQThreadWorker):
+    finished = Signal(object)        # SimilarityReport, None on failure/cancel
     status = Signal(str)
     progress = Signal(int, int)      # done, total (0,0 = indeterminate)
-    cancelled = Signal()
 
     def __init__(self, config: SimilarityConfig):
         super().__init__()
@@ -39,27 +35,19 @@ class SimilarityScanWorker(QThread):
         self.status.emit(stage if total == 0 else f"{stage} ({done}/{total})")
         self.progress.emit(done, total)
 
-    def _is_cancelled(self) -> bool:
-        return self.isInterruptionRequested()
-
-    @gc_disabled_run
-    def run(self):
+    def _execute(self) -> object:
         try:
             engine = SimilarityEngine(
                 self.config,
                 progress_cb=self._on_progress,
-                cancel_cb=self._is_cancelled,
+                cancel_cb=self.isInterruptionRequested,
             )
             report = engine.scan()
             if self.isInterruptionRequested():
-                self.cancelled.emit()
-            else:
-                self.sig_finished.emit(report)
+                return None
+            return report
         except ScanCancelled:
-            self.cancelled.emit()
-        except Exception as e:  # surface everything — worker thread has no UI
-            logger.exception("Similarity scan failed")
-            self.error.emit(str(e))
+            return None
         finally:
             # Free any embedding model VRAM once the scan ends.
             try:
