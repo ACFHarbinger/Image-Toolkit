@@ -27,7 +27,7 @@ class DummyLoaderWorker(QRunnable):
         self.path = path
         self.size = size
         self.load_generation = 0
-        self.signals = _DummySignals()
+        self.stream = _DummySignals()
 
     def run(self):
         pass
