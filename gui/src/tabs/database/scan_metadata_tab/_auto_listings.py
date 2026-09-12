@@ -38,6 +38,8 @@ from PySide6.QtWidgets import (
 from gui.src.constants.elements import _WORD_RE
 from gui.src.helpers.database.library_session import get_library_db
 
+from ._tab_bound import TabBoundController
+
 
 def _words(text: str) -> set:
     return set(_WORD_RE.findall(text.lower()))
@@ -50,7 +52,7 @@ def _shares_whole_word(a: str, b: str) -> bool:
     return bool(_words(a) & _words(b))
 
 
-class _AutoListingsMixin:
+class ScanAutoListingsController(TabBoundController):
     """Trigger + review dialog for auto-creating/linking listings from
     newly-populated image groups."""
 
@@ -59,7 +61,7 @@ class _AutoListingsMixin:
             return
 
         vault_manager = getattr(self.database_service, "vault_manager", None)
-        raw_db = get_library_db(vault_manager, parent=self)
+        raw_db = get_library_db(vault_manager, parent=self.tab)
         if raw_db is None:
             return  # vault locked or session unavailable -- silently skip
 
@@ -84,15 +86,15 @@ class _AutoListingsMixin:
                 continue  # already linked to a listing -- nothing to propose
 
             suggestions = media_repo.suggest_group_matches(group_name, all_titles)
-            best_match = next(
-                (t for t in suggestions if _shares_whole_word(group_name, t)), None
+            best_match = next((t for t in suggestions if _shares_whole_word(group_name, t)), None)
+            candidates.append(
+                {
+                    "group_id": group_id,
+                    "group_name": group_name,
+                    "suggested_title": best_match,
+                    "suggested_media_id": id_by_title.get(best_match) if best_match else None,
+                }
             )
-            candidates.append({
-                "group_id": group_id,
-                "group_name": group_name,
-                "suggested_title": best_match,
-                "suggested_media_id": id_by_title.get(best_match) if best_match else None,
-            })
 
         if not candidates:
             return
@@ -130,28 +132,22 @@ class _AutoListingsReviewDialog(QDialog):
         self._candidates = candidates
 
         layout = QVBoxLayout(self)
-        layout.addWidget(QLabel(
-            "These newly-scanned image groups have no linked listing yet. "
-            "Review and confirm below (unchecked rows are skipped)."
-        ))
+        layout.addWidget(
+            QLabel(
+                "These newly-scanned image groups have no linked listing yet. "
+                "Review and confirm below (unchecked rows are skipped)."
+            )
+        )
 
         self.table = QTableWidget(len(candidates), 4)
-        self.table.setHorizontalHeaderLabels(
-            ["Include", "Image Group", "Action", "Title"]
-        )
-        self.table.horizontalHeader().setSectionResizeMode(
-            1, QHeaderView.ResizeMode.Stretch
-        )
-        self.table.horizontalHeader().setSectionResizeMode(
-            3, QHeaderView.ResizeMode.Stretch
-        )
+        self.table.setHorizontalHeaderLabels(["Include", "Image Group", "Action", "Title"])
+        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        self.table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
 
         for row, cand in enumerate(candidates):
             check_item = QTableWidgetItem()
             check_item.setFlags(
-                Qt.ItemFlag.ItemIsUserCheckable
-                | Qt.ItemFlag.ItemIsEnabled
-                | Qt.ItemFlag.ItemIsSelectable
+                Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable
             )
             check_item.setCheckState(Qt.CheckState.Checked)
             self.table.setItem(row, 0, check_item)
@@ -163,26 +159,20 @@ class _AutoListingsReviewDialog(QDialog):
             action_combo = QComboBox()
             action_combo.addItem("Create new listing", userData="new")
             if cand["suggested_title"]:
-                action_combo.addItem(
-                    f"Link to existing: {cand['suggested_title']}", userData="existing"
-                )
+                action_combo.addItem(f"Link to existing: {cand['suggested_title']}", userData="existing")
                 action_combo.setCurrentIndex(1)  # default to the confirmed suggestion
             self.table.setCellWidget(row, 2, action_combo)
 
             title_edit = QLineEdit(cand["group_name"])
             title_edit.setEnabled(action_combo.currentData() != "existing")
             action_combo.currentIndexChanged.connect(
-                lambda _idx, combo=action_combo, edit=title_edit: edit.setEnabled(
-                    combo.currentData() != "existing"
-                )
+                lambda _idx, combo=action_combo, edit=title_edit: edit.setEnabled(combo.currentData() != "existing")
             )
             self.table.setCellWidget(row, 3, title_edit)
 
         layout.addWidget(self.table)
 
-        buttons = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
-        )
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
@@ -199,20 +189,26 @@ class _AutoListingsReviewDialog(QDialog):
             title_edit: QLineEdit = self.table.cellWidget(row, 3)  # type: ignore[assignment]
             action = action_combo.currentData()
             if action == "existing":
-                out.append({
-                    "action": "existing",
-                    "group_id": cand["group_id"],
-                    "media_id": cand["suggested_media_id"],
-                    "title": cand["suggested_title"],
-                })
+                out.append(
+                    {
+                        "action": "existing",
+                        "group_id": cand["group_id"],
+                        "media_id": cand["suggested_media_id"],
+                        "title": cand["suggested_title"],
+                    }
+                )
             else:
                 title = title_edit.text().strip() or cand["group_name"]
-                out.append({
-                    "action": "new",
-                    "group_id": cand["group_id"],
-                    "title": title,
-                })
+                out.append(
+                    {
+                        "action": "new",
+                        "group_id": cand["group_id"],
+                        "title": title,
+                    }
+                )
         return out
 
 
-__all__ = ["_AutoListingsMixin"]
+_AutoListingsMixin = ScanAutoListingsController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
+
+__all__ = ["ScanAutoListingsController", "_AutoListingsMixin"]

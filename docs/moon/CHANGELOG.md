@@ -179,6 +179,14 @@
   `super()` still hits the gallery base. COMPAT aliases keep the old
   mixin names. First gallery-owning #544 tab after #543's D12.
 
+# S557 — 2026-09-08 (Grok: #544 ScanMetadataTab composition)
+
+- `ScanMetadataTab` inherits `AbstractClassTwoGalleries` only. The 13
+  mixins are composed `TabBoundController`s; QWidget parents use
+  `self.tab`. `keyPressEvent` / `resizeEvent` / `showEvent` /
+  `cancel_loading` stay on the tab for `super()`. COMPAT aliases keep
+  the old mixin names.
+
 # S535 — 2026-09-08 (Grok: huge-GIF gallery thumbnails)
 
 - Gallery / wallpaper / extractor thumbnail loads no longer run Qt's GIF
