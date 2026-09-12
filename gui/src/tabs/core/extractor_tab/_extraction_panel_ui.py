@@ -140,6 +140,7 @@ class ExtractorExtractionPanelUIController(TabBoundController):
         self.tags_ms: List[Tuple[int, str]] = []
 
         range_row = QHBoxLayout()
+        range_row.addStretch()
 
         self.btn_set_start = QPushButton("Set Start [00:00]")
         self.btn_set_start.clicked.connect(self.set_range_start)
@@ -170,7 +171,6 @@ class ExtractorExtractionPanelUIController(TabBoundController):
         self.btn_snapshot.setEnabled(False)
         range_row.addWidget(self.btn_snapshot)
 
-        range_row.addStretch()
         extract_main_layout.addLayout(range_row)
 
         # -- Row 3: Extraction Actions --
@@ -211,6 +211,7 @@ class ExtractorExtractionPanelUIController(TabBoundController):
         self.btn_run_on_gcd.clicked.connect(lambda: self.run_current_on_gcd("gif"))
         self.btn_run_on_gcd.setEnabled(False)
 
+        extract_actions_layout.addStretch()
         extract_actions_layout.addWidget(self.btn_extract_range)
         extract_actions_layout.addWidget(self.btn_extract_video)
         extract_actions_layout.addWidget(self.btn_extract_gif)
