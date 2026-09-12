@@ -17,10 +17,12 @@ from gui.src.constants.elements import ENTITY_LISTINGS_SUBTAB__SORT_KEY_MAP
 from gui.src.elements.database.display.entity_card import _EntityCard
 from gui.src.theming.theme_api import qss
 
+from ._tab_bound import TabBoundController
+
 # sort_combo display text -> SearchRepo.filter_entities's sort_key (DB.5).
 
 
-class _GalleryMixin:
+class EntityListingsGalleryController(TabBoundController):
     """Filters/sorts entities via SearchRepo and rebuilds the card grid."""
 
     def _filtered_entities(self) -> List[Dict[str, Any]]:
@@ -144,16 +146,9 @@ class _GalleryMixin:
         self._listing_page = max(0, self._listing_page + delta)
         self._rebuild_gallery()
 
-    def resizeEvent(self, event):
-        super().resizeEvent(event)
-        self._resize_timer.start()
-
-    def showEvent(self, event):
-        super().showEvent(event)
-
     def _on_sort_changed(self, text):
         self._listing_page = 0
         self._rebuild_gallery()
 
 
-__all__ = ["_GalleryMixin", "ENTITY_LISTINGS_SUBTAB__SORT_KEY_MAP"]
+__all__ = ["EntityListingsGalleryController", "ENTITY_LISTINGS_SUBTAB__SORT_KEY_MAP"]
