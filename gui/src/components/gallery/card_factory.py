@@ -16,17 +16,19 @@ from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
 from gui.src.components.labels.clickable_label import ClickableLabel
+from gui.src.constants.gallery import GALLERY_PREVIEW_COLOR
+from gui.src.theming.theme_api import color, qss
 
 GalleryCardVariant = Literal["single", "two"]
 
-SELECTION_COLOR = "#5865f2"
-IN_DB_COLOR = "#2ecc71"
-PREVIEW_COLOR = "#f39c12"
-VIDEO_COLOR = "#3498db"
-DEFAULT_BORDER_COLOR = "#4f545c"
+# State colors come from theme tokens so the widget galleries and the
+# virtual-gallery paint path cannot drift (#571 reconciled with #585).
+SELECTION_COLOR = color("accent")
+IN_DB_COLOR = color("success")
+PREVIEW_COLOR = GALLERY_PREVIEW_COLOR
+VIDEO_COLOR = color("accent")
+DEFAULT_BORDER_COLOR = color("border")
 PREVIEW_WIDTH = 4
-
-_PREVIEW_BORDER_QSS = f"border: {PREVIEW_WIDTH}px solid {PREVIEW_COLOR};"
 
 CreateLabel = Callable[[str, int], QWidget]
 UpdateStyle = Callable[[QWidget, bool], None]
@@ -65,11 +67,10 @@ def apply_preview_highlight(
     if not card or not path:
         return
     update_style(card, is_selected)
-    if card.property("original_style") is None:
-        card.setProperty("original_style", card.styleSheet())
-    current = card.styleSheet().strip()
-    sep = "" if not current or current.endswith(";") else ";"
-    card.setStyleSheet(f"{current}{sep} {_PREVIEW_BORDER_QSS}")
+    if not card.property("preview_highlighted"):
+        card.setProperty("preview_highlighted", True)
+        current = card.styleSheet().strip()
+        card.setStyleSheet(qss("gallery_card_preview_overlay", BASE_STYLE=current))
 
 
 def reset_preview_highlight(
@@ -82,11 +83,8 @@ def reset_preview_highlight(
     """Restore a widget card after preview highlight, or re-apply selection."""
     if not card or not path:
         return
-    orig = card.property("original_style")
-    if orig is not None:
-        card.setStyleSheet(orig)
-        card.setProperty("original_style", None)
-    else:
+    if card.property("preview_highlighted"):
+        card.setProperty("preview_highlighted", False)
         update_style(card, is_selected)
 
 
@@ -165,15 +163,9 @@ def _create_single_card(
         label.clear()
         label.setText("Loading...")
         if is_video:
-            label.setStyleSheet(
-                f"border: 2px solid {VIDEO_COLOR}; color: {VIDEO_COLOR}; "
-                "font-weight: bold; background-color: rgba(20, 24, 32, 0.35);"
-            )
+            label.setStyleSheet(qss("gallery_card_video_loading"))
         else:
-            label.setStyleSheet(
-                "border: 1px dashed rgba(255, 255, 255, 0.20); color: #888; "
-                "font-size: 10px; background-color: rgba(20, 24, 32, 0.35);"
-            )
+            label.setStyleSheet(qss("gallery_card_loading_image"))
 
     layout.addWidget(label)
     container.setProperty("gallery_path", path)
@@ -216,11 +208,9 @@ def _create_two_card(
     else:
         target_label.setText("Loading...")
         if is_video:
-            target_label.setStyleSheet(
-                f"color: {VIDEO_COLOR}; border: 2px dashed {VIDEO_COLOR};"
-            )
+            target_label.setStyleSheet(qss("gallery_card_video_loading_dashed"))
         else:
-            target_label.setStyleSheet("color: #999; border: 1px dashed #666;")
+            target_label.setStyleSheet(qss("gallery_card_no_thumbnail"))
 
     card_wrapper.setProperty("gallery_path", path)
     update_style(target_label, selected)

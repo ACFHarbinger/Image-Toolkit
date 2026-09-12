@@ -17,6 +17,7 @@ from gui.src.components.gallery.card_factory import (
     reset_preview_highlight,
 )
 from gui.src.components.labels.clickable_label import ClickableLabel
+from gui.src.theming.theme_api import color
 
 pytestmark = pytest.mark.gui
 
@@ -127,7 +128,7 @@ class TestCreateGalleryCard:
         img = card.findChild(QLabel)
         assert img is not None
         assert img.text() == "Loading..."
-        assert "#3498db" in img.styleSheet()
+        assert color("accent") in img.styleSheet()
 
 
 class TestHighlightHelper:
@@ -152,23 +153,15 @@ class TestHighlightHelper:
             calls.append(selected)
             widget.setStyleSheet("border: 2px solid #5865f2;")
 
-        apply_preview_highlight(
-            card, "/tmp/x.jpg", is_selected=True, update_style=update_style
-        )
+        apply_preview_highlight(card, "/tmp/x.jpg", is_selected=True, update_style=update_style)
         assert calls == [True]
         assert PREVIEW_COLOR in card.styleSheet()
-        assert card.property("original_style") is not None
+        assert card.property("preview_highlighted") in (True, "true")
 
-        reset_preview_highlight(
-            card, "/tmp/x.jpg", is_selected=True, update_style=update_style
-        )
+        reset_preview_highlight(card, "/tmp/x.jpg", is_selected=True, update_style=update_style)
         assert PREVIEW_COLOR not in card.styleSheet()
-        assert card.property("original_style") is None
+        assert card.property("preview_highlighted") in (False, "false", None)
 
     def test_helpers_noop_on_missing_card(self, q_app):
-        apply_preview_highlight(
-            None, "/tmp/x.jpg", is_selected=False, update_style=_noop_style
-        )
-        reset_preview_highlight(
-            None, "/tmp/x.jpg", is_selected=False, update_style=_noop_style
-        )
+        apply_preview_highlight(None, "/tmp/x.jpg", is_selected=False, update_style=_noop_style)
+        reset_preview_highlight(None, "/tmp/x.jpg", is_selected=False, update_style=_noop_style)

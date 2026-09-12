@@ -1,0 +1,2 @@
+QPushButton { background-color: $SWATCH_BG; border: 1px solid $SWATCH_BORDER; border-radius: 4px; }
+QPushButton:hover { border: 1px solid $SWATCH_BORDER_HOVER; }

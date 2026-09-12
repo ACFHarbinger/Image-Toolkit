@@ -84,8 +84,9 @@ class TestMainWindowSessionRecovery:
             assert saved is not None
             assert saved["session_recovery_data"]["active_category"] == "System Tools"
             assert saved["session_recovery_data"]["active_tab"] == "Convert"
-            assert "SearchTab" in saved["session_recovery_data"]["tab_configs"]
-            assert saved["session_recovery_data"]["tab_configs"]["SearchTab"] == {"search_key": "val1"}
+            # Unopened categories are not constructed, so SearchTab is not collected.
+            # Prior All-Tabs configs (none here) are preserved rather than dropped.
+            assert "SearchTab" not in saved["session_recovery_data"]["tab_configs"]
             assert saved["session_recovery_data"]["tab_configs"]["ConvertTab"] == {"convert_key": "val2"}
 
     def test_session_recovery_restore_current_tab(self, q_app):

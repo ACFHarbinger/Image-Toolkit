@@ -10,6 +10,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from gui.src.theming.theme_api import color, qss
+
 from ...styles import apply_shadow_effect
 
 
@@ -31,7 +33,7 @@ class OptionalField(QWidget):
         self.toggle_btn.setFixedWidth(30)
         self.toggle_btn.setFlat(True)
         apply_shadow_effect(
-            self.toggle_btn, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+            self.toggle_btn, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3
         )
 
         self.label = QLabel(title)
@@ -63,33 +65,13 @@ class OptionalField(QWidget):
 
         # Apply the style to the QFrame
         header_frame.setStyleSheet(
-            f"""
-            QFrame {{
-                background-color: {base_color.name()};
-                border: 1px solid {border_color.name()};
-                border-radius: 3px;
-            }}
-            QLabel {{
-                color: {text_color_name};
-                font-weight: 600;
-            }}
-            /* Target the button using the ID and set color and background to transparent */
-            QPushButton#OptionalFieldToggleBtn {{
-                color: {text_color_name}; /* Forcing the foreground color */
-                background-color: transparent;
-                border: none;
-                padding: 0; /* Minimize padding influence */
-                font-size: 14px;
-            }}
-            /* Add hover effect to the button itself for debugging/visual confirmation */
-            QPushButton#OptionalFieldToggleBtn:hover {{
-                color: {hover_color.name()}; /* Ensure color changes on hover */
-                background-color: transparent;
-            }}
-            QFrame:hover {{
-                background-color: {hover_color.name()};
-            }}
-        """
+            qss(
+                "optional_field_header",
+                BASE=base_color.name(),
+                BORDER=border_color.name(),
+                TEXT=text_color_name,
+                HOVER=hover_color.name(),
+            )
         )
 
         # Main layout

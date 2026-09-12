@@ -23,6 +23,8 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
+from .....theming.theme_api import color, qss
+
 if TYPE_CHECKING:
     from ...protos.monitor_display_subtab import MonitorDisplaySubTabHostProtocol
 
@@ -36,7 +38,7 @@ class _UIPropsEndMixin:
 
         self._props_hint = QLabel("Double-click or right-click a node to edit it.")
         self._props_hint.setWordWrap(True)
-        self._props_hint.setStyleSheet("color:#b9bbbe;")
+        self._props_hint.setStyleSheet(qss("wallpaper_props_hint"))
         lyt.addWidget(self._props_hint)
 
         self._props_file = QLabel()
@@ -76,7 +78,7 @@ class _UIPropsEndMixin:
             "reorder, right-click to remove."
         )
         edges_hint.setWordWrap(True)
-        edges_hint.setStyleSheet("color:#b9bbbe; font-size:10px;")
+        edges_hint.setStyleSheet(qss("wallpaper_edges_hint"))
         edges_lyt.addWidget(edges_hint)
 
         self._props_edges_list = QListWidget()
@@ -160,7 +162,7 @@ class _UIPropsEndMixin:
         self._end_color_preview = QLabel("   ")
         self._end_color_preview.setFixedSize(20, 20)
         self._end_color_preview.setVisible(False)
-        self._end_color_current = "#000000"
+        self._end_color_current = color("window_bg")
         lyt.addWidget(self._end_color_preview)
         lyt.addWidget(self._end_color_btn)
 

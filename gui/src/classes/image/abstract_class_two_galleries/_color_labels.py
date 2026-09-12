@@ -13,12 +13,12 @@ from PySide6.QtCore import Slot
 from PySide6.QtWidgets import QWidget
 
 from gui.src.components.gallery.card_factory import (
-    DEFAULT_BORDER_COLOR,
-    SELECTION_COLOR,
     apply_preview_highlight,
     reset_preview_highlight,
 )
+from gui.src.constants.gallery import GALLERY_LABEL_COLORS, GALLERY_LABEL_ICONS
 from gui.src.qt_object_guard import deleted_qobject_guard
+from gui.src.theming.theme_api import color, qss
 
 if TYPE_CHECKING:
     from ..protos.abstract_class_two_galleries import AbstractClassTwoGalleriesHostProtocol
@@ -27,27 +27,19 @@ if TYPE_CHECKING:
 class _ColorLabelsMixin:
     """Color labels, card border styling, and the preview-window highlight."""
 
-    _LABEL_COLORS: Dict[str, str] = {
-        "red":    "#e74c3c",
-        "orange": "#e67e22",
-        "yellow": "#f1c40f",
-        "green":  "#2ecc71",
-        "blue":   "#3498db",
-        "purple": "#9b59b6",
-    }
-    _LABEL_ICONS: Dict[str, str] = {
-        "red": "🔴", "orange": "🟠", "yellow": "🟡",
-        "green": "🟢", "blue": "🔵", "purple": "🟣",
-    }
+    _LABEL_COLORS: Dict[str, str] = GALLERY_LABEL_COLORS
+    _LABEL_ICONS: Dict[str, str] = GALLERY_LABEL_ICONS
 
     def _get_color_label(self: "AbstractClassTwoGalleriesHostProtocol", path: str) -> Optional[str]:
         """Return the color key for *path*, or None if unlabelled."""
         from gui.src.windows.settings.app_settings import AppSettings
+
         return AppSettings.label(path)
 
     def _set_color_label(self: "AbstractClassTwoGalleriesHostProtocol", path: str, color_key: Optional[str]) -> None:
         """Persist *color_key* (or clear it) for *path*, then refresh the card border."""
         from gui.src.windows.settings.app_settings import AppSettings
+
         if color_key:
             AppSettings.set_label(path, color_key)
         else:
@@ -61,14 +53,25 @@ class _ColorLabelsMixin:
             widget.set_selected_style(is_selected)
         else:
             if is_selected:
-                color, width = SELECTION_COLOR, "3px"
+                widget.setStyleSheet(
+                    qss(
+                        "gallery_card_label_border",
+                        BORDER_WIDTH="3px",
+                        BORDER_COLOR=color("accent"),
+                    )
+                )
             else:
-                # Show color label border when not selected (§2.18C)
                 path = widget.property("gallery_path")
                 label_color = self._LABEL_COLORS.get(self._get_color_label(path) or "", "") if path else ""
-                color = label_color or DEFAULT_BORDER_COLOR
+                border_color = label_color or color("border")
                 width = "2px" if label_color else "1px"
-            widget.setStyleSheet(f"border: {width} solid {color};")
+                widget.setStyleSheet(
+                    qss(
+                        "gallery_card_label_border",
+                        BORDER_WIDTH=width,
+                        BORDER_COLOR=border_color,
+                    )
+                )
 
     @Slot(str, str)
     def update_preview_highlight(self: "AbstractClassTwoGalleriesHostProtocol", old_path: str, new_path: str):

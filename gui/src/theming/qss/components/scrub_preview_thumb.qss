@@ -1,0 +1,3 @@
+border: 2px solid $DARK_BORDER;
+border-radius: 4px;
+background-color: black;

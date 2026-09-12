@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (
 )
 
 from gui.src.elements.database.common.listings_common import normalize_id_list
-from gui.src.styles import SHARED_BUTTON_STYLE
+from gui.src.theming.theme_api import qss
 
 
 class _AssociatedEntitiesDialog(QDialog):
@@ -22,7 +22,7 @@ class _AssociatedEntitiesDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Select Associated Entities")
         self.setMinimumSize(400, 450)
-        self.setStyleSheet("background:#2c2f33; color:white;")
+        self.setStyleSheet(qss("database_dialog_bg"))
 
         self.all_entities = all_entities
         self.selected_ids = {i for i in normalize_id_list(selected_ids)}
@@ -37,11 +37,7 @@ class _AssociatedEntitiesDialog(QDialog):
 
         # List widget
         self.list_widget = QListWidget()
-        self.list_widget.setStyleSheet(
-            "QListWidget { background:#23272a; border:1px solid #4f545c; border-radius:6px; padding:4px; }"
-            "QListWidget::item { color:white; padding:4px; border-bottom:1px solid #2c2f33; }"
-            "QListWidget::item:hover { background:#00bcd4; color:black; }"
-        )
+        self.list_widget.setStyleSheet(qss("database_multi_select_list"))
         layout.addWidget(self.list_widget)
 
         self._populate_list()
@@ -49,7 +45,7 @@ class _AssociatedEntitiesDialog(QDialog):
         # Buttons
         btns = QHBoxLayout()
         ok_btn = QPushButton("Select")
-        ok_btn.setStyleSheet(SHARED_BUTTON_STYLE)
+        ok_btn.setStyleSheet(qss("shared_button"))
         ok_btn.clicked.connect(self.accept)
         cancel_btn = QPushButton("Cancel")
         cancel_btn.clicked.connect(self.reject)

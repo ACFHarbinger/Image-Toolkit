@@ -1,10 +1,82 @@
+# S552 — 2026-09-11 (Cursor: #544 listings composition)
+
+- `EntityListingsSubTab` / `SeriesListingsSubTab` inherit `ListingGalleryBase`
+  only. Mixins are composed `TabBoundController`s; Qt `resizeEvent` stays
+  on the tab. No COMPAT mixin-name aliases.
+
+# S551 — 2026-09-11 (Gemini / Antigravity: R3.2 #569 / ui-arch-47 lazy heavy imports)
+
+- Moved all module-level heavy imports (`cv2`, `PIL`/`Pillow`, `numpy`, and `torch`, 27 statements across 19 GUI files) into functions, methods, and workers that require them.
+- Avoided ~492 MB of RSS overhead during GUI initialization (PyTorch: +460 MB, OpenCV: +13 MB, NumPy: +15 MB, PIL: +4 MB). Importing `gui.src` now loads 0 heavy scientific/vision packages at module load time.
+- Added AST audit tool `tools/dev/gui_audit/check_no_module_heavy_imports.py` and regression test `gui/test/test_no_module_heavy_imports.py`.
+
+# S550 — 2026-09-08 (Cursor: #564 complete + #574/#575 cross-surface tokens)
+
+- Finished R2.b styling migration: all `gui/src/` surfaces (`components/`,
+  `elements/`, `windows/`, `tabs/`, `classes/`, `helpers/`) now use
+  `theme_api.color()` / `qss()`; `styling_allowlist.txt` empty; audit → 0.
+- Added ~200 component QSS fragments, palette modules for wallpaper graph / ER
+  view, and `apply_stylesheet()` helper for app-level QSS.
+- **#574:** shared JSON token schema (`gui/src/theming/tokens/`), export script,
+  docs website `theme-tokens.generated.css` + `gen:theme-tokens` npm script.
+- **#575:** devtool app wired to same token JSON via generated CSS + `:root`
+  aliases in `dev/app/src/index.css`.
+- **#563 import-dialog:** `directory_import_dialog.py` and
+  `entity_directory_import_dialog.py` merged into `dialog/directory_import/`
+  with shared `_shared.py` helpers and kind-specific `series.py` / `entity.py`.
+- **#563 codec/format:** `codec_subtab/` and `format_subtab/` merged into
+  `media_convert_subtab/`; unified `_gallery_cards.py` and `_lifecycle.py`.
+- Resync onto #573: `gui.src.theming` is a PEP 562 lazy facade so
+  `theme_api` / `file_dialog_patch` no longer import numpy/PIL via
+  `palette` at package import (keeps the R3.6 isolated-import bound).
+
+# S548 — 2026-09-11 (Grok: R2.e #566 / classic-shell lazy tab construction)
+
+- Classic `_create_tabs` no longer constructs ~26 tab widgets before show.
+  `CLASSIC_TAB_ROUTES` is the inventory; `_ensure_category` builds one
+  category at a time through `build_tab` on first select. Startup constructs
+  the restored/startup category only. Unopened categories stay unbuilt;
+  "All Tabs" session save keeps prior configs for those and applies them
+  when the category is later constructed.
+- `build_tab` imports each tab from its leaf module (stitch/manga/HIE still
+  via the lazy `gui.src.tabs` getattr) and logs activation time.
+- Stacked on #559 / PR #603. D12-verified 2026-09-11 (real login, real vault,
+  real data): startup builds only the restored category's tabs; switching to
+  "Library Database" built exactly that category's 5 tabs on first select;
+  session recovery restored the real ExtractorTab video config; clean quit.
+
+# S547 — 2026-09-08 (Codex: R1.4 #559 / shared tab factory)
+
+- Added `build_tab(module_id, context)` as the sole construction path for the
+  classic tab registry and runtime catalog. Removed all catalog constructor
+  `TypeError` fallbacks; factory options are carried explicitly in
+  `ModuleContext`. Regression coverage exercises real database-family
+  constructors and verifies catalog option forwarding.
+
+# S546 — 2026-09-11 (Gemini / Antigravity: R3.6 #573 / ui-arch-51 import-graph slimming)
+
+- Converted `gui/src/components/__init__.py`, `gui/src/helpers/__init__.py`, `gui/src/tabs/__init__.py`, and `gui/src/windows/settings/__init__.py` from eager re-export barrels to PEP 562 `__getattr__` lazy facades over explicit `_LAZY_EXPORTS`.
+- Isolated GUI component imports now load only their direct dependencies: `import gui.src.components.widgets.toast_widget` loads 210 modules (reduced from >3,600); `gc_safe` and `AppSettings` isolated imports load 155 modules.
+- Isolated GUI tests no longer require `submodules/ASP` bootstrap / `asp_backend` availability.
+- Extended `backend/validation/check_init_boundaries.py` to guard all five lazy package initializers (`windows`, `windows/settings`, `components`, `helpers`, `tabs`) and verify `__all__` consistency against `_LAZY_EXPORTS`.
+- Added regression test `gui/test/test_import_footprint.py`.
+
+# S545 — 2026-09-11 (Gemini / Antigravity: R3.3 #570 / ui-arch-48 eliminate live processEvents)
+
+- Eliminated all 7 live `QApplication.processEvents()` calls across `gui/src`:
+  - `library_session.py`: replaced busy `while thread.is_alive(): processEvents(); thread.join(0.05)` polling loop with clean `QEventLoop` driven by a 50ms `QTimer` checking thread completion.
+  - `similarity_tab/_deletion.py`: removed redundant `processEvents()` before starting non-blocking `DeletionWorker`.
+  - `drive_sync_tab/_ui_lock.py`: removed redundant `processEvents()` flushes in `lock_ui` and `lock_ui_minor`.
+  - `drive_sync_tab/local_dir_sync_subtab/widget.py`: removed redundant `processEvents()` flush in `_lock_ui`.
+  - `drive_sync_tab/sync_data_subtab/widget.py`: removed redundant `processEvents()` flushes in `_lock_ui` and `_lock_ui_minor`.
+- Added `tools/dev/gui_audit/check_no_process_events.py` and regression test `gui/test/test_no_process_events.py` asserting zero live `processEvents()` calls in `gui/src`.
+
 # S544 — 2026-09-08 (Grok: #571 R3.4 gallery card factory)
 
 - Single-gallery and two-gallery `create_card_widget` paths share one
   `card_factory` module; highlight helper is shared. Pagination stays
   per-base. VirtualGallery keeps delegate painting and uses the highlight
   helper. D12 before merge.
-
 # S535 — 2026-09-08 (Grok: huge-GIF gallery thumbnails)
 
 - Gallery / wallpaper / extractor thumbnail loads no longer run Qt's GIF

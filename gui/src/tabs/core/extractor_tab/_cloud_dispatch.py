@@ -120,12 +120,12 @@ class _CloudDispatchMixin:
         )
         self.extraction_status_label.show()
 
-    def _on_cloud_dispatch_error(self: "VideoExtractorSubTabHostProtocol", message: str, worker=None) -> None:
+    def _on_cloud_dispatch_error(self: "VideoExtractorSubTabHostProtocol", exc: Exception, worker=None) -> None:
         if not self._clear_cloud_worker(worker):
             return
         self.extraction_status_label.setText("Cloud extraction failed.")
         self.extraction_status_label.show()
-        QMessageBox.warning(cast(QWidget, self), "Cloud Extraction Failed", message)
+        QMessageBox.warning(cast(QWidget, self), "Cloud Extraction Failed", str(exc))
 
 
 __all__ = ["_CloudDispatchMixin"]

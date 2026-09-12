@@ -1,0 +1,4 @@
+QMenu {
+    color: $DARK_TEXT;
+    border: 1px solid $DARK_BORDER;
+}

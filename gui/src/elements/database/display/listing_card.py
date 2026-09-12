@@ -3,6 +3,7 @@ from typing import Any, Dict
 from gui.src.constants.listings import (
     CARD_SIZE,
     PLACEHOLDER,
+    RATING_STAR_COLOR,
     STATUS_COLORS,
     TYPE_COLORS,
 )
@@ -12,6 +13,7 @@ from gui.src.elements.database.common.listings_common import (
     open_web_link,
 )
 from gui.src.elements.database.display.common.base_card import BaseCard
+from gui.src.theming.theme_api import qss
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QMenu, QPushButton, QVBoxLayout
@@ -28,11 +30,7 @@ class _ListingCard(BaseCard):
         )
         self.entry = entry
         self.setObjectName("listing_card")
-        self.set_base_card_style(
-            "QWidget#listing_card{background:rgba(20, 24, 32, 0.45);border:2px solid rgba(255, 255, 255, 0.12);"
-            "border-radius:8px;}"
-            "QWidget#listing_card:hover{border:2px solid #00bcd4;background:rgba(28, 34, 46, 0.60);}"
-        )
+        self.set_base_card_style("database_listing_card")
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(6, 6, 6, 6)
@@ -45,7 +43,7 @@ class _ListingCard(BaseCard):
         title_lbl = QLabel(entry.get("title", "Untitled"))
         title_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         title_lbl.setWordWrap(False)
-        title_lbl.setStyleSheet("color:#ffffff;font-weight:bold;font-size:11px;border:none;")
+        title_lbl.setStyleSheet(qss("database_card_title"))
         title_lbl.setFixedWidth(self.card_size - 4)
         fm = title_lbl.fontMetrics()
         title_lbl.setText(
@@ -63,8 +61,8 @@ class _ListingCard(BaseCard):
         badge_row.setSpacing(4)
         t = entry.get("type", "Other")
         s = entry.get("status", "Plan to Watch")
-        badge_row.addWidget(_badge(t, TYPE_COLORS.get(t, "#607d8b")))
-        badge_row.addWidget(_badge(s[:9], STATUS_COLORS.get(s, "#95a5a6")))
+        badge_row.addWidget(_badge(t, TYPE_COLORS.get(t, TYPE_COLORS["Other"])))
+        badge_row.addWidget(_badge(s[:9], STATUS_COLORS.get(s, STATUS_COLORS["Plan to Watch"])))
         layout.addLayout(badge_row)
 
         # Progress info
@@ -72,7 +70,7 @@ class _ListingCard(BaseCard):
         total_eps = entry.get("episodes", 1)
         prog_lbl = QLabel(f"Prog: {current_ep} / {total_eps}")
         prog_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        prog_lbl.setStyleSheet("color:#888; font-size:10px; border:none;")
+        prog_lbl.setStyleSheet(qss("database_card_muted_info"))
         layout.addWidget(prog_lbl)
 
         # Personal rating stars (supports old "rating" key for backwards compat)
@@ -87,12 +85,12 @@ class _ListingCard(BaseCard):
             stars = "★" * personal_rating + "☆" * (10 - personal_rating)
             r_lbl = QLabel(stars[:10])
             r_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            r_lbl.setStyleSheet("color:#f1c40f;font-size:9px;border:none;")
+            r_lbl.setStyleSheet(qss("database_card_rating", STAR_COLOR=RATING_STAR_COLOR))
             layout.addWidget(r_lbl, alignment=Qt.AlignmentFlag.AlignHCenter)
         if community_rating:
             cr_lbl = QLabel(f"Community {community_rating:.2f}")
             cr_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            cr_lbl.setStyleSheet("color:#f1c40f;font-size:9px;border:none;")
+            cr_lbl.setStyleSheet(qss("database_card_rating", STAR_COLOR=RATING_STAR_COLOR))
             layout.addWidget(cr_lbl, alignment=Qt.AlignmentFlag.AlignHCenter)
 
         # Quick Actions row
@@ -107,22 +105,14 @@ class _ListingCard(BaseCard):
             if local_file_path:
                 file_btn = QPushButton("📁 File")
                 file_btn.setToolTip(f"Open location: {local_file_path}")
-                file_btn.setStyleSheet(
-                    "QPushButton { background:#2f3136; color:#00bcd4; border:1px solid #00bcd4; "
-                    "border-radius:4px; padding:2px 6px; font-size:10px; font-weight:bold; }"
-                    "QPushButton:hover { background:#00bcd4; color:black; }"
-                )
+                file_btn.setStyleSheet(qss("listing_card_file_btn"))
                 file_btn.clicked.connect(lambda _, path=local_file_path: open_file_location(path))
                 actions_layout.addWidget(file_btn)
 
             if web_link_url:
                 link_btn = QPushButton("🌐 Link")
                 link_btn.setToolTip(f"Open link: {web_link_url}")
-                link_btn.setStyleSheet(
-                    "QPushButton { background:#2f3136; color:#9b59b6; border:1px solid #9b59b6; "
-                    "border-radius:4px; padding:2px 6px; font-size:10px; font-weight:bold; }"
-                    "QPushButton:hover { background:#9b59b6; color:white; }"
-                )
+                link_btn.setStyleSheet(qss("listing_card_link_btn"))
                 link_btn.clicked.connect(lambda _, url=web_link_url: open_web_link(url))
                 actions_layout.addWidget(link_btn)
 
@@ -130,10 +120,7 @@ class _ListingCard(BaseCard):
 
     def _show_context_menu(self, pos):
         menu = QMenu(self)
-        menu.setStyleSheet(
-            "QMenu { background:#2c2f33; color:white; border:1px solid #4f545c; }"
-            "QMenu::item:selected { background:#00bcd4; color:black; }"
-        )
+        menu.setStyleSheet(qss("thumbnail_picker_menu"))
 
         edit_act = QAction("✎ Edit Details", self)
         edit_act.triggered.connect(lambda: self.clicked.emit(self._id))

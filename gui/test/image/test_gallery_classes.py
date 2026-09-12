@@ -13,6 +13,7 @@ from gui.src.classes.image.abstract_class_two_galleries import (
 )
 from gui.src.components import MarqueeScrollArea
 from gui.src.components.gallery.card_factory import create_gallery_card
+from gui.src.theming.theme_api import color
 
 pytestmark = pytest.mark.gui
 
@@ -74,9 +75,7 @@ class ConcreteTwoGalleries(AbstractClassTwoGalleries):
 
         self.selection_changed_called = 0
 
-    def create_card_widget(
-        self, path: str, pixmap: Optional[QPixmap], is_selected: bool
-    ) -> QWidget:
+    def create_card_widget(self, path: str, pixmap: Optional[QPixmap], is_selected: bool) -> QWidget:
         label = QLabel(path)
         if pixmap:
             label.setPixmap(pixmap)
@@ -338,7 +337,7 @@ class TestAbstractClassTwoGalleries:
         gallery.update_card_style(card, is_selected=True)
         img_label = card.findChild(QLabel)
         assert img_label is not None
-        assert "5865f2" in img_label.styleSheet()
+        assert color("accent") in img_label.styleSheet()
 
     def test_create_card_widget_uses_shared_factory(self, q_app, monkeypatch):
         calls = []
@@ -349,8 +348,7 @@ class TestAbstractClassTwoGalleries:
             return real(**kwargs)
 
         monkeypatch.setattr(
-            "gui.src.classes.image.abstract_class_two_galleries"
-            "._card_rendering.create_gallery_card",
+            "gui.src.classes.image.abstract_class_two_galleries._card_rendering.create_gallery_card",
             spy,
         )
         gallery = AbstractClassTwoGalleries()
@@ -373,8 +371,7 @@ class TestGalleryCardFactoryWiring:
             return real(**kwargs)
 
         monkeypatch.setattr(
-            "gui.src.classes.image.abstract_class_single_gallery"
-            "._card_rendering.create_gallery_card",
+            "gui.src.classes.image.abstract_class_single_gallery._card_rendering.create_gallery_card",
             spy,
         )
         gallery = FactoryBackedSingleGallery()
@@ -428,16 +425,12 @@ class TestRecentDirsQSettingsStringQuirk:
     handler, so the gallery just stayed empty with no user-visible
     error). Found manually testing release checklist §4.3 item 5."""
 
-    def test_add_recent_dir_survives_bare_string_from_settings(
-        self, gallery, monkeypatch
-    ):
+    def test_add_recent_dir_survives_bare_string_from_settings(self, gallery, monkeypatch):
         from gui.src.windows.settings.app_settings import AppSettings
 
         # Simulate QSettings handing back a bare string instead of a
         # one-item list for a previously-saved single recent dir.
-        monkeypatch.setattr(
-            AppSettings, "session", classmethod(lambda cls, *a, **k: "/a/b")
-        )
+        monkeypatch.setattr(AppSettings, "session", classmethod(lambda cls, *a, **k: "/a/b"))
         saved = {}
         monkeypatch.setattr(
             AppSettings,
@@ -449,14 +442,9 @@ class TestRecentDirsQSettingsStringQuirk:
 
         assert saved["recent_dirs"] == ["/a/b"]
 
-    def test_get_recent_dirs_survives_bare_string_from_settings(
-        self, gallery, monkeypatch
-    ):
+    def test_get_recent_dirs_survives_bare_string_from_settings(self, gallery, monkeypatch):
         from gui.src.windows.settings.app_settings import AppSettings
 
-        monkeypatch.setattr(
-            AppSettings, "session", classmethod(lambda cls, *a, **k: "/a/b")
-        )
+        monkeypatch.setattr(AppSettings, "session", classmethod(lambda cls, *a, **k: "/a/b"))
 
         assert gallery._get_recent_dirs() == ["/a/b"]
-

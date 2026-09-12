@@ -41,7 +41,7 @@ class MediaLoaderWorker(QObject):
     """Runs a source-specific downloader (Reddit, nhentai, ...) off the UI thread."""
 
     status = Signal(str)
-    sig_finished = Signal(int, str)
+    finished = Signal(object)  # (count:int, message:str)
     error = Signal(str)
     media_saved = Signal(str)
 
@@ -58,7 +58,7 @@ class MediaLoaderWorker(QObject):
         self._status_bridge = QtEventBridge(self.status.emit, parent=self)
         self._saved_bridge = QtEventBridge(self.media_saved.emit, parent=self)
         self._finished_bridge = QtEventBridge(
-            lambda payload: self.sig_finished.emit(payload[0], payload[1]),
+            lambda payload: self.finished.emit((payload[0], payload[1])),
             parent=self,
         )
         self._error_bridge = QtEventBridge(self.error.emit, parent=self)

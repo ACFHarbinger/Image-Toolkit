@@ -14,6 +14,8 @@ from PySide6.QtCore import Slot
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QColorDialog, QWidget
 
+from .....theming.theme_api import qss
+
 if TYPE_CHECKING:
     from ...protos.system_display_subtab import SystemDisplaySubTabHostProtocol
 
@@ -120,7 +122,7 @@ class _StyleSelectorsMixin:
         if color.isValid():
             self.solid_color_hex = color.name().upper()
             self.solid_color_preview.setStyleSheet(
-                f"background-color: {self.solid_color_hex}; border: 1px solid #4f545c;"
+                qss("dynamic_color_preview", BG_COLOR=self.solid_color_hex)
             )
             self.check_all_monitors_set()
 

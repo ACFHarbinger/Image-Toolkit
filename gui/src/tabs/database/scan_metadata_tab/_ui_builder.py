@@ -30,6 +30,7 @@ from PySide6.QtWidgets import (
 
 from ....components import VirtualDualGallery
 from ....styles import apply_shadow_effect
+from ....theming.theme_api import color, qss
 
 
 class _UIBuilderMixin:
@@ -41,7 +42,7 @@ class _UIBuilderMixin:
         # --- Scrollable Content Setup ---
         page_scroll = QScrollArea()
         page_scroll.setWidgetResizable(True)
-        page_scroll.setStyleSheet("QScrollArea { border: none; }")
+        page_scroll.setStyleSheet(qss("scroll_area_borderless"))
 
         content_widget = QWidget()
         content_layout = QVBoxLayout(content_widget)
@@ -84,7 +85,7 @@ class _UIBuilderMixin:
         btn_browse_scan = QPushButton("Browse...")
         btn_browse_scan.clicked.connect(self.browse_scan_directory)
         apply_shadow_effect(
-            btn_browse_scan, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+            btn_browse_scan, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3
         )
 
         scan_dir_layout.addWidget(self.scan_directory_path)
@@ -150,10 +151,7 @@ class _UIBuilderMixin:
 
         self.tags_list_widget = QListWidget()
         self.tags_list_widget.setMinimumHeight(400)
-        self.tags_list_widget.setStyleSheet(
-            "QListWidget::item { padding: 5px; } "
-            "QListWidget { border: 1px solid #4f545c; border-radius: 8px; }"
-        )
+        self.tags_list_widget.setStyleSheet(qss("bordered_list_widget_items_lg"))
         self._setup_tag_checkboxes()
 
         form_layout.addRow("Tags:", self.tags_list_widget)
@@ -166,7 +164,7 @@ class _UIBuilderMixin:
         self.view_new_only_button.setChecked(False)
         apply_shadow_effect(
             self.view_new_only_button,
-            color_hex="#000000",
+            color_hex=color("window_bg"),
             radius=8,
             x_offset=0,
             y_offset=3,
@@ -178,7 +176,7 @@ class _UIBuilderMixin:
         self.view_in_db_only_button.setChecked(False)
         apply_shadow_effect(
             self.view_in_db_only_button,
-            color_hex="#000000",
+            color_hex=color("window_bg"),
             radius=8,
             x_offset=0,
             y_offset=3,
@@ -188,7 +186,7 @@ class _UIBuilderMixin:
         self.upsert_button = QPushButton("Add/Update Database Data")
         self.upsert_button.setObjectName("btn_success")
         apply_shadow_effect(
-            self.upsert_button, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+            self.upsert_button, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3
         )
         self.upsert_button.clicked.connect(self.perform_upsert_operation)
 
@@ -196,7 +194,7 @@ class _UIBuilderMixin:
         self.delete_selected_button.setObjectName("btn_danger")
         apply_shadow_effect(
             self.delete_selected_button,
-            color_hex="#000000",
+            color_hex=color("window_bg"),
             radius=8,
             x_offset=0,
             y_offset=3,

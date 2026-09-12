@@ -18,8 +18,8 @@ import threading
 from pathlib import Path
 from typing import Optional
 
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QApplication, QMessageBox, QProgressDialog
+from PySide6.QtCore import QEventLoop, Qt, QTimer
+from PySide6.QtWidgets import QMessageBox, QProgressDialog
 
 logger = logging.getLogger(__name__)
 
@@ -147,9 +147,19 @@ def run_migration_with_progress(vault_manager, parent=None) -> bool:
 
     thread = threading.Thread(target=work, daemon=True)
     thread.start()
-    while thread.is_alive():
-        QApplication.processEvents()
-        thread.join(0.05)
+    if thread.is_alive():
+        loop = QEventLoop()
+        timer = QTimer()
+        timer.setInterval(50)
+
+        def _poll_migration() -> None:
+            if not thread.is_alive():
+                timer.stop()
+                loop.quit()
+
+        timer.timeout.connect(_poll_migration)
+        timer.start()
+        loop.exec()
     progress.close()
 
     # Reopen the session regardless of outcome so the tabs keep working.
