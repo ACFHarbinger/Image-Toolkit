@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Optional, Tuple, Union
 
 from gui.src.helpers.base import BaseQRunnableWorker
+from gui.src.helpers.video.extraction_pipeline import get_keep_regions
 
 from ...utils.sort_utils import natural_sort_key
 
@@ -17,33 +18,7 @@ class FrameExtractionWorker(BaseQRunnableWorker):
     """
 
     def _get_keep_regions(self, t_start: float, t_end: float):
-        if not self.cuts_ms:
-            return [(0.0, t_end - t_start)]
-
-        sorted_cuts = sorted([(max(t_start, c[0] / 1000.0), min(t_end, c[1] / 1000.0)) for c in self.cuts_ms])
-        merged_cuts = []
-        for c in sorted_cuts:
-            if c[0] >= c[1]:
-                continue
-            if not merged_cuts:
-                merged_cuts.append(c)
-            else:
-                last = merged_cuts[-1]
-                if c[0] <= last[1]:
-                    merged_cuts[-1] = (last[0], max(last[1], c[1]))
-                else:
-                    merged_cuts.append(c)
-
-        keep = []
-        current = t_start
-        for c_start, c_end in merged_cuts:
-            if c_start > current:
-                keep.append((current - t_start, c_start - t_start))
-            current = max(current, c_end)
-
-        if current < t_end:
-            keep.append((current - t_start, t_end - t_start))
-        return keep
+        return get_keep_regions(self.cuts_ms, t_start, t_end)
 
     def __init__(
         self,

@@ -1,4 +1,4 @@
-"""View Remote Files Map action (dry-run listing via GoogleDriveSyncWorker).
+"""View Remote Files Map action (dry-run listing via CloudDriveSyncWorker).
 
 Extracted from ``drive_sync_tab.py`` -- pure code motion, no logic change.
 """
@@ -8,7 +8,7 @@ from __future__ import annotations
 from PySide6.QtCore import QThreadPool, Slot
 from PySide6.QtWidgets import QMessageBox
 
-from ....helpers import GoogleDriveSyncWorker
+from ....helpers import CloudDriveSyncWorker
 from ._tab_bound import TabBoundController
 
 
@@ -30,7 +30,8 @@ class DriveSyncRemoteMapController(TabBoundController):
         self.lock_ui_minor(message="Viewing Remote Map…", clear_log=True)
         self.log_window.show()
 
-        self.current_worker = GoogleDriveSyncWorker(
+        self.current_worker = CloudDriveSyncWorker(
+            "google",
             auth_config=auth_config,
             local_path=self.local_path.text().strip(),
             remote_path=remote_path,

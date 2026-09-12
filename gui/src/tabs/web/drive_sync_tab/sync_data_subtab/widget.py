@@ -30,7 +30,7 @@ from PySide6.QtWidgets import (
 )
 
 from .....constants import DRY_RUN
-from .....helpers import DropboxDriveSyncWorker, GoogleDriveSyncWorker, OneDriveSyncWorker
+from .....helpers import CloudDriveSyncWorker
 from .....styles import apply_shadow_effect, set_button_role
 from .....theming.theme_api import color, qss
 from .....windows.logging import LogWindow
@@ -299,16 +299,21 @@ class SyncDataSubtab(QWidget):
         }
 
         if provider_text.startswith("Google Drive"):
-            self.current_worker = GoogleDriveSyncWorker(**common, user_email_to_share_with=share_email)
+            provider = "google"
         elif provider_text == "Dropbox":
-            self.current_worker = DropboxDriveSyncWorker(**common)
+            provider = "dropbox"
         elif provider_text == "OneDrive":
-            self.current_worker = OneDriveSyncWorker(**common)
+            provider = "onedrive"
         else:
             QMessageBox.warning(self, "Error", f"Unknown provider: {provider_text}")
             self._unlock_ui()
             return
 
+        self.current_worker = CloudDriveSyncWorker(
+            provider,
+            **common,
+            user_email_to_share_with=share_email,
+        )
         self.current_worker.signals.status.connect(self._on_status_update)
         self.current_worker.signals.finished.connect(self._on_sync_finished)
         QThreadPool.globalInstance().start(self.current_worker)
@@ -364,7 +369,8 @@ class SyncDataSubtab(QWidget):
         self.log_window.show()
         self.log_window.clear_log()
 
-        worker = GoogleDriveSyncWorker(
+        worker = CloudDriveSyncWorker(
+            "google",
             auth_config=auth_config,
             local_path=str(Path.home()),  # not used for listing
             remote_path=remote_path,

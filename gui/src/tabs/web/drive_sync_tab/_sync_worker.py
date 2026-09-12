@@ -10,7 +10,7 @@ import os
 from PySide6.QtCore import QThreadPool, Slot
 from PySide6.QtWidgets import QMessageBox
 
-from ....helpers import DropboxDriveSyncWorker, GoogleDriveSyncWorker, OneDriveSyncWorker
+from ....helpers import CloudDriveSyncWorker
 from ._tab_bound import TabBoundController
 
 
@@ -94,11 +94,18 @@ class DriveSyncSyncWorkerController(TabBoundController):
         }
 
         if provider_text.startswith("Google Drive"):
-            self.current_worker = GoogleDriveSyncWorker(**common_args, user_email_to_share_with=share_email)
+            provider = "google"
         elif provider_text == "Dropbox":
-            self.current_worker = DropboxDriveSyncWorker(**common_args)
+            provider = "dropbox"
         elif provider_text == "OneDrive":
-            self.current_worker = OneDriveSyncWorker(**common_args)
+            provider = "onedrive"
+        else:
+            return
+        self.current_worker = CloudDriveSyncWorker(
+            provider,
+            **common_args,
+            user_email_to_share_with=share_email,
+        )
 
         self.current_worker.signals.status.connect(self.handle_status_update)  # pyrefly: ignore [missing-attribute]
         self.current_worker.signals.finished.connect(self.handle_sync_finished)  # pyrefly: ignore [missing-attribute]
