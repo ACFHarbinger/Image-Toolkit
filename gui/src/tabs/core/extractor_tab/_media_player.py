@@ -50,6 +50,7 @@ from ....helpers.video.video_thumbnailer import (
 )
 from ....theming.theme_api import qss
 from ....utils.sort_utils import natural_sort_key
+from ._player_lifecycle import PlayerLifecycleState
 from ._video_view import VideoView
 
 if TYPE_CHECKING:
@@ -447,6 +448,7 @@ class _MediaPlayerMixin:
         """Cleanup processes on close."""
         self.cancel_loading()
         self._stop_storyboard()
+        self._set_player_lifecycle_state(PlayerLifecycleState.NOT_LOADED)
         self.operation_thread_pool.clear()
         # Never hold the UI indefinitely on a stuck codec/subprocess.
         self.operation_thread_pool.waitForDone(2000)
