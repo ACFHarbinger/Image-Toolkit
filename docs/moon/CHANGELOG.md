@@ -71,6 +71,14 @@
   - `drive_sync_tab/sync_data_subtab/widget.py`: removed redundant `processEvents()` flushes in `_lock_ui` and `_lock_ui_minor`.
 - Added `tools/dev/gui_audit/check_no_process_events.py` and regression test `gui/test/test_no_process_events.py` asserting zero live `processEvents()` calls in `gui/src`.
 
+# S538 — 2026-09-08 (Gemini: #544 DataBrowserTab composition)
+
+- `DataBrowserTab` inherits `QWidget` directly without mixins. The 6 mixins
+  are composed controllers (`TabBoundController` proxy + `self.tab` for
+  QWidget parents). Facade delegation on `DataBrowserTab` preserves all
+  public/internal call interfaces. COMPAT aliases keep the old mixin
+  names. First non-gallery #544 tab composition migration (R2.c).
+
 # S535 — 2026-09-08 (Grok: huge-GIF gallery thumbnails)
 
 - Gallery / wallpaper / extractor thumbnail loads no longer run Qt's GIF

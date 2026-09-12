@@ -28,6 +28,7 @@ than silently dropped):
 
 from __future__ import annotations
 
+import math
 from typing import Dict, List
 
 from PySide6.QtCore import QLineF, QPointF, Qt
@@ -63,6 +64,7 @@ from ....theming.er_view_palette import (
     RELATIONSHIP_LINE,
     SCENE_BG,
 )
+from ._tab_bound import TabBoundController
 
 
 def _bucket_for(table: str) -> str:
@@ -73,8 +75,10 @@ def _bucket_for(table: str) -> str:
 
 
 class _TableCardItem(QGraphicsRectItem):
-    """One table's card: title bar + PK-starred/FK-annotated column rows.
-    Clicking anywhere on the card notifies *on_click* with the table name."""
+    """Visual card for a single table in the schema view: header with table
+    name, followed by rows for each column. PK columns have a star; FK
+    columns show the target table. Clicking the card navigates the grid
+    to that table."""
 
     def __init__(self, table_name: str, columns: List[Dict], fk_by_column: Dict[str, Dict], on_click):
         height = _TITLE_HEIGHT + max(1, len(columns)) * _ROW_HEIGHT + 8
@@ -135,8 +139,7 @@ class _TableCardItem(QGraphicsRectItem):
 
 
 class ERGraphicsView(QGraphicsView):
-    """Minimal pan/zoom view for the schema scene -- deliberately not a
-    reuse of the wallpaper tab's node-editor graph view (see this
+    """Pannable/zoomable view over the schema scene (see the containing
     module's docstring)."""
 
     def __init__(self, scene: QGraphicsScene, parent=None):
@@ -152,7 +155,7 @@ class ERGraphicsView(QGraphicsView):
         self.scale(factor, factor)
 
 
-class _ERViewMixin:
+class DataBrowserERViewController(TabBoundController):
     """Builds and populates the Schema (ER) sub-view."""
 
     def _build_er_view(self) -> QWidget:
@@ -231,7 +234,6 @@ class _ERViewMixin:
         # simplification of a full crow's-foot glyph, see module docstring.
         direction = QLineF(start, end)
         angle = direction.angle()
-        import math
         arrow_size = 8.0
         a1 = end - QPointF(
             math.cos(math.radians(angle - 150)) * arrow_size,
@@ -252,4 +254,4 @@ class _ERViewMixin:
         self.table_combo.setCurrentText(table_name)
 
 
-__all__ = ["_ERViewMixin", "ERGraphicsView"]
+__all__ = ["DataBrowserERViewController", "ERGraphicsView"]
