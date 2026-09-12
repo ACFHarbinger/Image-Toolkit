@@ -6,7 +6,7 @@ Extracted from ``search_tab.py`` -- pure code motion, no logic change
 
 from __future__ import annotations
 
-import contextlib
+from gui.src.helpers.worker_teardown import close_windows, stop_worker
 
 
 class _LifecycleMixin:
@@ -19,14 +19,11 @@ class _LifecycleMixin:
         if hasattr(self, "dual"):
             self.dual.cancel_loading()
 
-        if self.current_search_worker:
-            self.current_search_worker.cancel()
+        # Fire-and-forget (as before): search runnables die off on their own.
+        stop_worker(getattr(self, "current_search_worker", None), join=False)
 
         # Close sub-windows
-        for win in list(self.open_preview_windows):
-            with contextlib.suppress(Exception):
-                win.close()
-        self.open_preview_windows.clear()
+        close_windows(self, "open_preview_windows")
 
     def closeEvent(self, event):
         """Cleanup processes on close."""

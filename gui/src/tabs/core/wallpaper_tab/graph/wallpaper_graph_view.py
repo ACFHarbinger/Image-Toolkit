@@ -7,6 +7,7 @@ from PySide6.QtWidgets import QGraphicsView
 
 from gui.src.components.containers.canvas_base import CanvasBase
 
+from .....theming.wallpaper_graph_palette import NODE_THUMB_PLACEHOLDER_BG
 from .node_item import NODE_W
 from .wallpaper_graph_scene import WallpaperGraphScene
 
@@ -26,7 +27,7 @@ class WallpaperGraphView(CanvasBase):
         self.setDragMode(QGraphicsView.DragMode.RubberBandDrag)
         self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
         self.setResizeAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
-        self.setBackgroundBrush(QBrush(QColor("#23272a")))
+        self.setBackgroundBrush(QBrush(QColor(NODE_THUMB_PLACEHOLDER_BG)))
         self.setMinimumSize(400, 300)
         self.setMouseTracking(True)
         self.viewport().setMouseTracking(True)

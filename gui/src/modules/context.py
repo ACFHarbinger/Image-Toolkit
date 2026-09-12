@@ -58,6 +58,8 @@ class ModuleContext:
     preference_store: PreferenceStore = field(default_factory=PreferenceStore.instance)
     window_manager: WindowManager = field(default_factory=WindowManager.instance)
     account_id: Optional[str] = None
+    dropdown: bool = True
+    enable_manager: bool = False
 
 
 __all__ = ["ModuleContext", "ModuleServices"]

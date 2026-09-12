@@ -12,12 +12,10 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtWidgets import QLabel, QWidget
 
-from gui.src.components.gallery.card_factory import (
-    IN_DB_COLOR,
-    SELECTION_COLOR,
-    create_gallery_card,
-)
-from gui.src.components.labels.clickable_label import ClickableLabel
+from gui.src.components.gallery.card_factory import create_gallery_card
+from gui.src.theming.theme_api import accent_rgba, qss
+
+from ....components import ClickableLabel
 
 if TYPE_CHECKING:
     from ..protos.abstract_class_two_galleries import AbstractClassTwoGalleriesHostProtocol
@@ -26,9 +24,7 @@ if TYPE_CHECKING:
 class _CardRenderingMixin:
     """Card widget creation, pixmap updating, and card border/state styling."""
 
-    def create_gallery_label(
-        self: "AbstractClassTwoGalleriesHostProtocol", path: str, size: int
-    ) -> QLabel:
+    def create_gallery_label(self: "AbstractClassTwoGalleriesHostProtocol", path: str, size: int) -> QLabel:
         """Factory method for card container label; subclasses may override."""
         label = ClickableLabel(path)
         label.setFixedSize(size + 10, size + 10)
@@ -90,10 +86,7 @@ class _CardRenderingMixin:
             img_label.setText("Loading...")
 
         path = (
-            getattr(widget, "path", None)
-            or getattr(widget, "file_path", None)
-            or widget.property("gallery_path")
-            or ""
+            getattr(widget, "path", None) or getattr(widget, "file_path", None) or widget.property("gallery_path") or ""
         )
         is_selected = path in self.selected_files if (path and hasattr(self, "selected_files")) else False
         self._update_card_style(img_label, is_selected)
@@ -104,10 +97,7 @@ class _CardRenderingMixin:
         is_selected: bool,
     ) -> None:
         parent_widget = img_label.parentWidget()
-        is_in_db = bool(
-            img_label.property("in_db")
-            or (parent_widget and parent_widget.property("in_db"))
-        )
+        is_in_db = bool(img_label.property("in_db") or (parent_widget and parent_widget.property("in_db")))
         path = (
             img_label.property("gallery_path")
             or (parent_widget and (getattr(parent_widget, "path", None) or parent_widget.property("gallery_path")))
@@ -117,27 +107,25 @@ class _CardRenderingMixin:
 
         if is_selected:
             img_label.setStyleSheet(
-                f"border: 3px solid {SELECTION_COLOR}; "
-                "background-color: rgba(88, 101, 242, 0.25);"
+                qss(
+                    "gallery_card_selected",
+                    BORDER_WIDTH="3px",
+                    ACCENT_BG=accent_rgba(0.25),
+                )
             )
         elif is_in_db:
-            img_label.setStyleSheet(
-                f"border: 3px solid {IN_DB_COLOR}; "
-                "background-color: rgba(46, 204, 113, 0.20);"
-            )
+            img_label.setStyleSheet(qss("gallery_card_in_db"))
         else:
             label_color = self._LABEL_COLORS.get(self._get_color_label(path) or "", "") if path else ""
             if label_color:
-                img_label.setStyleSheet(f"border: 2px solid {label_color}; background-color: rgba(20, 24, 32, 0.35);")
+                img_label.setStyleSheet(qss("gallery_card_label_colored", BORDER_COLOR=label_color))
             elif img_label.pixmap() and not img_label.pixmap().isNull():
-                img_label.setStyleSheet(
-                    "border: 1px solid rgba(255, 255, 255, 0.15); background-color: rgba(20, 24, 32, 0.35);"
-                )
+                img_label.setStyleSheet(qss("gallery_card_pixmap"))
             else:
                 if img_label.text() in ("Loading...", "Loading…", "Error"):
                     pass
                 else:
-                    img_label.setStyleSheet("border: 1px dashed rgba(255, 255, 255, 0.20); color: #999; background-color: rgba(20, 24, 32, 0.25);")
+                    img_label.setStyleSheet(qss("gallery_card_loading_image"))
 
     def _update_found_card_styles(self: "AbstractClassTwoGalleriesHostProtocol") -> None:
         """Re-evaluate and apply style to all currently visible found cards."""

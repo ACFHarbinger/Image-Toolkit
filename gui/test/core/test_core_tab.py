@@ -21,7 +21,7 @@ class TestConvertTab:
     @pytest.fixture
     def mock_worker(self):
         with patch(
-            "gui.src.tabs.core.format_subtab._conversion_worker.ConversionWorker"
+            "gui.src.tabs.core.media_convert_subtab._format_conversion_worker.ConversionWorker"
         ) as mock:
             yield mock
 
@@ -33,7 +33,7 @@ class TestConvertTab:
     def test_start_conversion_no_files(self, q_app, mock_worker):
         # Mock message box to avoid blocking
         with patch(
-            "gui.src.tabs.core.format_subtab._conversion_worker.QMessageBox"
+            "gui.src.tabs.core.media_convert_subtab._format_conversion_worker.QMessageBox"
         ) as mock_mb:
             tab = ConvertTab()
             tab.format_subtab.collect_paths = MagicMock(return_value=[])
@@ -45,7 +45,7 @@ class TestConvertTab:
 
     def test_start_conversion_success(self, q_app, mock_worker):
         with patch(
-            "gui.src.tabs.core.format_subtab._conversion_worker.os.path.isdir",
+            "gui.src.tabs.core.media_convert_subtab._format_conversion_worker.os.path.isdir",
             return_value=True,
         ):
             tab = ConvertTab()

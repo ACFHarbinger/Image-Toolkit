@@ -13,6 +13,7 @@ from PySide6.QtGui import (
 from PySide6.QtWidgets import QApplication, QLabel
 
 from gui.src.components.labels.metadata_overlay import MetadataOverlay
+from gui.src.theming.theme_api import color, qss
 
 
 class DraggableLabel(QLabel):
@@ -43,7 +44,7 @@ class DraggableLabel(QLabel):
         self.setFixedSize(size, size)
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.setText("Loading...")
-        self.setStyleSheet("border: 1px dashed #4f545c; color: #b9bbbe;")
+        self.setStyleSheet(qss("draggable_label"))
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.selection_provider = selection_provider
 
@@ -126,7 +127,7 @@ class DraggableLabel(QLabel):
         super().paintEvent(event)
         if self._hovered:
             p = QPainter(self)
-            p.setPen(QPen(QColor("#00bcd4"), 2))
+            p.setPen(QPen(QColor(color("accent")), 2))
             p.drawRect(1, 1, self.width() - 2, self.height() - 2)
             p.end()
 
@@ -206,7 +207,7 @@ class DraggableLabel(QLabel):
                 selected_files = self.selection_provider()
                 if self.file_path in selected_files and len(selected_files) > 1:
                     painter = QPainter(preview)
-                    painter.setBrush(QColor(52, 152, 219, 200))  # Blue with opacity
+                    painter.setBrush(QColor(52, 152, 219, 200))
                     painter.setPen(Qt.PenStyle.NoPen)
                     badge_rect = QRect(0, 0, 30, 30)
                     painter.drawEllipse(badge_rect)
@@ -222,7 +223,7 @@ class DraggableLabel(QLabel):
         else:
             # If no image (e.g., Video Placeholder), draw a generic "VIDEO" icon
             preview = QPixmap(100, 100)
-            preview.fill(QColor("#3498db"))  # Blue background
+            preview.fill(QColor(color("accent")))
 
             painter = QPainter(preview)
             painter.setPen(Qt.GlobalColor.white)

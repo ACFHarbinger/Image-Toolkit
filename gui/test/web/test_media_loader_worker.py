@@ -58,7 +58,7 @@ def _run_worker(q_app, source, config, downloader_cls, patch_target):
         errors = []
         worker.status.connect(statuses.append)
         worker.media_saved.connect(saved.append)
-        worker.sig_finished.connect(lambda count, msg: finished.append((count, msg)))
+        worker.finished.connect(finished.append)
         worker.error.connect(errors.append)
 
         worker.run()

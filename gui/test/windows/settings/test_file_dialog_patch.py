@@ -173,3 +173,53 @@ class TestFileDialogPatch:
             assert str(fav_dir) not in AppSettings.favourite_directories()
 
         AppSettings.set_favourite_directories([])
+
+    def test_file_dialog_event_filter_weakref_no_cycle(self, q_app):
+        dialog = CustomFileDialog()
+        event_filter = FileDialogEventFilter(dialog)
+        assert event_filter.dialog is dialog
+        del dialog
+        # After dialog is deleted, event_filter.dialog returns None (no hard circular ref)
+        assert event_filter.dialog is None
+
+    def test_my_get_existing_directory_calls_delete_later(self, q_app, tmp_path):
+        from gui.src.file_dialog_patch import my_getExistingDirectory
+
+        deleted = []
+
+        with patch.object(CustomFileDialog, "exec", return_value=QFileDialog.DialogCode.Rejected), \
+             patch.object(CustomFileDialog, "deleteLater", side_effect=lambda self=None: deleted.append(True)):
+            res = my_getExistingDirectory(None, "Choose", str(tmp_path))
+            assert res == ""
+            assert len(deleted) == 1
+
+    def test_gc_disabled_refcounted_across_threads(self):
+        import gc
+        import threading
+        import time
+
+        from gui.src.helpers.gc_safe import gc_disabled
+
+        inside_states = []
+
+        def worker1():
+            with gc_disabled():
+                time.sleep(0.04)
+
+        def worker2():
+            with gc_disabled():
+                time.sleep(0.02)
+                # worker1 will finish after 0.04s, but worker2 sleeps until 0.08s
+                time.sleep(0.06)
+                inside_states.append(gc.isenabled())
+
+        t1 = threading.Thread(target=worker1)
+        t2 = threading.Thread(target=worker2)
+        t1.start()
+        t2.start()
+        t1.join()
+        t2.join()
+
+        # While worker2 was still running after worker1 finished, GC should have stayed disabled
+        assert inside_states == [False]
+        assert gc.isenabled() is True

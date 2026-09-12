@@ -11,7 +11,6 @@ from typing import Any, Callable, Dict, Optional, Tuple
 
 from PySide6.QtCore import Signal, Slot
 from PySide6.QtWidgets import (
-    QApplication,
     QButtonGroup,
     QCheckBox,
     QFileDialog,
@@ -34,6 +33,7 @@ from .....helpers.web.cloud.local_dir_sync_worker import (
     LocalDirSyncWorker,
 )
 from .....styles import apply_shadow_effect, set_button_role
+from .....theming.theme_api import color, qss
 from .....windows.logging import LogWindow
 
 
@@ -70,7 +70,7 @@ class LocalDirSyncSubtab(QWidget):
             "are excluded by default."
         )
         sec_label.setWordWrap(True)
-        sec_label.setStyleSheet("color: #e67e22; font-weight: bold;")
+        sec_label.setStyleSheet(qss("drive_sync_section_warning"))
         sec_layout.addWidget(sec_label)
 
         # ------------------ PATHS CONFIG ------------------
@@ -81,7 +81,7 @@ class LocalDirSyncSubtab(QWidget):
         local_row = QHBoxLayout()
         self.local_path_input = QLineEdit(str(Path.home() / ".image-toolkit"))
         btn_browse_local = QPushButton("Browse")
-        apply_shadow_effect(btn_browse_local, "#000000", 8, 0, 3)
+        apply_shadow_effect(btn_browse_local, color("window_bg"), 8, 0, 3)
         btn_browse_local.clicked.connect(self._browse_local_dir)
         local_row.addWidget(self.local_path_input)
         local_row.addWidget(btn_browse_local)
@@ -103,7 +103,7 @@ class LocalDirSyncSubtab(QWidget):
 
         # Conflict resolution policy
         policy_label = QLabel("Conflict Resolution Policy (when modified on both sides):")
-        policy_label.setStyleSheet("font-weight: bold; color: #3498db;")
+        policy_label.setStyleSheet(qss("drive_sync_label_local"))
         opt_layout.addWidget(policy_label)
 
         self.bg_policy = QButtonGroup(self)
@@ -135,10 +135,10 @@ class LocalDirSyncSubtab(QWidget):
         ctrl_layout = QHBoxLayout()
         self.dry_run_checkbox = QCheckBox("Perform Dry Run (Simulate plan only)")
         self.dry_run_checkbox.setChecked(True)
-        self.dry_run_checkbox.setStyleSheet("QCheckBox { color: #f1c40f; font-weight: bold; }")
+        self.dry_run_checkbox.setStyleSheet(qss("drive_sync_dry_run_bold"))
 
         self.btn_view_plan = QPushButton("Preview Sync Plan")
-        apply_shadow_effect(self.btn_view_plan, "#000000", 8, 0, 3)
+        apply_shadow_effect(self.btn_view_plan, color("window_bg"), 8, 0, 3)
         self.btn_view_plan.clicked.connect(self._preview_plan)
 
         ctrl_layout.addWidget(self.dry_run_checkbox)
@@ -153,7 +153,7 @@ class LocalDirSyncSubtab(QWidget):
         # Main sync button
         self.sync_button = QPushButton("Run Directory Sync Now")
         set_button_role(self.sync_button, "success")
-        apply_shadow_effect(self.sync_button, "#000000", 8, 0, 3)
+        apply_shadow_effect(self.sync_button, color("window_bg"), 8, 0, 3)
         self.sync_button.clicked.connect(self._toggle_sync)
 
         # Assemble main layout
@@ -287,6 +287,11 @@ class LocalDirSyncSubtab(QWidget):
         self.current_worker.status.connect(self._on_status)
         self.current_worker.progress.connect(self._on_progress)
         self.current_worker.finished.connect(self._on_finished)
+        # Unexpected failure inside the worker (base error channel) — fold
+        # into the single result channel so the UI always unlocks.
+        self.current_worker.error.connect(
+            lambda err, d=dry_run: self._on_finished(False, f"Local Directory Sync failed: {err}", d)
+        )
         self.current_worker.start()
 
     @Slot(str)
@@ -300,10 +305,14 @@ class LocalDirSyncSubtab(QWidget):
             self.progress_bar.setMaximum(total)
             self.progress_bar.setValue(done)
 
-    @Slot(bool, str, bool)
-    def _on_finished(self, success: bool, message: str, was_dry_run: bool) -> None:
+    @Slot(object)
+    def _on_finished(self, result) -> None:
         self._unlock_ui()
         self.progress_bar.setVisible(False)
+        if result is None:  # failure/cancel — error path already reported
+            self.current_worker = None
+            return
+        success, message, was_dry_run = result
         mode = "DRY RUN" if was_dry_run else "LIVE"
         status = "Success" if success else "Failed"
         self.log_window.append_log(f"\n[{mode}] Directory Sync {status}: {message}")
@@ -339,7 +348,6 @@ class LocalDirSyncSubtab(QWidget):
         self.rb_newer_wins.setEnabled(enabled)
         self.rb_prefer_local.setEnabled(enabled)
         self.rb_prefer_remote.setEnabled(enabled)
-        QApplication.processEvents()
 
     def _unlock_ui(self) -> None:
         self._lock_ui(is_running=False, dry_run=False)

@@ -24,10 +24,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from gui.src.constants.elements import _SHARED_BUTTON_STYLE
-
 from ....components import OptionalField, VirtualDualGallery
 from ....styles import apply_shadow_effect
+from ....theming.theme_api import color, qss
 
 
 class _UIBuilderMixin:
@@ -38,7 +37,7 @@ class _UIBuilderMixin:
         main_layout = QVBoxLayout(self)
         page_scroll = QScrollArea()
         page_scroll.setWidgetResizable(True)
-        page_scroll.setStyleSheet("QScrollArea { border: none; }")
+        page_scroll.setStyleSheet(qss("scroll_area_borderless"))
 
         content_widget = QWidget()
         content_layout = QVBoxLayout(content_widget)
@@ -75,7 +74,7 @@ class _UIBuilderMixin:
         browse_layout.addWidget(self.target_path)
         btn_browse_scan = QPushButton("Browse...")
         btn_browse_scan.clicked.connect(self.browse_directory)
-        apply_shadow_effect(btn_browse_scan, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
+        apply_shadow_effect(btn_browse_scan, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3)
         browse_layout.addWidget(btn_browse_scan)
         target_layout.addRow("Source path (required):", browse_layout)
 
@@ -89,7 +88,7 @@ class _UIBuilderMixin:
         ref_layout.addWidget(self.reference_path)
         btn_browse_ref = QPushButton("Browse...")
         btn_browse_ref.clicked.connect(self.browse_reference_directory)
-        apply_shadow_effect(btn_browse_ref, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
+        apply_shadow_effect(btn_browse_ref, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3)
         ref_layout.addWidget(btn_browse_ref)
         btn_clear_ref = QPushButton("Clear")
         btn_clear_ref.clicked.connect(self._clear_reference_widget)
@@ -125,19 +124,15 @@ class _UIBuilderMixin:
         self._scan_label = "🔍 Scan for Similar Images"
         self._cancel_label = "✖ Cancel Scan"
         self.btn_scan = QPushButton(self._scan_label)
-        self.btn_scan.setStyleSheet(
-            "QPushButton {  color: white; font-weight: bold; "
-            "padding: 10px; border-radius: 8px; } QPushButton:hover {  }")
-        apply_shadow_effect(self.btn_scan, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
+        self.btn_scan.setStyleSheet(qss("similarity_action_btn"))
+        apply_shadow_effect(self.btn_scan, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3)
         self.btn_scan.clicked.connect(self.on_scan_button_clicked)
         scan_btn_row.addWidget(self.btn_scan)
         # Reset/Clear: re-display the whole Source directory after a scan filters
         # the gallery down to just the similar images.
         self.btn_reset = QPushButton("🔄 Reset / Show All")
-        self.btn_reset.setStyleSheet(
-            "QPushButton {  color: white; font-weight: bold; "
-            "padding: 10px; border-radius: 8px; } QPushButton:hover {  }")
-        apply_shadow_effect(self.btn_reset, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
+        self.btn_reset.setStyleSheet(qss("similarity_action_btn"))
+        apply_shadow_effect(self.btn_reset, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3)
         self.btn_reset.clicked.connect(self.reset_gallery)
         scan_btn_row.addWidget(self.btn_reset)
         settings_layout.addRow(scan_btn_row)
@@ -167,7 +162,7 @@ class _UIBuilderMixin:
         # Actions for duplicates
         dup_actions_layout = QHBoxLayout()
         self.btn_compare_properties = QPushButton("Compare Properties (0)")
-        apply_shadow_effect(self.btn_compare_properties, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
+        apply_shadow_effect(self.btn_compare_properties, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3)
         self.btn_compare_properties.clicked.connect(self.show_comparison_dialog)
         self.btn_compare_properties.setVisible(False)
         dup_actions_layout.addWidget(self.btn_compare_properties)
@@ -186,20 +181,20 @@ class _UIBuilderMixin:
             for ext in SUPPORTED_IMG_FORMATS:
                 btn = QPushButton(ext)
                 btn.setCheckable(True)
-                btn.setStyleSheet("QPushButton:hover {  }")
-                apply_shadow_effect(btn, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
+                btn.setStyleSheet(qss("btn_hover_empty"))
+                apply_shadow_effect(btn, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3)
                 btn.clicked.connect(lambda checked, e=ext: self.toggle_extension(e, checked))
                 btn_layout.addWidget(btn)
                 self.extension_buttons[ext] = btn
             ext_layout.addLayout(btn_layout)
             all_btn_layout = QHBoxLayout()
             btn_add_all = QPushButton("Add All")
-            btn_add_all.setStyleSheet("background-color: green; color: white;")
-            apply_shadow_effect(btn_add_all, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
+            btn_add_all.setStyleSheet(qss("btn_success_solid"))
+            apply_shadow_effect(btn_add_all, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3)
             btn_add_all.clicked.connect(self.add_all_extensions)
             btn_remove_all = QPushButton("Remove All")
-            btn_remove_all.setStyleSheet("background-color: red; color: white;")
-            apply_shadow_effect(btn_remove_all, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
+            btn_remove_all.setStyleSheet(qss("btn_danger_solid"))
+            apply_shadow_effect(btn_remove_all, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3)
             btn_remove_all.clicked.connect(self.remove_all_extensions)
             all_btn_layout.addWidget(btn_add_all)
             all_btn_layout.addWidget(btn_remove_all)
@@ -222,14 +217,14 @@ class _UIBuilderMixin:
         content_layout.addStretch(1)
         run_buttons_layout = QHBoxLayout()
         self.btn_delete_files = QPushButton("Delete Selected Files (0)")
-        self.btn_delete_files.setStyleSheet(_SHARED_BUTTON_STYLE)
-        apply_shadow_effect(self.btn_delete_files, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
+        self.btn_delete_files.setStyleSheet(qss("shared_button"))
+        apply_shadow_effect(self.btn_delete_files, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3)
         self.btn_delete_files.clicked.connect(self.delete_selected_duplicates)
         self.btn_delete_files.setEnabled(False)
 
         self.btn_delete_directory = QPushButton("Delete Directory and Contents")
-        self.btn_delete_directory.setStyleSheet(_SHARED_BUTTON_STYLE)
-        apply_shadow_effect(self.btn_delete_directory, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
+        self.btn_delete_directory.setStyleSheet(qss("shared_button"))
+        apply_shadow_effect(self.btn_delete_directory, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3)
         self.btn_delete_directory.clicked.connect(lambda: self.start_deletion(mode="directory"))
 
         run_buttons_layout.addWidget(self.btn_delete_directory)

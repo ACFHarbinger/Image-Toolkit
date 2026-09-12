@@ -78,12 +78,12 @@ class CloudExtractionWorker(BaseQRunnableWorker):
         self._output_dir = output_dir
         self._job_id = job_id
 
-    def _execute(self) -> None:
+    def _execute(self) -> object:
         dispatcher = build_dispatcher(self._vault, self._output_dir)
         result = dispatcher.dispatch(self._config, job_id=self._job_id)
         if not result.ok:
             self.signals.error.emit(result.error or "cloud extraction failed")
-            return
+            return None
         usage = (
             {
                 "job_id": result.usage_row.job_id,
@@ -96,14 +96,12 @@ class CloudExtractionWorker(BaseQRunnableWorker):
             if result.usage_row is not None
             else {}
         )
-        self.signals.finished.emit(
-            {
-                "paths": list(result.local_paths),
-                "job_id": result.job_id,
-                "source_uri": result.source_uri,
-                "usage": usage,
-            }
-        )
+        return {
+            "paths": list(result.local_paths),
+            "job_id": result.job_id,
+            "source_uri": result.source_uri,
+            "usage": usage,
+        }
 
 
 __all__ = ["CloudExtractionWorker", "build_dispatcher", "CloudConfigError"]
