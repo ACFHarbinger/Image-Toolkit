@@ -91,9 +91,7 @@ class SyncDataSubtab(QWidget):
         self.share_group = QGroupBox("Share Options")
         share_layout = QHBoxLayout(self.share_group)
         self.share_email_input = QLineEdit()
-        self.share_email_input.setPlaceholderText(
-            "Optional: user email to grant Editor access"
-        )
+        self.share_email_input.setPlaceholderText("Optional: user email to grant Editor access")
         self.btn_share_folder = QPushButton("Share Folder Now")
         apply_shadow_effect(self.btn_share_folder, color("window_bg"), 8, 0, 3)
         self.btn_share_folder.clicked.connect(self._share_remote_folder)
@@ -212,9 +210,7 @@ class SyncDataSubtab(QWidget):
 
     def set_config(self, config: dict) -> None:
         self.local_path.setText(config.get("local_path", udef.LOCAL_SOURCE_PATH))
-        self.remote_path.setText(
-            config.get("remote_path", udef.DRIVE_DESTINATION_FOLDER_NAME)
-        )
+        self.remote_path.setText(config.get("remote_path", udef.DRIVE_DESTINATION_FOLDER_NAME))
         self.dry_run_checkbox.setChecked(config.get("dry_run", True))
         self.share_email_input.setText(config.get("share_email", ""))
 
@@ -303,9 +299,7 @@ class SyncDataSubtab(QWidget):
         }
 
         if provider_text.startswith("Google Drive"):
-            self.current_worker = GoogleDriveSyncWorker(
-                **common, user_email_to_share_with=share_email
-            )
+            self.current_worker = GoogleDriveSyncWorker(**common, user_email_to_share_with=share_email)
         elif provider_text == "Dropbox":
             self.current_worker = DropboxDriveSyncWorker(**common)
         elif provider_text == "OneDrive":
@@ -345,15 +339,12 @@ class SyncDataSubtab(QWidget):
             reply = QMessageBox.question(
                 self,
                 "Dry Run Completed",
-                "The Dry Run finished successfully.\n\n"
-                "Do you want to apply these changes now (Execute LIVE Sync)?",
+                "The Dry Run finished successfully.\n\nDo you want to apply these changes now (Execute LIVE Sync)?",
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 QMessageBox.StandardButton.No,
             )
             if reply == QMessageBox.StandardButton.Yes:
-                self.log_window.append_log(
-                    "\nUser confirmed. Starting LIVE run..."
-                )
+                self.log_window.append_log("\nUser confirmed. Starting LIVE run...")
                 self._run_sync(clear_log=False, force_live=True)
 
     # ------------------------------------------------------------------
@@ -387,8 +378,7 @@ class SyncDataSubtab(QWidget):
         QMessageBox.information(
             self,
             "Share Folder",
-            "Run a sync first with the share email set — the folder will be shared "
-            "automatically on the next sync.",
+            "Run a sync first with the share email set — the folder will be shared automatically on the next sync.",
         )
 
     def _browse_local(self) -> None:

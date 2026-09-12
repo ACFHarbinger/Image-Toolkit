@@ -19,15 +19,16 @@ from PySide6.QtWidgets import (
 
 from ....styles import apply_shadow_effect
 from ....theming.theme_api import color, qss
+from ._tab_bound import TabBoundController
 from .local_dir_sync_subtab import LocalDirSyncSubtab
 from .sync_data_subtab import SyncDataSubtab
 
 
-class _UIBuilderMixin:
+class DriveSyncUIBuilder(TabBoundController):
     """Builds the shared cloud auth group and hosting QTabWidget."""
 
     def _build_ui(self) -> None:
-        main_layout = QVBoxLayout(self)
+        main_layout = QVBoxLayout(self.tab)
 
         # ------------------ SHARED AUTH CONFIG GROUP ------------------
         config_group = QGroupBox("Cloud Provider & Authentication")
@@ -52,9 +53,7 @@ class _UIBuilderMixin:
         # Service Account Key
         self.key_file_label = QLabel("Service Account Key File:")
         key_layout = QHBoxLayout()
-        self.key_file_path = QLineEdit(
-            os.path.join(Path.home(), udef.SERVICE_ACCOUNT_FILE)
-        )
+        self.key_file_path = QLineEdit(os.path.join(Path.home(), udef.SERVICE_ACCOUNT_FILE))
         self.key_file_path.setPlaceholderText("Path to service_account_key.json")
         self.btn_browse_key = QPushButton("Browse")
         apply_shadow_effect(self.btn_browse_key, color("window_bg"), 8, 0, 3)
@@ -65,9 +64,7 @@ class _UIBuilderMixin:
         # Personal Account: Client Secrets
         self.client_secrets_label = QLabel("Client Secrets File:")
         client_secrets_layout = QHBoxLayout()
-        self.client_secrets_path = QLineEdit(
-            os.path.join(Path.home(), udef.CLIENT_SECRETS_FILE)
-        )
+        self.client_secrets_path = QLineEdit(os.path.join(Path.home(), udef.CLIENT_SECRETS_FILE))
         self.client_secrets_path.setPlaceholderText("Path to client_secrets.json")
         self.btn_browse_client_secrets = QPushButton("Browse")
         apply_shadow_effect(self.btn_browse_client_secrets, color("window_bg"), 8, 0, 3)
@@ -98,12 +95,12 @@ class _UIBuilderMixin:
         self.sync_data_subtab = SyncDataSubtab(
             get_auth_config=self._build_auth_config,
             get_provider_text=self.get_provider_text,
-            parent=self,
+            parent=self.tab,
         )
         self.local_dir_sync_subtab = LocalDirSyncSubtab(
             get_auth_config=self._build_auth_config,
             get_provider_text=self.get_provider_text,
-            parent=self,
+            parent=self.tab,
         )
 
         self.subtab_widget.addTab(self.sync_data_subtab, "Sync Data")
@@ -133,4 +130,4 @@ class _UIBuilderMixin:
         self.handle_provider_change(0)
 
 
-__all__ = ["_UIBuilderMixin"]
+__all__ = ["DriveSyncUIBuilder"]
