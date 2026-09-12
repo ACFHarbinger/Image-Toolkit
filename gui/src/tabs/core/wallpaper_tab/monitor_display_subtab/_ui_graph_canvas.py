@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
 )
 
 from .....styles import apply_shadow_effect, set_button_role
+from .....theming.theme_api import color, qss
 from ..graph import WallpaperGraphScene, WallpaperGraphView
 
 if TYPE_CHECKING:
@@ -52,7 +53,7 @@ class _UIGraphCanvasMixin:
             "No monitors detected.\nClick 'Fetch Current Wallpapers' in the System Display(s) tab."
         )
         self._placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._placeholder.setStyleSheet("color:#b9bbbe;")
+        self._placeholder.setStyleSheet(qss("wallpaper_props_hint"))
 
         # Main content: graph + end-behavior (shown once monitors are available)
         graph_content = QWidget()
@@ -87,7 +88,7 @@ class _UIGraphCanvasMixin:
         # Sequence summary label
         self._seq_label = QLabel("No graph loaded.")
         self._seq_label.setWordWrap(True)
-        self._seq_label.setStyleSheet("color:#b9bbbe; font-size:11px; padding:2px;")
+        self._seq_label.setStyleSheet(qss("wallpaper_seq_label"))
         graph_lyt.addWidget(self._seq_label)
 
         gallery_panel = self._build_gallery_panel()
@@ -116,7 +117,7 @@ class _UIGraphCanvasMixin:
     def _build_graph_toolbar(self: "MonitorDisplaySubTabHostProtocol", graph_lyt) -> None:
         tb = QHBoxLayout()
         graph_lbl = QLabel("Graph Canvas")
-        graph_lbl.setStyleSheet("font-weight: bold; padding: 4px;")
+        graph_lbl.setStyleSheet(qss("section_header"))
         tb.addWidget(graph_lbl)
         tb.addStretch(1)
 
@@ -201,15 +202,11 @@ class _UIGraphCanvasMixin:
         self._queue_position_label.setToolTip(
             "Active wallpaper position within this display's Wallpaper Queue"
         )
-        self._queue_position_label.setStyleSheet(
-            "color:#f1c40f; font-weight:bold; font-size:14px;"
-        )
+        self._queue_position_label.setStyleSheet(qss("wallpaper_queue_position"))
         bottom_tb.addWidget(self._queue_position_label)
 
         self._queue_timer_label = QLabel("Timer: --:--")
-        self._queue_timer_label.setStyleSheet(
-            "color:#2ecc71; font-weight:bold; font-size:14px;"
-        )
+        self._queue_timer_label.setStyleSheet(qss("wallpaper_queue_timer"))
         self._queue_timer_label.setFixedWidth(110)
         bottom_tb.addWidget(self._queue_timer_label)
 
@@ -232,7 +229,7 @@ class _UIGraphCanvasMixin:
         )
         btn_browse_scan = QPushButton("Browse...")
         apply_shadow_effect(
-            btn_browse_scan, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+            btn_browse_scan, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3
         )
         btn_browse_scan.clicked.connect(self.browse_scan_directory)
         scan_dir_layout.addWidget(QLabel("Scan Directory:"))

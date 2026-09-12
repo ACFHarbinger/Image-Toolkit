@@ -1,0 +1,4 @@
+border: 2px solid $DARK_DANGER;
+color: $DARK_DANGER;
+font-weight: bold;
+background-color: rgba(20, 24, 32, 0.35);

@@ -22,7 +22,9 @@ class EntityReconSourceController(TabBoundController):
 
     def _browse_source(self):
         start = os.path.dirname(self._source_path) if self._source_path else ""
-        path, _ = QFileDialog.getOpenFileName(self.tab, "Select Source Image", start, RECON_IMAGE_FILTER, options=DIALOG_OPTS)
+        path, _ = QFileDialog.getOpenFileName(
+            self.tab, "Select Source Image", start, RECON_IMAGE_FILTER, options=DIALOG_OPTS
+        )
         if path:
             self._load_source(path)
 

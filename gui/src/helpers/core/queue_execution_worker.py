@@ -10,14 +10,14 @@ from multiprocessing import Pool
 from pathlib import Path
 from typing import Any, Dict, Union
 
-import cv2
 from moviepy.editor import AudioFileClip, VideoFileClip, concatenate_videoclips
-from PySide6.QtCore import QObject, QRunnable, Signal
+from PySide6.QtCore import Signal
 
+from gui.src.helpers.base import BaseQRunnableWorker, _WorkerSignals
 from gui.src.helpers.core.config_types import ExtractionConfig
-from gui.src.helpers.gc_safe import gc_disabled_run
 
 logger = logging.getLogger(__name__)
+
 
 def _extraction_pool_worker_init() -> None:
     """Runs once per parallel-extraction child process.
@@ -30,9 +30,7 @@ def _extraction_pool_worker_init() -> None:
     """
     with contextlib.suppress(Exception):
         os.nice(10)
-    with contextlib.suppress(OSError), open(
-        f"/proc/{os.getpid()}/oom_score_adj", "w"
-    ) as fh:
+    with contextlib.suppress(OSError), open(f"/proc/{os.getpid()}/oom_score_adj", "w") as fh:
         fh.write("700")
 
 
@@ -48,11 +46,10 @@ def _parse_speed(value: Any) -> float:
 
 
 def run_extraction_in_process(config: Union[ExtractionConfig, Dict[str, Any]]) -> Dict[str, Any]:  # noqa: C901
+    import cv2
+
     def natural_sort_key(s):
-        return [
-            int(text) if text.isdigit() else text.lower()
-            for text in re.split(r"(\d+)", s)
-        ]
+        return [int(text) if text.isdigit() else text.lower() for text in re.split(r"(\d+)", s)]
 
     t_type = config.get("type")
     video_path = config.get("video_path")
@@ -77,9 +74,7 @@ def run_extraction_in_process(config: Union[ExtractionConfig, Dict[str, Any]]) -
     def get_keep_regions(t_start: float, t_end: float):
         if not cuts_ms:
             return [(0.0, t_end - t_start)]
-        sorted_cuts = sorted(
-            [(max(t_start, c[0] / 1000.0), min(t_end, c[1] / 1000.0)) for c in cuts_ms]
-        )
+        sorted_cuts = sorted([(max(t_start, c[0] / 1000.0), min(t_end, c[1] / 1000.0)) for c in cuts_ms])
         merged_cuts = []
         for c in sorted_cuts:
             if c[0] >= c[1]:
@@ -127,9 +122,7 @@ def run_extraction_in_process(config: Union[ExtractionConfig, Dict[str, Any]]) -
                 filters = []
                 keep_regions = get_keep_regions(t_start, t_end)
                 if cuts_ms and keep_regions:
-                    select_expr = "+".join(
-                        [f"between(t,{r[0]},{r[1]})" for r in keep_regions]
-                    )
+                    select_expr = "+".join([f"between(t,{r[0]},{r[1]})" for r in keep_regions])
                     filters.append(f"select='{select_expr}'")
                 if frame_interval > 1:
                     filters.append(f"select='not(mod(n,{frame_interval}))'")
@@ -162,9 +155,7 @@ def run_extraction_in_process(config: Union[ExtractionConfig, Dict[str, Any]]) -
                     cmd.extend(["-threads", str(encoder_threads)])
 
                 temp_id = int(time.time() * 1000) % 100000
-                out_pattern = os.path.join(
-                    output_dir, f"{video_name}_smart_tmp_{temp_id}_%08d.png"
-                )
+                out_pattern = os.path.join(output_dir, f"{video_name}_smart_tmp_{temp_id}_%08d.png")
                 cmd.append(out_pattern)
 
                 # Issue #81 crash family: queue workers run on the shared
@@ -173,16 +164,13 @@ def run_extraction_in_process(config: Union[ExtractionConfig, Dict[str, Any]]) -
                 from gui.src.helpers.video.video_thumbnailer import media_backend_spawn_guard
 
                 with media_backend_spawn_guard():
-                    subprocess.run(
-                        cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-                    )
+                    subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
                 tmp_files = sorted(
                     [
                         f
                         for f in os.listdir(output_dir)
-                        if f.startswith(f"{video_name}_smart_tmp_{temp_id}_")
-                        and f.endswith(".png")
+                        if f.startswith(f"{video_name}_smart_tmp_{temp_id}_") and f.endswith(".png")
                     ],
                     key=natural_sort_key,
                 )
@@ -212,13 +200,9 @@ def run_extraction_in_process(config: Union[ExtractionConfig, Dict[str, Any]]) -
 
                 filters = []
                 if cuts_ms:
-                    keep_regions = get_keep_regions(
-                        t_start, (end_ms / 1000.0 if end_ms != -1 else t_start + 1)
-                    )
+                    keep_regions = get_keep_regions(t_start, (end_ms / 1000.0 if end_ms != -1 else t_start + 1))
                     if keep_regions:
-                        select_expr = "+".join(
-                            [f"between(t,{r[0]},{r[1]})" for r in keep_regions]
-                        )
+                        select_expr = "+".join([f"between(t,{r[0]},{r[1]})" for r in keep_regions])
                         filters.append(f"select='{select_expr}'")
                 if frame_interval > 1:
                     filters.append(f"select='not(mod(n,{frame_interval}))'")
@@ -249,29 +233,19 @@ def run_extraction_in_process(config: Union[ExtractionConfig, Dict[str, Any]]) -
                 from gui.src.helpers.video.video_thumbnailer import media_backend_spawn_guard
 
                 with media_backend_spawn_guard():
-                    subprocess.run(
-                        cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-                    )
+                    subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
                 tmp_files = sorted(
-                    [
-                        f
-                        for f in os.listdir(output_dir)
-                        if f.startswith(f"{video_name}_tmp_") and f.endswith(".png")
-                    ],
+                    [f for f in os.listdir(output_dir) if f.startswith(f"{video_name}_tmp_") and f.endswith(".png")],
                     key=natural_sort_key,
                 )
                 saved_files = []
                 for i, f in enumerate(tmp_files):
-                    current_ms = start_ms + int(
-                        i * frame_interval * (1000.0 / detected_fps)
-                    )
+                    current_ms = start_ms + int(i * frame_interval * (1000.0 / detected_fps))
                     new_name = f"{video_name}_{current_ms}ms.png"
                     final_path = os.path.join(output_dir, new_name)
                     if os.path.exists(final_path):
-                        final_path = os.path.join(
-                            output_dir, f"{video_name}_{current_ms}ms_{i}.png"
-                        )
+                        final_path = os.path.join(output_dir, f"{video_name}_{current_ms}ms_{i}.png")
                     os.rename(os.path.join(output_dir, f), final_path)
                     saved_files.append(final_path)
                 return {"status": "success", "saved_files": saved_files}
@@ -309,9 +283,7 @@ def run_extraction_in_process(config: Union[ExtractionConfig, Dict[str, Any]]) -
                 filter_chain = []
                 keep_regions = get_keep_regions(t_start, t_end)
                 if cuts_ms and keep_regions:
-                    select_expr = "+".join(
-                        [f"between(t,{r[0]},{r[1]})" for r in keep_regions]
-                    )
+                    select_expr = "+".join([f"between(t,{r[0]},{r[1]})" for r in keep_regions])
                     filter_chain.append(f"select='{select_expr}'")
                     filter_chain.append("setpts=N/FRAME_RATE/TB")
                 filter_chain.append(f"fps={fps}")
@@ -416,9 +388,7 @@ def run_extraction_in_process(config: Union[ExtractionConfig, Dict[str, Any]]) -
                 ]
                 filters = []
                 if cuts_ms and keep_regions:
-                    select_expr = "+".join(
-                        [f"between(t,{r[0]},{r[1]})" for r in keep_regions]
-                    )
+                    select_expr = "+".join([f"between(t,{r[0]},{r[1]})" for r in keep_regions])
                     filters.append(f"select='{select_expr}'")
                     filters.append("setpts=N/FRAME_RATE/TB")
                 if target_resolution:
@@ -440,9 +410,7 @@ def run_extraction_in_process(config: Union[ExtractionConfig, Dict[str, Any]]) -
                 else:
                     audio_filters = []
                     if cuts_ms and keep_regions:
-                        aselect_expr = "+".join(
-                            [f"between(t,{r[0]},{r[1]})" for r in keep_regions]
-                        )
+                        aselect_expr = "+".join([f"between(t,{r[0]},{r[1]})" for r in keep_regions])
                         audio_filters.append(f"aselect='{aselect_expr}'")
                         audio_filters.append("asetpts=N/SR/TB")
                     if speed != 1.0:
@@ -459,9 +427,7 @@ def run_extraction_in_process(config: Union[ExtractionConfig, Dict[str, Any]]) -
                     cmd.extend(["-c:a", "aac", "-b:a", "128k"])
 
                 cmd.extend(["-t", str(duration), "-shortest", output_path])
-                subprocess.run(
-                    cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-                )
+                subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 return {"status": "success", "output_path": output_path}
             else:
                 base_clip = VideoFileClip(video_path)
@@ -534,18 +500,12 @@ def run_extraction_in_process(config: Union[ExtractionConfig, Dict[str, Any]]) -
 _RUNNING_WORKERS: set = set()
 
 
-class _QueueWorkerSignals(QObject):
-    started = Signal()
-    progress = Signal(int, int)  # (completed, total) — §5.9 Option C
+class _QueueWorkerSignals(_WorkerSignals):
     item_completed = Signal(int, dict, dict)  # (index, result, original item)
-    finished = Signal(list)
-    error = Signal(str)
 
 
-class QueueExecutionWorker(QRunnable):
-    def __init__(
-        self, queue_items: list, parallel: bool = False, max_workers: int | None = None
-    ):
+class QueueExecutionWorker(BaseQRunnableWorker):
+    def __init__(self, queue_items: list, parallel: bool = False, max_workers: int | None = None):
         super().__init__()
         self.queue_items = queue_items
         self.parallel = parallel
@@ -556,8 +516,7 @@ class QueueExecutionWorker(QRunnable):
     def cancel(self):
         self._is_cancelled = True
 
-    @gc_disabled_run
-    def run(self):
+    def _execute(self) -> object:
         # Safety net (Bug 1): keep this worker (and therefore its signals
         # QObject, which has no Qt parent) alive from run() start to finish,
         # even if the tab drops its active_queue_worker reference mid-run. A
@@ -565,26 +524,23 @@ class QueueExecutionWorker(QRunnable):
         # a deleted C++ object -> RuntimeError: Signal source has been deleted.
         _RUNNING_WORKERS.add(self)
         try:
-            self._run_impl()
+            return self._run_impl()
         except Exception as exc:
-            # Never let the exception escape run(): Qt logs it as an "Error
-            # calling Python override of QRunnable::run()" and, crucially,
-            # neither finished nor error is emitted -> the tab's
-            # active_queue_worker is never cleared and the queue wedges.
+            # Never let the exception escape: neither finished nor error
+            # would be emitted -> the tab's active_queue_worker is never
+            # cleared and the queue wedges.
             with contextlib.suppress(Exception):
                 self.signals.error.emit(f"Queue worker crashed: {exc}")
+            return None
         finally:
             _RUNNING_WORKERS.discard(self)
 
     def _run_impl(self):
-        self.signals.started.emit()
         results = []
 
         if self.parallel:
             requested_workers = self.max_workers or multiprocessing.cpu_count()
-            num_cores = min(
-                max(1, requested_workers), multiprocessing.cpu_count(), len(self.queue_items)
-            )
+            num_cores = min(max(1, requested_workers), multiprocessing.cpu_count(), len(self.queue_items))
             if num_cores < 1:
                 num_cores = 1
 
@@ -597,17 +553,12 @@ class QueueExecutionWorker(QRunnable):
                     initializer=_extraction_pool_worker_init,
                     maxtasksperchild=1,
                 ) as pool:
-                    async_results = [
-                        pool.apply_async(run_extraction_in_process, (item,))
-                        for item in self.queue_items
-                    ]
+                    async_results = [pool.apply_async(run_extraction_in_process, (item,)) for item in self.queue_items]
 
                     while completed < total:
                         if self._is_cancelled:
                             pool.terminate()
-                            self.signals.error.emit(
-                                "Parallel queue extraction cancelled by user."
-                            )
+                            self.signals.error.emit("Parallel queue extraction cancelled by user.")
                             return
 
                         new_completed = 0
@@ -624,11 +575,7 @@ class QueueExecutionWorker(QRunnable):
                     for i, r in enumerate(async_results):
                         res = r.get()
                         results.append(res)
-                        item = (
-                            self.queue_items[i]
-                            if 0 <= i < len(self.queue_items)
-                            else {}
-                        )
+                        item = self.queue_items[i] if 0 <= i < len(self.queue_items) else {}
                         self.signals.item_completed.emit(i, res, item)
             except Exception as e:
                 self.signals.error.emit(f"Parallel processing error: {e}")
@@ -637,9 +584,7 @@ class QueueExecutionWorker(QRunnable):
             total = len(self.queue_items)
             for i, item in enumerate(self.queue_items):
                 if self._is_cancelled:
-                    self.signals.error.emit(
-                        "Sequential queue extraction cancelled by user."
-                    )
+                    self.signals.error.emit("Sequential queue extraction cancelled by user.")
                     return
 
                 self.signals.progress.emit(i, total)
@@ -651,4 +596,4 @@ class QueueExecutionWorker(QRunnable):
                 self.signals.item_completed.emit(i, res, item)
 
         self.signals.progress.emit(total, total)
-        self.signals.finished.emit(results)
+        return results

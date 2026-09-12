@@ -7,10 +7,10 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Dict, List, Optional, Union
 
 from backend.src.constants import SUPPORTED_VIDEO_FORMATS
-from PySide6.QtCore import QThread, Signal
+from PySide6.QtCore import Signal
 
+from gui.src.helpers.base import BaseQThreadWorker
 from gui.src.helpers.core.config_types import SamplerConfig
-from gui.src.helpers.gc_safe import gc_disabled_run
 
 logger = logging.getLogger(__name__)
 
@@ -26,11 +26,10 @@ def _get_pil_filter(name: str):
     }.get(name, Image.Resampling.LANCZOS)
 
 
-class SamplerWorker(QThread):
+class SamplerWorker(BaseQThreadWorker):
     """Resample images, GIFs, and videos to new dimensions or a scale factor."""
 
-    sig_finished = Signal(int, str)
-    error = Signal(str)
+    finished = Signal(object)  # (done:int, message:str), None on failure/cancel
     progress_update = Signal(int, int)  # (completed, total) — §5.9 Option C
 
     def __init__(self, config: Union[SamplerConfig, Dict[str, Any]]):
@@ -43,6 +42,7 @@ class SamplerWorker(QThread):
 
     def cancel(self):
         self._is_cancelled = True
+        self.requestInterruption()
         if self._executor:
             self._executor.shutdown(wait=False, cancel_futures=True)
         with self._process_lock:
@@ -54,8 +54,7 @@ class SamplerWorker(QThread):
     def stop(self):
         self.cancel()
 
-    @gc_disabled_run
-    def run(self):  # noqa: C901
+    def _execute(self) -> object:  # noqa: C901
         try:
             files: List[str] = self.config.get("files_to_process", [])
             if not files:
@@ -100,14 +99,14 @@ class SamplerWorker(QThread):
                     self.progress_update.emit(i + 1, total)
 
             if self._is_cancelled:
-                self.sig_finished.emit(done, "**Resampling Cancelled**")
+                return (done, "**Resampling Cancelled**")
             elif failures:
                 msg = f"Processed {done}/{total} files. {len(failures)} error(s)."
                 if failures:
                     msg += "\n\nFirst error: " + failures[0]
-                self.sig_finished.emit(done, msg)
+                return (done, msg)
             else:
-                self.sig_finished.emit(done, f"Resampled {done} file(s) successfully!")
+                return (done, f"Resampled {done} file(s) successfully!")
 
         except Exception as exc:
             self.progress_update.emit(0, 0)

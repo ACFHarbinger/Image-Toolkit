@@ -7,6 +7,7 @@ from PySide6.QtGui import QColor, QMouseEvent, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import QLabel
 
 from gui.src.components.labels.metadata_overlay import MetadataOverlay
+from gui.src.theming.theme_api import color, qss
 
 
 class ClickableLabel(QLabel):
@@ -26,9 +27,7 @@ class ClickableLabel(QLabel):
         self.setToolTip(os.path.basename(self.path))
         self.setFixedSize(100, 100)
 
-        self.setStyleSheet(
-            "background-color: rgba(20, 24, 32, 0.35); border: 1px dashed rgba(255, 255, 255, 0.15); color: #b9bbbe;"
-        )
+        self.setStyleSheet(qss("clickable_label"))
 
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
 
@@ -88,7 +87,7 @@ class ClickableLabel(QLabel):
         super().paintEvent(event)
         if self._hovered:
             p = QPainter(self)
-            p.setPen(QPen(QColor("#00bcd4"), 2))
+            p.setPen(QPen(QColor(color("accent")), 2))
             p.drawRect(1, 1, self.width() - 2, self.height() - 2)
             p.end()
 

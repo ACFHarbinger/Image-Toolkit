@@ -3,15 +3,15 @@ from typing import List, Optional, Tuple, Union
 
 from backend.src.constants import HAS_NATIVE_IMAGING, SUPPORTED_VIDEO_FORMATS
 from backend.src.core import telemetry
-from PySide6.QtCore import QThread, Signal, Slot
+from PySide6.QtCore import Signal
 
-from gui.src.helpers.gc_safe import gc_disabled_run
+from gui.src.helpers.base import BaseQThreadWorker
 
 if HAS_NATIVE_IMAGING:
     import base
 
 
-class VideoScannerWorker(QThread):
+class VideoScannerWorker(BaseQThreadWorker):
     """
     Worker to perform file system scanning (video paths only -- no
     thumbnail generation) on a separate thread. Deliberately modeled on
@@ -29,7 +29,7 @@ class VideoScannerWorker(QThread):
     exactly like image thumbnails.
     """
 
-    scan_finished = Signal(list)
+    finished = Signal(object)  # list[str], None on failure/cancel
     scan_error = Signal(str)
 
     def __init__(self, directories: Union[str, List[str]], recursive: Optional[bool] = None):
@@ -56,6 +56,7 @@ class VideoScannerWorker(QThread):
     def stop(self):
         """Signals the worker to stop."""
         self._is_cancelled = True
+        self.requestInterruption()
 
     def _scan_flat(self, path: str) -> List[str]:
         found_videos = []
@@ -95,14 +96,13 @@ class VideoScannerWorker(QThread):
 
         return found_videos
 
-    @Slot()
-    def run_scan(self):
+    def _execute(self) -> object:
         """Iterates through all provided directories and aggregates video paths."""
         all_video_paths = []
 
         if not self.directories:
             self.scan_error.emit("No valid directories provided for scanning.")
-            return
+            return None
 
         try:
             if HAS_NATIVE_IMAGING:
@@ -118,9 +118,8 @@ class VideoScannerWorker(QThread):
                         self.directories, list(self.extensions), self.recursive
                     )
                 if self._is_cancelled:
-                    return
-                self.scan_finished.emit(all_video_paths)
-                return
+                    return None
+                return all_video_paths
 
             for directory in self.directories:
                 if self._is_cancelled:
@@ -132,11 +131,8 @@ class VideoScannerWorker(QThread):
                 videos_in_dir = self._scan_recursive(directory) if self.recursive else self._scan_flat(directory)
                 all_video_paths.extend(videos_in_dir)
 
-            self.scan_finished.emit(sorted(all_video_paths))
+            return sorted(all_video_paths)
 
         except Exception as e:
             self.scan_error.emit(f"Critical error during scan: {e}")
-
-    @gc_disabled_run
-    def run(self):
-        self.run_scan()
+            return None

@@ -1,0 +1,13 @@
+QListWidget {
+  background-color: $DARK_SECONDARY_BG; border: none; border-right: 1px solid $DARK_BORDER;
+  padding-top: 12px; font-size: 10pt; outline: none;
+}
+QListWidget::item {
+  padding: 12px 16px; margin: 3px 10px; border-radius: 6px; color: $DARK_TEXT;
+}
+QListWidget::item:hover {
+  background-color: $DARK_BORDER; color: $DARK_TEXT;
+}
+QListWidget::item:selected {
+  background-color: $DARK_ACCENT_COLOR; color: white; font-weight: bold;
+}

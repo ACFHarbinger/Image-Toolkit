@@ -23,6 +23,7 @@ from gui.src.components.containers.merge_canvas import MergeCanvas
 
 from ....components import VirtualGallery
 from ....styles import apply_shadow_effect, set_button_role
+from ....theming.theme_api import color, qss
 
 
 class _UIGalleryCanvasMixin:
@@ -31,11 +32,11 @@ class _UIGalleryCanvasMixin:
     def _build_gallery_section(self, content_layout) -> None:
         # === 4. Image Library Gallery (virtual-scroll, GUI/UX §2.1 Option A) ===
         self.selection_label = QLabel("0 images selected.")
-        self.selection_label.setStyleSheet("padding: 4px 0; font-weight: bold;")
+        self.selection_label.setStyleSheet(qss("selection_label"))
         content_layout.addWidget(self.selection_label)
 
         gallery_header = QLabel("Image Library")
-        gallery_header.setStyleSheet("font-weight: bold; padding: 4px;")
+        gallery_header.setStyleSheet(qss("section_header"))
         content_layout.addWidget(gallery_header)
         content_layout.addWidget(self.search_input)
 
@@ -65,7 +66,7 @@ class _UIGalleryCanvasMixin:
         canvas_header_row = QHBoxLayout(self.canvas_header_widget)
         canvas_header_row.setContentsMargins(0, 0, 0, 0)
         canvas_lbl = QLabel("Merge Canvas")
-        canvas_lbl.setStyleSheet("font-weight: bold; padding: 4px;")
+        canvas_lbl.setStyleSheet(qss("section_header"))
         canvas_header_row.addWidget(canvas_lbl)
         canvas_header_row.addStretch()
         canvas_header_row.addWidget(QLabel("W:"))
@@ -131,7 +132,7 @@ class _UIGalleryCanvasMixin:
         # selection queue (order = order added, or manually dragged), with a
         # right-click menu (preview/deselect/delete) on each thumbnail.
         self.queue_header_label = QLabel("Selected Images (Merge Order)")
-        self.queue_header_label.setStyleSheet("font-weight: bold; padding: 4px;")
+        self.queue_header_label.setStyleSheet(qss("section_header"))
         content_layout.addWidget(self.queue_header_label)
         self.queue_gallery_scroll = QScrollArea()
         self.queue_gallery_scroll.setWidgetResizable(True)
@@ -152,12 +153,12 @@ class _UIGalleryCanvasMixin:
 
         self.run_button = QPushButton("Run Merge")
         set_button_role(self.run_button, "success")
-        apply_shadow_effect(self.run_button, "#000000", 8, 0, 3)
+        apply_shadow_effect(self.run_button, color("window_bg"), 8, 0, 3)
         self.run_button.clicked.connect(self.start_merge)
 
         self.cancel_button = QPushButton("Cancel")
         set_button_role(self.cancel_button, "danger")
-        apply_shadow_effect(self.cancel_button, "#000000", 8, 0, 3)
+        apply_shadow_effect(self.cancel_button, color("window_bg"), 8, 0, 3)
         self.cancel_button.clicked.connect(self.cancel_merge)
         self.cancel_button.setVisible(False)
 
@@ -167,9 +168,7 @@ class _UIGalleryCanvasMixin:
 
         self.status_label = QLabel("")
         self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.status_label.setStyleSheet(
-            "color: #b9bbbe; font-style: italic; padding: 10px;"
-        )
+        self.status_label.setStyleSheet(qss("merge_canvas_hint"))
         content_layout.addWidget(self.status_label)
 
 

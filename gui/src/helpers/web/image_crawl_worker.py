@@ -8,17 +8,16 @@ from backend.src.web import (
     ImageCrawler,
     SankakuCrawler,
 )
-from PySide6.QtCore import QThread, Signal
+from PySide6.QtCore import Signal
 
-from gui.src.helpers.gc_safe import gc_disabled_run
+from gui.src.helpers.base import BaseQThreadWorker
 from gui.src.qt_event_bridge import QtEventBridge
 
 
-class ImageCrawlWorker(QThread):
+class ImageCrawlWorker(BaseQThreadWorker):
     progress = Signal(int, int)  # (current, total)
     status = Signal(str)  # status message
-    sig_finished = Signal(int, str)  # (count, message)
-    error = Signal(str)  # error message
+    finished = Signal(tuple)  # (count, message)
     image_downloaded = Signal(str)  # saved file path or JSON-encoded metadata string
 
     def __init__(self, config: dict):
@@ -53,57 +52,57 @@ class ImageCrawlWorker(QThread):
         self.status.emit(f"Saved: {os.path.basename(path)}")
         self.image_downloaded.emit(path)
 
-    def stop(self):
+    def cancel(self):
         """Stop the underlying crawler instance and interrupt thread."""
+        super().cancel()
         if self.crawler:
             with contextlib.suppress(Exception):
                 self.crawler.stop()
         self.requestInterruption()
 
-    @gc_disabled_run
-    def run(self):
+    def stop(self):
+        """Legacy alias for cancel()."""
+        self.cancel()
+
+    def _execute(self) -> object:
+        # Create download directory, and screenshot directory if provided
+        os.makedirs(self.config["download_dir"], exist_ok=True)
+        if self.config.get("screenshot_dir"):
+            os.makedirs(self.config["screenshot_dir"], exist_ok=True)
+
+        crawler_type = self.config.get("type", "general")
+
+        if crawler_type == "board":
+            board_type = self.config.get("board_type", "danbooru")
+            if board_type == "gelbooru":
+                crawler = GelbooruCrawler(self.config)
+            elif board_type == "sankaku":
+                crawler = SankakuCrawler(self.config)
+            else:  # defaults to danbooru
+                crawler = DanbooruCrawler(self.config)
+        else:
+            crawler = ImageCrawler(self.config)
+
+        self.crawler = crawler
+        self._downloaded = 0
+
+        # Bridge backend Observables onto the GUI thread (issue #529).
+        self._status_bridge.attach(crawler.on_status)
+        self._saved_bridge.attach(crawler.on_image_saved)
         try:
-            # Create download directory, and screenshot directory if provided
-            os.makedirs(self.config["download_dir"], exist_ok=True)
-            if self.config.get("screenshot_dir"):
-                os.makedirs(self.config["screenshot_dir"], exist_ok=True)
+            self.status.emit(f"Starting {crawler_type.title()} Crawl...")
 
-            crawler_type = self.config.get("type", "general")
+            # Run the crawler
+            final_count = crawler.run()
 
-            if crawler_type == "board":
-                board_type = self.config.get("board_type", "danbooru")
-                if board_type == "gelbooru":
-                    crawler = GelbooruCrawler(self.config)
-                elif board_type == "sankaku":
-                    crawler = SankakuCrawler(self.config)
-                else:  # defaults to danbooru
-                    crawler = DanbooruCrawler(self.config)
-            else:
-                crawler = ImageCrawler(self.config)
+            # Fallback if the crawler doesn't return a count
+            if final_count is None:
+                final_count = self._downloaded
 
-            self.crawler = crawler
-            self._downloaded = 0
+            return (
+                final_count, f"Crawl finished. Downloaded **{final_count}** image(s)!"
+            )
 
-            # Bridge backend Observables onto the GUI thread (issue #529).
-            self._status_bridge.attach(crawler.on_status)
-            self._saved_bridge.attach(crawler.on_image_saved)
-            try:
-                self.status.emit(f"Starting {crawler_type.title()} Crawl...")
-
-                # Run the crawler
-                final_count = crawler.run()
-
-                # Fallback if the crawler doesn't return a count
-                if final_count is None:
-                    final_count = self._downloaded
-
-                self.sig_finished.emit(
-                    final_count, f"Crawl finished. Downloaded **{final_count}** image(s)!"
-                )
-
-            finally:
-                self._status_bridge.detach()
-                self._saved_bridge.detach()
-
-        except Exception as e:
-            self.error.emit(f"Critical Worker Error: {e}")
+        finally:
+            self._status_bridge.detach()
+            self._saved_bridge.detach()

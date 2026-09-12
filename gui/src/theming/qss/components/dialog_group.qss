@@ -1,0 +1,15 @@
+QGroupBox {
+    background-color: $DARK_SECONDARY_BG;
+    border: 1px solid $DARK_BORDER;
+    border-radius: 6px;
+    margin-top: 12px;
+    padding: 8px;
+    color: $DARK_TEXT;
+}
+QGroupBox::title {
+    subcontrol-origin: margin;
+    subcontrol-position: top left;
+    padding: 0 6px;
+    color: $DARK_MUTED_TEXT;
+    font-weight: 600;
+}

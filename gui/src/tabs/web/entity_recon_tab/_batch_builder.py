@@ -37,6 +37,8 @@ class EntityReconBatchController(TabBoundController):
 
     def _on_batch(self, suggestions):
         self._set_busy(False)
+        if suggestions is None:
+            return  # cancelled or failed (error was reported separately)
         self._batch_rows = suggestions
         self.batch_table.setRowCount(len(suggestions))
         for row, s in enumerate(suggestions):

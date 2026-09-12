@@ -48,7 +48,10 @@ class EntityReconDatasetController(TabBoundController):
         worker = IndexBuildWorker(self._config)
         self._run_worker(worker, self._on_index_built)
 
-    def _on_index_built(self, indexer, stats):
+    def _on_index_built(self, result):
+        if result is None:
+            return  # cancelled or failed (error was reported separately)
+        indexer, stats = result
         self._indexer = indexer
         self._engine = ReconEngine(self._config, indexer=indexer)
         self._set_busy(False)

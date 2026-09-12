@@ -25,7 +25,7 @@ class _FakeBatchWorker(QRunnable):
         super().__init__()
         self.paths = paths
         self.target_size = target_size
-        self.signals = _FakeSignals()
+        self.stream = _FakeSignals()
         self.stopped = False
 
     def stop(self):
@@ -99,8 +99,8 @@ class TestSingleSignalRendering:
         # Mimic the real worker: per-path result emits, then the batch emit.
         # Only batch_result is connected, so each card renders exactly once.
         for p in paths:
-            worker.signals.result.emit(p, _img())
-        worker.signals.batch_result.emit([(p, _img()) for p in paths], paths)
+            worker.stream.result.emit(p, _img())
+        worker.stream.batch_result.emit([(p, _img()) for p in paths], paths)
 
         assert len(calls) == len(paths)
 
@@ -123,8 +123,8 @@ class TestSingleSignalRendering:
         gallery._trigger_batch_found_load(paths)
         worker = gallery.thread_pool.started[0]
         for p in paths:
-            worker.signals.result.emit(p, _img())
-        worker.signals.batch_result.emit([(p, _img()) for p in paths], paths)
+            worker.stream.result.emit(p, _img())
+        worker.stream.batch_result.emit([(p, _img()) for p in paths], paths)
 
         assert len(calls) == len(paths)
 
@@ -136,7 +136,7 @@ class TestSingleSignalRendering:
         gallery._trigger_batch_selected_load(paths, widgets)
         assert gallery._on_batch_selected_loaded.__self__ is gallery
         worker = gallery.thread_pool.started[0]
-        worker.signals.batch_result.emit([(p, _img()) for p in paths], paths)
+        worker.stream.batch_result.emit([(p, _img()) for p in paths], paths)
 
 
 class TestDrainGuard:
@@ -216,7 +216,7 @@ class TestThumbnailSchedulerUnification:
         def factory(stream):
             def make_worker(paths):
                 worker = _FakeBatchWorker(paths, 180)
-                worker.stream = stream
+                worker.stream_key = stream
                 return worker
             return make_worker
 
@@ -238,14 +238,14 @@ class TestThumbnailSchedulerUnification:
         )
 
         found_first, selected_first = gallery.thread_pool.started
-        assert (found_first.stream, found_first.paths) == ("found", ["found-1.jpg"])
-        assert (selected_first.stream, selected_first.paths) == ("selected", ["selected-1.jpg"])
+        assert (found_first.stream_key, found_first.paths) == ("found", ["found-1.jpg"])
+        assert (selected_first.stream_key, selected_first.paths) == ("selected", ["selected-1.jpg"])
 
-        found_first.signals.batch_result.emit([], found_first.paths)
-        selected_first.signals.batch_result.emit([], selected_first.paths)
+        found_first.stream.batch_result.emit([], found_first.paths)
+        selected_first.stream.batch_result.emit([], selected_first.paths)
         found_second, selected_second = gallery.thread_pool.started[2:]
-        assert (found_second.stream, found_second.paths) == ("found", ["found-2.jpg"])
-        assert (selected_second.stream, selected_second.paths) == ("selected", ["selected-2.jpg"])
+        assert (found_second.stream_key, found_second.paths) == ("found", ["found-2.jpg"])
+        assert (selected_second.stream_key, selected_second.paths) == ("selected", ["selected-2.jpg"])
         assert delivered == [
             ("found", ["found-1.jpg"]),
             ("selected", ["selected-1.jpg"]),

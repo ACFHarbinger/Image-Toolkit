@@ -194,13 +194,15 @@ class _ExtractionWorkersMixin:
         worker.signals.error.connect(self._on_export_error)
         self.operation_thread_pool.start(worker)
 
-    @Slot(str)
-    def _on_export_finished(self: "VideoExtractorSubTabHostProtocol", new_path: str):
+    @Slot(object)
+    def _on_export_finished(self: "VideoExtractorSubTabHostProtocol", new_path):
         self.active_extraction_worker = None
         self._set_extraction_buttons_enabled(True)
         self.extraction_progress_bar.hide()
         self.extraction_status_label.hide()
 
+        if new_path is None:  # failure/cancel — error path already reported
+            return
         if new_path and os.path.exists(new_path):
             if new_path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
                 thumb = self._generate_video_thumbnail(new_path)
@@ -223,13 +225,14 @@ class _ExtractionWorkersMixin:
 
         self._maybe_finish_close()
 
-    @Slot(str)
-    def _on_export_error(self: "VideoExtractorSubTabHostProtocol", error_msg: str):
+    @Slot(object)
+    def _on_export_error(self: "VideoExtractorSubTabHostProtocol", error: object):
         self.active_extraction_worker = None
         self._set_extraction_buttons_enabled(True)
         self.extraction_progress_bar.hide()
         self.extraction_status_label.hide()
         self._active_metadata = None
+        error_msg = str(error)
         if "cancelled" not in error_msg.lower():
             QMessageBox.warning(cast(QWidget, self), "Export Error", error_msg)
 

@@ -34,6 +34,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from gui.src.theming.theme_api import color as theme_color
+
 
 class _LoadSignals(QObject):
     finished = Signal(dict)
@@ -197,8 +199,8 @@ class SafetensorsInspectorDialog(QDialog):
     def _on_error(self, msg: str) -> None:
         self._progress.hide()
         item = QTreeWidgetItem(["Error", msg])
-        item.setForeground(0, QColor("#e74c3c"))
-        item.setForeground(1, QColor("#e74c3c"))
+        item.setForeground(0, QColor(theme_color("danger")))
+        item.setForeground(1, QColor(theme_color("danger")))
         self._summary_tree.addTopLevelItem(item)
 
     def _start_hash_calc(self) -> None:
@@ -224,8 +226,8 @@ class SafetensorsInspectorDialog(QDialog):
             match = hash_val.lower().startswith(embedded.lower()) or embedded.lower().startswith(hash_val.lower())
             status_str = "✓ MATCHED" if match else "✗ MISMATCH"
             match_item = QTreeWidgetItem(self._summary_tree, ["Integrity Verification", status_str])
-            color = QColor("#2ecc71") if match else QColor("#e74c3c")
-            match_item.setForeground(1, color)
+            fg = QColor(theme_color("success")) if match else QColor(theme_color("danger"))
+            match_item.setForeground(1, fg)
         else:
             QTreeWidgetItem(self._summary_tree, ["Integrity Verification", "No embedded hash to verify"])
 
@@ -235,7 +237,7 @@ class SafetensorsInspectorDialog(QDialog):
     def _on_hash_error(self, err: str) -> None:
         self._hash_btn.setText("Hash Failed")
         item = QTreeWidgetItem(self._summary_tree, ["SHA256 Error", err])
-        item.setForeground(1, QColor("#e74c3c"))
+        item.setForeground(1, QColor(theme_color("danger")))
 
     def _populate(self, data: dict) -> None:
         size_mb = data.get("file_size_mb", 0.0)
