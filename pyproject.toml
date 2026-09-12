@@ -72,12 +72,12 @@ docs = [
 # new custom-node deps below need adding.
 comfyui = [
     # --- Core ComfyUI UI packages ---
-    "comfyui-frontend-package==1.45.20",
-    "comfyui-workflow-templates==0.11.2",
-    "comfyui-embedded-docs==0.5.6",
+    "comfyui-frontend-package==1.52.7",
+    "comfyui-workflow-templates==0.11.56",
+    "comfyui-embedded-docs==0.5.11",
     # --- ComfyUI native acceleration layers ---
-    "comfy-kitchen==0.2.16",
-    "comfy-aimdo==0.4.10",
+    "comfy-kitchen==0.2.33",
+    "comfy-aimdo==0.5.2",
     "comfy-angle",
     # --- ComfyUI-Manager ---
     "comfyui_manager==4.2.2",
