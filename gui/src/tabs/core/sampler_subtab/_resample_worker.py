@@ -10,9 +10,10 @@ from PySide6.QtWidgets import QMessageBox
 
 from ....helpers import SamplerWorker
 from ....theming.theme_api import qss
+from ._tab_bound import TabBoundController
 
 
-class _ResampleWorkerMixin:
+class SamplerWorkerController(TabBoundController):
     """Starts/reacts to the SamplerWorker background resample job."""
 
     def _collect_config(self, use_selection: bool) -> dict:
@@ -25,21 +26,13 @@ class _ResampleWorkerMixin:
             "Nearest Neighbor": "nearest",
         }
         fmt_text = self.out_format_combo.currentText()
-        out_fmt = (
-            None
-            if fmt_text.startswith("Keep") or "---" in fmt_text
-            else fmt_text.lower()
-        )
+        out_fmt = None if fmt_text.startswith("Keep") or "---" in fmt_text else fmt_text.lower()
         return {
             "files_to_process": files,
             "scale_mode": scale_mode,
             "scale_factor": self.scale_factor_spin.value(),
-            "target_width": self.dim_w_spin.value()
-            if scale_mode == "dimensions"
-            else None,
-            "target_height": self.dim_h_spin.value()
-            if scale_mode == "dimensions"
-            else None,
+            "target_width": self.dim_w_spin.value() if scale_mode == "dimensions" else None,
+            "target_height": self.dim_h_spin.value() if scale_mode == "dimensions" else None,
             "preserve_aspect_ratio": self.preserve_ar_cb.isChecked(),
             "algorithm": algo_map.get(self.algorithm_combo.currentText(), "lanczos"),
             "output_format": out_fmt,
@@ -59,7 +52,7 @@ class _ResampleWorkerMixin:
 
         config = self._collect_config(use_selection)
         if not config["files_to_process"]:
-            QMessageBox.warning(self, "No Files", "No files to resample.")
+            QMessageBox.warning(self.tab, "No Files", "No files to resample.")
             return
 
         self.worker = SamplerWorker(config)
@@ -75,16 +68,16 @@ class _ResampleWorkerMixin:
         cancel_btn.setStyleSheet(qss("btn_cancel_active"))
 
         n = len(config["files_to_process"])
-        self.status_label.setText(f"Resampling {n} file(s)…") # pyrefly: ignore [missing-attribute]
+        self.status_label.setText(f"Resampling {n} file(s)…")  # pyrefly: ignore [missing-attribute]
         self.progress_bar.show()
-        self.worker.start()
+        self.tab.worker.start()
 
     @Slot(int, int)
     def _on_progress(self, completed: int, total: int):
         self.progress_bar.setMaximum(max(total, 1))
         self.progress_bar.setValue(completed)
         pct = int(completed / total * 100) if total else 0
-        self.status_label.setText(f"Resampling… {pct}% complete") # pyrefly: ignore [missing-attribute]
+        self.status_label.setText(f"Resampling… {pct}% complete")  # pyrefly: ignore [missing-attribute]
 
     @Slot(object)
     def _on_done(self, result):
@@ -98,16 +91,19 @@ class _ResampleWorkerMixin:
         self.btn_selected.setStyleSheet(qss("shared_button"))
         self.progress_bar.hide()
         self.progress_bar.setValue(0)
-        self.status_label.setText(msg) # pyrefly: ignore [missing-attribute]
-        self.worker = None
+        self.status_label.setText(msg)  # pyrefly: ignore [missing-attribute]
+        self.tab.worker = None
         if "cancelled" not in msg.lower():
-            QMessageBox.information(self, "Complete", msg)
+            QMessageBox.information(self.tab, "Complete", msg)
 
     @Slot(str)
     def _on_error(self, err):
         msg = str(err)
         self._on_done(0, msg)
-        QMessageBox.critical(self, "Error", msg)
+        QMessageBox.critical(self.tab, "Error", msg)
 
 
-__all__ = ["_ResampleWorkerMixin"]
+# COMPAT(ui-arch-23): legacy mixin alias
+_ResampleWorkerMixin = SamplerWorkerController
+
+__all__ = ["SamplerWorkerController", "_ResampleWorkerMixin"]
