@@ -11,9 +11,10 @@ import sys
 from PySide6.QtCore import QProcess
 
 from ....styles import set_button_role
+from ._tab_bound import TabBoundController
 
 
-class _WebDriverMixin:
+class ImageCrawlWebDriverController(TabBoundController):
     """Starts/stops the external WebDriver management script and streams its output."""
 
     def toggle_webdriver(self):
@@ -28,31 +29,23 @@ class _WebDriverMixin:
                 )
                 return
             self.log_window.show()
-            self.log_window.append_log(
-                "🌐 Preparing Managed WebDriver (this may take a few seconds)..."
-            )
+            self.log_window.append_log("🌐 Preparing Managed WebDriver (this may take a few seconds)...")
 
             # Dynamic resolution of project root and script path
-            project_root = os.path.abspath(
-                os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "..")
-            )
+            project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", ".."))
             script_candidates = [
                 os.path.join(project_root, "backend", "scripts", "manage_webdriver.py"),
                 os.path.join(project_root, "scripts", "manage_webdriver.py"),
                 os.path.abspath("backend/scripts/manage_webdriver.py"),
                 os.path.abspath("scripts/manage_webdriver.py"),
             ]
-            script_path = next(
-                (p for p in script_candidates if os.path.exists(p)), script_candidates[0]
-            )
+            script_path = next((p for p in script_candidates if os.path.exists(p)), script_candidates[0])
 
             python_candidates = [
                 os.path.join(project_root, ".venv", "bin", "python3"),
                 os.path.abspath(".venv/bin/python3"),
             ]
-            python_exe = next(
-                (p for p in python_candidates if os.path.exists(p)), sys.executable
-            )
+            python_exe = next((p for p in python_candidates if os.path.exists(p)), sys.executable)
 
             browser = "brave"
             if hasattr(self, "browser_combo") and self.browser_combo:
@@ -60,9 +53,7 @@ class _WebDriverMixin:
 
             self.webdriver_process.start(python_exe, [script_path, "start", f"--browser={browser}"])
             if not self.webdriver_process.waitForStarted(10000):
-                self.log_window.append_log(
-                    "❌ Failed to start WebDriver manager script."
-                )
+                self.log_window.append_log("❌ Failed to start WebDriver manager script.")
                 return
             self.webdriver_button.setText("🛑 Stop WebDriver Service")
             set_button_role(self.webdriver_button, "danger")
@@ -73,12 +64,12 @@ class _WebDriverMixin:
                 self.webdriver_process.kill()
 
     def on_webdriver_stdout(self):
-        data = self.webdriver_process.readAllStandardOutput().data().decode().strip() # pyrefly: ignore [missing-attribute]
+        data = self.webdriver_process.readAllStandardOutput().data().decode().strip()  # pyrefly: ignore [missing-attribute]
         if data:
             self.log_window.append_log(f"DRIVER: {data}")
 
     def on_webdriver_stderr(self):
-        data = self.webdriver_process.readAllStandardError().data().decode().strip() # pyrefly: ignore [missing-attribute]
+        data = self.webdriver_process.readAllStandardError().data().decode().strip()  # pyrefly: ignore [missing-attribute]
         if data:
             self.log_window.append_log(f"DRIVER ERROR: {data}")
 
@@ -88,4 +79,7 @@ class _WebDriverMixin:
         set_button_role(self.webdriver_button, "success")
 
 
-__all__ = ["_WebDriverMixin"]
+# COMPAT(ui-arch-23): legacy mixin alias
+_WebDriverMixin = ImageCrawlWebDriverController
+
+__all__ = ["ImageCrawlWebDriverController", "_WebDriverMixin"]
