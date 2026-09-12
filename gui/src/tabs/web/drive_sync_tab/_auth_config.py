@@ -79,6 +79,4 @@ class DriveSyncAuthController(TabBoundController):
         return None
 
 
-_AuthConfigMixin = DriveSyncAuthController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
-
-__all__ = ["DriveSyncAuthController", "_AuthConfigMixin"]
+__all__ = ["DriveSyncAuthController"]

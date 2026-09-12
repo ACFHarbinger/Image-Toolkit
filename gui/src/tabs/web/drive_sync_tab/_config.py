@@ -75,6 +75,4 @@ class DriveSyncConfigController(TabBoundController):
             QMessageBox.warning(self.tab, "Config Error", f"Failed to apply some settings: {e}")
 
 
-_ConfigMixin = DriveSyncConfigController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
-
-__all__ = ["DriveSyncConfigController", "_ConfigMixin"]
+__all__ = ["DriveSyncConfigController"]

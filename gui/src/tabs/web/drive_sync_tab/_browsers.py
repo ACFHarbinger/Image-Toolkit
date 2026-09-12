@@ -53,6 +53,4 @@ class DriveSyncBrowsersController(TabBoundController):
         pass
 
 
-_BrowsersMixin = DriveSyncBrowsersController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
-
-__all__ = ["DriveSyncBrowsersController", "_BrowsersMixin"]
+__all__ = ["DriveSyncBrowsersController"]

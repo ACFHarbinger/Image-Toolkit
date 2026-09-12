@@ -145,6 +145,4 @@ class DriveSyncSyncWorkerController(TabBoundController):
                 self.run_sync_now(clear_log=False, force_live=True)
 
 
-_SyncWorkerMixin = DriveSyncSyncWorkerController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
-
-__all__ = ["DriveSyncSyncWorkerController", "_SyncWorkerMixin"]
+__all__ = ["DriveSyncSyncWorkerController"]

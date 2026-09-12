@@ -57,6 +57,4 @@ class DriveSyncShareFolderController(TabBoundController):
         self.current_worker = None
 
 
-_ShareFolderMixin = DriveSyncShareFolderController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
-
-__all__ = ["DriveSyncShareFolderController", "_ShareFolderMixin"]
+__all__ = ["DriveSyncShareFolderController"]

@@ -130,6 +130,4 @@ class DriveSyncUIBuilder(TabBoundController):
         self.handle_provider_change(0)
 
 
-_UIBuilderMixin = DriveSyncUIBuilder  # COMPAT(ui-arch-23): remove after callers drop the mixin name
-
-__all__ = ["DriveSyncUIBuilder", "_UIBuilderMixin"]
+__all__ = ["DriveSyncUIBuilder"]

@@ -70,6 +70,4 @@ class DriveSyncUILockController(TabBoundController):
         self.handle_provider_change(self.provider_combo.currentIndex())
 
 
-_UILockMixin = DriveSyncUILockController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
-
-__all__ = ["DriveSyncUILockController", "_UILockMixin"]
+__all__ = ["DriveSyncUILockController"]

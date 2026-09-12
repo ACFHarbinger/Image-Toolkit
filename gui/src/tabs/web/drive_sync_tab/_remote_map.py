@@ -55,6 +55,4 @@ class DriveSyncRemoteMapController(TabBoundController):
         self.current_worker = None
 
 
-_RemoteMapMixin = DriveSyncRemoteMapController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
-
-__all__ = ["DriveSyncRemoteMapController", "_RemoteMapMixin"]
+__all__ = ["DriveSyncRemoteMapController"]
