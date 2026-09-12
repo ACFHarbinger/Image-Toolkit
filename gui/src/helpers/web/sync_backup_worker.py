@@ -6,8 +6,9 @@ internal mutex makes cross-thread use from this QThread safe — and rows are
 merged through the legacy-dict repos instead of the old delete-all/reinsert
 against ``listings_secure.db`` (the pattern behind the data-loss incident).
 
-``run()`` runs under the ``@gc_disabled_run`` guard (cyclic GC disabled for
-its lifetime): ``json.loads`` of the decrypted backup allocates enough to
+The worker subclasses ``BaseQThreadWorker`` (R1.1), whose ``run()`` runs
+under the ``@gc_disabled_run`` guard (cyclic GC disabled for its lifetime):
+``json.loads`` of the decrypted backup allocates enough to
 trip the collection threshold *on this QThread*, and CPython's collector is
 process-global with no thread affinity — so a collectable ``QWidget`` left
 anywhere in the GUI's cyclic garbage gets ``__del__``'d here, off the GUI
@@ -23,10 +24,10 @@ from pathlib import Path
 import backend.src.constants as udef
 from backend.src.database.unified.entity_repo import EntityRepo
 from backend.src.database.unified.media_repo import MediaRepo
-from PySide6.QtCore import QThread, Signal
+from PySide6.QtCore import Signal
 
 from gui.src.constants.listings import LISTING_IMAGES_DIR
-from gui.src.helpers.gc_safe import gc_disabled_run
+from gui.src.helpers.base import BaseQThreadWorker
 
 
 def _sync_images_from_backup(prefix: str) -> int:
@@ -53,9 +54,10 @@ def _sync_images_from_backup(prefix: str) -> int:
     return extracted_count
 
 
-class _SyncBackupWorker(QThread):
-    progress = Signal(int, str)  # (percent, text)
-    sig_finished = Signal(bool, str, object)  # (success, message, result_data)
+class _SyncBackupWorker(BaseQThreadWorker):
+    # (percent, text): kept with its label — the progress dialog shows both.
+    progress = Signal(int, str)
+    finished = Signal(tuple)  # (success, message, result_data)
 
     def __init__(self, task_type: str, category: str, params: dict):
         super().__init__()
@@ -63,15 +65,17 @@ class _SyncBackupWorker(QThread):
         self.category = category
         self.params = params
 
-    @gc_disabled_run
-    def run(self):
+    def _execute(self) -> object:
         try:
             if self.task_type == "sync":
-                self.run_sync()
+                return self.run_sync()
             elif self.task_type == "backup":
-                self.run_backup()
+                return self.run_backup()
+            return (False, f"Unknown sync task type: {self.task_type}", None)
         except Exception as e:
-            self.sig_finished.emit(False, str(e), None)
+            # Failures-as-data (not base error routing): the consumer has a
+            # single result channel and reports the message itself.
+            return (False, str(e), None)
         finally:
             # Drop strong refs to the DB / vault handles so teardown of those
             # (some are QObjects) happens on the GUI thread via the parent, not
@@ -131,7 +135,7 @@ class _SyncBackupWorker(QThread):
         synced_imgs = _sync_images_from_backup(prefix)
 
         self.progress.emit(100, "Done!")
-        self.sig_finished.emit(True, "Sync complete", (merged_entries, synced_imgs))
+        return (True, "Sync complete", (merged_entries, synced_imgs))
 
     def run_backup(self):
         self.progress.emit(5, "Encrypting and saving entries...")
@@ -167,8 +171,7 @@ class _SyncBackupWorker(QThread):
 
         if not files_to_backup:
             self.progress.emit(100, "Done!")
-            self.sig_finished.emit(True, "Backup complete", 0)
-            return
+            return (True, "Backup complete", 0)
 
         migrations_dir = Path(udef.ROOT_DIR) / "assets" / "migrations"
         migrations_dir.mkdir(parents=True, exist_ok=True)
@@ -199,4 +202,4 @@ class _SyncBackupWorker(QThread):
             zf.close()
 
         self.progress.emit(100, "Done!")
-        self.sig_finished.emit(True, "Backup complete", len(files_to_backup))
+        return (True, "Backup complete", len(files_to_backup))

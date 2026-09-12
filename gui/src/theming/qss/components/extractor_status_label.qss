@@ -1,0 +1,4 @@
+color: $DARK_ACCENT_COLOR;
+font-style: italic;
+padding: 4px;
+font-weight: bold;

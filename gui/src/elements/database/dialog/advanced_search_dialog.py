@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
 )
 
 from gui.src.helpers.image import _CARD_THUMB_CACHE
+from gui.src.theming.theme_api import qss
 
 
 class _AdvancedSearchDialog(QDialog):
@@ -23,16 +24,7 @@ class _AdvancedSearchDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("🔍 Advanced Search Settings")
         self.setMinimumSize(600, 500)
-        self.setStyleSheet(
-            "QDialog { background: #23272a; color: white; }"
-            "QLabel { color: #00bcd4; font-weight: bold; font-size: 12px; }"
-            "QListWidget { background: #2c2f33; border: 1px solid #4f545c; border-radius: 6px; color: white; }"
-            "QListWidget::item:hover { background: #00bcd4; color: black; }"
-            "QComboBox { background: #2c2f33; color: white; border: 1px solid #4f545c; border-radius: 4px; padding: 4px; }"
-            "QTabWidget::pane { border: 1px solid #4f545c; background: #23272a; border-radius: 6px; }"
-            "QTabBar::tab { background: #2c2f33; color: #888; padding: 8px 16px; border: 1px solid #4f545c; border-top-left-radius: 4px; border-top-right-radius: 4px; }"
-            "QTabBar::tab:selected { background: #23272a; color: #00bcd4; border-bottom-color: #23272a; font-weight: bold; }"
-        )
+        self.setStyleSheet(qss("advanced_search_dialog"))
 
         self.entries = entries or []
         self.entities = entities or []
@@ -64,9 +56,7 @@ class _AdvancedSearchDialog(QDialog):
         # Header
         header_layout = QHBoxLayout()
         header_title = QLabel("🔍 Advanced Content Search")
-        header_title.setStyleSheet(
-            "font-size: 16px; font-weight: bold; color: #00bcd4;"
-        )
+        header_title.setStyleSheet(qss("asp_dialog_title"))
         header_layout.addWidget(header_title)
         layout.addLayout(header_layout)
 
@@ -213,19 +203,13 @@ class _AdvancedSearchDialog(QDialog):
 
         self.cancel_btn = QPushButton("Cancel")
         self.cancel_btn.setFixedWidth(100)
-        self.cancel_btn.setStyleSheet(
-            "QPushButton { background: #2f3136; color: white; border: 1px solid #4f545c; border-radius: 4px; padding: 6px; font-weight: bold; }"
-            "QPushButton:hover { background: #4f545c; }"
-        )
+        self.cancel_btn.setStyleSheet(qss("database_dialog_cancel_btn"))
         self.cancel_btn.clicked.connect(self.reject)
         btns_layout.addWidget(self.cancel_btn)
 
         self.search_btn = QPushButton("Search")
         self.search_btn.setFixedWidth(120)
-        self.search_btn.setStyleSheet(
-            "QPushButton { background: #00bcd4; color: black; border: none; border-radius: 4px; padding: 6px; font-weight: bold; }"
-            "QPushButton:hover { background: #008ba3; color: white; }"
-        )
+        self.search_btn.setStyleSheet(qss("database_dialog_accent_btn"))
         self.search_btn.clicked.connect(self.accept)
         btns_layout.addWidget(self.search_btn)
 

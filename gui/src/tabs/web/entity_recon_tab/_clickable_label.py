@@ -9,6 +9,8 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QLabel
 
+from ....theming.theme_api import qss
+
 
 class _ClickableImageLabel(QLabel):
     """Displays the source image and reports clicks in *original* image
@@ -21,7 +23,7 @@ class _ClickableImageLabel(QLabel):
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.setMinimumSize(320, 320)
         self.setText("Load an image to begin.")
-        self.setStyleSheet("color: #999; border: 1px dashed #4f545c; background: transparent;")
+        self.setStyleSheet(qss("entity_recon_clickable_label"))
         self._src_w = 0
         self._src_h = 0
         self._scaled_w = 0

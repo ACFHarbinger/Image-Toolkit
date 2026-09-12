@@ -210,7 +210,7 @@ class _SelectedPanelMixin:
         worker = ImageLoaderWorker(path, self.thumbnail_size)
         worker.load_generation = self._load_generation
         self._active_workers.add(worker)
-        worker.signals.result.connect(
+        worker.stream.result.connect(
             lambda p, px: self._on_selected_image_loaded(p, px, weak_widget())
             if weak_widget() is not None
             else None

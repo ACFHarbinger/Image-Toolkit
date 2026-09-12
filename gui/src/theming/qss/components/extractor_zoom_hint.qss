@@ -1,0 +1,3 @@
+color: $DARK_MUTED_TEXT;
+font-size: 10px;
+font-style: italic;

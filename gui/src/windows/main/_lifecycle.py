@@ -47,6 +47,11 @@ class _LifecycleMixin:
         Dynamically changes the tabs.
         Rescues widgets from ScrollAreas before clearing to prevent Segfaults.
         """
+        if getattr(self, "_classic_defer_construction", False):
+            return
+
+        self._ensure_category(new_command)
+
         count = self.tabs.count()
         for i in range(count):
             scroll_area = self.tabs.widget(i)
@@ -60,6 +65,8 @@ class _LifecycleMixin:
         tab_map = self.all_tabs.get(new_command, {})
 
         for tab_name, tab_widget in tab_map.items():
+            if tab_widget is None:
+                continue
             scroll_wrapper = QScrollArea()
             scroll_wrapper.setWidgetResizable(True)
             scroll_wrapper.setFrameShape(QScrollArea.Shape.NoFrame)
@@ -245,7 +252,7 @@ class _LifecycleMixin:
         if hasattr(self, "all_tabs"):
             for category in self.all_tabs.values():
                 for tab in category.values():
-                    if tab:
+                    if tab is not None:
                         with contextlib.suppress(Exception):
                             tab.close()
 

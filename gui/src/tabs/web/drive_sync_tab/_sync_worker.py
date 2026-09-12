@@ -101,8 +101,8 @@ class _SyncWorkerMixin:
         elif provider_text == "OneDrive":
             self.current_worker = OneDriveSyncWorker(**common_args)
 
-        self.current_worker.signals.status_update.connect(self.handle_status_update) # pyrefly: ignore [missing-attribute]
-        self.current_worker.signals.sync_finished.connect(self.handle_sync_finished) # pyrefly: ignore [missing-attribute]
+        self.current_worker.signals.status.connect(self.handle_status_update) # pyrefly: ignore [missing-attribute]
+        self.current_worker.signals.finished.connect(self.handle_sync_finished) # pyrefly: ignore [missing-attribute]
 
         QThreadPool.globalInstance().start(self.current_worker) # pyrefly: ignore [no-matching-overload]
 
@@ -113,9 +113,13 @@ class _SyncWorkerMixin:
         self._log_text += msg + "\n"
         self.qml_log_changed.emit()
 
-    @Slot(bool, str, bool)
-    def handle_sync_finished(self, success: bool, message: str, was_dry_run: bool):
+    @Slot(object)
+    def handle_sync_finished(self, result):
         self.unlock_ui()
+        if result is None:  # BaseException escape; error channel has no UI here
+            self.current_worker = None
+            return
+        success, message, was_dry_run = result
         status_str = "Completed" if success else "Failed"
         mode_str = "DRY RUN" if was_dry_run else "LIVE"
 

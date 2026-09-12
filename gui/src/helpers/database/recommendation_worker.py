@@ -11,9 +11,9 @@ import logging
 import sys
 from typing import Any, Dict, List, Optional
 
-from PySide6.QtCore import QThread, Signal
+from PySide6.QtCore import Signal
 
-from gui.src.helpers.gc_safe import gc_disabled_run
+from gui.src.helpers.base import BaseQThreadWorker
 
 from ...constants import RECOMMENDATION_ENGINE_DIR
 
@@ -26,7 +26,7 @@ def _ensure_re_on_path() -> None:
         sys.path.insert(0, path)
 
 
-class RecommendationWorker(QThread):
+class RecommendationWorker(BaseQThreadWorker):
     """
     Generates recommendations using the local Recommendation Engine.
 
@@ -51,8 +51,7 @@ class RecommendationWorker(QThread):
     top_k        : Maximum number of results to return (default 50).
     """
 
-    sig_finished = Signal(list)    # List[Tuple[str, float]]
-    error = Signal(str)
+    finished = Signal(object)    # List[Tuple[str, float]], None on failure/cancel
     status = Signal(str)
     progress = Signal(int, int)  # current, total
 
@@ -64,7 +63,9 @@ class RecommendationWorker(QThread):
         top_k: int = 50,
         parent=None,
     ):
-        super().__init__(parent)
+        super().__init__()
+        if parent is not None:
+            self.setParent(parent)
         self._entries = list(entries)
         self._all_entities = list(all_entities)
         self._inputs = inputs
@@ -255,8 +256,7 @@ class RecommendationWorker(QThread):
             logger.debug("Suppressed Exception in RecommendationWorker._build_history_profile", exc_info=True)
         return None
 
-    @gc_disabled_run
-    def run(self) -> None:
+    def _execute(self) -> object:
         try:
             _ensure_re_on_path()
 
@@ -314,7 +314,7 @@ class RecommendationWorker(QThread):
             results = [(r.item.id, r.recommendation_value) for r in ranked]
             self.status.emit(f"Done — {len(results)} recommendation(s) found.")
             self.progress.emit(1, 1)
-            self.sig_finished.emit(results)
+            self.finished.emit(results)
 
         except Exception as exc:
             logger.exception("[RecommendationWorker] %s", exc)
