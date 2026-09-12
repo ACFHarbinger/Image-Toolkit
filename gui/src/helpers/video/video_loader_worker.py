@@ -71,14 +71,14 @@ class VideoLoaderWorker(BaseQRunnableWorker):
             if image and not image.isNull():
                 # 3. Save to Disk Cache
                 image.save(cache_path, "JPG")  # pyrefly: ignore [no-matching-overload]
-                if self._is_cancelled:
+                if self._cancelled:
                     return
                 self._safe_emit(self.path, image)
             else:
-                if not self._is_cancelled:
+                if not self._cancelled:
                     self._safe_emit(self.path, QImage())
         except Exception:
-            if not self._is_cancelled:
+            if not self._cancelled:
                 self._safe_emit(self.path, QImage())
         finally:
             if Shiboken.isValid(self.stream):
