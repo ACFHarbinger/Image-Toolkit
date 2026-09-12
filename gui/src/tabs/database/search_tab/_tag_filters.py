@@ -31,7 +31,7 @@ class SearchTagFiltersController(TabBoundController):
             db_tags = db.get_all_tags_with_categories()
             return sorted(db_tags, key=lambda x: natural_sort_key(x["name"]))
         except Exception:
-            logger.debug("Suppressed Exception in _TagFiltersMixin._get_tags_from_db", exc_info=True)
+            logger.debug("Suppressed Exception in SearchTagFiltersController._get_tags_from_db", exc_info=True)
         return []
 
     def _get_category_colors(self) -> Dict[str, str]:
@@ -159,6 +159,4 @@ class SearchTagFiltersController(TabBoundController):
         self.perform_search()
 
 
-_TagFiltersMixin = SearchTagFiltersController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
-
-__all__ = ["SearchTagFiltersController", "_TagFiltersMixin"]
+__all__ = ["SearchTagFiltersController"]

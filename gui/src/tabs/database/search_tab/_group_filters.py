@@ -128,6 +128,4 @@ class SearchGroupFiltersController(TabBoundController):
         self._db_was_connected = db_connected
 
 
-_GroupFiltersMixin = SearchGroupFiltersController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
-
-__all__ = ["SearchGroupFiltersController", "_GroupFiltersMixin"]
+__all__ = ["SearchGroupFiltersController"]

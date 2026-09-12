@@ -67,3 +67,19 @@ class TestSearchTabComposition:
         cfg = tab.get_default_config()
         assert set(cfg) >= {"group_names", "subgroup_names", "filename_pattern", "input_formats", "tags"}
         tab.close()
+
+
+def test_no_compat_mixin_aliases():
+    """#544 closure: COMPAT mixin-name aliases must not remain (mirrors PR #609)."""
+    import importlib
+    import pkgutil
+
+    pkg = importlib.import_module("gui.src.tabs.database.search_tab")
+    leftover = []
+    modules = [pkg]
+    for info in pkgutil.iter_modules(pkg.__path__, pkg.__name__ + "."):
+        modules.append(importlib.import_module(info.name))
+    for mod in modules:
+        leftover.extend(name for name in dir(mod) if name.endswith("Mixin") and not name.startswith("__"))
+        leftover.extend(name for name in getattr(mod, "__all__", []) if str(name).endswith("Mixin"))
+    assert leftover == []

@@ -150,6 +150,4 @@ class SearchSemanticController(TabBoundController):
         QThreadPool.globalInstance().start(worker)
 
 
-_SemanticSearchMixin = SearchSemanticController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
-
-__all__ = ["SearchSemanticController", "_SemanticSearchMixin"]
+__all__ = ["SearchSemanticController"]

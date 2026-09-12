@@ -50,6 +50,4 @@ class SearchGalleryCardsController(TabBoundController):
         self.deselect_all_items()
 
 
-_GalleryCardsMixin = SearchGalleryCardsController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
-
-__all__ = ["SearchGalleryCardsController", "_GalleryCardsMixin"]
+__all__ = ["SearchGalleryCardsController"]
