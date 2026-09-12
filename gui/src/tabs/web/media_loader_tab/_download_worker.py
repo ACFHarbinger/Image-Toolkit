@@ -9,10 +9,11 @@ from PySide6.QtCore import Slot
 from PySide6.QtWidgets import QMessageBox
 
 from ....helpers import MediaLoaderWorker
+from ._tab_bound import TabBoundController
 from ._ui_builder import SOURCE_NHENTAI
 
 
-class _DownloadWorkerMixin:
+class MediaLoaderWorkerController(TabBoundController):
     """Starts/cancels the MediaLoaderWorker and handles the completion flow."""
 
     @Slot()
@@ -35,7 +36,7 @@ class _DownloadWorkerMixin:
 
         download_dir = self.download_dir_path.text().strip()
         if not download_dir:
-            QMessageBox.warning(self, "Error", "Please select a download directory.")
+            QMessageBox.warning(self.tab, "Error", "Please select a download directory.")
             return
 
         on_exists = self.on_exists_combo.currentData()
@@ -43,7 +44,7 @@ class _DownloadWorkerMixin:
         if self.source_combo.currentIndex() == SOURCE_NHENTAI:
             gallery = self.nhentai_gallery_input.text().strip()
             if not gallery:
-                QMessageBox.warning(self, "Error", "Please enter a gallery id or URL.")
+                QMessageBox.warning(self.tab, "Error", "Please enter a gallery id or URL.")
                 return
             source = "nhentai"
             config = {
@@ -54,9 +55,7 @@ class _DownloadWorkerMixin:
         else:
             reddit_source = self.reddit_source_input.text().strip()
             if not reddit_source:
-                QMessageBox.warning(
-                    self, "Error", "Please enter a subreddit, user, or post URL."
-                )
+                QMessageBox.warning(self.tab, "Error", "Please enter a subreddit, user, or post URL.")
                 return
             source = "reddit"
             mode = {
@@ -108,7 +107,9 @@ class _DownloadWorkerMixin:
         self.cancel_button.hide()
         self.progress_bar.hide()
         self.status_label.setText(message)
-        QMessageBox.critical(self, "Error", message)
+        QMessageBox.critical(self.tab, "Error", message)
 
 
-__all__ = ["_DownloadWorkerMixin"]
+_DownloadWorkerMixin = MediaLoaderWorkerController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
+
+__all__ = ["MediaLoaderWorkerController", "_DownloadWorkerMixin"]
