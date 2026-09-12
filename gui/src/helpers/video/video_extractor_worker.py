@@ -1,13 +1,19 @@
 import contextlib
 import os
-import select
-import subprocess
-import tempfile
 from typing import Optional, Tuple, Union
 
 from moviepy.editor import VideoFileClip
 
 from gui.src.helpers.base import BaseQRunnableWorker
+from gui.src.helpers.video.extraction_pipeline import (
+    ExtractionCancelled as _Cancelled,
+)
+from gui.src.helpers.video.extraction_pipeline import (
+    _ffmpeg_thread_count,
+    get_keep_regions,
+    parse_ffmpeg_progress_line,
+    run_ffmpeg,
+)
 
 # Ensure this import matches your MoviePy version
 try:
@@ -15,36 +21,12 @@ try:
 except ImportError:
     from moviepy.editor import AudioFileClip
 
-
-class _Cancelled(Exception):
-    """Raised inside the worker when the user cancels mid-ffmpeg."""
-
-
-def _ffmpeg_thread_count(requested: int) -> int:
-    """Cap libx264 thread fan-out. 0 (Auto) → min(4, CPUs); never above CPU count."""
-    cpus = os.cpu_count() or 2
-    if requested <= 0:
-        return max(1, min(4, cpus))
-    return max(1, min(int(requested), cpus))
-
-
-def parse_ffmpeg_progress_line(line: str, duration_s: float) -> Optional[int]:
-    """Map an ffmpeg ``-progress`` ``out_time_us=`` line to 0–99 percent."""
-    if duration_s <= 0:
-        return None
-    text = line.strip()
-    if not text.startswith("out_time_us="):
-        return None
-    raw = text.split("=", 1)[1]
-    if raw in ("N/A", ""):
-        return None
-    try:
-        us = int(raw)
-    except ValueError:
-        return None
-    if us < 0:
-        return None
-    return int(min(99, max(0, (us / 1_000_000.0) / duration_s * 100)))
+__all__ = [
+    "VideoExtractionWorker",
+    "_Cancelled",
+    "_ffmpeg_thread_count",
+    "parse_ffmpeg_progress_line",
+]
 
 
 class VideoExtractionWorker(BaseQRunnableWorker):
@@ -82,87 +64,21 @@ class VideoExtractionWorker(BaseQRunnableWorker):
     def _run_ffmpeg(self, cmd: list, duration_s: float = 0.0) -> None:
         """Run ffmpeg without the stderr-PIPE deadlock; parse ``-progress``.
 
-        stderr used to go to ``PIPE`` and was only read after exit, so a
-        long encode that filled the ~64 KB pipe buffer hung forever (#484).
-        stderr now goes to a temp file (``-loglevel error``); stdout is
-        drained for ``out_time_us`` progress lines.
+        Shared implementation lives in :mod:`extraction_pipeline` (same
+        temp-errfile, terminate/wait/kill, and ``out_time_us`` parsing as
+        before — see #484); this wrapper keeps the historical method and
+        failure text.
         """
-        from gui.src.helpers.video.video_thumbnailer import media_backend_spawn_guard
-
-        last_pct = -1
-        with tempfile.TemporaryFile(mode="w+") as errf:
-            with media_backend_spawn_guard():
-                proc = subprocess.Popen(
-                    cmd,
-                    stdout=subprocess.PIPE,
-                    stderr=errf,
-                    stdin=subprocess.DEVNULL,
-                    text=True,
-                    bufsize=1,
-                )
-            stdout = proc.stdout
-            while True:
-                if self._is_cancelled:
-                    proc.terminate()
-                    with contextlib.suppress(subprocess.TimeoutExpired):
-                        proc.wait(timeout=3)
-                    if proc.poll() is None:
-                        proc.kill()
-                    raise _Cancelled()
-                if proc.poll() is not None:
-                    if stdout is not None:
-                        for line in stdout.read().splitlines():
-                            pct = parse_ffmpeg_progress_line(line, duration_s)
-                            if pct is not None and pct != last_pct:
-                                last_pct = pct
-                                self.signals.progress.emit(pct, 100)
-                    break
-                ready, _, _ = select.select([stdout], [], [], 0.2)
-                if not ready or stdout is None:
-                    continue
-                line = stdout.readline()
-                if not line:
-                    continue
-                pct = parse_ffmpeg_progress_line(line, duration_s)
-                if pct is not None and pct != last_pct:
-                    last_pct = pct
-                    self.signals.progress.emit(pct, 100)
-            if proc.returncode != 0:
-                errf.seek(0)
-                tail = errf.read()[-2000:]
-                raise RuntimeError(
-                    f"FFmpeg failed with return code {proc.returncode}\n{tail}"
-                )
+        run_ffmpeg(
+            cmd,
+            "FFmpeg failed with return code ",
+            duration_s=duration_s,
+            progress=self.signals.progress.emit,
+            is_cancelled=lambda: self._is_cancelled,
+        )
 
     def _get_keep_regions(self, t_start: float, t_end: float):
-        if not self.cuts_ms:
-            return [(0.0, t_end - t_start)]
-
-        sorted_cuts = sorted([(max(t_start, c[0]/1000.0), min(t_end, c[1]/1000.0)) for c in self.cuts_ms])
-        merged_cuts = []
-        for c in sorted_cuts:
-            if c[0] >= c[1]:
-                continue
-            if not merged_cuts:
-                merged_cuts.append(c)
-            else:
-                last = merged_cuts[-1]
-                if c[0] <= last[1]:
-                    merged_cuts[-1] = (last[0], max(last[1], c[1]))
-                else:
-                    merged_cuts.append(c)
-
-        keep = []
-        current = t_start
-        for c_start, c_end in merged_cuts:
-            if c_start > current:
-                keep.append((current - t_start, c_start - t_start))
-            current = max(current, c_end)
-
-        if current < t_end:
-            keep.append((current - t_start, t_end - t_start))
-
-        return keep
+        return get_keep_regions(self.cuts_ms, t_start, t_end)
 
     def _execute(self) -> object:  # noqa: C901
         if self._is_cancelled:
@@ -280,6 +196,7 @@ class VideoExtractionWorker(BaseQRunnableWorker):
 
         try:
             from moviepy.editor import concatenate_videoclips
+
             self.signals.progress.emit(10, 100)
 
             base_clip = VideoFileClip(self.video_path)
@@ -312,10 +229,10 @@ class VideoExtractionWorker(BaseQRunnableWorker):
                 clip = subclipped_base
 
             if self.target_size:
-                clip = clip.resize(newsize=self.target_size) # pyrefly: ignore [missing-attribute]
+                clip = clip.resize(newsize=self.target_size)  # pyrefly: ignore [missing-attribute]
 
             if self.speed != 1.0:
-                clip = clip.speedx(self.speed) # pyrefly: ignore [missing-attribute]
+                clip = clip.speedx(self.speed)  # pyrefly: ignore [missing-attribute]
 
             if clip.duration is not None and clip.audio is not None:
                 clip.audio = clip.audio.set_duration(clip.duration)
