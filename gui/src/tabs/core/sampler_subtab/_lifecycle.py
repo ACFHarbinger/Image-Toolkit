@@ -5,7 +5,7 @@ Extracted from ``sampler_subtab.py`` -- pure code motion, no logic change.
 
 from __future__ import annotations
 
-import contextlib
+from gui.src.helpers.worker_teardown import stop_worker
 
 
 class _LifecycleMixin:
@@ -15,14 +15,12 @@ class _LifecycleMixin:
         super().cancel_loading()
         if hasattr(self, "dual"):
             self.dual.cancel_loading()
-        if self.worker:
-            with contextlib.suppress(Exception):
-                self.worker.cancel()
+        # No join here (as before): the pool thread + ffmpeg procs die off
+        # on their own; closeEvent below joins for the teardown path.
+        stop_worker(getattr(self, "worker", None), join=False)
 
     def closeEvent(self, event):
-        if self.worker and self.worker.isRunning():
-            self.worker.cancel()
-            self.worker.wait()
+        stop_worker(getattr(self, "worker", None))
         self.cancel_loading()
         super().closeEvent(event)
 

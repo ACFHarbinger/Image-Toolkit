@@ -89,16 +89,16 @@ class _ConversionWorkerMixin:
         self.convert_progress_bar.show()
 
         self.worker = CodecConversionWorker(config)
-        self.worker.finished_signal.connect(self.on_conversion_done)
-        self.worker.error_signal.connect(self.on_conversion_error)
-        self.worker.progress_signal.connect(self.update_progress_bar)
+        self.worker.finished.connect(self.on_conversion_done)
+        self.worker.error.connect(self.on_conversion_error)
+        self.worker.progress.connect(self.update_progress_bar)
         self.worker.start()
 
     def cancel_conversion(self):
         if self.worker and self.worker.isRunning():
             self.worker.cancel()
             self.worker.wait()
-            self.on_conversion_done(0, "**Conversion cancelled**")
+            self.on_conversion_done((0, "**Conversion cancelled**"))
             self.worker = None
 
     @Slot(int, int)
@@ -108,8 +108,8 @@ class _ConversionWorkerMixin:
         percentage = int(completed / total * 100) if total else 0
         self.status_label.setText(f"Re-encoding... {percentage}% complete") # pyrefly: ignore [missing-attribute]
 
-    @Slot(int, str)
-    def on_conversion_done(self, count, msg):
+    @Slot(object)
+    def on_conversion_done(self, result):
         self.btn_convert_all.setEnabled(True)
         self.btn_convert_all.setText("Convert All in Directory")
         self.btn_convert_all.setStyleSheet(SHARED_BUTTON_STYLE)
@@ -119,15 +119,16 @@ class _ConversionWorkerMixin:
 
         self.convert_progress_bar.hide()
         self.convert_progress_bar.setValue(0)
+        count, msg = result if result is not None else (0, "Conversion failed.")
         self.status_label.setText(f"{msg}") # pyrefly: ignore [missing-attribute]
         self.worker = None
         if "cancelled" not in msg.lower():
             QMessageBox.information(self, "Complete", msg)
 
-    @Slot(str)
-    def on_conversion_error(self, msg):
-        self.on_conversion_done(0, msg)
-        QMessageBox.critical(self, "Error", msg)
+    @Slot(object)
+    def on_conversion_error(self, exc: Exception):
+        self.on_conversion_done((0, str(exc)))
+        QMessageBox.critical(self, "Error", str(exc))
 
 
 __all__ = ["_ConversionWorkerMixin"]

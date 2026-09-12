@@ -659,8 +659,8 @@ class AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery):
             # thread — the QWidget-off-GUI-thread crash class this repo has
             # reverted for before (#543 review).
             if batch_slot is not None:
-                worker.signals.batch_result.connect(batch_slot)
-            worker.signals.batch_result.connect(on_batch)
+                worker.stream.batch_result.connect(batch_slot)
+            worker.stream.batch_result.connect(on_batch)
             self._active_workers.add(worker)
             self.thread_pool.start(worker)
 

@@ -1,16 +1,16 @@
 import contextlib
 import os
 
-from PySide6.QtCore import QObject, QRunnable, Signal, Slot
+from PySide6.QtCore import QObject, Signal
 from PySide6.QtGui import QImage
 from shiboken6 import Shiboken
 
-from gui.src.helpers.gc_safe import gc_disabled_run
+from gui.src.helpers.base import BaseQRunnableWorker
 
 from .video_thumbnailer import VideoThumbnailer, get_video_thumbnail_cache_path
 
 
-class _VideoLoaderSignals(QObject):
+class _VideoLoaderSignalsStream(QObject):
     """
     Defines the signals for the VideoLoaderWorker.
     Must be a separate QObject because QRunnable does not inherit QObject.
@@ -22,7 +22,7 @@ class _VideoLoaderSignals(QObject):
     batch_result = Signal(list, list)
 
 
-class VideoLoaderWorker(QRunnable):
+class VideoLoaderWorker(BaseQRunnableWorker):
     """
     Worker task to load and scale a SINGLE video thumbnail.
     Designed to be run in a QThreadPool -- same architecture as
@@ -45,21 +45,17 @@ class VideoLoaderWorker(QRunnable):
         self.path = path
         self.target_size = target_size
         self.crop_square = crop_square
-        self.signals = _VideoLoaderSignals()
+        self.stream = _VideoLoaderSignalsStream()
         self.thumbnailer = VideoThumbnailer()
-        self._is_cancelled = False
 
         # Auto-delete ensures the runnable is cleaned up after 'run' finishes
-        self.setAutoDelete(True)
 
     def stop(self):
         """Signals the worker to stop."""
-        self._is_cancelled = True
+        self.cancel()
 
-    @gc_disabled_run
-    @Slot()
-    def run(self):
-        if self._is_cancelled:
+    def _execute(self) -> object:
+        if self._cancelled:
             return
         try:
             # 1. Check Disk Cache
@@ -75,19 +71,19 @@ class VideoLoaderWorker(QRunnable):
             if image and not image.isNull():
                 # 3. Save to Disk Cache
                 image.save(cache_path, "JPG")  # pyrefly: ignore [no-matching-overload]
-                if self._is_cancelled:
+                if self._cancelled:
                     return
                 self._safe_emit(self.path, image)
             else:
-                if not self._is_cancelled:
+                if not self._cancelled:
                     self._safe_emit(self.path, QImage())
         except Exception:
-            if not self._is_cancelled:
+            if not self._cancelled:
                 self._safe_emit(self.path, QImage())
         finally:
-            if Shiboken.isValid(self.signals):
-                self.signals.deleteLater()
+            if Shiboken.isValid(self.stream):
+                self.stream.deleteLater()
 
     def _safe_emit(self, path, image):
         with contextlib.suppress(RuntimeError):
-            self.signals.result.emit(path, image)
+            self.stream.result.emit(path, image)

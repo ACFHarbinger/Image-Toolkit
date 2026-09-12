@@ -1,6 +1,7 @@
 from unittest.mock import MagicMock, patch
 
 import numpy as np
+from PySide6.QtGui import QImage
 
 from gui.src.helpers.image.batch_image_loader_worker import BatchImageLoaderWorker
 from gui.src.helpers.image.image_loader_worker import ImageLoaderWorker
@@ -11,26 +12,26 @@ from gui.src.helpers.image.image_scan_worker import ImageScannerWorker
 
 class TestImageLoaderWorker:
     def test_run(self, q_app):
-        with patch("gui.src.helpers.image.image_loader_worker.QImage") as MockQImage:
-            mock_inst = MagicMock()
-            MockQImage.return_value = mock_inst
-            mock_inst.isNull.return_value = False
-            mock_inst.scaled.return_value = MagicMock()
+        loaded = QImage(1, 1, QImage.Format.Format_RGB32)
+        with patch.object(ImageLoaderWorker, "_load_via_qimagereader", return_value=loaded) as load:
 
             worker = ImageLoaderWorker("/tmp/fake.jpg", 100)
 
             # Catch signals
             results = []
-            worker.signals.result.connect(lambda p, px: results.append((p, px)))
+            worker.stream.result.connect(lambda p, px: results.append((p, px)))
 
             worker.run()
 
             assert len(results) == 1
             assert results[0][0] == "/tmp/fake.jpg"
-            mock_inst.scaled.assert_called()
+            assert not results[0][1].isNull()
+            load.assert_called_once_with("/tmp/fake.jpg", 100)
 
     def test_run_failure(self, q_app):
-        with patch("gui.src.helpers.image.image_loader_worker.QImage") as MockQImage:
+        with patch("gui.src.helpers.image.image_loader_worker.QImage") as MockQImage, patch.object(
+            ImageLoaderWorker, "_load_via_qimagereader", side_effect=RuntimeError
+        ):
             mock_inst = MagicMock()
             MockQImage.return_value = mock_inst
             mock_inst.isNull.return_value = True  # Load failed
@@ -38,7 +39,7 @@ class TestImageLoaderWorker:
             worker = ImageLoaderWorker("/tmp/bad.jpg", 100)
 
             results = []
-            worker.signals.result.connect(lambda p, px: results.append((p, px)))
+            worker.stream.result.connect(lambda p, px: results.append((p, px)))
 
             worker.run()
 
@@ -65,9 +66,9 @@ class TestImageScannerWorker:
             worker = ImageScannerWorker([str(d)])
 
             finished_signals = []
-            worker.scan_finished.connect(lambda r: finished_signals.append(r))
+            worker.finished.connect(lambda r: finished_signals.append(r))
 
-            worker.run_scan()
+            worker.run()  # directly, same thread — direct delivery
 
             assert len(finished_signals) == 1
             found = finished_signals[0]
@@ -78,12 +79,15 @@ class TestImageScannerWorker:
         worker = ImageScannerWorker([])
 
         error_signals = []
+        finished_signals = []
         worker.scan_error.connect(lambda e: error_signals.append(e))
+        worker.finished.connect(lambda r: finished_signals.append(r))
 
-        worker.run_scan()
+        worker.run()  # directly, same thread — direct delivery
 
         assert len(error_signals) == 1
         assert "No valid directories" in error_signals[0]
+        assert finished_signals == [None]
 
 
 class TestBatchImageLoaderWorker:
@@ -104,7 +108,7 @@ class TestBatchImageLoaderWorker:
 
             results = []
             # batch_result emits list of (path, QImage)
-            worker.signals.batch_result.connect(lambda res: results.append(res))
+            worker.stream.batch_result.connect(lambda res: results.append(res))
 
             worker.run()
 
@@ -128,7 +132,7 @@ class TestBatchImageLoaderWorker:
             worker = BatchImageLoaderWorker(paths, 100)
 
             results = []
-            worker.signals.batch_result.connect(lambda res: results.append(res))
+            worker.stream.batch_result.connect(lambda res: results.append(res))
 
             worker.run()
 

@@ -89,8 +89,8 @@ class _QmlHandlersMixin:
         self.status_label.setText("Starting conversion (QML)...") # pyrefly: ignore [missing-attribute]
 
         self.worker = ConversionWorker(config)
-        self.worker.progress_signal.connect(self.update_progress_bar)
-        self.worker.finished_signal.connect(self.on_conversion_done)
+        self.worker.progress.connect(self.update_progress_bar)
+        self.worker.finished.connect(self.on_conversion_done)
         self.worker.start()
 
 
