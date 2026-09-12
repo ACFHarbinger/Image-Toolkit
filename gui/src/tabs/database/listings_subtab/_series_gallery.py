@@ -18,10 +18,12 @@ from gui.src.constants.elements import _SORT_KEY_MAP
 from gui.src.elements.database.display.listing_card import _ListingCard
 from gui.src.theming.theme_api import qss
 
+from ._tab_bound import TabBoundController
+
 # sort_combo display text -> SearchRepo.filter_media's sort_key (DB.5).
 
 
-class _GalleryMixin:
+class SeriesListingsGalleryController(TabBoundController):
     """Filters/sorts entries via SearchRepo and rebuilds the card grid."""
 
     def _filtered_entries(self) -> List[Dict[str, Any]]:
@@ -167,12 +169,5 @@ class _GalleryMixin:
         self._listing_page = max(0, self._listing_page + delta)
         self._rebuild_gallery()
 
-    def resizeEvent(self, event):
-        super().resizeEvent(event)
-        self._resize_timer.start()
 
-    def showEvent(self, event):
-        super().showEvent(event)
-
-
-__all__ = ["_GalleryMixin", "_SORT_KEY_MAP"]
+__all__ = ["SeriesListingsGalleryController", "_SORT_KEY_MAP"]

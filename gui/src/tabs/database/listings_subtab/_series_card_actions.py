@@ -17,15 +17,14 @@ from send2trash import send2trash  # pyrefly: ignore [untyped-import]
 from gui.src.elements.database.dialog.advanced_search_dialog import _AdvancedSearchDialog
 
 from ....theming.theme_api import qss
+from ._tab_bound import TabBoundController
 
 
-class _CardActionsMixin:
+class SeriesListingsCardActionsController(TabBoundController):
     """Advanced search, per-card actions, and the gallery context menu."""
 
     def _on_advanced_search(self):
-        dialog = _AdvancedSearchDialog(
-            self, entries=self._entries, entities=self._all_entities
-        )
+        dialog = _AdvancedSearchDialog(self.tab, entries=self._entries, entities=self._all_entities)
         if self._advanced_search_criteria:
             dialog.load_criteria(self._advanced_search_criteria)
 
@@ -57,7 +56,7 @@ class _CardActionsMixin:
 
     def _on_card_delete_requested(self, entry_id: str):
         reply = QMessageBox.question(
-            self,
+            self.tab,
             "Confirm Delete",
             "Permanently remove this entry from your listings?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
@@ -74,7 +73,7 @@ class _CardActionsMixin:
         action_name = "Trash" if send_to_trash_enabled else "Permanent Delete"
 
         reply = QMessageBox.question(
-            self,
+            self.tab,
             f"Confirm {action_name} Image",
             f"Are you sure you want to move the image for this listing to {action_name}?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
@@ -100,9 +99,9 @@ class _CardActionsMixin:
                     self._detail.load_entry(entry, cached_entities=self._all_entities)
 
     def _show_gallery_context_menu(self, pos):
-        menu = QMenu(self)
+        menu = QMenu(self.tab)
         menu.setStyleSheet(qss("context_menu_dark"))
-        add_act = QAction("＋ Add New Content", self)
+        add_act = QAction("＋ Add New Content", self.tab)
         add_act.triggered.connect(self._on_add_new)
         menu.addAction(add_act)
         menu.exec(self.gallery_scroll.mapToGlobal(pos))
@@ -114,9 +113,7 @@ class _CardActionsMixin:
 
     @Slot(dict)
     def _on_entry_saved(self, entry: Dict[str, Any]):
-        idx = next(
-            (i for i, e in enumerate(self._entries) if e["id"] == entry["id"]), None
-        )
+        idx = next((i for i, e in enumerate(self._entries) if e["id"] == entry["id"]), None)
         if idx is not None:
             self._entries[idx] = entry
         else:
@@ -144,11 +141,9 @@ class _CardActionsMixin:
         self._load_data()
         self._rebuild_gallery()
         if self._selected_id:
-            entry = next(
-                (e for e in self._entries if e["id"] == self._selected_id), None
-            )
+            entry = next((e for e in self._entries if e["id"] == self._selected_id), None)
             if entry:
                 self._detail.load_entry(entry, cached_entities=self._all_entities)
 
 
-__all__ = ["_CardActionsMixin"]
+__all__ = ["SeriesListingsCardActionsController"]

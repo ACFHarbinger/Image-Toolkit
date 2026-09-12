@@ -28,14 +28,15 @@ from gui.src.elements.database.display.entity_detail_panel import _EntityDetailP
 from gui.src.styles import apply_shadow_effect
 
 from ....theming.theme_api import qss
+from ._tab_bound import TabBoundController
 
 
-class _UIBuilderMixin:
+class EntityListingsUIBuilder(TabBoundController):
     """Builds the toolbar, stats bar, and gallery/detail splitter."""
 
     def _build_ui(self) -> None:
         # ---- Root layout ----
-        root = QVBoxLayout(self)
+        root = QVBoxLayout(self.tab)
         root.setContentsMargins(12, 12, 12, 8)
         root.setSpacing(8)
 
@@ -234,4 +235,4 @@ class _UIBuilderMixin:
         self._resize_timer.setInterval(120)
 
 
-__all__ = ["_UIBuilderMixin"]
+__all__ = ["EntityListingsUIBuilder"]
