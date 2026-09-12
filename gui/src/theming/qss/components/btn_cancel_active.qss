@@ -1,0 +1,4 @@
+QPushButton {
+    color: $DARK_TEXT;
+    font-weight: bold;
+}

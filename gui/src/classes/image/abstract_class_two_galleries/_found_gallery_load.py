@@ -23,6 +23,7 @@ from PySide6.QtWidgets import QLabel
 from shiboken6 import Shiboken
 
 from gui.src.qt_object_guard import deleted_qobject_guard
+from gui.src.theming.theme_api import qss
 
 from ....helpers import BatchImageLoaderWorker, BatchVideoLoaderWorker, VideoLoaderWorker
 
@@ -87,7 +88,7 @@ class _FoundGalleryLoadMixin:
         self.found_loading_paths.add(path)
         worker = VideoLoaderWorker(path, self.thumbnail_size)
         worker.load_generation = self._load_generation
-        worker.signals.result.connect(self._on_found_image_loaded)
+        worker.stream.result.connect(self._on_found_image_loaded)
         self._active_workers.add(worker)
         self.thread_pool.start(worker)
 
@@ -146,7 +147,7 @@ class _FoundGalleryLoadMixin:
                     if img_label:
                         img_label.clear()
                         img_label.setText("No Thumbnail")
-                        img_label.setStyleSheet("border: 1px dashed #666; color: #999;")
+                        img_label.setStyleSheet(qss("gallery_card_no_thumbnail"))
                 else:
                     self.update_card_pixmap(widget, pixmap)
             except RuntimeError as exc:

@@ -11,6 +11,7 @@ from typing import List, Optional
 from PySide6.QtCore import Slot
 
 from ....styles import apply_shadow_effect
+from ....theming.theme_api import color
 from ._tab_bound import TabBoundController
 
 
@@ -26,7 +27,7 @@ class SearchFormatFiltersController(TabBoundController):
         # Theme QSS handles :checked/:hover states; no inline styles needed
         apply_shadow_effect(
             self.format_buttons[fmt],
-            color_hex="#000000",
+            color_hex=color("window_bg"),
             radius=8,
             x_offset=0,
             y_offset=3,
@@ -53,11 +54,7 @@ class SearchFormatFiltersController(TabBoundController):
             formats_str = self.input_formats_edit.text().strip()
             if not formats_str:
                 return None
-            return [
-                f.strip().lstrip(".").lower()
-                for f in formats_str.replace(",", " ").split()
-                if f.strip()
-            ]
+            return [f.strip().lstrip(".").lower() for f in formats_str.replace(",", " ").split() if f.strip()]
 
 
 _FormatFiltersMixin = SearchFormatFiltersController  # COMPAT(ui-arch-23): remove after callers drop the mixin name

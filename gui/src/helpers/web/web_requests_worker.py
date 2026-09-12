@@ -1,48 +1,49 @@
 from backend.src.web import WebRequestsLogic
-from PySide6.QtCore import QThread, Signal
+from PySide6.QtCore import Signal
 
-from gui.src.helpers.gc_safe import gc_disabled_run
+from gui.src.helpers.base import BaseQThreadWorker
 from gui.src.qt_event_bridge import QtEventBridge
 
 
-class WebRequestsWorker(QThread):
+class WebRequestsWorker(BaseQThreadWorker):
     status = Signal(str)  # status message
-    sig_finished = Signal(str)  # (message)
-    error = Signal(str)  # error message
+    finished = Signal(object)  # result message str, None on failure/cancel
 
     def __init__(self, config: dict):
         super().__init__()
         self.config = config
         self.logic = None
         # Bridges are QObjects: construct here on the GUI thread, attach in
-        # run() once the logic object exists (issue #529).
+        # _execute() once the logic object exists (issue #529).
         self._status_bridge = QtEventBridge(self.status.emit, parent=self)
-        self._error_bridge = QtEventBridge(self.error.emit, parent=self)
-        self._finished_bridge = QtEventBridge(self.sig_finished.emit, parent=self)
+        self._error_bridge = QtEventBridge(self._on_logic_error, parent=self)
+        self._finished_bridge = QtEventBridge(self._on_logic_finished, parent=self)
+        self._result_message: object = None
 
-    @gc_disabled_run
-    def run(self):
+    def _on_logic_error(self, message: str) -> None:
+        self.error.emit(RuntimeError(message))
+
+    def _on_logic_finished(self, message: str) -> None:
+        self._result_message = message
+
+    def _execute(self) -> object:
+        self.logic = WebRequestsLogic(self.config)
+
+        # Bridge backend Observables onto the GUI thread (issue #529).
+        self._status_bridge.attach(self.logic.on_status)
+        self._error_bridge.attach(self.logic.on_error)
+        self._finished_bridge.attach(self.logic.on_finished)
         try:
-            self.logic = WebRequestsLogic(self.config)
+            self.status.emit("Starting requests...")
 
-            # Bridge backend Observables onto the GUI thread (issue #529).
-            self._status_bridge.attach(self.logic.on_status)
-            self._error_bridge.attach(self.logic.on_error)
-            self._finished_bridge.attach(self.logic.on_finished)
-            try:
-                self.status.emit("Starting requests...")
+            # Run the main logic
+            self.logic.run()
+            return self._result_message
 
-                # Run the main logic
-                self.logic.run()
-
-            finally:
-                self._status_bridge.detach()
-                self._error_bridge.detach()
-                self._finished_bridge.detach()
-
-        except Exception as e:
-            self.error.emit(f"Critical Worker Error: {e}")
-            self.sig_finished.emit(f"Error: {e}")
+        finally:
+            self._status_bridge.detach()
+            self._error_bridge.detach()
+            self._finished_bridge.detach()
 
     def stop(self):
         """
@@ -51,3 +52,4 @@ class WebRequestsWorker(QThread):
         if self.logic:
             self.logic.stop()
         self.status.emit("Stop signal sent to logic.")
+        self.requestInterruption()

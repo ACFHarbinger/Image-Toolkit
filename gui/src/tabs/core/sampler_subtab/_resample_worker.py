@@ -9,7 +9,7 @@ from PySide6.QtCore import Slot
 from PySide6.QtWidgets import QMessageBox
 
 from ....helpers import SamplerWorker
-from ....styles import SHARED_BUTTON_STYLE
+from ....theming.theme_api import qss
 
 
 class _ResampleWorkerMixin:
@@ -54,7 +54,7 @@ class _ResampleWorkerMixin:
         if self.worker and self.worker.isRunning():
             self.worker.cancel()
             self.worker.wait()
-            self._on_done(0, "**Resampling cancelled**")
+            self._on_done((0, "**Resampling cancelled**"))
             return
 
         config = self._collect_config(use_selection)
@@ -63,7 +63,7 @@ class _ResampleWorkerMixin:
             return
 
         self.worker = SamplerWorker(config)
-        self.worker.sig_finished.connect(self._on_done)
+        self.worker.finished.connect(self._on_done)
         self.worker.error.connect(self._on_error)
         self.worker.progress_update.connect(self._on_progress)
 
@@ -72,9 +72,7 @@ class _ResampleWorkerMixin:
         cancel_btn = self.btn_selected if use_selection else self.btn_all
         cancel_btn.setEnabled(True)
         cancel_btn.setText("Cancel")
-        cancel_btn.setStyleSheet(
-            "QPushButton {  color: white; font-weight: bold; }"
-        )
+        cancel_btn.setStyleSheet(qss("btn_cancel_active"))
 
         n = len(config["files_to_process"])
         self.status_label.setText(f"Resampling {n} file(s)…") # pyrefly: ignore [missing-attribute]
@@ -88,13 +86,16 @@ class _ResampleWorkerMixin:
         pct = int(completed / total * 100) if total else 0
         self.status_label.setText(f"Resampling… {pct}% complete") # pyrefly: ignore [missing-attribute]
 
-    @Slot(int, str)
-    def _on_done(self, count: int, msg: str):
+    @Slot(object)
+    def _on_done(self, result):
+        if result is None:  # failure — error path already reported
+            return
+        count, msg = result
         self.btn_all.setEnabled(True)
         self.btn_all.setText("Resample All in Directory")
-        self.btn_all.setStyleSheet(SHARED_BUTTON_STYLE)
+        self.btn_all.setStyleSheet(qss("shared_button"))
         self.on_selection_changed()
-        self.btn_selected.setStyleSheet(SHARED_BUTTON_STYLE)
+        self.btn_selected.setStyleSheet(qss("shared_button"))
         self.progress_bar.hide()
         self.progress_bar.setValue(0)
         self.status_label.setText(msg) # pyrefly: ignore [missing-attribute]
@@ -103,7 +104,8 @@ class _ResampleWorkerMixin:
             QMessageBox.information(self, "Complete", msg)
 
     @Slot(str)
-    def _on_error(self, msg: str):
+    def _on_error(self, err):
+        msg = str(err)
         self._on_done(0, msg)
         QMessageBox.critical(self, "Error", msg)
 

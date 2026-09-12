@@ -18,9 +18,7 @@ class SearchGalleryCardsController(TabBoundController):
     """Gallery refresh/selection mapping onto the virtual dual gallery."""
 
     def create_gallery_label(self, path: str, size: int) -> QLabel:
-        return DraggableLabel(
-            path, size, selection_provider=lambda: self.selected_files
-        )
+        return DraggableLabel(path, size, selection_provider=lambda: self.selected_files)
 
     def _sync_selection_from_dual(self):
         self.selected_files = list(self.dual.selected_paths())

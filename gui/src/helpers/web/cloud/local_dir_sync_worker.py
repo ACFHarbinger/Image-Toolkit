@@ -7,7 +7,6 @@ unit-tested without a Qt event loop or real cloud credentials.
 
 from __future__ import annotations
 
-import gc
 import logging
 import os
 import time
@@ -16,7 +15,9 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from PySide6.QtCore import QThread, Signal
+from PySide6.QtCore import Signal
+
+from gui.src.helpers.base import BaseQThreadWorker
 
 logger = logging.getLogger(__name__)
 
@@ -245,7 +246,7 @@ class LocalDirSyncSignals:  # not a QObject — use the worker's signals directl
 # QThread worker
 # ---------------------------------------------------------------------------
 
-class LocalDirSyncWorker(QThread):
+class LocalDirSyncWorker(BaseQThreadWorker):
     """Bidirectional sync of ``~/.image-toolkit/`` ↔ remote ``.image-toolkit/``.
 
     Emits progress/status on the GUI thread via Qt signals.  The cyclic GC
@@ -272,7 +273,7 @@ class LocalDirSyncWorker(QThread):
 
     status = Signal(str)        # log line
     progress = Signal(int, int) # (done, total)
-    finished = Signal(bool, str, bool)  # (success, message, was_dry_run)
+    finished = Signal(object)  # (success, message, was_dry_run), None on failure/cancel
 
     def __init__(
         self,
@@ -285,7 +286,9 @@ class LocalDirSyncWorker(QThread):
         excludes: Tuple[str, ...] = (),
         parent=None,
     ) -> None:
-        super().__init__(parent)
+        super().__init__()
+        if parent is not None:
+            self.setParent(parent)
         self.auth_config = auth_config
         self.provider_text = provider_text
         self.local_root = local_root or (Path.home() / ".image-toolkit")
@@ -298,6 +301,7 @@ class LocalDirSyncWorker(QThread):
 
     def stop(self) -> None:
         self._cancelled = True
+        self.requestInterruption()
 
     # alias
     cancel = stop
@@ -306,92 +310,85 @@ class LocalDirSyncWorker(QThread):
         ts = time.strftime("[%H:%M:%S]")
         self.status.emit(f"{ts} {msg}")
 
-    def run(self) -> None:  # noqa: C901
-        was_enabled = gc.isenabled()
-        gc.disable()
-        try:
-            self._execute()
-        except Exception as exc:  # never let a QThread die without notifying the GUI
-            self.finished.emit(False, f"Local Directory Sync failed: {exc}", self.dry_run)
-        finally:
-            if was_enabled:
-                gc.enable()
-            self._client = None
-
     def _execute(self) -> None:  # noqa: C901
-        self._log("=== Local Directory Sync ===")
-        self._log(f"Local:  {self.local_root}")
-        self._log(f"Remote: {self.remote_folder} ({self.provider_text})")
-        self._log(f"Mode:   {'DRY RUN' if self.dry_run else 'LIVE'}")
-        self._log(f"Conflict policy: {self.conflict_policy.value}")
-
-        if not self.local_root.is_dir():
-            self.finished.emit(
-                False,
-                f"Local directory does not exist: {self.local_root}",
-                self.dry_run,
-            )
-            return
-
         try:
-            remote_listing = self._fetch_remote_listing()
-        except Exception as exc:
-            self.finished.emit(False, f"Failed to fetch remote listing: {exc}", self.dry_run)
-            return
+            self._log("=== Local Directory Sync ===")
+            self._log(f"Local:  {self.local_root}")
+            self._log(f"Remote: {self.remote_folder} ({self.provider_text})")
+            self._log(f"Mode:   {'DRY RUN' if self.dry_run else 'LIVE'}")
+            self._log(f"Conflict policy: {self.conflict_policy.value}")
 
-        if self._cancelled:
-            self.finished.emit(False, "Cancelled before sync.", self.dry_run)
-            return
-
-        engine = LocalDirSyncEngine(
-            local_root=self.local_root,
-            remote_listing=remote_listing,
-            conflict_policy=self.conflict_policy,
-            excludes=self.excludes,
-        )
-        plan = engine.build_plan()
-
-        total = len(plan.uploads) + len(plan.downloads)
-        self._log(
-            f"Plan: {len(plan.uploads)} uploads, {len(plan.downloads)} downloads, "
-            f"{len(plan.conflicts)} conflicts resolved, {len(plan.skipped)} skipped."
-        )
-
-        if self.dry_run:
-            self._log_plan(plan)
-            self.finished.emit(True, "Dry run complete — no files were changed.", self.dry_run)
-            return
-
-        done = 0
-        self.progress.emit(done, total)
-
-        # Uploads
-        for diff in plan.uploads:
-            if self._cancelled:
-                self.finished.emit(False, "Sync cancelled.", self.dry_run)
+            if not self.local_root.is_dir():
+                self.finished.emit(
+                    (
+                        False,
+                        f"Local directory does not exist: {self.local_root}",
+                        self.dry_run,
+                    )
+                )
                 return
+
             try:
-                self._upload(diff)
-                self._log(f"↑ {diff.relpath}")
+                remote_listing = self._fetch_remote_listing()
             except Exception as exc:
-                self._log(f"ERROR uploading {diff.relpath}: {exc}")
-            done += 1
+                self.finished.emit((False, f"Failed to fetch remote listing: {exc}", self.dry_run))
+                return
+
+            if self._cancelled:
+                self.finished.emit((False, "Cancelled before sync.", self.dry_run))
+                return
+
+            engine = LocalDirSyncEngine(
+                local_root=self.local_root,
+                remote_listing=remote_listing,
+                conflict_policy=self.conflict_policy,
+                excludes=self.excludes,
+            )
+            plan = engine.build_plan()
+
+            total = len(plan.uploads) + len(plan.downloads)
+            self._log(
+                f"Plan: {len(plan.uploads)} uploads, {len(plan.downloads)} downloads, "
+                f"{len(plan.conflicts)} conflicts resolved, {len(plan.skipped)} skipped."
+            )
+
+            if self.dry_run:
+                self._log_plan(plan)
+                self.finished.emit((True, "Dry run complete — no files were changed.", self.dry_run))
+                return
+
+            done = 0
             self.progress.emit(done, total)
 
-        # Downloads
-        for diff in plan.downloads:
-            if self._cancelled:
-                self.finished.emit(False, "Sync cancelled.", self.dry_run)
-                return
-            try:
-                self._download(diff)
-                self._log(f"↓ {diff.relpath}")
-            except Exception as exc:
-                self._log(f"ERROR downloading {diff.relpath}: {exc}")
-            done += 1
-            self.progress.emit(done, total)
+            # Uploads
+            for diff in plan.uploads:
+                if self._cancelled:
+                    self.finished.emit((False, "Sync cancelled.", self.dry_run))
+                    return
+                try:
+                    self._upload(diff)
+                    self._log(f"↑ {diff.relpath}")
+                except Exception as exc:
+                    self._log(f"ERROR uploading {diff.relpath}: {exc}")
+                done += 1
+                self.progress.emit(done, total)
 
-        self.finished.emit(True, f"Sync complete — {total} files transferred.", self.dry_run)
+            # Downloads
+            for diff in plan.downloads:
+                if self._cancelled:
+                    self.finished.emit((False, "Sync cancelled.", self.dry_run))
+                    return
+                try:
+                    self._download(diff)
+                    self._log(f"↓ {diff.relpath}")
+                except Exception as exc:
+                    self._log(f"ERROR downloading {diff.relpath}: {exc}")
+                done += 1
+                self.progress.emit(done, total)
+
+            self.finished.emit((True, f"Sync complete — {total} files transferred.", self.dry_run))
+        finally:
+            self._client = None
 
     def _log_plan(self, plan: SyncPlan) -> None:
         if plan.uploads:

@@ -1,0 +1,1 @@
+QFrame { background-color: $DARK_SECONDARY_BG; border: 1px solid #d29922; border-radius: 6px; padding: 8px; }

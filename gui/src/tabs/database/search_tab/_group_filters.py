@@ -43,11 +43,7 @@ class SearchGroupFiltersController(TabBoundController):
         for name in group_list:
             item = QListWidgetItem(name)
             item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
-            item.setCheckState(
-                Qt.CheckState.Checked
-                if name in previously_checked
-                else Qt.CheckState.Unchecked
-            )
+            item.setCheckState(Qt.CheckState.Checked if name in previously_checked else Qt.CheckState.Unchecked)
             self.groups_list_widget.addItem(item)
         self.groups_list_widget.blockSignals(False)
         self._refresh_subgroups_display()
@@ -81,11 +77,7 @@ class SearchGroupFiltersController(TabBoundController):
             # Store raw subgroup name as user data for search query
             item.setData(Qt.ItemDataRole.UserRole, sub_name)
             item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
-            item.setCheckState(
-                Qt.CheckState.Checked
-                if sub_name in previously_checked
-                else Qt.CheckState.Unchecked
-            )
+            item.setCheckState(Qt.CheckState.Checked if sub_name in previously_checked else Qt.CheckState.Unchecked)
             self.subgroups_list_widget.addItem(item)
         self.subgroups_list_widget.blockSignals(False)
 
@@ -114,11 +106,7 @@ class SearchGroupFiltersController(TabBoundController):
         self.groups_list_widget.blockSignals(True)
         for i in range(self.groups_list_widget.count()):
             item = self.groups_list_widget.item(i)
-            item.setCheckState(
-                Qt.CheckState.Checked
-                if item.text() == group_name
-                else Qt.CheckState.Unchecked
-            )
+            item.setCheckState(Qt.CheckState.Checked if item.text() == group_name else Qt.CheckState.Unchecked)
         self.groups_list_widget.blockSignals(False)
         self._refresh_subgroups_display()
         self.filename_edit.clear()

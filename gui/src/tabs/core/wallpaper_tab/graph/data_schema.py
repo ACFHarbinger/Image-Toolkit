@@ -1,6 +1,8 @@
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
+from .....theming.theme_api import color
+
 
 @dataclass
 class NodeData:
@@ -31,7 +33,7 @@ class GraphData:
     nodes: Dict[str, NodeData] = field(default_factory=dict)
     edges: List[EdgeData] = field(default_factory=list)
     end_behavior: str = "repeat_graph"
-    end_color: str = "#000000"
+    end_color: str = field(default_factory=lambda: color("window_bg"))
     end_jump_node_id: Optional[str] = None
     basis_node_id: Optional[str] = None  # starting node of the slideshow
 
@@ -104,7 +106,7 @@ class GraphData:
     def from_dict(d: dict) -> "GraphData":
         g = GraphData()
         g.end_behavior = d.get("end_behavior", "repeat_graph")
-        g.end_color = d.get("end_color", "#000000")
+        g.end_color = d.get("end_color", color("window_bg"))
         g.end_jump_node_id = d.get("end_jump_node_id")
         g.basis_node_id = d.get("basis_node_id")
         for nid, nd in d.get("nodes", {}).items():

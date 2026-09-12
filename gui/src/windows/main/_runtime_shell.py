@@ -42,6 +42,8 @@ class _RuntimeShellMixin:
             services=self.module_services,
             preference_store=preference_store,
             account_id=self.cached_creds.get("account_name"),
+            dropdown=dropdown,
+            enable_manager=enable_manager,
         )
         self.module_runtime = ModuleRuntime(self.module_catalog, self.module_context)
         self.runtime_shell_container = QWidget(self)

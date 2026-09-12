@@ -33,6 +33,7 @@ from PySide6.QtWidgets import (
 )
 
 from ....styles import apply_shadow_effect
+from ....theming.theme_api import color, qss
 from ._clickable_label import _ClickableImageLabel
 
 
@@ -55,7 +56,7 @@ class _UIBuilderMixin:
         ds_row.addWidget(btn_ds)
         self.btn_build = QPushButton("Build Identity Index")
         self.btn_build.clicked.connect(self._build_index)
-        apply_shadow_effect(self.btn_build, "#000000", 8, 0, 3)
+        apply_shadow_effect(self.btn_build, color("window_bg"), 8, 0, 3)
         ds_row.addWidget(self.btn_build)
         cfg_form.addRow("Dataset root:", ds_row)
 
@@ -111,12 +112,12 @@ class _UIBuilderMixin:
         src_btns.addWidget(btn_load)
         self.btn_resolve = QPushButton("Resolve Identity")
         self.btn_resolve.clicked.connect(self._resolve)
-        apply_shadow_effect(self.btn_resolve, "#000000", 8, 0, 3)
+        apply_shadow_effect(self.btn_resolve, color("window_bg"), 8, 0, 3)
         src_btns.addWidget(self.btn_resolve)
         left_v.addLayout(src_btns)
         self.hint_label = QLabel("Click a subject in the image to segment it, or Resolve the whole frame.")
         self.hint_label.setWordWrap(True)
-        self.hint_label.setStyleSheet("color: #99aab5; font-size: 11px;")
+        self.hint_label.setStyleSheet(qss("entity_recon_hint"))
         left_v.addWidget(self.hint_label)
         splitter.addWidget(left)
 
@@ -127,7 +128,7 @@ class _UIBuilderMixin:
         card = QGroupBox()
         card_v = QVBoxLayout(card)
         self.name_label = QLabel("—")
-        self.name_label.setStyleSheet("font-size: 20px; font-weight: bold; color: #ffffff;")
+        self.name_label.setStyleSheet(qss("entity_recon_title"))
         self.name_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         card_v.addWidget(self.name_label)
         self.conf_bar = QProgressBar()
@@ -137,11 +138,11 @@ class _UIBuilderMixin:
         card_v.addWidget(self.conf_bar)
         self.method_label = QLabel("Method: —")
         self.method_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.method_label.setStyleSheet("color: #b9bbbe;")
+        self.method_label.setStyleSheet(qss("entity_recon_meta"))
         card_v.addWidget(self.method_label)
         self.origin_label = QLabel("Origin: —")
         self.origin_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.origin_label.setStyleSheet("color: #b9bbbe;")
+        self.origin_label.setStyleSheet(qss("entity_recon_meta"))
         card_v.addWidget(self.origin_label)
         card_v.addStretch(1)
         exp_row = QHBoxLayout()
@@ -208,7 +209,7 @@ class _UIBuilderMixin:
         root.addWidget(batch_group)
 
         self.status_label = QLabel("Ready. Build an identity index to begin.")
-        self.status_label.setStyleSheet("color: #b9bbbe;")
+        self.status_label.setStyleSheet(qss("entity_recon_meta"))
         root.addWidget(self.status_label)
 
 
