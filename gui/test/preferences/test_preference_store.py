@@ -126,7 +126,7 @@ class TestVaultPreferenceAdapter:
     def test_set_persists_through_attached_vault_manager(self):
         """#525 cross-review: a write must survive restart, not just be
         visible to an immediate in-process read. Reproduces the real
-        VaultManager.save_data(json_string) contract with a fake disk.
+        VaultManager.save_account_snapshot(credentials) contract with a fake disk.
         """
         import json
 
@@ -136,8 +136,8 @@ class TestVaultPreferenceAdapter:
             def __init__(self):
                 self.disk: str | None = None
 
-            def save_data(self, json_string: str) -> None:
-                self.disk = json_string
+            def save_account_snapshot(self, credentials: dict) -> None:
+                self.disk = json.dumps(credentials)
 
         vault = FakeVaultManager()
         adapter = VaultPreferenceAdapter(
@@ -168,10 +168,8 @@ class TestVaultPreferenceAdapter:
                 self.disk_writes = 0
                 self._memory: dict = {}
 
-            def save_data(self, json_string: str) -> None:
-                import json as _json
-
-                self._memory = _json.loads(json_string)
+            def save_account_snapshot(self, credentials: dict) -> None:
+                self._memory = credentials
                 # Guest mode: never increments disk_writes / touches real disk.
 
         vault = FakeGuestVaultManager()
@@ -215,8 +213,8 @@ class TestPreferenceStoreVaultWiring:
             def __init__(self):
                 self.disk: str | None = None
 
-            def save_data(self, json_string: str) -> None:
-                self.disk = json_string
+            def save_account_snapshot(self, credentials: dict) -> None:
+                self.disk = json.dumps(credentials)
 
         store = PreferenceStore(lazy_adapters=True)
         store.register_adapter(PreferenceScope.DEVICE, MemoryPreferenceAdapter())

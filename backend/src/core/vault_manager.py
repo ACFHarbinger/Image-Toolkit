@@ -388,6 +388,10 @@ class VaultManager:
                 raise RuntimeError(f"Failed to save data: {_CryptoAPI.last_error()}")
             print("Data saved successfully.", file=sys.stderr)
 
+    def save_account_snapshot(self, credentials: dict) -> None:
+        """Persist a complete account snapshot at the vault boundary only."""
+        self.save_data(json.dumps(credentials))
+
     def load_data(self) -> str:
         """
         Loads and decrypts the JSON string from the vault (or volatile memory in Guest mode).

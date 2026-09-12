@@ -6,8 +6,6 @@ Extracted as its own mixin -- new feature, not code motion.
 
 from __future__ import annotations
 
-import json
-
 from PySide6.QtWidgets import QDialog, QDialogButtonBox, QLabel, QLineEdit, QMessageBox, QVBoxLayout
 
 
@@ -81,7 +79,7 @@ class _SaveTabConfigMixin:
             tab_configurations.setdefault(tab_class_name, {})[config_name] = config_data
             creds["tab_configurations"] = tab_configurations
 
-            self.vault_manager.save_data(json.dumps(creds))
+            self.vault_manager.save_account_snapshot(creds)
             self._refresh_account_credentials(creds)
 
             QMessageBox.information(
