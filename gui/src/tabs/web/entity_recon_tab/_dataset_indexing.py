@@ -58,6 +58,4 @@ class EntityReconDatasetController(TabBoundController):
         self._set_status(f"Index ready: {stats.get('indexed', 0)} images, {stats.get('labels', 0)} identities.")
 
 
-_DatasetIndexingMixin = EntityReconDatasetController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
-
-__all__ = ["EntityReconDatasetController", "_DatasetIndexingMixin"]
+__all__ = ["EntityReconDatasetController"]

@@ -37,6 +37,4 @@ class EntityReconConfigController(TabBoundController):
         self._set_status(msg)
 
 
-_ConfigMixin = EntityReconConfigController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
-
-__all__ = ["EntityReconConfigController", "_ConfigMixin"]
+__all__ = ["EntityReconConfigController"]

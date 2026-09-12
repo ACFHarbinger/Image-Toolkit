@@ -75,6 +75,4 @@ class EntityReconSourceController(TabBoundController):
         self.image_label.set_source_pixmap(pix, w, h)
 
 
-_SourceImageMixin = EntityReconSourceController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
-
-__all__ = ["EntityReconSourceController", "_SourceImageMixin"]
+__all__ = ["EntityReconSourceController"]

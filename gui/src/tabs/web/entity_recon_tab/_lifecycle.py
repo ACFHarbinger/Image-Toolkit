@@ -21,6 +21,4 @@ class EntityReconLifecycleController(TabBoundController):
         self.cancel_loading()
 
 
-_LifecycleMixin = EntityReconLifecycleController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
-
-__all__ = ["EntityReconLifecycleController", "_LifecycleMixin"]
+__all__ = ["EntityReconLifecycleController"]
