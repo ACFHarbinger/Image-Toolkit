@@ -11,19 +11,20 @@ import platform
 import shutil
 import subprocess
 import tempfile
-from typing import TYPE_CHECKING, List, Optional, Tuple, cast
+from typing import TYPE_CHECKING, List, Optional, Tuple
 
 from backend.src.constants import SUPPORTED_VIDEO_FORMATS
 from PySide6.QtCore import QTimer, Slot
-from PySide6.QtWidgets import QMessageBox, QWidget
+from PySide6.QtWidgets import QMessageBox
 
+from ._tab_bound import TabBoundController
 from ._traversal import _build_traversal
 
 if TYPE_CHECKING:
     from ...protos.monitor_display_subtab import MonitorDisplaySubTabHostProtocol
 
 
-class _PreviewMixin:
+class MonitorDisplayPreviewController(TabBoundController):
     """Generate + open a temporary concatenated preview video of the graph traversal."""
 
     _preview_tmp_dir: "Optional[str]"
@@ -35,13 +36,17 @@ class _PreviewMixin:
             return
         seq = _build_traversal(graph)
         if not seq:
-            QMessageBox.information(cast(QWidget, self), "Empty Sequence",
-                                    "Add nodes and edges to build a sequence before previewing.")
+            QMessageBox.information(
+                self.tab, "Empty Sequence", "Add nodes and edges to build a sequence before previewing."
+            )
             return
         if not shutil.which("ffmpeg"):
-            QMessageBox.warning(cast(QWidget, self), "ffmpeg Not Found",
-                                "ffmpeg must be installed to generate a preview video.\n"
-                                "Install it via your package manager (e.g. sudo apt install ffmpeg).")
+            QMessageBox.warning(
+                self.tab,
+                "ffmpeg Not Found",
+                "ffmpeg must be installed to generate a preview video.\n"
+                "Install it via your package manager (e.g. sudo apt install ffmpeg).",
+            )
             return
 
         # Clean up previous temp dir
@@ -61,31 +66,52 @@ class _PreviewMixin:
             segment_paths = []
             resolution = "1280:720"
             vf_pad = (
-                f"scale={resolution}:force_original_aspect_ratio=decrease,"
-                f"pad={resolution}:(ow-iw)/2:(oh-ih)/2:black"
+                f"scale={resolution}:force_original_aspect_ratio=decrease,pad={resolution}:(ow-iw)/2:(oh-ih)/2:black"
             )
 
             for i, (fp, dur) in enumerate(seq):
                 seg = os.path.join(tmp, f"seg{i:04d}.mp4")
                 ext = os.path.splitext(fp)[1].lower()
                 if ext in SUPPORTED_VIDEO_FORMATS:
-                    cmd = ["ffmpeg", "-y", "-i", fp,
-                           "-t", str(dur),
-                           "-vf", vf_pad,
-                           "-c:v", "libx264", "-pix_fmt", "yuv420p",
-                           "-an", seg]
+                    cmd = [
+                        "ffmpeg",
+                        "-y",
+                        "-i",
+                        fp,
+                        "-t",
+                        str(dur),
+                        "-vf",
+                        vf_pad,
+                        "-c:v",
+                        "libx264",
+                        "-pix_fmt",
+                        "yuv420p",
+                        "-an",
+                        seg,
+                    ]
                 else:
-                    cmd = ["ffmpeg", "-y",
-                           "-loop", "1", "-i", fp,
-                           "-t", str(dur),
-                           "-vf", vf_pad,
-                           "-c:v", "libx264", "-pix_fmt", "yuv420p",
-                           "-an", seg]
+                    cmd = [
+                        "ffmpeg",
+                        "-y",
+                        "-loop",
+                        "1",
+                        "-i",
+                        fp,
+                        "-t",
+                        str(dur),
+                        "-vf",
+                        vf_pad,
+                        "-c:v",
+                        "libx264",
+                        "-pix_fmt",
+                        "yuv420p",
+                        "-an",
+                        seg,
+                    ]
                 result = subprocess.run(cmd, capture_output=True, timeout=120)
                 if result.returncode != 0:
                     raise RuntimeError(
-                        f"ffmpeg failed on segment {i}:\n"
-                        + result.stderr.decode(errors="replace")[-500:]
+                        f"ffmpeg failed on segment {i}:\n" + result.stderr.decode(errors="replace")[-500:]
                     )
                 segment_paths.append(seg)
 
@@ -94,18 +120,14 @@ class _PreviewMixin:
                     f.write(f"file '{sp}'\n")
 
             out_path = os.path.join(tmp, "preview.mp4")
-            cmd = ["ffmpeg", "-y", "-f", "concat", "-safe", "0",
-                   "-i", concat_list, "-c", "copy", out_path]
+            cmd = ["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", concat_list, "-c", "copy", out_path]
             result = subprocess.run(cmd, capture_output=True, timeout=120)
             if result.returncode != 0:
-                raise RuntimeError(
-                    "ffmpeg concat failed:\n"
-                    + result.stderr.decode(errors="replace")[-500:]
-                )
+                raise RuntimeError("ffmpeg concat failed:\n" + result.stderr.decode(errors="replace")[-500:])
 
             self._open_file(out_path)
         except Exception as e:
-            QMessageBox.critical(cast(QWidget, self), "Preview Error", f"Failed to generate preview:\n{e}")
+            QMessageBox.critical(self.tab, "Preview Error", f"Failed to generate preview:\n{e}")
         finally:
             self._btn_preview.setText("▶ Preview Timelapse")
             self._btn_preview.setEnabled(True)
@@ -120,10 +142,10 @@ class _PreviewMixin:
             elif sys_name == "Darwin":
                 subprocess.Popen(["open", path])
             else:
-                subprocess.Popen(["xdg-open", path],
-                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                subprocess.Popen(["xdg-open", path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         except Exception as e:
-            QMessageBox.warning(cast(QWidget, self), "Open Error", f"Could not open preview:\n{path}\n{e}")
+            QMessageBox.warning(self.tab, "Open Error", f"Could not open preview:\n{path}\n{e}")
 
 
-__all__ = ["_PreviewMixin"]
+__all__ = ["MonitorDisplayPreviewController"]
+

@@ -22,6 +22,13 @@
   writes do not dispose. LRU idle-eviction remains gated on a live 3-vs-8
   RSS measurement (DS-5); no threshold invented.
 
+# S559 — 2026-09-12 (Grok: #544 Wallpaper System/Monitor composition, resynced)
+
+- `SystemDisplaySubTab` / `MonitorDisplaySubTab` inherit `WallpaperCommonBase`
+  only. Mixins are composed `TabBoundController`s; Qt overrides stay on the
+  tab. Theme tokens (`qss`/`color`) kept from R2.b; worker `finished(object)`
+  relay kept from R1.1. D12-gated.
+
 # S552 — 2026-09-11 (Cursor: #544 listings composition)
 
 - `EntityListingsSubTab` / `SeriesListingsSubTab` inherit `ListingGalleryBase`

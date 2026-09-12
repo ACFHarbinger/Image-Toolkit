@@ -7,7 +7,7 @@ convention (§5.17).
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional, cast
+from typing import TYPE_CHECKING, Optional
 
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import (
@@ -29,12 +29,13 @@ from PySide6.QtWidgets import (
 from .....components.tag_chip_widget import FlowLayout
 from .....styles import apply_shadow_effect, set_button_role
 from .....theming.theme_api import color, qss
+from ._tab_bound import TabBoundController
 
 if TYPE_CHECKING:
     from ...protos.system_display_subtab import SystemDisplaySubTabHostProtocol
 
 
-class SystemDisplayUIBuilder:
+class SystemDisplayUIBuilder(TabBoundController):
     """Builds the scrollable content area: monitor layout, settings, gallery, action bar."""
 
     gallery_layout: Optional[QGridLayout]
@@ -49,16 +50,16 @@ class SystemDisplayUIBuilder:
         self.main_scroll_area.setWidgetResizable(True)
         self.main_scroll_area.setWidget(content_widget)
 
-        main_layout = QVBoxLayout(cast(QWidget, self))
+        main_layout = QVBoxLayout(self.tab)
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.addWidget(self.main_scroll_area)
-        cast(QWidget, self).setLayout(main_layout)
+        self.tab.setLayout(main_layout)
 
-        cast(QWidget, self).setAcceptDrops(True)
+        self.tab.setAcceptDrops(True)
 
         app = QApplication.instance()
         if app is not None:
-            self_widget = cast(QWidget, self)
+            self_widget = self.tab
             app.installEventFilter(self_widget)
             # Nothing calls removeEventFilter on a plain deleteLater()/GC
             # teardown (only close() runs closeEvent), so also drop the
