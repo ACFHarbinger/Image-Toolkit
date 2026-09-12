@@ -109,6 +109,4 @@ class EntityReconIdentityController(TabBoundController):
             logger.warning("open_in_file_manager failed: %s", e)
 
 
-_IdentityResolutionMixin = EntityReconIdentityController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
-
-__all__ = ["EntityReconIdentityController", "_IdentityResolutionMixin"]
+__all__ = ["EntityReconIdentityController"]

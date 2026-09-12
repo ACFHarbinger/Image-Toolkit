@@ -76,6 +76,4 @@ class EntityReconBatchController(TabBoundController):
         self._set_status(f"Moved {moved} images into identity folders.")
 
 
-_BatchBuilderMixin = EntityReconBatchController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
-
-__all__ = ["EntityReconBatchController", "_BatchBuilderMixin"]
+__all__ = ["EntityReconBatchController"]

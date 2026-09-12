@@ -63,6 +63,4 @@ class EntityReconWorkerController(TabBoundController):
         self._set_status(f"Error: {exc}")
 
 
-_WorkerPlumbingMixin = EntityReconWorkerController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
-
-__all__ = ["EntityReconWorkerController", "_WorkerPlumbingMixin"]
+__all__ = ["EntityReconWorkerController"]

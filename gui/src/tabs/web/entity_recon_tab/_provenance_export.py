@@ -32,6 +32,4 @@ class EntityReconExportController(TabBoundController):
             QMessageBox.critical(self.tab, "Export Failed", str(e))
 
 
-_ProvenanceExportMixin = EntityReconExportController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
-
-__all__ = ["EntityReconExportController", "_ProvenanceExportMixin"]
+__all__ = ["EntityReconExportController"]

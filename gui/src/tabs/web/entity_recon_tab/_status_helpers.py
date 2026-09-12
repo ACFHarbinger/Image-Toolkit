@@ -20,6 +20,4 @@ class EntityReconStatusController(TabBoundController):
         self.btn_resolve.setEnabled(not busy)
 
 
-_StatusHelpersMixin = EntityReconStatusController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
-
-__all__ = ["EntityReconStatusController", "_StatusHelpersMixin"]
+__all__ = ["EntityReconStatusController"]

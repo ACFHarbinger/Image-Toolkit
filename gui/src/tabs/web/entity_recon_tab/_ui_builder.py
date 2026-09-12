@@ -207,6 +207,4 @@ class EntityReconUIBuilder(TabBoundController):
         root.addWidget(self.status_label)
 
 
-_UIBuilderMixin = EntityReconUIBuilder  # COMPAT(ui-arch-23): remove after callers drop the mixin name
-
-__all__ = ["EntityReconUIBuilder", "_UIBuilderMixin"]
+__all__ = ["EntityReconUIBuilder"]

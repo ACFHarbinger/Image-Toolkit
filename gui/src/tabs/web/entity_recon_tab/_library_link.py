@@ -149,6 +149,4 @@ class EntityReconLibraryLinkController(TabBoundController):
         return entity_repo.save_entity({"name": name})
 
 
-_LibraryLinkMixin = EntityReconLibraryLinkController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
-
-__all__ = ["EntityReconLibraryLinkController", "_LibraryLinkMixin"]
+__all__ = ["EntityReconLibraryLinkController"]
