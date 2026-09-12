@@ -17,16 +17,12 @@ class DriveSyncBrowsersController(TabBoundController):
     """Browse dialogs for the auth key files and the local sync directory."""
 
     def browse_key_file(self):
-        path, _ = QFileDialog.getOpenFileName(
-            self.tab, "Select Service Account Key", str(Path.home()), "JSON (*.json)"
-        )
+        path, _ = QFileDialog.getOpenFileName(self.tab, "Select Service Account Key", str(Path.home()), "JSON (*.json)")
         if path:
             self.key_file_path.setText(path)
 
     def browse_client_secrets_file(self):
-        path, _ = QFileDialog.getOpenFileName(
-            self.tab, "Select Client Secrets File", str(Path.home()), "JSON (*.json)"
-        )
+        path, _ = QFileDialog.getOpenFileName(self.tab, "Select Client Secrets File", str(Path.home()), "JSON (*.json)")
         if path:
             self.client_secrets_path.setText(path)
 
@@ -41,9 +37,7 @@ class DriveSyncBrowsersController(TabBoundController):
 
     def browse_directory(self, line_edit: Optional[QLineEdit] = None):
         line_edit = line_edit or self.local_path
-        dir_ = QFileDialog.getExistingDirectory(
-            self.tab, "Select Folder", line_edit.text() or str(Path.home())
-        )
+        dir_ = QFileDialog.getExistingDirectory(self.tab, "Select Folder", line_edit.text() or str(Path.home()))
         if dir_:
             line_edit.setText(dir_)
 

@@ -1,0 +1,1 @@
+QLineEdit, QComboBox { background-color: $DARK_SECONDARY_BG; color: $DARK_TEXT; border: 1px solid $DARK_BORDER; border-radius: 4px; padding: 4px; }

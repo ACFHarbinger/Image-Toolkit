@@ -150,9 +150,9 @@ class DriveSyncTab(QWidget):
     def handle_status_update(self, msg: str):
         return self.sync_worker_controller.handle_status_update(msg)
 
-    @Slot(bool, str, bool)
-    def handle_sync_finished(self, success: bool, message: str, was_dry_run: bool):
-        return self.sync_worker_controller.handle_sync_finished(success, message, was_dry_run)
+    @Slot(object)
+    def handle_sync_finished(self, result):
+        return self.sync_worker_controller.handle_sync_finished(result)
 
     # ------------------------------------------------------------------
     # UI lock facade

@@ -39,6 +39,7 @@ from PySide6.QtWidgets import (
 
 from gui.src.constants.components import _PREVIEW_MAX
 from gui.src.helpers.models.tag_review_worker import TagReviewWorker
+from gui.src.theming.theme_api import qss
 
 
 class TagReviewDialog(QDialog):
@@ -70,9 +71,11 @@ class TagReviewDialog(QDialog):
             review_thresh=review_thresh,
             model_repo=model_repo,
         )
+        self._failed = False
         self._worker.sig_progress.connect(self._on_progress)
         self._worker.sig_result.connect(self._on_result)
-        self._worker.sig_finished.connect(self._on_tagging_finished)
+        self._worker.sig_item_error.connect(self._on_item_error)
+        self._worker.finished.connect(self._on_tagging_finished)
         self._worker.error.connect(self._on_error)
         self._worker.start()
 
@@ -95,7 +98,7 @@ class TagReviewDialog(QDialog):
         self._preview_label = QLabel()
         self._preview_label.setFixedSize(_PREVIEW_MAX, _PREVIEW_MAX)
         self._preview_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._preview_label.setStyleSheet("background: #111;")
+        self._preview_label.setStyleSheet(qss("tag_review_preview"))
         top.addWidget(self._preview_label)
 
         self._tags_box = QGroupBox("Predicted tags")
@@ -152,10 +155,17 @@ class TagReviewDialog(QDialog):
         self._entries[path] = list(entries)
         self._order.append(path)
 
-    def _on_error(self, message: str):
+    def _on_item_error(self, message: str):
         QMessageBox.warning(self, "Tag Review", message)
 
-    def _on_tagging_finished(self):
+    def _on_error(self, err):
+        self._failed = True
+        QMessageBox.warning(self, "Tag Review", str(err))
+
+    def _on_tagging_finished(self, _result=None):
+        if self._failed:  # fatal error already reported — just close
+            self.reject()
+            return
         self._progress_label.setText(f"{len(self._order)} image(s) ready for review.")
         self._progress_bar.setVisible(False)
         if not self._order:

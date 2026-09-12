@@ -16,6 +16,7 @@ from PySide6.QtWidgets import QGraphicsScene, QGraphicsView, QMenu
 
 from gui.src.components.containers.canvas_base import CanvasBase
 from gui.src.components.elements.merge_canvas_item import MergeCanvasItem
+from gui.src.theming.theme_api import color, qss
 
 
 class MergeCanvas(CanvasBase):
@@ -35,8 +36,8 @@ class MergeCanvas(CanvasBase):
             0,
             canvas_w,
             canvas_h,
-            QPen(QColor("#5865f2"), 2),
-            QBrush(QColor("#2c2f33")),
+            QPen(QColor(color("accent")), 2),
+            QBrush(QColor(color("surface"))),
         )
         self._bg.setZValue(-1)
 
@@ -45,9 +46,7 @@ class MergeCanvas(CanvasBase):
             QPainter.RenderHint.Antialiasing | QPainter.RenderHint.SmoothPixmapTransform
         )
         self.setDragMode(QGraphicsView.DragMode.RubberBandDrag)
-        self.setStyleSheet(
-            "QGraphicsView { border: 1px solid #4f545c; background-color: #1a1c1e; border-radius: 8px; }"
-        )
+        self.setStyleSheet(qss("merge_canvas_view"))
         self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
         self.setResizeAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)

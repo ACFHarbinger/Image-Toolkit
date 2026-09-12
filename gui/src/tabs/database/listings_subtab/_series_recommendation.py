@@ -14,20 +14,22 @@ from PySide6.QtWidgets import QDialog, QMessageBox
 from gui.src.elements.database.dialog.recommendation_dialog import _RecommendationDialog
 from gui.src.helpers.database.recommendation_worker import RecommendationWorker
 
+from ._tab_bound import TabBoundController
 
-class _RecommendationMixin:
+
+class SeriesListingsRecommendationController(TabBoundController):
     """Runs the recommendation worker and applies/clears its results."""
 
     def _on_recommend_content(self) -> None:
         if not self.vault_manager or not self.vault_manager.raw_password:
             QMessageBox.information(
-                self,
+                self.tab,
                 "Secure Access Required",
                 "You must be logged in to get personalized recommendations.",
             )
             return
 
-        dlg = _RecommendationDialog(self)
+        dlg = _RecommendationDialog(self.tab)
         if dlg.exec() == QDialog.DialogCode.Accepted:
             self._run_recommendation(dlg.get_inputs())
 
@@ -35,7 +37,7 @@ class _RecommendationMixin:
         old = self._active_rec_worker
         if old is not None:
             with contextlib.suppress(Exception):
-                old.sig_finished.disconnect()
+                old.finished.disconnect()
                 old.error.disconnect()
                 old.status.disconnect()
             if old.isRunning():
@@ -47,19 +49,19 @@ class _RecommendationMixin:
             all_entities=self._all_entities,
             inputs=inputs,
             top_k=50,
-            parent=self,
+            parent=self.tab,
         )
-        worker.sig_finished.connect(self._on_recommendation_results)
-        worker.error.connect(
-            lambda e: QMessageBox.warning(self, "Recommendation Error", e)
-        )
+        worker.finished.connect(self._on_recommendation_results)
+        worker.error.connect(lambda e: QMessageBox.warning(self.tab, "Recommendation Error", e))
         worker.status.connect(lambda msg: self.stats_label.setText(f"🌟 {msg}"))
         self._active_rec_worker = worker
         self.stats_label.setText("🌟 Running recommendations…")
         worker.start()
 
-    @Slot(list)
-    def _on_recommendation_results(self, results: list) -> None:
+    @Slot(object)
+    def _on_recommendation_results(self, results) -> None:
+        if results is None:  # failure/cancel — error path already reported
+            return
         self._recommendation_results = results
         self.clear_rec_btn.show()
         self._rebuild_gallery()
@@ -70,4 +72,4 @@ class _RecommendationMixin:
         self._rebuild_gallery()
 
 
-__all__ = ["_RecommendationMixin"]
+__all__ = ["SeriesListingsRecommendationController"]

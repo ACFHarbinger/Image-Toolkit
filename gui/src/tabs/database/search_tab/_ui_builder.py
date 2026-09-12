@@ -22,10 +22,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from gui.src.constants.elements import _SEARCH_BUTTON_STYLE
-
 from ....components import OptionalField, VirtualDualGallery
 from ....styles import apply_shadow_effect
+from ....theming.theme_api import color, qss
 
 
 class _UIBuilderMixin:
@@ -63,26 +62,20 @@ class _UIBuilderMixin:
         self.btn_refresh_groups = QPushButton("Refresh Groups")
         self.btn_refresh_groups.setFixedWidth(140)
         apply_shadow_effect(
-            self.btn_refresh_groups, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+            self.btn_refresh_groups, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3
         )
         self.btn_refresh_groups.clicked.connect(self._refresh_groups_from_db)
 
         # --- Groups (checkable list) ---
         self.groups_list_widget = QListWidget()
         self.groups_list_widget.setMinimumHeight(200)
-        self.groups_list_widget.setStyleSheet(
-            "QListWidget::item { padding: 4px; } "
-            "QListWidget { border: 1px solid #4f545c; border-radius: 8px; }"
-        )
+        self.groups_list_widget.setStyleSheet(qss("bordered_list_widget_items"))
         self.groups_list_widget.itemChanged.connect(self._on_group_selection_changed)
 
         # --- Subgroups (checkable list, filtered by selected groups) ---
         self.subgroups_list_widget = QListWidget()
         self.subgroups_list_widget.setMinimumHeight(200)
-        self.subgroups_list_widget.setStyleSheet(
-            "QListWidget::item { padding: 4px; } "
-            "QListWidget { border: 1px solid #4f545c; border-radius: 8px; }"
-        )
+        self.subgroups_list_widget.setStyleSheet(qss("bordered_list_widget_items"))
         # Internal store: list of (group_name, subgroup_name)
         self._all_subgroups_detailed: list = []
 
@@ -99,7 +92,7 @@ class _UIBuilderMixin:
 
         groups_header_layout = QHBoxLayout()
         groups_label = QLabel("Groups:")
-        groups_label.setStyleSheet("font-weight: bold;")
+        groups_label.setStyleSheet(qss("font_bold"))
         groups_header_layout.addWidget(groups_label)
         groups_header_layout.addStretch()
         groups_header_layout.addWidget(self.btn_refresh_groups)
@@ -113,7 +106,7 @@ class _UIBuilderMixin:
         subgroups_col_layout.setContentsMargins(0, 0, 0, 0)
 
         subgroups_label = QLabel("Subgroups:")
-        subgroups_label.setStyleSheet("font-weight: bold;")
+        subgroups_label.setStyleSheet(qss("font_bold"))
         subgroups_col_layout.addWidget(subgroups_label)
         subgroups_col_layout.addWidget(self.subgroups_list_widget)
 
@@ -140,7 +133,7 @@ class _UIBuilderMixin:
                 btn = QPushButton(fmt)
                 btn.setCheckable(True)
                 apply_shadow_effect(
-                    btn, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+                    btn, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3
                 )
                 btn.clicked.connect(
                     lambda checked, f=fmt: self.toggle_format(f, checked)
@@ -153,7 +146,7 @@ class _UIBuilderMixin:
             self.btn_add_all = QPushButton("Add All")
             self.btn_add_all.setObjectName("btn_success")
             apply_shadow_effect(
-                self.btn_add_all, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+                self.btn_add_all, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3
             )
             self.btn_add_all.clicked.connect(self.add_all_formats)
 
@@ -161,7 +154,7 @@ class _UIBuilderMixin:
             self.btn_remove_all.setObjectName("btn_danger")
             apply_shadow_effect(
                 self.btn_remove_all,
-                color_hex="#000000",
+                color_hex=color("window_bg"),
                 radius=8,
                 x_offset=0,
                 y_offset=3,
@@ -189,26 +182,20 @@ class _UIBuilderMixin:
         self.btn_refresh_tags = QPushButton("Refresh Tags")
         self.btn_refresh_tags.setFixedWidth(120)
         apply_shadow_effect(
-            self.btn_refresh_tags, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+            self.btn_refresh_tags, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3
         )
         self.btn_refresh_tags.clicked.connect(self._setup_tag_checkboxes)
 
         # --- Tag Type Filter (checkable; all start checked) ---
         self.tag_types_list_widget = QListWidget()
         self.tag_types_list_widget.setMinimumHeight(200)
-        self.tag_types_list_widget.setStyleSheet(
-            "QListWidget::item { padding: 4px; } "
-            "QListWidget { border: 1px solid #4f545c; border-radius: 8px; }"
-        )
+        self.tag_types_list_widget.setStyleSheet(qss("bordered_list_widget_items"))
         self.tag_types_list_widget.itemChanged.connect(self._on_tag_type_changed)
 
         # --- Tags (List Widget) ---
         self.tags_list_widget = QListWidget()
         self.tags_list_widget.setMinimumHeight(200)
-        self.tags_list_widget.setStyleSheet(
-            "QListWidget::item { padding: 5px; } "
-            "QListWidget { border: 1px solid #4f545c; border-radius: 8px; }"
-        )
+        self.tags_list_widget.setStyleSheet(qss("bordered_list_widget_items_lg"))
 
         # Containers for side-by-side Tag Types/Tags layout
         tags_container = QWidget()
@@ -223,7 +210,7 @@ class _UIBuilderMixin:
 
         tag_types_header_layout = QHBoxLayout()
         tag_types_label = QLabel("Tag Types:")
-        tag_types_label.setStyleSheet("font-weight: bold;")
+        tag_types_label.setStyleSheet(qss("font_bold"))
         tag_types_header_layout.addWidget(tag_types_label)
         tag_types_header_layout.addStretch()
         tag_types_header_layout.addWidget(self.btn_refresh_tags)
@@ -237,7 +224,7 @@ class _UIBuilderMixin:
         tags_col_layout.setContentsMargins(0, 0, 0, 0)
 
         tags_label = QLabel("Tags:")
-        tags_label.setStyleSheet("font-weight: bold;")
+        tags_label.setStyleSheet(qss("font_bold"))
         tags_col_layout.addWidget(tags_label)
         tags_col_layout.addWidget(self.tags_list_widget)
 
@@ -249,9 +236,9 @@ class _UIBuilderMixin:
     def _build_search_button(self, layout: QVBoxLayout) -> None:
         # Search button
         self.search_button = QPushButton("Search Database")
-        self.search_button.setStyleSheet(_SEARCH_BUTTON_STYLE)
+        self.search_button.setStyleSheet(qss("search_button"))
         apply_shadow_effect(
-            self.search_button, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+            self.search_button, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3
         )
         self.search_button.clicked.connect(self.toggle_search)
         layout.addWidget(self.search_button)
@@ -277,13 +264,13 @@ class _UIBuilderMixin:
         results_title_label = QLabel(
             "Search Results (Ctrl+A: Select All | Ctrl+D: Deselect All)"
         )
-        results_title_label.setStyleSheet("font-weight: bold; font-size: 14px;")
+        results_title_label.setStyleSheet(qss("results_title"))
         results_header_layout.addWidget(results_title_label)
 
         results_header_layout.addStretch()
 
         self.results_count_label = QLabel("Not connected to database.")
-        self.results_count_label.setStyleSheet("color: #aaa; font-style: italic;")
+        self.results_count_label.setStyleSheet(qss("muted_label"))
         results_header_layout.addWidget(self.results_count_label)
 
         layout.addLayout(results_header_layout)

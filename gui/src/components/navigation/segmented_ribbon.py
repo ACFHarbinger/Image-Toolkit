@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
 
 from gui.src.modules.catalog import ModuleCatalog
 from gui.src.modules.descriptor import ModuleCategory
+from gui.src.theming.theme_api import color, qss
 
 
 class TopSegmentedRibbonWidget(QWidget):
@@ -41,7 +42,7 @@ class TopSegmentedRibbonWidget(QWidget):
         layout.setSpacing(8)
 
         cat_label = QLabel("Hub:")
-        cat_label.setStyleSheet("font-weight: 600;")
+        cat_label.setStyleSheet(qss("ribbon_hub_label"))
         layout.addWidget(cat_label)
 
         self.cat_combo = QComboBox()
@@ -52,7 +53,7 @@ class TopSegmentedRibbonWidget(QWidget):
         layout.addWidget(self.cat_combo)
 
         sep = QLabel("|")
-        sep.setStyleSheet("color: #555;")
+        sep.setStyleSheet(qss("ribbon_separator"))
         layout.addWidget(sep)
 
         self.pills_container = QWidget()
@@ -91,15 +92,12 @@ class TopSegmentedRibbonWidget(QWidget):
                 widget.deleteLater()
 
         cat_key = category.name.lower()
-        accent = getattr(self, "_category_accent_overrides", {}).get(cat_key, "#00bcd4")
+        accent = getattr(self, "_category_accent_overrides", {}).get(cat_key, color("accent"))
         for mod in self.catalog.navigable_by_category(category):
             btn = QPushButton(mod.title)
             btn.setObjectName(f"ribbon_btn_{mod.module_id}")
             btn.setCheckable(True)
-            btn.setStyleSheet(
-                "QPushButton { padding: 6px 14px; border-radius: 12px; font-weight: 500; } "
-                f"QPushButton:checked {{ background: {accent}; color: white; }}"
-            )
+            btn.setStyleSheet(qss("ribbon_module_btn", ACCENT=accent))
             if mod.module_id == self.active_module_id:
                 btn.setChecked(True)
             btn.clicked.connect(lambda _=False, m=mod.module_id: self._on_pill_clicked(m))

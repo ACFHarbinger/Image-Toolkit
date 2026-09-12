@@ -1,0 +1,4 @@
+border: 1px dashed rgba(255, 255, 255, 0.20);
+color: $DARK_MUTED_TEXT;
+font-size: 10px;
+background-color: rgba(20, 24, 32, 0.35);

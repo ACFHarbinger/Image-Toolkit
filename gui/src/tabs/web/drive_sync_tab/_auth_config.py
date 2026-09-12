@@ -29,9 +29,7 @@ class DriveSyncAuthController(TabBoundController):
             sa_data = self.vault_manager.api_credentials.get(SA_KEY_NAME)
 
             if not sa_data:
-                QMessageBox.warning(
-                    self.tab, "Error", "Service Account Key data not loaded from vault."
-                )
+                QMessageBox.warning(self.tab, "Error", "Service Account Key data not loaded from vault.")
                 return None
 
             return {"mode": "service_account", "service_account_data": sa_data}
@@ -42,9 +40,7 @@ class DriveSyncAuthController(TabBoundController):
             token_file = self.token_file_path.text().strip()
 
             if not cs_data:
-                QMessageBox.warning(
-                    self.tab, "Error", "Client Secrets data not loaded from vault."
-                )
+                QMessageBox.warning(self.tab, "Error", "Client Secrets data not loaded from vault.")
                 return None
             if not token_file:
                 QMessageBox.warning(self.tab, "Error", "Token File path cannot be empty.")

@@ -12,7 +12,9 @@ from typing import TYPE_CHECKING, Dict, Optional
 from PySide6.QtCore import Slot
 from PySide6.QtWidgets import QWidget
 
+from gui.src.constants.gallery import GALLERY_LABEL_COLORS, GALLERY_LABEL_ICONS
 from gui.src.qt_object_guard import deleted_qobject_guard
+from gui.src.theming.theme_api import color, qss
 
 if TYPE_CHECKING:
     from ..protos.abstract_class_two_galleries import AbstractClassTwoGalleriesHostProtocol
@@ -21,18 +23,8 @@ if TYPE_CHECKING:
 class _ColorLabelsMixin:
     """Color labels, card border styling, and the preview-window highlight."""
 
-    _LABEL_COLORS: Dict[str, str] = {
-        "red":    "#e74c3c",
-        "orange": "#e67e22",
-        "yellow": "#f1c40f",
-        "green":  "#2ecc71",
-        "blue":   "#3498db",
-        "purple": "#9b59b6",
-    }
-    _LABEL_ICONS: Dict[str, str] = {
-        "red": "🔴", "orange": "🟠", "yellow": "🟡",
-        "green": "🟢", "blue": "🔵", "purple": "🟣",
-    }
+    _LABEL_COLORS: Dict[str, str] = GALLERY_LABEL_COLORS
+    _LABEL_ICONS: Dict[str, str] = GALLERY_LABEL_ICONS
 
     def _get_color_label(self: "AbstractClassTwoGalleriesHostProtocol", path: str) -> Optional[str]:
         """Return the color key for *path*, or None if unlabelled."""
@@ -55,14 +47,25 @@ class _ColorLabelsMixin:
             widget.set_selected_style(is_selected)
         else:
             if is_selected:
-                color, width = "#5865f2", "3px"
+                widget.setStyleSheet(
+                    qss(
+                        "gallery_card_label_border",
+                        BORDER_WIDTH="3px",
+                        BORDER_COLOR=color("accent"),
+                    )
+                )
             else:
-                # Show color label border when not selected (§2.18C)
                 path = widget.property("gallery_path")
                 label_color = self._LABEL_COLORS.get(self._get_color_label(path) or "", "") if path else ""
-                color = label_color or "#4f545c"
+                border_color = label_color or color("border")
                 width = "2px" if label_color else "1px"
-            widget.setStyleSheet(f"border: {width} solid {color};")
+                widget.setStyleSheet(
+                    qss(
+                        "gallery_card_label_border",
+                        BORDER_WIDTH=width,
+                        BORDER_COLOR=border_color,
+                    )
+                )
 
     @Slot(str, str)
     def update_preview_highlight(self: "AbstractClassTwoGalleriesHostProtocol", old_path: str, new_path: str):
@@ -75,12 +78,8 @@ class _ColorLabelsMixin:
             if not card or not path:
                 return
             try:
-                orig = card.property("original_style")
-                if orig is not None:
-                    card.setStyleSheet(orig)
-                    card.setProperty("original_style", None)
-                else:
-                    # Fallback: ensure the selection style is correct
+                if card.property("preview_highlighted"):
+                    card.setProperty("preview_highlighted", False)
                     self.update_card_style(card, self.is_path_selected(path))
             except RuntimeError as exc:
                 deleted_qobject_guard(exc, "_ColorLabelsMixin.update_preview_highlight.reset_card")
@@ -102,17 +101,11 @@ class _ColorLabelsMixin:
             if not card or not path:
                 return
             try:
-                # Ensure it has the correct selection state first
                 self.update_card_style(card, self.is_path_selected(path))
-
-                # Store style if not already stored
-                if card.property("original_style") is None:
-                    card.setProperty("original_style", card.styleSheet())
-
-                # Apply amber highlight border to the card wrapper
-                current = card.styleSheet().strip()
-                sep = "" if not current or current.endswith(";") else ";"
-                card.setStyleSheet(f"{current}{sep} border: 4px solid #f39c12;")
+                if not card.property("preview_highlighted"):
+                    card.setProperty("preview_highlighted", True)
+                    current = card.styleSheet().strip()
+                    card.setStyleSheet(qss("gallery_card_preview_overlay", BASE_STYLE=current))
             except RuntimeError as exc:
                 deleted_qobject_guard(exc, "_ColorLabelsMixin.update_preview_highlight.highlight_card")
 

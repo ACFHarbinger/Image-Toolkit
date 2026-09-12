@@ -1,17 +1,17 @@
 import contextlib
 
 from backend.src.constants import HAS_NATIVE_IMAGING
-from PySide6.QtCore import QObject, QRunnable, Signal, Slot
+from PySide6.QtCore import QObject, Signal
 from PySide6.QtGui import QImage
 from shiboken6 import Shiboken
 
-from gui.src.helpers.gc_safe import gc_disabled_run
+from gui.src.helpers.base import BaseQRunnableWorker
 
 from ._qimagereader_disk_cache import load_qir_thumbnail
 from .batch_image_loader_worker import native_load_batch
 
 
-class _LoaderSignals(QObject):
+class _LoaderSignalsStream(QObject):
     """
     Defines the signals for the ImageLoaderWorker.
     Must be a separate QObject because QRunnable does not inherit QObject.
@@ -23,7 +23,7 @@ class _LoaderSignals(QObject):
     batch_result = Signal(list, list)
 
 
-class ImageLoaderWorker(QRunnable):
+class ImageLoaderWorker(BaseQRunnableWorker):
     """
     Worker task to load and scale a SINGLE image.
     Designed to be run in a QThreadPool.
@@ -38,20 +38,16 @@ class ImageLoaderWorker(QRunnable):
         super().__init__()
         self.path = path
         self.target_size = target_size
-        self.signals = _LoaderSignals()
-        self._is_cancelled = False
+        self.stream = _LoaderSignalsStream()
 
         # Auto-delete ensures the runnable is cleaned up after 'run' finishes
-        self.setAutoDelete(True)
 
     def stop(self):
         """Signals the worker to stop."""
-        self._is_cancelled = True
+        self.cancel()
 
-    @gc_disabled_run
-    @Slot()
-    def run(self):
-        if self._is_cancelled:
+    def _execute(self) -> object:
+        if self._cancelled:
             return
         try:
             # GIFs never go through the native decoder: it decodes via
@@ -67,7 +63,7 @@ class ImageLoaderWorker(QRunnable):
             if HAS_NATIVE_IMAGING and not self.path.lower().endswith(".gif"):
                 # Returns list[(path, QImage | None, error: str)]
                 results = native_load_batch([self.path], self.target_size)
-                if self._is_cancelled:
+                if self._cancelled:
                     return
                 if results:
                     _path, q_img, err = results[0]
@@ -76,12 +72,15 @@ class ImageLoaderWorker(QRunnable):
                         return
 
             scaled = self._load_via_qimagereader(self.path, self.target_size)
+            if self._cancelled:
+                return
             self._safe_emit(self.path, scaled)
         except Exception:
-            self._safe_emit(self.path, QImage())
+            if not self._cancelled:
+                self._safe_emit(self.path, QImage())
         finally:
-            if Shiboken.isValid(self.signals):
-                self.signals.deleteLater()
+            if Shiboken.isValid(self.stream):
+                self.stream.deleteLater()
 
     @staticmethod
     def _load_via_qimagereader(path: str, target_size: int) -> QImage:
@@ -90,5 +89,5 @@ class ImageLoaderWorker(QRunnable):
 
     def _safe_emit(self, path, image):
         with contextlib.suppress(RuntimeError):
-            self.signals.result.emit(path, image)
+            self.stream.result.emit(path, image)
 

@@ -13,6 +13,7 @@ from screeninfo import Monitor
 from ......classes import AbstractClassSingleGallery
 from ......components import MonitorDropView, VirtualGallery
 from ......helpers import ImageLoaderWorker, VideoLoaderWorker
+from ......theming.theme_api import color
 from ._event_filter import _EventFilterMixin
 from ._gallery_label import _GalleryLabelMixin
 from ._graph_drop import _GraphDropMixin
@@ -132,7 +133,7 @@ class WallpaperCommonBase(
         self._wallpaper_worker_completion_relay = None
         self._wallpaper_worker_ui_locked = False
         self.background_type = "Image"
-        self.solid_color_hex = "#000000"
+        self.solid_color_hex = color("window_bg")
 
         self._pagination_debounce_timer = QTimer()
         self._pagination_debounce_timer.setSingleShot(True)

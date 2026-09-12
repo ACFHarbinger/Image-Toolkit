@@ -20,9 +20,7 @@ class DriveSyncShareFolderController(TabBoundController):
             return
         auth_config = self._build_auth_config()
         if not auth_config or auth_config.get("mode") != "service_account":
-            QMessageBox.warning(
-                self.tab, "Error", "Sharing is only available for Google Service Accounts."
-            )
+            QMessageBox.warning(self.tab, "Error", "Sharing is only available for Google Service Accounts.")
             return
 
         remote_path = self.remote_path.text().strip()
@@ -40,9 +38,9 @@ class DriveSyncShareFolderController(TabBoundController):
             dry_run=self.dry_run_checkbox.isChecked(),
             user_email_to_share_with=share_email,
         )
-        self.current_worker.signals.status_update.connect(self.handle_status_update)
-        self.current_worker.signals.sync_finished.connect(
-            lambda s, m, d: self.handle_share_finished(s, m)
+        self.current_worker.signals.status.connect(self.handle_status_update)
+        self.current_worker.signals.finished.connect(
+            lambda res: self.handle_share_finished(*(res if res is not None else (False, "Share worker failed.")))
         )
 
         QThreadPool.globalInstance().start(self.current_worker)
@@ -53,9 +51,7 @@ class DriveSyncShareFolderController(TabBoundController):
         final = f"\nFINAL STATUS: Share Action {'Completed' if success else 'Failed'}. {message}"
         self.log_window.append_log(final)
         if success:
-            QMessageBox.information(
-                self.tab, "Share Success", "Folder sharing action completed."
-            )
+            QMessageBox.information(self.tab, "Share Success", "Folder sharing action completed.")
         else:
             QMessageBox.critical(self.tab, "Share Failed", message)
         self.current_worker = None

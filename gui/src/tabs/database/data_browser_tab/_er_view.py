@@ -54,6 +54,16 @@ from gui.src.constants.elements import (
     _TITLE_HEIGHT,
 )
 
+from ....theming.er_view_palette import (
+    CARD_BG,
+    CARD_BORDER,
+    CARD_PK,
+    CARD_ROW,
+    CARD_TITLE,
+    RELATIONSHIP_LINE,
+    SCENE_BG,
+)
+
 
 def _bucket_for(table: str) -> str:
     for bucket, names in _BUCKET_TABLES.items():
@@ -71,8 +81,8 @@ class _TableCardItem(QGraphicsRectItem):
         super().__init__(0, 0, _CARD_WIDTH, height)
         self.table_name = table_name
         self._on_click = on_click
-        self.setBrush(QBrush(QColor("#2c2f33")))
-        self.setPen(QPen(QColor("#4f545c"), 1))
+        self.setBrush(QBrush(QColor(CARD_BG)))
+        self.setPen(QPen(QColor(CARD_BORDER), 1))
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
         self.setAcceptHoverEvents(True)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -82,11 +92,11 @@ class _TableCardItem(QGraphicsRectItem):
         title_font = QFont()
         title_font.setBold(True)
         title.setFont(title_font)
-        title.setBrush(QBrush(QColor("#ffffff")))
+        title.setBrush(QBrush(QColor(CARD_TITLE)))
         title.setPos(6, 4)
 
         divider = QGraphicsLineItem(0, _TITLE_HEIGHT, _CARD_WIDTH, _TITLE_HEIGHT, self)
-        divider.setPen(QPen(QColor("#4f545c"), 1))
+        divider.setPen(QPen(QColor(CARD_BORDER), 1))
 
         for i, col in enumerate(columns):
             name = col["name"]
@@ -95,7 +105,7 @@ class _TableCardItem(QGraphicsRectItem):
             if fk:
                 label = f"{label}  -> {fk['ref_table']}.{fk['ref_column']}"
             row = QGraphicsSimpleTextItem(label, self)
-            row.setBrush(QBrush(QColor("#f2b900" if col.get("pk") else "#dcddde")))
+            row.setBrush(QBrush(QColor(CARD_PK if col.get("pk") else CARD_ROW)))
             row.setPos(6, _TITLE_HEIGHT + i * _ROW_HEIGHT + 2)
 
     def anchor_point_toward(self, other_center: QPointF) -> QPointF:
@@ -134,7 +144,7 @@ class ERGraphicsView(QGraphicsView):
         self.setRenderHint(QPainter.RenderHint.Antialiasing)
         self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
         self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
-        self.setBackgroundBrush(QBrush(QColor("#23272a")))
+        self.setBackgroundBrush(QBrush(QColor(SCENE_BG)))
         self.setMinimumSize(400, 300)
 
     def wheelEvent(self, event) -> None:
@@ -213,7 +223,7 @@ class _ERViewMixin:
         end = dst_card.anchor_point_toward(src_center)
 
         line = QGraphicsLineItem(QLineF(start, end))
-        line.setPen(QPen(QColor("#7289da"), 1.5))
+        line.setPen(QPen(QColor(RELATIONSHIP_LINE), 1.5))
         line.setZValue(-1)
         self.er_scene.addItem(line)
 
@@ -232,7 +242,7 @@ class _ERViewMixin:
             -math.sin(math.radians(angle + 150)) * arrow_size,
         )
         arrow_head = QGraphicsPolygonItem(QPolygonF([end, a1, a2]))
-        arrow_head.setBrush(QBrush(QColor("#7289da")))
+        arrow_head.setBrush(QBrush(QColor(RELATIONSHIP_LINE)))
         arrow_head.setPen(QPen(Qt.PenStyle.NoPen))
         arrow_head.setZValue(-1)
         self.er_scene.addItem(arrow_head)

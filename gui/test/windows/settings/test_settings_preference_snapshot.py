@@ -33,6 +33,14 @@ class _GuestVault:
         self.data = json.loads(text)
 
 
+class _AccountVault(_GuestVault):
+    is_guest = False
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.data["account_name"] = "Account"
+
+
 class _FakeMainWindow:
     """Mirrors MainWindow's _refresh_account_credentials() contract (#548)
     without the rest of MainWindow -- WindowService only needs this much."""
@@ -98,6 +106,32 @@ def test_guest_settings_save_refreshes_account_snapshot(q_app):
     assert restarted.get(PrefKeys.RECURSIVE_SCAN) is False
     assert restarted.get(PrefKeys.FAVOURITE_DIRECTORIES) == ["/tmp/favourite"]
     assert restarted.get(PrefKeys.EXPERIMENTAL_RUNTIME_SHELL) is True
+    PreferenceStore.reset_instance()
+
+
+def test_runtime_shell_flag_survives_account_settings_save_and_restart(q_app):
+    """Typed follow-up writes must not overwrite the committed shell flag."""
+    PreferenceStore.reset_instance()
+    vault = _AccountVault()
+    PreferenceStore.instance().attach_vault_credentials(
+        vault.load_account_credentials(), vault, "Account"
+    )
+    main_window = _FakeMainWindow(vault)
+    window = SettingsWindow(window_service=WindowService(main_window))
+    window.vault_manager = vault
+    window.current_account_name = "Account"
+    window.runtime_shell_check.setChecked(True)
+    window.recursive_scan_check.setChecked(False)
+    window.fav_list_widget.addItem("/tmp/favourite")
+
+    window._update_settings_logic()
+
+    PreferenceStore.reset_instance()
+    restarted = PreferenceStore.instance()
+    restarted.attach_vault_credentials(vault.load_account_credentials(), vault, "Account")
+    assert restarted.get(PrefKeys.EXPERIMENTAL_RUNTIME_SHELL) is True
+    assert restarted.get(PrefKeys.RECURSIVE_SCAN) is False
+    assert restarted.get(PrefKeys.FAVOURITE_DIRECTORIES) == ["/tmp/favourite"]
     PreferenceStore.reset_instance()
 
 

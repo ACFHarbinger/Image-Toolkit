@@ -1,0 +1,4 @@
+border: 2px solid $DARK_SUCCESS;
+color: $DARK_SUCCESS;
+font-weight: bold;
+border-radius: 4px;

@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 from PySide6.QtWidgets import QGroupBox, QScrollArea, QVBoxLayout
 
+from ....theming.theme_api import qss
 from ._ui_connection import build_connection_section
 from ._ui_groups import build_groups_section
 from ._ui_registry import build_registry_section
@@ -36,7 +37,7 @@ class DatabaseUIBuilder:
         populate_scroll_area = QScrollArea()
         populate_scroll_area.setWidgetResizable(True)
         populate_scroll_area.setWidget(self.tab.populate_group)
-        populate_scroll_area.setStyleSheet("QScrollArea { border: none; }")
+        populate_scroll_area.setStyleSheet(qss("scroll_area_borderless"))
 
         main_layout.addWidget(populate_scroll_area)
 
