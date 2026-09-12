@@ -22,6 +22,4 @@ class DriveSyncDefaultsController(TabBoundController):
         self.share_email_input.setText("")
 
 
-_DefaultsMixin = DriveSyncDefaultsController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
-
-__all__ = ["DriveSyncDefaultsController", "_DefaultsMixin"]
+__all__ = ["DriveSyncDefaultsController"]

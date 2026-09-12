@@ -37,6 +37,4 @@ class DriveSyncProviderController(TabBoundController):
             self.local_dir_sync_subtab.update_provider_visibility(provider_text)
 
 
-_ProviderSwitchMixin = DriveSyncProviderController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
-
-__all__ = ["DriveSyncProviderController", "_ProviderSwitchMixin"]
+__all__ = ["DriveSyncProviderController"]
