@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
     QSpinBox,
 )
 
+from ...preferences import PreferenceStore
 from .app_settings import AppSettings
 
 
@@ -314,6 +315,15 @@ class _RelaunchSettingsMixin:
 
 
             if self._save_vault_data(user_data):
+                # The direct snapshot save above succeeds before the typed
+                # AppSettings writes below. Rebase their adapter first: it
+                # otherwise persists its stale pre-save snapshot and drops
+                # newly added account values such as experimental/runtime_shell.
+                PreferenceStore.instance().attach_vault_credentials(
+                    user_data,
+                    self.vault_manager,
+                    user_data.get("account_name", self.current_account_name),
+                )
                 # Close-to-tray is device-owned: guest vault data is volatile
                 # and account vaults must not override this window behaviour.
                 AppSettings.set_minimize_to_tray(self.minimize_to_tray_check.isChecked())
