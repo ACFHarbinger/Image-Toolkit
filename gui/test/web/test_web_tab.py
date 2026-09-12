@@ -25,7 +25,7 @@ class TestDriveSyncTab:
     @pytest.fixture
     def mock_workers(self):
         with (
-            patch("gui.src.tabs.web.drive_sync_tab._remote_map.GoogleDriveSyncWorker") as mock_gd,
+            patch("gui.src.tabs.web.drive_sync_tab._remote_map.CloudDriveSyncWorker") as mock_gd,
             patch("gui.src.tabs.web.drive_sync_tab.manager.LogWindow") as mock_log,
         ):
             yield mock_gd, mock_log
