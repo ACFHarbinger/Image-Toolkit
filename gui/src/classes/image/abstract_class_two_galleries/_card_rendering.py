@@ -10,8 +10,9 @@ from typing import TYPE_CHECKING, Optional
 from backend.src.constants import SUPPORTED_VIDEO_FORMATS
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QImage, QPixmap
-from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QLabel, QWidget
 
+from gui.src.components.gallery.card_factory import create_gallery_card
 from gui.src.theming.theme_api import accent_rgba, qss
 
 from ....components import ClickableLabel
@@ -23,9 +24,7 @@ if TYPE_CHECKING:
 class _CardRenderingMixin:
     """Card widget creation, pixmap updating, and card border/state styling."""
 
-    def create_gallery_label(
-        self: "AbstractClassTwoGalleriesHostProtocol", path: str, size: int
-    ) -> QLabel:
+    def create_gallery_label(self: "AbstractClassTwoGalleriesHostProtocol", path: str, size: int) -> QLabel:
         """Factory method for card container label; subclasses may override."""
         label = ClickableLabel(path)
         label.setFixedSize(size + 10, size + 10)
@@ -37,54 +36,21 @@ class _CardRenderingMixin:
         pixmap: Optional[QPixmap],
         is_selected: bool,
     ) -> QWidget:
-        thumb_size = self.thumbnail_size
-        card_wrapper = self.create_gallery_label(path, thumb_size)
-
-        if isinstance(card_wrapper, ClickableLabel):
-            card_layout = QVBoxLayout(card_wrapper)
-            card_layout.setContentsMargins(0, 0, 0, 0)
-
-            img_label = QLabel()
-            img_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            img_label.setFixedSize(thumb_size, thumb_size)
-
-            card_wrapper.set_image_label(img_label)
-            card_layout.addWidget(img_label)
-            card_wrapper.setLayout(card_layout)
-            target_label = img_label
-        else:
-            target_label = card_wrapper
-
-        if hasattr(card_wrapper, "set_selected_style"):
-            card_wrapper.style_callback = self._update_card_style
-
-        if pixmap and not pixmap.isNull():
-            scaled = (
-                pixmap.scaled(
-                    thumb_size,
-                    thumb_size,
-                    Qt.AspectRatioMode.KeepAspectRatio,
-                    Qt.TransformationMode.SmoothTransformation,
-                )
-                if (pixmap.width() > thumb_size or pixmap.height() > thumb_size)
-                else pixmap
-            )
-            target_label.setPixmap(scaled)
-        else:
-            target_label.setText("Loading...")
-            if path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
-                target_label.setStyleSheet(qss("gallery_card_video_loading_dashed"))
-            else:
-                target_label.setStyleSheet(qss("gallery_card_no_thumbnail"))
-
-        card_wrapper.setProperty("gallery_path", path)
-        self._update_card_style(target_label, is_selected)
-
+        is_video = path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
+        card_wrapper = create_gallery_card(
+            path=path,
+            pixmap=pixmap,
+            thumb_size=self.thumbnail_size,
+            selected=is_selected,
+            variant="two",
+            create_label=self.create_gallery_label,
+            update_style=self._update_card_style,
+            is_video=is_video,
+        )
         if hasattr(card_wrapper, "path_double_clicked"):
             card_wrapper.path_double_clicked.connect(self._open_preview_for)
         if hasattr(card_wrapper, "path_right_clicked"):
             card_wrapper.path_right_clicked.connect(self._on_found_card_right_clicked)
-
         return card_wrapper
 
     def update_card_pixmap(
@@ -120,10 +86,7 @@ class _CardRenderingMixin:
             img_label.setText("Loading...")
 
         path = (
-            getattr(widget, "path", None)
-            or getattr(widget, "file_path", None)
-            or widget.property("gallery_path")
-            or ""
+            getattr(widget, "path", None) or getattr(widget, "file_path", None) or widget.property("gallery_path") or ""
         )
         is_selected = path in self.selected_files if (path and hasattr(self, "selected_files")) else False
         self._update_card_style(img_label, is_selected)
@@ -134,10 +97,7 @@ class _CardRenderingMixin:
         is_selected: bool,
     ) -> None:
         parent_widget = img_label.parentWidget()
-        is_in_db = bool(
-            img_label.property("in_db")
-            or (parent_widget and parent_widget.property("in_db"))
-        )
+        is_in_db = bool(img_label.property("in_db") or (parent_widget and parent_widget.property("in_db")))
         path = (
             img_label.property("gallery_path")
             or (parent_widget and (getattr(parent_widget, "path", None) or parent_widget.property("gallery_path")))
@@ -158,9 +118,7 @@ class _CardRenderingMixin:
         else:
             label_color = self._LABEL_COLORS.get(self._get_color_label(path) or "", "") if path else ""
             if label_color:
-                img_label.setStyleSheet(
-                    qss("gallery_card_label_colored", BORDER_COLOR=label_color)
-                )
+                img_label.setStyleSheet(qss("gallery_card_label_colored", BORDER_COLOR=label_color))
             elif img_label.pixmap() and not img_label.pixmap().isNull():
                 img_label.setStyleSheet(qss("gallery_card_pixmap"))
             else:

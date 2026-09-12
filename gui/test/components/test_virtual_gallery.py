@@ -35,8 +35,8 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 # --- Deterministic fake loader -----------------------------------------------
 
-_BLOCK = threading.Event()   # set to hold fake workers before their run()
-_FAIL_PATHS: set = set()     # paths whose fake worker emits a null QImage
+_BLOCK = threading.Event()  # set to hold fake workers before their run()
+_FAIL_PATHS: set = set()  # paths whose fake worker emits a null QImage
 _STARTED = threading.Event()  # set when a fake worker enters run()
 
 
@@ -156,6 +156,11 @@ def test_marks_persist_across_set_paths():
 
 
 def test_delegate_paints_state_borders():
+    from gui.src.components.gallery.card_factory import (
+        IN_DB_COLOR,
+        PREVIEW_COLOR,
+        SELECTION_COLOR,
+    )
     from gui.src.components.virtual_gallery.delegate import VirtualGalleryDelegate
     from PySide6.QtGui import QPainter, QPixmap
     from PySide6.QtWidgets import QStyle, QStyleOptionViewItem
@@ -168,9 +173,9 @@ def test_delegate_paints_state_borders():
 
     delegate = VirtualGalleryDelegate()
     cases = {
-        "/none.png": "#2ecc71",
-        "/sel.png": "#5865f2",
-        "/prev.png": "#f39c12",
+        "/none.png": IN_DB_COLOR,
+        "/sel.png": SELECTION_COLOR,
+        "/prev.png": PREVIEW_COLOR,
     }
     for row in range(model.rowCount()):
         pm = QPixmap(200, 200)
@@ -265,9 +270,7 @@ def test_visible_first_dispatch_first_worker_in_visible_range():
     _fill_all() before the view reported its visible range, so the first
     workers were file-order offscreen paths."""
     paths = [f"/p/{i:04d}.png" for i in range(200)]
-    model = VirtualGalleryModel(
-        worker_factory=_FakeLoaderWorker
-    )
+    model = VirtualGalleryModel(worker_factory=_FakeLoaderWorker)
     model.set_paths(paths)
     # Simulate the view reporting that rows 50-60 are visible.
     model.set_visible_range(50, 60)
@@ -276,19 +279,14 @@ def test_visible_first_dispatch_first_worker_in_visible_range():
     # The first dispatched workers must be from the visible range [50..60].
     visible_paths = set(paths[50:61])
     active_paths = {w.path for w in model._active_workers}
-    assert active_paths <= visible_paths, (
-        f"Offscreen workers dispatched before visible: "
-        f"{active_paths - visible_paths}"
-    )
+    assert active_paths <= visible_paths, f"Offscreen workers dispatched before visible: {active_paths - visible_paths}"
 
 
 def test_loaded_thumbnail_lands_in_cache_and_emits_data_changed():
     model = _make_model()
     model.set_paths(["/a.png"])
     changes = []
-    model.dataChanged.connect(
-        lambda tl, br, roles: changes.append((tl.row(), br.row(), list(roles)))
-    )
+    model.dataChanged.connect(lambda tl, br, roles: changes.append((tl.row(), br.row(), list(roles))))
 
     icon_before = model.data(model.index(0, 0), Qt.ItemDataRole.DecorationRole)
     assert "/a.png" not in model._cache
@@ -547,9 +545,7 @@ def test_manual_wallpaper_drag_wheel_scrolls_outer_page(q_app):
     view.setModel(model)
     model.set_paths(["/a.png"])
     drops = []
-    view.set_custom_drag_enabled(
-        True, lambda source, paths, pos: drops.append((source, paths, pos))
-    )
+    view.set_custom_drag_enabled(True, lambda source, paths, pos: drops.append((source, paths, pos)))
     owner.resize(400, 300)
     owner.show()
     QApplication.processEvents()
@@ -585,9 +581,7 @@ def _mouse_event(kind, pos, *, button, buttons):
     from PySide6.QtGui import QMouseEvent
 
     p = QPointF(pos)
-    return QMouseEvent(
-        kind, p, p, button, buttons, Qt.KeyboardModifier.NoModifier
-    )
+    return QMouseEvent(kind, p, p, button, buttons, Qt.KeyboardModifier.NoModifier)
 
 
 def _wallpaper_view(q_app, n_paths=3):
@@ -621,15 +615,19 @@ def test_press_on_thumbnail_then_drag_never_starts_a_marquee(q_app):
 
     view.mousePressEvent(
         _mouse_event(
-            QEvent.Type.MouseButtonPress, item_pos,
-            button=Qt.MouseButton.LeftButton, buttons=Qt.MouseButton.LeftButton,
+            QEvent.Type.MouseButtonPress,
+            item_pos,
+            button=Qt.MouseButton.LeftButton,
+            buttons=Qt.MouseButton.LeftButton,
         )
     )
     # Sub-threshold move: must be swallowed, no rubber band.
     view.mouseMoveEvent(
         _mouse_event(
-            QEvent.Type.MouseMove, item_pos + QPoint(3, 2),
-            button=Qt.MouseButton.NoButton, buttons=Qt.MouseButton.LeftButton,
+            QEvent.Type.MouseMove,
+            item_pos + QPoint(3, 2),
+            button=Qt.MouseButton.NoButton,
+            buttons=Qt.MouseButton.LeftButton,
         )
     )
     assert view.state() != QAbstractItemView.State.DragSelectingState
@@ -637,8 +635,10 @@ def test_press_on_thumbnail_then_drag_never_starts_a_marquee(q_app):
     # Past-threshold move: starts the in-app drag, still no rubber band.
     view.mouseMoveEvent(
         _mouse_event(
-            QEvent.Type.MouseMove, item_pos + QPoint(40, 40),
-            button=Qt.MouseButton.NoButton, buttons=Qt.MouseButton.LeftButton,
+            QEvent.Type.MouseMove,
+            item_pos + QPoint(40, 40),
+            button=Qt.MouseButton.NoButton,
+            buttons=Qt.MouseButton.LeftButton,
         )
     )
     assert view._manual_drag_active is True
@@ -658,15 +658,19 @@ def test_press_on_blank_space_still_marquees(q_app):
 
     view.mousePressEvent(
         _mouse_event(
-            QEvent.Type.MouseButtonPress, blank,
-            button=Qt.MouseButton.LeftButton, buttons=Qt.MouseButton.LeftButton,
+            QEvent.Type.MouseButtonPress,
+            blank,
+            button=Qt.MouseButton.LeftButton,
+            buttons=Qt.MouseButton.LeftButton,
         )
     )
     assert view._drag_source_path is None
     view.mouseMoveEvent(
         _mouse_event(
-            QEvent.Type.MouseMove, blank - QPoint(60, 60),
-            button=Qt.MouseButton.NoButton, buttons=Qt.MouseButton.LeftButton,
+            QEvent.Type.MouseMove,
+            blank - QPoint(60, 60),
+            button=Qt.MouseButton.NoButton,
+            buttons=Qt.MouseButton.LeftButton,
         )
     )
     assert view.state() == QAbstractItemView.State.DragSelectingState
@@ -683,14 +687,18 @@ def test_stale_drag_source_from_prior_click_does_not_block_marquee(q_app):
     # Click an item without dragging, then release.
     view.mousePressEvent(
         _mouse_event(
-            QEvent.Type.MouseButtonPress, item_pos,
-            button=Qt.MouseButton.LeftButton, buttons=Qt.MouseButton.LeftButton,
+            QEvent.Type.MouseButtonPress,
+            item_pos,
+            button=Qt.MouseButton.LeftButton,
+            buttons=Qt.MouseButton.LeftButton,
         )
     )
     view.mouseReleaseEvent(
         _mouse_event(
-            QEvent.Type.MouseButtonRelease, item_pos,
-            button=Qt.MouseButton.LeftButton, buttons=Qt.MouseButton.NoButton,
+            QEvent.Type.MouseButtonRelease,
+            item_pos,
+            button=Qt.MouseButton.LeftButton,
+            buttons=Qt.MouseButton.NoButton,
         )
     )
     assert view._drag_source_path is None
@@ -699,14 +707,18 @@ def test_stale_drag_source_from_prior_click_does_not_block_marquee(q_app):
     blank = QPoint(view.viewport().width() - 6, view.viewport().height() - 6)
     view.mousePressEvent(
         _mouse_event(
-            QEvent.Type.MouseButtonPress, blank,
-            button=Qt.MouseButton.LeftButton, buttons=Qt.MouseButton.LeftButton,
+            QEvent.Type.MouseButtonPress,
+            blank,
+            button=Qt.MouseButton.LeftButton,
+            buttons=Qt.MouseButton.LeftButton,
         )
     )
     view.mouseMoveEvent(
         _mouse_event(
-            QEvent.Type.MouseMove, blank - QPoint(60, 60),
-            button=Qt.MouseButton.NoButton, buttons=Qt.MouseButton.LeftButton,
+            QEvent.Type.MouseMove,
+            blank - QPoint(60, 60),
+            button=Qt.MouseButton.NoButton,
+            buttons=Qt.MouseButton.LeftButton,
         )
     )
     assert view._manual_drag_active is False
