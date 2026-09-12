@@ -6,7 +6,6 @@ Extracted from ``settings_window.py`` -- pure code motion, no logic change.
 from __future__ import annotations
 
 import contextlib
-import json
 
 from PySide6.QtWidgets import (
     QComboBox,
@@ -272,7 +271,7 @@ class _TabConfigMixin:
             return False
 
         try:
-            self.vault_manager.save_data(json.dumps(data))
+            self.vault_manager.save_account_snapshot(data)
             return True
         except Exception as e:
             QMessageBox.critical(self, "Save Error", f"Failed to save data to vault:\n{e}")
