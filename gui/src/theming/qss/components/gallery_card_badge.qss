@@ -1,0 +1,8 @@
+QLabel#gallery_card_badge {
+    color: $BADGE_TEXT;
+    background: $BADGE_BG;
+    border-radius: 3px;
+    padding: 1px 4px;
+    font-size: 7pt;
+    font-weight: bold;
+}
