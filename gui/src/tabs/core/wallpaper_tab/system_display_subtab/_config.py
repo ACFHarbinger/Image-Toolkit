@@ -87,8 +87,9 @@ class SystemDisplayConfigController(TabBoundController):
         )
         try:
             if "scan_directory" in config:
-                self.scan_directory_path.setText(config.get("scan_directory", ""))
-                if os.path.isdir(config["scan_directory"]):
+                scan_dir = config.get("scan_directory") or ""
+                self.scan_directory_path.setText(scan_dir)
+                if scan_dir and os.path.isdir(scan_dir):
                     # Deferred via a single restartable timer so repeated
                     # recovery/config deliveries collapse into one scan after
                     # construction. The scanner itself is now incremental and
@@ -100,7 +101,7 @@ class SystemDisplayConfigController(TabBoundController):
                     # .agent/cache/gallery_crash_deleteorphaned_2026-07-27.md),
                     # the second call must supersede the first's pending
                     # restore, not race it with a second independent timer.
-                    self._pending_restore_dir = config["scan_directory"]
+                    self._pending_restore_dir = scan_dir
                     print(
                         f"[thread-lifecycle] t={time.monotonic():.3f} panel={id(self.tab):x} "
                         f"(re)starting scan-dir restore timer for {self._pending_restore_dir!r} "
