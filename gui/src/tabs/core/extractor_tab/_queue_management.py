@@ -547,6 +547,9 @@ class ExtractorQueueManagementController(TabBoundController):
         worker.signals.progress.connect(
             lambda c, t, w=worker: self._on_queue_progress(c, t, w)
         )
+        worker.signals.item_started.connect(
+            lambda i, w=worker: self._on_queue_item_started(i, w)
+        )
         worker.signals.item_completed.connect(
             lambda i, r, it, w=worker: self._on_queue_item_completed(i, r, it, w)
         )
@@ -567,24 +570,6 @@ class ExtractorQueueManagementController(TabBoundController):
         self._queue_total_count = max(total, getattr(self, "_queue_total_count", total))
         self.extraction_progress_bar.setMaximum(max(total, 1))
         self.extraction_progress_bar.setValue(completed)
-
-        # Advance the In Process list's per-item status.
-        if self._inprocess_status:
-            if worker is not None and not getattr(worker, "parallel", False):
-                # Sequential: progress(i, total) fires as item i starts.
-                if (
-                    0 <= completed < len(self._inprocess_status)
-                    and self._inprocess_status[completed] == _ST_PENDING
-                ):
-                    self._inprocess_status[completed] = _ST_PROCESSING
-            else:
-                # Parallel: the pool runs several items at once with no
-                # per-item start signal — show every not-yet-finished item as
-                # running; exact done/failed states arrive with item_completed.
-                for j, st in enumerate(self._inprocess_status):
-                    if st == _ST_PENDING:
-                        self._inprocess_status[j] = _ST_PROCESSING
-            self._update_inprocess_ui()
 
         if getattr(self, "_close_progress_dialog", None):
             self._close_progress_dialog.update_progress(
@@ -646,6 +631,17 @@ class ExtractorQueueManagementController(TabBoundController):
             "speed": str(item.get("speed", 1.0)),
             "timestamp": time.time(),
         }
+
+    @Slot(int)
+    def _on_queue_item_started(self: "VideoExtractorSubTabHostProtocol", index: int, worker=None):
+        if worker is not None and worker is not self.active_queue_worker:
+            return
+        if (
+            0 <= index < len(self._inprocess_status)
+            and self._inprocess_status[index] == _ST_PENDING
+        ):
+            self._inprocess_status[index] = _ST_PROCESSING
+            self._update_inprocess_ui()
 
     @Slot(int, dict, dict)
     def _on_queue_item_completed(self: "VideoExtractorSubTabHostProtocol", index: int, res: dict, item: dict, worker=None):

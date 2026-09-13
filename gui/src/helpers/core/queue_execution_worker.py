@@ -480,6 +480,7 @@ _RUNNING_WORKERS: set = set()
 
 
 class _QueueWorkerSignals(_WorkerSignals):
+    item_started = Signal(int)  # index submitted / about to run
     item_completed = Signal(int, dict, dict)  # (index, result, original item)
 
 
@@ -523,8 +524,9 @@ class QueueExecutionWorker(BaseQRunnableWorker):
             if num_cores < 1:
                 num_cores = 1
 
-            completed = 0
             total = len(self.queue_items)
+            results = [None] * total
+            completed = 0
             self.signals.progress.emit(0, total)
             try:
                 with Pool(
@@ -532,7 +534,18 @@ class QueueExecutionWorker(BaseQRunnableWorker):
                     initializer=_extraction_pool_worker_init,
                     maxtasksperchild=1,
                 ) as pool:
-                    async_results = [pool.apply_async(run_extraction_in_process, (item,)) for item in self.queue_items]
+                    next_i = 0
+                    in_flight: Dict[int, Any] = {}
+
+                    def _submit(i: int) -> None:
+                        in_flight[i] = pool.apply_async(
+                            run_extraction_in_process, (self.queue_items[i],)
+                        )
+                        self.signals.item_started.emit(i)
+
+                    while next_i < num_cores:
+                        _submit(next_i)
+                        next_i += 1
 
                     while completed < total:
                         if self._is_cancelled:
@@ -540,22 +553,27 @@ class QueueExecutionWorker(BaseQRunnableWorker):
                             self.signals.error.emit("Parallel queue extraction cancelled by user.")
                             return
 
-                        new_completed = 0
-                        for r in async_results:
-                            if r.ready():
-                                new_completed += 1
-
-                        if new_completed > completed:
-                            completed = new_completed
+                        finished = [i for i, r in in_flight.items() if r.ready()]
+                        if not finished:
+                            time.sleep(0.1)
+                            continue
+                        for i in finished:
+                            async_r = in_flight.pop(i)
+                            try:
+                                res = async_r.get()
+                            except Exception as exc:
+                                res = {
+                                    "status": "error",
+                                    "message": f"{type(exc).__name__}: {exc}",
+                                }
+                            results[i] = res
+                            item = self.queue_items[i]
+                            self.signals.item_completed.emit(i, res, item)
+                            completed += 1
                             self.signals.progress.emit(completed, total)
-
-                        time.sleep(0.5)
-
-                    for i, r in enumerate(async_results):
-                        res = r.get()
-                        results.append(res)
-                        item = self.queue_items[i] if 0 <= i < len(self.queue_items) else {}
-                        self.signals.item_completed.emit(i, res, item)
+                            if next_i < total:
+                                _submit(next_i)
+                                next_i += 1
             except Exception as e:
                 self.signals.error.emit(f"Parallel processing error: {e}")
                 return
@@ -566,6 +584,7 @@ class QueueExecutionWorker(BaseQRunnableWorker):
                     self.signals.error.emit("Sequential queue extraction cancelled by user.")
                     return
 
+                self.signals.item_started.emit(i)
                 self.signals.progress.emit(i, total)
                 try:
                     res = run_extraction_in_process(item)
