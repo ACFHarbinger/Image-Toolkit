@@ -49,7 +49,7 @@ class _FakeLoaderWorker(QRunnable):
         super().__init__()
         self.path = path
         self.target_size = target_size
-        self.signals = _FakeLoaderSignals()
+        self.stream = _FakeLoaderSignals()
         self.load_generation = 0
         self._stopped = False
         self.setAutoDelete(True)
@@ -66,11 +66,11 @@ class _FakeLoaderWorker(QRunnable):
         if self._stopped:
             return
         if self.path in _FAIL_PATHS:
-            self.signals.result.emit(self.path, QImage())
+            self.stream.result.emit(self.path, QImage())
             return
         img = QImage(self.target_size, self.target_size, QImage.Format.Format_RGB32)
         img.fill(Qt.GlobalColor.green)
-        self.signals.result.emit(self.path, img)
+        self.stream.result.emit(self.path, img)
 
 
 def _make_model(fill_mode: bool = True) -> VirtualGalleryModel:
