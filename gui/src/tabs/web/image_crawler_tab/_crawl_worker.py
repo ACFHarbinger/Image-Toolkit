@@ -157,7 +157,7 @@ class ImageCrawlWorkerController(TabBoundController):
             self.worker.wait()
             self._is_crawling = False
             self.qml_crawling_changed.emit()
-            self.on_crawl_done(0, "Cancelled by user.")
+            self.on_crawl_done((0, "Cancelled by user."))
 
     def _delete_pruned_file(self, clean_path: str):
         """Remove a downloaded image file and any associated sidecar files (.json, .txt)."""
