@@ -32,7 +32,7 @@ class MainSaveTabConfigController(WindowBoundController):
         tab_instance = self.all_tabs.get(active_category, {}).get(active_tab_name)
         if not isinstance(tab_instance, ConfigCollectible):
             QMessageBox.warning(
-                self,
+                self.tab,
                 "Save Configuration",
                 f"'{active_tab_name}' does not support saving a configuration.",
             )
@@ -89,7 +89,7 @@ class MainSaveTabConfigController(WindowBoundController):
             self._refresh_account_credentials(creds)
 
             QMessageBox.information(
-                self,
+                self.tab,
                 "Save Configuration",
                 f"Configuration '{config_name}' saved for {tab_class_name}.",
             )
@@ -98,4 +98,3 @@ class MainSaveTabConfigController(WindowBoundController):
 
 
 __all__ = ["MainSaveTabConfigController"]
-
