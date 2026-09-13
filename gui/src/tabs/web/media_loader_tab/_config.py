@@ -49,8 +49,8 @@ class MediaLoaderConfigController(TabBoundController):
         if "source_index" in config:
             self.source_combo.setCurrentIndex(config["source_index"])
 
-        if "download_dir" in config and config["download_dir"]:
-            self.download_dir_path.setText(config["download_dir"])
+        if "download_dir" in config:
+            self.download_dir_path.setText(config["download_dir"] or "")
 
         if "on_exists" in config:
             idx = self.on_exists_combo.findData(config["on_exists"])

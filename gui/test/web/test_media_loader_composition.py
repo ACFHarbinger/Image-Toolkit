@@ -13,6 +13,15 @@ pytestmark = pytest.mark.gui
 
 
 class TestMediaLoaderComposition:
+    def test_config_default_resets_download_directory(self, q_app):
+        tab = MediaLoaderTab()
+        tab.download_dir_path.setText("/tmp/previous-downloads")
+
+        tab.set_config(tab.get_default_config())
+
+        assert tab.download_dir_path.text() == ""
+        tab.close()
+
     def test_media_loader_tab_direct_bases_have_no_mixins(self, q_app):
         bases = MediaLoaderTab.__bases__
         assert bases == (QWidget,)
