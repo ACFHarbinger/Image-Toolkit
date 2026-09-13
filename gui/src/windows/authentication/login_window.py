@@ -541,10 +541,10 @@ class LoginWindow(QWidget):
         except CryptographyLibNotBuiltError:
             QMessageBox.critical(
                 self,
-                "Cryptography Library Not Built",
-                "The cryptography module hasn't been built yet.\n\n"
-                "Run `just build-base` from the repo root (builds the native "
-                "backend, including crypto), then try again.",
+                "Native Crypto Library Not Found",
+                "libitk_crypto (account vault encryption) was not found.\n\n"
+                "It is built with the base module, not a separate cryptography "
+                "package. Run `just build-base` from the repo root, then try again.",
             )
             self._reset_auth_transition()
         except FileNotFoundError:
@@ -638,10 +638,10 @@ class LoginWindow(QWidget):
         except CryptographyLibNotBuiltError:
             QMessageBox.critical(
                 self,
-                "Cryptography Library Not Built",
-                "The cryptography module hasn't been built yet.\n\n"
-                "Run `just build-base` from the repo root (builds the native "
-                "backend, including crypto), then try again.",
+                "Native Crypto Library Not Found",
+                "libitk_crypto (account vault encryption) was not found.\n\n"
+                "It is built with the base module, not a separate cryptography "
+                "package. Run `just build-base` from the repo root, then try again.",
             )
             if self.vault_manager:
                 self.vault_manager.shutdown()

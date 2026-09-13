@@ -110,7 +110,9 @@ class VaultManagerTest:
             vm2.shutdown()
 
     def test_missing_library_raises_distinct_error(self, monkeypatch):
-        monkeypatch.setattr(udef, "CRYPTO_LIB_FILE", "/nonexistent/libitk_crypto.so")
+        monkeypatch.setattr(
+            udef, "resolve_crypto_lib_file", lambda: "/nonexistent/libitk_crypto.so"
+        )
         monkeypatch.setattr(_CryptoAPI, "_lib", None)
         with pytest.raises(CryptographyLibNotBuiltError):
             VaultManager()
