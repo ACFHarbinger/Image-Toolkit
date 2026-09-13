@@ -21,7 +21,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from gui.src.theming.theme_api import color, qss
+from gui.src.theming.theme_api import ThemeColor, color, qss
 
 log = logging.getLogger(__name__)
 
@@ -79,7 +79,7 @@ class MetricCard(QFrame):
         self.value_label.setText(value)
         if subtext is not None:
             self.subtext_label.setText(subtext)
-        tone = value_color or color("accent")
+        tone = value_color or ThemeColor("accent")
         self.value_label.setStyleSheet(
             qss("resource_value_dynamic", VALUE_COLOR=tone)
         )

@@ -31,7 +31,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from gui.src.theming.theme_api import color, qss
+from gui.src.theming.theme_api import ThemeColor, qss
 from gui.src.windows.cloud.usage_charts import (
     _BarChart,
     _GroupedBarChart,
@@ -68,11 +68,11 @@ class DashboardsPane(QWidget):
         kpi_grid = QGridLayout()
         kpi_grid.setSpacing(10)
 
-        self.card_total_jobs = self._create_kpi_card("Total Jobs", "0", color("accent_hover"))
-        self.card_total_time = self._create_kpi_card("Compute Time", "0s", color("success"))
-        self.card_egress = self._create_kpi_card("Data Transferred", "0 MB", color("accent_hover"))
-        self.card_cost = self._create_kpi_card("Estimated Spend", "$0.00", color("accent"))
-        self.card_success_rate = self._create_kpi_card("Success Rate", "100%", color("success"))
+        self.card_total_jobs = self._create_kpi_card("Total Jobs", "0", ThemeColor("accent_hover"))
+        self.card_total_time = self._create_kpi_card("Compute Time", "0s", ThemeColor("success"))
+        self.card_egress = self._create_kpi_card("Data Transferred", "0 MB", ThemeColor("accent_hover"))
+        self.card_cost = self._create_kpi_card("Estimated Spend", "$0.00", ThemeColor("accent"))
+        self.card_success_rate = self._create_kpi_card("Success Rate", "100%", ThemeColor("success"))
 
         kpi_grid.addWidget(self.card_total_jobs, 0, 0)
         kpi_grid.addWidget(self.card_total_time, 0, 1)

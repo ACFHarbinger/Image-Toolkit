@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
 
 from gui.src.modules.catalog import ModuleCatalog
 from gui.src.modules.descriptor import ModuleCategory
-from gui.src.theming.theme_api import color, qss
+from gui.src.theming.theme_api import ThemeColor, qss
 
 
 class TopSegmentedRibbonWidget(QWidget):
@@ -92,7 +92,7 @@ class TopSegmentedRibbonWidget(QWidget):
                 widget.deleteLater()
 
         cat_key = category.name.lower()
-        accent = getattr(self, "_category_accent_overrides", {}).get(cat_key, color("accent"))
+        accent = getattr(self, "_category_accent_overrides", {}).get(cat_key, ThemeColor("accent"))
         for mod in self.catalog.navigable_by_category(category):
             btn = QPushButton(mod.title)
             btn.setObjectName(f"ribbon_btn_{mod.module_id}")

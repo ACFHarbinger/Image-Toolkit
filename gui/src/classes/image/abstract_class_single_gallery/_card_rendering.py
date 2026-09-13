@@ -20,7 +20,7 @@ from gui.src.components.gallery.card_factory import (
     reset_preview_highlight,
 )
 from gui.src.qt_object_guard import deleted_qobject_guard
-from gui.src.theming.theme_api import accent_rgba, color, qss
+from gui.src.theming.theme_api import ThemeColor, color, qss
 
 if TYPE_CHECKING:
     from ..protos.abstract_class_single_gallery import AbstractClassSingleGalleryHostProtocol
@@ -40,7 +40,7 @@ class _CardRenderingMixin:
                 qss(
                     "gallery_card_selected",
                     BORDER_WIDTH="2px",
-                    ACCENT_BG=accent_rgba(0.2),
+                    ACCENT_BG=ThemeColor("accent", alpha=0.2),
                 )
             )
         else:
