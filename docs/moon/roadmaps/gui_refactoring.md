@@ -278,7 +278,7 @@ concurrently (D6). "Gate" = D12 live pass required in addition to Codex review.
 | R2.b | Theme tokens + styling lint: `theme.color()`/`theme.qss(component=)` API; migrate `components/` → `elements/` → `windows/` → `tabs/`; CI rule with shrinking allowlist; finishes app-theming's file-by-file QSS migration | §4, 2.5 | Cursor | Breeze/Kvantum live check | metrics row 5–6 → 0 | ui-arch-42 (#564) |
 | R2.c | Composition migration, #544 template, one tab per PR, in this order: DataBrowser, DriveSync, EntityRecon, MediaLoader, ImageCrawl, CBIRTrain, Sampler, then (after R2.a) the merged listings and convert subtabs, then (after #543 D12) Search, ScanMetadata, Similarity, Extractor, Wallpaper family; `MainWindow` last, one Qt override per PR (F22). `HostProtocol` conformance test per tab while mixins remain. | §2, F1, F22, DS-1 | ~~Search (#577), ScanMetadata (#582), Similarity (#591), Extractor (#595), Wallpaper family (#593)~~ merged to milestone 2026-09-13 as "Batch A" (integration branch, resynced onto #597/#616) alongside PixmapBudget (#589), card factory (#592), account-dispose (#596). **D12: PASS (live, user, 2026-09-13)** — found and fixed live: wallpaper daemon-toggle/config signals wired through a broken `*args,**kwargs` facade (TypeError on every click), extractor Skip Ahead/fullscreen buttons losing all QPushButton theming (unscoped ancestor stylesheet suppressing the cascade), plus 3 rounds of button-alignment/rename polish (Snapshot left / Set Start+End right / Run on Cloud left, opposite Extract Range group). ~~`MainWindow` (#594)~~ merged + D12-verified 2026-09-13 as **Batch B**, alone per this row's own "one Qt override per PR, last" rule — resynced onto Batch A + #565/#611 by Grok (properly absorbed the #565 session-recovery state machine into the composed controller rather than dropping it). D12 found the live theme-toggle bug (R4.3, pre-existing, filed separately) and one pre-existing offscreen-only test flake (`test_queue_section_height_matches_settings_section`, fails identically on a pristine pre-session baseline — environment-dependent `propagateSizeHints()` limitation, not a real regression). **R2.c composition migration: complete.** | D12 for gallery-owning tabs and MainWindow | metrics row 1 | ui-arch-23 (#544, continues) |
 | R2.d | Explicit lifecycle state machines replacing `singleShot` ordering: session recovery and the extractor player (`NotLoaded → Restored → PlayerReady → Playing`), closing #546's family | §5.4 | Claude | D12 | #546 closed; 0 timer-ordered restore steps | ui-arch-43 (#565) |
-| R2.e | Classic shell: lazy tab construction on first category select via the R1.4 factory, or retirement (§7 decision). Measures per-module import/activation cost. | F17 | Grok | D12 | classic startup constructs ≤ 1 category | ui-arch-44 (#566) |
+| R2.e | Classic shell: lazy tab construction on first category select via the R1.4 factory, or retirement (§7 decision — **resolved 2026-09-13: one release as opt-out fallback, then delete**). Measures per-module import/activation cost. | F17 | Grok | D12 | **Done, D12-verified 2026-09-11.** classic startup constructs ≤ 1 category | ui-arch-44 (#566) |
 | R2.f | `SectionedFormBuilder` replacing the 17 same-named `_UIBuilderMixin` classes and the 300-line `_build_ui` functions | F20, §1 | Gemini | — | **Done, 2026-09-13.** 0 `_UIBuilderMixin`; no `_build_ui` > 80 lines (AST-verified across all touched tabs) | ui-arch-45 (#567) |
 | R2.g | #543 gallery unification onto `ThumbnailScheduler` | D3 | Grok | D12 | **done — merged 2026-09-07, D12-verified** | ui-arch-22 (#543) |
 
@@ -290,7 +290,7 @@ concurrently (D6). "Gate" = D12 live pass required in addition to Codex review.
 | R3.2 | Startup footprint: heavy imports (`cv2`/`PIL`/`numpy`/`torch`, 27 files) moved into functions; RSS at login/main window measured before/after | §5.8 | Gemini / Antigravity | measured delta posted; no module-level heavy import in `gui/src` ⚙ | ui-arch-47 (#569) |
 | R3.3 | Remove the 7 live `processEvents()` (single-shot timer or progress fact) | F25 | Gemini / Antigravity | 0 | ui-arch-48 (#570) |
 | R3.4 | Gallery card/selection merge: one card factory + one highlight helper across single/two/virtual | F21, DS-4 | Kimi (reassigned 2026-09-12, PR #592 already open) | `create_card_widget` ×1 | ui-arch-49 (#571) |
-| R3.5 | Module widget eviction: measure 3 vs 8 mounted modules, set LRU from data; account-switch disposal | F12, DS-5 | Grok | numbers on the bus; policy implemented | ui-arch-50 (#572) |
+| R3.5 | Module widget eviction: measure 3 vs 8 mounted modules, set LRU from data; account-switch disposal | F12, DS-5 | Grok | **Done, 2026-09-13.** Account-switch disposal implemented and D12-verified (#572). Live 3-vs-8 measurement taken 2026-09-13 (§7): ~3.2 MB/module marginal cost, 0 MB recovered on dispose — idle-module LRU eviction closed as measured-and-not-warranted, not built. | ui-arch-50 (#572) |
 | R3.6 | Import-graph slimming beyond the wildcard removals; `windows/__init__.py` eager imports; `helpers/__init__.py` barrel | old Phase 3 | Gemini / Antigravity | `import gui.src.components.widgets.toast_widget` < 300 modules | ui-arch-51 (#573) |
 
 ### R4 — Theming surfaces (deferred, from app-theming Phase 2/3)
@@ -323,13 +323,33 @@ longer gated on it.
 
 ---
 
-## 7. Open decisions (need the user)
+## 7. Open decisions (need the user) — all four resolved 2026-09-13
 
-- **Classic shell retirement** (from the shell doc §6): one release of fallback,
-  permanent preference, or retire once R2.e lands. #516 has the parity evidence.
-- **Module eviction threshold**: set from R3.5's measurement, not now.
-- **Event schema versioning process** for `gui/src/modules/events.py` Intents/Facts.
-- **Account-switch disposal semantics** for cached module state (R3.5 implements once decided).
+- **Classic shell retirement** — **Decided: one release as an opt-out fallback.**
+  #516's parity gap (keyboard nav, session-restore, Ctrl+T tab search against
+  the runtime shell) is closed. Ship the runtime shell as the default, keep
+  the classic shell reachable via preference for one release, then delete it
+  and R2.e's lazy-tab-construction machinery.
+- **Module eviction threshold** — **Decided: do not build idle-module LRU
+  eviction.** Live 3-vs-8 measurement (guest-mode vault, real production
+  catalog/factories, on-screen `QApplication`, 2026-09-13): 0→3 mounted
+  modules costs +74.7 MB, 3→8 (5 more) costs only +16.1 MB (~3.2 MB/module
+  average) — ~76% of the total cost is a one-time hit from the *first*
+  module's shared/heavy imports firing, not a per-module recurring cost.
+  Disposing all 8 modules recovered **0 MB** (reproduced twice, even with
+  extended settle time — expected glibc malloc-arena behavior, not a leak,
+  but it means eviction wouldn't reward itself in practice). Account-switch
+  disposal (already implemented, #572) is the real memory lever; idle-module
+  LRU eviction is closed as measured-and-not-warranted, not deferred.
+- **Event schema versioning process** — **Decided:** `schema_version` on
+  `gui/src/modules/events.py`'s `Intent`/`Fact` bumps only on a breaking
+  change (field removed/renamed/retyped), never on an additive one.
+  Consumers that care about version assert the exact version they were
+  built against and log+ignore (never crash) on a mismatch.
+- **Account-switch disposal semantics** — resolved by the eviction-threshold
+  decision above: full disposal on account switch (#572, already
+  implemented) stays the only cached-module-state policy; no additional
+  idle-eviction semantics are needed on top of it.
 
 ---
 
