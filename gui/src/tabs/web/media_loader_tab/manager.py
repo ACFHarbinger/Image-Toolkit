@@ -8,6 +8,7 @@ from backend.src.constants import LOCAL_SOURCE_PATH
 from PySide6.QtCore import Slot
 from PySide6.QtWidgets import QWidget
 
+from ._config import MediaLoaderConfigController
 from ._directory_browse import MediaLoaderDirectoryController
 from ._download_worker import MediaLoaderWorkerController
 from ._source_switch import MediaLoaderSourceController
@@ -33,6 +34,7 @@ class MediaLoaderTab(QWidget):
         self.source_controller = MediaLoaderSourceController(self)
         self.directory_controller = MediaLoaderDirectoryController(self)
         self.worker_controller = MediaLoaderWorkerController(self)
+        self.config_controller = MediaLoaderConfigController(self)
 
         self.ui_builder._build_ui()
 
@@ -81,6 +83,18 @@ class MediaLoaderTab(QWidget):
 
     def _setup_nhentai_page(self) -> None:
         return self.ui_builder._setup_nhentai_page()
+
+    # ------------------------------------------------------------------
+    # Config facade
+    # ------------------------------------------------------------------
+    def collect(self) -> dict[str, Any]:
+        return self.config_controller.collect()
+
+    def get_default_config(self) -> dict[str, Any]:
+        return self.config_controller.get_default_config()
+
+    def set_config(self, config: dict[str, Any]) -> None:
+        return self.config_controller.set_config(config)
 
 
 __all__ = ["MediaLoaderTab"]

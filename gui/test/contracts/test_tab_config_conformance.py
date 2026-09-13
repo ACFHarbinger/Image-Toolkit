@@ -39,7 +39,6 @@ _KNOWN_NON_CONFORMING: dict[str, str] = {
     "manga.puppeteering": "no TabConfig contract yet (ASP/manga submodule surface, #557)",
     "ml.comfyui": "no TabConfig contract yet (comfy generation surface, #557)",
     "web.entity-recon": "no TabConfig contract yet -- has configurable UI worth persisting, #557",
-    "web.media-loader": "no TabConfig contract yet -- has configurable UI worth persisting, #557",
 }
 
 _CONTRACT_METHODS = ("collect", "set_config", "get_default_config")
@@ -107,9 +106,7 @@ def test_known_non_conforming_list_is_accurate_not_stale():
         missing = [m for m in _CONTRACT_METHODS if not hasattr(cls, m)]
         if not missing:
             stale.append(factory_id)
-    assert not stale, (
-        f"These factory_ids now fully conform -- remove from _KNOWN_NON_CONFORMING: {stale}"
-    )
+    assert not stale, f"These factory_ids now fully conform -- remove from _KNOWN_NON_CONFORMING: {stale}"
 
 
 def test_known_non_conforming_ids_are_real_routes():
