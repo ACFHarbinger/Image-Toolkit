@@ -53,7 +53,7 @@ class SearchConfigController(TabBoundController):
                 )
             self.filename_edit.setText(config.get("filename_pattern", ""))
             self._setup_tag_checkboxes()
-            selected_tags = set(config.get("tags", []))
+            selected_tags = set(config.get("tags", []) or [])
             for i in range(self.tags_list_widget.count()):
                 item = self.tags_list_widget.item(i)
                 item.setCheckState(
@@ -61,7 +61,7 @@ class SearchConfigController(TabBoundController):
                     if item.data(Qt.ItemDataRole.UserRole) in selected_tags
                     else Qt.CheckState.Unchecked
                 )
-            formats = config.get("input_formats", [])
+            formats = config.get("input_formats", []) or []
             if self.dropdown:
                 self.remove_all_formats()
                 for fmt in formats:
