@@ -1,3 +1,15 @@
+# S564 — 2026-09-13 (Claude: R4.3 #620 follow-up / theme-dependent qss() extras)
+
+- Live post-merge testing on `main` found #620's refresh walk incomplete:
+  it blindly reused a widget's original `**vars` extras, so any call site
+  that baked a `color()`/`accent_rgba()` result into an extra at
+  construction time (nav rail/ribbon accent, gallery selection highlight,
+  cloud KPI cards) stayed frozen on toggle — only the header, restyled
+  explicitly outside the generic walk, ever visibly changed.
+- Added `ThemeColor`, a `qss()` extra marker that re-resolves against the
+  live base inside `qss()` itself, construction and refresh alike, instead
+  of freezing as a literal. Updated the affected call sites.
+
 # S563 — 2026-09-13 (Cursor: R4.3 #620 / live theme toggle refresh)
 
 - `qss()` now returns a `ThemedQss` fragment; applying it via
