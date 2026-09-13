@@ -52,6 +52,34 @@ def test_preview_window_legacy_db_tab_ref_rejected(sample_image, q_app):
         )
 
 
+def test_oversized_gif_preview_animates(q_app, tmp_path, monkeypatch):
+    import time
+
+    from gui.src.helpers.image._qimagereader_disk_cache import QIR_GIF_BYTE_BUDGET
+    from PIL import Image
+    from PySide6.QtWidgets import QApplication
+
+    red = Image.new("RGB", (20, 12), (255, 0, 0))
+    green = Image.new("RGB", (20, 12), (0, 255, 0))
+    gif = tmp_path / "huge.gif"
+    red.save(gif, save_all=True, append_images=[green], duration=40, loop=0)
+    monkeypatch.setattr(
+        "gui.src.helpers.image._qimagereader_disk_cache._file_size",
+        lambda _path: QIR_GIF_BYTE_BUDGET + 1,
+    )
+    win = ImagePreviewWindow(image_path=str(gif), all_paths=[str(gif)])
+    assert win.current_movie is None
+    assert win._gif_player.is_running()
+    assert not win.original_pixmap.isNull()
+    deadline = time.time() + 1.0
+    while win._gif_player._index == 0 and time.time() < deadline:
+        QApplication.processEvents()
+        time.sleep(0.01)
+    assert win._gif_player._index >= 1
+    win.close()
+    assert not win._gif_player.is_running()
+
+
 def test_preview_window_navigation(sample_images, q_app):
     mock_service = MagicMock()
     p1, p2 = sample_images
