@@ -339,6 +339,7 @@ class TestMainWindowSaveTabConfig:
         with patch.object(QMessageBox, "information") as mock_info:
             window._save_tab_config_to_vault(_FakeTab(), "my_profile")
             mock_info.assert_called_once()
+            assert mock_info.call_args.args[0] is window
 
         saved = vault.saved_data
         assert saved is not None
@@ -371,3 +372,4 @@ class TestMainWindowSaveTabConfig:
         with patch.object(QMessageBox, "warning") as mock_warning:
             window._open_save_tab_config_dialog()
             mock_warning.assert_called_once()
+            assert mock_warning.call_args.args[0] is window
