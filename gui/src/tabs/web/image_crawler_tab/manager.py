@@ -170,8 +170,8 @@ class ImageCrawlTab(QWidget):
     def _delete_pruned_file(self, clean_path: str) -> None:
         self.crawl_worker_controller._delete_pruned_file(clean_path)
 
-    def on_crawl_done(self, count: int, message: str) -> None:
-        self.crawl_worker_controller.on_crawl_done(count, message)
+    def on_crawl_done(self, result) -> None:
+        self.crawl_worker_controller.on_crawl_done(result)
 
 
 __all__ = [
