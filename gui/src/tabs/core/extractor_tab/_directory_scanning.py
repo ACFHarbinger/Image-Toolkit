@@ -20,7 +20,7 @@ from __future__ import annotations
 import os
 import re
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 from backend.src.constants import SUPPORTED_VIDEO_FORMATS
 from backend.src.core import telemetry
@@ -42,14 +42,16 @@ from PySide6.QtWidgets import (
 from ....components import ClickableLabel, MarqueeScrollArea
 from ....constants import MAX_PREVIEW_ITEMS
 from ....helpers import BatchVideoLoaderWorker
+from ....theming.theme_api import qss
 from ....utils.guard.startup_probe_guard import startup_settle_remaining_ms
 from ....utils.sort_utils import natural_sort_key
+from ._tab_bound import TabBoundController
 
 if TYPE_CHECKING:
     from ..protos.extractor_tab import VideoExtractorSubTabHostProtocol
 
 
-class _DirectoryScanningMixin:
+class ExtractorDirectoryScanningController(TabBoundController):
     """Source-directory browsing/scanning and the source media gallery."""
 
     def _build_directory_section(self: "VideoExtractorSubTabHostProtocol") -> None:
@@ -113,7 +115,7 @@ class _DirectoryScanningMixin:
     @Slot()
     def browse_directory(self: "VideoExtractorSubTabHostProtocol"):
         d = QFileDialog.getExistingDirectory(
-            cast(QWidget, self), "Select Source Directory", self.last_browsed_scan_dir
+            self.tab, "Select Source Directory", self.last_browsed_scan_dir
         )
         if d:
             self.last_browsed_scan_dir = d
@@ -159,7 +161,7 @@ class _DirectoryScanningMixin:
         )
         telemetry.emit(
             "thread-lifecycle", "extractor_scan_directory.enter",
-            panel=id(self), directory=path, remaining_ms=_remaining_ms,
+            panel=id(self.tab), directory=path, remaining_ms=_remaining_ms,
         )
         if _remaining_ms > 0:
             QTimer.singleShot(_remaining_ms, lambda: self.scan_directory(path))
@@ -264,7 +266,7 @@ class _DirectoryScanningMixin:
             )
             telemetry.emit(
                 "thread-lifecycle", "extractor_batch_video_worker.start",
-                panel=id(self), directory=path, count=len(paths_needing_thumbnail),
+                panel=id(self.tab), directory=path, count=len(paths_needing_thumbnail),
             )
             self.operation_thread_pool.start(worker)
         else:
@@ -287,7 +289,7 @@ class _DirectoryScanningMixin:
         """Creates a placeholder widget with 'Loading...' state for the source gallery."""
         thumb_size = 120
         container = QWidget()
-        container.setStyleSheet("background: transparent;")
+        container.setStyleSheet(qss("transparent_bg"))
         layout = QVBoxLayout(container)
         layout.setContentsMargins(5, 5, 5, 5)
 
@@ -295,9 +297,7 @@ class _DirectoryScanningMixin:
         clickable_label.setFixedSize(thumb_size, thumb_size)
         clickable_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         clickable_label.setText("Loading...")
-        clickable_label.setStyleSheet(
-            "border: 1px dashed #666; color: #888; font-size: 10px;"
-        )
+        clickable_label.setStyleSheet(qss("source_label_loading"))
 
         clickable_label.path_clicked.connect(self.load_media)
         clickable_label.path_right_clicked.connect(self.show_source_context_menu)
@@ -319,9 +319,7 @@ class _DirectoryScanningMixin:
         )
         name_label.setText(elided_text)
         name_label.setToolTip(file_name)
-        name_label.setStyleSheet(
-            "color: #bbb; font-size: 10px; border: none; padding-top: 2px;"
-        )
+        name_label.setStyleSheet(qss("source_name_label"))
 
         layout.addWidget(name_label)
         return container
@@ -376,7 +374,7 @@ class _DirectoryScanningMixin:
 
     @Slot(QPoint, str)
     def show_source_context_menu(self: "VideoExtractorSubTabHostProtocol", global_pos: QPoint, path: str):
-        menu = QMenu(cast(QWidget, self))
+        menu = QMenu(self.tab)
 
         is_open = False
         tab_idx = -1
@@ -387,17 +385,17 @@ class _DirectoryScanningMixin:
                 break
 
         if is_open:
-            close_action = QAction("Close Video", cast(QWidget, self))
+            close_action = QAction("Close Video", self.tab)
             close_action.triggered.connect(
                 lambda: self._on_active_video_tab_closed(tab_idx)
             )
             menu.addAction(close_action)
         else:
-            open_action = QAction("Open Video", cast(QWidget, self))
+            open_action = QAction("Open Video", self.tab)
             open_action.triggered.connect(lambda: self.load_media(path))
             menu.addAction(open_action)
 
-        view_action = QAction("View Preview", cast(QWidget, self))
+        view_action = QAction("View Preview", self.tab)
         view_action.triggered.connect(lambda: self.handle_thumbnail_double_click(path))
         menu.addAction(view_action)
 
@@ -407,8 +405,8 @@ class _DirectoryScanningMixin:
     def _show_tab_context_menu(self: "VideoExtractorSubTabHostProtocol", pos: QPoint):
         idx = self.active_videos_tabbar.tabAt(pos)
         if idx >= 0:
-            menu = QMenu(cast(QWidget, self))
-            close_action = QAction("Close Video", cast(QWidget, self))
+            menu = QMenu(self.tab)
+            close_action = QAction("Close Video", self.tab)
             close_action.triggered.connect(
                 lambda: self._on_active_video_tab_closed(idx)
             )
@@ -464,45 +462,30 @@ class _DirectoryScanningMixin:
         )
 
         if selected:
-            label.setStyleSheet("border: 3px solid #3498db; border-radius: 4px;")
+            label.setStyleSheet(qss("source_label_selected"))
         elif is_other_open:
             if label.text() == "VIDEO":
-                label.setStyleSheet(
-                    "border: 2px solid #9b59b6; color: #9b59b6; font-weight: bold;  border-radius: 4px;"
-                )
+                label.setStyleSheet(qss("source_label_other_open_video"))
             elif label.text() == "No Preview" or label.text() == "Loading...":
-                label.setStyleSheet(
-                    "border: 2px solid #9b59b6; color: #9b59b6; border-radius: 4px;"
-                )
+                label.setStyleSheet(qss("source_label_other_open_text"))
             else:
-                label.setStyleSheet("border: 2px solid #9b59b6; border-radius: 4px;")
+                label.setStyleSheet(qss("source_label_other_open"))
         else:
             if label.text() == "VIDEO":
                 if has_extracted:
-                    label.setStyleSheet(
-                        "border: 2px solid #2ecc71; color: #2ecc71; font-weight: bold;  border-radius: 4px;"
-                    )
+                    label.setStyleSheet(qss("source_label_video_extracted"))
                 else:
-                    label.setStyleSheet(
-                        "border: 2px solid #3498db; color: #3498db; font-weight: bold;  border-radius: 4px;"
-                    )
+                    label.setStyleSheet(qss("source_label_video_default"))
             elif label.text() == "No Preview":
-                label.setStyleSheet(
-                    "border: 1px dashed #666; color: #888; border-radius: 4px;"
-                )
+                label.setStyleSheet(qss("source_label_no_preview"))
             elif label.text() == "Loading...":
-                label.setStyleSheet(
-                    "border: 1px dashed #666; color: #888; font-size: 10px; border-radius: 4px;"
-                )
+                label.setStyleSheet(qss("source_label_loading"))
             else:
                 if has_extracted:
-                    label.setStyleSheet(
-                        "border: 2px solid #2ecc71; border-radius: 4px;"
-                    )
+                    label.setStyleSheet(qss("source_label_extracted"))
                 else:
-                    label.setStyleSheet(
-                        "border: 2px solid #4f545c; border-radius: 4px;"
-                    )
+                    label.setStyleSheet(qss("source_label_default"))
 
 
-__all__ = ["_DirectoryScanningMixin"]
+__all__ = ["ExtractorDirectoryScanningController"]
+

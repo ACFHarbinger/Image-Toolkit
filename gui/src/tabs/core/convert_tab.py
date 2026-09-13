@@ -1,8 +1,7 @@
 from PySide6.QtCore import Signal, Slot
 from PySide6.QtWidgets import QTabWidget, QVBoxLayout, QWidget
 
-from .codec_subtab import CodecSubTab
-from .format_subtab import FormatSubTab
+from .media_convert_subtab import CodecSubTab, FormatSubTab
 from .sampler_subtab import SamplerSubTab
 
 

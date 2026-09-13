@@ -9,21 +9,22 @@ from __future__ import annotations
 import os
 import subprocess
 from pathlib import Path
-from typing import TYPE_CHECKING, Set, cast
+from typing import TYPE_CHECKING, Set
 
 from backend.src.constants import SUPPORTED_VIDEO_FORMATS
 from PySide6.QtCore import QPoint, Qt, Slot
 from PySide6.QtGui import QAction
-from PySide6.QtWidgets import QMenu, QMessageBox, QWidget
+from PySide6.QtWidgets import QMenu, QMessageBox
 from send2trash import send2trash  # pyrefly: ignore [untyped-import]
 
 from ....windows import ImagePreviewWindow
+from ._tab_bound import TabBoundController
 
 if TYPE_CHECKING:
     from ..protos.extractor_tab import VideoExtractorSubTabHostProtocol
 
 
-class _GallerySelectionMixin:
+class ExtractorGallerySelectionController(TabBoundController):
     """Extracted-frame gallery card rendering, selection, and context menu.
 
     Aligned with AbstractClassSingleGallery base (#448):
@@ -105,7 +106,7 @@ class _GallerySelectionMixin:
         window = ImagePreviewWindow(
             image_path=image_path,
             database_service=None,
-            parent=cast(QWidget, self),
+            parent=self.tab,
             all_paths=all_paths_list,
             start_index=start_index,
         )
@@ -121,7 +122,7 @@ class _GallerySelectionMixin:
             self._push_selection_to_gallery()
 
         count = len(self.selected_files)
-        menu = QMenu(cast(QWidget, self))
+        menu = QMenu(self.tab)
 
         # Extraction History Actions
         abs_path = str(Path(path).absolute())
@@ -129,19 +130,19 @@ class _GallerySelectionMixin:
         if metadata:
             menu.addSection("🎬 Extraction Source")
 
-            jump_start_act = QAction("Jump to Start", cast(QWidget, self))
+            jump_start_act = QAction("Jump to Start", self.tab)
             jump_start_act.triggered.connect(
                 lambda: self._jump_to_extraction_start(metadata)
             )
             menu.addAction(jump_start_act)
 
-            jump_end_act = QAction("Jump to End", cast(QWidget, self))
+            jump_end_act = QAction("Jump to End", self.tab)
             jump_end_act.triggered.connect(
                 lambda: self._jump_to_extraction_end(metadata)
             )
             menu.addAction(jump_end_act)
 
-            reload_act = QAction("♻️ Reload Extraction Params", cast(QWidget, self))
+            reload_act = QAction("♻️ Reload Extraction Params", self.tab)
             reload_act.setToolTip(
                 "Sets player time, cuts, and engine configs to match this run."
             )
@@ -151,7 +152,7 @@ class _GallerySelectionMixin:
             menu.addSeparator()
 
         if count == 1 and not path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS)):
-            view_action = QAction("View Full Size", cast(QWidget, self))
+            view_action = QAction("View Full Size", self.tab)
             view_action.triggered.connect(
                 lambda: self.handle_thumbnail_double_click(path)
             )
@@ -159,7 +160,7 @@ class _GallerySelectionMixin:
             menu.addSeparator()
 
         del_text = f"Delete {count} Items" if count > 1 else "Delete Item"
-        delete_action = QAction(del_text, cast(QWidget, self))
+        delete_action = QAction(del_text, self.tab)
         delete_action.triggered.connect(self.delete_selected_images)
         menu.addAction(delete_action)
         menu.exec(global_pos)
@@ -229,7 +230,7 @@ class _GallerySelectionMixin:
         action_name = "Trash" if send_to_trash_enabled else "Permanent Delete"
 
         confirm = QMessageBox.question(
-            cast(QWidget, self),
+            self.tab,
             f"Confirm {action_name}",
             f"Are you sure you want to move {len(self.selected_files)} items to {action_name}?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
@@ -259,7 +260,7 @@ class _GallerySelectionMixin:
             self._perform_search()
 
             if failed:
-                QMessageBox.warning(cast(QWidget, self), "Partial Deletion Failure", "\n".join(failed))
+                QMessageBox.warning(self.tab, "Partial Deletion Failure", "\n".join(failed))
 
     def delete_image(self: "VideoExtractorSubTabHostProtocol", path: str):
         if path not in self.selected_files:
@@ -288,4 +289,5 @@ class _GallerySelectionMixin:
         self.cancel_loading()
 
 
-__all__ = ["_GallerySelectionMixin"]
+__all__ = ["ExtractorGallerySelectionController"]
+

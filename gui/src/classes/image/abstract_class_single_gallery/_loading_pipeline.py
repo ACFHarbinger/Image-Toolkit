@@ -18,7 +18,7 @@ from PySide6.QtCore import Qt, Slot
 from PySide6.QtGui import QImage, QPixmap
 from shiboken6 import Shiboken
 
-from gui.src.utils.cache.lru_image_cache import LRU_CACHE_CEILING
+from gui.src.utils.cache.lru_image_cache import DEFAULT_PIXMAP_BUDGET, LRU_CACHE_CEILING
 
 from ....helpers import BatchImageLoaderWorker, ImageLoaderWorker, VideoLoaderWorker
 from ....utils.sort_utils import natural_sort_key
@@ -161,7 +161,10 @@ class _LoadingPipelineMixin:
             if _current_max <= LRU_CACHE_CEILING:
                 self._initial_pixmap_cache.resize(
                     min(
-                        max(300, min(self.page_size, len(self.master_image_paths))),
+                        max(
+                            DEFAULT_PIXMAP_BUDGET.single_gallery,
+                            min(self.page_size, len(self.master_image_paths)),
+                        ),
                         LRU_CACHE_CEILING,
                     )
                 )

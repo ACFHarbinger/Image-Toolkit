@@ -1,0 +1,9 @@
+QPushButton {
+    padding: 6px 14px;
+    border-radius: 12px;
+    font-weight: 500;
+}
+QPushButton:checked {
+    background: $ACCENT;
+    color: white;
+}

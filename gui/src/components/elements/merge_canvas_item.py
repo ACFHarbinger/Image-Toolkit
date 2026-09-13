@@ -5,6 +5,8 @@ from PySide6.QtCore import QPointF, QRectF, Qt, Signal
 from PySide6.QtGui import QBrush, QColor, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import QGraphicsObject, QGraphicsRectItem
 
+from gui.src.theming.theme_api import color
+
 
 class _HandleItem(QGraphicsRectItem):
     """Resize handle shown at the four corners of a selected MergeCanvasItem."""
@@ -21,7 +23,7 @@ class _HandleItem(QGraphicsRectItem):
             | QGraphicsRectItem.GraphicsItemFlag.ItemSendsScenePositionChanges
         )
         self.setBrush(QBrush(Qt.GlobalColor.white))
-        self.setPen(QPen(QColor("#5865f2"), 1))
+        self.setPen(QPen(QColor(color("accent")), 1))
         self.setZValue(10)
 
     def mouseMoveEvent(self, event):
@@ -67,8 +69,8 @@ class MergeCanvasItem(QGraphicsObject):
         if self._pixmap and not self._pixmap.isNull():
             painter.drawPixmap(QRectF(0, 0, self._w, self._h).toRect(), self._pixmap)
         else:
-            painter.fillRect(QRectF(0, 0, self._w, self._h), QColor("#3a3d42"))
-            painter.setPen(QColor("#888"))
+            painter.fillRect(QRectF(0, 0, self._w, self._h), QColor(color("border")))
+            painter.setPen(QColor(color("muted_text")))
             painter.drawText(
                 QRectF(0, 0, self._w, self._h),
                 Qt.AlignmentFlag.AlignCenter,
@@ -76,12 +78,12 @@ class MergeCanvasItem(QGraphicsObject):
             )
 
         if self.isSelected():
-            painter.setPen(QPen(QColor("#5865f2"), 2))
+            painter.setPen(QPen(QColor(color("accent")), 2))
             painter.setBrush(Qt.BrushStyle.NoBrush)
             painter.drawRect(QRectF(1, 1, self._w - 2, self._h - 2))
 
         if self._highlighted:
-            pen = QPen(QColor("#ffaa00"), 2, Qt.PenStyle.DashLine)
+            pen = QPen(QColor(color("accent_hover")), 2, Qt.PenStyle.DashLine)
             painter.setPen(pen)
             painter.setBrush(Qt.BrushStyle.NoBrush)
             painter.drawRect(QRectF(3, 3, self._w - 6, self._h - 6))

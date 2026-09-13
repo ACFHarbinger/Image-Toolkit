@@ -1,0 +1,1 @@
+QFrame { border: 1px solid $DARK_BORDER; border-radius: 8px; background: transparent; min-height: 180px; }

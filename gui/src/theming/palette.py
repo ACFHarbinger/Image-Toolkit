@@ -8,15 +8,27 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Union
+from typing import TYPE_CHECKING, Union
 
-import numpy as np
-from PIL import Image
+if TYPE_CHECKING:
+    import numpy as np
+    from PIL import Image
 
 from .resolve import base_defaults
 from .schema import ColorTokens
 
-ImageSource = Union[str, Path, np.ndarray]
+ImageSource = Union[str, Path, "np.ndarray"]
+
+
+def _ensure_deps() -> None:
+    if "np" not in globals():
+        import numpy as _np
+
+        globals()["np"] = _np
+    if "Image" not in globals():
+        from PIL import Image as _Image
+
+        globals()["Image"] = _Image
 
 
 @dataclass(frozen=True)
@@ -34,6 +46,7 @@ class PaletteExtractionResult:
 
 
 def _load_rgb(source: ImageSource, max_side: int) -> np.ndarray:
+    _ensure_deps()
     if isinstance(source, (str, Path)):
         with Image.open(source) as image:
             image = image.convert("RGB")
@@ -51,15 +64,18 @@ def _load_rgb(source: ImageSource, max_side: int) -> np.ndarray:
 
 
 def _hex(color: np.ndarray) -> str:
+    _ensure_deps()
     rgb = np.clip(np.rint(color), 0, 255).astype(np.uint8)
     return f"#{rgb[0]:02x}{rgb[1]:02x}{rgb[2]:02x}"
 
 
 def _luminance(colors: np.ndarray) -> np.ndarray:
+    _ensure_deps()
     return colors @ np.array([0.2126, 0.7152, 0.0722], dtype=np.float32)
 
 
 def _kmeans(pixels: np.ndarray, n_colors: int, max_iter: int) -> np.ndarray:
+    _ensure_deps()
     unique = np.unique(pixels.astype(np.uint8), axis=0).astype(np.float32)
     if len(unique) <= n_colors:
         return unique
@@ -86,10 +102,12 @@ def _kmeans(pixels: np.ndarray, n_colors: int, max_iter: int) -> np.ndarray:
 
 
 def _blend(first: np.ndarray, second: np.ndarray, amount: float) -> np.ndarray:
+    _ensure_deps()
     return first * (1.0 - amount) + second * amount
 
 
 def _semantic_tokens(colors: np.ndarray, base: str) -> ColorTokens:
+    _ensure_deps()
     luminances = _luminance(colors)
     chroma = colors.max(axis=1) - colors.min(axis=1)
     accent = colors[int(np.argmax(chroma * (0.5 + luminances / 255.0)))]
@@ -129,6 +147,7 @@ def extract_palette(
     chroma or luminance variation return the selected base theme unchanged so
     a dark/monochrome wallpaper cannot produce unreadable UI tokens.
     """
+    _ensure_deps()
     if base not in ("dark", "light"):
         raise ValueError("base must be 'dark' or 'light'")
     if not 2 <= n_colors <= 12:

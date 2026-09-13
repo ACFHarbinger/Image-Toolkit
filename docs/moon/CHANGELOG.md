@@ -1,27 +1,254 @@
-# S539 — 2026-09-12 (Codex: R1.4 #559 / shared tab factory)
+# S563 — 2026-09-13 (Cursor: R4.3 #620 / live theme toggle refresh)
 
-- Added `build_tab(module_id, context)` as the construction path for the
-  classic tab registry and runtime catalog. Factory options now travel through
-  `ModuleContext`; regression coverage verifies option forwarding.
+- `qss()` now returns a `ThemedQss` fragment; applying it via
+  `setStyleSheet` registers the widget. `refresh_component_styles()`
+  walks those bindings and re-substitutes against the live base, remapping
+  the `$DARK_*` placeholders the R2.b fragments were authored with.
+- `set_application_theme` / `apply_theme_pack` call the walk after the
+  app-level cascade. `_toggle_theme` restyles first, then persists the
+  override from the in-memory snapshot — no vault decrypt on the hot path.
 
-# S538 — 2026-09-12 (Codex: R1.5 #560 / account-state boundary)
+# S562 — 2026-09-13 (Codex: R1.5 #560 / account-state boundary)
 
 - Added `VaultManager.save_account_snapshot()` as the GUI account-state
   persistence boundary. Preference adapter, settings/tab configuration,
   session recovery, theme, workflow, and PostgreSQL-profile callers no longer
   serialize and write whole vault documents themselves.
 
-# S537 — 2026-09-08 (Grok: oversized GIF preview playback)
+# S561 — 2026-09-13 (Claude: oversized GIF preview playback, ported from main)
 
 - Full-size preview plays GIFs over 32MB with `PillowGifPlayer` (QTimer +
-  Pillow `seek()`, one frame in memory). `QMovie` is still skipped on
-  those files. Small GIFs still use `QMovie`.
+  Pillow `seek()`, one frame in memory) instead of a static first-frame
+  pixmap or a blank placeholder. `QMovie` is still skipped on those
+  files (the crash class this whole GIF-handling family works around).
+  Small GIFs still use `QMovie`. Ported from main-only commits
+  (`e6bbe0e1`/`9c0ee1f4`/`a0ee3d15`), found during a main/milestone
+  branch-hygiene audit; milestone's newer `qss()`-token nav-button
+  styling was kept over main's now-superseded hardcoded `arrow_style`.
 
-# S536 — 2026-09-08 (Grok: oversized GIF full-size preview)
+# S556 — 2026-09-13 (Grok: #544 MainWindow composition, resynced)
 
-- Full-size preview no longer shows a blank placeholder for GIFs over
-  32MB. Frame 0 is decoded with Pillow (same path as gallery thumbs) and
-  displayed as a static pixmap. `QMovie` is still skipped on those files.
+- `MainWindow` keeps `_LifecycleMixin` and `_ZoomMixin` on the MRO (F22).
+  The other 13 mixins are `WindowBoundController`s. `#565` session-recovery
+  state machine (`_restore_when_ready` / `SessionRecoveryState`) lives on
+  `MainSessionRecoveryController`, not a second MRO mixin. Lazy classic
+  tabs (#566) and account-switch dispose (#572) kept. No COMPAT aliases.
+- D12: `libitk_crypto.so` is resolved from the main git checkout when
+  running in a linked worktree (it is built with `base`, not a separate
+  cryptography module). Parallel extraction queue emits `item_started` /
+  `item_completed` per job, caps in-flight work at `max_workers`, and the
+  extractor progress chunk uses the accent fill.
+
+# S553 — 2026-09-12 (Antigravity: R2.f #567 SectionedFormBuilder & UIBuilder clean-up)
+
+- Introduced `SectionedFormBuilder` and `FormSection` in `gui/src/components/forms/`
+  providing a standardized builder for labeled form rows, section headers,
+  collapsible containers, and two-column/flow layout sections.
+- Replaced all duplicate `_UIBuilderMixin` classes across tabs and components
+  with distinct, appropriately named builder classes (`CodecUIBuilder`,
+  `FormatUIBuilder`, `SamplerUIBuilder`, `EntityListingsUIBuilder`, `SeriesListingsUIBuilder`,
+  `CBIRTrainUIBuilder`, `DriveSyncUIBuilder`, `EntityReconUIBuilder`,
+  `ImageCrawlerUIBuilder`, `MediaLoaderUIBuilder`, `MonitorDropViewUIBuilder`,
+  `DetailPanelUIBuilder`, `SimilarityUIBuilder`, `SystemDisplayUIBuilder`,
+  `DataBrowserUIBuilder`, `ScanMetadataUIBuilder`, `SearchUIBuilder`).
+- Decomposed monolithic `_build_ui` and `_init_ui` methods (>80 lines) into small,
+  readable helpers across all affected tabs, ensuring zero `_build_ui` methods exceed
+  80 lines.
+
+# S554 — 2026-09-12 (Grok: #572 R3.5 account-switch dispose, resynced)
+
+- Runtime shell disposes every mounted module handle when `account_name`
+  actually changes, then remounts the previous route. Classic shell cancels
+  loads and clears gallery pixmap caches. Same-account theme/zoom/config
+  writes do not dispose. LRU idle-eviction remains gated on a live 3-vs-8
+  RSS measurement (DS-5); no threshold invented.
+
+# S559 — 2026-09-12 (Grok: #544 Wallpaper System/Monitor composition, resynced)
+
+- `SystemDisplaySubTab` / `MonitorDisplaySubTab` inherit `WallpaperCommonBase`
+  only. Mixins are composed `TabBoundController`s; Qt overrides stay on the
+  tab. Theme tokens (`qss`/`color`) kept from R2.b; worker `finished(object)`
+  relay kept from R1.1. D12-gated.
+
+# S560 — 2026-09-12 (Grok: #544 VideoExtractorSubTab composition, resynced)
+
+- `VideoExtractorSubTab` inherits `AbstractClassSingleGallery` only. Mixins
+  are composed `TabBoundController`s; QWidget parents use `self.tab`.
+  `cancel_loading` / `closeEvent` / `resizeEvent` stay on the subtab for
+  `super()`. #565 player lifecycle is a controller too. Outer `ExtractorTab`
+  wrapper unchanged. Player-adjacent — D12.
+
+# S552 — 2026-09-11 (Cursor: #544 listings composition)
+
+- `EntityListingsSubTab` / `SeriesListingsSubTab` inherit `ListingGalleryBase`
+  only. Mixins are composed `TabBoundController`s; Qt `resizeEvent` stays
+  on the tab. No COMPAT mixin-name aliases.
+
+# S551 — 2026-09-11 (Gemini / Antigravity: R3.2 #569 / ui-arch-47 lazy heavy imports)
+
+- Moved all module-level heavy imports (`cv2`, `PIL`/`Pillow`, `numpy`, and `torch`, 27 statements across 19 GUI files) into functions, methods, and workers that require them.
+- Avoided ~492 MB of RSS overhead during GUI initialization (PyTorch: +460 MB, OpenCV: +13 MB, NumPy: +15 MB, PIL: +4 MB). Importing `gui.src` now loads 0 heavy scientific/vision packages at module load time.
+- Added AST audit tool `tools/dev/gui_audit/check_no_module_heavy_imports.py` and regression test `gui/test/test_no_module_heavy_imports.py`.
+
+# S550 — 2026-09-08 (Cursor: #564 complete + #574/#575 cross-surface tokens)
+
+- Finished R2.b styling migration: all `gui/src/` surfaces (`components/`,
+  `elements/`, `windows/`, `tabs/`, `classes/`, `helpers/`) now use
+  `theme_api.color()` / `qss()`; `styling_allowlist.txt` empty; audit → 0.
+- Added ~200 component QSS fragments, palette modules for wallpaper graph / ER
+  view, and `apply_stylesheet()` helper for app-level QSS.
+- **#574:** shared JSON token schema (`gui/src/theming/tokens/`), export script,
+  docs website `theme-tokens.generated.css` + `gen:theme-tokens` npm script.
+- **#575:** devtool app wired to same token JSON via generated CSS + `:root`
+  aliases in `dev/app/src/index.css`.
+- **#563 import-dialog:** `directory_import_dialog.py` and
+  `entity_directory_import_dialog.py` merged into `dialog/directory_import/`
+  with shared `_shared.py` helpers and kind-specific `series.py` / `entity.py`.
+- **#563 codec/format:** `codec_subtab/` and `format_subtab/` merged into
+  `media_convert_subtab/`; unified `_gallery_cards.py` and `_lifecycle.py`.
+- Resync onto #573: `gui.src.theming` is a PEP 562 lazy facade so
+  `theme_api` / `file_dialog_patch` no longer import numpy/PIL via
+  `palette` at package import (keeps R3.6 isolated-import bound).
+
+# S548 — 2026-09-11 (Grok: R2.e #566 / classic-shell lazy tab construction)
+
+- Classic `_create_tabs` no longer constructs ~26 tab widgets before show.
+  `CLASSIC_TAB_ROUTES` is the inventory; `_ensure_category` builds one
+  category at a time through `build_tab` on first select. Startup constructs
+  the restored/startup category only. Unopened categories stay unbuilt;
+  "All Tabs" session save keeps prior configs for those and applies them
+  when the category is later constructed.
+- `build_tab` imports each tab from its leaf module (stitch/manga/HIE still
+  via the lazy `gui.src.tabs` getattr) and logs activation time.
+- Stacked on #559 / PR #603. D12-verified 2026-09-11 (real login, real vault,
+  real data): startup builds only the restored category's tabs; switching to
+  "Library Database" built exactly that category's 5 tabs on first select;
+  session recovery restored the real ExtractorTab video config; clean quit.
+
+# S547 — 2026-09-08 (Codex: R1.4 #559 / shared tab factory)
+
+- Added `build_tab(module_id, context)` as the sole construction path for the
+  classic tab registry and runtime catalog. Removed all catalog constructor
+  `TypeError` fallbacks; factory options are carried explicitly in
+  `ModuleContext`. Regression coverage exercises real database-family
+  constructors and verifies catalog option forwarding.
+
+# S546 — 2026-09-11 (Gemini / Antigravity: R3.6 #573 / ui-arch-51 import-graph slimming)
+
+- Converted `gui/src/components/__init__.py`, `gui/src/helpers/__init__.py`, `gui/src/tabs/__init__.py`, and `gui/src/windows/settings/__init__.py` from eager re-export barrels to PEP 562 `__getattr__` lazy facades over explicit `_LAZY_EXPORTS`.
+- Isolated GUI component imports now load only their direct dependencies: `import gui.src.components.widgets.toast_widget` loads 210 modules (reduced from >3,600); `gc_safe` and `AppSettings` isolated imports load 155 modules.
+- Isolated GUI tests no longer require `submodules/ASP` bootstrap / `asp_backend` availability.
+- Extended `backend/validation/check_init_boundaries.py` to guard all five lazy package initializers (`windows`, `windows/settings`, `components`, `helpers`, `tabs`) and verify `__all__` consistency against `_LAZY_EXPORTS`.
+- Added regression test `gui/test/test_import_footprint.py`.
+
+# S545 — 2026-09-11 (Gemini / Antigravity: R3.3 #570 / ui-arch-48 eliminate live processEvents)
+
+- Eliminated all 7 live `QApplication.processEvents()` calls across `gui/src`:
+  - `library_session.py`: replaced busy `while thread.is_alive(): processEvents(); thread.join(0.05)` polling loop with clean `QEventLoop` driven by a 50ms `QTimer` checking thread completion.
+  - `similarity_tab/_deletion.py`: removed redundant `processEvents()` before starting non-blocking `DeletionWorker`.
+  - `drive_sync_tab/_ui_lock.py`: removed redundant `processEvents()` flushes in `lock_ui` and `lock_ui_minor`.
+  - `drive_sync_tab/local_dir_sync_subtab/widget.py`: removed redundant `processEvents()` flush in `_lock_ui`.
+  - `drive_sync_tab/sync_data_subtab/widget.py`: removed redundant `processEvents()` flushes in `_lock_ui` and `_lock_ui_minor`.
+- Added `tools/dev/gui_audit/check_no_process_events.py` and regression test `gui/test/test_no_process_events.py` asserting zero live `processEvents()` calls in `gui/src`.
+
+# S538 — 2026-09-08 (Gemini: #544 DataBrowserTab composition)
+
+- `DataBrowserTab` inherits `QWidget` directly without mixins. The 6 mixins
+  are composed controllers (`TabBoundController` proxy + `self.tab` for
+  QWidget parents). Facade delegation on `DataBrowserTab` preserves all
+  public/internal call interfaces. COMPAT aliases keep the old mixin
+  names. First non-gallery #544 tab composition migration (R2.c).
+
+# S539 — 2026-09-08 (Gemini: #544 DriveSyncTab composition)
+
+- `DriveSyncTab` inherits `QWidget` directly without mixins. The 10 mixins
+  are composed controllers (`TabBoundController` proxy + `self.tab` for
+  QWidget parents). Facade delegation on `DriveSyncTab` preserves all
+  public/internal call interfaces and QML properties/slots. COMPAT
+  aliases keep the old mixin names. Second non-gallery #544 tab
+  composition migration (R2.c).
+
+# S540 — 2026-09-08 (Gemini: #544 EntityReconTab composition)
+
+- `EntityReconTab` inherits `QWidget` directly without mixins. The 11 mixins
+  are composed controllers (`TabBoundController` proxy + `self.tab` for
+  QWidget parents). Facade delegation on `EntityReconTab` preserves all
+  public/internal call interfaces. `closeEvent` directly overrides
+  `QWidget` with zero MRO hazard. COMPAT aliases keep the old mixin
+  names. Third non-gallery #544 tab composition migration (R2.c).
+
+# S541 — 2026-09-08 (Gemini: #544 MediaLoaderTab composition)
+
+- `MediaLoaderTab` inherits `QWidget` directly without mixins. The 4 mixins
+  are composed controllers (`TabBoundController` proxy + `self.tab` for
+  QWidget parents). Facade delegation on `MediaLoaderTab` preserves all
+  public/internal call interfaces. COMPAT aliases keep the old mixin
+  names. Fourth non-gallery #544 tab composition migration (R2.c).
+
+# S542 — 2026-09-08 (Gemini: #544 ImageCrawlTab composition)
+
+- `ImageCrawlTab` inherits `QWidget` directly without mixins. The 7 mixins
+  are composed controllers (`TabBoundController` proxy + `self.tab` for
+  QWidget parents). Facade delegation on `ImageCrawlTab` preserves all
+  public/internal call interfaces. COMPAT aliases keep the old mixin
+  names. Fifth non-gallery #544 tab composition migration (R2.c).
+
+# S543 — 2026-09-08 (Gemini: #544 CBIRTrainTab composition)
+
+- `CBIRTrainTab` inherits `QWidget` directly without mixins. The 7 mixins
+  are composed controllers (`TabBoundController` proxy + `self.tab` for
+  QWidget parents). Facade delegation on `CBIRTrainTab` preserves all
+  public/internal call interfaces. COMPAT aliases keep the old mixin
+  names. Sixth non-gallery #544 tab composition migration (R2.c).
+
+# S544 — 2026-09-08 (Gemini: #544 SamplerSubTab composition)
+
+- `SamplerSubTab` inherits `AbstractClassTwoGalleries` directly without mixins.
+  The 8 mixins are composed controllers (`TabBoundController` proxy + `self.tab`
+  for QWidget parents). Facade delegation on `SamplerSubTab` preserves all
+  public/internal call interfaces. COMPAT aliases keep the old mixin names.
+  Seventh and final non-gallery #544 tab composition migration (R2.c).
+
+# S545 — 2026-09-08 (Grok: #568 R3.1 PixmapBudget)
+
+- One `PixmapBudget` owns LRU thumbnail cache *and* the process-wide
+  resident cap. Per-role sizes (card thumb, single gallery, two-gallery
+  found/selected, virtual dual, virtual model) are derived from it;
+  every `LRUImageCache` constructed with the default budget registers
+  there. Inserts that would push the sum of resident entries past
+  `total_entries` (800, same number as `LRU_CACHE_CEILING`) evict the
+  globally oldest thumbnail, from whichever cache holds it. Isolated
+  caches (`budget=None`) stay local-only for tests/benches.
+
+# S555 — 2026-09-08 (Grok: #571 R3.4 gallery card factory)
+
+- Single-gallery and two-gallery `create_card_widget` paths share one
+  `card_factory` module; highlight helper is shared. Pagination stays
+  per-base. VirtualGallery keeps delegate painting and uses the highlight
+  helper. D12 before merge.
+
+# S556 — 2026-09-08 (Grok: #544 SearchTab composition)
+
+- `SearchTab` inherits `AbstractClassTwoGalleries` only. The 12 mixins are
+  composed controllers (`TabBoundController` proxy + `self.tab` for
+  QWidget parents). `cancel_loading` / `closeEvent` stay on the tab so
+  `super()` still hits the gallery base. COMPAT aliases keep the old
+  mixin names. First gallery-owning #544 tab after #543's D12.
+
+# S557 — 2026-09-08 (Grok: #544 ScanMetadataTab composition)
+
+- `ScanMetadataTab` inherits `AbstractClassTwoGalleries` only. The 13
+  mixins are composed `TabBoundController`s; QWidget parents use
+  `self.tab`. `keyPressEvent` / `resizeEvent` / `showEvent` /
+  `cancel_loading` stay on the tab for `super()`. COMPAT aliases keep
+  the old mixin names.
+
+# S558 — 2026-09-08 (Grok: #544 SimilarityTab composition)
+
+- `SimilarityTab` inherits `AbstractClassTwoGalleries` only. The 12
+  mixins are composed `TabBoundController`s; QWidget parents use
+  `self.tab`. `cancel_loading` / `closeEvent` stay on the tab for
+  `super()`. COMPAT aliases keep the old mixin names.
 
 # S535 — 2026-09-08 (Grok: huge-GIF gallery thumbnails)
 

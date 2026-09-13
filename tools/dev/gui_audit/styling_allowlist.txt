@@ -1,0 +1,2 @@
+# One repo-relative path per line; files listed here are skipped by the styling audit.
+# Regenerate with: python tools/dev/gui_audit/check_unauthorized_styling.py --update-baseline gui/src

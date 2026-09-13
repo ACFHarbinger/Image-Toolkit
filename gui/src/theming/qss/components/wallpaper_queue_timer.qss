@@ -1,0 +1,3 @@
+color: $DARK_SUCCESS;
+font-weight: bold;
+font-size: 14px;

@@ -1,0 +1,37 @@
+QDialog {
+    background-color: $DARK_SECONDARY_BG;
+    color: white;
+}
+QLabel {
+    color: white;
+}
+QPushButton {
+    background-color: $DARK_ACCENT_COLOR;
+    color: white;
+    border-radius: 4px;
+    padding: 6px 12px;
+    font-weight: bold;
+}
+QPushButton:hover {
+    background-color: $DARK_ACCENT_HOVER;
+}
+QSlider::groove:horizontal {
+    border: 1px solid $DARK_BORDER;
+    height: 8px;
+    background: $DARK_BG;
+    border-radius: 4px;
+}
+QSlider::handle:horizontal {
+    background: $DARK_ACCENT_COLOR;
+    border: 1px solid $DARK_ACCENT_HOVER;
+    width: 18px;
+    margin: -5px 0;
+    border-radius: 9px;
+}
+QSpinBox {
+    background-color: $DARK_BG;
+    color: white;
+    border: 1px solid $DARK_BORDER;
+    border-radius: 4px;
+    padding: 4px;
+}

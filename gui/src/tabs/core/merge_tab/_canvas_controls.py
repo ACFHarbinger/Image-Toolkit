@@ -15,6 +15,7 @@ from PySide6.QtWidgets import QVBoxLayout, QWidget
 
 from ....classes.mixins import compute_reordered, install_drag_reorder
 from ....components import ClickableLabel, MergeCanvasItem
+from ....theming.theme_api import qss
 
 
 class _CanvasControlsMixin:
@@ -174,9 +175,7 @@ class _CanvasControlsMixin:
 
             thumb_label = ClickableLabel(path)
             thumb_label.setFixedSize(size, size)
-            thumb_label.setStyleSheet(
-                " border-radius: 4px;"
-            )
+            thumb_label.setStyleSheet(qss("thumb_rounded"))
             pix = self._thumbnail_for(path)
             if pix.isNull() and os.path.isfile(path):
                 pix = QPixmap(path)

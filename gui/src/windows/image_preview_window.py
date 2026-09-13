@@ -26,6 +26,8 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
+from gui.src.theming.theme_api import qss
+
 from ..helpers.image.gif_player import PillowGifPlayer
 from ..utils.manager.shortcut_manager import get_registry
 from .main import show_main_status
@@ -113,28 +115,8 @@ class ImagePreviewWindow(QDialog):
         self.btn_prev.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.btn_next.setFocusPolicy(Qt.FocusPolicy.NoFocus)
 
-        # New Arrow Design (Larger, more visible, but minimally intrusive)
-        arrow_style = """
-            QPushButton {
-                font-size: 40px;
-                font-weight: bold;
-                color: rgba(255, 255, 255, 0.9);
-                background: rgba(30, 33, 36, 0.3);
-                border: none;
-                padding: 10px;
-                margin: 0 10px;
-            }
-            QPushButton:hover {
-                background: rgba(30, 33, 36, 0.7);
-                color: #7289da;
-            }
-            QPushButton:disabled {
-                color: rgba(255, 255, 255, 0.2);
-                background: transparent;
-            }
-        """
-        self.btn_prev.setStyleSheet(arrow_style)
-        self.btn_next.setStyleSheet(arrow_style)
+        self.btn_prev.setStyleSheet(qss("image_preview_nav_btn"))
+        self.btn_next.setStyleSheet(qss("image_preview_nav_btn"))
 
         self.btn_prev.clicked.connect(lambda: self._navigate(-1))
         self.btn_next.clicked.connect(lambda: self._navigate(1))
@@ -306,7 +288,6 @@ class ImagePreviewWindow(QDialog):
                         f"Image Preview - Error Loading {os.path.basename(path)}"
                     )
                     return False
-                self.current_movie = None
             else:
                 # --- Handle GIF (QMovie) ---
                 new_movie = QMovie(path)

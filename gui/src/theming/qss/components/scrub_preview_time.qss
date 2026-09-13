@@ -1,0 +1,5 @@
+color: white;
+font-weight: bold;
+background-color: $DARK_BG;
+border-radius: 3px;
+padding: 2px 6px;

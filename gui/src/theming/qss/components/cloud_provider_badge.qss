@@ -1,0 +1,1 @@
+color: $BADGE_COLOR; background-color: rgba($BADGE_R, $BADGE_G, $BADGE_B, 0.20); border: 1px solid $BADGE_COLOR; border-radius: 4px; font-size: 8.5pt; font-weight: bold; padding: 2px 6px;

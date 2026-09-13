@@ -1,0 +1,8 @@
+QWidget {
+    background-color: $TAG_BG;
+    color: $TAG_COLOR;
+    border: 1px solid $TAG_COLOR;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 500;
+}

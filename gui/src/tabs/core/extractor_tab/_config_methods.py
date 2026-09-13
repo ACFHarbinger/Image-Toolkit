@@ -8,15 +8,17 @@ from __future__ import annotations
 import copy
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, cast
+from typing import TYPE_CHECKING, Any, Dict
 
-from PySide6.QtWidgets import QMessageBox, QWidget
+from PySide6.QtWidgets import QMessageBox
+
+from ._tab_bound import TabBoundController
 
 if TYPE_CHECKING:
     from ..protos.extractor_tab import VideoExtractorSubTabHostProtocol
 
 
-class _ConfigMethodsMixin:
+class ExtractorConfigMethodsController(TabBoundController):
     """get_default_config/collect/set_config for SettingsWindow integration."""
 
     def get_default_config(self: "VideoExtractorSubTabHostProtocol") -> Dict[str, Any]:
@@ -144,17 +146,18 @@ class _ConfigMethodsMixin:
 
             if not quiet:
                 QMessageBox.information(
-                    cast(QWidget, self),
+                    self.tab,
                     "Config Loaded",
                     "Image Extractor configuration applied successfully.",
                 )
 
         except Exception as e:
             QMessageBox.critical(
-                cast(QWidget, self),
+                self.tab,
                 "Config Error",
                 f"Failed to apply image extractor configuration:\n{e}",
             )
 
 
-__all__ = ["_ConfigMethodsMixin"]
+__all__ = ["ExtractorConfigMethodsController"]
+

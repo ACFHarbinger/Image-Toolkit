@@ -26,7 +26,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ._shared import _GROUP_STYLE, _INPUT_STYLE, _LIST_STYLE, _apply_pattern, _checked_tags, _make_tag_list
+from gui.src.theming.theme_api import qss
+
+from ._shared import _apply_pattern, _checked_tags, _make_tag_list
 
 
 class _ClusterEntry(QGroupBox):
@@ -44,7 +46,7 @@ class _ClusterEntry(QGroupBox):
         parent: Optional[QWidget] = None,
     ):
         super().__init__(f"Cluster {index + 1}", parent)
-        self.setStyleSheet(_GROUP_STYLE)
+        self.setStyleSheet(qss("metadata_group"))
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self._all_paths = all_paths
 
@@ -54,12 +56,12 @@ class _ClusterEntry(QGroupBox):
         # Header row: rename + remove
         hdr = QHBoxLayout()
         self._name_edit = QLineEdit(f"Cluster {index + 1}")
-        self._name_edit.setStyleSheet(_INPUT_STYLE)
+        self._name_edit.setStyleSheet(qss("metadata_input"))
         self._name_edit.textChanged.connect(lambda t: self.setTitle(t or f"Cluster {index + 1}"))
         hdr.addWidget(QLabel("Name:"))
         hdr.addWidget(self._name_edit, 1)
         btn_remove = QPushButton("✕ Remove")
-        btn_remove.setStyleSheet("background-color: #992222; color: white; padding: 4px 8px;")
+        btn_remove.setStyleSheet(qss("metadata_btn_remove"))
         btn_remove.clicked.connect(lambda: self.remove_requested.emit(self))
         hdr.addWidget(btn_remove)
         root.addLayout(hdr)
@@ -69,7 +71,7 @@ class _ClusterEntry(QGroupBox):
         root.addWidget(img_lbl)
         self._img_list = QListWidget()
         self._img_list.setMaximumHeight(110)
-        self._img_list.setStyleSheet(_LIST_STYLE)
+        self._img_list.setStyleSheet(qss("metadata_list"))
         for p in all_paths:
             item = QListWidgetItem(os.path.basename(p))
             item.setData(Qt.ItemDataRole.UserRole, p)
@@ -81,7 +83,7 @@ class _ClusterEntry(QGroupBox):
         btn_row = QHBoxLayout()
         for label, state in [("Check All", Qt.CheckState.Checked), ("Uncheck All", Qt.CheckState.Unchecked)]:
             b = QPushButton(label)
-            b.setStyleSheet("padding: 3px 8px;")
+            b.setStyleSheet(qss("metadata_btn_compact"))
             s = state
             b.clicked.connect(lambda _, st=s: self._set_all(st))
             btn_row.addWidget(b)
@@ -96,14 +98,14 @@ class _ClusterEntry(QGroupBox):
         self._group_combo.setEditable(True)
         self._group_combo.setPlaceholderText("Group…")
         self._group_combo.addItems([""] + groups)
-        self._group_combo.setStyleSheet(_INPUT_STYLE)
+        self._group_combo.setStyleSheet(qss("metadata_input"))
         self._group_combo.currentTextChanged.connect(self._refresh_subgroups)
         form.addRow("Group:", self._group_combo)
 
         self._subgroup_combo = QComboBox()
         self._subgroup_combo.setEditable(True)
         self._subgroup_combo.setPlaceholderText("Subgroup…")
-        self._subgroup_combo.setStyleSheet(_INPUT_STYLE)
+        self._subgroup_combo.setStyleSheet(qss("metadata_input"))
         self._all_subgroups = subgroups  # list of (subgroup_name, group_name)
         self._refresh_subgroups()
         form.addRow("Subgroup:", self._subgroup_combo)

@@ -20,9 +20,8 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
-from gui.src.constants.elements import _TABLE_STYLE
-
 from ....styles import apply_shadow_effect
+from ....theming.theme_api import color, qss
 
 if TYPE_CHECKING:
     pass
@@ -39,7 +38,7 @@ def build_groups_section(tab: Any, populate_layout: QVBoxLayout) -> None:
     lbl_auto_info = QLabel(
         f"Scans <b>{LOCAL_SOURCE_PATH}</b>.<br>Top-level folders become Groups. Second-level folders become Subgroups."
     )
-    lbl_auto_info.setStyleSheet("color: #aaa; font-style: italic;")
+    lbl_auto_info.setStyleSheet(qss("muted_label"))
     auto_pop_layout.addWidget(lbl_auto_info)
 
     tab.btn_auto_populate = QPushButton(
@@ -48,7 +47,7 @@ def build_groups_section(tab: Any, populate_layout: QVBoxLayout) -> None:
     tab.btn_auto_populate.setObjectName("btn_success")
     apply_shadow_effect(
         tab.btn_auto_populate,
-        color_hex="#000000",
+        color_hex=color("window_bg"),
         radius=8,
         x_offset=0,
         y_offset=3,
@@ -71,7 +70,7 @@ def build_groups_section(tab: Any, populate_layout: QVBoxLayout) -> None:
 
     tab.btn_create_group = QPushButton("Create Group(s)")
     apply_shadow_effect(
-        tab.btn_create_group, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+        tab.btn_create_group, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3
     )
     tab.btn_create_group.clicked.connect(tab.create_new_group)
     create_group_layout.addRow(tab.btn_create_group)
@@ -87,7 +86,7 @@ def build_groups_section(tab: Any, populate_layout: QVBoxLayout) -> None:
     tab.btn_refresh_groups = QPushButton("Refresh List")
     apply_shadow_effect(
         tab.btn_refresh_groups,
-        color_hex="#000000",
+        color_hex=color("window_bg"),
         radius=8,
         x_offset=0,
         y_offset=3,
@@ -98,7 +97,7 @@ def build_groups_section(tab: Any, populate_layout: QVBoxLayout) -> None:
     tab.btn_remove_group = QPushButton("Remove Selected Group")
     tab.btn_remove_group.setObjectName("btn_danger")
     apply_shadow_effect(
-        tab.btn_remove_group, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+        tab.btn_remove_group, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3
     )
     tab.btn_remove_group.clicked.connect(tab.remove_selected_group)
     groups_btn_layout.addWidget(tab.btn_remove_group)
@@ -117,7 +116,7 @@ def build_groups_section(tab: Any, populate_layout: QVBoxLayout) -> None:
     tab.groups_table.setSelectionMode(
         QAbstractItemView.SelectionMode.SingleSelection
     )
-    tab.groups_table.setStyleSheet(_TABLE_STYLE)
+    tab.groups_table.setStyleSheet(qss("table_widget"))
     tab.groups_table.setSizePolicy(
         QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
     )

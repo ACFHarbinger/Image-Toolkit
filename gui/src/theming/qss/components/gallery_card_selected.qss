@@ -1,0 +1,2 @@
+border: $BORDER_WIDTH solid $DARK_ACCENT_COLOR;
+background-color: $ACCENT_BG;

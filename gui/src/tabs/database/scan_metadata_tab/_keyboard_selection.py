@@ -8,26 +8,22 @@ from __future__ import annotations
 
 from PySide6.QtCore import Qt
 
+from ._tab_bound import TabBoundController
 
-class _KeyboardSelectionMixin:
+
+class ScanKeyboardController(TabBoundController):
     """Ctrl+A (select all visible) / Ctrl+D (deselect all) handling."""
 
     def keyPressEvent(self, event):
         """Handle keyboard shortcuts for selection."""
         # CTRL + A: Select All (Visible on Page)
-        if (
-            event.modifiers() & Qt.KeyboardModifier.ControlModifier
-            and event.key() == Qt.Key.Key_A
-        ):
+        if event.modifiers() & Qt.KeyboardModifier.ControlModifier and event.key() == Qt.Key.Key_A:
             self._select_all_images()
             event.accept()
             return
 
         # CTRL + D: Deselect All
-        if (
-            event.modifiers() & Qt.KeyboardModifier.ControlModifier
-            and event.key() == Qt.Key.Key_D
-        ):
+        if event.modifiers() & Qt.KeyboardModifier.ControlModifier and event.key() == Qt.Key.Key_D:
             self._deselect_all_images()
             event.accept()
             return
@@ -45,4 +41,6 @@ class _KeyboardSelectionMixin:
         self._sync_selection_from_dual()
 
 
-__all__ = ["_KeyboardSelectionMixin"]
+_KeyboardSelectionMixin = ScanKeyboardController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
+
+__all__ = ["ScanKeyboardController", "_KeyboardSelectionMixin"]

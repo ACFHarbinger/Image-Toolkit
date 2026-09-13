@@ -5,6 +5,8 @@ Unit tests for PreferenceStore contract and adapters (§1.1, #525).
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from gui.src.preferences import (
     MemoryPreferenceAdapter,
@@ -329,3 +331,16 @@ class TestRuntimeShellPreference:
         isolated_store.set(PrefKeys.EXPERIMENTAL_RUNTIME_SHELL, True)
         assert isolated_store.get(PrefKeys.EXPERIMENTAL_RUNTIME_SHELL) is True
         assert runtime_shell_enabled(isolated_store) is True
+
+
+def test_gui_account_state_writes_use_the_vault_boundary():
+    """R1.5: login is the only GUI path allowed to serialize vault JSON."""
+    gui_root = Path(__file__).resolve().parents[3] / "gui" / "src"
+    direct_writes = []
+    for path in gui_root.rglob("*.py"):
+        if path.relative_to(gui_root).as_posix() == "windows/authentication/login_window.py":
+            continue
+        if "save_data(json.dumps(" in path.read_text(encoding="utf-8"):
+            direct_writes.append(path.relative_to(gui_root).as_posix())
+
+    assert direct_writes == []

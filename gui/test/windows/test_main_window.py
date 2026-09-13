@@ -84,8 +84,9 @@ class TestMainWindowSessionRecovery:
             assert saved is not None
             assert saved["session_recovery_data"]["active_category"] == "System Tools"
             assert saved["session_recovery_data"]["active_tab"] == "Convert"
-            assert "SearchTab" in saved["session_recovery_data"]["tab_configs"]
-            assert saved["session_recovery_data"]["tab_configs"]["SearchTab"] == {"search_key": "val1"}
+            # Unopened categories are not constructed, so SearchTab is not collected.
+            # Prior All-Tabs configs (none here) are preserved rather than dropped.
+            assert "SearchTab" not in saved["session_recovery_data"]["tab_configs"]
             assert saved["session_recovery_data"]["tab_configs"]["ConvertTab"] == {"convert_key": "val2"}
 
     def test_session_recovery_restore_current_tab(self, q_app):
@@ -338,6 +339,7 @@ class TestMainWindowSaveTabConfig:
         with patch.object(QMessageBox, "information") as mock_info:
             window._save_tab_config_to_vault(_FakeTab(), "my_profile")
             mock_info.assert_called_once()
+            assert mock_info.call_args.args[0] is window
 
         saved = vault.saved_data
         assert saved is not None
@@ -370,3 +372,4 @@ class TestMainWindowSaveTabConfig:
         with patch.object(QMessageBox, "warning") as mock_warning:
             window._open_save_tab_config_dialog()
             mock_warning.assert_called_once()
+            assert mock_warning.call_args.args[0] is window

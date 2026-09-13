@@ -16,24 +16,26 @@ from PySide6.QtCore import Slot
 from PySide6.QtWidgets import QDialog, QMessageBox
 
 from gui.src.constants.listings import LISTING_IMAGES_DIR
-from gui.src.elements.database.dialog.entity_directory_import_dialog import _EntityDirectoryImportDialog
+from gui.src.elements.database.dialog.directory_import import _EntityDirectoryImportDialog
+
+from ._tab_bound import TabBoundController
 
 
-class _DirectoryImportMixin:
+class EntityListingsDirectoryImportController(TabBoundController):
     """Runs the entity directory-import wizard and creates new entities."""
 
     @Slot()
     def _on_import_from_directory(self):
         """Open the entity directory-import wizard and create listings for new entities."""
         existing_names = {e.get("name", "").lower() for e in self._entities}
-        dlg = _EntityDirectoryImportDialog(existing_names, parent=self)
+        dlg = _EntityDirectoryImportDialog(existing_names, parent=self.tab)
         if dlg.exec() != QDialog.DialogCode.Accepted:
             return
 
         selected_entities = dlg.get_selected_entities()
         if not selected_entities:
             QMessageBox.information(
-                self,
+                self.tab,
                 "Nothing to Import",
                 "No entities were selected. Nothing was imported.",
             )
@@ -89,17 +91,16 @@ class _DirectoryImportMixin:
                 self._upsert_entity(entity)
             self._rebuild_gallery()
             QMessageBox.information(
-                self,
+                self.tab,
                 "Import Complete",
-                f"Successfully imported {created} new entity"
-                f"{'s' if created != 1 else ''}.",
+                f"Successfully imported {created} new entity{'s' if created != 1 else ''}.",
             )
         else:
             QMessageBox.information(
-                self,
+                self.tab,
                 "No New Entries",
                 "All selected entities already had listings — nothing was added.",
             )
 
 
-__all__ = ["_DirectoryImportMixin"]
+__all__ = ["EntityListingsDirectoryImportController"]

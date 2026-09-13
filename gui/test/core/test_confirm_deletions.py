@@ -5,7 +5,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 from gui.src.tabs.core.similarity_tab import _deletion as similarity_deletion
-from gui.src.tabs.core.similarity_tab._deletion import _DeletionMixin
+from gui.src.tabs.core.similarity_tab._deletion import SimilarityDeletionController
 from gui.src.tabs.core.wallpaper_tab.common.wallpaper_common_base import (
     _image_preview_delete as wallpaper_deletion,
 )
@@ -14,7 +14,7 @@ from gui.src.tabs.core.wallpaper_tab.common.wallpaper_common_base._image_preview
 )
 
 
-class _SimilarityHarness(_DeletionMixin):
+class _SimilarityFakeTab:
     def __init__(self) -> None:
         self.selected_files: list[str] = []
         self.found_files: list[str] = []
@@ -66,16 +66,17 @@ def test_similarity_single_delete_skips_dialog_when_preference_disabled(
 ):
     path = tmp_path / "image.png"
     path.write_bytes(b"image")
-    tab = _SimilarityHarness()
-    tab.selected_files = [str(path)]
-    tab.found_files = [str(path)]
+    fake_tab = _SimilarityFakeTab()
+    fake_tab.selected_files = [str(path)]
+    fake_tab.found_files = [str(path)]
+    controller = SimilarityDeletionController(fake_tab)
     questions: list[tuple] = []
     trashed: list[str] = []
     monkeypatch.setattr(similarity_deletion.QMessageBox, "question", lambda *args: questions.append(args))
     monkeypatch.setattr(similarity_deletion.QMessageBox, "information", lambda *_: None)
     monkeypatch.setattr(similarity_deletion, "send2trash", trashed.append)
 
-    tab.delete_single_file(str(path))
+    controller.delete_single_file(str(path))
 
     assert questions == []
     assert trashed == [str(path)]

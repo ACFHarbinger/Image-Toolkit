@@ -199,3 +199,31 @@ def test_module_descriptor_adapts_into_catalog(q_app):
     h2 = runtime.activate("pilot.stats")
     assert factory_runs == 1
     assert h1 is h2
+
+
+def test_replace_account_disposes_handles_and_updates_context(q_app):
+    catalog = ModuleCatalog()
+    created: list[RecordingHandle] = []
+    catalog.register(
+        PageDescriptor(
+            module_id="database",
+            title="Database",
+            category=ModuleCategory.LIBRARY,
+            factory=lambda context: created.append(RecordingHandle()) or created[-1],
+        )
+    )
+    runtime = ModuleRuntime(catalog, _context(q_app))
+    first = runtime.activate("database")
+    assert runtime.is_created("database")
+    assert runtime.context.account_id == "account-a"
+
+    runtime.replace_account("account-b")
+
+    assert not runtime.is_created("database")
+    assert runtime.active_module_id is None
+    assert runtime.context.account_id == "account-b"
+    assert first._disposed is True
+
+    second = runtime.activate("database")
+    assert second is not first
+    assert len(created) == 2

@@ -1,0 +1,6 @@
+background: $TAG_BG;
+color: $TAG_TEXT;
+border: 1px solid $TAG_BORDER;
+border-radius: 3px;
+padding: 1px 5px;
+font-size: 7.5pt;

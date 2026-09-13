@@ -9,8 +9,10 @@ from __future__ import annotations
 from backend.src.core.similarity import auto_select
 from PySide6.QtCore import Slot
 
+from ._tab_bound import TabBoundController
 
-class _TriageSelectionMixin:
+
+class SimilarityTriageSelectionController(TabBoundController):
     """Auto-select keepers per cluster/globally, and QML-facing selection toggles."""
 
     def _select_paths(self, paths):
@@ -90,4 +92,8 @@ class _TriageSelectionMixin:
         self.toggle_selection(path)
 
 
-__all__ = ["_TriageSelectionMixin"]
+__all__ = ["SimilarityTriageSelectionController", "_TriageSelectionMixin"]
+
+_TriageSelectionMixin = (
+    SimilarityTriageSelectionController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
+)

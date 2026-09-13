@@ -8,8 +8,10 @@ touch the removed grid widgets.
 
 from __future__ import annotations
 
+from ._tab_bound import TabBoundController
 
-class _LazyLoadingMixin:
+
+class ScanLazyLoadController(TabBoundController):
     """No-op lazy-load overrides (the virtual gallery prefetches)."""
 
     def _on_scroll_event(self, value):
@@ -31,7 +33,11 @@ class _LazyLoadingMixin:
         """Kept for API compatibility; never called now."""
 
 
-__all__ = ["_LazyLoadingMixin"]
+_LazyLoadingMixin = ScanLazyLoadController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
+
+__all__ = ["ScanLazyLoadController", "_LazyLoadingMixin"]
 
 
-__all__ = ["_LazyLoadingMixin"]
+_LazyLoadingMixin = ScanLazyLoadController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
+
+__all__ = ["ScanLazyLoadController", "_LazyLoadingMixin"]

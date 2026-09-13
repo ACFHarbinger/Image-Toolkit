@@ -8,8 +8,12 @@ from __future__ import annotations
 
 from PySide6.QtWidgets import QDialog, QDialogButtonBox, QLabel, QLineEdit, QMessageBox, QVBoxLayout
 
+from gui.src.contracts.tab_config import ConfigCollectible
 
-class _SaveTabConfigMixin:
+from ._window_bound import WindowBoundController
+
+
+class MainSaveTabConfigController(WindowBoundController):
     """Ctrl+S: capture the active tab's current config and save it as a named profile."""
 
     def _open_save_tab_config_dialog(self) -> None:
@@ -20,19 +24,19 @@ class _SaveTabConfigMixin:
         active_tab_name = self.tabs.tabText(active_tab_index) if active_tab_index >= 0 else None
 
         if not active_category or not active_tab_name:
-            QMessageBox.warning(self, "Save Configuration", "No active tab to save a configuration for.")
+            QMessageBox.warning(self.tab, "Save Configuration", "No active tab to save a configuration for.")
             return
 
         tab_instance = self.all_tabs.get(active_category, {}).get(active_tab_name)
-        if tab_instance is None or not hasattr(tab_instance, "collect") or not callable(tab_instance.collect):
+        if not isinstance(tab_instance, ConfigCollectible):
             QMessageBox.warning(
-                self,
+                self.tab,
                 "Save Configuration",
                 f"'{active_tab_name}' does not support saving a configuration.",
             )
             return
 
-        dlg = QDialog(self)
+        dlg = QDialog(self.tab)
         dlg.setWindowTitle("Save Tab Configuration")
         dlg.setMinimumWidth(360)
         layout = QVBoxLayout(dlg)
@@ -55,7 +59,7 @@ class _SaveTabConfigMixin:
 
         config_name = name_input.text().strip()
         if not config_name:
-            QMessageBox.warning(self, "Save Configuration", "Please enter a configuration name.")
+            QMessageBox.warning(self.tab, "Save Configuration", "Please enter a configuration name.")
             return
 
         self._save_tab_config_to_vault(tab_instance, config_name)
@@ -67,7 +71,7 @@ class _SaveTabConfigMixin:
         (settings_window/_tab_config_management.py) reads from/writes to,
         so a config saved here immediately shows up there too."""
         if not self.vault_manager:
-            QMessageBox.critical(self, "Save Configuration", "Vault manager is not available.")
+            QMessageBox.critical(self.tab, "Save Configuration", "Vault manager is not available.")
             return
 
         try:
@@ -83,12 +87,12 @@ class _SaveTabConfigMixin:
             self._refresh_account_credentials(creds)
 
             QMessageBox.information(
-                self,
+                self.tab,
                 "Save Configuration",
                 f"Configuration '{config_name}' saved for {tab_class_name}.",
             )
         except Exception as e:
-            QMessageBox.critical(self, "Save Configuration", f"Failed to save configuration:\n{e}")
+            QMessageBox.critical(self.tab, "Save Configuration", f"Failed to save configuration:\n{e}")
 
 
-__all__ = ["_SaveTabConfigMixin"]
+__all__ = ["MainSaveTabConfigController"]

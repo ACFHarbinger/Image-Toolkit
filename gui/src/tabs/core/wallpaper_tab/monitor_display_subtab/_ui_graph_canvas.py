@@ -7,7 +7,7 @@ convention (§5.17).
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional, cast
+from typing import TYPE_CHECKING, Optional
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
@@ -25,13 +25,15 @@ from PySide6.QtWidgets import (
 )
 
 from .....styles import apply_shadow_effect, set_button_role
+from .....theming.theme_api import color, qss
 from ..graph import WallpaperGraphScene, WallpaperGraphView
+from ._tab_bound import TabBoundController
 
 if TYPE_CHECKING:
     from ...protos.monitor_display_subtab import MonitorDisplaySubTabHostProtocol
 
 
-class _UIGraphCanvasMixin:
+class MonitorDisplayUIGraphCanvas(TabBoundController):
     """Builds the placeholder/graph-content stack, toolbar, canvas, and gallery."""
 
     scan_directory_path: Optional[QLineEdit]
@@ -39,7 +41,7 @@ class _UIGraphCanvasMixin:
     gallery_layout: Optional[QGridLayout]
 
     def _build_ui(self: "MonitorDisplaySubTabHostProtocol"):
-        root = QVBoxLayout(cast(QWidget, self))
+        root = QVBoxLayout(self.tab)
         root.setContentsMargins(6, 6, 6, 6)
         root.setSpacing(6)
 
@@ -52,7 +54,7 @@ class _UIGraphCanvasMixin:
             "No monitors detected.\nClick 'Fetch Current Wallpapers' in the System Display(s) tab."
         )
         self._placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._placeholder.setStyleSheet("color:#b9bbbe;")
+        self._placeholder.setStyleSheet(qss("wallpaper_props_hint"))
 
         # Main content: graph + end-behavior (shown once monitors are available)
         graph_content = QWidget()
@@ -72,7 +74,7 @@ class _UIGraphCanvasMixin:
         self._build_graph_toolbar(graph_lyt)
 
         # Scene + View
-        self._scene = WallpaperGraphScene(self)
+        self._scene = WallpaperGraphScene(self.tab)
         self._scene.node_edit_requested.connect(self._edit_node)
         self._scene.graph_changed.connect(self._on_graph_changed)
         self._scene.selectionChanged.connect(self._on_selection_changed)
@@ -87,7 +89,7 @@ class _UIGraphCanvasMixin:
         # Sequence summary label
         self._seq_label = QLabel("No graph loaded.")
         self._seq_label.setWordWrap(True)
-        self._seq_label.setStyleSheet("color:#b9bbbe; font-size:11px; padding:2px;")
+        self._seq_label.setStyleSheet(qss("wallpaper_seq_label"))
         graph_lyt.addWidget(self._seq_label)
 
         gallery_panel = self._build_gallery_panel()
@@ -116,7 +118,7 @@ class _UIGraphCanvasMixin:
     def _build_graph_toolbar(self: "MonitorDisplaySubTabHostProtocol", graph_lyt) -> None:
         tb = QHBoxLayout()
         graph_lbl = QLabel("Graph Canvas")
-        graph_lbl.setStyleSheet("font-weight: bold; padding: 4px;")
+        graph_lbl.setStyleSheet(qss("section_header"))
         tb.addWidget(graph_lbl)
         tb.addStretch(1)
 
@@ -149,8 +151,15 @@ class _UIGraphCanvasMixin:
         set_button_role(self._btn_clear_graph, "danger")
         self._btn_clear_graph.clicked.connect(self._clear_canvas)
 
-        for btn in [self._btn_add_node, self._btn_self_edge, self._btn_connect,
-                    self._btn_delete, btn_reset_view, self._btn_set_start, self._btn_clear_graph]:
+        for btn in [
+            self._btn_add_node,
+            self._btn_self_edge,
+            self._btn_connect,
+            self._btn_delete,
+            btn_reset_view,
+            self._btn_set_start,
+            self._btn_clear_graph,
+        ]:
             btn.setFixedHeight(36)
             tb.addWidget(btn)
         graph_lyt.addLayout(tb)
@@ -190,8 +199,7 @@ class _UIGraphCanvasMixin:
         set_button_role(self._btn_daemon_slideshow, "success")
         self._btn_daemon_slideshow.clicked.connect(self._toggle_daemon_slideshow)
 
-        for btn in [self._btn_export_queue, self._btn_preview,
-                    self._btn_inapp_slideshow, self._btn_daemon_slideshow]:
+        for btn in [self._btn_export_queue, self._btn_preview, self._btn_inapp_slideshow, self._btn_daemon_slideshow]:
             btn.setFixedHeight(36)
             bottom_tb.addWidget(btn)
 
@@ -201,15 +209,11 @@ class _UIGraphCanvasMixin:
         self._queue_position_label.setToolTip(
             "Active wallpaper position within this display's Wallpaper Queue"
         )
-        self._queue_position_label.setStyleSheet(
-            "color:#f1c40f; font-weight:bold; font-size:14px;"
-        )
+        self._queue_position_label.setStyleSheet(qss("wallpaper_queue_position"))
         bottom_tb.addWidget(self._queue_position_label)
 
         self._queue_timer_label = QLabel("Timer: --:--")
-        self._queue_timer_label.setStyleSheet(
-            "color:#2ecc71; font-weight:bold; font-size:14px;"
-        )
+        self._queue_timer_label.setStyleSheet(qss("wallpaper_queue_timer"))
         self._queue_timer_label.setFixedWidth(110)
         bottom_tb.addWidget(self._queue_timer_label)
 
@@ -232,7 +236,7 @@ class _UIGraphCanvasMixin:
         )
         btn_browse_scan = QPushButton("Browse...")
         apply_shadow_effect(
-            btn_browse_scan, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+            btn_browse_scan, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3
         )
         btn_browse_scan.clicked.connect(self.browse_scan_directory)
         scan_dir_layout.addWidget(QLabel("Scan Directory:"))
@@ -252,4 +256,5 @@ class _UIGraphCanvasMixin:
         return gallery_panel
 
 
-__all__ = ["_UIGraphCanvasMixin"]
+__all__ = ["MonitorDisplayUIGraphCanvas"]
+

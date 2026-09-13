@@ -28,6 +28,7 @@ than silently dropped):
 
 from __future__ import annotations
 
+import math
 from typing import Dict, List
 
 from PySide6.QtCore import QLineF, QPointF, Qt
@@ -54,6 +55,17 @@ from gui.src.constants.elements import (
     _TITLE_HEIGHT,
 )
 
+from ....theming.er_view_palette import (
+    CARD_BG,
+    CARD_BORDER,
+    CARD_PK,
+    CARD_ROW,
+    CARD_TITLE,
+    RELATIONSHIP_LINE,
+    SCENE_BG,
+)
+from ._tab_bound import TabBoundController
+
 
 def _bucket_for(table: str) -> str:
     for bucket, names in _BUCKET_TABLES.items():
@@ -63,16 +75,18 @@ def _bucket_for(table: str) -> str:
 
 
 class _TableCardItem(QGraphicsRectItem):
-    """One table's card: title bar + PK-starred/FK-annotated column rows.
-    Clicking anywhere on the card notifies *on_click* with the table name."""
+    """Visual card for a single table in the schema view: header with table
+    name, followed by rows for each column. PK columns have a star; FK
+    columns show the target table. Clicking the card navigates the grid
+    to that table."""
 
     def __init__(self, table_name: str, columns: List[Dict], fk_by_column: Dict[str, Dict], on_click):
         height = _TITLE_HEIGHT + max(1, len(columns)) * _ROW_HEIGHT + 8
         super().__init__(0, 0, _CARD_WIDTH, height)
         self.table_name = table_name
         self._on_click = on_click
-        self.setBrush(QBrush(QColor("#2c2f33")))
-        self.setPen(QPen(QColor("#4f545c"), 1))
+        self.setBrush(QBrush(QColor(CARD_BG)))
+        self.setPen(QPen(QColor(CARD_BORDER), 1))
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
         self.setAcceptHoverEvents(True)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -82,11 +96,11 @@ class _TableCardItem(QGraphicsRectItem):
         title_font = QFont()
         title_font.setBold(True)
         title.setFont(title_font)
-        title.setBrush(QBrush(QColor("#ffffff")))
+        title.setBrush(QBrush(QColor(CARD_TITLE)))
         title.setPos(6, 4)
 
         divider = QGraphicsLineItem(0, _TITLE_HEIGHT, _CARD_WIDTH, _TITLE_HEIGHT, self)
-        divider.setPen(QPen(QColor("#4f545c"), 1))
+        divider.setPen(QPen(QColor(CARD_BORDER), 1))
 
         for i, col in enumerate(columns):
             name = col["name"]
@@ -95,7 +109,7 @@ class _TableCardItem(QGraphicsRectItem):
             if fk:
                 label = f"{label}  -> {fk['ref_table']}.{fk['ref_column']}"
             row = QGraphicsSimpleTextItem(label, self)
-            row.setBrush(QBrush(QColor("#f2b900" if col.get("pk") else "#dcddde")))
+            row.setBrush(QBrush(QColor(CARD_PK if col.get("pk") else CARD_ROW)))
             row.setPos(6, _TITLE_HEIGHT + i * _ROW_HEIGHT + 2)
 
     def anchor_point_toward(self, other_center: QPointF) -> QPointF:
@@ -125,8 +139,7 @@ class _TableCardItem(QGraphicsRectItem):
 
 
 class ERGraphicsView(QGraphicsView):
-    """Minimal pan/zoom view for the schema scene -- deliberately not a
-    reuse of the wallpaper tab's node-editor graph view (see this
+    """Pannable/zoomable view over the schema scene (see the containing
     module's docstring)."""
 
     def __init__(self, scene: QGraphicsScene, parent=None):
@@ -134,7 +147,7 @@ class ERGraphicsView(QGraphicsView):
         self.setRenderHint(QPainter.RenderHint.Antialiasing)
         self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
         self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
-        self.setBackgroundBrush(QBrush(QColor("#23272a")))
+        self.setBackgroundBrush(QBrush(QColor(SCENE_BG)))
         self.setMinimumSize(400, 300)
 
     def wheelEvent(self, event) -> None:
@@ -142,7 +155,7 @@ class ERGraphicsView(QGraphicsView):
         self.scale(factor, factor)
 
 
-class _ERViewMixin:
+class DataBrowserERViewController(TabBoundController):
     """Builds and populates the Schema (ER) sub-view."""
 
     def _build_er_view(self) -> QWidget:
@@ -213,7 +226,7 @@ class _ERViewMixin:
         end = dst_card.anchor_point_toward(src_center)
 
         line = QGraphicsLineItem(QLineF(start, end))
-        line.setPen(QPen(QColor("#7289da"), 1.5))
+        line.setPen(QPen(QColor(RELATIONSHIP_LINE), 1.5))
         line.setZValue(-1)
         self.er_scene.addItem(line)
 
@@ -221,7 +234,6 @@ class _ERViewMixin:
         # simplification of a full crow's-foot glyph, see module docstring.
         direction = QLineF(start, end)
         angle = direction.angle()
-        import math
         arrow_size = 8.0
         a1 = end - QPointF(
             math.cos(math.radians(angle - 150)) * arrow_size,
@@ -232,7 +244,7 @@ class _ERViewMixin:
             -math.sin(math.radians(angle + 150)) * arrow_size,
         )
         arrow_head = QGraphicsPolygonItem(QPolygonF([end, a1, a2]))
-        arrow_head.setBrush(QBrush(QColor("#7289da")))
+        arrow_head.setBrush(QBrush(QColor(RELATIONSHIP_LINE)))
         arrow_head.setPen(QPen(Qt.PenStyle.NoPen))
         arrow_head.setZValue(-1)
         self.er_scene.addItem(arrow_head)
@@ -242,4 +254,4 @@ class _ERViewMixin:
         self.table_combo.setCurrentText(table_name)
 
 
-__all__ = ["_ERViewMixin", "ERGraphicsView"]
+__all__ = ["DataBrowserERViewController", "ERGraphicsView"]

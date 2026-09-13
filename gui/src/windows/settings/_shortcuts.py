@@ -35,6 +35,7 @@ from PySide6.QtWidgets import (
 )
 
 from gui.src.constants.windows import _DEFAULT_SCOPE_ICON, _SCOPE_ICONS
+from gui.src.theming.theme_api import qss
 
 from ...utils.manager.shortcut_manager import SHORTCUT_REGISTRY, get_registry
 
@@ -63,7 +64,7 @@ class _ShortcutsMixin:
             "shortcuts apply when a new preview is opened)."
         )
         info.setWordWrap(True)
-        info.setStyleSheet("color: #aaa; font-size: 10px;")
+        info.setStyleSheet(qss("settings_desc_label", FONT_SIZE="10px"))
         vbox.addWidget(info)
 
         user_qss_path = str(Path.home() / ".image-toolkit" / "user_theme.qss")
@@ -72,7 +73,7 @@ class _ShortcutsMixin:
             "to append your own QSS rules on top of the active theme."
         )
         qss_hint.setWordWrap(True)
-        qss_hint.setStyleSheet("color: #aaa; font-size: 10px; margin-bottom: 6px;")
+        qss_hint.setStyleSheet(qss("settings_desc_label_hint"))
         vbox.addWidget(qss_hint)
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
@@ -202,10 +203,7 @@ class _ShortcutsMixin:
 
         chip = QPushButton(key_str)
         chip.setEnabled(False)
-        chip.setStyleSheet(
-            "QPushButton { padding: 3px 10px; border-radius: 9px; background: #3e3e42; color: white; }"
-            "QPushButton:disabled { color: white; }"
-        )
+        chip.setStyleSheet(qss("settings_shortcut_chip"))
         del_btn = QPushButton("🗑")
         del_btn.setFixedWidth(26)
         del_btn.setToolTip("Remove this custom shortcut")

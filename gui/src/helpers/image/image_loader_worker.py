@@ -90,3 +90,4 @@ class ImageLoaderWorker(BaseQRunnableWorker):
     def _safe_emit(self, path, image):
         with contextlib.suppress(RuntimeError):
             self.stream.result.emit(path, image)
+

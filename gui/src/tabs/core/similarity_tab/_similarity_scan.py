@@ -15,9 +15,10 @@ from PySide6.QtCore import Qt, Slot
 from gui.src.helpers.core.similarity_scan_worker import SimilarityScanWorker
 
 from ....utils.sort_utils import natural_sort_key
+from ._tab_bound import TabBoundController
 
 
-class _SimilarityScanMixin:
+class SimilarityScanController(TabBoundController):
     """Start/cancel the tiered similarity scan worker and apply its clusters."""
 
     @Slot(str)
@@ -103,14 +104,13 @@ class _SimilarityScanMixin:
         self._ref_set = set()
         if self._sim_config.reference_dir:
             ref = os.path.abspath(self._sim_config.reference_dir)
-            self._ref_set = {
-                p for p in report.files
-                if os.path.commonpath([ref, os.path.abspath(p)]) == ref
-            }
+            self._ref_set = {p for p in report.files if os.path.commonpath([ref, os.path.abspath(p)]) == ref}
         self._apply_clusters(report.clusters)
         n_files = sum(c["size"] for c in report.clusters)
-        msg = (f"Scan complete: {len(report.clusters)} clusters, {n_files} files "
-               f"({report.stats.get('cache_hits', 0)} cache hits).")
+        msg = (
+            f"Scan complete: {len(report.clusters)} clusters, {n_files} files "
+            f"({report.stats.get('cache_hits', 0)} cache hits)."
+        )
         self.status_label.setText(msg)
         self.scan_status_changed.emit(msg)
         self.duplicate_results = {c["id"]: c["paths"] for c in report.clusters}
@@ -152,4 +152,6 @@ class _SimilarityScanMixin:
             self._apply_clusters(clusters)
 
 
-__all__ = ["_SimilarityScanMixin"]
+_SimilarityScanMixin = SimilarityScanController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
+
+__all__ = ["SimilarityScanController", "_SimilarityScanMixin"]

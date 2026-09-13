@@ -1,0 +1,5 @@
+font-size: 48px;
+color: $DARK_BORDER;
+background: $DARK_SECONDARY_BG;
+border-radius: 6px;
+border: none;

@@ -7,8 +7,10 @@ from __future__ import annotations
 
 from typing import List
 
+from ._tab_bound import TabBoundController
 
-class _QmlPropertiesMixin:
+
+class SimilarityQmlPropertiesController(TabBoundController):
     """scanRunning/confidenceThreshold/selectedFiles Qt Properties and selection hook."""
 
     # ==================================================================
@@ -42,4 +44,6 @@ class _QmlPropertiesMixin:
         self.selection_changed_qml.emit()
 
 
-__all__ = ["_QmlPropertiesMixin"]
+__all__ = ["SimilarityQmlPropertiesController", "_QmlPropertiesMixin"]
+
+_QmlPropertiesMixin = SimilarityQmlPropertiesController  # COMPAT(ui-arch-23): remove after callers drop the mixin name

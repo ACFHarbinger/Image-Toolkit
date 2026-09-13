@@ -1,0 +1,5 @@
+QPushButton {
+  background-color: $DARK_SUCCESS; color: white; font-weight: bold;
+  padding: 10px 20px; border-radius: 6px; font-size: 11pt;
+}
+QPushButton:hover { background-color: #2ea043; }

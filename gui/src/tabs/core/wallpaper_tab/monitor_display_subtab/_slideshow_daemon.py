@@ -11,12 +11,14 @@ import logging
 import platform
 import subprocess
 import sys
-from typing import TYPE_CHECKING, Optional, cast
+from typing import TYPE_CHECKING, Optional
 
 from backend.src.constants import MONITOR_SLIDESHOW_DAEMON_CONFIG_PATH, ROOT_DIR
 from backend.src.utils.display import monitor_slideshow_daemon as _monitor_slideshow
 from PySide6.QtCore import Slot
-from PySide6.QtWidgets import QMessageBox, QWidget
+from PySide6.QtWidgets import QMessageBox
+
+from ._tab_bound import TabBoundController
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +26,7 @@ if TYPE_CHECKING:
     from ...protos.monitor_display_subtab import MonitorDisplaySubTabHostProtocol
 
 
-class _SlideshowDaemonMixin:
+class MonitorDisplaySlideshowDaemonController(TabBoundController):
     """Start/stop the detached background wallpaper-slideshow daemon process."""
 
     _daemon_active_monitor_id: Optional[str]
@@ -62,32 +64,30 @@ class _SlideshowDaemonMixin:
         # Profile reload / implicit callers must not restart a live daemon
         # or overwrite its start-time queue.
         status = self._read_daemon_status()
-        if (
-            _monitor_slideshow.daemon_is_live(status)
-            and str(status.get("monitor_id")) == str(monitor_id)
-        ):
+        if _monitor_slideshow.daemon_is_live(status) and str(status.get("monitor_id")) == str(monitor_id):
             self._daemon_active_monitor_id = str(monitor_id)
             return
         queue = self.monitor_slideshow_queues.get(monitor_id, [])
         if not queue:
             QMessageBox.information(
-                cast(QWidget, self), "Empty Queue",
-                "This display's Wallpaper Queue is empty. Use 'Export to Queue' "
-                "or drop files onto the monitor first.",
+                self.tab,
+                "Empty Queue",
+                "This display's Wallpaper Queue is empty. Use 'Export to Queue' or drop files onto the monitor first.",
             )
             self._update_slideshow_buttons()
             return
         if self._inapp_active_monitor_id == monitor_id:
             QMessageBox.warning(
-                cast(QWidget, self), "Slideshow Conflict",
-                "The in-app slideshow is running for this display. "
-                "Stop it before starting the Slideshow Daemon.",
+                self.tab,
+                "Slideshow Conflict",
+                "The in-app slideshow is running for this display. Stop it before starting the Slideshow Daemon.",
             )
             self._update_slideshow_buttons()
             return
         if self._daemon_active_monitor_id and self._daemon_active_monitor_id != monitor_id:
             reply = QMessageBox.question(
-                cast(QWidget, self), "Daemon Already Running",
+                self.tab,
+                "Daemon Already Running",
                 "The Slideshow Daemon is already running for another display "
                 f"(Monitor {self._daemon_active_monitor_id}). Only one display "
                 "can run the daemon at a time. Switch it to this display?",
@@ -107,13 +107,9 @@ class _SlideshowDaemonMixin:
             style = getattr(self._system_display_ref, "wallpaper_style", style)
             video_style = getattr(self._system_display_ref, "video_style", video_style)
 
-        other_paths = {
-            mid: p for mid, p in self.monitor_image_paths.items()
-            if mid != monitor_id and p
-        }
+        other_paths = {mid: p for mid, p in self.monitor_image_paths.items() if mid != monitor_id and p}
         geometries = {
-            str(i): {"x": m.x, "y": m.y, "width": m.width, "height": m.height}
-            for i, m in enumerate(self.monitors)
+            str(i): {"x": m.x, "y": m.y, "width": m.width, "height": m.height} for i, m in enumerate(self.monitors)
         }
         current_path = self.monitor_image_paths.get(monitor_id)
         current_index = queue.index(current_path) if current_path in queue else -1  # pyrefly: ignore [bad-argument-type]
@@ -134,13 +130,13 @@ class _SlideshowDaemonMixin:
             with open(MONITOR_SLIDESHOW_DAEMON_CONFIG_PATH, "w") as f:
                 json.dump(config, f, indent=2)
         except Exception as e:
-            QMessageBox.critical(
-                cast(QWidget, self), "Error", f"Failed to write daemon config: {e}")
+            QMessageBox.critical(self.tab, "Error", f"Failed to write daemon config: {e}")
             return
 
         if getattr(sys, "frozen", False):
             QMessageBox.critical(
-                cast(QWidget, self), "Unavailable in packaged build",
+                self.tab,
+                "Unavailable in packaged build",
                 "The slideshow daemon is a separate Python process and is "
                 "not supported in the packaged app. Run from a source "
                 "checkout to use it.",
@@ -149,8 +145,7 @@ class _SlideshowDaemonMixin:
 
         script_path = ROOT_DIR / "backend" / "src" / "utils" / "display" / "monitor_slideshow_daemon.py"
         if not script_path.exists():
-            QMessageBox.critical(
-                cast(QWidget, self), "Error", f"Daemon script not found at:\n{script_path}")
+            QMessageBox.critical(self.tab, "Error", f"Daemon script not found at:\n{script_path}")
             return
         try:
             if platform.system() == "Windows":
@@ -167,8 +162,7 @@ class _SlideshowDaemonMixin:
                     stderr=subprocess.DEVNULL,
                 )
         except Exception as e:
-            QMessageBox.critical(
-                cast(QWidget, self), "Error", f"Failed to start daemon: {e}")
+            QMessageBox.critical(self.tab, "Error", f"Failed to start daemon: {e}")
             return
 
         config["pid"] = proc.pid
@@ -197,4 +191,8 @@ class _SlideshowDaemonMixin:
         self._update_queue_status_label()
 
 
-__all__ = ["_SlideshowDaemonMixin"]
+__all__ = ["MonitorDisplaySlideshowDaemonController"]
+
+_SlideshowDaemonMixin = (
+    MonitorDisplaySlideshowDaemonController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
+)

@@ -1,0 +1,1 @@
+QFrame#$OBJECT_NAME { border: 2px solid $DARK_ACCENT_COLOR; border-radius: 8px; background: $DARK_SECONDARY_BG; }

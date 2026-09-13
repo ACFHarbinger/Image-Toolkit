@@ -15,16 +15,18 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional, cast
+from typing import TYPE_CHECKING, Optional
 
 from backend.src.constants import DAEMON_CONFIG_PATH, ROOT_DIR
 from backend.src.constants.utils import PID_PATH
-from PySide6.QtCore import QObject, QTimer
-from PySide6.QtWidgets import QMessageBox, QWidget
+from PySide6.QtCore import QTimer
+from PySide6.QtWidgets import QMessageBox
 
 from .....styles import set_button_role
+from ._tab_bound import TabBoundController
 
 logger = logging.getLogger(__name__)
+
 
 def _write_daemon_config_atomic(data: dict) -> None:
     """Write the daemon config atomically.
@@ -49,7 +51,7 @@ if TYPE_CHECKING:
     from ...protos.system_display_subtab import SystemDisplaySubTabHostProtocol
 
 
-class _DaemonMixin:
+class SystemDisplayDaemonController(TabBoundController):
     """Countdown, config sync, process start/stop, and log viewer for the daemon."""
 
     countdown_timer: Optional[QTimer]
@@ -78,7 +80,7 @@ class _DaemonMixin:
                 timer = None
                 needs_start = True
             if timer is None:
-                timer = QTimer(cast(QObject, self))
+                timer = QTimer(self.tab)
                 self.countdown_timer = timer
                 timer.timeout.connect(self.update_countdown)
                 needs_start = True
@@ -204,11 +206,9 @@ class _DaemonMixin:
 
         config = {
             "running": True,
-            "interval_seconds": (self.interval_min_spinbox.value() * 60)
-            + self.interval_sec_spinbox.value(),
+            "interval_seconds": (self.interval_min_spinbox.value() * 60) + self.interval_sec_spinbox.value(),
             "use_video_runtime_interval": (
-                self.background_type == "Smart Video Slideshow"
-                and self.chk_video_runtime_interval.isChecked()
+                self.background_type == "Smart Video Slideshow" and self.chk_video_runtime_interval.isChecked()
             ),
             "style": style_to_use,
             "monitor_queues": locked_queues,
@@ -216,8 +216,7 @@ class _DaemonMixin:
             "playback_order": self.playback_order_combo.currentText(),
             "filter_directories": [],
             "monitor_geometries": {
-                str(i): {"x": m.x, "y": m.y, "width": m.width, "height": m.height}
-                for i, m in enumerate(self.monitors)
+                str(i): {"x": m.x, "y": m.y, "width": m.width, "height": m.height} for i, m in enumerate(self.monitors)
             },
             "last_change_timestamp": last_change_timestamp,
             "monitor_history": self.monitor_history,
@@ -257,11 +256,9 @@ class _DaemonMixin:
 
         config = {
             "running": start,
-            "interval_seconds": (self.interval_min_spinbox.value() * 60)
-            + self.interval_sec_spinbox.value(),
+            "interval_seconds": (self.interval_min_spinbox.value() * 60) + self.interval_sec_spinbox.value(),
             "use_video_runtime_interval": (
-                self.background_type == "Smart Video Slideshow"
-                and self.chk_video_runtime_interval.isChecked()
+                self.background_type == "Smart Video Slideshow" and self.chk_video_runtime_interval.isChecked()
             ),
             "style": style_to_use,
             "monitor_queues": self.monitor_slideshow_queues,
@@ -269,8 +266,7 @@ class _DaemonMixin:
             "playback_order": self.playback_order_combo.currentText(),
             "filter_directories": [],
             "monitor_geometries": {
-                str(i): {"x": m.x, "y": m.y, "width": m.width, "height": m.height}
-                for i, m in enumerate(self.monitors)
+                str(i): {"x": m.x, "y": m.y, "width": m.width, "height": m.height} for i, m in enumerate(self.monitors)
             },
             "last_change_timestamp": last_change_timestamp,
             "monitor_history": self.monitor_history,
@@ -279,7 +275,7 @@ class _DaemonMixin:
         try:
             _write_daemon_config_atomic(config)
         except Exception as e:
-            QMessageBox.critical(cast(QWidget, self), "Error", f"Failed to save daemon config: {e}")
+            QMessageBox.critical(self.tab, "Error", f"Failed to save daemon config: {e}")
             return
 
         if start and self._is_background_daemon_process_alive():
@@ -296,7 +292,8 @@ class _DaemonMixin:
         if start:
             if getattr(sys, "frozen", False):
                 QMessageBox.critical(
-                    cast(QWidget, self), "Unavailable in packaged build",
+                    self.tab,
+                    "Unavailable in packaged build",
                     "The wallpaper slideshow daemon is a separate Python "
                     "process and is not supported in the packaged app. Run "
                     "from a source checkout to use it.",
@@ -304,9 +301,7 @@ class _DaemonMixin:
                 return
             script_path = self._get_daemon_script_path()
             if not os.path.exists(script_path):
-                QMessageBox.critical(
-                    cast(QWidget, self), "Error", f"Daemon script not found at:\n{script_path}"
-                )
+                QMessageBox.critical(self.tab, "Error", f"Daemon script not found at:\n{script_path}")
                 return
             try:
                 if platform.system() == "Windows":
@@ -334,7 +329,7 @@ class _DaemonMixin:
                 set_button_role(self.btn_daemon_toggle, "danger")
                 self._start_daemon_countdown_if_active()
             except Exception as e:
-                QMessageBox.critical(cast(QWidget, self), "Error", f"Failed to start daemon: {e}")
+                QMessageBox.critical(self.tab, "Error", f"Failed to start daemon: {e}")
         else:
             self.btn_daemon_toggle.setText("Start Background Daemon")
             set_button_role(self.btn_daemon_toggle, "success")
@@ -345,7 +340,7 @@ class _DaemonMixin:
     def view_daemon_logs(self: "SystemDisplaySubTabHostProtocol"):
         log_path = Path.home() / ".image-toolkit" / "logs" / "slideshow_daemon.log"
         if not log_path.exists():
-            QMessageBox.information(cast(QWidget, self), "No Logs", "No daemon log file found yet.")
+            QMessageBox.information(self.tab, "No Logs", "No daemon log file found yet.")
             return
         try:
             if platform.system() == "Windows":
@@ -357,7 +352,8 @@ class _DaemonMixin:
             else:
                 subprocess.run(["xdg-open", str(log_path)])
         except Exception as e:
-            QMessageBox.critical(cast(QWidget, self), "Error", f"Could not open log file: {e}")
+            QMessageBox.critical(self.tab, "Error", f"Could not open log file: {e}")
 
 
-__all__ = ["_DaemonMixin"]
+__all__ = ["SystemDisplayDaemonController"]
+

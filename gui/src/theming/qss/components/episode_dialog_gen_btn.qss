@@ -1,0 +1,5 @@
+background-color: #e67e22;
+color: white;
+font-weight: bold;
+padding: 4px 8px;
+border-radius: 4px;

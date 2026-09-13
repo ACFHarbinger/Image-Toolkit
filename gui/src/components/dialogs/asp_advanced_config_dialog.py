@@ -32,6 +32,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from gui.src.theming.theme_api import qss
+
 # Canonical 20-flag primary curated profile keys (M2 surface)
 PRIMARY_CURATED_KEYS = [
     "ASP_HOLD_THRESHOLD",
@@ -231,7 +233,7 @@ class AspAdvancedConfigDialog(QDialog):
         # Header with profile selection and search
         top_bar = QHBoxLayout()
         title_lbl = QLabel("ASP Configuration Matrix")
-        title_lbl.setStyleSheet("font-size: 16px; font-weight: bold; color: #00f0ff;")
+        title_lbl.setStyleSheet(qss("asp_dialog_title"))
         top_bar.addWidget(title_lbl)
 
         top_bar.addStretch()
@@ -328,7 +330,7 @@ class AspAdvancedConfigDialog(QDialog):
         button_bar.addWidget(btn_cancel)
 
         btn_apply = QPushButton("Apply Configuration")
-        btn_apply.setStyleSheet("background-color: #00f0ff; color: #07080b; font-weight: bold;")
+        btn_apply.setStyleSheet(qss("asp_apply_btn"))
         btn_apply.clicked.connect(self._apply_and_accept)
         button_bar.addWidget(btn_apply)
 

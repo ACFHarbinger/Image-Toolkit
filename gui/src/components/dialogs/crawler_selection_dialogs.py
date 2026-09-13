@@ -24,6 +24,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from gui.src.theming.theme_api import color, qss
+
 logger = logging.getLogger(__name__)
 
 # Helper for computing Hamming distance between two 64-bit integers
@@ -120,7 +122,7 @@ class ClickableImageCard(QFrame):
             )
         else:
             thumb_label.setText("No Preview")
-            thumb_label.setStyleSheet("color: #888888; font-style: italic;")
+            thumb_label.setStyleSheet(qss("muted_label"))
 
         # Metadata
         filename = os.path.basename(clean_path)
@@ -129,18 +131,18 @@ class ClickableImageCard(QFrame):
 
         size_str = get_file_size_str(clean_path)
         meta_html = f"<b>{filename}</b> ({size_str})<br/>"
-        meta_html += f"<span style='color: #00f0ff;'><b>Pos on Page: #{index_on_page}</b></span> &nbsp;|&nbsp; Page #{page_num}<br/>"
-        meta_html += f"<span style='color: #a0a0a0;'>Global ID: #{global_id}</span>"
+        meta_html += f"<span style='color: {color('accent')};'><b>Pos on Page: #{index_on_page}</b></span> &nbsp;|&nbsp; Page #{page_num}<br/>"
+        meta_html += f"<span style='color: {color('muted_text')};'>Global ID: #{global_id}</span>"
 
         if page_url:
             short_url = page_url.replace("https://", "").replace("http://", "")
             if len(short_url) > 26:
                 short_url = short_url[:23] + "..."
-            meta_html += f"<br/><span style='color: #888888;'>URL: {short_url}</span>"
+            meta_html += f"<br/><span style='color: {color('muted_text')};'>URL: {short_url}</span>"
 
         info_label = QLabel(meta_html)
         info_label.setTextFormat(Qt.TextFormat.RichText)
-        info_label.setStyleSheet("font-size: 11px;")
+        info_label.setStyleSheet(qss("task_close_status"))
         info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         # Status Badge Pill (KEEP vs DISCARD)
@@ -164,23 +166,15 @@ class ClickableImageCard(QFrame):
 
     def update_style(self):
         if self.is_kept:
-            # KEEP State: Blue Edge (#00f0ff) and Dark Blue Background (#102a43)
-            self.setStyleSheet(
-                "QFrame { border: 2px solid #00f0ff; border-radius: 8px; background-color: #102a43; padding: 5px; }"
-            )
+            # KEEP State: accent border on dark surface
+            self.setStyleSheet(qss("crawler_card_keep"))
             self.status_badge.setText("✓ KEEP (Selected)")
-            self.status_badge.setStyleSheet(
-                "background-color: #00f0ff; color: #0a0a0c; font-weight: bold; font-size: 11px; border-radius: 4px; padding: 4px 10px;"
-            )
+            self.status_badge.setStyleSheet(qss("crawler_badge_keep"))
         else:
-            # NOT KEEP State: Red Edge (#ff3355) and Dark Red Background (#38131d)
-            self.setStyleSheet(
-                "QFrame { border: 2px solid #ff3355; border-radius: 8px; background-color: #38131d; padding: 5px; }"
-            )
+            # NOT KEEP State: danger border on dark surface
+            self.setStyleSheet(qss("crawler_card_discard"))
             self.status_badge.setText("✗ DISCARD (Will Delete)")
-            self.status_badge.setStyleSheet(
-                "background-color: #ff3355; color: #ffffff; font-weight: bold; font-size: 11px; border-radius: 4px; padding: 4px 10px;"
-            )
+            self.status_badge.setStyleSheet(qss("crawler_badge_discard"))
 
 
 class ManualSelectionDialog(QDialog):
@@ -247,17 +241,17 @@ class ManualSelectionDialog(QDialog):
 
         # Title Label
         title = QLabel("Click any image card to toggle between KEEP (Blue) and DISCARD (Red). Unselected images will be deleted.")
-        title.setStyleSheet("font-size: 13px; font-weight: bold; margin-bottom: 4px;")
+        title.setStyleSheet(qss("task_close_header"))
         layout.addWidget(title)
 
         # Banner explaining counter IDs & Skip First/Last tuning
         tip_box = QFrame()
-        tip_box.setStyleSheet("QFrame { background-color: #1e222a; border: 1px solid #00f0ff; border-radius: 6px; padding: 6px; margin-bottom: 8px; }")
+        tip_box.setStyleSheet(qss("crawler_tip_box"))
         tip_layout = QVBoxLayout(tip_box)
         tip_layout.setContentsMargins(8, 6, 8, 6)
 
         tip_title = QLabel("💡 Download Metadata & Skip First/Last Parameter Tuning Guide")
-        tip_title.setStyleSheet("color: #00f0ff; font-weight: bold; font-size: 12px;")
+        tip_title.setStyleSheet(qss("asp_dialog_title"))
 
         tip_text = QLabel(
             "Each card shows source Page URL, Page #, and Pos # on Page (counter ID). Click anywhere on a card to toggle state:\n"
@@ -265,7 +259,7 @@ class ManualSelectionDialog(QDialog):
             "• Red Edge / Background = DISCARD (Will be deleted on Confirm)\n"
             "Images within Skip First / Skip Last ranges are automatically pre-marked in RED as DISCARD!"
         )
-        tip_text.setStyleSheet("color: #cccccc; font-size: 11px;")
+        tip_text.setStyleSheet(qss("queue_filename"))
         tip_text.setWordWrap(True)
 
         tip_layout.addWidget(tip_title)
@@ -313,11 +307,11 @@ class ManualSelectionDialog(QDialog):
         # Dialog Buttons (Confirm / Cancel)
         buttons_layout = QHBoxLayout()
         self.btn_confirm = QPushButton("Confirm (Keep Selected)")
-        self.btn_confirm.setStyleSheet("background-color: #27ae60; color: white; font-weight: bold; padding: 10px;")
+        self.btn_confirm.setStyleSheet(qss("dialog_btn_success"))
         self.btn_confirm.clicked.connect(self.accept)
 
         self.btn_cancel = QPushButton("Cancel (Discard All)")
-        self.btn_cancel.setStyleSheet("background-color: #c0392b; color: white; font-weight: bold; padding: 10px;")
+        self.btn_cancel.setStyleSheet(qss("dialog_btn_danger"))
         self.btn_cancel.clicked.connect(self.reject)
 
         buttons_layout.addStretch()
@@ -418,7 +412,7 @@ class DuplicateConfigDialog(QDialog):
 
         # Title/Description
         desc = QLabel("Configure duplicate detection parameters to scan your downloads:")
-        desc.setStyleSheet("font-size: 13px; font-weight: bold; margin-bottom: 10px;")
+        desc.setStyleSheet(qss("task_close_header"))
         layout.addWidget(desc)
 
         # Method Options
@@ -470,11 +464,11 @@ class DuplicateConfigDialog(QDialog):
         # Dialog Buttons
         buttons_layout = QHBoxLayout()
         btn_search = QPushButton("Run Duplicate Search")
-        btn_search.setStyleSheet("background-color: #007AFF; color: white; font-weight: bold; padding: 8px 15px;")
+        btn_search.setStyleSheet(qss("dialog_btn_primary"))
         btn_search.clicked.connect(self.accept)
 
         btn_cancel = QPushButton("Cancel (Discard Downloads)")
-        btn_cancel.setStyleSheet("background-color: #c0392b; color: white; font-weight: bold; padding: 8px 15px;")
+        btn_cancel.setStyleSheet(qss("dialog_btn_danger"))
         btn_cancel.clicked.connect(self.reject)
 
         buttons_layout.addStretch()
@@ -534,7 +528,7 @@ class DeduplicationPruningDialog(QDialog):
             f"**{len(self.downloaded_files)}** downloaded image(s).\n"
             f"Images with duplicates are unchecked by default (will be deleted)."
         )
-        summary.setStyleSheet("font-size: 13px; font-weight: bold; color: #00bcd4; margin-bottom: 10px;")
+        summary.setStyleSheet(qss("asp_dialog_title"))
         layout.addWidget(summary)
 
         # Scroll Area for image items list
@@ -555,11 +549,11 @@ class DeduplicationPruningDialog(QDialog):
         # Buttons
         buttons_layout = QHBoxLayout()
         btn_confirm = QPushButton("Confirm (Apply Pruning)")
-        btn_confirm.setStyleSheet("background-color: #27ae60; color: white; font-weight: bold; padding: 10px 20px;")
+        btn_confirm.setStyleSheet(qss("dialog_btn_success"))
         btn_confirm.clicked.connect(self.accept)
 
         btn_cancel = QPushButton("Cancel (Discard All Downloads)")
-        btn_cancel.setStyleSheet("background-color: #c0392b; color: white; font-weight: bold; padding: 10px 20px;")
+        btn_cancel.setStyleSheet(qss("dialog_btn_danger"))
         btn_cancel.clicked.connect(self.reject)
 
         buttons_layout.addStretch()
@@ -575,9 +569,9 @@ class DeduplicationPruningDialog(QDialog):
         has_dupes = len(dupes) > 0
 
         if has_dupes:
-            row.setStyleSheet("QFrame { border: 1px solid #c0392b; border-radius: 8px; background-color: #2c1a1a; padding: 8px; }")
+            row.setStyleSheet(qss("crawler_dup_row_bad"))
         else:
-            row.setStyleSheet("QFrame { border: 1px solid #27ae60; border-radius: 8px; background-color: #1a2c1a; padding: 8px; }")
+            row.setStyleSheet(qss("crawler_dup_row_ok"))
 
         row_layout = QHBoxLayout(row)
         row_layout.setContentsMargins(10, 5, 10, 5)
@@ -591,16 +585,16 @@ class DeduplicationPruningDialog(QDialog):
             thumb_label.setPixmap(pixmap.scaled(90, 90, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
         else:
             thumb_label.setText("No Preview")
-            thumb_label.setStyleSheet("color: #888888; font-style: italic;")
+            thumb_label.setStyleSheet(qss("muted_label"))
         row_layout.addWidget(thumb_label)
 
         # 2. Details
         details_layout = QVBoxLayout()
         filename = os.path.basename(path)
         name_lbl = QLabel(f"<b>{filename}</b> ({get_file_size_str(path)})")
-        name_lbl.setStyleSheet("color: white; font-size: 12px;")
+        name_lbl.setStyleSheet(qss("queue_filename"))
         path_lbl = QLabel(path)
-        path_lbl.setStyleSheet("color: #888888; font-size: 10px;")
+        path_lbl.setStyleSheet(qss("muted_label"))
 
         details_layout.addWidget(name_lbl)
         details_layout.addWidget(path_lbl)
@@ -608,16 +602,16 @@ class DeduplicationPruningDialog(QDialog):
         # Duplicates details
         if has_dupes:
             dup_title = QLabel(f"⚠️ **Duplicate(s) Found ({len(dupes)}):**")
-            dup_title.setStyleSheet("color: #e74c3c; font-weight: bold; font-size: 11px;")
+            dup_title.setStyleSheet(qss("crawler_dup_title"))
             details_layout.addWidget(dup_title)
             for dup_path in dupes:
                 dup_lbl = QLabel(f"• {dup_path} ({get_file_size_str(dup_path)})")
-                dup_lbl.setStyleSheet("color: #ffaa99; font-size: 10px;")
+                dup_lbl.setStyleSheet(qss("crawler_dup_label"))
                 dup_lbl.setWordWrap(True)
                 details_layout.addWidget(dup_lbl)
         else:
             ok_lbl = QLabel("✅ No duplicates detected.")
-            ok_lbl.setStyleSheet("color: #2ecc71; font-size: 11px;")
+            ok_lbl.setStyleSheet(qss("crawler_ok_label"))
             details_layout.addWidget(ok_lbl)
 
         row_layout.addLayout(details_layout, 1)

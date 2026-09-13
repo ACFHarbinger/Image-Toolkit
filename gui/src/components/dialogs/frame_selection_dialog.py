@@ -4,7 +4,6 @@ import tempfile
 from pathlib import Path
 from typing import Optional
 
-import cv2
 from PySide6.QtCore import QObject, QSize, Qt, QThread, QTimer, Signal
 from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtWidgets import (
@@ -19,11 +18,10 @@ from PySide6.QtWidgets import (
 
 from gui.src.helpers.gc_safe import gc_disabled_run
 from gui.src.qt_object_guard import deleted_qobject_guard
+from gui.src.theming.theme_api import qss
 
 
-def extract_video_frame_via_ffmpeg(
-    video_path: str, frame_idx: int, total_frames: int, fps: float
-):
+def extract_video_frame_via_ffmpeg(video_path: str, frame_idx: int, total_frames: int, fps: float):
     if not fps or fps <= 0:
         fps = 24.0
     seconds = frame_idx / fps
@@ -53,6 +51,8 @@ def extract_video_frame_via_ffmpeg(
         with media_backend_spawn_guard():
             res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         if res.returncode == 0 and Path(tmp_name).exists():
+            import cv2
+
             img = cv2.imread(tmp_name)
             if img is not None:
                 return img
@@ -90,9 +90,7 @@ class _FrameWorker(QThread):
 
     @gc_disabled_run
     def run(self):
-        frame = extract_video_frame_via_ffmpeg(
-            self.video_path, self.frame_idx, self.total_frames, self.fps
-        )
+        frame = extract_video_frame_via_ffmpeg(self.video_path, self.frame_idx, self.total_frames, self.fps)
         if self._cancelled:
             return
         if frame is not None:
@@ -130,62 +128,20 @@ class FrameSelectionDialog(QDialog):
         self._load_file()
 
     def _init_ui(self):
-        self.setStyleSheet("""
-            QDialog {
-                background-color: #2c2f33;
-                color: #ffffff;
-            }
-            QLabel {
-                color: #ffffff;
-            }
-            QPushButton {
-                background-color: #7289da;
-                color: white;
-                border-radius: 4px;
-                padding: 6px 12px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #677bc4;
-            }
-            QSlider::groove:horizontal {
-                border: 1px solid #4f545c;
-                height: 8px;
-                background: #1a1c1e;
-                border-radius: 4px;
-            }
-            QSlider::handle:horizontal {
-                background: #00bcd4;
-                border: 1px solid #0097a7;
-                width: 18px;
-                margin: -5px 0;
-                border-radius: 9px;
-            }
-            QSpinBox {
-                background-color: #1a1c1e;
-                color: white;
-                border: 1px solid #4f545c;
-                border-radius: 4px;
-                padding: 4px;
-            }
-        """)
+        self.setStyleSheet(qss("frame_selection_dialog"))
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(12)
 
         self.info_lbl = QLabel(f"File: {self.p.name}")
-        self.info_lbl.setStyleSheet(
-            "font-weight: bold; font-size: 13px; color: #00bcd4;"
-        )
+        self.info_lbl.setStyleSheet(qss("frame_selection_info"))
         layout.addWidget(self.info_lbl)
 
         self.preview_lbl = QLabel("Loading preview...")
         self.preview_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.preview_lbl.setMinimumSize(400, 400)
-        self.preview_lbl.setStyleSheet(
-            "background-color: #1a1c1e; border: 2px solid #4f545c; border-radius: 8px;"
-        )
+        self.preview_lbl.setStyleSheet(qss("frame_selection_preview"))
         layout.addWidget(self.preview_lbl, 1)
 
         self.controls_layout = QHBoxLayout()
@@ -193,7 +149,7 @@ class FrameSelectionDialog(QDialog):
 
         btns_layout = QHBoxLayout()
         self.cancel_btn = QPushButton("Cancel")
-        self.cancel_btn.setStyleSheet("background-color: #4f545c;")
+        self.cancel_btn.setStyleSheet(qss("frame_selection_cancel_btn"))
         self.cancel_btn.clicked.connect(self.reject)
 
         self.save_btn = QPushButton("Select Frame / Page")
@@ -210,10 +166,7 @@ class FrameSelectionDialog(QDialog):
                 from PySide6.QtPdf import QPdfDocument
 
                 self.pdf_doc = QPdfDocument()
-                if (
-                    self.pdf_doc.load(str(self.p.absolute()))
-                    == QPdfDocument.Status.Ready
-                ):
+                if self.pdf_doc.load(str(self.p.absolute())) == QPdfDocument.Status.Ready:
                     page_count = self.pdf_doc.pageCount()
 
                     self.page_spin = QSpinBox()
@@ -234,6 +187,8 @@ class FrameSelectionDialog(QDialog):
 
         elif self.suffix in (".mp4", ".mkv", ".avi", ".mov", ".webm", ".flv", ".m4v"):
             try:
+                import cv2
+
                 # Use OpenCV only to probe metadata (no actual decoding)
                 try:
                     probe = cv2.VideoCapture(
@@ -256,9 +211,7 @@ class FrameSelectionDialog(QDialog):
                         start_frame = int(self.start_ms / 1000.0 * self.fps)
                         start_frame = min(max(0, start_frame), self.total_frames - 1)
                     else:
-                        start_frame = min(
-                            max(1, self.total_frames // 10), self.total_frames - 1
-                        )
+                        start_frame = min(max(1, self.total_frames // 10), self.total_frames - 1)
 
                     self.slider.setValue(start_frame)
                     # Debounce: slider movement restarts the timer instead of
@@ -322,9 +275,7 @@ class FrameSelectionDialog(QDialog):
         frame_idx = self.slider.value()
         self.preview_lbl.setText("Loading…")
 
-        worker = _FrameWorker(
-            str(self.p.absolute()), frame_idx, self.total_frames, self.fps
-        )
+        worker = _FrameWorker(str(self.p.absolute()), frame_idx, self.total_frames, self.fps)
         worker.signals.frame_ready.connect(self._on_frame_ready)
         worker.signals.failed.connect(self._on_frame_failed)
         # Clear local reference when finished, then clean up the C++ object
@@ -335,6 +286,8 @@ class FrameSelectionDialog(QDialog):
 
     def _on_frame_ready(self, frame):
         """Slot called from worker signal (marshalled to main thread by Qt)."""
+        import cv2
+
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         h, w, ch = rgb.shape
         bytes_per_line = ch * w

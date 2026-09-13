@@ -1,0 +1,18 @@
+QListWidget {
+    background: rgba(20, 24, 32, 0.45);
+    color: $DARK_TEXT;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 6px;
+}
+QListWidget::item {
+    padding: 6px 10px;
+    color: $DARK_TEXT;
+    border-radius: 4px;
+}
+QListWidget::item:selected {
+    background: $DARK_ACCENT_COLOR;
+    color: white;
+}
+QListWidget::item:hover {
+    background: rgba(255, 255, 255, 0.08);
+}

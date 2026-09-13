@@ -4,6 +4,13 @@ from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtGui import QBrush, QColor, QFont, QPainter, QPainterPath, QPainterPathStroker, QPen, QPolygonF
 from PySide6.QtWidgets import QGraphicsItem, QGraphicsObject
 
+from .....theming.wallpaper_graph_palette import (
+    EDGE_ARROW_BG,
+    EDGE_ARROW_SELF,
+    EDGE_ORANGE,
+    EDGE_SELF_LOOP,
+    NODE_THUMB_PLACEHOLDER_ICON,
+)
 from .data_schema import EdgeData
 from .node_item import NODE_H, NODE_W, NodeItem
 
@@ -109,13 +116,13 @@ class EdgeItem(QGraphicsObject):
         is_active = getattr(self, "_edge_active", True)  # default True until first style refresh
 
         if is_sel:
-            color = QColor("#f39c12")   # amber — selected (always visible)
+            color = QColor(EDGE_ORANGE)   # amber — selected (always visible)
             line_w = 2.5
         elif is_active:
-            color = QColor("#7289da")   # soft indigo — active/live edge
+            color = QColor(NODE_THUMB_PLACEHOLDER_ICON)   # soft indigo — active/live edge
             line_w = 2
         else:
-            color = QColor("#6b2d2d")   # muted dark-red — dead/skipped edge
+            color = QColor(EDGE_SELF_LOOP)   # muted dark-red — dead/skipped edge
             line_w = 1.5
 
         pen = QPen(color, line_w)
@@ -130,7 +137,7 @@ class EdgeItem(QGraphicsObject):
         lp = self._label_pos
         repeat = getattr(self.edge_data, "repeat_count", 1)
         label = f"#{self.edge_data.edge_id}" if repeat <= 1 else f"#{self.edge_data.edge_id} ×{repeat}"
-        bg = QColor("#2c2f33") if is_active or is_sel else QColor("#1e1212")
+        bg = QColor(EDGE_ARROW_BG) if is_active or is_sel else QColor(EDGE_ARROW_SELF)
         label_w = 28 if repeat <= 1 else 28 + 9 * len(str(repeat))
         text_rect = QRectF(lp.x() - label_w / 2, lp.y() - 9, label_w, 18)
         painter.fillRect(text_rect, bg)
