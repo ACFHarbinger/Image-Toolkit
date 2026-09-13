@@ -848,6 +848,20 @@ class TestHeadlessKeepAlive:
             "the worker must drop its safety-net reference once run() returns"
         )
 
+    def test_parallel_empty_queue_finishes_without_submitting_work(self, q_app):
+        from gui.src.helpers.core.queue_execution_worker import QueueExecutionWorker
+
+        worker = QueueExecutionWorker([], parallel=True)
+        finished = []
+        errors = []
+        worker.signals.finished.connect(finished.append)
+        worker.signals.error.connect(errors.append)
+
+        worker.run()
+
+        assert finished == [[]]
+        assert errors == []
+
     def test_parallel_worker_emits_item_completed_as_each_job_finishes(self, q_app):
         """item_completed must fire when each pool job becomes ready, not in
         one burst after the last job. max_workers must cap in-flight starts."""

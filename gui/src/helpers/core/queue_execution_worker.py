@@ -522,7 +522,8 @@ class QueueExecutionWorker(BaseQRunnableWorker):
             requested_workers = self.max_workers or multiprocessing.cpu_count()
             num_cores = min(max(1, requested_workers), multiprocessing.cpu_count(), len(self.queue_items))
             if num_cores < 1:
-                num_cores = 1
+                self.signals.progress.emit(0, 0)
+                return results
 
             total = len(self.queue_items)
             results = [None] * total
