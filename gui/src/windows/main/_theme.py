@@ -11,7 +11,7 @@ import os
 from PySide6.QtGui import QColor, QFont, QPalette
 from PySide6.QtWidgets import QApplication, QWidget
 
-from gui.src.theming.theme_api import apply_stylesheet, color
+from gui.src.theming.theme_api import apply_stylesheet, color, refresh_component_styles, set_current_base
 from gui.src.theming.theme_api import qss as component_qss
 
 from ...styles import (
@@ -168,6 +168,7 @@ class MainThemeController(WindowBoundController):
         else:
             return
 
+        set_current_base(theme_name)
 
         if density == "Compact":
             qss += COMPACT_DENSITY_QSS
@@ -206,6 +207,7 @@ class MainThemeController(WindowBoundController):
         if app is not None:
             app.setPalette(_build_palette(theme_name, accent_color))
         apply_stylesheet(self, qss) if "PYTEST_CURRENT_TEST" in os.environ else apply_stylesheet(app, qss)  # pyrefly: ignore [missing-attribute]
+        refresh_component_styles(base=theme_name)
 
         header_widget = self.findChild(QWidget, "header_widget")
         if header_widget:
@@ -302,6 +304,8 @@ class MainThemeController(WindowBoundController):
                 )
             )
         apply_stylesheet(self, qss) if "PYTEST_CURRENT_TEST" in os.environ else apply_stylesheet(app, qss)
+        set_current_base(pack.base)
+        refresh_component_styles(base=pack.base)
 
         # Header restyle mirrors set_application_theme's behavior for the
         # resolved accent/window colors.
@@ -333,16 +337,32 @@ class MainThemeController(WindowBoundController):
     def _toggle_theme(self) -> None:
         """Manually toggle dark↔light theme, overriding the OS preference."""
         new_theme = "light" if self.current_theme == "dark" else "dark"
+        # Restyle first — the vault decrypt used to run *before* any paint
+        # and made the toggle feel frozen (#620).
         self.set_application_theme(new_theme)
-        # Persist the manual preference so the OS follow-OS handler backs off.
-        if self.vault_manager is not None:
-            try:
-                creds = self.vault_manager.load_account_credentials()
-                creds["theme"] = new_theme
-                self.vault_manager.save_account_snapshot(creds)
-                self._refresh_account_credentials(creds)
-            except Exception:
-                logger.debug("Suppressed Exception in _ThemeMixin._toggle_theme", exc_info=True)
+        self._persist_theme_override(new_theme)
+
+    def _persist_theme_override(self, new_theme: str) -> None:
+        """Write the manual theme flag from the in-memory snapshot (no decrypt)."""
+        creds = getattr(self, "cached_creds", None)
+        if isinstance(creds, dict):
+            creds["theme"] = new_theme
+        else:
+            creds = {"theme": new_theme}
+            self.cached_creds = creds
+        if self.vault_manager is None:
+            return
+        try:
+            self.vault_manager.save_account_snapshot(creds)
+            from gui.src.preferences.store import PreferenceStore
+
+            PreferenceStore.instance().attach_vault_credentials(
+                creds,
+                self.vault_manager,
+                creds.get("account_name", ""),
+            )
+        except Exception:
+            logger.debug("Suppressed Exception in _ThemeMixin._toggle_theme", exc_info=True)
 
 
 __all__ = ["MainThemeController"]
