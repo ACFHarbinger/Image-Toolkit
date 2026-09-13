@@ -5,6 +5,7 @@ from __future__ import annotations
 from PySide6.QtWidgets import QLabel
 
 from gui.src.theming.theme_api import (
+    ThemeColor,
     ThemedQss,
     color,
     current_base,
@@ -47,6 +48,32 @@ def test_raw_stylesheet_is_not_refreshed(q_app) -> None:
     label.setStyleSheet("color: #ff00ff;")
     refresh_component_styles(base="light")
     assert label.styleSheet() == "color: #ff00ff;"
+
+
+def test_theme_color_extra_reresolves_on_refresh(q_app) -> None:
+    """A literal color extra freezes on refresh; ThemeColor must not (#620 follow-up)."""
+    set_current_base("dark")
+    frozen = QLabel()
+    frozen.setStyleSheet(qss("nav_drawer_header_accent", ACCENT=color("accent", base="dark")))
+    live = QLabel()
+    live.setStyleSheet(qss("nav_drawer_header_accent", ACCENT=ThemeColor("accent")))
+
+    dark_accent = color("accent", base="dark")
+    light_accent = color("accent", base="light")
+    assert dark_accent != light_accent
+    assert dark_accent in frozen.styleSheet()
+    assert dark_accent in live.styleSheet()
+
+    refresh_component_styles(base="light")
+
+    # Literal extra: never told about the new base, stays frozen.
+    assert dark_accent in frozen.styleSheet()
+    assert light_accent not in frozen.styleSheet()
+    # ThemeColor extra: re-resolves against the live base every refresh.
+    assert light_accent in live.styleSheet()
+    assert dark_accent not in live.styleSheet()
+
+    set_current_base("dark")
 
 
 def test_color_follows_current_base() -> None:

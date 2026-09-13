@@ -110,6 +110,31 @@ def accent_rgba(alpha: float = 0.2, *, base: str | None = None) -> str:
     return f"rgba({r}, {g}, {b}, {alpha})"
 
 
+class ThemeColor:
+    """A ``qss(**vars)`` extra that re-resolves against the live base.
+
+    ``refresh_component_styles()`` reuses a widget's original ``**vars``
+    verbatim on every toggle (#620) -- a plain literal like
+    ``ACCENT=color("accent")`` freezes at construction time and never
+    changes, which is why most of the app stayed the old theme after a
+    toggle while only the header (restyled explicitly, not through this
+    generic path) actually updated. Pass ``ThemeColor("accent")`` instead
+    of the literal and it re-resolves via ``color()``/``accent_rgba()``
+    every time ``qss()`` substitutes it, construction or refresh alike.
+    """
+
+    __slots__ = ("token", "alpha")
+
+    def __init__(self, token: str, *, alpha: float | None = None) -> None:
+        self.token = token
+        self.alpha = alpha
+
+    def resolve(self, base: str) -> str:
+        if self.alpha is not None:
+            return accent_rgba(self.alpha, base=base)
+        return color(self.token, base=base)
+
+
 def _ensure_stylesheet_tracker() -> None:
     """Record ``ThemedQss`` applications so a later refresh can re-substitute."""
     global _TRACKER_INSTALLED
@@ -169,7 +194,8 @@ def qss(component: str, *, base: str | None = None, **vars: Any) -> ThemedQss:
         value = color(token, base=resolved)
         merged[f"DARK_{suffix}"] = value
         merged[f"LIGHT_{suffix}"] = value
-    merged.update(vars)
+    resolved_vars = {k: (v.resolve(resolved) if isinstance(v, ThemeColor) else v) for k, v in vars.items()}
+    merged.update(resolved_vars)
     return ThemedQss(Template(content).safe_substitute(merged), component, dict(vars))
 
 
@@ -182,9 +208,11 @@ def refresh_component_styles(*, base: str | None = None) -> int:
     """Re-apply every tracked ``qss()`` stylesheet against ``base``.
 
     Returns the number of live widgets restyled. Extra ``**vars`` captured
-    at the original ``setStyleSheet(qss(...))`` call are reused; call sites
-    that pass theme-dependent extras (header accent, glassmorphism) should
-    still restyle themselves after this walk.
+    at the original ``setStyleSheet(qss(...))`` call are reused as-is except
+    for ``ThemeColor`` markers, which re-resolve against ``base`` here; call
+    sites that pass a plain literal for a theme-dependent color (rather than
+    ``ThemeColor``) will not follow a later toggle -- same as the header
+    restyling itself explicitly after this walk.
     """
     resolved = _resolve_base(base)
     set_current_base(resolved)
@@ -208,6 +236,7 @@ def apply_stylesheet(widget, stylesheet: str) -> None:
 
 
 __all__ = [
+    "ThemeColor",
     "ThemedQss",
     "accent_rgba",
     "apply_qss",

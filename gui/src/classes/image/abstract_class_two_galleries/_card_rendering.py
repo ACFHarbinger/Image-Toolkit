@@ -13,7 +13,7 @@ from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtWidgets import QLabel, QWidget
 
 from gui.src.components.gallery.card_factory import create_gallery_card
-from gui.src.theming.theme_api import accent_rgba, qss
+from gui.src.theming.theme_api import ThemeColor, qss
 
 from ....components import ClickableLabel
 
@@ -110,7 +110,7 @@ class _CardRenderingMixin:
                 qss(
                     "gallery_card_selected",
                     BORDER_WIDTH="3px",
-                    ACCENT_BG=accent_rgba(0.25),
+                    ACCENT_BG=ThemeColor("accent", alpha=0.25),
                 )
             )
         elif is_in_db:

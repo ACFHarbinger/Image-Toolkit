@@ -22,7 +22,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from gui.src.theming.theme_api import color, qss
+from gui.src.theming.theme_api import ThemeColor, qss
 
 
 @dataclass
@@ -125,12 +125,12 @@ class ProviderDescriptorCard(QFrame):
             specs_layout.addWidget(lbl_title, row * 2, col)
             specs_layout.addWidget(lbl_val, row * 2 + 1, col)
 
-        make_kpi(0, 0, "Compute Shape", self.descriptor.cpu_shapes, color("accent_hover"))
-        make_kpi(1, 0, "Memory Tier", self.descriptor.memory_tiers, color("success"))
-        make_kpi(2, 0, "GPU Acceleration", self.descriptor.gpu_options, color("accent"))
-        make_kpi(0, 1, "Cold Start Latency", self.descriptor.cold_start, color("accent_hover"))
-        make_kpi(1, 1, "Estimated Cost", self.descriptor.cost_estimate, color("success"))
-        make_kpi(2, 1, "Target Service", self.descriptor.target_service, color("muted_text"))
+        make_kpi(0, 0, "Compute Shape", self.descriptor.cpu_shapes, ThemeColor("accent_hover"))
+        make_kpi(1, 0, "Memory Tier", self.descriptor.memory_tiers, ThemeColor("success"))
+        make_kpi(2, 0, "GPU Acceleration", self.descriptor.gpu_options, ThemeColor("accent"))
+        make_kpi(0, 1, "Cold Start Latency", self.descriptor.cold_start, ThemeColor("accent_hover"))
+        make_kpi(1, 1, "Estimated Cost", self.descriptor.cost_estimate, ThemeColor("success"))
+        make_kpi(2, 1, "Target Service", self.descriptor.target_service, ThemeColor("muted_text"))
 
         layout.addWidget(specs_container)
 

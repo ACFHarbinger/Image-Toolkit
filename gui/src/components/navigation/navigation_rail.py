@@ -18,7 +18,7 @@ from PySide6.QtWidgets import (
 
 from gui.src.modules.catalog import ModuleCatalog
 from gui.src.modules.descriptor import ModuleCategory
-from gui.src.theming.theme_api import color, qss
+from gui.src.theming.theme_api import ThemeColor, qss
 
 CATEGORY_ICONS: dict[ModuleCategory, str] = {
     ModuleCategory.SYSTEM: "⚙️",
@@ -151,7 +151,7 @@ class NavigationRailWidget(QWidget):
             ModuleCategory.DEVELOPER: "開発ツール",
         }.get(category, "")
         cat_key = category.name.lower()
-        accent = getattr(self, "_category_accent_overrides", {}).get(cat_key, color("accent"))
+        accent = getattr(self, "_category_accent_overrides", {}).get(cat_key, ThemeColor("accent"))
         self.drawer_header.setStyleSheet(
             qss("nav_drawer_header_accent", ACCENT=accent)
         )
