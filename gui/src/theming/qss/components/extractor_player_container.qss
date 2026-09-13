@@ -1,0 +1,3 @@
+QWidget#extractor_player_container {
+    background-color: transparent;
+}
