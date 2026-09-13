@@ -9,8 +9,6 @@ from PySide6.QtCore import QProcess, Qt
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
-    QFormLayout,
-    QGroupBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -22,7 +20,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ....components import OptionalField
+from ....components import FormSection, OptionalField
 from ....styles import apply_shadow_effect, set_button_role
 from ....theming.theme_api import color, qss
 from ._tab_bound import TabBoundController
@@ -74,19 +72,13 @@ class ImageCrawlUIBuilder(TabBoundController):
         main_layout.addWidget(self.settings_stack)
 
     def _build_output_configuration(self, main_layout: QVBoxLayout) -> None:
-        download_group = QGroupBox("Output Configuration")
-        download_layout = QFormLayout(download_group)
-        download_layout.setContentsMargins(10, 20, 10, 10)
+        sec = FormSection("Output Configuration", layout_type="form")
 
-        download_dir_layout = QHBoxLayout()
         self.download_dir_path = QLineEdit()
         self.download_dir_path.setText(self.last_browsed_download_dir)
         btn_browse_download = QPushButton("Browse...")
         btn_browse_download.clicked.connect(self.browse_download_directory)
-        apply_shadow_effect(btn_browse_download, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3)
-        download_dir_layout.addWidget(self.download_dir_path)
-        download_dir_layout.addWidget(btn_browse_download)
-        download_layout.addRow("Download Dir:", download_dir_layout)
+        sec.add_path_picker(self.download_dir_path, btn_browse_download, label="Download Dir:")
 
         screenshot_dir_layout = QHBoxLayout()
         self.screenshot_dir_path = QLineEdit()
@@ -100,14 +92,12 @@ class ImageCrawlUIBuilder(TabBoundController):
         screenshot_container = QWidget()
         screenshot_container.setLayout(screenshot_dir_layout)
         self.screenshot_field = OptionalField("Screenshot Dir", screenshot_container, start_open=False)
-        download_layout.addRow(self.screenshot_field)
+        sec.add_row(self.screenshot_field)
 
-        main_layout.addWidget(download_group)
+        main_layout.addWidget(sec.group_box)
 
     def _build_selection_mode(self, main_layout: QVBoxLayout) -> None:
-        selection_group = QGroupBox("Deduplication and Selection Mode")
-        selection_layout = QFormLayout(selection_group)
-        selection_layout.setContentsMargins(10, 20, 10, 10)
+        sec = FormSection("Deduplication and Selection Mode", layout_type="form")
 
         self.selection_mode_combo = QComboBox()
         self.selection_mode_combo.addItems(
@@ -117,8 +107,8 @@ class ImageCrawlUIBuilder(TabBoundController):
                 "Automated Selection",
             ]
         )
-        selection_layout.addRow("Selection Mode:", self.selection_mode_combo)
-        main_layout.addWidget(selection_group)
+        sec.add_row("Selection Mode:", self.selection_mode_combo)
+        main_layout.addWidget(sec.group_box)
 
     def _build_run_controls(self, main_layout: QVBoxLayout) -> None:
         self.status_label = QLabel("Ready.")
@@ -170,56 +160,49 @@ class ImageCrawlUIBuilder(TabBoundController):
     def setup_general_page(self):
         layout = QVBoxLayout(self.page_general)
         layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(self._build_general_login_section())
+        layout.addWidget(self._build_general_scraper_section())
+        layout.addWidget(self._build_general_actions_section())
 
-        # Login Group
-        login_group = QGroupBox("General Login Configuration")
-        login_form = QFormLayout()
-        login_form.setContentsMargins(10, 20, 10, 10)
-
+    def _build_general_login_section(self) -> QWidget:
+        sec_login = FormSection("General Login Configuration", layout_type="form")
         self.gen_login_url = QLineEdit()
         self.gen_login_url.setPlaceholderText("https://example.com/login")
-        login_form.addRow("Login URL:", self.gen_login_url)
+        sec_login.add_row("Login URL:", self.gen_login_url)
         self.gen_username = QLineEdit()
         self.gen_username.setPlaceholderText("Username/Email")
-        login_form.addRow("Username:", self.gen_username)
+        sec_login.add_row("Username:", self.gen_username)
         self.gen_password = QLineEdit()
         self.gen_password.setEchoMode(QLineEdit.EchoMode.Password)
-        login_form.addRow("Password:", self.gen_password)
-        login_group.setLayout(login_form)
-        layout.addWidget(login_group)
+        sec_login.add_row("Password:", self.gen_password)
+        return sec_login.group_box
 
-        # General Settings Group
-        crawl_group = QGroupBox("Web Scraper Settings")
-        form = QFormLayout()
-        form.setContentsMargins(10, 20, 10, 10)
-
+    def _build_general_scraper_section(self) -> QWidget:
+        sec_crawl = FormSection("Web Scraper Settings", layout_type="form")
         self.url_input = QLineEdit()
         self.url_input.setPlaceholderText("https://example.com/gallery?page=1")
-        form.addRow("Target URL:", self.url_input)
+        sec_crawl.add_row("Target URL:", self.url_input)
 
         self.replace_str_input = QLineEdit()
         self.replace_str_input.setPlaceholderText("e.g., page=1")
-        form.addRow("String to Replace:", self.replace_str_input)
+        sec_crawl.add_row("String to Replace:", self.replace_str_input)
 
         self.replacements_input = QLineEdit()
         self.replacements_input.setPlaceholderText("e.g., page=2, page=3")
-        form.addRow("Replacements:", self.replacements_input)
+        sec_crawl.add_row("Replacements:", self.replacements_input)
 
         self.browser_combo = QComboBox()
         self.browser_combo.addItems(["chrome", "firefox", "edge", "brave"])
         self.browser_combo.setCurrentText("brave")
-        form.addRow("Browser:", self.browser_combo)
+        sec_crawl.add_row("Browser:", self.browser_combo)
 
         self.headless_checkbox = QCheckBox("Run in headless mode")
         self.headless_checkbox.setChecked(True)
-        form.addRow("", self.headless_checkbox)
+        sec_crawl.add_row("", self.headless_checkbox)
+        return sec_crawl.group_box
 
-        crawl_group.setLayout(form)
-        layout.addWidget(crawl_group)
-
-        # Actions Group
-        actions_group = QGroupBox("Actions")
-        act_layout = QVBoxLayout()
+    def _build_general_actions_section(self) -> QWidget:
+        sec_actions = FormSection("Actions", layout_type="vertical")
 
         # Skip settings
         skip_layout = QHBoxLayout()
@@ -233,7 +216,7 @@ class ImageCrawlUIBuilder(TabBoundController):
         skip_layout.addWidget(QLabel("Skip Last:"))
         skip_layout.addWidget(self.skip_last_input)
         skip_layout.addStretch()
-        act_layout.addLayout(skip_layout)
+        sec_actions.add_layout(skip_layout)
 
         # Action Builder
         ab_layout = QHBoxLayout()
@@ -266,13 +249,13 @@ class ImageCrawlUIBuilder(TabBoundController):
         ab_layout.addWidget(self.action_combo, 2)
         ab_layout.addWidget(self.action_param, 2)
         ab_layout.addWidget(self.add_act_btn, 1)
-        act_layout.addLayout(ab_layout)
+        sec_actions.add_layout(ab_layout)
 
         self.action_list_widget = QListWidget()
         self.action_list_widget.setMinimumHeight(150)
         self.action_list_widget.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.action_list_widget.customContextMenuRequested.connect(self.show_context_menu)
-        act_layout.addWidget(self.action_list_widget)
+        sec_actions.add_widget(self.action_list_widget)
 
         # List controls
         lc_layout = QHBoxLayout()
@@ -283,71 +266,63 @@ class ImageCrawlUIBuilder(TabBoundController):
         self.clr_act_btn.clicked.connect(self.action_list_widget.clear)
         lc_layout.addWidget(self.rem_act_btn)
         lc_layout.addWidget(self.clr_act_btn)
-        act_layout.addLayout(lc_layout)
-
-        actions_group.setLayout(act_layout)
-        layout.addWidget(actions_group)
+        sec_actions.add_layout(lc_layout)
+        return sec_actions.group_box
 
     def setup_board_page(self):
         layout = QVBoxLayout(self.page_board)
         layout.setContentsMargins(0, 0, 0, 0)
 
         # Board API Settings
-        api_group = QGroupBox("API Configuration")
-        form = QFormLayout()
-        form.setContentsMargins(10, 20, 10, 10)
+        sec_api = FormSection("API Configuration", layout_type="form")
 
         self.board_url = QLineEdit("https://danbooru.donmai.us")
         self.board_url.setPlaceholderText("Board URL")
-        form.addRow("Board URL:", self.board_url)
+        sec_api.add_row("Board URL:", self.board_url)
 
         # --- Resource Selection ---
         self.board_resource = QLineEdit("posts")
         self.board_resource.setPlaceholderText("Resource (e.g. posts, tags, comments)")
-        form.addRow("Resource:", self.board_resource)
+        sec_api.add_row("Resource:", self.board_resource)
 
         self.board_tags = QLineEdit()
         self.board_tags.setPlaceholderText("e.g. 1girl scenic original")
-        form.addRow("Tags:", self.board_tags)
+        sec_api.add_row("Tags:", self.board_tags)
 
         self.board_limit = QLineEdit("20")
         self.board_limit.setPlaceholderText("Images per page")
-        form.addRow("Limit (per page):", self.board_limit)
+        sec_api.add_row("Limit (per page):", self.board_limit)
 
         self.board_max_pages = QLineEdit("5")
         self.board_max_pages.setPlaceholderText("Number of pages to crawl")
-        form.addRow("Max Pages:", self.board_max_pages)
+        sec_api.add_row("Max Pages:", self.board_max_pages)
 
         # --- Extra Parameters ---
         self.board_extra_params = QLineEdit()
         self.board_extra_params.setPlaceholderText("e.g. deleted=show&order=count")
-        form.addRow("Extra Query Params:", self.board_extra_params)
+        sec_api.add_row("Extra Query Params:", self.board_extra_params)
 
-        api_group.setLayout(form)
-        layout.addWidget(api_group)
+        layout.addWidget(sec_api.group_box)
 
         # API Doc Link Label (to be placed dynamically)
         self.api_doc_link = QLabel("")
         self.api_doc_link.setOpenExternalLinks(True)
         self.api_doc_link.setStyleSheet(qss("crawler_api_doc_link"))
-        layout.addWidget(self.api_doc_link)  # Add here initially
+        layout.addWidget(self.api_doc_link)
 
         # Auth Group
-        auth_group = QGroupBox("Authentication (Optional)")
-        a_form = QFormLayout()
-        a_form.setContentsMargins(10, 20, 10, 10)
+        sec_auth = FormSection("Authentication (Optional)", layout_type="form")
 
         self.board_username_label = QLabel("Username:")
         self.board_username = QLineEdit()
-        a_form.addRow(self.board_username_label, self.board_username)
+        sec_auth.add_row(self.board_username_label, self.board_username)
 
         self.board_apikey_label = QLabel("API Key:")
         self.board_apikey = QLineEdit()
         self.board_apikey.setEchoMode(QLineEdit.EchoMode.Password)
-        a_form.addRow(self.board_apikey_label, self.board_apikey)
+        sec_auth.add_row(self.board_apikey_label, self.board_apikey)
 
-        auth_group.setLayout(a_form)
-        layout.addWidget(auth_group)
+        layout.addWidget(sec_auth.group_box)
 
         layout.addStretch(1)
 

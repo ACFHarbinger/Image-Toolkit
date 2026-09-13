@@ -16,7 +16,6 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QComboBox,
-    QFormLayout,
     QGroupBox,
     QHBoxLayout,
     QHeaderView,
@@ -31,6 +30,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
+from ....components import FormSection
 from ....styles import apply_shadow_effect
 from ....theming.theme_api import color, qss
 from ._clickable_label import _ClickableImageLabel
@@ -59,21 +59,18 @@ class EntityReconUIBuilder(TabBoundController):
         root.addWidget(self.status_label)
 
     def _build_config_group(self, root: QVBoxLayout) -> None:
-        cfg_group = QGroupBox("Identity Dataset and Discovery")
-        cfg_form = QFormLayout(cfg_group)
+        sec = FormSection("Identity Dataset and Discovery", layout_type="form")
 
-        ds_row = QHBoxLayout()
         self.dataset_edit = QLineEdit()
         self.dataset_edit.setPlaceholderText("Dataset root — /Dataset/FirstName_LastName/image.jpg ...")
-        ds_row.addWidget(self.dataset_edit)
         btn_ds = QPushButton("Browse...")
         btn_ds.clicked.connect(self._browse_dataset)
-        ds_row.addWidget(btn_ds)
         self.btn_build = QPushButton("Build Identity Index")
         self.btn_build.clicked.connect(self._build_index)
         apply_shadow_effect(self.btn_build, color("window_bg"), 8, 0, 3)
-        ds_row.addWidget(self.btn_build)
-        cfg_form.addRow("Dataset root:", ds_row)
+
+        picker_layout = sec.add_path_picker(self.dataset_edit, btn_ds, label="Dataset root:")
+        picker_layout.addWidget(self.btn_build)
 
         opts_row = QHBoxLayout()
         opts_row.addWidget(QLabel("Embedding mode:"))
@@ -94,9 +91,9 @@ class EntityReconUIBuilder(TabBoundController):
         opts_row.addWidget(self.scope_combo)
 
         opts_row.addStretch(1)
-        cfg_form.addRow("Discovery scope:", opts_row)
+        sec.add_row("Discovery scope:", opts_row)
 
-        root.addWidget(cfg_group)
+        root.addWidget(sec.group_box)
 
     def _build_three_pane_splitter(self, root: QVBoxLayout) -> None:
         splitter = QSplitter(Qt.Orientation.Horizontal)
@@ -177,8 +174,7 @@ class EntityReconUIBuilder(TabBoundController):
         root.addWidget(splitter, 1)
 
     def _build_batch_group(self, root: QVBoxLayout) -> None:
-        batch_group = QGroupBox("Batch Dataset Builder")
-        batch_v = QVBoxLayout(batch_group)
+        sec = FormSection("Batch Dataset Builder", layout_type="vertical")
 
         # Target directory row: where approved identity folders should be created,
         # <target>/<FirstName_LastName>/. Defaults to the dataset root, or —
@@ -187,11 +183,12 @@ class EntityReconUIBuilder(TabBoundController):
         target_row.addWidget(QLabel("Target directory:"))
         self.target_edit = QLineEdit()
         self.target_edit.setPlaceholderText("Where identity folders are created (defaults to the dataset root)")
-        target_row.addWidget(self.target_edit, 1)
         btn_target = QPushButton("Browse...")
         btn_target.clicked.connect(self._browse_target)
+        apply_shadow_effect(btn_target, color("window_bg"), 8, 0, 3)
+        target_row.addWidget(self.target_edit, 1)
         target_row.addWidget(btn_target)
-        batch_v.addLayout(target_row)
+        sec.add_layout(target_row)
 
         batch_btns = QHBoxLayout()
         btn_add = QPushButton("Add Images...")
@@ -202,16 +199,16 @@ class EntityReconUIBuilder(TabBoundController):
         self.btn_approve.setEnabled(False)
         batch_btns.addWidget(self.btn_approve)
         batch_btns.addStretch(1)
-        batch_v.addLayout(batch_btns)
+        sec.add_layout(batch_btns)
 
         self.batch_table = QTableWidget(0, 3)
         self.batch_table.setHorizontalHeaderLabels(["Image", "Suggested identity", "Score"])
         self.batch_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         self.batch_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.batch_table.setMaximumHeight(180)
-        batch_v.addWidget(self.batch_table)
+        sec.add_widget(self.batch_table)
 
-        root.addWidget(batch_group)
+        root.addWidget(sec.group_box)
 
 
 __all__ = ["EntityReconUIBuilder"]

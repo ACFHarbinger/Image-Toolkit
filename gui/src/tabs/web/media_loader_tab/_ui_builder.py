@@ -7,8 +7,6 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
-    QFormLayout,
-    QGroupBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -22,6 +20,7 @@ from PySide6.QtWidgets import (
 
 from gui.src.constants.elements import SOURCE_REDDIT
 
+from ....components import FormSection
 from ....styles import apply_shadow_effect, set_button_role
 from ....theming.theme_api import color, qss
 from ._tab_bound import TabBoundController
@@ -65,27 +64,21 @@ class MediaLoaderUIBuilder(TabBoundController):
         main_layout.addWidget(self.settings_stack)
 
     def _build_output_settings(self, main_layout: QVBoxLayout) -> None:
-        output_group = QGroupBox("Output Configuration")
-        output_layout = QFormLayout(output_group)
-        output_layout.setContentsMargins(10, 20, 10, 10)
+        sec = FormSection("Output Configuration", layout_type="form")
 
-        download_dir_layout = QHBoxLayout()
         self.download_dir_path = QLineEdit()
         self.download_dir_path.setText(self.last_browsed_download_dir)
         btn_browse_download = QPushButton("Browse...")
         btn_browse_download.clicked.connect(self.browse_download_directory)
-        apply_shadow_effect(btn_browse_download, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3)
-        download_dir_layout.addWidget(self.download_dir_path)
-        download_dir_layout.addWidget(btn_browse_download)
-        output_layout.addRow("Download Dir:", download_dir_layout)
+        sec.add_path_picker(self.download_dir_path, btn_browse_download, label="Download Dir:")
 
         self.on_exists_combo = QComboBox()
         self.on_exists_combo.addItem("Overwrite existing", "overwrite")
         self.on_exists_combo.addItem("Skip existing", "skip")
         self.on_exists_combo.addItem("Rename (name(1).ext)", "rename")
-        output_layout.addRow("If file exists:", self.on_exists_combo)
+        sec.add_row("If file exists:", self.on_exists_combo)
 
-        main_layout.addWidget(output_group)
+        main_layout.addWidget(sec.group_box)
 
     def _build_run_controls(self, main_layout: QVBoxLayout) -> None:
         self.status_label = QLabel("Ready.")
@@ -116,51 +109,47 @@ class MediaLoaderUIBuilder(TabBoundController):
         layout = QVBoxLayout(self.page_reddit)
         layout.setContentsMargins(0, 0, 0, 0)
 
-        group = QGroupBox("Reddit Settings")
-        form = QFormLayout(group)
-        form.setContentsMargins(10, 20, 10, 10)
+        sec = FormSection("Reddit Settings", layout_type="form")
 
         self.reddit_mode_combo = QComboBox()
         self.reddit_mode_combo.addItems(["Subreddit", "User", "Single Post"])
-        form.addRow("Mode:", self.reddit_mode_combo)
+        sec.add_row("Mode:", self.reddit_mode_combo)
 
         self.reddit_source_input = QLineEdit()
         self.reddit_source_input.setPlaceholderText("e.g. EarthPorn, u/someuser, or a full post URL")
-        form.addRow("Subreddit / User / URL:", self.reddit_source_input)
+        sec.add_row("Subreddit / User / URL:", self.reddit_source_input)
 
         self.reddit_sort_combo = QComboBox()
         self.reddit_sort_combo.addItems(["hot", "new", "top"])
-        form.addRow("Sort:", self.reddit_sort_combo)
+        sec.add_row("Sort:", self.reddit_sort_combo)
 
         self.reddit_limit_spin = QSpinBox()
         self.reddit_limit_spin.setRange(1, 1000)
         self.reddit_limit_spin.setValue(50)
-        form.addRow("Post Limit:", self.reddit_limit_spin)
+        sec.add_row("Post Limit:", self.reddit_limit_spin)
 
         self.reddit_download_images_chk = QCheckBox("Images / galleries")
         self.reddit_download_images_chk.setChecked(True)
-        form.addRow("", self.reddit_download_images_chk)
+        sec.add_row("", self.reddit_download_images_chk)
 
         self.reddit_download_videos_chk = QCheckBox("Videos (v.redd.it, video-only stream — no audio)")
         self.reddit_download_videos_chk.setChecked(True)
-        form.addRow("", self.reddit_download_videos_chk)
+        sec.add_row("", self.reddit_download_videos_chk)
 
-        layout.addWidget(group)
+        layout.addWidget(sec.group_box)
         layout.addStretch(1)
 
     def _setup_nhentai_page(self) -> None:
         layout = QVBoxLayout(self.page_nhentai)
         layout.setContentsMargins(0, 0, 0, 0)
 
-        group = QGroupBox("nhentai Settings")
-        form = QFormLayout(group)
-        form.setContentsMargins(10, 20, 10, 10)
+        sec = FormSection("nhentai Settings", layout_type="form")
 
         self.nhentai_gallery_input = QLineEdit()
         self.nhentai_gallery_input.setPlaceholderText("Gallery id (177013) or full URL (https://nhentai.net/g/177013/)")
-        form.addRow("Gallery:", self.nhentai_gallery_input)
+        sec.add_row("Gallery:", self.nhentai_gallery_input)
 
-        layout.addWidget(group)
+        layout.addWidget(sec.group_box)
         layout.addStretch(1)
 
 
