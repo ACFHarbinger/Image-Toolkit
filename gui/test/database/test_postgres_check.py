@@ -67,11 +67,9 @@ class TestPostgresCheck:
             def load_account_credentials(self):
                 return self.credentials
 
-            def save_data(self, value):
-                import json
-
-                self.saved = json.loads(value)
-                self.credentials = self.saved
+            def save_account_snapshot(self, credentials):
+                self.saved = credentials
+                self.credentials = credentials
 
         vault = Vault()
         config = {
