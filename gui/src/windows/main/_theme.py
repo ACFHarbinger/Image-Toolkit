@@ -5,7 +5,6 @@ Extracted from ``main_window.py`` -- pure code motion, no logic change.
 
 from __future__ import annotations
 
-import json
 import logging
 import os
 
@@ -340,7 +339,7 @@ class MainThemeController(WindowBoundController):
             try:
                 creds = self.vault_manager.load_account_credentials()
                 creds["theme"] = new_theme
-                self.vault_manager.save_data(json.dumps(creds))
+                self.vault_manager.save_account_snapshot(creds)
                 self._refresh_account_credentials(creds)
             except Exception:
                 logger.debug("Suppressed Exception in _ThemeMixin._toggle_theme", exc_info=True)
