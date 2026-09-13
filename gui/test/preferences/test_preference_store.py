@@ -5,6 +5,8 @@ Unit tests for PreferenceStore contract and adapters (§1.1, #525).
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from gui.src.preferences import (
     MemoryPreferenceAdapter,
@@ -126,7 +128,7 @@ class TestVaultPreferenceAdapter:
     def test_set_persists_through_attached_vault_manager(self):
         """#525 cross-review: a write must survive restart, not just be
         visible to an immediate in-process read. Reproduces the real
-        VaultManager.save_data(json_string) contract with a fake disk.
+        VaultManager.save_account_snapshot(credentials) contract with a fake disk.
         """
         import json
 
@@ -136,8 +138,8 @@ class TestVaultPreferenceAdapter:
             def __init__(self):
                 self.disk: str | None = None
 
-            def save_data(self, json_string: str) -> None:
-                self.disk = json_string
+            def save_account_snapshot(self, credentials: dict) -> None:
+                self.disk = json.dumps(credentials)
 
         vault = FakeVaultManager()
         adapter = VaultPreferenceAdapter(
@@ -168,10 +170,8 @@ class TestVaultPreferenceAdapter:
                 self.disk_writes = 0
                 self._memory: dict = {}
 
-            def save_data(self, json_string: str) -> None:
-                import json as _json
-
-                self._memory = _json.loads(json_string)
+            def save_account_snapshot(self, credentials: dict) -> None:
+                self._memory = credentials
                 # Guest mode: never increments disk_writes / touches real disk.
 
         vault = FakeGuestVaultManager()
@@ -215,8 +215,8 @@ class TestPreferenceStoreVaultWiring:
             def __init__(self):
                 self.disk: str | None = None
 
-            def save_data(self, json_string: str) -> None:
-                self.disk = json_string
+            def save_account_snapshot(self, credentials: dict) -> None:
+                self.disk = json.dumps(credentials)
 
         store = PreferenceStore(lazy_adapters=True)
         store.register_adapter(PreferenceScope.DEVICE, MemoryPreferenceAdapter())
@@ -331,3 +331,16 @@ class TestRuntimeShellPreference:
         isolated_store.set(PrefKeys.EXPERIMENTAL_RUNTIME_SHELL, True)
         assert isolated_store.get(PrefKeys.EXPERIMENTAL_RUNTIME_SHELL) is True
         assert runtime_shell_enabled(isolated_store) is True
+
+
+def test_gui_account_state_writes_use_the_vault_boundary():
+    """R1.5: login is the only GUI path allowed to serialize vault JSON."""
+    gui_root = Path(__file__).resolve().parents[3] / "gui" / "src"
+    direct_writes = []
+    for path in gui_root.rglob("*.py"):
+        if path.relative_to(gui_root).as_posix() == "windows/authentication/login_window.py":
+            continue
+        if "save_data(json.dumps(" in path.read_text(encoding="utf-8"):
+            direct_writes.append(path.relative_to(gui_root).as_posix())
+
+    assert direct_writes == []

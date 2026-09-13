@@ -10,7 +10,6 @@ dialogs pointing to INSTALL.md rather than raw stack traces.
 
 from __future__ import annotations
 
-import json
 import logging
 import os
 from pathlib import Path
@@ -121,7 +120,7 @@ def save_postgres_config(
         else:
             vault_config.pop("password", None)
     credentials["postgres_connection"] = vault_config
-    vault_manager.save_data(json.dumps(credentials))
+    vault_manager.save_account_snapshot(credentials)
 
 
 def check_postgres_reachability(

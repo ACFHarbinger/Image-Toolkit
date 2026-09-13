@@ -150,7 +150,7 @@ class SettingsBackend(QObject):
         creds = self.vault_manager.load_account_credentials() # pyrefly: ignore [missing-attribute]
         creds["theme"] = self._current_theme
         # creds["system_preference_profiles"] = self._system_profiles # Already saved on modify
-        self.vault_manager.save_data(json.dumps(creds)) # pyrefly: ignore [missing-attribute]
+        self.vault_manager.save_account_snapshot(creds) # pyrefly: ignore [missing-attribute]
         # Emit generic signal if needed
 
     @Slot()
@@ -167,6 +167,6 @@ class SettingsBackend(QObject):
                 creds = self.vault_manager.load_account_credentials()
                 creds["system_preference_profiles"] = self._system_profiles
                 creds["tab_configurations"] = self._tab_defaults_config
-                self.vault_manager.save_data(json.dumps(creds))
+                self.vault_manager.save_account_snapshot(creds)
             except Exception as e:
                 print(f"Vault save error: {e}")
