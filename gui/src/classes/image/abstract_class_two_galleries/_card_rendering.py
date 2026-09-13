@@ -13,6 +13,7 @@ from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtWidgets import QLabel, QWidget
 
 from gui.src.components.gallery.card_factory import create_gallery_card
+from gui.src.components.gallery.presentation_mode import GalleryPresentationMode
 from gui.src.theming.theme_api import ThemeColor, qss
 
 from ....components import ClickableLabel
@@ -51,6 +52,9 @@ class _CardRenderingMixin:
             card_wrapper.path_double_clicked.connect(self._open_preview_for)
         if hasattr(card_wrapper, "path_right_clicked"):
             card_wrapper.path_right_clicked.connect(self._on_found_card_right_clicked)
+        self._apply_card_overlays(card_wrapper, path)
+        if self._presentation_mode == GalleryPresentationMode.COMPACT_LIST:
+            self._apply_compact_geometry(card_wrapper)
         return card_wrapper
 
     def update_card_pixmap(
@@ -90,6 +94,7 @@ class _CardRenderingMixin:
         )
         is_selected = path in self.selected_files if (path and hasattr(self, "selected_files")) else False
         self._update_card_style(img_label, is_selected)
+        self.notify_card_pixmap_loaded(widget, pixmap)
 
     def _update_card_style(
         self: "AbstractClassTwoGalleriesHostProtocol",

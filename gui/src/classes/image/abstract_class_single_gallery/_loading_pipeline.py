@@ -14,7 +14,7 @@ import os
 from typing import TYPE_CHECKING, Dict, List, Optional
 
 from backend.src.constants import SUPPORTED_VIDEO_FORMATS
-from PySide6.QtCore import Qt, Slot
+from PySide6.QtCore import Slot
 from PySide6.QtGui import QImage, QPixmap
 from shiboken6 import Shiboken
 
@@ -245,13 +245,8 @@ class _LoadingPipelineMixin:
             self._add_filename_label(card, path)  # §2.14A
             self.path_to_card_widget[path] = card
 
-            # 4. Add to Layout
-            row = i // cols
-            col = i % cols
-            if self.gallery_layout:
-                self.gallery_layout.addWidget(
-                    card, row, col, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop
-                )
+            # 4. Add to Layout (placement honors the active presentation mode)
+            self.common_place_card(self.gallery_layout, card, i, cols)
 
             # 5. DEFER Async Load (Visibility Check)
             # Both images and videos are now loaded asynchronously via visibility check

@@ -148,12 +148,8 @@ class _FoundGalleryPopulateMixin:
 
             self._add_filename_label(card, path)  # §2.14A
 
-            row = i // cols
-            col = i % cols
-            if self.found_gallery_layout:
-                self.found_gallery_layout.addWidget(
-                    card, row, col, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop
-                )
+            # Placement honors the active presentation mode (§2.40 / #508).
+            self.common_place_card(self.found_gallery_layout, card, i, cols)
 
             self.path_to_label_map[path] = card
 
