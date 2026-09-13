@@ -8,7 +8,6 @@ from pathlib import Path
 import backend.src.constants as udef
 from PySide6.QtWidgets import (
     QComboBox,
-    QGroupBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -17,8 +16,8 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
-from ....styles import apply_shadow_effect
-from ....theming.theme_api import color, qss
+from ....components import FormSection
+from ....theming.theme_api import qss
 from ._tab_bound import TabBoundController
 from .local_dir_sync_subtab import LocalDirSyncSubtab
 from .sync_data_subtab import SyncDataSubtab
@@ -39,8 +38,7 @@ class DriveSyncUIBuilder(TabBoundController):
         self.handle_provider_change(0)
 
     def _build_auth_config_group(self, main_layout: QVBoxLayout) -> None:
-        config_group = QGroupBox("Cloud Provider & Authentication")
-        config_layout = QVBoxLayout(config_group)
+        sec = FormSection("Cloud Provider & Authentication", layout_type="vertical")
 
         # Provider dropdown
         provider_layout = QHBoxLayout()
@@ -56,46 +54,36 @@ class DriveSyncUIBuilder(TabBoundController):
         self.provider_combo.setStyleSheet(qss("combo_bold"))
         provider_layout.addWidget(QLabel("Cloud Provider:"))
         provider_layout.addWidget(self.provider_combo)
-        config_layout.addLayout(provider_layout)
+        sec.add_layout(provider_layout)
 
         # Service Account Key
         self.key_file_label = QLabel("Service Account Key File:")
-        key_layout = QHBoxLayout()
         self.key_file_path = QLineEdit(os.path.join(Path.home(), udef.SERVICE_ACCOUNT_FILE))
         self.key_file_path.setPlaceholderText("Path to service_account_key.json")
         self.btn_browse_key = QPushButton("Browse")
-        apply_shadow_effect(self.btn_browse_key, color("window_bg"), 8, 0, 3)
         self.btn_browse_key.clicked.connect(self.browse_key_file)
-        key_layout.addWidget(self.key_file_path)
-        key_layout.addWidget(self.btn_browse_key)
+        sec.add_widget(self.key_file_label)
+        sec.add_path_picker(self.key_file_path, self.btn_browse_key)
 
         # Personal Account: Client Secrets
         self.client_secrets_label = QLabel("Client Secrets File:")
-        client_secrets_layout = QHBoxLayout()
         self.client_secrets_path = QLineEdit(os.path.join(Path.home(), udef.CLIENT_SECRETS_FILE))
         self.client_secrets_path.setPlaceholderText("Path to client_secrets.json")
         self.btn_browse_client_secrets = QPushButton("Browse")
-        apply_shadow_effect(self.btn_browse_client_secrets, color("window_bg"), 8, 0, 3)
         self.btn_browse_client_secrets.clicked.connect(self.browse_client_secrets_file)
-        client_secrets_layout.addWidget(self.client_secrets_path)
-        client_secrets_layout.addWidget(self.btn_browse_client_secrets)
+        sec.add_widget(self.client_secrets_label)
+        sec.add_path_picker(self.client_secrets_path, self.btn_browse_client_secrets)
 
         # Personal Account: Token File
         self.token_file_label = QLabel("Token File (auto-generated):")
-        token_file_layout = QHBoxLayout()
         self.token_file_path = QLineEdit(os.path.join(Path.home(), udef.TOKEN_FILE))
         self.token_file_path.setPlaceholderText("Path to store token.json")
+        sec.add_widget(self.token_file_label)
+        token_file_layout = QHBoxLayout()
         token_file_layout.addWidget(self.token_file_path)
+        sec.add_layout(token_file_layout)
 
-        # Assemble shared auth layout
-        config_layout.addWidget(self.key_file_label)
-        config_layout.addLayout(key_layout)
-        config_layout.addWidget(self.client_secrets_label)
-        config_layout.addLayout(client_secrets_layout)
-        config_layout.addWidget(self.token_file_label)
-        config_layout.addLayout(token_file_layout)
-
-        main_layout.addWidget(config_group)
+        main_layout.addWidget(sec.group_box)
 
     def _build_subtabs(self, main_layout: QVBoxLayout) -> None:
         self.subtab_widget = QTabWidget()

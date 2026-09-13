@@ -26,6 +26,7 @@ from PySide6.QtWidgets import (
 )
 
 from ...styles import apply_shadow_effect
+from ...theming.theme_api import color
 from ..elements.optional_field import OptionalField
 
 
@@ -123,7 +124,7 @@ class FormSection:
         row_layout = QHBoxLayout()
         row_layout.addWidget(line_edit)
         if apply_shadow:
-            apply_shadow_effect(browse_btn, color_hex="#000000", radius=8, x_offset=0, y_offset=3)
+            apply_shadow_effect(browse_btn, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3)
         row_layout.addWidget(browse_btn)
         if recent_btn is not None:
             row_layout.addWidget(recent_btn)
@@ -217,7 +218,7 @@ class SectionedFormBuilder:
         if scrollable:
             self.scroll_area: QScrollArea | None = QScrollArea(parent)
             self.scroll_area.setWidgetResizable(True)
-            self.scroll_area.setStyleSheet("QScrollArea { border: none; }")
+            self.scroll_area.setFrameShape(QScrollArea.Shape.NoFrame)
             self.scroll_area.setWidget(self.content_widget)
             self.root_widget: QWidget = self.scroll_area
         else:
