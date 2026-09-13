@@ -20,7 +20,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ._shared import _INPUT_STYLE, _checked_tags, _make_tag_list, _set_checked_tags, _thumb
+from gui.src.theming.theme_api import qss
+
+from ._shared import _checked_tags, _make_tag_list, _set_checked_tags, _thumb
 
 
 class _ImageTab(QWidget):
@@ -46,7 +48,7 @@ class _ImageTab(QWidget):
         left.addWidget(_thumb(path, 140))
         fn_lbl = QLabel(os.path.basename(path))
         fn_lbl.setWordWrap(True)
-        fn_lbl.setStyleSheet("color: #aaa; font-size: 11px;")
+        fn_lbl.setStyleSheet(qss("metadata_muted_label"))
         fn_lbl.setMaximumWidth(150)
         left.addWidget(fn_lbl)
         left.addStretch()
@@ -61,14 +63,14 @@ class _ImageTab(QWidget):
         self._group_combo.setEditable(True)
         self._group_combo.setPlaceholderText("Group…")
         self._group_combo.addItems([""] + groups)
-        self._group_combo.setStyleSheet(_INPUT_STYLE)
+        self._group_combo.setStyleSheet(qss("metadata_input"))
         self._group_combo.currentTextChanged.connect(self._refresh_subgroups)
         form.addRow("Group:", self._group_combo)
 
         self._subgroup_combo = QComboBox()
         self._subgroup_combo.setEditable(True)
         self._subgroup_combo.setPlaceholderText("Subgroup…")
-        self._subgroup_combo.setStyleSheet(_INPUT_STYLE)
+        self._subgroup_combo.setStyleSheet(qss("metadata_input"))
         self._refresh_subgroups()
         form.addRow("Subgroup:", self._subgroup_combo)
 
@@ -78,7 +80,7 @@ class _ImageTab(QWidget):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setWidget(form_widget)
-        scroll.setStyleSheet("QScrollArea { border: none; }")
+        scroll.setStyleSheet(qss("metadata_scroll_plain"))
         root.addWidget(scroll, 1)
 
     def _refresh_subgroups(self) -> None:

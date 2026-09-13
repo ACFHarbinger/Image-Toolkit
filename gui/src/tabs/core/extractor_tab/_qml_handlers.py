@@ -8,18 +8,19 @@ from __future__ import annotations
 import os
 import subprocess
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional, cast
+from typing import TYPE_CHECKING, Any, Optional
 
 from PySide6.QtCore import Slot
-from PySide6.QtWidgets import QFileDialog, QWidget
+from PySide6.QtWidgets import QFileDialog
 
 from ....helpers import FrameExtractionWorker
+from ._tab_bound import TabBoundController
 
 if TYPE_CHECKING:
     from ..protos.extractor_tab import VideoExtractorSubTabHostProtocol
 
 
-class _QmlHandlersMixin:
+class ExtractorQmlHandlersController(TabBoundController):
     """QML bridge slots for the Video subtab."""
 
     active_extraction_worker: Optional[Any]
@@ -30,7 +31,7 @@ class _QmlHandlersMixin:
             current_path if os.path.isdir(current_path) else self.last_browsed_scan_dir
         )
         d = QFileDialog.getExistingDirectory(
-            cast(QWidget, self), "Select Source Directory", starting_dir
+            self.tab, "Select Source Directory", starting_dir
         )
         if d:
             self.line_edit_dir.setText(d)  # Sync widget
@@ -129,4 +130,5 @@ class _QmlHandlersMixin:
         self.operation_thread_pool.start(worker)
 
 
-__all__ = ["_QmlHandlersMixin"]
+__all__ = ["ExtractorQmlHandlersController"]
+

@@ -6,21 +6,17 @@ Extracted from ``cbir_train_tab.py`` -- pure code motion, no logic change.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QDoubleSpinBox,
-    QFormLayout,
-    QGroupBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QProgressBar,
     QPushButton,
-    QScrollArea,
     QSpinBox,
     QSplitter,
     QTextEdit,
@@ -28,58 +24,56 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from .....components import SectionedFormBuilder
 from .....styles import set_button_role
+from .....theming.theme_api import qss
 from ._sparkline import _SparkLine
-
-if TYPE_CHECKING:
-    from ...protos.cbir_train_tab import CBIRTrainTabHostProtocol
+from ._tab_bound import TabBoundController
 
 
-class _UIBuilderMixin:
-    """Builds the config/telemetry splitter panels."""
+class CBIRTrainUIBuilder(TabBoundController):
+    """Builds the config/telemetry splitter panels (§5 R2.f, #567)."""
 
-    def _init_ui(self: "CBIRTrainTabHostProtocol") -> None:
-        root = QVBoxLayout(cast(QWidget, self))
+    def init_ui(self) -> None:
+        root = QVBoxLayout(self.tab)
         root.setSpacing(6)
 
-        # Left / Right splitter so config and log sit side-by-side on wide screens
         splitter = QSplitter(Qt.Orientation.Horizontal)
         splitter.setChildrenCollapsible(False)
         root.addWidget(splitter, 1)
 
-        # ── Left panel: configuration ──────────────────────────────────────
-        left = QWidget()
-        left_layout = QVBoxLayout(left)
-        left_layout.setContentsMargins(0, 0, 4, 0)
-        left_layout.setSpacing(6)
-        left_scroll = QScrollArea()
-        left_scroll.setWidgetResizable(True)
-        left_scroll.setFrameShape(QScrollArea.Shape.NoFrame)
-        left_scroll.setWidget(left)
-        splitter.addWidget(left_scroll)
+        # Left panel: configuration with SectionedFormBuilder (§5 R2.f, #567)
+        builder = SectionedFormBuilder(splitter, scrollable=True, spacing=6, margins=(0, 0, 4, 0))
+        self._build_dataset_group(builder)
+        self._build_backbone_group(builder)
+        self._build_loss_group(builder)
+        self._build_training_group(builder)
+        self._build_faiss_group(builder)
+        builder.add_stretch()
+        splitter.addWidget(builder.root_widget)
 
-        # Dataset ──────────────────────────────────────────────────────────
-        dg = QGroupBox("Dataset")
-        dgl = QFormLayout(dg)
+        # Right panel: telemetry
+        self._build_telemetry_panel(splitter)
+        splitter.setSizes([420, 420])
+
+    _init_ui = init_ui
+    _build_ui = init_ui
+
+    def _build_dataset_group(self, builder: SectionedFormBuilder) -> None:
+        sec = builder.add_section("Dataset")
 
         self._img_dir = QLineEdit()
         self._img_dir.setPlaceholderText("Folder of images used for training / indexing")
         btn_img = QPushButton("Browse…")
         btn_img.setFixedWidth(80)
         btn_img.clicked.connect(lambda: self._browse_dir(self._img_dir))
-        row_img = QHBoxLayout()
-        row_img.addWidget(self._img_dir)
-        row_img.addWidget(btn_img)
-        dgl.addRow("Image dir:", row_img)
+        sec.add_path_picker(self._img_dir, btn_img, label="Image dir:", apply_shadow=False)
 
         self._out_dir = QLineEdit("cbir_checkpoints")
         btn_out = QPushButton("Browse…")
         btn_out.setFixedWidth(80)
         btn_out.clicked.connect(lambda: self._browse_dir(self._out_dir))
-        row_out = QHBoxLayout()
-        row_out.addWidget(self._out_dir)
-        row_out.addWidget(btn_out)
-        dgl.addRow("Output dir:", row_out)
+        sec.add_path_picker(self._out_dir, btn_out, label="Output dir:", apply_shadow=False)
 
         self._val_split = QDoubleSpinBox()
         self._val_split.setRange(0.01, 0.40)
@@ -87,13 +81,10 @@ class _UIBuilderMixin:
         self._val_split.setDecimals(2)
         self._val_split.setSingleStep(0.05)
         self._val_split.setToolTip("Fraction of images held out for Recall@K validation")
-        dgl.addRow("Val split:", self._val_split)
+        sec.add_row("Val split:", self._val_split)
 
-        left_layout.addWidget(dg)
-
-        # Backbone / Architecture ──────────────────────────────────────────
-        bg = QGroupBox("Backbone / Architecture")
-        bgl = QFormLayout(bg)
+    def _build_backbone_group(self, builder: SectionedFormBuilder) -> None:
+        sec = builder.add_section("Backbone / Architecture")
 
         self._backbone = QComboBox()
         self._backbone.addItem("CLIP ViT-B/32  (openai/clip-vit-base-patch32)", "clip")
@@ -103,17 +94,17 @@ class _UIBuilderMixin:
             "CLIP usually gives the best CBIR quality on photographic and "
             "anime images.  ResNet-50 / EfficientNet are lighter alternatives."
         )
-        bgl.addRow("Backbone:", self._backbone)
+        sec.add_row("Backbone:", self._backbone)
 
         self._embed_dim = QComboBox()
         for d in [64, 128, 256, 512]:
             self._embed_dim.addItem(str(d), d)
-        self._embed_dim.setCurrentIndex(2)  # 256
+        self._embed_dim.setCurrentIndex(2)
         self._embed_dim.setToolTip(
             "Projection head output dimension.  Smaller → faster search and less RAM.  "
             "Larger → higher discriminative capacity."
         )
-        bgl.addRow("Embedding dim:", self._embed_dim)
+        sec.add_row("Embedding dim:", self._embed_dim)
 
         self._proj_layers = QSpinBox()
         self._proj_layers.setRange(1, 4)
@@ -122,7 +113,7 @@ class _UIBuilderMixin:
             "Number of linear layers in the MLP projection head.\n"
             "2 is sufficient for most cases; 3–4 for very large datasets."
         )
-        bgl.addRow("Projection layers:", self._proj_layers)
+        sec.add_row("Projection layers:", self._proj_layers)
 
         self._freeze_epochs = QSpinBox()
         self._freeze_epochs.setRange(0, 20)
@@ -131,29 +122,22 @@ class _UIBuilderMixin:
             "Train only the projection head for this many epochs, then unfreeze\n"
             "the backbone.  0 = unfreeze from the start."
         )
-        bgl.addRow("Freeze backbone (epochs):", self._freeze_epochs)
+        sec.add_row("Freeze backbone (epochs):", self._freeze_epochs)
 
         self._image_size = QComboBox()
         for s in [224, 256, 336]:
             self._image_size.addItem(f"{s}×{s}", s)
         self._image_size.setCurrentIndex(0)
-        bgl.addRow("Input resolution:", self._image_size)
+        sec.add_row("Input resolution:", self._image_size)
 
-        left_layout.addWidget(bg)
-
-        # Loss ──────────────────────────────────────────────────────────────
-        lg = QGroupBox("Loss Function")
-        lgl = QFormLayout(lg)
+    def _build_loss_group(self, builder: SectionedFormBuilder) -> None:
+        sec = builder.add_section("Loss Function")
 
         self._loss_fn = QComboBox()
-        self._loss_fn.addItem(
-            "InfoNCE / NT-Xent  (SimCLR — recommended, batch≥64)", "infonce"
-        )
-        self._loss_fn.addItem(
-            "TripletMargin  (classic, works well at smaller batch sizes)", "triplet"
-        )
+        self._loss_fn.addItem("InfoNCE / NT-Xent  (SimCLR — recommended, batch≥64)", "infonce")
+        self._loss_fn.addItem("TripletMargin  (classic, works well at smaller batch sizes)", "triplet")
         self._loss_fn.currentIndexChanged.connect(self._on_loss_changed)
-        lgl.addRow("Loss function:", self._loss_fn)
+        sec.add_row("Loss function:", self._loss_fn)
 
         self._temperature = QDoubleSpinBox()
         self._temperature.setRange(0.01, 1.0)
@@ -161,10 +145,9 @@ class _UIBuilderMixin:
         self._temperature.setDecimals(3)
         self._temperature.setSingleStep(0.01)
         self._temperature.setToolTip(
-            "InfoNCE softmax temperature τ.  Lower values → sharper distribution.\n"
-            "Typical range: 0.05–0.20."
+            "InfoNCE softmax temperature τ.  Lower values → sharper distribution.\nTypical range: 0.05–0.20."
         )
-        lgl.addRow("Temperature (τ):", self._temperature)
+        sec.add_row("Temperature (τ):", self._temperature)
 
         self._margin = QDoubleSpinBox()
         self._margin.setRange(0.01, 2.0)
@@ -173,44 +156,38 @@ class _UIBuilderMixin:
         self._margin.setSingleStep(0.05)
         self._margin.setToolTip("TripletMarginLoss margin.  Typical range: 0.1–0.5.")
         self._margin.setEnabled(False)
-        lgl.addRow("Triplet margin:", self._margin)
+        sec.add_row("Triplet margin:", self._margin)
 
         self._jitter = QDoubleSpinBox()
         self._jitter.setRange(0.0, 1.5)
         self._jitter.setValue(0.5)
         self._jitter.setDecimals(2)
         self._jitter.setToolTip(
-            "Colour-jitter augmentation strength.  0 = disabled.  "
-            "Higher values teach more colour-invariant embeddings."
+            "Colour-jitter augmentation strength.  0 = disabled.  Higher values teach more colour-invariant embeddings."
         )
-        lgl.addRow("Colour jitter strength:", self._jitter)
+        sec.add_row("Colour jitter strength:", self._jitter)
 
-        left_layout.addWidget(lg)
-
-        # Training ──────────────────────────────────────────────────────────
-        tg = QGroupBox("Training")
-        tgl = QFormLayout(tg)
+    def _build_training_group(self, builder: SectionedFormBuilder) -> None:
+        sec = builder.add_section("Training")
 
         self._epochs = QSpinBox()
         self._epochs.setRange(1, 500)
         self._epochs.setValue(20)
-        tgl.addRow("Epochs:", self._epochs)
+        sec.add_row("Epochs:", self._epochs)
 
         self._batch_size = QSpinBox()
         self._batch_size.setRange(8, 512)
         self._batch_size.setValue(64)
         self._batch_size.setSingleStep(8)
-        self._batch_size.setToolTip(
-            "InfoNCE loss quality scales with batch size — aim for 64+ if VRAM allows."
-        )
-        tgl.addRow("Batch size:", self._batch_size)
+        self._batch_size.setToolTip("InfoNCE loss quality scales with batch size — aim for 64+ if VRAM allows.")
+        sec.add_row("Batch size:", self._batch_size)
 
         self._lr = QDoubleSpinBox()
         self._lr.setRange(1e-6, 1e-2)
         self._lr.setValue(3e-4)
         self._lr.setDecimals(6)
         self._lr.setSingleStep(1e-4)
-        tgl.addRow("Learning rate:", self._lr)
+        sec.add_row("Learning rate:", self._lr)
 
         self._bb_lr_scale = QDoubleSpinBox()
         self._bb_lr_scale.setRange(0.001, 1.0)
@@ -220,75 +197,58 @@ class _UIBuilderMixin:
             "Backbone LR = main LR × this scale (applied after backbone is unfrozen).\n"
             "Keep low (0.05–0.1) to avoid catastrophic forgetting of pretrained features."
         )
-        tgl.addRow("Backbone LR scale:", self._bb_lr_scale)
+        sec.add_row("Backbone LR scale:", self._bb_lr_scale)
 
         self._warmup = QSpinBox()
         self._warmup.setRange(0, 20)
         self._warmup.setValue(2)
-        tgl.addRow("LR warmup (epochs):", self._warmup)
+        sec.add_row("LR warmup (epochs):", self._warmup)
 
         self._workers = QSpinBox()
         self._workers.setRange(0, 16)
         self._workers.setValue(4)
-        tgl.addRow("DataLoader workers:", self._workers)
+        sec.add_row("DataLoader workers:", self._workers)
 
         self._amp = QCheckBox("Mixed precision (AMP / fp16)")
         self._amp.setChecked(True)
-        tgl.addRow("", self._amp)
+        sec.add_row("", self._amp)
 
-        left_layout.addWidget(tg)
-
-        # FAISS index builder ───────────────────────────────────────────────
-        fg = QGroupBox("FAISS Index Builder  (post-training step)")
-        fgl = QFormLayout(fg)
+    def _build_faiss_group(self, builder: SectionedFormBuilder) -> None:
+        sec = builder.add_section("FAISS Index Builder  (post-training step)")
 
         self._ckpt_path = QLineEdit()
         self._ckpt_path.setPlaceholderText("Path to cbir_best.pt or cbir_final.pt")
         btn_ckpt = QPushButton("Browse…")
         btn_ckpt.setFixedWidth(80)
         btn_ckpt.clicked.connect(self._browse_checkpoint)
-        row_ckpt = QHBoxLayout()
-        row_ckpt.addWidget(self._ckpt_path)
-        row_ckpt.addWidget(btn_ckpt)
-        fgl.addRow("Checkpoint:", row_ckpt)
+        sec.add_path_picker(self._ckpt_path, btn_ckpt, label="Checkpoint:", apply_shadow=False)
 
         self._index_img_dir = QLineEdit()
-        self._index_img_dir.setPlaceholderText(
-            "Image library to index (defaults to training image dir)"
-        )
+        self._index_img_dir.setPlaceholderText("Image library to index (defaults to training image dir)")
         btn_idx_img = QPushButton("Browse…")
         btn_idx_img.setFixedWidth(80)
         btn_idx_img.clicked.connect(lambda: self._browse_dir(self._index_img_dir))
-        row_idx_img = QHBoxLayout()
-        row_idx_img.addWidget(self._index_img_dir)
-        row_idx_img.addWidget(btn_idx_img)
-        fgl.addRow("Library dir:", row_idx_img)
+        sec.add_path_picker(self._index_img_dir, btn_idx_img, label="Library dir:", apply_shadow=False)
 
         idx_default = str(Path.home() / ".image-toolkit" / "cbir_index")
         self._index_out_dir = QLineEdit(idx_default)
         btn_idx_out = QPushButton("Browse…")
         btn_idx_out.setFixedWidth(80)
         btn_idx_out.clicked.connect(lambda: self._browse_dir(self._index_out_dir))
-        row_idx_out = QHBoxLayout()
-        row_idx_out.addWidget(self._index_out_dir)
-        row_idx_out.addWidget(btn_idx_out)
-        fgl.addRow("Index output:", row_idx_out)
+        sec.add_path_picker(self._index_out_dir, btn_idx_out, label="Index output:", apply_shadow=False)
 
         self._btn_build_index = QPushButton("▶  Build FAISS Index")
         set_button_role(self._btn_build_index, "success")
         self._btn_build_index.clicked.connect(self._start_build_index)
-        fgl.addRow("", self._btn_build_index)
+        sec.add_row("", self._btn_build_index)
 
         self._index_progress = QProgressBar()
         self._index_progress.setRange(0, 100)
         self._index_progress.setValue(0)
         self._index_progress.setVisible(False)
-        fgl.addRow("Progress:", self._index_progress)
+        sec.add_row("Progress:", self._index_progress)
 
-        left_layout.addWidget(fg)
-        left_layout.addStretch()
-
-        # ── Right panel: live telemetry ─────────────────────────────────────
+    def _build_telemetry_panel(self, splitter: QSplitter) -> None:
         right = QWidget()
         right_layout = QVBoxLayout(right)
         right_layout.setContentsMargins(4, 0, 0, 0)
@@ -321,7 +281,7 @@ class _UIBuilderMixin:
 
         # Recall@K display
         self._recall_label = QLabel("Recall@1: —   Recall@5: —   Recall@10: —")
-        self._recall_label.setStyleSheet("font-family: monospace; font-size: 12px;")
+        self._recall_label.setStyleSheet(qss("monospace_medium"))
         right_layout.addWidget(self._recall_label)
 
         # Metric grid
@@ -337,19 +297,19 @@ class _UIBuilderMixin:
         # Log box
         self._log_box = QTextEdit()
         self._log_box.setReadOnly(True)
-        self._log_box.setStyleSheet("font-family: monospace; font-size: 11px;")
+        self._log_box.setStyleSheet(qss("monospace_small"))
         right_layout.addWidget(self._log_box, 1)
 
         splitter.setSizes([420, 420])
+
+    _init_ui = init_ui
 
     @staticmethod
     def _make_metric_label(title: str, value: str) -> QLabel:
         w = QLabel(f"<b>{title}</b><br/>{value}")
         w.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        w.setStyleSheet(
-            "border:1px solid #555; border-radius:4px; padding:4px; min-width:90px;"
-        )
+        w.setStyleSheet(qss("cbir_metric_label"))
         return w
 
 
-__all__ = ["_UIBuilderMixin"]
+__all__ = ["CBIRTrainUIBuilder"]

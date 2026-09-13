@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
 
 from gui.src.modules.catalog import ModuleCatalog
 from gui.src.modules.descriptor import ModuleCategory
+from gui.src.theming.theme_api import color, qss
 
 CATEGORY_ICONS: dict[ModuleCategory, str] = {
     ModuleCategory.SYSTEM: "⚙️",
@@ -96,7 +97,7 @@ class NavigationRailWidget(QWidget):
 
         self.drawer_header = QLabel("")
         self.drawer_header.setObjectName("drawer_header")
-        self.drawer_header.setStyleSheet("font-weight: bold; font-size: 11pt; padding: 4px;")
+        self.drawer_header.setStyleSheet(qss("nav_drawer_header"))
         self.drawer_layout.addWidget(self.drawer_header)
 
         self.module_scroll = QScrollArea()
@@ -128,7 +129,7 @@ class NavigationRailWidget(QWidget):
             if cat_key in self._category_accent_overrides:
                 accent = self._category_accent_overrides[cat_key]
                 btn.setStyleSheet(
-                    f"QToolButton:checked {{ border-left: 3px solid {accent}; background: rgba(255,255,255,0.08); }}"
+                    qss("nav_category_checked", ACCENT=accent)
                 )
         if self.active_category:
             self.select_category(self.active_category)
@@ -150,8 +151,10 @@ class NavigationRailWidget(QWidget):
             ModuleCategory.DEVELOPER: "開発ツール",
         }.get(category, "")
         cat_key = category.name.lower()
-        accent = getattr(self, "_category_accent_overrides", {}).get(cat_key, "#00bcd4")
-        self.drawer_header.setStyleSheet(f"font-weight: bold; font-size: 11pt; padding: 4px; color: {accent};")
+        accent = getattr(self, "_category_accent_overrides", {}).get(cat_key, color("accent"))
+        self.drawer_header.setStyleSheet(
+            qss("nav_drawer_header_accent", ACCENT=accent)
+        )
         self.drawer_header.setText(f"{category.value.upper()}\n{jp_text}" if jp_text else category.value.upper())
 
         while self.module_list_layout.count():
@@ -164,7 +167,7 @@ class NavigationRailWidget(QWidget):
             btn = QPushButton(mod.title)
             btn.setObjectName(f"module_btn_{mod.module_id}")
             btn.setCheckable(True)
-            btn.setStyleSheet("text-align: left; padding: 6px 10px; font-size: 9pt;")
+            btn.setStyleSheet(qss("nav_module_btn"))
             if mod.module_id == self.active_module_id:
                 btn.setChecked(True)
             btn.clicked.connect(lambda _=False, m=mod.module_id: self._on_module_clicked(m))

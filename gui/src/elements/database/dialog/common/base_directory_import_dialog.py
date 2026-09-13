@@ -1,20 +1,14 @@
 from PySide6.QtWidgets import QCheckBox, QDialog, QFileDialog
 
+from gui.src.theming.theme_api import qss
+
 
 class BaseDirectoryImportDialog(QDialog):
     def __init__(self, title: str, parent=None):
         super().__init__(parent)
         self.setWindowTitle(title)
         self.setMinimumSize(840, 620)
-        self.setStyleSheet(
-            "QDialog { background:#2c2f33; color:white; }"
-            "QLabel  { color:white; }"
-            "QLineEdit, QSpinBox, QComboBox { background:#23272a; color:white;"
-            "  border:1px solid #4f545c; border-radius:4px; padding:4px; }"
-            "QGroupBox { border:1px solid #4f545c; border-radius:6px;"
-            "  margin-top:8px; color:#00bcd4; font-weight:bold; }"
-            "QGroupBox::title { subcontrol-origin:margin; left:8px; padding:0 4px; }"
-        )
+        self.setStyleSheet(qss("directory_import_dialog"))
         self._directory = ""
         self._dir_edit = None  # To be assigned in subclass
         self._table = None  # To be assigned in subclass
@@ -52,4 +46,3 @@ class BaseDirectoryImportDialog(QDialog):
             chk = widget.findChild(QCheckBox)
             if chk:
                 chk.setChecked(state)
-

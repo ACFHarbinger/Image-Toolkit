@@ -1,0 +1,19 @@
+QMenu {
+    background-color: $LIGHT_SECONDARY_BG;
+    color: $LIGHT_TEXT;
+    border: 1px solid $LIGHT_BORDER;
+    font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
+    font-size: 12px;
+}
+QMenu::item {
+    padding: 6px 20px;
+}
+QMenu::item:selected {
+    background-color: $LIGHT_ACCENT_COLOR;
+    color: white;
+}
+QMenu::separator {
+    height: 1px;
+    background-color: $LIGHT_BORDER;
+    margin: 4px 0px;
+}

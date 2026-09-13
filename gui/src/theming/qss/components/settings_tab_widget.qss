@@ -1,0 +1,4 @@
+QTabWidget::pane { border: 1px solid $TAB_BORDER; background: $TAB_PANE_BG; }
+QTabBar::tab { background: $TAB_BG; color: $TAB_TEXT; padding: 10px 15px; border: 1px solid $TAB_BORDER; border-bottom: none; border-top-left-radius: 4px; border-top-right-radius: 4px; }
+QTabBar::tab:selected { background: $TAB_SELECTED_BG; color: $TAB_SELECTED_TEXT; border-bottom: 2px solid $ACCENT; font-weight: bold; }
+QTabBar::tab:hover { background: $TAB_HOVER_BG; color: $TAB_HOVER_TEXT; }

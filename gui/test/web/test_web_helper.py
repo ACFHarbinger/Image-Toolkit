@@ -1,7 +1,7 @@
 
 from unittest.mock import MagicMock, patch
 
-from gui.src.helpers.web.cloud.google_drive_sync_worker import GoogleDriveSyncWorker
+from gui.src.helpers.web.cloud.cloud_drive_sync_worker import CloudDriveSyncWorker
 from gui.src.helpers.web.reverse_search_worker import ReverseSearchWorker
 from gui.src.helpers.web.web_requests_worker import WebRequestsWorker
 
@@ -78,18 +78,20 @@ class TestReverseSearchWorker:
 # --- SyncWorker Tests (Google Drive as generic representative) ---
 
 
-class TestGoogleDriveSyncWorker:
+class TestCloudDriveSyncWorker:
     def test_run(self, q_app):
         # Imports GoogleDriveSync from backend
         with patch(
-            "gui.src.helpers.web.cloud.google_drive_sync_worker.GoogleDriveSync"
+            "gui.src.helpers.web.cloud.cloud_drive_sync_worker.GoogleDriveSync"
         ) as MockLogic:
             mock_inst = MagicMock()
             MockLogic.return_value = mock_inst
 
             # Pass required args with valid auth config to avoid ValueError
             auth = {"mode": "service_account", "service_account_data": {}}
-            worker = GoogleDriveSyncWorker(auth, "/tmp/local", "/tmp/remote", False)
+            worker = CloudDriveSyncWorker(
+                "google", auth, "/tmp/local", "/tmp/remote", False
+            )
 
             worker.run()
 

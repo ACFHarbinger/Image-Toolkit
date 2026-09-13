@@ -62,6 +62,17 @@ ENTITY_ROLE_COLORS = {
     "Other": "#607d8b",
 }
 
+CARD_LABEL_COLORS = {
+    "red": "#e74c3c",
+    "orange": "#e67e22",
+    "yellow": "#f1c40f",
+    "green": "#2ecc71",
+    "blue": "#3498db",
+    "purple": "#9b59b6",
+}
+
+RATING_STAR_COLOR = "#f1c40f"
+
 CARD_SIZE = 180
 THUMB_SIZE = 130
 PLACEHOLDER = "📽"  # shown when no image is set

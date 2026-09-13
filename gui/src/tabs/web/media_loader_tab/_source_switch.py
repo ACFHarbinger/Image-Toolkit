@@ -4,10 +4,11 @@ from __future__ import annotations
 
 from PySide6.QtCore import Slot
 
+from ._tab_bound import TabBoundController
 from ._ui_builder import SOURCE_NHENTAI
 
 
-class _SourceSwitchMixin:
+class MediaLoaderSourceController(TabBoundController):
     """Keeps ``settings_stack`` in sync with ``source_combo``."""
 
     @Slot(int)
@@ -18,4 +19,6 @@ class _SourceSwitchMixin:
             self.settings_stack.setCurrentWidget(self.page_reddit)
 
 
-__all__ = ["_SourceSwitchMixin"]
+_SourceSwitchMixin = MediaLoaderSourceController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
+
+__all__ = ["MediaLoaderSourceController", "_SourceSwitchMixin"]

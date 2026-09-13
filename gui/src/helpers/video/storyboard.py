@@ -40,7 +40,6 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from PIL import Image
 from PySide6.QtCore import Signal
 
 from gui.src.constants.helpers import (
@@ -57,6 +56,7 @@ from gui.src.helpers.base import BaseQThreadWorker
 from gui.src.helpers.video.video_thumbnailer import media_backend_spawn_guard
 
 logger = logging.getLogger(__name__)
+
 
 def probe_duration_ms(video_path: str) -> int:
     try:
@@ -270,6 +270,8 @@ class StoryboardBuilder(BaseQThreadWorker):
         return str(self.meta_path)
 
     def _composite(self, tile_paths: List[Path], interval_ms: int) -> None:
+        from PIL import Image
+
         count = len(tile_paths)
         with Image.open(tile_paths[0]) as first:
             tw, th = first.size

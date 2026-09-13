@@ -1,0 +1,4 @@
+border: 1px solid $DARK_BORDER;
+border-radius: 6px;
+padding: 6px 4px;
+background: $DARK_SECONDARY_BG;

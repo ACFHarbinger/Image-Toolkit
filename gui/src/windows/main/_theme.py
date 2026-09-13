@@ -11,6 +11,9 @@ import os
 from PySide6.QtGui import QColor, QFont, QPalette
 from PySide6.QtWidgets import QApplication, QWidget
 
+from gui.src.theming.theme_api import apply_stylesheet, color, refresh_component_styles, set_current_base
+from gui.src.theming.theme_api import qss as component_qss
+
 from ...styles import (
     COMPACT_DENSITY_QSS,
     DARK_ACCENT_COLOR,
@@ -33,6 +36,7 @@ from ...styles import (
     load_qss_with_overrides,
     load_user_qss_override,
 )
+from ._window_bound import WindowBoundController
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +89,7 @@ def _build_palette(
     return palette
 
 
-class _ThemeMixin:
+class MainThemeController(WindowBoundController):
     """Applies the dark/light stylesheet and handles manual theme toggling."""
 
     def prime_application_palette(self, theme_name: str) -> None:
@@ -137,10 +141,10 @@ class _ThemeMixin:
                     logger.debug("Suppressed Exception in _ThemeMixin.set_application_theme", exc_info=True)
             qss = load_qss_with_overrides("dark.qss", overrides)
             self.current_theme = "dark"
-            hover_bg = "#5f646c"
+            hover_bg = color("border", base="dark")
             pressed_bg = accent_color
             header_label_color = "white"
-            header_widget_bg = "#2d2d30"
+            header_widget_bg = color("surface", base="dark")
         elif theme_name == "light":
             accent_color = prefs.get("accent_color_light", LIGHT_ACCENT_COLOR)
             overrides = compute_accent_vars(accent_color, "LIGHT")  # pyrefly: ignore [bad-argument-type]
@@ -157,13 +161,14 @@ class _ThemeMixin:
                     logger.debug("Suppressed Exception in _ThemeMixin.set_application_theme", exc_info=True)
             qss = load_qss_with_overrides("light.qss", overrides)
             self.current_theme = "light"
-            hover_bg = "#cccccc"
+            hover_bg = color("border", base="light")
             pressed_bg = accent_color
-            header_label_color = "#1e1e1e"
-            header_widget_bg = "#ffffff"
+            header_label_color = color("text", base="light")
+            header_widget_bg = color("surface", base="light")
         else:
             return
 
+        set_current_base(theme_name)
 
         if density == "Compact":
             qss += COMPACT_DENSITY_QSS
@@ -201,36 +206,40 @@ class _ThemeMixin:
         app = QApplication.instance()
         if app is not None:
             app.setPalette(_build_palette(theme_name, accent_color))
-        self.setStyleSheet(qss) if "PYTEST_CURRENT_TEST" in os.environ else app.setStyleSheet(qss)  # pyrefly: ignore [missing-attribute]
+        apply_stylesheet(self, qss) if "PYTEST_CURRENT_TEST" in os.environ else apply_stylesheet(app, qss)  # pyrefly: ignore [missing-attribute]
+        refresh_component_styles(base=theme_name)
 
         header_widget = self.findChild(QWidget, "header_widget")
         if header_widget:
             if bg_config.glassmorphism_enabled and (bg_config.image_path or effective_bg):
                 header_widget_bg = "rgba(16, 18, 22, 0.65)" if theme_name == "dark" else "rgba(255, 255, 255, 0.70)"
             header_widget.setStyleSheet(
-                f"background-color: {header_widget_bg}; padding: 10px; border-bottom: 2px solid {accent_color};"
+                component_qss(
+                    "main_header_bar_dynamic",
+                    base=theme_name,
+                    HEADER_BG=header_widget_bg,
+                    ACCENT=accent_color,
+                )
             )
             title_label = self.title_label
             if title_label:
                 account_name = self.cached_creds.get("account_name", "Authenticated User")
                 title_label.setText(f"Image Database and Toolkit - {account_name}")
-                title_label.setStyleSheet(f"color: {header_label_color}; font-size: 18pt; font-weight: bold;")
+                title_label.setStyleSheet(
+                    component_qss(
+                        "main_header_title_dynamic",
+                        base=theme_name,
+                        TITLE_COLOR=header_label_color,
+                    )
+                )
 
         self.settings_button.setStyleSheet(
-            f"""
-            QPushButton#settings_button {{
-                background-color: transparent;
-                border: none;
-                padding: 5px;
-                border-radius: 18px;
-            }}
-            QPushButton#settings_button:hover {{
-                background-color: {hover_bg};
-            }}
-            QPushButton#settings_button:pressed {{
-                background-color: {pressed_bg};
-            }}
-        """
+            component_qss(
+                "main_settings_btn",
+                base=theme_name,
+                HOVER_BG=hover_bg,
+                PRESSED_BG=pressed_bg,
+            )
         )
 
         # Sync theme toggle icon
@@ -294,7 +303,9 @@ class _ThemeMixin:
                     border=resolved.border,
                 )
             )
-        self.setStyleSheet(qss) if "PYTEST_CURRENT_TEST" in os.environ else app.setStyleSheet(qss)
+        apply_stylesheet(self, qss) if "PYTEST_CURRENT_TEST" in os.environ else apply_stylesheet(app, qss)
+        set_current_base(pack.base)
+        refresh_component_styles(base=pack.base)
 
         # Header restyle mirrors set_application_theme's behavior for the
         # resolved accent/window colors.
@@ -306,25 +317,53 @@ class _ThemeMixin:
                 window_bg = "rgba(16, 18, 22, 0.65)" if pack.base == "dark" else "rgba(255, 255, 255, 0.70)"
             text = resolved.text
             header_widget.setStyleSheet(
-                f"background-color: {window_bg}; padding: 10px; border-bottom: 2px solid {accent};"
+                component_qss(
+                    "main_header_bar_dynamic",
+                    base=pack.base,
+                    HEADER_BG=window_bg,
+                    ACCENT=accent,
+                )
             )
             title_label = getattr(self, "title_label", None)
             if title_label is not None:
-                title_label.setStyleSheet(f"color: {text}; font-size: 18pt; font-weight: bold;")
+                title_label.setStyleSheet(
+                    component_qss(
+                        "main_header_title_dynamic",
+                        base=pack.base,
+                        TITLE_COLOR=text,
+                    )
+                )
 
     def _toggle_theme(self) -> None:
         """Manually toggle dark↔light theme, overriding the OS preference."""
         new_theme = "light" if self.current_theme == "dark" else "dark"
+        # Restyle first — the vault decrypt used to run *before* any paint
+        # and made the toggle feel frozen (#620).
         self.set_application_theme(new_theme)
-        # Persist the manual preference so the OS follow-OS handler backs off.
-        if self.vault_manager is not None:
-            try:
-                creds = self.vault_manager.load_account_credentials()
-                creds["theme"] = new_theme
-                self.vault_manager.save_account_snapshot(creds)
-                self._refresh_account_credentials(creds)
-            except Exception:
-                logger.debug("Suppressed Exception in _ThemeMixin._toggle_theme", exc_info=True)
+        self._persist_theme_override(new_theme)
+
+    def _persist_theme_override(self, new_theme: str) -> None:
+        """Write the manual theme flag from the in-memory snapshot (no decrypt)."""
+        creds = getattr(self, "cached_creds", None)
+        if isinstance(creds, dict):
+            creds["theme"] = new_theme
+        else:
+            creds = {"theme": new_theme}
+            self.cached_creds = creds
+        if self.vault_manager is None:
+            return
+        try:
+            self.vault_manager.save_account_snapshot(creds)
+            from gui.src.preferences.store import PreferenceStore
+
+            PreferenceStore.instance().attach_vault_credentials(
+                creds,
+                self.vault_manager,
+                creds.get("account_name", ""),
+            )
+        except Exception:
+            logger.debug("Suppressed Exception in _ThemeMixin._toggle_theme", exc_info=True)
 
 
-__all__ = ["_ThemeMixin"]
+__all__ = ["MainThemeController"]
+

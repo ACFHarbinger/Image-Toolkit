@@ -1,7 +1,3 @@
-import cv2
-import numpy as np
-from PIL import Image
-
 from gui.src.helpers.base import BaseQRunnableWorker
 
 
@@ -16,8 +12,12 @@ class OrbTask(BaseQRunnableWorker):
 
     def _execute(self) -> object:
         try:
+            import cv2
+            import numpy as np
+            from PIL import Image
+
             # Initialize ORB (local instance per thread is safer)
-            orb = cv2.ORB_create(nfeatures=500) # pyrefly: ignore [missing-attribute]
+            orb = cv2.ORB_create(nfeatures=500)  # pyrefly: ignore [missing-attribute]
 
             # --- ROBUST LOAD (From previous logic) ---
             # 1. Load: Open and convert to RGBA first to handle palette transparency

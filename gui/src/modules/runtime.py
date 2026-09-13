@@ -110,6 +110,17 @@ class ModuleRuntime:
         self._active_module_id = None
         self._active_handle_id = None
 
+    def replace_account(self, account_id: Optional[str]) -> None:
+        """Drop every cached handle after the signed-in account changes (#572).
+
+        LRU eviction of idle modules is still gated on a live 3-vs-8 RSS
+        measurement (DS-5). Account-switch disposal is the policy until then.
+        """
+        from dataclasses import replace
+
+        self.dispose()
+        self.context = replace(self.context, account_id=account_id)
+
     def _get_or_create(self, descriptor: PageDescriptor | WorkspaceDescriptor) -> ModuleHandle:
         handle = self._handles.get(descriptor.module_id)
         if handle is None:

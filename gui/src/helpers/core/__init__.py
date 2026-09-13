@@ -1,6 +1,7 @@
 from .codec_conversion_worker import CodecConversionWorker
 from .conversion_worker import ConversionWorker
 from .deletion_worker import DeletionWorker
+from .directory_scan_worker import DirectoryScanWorker
 from .duplicate_scan_worker import DuplicateScanWorker
 from .merge_worker import MergeWorker
 from .queue_execution_worker import QueueExecutionWorker
@@ -13,6 +14,7 @@ __all__ = [
     "CodecConversionWorker",
     "ConversionWorker",
     "DeletionWorker",
+    "DirectoryScanWorker",
     "DuplicateScanWorker",
     "MergeWorker",
     "QueueExecutionWorker",

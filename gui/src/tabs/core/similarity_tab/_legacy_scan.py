@@ -12,9 +12,10 @@ from backend.src.constants import SUPPORTED_IMG_FORMATS
 from PySide6.QtWidgets import QMessageBox
 
 from ....utils.sort_utils import natural_sort_key
+from ._tab_bound import TabBoundController
 
 
-class _LegacyScanMixin:
+class SimilarityLegacyScanController(TabBoundController):
     """Combo-box-driven scan dispatch: full similarity engine or a single tier."""
 
     def on_scan_button_clicked(self):
@@ -30,8 +31,7 @@ class _LegacyScanMixin:
         Source directory (the full listing) in the thumbnail gallery."""
         target_dir = self.target_path.text().strip()
         if not target_dir or not os.path.isdir(target_dir):
-            QMessageBox.warning(self, "Invalid Source",
-                "Select a valid Source directory to display.")
+            QMessageBox.warning(self.tab, "Invalid Source", "Select a valid Source directory to display.")
             return
         self._report = None
         self._ref_set = set()
@@ -47,8 +47,7 @@ class _LegacyScanMixin:
         detection tiers for a quick, focused scan."""
         target_dir = self.target_path.text().strip()
         if not target_dir or not os.path.isdir(target_dir):
-            QMessageBox.warning(self, "Invalid Source",
-                "Please select a valid Source directory to search.")
+            QMessageBox.warning(self.tab, "Invalid Source", "Please select a valid Source directory to search.")
             return
 
         # Pick up the optional Target directory to compare the Source against.
@@ -90,9 +89,7 @@ class _LegacyScanMixin:
 
         exts = extensions or list(SUPPORTED_IMG_FORMATS)
         recursive = self.recursive_check.isChecked() if hasattr(self, "recursive_check") else False
-        images = SimilarityFinder.get_images_list(
-            target_dir, exts, recursive=recursive
-        )
+        images = SimilarityFinder.get_images_list(target_dir, exts, recursive=recursive)
         self.duplicate_results = {str(i): [p] for i, p in enumerate(images)}
         self._cluster_model.set_clusters([])
         self.clusters_changed.emit()
@@ -103,4 +100,6 @@ class _LegacyScanMixin:
             self.status_label.setText("No supported files found.")
 
 
-__all__ = ["_LegacyScanMixin"]
+__all__ = ["SimilarityLegacyScanController", "_LegacyScanMixin"]
+
+_LegacyScanMixin = SimilarityLegacyScanController  # COMPAT(ui-arch-23): remove after callers drop the mixin name

@@ -8,8 +8,10 @@ from __future__ import annotations
 
 from PySide6.QtGui import QResizeEvent
 
+from ._tab_bound import TabBoundController
 
-class _LayoutReflowMixin:
+
+class ScanLayoutController(TabBoundController):
     """No-op reflow overrides (VirtualGallery handles its own layout)."""
 
     def resizeEvent(self, event: QResizeEvent):
@@ -25,4 +27,6 @@ class _LayoutReflowMixin:
         """Kept for API compatibility; never called now that grids are gone."""
 
 
-__all__ = ["_LayoutReflowMixin"]
+_LayoutReflowMixin = ScanLayoutController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
+
+__all__ = ["ScanLayoutController", "_LayoutReflowMixin"]

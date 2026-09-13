@@ -12,10 +12,12 @@ import os
 from backend.src.core.similarity import auto_select, consolidate_cluster
 from PySide6.QtCore import Slot
 
+from ._tab_bound import TabBoundController
+
 logger = logging.getLogger(__name__)
 
 
-class _DiffConsolidateMixin:
+class SimilarityDiffConsolidateController(TabBoundController):
     """Generate a pixel-diff overlay for two paths, and consolidate a cluster."""
 
     @Slot(str, str, result=str)
@@ -45,7 +47,8 @@ class _DiffConsolidateMixin:
             if not keeper or keeper in selected_in_cluster:
                 keeper, _ = auto_select(
                     [p for p in c["paths"] if p not in selected_in_cluster] or c["paths"],
-                    self._triage_rules, self._ref_set,
+                    self._triage_rules,
+                    self._ref_set,
                 )
             if not keeper:
                 continue
@@ -55,8 +58,7 @@ class _DiffConsolidateMixin:
             errors.extend(res.errors)
             self._deselect_paths(res.linked)
         self.on_selection_changed()
-        summary = (f"Consolidated {total_linked} files "
-                   f"({total_bytes / (1024 * 1024):.1f} MB reclaimed)")
+        summary = f"Consolidated {total_linked} files ({total_bytes / (1024 * 1024):.1f} MB reclaimed)"
         if errors:
             summary += f"; {len(errors)} errors (see log)"
             for e in errors[:10]:
@@ -66,4 +68,8 @@ class _DiffConsolidateMixin:
         self.scan_status_changed.emit(summary)
 
 
-__all__ = ["_DiffConsolidateMixin"]
+__all__ = ["SimilarityDiffConsolidateController", "_DiffConsolidateMixin"]
+
+_DiffConsolidateMixin = (
+    SimilarityDiffConsolidateController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
+)
