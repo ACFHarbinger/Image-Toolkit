@@ -5,6 +5,11 @@
   state machine (`_restore_when_ready` / `SessionRecoveryState`) lives on
   `MainSessionRecoveryController`, not a second MRO mixin. Lazy classic
   tabs (#566) and account-switch dispose (#572) kept. No COMPAT aliases.
+- D12: `libitk_crypto.so` is resolved from the main git checkout when
+  running in a linked worktree (it is built with `base`, not a separate
+  cryptography module). Parallel extraction queue emits `item_started` /
+  `item_completed` per job, caps in-flight work at `max_workers`, and the
+  extractor progress chunk uses the accent fill.
 
 # S553 — 2026-09-12 (Antigravity: R2.f #567 SectionedFormBuilder & UIBuilder clean-up)
 
