@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
 
 from PySide6.QtWidgets import QListWidgetItem, QWidget
 
+from ._config import DataBrowserConfigController
 from ._edit import DataBrowserEditController
 from ._er_view import DataBrowserERViewController, _TableCardItem
 from ._export import DataBrowserExportController
@@ -50,6 +51,7 @@ class DataBrowserTab(QWidget):
         self.filters_controller = DataBrowserFiltersController(self)
         self.edit_controller = DataBrowserEditController(self)
         self.export_controller = DataBrowserExportController(self)
+        self.config_controller = DataBrowserConfigController(self)
 
         self.ui_builder._build_ui()
 
@@ -163,6 +165,18 @@ class DataBrowserTab(QWidget):
 
     def _on_er_table_clicked(self, table_name: str) -> None:
         return self.er_view_controller._on_er_table_clicked(table_name)
+
+    # ------------------------------------------------------------------
+    # Tab-config facade
+    # ------------------------------------------------------------------
+    def collect(self) -> dict:
+        return self.config_controller.collect()
+
+    def get_default_config(self) -> Dict[str, Any]:
+        return self.config_controller.get_default_config()
+
+    def set_config(self, config: Dict[str, Any]):
+        return self.config_controller.set_config(config)
 
     # ------------------------------------------------------------------
     # UI Builder facade

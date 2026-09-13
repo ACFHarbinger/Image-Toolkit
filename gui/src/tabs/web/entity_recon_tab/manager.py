@@ -83,6 +83,15 @@ class EntityReconTab(QWidget):
     def _on_scope_changed(self, idx: int):
         return self.config_controller._on_scope_changed(idx)
 
+    def collect(self) -> dict:
+        return self.config_controller.collect()
+
+    def get_default_config(self) -> dict:
+        return self.config_controller.get_default_config()
+
+    def set_config(self, config: dict):
+        return self.config_controller.set_config(config)
+
     # ------------------------------------------------------------------
     # Dataset indexing facade
     # ------------------------------------------------------------------
