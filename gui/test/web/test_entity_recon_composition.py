@@ -1,6 +1,7 @@
 """Tests for EntityReconTab mixin-to-composition migration (ui-arch-23, #544)."""
 
 import pytest
+from backend.src.web.recon.config import EMBED_CLIP, EMBED_FACE, SCOPE_LOCAL, SCOPE_WEB
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import QWidget
 
@@ -81,3 +82,37 @@ class TestEntityReconComposition:
             leftover.extend(name for name in dir(mod) if name.endswith("Mixin") and not name.startswith("__"))
             leftover.extend(name for name in getattr(mod, "__all__", []) if str(name).endswith("Mixin"))
         assert leftover == []
+
+
+class TestEntityReconTabConfig:
+    def test_config_facade_roundtrip(self, q_app):
+        tab = EntityReconTab()
+        cfg = tab.get_default_config()
+        assert cfg == {
+            "dataset_root": "",
+            "embed_mode": EMBED_FACE,
+            "search_scope": SCOPE_LOCAL,
+            "batch_target_dir": "",
+        }
+        cfg["dataset_root"] = "/tmp/recon_dataset"
+        cfg["embed_mode"] = EMBED_CLIP
+        cfg["search_scope"] = SCOPE_WEB
+        cfg["batch_target_dir"] = "/tmp/recon_target"
+        tab.set_config(cfg)
+        collected = tab.collect()
+        assert collected["dataset_root"] == "/tmp/recon_dataset"
+        assert collected["embed_mode"] == EMBED_CLIP
+        assert collected["search_scope"] == SCOPE_WEB
+        assert collected["batch_target_dir"] == "/tmp/recon_target"
+        # The combo change handlers pushed the restored values onto the ReconConfig.
+        assert tab._config.embed_mode == EMBED_CLIP
+        assert tab._config.search_scope == SCOPE_WEB
+        assert tab._config.privacy_mode is False
+        tab.close()
+
+    def test_set_config_ignores_unknown_values(self, q_app):
+        tab = EntityReconTab()
+        tab.set_config({"embed_mode": "nonexistent", "search_scope": None})
+        assert tab.embed_combo.currentData() == EMBED_FACE
+        assert tab.scope_combo.currentData() == SCOPE_LOCAL
+        tab.close()

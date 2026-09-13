@@ -7,9 +7,72 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QGraphicsLineItem, QMessageBox, QWidget
 
 from gui.src.tabs.database.data_browser_tab import DataBrowserTab
+from gui.src.tabs.database.data_browser_tab._config import DataBrowserConfigController
 from gui.src.tabs.database.data_browser_tab._er_view import _TableCardItem
 
 pytestmark = pytest.mark.gui
+
+
+class TestDataBrowserTabConfig:
+    def test_config_controller_is_composed(self, q_app):
+        tab = DataBrowserTab()
+        assert isinstance(tab.config_controller, DataBrowserConfigController)
+        assert tab.config_controller.tab is tab
+        tab.close()
+
+    def test_config_facade_roundtrip_no_db(self, q_app):
+        tab = DataBrowserTab()
+        cfg = tab.get_default_config()
+        assert cfg == {"table": None, "where": None, "column_filters": None}
+        cfg["where"] = "file_path LIKE '%.png'"
+        tab.set_config(cfg)
+        collected = tab.collect()
+        assert collected["where"] == "file_path LIKE '%.png'"
+        assert collected["table"] is None
+        assert collected["column_filters"] is None
+        tab.close()
+
+    def test_set_config_restores_view_with_mock_repo(self, q_app):
+        tab = DataBrowserTab()
+        tab.browser_repo = MagicMock()
+        tab.browser_repo.list_tables.return_value = ["images", "tags"]
+        tab.browser_repo.table_row_count.return_value = 0
+        tab.browser_repo.query_table.return_value = (["file_path"], [])
+        tab.refresh_table_list()
+        assert tab.table_combo.currentText() == "images"
+
+        tab.set_config(
+            {
+                "table": "images",
+                "where": "file_path LIKE '%.png'",
+                "column_filters": {"file_path": "vacation"},
+            }
+        )
+
+        assert tab.table_combo.currentText() == "images"
+        assert tab.where_edit.text() == "file_path LIKE '%.png'"
+        assert tab.column_filter_edits[0].text() == "vacation"
+        # The final _apply_filter re-queried with the composed WHERE.
+        where_sql = tab.browser_repo.query_table.call_args.kwargs["where_sql"]
+        assert "(file_path LIKE '%.png')" in where_sql
+        assert '"file_path" LIKE \'%vacation%\'' in where_sql
+        assert tab.collect()["column_filters"] == {"file_path": "vacation"}
+        tab.close()
+
+    def test_set_config_unknown_table_keeps_current_view(self, q_app):
+        tab = DataBrowserTab()
+        tab.browser_repo = MagicMock()
+        tab.browser_repo.list_tables.return_value = ["images"]
+        tab.browser_repo.table_row_count.return_value = 0
+        tab.browser_repo.query_table.return_value = (["file_path"], [])
+        tab.refresh_table_list()
+
+        tab.set_config({"table": "dropped_table", "where": "id = 1"})
+
+        # Table not in the live list: selection unchanged, WHERE still applied.
+        assert tab.table_combo.currentText() == "images"
+        assert tab.where_edit.text() == "id = 1"
+        tab.close()
 
 
 class TestDataBrowserTab:
