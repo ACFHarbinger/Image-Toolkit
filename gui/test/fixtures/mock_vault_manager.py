@@ -49,6 +49,10 @@ class MockVaultManager:
         self.saved_data = json.loads(json_string)
         self.creds = self.saved_data
 
+    def save_account_snapshot(self, credentials):
+        self.saved_data = credentials
+        self.creds = credentials
+
     def shutdown(self):
         pass
 

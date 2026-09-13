@@ -1,3 +1,10 @@
+# S562 — 2026-09-13 (Codex: R1.5 #560 / account-state boundary)
+
+- Added `VaultManager.save_account_snapshot()` as the GUI account-state
+  persistence boundary. Preference adapter, settings/tab configuration,
+  session recovery, theme, workflow, and PostgreSQL-profile callers no longer
+  serialize and write whole vault documents themselves.
+
 # S561 — 2026-09-13 (Claude: oversized GIF preview playback, ported from main)
 
 - Full-size preview plays GIFs over 32MB with `PillowGifPlayer` (QTimer +

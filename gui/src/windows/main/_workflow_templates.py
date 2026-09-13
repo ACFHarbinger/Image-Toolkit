@@ -15,8 +15,6 @@ New, not code motion.
 
 from __future__ import annotations
 
-import json
-
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import (
     QComboBox,
@@ -59,7 +57,7 @@ class MainWorkflowTemplatesController(WindowBoundController):
         try:
             creds = self.vault_manager.load_account_credentials()
             creds["workflow_templates"] = templates
-            self.vault_manager.save_data(json.dumps(creds))
+            self.vault_manager.save_account_snapshot(creds)
             self._refresh_account_credentials(creds)
             return True
         except Exception as e:
