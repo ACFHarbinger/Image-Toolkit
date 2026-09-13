@@ -3,12 +3,17 @@
 from __future__ import annotations
 
 from gui.src.tabs.core.extractor_tab._video_session_history import (
-    _VideoSessionHistoryMixin,
+    ExtractorVideoSessionHistoryController,
 )
 
 
-class _Host(_VideoSessionHistoryMixin):
+class _Tab:
     extraction_dir = "/tmp/extract-out"
+
+
+class _Host(ExtractorVideoSessionHistoryController):
+    def __init__(self):
+        super().__init__(_Tab())
 
 
 def test_range_run_maps_all_fields():

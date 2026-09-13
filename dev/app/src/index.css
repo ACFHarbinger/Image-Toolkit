@@ -1,14 +1,14 @@
 :root {
   color-scheme: dark;
-  --bg-primary: #090d16;
-  --bg-secondary: #111827;
+  --bg-primary: var(--it-color-window-bg);
+  --bg-secondary: var(--it-color-surface);
   --bg-tertiary: #1f2937;
   --bg-card: rgba(17, 24, 39, 0.85);
-  --border: #374151;
-  --border-focus: #06b6d4;
-  --text-main: #f3f4f6;
-  --text-muted: #9ca3af;
-  --accent-cyan: #06b6d4;
+  --border: var(--it-color-border);
+  --border-focus: var(--it-color-accent);
+  --text-main: var(--it-color-text);
+  --text-muted: var(--it-color-muted-text);
+  --accent-cyan: var(--it-color-accent);
   --accent-emerald: #10b981;
   --accent-amber: #f59e0b;
   --accent-rose: #f43f5e;

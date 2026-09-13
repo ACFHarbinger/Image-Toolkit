@@ -22,17 +22,17 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from gui.src.constants.elements import _SEARCH_BUTTON_STYLE
-
 from ....components import OptionalField, VirtualDualGallery
 from ....styles import apply_shadow_effect
+from ....theming.theme_api import color, qss
+from ._tab_bound import TabBoundController
 
 
-class _UIBuilderMixin:
+class SearchUIBuilder(TabBoundController):
     """Builds the search-criteria form, both galleries, and search controls."""
 
     def _build_ui(self):
-        layout = QVBoxLayout(self)
+        layout = QVBoxLayout(self.tab)
 
         search_group = QGroupBox("Search Database")
         form_layout = QFormLayout(search_group)
@@ -62,27 +62,19 @@ class _UIBuilderMixin:
         # Refresh button for groups/subgroups
         self.btn_refresh_groups = QPushButton("Refresh Groups")
         self.btn_refresh_groups.setFixedWidth(140)
-        apply_shadow_effect(
-            self.btn_refresh_groups, color_hex="#000000", radius=8, x_offset=0, y_offset=3
-        )
+        apply_shadow_effect(self.btn_refresh_groups, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3)
         self.btn_refresh_groups.clicked.connect(self._refresh_groups_from_db)
 
         # --- Groups (checkable list) ---
         self.groups_list_widget = QListWidget()
         self.groups_list_widget.setMinimumHeight(200)
-        self.groups_list_widget.setStyleSheet(
-            "QListWidget::item { padding: 4px; } "
-            "QListWidget { border: 1px solid #4f545c; border-radius: 8px; }"
-        )
+        self.groups_list_widget.setStyleSheet(qss("bordered_list_widget_items"))
         self.groups_list_widget.itemChanged.connect(self._on_group_selection_changed)
 
         # --- Subgroups (checkable list, filtered by selected groups) ---
         self.subgroups_list_widget = QListWidget()
         self.subgroups_list_widget.setMinimumHeight(200)
-        self.subgroups_list_widget.setStyleSheet(
-            "QListWidget::item { padding: 4px; } "
-            "QListWidget { border: 1px solid #4f545c; border-radius: 8px; }"
-        )
+        self.subgroups_list_widget.setStyleSheet(qss("bordered_list_widget_items"))
         # Internal store: list of (group_name, subgroup_name)
         self._all_subgroups_detailed: list = []
 
@@ -99,7 +91,7 @@ class _UIBuilderMixin:
 
         groups_header_layout = QHBoxLayout()
         groups_label = QLabel("Groups:")
-        groups_label.setStyleSheet("font-weight: bold;")
+        groups_label.setStyleSheet(qss("font_bold"))
         groups_header_layout.addWidget(groups_label)
         groups_header_layout.addStretch()
         groups_header_layout.addWidget(self.btn_refresh_groups)
@@ -113,7 +105,7 @@ class _UIBuilderMixin:
         subgroups_col_layout.setContentsMargins(0, 0, 0, 0)
 
         subgroups_label = QLabel("Subgroups:")
-        subgroups_label.setStyleSheet("font-weight: bold;")
+        subgroups_label.setStyleSheet(qss("font_bold"))
         subgroups_col_layout.addWidget(subgroups_label)
         subgroups_col_layout.addWidget(self.subgroups_list_widget)
 
@@ -125,9 +117,7 @@ class _UIBuilderMixin:
     def _build_filename_and_formats(self, form_layout: QFormLayout) -> None:
         self.filename_edit = QLineEdit()
         self.filename_edit.setPlaceholderText("e.g., *.png, img_001, etc (Optional)")
-        self.filename_field = OptionalField(
-            "Filename pattern", self.filename_edit, start_open=False
-        )
+        self.filename_field = OptionalField("Filename pattern", self.filename_edit, start_open=False)
         form_layout.addRow(self.filename_field)
 
         # --- Input formats ---
@@ -139,12 +129,8 @@ class _UIBuilderMixin:
             for fmt in SUPPORTED_IMG_FORMATS:
                 btn = QPushButton(fmt)
                 btn.setCheckable(True)
-                apply_shadow_effect(
-                    btn, color_hex="#000000", radius=8, x_offset=0, y_offset=3
-                )
-                btn.clicked.connect(
-                    lambda checked, f=fmt: self.toggle_format(f, checked)
-                )
+                apply_shadow_effect(btn, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3)
+                btn.clicked.connect(lambda checked, f=fmt: self.toggle_format(f, checked))
                 btn_layout.addWidget(btn)
                 self.format_buttons[fmt] = btn
             formats_layout.addLayout(btn_layout)
@@ -152,16 +138,14 @@ class _UIBuilderMixin:
             all_btn_layout = QHBoxLayout()
             self.btn_add_all = QPushButton("Add All")
             self.btn_add_all.setObjectName("btn_success")
-            apply_shadow_effect(
-                self.btn_add_all, color_hex="#000000", radius=8, x_offset=0, y_offset=3
-            )
+            apply_shadow_effect(self.btn_add_all, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3)
             self.btn_add_all.clicked.connect(self.add_all_formats)
 
             self.btn_remove_all = QPushButton("Remove All")
             self.btn_remove_all.setObjectName("btn_danger")
             apply_shadow_effect(
                 self.btn_remove_all,
-                color_hex="#000000",
+                color_hex=color("window_bg"),
                 radius=8,
                 x_offset=0,
                 y_offset=3,
@@ -174,9 +158,7 @@ class _UIBuilderMixin:
 
             formats_container = QWidget()
             formats_container.setLayout(formats_layout)
-            self.formats_field = OptionalField(
-                "Input formats", formats_container, start_open=False
-            )
+            self.formats_field = OptionalField("Input formats", formats_container, start_open=False)
             form_layout.addRow(self.formats_field)
         else:
             self.input_formats_edit = QLineEdit()
@@ -188,27 +170,19 @@ class _UIBuilderMixin:
         # --- Refresh Tags Button ---
         self.btn_refresh_tags = QPushButton("Refresh Tags")
         self.btn_refresh_tags.setFixedWidth(120)
-        apply_shadow_effect(
-            self.btn_refresh_tags, color_hex="#000000", radius=8, x_offset=0, y_offset=3
-        )
+        apply_shadow_effect(self.btn_refresh_tags, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3)
         self.btn_refresh_tags.clicked.connect(self._setup_tag_checkboxes)
 
         # --- Tag Type Filter (checkable; all start checked) ---
         self.tag_types_list_widget = QListWidget()
         self.tag_types_list_widget.setMinimumHeight(200)
-        self.tag_types_list_widget.setStyleSheet(
-            "QListWidget::item { padding: 4px; } "
-            "QListWidget { border: 1px solid #4f545c; border-radius: 8px; }"
-        )
+        self.tag_types_list_widget.setStyleSheet(qss("bordered_list_widget_items"))
         self.tag_types_list_widget.itemChanged.connect(self._on_tag_type_changed)
 
         # --- Tags (List Widget) ---
         self.tags_list_widget = QListWidget()
         self.tags_list_widget.setMinimumHeight(200)
-        self.tags_list_widget.setStyleSheet(
-            "QListWidget::item { padding: 5px; } "
-            "QListWidget { border: 1px solid #4f545c; border-radius: 8px; }"
-        )
+        self.tags_list_widget.setStyleSheet(qss("bordered_list_widget_items_lg"))
 
         # Containers for side-by-side Tag Types/Tags layout
         tags_container = QWidget()
@@ -223,7 +197,7 @@ class _UIBuilderMixin:
 
         tag_types_header_layout = QHBoxLayout()
         tag_types_label = QLabel("Tag Types:")
-        tag_types_label.setStyleSheet("font-weight: bold;")
+        tag_types_label.setStyleSheet(qss("font_bold"))
         tag_types_header_layout.addWidget(tag_types_label)
         tag_types_header_layout.addStretch()
         tag_types_header_layout.addWidget(self.btn_refresh_tags)
@@ -237,7 +211,7 @@ class _UIBuilderMixin:
         tags_col_layout.setContentsMargins(0, 0, 0, 0)
 
         tags_label = QLabel("Tags:")
-        tags_label.setStyleSheet("font-weight: bold;")
+        tags_label.setStyleSheet(qss("font_bold"))
         tags_col_layout.addWidget(tags_label)
         tags_col_layout.addWidget(self.tags_list_widget)
 
@@ -249,10 +223,8 @@ class _UIBuilderMixin:
     def _build_search_button(self, layout: QVBoxLayout) -> None:
         # Search button
         self.search_button = QPushButton("Search Database")
-        self.search_button.setStyleSheet(_SEARCH_BUTTON_STYLE)
-        apply_shadow_effect(
-            self.search_button, color_hex="#000000", radius=8, x_offset=0, y_offset=3
-        )
+        self.search_button.setStyleSheet(qss("search_button"))
+        apply_shadow_effect(self.search_button, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3)
         self.search_button.clicked.connect(self.toggle_search)
         layout.addWidget(self.search_button)
 
@@ -274,16 +246,14 @@ class _UIBuilderMixin:
         # 1. Search Results header (kept for the live result count)
         results_header_layout = QHBoxLayout()
 
-        results_title_label = QLabel(
-            "Search Results (Ctrl+A: Select All | Ctrl+D: Deselect All)"
-        )
-        results_title_label.setStyleSheet("font-weight: bold; font-size: 14px;")
+        results_title_label = QLabel("Search Results (Ctrl+A: Select All | Ctrl+D: Deselect All)")
+        results_title_label.setStyleSheet(qss("results_title"))
         results_header_layout.addWidget(results_title_label)
 
         results_header_layout.addStretch()
 
         self.results_count_label = QLabel("Not connected to database.")
-        self.results_count_label.setStyleSheet("color: #aaa; font-style: italic;")
+        self.results_count_label.setStyleSheet(qss("muted_label"))
         results_header_layout.addWidget(self.results_count_label)
 
         layout.addLayout(results_header_layout)
@@ -291,7 +261,7 @@ class _UIBuilderMixin:
         # 2. Found + Selected galleries (VirtualDualGallery replaces the two
         # MarqueeScrollArea + QGridLayout grids; pagination is dropped and
         # selection lives in the dual gallery's selection models).
-        self.dual = VirtualDualGallery(self)
+        self.dual = VirtualDualGallery(self.tab)
         self.dual.found_activated.connect(self._open_preview_for)
         self.dual.found_right_clicked.connect(self._on_found_card_right_clicked)
         self.dual.selected_activated.connect(self._open_preview_for)
@@ -300,4 +270,4 @@ class _UIBuilderMixin:
         layout.addWidget(self.dual, stretch=1)
 
 
-__all__ = ["_UIBuilderMixin"]
+__all__ = ["SearchUIBuilder"]

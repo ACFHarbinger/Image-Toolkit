@@ -1,4 +1,4 @@
-"""View Remote Files Map action (dry-run listing via GoogleDriveSyncWorker).
+"""View Remote Files Map action (dry-run listing via CloudDriveSyncWorker).
 
 Extracted from ``drive_sync_tab.py`` -- pure code motion, no logic change.
 """
@@ -8,10 +8,11 @@ from __future__ import annotations
 from PySide6.QtCore import QThreadPool, Slot
 from PySide6.QtWidgets import QMessageBox
 
-from ....helpers import GoogleDriveSyncWorker
+from ....helpers import CloudDriveSyncWorker
+from ._tab_bound import TabBoundController
 
 
-class _RemoteMapMixin:
+class DriveSyncRemoteMapController(TabBoundController):
     """Dispatches and handles the read-only remote-map dry-run action."""
 
     def view_remote_map(self):
@@ -23,13 +24,14 @@ class _RemoteMapMixin:
 
         remote_path = self.remote_path.text().strip()
         if not remote_path:
-            QMessageBox.warning(self, "Error", "Remote path cannot be empty.")
+            QMessageBox.warning(self.tab, "Error", "Remote path cannot be empty.")
             return
 
         self.lock_ui_minor(message="Viewing Remote Map…", clear_log=True)
         self.log_window.show()
 
-        self.current_worker = GoogleDriveSyncWorker(
+        self.current_worker = CloudDriveSyncWorker(
+            "google",
             auth_config=auth_config,
             local_path=self.local_path.text().strip(),
             remote_path=remote_path,
@@ -39,9 +41,7 @@ class _RemoteMapMixin:
         self.current_worker.signals.status.connect(self.handle_status_update)
         self.current_worker.signals.finished.connect(
             # Proxy lambda to ignore the dry_run boolean for this specific action
-            lambda res: self.handle_view_finished(
-                *(res if res is not None else (False, "Remote map worker failed."))
-            )
+            lambda res: self.handle_view_finished(*(res if res is not None else (False, "Remote map worker failed.")))
         )
 
         QThreadPool.globalInstance().start(self.current_worker)
@@ -52,8 +52,8 @@ class _RemoteMapMixin:
         final = f"\nFINAL STATUS: Remote Map View {'Completed' if success else 'Failed'}. {message}"
         self.log_window.append_log(final)
         if not success and "Dry Run incomplete" not in message:
-            QMessageBox.critical(self, "Map View Failed", message)
+            QMessageBox.critical(self.tab, "Map View Failed", message)
         self.current_worker = None
 
 
-__all__ = ["_RemoteMapMixin"]
+__all__ = ["DriveSyncRemoteMapController"]

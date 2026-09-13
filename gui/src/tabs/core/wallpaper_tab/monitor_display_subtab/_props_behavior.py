@@ -7,21 +7,22 @@ change (see ``_ui_graph_canvas.py``'s docstring).
 from __future__ import annotations
 
 import os
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QPoint, Qt, QTimer, Slot
-from PySide6.QtWidgets import QInputDialog, QListWidgetItem, QMenu, QWidget
+from PySide6.QtWidgets import QInputDialog, QListWidgetItem, QMenu
 
 from gui.src.qt_object_guard import deleted_qobject_guard
 
 from ..graph import NodeItem, is_video
 from ..graph.data_schema import NodeData
+from ._tab_bound import TabBoundController
 
 if TYPE_CHECKING:
     from ...protos.monitor_display_subtab import MonitorDisplaySubTabHostProtocol
 
 
-class _PropsBehaviorMixin:
+class MonitorDisplayPropsBehaviorController(TabBoundController):
     """Selection sync, Apply button, and the outgoing-edges list."""
 
     @Slot()
@@ -45,6 +46,7 @@ class _PropsBehaviorMixin:
                 self._props_node_id = None
             except RuntimeError as exc:
                 deleted_qobject_guard(exc, "_PropsBehaviorMixin._on_selection_changed.do_selection_update")
+
         QTimer.singleShot(0, do_selection_update)
 
     def _show_node_in_props(self: "MonitorDisplaySubTabHostProtocol", nd: NodeData):
@@ -76,9 +78,7 @@ class _PropsBehaviorMixin:
         nd = graph.nodes.get(self._props_node_id)
         if nd is None:
             return
-        nd.display_mode = (
-            "video_runtime" if self._props_radio_runtime.isChecked() else "fixed"
-        )
+        nd.display_mode = "video_runtime" if self._props_radio_runtime.isChecked() else "fixed"
         nd.duration_sec = self._props_dur.value()
         item = self._scene._node_items.get(self._props_node_id)
         if item:
@@ -143,7 +143,7 @@ class _PropsBehaviorMixin:
                 if e.source_id == self._props_node_id and e.edge_id == edge_id:
                     current_repeat = e.repeat_count
                     break
-        menu = QMenu(cast(QWidget, self))
+        menu = QMenu(self.tab)
         act_repeat = menu.addAction(f"Set Repeat Count… (currently ×{current_repeat})")
         act_del = menu.addAction(f"🗑 Remove Edge #{edge_id}")
         chosen = menu.exec(self._props_edges_list.mapToGlobal(pos))
@@ -152,10 +152,12 @@ class _PropsBehaviorMixin:
             self._populate_props_edges_list(self._props_node_id)
         elif chosen == act_repeat:
             value, ok = QInputDialog.getInt(
-                cast(QWidget, self), "Set Repeat Count",
-                "Number of times the target wallpaper repeats\n"
-                "back-to-back when this edge is taken:",
-                current_repeat, 1, 999,
+                self.tab,
+                "Set Repeat Count",
+                "Number of times the target wallpaper repeats\nback-to-back when this edge is taken:",
+                current_repeat,
+                1,
+                999,
             )
             if ok:
                 self._scene.set_edge_repeat_count(self._props_node_id, edge_id, value)
@@ -165,12 +167,15 @@ class _PropsBehaviorMixin:
         if self._props_node_id is None:
             return
         ordered_edge_ids = [
-            self._props_edges_list.item(i).data(Qt.ItemDataRole.UserRole)
-            for i in range(self._props_edges_list.count())
+            self._props_edges_list.item(i).data(Qt.ItemDataRole.UserRole) for i in range(self._props_edges_list.count())
         ]
         self._scene.reorder_source_edges(self._props_node_id, ordered_edge_ids)
         # Re-populate so the "#N" labels reflect the new edge_id order.
         self._populate_props_edges_list(self._props_node_id)
 
 
-__all__ = ["_PropsBehaviorMixin"]
+__all__ = ["MonitorDisplayPropsBehaviorController"]
+
+_PropsBehaviorMixin = (
+    MonitorDisplayPropsBehaviorController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
+)

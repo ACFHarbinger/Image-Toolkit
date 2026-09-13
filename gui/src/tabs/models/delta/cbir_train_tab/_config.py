@@ -7,16 +7,14 @@ from __future__ import annotations
 
 import contextlib
 from pathlib import Path
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from ...protos.cbir_train_tab import CBIRTrainTabHostProtocol
+from ._tab_bound import TabBoundController
 
 
-class _ConfigMixin:
+class CBIRTrainConfigController(TabBoundController):
     """Collects/restores the full CBIRTrainTab UI state as a config dict."""
 
-    def collect(self: "CBIRTrainTabHostProtocol") -> dict:
+    def collect(self) -> dict:
         """Return all widget values as a config dict."""
         return {
             "image_dir": self._img_dir.text().strip(),
@@ -44,26 +42,18 @@ class _ConfigMixin:
             "index_out_dir": self._index_out_dir.text().strip(),
         }
 
-    def set_config(self: "CBIRTrainTabHostProtocol", cfg: dict) -> None:
+    def set_config(self, cfg: dict) -> None:
         """Restore widget values from a config dict."""
         _set = {
             "image_dir": lambda v: self._img_dir.setText(v),
             "output_dir": lambda v: self._out_dir.setText(v),
             "val_split": lambda v: self._val_split.setValue(float(v)),
-            "backbone": lambda v: self._backbone.setCurrentIndex(
-                max(0, self._backbone.findData(v))
-            ),
-            "embed_dim": lambda v: self._embed_dim.setCurrentIndex(
-                max(0, self._embed_dim.findData(int(v)))
-            ),
+            "backbone": lambda v: self._backbone.setCurrentIndex(max(0, self._backbone.findData(v))),
+            "embed_dim": lambda v: self._embed_dim.setCurrentIndex(max(0, self._embed_dim.findData(int(v)))),
             "proj_layers": lambda v: self._proj_layers.setValue(int(v)),
             "freeze_backbone_epochs": lambda v: self._freeze_epochs.setValue(int(v)),
-            "image_size": lambda v: self._image_size.setCurrentIndex(
-                max(0, self._image_size.findData(int(v)))
-            ),
-            "loss_fn": lambda v: self._loss_fn.setCurrentIndex(
-                max(0, self._loss_fn.findData(v))
-            ),
+            "image_size": lambda v: self._image_size.setCurrentIndex(max(0, self._image_size.findData(int(v)))),
+            "loss_fn": lambda v: self._loss_fn.setCurrentIndex(max(0, self._loss_fn.findData(v))),
             "temperature": lambda v: self._temperature.setValue(float(v)),
             "triplet_margin": lambda v: self._margin.setValue(float(v)),
             "jitter_strength": lambda v: self._jitter.setValue(float(v)),
@@ -110,4 +100,7 @@ class _ConfigMixin:
         }
 
 
-__all__ = ["_ConfigMixin"]
+# COMPAT(ui-arch-23): legacy mixin alias
+_ConfigMixin = CBIRTrainConfigController
+
+__all__ = ["CBIRTrainConfigController", "_ConfigMixin"]

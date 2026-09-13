@@ -10,8 +10,10 @@ import os
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QMessageBox
 
+from ._tab_bound import TabBoundController
 
-class _ConfigMixin:
+
+class SamplerConfigController(TabBoundController):
     """Restores/provides default SamplerSubTab UI state as a config dict."""
 
     def get_default_config(self) -> dict:
@@ -94,9 +96,10 @@ class _ConfigMixin:
             print("SamplerSubTab configuration loaded.")
         except Exception as e:
             print(f"Error applying SamplerSubTab config: {e}")
-            QMessageBox.warning(
-                self, "Config Error", f"Failed to apply some settings: {e}"
-            )
+            QMessageBox.warning(self.tab, "Config Error", f"Failed to apply some settings: {e}")
 
 
-__all__ = ["_ConfigMixin"]
+# COMPAT(ui-arch-23): legacy mixin alias
+_ConfigMixin = SamplerConfigController
+
+__all__ = ["SamplerConfigController", "_ConfigMixin"]

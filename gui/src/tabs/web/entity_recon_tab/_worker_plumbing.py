@@ -7,10 +7,12 @@ from __future__ import annotations
 
 import logging
 
+from ._tab_bound import TabBoundController
+
 logger = logging.getLogger(__name__)
 
 
-class _WorkerPlumbingMixin:
+class EntityReconWorkerController(TabBoundController):
     """Warms the embedding model and manages the lifecycle of QThread workers."""
 
     def _warm_embedder(self) -> None:
@@ -61,4 +63,4 @@ class _WorkerPlumbingMixin:
         self._set_status(f"Error: {exc}")
 
 
-__all__ = ["_WorkerPlumbingMixin"]
+__all__ = ["EntityReconWorkerController"]

@@ -21,6 +21,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from ....theming.theme_api import color, qss
+
 # QWebEngineView is intentionally NOT used here.
 # Chromium (QtWebEngine) loads native libstdc++ via Vulkan/GBM at first render,
 # which causes an RTTI __dynamic_cast SIGSEGV when JPype's JVM is already running
@@ -200,7 +202,7 @@ class ComfyUITab(QWidget):
         ctrl_layout.addStretch()
 
         self._status_label = QLabel("Server: stopped")
-        self._status_label.setStyleSheet("color: #aaaaaa;")
+        self._status_label.setStyleSheet(qss("comfy_status_label"))
         ctrl_layout.addWidget(self._status_label)
 
         root.addWidget(ctrl_group)
@@ -212,7 +214,7 @@ class ComfyUITab(QWidget):
         browser_layout.setContentsMargins(12, 8, 12, 8)
 
         self._url_label = QLabel("—")
-        self._url_label.setStyleSheet("color: #aaaaaa; font-family: monospace;")
+        self._url_label.setStyleSheet(qss("comfy_url_label"))
         browser_layout.addWidget(self._url_label, stretch=1)
 
         self._open_btn = QPushButton("Open in Browser")
@@ -318,9 +320,7 @@ class ComfyUITab(QWidget):
 
         self._log_view = QTextEdit()
         self._log_view.setReadOnly(True)
-        self._log_view.setStyleSheet(
-            "font-family: monospace; font-size: 9pt;"
-        )
+        self._log_view.setStyleSheet(qss("comfy_log_text"))
         log_layout.addWidget(self._log_view)
 
         root.addWidget(log_group, stretch=1)
@@ -334,7 +334,7 @@ class ComfyUITab(QWidget):
         self._port_spin.setEnabled(False)
         self._open_btn.setEnabled(False)
         self._log_view.clear()
-        self._status_signal.emit("Starting…", "#f0ad4e")
+        self._status_signal.emit("Starting…", color("accent_hover"))
         port = self._port_spin.value()
         threading.Thread(
             target=self._start_worker, args=(port, self.enable_manager), daemon=True
@@ -347,8 +347,8 @@ class ComfyUITab(QWidget):
         self._start_btn.setEnabled(True)
         self._port_spin.setEnabled(True)
         self._url_label.setText("—")
-        self._url_label.setStyleSheet("color: #aaaaaa; font-family: monospace;")
-        self._status_signal.emit("Server: stopped", "#aaaaaa")
+        self._url_label.setStyleSheet(qss("comfy_url_label"))
+        self._status_signal.emit("Server: stopped", color("muted_text"))
 
     def _on_open_browser(self) -> None:
         QDesktopServices.openUrl(QUrl(self._manager.url))
@@ -450,12 +450,12 @@ class ComfyUITab(QWidget):
                 self._server_ready_signal.emit(self._manager.url)
             else:
                 self._status_signal.emit(
-                    "Timed out — check the log for errors", "#d9534f"
+                    "Timed out — check the log for errors", color("danger")
                 )
                 self._start_btn.setEnabled(True)
                 self._port_spin.setEnabled(True)
         except Exception as exc:
-            self._status_signal.emit(f"Error: {exc}", "#d9534f")
+            self._status_signal.emit(f"Error: {exc}", color("danger"))
             self._log_signal.emit(f"[comfy-manager] {exc}\n")
             self._start_btn.setEnabled(True)
             self._port_spin.setEnabled(True)
@@ -471,17 +471,15 @@ class ComfyUITab(QWidget):
     @Slot(str, str)
     def _on_status(self, text: str, colour: str) -> None:
         self._status_label.setText(text)
-        self._status_label.setStyleSheet(f"color: {colour};")
+        self._status_label.setStyleSheet(qss("status_color_dynamic", STATUS_COLOR=colour))
 
     @Slot(str)
     def _on_server_ready(self, url: str) -> None:
         self._stop_btn.setEnabled(True)
         self._open_btn.setEnabled(True)
         self._url_label.setText(url)
-        self._url_label.setStyleSheet(
-            "color: #5cb85c; font-family: monospace; font-weight: bold;"
-        )
-        self._status_signal.emit(f"Running at {url}", "#5cb85c")
+        self._url_label.setStyleSheet(qss("comfy_url_label"))
+        self._status_signal.emit(f"Running at {url}", color("success"))
 
     @Slot(str)
     def _append_log(self, line: str) -> None:

@@ -29,17 +29,71 @@ CONFIGS_DIR = ROOT_DIR / "configs"
 
 # Files
 _crypto_lib_name = "libitk_crypto.dll" if sys.platform == "win32" else "libitk_crypto.so"
-# ``build-base`` installs the supported crypto library at the project root.
-# Prefer it over the legacy standalone build directory so a stale artifact
-# cannot shadow the library produced with the active base extension.
-if (ROOT_DIR / _crypto_lib_name).exists():
-    CRYPTO_LIB_FILE = str(ROOT_DIR / _crypto_lib_name)
-elif (ROOT_DIR / "build" / "crypto" / _crypto_lib_name).exists():
-    CRYPTO_LIB_FILE = str(ROOT_DIR / "build" / "crypto" / _crypto_lib_name)
-elif getattr(sys, "frozen", False) and (Path(sys.executable).resolve().parent / _crypto_lib_name).exists():
-    CRYPTO_LIB_FILE = str(Path(sys.executable).resolve().parent / _crypto_lib_name)
-else:
-    CRYPTO_LIB_FILE = str(ROOT_DIR / "build" / "crypto" / _crypto_lib_name)
+
+
+def _git_common_checkout_root(root: Path) -> Path | None:
+    """If ``root`` is a linked git worktree, return the main checkout.
+
+    Isolated D12 worktrees do not copy ``just build-base`` artifacts
+    (``libitk_crypto.so`` lives next to the compiled ``base`` extension in
+    the primary clone). The worktree's ``.git`` file points at
+    ``<main>/.git/worktrees/<name>``.
+    """
+    git = root / ".git"
+    if not git.is_file():
+        return None
+    try:
+        text = git.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    for line in text.splitlines():
+        if not line.startswith("gitdir:"):
+            continue
+        gitdir = Path(line.split(":", 1)[1].strip())
+        if gitdir.parent.name == "worktrees":
+            return gitdir.parent.parent.parent
+    return None
+
+
+def resolve_crypto_lib_file() -> str:
+    """Locate ``libitk_crypto.so``, built as part of ``just build-base``.
+
+    Crypto is not a separate module: ``base/CMakeLists.txt`` compiles
+    ``base/src/secret/itk_crypto.c`` into this shared library. Search the
+    source tree, a linked main checkout (git worktrees), ``sys.path``, and
+    the frozen-bundle directory. Prefer the project-root install over
+    ``build/crypto/`` so a stale cmake output cannot shadow it.
+    """
+    roots: list[Path] = [ROOT_DIR]
+    main_checkout = _git_common_checkout_root(ROOT_DIR)
+    if main_checkout is not None:
+        roots.append(main_checkout)
+    if getattr(sys, "frozen", False):
+        roots.append(Path(sys.executable).resolve().parent)
+    for entry in sys.path:
+        if entry:
+            roots.append(Path(entry))
+
+    seen: set[str] = set()
+    fallback = str(ROOT_DIR / "build" / "crypto" / _crypto_lib_name)
+    for root in roots:
+        for candidate in (
+            root / _crypto_lib_name,
+            root / "build" / "crypto" / _crypto_lib_name,
+        ):
+            key = str(candidate)
+            if key in seen:
+                continue
+            seen.add(key)
+            if candidate.is_file():
+                return key
+    return fallback
+
+
+# Resolved at import for callers that still read the constant; vault_manager
+# re-resolves at load so a worktree launched with PYTHONPATH still finds the
+# library built in the main checkout.
+CRYPTO_LIB_FILE = resolve_crypto_lib_file()
 
 ICON_FILE = str(IMAGES_DIR / "image_toolkit_icon.png")
 DAEMON_CONFIG_PATH = IMAGE_TOOLKIT_DIR / ".slideshow_config.json"

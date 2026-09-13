@@ -12,6 +12,8 @@ from PySide6.QtCore import (
 from PySide6.QtGui import QColor, QPainter, QPainterPath
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QWidget
 
+from gui.src.theming.theme_api import color, qss
+
 
 class ToastWidget(QWidget):
     """
@@ -38,10 +40,10 @@ class ToastWidget(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
 
         self.colors = {
-            "success": QColor("#4caf50"),
-            "warning": QColor("#ff9800"),
-            "error": QColor("#f44336"),
-            "info": QColor("#00bcd4"),
+            "success": QColor(color("success")),
+            "warning": QColor(color("accent_hover")),
+            "error": QColor(color("danger")),
+            "info": QColor(color("accent")),
         }
         self.color = self.colors.get(self.toast_type, self.colors["info"])
 
@@ -52,7 +54,7 @@ class ToastWidget(QWidget):
         layout.setContentsMargins(15, 10, 15, 10)
 
         self.label = QLabel(self.message, self)
-        self.label.setStyleSheet("color: white; font-weight: bold; font-size: 14px;")
+        self.label.setStyleSheet(qss("toast_label"))
         layout.addWidget(self.label)
 
         self.adjustSize()

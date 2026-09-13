@@ -22,18 +22,22 @@ from PySide6.QtCore import QRectF, QSize, Qt
 from PySide6.QtGui import QBrush, QColor, QFont, QPen
 from PySide6.QtWidgets import QStyledItemDelegate
 
+from gui.src.components.gallery.card_factory import highlight_border_spec
 from gui.src.components.gallery.presentation_mode import (
     RATING_COLORS,
     GalleryOverlayConfig,
 )
+from gui.src.theming.theme_api import color
 
 
 class VirtualGalleryDelegate(QStyledItemDelegate):
-    """Draws state borders and custom thumbnail overlay badges on gallery cells."""
+    """Draws state borders and custom thumbnail overlay badges on gallery cells.
 
-    _IN_DB_COLOR = QColor("#2ecc71")
-    _SELECTED_COLOR = QColor("#5865f2")
-    _PREVIEW_COLOR = QColor("#f39c12")
+    VirtualGallery stays a paint path (QListView + this delegate) rather than
+    wrapping QWidget cards from ``create_gallery_card``; viewport culling
+    depends on that. Border colors/priority still come from the shared
+    highlight helper.
+    """
 
     def __init__(
         self,
@@ -81,19 +85,11 @@ class VirtualGalleryDelegate(QStyledItemDelegate):
         except (AttributeError, TypeError):
             preview = selected = in_db = False
 
-        if preview:
-            color, width = self._PREVIEW_COLOR, 4
-        elif selected:
-            color, width = self._SELECTED_COLOR, 3
-        elif in_db:
-            color, width = self._IN_DB_COLOR, 3
-        else:
-            color, width = None, 0
-
-        if color and width > 0:
+        hex_color, width = highlight_border_spec(preview=preview, selected=selected, in_db=in_db)
+        if hex_color and width > 0:
             d = width // 2
             painter.save()
-            painter.setPen(QPen(color, width))
+            painter.setPen(QPen(QColor(hex_color), width))
             painter.drawRect(option.rect.adjusted(d, d, -d, -d))
             painter.restore()
 
@@ -127,12 +123,12 @@ class VirtualGalleryDelegate(QStyledItemDelegate):
         # Top-Left: Rating Badge (G, S, Q, E)
         if rating:
             r_str = str(rating).upper()[:1]
-            bg_hex = RATING_COLORS.get(r_str.lower(), "#38bdf8")
+            bg_hex = RATING_COLORS.get(r_str.lower(), color("accent"))
             badge_rect = QRectF(rect.left() + 6, rect.top() + 6, 16, 16)
             painter.setPen(Qt.PenStyle.NoPen)
             painter.setBrush(QBrush(QColor(bg_hex)))
             painter.drawRoundedRect(badge_rect, 3, 3)
-            painter.setPen(QColor("#ffffff"))
+            painter.setPen(QColor(255, 255, 255))
             painter.drawText(badge_rect, Qt.AlignmentFlag.AlignCenter, r_str)
 
         # Top-Right: Tag Count or Star Rating
@@ -142,7 +138,7 @@ class VirtualGalleryDelegate(QStyledItemDelegate):
             painter.setPen(Qt.PenStyle.NoPen)
             painter.setBrush(QBrush(QColor(0, 0, 0, 160)))
             painter.drawRoundedRect(tag_rect, 3, 3)
-            painter.setPen(QColor("#00f0ff"))
+            painter.setPen(QColor(color("accent")))
             painter.drawText(tag_rect, Qt.AlignmentFlag.AlignCenter, tag_str)
         elif star is not None and star > 0:
             star_str = f"★ {star:.1f}"
@@ -150,7 +146,7 @@ class VirtualGalleryDelegate(QStyledItemDelegate):
             painter.setPen(Qt.PenStyle.NoPen)
             painter.setBrush(QBrush(QColor(0, 0, 0, 160)))
             painter.drawRoundedRect(star_rect, 3, 3)
-            painter.setPen(QColor("#ffb703"))
+            painter.setPen(QColor(color("accent_hover")))
             painter.drawText(star_rect, Qt.AlignmentFlag.AlignCenter, star_str)
 
         # Bottom-Left: Resolution Pill (e.g. 1920×1080)
@@ -160,7 +156,7 @@ class VirtualGalleryDelegate(QStyledItemDelegate):
             painter.setPen(Qt.PenStyle.NoPen)
             painter.setBrush(QBrush(QColor(0, 0, 0, 160)))
             painter.drawRoundedRect(res_rect, 3, 3)
-            painter.setPen(QColor("#e2e8f0"))
+            painter.setPen(QColor(color("text")))
             painter.drawText(res_rect, Qt.AlignmentFlag.AlignCenter, res_str)
 
         # Bottom-Right: File Format Pill (e.g. PNG)
@@ -170,7 +166,7 @@ class VirtualGalleryDelegate(QStyledItemDelegate):
             painter.setPen(Qt.PenStyle.NoPen)
             painter.setBrush(QBrush(QColor(0, 0, 0, 160)))
             painter.drawRoundedRect(fmt_rect, 3, 3)
-            painter.setPen(QColor("#cbd5e1"))
+            painter.setPen(QColor(color("muted_text")))
             painter.drawText(fmt_rect, Qt.AlignmentFlag.AlignCenter, fmt_str)
 
         painter.restore()

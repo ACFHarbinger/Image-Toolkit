@@ -11,6 +11,8 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
+from gui.src.theming.theme_api import qss
+
 
 class _FullImageViewerDialog(QDialog):
     def __init__(self, image_path: str, parent=None):
@@ -18,7 +20,7 @@ class _FullImageViewerDialog(QDialog):
         self.setWindowTitle("Full Image Preview")
         self.setMinimumSize(600, 600)
         self.resize(800, 800)
-        self.setStyleSheet("background-color: #1e2124; color: #ffffff;")
+        self.setStyleSheet(qss("full_image_dialog"))
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(15, 15, 15, 15)
@@ -27,15 +29,12 @@ class _FullImageViewerDialog(QDialog):
         # Header with title and close button
         header = QHBoxLayout()
         title_lbl = QLabel(Path(image_path).name)
-        title_lbl.setStyleSheet("font-size: 14px; font-weight: bold; color: #7289da;")
+        title_lbl.setStyleSheet(qss("full_image_title"))
         header.addWidget(title_lbl)
         header.addStretch()
 
         close_btn = QPushButton("Close")
-        close_btn.setStyleSheet(
-            "QPushButton { background: #7289da; border: none; border-radius: 4px; padding: 6px 16px; color: #ffffff; font-weight: bold; font-size: 11px; }"
-            "QPushButton:hover { background: #5b73c7; }"
-        )
+        close_btn.setStyleSheet(qss("full_image_close_btn"))
         close_btn.clicked.connect(self.accept)
         header.addWidget(close_btn)
         layout.addLayout(header)
@@ -43,13 +42,11 @@ class _FullImageViewerDialog(QDialog):
         # Scroll Area for image
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        scroll.setStyleSheet(
-            "background-color: #2c2f33; border: 2px solid #23272a; border-radius: 8px;"
-        )
+        scroll.setStyleSheet(qss("full_image_scroll"))
 
         self.img_label = QLabel()
         self.img_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.img_label.setStyleSheet("background-color: transparent;")
+        self.img_label.setStyleSheet(qss("transparent_bg"))
 
         # Load and set the full image
         self.pixmap = QPixmap(image_path)
@@ -69,7 +66,7 @@ class _FullImageViewerDialog(QDialog):
             dim_str = ""
 
         status_lbl = QLabel(dim_str)
-        status_lbl.setStyleSheet("color: #99aab5; font-size: 11px; font-weight: bold;")
+        status_lbl.setStyleSheet(qss("full_image_status"))
         layout.addWidget(status_lbl, alignment=Qt.AlignmentFlag.AlignRight)
 
 

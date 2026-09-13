@@ -8,6 +8,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "data:m0": "python3 scripts/generate_m0_data.py",
+    "gen:theme-tokens": "python ../../tools/dev/theming/export_css_tokens.py --surface docs --out src/styles/theme-tokens.generated.css",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview"
   },

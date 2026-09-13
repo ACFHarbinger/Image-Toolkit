@@ -1,0 +1,30 @@
+QDialog {
+    background: #1e1a2e;
+    color: white;
+}
+QLabel {
+    color: #ce93d8;
+    font-weight: bold;
+    font-size: 12px;
+}
+QLineEdit, QTextEdit {
+    background: $DARK_BG;
+    color: white;
+    border: 1px solid #7b1fa2;
+    border-radius: 4px;
+    padding: 4px;
+}
+QComboBox {
+    background: $DARK_BG;
+    color: white;
+    border: 1px solid #7b1fa2;
+    border-radius: 4px;
+    padding: 4px;
+}
+QComboBox::drop-down {
+    border: none;
+}
+QComboBox QAbstractItemView {
+    background: $DARK_BG;
+    color: white;
+}

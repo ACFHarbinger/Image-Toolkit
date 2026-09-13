@@ -9,36 +9,38 @@ from PySide6.QtCore import QPoint
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QInputDialog, QLineEdit, QMenu, QMessageBox
 
+from ._tab_bound import TabBoundController
 
-class _ActionBuilderMixin:
+
+class ImageCrawlActionController(TabBoundController):
     """Manages the general-crawler action list (add/remove/reorder/edit)."""
 
     def show_context_menu(self, pos: QPoint):
         item = self.action_list_widget.itemAt(pos)
         if not item:
             return
-        menu = QMenu()
+        menu = QMenu(self.tab)
 
         row = self.action_list_widget.row(item)
 
-        move_up_action = QAction("Move Up 🔼", self)
+        move_up_action = QAction("Move Up 🔼", self.tab)
         move_up_action.triggered.connect(self.move_action_up)
         move_up_action.setEnabled(row > 0)
         menu.addAction(move_up_action)
 
-        move_down_action = QAction("Move Down 🔽", self)
+        move_down_action = QAction("Move Down 🔽", self.tab)
         move_down_action.triggered.connect(self.move_action_down)
         move_down_action.setEnabled(row < self.action_list_widget.count() - 1)
         menu.addAction(move_down_action)
 
         menu.addSeparator()
 
-        edit_action = QAction("Edit Parameter ✏️", self)
+        edit_action = QAction("Edit Parameter ✏️", self.tab)
         edit_action.triggered.connect(self.edit_action_parameter)
         if " | Param: " in item.text():
             menu.addAction(edit_action)
 
-        remove_action = QAction("Remove 🗑️", self)
+        remove_action = QAction("Remove 🗑️", self.tab)
         remove_action.triggered.connect(self.remove_action)
         menu.addAction(remove_action)
         menu.exec(self.action_list_widget.mapToGlobal(pos))
@@ -51,10 +53,7 @@ class _ActionBuilderMixin:
         full_text = current_item.text()
         action_type, param_str = full_text.split(" | Param: ", 1)
 
-        is_number_mode = (
-            "Find <img> Number X on Page" in action_type
-            or "Wait X Seconds" in action_type
-        )
+        is_number_mode = "Find <img> Number X on Page" in action_type or "Wait X Seconds" in action_type
 
         title = f"Edit Parameter for: {action_type}"
         prompt = "Enter new parameter value:"
@@ -66,13 +65,9 @@ class _ActionBuilderMixin:
                 initial_value = 1
 
             if "Wait X Seconds" in action_type:
-                new_param, ok = QInputDialog.getDouble(
-                    self, title, prompt, float(initial_value), 0.1, 300.0, 1
-                )
+                new_param, ok = QInputDialog.getDouble(self.tab, title, prompt, float(initial_value), 0.1, 300.0, 1)
             else:
-                new_param, ok = QInputDialog.getInt(
-                    self, title, prompt, initial_value, 1, 99999, 1
-                )
+                new_param, ok = QInputDialog.getInt(self.tab, title, prompt, initial_value, 1, 99999, 1)
 
             if ok:
                 new_param = str(new_param)
@@ -80,21 +75,15 @@ class _ActionBuilderMixin:
                 return
 
         else:
-            new_param, ok = QInputDialog.getText(
-                self, title, prompt, QLineEdit.EchoMode.Normal, param_str
-            )
+            new_param, ok = QInputDialog.getText(self.tab, title, prompt, QLineEdit.EchoMode.Normal, param_str)
 
         if ok and new_param is not None:
             new_param_str = new_param.strip()
             if new_param_str:
                 current_item.setText(f"{action_type} | Param: {new_param_str}")
-                QMessageBox.information(
-                    self, "Success", f"Parameter updated for '{action_type}'."
-                )
+                QMessageBox.information(self.tab, "Success", f"Parameter updated for '{action_type}'.")
             else:
-                QMessageBox.warning(
-                    self, "Edit Failed", "Parameter value cannot be empty."
-                )
+                QMessageBox.warning(self.tab, "Edit Failed", "Parameter value cannot be empty.")
 
     def move_action_up(self):
         row = self.action_list_widget.currentRow()
@@ -124,4 +113,7 @@ class _ActionBuilderMixin:
             self.action_list_widget.takeItem(row)
 
 
-__all__ = ["_ActionBuilderMixin"]
+# COMPAT(ui-arch-23): legacy mixin alias
+_ActionBuilderMixin = ImageCrawlActionController
+
+__all__ = ["ImageCrawlActionController", "_ActionBuilderMixin"]

@@ -1,0 +1,3 @@
+color: $DARK_MUTED_TEXT;
+border: 1px dashed $DARK_BORDER;
+background: transparent;

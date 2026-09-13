@@ -5,10 +5,13 @@ Extracted from ``entity_recon_tab.py`` -- pure code motion, no logic change.
 
 from __future__ import annotations
 
-from backend.src.web.recon.config import SCOPE_BOTH, SCOPE_LOCAL, SCOPE_WEB
+from backend.src.web.recon.config import EMBED_FACE, SCOPE_BOTH, SCOPE_LOCAL, SCOPE_WEB
+from PySide6.QtWidgets import QMessageBox
+
+from ._tab_bound import TabBoundController
 
 
-class _ConfigMixin:
+class EntityReconConfigController(TabBoundController):
     """Pushes embed-mode/search-scope combo changes onto the ReconConfig."""
 
     def _on_embed_changed(self, _idx: int):
@@ -34,5 +37,45 @@ class _ConfigMixin:
         }.get(scope, "Search scope updated.")
         self._set_status(msg)
 
+    # ------------------------------------------------------------------
+    # TabConfig contract (R1.2 / #557)
+    # ------------------------------------------------------------------
+    def collect(self) -> dict:
+        return {
+            "dataset_root": self.dataset_edit.text().strip() or None,
+            "embed_mode": self.embed_combo.currentData(),
+            "search_scope": self.scope_combo.currentData(),
+            "batch_target_dir": self.target_edit.text().strip() or None,
+        }
 
-__all__ = ["_ConfigMixin"]
+    def get_default_config(self) -> dict:
+        return {
+            "dataset_root": "",
+            "embed_mode": EMBED_FACE,
+            "search_scope": SCOPE_LOCAL,
+            "batch_target_dir": "",
+        }
+
+    def set_config(self, config: dict):
+        try:
+            self.dataset_edit.setText(config.get("dataset_root") or "")
+
+            # setCurrentIndex fires the change handlers, so the restored
+            # values land on the ReconConfig through the same path as a
+            # manual pick (single source of truth).
+            embed_idx = self.embed_combo.findData(config.get("embed_mode"))
+            if embed_idx != -1:
+                self.embed_combo.setCurrentIndex(embed_idx)
+
+            scope_idx = self.scope_combo.findData(config.get("search_scope"))
+            if scope_idx != -1:
+                self.scope_combo.setCurrentIndex(scope_idx)
+
+            self.target_edit.setText(config.get("batch_target_dir") or "")
+            print("EntityReconTab configuration loaded.")
+        except Exception as e:
+            print(f"Error applying EntityReconTab config: {e}")
+            QMessageBox.warning(self.tab, "Config Error", f"Failed to apply some settings: {e}")
+
+
+__all__ = ["EntityReconConfigController"]

@@ -25,12 +25,14 @@ from PySide6.QtWidgets import (
 )
 
 from ....components.tag_chip_widget import FlowLayout
+from ....theming.theme_api import qss
+from ._tab_bound import TabBoundController
 
 if TYPE_CHECKING:
     from ..protos.extractor_tab import VideoExtractorSubTabHostProtocol
 
 
-class _ExtractionPanelUIMixin:
+class ExtractorExtractionPanelUIController(TabBoundController):
     """Builds the "4. Extraction Controls" groupbox and adds it to
     self.main_layout."""
 
@@ -127,9 +129,41 @@ class _ExtractionPanelUIMixin:
         # Decoupled from player speed
         extract_config_layout.addWidget(self.combo_speed)
 
+        # -- Row 5: Advanced Extraction Options --
+        extract_config_layout.addWidget(QLabel("Frame Interval:"))
+        self.spin_interval = QSpinBox()
+        self.spin_interval.setRange(1, 1000)
+        self.spin_interval.setValue(1)
+        self.spin_interval.setSuffix(" frames")
+        extract_config_layout.addWidget(self.spin_interval)
+
+        extract_config_layout.setSpacing(20)
+        self.check_smart_extract = QCheckBox("Smart Extract (FFmpeg)")
+        self.check_smart_extract.setToolTip(
+            "Use FFmpeg filters to only extract unique frames or scene changes"
+        )
+        extract_config_layout.addWidget(self.check_smart_extract)
+
+        self.combo_smart_method = QComboBox()
+        self.combo_smart_method.addItems(
+            [
+                "mpdecimate (De-duplicate)",
+                "scene (0.1)",
+                "scene (0.2)",
+                "scene (0.4)",
+                "scene (0.6)",
+            ]
+        )
+        self.combo_smart_method.setCurrentText("mpdecimate (De-duplicate)")
+        self.combo_smart_method.setEnabled(False)
+        self.check_smart_extract.toggled.connect(self.combo_smart_method.setEnabled)
+        extract_config_layout.addWidget(self.combo_smart_method)
+
+        extract_config_layout.addStretch()
+
         extract_main_layout.addWidget(extract_config_container)
 
-        # -- Row 2: Snapshot + Start/End range (left-aligned) --
+        # -- Row 2: Start/End range + Snapshot (left-aligned) --
         self.start_time_ms = 0
         self.end_time_ms = 0
         self.cut_start_ms = 0
@@ -143,7 +177,9 @@ class _ExtractionPanelUIMixin:
         self.btn_snapshot.clicked.connect(self.extract_single_frame)
         self.btn_snapshot.setEnabled(False)
         range_row.addWidget(self.btn_snapshot)
+
         range_row.addWidget(QLabel("|"))
+        range_row.addStretch()
 
         self.btn_set_start = QPushButton("Set Start [00:00]")
         self.btn_set_start.clicked.connect(self.set_range_start)
@@ -167,71 +203,51 @@ class _ExtractionPanelUIMixin:
         self.btn_jump_end.setEnabled(False)
         range_row.addWidget(self.btn_jump_end)
 
-        range_row.addStretch()
         extract_main_layout.addLayout(range_row)
 
         # -- Row 3: Extraction Actions --
-        # FlowLayout: action buttons (Extract Range / Extract Video /
-        # Extract GIF / Run on GCD / Cancel) that may overflow at narrow
+        # FlowLayout: action buttons (Run on Cloud / Extract Range /
+        # Extract Video / Extract GIF / Cancel) that may overflow at narrow
         # widths. Parented container — see Row 1's comment.
         extract_actions_container = QWidget()
         extract_actions_layout = FlowLayout(extract_actions_container)
 
         self.btn_cancel_extraction = QPushButton("🛑 Cancel Extraction")
-        self.btn_cancel_extraction.setStyleSheet(
-            "QPushButton {  color: white; font-weight: bold; border-radius: 4px; padding: 4px 12px; }"
-            "QPushButton:hover {  }"
-            "QPushButton:disabled {  color: #888; }"
-        )
+        self.btn_cancel_extraction.setStyleSheet(qss("extractor_btn_cancel"))
         self.btn_cancel_extraction.clicked.connect(self.cancel_extraction)
         self.btn_cancel_extraction.hide()
 
         self.btn_extract_range = QPushButton("🎞️ Extract Range")
-        self.btn_extract_range.setStyleSheet(
-            "QPushButton { background-color: #168f88; color: white; font-weight: bold; }"
-            "QPushButton:hover { background-color: #10736e; }"
-            "QPushButton:disabled { background-color: #4b5563; color: #c4c7cc; }"
-        )
+        self.btn_extract_range.setStyleSheet(qss("extractor_btn_range"))
         self.btn_extract_range.clicked.connect(self.extract_range)
         self.btn_extract_range.setEnabled(False)
 
         self.btn_extract_gif = QPushButton("GIF Extract as GIF")
-        self.btn_extract_gif.setStyleSheet(
-            "QPushButton { background-color: #8e44ad; color: white; font-weight: bold; }"
-            "QPushButton:hover { background-color: #70368a; }"
-            "QPushButton:disabled { background-color: #4b5563; color: #c4c7cc; }"
-        )
+        self.btn_extract_gif.setStyleSheet(qss("extractor_btn_gif"))
         self.btn_extract_gif.clicked.connect(self.extract_range_as_gif)
         self.btn_extract_gif.setEnabled(False)
 
         self.btn_extract_video = QPushButton("MP4 Extract as Video")
-        self.btn_extract_video.setStyleSheet(
-            "QPushButton { background-color: #d97706; color: white; font-weight: bold; }"
-            "QPushButton:hover { background-color: #b45309; }"
-            "QPushButton:disabled { background-color: #4b5563; color: #c4c7cc; }"
-        )
+        self.btn_extract_video.setStyleSheet(qss("extractor_btn_video"))
         self.btn_extract_video.clicked.connect(self.extract_range_as_video)
         self.btn_extract_video.setEnabled(False)
 
-        # Cloud Compute Offload PoC (#487): run the current range on Google
-        # Cloud Run instead of locally. Needs a Cloud Run URL in
+        # Cloud Compute Offload PoC (#487): run the current range on a
+        # cloud provider instead of locally. Needs a provider configured in
         # Cloud Compute ▸ Settings; the handler warns before uploading.
-        self.btn_run_on_gcd = QPushButton("☁ Run on GCD")
+        self.btn_run_on_gcd = QPushButton("☁ Run on Cloud")
         self.btn_run_on_gcd.setToolTip(
-            "Extract this range on Google Cloud Run (uploads the source video)"
+            "Extract this range on the configured cloud provider (uploads the source video)"
         )
-        self.btn_run_on_gcd.setStyleSheet(
-            "QPushButton { background-color: #1f6feb; color: white; font-weight: bold; }"
-            "QPushButton:hover { background-color: #1a5fce; }"
-            "QPushButton:disabled { background-color: #4b5563; color: #c4c7cc; }"
-        )
+        self.btn_run_on_gcd.setStyleSheet(qss("extractor_btn_gcd"))
         self.btn_run_on_gcd.clicked.connect(lambda: self.run_current_on_gcd("gif"))
         self.btn_run_on_gcd.setEnabled(False)
 
+        extract_actions_layout.addWidget(self.btn_run_on_gcd)
+        extract_actions_layout.addStretch()
         extract_actions_layout.addWidget(self.btn_extract_range)
         extract_actions_layout.addWidget(self.btn_extract_video)
         extract_actions_layout.addWidget(self.btn_extract_gif)
-        extract_actions_layout.addWidget(self.btn_run_on_gcd)
         extract_actions_layout.addWidget(self.btn_cancel_extraction)
 
         extract_main_layout.addWidget(extract_actions_container)
@@ -239,51 +255,14 @@ class _ExtractionPanelUIMixin:
         # -- Row 4: Cuts --
         extract_main_layout.addLayout(self._build_cuts_row())
 
-        # -- Row 5: Advanced Extraction Options --
-        extract_adv_layout = QHBoxLayout()
-        extract_adv_layout.addWidget(QLabel("Frame Interval:"))
-        self.spin_interval = QSpinBox()
-        self.spin_interval.setRange(1, 1000)
-        self.spin_interval.setValue(1)
-        self.spin_interval.setSuffix(" frames")
-        extract_adv_layout.addWidget(self.spin_interval)
-
-        extract_adv_layout.addSpacing(20)
-        self.check_smart_extract = QCheckBox("Smart Extract (FFmpeg)")
-        self.check_smart_extract.setToolTip(
-            "Use FFmpeg filters to only extract unique frames or scene changes"
-        )
-        extract_adv_layout.addWidget(self.check_smart_extract)
-
-        self.combo_smart_method = QComboBox()
-        self.combo_smart_method.addItems(
-            [
-                "mpdecimate (De-duplicate)",
-                "scene (0.1)",
-                "scene (0.2)",
-                "scene (0.4)",
-                "scene (0.6)",
-            ]
-        )
-        self.combo_smart_method.setCurrentText("mpdecimate (De-duplicate)")
-        self.combo_smart_method.setEnabled(False)
-        self.check_smart_extract.toggled.connect(self.combo_smart_method.setEnabled)
-        extract_adv_layout.addWidget(self.combo_smart_method)
-
-        extract_adv_layout.addStretch()
-        extract_main_layout.addLayout(extract_adv_layout)
-
-        # -- Row 6: Tags --
+        # -- Row 5: Tags --
         extract_main_layout.addLayout(self._build_tags_row())
 
-        # -- Row 7: Progress --
+        # -- Row 6: Progress --
         self.extraction_progress_bar = QProgressBar()
         self.extraction_progress_bar.setTextVisible(True)
         self.extraction_progress_bar.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.extraction_progress_bar.setStyleSheet(
-            "QProgressBar {  color: white; border: 1px solid #4f545c; border-radius: 4px; padding: 2px; height: 20px; }"
-            "QProgressBar::chunk {  border-radius: 4px; }"
-        )
+        self.extraction_progress_bar.setStyleSheet(qss("extractor_progress_bar"))
         self.extraction_progress_bar.setMinimum(0)
         self.extraction_progress_bar.setMaximum(100)
         self.extraction_progress_bar.setValue(0)
@@ -292,9 +271,7 @@ class _ExtractionPanelUIMixin:
 
         self.extraction_status_label = QLabel("Ready.")
         self.extraction_status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.extraction_status_label.setStyleSheet(
-            "color: #00BCD4; font-style: italic; padding: 4px; font-weight: bold;"
-        )
+        self.extraction_status_label.setStyleSheet(qss("extractor_status_label"))
         self.extraction_status_label.hide()
         extract_main_layout.addWidget(self.extraction_status_label)
 
@@ -302,4 +279,5 @@ class _ExtractionPanelUIMixin:
         self.extract_group.setVisible(False)
 
 
-__all__ = ["_ExtractionPanelUIMixin"]
+__all__ = ["ExtractorExtractionPanelUIController"]
+

@@ -6,19 +6,20 @@ change (see ``_ui_graph_canvas.py``'s docstring).
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Slot
 from PySide6.QtGui import QColor
-from PySide6.QtWidgets import QWidget
 
+from .....theming.theme_api import qss
 from ..graph.data_schema import GraphData
+from ._tab_bound import TabBoundController
 
 if TYPE_CHECKING:
     from ...protos.monitor_display_subtab import MonitorDisplaySubTabHostProtocol
 
 
-class _EndBehaviorMixin:
+class MonitorDisplayEndBehaviorController(TabBoundController):
     """Sync/read the "End of Graph Behavior" bar to/from the active graph."""
 
     _END_KEYS = [
@@ -64,7 +65,8 @@ class _EndBehaviorMixin:
     def _pick_end_color(self: "MonitorDisplaySubTabHostProtocol"):
         initial = QColor(self._end_color_current)
         from PySide6.QtWidgets import QColorDialog
-        col = QColorDialog.getColor(initial, cast(QWidget, self), "Pick End Color")
+
+        col = QColorDialog.getColor(initial, self.tab, "Pick End Color")
         if col.isValid():
             self._end_color_current = col.name().upper()
             self._refresh_end_color_preview()
@@ -74,7 +76,7 @@ class _EndBehaviorMixin:
 
     def _refresh_end_color_preview(self: "MonitorDisplaySubTabHostProtocol"):
         self._end_color_preview.setStyleSheet(
-            f"background-color:{self._end_color_current}; border:1px solid #4f545c;"
+            qss("dynamic_color_preview", BG_COLOR=self._end_color_current)
         )
 
     def _update_end_jump_combo(self: "MonitorDisplaySubTabHostProtocol"):
@@ -92,4 +94,5 @@ class _EndBehaviorMixin:
         self._end_jump_combo.blockSignals(False)
 
 
-__all__ = ["_EndBehaviorMixin"]
+__all__ = ["MonitorDisplayEndBehaviorController"]
+

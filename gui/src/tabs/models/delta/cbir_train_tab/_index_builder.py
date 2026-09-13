@@ -6,12 +6,10 @@ Extracted from ``cbir_train_tab.py`` -- pure code motion, no logic change.
 from __future__ import annotations
 
 import threading
-from typing import TYPE_CHECKING, Optional, cast
 
-from PySide6.QtWidgets import QMessageBox, QWidget
+from PySide6.QtWidgets import QMessageBox
 
-if TYPE_CHECKING:
-    from ...protos.cbir_train_tab import CBIRTrainTabHostProtocol
+from ._tab_bound import TabBoundController
 
 try:
     from backend.src.models.tuning.cbir_index_builder import build_cbir_index
@@ -22,31 +20,30 @@ except ImportError:
     build_cbir_index = None  # type: ignore[assignment]
 
 
-class _IndexBuilderMixin:
+class CBIRTrainIndexController(TabBoundController):
     """Starts the background FAISS index-build thread."""
 
-    _index_thread: Optional[threading.Thread]
-
-    def _start_build_index(self: "CBIRTrainTabHostProtocol") -> None:
+    def _start_build_index(self) -> None:
         if not _INDEX_OK or build_cbir_index is None:
             QMessageBox.critical(
-                cast(QWidget, self), "Missing dependencies",
-                "Could not import build_cbir_index.\n"
-                "Ensure faiss-cpu and transformers are installed.",
+                self.tab,
+                "Missing dependencies",
+                "Could not import build_cbir_index.\nEnsure faiss-cpu and transformers are installed.",
             )
             return
 
         ckpt = self._ckpt_path.text().strip()
         if not ckpt:
             QMessageBox.warning(
-                cast(QWidget, self), "No checkpoint",
+                self.tab,
+                "No checkpoint",
                 "Please specify a checkpoint file (cbir_best.pt) before building the index.",
             )
             return
 
         img_dir = self._index_img_dir.text().strip() or self._img_dir.text().strip()
         if not img_dir:
-            QMessageBox.warning(cast(QWidget, self), "No image directory", "Please specify the image library directory.")
+            QMessageBox.warning(self.tab, "No image directory", "Please specify the image library directory.")
             return
 
         out_dir = self._index_out_dir.text().strip()
@@ -67,9 +64,7 @@ class _IndexBuilderMixin:
                 )
                 self.sig_index_done.emit(
                     "ok",
-                    f"Index built successfully.\n"
-                    f"{n} images indexed.\n"
-                    f"FAISS index: {index_path}",
+                    f"Index built successfully.\n{n} images indexed.\nFAISS index: {index_path}",
                 )
             except Exception as exc:
                 self.sig_index_done.emit("error", str(exc))
@@ -79,4 +74,7 @@ class _IndexBuilderMixin:
         index_thread.start()
 
 
-__all__ = ["_IndexBuilderMixin"]
+# COMPAT(ui-arch-23): legacy mixin alias
+_IndexBuilderMixin = CBIRTrainIndexController
+
+__all__ = ["CBIRTrainIndexController", "_IndexBuilderMixin"]

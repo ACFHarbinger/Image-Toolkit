@@ -16,7 +16,6 @@ from typing import Any, Callable, Dict, Optional
 import backend.src.constants as udef
 from PySide6.QtCore import QThreadPool, Signal, Slot
 from PySide6.QtWidgets import (
-    QApplication,
     QButtonGroup,
     QCheckBox,
     QGroupBox,
@@ -31,8 +30,9 @@ from PySide6.QtWidgets import (
 )
 
 from .....constants import DRY_RUN
-from .....helpers import DropboxDriveSyncWorker, GoogleDriveSyncWorker, OneDriveSyncWorker
+from .....helpers import CloudDriveSyncWorker
 from .....styles import apply_shadow_effect, set_button_role
+from .....theming.theme_api import color, qss
 from .....windows.logging import LogWindow
 
 
@@ -76,7 +76,7 @@ class SyncDataSubtab(QWidget):
         self.local_path = QLineEdit(udef.LOCAL_SOURCE_PATH)
         self.local_path.setPlaceholderText("Local directory to synchronize")
         btn_browse_local = QPushButton("Browse Local Dir")
-        apply_shadow_effect(btn_browse_local, "#000000", 8, 0, 3)
+        apply_shadow_effect(btn_browse_local, color("window_bg"), 8, 0, 3)
         btn_browse_local.clicked.connect(self._browse_local)
         local_layout.addWidget(self.local_path)
         local_layout.addWidget(btn_browse_local)
@@ -91,11 +91,9 @@ class SyncDataSubtab(QWidget):
         self.share_group = QGroupBox("Share Options")
         share_layout = QHBoxLayout(self.share_group)
         self.share_email_input = QLineEdit()
-        self.share_email_input.setPlaceholderText(
-            "Optional: user email to grant Editor access"
-        )
+        self.share_email_input.setPlaceholderText("Optional: user email to grant Editor access")
         self.btn_share_folder = QPushButton("Share Folder Now")
-        apply_shadow_effect(self.btn_share_folder, "#000000", 8, 0, 3)
+        apply_shadow_effect(self.btn_share_folder, color("window_bg"), 8, 0, 3)
         self.btn_share_folder.clicked.connect(self._share_remote_folder)
         share_layout.addWidget(QLabel("Share folder with:"))
         share_layout.addWidget(self.share_email_input)
@@ -112,15 +110,15 @@ class SyncDataSubtab(QWidget):
         behavior_layout = QVBoxLayout(behavior_group)
 
         lbl_lo = QLabel("Action for files found ONLY Locally (Local Orphans):")
-        lbl_lo.setStyleSheet("font-weight: bold; color: #3498db;")
+        lbl_lo.setStyleSheet(qss("drive_sync_label_local"))
         behavior_layout.addWidget(lbl_lo)
         self._bg_local = QButtonGroup(self)
         self.rb_upload = QRadioButton("Upload to Remote (Merge)")
         self.rb_upload.setChecked(True)
         self.rb_delete_local = QRadioButton("Delete from Local (Mirror Remote)")
-        self.rb_delete_local.setStyleSheet("color: #e74c3c;")
+        self.rb_delete_local.setStyleSheet(qss("drive_sync_rb_delete"))
         self.rb_ignore_local = QRadioButton("Do Nothing (Ignore)")
-        self.rb_ignore_local.setStyleSheet("color: #95a5a6;")
+        self.rb_ignore_local.setStyleSheet(qss("drive_sync_rb_ignore"))
         for rb in (self.rb_upload, self.rb_delete_local, self.rb_ignore_local):
             self._bg_local.addButton(rb)
         lo_row = QHBoxLayout()
@@ -131,15 +129,15 @@ class SyncDataSubtab(QWidget):
 
         behavior_layout.addSpacing(8)
         lbl_ro = QLabel("Action for files found ONLY on Remote (Remote Orphans):")
-        lbl_ro.setStyleSheet("font-weight: bold; color: #2ecc71;")
+        lbl_ro.setStyleSheet(qss("drive_sync_label_remote"))
         behavior_layout.addWidget(lbl_ro)
         self._bg_remote = QButtonGroup(self)
         self.rb_download = QRadioButton("Download to Local (Merge)")
         self.rb_download.setChecked(True)
         self.rb_delete_remote = QRadioButton("Delete from Remote (Mirror Local)")
-        self.rb_delete_remote.setStyleSheet("color: #e74c3c;")
+        self.rb_delete_remote.setStyleSheet(qss("drive_sync_rb_delete"))
         self.rb_ignore_remote = QRadioButton("Do Nothing (Ignore)")
-        self.rb_ignore_remote.setStyleSheet("color: #95a5a6;")
+        self.rb_ignore_remote.setStyleSheet(qss("drive_sync_rb_ignore"))
         for rb in (self.rb_download, self.rb_delete_remote, self.rb_ignore_remote):
             self._bg_remote.addButton(rb)
         ro_row = QHBoxLayout()
@@ -152,9 +150,9 @@ class SyncDataSubtab(QWidget):
         options_row = QHBoxLayout()
         self.dry_run_checkbox = QCheckBox("Perform Dry Run (Simulate only)")
         self.dry_run_checkbox.setChecked(DRY_RUN)
-        self.dry_run_checkbox.setStyleSheet("QCheckBox { color: #f1c40f; }")
+        self.dry_run_checkbox.setStyleSheet(qss("drive_sync_dry_run"))
         self.btn_view_remote = QPushButton("View Remote Files Map")
-        apply_shadow_effect(self.btn_view_remote, "#000000", 8, 0, 3)
+        apply_shadow_effect(self.btn_view_remote, color("window_bg"), 8, 0, 3)
         self.btn_view_remote.clicked.connect(self._view_remote_map)
         options_row.addWidget(self.dry_run_checkbox)
         options_row.addStretch()
@@ -163,7 +161,7 @@ class SyncDataSubtab(QWidget):
         # --- Sync button ---
         self.sync_button = QPushButton("Run Synchronization Now")
         set_button_role(self.sync_button, "success")
-        apply_shadow_effect(self.sync_button, "#000000", 8, 0, 3)
+        apply_shadow_effect(self.sync_button, color("window_bg"), 8, 0, 3)
         self.sync_button.clicked.connect(self._toggle_sync)
 
         main_layout.addWidget(config_group)
@@ -212,9 +210,7 @@ class SyncDataSubtab(QWidget):
 
     def set_config(self, config: dict) -> None:
         self.local_path.setText(config.get("local_path", udef.LOCAL_SOURCE_PATH))
-        self.remote_path.setText(
-            config.get("remote_path", udef.DRIVE_DESTINATION_FOLDER_NAME)
-        )
+        self.remote_path.setText(config.get("remote_path", udef.DRIVE_DESTINATION_FOLDER_NAME))
         self.dry_run_checkbox.setChecked(config.get("dry_run", True))
         self.share_email_input.setText(config.get("share_email", ""))
 
@@ -303,18 +299,21 @@ class SyncDataSubtab(QWidget):
         }
 
         if provider_text.startswith("Google Drive"):
-            self.current_worker = GoogleDriveSyncWorker(
-                **common, user_email_to_share_with=share_email
-            )
+            provider = "google"
         elif provider_text == "Dropbox":
-            self.current_worker = DropboxDriveSyncWorker(**common)
+            provider = "dropbox"
         elif provider_text == "OneDrive":
-            self.current_worker = OneDriveSyncWorker(**common)
+            provider = "onedrive"
         else:
             QMessageBox.warning(self, "Error", f"Unknown provider: {provider_text}")
             self._unlock_ui()
             return
 
+        self.current_worker = CloudDriveSyncWorker(
+            provider,
+            **common,
+            user_email_to_share_with=share_email,
+        )
         self.current_worker.signals.status.connect(self._on_status_update)
         self.current_worker.signals.finished.connect(self._on_sync_finished)
         QThreadPool.globalInstance().start(self.current_worker)
@@ -345,15 +344,12 @@ class SyncDataSubtab(QWidget):
             reply = QMessageBox.question(
                 self,
                 "Dry Run Completed",
-                "The Dry Run finished successfully.\n\n"
-                "Do you want to apply these changes now (Execute LIVE Sync)?",
+                "The Dry Run finished successfully.\n\nDo you want to apply these changes now (Execute LIVE Sync)?",
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 QMessageBox.StandardButton.No,
             )
             if reply == QMessageBox.StandardButton.Yes:
-                self.log_window.append_log(
-                    "\nUser confirmed. Starting LIVE run..."
-                )
+                self.log_window.append_log("\nUser confirmed. Starting LIVE run...")
                 self._run_sync(clear_log=False, force_live=True)
 
     # ------------------------------------------------------------------
@@ -373,7 +369,8 @@ class SyncDataSubtab(QWidget):
         self.log_window.show()
         self.log_window.clear_log()
 
-        worker = GoogleDriveSyncWorker(
+        worker = CloudDriveSyncWorker(
+            "google",
             auth_config=auth_config,
             local_path=str(Path.home()),  # not used for listing
             remote_path=remote_path,
@@ -387,8 +384,7 @@ class SyncDataSubtab(QWidget):
         QMessageBox.information(
             self,
             "Share Folder",
-            "Run a sync first with the share email set — the folder will be shared "
-            "automatically on the next sync.",
+            "Run a sync first with the share email set — the folder will be shared automatically on the next sync.",
         )
 
     def _browse_local(self) -> None:
@@ -430,7 +426,6 @@ class SyncDataSubtab(QWidget):
             w.setEnabled(enabled)
         if clear_log:
             self.log_window.clear_log()
-        QApplication.processEvents()
 
     def _unlock_ui(self) -> None:
         self._lock_ui(message="Run Synchronization Now", is_running=False)
@@ -441,7 +436,6 @@ class SyncDataSubtab(QWidget):
         self.btn_view_remote.setEnabled(False)
         self.btn_share_folder.setEnabled(False)
         self.sync_button.setEnabled(False)
-        QApplication.processEvents()
 
     def _unlock_ui_minor(self) -> None:
         self.btn_view_remote.setEnabled(True)
