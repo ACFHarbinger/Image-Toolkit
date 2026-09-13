@@ -1,3 +1,14 @@
+# S561 — 2026-09-13 (Claude: oversized GIF preview playback, ported from main)
+
+- Full-size preview plays GIFs over 32MB with `PillowGifPlayer` (QTimer +
+  Pillow `seek()`, one frame in memory) instead of a static first-frame
+  pixmap or a blank placeholder. `QMovie` is still skipped on those
+  files (the crash class this whole GIF-handling family works around).
+  Small GIFs still use `QMovie`. Ported from main-only commits
+  (`e6bbe0e1`/`9c0ee1f4`/`a0ee3d15`), found during a main/milestone
+  branch-hygiene audit; milestone's newer `qss()`-token nav-button
+  styling was kept over main's now-superseded hardcoded `arrow_style`.
+
 # S556 — 2026-09-13 (Grok: #544 MainWindow composition, resynced)
 
 - `MainWindow` keeps `_LifecycleMixin` and `_ZoomMixin` on the MRO (F22).
