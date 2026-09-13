@@ -102,7 +102,7 @@ class ExtractorMediaPlayerController(TabBoundController):
         # their theme background entirely). Scoping to this widget's own
         # object name keeps the transparency without breaking the cascade.
         player_container.setObjectName("extractor_player_container")
-        player_container.setStyleSheet("QWidget#extractor_player_container { background-color: transparent; }")
+        player_container.setStyleSheet(qss("extractor_player_container"))
         self.player_inner_layout = QVBoxLayout(player_container)
         self.player_inner_layout.setContentsMargins(0, 0, 0, 0)
 
