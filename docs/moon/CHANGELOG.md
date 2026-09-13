@@ -1,3 +1,13 @@
+# S563 — 2026-09-13 (Cursor: R4.3 #620 / live theme toggle refresh)
+
+- `qss()` now returns a `ThemedQss` fragment; applying it via
+  `setStyleSheet` registers the widget. `refresh_component_styles()`
+  walks those bindings and re-substitutes against the live base, remapping
+  the `$DARK_*` placeholders the R2.b fragments were authored with.
+- `set_application_theme` / `apply_theme_pack` call the walk after the
+  app-level cascade. `_toggle_theme` restyles first, then persists the
+  override from the in-memory snapshot — no vault decrypt on the hot path.
+
 # S562 — 2026-09-13 (Codex: R1.5 #560 / account-state boundary)
 
 - Added `VaultManager.save_account_snapshot()` as the GUI account-state
