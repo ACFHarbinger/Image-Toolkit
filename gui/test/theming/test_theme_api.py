@@ -6,7 +6,7 @@ import re
 
 import pytest
 
-from gui.src.theming.theme_api import color, qss
+from gui.src.theming.theme_api import ThemedQss, color, qss
 
 _HEX_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
 
@@ -37,3 +37,5 @@ def test_qss_muted_label_substitutes_vars() -> None:
     assert sheet.strip()
     assert "$" not in sheet
     assert "color:" in sheet
+    assert isinstance(sheet, ThemedQss)
+    assert sheet.component == "muted_label"

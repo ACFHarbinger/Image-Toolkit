@@ -54,6 +54,11 @@ _LAZY_EXPORTS = {
     "extract_palette": ".palette",
     "color": ".theme_api",
     "qss": ".theme_api",
+    "ThemedQss": ".theme_api",
+    "apply_qss": ".theme_api",
+    "current_base": ".theme_api",
+    "refresh_component_styles": ".theme_api",
+    "set_current_base": ".theme_api",
 }
 
 __all__ = [
@@ -99,6 +104,11 @@ __all__ = [
     "extract_palette",
     "color",
     "qss",
+    "ThemedQss",
+    "apply_qss",
+    "current_base",
+    "refresh_component_styles",
+    "set_current_base",
 ]
 
 

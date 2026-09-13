@@ -41,3 +41,18 @@ class TestThemeToggle:
         assert window.current_theme == "dark"
         assert window._theme_toggle_btn.text() == "☀"
         assert vault.creds.get("theme") == "dark"
+
+    def test_toggle_does_not_decrypt_vault(self, q_app):
+        window, vault = self._make_window(q_app)
+        loads = 0
+        original = vault.load_account_credentials
+
+        def counted():
+            nonlocal loads
+            loads += 1
+            return original()
+
+        vault.load_account_credentials = counted
+        window._toggle_theme()
+        assert loads == 0
+        assert vault.creds.get("theme") == "light"
