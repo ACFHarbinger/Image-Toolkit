@@ -5,5 +5,6 @@ QProgressBar {
     font-size: 10px;
 }
 QProgressBar::chunk {
+    background-color: $DARK_ACCENT_COLOR;
     border-radius: 4px;
 }
