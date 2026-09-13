@@ -6,10 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from gui.src.elements.database.dialog.directory_import_dialog import (
+from gui.src.elements.database.dialog.directory_import import (
     _DirectoryImportDialog,
-)
-from gui.src.elements.database.dialog.entity_directory_import_dialog import (
     _EntityDirectoryImportDialog,
 )
 

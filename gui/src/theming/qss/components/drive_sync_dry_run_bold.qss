@@ -1,0 +1,4 @@
+QCheckBox {
+    color: $DARK_ACCENT_HOVER;
+    font-weight: bold;
+}

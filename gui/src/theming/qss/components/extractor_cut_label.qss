@@ -1,0 +1,2 @@
+color: $DARK_ACCENT_COLOR;
+border: 1px solid $DARK_BORDER;

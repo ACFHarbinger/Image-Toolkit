@@ -31,15 +31,15 @@ class _CryptoAPI:
     @classmethod
     def _load(cls):
         if cls._lib is None:
-            if not os.path.exists(udef.CRYPTO_LIB_FILE):
+            crypto_path = udef.resolve_crypto_lib_file()
+            if not os.path.exists(crypto_path):
                 raise CryptographyLibNotBuiltError(
-                    f"Native crypto library not found at: {udef.CRYPTO_LIB_FILE}\n"
-                    "It hasn't been built yet (this is a generated, gitignored "
-                    "artifact, not tracked account data). Run `just build-base` "
-                    "from the repo root (builds the native backend, including "
-                    "crypto) to build it, then try again."
+                    f"Native crypto library not found at: {crypto_path}\n"
+                    "libitk_crypto is built with the base module (`just build-base`), "
+                    "not a separate cryptography package. Run `just build-base` from "
+                    "the repo root, then try again."
                 )
-            lib = ctypes.CDLL(udef.CRYPTO_LIB_FILE)
+            lib = ctypes.CDLL(crypto_path)
 
             lib.itk_keystore_has_alias.argtypes = [
                 ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p

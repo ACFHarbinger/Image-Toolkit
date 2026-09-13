@@ -1,0 +1,7 @@
+QPlainTextEdit {
+    background: $DARK_SECONDARY_BG;
+    color: $DARK_TEXT;
+    border: 1px solid $DARK_BORDER;
+    font-family: monospace;
+    font-size: 11px;
+}

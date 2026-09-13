@@ -22,7 +22,7 @@ from gui.src.components.dialogs.frame_selection_dialog import FrameSelectionDial
 from gui.src.constants.listings import LISTING_IMAGES_DIR
 from gui.src.elements.database.dialog.common.base_sub_item_dialog import BaseSubItemDialog
 from gui.src.helpers.image.card_thumb_worker import invalidate_thumbnail_cache
-from gui.src.styles import SHARED_BUTTON_STYLE
+from gui.src.theming.theme_api import qss
 
 
 class _EpisodeDialog(BaseSubItemDialog):
@@ -66,9 +66,7 @@ class _EpisodeDialog(BaseSubItemDialog):
         self.f_local_file.setText(self.data.get("local_file", ""))
 
         local_file_btn = QPushButton("📁 Browse")
-        local_file_btn.setStyleSheet(
-            "background-color:#4f545c; padding: 4px 8px; color: white;"
-        )
+        local_file_btn.setStyleSheet(qss("episode_dialog_browse_btn"))
         local_file_btn.clicked.connect(self._browse_local_file)
 
         file_layout = QHBoxLayout()
@@ -98,9 +96,7 @@ class _EpisodeDialog(BaseSubItemDialog):
         browse_btn.clicked.connect(self._browse)
 
         gen_btn = QPushButton("⚡ Gen Thumbnail")
-        gen_btn.setStyleSheet(
-            "background-color:#e67e22; color:white; font-weight:bold; padding: 4px 8px; border-radius: 4px;"
-        )
+        gen_btn.setStyleSheet(qss("episode_dialog_gen_btn"))
         gen_btn.clicked.connect(self._generate_thumbnail)
 
         btn_v_layout.addWidget(browse_btn)
@@ -112,7 +108,7 @@ class _EpisodeDialog(BaseSubItemDialog):
         # Buttons
         btns = QHBoxLayout()
         save_btn = QPushButton("Save")
-        save_btn.setStyleSheet(SHARED_BUTTON_STYLE)
+        save_btn.setStyleSheet(qss("shared_button"))
         save_btn.clicked.connect(self.accept)
         cancel_btn = QPushButton("Cancel")
         cancel_btn.clicked.connect(self.reject)

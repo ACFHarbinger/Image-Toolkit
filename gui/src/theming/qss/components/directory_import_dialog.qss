@@ -1,0 +1,26 @@
+QDialog {
+    background: $DARK_BG;
+    color: $DARK_TEXT;
+}
+QLabel {
+    color: $DARK_TEXT;
+}
+QLineEdit, QSpinBox, QComboBox {
+    background: $DARK_SECONDARY_BG;
+    color: $DARK_TEXT;
+    border: 1px solid $DARK_BORDER;
+    border-radius: 4px;
+    padding: 4px;
+}
+QGroupBox {
+    border: 1px solid $DARK_BORDER;
+    border-radius: 6px;
+    margin-top: 8px;
+    color: $DARK_ACCENT_COLOR;
+    font-weight: bold;
+}
+QGroupBox::title {
+    subcontrol-origin: margin;
+    left: 8px;
+    padding: 0 4px;
+}

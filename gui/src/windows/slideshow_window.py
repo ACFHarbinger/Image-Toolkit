@@ -14,6 +14,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from gui.src.theming.theme_api import qss
+
 from ..components import QueueItemView
 from ..utils.cache.lru_image_cache import LRUImageCache
 from .window_manager import register_window
@@ -54,13 +56,11 @@ class SlideshowQueueWindow(QWidget):
         title_label = QLabel(
             f"Queue: {len(queue)} Images (Drag or Right-click to modify)"
         )
-        title_label.setStyleSheet("font-size: 14px; font-weight: bold; padding: 5px;")
+        title_label.setStyleSheet(qss("slideshow_title"))
         layout.addWidget(title_label)
 
         self.list_widget = QListWidget()
-        self.list_widget.setStyleSheet(
-            "QListWidget { border: 1px solid #4f545c; border-radius: 8px; }"
-        )
+        self.list_widget.setStyleSheet(qss("slideshow_list"))
 
         self.list_widget.setDragDropMode(QListWidget.DragDropMode.InternalMove)
         self.list_widget.setSelectionMode(QListWidget.SelectionMode.SingleSelection)

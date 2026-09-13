@@ -7,22 +7,23 @@ from __future__ import annotations
 
 from gui.src.helpers.worker_teardown import stop_worker
 
+from ._tab_bound import TabBoundController
 
-class _LifecycleMixin:
+
+class SamplerLifecycleController(TabBoundController):
     """Cancels the resample worker on teardown/close."""
 
     def cancel_loading(self):
-        super().cancel_loading()
-        if hasattr(self, "dual"):
-            self.dual.cancel_loading()
-        # No join here (as before): the pool thread + ffmpeg procs die off
-        # on their own; closeEvent below joins for the teardown path.
+        if hasattr(self.tab, "dual"):
+            self.tab.dual.cancel_loading()
         stop_worker(getattr(self, "worker", None), join=False)
 
     def closeEvent(self, event):
         stop_worker(getattr(self, "worker", None))
         self.cancel_loading()
-        super().closeEvent(event)
 
 
-__all__ = ["_LifecycleMixin"]
+# COMPAT(ui-arch-23): legacy mixin alias
+_LifecycleMixin = SamplerLifecycleController
+
+__all__ = ["SamplerLifecycleController", "_LifecycleMixin"]

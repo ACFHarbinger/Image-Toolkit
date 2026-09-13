@@ -9,6 +9,8 @@ from typing import Dict, List, Optional, Tuple
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QDialog, QHBoxLayout, QPushButton, QTabWidget, QVBoxLayout, QWidget
 
+from gui.src.theming.theme_api import qss
+
 from ...styles import apply_shadow_effect
 from ..window_manager import register_window
 from ._batch_tab import _BatchTab
@@ -61,10 +63,7 @@ class MetadataEditorWindow(QDialog):
         # ---- Tab widget ----
         self._tabs = QTabWidget()
         self._tabs.setDocumentMode(True)
-        self._tabs.setStyleSheet(
-            "QTabBar::tab { min-width: 110px; padding: 6px 10px; }"
-            "QTabBar::tab:selected { background: #5865f2; color: white; border-radius: 4px; }"
-        )
+        self._tabs.setStyleSheet(qss("metadata_editor_tabs"))
 
         # Batch tab
         batch_tab = _BatchTab(
@@ -82,22 +81,12 @@ class MetadataEditorWindow(QDialog):
 
         # ---- Footer buttons ----
         btn_cancel = QPushButton("✕ Cancel")
-        btn_cancel.setStyleSheet(
-            "QPushButton { background: #4f545c; color: white; padding: 9px 18px; "
-            "border-radius: 6px; font-weight: bold; }"
-            "QPushButton:hover { background: #686d73; }"
-        )
+        btn_cancel.setStyleSheet(qss("metadata_btn_cancel"))
         btn_cancel.clicked.connect(self.reject)
 
         btn_confirm = QPushButton(f"✔ Confirm and Save {len(self._paths)} Image(s)")
-        btn_confirm.setStyleSheet(
-            "QPushButton { background: qlineargradient(x1:0,y1:0,x2:0,y2:1,"
-            "stop:0 #2ecc71,stop:1 #27ae60); color: white; padding: 9px 18px; "
-            "border-radius: 6px; font-weight: bold; font-size: 14px; }"
-            "QPushButton:hover { background: #27ae60; }"
-            "QPushButton:pressed { background: #1e8449; }"
-        )
-        apply_shadow_effect(btn_confirm, "#000000", 8, 0, 3)
+        btn_confirm.setStyleSheet(qss("metadata_btn_confirm"))
+        apply_shadow_effect(btn_confirm, "black", 8, 0, 3)
         btn_confirm.clicked.connect(self._confirm)
 
         footer = QHBoxLayout()

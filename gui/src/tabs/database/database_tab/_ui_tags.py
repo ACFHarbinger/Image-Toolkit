@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
 )
 
 from ....styles import apply_shadow_effect
+from ....theming.theme_api import color, qss
 
 if TYPE_CHECKING:
     pass
@@ -49,7 +50,7 @@ def build_tags_section(tab: Any, populate_layout: QVBoxLayout) -> None:
 
     tab.btn_create_tag = QPushButton("Create/Update Tag(s)")
     apply_shadow_effect(
-        tab.btn_create_tag, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+        tab.btn_create_tag, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3
     )
     tab.btn_create_tag.clicked.connect(tab.create_new_tag)
     create_tag_layout.addRow(tab.btn_create_tag)
@@ -90,7 +91,7 @@ def build_tags_section(tab: Any, populate_layout: QVBoxLayout) -> None:
 
     tab.btn_import_tags = QPushButton("Import Tags from JSON")
     apply_shadow_effect(
-        tab.btn_import_tags, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+        tab.btn_import_tags, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3
     )
     tab.btn_import_tags.clicked.connect(tab.import_tags_from_json)
     bulk_import_layout.addRow(tab.btn_import_tags)
@@ -105,7 +106,7 @@ def build_tags_section(tab: Any, populate_layout: QVBoxLayout) -> None:
     tags_btn_layout = QHBoxLayout()
     tab.btn_refresh_tags = QPushButton("Refresh List")
     apply_shadow_effect(
-        tab.btn_refresh_tags, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+        tab.btn_refresh_tags, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3
     )
     tab.btn_refresh_tags.clicked.connect(tab.refresh_tags_list)
     tags_btn_layout.addWidget(tab.btn_refresh_tags)
@@ -113,7 +114,7 @@ def build_tags_section(tab: Any, populate_layout: QVBoxLayout) -> None:
     tab.btn_remove_tag = QPushButton("Remove Selected Tag")
     tab.btn_remove_tag.setObjectName("btn_danger")
     apply_shadow_effect(
-        tab.btn_remove_tag, color_hex="#000000", radius=8, x_offset=0, y_offset=3
+        tab.btn_remove_tag, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3
     )
     tab.btn_remove_tag.clicked.connect(tab.remove_selected_tag)
     tags_btn_layout.addWidget(tab.btn_remove_tag)
@@ -135,7 +136,7 @@ def build_tags_section(tab: Any, populate_layout: QVBoxLayout) -> None:
     tab.tags_table.setSelectionMode(
         QAbstractItemView.SelectionMode.SingleSelection
     )
-    tab.tags_table.setStyleSheet(tab.groups_table.styleSheet())
+    tab.tags_table.setStyleSheet(qss("table_widget"))
     tab.tags_table.setSizePolicy(
         QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
     )

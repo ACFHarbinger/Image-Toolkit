@@ -42,6 +42,8 @@ except ImportError:
     AppSettings = None  # type: ignore[assignment]
     persist_splitter = None  # type: ignore[assignment]
 
+from gui.src.theming.theme_api import qss
+
 
 class _ThumbHub(QObject):
     loaded = Signal(str, int, object)  # path, generation, QImage
@@ -131,12 +133,7 @@ class ThumbnailFilePicker(QDialog):
         self._sidebar.setMaximumWidth(160)
         self._sidebar.setSelectionMode(QListWidget.SelectionMode.SingleSelection)
         self._sidebar.setFrameShape(QListWidget.Shape.NoFrame)
-        self._sidebar.setStyleSheet(
-            "QListWidget { background: rgba(20, 24, 32, 0.45); color: #ccc; border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 6px; }"
-            "QListWidget::item { padding: 6px 10px; color: #ccc; border-radius: 4px; }"
-            "QListWidget::item:selected { background: #5865f2; color: #fff; }"
-            "QListWidget::item:hover { background: rgba(255, 255, 255, 0.08); }"
-        )
+        self._sidebar.setStyleSheet(qss("thumbnail_picker_sidebar"))
         self._populate_sidebar()
         self._sidebar.itemClicked.connect(
             lambda item: self._navigate(item.data(Qt.ItemDataRole.UserRole))
@@ -160,12 +157,7 @@ class ThumbnailFilePicker(QDialog):
         self._grid.setWordWrap(True)
         self._grid.setSpacing(8)
         self._grid.setFrameShape(QListWidget.Shape.NoFrame)
-        self._grid.setStyleSheet(
-            "QListWidget { background: rgba(14, 18, 25, 0.35); color: #ccc; border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 6px; }"
-            "QListWidget::item { color: #ccc; border-radius: 6px; padding: 4px; border: 1px solid transparent; }"
-            "QListWidget::item:selected { background: rgba(88, 101, 242, 0.35); border: 1px solid #5865f2; color: #fff; }"
-            "QListWidget::item:hover { background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.2); }"
-        )
+        self._grid.setStyleSheet(qss("thumbnail_picker_grid"))
         self._grid.itemDoubleClicked.connect(self._on_double_click)
         self._grid.itemSelectionChanged.connect(self._update_status)
         self._grid.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
@@ -229,23 +221,7 @@ class ThumbnailFilePicker(QDialog):
                 self._sidebar.addItem(item)
 
     def _apply_menu_style(self, menu: QMenu) -> None:
-        menu.setStyleSheet("""
-            QMenu {
-                background-color: rgba(28, 32, 42, 0.95);
-                color: white;
-                border: 1px solid rgba(255, 255, 255, 0.15);
-                border-radius: 6px;
-                padding: 4px;
-            }
-            QMenu::item {
-                padding: 6px 20px;
-                border-radius: 4px;
-            }
-            QMenu::item:selected {
-                background-color: #5865f2;
-                color: white;
-            }
-        """)
+        menu.setStyleSheet(qss("thumbnail_picker_menu"))
 
     def _on_sidebar_context_menu(self, pos) -> None:
         item = self._sidebar.itemAt(pos)

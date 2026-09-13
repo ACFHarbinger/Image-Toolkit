@@ -22,6 +22,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from gui.src.theming.theme_api import qss
+
 logger = logging.getLogger(__name__)
 
 class CloudSettingsPane(QWidget):
@@ -41,7 +43,7 @@ class CloudSettingsPane(QWidget):
 
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
-        scroll_area.setStyleSheet("QScrollArea { border: none; background: transparent; }")
+        scroll_area.setStyleSheet(qss("pane_scroll_area"))
 
         container = QWidget()
         layout = QVBoxLayout(container)
@@ -50,7 +52,7 @@ class CloudSettingsPane(QWidget):
 
         # ── Google Cloud Settings ────────────────────────────────────────────
         group_gcd = QGroupBox("Google Cloud Run (GCD) Configuration")
-        group_gcd.setStyleSheet("QGroupBox { font-weight: bold; color: #f0f6fc; }")
+        group_gcd.setStyleSheet(qss("cloud_section_title"))
         gcd_layout = QFormLayout(group_gcd)
         gcd_layout.setContentsMargins(14, 14, 14, 14)
         gcd_layout.setSpacing(10)
@@ -76,7 +78,7 @@ class CloudSettingsPane(QWidget):
 
         # ── Cloudflare Settings ──────────────────────────────────────────────
         group_cf = QGroupBox("Cloudflare Workers & R2 Configuration")
-        group_cf.setStyleSheet("QGroupBox { font-weight: bold; color: #f0f6fc; }")
+        group_cf.setStyleSheet(qss("cloud_section_title"))
         cf_layout = QFormLayout(group_cf)
         cf_layout.setContentsMargins(14, 14, 14, 14)
         cf_layout.setSpacing(10)
@@ -102,7 +104,7 @@ class CloudSettingsPane(QWidget):
 
         # ── Oracle Cloud Settings ────────────────────────────────────────────
         group_oci = QGroupBox("Oracle Cloud Infrastructure (OCI) Configuration")
-        group_oci.setStyleSheet("QGroupBox { font-weight: bold; color: #f0f6fc; }")
+        group_oci.setStyleSheet(qss("cloud_section_title"))
         oci_layout = QFormLayout(group_oci)
         oci_layout.setContentsMargins(14, 14, 14, 14)
         oci_layout.setSpacing(10)
@@ -120,20 +122,12 @@ class CloudSettingsPane(QWidget):
         # ── Save / Test Actions ──────────────────────────────────────────────
         btn_layout = QHBoxLayout()
         self.btn_test_conn = QPushButton("🔌 Test Connection")
-        self.btn_test_conn.setStyleSheet(
-            "QPushButton { background-color: #21262d; color: #c9d1d9; border: 1px solid #30363d; "
-            "border-radius: 6px; padding: 8px 16px; font-size: 9pt; }"
-            "QPushButton:hover { background-color: #30363d; color: #f0f6fc; }"
-        )
+        self.btn_test_conn.setStyleSheet(qss("cloud_btn_secondary"))
         self.btn_test_conn.clicked.connect(self._on_test_connection)
         btn_layout.addWidget(self.btn_test_conn)
 
         self.btn_save = QPushButton("💾 Save to Vault")
-        self.btn_save.setStyleSheet(
-            "QPushButton { background-color: #1f6feb; color: white; font-weight: bold; "
-            "border-radius: 6px; padding: 8px 18px; font-size: 9.5pt; }"
-            "QPushButton:hover { background-color: #388bfd; }"
-        )
+        self.btn_save.setStyleSheet(qss("dialog_btn_primary"))
         self.btn_save.clicked.connect(self._on_save_to_vault)
         btn_layout.addWidget(self.btn_save)
 

@@ -1,5 +1,4 @@
-from .dropbox_drive_sync_worker import DropboxDriveSyncWorker
-from .google_drive_sync_worker import GoogleDriveSyncWorker
+from .cloud_drive_sync_worker import CloudDriveSyncWorker
 from .local_dir_sync_worker import (
     DEFAULT_EXCLUDES,
     ConflictPolicy,
@@ -8,16 +7,13 @@ from .local_dir_sync_worker import (
     LocalDirSyncWorker,
     SyncPlan,
 )
-from .one_drive_sync_worker import OneDriveSyncWorker
 
 __all__ = [
     "ConflictPolicy",
     "DEFAULT_EXCLUDES",
-    "DropboxDriveSyncWorker",
+    "CloudDriveSyncWorker",
     "FileDiff",
-    "GoogleDriveSyncWorker",
     "LocalDirSyncEngine",
     "LocalDirSyncWorker",
-    "OneDriveSyncWorker",
     "SyncPlan",
 ]

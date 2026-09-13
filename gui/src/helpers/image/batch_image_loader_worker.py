@@ -1,6 +1,11 @@
-import contextlib
+from __future__ import annotations
 
-import numpy as np
+import contextlib
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import numpy as np
+
 from backend.src.constants import HAS_NATIVE_IMAGING, THUMBNAIL_CACHE_DIR
 from backend.src.core import telemetry
 from PySide6.QtCore import QObject, Signal
@@ -21,6 +26,8 @@ if HAS_NATIVE_IMAGING:
 def _bgr_array_to_qimage(arr: np.ndarray) -> QImage:
     """base.load_image_batch returns HxWx3 BGR uint8 arrays (cv::imread order).
     Convert to a tightly-packed RGB buffer and copy it into a QImage."""
+    import numpy as np
+
     rgb = np.ascontiguousarray(arr[:, :, ::-1])
     h, w = rgb.shape[0], rgb.shape[1]
     q_img = QImage(rgb.data, w, h, rgb.strides[0], QImage.Format.Format_RGB888)
@@ -50,13 +57,14 @@ def native_load_batch(paths: list[str], target_size: int) -> list[tuple[str, QIm
         try:
             with telemetry.NATIVE_IMAGE_BATCH_LOCK:
                 raw = base.load_image_batch(  # pyrefly: ignore [missing-attribute]
-                    paths, target_size, target_size, True,
-                    True, str(THUMBNAIL_CACHE_DIR),
+                    paths,
+                    target_size,
+                    target_size,
+                    True,
+                    True,
+                    str(THUMBNAIL_CACHE_DIR),
                 )
-            return [
-                (p, _rgb_array_to_qimage(a) if a is not None and not e else None, e)
-                for p, a, e in raw
-            ]
+            return [(p, _rgb_array_to_qimage(a) if a is not None and not e else None, e) for p, a, e in raw]
         except TypeError:
             _NATIVE_SUPPORTS_RGB_CACHE = False
 
@@ -64,10 +72,7 @@ def native_load_batch(paths: list[str], target_size: int) -> list[tuple[str, QIm
         raw = base.load_image_batch(  # pyrefly: ignore [missing-attribute]
             paths, target_size, target_size, True
         )
-    return [
-        (p, _bgr_array_to_qimage(a) if a is not None and not e else None, e)
-        for p, a, e in raw
-    ]
+    return [(p, _bgr_array_to_qimage(a) if a is not None and not e else None, e) for p, a, e in raw]
 
 
 class _BatchLoaderSignalsStream(QObject):

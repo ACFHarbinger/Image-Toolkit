@@ -10,6 +10,14 @@ DIALOG_OPTS = QFileDialog.Option.DontUseNativeDialog
 # Previously redeclared identically in two entity_recon_tab files.
 RECON_IMAGE_FILTER = "Images (*.png *.jpg *.jpeg *.webp *.bmp)"
 
+# Danbooru-style rating badge colors (gallery delegate overlays).
+RATING_COLORS: dict[str, str] = {
+    "g": "#55c57a",
+    "s": "#38bdf8",
+    "q": "#fb923c",
+    "e": "#f87171",
+}
+
 # UI Behavior
 ZOOM_STEP = 1.1
 LAG_COMPENSATION_MS = 300

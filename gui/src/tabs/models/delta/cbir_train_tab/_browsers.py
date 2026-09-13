@@ -5,28 +5,29 @@ Extracted from ``cbir_train_tab.py`` -- pure code motion, no logic change.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, cast
+from PySide6.QtWidgets import QFileDialog, QLineEdit
 
-from PySide6.QtWidgets import QFileDialog, QLineEdit, QWidget
-
-if TYPE_CHECKING:
-    from ...protos.cbir_train_tab import CBIRTrainTabHostProtocol
+from ._tab_bound import TabBoundController
 
 
-class _BrowsersMixin:
+class CBIRTrainBrowsersController(TabBoundController):
     """Browse dialogs for dataset/output/index directories and checkpoints."""
 
-    def _browse_dir(self: "CBIRTrainTabHostProtocol", line_edit: QLineEdit) -> None:
+    def _browse_dir(self, line_edit: QLineEdit) -> None:
         d = QFileDialog.getExistingDirectory(
-            cast(QWidget, self), "Select directory", line_edit.text() or ".",
+            self.tab,
+            "Select directory",
+            line_edit.text() or ".",
             QFileDialog.Option.DontUseNativeDialog,
         )
         if d:
             line_edit.setText(d)
 
-    def _browse_checkpoint(self: "CBIRTrainTabHostProtocol") -> None:
+    def _browse_checkpoint(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
-            cast(QWidget, self), "Select CBIR checkpoint", self._out_dir.text(),
+            self.tab,
+            "Select CBIR checkpoint",
+            self._out_dir.text(),
             "PyTorch checkpoints (*.pt *.pth)",
             options=QFileDialog.Option.DontUseNativeDialog,
         )
@@ -34,4 +35,7 @@ class _BrowsersMixin:
             self._ckpt_path.setText(path)
 
 
-__all__ = ["_BrowsersMixin"]
+# COMPAT(ui-arch-23): legacy mixin alias
+_BrowsersMixin = CBIRTrainBrowsersController
+
+__all__ = ["CBIRTrainBrowsersController", "_BrowsersMixin"]

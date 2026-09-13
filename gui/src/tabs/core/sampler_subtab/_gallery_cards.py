@@ -7,8 +7,10 @@ The found/selected card grids are replaced by a ``VirtualDualGallery``
 
 from __future__ import annotations
 
+from ._tab_bound import TabBoundController
 
-class _GalleryCardsMixin:
+
+class SamplerGalleryCardsController(TabBoundController):
     """Gallery refresh/selection mapping onto the virtual dual gallery."""
 
     def on_selection_changed(self):
@@ -38,4 +40,7 @@ class _GalleryCardsMixin:
         self.on_selection_changed()
 
 
-__all__ = ["_GalleryCardsMixin"]
+# COMPAT(ui-arch-23): legacy mixin alias
+_GalleryCardsMixin = SamplerGalleryCardsController
+
+__all__ = ["SamplerGalleryCardsController", "_GalleryCardsMixin"]

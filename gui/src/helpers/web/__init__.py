@@ -1,5 +1,4 @@
-from .cloud.dropbox_drive_sync_worker import DropboxDriveSyncWorker
-from .cloud.google_drive_sync_worker import GoogleDriveSyncWorker
+from .cloud.cloud_drive_sync_worker import CloudDriveSyncWorker
 from .cloud.local_dir_sync_worker import (
     DEFAULT_EXCLUDES,
     ConflictPolicy,
@@ -8,7 +7,6 @@ from .cloud.local_dir_sync_worker import (
     LocalDirSyncWorker,
     SyncPlan,
 )
-from .cloud.one_drive_sync_worker import OneDriveSyncWorker
 from .image_crawl_worker import ImageCrawlWorker
 from .mal_sync_worker import MalSyncWorker
 from .media_loader_worker import MediaLoaderWorker
@@ -24,12 +22,10 @@ from .web_requests_worker import WebRequestsWorker
 __all__ = [
     "ConflictPolicy",
     "DEFAULT_EXCLUDES",
-    "DropboxDriveSyncWorker",
+    "CloudDriveSyncWorker",
     "FileDiff",
-    "GoogleDriveSyncWorker",
     "LocalDirSyncEngine",
     "LocalDirSyncWorker",
-    "OneDriveSyncWorker",
     "ImageCrawlWorker",
     "MalSyncWorker",
     "MediaLoaderWorker",

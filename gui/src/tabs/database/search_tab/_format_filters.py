@@ -11,9 +11,11 @@ from typing import List, Optional
 from PySide6.QtCore import Slot
 
 from ....styles import apply_shadow_effect
+from ....theming.theme_api import color
+from ._tab_bound import TabBoundController
 
 
-class _FormatFiltersMixin:
+class SearchFormatFiltersController(TabBoundController):
     """Toggle/add-all/remove-all image-format filter buttons."""
 
     def toggle_format(self, fmt, checked):
@@ -25,7 +27,7 @@ class _FormatFiltersMixin:
         # Theme QSS handles :checked/:hover states; no inline styles needed
         apply_shadow_effect(
             self.format_buttons[fmt],
-            color_hex="#000000",
+            color_hex=color("window_bg"),
             radius=8,
             x_offset=0,
             y_offset=3,
@@ -52,11 +54,7 @@ class _FormatFiltersMixin:
             formats_str = self.input_formats_edit.text().strip()
             if not formats_str:
                 return None
-            return [
-                f.strip().lstrip(".").lower()
-                for f in formats_str.replace(",", " ").split()
-                if f.strip()
-            ]
+            return [f.strip().lstrip(".").lower() for f in formats_str.replace(",", " ").split() if f.strip()]
 
 
-__all__ = ["_FormatFiltersMixin"]
+__all__ = ["SearchFormatFiltersController"]

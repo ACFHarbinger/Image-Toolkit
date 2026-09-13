@@ -4,6 +4,8 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QImageReader, QPainter, QPainterPath
 from PySide6.QtWidgets import QFrame, QLabel, QVBoxLayout
 
+from gui.src.theming.theme_api import qss
+
 
 class MetadataOverlay(QFrame):
     """Semi-transparent overlay showing file info on hover (GUI/UX §2.14B)."""
@@ -13,7 +15,7 @@ class MetadataOverlay(QFrame):
         self.file_path = file_path
 
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
-        self.setStyleSheet("background-color: transparent;")
+        self.setStyleSheet(qss("transparent_bg"))
         self.hide()
 
         self._setup_ui()
@@ -27,14 +29,14 @@ class MetadataOverlay(QFrame):
         layout.setSpacing(2)
 
         self.filename_label = QLabel()
-        self.filename_label.setStyleSheet("color: white; font-weight: bold; font-size: 11px;")
+        self.filename_label.setStyleSheet(qss("metadata_filename"))
         self.filename_label.setWordWrap(True)
 
         self.dim_label = QLabel()
-        self.dim_label.setStyleSheet("color: #cccccc; font-size: 10px;")
+        self.dim_label.setStyleSheet(qss("metadata_detail"))
 
         self.size_label = QLabel()
-        self.size_label.setStyleSheet("color: #cccccc; font-size: 10px;")
+        self.size_label.setStyleSheet(qss("metadata_detail"))
 
         layout.addWidget(self.filename_label)
         layout.addWidget(self.dim_label)

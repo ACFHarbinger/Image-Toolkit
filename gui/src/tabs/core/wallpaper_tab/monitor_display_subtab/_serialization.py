@@ -9,26 +9,21 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from ..graph.data_schema import GraphData
+from ._tab_bound import TabBoundController
 
 if TYPE_CHECKING:
     from ...protos.monitor_display_subtab import MonitorDisplaySubTabHostProtocol
 
 
-class _SerializationMixin:
+class MonitorDisplaySerializationController(TabBoundController):
     """Serialize/restore per-monitor graphs and the tab's saved config."""
 
     def collect_graphs(self: "MonitorDisplaySubTabHostProtocol") -> dict:
         self._persist_current()
-        return {
-            mid: g.to_dict()
-            for mid, g in self._graphs.items()
-        }
+        return {mid: g.to_dict() for mid, g in self._graphs.items()}
 
     def restore_graphs(self: "MonitorDisplaySubTabHostProtocol", data: dict):
-        self._graphs = {
-            mid: GraphData.from_dict(gd)
-            for mid, gd in data.items()
-        }
+        self._graphs = {mid: GraphData.from_dict(gd) for mid, gd in data.items()}
         # Reload current monitor's graph if applicable
         if self._current_monitor_id and self._current_monitor_id in self._graphs:
             graph = self._graphs[self._current_monitor_id]
@@ -55,4 +50,8 @@ class _SerializationMixin:
             self._read_end_behavior_to_graph(graph)
 
 
-__all__ = ["_SerializationMixin"]
+__all__ = ["MonitorDisplaySerializationController"]
+
+_SerializationMixin = (
+    MonitorDisplaySerializationController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
+)

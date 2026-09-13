@@ -13,7 +13,7 @@ from unittest.mock import patch
 import pytest
 from PySide6.QtWidgets import QMessageBox
 
-from gui.src.tabs.core.format_subtab import FormatSubTab
+from gui.src.tabs.core.media_convert_subtab import FormatSubTab
 
 pytestmark = pytest.mark.gui
 
@@ -63,10 +63,10 @@ def test_delete_rebuilds_both_panels(q_app, tmp_path):
     tab = _make_tab(q_app, tmp_path, n=8)
     tab.selected_files = [tab.found_files[0]]
     with patch(
-        "gui.src.tabs.core.format_subtab._preview_context.QMessageBox.question",
+        "gui.src.tabs.core.media_convert_subtab._format_preview_context.QMessageBox.question",
         return_value=QMessageBox.StandardButton.Yes,
     ), patch(
-        "gui.src.tabs.core.format_subtab._preview_context.send2trash",
+        "gui.src.tabs.core.media_convert_subtab._format_preview_context.send2trash",
     ):
         tab.handle_delete_image(tab.found_files[0])
     assert tab.found_files[0] != "img_0000"

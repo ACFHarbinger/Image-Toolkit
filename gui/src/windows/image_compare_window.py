@@ -37,6 +37,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from gui.src.theming.theme_api import qss
+
 from .window_manager import register_window
 
 logger = logging.getLogger(__name__)
@@ -69,10 +71,7 @@ class SynchronizedImagePane(QWidget):
 
         # Header badge
         self.header = QLabel()
-        self.header.setStyleSheet(
-            "background: rgba(30, 33, 36, 0.7); color: #dcddde; "
-            "padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold;"
-        )
+        self.header.setStyleSheet(qss("image_compare_pane_header"))
         self._update_header()
         layout.addWidget(self.header)
 
@@ -80,7 +79,7 @@ class SynchronizedImagePane(QWidget):
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
         self.scroll_area.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self.scroll_area.setStyleSheet("QScrollArea { border: 1px solid rgba(255, 255, 255, 0.1); background: #18191c; }")
+        self.scroll_area.setStyleSheet(qss("image_compare_scroll"))
 
         self.image_label = QLabel()
         self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -305,7 +304,7 @@ class ImageCompareWindow(QDialog):
 
         # 2. Overlay / Difference Context Sub-bar
         self.sub_bar = QFrame()
-        self.sub_bar.setStyleSheet("background: rgba(40, 43, 48, 0.6); border-radius: 4px;")
+        self.sub_bar.setStyleSheet(qss("image_compare_subbar"))
         sub_layout = QHBoxLayout(self.sub_bar)
         sub_layout.setContentsMargins(8, 4, 8, 4)
 
@@ -363,7 +362,7 @@ class ImageCompareWindow(QDialog):
         # Mode 2 & 3: Single Viewport (Overlay & Difference)
         self.single_viewport_scroll = QScrollArea()
         self.single_viewport_scroll.setWidgetResizable(True)
-        self.single_viewport_scroll.setStyleSheet("QScrollArea { border: 1px solid rgba(255, 255, 255, 0.1); background: #18191c; }")
+        self.single_viewport_scroll.setStyleSheet(qss("image_compare_scroll"))
         self.single_viewport_label = QLabel()
         self.single_viewport_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.single_viewport_scroll.setWidget(self.single_viewport_label)

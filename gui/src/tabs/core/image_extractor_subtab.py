@@ -38,6 +38,8 @@ from gui.src.components.tag_chip_widget import FlowLayout
 from gui.src.constants.elements import _MAX_SCALE, _MIN_SCALE, SUPPORTED_IMAGE_FILTER
 from gui.src.styles import set_button_role
 
+from ...theming.theme_api import color, qss
+
 # Absolute zoom bounds for the canvas. 0.01x shows a ~40k-pixel-tall strip
 # whole; 80x makes a single source pixel ~80 screen pixels wide, which is
 # far past what is needed to eyeball a boundary to +/-1 px.
@@ -68,8 +70,8 @@ class FrameSliceCanvas(QGraphicsView):
         self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
         self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
         self.setResizeAnchor(QGraphicsView.ViewportAnchor.AnchorViewCenter)
-        self.setBackgroundBrush(QColor("#1e1f22"))
-        self.setStyleSheet("border: 1px solid #4f545c; border-radius: 4px;")
+        self.setBackgroundBrush(QColor(color("window_bg")))
+        self.setStyleSheet(qss("extractor_scene_border"))
         self.setMinimumHeight(420)
 
     # --- Image / overlay management ---
@@ -102,14 +104,14 @@ class FrameSliceCanvas(QGraphicsView):
         if self._pixmap_item is None:
             return
 
-        colors = (QColor("#00e5ff"), QColor("#ff4dff"))
+        colors = (QColor(color("accent")), QColor(color("accent_hover")))
         for i, rect in enumerate(rects):
             pen = QPen(colors[i % 2])
             pen.setCosmetic(True)  # stays 1 device px wide at any zoom
             item = self._scene.addRect(QRectF(rect), pen)
             self._overlay_items.append(item)
 
-        leftover_pen = QPen(QColor("#ffc107"))
+        leftover_pen = QPen(QColor(color("accent_hover")))
         leftover_pen.setCosmetic(True)
         leftover_pen.setStyle(Qt.PenStyle.DashLine)
         for rect in leftover:
@@ -360,7 +362,7 @@ class ImageExtractorSubTab(QWidget):
         zoom_hint = QLabel(
             "Wheel: zoom (cursor-anchored) · Drag: pan · Double-click: toggle overview / pixel view"
         )
-        zoom_hint.setStyleSheet("color: #888; font-size: 10px; font-style: italic;")
+        zoom_hint.setStyleSheet(qss("extractor_zoom_hint"))
         # Word-wrap so the label's minimum width is one word, not the whole
         # sentence -- otherwise this row alone pushes the tab past the app's
         # 800px minimum width.
@@ -368,7 +370,7 @@ class ImageExtractorSubTab(QWidget):
         zoom_bar.addWidget(zoom_hint, 1)
         zoom_bar.addStretch()
         self.info_label = QLabel("No image loaded.")
-        self.info_label.setStyleSheet("color: #00BCD4; font-weight: bold;")
+        self.info_label.setStyleSheet(qss("extractor_info_label"))
         zoom_bar.addWidget(self.info_label)
         canvas_layout.addLayout(zoom_bar)
 
@@ -396,7 +398,7 @@ class ImageExtractorSubTab(QWidget):
         actions_layout.addWidget(self.progress_bar, 1)
 
         self.status_label = QLabel("")
-        self.status_label.setStyleSheet("color: #aaa; font-style: italic;")
+        self.status_label.setStyleSheet(qss("muted_label"))
         actions_layout.addWidget(self.status_label, 1)
         layout.addLayout(actions_layout)
 

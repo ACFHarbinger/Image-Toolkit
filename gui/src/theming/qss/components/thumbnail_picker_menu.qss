@@ -1,0 +1,8 @@
+QMenu {
+    background-color: $DARK_SECONDARY_BG;
+    color: $DARK_TEXT;
+    border: 1px solid $DARK_BORDER;
+}
+QMenu::item:selected {
+    background-color: $DARK_ACCENT_COLOR;
+}

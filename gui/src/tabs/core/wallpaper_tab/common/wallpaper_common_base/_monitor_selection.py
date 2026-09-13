@@ -13,7 +13,7 @@ from PySide6.QtCore import QEvent
 from PySide6.QtWidgets import QApplication, QGroupBox, QLabel, QVBoxLayout, QWidget
 
 from ......components import DraggableMonitorContainer, MonitorDropView
-from ......styles import STYLE_START_ACTION
+from ......theming.theme_api import color, qss
 
 if TYPE_CHECKING:
     from ....protos.wallpaper_common_base import WallpaperCommonBaseHostProtocol
@@ -118,9 +118,9 @@ class _MonitorSelectionMixin:
 
         if in_queue:
             if is_selected:
-                label.setStyleSheet("border: 3px solid #2ecc71; background-color: rgba(88, 101, 242, 0.4);")
+                label.setStyleSheet(qss("monitor_label_ok_active"))
             else:
-                label.setStyleSheet("border: 3px solid #2ecc71; background-color: rgba(46, 204, 113, 0.15);")
+                label.setStyleSheet(qss("monitor_label_ok"))
 
     def _refresh_gallery_highlights(self: "WallpaperCommonBaseHostProtocol"):
         for path, widget in self.path_to_card_widget.items():
@@ -190,7 +190,7 @@ class _MonitorSelectionMixin:
         if target.current_wallpaper_worker:
             return
 
-        btn.setStyleSheet(STYLE_START_ACTION)
+        btn.setStyleSheet(qss("start_action_btn"))
         target_monitor_ids = list(target.monitor_widgets.keys())
         num_monitors = len(target_monitor_ids)
         set_count = sum(
@@ -201,7 +201,7 @@ class _MonitorSelectionMixin:
         is_ready, total_images = target._is_slideshow_validation_ready()
 
         bg_type = getattr(target, "background_type", "Image")
-        solid_color_hex = getattr(target, "solid_color_hex", "#000000")
+        solid_color_hex = getattr(target, "solid_color_hex", color("window_bg"))
 
         if bg_type == "Solid Color":
             btn.setText(f"Set Solid Color ({solid_color_hex})")

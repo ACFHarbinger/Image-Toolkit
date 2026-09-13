@@ -1,0 +1,3 @@
+background: $DARK_SECONDARY_BG;
+border-radius: 6px;
+border: none;

@@ -1,0 +1,4 @@
+QListWidget {
+    border: 1px solid $DARK_BORDER;
+    border-radius: 4px;
+}

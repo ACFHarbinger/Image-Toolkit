@@ -13,10 +13,14 @@ C++ HNSW and torch forward passes release the GIL; progress/results flow to
 the GUI thread through queued Qt signals.
 """
 
-import logging
-from typing import List
+from __future__ import annotations
 
-import numpy as np
+import logging
+from typing import TYPE_CHECKING, List
+
+if TYPE_CHECKING:
+    import numpy as np
+
 from backend.src.web.recon import DatasetIndexer, ReconConfig, ReconEngine
 from PySide6.QtCore import Signal
 

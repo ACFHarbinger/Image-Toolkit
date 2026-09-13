@@ -44,7 +44,7 @@ class TestStartupExtractionDir:
     def test_uses_saved_extraction_dir_when_present(self, q_app, tmp_path, monkeypatch):
         """With a previously-browsed extraction dir saved in the session, the
         startup prefs must point extraction_dir at it (not the default)."""
-        from gui.src.windows.main._startup_prefs import _StartupPrefsMixin
+        from gui.src.windows.main._startup_prefs import MainStartupPrefsController
 
         tab = self._make_tab(tmp_path)
         saved_dir = tmp_path / "MyGifs"
@@ -52,16 +52,13 @@ class TestStartupExtractionDir:
         tab._save_last_extraction_dir(str(saved_dir))
 
         harness = _Harness(tab, {"thumbnail_size": 180})
-        mixin = _StartupPrefsMixin()
-        mixin.__dict__.update(harness.__dict__)
-
-        mixin._apply_startup_preferences()
+        MainStartupPrefsController(harness)._apply_startup_preferences()
 
         assert tab.extraction_dir == saved_dir
         assert tab.line_edit_extract_dir.text() == str(saved_dir)
 
     def test_falls_back_to_default_when_no_saved_dir(self, q_app, tmp_path, monkeypatch):
-        from gui.src.windows.main._startup_prefs import _StartupPrefsMixin
+        from gui.src.windows.main._startup_prefs import MainStartupPrefsController
 
         tab = self._make_tab(tmp_path)
         # Ensure no stale saved dir from a previous test leaks in.
@@ -69,10 +66,7 @@ class TestStartupExtractionDir:
         monkeypatch.setattr(tab, "_load_last_extraction_dir", lambda *a, **k: "")
 
         harness = _Harness(tab, {"thumbnail_size": 180})
-        mixin = _StartupPrefsMixin()
-        mixin.__dict__.update(harness.__dict__)
-
-        mixin._apply_startup_preferences()
+        MainStartupPrefsController(harness)._apply_startup_preferences()
 
         default = Path(LOCAL_SOURCE_PATH) / "Frames"
         assert tab.extraction_dir == default

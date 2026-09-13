@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import pytest
 
-from gui.src.tabs.core.codec_subtab import CodecSubTab
+from gui.src.tabs.core.media_convert_subtab import CodecSubTab
 
 pytestmark = pytest.mark.gui
 

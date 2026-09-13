@@ -1,0 +1,57 @@
+QWidget {
+    background-color: $BG_COLOR;
+    color: $TEXT_COLOR;
+    font-family: 'Inter', Arial, sans-serif;
+}
+#TitleLabel {
+    font-size: 16pt;
+    font-weight: bold;
+    color: $TITLE_COLOR;
+}
+#GuestInfoLabel {
+    color: $GUEST_INFO_COLOR;
+    font-size: 10pt;
+    font-style: italic;
+}
+QLineEdit {
+    background-color: $INPUT_BG;
+    border: 1px solid $INPUT_BORDER;
+    padding: 8px;
+    border-radius: 5px;
+    color: $TEXT_COLOR;
+}
+QPushButton {
+    background-color: $BTN_BG;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 5px;
+    font-weight: bold;
+    color: white;
+}
+QPushButton:hover {
+    background-color: $BTN_HOVER;
+}
+#ThemeButton {
+    background-color: transparent;
+    color: $THEME_BTN_COLOR;
+    font-size: 16pt;
+    padding: 0;
+    border: none;
+}
+#ThemeButton:hover {
+    color: $BTN_HOVER;
+}
+#GuestToggleButton {
+    background-color: $GUEST_TOGGLE_BG;
+    border: none;
+    padding: 6px 16px;
+    border-radius: 12px;
+    font-weight: bold;
+    font-size: 9pt;
+    color: white;
+    min-width: 120px;
+    max-width: 160px;
+}
+#GuestToggleButton:hover {
+    background-color: $GUEST_TOGGLE_HOVER;
+}

@@ -1,0 +1,10 @@
+QProgressBar {
+    color: $DARK_MUTED_TEXT;
+    border: 1px solid $DARK_BORDER;
+    border-radius: 4px;
+    font-size: 10px;
+}
+QProgressBar::chunk {
+    background-color: $DARK_ACCENT_COLOR;
+    border-radius: 4px;
+}

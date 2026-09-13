@@ -1,0 +1,10 @@
+QLineEdit {
+    padding: 5px;
+    border-radius: 4px;
+    border: 1px solid $DARK_BORDER;
+    background-color: $DARK_SECONDARY_BG;
+    color: $DARK_TEXT;
+}
+QLineEdit:focus {
+    border: 1px solid $DARK_ACCENT_COLOR;
+}

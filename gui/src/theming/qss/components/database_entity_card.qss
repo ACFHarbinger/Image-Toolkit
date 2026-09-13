@@ -1,0 +1,10 @@
+QWidget#entity_card {
+    background: rgba(20, 24, 32, 0.45);
+    border: 2px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+}
+QWidget#entity_card:hover {
+    border: 2px solid $DARK_ACCENT_COLOR;
+    background: rgba(28, 34, 46, 0.60);
+}
+$OPTIONAL_BORDER

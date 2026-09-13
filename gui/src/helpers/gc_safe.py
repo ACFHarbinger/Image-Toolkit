@@ -36,31 +36,36 @@ from typing import Any
 
 __all__ = ["gc_disabled", "gc_disabled_run"]
 
-_gc_lock = threading.Lock()
-_gc_disabled_count = 0
-_initial_gc_enabled = True
+
+_state_lock = threading.Lock()
+_active_guards = 0
+_restore_enabled = True
 
 
 @contextmanager
 def gc_disabled() -> Iterator[None]:
     """Run the enclosed block with the cyclic GC disabled.
 
-    Thread-safe refcounted: ensures that when multiple worker threads run
-    concurrently, one thread finishing does not prematurely re-enable GC
-    while other worker threads are still executing.
+    Process-level coordinator (R1.1, #556): overlapping guards nest by
+    count — only the outermost entry disables, only the outermost exit
+    restores the state captured at that entry. An inner guard exiting
+    while an outer one is still active must NOT re-enable collection,
+    or a worker thread could finalize GUI garbage off the GUI thread
+    (the #478 crash class). Leaving an already-disabled collector
+    disabled is preserved.
     """
-    global _gc_disabled_count, _initial_gc_enabled
-    with _gc_lock:
-        if _gc_disabled_count == 0:
-            _initial_gc_enabled = gc.isenabled()
+    global _active_guards, _restore_enabled
+    with _state_lock:
+        if _active_guards == 0:
+            _restore_enabled = gc.isenabled()
             gc.disable()
-        _gc_disabled_count += 1
+        _active_guards += 1
     try:
         yield
     finally:
-        with _gc_lock:
-            _gc_disabled_count -= 1
-            if _gc_disabled_count == 0 and _initial_gc_enabled:
+        with _state_lock:
+            _active_guards -= 1
+            if _active_guards == 0 and _restore_enabled:
                 gc.enable()
 
 

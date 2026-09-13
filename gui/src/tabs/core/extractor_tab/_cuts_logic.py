@@ -5,7 +5,7 @@ Extracted from ``extractor_tab.py`` -- pure code motion, no logic change.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QPoint, Qt, Slot
 from PySide6.QtGui import QAction
@@ -20,6 +20,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from ....theming.theme_api import qss
+from ._tab_bound import TabBoundController
+
 if TYPE_CHECKING:
     from ..protos.extractor_tab import VideoExtractorSubTabHostProtocol
 
@@ -29,7 +32,7 @@ if TYPE_CHECKING:
 # here would create a circular import when this module is loaded first.
 
 
-class _CutsLogicMixin:
+class ExtractorCutsLogicController(TabBoundController):
     """Extraction range and mid-clip cut segments, and their UI row."""
 
     def _build_cuts_row(self: "VideoExtractorSubTabHostProtocol") -> QHBoxLayout:
@@ -58,10 +61,10 @@ class _CutsLogicMixin:
         self.cuts_scroll.setVerticalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff
         )
-        self.cuts_scroll.setStyleSheet("background: transparent;")
+        self.cuts_scroll.setStyleSheet(qss("transparent_bg"))
 
         self.cuts_container = QWidget()
-        self.cuts_container.setStyleSheet("background: transparent;")
+        self.cuts_container.setStyleSheet(qss("transparent_bg"))
         self.cuts_layout = QHBoxLayout(self.cuts_container)
         self.cuts_layout.setContentsMargins(0, 5, 0, 5)
         self.cuts_layout.setSpacing(8)
@@ -152,7 +155,7 @@ class _CutsLogicMixin:
 
         if not self.cuts_ms:
             none_label = QLabel("Cuts: None")
-            none_label.setStyleSheet("color: #666; font-style: italic;")
+            none_label.setStyleSheet(qss("muted_label"))
             self.cuts_layout.addWidget(none_label)
             self.btn_clear_cuts.setEnabled(False)
         else:
@@ -171,15 +174,15 @@ class _CutsLogicMixin:
 
     @Slot(QPoint, int)
     def show_cut_context_menu(self: "VideoExtractorSubTabHostProtocol", global_pos: QPoint, index: int):
-        menu = QMenu(cast(QWidget, self))
+        menu = QMenu(self.tab)
 
-        edit_start_action = QAction("Edit Start Timestamp", cast(QWidget, self))
+        edit_start_action = QAction("Edit Start Timestamp", self.tab)
         edit_start_action.triggered.connect(
             lambda: self.edit_cut_timestamp(index, is_start=True)
         )
         menu.addAction(edit_start_action)
 
-        edit_end_action = QAction("Edit End Timestamp", cast(QWidget, self))
+        edit_end_action = QAction("Edit End Timestamp", self.tab)
         edit_end_action.triggered.connect(
             lambda: self.edit_cut_timestamp(index, is_start=False)
         )
@@ -187,13 +190,13 @@ class _CutsLogicMixin:
 
         menu.addSeparator()
 
-        jump_start_action = QAction("Jump to Start", cast(QWidget, self))
+        jump_start_action = QAction("Jump to Start", self.tab)
         jump_start_action.triggered.connect(
             lambda: self.jump_to_cut_time(index, is_start=True)
         )
         menu.addAction(jump_start_action)
 
-        jump_end_action = QAction("Jump to End", cast(QWidget, self))
+        jump_end_action = QAction("Jump to End", self.tab)
         jump_end_action.triggered.connect(
             lambda: self.jump_to_cut_time(index, is_start=False)
         )
@@ -201,7 +204,7 @@ class _CutsLogicMixin:
 
         menu.addSeparator()
 
-        delete_action = QAction("Delete Cut", cast(QWidget, self))
+        delete_action = QAction("Delete Cut", self.tab)
         delete_action.triggered.connect(lambda: self.delete_cut(index))
         menu.addAction(delete_action)
         menu.exec(global_pos)
@@ -218,7 +221,7 @@ class _CutsLogicMixin:
                 else "New End Time (MM:SS:mmm):"
             )
             new_time_str, ok = QInputDialog.getText(
-                cast(QWidget, self), "Edit Cut", label_text, text=formatted
+                self.tab, "Edit Cut", label_text, text=formatted
             )
 
             if ok and new_time_str:
@@ -229,7 +232,7 @@ class _CutsLogicMixin:
                             self.cuts_ms[index] = (new_ms, current_end)
                         else:
                             QMessageBox.warning(
-                                cast(QWidget, self),
+                                self.tab,
                                 "Invalid Time",
                                 "Start time must be before end time.",
                             )
@@ -238,14 +241,14 @@ class _CutsLogicMixin:
                             self.cuts_ms[index] = (current_start, new_ms)
                         else:
                             QMessageBox.warning(
-                                cast(QWidget, self),
+                                self.tab,
                                 "Invalid Time",
                                 "End time must be after start time.",
                             )
                     self._update_cuts_label()
                 else:
                     QMessageBox.warning(
-                        cast(QWidget, self),
+                        self.tab,
                         "Invalid Format",
                         "Please use MM:SS:mmm, MM:SS, or SS formats.",
                     )
@@ -261,4 +264,5 @@ class _CutsLogicMixin:
             self._update_cuts_label()
 
 
-__all__ = ["_CutsLogicMixin"]
+__all__ = ["ExtractorCutsLogicController"]
+

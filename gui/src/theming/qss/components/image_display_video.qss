@@ -1,0 +1,5 @@
+QLabel {
+    background-color: rgba(20, 24, 32, 0.35);
+    border: 2px solid $DARK_ACCENT_COLOR;
+    border-radius: 8px;
+}

@@ -1,0 +1,2 @@
+QTabBar::tab { min-width: 110px; padding: 6px 10px; }
+QTabBar::tab:selected { background: $DARK_ACCENT_COLOR; color: white; border-radius: 4px; }

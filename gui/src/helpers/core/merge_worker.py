@@ -3,7 +3,6 @@ from typing import Any, Dict, List, Union
 
 from backend.src.constants import SUPPORTED_IMG_FORMATS
 from backend.src.core import FSETool, ImageMerger
-from PIL import Image as PILImage
 from PySide6.QtCore import Signal
 
 from gui.src.helpers.base import BaseQThreadWorker
@@ -40,9 +39,7 @@ class MergeWorker(BaseQThreadWorker):
                     image_files.append(path)
             elif os.path.isdir(path):
                 for fmt in formats:
-                    image_files.extend(
-                        FSETool.get_files_by_extension(path, fmt, recursive=False)
-                    )
+                    image_files.extend(FSETool.get_files_by_extension(path, fmt, recursive=False))
 
         image_files = list(dict.fromkeys(input_paths))
         if not image_files:
@@ -75,13 +72,15 @@ class MergeWorker(BaseQThreadWorker):
     def _run_canvas_composite(self, output_path: str) -> object:
         """PIL-based free-placement composite from canvas layout."""
         layout: List[Dict[str, Any]] | object | Any = self.config.get("canvas_layout", [])
-        assert hasattr(layout, '__len__')
-        if len(layout) < 2: # pyrefly: ignore [bad-argument-type]
+        assert hasattr(layout, "__len__")
+        if len(layout) < 2:  # pyrefly: ignore [bad-argument-type]
             raise RuntimeError("Need at least 2 images on the canvas.")
 
-        canvas_w: int = self.config.get("canvas_width", 1920) # pyrefly: ignore [bad-assignment]
-        canvas_h: int = self.config.get("canvas_height", 1080) # pyrefly: ignore [bad-assignment]
-        bg: str = self.config.get("canvas_background", "transparent") # pyrefly: ignore [bad-assignment]
+        from PIL import Image as PILImage
+
+        canvas_w: int = self.config.get("canvas_width", 1920)  # pyrefly: ignore [bad-assignment]
+        canvas_h: int = self.config.get("canvas_height", 1080)  # pyrefly: ignore [bad-assignment]
+        bg: str = self.config.get("canvas_background", "transparent")  # pyrefly: ignore [bad-assignment]
         if bg == "white":
             result = PILImage.new("RGBA", (canvas_w, canvas_h), (255, 255, 255, 255))
         elif bg == "black":
@@ -89,8 +88,8 @@ class MergeWorker(BaseQThreadWorker):
         else:
             result = PILImage.new("RGBA", (canvas_w, canvas_h), (0, 0, 0, 0))
 
-        total = len(layout) # pyrefly: ignore [bad-argument-type]
-        for i, item in enumerate(layout): # pyrefly: ignore [bad-argument-type]
+        total = len(layout)  # pyrefly: ignore [bad-argument-type]
+        for i, item in enumerate(layout):  # pyrefly: ignore [bad-argument-type]
             if self._cancelled:
                 return None
 

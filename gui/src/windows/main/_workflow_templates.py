@@ -30,8 +30,12 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
+from gui.src.contracts.tab_config import ConfigSettable
 
-class _WorkflowTemplatesMixin:
+from ._window_bound import WindowBoundController
+
+
+class MainWorkflowTemplatesController(WindowBoundController):
     """Build, save, and run cross-tab workflow templates."""
 
     # ------------------------------------------------------------------
@@ -48,7 +52,7 @@ class _WorkflowTemplatesMixin:
 
     def _save_workflow_templates(self, templates: dict) -> bool:
         if not self.vault_manager:
-            QMessageBox.critical(self, "Workflow Templates", "Vault manager is not available.")
+            QMessageBox.critical(self.tab, "Workflow Templates", "Vault manager is not available.")
             return False
         try:
             creds = self.vault_manager.load_account_credentials()
@@ -57,7 +61,7 @@ class _WorkflowTemplatesMixin:
             self._refresh_account_credentials(creds)
             return True
         except Exception as e:
-            QMessageBox.critical(self, "Workflow Templates", f"Failed to save workflow templates:\n{e}")
+            QMessageBox.critical(self.tab, "Workflow Templates", f"Failed to save workflow templates:\n{e}")
             return False
 
     # ------------------------------------------------------------------
@@ -67,7 +71,7 @@ class _WorkflowTemplatesMixin:
         """Ctrl+Shift+M: list saved workflow templates with Run/New/Delete."""
         templates = self._load_workflow_templates()
 
-        dlg = QDialog(self)
+        dlg = QDialog(self.tab)
         dlg.setWindowTitle("Workflow Templates")
         dlg.setMinimumWidth(360)
         layout = QVBoxLayout(dlg)
@@ -119,7 +123,7 @@ class _WorkflowTemplatesMixin:
         templates = self._load_workflow_templates()
         steps = templates.get(name, {}).get("steps", [])
         if not steps:
-            QMessageBox.warning(self, "Workflow Templates", f"Template '{name}' has no steps.")
+            QMessageBox.warning(self.tab, "Workflow Templates", f"Template '{name}' has no steps.")
             return
 
         creds = self.vault_manager.load_account_credentials() if self.vault_manager else {}
@@ -130,10 +134,12 @@ class _WorkflowTemplatesMixin:
             category = step.get("category")
             tab_name = step.get("tab_name")
             config_name = step.get("config_name")
+            if category:
+                self._ensure_category(category)
             tab_instance = self.all_tabs.get(category, {}).get(tab_name)
             if tab_instance is None:
                 continue
-            if config_name and hasattr(tab_instance, "set_config"):
+            if config_name and isinstance(tab_instance, ConfigSettable):
                 config_data = tab_configurations.get(type(tab_instance).__name__, {}).get(config_name)
                 if config_data is not None:
                     tab_instance.set_config(config_data)
@@ -147,7 +153,7 @@ class _WorkflowTemplatesMixin:
     # Builder
     # ------------------------------------------------------------------
     def _open_workflow_template_builder(self) -> None:
-        dlg = QDialog(self)
+        dlg = QDialog(self.tab)
         dlg.setWindowTitle("New Workflow Template")
         dlg.setMinimumWidth(460)
         layout = QVBoxLayout(dlg)
@@ -184,6 +190,8 @@ class _WorkflowTemplatesMixin:
             config_combo.clear()
             config_combo.addItem("(no config — just switch here)")
             category = category_combo.currentText()
+            if category:
+                self._ensure_category(category)
             tab_instance = self.all_tabs.get(category, {}).get(tab_name)
             if tab_instance is not None:
                 class_name = type(tab_instance).__name__
@@ -233,10 +241,10 @@ class _WorkflowTemplatesMixin:
             return
 
         if not steps:
-            QMessageBox.warning(self, "Workflow Templates", "No steps were added; template not saved.")
+            QMessageBox.warning(self.tab, "Workflow Templates", "No steps were added; template not saved.")
             return
 
-        name, ok = QInputDialog.getText(self, "Save Workflow Template", "Template name:")
+        name, ok = QInputDialog.getText(self.tab, "Save Workflow Template", "Template name:")
         name = name.strip()
         if not ok or not name:
             return
@@ -246,4 +254,5 @@ class _WorkflowTemplatesMixin:
         self._save_workflow_templates(templates)
 
 
-__all__ = ["_WorkflowTemplatesMixin"]
+__all__ = ["MainWorkflowTemplatesController"]
+

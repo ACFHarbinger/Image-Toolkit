@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 from typing import Optional
+
 from PySide6.QtCore import Property, QEasingCurve, QPropertyAnimation, QRectF, QSize, Qt
 from PySide6.QtGui import QBrush, QColor, QPainter, QPaintEvent
 from PySide6.QtWidgets import QAbstractButton, QWidget
+
+from gui.src.theming.theme_api import color
 
 
 class ToggleSwitch(QAbstractButton):
@@ -57,18 +60,14 @@ class ToggleSwitch(QAbstractButton):
         h = self.height()
         radius = h / 2.0
 
-        # Background track color
-        if self.isChecked():
-            track_color = QColor("#00bcd4")  # active cyan accent
-        else:
-            track_color = QColor("#3e3e42")  # dark neutral track
+        track_color = QColor(color("accent")) if self.isChecked() else QColor(color("border"))
 
         p.setBrush(QBrush(track_color))
         p.setPen(Qt.PenStyle.NoPen)
         p.drawRoundedRect(QRectF(0, 0, w, h), radius, radius)
 
         # Thumb circle
-        thumb_color = QColor("#ffffff")
+        thumb_color = QColor(255, 255, 255)
         thumb_radius = 9.0
         p.setBrush(QBrush(thumb_color))
         p.drawEllipse(QRectF(self._thumb_position, (h - 2 * thumb_radius) / 2.0, 2 * thumb_radius, 2 * thumb_radius))

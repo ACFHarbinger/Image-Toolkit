@@ -31,6 +31,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from gui.src.theming.theme_api import qss
+
 
 class RequestBuilderPane(QWidget):
     """Pane for constructing and submitting cloud compute offload jobs."""
@@ -51,7 +53,7 @@ class RequestBuilderPane(QWidget):
 
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
-        scroll_area.setStyleSheet("QScrollArea { border: none; background: transparent; }")
+        scroll_area.setStyleSheet(qss("pane_scroll_area"))
 
         container = QWidget()
         layout = QVBoxLayout(container)
@@ -60,7 +62,7 @@ class RequestBuilderPane(QWidget):
 
         # ── Section 1: Task Type & Source ────────────────────────────────────
         group_task = QGroupBox("1. Task Specification")
-        group_task.setStyleSheet("QGroupBox { font-weight: bold; color: #f0f6fc; }")
+        group_task.setStyleSheet(qss("cloud_section_title"))
         task_layout = QFormLayout(group_task)
         task_layout.setContentsMargins(14, 14, 14, 14)
         task_layout.setSpacing(10)
@@ -117,13 +119,13 @@ class RequestBuilderPane(QWidget):
 
         # ── Section 2: Cloud Shape & Execution ───────────────────────────────
         group_shape = QGroupBox("2. Remote Compute Environment")
-        group_shape.setStyleSheet("QGroupBox { font-weight: bold; color: #f0f6fc; }")
+        group_shape.setStyleSheet(qss("cloud_section_title"))
         shape_layout = QFormLayout(group_shape)
         shape_layout.setContentsMargins(14, 14, 14, 14)
         shape_layout.setSpacing(10)
 
         self.lbl_target_provider = QLabel(f"Target Provider: <b>{self._active_provider.upper()}</b>")
-        self.lbl_target_provider.setStyleSheet("color: #79c0ff; font-size: 9.5pt;")
+        self.lbl_target_provider.setStyleSheet(qss("cloud_target_provider_label"))
         shape_layout.addRow(self.lbl_target_provider)
 
         self.combo_compute_shape = QComboBox()
@@ -138,13 +140,11 @@ class RequestBuilderPane(QWidget):
 
         # ── Section 3: Privacy & Actions ─────────────────────────────────────
         privacy_frame = QFrame()
-        privacy_frame.setStyleSheet(
-            "background-color: #161b22; border: 1px solid #d29922; border-radius: 6px;"
-        )
+        privacy_frame.setStyleSheet(qss("cloud_privacy_notice_frame"))
         privacy_layout = QHBoxLayout(privacy_frame)
         privacy_layout.setContentsMargins(12, 8, 12, 8)
         lbl_warn = QLabel("⚠️ <b>Privacy Notice:</b> Source inputs will be packaged and uploaded over TLS to the selected cloud worker for remote processing.")
-        lbl_warn.setStyleSheet("color: #e3b341; font-size: 8.5pt;")
+        lbl_warn.setStyleSheet(qss("cloud_privacy_notice_text"))
         lbl_warn.setWordWrap(True)
         privacy_layout.addWidget(lbl_warn)
         layout.addWidget(privacy_frame)
@@ -154,31 +154,19 @@ class RequestBuilderPane(QWidget):
         btn_layout.setSpacing(10)
 
         self.btn_run_cloud = QPushButton("🚀 Run in Cloud")
-        self.btn_run_cloud.setStyleSheet(
-            "QPushButton { background-color: #238636; color: white; font-weight: bold; "
-            "border-radius: 6px; padding: 8px 18px; font-size: 10pt; }"
-            "QPushButton:hover { background-color: #2ea043; }"
-        )
+        self.btn_run_cloud.setStyleSheet(qss("cloud_btn_run_success"))
         self.btn_run_cloud.clicked.connect(self._on_run_cloud_clicked)
         btn_layout.addWidget(self.btn_run_cloud)
 
         self.btn_export_json = QPushButton("📋 Export Job JSON")
-        self.btn_export_json.setStyleSheet(
-            "QPushButton { background-color: #21262d; color: #c9d1d9; border: 1px solid #30363d; "
-            "border-radius: 6px; padding: 8px 14px; font-size: 9pt; }"
-            "QPushButton:hover { background-color: #30363d; color: #f0f6fc; }"
-        )
+        self.btn_export_json.setStyleSheet(qss("cloud_btn_secondary"))
         self.btn_export_json.clicked.connect(self._on_export_json_clicked)
         btn_layout.addWidget(self.btn_export_json)
 
         btn_layout.addStretch(1)
 
         self.btn_reset = QPushButton("Reset Form")
-        self.btn_reset.setStyleSheet(
-            "QPushButton { background-color: transparent; color: #8b949e; border: 1px solid #30363d; "
-            "border-radius: 6px; padding: 8px 12px; font-size: 8.5pt; }"
-            "QPushButton:hover { color: #f0f6fc; border-color: #8b949e; }"
-        )
+        self.btn_reset.setStyleSheet(qss("cloud_btn_ghost"))
         self.btn_reset.clicked.connect(self._on_reset_clicked)
         btn_layout.addWidget(self.btn_reset)
 
@@ -186,18 +174,14 @@ class RequestBuilderPane(QWidget):
 
         # ── Section 4: Live Cloud Queue Status ───────────────────────────────
         group_queue = QGroupBox("3. Cloud Job Queue & Activity")
-        group_queue.setStyleSheet("QGroupBox { font-weight: bold; color: #f0f6fc; }")
+        group_queue.setStyleSheet(qss("cloud_section_title"))
         queue_layout = QVBoxLayout(group_queue)
         queue_layout.setContentsMargins(12, 12, 12, 12)
 
         self.table_jobs = QTableWidget(0, 5)
         self.table_jobs.setHorizontalHeaderLabels(["Job ID", "Task", "Provider", "Status", "Timestamp"])
         self.table_jobs.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-        self.table_jobs.setStyleSheet(
-            "QTableWidget { background-color: #0d1117; border: 1px solid #30363d; "
-            "color: #c9d1d9; gridline-color: #21262d; }"
-            "QHeaderView::section { background-color: #161b22; color: #8b949e; font-weight: bold; padding: 4px; }"
-        )
+        self.table_jobs.setStyleSheet(qss("table_widget"))
         self.table_jobs.setMinimumHeight(140)
         queue_layout.addWidget(self.table_jobs)
 

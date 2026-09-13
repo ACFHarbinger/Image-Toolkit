@@ -5,12 +5,11 @@ Extracted from ``drive_sync_tab.py`` -- pure code motion, no logic change.
 
 from __future__ import annotations
 
-from PySide6.QtWidgets import QApplication
-
 from ....styles import set_button_role
+from ._tab_bound import TabBoundController
 
 
-class _UILockMixin:
+class DriveSyncUILockController(TabBoundController):
     """Enables/disables config widgets while a sync job (or minor action) runs."""
 
     def lock_ui(self, message: str, is_running: bool = False, clear_log: bool = False):
@@ -49,7 +48,6 @@ class _UILockMixin:
 
         if clear_log:
             self.log_window.clear_log()
-        QApplication.processEvents()
 
     def unlock_ui(self):
         """Unlocks all UI elements and resets sync button state."""
@@ -63,7 +61,6 @@ class _UILockMixin:
         self.btn_view_remote.setEnabled(False)
         self.btn_share_folder.setEnabled(False)
         self.sync_button.setEnabled(False)
-        QApplication.processEvents()
 
     def unlock_ui_minor(self):
         """Unlocks minor action buttons."""
@@ -73,4 +70,4 @@ class _UILockMixin:
         self.handle_provider_change(self.provider_combo.currentIndex())
 
 
-__all__ = ["_UILockMixin"]
+__all__ = ["DriveSyncUILockController"]

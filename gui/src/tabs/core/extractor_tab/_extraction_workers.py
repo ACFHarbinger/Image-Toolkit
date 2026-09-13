@@ -15,19 +15,20 @@ from typing import TYPE_CHECKING, Any, List, Optional, cast
 from backend.src.constants import SUPPORTED_VIDEO_FORMATS
 from PySide6.QtCore import Slot
 from PySide6.QtGui import QPixmap
-from PySide6.QtWidgets import QLabel, QLineEdit, QMessageBox, QWidget
+from PySide6.QtWidgets import QLabel, QLineEdit, QMessageBox
 
 from ....components import ClickableLabel
 from ....helpers import GifCreationWorker, VideoExtractionWorker
 from ....helpers.video.video_thumbnailer import VideoThumbnailer
-
-logger = logging.getLogger(__name__)
+from ._tab_bound import TabBoundController
 
 if TYPE_CHECKING:
     from ..protos.extractor_tab import VideoExtractorSubTabHostProtocol
 
+logger = logging.getLogger(__name__)
 
-class _ExtractionWorkersMixin:
+
+class ExtractorExtractionWorkersController(TabBoundController):
     """GIF/video export worker dispatch, export completion, metadata
     snapshotting, and time formatting/parsing."""
 
@@ -220,7 +221,7 @@ class _ExtractionWorkersMixin:
             self._active_metadata = None
 
             QMessageBox.information(
-                cast(QWidget, self), "Success", f"Media created successfully:\n{Path(new_path).name}"
+                self.tab, "Success", f"Media created successfully:\n{Path(new_path).name}"
             )
 
         self._maybe_finish_close()
@@ -234,7 +235,7 @@ class _ExtractionWorkersMixin:
         self._active_metadata = None
         error_msg = str(error)
         if "cancelled" not in error_msg.lower():
-            QMessageBox.warning(cast(QWidget, self), "Export Error", error_msg)
+            QMessageBox.warning(self.tab, "Export Error", error_msg)
 
         self._maybe_finish_close()
 
@@ -272,7 +273,7 @@ class _ExtractionWorkersMixin:
         self.extraction_status_label.hide()
 
         if not new_paths:
-            QMessageBox.information(cast(QWidget, self), "Info", "No frames extracted.")
+            QMessageBox.information(self.tab, "Info", "No frames extracted.")
             return
 
         self.start_loading_gallery(new_paths, append=True)
@@ -280,7 +281,7 @@ class _ExtractionWorkersMixin:
         self._refresh_source_extracted_indicators()
 
         QMessageBox.information(
-            cast(QWidget, self),
+            self.tab,
             "Success",
             f"Extracted {len(new_paths)} images. Total: {len(self.current_extracted_paths)}",
         )
@@ -424,4 +425,5 @@ class _ExtractionWorkersMixin:
         cast(QLabel, self.lbl_current_time).show()
 
 
-__all__ = ["_ExtractionWorkersMixin"]
+__all__ = ["ExtractorExtractionWorkersController"]
+

@@ -12,6 +12,8 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QLabel, QListWidget
 
+from gui.src.theming.theme_api import color, qss
+
 if TYPE_CHECKING:
     from ._filtered_tag_list import FilteredTagList
 
@@ -20,21 +22,11 @@ if TYPE_CHECKING:
 # db.get_all_tags_with_categories()) per tag; this is only the fallback for
 # an uncategorized/unknown category name.
 # ---------------------------------------------------------------------------
-_DEFAULT_TAG_COLOR = "#95a5a6"
+_DEFAULT_TAG_COLOR = color("muted_text")
 
-_LIST_STYLE = (
-    "QListWidget::item { padding: 4px; } "
-    "QListWidget { background-color: #2c2f33; border: 1px solid #4f545c; border-radius: 6px; }"
-)
-_INPUT_STYLE = (
-    "QLineEdit, QComboBox { background-color: #2c2f33; color: #dcddde; "
-    "border: 1px solid #4f545c; border-radius: 4px; padding: 4px; }"
-)
-_GROUP_STYLE = (
-    "QGroupBox { font-weight: bold; border: 1px solid #4f545c; border-radius: 6px; "
-    "margin-top: 8px; padding-top: 8px; } "
-    "QGroupBox::title { subcontrol-origin: margin; left: 8px; padding: 0 4px; }"
-)
+_LIST_STYLE = qss("metadata_list")
+_INPUT_STYLE = qss("metadata_input")
+_GROUP_STYLE = qss("metadata_group")
 
 
 def _make_tag_list(tags_data: List[Dict[str, str]]) -> "FilteredTagList":
@@ -48,9 +40,9 @@ def _checked_tags(lw: "FilteredTagList | QListWidget") -> List[str]:
     if hasattr(lw, "checked_tags"):
         return lw.checked_tags()
     return [
-        lw.item(i).data(Qt.ItemDataRole.UserRole) # pyrefly: ignore [missing-attribute]
-        for i in range(lw.count()) # pyrefly: ignore [missing-attribute]
-        if lw.item(i).checkState() == Qt.CheckState.Checked # pyrefly: ignore [missing-attribute]
+        lw.item(i).data(Qt.ItemDataRole.UserRole)  # pyrefly: ignore [missing-attribute]
+        for i in range(lw.count())  # pyrefly: ignore [missing-attribute]
+        if lw.item(i).checkState() == Qt.CheckState.Checked  # pyrefly: ignore [missing-attribute]
     ]
 
 
@@ -59,8 +51,8 @@ def _set_checked_tags(lw: "FilteredTagList | QListWidget", tags: List[str]) -> N
         lw.set_checked_tags(tags)
         return
     tag_set = set(tags)
-    for i in range(lw.count()): # pyrefly: ignore [missing-attribute]
-        item = lw.item(i) # pyrefly: ignore [missing-attribute]
+    for i in range(lw.count()):  # pyrefly: ignore [missing-attribute]
+        item = lw.item(i)  # pyrefly: ignore [missing-attribute]
         item.setCheckState(
             Qt.CheckState.Checked
             if item.data(Qt.ItemDataRole.UserRole) in tag_set
@@ -84,7 +76,7 @@ def _thumb(path: str, size: int = 120) -> QLabel:
     lbl = QLabel()
     lbl.setFixedSize(size, size)
     lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-    lbl.setStyleSheet("border: 1px solid #4f545c; background-color: #1e2124; border-radius: 4px;")
+    lbl.setStyleSheet(qss("metadata_thumb"))
     px = QPixmap(path)
     if not px.isNull():
         lbl.setPixmap(px.scaled(size, size, Qt.AspectRatioMode.KeepAspectRatio,

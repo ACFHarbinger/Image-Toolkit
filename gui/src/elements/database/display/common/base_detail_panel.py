@@ -8,6 +8,7 @@ from gui.src.helpers.image.card_thumb_worker import (
     _CARD_THUMB_CACHE,
     invalidate_thumbnail_cache,
 )
+from gui.src.theming.theme_api import qss
 from gui.src.utils.image_load import IMAGE_FILE_DIALOG_FILTER, load_qimage
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap
@@ -49,9 +50,7 @@ class BaseDetailPanel(QWidget):
         if not path or not Path(path).exists():
             self.img_preview.clear()
             self.img_preview.setText("No Image")
-            self.img_preview.setStyleSheet(
-                "border:2px dashed #4f545c;border-radius:8px;color:#888;font-size:12px;"
-            )
+            self.img_preview.setStyleSheet(qss("detail_panel_img_preview_empty"))
             return
 
         img = load_qimage(path)
@@ -63,9 +62,7 @@ class BaseDetailPanel(QWidget):
                 Qt.TransformationMode.SmoothTransformation,
             )
             self.img_preview.setPixmap(scaled)
-            self.img_preview.setStyleSheet(
-                "border:2px solid #4f545c;border-radius:8px;"
-            )
+            self.img_preview.setStyleSheet(qss("detail_panel_img_preview_filled"))
             thumb = img.scaled(
                 160,
                 160,

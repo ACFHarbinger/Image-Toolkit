@@ -19,7 +19,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ._shared import _DEFAULT_TAG_COLOR, _LIST_STYLE
+from gui.src.theming.theme_api import qss
+
+from ._shared import _DEFAULT_TAG_COLOR
 
 
 class FilteredTagList(QWidget):
@@ -67,7 +69,7 @@ class FilteredTagList(QWidget):
             label = t if t != "" else "Other"
             cb = QCheckBox(label)
             color = category_colors.get(t, _DEFAULT_TAG_COLOR)
-            cb.setStyleSheet(f"color: {color}; font-weight: bold;")
+            cb.setStyleSheet(qss("metadata_tag_category_label", COLOR=color))
             cb.setChecked(True)
             cb.stateChanged.connect(self._apply_filter)
             self.type_layout.addWidget(cb)
@@ -80,7 +82,7 @@ class FilteredTagList(QWidget):
         # List widget
         self.list_widget = QListWidget()
         self.list_widget.setMinimumHeight(160)
-        self.list_widget.setStyleSheet(_LIST_STYLE)
+        self.list_widget.setStyleSheet(qss("metadata_list"))
 
         self._all_items: List[Tuple[QListWidgetItem, str]] = []
         for td in tags_data:

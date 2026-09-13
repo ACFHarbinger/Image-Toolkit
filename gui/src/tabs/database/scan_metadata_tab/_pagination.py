@@ -6,12 +6,16 @@ so the base's pagination plumbing can't touch removed widgets.
 
 from __future__ import annotations
 
+from ._tab_bound import TabBoundController
 
-class _PaginationMixin:
+
+class ScanPaginationController(TabBoundController):
     """No-op pagination overrides (the virtual gallery has no page cap)."""
 
     def _update_pagination_ui(self, is_found: bool, mode="scan"):
         """Pagination dropped; nothing to update."""
 
 
-__all__ = ["_PaginationMixin"]
+_PaginationMixin = ScanPaginationController  # COMPAT(ui-arch-23): remove after callers drop the mixin name
+
+__all__ = ["ScanPaginationController", "_PaginationMixin"]

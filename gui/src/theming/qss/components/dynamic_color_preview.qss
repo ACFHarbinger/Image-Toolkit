@@ -1,0 +1,2 @@
+background-color: $BG_COLOR;
+border: 1px solid $DARK_BORDER;
