@@ -21,24 +21,19 @@ from __future__ import annotations
 from gui.src.modules.tab_factory import _load_tab_class
 from gui.src.windows.main._tab_registry import CLASSIC_TAB_ROUTES
 
-# factory_id -> reason. As of 2026-09-13 (see #557), these 9 have no
+# factory_id -> reason. As of 2026-09-13 (see #557), these 7 have no
 # collect()/set_config()/get_default_config() at all -- not a partial
-# implementation, a real gap. Each was checked for configurable UI state
-# worth persisting (QLineEdit/QComboBox/QSpinBox/QCheckBox counts):
-# library.data-browser and web.entity-recon each have 6, web.media-loader
-# has 10+ (source/download-dir/reddit mode+source+sort+limit/checkboxes/
-# nhentai input) -- these three are real product gaps, not exemptions,
-# and should be the first picked up. manga.*/ml.comfyui/editor.hybrid
-# depend on the ASP/CSG/HIE submodules and are out of this roadmap's
-# direct scope; still listed here rather than silently passing.
+# implementation, a real gap. The three in-app tabs originally flagged as
+# product gaps (library.data-browser, web.entity-recon, web.media-loader)
+# gained the contract the same day; what remains here is the ASP/CSG/HIE
+# submodule surface, out of this roadmap's direct scope -- still listed
+# rather than silently passing.
 _KNOWN_NON_CONFORMING: dict[str, str] = {
     "editor.hybrid": "no TabConfig contract yet (HIE submodule surface, #557)",
-    "library.data-browser": "no TabConfig contract yet -- has configurable UI worth persisting, #557",
     "manga.animation": "no TabConfig contract yet (ASP/manga submodule surface, #557)",
     "manga.colorization": "no TabConfig contract yet (ASP/manga submodule surface, #557)",
     "manga.puppeteering": "no TabConfig contract yet (ASP/manga submodule surface, #557)",
     "ml.comfyui": "no TabConfig contract yet (comfy generation surface, #557)",
-    "web.entity-recon": "no TabConfig contract yet -- has configurable UI worth persisting, #557",
 }
 
 _CONTRACT_METHODS = ("collect", "set_config", "get_default_config")
