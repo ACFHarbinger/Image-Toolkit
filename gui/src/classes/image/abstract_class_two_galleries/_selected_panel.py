@@ -11,7 +11,7 @@ import weakref
 from typing import TYPE_CHECKING, Dict, List, Optional
 
 from backend.src.constants import SUPPORTED_VIDEO_FORMATS
-from PySide6.QtCore import Qt, Slot
+from PySide6.QtCore import Slot
 from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtWidgets import QWidget
 from shiboken6 import Shiboken
@@ -102,15 +102,11 @@ class _SelectedPanelMixin:
         target_widgets = {}
 
         for i, path in enumerate(paginated_paths):
-            row = i // columns
-            col = i % columns
-
             if path in self.selected_card_map:
                 # Reuse existing widget
                 card = self.selected_card_map[path]
-                self.selected_gallery_layout.addWidget(
-                    card, row, col, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop
-                )
+                # Placement honors the active presentation mode (§2.40 / #508).
+                self.common_place_card(self.selected_gallery_layout, card, i, columns)
             else:
                 # Create new widget
                 pixmap = self._cache_get_as_pixmap(path)
@@ -126,9 +122,7 @@ class _SelectedPanelMixin:
                 card = self.create_card_widget(path, pixmap, is_selected=True)
                 self._add_filename_label(card, path)  # §2.14A
                 self.selected_card_map[path] = card
-                self.selected_gallery_layout.addWidget(
-                    card, row, col, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop
-                )
+                self.common_place_card(self.selected_gallery_layout, card, i, columns)
                 install_drag_reorder(card, path, self, "reorder_selected")
 
                 if pixmap is None:
