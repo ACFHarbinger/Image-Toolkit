@@ -6,6 +6,7 @@
 
 | Path | Code | Comments | Docstrings | Total |
 |---|---:|---:|---:|---:|
+| `gui/src/classes/base/gallery_base.py` | 801 | 134 | 123 | 1058 |
 | `gui/src/tabs/core/extractor_tab/_queue_management.py` | 649 | 91 | 39 | 779 |
 | `gui/src/components/dialogs/crawler_selection_dialogs.py` | 588 | 51 | 20 | 659 |
 | `gui/src/tabs/core/extractor_tab/_video_session_history.py` | 546 | 50 | 19 | 615 |
@@ -17,34 +18,33 @@
 | `gui/src/windows/image_compare_window.py` | 467 | 16 | 8 | 491 |
 | `gui/src/windows/authentication/login_window.py` | 467 | 112 | 30 | 609 |
 | `gui/src/tabs/core/wallpaper_tab/graph/wallpaper_graph_scene.py` | 456 | 22 | 29 | 507 |
-| `gui/src/classes/base/gallery_base.py` | 453 | 114 | 99 | 666 |
 | `backend/src/web/crawlers/image_crawler.py` | 448 | 16 | 11 | 475 |
 | `gui/src/components/dialogs/asp_advanced_config_dialog.py` | 437 | 21 | 8 | 466 |
-| `gui/src/tabs/web/reverse_search_tab.py` | 434 | 45 | 21 | 500 |
 | `gui/src/tabs/core/extractor_tab/_media_player.py` | 434 | 114 | 29 | 577 |
+| `gui/src/tabs/web/reverse_search_tab.py` | 434 | 45 | 21 | 500 |
 | `gui/src/windows/settings/_reset_state.py` | 432 | 16 | 17 | 465 |
 | `backend/src/models/tuning/lo_ra_tuner_v2.py` | 423 | 50 | 22 | 495 |
 | `backend/src/models/tuning/lo_ra_tuner.py` | 418 | 48 | 18 | 484 |
 | `gui/src/windows/image_preview_window.py` | 413 | 66 | 42 | 521 |
 | `backend/src/database/unified/search_repo.py` | 400 | 28 | 59 | 487 |
-| `gui/src/windows/settings/_appearance.py` | 400 | 31 | 18 | 449 |
 | `gui/src/windows/main/_session_recovery.py` | 400 | 31 | 28 | 459 |
+| `gui/src/windows/settings/_appearance.py` | 400 | 31 | 18 | 449 |
 | `gui/src/styles/background_canvas.py` | 387 | 3 | 18 | 408 |
 | `gui/src/components/dialogs/thumbnail_file_picker.py` | 384 | 4 | 7 | 395 |
 | `gui/src/helpers/web/cloud/local_dir_sync_worker.py` | 378 | 39 | 50 | 467 |
 | `gui/src/tabs/web/web_requests_tab.py` | 377 | 39 | 6 | 422 |
 | `gui/src/tabs/models/gen/comfy_generate_tab.py` | 376 | 45 | 9 | 430 |
 | `gui/src/windows/settings/_profile_management.py` | 371 | 34 | 18 | 423 |
-| `backend/src/core/vault_manager.py` | 370 | 31 | 77 | 478 |
 | `gui/src/windows/settings/_relaunch_settings.py` | 370 | 33 | 9 | 412 |
+| `backend/src/core/vault_manager.py` | 368 | 31 | 77 | 476 |
 | `gui/src/components/virtual_gallery/virtual_gallery_model.py` | 365 | 48 | 81 | 494 |
 | `gui/src/tabs/core/extractor_tab/_directory_scanning.py` | 357 | 35 | 24 | 416 |
 | `gui/src/tabs/core/extractor_tab/_extraction_workers.py` | 355 | 11 | 9 | 375 |
 | `backend/src/models/tuning/cbir_tuner.py` | 352 | 32 | 76 | 460 |
 | `gui/src/windows/main/main_window.py` | 346 | 55 | 4 | 405 |
 | `gui/src/windows/settings/settings_window.py` | 344 | 28 | 10 | 382 |
-| `gui/src/tabs/models/delta/lora_train_tab.py` | 344 | 27 | 9 | 380 |
 | `gui/src/tabs/web/drive_sync_tab/sync_data_subtab/widget.py` | 344 | 26 | 13 | 383 |
+| `gui/src/tabs/models/delta/lora_train_tab.py` | 344 | 27 | 9 | 380 |
 | `backend/src/core/wallpaper/_kde.py` | 334 | 93 | 6 | 433 |
 | `backend/src/pipeline/anime_training_pipeline.py` | 331 | 38 | 36 | 405 |
 | `gui/src/helpers/core/duplicate_scan_worker.py` | 331 | 42 | 33 | 406 |
@@ -56,4 +56,4 @@
 | `backend/src/app.py` | 316 | 102 | 50 | 468 |
 | `gui/src/tabs/database/database_tab/_connection_stats.py` | 310 | 2 | 11 | 323 |
 | `backend/src/core/image/_engines.py` | 307 | 27 | 49 | 383 |
-| **TOTALS** | **86045** | **6125** | **9079** | **101249** |
+| **TOTALS** | **86411** | **6147** | **9110** | **101668** |
