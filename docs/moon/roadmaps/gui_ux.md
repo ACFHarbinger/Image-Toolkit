@@ -1441,6 +1441,20 @@ Each tab class saves and restores its own internal splitter + scroll position in
 
 ## 2.33 Extractor Tab Playback Engine — libmpv Integration {: #233-extractor-tab-playback-engine--libmpv-integration }
 
+**Spike complete, 2026-09-13 (issue #517) — NO-GO on in-process wiring.**
+Isolated smoke test (own venv, libmpv 0.41.0, real 1080p sample,
+Wayland+NVIDIA+XWayland): the JVM-coexistence premise was moot (no JVM
+exists anymore — verified at runtime), but in-process libmpv sharing a
+process with any live `QApplication` (any Qt platform plugin) hits a
+deterministic SIGSEGV in `mpv_set_option_string` on first call — this
+app's Qt-first import order is the fatal one. Blocks both Option A
+(`wid` embedding) and Option B (render API) below. Out-of-process mpv
+(`--wid` + JSON IPC subprocess, no libmpv in the Qt process) worked
+cleanly (3/3 Wayland + 3/3 XWayland, seeks landed, Qt side stable) but
+was not pursued further — this box has no standalone `mpv` binary, only
+`libmpv.so.2`, and it would need its own scoping pass (Option D, not
+written up below) if ever revisited.
+
 **Pain point:** The Extractor tab's internal player is built on `QMediaPlayer`/`QGraphicsVideoItem`. Repeated attempts (2026-07) to make the main player itself track the playhead in real time during a drag — subprocess-per-frame extraction, a background dense-keyframe H.264 "scrub proxy," and finally a persistent in-process PyAV decoder feeding an overlay pixmap — all ran into some combination of latency, image quality, or `QMediaPlayer`/`QVideoSink` surface-swap timing bugs (aspect-ratio corruption on release, a stale-frame "flash" between the pre-drag and post-drag frame, and a final regression that only manifested under real interactive dragging, never in scripted reproductions). The conclusion: the class of bug repeatedly hit is inherent to driving `QMediaPlayer`'s own video surface at drag speed, not something a better preview-fetching algorithm alone fixes.
 
 The chosen near-term fix (§4.14, tracked in `new_features.md`) is a YouTube-style storyboard/sprite-sheet scrub preview shown in a small floating widget above the slider, which never touches the main player's surface during the drag at all — see that section for the accepted design. This section instead tracks the complementary, larger initiative: giving the *main player itself* fast, high-quality seeking, by swapping its engine to `libmpv` — the same engine Haruna (the reference UX for this feature) is built on.
@@ -1730,11 +1744,25 @@ Let users assign a custom icon (from a small built-in set or an imported SVG) to
 
 ---
 
-## 2.42 Motion & Micro-Interaction Design Pass ✅ (2026-09-05 — Option A shipped, #519) {: #242-motion--micro-interaction-design-pass }
+## 2.42 Motion & Micro-Interaction Design Pass ✅ Kit shipped, integration partial (2026-09-13 — Option A, #519 closed) {: #242-motion--micro-interaction-design-pass }
 
-**Shipped: Option A.**
-- **Option A (Shared Easing & Motion Kit)**: Created `MotionKit` (`gui/src/styles/motion_kit.py`) with standard durations (`FAST_MS=120`, `BASE_MS=200`, `SLOW_MS=320`), easing curves (`OutCubic`, `InOutCubic`, `OutBack`), `reduce_motion` accessibility check, smooth `slide_width()` and `fade_in()` transitions for `NavigationRailWidget` drawer toggle, `ContextInspectorPanel` expansion/collapse, and `ShellLayoutManager` stacked widget page switches.
-- **Tests**: `gui/test/styles/test_motion_kit.py` (4 unit tests).
+**Shipped: Option A, the kit itself + two of its consumers.** Corrected
+2026-09-13 — the doc previously claimed the inspector/rail/shell
+integrations were done; they were not (this project's own established
+pattern of catching stale "shipped" claims applies to its own docs too).
+- **Kit**: `gui/src/styles/motion_kit.py` — durations `FAST_MS=120`/
+  `BASE_MS=200`/`SLOW_MS=320`, easing curves (`_out_cubic`, `_in_out_cubic`,
+  `_out_quad`, `_in_out_quad`), a cached `reduce_motion()` accessibility
+  check (env vars + `gsettings`/`defaults`/registry per platform), and
+  `animate_fade()`/`animate_slide()`/`animate_width()` helpers that jump
+  to final state immediately when `reduce_motion()` is true.
+- **Migrated to it**: `toggle_switch.py`, `toast_widget.py` — both previously
+  rolled their own ad-hoc `QPropertyAnimation`.
+- **Still open (real follow-up work, not yet an issue):** inspector panel
+  (#506) expand/collapse, nav-rail collapse (`Ctrl+B`), `ShellLayoutManager`
+  stacked-widget module switches, splitter drag-release settle — each just
+  needs to call the existing kit functions instead of rolling its own.
+- **Tests**: `gui/test/styles/test_motion_kit.py` (18 tests).
 
 ### Implementation Options
 
