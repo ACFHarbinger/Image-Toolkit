@@ -119,6 +119,22 @@ class TestPresentationModeOnGalleryBase:
         gallery.set_presentation_mode(GalleryPresentationMode.UNIFORM_GRID)
         assert (label.width(), label.height()) == (orig_w, orig_h)
 
+    def test_mode_change_reflows_existing_cards_without_a_resize(self, gallery):
+        cards = [gallery.create_card_widget(f"/img/{i}.png", None) for i in range(4)]
+        for i, card in enumerate(cards):
+            gallery.path_to_card_widget[f"/img/{i}.png"] = card
+            gallery.common_place_card(gallery.gallery_layout, card, i, 2)
+        gallery._current_cols = 2
+
+        gallery.set_presentation_mode(GalleryPresentationMode.COMPACT_LIST)
+
+        assert [(row, col) for row, col, _ in _card_paths(gallery.gallery_layout)] == [
+            (0, 0),
+            (1, 0),
+            (2, 0),
+            (3, 0),
+        ]
+
     def test_masonry_places_each_card_on_own_row_and_balances_columns(self, gallery):
         gallery.set_presentation_mode(GalleryPresentationMode.MASONRY)
         heights = [100, 10, 100, 10]
