@@ -23,11 +23,9 @@ import os
 import re as _re
 from abc import abstractmethod
 from collections import deque
-from dataclasses import fields as _dc_fields
 from typing import Dict, List, Optional
 
-from PySide6.QtCore import QEvent, QPoint, QRect, Qt, QThreadPool, QTimer
-from PySide6.QtGui import QAction, QActionGroup
+from PySide6.QtCore import QPoint, QRect, Qt, QThreadPool, QTimer
 from PySide6.QtWidgets import (
     QComboBox,
     QFrame,
@@ -35,22 +33,19 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
-    QMenu,
     QPushButton,
-    QScrollArea,
     QSlider,
     QWidget,
 )
 
 from gui.src.components.gallery.presentation_mode import (
-    GalleryOverlayConfig,
     GalleryPresentationMode,
 )
-from gui.src.constants.ui import RATING_COLORS
-from gui.src.theming.theme_api import color, qss
+from gui.src.theming.theme_api import qss
 from gui.src.thumbnails import DefaultThumbnailScheduler, ThumbnailScheduler, order_visible_first
 
 from ..meta.meta_abstract_class_gallery import MetaAbstractClassGallery
+from ._gallery_presentation import _GalleryPresentationMixin
 
 # ---------------------------------------------------------------------------
 # Internal helper
@@ -69,7 +64,7 @@ def _make_vline() -> QFrame:
 # AbstractGalleryBase
 # ---------------------------------------------------------------------------
 
-class AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery):
+class AbstractGalleryBase(_GalleryPresentationMixin, QWidget, metaclass=MetaAbstractClassGallery):
     """Shared base class for gallery tabs.
 
     Provides:
@@ -145,18 +140,7 @@ class AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery):
         self.open_preview_windows: List[QWidget] = []
 
         # --- Presentation modes & overlay badges (§2.40 / #508) ---------------
-        # Uniform grid is the historical behavior and stays the default; the
-        # other modes only activate through set_presentation_mode().
-        self._presentation_mode: GalleryPresentationMode = GalleryPresentationMode.UNIFORM_GRID
-        self._overlay_config: GalleryOverlayConfig = GalleryOverlayConfig()
-        self._card_overlay_metadata: Dict[str, dict] = {}
-        self._presentation_menu_viewports: set = set()
-        self._masonry_state: Dict[QGridLayout, dict] = {}
-        self._masonry_reflow_timer = QTimer(self)
-        self._masonry_reflow_timer.setSingleShot(True)
-        self._masonry_reflow_timer.setInterval(120)
-        self._masonry_reflow_timer.timeout.connect(self._on_layout_change)
-        self._load_presentation_prefs()
+        self._init_presentation_mode()
 
     @property
     def _load_generation(self) -> int:
@@ -537,51 +521,6 @@ class AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery):
     # Layout reflow
     # =========================================================================
 
-    @staticmethod
-    def _card_height_hint(widget: QWidget) -> int:
-        """Effective card height for packing. sizeHint() reports the layout's
-        natural hint and ignores setFixedSize(), so prefer the minimum height
-        (which setFixedSize sets) and only then fall back to sizeHint()."""
-        h = widget.minimumHeight()
-        if h <= 0:
-            h = widget.sizeHint().height()
-        return max(1, h)
-
-    def common_place_card(
-        self, layout: Optional[QGridLayout], card: QWidget, index: int, columns: int
-    ) -> None:
-        """Place one freshly-created card according to the active presentation
-        mode. Populate loops call this instead of open-coding row/col math so
-        every mode shares one placement path."""
-        if not layout:
-            return
-        self._ensure_presentation_menu(layout)
-        mode = self._presentation_mode
-        if mode == GalleryPresentationMode.MASONRY:
-            state = self._masonry_state.setdefault(
-                layout, {"heights": [0] * max(1, columns), "next_row": 0}
-            )
-            if len(state["heights"]) != max(1, columns):
-                # Column count changed since the last pack (e.g. an empty
-                # reflow seeded a different width) -- reseed.
-                state["heights"] = [0] * max(1, columns)
-                state["next_row"] = layout.count()
-            heights = state["heights"]
-            col = heights.index(min(heights))
-            row = state["next_row"]
-            layout.addWidget(card, row, col, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
-            heights[col] += self._card_height_hint(card)
-            state["next_row"] = row + 1
-        elif mode == GalleryPresentationMode.COMPACT_LIST:
-            layout.addWidget(card, index, 0, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
-        else:
-            layout.addWidget(
-                card,
-                index // columns,
-                index % columns,
-                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop,
-            )
-
     def common_reflow_layout(self, layout: Optional[QGridLayout], columns: int) -> None:
         """Re-organise *layout* to *columns* columns, honoring the active
         presentation mode (§2.40 / #508)."""
@@ -617,353 +556,6 @@ class AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery):
                 else:
                     items.append(widget)
         return items, placeholder
-
-    def _reflow_masonry(self, layout: QGridLayout, items: list, columns: int) -> None:
-        # QGridLayout sizes each row to its tallest cell, so true masonry
-        # needs every card on its OWN row index: each row then holds exactly
-        # one widget and takes that widget's height. Columns accumulate
-        # independent heights; each card drops onto the shortest column.
-        columns = max(1, columns)
-        heights = [0] * columns
-        for widget in items:
-            col = heights.index(min(heights))
-            row = layout.count()
-            layout.addWidget(widget, row, col, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
-            heights[col] += self._card_height_hint(widget)
-        self._masonry_state[layout] = {"heights": heights, "next_row": layout.count()}
-
-    # =========================================================================
-    # Presentation modes & overlay badges (§2.40 / #508)
-    # =========================================================================
-
-    _OVERLAY_FIELDS = tuple(f.name for f in _dc_fields(GalleryOverlayConfig))
-    _COMPACT_THUMB = 48
-
-    @property
-    def presentation_mode(self) -> GalleryPresentationMode:
-        return self._presentation_mode
-
-    def set_presentation_mode(self, mode: GalleryPresentationMode) -> None:
-        mode = GalleryPresentationMode(mode)
-        if mode == self._presentation_mode:
-            return
-        self._presentation_mode = mode
-        self._save_presentation_prefs()
-        for card in self._iter_gallery_cards():
-            if mode == GalleryPresentationMode.COMPACT_LIST:
-                self._apply_compact_geometry(card)
-            elif mode == GalleryPresentationMode.MASONRY:
-                self._apply_masonry_geometry(card)
-            else:
-                self._restore_uniform_geometry(card)
-        self._masonry_state.clear()
-        self._on_layout_change()
-        self._reflow_presentation_layouts()
-
-    def _reflow_presentation_layouts(self) -> None:
-        """Reflow existing cards when a mode changes without a resize.
-
-        The regular layout-change handlers only reflow after a column-count
-        change. A presentation-mode switch needs a reflow even at the same
-        viewport width.
-        """
-        for layout_attr, columns_attr in (
-            ("gallery_layout", "_current_cols"),
-            ("found_gallery_layout", "_current_found_cols"),
-            ("selected_gallery_layout", "_current_selected_cols"),
-        ):
-            layout = getattr(self, layout_attr, None)
-            if layout is not None:
-                self.common_reflow_layout(layout, max(1, getattr(self, columns_attr, 1)))
-
-    def set_overlay_config(self, config: GalleryOverlayConfig) -> None:
-        self._overlay_config = config
-        self._save_presentation_prefs()
-        for card in self._iter_gallery_cards():
-            path = (
-                card.property("gallery_path")
-                or getattr(card, "path", "")
-                or getattr(card, "file_path", "")
-                or ""
-            )
-            self._apply_card_overlays(card, path)
-
-    def set_overlay_metadata(self, path: str, **fields) -> None:
-        """Record overlay metadata for one card (mirrors the
-        ``VirtualGalleryModel.set_overlay_metadata`` surface)."""
-        self._card_overlay_metadata[path] = dict(fields)
-        card = self._card_for_path(path)
-        if card is not None:
-            self._apply_card_overlays(card, path)
-
-    def clear_overlay_metadata(self) -> None:
-        self._card_overlay_metadata.clear()
-        for card in self._iter_gallery_cards():
-            self._remove_badge_strip(card)
-
-    def _card_for_path(self, path: str) -> Optional[QWidget]:
-        for attr in ("path_to_card_widget", "path_to_label_map", "selected_card_map"):
-            mapping = getattr(self, attr, None)
-            if mapping and path in mapping:
-                try:
-                    return mapping[path]
-                except RuntimeError:
-                    return None
-        return None
-
-    def _iter_gallery_cards(self):
-        seen: set = set()
-        for attr in ("path_to_card_widget", "path_to_label_map", "selected_card_map"):
-            mapping = getattr(self, attr, None)
-            if not mapping:
-                continue
-            for card in list(mapping.values()):
-                try:
-                    if id(card) in seen:
-                        continue
-                    seen.add(id(card))
-                    yield card
-                except RuntimeError:
-                    continue
-
-    def _load_presentation_prefs(self) -> None:
-        try:
-            from gui.src.windows.settings.app_settings import AppSettings
-
-            cn = self.__class__.__name__
-            mode = AppSettings.session(cn, "presentation_mode", "") or ""
-            if mode:
-                self._presentation_mode = GalleryPresentationMode(mode)
-            stored = AppSettings.session(cn, "gallery_overlay_config", {}) or {}
-            if isinstance(stored, dict):
-                self._overlay_config = GalleryOverlayConfig(
-                    **{k: bool(v) for k, v in stored.items() if k in self._OVERLAY_FIELDS}
-                )
-        except Exception:
-            self._presentation_mode = GalleryPresentationMode.UNIFORM_GRID
-            self._overlay_config = GalleryOverlayConfig()
-
-    def _save_presentation_prefs(self) -> None:
-        try:
-            from gui.src.windows.settings.app_settings import AppSettings
-
-            cn = self.__class__.__name__
-            AppSettings.set_session(cn, "presentation_mode", self._presentation_mode.value)
-            AppSettings.set_session(
-                cn,
-                "gallery_overlay_config",
-                {f: bool(getattr(self._overlay_config, f)) for f in self._OVERLAY_FIELDS},
-            )
-        except Exception:
-            pass
-
-    # --- overlay badges ----------------------------------------------------
-
-    def _apply_card_overlays(self, card: QWidget, path: str) -> None:
-        """(Re)build the badge strip on one card from recorded metadata and
-        the current ``GalleryOverlayConfig``."""
-        self._remove_badge_strip(card)
-        if not path:
-            return
-        cfg = self._overlay_config
-        md = self._card_overlay_metadata.get(path) or {}
-        chips: list[tuple[str, str]] = []  # (text, badge_bg) — bg "" = neutral
-        if cfg.show_rating and md.get("rating"):
-            letter = str(md["rating"]).upper()[:1]
-            chips.append((letter, RATING_COLORS.get(str(md["rating"]).lower()[:1], color("accent"))))
-        if cfg.show_resolution:
-            res = md.get("resolution")
-            if isinstance(res, (tuple, list)) and len(res) == 2:
-                chips.append((f"{res[0]}×{res[1]}", ""))
-        if cfg.show_format and md.get("file_format"):
-            chips.append((str(md["file_format"]).upper(), ""))
-        if cfg.show_star_rating and md.get("star_rating"):
-            chips.append((f"★ {float(md['star_rating']):.1f}", ""))
-        if cfg.show_tag_count and md.get("tag_count"):
-            chips.append((f"🏷 {md['tag_count']}", ""))
-        if not chips:
-            return
-        strip = QWidget(card)
-        strip.setObjectName("gallery_card_badge_strip")
-        row = QHBoxLayout(strip)
-        row.setContentsMargins(2, 1, 2, 1)
-        row.setSpacing(3)
-        for text, bg in chips:
-            badge = QLabel(text, strip)
-            badge.setObjectName("gallery_card_badge")
-            if bg:
-                badge.setStyleSheet(qss("gallery_card_badge", BADGE_BG=bg, BADGE_TEXT=color("text")))
-            else:
-                badge.setStyleSheet(qss("gallery_card_badge"))
-            row.addWidget(badge)
-        row.addStretch(1)
-        layout = card.layout()
-        if layout is not None:
-            layout.addWidget(strip)
-
-    @staticmethod
-    def _remove_badge_strip(card: QWidget) -> None:
-        try:
-            strip = card.findChild(QWidget, "gallery_card_badge_strip")
-        except RuntimeError:
-            return
-        if strip is not None:
-            strip.setParent(None)
-            strip.deleteLater()
-
-    # --- per-mode card geometry ---------------------------------------------
-
-    @staticmethod
-    def _card_image_label(card: QWidget) -> Optional[QLabel]:
-        if isinstance(card, QLabel):
-            return card
-        try:
-            for label in card.findChildren(QLabel):
-                if label.objectName() in ("thumb_filename_lbl", "gallery_card_badge"):
-                    continue
-                return label
-        except RuntimeError:
-            return None
-        return None
-
-    def _remember_uniform_geometry(self, card: QWidget, label: QLabel) -> None:
-        if card.property("gallery_base_orig_geometry") is None:
-            card_h = card.minimumHeight()
-            if card_h <= 0:
-                card_h = card.sizeHint().height()
-            card.setProperty(
-                "gallery_base_orig_geometry",
-                (max(1, card_h), label.width(), label.height()),
-            )
-
-    def _mutate_card_geometry(self, card: QWidget, *, thumb: Optional[int] = None, label_height: Optional[int] = None) -> None:
-        label = self._card_image_label(card)
-        if label is None:
-            return
-        self._remember_uniform_geometry(card, label)
-        w = thumb if thumb is not None else label.width()
-        h = label_height if label_height is not None else (thumb if thumb is not None else label.height())
-        label.setFixedSize(w, h)
-        orig_card_h, orig_label_w, orig_label_h = card.property("gallery_base_orig_geometry")
-        # Container height follows the label: original container height minus
-        # the original (square) label height, plus the new label height --
-        # absorbs the filename label and badge strip when present.
-        card.setMinimumHeight(0)
-        card.setMaximumHeight(orig_card_h - orig_label_h + h)
-
-    def _apply_compact_geometry(self, card: QWidget) -> None:
-        self._mutate_card_geometry(card, thumb=self._COMPACT_THUMB)
-
-    def _apply_masonry_geometry(self, card: QWidget) -> None:
-        label = self._card_image_label(card)
-        if label is None or not label.width():
-            return
-        pm = label.pixmap()
-        if pm is None or pm.isNull() or pm.width() <= 0 or pm.height() <= 0:
-            return
-        thumb = self.thumbnail_size
-        lo, hi = max(40, thumb // 2), thumb * 2
-        target = int(label.width() * pm.height() / pm.width())
-        self._mutate_card_geometry(card, label_height=int(min(max(target, lo), hi)))
-
-    def _restore_uniform_geometry(self, card: QWidget) -> None:
-        orig = card.property("gallery_base_orig_geometry")
-        label = self._card_image_label(card)
-        if orig is not None and label is not None:
-            orig_card_h, orig_label_w, orig_label_h = orig
-            label.setFixedSize(orig_label_w, orig_label_h)
-            card.setMinimumHeight(orig_card_h)
-            card.setMaximumHeight(orig_card_h)
-        card.setProperty("gallery_base_orig_geometry", None)
-
-    def notify_card_pixmap_loaded(self, widget: QWidget, pixmap) -> None:
-        """Hook for subclass ``update_card_pixmap``: keep masonry card heights
-        in sync with the just-arrived image aspect, then debounce a repack."""
-        if self._presentation_mode != GalleryPresentationMode.MASONRY:
-            return
-        if pixmap is None or pixmap.isNull() or pixmap.width() <= 0 or pixmap.height() <= 0:
-            return
-        label = self._card_image_label(widget)
-        if label is None or not label.width():
-            return
-        thumb = self.thumbnail_size
-        lo, hi = max(40, thumb // 2), thumb * 2
-        target = int(label.width() * pixmap.height() / pixmap.width())
-        self._mutate_card_geometry(widget, label_height=int(min(max(target, lo), hi)))
-        self._masonry_reflow_timer.start()
-
-    # --- presentation menu (mirrors VirtualGalleryView) ----------------------
-
-    def _ensure_presentation_menu(self, layout: QGridLayout) -> None:
-        """Install the empty-space presentation menu on the scroll area that
-        owns *layout*, once per viewport. Hooked from the shared reflow path
-        so every gallery tab gets it without per-tab wiring."""
-        content = layout.parentWidget()
-        ancestor = content.parentWidget() if content is not None else None
-        scroll = None
-        while ancestor is not None:
-            # setWidget() parents the content into the scroll area's
-            # viewport, so the QScrollArea is one or two levels up.
-            if isinstance(ancestor, QScrollArea):
-                scroll = ancestor
-                break
-            ancestor = ancestor.parentWidget()
-        if scroll is None:
-            return
-        viewport = scroll.viewport()
-        if viewport in self._presentation_menu_viewports:
-            return
-        viewport.installEventFilter(self)
-        self._presentation_menu_viewports.add(viewport)
-
-    def eventFilter(self, obj, event) -> bool:  # noqa: C901
-        if obj in self._presentation_menu_viewports and event.type() == QEvent.Type.ContextMenu:
-            child = obj.childAt(event.pos())
-            ancestor = child
-            while ancestor is not None and ancestor is not obj:
-                if ancestor.property("gallery_path"):
-                    return False  # card right-click: existing handlers own it
-                ancestor = ancestor.parentWidget()
-            self._build_presentation_menu().exec(obj.mapToGlobal(event.pos()))
-            return True
-        return False
-
-    def _build_presentation_menu(self) -> QMenu:
-        """Build (but don't show) the mode/overlay menu -- kept action-for-action
-        parallel with ``VirtualGalleryView._build_presentation_menu`` so both
-        gallery kinds expose the same surface."""
-        menu = QMenu(self)
-
-        mode_menu = menu.addMenu("Presentation Mode")
-        mode_group = QActionGroup(mode_menu)
-        mode_group.setExclusive(True)
-        for mode, label in (
-            (GalleryPresentationMode.UNIFORM_GRID, "Uniform Grid"),
-            (GalleryPresentationMode.MASONRY, "Masonry"),
-            (GalleryPresentationMode.COMPACT_LIST, "Compact List"),
-        ):
-            action = QAction(label, mode_menu, checkable=True)
-            action.setChecked(mode == self._presentation_mode)
-            action.triggered.connect(lambda _checked=False, m=mode: self.set_presentation_mode(m))
-            mode_group.addAction(action)
-            mode_menu.addAction(action)
-
-        overlay_menu = menu.addMenu("Thumbnail Overlays")
-        cfg = self._overlay_config
-        for attr, label in (
-            ("show_rating", "Rating Badge"),
-            ("show_resolution", "Resolution"),
-            ("show_format", "Format"),
-            ("show_star_rating", "Star Rating"),
-            ("show_tag_count", "Tag Count"),
-        ):
-            action = QAction(label, overlay_menu, checkable=True)
-            action.setChecked(bool(getattr(cfg, attr)))
-            action.toggled.connect(
-                lambda checked, a=attr, c=cfg: (setattr(c, a, checked), self.set_overlay_config(c))
-            )
-            overlay_menu.addAction(action)
-        return menu
 
     # =========================================================================
     # Viewport visibility check
