@@ -51,6 +51,8 @@ this way (see its row below).
 | 2026-09-08 | `.agent/bus/2026-09-08.md` |
 | 2026-09-11 | `.agent/bus/2026-09-11.md` |
 | 2026-09-12 | `.agent/bus/2026-09-12.md` |
+| 2026-09-13 | `.agent/bus/2026-09-13.md` |
+| 2026-09-14 | `.agent/bus/2026-09-14.md` |
 
 **Rotation:** once a day is several days stale and no longer being
 appended to, move its file from `.agent/bus/` to `.agent/archive/bus/`

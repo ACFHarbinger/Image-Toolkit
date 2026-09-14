@@ -7,22 +7,15 @@ These tests verify the *interface contract* of each wrapper class —
 required attributes, method signatures, return types, and lifecycle
 behaviour — without loading any model weights or requiring a GPU.
 
-Design rationale (§5.16A):
+Design rationale (§5.16A / §5.16C, #625):
   - All heavy optional dependencies (torch, kornia, transformers, etc.)
     are patched into sys.modules before the wrapper module is imported,
     so each test runs in < 1 s and has zero external dependencies.
-  - Tests are grouped by contract category, not by wrapper class, so
-    that adding a new wrapper only requires adding it to the relevant
-    parametrize lists.
-  - The ModelWrapperContractMixin (§5.16C, depends on §5.8A) will
-    supersede some of these tests once ModelWrapper ABC is in place.
-
-Contract categories tested:
-  1. Lifecycle        — __init__ accepts device, unload() sets model to None
-  2. Idempotency      — unload() is safe to call multiple times
-  3. Availability     — is_available() / module guard flags return bool
-  4. Interface        — required public methods are callable
-  5. Output shape     — match/mask/fit return correct shapes on synthetic inputs
+  - The shared contract assertions (availability, lifecycle, device selection,
+    unload idempotency, ModelRegistry integration) are factored into
+    ModelWrapperContractMixin (§5.16C).
+  - Wrapper-specific interface methods and domain tests are composed onto
+    each wrapper contract class.
 """
 
 from __future__ import annotations
@@ -33,16 +26,24 @@ import types
 from unittest.mock import MagicMock, patch
 
 import numpy as np
-import pytest
 
 # ---------------------------------------------------------------------------
-# Repo root on path
+# Repo root on path & submodule bootstrap
 # ---------------------------------------------------------------------------
 _repo_root = os.path.dirname(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 )
 sys.path.insert(0, _repo_root)
 
+from git.scripts._submodule_bootstrap import (  # noqa: E402
+    register_submodule_packages,
+)
+
+register_submodule_packages(_repo_root)
+
+from backend.test.models._contract_mixin import (  # noqa: E402
+    ModelWrapperContractMixin,
+)
 
 # ---------------------------------------------------------------------------
 # Helpers: lightweight torch / kornia / transformers stubs
@@ -55,7 +56,12 @@ def _make_torch_stub() -> types.ModuleType:
     torch.cuda.is_available = MagicMock(return_value=False)
     torch.cuda.empty_cache = MagicMock()
     torch.device = MagicMock(side_effect=lambda x: x)
-    torch.no_grad = MagicMock(return_value=MagicMock(__enter__=MagicMock(return_value=None), __exit__=MagicMock(return_value=False)))
+    torch.no_grad = MagicMock(
+        return_value=MagicMock(
+            __enter__=MagicMock(return_value=None),
+            __exit__=MagicMock(return_value=False),
+        )
+    )
     torch.backends = MagicMock()
     torch.backends.cudnn = MagicMock()
     torch.backends.cudnn.benchmark = False
@@ -87,6 +93,7 @@ def _make_cv2_stub():
     """cv2 is usually available; return real cv2 or a stub."""
     try:
         import cv2
+
         return cv2
     except ImportError:
         stub = types.ModuleType("cv2")
@@ -94,7 +101,13 @@ def _make_cv2_stub():
         stub.INTER_LINEAR = 1
         stub.imread = MagicMock(return_value=np.zeros((64, 64, 3), np.uint8))
         stub.cvtColor = MagicMock(return_value=np.zeros((64, 64), np.uint8))
-        stub.resize = MagicMock(side_effect=lambda src, dsize, **kw: np.zeros((*reversed(dsize), *src.shape[2:]), src.dtype) if src.ndim == 3 else np.zeros(reversed(dsize), src.dtype))
+        stub.resize = MagicMock(
+            side_effect=lambda src, dsize, **kw: (
+                np.zeros((*reversed(dsize), *src.shape[2:]), src.dtype)
+                if src.ndim == 3
+                else np.zeros(reversed(dsize), src.dtype)
+            )
+        )
         stub.GaussianBlur = MagicMock(side_effect=lambda src, *a, **kw: src)
         return stub
 
@@ -107,35 +120,40 @@ _MASK_B = np.ones((64, 64), dtype=np.uint8) * 255
 
 
 # ---------------------------------------------------------------------------
-# 1. Lifecycle contract — device selection and unload()
+# 1. Wrapper contract test classes (using ModelWrapperContractMixin, §5.16C)
 # ---------------------------------------------------------------------------
 
-class TestBaSiCWrapperLifecycle:
-    """BaSiCWrapper stores flat_field / dark_field / baselines; unload() clears them."""
+class TestBaSiCWrapperContract(ModelWrapperContractMixin):
+    """Contract tests for BaSiCWrapper (flat-field illumination estimation)."""
 
-    def _get_wrapper(self):
+    from backend.src.models.wrappers.basic_wrapper import BaSiCWrapper
+
+    wrapper_class = BaSiCWrapper
+    required_methods = [
+        "fit",
+        "transform_stack",
+        "apply_correction",
+        "estimate_profiles",
+        "process_batch",
+        "unload",
+    ]
+
+    def get_wrapper(self, device: str | None = "cpu"):
         torch_stub = _make_torch_stub()
         with patch.dict(sys.modules, {"torch": torch_stub}):
             from backend.src.models.wrappers.basic_wrapper import BaSiCWrapper
-            return BaSiCWrapper(device="cpu"), BaSiCWrapper
 
-    def test_init_accepts_device(self):
-        wrapper, _ = self._get_wrapper()
-        assert wrapper.device == "cpu"
+            return BaSiCWrapper(device=device)
 
-    def test_init_no_device_defaults_to_string(self):
-        torch_stub = _make_torch_stub()
-        with patch.dict(sys.modules, {"torch": torch_stub}):
-            import backend.src.models.wrappers.basic_wrapper as _mod
-            w = _mod.BaSiCWrapper()
-        assert isinstance(w.device, str)
+    def simulate_loaded(self, wrapper):
+        wrapper.flat_field = np.ones((8, 8, 3), np.float32)
 
     def test_unload_clears_all_state(self):
         torch_stub = _make_torch_stub()
         with patch.dict(sys.modules, {"torch": torch_stub}):
             from backend.src.models.wrappers.basic_wrapper import BaSiCWrapper
+
             w = BaSiCWrapper(device="cpu")
-            # Simulate post-fit state
             w.flat_field = np.ones((8, 8, 3), np.float32)
             w.dark_field = np.zeros((8, 8, 3), np.float32)
             w.baselines = np.ones(3, np.float32)
@@ -143,94 +161,320 @@ class TestBaSiCWrapperLifecycle:
         assert w.flat_field is None
         assert w.dark_field is None
         assert w.baselines is None
-
-    def test_unload_idempotent(self):
-        torch_stub = _make_torch_stub()
-        with patch.dict(sys.modules, {"torch": torch_stub}):
-            from backend.src.models.wrappers.basic_wrapper import BaSiCWrapper
-            w = BaSiCWrapper(device="cpu")
-            w.unload()
-            w.unload()  # must not raise
+        assert not w.loaded
 
 
-class TestLoFTRWrapperLifecycle:
-    """LoFTRWrapper stores self.matcher; unload() sets it to None."""
+class TestLoFTRWrapperContract(ModelWrapperContractMixin):
+    """Contract tests for LoFTRWrapper (dense feature matcher)."""
 
-    def _get_wrapper(self):
+    from backend.src.models.wrappers.loftr_wrapper import LoFTRWrapper
+
+    wrapper_class = LoFTRWrapper
+    required_methods = [
+        "match",
+        "match_masked",
+        "get_affine_partial",
+        "get_transform",
+        "load_model",
+        "unload",
+    ]
+
+    def get_wrapper(self, device: str | None = "cpu"):
         torch_stub = _make_torch_stub()
         kornia_stub = _make_kornia_stub()
-        mods = {"torch": torch_stub, "kornia": kornia_stub, "kornia.feature": kornia_stub.feature}
+        mods = {
+            "torch": torch_stub,
+            "kornia": kornia_stub,
+            "kornia.feature": kornia_stub.feature,
+        }
         with patch.dict(sys.modules, mods):
             from backend.src.models.wrappers.loftr_wrapper import LoFTRWrapper
-            return LoFTRWrapper(device="cpu")
 
-    def test_init_accepts_device(self):
-        w = self._get_wrapper()
-        assert w.device == "cpu"
+            return LoFTRWrapper(device=device)
+
+    def simulate_loaded(self, wrapper):
+        fake_model = MagicMock()
+        fake_model.cpu = MagicMock()
+        wrapper.matcher = fake_model
 
     def test_init_matcher_none(self):
-        w = self._get_wrapper()
+        w = self.get_wrapper()
         assert w.matcher is None
 
-    def test_unload_when_no_model_loaded(self):
-        """unload() with no model loaded must not raise."""
-        w = self._get_wrapper()
-        w.unload()
-        assert w.matcher is None
 
-    def test_unload_clears_mock_model(self):
+class TestBiRefNetWrapperContract(ModelWrapperContractMixin):
+    """Contract tests for BiRefNetWrapper (background segmentation)."""
+
+    from backend.src.models.wrappers.birefnet_wrapper import BiRefNetWrapper
+
+    wrapper_class = BiRefNetWrapper
+    required_methods = [
+        "get_mask",
+        "get_soft_mask",
+        "get_background_mask",
+        "get_mask_batch",
+        "unload",
+    ]
+
+    def get_wrapper(self, device: str | None = "cpu"):
         torch_stub = _make_torch_stub()
-        kornia_stub = _make_kornia_stub()
-        mods = {"torch": torch_stub, "kornia": kornia_stub, "kornia.feature": kornia_stub.feature}
+        transformers_stub = _make_transformers_stub()
+        torchvision_stub = types.ModuleType("torchvision")
+        torchvision_stub.transforms = MagicMock()
+        pil_stub = types.ModuleType("PIL")
+        pil_stub.Image = MagicMock()
+        mods = {
+            "torch": torch_stub,
+            "transformers": transformers_stub,
+            "transformers.configuration_utils": transformers_stub.configuration_utils,
+            "torchvision": torchvision_stub,
+            "PIL": pil_stub,
+            "PIL.Image": pil_stub.Image,
+        }
         with patch.dict(sys.modules, mods):
-            from backend.src.models.wrappers.loftr_wrapper import LoFTRWrapper
-            w = LoFTRWrapper(device="cpu")
-            fake_model = MagicMock()
-            fake_model.cpu = MagicMock()
-            w.matcher = fake_model
-            w.unload()
-        assert w.matcher is None
+            from backend.src.models.wrappers.birefnet_wrapper import BiRefNetWrapper
 
-    def test_unload_idempotent(self):
-        w = self._get_wrapper()
-        w.unload()
-        w.unload()
+            return BiRefNetWrapper(device=device)
+
+    def simulate_loaded(self, wrapper):
+        fake = MagicMock()
+        fake.cpu = MagicMock()
+        self.wrapper_class._models[(wrapper.model_name, wrapper.device)] = fake
 
 
-class TestRoMaWrapperLifecycle:
-    """RoMaWrapper raises ImportError when romatch is missing."""
+class TestRoMaWrapperContract(ModelWrapperContractMixin):
+    """Contract tests for RoMaWrapper (dense warp matcher)."""
+
+    import asp_backend.models.wrappers.roma_wrapper as _roma_mod
+
+    wrapper_class = _roma_mod.RoMaWrapper
+    required_methods = [
+        "match_translation",
+        "load",
+        "unload",
+        "offload",
+        "is_available",
+    ]
+
+    def get_wrapper(self, device: str | None = "cpu"):
+        torch_stub = _make_torch_stub()
+        romatch_stub = types.ModuleType("romatch")
+        romatch_stub.roma_outdoor = MagicMock()
+        mods = {"torch": torch_stub, "romatch": romatch_stub}
+        with patch.dict(sys.modules, mods):
+            import asp_backend.models.wrappers.roma_wrapper as _mod
+
+            with patch.object(_mod, "_ROMA_OK", True):
+                return _mod.RoMaWrapper(device=device)
 
     def test_availability_flag_is_bool(self):
         """_ROMA_OK must be a bool regardless of whether romatch is installed."""
         import asp_backend.models.wrappers.roma_wrapper as _mod
+
         assert isinstance(_mod._ROMA_OK, bool)
 
     def test_unavailable_when_romatch_blocked(self):
         """When romatch is blocked, _ROMA_OK must be False after reload."""
         from importlib import reload
+
         with patch.dict(sys.modules, {"romatch": None}):
             import asp_backend.models.wrappers.roma_wrapper as _mod
+
             reload(_mod)
             assert _mod._ROMA_OK is False
 
 
-class TestALIKEDWrapperLifecycle:
-    """ALIKEDLightGlueWrapper guards its kornia dependency with a module-level bool flag."""
+class TestALIKEDWrapperContract(ModelWrapperContractMixin):
+    """Contract tests for ALIKEDLightGlueWrapper (keypoint detector + matcher)."""
+
+    import asp_backend.models.wrappers.aliked_lg_wrapper as _aliked_mod
+
+    wrapper_class = _aliked_mod.ALIKEDLightGlueWrapper
+    required_methods = [
+        "match",
+        "get_translation",
+        "load",
+        "unload",
+        "offload",
+        "is_available",
+    ]
+
+    def get_wrapper(self, device: str | None = "cpu"):
+        torch_stub = _make_torch_stub()
+        kornia_stub = _make_kornia_stub()
+        mods = {
+            "torch": torch_stub,
+            "kornia": kornia_stub,
+            "kornia.feature": kornia_stub.feature,
+        }
+        with patch.dict(sys.modules, mods):
+            import asp_backend.models.wrappers.aliked_lg_wrapper as _mod
+
+            with patch.object(_mod, "_KORNIA_OK", True):
+                return _mod.ALIKEDLightGlueWrapper(device=device)
+
+    def simulate_loaded(self, wrapper):
+        fake = MagicMock()
+        fake.cpu = MagicMock()
+        wrapper._detector = fake
+        wrapper._lightglue = fake
 
     def test_availability_flag_is_bool(self):
         """_KORNIA_OK must be a bool regardless of whether kornia is installed."""
         import asp_backend.models.wrappers.aliked_lg_wrapper as _mod
+
         assert isinstance(_mod._KORNIA_OK, bool)
 
     def test_unavailable_when_kornia_blocked(self):
         """When kornia is blocked from import, _KORNIA_OK must be False after reload."""
         from importlib import reload
+
         torch_stub = _make_torch_stub()
-        with patch.dict(sys.modules, {"torch": torch_stub, "kornia": None, "kornia.feature": None}):
+        with patch.dict(
+            sys.modules,
+            {"torch": torch_stub, "kornia": None, "kornia.feature": None},
+        ):
             import asp_backend.models.wrappers.aliked_lg_wrapper as _mod
-            # Force reload so the try/except runs under the blocked kornia
+
             reload(_mod)
             assert _mod._KORNIA_OK is False
+
+
+class TestEfficientLoFTRWrapperContract(ModelWrapperContractMixin):
+    """Contract tests for EfficientLoFTRWrapper (HuggingFace EfficientLoFTR)."""
+
+    import asp_backend.models.wrappers.efficient_loftr_wrapper as _eloftr_mod
+
+    wrapper_class = _eloftr_mod.EfficientLoFTRWrapper
+    required_methods = [
+        "match",
+        "match_masked",
+        "get_affine_partial",
+        "get_transform",
+        "load",
+        "unload",
+        "offload",
+        "is_available",
+    ]
+
+    def get_wrapper(self, device: str | None = "cpu"):
+        torch_stub = _make_torch_stub()
+        transformers_stub = _make_transformers_stub()
+        mods = {
+            "torch": torch_stub,
+            "transformers": transformers_stub,
+            "transformers.configuration_utils": transformers_stub.configuration_utils,
+        }
+        with patch.dict(sys.modules, mods):
+            import asp_backend.models.wrappers.efficient_loftr_wrapper as _mod
+
+            with patch.object(_mod, "_TRANSFORMERS_OK", True):
+                return _mod.EfficientLoFTRWrapper(device=device)
+
+    def test_availability_flag_is_bool(self):
+        """_TRANSFORMERS_OK must be a bool regardless of whether transformers is installed."""
+        import asp_backend.models.wrappers.efficient_loftr_wrapper as _mod
+
+        assert isinstance(_mod._TRANSFORMERS_OK, bool)
+
+    def test_unavailable_when_transformers_blocked(self):
+        """When transformers is blocked, _TRANSFORMERS_OK must be False after reload."""
+        from importlib import reload
+
+        with patch.dict(sys.modules, {"transformers": None}):
+            import asp_backend.models.wrappers.efficient_loftr_wrapper as _mod
+
+            reload(_mod)
+            assert _mod._TRANSFORMERS_OK is False
+
+
+class TestJamMaWrapperContract(ModelWrapperContractMixin):
+    """Contract tests for JamMaWrapper (Mamba-based feature matcher)."""
+
+    import asp_backend.models.wrappers.jamma_wrapper as _jamma_mod
+
+    wrapper_class = _jamma_mod.JamMaWrapper
+    required_methods = [
+        "match",
+        "match_masked",
+        "get_affine_partial",
+        "load",
+        "unload",
+        "offload",
+        "is_available",
+    ]
+
+    def get_wrapper(self, device: str | None = "cpu"):
+        torch_stub = _make_torch_stub()
+        mamba_stub = types.ModuleType("mamba_ssm")
+        mods = {"torch": torch_stub, "mamba_ssm": mamba_stub}
+        with patch.dict(sys.modules, mods):
+            import asp_backend.models.wrappers.jamma_wrapper as _mod
+
+            with patch.object(_mod, "_JAMMA_OK", True):
+                return _mod.JamMaWrapper(device=device)
+
+    def test_availability_flag_is_bool(self):
+        """_JAMMA_OK must be a bool regardless of whether mamba_ssm is installed."""
+        import asp_backend.models.wrappers.jamma_wrapper as _mod
+
+        assert isinstance(_mod._JAMMA_OK, bool)
+
+    def test_unavailable_when_mamba_blocked(self):
+        """When mamba_ssm is blocked, _JAMMA_OK must be False after reload."""
+        from importlib import reload
+
+        with patch.dict(sys.modules, {"mamba_ssm": None}):
+            import asp_backend.models.wrappers.jamma_wrapper as _mod
+
+            reload(_mod)
+            assert _mod._JAMMA_OK is False
+
+
+class TestESRGANWrapperContract(ModelWrapperContractMixin):
+    """Contract tests for ESRGANWrapper (anime tiled super-resolution)."""
+
+    from backend.src.models.wrappers.esrgan_wrapper import ESRGANWrapper
+
+    wrapper_class = ESRGANWrapper
+    required_methods = [
+        "upscale",
+        "upscale_path",
+        "load",
+        "unload",
+        "is_available",
+    ]
+
+    def get_wrapper(self, device: str | None = "cpu"):
+        torch_stub = _make_torch_stub()
+        with patch.dict(sys.modules, {"torch": torch_stub}):
+            from backend.src.models.wrappers.esrgan_wrapper import ESRGANWrapper
+
+            return ESRGANWrapper(device=device)
+
+
+class TestWDTaggerWrapperContract(ModelWrapperContractMixin):
+    """Contract tests for WDTaggerWrapper (WD-1.4 ONNX tagger)."""
+
+    from backend.src.models.wrappers.wd_tagger_wrapper import WDTaggerWrapper
+
+    wrapper_class = WDTaggerWrapper
+    required_methods = [
+        "tag",
+        "tag_batch",
+        "tag_with_review",
+        "load",
+        "unload",
+        "is_available",
+    ]
+
+    def get_wrapper(self, device: str | None = "cpu"):
+        from backend.src.models.wrappers.wd_tagger_wrapper import WDTaggerWrapper
+
+        return WDTaggerWrapper(device=device)
+
+    def simulate_loaded(self, wrapper):
+        wrapper._session = MagicMock()
 
 
 # ---------------------------------------------------------------------------
@@ -248,6 +492,7 @@ class TestUnloadIdempotency:
         torch_stub = _make_torch_stub()
         with patch.dict(sys.modules, {"torch": torch_stub}):
             from backend.src.models.wrappers.basic_wrapper import BaSiCWrapper
+
             w = BaSiCWrapper(device="cpu")
             w.unload()
             w.unload()
@@ -255,112 +500,21 @@ class TestUnloadIdempotency:
     def test_loftr_wrapper_double_unload(self):
         torch_stub = _make_torch_stub()
         kornia_stub = _make_kornia_stub()
-        mods = {"torch": torch_stub, "kornia": kornia_stub, "kornia.feature": kornia_stub.feature}
+        mods = {
+            "torch": torch_stub,
+            "kornia": kornia_stub,
+            "kornia.feature": kornia_stub.feature,
+        }
         with patch.dict(sys.modules, mods):
             from backend.src.models.wrappers.loftr_wrapper import LoFTRWrapper
+
             w = LoFTRWrapper(device="cpu")
             w.unload()
             w.unload()
 
 
 # ---------------------------------------------------------------------------
-# 3. Interface contract — required public methods exist and are callable
-# ---------------------------------------------------------------------------
-
-class TestBaSiCWrapperInterface:
-    """BaSiCWrapper must expose fit(), transform_stack(), apply_correction(),
-    estimate_profiles(), process_batch()."""
-
-    REQUIRED_METHODS = [
-        "fit",
-        "transform_stack",
-        "apply_correction",
-        "estimate_profiles",
-        "process_batch",
-        "unload",
-    ]
-
-    def _get_wrapper(self):
-        torch_stub = _make_torch_stub()
-        with patch.dict(sys.modules, {"torch": torch_stub}):
-            from backend.src.models.wrappers.basic_wrapper import BaSiCWrapper
-            return BaSiCWrapper(device="cpu")
-
-    @pytest.mark.parametrize("method", REQUIRED_METHODS)
-    def test_method_exists(self, method):
-        w = self._get_wrapper()
-        assert hasattr(w, method), f"BaSiCWrapper missing method: {method}"
-        assert callable(getattr(w, method))
-
-
-class TestLoFTRWrapperInterface:
-    """LoFTRWrapper must expose match(), match_masked(), get_affine_partial(),
-    get_transform(), load_model(), unload()."""
-
-    REQUIRED_METHODS = [
-        "match",
-        "match_masked",
-        "get_affine_partial",
-        "get_transform",
-        "load_model",
-        "unload",
-    ]
-
-    def _get_wrapper(self):
-        torch_stub = _make_torch_stub()
-        kornia_stub = _make_kornia_stub()
-        mods = {"torch": torch_stub, "kornia": kornia_stub, "kornia.feature": kornia_stub.feature}
-        with patch.dict(sys.modules, mods):
-            from backend.src.models.wrappers.loftr_wrapper import LoFTRWrapper
-            return LoFTRWrapper(device="cpu")
-
-    @pytest.mark.parametrize("method", REQUIRED_METHODS)
-    def test_method_exists(self, method):
-        w = self._get_wrapper()
-        assert hasattr(w, method), f"LoFTRWrapper missing method: {method}"
-        assert callable(getattr(w, method))
-
-
-class TestBiRefNetWrapperInterface:
-    """BiRefNetWrapper must expose get_mask(), get_soft_mask(),
-    get_background_mask(), get_mask_batch(), unload()."""
-
-    REQUIRED_METHODS = [
-        "get_mask",
-        "get_soft_mask",
-        "get_background_mask",
-        "get_mask_batch",
-        "unload",
-    ]
-
-    def _get_wrapper(self):
-        torch_stub = _make_torch_stub()
-        transformers_stub = _make_transformers_stub()
-        torchvision_stub = types.ModuleType("torchvision")
-        torchvision_stub.transforms = MagicMock()
-        pil_stub = types.ModuleType("PIL")
-        pil_stub.Image = MagicMock()
-        mods = {
-            "torch": torch_stub,
-            "transformers": transformers_stub,
-            "transformers.configuration_utils": transformers_stub.configuration_utils,
-            "torchvision": torchvision_stub,
-            "PIL": pil_stub,
-            "PIL.Image": pil_stub.Image,
-        }
-        with patch.dict(sys.modules, mods):
-            from backend.src.models.wrappers.birefnet_wrapper import BiRefNetWrapper
-            return BiRefNetWrapper(device="cpu")
-
-    @pytest.mark.parametrize("method", REQUIRED_METHODS)
-    def test_method_exists(self, method):
-        w = self._get_wrapper()
-        assert hasattr(w, method), f"BiRefNetWrapper missing method: {method}"
-        assert callable(getattr(w, method))
-
-
-# ---------------------------------------------------------------------------
-# 4. Output type contract — apply_correction() returns np.ndarray
+# 3. Output type contract — apply_correction() returns np.ndarray
 # ---------------------------------------------------------------------------
 
 class TestBaSiCOutputTypes:
@@ -370,6 +524,7 @@ class TestBaSiCOutputTypes:
         torch_stub = _make_torch_stub()
         with patch.dict(sys.modules, {"torch": torch_stub}):
             from backend.src.models.wrappers.basic_wrapper import BaSiCWrapper
+
             w = BaSiCWrapper(device="cpu")
             img = np.zeros((64, 64, 3), dtype=np.uint8)
             # Before fit, flat_field is None — apply_correction returns the original
@@ -381,6 +536,7 @@ class TestBaSiCOutputTypes:
         torch_stub = _make_torch_stub()
         with patch.dict(sys.modules, {"torch": torch_stub}):
             from backend.src.models.wrappers.basic_wrapper import BaSiCWrapper
+
             w = BaSiCWrapper(device="cpu")
             img = np.zeros((32, 32, 3), dtype=np.uint8) + 200
             result = w.apply_correction(img)
@@ -389,7 +545,7 @@ class TestBaSiCOutputTypes:
 
 
 # ---------------------------------------------------------------------------
-# 5. BiRefNetWrapper singleton-per-model contract
+# 4. BiRefNetWrapper singleton-per-model contract
 # ---------------------------------------------------------------------------
 
 class TestBiRefNetSingleton:
@@ -411,7 +567,10 @@ class TestBiRefNetSingleton:
             "PIL.Image": pil_stub.Image,
         }
         with patch.dict(sys.modules, mods):
-            from backend.src.models.wrappers.birefnet_wrapper import BiRefNetWrapper
+            from backend.src.models.wrappers.birefnet_wrapper import (
+                BiRefNetWrapper,
+            )
+
             assert hasattr(BiRefNetWrapper, "_models")
             assert isinstance(BiRefNetWrapper._models, dict)
 
@@ -431,11 +590,18 @@ class TestBiRefNetSingleton:
             "PIL.Image": pil_stub.Image,
         }
         with patch.dict(sys.modules, mods):
-            from backend.src.models.wrappers.birefnet_wrapper import BiRefNetWrapper
+            from backend.src.models.wrappers.birefnet_wrapper import (
+                BiRefNetWrapper,
+            )
+
             a = BiRefNetWrapper(device="cpu")
             b = BiRefNetWrapper(device="cpu")
             assert a._models is b._models
 
+
+# ---------------------------------------------------------------------------
+# 5. ModelWrapper allocation & CUDA flush policy contract
+# ---------------------------------------------------------------------------
 
 class TestModelWrapperCudaFlushPolicy:
     """Allocator synchronization is diagnostic-only during unload."""
