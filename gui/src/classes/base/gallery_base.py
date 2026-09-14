@@ -658,6 +658,23 @@ class AbstractGalleryBase(QWidget, metaclass=MetaAbstractClassGallery):
                 self._restore_uniform_geometry(card)
         self._masonry_state.clear()
         self._on_layout_change()
+        self._reflow_presentation_layouts()
+
+    def _reflow_presentation_layouts(self) -> None:
+        """Reflow existing cards when a mode changes without a resize.
+
+        The regular layout-change handlers only reflow after a column-count
+        change. A presentation-mode switch needs a reflow even at the same
+        viewport width.
+        """
+        for layout_attr, columns_attr in (
+            ("gallery_layout", "_current_cols"),
+            ("found_gallery_layout", "_current_found_cols"),
+            ("selected_gallery_layout", "_current_selected_cols"),
+        ):
+            layout = getattr(self, layout_attr, None)
+            if layout is not None:
+                self.common_reflow_layout(layout, max(1, getattr(self, columns_attr, 1)))
 
     def set_overlay_config(self, config: GalleryOverlayConfig) -> None:
         self._overlay_config = config
