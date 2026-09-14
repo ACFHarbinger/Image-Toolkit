@@ -19,12 +19,12 @@ pytestmark = pytest.mark.gui
 @pytest.fixture(autouse=True)
 def _isolate_extraction_history(tmp_path, monkeypatch):
     """The conftest's mock_image_toolkit_paths patches backend.src.constants,
-    but _video_session_history binds IMAGE_TOOLKIT_DIR at import time, so the
+    but _extraction_history binds IMAGE_TOOLKIT_DIR at import time, so the
     extraction-history JSON still points at the real home dir. Route it to the
     per-test tmp dir to keep queue recording tests isolated."""
     from PySide6.QtWidgets import QMessageBox
 
-    import gui.src.tabs.core.extractor_tab._video_session_history as vsh
+    import gui.src.tabs.core.extractor_tab._extraction_history as vsh
 
     monkeypatch.setattr(vsh, "IMAGE_TOOLKIT_DIR", tmp_path)
     monkeypatch.setattr(QMessageBox, "information", lambda *args, **kwargs: QMessageBox.StandardButton.Ok)
@@ -153,7 +153,7 @@ class TestExtractorTabQueue:
         out_file = tab.extraction_dir / "test_0ms_3000ms.gif"
         out_file.write_text("gif")
 
-        with patch("gui.src.tabs.core.extractor_tab._queue_management.QMessageBox"):
+        with patch("gui.src.tabs.core.extractor_tab._queue_processing.QMessageBox"):
             tab._on_queue_processing_finished(
                 [{"status": "success", "output_path": str(out_file)}]
             )
@@ -235,7 +235,7 @@ class TestExtractorTabQueue:
         worker = QueueExecutionWorker(list(tab.inprocess_items), parallel=False)
         worker.signals.item_completed.connect(tab._on_queue_item_completed)
         worker.signals.finished.connect(tab._on_queue_processing_finished)
-        with patch("gui.src.tabs.core.extractor_tab._queue_management.QMessageBox"):
+        with patch("gui.src.tabs.core.extractor_tab._queue_processing.QMessageBox"):
             worker.run()
 
         out_gif = tab.extraction_dir / "realsource_0ms_3000ms.gif"
@@ -283,7 +283,7 @@ class TestExtractorTabQueue:
         tab.cuts_ms = []
 
         tab._run_gif_extraction(0, 3000)
-        with patch("gui.src.tabs.core.extractor_tab._queue_management.QMessageBox"):
+        with patch("gui.src.tabs.core.extractor_tab._queue_processing.QMessageBox"):
             tab.process_queue()
 
             # Wait for the async worker (finished handler clears active_queue_worker)
@@ -571,7 +571,7 @@ class TestExtractorTabQueue:
             assert mock_load.call_count == 0
 
             with patch(
-                "gui.src.tabs.core.extractor_tab._queue_management.QMessageBox"
+                "gui.src.tabs.core.extractor_tab._queue_processing.QMessageBox"
             ):
                 tab._on_queue_processing_error("engine failure")
 
@@ -589,7 +589,7 @@ class TestExtractorTabQueue:
         for f in (f1, f2, f3):
             f.write_text("gif")
 
-        with patch("gui.src.tabs.core.extractor_tab._queue_management.QMessageBox"):
+        with patch("gui.src.tabs.core.extractor_tab._queue_processing.QMessageBox"):
             tab._on_queue_processing_finished(
                 [
                     {"status": "success", "output_path": str(f1)},
@@ -699,7 +699,7 @@ class TestExtractorTabQueue:
             return {"status": "success", "output_path": str(out)}
 
         with (
-            patch("gui.src.tabs.core.extractor_tab._queue_management.QMessageBox"),
+            patch("gui.src.tabs.core.extractor_tab._queue_processing.QMessageBox"),
             patch(
                 "gui.src.helpers.core.queue_execution_worker.run_extraction_in_process",
                 side_effect=fake_run,
@@ -773,7 +773,7 @@ class TestExtractorTabQueue:
         queued = list(tab.extraction_queue)
 
         with (
-            patch("gui.src.tabs.core.extractor_tab._queue_management.QMessageBox"),
+            patch("gui.src.tabs.core.extractor_tab._queue_processing.QMessageBox"),
             patch.object(tab.video_subtab, "start_loading_gallery", return_value=None),
         ):
             worker = QueueExecutionWorker(queued, parallel=True)

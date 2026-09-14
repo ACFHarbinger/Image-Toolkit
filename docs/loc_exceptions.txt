@@ -7,20 +7,4 @@
 # across 13 stages — deliberately not split further per module docstring.
 gui/src/helpers/animation/stitch_worker/_progress_pipeline.py
 
-# Temporary exceptions — tracked in #629 for Option B splits.
-# Remove each entry once the file is split below 500 code lines.
-
-# #629: extractor_tab queue management panel
-gui/src/tabs/core/extractor_tab/_queue_management.py
-
-# #629: crawler selection dialog components
-gui/src/components/dialogs/crawler_selection_dialogs.py
-
-# #629: extractor_tab video session history
-gui/src/tabs/core/extractor_tab/_video_session_history.py
-
-# #629: queue execution worker
-gui/src/helpers/core/queue_execution_worker.py
-
-# #629: entity detail panel
-gui/src/elements/database/display/entity_detail_panel.py
+# Temporary exceptions — none currently (#629 splits all landed).
