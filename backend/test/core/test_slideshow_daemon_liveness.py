@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import types
 
 from backend.src.utils.display.monitor_slideshow_daemon import (
     daemon_is_live,
@@ -70,20 +71,15 @@ class TestStartupLiveness:
             path,
         )
 
-        class Fake(_SlideshowDaemonMixin):
-            def __init__(self):
-                self._daemon_active_monitor_id = "stale"
-                self._inapp_active_monitor_id = None
-
-            def _update_slideshow_buttons(self):
-                pass
-
-            def _update_queue_status_label(self):
-                pass
-
-        tab = Fake()
-        tab._check_daemon_status_on_startup()
-        assert tab._daemon_active_monitor_id is None
+        dummy = types.SimpleNamespace(
+            _daemon_active_monitor_id="stale",
+            _inapp_active_monitor_id=None,
+            _update_slideshow_buttons=lambda: None,
+            _update_queue_status_label=lambda: None,
+        )
+        controller = _SlideshowDaemonMixin(dummy)
+        controller._check_daemon_status_on_startup()
+        assert dummy._daemon_active_monitor_id is None
         saved = json.loads(path.read_text())
         assert saved["running"] is False
 
@@ -104,22 +100,17 @@ class TestStartupLiveness:
             path,
         )
 
-        class Fake(_SlideshowDaemonMixin):
-            def __init__(self):
-                self._daemon_active_monitor_id = None
-                self._inapp_active_monitor_id = None
-                self.buttons = 0
-
-            def _update_slideshow_buttons(self):
-                self.buttons += 1
-
-            def _update_queue_status_label(self):
-                pass
-
-        tab = Fake()
-        tab._check_daemon_status_on_startup()
-        assert tab._daemon_active_monitor_id == "2"
-        assert tab.buttons == 1
+        buttons = [0]
+        dummy = types.SimpleNamespace(
+            _daemon_active_monitor_id=None,
+            _inapp_active_monitor_id=None,
+            _update_slideshow_buttons=lambda: buttons.__setitem__(0, buttons[0] + 1),
+            _update_queue_status_label=lambda: None,
+        )
+        controller = _SlideshowDaemonMixin(dummy)
+        controller._check_daemon_status_on_startup()
+        assert dummy._daemon_active_monitor_id == "2"
+        assert buttons[0] == 1
 
 
 class TestAtexitGuard:

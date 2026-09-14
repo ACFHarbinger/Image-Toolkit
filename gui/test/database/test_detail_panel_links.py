@@ -103,7 +103,7 @@ class TestEntityDetailPanelAddTag:
         panel._entity_id = None
 
         with patch(
-            "gui.src.elements.database.display.entity_detail_panel.QMessageBox.information"
+            "gui.src.elements.database.display._entity_panel_relations.QMessageBox.information"
         ) as mock_info:
             panel._on_add_tag()
             mock_info.assert_called_once()
@@ -124,19 +124,19 @@ class TestEntityDetailPanelAddTag:
 
         with (
             patch(
-                "gui.src.elements.database.display.entity_detail_panel.get_library_db",
+                "gui.src.elements.database.display._entity_panel_relations.get_library_db",
                 return_value=mock_db,
             ),
             patch(
-                "gui.src.elements.database.display.entity_detail_panel.TagRepo",
+                "gui.src.elements.database.display._entity_panel_relations.TagRepo",
                 return_value=mock_tag_repo,
             ),
             patch(
-                "gui.src.elements.database.display.entity_detail_panel.EntityRepo",
+                "gui.src.elements.database.display._entity_panel_relations.EntityRepo",
                 return_value=mock_entity_repo,
             ),
             patch(
-                "gui.src.elements.database.display.entity_detail_panel.AddTagDialog",
+                "gui.src.elements.database.display._entity_panel_relations.AddTagDialog",
                 return_value=mock_dialog,
             ),
         ):
@@ -151,7 +151,7 @@ class TestEntityDetailPanelLinkedImages:
         panel._entity_id = None
 
         with patch(
-            "gui.src.elements.database.display.entity_detail_panel.QMessageBox.information"
+            "gui.src.elements.database.display._entity_panel_relations.QMessageBox.information"
         ) as mock_info:
             panel._link_image()
             mock_info.assert_called_once()
@@ -170,11 +170,11 @@ class TestEntityDetailPanelLinkedImages:
         mock_db = MagicMock()
         with (
             patch(
-                "gui.src.elements.database.display.entity_detail_panel.get_library_db",
+                "gui.src.elements.database.display._entity_panel_relations.get_library_db",
                 return_value=mock_db,
             ),
             patch(
-                "gui.src.elements.database.display.entity_detail_panel.EntityRepo"
+                "gui.src.elements.database.display._entity_panel_relations.EntityRepo"
             ) as MockEntityRepo,
         ):
             MockEntityRepo.return_value.get_linked_images.return_value = [
@@ -197,19 +197,19 @@ class TestEntityDetailPanelLinkedImages:
 
         with (
             patch(
-                "gui.src.elements.database.display.entity_detail_panel.get_library_db",
+                "gui.src.elements.database.display._entity_panel_relations.get_library_db",
                 return_value=mock_db,
             ),
             patch(
-                "gui.src.elements.database.display.entity_detail_panel.ImageRepo",
+                "gui.src.elements.database.display._entity_panel_relations.ImageRepo",
                 return_value=mock_image_repo,
             ),
             patch(
-                "gui.src.elements.database.display.entity_detail_panel.EntityRepo",
+                "gui.src.elements.database.display._entity_panel_relations.EntityRepo",
                 return_value=mock_entity_repo,
             ),
             patch(
-                "gui.src.elements.database.display.entity_detail_panel.QFileDialog.getOpenFileName",
+                "gui.src.elements.database.display._entity_panel_relations.QFileDialog.getOpenFileName",
                 return_value=("/already/indexed.png", ""),
             ),
         ):
@@ -230,19 +230,19 @@ class TestEntityDetailPanelLinkedImages:
 
         with (
             patch(
-                "gui.src.elements.database.display.entity_detail_panel.get_library_db",
+                "gui.src.elements.database.display._entity_panel_relations.get_library_db",
                 return_value=mock_db,
             ),
             patch(
-                "gui.src.elements.database.display.entity_detail_panel.ImageRepo",
+                "gui.src.elements.database.display._entity_panel_relations.ImageRepo",
                 return_value=mock_image_repo,
             ),
             patch(
-                "gui.src.elements.database.display.entity_detail_panel.EntityRepo",
+                "gui.src.elements.database.display._entity_panel_relations.EntityRepo",
                 return_value=mock_entity_repo,
             ),
             patch(
-                "gui.src.elements.database.display.entity_detail_panel.QFileDialog.getOpenFileName",
+                "gui.src.elements.database.display._entity_panel_relations.QFileDialog.getOpenFileName",
                 return_value=("/new/photo.png", ""),
             ),
         ):
@@ -259,11 +259,11 @@ class TestEntityDetailPanelLinkedImages:
         mock_entity_repo = MagicMock()
         with (
             patch(
-                "gui.src.elements.database.display.entity_detail_panel.get_library_db",
+                "gui.src.elements.database.display._entity_panel_relations.get_library_db",
                 return_value=mock_db,
             ),
             patch(
-                "gui.src.elements.database.display.entity_detail_panel.EntityRepo",
+                "gui.src.elements.database.display._entity_panel_relations.EntityRepo",
                 return_value=mock_entity_repo,
             ),
         ):
