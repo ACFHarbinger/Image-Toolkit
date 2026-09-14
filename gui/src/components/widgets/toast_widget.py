@@ -1,7 +1,6 @@
 """Floating Toast Notification Widget (GUI/UX §2.10A)."""
 
 from PySide6.QtCore import (
-    QEasingCurve,
     QPoint,
     QPropertyAnimation,
     QRect,
@@ -12,6 +11,7 @@ from PySide6.QtCore import (
 from PySide6.QtGui import QColor, QPainter, QPainterPath
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QWidget
 
+from gui.src.styles.motion_kit import BASE_MS, FAST_MS, _in_out_quad, _out_quad, reduce_motion
 from gui.src.theming.theme_api import color, qss
 
 
@@ -76,25 +76,30 @@ class ToastWidget(QWidget):
         painter.fillRect(0, 0, 6, self.height(), self.color)
 
     def start_animation(self):
+        if reduce_motion():
+            self.setWindowOpacity(1.0)
+            self._schedule_close()
+            return
+
         self.anim_group = QSequentialAnimationGroup(self)
 
         fade_in = QPropertyAnimation(self, b"windowOpacity")
-        fade_in.setDuration(300)
+        fade_in.setDuration(FAST_MS + 80)
         fade_in.setStartValue(0.0)
         fade_in.setEndValue(1.0)
-        fade_in.setEasingCurve(QEasingCurve.Type.InOutQuad)
+        fade_in.setEasingCurve(_in_out_quad())
 
-        hold_duration = max(0, self.duration_ms - 600)
+        hold_duration = max(0, self.duration_ms - (FAST_MS + 80) * 2)
         hold = QPropertyAnimation(self, b"windowOpacity")
         hold.setDuration(hold_duration)
         hold.setStartValue(1.0)
         hold.setEndValue(1.0)
 
         fade_out = QPropertyAnimation(self, b"windowOpacity")
-        fade_out.setDuration(300)
+        fade_out.setDuration(FAST_MS + 80)
         fade_out.setStartValue(1.0)
         fade_out.setEndValue(0.0)
-        fade_out.setEasingCurve(QEasingCurve.Type.InOutQuad)
+        fade_out.setEasingCurve(_in_out_quad())
 
         self.anim_group.addAnimation(fade_in)
         if hold.duration() > 0:
@@ -107,6 +112,11 @@ class ToastWidget(QWidget):
     def _on_animation_finished(self):
         self.toast_closed.emit(self)
         self.close()
+
+    def _schedule_close(self):
+        from PySide6.QtCore import QTimer
+
+        QTimer.singleShot(self.duration_ms, lambda: (self.toast_closed.emit(self), self.close()))
 
 
 class ToastManager:
@@ -151,12 +161,10 @@ class ToastManager:
             x = parent_rect.width() - toast.width() - 20
 
             anim = QPropertyAnimation(toast, b"pos")
-            anim.setDuration(200)
-            anim.setStartValue(
-                toast.pos() if toast.isVisible() else QPoint(x, current_y + 20)
-            )
+            anim.setDuration(BASE_MS)
+            anim.setStartValue(toast.pos() if toast.isVisible() else QPoint(x, current_y + 20))
             anim.setEndValue(QPoint(x, current_y))
-            anim.setEasingCurve(QEasingCurve.Type.OutQuad)
+            anim.setEasingCurve(_out_quad())
             anim.start()
 
             # Keep reference to avoid garbage collection

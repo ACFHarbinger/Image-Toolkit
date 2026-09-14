@@ -4,10 +4,11 @@ from __future__ import annotations
 
 from typing import Optional
 
-from PySide6.QtCore import Property, QEasingCurve, QPropertyAnimation, QRectF, QSize, Qt
+from PySide6.QtCore import Property, QPropertyAnimation, QRectF, QSize, Qt
 from PySide6.QtGui import QBrush, QColor, QPainter, QPaintEvent
 from PySide6.QtWidgets import QAbstractButton, QWidget
 
+from gui.src.styles.motion_kit import FAST_MS, _in_out_cubic, reduce_motion
 from gui.src.theming.theme_api import color
 
 
@@ -23,8 +24,8 @@ class ToggleSwitch(QAbstractButton):
 
         self._thumb_position: float = 3.0
         self._anim = QPropertyAnimation(self, b"thumb_position", self)
-        self._anim.setDuration(160)
-        self._anim.setEasingCurve(QEasingCurve.Type.InOutCubic)
+        self._anim.setDuration(FAST_MS)
+        self._anim.setEasingCurve(_in_out_cubic())
 
         self.toggled.connect(self._on_toggled)
 
@@ -42,6 +43,10 @@ class ToggleSwitch(QAbstractButton):
 
     def _on_toggled(self, checked: bool) -> None:
         end_pos = 25.0 if checked else 3.0
+        if reduce_motion():
+            self._thumb_position = end_pos
+            self.update()
+            return
         self._anim.stop()
         self._anim.setStartValue(self._thumb_position)
         self._anim.setEndValue(end_pos)
