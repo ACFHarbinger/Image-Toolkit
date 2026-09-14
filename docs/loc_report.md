@@ -6,14 +6,9 @@
 
 | Path | Code | Comments | Docstrings | Total |
 |---|---:|---:|---:|---:|
-| `gui/src/classes/base/gallery_base.py` | 801 | 134 | 123 | 1058 |
-| `gui/src/tabs/core/extractor_tab/_queue_management.py` | 649 | 91 | 39 | 779 |
-| `gui/src/components/dialogs/crawler_selection_dialogs.py` | 588 | 51 | 20 | 659 |
-| `gui/src/tabs/core/extractor_tab/_video_session_history.py` | 546 | 50 | 19 | 615 |
-| `gui/src/helpers/core/queue_execution_worker.py` | 514 | 17 | 9 | 540 |
-| `gui/src/elements/database/display/entity_detail_panel.py` | 503 | 13 | 0 | 516 |
 | `gui/src/windows/settings/_credentials.py` | 500 | 32 | 14 | 546 |
 | `gui/src/tabs/core/image_extractor_subtab.py` | 485 | 31 | 40 | 556 |
+| `gui/src/classes/base/gallery_base.py` | 470 | 115 | 100 | 685 |
 | `gui/src/components/virtual_gallery/virtual_gallery_view.py` | 468 | 60 | 44 | 572 |
 | `gui/src/windows/image_compare_window.py` | 467 | 16 | 8 | 491 |
 | `gui/src/windows/authentication/login_window.py` | 467 | 112 | 30 | 609 |
@@ -26,9 +21,11 @@
 | `backend/src/models/tuning/lo_ra_tuner_v2.py` | 423 | 50 | 22 | 495 |
 | `backend/src/models/tuning/lo_ra_tuner.py` | 418 | 48 | 18 | 484 |
 | `gui/src/windows/image_preview_window.py` | 413 | 66 | 42 | 521 |
+| `gui/src/helpers/core/_queue_extraction_process.py` | 413 | 7 | 15 | 435 |
 | `backend/src/database/unified/search_repo.py` | 400 | 28 | 59 | 487 |
 | `gui/src/windows/main/_session_recovery.py` | 400 | 31 | 28 | 459 |
 | `gui/src/windows/settings/_appearance.py` | 400 | 31 | 18 | 449 |
+| `gui/src/classes/base/_gallery_presentation.py` | 394 | 21 | 21 | 436 |
 | `gui/src/styles/background_canvas.py` | 387 | 3 | 18 | 408 |
 | `gui/src/components/dialogs/thumbnail_file_picker.py` | 384 | 4 | 7 | 395 |
 | `gui/src/helpers/web/cloud/local_dir_sync_worker.py` | 378 | 39 | 50 | 467 |
@@ -45,7 +42,10 @@
 | `gui/src/windows/settings/settings_window.py` | 344 | 28 | 10 | 382 |
 | `gui/src/tabs/web/drive_sync_tab/sync_data_subtab/widget.py` | 344 | 26 | 13 | 383 |
 | `gui/src/tabs/models/delta/lora_train_tab.py` | 344 | 27 | 9 | 380 |
+| `gui/src/tabs/core/extractor_tab/_queue_panel.py` | 338 | 36 | 26 | 400 |
+| `gui/src/tabs/core/extractor_tab/_extraction_history.py` | 337 | 24 | 21 | 382 |
 | `backend/src/core/wallpaper/_kde.py` | 334 | 93 | 6 | 433 |
+| `gui/src/tabs/core/extractor_tab/_queue_processing.py` | 333 | 55 | 23 | 411 |
 | `backend/src/pipeline/anime_training_pipeline.py` | 331 | 38 | 36 | 405 |
 | `gui/src/helpers/core/duplicate_scan_worker.py` | 331 | 42 | 33 | 406 |
 | `gui/src/tabs/core/protos/extractor_tab.py` | 330 | 0 | 7 | 337 |
@@ -54,6 +54,6 @@
 | `gui/src/windows/settings/_tab_config_editing.py` | 324 | 15 | 32 | 371 |
 | `backend/src/utils/display/slideshow_daemon.py` | 321 | 31 | 33 | 385 |
 | `backend/src/app.py` | 316 | 102 | 50 | 468 |
+| `gui/src/components/dialogs/_duplicate_pruning.py` | 312 | 30 | 15 | 357 |
 | `gui/src/tabs/database/database_tab/_connection_stats.py` | 310 | 2 | 11 | 323 |
-| `backend/src/core/image/_engines.py` | 307 | 27 | 49 | 383 |
-| **TOTALS** | **86411** | **6147** | **9110** | **101668** |
+| **TOTALS** | **86609** | **6149** | **9193** | **101951** |
