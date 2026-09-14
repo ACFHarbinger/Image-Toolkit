@@ -24,7 +24,7 @@ pytestmark = pytest.mark.gui
 def mock_deps():
     with (
         patch("gui.src.tabs.core.extractor_tab.manager.FrameExtractionWorker"),
-        patch("gui.src.tabs.core.extractor_tab._queue_management.QueueExecutionWorker"),
+        patch("gui.src.tabs.core.extractor_tab._queue_processing.QueueExecutionWorker"),
     ):
         yield
 

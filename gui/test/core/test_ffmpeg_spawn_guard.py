@@ -66,7 +66,7 @@ SWEPT_SITES = {
     "gui/src/helpers/video/gif_extractor_worker.py",
     "gui/src/helpers/video/frame_extractor_worker.py",
     "gui/src/helpers/core/sampler_worker.py",
-    "gui/src/helpers/core/queue_execution_worker.py",
+    "gui/src/helpers/core/_queue_extraction_process.py",
     "gui/src/tabs/core/extractor_tab/_qml_handlers.py",
     "gui/src/components/dialogs/frame_selection_dialog.py",
     "gui/src/tabs/core/wallpaper_tab/system_display_subtab/_video_duration.py",

@@ -87,7 +87,7 @@ class TestGifRegression:
         tab.cuts_ms = []
 
         with patch(
-            "gui.src.tabs.core.extractor_tab._queue_management.QMessageBox.information"
+            "gui.src.tabs.core.extractor_tab._queue_processing.QMessageBox.information"
         ):
             tab._run_gif_extraction(0, 3000)
             assert len(tab.extraction_queue) == 1
