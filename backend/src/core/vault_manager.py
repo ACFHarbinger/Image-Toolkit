@@ -7,6 +7,7 @@ import threading
 from typing import Optional
 
 import backend.src.constants as udef
+from backend.src.utils.decorators import require_path
 
 
 class CryptographyLibNotBuiltError(RuntimeError):
@@ -280,6 +281,7 @@ class VaultManager:
         self.secret_key = None
         self.vault = None
 
+    @require_path("keystore_path")
     def load_keystore(self, keystore_path: str, keystore_pass: str):
         """
         Loads the PKCS#12 keystore from a file (validates it is readable and
@@ -287,10 +289,6 @@ class VaultManager:
         """
         with self._lock:
             print(f"Loading keystore: {keystore_path}", file=sys.stderr)
-            if not os.path.exists(keystore_path):
-                raise FileNotFoundError(
-                    f"Keystore file not found: {keystore_path}"
-                )
             # MAC-verify the store password (alias presence is checked later
             # via contains_alias / get_secret_key).
             if _CryptoAPI.keystore_password_valid(keystore_path, keystore_pass) != 0:

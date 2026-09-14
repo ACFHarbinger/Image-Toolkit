@@ -10,6 +10,8 @@ from torchvision import transforms
 from torchvision.utils import save_image
 from tqdm import tqdm
 
+from backend.src.utils.decorators import require_path
+
 logger = logging.getLogger(__name__)
 
 
@@ -62,6 +64,7 @@ class GanWrapper:
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
+    @require_path("input_image_path")
     def generate(self, input_image_path, output_path):
         if GanWrapper.is_cancelled:
             print("[CANCELLED] Generation aborted before start.")
@@ -69,9 +72,6 @@ class GanWrapper:
 
         if self.netG is None:
             raise RuntimeError("GAN Model not initialized.")
-        if not os.path.exists(input_image_path):
-            raise FileNotFoundError(f"Input image not found: {input_image_path}")
-
         image = Image.open(input_image_path).convert("RGB")
         image_tensor = self.transform(image).unsqueeze(0).to(self.device)
 
