@@ -19,6 +19,7 @@ from gui.src.components.gallery.card_factory import (
     create_gallery_card,
     reset_preview_highlight,
 )
+from gui.src.components.gallery.presentation_mode import GalleryPresentationMode
 from gui.src.qt_object_guard import deleted_qobject_guard
 from gui.src.theming.theme_api import ThemeColor, color, qss
 
@@ -100,7 +101,7 @@ class _CardRenderingMixin:
     ) -> QWidget:
         is_video = path.lower().endswith(tuple(SUPPORTED_VIDEO_FORMATS))
         failed = hasattr(self, "_failed_paths") and path in self._failed_paths
-        return create_gallery_card(
+        card = create_gallery_card(
             path=path,
             pixmap=pixmap,
             thumb_size=self.thumbnail_size,
@@ -113,6 +114,10 @@ class _CardRenderingMixin:
             is_video=is_video,
             apply_pixmap=lambda container, pix, label: self.update_card_pixmap(container, pix, label_ref=label),
         )
+        self._apply_card_overlays(card, path)
+        if self._presentation_mode == GalleryPresentationMode.COMPACT_LIST:
+            self._apply_compact_geometry(card)
+        return card
 
     def update_card_pixmap(
         self: "AbstractClassSingleGalleryHostProtocol",
@@ -165,6 +170,7 @@ class _CardRenderingMixin:
                 label.setStyleSheet(qss("gallery_card_video"))
             else:
                 label.setStyleSheet(qss("gallery_card_pixmap"))
+            self.notify_card_pixmap_loaded(widget, pixmap)
 
         # 3. Loading/Empty State
         else:
