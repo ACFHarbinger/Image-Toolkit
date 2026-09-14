@@ -656,7 +656,7 @@ class TestExtractorTab:
             patch("gui.src.tabs.core.extractor_tab._media_player.QMediaPlayer"),
             patch("gui.src.tabs.core.extractor_tab._media_player.QAudioOutput"),
             patch(
-                "gui.src.tabs.core.extractor_tab._video_session_history.QFileDialog.getExistingDirectory",
+                "gui.src.tabs.core.extractor_tab._video_session_config.QFileDialog.getExistingDirectory",
                 return_value=str(output_dir),
             ),
         ):
