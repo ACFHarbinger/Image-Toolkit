@@ -248,3 +248,100 @@ jobs:
           PYTHONPATH: .
           QT_QPA_PLATFORM: offscreen
 
+  # ── §5.17A: CI-enforced LoC gate ───────────────────────────────────────
+  # Fails if any .py file under backend/src or gui/src exceeds 500 code
+  # lines, unless listed in docs/loc_exceptions.txt. Checked on every PR
+  # and push to main.
+  loc-gate:
+    name: LoC gate (max 500 code lines per file)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "latest"
+
+      - name: Restore uv cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/uv
+          key: uv-loc-${{ runner.os }}-${{ hashFiles('uv.lock') }}
+          restore-keys: uv-loc-${{ runner.os }}-
+
+      - name: Install dependencies (frozen, skip C++ build)
+        run: uv sync --frozen --group dev --no-install-project
+
+      - name: Run LoC gate
+        run: >
+          uv run python backend/validation/count_loc.py
+          backend/src gui/src
+          --max-code-lines 500
+          --exceptions-file docs/loc_exceptions.txt
+          --fail-over
+        env:
+          PYTHONPATH: .
+
+  # ── §5.17D: Auto-generated LoC dashboard ──────────────────────────────
+  # Regenerates docs/loc_report.md on every push to main and commits it
+  # back so the worst-offenders list never goes stale between manual audits.
+  loc-dashboard:
+    name: LoC dashboard (auto-update docs/loc_report.md)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "latest"
+
+      - name: Restore uv cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/uv
+          key: uv-loc-${{ runner.os }}-${{ hashFiles('uv.lock') }}
+          restore-keys: uv-loc-${{ runner.os }}-
+
+      - name: Install dependencies (frozen, skip C++ build)
+        run: uv sync --frozen --group dev --no-install-project
+
+      - name: Generate LoC report
+        run: >
+          uv run python backend/validation/count_loc.py
+          backend/src gui/src
+          --sort code --limit 50
+          --markdown-out docs/loc_report.md
+        env:
+          PYTHONPATH: .
+
+      - name: Commit report if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/loc_report.md
+          if git diff --staged --quiet; then
+            echo "No changes to loc_report.md — skipping commit."
+          else
+            git commit -m "docs: auto-update LoC dashboard [skip ci]"
+            git push
+          fi
+

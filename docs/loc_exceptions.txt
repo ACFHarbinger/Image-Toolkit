@@ -1,7 +1,26 @@
 # Image-Toolkit — Code Line-Count Limit Exceptions (Max 500 code lines)
-# Tracking issue: GitHub #121 / Architecture §5.17
-# Format: Relative path to python file (from workspace root or search path). Comments (#) and empty lines are ignored.
+# Tracking issue: GitHub #626 / Architecture §5.17
+# Format: Relative path to python file (from workspace root or search path).
+#         Comments (#) and empty lines are ignored.
 
-# Documented exception in architecture.md §5.17: stage-by-stage HITL pipeline run() method threading state across 13 stages
+# Permanent exception: stage-by-stage HITL pipeline run() threading state
+# across 13 stages — deliberately not split further per module docstring.
 gui/src/helpers/animation/stitch_worker/_progress_pipeline.py
-helpers/animation/stitch_worker/_progress_pipeline.py
+
+# Temporary exceptions — tracked in #629 for Option B splits.
+# Remove each entry once the file is split below 500 code lines.
+
+# #629: extractor_tab queue management panel
+gui/src/tabs/core/extractor_tab/_queue_management.py
+
+# #629: crawler selection dialog components
+gui/src/components/dialogs/crawler_selection_dialogs.py
+
+# #629: extractor_tab video session history
+gui/src/tabs/core/extractor_tab/_video_session_history.py
+
+# #629: queue execution worker
+gui/src/helpers/core/queue_execution_worker.py
+
+# #629: entity detail panel
+gui/src/elements/database/display/entity_detail_panel.py
