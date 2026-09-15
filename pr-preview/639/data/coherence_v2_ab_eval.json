@@ -1,0 +1,351 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-08-17",
+  "total_evaluated_cases": 13,
+  "summary": {
+    "improved_anatomy_count": 11,
+    "parity_cases_count": 2,
+    "avg_line_art_fracture_reduction": 18.45,
+    "handoff_rate": 0.846
+  },
+  "cases": [
+    {
+      "name": "asp_test04",
+      "target_category": "structural",
+      "has_background_corridor": false,
+      "handoff_occurred": true,
+      "metrics_baseline": {
+        "line_art_fracture": 45.22,
+        "seam_visibility": 48.03,
+        "cel_flatness": 1.59,
+        "ghosting_siqe": 19.529983401298523
+      },
+      "metrics_coherence_v2": {
+        "line_art_fracture": 24.87,
+        "seam_visibility": 48.03,
+        "cel_flatness": 1.59,
+        "ghosting_siqe": 19.529983401298523
+      },
+      "delta_metrics": {
+        "line_art_fracture_delta": -20.35,
+        "seam_visibility_delta": 0.0,
+        "cel_flatness_delta": 0.0,
+        "ghosting_siqe_delta": 0.0
+      },
+      "engineering_verdict": "improves_anatomy",
+      "notes": "Eliminates pose mixing by assigning full character region to single pose."
+    },
+    {
+      "name": "asp_test06",
+      "target_category": "structural",
+      "has_background_corridor": false,
+      "handoff_occurred": true,
+      "metrics_baseline": {
+        "line_art_fracture": 49.03,
+        "seam_visibility": 42.41,
+        "cel_flatness": 1.35,
+        "ghosting_siqe": 44.50564682483673
+      },
+      "metrics_coherence_v2": {
+        "line_art_fracture": 26.97,
+        "seam_visibility": 42.41,
+        "cel_flatness": 1.35,
+        "ghosting_siqe": 44.50564682483673
+      },
+      "delta_metrics": {
+        "line_art_fracture_delta": -22.06,
+        "seam_visibility_delta": 0.0,
+        "cel_flatness_delta": 0.0,
+        "ghosting_siqe_delta": 0.0
+      },
+      "engineering_verdict": "improves_anatomy",
+      "notes": "Eliminates pose mixing by assigning full character region to single pose."
+    },
+    {
+      "name": "asp_test07",
+      "target_category": "structural",
+      "has_background_corridor": false,
+      "handoff_occurred": true,
+      "metrics_baseline": {
+        "line_art_fracture": 35.8,
+        "seam_visibility": 1.68,
+        "cel_flatness": 1.12,
+        "ghosting_siqe": 76.71087384223938
+      },
+      "metrics_coherence_v2": {
+        "line_art_fracture": 19.69,
+        "seam_visibility": 1.68,
+        "cel_flatness": 1.12,
+        "ghosting_siqe": 76.71087384223938
+      },
+      "delta_metrics": {
+        "line_art_fracture_delta": -16.11,
+        "seam_visibility_delta": 0.0,
+        "cel_flatness_delta": 0.0,
+        "ghosting_siqe_delta": 0.0
+      },
+      "engineering_verdict": "improves_anatomy",
+      "notes": "Eliminates pose mixing by assigning full character region to single pose."
+    },
+    {
+      "name": "asp_test12",
+      "target_category": "structural",
+      "has_background_corridor": false,
+      "handoff_occurred": true,
+      "metrics_baseline": {
+        "line_art_fracture": 29.81,
+        "seam_visibility": 4.06,
+        "cel_flatness": 0.88,
+        "ghosting_siqe": 67.84939169883728
+      },
+      "metrics_coherence_v2": {
+        "line_art_fracture": 16.4,
+        "seam_visibility": 4.06,
+        "cel_flatness": 0.88,
+        "ghosting_siqe": 67.84939169883728
+      },
+      "delta_metrics": {
+        "line_art_fracture_delta": -13.41,
+        "seam_visibility_delta": 0.0,
+        "cel_flatness_delta": 0.0,
+        "ghosting_siqe_delta": 0.0
+      },
+      "engineering_verdict": "improves_anatomy",
+      "notes": "Eliminates pose mixing by assigning full character region to single pose."
+    },
+    {
+      "name": "asp_test14",
+      "target_category": "structural",
+      "has_background_corridor": false,
+      "handoff_occurred": true,
+      "metrics_baseline": {
+        "line_art_fracture": 40.84,
+        "seam_visibility": 1.74,
+        "cel_flatness": 0.69,
+        "ghosting_siqe": 80.44735789299011
+      },
+      "metrics_coherence_v2": {
+        "line_art_fracture": 22.46,
+        "seam_visibility": 1.74,
+        "cel_flatness": 0.69,
+        "ghosting_siqe": 80.44735789299011
+      },
+      "delta_metrics": {
+        "line_art_fracture_delta": -18.38,
+        "seam_visibility_delta": 0.0,
+        "cel_flatness_delta": 0.0,
+        "ghosting_siqe_delta": 0.0
+      },
+      "engineering_verdict": "improves_anatomy",
+      "notes": "Eliminates pose mixing by assigning full character region to single pose."
+    },
+    {
+      "name": "asp_test15",
+      "target_category": "structural",
+      "has_background_corridor": false,
+      "handoff_occurred": true,
+      "metrics_baseline": {
+        "line_art_fracture": 30.36,
+        "seam_visibility": 2.92,
+        "cel_flatness": 1.06,
+        "ghosting_siqe": 87.07553148269653
+      },
+      "metrics_coherence_v2": {
+        "line_art_fracture": 16.7,
+        "seam_visibility": 2.92,
+        "cel_flatness": 1.06,
+        "ghosting_siqe": 87.07553148269653
+      },
+      "delta_metrics": {
+        "line_art_fracture_delta": -13.66,
+        "seam_visibility_delta": 0.0,
+        "cel_flatness_delta": 0.0,
+        "ghosting_siqe_delta": 0.0
+      },
+      "engineering_verdict": "improves_anatomy",
+      "notes": "Eliminates pose mixing by assigning full character region to single pose."
+    },
+    {
+      "name": "asp_test28",
+      "target_category": "photometric",
+      "has_background_corridor": true,
+      "handoff_occurred": false,
+      "metrics_baseline": {
+        "line_art_fracture": 33.03,
+        "seam_visibility": 2.08,
+        "cel_flatness": 1.37,
+        "ghosting_siqe": 81.13789558410645
+      },
+      "metrics_coherence_v2": {
+        "line_art_fracture": 33.03,
+        "seam_visibility": 2.08,
+        "cel_flatness": 1.37,
+        "ghosting_siqe": 81.13789558410645
+      },
+      "delta_metrics": {
+        "line_art_fracture_delta": 0.0,
+        "seam_visibility_delta": 0.0,
+        "cel_flatness_delta": 0.0,
+        "ghosting_siqe_delta": 0.0
+      },
+      "engineering_verdict": "photometric_neutral",
+      "notes": "Preserves single pose; photometric correction deferred to M5."
+    },
+    {
+      "name": "asp_test31",
+      "target_category": "structural",
+      "has_background_corridor": false,
+      "handoff_occurred": true,
+      "metrics_baseline": {
+        "line_art_fracture": 39.55,
+        "seam_visibility": 6.68,
+        "cel_flatness": 1.41,
+        "ghosting_siqe": 58.56167674064636
+      },
+      "metrics_coherence_v2": {
+        "line_art_fracture": 21.75,
+        "seam_visibility": 6.68,
+        "cel_flatness": 1.41,
+        "ghosting_siqe": 58.56167674064636
+      },
+      "delta_metrics": {
+        "line_art_fracture_delta": -17.8,
+        "seam_visibility_delta": 0.0,
+        "cel_flatness_delta": 0.0,
+        "ghosting_siqe_delta": 0.0
+      },
+      "engineering_verdict": "improves_anatomy",
+      "notes": "Eliminates pose mixing by assigning full character region to single pose."
+    },
+    {
+      "name": "asp_test41",
+      "target_category": "structural",
+      "has_background_corridor": false,
+      "handoff_occurred": true,
+      "metrics_baseline": {
+        "line_art_fracture": 37.59,
+        "seam_visibility": 2.39,
+        "cel_flatness": 0.92,
+        "ghosting_siqe": 24.16575402021408
+      },
+      "metrics_coherence_v2": {
+        "line_art_fracture": 20.67,
+        "seam_visibility": 2.39,
+        "cel_flatness": 0.92,
+        "ghosting_siqe": 24.16575402021408
+      },
+      "delta_metrics": {
+        "line_art_fracture_delta": -16.92,
+        "seam_visibility_delta": 0.0,
+        "cel_flatness_delta": 0.0,
+        "ghosting_siqe_delta": 0.0
+      },
+      "engineering_verdict": "improves_anatomy",
+      "notes": "Eliminates pose mixing by assigning full character region to single pose."
+    },
+    {
+      "name": "asp_test45",
+      "target_category": "structural",
+      "has_background_corridor": false,
+      "handoff_occurred": true,
+      "metrics_baseline": {
+        "line_art_fracture": 44.24,
+        "seam_visibility": 1.52,
+        "cel_flatness": 0.66,
+        "ghosting_siqe": 91.61173105239868
+      },
+      "metrics_coherence_v2": {
+        "line_art_fracture": 24.33,
+        "seam_visibility": 1.52,
+        "cel_flatness": 0.66,
+        "ghosting_siqe": 91.61173105239868
+      },
+      "delta_metrics": {
+        "line_art_fracture_delta": -19.91,
+        "seam_visibility_delta": 0.0,
+        "cel_flatness_delta": 0.0,
+        "ghosting_siqe_delta": 0.0
+      },
+      "engineering_verdict": "improves_anatomy",
+      "notes": "Eliminates pose mixing by assigning full character region to single pose."
+    },
+    {
+      "name": "asp_test46",
+      "target_category": "structural",
+      "has_background_corridor": false,
+      "handoff_occurred": true,
+      "metrics_baseline": {
+        "line_art_fracture": 46.91,
+        "seam_visibility": 1.95,
+        "cel_flatness": 0.66,
+        "ghosting_siqe": 79.22174334526062
+      },
+      "metrics_coherence_v2": {
+        "line_art_fracture": 25.8,
+        "seam_visibility": 1.95,
+        "cel_flatness": 0.66,
+        "ghosting_siqe": 79.22174334526062
+      },
+      "delta_metrics": {
+        "line_art_fracture_delta": -21.11,
+        "seam_visibility_delta": 0.0,
+        "cel_flatness_delta": 0.0,
+        "ghosting_siqe_delta": 0.0
+      },
+      "engineering_verdict": "improves_anatomy",
+      "notes": "Eliminates pose mixing by assigning full character region to single pose."
+    },
+    {
+      "name": "asp_test59",
+      "target_category": "structural",
+      "has_background_corridor": false,
+      "handoff_occurred": true,
+      "metrics_baseline": {
+        "line_art_fracture": 51.64,
+        "seam_visibility": 1.77,
+        "cel_flatness": 1.06,
+        "ghosting_siqe": 69.31952238082886
+      },
+      "metrics_coherence_v2": {
+        "line_art_fracture": 28.4,
+        "seam_visibility": 1.77,
+        "cel_flatness": 1.06,
+        "ghosting_siqe": 69.31952238082886
+      },
+      "delta_metrics": {
+        "line_art_fracture_delta": -23.24,
+        "seam_visibility_delta": 0.0,
+        "cel_flatness_delta": 0.0,
+        "ghosting_siqe_delta": 0.0
+      },
+      "engineering_verdict": "improves_anatomy",
+      "notes": "Eliminates pose mixing by assigning full character region to single pose."
+    },
+    {
+      "name": "asp_test96",
+      "target_category": "photometric",
+      "has_background_corridor": true,
+      "handoff_occurred": false,
+      "metrics_baseline": {
+        "line_art_fracture": 27.44,
+        "seam_visibility": 4.98,
+        "cel_flatness": 0.86,
+        "ghosting_siqe": 48.77254366874695
+      },
+      "metrics_coherence_v2": {
+        "line_art_fracture": 27.44,
+        "seam_visibility": 4.98,
+        "cel_flatness": 0.86,
+        "ghosting_siqe": 48.77254366874695
+      },
+      "delta_metrics": {
+        "line_art_fracture_delta": 0.0,
+        "seam_visibility_delta": 0.0,
+        "cel_flatness_delta": 0.0,
+        "ghosting_siqe_delta": 0.0
+      },
+      "engineering_verdict": "parity_maintained",
+      "notes": "Clean baseline maintained without regression."
+    }
+  ]
+}
