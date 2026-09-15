@@ -1,3 +1,11 @@
+# S565 — 2026-09-15 (Cursor: Track B Phase 7 #399 / omniscient debug)
+
+- Host-side Pernosco-style query layer over recorded telemetry: occurrences,
+  reverse-watch, time-slice state, suspicious interleavings, and ddmin.
+- `BugCapsule` content-addressable digest attaches to `CrashBundle` without
+  replacing gdb. Optional `rr` sidecar JSON loader; the `rr` binary is never
+  invoked. Plugin `omniscient_debug` discovered via manifest.
+
 # S564 — 2026-09-13 (Claude: R4.3 #620 follow-up / theme-dependent qss() extras)
 
 - Live post-merge testing on `main` found #620's refresh walk incomplete:
