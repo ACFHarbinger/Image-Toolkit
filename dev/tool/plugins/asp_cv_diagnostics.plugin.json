@@ -1,0 +1,53 @@
+{
+  "schema": "devtool.plugin.manifest",
+  "schema_version": 1,
+  "name": "asp_cv_diagnostics",
+  "version": "0.1.0",
+  "description": "ASP Stage-by-Stage CV Diagnostics: feature matching geometry, bundle adjustment residuals, seam blending diagnostics from PipelineSession telemetry (Track B Phase 3).",
+  "surfaces": [
+    {
+      "name": "cli",
+      "description": "Summarize diagnostic reports, list telemetry files"
+    },
+    {
+      "name": "web",
+      "description": "Match geometry viewer, BA residual charts, seam heatmaps (Rerun desktop sidecar)"
+    },
+    {
+      "name": "mcp",
+      "description": "Diagnostic queries, seam energy lookups"
+    }
+  ],
+  "channels": [
+    {
+      "key": "match_geometries",
+      "label": "Feature matching geometry per frame pair",
+      "description": "Keypoints, matches, inliers, fundamental matrix, residuals",
+      "default_enabled": true,
+      "retention": "30d"
+    },
+    {
+      "key": "ba_residuals",
+      "label": "Bundle adjustment reprojection residuals",
+      "description": "Before/after GNC-TLS BA, camera origins on canvas plane",
+      "default_enabled": true,
+      "retention": "30d"
+    },
+    {
+      "key": "seam_diagnostics",
+      "label": "Seam blending diagnostics",
+      "description": "Routing path, frequency profiles, gradient coherence, cut energy",
+      "default_enabled": true,
+      "retention": "30d"
+    }
+  ],
+  "entry": {
+    "python_module": "tool.plugins.asp_cv_diagnostics:plugin",
+    "command": [
+      ".venv/bin/python",
+      "dev",
+      "plugin-run",
+      "asp_cv_diagnostics"
+    ]
+  }
+}
