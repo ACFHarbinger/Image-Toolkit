@@ -12,7 +12,7 @@ from tool.model.tda_pipeline import (
     PersistencePoint,
     TDAFingerprint,
 )
-from tool.plugins.tda_pipeline import plugin
+from tool.plugins.tda_pipeline import run_cli
 from tool.research.tda_pipeline import (
     compute_betti_curves,
     compute_distance_matrix,
@@ -207,14 +207,14 @@ class TestCallGraphFingerprint:
 
 class TestCLI:
     def test_demo_command(self, capsys):
-        result = plugin(["demo"])
+        result = run_cli(["demo"])
         assert result == 0
         captured = capsys.readouterr()
         assert "TDA Fingerprint: demo_point_cloud" in captured.out
 
     def test_demo_json_out(self, tmp_path: Path):
         json_out = tmp_path / "fingerprint.json"
-        result = plugin(["demo", "--json-out", str(json_out)])
+        result = run_cli(["demo", "--json-out", str(json_out)])
         assert result == 0
         assert json_out.exists()
         data = json.loads(json_out.read_text())
@@ -225,7 +225,7 @@ class TestCLI:
         call_graph = tmp_path / "graph.json"
         call_graph.write_text(json.dumps({"edges": [{"src": "a", "dst": "b"}]}))
 
-        result = plugin(["compute", str(call_graph), "--module-id", "test_mod"])
+        result = run_cli(["compute", str(call_graph), "--module-id", "test_mod"])
         assert result == 0
         captured = capsys.readouterr()
         assert "TDA Fingerprint: test_mod" in captured.out
