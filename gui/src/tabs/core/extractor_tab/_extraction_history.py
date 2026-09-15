@@ -425,6 +425,7 @@ class ExtractorExtractionHistoryController(TabBoundController):
         self.skip_seconds_spinbox.setEnabled(False)
         self.skip_microseconds_spinbox.setEnabled(False)
         self.btn_skip_runtime.setEnabled(False)
+        self.btn_jump_backward.setEnabled(False)
         self.btn_extract_range.setText("🎞️ Extract Range")
 
         self.btn_jump_start.setEnabled(False)
