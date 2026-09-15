@@ -18,6 +18,7 @@ from gui.src.helpers.core._queue_extraction_process import (
     _extraction_pool_worker_init,
     run_extraction_in_process,
 )
+from gui.src.helpers.core._worker_rss_calibration import record_completed_run
 
 # Workers currently mid-run(). Keeps their signals QObject (no Qt parent)
 # alive until run() finishes, so a tab teardown can't GC it mid-emit (Bug 1).
@@ -145,6 +146,11 @@ class QueueExecutionWorker(BaseQRunnableWorker):
                             if next_i < total:
                                 _submit(next_i)
                                 next_i += 1
+                # Natural completion only (cancelled/error exits return
+                # early above). Sequential mode runs in the GUI process
+                # itself, whose peak is not a worker peak — parallel
+                # children only.
+                record_completed_run(results, num_cores)
             except Exception as e:
                 self.signals.error.emit(f"Parallel processing error: {e}")
                 return
