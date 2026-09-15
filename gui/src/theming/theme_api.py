@@ -11,6 +11,7 @@ base after a theme toggle (#620).
 
 from __future__ import annotations
 
+import logging
 import os
 import weakref
 from string import Template
@@ -18,6 +19,8 @@ from typing import Any
 
 from gui.src.styles import THEME_VARS
 from gui.src.theming.resolve import base_defaults, derive_accent_variants
+
+logger = logging.getLogger(__name__)
 
 _COMPONENTS_DIR = os.path.join(os.path.dirname(__file__), "qss", "components")
 
@@ -224,6 +227,21 @@ def refresh_component_styles(*, base: str | None = None) -> int:
             dead.append(widget)
             continue
         widget.setStyleSheet(qss(component, base=resolved, **extra))
+        # setStyleSheet() alone does not reliably trigger a repaint with the
+        # new colors on an already-rendered widget (#620): Qt's style-sheet
+        # cache for that widget needs an explicit unpolish/polish cycle to
+        # actually recompute, and a repaint needs an explicit update() since
+        # the style change alone doesn't always schedule one. Best-effort:
+        # some widget subclasses override update()/style-related methods
+        # with an incompatible signature, so a failure here must never
+        # break the refresh for the rest of the tree.
+        try:
+            style = widget.style()
+            style.unpolish(widget)
+            style.polish(widget)
+            widget.update()
+        except Exception:
+            logger.debug("Suppressed Exception in refresh_component_styles repaint", exc_info=True)
         applied += 1
     for widget in dead:
         _BINDINGS.pop(widget, None)
@@ -231,7 +249,19 @@ def refresh_component_styles(*, base: str | None = None) -> int:
 
 
 def apply_stylesheet(widget, stylesheet: str) -> None:
-    """Apply a pre-built application stylesheet (e.g. from ``load_qss_with_overrides``)."""
+    """Apply a pre-built application stylesheet (e.g. from ``load_qss_with_overrides``).
+
+    Clears the existing sheet before setting the new one (#620): on an
+    already-built, already-polished widget tree, calling ``setStyleSheet()``
+    a second time with different content does not reliably force Qt to
+    re-cascade style-sheet-derived properties on descendants that matched a
+    type selector in the *previous* sheet but have no local override of
+    their own -- only widgets with an explicit per-widget stylesheet (e.g.
+    the header, restyled directly in ``_theme.py``) reliably repaint. An
+    explicit clear-then-set forces Qt to tear down and rebuild the whole
+    style-sheet-applied state instead of diffing against the prior content.
+    """
+    widget.setStyleSheet("")
     widget.setStyleSheet(stylesheet)
 
 
