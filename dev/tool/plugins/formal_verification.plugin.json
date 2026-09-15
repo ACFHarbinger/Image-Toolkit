@@ -1,0 +1,50 @@
+{
+  "schema": "devtool.plugin.manifest",
+  "schema_version": 1,
+  "name": "formal_verification",
+  "version": "0.1.0",
+  "description": "Formal verification: TLA+ state-space model checking, concolic execution, and SMT solver telemetry analysis (Track B Phase 9).",
+  "surfaces": [
+    {
+      "name": "cli",
+      "description": "Model-check specs, run concolic exploration, detect matching loops"
+    },
+    {
+      "name": "web",
+      "description": "State-space tree visualization, violation highlighting, concolic path timeline"
+    },
+    {
+      "name": "mcp",
+      "description": "Invariant queries, state-space exploration, matching-loop detection"
+    }
+  ],
+  "channels": [
+    {
+      "key": "state_space",
+      "label": "TLA+ model-checked state space",
+      "default_enabled": true,
+      "retention": "forever"
+    },
+    {
+      "key": "concolic",
+      "label": "Concolic execution path exploration",
+      "default_enabled": true,
+      "retention": "30d"
+    },
+    {
+      "key": "smt_telemetry",
+      "label": "SMT solver instantiation telemetry and matching-loop detection",
+      "default_enabled": false,
+      "retention": "7d"
+    }
+  ],
+  "entry": {
+    "python_module": "tool.plugins.formal_verification:plugin",
+    "command": [
+      ".venv/bin/python",
+      "dev",
+      "plugin-run",
+      "formal_verification"
+    ]
+  }
+}
