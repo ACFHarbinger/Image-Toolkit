@@ -1,0 +1,10 @@
+{
+  "schema": "devtool.plugin.manifest",
+  "schema_version": 1,
+  "name": "failure_analysis",
+  "version": "0.1.0",
+  "description": "Research-only descriptive information-theory analysis over existing host evidence.",
+  "surfaces": [{"name": "cli", "description": "Evidence summaries; no causal conclusions"}],
+  "channels": [{"key": "evidence", "label": "Existing JSONL or Parquet evidence", "default_enabled": true, "retention": "forever"}],
+  "entry": {"python_module": "tool.plugins.failure_analysis:plugin", "command": null}
+}
