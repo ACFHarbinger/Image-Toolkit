@@ -43,12 +43,23 @@ class QueueExecutionWorker(BaseQRunnableWorker):
         self._is_cancelled = True
 
     def _execute(self) -> object:
-        # Safety net (Bug 1): keep this worker (and therefore its signals
-        # QObject, which has no Qt parent) alive from run() start to finish,
-        # even if the tab drops its active_queue_worker reference mid-run. A
-        # GC'd signals QObject would make a still-running pool thread emit on
-        # a deleted C++ object -> RuntimeError: Signal source has been deleted.
+        # Safety net (Bug 1, #633): keep this worker (and therefore its
+        # signals QObject, which has no Qt parent) alive until its terminal
+        # `finished` signal has been DELIVERED, even if the tab drops its
+        # active_queue_worker reference mid-run. Emitting is not enough:
+        # `finished` crosses threads via a queued call, and if the worker
+        # is collected after run() returns but before the GUI thread pumps
+        # the event, PySide drops the still-queued delivery — the header
+        # sits at N/N (all item_completed arrived) with no completion
+        # dialog and the queue wedges. So the set releases its reference
+        # from a `finished` slot (which runs at delivery time), not from a
+        # `finally` here (which runs before `finished` is even emitted).
+        # Every path through BaseQRunnableWorker.run() ends in
+        # `finished.emit`, so delivery always releases the guard; if the
+        # event loop never pumps again (app teardown) at most one entry
+        # per run leaks in the set, which dies with the process.
         _RUNNING_WORKERS.add(self)
+        self.signals.finished.connect(lambda _res: _RUNNING_WORKERS.discard(self))
         try:
             return self._run_impl()
         except Exception as exc:
@@ -58,8 +69,6 @@ class QueueExecutionWorker(BaseQRunnableWorker):
             with contextlib.suppress(Exception):
                 self.signals.error.emit(f"Queue worker crashed: {exc}")
             return None
-        finally:
-            _RUNNING_WORKERS.discard(self)
 
     def _run_impl(self):
         results = []
