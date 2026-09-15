@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
 from gui.src.components.widgets.resource_simulator_dashboard import (
     ResourceSimulatorDashboard,
 )
+from gui.src.helpers.core._worker_rss_calibration import effective_per_worker_mib
 
 
 class _MiscSectionsMixin:
@@ -103,7 +104,9 @@ class _MiscSectionsMixin:
             _mem = psutil.virtual_memory()
             _rs = ResourceSimulatorDashboard
             _reserve = max(_rs.OS_RESERVE_MIN_GIB * 1024**3, int(_mem.total * _rs.OS_RESERVE_FRACTION))
-            _per = _rs.PER_WORKER_RAM_MIB * 1024**2
+            # #484: cap by the calibrated per-worker peak when runs have
+            # been observed, else the validated static constant.
+            _per = effective_per_worker_mib() * 1024**2
             mem_cap = max(1, int((_mem.available - _reserve - _rs.BASE_RAM_MIB * 1024**2) / _per))
         except Exception:
             mem_cap = cpu_cap
