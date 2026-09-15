@@ -825,7 +825,7 @@ Historical implementation status (unchanged by the fold):
 | 4 Causal / info-theory | Consumes Parquet / JSONL the host already exports. |
 | 5 Flame / coz / VRAM | Shares Track A flame + memory views; do not build a second profiler. |
 | 6 CPG / CodeQL | Research plugin; not v1. |
-| 7 rr / Pernosco | Optional later CrashBundle backend. gdb remains v1. |
+| 7 rr / Pernosco | Optional later CrashBundle backend. gdb remains v1. Host-side query layer + BugCapsule digest shipped (#399); no rr/Pernosco binary. |
 | 8 OTel / high-cardinality | Same emission API as D4 spans; collectors stay optional. |
 | 9 TLA+ / concolic | Research; not v1. |
 | 10 TDA | Research; not v1. |
