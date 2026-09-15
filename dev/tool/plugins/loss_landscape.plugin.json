@@ -1,0 +1,56 @@
+{
+  "schema": "devtool.plugin.manifest",
+  "schema_version": 1,
+  "name": "loss_landscape",
+  "version": "0.1.0",
+  "description": "ML model & loss-landscape visualizer data producer: filter-normalized loss surfaces, Hutchinson/Lanczos Hessian geometry, weight-trajectory projections, activation atlases (Track B Phase 2, #394).",
+  "surfaces": [
+    {
+      "name": "cli",
+      "description": "summarize exported loss surfaces / Hessian spectra / trajectories / atlases"
+    },
+    {
+      "name": "web",
+      "description": "3D surface, ESD, trajectory, and atlas views chart from the exported artifacts"
+    }
+  ],
+  "channels": [
+    {
+      "key": "loss_surfaces",
+      "label": "filter-normalized loss-surface grids + optimizer trajectories",
+      "description": "",
+      "default_enabled": true,
+      "retention": "forever"
+    },
+    {
+      "key": "hessian_spectra",
+      "label": "Hutchinson trace + SLQ eigenvalue spectral densities",
+      "description": "",
+      "default_enabled": true,
+      "retention": "forever"
+    },
+    {
+      "key": "weight_trajectories",
+      "label": "PCA/t-SNE weight & gradient trajectory projections",
+      "description": "",
+      "default_enabled": true,
+      "retention": "forever"
+    },
+    {
+      "key": "activation_maps",
+      "label": "activation atlas embeddings + attention-map overlays",
+      "description": "",
+      "default_enabled": true,
+      "retention": "forever"
+    }
+  ],
+  "entry": {
+    "python_module": "tool.plugins.loss_landscape:plugin",
+    "command": [
+      ".venv/bin/python",
+      "dev",
+      "plugin-run",
+      "loss_landscape"
+    ]
+  }
+}
