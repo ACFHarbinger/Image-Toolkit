@@ -289,8 +289,13 @@ class ExtractorMediaPlayerController(TabBoundController):
         self.skip_microseconds_spinbox.setToolTip("Microseconds to skip ahead")
         self.skip_microseconds_spinbox.setEnabled(False)
 
-        self.btn_skip_runtime = QPushButton("Skip Ahead")
-        self.btn_skip_runtime.setToolTip("Skip forward by the selected runtime")
+        self.btn_jump_backward = QPushButton("Jump Backward")
+        self.btn_jump_backward.setToolTip("Jump backward by the selected runtime")
+        self.btn_jump_backward.clicked.connect(self.jump_video_runtime_backward)
+        self.btn_jump_backward.setEnabled(False)
+
+        self.btn_skip_runtime = QPushButton("Jump Forward")
+        self.btn_skip_runtime.setToolTip("Jump forward by the selected runtime")
         self.btn_skip_runtime.clicked.connect(self.skip_video_runtime)
         self.btn_skip_runtime.setEnabled(False)
 
@@ -313,6 +318,7 @@ class ExtractorMediaPlayerController(TabBoundController):
         controls_layout.addWidget(self.skip_minutes_spinbox)
         controls_layout.addWidget(self.skip_seconds_spinbox)
         controls_layout.addWidget(self.skip_microseconds_spinbox)
+        controls_layout.addWidget(self.btn_jump_backward)
         controls_layout.addWidget(self.btn_skip_runtime)
         controls_layout.addWidget(self.btn_fullscreen)
 

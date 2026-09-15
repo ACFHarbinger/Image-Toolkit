@@ -531,6 +531,42 @@ class TestExtractorTab:
 
             tab._seek_to.assert_called_once_with(63_500)
 
+    def test_jump_backward_seeks_backward_and_clamps_at_video_start(self, q_app):
+        with (
+            patch("gui.src.tabs.core.extractor_tab._media_player.QMediaPlayer"),
+            patch("gui.src.tabs.core.extractor_tab._media_player.QAudioOutput"),
+        ):
+            tab = ExtractorTab()
+            tab.duration_ms = 10_000
+            tab.slider.setRange(0, 10_000)
+            tab.slider.setValue(2_000)
+            tab.skip_minutes_spinbox.setValue(0)
+            tab.skip_seconds_spinbox.setValue(5)
+            tab.skip_microseconds_spinbox.setValue(0)
+            tab._seek_to = MagicMock()
+
+            tab.jump_video_runtime_backward()
+
+            tab._seek_to.assert_called_once_with(0)
+
+    def test_jump_backward_combines_minutes_seconds_and_microseconds(self, q_app):
+        with (
+            patch("gui.src.tabs.core.extractor_tab._media_player.QMediaPlayer"),
+            patch("gui.src.tabs.core.extractor_tab._media_player.QAudioOutput"),
+        ):
+            tab = ExtractorTab()
+            tab.duration_ms = 100_000
+            tab.slider.setRange(0, 100_000)
+            tab.slider.setValue(70_000)
+            tab.skip_minutes_spinbox.setValue(1)
+            tab.skip_seconds_spinbox.setValue(2)
+            tab.skip_microseconds_spinbox.setValue(500_000)
+            tab._seek_to = MagicMock()
+
+            tab.jump_video_runtime_backward()
+
+            tab._seek_to.assert_called_once_with(7_500)
+
     def test_init(self, q_app):
         # Patch to avoid actual multimedia initialization
         with (

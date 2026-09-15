@@ -65,6 +65,23 @@ class ExtractorViewControlsController(TabBoundController):
         self._seek_to(min(self.slider.value() + skip_ms, duration_ms))
 
     @Slot()
+    def jump_video_runtime_backward(self: "VideoExtractorSubTabHostProtocol") -> None:
+        """Jump backward by the user-selected runtime without passing the video start."""
+        if not self.use_internal_player:
+            return
+        duration_ms = self._current_duration_ms()
+        if duration_ms <= 0:
+            return
+        skip_ms = (
+            self.skip_minutes_spinbox.value() * 60_000
+            + self.skip_seconds_spinbox.value() * 1_000
+            + self.skip_microseconds_spinbox.value() // 1_000
+        )
+        if skip_ms <= 0:
+            return
+        self._seek_to(max(self.slider.value() - skip_ms, 0))
+
+    @Slot()
     def fit_video_in_view(self: "VideoExtractorSubTabHostProtocol"):
         # Don't force video_item's lazy construction (see the property
         # above) just from a resize event before any video has actually
@@ -342,6 +359,7 @@ class ExtractorViewControlsController(TabBoundController):
         self.skip_seconds_spinbox.setEnabled(enabled)
         self.skip_microseconds_spinbox.setEnabled(enabled)
         self.btn_skip_runtime.setEnabled(enabled)
+        self.btn_jump_backward.setEnabled(enabled)
 
     @Slot(int)
     def set_position(self: "VideoExtractorSubTabHostProtocol", position: int):
