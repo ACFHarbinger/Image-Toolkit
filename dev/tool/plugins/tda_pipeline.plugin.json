@@ -1,0 +1,39 @@
+{
+  "schema": "devtool.plugin.manifest",
+  "schema_version": 1,
+  "name": "tda_pipeline",
+  "version": "0.1.0",
+  "description": "Topological Data Analysis of Pipeline Architecture: persistent homology over function call graphs and execution traces (Track B Phase 10).",
+  "surfaces": [
+    {
+      "name": "cli",
+      "description": "Compute TDA fingerprints, summarize persistence diagrams"
+    },
+    {
+      "name": "web",
+      "description": "Persistence diagram viewer, Betti curve plots, barcode visualization"
+    },
+    {
+      "name": "mcp",
+      "description": "TDA queries, fingerprint comparisons"
+    }
+  ],
+  "channels": [
+    {
+      "key": "tda_fingerprints",
+      "label": "Topological fingerprints of modules",
+      "description": "Persistence diagrams, Betti curves, behavioral signatures",
+      "default_enabled": true,
+      "retention": "30d"
+    }
+  ],
+  "entry": {
+    "python_module": "tool.plugins.tda_pipeline:plugin",
+    "command": [
+      ".venv/bin/python",
+      "dev",
+      "plugin-run",
+      "tda_pipeline"
+    ]
+  }
+}
