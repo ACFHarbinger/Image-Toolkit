@@ -33,3 +33,9 @@ class SemanticSecurityPlugin:
 
 
 plugin = SemanticSecurityPlugin()
+
+
+def main(argv=None) -> int:
+    from ..host.command import run_plugin_stdio
+
+    return run_plugin_stdio(plugin, argv=argv)
