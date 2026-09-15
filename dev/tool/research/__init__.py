@@ -1,1 +1,2 @@
-"""Track B research prototypes (host-side analyses, no extra runtimes)."""
+"""Bounded, evidence-only research helpers for Track B plugins."""
+

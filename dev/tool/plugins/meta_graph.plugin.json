@@ -1,0 +1,50 @@
+{
+  "schema": "devtool.plugin.manifest",
+  "schema_version": 1,
+  "name": "meta_graph",
+  "version": "0.1.0",
+  "description": "Interactive Meta-Graph: codebase topology, semantic cartography, and execution trace overlay (Track B Phase 1).",
+  "surfaces": [
+    {
+      "name": "cli",
+      "description": "Topological metrics, blast-radius queries, and cartography reports"
+    },
+    {
+      "name": "web",
+      "description": "3D GPU force-directed galaxy, semantic zoom, and topographic map"
+    },
+    {
+      "name": "mcp",
+      "description": "Codebase topology queries, blast radius, and nexus module detection"
+    }
+  ],
+  "channels": [
+    {
+      "key": "codebase_topology",
+      "label": "Static AST and dependency graph topology",
+      "default_enabled": true,
+      "retention": "forever"
+    },
+    {
+      "key": "cartography",
+      "label": "LSI / MDS semantic landscape coordinates",
+      "default_enabled": true,
+      "retention": "forever"
+    },
+    {
+      "key": "trace_overlay",
+      "label": "Dynamic execution trace mapping",
+      "default_enabled": true,
+      "retention": "30d"
+    }
+  ],
+  "entry": {
+    "python_module": "tool.plugins.meta_graph:plugin",
+    "command": [
+      ".venv/bin/python",
+      "dev",
+      "plugin-run",
+      "meta_graph"
+    ]
+  }
+}
