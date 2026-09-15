@@ -835,7 +835,7 @@ class TestHeadlessKeepAlive:
         tab._maybe_finish_close()
         assert fired == [True]
 
-    def test_worker_safety_net_keeps_self_alive_through_run(self):
+    def test_worker_safety_net_keeps_self_alive_through_run(self, q_app):
         from gui.src.helpers.core.queue_execution_worker import (
             _RUNNING_WORKERS,
             QueueExecutionWorker,
@@ -844,8 +844,17 @@ class TestHeadlessKeepAlive:
         worker = QueueExecutionWorker([], parallel=False)
         assert worker not in _RUNNING_WORKERS
         worker.run()  # empty queue: emits started/finished, no extraction
+        # #633: the safety net now releases from a QueuedConnection slot on
+        # `finished` (so it can't precede the queued delivery a GUI-thread
+        # listener also gets), not from `_execute()`'s `finally` -- release
+        # happens at delivery time, one event-loop pump after run() returns.
+        for _ in range(20):
+            if worker not in _RUNNING_WORKERS:
+                break
+            q_app.processEvents()
         assert worker not in _RUNNING_WORKERS, (
-            "the worker must drop its safety-net reference once run() returns"
+            "the worker must drop its safety-net reference once its "
+            "finished signal is actually delivered"
         )
 
     def test_parallel_empty_queue_finishes_without_submitting_work(self, q_app):

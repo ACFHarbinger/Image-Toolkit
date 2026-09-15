@@ -9,7 +9,6 @@ path (also the multiprocessing pickle path). Pure code motion.
 import contextlib
 import multiprocessing
 import time
-from multiprocessing import Pool
 from typing import Any, Dict
 
 from PySide6.QtCore import Qt, Signal
@@ -91,7 +90,17 @@ class QueueExecutionWorker(BaseQRunnableWorker):
             completed = 0
             self.signals.progress.emit(0, total)
             try:
-                with Pool(
+                # spawn, not the platform default (fork on Linux): a forked
+                # worker is a copy-on-write image of the GUI process's
+                # ENTIRE resident heap at fork time -- any already-loaded
+                # Qt/torch/thumbnail-cache memory turns fully resident in
+                # every child almost immediately (#485 audit's leading
+                # suspect for the "2 workers, supposed headroom, SIGTERM'd"
+                # reports; #483's per-worker RAM estimate assumed a clean
+                # process, not an inherited GUI heap). spawn starts each
+                # worker as a fresh interpreter that only imports what
+                # run_extraction_in_process actually needs.
+                with multiprocessing.get_context("spawn").Pool(
                     processes=num_cores,
                     initializer=_extraction_pool_worker_init,
                     maxtasksperchild=1,
