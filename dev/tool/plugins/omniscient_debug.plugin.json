@@ -1,0 +1,46 @@
+{
+  "schema": "devtool.plugin.manifest",
+  "schema_version": 1,
+  "name": "omniscient_debug",
+  "version": "0.1.0",
+  "description": "Omniscient debugging: Pernosco-style queries over recorded telemetry and optional rr sidecars; BugCapsule digests for CrashBundle (Track B Phase 7).",
+  "surfaces": [
+    {
+      "name": "cli",
+      "description": "Occurrences, reverse-watch, interleavings, capsules"
+    },
+    {
+      "name": "web",
+      "description": "Queryable timeline, capsule list"
+    },
+    {
+      "name": "mcp",
+      "description": "Replay queries against a session or sidecar"
+    }
+  ],
+  "channels": [
+    {
+      "key": "replay_trace",
+      "label": "Queryable replay timeline derived from telemetry or an rr sidecar",
+      "description": "",
+      "default_enabled": true,
+      "retention": "30d"
+    },
+    {
+      "key": "bug_capsule",
+      "label": "Content-addressable CrashBundle digests",
+      "description": "",
+      "default_enabled": true,
+      "retention": "forever"
+    }
+  ],
+  "entry": {
+    "python_module": "tool.plugins.omniscient_debug:plugin",
+    "command": [
+      ".venv/bin/python",
+      "dev",
+      "plugin-run",
+      "omniscient_debug"
+    ]
+  }
+}
