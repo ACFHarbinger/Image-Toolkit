@@ -1,0 +1,50 @@
+{
+  "schema": "devtool.plugin.manifest",
+  "schema_version": 1,
+  "name": "distributed_observability",
+  "version": "0.1.0",
+  "description": "Distributed observability: OTel-compatible trace trees, OTLP export, and BubbleUp high-cardinality root-cause analysis (Track B Phase 8).",
+  "surfaces": [
+    {
+      "name": "cli",
+      "description": "Export traces as OTLP JSON; run BubbleUp root-cause analysis"
+    },
+    {
+      "name": "web",
+      "description": "Trace waterfall view, span attribute explorer, BubbleUp ranked dimensions"
+    },
+    {
+      "name": "mcp",
+      "description": "Trace tree queries, critical path, BubbleUp dimension ranking"
+    }
+  ],
+  "channels": [
+    {
+      "key": "traces",
+      "label": "Distributed trace trees (OTel-compatible)",
+      "default_enabled": true,
+      "retention": "30d"
+    },
+    {
+      "key": "metrics",
+      "label": "Span-level metrics (duration, error rate, cardinality)",
+      "default_enabled": true,
+      "retention": "30d"
+    },
+    {
+      "key": "bubbleup",
+      "label": "High-cardinality anomaly root-cause analysis",
+      "default_enabled": false,
+      "retention": "7d"
+    }
+  ],
+  "entry": {
+    "python_module": "tool.plugins.distributed_observability:plugin",
+    "command": [
+      ".venv/bin/python",
+      "dev",
+      "plugin-run",
+      "distributed_observability"
+    ]
+  }
+}
