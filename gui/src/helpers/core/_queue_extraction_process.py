@@ -82,11 +82,13 @@ def run_extraction_in_process(config: Union[ExtractionConfig, Dict[str, Any]]) -
 
     def get_video_fps(path):
         cap = cv2.VideoCapture(path)
-        if not cap.isOpened():
-            return 23.976
-        f = cap.get(cv2.CAP_PROP_FPS)
-        cap.release()
-        return f if f > 0 else 23.976
+        try:
+            if not cap.isOpened():
+                return 23.976
+            f = cap.get(cv2.CAP_PROP_FPS)
+            return f if f > 0 else 23.976
+        finally:
+            cap.release()
 
     try:
         if t_type in ("range", "single"):

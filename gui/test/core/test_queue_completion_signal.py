@@ -174,15 +174,24 @@ class TestQueueCompletionSignal:
                     pool.start(worker)
                     # Simulate a mid-run tab teardown: drop every external
                     # reference and force cyclic collection while the pool
-                    # thread is still working.
-                    del worker
-                    for _ in range(20):
+                    # thread is still working. The patch above does not
+                    # cross a spawned child's process boundary (a fresh
+                    # interpreter re-imports the real, unpatched module),
+                    # so this exercises the real (fast-failing on a
+                    # nonexistent "dummy" path) extraction function under
+                    # the real `spawn` Pool context -- slower per item than
+                    # the in-process fake, hence the generous budget below
+                    # rather than a tight fixed-iteration race.
+                    deadline = time.monotonic() + BATCH_TIMEOUT_S
+                    while time.monotonic() < deadline:
                         gc.collect()
                         QApplication.processEvents()
                         if state["finished"]:
                             break
                         time.sleep(0.05)
-                    assert state["items"] == 4
+                    assert _pump_until(
+                        lambda s=state: s["items"] == 4, timeout_s=BATCH_TIMEOUT_S
+                    ), "not all items completed (#633 harness)"
                     assert _pump_until(
                         lambda s=state: s["finished"] == 1, timeout_s=60.0
                     ), "finished lost after mid-run ref drop + gc (#633)"
