@@ -1,12 +1,13 @@
 from pathlib import Path
 
-from PySide6.QtCore import QSize, Qt
+from PySide6.QtCore import QSize, Qt, QTimer
 from PySide6.QtGui import QIcon, QPixmap
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QListWidget,
     QListWidgetItem,
     QPushButton,
@@ -89,68 +90,93 @@ class _AdvancedSearchDialog(QDialog):
         # Tab widget
         self.tabs = QTabWidget()
 
+        ent_noun = "Entities" if mode == "content" else "Associated Entities"
+
         # Tab 1: Entities
         ent_tab = QWidget()
-        ent_layout = QHBoxLayout(ent_tab)
-        ent_layout.setContentsMargins(8, 8, 8, 8)
-        ent_layout.setSpacing(12)
+        ent_tab_layout = QVBoxLayout(ent_tab)
+        ent_tab_layout.setContentsMargins(8, 8, 8, 8)
+        ent_tab_layout.setSpacing(8)
 
-        # Helper to apply icons asynchronously
-        def _apply_icon(item, path):
-            if not path or not Path(path).exists():
-                return
-            cached = _CARD_THUMB_CACHE.get(path)
-            if cached is not None:
-                item.setIcon(QIcon(QPixmap.fromImage(cached)))
-            else:
-                px = QPixmap(path).scaled(
-                    40,
-                    40,
-                    Qt.AspectRatioMode.KeepAspectRatio,
-                    Qt.TransformationMode.SmoothTransformation,
-                )
-                if not px.isNull():
-                    item.setIcon(QIcon(px))
+        # Entity free-text filter
+        self.ent_filter = QLineEdit()
+        self.ent_filter.setPlaceholderText(f"Filter {ent_noun.lower()}...")
+        self.ent_filter.setClearButtonEnabled(True)
+        self.ent_filter.textChanged.connect(self._on_ent_filter_changed)
+        ent_tab_layout.addWidget(self.ent_filter)
 
-        ent_noun = "Entities" if mode == "content" else "Associated Entities"
+        self.inc_ent_filter = self.ent_filter
+        self.exc_ent_filter = self.ent_filter
+
+        ent_lists_layout = QHBoxLayout()
+        ent_lists_layout.setSpacing(12)
 
         # Include Entities
         inc_ent_box = QVBoxLayout()
         inc_ent_box.addWidget(QLabel(f"👥 Include {ent_noun}:"))
         self.inc_ent_list = QListWidget()
         self.inc_ent_list.setIconSize(QSize(40, 40))
-        for ent in self.sorted_entities:
-            item = QListWidgetItem(ent.get("name", "Unnamed"))
-            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
-            item.setCheckState(Qt.CheckState.Unchecked)
-            item.setData(Qt.ItemDataRole.UserRole, ent.get("id"))
-            self.inc_ent_list.addItem(item)
-            _apply_icon(item, ent.get("image_path", ""))
         inc_ent_box.addWidget(self.inc_ent_list)
-        ent_layout.addLayout(inc_ent_box)
+        ent_lists_layout.addLayout(inc_ent_box)
 
         # Exclude Entities
         exc_ent_box = QVBoxLayout()
         exc_ent_box.addWidget(QLabel(f"🚫 Exclude {ent_noun}:"))
         self.exc_ent_list = QListWidget()
         self.exc_ent_list.setIconSize(QSize(40, 40))
-        for ent in self.sorted_entities:
-            item = QListWidgetItem(ent.get("name", "Unnamed"))
-            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
-            item.setCheckState(Qt.CheckState.Unchecked)
-            item.setData(Qt.ItemDataRole.UserRole, ent.get("id"))
-            self.exc_ent_list.addItem(item)
-            _apply_icon(item, ent.get("image_path", ""))
         exc_ent_box.addWidget(self.exc_ent_list)
-        ent_layout.addLayout(exc_ent_box)
+        ent_lists_layout.addLayout(exc_ent_box)
 
+        # Populate entities with deferred uncached icon loading
+        self._pending_icon_items: list[tuple[QListWidgetItem, str]] = []
+        for ent in self.sorted_entities:
+            name = ent.get("name", "Unnamed")
+            ent_id = ent.get("id")
+            path = ent.get("image_path", "")
+
+            inc_item = QListWidgetItem(name)
+            inc_item.setFlags(inc_item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+            inc_item.setCheckState(Qt.CheckState.Unchecked)
+            inc_item.setData(Qt.ItemDataRole.UserRole, ent_id)
+            self.inc_ent_list.addItem(inc_item)
+
+            exc_item = QListWidgetItem(name)
+            exc_item.setFlags(exc_item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+            exc_item.setCheckState(Qt.CheckState.Unchecked)
+            exc_item.setData(Qt.ItemDataRole.UserRole, ent_id)
+            self.exc_ent_list.addItem(exc_item)
+
+            if path:
+                cached = _CARD_THUMB_CACHE.get(path)
+                if cached is not None:
+                    icon = QIcon(QPixmap.fromImage(cached))
+                    inc_item.setIcon(icon)
+                    exc_item.setIcon(icon)
+                else:
+                    self._pending_icon_items.append((inc_item, path))
+                    self._pending_icon_items.append((exc_item, path))
+
+        ent_tab_layout.addLayout(ent_lists_layout)
         self.tabs.addTab(ent_tab, f"👥 {ent_noun}")
 
         # Tab 2: Tags
         tag_tab = QWidget()
-        tag_layout = QHBoxLayout(tag_tab)
-        tag_layout.setContentsMargins(8, 8, 8, 8)
-        tag_layout.setSpacing(12)
+        tag_tab_layout = QVBoxLayout(tag_tab)
+        tag_tab_layout.setContentsMargins(8, 8, 8, 8)
+        tag_tab_layout.setSpacing(8)
+
+        # Tag free-text filter
+        self.tag_filter = QLineEdit()
+        self.tag_filter.setPlaceholderText("Filter tags...")
+        self.tag_filter.setClearButtonEnabled(True)
+        self.tag_filter.textChanged.connect(self._on_tag_filter_changed)
+        tag_tab_layout.addWidget(self.tag_filter)
+
+        self.inc_tag_filter = self.tag_filter
+        self.exc_tag_filter = self.tag_filter
+
+        tag_lists_layout = QHBoxLayout()
+        tag_lists_layout.setSpacing(12)
 
         # Include Tags
         inc_tag_box = QVBoxLayout()
@@ -162,7 +188,7 @@ class _AdvancedSearchDialog(QDialog):
             item.setCheckState(Qt.CheckState.Unchecked)
             self.inc_tag_list.addItem(item)
         inc_tag_box.addWidget(self.inc_tag_list)
-        tag_layout.addLayout(inc_tag_box)
+        tag_lists_layout.addLayout(inc_tag_box)
 
         # Exclude Tags
         exc_tag_box = QVBoxLayout()
@@ -174,8 +200,9 @@ class _AdvancedSearchDialog(QDialog):
             item.setCheckState(Qt.CheckState.Unchecked)
             self.exc_tag_list.addItem(item)
         exc_tag_box.addWidget(self.exc_tag_list)
-        tag_layout.addLayout(exc_tag_box)
+        tag_lists_layout.addLayout(exc_tag_box)
 
+        tag_tab_layout.addLayout(tag_lists_layout)
         self.tabs.addTab(tag_tab, "🏷 Tags")
 
         layout.addWidget(self.tabs, 1)
@@ -198,6 +225,10 @@ class _AdvancedSearchDialog(QDialog):
         btns_layout.addWidget(self.search_btn)
 
         layout.addLayout(btns_layout)
+
+        self._is_closed = False
+        if self._pending_icon_items:
+            QTimer.singleShot(0, self._process_deferred_icons)
 
     def load_criteria(self, crit):
         if not crit:
@@ -286,3 +317,61 @@ class _AdvancedSearchDialog(QDialog):
                     crit["exclude_genres"].append(name)
 
         return crit
+
+    @staticmethod
+    def _filter_list(list_widget: QListWidget, filter_text: str) -> None:
+        query = filter_text.strip().lower()
+        for idx in range(list_widget.count()):
+            item = list_widget.item(idx)
+            item.setHidden(bool(query and query not in item.text().lower()))
+
+    def _on_ent_filter_changed(self, text: str) -> None:
+        self._filter_list(self.inc_ent_list, text)
+        self._filter_list(self.exc_ent_list, text)
+
+    def _on_tag_filter_changed(self, text: str) -> None:
+        self._filter_list(self.inc_tag_list, text)
+        self._filter_list(self.exc_tag_list, text)
+
+    def _process_deferred_icons(self, chunk_size: int = 25) -> None:
+        if self._is_closed or not self._pending_icon_items:
+            return
+
+        count = 0
+        while self._pending_icon_items and count < chunk_size:
+            item, path = self._pending_icon_items.pop(0)
+            count += 1
+            if not path:
+                continue
+            cached = _CARD_THUMB_CACHE.get(path)
+            if cached is None:
+                try:
+                    p = Path(path)
+                    if p.exists():
+                        pix = QPixmap(str(p))
+                        if not pix.isNull():
+                            scaled = pix.scaled(
+                                40,
+                                40,
+                                Qt.AspectRatioMode.KeepAspectRatio,
+                                Qt.TransformationMode.SmoothTransformation,
+                            )
+                            cached = scaled.toImage()
+                            _CARD_THUMB_CACHE[path] = cached
+                except OSError:
+                    continue
+            if cached is not None:
+                item.setIcon(QIcon(QPixmap.fromImage(cached)))
+
+        if self._pending_icon_items and not self._is_closed:
+            QTimer.singleShot(5, self._process_deferred_icons)
+
+    def flush_pending_icons(self) -> None:
+        """Process all remaining pending icons immediately (useful for tests)."""
+        while self._pending_icon_items and not self._is_closed:
+            self._process_deferred_icons(chunk_size=len(self._pending_icon_items))
+
+    def done(self, r: int) -> None:
+        self._is_closed = True
+        self._pending_icon_items.clear()
+        super().done(r)
