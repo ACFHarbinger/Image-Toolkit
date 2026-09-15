@@ -1,0 +1,46 @@
+{
+  "schema": "devtool.plugin.manifest",
+  "schema_version": 1,
+  "name": "resource_profiling",
+  "version": "0.1.0",
+  "description": "Resource, latency, and causal profiling: virtual-speedup curves from recorded flame trees, Little's-law latency, VRAM/RAM arena analysis (Track B Phase 5).",
+  "surfaces": [
+    {
+      "name": "cli",
+      "description": "Rank causal targets, curve a frame, summarize arenas"
+    },
+    {
+      "name": "web",
+      "description": "Causal-impact chart, arena memory view, leak-suspect list"
+    },
+    {
+      "name": "mcp",
+      "description": "Causal-leverage queries, arena summaries"
+    }
+  ],
+  "channels": [
+    {
+      "key": "causal_profile",
+      "label": "Virtual-speedup curves derived from flame trees",
+      "description": "",
+      "default_enabled": true,
+      "retention": "30d"
+    },
+    {
+      "key": "memory_arenas",
+      "label": "VRAM/RAM arena samples and leak-suspect lists",
+      "description": "",
+      "default_enabled": true,
+      "retention": "30d"
+    }
+  ],
+  "entry": {
+    "python_module": "tool.plugins.resource_profiling:plugin",
+    "command": [
+      ".venv/bin/python",
+      "dev",
+      "plugin-run",
+      "resource_profiling"
+    ]
+  }
+}
