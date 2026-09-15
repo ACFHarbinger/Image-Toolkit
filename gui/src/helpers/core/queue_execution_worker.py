@@ -12,7 +12,7 @@ import time
 from multiprocessing import Pool
 from typing import Any, Dict
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Qt, Signal
 
 from gui.src.helpers.base import BaseQRunnableWorker, _WorkerSignals
 from gui.src.helpers.core._queue_extraction_process import (
@@ -59,7 +59,13 @@ class QueueExecutionWorker(BaseQRunnableWorker):
         # event loop never pumps again (app teardown) at most one entry
         # per run leaks in the set, which dies with the process.
         _RUNNING_WORKERS.add(self)
-        self.signals.finished.connect(lambda _res: _RUNNING_WORKERS.discard(self))
+        # A bare Python callable otherwise runs directly in the worker
+        # thread.  Queue this release through the signal object's GUI-thread
+        # affinity so it cannot precede the tab's queued finished handler.
+        self.signals.finished.connect(
+            lambda _res: _RUNNING_WORKERS.discard(self),
+            Qt.ConnectionType.QueuedConnection,
+        )
         try:
             return self._run_impl()
         except Exception as exc:
