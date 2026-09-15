@@ -36,10 +36,20 @@ class EntityListingsGalleryController(TabBoundController):
             result.sort(key=lambda e: sem_map.get(e.get("id", ""), 0.0), reverse=True)
             return result
 
-        # Search box (name/notes/associated-content-title) and type/role
-        # combos are evaluated in one SQL query via SearchRepo.filter_entities
-        # (DB.5) — replaces the old per-keystroke full-table title-map
-        # rebuild (O(N·M): N entities x M media rows) with a single query.
+        # Recommendation mode: show results sorted by descending relevance
+        # score (mirrors SeriesListingsGalleryController._filtered_entries).
+        if getattr(self, "_recommendation_results", None) is not None:
+            assert self._recommendation_results is not None
+            rec_map = {eid: score for eid, score in self._recommendation_results}
+            result = [e for e in self._entities if e.get("id") in rec_map]
+            result.sort(key=lambda e: rec_map.get(e.get("id", ""), 0.0), reverse=True)
+            return result
+
+        # Search box (name/notes/associated-content-title), type/role combos,
+        # and (if active) the Advanced Search dialog's criteria are all
+        # evaluated in one SQL query via SearchRepo.filter_entities (DB.5) —
+        # replaces the old per-keystroke full-table title-map rebuild
+        # (O(N·M): N entities x M media rows) with a single query.
         type_filter = (
             self._filter_type
             if self._filter_type
@@ -72,6 +82,7 @@ class EntityListingsGalleryController(TabBoundController):
                 search_query=None if operator_query else self._search_query,
                 type_filter=type_filter,
                 role_filter=role_filter,
+                advanced_criteria=self._advanced_search_criteria,
                 sort_key=sort_key,
                 descending=descending,
             )

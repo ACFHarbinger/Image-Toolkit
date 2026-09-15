@@ -28,9 +28,14 @@ class _RecommendationDialog(QDialog):
     fused via Reciprocal Rank Fusion (RRF).
     """
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, entity_mode: bool = False):
+        """``entity_mode``: Entity Listings' Recommend dialog -- Type and
+        Genres don't apply to entities (no such concept -- see
+        EntityRepo._assemble), so those two form rows are omitted; Tags,
+        Entities (peers), and the free-text prompt are unchanged."""
         super().__init__(parent)
-        self.setWindowTitle("🌟 Content Recommendation")
+        self._entity_mode = entity_mode
+        self.setWindowTitle("🌟 Entity Recommendation" if entity_mode else "🌟 Content Recommendation")
         self.setMinimumSize(560, 540)
         self.setStyleSheet(qss("recommendation_dialog"))
 
@@ -39,7 +44,7 @@ class _RecommendationDialog(QDialog):
         layout.setSpacing(10)
 
         # Header
-        header = QLabel("🌟 Recommend Content")
+        header = QLabel("🌟 Recommend Entities" if entity_mode else "🌟 Recommend Content")
         header.setStyleSheet(qss("recommendation_title"))
         layout.addWidget(header)
 
@@ -62,17 +67,22 @@ class _RecommendationDialog(QDialog):
         form.setSpacing(8)
         form.setContentsMargins(0, 0, 0, 0)
 
-        type_label = QLabel("Type:")
-        type_label.setStyleSheet(qss("recommendation_form_label"))
+        # Type/Genres are always constructed (get_inputs() reads them
+        # unconditionally) but omitted from the form in entity_mode -- see
+        # this class's docstring above.
         self.type_combo = QComboBox()
         self.type_combo.addItems(["All Types"] + ENTRY_TYPES)
-        form.addRow(type_label, self.type_combo)
-
-        genres_label = QLabel("Genres:")
-        genres_label.setStyleSheet(qss("recommendation_form_label"))
         self.genres_edit = QLineEdit()
         self.genres_edit.setPlaceholderText("e.g. Action, Sci-Fi, Psychological")
-        form.addRow(genres_label, self.genres_edit)
+
+        if not entity_mode:
+            type_label = QLabel("Type:")
+            type_label.setStyleSheet(qss("recommendation_form_label"))
+            form.addRow(type_label, self.type_combo)
+
+            genres_label = QLabel("Genres:")
+            genres_label.setStyleSheet(qss("recommendation_form_label"))
+            form.addRow(genres_label, self.genres_edit)
 
         tags_label = QLabel("Tags:")
         tags_label.setStyleSheet(qss("recommendation_form_label"))
@@ -80,10 +90,14 @@ class _RecommendationDialog(QDialog):
         self.tags_edit.setPlaceholderText("e.g. time-travel, mecha, philosophical")
         form.addRow(tags_label, self.tags_edit)
 
-        entities_label = QLabel("Entities:")
+        entities_label = QLabel("Associated Entities:" if entity_mode else "Entities:")
         entities_label.setStyleSheet(qss("recommendation_form_label"))
         self.entities_edit = QLineEdit()
-        self.entities_edit.setPlaceholderText("e.g. Makoto Shinkai, MAPPA, Yoko Taro")
+        self.entities_edit.setPlaceholderText(
+            "e.g. other characters or organizations this one is linked to"
+            if entity_mode
+            else "e.g. Makoto Shinkai, MAPPA, Yoko Taro"
+        )
         form.addRow(entities_label, self.entities_edit)
 
         layout.addLayout(form)
@@ -94,7 +108,10 @@ class _RecommendationDialog(QDialog):
 
         self.prompt_edit = QTextEdit()
         self.prompt_edit.setPlaceholderText(
-            "e.g. A dark sci-fi anime with deep philosophical themes, featuring complex "
+            "e.g. A stoic, morally grey mercenary with a hidden soft side, often paired "
+            "with younger or more idealistic characters…"
+            if entity_mode
+            else "e.g. A dark sci-fi anime with deep philosophical themes, featuring complex "
             "female protagonists in a dystopian future that questions what it means to be human…"
         )
         self.prompt_edit.setMinimumHeight(110)
@@ -113,6 +130,7 @@ class _RecommendationDialog(QDialog):
         btns.addWidget(cancel_btn)
 
         run_btn = QPushButton("🌟 Run Recommendation")
+        run_btn.setToolTip("Find entities matching these criteria" if entity_mode else "")
         run_btn.setFixedWidth(180)
         run_btn.setStyleSheet(qss("recommendation_run_btn"))
         run_btn.clicked.connect(self.accept)
