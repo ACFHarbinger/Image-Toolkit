@@ -20,30 +20,44 @@ from gui.src.theming.theme_api import qss
 
 
 class _AdvancedSearchDialog(QDialog):
-    def __init__(self, parent=None, entries=None, entities=None):  # noqa: C901
+    def __init__(self, parent=None, entries=None, entities=None, mode: str = "content"):  # noqa: C901
+        """``mode``: 'content' (Series/Content Listings -- ``entities`` are
+        the entities appearing IN each entry, via media_entity) or 'entity'
+        (Entity Listings -- ``entities`` are PEER entities, via the
+        undirected entity_entity association) -- only affects labels/titles,
+        the dialog and its criteria dict shape are identical either way."""
         super().__init__(parent)
-        self.setWindowTitle("🔍 Advanced Search Settings")
+        self._mode = mode
+        title = "🔍 Advanced Content Search" if mode == "content" else "🔍 Advanced Entity Search"
+        self.setWindowTitle(f"{title} Settings")
         self.setMinimumSize(600, 500)
         self.setStyleSheet(qss("advanced_search_dialog"))
 
         self.entries = entries or []
         self.entities = entities or []
 
-        # Extract unique tags and genres
+        # Genres are just a tag subtype now (backend: 'Genre' is a tag
+        # category, not a separate concept -- see tag_bucket_clause /
+        # _advanced_media_conditions). Present ONE merged Tags list to the
+        # user; per-name category membership is tracked so get_criteria()
+        # still buckets each checked name into include_tags/include_genres
+        # exactly as the backend query expects -- no backend change needed.
         all_tags = set()
         all_genres = set()
+        self._tag_name_categories: dict[str, set[str]] = {}
         for e in self.entries:
             for t in e.get("tags", "").split(","):
                 ts = t.strip()
                 if ts:
                     all_tags.add(ts)
+                    self._tag_name_categories.setdefault(ts, set()).add("tag")
             for g in e.get("genres", "").split(","):
                 gs = g.strip()
                 if gs:
                     all_genres.add(gs)
+                    self._tag_name_categories.setdefault(gs, set()).add("genre")
 
-        self.sorted_tags = sorted(list(all_tags), key=lambda x: x.lower())
-        self.sorted_genres = sorted(list(all_genres), key=lambda x: x.lower())
+        self.sorted_tags = sorted(all_tags | all_genres, key=lambda x: x.lower())
         self.sorted_entities = sorted(
             self.entities, key=lambda x: x.get("name", "").lower()
         )
@@ -55,7 +69,7 @@ class _AdvancedSearchDialog(QDialog):
 
         # Header
         header_layout = QHBoxLayout()
-        header_title = QLabel("🔍 Advanced Content Search")
+        header_title = QLabel(title)
         header_title.setStyleSheet(qss("asp_dialog_title"))
         header_layout.addWidget(header_title)
         layout.addLayout(header_layout)
@@ -98,9 +112,11 @@ class _AdvancedSearchDialog(QDialog):
                 if not px.isNull():
                     item.setIcon(QIcon(px))
 
+        ent_noun = "Entities" if mode == "content" else "Associated Entities"
+
         # Include Entities
         inc_ent_box = QVBoxLayout()
-        inc_ent_box.addWidget(QLabel("👥 Include Entities:"))
+        inc_ent_box.addWidget(QLabel(f"👥 Include {ent_noun}:"))
         self.inc_ent_list = QListWidget()
         self.inc_ent_list.setIconSize(QSize(40, 40))
         for ent in self.sorted_entities:
@@ -115,7 +131,7 @@ class _AdvancedSearchDialog(QDialog):
 
         # Exclude Entities
         exc_ent_box = QVBoxLayout()
-        exc_ent_box.addWidget(QLabel("🚫 Exclude Entities:"))
+        exc_ent_box.addWidget(QLabel(f"🚫 Exclude {ent_noun}:"))
         self.exc_ent_list = QListWidget()
         self.exc_ent_list.setIconSize(QSize(40, 40))
         for ent in self.sorted_entities:
@@ -128,7 +144,7 @@ class _AdvancedSearchDialog(QDialog):
         exc_ent_box.addWidget(self.exc_ent_list)
         ent_layout.addLayout(exc_ent_box)
 
-        self.tabs.addTab(ent_tab, "👥 Entities")
+        self.tabs.addTab(ent_tab, f"👥 {ent_noun}")
 
         # Tab 2: Tags
         tag_tab = QWidget()
@@ -161,38 +177,6 @@ class _AdvancedSearchDialog(QDialog):
         tag_layout.addLayout(exc_tag_box)
 
         self.tabs.addTab(tag_tab, "🏷 Tags")
-
-        # Tab 3: Genres
-        genre_tab = QWidget()
-        genre_layout = QHBoxLayout(genre_tab)
-        genre_layout.setContentsMargins(8, 8, 8, 8)
-        genre_layout.setSpacing(12)
-
-        # Include Genres
-        inc_genre_box = QVBoxLayout()
-        inc_genre_box.addWidget(QLabel("🎭 Include Genres:"))
-        self.inc_genre_list = QListWidget()
-        for genre in self.sorted_genres:
-            item = QListWidgetItem(genre)
-            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
-            item.setCheckState(Qt.CheckState.Unchecked)
-            self.inc_genre_list.addItem(item)
-        inc_genre_box.addWidget(self.inc_genre_list)
-        genre_layout.addLayout(inc_genre_box)
-
-        # Exclude Genres
-        exc_genre_box = QVBoxLayout()
-        exc_genre_box.addWidget(QLabel("🚫 Exclude Genres:"))
-        self.exc_genre_list = QListWidget()
-        for genre in self.sorted_genres:
-            item = QListWidgetItem(genre)
-            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
-            item.setCheckState(Qt.CheckState.Unchecked)
-            self.exc_genre_list.addItem(item)
-        exc_genre_box.addWidget(self.exc_genre_list)
-        genre_layout.addLayout(exc_genre_box)
-
-        self.tabs.addTab(genre_tab, "🎭 Genres")
 
         layout.addWidget(self.tabs, 1)
 
@@ -245,24 +229,16 @@ class _AdvancedSearchDialog(QDialog):
             if ent_id in exc_ent:
                 item.setCheckState(Qt.CheckState.Checked)
 
-        # Tags
+        # Tags (merged tag+genre list -- a name checks if it was saved under
+        # either bucket, so criteria saved before the Genres tab merge still
+        # restore correctly).
         for idx in range(self.inc_tag_list.count()):
             item = self.inc_tag_list.item(idx)
-            if item.text() in inc_tag:
+            if item.text() in inc_tag or item.text() in inc_genre:
                 item.setCheckState(Qt.CheckState.Checked)
         for idx in range(self.exc_tag_list.count()):
             item = self.exc_tag_list.item(idx)
-            if item.text() in exc_tag:
-                item.setCheckState(Qt.CheckState.Checked)
-
-        # Genres
-        for idx in range(self.inc_genre_list.count()):
-            item = self.inc_genre_list.item(idx)
-            if item.text() in inc_genre:
-                item.setCheckState(Qt.CheckState.Checked)
-        for idx in range(self.exc_genre_list.count()):
-            item = self.exc_genre_list.item(idx)
-            if item.text() in exc_genre:
+            if item.text() in exc_tag or item.text() in exc_genre:
                 item.setCheckState(Qt.CheckState.Checked)
 
     def get_criteria(self):
@@ -286,24 +262,27 @@ class _AdvancedSearchDialog(QDialog):
             if item.checkState() == Qt.CheckState.Checked:
                 crit["exclude_entities"].append(item.data(Qt.ItemDataRole.UserRole))
 
-        # Tags
+        # Tags (merged tag+genre list -- bucket each checked name back into
+        # include_tags/include_genres per its real category membership, so
+        # the backend query in _advanced_media_conditions -- which still
+        # distinguishes the 'Tag'/'Genre' tag categories -- needs no change).
         for idx in range(self.inc_tag_list.count()):
             item = self.inc_tag_list.item(idx)
             if item.checkState() == Qt.CheckState.Checked:
-                crit["include_tags"].append(item.text())
+                name = item.text()
+                cats = self._tag_name_categories.get(name, {"tag"})
+                if "tag" in cats:
+                    crit["include_tags"].append(name)
+                if "genre" in cats:
+                    crit["include_genres"].append(name)
         for idx in range(self.exc_tag_list.count()):
             item = self.exc_tag_list.item(idx)
             if item.checkState() == Qt.CheckState.Checked:
-                crit["exclude_tags"].append(item.text())
-
-        # Genres
-        for idx in range(self.inc_genre_list.count()):
-            item = self.inc_genre_list.item(idx)
-            if item.checkState() == Qt.CheckState.Checked:
-                crit["include_genres"].append(item.text())
-        for idx in range(self.exc_genre_list.count()):
-            item = self.exc_genre_list.item(idx)
-            if item.checkState() == Qt.CheckState.Checked:
-                crit["exclude_genres"].append(item.text())
+                name = item.text()
+                cats = self._tag_name_categories.get(name, {"tag"})
+                if "tag" in cats:
+                    crit["exclude_tags"].append(name)
+                if "genre" in cats:
+                    crit["exclude_genres"].append(name)
 
         return crit
