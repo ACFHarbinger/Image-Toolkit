@@ -19,13 +19,54 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import List
+from typing import Any, List
 
+from ..host.plugins import Channel, PluginManifest, Surface
 from ..research.asp_cv_diagnostics import (
     build_diagnostic_report,
     discover_telemetry_files,
     summarize_for_cli,
 )
+
+MANIFEST = PluginManifest(
+    name="asp_cv_diagnostics",
+    version="0.1.0",
+    description=(
+        "ASP Stage-by-Stage CV Diagnostics: feature matching geometry, "
+        "bundle adjustment residuals, seam blending diagnostics from "
+        "PipelineSession telemetry (Track B Phase 3)."
+    ),
+    surfaces=(
+        Surface("cli", "Summarize diagnostic reports, list telemetry files"),
+        Surface("web", "Match geometry viewer, BA residual charts, seam heatmaps (Rerun desktop sidecar)"),
+        Surface("mcp", "Diagnostic queries, seam energy lookups"),
+    ),
+    channels=(
+        Channel(
+            "match_geometries",
+            "Feature matching geometry per frame pair",
+            retention="30d",
+        ),
+        Channel(
+            "ba_residuals",
+            "Bundle adjustment reprojection residuals",
+            retention="30d",
+        ),
+        Channel(
+            "seam_diagnostics",
+            "Seam blending diagnostics",
+            retention="30d",
+        ),
+    ),
+    entry_point="tool.plugins.asp_cv_diagnostics:plugin",
+)
+
+
+class AspCvDiagnosticsPlugin:
+    manifest = MANIFEST
+
+    def artifacts(self, store: Any) -> list:
+        return []
 
 
 def cmd_summarize(args: argparse.Namespace) -> int:
@@ -160,11 +201,14 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def plugin(argv: List[str] | None = None) -> int:
-    """Plugin entry point."""
+def run_cli(argv: List[str] | None = None) -> int:
+    """CLI entry point (``python -m dev plugin-run asp_cv_diagnostics -- ...``)."""
     parser = build_parser()
     args = parser.parse_args(argv)
     return args.func(args)
+
+
+plugin = AspCvDiagnosticsPlugin()
 
 
 # D52 --stdio support
@@ -193,4 +237,4 @@ def d52_stdio() -> None:
     sys.stdout.flush()
 
 
-__all__ = ["plugin", "d52_stdio"]
+__all__ = ["plugin", "run_cli", "d52_stdio"]

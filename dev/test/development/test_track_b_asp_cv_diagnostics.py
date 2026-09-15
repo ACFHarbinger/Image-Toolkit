@@ -16,7 +16,7 @@ from tool.model.asp_cv_diagnostics import (
     SeamGradientCoherence,
     StageDiagnosticReport,
 )
-from tool.plugins.asp_cv_diagnostics import plugin
+from tool.plugins.asp_cv_diagnostics import run_cli
 from tool.research.asp_cv_diagnostics import (
     build_diagnostic_report,
     discover_telemetry_files,
@@ -221,7 +221,7 @@ class TestCLI:
             '"unit": "1", "attributes": {"asp.seam_id": "seam_1"}}}\n'
         )
 
-        result = plugin(["summarize", str(jsonl_path), "--session-id", "test"])
+        result = run_cli(["summarize", str(jsonl_path), "--session-id", "test"])
         assert result == 0
 
         captured = capsys.readouterr()
@@ -232,7 +232,7 @@ class TestCLI:
         (tmp_path / "telemetry1.jsonl").write_text("{}\n")
         (tmp_path / "telemetry2.jsonl").write_text("{}\n")
 
-        result = plugin(["list-telemetry", str(tmp_path)])
+        result = run_cli(["list-telemetry", str(tmp_path)])
         assert result == 0
 
         captured = capsys.readouterr()
@@ -243,7 +243,7 @@ class TestCLI:
         jsonl_path.write_text("{}\n")
         json_out = tmp_path / "report.json"
 
-        result = plugin(["summarize", str(jsonl_path), "--json-out", str(json_out)])
+        result = run_cli(["summarize", str(jsonl_path), "--json-out", str(json_out)])
         assert result == 0
         assert json_out.exists()
 

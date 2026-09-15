@@ -16,8 +16,9 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import List
+from typing import Any, List
 
+from ..host.plugins import Channel, PluginManifest, Surface
 from ..model.tda_pipeline import TDAFingerprint
 from ..research.tda_pipeline import (
     compute_betti_curves,
@@ -25,6 +26,36 @@ from ..research.tda_pipeline import (
     extract_fingerprint_from_call_graph,
     summarize_for_cli,
 )
+
+MANIFEST = PluginManifest(
+    name="tda_pipeline",
+    version="0.1.0",
+    description=(
+        "Topological Data Analysis of Pipeline Architecture: persistent "
+        "homology over function call graphs and execution traces "
+        "(Track B Phase 10)."
+    ),
+    surfaces=(
+        Surface("cli", "Compute TDA fingerprints, summarize persistence diagrams"),
+        Surface("web", "Persistence diagram viewer, Betti curve plots, barcode visualization"),
+        Surface("mcp", "TDA queries, fingerprint comparisons"),
+    ),
+    channels=(
+        Channel(
+            "tda_fingerprints",
+            "Topological fingerprints of modules",
+            retention="30d",
+        ),
+    ),
+    entry_point="tool.plugins.tda_pipeline:plugin",
+)
+
+
+class TDAPipelinePlugin:
+    manifest = MANIFEST
+
+    def artifacts(self, store: Any) -> list:
+        return []
 
 
 def cmd_compute(args: argparse.Namespace) -> int:
@@ -125,11 +156,14 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def plugin(argv: List[str] | None = None) -> int:
-    """Plugin entry point."""
+def run_cli(argv: List[str] | None = None) -> int:
+    """CLI entry point (``python -m dev plugin-run tda_pipeline -- ...``)."""
     parser = build_parser()
     args = parser.parse_args(argv)
     return args.func(args)
+
+
+plugin = TDAPipelinePlugin()
 
 
 # D52 --stdio support
@@ -169,4 +203,4 @@ def d52_stdio() -> None:
     sys.stdout.flush()
 
 
-__all__ = ["plugin", "d52_stdio"]
+__all__ = ["plugin", "run_cli", "d52_stdio"]
