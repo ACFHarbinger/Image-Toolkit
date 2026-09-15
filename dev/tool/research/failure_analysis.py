@@ -6,13 +6,42 @@ it does not define another telemetry export format or claim causality.
 
 from __future__ import annotations
 
+import json
 from collections import Counter
 from math import log2
+from pathlib import Path
 from typing import Any, Iterable, Mapping
 
 
 def _values(rows: Iterable[Mapping[str, Any]], key: str) -> list[str]:
     return [str(row[key]) for row in rows if row.get(key) is not None]
+
+
+def load_evidence_rows(path: Path) -> list[dict[str, Any]]:
+    """Read host-produced JSONL or Parquet without defining a new format.
+
+    Parquet remains optional because the core devtool package deliberately has
+    no dataframe dependency.  A workspace that exports Parquet already has a
+    reader available; otherwise the error explains the missing integration.
+    """
+    path = Path(path)
+    if path.suffix == ".jsonl":
+        rows: list[dict[str, Any]] = []
+        for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+            try:
+                value = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(value, dict):
+                rows.append(value)
+        return rows
+    if path.suffix == ".parquet":
+        try:
+            import pyarrow.parquet as parquet
+        except ImportError as exc:
+            raise RuntimeError("Parquet evidence requires the workspace's pyarrow extra") from exc
+        return [dict(row) for row in parquet.read_table(path).to_pylist()]
+    raise ValueError(f"unsupported evidence format: {path.suffix or path.name}")
 
 
 def shannon_entropy(values: Iterable[object]) -> float:

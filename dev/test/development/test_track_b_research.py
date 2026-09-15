@@ -1,4 +1,10 @@
-from tool.research.failure_analysis import failure_profile, kl_divergence, mutual_information, shannon_entropy
+from tool.research.failure_analysis import (
+    failure_profile,
+    kl_divergence,
+    load_evidence_rows,
+    mutual_information,
+    shannon_entropy,
+)
 from tool.research.semantic_security import scan_python
 
 
@@ -12,6 +18,12 @@ def test_failure_measures_are_descriptive_and_handle_empty_data():
     assert mutual_information(rows, "stage", "outcome") > 0
     assert failure_profile(rows, "stage")["register"] > 1
     assert kl_divergence(["a"], ["b"]) == float("inf")
+
+
+def test_evidence_loader_reads_existing_jsonl_and_skips_bad_lines(tmp_path):
+    path = tmp_path / "telemetry.jsonl"
+    path.write_text('{"category": "register"}\nbad\n{"category": "compose"}\n')
+    assert [row["category"] for row in load_evidence_rows(path)] == ["register", "compose"]
 
 
 def test_semantic_spike_reports_candidates_without_importing_source(tmp_path):

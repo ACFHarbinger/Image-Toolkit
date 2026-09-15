@@ -6,5 +6,5 @@
   "description": "Research-only static candidate findings; not a CPG/CodeQL engine or v1 scanner.",
   "surfaces": [{"name": "cli", "description": "Auditable candidate findings"}],
   "channels": [{"key": "source_candidates", "label": "Static candidate findings", "default_enabled": true, "retention": "forever"}],
-  "entry": {"python_module": "tool.plugins.semantic_security:plugin", "command": null}
+  "entry": {"python_module": "tool.plugins.semantic_security:plugin", "command": [".venv/bin/python", "dev", "plugin-run", "semantic_security"]}
 }
