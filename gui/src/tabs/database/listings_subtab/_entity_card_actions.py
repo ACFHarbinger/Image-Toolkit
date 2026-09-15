@@ -12,12 +12,44 @@ from PySide6.QtCore import Slot
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QMenu, QMessageBox
 
+from gui.src.elements.database.dialog.advanced_search_dialog import _AdvancedSearchDialog
+
 from ....theming.theme_api import qss
 from ._tab_bound import TabBoundController
 
 
 class EntityListingsCardActionsController(TabBoundController):
-    """Per-card actions, the gallery context menu, and save/delete slots."""
+    """Advanced search, per-card actions, the gallery context menu, and
+    save/delete slots."""
+
+    def _on_advanced_search(self):
+        # 'entity' mode: the Entities tab picks PEER entities (entity_entity)
+        # rather than entities appearing in content (media_entity) -- see
+        # _AdvancedSearchDialog's mode docstring and
+        # SearchRepo._advanced_entity_conditions.
+        dialog = _AdvancedSearchDialog(
+            self.tab, entries=self._entities, entities=self._entities, mode="entity"
+        )
+        if self._advanced_search_criteria:
+            dialog.load_criteria(self._advanced_search_criteria)
+
+        if dialog.exec():
+            criteria = dialog.get_criteria()
+
+            has_crit = any(criteria[k] for k in criteria if k != "match_mode")
+            if has_crit:
+                self._advanced_search_criteria = criteria
+                self.clear_adv_btn.show()
+            else:
+                self._advanced_search_criteria = None
+                self.clear_adv_btn.hide()
+
+            self._rebuild_gallery()
+
+    def _clear_advanced_search(self):
+        self._advanced_search_criteria = None
+        self.clear_adv_btn.hide()
+        self._rebuild_gallery()
 
     @Slot(str)
     def _on_card_clicked(self, entity_id: str):

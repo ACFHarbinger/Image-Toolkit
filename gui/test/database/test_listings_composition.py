@@ -25,6 +25,9 @@ from gui.src.tabs.database.listings_subtab._entity_gallery import (
 from gui.src.tabs.database.listings_subtab._entity_persistence import (
     EntityListingsPersistenceController,
 )
+from gui.src.tabs.database.listings_subtab._entity_recommendation import (
+    EntityListingsRecommendationController,
+)
 from gui.src.tabs.database.listings_subtab._entity_semantic_search import (
     EntityListingsSemanticController,
 )
@@ -74,6 +77,7 @@ class TestEntityListingsComposition:
         assert isinstance(tab.persistence, EntityListingsPersistenceController)
         assert isinstance(tab.gallery, EntityListingsGalleryController)
         assert isinstance(tab.card_actions, EntityListingsCardActionsController)
+        assert isinstance(tab.recommendation, EntityListingsRecommendationController)
         assert isinstance(tab.filters, EntityListingsFiltersController)
         assert isinstance(tab.semantic, EntityListingsSemanticController)
         assert isinstance(tab.backup_sync, ListingsBackupSyncController)

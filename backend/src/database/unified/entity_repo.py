@@ -15,7 +15,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from backend.src.constants.database import _COLUMN_KEYS, _CREDIT_FIELDS, _RELATION_KEYS, _SELECT_COLUMNS
 
-from ._util import dumps_extra, intify, loads_extra, normalized_pair, transaction
+from ._util import dumps_extra, intify, join_csv, loads_extra, normalized_pair, transaction
 from .tag_repo import TagRepo
 
 
@@ -225,7 +225,24 @@ class EntityRepo:
                 (entity_id, entity_id, entity_id),
             )
         ]
+        # Genres don't apply to entities (§ui-arch, Advanced Search merge) --
+        # a single flattened CSV of the entity's own tags, any category,
+        # mirrors MediaRepo._assemble's entry["tags"] so listing-level tag
+        # search/filter (Advanced Search, recommendations) works the same
+        # way for both domains. Does NOT include tags inherited transitively
+        # through associated media -- that's get_grouped_tags's job for the
+        # detail-panel display, not this flattened search field.
+        entity["tags"] = join_csv(self._own_tag_names(entity_id))
         return entity
+
+    def _own_tag_names(self, entity_id: str) -> List[str]:
+        return [
+            r[0] for r in self._db.query(
+                "SELECT t.name FROM entity_tags et JOIN tags t ON t.id = et.tag_id "
+                "WHERE et.entity_id = ? ORDER BY t.name",
+                (entity_id,),
+            )
+        ]
 
     def get_grouped_tags(self, entity_id: str) -> Dict[str, List[Dict[str, Any]]]:
         """This entity's tags grouped by category name, including tags

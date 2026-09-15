@@ -381,18 +381,103 @@ class SearchRepo:
 
         return [r[0] for r in self._db.query(sql, tuple(params))]
 
+    def _advanced_entity_conditions(
+        self, criteria: Dict[str, Any]
+    ) -> Tuple[List[str], list]:
+        """Build the WHERE conditions/params for the Entity Listings Advanced
+        Search dialog's criteria dict:
+
+        include_entities / exclude_entities  — peer entity ids (entity_entity)
+        include_tags / exclude_tags          — tag names, any category (entities
+                                                have no Tag/Genre split -- see
+                                                EntityRepo._assemble)
+        match_mode                           — 'AND' (all inclusions) or 'OR'
+
+        Mirrors ``_advanced_media_conditions`` but targets ``entities e``,
+        peer associations instead of media_entity, and entity_tags without
+        the Genre-category split (genres aren't a concept for entities)."""
+        conditions: List[str] = []
+        params: list = []
+
+        def peer_subquery(entity_ids: Sequence[str]) -> Tuple[str, list]:
+            """Entities peer-associated (entity_entity, undirected) with any
+            of *entity_ids*."""
+            marks = ",".join("?" * len(entity_ids))
+            sql = (
+                "SELECT CASE WHEN entity_a IN (" + marks + ") THEN entity_b ELSE entity_a END "
+                "FROM entity_entity WHERE entity_a IN (" + marks + ") OR entity_b IN (" + marks + ")"
+            )
+            return sql, [*entity_ids, *entity_ids, *entity_ids]
+
+        def entity_tag_subquery(names: Sequence[str]) -> Tuple[str, list]:
+            marks = ",".join("?" * len(names))
+            sql = (
+                "SELECT et.entity_id FROM entity_tags et JOIN tags t ON t.id = et.tag_id "
+                f"WHERE t.name IN ({marks}) COLLATE NOCASE"
+            )
+            return sql, list(names)
+
+        match_mode = criteria.get("match_mode") or "AND"
+
+        # Exclusions always AND together.
+        exclude_peers = list(criteria.get("exclude_entities") or [])
+        if exclude_peers:
+            sub, sub_params = peer_subquery(exclude_peers)
+            conditions.append(f"e.id NOT IN ({sub})")
+            params.extend(sub_params)
+        exclude_tags = list(criteria.get("exclude_tags") or [])
+        if exclude_tags:
+            sub, sub_params = entity_tag_subquery(exclude_tags)
+            conditions.append(f"e.id NOT IN ({sub})")
+            params.extend(sub_params)
+
+        # Inclusions combine per match_mode.
+        inclusion_terms: List[str] = []
+        inclusion_params: list = []
+        include_peers = list(criteria.get("include_entities") or [])
+        if include_peers:
+            if match_mode == "AND":
+                for peer_id in include_peers:
+                    sub, sub_params = peer_subquery([peer_id])
+                    inclusion_terms.append(f"e.id IN ({sub})")
+                    inclusion_params.extend(sub_params)
+            else:
+                sub, sub_params = peer_subquery(include_peers)
+                inclusion_terms.append(f"e.id IN ({sub})")
+                inclusion_params.extend(sub_params)
+        include_tags = list(criteria.get("include_tags") or [])
+        if include_tags:
+            if match_mode == "AND":
+                for name in include_tags:
+                    sub, sub_params = entity_tag_subquery([name])
+                    inclusion_terms.append(f"e.id IN ({sub})")
+                    inclusion_params.extend(sub_params)
+            else:
+                sub, sub_params = entity_tag_subquery(include_tags)
+                inclusion_terms.append(f"e.id IN ({sub})")
+                inclusion_params.extend(sub_params)
+
+        if inclusion_terms:
+            joiner = " AND " if match_mode == "AND" else " OR "
+            conditions.append("(" + joiner.join(inclusion_terms) + ")")
+            params.extend(inclusion_params)
+
+        return conditions, params
+
     def filter_entities(
         self,
         search_query: Optional[str] = None,
         type_filter: Optional[str] = None,
         role_filter: Optional[str] = None,
+        advanced_criteria: Optional[Dict[str, Any]] = None,
         sort_key: str = "name",
         descending: bool = False,
     ) -> List[str]:
         """Entity ids for Entity Listings' default gallery path: the search
         box (matches name/notes/associated-content-title — same fields the
-        old in-memory scan checked, minus its O(N·M) title-map rebuild) plus
-        the type/role combos, evaluated in one SQL query.
+        old in-memory scan checked, minus its O(N·M) title-map rebuild), the
+        type/role combos, and (if set) the Advanced Search dialog's criteria —
+        all evaluated in one SQL query.
 
         ``sort_key`` must be a key of ``_ENTITY_SORT_SQL`` (falls back to
         ``'name'`` otherwise).
@@ -406,6 +491,11 @@ class SearchRepo:
         if role_filter:
             conditions.append("e.role = ?")
             params.append(role_filter)
+
+        if advanced_criteria:
+            adv_conditions, adv_params = self._advanced_entity_conditions(advanced_criteria)
+            conditions.extend(adv_conditions)
+            params.extend(adv_params)
 
         search_query = (search_query or "").strip()
         if search_query:

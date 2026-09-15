@@ -660,6 +660,69 @@ def test_filter_entities_search_and_combos(db):
     assert search.filter_entities(role_filter="Producer") == ["e-3"]
 
 
+def test_advanced_entity_search(db):
+    """SearchRepo.filter_entities(advanced_criteria=...) -- Advanced Search
+    for Entity Listings: peer associations (entity_entity) instead of
+    media_entity, and tags with no Tag/Genre split (entities have no genre
+    concept -- see EntityRepo._assemble's entity["tags"])."""
+    entities = EntityRepo(db)
+    entities.save_entity({"id": "e-1", "name": "Alice"})
+    entities.save_entity({"id": "e-2", "name": "Bob", "associated_entities": ["e-1"]})
+    entities.save_entity({"id": "e-3", "name": "Carol"})
+    entities.add_tag("e-1", "blue hair")
+    entities.add_tag("e-2", "blue hair")
+    entities.add_tag("e-3", "green hair")
+    search = SearchRepo(db)
+
+    # Tag inclusion.
+    assert set(search.filter_entities(
+        advanced_criteria={"include_tags": ["blue hair"], "match_mode": "AND"},
+    )) == {"e-1", "e-2"}
+
+    # Peer inclusion: entities associated with e-1 -> e-2 (undirected).
+    assert search.filter_entities(
+        advanced_criteria={"include_entities": ["e-1"], "match_mode": "AND"},
+    ) == ["e-2"]
+
+    # Peer exclusion beats inclusion: e-2 is a peer of e-1, so excluding
+    # "entities associated with e-1" drops e-2 even though it has the tag.
+    assert search.filter_entities(
+        advanced_criteria={
+            "include_tags": ["blue hair"],
+            "exclude_entities": ["e-1"],
+            "match_mode": "AND",
+        },
+    ) == ["e-1"]
+
+    # OR mode across tags.
+    assert set(search.filter_entities(
+        advanced_criteria={
+            "include_tags": ["blue hair", "green hair"],
+            "match_mode": "OR",
+        },
+    )) == {"e-1", "e-2", "e-3"}
+
+    # No criteria -> everything.
+    assert set(search.filter_entities(advanced_criteria={})) == {"e-1", "e-2", "e-3"}
+
+
+def test_entity_tags_field_reflects_own_tags(db):
+    """EntityRepo._assemble's entity["tags"] -- flattened CSV of the
+    entity's own tags (any category), mirroring MediaRepo's entry["tags"]/
+    entry["genres"] split but without a Genre bucket (not a concept for
+    entities)."""
+    entities = EntityRepo(db)
+    entities.save_entity({"id": "e-1", "name": "Alice"})
+    entities.add_tag("e-1", "blue hair")
+    entities.add_tag("e-1", "outdoor", "General")
+
+    entity = entities.get_entity("e-1")
+    tags = {t.strip() for t in entity["tags"].split(",")}
+    # Includes the auto-created self tag (save_entity always tags an entity
+    # with its own name under "Character") plus the two explicitly added.
+    assert {"Alice", "blue hair", "outdoor"} <= tags
+
+
 def test_filter_entities_sort_keys(db):
     entities = EntityRepo(db)
     entities.save_entity({

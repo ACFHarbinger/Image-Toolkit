@@ -16,6 +16,7 @@ from ._entity_directory_import import EntityListingsDirectoryImportController
 from ._entity_filters import EntityListingsFiltersController
 from ._entity_gallery import EntityListingsGalleryController
 from ._entity_persistence import EntityListingsPersistenceController
+from ._entity_recommendation import EntityListingsRecommendationController
 from ._entity_semantic_search import EntityListingsSemanticController
 from ._entity_ui_builder import EntityListingsUIBuilder
 from .profile import ENTITY_PROFILE
@@ -41,8 +42,11 @@ class EntityListingsSubTab(ListingGalleryBase):
         self._filter_type = "All"
         self._filter_role = "All"
         self._search_query = ""
+        self._advanced_search_criteria = None
         self._listing_page = 0
         self._listing_page_size = 100
+        self._recommendation_results: Optional[List[Tuple[str, float]]] = None
+        self._active_rec_worker = None
         self._semantic_search_results: Optional[List[Tuple[str, float]]] = None
         self._active_semantic_worker = None
         self._active_embed_worker = None
@@ -51,6 +55,7 @@ class EntityListingsSubTab(ListingGalleryBase):
         self.persistence = EntityListingsPersistenceController(self)
         self.gallery = EntityListingsGalleryController(self)
         self.card_actions = EntityListingsCardActionsController(self)
+        self.recommendation = EntityListingsRecommendationController(self)
         self.filters = EntityListingsFiltersController(self)
         self.semantic = EntityListingsSemanticController(self)
         self.backup_sync = ListingsBackupSyncController(self)
@@ -96,6 +101,24 @@ class EntityListingsSubTab(ListingGalleryBase):
 
     def _on_sort_changed(self, text):
         return self.gallery._on_sort_changed(text)
+
+    def _on_advanced_search(self):
+        return self.card_actions._on_advanced_search()
+
+    def _clear_advanced_search(self):
+        return self.card_actions._clear_advanced_search()
+
+    def _on_recommend_entities(self) -> None:
+        return self.recommendation._on_recommend_entities()
+
+    def _run_recommendation(self, inputs: dict) -> None:
+        return self.recommendation._run_recommendation(inputs)
+
+    def _on_recommendation_results(self, results: list) -> None:
+        return self.recommendation._on_recommendation_results(results)
+
+    def _clear_recommendations(self) -> None:
+        return self.recommendation._clear_recommendations()
 
     def _on_card_clicked(self, entity_id: str):
         return self.card_actions._on_card_clicked(entity_id)

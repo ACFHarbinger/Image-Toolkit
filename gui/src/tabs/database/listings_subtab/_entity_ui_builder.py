@@ -75,6 +75,28 @@ class EntityListingsUIBuilder(TabBoundController):
         self.search_box.textChanged.connect(self._on_search)
         toolbar.addWidget(self.search_box)
 
+        # Advanced search / Recommend pair
+        _search_rec_pair = QWidget()
+        _search_rec_vbox = QVBoxLayout(_search_rec_pair)
+        _search_rec_vbox.setContentsMargins(0, 0, 0, 0)
+        _search_rec_vbox.setSpacing(3)
+
+        adv_search_btn = QPushButton("🔍 Advanced")
+        adv_search_btn.setStyleSheet(qss("shared_button"))
+        adv_search_btn.setFixedWidth(120)
+        adv_search_btn.clicked.connect(self._on_advanced_search)
+        apply_shadow_effect(adv_search_btn)
+
+        rec_btn = QPushButton("🌟 Recommend")
+        rec_btn.setStyleSheet(qss("shared_button"))
+        rec_btn.setFixedWidth(120)
+        rec_btn.clicked.connect(self._on_recommend_entities)
+        apply_shadow_effect(rec_btn)
+
+        _search_rec_vbox.addWidget(adv_search_btn)
+        _search_rec_vbox.addWidget(rec_btn)
+        toolbar.addWidget(_search_rec_pair)
+
         self.type_combo = QComboBox()
         self.type_combo.addItems(["All Types"] + ENTITY_TYPES)
         self.type_combo.currentTextChanged.connect(self._on_type_filter)
@@ -128,12 +150,34 @@ class EntityListingsUIBuilder(TabBoundController):
         _semantic_vbox.addWidget(build_index_btn)
         toolbar.addWidget(_semantic_pair)
 
+        # Clear pair
+        _clear_pair = QWidget()
+        _clear_vbox = QVBoxLayout(_clear_pair)
+        _clear_vbox.setContentsMargins(0, 0, 0, 0)
+        _clear_vbox.setSpacing(3)
+
+        self.clear_adv_btn = QPushButton("❌ Clear Advanced")
+        self.clear_adv_btn.setObjectName("btn_danger")
+        self.clear_adv_btn.setFixedWidth(130)
+        self.clear_adv_btn.clicked.connect(self._clear_advanced_search)
+        self.clear_adv_btn.hide()
+
+        self.clear_rec_btn = QPushButton("❌ Clear Rec")
+        self.clear_rec_btn.setObjectName("btn_danger")
+        self.clear_rec_btn.setFixedWidth(130)
+        self.clear_rec_btn.clicked.connect(self._clear_recommendations)
+        self.clear_rec_btn.hide()
+
         self.clear_semantic_btn = QPushButton("❌ Clear Semantic")
         self.clear_semantic_btn.setObjectName("btn_danger")
         self.clear_semantic_btn.setFixedWidth(130)
         self.clear_semantic_btn.clicked.connect(self._clear_semantic_search)
         self.clear_semantic_btn.hide()
-        toolbar.addWidget(self.clear_semantic_btn)
+
+        _clear_vbox.addWidget(self.clear_adv_btn)
+        _clear_vbox.addWidget(self.clear_rec_btn)
+        _clear_vbox.addWidget(self.clear_semantic_btn)
+        toolbar.addWidget(_clear_pair)
 
         # Pair 1: Add Entity / Import Dir
         entity_pair = QWidget()
