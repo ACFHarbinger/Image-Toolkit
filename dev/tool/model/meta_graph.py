@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import asdict, dataclass, field
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 
 @dataclass
@@ -21,10 +21,13 @@ class MetaGraphNode:
     id: str
     label: str
     layer: str  # "frontend" | "core" | "native"
-    kind: str = "module"  # "subsystem" | "module" | "class" | "function"
+    kind: str = "module"  # "subsystem" | "module" | "file" | "class" | "function" | "ast"
     cluster_id: str = "default"
+    zoom_level: int = 1  # 0: module/subsystem, 1: file, 2: symbol/class/function, 3: ast
+    parent_id: Optional[str] = None
     loc: int = 0
     complexity: float = 1.0
+    elevation: float = 0.0
     latency_ms: float = 0.0
     call_count: int = 0
     error_count: int = 0
@@ -43,8 +46,11 @@ class MetaGraphNode:
             layer=data.get("layer", "core"),
             kind=data.get("kind", "module"),
             cluster_id=data.get("cluster_id", "default"),
+            zoom_level=int(data.get("zoom_level", 1)),
+            parent_id=data.get("parent_id"),
             loc=int(data.get("loc", 0)),
             complexity=float(data.get("complexity", 1.0)),
+            elevation=float(data.get("elevation", 0.0)),
             latency_ms=float(data.get("latency_ms", 0.0)),
             call_count=int(data.get("call_count", 0)),
             error_count=int(data.get("error_count", 0)),
