@@ -4,6 +4,7 @@
 // SHA-256 via OpenSSL when available, otherwise minimal inline implementation.
 // ---------------------------------------------------------------------------
 #include "core/finder.hpp"
+#include "portable_popcount.hpp"
 
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
@@ -221,7 +222,7 @@ std::pair<std::string, uint64_t> compute_phash(const std::string& path) {
 }
 
 static uint32_t hamming(uint64_t a, uint64_t b) {
-    return static_cast<uint32_t>(__builtin_popcountll(a ^ b));
+    return popcount64(a ^ b);
 }
 
 std::unordered_map<std::string, std::vector<std::string>>
