@@ -6,6 +6,11 @@ applies to every heavy-allocating worker, not just the JSON/listing set
 already guarded. Every Tier-2 worker's ``run()`` must carry
 ``@gc_disabled_run`` (outermost, above any ``@Slot()``).
 
+Torch / long-job tradeoff: keep the guard. CPython cannot collect only
+worker-local cycles, so re-enabling mid-run would reintroduce the crash;
+refcounted torch tensors still free. Delayed cyclic collection until
+``run()`` returns is the accepted cost.
+
 Two layers, mirroring the #478/#480 test pattern:
 
 - a parametrized static check over the full Tier-2 registry (a bare
@@ -39,6 +44,8 @@ TIER2_WORKERS = [
     ("gui.src.helpers.core.duplicate_scan_worker", "DuplicateScanWorker"),
     ("gui.src.helpers.core.queue_execution_worker", "QueueExecutionWorker"),
     ("gui.src.helpers.core.wallpaper_worker", "WallpaperWorker"),
+    ("gui.src.helpers.core.directory_scan_worker", "DirectoryScanWorker"),
+    ("gui.src.helpers.core.cloud_extraction_worker", "CloudExtractionWorker"),
     # core/tasks
     ("gui.src.helpers.core.tasks.orb_task", "OrbTask"),
     ("gui.src.helpers.core.tasks.sift_task", "SiftTask"),
@@ -55,7 +62,18 @@ TIER2_WORKERS = [
     ("gui.src.helpers.video.gif_extractor_worker", "GifCreationWorker"),
     ("gui.src.helpers.video.video_extractor_worker", "VideoExtractionWorker"),
     # image
+    ("gui.src.helpers.image.image_scan_worker", "ImageScannerWorker"),
     ("gui.src.helpers.image.image_loader_worker", "ImageLoaderWorker"),
+    ("gui.src.components.dialogs.thumbnail_file_picker", "_ThumbTask"),
+    ("gui.src.tabs.core.image_extractor_subtab", "ImageFrameCutWorker"),
+    (
+        "gui.src.components.dialogs.safetensors_inspector_dialog",
+        "_LoadWorker",
+    ),
+    (
+        "gui.src.components.dialogs.safetensors_inspector_dialog",
+        "_HashWorker",
+    ),
     # database
     ("gui.src.helpers.database.embedding_worker", "ImageEmbeddingWorker"),
     ("gui.src.helpers.database.listings_embedding_worker", "ListingsEmbeddingWorker"),
@@ -80,6 +98,8 @@ TIER2_WORKERS = [
 
 @pytest.mark.parametrize(("module_name", "class_name"), TIER2_WORKERS)
 def test_run_is_gc_guarded(module_name: str, class_name: str):
+    if module_name.startswith("asp_gui."):
+        pytest.importorskip("asp_gui", reason="ASP GUI submodule alias is unavailable")
     module = importlib.import_module(module_name)
     klass = getattr(module, class_name)
     run = klass.__dict__.get("run")
@@ -231,6 +251,7 @@ def test_frame_worker_runs_gced(monkeypatch, tmp_path):
 
 
 def test_graph_stitch_worker_empty_plan_runs_gced():
+    pytest.importorskip("asp_gui", reason="ASP GUI submodule alias is unavailable")
     from asp_gui.helpers.graph_stitch_worker import GraphStitchWorker
 
     w = GraphStitchWorker([], {})
@@ -239,8 +260,70 @@ def test_graph_stitch_worker_empty_plan_runs_gced():
 
 
 def test_batch_stitch_worker_empty_dir_runs_gced(tmp_path):
+    pytest.importorskip("asp_gui", reason="ASP GUI submodule alias is unavailable")
     from asp_gui.helpers.batch_stitch_worker import BatchStitchWorker
 
     w = BatchStitchWorker(str(tmp_path))  # no subdirs → sig_batch_finished
     probe = _run_and_probe(w, w.sig_batch_finished)
+    assert probe.seen.get("enabled_during") is False
+
+
+def test_image_scanner_worker_no_dirs_runs_gced():
+    from gui.src.helpers.image.image_scan_worker import ImageScannerWorker
+
+    w = ImageScannerWorker([])  # no valid dirs → scan_error
+    probe = _run_and_probe(w, w.scan_error)
+    assert probe.seen.get("enabled_during") is False
+
+
+def test_directory_scan_worker_missing_path_runs_gced(tmp_path):
+    from gui.src.helpers.core.directory_scan_worker import DirectoryScanWorker
+    from gui.src.services.directory_scan_service import ScanRequest
+
+    w = DirectoryScanWorker(ScanRequest(path=str(tmp_path / "missing")))
+    probe = _run_and_probe(w, w.finished)
+    assert probe.seen.get("enabled_during") is False
+
+
+def test_cloud_extraction_worker_no_vault_runs_gced(tmp_path):
+    from gui.src.helpers.core.cloud_extraction_worker import CloudExtractionWorker
+
+    w = CloudExtractionWorker({}, vault_manager=None, output_dir=str(tmp_path))
+    probe = _run_and_probe(w, w.signals.error)
+    assert probe.seen.get("enabled_during") is False
+
+
+def test_thumb_task_missing_file_runs_gced(tmp_path):
+    from gui.src.components.dialogs.thumbnail_file_picker import _ThumbHub, _ThumbTask
+
+    hub = _ThumbHub()
+    t = _ThumbTask(str(tmp_path / "gone.png"), 32, 1, hub)
+    probe = _run_and_probe(t, hub.loaded)
+    assert probe.seen.get("enabled_during") is False
+
+
+def test_frame_cut_worker_missing_image_runs_gced(tmp_path):
+    from gui.src.tabs.core.image_extractor_subtab import ImageFrameCutWorker
+    from PySide6.QtCore import QRect
+
+    w = ImageFrameCutWorker(
+        str(tmp_path / "gone.png"), [QRect(0, 0, 8, 8)], str(tmp_path)
+    )
+    probe = _run_and_probe(w, w.signals.error)
+    assert probe.seen.get("enabled_during") is False
+
+
+def test_safetensors_load_worker_missing_file_runs_gced(tmp_path):
+    from gui.src.components.dialogs.safetensors_inspector_dialog import _LoadWorker
+
+    w = _LoadWorker(str(tmp_path / "gone.safetensors"))
+    probe = _run_and_probe(w, w.signals.finished)
+    assert probe.seen.get("enabled_during") is False
+
+
+def test_safetensors_hash_worker_missing_file_runs_gced(tmp_path):
+    from gui.src.components.dialogs.safetensors_inspector_dialog import _HashWorker
+
+    w = _HashWorker(str(tmp_path / "gone.safetensors"))
+    probe = _run_and_probe(w, w.signals.error)
     assert probe.seen.get("enabled_during") is False

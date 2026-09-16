@@ -42,6 +42,7 @@ except ImportError:
     AppSettings = None  # type: ignore[assignment]
     persist_splitter = None  # type: ignore[assignment]
 
+from gui.src.helpers.gc_safe import gc_disabled_run
 from gui.src.theming.theme_api import qss
 
 
@@ -58,6 +59,7 @@ class _ThumbTask(QRunnable):
         self._hub = hub
         self.setAutoDelete(True)
 
+    @gc_disabled_run
     def run(self) -> None:
         img = QImage(self._path)
         if not img.isNull():

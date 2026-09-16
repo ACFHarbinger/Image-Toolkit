@@ -126,7 +126,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
   #478/#480 crash class for the extraction, conversion, merge/scan/search,
   embedding, model-training, web-recon, and ASP stitch/mask workers — 38
   worker classes covered. Static registry check + dynamic signal-probe tests
-  in `gui/test/helpers/test_gc_tier2_workers.py` (51 tests).
+  in `gui/test/helpers/test_gc_tier2_workers.py` (51 tests). Remainder
+  (2026-09-16): raw `QRunnable`s outside `helpers/` (`_ThumbTask`,
+  `ImageFrameCutWorker`, safetensors load/hash) plus registry holes
+  (`ImageScannerWorker`, `DirectoryScanWorker`, `CloudExtractionWorker`).
 
 ### Planned (tracked)
 
