@@ -308,9 +308,18 @@ if(CUDA_FOUND)
 endif()
 
 if(SQLCIPHER_FOUND AND SODIUM_FOUND)
-    target_include_directories(base PRIVATE ${SQLCIPHER_INCLUDE_DIRS} ${SODIUM_INCLUDE_DIRS} /usr/include /usr/include/sqlcipher)
-    target_link_libraries(base PRIVATE sqlcipher sodium argon2)
-    target_link_directories(base PRIVATE /usr/lib/x86_64-linux-gnu)
+    target_include_directories(base PRIVATE ${SQLCIPHER_INCLUDE_DIRS} ${SODIUM_INCLUDE_DIRS})
+    # pkg_check_modules only returns bare library names (e.g. "sqlcipher"),
+    # not full paths, so the linker still needs the containing directory on
+    # its search path -- on Linux that's implicitly /usr/lib(/x86_64-...),
+    # a default linker path, but MSVC has no equivalent default for vcpkg's
+    # install tree, so it must be added explicitly via LIBRARY_DIRS.
+    target_link_directories(base PRIVATE ${SQLCIPHER_LIBRARY_DIRS} ${SODIUM_LIBRARY_DIRS})
+    target_link_libraries(base PRIVATE ${SQLCIPHER_LIBRARIES} ${SODIUM_LIBRARIES} argon2)
+    if(NOT WIN32)
+        target_include_directories(base PRIVATE /usr/include /usr/include/sqlcipher)
+        target_link_directories(base PRIVATE /usr/lib/x86_64-linux-gnu)
+    endif()
 endif()
 
 if(OpenSSL_FOUND OR OPENSSL_FOUND)
