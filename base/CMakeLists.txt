@@ -178,6 +178,15 @@ if(MSVC)
 else()
     set(CMAKE_CXX_FLAGS_RELEASE "-O2")
 endif()
+if(WIN32)
+    # windows.h unconditionally #defines min/max (and much else) unless
+    # told not to; several sources here call std::min/std::max/
+    # std::partial_sort, which the preprocessor mangles into syntax
+    # errors if some transitively-included header pulls in windows.h
+    # first without these. Set as compiler defines (not a per-header
+    # #define) so it applies regardless of header inclusion order.
+    add_compile_definitions(NOMINMAX WIN32_LEAN_AND_MEAN)
+endif()
 if(OpenMP_FOUND)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 endif()

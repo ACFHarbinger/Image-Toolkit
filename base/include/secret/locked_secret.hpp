@@ -49,6 +49,20 @@ inline int crypto_pwhash(
 #include <stdexcept>
 
 #ifdef _WIN32
+// windows.h unconditionally #defines min/max (and much else) unless told
+// not to -- NOMINMAX is required here because vault_db.cpp (a consumer of
+// this header, transitively) calls std::min/std::partial_sort; without it
+// the preprocessor mangles "std::min(...)" into a syntax error before the
+// compiler ever sees it. WIN32_LEAN_AND_MEAN trims the rest of the
+// less-common windows.h surface we don't need (winsock, GDI, shell, ...),
+// reducing the chance of some other consumer hitting the same class of
+// collision later.
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
 #include <windows.h>  // VirtualLock / VirtualUnlock -- Windows' mlock/munlock equivalent
 #else
 #include <sys/mman.h>  // mlock / munlock (POSIX)
