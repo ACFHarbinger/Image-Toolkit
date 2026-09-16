@@ -98,6 +98,8 @@ TIER2_WORKERS = [
 
 @pytest.mark.parametrize(("module_name", "class_name"), TIER2_WORKERS)
 def test_run_is_gc_guarded(module_name: str, class_name: str):
+    if module_name.startswith("asp_gui."):
+        pytest.importorskip("asp_gui", reason="ASP GUI submodule alias is unavailable")
     module = importlib.import_module(module_name)
     klass = getattr(module, class_name)
     run = klass.__dict__.get("run")
@@ -249,6 +251,7 @@ def test_frame_worker_runs_gced(monkeypatch, tmp_path):
 
 
 def test_graph_stitch_worker_empty_plan_runs_gced():
+    pytest.importorskip("asp_gui", reason="ASP GUI submodule alias is unavailable")
     from asp_gui.helpers.graph_stitch_worker import GraphStitchWorker
 
     w = GraphStitchWorker([], {})
@@ -257,6 +260,7 @@ def test_graph_stitch_worker_empty_plan_runs_gced():
 
 
 def test_batch_stitch_worker_empty_dir_runs_gced(tmp_path):
+    pytest.importorskip("asp_gui", reason="ASP GUI submodule alias is unavailable")
     from asp_gui.helpers.batch_stitch_worker import BatchStitchWorker
 
     w = BatchStitchWorker(str(tmp_path))  # no subdirs → sig_batch_finished
