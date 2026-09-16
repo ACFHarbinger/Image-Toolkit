@@ -70,7 +70,6 @@ def evaluate_kde_script_with_fallback(qdbus: Optional[str], script: str) -> str:
             return base.evaluate_kde_script(qdbus, script)
         except Exception as exc:
             logger.debug("qdbus CLI failed (%s), trying dbus-python fallback.", exc)
-            raise exc from None
     try:
         return evaluate_kde_script_dbus_python(script)
     except ImportError:
