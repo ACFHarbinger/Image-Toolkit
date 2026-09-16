@@ -25,8 +25,19 @@ Image-Toolkit distributes two Linux packages for 64-bit systems:
   Launches from the desktop application menu or by running `image-toolkit`.
 
 ### Windows
-A native Windows build is planned for **1.1** — the C++ base extension needs a
-Windows toolchain that is not yet wired up. 1.0.0 is Linux-only.
+Image-Toolkit distributes a **zip archive** for Windows (x86_64):
+
+1. Download `ImageToolkit-*-windows-x86_64.zip` from the
+   [GitHub Releases](https://github.com/ACFHarbinger/Image-Toolkit/releases) page.
+2. Extract the zip to a directory of your choice.
+3. Run `ImageToolkit\ImageToolkitApp.exe`.
+4. On first launch, Windows SmartScreen may show a warning because the
+   bundle is unsigned. Click **More info** > **Run anyway** to proceed.
+
+> **PostgreSQL on Windows:** Download from
+> [PostgreSQL Downloads](https://www.postgresql.org/download/windows/) and
+> follow the installer. The `pgvector` extension can be built from source
+> or installed via the PostgreSQL Stack Builder if available for your version.
 
 ---
 

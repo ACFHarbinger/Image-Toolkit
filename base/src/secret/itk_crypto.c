@@ -30,7 +30,14 @@
 extern "C" {
 #endif
 
-static _Thread_local char g_errbuf[512];
+// MSVC's legacy C dialect (pre-/std:c11) rejects _Thread_local;
+// use __declspec(thread) there.
+#ifdef _MSC_VER
+#define THREAD_LOCAL __declspec(thread)
+#else
+#define THREAD_LOCAL _Thread_local
+#endif
+static THREAD_LOCAL char g_errbuf[512];
 
 static void set_error(const char *fmt, const char *detail)
 {

@@ -75,8 +75,20 @@ if(PkgConfig_FOUND)
 endif()
 
 if(NOT SQLCIPHER_FOUND)
-    find_path(SQLCIPHER_INCLUDE_DIR NAMES sqlcipher/sqlite3.h sqlite3.h PATHS /usr/include /usr/local/include /usr/include/sqlcipher)
-    find_library(SQLCIPHER_LIBRARY NAMES sqlcipher libsqlcipher PATHS /usr/lib /usr/lib/x86_64-linux-gnu /usr/local/lib)
+    find_path(SQLCIPHER_INCLUDE_DIR
+        NAMES sqlcipher/sqlite3.h sqlite3.h
+        PATHS /usr/include /usr/local/include /usr/include/sqlcipher
+              "$ENV{CONDA_PREFIX}/include"
+              "$ENV{VCPKG_INSTALLED_DIR}/x64-windows/include"
+              "C:/vcpkg/installed/x64-windows/include"
+    )
+    find_library(SQLCIPHER_LIBRARY
+        NAMES sqlcipher libsqlcipher
+        PATHS /usr/lib /usr/lib/x86_64-linux-gnu /usr/local/lib
+              "$ENV{CONDA_PREFIX}/lib"
+              "$ENV{VCPKG_INSTALLED_DIR}/x64-windows/lib"
+              "C:/vcpkg/installed/x64-windows/lib"
+    )
     if(SQLCIPHER_INCLUDE_DIR AND SQLCIPHER_LIBRARY)
         set(SQLCIPHER_FOUND TRUE)
         set(SQLCIPHER_INCLUDE_DIRS ${SQLCIPHER_INCLUDE_DIR})
@@ -85,8 +97,16 @@ if(NOT SQLCIPHER_FOUND)
 endif()
 
 if(NOT SODIUM_FOUND)
-    find_path(SODIUM_INCLUDE_DIR NAMES sodium.h PATHS "$ENV{CONDA_PREFIX}/include" /usr/include /usr/local/include)
-    find_library(SODIUM_LIBRARY NAMES sodium libsodium PATHS "$ENV{CONDA_PREFIX}/lib" /usr/lib /usr/lib/x86_64-linux-gnu /usr/local/lib)
+    find_path(SODIUM_INCLUDE_DIR NAMES sodium.h
+        PATHS "$ENV{CONDA_PREFIX}/include" /usr/include /usr/local/include
+              "$ENV{VCPKG_INSTALLED_DIR}/x64-windows/include"
+              "C:/vcpkg/installed/x64-windows/include"
+    )
+    find_library(SODIUM_LIBRARY NAMES sodium libsodium
+        PATHS "$ENV{CONDA_PREFIX}/lib" /usr/lib /usr/lib/x86_64-linux-gnu /usr/local/lib
+              "$ENV{VCPKG_INSTALLED_DIR}/x64-windows/lib"
+              "C:/vcpkg/installed/x64-windows/lib"
+    )
     if(SODIUM_INCLUDE_DIR AND SODIUM_LIBRARY)
         set(SODIUM_FOUND TRUE)
         set(SODIUM_INCLUDE_DIRS ${SODIUM_INCLUDE_DIR})
@@ -153,7 +173,20 @@ FetchContent_MakeAvailable(cpp_httplib nlohmann_json)
 # ---------------------------------------------------------------------------
 # Compiler flags
 # ---------------------------------------------------------------------------
-set(CMAKE_CXX_FLAGS_RELEASE "-O2")
+if(MSVC)
+    set(CMAKE_CXX_FLAGS_RELEASE "/O2")
+else()
+    set(CMAKE_CXX_FLAGS_RELEASE "-O2")
+endif()
+if(WIN32)
+    # windows.h unconditionally #defines min/max (and much else) unless
+    # told not to; several sources here call std::min/std::max/
+    # std::partial_sort, which the preprocessor mangles into syntax
+    # errors if some transitively-included header pulls in windows.h
+    # first without these. Set as compiler defines (not a per-header
+    # #define) so it applies regardless of header inclusion order.
+    add_compile_definitions(NOMINMAX WIN32_LEAN_AND_MEAN)
+endif()
 if(OpenMP_FOUND)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 endif()
@@ -260,20 +293,14 @@ target_link_libraries(base PRIVATE
     OpenMP::OpenMP_CXX
 )
 
-# Always ensure base has a RUNPATH pointing to the pixi environment library directory,
-# so that dynamic dependencies like OpenCV can be resolved at runtime.
-# pixi lib dir must precede /usr/lib in the RPATH: old-style RPATH resolves
-# transitively, and pixi's libssl needs pixi's libcrypto (not the system one).
-# An explicit -rpath link option lands before CMake's auto-generated entries.
-# --enable-new-dtags forces RUNPATH (not legacy RPATH) generation: an
-# old-style RPATH on this MODULE-type target gets appended to the dynamic
-# linker's *global* search path for the whole process, hijacking unrelated
-# libraries loaded later by PySide6/Qt. Verify with `readelf -d base.so`
-# — must say RUNPATH, never RPATH.
-target_link_options(base PRIVATE
-    "-Wl,-rpath,${IMAGE_TOOLKIT_PIXI_LIB}"
-    "-Wl,--enable-new-dtags")
-target_link_directories(base PRIVATE ${IMAGE_TOOLKIT_PIXI_LIB})
+if(NOT WIN32)
+    # Keep pixi libraries ahead of system libraries on ELF platforms without
+    # leaking an old-style RPATH into the process-wide loader search path.
+    target_link_options(base PRIVATE
+        "-Wl,-rpath,${IMAGE_TOOLKIT_PIXI_LIB}"
+        "-Wl,--enable-new-dtags")
+    target_link_directories(base PRIVATE ${IMAGE_TOOLKIT_PIXI_LIB})
+endif()
 
 if(CUDA_FOUND)
     target_compile_definitions(base PRIVATE HAVE_CUDA=1)
@@ -281,9 +308,18 @@ if(CUDA_FOUND)
 endif()
 
 if(SQLCIPHER_FOUND AND SODIUM_FOUND)
-    target_include_directories(base PRIVATE ${SQLCIPHER_INCLUDE_DIRS} ${SODIUM_INCLUDE_DIRS} /usr/include /usr/include/sqlcipher)
-    target_link_libraries(base PRIVATE sqlcipher sodium argon2)
-    target_link_directories(base PRIVATE /usr/lib/x86_64-linux-gnu)
+    target_include_directories(base PRIVATE ${SQLCIPHER_INCLUDE_DIRS} ${SODIUM_INCLUDE_DIRS})
+    # pkg_check_modules only returns bare library names (e.g. "sqlcipher"),
+    # not full paths, so the linker still needs the containing directory on
+    # its search path -- on Linux that's implicitly /usr/lib(/x86_64-...),
+    # a default linker path, but MSVC has no equivalent default for vcpkg's
+    # install tree, so it must be added explicitly via LIBRARY_DIRS.
+    target_link_directories(base PRIVATE ${SQLCIPHER_LIBRARY_DIRS} ${SODIUM_LIBRARY_DIRS})
+    target_link_libraries(base PRIVATE ${SQLCIPHER_LIBRARIES} ${SODIUM_LIBRARIES} argon2)
+    if(NOT WIN32)
+        target_include_directories(base PRIVATE /usr/include /usr/include/sqlcipher)
+        target_link_directories(base PRIVATE /usr/lib/x86_64-linux-gnu)
+    endif()
 endif()
 
 if(OpenSSL_FOUND OR OPENSSL_FOUND)
@@ -293,9 +329,11 @@ endif()
 # ---------------------------------------------------------------------------
 # Install alongside base.so in the Python root directory
 # ---------------------------------------------------------------------------
-set_target_properties(base PROPERTIES
-    INSTALL_RPATH "${IMAGE_TOOLKIT_PIXI_LIB}"
-)
+if(NOT WIN32)
+    set_target_properties(base PROPERTIES
+        INSTALL_RPATH "${IMAGE_TOOLKIT_PIXI_LIB}"
+    )
+endif()
 install(TARGETS base DESTINATION .)
 
 # ---------------------------------------------------------------------------

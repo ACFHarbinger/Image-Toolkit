@@ -459,8 +459,8 @@ python backend/src/utils/check_import_times.py
 
 Prebuilt Linux desktop bundles are published on the
 [GitHub Releases](https://github.com/ACFHarbinger/Image-Toolkit/releases) page:
-an **AppImage** and a **`.deb`** package. A native Windows build is planned for
-1.1; see [`docs/INSTALL.md`](docs/INSTALL.md).
+an **AppImage** and a **`.deb`** package. A native **Windows** build is also
+available as a zip archive; see [`docs/INSTALL.md`](docs/INSTALL.md).
 
 ```bash
 # Linux AppImage

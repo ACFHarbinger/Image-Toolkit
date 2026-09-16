@@ -7,7 +7,8 @@ channels = ["conda-forge"]
 platforms = [
     #"osx-arm64", 
     #"osx-64", 
-    { platform = "linux-64", glibc = "2.34" }
+    { platform = "linux-64", glibc = "2.34" },
+    "win-64",
 ]
 
 # ---------------------------------------------------------------------------
@@ -34,7 +35,6 @@ pybind11     = "*"   # pybind11_add_module — also available from conda-forge
 # ── Computer Vision & ML (heavy binaries — best taken from conda) ────────────
 pytorch     = { version = ">=2.9.1", channel = "conda-forge" }
 torchvision = { version = ">=0.24.1", channel = "conda-forge" }
-torchaudio  = { version = "<2.10.0",  channel = "conda-forge" }
 onnxruntime = ">=1.25.1"
 opencv      = ">=4.8,<5" # opencv conda package supplies libopencv shared libs
 numpy       = "<2.0.0"   # cap to <2 — several deps not yet 2.x-compatible
@@ -60,6 +60,18 @@ libsodium   = "*"
 
 [target.linux-64.dependencies]
 libgomp = "*"
+torchaudio = { version = "<2.10.0", channel = "conda-forge" }
+
+[target.win-64.dependencies]
+# MSVC C++/C compiler toolchain — conda-forge's cxx-compiler/c-compiler
+# meta-packages select the MSVC build tools on win-64. The vc_* packages
+# are pulled in transitively. libsodium is in the global [dependencies]
+# and resolves for win-64.
+# SQLCipher is not on conda-forge for win-64 — installed via vcpkg in CI
+# (see release.yml build-windows job). CMakeLists.txt find_path/find_library
+# searches C:/vcpkg/installed/x64-windows/{include,lib}.
+# torchaudio 2.11.0 is the only build on win-64 (no <2.10.0 available).
+torchaudio = { version = ">=2.11.0", channel = "conda-forge" }
 
 # ---------------------------------------------------------------------------
 # PyPI dependencies — packages not reliably available on conda-forge,
@@ -182,7 +194,10 @@ benchmark = { features = ["benchmark"], solve-group = "default" }
 # ---------------------------------------------------------------------------
 [tasks]
 # ── C++ extension (base/) ─────────────────────────────────────────────────────
+# Linux: system + conda include paths for sqlcipher/sodium.
 build-base = { cmd = "cmake -B build/base base/ -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INCLUDE_PATH=/usr/include/sqlcipher:/usr/include && cmake --build build/base --parallel", description = "Builds the pybind11 C++ base extension" }
+# Windows: conda env provides all include/lib paths via CMAKE_PREFIX_PATH.
+build-base-win = { cmd = "cmake -B build/base base/ -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=%CONDA_PREFIX% && cmake --build build/base --parallel", description = "Builds the pybind11 C++ base extension (Windows/MSVC)" }
 test-base = { cmd = "cmake --build build/base --target test", depends-on = ["build-base"], description = "Runs native C++ Catch2 unit tests" }
 
 # ── Python backend ────────────────────────────────────────────────────────────
