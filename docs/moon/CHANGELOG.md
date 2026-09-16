@@ -1,3 +1,14 @@
+# S566 — 2026-09-16 (Cursor: #481 GC-guard Tier-2 remainder)
+
+- Helpers listed in the #480 audit already inherit `@gc_disabled_run`
+  from `BaseQThreadWorker` / `BaseQRunnableWorker` (R1.1). The leftover
+  crash surface was raw `QRunnable`s outside `helpers/`: `_ThumbTask`,
+  `ImageFrameCutWorker`, safetensors `_LoadWorker`/`_HashWorker`.
+- Torch workers keep the inherited guard — CPython cannot collect only
+  worker-local cycles. Registry + probe tests cover the new classes and
+  the previously unlisted `ImageScannerWorker` / `DirectoryScanWorker` /
+  `CloudExtractionWorker`.
+
 # S565 — 2026-09-15 (Cursor: Track B Phase 7 #399 / omniscient debug)
 
 - Host-side Pernosco-style query layer over recorded telemetry: occurrences,

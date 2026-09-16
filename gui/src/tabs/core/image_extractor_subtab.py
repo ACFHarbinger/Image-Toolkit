@@ -36,6 +36,7 @@ from PySide6.QtWidgets import (
 
 from gui.src.components.tag_chip_widget import FlowLayout
 from gui.src.constants.elements import _MAX_SCALE, _MIN_SCALE, SUPPORTED_IMAGE_FILTER
+from gui.src.helpers.gc_safe import gc_disabled_run
 from gui.src.styles import set_button_role
 
 from ...theming.theme_api import color, qss
@@ -202,6 +203,7 @@ class ImageFrameCutWorker(QRunnable):
     def cancel(self) -> None:
         self._cancelled = True
 
+    @gc_disabled_run
     def run(self) -> None:
         try:
             image = QImage(self._image_path)
