@@ -234,6 +234,9 @@ class LocalDirSyncEngine:
 
     def _local_files(self) -> Dict[str, Dict[str, Any]]:
         result: Dict[str, Dict[str, Any]] = {}
+        if self._is_cancelled():
+            logger.info("LocalDirSyncEngine._local_files cancelled")
+            return result
         cancel_check_interval = 100  # Check cancellation every N files
         file_count = 0
         for dirpath, _, filenames in os.walk(self.local_root):
@@ -297,7 +300,13 @@ class LocalDirSyncEngine:
     def build_plan(self) -> SyncPlan:
         """Compute the full sync plan without touching any files."""
         plan = SyncPlan()
+        if self._is_cancelled():
+            logger.info("LocalDirSyncEngine.build_plan cancelled")
+            return plan
         local = self._local_files()
+        if self._is_cancelled():
+            logger.info("LocalDirSyncEngine.build_plan cancelled")
+            return plan
         remote = self.remote_listing
 
         all_paths = set(local) | set(remote)
@@ -482,6 +491,10 @@ class LocalDirSyncWorker(BaseQThreadWorker):
                 cancelled_check=lambda: self._cancelled,
             )
             plan = engine.build_plan()
+
+            if self._cancelled:
+                self.finished.emit((False, "Sync cancelled.", self.dry_run))
+                return
 
             total = len(plan.uploads) + len(plan.downloads)
             self._log(

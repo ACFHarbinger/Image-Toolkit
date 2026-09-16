@@ -316,6 +316,24 @@ class TestLocalDirSyncContentHash:
 class TestLocalDirSyncCancellation:
     """Tests for cancellation checks in build_plan (#482 S4)."""
 
+    def test_cancellation_before_small_plan_is_observed(self, tmp_path: Path):
+        (tmp_path / "one.txt").write_text("content")
+        calls = [0]
+
+        def cancelled():
+            calls[0] += 1
+            return True
+
+        plan = LocalDirSyncEngine(
+            local_root=tmp_path,
+            remote_listing={},
+            allowlist=(),
+            cancelled_check=cancelled,
+        ).build_plan()
+
+        assert calls[0] == 1
+        assert not plan.uploads
+
     def test_cancellation_during_local_files(self, tmp_path: Path):
         """build_plan should respect cancellation during _local_files."""
         # Create many files to trigger cancellation check
