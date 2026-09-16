@@ -65,9 +65,11 @@ torchaudio = { version = "<2.10.0", channel = "conda-forge" }
 [target.win-64.dependencies]
 # MSVC C++/C compiler toolchain — conda-forge's cxx-compiler/c-compiler
 # meta-packages select the MSVC build tools on win-64. The vc_* packages
-# are pulled in transitively.
-# sqlcipher is not on conda-forge for win-64 — use the pysqlcipher3 PyPI
-# wheel (see [pypi-dependencies]) or build from source via vcpkg.
+# are pulled in transitively. libsodium is in the global [dependencies]
+# and resolves for win-64.
+# SQLCipher is not on conda-forge for win-64 — installed via vcpkg in CI
+# (see release.yml build-windows job). CMakeLists.txt find_path/find_library
+# searches C:/vcpkg/installed/x64-windows/{include,lib}.
 # torchaudio 2.11.0 is the only build on win-64 (no <2.10.0 available).
 torchaudio = { version = ">=2.11.0", channel = "conda-forge" }
 

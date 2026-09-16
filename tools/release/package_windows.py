@@ -65,6 +65,14 @@ def build_base_extension() -> None:
     """Build the C++ base pybind11 extension using cmake (MSVC/Ninja)."""
     print("==> Building C++ base extension (MSVC/Ninja)...")
     conda_prefix = get_conda_prefix()
+
+    # Include vcpkg installed dir in CMAKE_PREFIX_PATH so CMakeLists.txt
+    # find_path/find_library can locate SQLCipher (installed via vcpkg,
+    # not on conda-forge for win-64).
+    vcpkg_dir = os.environ.get("VCPKG_INSTALLED_DIR", "C:/vcpkg/installed")
+    vcpkg_triplet = os.path.join(vcpkg_dir, "x64-windows")
+    prefix_path = f"{conda_prefix};{vcpkg_triplet}"
+
     subprocess.run(
         [
             "cmake",
@@ -72,7 +80,7 @@ def build_base_extension() -> None:
             "base/",
             "-G", "Ninja",
             "-DCMAKE_BUILD_TYPE=Release",
-            f"-DCMAKE_PREFIX_PATH={conda_prefix}",
+            f"-DCMAKE_PREFIX_PATH={prefix_path}",
         ],
         cwd=ROOT_DIR,
         check=True,
