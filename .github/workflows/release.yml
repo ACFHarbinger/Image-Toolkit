@@ -110,7 +110,7 @@ jobs:
         # find_path/find_library fallbacks search this path. crypto3 (vcpkg's
         # OpenSSL dep) is pulled in transitively.
         run: |
-          vcpkg install sqlcipher:x64-windows-release
+          vcpkg install sqlcipher:x64-windows
           echo "VCPKG_INSTALLED_DIR=C:/vcpkg/installed" >> $env:GITHUB_ENV
         shell: pwsh
 
