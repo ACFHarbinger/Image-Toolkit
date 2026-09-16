@@ -12,6 +12,18 @@
 #include <stdexcept>
 #include <string>
 
+// popen/pclose are POSIX; MSVC's CRT provides the same pipe-a-subprocess'
+// -stdout semantics as _popen/_pclose. This function is only ever called
+// for KDE (qdbus) scripting, which is meaningless on Windows at runtime,
+// but the translation unit still needs to compile there.
+#ifdef _MSC_VER
+#define ITK_POPEN _popen
+#define ITK_PCLOSE _pclose
+#else
+#define ITK_POPEN popen
+#define ITK_PCLOSE pclose
+#endif
+
 namespace py = pybind11;
 
 namespace base::core {
@@ -28,12 +40,12 @@ static int run_cmd(const std::string& cmd) {
 static std::string popen_read(const std::string& cmd) {
     std::string result;
     std::array<char, 4096> buf{};
-    FILE* pipe = popen(cmd.c_str(), "r");
+    FILE* pipe = ITK_POPEN(cmd.c_str(), "r");
     if (!pipe)
         throw std::runtime_error("base::core::evaluate_kde_script: popen failed");
     while (fgets(buf.data(), static_cast<int>(buf.size()), pipe))
         result += buf.data();
-    int rc = pclose(pipe);
+    int rc = ITK_PCLOSE(pipe);
     if (rc != 0)
         throw std::runtime_error("base::core::evaluate_kde_script: qdbus returned non-zero exit code");
     return result;

@@ -3,6 +3,7 @@
 // Tier 1 (xxHash64 exact digests) + Tier 2 (pHash / dHash / wHash consensus).
 // ---------------------------------------------------------------------------
 #include "core/similarity.hpp"
+#include "portable_popcount.hpp"
 
 #include <algorithm>
 #include <cstring>
@@ -127,12 +128,12 @@ uint32_t hamming_distance(const BitHash& a, const BitHash& b) {
     size_t n = std::min(a.size(), b.size());
     uint32_t d = 0;
     for (size_t i = 0; i < n; ++i)
-        d += static_cast<uint32_t>(__builtin_popcountll(a[i] ^ b[i]));
+        d += popcount64(a[i] ^ b[i]);
     // Length mismatch counts every extra bit as different
     for (size_t i = n; i < a.size(); ++i)
-        d += static_cast<uint32_t>(__builtin_popcountll(a[i]));
+        d += popcount64(a[i]);
     for (size_t i = n; i < b.size(); ++i)
-        d += static_cast<uint32_t>(__builtin_popcountll(b[i]));
+        d += popcount64(b[i]);
     return d;
 }
 

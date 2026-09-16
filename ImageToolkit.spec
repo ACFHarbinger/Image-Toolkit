@@ -12,7 +12,9 @@ ROOT_DIR = os.path.abspath(SPECPATH)
 if ROOT_DIR not in sys.path:
     sys.path.insert(0, ROOT_DIR)
 
-# Submodule paths
+# Submodule paths (may not exist if submodules are not initialized — filter
+# before adding to pathex or find_python_modules to avoid ERROR-level
+# missing hidden-import warnings from PyInstaller on non-Linux builds).
 asp_backend_path = os.path.join(ROOT_DIR, 'submodules', 'ASP', 'backend', 'src')
 asp_gui_path = os.path.join(ROOT_DIR, 'submodules', 'ASP', 'gui', 'src')
 csg_logic_path = os.path.join(ROOT_DIR, 'submodules', 'CSG', 'logic', 'src')
@@ -20,11 +22,7 @@ csg_gui_path = os.path.join(ROOT_DIR, 'submodules', 'CSG', 'gui', 'src')
 hie_middleware_path = os.path.join(ROOT_DIR, 'submodules', 'HIE', 'middleware', 'src')
 hie_gui_path = os.path.join(ROOT_DIR, 'submodules', 'HIE', 'gui', 'src')
 
-pathex = [
-    ROOT_DIR,
-    os.path.join(ROOT_DIR, 'backend'),
-    os.path.join(ROOT_DIR, 'gui'),
-    os.path.join(ROOT_DIR, 'git'),
+_all_submodule_paths = [
     asp_backend_path,
     asp_gui_path,
     csg_logic_path,
@@ -32,6 +30,15 @@ pathex = [
     hie_middleware_path,
     hie_gui_path,
 ]
+
+pathex = [
+    ROOT_DIR,
+    os.path.join(ROOT_DIR, 'backend'),
+    os.path.join(ROOT_DIR, 'gui'),
+    os.path.join(ROOT_DIR, 'git'),
+]
+# Only add submodule paths that actually exist on this filesystem.
+pathex.extend(p for p in _all_submodule_paths if os.path.isdir(p))
 
 # Helper to enumerate all Python module names under a directory
 def find_python_modules(base_dir, prefix=''):
