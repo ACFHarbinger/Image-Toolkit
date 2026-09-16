@@ -84,14 +84,55 @@ jobs:
           path: dist/release/*
           if-no-files-found: error
 
-  # Windows is deferred to 1.1 — pixi.toml only solves linux-64, so there is no
-  # conda toolchain for the C++ base extension on Windows. Tracking: GH issue for
-  # a v1.1 MSVC + prebuilt-OpenCV + sqlcipher native-build path. tools/release/
-  # package_windows.py is kept for that work.
+  # Windows build — added in v1.1 (#471). Uses pixi (conda-forge) for MSVC
+  # toolchain, OpenCV, sqlcipher, libsodium. Bundles unsigned (SmartScreen
+  # warning accepted per the issue).
+  build-windows:
+    name: Build Windows Desktop (zip)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up pixi
+        uses: prefix-dev/setup-pixi@v0.8.11
+        with:
+          environments: dev
+          cache: true
+
+      - name: Build the C++ base extension
+        run: |
+          pixi run -e dev build-base-win
+          # Stage the built .pyd where imports and the PyInstaller spec expect it.
+          copy build\base\base*.pyd .
+          $sitePkgs = pixi run -e dev python -c "import site; print(site.getsitepackages()[0])"
+          copy build\base\base*.pyd "$sitePkgs\" || true
+        shell: pwsh
+
+      - name: Build native crypto library
+        run: |
+          New-Item -ItemType Directory -Force -Path build\crypto
+          $condaPrefix = pixi run -e dev python -c "import sys,os; print(os.path.dirname(os.path.dirname(sys.executable)))"
+          pixi run -e dev cl /O2 /LD /I"$condaPrefix\include" base\src\secret\itk_crypto.c /Fe:build\crypto\libitk_crypto.dll /link /LIBPATH:"$condaPrefix\lib" libcrypto.lib
+        shell: pwsh
+
+      - name: Package Windows release (zip)
+        run: pixi run -e dev python tools/release/package_windows.py
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-windows
+          path: dist/release/*
+          if-no-files-found: error
 
   publish-release:
     name: Publish Release Draft
-    needs: [build-linux]
+    needs: [build-linux, build-windows]
     runs-on: ubuntu-latest
 
     steps:
