@@ -8,12 +8,12 @@
 |---|---:|---:|---:|---:|
 | `gui/src/windows/settings/_credentials.py` | 500 | 32 | 14 | 546 |
 | `gui/src/tabs/core/image_extractor_subtab.py` | 485 | 31 | 40 | 556 |
+| `gui/src/helpers/web/cloud/local_dir_sync_worker.py` | 475 | 58 | 69 | 602 |
 | `gui/src/classes/base/gallery_base.py` | 470 | 115 | 100 | 685 |
 | `gui/src/components/virtual_gallery/virtual_gallery_view.py` | 468 | 60 | 44 | 572 |
 | `gui/src/windows/image_compare_window.py` | 467 | 16 | 8 | 491 |
 | `gui/src/windows/authentication/login_window.py` | 467 | 112 | 30 | 609 |
 | `backend/src/database/unified/search_repo.py` | 464 | 30 | 72 | 566 |
-| `gui/src/helpers/web/cloud/local_dir_sync_worker.py` | 463 | 58 | 69 | 590 |
 | `gui/src/tabs/core/wallpaper_tab/graph/wallpaper_graph_scene.py` | 456 | 22 | 29 | 507 |
 | `backend/src/web/crawlers/image_crawler.py` | 448 | 16 | 11 | 475 |
 | `gui/src/tabs/core/extractor_tab/_media_player.py` | 439 | 114 | 29 | 582 |
@@ -56,4 +56,4 @@
 | `backend/src/app.py` | 316 | 102 | 50 | 468 |
 | `gui/src/components/dialogs/_duplicate_pruning.py` | 312 | 30 | 15 | 357 |
 | `gui/src/tabs/database/database_tab/_connection_stats.py` | 310 | 2 | 11 | 323 |
-| **TOTALS** | **87058** | **6238** | **9316** | **102612** |
+| **TOTALS** | **87070** | **6238** | **9316** | **102624** |
