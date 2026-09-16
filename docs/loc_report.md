@@ -7,7 +7,7 @@
 | Path | Code | Comments | Docstrings | Total |
 |---|---:|---:|---:|---:|
 | `gui/src/windows/settings/_credentials.py` | 500 | 32 | 14 | 546 |
-| `gui/src/tabs/core/image_extractor_subtab.py` | 485 | 31 | 40 | 556 |
+| `gui/src/tabs/core/image_extractor_subtab.py` | 487 | 31 | 40 | 558 |
 | `gui/src/helpers/web/cloud/local_dir_sync_worker.py` | 475 | 58 | 69 | 602 |
 | `gui/src/classes/base/gallery_base.py` | 470 | 115 | 100 | 685 |
 | `gui/src/components/virtual_gallery/virtual_gallery_view.py` | 468 | 60 | 44 | 572 |
@@ -28,7 +28,7 @@
 | `gui/src/windows/settings/_appearance.py` | 400 | 31 | 18 | 449 |
 | `gui/src/classes/base/_gallery_presentation.py` | 394 | 21 | 21 | 436 |
 | `gui/src/styles/background_canvas.py` | 387 | 3 | 18 | 408 |
-| `gui/src/components/dialogs/thumbnail_file_picker.py` | 384 | 4 | 7 | 395 |
+| `gui/src/components/dialogs/thumbnail_file_picker.py` | 386 | 4 | 7 | 397 |
 | `gui/src/tabs/web/web_requests_tab.py` | 377 | 39 | 6 | 422 |
 | `gui/src/tabs/models/gen/comfy_generate_tab.py` | 376 | 45 | 9 | 430 |
 | `gui/src/windows/settings/_profile_management.py` | 371 | 34 | 18 | 423 |
@@ -56,4 +56,4 @@
 | `backend/src/app.py` | 316 | 102 | 50 | 468 |
 | `gui/src/components/dialogs/_duplicate_pruning.py` | 312 | 30 | 15 | 357 |
 | `gui/src/tabs/database/database_tab/_connection_stats.py` | 310 | 2 | 11 | 323 |
-| **TOTALS** | **87070** | **6238** | **9316** | **102624** |
+| **TOTALS** | **87077** | **6238** | **9316** | **102631** |
