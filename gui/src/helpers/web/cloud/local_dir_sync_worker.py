@@ -7,13 +7,14 @@ unit-tested without a Qt event loop or real cloud credentials.
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import os
 import time
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from PySide6.QtCore import Signal
 
@@ -22,7 +23,36 @@ from gui.src.helpers.base import BaseQThreadWorker
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Security: default exclude patterns for files that must not leave the machine.
+# Security: allowlist of files/directories that ARE synced.
+# Everything else is excluded by default. The denylist is kept as a
+# second-layer guard for sensitive patterns that must never leave the machine.
+# ---------------------------------------------------------------------------
+DEFAULT_ALLOWLIST: Tuple[str, ...] = (
+    # --- Configuration files ---
+    "config/",
+    "config.json",
+    "settings.json",
+    "keybindings.json",
+    "user_theme.qss",
+    "preferences",
+    "preferences.json",
+    # --- User assets (minus secrets) ---
+    "assets/",
+    "themes/",
+    "presets/",
+    "templates/",
+    # --- Bookmarks / favorites ---
+    "bookmarks.json",
+    "favorites.json",
+    # --- UI state ---
+    "window_state.json",
+    "tab_order.json",
+    "recent_dirs.json",
+)
+
+# ---------------------------------------------------------------------------
+# Security: denylist patterns for files that must never leave the machine.
+# This is a second-layer guard on top of the allowlist.
 # Path leak risk: logs/traces carry absolute host paths.
 # Vault key material: AES-256-GCM encrypted but we don't send key files.
 # ---------------------------------------------------------------------------
@@ -105,9 +135,17 @@ class LocalDirSyncEngine:
         fetching the remote listing via the cloud API.
     conflict_policy:
         How to resolve files that differ on both sides.
+    allowlist:
+        Glob patterns for files/directories that ARE synced. If empty,
+        all files (except excludes) are synced. If non-empty, only files
+        matching the allowlist are synced.
     excludes:
         Glob patterns for files/directories that must never be synced.
-        Checked against the *relpath* component of each file.
+        Checked against the *relpath* component of each file. This is a
+        second-layer guard on top of the allowlist.
+    cancelled_check:
+        Optional callable that returns True if the operation should be
+        cancelled. Called periodically during build_plan() for large trees.
     """
 
     def __init__(
@@ -115,12 +153,46 @@ class LocalDirSyncEngine:
         local_root: Path,
         remote_listing: Dict[str, Dict[str, Any]],
         conflict_policy: ConflictPolicy = ConflictPolicy.NEWER_WINS,
+        allowlist: Tuple[str, ...] = DEFAULT_ALLOWLIST,
         excludes: Tuple[str, ...] = DEFAULT_EXCLUDES,
+        cancelled_check: Optional[Callable[[], bool]] = None,
     ) -> None:
         self.local_root = local_root
         self.remote_listing = remote_listing
         self.conflict_policy = conflict_policy
+        self.allowlist = allowlist
         self.excludes = excludes
+        self._cancelled_check = cancelled_check
+
+    def _is_cancelled(self) -> bool:
+        """Check if the operation has been cancelled."""
+        if self._cancelled_check is not None:
+            return self._cancelled_check()
+        return False
+
+    def _matches_allowlist(self, relpath: str) -> bool:
+        """Return True if *relpath* matches any allowlist pattern."""
+        if not self.allowlist:
+            return True  # Empty allowlist means allow everything
+        import fnmatch
+
+        name = Path(relpath).name
+        parts = Path(relpath).parts
+        for pat in self.allowlist:
+            pat_clean = pat.rstrip("/")
+            # Match against the bare filename
+            if fnmatch.fnmatch(name, pat_clean):
+                return True
+            # Match against any path component (catches "config/", "assets/")
+            for part in parts:
+                if fnmatch.fnmatch(part, pat_clean):
+                    return True
+            # Match against full relpath or prefix
+            if fnmatch.fnmatch(relpath, pat_clean):
+                return True
+            if relpath.startswith(pat_clean + "/") or relpath.startswith(pat_clean + os.sep):
+                return True
+        return False
 
     def _is_excluded(self, relpath: str) -> bool:
         """Return True if *relpath* matches any exclude pattern."""
@@ -141,13 +213,41 @@ class LocalDirSyncEngine:
                 return True
         return False
 
+    def _should_sync(self, relpath: str) -> bool:
+        """Return True if *relpath* should be synced (in allowlist AND not excluded)."""
+        if not self._matches_allowlist(relpath):
+            return False
+        return not self._is_excluded(relpath)
+
+    @staticmethod
+    def _compute_file_hash(path: Path, algorithm: str = "sha256") -> str:
+        """Compute a content hash for a file. Used for tie-breaking."""
+        hasher = hashlib.new(algorithm)
+        try:
+            with open(path, "rb") as f:
+                # Read in chunks to handle large files
+                for chunk in iter(lambda: f.read(8192), b""):
+                    hasher.update(chunk)
+            return hasher.hexdigest()
+        except OSError:
+            return ""
+
     def _local_files(self) -> Dict[str, Dict[str, Any]]:
         result: Dict[str, Dict[str, Any]] = {}
+        cancel_check_interval = 100  # Check cancellation every N files
+        file_count = 0
         for dirpath, _, filenames in os.walk(self.local_root):
             for fname in filenames:
+                # Check cancellation periodically for large trees
+                file_count += 1
+                if file_count % cancel_check_interval == 0 and self._is_cancelled():
+                    logger.info("LocalDirSyncEngine._local_files cancelled")
+                    return result
+
                 abs_path = Path(dirpath) / fname
                 relpath = str(abs_path.relative_to(self.local_root))
-                if self._is_excluded(relpath):
+                # Use allowlist + denylist filtering
+                if not self._should_sync(relpath):
                     continue
                 try:
                     st = abs_path.stat()
@@ -167,6 +267,33 @@ class LocalDirSyncEngine:
             return "upload"
         return "download"
 
+    def _files_are_identical(self, relpath: str, local_info: Dict[str, Any], remote_info: Dict[str, Any]) -> bool:
+        """Check if local and remote files are identical.
+
+        First checks size+mtime (fast path). On tie, computes content hash
+        for definitive comparison (roadmap §4.20).
+        """
+        lm = local_info["mtime"]
+        rm = remote_info["mtime"]
+        ls = local_info["size"]
+        rs = remote_info["size"]
+
+        # Different size → definitely different
+        if ls != rs:
+            return False
+
+        # Same size, similar mtime → likely same, but verify with hash
+        if abs(lm - rm) < 2.0:
+            # Content hash tie-break for same size+mtime
+            local_path = self.local_root / relpath
+            local_hash = self._compute_file_hash(local_path)
+            if local_hash and remote_info.get("content_hash"):
+                return local_hash == remote_info["content_hash"]
+            # If no remote hash available, fall back to size+mtime
+            return True
+
+        return False
+
     def build_plan(self) -> SyncPlan:
         """Compute the full sync plan without touching any files."""
         plan = SyncPlan()
@@ -174,9 +301,20 @@ class LocalDirSyncEngine:
         remote = self.remote_listing
 
         all_paths = set(local) | set(remote)
+        cancel_check_interval = 100  # Check cancellation every N paths
+        path_count = 0
+
         for relpath in sorted(all_paths):
-            if self._is_excluded(relpath):
-                plan.skipped.append(FileDiff(relpath=relpath, action="skip", reason="excluded"))
+            # Check cancellation periodically for large trees
+            path_count += 1
+            if path_count % cancel_check_interval == 0 and self._is_cancelled():
+                logger.info("LocalDirSyncEngine.build_plan cancelled")
+                break
+
+            # Use allowlist + denylist filtering
+            if not self._should_sync(relpath):
+                reason = "excluded" if self._is_excluded(relpath) else "not in allowlist"
+                plan.skipped.append(FileDiff(relpath=relpath, action="skip", reason=reason))
                 continue
 
             in_local = relpath in local
@@ -204,16 +342,15 @@ class LocalDirSyncEngine:
                 )
             else:
                 # Both sides — check for conflict
+                # Use content-hash tie-break for same size+mtime
+                if self._files_are_identical(relpath, local[relpath], remote[relpath]):
+                    plan.skipped.append(FileDiff(relpath=relpath, action="skip", reason="in sync (verified)"))
+                    continue
+
                 lm = local[relpath]["mtime"]
                 rm = remote[relpath]["mtime"]
                 ls = local[relpath]["size"]
                 rs = remote[relpath]["size"]
-                # Same mtime+size → in sync
-                if abs(lm - rm) < 2.0 and ls == rs:
-                    plan.skipped.append(
-                        FileDiff(relpath=relpath, action="skip", reason="in sync")
-                    )
-                    continue
                 diff = FileDiff(
                     relpath=relpath,
                     action="conflict",
@@ -235,16 +372,9 @@ class LocalDirSyncEngine:
 
 
 # ---------------------------------------------------------------------------
-# Worker signals
-# ---------------------------------------------------------------------------
-
-class LocalDirSyncSignals:  # not a QObject — use the worker's signals directly
-    pass
-
-
-# ---------------------------------------------------------------------------
 # QThread worker
 # ---------------------------------------------------------------------------
+
 
 class LocalDirSyncWorker(BaseQThreadWorker):
     """Bidirectional sync of ``~/.image-toolkit/`` ↔ remote ``.image-toolkit/``.
@@ -267,12 +397,15 @@ class LocalDirSyncWorker(BaseQThreadWorker):
         If ``True``, compute and report the plan but make no changes.
     conflict_policy:
         Conflict resolution strategy.
+    allowlist:
+        Extra glob patterns to allow (merged with ``DEFAULT_ALLOWLIST``).
+        If empty tuple, uses default allowlist.
     excludes:
         Extra glob patterns to exclude (merged with ``DEFAULT_EXCLUDES``).
     """
 
-    status = Signal(str)        # log line
-    progress = Signal(int, int) # (done, total)
+    status = Signal(str)  # log line
+    progress = Signal(int, int)  # (done, total)
     finished = Signal(object)  # (success, message, was_dry_run), None on failure/cancel
 
     def __init__(
@@ -283,6 +416,7 @@ class LocalDirSyncWorker(BaseQThreadWorker):
         remote_folder: str = ".image-toolkit",
         dry_run: bool = True,
         conflict_policy: ConflictPolicy = ConflictPolicy.NEWER_WINS,
+        allowlist: Tuple[str, ...] = (),
         excludes: Tuple[str, ...] = (),
         parent=None,
     ) -> None:
@@ -295,6 +429,7 @@ class LocalDirSyncWorker(BaseQThreadWorker):
         self.remote_folder = remote_folder
         self.dry_run = dry_run
         self.conflict_policy = conflict_policy
+        self.allowlist: Tuple[str, ...] = DEFAULT_ALLOWLIST + tuple(allowlist)
         self.excludes: Tuple[str, ...] = DEFAULT_EXCLUDES + tuple(excludes)
         self._cancelled = False
         self._client = None  # cached provider client — one auth per run
@@ -342,7 +477,9 @@ class LocalDirSyncWorker(BaseQThreadWorker):
                 local_root=self.local_root,
                 remote_listing=remote_listing,
                 conflict_policy=self.conflict_policy,
+                allowlist=self.allowlist,
                 excludes=self.excludes,
+                cancelled_check=lambda: self._cancelled,
             )
             plan = engine.build_plan()
 
@@ -451,8 +588,7 @@ class LocalDirSyncWorker(BaseQThreadWorker):
             token = self.auth_config.get("access_token")
             if not token:
                 raise RuntimeError(
-                    "Dropbox authentication failed — no access token "
-                    "(check the Dropbox token in the vault)."
+                    "Dropbox authentication failed — no access token (check the Dropbox token in the vault)."
                 )
             return DropboxFileClient(
                 access_token=token,
@@ -468,8 +604,7 @@ class LocalDirSyncWorker(BaseQThreadWorker):
             token = self.auth_config.get("access_token")
             if not token:
                 raise RuntimeError(
-                    "OneDrive authentication failed — no access token "
-                    "(check the OneDrive token in the vault)."
+                    "OneDrive authentication failed — no access token (check the OneDrive token in the vault)."
                 )
             return OneDriveFileClient(
                 access_token=token,
@@ -524,6 +659,7 @@ class LocalDirSyncWorker(BaseQThreadWorker):
 
 __all__ = [
     "ConflictPolicy",
+    "DEFAULT_ALLOWLIST",
     "DEFAULT_EXCLUDES",
     "FileDiff",
     "LocalDirSyncEngine",
