@@ -47,9 +47,35 @@ inline int crypto_pwhash(
 #include <cstdint>
 #include <cstring>
 #include <stdexcept>
+
+#ifdef _WIN32
+#include <windows.h>  // VirtualLock / VirtualUnlock -- Windows' mlock/munlock equivalent
+#else
 #include <sys/mman.h>  // mlock / munlock (POSIX)
+#endif
 
 namespace base::secret {
+
+// Cross-platform "keep these pages resident, never let the OS swap them to
+// disk" primitive. Same intent and same best-effort failure handling on
+// both platforms (a locking failure -- e.g. RLIMIT_MEMLOCK exhausted on
+// Linux, or the working-set-size quota on Windows -- is not fatal; the
+// buffer is still zeroed on destruction either way).
+inline bool _lock_pages(void* addr, std::size_t len) {
+#ifdef _WIN32
+    return VirtualLock(addr, len) != 0;
+#else
+    return mlock(addr, len) == 0;
+#endif
+}
+
+inline void _unlock_pages(void* addr, std::size_t len) {
+#ifdef _WIN32
+    VirtualUnlock(addr, len);
+#else
+    munlock(addr, len);
+#endif
+}
 
 /// Fixed-size secret buffer with mlock + sodium_memzero on destruction.
 /// Non-copyable; moveable.
@@ -58,15 +84,16 @@ class LockedSecret {
 public:
     LockedSecret() {
         std::memset(data_.data(), 0, N);
-        if (mlock(data_.data(), N) != 0) {
-            // mlock may fail if RLIMIT_MEMLOCK is exhausted; log and continue.
-            // The buffer is still zeroed on destruction via sodium_memzero.
+        if (!_lock_pages(data_.data(), N)) {
+            // Locking may fail (e.g. RLIMIT_MEMLOCK exhausted on Linux, a
+            // working-set-size quota on Windows); log and continue. The
+            // buffer is still zeroed on destruction via sodium_memzero.
         }
     }
 
     ~LockedSecret() {
         sodium_memzero(data_.data(), N);
-        munlock(data_.data(), N);
+        _unlock_pages(data_.data(), N);
     }
 
     // Non-copyable
@@ -77,8 +104,8 @@ public:
     LockedSecret(LockedSecret&& other) noexcept {
         std::memcpy(data_.data(), other.data_.data(), N);
         sodium_memzero(other.data_.data(), N);
-        munlock(other.data_.data(), N);
-        mlock(data_.data(), N);
+        _unlock_pages(other.data_.data(), N);
+        _lock_pages(data_.data(), N);
     }
 
           uint8_t* data()       noexcept { return data_.data(); }
