@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from gui.src.helpers.core._worker_rss_calibration import effective_per_worker_mib
 from gui.src.theming.theme_api import ThemeColor, color, qss
 
 log = logging.getLogger(__name__)
@@ -273,7 +274,11 @@ class ResourceSimulatorDashboard(QFrame):
             free_swap_bytes = 4 * gib
             total_swap_bytes = 8 * gib
 
-        per_worker = (per_worker_mib or self.PER_WORKER_RAM_MIB) * mib
+        # #484: prefer the rolling self-calibration (real child peaks) over
+        # the static constant; an explicit override still wins.
+        per_worker = (
+            per_worker_mib or effective_per_worker_mib() or self.PER_WORKER_RAM_MIB
+        ) * mib
         estimated_ram = (self.BASE_RAM_MIB * mib) + workers * per_worker
 
         os_reserve = max(self.OS_RESERVE_MIN_GIB * gib, int(total_bytes * self.OS_RESERVE_FRACTION))

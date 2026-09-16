@@ -49,7 +49,42 @@ def _parse_speed(value: Any) -> float:
         return 1.0
 
 
-def run_extraction_in_process(config: Union[ExtractionConfig, Dict[str, Any]]) -> Dict[str, Any]:  # noqa: C901
+def _peak_rss_mb() -> float:
+    """This process's peak RSS in MiB (0.0 when unmeasurable).
+
+    ``ru_maxrss`` is the kernel's high-water mark for exactly this
+    process — with ``maxtasksperchild=1`` each pool child runs one task,
+    so it is that task's true peak, with no polling gaps and no sampler
+    thread. Stdlib-only: the spawned child interpreter must not depend
+    on anything beyond what the extraction path already imports.
+    """
+    try:
+        import resource
+
+        kb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+        return kb / 1024.0 if kb > 0 else 0.0
+    except Exception:
+        return 0.0
+
+
+def run_extraction_in_process(config: Union[ExtractionConfig, Dict[str, Any]]) -> Dict[str, Any]:
+    """Single-extraction pipeline + self peak-RSS stamp (#484).
+
+    Name and module path are the multiprocessing pickle path (see module
+    docstring) — keep them stable. The stamp lets the parent calibrate
+    #483's per-worker RAM estimate from real child peaks instead of the
+    static constant. Additive key only; existing result consumers use
+    ``.get()`` and are unaffected.
+    """
+    res = _run_extraction_impl(config)
+    if isinstance(res, dict):
+        peak = _peak_rss_mb()
+        if peak > 0:
+            res["worker_peak_rss_mb"] = round(peak, 1)
+    return res
+
+
+def _run_extraction_impl(config: Union[ExtractionConfig, Dict[str, Any]]) -> Dict[str, Any]:  # noqa: C901
     import cv2
 
     def natural_sort_key(s):
