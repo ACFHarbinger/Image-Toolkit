@@ -19,9 +19,9 @@
 | `gui/src/components/dialogs/asp_advanced_config_dialog.py` | 437 | 21 | 8 | 466 |
 | `gui/src/tabs/web/reverse_search_tab.py` | 434 | 45 | 21 | 500 |
 | `gui/src/windows/settings/_reset_state.py` | 432 | 16 | 17 | 465 |
+| `gui/src/helpers/core/_queue_extraction_process.py` | 429 | 7 | 29 | 465 |
 | `backend/src/models/tuning/lo_ra_tuner_v2.py` | 423 | 50 | 22 | 495 |
 | `backend/src/models/tuning/lo_ra_tuner.py` | 418 | 48 | 18 | 484 |
-| `gui/src/helpers/core/_queue_extraction_process.py` | 415 | 7 | 15 | 437 |
 | `gui/src/windows/image_preview_window.py` | 413 | 66 | 42 | 521 |
 | `gui/src/windows/main/_session_recovery.py` | 400 | 31 | 28 | 459 |
 | `gui/src/windows/settings/_appearance.py` | 400 | 31 | 18 | 449 |
@@ -49,11 +49,11 @@
 | `gui/src/tabs/core/protos/extractor_tab.py` | 332 | 0 | 7 | 339 |
 | `backend/src/pipeline/anime_training_pipeline.py` | 331 | 38 | 36 | 405 |
 | `gui/src/helpers/core/duplicate_scan_worker.py` | 331 | 42 | 33 | 406 |
+| `gui/src/components/widgets/resource_simulator_dashboard.py` | 328 | 2 | 7 | 337 |
 | `gui/src/utils/manager/shortcut_manager.py` | 326 | 18 | 43 | 387 |
-| `gui/src/components/widgets/resource_simulator_dashboard.py` | 325 | 0 | 7 | 332 |
 | `gui/src/windows/settings/_tab_config_editing.py` | 324 | 15 | 32 | 371 |
 | `backend/src/utils/display/slideshow_daemon.py` | 321 | 31 | 33 | 385 |
 | `backend/src/app.py` | 316 | 102 | 50 | 468 |
 | `gui/src/components/dialogs/_duplicate_pruning.py` | 312 | 30 | 15 | 357 |
 | `gui/src/tabs/database/database_tab/_connection_stats.py` | 310 | 2 | 11 | 323 |
-| **TOTALS** | **86905** | **6208** | **9240** | **102353** |
+| **TOTALS** | **86973** | **6219** | **9297** | **102489** |
