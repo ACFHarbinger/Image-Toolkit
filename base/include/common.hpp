@@ -12,6 +12,12 @@
 //     return to Python.
 // ---------------------------------------------------------------------------
 
+// MSVC has no POSIX ssize_t; provide one from BaseTsd.h (SSIZE_T).
+#ifdef _MSC_VER
+#include <BaseTsd.h>
+typedef SSIZE_T ssize_t;
+#endif
+
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <opencv2/core.hpp>
