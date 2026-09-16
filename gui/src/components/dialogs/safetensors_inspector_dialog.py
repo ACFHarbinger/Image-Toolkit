@@ -34,6 +34,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from gui.src.helpers.gc_safe import gc_disabled_run
 from gui.src.theming.theme_api import color as theme_color
 
 
@@ -48,6 +49,7 @@ class _LoadWorker(QRunnable):
         self.path = path
         self.signals = _LoadSignals()
 
+    @gc_disabled_run
     def run(self) -> None:
         try:
             from backend.src.utils.data.safetensors_metadata import read_metadata
@@ -68,6 +70,7 @@ class _HashWorker(QRunnable):
         self.path = path
         self.signals = _HashSignals()
 
+    @gc_disabled_run
     def run(self) -> None:
         try:
             from backend.src.utils.data.safetensors_metadata import calculate_file_hash

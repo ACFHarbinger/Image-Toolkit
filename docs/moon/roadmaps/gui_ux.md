@@ -537,6 +537,8 @@ Use `asyncio.CancelledError` or a `threading.Event` as a cancellation token pass
 
 **2026-08-31 (GC-guard Tier-2 — #481):** Extended `@gc_disabled_run` to the heavy CV/torch/ffmpeg worker threads listed as Tier-2 in the #480 audit — extraction, conversion, merge/scan/search, codec, video/image loader, embedding, model-training, web-recon (torch/HNSW/Selenium), `_FrameWorker`, and the ASP stitch / graph-stitch / batch-stitch / mask-preview workers (asp_gui aliases). Decorator sits outermost above any `@Slot()`. Static registry check over 38 classes + dynamic signal-probe tests: `gui/test/helpers/test_gc_tier2_workers.py` (51 passed).
 
+**2026-09-16 (GC-guard Tier-2 remainder — #481):** The helpers in that 38-class set already inherit the guarded base `run()` (R1.1). Remaining crash surface was raw `QRunnable`s `check_worker_base.py` does not see: `_ThumbTask`, `ImageFrameCutWorker`, safetensors `_LoadWorker`/`_HashWorker`. Torch workers keep the guard (crash > delayed cycle collection). Registry now includes `ImageScannerWorker` / `DirectoryScanWorker` / `CloudExtractionWorker`.
+
 ---
 
 ## 2.8 Theme Support ✅ Partial (options A + D shipped — dark/light QSS toggle with per-theme accent-color override, `gui/src/windows/main/_theme.py` + `gui/src/styles/`; also UI density and a `load_user_qss_override` power-user hook) {: #28-theme-support }
