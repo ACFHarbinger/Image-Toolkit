@@ -13,6 +13,7 @@
 | `gui/src/windows/image_compare_window.py` | 467 | 16 | 8 | 491 |
 | `gui/src/windows/authentication/login_window.py` | 467 | 112 | 30 | 609 |
 | `backend/src/database/unified/search_repo.py` | 464 | 30 | 72 | 566 |
+| `gui/src/helpers/web/cloud/local_dir_sync_worker.py` | 463 | 58 | 69 | 590 |
 | `gui/src/tabs/core/wallpaper_tab/graph/wallpaper_graph_scene.py` | 456 | 22 | 29 | 507 |
 | `backend/src/web/crawlers/image_crawler.py` | 448 | 16 | 11 | 475 |
 | `gui/src/tabs/core/extractor_tab/_media_player.py` | 439 | 114 | 29 | 582 |
@@ -28,7 +29,6 @@
 | `gui/src/classes/base/_gallery_presentation.py` | 394 | 21 | 21 | 436 |
 | `gui/src/styles/background_canvas.py` | 387 | 3 | 18 | 408 |
 | `gui/src/components/dialogs/thumbnail_file_picker.py` | 384 | 4 | 7 | 395 |
-| `gui/src/helpers/web/cloud/local_dir_sync_worker.py` | 378 | 39 | 50 | 467 |
 | `gui/src/tabs/web/web_requests_tab.py` | 377 | 39 | 6 | 422 |
 | `gui/src/tabs/models/gen/comfy_generate_tab.py` | 376 | 45 | 9 | 430 |
 | `gui/src/windows/settings/_profile_management.py` | 371 | 34 | 18 | 423 |
@@ -56,4 +56,4 @@
 | `backend/src/app.py` | 316 | 102 | 50 | 468 |
 | `gui/src/components/dialogs/_duplicate_pruning.py` | 312 | 30 | 15 | 357 |
 | `gui/src/tabs/database/database_tab/_connection_stats.py` | 310 | 2 | 11 | 323 |
-| **TOTALS** | **86973** | **6219** | **9297** | **102489** |
+| **TOTALS** | **87058** | **6238** | **9316** | **102612** |
