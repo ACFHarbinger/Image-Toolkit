@@ -98,6 +98,15 @@ jobs:
           submodules: recursive
           fetch-depth: 0
 
+      - name: Set up MSVC Developer Environment
+        # Activates cl.exe + its runtime DLLs on PATH for the whole job.
+        # Without this, pixi install's PyPI sdist builds (e.g. stringzilla)
+        # and later cmake/cl invocations fail because cl.exe's runtime
+        # DLLs are not on PATH even though vswhere finds VS.
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
       - name: Set up pixi
         uses: prefix-dev/setup-pixi@v0.8.11
         with:
