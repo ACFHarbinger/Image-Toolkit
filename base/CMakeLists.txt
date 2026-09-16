@@ -153,7 +153,11 @@ FetchContent_MakeAvailable(cpp_httplib nlohmann_json)
 # ---------------------------------------------------------------------------
 # Compiler flags
 # ---------------------------------------------------------------------------
-set(CMAKE_CXX_FLAGS_RELEASE "-O2")
+if(MSVC)
+    set(CMAKE_CXX_FLAGS_RELEASE "/O2")
+else()
+    set(CMAKE_CXX_FLAGS_RELEASE "-O2")
+endif()
 if(OpenMP_FOUND)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 endif()
@@ -260,20 +264,14 @@ target_link_libraries(base PRIVATE
     OpenMP::OpenMP_CXX
 )
 
-# Always ensure base has a RUNPATH pointing to the pixi environment library directory,
-# so that dynamic dependencies like OpenCV can be resolved at runtime.
-# pixi lib dir must precede /usr/lib in the RPATH: old-style RPATH resolves
-# transitively, and pixi's libssl needs pixi's libcrypto (not the system one).
-# An explicit -rpath link option lands before CMake's auto-generated entries.
-# --enable-new-dtags forces RUNPATH (not legacy RPATH) generation: an
-# old-style RPATH on this MODULE-type target gets appended to the dynamic
-# linker's *global* search path for the whole process, hijacking unrelated
-# libraries loaded later by PySide6/Qt. Verify with `readelf -d base.so`
-# — must say RUNPATH, never RPATH.
-target_link_options(base PRIVATE
-    "-Wl,-rpath,${IMAGE_TOOLKIT_PIXI_LIB}"
-    "-Wl,--enable-new-dtags")
-target_link_directories(base PRIVATE ${IMAGE_TOOLKIT_PIXI_LIB})
+if(NOT WIN32)
+    # Keep pixi libraries ahead of system libraries on ELF platforms without
+    # leaking an old-style RPATH into the process-wide loader search path.
+    target_link_options(base PRIVATE
+        "-Wl,-rpath,${IMAGE_TOOLKIT_PIXI_LIB}"
+        "-Wl,--enable-new-dtags")
+    target_link_directories(base PRIVATE ${IMAGE_TOOLKIT_PIXI_LIB})
+endif()
 
 if(CUDA_FOUND)
     target_compile_definitions(base PRIVATE HAVE_CUDA=1)
@@ -293,9 +291,11 @@ endif()
 # ---------------------------------------------------------------------------
 # Install alongside base.so in the Python root directory
 # ---------------------------------------------------------------------------
-set_target_properties(base PROPERTIES
-    INSTALL_RPATH "${IMAGE_TOOLKIT_PIXI_LIB}"
-)
+if(NOT WIN32)
+    set_target_properties(base PROPERTIES
+        INSTALL_RPATH "${IMAGE_TOOLKIT_PIXI_LIB}"
+    )
+endif()
 install(TARGETS base DESTINATION .)
 
 # ---------------------------------------------------------------------------
