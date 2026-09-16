@@ -85,8 +85,8 @@ jobs:
           if-no-files-found: error
 
   # Windows build — added in v1.1 (#471). Uses pixi (conda-forge) for MSVC
-  # toolchain, OpenCV, sqlcipher, libsodium. Bundles unsigned (SmartScreen
-  # warning accepted per the issue).
+  # toolchain, OpenCV, libsodium. SQLCipher is installed via vcpkg (not on
+  # conda-forge for win-64). Bundles unsigned (SmartScreen warning accepted).
   build-windows:
     name: Build Windows Desktop (zip)
     runs-on: windows-latest
@@ -104,9 +104,23 @@ jobs:
           environments: dev
           cache: true
 
+      - name: Install SQLCipher via vcpkg
+        # SQLCipher is not on conda-forge for win-64. vcpkg builds it with
+        # MSVC and installs to C:/vcpkg/installed/x64-windows/. The CMakeLists.txt
+        # find_path/find_library fallbacks search this path. crypto3 (vcpkg's
+        # OpenSSL dep) is pulled in transitively.
+        run: |
+          vcpkg install sqlcipher:x64-windows-release
+          echo "VCPKG_INSTALLED_DIR=C:/vcpkg/installed" >> $env:GITHUB_ENV
+        shell: pwsh
+
       - name: Build the C++ base extension
         run: |
-          pixi run -e dev build-base-win
+          $condaPrefix = pixi run -e dev python -c "import sys,os; print(os.path.dirname(os.path.dirname(sys.executable)))"
+          pixi run -e dev cmake -B build/base base/ -G Ninja `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DCMAKE_PREFIX_PATH="$condaPrefix;C:/vcpkg/installed/x64-windows"
+          pixi run -e dev cmake --build build/base --parallel
           # Stage the built .pyd where imports and the PyInstaller spec expect it.
           copy build\base\base*.pyd .
           $sitePkgs = pixi run -e dev python -c "import site; print(site.getsitepackages()[0])"

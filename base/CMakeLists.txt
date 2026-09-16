@@ -75,8 +75,20 @@ if(PkgConfig_FOUND)
 endif()
 
 if(NOT SQLCIPHER_FOUND)
-    find_path(SQLCIPHER_INCLUDE_DIR NAMES sqlcipher/sqlite3.h sqlite3.h PATHS /usr/include /usr/local/include /usr/include/sqlcipher)
-    find_library(SQLCIPHER_LIBRARY NAMES sqlcipher libsqlcipher PATHS /usr/lib /usr/lib/x86_64-linux-gnu /usr/local/lib)
+    find_path(SQLCIPHER_INCLUDE_DIR
+        NAMES sqlcipher/sqlite3.h sqlite3.h
+        PATHS /usr/include /usr/local/include /usr/include/sqlcipher
+              "$ENV{CONDA_PREFIX}/include"
+              "$ENV{VCPKG_INSTALLED_DIR}/x64-windows/include"
+              "C:/vcpkg/installed/x64-windows/include"
+    )
+    find_library(SQLCIPHER_LIBRARY
+        NAMES sqlcipher libsqlcipher
+        PATHS /usr/lib /usr/lib/x86_64-linux-gnu /usr/local/lib
+              "$ENV{CONDA_PREFIX}/lib"
+              "$ENV{VCPKG_INSTALLED_DIR}/x64-windows/lib"
+              "C:/vcpkg/installed/x64-windows/lib"
+    )
     if(SQLCIPHER_INCLUDE_DIR AND SQLCIPHER_LIBRARY)
         set(SQLCIPHER_FOUND TRUE)
         set(SQLCIPHER_INCLUDE_DIRS ${SQLCIPHER_INCLUDE_DIR})
@@ -85,8 +97,16 @@ if(NOT SQLCIPHER_FOUND)
 endif()
 
 if(NOT SODIUM_FOUND)
-    find_path(SODIUM_INCLUDE_DIR NAMES sodium.h PATHS "$ENV{CONDA_PREFIX}/include" /usr/include /usr/local/include)
-    find_library(SODIUM_LIBRARY NAMES sodium libsodium PATHS "$ENV{CONDA_PREFIX}/lib" /usr/lib /usr/lib/x86_64-linux-gnu /usr/local/lib)
+    find_path(SODIUM_INCLUDE_DIR NAMES sodium.h
+        PATHS "$ENV{CONDA_PREFIX}/include" /usr/include /usr/local/include
+              "$ENV{VCPKG_INSTALLED_DIR}/x64-windows/include"
+              "C:/vcpkg/installed/x64-windows/include"
+    )
+    find_library(SODIUM_LIBRARY NAMES sodium libsodium
+        PATHS "$ENV{CONDA_PREFIX}/lib" /usr/lib /usr/lib/x86_64-linux-gnu /usr/local/lib
+              "$ENV{VCPKG_INSTALLED_DIR}/x64-windows/lib"
+              "C:/vcpkg/installed/x64-windows/lib"
+    )
     if(SODIUM_INCLUDE_DIR AND SODIUM_LIBRARY)
         set(SODIUM_FOUND TRUE)
         set(SODIUM_INCLUDE_DIRS ${SODIUM_INCLUDE_DIR})
