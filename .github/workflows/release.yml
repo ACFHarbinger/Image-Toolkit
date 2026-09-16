@@ -128,7 +128,8 @@ jobs:
           $condaPrefix = pixi run -e dev python -c "import sys,os; print(os.path.dirname(os.path.dirname(sys.executable)))"
           pixi run -e dev cmake -B build/base base/ -G Ninja `
             -DCMAKE_BUILD_TYPE=Release `
-            -DCMAKE_PREFIX_PATH="$condaPrefix;C:/vcpkg/installed/x64-windows"
+            -DCMAKE_PREFIX_PATH="$condaPrefix;C:/vcpkg/installed/x64-windows" `
+            -DBASE_BUILD_TESTS=OFF
           pixi run -e dev cmake --build build/base --parallel
           # Stage the built .pyd where imports and the PyInstaller spec expect it.
           copy build\base\base*.pyd .
