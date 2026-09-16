@@ -29,14 +29,14 @@ _FORBIDDEN_NAMES = {
     "listings_secure.db",
     ".slideshow_config.json",
 }
-_ALLOWED = {"theme.qss", "config/ui.json"}
+_ALLOWED = {"user_theme.qss", "config/ui.json"}
 
 
 def _scratch_itk_tree(root: Path) -> None:
     """A ~/.image-toolkit-shaped tree: secrets + one allowed config pair."""
     (root / "config").mkdir()
     (root / "config" / "ui.json").write_text('{"theme":"dark"}')
-    (root / "theme.qss").write_text("QWidget { color: #ccc; }")
+    (root / "user_theme.qss").write_text("QWidget { color: #ccc; }")
 
     (root / "keystore.vault").write_bytes(b"encrypted-vault")
     (root / "app.p12").write_bytes(b"pkcs12")
@@ -148,7 +148,7 @@ def test_worker_live_uploads_only_allowed_files(q_app, tmp_path: Path):
     assert set(fake.uploaded) == _ALLOWED
     _assert_no_forbidden(fake.uploaded)
     _assert_no_forbidden(list(fake.store))
-    assert fake.store["theme.qss"].startswith(b"QWidget")
+    assert fake.store["user_theme.qss"].startswith(b"QWidget")
 
 
 @pytest.mark.skipif(not _LIVE_TOKEN, reason="IT_GDRIVE_ACCESS_TOKEN not set")
