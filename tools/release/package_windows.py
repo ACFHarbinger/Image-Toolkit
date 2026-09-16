@@ -108,6 +108,12 @@ def build_base_extension() -> None:
 def build_pyinstaller() -> Path:
     """Run PyInstaller and return the dist directory."""
     dist_dir = ROOT_DIR / "dist" / "ImageToolkit"
+    vcpkg_dir = Path(os.environ.get("VCPKG_INSTALLED_DIR", "C:/vcpkg/installed"))
+    vcpkg_bin_dir = vcpkg_dir / "x64-windows" / "bin"
+    if vcpkg_bin_dir.is_dir():
+        # The base extension links SQLCipher from vcpkg. Make its DLLs
+        # discoverable while PyInstaller resolves binary dependencies.
+        os.environ["PATH"] = f"{vcpkg_bin_dir}{os.pathsep}{os.environ.get('PATH', '')}"
     print("==> Running PyInstaller on Windows...")
     subprocess.run(
         [
