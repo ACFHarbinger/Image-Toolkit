@@ -16,8 +16,10 @@
 #    code doesn't compile against — v0.19.4.1 matches the API Overmix expects
 #    (plain `const char*` labels, WGPUBufferMapAsyncStatus).
 # 2. Eigen3: not installed system-wide, but already present at
-#    $TOOLKIT_ROOT/include/eigen3 from the base module's pixi env — reused
-#    directly instead of requiring a redundant system install.
+#    $TOOLKIT_ROOT/.pixi/envs/dev/include/eigen3 (the base module's pixi dev
+#    env) — reused directly instead of requiring a redundant system install.
+#    ($TOOLKIT_ROOT/include/eigen3 is only CMake FetchContent's signature-file
+#    stub for the base module's own build tree, not the real headers.)
 #
 # There is also a one-time source patch, committed directly in the
 # submodule's own local git history (not pushed upstream, since we don't own
@@ -60,9 +62,9 @@ else
     echo "[setup_overmix] wgpu-native already fetched, skipping download."
 fi
 
-EIGEN_INCLUDE="$TOOLKIT_ROOT/include"
+EIGEN_INCLUDE="$TOOLKIT_ROOT/.pixi/envs/dev/include"
 if [ ! -f "$EIGEN_INCLUDE/eigen3/Eigen/Dense" ]; then
-    echo "Eigen3 not found at $EIGEN_INCLUDE/eigen3 — expected from the base module's pixi env." >&2
+    echo "Eigen3 not found at $EIGEN_INCLUDE/eigen3 — expected from the base module's pixi dev env (pixi install -e dev)." >&2
     exit 1
 fi
 
