@@ -1701,7 +1701,7 @@ The standard uniform grid crops anime illustrations with varied aspect ratios (t
 ### Implementation Options
 
 **A — Masonry & Justified Layouts with Toggleable Card Overlays [Recommended]**
-Upgrade the gallery engine ([AbstractGalleryBase](file:///home/pkhunter/Repositories/Repo/Image-Toolkit/gui/src/classes/base/gallery_base.py)) to support:
+Upgrade the gallery engine (`AbstractGalleryBase`, `gui/src/classes/base/gallery_base.py`) to support:
 - **Presentation Modes**:
   1. *Uniform Grid* (Fixed square/card bounding box).
   2. *Masonry Layout* (Variable height preserving natural illustration aspect ratios).
