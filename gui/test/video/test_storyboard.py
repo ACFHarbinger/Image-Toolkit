@@ -134,7 +134,7 @@ class TestStoryboardBuilderCancellation:
         builder = StoryboardBuilder(str(video), 0)
 
         failures = []
-        builder.failed.connect(failures.append)
+        builder.error.connect(failures.append)
         builder.run()
 
         assert len(failures) == 1
@@ -199,7 +199,7 @@ class TestStoryboardMediaBackendGuard:
         video.write_text("dummy")
         builder = StoryboardBuilder(str(video), 60_000)
         failures = []
-        builder.failed.connect(failures.append)
+        builder.error.connect(failures.append)
 
         with (
             patch("gui.src.helpers.video.storyboard.media_backend_spawn_guard", lambda: _RecordingGuard()),
@@ -210,7 +210,7 @@ class TestStoryboardMediaBackendGuard:
         # No real tile files exist (Popen is faked), so run() fails cleanly
         # right after the fork — that's fine, this test is only about the
         # fork itself being guarded, not a full storyboard build.
-        assert failures == ["No thumbnails extracted."]
+        assert [str(f) for f in failures] == ["No thumbnails extracted."]
         assert calls == ["guard_enter", "subprocess_popen", "guard_exit"]
         # The Popen fork itself is guarded; nothing about draining its
         # (empty, in this test) stdout stream should still be inside the
@@ -314,8 +314,8 @@ def test_storyboard_builder_produces_a_real_sprite_sheet(q_app):
 
     builder = StoryboardBuilder(HEVC_SAMPLE, duration_ms)
     result = {}
-    builder.finished_ok.connect(lambda meta_path: result.update(meta=meta_path))
-    builder.failed.connect(lambda msg: result.update(error=msg))
+    builder.finished.connect(lambda meta_path: result.update(meta=meta_path))
+    builder.error.connect(lambda msg: result.update(error=msg))
 
     builder.start()
     deadline = time.time() + 120

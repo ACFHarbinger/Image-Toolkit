@@ -15,7 +15,7 @@ def test_countdown_starts_before_pid_file_exists(q_app, tmp_path, monkeypatch):
     from PySide6.QtWidgets import QLabel, QWidget
 
     from gui.src.tabs.core.wallpaper_tab.system_display_subtab._daemon import (
-        _DaemonMixin,
+        SystemDisplayDaemonController,
     )
 
     path = tmp_path / ".slideshow_config.json"
@@ -29,7 +29,7 @@ def test_countdown_starts_before_pid_file_exists(q_app, tmp_path, monkeypatch):
         )
     )
 
-    class Fake(_DaemonMixin, QWidget):
+    class FakeTab(QWidget):
         def __init__(self):
             QWidget.__init__(self)
             self.countdown_timer = None
@@ -51,11 +51,10 @@ def test_countdown_starts_before_pid_file_exists(q_app, tmp_path, monkeypatch):
         "gui.src.tabs.core.wallpaper_tab.system_display_subtab._daemon.PID_PATH",
         tmp_path / "missing.pid",
     )
-    tab = Fake()
-    # pyrefly: ignore [bad-argument-type]
-    assert tab._is_background_daemon_process_alive() is False
-    # pyrefly: ignore [bad-argument-type]
-    tab._start_daemon_countdown_if_active()
+    tab = FakeTab()
+    daemon = SystemDisplayDaemonController(tab)
+    assert daemon._is_background_daemon_process_alive() is False
+    daemon._start_daemon_countdown_if_active()
     assert tab.countdown_timer is not None
     assert tab.countdown_timer.isActive()
     assert tab.countdown_label.text().startswith("Timer: ")
@@ -64,7 +63,7 @@ def test_countdown_starts_before_pid_file_exists(q_app, tmp_path, monkeypatch):
 
 def test_sync_daemon_config_keeps_locked_queues(q_app, tmp_path, monkeypatch):
     from gui.src.tabs.core.wallpaper_tab.system_display_subtab._daemon import (
-        _DaemonMixin,
+        SystemDisplayDaemonController,
     )
 
     path = tmp_path / ".slideshow_config.json"
@@ -79,7 +78,7 @@ def test_sync_daemon_config_keeps_locked_queues(q_app, tmp_path, monkeypatch):
         )
     )
 
-    class Fake(_DaemonMixin):
+    class FakeTab:
         def __init__(self):
             self.monitor_slideshow_queues = {"0": ["/profile.jpg"]}
             self.monitor_image_paths = {}
@@ -97,15 +96,11 @@ def test_sync_daemon_config_keeps_locked_queues(q_app, tmp_path, monkeypatch):
             self.playback_order_combo = MagicMock()
             self.playback_order_combo.currentText.return_value = "Sequential"
 
-        def _is_daemon_running_config(self):
-            return True
-
     monkeypatch.setattr(
         "gui.src.tabs.core.wallpaper_tab.system_display_subtab._daemon.DAEMON_CONFIG_PATH",
         path,
     )
-    # pyrefly: ignore [bad-argument-type]
-    Fake()._sync_daemon_config()
+    SystemDisplayDaemonController(FakeTab())._sync_daemon_config()
     saved = json.loads(path.read_text())
     assert saved["monitor_queues"] == {"0": ["/locked.jpg"]}
     assert saved["interval_seconds"] == 30
@@ -139,17 +134,20 @@ def test_write_daemon_config_atomic_leaves_no_partial_file(tmp_path, monkeypatch
 
 def test_monitor_set_config_does_not_write_daemon_file(q_app, tmp_path, monkeypatch):
     from gui.src.tabs.core.wallpaper_tab.monitor_display_subtab._serialization import (
-        _SerializationMixin,
+        MonitorDisplaySerializationController,
     )
     from gui.src.tabs.core.wallpaper_tab.monitor_display_subtab._slideshow_daemon import (
-        _SlideshowDaemonMixin,
+        MonitorDisplaySlideshowDaemonController,
     )
 
     path = tmp_path / "daemon.json"
     original = {"running": True, "monitor_id": "0", "queue": ["/a.jpg"], "pid": 1}
     path.write_text(json.dumps(original))
 
-    class Fake(_SerializationMixin, _SlideshowDaemonMixin):
+    class Combined(MonitorDisplaySerializationController, MonitorDisplaySlideshowDaemonController):
+        pass
+
+    class FakeTab:
         def __init__(self):
             self._graphs = {}
             self._current_monitor_id = "0"
@@ -161,14 +159,13 @@ def test_monitor_set_config_does_not_write_daemon_file(q_app, tmp_path, monkeypa
         "gui.src.tabs.core.wallpaper_tab.monitor_display_subtab._slideshow_daemon.MONITOR_SLIDESHOW_DAEMON_CONFIG_PATH",
         path,
     )
-    # pyrefly: ignore [bad-argument-type]
-    Fake().set_config({"monitor_display_graphs": {}})
+    Combined(FakeTab()).set_config({"monitor_display_graphs": {}})
     assert json.loads(path.read_text()) == original
 
 
 def test_start_daemon_slideshow_is_noop_when_live(q_app, tmp_path, monkeypatch):
     from gui.src.tabs.core.wallpaper_tab.monitor_display_subtab._slideshow_daemon import (
-        _SlideshowDaemonMixin,
+        MonitorDisplaySlideshowDaemonController,
     )
 
     path = tmp_path / "daemon.json"
@@ -176,7 +173,7 @@ def test_start_daemon_slideshow_is_noop_when_live(q_app, tmp_path, monkeypatch):
         json.dumps({"running": True, "monitor_id": "0", "queue": ["/locked.jpg"], "pid": 1})
     )
 
-    class Fake(_SlideshowDaemonMixin):
+    class FakeTab:
         def __init__(self):
             self._daemon_active_monitor_id = None
             self._inapp_active_monitor_id = None
@@ -191,7 +188,6 @@ def test_start_daemon_slideshow_is_noop_when_live(q_app, tmp_path, monkeypatch):
         "backend.src.utils.display.monitor_slideshow_daemon.daemon_is_live",
         lambda cfg: True,
     )
-    # pyrefly: ignore [bad-argument-type]
-    Fake()._start_daemon_slideshow("0")
+    MonitorDisplaySlideshowDaemonController(FakeTab())._start_daemon_slideshow("0")
     saved = json.loads(path.read_text())
     assert saved["queue"] == ["/locked.jpg"]

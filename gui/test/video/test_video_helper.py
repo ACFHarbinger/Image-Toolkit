@@ -28,13 +28,14 @@ class TestFrameExtractionWorker:
         mock_process.poll.side_effect = [None, 0]
         mock_process.returncode = 0
 
-        # Patch cv2 and subprocess.Popen in the WORKER module
+        # _get_fps() does a lazy `import cv2` inside the function body (not a
+        # module-level import), so the mock must patch the real cv2 package's
+        # VideoCapture, not a gui.src...frame_extractor_worker.cv2 attribute
+        # that no longer exists.
         with (
-            patch("gui.src.helpers.video.frame_extractor_worker.cv2") as mock_cv2,
+            patch("cv2.VideoCapture", return_value=mock_cap) as _mock_video_capture,
             patch("gui.src.helpers.video.frame_extractor_worker.subprocess.Popen", return_value=mock_process) as _mock_popen,
         ):
-            mock_cv2.VideoCapture.return_value = mock_cap
-
             worker = FrameExtractionWorker(
                 video_path="/tmp/vid.mp4",
                 output_dir=tmp_dir,
@@ -71,11 +72,9 @@ class TestFrameExtractionWorker:
         mock_process.stderr.read.return_value = "Could not open video file /tmp/bad.mp4"
 
         with (
-            patch("gui.src.helpers.video.frame_extractor_worker.cv2") as mock_cv2,
+            patch("cv2.VideoCapture", return_value=mock_cap) as _mock_video_capture,
             patch("gui.src.helpers.video.frame_extractor_worker.subprocess.Popen", return_value=mock_process) as _mock_popen,
         ):
-            mock_cv2.VideoCapture.return_value = mock_cap
-
             worker = FrameExtractionWorker("/tmp/bad.mp4", "/tmp/out", 0)
 
             errors = []
