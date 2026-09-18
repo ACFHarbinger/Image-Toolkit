@@ -101,7 +101,7 @@ class TestTagReviewWorker:
         worker.run()
 
         assert len(errors) == 1
-        assert "unavailable" in errors[0]
+        assert "unavailable" in str(errors[0])
 
     def test_progress_signal_reflects_done_and_total(self, tmp_path, fake_wd_module):
         imgs = [tmp_path / f"img_{i}.png" for i in range(3)]
