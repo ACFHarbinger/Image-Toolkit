@@ -64,6 +64,11 @@ updates:
       npm-dependencies:
         patterns:
           - "*"
+    # typescript 7 breaks `npm ci` in docs/website: @typescript-eslint 8.x
+    # peers typescript <6.1.0 (ERESOLVE, PR #659). Revisit when it supports 7.
+    ignore:
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
 
   # ── Kotlin / Gradle ───────────────────────────────────────────────────────
   - package-ecosystem: "gradle"
