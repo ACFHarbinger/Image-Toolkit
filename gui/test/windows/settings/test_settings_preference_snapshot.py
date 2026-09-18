@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import copy
-import json
 from unittest.mock import MagicMock
 
 import pytest
@@ -29,8 +28,8 @@ class _GuestVault:
     def load_account_credentials(self) -> dict:
         return copy.deepcopy(self.data)
 
-    def save_data(self, text: str) -> None:
-        self.data = json.loads(text)
+    def save_account_snapshot(self, credentials: dict) -> None:
+        self.data = copy.deepcopy(credentials)
 
 
 class _AccountVault(_GuestVault):
