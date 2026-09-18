@@ -14,8 +14,17 @@ set working-directory := '../..'
 _IT_ROOT := justfile_directory()
 _ASP_ROOT := _IT_ROOT / "submodules" / "ASP"
 _IT_PY := _IT_ROOT / ".venv" / "bin" / "python"
-# Cross-repo PYTHONPATH: IT shared packages + ASP repo root for asp_* aliases
-_ASP_ENV := "PYTHONPATH='" + _IT_ROOT + ":" + _ASP_ROOT + "'"
+# Cross-repo PYTHONPATH: IT shared packages + ASP repo root for asp_* aliases.
+# ASP_DETERMINISTIC=1 (+ fixed seed, + CUBLAS_WORKSPACE_CONFIG) pins every RNG
+# and disables non-deterministic CUDA kernels -- issue #654 found the pipeline
+# is otherwise non-deterministic even on identical input/config (the RAW_ASP
+# set churned run-to-run with no code change), which silently invalidated
+# run-to-run comparisons against the Ground-Rule #1 reference. Verified fix
+# (not just a mitigation): three re-runs of the same flaky cases matched
+# exactly with this set. Override with ASP_DETERMINISTIC=0 for an ad-hoc
+# non-deterministic run if ever needed.
+_ASP_ENV := "PYTHONPATH='" + _IT_ROOT + ":" + _ASP_ROOT + "' " + \
+    "ASP_DETERMINISTIC=1 ASP_REPRO_SEED=42 CUBLAS_WORKSPACE_CONFIG=:4096:8"
 
 # Run benchmarks
 benchmark:
