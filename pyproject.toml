@@ -131,6 +131,15 @@ cache-keys = [{ file = "base/CMakeLists.txt" }, { file = "base/src/**/*.cpp" }, 
 override-dependencies = [
     "opencv-python ; sys_platform == 'never'",
 ]
+# paramiko is not a direct dep — it arrives via the optional
+# `benchmark-eval` extra (fiftyone → voxel51-eta). eta 0.16.0
+# (locked with fiftyone 1.20.1) requires paramiko>=3,<4; bumping
+# paramiko to 5 forces fiftyone 1.21 + eta 0.17 as a side effect
+# (Dependabot PR #460 / issue #656). Keep the extra on the tested
+# FiftyOne line until that trio is updated deliberately.
+constraint-dependencies = [
+    "paramiko>=3,<4",
+]
 
 [tool.pyrefly]
 # Pyrefly 1.x config. Interpreter is auto-detected from `.venv/bin/python`.

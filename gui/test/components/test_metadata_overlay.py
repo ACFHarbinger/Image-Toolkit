@@ -1,15 +1,9 @@
-import sys
-
 from gui.src.components.labels.clickable_label import ClickableLabel
 from gui.src.components.labels.metadata_overlay import MetadataOverlay
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QApplication
 
-# Ensure QApplication exists
-if not QApplication.instance():
-    app = QApplication(sys.argv)
 
-def test_metadata_overlay_initialization(tmp_path):
+def test_metadata_overlay_initialization(tmp_path, q_app):
     test_file = tmp_path / "test.jpg"
     test_file.write_text("dummy")
 
@@ -20,7 +14,7 @@ def test_metadata_overlay_initialization(tmp_path):
     assert overlay.isHidden()
     assert overlay.filename_label.text() == "test.jpg"
 
-def test_metadata_overlay_file_size(tmp_path):
+def test_metadata_overlay_file_size(tmp_path, q_app):
     test_file = tmp_path / "test2.jpg"
     with open(test_file, 'wb') as f:
         f.write(b'0' * 2048) # 2KB
@@ -29,7 +23,7 @@ def test_metadata_overlay_file_size(tmp_path):
     overlay.show()
     assert overlay.size_label.text() == "2.0 KB"
 
-def test_metadata_overlay_invalid_image(tmp_path):
+def test_metadata_overlay_invalid_image(tmp_path, q_app):
     test_file = tmp_path / "invalid.jpg"
     test_file.write_text("not an image")
 
@@ -38,13 +32,13 @@ def test_metadata_overlay_invalid_image(tmp_path):
     # Should say "Unknown dims" for invalid image
     assert overlay.dim_label.text() == "Unknown dims"
 
-def test_metadata_overlay_missing_file():
+def test_metadata_overlay_missing_file(q_app):
     overlay = MetadataOverlay("/path/that/does/not/exist.jpg")
     overlay.show()
     assert overlay.dim_label.text() == "Unknown dims"
     assert overlay.size_label.text() == "Unknown size"
 
-def test_clickable_label_integration(tmp_path):
+def test_clickable_label_integration(tmp_path, q_app):
     test_file = tmp_path / "test3.jpg"
     test_file.write_text("dummy")
 

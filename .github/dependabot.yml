@@ -30,6 +30,11 @@ updates:
       uv-dependencies:
         patterns:
           - "*"
+    # Transitive via fiftyone extra (voxel51-eta 0.16 needs paramiko<4).
+    # A paramiko 5 bump forces fiftyone 1.21 as a side effect — #460/#656.
+    ignore:
+      - dependency-name: "paramiko"
+        update-types: ["version-update:semver-major"]
 
   # ── Rust / Cargo ──────────────────────────────────────────────────────────
   # Root workspace (Cargo.toml) covers frontend/src-tauri as its only member.
