@@ -62,8 +62,12 @@ def _assert_guarded(module_path, subprocess_attr, args=(), kwargs=None, extra_pa
 # catches regressions where someone removes the guard, without needing to
 # exercise every worker's full runtime path.
 SWEPT_SITES = {
-    "gui/src/helpers/video/video_extractor_worker.py",
-    "gui/src/helpers/video/gif_extractor_worker.py",
+    # video_extractor_worker.py / gif_extractor_worker.py no longer fork
+    # ffmpeg themselves (#563 "collapse cloud trio, share extraction
+    # pipeline" moved the actual subprocess.Popen call into the shared
+    # extraction_pipeline.run_ffmpeg() both workers now call into) -- the
+    # guard lives there instead.
+    "gui/src/helpers/video/extraction_pipeline.py",
     "gui/src/helpers/video/frame_extractor_worker.py",
     "gui/src/helpers/core/sampler_worker.py",
     "gui/src/helpers/core/_queue_extraction_process.py",
