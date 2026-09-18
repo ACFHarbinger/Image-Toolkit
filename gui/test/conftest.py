@@ -14,6 +14,9 @@ import tempfile
 if "PYTEST_IT_CONFIG_HOME" not in os.environ:
     os.environ["PYTEST_IT_CONFIG_HOME"] = tempfile.mkdtemp(prefix="it-test-config-")
 os.environ["XDG_CONFIG_HOME"] = os.environ["PYTEST_IT_CONFIG_HOME"]
+# Must precede any PySide6 import. Headless runners abort inside
+# QApplication() unless a platform plugin is selected first. See #656.
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 # --- BLOCK HEAVY IMPORTS ---
 # Build the mocked backend.src.models tree as REAL package modules (with
@@ -34,6 +37,11 @@ import pytest
 from PySide6.QtCore import QObject, QRunnable, Signal
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QApplication
+
+# Collection (not the session fixture) is when a few test modules used to
+# construct QApplication. Ensure one exists as soon as this conftest loads.
+if QApplication.instance() is None:
+    QApplication(sys.argv)
 
 
 def _mock_submodule(fullname: str) -> "MagicMock":

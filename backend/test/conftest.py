@@ -10,6 +10,12 @@ os.environ["NUMEXPR_NUM_THREADS"] = "1"
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 os.environ["TF_NUM_INTEROP_THREADS"] = "1"
 os.environ["TF_NUM_INTRAOP_THREADS"] = "1"
+# Combined `pytest backend/test gui/test` loads this file first. Without a
+# platform plugin, later collection-time QApplication() calls abort with
+# "Fatal Python error: Aborted" (exit 134) on headless runners. CI also
+# sets this in the workflow; default it here so a stale/local combined run
+# cannot crash. See #656.
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import contextlib
 import gc

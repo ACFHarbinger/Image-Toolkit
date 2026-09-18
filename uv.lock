@@ -36,6 +36,7 @@ members = [
     "image-toolkit-gui",
     "image-toolkit-workspace",
 ]
+constraints = [{ name = "paramiko", specifier = ">=3,<4" }]
 overrides = [{ name = "opencv-python", marker = "sys_platform == 'never'" }]
 
 [[package]]
