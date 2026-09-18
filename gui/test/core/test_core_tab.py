@@ -237,9 +237,15 @@ class TestWallpaperTab:
     def test_locked_worker_completion_restores_ui_during_slideshow(
         self, q_app, mock_deps, tmp_path
     ):
+        # WallpaperWorker's signals are now the shared BaseQRunnableWorker
+        # convention (status/finished/error/...), not the old bespoke
+        # status_update/work_finished names -- run_wallpaper_worker connects
+        # worker.signals.status and worker.signals.finished, so a fake with
+        # the old names raised AttributeError inside run_wallpaper_worker's
+        # own try/except, silently unlocking the UI it had just locked.
         class WorkerSignals(QObject):
-            status_update = Signal(str)
-            work_finished = Signal(bool, str)
+            status = Signal(str)
+            finished = Signal(object)
 
         class FakeWallpaperWorker:
             instance = None
@@ -279,8 +285,10 @@ class TestWallpaperTab:
             )
 
             assert FakeWallpaperWorker.instance is not None
-            FakeWallpaperWorker.instance.signals.work_finished.emit(
-                True, "Wallpaper applied successfully."
+            # forward()'s Slot(object) contract expects a (success, message)
+            # tuple as the single payload -- see _WallpaperWorkerCompletionRelay.forward.
+            FakeWallpaperWorker.instance.signals.finished.emit(
+                (True, "Wallpaper applied successfully.")
             )
             q_app.processEvents()
 
@@ -343,10 +351,25 @@ class TestWallpaperTab:
     def test_start_daemon_countdown_if_active_calculates_remaining_time(
         self, q_app, mock_deps
     ):
+        from gui.src.tabs.core.wallpaper_tab.system_display_subtab._daemon import (
+            SystemDisplayDaemonController,
+        )
+
         tab = WallpaperTab(db_tab_ref=MagicMock())
 
-        # Mock daemon running
-        with patch.object(tab.system_display, "_is_daemon_running_config", return_value=True):
+        # _start_daemon_countdown_if_active delegates to daemon_controller (a
+        # separate TabBoundController instance), which calls its own
+        # self._is_daemon_running_config() -- patching that instance
+        # attribute doesn't work either: TabBoundController.__setattr__
+        # forwards every instance-level set to self.tab, so patch.object
+        # would silently mock the *manager*, not the controller, and fail to
+        # intercept the controller's own class-method call. Patch the class
+        # method instead -- unaffected by the instance __setattr__ override.
+        with patch.object(
+            SystemDisplayDaemonController,
+            "_is_daemon_running_config",
+            return_value=True,
+        ):
             # Mock the daemon config JSON reading
             mock_config = {
                 "interval_seconds": 300,
