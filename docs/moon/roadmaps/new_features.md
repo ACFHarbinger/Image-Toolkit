@@ -395,7 +395,7 @@ Animate transitions between wallpapers by pre-rendering a short sequence and cyc
 - Pros: Polish.
 - Cons: Requires D-Bus calls at ~30fps during transition (KDE may rate-limit). High effort for aesthetic-only improvement.
 
-**E — Image health check before rotation [Shipped]**
+**E — Image health check before rotation \[Shipped\]**
 Before advancing the slideshow, verify the next image is accessible and valid (exists, not corrupt). Skip to the next if not.
 - Pros: Prevents blank/error wallpaper state. Defensive improvement.
 - Cons: Adds a file check to the rotation loop.
@@ -453,7 +453,7 @@ Ship a set of pre-built workflow templates (upscale, denoise, colorise, inpaint 
 
 ### Options
 
-**A — "Inspect Model" button in LoRA/generate tabs [Quick Win] [Shipped]**
+**A — "Inspect Model" button in LoRA/generate tabs [Quick Win] \[Shipped\]**
 Load any `.safetensors` file and display its metadata in a read-only `QDialog` with a `QTreeWidget` (key-value tree for nested metadata).
 - Metadata fields: training parameters, trigger words, base model, hash, file size, architecture.
 - Pros: Quick-win improvement to existing tabs. Minimal new code.
@@ -470,7 +470,7 @@ Select two model files and display their metadata side-by-side for comparison (e
 - Pros: Useful for evaluating training progress.
 - Cons: Niche use case. Better as a follow-on to A or B.
 
-**D — Model hash verification [Shipped]**
+**D — Model hash verification \[Shipped\]**
 Display the sha256/blake3 hash of the model file alongside the embedded metadata hash (if present). Show a green/red indicator for integrity verification.
 - Pros: Security and provenance benefit.
 - Cons: Hashing large files takes a few seconds (3–5s for a 6 GB model). Should run asynchronously.
