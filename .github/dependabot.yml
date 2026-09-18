@@ -48,6 +48,23 @@ updates:
         patterns:
           - "*"
 
+  # ── JavaScript / npm ──────────────────────────────────────────────────────
+  # Without an entry here, npm bumps only arrive as GitHub security-update PRs,
+  # which Dependabot cannot rebase (see #655).
+  - package-ecosystem: "npm"
+    directories:
+      - "/"
+      - "/extension"
+      - "/frontend"
+      - "/docs/website"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    groups:
+      npm-dependencies:
+        patterns:
+          - "*"
+
   # ── Kotlin / Gradle ───────────────────────────────────────────────────────
   - package-ecosystem: "gradle"
     directory: "/app/android"
