@@ -1,19 +1,30 @@
-"""Custom reusable widgets for GUI components."""
+"""Custom reusable widgets for GUI components -- lazily re-exported.
 
-from gui.src.components.widgets.resource_simulator_dashboard import (
-    MetricCard,
-    ResourceSimulatorDashboard,
-)
-from gui.src.components.widgets.telemetry_status_bar import (
-    TelemetryStatusBar,
-    create_telemetry_bridge,
-)
-from gui.src.components.widgets.toast_widget import ToastWidget
+Kept as a lazy facade (see gui/src/tabs/__init__.py for the same pattern):
+importing this package must not eagerly pull in every widget's transitive
+dependencies (ui-arch-51 / #573, R3.6 import-graph slimming -- verified by
+gui/test/test_import_footprint.py).
+"""
 
-__all__ = [
-    "MetricCard",
-    "ResourceSimulatorDashboard",
-    "TelemetryStatusBar",
-    "ToastWidget",
-    "create_telemetry_bridge",
-]
+from __future__ import annotations
+
+import importlib
+
+_LAZY_EXPORTS = {
+    "MetricCard": ".resource_simulator_dashboard",
+    "ResourceSimulatorDashboard": ".resource_simulator_dashboard",
+    "TelemetryStatusBar": ".telemetry_status_bar",
+    "create_telemetry_bridge": ".telemetry_status_bar",
+    "ToastWidget": ".toast_widget",
+}
+
+__all__ = list(_LAZY_EXPORTS)
+
+
+def __getattr__(name: str):
+    if name in _LAZY_EXPORTS:
+        module = importlib.import_module(_LAZY_EXPORTS[name], __name__)
+        value = getattr(module, name)
+        globals()[name] = value
+        return value
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
