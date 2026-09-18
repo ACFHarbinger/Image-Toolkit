@@ -57,11 +57,26 @@ class TestExtractorTabQueue:
         Settings section: both the On Hold and In Process lists are capped so
         the queue group does not stretch past the settings group (allowing a
         small margin for the two column headers). Larger queues scroll inside
-        the lists instead of stretching the section taller."""
+        the lists instead of stretching the section taller.
+
+        Compare group sizeHints only after both groups are visible and a
+        fixed font is applied. extract_group starts hidden; its hidden
+        sizeHint is ~70px shorter on the offscreen QPA (CI: 279 vs 206+30),
+        which is a metric artifact, not a missing list cap.
+        """
+        from PySide6.QtGui import QFont
+
         tab, video_path = self._make_tab(tmp_path)
+        tab.setFont(QFont("DejaVu Sans", 10))
+        tab.extract_group.setVisible(True)
+        tab.queue_group.setVisible(True)
+        tab.resize(1100, 800)
         tab.show()
         q_app.processEvents()
 
+        q_max = 16777215  # QWIDGETSIZE_MAX — uncapped
+        assert tab.queue_list.maximumHeight() == tab.inprocess_list.maximumHeight()
+        assert 0 < tab.queue_list.maximumHeight() < q_max
         assert (
             tab.queue_group.sizeHint().height()
             <= tab.extract_group.sizeHint().height() + 30
