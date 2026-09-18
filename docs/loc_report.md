@@ -23,7 +23,7 @@
 | `gui/src/helpers/core/_queue_extraction_process.py` | 429 | 7 | 29 | 465 |
 | `backend/src/models/tuning/lo_ra_tuner_v2.py` | 423 | 50 | 22 | 495 |
 | `backend/src/models/tuning/lo_ra_tuner.py` | 418 | 48 | 18 | 484 |
-| `gui/src/windows/image_preview_window.py` | 413 | 66 | 42 | 521 |
+| `gui/src/windows/image_preview_window.py` | 417 | 68 | 42 | 527 |
 | `gui/src/windows/main/_session_recovery.py` | 400 | 31 | 28 | 459 |
 | `gui/src/windows/settings/_appearance.py` | 400 | 31 | 18 | 449 |
 | `gui/src/classes/base/_gallery_presentation.py` | 394 | 21 | 21 | 436 |
@@ -56,4 +56,4 @@
 | `backend/src/app.py` | 316 | 102 | 50 | 468 |
 | `gui/src/components/dialogs/_duplicate_pruning.py` | 312 | 30 | 15 | 357 |
 | `gui/src/tabs/database/database_tab/_connection_stats.py` | 310 | 2 | 11 | 323 |
-| **TOTALS** | **87085** | **6243** | **9321** | **102649** |
+| **TOTALS** | **87089** | **6245** | **9321** | **102655** |
