@@ -606,7 +606,15 @@ class TestExtractorTab:
         independent of viewport width, exposed locally via VideoView's own
         scrollbars, rather than being clamped down to whatever the window
         happens to be -- that clamping was itself the bug this test used
-        to encode (see 4d33faeb, superseded by S532)."""
+        to encode (see 4d33faeb, superseded by S532).
+
+        Assert sizeHint / _display_size, not laid-out widget width: the
+        offscreen QPA plugin does not propagate size hints, so
+        video_view.width() shrinks to the viewport (CI: 533 vs 786)
+        even though the canvas contract is still 1280x720.
+        """
+        from PySide6.QtCore import QSize
+
         with (
             patch("gui.src.tabs.core.extractor_tab._media_player.QMediaPlayer"),
             patch("gui.src.tabs.core.extractor_tab._media_player.QAudioOutput"),
@@ -619,14 +627,12 @@ class TestExtractorTab:
             video_tab = tab.video_subtab
             # The outer tab page itself does not grow/scroll horizontally...
             assert video_tab.tab_scroll_area.horizontalScrollBar().maximum() == 0
-            # ...even though the canvas at the default 1280x720 resolution
-            # is wider than the 800px shell -- it would scroll locally
-            # within VideoView instead once a video is loaded and gives
-            # its scene a real sceneRect (not exercised here; no video is
-            # loaded in this test).
-            assert video_tab.video_view.width() > (
-                video_tab.tab_scroll_area.viewport().width()
-            )
+            # ...and the selected canvas stays 1280x720 even when the
+            # laid-out widget is narrower than that (local VideoView
+            # scrollbars expose the overflow once a sceneRect exists).
+            assert video_tab.video_view.sizeHint() == QSize(1280, 720)
+            assert video_tab.video_view._display_size == QSize(1280, 720)
+            assert video_tab.video_view.maximumWidth() == 1280
             tab.close()
 
     def test_cancel_loading_does_not_stop_player(self, q_app):

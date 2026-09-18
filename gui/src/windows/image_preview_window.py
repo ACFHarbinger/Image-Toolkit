@@ -101,7 +101,7 @@ class ImagePreviewWindow(QDialog):
             QMessageBox.critical(
                 self, "Error", f"Could not load initial image file: {self.image_path}"
             )
-            QTimer.singleShot(0, self.deleteLater)
+            QTimer.singleShot(0, self, self.deleteLater)
             return
 
         # 2. Initial Scaling and Layout Setup
@@ -164,9 +164,13 @@ class ImagePreviewWindow(QDialog):
             Qt.FocusPolicy.StrongFocus
         )  # Ensure window can receive focus
 
-        # --- FIX: Emit the deferred signal emission for initial highlighting ---
+        # Bind the functor to `self` as context so a close/delete before
+        # the 100ms fires does not emit on a destroyed C++ object (#CI
+        # teardown of test_preview_window_*).
         QTimer.singleShot(
-            100, lambda: self.path_changed.emit("INITIAL_LOAD_TRIGGER", self.image_path)
+            100,
+            self,
+            lambda: self.path_changed.emit("INITIAL_LOAD_TRIGGER", self.image_path),
         )
 
         self.setFocus()  # Initial focus
@@ -262,7 +266,9 @@ class ImagePreviewWindow(QDialog):
         )  # 50 is padding/title bar
 
         # Schedule the resize to ensure it happens after the layout is fully built
-        QTimer.singleShot(0, lambda: self.resize(QSize(target_width, target_height)))
+        QTimer.singleShot(
+            0, self, lambda: self.resize(QSize(target_width, target_height))
+        )
 
     # --- MODIFIED: load_image supports GIF ---
     def load_image(self, path: str, initial_load: bool = False) -> bool:
@@ -425,7 +431,7 @@ class ImagePreviewWindow(QDialog):
         super().mousePressEvent(event)
 
         # Defer the focus call slightly to allow the mouse event chain to complete
-        QTimer.singleShot(0, self.setFocus)
+        QTimer.singleShot(0, self, self.setFocus)
 
     # --- END FIX ---
 
@@ -645,4 +651,4 @@ class ImagePreviewWindow(QDialog):
             self.load_image(new_path)
 
         # --- FIX: Restore focus after navigation ---
-        QTimer.singleShot(0, self.setFocus)
+        QTimer.singleShot(0, self, self.setFocus)

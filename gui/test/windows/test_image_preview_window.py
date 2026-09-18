@@ -5,6 +5,7 @@ from unittest.mock import MagicMock
 import pytest
 from gui.src.windows.image_preview_window import ImagePreviewWindow
 from PySide6.QtGui import QColor, QImage
+from PySide6.QtWidgets import QApplication
 
 pytestmark = pytest.mark.gui
 
@@ -78,6 +79,16 @@ def test_oversized_gif_preview_animates(q_app, tmp_path, monkeypatch):
     assert win._gif_player._index >= 1
     win.close()
     assert not win._gif_player.is_running()
+
+
+def test_preview_window_deferred_timers_do_not_fire_after_close(sample_image, q_app):
+    """QTimer.singleShot functors must be bound to the window so teardown
+    processEvents cannot call into a deleted C++ object."""
+    win = ImagePreviewWindow(image_path=sample_image)
+    win.close()
+    win.deleteLater()
+    for _ in range(5):
+        QApplication.processEvents()
 
 
 def test_preview_window_navigation(sample_images, q_app):
