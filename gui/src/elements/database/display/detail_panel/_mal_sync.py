@@ -87,9 +87,23 @@ class _MalSyncMixin:
 
     @Slot(object)
     def _on_mal_error(self, exc: Exception):
-        QMessageBox.critical(self, "MAL Fetch Error", str(exc))
         self.btn_mal.setText("Auto-Fill from MAL")
         self.btn_mal.setEnabled(True)
+
+        # A dedicated Retry action rather than "dismiss, then re-click the
+        # button yourself" -- the underlying fetch already retries
+        # transient errors (429/502/503/504) with backoff before this is
+        # ever shown, so a Retry click here starts a fresh attempt rather
+        # than repeating a doomed one immediately.
+        box = QMessageBox(self)
+        box.setIcon(QMessageBox.Icon.Critical)
+        box.setWindowTitle("MAL Fetch Error")
+        box.setText(str(exc))
+        retry_btn = box.addButton("Retry", QMessageBox.ButtonRole.ActionRole)
+        box.addButton(QMessageBox.StandardButton.Close)
+        box.exec()
+        if box.clickedButton() is retry_btn:
+            self._on_fetch_mal_clicked()
 
 
 __all__ = ["_MalSyncMixin"]
