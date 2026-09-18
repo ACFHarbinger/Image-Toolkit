@@ -56,4 +56,4 @@
 | `backend/src/app.py` | 316 | 102 | 50 | 468 |
 | `gui/src/components/dialogs/_duplicate_pruning.py` | 312 | 30 | 15 | 357 |
 | `gui/src/tabs/database/database_tab/_connection_stats.py` | 310 | 2 | 11 | 323 |
-| **TOTALS** | **87076** | **6238** | **9316** | **102630** |
+| **TOTALS** | **87077** | **6238** | **9321** | **102636** |
