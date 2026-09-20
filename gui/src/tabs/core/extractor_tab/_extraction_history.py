@@ -244,8 +244,10 @@ class ExtractorExtractionHistoryController(TabBoundController):
             "video_path": run.get("video_path", ""),
             "start_ms": start_ms,
             "end_ms": end_ms,
-            "output_dir": run.get("output_dir")
-            or str(getattr(self, "extraction_dir", "") or ""),
+            # The current Output Directory always wins: the run's recorded
+            # folder is provenance, not a destination, and honouring it made
+            # re-queued extractions write to the previous path.
+            "output_dir": str(getattr(self, "extraction_dir", "") or ""),
             "target_resolution": target_res,
             "cuts_ms": copy.deepcopy(run.get("cuts_ms", []) or []),
             "frame_interval": int(run.get("frame_interval", 1) or 1),
