@@ -888,40 +888,44 @@ class TestHeadlessKeepAlive:
 
     def test_parallel_worker_emits_item_completed_as_each_job_finishes(self, q_app):
         """item_completed must fire when each pool job becomes ready, not in
-        one burst after the last job. max_workers must cap in-flight starts."""
-        import threading
-        import time
+        one burst after the last job, and max_workers must cap in-flight jobs.
 
+        Runs the real spawn pool with a picklable fake (a local closure cannot
+        cross the spawn boundary, which previously made every job error out
+        instantly and left the timing assertion passing by coincidence). Asserts
+        on event order, not wall-clock margins, so it is load-independent.
+        """
         from gui.src.helpers.core.queue_execution_worker import QueueExecutionWorker
+        from gui.test.core._parallel_fakes import sleepy_extract
 
-        inflight = 0
-        max_inflight = 0
-        lock = threading.Lock()
-        completed_at = []
-
-        def fake_extract(cfg):
-            nonlocal inflight, max_inflight
-            with lock:
-                inflight += 1
-                max_inflight = max(max_inflight, inflight)
-            time.sleep(0.12)
-            with lock:
-                inflight -= 1
-            return {"status": "success", "output_path": f"{cfg['id']}.gif"}
-
+        events: list[tuple[str, int]] = []
+        results: dict[int, dict] = {}
         items = [{"id": i, "type": "gif"} for i in range(4)]
         worker = QueueExecutionWorker(items, parallel=True, max_workers=2)
-        worker.signals.item_completed.connect(
-            lambda i, res, item: completed_at.append(time.monotonic())
-        )
+        worker.signals.item_started.connect(lambda i: events.append(("start", i)))
+
+        def _on_done(i, res, _item):
+            results[i] = res
+            events.append(("done", i))
+
+        worker.signals.item_completed.connect(_on_done)
         with patch(
             "gui.src.helpers.core.queue_execution_worker.run_extraction_in_process",
-            fake_extract,
+            sleepy_extract,
         ):
             worker.run()
 
-        assert len(completed_at) == 4
-        assert max_inflight <= 2
-        assert completed_at[-1] - completed_at[0] >= 0.1, (
+        assert sorted(results) == [0, 1, 2, 3]
+        assert all(r.get("status") == "success" for r in results.values()), results
+
+        in_flight = peak = 0
+        for kind, _ in events:
+            in_flight += 1 if kind == "start" else -1
+            peak = max(peak, in_flight)
+        assert peak <= 2, f"max_workers=2 must cap in-flight jobs, saw {peak}"
+
+        last_start = max(n for n, (kind, _) in enumerate(events) if kind == "start")
+        first_done = min(n for n, (kind, _) in enumerate(events) if kind == "done")
+        assert first_done < last_start, (
             "completions must be spread across the run, not dumped at the end"
         )
