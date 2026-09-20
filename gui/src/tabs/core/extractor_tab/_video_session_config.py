@@ -286,6 +286,10 @@ class ExtractorVideoSessionConfigController(TabBoundController):
             self.last_browsed_extraction_dir = str(new_path)
             self._save_last_extraction_dir(str(new_path))
             self.line_edit_extract_dir.setText(str(self.extraction_dir))
+            from ._queue_panel import retarget_pending_queue_items
+
+            if retarget_pending_queue_items(self.extraction_queue, new_path):
+                self._update_queue_ui()
             self._clear_output_gallery()
             self._refresh_extracted_stems_cache()
             self._load_extraction_history()
