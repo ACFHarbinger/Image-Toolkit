@@ -70,6 +70,23 @@ def _inprocess_row_label(idx: int, item: dict, status: str) -> str:
     return f"{icon} {idx + 1}. [{t_type}] {v_name} ({start_fmt} - {end_fmt})"
 
 
+def retarget_pending_queue_items(queue: list, new_dir) -> int:
+    """Point not-yet-started (On Hold) queue items at ``new_dir``.
+
+    Items snapshot ``output_dir`` when enqueued, so without this a directory
+    change made afterwards still writes to the old folder. In-process items
+    are already running against their snapshot and are deliberately left
+    alone. Returns how many items changed.
+    """
+    target = str(new_dir)
+    changed = 0
+    for item in queue:
+        if item.get("output_dir") != target:
+            item["output_dir"] = target
+            changed += 1
+    return changed
+
+
 class ExtractorQueuePanelController(TabBoundController):
     """Queue panel UI: results section, list CRUD, In Process display."""
 
