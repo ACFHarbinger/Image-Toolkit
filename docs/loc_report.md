@@ -39,11 +39,11 @@
 | `gui/src/tabs/core/extractor_tab/_extraction_workers.py` | 355 | 11 | 9 | 375 |
 | `backend/src/models/tuning/cbir_tuner.py` | 352 | 32 | 76 | 460 |
 | `gui/src/windows/main/main_window.py` | 346 | 55 | 4 | 405 |
+| `gui/src/tabs/core/extractor_tab/_queue_panel.py` | 346 | 36 | 32 | 414 |
 | `gui/src/windows/settings/settings_window.py` | 344 | 28 | 10 | 382 |
 | `gui/src/tabs/web/drive_sync_tab/sync_data_subtab/widget.py` | 344 | 26 | 13 | 383 |
 | `gui/src/tabs/models/delta/lora_train_tab.py` | 344 | 27 | 9 | 380 |
-| `gui/src/tabs/core/extractor_tab/_extraction_history.py` | 338 | 24 | 21 | 383 |
-| `gui/src/tabs/core/extractor_tab/_queue_panel.py` | 338 | 36 | 26 | 400 |
+| `gui/src/tabs/core/extractor_tab/_extraction_history.py` | 337 | 27 | 21 | 385 |
 | `backend/src/core/wallpaper/_kde.py` | 334 | 93 | 6 | 433 |
 | `gui/src/tabs/core/extractor_tab/_queue_processing.py` | 333 | 55 | 23 | 411 |
 | `gui/src/tabs/core/protos/extractor_tab.py` | 332 | 0 | 7 | 339 |
@@ -56,4 +56,4 @@
 | `backend/src/app.py` | 316 | 102 | 50 | 468 |
 | `gui/src/components/dialogs/_duplicate_pruning.py` | 312 | 30 | 15 | 357 |
 | `gui/src/tabs/database/database_tab/_connection_stats.py` | 310 | 2 | 11 | 323 |
-| **TOTALS** | **87089** | **6245** | **9321** | **102655** |
+| **TOTALS** | **87102** | **6248** | **9327** | **102677** |
