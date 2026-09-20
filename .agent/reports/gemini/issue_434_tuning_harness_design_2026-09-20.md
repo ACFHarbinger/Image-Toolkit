@@ -6,17 +6,17 @@
 **Author:** Gemini / Antigravity  
 **Status:** Design Document Complete (No tuning runs executed; strictly bounded per Claude's 2026-09-18 delegation directive and repo RESOURCE RULE)  
 **References:**
-- [ROADMAP.md §Ground Rules & §5.1](file:///home/pkhunter/Repositories/Repo/Image-Toolkit/submodules/ASP/docs/moon/ROADMAP.md#L599-L628)
-- [asp_wallpaper_mode_roadmap_2026q3.md §Deferred & Discipline](file:///home/pkhunter/Repositories/Repo/Image-Toolkit/submodules/ASP/docs/moon/asp_wallpaper_mode_roadmap_2026q3.md#L122-L138)
-- [config.py](file:///home/pkhunter/Repositories/Repo/Image-Toolkit/submodules/ASP/backend/src/core/config.py#L51-L176) (`_CONFIG_SCHEMA`, [`load_asp_config`](file:///home/pkhunter/Repositories/Repo/Image-Toolkit/submodules/ASP/backend/src/core/config.py#L244-L310), [`dump_asp_config`](file:///home/pkhunter/Repositories/Repo/Image-Toolkit/submodules/ASP/backend/src/core/config.py#L395-L489))
-- [safety_policy.py](file:///home/pkhunter/Repositories/Repo/Image-Toolkit/submodules/ASP/backend/src/core/pipeline/safety_policy.py#L58-L120) ([`SafeAspPolicy`](file:///home/pkhunter/Repositories/Repo/Image-Toolkit/submodules/ASP/backend/src/core/pipeline/safety_policy.py#L58-L96), [`GateDecision`](file:///home/pkhunter/Repositories/Repo/Image-Toolkit/submodules/ASP/backend/src/core/pipeline/safety_policy.py#L39-L56))
-- [registration_gate.py](file:///home/pkhunter/Repositories/Repo/Image-Toolkit/submodules/ASP/backend/src/core/pipeline/registration_gate.py#L18-L58) ([`RegistrationRiskGate`](file:///home/pkhunter/Repositories/Repo/Image-Toolkit/submodules/ASP/backend/src/core/pipeline/registration_gate.py#L27-L58), [`RegistrationThresholds`](file:///home/pkhunter/Repositories/Repo/Image-Toolkit/submodules/ASP/backend/src/core/pipeline/registration_gate.py#L18-L25))
-- [safety_metrics.py](file:///home/pkhunter/Repositories/Repo/Image-Toolkit/submodules/ASP/backend/src/core/pipeline/safety_metrics.py#L13-L173) ([`seam_visibility_score`](file:///home/pkhunter/Repositories/Repo/Image-Toolkit/submodules/ASP/backend/src/core/pipeline/safety_metrics.py#L123-L173), [`seam_coherence`](file:///home/pkhunter/Repositories/Repo/Image-Toolkit/submodules/ASP/backend/src/core/pipeline/safety_metrics.py#L60-L80), [`strip_banding_score`](file:///home/pkhunter/Repositories/Repo/Image-Toolkit/submodules/ASP/backend/src/core/pipeline/safety_metrics.py#L82-L121), [`ghosting_score_v2`](file:///home/pkhunter/Repositories/Repo/Image-Toolkit/submodules/ASP/backend/src/core/pipeline/safety_metrics.py#L13-L58))
-- [audit_gate_correlation.py](file:///home/pkhunter/Repositories/Repo/Image-Toolkit/submodules/ASP/backend/benchmark/audit_gate_correlation.py#L49-L70)
-- [schema.py](file:///home/pkhunter/Repositories/Repo/Image-Toolkit/submodules/ASP/backend/benchmark/evaluation/constants/schema.py#L17-L100)
+- [ROADMAP.md §Ground Rules & §5.1](../../../submodules/ASP/docs/moon/ROADMAP.md#L599-L628)
+- [asp_wallpaper_mode_roadmap_2026q3.md §Deferred & Discipline](../../../submodules/ASP/docs/moon/asp_wallpaper_mode_roadmap_2026q3.md#L122-L138)
+- [config.py](../../../submodules/ASP/backend/src/core/config.py#L51-L176) (`_CONFIG_SCHEMA`, [`load_asp_config`](../../../submodules/ASP/backend/src/core/config.py#L244-L310), [`dump_asp_config`](../../../submodules/ASP/backend/src/core/config.py#L395-L489))
+- [safety_policy.py](../../../submodules/ASP/backend/src/core/pipeline/safety_policy.py#L58-L120) ([`SafeAspPolicy`](../../../submodules/ASP/backend/src/core/pipeline/safety_policy.py#L58-L96), [`GateDecision`](../../../submodules/ASP/backend/src/core/pipeline/safety_policy.py#L39-L56))
+- [registration_gate.py](../../../submodules/ASP/backend/src/core/pipeline/registration_gate.py#L18-L58) ([`RegistrationRiskGate`](../../../submodules/ASP/backend/src/core/pipeline/registration_gate.py#L27-L58), [`RegistrationThresholds`](../../../submodules/ASP/backend/src/core/pipeline/registration_gate.py#L18-L25))
+- [safety_metrics.py](../../../submodules/ASP/backend/src/core/pipeline/safety_metrics.py#L13-L173) ([`seam_visibility_score`](../../../submodules/ASP/backend/src/core/pipeline/safety_metrics.py#L123-L173), [`seam_coherence`](../../../submodules/ASP/backend/src/core/pipeline/safety_metrics.py#L60-L80), [`strip_banding_score`](../../../submodules/ASP/backend/src/core/pipeline/safety_metrics.py#L82-L121), [`ghosting_score_v2`](../../../submodules/ASP/backend/src/core/pipeline/safety_metrics.py#L13-L58))
+- [audit_gate_correlation.py](../../../submodules/ASP/backend/benchmark/audit_gate_correlation.py#L49-L70)
+- [schema.py](../../../submodules/ASP/backend/benchmark/evaluation/constants/schema.py#L17-L100)
 - [Issue #654](https://github.com/ACFHarbinger/Image-Toolkit/issues/654) (ASP product-path non-determinism fix & hardware thermal limits)
 - [Issue #431](https://github.com/ACFHarbinger/Image-Toolkit/issues/431) (Metric correlation findings)
-- [issue_432_routing_classifier_feasibility_2026-09-18.md](file:///home/pkhunter/Repositories/Repo/Image-Toolkit/.agent/reports/grok/issue_432_routing_classifier_feasibility_2026-09-18.md#L1-L121)
+- [issue_432_routing_classifier_feasibility_2026-09-18.md](../grok/issue_432_routing_classifier_feasibility_2026-09-18.md#L1-L121)
 
 ---
 
@@ -25,9 +25,9 @@
 The Anime Stitch Pipeline (ASP) relies on dozens of scalar thresholds and heuristic hyperparameters controlling frame selection, feature matching, Bundle Adjustment (BA), foreground registration, seam finding, compositing gain, and fallback gating. Historically, these values were hand-tuned across 160+ sessions. Previous attempts at automated optimization (the pre-trim PSO/DRL/RLHF stack and §1.10B's Optuna verdict-weight search) failed because they optimized ungrounded proxy metrics, gamed verdict weights rather than improving image generation, or operated without A/B discipline.
 
 Issue [#434](https://github.com/ACFHarbinger/Image-Toolkit/issues/434) specifies a Bayesian hyperparameter optimization harness to replace manual threshold-picking against the benchmark corpus. This document establishes the formal engineering design for that harness **without running any parameter sweeps**, adhering strictly to:
-1. **The Ground Rules** ([ROADMAP.md §599](file:///home/pkhunter/Repositories/Repo/Image-Toolkit/submodules/ASP/docs/moon/ROADMAP.md#L599-L628)): One change → one benchmark → keep or revert; human visual verdict outranks every metric; strict budget constraints (≤ ~50 env flags, ≤ 10 gates).
+1. **The Ground Rules** ([ROADMAP.md §599](../../../submodules/ASP/docs/moon/ROADMAP.md#L599-L628)): One change → one benchmark → keep or revert; human visual verdict outranks every metric; strict budget constraints (≤ ~50 env flags, ≤ 10 gates).
 2. **The Determinism Prerequisite** ([Issue #654](https://github.com/ACFHarbinger/Image-Toolkit/issues/654)): Fixed seed (`ASP_DETERMINISTIC=1 ASP_REPRO_SEED=42 CUBLAS_WORKSPACE_CONFIG=:4096:8`) to prevent pseudo-convergence on run-to-run variance.
-3. **The Metric Correlation Reality** ([audit_gate_correlation.py](file:///home/pkhunter/Repositories/Repo/Image-Toolkit/submodules/ASP/backend/benchmark/audit_gate_correlation.py#L49-L70), [#431](https://github.com/ACFHarbinger/Image-Toolkit/issues/431)): Sharpness and `ghosting_siqe` are inversely correlated with human quality; only validated signals (`seam_visibility_score`, `seam_coherence`, `strip_banding_score`) may enter the objective.
+3. **The Metric Correlation Reality** ([audit_gate_correlation.py](../../../submodules/ASP/backend/benchmark/audit_gate_correlation.py#L49-L70), [#431](https://github.com/ACFHarbinger/Image-Toolkit/issues/431)): Sharpness and `ghosting_siqe` are inversely correlated with human quality; only validated signals (`seam_visibility_score`, `seam_coherence`, `strip_banding_score`) may enter the objective.
 4. **Hardware Safety Limits**: Process isolation, strict thread-caps (`ASP_BENCH_THREAD_CAP=4`), thermal throttling pauses, and checkpointed persistence to prevent the host freeze/reboot crashes experienced on 2026-09-18.
 
 ---
@@ -36,7 +36,7 @@ Issue [#434](https://github.com/ACFHarbinger/Image-Toolkit/issues/434) specifies
 
 | Prior Effort | What It Attempted | Why It Failed | Required Architectural Invariant in #434 |
 |---|---|---|---|
-| **S200 Pre-Trim PSO / DRL / RLHF** ([ROADMAP.md §5.1](file:///home/pkhunter/Repositories/Repo/Image-Toolkit/submodules/ASP/docs/moon/ROADMAP.md#L1264-L1311)) | End-to-end RLHF reward model & PSO over compositing parameters. | No objective coherence metric; unverified complexity; shipped default-ON without A/B measurement; rewarded blurred outputs. | **Invariant 1:** Search space restricted to interpretable, bounded physical pipeline parameters. Zero black-box neural reward models. |
+| **S200 Pre-Trim PSO / DRL / RLHF** ([ROADMAP.md §5.1](../../../submodules/ASP/docs/moon/ROADMAP.md#L1264-L1311)) | End-to-end RLHF reward model & PSO over compositing parameters. | No objective coherence metric; unverified complexity; shipped default-ON without A/B measurement; rewarded blurred outputs. | **Invariant 1:** Search space restricted to interpretable, bounded physical pipeline parameters. Zero black-box neural reward models. |
 | **§1.10B Optuna Param Search** (`param_search.py`) | 200-trial Optuna search over 7 `_auto_verdict` weights on fixed metrics JSON. | Gamed the *scoring formula* to maximize `asp_better` counts on paper without modifying pipeline behavior or improving rendered pixels. | **Invariant 2:** Optimization operates directly on pipeline execution inputs (`os.environ` / `asp_config.toml`), judging actual rendered panoramas. |
 | **Issue #654 Non-Determinism** | Benchmark runs without seed pinning. | 9/97 cases flipped between Raw ASP and fallback across identical runs due to unpinned GPU kernels and neural feature matchers. | **Invariant 3:** All harness runs enforce `ASP_DETERMINISTIC=1`, `ASP_REPRO_SEED=42`, and deterministic PyTorch/cuBLAS kernels. |
 | **2026-09-18 Host Reboots** | Uncapped multi-hour benchmark execution. | Machine rebooted 3 times under sustained thermal/power load during full-corpus compute. | **Invariant 4:** Strict thread capping (`ASP_BENCH_THREAD_CAP=4`), single-worker trial execution, batch chunking with inter-case cooldowns, and SQLite trial checkpointing. |
@@ -65,63 +65,63 @@ Controls the decision boundary between publishing Raw ASP vs falling back to Ope
 
 | Parameter / Env Var | Type | Current Default | Search Bounds | Step / Dist | Rationale |
 |---|---|---|---|---|---|
-| [`ASP_GATE_SEAM_VIS`](file:///home/pkhunter/Repositories/Repo/Image-Toolkit/submodules/ASP/backend/src/core/pipeline/safety_policy.py#L87) | Float | `3.0` | `[1.5, 5.0]` | `0.1` (Uniform) | Ratio threshold of ASP seam visibility vs SCANS. #1 cause of fallback (34/79 cases). |
-| [`ASP_GATE_SEAM_VIS_FLOOR`](file:///home/pkhunter/Repositories/Repo/Image-Toolkit/submodules/ASP/backend/src/core/pipeline/safety_policy.py#L88) | Float | `35.0` | `[15.0, 55.0]` | `1.0` (Uniform) | Absolute luminance discontinuity floor above which ASP is rejected regardless of SCANS. |
-| [`ASP_GATE_SC`](file:///home/pkhunter/Repositories/Repo/Image-Toolkit/submodules/ASP/backend/src/core/pipeline/safety_policy.py#L83) | Float | `38.0` | `[25.0, 55.0]` | `1.0` (Uniform) | Seam coherence floor (std of row-mean luminance). Catches severe horizontal banding. |
-| [`ASP_GATE_SB`](file:///home/pkhunter/Repositories/Repo/Image-Toolkit/submodules/ASP/backend/src/core/pipeline/safety_policy.py#L84) | Float | `35.0` | `[20.0, 50.0]` | `1.0` (Uniform) | Strip banding jump floor (max luminance jump between adjacent frame entry rows). |
-| [`max_ba_residual_rms`](file:///home/pkhunter/Repositories/Repo/Image-Toolkit/submodules/ASP/backend/src/core/pipeline/registration_gate.py#L20) | Float | `80.0` | `[40.0, 140.0]` | `5.0` (Uniform) | RegistrationRiskGate hard BA residual ceiling (px). Rejects misaligned solves before render. |
-| [`max_cycle_error_rms`](file:///home/pkhunter/Repositories/Repo/Image-Toolkit/submodules/ASP/backend/src/core/pipeline/registration_gate.py#L21) | Float | `300.0` | `[150.0, 500.0]` | `10.0` (Uniform) | RegistrationRiskGate pairwise loop closure error ceiling (px). |
-| [`uncertain_ba_residual_rms`](file:///home/pkhunter/Repositories/Repo/Image-Toolkit/submodules/ASP/backend/src/core/pipeline/registration_gate.py#L23) | Float | `45.0` | `[25.0, 75.0]` | `5.0` (Uniform) | BA residual boundary triggering UNCERTAIN human-review queue rather than silent pass. |
-| [`uncertain_cycle_error_rms`](file:///home/pkhunter/Repositories/Repo/Image-Toolkit/submodules/ASP/backend/src/core/pipeline/registration_gate.py#L24) | Float | `150.0` | `[80.0, 250.0]` | `10.0` (Uniform) | Loop closure boundary triggering UNCERTAIN human-review queue. |
+| [`ASP_GATE_SEAM_VIS`](../../../submodules/ASP/backend/src/core/pipeline/safety_policy.py#L87) | Float | `3.0` | `[1.5, 5.0]` | `0.1` (Uniform) | Ratio threshold of ASP seam visibility vs SCANS. #1 cause of fallback (34/79 cases). |
+| [`ASP_GATE_SEAM_VIS_FLOOR`](../../../submodules/ASP/backend/src/core/pipeline/safety_policy.py#L88) | Float | `35.0` | `[15.0, 55.0]` | `1.0` (Uniform) | Absolute luminance discontinuity floor above which ASP is rejected regardless of SCANS. |
+| [`ASP_GATE_SC`](../../../submodules/ASP/backend/src/core/pipeline/safety_policy.py#L83) | Float | `38.0` | `[25.0, 55.0]` | `1.0` (Uniform) | Seam coherence floor (std of row-mean luminance). Catches severe horizontal banding. |
+| [`ASP_GATE_SB`](../../../submodules/ASP/backend/src/core/pipeline/safety_policy.py#L84) | Float | `35.0` | `[20.0, 50.0]` | `1.0` (Uniform) | Strip banding jump floor (max luminance jump between adjacent frame entry rows). |
+| [`max_ba_residual_rms`](../../../submodules/ASP/backend/src/core/pipeline/registration_gate.py#L20) | Float | `80.0` | `[40.0, 140.0]` | `5.0` (Uniform) | RegistrationRiskGate hard BA residual ceiling (px). Rejects misaligned solves before render. |
+| [`max_cycle_error_rms`](../../../submodules/ASP/backend/src/core/pipeline/registration_gate.py#L21) | Float | `300.0` | `[150.0, 500.0]` | `10.0` (Uniform) | RegistrationRiskGate pairwise loop closure error ceiling (px). |
+| [`uncertain_ba_residual_rms`](../../../submodules/ASP/backend/src/core/pipeline/registration_gate.py#L23) | Float | `45.0` | `[25.0, 75.0]` | `5.0` (Uniform) | BA residual boundary triggering UNCERTAIN human-review queue rather than silent pass. |
+| [`uncertain_cycle_error_rms`](../../../submodules/ASP/backend/src/core/pipeline/registration_gate.py#L24) | Float | `150.0` | `[80.0, 250.0]` | `10.0` (Uniform) | Loop closure boundary triggering UNCERTAIN human-review queue. |
 
 ### 3.2 Subspace 2: Frame Selection & Hold Detection
 Controls which frames survive to alignment, pruning animation holds and near-duplicates while avoiding aperture drops.
 
 | Parameter / Env Var | Type | Current Default | Search Bounds | Step / Dist | Rationale |
 |---|---|---|---|---|---|
-| [`ASP_HOLD_THRESHOLD`](file:///home/pkhunter/Repositories/Repo/Image-Toolkit/submodules/ASP/backend/src/core/config.py#L61) | Float | `0.03` | `[0.008, 0.08]` | Log-Uniform | Mean Absolute Difference (MAD) threshold separating animation holds from camera motion. |
-| [`ASP_HOLD_DHASH_THRESH`](file:///home/pkhunter/Repositories/Repo/Image-Toolkit/submodules/ASP/backend/src/core/config.py#L62) | Int | `0` | `[0, 16]` | `1` (Discrete) | Difference-hash Hamming floor for hold grouping (0 = disabled). |
-| [`ASP_HIGH_HOLD_RESPONSE`](file:///home/pkhunter/Repositories/Repo/Image-Toolkit/submodules/ASP/backend/src/core/config.py#L64) | Float | `0.0` | `[0.0, 0.85]` | `0.05` (Uniform) | Minimum phase-correlation response required to confirm and merge hold pairs. |
-| [`ASP_NEAR_DUP_LUMA`](file:///home/pkhunter/Repositories/Repo/Image-Toolkit/submodules/ASP/backend/src/core/config.py#L69) | Float | `5.0` | `[1.0, 20.0]` | `0.5` (Uniform) | Luma difference ceiling below which adjacent frames are pruned as identical near-duplicates. |
-| [`ASP_POSE_REFINE_LOOK_RANGE`](file:///home/pkhunter/Repositories/Repo/Image-Toolkit/submodules/ASP/backend/src/core/config.py#L168) | Int | `3` | `[1, 6]` | `1` (Discrete) | Pass-2 slot search window ($\pm N$) for pose-consistent candidate substitution. |
-| [`ASP_POSE_REFINE_MIN_GAIN`](file:///home/pkhunter/Repositories/Repo/Image-Toolkit/submodules/ASP/backend/src/core/config.py#L169) | Float | `0.05` | `[0.01, 0.25]` | `0.01` (Uniform) | Minimum pose-similarity delta required to swap a candidate frame. |
-| [`ASP_HOLD_BG_SUB`](file:///home/pkhunter/Repositories/Repo/Image-Toolkit/submodules/ASP/backend/src/core/config.py#L66) | Int (Bool) | `0` | `[0, 1]` | Categorical | Specific target mentioned in #434 issue: unaligned-median background plate subtraction for hold detection. |
+| [`ASP_HOLD_THRESHOLD`](../../../submodules/ASP/backend/src/core/config.py#L61) | Float | `0.03` | `[0.008, 0.08]` | Log-Uniform | Mean Absolute Difference (MAD) threshold separating animation holds from camera motion. |
+| [`ASP_HOLD_DHASH_THRESH`](../../../submodules/ASP/backend/src/core/config.py#L62) | Int | `0` | `[0, 16]` | `1` (Discrete) | Difference-hash Hamming floor for hold grouping (0 = disabled). |
+| [`ASP_HIGH_HOLD_RESPONSE`](../../../submodules/ASP/backend/src/core/config.py#L64) | Float | `0.0` | `[0.0, 0.85]` | `0.05` (Uniform) | Minimum phase-correlation response required to confirm and merge hold pairs. |
+| [`ASP_NEAR_DUP_LUMA`](../../../submodules/ASP/backend/src/core/config.py#L69) | Float | `5.0` | `[1.0, 20.0]` | `0.5` (Uniform) | Luma difference ceiling below which adjacent frames are pruned as identical near-duplicates. |
+| [`ASP_POSE_REFINE_LOOK_RANGE`](../../../submodules/ASP/backend/src/core/config.py#L168) | Int | `3` | `[1, 6]` | `1` (Discrete) | Pass-2 slot search window ($\pm N$) for pose-consistent candidate substitution. |
+| [`ASP_POSE_REFINE_MIN_GAIN`](../../../submodules/ASP/backend/src/core/config.py#L169) | Float | `0.05` | `[0.01, 0.25]` | `0.01` (Uniform) | Minimum pose-similarity delta required to swap a candidate frame. |
+| [`ASP_HOLD_BG_SUB`](../../../submodules/ASP/backend/src/core/config.py#L66) | Int (Bool) | `0` | `[0, 1]` | Categorical | Specific target mentioned in #434 issue: unaligned-median background plate subtraction for hold detection. |
 
 ### 3.3 Subspace 3: Alignment, Matcher & Bundle Adjustment
 Controls geometric transformation solving, outlier rejection, and drift compensation.
 
 | Parameter / Env Var | Type | Current Default | Search Bounds | Step / Dist | Rationale |
 |---|---|---|---|---|---|
-| [`ASP_ST_INLIER_THRESHOLD`](file:///home/pkhunter/Repositories/Repo/Image-Toolkit/submodules/ASP/backend/src/core/config.py#L157) | Float | `3.0` | `[1.0, 10.0]` | `0.5` (Uniform) | Maximum allowed pixel disagreement vs spanning-tree reference in BA edge filtering. |
-| [`ASP_BA_F_SCALE`](file:///home/pkhunter/Repositories/Repo/Image-Toolkit/submodules/ASP/backend/src/core/config.py#L106) | Float | `2.0` | `[0.5, 8.0]` | `0.25` (Uniform) | Cauchy robust loss scale parameter ($f_{\text{scale}}$ px) in non-linear least squares BA. |
-| [`ASP_GNC_OUTER`](file:///home/pkhunter/Repositories/Repo/Image-Toolkit/submodules/ASP/backend/src/core/config.py#L107) | Int | `4` | `[2, 10]` | `1` (Discrete) | Graduated Non-Convexity (GNC-TLS) outer continuation iterations. |
-| [`ASP_MATCH_SPREAD_CEIL`](file:///home/pkhunter/Repositories/Repo/Image-Toolkit/submodules/ASP/backend/src/core/config.py#L88) | Float | `0.0` | `[0.0, 35.0]` | `2.5` (Uniform) | Maximum MAD displacement spread among matches (0 = off). Rejects degenerate matches. |
-| [`ASP_LOFTR_BG_RATIO_MIN`](file:///home/pkhunter/Repositories/Repo/Image-Toolkit/submodules/ASP/backend/src/core/config.py#L89) | Float | `0.0` | `[0.0, 0.75]` | `0.05` (Uniform) | Minimum fraction of LoFTR keypoints that must reside on static background (0 = off). |
-| [`ASP_DY_CV_MAX`](file:///home/pkhunter/Repositories/Repo/Image-Toolkit/submodules/ASP/backend/src/core/config.py#L110) | Float | `0.0` | `[0.0, 2.5]` | `0.1` (Uniform) | Step-size coefficient of variation gate. Triggers early fallback on chaotic scroll rates. |
-| [`ASP_MONO_TAU_MIN`](file:///home/pkhunter/Repositories/Repo/Image-Toolkit/submodules/ASP/backend/src/core/config.py#L163) | Float | `0.60` | `[0.40, 0.90]` | `0.05` (Uniform) | Kendall's $\tau$ rank correlation floor for translation monotonicity check. |
-| [`ASP_ROT_SCALE_CONSISTENCY_THRESH`](file:///home/pkhunter/Repositories/Repo/Image-Toolkit/submodules/ASP/backend/src/core/config.py#L164) | Float | `0.10` | `[0.03, 0.25]` | `0.01` (Uniform) | Threshold for switching between tight and loose affine rotation/scale limits. |
+| [`ASP_ST_INLIER_THRESHOLD`](../../../submodules/ASP/backend/src/core/config.py#L157) | Float | `3.0` | `[1.0, 10.0]` | `0.5` (Uniform) | Maximum allowed pixel disagreement vs spanning-tree reference in BA edge filtering. |
+| [`ASP_BA_F_SCALE`](../../../submodules/ASP/backend/src/core/config.py#L106) | Float | `2.0` | `[0.5, 8.0]` | `0.25` (Uniform) | Cauchy robust loss scale parameter ($f_{\text{scale}}$ px) in non-linear least squares BA. |
+| [`ASP_GNC_OUTER`](../../../submodules/ASP/backend/src/core/config.py#L107) | Int | `4` | `[2, 10]` | `1` (Discrete) | Graduated Non-Convexity (GNC-TLS) outer continuation iterations. |
+| [`ASP_MATCH_SPREAD_CEIL`](../../../submodules/ASP/backend/src/core/config.py#L88) | Float | `0.0` | `[0.0, 35.0]` | `2.5` (Uniform) | Maximum MAD displacement spread among matches (0 = off). Rejects degenerate matches. |
+| [`ASP_LOFTR_BG_RATIO_MIN`](../../../submodules/ASP/backend/src/core/config.py#L89) | Float | `0.0` | `[0.0, 0.75]` | `0.05` (Uniform) | Minimum fraction of LoFTR keypoints that must reside on static background (0 = off). |
+| [`ASP_DY_CV_MAX`](../../../submodules/ASP/backend/src/core/config.py#L110) | Float | `0.0` | `[0.0, 2.5]` | `0.1` (Uniform) | Step-size coefficient of variation gate. Triggers early fallback on chaotic scroll rates. |
+| [`ASP_MONO_TAU_MIN`](../../../submodules/ASP/backend/src/core/config.py#L163) | Float | `0.60` | `[0.40, 0.90]` | `0.05` (Uniform) | Kendall's $\tau$ rank correlation floor for translation monotonicity check. |
+| [`ASP_ROT_SCALE_CONSISTENCY_THRESH`](../../../submodules/ASP/backend/src/core/config.py#L164) | Float | `0.10` | `[0.03, 0.25]` | `0.01` (Uniform) | Threshold for switching between tight and loose affine rotation/scale limits. |
 
 ### 3.4 Subspace 4: Seam Finding, Blending & Compositing
 Controls photometric equalization, seam cut energy, and multi-band transition smoothness.
 
 | Parameter / Env Var | Type | Current Default | Search Bounds | Step / Dist | Rationale |
 |---|---|---|---|---|---|
-| [`ASP_SP_SOFT_PX`](file:///home/pkhunter/Repositories/Repo/Image-Toolkit/submodules/ASP/backend/src/core/config.py#L148) | Int | `6` | `[2, 20]` | `1` (Discrete) | Single-pose soft-edge transition half-width (px) to prevent hard cut lines. |
-| [`ASP_GC_FEATHER_PX`](file:///home/pkhunter/Repositories/Repo/Image-Toolkit/submodules/ASP/backend/src/core/config.py#L140) | Int | `8` | `[0, 24]` | `2` (Discrete) | Linear feather ramp width at GraphCut ownership boundaries. |
-| [`ASP_BG_NORM_MIN_PX`](file:///home/pkhunter/Repositories/Repo/Image-Toolkit/submodules/ASP/backend/src/core/config.py#L149) | Int | `200` | `[50, 800]` | `50` (Discrete) | Minimum valid background pixels required to compute photometric normalisation gain. |
-| [`ASP_POST_SEAM_WARN_THRESH`](file:///home/pkhunter/Repositories/Repo/Image-Toolkit/submodules/ASP/backend/src/core/config.py#L150) | Float | `8.0` | `[3.0, 18.0]` | `0.5` (Uniform) | Post-composite luminance step audit threshold for seam warning logging. |
-| [`ASP_JOINT_GAIN_SIGMA_N`](file:///home/pkhunter/Repositories/Repo/Image-Toolkit/submodules/ASP/backend/src/core/config.py#L145) | Float | `10.0` | `[2.0, 30.0]` | `1.0` (Uniform) | Brown-Lowe joint gain solve observation noise standard deviation ($\sigma_N$). |
-| [`ASP_JOINT_GAIN_SIGMA_G`](file:///home/pkhunter/Repositories/Repo/Image-Toolkit/submodules/ASP/backend/src/core/config.py#L146) | Float | `0.1` | `[0.02, 0.5]` | Log-Uniform | Brown-Lowe joint gain solve unit-gain prior regularization ($\sigma_g$). |
-| [`ASP_MULTIBAND_LEVELS`](file:///home/pkhunter/Repositories/Repo/Image-Toolkit/submodules/ASP/backend/src/core/config.py#L152) | Int | `5` | `[2, 7]` | `1` (Discrete) | Laplacian pyramid octave count for multi-band plate blending. |
-| [`ASP_RESIDUAL_WARP_SMOOTHING`](file:///home/pkhunter/Repositories/Repo/Image-Toolkit/submodules/ASP/backend/src/core/config.py#L136) | Float | `1.0` | `[0.1, 8.0]` | Log-Uniform | Thin Plate Spline (TPS) bending regularization factor for residual background warp. |
-| [`ASP_RESIDUAL_WARP_MAX_PX`](file:///home/pkhunter/Repositories/Repo/Image-Toolkit/submodules/ASP/backend/src/core/config.py#L137) | Float | `15.0` | `[4.0, 30.0]` | `1.0` (Uniform) | Maximum allowable TPS displacement (px) before rejecting local non-rigid warp. |
+| [`ASP_SP_SOFT_PX`](../../../submodules/ASP/backend/src/core/config.py#L148) | Int | `6` | `[2, 20]` | `1` (Discrete) | Single-pose soft-edge transition half-width (px) to prevent hard cut lines. |
+| [`ASP_GC_FEATHER_PX`](../../../submodules/ASP/backend/src/core/config.py#L140) | Int | `8` | `[0, 24]` | `2` (Discrete) | Linear feather ramp width at GraphCut ownership boundaries. |
+| [`ASP_BG_NORM_MIN_PX`](../../../submodules/ASP/backend/src/core/config.py#L149) | Int | `200` | `[50, 800]` | `50` (Discrete) | Minimum valid background pixels required to compute photometric normalisation gain. |
+| [`ASP_POST_SEAM_WARN_THRESH`](../../../submodules/ASP/backend/src/core/config.py#L150) | Float | `8.0` | `[3.0, 18.0]` | `0.5` (Uniform) | Post-composite luminance step audit threshold for seam warning logging. |
+| [`ASP_JOINT_GAIN_SIGMA_N`](../../../submodules/ASP/backend/src/core/config.py#L145) | Float | `10.0` | `[2.0, 30.0]` | `1.0` (Uniform) | Brown-Lowe joint gain solve observation noise standard deviation ($\sigma_N$). |
+| [`ASP_JOINT_GAIN_SIGMA_G`](../../../submodules/ASP/backend/src/core/config.py#L146) | Float | `0.1` | `[0.02, 0.5]` | Log-Uniform | Brown-Lowe joint gain solve unit-gain prior regularization ($\sigma_g$). |
+| [`ASP_MULTIBAND_LEVELS`](../../../submodules/ASP/backend/src/core/config.py#L152) | Int | `5` | `[2, 7]` | `1` (Discrete) | Laplacian pyramid octave count for multi-band plate blending. |
+| [`ASP_RESIDUAL_WARP_SMOOTHING`](../../../submodules/ASP/backend/src/core/config.py#L136) | Float | `1.0` | `[0.1, 8.0]` | Log-Uniform | Thin Plate Spline (TPS) bending regularization factor for residual background warp. |
+| [`ASP_RESIDUAL_WARP_MAX_PX`](../../../submodules/ASP/backend/src/core/config.py#L137) | Float | `15.0` | `[4.0, 30.0]` | `1.0` (Uniform) | Maximum allowable TPS displacement (px) before rejecting local non-rigid warp. |
 
 ---
 
 ## 4. Multi-Objective Function Formulation
 
 ### 4.1 Hazard Analysis: What Optimization Must NOT Do
-1. **Never optimize sharpness or Laplacian variance:** As demonstrated in [audit_gate_correlation.py](file:///home/pkhunter/Repositories/Repo/Image-Toolkit/submodules/ASP/backend/benchmark/audit_gate_correlation.py#L59) and [#431](https://github.com/ACFHarbinger/Image-Toolkit/issues/431), raw sharpness has negative Spearman correlation ($\rho < 0$) with human quality. Maximizing sharpness produces jagged edge tears and noisy line fractures.
+1. **Never optimize sharpness or Laplacian variance:** As demonstrated in [audit_gate_correlation.py](../../../submodules/ASP/backend/benchmark/audit_gate_correlation.py#L59) and [#431](https://github.com/ACFHarbinger/Image-Toolkit/issues/431), raw sharpness has negative Spearman correlation ($\rho < 0$) with human quality. Maximizing sharpness produces jagged edge tears and noisy line fractures.
 2. **Never minimize raw `ghosting_siqe` unconstrained:** `ghosting_siqe` has an inverse relationship with human preference ($\rho < 0$) because it confuses repetitive cel-animation background textures with ghosting.
 3. **Never optimize GT-SSIM alone:** Available on only 55/97 cases; penalizes correct framing if GT has slightly different canvas bounds; rewards oversmoothed SCANS blur.
 4. **Never optimize win/loss counts via score reweighting:** Avoid repeating the §1.10B error.
@@ -151,11 +151,11 @@ $$U_i(\theta) = \underbrace{w_{\text{pref}} \cdot \Pi_i(\theta)}_{\text{Human Pr
    $$\Delta C_i(\theta) = \frac{C_{\text{candidate}, i} - C_{\text{SCANS}, i}}{4.0}$$
 
 3. **Seam Discontinuity Penalty $\Delta \text{SV}_i(\theta)$:**
-   Uses [`seam_visibility_score`](file:///home/pkhunter/Repositories/Repo/Image-Toolkit/submodules/ASP/backend/src/core/pipeline/safety_metrics.py#L123) (validated $\rho > 0$ correlation with human judgment):
+   Uses [`seam_visibility_score`](../../../submodules/ASP/backend/src/core/pipeline/safety_metrics.py#L123) (validated $\rho > 0$ correlation with human judgment):
    $$\Delta \text{SV}_i(\theta) = \max\left(0, \frac{\text{seam\_vis}_{\text{ASP}, i} - \text{seam\_vis}_{\text{baseline}, i}}{\sigma_{\text{sv}}}\right)$$
 
 4. **Strip Banding Penalty $\Delta \text{SB}_i(\theta)$:**
-   Uses [`strip_banding_score`](file:///home/pkhunter/Repositories/Repo/Image-Toolkit/submodules/ASP/backend/src/core/pipeline/safety_metrics.py#L82):
+   Uses [`strip_banding_score`](../../../submodules/ASP/backend/src/core/pipeline/safety_metrics.py#L82):
    $$\Delta \text{SB}_i(\theta) = \max\left(0, \frac{\text{strip\_banding}_{\text{ASP}, i} - 35.0}{35.0}\right)$$
 
 5. **Clean Yield Bonus $Y_i(\theta)$:**
@@ -198,7 +198,7 @@ flowchart TD
 ```
 
 ### 5.1 Stratified 15-Case Subset Composition (Tier 2)
-Constructed to match the full 97-case distribution across the three distinct scroll regimes established in [asp_state_of_the_pipeline.md](file:///home/pkhunter/Repositories/Repo/Image-Toolkit/archive/agent/cache/asp_state_of_the_pipeline.md#L31-L36):
+Constructed to match the full 97-case distribution across the three distinct scroll regimes established in [asp_state_of_the_pipeline.md](../../../archive/agent/cache/asp_state_of_the_pipeline.md#L31-L36):
 
 | Scroll Regime | Full Corpus Share | Tier 2 Case Count | Selected Test Cases | Failure Mode Represented |
 |---|---|---|---|---|
@@ -247,7 +247,7 @@ sequenceDiagram
 | **Rule 1: Determinism Invariant** | Trial must produce byte-identical metrics over 2 consecutive runs on Tier 1. | Proceed to scoring. | **REVERT:** Discard parameter setting as non-deterministic. |
 | **Rule 2: Zero Golden Regression** | $\Delta U_g(\theta) \ge 0$ for all $g \in \mathcal{G}_{\text{gold}}$. | Proceed to net utility check. | **REVERT:** Immediate hard disqualification. |
 | **Rule 3: Net Quality Delta** | $\Delta J(\theta) \ge +0.05$ over baseline on Tier 2 set. | Export Candidate Bundle. | **REVERT:** Reject marginal noise. |
-| **Rule 4: Gate Count & Budget** | Total active gates $\le 10$; env flags $\le 50$ ([ROADMAP.md §615](file:///home/pkhunter/Repositories/Repo/Image-Toolkit/submodules/ASP/docs/moon/ROADMAP.md#L615)). | Schema valid. | **REVERT:** Disallow flag proliferation. |
+| **Rule 4: Gate Count & Budget** | Total active gates $\le 10$; env flags $\le 50$ ([ROADMAP.md §615](../../../submodules/ASP/docs/moon/ROADMAP.md#L615)). | Schema valid. | **REVERT:** Disallow flag proliferation. |
 | **Rule 5: Human Visual Sign-off** | Harbinger human rating on side-by-side montages confirms structural coherence. | Merge to production. | **REVERT:** Human visual verdict outranks every metric. |
 
 ---
@@ -278,7 +278,7 @@ flowchart LR
 
 ### 7.1 Optuna Configuration
 - **Sampler:** `optuna.samplers.TPESampler(multivariate=True, group=True, seed=42)` to model parameter interactions.
-- **Storage:** `optuna.storages.RDBStorage("sqlite:///~/Downloads/Data/Tests/asp_tuning.db")` ensuring full trial persistence and resume-after-interruption capability.
+- **Storage:** resolve `Path.home() / "Downloads/Data/Tests/asp_tuning.db"` before constructing the SQLAlchemy URL, ensuring full trial persistence and resume-after-interruption capability. A literal `~` is not expanded inside a SQLite URL.
 - **Pruning:** `optuna.pruners.SuccessiveHalvingPruner()` to terminate failing trials after the first 3 cases.
 
 ### 7.2 Subprocess Sandboxing & Thermal Safety Contract
@@ -291,9 +291,9 @@ To prevent host crashes, the harness executes each trial in an isolated subproce
 
 ### 7.3 Candidate Output Artifacts
 At the conclusion of a tuning session, the harness generates:
-1. `asp_config_candidate_<subspace>_<timestamp>.toml` containing the proposed parameters formatted for [`load_asp_config()`](file:///home/pkhunter/Repositories/Repo/Image-Toolkit/submodules/ASP/backend/src/core/config.py#L244).
+1. `asp_config_candidate_<subspace>_<timestamp>.toml` containing the proposed parameters formatted for [`load_asp_config()`](../../../submodules/ASP/backend/src/core/config.py#L244).
 2. `candidate_summary.md` detailing parameter deltas, Tier 1/2 objective scores, and golden case verifications.
-3. Clean git diff against [`submodules/ASP/backend/config/asp_config.toml`](file:///home/pkhunter/Repositories/Repo/Image-Toolkit/submodules/ASP/backend/src/core/config.py#L46).
+3. Clean git diff against [`submodules/ASP/backend/config/asp_config.toml`](../../../submodules/ASP/backend/src/core/config.py#L46).
 
 ---
 
