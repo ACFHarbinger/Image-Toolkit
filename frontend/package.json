@@ -80,12 +80,9 @@
     ]
   },
   "overrides": {
-    "postcss": ">=8.5.23",
-    "underscore": ">=1.13.8",
-    "qs": ">=6.16.0",
-    "lodash-es": ">=4.18.0",
-    "nth-check": ">=2.0.1",
-    "uuid": ">=12.0.1"
+    "postcss": "8.5.28",
+    "underscore": "1.13.8",
+    "qs": "6.16.0"
   },
   "browserslist": {
     "production": [

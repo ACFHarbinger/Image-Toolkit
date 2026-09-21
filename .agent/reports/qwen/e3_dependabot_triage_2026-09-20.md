@@ -28,6 +28,14 @@
 > manifest declaration. The recommendations and priority table below are the
 > original 2026-09-20 snapshot and are superseded where they conflict with
 > this correction.
+>
+> **Follow-up review — 2026-09-21.** The subsequent `>=` overrides for
+> `lodash-es`, `nth-check`, and `uuid` were reverted. They allow future major
+> versions; the generated lock selected `nth-check@3.0.1` (Node 20+ and a
+> different major API) for dependencies that requested 1.x/2.x. A compatible
+> upstream update or an exact, tested override is required. That follow-up
+> also did not update `frontend/package-lock.json`, so it could not establish
+> the claimed two-lockfile remediation.
 
 ---
 
@@ -73,7 +81,9 @@ These are all nested dependencies pinned by `react-scripts 5.0.1` (CRA). The par
    **Reviewer note:** PR #695 applied these manifest changes, but the
    `postcss` override does not remove the locked `7.0.39` copy and the
    frontend lockfile was not regenerated. Treat this as an investigation and
-   lockfile-repair task, not a completed safe fix.
+   lockfile-repair task, not a completed safe fix. Regenerate each lockfile
+   through its supported workspace install workflow, then verify the
+   affected dependency paths rather than using broad semver ranges.
 
 2. **Needs investigation** (test before overriding):
    - `serialize-javascript`: `^7.0.5` — check rollup-plugin-terser compatibility
