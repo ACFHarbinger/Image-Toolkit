@@ -89,5 +89,9 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
+  },
+  "overrides": {
+    "underscore": "1.13.8",
+    "qs": "6.16.0"
   }
 }

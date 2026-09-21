@@ -37,6 +37,8 @@
     "typescript": "^5.7.2"
   },
   "overrides": {
-    "esbuild": "0.28.2"
+    "esbuild": "0.28.2",
+    "underscore": "1.13.8",
+    "qs": "6.16.0"
   }
 }
