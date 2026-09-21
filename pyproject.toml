@@ -139,6 +139,7 @@ override-dependencies = [
 # FiftyOne line until that trio is updated deliberately.
 constraint-dependencies = [
     "paramiko>=3,<4",
+    "setuptools>=83.0.0",
 ]
 
 [tool.pyrefly]
