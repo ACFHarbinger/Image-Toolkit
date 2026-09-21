@@ -215,6 +215,7 @@ export const AppStoreProvider: React.FC<AppStoreProviderProps> = ({ children }) 
       // Apply default theme
       setTheme('dark');
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ===== Construct Store Value =====
