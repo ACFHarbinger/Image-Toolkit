@@ -24,7 +24,7 @@ const TRACKING_PARAM_PATTERNS = [
 ];
 
 /** Group colors cycled across duplicate sets (Chromium tabGroups palette). */
-const GROUP_COLORS: chrome.tabGroups.ColorEnum[] = [
+const GROUP_COLORS: `${chrome.tabGroups.Color}`[] = [
   "red",
   "yellow",
   "green",
@@ -107,9 +107,9 @@ function tabGroupsAvailable(): boolean {
 async function highlightWithGroups(sets: DupTabSet[]): Promise<void> {
   for (let i = 0; i < sets.length; i++) {
     const set = sets[i];
-    const groupId = await chrome.tabs.group({
-      tabIds: set.tabs.map((t) => t.id),
-    });
+    const groupId = (await chrome.tabs.group({
+      tabIds: set.tabs.map((t) => t.id) as [number, ...number[]],
+    })) as number;
     await chrome.tabGroups.update(groupId, {
       color: GROUP_COLORS[i % GROUP_COLORS.length],
       title: `dup ×${set.tabs.length}`,
@@ -162,7 +162,7 @@ export async function clearHighlights(): Promise<void> {
           .filter((t) => t.id !== undefined && ourGroupIds.has(t.groupId))
           .map((t) => t.id as number);
         if (groupedIds.length > 0) {
-          await chrome.tabs.ungroup(groupedIds);
+          await chrome.tabs.ungroup(groupedIds as [number, ...number[]]);
         }
       }
     } catch (err) {

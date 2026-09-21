@@ -25,9 +25,9 @@ export function storageGet<T extends object>(
 ): Promise<Partial<T>> {
   return new Promise((resolve) => {
     if (IS_FIREFOX) {
-      (api.storage.local.get(keys) as Promise<Partial<T>>).then(resolve);
+      ((api.storage.local.get as any)(keys) as Promise<Partial<T>>).then(resolve);
     } else {
-      api.storage.local.get(keys, (items) => resolve(items as Partial<T>));
+      (api.storage.local.get as any)(keys, (items: Partial<T>) => resolve(items));
     }
   });
 }

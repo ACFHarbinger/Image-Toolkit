@@ -345,3 +345,39 @@ jobs:
             git push
           fi
 
+  frontend-extension:
+    name: Frontend and WebExtension builds
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Init HIE submodule
+        # frontend/package.json links to file:../submodules/HIE/frontend
+        run: git submodule update --init submodules/HIE
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v7
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Build frontend (React)
+        run: npm run build-frontend
+
+      - name: Install extension dependencies
+        working-directory: extension
+        run: npm ci
+
+      - name: Typecheck extension
+        working-directory: extension
+        run: npm run typecheck
+
+      - name: Build extension (all targets)
+        working-directory: extension
+        run: npm run build:all
+
+
