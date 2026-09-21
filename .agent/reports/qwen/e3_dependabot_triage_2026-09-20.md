@@ -6,19 +6,42 @@
 **Fixed:** 149 (npm: 103, pip: 40, rust: 5, actions: 1)  
 **Open Dependabot PRs:** 0
 
+> **Reviewer correction — 2026-09-21.** The original triage conflates a
+> patched top-level copy with the versions actually recorded in each affected
+> lockfile. Dependabot alerts are raised for those transitive copies, so a
+> top-level version alone is not grounds for dismissal.
+>
+> At the head of PR #695, lockfile inspection found `postcss@7.0.39`,
+> `nth-check@1.0.2`, `uuid@8.3.2`, `serialize-javascript@4.0.0`, and
+> `svgo@1.3.2` in the root lockfile. The separate
+> `frontend/package-lock.json` still records vulnerable `minimatch` 3.1.2 /
+> 5.1.6 / 9.0.5, `postcss@7.0.39`, `nth-check@1.0.2`,
+> `serialize-javascript@4.0.0`, and `svgo@2.8.0`. PR #695 added manifest
+> overrides, but did not regenerate that frontend lockfile. Do not dismiss
+> these alerts or call the overrides fixed until `npm ci` succeeds from both
+> the repository root and `frontend/`, and the resulting lockfiles contain no
+> affected version for the relevant advisory.
+>
+> `vite@8.3.0`, `yaml@2.9.0`, `underscore@1.13.8`, and `qs@6.16.0` are
+> currently patched in their relevant lockfile paths; those alerts should be
+> rechecked after Dependabot refreshes rather than assumed fixed from a
+> manifest declaration. The recommendations and priority table below are the
+> original 2026-09-20 snapshot and are superseded where they conflict with
+> this correction.
+
 ---
 
 ## npm — 58 open alerts, 13 unique (package, CVE) pairs
 
-### Stale alerts (lockfile already ≥ patched version) — DISMISS
+### Originally classified as stale — revalidate by affected lockfile path
 
 | Package | Lockfile ver | Patched ver | Manifest | Reason |
 |---------|-------------|-------------|----------|--------|
-| lodash-es | 4.18.1 (root top-level) | 4.18.0 | package-lock.json | Top-level already patched; nested copies under `@chevrotain/*` at 4.17.23 are transitive |
-| minimatch | 10.2.6 (both) | 10.2.3 | both lockfiles | Top-level patched; 18+ nested copies at 3.x/5.x/9.x are transitive from eslint, electron, jest, etc. |
-| nth-check | 2.1.1 (both top-level) | 2.0.1 | both lockfiles | Top-level patched; nested 1.0.2 under `@svgr/plugin-svgo` / `svgo` is transitive |
+| lodash-es | 4.18.1 (root top-level) | 4.18.0 | package-lock.json | **Not dismissible on that basis:** `@chevrotain/*` still resolves 4.17.23. |
+| minimatch | 10.2.6 (both) | 10.2.3 | both lockfiles | Check every nested range; the frontend lockfile includes affected 3.1.2, 5.1.6, and 9.0.5 copies. |
+| nth-check | 2.1.1 (both top-level) | 2.0.1 | both lockfiles | **Not dismissible on that basis:** the root and frontend lockfiles contain 1.0.2 under the SVGR/SVGO chain. |
 | vite | 8.2.2 (root) | 8.0.16 | package-lock.json | Already patched; devDependency only |
-| uuid | 14.0.2 (root top-level) | 12.0.1 | package-lock.json | Top-level patched; nested 8.3.2 under `sockjs` in frontend is transitive |
+| uuid | 14.0.2 (root top-level) | 12.0.1 | package-lock.json | **Not dismissible on that basis:** the root lockfile contains 8.3.2 under `sockjs`. |
 
 ### Genuinely vulnerable — transitive from react-scripts 5.0.1
 
@@ -47,6 +70,11 @@ These are all nested dependencies pinned by `react-scripts 5.0.1` (CRA). The par
    - `underscore`: `^1.13.8` — fixes 1 high CVE in both
    - `qs`: `^6.16.0` — fixes 2 medium CVEs in root
 
+   **Reviewer note:** PR #695 applied these manifest changes, but the
+   `postcss` override does not remove the locked `7.0.39` copy and the
+   frontend lockfile was not regenerated. Treat this as an investigation and
+   lockfile-repair task, not a completed safe fix.
+
 2. **Needs investigation** (test before overriding):
    - `serialize-javascript`: `^7.0.5` — check rollup-plugin-terser compatibility
    - `yaml`: `^2.9.0` — check what depends on yaml 1.x in frontend
@@ -56,8 +84,11 @@ These are all nested dependencies pinned by `react-scripts 5.0.1` (CRA). The par
    - `webpack-dev-server`: 4→5 breaks react-scripts dev server
    - `@tootallnate/once`: low severity, major version jump, transitive
 
-4. **Dismiss as stale** (lockfile already patched at top level):
-   - lodash-es, minimatch, nth-check, vite, uuid (top-level copies)
+4. **Dismiss only after path-specific verification:**
+   - A top-level copy cannot clear an alert for a nested copy. `vite` is the
+     only package in this group currently verified patched in its lockfile;
+     the others require an upstream update, a tested compatible override, or
+     an explicit risk acceptance.
 
 ---
 
