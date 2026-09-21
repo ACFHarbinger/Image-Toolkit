@@ -367,6 +367,8 @@ jobs:
 
       - name: Build frontend (React)
         run: npm run build-frontend
+        env:
+          CI: false
 
       - name: Install extension dependencies
         working-directory: extension
