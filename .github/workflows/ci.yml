@@ -381,5 +381,3 @@ jobs:
       - name: Build extension (all targets)
         working-directory: extension
         run: npm run build:all
-
-
