@@ -5,6 +5,7 @@ from unittest.mock import MagicMock
 import pytest
 from gui.src.windows.image_preview_window import ImagePreviewWindow
 from PySide6.QtGui import QColor, QImage
+from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
 
 pytestmark = pytest.mark.gui
@@ -85,10 +86,17 @@ def test_preview_window_deferred_timers_do_not_fire_after_close(sample_image, q_
     """QTimer.singleShot functors must be bound to the window so teardown
     processEvents cannot call into a deleted C++ object."""
     win = ImagePreviewWindow(image_path=sample_image)
+    changes: list[tuple[str, str]] = []
+    win.path_changed.connect(lambda previous, current: changes.append((previous, current)))
+
     win.close()
-    win.deleteLater()
-    for _ in range(5):
-        QApplication.processEvents()
+    # Closing is synchronous; the initial-load notification is intentionally
+    # deferred by 100 ms and must be cancelled with its receiver.
+    assert changes == [(sample_image, "WINDOW_CLOSED")]
+
+    QTest.qWait(150)
+    QApplication.processEvents()
+    assert changes == [(sample_image, "WINDOW_CLOSED")]
 
 
 def test_preview_window_navigation(sample_images, q_app):
