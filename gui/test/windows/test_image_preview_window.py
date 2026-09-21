@@ -1,5 +1,6 @@
 """Tests for ImagePreviewWindow database_service parameter and legacy db_tab_ref shim (ui-arch-32 / #554)."""
 
+import sys
 from unittest.mock import MagicMock
 
 import pytest
@@ -82,9 +83,16 @@ def test_oversized_gif_preview_animates(q_app, tmp_path, monkeypatch):
     assert not win._gif_player.is_running()
 
 
-def test_preview_window_deferred_timers_do_not_fire_after_close(sample_image, q_app):
+def test_preview_window_deferred_timers_do_not_fire_after_close(sample_image, q_app, monkeypatch):
     """QTimer.singleShot functors must be bound to the window so teardown
     processEvents cannot call into a deleted C++ object."""
+    # PySide reports an exception raised inside a Qt callback to sys.excepthook
+    # and carries on, so a receiver-less deferred timer that touches the
+    # deleted window ("Signal source has been deleted") would not fail the
+    # test on its own. Capture it explicitly.
+    callback_errors: list[BaseException] = []
+    monkeypatch.setattr(sys, "excepthook", lambda _t, exc, _tb: callback_errors.append(exc))
+
     win = ImagePreviewWindow(image_path=sample_image)
     changes: list[tuple[str, str]] = []
     win.path_changed.connect(lambda previous, current: changes.append((previous, current)))
@@ -97,6 +105,7 @@ def test_preview_window_deferred_timers_do_not_fire_after_close(sample_image, q_
     QTest.qWait(150)
     QApplication.processEvents()
     assert changes == [(sample_image, "WINDOW_CLOSED")]
+    assert callback_errors == []
 
 
 def test_preview_window_navigation(sample_images, q_app):
