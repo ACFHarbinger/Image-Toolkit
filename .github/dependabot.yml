@@ -52,10 +52,14 @@ updates:
   # Without an entry here, npm bumps only arrive as GitHub security-update PRs,
   # which Dependabot cannot rebase (see #655).
   - package-ecosystem: "npm"
+    # /frontend has no lockfile of its own (removed): it is a declared
+    # workspace member of the root package.json, so `npm ci`/`npm install`
+    # anywhere under it resolve to the root install and root's lockfile --
+    # a standalone frontend/package-lock.json was never actually consulted
+    # by any real install and only produced false "already patched" signal.
     directories:
       - "/"
       - "/extension"
-      - "/frontend"
       - "/docs/website"
     schedule:
       interval: "weekly"
