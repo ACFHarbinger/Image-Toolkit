@@ -24,8 +24,8 @@
 | `backend/src/models/tuning/lo_ra_tuner_v2.py` | 423 | 50 | 22 | 495 |
 | `backend/src/models/tuning/lo_ra_tuner.py` | 418 | 48 | 18 | 484 |
 | `gui/src/windows/image_preview_window.py` | 417 | 68 | 42 | 527 |
-| `gui/src/windows/main/_session_recovery.py` | 400 | 31 | 28 | 459 |
 | `gui/src/windows/settings/_appearance.py` | 400 | 31 | 18 | 449 |
+| `gui/src/windows/main/_session_recovery.py` | 400 | 31 | 28 | 459 |
 | `gui/src/classes/base/_gallery_presentation.py` | 394 | 21 | 21 | 436 |
 | `gui/src/styles/background_canvas.py` | 387 | 3 | 18 | 408 |
 | `gui/src/components/dialogs/thumbnail_file_picker.py` | 386 | 4 | 7 | 397 |
@@ -38,11 +38,11 @@
 | `gui/src/tabs/core/extractor_tab/_directory_scanning.py` | 357 | 35 | 24 | 416 |
 | `gui/src/tabs/core/extractor_tab/_extraction_workers.py` | 355 | 11 | 9 | 375 |
 | `backend/src/models/tuning/cbir_tuner.py` | 352 | 32 | 76 | 460 |
-| `gui/src/windows/main/main_window.py` | 346 | 55 | 4 | 405 |
 | `gui/src/tabs/core/extractor_tab/_queue_panel.py` | 346 | 36 | 32 | 414 |
-| `gui/src/windows/settings/settings_window.py` | 344 | 28 | 10 | 382 |
+| `gui/src/windows/main/main_window.py` | 346 | 55 | 4 | 405 |
 | `gui/src/tabs/web/drive_sync_tab/sync_data_subtab/widget.py` | 344 | 26 | 13 | 383 |
 | `gui/src/tabs/models/delta/lora_train_tab.py` | 344 | 27 | 9 | 380 |
+| `gui/src/windows/settings/settings_window.py` | 344 | 28 | 10 | 382 |
 | `gui/src/tabs/core/extractor_tab/_extraction_history.py` | 337 | 27 | 21 | 385 |
 | `backend/src/core/wallpaper/_kde.py` | 334 | 93 | 6 | 433 |
 | `gui/src/tabs/core/extractor_tab/_queue_processing.py` | 333 | 55 | 23 | 411 |
