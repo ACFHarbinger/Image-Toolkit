@@ -11,7 +11,7 @@
   "dependencies": {
     "concurrently": "^10.0.4",
     "cross-env": "^10.1.0",
-    "wait-on": "^9.1.0"
+    "wait-on": "^9.2.0"
   },
   "scripts": {
     "install:all": "npm install && npm install --workspace=frontend && npm install --workspace=docs/website",
