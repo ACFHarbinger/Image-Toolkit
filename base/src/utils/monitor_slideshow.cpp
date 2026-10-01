@@ -39,6 +39,7 @@ struct Entry {
 struct Config {
     std::string        monitor_id{"0"};
     std::vector<Entry> queue;
+    long long          start_index{-1};  // g_index seed: (start_index - 1), -1 means index 0 first
 };
 
 static Config load_config(const std::string& json_str) {
@@ -48,6 +49,10 @@ static Config load_config(const std::string& json_str) {
     if (data.is_discarded()) return cfg;
 
     cfg.monitor_id = data.value("monitor_id", std::string("0"));
+
+    if (data.contains("start_index") && data["start_index"].is_number_integer()) {
+        cfg.start_index = data["start_index"].get<long long>();
+    }
 
     if (data.contains("queue") && data["queue"].is_array()) {
         json durations = json::array();
@@ -147,7 +152,16 @@ std::string run_monitor_slideshow(const std::string& action,
         {
             std::lock_guard<std::mutex> lock(g_mutex);
             g_config = load_config(config_json);
-            g_index.store(-1);
+            // Seed g_index so the first loop tick applies start_index.
+            // The loop computes: idx = (g_index + 1) % queue.size(), so we
+            // initialise to (start_index - 1).  Guard against an invalid
+            // start_index (negative, or beyond queue size) by clamping to -1,
+            // which means the first applied entry will be queue[0].
+            long long seed = -1;
+            long long n    = static_cast<long long>(g_config.queue.size());
+            if (n > 0 && g_config.start_index >= 0 && g_config.start_index < n)
+                seed = g_config.start_index - 1;
+            g_index.store(seed);
             g_current_duration.store(0.0);
             g_last_change_ts.store(0);
             if (!apply_callback.is_none())
