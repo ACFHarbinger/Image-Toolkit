@@ -151,9 +151,15 @@ def start(
     other_paths: Optional[Dict[str, str]] = None,
     qdbus: Optional[str] = None,
     callback: Optional[Callable[[str, str, int], None]] = None,
+    start_index: int = 0,
 ) -> str:
     resolved = [resolve_duration(p, d) for p, d in zip(queue, durations, strict=False)]
-    config = {"monitor_id": monitor_id, "queue": list(queue), "durations": resolved}
+    config = {
+        "monitor_id": monitor_id,
+        "queue": list(queue),
+        "durations": resolved,
+        "start_index": max(0, min(start_index, len(queue) - 1)) if queue else 0,
+    }
     cb = callback if callback is not None else make_apply_callback(monitors, style, video_style, other_paths, qdbus)
     return base.run_monitor_slideshow("start", json.dumps(config), cb) # pyrefly: ignore [missing-attribute]
 
@@ -283,6 +289,7 @@ def run():
         video_style=config.get("video_style", "Scaled and Cropped"),
         other_paths=config.get("other_current_paths", {}),
         callback=apply_cb,
+        start_index=config.get("current_index", 0),
     )
 
     _was_locked = _is_session_locked()
