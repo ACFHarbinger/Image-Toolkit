@@ -29,6 +29,7 @@ class SlideshowQueueWindow(QWidget):
     item_swap_requested = Signal(
         str, int, str, int
     )  # src_mid, src_idx, target_mid, target_idx
+    set_active_wallpaper_requested = Signal(str, str, int)  # monitor_id, path, index
 
     def __init__(
         self,
@@ -38,6 +39,7 @@ class SlideshowQueueWindow(QWidget):
         pixmap_cache: Optional[Union[Dict[str, QPixmap], LRUImageCache]] = None,
         other_queues: Optional[Dict[str, List[str]]] = None,
         other_names: Optional[Dict[str, str | None]] = None,
+        active_path: Optional[str] = None,
         parent=None,
     ):
         super().__init__(parent)
@@ -47,6 +49,7 @@ class SlideshowQueueWindow(QWidget):
         self.pixmap_cache = pixmap_cache if pixmap_cache is not None else {}
         self.other_queues = other_queues if other_queues is not None else {}
         self.other_names = other_names if other_names is not None else {}
+        self._active_path: Optional[str] = active_path
 
         self.setWindowTitle(f"Queue for {monitor_name}")
         self.setMinimumSize(400, 500)
@@ -197,6 +200,23 @@ class SlideshowQueueWindow(QWidget):
             QIcon(QApplication.style().standardIcon(QStyle.StandardPixmap.SP_FileIcon)),
             "View Full Image",
         )
+        menu.addSeparator()
+
+        file_path = item.data(Qt.ItemDataRole.UserRole)
+        set_active_action = menu.addAction(
+            QIcon(
+                QApplication.style().standardIcon(QStyle.StandardPixmap.SP_DialogApplyButton)
+            ),
+            "Set as Active Wallpaper",
+        )
+        set_active_action.setCheckable(True)
+        set_active_action.setChecked(bool(self._active_path and self._active_path == file_path))
+        set_active_action.triggered.connect(
+            lambda _, p=file_path, idx=current_row: self.set_active_wallpaper_requested.emit(
+                self.monitor_id, p, idx
+            )
+        )
+
         menu.addSeparator()
         remove_action = menu.addAction(
             QIcon(
