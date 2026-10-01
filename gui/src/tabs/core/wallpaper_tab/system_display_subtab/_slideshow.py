@@ -175,6 +175,18 @@ class SystemDisplaySlideshowController(TabBoundController):
                             remaining = max(0, interval - elapsed)
                             self.time_remaining_sec = remaining
                             self.countdown_label.setToolTip("")
+
+                        daemon_paths = config.get("current_paths", {})
+                        if isinstance(daemon_paths, dict):
+                            for mid, path in daemon_paths.items():
+                                if path and self.monitor_image_paths.get(mid) != path:
+                                    self.monitor_image_paths[mid] = path
+                                    queue = self.monitor_slideshow_queues.get(mid, [])
+                                    if path in queue:
+                                        self.monitor_current_index[mid] = queue.index(path)
+                                    if mid in self.monitor_widgets:
+                                        thumb = self._get_or_generate_thumbnail(path)
+                                        self.monitor_widgets[mid].set_image(path, thumb)
             except Exception:
                 logger.debug("Suppressed Exception in _SlideshowMixin.update_countdown", exc_info=True)
 
