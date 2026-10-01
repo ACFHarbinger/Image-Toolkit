@@ -5,7 +5,6 @@ import re
 import shutil
 import socket
 import subprocess
-import tempfile
 import time
 import urllib.parse
 
@@ -92,6 +91,32 @@ class ImageCrawler:
             ),
         }
 
+        # Check login configuration
+        login_cfg = self.config.get("login_config") or {}
+        login_url = (
+            login_cfg.get("url")
+            or self.config.get("gen_login_url")
+            or self.config.get("login_url")
+        )
+        login_user = (
+            login_cfg.get("username")
+            or self.config.get("gen_username")
+            or self.config.get("username")
+        )
+        login_pass = (
+            login_cfg.get("password")
+            or self.config.get("gen_password")
+            or self.config.get("password")
+        )
+
+        if driver and login_url and (login_user or login_pass):
+            self._perform_login(driver, login_url, login_user, login_pass)
+            self._sync_cookies_to_session(driver, session)
+        elif not driver and login_url and (login_user or login_pass):
+            self._perform_http_login(
+                session, login_url, login_user, login_pass, session_headers
+            )
+
         try:
             for page_idx, target_url in enumerate(target_urls):
                 if not self._is_running:
@@ -108,12 +133,8 @@ class ImageCrawler:
                     try:
                         driver.get(target_url)
                         time.sleep(1.5)
-                        with contextlib.suppress(Exception):
-                            driver.execute_script("window.scrollTo(0, document.body.scrollHeight / 2);")
-                            time.sleep(0.5)
-                            driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-                            time.sleep(0.5)
-                            driver.execute_script("window.scrollTo(0, 0);")
+                        self._scroll_page_to_trigger_lazy_load(driver)
+                        self._sync_cookies_to_session(driver, session)
 
                         parsed_urls = self._process_selenium_actions(
                             driver, actions, target_url
@@ -259,7 +280,7 @@ class ImageCrawler:
         except Exception:
             return False
 
-    def _try_init_driver(self):
+    def _try_init_driver(self):  # noqa: C901
         """Try connecting to Remote Selenium WebDriver or local browser driver."""
         try:
             from selenium import webdriver
@@ -317,10 +338,16 @@ class ImageCrawler:
                 except Exception:
                     pass
 
+            # Support persistent profile directory so logins/cookies persist across runs
+            user_dir = self.config.get("user_data_dir")
+            if not user_dir:
+                user_dir = os.path.expanduser("~/.image-toolkit/browser_profile")
+            with contextlib.suppress(Exception):
+                os.makedirs(user_dir, exist_ok=True)
+
             # 3. For Brave specifically on Linux/Mac, launch remote-debugging subprocess if direct ChromeDriver session traps
             if browser_name == "brave" and browser_bin:
                 try:
-                    user_dir = tempfile.mkdtemp(prefix="brave_profile_")
                     cmd = [
                         browser_bin,
                         "--remote-debugging-port=9222",
@@ -331,27 +358,231 @@ class ImageCrawler:
                     if headless:
                         cmd.append("--headless=new")
 
-                    self._brave_proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    self._brave_proc = subprocess.Popen(
+                        cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+                    )
                     time.sleep(1.5)
 
                     dbg_options = ChromeOptions()
                     dbg_options.add_experimental_option("debuggerAddress", "127.0.0.1:9222")
                     driver = webdriver.Chrome(options=dbg_options)
-                    self.on_status.publish(f"🌐 Initialized local {browser_name.title()} browser session.")
+                    self.on_status.publish(
+                        f"🌐 Initialized local {browser_name.title()} browser session."
+                    )
                     return driver
                 except Exception as ex:
                     self.on_status.publish(f"⚠️ Brave subprocess launch warning: {ex}")
 
-            # 4. Fallback to direct Chrome/Chromium launch
-            driver = webdriver.Chrome(options=options)
-            self.on_status.publish(f"🌐 Initialized local {browser_name.title()} session.")
-            return driver
+            # 4. Fallback to direct Chrome/Chromium launch with persistent profile
+            try:
+                options_with_profile = ChromeOptions()
+                for arg in options.arguments:
+                    options_with_profile.add_argument(arg)
+                if options.binary_location:
+                    options_with_profile.binary_location = options.binary_location
+                options_with_profile.add_argument(f"--user-data-dir={user_dir}")
+                driver = webdriver.Chrome(options=options_with_profile)
+                self.on_status.publish(
+                    f"🌐 Initialized local {browser_name.title()} session with persistent profile."
+                )
+                return driver
+            except Exception:
+                driver = webdriver.Chrome(options=options)
+                self.on_status.publish(f"🌐 Initialized local {browser_name.title()} session.")
+                return driver
 
         except Exception as e:
             self.on_status.publish(
                 f"ℹ️ WebDriver not connected ({e}). Using high-performance HTTP crawler."
             )
             return None
+
+    def _perform_login(  # noqa: C901
+        self, driver, login_url: str, username: str | None, password: str | None
+    ) -> bool:
+        """Attempt automated login via Selenium."""
+        from selenium.webdriver.common.by import By
+        from selenium.webdriver.common.keys import Keys
+
+        self.on_status.publish(f"🔑 Navigating to login page: {login_url}")
+        try:
+            driver.get(login_url)
+            time.sleep(2.0)
+
+            # Check if user is already authenticated
+            page_src = driver.page_source.lower()
+            if "logout" in page_src or "sign out" in page_src or "/user/index" in page_src:
+                self.on_status.publish("ℹ️ Already authenticated session detected.")
+                return True
+
+            # Find user/email input
+            user_el = None
+            for sel in [
+                "input[name='email']",
+                "input[type='email']",
+                "input[id='email']",
+                "input[name='username']",
+                "input[id='username']",
+                "input[name='user']",
+                "input[type='text']",
+            ]:
+                elements = driver.find_elements(By.CSS_SELECTOR, sel)
+                for el in elements:
+                    if el.is_displayed():
+                        user_el = el
+                        break
+                if user_el:
+                    break
+
+            if user_el and username:
+                user_el.clear()
+                user_el.send_keys(username)
+
+            # Find password input
+            pass_el = None
+            for sel in [
+                "input[name='password']",
+                "input[type='password']",
+                "input[id='password']",
+            ]:
+                elements = driver.find_elements(By.CSS_SELECTOR, sel)
+                for el in elements:
+                    if el.is_displayed():
+                        pass_el = el
+                        break
+                if pass_el:
+                    break
+
+            if pass_el and password:
+                pass_el.clear()
+                pass_el.send_keys(password)
+
+            # Check Remember Me if present
+            with contextlib.suppress(Exception):
+                remember_boxes = driver.find_elements(
+                    By.CSS_SELECTOR,
+                    "input[name='remember'], input[id='remember'], input[type='checkbox']",
+                )
+                for box in remember_boxes:
+                    if not box.is_selected():
+                        box.click()
+
+            # Detect Captcha / Cloudflare Turnstile
+            captcha_elements = driver.find_elements(
+                By.CSS_SELECTOR,
+                ".g-recaptcha, .cf-turnstile, div[class*='recaptcha'], div[class*='turnstile'], iframe[src*='turnstile'], iframe[src*='recaptcha']",
+            )
+            if captcha_elements:
+                self.on_status.publish(
+                    "⚠️ Captcha/Turnstile detected on login page. If login does not complete automatically, "
+                    "launch your browser with --remote-debugging-port=9222 and log in manually first."
+                )
+
+            # Submit form
+            submitted = False
+            for btn_sel in [
+                "button[type='submit']",
+                "input[type='submit']",
+                "form button",
+                ".btn-primary",
+            ]:
+                btns = driver.find_elements(By.CSS_SELECTOR, btn_sel)
+                for btn in btns:
+                    if btn.is_displayed():
+                        btn.click()
+                        submitted = True
+                        break
+                if submitted:
+                    break
+
+            if not submitted and pass_el:
+                pass_el.send_keys(Keys.RETURN)
+
+            time.sleep(3.0)
+            self.on_status.publish(
+                f"🔑 Login form submitted. Current page: {driver.current_url}"
+            )
+            return True
+        except Exception as e:
+            self.on_status.publish(f"⚠️ Automated login encounter: {e}")
+            return False
+
+    def _perform_http_login(
+        self,
+        session: requests.Session,
+        login_url: str,
+        username: str | None,
+        password: str | None,
+        headers: dict,
+    ) -> bool:
+        """Best-effort HTTP form POST login fallback when WebDriver is unavailable."""
+        try:
+            resp = session.get(login_url, headers=headers, timeout=10)
+            soup = BeautifulSoup(resp.text, "html.parser")
+            form = soup.find("form")
+            if not form:
+                return False
+
+            payload = {}
+            for inp in form.find_all("input"):
+                name = inp.get("name")
+                val = inp.get("value", "")
+                if name:
+                    payload[name] = val
+
+            for k in payload:
+                lk = k.lower()
+                if ("user" in lk or "email" in lk) and username:
+                    payload[k] = username
+                elif "pass" in lk and password:
+                    payload[k] = password
+
+            action = form.get("action")
+            post_url = urllib.parse.urljoin(login_url, action) if action else login_url
+            post_resp = session.post(post_url, data=payload, headers=headers, timeout=10)
+            self.on_status.publish(
+                f"🔑 HTTP login POST sent to {post_url} (Status: {post_resp.status_code})"
+            )
+            return post_resp.status_code in (200, 302)
+        except Exception as e:
+            self.on_status.publish(f"⚠️ HTTP login fallback failed: {e}")
+            return False
+
+    def _sync_cookies_to_session(self, driver, session: requests.Session) -> None:
+        """Transfer browser cookies into requests session for authenticated media downloads."""
+        try:
+            cookies = driver.get_cookies()
+            for c in cookies:
+                session.cookies.set(
+                    c["name"],
+                    c["value"],
+                    domain=c.get("domain", ""),
+                    path=c.get("path", "/"),
+                )
+            if cookies:
+                self.on_status.publish(
+                    f"🍪 Synchronized {len(cookies)} browser cookie(s) to HTTP session."
+                )
+        except Exception as e:
+            self.on_status.publish(f"⚠️ Cookie synchronization warning: {e}")
+
+    def _scroll_page_to_trigger_lazy_load(self, driver) -> None:
+        """Gradually scroll through the page to trigger IntersectionObserver and lazy-loaded images."""
+        with contextlib.suppress(Exception):
+            total_height = (
+                driver.execute_script(
+                    "return Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);"
+                )
+                or 1000
+            )
+            step = 600
+            for y in range(0, int(total_height), step):
+                driver.execute_script(f"window.scrollTo(0, {y});")
+                time.sleep(0.1)
+            driver.execute_script(f"window.scrollTo(0, {total_height});")
+            time.sleep(0.4)
+            driver.execute_script("window.scrollTo(0, 0);")
+            time.sleep(0.2)
 
     def _process_selenium_actions(self, driver, actions, base_url) -> list[str]:  # noqa: C901
         """Execute configured actions on Selenium driver."""
@@ -363,12 +594,22 @@ class ImageCrawler:
             param = act.get("param")
 
             if atype == "Wait for Gallery (Context Reset)":
-                driver.execute_script("window.scrollBy(0, 1500);")
+                self._scroll_page_to_trigger_lazy_load(driver)
                 time.sleep(1)
-                driver.execute_script("window.scrollTo(0, 0);")
+
             elif atype == "Wait X Seconds" and param:
-                time.sleep(float(param))
-            elif atype == "Extract High-Res Preview URL":
+                with contextlib.suppress(Exception):
+                    time.sleep(float(param))
+
+            elif atype == "Wait for Page Load":
+                with contextlib.suppress(Exception):
+                    delay = float(param) if param else 2.0
+                    time.sleep(delay)
+
+            elif atype in (
+                "Extract High-Res Preview URL",
+                "Download Simple Thumbnail (Legacy)",
+            ):
                 imgs = driver.find_elements(By.TAG_NAME, "img")
                 for img in imgs:
                     try:
@@ -377,7 +618,21 @@ class ImageCrawler:
                             or img.get_attribute("data-src")
                             or img.get_attribute("data-original")
                             or img.get_attribute("data-lazy-src")
+                            or img.get_attribute("data-high-res")
+                            or img.get_attribute("data-large-src")
+                            or img.get_attribute("data-full-url")
+                            or img.get_attribute("data-thumb")
                         )
+                        if not src:
+                            srcset = img.get_attribute("srcset")
+                            if srcset:
+                                parts = [
+                                    p.strip().split()[0]
+                                    for p in srcset.split(",")
+                                    if p.strip()
+                                ]
+                                if parts:
+                                    src = parts[-1]
                         if src and not src.startswith("data:"):
                             full_url = urllib.parse.urljoin(base_url, src)
                             cleaned = self._clean_image_url(full_url)
@@ -385,6 +640,7 @@ class ImageCrawler:
                                 extracted.append(cleaned)
                     except Exception:
                         continue
+
             elif atype == "Find Parent Link (<a>)":
                 links = driver.find_elements(By.XPATH, "//a[img]")
                 for link in links:
@@ -397,6 +653,121 @@ class ImageCrawler:
                     except Exception:
                         continue
 
+            elif atype == "Find Element by CSS Selector" and param:
+                elements = driver.find_elements(By.CSS_SELECTOR, str(param))
+                for el in elements:
+                    try:
+                        tag = el.tag_name.lower()
+                        if tag == "img":
+                            src = (
+                                el.get_attribute("src")
+                                or el.get_attribute("data-src")
+                                or el.get_attribute("data-original")
+                                or el.get_attribute("data-lazy-src")
+                            )
+                        elif tag == "a":
+                            src = el.get_attribute("href")
+                        else:
+                            nested = el.find_elements(By.TAG_NAME, "img")
+                            if nested:
+                                src = (
+                                    nested[0].get_attribute("src")
+                                    or nested[0].get_attribute("data-src")
+                                    or nested[0].get_attribute("data-original")
+                                )
+                            else:
+                                src = el.get_attribute("src") or el.get_attribute("href")
+
+                        if src and not src.startswith("data:"):
+                            full_url = urllib.parse.urljoin(base_url, src)
+                            cleaned = self._clean_image_url(full_url)
+                            if cleaned:
+                                extracted.append(cleaned)
+                    except Exception:
+                        continue
+
+            elif atype == "Find <img> Number X on Page" and param:
+                with contextlib.suppress(Exception):
+                    idx = int(param) - 1
+                    imgs = driver.find_elements(By.TAG_NAME, "img")
+                    if 0 <= idx < len(imgs):
+                        img = imgs[idx]
+                        src = (
+                            img.get_attribute("src")
+                            or img.get_attribute("data-src")
+                            or img.get_attribute("data-original")
+                        )
+                        if src and not src.startswith("data:"):
+                            full_url = urllib.parse.urljoin(base_url, src)
+                            cleaned = self._clean_image_url(full_url)
+                            if cleaned:
+                                extracted.append(cleaned)
+
+            elif atype == "Download Image from Element":
+                imgs = driver.find_elements(By.TAG_NAME, "img")
+                for img in imgs:
+                    try:
+                        src = img.get_attribute("src") or img.get_attribute("data-src")
+                        if src and not src.startswith("data:"):
+                            full_url = urllib.parse.urljoin(base_url, src)
+                            cleaned = self._clean_image_url(full_url)
+                            if cleaned:
+                                extracted.append(cleaned)
+                    except Exception:
+                        continue
+
+            elif atype == "Download Current URL as Image":
+                curr = driver.current_url
+                cleaned = self._clean_image_url(curr)
+                if cleaned:
+                    extracted.append(cleaned)
+
+            elif atype == "Click Element by Text" and param:
+                with contextlib.suppress(Exception):
+                    txt = str(param).strip()
+                    for by_type, query in [
+                        (By.LINK_TEXT, txt),
+                        (By.PARTIAL_LINK_TEXT, txt),
+                        (By.XPATH, f"//*[contains(text(), '{txt}')]"),
+                    ]:
+                        elems = driver.find_elements(by_type, query)
+                        clicked = False
+                        for el in elems:
+                            if el.is_displayed():
+                                el.click()
+                                clicked = True
+                                time.sleep(1.5)
+                                break
+                        if clicked:
+                            break
+
+            elif atype == "Open Link in New Tab" and param:
+                with contextlib.suppress(Exception):
+                    driver.execute_script(f"window.open('{param}', '_blank');")
+                    time.sleep(1.0)
+
+            elif atype == "Switch to Last Tab":
+                with contextlib.suppress(Exception):
+                    handles = driver.window_handles
+                    if len(handles) > 1:
+                        driver.switch_to.window(handles[-1])
+                        time.sleep(0.5)
+
+            elif atype == "Close Current Tab":
+                with contextlib.suppress(Exception):
+                    handles = driver.window_handles
+                    if len(handles) > 1:
+                        driver.close()
+                        driver.switch_to.window(driver.window_handles[0])
+                        time.sleep(0.5)
+
+            elif atype == "Scan Page for Text and Skip if Found" and param:
+                if str(param) in driver.page_source:
+                    self.on_status.publish(
+                        f"⏩ Page skipped due to match for text: {param}"
+                    )
+                    return []
+
         if not extracted:
             # Default extraction if actions list did not collect URLs
             imgs = driver.find_elements(By.TAG_NAME, "img")
@@ -406,6 +777,7 @@ class ImageCrawler:
                         img.get_attribute("src")
                         or img.get_attribute("data-src")
                         or img.get_attribute("data-original")
+                        or img.get_attribute("data-lazy-src")
                     )
                     if src and not src.startswith("data:"):
                         full_url = urllib.parse.urljoin(base_url, src)
