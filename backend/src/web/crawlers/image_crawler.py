@@ -710,14 +710,20 @@ class ImageCrawler:
     def _wait_for_browser_access(self, driver) -> bool:
         """Allow verification to finish without treating a challenge as a gallery.
 
-        When a Cloudflare/captcha challenge is detected the crawler pauses and
-        fires ``on_verification_required``.  The GUI layer must show a dialog
-        and call :meth:`resume` after the user has solved the check — that sets
-        ``_resume_event`` which unblocks this loop.
+        Challenge handling (Cloudflare / CAPTCHA):
+        - Headless: fails immediately — cannot solve a visual challenge.
+        - Non-headless: fires ``on_verification_required``, then blocks the
+          crawler thread on ``_resume_event`` until the GUI calls
+          :meth:`resume` (user pressed OK) or :meth:`stop` (cancel).
+
+        Login-gate handling (site shows "log in to view more"):
+        - Waits up to 120 s for the user to log in and the gallery to appear.
         """
         from selenium.webdriver.common.by import By
 
         headless = self.config.get("headless")
+        # Deadline is only used for the login-pending path (user has 2 min).
+        login_deadline = time.monotonic() + 120
         notified = False
         login_pending = False
         album_url = None
@@ -742,6 +748,13 @@ class ImageCrawler:
                     driver.get(album_url)
                     continue
                 return True
+            if login_pending and time.monotonic() >= login_deadline:
+                self._access_blocked = True
+                self._login_blocked = True
+                self.on_status.publish(
+                    "⚠️ Login is still pending; stopping the crawl without trying subsequent pages."
+                )
+                return False
             if challenge and not notified:
                 if headless:
                     # Headless sessions can never solve a visual challenge.
