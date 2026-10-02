@@ -29,6 +29,12 @@ jobs:
         with:
           version: "latest"
 
+      - name: Init workspace submodules for lockfile check
+        run: git submodule update --init submodules/ASP submodules/CSG submodules/CRE
+
+      - name: Check uv lockfile matches workspace manifests
+        run: uv lock --check
+
       - name: Restore uv cache
         uses: actions/cache@v6
         with:
