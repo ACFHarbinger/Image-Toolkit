@@ -43,6 +43,8 @@ class ImageCrawlWorkerController(TabBoundController):
             config["browser"] = self.browser_combo.currentText()
             config["attach_existing"] = self.attach_existing_checkbox.isChecked()
             config["headless"] = self.headless_checkbox.isChecked()  # pyrefly: ignore [bad-assignment]
+            if hasattr(self, "debug_port_input"):
+                config["debug_port"] = int(self.debug_port_input.value())  # pyrefly: ignore [bad-assignment]
             config["screenshot_dir"] = self.screenshot_dir_path.text().strip() or None  # pyrefly: ignore [bad-assignment]
 
             rep_str = self.replace_str_input.text().strip()

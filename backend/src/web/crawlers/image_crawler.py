@@ -99,7 +99,7 @@ class ImageCrawler:
         driver = self._try_init_driver()
         if self.config.get("attach_existing") and driver is None:
             self.completion_message = f"Crawl stopped: {self._driver_error}" if self._driver_error else (
-                "Crawl stopped: no existing browser session is available on localhost:9223. "
+                f"Crawl stopped: no existing browser session is available on localhost:{self.config.get('debug_port', 9223)}. "
                 "Open the browser with remote debugging, log in, and retry."
             )
             self.on_status.publish(self.completion_message)
@@ -392,11 +392,12 @@ class ImageCrawler:
             if self.config.get("attach_existing"):
                 if browser_name == "firefox":
                     raise ValueError("Existing-session mode requires Brave, Chrome, or Edge.")
-                if not self._is_port_open("127.0.0.1", 9223):
+                _attach_port = self.config.get("debug_port", 9223)
+                if not self._is_port_open("127.0.0.1", _attach_port):
                     return None
-                driver = self._connect_debug_browser(9223)
+                driver = self._connect_debug_browser(_attach_port)
                 self._attached_browser = True
-                self.on_status.publish("Connected to the existing browser session on localhost:9223.")
+                self.on_status.publish(f"Connected to the existing browser session on localhost:{_attach_port}.")
                 return driver
 
             # Firefox support
