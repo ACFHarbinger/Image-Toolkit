@@ -335,7 +335,7 @@ For **high-cardinality telemetry** (unique user IDs, transaction hashes, feature
 25. VizTracer: https://github.com/gaogaotiantian/viztracer
 26. py-spy: https://codilime.com/blog/spying-on-python-with-py-spy/
 27. COZ Causal Profiling (SOSP 2015): https://sigops.org/s/conferences/sosp/2015/current/2015-Monterey/090-curtsinger-online.pdf
-28. COZ+ (SIGMETRICS 2019): https://hpcforge.eng.uci.edu/publication/sigmetrics19-coz+/sigmetrics19-coz+.pdf
+28. COZ+ (SIGMETRICS 2019): https://www.sigmetrics.org/opentoc/pomacs19_2toc.html
 29. SLOWPOKE (NSDI 2026): https://www.usenix.org/system/files/nsdi26-xie.pdf
 30. rr — lightweight recording & deterministic debugging: https://rr-project.org/
 31. Pernosco vision: https://pernos.co/about/vision/
