@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
     QListWidget,
     QProgressBar,
     QPushButton,
+    QSpinBox,
     QStackedWidget,
     QVBoxLayout,
     QWidget,
@@ -137,11 +138,28 @@ class ImageCrawlUIBuilder(TabBoundController):
         self.webdriver_process.readyReadStandardError.connect(self.on_webdriver_stderr)
         self.webdriver_process.finished.connect(self.on_webdriver_finished)
 
+        # --- Browser Launch Process ---
+        self.browser_process = QProcess(self.tab)
+        self.browser_process.readyReadStandardOutput.connect(self.on_browser_process_stdout)
+        self.browser_process.readyReadStandardError.connect(self.on_browser_process_stderr)
+        self.browser_process.finished.connect(self.on_browser_process_finished)
+
         self.webdriver_button = QPushButton("🌐 Start WebDriver Service")
         set_button_role(self.webdriver_button, "success")
         apply_shadow_effect(self.webdriver_button, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3)
         self.webdriver_button.clicked.connect(self.toggle_webdriver)
         self.button_layout.addWidget(self.webdriver_button, 0, Qt.AlignmentFlag.AlignBottom)
+
+        self.launch_browser_button = QPushButton("🚀 Launch Browser")
+        set_button_role(self.launch_browser_button, "primary")
+        apply_shadow_effect(self.launch_browser_button, color_hex=color("window_bg"), radius=8, x_offset=0, y_offset=3)
+        self.launch_browser_button.setToolTip(
+            "Launch the selected browser with a remote-debugging port so the crawler\n"
+            "can attach to it. Log in and navigate to your target, then run the crawler\n"
+            "with \"Use existing browser session\" checked."
+        )
+        self.launch_browser_button.clicked.connect(self.toggle_browser_launch)
+        self.button_layout.addWidget(self.launch_browser_button, 0, Qt.AlignmentFlag.AlignBottom)
 
         self.button_layout.addWidget(self.run_button, 0, Qt.AlignmentFlag.AlignBottom)
 
@@ -196,9 +214,29 @@ class ImageCrawlUIBuilder(TabBoundController):
         self.browser_combo.setCurrentText("brave")
         sec_crawl.add_row("Browser:", self.browser_combo)
 
+        self.debug_port_input = QSpinBox()
+        self.debug_port_input.setRange(1024, 65535)
+        self.debug_port_input.setValue(9223)
+        self.debug_port_input.setToolTip(
+            "Remote-debugging port used both by \"Launch Browser\" and \"Use existing"
+            " browser session\". Change if 9223 conflicts with another process."
+        )
+        sec_crawl.add_row("Debug Port:", self.debug_port_input)
+
+        self.attach_existing_checkbox = QCheckBox("Use existing browser session (skip login)")
+        self.attach_existing_checkbox.setToolTip(
+            "Connect to a browser opened with remote debugging on localhost:9223. "
+            "Log in and open the album in that browser before starting."
+        )
+        sec_crawl.add_row("", self.attach_existing_checkbox)
+
         self.headless_checkbox = QCheckBox("Run in headless mode")
         self.headless_checkbox.setChecked(True)
         sec_crawl.add_row("", self.headless_checkbox)
+        self.attach_existing_checkbox.toggled.connect(
+            lambda checked: self.headless_checkbox.setEnabled(not checked)
+        )
+        self.attach_existing_checkbox.toggled.connect(self.qml_settings_changed.emit)
         return sec_crawl.group_box
 
     def _build_general_actions_section(self) -> QWidget:
