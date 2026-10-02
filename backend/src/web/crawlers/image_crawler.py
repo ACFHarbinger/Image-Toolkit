@@ -1,3 +1,4 @@
+import base64
 import contextlib
 import json
 import os
@@ -5,6 +6,7 @@ import re
 import shutil
 import socket
 import subprocess
+import threading
 import time
 import urllib.parse
 
@@ -23,14 +25,29 @@ class ImageCrawler:
     def __init__(self, config: dict):
         self.config = config
         self._is_running = True
+        self._access_blocked = False
+        self._login_blocked = False
+        self.completion_message = ""
+        self._attached_browser = False
+        self._driver_error = ""
         # === Events (issue #529: plain Observables, not Qt signals) ===
         self.on_status: Observable[str] = Observable()
         self.on_image_saved: Observable[str] = Observable()
         self.on_finished: Observable[str] = Observable()
+        # Fired when a human-verification challenge is detected; the GUI
+        # must call resume() after the user dismisses the prompt.
+        self.on_verification_required: Observable[str] = Observable()
+        # Set by resume() so _wait_for_browser_access() can unblock.
+        self._resume_event: threading.Event = threading.Event()
 
     def stop(self):
         self._is_running = False
+        self._resume_event.set()  # unblock any waiting verification poll
         self.on_status.publish("Cancellation pending...")
+
+    def resume(self) -> None:
+        """Unblock a crawl that is paused at a verification prompt."""
+        self._resume_event.set()
 
     def on_status_emitted(self, msg: str):
         self.on_status.publish(msg)
@@ -80,6 +97,14 @@ class ImageCrawler:
 
         actions = self.config.get("actions", [])
         driver = self._try_init_driver()
+        if self.config.get("attach_existing") and driver is None:
+            self.completion_message = f"Crawl stopped: {self._driver_error}" if self._driver_error else (
+                "Crawl stopped: no existing browser session is available on localhost:9223. "
+                "Open the browser with remote debugging, log in, and retry."
+            )
+            self.on_status.publish(self.completion_message)
+            self.on_finished.publish(self.completion_message)
+            return 0
 
         downloaded_count = 0
         global_seen = set()
@@ -109,16 +134,21 @@ class ImageCrawler:
             or self.config.get("password")
         )
 
-        if driver and login_url and (login_user or login_pass):
-            self._perform_login(driver, login_url, login_user, login_pass)
-            self._sync_cookies_to_session(driver, session)
-        elif not driver and login_url and (login_user or login_pass):
-            self._perform_http_login(
-                session, login_url, login_user, login_pass, session_headers
-            )
-
         try:
+            if driver and self.config.get("attach_existing"):
+                self.on_status.publish("Using the existing browser login; automatic login skipped.")
+                self._sync_cookies_to_session(driver, session)
+            elif driver and login_url and (login_user or login_pass):
+                self._perform_login(driver, login_url, login_user, login_pass)
+                self._sync_cookies_to_session(driver, session)
+            elif not driver and login_url and (login_user or login_pass):
+                self._perform_http_login(
+                    session, login_url, login_user, login_pass, session_headers
+                )
+
             for page_idx, target_url in enumerate(target_urls):
+                if self._access_blocked:
+                    break
                 if not self._is_running:
                     self.on_status.publish("🛑 Crawl cancelled by user.")
                     break
@@ -131,8 +161,8 @@ class ImageCrawler:
 
                 if driver:
                     try:
-                        driver.get(target_url)
-                        time.sleep(1.5)
+                        if not self._navigate_browser(driver, target_url):
+                            break
                         self._scroll_page_to_trigger_lazy_load(driver)
                         self._sync_cookies_to_session(driver, session)
 
@@ -160,9 +190,10 @@ class ImageCrawler:
 
                 # Deduplicate against global_seen set across all pages
                 unique_urls = []
+                page_seen = set()
                 for u in extracted_urls:
-                    if u not in global_seen:
-                        global_seen.add(u)
+                    if u not in global_seen and u not in page_seen:
+                        page_seen.add(u)
                         unique_urls.append(u)
 
                 is_manual_selection = "Manual Selection" in selection_mode
@@ -175,22 +206,32 @@ class ImageCrawler:
                         urls_to_download = urls_to_download[:-skip_last]
 
                 self.on_status.publish(
+                    f"🔎 Page {page_idx + 1}: extracted {len(extracted_urls)} URL(s), "
+                    f"{len(unique_urls)} new unique image(s); "
+                    f"skip first={skip_first}, skip last={skip_last} "
+                    f"({'ignored for manual selection' if is_manual_selection else 'applied'})."
+                )
+                self.on_status.publish(
                     f"📷 Found {len(urls_to_download)} downloadable image(s) on page {page_idx + 1}."
                 )
 
                 # Download images
-                host = urllib.parse.urlparse(target_url).netloc
                 download_headers = dict(session_headers)
-                download_headers["Referer"] = f"https://{host}/"
+                download_headers["Referer"] = target_url
+                if driver:
+                    with contextlib.suppress(Exception):
+                        download_headers["User-Agent"] = driver.execute_script("return navigator.userAgent;")
+                    self._sync_cookies_to_session(driver, session)
 
                 for img_idx, img_url in enumerate(urls_to_download, start=1):
                     if not self._is_running:
                         break
 
                     saved_path = self._download_single_image(
-                        session, img_url, download_dir, download_headers
+                        session, img_url, download_dir, download_headers, driver=driver
                     )
                     if saved_path:
+                        global_seen.add(img_url)
                         downloaded_count += 1
                         pos_on_page = img_idx
                         meta = {
@@ -214,9 +255,24 @@ class ImageCrawler:
         finally:
             if driver:
                 with contextlib.suppress(Exception):
-                    driver.quit()
+                    if self._attached_browser:
+                        # DELETE /session can close a browser the user opened themselves.
+                        driver.service.stop()
+                    else:
+                        driver.quit()
 
         message = f"Crawl finished. Downloaded **{downloaded_count}** image(s)!"
+        if self._access_blocked:
+            message = (
+                f"Crawl stopped: login is required in the connected browser. "
+                f"Downloaded **{downloaded_count}** image(s). "
+                "Log in in that window, confirm the album gallery is visible, and retry."
+            ) if self._login_blocked else (
+                f"Crawl stopped: website security verification did not complete. "
+                f"Downloaded **{downloaded_count}** image(s). "
+                "Selenium sessions may be rejected even after checking the verification box."
+            )
+        self.completion_message = message
         self.on_status.publish(message)
         self.on_finished.publish(message)
         return downloaded_count
@@ -280,6 +336,48 @@ class ImageCrawler:
         except Exception:
             return False
 
+    def _find_brave_launch_command(self, binary: str | None) -> list[str]:
+        if binary:
+            return [binary]
+        flatpak = shutil.which("flatpak")
+        if flatpak:
+            try:
+                result = subprocess.run(
+                    [flatpak, "info", "com.brave.Browser"],
+                    capture_output=True, timeout=5, check=False,
+                )
+                if result.returncode == 0:
+                    return [flatpak, "run", "com.brave.Browser"]
+            except (OSError, subprocess.TimeoutExpired):
+                pass
+        return []
+
+    def _connect_debug_browser(self, port: int):
+        from selenium import webdriver
+        from selenium.webdriver.chrome.options import Options
+        from selenium.webdriver.chrome.service import Service
+        from selenium.webdriver.common.selenium_manager import SeleniumManager
+
+        # Flatpak's Chromium version cannot be inferred from host Chrome binaries.
+        with requests.Session() as session:
+            session.trust_env = False
+            response = session.get(f"http://127.0.0.1:{port}/json/version", timeout=5)
+            response.raise_for_status()
+            browser = response.json().get("Browser", "")
+        version = re.search(r"(?:Chrome|Chromium|HeadlessChrome)/(\d+)\.", browser)
+        if not version:
+            raise ValueError(f"Debugging endpoint returned an unsupported browser: {browser!r}")
+        major = version.group(1)
+        self.on_status.publish(f"Detected {browser}; resolving ChromeDriver {major}.")
+        paths = SeleniumManager().binary_paths([
+            "--browser", "chrome", "--browser-version", major,
+            "--skip-driver-in-path", "--skip-browser-in-path",
+            "--avoid-browser-download", "--avoid-stats", "--timeout", "30",
+        ])
+        options = Options()
+        options.add_experimental_option("debuggerAddress", f"127.0.0.1:{port}")
+        return webdriver.Chrome(service=Service(executable_path=paths["driver_path"]), options=options)
+
     def _try_init_driver(self):  # noqa: C901
         """Try connecting to Remote Selenium WebDriver or local browser driver."""
         try:
@@ -290,6 +388,16 @@ class ImageCrawler:
             browser_name = self.config.get("browser") or self.config.get("gen_browser") or "brave"
             browser_name = str(browser_name).lower().strip()
             headless = self.config.get("headless", False)
+
+            if self.config.get("attach_existing"):
+                if browser_name == "firefox":
+                    raise ValueError("Existing-session mode requires Brave, Chrome, or Edge.")
+                if not self._is_port_open("127.0.0.1", 9223):
+                    return None
+                driver = self._connect_debug_browser(9223)
+                self._attached_browser = True
+                self.on_status.publish("Connected to the existing browser session on localhost:9223.")
+                return driver
 
             # Firefox support
             if browser_name == "firefox":
@@ -304,31 +412,26 @@ class ImageCrawler:
             options = ChromeOptions()
             options.add_argument("--no-sandbox")
             options.add_argument("--disable-dev-shm-usage")
-            options.add_argument("--disable-blink-features=AutomationControlled")
-            options.add_argument(
-                "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-            )
             if headless:
                 options.add_argument("--headless=new")
 
             browser_bin = self._find_browser_binary(browser_name)
             if browser_bin:
                 options.binary_location = browser_bin
+            brave_command = self._find_brave_launch_command(browser_bin) if browser_name == "brave" else []
+            is_flatpak = len(brave_command) > 1
 
             # 1. Instant check for an active remote debugging session on port 9222
             if self._is_port_open("127.0.0.1", 9222):
                 try:
-                    dbg_options = ChromeOptions()
-                    dbg_options.add_experimental_option("debuggerAddress", "127.0.0.1:9222")
-                    driver = webdriver.Chrome(options=dbg_options)
+                    driver = self._connect_debug_browser(9222)
                     self.on_status.publish(f"🌐 Connected to active {browser_name.title()} debugging session (port 9222).")
                     return driver
                 except Exception:
                     pass
 
             # 2. Instant check for Managed Remote WebDriver on port 9515
-            if self._is_port_open("127.0.0.1", 9515):
+            if not is_flatpak and self._is_port_open("127.0.0.1", 9515):
                 try:
                     driver = webdriver.Remote(
                         command_executor="http://localhost:9515", options=options
@@ -341,15 +444,18 @@ class ImageCrawler:
             # Support persistent profile directory so logins/cookies persist across runs
             user_dir = self.config.get("user_data_dir")
             if not user_dir:
-                user_dir = os.path.expanduser("~/.image-toolkit/browser_profile")
+                user_dir = os.path.expanduser(
+                    "~/.var/app/com.brave.Browser/config/image-toolkit-crawler"
+                    if is_flatpak else "~/.image-toolkit/browser_profile"
+                )
             with contextlib.suppress(Exception):
                 os.makedirs(user_dir, exist_ok=True)
 
             # 3. For Brave specifically on Linux/Mac, launch remote-debugging subprocess if direct ChromeDriver session traps
-            if browser_name == "brave" and browser_bin:
+            if browser_name == "brave" and brave_command:
                 try:
                     cmd = [
-                        browser_bin,
+                        *brave_command,
                         "--remote-debugging-port=9222",
                         "--no-sandbox",
                         "--disable-dev-shm-usage",
@@ -363,15 +469,15 @@ class ImageCrawler:
                     )
                     time.sleep(1.5)
 
-                    dbg_options = ChromeOptions()
-                    dbg_options.add_experimental_option("debuggerAddress", "127.0.0.1:9222")
-                    driver = webdriver.Chrome(options=dbg_options)
+                    driver = self._connect_debug_browser(9222)
                     self.on_status.publish(
                         f"🌐 Initialized local {browser_name.title()} browser session."
                     )
                     return driver
                 except Exception as ex:
                     self.on_status.publish(f"⚠️ Brave subprocess launch warning: {ex}")
+                    if is_flatpak:
+                        raise RuntimeError("Could not connect to Flatpak Brave") from ex
 
             # 4. Fallback to direct Chrome/Chromium launch with persistent profile
             try:
@@ -392,6 +498,10 @@ class ImageCrawler:
                 return driver
 
         except Exception as e:
+            if self.config.get("attach_existing"):
+                self._driver_error = f"Could not connect to the existing browser: {getattr(e, 'msg', str(e))}"
+                self.on_status.publish(f"⚠️ {self._driver_error}")
+                return None
             self.on_status.publish(
                 f"ℹ️ WebDriver not connected ({e}). Using high-performance HTTP crawler."
             )
@@ -406,7 +516,8 @@ class ImageCrawler:
 
         self.on_status.publish(f"🔑 Navigating to login page: {login_url}")
         try:
-            driver.get(login_url)
+            if not self._navigate_browser(driver, login_url):
+                return False
             time.sleep(2.0)
 
             # Check if user is already authenticated
@@ -566,6 +677,154 @@ class ImageCrawler:
         except Exception as e:
             self.on_status.publish(f"⚠️ Cookie synchronization warning: {e}")
 
+    def _navigate_browser(self, driver, url: str) -> bool:
+        from selenium.common.exceptions import TimeoutException
+
+        driver.set_page_load_timeout(30)
+        try:
+            driver.get(url)
+        except TimeoutException:
+            if not self._browser_has_challenge(driver):
+                raise
+            # Challenge resources can keep navigation pending before polling starts.
+            self.on_status.publish("⚠️ Navigation is waiting on website security verification.")
+        return self._wait_for_browser_access(driver)
+
+    def _browser_has_challenge(self, driver) -> bool:
+        from selenium.webdriver.common.by import By
+
+        title = (driver.title or "").lower()
+        if any(marker in title for marker in ("just a moment", "attention required")):
+            return True
+        try:
+            body = driver.find_element(By.TAG_NAME, "body").text.lower()
+        except Exception:
+            return False
+        return any(marker in body for marker in (
+            "performing security verification",
+            "this page is displayed while the website verifies you are not a bot",
+            "verifying you are human",
+        ))
+
+    def _wait_for_browser_access(self, driver) -> bool:
+        """Allow verification to finish without treating a challenge as a gallery.
+
+        When a Cloudflare/captcha challenge is detected the crawler pauses and
+        fires ``on_verification_required``.  The GUI layer must show a dialog
+        and call :meth:`resume` after the user has solved the check — that sets
+        ``_resume_event`` which unblocks this loop.
+        """
+        from selenium.webdriver.common.by import By
+
+        headless = self.config.get("headless")
+        notified = False
+        login_pending = False
+        album_url = None
+        restored_album = False
+        while self._is_running:
+            challenge = self._browser_has_challenge(driver)
+            if not challenge and not login_pending:
+                body = driver.find_element(By.TAG_NAME, "body").text
+                if self._has_album_login_gate(body):
+                    login_pending = True
+                    album_url = driver.current_url
+                    self.on_status.publish(
+                        "🔑 This browser is not logged in: the site is showing only an album preview. "
+                        "Log in in the connected browser window within two minutes. "
+                        "Your normal Brave window uses a different profile."
+                    )
+            if not challenge and not login_pending:
+                return True
+            if login_pending and not challenge and driver.find_elements(By.CSS_SELECTOR, ".photos-list img"):
+                if driver.current_url != album_url and not restored_album:
+                    restored_album = True
+                    driver.get(album_url)
+                    continue
+                return True
+            if challenge and not notified:
+                if headless:
+                    # Headless sessions can never solve a visual challenge.
+                    self.on_status.publish(
+                        "⚠️ Browser verification required but running headless — disable Headless and retry."
+                    )
+                    self._access_blocked = True
+                    return False
+                # Non-headless: pause and ask the user to solve it, then press OK.
+                msg = (
+                    "⏸️ Human verification required. Complete the check in the browser window, "
+                    "then press OK in the dialog to resume the crawl."
+                )
+                self.on_status.publish(msg)
+                self._resume_event.clear()
+                self.on_verification_required.publish(msg)
+                # Block the crawler thread until resume() is called (or stop()).
+                while self._is_running and not self._resume_event.is_set():
+                    self._resume_event.wait(timeout=0.5)
+                if not self._is_running:
+                    return False
+                self._resume_event.clear()
+                notified = True  # suppress further pause prompts for same page
+            time.sleep(0.5)
+        return False
+
+    @staticmethod
+    def _has_album_login_gate(text: str) -> bool:
+        return isinstance(text, str) and "you need to log in to view more content of this album" in " ".join(text.lower().split())
+
+    def _image_element_url(self, get_attribute, base_url: str) -> str | None:
+        # A nonempty placeholder src must not mask the actual lazy/full-size URL.
+        for attr in (
+            "data-high-res", "data-large-src", "data-full-url", "data-original",
+            "data-src", "data-lazy-src", "data-srcset", "srcset", "src", "data-thumb",
+        ):
+            value = get_attribute(attr)
+            if not isinstance(value, str) or not value.strip():
+                continue
+            candidates = [value.strip()]
+            if attr.endswith("srcset"):
+                entries = [part.split() for part in value.split(",") if part.strip()]
+
+                def size(entry):
+                    try:
+                        return float(entry[1].rstrip("wx")) if len(entry) > 1 else 1
+                    except ValueError:
+                        return 0
+
+                candidates = [entry[0] for entry in sorted(entries, key=size, reverse=True)]
+            for candidate in candidates:
+                url = self._clean_image_url(urllib.parse.urljoin(base_url, candidate))
+                if url:
+                    return url
+        return None
+
+    def _fetch_browser_image(self, driver, url: str) -> bytes:
+        """Retry using the browser session; normal browser CORS rules still apply."""
+        try:
+            result = driver.execute_async_script("""
+                const url = arguments[0], done = arguments[arguments.length - 1];
+                const controller = new AbortController();
+                const timer = setTimeout(() => controller.abort(), 15000);
+                fetch(url, {credentials: 'include', signal: controller.signal})
+                    .then(response => {
+                        if (!response.ok) throw new Error('HTTP ' + response.status);
+                        return response.blob();
+                    })
+                    .then(blob => new Promise((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onload = () => resolve(reader.result.split(',')[1]);
+                        reader.onerror = () => reject(new Error('Image read failed'));
+                        reader.readAsDataURL(blob);
+                    }))
+                    .then(data => { clearTimeout(timer); done({data}); })
+                    .catch(error => { clearTimeout(timer); done({error: String(error)}); });
+            """, url)
+            if result.get("data"):
+                return base64.b64decode(result["data"], validate=True)
+            self.on_status.publish(f"⚠️ Browser image request failed: {result.get('error')}: {url}")
+        except Exception as exc:
+            self.on_status.publish(f"⚠️ Browser image request failed: {exc}")
+        return b""
+
     def _scroll_page_to_trigger_lazy_load(self, driver) -> None:
         """Gradually scroll through the page to trigger IntersectionObserver and lazy-loaded images."""
         with contextlib.suppress(Exception):
@@ -613,31 +872,9 @@ class ImageCrawler:
                 imgs = driver.find_elements(By.TAG_NAME, "img")
                 for img in imgs:
                     try:
-                        src = (
-                            img.get_attribute("src")
-                            or img.get_attribute("data-src")
-                            or img.get_attribute("data-original")
-                            or img.get_attribute("data-lazy-src")
-                            or img.get_attribute("data-high-res")
-                            or img.get_attribute("data-large-src")
-                            or img.get_attribute("data-full-url")
-                            or img.get_attribute("data-thumb")
-                        )
-                        if not src:
-                            srcset = img.get_attribute("srcset")
-                            if srcset:
-                                parts = [
-                                    p.strip().split()[0]
-                                    for p in srcset.split(",")
-                                    if p.strip()
-                                ]
-                                if parts:
-                                    src = parts[-1]
-                        if src and not src.startswith("data:"):
-                            full_url = urllib.parse.urljoin(base_url, src)
-                            cleaned = self._clean_image_url(full_url)
-                            if cleaned:
-                                extracted.append(cleaned)
+                        url = self._image_element_url(img.get_attribute, base_url)
+                        if url:
+                            extracted.append(url)
                     except Exception:
                         continue
 
@@ -658,31 +895,22 @@ class ImageCrawler:
                 for el in elements:
                     try:
                         tag = el.tag_name.lower()
-                        if tag == "img":
-                            src = (
-                                el.get_attribute("src")
-                                or el.get_attribute("data-src")
-                                or el.get_attribute("data-original")
-                                or el.get_attribute("data-lazy-src")
-                            )
-                        elif tag == "a":
+                        if tag == "a":
                             src = el.get_attribute("href")
+                            url = self._clean_image_url(urllib.parse.urljoin(base_url, src)) if src else None
+                            if url:
+                                extracted.append(url)
                         else:
-                            nested = el.find_elements(By.TAG_NAME, "img")
-                            if nested:
-                                src = (
-                                    nested[0].get_attribute("src")
-                                    or nested[0].get_attribute("data-src")
-                                    or nested[0].get_attribute("data-original")
-                                )
-                            else:
+                            images = [el] if tag == "img" else el.find_elements(By.TAG_NAME, "img")
+                            for img in images:
+                                url = self._image_element_url(img.get_attribute, base_url)
+                                if url:
+                                    extracted.append(url)
+                            if not images:
                                 src = el.get_attribute("src") or el.get_attribute("href")
-
-                        if src and not src.startswith("data:"):
-                            full_url = urllib.parse.urljoin(base_url, src)
-                            cleaned = self._clean_image_url(full_url)
-                            if cleaned:
-                                extracted.append(cleaned)
+                                url = self._clean_image_url(urllib.parse.urljoin(base_url, src)) if src else None
+                                if url:
+                                    extracted.append(url)
                     except Exception:
                         continue
 
@@ -692,27 +920,17 @@ class ImageCrawler:
                     imgs = driver.find_elements(By.TAG_NAME, "img")
                     if 0 <= idx < len(imgs):
                         img = imgs[idx]
-                        src = (
-                            img.get_attribute("src")
-                            or img.get_attribute("data-src")
-                            or img.get_attribute("data-original")
-                        )
-                        if src and not src.startswith("data:"):
-                            full_url = urllib.parse.urljoin(base_url, src)
-                            cleaned = self._clean_image_url(full_url)
-                            if cleaned:
-                                extracted.append(cleaned)
+                        url = self._image_element_url(img.get_attribute, base_url)
+                        if url:
+                            extracted.append(url)
 
             elif atype == "Download Image from Element":
                 imgs = driver.find_elements(By.TAG_NAME, "img")
                 for img in imgs:
                     try:
-                        src = img.get_attribute("src") or img.get_attribute("data-src")
-                        if src and not src.startswith("data:"):
-                            full_url = urllib.parse.urljoin(base_url, src)
-                            cleaned = self._clean_image_url(full_url)
-                            if cleaned:
-                                extracted.append(cleaned)
+                        url = self._image_element_url(img.get_attribute, base_url)
+                        if url:
+                            extracted.append(url)
                     except Exception:
                         continue
 
@@ -773,17 +991,9 @@ class ImageCrawler:
             imgs = driver.find_elements(By.TAG_NAME, "img")
             for img in imgs:
                 try:
-                    src = (
-                        img.get_attribute("src")
-                        or img.get_attribute("data-src")
-                        or img.get_attribute("data-original")
-                        or img.get_attribute("data-lazy-src")
-                    )
-                    if src and not src.startswith("data:"):
-                        full_url = urllib.parse.urljoin(base_url, src)
-                        cleaned = self._clean_image_url(full_url)
-                        if cleaned:
-                            extracted.append(cleaned)
+                    url = self._image_element_url(img.get_attribute, base_url)
+                    if url:
+                        extracted.append(url)
                 except Exception:
                     continue
 
@@ -795,21 +1005,22 @@ class ImageCrawler:
         try:
             resp = session.get(page_url, headers=headers, timeout=15)
             if resp.status_code != 200:
+                self.on_status.publish(
+                    f"⚠️ Page request returned HTTP {resp.status_code}: {page_url}. "
+                    "If browser verification or login is required, use a visible browser session."
+                )
                 return []
 
             soup = BeautifulSoup(resp.text, "html.parser")
+            if self._has_album_login_gate(soup.get_text(" ", strip=True)):
+                self._access_blocked = True
+                self._login_blocked = True
+                self.on_status.publish("🔑 HTTP page contains a login gate, not the album gallery; stopping.")
+                return []
             for img in soup.find_all("img"):
-                src = (
-                    img.get("src")
-                    or img.get("data-src")
-                    or img.get("data-original")
-                    or img.get("data-lazy-src")
-                )
-                if src and not src.startswith("data:"):
-                    full_url = urllib.parse.urljoin(page_url, src)
-                    cleaned = self._clean_image_url(full_url)
-                    if cleaned:
-                        extracted.append(cleaned)
+                url = self._image_element_url(img.get, resp.url or page_url)
+                if url:
+                    extracted.append(url)
 
             for a in soup.find_all("a", href=True):
                 href = a.get("href")
@@ -835,6 +1046,8 @@ class ImageCrawler:
         url = re.sub(r"^https?://i[0-9]\.wp\.com/", "https://", url)
 
         parsed = urllib.parse.urlparse(url)
+        if parsed.scheme not in ("http", "https") or not parsed.netloc:
+            return None
         path = parsed.path.lower()
 
         # Reject HTML webpage links
@@ -854,7 +1067,7 @@ class ImageCrawler:
         return None
 
     def _download_single_image(
-        self, session, img_url, download_dir, headers
+        self, session, img_url, download_dir, headers, driver=None
     ) -> str | None:
         """Download single image file and write to target directory."""
         try:
@@ -882,16 +1095,25 @@ class ImageCrawler:
             if os.path.exists(out_path) and os.path.getsize(out_path) > 3000:
                 return out_path
 
-            resp = session.get(img_url, headers=headers, timeout=20)
-            if resp.status_code != 200:
-                return None
+            content = b""
+            try:
+                resp = session.get(img_url, headers=headers, timeout=20)
+                c_type = resp.headers.get("Content-Type", "").lower()
+                if resp.status_code == 200 and not any(
+                    kind in c_type for kind in ("text/", "application/xhtml")
+                ):
+                    content = resp.content
+                else:
+                    self.on_status.publish(
+                        f"⚠️ Image request rejected: HTTP {resp.status_code}, {c_type}: {img_url}"
+                    )
+            except requests.RequestException as exc:
+                self.on_status.publish(f"⚠️ Image HTTP request failed: {exc}")
 
-            c_type = resp.headers.get("Content-Type", "").lower()
-            if "text/html" in c_type or "text/plain" in c_type or "application/xhtml" in c_type:
-                return None
-
-            content = resp.content
+            if not content and driver is not None:
+                content = self._fetch_browser_image(driver, img_url)
             if len(content) < 100:
+                self.on_status.publish(f"⚠️ No image data received: {img_url}")
                 return None
 
             # Verify image magic bytes
@@ -903,6 +1125,7 @@ class ImageCrawler:
                 or content.startswith(b"BM")          # BMP
             )
             if not is_valid_image:
+                self.on_status.publish(f"⚠️ Response is not a supported image: {img_url}")
                 return None
 
             # Correct extension if mismatch
