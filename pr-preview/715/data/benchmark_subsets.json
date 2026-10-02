@@ -1,0 +1,293 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-08-17",
+  "total_corpus_cases": 97,
+  "subsets": {
+    "balanced_smoke_10": {
+      "label": "Balanced Smoke Set (10 Cases)",
+      "description": "Fast ~30s smoke validation covering all core defect archetypes with minimal variance to full corpus means.",
+      "target_milestone": "General CI / Smoke",
+      "cases": [
+        "asp_test06",
+        "asp_test07",
+        "asp_test08",
+        "asp_test28",
+        "asp_test30",
+        "asp_test41",
+        "asp_test52",
+        "asp_test59",
+        "asp_test89",
+        "asp_test96"
+      ],
+      "fidelity": {
+        "subset_size": 10,
+        "full_corpus_size": 97,
+        "defect_coverage_ratio": 1.0,
+        "covered_defects_count": 11,
+        "total_defects_count": 11,
+        "mean_asp_score": {
+          "subset": 1.7,
+          "full": 2.01,
+          "abs_error": 0.31
+        },
+        "mean_simple_score": {
+          "subset": 2.2,
+          "full": 2.64,
+          "abs_error": 0.44
+        },
+        "preference_distribution": {
+          "subset": {
+            "simple": 0.6,
+            "tie": 0.1,
+            "asp": 0.3
+          },
+          "full": {
+            "simple": 0.505,
+            "tie": 0.392,
+            "asp": 0.103
+          }
+        },
+        "metric_rank_correlation_fidelity": {
+          "seam_visibility": {
+            "subset_rho": -0.125,
+            "full_rho": -0.425
+          },
+          "seam_gradient": {
+            "subset_rho": -0.332,
+            "full_rho": -0.473
+          },
+          "sharpness": {
+            "subset_rho": -0.075,
+            "full_rho": -0.471
+          },
+          "ghosting_siqe": {
+            "subset_rho": 0.596,
+            "full_rho": 0.6
+          },
+          "coverage": {
+            "subset_rho": -0.466,
+            "full_rho": 0.091
+          }
+        }
+      }
+    },
+    "balanced_medium_20": {
+      "label": "Balanced Stratified Set (20 Cases)",
+      "description": "High-fidelity 20-case mini-benchmark for comprehensive pull request checks.",
+      "target_milestone": "Pre-Merge Gate",
+      "cases": [
+        "asp_test05",
+        "asp_test06",
+        "asp_test07",
+        "asp_test08",
+        "asp_test20",
+        "asp_test28",
+        "asp_test30",
+        "asp_test31",
+        "asp_test33",
+        "asp_test35",
+        "asp_test41",
+        "asp_test45",
+        "asp_test46",
+        "asp_test50",
+        "asp_test52",
+        "asp_test59",
+        "asp_test65",
+        "asp_test82",
+        "asp_test89",
+        "asp_test96"
+      ],
+      "fidelity": {
+        "subset_size": 20,
+        "full_corpus_size": 97,
+        "defect_coverage_ratio": 1.0,
+        "covered_defects_count": 11,
+        "total_defects_count": 11,
+        "mean_asp_score": {
+          "subset": 1.65,
+          "full": 2.01,
+          "abs_error": 0.36
+        },
+        "mean_simple_score": {
+          "subset": 2.3,
+          "full": 2.64,
+          "abs_error": 0.34
+        },
+        "preference_distribution": {
+          "subset": {
+            "simple": 0.65,
+            "tie": 0.15,
+            "asp": 0.2
+          },
+          "full": {
+            "simple": 0.505,
+            "tie": 0.392,
+            "asp": 0.103
+          }
+        },
+        "metric_rank_correlation_fidelity": {
+          "seam_visibility": {
+            "subset_rho": -0.111,
+            "full_rho": -0.425
+          },
+          "seam_gradient": {
+            "subset_rho": -0.352,
+            "full_rho": -0.473
+          },
+          "sharpness": {
+            "subset_rho": -0.257,
+            "full_rho": -0.471
+          },
+          "ghosting_siqe": {
+            "subset_rho": 0.518,
+            "full_rho": 0.6
+          },
+          "coverage": {
+            "subset_rho": -0.087,
+            "full_rho": 0.091
+          }
+        }
+      }
+    },
+    "structural_red_set_12": {
+      "label": "Structural Alignment Set (12 Cases)",
+      "description": "M3/M4 targeted benchmark focusing on torn anatomy, affine misordering, and duplicated strips.",
+      "target_milestone": "M3 / M4 (Alignment)",
+      "cases": [
+        "asp_test06",
+        "asp_test07",
+        "asp_test12",
+        "asp_test31",
+        "asp_test41",
+        "asp_test45",
+        "asp_test46",
+        "asp_test54",
+        "asp_test59",
+        "asp_test70",
+        "asp_test89",
+        "asp_test96"
+      ],
+      "fidelity": {
+        "subset_size": 12,
+        "full_corpus_size": 97,
+        "defect_coverage_ratio": 1.0,
+        "covered_defects_count": 11,
+        "total_defects_count": 11,
+        "mean_asp_score": {
+          "subset": 1.5,
+          "full": 2.01,
+          "abs_error": 0.51
+        },
+        "mean_simple_score": {
+          "subset": 2.17,
+          "full": 2.64,
+          "abs_error": 0.47
+        },
+        "preference_distribution": {
+          "subset": {
+            "simple": 0.5,
+            "tie": 0.25,
+            "asp": 0.25
+          },
+          "full": {
+            "simple": 0.505,
+            "tie": 0.392,
+            "asp": 0.103
+          }
+        },
+        "metric_rank_correlation_fidelity": {
+          "seam_visibility": {
+            "subset_rho": -0.107,
+            "full_rho": -0.425
+          },
+          "seam_gradient": {
+            "subset_rho": -0.259,
+            "full_rho": -0.473
+          },
+          "sharpness": {
+            "subset_rho": -0.203,
+            "full_rho": -0.471
+          },
+          "ghosting_siqe": {
+            "subset_rho": 0.458,
+            "full_rho": 0.6
+          },
+          "coverage": {
+            "subset_rho": -0.562,
+            "full_rho": 0.091
+          }
+        }
+      }
+    },
+    "photometric_seam_set_12": {
+      "label": "Photometric & Seams Set (12 Cases)",
+      "description": "M5 targeted benchmark focusing on horizontal banding, color shift, and seam cut visibility.",
+      "target_milestone": "M5 (Photometrics)",
+      "cases": [
+        "asp_test07",
+        "asp_test12",
+        "asp_test20",
+        "asp_test28",
+        "asp_test39",
+        "asp_test45",
+        "asp_test46",
+        "asp_test52",
+        "asp_test74",
+        "asp_test82",
+        "asp_test89",
+        "asp_test96"
+      ],
+      "fidelity": {
+        "subset_size": 12,
+        "full_corpus_size": 97,
+        "defect_coverage_ratio": 1.0,
+        "covered_defects_count": 11,
+        "total_defects_count": 11,
+        "mean_asp_score": {
+          "subset": 1.67,
+          "full": 2.01,
+          "abs_error": 0.34
+        },
+        "mean_simple_score": {
+          "subset": 2.08,
+          "full": 2.64,
+          "abs_error": 0.56
+        },
+        "preference_distribution": {
+          "subset": {
+            "simple": 0.5,
+            "tie": 0.167,
+            "asp": 0.333
+          },
+          "full": {
+            "simple": 0.505,
+            "tie": 0.392,
+            "asp": 0.103
+          }
+        },
+        "metric_rank_correlation_fidelity": {
+          "seam_visibility": {
+            "subset_rho": -0.255,
+            "full_rho": -0.425
+          },
+          "seam_gradient": {
+            "subset_rho": -0.607,
+            "full_rho": -0.473
+          },
+          "sharpness": {
+            "subset_rho": -0.384,
+            "full_rho": -0.471
+          },
+          "ghosting_siqe": {
+            "subset_rho": 0.503,
+            "full_rho": 0.6
+          },
+          "coverage": {
+            "subset_rho": -0.206,
+            "full_rho": 0.091
+          }
+        }
+      }
+    }
+  }
+}
