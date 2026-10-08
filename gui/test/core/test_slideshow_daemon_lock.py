@@ -83,6 +83,7 @@ def test_sync_daemon_config_keeps_locked_queues(q_app, tmp_path, monkeypatch):
             self.monitor_slideshow_queues = {"0": ["/profile.jpg"]}
             self.monitor_image_paths = {}
             self.monitor_history = {}
+            self.monitor_current_index = {}
             self.monitors = []
             self.background_type = "Slideshow"
             self.wallpaper_style = "Fill"
