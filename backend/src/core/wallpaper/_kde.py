@@ -373,7 +373,7 @@ class _KDEWallpaperMixin:
         if not cmd:
             return False
 
-        path = path_map.get("0") or next(iter(path_map.values()), None)
+        path = path_map.get("0") or next((p for p in path_map.values() if p), None)
         if not path or not os.path.exists(path):
             return False
 

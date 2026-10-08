@@ -283,6 +283,132 @@ class TestWallpaperManager:
         assert 'writeConfig("LastVideo", "file:///path/to/video.mp4")' in script
         assert 'writeConfig("LastVideo", "[{' not in script
 
+    # --- Regression tests: plasma-apply-wallpaperimage has no per-monitor
+    # targeting (confirmed via --help), so it must never be used as a
+    # fallback when path_map deliberately omits a monitor -- e.g. the
+    # per-monitor slideshow daemon advancing one display while another's
+    # queue is empty and its wallpaper must stay untouched. Using it
+    # unconditionally was the bug: both monitors' wallpapers changed even
+    # though only one had an active slideshow queue. ---
+
+    @patch("src.core.wallpaper.manager.platform.system", return_value="Linux")
+    @patch(
+        "src.core.wallpaper._kde.shutil.which",
+        return_value="/usr/bin/plasma-apply-wallpaperimage",
+    )
+    @patch("src.core.wallpaper._kde.os.path.exists", return_value=True)
+    @patch("src.core.wallpaper._kde.subprocess.run")
+    def test_apply_wallpaper_linux_kde_dbus_failed_multi_monitor_partial_map_no_plasma_apply(
+        self, mock_run, mock_exists, mock_which, mock_platform, mock_base, mock_monitor
+    ):
+        """A per-monitor DBus failure with a SECOND monitor present, whose
+        wallpaper ``path_map`` deliberately leaves out (e.g. its slideshow
+        queue is empty), must not fall back to plasma-apply-wallpaperimage
+        -- that tool has no per-output targeting and would overwrite the
+        other monitor's untouched wallpaper too. It must raise instead.
+        """
+        mock_monitor_2 = MagicMock(x=1920, y=0, width=1920, height=1080, is_primary=False)
+        mock_base.evaluate_kde_script.side_effect = ["0:0:0:0\n1:1:1920:0", RuntimeError("qdbus failed setting wallpaper")]
+
+        with pytest.raises(RuntimeError):
+            WallpaperManager.apply_wallpaper(
+                path_map={"0": "/path/to/img.jpg"},  # monitor "1" deliberately absent
+                monitors=[mock_monitor, mock_monitor_2],
+                style_name="Fill",
+                qdbus="qdbus",
+            )
+
+        mock_run.assert_not_called()
+
+    @patch("src.core.wallpaper.manager.platform.system", return_value="Linux")
+    @patch(
+        "src.core.wallpaper._kde.shutil.which",
+        return_value="/usr/bin/plasma-apply-wallpaperimage",
+    )
+    @patch("src.core.wallpaper._kde.os.path.exists", return_value=True)
+    @patch("src.core.wallpaper._kde.subprocess.run")
+    @patch("src.core.wallpaper._gnome.Image")  # Mock PIL for spanned
+    @patch.dict("os.environ", {"XDG_CURRENT_DESKTOP": "KDE"})
+    def test_apply_wallpaper_linux_kde_desktops_unavailable_multi_monitor_partial_map_no_plasma_apply(
+        self, mock_pil, mock_run, mock_exists, mock_which, mock_platform, mock_base, mock_monitor
+    ):
+        """Same guard, reached via the other call site: ``get_kde_desktops``
+        itself returns nothing (so the code never even enters the KDE
+        per-monitor branch), but a second monitor exists and ``path_map``
+        only covers one of them. Must not blast that one path across every
+        screen via plasma-apply-wallpaperimage.
+        """
+        mock_monitor_2 = MagicMock(x=1920, y=0, width=1920, height=1080, is_primary=False)
+        mock_base.evaluate_kde_script.side_effect = RuntimeError("qdbus unavailable")
+
+        WallpaperManager.apply_wallpaper(
+            path_map={"0": "/path/to/img.jpg"},  # monitor "1" deliberately absent
+            monitors=[mock_monitor, mock_monitor_2],
+            style_name="Fill",
+            qdbus="qdbus",
+        )
+
+        mock_run.assert_not_called()
+
+    @patch("src.core.wallpaper.manager.platform.system", return_value="Linux")
+    @patch(
+        "src.core.wallpaper._kde.shutil.which",
+        return_value="/usr/bin/plasma-apply-wallpaperimage",
+    )
+    @patch("src.core.wallpaper._kde.os.path.exists", return_value=True)
+    @patch("src.core.wallpaper._kde.subprocess.run")
+    def test_apply_wallpaper_linux_kde_dbus_failed_multi_monitor_same_path_plasma_apply_ok(
+        self, mock_run, mock_exists, mock_which, mock_platform, mock_base, mock_monitor
+    ):
+        """The guard must not block the legitimate case: every known
+        monitor is present in path_map and they all want the SAME image
+        (e.g. a "same wallpaper everywhere" action) -- plasma-apply-
+        wallpaperimage setting it once for the whole session is correct
+        there.
+        """
+        mock_monitor_2 = MagicMock(x=1920, y=0, width=1920, height=1080, is_primary=False)
+        mock_base.evaluate_kde_script.side_effect = ["0:0:0:0\n1:1:1920:0", RuntimeError("qdbus failed setting wallpaper")]
+
+        WallpaperManager.apply_wallpaper(
+            path_map={"0": "/path/to/img.jpg", "1": "/path/to/img.jpg"},
+            monitors=[mock_monitor, mock_monitor_2],
+            style_name="Fill",
+            qdbus="qdbus",
+        )
+
+        mock_run.assert_called_once()
+
+    @patch("src.core.wallpaper.manager.platform.system", return_value="Linux")
+    @patch("src.core.wallpaper._kde.shutil.which", return_value=None)
+    @patch.dict("os.environ", {"XDG_CURRENT_DESKTOP": "KDE"})
+    def test_apply_wallpaper_linux_kde_desktops_unavailable_partial_map_none_path_falls_through(
+        self, mock_which, mock_platform, mock_base, mock_monitor
+    ):
+        """A monitor whose queue was cleared can legitimately carry ``None``
+        in ``path_map`` (not just be absent from it). When KDE desktop
+        detection also fails (so the per-monitor DBus branch is skipped
+        entirely) and plasma-apply-wallpaperimage isn't on PATH, the
+        single-path GNOME fallback used to do
+        ``path_map.get("0") or next(iter(path_map.values()))`` -- which
+        picks whichever value dict-iteration puts first, landing on "0"'s
+        own ``None`` just as often as monitor "1"'s real path, and crashing
+        with ``Path(None)``. It must skip the ``None`` entry and use the
+        real path instead.
+        """
+        mock_monitor_2 = MagicMock(x=1920, y=0, width=1920, height=1080, is_primary=False)
+        mock_base.evaluate_kde_script.side_effect = RuntimeError("qdbus unavailable")
+
+        WallpaperManager.apply_wallpaper(
+            path_map={"0": None, "1": "/path/to/img2.jpg"},
+            monitors=[mock_monitor, mock_monitor_2],
+            style_name="Fill",
+            qdbus="qdbus",
+        )
+
+        mock_base.set_wallpaper_gnome.assert_called_once()
+        called_uri = mock_base.set_wallpaper_gnome.call_args[0][0]
+        assert "img2.jpg" in called_uri
+
 
 # Helper to check winreg calls simpler
 def winreg_set_value_ex_called_with(mock_winreg, result_key):
