@@ -457,7 +457,7 @@ def test_existing_session_skips_login_and_keeps_browser_open(mock_sleep, tmp_pat
 
 def test_brave_native_binary_takes_precedence():
     crawler = ImageCrawler({})
-    with patch("backend.src.web.crawlers.image_crawler.subprocess.run") as run:
+    with patch("backend.src.web.crawlers.image_crawler_parts._browser_setup.subprocess.run") as run:
         assert crawler._find_brave_launch_command("/usr/bin/brave") == ["/usr/bin/brave"]
     run.assert_not_called()
 
@@ -465,8 +465,8 @@ def test_brave_native_binary_takes_precedence():
 def test_flatpak_brave_detection():
     crawler = ImageCrawler({})
     with (
-        patch("backend.src.web.crawlers.image_crawler.shutil.which", return_value="/usr/bin/flatpak"),
-        patch("backend.src.web.crawlers.image_crawler.subprocess.run") as run,
+        patch("backend.src.web.crawlers.image_crawler_parts._browser_setup.shutil.which", return_value="/usr/bin/flatpak"),
+        patch("backend.src.web.crawlers.image_crawler_parts._browser_setup.subprocess.run") as run,
     ):
         run.return_value.returncode = 0
         assert crawler._find_brave_launch_command(None) == ["/usr/bin/flatpak", "run", "com.brave.Browser"]
@@ -480,8 +480,8 @@ def test_flatpak_detection_timeout():
 
     crawler = ImageCrawler({})
     with (
-        patch("backend.src.web.crawlers.image_crawler.shutil.which", return_value="/usr/bin/flatpak"),
-        patch("backend.src.web.crawlers.image_crawler.subprocess.run", side_effect=subprocess.TimeoutExpired("flatpak", 5)),
+        patch("backend.src.web.crawlers.image_crawler_parts._browser_setup.shutil.which", return_value="/usr/bin/flatpak"),
+        patch("backend.src.web.crawlers.image_crawler_parts._browser_setup.subprocess.run", side_effect=subprocess.TimeoutExpired("flatpak", 5)),
     ):
         assert crawler._find_brave_launch_command(None) == []
 
@@ -494,7 +494,7 @@ def test_flatpak_launch_uses_app_profile_and_debugger(mock_sleep):
         patch.object(crawler, "_find_brave_launch_command", return_value=["/usr/bin/flatpak", "run", "com.brave.Browser"]),
         patch.object(crawler, "_is_port_open", return_value=False),
         patch("backend.src.web.crawlers.image_crawler.os.makedirs"),
-        patch("backend.src.web.crawlers.image_crawler.subprocess.Popen") as launch,
+        patch("backend.src.web.crawlers.image_crawler_parts._browser_setup.subprocess.Popen") as launch,
         patch.object(crawler, "_connect_debug_browser") as chrome,
         patch("selenium.webdriver.Remote") as remote,
     ):
@@ -510,7 +510,7 @@ def test_flatpak_launch_uses_app_profile_and_debugger(mock_sleep):
 def test_debug_browser_selects_driver_from_running_chromium_version():
     crawler = ImageCrawler({})
     with (
-        patch("backend.src.web.crawlers.image_crawler.requests.Session") as session,
+        patch("backend.src.web.crawlers.image_crawler_parts._browser_setup.requests.Session") as session,
         patch("selenium.webdriver.common.selenium_manager.SeleniumManager.binary_paths") as resolve,
         patch("selenium.webdriver.Chrome") as chrome,
         patch("selenium.webdriver.chrome.service.Service") as service,
