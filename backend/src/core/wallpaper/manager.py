@@ -184,27 +184,6 @@ class WallpaperManager(_WindowsWallpaperMixin, _KDEWallpaperMixin, _GNOMEWallpap
                 ):
                     return
 
-                if is_kde:
-                    # We're on a KDE/Plasma session but neither the
-                    # per-monitor DBus script (no usable desktops --
-                    # get_kde_desktops() came back empty, e.g. Plasma
-                    # currently reporting an invalid screen for every
-                    # containment) nor the single-image
-                    # plasma-apply-wallpaperimage fallback (blocked above
-                    # as unsafe for a partial, multi-monitor path_map) could
-                    # apply the wallpaper. base.set_wallpaper_gnome() below
-                    # writes GNOME's gsettings schema, which nothing on a
-                    # Plasma session reads -- silently calling it here would
-                    # report "success" while doing nothing visible. Fail
-                    # loudly instead so callers (e.g. the slideshow daemon)
-                    # log it rather than looking like a silent no-op.
-                    raise RuntimeError(
-                        "Could not set the KDE wallpaper: no per-monitor "
-                        "desktop was available and the single-image "
-                        "fallback would have overwritten other monitors, "
-                        "so it was skipped."
-                    )
-
                 if style_name == "Spanned" and isinstance(monitors, list):
                     WallpaperManager._set_wallpaper_gnome_spanned(
                         path_map, monitors, style_name
