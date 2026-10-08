@@ -8,7 +8,7 @@ import os
 import platform
 import shutil
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Mapping, Optional, Union
 
 import base  # Native extension
 from screeninfo import Monitor
@@ -26,6 +26,46 @@ class WallpaperManager(_WindowsWallpaperMixin, _KDEWallpaperMixin, _GNOMEWallpap
     A static class for handling OS-specific wallpaper setting logic.
     Uses 'base' rust extension for Linux commands.
     """
+
+    @staticmethod
+    def _plasma_apply_wallpaperimage_safe(
+        path_map: Dict[str, str], monitors: Union[List[Monitor], int]
+    ) -> bool:
+        """Whether falling back to the ``plasma-apply-wallpaperimage`` CLI
+        cannot clobber a monitor that ``path_map`` deliberately left out.
+
+        That tool has no per-output targeting -- it always applies ONE
+        image across every screen in the Plasma session (confirmed: its
+        ``--help`` offers no ``--output``/monitor option). Using it is only
+        safe when that is actually the intent: a single monitor, or every
+        currently known monitor already mapped to the very same path.
+        Otherwise it would silently overwrite monitors ``path_map`` left
+        out -- e.g. the per-monitor slideshow daemon advancing one display
+        while another's queue is empty and its wallpaper must stay
+        untouched.
+        """
+        num_monitors = len(monitors) if isinstance(monitors, list) else 1
+        if num_monitors <= 1:
+            return True
+        if len(path_map) < num_monitors:
+            return False
+        return len(set(path_map.values())) <= 1
+
+    @staticmethod
+    def _first_valid_path(path_map: Mapping[str, Optional[str]]) -> Optional[str]:
+        """First non-empty path in ``path_map``, preferring monitor ``"0"``.
+
+        ``path_map`` can legitimately hold ``None`` for a monitor that was
+        deliberately left untouched (e.g. a cleared slideshow queue) --
+        ``path_map.get("0") or next(iter(path_map.values()))`` picks
+        whichever value dict-iteration happens to put first, which is "0"'s
+        own ``None`` just as often as a real path, crashing single-path
+        callers with ``Path(None)``. Skip falsy entries instead.
+        """
+        path = path_map.get("0")
+        if path:
+            return path
+        return next((p for p in path_map.values() if p), None)
 
     @staticmethod
     def apply_wallpaper(  # noqa: C901
@@ -63,7 +103,9 @@ class WallpaperManager(_WindowsWallpaperMixin, _KDEWallpaperMixin, _GNOMEWallpap
                     path_map, monitors, style_name
                 )
             else:
-                path = path_map.get("0") or next(iter(path_map.values()))
+                path = WallpaperManager._first_valid_path(path_map)
+                if path is None:
+                    raise ValueError("No valid wallpaper path found in path_map.")
                 WallpaperManager._set_wallpaper_windows_single(path, style_name)
 
         elif system == "Linux":
@@ -104,6 +146,16 @@ class WallpaperManager(_WindowsWallpaperMixin, _KDEWallpaperMixin, _GNOMEWallpap
                             f"KDE video wallpaper setting failed (no static-image fallback applies): {e}"
                         )
                         raise
+                    if not WallpaperManager._plasma_apply_wallpaperimage_safe(
+                        path_map, monitors
+                    ):
+                        logging.error(
+                            "KDE DBus wallpaper setting failed and the "
+                            "plasma-apply-wallpaperimage fallback has no "
+                            "per-monitor targeting -- skipping it to avoid "
+                            f"overwriting other monitors' wallpapers: {e}"
+                        )
+                        raise
                     logging.warning(
                         f"KDE DBus wallpaper setting failed, trying fallback: {e}"
                     )
@@ -122,9 +174,13 @@ class WallpaperManager(_WindowsWallpaperMixin, _KDEWallpaperMixin, _GNOMEWallpap
                 )
 
                 if (
-                    is_kde or shutil.which("plasma-apply-wallpaperimage")
-                ) and WallpaperManager._set_wallpaper_kde_plasma_apply(
-                    path_map, style_name
+                    (is_kde or shutil.which("plasma-apply-wallpaperimage"))
+                    and WallpaperManager._plasma_apply_wallpaperimage_safe(
+                        path_map, monitors
+                    )
+                    and WallpaperManager._set_wallpaper_kde_plasma_apply(
+                        path_map, style_name
+                    )
                 ):
                     return
 
@@ -133,7 +189,9 @@ class WallpaperManager(_WindowsWallpaperMixin, _KDEWallpaperMixin, _GNOMEWallpap
                         path_map, monitors, style_name
                     )
                 else:
-                    path = path_map.get("0") or next(iter(path_map.values()))
+                    path = WallpaperManager._first_valid_path(path_map)
+                    if path is None:
+                        raise ValueError("No valid wallpaper path found in path_map.")
                     mode = WALLPAPER_STYLES["GNOME"].get(style_name, "zoom")
                     base.set_wallpaper_gnome(f"file://{Path(path).resolve()}", mode)
 
