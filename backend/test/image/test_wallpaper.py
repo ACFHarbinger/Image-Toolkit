@@ -115,6 +115,82 @@ class TestWallpaperManager:
         assert args[0] == "/usr/bin/qdbus"
         assert "org.kde.image" in args[1]
 
+    def test_set_wallpaper_kde_write_does_not_regate_on_screen_by_default(
+        self, mock_base
+    ):
+        """``_set_wallpaper_kde``'s write script used to re-check
+        ``d.screen >= 0`` even though path_map's desktop index was already
+        resolved by get_kde_desktops() -- so a desktop whose ``screen``
+        happened to read -1 at write time (the same unreliable property
+        positional detection exists to route around) had its write
+        silently skipped, no exception, no ERROR print. With
+        ``USE_OS_DISPLAY_MAPPING`` at its default (False), the write script
+        must not gate on ``d.screen`` at all.
+        """
+        from src.core.wallpaper._kde import _KDEWallpaperMixin
+
+        mock_base.evaluate_kde_script.return_value = ""
+
+        _KDEWallpaperMixin._set_wallpaper_kde(
+            {"1": "/path/to/img.jpg"}, "Fill", "qdbus"
+        )
+
+        script = mock_base.evaluate_kde_script.call_args[0][1]
+        assert "d.screen" not in script
+        assert "if (d && true)" in script
+
+    @patch("src.core.wallpaper._kde.USE_OS_DISPLAY_MAPPING", True)
+    def test_set_wallpaper_kde_write_regates_on_screen_when_os_mapping_enabled(
+        self, mock_base
+    ):
+        from src.core.wallpaper._kde import _KDEWallpaperMixin
+
+        mock_base.evaluate_kde_script.return_value = ""
+
+        _KDEWallpaperMixin._set_wallpaper_kde(
+            {"1": "/path/to/img.jpg"}, "Fill", "qdbus"
+        )
+
+        script = mock_base.evaluate_kde_script.call_args[0][1]
+        assert "d.screen >= 0" in script
+
+    def test_get_kde_desktops_uses_position_by_default(self, mock_base):
+        """``USE_OS_DISPLAY_MAPPING`` defaults to False (backend/src/constants/
+        system.py), so detection must go through screenGeometry()/screenCount
+        instead of desktops()[i].screen by default -- the point of this mode
+        is to work even when ``.screen`` is stuck at -1 for every
+        containment, so the script it sends must not read ``.screen`` at all.
+        """
+        from src.core.wallpaper._kde import _KDEWallpaperMixin
+
+        mock_base.evaluate_kde_script.return_value = "0:0:0:0\n1:1:1920:0"
+
+        result = _KDEWallpaperMixin.get_kde_desktops("qdbus")
+
+        assert result == [
+            {"index": 0, "screen": 0, "x": 0, "y": 0},
+            {"index": 1, "screen": 1, "x": 1920, "y": 0},
+        ]
+        script = mock_base.evaluate_kde_script.call_args[0][1]
+        assert "screenGeometry" in script
+        assert "screenCount" in script
+        assert ".screen" not in script
+
+    @patch("src.core.wallpaper._kde.USE_OS_DISPLAY_MAPPING", True)
+    def test_get_kde_desktops_uses_screen_property_when_os_mapping_enabled(self, mock_base):
+        from src.core.wallpaper._kde import _KDEWallpaperMixin
+
+        mock_base.evaluate_kde_script.return_value = "0:0:0:0\n1:1:1920:0"
+
+        result = _KDEWallpaperMixin.get_kde_desktops("qdbus")
+
+        assert result == [
+            {"index": 0, "screen": 0, "x": 0, "y": 0},
+            {"index": 1, "screen": 1, "x": 1920, "y": 0},
+        ]
+        script = mock_base.evaluate_kde_script.call_args[0][1]
+        assert "d.screen" in script
+
     @patch("src.core.wallpaper.manager.platform.system", return_value="Linux")
     @patch("src.core.wallpaper._gnome.Image")  # Mock PIL for spanned
     def test_apply_wallpaper_linux_gnome_fallback(
