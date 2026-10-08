@@ -213,6 +213,7 @@ class SystemDisplayDaemonController(TabBoundController):
             "style": style_to_use,
             "monitor_queues": locked_queues,
             "current_paths": self.monitor_image_paths,
+            "monitor_current_indices": self.monitor_current_index,
             "playback_order": self.playback_order_combo.currentText(),
             "filter_directories": [],
             "monitor_geometries": {
@@ -229,6 +230,13 @@ class SystemDisplayDaemonController(TabBoundController):
         start = checked
         if start:
             self.stop_slideshow()
+            for mid in self.monitor_widgets.keys():
+                queue = self.monitor_slideshow_queues.get(mid, [])
+                current_path = self.monitor_image_paths.get(mid)
+                if current_path in queue:
+                    self.monitor_current_index[mid] = queue.index(current_path)  # pyrefly: ignore [bad-argument-type]
+                elif mid not in self.monitor_current_index:
+                    self.monitor_current_index[mid] = 0 if queue else -1
 
         last_change_timestamp = 0
         monitor_history = getattr(self, "monitor_history", {})
@@ -263,6 +271,7 @@ class SystemDisplayDaemonController(TabBoundController):
             "style": style_to_use,
             "monitor_queues": self.monitor_slideshow_queues,
             "current_paths": self.monitor_image_paths,
+            "monitor_current_indices": self.monitor_current_index,
             "playback_order": self.playback_order_combo.currentText(),
             "filter_directories": [],
             "monitor_geometries": {

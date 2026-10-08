@@ -179,15 +179,17 @@ class _MergeExecutionMixin:
         confirm.setWindowTitle("Save Merged Image?")
 
         if self.pending_save_path:
-            confirm.setText(f"Merge successful. Save to configured output?\n\n{self.pending_save_path}")
-            save_text = "Save"
+            confirm.setText(
+                f"Merge successful. Save to configured output?\n\n{self.pending_save_path}"
+            )
         else:
             confirm.setText("Merge successful. Choose an action:")
-            save_text = "Save As…"
 
         copy_btn = confirm.addButton("Copy to Clipboard", QMessageBox.ButtonRole.ActionRole)
         export_video_btn = confirm.addButton("Export as Video…", QMessageBox.ButtonRole.ActionRole)
-        save_btn = confirm.addButton(save_text, QMessageBox.ButtonRole.AcceptRole)
+        # "Save" only shown when an output dir is configured; "Save As…" is always available.
+        save_btn = confirm.addButton("Save", QMessageBox.ButtonRole.AcceptRole) if self.pending_save_path else None
+        save_as_btn = confirm.addButton("Save As…", QMessageBox.ButtonRole.AcceptRole)
         save_add_btn = confirm.addButton("Save and Add to Canvas", QMessageBox.ButtonRole.AcceptRole)
         confirm.addButton("Discard", QMessageBox.ButtonRole.DestructiveRole)
         confirm.addButton(QMessageBox.StandardButton.Cancel)
@@ -209,7 +211,8 @@ class _MergeExecutionMixin:
                 QApplication.clipboard().setPixmap(self._last_merged_pixmap)
             self.cleanup_temp_file()
 
-        elif clicked in (save_btn, save_add_btn):
+        elif clicked == save_btn:
+            # "Save" — write to the pre-configured output directory path.
             if self.pending_save_path:
                 try:
                     if os.path.exists(self.pending_save_path):
@@ -230,22 +233,24 @@ class _MergeExecutionMixin:
                 except Exception as e:
                     QMessageBox.critical(self, "Save Error", f"Failed to move file: {e}")
                     self.cleanup_temp_file()
-            else:
-                filter_str = "GIF (*.gif)" if result_path.lower().endswith(".gif") else "PNG (*.png)"
-                start_dir = self.last_output_dir if self.last_output_dir else self.last_browsed_scan_dir
-                out, _ = QFileDialog.getSaveFileName(self, "Save Merged Image", start_dir, filter_str)
-                if out:
-                    try:
-                        shutil.move(result_path, out)
-                        saved_final_path = out
-                        self.temp_file_path = None
-                        self.last_output_dir = os.path.dirname(out)
-                        QMessageBox.information(self, "Success", f"Saved to {out}")
-                    except Exception as e:
-                        QMessageBox.critical(self, "Error", f"Move failed: {e}")
-                        self.cleanup_temp_file()
-                else:
+
+        elif clicked in (save_as_btn, save_add_btn):
+            # "Save As…" / "Save and Add to Canvas" — always opens a file-chooser.
+            filter_str = "GIF (*.gif)" if result_path.lower().endswith(".gif") else "PNG (*.png)"
+            start_dir = self.last_output_dir if self.last_output_dir else self.last_browsed_scan_dir
+            out, _ = QFileDialog.getSaveFileName(self, "Save Merged Image As…", start_dir, filter_str)
+            if out:
+                try:
+                    shutil.move(result_path, out)
+                    saved_final_path = out
+                    self.temp_file_path = None
+                    self.last_output_dir = os.path.dirname(out)
+                    QMessageBox.information(self, "Success", f"Saved to {out}")
+                except Exception as e:
+                    QMessageBox.critical(self, "Error", f"Move failed: {e}")
                     self.cleanup_temp_file()
+            else:
+                self.cleanup_temp_file()
 
             if saved_final_path and clicked == save_add_btn:
                 self._inject_new_image(saved_final_path)
