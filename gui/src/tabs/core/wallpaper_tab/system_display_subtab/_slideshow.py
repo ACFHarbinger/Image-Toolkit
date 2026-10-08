@@ -175,6 +175,18 @@ class SystemDisplaySlideshowController(TabBoundController):
                             remaining = max(0, interval - elapsed)
                             self.time_remaining_sec = remaining
                             self.countdown_label.setToolTip("")
+
+                        daemon_paths = config.get("current_paths", {})
+                        if isinstance(daemon_paths, dict):
+                            for mid, path in daemon_paths.items():
+                                if path and self.monitor_image_paths.get(mid) != path:
+                                    self.monitor_image_paths[mid] = path
+                                    queue = self.monitor_slideshow_queues.get(mid, [])
+                                    if path in queue:
+                                        self.monitor_current_index[mid] = queue.index(path)
+                                    if mid in self.monitor_widgets:
+                                        thumb = self._get_or_generate_thumbnail(path)
+                                        self.monitor_widgets[mid].set_image(path, thumb)
             except Exception:
                 logger.debug("Suppressed Exception in _SlideshowMixin.update_countdown", exc_info=True)
 
@@ -186,11 +198,14 @@ class SystemDisplaySlideshowController(TabBoundController):
         else:
             if "Error" not in self.countdown_label.text():
                 self.countdown_label.setText("Timer: 00:00")
-            # Config's "running" flag can go stale if the daemon process died
-            # without reaching its cleanup (crash, OOM, hard kill): reuses the
-            # PID-liveness check to catch that, instead of trusting the flag
-            # alone, so the countdown doesn't stay pinned at 00:00 forever.
-            if not self._reconcile_daemon_liveness_on_startup():
+            local_slideshow_active = bool(self.slideshow_timer and self.slideshow_timer.isActive())
+            if local_slideshow_active:
+                # Normal local-slideshow reset: slideshow_timer handles the actual
+                # cycling; here we just restart the countdown for the next interval.
+                self.time_remaining_sec = self.interval_sec
+            elif not self._reconcile_daemon_liveness_on_startup():
+                # No local slideshow and no live daemon — the daemon must have died
+                # without cleaning up (crash/OOM/kill).  Tear down the countdown.
                 self.time_remaining_sec = self.interval_sec
                 if hasattr(self, "countdown_timer") and self.countdown_timer:
                     self.countdown_timer.stop()

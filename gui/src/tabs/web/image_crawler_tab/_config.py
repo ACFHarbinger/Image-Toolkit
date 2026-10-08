@@ -39,6 +39,8 @@ class ImageCrawlConfigController(TabBoundController):
             "gen_replacements": self.replacements_input.text(),
             "gen_browser": self.browser_combo.currentText(),
             "gen_headless": self.headless_checkbox.isChecked(),
+            "gen_attach_existing": self.attach_existing_checkbox.isChecked(),
+            "gen_debug_port": self.debug_port_input.value(),
             "gen_skip_first": self.skip_first_input.text(),
             "gen_skip_last": self.skip_last_input.text(),
             "gen_actions": actions,
@@ -68,6 +70,8 @@ class ImageCrawlConfigController(TabBoundController):
             "gen_replacements": "",
             "gen_browser": "brave",
             "gen_headless": True,
+            "gen_attach_existing": False,
+            "gen_debug_port": 9223,
             "gen_skip_first": "0",
             "gen_skip_last": "0",
             "gen_actions": [],
@@ -105,6 +109,8 @@ class ImageCrawlConfigController(TabBoundController):
             self.replacements_input.setText(config.get("gen_replacements", ""))
             self.browser_combo.setCurrentText(config.get("gen_browser", "brave"))
             self.headless_checkbox.setChecked(config.get("gen_headless", True))
+            self.attach_existing_checkbox.setChecked(config.get("gen_attach_existing", False))
+            self.debug_port_input.setValue(config.get("gen_debug_port", 9223))
             self.skip_first_input.setText(config.get("gen_skip_first", "0"))
             self.skip_last_input.setText(config.get("gen_skip_last", "0"))
 
