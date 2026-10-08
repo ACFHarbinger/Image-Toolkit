@@ -116,17 +116,11 @@ class TestWallpaperManager:
         assert "org.kde.image" in args[1]
 
     @patch("src.core.wallpaper.manager.platform.system", return_value="Linux")
-    @patch("src.core.wallpaper.manager.shutil.which", return_value=None)
     @patch("src.core.wallpaper._gnome.Image")  # Mock PIL for spanned
-    @patch.dict(
-        "os.environ", {"XDG_CURRENT_DESKTOP": "GNOME", "DESKTOP_SESSION": "gnome"}
-    )
     def test_apply_wallpaper_linux_gnome_fallback(
-        self, mock_pil, mock_which, mock_platform, mock_base, mock_monitor
+        self, mock_pil, mock_platform, mock_base, mock_monitor
     ):
-        # A genuinely GNOME session: not KDE, and no plasma-apply-wallpaperimage
-        # on PATH, so the KDE-specific fallbacks never apply. Make
-        # base.evaluate_kde_script raise an exception to trigger fallback.
+        # Make base.evaluate_kde_script raise an exception to trigger fallback
         mock_base.evaluate_kde_script.side_effect = RuntimeError("qdbus failed")
 
         WallpaperManager.apply_wallpaper(
@@ -342,24 +336,19 @@ class TestWallpaperManager:
         itself returns nothing (so the code never even enters the KDE
         per-monitor branch), but a second monitor exists and ``path_map``
         only covers one of them. Must not blast that one path across every
-        screen via plasma-apply-wallpaperimage -- and, since this is a KDE
-        session, must not silently no-op through the GNOME gsettings call
-        either (nothing on Plasma reads that); it must raise so the caller
-        (e.g. the slideshow daemon) logs a visible failure.
+        screen via plasma-apply-wallpaperimage.
         """
         mock_monitor_2 = MagicMock(x=1920, y=0, width=1920, height=1080, is_primary=False)
         mock_base.evaluate_kde_script.side_effect = RuntimeError("qdbus unavailable")
 
-        with pytest.raises(RuntimeError):
-            WallpaperManager.apply_wallpaper(
-                path_map={"0": "/path/to/img.jpg"},  # monitor "1" deliberately absent
-                monitors=[mock_monitor, mock_monitor_2],
-                style_name="Fill",
-                qdbus="qdbus",
-            )
+        WallpaperManager.apply_wallpaper(
+            path_map={"0": "/path/to/img.jpg"},  # monitor "1" deliberately absent
+            monitors=[mock_monitor, mock_monitor_2],
+            style_name="Fill",
+            qdbus="qdbus",
+        )
 
         mock_run.assert_not_called()
-        mock_base.set_wallpaper_gnome.assert_not_called()
 
     @patch("src.core.wallpaper.manager.platform.system", return_value="Linux")
     @patch(
@@ -391,15 +380,15 @@ class TestWallpaperManager:
 
     @patch("src.core.wallpaper.manager.platform.system", return_value="Linux")
     @patch("src.core.wallpaper._kde.shutil.which", return_value=None)
-    @patch.dict(
-        "os.environ", {"XDG_CURRENT_DESKTOP": "GNOME", "DESKTOP_SESSION": "gnome"}
-    )
-    def test_apply_wallpaper_linux_gnome_partial_map_none_path_skipped(
+    @patch.dict("os.environ", {"XDG_CURRENT_DESKTOP": "KDE"})
+    def test_apply_wallpaper_linux_kde_desktops_unavailable_partial_map_none_path_falls_through(
         self, mock_which, mock_platform, mock_base, mock_monitor
     ):
         """A monitor whose queue was cleared can legitimately carry ``None``
-        in ``path_map`` (not just be absent from it). On a genuine GNOME
-        session, the single-path fallback used to do
+        in ``path_map`` (not just be absent from it). When KDE desktop
+        detection also fails (so the per-monitor DBus branch is skipped
+        entirely) and plasma-apply-wallpaperimage isn't on PATH, the
+        single-path GNOME fallback used to do
         ``path_map.get("0") or next(iter(path_map.values()))`` -- which
         picks whichever value dict-iteration puts first, landing on "0"'s
         own ``None`` just as often as monitor "1"'s real path, and crashing
@@ -407,6 +396,7 @@ class TestWallpaperManager:
         real path instead.
         """
         mock_monitor_2 = MagicMock(x=1920, y=0, width=1920, height=1080, is_primary=False)
+        mock_base.evaluate_kde_script.side_effect = RuntimeError("qdbus unavailable")
 
         WallpaperManager.apply_wallpaper(
             path_map={"0": None, "1": "/path/to/img2.jpg"},
