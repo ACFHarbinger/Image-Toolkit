@@ -28,6 +28,30 @@ class WallpaperManager(_WindowsWallpaperMixin, _KDEWallpaperMixin, _GNOMEWallpap
     """
 
     @staticmethod
+    def _plasma_apply_wallpaperimage_safe(
+        path_map: Dict[str, str], monitors: Union[List[Monitor], int]
+    ) -> bool:
+        """Whether falling back to the ``plasma-apply-wallpaperimage`` CLI
+        cannot clobber a monitor that ``path_map`` deliberately left out.
+
+        That tool has no per-output targeting -- it always applies ONE
+        image across every screen in the Plasma session (confirmed: its
+        ``--help`` offers no ``--output``/monitor option). Using it is only
+        safe when that is actually the intent: a single monitor, or every
+        currently known monitor already mapped to the very same path.
+        Otherwise it would silently overwrite monitors ``path_map`` left
+        out -- e.g. the per-monitor slideshow daemon advancing one display
+        while another's queue is empty and its wallpaper must stay
+        untouched.
+        """
+        num_monitors = len(monitors) if isinstance(monitors, list) else 1
+        if num_monitors <= 1:
+            return True
+        if len(path_map) < num_monitors:
+            return False
+        return len(set(path_map.values())) <= 1
+
+    @staticmethod
     def apply_wallpaper(  # noqa: C901
         path_map: Dict[str, str],
         monitors: Union[List[Monitor], int],
@@ -104,6 +128,16 @@ class WallpaperManager(_WindowsWallpaperMixin, _KDEWallpaperMixin, _GNOMEWallpap
                             f"KDE video wallpaper setting failed (no static-image fallback applies): {e}"
                         )
                         raise
+                    if not WallpaperManager._plasma_apply_wallpaperimage_safe(
+                        path_map, monitors
+                    ):
+                        logging.error(
+                            "KDE DBus wallpaper setting failed and the "
+                            "plasma-apply-wallpaperimage fallback has no "
+                            "per-monitor targeting -- skipping it to avoid "
+                            f"overwriting other monitors' wallpapers: {e}"
+                        )
+                        raise
                     logging.warning(
                         f"KDE DBus wallpaper setting failed, trying fallback: {e}"
                     )
@@ -122,9 +156,13 @@ class WallpaperManager(_WindowsWallpaperMixin, _KDEWallpaperMixin, _GNOMEWallpap
                 )
 
                 if (
-                    is_kde or shutil.which("plasma-apply-wallpaperimage")
-                ) and WallpaperManager._set_wallpaper_kde_plasma_apply(
-                    path_map, style_name
+                    (is_kde or shutil.which("plasma-apply-wallpaperimage"))
+                    and WallpaperManager._plasma_apply_wallpaperimage_safe(
+                        path_map, monitors
+                    )
+                    and WallpaperManager._set_wallpaper_kde_plasma_apply(
+                        path_map, style_name
+                    )
                 ):
                     return
 
