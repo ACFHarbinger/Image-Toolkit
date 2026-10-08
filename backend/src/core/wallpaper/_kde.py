@@ -13,7 +13,11 @@ from typing import Dict, List, Optional
 
 from screeninfo import Monitor
 
-from backend.src.constants import SUPPORTED_VIDEO_FORMATS, WALLPAPER_STYLES
+from backend.src.constants import (
+    SUPPORTED_VIDEO_FORMATS,
+    USE_OS_DISPLAY_MAPPING,
+    WALLPAPER_STYLES,
+)
 
 from ._dbus import evaluate_kde_script_with_fallback
 
@@ -45,6 +49,21 @@ class _KDEWallpaperMixin:
 
     @staticmethod
     def get_kde_desktops(qdbus: Optional[str]) -> List[Dict[str, int]]:
+        """Detect each KDE desktop containment and the monitor it belongs to.
+
+        Dispatches to one of two detection strategies depending on
+        ``USE_OS_DISPLAY_MAPPING``:
+
+        - ``True``: trust each containment's own ``screen`` property, as
+          reported by Plasma.
+        - ``False`` (default): ``get_kde_desktops_by_position()``, which
+          sidesteps ``screen`` entirely and identifies displays by their
+          ``screenGeometry()`` X/Y position -- for sessions where ``screen``
+          is stuck at -1 for every containment.
+        """
+        if not USE_OS_DISPLAY_MAPPING:
+            return _KDEWallpaperMixin.get_kde_desktops_by_position(qdbus)
+
         script = """
         var ds = desktops();
         var output = [];
@@ -78,6 +97,56 @@ class _KDEWallpaperMixin:
             return desktops
         except Exception as e:
             logger.error("Failed to get KDE desktops: %s", e)
+            return desktops
+
+    @staticmethod
+    def get_kde_desktops_by_position(qdbus: Optional[str]) -> List[Dict[str, int]]:
+        """Detect KDE desktops by X/Y position instead of ``.screen``.
+
+        ``desktops()[i].screen`` can report -1 for every containment in a
+        Plasma session (observed on Plasma 6.6.6, surviving a plasmashell
+        restart), which makes the ``screen``-based ``get_kde_desktops()``
+        return nothing -- there is then no way to read a usable ``x``/``y``
+        off the containment object itself (every property on it comes back
+        ``undefined`` too).
+
+        ``screenGeometry(i)``/``screenCount`` are queried independently of
+        any containment and keep reporting correct output positions even
+        when ``.screen`` is broken. This assumes Plasma's base-activity
+        desktop containments are created in screen-enumeration order (one
+        containment per screen, ``desktops()[i]`` <-> output ``i``) --
+        the same correspondence the ``screen`` property normally encodes,
+        just read a different way.
+        """
+        script = """
+        var out = [];
+        for (var i = 0; i < screenCount; i++) {
+            try {
+                var rect = screenGeometry(i);
+                out.push(i + ":" + i + ":" + rect.x + ":" + rect.y);
+            } catch(e) {}
+        }
+        print(out.join("\\n"));
+        """
+        desktops = []
+        try:
+            result = evaluate_kde_script_with_fallback(qdbus, script)
+            for line in result.strip().split("\n"):
+                if not line.strip():
+                    continue
+                parts = line.split(":")
+                if len(parts) >= 4:
+                    desktops.append(
+                        {
+                            "index": int(parts[0]),
+                            "screen": int(parts[1]),
+                            "x": int(parts[2]),
+                            "y": int(parts[3]),
+                        }
+                    )
+            return desktops
+        except Exception as e:
+            logger.error("Failed to get KDE desktops by position: %s", e)
             return desktops
 
     @staticmethod
@@ -144,6 +213,18 @@ class _KDEWallpaperMixin:
             raise RuntimeError(
                 "No supported KDE video wallpaper plugin found. Please install a plugin such as 'Smart Video Wallpaper Reborn' to enable video wallpaper support."
             )
+
+        # path_map's keys were already resolved to the correct desktop index
+        # by get_kde_desktops() (either via the OS's own ``screen`` property,
+        # or -- when USE_OS_DISPLAY_MAPPING is False -- via screenGeometry()
+        # position, specifically because ``screen`` can't be trusted in that
+        # mode). Re-checking ``d.screen >= 0`` here too would undo that: a
+        # desktop whose ``screen`` happens to read -1 at write time (the
+        # same unreliable property) would silently have its write skipped
+        # -- no exception, no ERROR print in the non-video branch below --
+        # even though we already know, by position, which real monitor it
+        # is. Only gate on ``d.screen`` when the caller actually trusts it.
+        screen_check = "d.screen >= 0" if USE_OS_DISPLAY_MAPPING else "true"
 
         script_parts = []
         video_config_parts = []
@@ -268,7 +349,7 @@ class _KDEWallpaperMixin:
                     f"""
                 {{
                     var d = desktops()[{i}];
-                    if (d && d.screen >= 0) {{
+                    if (d && {screen_check}) {{
                         if (d.wallpaperPlugin !== "{target_plugin}") {{
                             d.wallpaperPlugin = "{target_plugin}";
                         }}
@@ -291,7 +372,7 @@ class _KDEWallpaperMixin:
                     f"""
                 {{
                     var d = desktops()[{i}];
-                    if (d && d.screen >= 0) {{
+                    if (d && {screen_check}) {{
                         if (d.wallpaperPlugin !== "{target_plugin}") {{
                             print("ERROR: monitor {i} still not on video wallpaper plugin '{target_plugin}' (on '" + d.wallpaperPlugin + "') when writing video config.");
                         }} else {{
@@ -310,7 +391,7 @@ class _KDEWallpaperMixin:
                 )
             else:
                 script_parts.append(
-                    f'{{ var d = desktops()[{i}]; if (d && d.screen >= 0) {{ d.wallpaperPlugin = "org.kde.image"; d.currentConfigGroup = Array("Wallpaper", "org.kde.image", "General"); d.writeConfig("Image", "{file_uri}"); d.writeConfig("FillMode", {fill_mode}); d.reloadConfig(); }} }}'
+                    f'{{ var d = desktops()[{i}]; if (d && {screen_check}) {{ d.wallpaperPlugin = "org.kde.image"; d.currentConfigGroup = Array("Wallpaper", "org.kde.image", "General"); d.writeConfig("Image", "{file_uri}"); d.writeConfig("FillMode", {fill_mode}); d.reloadConfig(); }} else {{ print("ERROR: monitor {i} has no valid KDE desktop/screen."); }} }}'
                 )
 
         if not script_parts:
@@ -409,8 +490,7 @@ class _KDEWallpaperMixin:
     def get_current_system_wallpaper_path_kde(
         monitors: List[Monitor], qdbus: str
     ) -> Dict[str, Optional[str]]:
-        path_map = {}
-        path_map = {}
+        path_map: Dict[str, Optional[str]] = {}
 
         # We need the full desktop objects to map back to monitors
         kde_desktops = _KDEWallpaperMixin.get_kde_desktops(qdbus)
@@ -439,8 +519,8 @@ class _KDEWallpaperMixin:
                 }} catch (e) {{ out.push("DESKTOP_{i}:NONE"); }}
             }})();
             """
-        script += '\nprint(out.join("\\n===SEP===\\n"));'
 
+        script += '\nprint(out.join("\\n===SEP===\\n"));'
         try:
             result = evaluate_kde_script_with_fallback(qdbus, script)
             for line in result.split("===SEP==="):
