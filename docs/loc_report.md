@@ -15,7 +15,6 @@
 | `gui/src/windows/authentication/login_window.py` | 467 | 112 | 30 | 609 |
 | `backend/src/database/unified/search_repo.py` | 464 | 30 | 72 | 566 |
 | `gui/src/tabs/core/wallpaper_tab/graph/wallpaper_graph_scene.py` | 456 | 22 | 29 | 507 |
-| `backend/src/web/crawlers/image_crawler.py` | 448 | 16 | 11 | 475 |
 | `gui/src/tabs/core/extractor_tab/_media_player.py` | 439 | 114 | 29 | 582 |
 | `gui/src/components/dialogs/asp_advanced_config_dialog.py` | 437 | 21 | 8 | 466 |
 | `gui/src/tabs/web/reverse_search_tab.py` | 434 | 45 | 21 | 500 |
@@ -31,6 +30,7 @@
 | `gui/src/components/dialogs/thumbnail_file_picker.py` | 386 | 4 | 7 | 397 |
 | `gui/src/tabs/web/web_requests_tab.py` | 377 | 39 | 6 | 422 |
 | `gui/src/tabs/models/gen/comfy_generate_tab.py` | 376 | 45 | 9 | 430 |
+| `backend/src/core/wallpaper/_kde.py` | 372 | 103 | 31 | 506 |
 | `gui/src/windows/settings/_profile_management.py` | 371 | 34 | 18 | 423 |
 | `gui/src/windows/settings/_relaunch_settings.py` | 370 | 33 | 9 | 412 |
 | `backend/src/core/vault_manager.py` | 368 | 31 | 77 | 476 |
@@ -43,17 +43,17 @@
 | `gui/src/tabs/web/drive_sync_tab/sync_data_subtab/widget.py` | 344 | 26 | 13 | 383 |
 | `gui/src/tabs/models/delta/lora_train_tab.py` | 344 | 27 | 9 | 380 |
 | `gui/src/windows/settings/settings_window.py` | 344 | 28 | 10 | 382 |
+| `backend/src/utils/display/slideshow_daemon.py` | 343 | 32 | 33 | 408 |
 | `gui/src/tabs/core/extractor_tab/_extraction_history.py` | 337 | 27 | 21 | 385 |
-| `backend/src/core/wallpaper/_kde.py` | 334 | 93 | 6 | 433 |
 | `gui/src/tabs/core/extractor_tab/_queue_processing.py` | 333 | 55 | 23 | 411 |
 | `gui/src/tabs/core/protos/extractor_tab.py` | 332 | 0 | 7 | 339 |
 | `backend/src/pipeline/anime_training_pipeline.py` | 331 | 38 | 36 | 405 |
 | `gui/src/helpers/core/duplicate_scan_worker.py` | 331 | 42 | 33 | 406 |
 | `gui/src/components/widgets/resource_simulator_dashboard.py` | 328 | 2 | 7 | 337 |
 | `gui/src/utils/manager/shortcut_manager.py` | 326 | 18 | 43 | 387 |
+| `backend/src/web/crawlers/image_crawler_parts/_scraping.py` | 324 | 8 | 8 | 340 |
 | `gui/src/windows/settings/_tab_config_editing.py` | 324 | 15 | 32 | 371 |
-| `backend/src/utils/display/slideshow_daemon.py` | 321 | 31 | 33 | 385 |
 | `backend/src/app.py` | 316 | 102 | 50 | 468 |
 | `gui/src/components/dialogs/_duplicate_pruning.py` | 312 | 30 | 15 | 357 |
 | `gui/src/tabs/database/database_tab/_connection_stats.py` | 310 | 2 | 11 | 323 |
-| **TOTALS** | **87126** | **6248** | **9339** | **102713** |
+| **TOTALS** | **88038** | **6306** | **9407** | **103751** |
