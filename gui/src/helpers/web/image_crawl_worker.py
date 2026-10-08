@@ -19,6 +19,9 @@ class ImageCrawlWorker(BaseQThreadWorker):
     status = Signal(str)  # status message
     finished = Signal(tuple)  # (count, message)
     image_downloaded = Signal(str)  # saved file path or JSON-encoded metadata string
+    # Emitted (on the GUI thread) when a browser verification challenge is
+    # detected; the GUI must show a prompt and call resume_crawl() when done.
+    verification_required = Signal(str)
 
     def __init__(self, config: dict):
         super().__init__()
@@ -29,6 +32,7 @@ class ImageCrawlWorker(BaseQThreadWorker):
         # run() once the crawler exists (issue #529).
         self._status_bridge = QtEventBridge(self.status.emit, parent=self)
         self._saved_bridge = QtEventBridge(self._on_image_saved, parent=self)
+        self._verification_bridge = QtEventBridge(self.verification_required.emit, parent=self)
 
     def _on_image_saved(self, meta_or_path) -> None:
         self._downloaded += 1
@@ -51,6 +55,11 @@ class ImageCrawlWorker(BaseQThreadWorker):
         path = meta_or_path if isinstance(meta_or_path, str) else str(meta_or_path)
         self.status.emit(f"Saved: {os.path.basename(path)}")
         self.image_downloaded.emit(path)
+
+    def resume_crawl(self) -> None:
+        """Unblock a crawl paused at a verification prompt."""
+        if self.crawler:
+            self.crawler.resume()
 
     def cancel(self):
         """Stop the underlying crawler instance and interrupt thread."""
@@ -89,6 +98,7 @@ class ImageCrawlWorker(BaseQThreadWorker):
         # Bridge backend Observables onto the GUI thread (issue #529).
         self._status_bridge.attach(crawler.on_status)
         self._saved_bridge.attach(crawler.on_image_saved)
+        self._verification_bridge.attach(crawler.on_verification_required)
         try:
             self.status.emit(f"Starting {crawler_type.title()} Crawl...")
 
@@ -100,9 +110,12 @@ class ImageCrawlWorker(BaseQThreadWorker):
                 final_count = self._downloaded
 
             return (
-                final_count, f"Crawl finished. Downloaded **{final_count}** image(s)!"
+                final_count,
+                getattr(crawler, "completion_message", "")
+                or f"Crawl finished. Downloaded **{final_count}** image(s)!"
             )
 
         finally:
             self._status_bridge.detach()
             self._saved_bridge.detach()
+            self._verification_bridge.detach()

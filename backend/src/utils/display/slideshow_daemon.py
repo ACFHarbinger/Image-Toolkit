@@ -237,6 +237,8 @@ def run() -> None:  # noqa: C901
     raw_style: str = config.get("style", "Scaled, Keep Proportions")
     use_video_runtime: bool = bool(config.get("use_video_runtime_interval", False))
 
+    current_paths: dict = config.get("current_paths", {})
+    monitor_indices: dict = config.get("monitor_current_indices", {})
     monitor_queues: dict = config.get("monitor_queues", {})
 
     # per-monitor: current index, shuffled list
@@ -245,9 +247,32 @@ def run() -> None:  # noqa: C901
         if not paths:
             continue
         ordered = list(paths)
-        if playback_order == "Random":
+        if playback_order == "Reverse Sequential":
+            ordered.reverse()
+        elif playback_order == "Random":
             random.shuffle(ordered)
-        monitor_state[mid] = {"paths": ordered, "index": 0}
+
+        # Start from the currently active wallpaper if present in queue
+        start_idx = 0
+        active_path = (
+            current_paths.get(mid)
+            or current_paths.get(str(mid))
+            or (current_paths.get(int(mid)) if str(mid).isdigit() else None)
+        )
+        if active_path and active_path in ordered:
+            start_idx = ordered.index(active_path)
+        else:
+            idx_hint = (
+                monitor_indices.get(mid)
+                if mid in monitor_indices
+                else monitor_indices.get(str(mid))
+            )
+            if idx_hint is not None and isinstance(idx_hint, int) and 0 <= idx_hint < len(paths):
+                hinted_path = paths[idx_hint]
+                if hinted_path in ordered:
+                    start_idx = ordered.index(hinted_path)
+
+        monitor_state[mid] = {"paths": ordered, "index": start_idx}
 
     if not monitor_state:
         logging.warning("No non-empty monitor queues found – exiting.")

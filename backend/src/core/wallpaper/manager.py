@@ -8,7 +8,7 @@ import os
 import platform
 import shutil
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Mapping, Optional, Union
 
 import base  # Native extension
 from screeninfo import Monitor
@@ -52,6 +52,22 @@ class WallpaperManager(_WindowsWallpaperMixin, _KDEWallpaperMixin, _GNOMEWallpap
         return len(set(path_map.values())) <= 1
 
     @staticmethod
+    def _first_valid_path(path_map: Mapping[str, Optional[str]]) -> Optional[str]:
+        """First non-empty path in ``path_map``, preferring monitor ``"0"``.
+
+        ``path_map`` can legitimately hold ``None`` for a monitor that was
+        deliberately left untouched (e.g. a cleared slideshow queue) --
+        ``path_map.get("0") or next(iter(path_map.values()))`` picks
+        whichever value dict-iteration happens to put first, which is "0"'s
+        own ``None`` just as often as a real path, crashing single-path
+        callers with ``Path(None)``. Skip falsy entries instead.
+        """
+        path = path_map.get("0")
+        if path:
+            return path
+        return next((p for p in path_map.values() if p), None)
+
+    @staticmethod
     def apply_wallpaper(  # noqa: C901
         path_map: Dict[str, str],
         monitors: Union[List[Monitor], int],
@@ -87,7 +103,9 @@ class WallpaperManager(_WindowsWallpaperMixin, _KDEWallpaperMixin, _GNOMEWallpap
                     path_map, monitors, style_name
                 )
             else:
-                path = path_map.get("0") or next(iter(path_map.values()))
+                path = WallpaperManager._first_valid_path(path_map)
+                if path is None:
+                    raise ValueError("No valid wallpaper path found in path_map.")
                 WallpaperManager._set_wallpaper_windows_single(path, style_name)
 
         elif system == "Linux":
@@ -171,7 +189,9 @@ class WallpaperManager(_WindowsWallpaperMixin, _KDEWallpaperMixin, _GNOMEWallpap
                         path_map, monitors, style_name
                     )
                 else:
-                    path = path_map.get("0") or next(iter(path_map.values()))
+                    path = WallpaperManager._first_valid_path(path_map)
+                    if path is None:
+                        raise ValueError("No valid wallpaper path found in path_map.")
                     mode = WALLPAPER_STYLES["GNOME"].get(style_name, "zoom")
                     base.set_wallpaper_gnome(f"file://{Path(path).resolve()}", mode)
 

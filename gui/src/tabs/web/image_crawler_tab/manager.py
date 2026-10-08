@@ -16,6 +16,7 @@ from ._config import ImageCrawlConfigController, _ConfigMixin
 from ._crawl_worker import ImageCrawlWorkerController, _CrawlWorkerMixin
 from ._directory_browse import ImageCrawlDirectoryController, _DirectoryBrowseMixin
 from ._ui_builder import ImageCrawlUIBuilder
+from ._browser_launcher import ImageCrawlBrowserLauncher
 from ._webdriver import ImageCrawlWebDriverController, _WebDriverMixin
 
 
@@ -53,6 +54,7 @@ class ImageCrawlTab(QWidget):
         self.directory_controller = ImageCrawlDirectoryController(self)
         self.ui_builder = ImageCrawlUIBuilder(self)
         self.webdriver_controller = ImageCrawlWebDriverController(self)
+        self.browser_launcher = ImageCrawlBrowserLauncher(self)
 
         self._build_ui()
 
@@ -68,6 +70,14 @@ class ImageCrawlTab(QWidget):
     @Property(str, notify=qml_settings_changed)
     def screenshot_dir(self):
         return self.screenshot_dir_path.text()
+
+    @Property(bool, notify=qml_settings_changed)
+    def gen_attach_existing(self):
+        return self.attach_existing_checkbox.isChecked()
+
+    @gen_attach_existing.setter
+    def gen_attach_existing(self, value):
+        self.attach_existing_checkbox.setChecked(value)
 
     @Property(bool, notify=qml_settings_changed)
     def gen_headless(self):
@@ -129,6 +139,20 @@ class ImageCrawlTab(QWidget):
     def on_webdriver_finished(self) -> None:
         self.webdriver_controller.on_webdriver_finished()
 
+    # Browser launcher
+    @Slot()
+    def toggle_browser_launch(self) -> None:
+        self.browser_launcher.toggle_browser_launch()
+
+    def on_browser_process_stdout(self) -> None:
+        self.browser_launcher.on_browser_process_stdout()
+
+    def on_browser_process_stderr(self) -> None:
+        self.browser_launcher.on_browser_process_stderr()
+
+    def on_browser_process_finished(self) -> None:
+        self.browser_launcher.on_browser_process_finished()
+
     # Config
     def collect(self) -> dict[str, Any]:
         return self.config_controller.collect()
@@ -176,6 +200,7 @@ class ImageCrawlTab(QWidget):
 
 __all__ = [
     "ImageCrawlTab",
+    "ImageCrawlBrowserLauncher",
     "_ActionBuilderMixin",
     "_BoardSettingsMixin",
     "_ConfigMixin",

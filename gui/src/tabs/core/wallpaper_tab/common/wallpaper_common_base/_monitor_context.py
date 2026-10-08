@@ -52,11 +52,13 @@ class _MonitorContextMixin:
             pixmap_cache=self._initial_pixmap_cache,
             other_queues=self.monitor_slideshow_queues,
             other_names=other_names,
+            active_path=self.monitor_image_paths.get(monitor_id),
         )
         window.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         window.queue_reordered.connect(self.on_queue_reordered)
         window.image_preview_requested.connect(self.handle_full_image_preview)
         window.item_swap_requested.connect(self.handle_item_swap_request)
+        window.set_active_wallpaper_requested.connect(self._set_specific_wallpaper)
 
         self.open_queue_windows = [
             w for w in self.open_queue_windows if not sip.isValid(w)

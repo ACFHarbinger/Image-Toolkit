@@ -90,3 +90,21 @@ class TestImageCrawlComposition:
             collected = tab.collect()
             assert collected["gen_login_url"] == "https://example.com/test-login"
             tab.close()
+
+
+def test_existing_browser_setting_round_trips(q_app):
+    with patch("gui.src.tabs.web.image_crawler_tab.manager.LogWindow"):
+        tab = ImageCrawlTab()
+        try:
+            assert not tab.gen_attach_existing
+            config = tab.get_default_config()
+            config["gen_attach_existing"] = True
+            tab.set_config(config)
+            assert tab.gen_attach_existing
+            assert not tab.headless_checkbox.isEnabled()
+            assert tab.collect()["gen_attach_existing"] is True
+            tab.gen_attach_existing = False
+            assert tab.headless_checkbox.isEnabled()
+            assert tab.collect()["gen_attach_existing"] is False
+        finally:
+            tab.close()

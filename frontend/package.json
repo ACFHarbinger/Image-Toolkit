@@ -19,6 +19,7 @@
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "react-scripts": "5.0.1",
+    "underscore": "^1.13.8",
     "web-vitals": "^6.2.2"
   },
   "devDependencies": {
@@ -77,6 +78,11 @@
       "react-app",
       "react-app/jest"
     ]
+  },
+  "overrides": {
+    "postcss": "^8.5.28",
+    "underscore": "^1.13.8",
+    "qs": "^6.16.0"
   },
   "browserslist": {
     "production": [

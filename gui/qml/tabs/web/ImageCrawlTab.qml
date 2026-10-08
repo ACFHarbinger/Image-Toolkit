@@ -198,8 +198,15 @@ Item {
                             }
                         }
                         
+                        CheckBox {
+                            text: "Use existing browser session (skip login)"
+                            palette.windowText: Style.text
+                            checked: mainBackend && mainBackend.imageCrawlTab ? mainBackend.imageCrawlTab.gen_attach_existing : false
+                            onToggled: if (mainBackend && mainBackend.imageCrawlTab) mainBackend.imageCrawlTab.gen_attach_existing = checked
+                        }
                         CheckBox { 
                             text: "Headless Mode"
+                            enabled: !(mainBackend && mainBackend.imageCrawlTab && mainBackend.imageCrawlTab.gen_attach_existing)
                             palette.windowText: Style.text 
                             checked: mainBackend && mainBackend.imageCrawlTab ? mainBackend.imageCrawlTab.gen_headless : true
                             onCheckedChanged: if (mainBackend && mainBackend.imageCrawlTab) mainBackend.imageCrawlTab.gen_headless = checked

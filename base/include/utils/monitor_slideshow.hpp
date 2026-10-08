@@ -25,9 +25,10 @@ namespace base::utils::monitor_slideshow {
 // action: "start" | "stop" | "status" | "configure" | "next"
 // config_json (used by "start"/"configure"):
 //   {
-//     "monitor_id": "0",
-//     "queue": ["path1", "path2", ...],
-//     "durations": [12.5, 30.0, ...]   // parallel to "queue", seconds
+//     "monitor_id":  "0",
+//     "queue":       ["path1", "path2", ...],
+//     "durations":   [12.5, 30.0, ...],   // parallel to "queue", seconds
+//     "start_index": 2                    // optional: first entry to apply (default 0)
 //   }
 // apply_callback (used by "start"): a Python callable
 //   apply_callback(monitor_id: str, path: str, index: int) -> None

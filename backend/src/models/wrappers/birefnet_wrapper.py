@@ -409,6 +409,9 @@ class BiRefNetWrapper(ModelWrapper):
             per_frame_bytes = h * w * 3 * 4 * 48  # 48× raw tensor size
             batch_size = max(1, int(usable / per_frame_bytes))
             hard_cap = 2 if total_bytes <= 13 * 1024 ** 3 else 3
+            configured_cap = os.environ.get("ASP_BIREFNET_MAX_BATCH_SIZE")
+            if configured_cap is not None:
+                hard_cap = min(hard_cap, max(1, int(configured_cap)))
             return min(batch_size, hard_cap)
         except Exception:
             return 1
