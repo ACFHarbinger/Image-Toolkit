@@ -85,6 +85,14 @@ class MonitorDisplaySlideshowInAppController(TabBoundController):
 
         other_paths = {mid: p for mid, p in self.monitor_image_paths.items() if mid != monitor_id and p}
 
+        # Start from the currently active entry so the slideshow resumes
+        # where the user left off rather than always jumping to index 0.
+        current_idx = self.monitor_current_index.get(monitor_id, -1)
+        if current_idx < 0 or current_idx >= len(queue):
+            # Fall back to the position of the active path in the queue.
+            active_path = self.monitor_image_paths.get(monitor_id)
+            current_idx = queue.index(active_path) if active_path in queue else 0
+
         try:
             _monitor_slideshow.start(
                 monitor_id,
@@ -94,6 +102,7 @@ class MonitorDisplaySlideshowInAppController(TabBoundController):
                 style=style,
                 video_style=video_style,
                 other_paths=other_paths,
+                start_index=current_idx,
             )
         except Exception as e:
             QMessageBox.critical(self.tab, "Error", f"Failed to start in-app slideshow: {e}")

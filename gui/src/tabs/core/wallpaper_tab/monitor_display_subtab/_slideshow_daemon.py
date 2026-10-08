@@ -112,7 +112,7 @@ class MonitorDisplaySlideshowDaemonController(TabBoundController):
             str(i): {"x": m.x, "y": m.y, "width": m.width, "height": m.height} for i, m in enumerate(self.monitors)
         }
         current_path = self.monitor_image_paths.get(monitor_id)
-        current_index = queue.index(current_path) if current_path in queue else -1  # pyrefly: ignore [bad-argument-type]
+        start_index = queue.index(current_path) if current_path in queue else 0  # pyrefly: ignore [bad-argument-type]
         config = {
             "running": True,
             "monitor_id": monitor_id,
@@ -122,7 +122,7 @@ class MonitorDisplaySlideshowDaemonController(TabBoundController):
             "video_style": video_style,
             "monitor_geometries": geometries,
             "other_current_paths": other_paths,
-            "current_index": current_index,
+            "current_index": start_index,
             "last_change_timestamp": 0,
         }
         try:

@@ -41,7 +41,10 @@ class ImageCrawlWorkerController(TabBoundController):
             config["type"] = "general"
             config["url"] = self.url_input.text().strip()
             config["browser"] = self.browser_combo.currentText()
+            config["attach_existing"] = self.attach_existing_checkbox.isChecked()
             config["headless"] = self.headless_checkbox.isChecked()  # pyrefly: ignore [bad-assignment]
+            if hasattr(self, "debug_port_input"):
+                config["debug_port"] = int(self.debug_port_input.value())  # pyrefly: ignore [bad-assignment]
             config["screenshot_dir"] = self.screenshot_dir_path.text().strip() or None  # pyrefly: ignore [bad-assignment]
 
             rep_str = self.replace_str_input.text().strip()
@@ -144,7 +147,22 @@ class ImageCrawlWorkerController(TabBoundController):
         self.worker.error.connect(lambda exc: self.log_window.append_log(str(exc)))
         self.worker.image_downloaded.connect(self.downloaded_files.append)
         self.worker.finished.connect(self.on_crawl_done)
+        self.worker.verification_required.connect(self._on_verification_required)
         self.worker.start()
+
+    @Slot(str)
+    def _on_verification_required(self, message: str):
+        """Pause the crawl while the user completes a browser verification check."""
+        from PySide6.QtWidgets import QMessageBox
+
+        self.log_window.append_log(message)
+        QMessageBox.information(
+            self.tab,
+            "Human Verification Required",
+            "Complete the browser verification check, then click OK to resume the crawl.",
+        )
+        if self.worker and self.worker.isRunning():
+            self.worker.resume_crawl()
 
     @Slot()
     def cancel_crawl(self):

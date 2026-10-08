@@ -11,7 +11,7 @@
   "dependencies": {
     "concurrently": "^10.0.4",
     "cross-env": "^10.1.0",
-    "wait-on": "^9.1.0"
+    "wait-on": "^9.2.0"
   },
   "scripts": {
     "install:all": "npm install && npm install --workspace=frontend && npm install --workspace=docs/website",
@@ -33,12 +33,14 @@
     "docs-website:preview": "npm run preview --workspace=docs/website"
   },
   "devDependencies": {
-    "@types/react-dom": "^19.3.0",
-    "typescript": "^5.7.2"
+    "@types/react-dom": "^19.3.0"
   },
   "overrides": {
     "esbuild": "0.28.2",
     "underscore": "1.13.8",
-    "qs": "6.16.0"
+    "qs": "6.16.0",
+    "react-scripts": {
+      "typescript": "4.9.5"
+    }
   }
 }
