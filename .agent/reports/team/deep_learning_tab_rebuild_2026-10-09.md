@@ -107,3 +107,67 @@ Generation, Evaluation, Inference, ComfyUI sub-tabs — see §2) across:
 ---
 
 — Claude, 2026-10-09
+
+- **Codex** (2026-10-09):
+  [Full proposal](../codex/deep_learning_tab_rebuild_proposal_2026-10-09.md).
+  Recommends Prepare/Train/Generate/Review with shared Runs and Models views,
+  effective-config provenance and supervised GPU jobs before automated advice,
+  an embedded ComfyUI feasibility gate, controlled comparisons, and validated
+  assistant-authored experiments. Confirms LyCORIS GUI exposure already exists;
+  identifies missing forwarding of visible epochs/batch/LR/rank controls on that
+  path and two Illustrious labels pointing to the SDXL base ID. Includes layout,
+  migration, resource tradeoffs, and staged acceptance gates. Proposal only.
+
+- **Mistral** (2026-10-09):
+  [Full proposal](../mistral/deep_learning_tab_rebuild_proposal_2026-10-09.md).
+  Agrees with the Claude/Codex direction (task-grouped workspace, spike-first
+  embedding, schema-validated guidance, correctness before advice). New finding
+  both proposals missed: `backend/src/models/hooks/training_hooks.py` already
+  ships a `DiagnosticsLogger` (TB+W&B, grad norms, LoRA weight norms, VAE
+  roundtrip, sample grids) plus `CrossAttnRecorder`, `lora_effective_rank`
+  (SVD of adapter weights), and `lora_delta_heatmap` — but only
+  `anime_training_pipeline.py` wires it; both GUI launch paths pass
+  `diagnostics=None`, and V1's `use_tensorboard`/`use_wandb` are dead config.
+  Pillar 3 therefore starts with wiring, not building. Adds: a JSONL per-run
+  event sink for GUI charting; an effective-rank-over-checkpoints chart as a
+  rank/alpha advisor; loss-geometry 1-D slices along top singular directions
+  of accumulated ΔW instead of random directions; provenance capture via
+  ComfyUI's HTTP `/history` so the guidance loop never depends on the embedded
+  view succeeding; a validator rule that a suggestion's claimed old value must
+  match the actual workflow JSON; and CI-checkable guidance fixtures over
+  `configs/comfy_workflows/`. Proposes the DL workspace as the second
+  `ModuleCatalog` workspace behind its own experimental pref (Stitch is the
+  shipped precedent), with dataset work starting inside Train rather than as a
+  top-level Prepare destination. Proposal only.
+
+- **Grok** (2026-10-09):
+  [Full proposal](../grok/deep_learning_tab_rebuild_proposal_2026-10-09.md).
+  The visible bug is the architecture combo: Training and Generation are
+  stacked widgets, ComfyUI is a separate route, and LyCORIS still shows
+  epochs/batch/LR/rank that `_run_lycoris_training` does not forward.
+  Proposes capability cards with disabled reasons, Guided|Graph as modes
+  of one generate surface, the existing CBIR epoch bar and `_SparkLine`
+  as the live train panel, a run list that does not use the gallery
+  scheduler, review by rectangle marks plus OCR on the mark, and a GPU
+  lease footer. Landscape plots and CLIP clustering stay explicit
+  follow-up jobs. Proposal only.
+
+- **Gemini / Antigravity** (2026-10-09):
+  [Full proposal](../gemini/deep_learning_tab_rebuild_proposal_2026-10-09.md).
+  Agrees with the `ModuleCatalog` workspace shell, spike-first WebEngine, and
+  schema-validated guidance. Focuses on the missing interactive glue:
+  (1) A `QWebChannel` IPC bridge (`comfy_bridge.js`) inside the embedded
+  ComfyUI view to enable bi-directional parameter syncing, native drag-and-drop
+  from the Library Database, and active node focusing/panning triggered by
+  AI advice;
+  (2) A dual-pane canvas with interactive ROI bounding-box selection, AB split-wipe,
+  and a session filmstrip tracking parameter diffs;
+  (3) A Dataset Tag Entanglement Engine (co-occurrence matrix + CLIP coverage)
+  to prevent character LoRA feature entanglements before training;
+  (4) Practical training geometry via Hutchinson's Hessian trace estimator
+  for fast generalization/sharpness scoring without multi-hour grid searches;
+  (5) An interactive "Diff & Apply" tuning prescription widget that validates
+  patches against the real graph and offers one-click re-queueing;
+  (6) A GPU Lease Arbiter to enforce exclusive VRAM allocation between training
+  and generation. Proposal only; no implementation launched.
+
