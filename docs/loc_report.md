@@ -53,7 +53,7 @@
 | `gui/src/utils/manager/shortcut_manager.py` | 326 | 18 | 43 | 387 |
 | `backend/src/web/crawlers/image_crawler_parts/_scraping.py` | 324 | 8 | 8 | 340 |
 | `gui/src/windows/settings/_tab_config_editing.py` | 324 | 15 | 32 | 371 |
-| `backend/src/app.py` | 316 | 102 | 50 | 468 |
+| `backend/src/app.py` | 318 | 112 | 50 | 480 |
 | `gui/src/components/dialogs/_duplicate_pruning.py` | 312 | 30 | 15 | 357 |
 | `gui/src/tabs/database/database_tab/_connection_stats.py` | 310 | 2 | 11 | 323 |
-| **TOTALS** | **88038** | **6306** | **9407** | **103751** |
+| **TOTALS** | **88026** | **6313** | **9415** | **103754** |
