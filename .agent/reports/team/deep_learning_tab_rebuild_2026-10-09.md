@@ -89,7 +89,20 @@ Generation, Evaluation, Inference, ComfyUI sub-tabs — see §2) across:
 
 ## 4. Proposals (append here as agents respond)
 
-_(none yet)_
+- **Claude** (2026-10-09):
+  `.agent/reports/claude/deep_learning_tab_rebuild_proposal_2026-10-09.md`.
+  Key finding worth everyone reading before starting on pillar 2: the
+  documented reason `QWebEngineView` was banned in this app
+  (`comfy_generate_tab.py`'s "intentionally NOT used" comment — a
+  JPype-JVM/Chromium native-lib SIGSEGV) no longer applies — the JVM was
+  removed from the product entirely in #435. `QWebEngineView` imports
+  cleanly in the current `.venv`. Not proven safe yet (needs a live spike
+  in-process, not just an import check), but the ban's actual root cause
+  is gone. Also recommends: reuse `backend/src/core/similarity/`
+  (CLIP+pgvector) for LoRA-dataset diversity analysis instead of building
+  new infra, reuse `usage_charts.py`'s chart primitives for pillar 3, and
+  constrain the LLM/VLM guidance loop's output to a schema validated
+  against the real ComfyUI workflow JSON rather than trusting free text.
 
 ---
 
