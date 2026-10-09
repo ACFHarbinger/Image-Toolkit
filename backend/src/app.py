@@ -12,7 +12,7 @@ from pathlib import Path
 from gui.src.windows import LoginWindow, MainWindow
 from PySide6.QtCore import QTimer
 from PySide6.QtGui import QFontDatabase, QIcon
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QSystemTrayIcon
 
 from backend.src.constants import (
     CTRL_C_TIMEOUT,
@@ -500,6 +500,18 @@ def launch_app(opts):
                 return
             active_window.show()
             telemetry.emit("startup", "main_window.shown", tid=threading.get_ident())
+            # Create the tray icon right after login (credentials or guest),
+            # not only on the user's first close-to-tray. This reinstates
+            # the unconditional-construction call `_lifecycle.py`'s
+            # `showEvent()` deliberately dropped (see Addendum 27 in
+            # `.agent/archive/cache/gallery_crash_deleteorphaned_2026-07-27.md`
+            # -- eager `QSystemTrayIcon` construction was tied to an
+            # intermittent native SIGSEGV on a Plasma6/Wayland/Qt6
+            # combination). `_setup_tray_icon()` is idempotent, so the
+            # close-to-tray path in `closeEvent()` simply re-shows this same
+            # icon instead of constructing a second one.
+            if QSystemTrayIcon.isSystemTrayAvailable():
+                active_window._setup_tray_icon()
             # Captures the cumulative cost of JVM start (VaultManager, inside
             # the login flow that just completed) + first-tab construction —
             # the "after gallery load" phase in §12.5's spec happens later,

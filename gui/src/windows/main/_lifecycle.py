@@ -115,26 +115,22 @@ class _LifecycleMixin:
         super().showEvent(event)
         self._shown = True
 
-
-        # §2.12A tray-icon setup is intentionally NOT auto-constructed here
-        # (or anywhere else during startup). Every timing attempt tried --
-        # synchronous in __init__, QTimer.singleShot(0), (1500), and this
-        # window's own first showEvent() -- still crashed a meaningful
-        # fraction of launches with a null-pointer SIGSEGV in libQt6Gui.so.6
-        # (nearby offsets: +0x136666, +0x14071e, +0x1342c4), no preceding
-        # QSocketNotifier warning. This matches this project's own Addendum
-        # 13 precedent for a different Qt subsystem: a genuinely unstable
-        # native call under this Plasma6/Wayland/Qt6 combination isn't fixed
-        # by *when* it's called, only by not calling it unconditionally at
-        # all. See Addendum 27 in
-        # .agent/cache/gallery_crash_deleteorphaned_2026-07-27.md.
-        #
-        # `_setup_tray_icon()` itself (in _tray.py) is untouched and still
-        # fully callable -- e.g. from a future opt-in settings toggle -- for
-        # anyone who wants the tray icon back and is willing to accept the
-        # crash risk on an affected environment; this just removes the
-        # unconditional automatic call every session paid regardless of
-        # whether tray features were ever used.
+        # §2.12A tray-icon setup is NOT constructed here. It is constructed
+        # once, right after login (credentials or guest), from
+        # `backend/src/app.py`'s `launch_main_gui()` -- immediately after
+        # this window's first `.show()` -- rather than from this event.
+        # History: an earlier version of this call was unconditional at
+        # construction time / various deferred points (QTimer.singleShot(0),
+        # (1500), this window's own first showEvent()) and crashed a
+        # meaningful fraction of launches with a null-pointer SIGSEGV in
+        # libQt6Gui.so.6 (Addendum 27 in
+        # .agent/archive/cache/gallery_crash_deleteorphaned_2026-07-27.md),
+        # so it was removed entirely and only ever (re)shown lazily on first
+        # close-to-tray (see `closeEvent()` below). Calling it from app.py
+        # right after login reinstates eager construction by request; if the
+        # historical crash reproduces, `_setup_tray_icon()` itself
+        # (`_tray.py`) is unchanged and the call can move back to being
+        # closeEvent()-only.
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key.Key_Escape:
