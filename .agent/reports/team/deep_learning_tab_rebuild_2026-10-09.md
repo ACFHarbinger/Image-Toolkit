@@ -171,3 +171,108 @@ Generation, Evaluation, Inference, ComfyUI sub-tabs — see §2) across:
   (6) A GPU Lease Arbiter to enforce exclusive VRAM allocation between training
   and generation. Proposal only; no implementation launched.
 
+- **Cursor** (2026-10-09):
+  [Full proposal](../cursor/deep_learning_tab_rebuild_proposal_2026-10-09.md).
+  Agrees with the workspace shell, spike-first WebEngine, schema-validated
+  guidance, and diagnostics wiring. Adds window/chrome findings the others
+  missed: `BaseGenerativeTab.collect()` persists combo *labels* not ids;
+  `ImageCompareWindow`, `ContextInspectorPanel`, `TelemetryStatusBar`,
+  `TagReviewDialog`, and `EventHub` intents already exist; docs still ban
+  `QWebEngineView` in six places; `ImageToolkit.spec` has no WebEngine
+  datas. Proposes four destinations inside the existing rail (not a second
+  card rail), capability picker *inside* Train/Generate, GPU state on the
+  existing status bar, ComfyUI pop-out via WindowManager, HTTP `/history`
+  before any `comfy_bridge.js`, and Extractor/Library handoff through
+  `ImportPathsIntent`. CBIR stays out of this category; copy `_SparkLine`
+  only. Proposal only; nothing implemented.
+
+- **Muse Code** (2026-10-09):
+  [Full proposal](../muse/deep_learning_tab_rebuild_proposal_2026-10-09.md).
+  Backbone proposal: every execution is a reloadable/re-queueable Run;
+  Train/Generate/Review in the existing rail (no second rail, no GPU footer —
+  GPU state on `TelemetryStatusBar`); capability picker inside tabs, combo ids
+  not labels, effective-config bar, designed empty states. WebEngine spike
+  with explicit pass criteria (5–10 in-process launches, crash-log + VRAM/RSS
+  verdict: embedded-default / opt-in / external-only); dedicated profile,
+  localhost-only, permanent external fallback, `/history` provenance decoupled
+  from the view. Analysis starts with Diagnostics→JSONL wiring; effective-rank
+  chart as rank/alpha advisor; dataset reuse via similarity stack with
+  one-click Hydra overrides; loss slices + Hutchinson gated behind explicit
+  action. Guidance loop: OCR + VLM passes, versioned schema, two validators
+  (node exists, claimed-`from` matches workflow), Diff & Apply widget with
+  labeled re-queue, no silent auto-apply. Sequenced in five gates.
+  Proposal only; nothing implemented.
+
+- **Kimi** (2026-10-09):
+  [Full proposal](../kimi/deep_learning_tab_rebuild_proposal_2026-10-09.md).
+  Agrees with the converged direction (workspace shell, spike-first WebEngine,
+  wiring-before-building, schema-validated guidance). Re-verified the shared
+  findings in the checkout and adds: (1) two sharpened micro-findings —
+  `set_config()`'s silent index-0 fallback on renamed combo labels, and the
+  Comfy browse dialog missing `DontUseNativeDialog`; (2) `PromptEdit`, one
+  shared prompt component backed by the app's own `tag_repo` vocabulary,
+  run-record trigger chips, SDXL per-encoder token meter, and
+  `HybridCaptioner.MODEL_PREFIXES`; (3) pre-flight template validation
+  against ComfyUI `/object_info` + model-folder file checks so Queue is only
+  enabled when the mode can actually run; (4) a linked-cursor loss curve ↔
+  checkpoint filmstrip scrubber; (5) a **checkpoint tournament** — blind
+  pairwise A/B over the wired per-checkpoint sample grids via the existing
+  `ImageCompareWindow`, ELO-ranked, feeding measured preference into the
+  guidance loop as evidence-traced suggestions; (6) **matrix mode** (X/Y
+  generation sweeps) as the Generate-side counterpart to training sweeps;
+  (7) an upscale handoff wiring the existing unwired `ESRGANWrapper`.
+  Slotted into the consensus A–D gates; largest new surfaces are `PromptEdit`
+  and the tournament view. Proposal only; nothing implemented.
+
+- **Qwen** (2026-10-09):
+  [Full proposal](../qwen/deep_learning_tab_rebuild_proposal_2026-10-09.md).
+  Focuses on the user-experience layer over the converged architecture.
+  Agrees with three-destination workspace, spike-first WebEngine,
+  wiring-before-building, schema-validated guidance. Adds seven contributions:
+  (1) **progressive disclosure** — three complexity tiers (Simple/Standard/
+  Advanced) per destination to manage the knob explosion; (2) **guided
+  onboarding** — one-time contextual overlays for first-run users; (3) the
+  **Comparison Spine** — a persistent strip of pinned runs that follows the
+  user across destinations, making the train→generate→review chain navigable;
+  (4) **cost & time estimates** before every expensive action, calibrated from
+  prior runs; (5) **graceful degradation tiers** for embedded ComfyUI (full/
+  sandboxed/external-only) instead of a binary spike verdict; (6) the
+  **Training Report Card** — post-run summary answering "did it learn?
+  overfitting? what next?" in 5 seconds; (7) **guidance as conversation** with
+  trajectory memory, confidence calibration, and a "What Changed?" overlay.
+  Also proposes C++ dataset analysis for I/O-bound operations and a11y/i18n
+  hardening for charts and parameter naming. Proposal only; nothing
+  implemented.
+
+---
+
+## 5. Decision (Harbinger + Claude, 2026-10-09) — LOCKED
+
+All nine proposals (Claude's + eight agents'; OpenCode and Hermes did not
+respond) read and synthesized. Convergence was unusually strong — most
+agents built directly on each other's findings rather than diverging. The
+selected scope, full design rationale, gate sequencing, and rejected/
+backlogged items now live in their own dedicated roadmap doc:
+**`docs/moon/roadmaps/deep_learning_tab_rebuild.md`**, tracked as GitHub
+milestone **Deep Learning Tab Rebuild** (#11), tracking issue
+[#725](https://github.com/ACFHarbinger/Image-Toolkit/issues/725), with 33
+further issues (#726–#758) across Gates A–E plus 4 explicit backlog items.
+Don't duplicate that document here — this entry is a pointer.
+
+In brief: the converged workspace architecture (second `ModuleCatalog`
+workspace, Train/Generate/Review/Runs, reusing the existing shell — no new
+rail/footer/canvas), the correctness-first gate (LyCORIS param forwarding,
+combo id persistence, model-id mislabeling), the spike-gated embedded
+ComfyUI view with provenance decoupled from it, wiring `training_hooks.py`
+before building new analysis UI, and the schema-validated two-validator
+guidance loop were all adopted close to as proposed. Three open forks were
+decided with Harbinger directly: Qwen's Comparison Spine and progressive-
+disclosure tiers, and Kimi's checkpoint tournament, are all **in v1 scope**
+(not backlogged). Gemini's immediate `QWebChannel` bridge, a dual-pane
+canvas rebuild, a separate GPU-lease footer, a top-level Prepare
+destination, CBIR folding, and automatic retraining loops are **rejected**
+or **backlogged** — see the roadmap doc §3/§2's backlog table for the
+reasoning on each.
+
+— Claude, 2026-10-09
+
