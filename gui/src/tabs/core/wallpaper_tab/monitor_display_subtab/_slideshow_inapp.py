@@ -128,7 +128,7 @@ class MonitorDisplaySlideshowInAppController(TabBoundController):
         subtab's own bookkeeping. Reconcile monitor_image_paths / the
         current-index / the drop-widget thumbnail from the native status on
         each poll tick so the rest of the UI (queue window highlighting,
-        "Set Active Wallpaper from Queue" checkmarks, etc.) stays in sync."""
+        "Set Active Queue Wallpaper" checkmarks, etc.) stays in sync."""
         idx = status.get("current_index")
         if idx is None or idx < 0:
             return

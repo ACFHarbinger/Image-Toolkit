@@ -27,6 +27,15 @@ class _WallpaperSwapMixin:
     """Set-active-from-queue, monitor/graph swap, item swap, and queue reorder/clear."""
 
     def _set_specific_wallpaper(self: "WallpaperCommonBaseHostProtocol", monitor_id: str, path: str, index: Optional[int] = None):
+        """Mark *path* as the monitor's active queue entry.
+
+        This only updates the bookkeeping that the slideshow resumes from
+        (``monitor_current_index``) and that the "Set Wallpaper" button
+        applies (``monitor_image_paths``) -- it does not push the change to
+        the actual system/in-app display. The user must press "Set
+        Wallpaper" or (re)start the slideshow for the new active entry to
+        actually show up on screen.
+        """
         if not os.path.exists(path):
             QMessageBox.warning(cast(QWidget, self), "Error", f"File not found:\n{path}")
             return
@@ -41,21 +50,6 @@ class _WallpaperSwapMixin:
 
         self.update_monitor_widget_ui(monitor_id)
         self.check_all_monitors_set()
-
-        runner = self if hasattr(self, "run_wallpaper_worker") else None
-        if runner is None:
-            runner = next(
-                (
-                    peer
-                    for peer in getattr(self, "linked_tabs", [])
-                    if hasattr(peer, "run_wallpaper_worker")
-                ),
-                None,
-            )
-        if runner is not None:
-            timer = getattr(runner, "slideshow_timer", None)
-            slideshow_running = bool(timer and timer.isActive())
-            runner.run_wallpaper_worker(slideshow_mode=slideshow_running)
 
     def on_image_dropped(self: "WallpaperCommonBaseHostProtocol", monitor_id: str, image_path: str):
         self.on_images_dropped(monitor_id, [image_path])

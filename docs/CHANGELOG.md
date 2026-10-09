@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Changed
+
+- Monitor right-click "Set Active Wallpaper from Queue..." renamed to "Set Active Queue Wallpaper..." and no longer applies the chosen wallpaper to the display immediately. `_set_specific_wallpaper()` (`_wallpaper_swap.py`) previously called `run_wallpaper_worker()` right after updating `monitor_image_paths`/`monitor_current_index`, pushing the change to the system/in-app display before the user asked for it. It now only updates that bookkeeping (what the slideshow resumes from, and what the "Set Wallpaper" button applies) and refreshes the monitor thumbnail; the user must press "Set Wallpaper" or (re)start the slideshow for the active queue entry to actually change on screen. Files: `gui/src/tabs/core/wallpaper_tab/common/wallpaper_common_base/_wallpaper_swap.py`, `_monitor_context.py`, `gui/src/tabs/core/wallpaper_tab/monitor_display_subtab/_slideshow_inapp.py`. Tests: `gui/test/core/test_core_tab.py::test_set_active_queue_wallpaper_updates_state_without_applying`.
+
 ### Fixed
 
 - `_wait_for_browser_access`: restored 120-second deadline for the login-pending path (broken by the verification-pause rewrite). Headless sessions now fail immediately on a CAPTCHA challenge instead of waiting for a deadline. Two existing tests updated to match the new headless and resume semantics.

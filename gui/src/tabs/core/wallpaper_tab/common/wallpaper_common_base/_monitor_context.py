@@ -87,7 +87,7 @@ class _MonitorContextMixin:
 
         queue = self.monitor_slideshow_queues.get(monitor_id, [])
         if queue:
-            set_active_menu = menu.addMenu("Set Active Wallpaper from Queue...")
+            set_active_menu = menu.addMenu("Set Active Queue Wallpaper...")
 
             current_active = self.monitor_image_paths.get(monitor_id)
             for i, path in enumerate(queue):

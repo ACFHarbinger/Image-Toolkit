@@ -167,7 +167,7 @@ class TestWallpaperTab:
         assert tab.system_display.btn_fetch_current.isVisible()
         assert tab.system_display.btn_skip_wallpapers.isVisible()
 
-    def test_set_active_queue_wallpaper_keeps_slideshow_ui_enabled(
+    def test_set_active_queue_wallpaper_updates_state_without_applying(
         self, q_app, mock_deps, tmp_path
     ):
         class WorkerSignals(QObject):
@@ -211,6 +211,8 @@ class TestWallpaperTab:
 
             tab.monitor_display._set_specific_wallpaper("0", str(second), 1)
 
+            # Bookkeeping (what the slideshow resumes from, and what the
+            # "Set Wallpaper" button would apply) is updated immediately...
             assert system.monitor_image_paths["0"] == str(second)
             assert system.monitor_current_index["0"] == 1
             for panel in (system, tab.monitor_display):
@@ -218,19 +220,12 @@ class TestWallpaperTab:
                 assert all(
                     widget.isEnabled() for widget in panel.monitor_widgets.values()
                 )
-            assert FakeWallpaperWorker.instance is not None
 
-            FakeWallpaperWorker.instance.signals.work_finished.emit(
-                True, "Wallpaper applied successfully."
-            )
-            q_app.processEvents()
-
+            # ...but the actual display is left untouched: no worker is
+            # spawned, and the running slideshow timer/button are unaffected.
+            assert FakeWallpaperWorker.instance is None
             assert system.current_wallpaper_worker is None
-            for panel in (system, tab.monitor_display):
-                assert panel.gallery_scroll_area.isEnabled()
-                assert all(
-                    widget.isEnabled() for widget in panel.monitor_widgets.values()
-                )
+            assert system.slideshow_timer.isActive()
             assert system.set_wallpaper_btn.text() == "Slideshow Running (Stop)"
             tab.close()
 
