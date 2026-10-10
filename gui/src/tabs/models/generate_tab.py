@@ -60,9 +60,27 @@ class UnifiedGenerateTab(BaseGenerativeTab):
         main_layout.addWidget(self.stack)
 
         # Connect signal
-        self.model_selector.currentIndexChanged.connect(self.stack.setCurrentIndex)
+        self.model_selector.currentIndexChanged.connect(self._on_architecture_changed)
+        for subtab in (self.anything_tab, self.sd3_tab, self.r3gan_tab, self.basic_gan_gen_tab):
+            sig = getattr(subtab, "effective_config_changed", None)
+            if sig is not None and hasattr(sig, "connect"):
+                sig.connect(self.notify_effective_config_changed)
 
         self.setLayout(main_layout)
+
+    def _on_architecture_changed(self, index: int) -> None:
+        self.stack.setCurrentIndex(index)
+        active = self.stack.currentWidget()
+        if active and hasattr(active, "apply_disclosure_tier"):
+            active.apply_disclosure_tier(self._active_disclosure_tier)
+        self.notify_effective_config_changed()
+
+    def get_effective_config_summary(self) -> str:
+        active = self.stack.currentWidget()
+        if active and hasattr(active, "get_effective_config_summary"):
+            return active.get_effective_config_summary()
+        return super().get_effective_config_summary()
+
 
     def collect(self) -> dict:
         active_widget = self.stack.currentWidget()

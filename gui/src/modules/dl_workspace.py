@@ -72,12 +72,19 @@ class DeepLearningWorkspaceHandle(ModuleHandle):
             dispose()
 
 
-def create_dl_workspace(context: ModuleContext) -> DeepLearningWorkspaceHandle:
+def create_dl_workspace(context: ModuleContext | None) -> DeepLearningWorkspaceHandle:
     """Construct the shared host only when first activated."""
     from gui.src.tabs.models.dl_workspace_host import DeepLearningWorkspaceHost
 
     event_hub = getattr(context, "event_hub", None)
-    return DeepLearningWorkspaceHandle(DeepLearningWorkspaceHost(event_hub=event_hub))
+    pref_store = getattr(context, "preference_store", None)
+    try:
+        host = DeepLearningWorkspaceHost(event_hub=event_hub, preference_store=pref_store)
+    except TypeError:
+        host = DeepLearningWorkspaceHost(event_hub=event_hub)
+    return DeepLearningWorkspaceHandle(host)
+
+
 
 
 def register_dl_workspace(
