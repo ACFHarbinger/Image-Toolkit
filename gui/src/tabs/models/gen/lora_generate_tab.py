@@ -18,7 +18,13 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ....classes.base.base_generative_tab import BaseGenerativeTab, model_choice_label
+from ....classes.base.base_generative_tab import (
+    TIER_ADVANCED,
+    TIER_SIMPLE,
+    TIER_STANDARD,
+    BaseGenerativeTab,
+    model_choice_label,
+)
 
 
 class LoRAGenerateTab(BaseGenerativeTab):
@@ -56,16 +62,20 @@ class LoRAGenerateTab(BaseGenerativeTab):
         for name, model_id in models:
             self.model_selector.addItem(model_choice_label(name, model_id), model_id)
 
-        self.add_param_widget(layout, "Select Model:", self.model_selector, "model_id")
+        self.add_param_widget(layout, "Select Model:", self.model_selector, "model_id", tier=TIER_SIMPLE)
         self.model_selector.currentIndexChanged.connect(self.update_ui_visibility)
 
         # --- Dynamic Widgets Group ---
         # Diffusion Widgets
         self.diffusion_group = QWidget()
+        self.tag_field(self.diffusion_group, tier=TIER_SIMPLE)
         diff_layout = QFormLayout(self.diffusion_group)
         self.prompt_edit = QLineEdit("1girl, solo, cat ears, library")
+        self.tag_field(self.prompt_edit, tier=TIER_SIMPLE)
         self.neg_prompt_edit = QLineEdit("lowres, bad anatomy, text, error")
+        self.tag_field(self.neg_prompt_edit, tier=TIER_STANDARD)
         self.lora_edit = QLineEdit("output_lora")
+        self.tag_field(self.lora_edit, tier=TIER_STANDARD)
 
         diff_layout.addRow("Prompt:", self.prompt_edit)
         diff_layout.addRow("Negative Prompt:", self.neg_prompt_edit)
@@ -84,8 +94,10 @@ class LoRAGenerateTab(BaseGenerativeTab):
         diff_layout.addRow("LoRA Path:", lora_row)
 
         self.steps_box = QSpinBox(minimum=1, value=25, maximum=100)
+        self.tag_field(self.steps_box, tier=TIER_STANDARD)
         self.guidance_box = QDoubleSpinBox()
         self.guidance_box.setValue(7.0)
+        self.tag_field(self.guidance_box, tier=TIER_STANDARD)
 
         diff_layout.addRow("Inference Steps:", self.steps_box)
         diff_layout.addRow("Guidance Scale:", self.guidance_box)
@@ -93,8 +105,10 @@ class LoRAGenerateTab(BaseGenerativeTab):
 
         # GAN Widgets
         self.gan_group = QWidget()
+        self.tag_field(self.gan_group, tier=TIER_SIMPLE)
         gan_layout = QFormLayout(self.gan_group)
         self.input_image_edit = QLineEdit(self.last_browsed_scan_dir)
+        self.tag_field(self.input_image_edit, tier=TIER_SIMPLE)
         self.input_btn = QPushButton("Browse")
         self.input_btn.clicked.connect(self.browse_input_image)
 
@@ -110,12 +124,24 @@ class LoRAGenerateTab(BaseGenerativeTab):
             "Output Filename:",
             QLineEdit(os.path.join(LOCAL_SOURCE_PATH, "Generated", "output.png")),
             "output_filename",
+            tier=TIER_SIMPLE,
         )
         self.batch_size_box = QSpinBox(minimum=1, value=1, maximum=8)
-        self.add_param_widget(layout, "Batch Size:", self.batch_size_box, "batch_size")
+        self.add_param_widget(layout, "Batch Size:", self.batch_size_box, "batch_size", tier=TIER_ADVANCED)
+
+        # Connect live changes to effective-config notifications
+        self.prompt_edit.textChanged.connect(lambda _: self.notify_effective_config_changed())
+        self.neg_prompt_edit.textChanged.connect(lambda _: self.notify_effective_config_changed())
+        self.steps_box.valueChanged.connect(lambda _: self.notify_effective_config_changed())
+        self.guidance_box.valueChanged.connect(lambda _: self.notify_effective_config_changed())
+        self.lora_edit.textChanged.connect(lambda _: self.notify_effective_config_changed())
+        self.model_selector.currentIndexChanged.connect(lambda _: self.notify_effective_config_changed())
 
         # Action Buttons
-        button_layout = QHBoxLayout()
+        button_container = QWidget()
+        self.tag_field(button_container, tier=TIER_SIMPLE)
+        button_layout = QHBoxLayout(button_container)
+        button_layout.setContentsMargins(0, 0, 0, 0)
         self.gen_btn = QPushButton("Generate")
         self.cancel_btn = QPushButton("Cancel")
         self.gen_btn.clicked.connect(self.start_generation_thread)
@@ -123,9 +149,10 @@ class LoRAGenerateTab(BaseGenerativeTab):
 
         button_layout.addWidget(self.gen_btn)
         button_layout.addWidget(self.cancel_btn)
-        layout.addRow(button_layout)
+        layout.addRow(button_container)
         self.cancel_btn.setEnabled(False)
         self.setLayout(layout)
+
 
     def browse_input_image(self):
         fname, _ = QFileDialog.getOpenFileName(
@@ -142,6 +169,8 @@ class LoRAGenerateTab(BaseGenerativeTab):
     def update_ui_visibility(self):
         model_id = self.model_selector.currentData()
         is_gan = model_id == "animegan_v2"
+        self.diffusion_group.setProperty("disclosure_applicable", not is_gan)
+        self.gan_group.setProperty("disclosure_applicable", is_gan)
         self.diffusion_group.setVisible(not is_gan)
         self.gan_group.setVisible(is_gan)
         self.gen_btn.setText("Transfer Style" if is_gan else "Generate Image")
@@ -337,3 +366,22 @@ class LoRAGenerateTab(BaseGenerativeTab):
             return
         from gui.src.components.dialogs.safetensors_inspector_dialog import SafetensorsInspectorDialog
         SafetensorsInspectorDialog(path=path, parent=self).exec()
+
+    def get_effective_config_summary(self) -> str:
+        """Return resolved one-line config to run (#731)."""
+        model_id = self.model_selector.currentData() or self.model_selector.currentText()
+        is_gan = model_id == "animegan_v2"
+        if is_gan:
+            img = self.input_image_edit.text().strip() if hasattr(self, "input_image_edit") else ""
+            img_str = f"'{img}'" if img else "(none)"
+            return f"Model: {model_id} · Style Transfer · Input Image: {img_str}"
+        prompt = self.prompt_edit.text().strip() if hasattr(self, "prompt_edit") else ""
+        steps = self.steps_box.value() if hasattr(self, "steps_box") else 25
+        guidance = self.guidance_box.value() if hasattr(self, "guidance_box") else 7.0
+        lora = self.lora_edit.text().strip() if hasattr(self, "lora_edit") else ""
+        lora_str = f" · LoRA: '{lora}'" if lora else ""
+        prompt_str = f"'{prompt}'" if prompt else "(empty)"
+        negative = self.neg_prompt_edit.text().strip() if hasattr(self, "neg_prompt_edit") else ""
+        batch = self.batch_size_box.value() if hasattr(self, "batch_size_box") else 1
+        return f"Model: {model_id} · Steps: {steps} · Guidance: {guidance} · Batch: {batch} · Prompt: {prompt_str} · Negative: {negative!r}{lora_str}"
+

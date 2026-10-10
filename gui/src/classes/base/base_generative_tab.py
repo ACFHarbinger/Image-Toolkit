@@ -1,5 +1,6 @@
 import contextlib
 
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -8,11 +9,18 @@ from PySide6.QtWidgets import (
     QLabel,
     QLineEdit,
     QSpinBox,
+    QStackedWidget,
     QTextEdit,
     QWidget,
 )
 
 from gui.src.theming.theme_api import color
+
+# Progressive disclosure complexity tiers (#731)
+TIER_SIMPLE = "simple"
+TIER_STANDARD = "standard"
+TIER_ADVANCED = "advanced"
+DISCLOSURE_TIERS = (TIER_SIMPLE, TIER_STANDARD, TIER_ADVANCED)
 
 # v1 wrote QComboBox.currentText() (friendly labels) and, on the unified
 # train/generate hosts, selected_model_index. v2 writes itemData and
@@ -23,6 +31,7 @@ SELECTED_MODEL_KEY = "selected_model"
 LEGACY_SELECTED_MODEL_INDEX_KEY = "selected_model_index"
 
 _META_CONFIG_KEYS = frozenset({CONFIG_SCHEMA_KEY, "config_migration_note"})
+
 
 
 def combo_persist_value(combo: QComboBox):
@@ -93,19 +102,118 @@ def model_choice_label(label: str, model_id: str) -> str:
 class BaseGenerativeTab(QWidget):
     """Base class for all Generative Model parameter tabs"""
 
-    def __init__(self):
-        super().__init__()
+    effective_config_changed = Signal(str)
+
+    def __init__(self, parent: QWidget | None = None):
+        super().__init__(parent)
         self.params = {}
         self.widgets = {}
+        self._param_rows: dict[str, tuple[QWidget, QWidget, str]] = {}
+        self._active_disclosure_tier = TIER_STANDARD
         self.config_migration_note: str | None = None
         self._migration_label: QLabel | None = None
 
     def add_param_widget(
-        self, layout: QFormLayout, label: str, widget: QWidget, param_name: str
+        self,
+        layout: QFormLayout,
+        label: str,
+        widget: QWidget,
+        param_name: str,
+        tier: str = TIER_STANDARD,
     ):
-        """Helper to add a parameter widget to layout"""
-        layout.addRow(QLabel(label), widget)
+        """Helper to add a parameter widget to layout with disclosure tier support."""
+        lbl = QLabel(label)
+        lbl.setProperty("disclosure_tier", tier)
+        widget.setProperty("disclosure_tier", tier)
+        layout.addRow(lbl, widget)
         self.widgets[param_name] = widget
+        self._param_rows[param_name] = (lbl, widget, tier)
+        self._connect_widget_change(widget)
+
+    def tag_field(
+        self,
+        widget: QWidget,
+        tier: str = TIER_STANDARD,
+        label: QWidget | None = None,
+    ) -> None:
+        """Tag an arbitrary widget or container row with a disclosure tier."""
+        widget.setProperty("disclosure_tier", tier)
+        if label is not None:
+            label.setProperty("disclosure_tier", tier)
+        self._connect_widget_change(widget)
+
+    def _connect_widget_change(self, widget: QWidget) -> None:
+        """Connect change signals to notify of effective config updates."""
+        prompt_sig = getattr(widget, "promptChanged", None)
+        if prompt_sig is not None and hasattr(prompt_sig, "connect"):
+            prompt_sig.connect(lambda *_: self.notify_effective_config_changed())
+        if isinstance(widget, QComboBox):
+            widget.currentIndexChanged.connect(lambda _idx: self.notify_effective_config_changed())
+        elif isinstance(widget, (QSpinBox, QDoubleSpinBox)):
+            widget.valueChanged.connect(lambda _val: self.notify_effective_config_changed())
+        elif isinstance(widget, QLineEdit):
+            widget.textChanged.connect(lambda _txt: self.notify_effective_config_changed())
+        elif isinstance(widget, QCheckBox):
+            widget.toggled.connect(lambda _chk: self.notify_effective_config_changed())
+
+    def notify_effective_config_changed(self) -> None:
+        """Emit the effective configuration summary string."""
+        summary = self.get_effective_config_summary()
+        self.effective_config_changed.emit(summary)
+
+    def get_effective_config_summary(self) -> str:
+        """Return a read-only one-line summary of the effective configuration."""
+        active_widget = getattr(getattr(self, "stack", None), "currentWidget", lambda: None)()
+        if active_widget is not None and hasattr(active_widget, "get_effective_config_summary"):
+            return active_widget.get_effective_config_summary()
+        items: list[str] = []
+        for k, w in self.widgets.items():
+            if isinstance(w, QComboBox):
+                items.append(f"{k}: {combo_persist_value(w)}")
+            elif isinstance(w, (QSpinBox, QDoubleSpinBox)):
+                items.append(f"{k}: {w.value()}")
+            elif isinstance(w, QLineEdit):
+                text = w.text().strip()
+                if text:
+                    items.append(f"{k}: '{text}'")
+        return " · ".join(items) if items else "Default"
+
+    def apply_disclosure_tier(self, tier: str) -> None:
+        """Filter form rows based on the selected progressive disclosure tier (#731)."""
+        if tier not in DISCLOSURE_TIERS:
+            tier = TIER_STANDARD
+        self._active_disclosure_tier = tier
+        visible_tiers = {TIER_SIMPLE}
+        if tier in (TIER_STANDARD, TIER_ADVANCED):
+            visible_tiers.add(TIER_STANDARD)
+        if tier == TIER_ADVANCED:
+            visible_tiers.add(TIER_ADVANCED)
+
+        for child in self.findChildren(QWidget):
+            child_tier = child.property("disclosure_tier")
+            if child_tier is None:
+                continue
+            owner = child.parentWidget()
+            while owner is not None and not isinstance(owner, BaseGenerativeTab):
+                owner = owner.parentWidget()
+            if owner is not self:
+                continue
+            visible = child_tier in visible_tiers and child.property("disclosure_applicable") is not False
+            parent = child.parentWidget()
+            form = parent.layout() if parent is not None else None
+            if isinstance(form, QFormLayout) and form.getWidgetPosition(child)[0] >= 0:
+                form.setRowVisible(child, visible)
+            else:
+                child.setVisible(visible)
+
+        # 3. Propagate to sub-tabs if hosted in a QStackedWidget
+        stack = getattr(self, "stack", None)
+        if isinstance(stack, QStackedWidget):
+            for idx in range(stack.count()):
+                sub = stack.widget(idx)
+                if hasattr(sub, "apply_disclosure_tier"):
+                    sub.apply_disclosure_tier(tier)
+
 
     def collect(self) -> dict:
         """Collects the current values from all registered widgets."""

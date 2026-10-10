@@ -236,6 +236,41 @@ class PrefKeys:
         value_type=bool,
         description="Enable the experimental Deep Learning workspace routes for this account",
     )
+    DL_DISCLOSURE_TIER_TRAIN = PreferenceDefinition(
+        key="dl/disclosure_tier_train",
+        scope=PreferenceScope.ACCOUNT,
+        default="standard",
+        value_type=str,
+        description="Progressive disclosure tier for Deep Learning Train destination (simple/standard/advanced)",
+    )
+    DL_DISCLOSURE_TIER_GENERATE = PreferenceDefinition(
+        key="dl/disclosure_tier_generate",
+        scope=PreferenceScope.ACCOUNT,
+        default="standard",
+        value_type=str,
+        description="Progressive disclosure tier for Deep Learning Generate destination (simple/standard/advanced)",
+    )
+    DL_ONBOARDING_TRAIN_DISMISSED = PreferenceDefinition(
+        key="dl/onboarding_train_dismissed",
+        scope=PreferenceScope.ACCOUNT,
+        default=False,
+        value_type=bool,
+        description="Whether the first-run guided onboarding card for Train has been dismissed",
+    )
+    DL_ONBOARDING_GENERATE_DISMISSED = PreferenceDefinition(
+        key="dl/onboarding_generate_dismissed",
+        scope=PreferenceScope.ACCOUNT,
+        default=False,
+        value_type=bool,
+        description="Whether the first-run guided onboarding card for Generate has been dismissed",
+    )
+    DL_ONBOARDING_REVIEW_DISMISSED = PreferenceDefinition(
+        key="dl/onboarding_review_dismissed",
+        scope=PreferenceScope.ACCOUNT,
+        default=False,
+        value_type=bool,
+        description="Whether the first-run guided onboarding card for Review has been dismissed",
+    )
 
 
 ALL_KNOWN_DEFINITIONS: list[PreferenceDefinition] = [
@@ -258,7 +293,13 @@ ALL_KNOWN_DEFINITIONS: list[PreferenceDefinition] = [
     PrefKeys.EXPERIMENTAL_STITCH_WORKSPACE,
     PrefKeys.EXPERIMENTAL_RUNTIME_SHELL,
     PrefKeys.EXPERIMENTAL_DL_WORKSPACE,
+    PrefKeys.DL_DISCLOSURE_TIER_TRAIN,
+    PrefKeys.DL_DISCLOSURE_TIER_GENERATE,
+    PrefKeys.DL_ONBOARDING_TRAIN_DISMISSED,
+    PrefKeys.DL_ONBOARDING_GENERATE_DISMISSED,
+    PrefKeys.DL_ONBOARDING_REVIEW_DISMISSED,
 ]
+
 
 __all__ = [
     "ALL_KNOWN_DEFINITIONS",
