@@ -1,0 +1,2615 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-08-17T12:44:52.856Z",
+  "source": "submodules/ASP/data/benchmarks/asp_evaluations_20260810.json",
+  "summary": {
+    "total_keys": 97,
+    "reviewed": 97,
+    "mean_asp": 2.0103092783505154,
+    "mean_simple": 2.6391752577319587,
+    "preference_counts": {
+      "simple": 54,
+      "tie": 29,
+      "asp": 14
+    },
+    "preference_simple_share": 0.7941176470588235,
+    "narrative_hint": "Human ratings currently prefer OpenCV SCANS (simple) more often than ASP."
+  },
+  "evaluations": {
+    "asp_test01": {
+      "asp": 3,
+      "bboxes": [],
+      "confidence": 2,
+      "defects": [
+        "crop_loss"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 3
+        },
+        "simple": {
+          "coherence": 4
+        }
+      },
+      "edges": [],
+      "notes": "SCANS cropped out part of the top of the image, and the ASP cropped out both the top and bottom",
+      "preference": "simple",
+      "reviewed": true,
+      "simple": 4,
+      "updated_at": "2026-08-15T06:08:00"
+    },
+    "asp_test02": {
+      "asp": 2,
+      "bboxes": [],
+      "confidence": 3,
+      "defects": [
+        "banding",
+        "color_shift",
+        "ghosting",
+        "seam_line"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 2
+        },
+        "simple": {
+          "coherence": 3
+        }
+      },
+      "edges": [],
+      "notes": "SCANS has dark ghosting, but ASP has terrible issues with the slight yellow light at the top right infecting the entire image, and visible seam lines, specially over the character",
+      "preference": "simple",
+      "reviewed": true,
+      "simple": 3,
+      "updated_at": "2026-08-10T09:07:51"
+    },
+    "asp_test03": {
+      "asp": 3,
+      "bboxes": [],
+      "confidence": 3,
+      "defects": [
+        "banding",
+        "seam_line"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 3
+        },
+        "simple": {
+          "coherence": 4
+        }
+      },
+      "edges": [],
+      "notes": "ASP again has issues with banding and drastically different colors at the seam lines, while SCANS is simply perfect in this test case",
+      "preference": "simple",
+      "reviewed": true,
+      "simple": 4,
+      "updated_at": "2026-08-10T09:08:46"
+    },
+    "asp_test04": {
+      "asp": 1,
+      "bboxes": [],
+      "confidence": 3,
+      "defects": [
+        "banding",
+        "color_shift",
+        "ghosting",
+        "misordered_content",
+        "seam_line",
+        "torn_anatomy"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 1
+        },
+        "simple": {
+          "coherence": 3
+        }
+      },
+      "edges": [],
+      "notes": "Again, SCANS only has minor ghosting issues, while the ASP even has torn anatomy...",
+      "preference": "simple",
+      "reviewed": true,
+      "simple": 3,
+      "updated_at": "2026-08-10T09:16:47"
+    },
+    "asp_test05": {
+      "asp": 3,
+      "bboxes": [],
+      "confidence": 3,
+      "defects": [
+        "color_shift",
+        "seam_line"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 3
+        },
+        "simple": {
+          "coherence": 4
+        }
+      },
+      "edges": [],
+      "notes": "SCANS is perfect, while ASP has minor issues with visible dark seam lines and color shifts at the bottom",
+      "preference": "simple",
+      "reviewed": true,
+      "simple": 4,
+      "updated_at": "2026-08-10T09:17:44"
+    },
+    "asp_test06": {
+      "asp": 1,
+      "bboxes": [],
+      "confidence": 3,
+      "defects": [
+        "banding",
+        "blur",
+        "color_shift",
+        "duplicated_strip",
+        "geometry_warp",
+        "misordered_content",
+        "seam_line",
+        "torn_anatomy"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 1
+        },
+        "simple": {
+          "coherence": 4
+        }
+      },
+      "edges": [],
+      "notes": "This is perhaps the worst contrast until now. SCANS is nearly perfect, with a silight artifact near the hands, while the top half of the ASP stitch is completely white it hurts the eyes, plus has duplicated strip, geometry warps, and many other issues (although the bottom of the image is mostly fine)",
+      "preference": "simple",
+      "reviewed": true,
+      "simple": 4,
+      "updated_at": "2026-08-10T09:19:52"
+    },
+    "asp_test07": {
+      "asp": 0,
+      "bboxes": [],
+      "confidence": 1,
+      "defects": [
+        "banding",
+        "blur",
+        "color_shift",
+        "crop_loss",
+        "duplicated_strip",
+        "geometry_warp",
+        "ghosting",
+        "misordered_content",
+        "other",
+        "seam_line",
+        "torn_anatomy"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 0
+        },
+        "hugin": {
+          "coherence": 2
+        },
+        "simple": {
+          "coherence": 1
+        }
+      },
+      "edges": [],
+      "notes": "These stitches are all completely insane of how terrible they are. SCANS didnt even try, it looks almost like it only selected 1 image cropped out the contents of all other frames, the ASP again is completely warped, torn, and misordered. The only salvageable one is Hugin's, but the stitch, while nearly perfect in terms of color and coherence, it for some reason stretched out in a weird way",
+      "preference": "tie",
+      "reviewed": true,
+      "simple": 1,
+      "updated_at": "2026-08-10T09:25:41"
+    },
+    "asp_test08": {
+      "asp": 3,
+      "bboxes": [],
+      "confidence": 2,
+      "defects": [
+        "other"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 3
+        },
+        "hugin": {
+          "coherence": 2
+        },
+        "simple": {
+          "coherence": 4
+        }
+      },
+      "edges": [],
+      "notes": "ASP nearly perfect with small artifacts near some edges, SCANS is pratically perfect, and Hugin again produces a perfect image but weirdly stretched out in a way that ends up making it worse than the others",
+      "preference": "simple",
+      "reviewed": true,
+      "simple": 4,
+      "updated_at": "2026-08-10T09:25:42"
+    },
+    "asp_test09": {
+      "asp": 3,
+      "bboxes": [],
+      "defects": [
+        "crop_loss",
+        "other"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 3
+        },
+        "simple": {
+          "coherence": 4
+        }
+      },
+      "edges": [],
+      "notes": "SCANS is pratically perfect, while the ASP, while nearly perfect, again has small isues with crop loss and non-connecting edges",
+      "preference": "tie",
+      "reviewed": true,
+      "simple": 4,
+      "updated_at": "2026-08-10T09:26:54"
+    },
+    "asp_test10": {
+      "asp": 4,
+      "bboxes": [],
+      "confidence": 3,
+      "dimensions": {
+        "asp": {
+          "coherence": 4
+        },
+        "simple": {
+          "coherence": 4
+        }
+      },
+      "edges": [],
+      "notes": "Both perfect and identical, nothing to say here.",
+      "preference": "tie",
+      "reviewed": true,
+      "simple": 4,
+      "updated_at": "2026-08-10T09:27:25"
+    },
+    "asp_test11": {
+      "asp": 2,
+      "bboxes": [],
+      "confidence": 3,
+      "defects": [
+        "color_shift",
+        "crop_loss"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 2
+        },
+        "simple": {
+          "coherence": 3
+        }
+      },
+      "edges": [],
+      "notes": "Slight color shift in both images, and high crop loss as well, with it being particularly extreme in the ASP output",
+      "preference": "simple",
+      "reviewed": true,
+      "simple": 3,
+      "updated_at": "2026-08-10T09:28:18"
+    },
+    "asp_test12": {
+      "asp": 0,
+      "bboxes": [],
+      "confidence": 3,
+      "defects": [
+        "banding",
+        "blur",
+        "color_shift",
+        "crop_loss",
+        "duplicated_strip",
+        "geometry_warp",
+        "ghosting",
+        "misordered_content",
+        "other",
+        "seam_line",
+        "torn_anatomy"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 0
+        },
+        "simple": {
+          "coherence": 4
+        }
+      },
+      "edges": [],
+      "notes": "Ok, I spoke too soon. This is the most extreme contrast between the ASP and SCANS outputs. SCANS produces a near perfect stitch, while ASP produces a nightmarish image that looks completely alien due to how many visual artifacts it contains",
+      "preference": "simple",
+      "reviewed": true,
+      "simple": 4,
+      "updated_at": "2026-08-10T09:30:22"
+    },
+    "asp_test13": {
+      "asp": 2,
+      "bboxes": [],
+      "confidence": 2,
+      "defects": [
+        "crop_loss",
+        "duplicated_strip",
+        "torn_anatomy"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 2
+        },
+        "hugin": {
+          "coherence": 4
+        },
+        "simple": {
+          "coherence": 2
+        }
+      },
+      "edges": [],
+      "notes": "Both the ASP and SCANS have the exact same issues, with torn anatomy, duplicated body parts, and high crop loss. Hugin is a surprising outlier, as it produced a near perfect image. Seems strange that Hugin produces high quality stitches when others fail, but fails miserably on what are supposed to be the easiest tests.",
+      "preference": "tie",
+      "reviewed": true,
+      "simple": 2,
+      "updated_at": "2026-08-10T09:32:10"
+    },
+    "asp_test14": {
+      "asp": 0,
+      "bboxes": [],
+      "confidence": 2,
+      "defects": [
+        "banding",
+        "blur",
+        "color_shift",
+        "crop_loss",
+        "duplicated_strip",
+        "geometry_warp",
+        "ghosting",
+        "misordered_content",
+        "other",
+        "seam_line",
+        "torn_anatomy"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 0
+        },
+        "simple": {
+          "coherence": 1
+        }
+      },
+      "edges": [],
+      "notes": "Terrible, all issues present in the ASP stitch at a very high rate. SCANS is slighly better, but nothing to write home about, as it also has torn anatomy, misordered content, and many other issues. However, I have tried stitching this scene with manual frame selection, and achieved far better results, very near ground truth level, so that may be a sign that frame selection is a worthwhile problem to consider.",
+      "preference": "simple",
+      "reviewed": true,
+      "simple": 1,
+      "updated_at": "2026-08-10T09:34:12"
+    },
+    "asp_test15": {
+      "asp": 1,
+      "bboxes": [],
+      "confidence": 3,
+      "defects": [
+        "banding",
+        "blur",
+        "color_shift",
+        "duplicated_strip",
+        "ghosting",
+        "misordered_content",
+        "seam_line",
+        "torn_anatomy"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 1
+        },
+        "simple": {
+          "coherence": 4
+        }
+      },
+      "edges": [],
+      "notes": "SCANS is pixel perfect, and the ASP is almost the reverse of that. Again, a shocking contrast.",
+      "preference": "simple",
+      "reviewed": true,
+      "simple": 4,
+      "updated_at": "2026-08-10T09:35:20"
+    },
+    "asp_test16": {
+      "asp": 3,
+      "bboxes": [],
+      "confidence": 1,
+      "defects": [
+        "ghosting"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 3
+        },
+        "hugin": {
+          "coherence": 2
+        },
+        "simple": {
+          "coherence": 4
+        }
+      },
+      "edges": [],
+      "notes": "Slight ghosting in SCANS and ASP (with ASP being more perceptible), while the Hugin one has no ghosting issues, but again has the image weirdly stretched out",
+      "preference": "simple",
+      "reviewed": true,
+      "simple": 4,
+      "updated_at": "2026-08-10T09:36:34"
+    },
+    "asp_test17": {
+      "asp": 2,
+      "bboxes": [],
+      "confidence": 3,
+      "defects": [
+        "banding",
+        "color_shift",
+        "seam_line"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 2
+        },
+        "simple": {
+          "coherence": 4
+        }
+      },
+      "edges": [],
+      "notes": "ASP has high colors shifts, as well as banding and seam issues, while SCANS is perfect",
+      "preference": "simple",
+      "reviewed": true,
+      "simple": 4,
+      "updated_at": "2026-08-10T09:37:07"
+    },
+    "asp_test18": {
+      "asp": 3,
+      "bboxes": [],
+      "confidence": 3,
+      "defects": [
+        "ghosting",
+        "seam_line"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 3
+        },
+        "hugin": {
+          "coherence": 4
+        },
+        "simple": {
+          "coherence": 4
+        }
+      },
+      "edges": [],
+      "notes": "Slight ghosting in ASP and SCANS, with ASP also having high contrast seam lines. Hugin has no ghosting and is slightly stretched out, but this time it doesnt effect the image quality whatsoever",
+      "preference": "simple",
+      "reviewed": true,
+      "simple": 4,
+      "updated_at": "2026-08-10T09:38:44"
+    },
+    "asp_test19": {
+      "asp": 1,
+      "bboxes": [],
+      "confidence": 3,
+      "defects": [
+        "banding",
+        "color_shift",
+        "crop_loss",
+        "ghosting",
+        "misordered_content",
+        "seam_line",
+        "torn_anatomy"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 1
+        },
+        "simple": {
+          "coherence": 3
+        }
+      },
+      "edges": [],
+      "notes": "",
+      "preference": "simple",
+      "reviewed": true,
+      "simple": 3,
+      "updated_at": "2026-08-10T10:00:50"
+    },
+    "asp_test20": {
+      "asp": 2,
+      "bboxes": [],
+      "confidence": 3,
+      "defects": [
+        "color_shift",
+        "crop_loss",
+        "ghosting",
+        "other"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 2
+        },
+        "hugin": {
+          "coherence": 0
+        },
+        "simple": {
+          "coherence": 2
+        }
+      },
+      "edges": [],
+      "notes": "",
+      "preference": "tie",
+      "reviewed": true,
+      "simple": 2,
+      "updated_at": "2026-08-10T10:01:18"
+    },
+    "asp_test21": {
+      "asp": 4,
+      "bboxes": [],
+      "confidence": 2,
+      "defects": [
+        "ghosting"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 4
+        },
+        "simple": {
+          "coherence": 3
+        }
+      },
+      "edges": [],
+      "notes": "",
+      "preference": "asp",
+      "reviewed": true,
+      "simple": 3,
+      "updated_at": "2026-08-10T10:01:40"
+    },
+    "asp_test22": {
+      "asp": 1,
+      "bboxes": [],
+      "confidence": 3,
+      "defects": [
+        "banding",
+        "color_shift",
+        "crop_loss",
+        "duplicated_strip",
+        "misordered_content",
+        "seam_line"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 1
+        },
+        "hugin": {
+          "coherence": 3
+        },
+        "simple": {
+          "coherence": 2
+        }
+      },
+      "edges": [],
+      "notes": "The Hugin output is again stretched out in a weird way, but is otherwise near perfect. SCANS cropped out a significant portion of the top and bottom, while the ASP cropped out a lesser portion, but has severe color issues, out of order strips, and significant banding",
+      "preference": "simple",
+      "reviewed": true,
+      "simple": 2,
+      "updated_at": "2026-08-11T05:42:49"
+    },
+    "asp_test23": {
+      "asp": 2,
+      "bboxes": [],
+      "confidence": 3,
+      "defects": [
+        "crop_loss",
+        "ghosting"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 2
+        },
+        "simple": {
+          "coherence": 3
+        }
+      },
+      "edges": [],
+      "notes": "Ghosting on both outputs, but significant crop loss in the top and bottom of the ASP stitch",
+      "preference": "simple",
+      "reviewed": true,
+      "simple": 3,
+      "updated_at": "2026-08-11T05:43:44"
+    },
+    "asp_test24": {
+      "asp": 2,
+      "bboxes": [],
+      "confidence": 2,
+      "defects": [
+        "crop_loss",
+        "ghosting"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 2
+        },
+        "simple": {
+          "coherence": 2
+        }
+      },
+      "edges": [],
+      "notes": "Slight ghosting and significant crop loss at the bottom of both images",
+      "preference": "tie",
+      "reviewed": true,
+      "simple": 2,
+      "updated_at": "2026-08-11T05:44:23"
+    },
+    "asp_test25": {
+      "asp": 2,
+      "bboxes": [],
+      "confidence": 2,
+      "defects": [
+        "crop_loss"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 2
+        },
+        "simple": {
+          "coherence": 2
+        }
+      },
+      "edges": [],
+      "notes": "Again, slight ghosting and significant crop loss",
+      "preference": "asp",
+      "reviewed": true,
+      "simple": 2,
+      "updated_at": "2026-08-11T05:44:51"
+    },
+    "asp_test26": {
+      "asp": 3,
+      "bboxes": [],
+      "confidence": 3,
+      "defects": [
+        "crop_loss",
+        "ghosting"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 3
+        },
+        "simple": {
+          "coherence": 3
+        }
+      },
+      "edges": [],
+      "notes": "Small ghosting and slight crop loss at the bottom of both images",
+      "preference": "tie",
+      "reviewed": true,
+      "simple": 3,
+      "updated_at": "2026-08-11T05:45:28"
+    },
+    "asp_test27": {
+      "asp": 2,
+      "bboxes": [],
+      "confidence": 3,
+      "defects": [
+        "banding",
+        "ghosting",
+        "seam_line"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 2
+        },
+        "simple": {
+          "coherence": 3
+        }
+      },
+      "edges": [],
+      "notes": "Ghosting in the SCANS output, and banding + visible seam lines in the ASP output",
+      "preference": "simple",
+      "reviewed": true,
+      "simple": 3,
+      "updated_at": "2026-08-15T06:09:26"
+    },
+    "asp_test28": {
+      "asp": 2,
+      "bboxes": [],
+      "defects": [
+        "banding",
+        "ghosting",
+        "seam_line"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 2
+        },
+        "simple": {
+          "coherence": 3
+        }
+      },
+      "edges": [],
+      "notes": "Exact same issues as test 27",
+      "preference": "simple",
+      "reviewed": true,
+      "simple": 3,
+      "updated_at": "2026-08-15T06:08:12"
+    },
+    "asp_test29": {
+      "asp": 2,
+      "bboxes": [],
+      "confidence": 3,
+      "defects": [
+        "banding",
+        "ghosting",
+        "misordered_content",
+        "seam_line"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 2
+        },
+        "simple": {
+          "coherence": 3
+        }
+      },
+      "edges": [],
+      "notes": "Same issues as test 27 and 28, plus misordered content in the ASP stitch",
+      "preference": "simple",
+      "reviewed": true,
+      "simple": 3,
+      "updated_at": "2026-08-11T05:47:12"
+    },
+    "asp_test30": {
+      "asp": 3,
+      "bboxes": [],
+      "confidence": 2,
+      "defects": [
+        "crop_loss",
+        "ghosting"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 3
+        },
+        "simple": {
+          "coherence": 3
+        }
+      },
+      "edges": [],
+      "notes": "Slight ghosting in both images, ASP slightly better due to small crop loss in the SCANS output",
+      "preference": "asp",
+      "reviewed": true,
+      "simple": 3,
+      "updated_at": "2026-08-11T05:47:51"
+    },
+    "asp_test31": {
+      "asp": 2,
+      "bboxes": [],
+      "confidence": 2,
+      "defects": [
+        "banding",
+        "color_shift",
+        "duplicated_strip",
+        "ghosting",
+        "misordered_content",
+        "seam_line",
+        "torn_anatomy"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 2
+        },
+        "simple": {
+          "coherence": 2
+        }
+      },
+      "edges": [],
+      "notes": "Both outputs are bad, but for different reasons. SCANS has ghosting and very significant crop loss, while ASP has misordered content, duplicated strips, banding, color shift in the top and middle, and torn anatomy",
+      "preference": "tie",
+      "reviewed": true,
+      "simple": 2,
+      "updated_at": "2026-08-11T05:49:56"
+    },
+    "asp_test32": {
+      "asp": 3,
+      "bboxes": [],
+      "confidence": 3,
+      "defects": [
+        "ghosting"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 3
+        },
+        "simple": {
+          "coherence": 3
+        }
+      },
+      "edges": [],
+      "notes": "Slight ghosting in both images",
+      "preference": "tie",
+      "reviewed": true,
+      "simple": 3,
+      "updated_at": "2026-08-11T05:50:17"
+    },
+    "asp_test33": {
+      "asp": 2,
+      "bboxes": [],
+      "confidence": 3,
+      "defects": [
+        "banding",
+        "color_shift",
+        "duplicated_strip",
+        "ghosting",
+        "misordered_content",
+        "seam_line",
+        "torn_anatomy"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 2
+        },
+        "hugin": {
+          "coherence": 3
+        },
+        "simple": {
+          "coherence": 4
+        }
+      },
+      "edges": [],
+      "notes": "Near perfect SCANS result with very small ghosting, Hugin very good result but with weird stretching again, and the ASP has the usual torn anamoty, banding, color shift, and seam line issues",
+      "preference": "simple",
+      "reviewed": true,
+      "simple": 4,
+      "updated_at": "2026-08-11T06:00:01"
+    },
+    "asp_test34": {
+      "asp": 2,
+      "bboxes": [],
+      "confidence": 2,
+      "defects": [
+        "banding",
+        "color_shift",
+        "crop_loss",
+        "duplicated_strip",
+        "geometry_warp",
+        "ghosting",
+        "misordered_content",
+        "seam_line",
+        "torn_anatomy"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 2
+        },
+        "hugin": {
+          "coherence": 3
+        },
+        "simple": {
+          "coherence": 2
+        }
+      },
+      "edges": [],
+      "notes": "Hugin has slight issue with torn anatomy, while SCANS has severe crop loss and ghosting, and the ASP has the usual banding, seam line, and color shift issues",
+      "preference": "tie",
+      "reviewed": true,
+      "simple": 2,
+      "updated_at": "2026-08-11T06:42:48"
+    },
+    "asp_test35": {
+      "asp": 0,
+      "bboxes": [],
+      "confidence": 3,
+      "defects": [
+        "banding",
+        "blur",
+        "color_shift",
+        "crop_loss",
+        "duplicated_strip",
+        "geometry_warp",
+        "ghosting",
+        "misordered_content",
+        "other",
+        "seam_line",
+        "torn_anatomy"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 0
+        },
+        "hugin": {
+          "coherence": 3
+        },
+        "simple": {
+          "coherence": 2
+        }
+      },
+      "edges": [],
+      "notes": "Hugin's output again has the weird stretch, but it is less notable than usual, and is otherwise near-perfect. OpenCV's SCANS has ghosting and severe crop loss at both the bottom and top of the stitch, producing almost half of the image that Hugin produces. ASP has almost every existing issue possible and the final output is beyond human comprehension.",
+      "preference": "simple",
+      "reviewed": true,
+      "simple": 2,
+      "updated_at": "2026-08-13T02:56:19"
+    },
+    "asp_test36": {
+      "asp": 2,
+      "bboxes": [],
+      "confidence": 3,
+      "defects": [
+        "banding",
+        "color_shift",
+        "duplicated_strip",
+        "ghosting",
+        "misordered_content",
+        "seam_line",
+        "torn_anatomy"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 2
+        },
+        "simple": {
+          "coherence": 4
+        }
+      },
+      "edges": [],
+      "notes": "OpenCV's SCANS is near-perfect, aside some slight ghosting, and the ASP has severe issues (of several types) from middle to the top of the image, although the image is still parsable.",
+      "preference": "simple",
+      "reviewed": true,
+      "simple": 4,
+      "updated_at": "2026-08-13T02:56:17"
+    },
+    "asp_test37": {
+      "asp": 3,
+      "bboxes": [],
+      "confidence": 2,
+      "defects": [
+        "color_shift",
+        "crop_loss"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 3
+        },
+        "simple": {
+          "coherence": 3
+        }
+      },
+      "edges": [],
+      "notes": "Both the ASP and SCANS outputs present slight crop loss and color shift (due to the strong brightness at the top-left of the source frames) issues, but are otherwise pretty close to the ground truth.",
+      "preference": "tie",
+      "reviewed": true,
+      "simple": 3,
+      "updated_at": "2026-08-13T02:53:23"
+    },
+    "asp_test38": {
+      "asp": 1,
+      "bboxes": [],
+      "confidence": 3,
+      "defects": [
+        "banding",
+        "blur",
+        "color_shift",
+        "duplicated_strip",
+        "ghosting",
+        "misordered_content",
+        "seam_line",
+        "torn_anatomy"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 1
+        },
+        "simple": {
+          "coherence": 3
+        }
+      },
+      "edges": [],
+      "notes": "SCANS has ghosting and some color shift near the bottom half of the image. ASP's output is again full of issues, not as severe as those in test 35, but broadly of the same category.",
+      "preference": "simple",
+      "reviewed": true,
+      "simple": 3,
+      "updated_at": "2026-08-13T02:56:07"
+    },
+    "asp_test39": {
+      "asp": 1,
+      "bboxes": [],
+      "confidence": 3,
+      "defects": [
+        "banding",
+        "blur",
+        "color_shift",
+        "crop_loss",
+        "duplicated_strip",
+        "ghosting",
+        "misordered_content",
+        "seam_line",
+        "torn_anatomy"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 1
+        },
+        "simple": {
+          "coherence": 3
+        }
+      },
+      "edges": [],
+      "notes": "Similar analysis as the previous test (38), except now the ASP output also has crop loss issues.",
+      "preference": "simple",
+      "reviewed": true,
+      "simple": 3,
+      "updated_at": "2026-08-15T06:09:34"
+    },
+    "asp_test40": {
+      "asp": 1,
+      "bboxes": [],
+      "confidence": 2,
+      "defects": [
+        "banding",
+        "blur",
+        "color_shift",
+        "crop_loss",
+        "duplicated_strip",
+        "geometry_warp",
+        "ghosting",
+        "misordered_content",
+        "other",
+        "seam_line",
+        "torn_anatomy"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 1
+        },
+        "hugin": {
+          "coherence": 4
+        },
+        "simple": {
+          "coherence": 1
+        }
+      },
+      "edges": [],
+      "notes": "Same issues as those of test 35, except the ASP issues are more in-line with the severity shown in test 38 (making the results still be human perceptible), and SCANS displays even more severe crop loss, making it almost seem like it just selected a single frame as its output, instead of stitching several frames together into a single image. Hugin's warping issues are also almost imperceptible, making it near-perfect.",
+      "preference": "tie",
+      "reviewed": true,
+      "simple": 1,
+      "updated_at": "2026-08-13T02:58:57"
+    },
+    "asp_test41": {
+      "asp": 1,
+      "bboxes": [],
+      "confidence": 3,
+      "defects": [
+        "blur",
+        "crop_loss",
+        "geometry_warp",
+        "ghosting",
+        "torn_anatomy"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 1
+        },
+        "hugin": {
+          "coherence": 1
+        },
+        "simple": {
+          "coherence": 3
+        }
+      },
+      "edges": [],
+      "notes": "SCANS is very good, only being letdown due to ghosting issues, while Hugin again displays a severe geometry warp. ASP displays the same ghosting as SCANS, plus slight torn anatomy + blur, and severe crop loss issues.",
+      "preference": "simple",
+      "reviewed": true,
+      "simple": 3,
+      "updated_at": "2026-08-13T03:01:04"
+    },
+    "asp_test42": {
+      "asp": 3,
+      "bboxes": [],
+      "confidence": 2,
+      "defects": [
+        "color_shift",
+        "crop_loss",
+        "ghosting"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 3
+        },
+        "simple": {
+          "coherence": 3
+        }
+      },
+      "edges": [],
+      "notes": "Both stitches are near identical (at the exception of a slight color shift issue in the ASP output), with just slight ghosting and crop loss issues holding it down from achieving near-ground truth results.",
+      "preference": "simple",
+      "reviewed": true,
+      "simple": 3,
+      "updated_at": "2026-08-13T03:02:39"
+    },
+    "asp_test43": {
+      "asp": 1,
+      "bboxes": [],
+      "confidence": 3,
+      "defects": [
+        "color_shift",
+        "crop_loss",
+        "ghosting"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 1
+        },
+        "simple": {
+          "coherence": 1
+        }
+      },
+      "edges": [],
+      "notes": "Both outputs are identical, containing ghosting, color shift, and severe crop loss issues, leading to the outputs having less than half the size of the ground truth image.",
+      "preference": "tie",
+      "reviewed": true,
+      "simple": 1,
+      "updated_at": "2026-08-13T03:03:57"
+    },
+    "asp_test44": {
+      "asp": 1,
+      "bboxes": [],
+      "confidence": 2,
+      "defects": [
+        "banding",
+        "blur",
+        "color_shift",
+        "crop_loss",
+        "duplicated_strip",
+        "geometry_warp",
+        "ghosting",
+        "misordered_content",
+        "seam_line",
+        "torn_anatomy"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 1
+        },
+        "hugin": {
+          "coherence": 4
+        },
+        "simple": {
+          "coherence": 0
+        }
+      },
+      "edges": [],
+      "notes": "The ASP has the usual set of issues, while SCANS - which is usually better - displays so severe ghosting and crop loss, that it makes the ASP output seem good by comparison. Hugin's usual geometry warp is almost imperceptible, making its panorama near-perfect.",
+      "preference": "simple",
+      "reviewed": true,
+      "simple": 0,
+      "updated_at": "2026-08-13T03:07:59"
+    },
+    "asp_test45": {
+      "asp": 1,
+      "bboxes": [],
+      "confidence": 3,
+      "defects": [
+        "banding",
+        "blur",
+        "crop_loss",
+        "duplicated_strip",
+        "geometry_warp",
+        "ghosting",
+        "misordered_content",
+        "seam_line",
+        "torn_anatomy"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 1
+        },
+        "hugin": {
+          "coherence": 4
+        },
+        "simple": {
+          "coherence": 2
+        }
+      },
+      "edges": [],
+      "notes": "Hugin again has a near-perfect output, while SCANS displays ghosting and crop loss issues, although not as severe as before. ASP displays the usual issues with (for its own usual low quality) average severity, although it suffers from less crop loss than SCANS (still more than Hugin's though).",
+      "preference": "simple",
+      "reviewed": true,
+      "simple": 2,
+      "updated_at": "2026-08-13T03:09:54"
+    },
+    "asp_test46": {
+      "asp": 2,
+      "bboxes": [],
+      "confidence": 3,
+      "defects": [
+        "blur",
+        "color_shift",
+        "crop_loss",
+        "geometry_warp",
+        "ghosting",
+        "misordered_content",
+        "seam_line",
+        "torn_anatomy"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 2
+        },
+        "hugin": {
+          "coherence": 4
+        },
+        "simple": {
+          "coherence": 1
+        }
+      },
+      "edges": [],
+      "notes": "This is a similar situation to test 44, where the ASP usual issues were present, but SCANS crop loss was severe enough to outshadowed them. Hugin again has a near-perfect result.",
+      "preference": "asp",
+      "reviewed": true,
+      "simple": 1,
+      "updated_at": "2026-08-13T03:11:34"
+    },
+    "asp_test47": {
+      "asp": 1,
+      "bboxes": [],
+      "confidence": 3,
+      "defects": [
+        "banding",
+        "blur",
+        "color_shift",
+        "crop_loss",
+        "duplicated_strip",
+        "geometry_warp",
+        "ghosting",
+        "misordered_content",
+        "torn_anatomy"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 1
+        },
+        "hugin": {
+          "coherence": 4
+        },
+        "simple": {
+          "coherence": 2
+        }
+      },
+      "edges": [],
+      "notes": "Hugin again with a near-perfect result. SCANS has moderate crop loss and ghosting. ASP shows the usual array of issues, except seam lines related ones, and with severity above the OpenCV SCANS crop loss issues.",
+      "preference": "simple",
+      "reviewed": true,
+      "simple": 2,
+      "updated_at": "2026-08-13T03:12:51"
+    },
+    "asp_test48": {
+      "asp": 2,
+      "bboxes": [],
+      "confidence": 3,
+      "defects": [
+        "crop_loss",
+        "ghosting"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 2
+        },
+        "simple": {
+          "coherence": 3
+        }
+      },
+      "edges": [],
+      "notes": "Both outputs suffer from ghosting, while the ASP has additional crop loss issues.",
+      "preference": "simple",
+      "reviewed": true,
+      "simple": 3,
+      "updated_at": "2026-08-13T03:13:24"
+    },
+    "asp_test49": {
+      "asp": 1,
+      "bboxes": [],
+      "confidence": 3,
+      "defects": [
+        "crop_loss",
+        "duplicated_strip",
+        "ghosting",
+        "misordered_content",
+        "seam_line",
+        "torn_anatomy"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 1
+        },
+        "hugin": {
+          "coherence": 4
+        },
+        "simple": {
+          "coherence": 3
+        }
+      },
+      "edges": [],
+      "notes": "Hugin delivers a perfect output, while SCANS has ghosting issues. ASP has torn anatomy, misoredered content, seam line and ghosting issues, as well as severe crop loss (particularly of the character's head).",
+      "preference": "simple",
+      "reviewed": true,
+      "simple": 3,
+      "updated_at": "2026-08-13T03:14:46"
+    },
+    "asp_test50": {
+      "asp": 1,
+      "bboxes": [],
+      "confidence": 3,
+      "defects": [
+        "banding",
+        "blur",
+        "color_shift",
+        "crop_loss",
+        "ghosting",
+        "torn_anatomy"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 1
+        },
+        "hugin": {
+          "coherence": 4
+        },
+        "simple": {
+          "coherence": 2
+        }
+      },
+      "edges": [],
+      "notes": "SCANS has slight ghosting and moderate crop loss, while Hugin produces a near-perfect stitch. ASP has torn anatomy, ghosting, banding, blur, and severe color shift issues.",
+      "preference": "simple",
+      "reviewed": true,
+      "simple": 2,
+      "updated_at": "2026-08-13T03:16:58"
+    },
+    "asp_test51": {
+      "asp": 2,
+      "bboxes": [],
+      "confidence": 2,
+      "defects": [
+        "crop_loss",
+        "geometry_warp",
+        "ghosting"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 2
+        },
+        "hugin": {
+          "coherence": 3
+        },
+        "simple": {
+          "coherence": 1
+        }
+      },
+      "edges": [],
+      "notes": "Both the ASP and SCANS have severe crop loss issues (although in different places), with SCANS also having ghosting. Hugin produces a good overall result, but again plagued by the geometric warps it usually does.",
+      "preference": "asp",
+      "reviewed": true,
+      "simple": 1,
+      "updated_at": "2026-08-13T03:20:19"
+    },
+    "asp_test52": {
+      "asp": 1,
+      "bboxes": [],
+      "defects": [
+        "blur",
+        "crop_loss",
+        "geometry_warp",
+        "seam_line"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 1
+        },
+        "hugin": {
+          "coherence": 2
+        },
+        "simple": {
+          "coherence": 0
+        }
+      },
+      "edges": [],
+      "notes": "Both the ASP and SCANS have severe crop loss issues, with SCANS also having blur on several places of its output. Hugin again produces a better result, but again plagued by the usual geometric warp issues, with some additional visible seam lines.",
+      "preference": "asp",
+      "reviewed": true,
+      "simple": 0,
+      "updated_at": "2026-08-13T03:20:06"
+    },
+    "asp_test53": {
+      "asp": 2,
+      "bboxes": [],
+      "confidence": 3,
+      "defects": [
+        "blur",
+        "crop_loss",
+        "geometry_warp"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 2
+        },
+        "hugin": {
+          "coherence": 3
+        },
+        "simple": {
+          "coherence": 2
+        }
+      },
+      "edges": [],
+      "notes": "ASP and SCANS produced identical results plagued by crop loss and blur issues, while Hugin created a good result, but again with geometry warp issues.",
+      "preference": "tie",
+      "reviewed": true,
+      "simple": 2,
+      "updated_at": "2026-08-13T03:21:27"
+    },
+    "asp_test54": {
+      "asp": 2,
+      "bboxes": [],
+      "confidence": 3,
+      "defects": [
+        "blur",
+        "crop_loss",
+        "geometry_warp"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 2
+        },
+        "hugin": {
+          "coherence": 4
+        },
+        "simple": {
+          "coherence": 2
+        }
+      },
+      "edges": [],
+      "notes": "Exact same analysis as the test before (53), but with Hugin's geometric warp issues being less perceptible to the human eye.",
+      "preference": "tie",
+      "reviewed": true,
+      "simple": 2,
+      "updated_at": "2026-08-13T03:22:15"
+    },
+    "asp_test55": {
+      "asp": 1,
+      "bboxes": [],
+      "confidence": 3,
+      "defects": [
+        "banding",
+        "blur",
+        "color_shift",
+        "crop_loss",
+        "duplicated_strip",
+        "geometry_warp",
+        "ghosting",
+        "misordered_content",
+        "seam_line",
+        "torn_anatomy"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 1
+        },
+        "hugin": {
+          "coherence": 3
+        },
+        "simple": {
+          "coherence": 2
+        }
+      },
+      "edges": [],
+      "notes": "Both the ASP and SCANs display ghosting and crop loss, plus some slight blur. ASP additionally has the usual torn anatomy, duplicated strips, misordered content, color shift, and other issues mostly related to the seam lines/vertical strips of the image. Hugin produces a very good result with some geometry warp and slight ghosting issues.",
+      "preference": "simple",
+      "reviewed": true,
+      "simple": 2,
+      "skipped": true,
+      "updated_at": "2026-08-15T06:08:45"
+    },
+    "asp_test56": {
+      "asp": 3,
+      "bboxes": [],
+      "confidence": 3,
+      "defects": [
+        "crop_loss"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 3
+        },
+        "simple": {
+          "coherence": 2
+        }
+      },
+      "edges": [],
+      "notes": "Both outputs display crop loss issues, with SCANS output having more severe crop loss than the ASP output (ASP only at the bottom, and SCANS at both top and bottom of the image).",
+      "preference": "asp",
+      "reviewed": true,
+      "simple": 2,
+      "updated_at": "2026-08-15T06:09:39"
+    },
+    "asp_test57": {
+      "asp": 3,
+      "bboxes": [],
+      "confidence": 3,
+      "defects": [
+        "ghosting",
+        "torn_anatomy"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 3
+        },
+        "simple": {
+          "coherence": 3
+        }
+      },
+      "edges": [],
+      "notes": "Both results are relatively good, with both displaying some ghosting (SCANS is more severe here) and slight torn anatomy (ASP is slightly more severe here)",
+      "preference": "tie",
+      "reviewed": true,
+      "simple": 3,
+      "updated_at": "2026-08-13T03:29:44"
+    },
+    "asp_test58": {
+      "asp": 3,
+      "bboxes": [],
+      "confidence": 3,
+      "defects": [
+        "blur",
+        "crop_loss"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 3
+        },
+        "simple": {
+          "coherence": 1
+        }
+      },
+      "edges": [],
+      "notes": "The ASP has slight blur and crop loss issues, while SCANS has highly severe crop loss (it literally cut the resulting stitch in half horizontally, something I have never seen before, as most crop loss occurs vertically)",
+      "preference": "asp",
+      "reviewed": true,
+      "simple": 1,
+      "updated_at": "2026-08-13T03:29:45"
+    },
+    "asp_test59": {
+      "asp": 1,
+      "bboxes": [],
+      "defects": [
+        "banding",
+        "color_shift",
+        "crop_loss",
+        "duplicated_strip",
+        "ghosting",
+        "misordered_content",
+        "seam_line",
+        "torn_anatomy"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 1
+        },
+        "simple": {
+          "coherence": 2
+        }
+      },
+      "edges": [],
+      "notes": "The ASP has the usual array of issues with above average color shift, while SCANS has severe crop loss (still closer to the ground truth than ASP though, as ASP has some crop loss issues as well - although not as severe - and a whole host of errors with severe magnitude)",
+      "preference": "simple",
+      "reviewed": true,
+      "simple": 2,
+      "updated_at": "2026-08-13T03:35:00"
+    },
+    "asp_test60": {
+      "asp": 3,
+      "bboxes": [],
+      "confidence": 3,
+      "defects": [
+        "crop_loss",
+        "geometry_warp",
+        "ghosting"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 3
+        },
+        "hugin": {
+          "coherence": 2
+        },
+        "simple": {
+          "coherence": 4
+        }
+      },
+      "edges": [],
+      "notes": "Slight ghosting in both SCANS and the ASP, with the ASP also having slight crop loss, and Hugin has severe geometric warp.",
+      "preference": "simple",
+      "reviewed": true,
+      "simple": 4,
+      "updated_at": "2026-08-13T03:36:15"
+    },
+    "asp_test61": {
+      "asp": 1,
+      "bboxes": [],
+      "confidence": 3,
+      "defects": [
+        "banding",
+        "blur",
+        "color_shift",
+        "crop_loss",
+        "duplicated_strip",
+        "ghosting",
+        "misordered_content",
+        "seam_line",
+        "torn_anatomy"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 1
+        },
+        "hugin": {
+          "coherence": 4
+        },
+        "simple": {
+          "coherence": 0
+        }
+      },
+      "edges": [],
+      "notes": "SCANS has ghosting and crop loss so severe it edges out the ASP when it comes to the worse output, even with the ASP having its usual color shift, torn anatomy, seam lines and banding related issues. Hugin produces a pratically perfect result.",
+      "preference": "asp",
+      "reviewed": true,
+      "simple": 0,
+      "updated_at": "2026-08-13T03:37:38"
+    },
+    "asp_test62": {
+      "asp": 2,
+      "bboxes": [],
+      "confidence": 2,
+      "defects": [
+        "crop_loss",
+        "geometry_warp",
+        "ghosting"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 2
+        },
+        "hugin": {
+          "coherence": 3
+        },
+        "simple": {
+          "coherence": 2
+        }
+      },
+      "edges": [],
+      "notes": "ASP and SCANS both have severe ghosting and crop loss issues, while Hugin has a very good result, let down by its usual geometric warp.",
+      "preference": "tie",
+      "reviewed": true,
+      "simple": 2,
+      "updated_at": "2026-08-13T03:38:39"
+    },
+    "asp_test63": {
+      "asp": 3,
+      "bboxes": [],
+      "confidence": 2,
+      "defects": [
+        "crop_loss"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 3
+        },
+        "simple": {
+          "coherence": 3
+        }
+      },
+      "edges": [],
+      "notes": "Both outputs have crop loss at the top, and are otherwise nearly identical, except the  slighy sharper colors in the ASP stitch.",
+      "preference": "asp",
+      "reviewed": true,
+      "simple": 3,
+      "updated_at": "2026-08-13T03:40:35"
+    },
+    "asp_test64": {
+      "asp": 1,
+      "bboxes": [],
+      "confidence": 3,
+      "defects": [
+        "banding",
+        "blur",
+        "color_shift",
+        "crop_loss",
+        "duplicated_strip",
+        "ghosting",
+        "misordered_content",
+        "seam_line",
+        "torn_anatomy"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 1
+        },
+        "simple": {
+          "coherence": 3
+        }
+      },
+      "edges": [],
+      "notes": "The ASP has its usual array of issues with severe magnitude (plus crop loss), while SCANS does not reach ground truth level due to severe ghosting.",
+      "preference": "simple",
+      "reviewed": true,
+      "simple": 3,
+      "updated_at": "2026-08-13T03:41:52"
+    },
+    "asp_test65": {
+      "asp": 1,
+      "bboxes": [],
+      "confidence": 2,
+      "defects": [
+        "banding",
+        "blur",
+        "color_shift",
+        "crop_loss",
+        "duplicated_strip",
+        "ghosting",
+        "misordered_content",
+        "seam_line",
+        "torn_anatomy"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 1
+        },
+        "simple": {
+          "coherence": 2
+        }
+      },
+      "edges": [],
+      "notes": "SCANS has severe crop loss, while the ASP has its usual array of issues with severe magnitude (but no crop loss).",
+      "preference": "simple",
+      "reviewed": true,
+      "simple": 2,
+      "updated_at": "2026-08-13T03:42:46"
+    },
+    "asp_test66": {
+      "asp": 3,
+      "bboxes": [],
+      "confidence": 2,
+      "defects": [
+        "geometry_warp",
+        "ghosting"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 3
+        },
+        "hugin": {
+          "coherence": 4
+        },
+        "simple": {
+          "coherence": 3
+        }
+      },
+      "edges": [],
+      "notes": "Both the ASP and SCANS have ghosting (although SCANS has it on less important areas of the image), and Hugin produces a near-perfect result.",
+      "preference": "simple",
+      "reviewed": true,
+      "simple": 3,
+      "updated_at": "2026-08-13T03:43:43"
+    },
+    "asp_test67": {
+      "asp": 2,
+      "bboxes": [],
+      "confidence": 3,
+      "defects": [
+        "crop_loss"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 2
+        },
+        "hugin": {
+          "coherence": 4
+        },
+        "simple": {
+          "coherence": 2
+        }
+      },
+      "edges": [],
+      "notes": "Hugin produces a near-perfect result, while both the ASP and SCANS have severe crop loss.",
+      "preference": "tie",
+      "reviewed": true,
+      "simple": 2,
+      "updated_at": "2026-08-13T03:45:37"
+    },
+    "asp_test68": {
+      "asp": 3,
+      "bboxes": [],
+      "confidence": 3,
+      "defects": [
+        "crop_loss"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 3
+        },
+        "hugin": {
+          "coherence": 4
+        },
+        "simple": {
+          "coherence": 3
+        }
+      },
+      "edges": [],
+      "notes": "Similar results to the ones in the previous test (67), but with less severe crop loss for both the ASP and SCANS.",
+      "preference": "tie",
+      "reviewed": true,
+      "simple": 3,
+      "updated_at": "2026-08-13T03:45:36"
+    },
+    "asp_test69": {
+      "asp": 2,
+      "bboxes": [],
+      "confidence": 2,
+      "defects": [
+        "crop_loss",
+        "ghosting",
+        "torn_anatomy"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 2
+        },
+        "simple": {
+          "coherence": 2
+        }
+      },
+      "edges": [],
+      "notes": "Both outputs present ghosting, crop loss, and torn anatomy, although SCANS has slightly less torn anatomy issues, and more ghosting.",
+      "preference": "simple",
+      "reviewed": true,
+      "simple": 2,
+      "updated_at": "2026-08-13T03:47:11"
+    },
+    "asp_test70": {
+      "asp": 3,
+      "bboxes": [],
+      "confidence": 2,
+      "defects": [
+        "ghosting",
+        "torn_anatomy"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 3
+        },
+        "simple": {
+          "coherence": 3
+        }
+      },
+      "edges": [],
+      "notes": "Same issues as the test before (69), but now SCANS shows worse torn anatomy than the ASP.",
+      "preference": "asp",
+      "reviewed": true,
+      "simple": 3,
+      "updated_at": "2026-08-13T03:48:08"
+    },
+    "asp_test71": {
+      "asp": 3,
+      "bboxes": [],
+      "confidence": 3,
+      "defects": [
+        "color_shift",
+        "crop_loss",
+        "geometry_warp"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 3
+        },
+        "hugin": {
+          "coherence": 4
+        },
+        "simple": {
+          "coherence": 3
+        }
+      },
+      "edges": [],
+      "notes": "Both the ASP and SCANS produce a identical output with crop loss at the top and color shift near the top-right of the image, and Hugin produces a near-perfect stitch.",
+      "preference": "tie",
+      "reviewed": true,
+      "simple": 3,
+      "updated_at": "2026-08-13T03:49:40"
+    },
+    "asp_test72": {
+      "asp": 4,
+      "bboxes": [],
+      "confidence": 3,
+      "defects": [
+        "ghosting"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 4
+        },
+        "simple": {
+          "coherence": 4
+        }
+      },
+      "edges": [],
+      "notes": "Both outputs are near-identical, and almost perfect, if not from some slight ghosting.",
+      "preference": "tie",
+      "reviewed": true,
+      "simple": 4,
+      "updated_at": "2026-08-13T03:50:15"
+    },
+    "asp_test73": {
+      "asp": 1,
+      "bboxes": [],
+      "confidence": 3,
+      "defects": [
+        "banding",
+        "blur",
+        "color_shift",
+        "crop_loss",
+        "duplicated_strip",
+        "geometry_warp",
+        "ghosting",
+        "misordered_content",
+        "seam_line",
+        "torn_anatomy"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 1
+        },
+        "simple": {
+          "coherence": 2
+        }
+      },
+      "edges": [],
+      "notes": "The ASP has its usual array of issues, plus some geometric warp, while SCANS has severe crop loss, plus some torn anatomy and ghosting.",
+      "preference": "simple",
+      "reviewed": true,
+      "simple": 2,
+      "updated_at": "2026-08-13T03:51:49"
+    },
+    "asp_test74": {
+      "asp": 4,
+      "bboxes": [],
+      "confidence": 3,
+      "defects": [
+        "color_shift",
+        "ghosting"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 4
+        },
+        "simple": {
+          "coherence": 4
+        }
+      },
+      "edges": [],
+      "notes": "Both outputs are near-identical and near-perfect, with just very small ghosting and color shift issues.",
+      "preference": "tie",
+      "reviewed": true,
+      "simple": 4,
+      "updated_at": "2026-08-13T03:52:23"
+    },
+    "asp_test75": {
+      "asp": 3,
+      "bboxes": [],
+      "confidence": 3,
+      "defects": [
+        "color_shift",
+        "ghosting"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 3
+        },
+        "simple": {
+          "coherence": 3
+        }
+      },
+      "edges": [],
+      "notes": "Exact same analysis as the previous test (74), but with more severe color shift and ghosting issues on both outputs.",
+      "preference": "tie",
+      "reviewed": true,
+      "simple": 3,
+      "updated_at": "2026-08-13T03:53:06"
+    },
+    "asp_test76": {
+      "asp": 4,
+      "bboxes": [],
+      "confidence": 3,
+      "defects": [
+        "ghosting"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 4
+        },
+        "simple": {
+          "coherence": 4
+        }
+      },
+      "edges": [],
+      "notes": "Near-perfect results for both the ASP and SCANS, with some ghosting issues.",
+      "preference": "tie",
+      "reviewed": true,
+      "simple": 4,
+      "updated_at": "2026-08-13T03:54:59"
+    },
+    "asp_test77": {
+      "asp": 3,
+      "bboxes": [],
+      "confidence": 3,
+      "defects": [
+        "color_shift",
+        "torn_anatomy"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 3
+        },
+        "simple": {
+          "coherence": 3
+        }
+      },
+      "edges": [],
+      "notes": "Very good results for both SCANS and the ASP, with just slight color shift and torn anatomy issues.",
+      "preference": "tie",
+      "reviewed": true,
+      "simple": 3,
+      "updated_at": "2026-08-13T03:54:56"
+    },
+    "asp_test78": {
+      "asp": 3,
+      "bboxes": [],
+      "confidence": 3,
+      "defects": [
+        "color_shift",
+        "torn_anatomy"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 3
+        },
+        "simple": {
+          "coherence": 3
+        }
+      },
+      "edges": [],
+      "notes": "Same analysis as the test before (77).",
+      "preference": "tie",
+      "reviewed": true,
+      "simple": 3,
+      "updated_at": "2026-08-13T03:55:24"
+    },
+    "asp_test79": {
+      "asp": 1,
+      "bboxes": [],
+      "confidence": 3,
+      "defects": [
+        "banding",
+        "blur",
+        "color_shift",
+        "duplicated_strip",
+        "ghosting",
+        "misordered_content",
+        "seam_line",
+        "torn_anatomy"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 1
+        },
+        "simple": {
+          "coherence": 3
+        }
+      },
+      "edges": [],
+      "notes": "The ASP has its usual array of issues with severe magnitude, while SCANS has a lot of ghosting and some torn anatomy issues.",
+      "preference": "simple",
+      "reviewed": true,
+      "simple": 3,
+      "updated_at": "2026-08-13T03:56:14"
+    },
+    "asp_test80": {
+      "asp": 2,
+      "bboxes": [],
+      "confidence": 3,
+      "defects": [
+        "color_shift",
+        "crop_loss"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 2
+        },
+        "simple": {
+          "coherence": 2
+        }
+      },
+      "edges": [],
+      "notes": "Both outputs are identical and present both color shift and crop loss issues.",
+      "preference": "tie",
+      "reviewed": true,
+      "simple": 2,
+      "updated_at": "2026-08-13T03:56:52"
+    },
+    "asp_test81": {
+      "asp": 1,
+      "bboxes": [],
+      "confidence": 2,
+      "defects": [
+        "banding",
+        "blur",
+        "color_shift",
+        "crop_loss",
+        "duplicated_strip",
+        "geometry_warp",
+        "ghosting",
+        "misordered_content",
+        "seam_line",
+        "torn_anatomy"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 1
+        },
+        "hugin": {
+          "coherence": 3
+        },
+        "simple": {
+          "coherence": 2
+        }
+      },
+      "edges": [],
+      "notes": "The ASP's output is nearly unparsible, while SCANS has severe crop loss and some ghosting. Hugin is near-perfect, with slight geometry warp.",
+      "preference": "simple",
+      "reviewed": true,
+      "simple": 2,
+      "updated_at": "2026-08-13T03:57:50"
+    },
+    "asp_test82": {
+      "asp": 2,
+      "bboxes": [],
+      "confidence": 2,
+      "defects": [
+        "crop_loss",
+        "seam_line",
+        "torn_anatomy"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 2
+        },
+        "simple": {
+          "coherence": 3
+        }
+      },
+      "edges": [],
+      "notes": "SCANS has ghosting and some torn anatomy issues, while the ASP has them as well, plus visible seam lines and some crop loss.",
+      "preference": "simple",
+      "reviewed": true,
+      "simple": 3,
+      "updated_at": "2026-08-13T03:59:04"
+    },
+    "asp_test83": {
+      "asp": 1,
+      "bboxes": [],
+      "confidence": 3,
+      "defects": [
+        "banding",
+        "blur",
+        "color_shift",
+        "crop_loss",
+        "duplicated_strip",
+        "misordered_content",
+        "seam_line",
+        "torn_anatomy"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 1
+        },
+        "simple": {
+          "coherence": 2
+        }
+      },
+      "edges": [],
+      "notes": "SCANS has crop loss, while the ASP has its usual array of issues with severe magnitude.",
+      "preference": "simple",
+      "reviewed": true,
+      "simple": 2,
+      "updated_at": "2026-08-13T03:59:37"
+    },
+    "asp_test84": {
+      "asp": 2,
+      "bboxes": [],
+      "confidence": 3,
+      "defects": [
+        "crop_loss",
+        "ghosting",
+        "torn_anatomy"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 2
+        },
+        "simple": {
+          "coherence": 3
+        }
+      },
+      "edges": [],
+      "notes": "Both the ASP and SCANS present ghosting plus torn anatomy, and the ASP has additional crop loss at the bottom.",
+      "preference": "simple",
+      "reviewed": true,
+      "simple": 3,
+      "updated_at": "2026-08-13T04:00:22"
+    },
+    "asp_test85": {
+      "asp": 3,
+      "bboxes": [],
+      "confidence": 2,
+      "defects": [
+        "ghosting",
+        "torn_anatomy"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 3
+        },
+        "simple": {
+          "coherence": 3
+        }
+      },
+      "edges": [],
+      "notes": "Both outputs are very good, although they suffer from some torn anatomy and ghosting. The ASP has slightly worse torn anatomy, thus SCANS comes out as slightly better.",
+      "preference": "simple",
+      "reviewed": true,
+      "simple": 3,
+      "updated_at": "2026-08-13T04:01:43"
+    },
+    "asp_test86": {
+      "asp": 1,
+      "bboxes": [],
+      "confidence": 3,
+      "defects": [
+        "banding",
+        "blur",
+        "color_shift",
+        "duplicated_strip",
+        "ghosting",
+        "misordered_content",
+        "seam_line",
+        "torn_anatomy"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 1
+        },
+        "simple": {
+          "coherence": 3
+        }
+      },
+      "edges": [],
+      "notes": "The ASP has its usual array of issues with severe magnitude, while SCANS produces a very good result with some ghosting and blur issues.",
+      "preference": "simple",
+      "reviewed": true,
+      "simple": 3,
+      "updated_at": "2026-08-13T04:02:34"
+    },
+    "asp_test87": {
+      "asp": 3,
+      "bboxes": [],
+      "confidence": 2,
+      "defects": [
+        "crop_loss",
+        "geometry_warp",
+        "ghosting",
+        "torn_anatomy"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 3
+        },
+        "hugin": {
+          "coherence": 2
+        },
+        "simple": {
+          "coherence": 3
+        }
+      },
+      "edges": [],
+      "notes": "Small crop loss, ghosting, and torn anatomy on both the ASP and SCANS outputs, with the ASP having slightly worse torn anatomy. Hugin has torn anatomy, ghosting, and above average geometric warp.",
+      "preference": "simple",
+      "reviewed": true,
+      "simple": 3,
+      "updated_at": "2026-08-13T04:04:46"
+    },
+    "asp_test88": {
+      "asp": 0,
+      "bboxes": [],
+      "confidence": 3,
+      "defects": [
+        "banding",
+        "blur",
+        "color_shift",
+        "crop_loss",
+        "duplicated_strip",
+        "ghosting",
+        "misordered_content",
+        "seam_line",
+        "torn_anatomy"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 0
+        },
+        "simple": {
+          "coherence": 4
+        }
+      },
+      "edges": [],
+      "notes": "SCANS produces a near-perfect result, while the ASP's output is basically garbage, having all possible issues (except geometry warp) with extreme magnitude.",
+      "preference": "simple",
+      "reviewed": true,
+      "simple": 4,
+      "updated_at": "2026-08-13T04:05:44"
+    },
+    "asp_test89": {
+      "asp": 2,
+      "bboxes": [],
+      "confidence": 3,
+      "defects": [
+        "blur",
+        "color_shift",
+        "crop_loss",
+        "duplicated_strip",
+        "ghosting",
+        "misordered_content",
+        "torn_anatomy"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 2
+        },
+        "simple": {
+          "coherence": 1
+        }
+      },
+      "edges": [],
+      "notes": "Both outputs have torn anatomy, duplicated strips, misordered content, ghosting, color shift, and blur, with SCANS also having crop loss issues.",
+      "preference": "asp",
+      "reviewed": true,
+      "simple": 1,
+      "updated_at": "2026-08-13T04:06:39"
+    },
+    "asp_test90": {
+      "asp": 1,
+      "bboxes": [],
+      "confidence": 2,
+      "defects": [
+        "crop_loss",
+        "geometry_warp",
+        "ghosting",
+        "torn_anatomy"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 1
+        },
+        "hugin": {
+          "coherence": 3
+        },
+        "simple": {
+          "coherence": 1
+        }
+      },
+      "edges": [],
+      "notes": "Both SCANS and the ASP have severe crop loss, ghosting, and some torn anatomy issues. Hugin's output is very good, with just some torn anatomy issues preventing it from reaching grade 4.",
+      "preference": "simple",
+      "reviewed": true,
+      "simple": 1,
+      "updated_at": "2026-08-15T06:09:48"
+    },
+    "asp_test91": {
+      "asp": 4,
+      "bboxes": [],
+      "confidence": 3,
+      "defects": [
+        "color_shift",
+        "ghosting"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 4
+        },
+        "simple": {
+          "coherence": 4
+        }
+      },
+      "edges": [],
+      "notes": "Both outputs are near-identical and near-perfect, with just slight ghosting and small color shift issues.",
+      "preference": "tie",
+      "reviewed": true,
+      "simple": 4,
+      "updated_at": "2026-08-15T06:09:56"
+    },
+    "asp_test92": {
+      "asp": 2,
+      "bboxes": [],
+      "confidence": 3,
+      "defects": [
+        "blur",
+        "crop_loss",
+        "geometry_warp",
+        "ghosting"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 2
+        },
+        "hugin": {
+          "coherence": 4
+        },
+        "simple": {
+          "coherence": 3
+        }
+      },
+      "edges": [],
+      "notes": "The ASP has severe crop loss, and both it and SCANS have ghosting issues. Additionally, SCANS also has some blur, and Hugin is pratically perfect, with near-imperceptible geometric warp.",
+      "preference": "simple",
+      "reviewed": true,
+      "simple": 3,
+      "updated_at": "2026-08-13T04:09:47"
+    },
+    "asp_test93": {
+      "asp": 3,
+      "bboxes": [],
+      "confidence": 2,
+      "defects": [
+        "crop_loss",
+        "ghosting"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 3
+        },
+        "simple": {
+          "coherence": 3
+        }
+      },
+      "edges": [],
+      "notes": "Both outputs are good, with some ghosting and crop loss issues (identical crop loss, but SCANS has worse ghosting).",
+      "preference": "asp",
+      "reviewed": true,
+      "simple": 3,
+      "updated_at": "2026-08-13T04:10:45"
+    },
+    "asp_test94": {
+      "asp": 1,
+      "bboxes": [],
+      "confidence": 2,
+      "defects": [
+        "crop_loss",
+        "geometry_warp",
+        "ghosting",
+        "seam_line",
+        "torn_anatomy"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 1
+        },
+        "hugin": {
+          "coherence": 2
+        },
+        "simple": {
+          "coherence": 1
+        }
+      },
+      "edges": [],
+      "notes": "Both the ASP and SCANS have severe crop loss (although in different frame ranges), torn anatomy, ghosting, and visible seam line issues. Hugin has severe geometric warp and some torn anatomy.",
+      "preference": "tie",
+      "reviewed": true,
+      "simple": 1,
+      "updated_at": "2026-08-13T04:12:08"
+    },
+    "asp_test95": {
+      "asp": 1,
+      "bboxes": [],
+      "confidence": 3,
+      "defects": [
+        "banding",
+        "blur",
+        "color_shift",
+        "crop_loss",
+        "duplicated_strip",
+        "ghosting",
+        "misordered_content",
+        "seam_line",
+        "torn_anatomy"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 1
+        },
+        "simple": {
+          "coherence": 3
+        }
+      },
+      "edges": [],
+      "notes": "SCANS has some ghosting issues, while the ASP has its usual array of issues with severe magnitude, plus extreme crop loss.",
+      "preference": "simple",
+      "reviewed": true,
+      "simple": 3,
+      "updated_at": "2026-08-13T04:12:48"
+    },
+    "asp_test96": {
+      "asp": 3,
+      "bboxes": [],
+      "confidence": 3,
+      "defects": [
+        "color_shift",
+        "crop_loss",
+        "geometry_warp"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 3
+        },
+        "hugin": {
+          "coherence": 3
+        },
+        "simple": {
+          "coherence": 1
+        }
+      },
+      "edges": [],
+      "notes": "Both the ASP and Hugin outputs are very good, with the ASP one having color shift issues and Hugin geometric warp issues. SCANS has crop loss so extreme, that its output contains less than a third of the other stitches and the ground truth.",
+      "preference": "asp",
+      "reviewed": true,
+      "simple": 1,
+      "updated_at": "2026-08-13T04:15:18"
+    },
+    "asp_test97": {
+      "asp": 2,
+      "bboxes": [],
+      "confidence": 3,
+      "defects": [
+        "banding",
+        "blur",
+        "color_shift",
+        "crop_loss",
+        "duplicated_strip",
+        "ghosting",
+        "misordered_content",
+        "seam_line",
+        "torn_anatomy"
+      ],
+      "dimensions": {
+        "asp": {
+          "coherence": 2
+        },
+        "hugin": {
+          "coherence": 4
+        },
+        "simple": {
+          "coherence": 3
+        }
+      },
+      "edges": [],
+      "notes": "Hugin produces a near-perfect output, while SCANS has some ghosting and severe crop loss. The ASP also has some crop loss, plus its usual array of issues with moderate magnitude.",
+      "preference": "simple",
+      "reviewed": true,
+      "simple": 3,
+      "updated_at": "2026-08-13T04:15:22"
+    }
+  }
+}
