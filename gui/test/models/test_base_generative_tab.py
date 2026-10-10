@@ -11,6 +11,7 @@ from gui.src.classes.base.base_generative_tab import (
     CONFIG_SCHEMA_KEY,
     CONFIG_SCHEMA_VERSION,
     BaseGenerativeTab,
+    model_choice_label,
 )
 
 pytestmark = pytest.mark.gui
@@ -136,3 +137,43 @@ def test_set_config_unknown_combo_id_keeps_current_and_shows_note(gen_tab):
     assert gen_tab._migration_label is not None
     assert not gen_tab._migration_label.isHidden()
     assert "Engine A Renamed" in gen_tab._migration_label.text()
+
+
+class TestModelChoiceLabel:
+    """#728: friendly combo labels must show what they resolve to."""
+
+    def test_appends_id_when_label_hides_it(self):
+        label = model_choice_label(
+            "Illustrious XL V2.0 (Base SDXL)",
+            "stabilityai/stable-diffusion-xl-base-1.0",
+        )
+        assert label == (
+            "Illustrious XL V2.0 (Base SDXL) · "
+            "stabilityai/stable-diffusion-xl-base-1.0"
+        )
+
+    def test_identical_ids_stay_visible_for_comparison(self):
+        # Both Illustrious rows resolve to the same base id — the append
+        # makes the mismatch visible in the dropdown.
+        a = model_choice_label(
+            "Illustrious XL V2.0 (Base SDXL)",
+            "stabilityai/stable-diffusion-xl-base-1.0",
+        )
+        b = model_choice_label(
+            "Illustrious Lumina (Base SDXL)",
+            "stabilityai/stable-diffusion-xl-base-1.0",
+        )
+        assert a != b
+        assert a.endswith("stabilityai/stable-diffusion-xl-base-1.0")
+        assert b.endswith("stabilityai/stable-diffusion-xl-base-1.0")
+
+    @pytest.mark.parametrize(
+        "label,model_id",
+        [
+            ("AnimeGANv2", "animegan_v2"),
+            ("Anything V3", "ckpt/anything-v3.0"),
+            ("Animagine XL 3.1", "cagliostrolab/animagine-xl-3.1"),
+        ],
+    )
+    def test_recognizable_labels_stay_untouched(self, label, model_id):
+        assert model_choice_label(label, model_id) == label

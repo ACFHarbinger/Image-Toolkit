@@ -224,3 +224,31 @@ def test_set_config_unknown_engine_keeps_current(tab):
     assert tab.engine_combo.currentData() == "loha"
     assert tab.config_migration_note is not None
     assert "lycoris-that-was-removed" in tab.config_migration_note
+
+
+def test_model_combo_shows_resolved_id(tab):
+    """#728: the two Illustrious rows must visibly share the SDXL base id."""
+    texts = [tab.model_selector.itemText(i) for i in range(tab.model_selector.count())]
+    assert (
+        "Illustrious XL V2.0 (Base SDXL) · stabilityai/stable-diffusion-xl-base-1.0"
+        in texts
+    )
+    assert (
+        "Illustrious Lumina (Base SDXL) · stabilityai/stable-diffusion-xl-base-1.0"
+        in texts
+    )
+    # itemData is unchanged — only the display text grows.
+    assert tab.model_selector.itemData(0) == "stabilityai/stable-diffusion-xl-base-1.0"
+
+
+def test_browse_dataset_uses_non_native_dialog(tab):
+    from PySide6.QtWidgets import QFileDialog
+
+    with patch(
+        "gui.src.tabs.models.delta.lora_train_tab.QFileDialog.getExistingDirectory",
+        return_value="",
+    ) as mock_dialog:
+        tab.browse_dataset()
+    assert (
+        mock_dialog.call_args.args[3] == QFileDialog.Option.DontUseNativeDialog
+    )

@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ....classes.base.base_generative_tab import BaseGenerativeTab
+from ....classes.base.base_generative_tab import BaseGenerativeTab, model_choice_label
 
 # Content Gen §1.3: LyCORIS variants (LoCon/LoHa/LoKr), each a Hydra config
 # preset under backend/config/training/. "standard" keeps the existing
@@ -74,7 +74,7 @@ class LoRATrainTab(BaseGenerativeTab):
             ("AnimeGANv2", "animegan_v2"),
         ]
         for name, model_id in models:
-            self.model_selector.addItem(name, model_id)
+            self.model_selector.addItem(model_choice_label(name, model_id), model_id)
 
         self.add_param_widget(layout, "Base Model:", self.model_selector, "model_id")
         self.model_selector.currentIndexChanged.connect(self.update_ui_visibility)
@@ -166,7 +166,10 @@ class LoRATrainTab(BaseGenerativeTab):
 
     def browse_dataset(self):
         directory = QFileDialog.getExistingDirectory(
-            self, "Select Dataset Folder", self.last_browsed_scan_dir
+            self,
+            "Select Dataset Folder",
+            self.last_browsed_scan_dir,
+            QFileDialog.Option.DontUseNativeDialog,
         )
         if directory:
             self.data_dir_edit.setText(directory)

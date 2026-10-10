@@ -179,3 +179,17 @@ class TestBrowseImage:
         ):
             tab._on_browse_image()
         assert tab._image_edit.text() == "/tmp/existing.png"
+
+    def test_browse_uses_non_native_dialog(self, tab):
+        """#728: native QFileDialog is this app's documented crash class."""
+        from PySide6.QtWidgets import QFileDialog
+
+        with patch(
+            "gui.src.tabs.models.gen.comfy_generate_tab.QFileDialog.getOpenFileName",
+            return_value=("", ""),
+        ) as mock_dialog:
+            tab._on_browse_image()
+        assert (
+            mock_dialog.call_args.kwargs["options"]
+            == QFileDialog.Option.DontUseNativeDialog
+        )

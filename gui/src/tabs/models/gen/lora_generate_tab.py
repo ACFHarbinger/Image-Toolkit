@@ -18,7 +18,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ....classes.base.base_generative_tab import BaseGenerativeTab
+from ....classes.base.base_generative_tab import BaseGenerativeTab, model_choice_label
 
 
 class LoRAGenerateTab(BaseGenerativeTab):
@@ -54,7 +54,7 @@ class LoRAGenerateTab(BaseGenerativeTab):
         ]
 
         for name, model_id in models:
-            self.model_selector.addItem(name, model_id)
+            self.model_selector.addItem(model_choice_label(name, model_id), model_id)
 
         self.add_param_widget(layout, "Select Model:", self.model_selector, "model_id")
         self.model_selector.currentIndexChanged.connect(self.update_ui_visibility)
@@ -133,6 +133,7 @@ class LoRAGenerateTab(BaseGenerativeTab):
             "Select Input Image",
             self.last_browsed_scan_dir,
             "Images (*.png *.jpg *.jpeg)",
+            options=QFileDialog.Option.DontUseNativeDialog,
         )
         if fname:
             self.input_image_edit.setText(fname)
