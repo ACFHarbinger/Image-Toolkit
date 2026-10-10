@@ -444,6 +444,30 @@ def test_tag_repo_crud_and_merge(db):
     assert media.get_media("m-1")["tags"] == "landscape"
 
 
+def test_tag_repo_popular_tags_with_uses(db, tmp_path):
+    """#733: PromptEdit corpus — (tag, category, uses) ranked by usage."""
+    tags = TagRepo(db)
+    images = ImageRepo(db)
+    tags.add_tag("1girl", "General")
+    tags.add_tag("1boy", "General")
+    tags.add_tag("obscure_tag")
+
+    for name in ("a.png", "b.png", "c.png"):
+        p = tmp_path / name
+        p.write_bytes(b"x")
+        images.add_image(str(p), tags=["1girl"])
+    p = tmp_path / "d.png"
+    p.write_bytes(b"x")
+    images.add_image(str(p), tags=["1boy"])
+
+    rows = tags.popular_tags_with_uses()
+    by_tag = {tag: (category, uses) for tag, category, uses in rows}
+    assert by_tag["1girl"] == ("General", 3)
+    assert by_tag["1boy"] == ("General", 1)
+    assert by_tag["obscure_tag"] == ("", 0)
+    assert rows[0][0] == "1girl"  # usage desc, name tiebreak
+
+
 # ---------------------------------------------------------------------------
 # search repo
 # ---------------------------------------------------------------------------

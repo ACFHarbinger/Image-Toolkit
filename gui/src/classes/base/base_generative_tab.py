@@ -121,6 +121,8 @@ class BaseGenerativeTab(QWidget):
                 params[key] = widget.text()
             elif isinstance(widget, QTextEdit):
                 params[key] = widget.toPlainText()
+            elif callable(getattr(widget, "to_prompt_text", None)):
+                params[key] = widget.to_prompt_text()  # PromptEdit (#733)
         return params
 
     def set_config(self, config: dict):
@@ -143,6 +145,8 @@ class BaseGenerativeTab(QWidget):
                 widget.setText(str(value))
             elif isinstance(widget, QTextEdit):
                 widget.setPlainText(str(value))
+            elif callable(getattr(widget, "set_prompt_text", None)):
+                widget.set_prompt_text(str(value))  # PromptEdit (#733)
         self.show_config_migration_note(notes)
 
     def show_config_migration_note(self, notes: list[str]) -> None:
