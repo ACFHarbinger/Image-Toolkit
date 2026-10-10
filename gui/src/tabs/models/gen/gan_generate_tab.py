@@ -77,7 +77,13 @@ class GANGenerateTab(QWidget):
         layout.addWidget(self.scroll_area)
 
     def browse_file(self, line_edit):
-        path, _ = QFileDialog.getOpenFileName(self, "Select Checkpoint", "", "PyTorch Models (*.pth *.pt)")
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Select Checkpoint",
+            "",
+            "PyTorch Models (*.pth *.pt)",
+            options=QFileDialog.Option.DontUseNativeDialog,
+        )
         if path:
             line_edit.setText(path)
 

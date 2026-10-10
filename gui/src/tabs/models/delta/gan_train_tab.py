@@ -120,7 +120,9 @@ class GANTrainTab(QWidget):
         self.preview_timer.timeout.connect(self.update_training_preview)
 
     def browse_folder(self, line_edit):
-        path = QFileDialog.getExistingDirectory(self, "Select Directory")
+        path = QFileDialog.getExistingDirectory(
+            self, "Select Directory", "", QFileDialog.Option.DontUseNativeDialog
+        )
         if path:
             line_edit.setText(path)
 

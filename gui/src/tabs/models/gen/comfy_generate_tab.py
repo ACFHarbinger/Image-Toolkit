@@ -366,7 +366,11 @@ class ComfyUITab(QWidget):
 
     def _on_browse_image(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
-            self, "Select Image", "", "Images (*.png *.jpg *.jpeg *.webp)"
+            self,
+            "Select Image",
+            "",
+            "Images (*.png *.jpg *.jpeg *.webp)",
+            options=QFileDialog.Option.DontUseNativeDialog,
         )
         if path:
             self._image_edit.setText(path)
