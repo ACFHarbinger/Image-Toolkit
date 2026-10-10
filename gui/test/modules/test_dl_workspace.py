@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -20,7 +21,9 @@ from gui.src.modules.runtime import ModuleRuntime
 from gui.src.preferences import MemoryPreferenceAdapter, PreferenceScope, PreferenceStore, PrefKeys
 from gui.src.tabs.models.delta.lora_train_tab import (
     LoRATrainTab,
+    combine_trigger_and_prompt,
     dataset_folder_from_paths,
+    resolve_imported_dataset,
 )
 from PySide6.QtWidgets import QStackedWidget, QTabWidget, QWidget
 
@@ -128,7 +131,7 @@ def test_create_dl_workspace_does_not_run_until_called(monkeypatch):
     assert FakeDlHost.constructions == 1
 
 
-def test_dataset_folder_from_paths_uses_directory_or_parent(tmp_path):
+def test_dataset_folder_from_paths_uses_directory_or_exclusive_parent(tmp_path):
     folder = tmp_path / "frames"
     folder.mkdir()
     image = folder / "frame.png"
@@ -137,6 +140,37 @@ def test_dataset_folder_from_paths_uses_directory_or_parent(tmp_path):
     assert dataset_folder_from_paths((str(folder),)) == str(folder)
     assert dataset_folder_from_paths((str(image),)) == str(folder)
     assert dataset_folder_from_paths(()) is None
+
+
+def test_resolve_imported_dataset_does_not_promote_siblings(tmp_path):
+    folder = tmp_path / "dataset"
+    folder.mkdir()
+    chosen = folder / "keep.png"
+    other = folder / "drop.png"
+    chosen.write_bytes(b"x")
+    other.write_bytes(b"y")
+
+    imported = resolve_imported_dataset((str(chosen),), staging_root=tmp_path)
+    assert imported.scope == "selection"
+    assert imported.staged is True
+    assert imported.source_paths == (str(chosen),)
+    names = {p.name for p in Path(imported.train_dir).iterdir() if p.suffix == ".png"}
+    assert names == {"keep.png"}
+
+
+def test_resolve_imported_dataset_keeps_files_from_multiple_dirs(tmp_path):
+    one = tmp_path / "one" / "a.png"
+    two = tmp_path / "two" / "b.png"
+    one.parent.mkdir()
+    two.parent.mkdir()
+    one.write_bytes(b"x")
+    two.write_bytes(b"y")
+
+    imported = resolve_imported_dataset((str(one), str(two)), staging_root=tmp_path)
+    assert imported.staged is True
+    names = {p.name for p in Path(imported.train_dir).iterdir() if p.suffix == ".png"}
+    assert names == {"a.png", "b.png"}
+    assert imported.source_paths == (str(one), str(two))
 
 
 def test_apply_imported_paths_sets_dataset_and_does_not_start_review(q_app, tmp_path):
@@ -149,7 +183,47 @@ def test_apply_imported_paths_sets_dataset_and_does_not_start_review(q_app, tmp_
     tab.apply_imported_paths((str(image),))
 
     assert tab.data_dir_edit.text() == str(folder)
+    assert tab._dataset_paths == (str(image),)
     assert tab._review_panel._order == []
+
+
+def test_apply_imported_paths_stages_exact_selection(q_app, tmp_path):
+    folder = tmp_path / "dataset"
+    folder.mkdir()
+    chosen = folder / "keep.png"
+    other = folder / "drop.png"
+    chosen.write_bytes(b"x")
+    other.write_bytes(b"y")
+
+    tab = LoRATrainTab()
+    tab._staging_root = tmp_path
+    tab.apply_imported_paths((str(chosen),))
+
+    train_dir = Path(tab.data_dir_edit.text())
+    assert train_dir != folder
+    names = {p.name for p in train_dir.iterdir() if p.suffix == ".png"}
+    assert names == {"keep.png"}
+    assert tab._dataset_paths == (str(chosen),)
+    assert "1 selected" in tab.status_label.text()
+
+
+def test_review_tags_uses_exact_selection_not_siblings(q_app, tmp_path):
+    folder = tmp_path / "dataset"
+    folder.mkdir()
+    chosen = folder / "keep.png"
+    other = folder / "drop.png"
+    chosen.write_bytes(b"x")
+    other.write_bytes(b"y")
+
+    tab = LoRATrainTab()
+    tab._staging_root = tmp_path
+    tab.apply_imported_paths((str(chosen),))
+
+    with patch.object(tab._review_panel, "start_review") as start:
+        tab._review_tags()
+
+    start.assert_called_once()
+    assert start.call_args.args[0] == [chosen]
 
 
 def test_unified_train_handoff_switches_to_lora(q_app, tmp_path):
@@ -199,12 +273,19 @@ def test_search_send_to_train_publishes_ml_training_intents(q_app):
         )
     )
 
+    delivered = []
+    hub.subscribe(
+        NavigateIntent, lambda _event: hub.subscribe(ImportPathsIntent, delivered.append)
+    )
+
     with patch("gui.src.tabs.database.search_tab._tab_communication.QMessageBox"):
         SearchTabCommunicationController.send_selection_to_train_tab(stub)
 
-    assert [type(event) for event in events] == [ImportPathsIntent, NavigateIntent]
+    assert len(delivered) == 1
+    assert delivered[0].paths == ("/tmp/a.png",)
+    assert [type(event) for event in events] == [NavigateIntent, ImportPathsIntent]
     assert events[0].module_id == "ml.training"
-    assert events[0].paths == ("/tmp/a.png",)
+    assert events[1].paths == ("/tmp/a.png",)
     assert events[1].module_id == "ml.training"
 
 
@@ -227,9 +308,9 @@ def test_extractor_send_frames_publishes_ml_training_intents(q_app):
     with patch("gui.src.tabs.core.extractor_tab._directory_scanning.QMessageBox"):
         ExtractorDirectoryScanningController.send_frames_to_train(stub)
 
-    assert [type(event) for event in events] == [ImportPathsIntent, NavigateIntent]
+    assert [type(event) for event in events] == [NavigateIntent, ImportPathsIntent]
     assert events[0].module_id == "ml.training"
-    assert events[0].paths == ("/tmp/frames",)
+    assert events[1].paths == ("/tmp/frames",)
 
 
 def test_host_import_paths_activates_train_and_applies(q_app, monkeypatch):
@@ -255,3 +336,10 @@ def test_host_import_paths_activates_train_and_applies(q_app, monkeypatch):
         ImportPathsIntent(origin="test", module_id="ml.training", paths=("/tmp/ds",))
     )
     assert applied == [("/tmp/ds",)]
+
+
+def test_combine_trigger_and_prompt_prepends_when_missing():
+    assert combine_trigger_and_prompt("my_char", "1girl, style") == "my_char, 1girl, style"
+    assert combine_trigger_and_prompt("my_char", "my_char, 1girl") == "my_char, 1girl"
+    assert combine_trigger_and_prompt("", "1girl") == "1girl"
+    assert combine_trigger_and_prompt("my_char", "") == "my_char"

@@ -6,6 +6,7 @@ in a splitter so review does not block the rest of the tab.
 
 from __future__ import annotations
 
+import contextlib
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -60,6 +61,9 @@ class TagReviewPanel(QWidget):
         review_thresh: float = 0.15,
         model_repo: Optional[str] = None,
     ) -> None:
+        if self._worker is not None and self._worker.isRunning():
+            return
+        self.stop_review()
         self._trigger = trigger or None
         self._entries = {}
         self._order = []
@@ -86,6 +90,28 @@ class TagReviewPanel(QWidget):
 
     def set_trigger(self, trigger: str | None) -> None:
         self._trigger = trigger or None
+
+    def stop_review(self) -> None:
+        """Cancel an in-flight tagger and drop it before this panel dies."""
+        from gui.src.helpers.worker_teardown import stop_worker
+
+        worker = self._worker
+        self._worker = None
+        if worker is not None:
+            for signal, slot in (
+                (worker.sig_progress, self._on_progress),
+                (worker.sig_result, self._on_result),
+                (worker.sig_item_error, self._on_item_error),
+                (worker.finished, self._on_tagging_finished),
+                (worker.error, self._on_error),
+            ):
+                with contextlib.suppress(RuntimeError, TypeError):
+                    signal.disconnect(slot)
+        stop_worker(worker)
+
+    def closeEvent(self, event) -> None:
+        self.stop_review()
+        super().closeEvent(event)
 
     def _build_ui(self) -> None:
         root = QVBoxLayout(self)
