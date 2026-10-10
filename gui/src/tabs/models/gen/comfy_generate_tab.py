@@ -21,6 +21,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from gui.src.components.prompt_edit import PromptEdit
+from gui.src.components.prompt_vocabulary import default_vocabulary
+
 from ....theming.theme_api import color, qss
 
 # QWebEngineView is intentionally NOT used here.
@@ -281,13 +284,15 @@ class ComfyUITab(QWidget):
 
         prompt_row = QHBoxLayout()
         prompt_row.addWidget(QLabel("Prompt:"))
-        self._prompt_edit = QLineEdit("masterpiece, best quality, anime coloring, 1girl, solo")
+        self._prompt_edit = PromptEdit("masterpiece, best quality, anime coloring, 1girl, solo")
+        self._prompt_edit.set_vocabulary(default_vocabulary())
         prompt_row.addWidget(self._prompt_edit, stretch=1)
         wf_layout.addLayout(prompt_row)
 
         neg_prompt_row = QHBoxLayout()
         neg_prompt_row.addWidget(QLabel("Negative Prompt:"))
-        self._negative_prompt_edit = QLineEdit("lowres, worst quality, bad anatomy, bad hands")
+        self._negative_prompt_edit = PromptEdit("lowres, worst quality, bad anatomy, bad hands")
+        self._negative_prompt_edit.set_vocabulary(default_vocabulary())
         neg_prompt_row.addWidget(self._negative_prompt_edit, stretch=1)
         wf_layout.addLayout(neg_prompt_row)
 

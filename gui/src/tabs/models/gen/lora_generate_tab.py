@@ -18,6 +18,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from gui.src.components.prompt_edit import PromptEdit
+from gui.src.components.prompt_vocabulary import default_vocabulary, model_prefix_for
+
 from ....classes.base.base_generative_tab import BaseGenerativeTab, model_choice_label
 
 
@@ -27,6 +30,7 @@ class LoRAGenerateTab(BaseGenerativeTab):
     def __init__(self):
         super().__init__()
         self.last_browsed_scan_dir = LOCAL_SOURCE_PATH
+        self._prompt_vocab = default_vocabulary()
         self.init_ui()
         self.generation_finished_signal.connect(self.handle_generation_finished)
 
@@ -63,8 +67,10 @@ class LoRAGenerateTab(BaseGenerativeTab):
         # Diffusion Widgets
         self.diffusion_group = QWidget()
         diff_layout = QFormLayout(self.diffusion_group)
-        self.prompt_edit = QLineEdit("1girl, solo, cat ears, library")
-        self.neg_prompt_edit = QLineEdit("lowres, bad anatomy, text, error")
+        self.prompt_edit = PromptEdit("1girl, solo, cat ears, library")
+        self.neg_prompt_edit = PromptEdit("lowres, bad anatomy, text, error")
+        for prompt_field in (self.prompt_edit, self.neg_prompt_edit):
+            prompt_field.set_vocabulary(self._prompt_vocab)
         self.lora_edit = QLineEdit("output_lora")
 
         diff_layout.addRow("Prompt:", self.prompt_edit)
@@ -146,6 +152,15 @@ class LoRAGenerateTab(BaseGenerativeTab):
         self.gan_group.setVisible(is_gan)
         self.gen_btn.setText("Transfer Style" if is_gan else "Generate Image")
         self.cancel_btn.setEnabled(False)
+
+        prefix = None if is_gan else model_prefix_for(model_id)
+        self.prompt_edit.set_chips([prefix] if prefix else [])
+        self.prompt_edit.set_meter_model_id("" if is_gan else model_id)
+        # Offer the train-time negative recorded for this LoRA's run as the
+        # default — only when the user hasn't typed one (#733).
+        negative = self._prompt_vocab.negative_for_lora(self.lora_edit.text().strip())
+        if negative and not self.neg_prompt_edit.toPlainText().strip():
+            self.neg_prompt_edit.setText(negative)
 
     def cancel_generation(self):
         model_id = self.model_selector.currentData()

@@ -23,6 +23,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from gui.src.components.prompt_edit import PromptEdit
+from gui.src.components.prompt_vocabulary import default_vocabulary, model_prefix_for
+
 from ....classes.base.base_generative_tab import BaseGenerativeTab, model_choice_label
 
 # Content Gen §1.3: LyCORIS variants (LoCon/LoHa/LoKr), each a Hydra config
@@ -123,7 +126,8 @@ class LoRATrainTab(BaseGenerativeTab):
         # --- Dynamic Configs ---
         self.lora_group = QWidget()
         lora_layout = QFormLayout(self.lora_group)
-        self.prompt_edit = QLineEdit("1girl, style of my_char")
+        self.prompt_edit = PromptEdit("1girl, style of my_char")
+        self.prompt_edit.set_vocabulary(default_vocabulary())
         self.trigger_edit = QLineEdit()
         self.trigger_edit.setPlaceholderText("activation token only — not the instance prompt")
         self.rank_box = QSpinBox()
@@ -204,9 +208,17 @@ class LoRATrainTab(BaseGenerativeTab):
             self.last_browsed_scan_dir = directory
 
     def update_ui_visibility(self):
-        is_gan = self.model_selector.currentData() == "animegan_v2"
+        model_id = self.model_selector.currentData()
+        is_gan = model_id == "animegan_v2"
         self.lora_group.setVisible(not is_gan)
         self.cancel_btn.setEnabled(False)
+
+        # PromptEdit chips (#733): base-model quality prefix + trigger tokens
+        # mined from past run records (empty until Gate D writes records).
+        prefix = None if is_gan else model_prefix_for(model_id)
+        trigger_tokens = [] if is_gan else self.prompt_edit.trigger_tokens()
+        self.prompt_edit.set_chips([c for c in ([prefix] if prefix else []) + trigger_tokens if c])
+        self.prompt_edit.set_meter_model_id("" if is_gan else model_id)
 
     def cancel_training(self):
         if self._lycoris_process is not None:
