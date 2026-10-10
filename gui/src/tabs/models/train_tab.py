@@ -87,6 +87,12 @@ class UnifiedTrainTab(BaseGenerativeTab):
         data["sub_config"] = self.anything_tab.get_default_config()
         return data
 
+    def apply_pinned_run(self, run: object) -> None:
+        """Load a pinned run's effective config into the visible trainer (#732)."""
+        config = getattr(run, "config", None)
+        if isinstance(config, dict) and config:
+            self.set_config(config)
+
     def apply_imported_paths(self, paths: tuple[str, ...]) -> None:
         self.model_selector.setCurrentIndex(0)
         self.anything_tab.apply_imported_paths(paths)

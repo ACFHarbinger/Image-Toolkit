@@ -85,6 +85,18 @@ class UnifiedGenerateTab(BaseGenerativeTab):
             if hasattr(active_widget, "set_config"):
                 active_widget.set_config(config["sub_config"])
 
+    def apply_pinned_run(self, run: object) -> None:
+        """Load a pin into this form. A ``.safetensors`` artifact fills the LoRA path."""
+        config = dict(getattr(run, "config", {}) or {})
+        artifact = str(getattr(run, "artifact_path", "") or "")
+        if artifact.endswith(".safetensors"):
+            sub = dict(config.get("sub_config") or {})
+            sub["lora_path"] = artifact
+            config["sub_config"] = sub
+            config["selected_model"] = "anything"
+        if config:
+            self.set_config(config)
+
     def get_default_config(self) -> dict:
         data = collect_selected_model(self.model_selector)
         data[SELECTED_MODEL_KEY] = "anything"
