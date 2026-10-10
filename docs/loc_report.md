@@ -34,6 +34,7 @@
 | `gui/src/windows/settings/_profile_management.py` | 371 | 34 | 18 | 423 |
 | `gui/src/windows/settings/_relaunch_settings.py` | 370 | 33 | 9 | 412 |
 | `backend/src/core/vault_manager.py` | 368 | 31 | 77 | 476 |
+| `gui/src/tabs/models/delta/lora_train_tab.py` | 368 | 24 | 12 | 404 |
 | `gui/src/components/virtual_gallery/virtual_gallery_model.py` | 365 | 48 | 81 | 494 |
 | `gui/src/tabs/core/extractor_tab/_directory_scanning.py` | 357 | 35 | 24 | 416 |
 | `gui/src/tabs/core/extractor_tab/_extraction_workers.py` | 355 | 11 | 9 | 375 |
@@ -41,7 +42,6 @@
 | `gui/src/tabs/core/extractor_tab/_queue_panel.py` | 346 | 36 | 32 | 414 |
 | `gui/src/windows/main/main_window.py` | 346 | 55 | 4 | 405 |
 | `gui/src/tabs/web/drive_sync_tab/sync_data_subtab/widget.py` | 344 | 26 | 13 | 383 |
-| `gui/src/tabs/models/delta/lora_train_tab.py` | 344 | 27 | 9 | 380 |
 | `gui/src/windows/settings/settings_window.py` | 344 | 28 | 10 | 382 |
 | `backend/src/utils/display/slideshow_daemon.py` | 343 | 32 | 33 | 408 |
 | `gui/src/tabs/core/extractor_tab/_extraction_history.py` | 337 | 27 | 21 | 385 |
@@ -56,4 +56,4 @@
 | `backend/src/app.py` | 318 | 112 | 50 | 480 |
 | `gui/src/components/dialogs/_duplicate_pruning.py` | 312 | 30 | 15 | 357 |
 | `gui/src/tabs/database/database_tab/_connection_stats.py` | 310 | 2 | 11 | 323 |
-| **TOTALS** | **88026** | **6313** | **9415** | **103754** |
+| **TOTALS** | **88118** | **6312** | **9426** | **103856** |
