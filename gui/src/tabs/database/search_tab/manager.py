@@ -245,6 +245,9 @@ class SearchTab(AbstractClassTwoGalleries):
     def send_selection_to_wallpaper_tab(self, single_path=None):
         return self.tab_communication.send_selection_to_wallpaper_tab(single_path)
 
+    def send_selection_to_train_tab(self, single_path=None):
+        return self.tab_communication.send_selection_to_train_tab(single_path)
+
     def handle_remove_from_db(self, file_path: str):
         return self.file_actions.handle_remove_from_db(file_path)
 

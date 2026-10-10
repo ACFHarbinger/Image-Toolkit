@@ -36,9 +36,10 @@ class ExtractorTab(QWidget):
     qml_source_path_changed = Signal(str)
     qml_extraction_status = Signal(str)
 
-    def __init__(self):
+    def __init__(self, event_hub=None):
         super().__init__()
-        self.video_subtab = VideoExtractorSubTab()
+        self.event_hub = event_hub
+        self.video_subtab = VideoExtractorSubTab(event_hub=event_hub)
         self.image_subtab = ImageExtractorSubTab()
 
         layout = QVBoxLayout(self)

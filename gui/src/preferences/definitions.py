@@ -229,6 +229,13 @@ class PrefKeys:
         value_type=bool,
         description="Enable the experimental rail/ribbon runtime shell for this account",
     )
+    EXPERIMENTAL_DL_WORKSPACE = PreferenceDefinition(
+        key="experimental/dl_workspace",
+        scope=PreferenceScope.ACCOUNT,
+        default=False,
+        value_type=bool,
+        description="Enable the experimental Deep Learning workspace routes for this account",
+    )
 
 
 ALL_KNOWN_DEFINITIONS: list[PreferenceDefinition] = [
@@ -250,6 +257,7 @@ ALL_KNOWN_DEFINITIONS: list[PreferenceDefinition] = [
     PrefKeys.RECENT_DIRS_COUNT,
     PrefKeys.EXPERIMENTAL_STITCH_WORKSPACE,
     PrefKeys.EXPERIMENTAL_RUNTIME_SHELL,
+    PrefKeys.EXPERIMENTAL_DL_WORKSPACE,
 ]
 
 __all__ = [

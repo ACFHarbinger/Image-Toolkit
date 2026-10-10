@@ -115,3 +115,17 @@ class TestTagReviewWorker:
         worker.run()
 
         assert progress_calls == [(1, 3), (2, 3), (3, 3)]
+
+    def test_cancelled_worker_stops_before_tagging(self, tmp_path, fake_wd_module):
+        imgs = [tmp_path / f"img_{i}.png" for i in range(3)]
+        for path in imgs:
+            path.write_bytes(b"x")
+        _cls, instance = fake_wd_module(
+            auto=[{"tag": "t", "confidence": 0.9, "category": "general"}]
+        )
+
+        worker = TagReviewWorker(imgs)
+        worker.cancel()
+        worker.run()
+
+        instance.tag_with_review.assert_not_called()

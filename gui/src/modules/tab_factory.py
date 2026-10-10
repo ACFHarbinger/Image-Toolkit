@@ -67,6 +67,8 @@ def build_tab(module_id: str, context: ModuleContext) -> Any:
 
     if module_id == "library.listings":
         widget = cls(vault_manager=vault_manager, event_hub=event_hub)
+    elif module_id == "system.extractor":
+        widget = cls(event_hub=event_hub)
     elif module_id in ("system.convert", "system.similarity"):
         widget = cls(dropdown=context.dropdown)
     elif module_id == "system.wallpaper":
