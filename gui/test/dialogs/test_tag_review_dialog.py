@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from gui.src.components.dialogs.tag_review_dialog import TagReviewDialog
+from gui.src.components.dialogs.tag_review_panel import TagReviewPanel
 
 pytestmark = pytest.mark.gui
 
@@ -128,3 +129,30 @@ class TestTagReviewDialogBookkeeping:
         dlg._checkboxes[0].setChecked(True)
         dlg._go_prev()
         assert dlg.accepted_tags(str(img_b)) == ["tag_b"]
+
+
+def test_tag_review_reentry_does_not_replace_running_worker(tmp_path, q_app):
+    image = tmp_path / "a.png"
+    image.write_bytes(b"x")
+    panel = TagReviewPanel()
+    running = MagicMock()
+    running.isRunning.return_value = True
+    panel._worker = running
+
+    with patch("gui.src.helpers.models.tag_review_worker.TagReviewWorker") as ctor:
+        panel.start_review([image], trigger="t")
+
+    ctor.assert_not_called()
+    assert panel._worker is running
+
+
+def test_stop_review_tears_down_worker(q_app):
+    panel = TagReviewPanel()
+    worker = MagicMock()
+    panel._worker = worker
+
+    with patch("gui.src.helpers.worker_teardown.stop_worker") as stop:
+        panel.stop_review()
+
+    stop.assert_called_once_with(worker)
+    assert panel._worker is None

@@ -264,3 +264,70 @@ def test_dl_workspace_host_review_page_empty_state_and_navigation(q_app):
     assert btn_gen is not None
     btn_gen.click()
     assert host._stack.currentWidget() is host._generate_page
+
+
+def test_disclosure_preserves_model_visibility_and_labels(q_app):
+    from gui.src.tabs.models.gen.lora_generate_tab import LoRAGenerateTab
+    from PySide6.QtWidgets import QFormLayout
+
+    tab = LoRAGenerateTab()
+    tab.model_selector.setCurrentIndex(0)
+    tab.update_ui_visibility()
+    tab.apply_disclosure_tier("simple")
+    assert tab.gan_group.isHidden()
+    assert tab.neg_prompt_edit.isHidden()
+    layout = tab.diffusion_group.layout()
+    assert isinstance(layout, QFormLayout)
+    assert layout.labelForField(tab.neg_prompt_edit).isHidden()
+    tab.apply_disclosure_tier("advanced")
+    assert tab.gan_group.isHidden()
+    assert not tab.neg_prompt_edit.isHidden()
+    tab.deleteLater()
+
+
+def test_generation_summary_tracks_negative_and_batch(q_app):
+    from gui.src.tabs.models.gen.lora_generate_tab import LoRAGenerateTab
+
+    tab = LoRAGenerateTab()
+    tab.neg_prompt_edit.setText("review-negative")
+    tab.batch_size_box.setValue(3)
+    summary = tab.get_effective_config_summary()
+    assert "review-negative" in summary
+    assert "Batch: 3" in summary
+    tab.deleteLater()
+
+
+def test_training_summary_tracks_trigger_and_instance_prompt(q_app):
+    tab = LoRATrainTab()
+    tab.trigger_edit.setText("my_char")
+    tab.prompt_edit.setText("1girl, solo")
+    summary = tab.get_effective_config_summary()
+    assert "Trigger: 'my_char'" in summary
+    assert "Instance Prompt: 'my_char, 1girl, solo'" in summary
+
+    # Switch to LyCORIS engine
+    tab.engine_combo.setCurrentIndex(1)  # locon
+    summary_lycoris = tab.get_effective_config_summary()
+    assert "Trigger: 'my_char'" in summary_lycoris
+    assert "Prompt: '1girl, solo'" in summary_lycoris
+    tab.deleteLater()
+
+
+def test_destination_wrappers_delegate_collect_and_set_config(q_app):
+    store = _memory_store()
+    event_hub = EventHub(q_app)
+    host = DeepLearningWorkspaceHost(event_hub=event_hub, preference_store=store)
+
+    train_page = host._train_page
+    assert train_page is not None
+    train_config = train_page.collect()
+    assert isinstance(train_config, dict)
+    assert "selected_model" in train_config
+    assert "sub_config" in train_config
+
+    # Modify and set_config
+    sub = train_config.get("sub_config", {})
+    sub["epochs"] = 7
+    train_page.set_config(train_config)
+    assert train_page.tab.anything_tab.widgets["epochs"].value() == 7
+    host.deleteLater()

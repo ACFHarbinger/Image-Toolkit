@@ -195,6 +195,20 @@ class _TrainDestinationPage(QWidget):
         if hasattr(tab, "effective_config_changed") and hasattr(tab, "get_effective_config_summary"):
             self.config_bar.connect_tab(tab)
 
+    def collect(self) -> dict:
+        collect_fn = getattr(self.tab, "collect", None)
+        return collect_fn() if callable(collect_fn) else {}
+
+    def set_config(self, config: dict) -> None:
+        set_fn = getattr(self.tab, "set_config", None)
+        if callable(set_fn):
+            set_fn(config)
+
+    def apply_pinned_run(self, run) -> None:
+        apply_fn = getattr(self.tab, "apply_pinned_run", None)
+        if callable(apply_fn):
+            apply_fn(run)
+
 
 class _GenerateDestinationPage(QWidget):
     """Generate destination wrapper with onboarding, effective config bar, and disclosure tiers."""
@@ -240,6 +254,20 @@ class _GenerateDestinationPage(QWidget):
             tab.apply_disclosure_tier(self.disclosure.tier())
         if hasattr(tab, "effective_config_changed") and hasattr(tab, "get_effective_config_summary"):
             self.config_bar.connect_tab(tab)
+
+    def collect(self) -> dict:
+        collect_fn = getattr(self.tab, "collect", None)
+        return collect_fn() if callable(collect_fn) else {}
+
+    def set_config(self, config: dict) -> None:
+        set_fn = getattr(self.tab, "set_config", None)
+        if callable(set_fn):
+            set_fn(config)
+
+    def apply_pinned_run(self, run) -> None:
+        apply_fn = getattr(self.tab, "apply_pinned_run", None)
+        if callable(apply_fn):
+            apply_fn(run)
 
 
 class _ReviewToolsPage(QWidget):

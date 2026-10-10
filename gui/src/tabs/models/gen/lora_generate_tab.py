@@ -169,6 +169,8 @@ class LoRAGenerateTab(BaseGenerativeTab):
     def update_ui_visibility(self):
         model_id = self.model_selector.currentData()
         is_gan = model_id == "animegan_v2"
+        self.diffusion_group.setProperty("disclosure_applicable", not is_gan)
+        self.gan_group.setProperty("disclosure_applicable", is_gan)
         self.diffusion_group.setVisible(not is_gan)
         self.gan_group.setVisible(is_gan)
         self.gen_btn.setText("Transfer Style" if is_gan else "Generate Image")
@@ -379,5 +381,7 @@ class LoRAGenerateTab(BaseGenerativeTab):
         lora = self.lora_edit.text().strip() if hasattr(self, "lora_edit") else ""
         lora_str = f" · LoRA: '{lora}'" if lora else ""
         prompt_str = f"'{prompt}'" if prompt else "(empty)"
-        return f"Model: {model_id} · Steps: {steps} · Guidance: {guidance} · Prompt: {prompt_str}{lora_str}"
+        negative = self.neg_prompt_edit.text().strip() if hasattr(self, "neg_prompt_edit") else ""
+        batch = self.batch_size_box.value() if hasattr(self, "batch_size_box") else 1
+        return f"Model: {model_id} · Steps: {steps} · Guidance: {guidance} · Batch: {batch} · Prompt: {prompt_str} · Negative: {negative!r}{lora_str}"
 
