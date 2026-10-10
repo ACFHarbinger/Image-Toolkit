@@ -111,3 +111,51 @@ def test_review_reentry_does_not_replace_running_worker(q_app):
     panel._worker = worker
     panel.start_review([])
     assert panel._worker is worker
+
+
+def test_staging_separates_caption_names(tmp_path):
+    from pathlib import Path
+
+    from gui.src.tabs.models.delta.lora_train_tab import resolve_imported_dataset
+
+    images = []
+    for directory, suffix, caption in (("one", ".png", "first"), ("two", ".jpg", "second")):
+        folder = tmp_path / directory
+        folder.mkdir()
+        image = folder / ("same" + suffix)
+        image.write_bytes(b"x")
+        image.with_suffix(".txt").write_text(caption)
+        images.append(str(image))
+    result = resolve_imported_dataset(tuple(images), staging_root=tmp_path)
+    captions = sorted(p.read_text() for p in Path(result.train_dir).glob("*.txt"))
+    assert captions == ["first", "second"]
+
+
+def test_unpin_refreshes_review_canvas(q_app, tmp_path):
+    from gui.src.tabs.models.dl_comparison_spine import PinnedRun
+    from gui.src.tabs.models.dl_workspace_host import DeepLearningWorkspaceHost
+    from gui.src.windows.image_compare_window import ImageCompareWindow
+    from PySide6.QtGui import QImage
+
+    path = tmp_path / "sample.png"
+    image = QImage(4, 4, QImage.Format.Format_RGB32)
+    image.fill(0)
+    assert image.save(str(path))
+    host = DeepLearningWorkspaceHost()
+    host.note_run(PinnedRun("image", "image", str(path)))
+    host.pin_run("image")
+    host.activate_route("review")
+    assert host.findChild(ImageCompareWindow, "dl_compare_view") is not None
+    host.unpin_run("image")
+    assert host.findChild(ImageCompareWindow, "dl_compare_view") is None
+    host.deleteLater()
+
+
+def test_model_change_preserves_simple_disclosure(q_app):
+    from gui.src.tabs.models.delta.lora_train_tab import LoRATrainTab
+
+    tab = LoRATrainTab()
+    tab.apply_disclosure_tier("simple")
+    tab.update_ui_visibility()
+    assert tab.lora_group.isHidden()
+    tab.deleteLater()

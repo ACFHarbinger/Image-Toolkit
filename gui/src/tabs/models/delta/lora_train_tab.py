@@ -133,6 +133,8 @@ def resolve_imported_dataset(
                 str(parent), tuple(str(p) for p in unique), "selection", False
             )
 
+    staging_root = staging_root or Path.home() / "Downloads" / "Data" / "Tests"
+    staging_root.mkdir(parents=True, exist_ok=True)
     staging = Path(
         tempfile.mkdtemp(
             prefix="itk-train-dataset-",
@@ -140,16 +142,18 @@ def resolve_imported_dataset(
         )
     )
     used_names: set[str] = set()
+    used_stems: set[str] = set()
     for src in unique:
         name = src.name
-        if name in used_names:
+        if name in used_names or Path(name).stem in used_stems:
             stem, suffix = src.stem, src.suffix
             name = f"{src.parent.name}_{stem}{suffix}"
             extra = 2
-            while name in used_names:
+            while name in used_names or Path(name).stem in used_stems:
                 name = f"{src.parent.name}_{stem}_{extra}{suffix}"
                 extra += 1
         used_names.add(name)
+        used_stems.add(Path(name).stem)
         (staging / name).symlink_to(src.resolve())
         caption = src.with_suffix(".txt")
         if caption.is_file():
@@ -356,8 +360,7 @@ class LoRATrainTab(BaseGenerativeTab):
         model_id = self.model_selector.currentData()
         is_gan = model_id == "animegan_v2"
         self.lora_group.setProperty("disclosure_applicable", not is_gan)
-        self.lora_group.setVisible(not is_gan)
-        self.lora_group.setProperty("disclosure_applicable", not is_gan)
+        self.apply_disclosure_tier(self._active_disclosure_tier)
         self.cancel_btn.setEnabled(False)
 
         # PromptEdit chips (#733): base-model quality prefix + trigger tokens
@@ -704,6 +707,8 @@ class LoRATrainTab(BaseGenerativeTab):
             inst_prompt = combine_trigger_and_prompt(trigger, prompt)
             prompt_str = f" · Instance Prompt: '{inst_prompt}'" if inst_prompt else ""
         else:
-            prompt_str = f" · Prompt: '{prompt}'" if prompt else ""
+            effective_trigger = trigger or prompt
+            trigger_str = repr(effective_trigger) if effective_trigger else "(none)"
+            prompt_str = ""
         return f"Model: {model_id} · Engine: {engine} · Epochs: {epochs} · Batch: {batch} · LR: {lr:g} · Rank: {rank} · Trigger: {trigger_str}{prompt_str}{folder_str}"
 

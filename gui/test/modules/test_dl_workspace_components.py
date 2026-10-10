@@ -309,7 +309,9 @@ def test_training_summary_tracks_trigger_and_instance_prompt(q_app):
     tab.engine_combo.setCurrentIndex(1)  # locon
     summary_lycoris = tab.get_effective_config_summary()
     assert "Trigger: 'my_char'" in summary_lycoris
-    assert "Prompt: '1girl, solo'" in summary_lycoris
+    assert "Prompt:" not in summary_lycoris
+    tab.trigger_edit.clear()
+    assert "Trigger: '1girl, solo'" in tab.get_effective_config_summary()
     tab.deleteLater()
 
 

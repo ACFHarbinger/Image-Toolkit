@@ -12,6 +12,8 @@ Equipped with:
 
 from __future__ import annotations
 
+import os
+
 from PySide6.QtCore import QSize
 from PySide6.QtWidgets import (
     QButtonGroup,
@@ -106,6 +108,7 @@ class DeepLearningWorkspaceHost(QWidget):
         self._spine = ComparisonSpine()
         self._spine.pin_activated.connect(self._clone_pin)
         self._spine.pins_changed.connect(self._sync_run_cards)
+        self._spine.pins_changed.connect(self._show_compare)
         root.addWidget(self._spine)
         self.activate_route("train")
 
@@ -231,7 +234,7 @@ class DeepLearningWorkspaceHost(QWidget):
         if focus is not None and focus.available:
             runs = [focus] + [item for item in runs if item.run_id != focus.run_id]
         paths = [
-            run.artifact_path
+            os.path.expanduser(run.artifact_path)
             for run in runs
             if run.available and is_image_artifact(run.artifact_path)
         ]
@@ -426,6 +429,10 @@ class _ReviewToolsPage(QWidget):
         """Show *paths* in the shared pan/zoom/A-B/diff view."""
         from gui.src.windows.image_compare_window import ImageCompareWindow
 
+        self.empty_state.setVisible(not paths)
+        if getattr(self, "_compare_paths", None) == paths:
+            return
+        self._compare_paths = list(paths)
         while self._compare_layout.count():
             item = self._compare_layout.takeAt(0)
             widget = item.widget()
