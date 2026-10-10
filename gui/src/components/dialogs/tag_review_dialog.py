@@ -41,5 +41,9 @@ class TagReviewDialog(QDialog):
             model_repo=model_repo,
         )
 
+    def closeEvent(self, event) -> None:
+        self._panel.stop_review()
+        super().closeEvent(event)
+
     def __getattr__(self, name):
         return getattr(self._panel, name)
