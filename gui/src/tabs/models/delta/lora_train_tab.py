@@ -193,12 +193,9 @@ class LoRATrainTab(BaseGenerativeTab):
     # --- Config Methods ---
     def collect(self) -> dict:
         data = super().collect()
-        # Add custom fields
         data["dataset_folder"] = self.data_dir_edit.text()
         data["trigger_prompt"] = self.prompt_edit.text()
         data["lora_rank"] = self.rank_box.value()
-        # Ensure model_id uses the text representation for the Combo box in base collect,
-        # but we might want to ensure the selection is robust. Base collect saves 'currentText'.
         return data
 
     def set_config(self, config: dict):
