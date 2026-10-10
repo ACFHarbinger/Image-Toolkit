@@ -23,7 +23,13 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ....classes.base.base_generative_tab import BaseGenerativeTab, model_choice_label
+from ....classes.base.base_generative_tab import (
+    TIER_ADVANCED,
+    TIER_SIMPLE,
+    TIER_STANDARD,
+    BaseGenerativeTab,
+    model_choice_label,
+)
 
 # Content Gen §1.3: LyCORIS variants (LoCon/LoHa/LoKr), each a Hydra config
 # preset under backend/config/training/. "standard" keeps the existing
@@ -88,11 +94,12 @@ class LoRATrainTab(BaseGenerativeTab):
         for name, model_id in models:
             self.model_selector.addItem(model_choice_label(name, model_id), model_id)
 
-        self.add_param_widget(layout, "Base Model:", self.model_selector, "model_id")
+        self.add_param_widget(layout, "Base Model:", self.model_selector, "model_id", tier=TIER_SIMPLE)
         self.model_selector.currentIndexChanged.connect(self.update_ui_visibility)
 
         # Dataset Folder
         folder_container = QWidget()
+        self.tag_field(folder_container, tier=TIER_SIMPLE)
         folder_layout = QHBoxLayout(folder_container)
         folder_layout.setContentsMargins(0, 0, 0, 0)
 
@@ -105,7 +112,7 @@ class LoRATrainTab(BaseGenerativeTab):
         layout.addRow("Dataset Folder:", folder_container)
 
         self.add_param_widget(
-            layout, "Output Name:", QLineEdit("my_model"), "output_name"
+            layout, "Output Name:", QLineEdit("my_model"), "output_name", tier=TIER_SIMPLE
         )
 
         # --- Training Engine (Content Gen §1.3: LyCORIS variants) ---
@@ -118,16 +125,20 @@ class LoRATrainTab(BaseGenerativeTab):
             "presets under backend/config/training/) for LoCon/LoHa/LoKr\n"
             "adaptation instead of plain LoRA — see content_generation.md §1.3."
         )
-        self.add_param_widget(layout, "Training Engine:", self.engine_combo, "engine")
+        self.add_param_widget(layout, "Training Engine:", self.engine_combo, "engine", tier=TIER_ADVANCED)
 
         # --- Dynamic Configs ---
         self.lora_group = QWidget()
+        self.tag_field(self.lora_group, tier=TIER_STANDARD)
         lora_layout = QFormLayout(self.lora_group)
         self.prompt_edit = QLineEdit("1girl, style of my_char")
+        self.tag_field(self.prompt_edit, tier=TIER_STANDARD)
         self.trigger_edit = QLineEdit()
         self.trigger_edit.setPlaceholderText("activation token only — not the instance prompt")
+        self.tag_field(self.trigger_edit, tier=TIER_STANDARD)
         self.rank_box = QSpinBox()
         self.rank_box.setValue(4)
+        self.tag_field(self.rank_box, tier=TIER_ADVANCED)
 
         lora_layout.addRow("Instance Prompt:", self.prompt_edit)
         lora_layout.addRow("Trigger Token:", self.trigger_edit)
@@ -136,23 +147,35 @@ class LoRATrainTab(BaseGenerativeTab):
 
         # Common Params
         self.add_param_widget(
-            layout, "Epochs:", QSpinBox(minimum=1, value=5, maximum=100), "epochs"
+            layout, "Epochs:", QSpinBox(minimum=1, value=5, maximum=100), "epochs", tier=TIER_STANDARD
         )
         self.add_param_widget(
             layout,
             "Batch Size:",
             QSpinBox(minimum=1, value=1, maximum=32),
             "batch_size",
+            tier=TIER_STANDARD,
         )
 
         lr_box = QDoubleSpinBox()
         lr_box.setRange(1e-6, 1e-3)
         lr_box.setValue(1e-4)
         lr_box.setDecimals(6)
-        self.add_param_widget(layout, "Learning Rate:", lr_box, "learning_rate")
+        self.add_param_widget(layout, "Learning Rate:", lr_box, "learning_rate", tier=TIER_STANDARD)
+
+        # Connect live changes to effective-config notifications
+        self.data_dir_edit.textChanged.connect(lambda _: self.notify_effective_config_changed())
+        self.prompt_edit.textChanged.connect(lambda _: self.notify_effective_config_changed())
+        self.trigger_edit.textChanged.connect(lambda _: self.notify_effective_config_changed())
+        self.rank_box.valueChanged.connect(lambda _: self.notify_effective_config_changed())
+        self.model_selector.currentIndexChanged.connect(lambda _: self.notify_effective_config_changed())
+        self.engine_combo.currentIndexChanged.connect(lambda _: self.notify_effective_config_changed())
 
         # --- Action Buttons ---
-        button_layout = QHBoxLayout()
+        button_container = QWidget()
+        self.tag_field(button_container, tier=TIER_SIMPLE)
+        button_layout = QHBoxLayout(button_container)
+        button_layout.setContentsMargins(0, 0, 0, 0)
         self.train_btn = QPushButton("Start Training")
         self.cancel_btn = QPushButton("Cancel")
         self.train_btn.clicked.connect(self.start_training_thread)
@@ -172,10 +195,11 @@ class LoRATrainTab(BaseGenerativeTab):
         review_tags_btn.clicked.connect(self._review_tags)
         button_layout.addWidget(review_tags_btn)
 
-        layout.addRow(button_layout)
+        layout.addRow(button_container)
         self.cancel_btn.setEnabled(False)
         self.status_label = QLabel("Ready")
         layout.addRow(self.status_label)
+
 
         form_host = QWidget()
         form_host.setLayout(layout)
@@ -481,3 +505,18 @@ class LoRATrainTab(BaseGenerativeTab):
         trigger = self.trigger_edit.text().strip() or None
         self._review_panel.set_trigger(trigger)
         self._review_panel.start_review(image_paths, trigger=trigger)
+
+    def get_effective_config_summary(self) -> str:
+        """Return resolved one-line config to run (#731)."""
+        model_id = self.model_selector.currentData() or self.model_selector.currentText()
+        engine = self.engine_combo.currentText() if hasattr(self, "engine_combo") else "Standard"
+        epochs = self.widgets["epochs"].value() if "epochs" in self.widgets else 5
+        batch = self.widgets["batch_size"].value() if "batch_size" in self.widgets else 1
+        lr = self.widgets["learning_rate"].value() if "learning_rate" in self.widgets else 1e-4
+        rank = self.rank_box.value() if hasattr(self, "rank_box") else 4
+        trigger = self.trigger_edit.text().strip() if hasattr(self, "trigger_edit") else ""
+        trigger_str = f"'{trigger}'" if trigger else "(none)"
+        folder = self.data_dir_edit.text().strip() if hasattr(self, "data_dir_edit") else ""
+        folder_str = f" · Dataset: '{folder}'" if folder else ""
+        return f"Model: {model_id} · Engine: {engine} · Epochs: {epochs} · Batch: {batch} · LR: {lr:g} · Rank: {rank} · Trigger: {trigger_str}{folder_str}"
+
