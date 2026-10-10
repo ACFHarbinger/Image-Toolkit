@@ -203,6 +203,8 @@ class ImageCompareWindow(QDialog):
         image_paths: List[str],
         parent=None,
         initial_mode: str = "side_by_side",
+        *,
+        embedded: bool = False,
     ):
         super().__init__(parent)
 
@@ -215,20 +217,26 @@ class ImageCompareWindow(QDialog):
         self.sync_pan_zoom = True
         self._active_overlay_index = 0
         self._diff_multiplier = 1.0
+        self._embedded = embedded
 
         # Load pixmaps
         self.pixmaps = [QPixmap(p) if os.path.exists(p) else QPixmap() for p in self.image_paths]
 
         self.setWindowTitle(f"Image Comparison ({len(self.image_paths)} images)")
-        self.setMinimumSize(600, 400)
-        self.resize(1200, 800)
-        self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
-        self.setWindowFlags(
-            Qt.WindowType.Window
-            | Qt.WindowType.WindowMinMaxButtonsHint
-            | Qt.WindowType.WindowCloseButtonHint
-        )
-        register_window(self)
+        self.setMinimumSize(320 if embedded else 600, 220 if embedded else 400)
+        if embedded:
+            # Same panes and A/B / diff controls, laid out inside Review
+            # instead of a top-level window (#732).
+            self.setWindowFlags(Qt.WindowType.Widget)
+        else:
+            self.resize(1200, 800)
+            self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+            self.setWindowFlags(
+                Qt.WindowType.Window
+                | Qt.WindowType.WindowMinMaxButtonsHint
+                | Qt.WindowType.WindowCloseButtonHint
+            )
+            register_window(self)
 
         self._build_ui()
         QTimer.singleShot(50, self.fit_to_window)
