@@ -282,12 +282,14 @@ class LoRATrainTab(BaseGenerativeTab):
         self.add_param_widget(layout, "Learning Rate:", lr_box, "learning_rate", tier=TIER_STANDARD)
 
         # Connect live changes to effective-config notifications
-        self.data_dir_edit.textChanged.connect(lambda _: self.notify_effective_config_changed())
-        self.prompt_edit.promptChanged.connect(lambda _: self.notify_effective_config_changed())
-        self.trigger_edit.textChanged.connect(lambda _: self.notify_effective_config_changed())
-        self.rank_box.valueChanged.connect(lambda _: self.notify_effective_config_changed())
-        self.model_selector.currentIndexChanged.connect(lambda _: self.notify_effective_config_changed())
-        self.engine_combo.currentIndexChanged.connect(lambda _: self.notify_effective_config_changed())
+        self.data_dir_edit.textChanged.connect(lambda *_: self.notify_effective_config_changed())
+        for field in (self.prompt_edit, self.trigger_edit):
+            sig = getattr(field, "promptChanged", None) or getattr(field, "textChanged", None)
+            if sig is not None:
+                sig.connect(lambda *_: self.notify_effective_config_changed())
+        self.rank_box.valueChanged.connect(lambda *_: self.notify_effective_config_changed())
+        self.model_selector.currentIndexChanged.connect(lambda *_: self.notify_effective_config_changed())
+        self.engine_combo.currentIndexChanged.connect(lambda *_: self.notify_effective_config_changed())
 
         # --- Action Buttons ---
         button_container = QWidget()
@@ -688,13 +690,20 @@ class LoRATrainTab(BaseGenerativeTab):
         """Return resolved one-line config to run (#731)."""
         model_id = self.model_selector.currentData() or self.model_selector.currentText()
         engine = self.engine_combo.currentText() if hasattr(self, "engine_combo") else "Standard"
+        engine_id = self.engine_combo.currentData() if hasattr(self, "engine_combo") else "standard"
         epochs = self.widgets["epochs"].value() if "epochs" in self.widgets else 5
         batch = self.widgets["batch_size"].value() if "batch_size" in self.widgets else 1
         lr = self.widgets["learning_rate"].value() if "learning_rate" in self.widgets else 1e-4
         rank = self.rank_box.value() if hasattr(self, "rank_box") else 4
         trigger = self.trigger_edit.text().strip() if hasattr(self, "trigger_edit") else ""
         trigger_str = f"'{trigger}'" if trigger else "(none)"
+        prompt = self.prompt_edit.text().strip() if hasattr(self, "prompt_edit") else ""
         folder = self.data_dir_edit.text().strip() if hasattr(self, "data_dir_edit") else ""
         folder_str = f" · Dataset: '{folder}'" if folder else ""
-        return f"Model: {model_id} · Engine: {engine} · Epochs: {epochs} · Batch: {batch} · LR: {lr:g} · Rank: {rank} · Trigger: {trigger_str}{folder_str}"
+        if engine_id == "standard":
+            inst_prompt = combine_trigger_and_prompt(trigger, prompt)
+            prompt_str = f" · Instance Prompt: '{inst_prompt}'" if inst_prompt else ""
+        else:
+            prompt_str = f" · Prompt: '{prompt}'" if prompt else ""
+        return f"Model: {model_id} · Engine: {engine} · Epochs: {epochs} · Batch: {batch} · LR: {lr:g} · Rank: {rank} · Trigger: {trigger_str}{prompt_str}{folder_str}"
 

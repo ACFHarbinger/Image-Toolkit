@@ -144,6 +144,9 @@ class BaseGenerativeTab(QWidget):
 
     def _connect_widget_change(self, widget: QWidget) -> None:
         """Connect change signals to notify of effective config updates."""
+        prompt_sig = getattr(widget, "promptChanged", None)
+        if prompt_sig is not None and hasattr(prompt_sig, "connect"):
+            prompt_sig.connect(lambda *_: self.notify_effective_config_changed())
         if isinstance(widget, QComboBox):
             widget.currentIndexChanged.connect(lambda _idx: self.notify_effective_config_changed())
         elif isinstance(widget, (QSpinBox, QDoubleSpinBox)):
