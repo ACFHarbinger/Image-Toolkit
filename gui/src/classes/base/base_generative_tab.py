@@ -73,6 +73,23 @@ def apply_combo_value(combo: QComboBox, value) -> str | None:
     return f"Unknown {value!r} — kept {kept!r}."
 
 
+def _fold(s: str) -> str:
+    return "".join(ch for ch in s.lower() if ch.isalnum())
+
+
+def model_choice_label(label: str, model_id: str) -> str:
+    """Combo display text for a model choice (#728).
+
+    Friendly labels must not conceal what they resolve to — two
+    "Illustrious" entries both map to stabilityai/stable-diffusion-xl-base-1.0,
+    which the label alone hides. Appends the resolved id unless the label
+    already carries it (comparison folds case and punctuation).
+    """
+    if _fold(model_id) in _fold(label) or _fold(label) in _fold(model_id):
+        return label
+    return f"{label} · {model_id}"
+
+
 class BaseGenerativeTab(QWidget):
     """Base class for all Generative Model parameter tabs"""
 
