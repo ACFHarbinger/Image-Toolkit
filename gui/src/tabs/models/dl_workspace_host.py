@@ -31,6 +31,7 @@ from gui.src.preferences import PreferenceStore, PrefKeys
 from gui.src.tabs.models.dl_comparison_spine import (
     ComparisonSpine,
     PinnedRun,
+    is_image_artifact,
 )
 from gui.src.tabs.models.dl_workspace_components import (
     ActionableEmptyState,
@@ -119,6 +120,7 @@ class DeepLearningWorkspaceHost(QWidget):
             button.setChecked(True)
         self._spine.revalidate()
         self._sync_run_cards()
+        self._show_compare()
 
     def _ensure_page(self, route_key: str) -> QWidget:
         existing = self._pages.get(route_key)
@@ -182,7 +184,11 @@ class DeepLearningWorkspaceHost(QWidget):
         self._spine.unpin(run_id)
 
     def pin_current_form(self) -> PinnedRun | None:
-        """Snapshot the visible form into a run card and pin it."""
+        """Snapshot the visible form into a run card and pin it.
+
+        The snapshot is settings only. A future output filename is not an
+        artifact, and a missing input must not be inferred from it.
+        """
         page = self._stack.currentWidget()
         page = getattr(page, "tab", page)
         collect = getattr(page, "collect", None)
@@ -204,8 +210,11 @@ class DeepLearningWorkspaceHost(QWidget):
     def _clone_pin(self, run: PinnedRun) -> None:
         if not run.available:
             return
+        self._show_compare(focus=run)
         page = self._stack.currentWidget()
         page = getattr(page, "tab", page)
+        if isinstance(page, _ReviewToolsPage):
+            return
         apply = getattr(page, "apply_pinned_run", None)
         if callable(apply):
             apply(run)
@@ -213,6 +222,20 @@ class DeepLearningWorkspaceHost(QWidget):
         set_config = getattr(page, "set_config", None)
         if callable(set_config) and run.config:
             set_config(run.config)
+
+    def _show_compare(self, focus: PinnedRun | None = None) -> None:
+        page = self._pages.get("review")
+        if not isinstance(page, _ReviewToolsPage):
+            return
+        runs = list(self._spine.pinned_runs())
+        if focus is not None and focus.available:
+            runs = [focus] + [item for item in runs if item.run_id != focus.run_id]
+        paths = [
+            run.artifact_path
+            for run in runs
+            if run.available and is_image_artifact(run.artifact_path)
+        ]
+        page.set_compare_paths(paths)
 
     def _sync_run_cards(self) -> None:
         page = self._pages.get("runs")
@@ -379,10 +402,13 @@ class _ReviewToolsPage(QWidget):
         row.addStretch()
         layout.addLayout(row)
 
-        self._compare = QLabel("Pin a run, then click it to load it here.")
-        self._compare.setObjectName("dl_compare_canvas")
-        self._compare.setWordWrap(True)
-        layout.addWidget(self._compare)
+        self._compare_host = QWidget()
+        self._compare_host.setObjectName("dl_compare_canvas")
+        self._compare_host.setMinimumHeight(280)
+        self._compare_layout = QVBoxLayout(self._compare_host)
+        self._compare_layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(self._compare_host, stretch=1)
+        self.set_compare_paths([])
 
         self._stack = QStackedWidget()
         from gui.src.tabs.models.meta_clip_inference_tab import MetaCLIPInferenceTab
@@ -396,11 +422,24 @@ class _ReviewToolsPage(QWidget):
         self._eval_btn.clicked.connect(lambda: self._stack.setCurrentWidget(self._eval))
         self._clip_btn.clicked.connect(lambda: self._stack.setCurrentWidget(self._clip))
 
-    def apply_pinned_run(self, run: PinnedRun) -> None:
-        """Show the pinned artifact on the compare canvas. Does not remove stale pins."""
-        artifact = run.artifact_path or "settings only"
-        self._compare.setText(f"{run.label}\n{artifact}")
-        self.empty_state.hide()
+    def set_compare_paths(self, paths: list[str]) -> None:
+        """Show *paths* in the shared pan/zoom/A-B/diff view."""
+        from gui.src.windows.image_compare_window import ImageCompareWindow
+
+        while self._compare_layout.count():
+            item = self._compare_layout.takeAt(0)
+            widget = item.widget()
+            if widget is not None:
+                widget.setParent(None)
+                widget.deleteLater()
+        if not paths:
+            empty = QLabel("Pin an image to compare it.")
+            empty.setObjectName("dl_compare_empty")
+            self._compare_layout.addWidget(empty)
+            return
+        view = ImageCompareWindow(paths, parent=self._compare_host, embedded=True)
+        view.setObjectName("dl_compare_view")
+        self._compare_layout.addWidget(view)
 
 
 class _RunsPage(QWidget):

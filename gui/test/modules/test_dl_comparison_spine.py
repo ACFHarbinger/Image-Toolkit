@@ -107,9 +107,74 @@ def test_generate_apply_writes_safetensors_into_lora_path(q_app):
     assert tab.anything_tab.lora_edit.text() == "/tmp/character.safetensors"
 
 
+def _write_png(path) -> None:
+    from PySide6.QtGui import QImage
+
+    image = QImage(8, 8, QImage.Format.Format_RGB32)
+    image.fill(0xFF336699)
+    assert image.save(str(path))
+
+
+def test_filmstrip_thumb_is_a_pixmap(q_app, tmp_path):
+    from gui.src.tabs.models.dl_comparison_spine import ComparisonSpine
+
+    image = tmp_path / "frame.png"
+    _write_png(image)
+    spine = ComparisonSpine()
+    spine.note_run(PinnedRun(run_id="img", label="frame", artifact_path=str(image)))
+    thumb = spine.findChild(QLabel, "dl_film_thumb_img")
+    assert thumb.pixmap() is not None
+    assert thumb.pixmap().isNull() is False
+    assert thumb.text() == ""
+
+
+def test_uncreated_output_does_not_invalidate_pin(tmp_path):
+    from gui.src.tabs.models.dl_comparison_spine import artifact_from_config
+
+    config = {"output_filename": str(tmp_path / "future.png")}
+    assert classify_pin(PinnedRun("run", "form", config=config)).available
+    assert artifact_from_config(config) == ""
+
+
+def test_pin_owns_snapshot(q_app):
+    from gui.src.tabs.models.dl_comparison_spine import ComparisonSpine
+
+    spine = ComparisonSpine()
+    config = {"sub_config": {"steps": 10}}
+    spine.note_run(PinnedRun("run", "form", config=config))
+    spine.pin("run")
+    config["sub_config"]["steps"] = 20
+    assert spine.pinned_runs()[0].config["sub_config"]["steps"] == 10
+
+
+def test_pinning_wrapped_train_keeps_settings(q_app):
+    host = DeepLearningWorkspaceHost()
+    run = host.pin_current_form()
+    assert run is not None
+    assert run.artifact_path == ""
+    assert run.config["selected_model"] == "anything"
+    assert "sub_config" in run.config
+    host.deleteLater()
+
+
+def test_cloning_pin_updates_wrapped_train(q_app):
+    host = DeepLearningWorkspaceHost()
+    host._clone_pin(
+        PinnedRun(
+            "run",
+            "form",
+            config={"selected_model": "anything", "sub_config": {"epochs": 9}},
+        )
+    )
+    assert host._train_tab.anything_tab.widgets["epochs"].value() == 9
+    host.deleteLater()
+
+
 def test_review_canvas_shows_the_clicked_pin(q_app, monkeypatch, tmp_path):
+    from gui.src.windows.image_compare_window import ImageCompareWindow
+
     image = tmp_path / "out.png"
-    image.write_bytes(b"png")
+    _write_png(image)
     original = DeepLearningWorkspaceHost._build_page
 
     def fake_build(self, route_key: str) -> QWidget:
@@ -125,6 +190,8 @@ def test_review_canvas_shows_the_clicked_pin(q_app, monkeypatch, tmp_path):
     host.pin_run("img")
     host.activate_route("review")
     host.findChild(QWidget, "dl_pin_chip_img").click()
-    canvas = host.findChild(QLabel, "dl_compare_canvas")
-    assert "sample" in canvas.text()
-    assert str(image) in canvas.text()
+    view = host.findChild(ImageCompareWindow, "dl_compare_view")
+    assert view is not None
+    assert view.image_paths == [str(image)]
+    assert view.btn_side_by_side.isChecked()
+    assert view.btn_diff.isEnabled() is False
