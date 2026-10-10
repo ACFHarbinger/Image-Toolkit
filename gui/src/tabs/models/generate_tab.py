@@ -6,7 +6,12 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
-from ...classes.base.base_generative_tab import BaseGenerativeTab
+from ...classes.base.base_generative_tab import (
+    SELECTED_MODEL_KEY,
+    BaseGenerativeTab,
+    apply_selected_model,
+    collect_selected_model,
+)
 from .gen import GANGenerateTab, LoRAGenerateTab, R3GANGenerateTab, SD3GenerateTab
 
 
@@ -60,20 +65,20 @@ class UnifiedGenerateTab(BaseGenerativeTab):
         self.setLayout(main_layout)
 
     def collect(self) -> dict:
-        active_index = self.stack.currentIndex()
         active_widget = self.stack.currentWidget()
 
         sub_config = {}
         if hasattr(active_widget, "collect"):
             sub_config = active_widget.collect()
 
-        return {"selected_model_index": active_index, "sub_config": sub_config}
+        data = collect_selected_model(self.model_selector)
+        data["sub_config"] = sub_config
+        return data
 
     def set_config(self, config: dict):
-        if "selected_model_index" in config:
-            idx = config["selected_model_index"]
-            if 0 <= idx < self.model_selector.count():
-                self.model_selector.setCurrentIndex(idx)
+        note = apply_selected_model(self.model_selector, config)
+        notes = [note] if note else []
+        self.show_config_migration_note(notes)
 
         if "sub_config" in config:
             active_widget = self.stack.currentWidget()
@@ -81,7 +86,7 @@ class UnifiedGenerateTab(BaseGenerativeTab):
                 active_widget.set_config(config["sub_config"])
 
     def get_default_config(self) -> dict:
-        return {
-            "selected_model_index": 0,
-            "sub_config": self.anything_tab.get_default_config(),
-        }
+        data = collect_selected_model(self.model_selector)
+        data[SELECTED_MODEL_KEY] = "anything"
+        data["sub_config"] = self.anything_tab.get_default_config()
+        return data

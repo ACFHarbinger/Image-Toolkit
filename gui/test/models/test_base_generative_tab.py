@@ -7,7 +7,11 @@ from PySide6.QtWidgets import (
     QSpinBox,
 )
 
-from gui.src.classes.base.base_generative_tab import BaseGenerativeTab
+from gui.src.classes.base.base_generative_tab import (
+    CONFIG_SCHEMA_KEY,
+    CONFIG_SCHEMA_VERSION,
+    BaseGenerativeTab,
+)
 
 pytestmark = pytest.mark.gui
 
@@ -33,9 +37,9 @@ def test_add_param_widget(gen_tab):
 def test_collect_values(gen_tab):
     layout = gen_tab.layout()
 
-    # Setup widgets
     combo = QComboBox()
-    combo.addItems(["A", "B"])
+    combo.addItem("Friendly A", "id-a")
+    combo.addItem("Friendly B", "id-b")
     gen_tab.add_param_widget(layout, "Combo", combo, "p_combo")
 
     check = QCheckBox()
@@ -50,13 +54,22 @@ def test_collect_values(gen_tab):
     line.setText("Hello")
     gen_tab.add_param_widget(layout, "Line", line, "p_line")
 
-    # Collect
     params = gen_tab.collect()
 
-    assert params["p_combo"] == "A"
+    assert params[CONFIG_SCHEMA_KEY] == CONFIG_SCHEMA_VERSION
+    assert params["p_combo"] == "id-a"
     assert params["p_check"] is True
     assert params["p_spin"] == 42
     assert params["p_line"] == "Hello"
+
+
+def test_collect_combo_without_item_data_uses_text(gen_tab):
+    combo = QComboBox()
+    combo.addItems(["A", "B"])
+    gen_tab.add_param_widget(gen_tab.layout(), "Combo", combo, "p_combo")
+    combo.setCurrentIndex(1)
+
+    assert gen_tab.collect()["p_combo"] == "B"
 
 
 def test_set_config(gen_tab):
@@ -75,3 +88,51 @@ def test_set_config(gen_tab):
 
     assert spin.value() == 100
     assert line.text() == "New Value"
+
+
+def test_set_config_restores_combo_by_id_after_label_rename(gen_tab):
+    combo = QComboBox()
+    combo.addItem("Old Friendly", "stable-id")
+    combo.addItem("Other", "other-id")
+    gen_tab.add_param_widget(gen_tab.layout(), "Combo", combo, "p_combo")
+    combo.setCurrentIndex(1)
+
+    snapshot = gen_tab.collect()
+    assert snapshot["p_combo"] == "other-id"
+
+    combo.setItemText(1, "Renamed Friendly")
+    combo.setCurrentIndex(0)
+    gen_tab.set_config(snapshot)
+
+    assert combo.currentData() == "other-id"
+    assert gen_tab.config_migration_note is None
+
+
+def test_set_config_migrates_legacy_combo_label(gen_tab):
+    combo = QComboBox()
+    combo.addItem("Standard (LoRA)", "standard")
+    combo.addItem("LyCORIS: LoCon", "locon")
+    gen_tab.add_param_widget(gen_tab.layout(), "Engine", combo, "engine")
+
+    gen_tab.set_config({"engine": "LyCORIS: LoCon"})
+
+    assert combo.currentData() == "locon"
+    assert gen_tab.config_migration_note is None
+
+
+def test_set_config_unknown_combo_id_keeps_current_and_shows_note(gen_tab):
+    combo = QComboBox()
+    combo.addItem("Engine A", "a")
+    combo.addItem("Engine B", "b")
+    gen_tab.add_param_widget(gen_tab.layout(), "Combo", combo, "p_combo")
+    combo.setCurrentIndex(1)
+
+    gen_tab.set_config({"p_combo": "Engine A Renamed"})
+
+    assert combo.currentData() == "b"
+    assert combo.currentIndex() == 1
+    assert gen_tab.config_migration_note is not None
+    assert "Engine A Renamed" in gen_tab.config_migration_note
+    assert gen_tab._migration_label is not None
+    assert not gen_tab._migration_label.isHidden()
+    assert "Engine A Renamed" in gen_tab._migration_label.text()

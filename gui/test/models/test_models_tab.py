@@ -65,18 +65,40 @@ class TestUnifiedGenerateTab:
         tab = UnifiedGenerateTab()
         data = tab.collect()
 
-        assert data["selected_model_index"] == 0
+        assert data["selected_model"] == "anything"
+        assert data["config_schema"] == 2
+        assert "selected_model_index" not in data
         assert data["sub_config"] == {"param": "value"}
 
     def test_set_config(self, q_app, mock_subtabs):
         mock_lora, _, _, _ = mock_subtabs
         tab = UnifiedGenerateTab()
 
-        config = {"selected_model_index": 0, "sub_config": {"new_param": "new_value"}}
+        config = {"selected_model": "anything", "sub_config": {"new_param": "new_value"}}
         tab.set_config(config)
 
-        assert tab.model_selector.currentIndex() == 0
+        assert tab.model_selector.currentData() == "anything"
         mock_lora.return_value.set_config.assert_called_with({"new_param": "new_value"})
+
+    def test_set_config_migrates_legacy_index(self, q_app, mock_subtabs):
+        _, mock_sd3, _, _ = mock_subtabs
+        tab = UnifiedGenerateTab()
+
+        tab.set_config({"selected_model_index": 1, "sub_config": {"prompt": "hi"}})
+
+        assert tab.model_selector.currentData() == "sd3"
+        assert tab.stack.currentIndex() == 1
+        mock_sd3.return_value.set_config.assert_called_with({"prompt": "hi"})
+
+    def test_set_config_unknown_id_keeps_default_and_notes(self, q_app, mock_subtabs):
+        tab = UnifiedGenerateTab()
+        tab.model_selector.setCurrentIndex(1)
+
+        tab.set_config({"selected_model": "flux-that-never-existed"})
+
+        assert tab.model_selector.currentData() == "sd3"
+        assert tab.config_migration_note is not None
+        assert "flux-that-never-existed" in tab.config_migration_note
 
     def test_switch_model(self, q_app, mock_subtabs):
         tab = UnifiedGenerateTab()
@@ -115,17 +137,38 @@ class TestUnifiedTrainTab:
         tab = UnifiedTrainTab()
         data = tab.collect()
 
-        assert data["selected_model_index"] == 0
+        assert data["selected_model"] == "anything"
+        assert data["config_schema"] == 2
+        assert "selected_model_index" not in data
         assert data["sub_config"] == {"lr": 0.001}
 
     def test_set_config(self, q_app, mock_subtabs):
         mock_lora, _, _ = mock_subtabs
         tab = UnifiedTrainTab()
 
-        config = {"selected_model_index": 0, "sub_config": {"lr": 0.002}}
+        config = {"selected_model": "anything", "sub_config": {"lr": 0.002}}
         tab.set_config(config)
 
         mock_lora.return_value.set_config.assert_called_with({"lr": 0.002})
+
+    def test_set_config_migrates_legacy_index(self, q_app, mock_subtabs):
+        _, mock_r3gan, _ = mock_subtabs
+        tab = UnifiedTrainTab()
+
+        tab.set_config({"selected_model_index": 1, "sub_config": {"preset": "FFHQ-64"}})
+
+        assert tab.model_selector.currentData() == "r3gan"
+        mock_r3gan.return_value.set_config.assert_called_with({"preset": "FFHQ-64"})
+
+    def test_set_config_unknown_id_keeps_default_and_notes(self, q_app, mock_subtabs):
+        tab = UnifiedTrainTab()
+        tab.model_selector.setCurrentIndex(2)
+
+        tab.set_config({"selected_model": "not-an-engine"})
+
+        assert tab.model_selector.currentData() == "basic_gan"
+        assert tab.config_migration_note is not None
+        assert "not-an-engine" in tab.config_migration_note
 
 
 # --- MetaCLIPInferenceTab Tests ---
