@@ -186,26 +186,22 @@ class BaseGenerativeTab(QWidget):
         if tier == TIER_ADVANCED:
             visible_tiers.add(TIER_ADVANCED)
 
-        # 1. Update registered param rows
-        for lbl, widget, row_tier in self._param_rows.values():
-            is_vis = row_tier in visible_tiers
-            layout = self.layout()
-            if isinstance(layout, QFormLayout) and hasattr(layout, "setRowVisible"):
-                layout.setRowVisible(widget, is_vis)
-            else:
-                widget.setVisible(is_vis)
-                lbl.setVisible(is_vis)
-
-        # 2. Update any other tagged child widgets or custom containers
         for child in self.findChildren(QWidget):
             child_tier = child.property("disclosure_tier")
-            if child_tier is not None:
-                is_vis = child_tier in visible_tiers
-                layout = self.layout()
-                if isinstance(layout, QFormLayout) and hasattr(layout, "setRowVisible"):
-                    layout.setRowVisible(child, is_vis)
-                else:
-                    child.setVisible(is_vis)
+            if child_tier is None:
+                continue
+            owner = child.parentWidget()
+            while owner is not None and not isinstance(owner, BaseGenerativeTab):
+                owner = owner.parentWidget()
+            if owner is not self:
+                continue
+            visible = child_tier in visible_tiers and child.property("disclosure_applicable") is not False
+            parent = child.parentWidget()
+            form = parent.layout() if parent is not None else None
+            if isinstance(form, QFormLayout) and form.getWidgetPosition(child)[0] >= 0:
+                form.setRowVisible(child, visible)
+            else:
+                child.setVisible(visible)
 
         # 3. Propagate to sub-tabs if hosted in a QStackedWidget
         stack = getattr(self, "stack", None)

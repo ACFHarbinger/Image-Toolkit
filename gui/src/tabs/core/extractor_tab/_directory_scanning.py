@@ -142,6 +142,7 @@ class ExtractorDirectoryScanningController(TabBoundController):
             return
         from gui.src.modules.events import ImportPathsIntent, NavigateIntent
 
+        hub.publish(NavigateIntent(origin="system.extractor", module_id="ml.training"))
         hub.publish(
             ImportPathsIntent(
                 origin="system.extractor",
@@ -149,7 +150,6 @@ class ExtractorDirectoryScanningController(TabBoundController):
                 paths=(folder,),
             )
         )
-        hub.publish(NavigateIntent(origin="system.extractor", module_id="ml.training"))
         QMessageBox.information(self.tab, "Frames Sent", "Sent the output directory to Train.")
 
     def _load_last_extraction_dir(self: "VideoExtractorSubTabHostProtocol", default: str = "") -> str:

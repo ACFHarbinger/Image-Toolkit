@@ -257,13 +257,21 @@ def test_meter_unavailable_shows_dash(edit):
     assert edit._meter.text() == "—"
 
 
-def test_sdxl_token_counter_caches_failures():
+def test_sdxl_token_counter_caches_failures(monkeypatch):
+    from unittest.mock import Mock
+
+    from transformers import CLIPTokenizer
+
+    load = Mock(side_effect=OSError("unavailable"))
+    monkeypatch.setattr(CLIPTokenizer, "from_pretrained", load)
     counter = SdxlTokenCounter()
     assert counter.counts("", "x") == (None, None)
     # Nonexistent model id: failure is cached, no exception escapes.
     result = counter.counts("definitely/not-a-real-model-733", "x")
     assert result == (None, None)
     assert counter._cache["definitely/not-a-real-model-733"] is None
+    assert counter.counts("definitely/not-a-real-model-733", "again") == (None, None)
+    assert load.call_count == 1
 
 
 # ---------------------------------------------------------------------------

@@ -86,10 +86,10 @@ class SearchTabCommunicationController(TabBoundController):
         if not paths:
             QMessageBox.information(self.tab, "No Selection", "No images selected.")
             return
+        self.event_hub.publish(NavigateIntent(origin="library.search", module_id="ml.training"))
         self.event_hub.publish(
             ImportPathsIntent(origin="library.search", module_id="ml.training", paths=tuple(paths))
         )
-        self.event_hub.publish(NavigateIntent(origin="library.search", module_id="ml.training"))
         QMessageBox.information(self.tab, "Images Sent", f"Sent {len(paths)} images to Train.")
 
 

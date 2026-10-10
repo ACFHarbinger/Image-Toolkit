@@ -60,6 +60,8 @@ class TagReviewPanel(QWidget):
         review_thresh: float = 0.15,
         model_repo: Optional[str] = None,
     ) -> None:
+        if self._worker is not None and self._worker.isRunning():
+            return
         self._trigger = trigger or None
         self._entries = {}
         self._order = []

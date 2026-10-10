@@ -318,11 +318,11 @@ class PromptEdit(QWidget):
         self._popup.hide()
 
     def _update_meter(self, text: str) -> None:
+        self._count_seq += 1
         if self._counter is None or not self._model_id:
             self._meter.setText("—")
             self._meter.setStyleSheet(f"color: {color('muted_text')};")
             return
-        self._count_seq += 1
         job = _CountJob(self._count_seq, text, self._counter, self._model_id)
         job.signals.counts.connect(self._on_counts)
         QThreadPool.globalInstance().start(job)
@@ -384,7 +384,8 @@ class _CompletionPopup(QListWidget):
             suffix = f"  ·  {suggestion.category}" if suggestion.category else ""
             if suggestion.uses:
                 suffix += f" ×{suggestion.uses}"
-            QListWidgetItem(suggestion.tag + suffix, self)
+            item = QListWidgetItem(suggestion.tag + suffix, self)
+            item.setData(Qt.ItemDataRole.UserRole, suggestion.tag)
         self.setCurrentRow(0)
         row_height = self.sizeHintForRow(0) if shown else 20
         height = min(row_height * max(1, len(shown)) + 4, 240)
@@ -397,14 +398,14 @@ class _CompletionPopup(QListWidget):
 
     def current_tag(self) -> str:
         item = self.currentItem()
-        return self._strip_meta(item.text()) if item else ""
+        return item.data(Qt.ItemDataRole.UserRole) if item else ""
 
     @staticmethod
     def _strip_meta(text: str) -> str:
         return text.split("  ·  ")[0].strip()
 
     def _on_click(self, item: QListWidgetItem) -> None:
-        self._host._accept_suggestion(self._strip_meta(item.text()))
+        self._host._accept_suggestion(item.data(Qt.ItemDataRole.UserRole))
 
 
 __all__ = ["PromptEdit", "SdxlTokenCounter"]

@@ -28,16 +28,15 @@ from PySide6.QtWidgets import (
 from gui.src.modules.events import EventHub, ImportPathsIntent
 from gui.src.modules.tab_factory import build_tab
 from gui.src.preferences import PreferenceStore, PrefKeys
+from gui.src.tabs.models.dl_comparison_spine import (
+    ComparisonSpine,
+    PinnedRun,
+)
 from gui.src.tabs.models.dl_workspace_components import (
     ActionableEmptyState,
     EffectiveConfigBar,
     GuidedOnboardingCard,
     ProgressiveDisclosureControl,
-)
-from gui.src.tabs.models.dl_comparison_spine import (
-    ComparisonSpine,
-    PinnedRun,
-    artifact_from_config,
 )
 
 _DESTINATIONS = (
@@ -185,14 +184,17 @@ class DeepLearningWorkspaceHost(QWidget):
     def pin_current_form(self) -> PinnedRun | None:
         """Snapshot the visible form into a run card and pin it."""
         page = self._stack.currentWidget()
+        page = getattr(page, "tab", page)
         collect = getattr(page, "collect", None)
-        config = collect() if callable(collect) else {}
+        if not callable(collect):
+            return None
+        config = collect()
         if not isinstance(config, dict):
             config = {}
         run = PinnedRun(
             run_id=f"{self._current_route}-{len(self._spine.noted_runs()) + 1}",
             label=f"{self._current_route} settings",
-            artifact_path=artifact_from_config(config),
+            artifact_path="",
             config=config,
         )
         self.note_run(run)
@@ -203,6 +205,7 @@ class DeepLearningWorkspaceHost(QWidget):
         if not run.available:
             return
         page = self._stack.currentWidget()
+        page = getattr(page, "tab", page)
         apply = getattr(page, "apply_pinned_run", None)
         if callable(apply):
             apply(run)

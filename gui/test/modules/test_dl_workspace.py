@@ -199,12 +199,18 @@ def test_search_send_to_train_publishes_ml_training_intents(q_app):
         )
     )
 
+    delivered = []
+    hub.subscribe(NavigateIntent, lambda _event: hub.subscribe(ImportPathsIntent, delivered.append))
+
     with patch("gui.src.tabs.database.search_tab._tab_communication.QMessageBox"):
         SearchTabCommunicationController.send_selection_to_train_tab(stub)
 
-    assert [type(event) for event in events] == [ImportPathsIntent, NavigateIntent]
+    assert len(delivered) == 1
+    assert delivered[0].paths == ("/tmp/a.png",)
+
+    assert [type(event) for event in events] == [NavigateIntent, ImportPathsIntent]
     assert events[0].module_id == "ml.training"
-    assert events[0].paths == ("/tmp/a.png",)
+    assert events[1].paths == ("/tmp/a.png",)
     assert events[1].module_id == "ml.training"
 
 
@@ -227,9 +233,9 @@ def test_extractor_send_frames_publishes_ml_training_intents(q_app):
     with patch("gui.src.tabs.core.extractor_tab._directory_scanning.QMessageBox"):
         ExtractorDirectoryScanningController.send_frames_to_train(stub)
 
-    assert [type(event) for event in events] == [ImportPathsIntent, NavigateIntent]
+    assert [type(event) for event in events] == [NavigateIntent, ImportPathsIntent]
     assert events[0].module_id == "ml.training"
-    assert events[0].paths == ("/tmp/frames",)
+    assert events[1].paths == ("/tmp/frames",)
 
 
 def test_host_import_paths_activates_train_and_applies(q_app, monkeypatch):

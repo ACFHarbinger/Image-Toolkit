@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Callable
+from copy import deepcopy
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
@@ -27,7 +28,7 @@ _LOCAL_SUFFIXES = {
     ".jpeg",
     ".webp",
 }
-_PATH_KEYS = ("model_id", "lora_path", "model_path", "checkpoint", "output_filename")
+_PATH_KEYS = ("model_id", "lora_path", "model_path", "checkpoint")
 
 
 @dataclass(frozen=True)
@@ -136,7 +137,7 @@ class ComparisonSpine(QWidget):
 
     def note_run(self, run: PinnedRun) -> None:
         """Remember a run card. Noting does not pin it."""
-        classified = classify_pin(run)
+        classified = classify_pin(replace(run, config=deepcopy(run.config)))
         if run.run_id not in self._runs:
             self._noted.append(run.run_id)
         self._runs[run.run_id] = classified

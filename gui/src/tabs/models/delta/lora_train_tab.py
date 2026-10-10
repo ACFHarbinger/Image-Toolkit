@@ -234,6 +234,7 @@ class LoRATrainTab(BaseGenerativeTab):
     def update_ui_visibility(self):
         model_id = self.model_selector.currentData()
         is_gan = model_id == "animegan_v2"
+        self.lora_group.setProperty("disclosure_applicable", not is_gan)
         self.lora_group.setVisible(not is_gan)
         self.cancel_btn.setEnabled(False)
 

@@ -137,10 +137,9 @@ class DbVocabulary:
 
 def _default_tag_rows() -> list[tuple[str, str, int]]:
     from backend.src.database.unified import session
-    from backend.src.database.unified.facade import UnifiedImageDatabase
+    from backend.src.database.unified.tag_repo import TagRepo
 
-    db = UnifiedImageDatabase(session.get_session())
-    return db.tag_repo.popular_tags_with_uses()
+    return TagRepo(session.get_session()).popular_tags_with_uses()
 
 
 def model_prefix_for(model_id: str) -> str | None:
