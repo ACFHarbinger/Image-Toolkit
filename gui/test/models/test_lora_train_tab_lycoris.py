@@ -188,3 +188,39 @@ def test_cancel_training_terminates_lycoris_subprocess_when_active(tab):
     tab._lycoris_process = fake_proc
     tab.cancel_training()
     fake_proc.terminate.assert_called_once()
+
+
+def test_collect_persists_model_and_engine_ids_not_labels(tab):
+    tab.model_selector.setCurrentIndex(0)
+    tab.engine_combo.setCurrentIndex(2)
+    data = tab.collect()
+    assert data["config_schema"] == 2
+    assert data["model_id"] == "stabilityai/stable-diffusion-xl-base-1.0"
+    assert data["engine"] == "loha"
+    assert data["model_id"] != tab.model_selector.currentText()
+    assert data["engine"] != tab.engine_combo.currentText()
+
+
+def test_set_config_restores_engine_by_id_after_label_rename(tab):
+    tab.engine_combo.setCurrentIndex(3)
+    snapshot = tab.collect()
+    tab.engine_combo.setItemText(3, "LyCORIS: LoKr (renamed)")
+    tab.engine_combo.setCurrentIndex(0)
+
+    tab.set_config(snapshot)
+
+    assert tab.engine_combo.currentData() == "lokr"
+    assert tab.config_migration_note is None
+
+
+def test_set_config_migrates_legacy_engine_label(tab):
+    tab.set_config({"engine": "LyCORIS: LoHa (small datasets)"})
+    assert tab.engine_combo.currentData() == "loha"
+
+
+def test_set_config_unknown_engine_keeps_current(tab):
+    tab.engine_combo.setCurrentIndex(2)
+    tab.set_config({"engine": "lycoris-that-was-removed"})
+    assert tab.engine_combo.currentData() == "loha"
+    assert tab.config_migration_note is not None
+    assert "lycoris-that-was-removed" in tab.config_migration_note
