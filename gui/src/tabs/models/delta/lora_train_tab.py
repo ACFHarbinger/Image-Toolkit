@@ -263,7 +263,17 @@ class LoRATrainTab(BaseGenerativeTab):
 
     def run_training(self, params, data_dir, model_id, rank, prompt, output_name, engine="standard"):
         if engine != "standard" and model_id != "animegan_v2":
-            self._run_lycoris_training(data_dir, model_id, prompt, output_name, engine)
+            self._run_lycoris_training(
+                data_dir,
+                model_id,
+                prompt,
+                output_name,
+                engine,
+                epochs=int(params.get("epochs", 5)),
+                batch_size=int(params.get("batch_size", 1)),
+                learning_rate=float(params.get("learning_rate", 1e-4)),
+                rank=rank,
+            )
             return
 
         gan = None
@@ -310,7 +320,17 @@ class LoRATrainTab(BaseGenerativeTab):
                 gan.unload()
 
     def _run_lycoris_training(
-        self, data_dir: str, model_id: str, prompt: str, output_name: str, engine: str
+        self,
+        data_dir: str,
+        model_id: str,
+        prompt: str,
+        output_name: str,
+        engine: str,
+        *,
+        epochs: int = 5,
+        batch_size: int = 1,
+        learning_rate: float = 1e-4,
+        rank: int = 4,
     ) -> None:
         """Content Gen §1.3: LyCORIS (LoCon/LoHa/LoKr) training.
 
@@ -321,6 +341,10 @@ class LoRATrainTab(BaseGenerativeTab):
         aspect-ratio bucketing, caption building, and LyCORIS dispatch
         (LoRATunerV2 already supports 'locon'/'loha'/'lokr'/'dylora' via
         `cfg.method == "lycoris"`; only GUI exposure was missing).
+
+        The four visible training controls are forwarded as Hydra overrides
+        (#726). The lycoris_* presets leave max_train_steps null, so
+        max_train_epochs is authoritative in LoRATunerV2's step math.
         """
         self.update_status_signal.emit(
             f"Launching LyCORIS ({engine}) training via anime_training_pipeline..."
@@ -344,6 +368,10 @@ class LoRATrainTab(BaseGenerativeTab):
             f"data.images_dir={data_dir}",
             f"data.trigger_word={prompt}",
             f"output_dir={output_name}",
+            f"training.rank={rank}",
+            f"training.train_batch_size={batch_size}",
+            f"training.max_train_epochs={epochs}",
+            f"optimizer.unet_lr={learning_rate}",
         ]
         try:
             self._lycoris_process = subprocess.Popen(
