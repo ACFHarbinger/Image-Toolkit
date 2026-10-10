@@ -60,6 +60,21 @@ def test_standard_engine_uses_legacy_lora_tuner_path(tab):
         mock_tuner.assert_called_once_with(model_id="some/model", output_dir="out")
 
 
+def test_lycoris_engine_forwards_form_controls(tab):
+    """#726: run_training must forward the visible epochs/batch/LR/rank
+    controls into the LyCORIS launcher."""
+    with patch.object(tab, "_run_lycoris_training") as mock_lycoris:
+        tab.run_training(
+            params={"epochs": 9, "batch_size": 2, "learning_rate": 2e-4},
+            data_dir="/tmp/data", model_id="some/model",
+            rank=16, prompt="trigger", output_name="out", engine="loha",
+        )
+    mock_lycoris.assert_called_once_with(
+        "/tmp/data", "some/model", "trigger", "out", "loha",
+        epochs=9, batch_size=2, learning_rate=2e-4, rank=16,
+    )
+
+
 @pytest.mark.parametrize("engine", ["locon", "loha", "lokr"])
 def test_lycoris_engine_builds_correct_dispatcher_command(tab, engine):
     fake_proc = MagicMock()
@@ -76,6 +91,10 @@ def test_lycoris_engine_builds_correct_dispatcher_command(tab, engine):
             prompt="mychar_xyz",
             output_name="my_char_lora",
             engine=engine,
+            epochs=7,
+            batch_size=3,
+            learning_rate=5e-5,
+            rank=32,
         )
 
     args, kwargs = mock_popen.call_args
@@ -87,7 +106,31 @@ def test_lycoris_engine_builds_correct_dispatcher_command(tab, engine):
     assert "data.images_dir=/data/my_char" in cmd
     assert "data.trigger_word=mychar_xyz" in cmd
     assert "output_dir=my_char_lora" in cmd
+    # #726: the four visible controls must reach the Hydra command
+    assert "training.rank=32" in cmd
+    assert "training.train_batch_size=3" in cmd
+    assert "training.max_train_epochs=7" in cmd
+    assert "optimizer.unet_lr=5e-05" in cmd
     assert tab._lycoris_process is None  # cleared in finally after wait() returns
+
+
+def test_lycoris_command_uses_form_defaults(tab):
+    """Omitting the controls falls back to the form's own defaults."""
+    fake_proc = MagicMock()
+    fake_proc.stdout = iter([])
+    fake_proc.wait.return_value = 0
+
+    with patch(
+        "gui.src.tabs.models.delta.lora_train_tab.subprocess.Popen",
+        return_value=fake_proc,
+    ) as mock_popen:
+        tab._run_lycoris_training("/d", "m", "p", "o", "locon")
+
+    cmd = mock_popen.call_args.args[0]
+    assert "training.rank=4" in cmd
+    assert "training.train_batch_size=1" in cmd
+    assert "training.max_train_epochs=5" in cmd
+    assert "optimizer.unet_lr=0.0001" in cmd
 
 
 def test_lycoris_training_success_emits_success_signal(tab):

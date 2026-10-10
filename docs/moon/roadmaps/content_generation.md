@@ -117,6 +117,13 @@ Each section: current state in the codebase → pain point → options with trad
 
 ---
 
+**GUI tab rebuild (2026-10-09):** the Deep Learning tab category (the GUI
+side of the LoRA/SD3.5/GAN/ComfyUI tabs below, plus new training-analysis
+and OCR/LLM/VLM-assisted guidance tooling) has its own dedicated roadmap —
+[Deep Learning Tab Rebuild](deep_learning_tab_rebuild.md). This document
+stays the source of truth for the underlying model/pipeline code; that one
+owns the GUI shell and the new analysis/guidance layer on top of it.
+
 ## 0. Current State (what already exists)
 
 The repository already ships a substantial generation stack — this roadmap **extends** it, it is not greenfield.

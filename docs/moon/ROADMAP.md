@@ -133,6 +133,7 @@ This document defines the **phased execution sequence** for all upcoming improve
 Section-specific roadmaps:
 - [ASP — Anime Stitch Pipeline](https://github.com/ACFHarbinger/Anime-Stitch-Pipeline/blob/main/docs/moon/ROADMAP.md)
 - [Content Generation — Anime Image & Video](roadmaps/content_generation.md)
+- [Deep Learning Tab Rebuild](roadmaps/deep_learning_tab_rebuild.md)
 - [GUI/UX — Desktop Interface](roadmaps/gui_ux.md)
 - [Performance — Compute, Memory, I/O](roadmaps/performance.md)
 - [New Features — Capabilities & Integrations](roadmaps/new_features.md)
