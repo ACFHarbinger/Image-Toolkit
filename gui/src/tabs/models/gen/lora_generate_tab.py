@@ -18,6 +18,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from gui.src.components.prompt_edit import PromptEdit
+from gui.src.components.prompt_vocabulary import default_vocabulary, model_prefix_for
+
 from ....classes.base.base_generative_tab import (
     TIER_ADVANCED,
     TIER_SIMPLE,
@@ -33,6 +36,7 @@ class LoRAGenerateTab(BaseGenerativeTab):
     def __init__(self):
         super().__init__()
         self.last_browsed_scan_dir = LOCAL_SOURCE_PATH
+        self._prompt_vocab = default_vocabulary()
         self.init_ui()
         self.generation_finished_signal.connect(self.handle_generation_finished)
 
@@ -70,9 +74,11 @@ class LoRAGenerateTab(BaseGenerativeTab):
         self.diffusion_group = QWidget()
         self.tag_field(self.diffusion_group, tier=TIER_SIMPLE)
         diff_layout = QFormLayout(self.diffusion_group)
-        self.prompt_edit = QLineEdit("1girl, solo, cat ears, library")
+        self.prompt_edit = PromptEdit("1girl, solo, cat ears, library")
+        self.neg_prompt_edit = PromptEdit("lowres, bad anatomy, text, error")
+        for prompt_field in (self.prompt_edit, self.neg_prompt_edit):
+            prompt_field.set_vocabulary(self._prompt_vocab)
         self.tag_field(self.prompt_edit, tier=TIER_SIMPLE)
-        self.neg_prompt_edit = QLineEdit("lowres, bad anatomy, text, error")
         self.tag_field(self.neg_prompt_edit, tier=TIER_STANDARD)
         self.lora_edit = QLineEdit("output_lora")
         self.tag_field(self.lora_edit, tier=TIER_STANDARD)
@@ -130,8 +136,8 @@ class LoRAGenerateTab(BaseGenerativeTab):
         self.add_param_widget(layout, "Batch Size:", self.batch_size_box, "batch_size", tier=TIER_ADVANCED)
 
         # Connect live changes to effective-config notifications
-        self.prompt_edit.textChanged.connect(lambda _: self.notify_effective_config_changed())
-        self.neg_prompt_edit.textChanged.connect(lambda _: self.notify_effective_config_changed())
+        self.prompt_edit.promptChanged.connect(lambda _: self.notify_effective_config_changed())
+        self.neg_prompt_edit.promptChanged.connect(lambda _: self.notify_effective_config_changed())
         self.steps_box.valueChanged.connect(lambda _: self.notify_effective_config_changed())
         self.guidance_box.valueChanged.connect(lambda _: self.notify_effective_config_changed())
         self.lora_edit.textChanged.connect(lambda _: self.notify_effective_config_changed())
@@ -173,6 +179,15 @@ class LoRAGenerateTab(BaseGenerativeTab):
         self.gan_group.setVisible(is_gan)
         self.gen_btn.setText("Transfer Style" if is_gan else "Generate Image")
         self.cancel_btn.setEnabled(False)
+
+        prefix = None if is_gan else model_prefix_for(model_id)
+        self.prompt_edit.set_chips([prefix] if prefix else [])
+        self.prompt_edit.set_meter_model_id("" if is_gan else model_id)
+        # Offer the train-time negative recorded for this LoRA's run as the
+        # default — only when the user hasn't typed one (#733).
+        negative = self._prompt_vocab.negative_for_lora(self.lora_edit.text().strip())
+        if negative and not self.neg_prompt_edit.toPlainText().strip():
+            self.neg_prompt_edit.setText(negative)
 
     def cancel_generation(self):
         model_id = self.model_selector.currentData()
