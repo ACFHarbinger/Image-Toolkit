@@ -9,11 +9,13 @@ from __future__ import annotations
 
 import os
 from collections.abc import Callable
+from copy import deepcopy
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 
 MAX_PINNED_RUNS = 5
@@ -27,7 +29,8 @@ _LOCAL_SUFFIXES = {
     ".jpeg",
     ".webp",
 }
-_PATH_KEYS = ("model_id", "lora_path", "model_path", "checkpoint", "output_filename")
+_PATH_KEYS = ("model_id", "lora_path", "model_path", "checkpoint")
+_IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp"}
 
 
 @dataclass(frozen=True)
@@ -76,6 +79,15 @@ def classify_pin(
         if _is_local_path(value) and not exists(os.path.expanduser(value)):
             return replace(run, available=False, unavailable_reason="deleted model")
     return replace(run, available=True, unavailable_reason="")
+
+
+def is_image_artifact(path: str) -> bool:
+    """True when *path* is an image file that exists and can be shown."""
+    if not path:
+        return False
+    if Path(path).suffix.lower() not in _IMAGE_SUFFIXES:
+        return False
+    return os.path.exists(os.path.expanduser(path))
 
 
 def artifact_from_config(config: dict[str, Any]) -> str:
@@ -136,7 +148,7 @@ class ComparisonSpine(QWidget):
 
     def note_run(self, run: PinnedRun) -> None:
         """Remember a run card. Noting does not pin it."""
-        classified = classify_pin(run)
+        classified = classify_pin(replace(run, config=deepcopy(run.config)))
         if run.run_id not in self._runs:
             self._noted.append(run.run_id)
         self._runs[run.run_id] = classified
@@ -214,8 +226,23 @@ class ComparisonSpine(QWidget):
         self._chip_layout.addStretch()
 
         for run in self.noted_runs():
-            thumb = QLabel(run.label)
+            thumb = QLabel()
             thumb.setObjectName(f"dl_film_thumb_{run.run_id}")
+            thumb.setFixedSize(72, 72)
+            thumb.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            if is_image_artifact(run.artifact_path):
+                pixmap = QPixmap(os.path.expanduser(run.artifact_path))
+                if not pixmap.isNull():
+                    thumb.setPixmap(
+                        pixmap.scaled(
+                            72,
+                            72,
+                            Qt.AspectRatioMode.KeepAspectRatio,
+                            Qt.TransformationMode.SmoothTransformation,
+                        )
+                    )
+            if thumb.pixmap() is None or thumb.pixmap().isNull():
+                thumb.setText(run.label)
             star = QPushButton("★" if run.run_id in self._pin_order else "☆")
             star.setObjectName(f"dl_film_star_{run.run_id}")
             star.setToolTip("Unpin" if run.run_id in self._pin_order else "Pin")
