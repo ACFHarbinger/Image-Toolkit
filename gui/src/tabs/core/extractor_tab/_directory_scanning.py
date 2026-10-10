@@ -34,6 +34,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QLineEdit,
     QMenu,
+    QMessageBox,
     QPushButton,
     QVBoxLayout,
     QWidget,
@@ -86,9 +87,13 @@ class ExtractorDirectoryScanningController(TabBoundController):
 
         self.btn_browse_extract = QPushButton("Change...")
         self.btn_browse_extract.clicked.connect(self.browse_extraction_directory)
+        self.btn_send_to_train = QPushButton("Send frames to Train")
+        self.btn_send_to_train.setToolTip("Set Train's dataset folder to this output directory")
+        self.btn_send_to_train.clicked.connect(self.send_frames_to_train)
 
         dir_set_layout.addWidget(self.line_edit_extract_dir)
         dir_set_layout.addWidget(self.btn_browse_extract)
+        dir_set_layout.addWidget(self.btn_send_to_train)
 
         self.main_layout.addWidget(dir_set_group)
 
@@ -121,6 +126,31 @@ class ExtractorDirectoryScanningController(TabBoundController):
             self.last_browsed_scan_dir = d
             self._save_last_dir(d)
             self.scan_directory(d)
+
+    def send_frames_to_train(self: "VideoExtractorSubTabHostProtocol") -> None:
+        folder = self.line_edit_extract_dir.text().strip()
+        if not folder:
+            QMessageBox.information(
+                self.tab, "No output directory", "Set an extraction output directory first."
+            )
+            return
+        hub = getattr(self, "event_hub", None)
+        if hub is None:
+            QMessageBox.information(
+                self.tab, "Train", "Train handoff is unavailable (no event hub)."
+            )
+            return
+        from gui.src.modules.events import ImportPathsIntent, NavigateIntent
+
+        hub.publish(
+            ImportPathsIntent(
+                origin="system.extractor",
+                module_id="ml.training",
+                paths=(folder,),
+            )
+        )
+        hub.publish(NavigateIntent(origin="system.extractor", module_id="ml.training"))
+        QMessageBox.information(self.tab, "Frames Sent", "Sent the output directory to Train.")
 
     def _load_last_extraction_dir(self: "VideoExtractorSubTabHostProtocol", default: str = "") -> str:
         from gui.src.windows.settings.app_settings import AppSettings

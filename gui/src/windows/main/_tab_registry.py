@@ -107,7 +107,6 @@ class MainTabRegistryController(WindowBoundController):
             ModuleContext,
             ModuleServices,
             NavigateIntent,
-            build_tab,
         )
 
         vault_manager = self.vault_manager
@@ -214,6 +213,9 @@ class MainTabRegistryController(WindowBoundController):
             "system.merge": ("System Tools", "Merge"),
             "system.similarity": ("System Tools", "Similarity"),
             "system.wallpaper": ("System Tools", "Wallpaper"),
+            "ml.training": ("Deep Learning", "Training"),
+            "dl.train": ("Deep Learning", "Training"),
+            "dl": ("Deep Learning", "Training"),
         }
         target = targets.get(intent.module_id)
         if target is None:
@@ -232,6 +234,11 @@ class MainTabRegistryController(WindowBoundController):
             self.delete_tab.duplicate_results = {"imported": list(intent.paths)}
             self.delete_tab.status_label.setText(f"Imported {len(intent.paths)} files from Search.")
             self.delete_tab.start_loading_thumbnails(list(intent.paths))
+        elif intent.module_id in {"ml.training", "dl.train", "dl"}:
+            self._ensure_category("Deep Learning")
+            apply = getattr(self.train_tab, "apply_imported_paths", None)
+            if callable(apply):
+                apply(intent.paths)
 
 
 __all__ = [

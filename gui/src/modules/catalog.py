@@ -80,6 +80,7 @@ class ModuleCatalog:
     def __init__(self) -> None:
         self._descriptors: dict[str, CatalogDescriptor] = {}
         self._order: list[str] = []
+        self._aliases: dict[str, str] = {}
 
     def register(self, descriptor: CatalogDescriptor | ModuleDescriptor) -> None:
         """Register a descriptor. Enforces workspace presence for child routes."""
@@ -88,7 +89,7 @@ class ModuleCatalog:
                 self.register(desc)
             return
 
-        if descriptor.module_id in self._descriptors:
+        if descriptor.module_id in self._descriptors or descriptor.module_id in self._aliases:
             raise ValueError(f"Duplicate module ID: {descriptor.module_id}")
         if isinstance(descriptor, RouteDescriptor):
             workspace = self._descriptors.get(descriptor.workspace_id)
@@ -99,13 +100,26 @@ class ModuleCatalog:
         self._descriptors[descriptor.module_id] = descriptor
         self._order.append(descriptor.module_id)
 
+    def register_alias(self, alias_id: str, target_id: str) -> None:
+        """Map a classic/saved id onto an already-registered descriptor.
+
+        Aliases are lookup-only: they do not appear in ``navigable()``.
+        """
+        if alias_id in self._descriptors or alias_id in self._aliases:
+            raise ValueError(f"Duplicate module ID: {alias_id}")
+        if target_id not in self._descriptors:
+            raise ValueError(f"Alias {alias_id} requires registered target {target_id}")
+        self._aliases[alias_id] = target_id
+
     def get(self, module_id: str) -> Optional[CatalogDescriptor]:
         """Look up a descriptor by its module_id, supporting both dot and slash routes."""
         if module_id in self._descriptors:
             return self._descriptors[module_id]
+        if module_id in self._aliases:
+            return self._descriptors.get(self._aliases[module_id])
         if "/" in module_id:
             normalized = module_id.replace("/", ".")
-            return self._descriptors.get(normalized)
+            return self.get(normalized)
         return None
 
     def require(self, module_id: str) -> CatalogDescriptor:

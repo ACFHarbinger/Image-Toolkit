@@ -1,11 +1,12 @@
 import subprocess
 import sys
 import threading
+from pathlib import Path
 
 from backend.src.constants import LOCAL_SOURCE_PATH, ROOT_DIR
 from backend.src.models.tuning.lo_ra_tuner import LoRATuner
 from backend.src.models.wrappers.gan_wrapper import GanWrapper
-from PySide6.QtCore import Signal, Slot
+from PySide6.QtCore import Qt, Signal, Slot
 from PySide6.QtWidgets import (
     QComboBox,
     QDoubleSpinBox,
@@ -17,6 +18,8 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QSpinBox,
+    QSplitter,
+    QVBoxLayout,
     QWidget,
 )
 
@@ -35,6 +38,15 @@ _TRAINING_ENGINES = [
     ("LyCORIS: LoHa (small datasets)", "loha"),
     ("LyCORIS: LoKr (tiny datasets / storage-constrained)", "lokr"),
 ]
+
+
+def dataset_folder_from_paths(paths: tuple[str, ...]) -> str | None:
+    """Resolve a dataset folder from Extractor/Library handoff paths."""
+    if not paths:
+        return None
+    first = Path(paths[0])
+    folder = first if first.is_dir() else first.parent
+    return str(folder) if folder.is_dir() else None
 
 
 class LoRATrainTab(BaseGenerativeTab):
@@ -112,10 +124,13 @@ class LoRATrainTab(BaseGenerativeTab):
         self.lora_group = QWidget()
         lora_layout = QFormLayout(self.lora_group)
         self.prompt_edit = QLineEdit("1girl, style of my_char")
+        self.trigger_edit = QLineEdit()
+        self.trigger_edit.setPlaceholderText("activation token only — not the instance prompt")
         self.rank_box = QSpinBox()
         self.rank_box.setValue(4)
 
-        lora_layout.addRow("Trigger Word (Prompt):", self.prompt_edit)
+        lora_layout.addRow("Instance Prompt:", self.prompt_edit)
+        lora_layout.addRow("Trigger Token:", self.trigger_edit)
         lora_layout.addRow("LoRA Rank:", self.rank_box)
         layout.addRow(self.lora_group)
 
@@ -152,8 +167,7 @@ class LoRATrainTab(BaseGenerativeTab):
 
         review_tags_btn = QPushButton("Review Tags...")
         review_tags_btn.setToolTip(
-            "Run the WD14 auto-tagger over the dataset folder and review/"
-            "correct predicted tags before training (new_features.md §4.4C)"
+            "Run the WD14 auto-tagger in the dataset panel — does not block this form"
         )
         review_tags_btn.clicked.connect(self._review_tags)
         button_layout.addWidget(review_tags_btn)
@@ -162,7 +176,21 @@ class LoRATrainTab(BaseGenerativeTab):
         self.cancel_btn.setEnabled(False)
         self.status_label = QLabel("Ready")
         layout.addRow(self.status_label)
-        self.setLayout(layout)
+
+        form_host = QWidget()
+        form_host.setLayout(layout)
+        from gui.src.components.dialogs.tag_review_panel import TagReviewPanel
+
+        self._review_panel = TagReviewPanel(modal_chrome=False)
+        splitter = QSplitter(Qt.Orientation.Horizontal)
+        splitter.addWidget(form_host)
+        splitter.addWidget(self._review_panel)
+        splitter.setStretchFactor(0, 3)
+        splitter.setStretchFactor(1, 2)
+        root = QVBoxLayout()
+        root.setContentsMargins(0, 0, 0, 0)
+        root.addWidget(splitter)
+        self.setLayout(root)
 
     def browse_dataset(self):
         directory = QFileDialog.getExistingDirectory(
@@ -198,6 +226,7 @@ class LoRATrainTab(BaseGenerativeTab):
         data = super().collect()
         data["dataset_folder"] = self.data_dir_edit.text()
         data["trigger_prompt"] = self.prompt_edit.text()
+        data["trigger_token"] = self.trigger_edit.text()
         data["lora_rank"] = self.rank_box.value()
         return data
 
@@ -208,6 +237,8 @@ class LoRATrainTab(BaseGenerativeTab):
             self.data_dir_edit.setText(config["dataset_folder"])
         if "trigger_prompt" in config:
             self.prompt_edit.setText(config["trigger_prompt"])
+        if "trigger_token" in config:
+            self.trigger_edit.setText(config["trigger_token"])
         if "lora_rank" in config:
             self.rank_box.setValue(config["lora_rank"])
 
@@ -217,6 +248,7 @@ class LoRATrainTab(BaseGenerativeTab):
             {
                 "dataset_folder": LOCAL_SOURCE_PATH,
                 "trigger_prompt": "1girl, style of my_char",
+                "trigger_token": "",
                 "lora_rank": 4,
             }
         )
@@ -421,9 +453,14 @@ class LoRATrainTab(BaseGenerativeTab):
         from gui.src.components.dialogs.safetensors_inspector_dialog import SafetensorsInspectorDialog
         SafetensorsInspectorDialog(path=path, parent=self).exec()
 
-    def _review_tags(self) -> None:
-        from pathlib import Path
+    def apply_imported_paths(self, paths: tuple[str, ...]) -> None:
+        folder = dataset_folder_from_paths(paths)
+        if folder is None:
+            return
+        self.data_dir_edit.setText(folder)
+        self.last_browsed_scan_dir = folder
 
+    def _review_tags(self) -> None:
         data_dir = self.data_dir_edit.text().strip()
         if not data_dir or not Path(data_dir).is_dir():
             QMessageBox.warning(
@@ -441,12 +478,6 @@ class LoRATrainTab(BaseGenerativeTab):
             )
             return
 
-        from gui.src.components.dialogs.tag_review_dialog import TagReviewDialog
-
-        # Note: self.prompt_edit holds a full instance-prompt string (e.g.
-        # "1girl, style of my_char"), not a single trigger token like
-        # HybridCaptioner's trigger concept — reusing it here would risk
-        # duplicating content already covered by the WD tags. Leave the
-        # caption trigger unset; the user can add one via the dialog's
-        # "Add tag" field if they want a unique activation token.
-        TagReviewDialog(image_paths, parent=self).exec()
+        trigger = self.trigger_edit.text().strip() or None
+        self._review_panel.set_trigger(trigger)
+        self._review_panel.start_review(image_paths, trigger=trigger)

@@ -333,6 +333,22 @@ class TestRuntimeShellPreference:
         assert runtime_shell_enabled(isolated_store) is True
 
 
+class TestDlWorkspacePreference:
+    """#730: experimental Deep Learning workspace ACCOUNT gate defaults off."""
+
+    def test_dl_workspace_default_false_and_set_get(self, isolated_store):
+        from gui.src.modules.dl_workspace import dl_workspace_enabled
+
+        assert PrefKeys.EXPERIMENTAL_DL_WORKSPACE.default is False
+        assert PrefKeys.EXPERIMENTAL_DL_WORKSPACE.scope is PreferenceScope.ACCOUNT
+        assert isolated_store.get(PrefKeys.EXPERIMENTAL_DL_WORKSPACE) is False
+        assert dl_workspace_enabled(isolated_store) is False
+
+        isolated_store.set(PrefKeys.EXPERIMENTAL_DL_WORKSPACE, True)
+        assert isolated_store.get(PrefKeys.EXPERIMENTAL_DL_WORKSPACE) is True
+        assert dl_workspace_enabled(isolated_store) is True
+
+
 def test_gui_account_state_writes_use_the_vault_boundary():
     """R1.5: login is the only GUI path allowed to serialize vault JSON."""
     gui_root = Path(__file__).resolve().parents[3] / "gui" / "src"

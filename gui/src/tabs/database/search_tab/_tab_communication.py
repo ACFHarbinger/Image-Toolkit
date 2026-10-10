@@ -81,5 +81,16 @@ class SearchTabCommunicationController(TabBoundController):
         self.event_hub.publish(NavigateIntent(origin="library.search", module_id="system.wallpaper"))
         QMessageBox.information(self.tab, "Images Sent", f"Sent {len(paths)} images to the Wallpaper Tab.")
 
+    def send_selection_to_train_tab(self, single_path=None):
+        paths = self._get_target_selection(single_path)
+        if not paths:
+            QMessageBox.information(self.tab, "No Selection", "No images selected.")
+            return
+        self.event_hub.publish(
+            ImportPathsIntent(origin="library.search", module_id="ml.training", paths=tuple(paths))
+        )
+        self.event_hub.publish(NavigateIntent(origin="library.search", module_id="ml.training"))
+        QMessageBox.information(self.tab, "Images Sent", f"Sent {len(paths)} images to Train.")
+
 
 __all__ = ["SearchTabCommunicationController"]

@@ -86,3 +86,7 @@ class UnifiedTrainTab(BaseGenerativeTab):
         data[SELECTED_MODEL_KEY] = "anything"
         data["sub_config"] = self.anything_tab.get_default_config()
         return data
+
+    def apply_imported_paths(self, paths: tuple[str, ...]) -> None:
+        self.model_selector.setCurrentIndex(0)
+        self.anything_tab.apply_imported_paths(paths)

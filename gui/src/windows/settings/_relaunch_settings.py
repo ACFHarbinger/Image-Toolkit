@@ -102,6 +102,16 @@ class _RelaunchSettingsMixin:
         )
         session_layout.addRow(self.runtime_shell_check)
 
+        self.dl_workspace_check = QCheckBox(
+            "Experimental Deep Learning workspace (Train/Generate/Review/Runs — requires restart)"
+        )
+        self.dl_workspace_check.setChecked(self.pref_dl_workspace)
+        self.dl_workspace_check.setToolTip(
+            "When enabled with the runtime shell, the five Deep Learning tabs become one "
+            "workspace with four destinations. Default is off; change takes effect after restart."
+        )
+        session_layout.addRow(self.dl_workspace_check)
+
         self.recent_dirs_count_spinbox = QSpinBox()
         self.recent_dirs_count_spinbox.setRange(1, 50)
         self.recent_dirs_count_spinbox.setValue(self.pref_recent_dirs_count)
@@ -313,6 +323,7 @@ class _RelaunchSettingsMixin:
             user_data["experimental"] = {
                 **dict(user_data.get("experimental", {})),
                 "runtime_shell": self.runtime_shell_check.isChecked(),
+                "dl_workspace": self.dl_workspace_check.isChecked(),
             }
 
 
@@ -384,6 +395,8 @@ class _RelaunchSettingsMixin:
         self.minimize_to_tray_check.setChecked(False)
         if hasattr(self, "runtime_shell_check"):
             self.runtime_shell_check.setChecked(False)
+        if hasattr(self, "dl_workspace_check"):
+            self.dl_workspace_check.setChecked(False)
 
         self.recent_dirs_count_spinbox.setValue(10)
         self.session_recovery_combo.setCurrentText("None")

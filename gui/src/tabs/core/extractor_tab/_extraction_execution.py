@@ -163,6 +163,8 @@ class ExtractorExtractionExecutionController(TabBoundController):
         # Also disable browsing while extracting to avoid path changes
         self.btn_browse.setEnabled(enabled)
         self.btn_browse_extract.setEnabled(enabled)
+        if hasattr(self, "btn_send_to_train"):
+            self.btn_send_to_train.setEnabled(enabled)
 
         # Show/hide action buttons vs cancel button
         self.btn_extract_range.setVisible(enabled)

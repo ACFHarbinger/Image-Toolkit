@@ -23,6 +23,7 @@ from gui.src.modules import (
     WorkspaceDescriptor,
     build_application_catalog,
 )
+from gui.src.modules.dl_workspace import dl_workspace_enabled
 from gui.src.modules.events import EventHub, ModuleActivated
 from gui.src.modules.stitch_workspace import stitch_workspace_enabled
 from gui.src.preferences import MemoryPreferenceAdapter, PreferenceScope, PreferenceStore, PrefKeys
@@ -372,3 +373,29 @@ def test_stitch_routes_are_account_gated_but_inventory_can_opt_in(q_app):
     store.set(PrefKeys.EXPERIMENTAL_STITCH_WORKSPACE, True)
     assert stitch_workspace_enabled(store) is True
     assert build_application_catalog(preference_store=store).get("stitch.canvas") is not None
+
+
+def test_dl_routes_are_account_gated_and_replace_classic_pages(q_app):
+    store = PreferenceStore(lazy_adapters=True)
+    store.register_adapter(PreferenceScope.ACCOUNT, MemoryPreferenceAdapter())
+
+    assert dl_workspace_enabled(store) is False
+    catalog = build_application_catalog(preference_store=store, enable_stitch=False)
+    assert catalog.get("dl.train") is None
+    assert catalog.require("ml.training").title == "Training"
+
+    store.set(PrefKeys.EXPERIMENTAL_DL_WORKSPACE, True)
+    assert dl_workspace_enabled(store) is True
+    enabled = build_application_catalog(preference_store=store, enable_stitch=False)
+    assert enabled.get("ml.training") is enabled.require("dl.train")
+    assert enabled.require("ml.training").title == "Train"
+    assert "ml.training" not in {d.module_id for d in enabled.navigable()}
+    assert {d.module_id for d in enabled.navigable() if d.module_id.startswith("dl.")} == {
+        "dl.train",
+        "dl.generate",
+        "dl.review",
+        "dl.runs",
+    }
+    # 20 remaining pages + 1 workspace + 4 routes
+    assert len(enabled.all_descriptors()) == 25
+    assert len(enabled.navigable()) == 24
