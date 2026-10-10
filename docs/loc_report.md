@@ -28,13 +28,13 @@
 | `gui/src/classes/base/_gallery_presentation.py` | 394 | 21 | 21 | 436 |
 | `gui/src/styles/background_canvas.py` | 387 | 3 | 18 | 408 |
 | `gui/src/components/dialogs/thumbnail_file_picker.py` | 386 | 4 | 7 | 397 |
+| `gui/src/tabs/models/gen/comfy_generate_tab.py` | 380 | 45 | 9 | 434 |
 | `gui/src/tabs/web/web_requests_tab.py` | 377 | 39 | 6 | 422 |
-| `gui/src/tabs/models/gen/comfy_generate_tab.py` | 376 | 45 | 9 | 430 |
 | `backend/src/core/wallpaper/_kde.py` | 372 | 103 | 31 | 506 |
+| `gui/src/tabs/models/delta/lora_train_tab.py` | 371 | 24 | 12 | 407 |
 | `gui/src/windows/settings/_profile_management.py` | 371 | 34 | 18 | 423 |
 | `gui/src/windows/settings/_relaunch_settings.py` | 370 | 33 | 9 | 412 |
 | `backend/src/core/vault_manager.py` | 368 | 31 | 77 | 476 |
-| `gui/src/tabs/models/delta/lora_train_tab.py` | 368 | 24 | 12 | 404 |
 | `gui/src/components/virtual_gallery/virtual_gallery_model.py` | 365 | 48 | 81 | 494 |
 | `gui/src/tabs/core/extractor_tab/_directory_scanning.py` | 357 | 35 | 24 | 416 |
 | `gui/src/tabs/core/extractor_tab/_extraction_workers.py` | 355 | 11 | 9 | 375 |
@@ -56,4 +56,4 @@
 | `backend/src/app.py` | 318 | 112 | 50 | 480 |
 | `gui/src/components/dialogs/_duplicate_pruning.py` | 312 | 30 | 15 | 357 |
 | `gui/src/tabs/database/database_tab/_connection_stats.py` | 310 | 2 | 11 | 323 |
-| **TOTALS** | **88118** | **6312** | **9426** | **103856** |
+| **TOTALS** | **88140** | **6312** | **9432** | **103884** |
