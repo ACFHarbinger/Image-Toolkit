@@ -49,18 +49,26 @@ to index 0 on a miss; two "Illustrious" labels secretly resolve to the same
 plain SDXL base checkpoint; a known native-dialog crash class is unpatched
 on one `QFileDialog` call.
 
-**Embedded ComfyUI is spike-gated, not assumed (Gate A.4 → C).** The
-documented ban on `QWebEngineView` (a JPype-JVM/Chromium native-lib SIGSEGV)
-lost its root cause when the JVM was removed from the product entirely
-(#435) — independently re-derived by four agents, confirmed import-clean in
-the current `.venv`. That doesn't prove embedding is *safe*, only that the
-specific historical reason is gone. A concrete, falsifiable spike (repeated
-in-process launches + mount-recycling + GPU-contention + a frozen-build
-run) produces one of three verdicts — full embed / sandboxed opt-in /
-external-only — and the UI ships whichever tier the spike actually
-supports. **Provenance capture (`/history` polling) is decoupled from the
-view on purpose**, so the guidance loop works identically regardless of the
-spike's outcome.
+**Embedded ComfyUI is spike-gated, not assumed (Gate A.4 → C) — verdict:
+external-only for v1.** The documented ban on `QWebEngineView` (a
+JPype-JVM/Chromium native-lib SIGSEGV) lost its original root cause when
+the JVM was removed from the product entirely (#435), but Codex's #729
+spike (`.agent/reports/codex/webengine_spike_729_2026-10-10.md`, merged
+2026-10-10) found a *different*, still-live crash: four in-process
+launches under the app's normal event filters SIGSEGV before first
+render, root-caused to `QApplication`'s wallpaper-tab-installed event
+filter interacting with WebEngine's native QObject wrapping during
+`sendThroughApplicationEventFilters` — not the historical JVM conflict.
+Removing that one filter (diagnostic-only, not shippable — it breaks
+Wallpaper drag scrolling) lets rendering, navigation, and teardown pass
+cleanly. **Gate C ships external-only**: Guided/Graph generate surfaces
+open ComfyUI in the system browser, same as today; `/history` provenance
+capture is unaffected since it was always decoupled from the view.
+Raising the tier to sandboxed-opt-in or full-embed needs, in order: a
+scoped fix that narrows the wallpaper filter instead of removing it,
+GPU-load and frozen-build (`ImageToolkit.spec`) validation, and a
+ten-clean-launch pass — none of which have run yet. Tracked as follow-up
+under #729, which stays open.
 
 **Training analysis starts as wiring, not new ML code (Gate D).**
 `backend/src/models/hooks/training_hooks.py` already ships
@@ -110,7 +118,7 @@ C.2's provenance capture and Gate D's training signals).
 
 | Issue | Deliverable |
 |---|---|
-| [#736](https://github.com/ACFHarbinger/Image-Toolkit/issues/736) | Tiered embedded ComfyUI view; independent server/view state machines |
+| [#736](https://github.com/ACFHarbinger/Image-Toolkit/issues/736) | Embedded ComfyUI view, **external-only tier per #729's verdict**; server/view state machines built so a later tier upgrade is additive |
 | [#737](https://github.com/ACFHarbinger/Image-Toolkit/issues/737) | HTTP `/history` provenance capture in `ComfyUIManager` |
 | [#738](https://github.com/ACFHarbinger/Image-Toolkit/issues/738) | Pre-flight workflow validation against `/object_info` + model-folder checks |
 | [#739](https://github.com/ACFHarbinger/Image-Toolkit/issues/739) | Unified Generate surface — Guided \| Graph modes, shared filmstrip/run record |
