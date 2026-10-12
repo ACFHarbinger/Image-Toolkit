@@ -74,6 +74,8 @@ class VideoExtractorSubTabHostProtocol(AbstractClassSingleGalleryHostProtocol, P
     btn_add_tag: QPushButton
     btn_browse: QPushButton
     btn_browse_extract: QPushButton
+    btn_send_to_train: QPushButton
+    event_hub: Any
     btn_cancel_extraction: QPushButton
     btn_clear_cuts: QPushButton
     btn_clear_queue: QPushButton

@@ -114,6 +114,19 @@ class TagRepo:
         )
         return [{"name": name, "category": category, "color": color} for name, category, color in rows]
 
+    def popular_tags_with_uses(self, limit: int = 500) -> List[tuple[str, str, int]]:
+        """(tag, category, image-use count) ranked by usage — the PromptEdit
+        autocomplete corpus (#733)."""
+        rows = self._db.query(
+            "SELECT t.name, COALESCE(c.name, ''), COUNT(it.tag_id) "
+            "FROM tags t "
+            "LEFT JOIN tag_categories c ON c.id = t.category_id "
+            "LEFT JOIN image_tags it ON it.tag_id = t.id "
+            "GROUP BY t.id ORDER BY COUNT(it.tag_id) DESC, t.name LIMIT ?",
+            (limit,),
+        )
+        return [(name, category, int(uses)) for name, category, uses in rows]
+
     # ---- entity tag links (DB.9 — entities are now taggable) -------------
 
     def add_entity_tag(self, entity_id: str, tag_name: str, category: Optional[str] = None) -> None:
