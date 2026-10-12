@@ -418,11 +418,14 @@ def fetch_comfy_view(
     from urllib.parse import urlencode
     from urllib.request import urlopen
 
-    query = urlencode({"filename": filename, "subfolder": subfolder or "", "type": kind})
+    query = urlencode({"filename": filename, "subfolder": subfolder or "", "type": kind,
+                       "preview": "webp;80"})
     with urlopen(f"{base_url.rstrip('/')}/view?{query}", timeout=5) as response:
-        data = response.read(limit)
+        data = response.read(limit + 1)
     if not isinstance(data, (bytes, bytearray)):
         raise ValueError("Comfy /view did not return bytes.")
+    if len(data) > limit:
+        raise ValueError("Comfy preview exceeds the byte limit.")
     return bytes(data)
 
 

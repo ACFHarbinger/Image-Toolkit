@@ -238,8 +238,8 @@ def test_lora_template_queues_strength_without_an_image(surface):
 def test_filmstrip_loads_a_thumbnail_off_the_gui_thread(surface, q_app):
     calls = []
 
-    def fetch(filename, subfolder):
-        calls.append((filename, subfolder, threading.current_thread() is not threading.main_thread()))
+    def fetch(filename, subfolder, kind):
+        calls.append((filename, subfolder, kind, threading.current_thread() is not threading.main_thread()))
         return _PNG
 
     surface._filmstrip.set_view_fetcher(fetch)
@@ -249,7 +249,7 @@ def test_filmstrip_loads_a_thumbnail_off_the_gui_thread(surface, q_app):
         prompt_id="g1",
         status="Completed",
         surface_mode="guided",
-        outputs=(SimpleNamespace(filename="cat.png", subfolder="out"),),
+        outputs=(SimpleNamespace(filename="cat.png", subfolder="out", type="temp"),),
         sweep_axis=None,
     ))
     button = surface.findChild(QPushButton, "filmstrip_g1")
@@ -258,7 +258,7 @@ def test_filmstrip_loads_a_thumbnail_off_the_gui_thread(surface, q_app):
         q_app.processEvents()
         time.sleep(0.02)
         button = surface.findChild(QPushButton, "filmstrip_g1")
-    assert calls == [("cat.png", "out", True)]
+    assert calls == [("cat.png", "out", "temp", True)]
     assert button is not None and not button.icon().isNull()
 
 
@@ -288,3 +288,64 @@ def test_new_tab_validates_cached_inventory(surface):
         assert "Missing model" in tab._validation_label.text()
     finally:
         tab.close()
+
+
+@pytest.mark.parametrize("mode", ["graph", "promoted"])
+def test_single_comfy_run_holds_admission_until_execution_finishes(surface, mode):
+    from backend.src.comfy_matrix import gpu_lease
+
+    def wait(prompt_id, **kwargs):
+        assert prompt_id == "running"
+        assert gpu_lease.owner == mode
+        assert not gpu_lease.try_acquire("lora-train")
+        return True
+
+    surface._manager.queue_workflow.return_value = "running"
+    surface._manager.wait_for_run.side_effect = wait
+    graph = {"1": {"class_type": "EmptyLatentImage", "inputs": {"width": 512, "height": 512}}}
+    if mode == "graph":
+        surface._queue_graph(graph, {})
+    else:
+        surface._queue_promoted(graph, 1024, 1024, "parent", "template")
+    surface._manager.wait_for_run.assert_called_once()
+    assert gpu_lease.owner is None
+
+
+def test_thumbnail_decode_limits_retained_dimensions(q_app):
+    from PySide6.QtCore import QBuffer, QIODevice
+    from PySide6.QtGui import QImage
+
+    from gui.src.tabs.models.gen.generate_surface import _decode_thumbnail
+
+    image = QImage(2048, 2048, QImage.Format.Format_RGB32)
+    image.fill(0)
+    buffer = QBuffer()
+    buffer.open(QIODevice.OpenModeFlag.WriteOnly)
+    assert image.save(buffer, "PNG")
+    thumb = _decode_thumbnail(bytes(buffer.data()))
+    assert not thumb.isNull()
+    assert thumb.width() <= 72 and thumb.height() <= 72
+
+
+def test_matrix_graph_honors_overrides_and_rejects_unknown_ids(surface):
+    surface.graph.editor.setPlainText('{"1": {"class_type": "KSampler", "inputs": {"steps": 20}}}')
+    surface.graph.overrides.setText('{"1": {"steps": 30}}')
+    graph, error = surface._graph_workflow()
+    assert not error
+    assert graph["1"]["inputs"]["steps"] == 30
+    surface.graph.overrides.setText('{"999": {"steps": 30}}')
+    graph, error = surface._graph_workflow()
+    assert graph is None and "999" in error
+
+
+def test_thumbnail_jobs_are_bounded_when_fetch_is_blocked(surface, monkeypatch):
+    strip = surface._filmstrip
+    monkeypatch.setattr(strip, "_ensure_worker", lambda: None)
+    monkeypatch.setattr(strip, "_rebuild", lambda: None)
+    strip.set_view_fetcher(lambda *_args: b"")
+    for index in range(250):
+        strip.upsert(SimpleNamespace(
+            prompt_id=str(index), outputs=(SimpleNamespace(filename="image.png"),),
+        ))
+    assert strip._jobs.qsize() == strip._KEEP
+    assert len(strip._pending) == strip._KEEP

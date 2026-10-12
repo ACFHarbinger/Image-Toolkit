@@ -195,7 +195,7 @@ def build_workflow(
 def _queue_workflow(
     manager, log, mode, image_path, base_checkpoint, extra_checkpoint,
     positive_prompt, negative_prompt, *, seed=None, width=None, height=None,
-    run_meta=None,
+    run_meta=None, cancel=None,
 ) -> None:
     refusal = try_admit("guided")
     if refusal:
@@ -230,6 +230,7 @@ def _queue_workflow(
         log(f"[workflow] Queuing {WORKFLOW_MODES[mode]['label']}…\n")
         prompt_id = manager.queue_workflow(workflow, run_meta=meta)
         log(f"[workflow] Queued — prompt_id={prompt_id}\n")
+        manager.wait_for_run(prompt_id, cancel=cancel)
     except Exception as exc:
         log(f"[workflow] Error: {exc}\n")
     finally:
@@ -669,6 +670,7 @@ class ComfyUITab(QWidget):
         self._controller.run_http_action(
             lambda: _queue_workflow(
                 manager, log, *args, seed=seed, width=width, height=height,
+                cancel=self._controller._cancel,
             )
         )
 

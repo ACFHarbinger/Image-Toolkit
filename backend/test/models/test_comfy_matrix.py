@@ -333,6 +333,6 @@ def test_fetch_view_requests_the_output_bytes(monkeypatch):
 
     monkeypatch.setattr("urllib.request.urlopen", _open)
     assert fetch_comfy_view("http://127.0.0.1:8188", "cat.png", "out") == b"png-bytes"
-    assert seen["url"].endswith("/view?filename=cat.png&subfolder=out&type=output")
-    assert seen["limit"] == 2_000_000
+    assert seen["url"].endswith("/view?filename=cat.png&subfolder=out&type=output&preview=webp%3B80")
+    assert seen["limit"] == 2_000_001
     assert gpu_lease.machine_wide is False

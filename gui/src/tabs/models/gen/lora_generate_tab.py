@@ -317,9 +317,11 @@ class LoRAGenerateTab(BaseGenerativeTab):
         except Exception as e:
             self.generation_finished_signal.emit("error", str(e))
         finally:
-            if gan is not None:
-                gan.unload()
-            gpu_lease.release("lora-generate")
+            try:
+                if gan is not None:
+                    gan.unload()
+            finally:
+                gpu_lease.release("lora-generate")
 
     @Slot(str, str)
     def handle_generation_finished(self, status_type, message):

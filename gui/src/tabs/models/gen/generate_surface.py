@@ -7,6 +7,7 @@ queues one existing ``queue_workflow`` per cell on one GPU lease (#740).
 """
 from __future__ import annotations
 
+import contextlib
 import inspect
 import json
 import queue
@@ -27,8 +28,8 @@ from backend.src.comfy_matrix import (
     try_admit,
 )
 from backend.src.constants.comfy import ServerState
-from PySide6.QtCore import QSize, Qt, Signal
-from PySide6.QtGui import QIcon, QPixmap
+from PySide6.QtCore import QBuffer, QByteArray, QIODevice, QSize, Qt, Signal
+from PySide6.QtGui import QIcon, QImage, QImageReader, QPixmap
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -116,7 +117,7 @@ def _scroll(name: str, horizontal: bool) -> tuple[QScrollArea, QWidget, QHBoxLay
 class OutputFilmstrip(QWidget):
     """Scrollable strip and matrix grid. Thumbnails load off the GUI thread."""
 
-    thumb_ready = Signal(str, bytes)
+    thumb_ready = Signal(str, object)
     _KEEP = 200
 
     def __init__(self, parent=None) -> None:
@@ -128,11 +129,11 @@ class OutputFilmstrip(QWidget):
         self._thumbs: dict[str, QPixmap] = {}
         self._pending: set[str] = set()
         self._fetcher = None
-        self._jobs: queue.Queue = queue.Queue()
+        self._jobs: queue.Queue = queue.Queue(maxsize=self._KEEP)
         self._stop = threading.Event()
         self._worker: threading.Thread | None = None
         self.thumb_ready.connect(self._apply_thumb)
-        self.destroyed.connect(lambda *_args: self._stop.set())
+        self.destroyed.connect(lambda *_args, stop=self._stop: stop.set())
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
         strip_scroll, _strip_host, self._strip = _scroll("generate_filmstrip_scroll", True)
@@ -141,7 +142,7 @@ class OutputFilmstrip(QWidget):
         root.addWidget(grid_scroll)
 
     def set_view_fetcher(self, fetcher) -> None:
-        """``fetcher(filename, subfolder) -> bytes`` runs on a worker thread."""
+        """``fetcher(filename, subfolder, kind) -> bytes`` runs on a worker thread."""
         self._fetcher = fetcher
 
     def upsert(self, record) -> None:
@@ -192,12 +193,18 @@ class OutputFilmstrip(QWidget):
         prompt_id = record.prompt_id
         if prompt_id in self._thumbs or prompt_id in self._pending:
             return
-        filename, subfolder = _first_output(record)
+        filename, subfolder, kind = _first_output(record)
         if not filename:
             return
         self._pending.add(prompt_id)
         self._ensure_worker()
-        self._jobs.put((prompt_id, filename, subfolder))
+        try:
+            self._jobs.put_nowait((prompt_id, filename, subfolder, kind))
+        except queue.Full:
+            with contextlib.suppress(queue.Empty):
+                expired, *_ = self._jobs.get_nowait()
+                self._pending.discard(expired)
+            self._jobs.put_nowait((prompt_id, filename, subfolder, kind))
 
     def _ensure_worker(self) -> None:
         if self._worker is not None and self._worker.is_alive():
@@ -208,26 +215,29 @@ class OutputFilmstrip(QWidget):
     def _pump(self) -> None:
         while not self._stop.is_set():
             try:
-                prompt_id, filename, subfolder = self._jobs.get(timeout=0.2)
+                prompt_id, filename, subfolder, kind = self._jobs.get(timeout=0.2)
             except queue.Empty:
                 continue
             data = None
             fetcher = self._fetcher
             if fetcher is not None and prompt_id in self._records:
                 try:
-                    data = fetcher(filename, subfolder)
+                    data = fetcher(filename, subfolder, kind)
                 except Exception:
                     data = None
             self._pending.discard(prompt_id)
             if isinstance(data, (bytes, bytearray)) and data and not self._stop.is_set():
-                self.thumb_ready.emit(prompt_id, bytes(data))
+                image = _decode_thumbnail(bytes(data))
+                if not image.isNull() and not self._stop.is_set():
+                    try:
+                        self.thumb_ready.emit(prompt_id, image)
+                    except RuntimeError:
+                        return  # View destroyed while the fetch was in flight.
 
-    def _apply_thumb(self, prompt_id: str, data: bytes) -> None:
-        if prompt_id not in self._records or len(data) > 2_000_000:
+    def _apply_thumb(self, prompt_id: str, image: QImage) -> None:
+        if prompt_id not in self._records or image.isNull():
             return
-        pixmap = QPixmap()
-        if not pixmap.loadFromData(data):
-            return
+        pixmap = QPixmap.fromImage(image)
         self._thumbs[prompt_id] = pixmap
         while len(self._thumbs) > self._KEEP:
             self._thumbs.pop(next(iter(self._thumbs)), None)
@@ -269,13 +279,28 @@ def _cell_text(record) -> str:
     return f"{record.prompt_id} {status}{extra} {path} {mode}".strip()
 
 
-def _first_output(record) -> tuple[str, str]:
+def _first_output(record) -> tuple[str, str, str]:
     for item in getattr(record, "outputs", ()) or ():
         filename = getattr(item, "filename", None)
         if isinstance(filename, str) and filename:
             subfolder = getattr(item, "subfolder", "") or ""
-            return filename, subfolder if isinstance(subfolder, str) else ""
-    return "", ""
+            return filename, subfolder if isinstance(subfolder, str) else "", getattr(item, "type", "output")
+    return "", "", "output"
+
+
+def _decode_thumbnail(data: bytes) -> QImage:
+    if len(data) > 2_000_000:
+        return QImage()
+    buffer = QBuffer()
+    buffer.setData(QByteArray(data))
+    buffer.open(QIODevice.OpenModeFlag.ReadOnly)
+    reader = QImageReader(buffer)
+    size = reader.size()
+    if not size.isValid() or size.width() * size.height() > 16_000_000:
+        return QImage()
+    reader.setScaledSize(size.scaled(72, 72, Qt.AspectRatioMode.KeepAspectRatio))
+    return reader.read().scaled(72, 72, Qt.AspectRatioMode.KeepAspectRatio,
+                                Qt.TransformationMode.SmoothTransformation)
 
 
 def _set_thumb(button: QPushButton, pixmap: QPixmap) -> None:
@@ -288,9 +313,9 @@ def _manager_view_fetcher(manager):
     if not inspect.isfunction(method):
         return None
 
-    def fetch(filename: str, subfolder: str):
+    def fetch(filename: str, subfolder: str, kind: str):
         try:
-            return method(manager, filename, subfolder)
+            return method(manager, filename, subfolder, kind)
         except Exception:
             return None
 
@@ -368,6 +393,7 @@ class MatrixJob:
     values: tuple
     workflow: dict | None = None
     template_name: str | None = None
+    applied_overrides: dict | None = None
 
 
 class GenerateSurface(QWidget):
@@ -476,6 +502,7 @@ class GenerateSurface(QWidget):
         layout.addStretch()
         self.guided._mode_combo.currentIndexChanged.connect(lambda _i: self._sync_matrix_axes())
         self.graph.editor.textChanged.connect(self._on_graph_text_for_matrix)
+        self.graph.overrides.textChanged.connect(self._on_graph_text_for_matrix)
         self._sync_matrix_axes()
         return page
 
@@ -485,11 +512,11 @@ class GenerateSurface(QWidget):
 
     def _graph_workflow(self) -> tuple[dict | None, str]:
         try:
-            value = json.loads(self.graph.editor.toPlainText() or "")
-        except json.JSONDecodeError as exc:
-            return None, f"Graph JSON is not valid: {exc.msg}"
-        if not isinstance(value, dict):
-            return None, "Graph JSON must be an object."
+            value, _overrides = parse_graph_submission(
+                self.graph.editor.toPlainText(), self.graph.overrides.text(),
+            )
+        except ValueError as exc:
+            return None, str(exc)
         return value, ""
 
     def _matrix_source_workflow(self) -> tuple[dict | None, str]:
@@ -617,6 +644,7 @@ class GenerateSurface(QWidget):
                 raise ValueError(issue)
             prompt_id = self._manager.queue_workflow(workflow, run_meta=meta)
             self._controller._publish_log(f"[workflow] Queued graph — prompt_id={prompt_id}\n")
+            self._manager.wait_for_run(prompt_id, cancel=self._controller._cancel)
         except Exception as exc:
             self._controller._publish_log(f"[workflow] Error: {exc}\n")
         finally:
@@ -663,6 +691,8 @@ class GenerateSurface(QWidget):
             values=tuple(values),
             workflow=source if self._use_graph.isChecked() else None,
             template_name="graph" if self._use_graph.isChecked() else None,
+            applied_overrides=(json.loads(self.graph.overrides.text().strip() or "{}")
+                               if self._use_graph.isChecked() else None),
         )
         self._sweep_stop.clear()
         if not self._controller.run_http_action(lambda: self._finish_matrix(job)):
@@ -680,7 +710,7 @@ class GenerateSurface(QWidget):
         try:
             if job.workflow is not None:
                 workflow = job.workflow
-                overrides = {}
+                overrides = job.applied_overrides or {}
                 template = job.template_name or "graph"
             else:
                 cfg = WORKFLOW_MODES[job.mode]
@@ -757,6 +787,7 @@ class GenerateSurface(QWidget):
             )
             prompt_id = self._manager.queue_workflow(queued, run_meta=meta)
             self._controller._publish_log(f"[workflow] Promoted cell — prompt_id={prompt_id}\n")
+            self._manager.wait_for_run(prompt_id, cancel=self._controller._cancel)
         except Exception as exc:
             self._controller._publish_log(f"[workflow] Error: {exc}\n")
         finally:
