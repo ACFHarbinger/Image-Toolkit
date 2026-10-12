@@ -314,6 +314,11 @@ class AdvisorPanel(QWidget):
     def hydra_overrides(self) -> list[str]:
         return list(self._pending_overrides)
 
+    def findings(self) -> list:
+        """Current finding list — consumed by the #746 report card when a
+        training run finishes (duck-typed AdvisorFinding objects)."""
+        return list(self._findings)
+
     def busy(self) -> bool:
         scan = self._scan_worker
         cluster = self._cluster_worker
