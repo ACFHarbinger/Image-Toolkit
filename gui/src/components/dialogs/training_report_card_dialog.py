@@ -10,7 +10,7 @@ from backend.src.core.training_report import (
     STATUS_WARN,
     ReportCard,
 )
-from PySide6.QtCore import QUrl
+from PySide6.QtCore import QUrl, Signal
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import QDialog, QHBoxLayout, QLabel, QPushButton, QVBoxLayout
 
@@ -25,6 +25,8 @@ _STATUS_DOTS = {STATUS_GOOD: "●", STATUS_WARN: "●", STATUS_BAD: "●", STATU
 
 class TrainingReportCardDialog(QDialog):
     """Renders a ReportCard: one row per verdict plus the suggestion banner."""
+
+    start_tournament_requested = Signal(str)  # #747: run_dir
 
     def __init__(self, card: ReportCard, *, run_dir: str = "", parent=None) -> None:
         super().__init__(parent)
@@ -53,6 +55,13 @@ class TrainingReportCardDialog(QDialog):
         buttons = QHBoxLayout()
         buttons.addStretch()
         if run_dir:
+            if self._tournament_inputs_available(run_dir):
+                tournament_btn = QPushButton("Start Tournament…")
+                tournament_btn.setToolTip(
+                    "Blind pairwise comparison of this run's checkpoint sample grids"
+                )
+                tournament_btn.clicked.connect(self._start_tournament)
+                buttons.addWidget(tournament_btn)
             open_btn = QPushButton("Open Run Folder")
             open_btn.setToolTip(run_dir)
             open_btn.clicked.connect(self._open_run_folder)
@@ -93,3 +102,21 @@ class TrainingReportCardDialog(QDialog):
     def _open_run_folder(self) -> None:
         if self._run_dir:
             QDesktopServices.openUrl(QUrl.fromLocalFile(self._run_dir))
+
+    def _start_tournament(self) -> None:
+        if self._run_dir:
+            self.start_tournament_requested.emit(self._run_dir)
+
+    @staticmethod
+    def _tournament_inputs_available(run_dir: str) -> bool:
+        """Cheap filesystem probe so the button never offers a tournament
+        the run cannot deliver (needs ≥2 checkpoints and ≥2 sample grids)."""
+        from backend.src.core import checkpoint_tournament as ct
+
+        try:
+            return (
+                len(ct.discover_sample_grids(run_dir)) >= 2
+                and len(ct.discover_checkpoints(run_dir)) >= 2
+            )
+        except OSError:
+            return False

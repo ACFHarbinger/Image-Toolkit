@@ -614,9 +614,44 @@ class LoRATrainTab(BaseGenerativeTab):
         from gui.src.components.dialogs.training_report_card_dialog import TrainingReportCardDialog
 
         dialog = TrainingReportCardDialog(card, run_dir=worker.run_dir, parent=self)
+        dialog.start_tournament_requested.connect(self._open_checkpoint_tournament)
         dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         dialog.show()
         self._report_card_dialog = dialog
+
+    @Slot(str)
+    def _open_checkpoint_tournament(self, run_dir: str) -> None:
+        """#747: blind ELO over the run's checkpoint sample grids."""
+        from gui.src.components.dialogs.checkpoint_tournament_dialog import (
+            CheckpointTournamentDialog,
+        )
+
+        dialog = CheckpointTournamentDialog(run_dir, parent=self)
+        dialog.promote_requested.connect(self._forward_promoted_pin)
+        dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        dialog.show()
+        self._tournament_dialog = dialog
+
+    @Slot(object)
+    def _forward_promoted_pin(self, pin) -> None:
+        """Hand the tournament winner to the workspace spine so Generate's
+        adapter can be set from the pin (duck-typed: whoever hosts a
+        ComparisonSpine gets it)."""
+        host = self.parent()
+        while host is not None:
+            note = getattr(host, "note_run", None)
+            if callable(note):
+                note(pin)
+                return
+            host = host.parent()
+        window = self.window()
+        if window is None:
+            return
+        from gui.src.tabs.models.dl_comparison_spine import ComparisonSpine
+
+        spine = window.findChild(ComparisonSpine)
+        if spine is not None:
+            spine.note_run(pin)
 
     def _restore_start_after_training(self) -> None:
         if self._disposing:
