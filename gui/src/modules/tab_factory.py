@@ -36,7 +36,7 @@ _TAB_LEAVES: dict[str, tuple[str, str]] = {
     "ml.generation": ("gui.src.tabs.models.generate_tab", "UnifiedGenerateTab"),
     "ml.evaluation": ("gui.src.tabs.models.r3gan_evaluate_tab", "R3GANEvaluateTab"),
     "ml.inference": ("gui.src.tabs.models.meta_clip_inference_tab", "MetaCLIPInferenceTab"),
-    "ml.comfyui": ("gui.src.tabs.models.gen.comfy_generate_tab", "ComfyUITab"),
+    "ml.comfyui": ("gui.src.tabs.models.gen.generate_surface", "GenerateSurface"),
     "manga.colorization": ("gui.src.tabs", "MangaColorizationTab"),
     "manga.animation": ("gui.src.tabs", "MangaAnimationTab"),
     "manga.puppeteering": ("gui.src.tabs", "MangaPuppeteeringTab"),

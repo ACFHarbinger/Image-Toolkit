@@ -1,0 +1,217 @@
+{
+  "_meta": {
+    "recorded_from": "ComfyUI GET /object_info",
+    "vendored_comfyui_revision": "0ea188c6a97293b36f63066a517c01238b02aae3",
+    "custom_node_packs": [
+      "ComfyUI_IPAdapter_plus (IPAdapterModelLoader, IPAdapterAdvanced)"
+    ],
+    "note": "Recording of the node classes used by configs/comfy_workflows templates. Core classes follow the vendored fork's nodes.py INPUT_TYPES; IP-Adapter classes follow the external pack. Re-record from a live server's /object_info when vendor/ComfyUI is bumped or the pack changes. The validator looks up node classes only, so _meta and any extra keys are ignored."
+  },
+  "CheckpointLoaderSimple": {
+    "input": {
+      "required": {
+        "ckpt_name": [["sd_xl_base_1.0.safetensors", "sd_xl_refiner_1.0.safetensors"], {"tooltip": "The name of the checkpoint (model) to load."}]
+      }
+    },
+    "output": ["MODEL", "CLIP", "VAE"],
+    "output_name": ["MODEL", "CLIP", "VAE"],
+    "name": "CheckpointLoaderSimple",
+    "display_name": "Load Checkpoint",
+    "description": "",
+    "category": "model/loaders",
+    "output_node": false
+  },
+  "CLIPTextEncode": {
+    "input": {
+      "required": {
+        "text": ["STRING", {"multiline": true, "dynamicPrompts": true, "tooltip": "The text to be encoded."}],
+        "clip": ["CLIP", {"tooltip": "The CLIP model used for encoding the text."}]
+      }
+    },
+    "output": ["CONDITIONING"],
+    "output_name": ["CONDITIONING"],
+    "name": "CLIPTextEncode",
+    "display_name": "CLIP Text Encode (Prompt)",
+    "description": "",
+    "category": "conditioning",
+    "output_node": false
+  },
+  "EmptyLatentImage": {
+    "input": {
+      "required": {
+        "width": ["INT", {"default": 512, "min": 16, "max": 16384, "step": 8, "tooltip": "The width of the latent images in pixels."}],
+        "height": ["INT", {"default": 512, "min": 16, "max": 16384, "step": 8, "tooltip": "The height of the latent images in pixels."}],
+        "batch_size": ["INT", {"default": 1, "min": 1, "max": 4096, "tooltip": "The number of latent images in the batch."}]
+      }
+    },
+    "output": ["LATENT"],
+    "output_name": ["LATENT"],
+    "name": "EmptyLatentImage",
+    "display_name": "Empty Latent Image",
+    "description": "",
+    "category": "latent",
+    "output_node": false
+  },
+  "ControlNetLoader": {
+    "input": {
+      "required": {
+        "control_net_name": [["control_v11p_sd15_openpose.pth", "control_v11f1p_sd15_depth.pth", "control_v11p_sd15_canny.pth"], {}]
+      }
+    },
+    "output": ["CONTROL_NET"],
+    "output_name": ["CONTROL_NET"],
+    "name": "ControlNetLoader",
+    "display_name": "Load ControlNet Model",
+    "description": "",
+    "category": "model/loaders",
+    "output_node": false
+  },
+  "LoadImage": {
+    "input": {
+      "required": {
+        "image": [[], {"image_upload": true}]
+      }
+    },
+    "output": ["IMAGE", "MASK"],
+    "output_name": ["IMAGE", "MASK"],
+    "name": "LoadImage",
+    "display_name": "Load Image",
+    "description": "",
+    "category": "image",
+    "output_node": false
+  },
+  "ControlNetApplyAdvanced": {
+    "input": {
+      "required": {
+        "positive": ["CONDITIONING", {}],
+        "negative": ["CONDITIONING", {}],
+        "control_net": ["CONTROL_NET", {}],
+        "image": ["IMAGE", {}],
+        "strength": ["FLOAT", {"default": 1.0, "min": 0.0, "max": 10.0, "step": 0.01}],
+        "start_percent": ["FLOAT", {"default": 0.0, "min": 0.0, "max": 1.0, "step": 0.001}],
+        "end_percent": ["FLOAT", {"default": 1.0, "min": 0.0, "max": 1.0, "step": 0.001}]
+      },
+      "optional": {
+        "vae": ["VAE", {}]
+      }
+    },
+    "output": ["CONDITIONING", "CONDITIONING"],
+    "output_name": ["positive", "negative"],
+    "name": "ControlNetApplyAdvanced",
+    "display_name": "Apply ControlNet (Advanced)",
+    "description": "",
+    "category": "conditioning/controlnet",
+    "output_node": false
+  },
+  "KSampler": {
+    "input": {
+      "required": {
+        "model": ["MODEL", {}],
+        "seed": ["INT", {"default": 0, "min": 0, "max": 18446744073709551615, "control_after_generate": true}],
+        "steps": ["INT", {"default": 20, "min": 1, "max": 10000}],
+        "cfg": ["FLOAT", {"default": 8.0, "min": 0.0, "max": 100.0, "step": 0.1, "round": 0.01}],
+        "sampler_name": [["euler", "euler_ancestral", "dpmpp_2m", "dpmpp_2m_sde", "ddim"], {}],
+        "scheduler": [["normal", "karras", "exponential", "sgm_uniform"], {}],
+        "positive": ["CONDITIONING", {}],
+        "negative": ["CONDITIONING", {}],
+        "latent_image": ["LATENT", {}],
+        "denoise": ["FLOAT", {"default": 1.0, "min": 0.0, "max": 1.0, "step": 0.01}]
+      }
+    },
+    "output": ["LATENT"],
+    "output_name": ["LATENT"],
+    "name": "KSampler",
+    "display_name": "KSampler",
+    "description": "",
+    "category": "sampling",
+    "output_node": false
+  },
+  "VAEDecode": {
+    "input": {
+      "required": {
+        "samples": ["LATENT", {}],
+        "vae": ["VAE", {}]
+      }
+    },
+    "output": ["IMAGE"],
+    "output_name": ["IMAGE"],
+    "name": "VAEDecode",
+    "display_name": "VAE Decode",
+    "description": "",
+    "category": "latent",
+    "output_node": false
+  },
+  "SaveImage": {
+    "input": {
+      "required": {
+        "images": ["IMAGE", {}],
+        "filename_prefix": ["STRING", {"default": "ComfyUI"}]
+      },
+      "hidden": {
+        "prompt": "PROMPT",
+        "extra_pnginfo": "EXTRA_PNGINFO"
+      }
+    },
+    "output": [],
+    "output_name": [],
+    "name": "SaveImage",
+    "display_name": "Save Image",
+    "description": "",
+    "category": "image",
+    "output_node": true
+  },
+  "CLIPVisionLoader": {
+    "input": {
+      "required": {
+        "clip_name": [["clip_vit_h.safetensors"], {}]
+      }
+    },
+    "output": ["CLIP_VISION"],
+    "output_name": ["CLIP_VISION"],
+    "name": "CLIPVisionLoader",
+    "display_name": "Load CLIP Vision",
+    "description": "",
+    "category": "model/loaders",
+    "output_node": false
+  },
+  "IPAdapterModelLoader": {
+    "input": {
+      "required": {
+        "ipadapter_file": [["ip-adapter-plus_sdxl_vit-h.safetensors"], {}]
+      }
+    },
+    "output": ["IPADAPTER"],
+    "output_name": ["IPADAPTER"],
+    "name": "IPAdapterModelLoader",
+    "display_name": "IPAdapter Model Loader",
+    "description": "",
+    "category": "ipadapter/loaders",
+    "output_node": false
+  },
+  "IPAdapterAdvanced": {
+    "input": {
+      "required": {
+        "model": ["MODEL", {}],
+        "ipadapter": ["IPADAPTER", {}],
+        "image": ["IMAGE", {}],
+        "weight": ["FLOAT", {"default": 1.0, "min": -1.0, "max": 5.0, "step": 0.05}],
+        "weight_type": [["linear", "ease in", "ease out", "ease in-out", "bounce"], {}],
+        "combine_embeds": [["average", "concat", "add", "subtract", "divide", "multiply"], {}],
+        "start_at": ["FLOAT", {"default": 0.0, "min": 0.0, "max": 1.0, "step": 0.001}],
+        "end_at": ["FLOAT", {"default": 1.0, "min": 0.0, "max": 1.0, "step": 0.001}],
+        "embeds_scaling": [["V only", "K+V", "K+V w/ C penalty", "K+mean(V) w/ C penalty"], {}]
+      },
+      "optional": {
+        "attn_mask": ["MASK", {}],
+        "clip_vision": ["CLIP_VISION", {}]
+      }
+    },
+    "output": ["MODEL"],
+    "output_name": ["MODEL"],
+    "name": "IPAdapterAdvanced",
+    "display_name": "IPAdapter Advanced",
+    "description": "",
+    "category": "ipadapter/apply",
+    "output_node": false
+  }
+}
