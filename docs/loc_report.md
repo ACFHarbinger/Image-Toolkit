@@ -6,9 +6,12 @@
 
 | Path | Code | Comments | Docstrings | Total |
 |---|---:|---:|---:|---:|
-| `gui/src/tabs/models/delta/lora_train_tab.py` | 763 | 22 | 26 | 811 |
+| `gui/src/tabs/models/delta/lora_train_tab.py` | 785 | 22 | 26 | 833 |
+| `gui/src/tabs/models/gen/generate_surface.py` | 767 | 0 | 12 | 779 |
+| `gui/src/tabs/models/gen/comfy_generate_tab.py` | 572 | 51 | 13 | 636 |
 | `gui/src/windows/settings/_credentials.py` | 500 | 32 | 14 | 546 |
 | `gui/src/tabs/core/image_extractor_subtab.py` | 487 | 31 | 40 | 558 |
+| `gui/src/tabs/models/dl_workspace_host.py` | 484 | 5 | 21 | 510 |
 | `gui/src/helpers/web/cloud/local_dir_sync_worker.py` | 475 | 58 | 69 | 602 |
 | `gui/src/windows/image_compare_window.py` | 473 | 18 | 8 | 499 |
 | `gui/src/classes/base/gallery_base.py` | 470 | 115 | 100 | 685 |
@@ -16,7 +19,6 @@
 | `gui/src/windows/authentication/login_window.py` | 467 | 112 | 30 | 609 |
 | `backend/src/database/unified/search_repo.py` | 464 | 30 | 72 | 566 |
 | `gui/src/tabs/core/wallpaper_tab/graph/wallpaper_graph_scene.py` | 456 | 22 | 29 | 507 |
-| `gui/src/tabs/models/dl_workspace_host.py` | 441 | 4 | 21 | 466 |
 | `gui/src/tabs/core/extractor_tab/_media_player.py` | 439 | 114 | 29 | 582 |
 | `gui/src/components/dialogs/asp_advanced_config_dialog.py` | 437 | 21 | 8 | 466 |
 | `gui/src/tabs/web/reverse_search_tab.py` | 434 | 45 | 21 | 500 |
@@ -25,13 +27,14 @@
 | `backend/src/models/tuning/lo_ra_tuner_v2.py` | 423 | 50 | 22 | 495 |
 | `backend/src/models/tuning/lo_ra_tuner.py` | 418 | 48 | 18 | 484 |
 | `gui/src/windows/image_preview_window.py` | 417 | 68 | 42 | 527 |
+| `backend/src/models/core/comfy_manager.py` | 401 | 65 | 44 | 510 |
 | `gui/src/windows/settings/_appearance.py` | 400 | 31 | 18 | 449 |
 | `gui/src/windows/main/_session_recovery.py` | 400 | 31 | 28 | 459 |
 | `gui/src/classes/base/_gallery_presentation.py` | 394 | 21 | 21 | 436 |
 | `gui/src/styles/background_canvas.py` | 387 | 3 | 18 | 408 |
 | `gui/src/components/dialogs/thumbnail_file_picker.py` | 386 | 4 | 7 | 397 |
 | `gui/src/tabs/core/extractor_tab/_directory_scanning.py` | 385 | 35 | 24 | 444 |
-| `gui/src/tabs/models/gen/comfy_generate_tab.py` | 384 | 45 | 9 | 438 |
+| `backend/src/comfy_matrix.py` | 383 | 4 | 21 | 408 |
 | `gui/src/windows/settings/_relaunch_settings.py` | 382 | 33 | 9 | 424 |
 | `gui/src/tabs/web/web_requests_tab.py` | 377 | 39 | 6 | 422 |
 | `backend/src/core/wallpaper/_kde.py` | 372 | 103 | 31 | 506 |
@@ -40,20 +43,17 @@
 | `gui/src/components/virtual_gallery/virtual_gallery_model.py` | 365 | 48 | 81 | 494 |
 | `gui/src/tabs/core/extractor_tab/_extraction_workers.py` | 355 | 11 | 9 | 375 |
 | `backend/src/models/tuning/cbir_tuner.py` | 352 | 32 | 76 | 460 |
+| `gui/src/tabs/models/gen/lora_generate_tab.py` | 351 | 16 | 2 | 369 |
 | `gui/src/tabs/core/extractor_tab/_queue_panel.py` | 346 | 36 | 32 | 414 |
 | `gui/src/windows/main/main_window.py` | 346 | 55 | 4 | 405 |
 | `gui/src/windows/settings/settings_window.py` | 345 | 28 | 10 | 383 |
 | `gui/src/tabs/web/drive_sync_tab/sync_data_subtab/widget.py` | 344 | 26 | 13 | 383 |
 | `backend/src/utils/display/slideshow_daemon.py` | 343 | 32 | 33 | 408 |
-| `gui/src/tabs/models/gen/lora_generate_tab.py` | 343 | 16 | 2 | 361 |
+| `backend/src/models/core/comfy_provenance.py` | 342 | 13 | 31 | 386 |
 | `gui/src/tabs/core/extractor_tab/_extraction_history.py` | 337 | 27 | 21 | 385 |
 | `gui/src/tabs/core/protos/extractor_tab.py` | 334 | 0 | 7 | 341 |
 | `gui/src/tabs/core/extractor_tab/_queue_processing.py` | 333 | 55 | 23 | 411 |
 | `backend/src/pipeline/anime_training_pipeline.py` | 331 | 38 | 36 | 405 |
 | `gui/src/helpers/core/duplicate_scan_worker.py` | 331 | 42 | 33 | 406 |
 | `gui/src/components/widgets/resource_simulator_dashboard.py` | 328 | 2 | 7 | 337 |
-| `gui/src/utils/manager/shortcut_manager.py` | 326 | 18 | 43 | 387 |
-| `backend/src/web/crawlers/image_crawler_parts/_scraping.py` | 324 | 8 | 8 | 340 |
-| `gui/src/windows/settings/_tab_config_editing.py` | 324 | 15 | 32 | 371 |
-| `backend/src/app.py` | 318 | 112 | 50 | 480 |
-| **TOTALS** | **90549** | **6337** | **9581** | **106467** |
+| **TOTALS** | **92866** | **6403** | **9703** | **108972** |
