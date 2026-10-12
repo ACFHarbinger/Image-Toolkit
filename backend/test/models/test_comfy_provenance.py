@@ -465,3 +465,23 @@ def test_wait_for_run_stops_when_pending_prompt_is_deleted():
     cancel = threading.Event()
     cancel.set()
     assert manager.wait_for_run("cancelled", cancel=cancel) is False
+
+
+def test_variant_label_meta_passthrough():
+    """#752: re-queued runs carry a render-only origin label plus the parent link."""
+    tracker = RunTracker()
+    tracker.record_submitted(
+        "p-var",
+        {"1": {"inputs": {}}},
+        client_id="c",
+        run_meta={"parent_prompt_id": "p-orig", "variant_label": "assistant-suggested"},
+    )
+    record = tracker.get("p-var")
+    assert record.parent_prompt_id == "p-orig"
+    assert record.variant_label == "assistant-suggested"
+
+
+def test_variant_label_defaults_to_none():
+    tracker = RunTracker()
+    tracker.record_submitted("p-plain", {"1": {}}, client_id="c")
+    assert tracker.get("p-plain").variant_label is None

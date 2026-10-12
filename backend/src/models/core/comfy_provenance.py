@@ -73,6 +73,9 @@ class ComfyRunRecord:
     parent_prompt_id: str | None = None
     sweep_axis: str | None = None
     sweep_value: str | None = None
+    # #752: human-readable origin tag for re-queued runs (e.g. the
+    # assistant-suggested variant label). Rendered, never acted on.
+    variant_label: str | None = None
     first_seen: float = field(default_factory=time.time)
     last_updated: float = field(default_factory=time.time)
 
@@ -94,6 +97,7 @@ _SURFACE_FIELDS = (
     "parent_prompt_id",
     "sweep_axis",
     "sweep_value",
+    "variant_label",
 )
 
 
