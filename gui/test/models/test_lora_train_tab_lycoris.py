@@ -151,7 +151,8 @@ def test_lycoris_training_success_emits_success_signal(tab):
     ):
         tab._run_lycoris_training("/d", "m", "p", "o", "locon")
 
-    assert signals == [("success", "LyCORIS training finished and weights saved.")]
+    # (#746: the signal carries the run dir as a third payload — "" here.)
+    assert signals == [("success", "LyCORIS training finished and weights saved.", "")]
 
 
 def test_lycoris_training_nonzero_exit_emits_error_signal(tab):

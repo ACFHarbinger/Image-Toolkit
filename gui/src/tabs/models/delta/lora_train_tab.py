@@ -238,7 +238,9 @@ class DatasetPrepareWorker(BaseQThreadWorker):
 class LoRATrainTab(BaseGenerativeTab):
     # --- Define Signals for Thread-Safe Communication ---
     update_status_signal = Signal(str)
-    training_finished_signal = Signal(str, str)
+    # run_dir (#741) is the third payload: the report card (#746) reads
+    # the run's events.jsonl when a success carries one ("" otherwise).
+    training_finished_signal = Signal(str, str, str)
 
     def __init__(self):
         super().__init__()
@@ -501,7 +503,7 @@ class LoRATrainTab(BaseGenerativeTab):
         self.status_label.setText(text)
 
     @Slot(str, str)
-    def handle_training_finished(self, status_type, message):
+    def handle_training_finished(self, status_type, message, run_dir: str = ""):
         if self._disposing:
             return
         self._restore_start_after_training()
@@ -510,13 +512,38 @@ class LoRATrainTab(BaseGenerativeTab):
         GanWrapper.is_cancelled = False
         if status_type == "success":
             self.status_label.setText(message)
-            QMessageBox.information(self, "Success", message)
+            # #746: the report card replaces the plain success box when the
+            # run recorded events; failures degrade back to the old box.
+            if not (run_dir and self._show_report_card(run_dir)):
+                QMessageBox.information(self, "Success", message)
         elif status_type == "cancel":
             self.status_label.setText("Stopped.")
             QMessageBox.warning(self, "Result", message)
         else:
             self.status_label.setText("Error occurred.")
             QMessageBox.critical(self, "Error", message)
+
+    def _show_report_card(self, run_dir: str) -> bool:
+        """Generate the #746 card from the run's events and show it."""
+        try:
+            from backend.src.core.training_report import generate_training_report
+            from backend.src.core.training_runs import iter_events
+
+            panel = getattr(self, "_advisor_panel", None)
+            findings = panel.findings() if panel is not None and hasattr(panel, "findings") else []
+            card = generate_training_report(iter_events(run_dir), dataset_findings=findings)
+        except Exception:
+            return False
+        if card.step_count == 0:
+            return False
+        from gui.src.components.dialogs.training_report_card_dialog import (
+            TrainingReportCardDialog,
+        )
+
+        dialog = TrainingReportCardDialog(card, run_dir=run_dir, parent=self)
+        dialog.show()  # non-modal summary panel (#746)
+        self._report_card_dialog = dialog  # keep a reference; user closes it
+        return True
 
     def _restore_start_after_training(self) -> None:
         if self._disposing:
@@ -576,7 +603,7 @@ class LoRATrainTab(BaseGenerativeTab):
     ):
         refusal = try_admit("lora-train")
         if refusal:
-            self.training_finished_signal.emit("error", refusal)
+            self.training_finished_signal.emit("error", refusal, "")
             return
         run_dir = None
         try:
@@ -713,17 +740,17 @@ class LoRATrainTab(BaseGenerativeTab):
             if is_cancelled:
                 self._finish_run_record(run_dir, STATUS_CANCEL, output_name, engine)
                 self.training_finished_signal.emit(
-                    "cancel", "Training process was stopped by the user."
+                    "cancel", "Training process was stopped by the user.", str(run_dir or "")
                 )
             else:
                 self._finish_run_record(run_dir, STATUS_SUCCESS, output_name, engine)
                 self.training_finished_signal.emit(
-                    "success", "Training finished and weights saved."
+                    "success", "Training finished and weights saved.", str(run_dir or "")
                 )
         except Exception as e:
             self.update_status_signal.emit(f"Error: {str(e)}")
             self._finish_run_record(run_dir, STATUS_ERROR, output_name, engine, error=str(e))
-            self.training_finished_signal.emit("error", str(e))
+            self.training_finished_signal.emit("error", str(e), str(run_dir or ""))
         finally:
             if diagnostics is not None:
                 diagnostics.close()
@@ -769,7 +796,7 @@ class LoRATrainTab(BaseGenerativeTab):
                 "dispatcher and is not available in the packaged build."
             )
             self.training_finished_signal.emit(
-                "error", "LyCORIS training requires a source checkout."
+                "error", "LyCORIS training requires a source checkout.", str(run_dir or "")
             )
             return
         cmd = [
@@ -810,13 +837,13 @@ class LoRATrainTab(BaseGenerativeTab):
             if returncode == 0:
                 self._finish_run_record(run_dir, STATUS_SUCCESS, output_name, engine)
                 self.training_finished_signal.emit(
-                    "success", "LyCORIS training finished and weights saved."
+                    "success", "LyCORIS training finished and weights saved.", str(run_dir or "")
                 )
             elif returncode < 0:
                 # Negative = killed by signal (terminate()/Cancel button).
                 self._finish_run_record(run_dir, STATUS_CANCEL, output_name, engine)
                 self.training_finished_signal.emit(
-                    "cancel", "Training process was stopped by the user."
+                    "cancel", "Training process was stopped by the user.", str(run_dir or "")
                 )
             else:
                 self._finish_run_record(
@@ -824,12 +851,13 @@ class LoRATrainTab(BaseGenerativeTab):
                     error=f"Training process exited with code {returncode}.",
                 )
                 self.training_finished_signal.emit(
-                    "error", f"Training process exited with code {returncode}."
+                    "error", f"Training process exited with code {returncode}.",
+                    str(run_dir or ""),
                 )
         except Exception as e:
             self.update_status_signal.emit(f"Error: {str(e)}")
             self._finish_run_record(run_dir, STATUS_ERROR, output_name, engine, error=str(e))
-            self.training_finished_signal.emit("error", str(e))
+            self.training_finished_signal.emit("error", str(e), str(run_dir or ""))
         finally:
             self._lycoris_process = None
 
