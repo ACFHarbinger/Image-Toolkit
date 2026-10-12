@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from gui.src.modules.catalog import ModuleCatalog
@@ -28,6 +28,17 @@ from gui.src.tabs.models.delta.lora_train_tab import (
 from PySide6.QtWidgets import QStackedWidget, QTabWidget, QWidget
 
 pytestmark = pytest.mark.gui
+
+
+def _wait_dataset(tab, timeout_ms: int = 5000) -> None:
+    worker = getattr(tab, "_dataset_worker", None)
+    if worker is not None:
+        assert worker.wait(timeout_ms)
+    from PySide6.QtWidgets import QApplication
+
+    app = QApplication.instance()
+    if app is not None:
+        app.processEvents()
 
 
 class FakeDlHost(QWidget):
@@ -181,6 +192,7 @@ def test_apply_imported_paths_sets_dataset_and_does_not_start_review(q_app, tmp_
 
     tab = LoRATrainTab()
     tab.apply_imported_paths((str(image),))
+    _wait_dataset(tab)
 
     assert tab.data_dir_edit.text() == str(folder)
     assert tab._dataset_paths == (str(image),)
@@ -198,6 +210,7 @@ def test_apply_imported_paths_stages_exact_selection(q_app, tmp_path):
     tab = LoRATrainTab()
     tab._staging_root = tmp_path
     tab.apply_imported_paths((str(chosen),))
+    _wait_dataset(tab)
 
     train_dir = Path(tab.data_dir_edit.text())
     assert train_dir != folder
@@ -218,12 +231,15 @@ def test_review_tags_uses_exact_selection_not_siblings(q_app, tmp_path):
     tab = LoRATrainTab()
     tab._staging_root = tmp_path
     tab.apply_imported_paths((str(chosen),))
+    _wait_dataset(tab)
 
     with patch.object(tab._review_panel, "start_review") as start:
         tab._review_tags()
 
     start.assert_called_once()
-    assert start.call_args.args[0] == [chosen]
+    reviewed = start.call_args.args[0]
+    assert [p.name for p in reviewed] == ["keep.png"]
+    assert all(p.parent == Path(tab.data_dir_edit.text()) for p in reviewed)
 
 
 def test_unified_train_handoff_switches_to_lora(q_app, tmp_path):
@@ -234,6 +250,7 @@ def test_unified_train_handoff_switches_to_lora(q_app, tmp_path):
     tab = UnifiedTrainTab()
     tab.model_selector.setCurrentIndex(2)
     tab.apply_imported_paths((str(folder),))
+    _wait_dataset(tab.anything_tab)
 
     assert tab.model_selector.currentData() == "anything"
     assert tab.anything_tab.data_dir_edit.text() == str(folder)
@@ -343,3 +360,131 @@ def test_combine_trigger_and_prompt_prepends_when_missing():
     assert combine_trigger_and_prompt("my_char", "my_char, 1girl") == "my_char, 1girl"
     assert combine_trigger_and_prompt("", "1girl") == "1girl"
     assert combine_trigger_and_prompt("my_char", "") == "my_char"
+
+
+def test_resolve_skips_missing_files_and_does_not_create_dangling_links(tmp_path):
+    folder = tmp_path / "ds"
+    folder.mkdir()
+    real = folder / "keep.png"
+    real.write_bytes(b"x")
+    (folder / "drop.png").write_bytes(b"y")
+    missing = tmp_path / "gone.png"
+    imported = resolve_imported_dataset(
+        (str(real), str(missing)), staging_root=tmp_path
+    )
+    assert imported.staged is True
+    names = {p.name for p in Path(imported.train_dir).iterdir()}
+    assert "keep.png" in names
+    assert "gone.png" not in names
+    assert "drop.png" not in names
+    for child in Path(imported.train_dir).iterdir():
+        assert child.exists()
+
+
+def test_resolve_reserves_caption_stems_across_extensions(tmp_path):
+    one = tmp_path / "a" / "shot.png"
+    two = tmp_path / "b" / "shot.jpg"
+    one.parent.mkdir()
+    two.parent.mkdir()
+    one.write_bytes(b"x")
+    two.write_bytes(b"y")
+    imported = resolve_imported_dataset((str(one), str(two)), staging_root=tmp_path)
+    stems = {
+        p.stem
+        for p in Path(imported.train_dir).iterdir()
+        if p.suffix.lower() in {".png", ".jpg"}
+    }
+    assert len(stems) == 2
+
+
+def test_handoff_during_training_keeps_leased_staging(q_app, tmp_path):
+    folder = tmp_path / "dataset"
+    folder.mkdir()
+    chosen = folder / "keep.png"
+    other = folder / "drop.png"
+    chosen.write_bytes(b"x")
+    other.write_bytes(b"y")
+
+    tab = LoRATrainTab()
+    tab._staging_root = tmp_path
+    tab.apply_imported_paths((str(chosen),))
+    _wait_dataset(tab)
+    staged = Path(tab.data_dir_edit.text())
+    assert staged.is_dir()
+
+    alive = MagicMock()
+    alive.is_alive.return_value = True
+    tab._training_thread = alive
+    tab._leased_staging_dir = tab._staging_dir
+
+    replacement = tmp_path / "other" / "new.png"
+    replacement.parent.mkdir()
+    replacement.write_bytes(b"z")
+    tab.apply_imported_paths((str(replacement),))
+
+    assert tab.data_dir_edit.text() == str(staged)
+    assert staged.is_dir()
+    assert (staged / "keep.png").exists()
+    assert "Cannot replace the dataset" in tab.status_label.text()
+
+
+def test_review_tags_follows_edited_dataset_path(q_app, tmp_path):
+    first = tmp_path / "first"
+    second = tmp_path / "second"
+    first.mkdir()
+    second.mkdir()
+    (first / "old.png").write_bytes(b"x")
+    new_image = second / "new.png"
+    new_image.write_bytes(b"y")
+
+    tab = LoRATrainTab()
+    tab.apply_imported_paths((str(first),))
+    _wait_dataset(tab)
+    tab.data_dir_edit.setText(str(second))
+    tab._on_dataset_path_edited()
+    _wait_dataset(tab)
+
+    with patch.object(tab._review_panel, "start_review") as start:
+        tab._review_tags()
+
+    start.assert_called_once()
+    assert start.call_args.args[0] == [new_image]
+
+
+def test_workspace_dispose_prepares_host_before_delete(q_app):
+    from gui.src.modules.dl_workspace import DeepLearningWorkspaceHandle
+
+    order: list[str] = []
+
+    class FakeHost:
+        def prepare_dispose(self) -> None:
+            order.append("prepare")
+
+        def deleteLater(self) -> None:
+            order.append("delete")
+
+    DeepLearningWorkspaceHandle(FakeHost()).dispose()
+    assert order == ["prepare", "delete"]
+
+
+def test_host_prepare_dispose_reaches_train_tab(q_app, monkeypatch):
+    from gui.src.tabs.models.dl_workspace_host import DeepLearningWorkspaceHost
+
+    prepared: list[str] = []
+
+    class FakeTrain(QWidget):
+        def prepare_dispose(self) -> None:
+            prepared.append("train")
+
+    def fake_build(self, route_key: str) -> QWidget:
+        if route_key == "train":
+            tab = FakeTrain()
+            self._train_tab = tab
+            return tab
+        return QWidget()
+
+    monkeypatch.setattr(DeepLearningWorkspaceHost, "_build_page", fake_build)
+    host = DeepLearningWorkspaceHost()
+    host.activate_route("train")
+    host.prepare_dispose()
+    assert prepared == ["train"]

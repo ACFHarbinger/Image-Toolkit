@@ -26,6 +26,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from gui.src.helpers.base import BaseQThreadWorker
 from gui.src.components.prompt_edit import PromptEdit
 from gui.src.components.prompt_vocabulary import default_vocabulary, model_prefix_for
 
@@ -86,6 +87,74 @@ def _image_paths_under(path: Path) -> list[Path]:
     return []
 
 
+def _existing_images(paths: list[Path]) -> list[Path]:
+    images: list[Path] = []
+    for path in paths:
+        if path.is_dir():
+            images.extend(_image_paths_under(path))
+        elif path.is_file() and path.suffix.lower() in _DATASET_IMAGE_EXTS:
+            images.append(path)
+    unique: list[Path] = []
+    seen: set[Path] = set()
+    for image in images:
+        key = image.resolve()
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(image)
+    return unique
+
+
+def _exclusive_parent(unique: list[Path]) -> Path | None:
+    parents = {image.resolve().parent for image in unique}
+    if len(parents) != 1:
+        return None
+    parent = next(iter(parents))
+    siblings = {child.resolve() for child in _image_paths_under(parent)}
+    if siblings == {image.resolve() for image in unique}:
+        return parent
+    return None
+
+
+def _unique_staged_name(src: Path, used_names: set[str], used_stems: set[str]) -> str:
+    name = src.name
+    if name not in used_names and Path(name).stem not in used_stems:
+        return name
+    stem, suffix = src.stem, src.suffix
+    name = f"{src.parent.name}_{stem}{suffix}"
+    extra = 2
+    while name in used_names or Path(name).stem in used_stems:
+        name = f"{src.parent.name}_{stem}_{extra}{suffix}"
+        extra += 1
+    return name
+
+
+def _stage_images(unique: list[Path], staging_root: Path | None) -> Path | None:
+    staging_root = staging_root or Path.home() / "Downloads" / "Data" / "Tests"
+    staging_root.mkdir(parents=True, exist_ok=True)
+    staging = Path(tempfile.mkdtemp(prefix="itk-train-dataset-", dir=str(staging_root)))
+    used_names: set[str] = set()
+    used_stems: set[str] = set()
+    for src in unique:
+        if not src.is_file():
+            continue
+        name = _unique_staged_name(src, used_names, used_stems)
+        used_names.add(name)
+        used_stems.add(Path(name).stem)
+        (staging / name).symlink_to(src.resolve())
+        caption = src.with_suffix(".txt")
+        if caption.is_file():
+            (staging / Path(name).with_suffix(".txt")).symlink_to(caption.resolve())
+    has_image = any(
+        child.is_file() and child.suffix.lower() in _DATASET_IMAGE_EXTS
+        for child in staging.iterdir()
+    )
+    if not has_image:
+        shutil.rmtree(staging, ignore_errors=True)
+        return None
+    return staging
+
+
 def resolve_imported_dataset(
     paths: tuple[str, ...],
     *,
@@ -96,7 +165,8 @@ def resolve_imported_dataset(
     A single directory stays folder-wide (Extractor / Browse). Explicit
     files are the training set: the parent is reused only when it contains
     nothing else, otherwise the selection is staged so siblings and other
-    directories cannot leak in.
+    directories cannot leak in. Missing or non-image paths are dropped
+    before any symlink is created.
     """
     if not paths:
         return ImportedDataset(None, (), "selection", False)
@@ -106,61 +176,18 @@ def resolve_imported_dataset(
         images = _image_paths_under(resolved[0])
         return ImportedDataset(str(resolved[0]), tuple(str(p) for p in images), "folder", False)
 
-    images: list[Path] = []
-    for path in resolved:
-        if path.is_dir():
-            images.extend(_image_paths_under(path))
-        elif path.suffix.lower() in _DATASET_IMAGE_EXTS:
-            images.append(path)
-    if not images:
+    unique = _existing_images(resolved)
+    if not unique:
         return ImportedDataset(None, (), "selection", False)
 
-    unique: list[Path] = []
-    seen: set[Path] = set()
-    for image in images:
-        key = image.resolve()
-        if key in seen:
-            continue
-        seen.add(key)
-        unique.append(image)
+    parent = _exclusive_parent(unique)
+    if parent is not None:
+        return ImportedDataset(str(parent), tuple(str(p) for p in unique), "selection", False)
 
-    parents = {image.resolve().parent for image in unique}
-    if len(parents) == 1:
-        parent = next(iter(parents))
-        siblings = {child.resolve() for child in _image_paths_under(parent)}
-        if siblings == {image.resolve() for image in unique}:
-            return ImportedDataset(
-                str(parent), tuple(str(p) for p in unique), "selection", False
-            )
-
-    staging_root = staging_root or Path.home() / "Downloads" / "Data" / "Tests"
-    staging_root.mkdir(parents=True, exist_ok=True)
-    staging = Path(
-        tempfile.mkdtemp(
-            prefix="itk-train-dataset-",
-            dir=str(staging_root) if staging_root else None,
-        )
-    )
-    used_names: set[str] = set()
-    used_stems: set[str] = set()
-    for src in unique:
-        name = src.name
-        if name in used_names or Path(name).stem in used_stems:
-            stem, suffix = src.stem, src.suffix
-            name = f"{src.parent.name}_{stem}{suffix}"
-            extra = 2
-            while name in used_names or Path(name).stem in used_stems:
-                name = f"{src.parent.name}_{stem}_{extra}{suffix}"
-                extra += 1
-        used_names.add(name)
-        used_stems.add(Path(name).stem)
-        (staging / name).symlink_to(src.resolve())
-        caption = src.with_suffix(".txt")
-        if caption.is_file():
-            (staging / Path(name).with_suffix(".txt")).symlink_to(caption.resolve())
-    return ImportedDataset(
-        str(staging), tuple(str(p) for p in unique), "selection", True
-    )
+    staging = _stage_images(unique, staging_root)
+    if staging is None:
+        return ImportedDataset(None, (), "selection", False)
+    return ImportedDataset(str(staging), tuple(str(p) for p in unique), "selection", True)
 
 
 def dataset_folder_from_paths(
@@ -172,6 +199,18 @@ def dataset_folder_from_paths(
     return resolve_imported_dataset(paths, staging_root=staging_root).train_dir
 
 
+class DatasetPrepareWorker(BaseQThreadWorker):
+    """Scan and stage a Library/Browse handoff off the GUI thread."""
+
+    def __init__(self, paths: tuple[str, ...], staging_root: Path | None) -> None:
+        super().__init__()
+        self._paths = paths
+        self._staging_root = staging_root
+
+    def _execute(self) -> object:
+        return resolve_imported_dataset(self._paths, staging_root=self._staging_root)
+
+
 class LoRATrainTab(BaseGenerativeTab):
     # --- Define Signals for Thread-Safe Communication ---
     update_status_signal = Signal(str)
@@ -181,10 +220,14 @@ class LoRATrainTab(BaseGenerativeTab):
         super().__init__()
         self.last_browsed_scan_dir = LOCAL_SOURCE_PATH
         self._lycoris_process: subprocess.Popen | None = None
+        self._training_thread: threading.Thread | None = None
         self._dataset_paths: tuple[str, ...] = ()
         self._dataset_scope = "folder"
         self._staging_dir: str | None = None
         self._staging_root: Path | None = None
+        self._leased_staging_dir: str | None = None
+        self._applied_train_dir: str | None = None
+        self._dataset_worker: DatasetPrepareWorker | None = None
         self.init_ui()
         self.update_status_signal.connect(self.handle_status_update)
         self.training_finished_signal.connect(self.handle_training_finished)
@@ -225,6 +268,7 @@ class LoRATrainTab(BaseGenerativeTab):
         folder_layout.setContentsMargins(0, 0, 0, 0)
 
         self.data_dir_edit = QLineEdit(self.last_browsed_scan_dir)
+        self.data_dir_edit.editingFinished.connect(self._on_dataset_path_edited)
         self.browse_btn = QPushButton("Browse")
         self.browse_btn.clicked.connect(self.browse_dataset)
 
@@ -342,6 +386,9 @@ class LoRATrainTab(BaseGenerativeTab):
         self.setLayout(root)
 
     def browse_dataset(self):
+        if self._training_running():
+            self.status_label.setText("Cannot replace the dataset while training is running.")
+            return
         directory = QFileDialog.getExistingDirectory(
             self,
             "Select Dataset Folder",
@@ -349,12 +396,8 @@ class LoRATrainTab(BaseGenerativeTab):
             QFileDialog.Option.DontUseNativeDialog,
         )
         if directory:
-            self._clear_staging()
-            self._dataset_scope = "folder"
-            self._dataset_paths = tuple(str(p) for p in _image_paths_under(Path(directory)))
-            self.data_dir_edit.setText(directory)
             self.last_browsed_scan_dir = directory
-            self.status_label.setText(f"Dataset folder: {len(self._dataset_paths)} image(s)")
+            self.apply_imported_paths((directory,))
 
     def update_ui_visibility(self):
         model_id = self.model_selector.currentData()
@@ -380,7 +423,6 @@ class LoRATrainTab(BaseGenerativeTab):
             else:
                 LoRATuner.cancel_process()
         self.cancel_btn.setEnabled(False)
-        self.train_btn.setEnabled(True)
         self.handle_status_update("Cancellation requested...")
 
     # --- Config Methods ---
@@ -404,7 +446,9 @@ class LoRATrainTab(BaseGenerativeTab):
             self.rank_box.setValue(config["lora_rank"])
         saved_paths = tuple(config.get("dataset_paths") or ())
         if saved_paths and config.get("dataset_scope") == "selection":
-            self.apply_imported_paths(saved_paths)
+            imported = resolve_imported_dataset(saved_paths, staging_root=self._staging_root)
+            if imported.train_dir is not None:
+                self._apply_resolved(imported)
         elif "dataset_folder" in config:
             self.data_dir_edit.setText(config["dataset_folder"])
             self._dataset_scope = str(config.get("dataset_scope") or "folder")
@@ -413,6 +457,7 @@ class LoRATrainTab(BaseGenerativeTab):
                 if folder.is_dir():
                     saved_paths = tuple(str(p) for p in _image_paths_under(folder))
             self._dataset_paths = saved_paths
+            self._applied_train_dir = config["dataset_folder"]
 
     def get_default_config(self) -> dict:
         defaults = super().get_default_config()
@@ -435,6 +480,8 @@ class LoRATrainTab(BaseGenerativeTab):
 
     @Slot(str, str)
     def handle_training_finished(self, status_type, message):
+        self._training_thread = None
+        self._leased_staging_dir = None
         self.train_btn.setEnabled(True)
         self.cancel_btn.setEnabled(False)
         LoRATuner.is_cancelled = False
@@ -449,7 +496,16 @@ class LoRATrainTab(BaseGenerativeTab):
             self.status_label.setText("Error occurred.")
             QMessageBox.critical(self, "Error", message)
 
+    def _training_running(self) -> bool:
+        thread = self._training_thread
+        if thread is not None and thread.is_alive():
+            return True
+        process = self._lycoris_process
+        return process is not None and process.poll() is None
+
     def start_training_thread(self):
+        if self._training_running():
+            return
         self.train_btn.setEnabled(False)
         self.cancel_btn.setEnabled(True)
         self.status_label.setText("Initializing Training...")
@@ -465,7 +521,9 @@ class LoRATrainTab(BaseGenerativeTab):
             "output_name": params.get("output_name", "output_lora"),
             "engine": self.engine_combo.currentData(),
         }
+        self._leased_staging_dir = self._staging_dir
         thread = threading.Thread(target=self.run_training, kwargs=config, daemon=True)
+        self._training_thread = thread
         thread.start()
 
     def run_training(
@@ -643,42 +701,124 @@ class LoRATrainTab(BaseGenerativeTab):
         SafetensorsInspectorDialog(path=path, parent=self).exec()
 
     def apply_imported_paths(self, paths: tuple[str, ...]) -> None:
-        imported = resolve_imported_dataset(paths, staging_root=self._staging_root)
+        if self._training_running():
+            self.status_label.setText("Cannot replace the dataset while training is running.")
+            return
+        self._start_dataset_worker(paths)
+
+    def _start_dataset_worker(self, paths: tuple[str, ...]) -> None:
+        from gui.src.helpers.worker_teardown import stop_worker
+
+        previous = self._dataset_worker
+        if previous is not None and previous.isRunning():
+            stop_worker(previous, join=False)
+        self.status_label.setText("Preparing dataset…")
+        worker = DatasetPrepareWorker(paths, self._staging_root)
+        worker.finished.connect(self._on_dataset_prepared)
+        self._dataset_worker = worker
+        worker.start()
+
+    @Slot(object)
+    def _on_dataset_prepared(self, imported) -> None:
+        sender = self.sender()
+        if sender is not None and sender is not self._dataset_worker:
+            return
+        if not isinstance(imported, ImportedDataset):
+            return
         if imported.train_dir is None:
+            self.status_label.setText("No usable images in that selection.")
+            return
+        self._apply_resolved(imported)
+
+    def _apply_resolved(self, imported: ImportedDataset) -> None:
+        if self._training_running():
+            if imported.staged and imported.train_dir:
+                shutil.rmtree(imported.train_dir, ignore_errors=True)
+            self.status_label.setText("Cannot replace the dataset while training is running.")
             return
         self._clear_staging()
         if imported.staged:
             self._staging_dir = imported.train_dir
         self._dataset_scope = imported.scope
         self._dataset_paths = imported.source_paths
-        self.data_dir_edit.setText(imported.train_dir)
-        self.last_browsed_scan_dir = imported.train_dir
+        self._applied_train_dir = imported.train_dir
+        self.data_dir_edit.blockSignals(True)
+        self.data_dir_edit.setText(imported.train_dir or "")
+        self.data_dir_edit.blockSignals(False)
+        if imported.train_dir:
+            self.last_browsed_scan_dir = imported.train_dir
         count = len(imported.source_paths)
         if imported.scope == "folder":
             self.status_label.setText(f"Dataset folder: {count} image(s)")
         else:
             self.status_label.setText(f"Dataset: {count} selected image(s)")
 
+    def _on_dataset_path_edited(self) -> None:
+        current = self.data_dir_edit.text().strip()
+        if current == (self._applied_train_dir or ""):
+            return
+        if self._training_running():
+            self.data_dir_edit.blockSignals(True)
+            self.data_dir_edit.setText(self._applied_train_dir or "")
+            self.data_dir_edit.blockSignals(False)
+            self.status_label.setText("Cannot change the dataset while training is running.")
+            return
+        self._dataset_paths = ()
+        self._dataset_scope = "folder"
+        if not current:
+            self._clear_staging()
+            self._applied_train_dir = None
+            return
+        self.apply_imported_paths((current,))
+
     def _on_review_saved(self, _written: int) -> None:
-        if self._dataset_scope == "selection" and self._dataset_paths:
-            self.apply_imported_paths(self._dataset_paths)
+        # Captions are written next to the files in data_dir_edit (the train
+        # dir). Restaging here would rmtree a directory a live job may own.
+        return
 
     def _clear_staging(self) -> None:
-        if self._staging_dir:
-            shutil.rmtree(self._staging_dir, ignore_errors=True)
+        if not self._staging_dir:
+            return
+        if self._staging_dir == self._leased_staging_dir and self._training_running():
+            return
+        shutil.rmtree(self._staging_dir, ignore_errors=True)
+        self._staging_dir = None
+
+    def prepare_dispose(self) -> None:
+        """Nonblocking cancel used by workspace disposal (no closeEvent)."""
+        from gui.src.helpers.worker_teardown import stop_worker
+
+        self._review_panel.stop_review(join=False)
+        if self._dataset_worker is not None:
+            stop_worker(self._dataset_worker, join=False)
+        self.cancel_training()
+        thread = self._training_thread
+        leased = self._leased_staging_dir
+        staging = self._staging_dir
+        if thread is not None and thread.is_alive():
+            def _cleanup_after_job() -> None:
+                thread.join()
+                for directory in {leased, staging}:
+                    if directory:
+                        shutil.rmtree(directory, ignore_errors=True)
+
+            threading.Thread(
+                target=_cleanup_after_job,
+                daemon=True,
+                name="itk-train-dataset-cleanup",
+            ).start()
+            self._leased_staging_dir = None
             self._staging_dir = None
+        else:
+            self._clear_staging()
 
     def closeEvent(self, event) -> None:
-        self._review_panel.stop_review()
-        self._clear_staging()
+        self.prepare_dispose()
         super().closeEvent(event)
 
     def _review_tags(self) -> None:
-        if self._dataset_paths:
-            image_paths = [Path(p) for p in self._dataset_paths if Path(p).is_file()]
-        else:
-            data_dir = self.data_dir_edit.text().strip()
-            image_paths = _image_paths_under(Path(data_dir)) if data_dir else []
+        data_dir = self.data_dir_edit.text().strip()
+        image_paths = _image_paths_under(Path(data_dir)) if data_dir else []
         if not image_paths:
             QMessageBox.warning(
                 self, "Review Tags", "Select a valid dataset first."
