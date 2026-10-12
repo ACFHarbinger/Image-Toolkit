@@ -22,6 +22,15 @@ from .descriptor import (
     ModuleDescriptor,
     ModuleRoute,
 )
+from .dl_workspace import (
+    DL_CLASSIC_ALIASES,
+    DL_ROUTES,
+    DL_WORKSPACE_ID,
+    DeepLearningWorkspaceHandle,
+    create_dl_workspace,
+    dl_workspace_enabled,
+    register_dl_workspace,
+)
 from .events import (
     DatabaseAvailabilityChanged,
     EventHub,
@@ -66,6 +75,10 @@ from .tab_factory import build_tab
 __all__ = [
     "CatalogDescriptor",
     "ConstructionPolicy",
+    "DL_CLASSIC_ALIASES",
+    "DL_ROUTES",
+    "DL_WORKSPACE_ID",
+    "DeepLearningWorkspaceHandle",
     "DatabaseAvailabilityChanged",
     "EventHub",
     "EventSubscription",
@@ -109,8 +122,11 @@ __all__ = [
     "build_application_catalog",
     "build_tab",
     "coerce_library_database_service",
+    "create_dl_workspace",
     "create_log_panel_descriptor",
     "create_stitch_workspace",
+    "dl_workspace_enabled",
+    "register_dl_workspace",
     "register_stitch_workspace",
     "runtime_shell_enabled",
     "stitch_workspace_enabled",

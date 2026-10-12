@@ -76,8 +76,9 @@ class VideoExtractorSubTab(AbstractClassSingleGallery):
 
     _AUTO_LOAD_OUTPUT_IMAGES_BYTE_BUDGET = 500 * 1024 * 1024  # 500MB
 
-    def __init__(self):
+    def __init__(self, event_hub=None):
         super().__init__()
+        self.event_hub = event_hub
         # Extraction/scanning jobs must not share the gallery loader pool.
         # Gallery refreshes synchronously drain ``thread_pool``; a queue
         # completion handler refreshing the gallery would otherwise wait on

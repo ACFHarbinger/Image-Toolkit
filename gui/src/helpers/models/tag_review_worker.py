@@ -59,6 +59,8 @@ class TagReviewWorker(BaseQThreadWorker):
         ]
         total = len(todo)
         for i, path in enumerate(todo):
+            if self._cancelled or self.isInterruptionRequested():
+                break
             try:
                 auto, review = wd.tag_with_review(
                     str(path),

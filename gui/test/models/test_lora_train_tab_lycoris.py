@@ -241,6 +241,73 @@ def test_model_combo_shows_resolved_id(tab):
     assert tab.model_selector.itemData(0) == "stabilityai/stable-diffusion-xl-base-1.0"
 
 
+def test_start_training_thread_forwards_dedicated_trigger(tab):
+    tab.trigger_edit.setText("my_char")
+    tab.prompt_edit.setText("1girl, style")
+    with patch(
+        "gui.src.tabs.models.delta.lora_train_tab.threading.Thread"
+    ) as mock_thread:
+        mock_thread.return_value.start = MagicMock()
+        tab.start_training_thread()
+    kwargs = mock_thread.call_args.kwargs["kwargs"]
+    assert kwargs["trigger"] == "my_char"
+    assert kwargs["prompt"] == "1girl, style"
+
+
+def test_standard_engine_prepends_trigger_to_instance_prompt(tab):
+    with patch.object(tab, "_run_lycoris_training") as mock_lycoris, \
+         patch("gui.src.tabs.models.delta.lora_train_tab.LoRATuner") as mock_tuner:
+        mock_tuner.is_cancelled = False
+        instance = mock_tuner.return_value
+        instance.train.return_value = None
+        tab.run_training(
+            params={}, data_dir="/tmp/data", model_id="some/model",
+            rank=4, prompt="1girl, style", trigger="my_char",
+            output_name="out", engine="standard",
+        )
+        mock_lycoris.assert_not_called()
+        assert instance.train.call_args.kwargs["instance_prompt"] == "my_char, 1girl, style"
+
+
+def test_lycoris_run_training_uses_dedicated_trigger_not_prompt(tab):
+    with patch.object(tab, "_run_lycoris_training") as mock_lycoris:
+        tab.run_training(
+            params={"epochs": 9, "batch_size": 2, "learning_rate": 2e-4},
+            data_dir="/tmp/data", model_id="some/model",
+            rank=16, prompt="1girl, style of my_char", trigger="my_char",
+            output_name="out", engine="loha",
+        )
+    mock_lycoris.assert_called_once_with(
+        "/tmp/data", "some/model", "my_char", "out", "loha",
+        epochs=9, batch_size=2, learning_rate=2e-4, rank=16,
+    )
+
+
+def test_lycoris_command_uses_dedicated_trigger_word(tab):
+    fake_proc = MagicMock()
+    fake_proc.stdout = iter([])
+    fake_proc.wait.return_value = 0
+
+    with patch(
+        "gui.src.tabs.models.delta.lora_train_tab.subprocess.Popen",
+        return_value=fake_proc,
+    ) as mock_popen:
+        tab.run_training(
+            params={},
+            data_dir="/data/my_char",
+            model_id="some/model",
+            rank=4,
+            prompt="1girl, style of my_char",
+            trigger="mychar_xyz",
+            output_name="out",
+            engine="locon",
+        )
+
+    cmd = mock_popen.call_args.args[0]
+    assert "data.trigger_word=mychar_xyz" in cmd
+    assert "data.trigger_word=1girl, style of my_char" not in cmd
+
+
 def test_browse_dataset_uses_non_native_dialog(tab):
     from PySide6.QtWidgets import QFileDialog
 

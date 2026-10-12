@@ -183,6 +183,9 @@ class SearchFileActionsController(TabBoundController):
         delete_tab_action = QAction("Similarity Tab", self.tab)
         delete_tab_action.triggered.connect(lambda: self.send_selection_to_delete_tab(file_path))
         send_menu.addAction(delete_tab_action)
+        train_action = QAction("Train dataset", self.tab)
+        train_action.triggered.connect(lambda: self.send_selection_to_train_tab(file_path))
+        send_menu.addAction(train_action)
         menu.addSeparator()
 
         is_selected = file_path in self.selected_files

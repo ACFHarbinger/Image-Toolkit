@@ -1,11 +1,15 @@
+import shutil
 import subprocess
 import sys
+import tempfile
 import threading
+from pathlib import Path
+from typing import NamedTuple
 
 from backend.src.constants import LOCAL_SOURCE_PATH, ROOT_DIR
 from backend.src.models.tuning.lo_ra_tuner import LoRATuner
 from backend.src.models.wrappers.gan_wrapper import GanWrapper
-from PySide6.QtCore import Signal, Slot
+from PySide6.QtCore import Qt, QTimer, Signal, Slot
 from PySide6.QtWidgets import (
     QComboBox,
     QDoubleSpinBox,
@@ -17,10 +21,22 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QSpinBox,
+    QSplitter,
+    QVBoxLayout,
     QWidget,
 )
 
-from ....classes.base.base_generative_tab import BaseGenerativeTab, model_choice_label
+from gui.src.components.prompt_edit import PromptEdit
+from gui.src.components.prompt_vocabulary import default_vocabulary, model_prefix_for
+from gui.src.helpers.base import BaseQThreadWorker
+
+from ....classes.base.base_generative_tab import (
+    TIER_ADVANCED,
+    TIER_SIMPLE,
+    TIER_STANDARD,
+    BaseGenerativeTab,
+    model_choice_label,
+)
 
 # Content Gen §1.3: LyCORIS variants (LoCon/LoHa/LoKr), each a Hydra config
 # preset under backend/config/training/. "standard" keeps the existing
@@ -37,6 +53,177 @@ _TRAINING_ENGINES = [
 ]
 
 
+_DATASET_IMAGE_EXTS = frozenset({".png", ".jpg", ".jpeg", ".webp", ".bmp"})
+
+
+class ImportedDataset(NamedTuple):
+    train_dir: str | None
+    source_paths: tuple[str, ...]
+    scope: str
+    staged: bool
+
+
+def combine_trigger_and_prompt(trigger: str, prompt: str) -> str:
+    """Prepend the activation token to the instance prompt when missing."""
+    trigger = trigger.strip()
+    prompt = prompt.strip()
+    if not trigger:
+        return prompt
+    tokens = [part.strip() for part in prompt.split(",") if part.strip()]
+    if trigger in tokens:
+        return prompt
+    return f"{trigger}, {prompt}" if prompt else trigger
+
+
+def _image_paths_under(path: Path) -> list[Path]:
+    if path.is_dir():
+        return sorted(
+            child
+            for child in path.iterdir()
+            if child.is_file() and child.suffix.lower() in _DATASET_IMAGE_EXTS
+        )
+    if path.is_file() and path.suffix.lower() in _DATASET_IMAGE_EXTS:
+        return [path]
+    return []
+
+
+def _existing_images(paths: list[Path]) -> list[Path]:
+    images: list[Path] = []
+    for path in paths:
+        if path.is_dir():
+            images.extend(_image_paths_under(path))
+        elif path.is_file() and path.suffix.lower() in _DATASET_IMAGE_EXTS:
+            images.append(path)
+    unique: list[Path] = []
+    seen: set[Path] = set()
+    for image in images:
+        key = image.resolve()
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(image)
+    return unique
+
+
+def _exclusive_parent(unique: list[Path]) -> Path | None:
+    parents = {image.resolve().parent for image in unique}
+    if len(parents) != 1:
+        return None
+    parent = next(iter(parents))
+    siblings = {child.resolve() for child in _image_paths_under(parent)}
+    if siblings == {image.resolve() for image in unique}:
+        return parent
+    return None
+
+
+def _unique_staged_name(src: Path, used_names: set[str], used_stems: set[str]) -> str:
+    name = src.name
+    if name not in used_names and Path(name).stem not in used_stems:
+        return name
+    stem, suffix = src.stem, src.suffix
+    name = f"{src.parent.name}_{stem}{suffix}"
+    extra = 2
+    while name in used_names or Path(name).stem in used_stems:
+        name = f"{src.parent.name}_{stem}_{extra}{suffix}"
+        extra += 1
+    return name
+
+
+def _stage_images(unique: list[Path], staging_root: Path | None) -> Path | None:
+    staging_root = staging_root or Path.home() / "Downloads" / "Data" / "Tests"
+    staging_root.mkdir(parents=True, exist_ok=True)
+    staging = Path(tempfile.mkdtemp(prefix="itk-train-dataset-", dir=str(staging_root)))
+    used_names: set[str] = set()
+    used_stems: set[str] = set()
+    for src in unique:
+        if not src.is_file():
+            continue
+        name = _unique_staged_name(src, used_names, used_stems)
+        used_names.add(name)
+        used_stems.add(Path(name).stem)
+        (staging / name).symlink_to(src.resolve())
+        caption = src.with_suffix(".txt")
+        if caption.is_file():
+            (staging / Path(name).with_suffix(".txt")).symlink_to(caption.resolve())
+    has_image = any(
+        child.is_file() and child.suffix.lower() in _DATASET_IMAGE_EXTS
+        for child in staging.iterdir()
+    )
+    if not has_image:
+        shutil.rmtree(staging, ignore_errors=True)
+        return None
+    return staging
+
+
+def resolve_imported_dataset(
+    paths: tuple[str, ...],
+    *,
+    staging_root: Path | None = None,
+) -> ImportedDataset:
+    """Map a handoff to the exact files training and Review Tags will see.
+
+    A single directory stays folder-wide (Extractor / Browse). Explicit
+    files are the training set: the parent is reused only when it contains
+    nothing else, otherwise the selection is staged so siblings and other
+    directories cannot leak in. Missing or non-image paths are dropped
+    before any symlink is created.
+    """
+    if not paths:
+        return ImportedDataset(None, (), "selection", False)
+
+    resolved = [Path(item) for item in paths]
+    if len(resolved) == 1 and resolved[0].is_dir():
+        images = _image_paths_under(resolved[0])
+        return ImportedDataset(str(resolved[0]), tuple(str(p) for p in images), "folder", False)
+
+    unique = _existing_images(resolved)
+    if not unique:
+        return ImportedDataset(None, (), "selection", False)
+
+    parent = _exclusive_parent(unique)
+    if parent is not None:
+        return ImportedDataset(str(parent), tuple(str(p) for p in unique), "selection", False)
+
+    staging = _stage_images(unique, staging_root)
+    if staging is None:
+        return ImportedDataset(None, (), "selection", False)
+    return ImportedDataset(str(staging), tuple(str(p) for p in unique), "selection", True)
+
+
+def dataset_folder_from_paths(
+    paths: tuple[str, ...],
+    *,
+    staging_root: Path | None = None,
+) -> str | None:
+    """Train directory for a handoff. Exact file selections are staged."""
+    return resolve_imported_dataset(paths, staging_root=staging_root).train_dir
+
+
+class DatasetPrepareWorker(BaseQThreadWorker):
+    """Scan and stage a Library/Browse handoff off the GUI thread."""
+
+    def __init__(self, paths: tuple[str, ...], staging_root: Path | None) -> None:
+        super().__init__()
+        self._paths = paths
+        self._staging_root = staging_root
+        self.result: ImportedDataset | None = None
+        self.discarded = False
+        self.review_only = False
+        self.trigger: str | None = None
+
+    def _execute(self) -> object:
+        self.result = resolve_imported_dataset(self._paths, staging_root=self._staging_root)
+        return self.result
+
+    def cleanup_unclaimed(self) -> None:
+        result = self.result
+        if self.discarded and result is not None and result.staged and result.train_dir:
+            threading.Thread(
+                target=shutil.rmtree, args=(result.train_dir,), kwargs={"ignore_errors": True},
+                daemon=True, name="itk-unused-dataset-cleanup",
+            ).start()
+
+
 class LoRATrainTab(BaseGenerativeTab):
     # --- Define Signals for Thread-Safe Communication ---
     update_status_signal = Signal(str)
@@ -46,6 +233,15 @@ class LoRATrainTab(BaseGenerativeTab):
         super().__init__()
         self.last_browsed_scan_dir = LOCAL_SOURCE_PATH
         self._lycoris_process: subprocess.Popen | None = None
+        self._disposing = False
+        self._training_thread: threading.Thread | None = None
+        self._dataset_paths: tuple[str, ...] = ()
+        self._dataset_scope = "folder"
+        self._staging_dir: str | None = None
+        self._staging_root: Path | None = None
+        self._leased_staging_dir: str | None = None
+        self._applied_train_dir: str | None = None
+        self._dataset_worker: DatasetPrepareWorker | None = None
         self.init_ui()
         self.update_status_signal.connect(self.handle_status_update)
         self.training_finished_signal.connect(self.handle_training_finished)
@@ -76,15 +272,17 @@ class LoRATrainTab(BaseGenerativeTab):
         for name, model_id in models:
             self.model_selector.addItem(model_choice_label(name, model_id), model_id)
 
-        self.add_param_widget(layout, "Base Model:", self.model_selector, "model_id")
+        self.add_param_widget(layout, "Base Model:", self.model_selector, "model_id", tier=TIER_SIMPLE)
         self.model_selector.currentIndexChanged.connect(self.update_ui_visibility)
 
         # Dataset Folder
         folder_container = QWidget()
+        self.tag_field(folder_container, tier=TIER_SIMPLE)
         folder_layout = QHBoxLayout(folder_container)
         folder_layout.setContentsMargins(0, 0, 0, 0)
 
         self.data_dir_edit = QLineEdit(self.last_browsed_scan_dir)
+        self.data_dir_edit.editingFinished.connect(self._on_dataset_path_edited)
         self.browse_btn = QPushButton("Browse")
         self.browse_btn.clicked.connect(self.browse_dataset)
 
@@ -93,7 +291,7 @@ class LoRATrainTab(BaseGenerativeTab):
         layout.addRow("Dataset Folder:", folder_container)
 
         self.add_param_widget(
-            layout, "Output Name:", QLineEdit("my_model"), "output_name"
+            layout, "Output Name:", QLineEdit("my_model"), "output_name", tier=TIER_SIMPLE
         )
 
         # --- Training Engine (Content Gen §1.3: LyCORIS variants) ---
@@ -106,38 +304,60 @@ class LoRATrainTab(BaseGenerativeTab):
             "presets under backend/config/training/) for LoCon/LoHa/LoKr\n"
             "adaptation instead of plain LoRA — see content_generation.md §1.3."
         )
-        self.add_param_widget(layout, "Training Engine:", self.engine_combo, "engine")
+        self.add_param_widget(layout, "Training Engine:", self.engine_combo, "engine", tier=TIER_ADVANCED)
 
         # --- Dynamic Configs ---
         self.lora_group = QWidget()
+        self.tag_field(self.lora_group, tier=TIER_STANDARD)
         lora_layout = QFormLayout(self.lora_group)
-        self.prompt_edit = QLineEdit("1girl, style of my_char")
+        self.prompt_edit = PromptEdit("1girl, style of my_char")
+        self.prompt_edit.set_vocabulary(default_vocabulary())
+        self.tag_field(self.prompt_edit, tier=TIER_STANDARD)
+        self.trigger_edit = QLineEdit()
+        self.trigger_edit.setPlaceholderText("activation token only — not the instance prompt")
+        self.tag_field(self.trigger_edit, tier=TIER_STANDARD)
         self.rank_box = QSpinBox()
         self.rank_box.setValue(4)
+        self.tag_field(self.rank_box, tier=TIER_ADVANCED)
 
-        lora_layout.addRow("Trigger Word (Prompt):", self.prompt_edit)
+        lora_layout.addRow("Instance Prompt:", self.prompt_edit)
+        lora_layout.addRow("Trigger Token:", self.trigger_edit)
         lora_layout.addRow("LoRA Rank:", self.rank_box)
         layout.addRow(self.lora_group)
 
         # Common Params
         self.add_param_widget(
-            layout, "Epochs:", QSpinBox(minimum=1, value=5, maximum=100), "epochs"
+            layout, "Epochs:", QSpinBox(minimum=1, value=5, maximum=100), "epochs", tier=TIER_STANDARD
         )
         self.add_param_widget(
             layout,
             "Batch Size:",
             QSpinBox(minimum=1, value=1, maximum=32),
             "batch_size",
+            tier=TIER_STANDARD,
         )
 
         lr_box = QDoubleSpinBox()
         lr_box.setRange(1e-6, 1e-3)
         lr_box.setValue(1e-4)
         lr_box.setDecimals(6)
-        self.add_param_widget(layout, "Learning Rate:", lr_box, "learning_rate")
+        self.add_param_widget(layout, "Learning Rate:", lr_box, "learning_rate", tier=TIER_STANDARD)
+
+        # Connect live changes to effective-config notifications
+        self.data_dir_edit.textChanged.connect(lambda *_: self.notify_effective_config_changed())
+        for field in (self.prompt_edit, self.trigger_edit):
+            sig = getattr(field, "promptChanged", None) or getattr(field, "textChanged", None)
+            if sig is not None:
+                sig.connect(lambda *_: self.notify_effective_config_changed())
+        self.rank_box.valueChanged.connect(lambda *_: self.notify_effective_config_changed())
+        self.model_selector.currentIndexChanged.connect(lambda *_: self.notify_effective_config_changed())
+        self.engine_combo.currentIndexChanged.connect(lambda *_: self.notify_effective_config_changed())
 
         # --- Action Buttons ---
-        button_layout = QHBoxLayout()
+        button_container = QWidget()
+        self.tag_field(button_container, tier=TIER_SIMPLE)
+        button_layout = QHBoxLayout(button_container)
+        button_layout.setContentsMargins(0, 0, 0, 0)
         self.train_btn = QPushButton("Start Training")
         self.cancel_btn = QPushButton("Cancel")
         self.train_btn.clicked.connect(self.start_training_thread)
@@ -152,19 +372,37 @@ class LoRATrainTab(BaseGenerativeTab):
 
         review_tags_btn = QPushButton("Review Tags...")
         review_tags_btn.setToolTip(
-            "Run the WD14 auto-tagger over the dataset folder and review/"
-            "correct predicted tags before training (new_features.md §4.4C)"
+            "Run the WD14 auto-tagger in the dataset panel — does not block this form"
         )
         review_tags_btn.clicked.connect(self._review_tags)
         button_layout.addWidget(review_tags_btn)
 
-        layout.addRow(button_layout)
+        layout.addRow(button_container)
         self.cancel_btn.setEnabled(False)
         self.status_label = QLabel("Ready")
         layout.addRow(self.status_label)
-        self.setLayout(layout)
+
+
+        form_host = QWidget()
+        form_host.setLayout(layout)
+        from gui.src.components.dialogs.tag_review_panel import TagReviewPanel
+
+        self._review_panel = TagReviewPanel(modal_chrome=False)
+        self._review_panel.review_saved.connect(self._on_review_saved)
+        splitter = QSplitter(Qt.Orientation.Horizontal)
+        splitter.addWidget(form_host)
+        splitter.addWidget(self._review_panel)
+        splitter.setStretchFactor(0, 3)
+        splitter.setStretchFactor(1, 2)
+        root = QVBoxLayout()
+        root.setContentsMargins(0, 0, 0, 0)
+        root.addWidget(splitter)
+        self.setLayout(root)
 
     def browse_dataset(self):
+        if self._training_running() or self._review_running():
+            self.status_label.setText("Cannot replace the dataset while training or tag review is running.")
+            return
         directory = QFileDialog.getExistingDirectory(
             self,
             "Select Dataset Folder",
@@ -172,13 +410,22 @@ class LoRATrainTab(BaseGenerativeTab):
             QFileDialog.Option.DontUseNativeDialog,
         )
         if directory:
-            self.data_dir_edit.setText(directory)
             self.last_browsed_scan_dir = directory
+            self.apply_imported_paths((directory,))
 
     def update_ui_visibility(self):
-        is_gan = self.model_selector.currentData() == "animegan_v2"
-        self.lora_group.setVisible(not is_gan)
+        model_id = self.model_selector.currentData()
+        is_gan = model_id == "animegan_v2"
+        self.lora_group.setProperty("disclosure_applicable", not is_gan)
+        self.apply_disclosure_tier(self._active_disclosure_tier)
         self.cancel_btn.setEnabled(False)
+
+        # PromptEdit chips (#733): base-model quality prefix + trigger tokens
+        # mined from past run records (empty until Gate D writes records).
+        prefix = None if is_gan else model_prefix_for(model_id)
+        trigger_tokens = [] if is_gan else self.prompt_edit.trigger_tokens()
+        self.prompt_edit.set_chips([c for c in ([prefix] if prefix else []) + trigger_tokens if c])
+        self.prompt_edit.set_meter_model_id("" if is_gan else model_id)
 
     def cancel_training(self):
         if self._lycoris_process is not None:
@@ -190,33 +437,48 @@ class LoRATrainTab(BaseGenerativeTab):
             else:
                 LoRATuner.cancel_process()
         self.cancel_btn.setEnabled(False)
-        self.train_btn.setEnabled(True)
         self.handle_status_update("Cancellation requested...")
 
     # --- Config Methods ---
     def collect(self) -> dict:
         data = super().collect()
         data["dataset_folder"] = self.data_dir_edit.text()
+        data["dataset_paths"] = list(self._dataset_paths)
+        data["dataset_scope"] = self._dataset_scope
         data["trigger_prompt"] = self.prompt_edit.text()
+        data["trigger_token"] = self.trigger_edit.text()
         data["lora_rank"] = self.rank_box.value()
         return data
 
     def set_config(self, config: dict):
+        if self._disposing or self._training_running() or self._review_running():
+            return
         super().set_config(config)
-        # Restore custom fields
-        if "dataset_folder" in config:
-            self.data_dir_edit.setText(config["dataset_folder"])
         if "trigger_prompt" in config:
             self.prompt_edit.setText(config["trigger_prompt"])
+        if "trigger_token" in config:
+            self.trigger_edit.setText(config["trigger_token"])
         if "lora_rank" in config:
             self.rank_box.setValue(config["lora_rank"])
+        saved_paths = tuple(config.get("dataset_paths") or ())
+        if saved_paths and config.get("dataset_scope") == "selection":
+            self.apply_imported_paths(saved_paths)
+        elif "dataset_folder" in config:
+            folder = config["dataset_folder"]
+            self.data_dir_edit.setText(folder)
+            self._dataset_scope = "folder"
+            self._dataset_paths = ()
+            self.apply_imported_paths((folder,) if folder else ())
 
     def get_default_config(self) -> dict:
         defaults = super().get_default_config()
         defaults.update(
             {
                 "dataset_folder": LOCAL_SOURCE_PATH,
+                "dataset_paths": [],
+                "dataset_scope": "folder",
                 "trigger_prompt": "1girl, style of my_char",
+                "trigger_token": "",
                 "lora_rank": 4,
             }
         )
@@ -229,7 +491,9 @@ class LoRATrainTab(BaseGenerativeTab):
 
     @Slot(str, str)
     def handle_training_finished(self, status_type, message):
-        self.train_btn.setEnabled(True)
+        if self._disposing:
+            return
+        self._restore_start_after_training()
         self.cancel_btn.setEnabled(False)
         LoRATuner.is_cancelled = False
         GanWrapper.is_cancelled = False
@@ -243,7 +507,31 @@ class LoRATrainTab(BaseGenerativeTab):
             self.status_label.setText("Error occurred.")
             QMessageBox.critical(self, "Error", message)
 
+    def _restore_start_after_training(self) -> None:
+        if self._disposing:
+            return
+        if self._training_running():
+            QTimer.singleShot(25, self, self._restore_start_after_training)
+            return
+        self._training_thread = None
+        self._leased_staging_dir = None
+        self.train_btn.setEnabled(True)
+
+    def _review_running(self) -> bool:
+        panel = self._review_panel
+        workers = [panel._worker, *panel._retained_workers]
+        return any(worker is not None and worker.isRunning() for worker in workers)
+
+    def _training_running(self) -> bool:
+        thread = self._training_thread
+        if thread is not None and thread.is_alive():
+            return True
+        process = self._lycoris_process
+        return process is not None and process.poll() is None
+
     def start_training_thread(self):
+        if self._disposing or self._dataset_worker is not None or self._training_running() or self._review_running():
+            return
         self.train_btn.setEnabled(False)
         self.cancel_btn.setEnabled(True)
         self.status_label.setText("Initializing Training...")
@@ -255,18 +543,33 @@ class LoRATrainTab(BaseGenerativeTab):
             "model_id": self.model_selector.currentData(),
             "rank": self.rank_box.value(),
             "prompt": self.prompt_edit.text(),
+            "trigger": self.trigger_edit.text().strip(),
             "output_name": params.get("output_name", "output_lora"),
             "engine": self.engine_combo.currentData(),
         }
+        self._leased_staging_dir = self._staging_dir
         thread = threading.Thread(target=self.run_training, kwargs=config, daemon=True)
+        self._training_thread = thread
         thread.start()
 
-    def run_training(self, params, data_dir, model_id, rank, prompt, output_name, engine="standard"):
+    def run_training(
+        self,
+        params,
+        data_dir,
+        model_id,
+        rank,
+        prompt,
+        output_name,
+        engine="standard",
+        trigger="",
+    ):
+        trigger_word = (trigger or "").strip()
+        instance_prompt = combine_trigger_and_prompt(trigger_word, prompt)
         if engine != "standard" and model_id != "animegan_v2":
             self._run_lycoris_training(
                 data_dir,
                 model_id,
-                prompt,
+                trigger_word or prompt,
                 output_name,
                 engine,
                 epochs=int(params.get("epochs", 5)),
@@ -297,7 +600,7 @@ class LoRATrainTab(BaseGenerativeTab):
                 self.update_status_signal.emit("Training started...")
                 tuner.train(
                     data_dir=data_dir,
-                    instance_prompt=prompt,
+                    instance_prompt=instance_prompt,
                     epochs=params.get("epochs", 5),
                     learning_rate=params.get("learning_rate", 1e-4),
                     batch_size=params.get("batch_size", 1),
@@ -343,7 +646,9 @@ class LoRATrainTab(BaseGenerativeTab):
         `cfg.method == "lycoris"`; only GUI exposure was missing).
 
         The four visible training controls are forwarded as Hydra overrides
-        (#726). The lycoris_* presets leave max_train_steps null, so
+        (#726). The third positional (``prompt``) is Hydra
+        ``data.trigger_word`` — the activation token, not the instance
+        prompt. The lycoris_* presets leave max_train_steps null, so
         max_train_epochs is authoritative in LoRATunerV2's step math.
         """
         self.update_status_signal.emit(
@@ -421,32 +726,181 @@ class LoRATrainTab(BaseGenerativeTab):
         from gui.src.components.dialogs.safetensors_inspector_dialog import SafetensorsInspectorDialog
         SafetensorsInspectorDialog(path=path, parent=self).exec()
 
+    def apply_imported_paths(self, paths: tuple[str, ...]) -> None:
+        if self._disposing:
+            return
+        if self._training_running() or self._review_running():
+            self.status_label.setText("Cannot replace the dataset while training or tag review is running.")
+            return
+        self._start_dataset_worker(paths)
+
+    def _start_dataset_worker(self, paths: tuple[str, ...], *, review_only: bool = False) -> None:
+        from gui.src.helpers.worker_teardown import stop_worker
+
+        previous = self._dataset_worker
+        if previous is not None:
+            previous.discarded = True
+            stop_worker(previous, join=False)
+        self.status_label.setText("Preparing dataset…")
+        worker = DatasetPrepareWorker(paths, self._staging_root)
+        worker.review_only = review_only
+        worker.trigger = self.trigger_edit.text().strip() or None
+        worker.finished.connect(self._on_dataset_prepared)
+        self._dataset_worker = worker
+        worker.start()
+        from gui.src.helpers.worker_retention import retain_until_stopped
+        retain_until_stopped(worker, worker.cleanup_unclaimed)
+
+    @Slot(object)
+    def _on_dataset_prepared(self, imported) -> None:
+        sender = self.sender()
+        if self._disposing or (sender is not None and sender is not self._dataset_worker):
+            return
+        self._dataset_worker = None
+        if not isinstance(imported, ImportedDataset):
+            self.status_label.setText("Dataset preparation failed.")
+            return
+        if imported.train_dir is None:
+            self.status_label.setText("No usable images in that selection.")
+            return
+        if sender is not None and sender.review_only:
+            if not imported.source_paths:
+                self.status_label.setText("No usable images in that selection.")
+                return
+            self._review_panel.start_review(
+                [Path(p) for p in imported.source_paths], trigger=sender.trigger,
+            )
+            return
+        self._apply_resolved(imported)
+
+    def _apply_resolved(self, imported: ImportedDataset) -> None:
+        if self._training_running() or self._review_running():
+            if imported.staged and imported.train_dir:
+                shutil.rmtree(imported.train_dir, ignore_errors=True)
+            self.status_label.setText("Cannot replace the dataset while training is running.")
+            return
+        if imported.train_dir != self._staging_dir:
+            self._clear_staging()
+        if imported.staged:
+            self._staging_dir = imported.train_dir
+        self._dataset_scope = imported.scope
+        self._dataset_paths = imported.source_paths
+        self._applied_train_dir = imported.train_dir
+        self.data_dir_edit.blockSignals(True)
+        self.data_dir_edit.setText(imported.train_dir or "")
+        self.data_dir_edit.blockSignals(False)
+        self.notify_effective_config_changed()
+        if imported.train_dir:
+            self.last_browsed_scan_dir = imported.train_dir
+        count = len(imported.source_paths)
+        if imported.scope == "folder":
+            self.status_label.setText(f"Dataset folder: {count} image(s)")
+        else:
+            self.status_label.setText(f"Dataset: {count} selected image(s)")
+
+    def _on_dataset_path_edited(self) -> None:
+        current = self.data_dir_edit.text().strip()
+        if current == (self._applied_train_dir or ""):
+            return
+        if self._training_running() or self._review_running():
+            self.data_dir_edit.blockSignals(True)
+            self.data_dir_edit.setText(self._applied_train_dir or "")
+            self.data_dir_edit.blockSignals(False)
+            self.status_label.setText("Cannot change the dataset while training is running.")
+            return
+        self._dataset_paths = ()
+        self._dataset_scope = "folder"
+        if not current:
+            self._clear_staging()
+            self._applied_train_dir = None
+            return
+        self.apply_imported_paths((current,))
+
+    def _on_review_saved(self, _written: int) -> None:
+        # Captions are written next to the files in data_dir_edit (the train
+        # dir). Restaging here would rmtree a directory a live job may own.
+        return
+
+    def _clear_staging(self) -> None:
+        if not self._staging_dir:
+            return
+        if self._review_running() or (self._staging_dir == self._leased_staging_dir and self._training_running()):
+            return
+        shutil.rmtree(self._staging_dir, ignore_errors=True)
+        self._staging_dir = None
+
+    def disposal_ready(self) -> bool:
+        return not self._training_running()
+
+    def prepare_dispose(self) -> None:
+        """Nonblocking cancel used by workspace disposal (no closeEvent)."""
+        from gui.src.helpers.worker_teardown import stop_worker
+
+        if self._disposing:
+            return
+        self._disposing = True
+        self._review_panel.stop_review(join=False)
+        if self._dataset_worker is not None:
+            self._dataset_worker.discarded = True
+            stop_worker(self._dataset_worker, join=False)
+        self.cancel_training()
+        thread = self._training_thread
+        leased = self._leased_staging_dir
+        staging = self._staging_dir
+        review_workers = tuple(self._review_panel._retained_workers)
+        if (thread is not None and thread.is_alive()) or any(w.isRunning() for w in review_workers):
+            def _cleanup_after_job() -> None:
+                if thread is not None:
+                    thread.join()
+                for worker in review_workers:
+                    worker.wait()
+                for directory in {leased, staging}:
+                    if directory:
+                        shutil.rmtree(directory, ignore_errors=True)
+
+            threading.Thread(
+                target=_cleanup_after_job,
+                daemon=True,
+                name="itk-train-dataset-cleanup",
+            ).start()
+            self._leased_staging_dir = None
+            self._staging_dir = None
+        else:
+            self._clear_staging()
+
+    def closeEvent(self, event) -> None:
+        self.prepare_dispose()
+        super().closeEvent(event)
+
     def _review_tags(self) -> None:
-        from pathlib import Path
-
+        if self._disposing or self._dataset_worker is not None or self._training_running() or self._review_running():
+            return
         data_dir = self.data_dir_edit.text().strip()
-        if not data_dir or not Path(data_dir).is_dir():
-            QMessageBox.warning(
-                self, "Review Tags", "Select a valid dataset folder first."
-            )
+        if not data_dir:
+            QMessageBox.warning(self, "Review Tags", "Select a valid dataset first.")
             return
+        self._start_dataset_worker((data_dir,), review_only=True)
 
-        exts = {".png", ".jpg", ".jpeg", ".webp", ".bmp"}
-        image_paths = sorted(
-            p for p in Path(data_dir).iterdir() if p.suffix.lower() in exts
-        )
-        if not image_paths:
-            QMessageBox.information(
-                self, "Review Tags", "No images found in the dataset folder."
-            )
-            return
+    def get_effective_config_summary(self) -> str:
+        """Return resolved one-line config to run (#731)."""
+        model_id = self.model_selector.currentData() or self.model_selector.currentText()
+        engine = self.engine_combo.currentText() if hasattr(self, "engine_combo") else "Standard"
+        engine_id = self.engine_combo.currentData() if hasattr(self, "engine_combo") else "standard"
+        epochs = self.widgets["epochs"].value() if "epochs" in self.widgets else 5
+        batch = self.widgets["batch_size"].value() if "batch_size" in self.widgets else 1
+        lr = self.widgets["learning_rate"].value() if "learning_rate" in self.widgets else 1e-4
+        rank = self.rank_box.value() if hasattr(self, "rank_box") else 4
+        trigger = self.trigger_edit.text().strip() if hasattr(self, "trigger_edit") else ""
+        trigger_str = f"'{trigger}'" if trigger else "(none)"
+        prompt = self.prompt_edit.text().strip() if hasattr(self, "prompt_edit") else ""
+        folder = self.data_dir_edit.text().strip() if hasattr(self, "data_dir_edit") else ""
+        folder_str = f" · Dataset: '{folder}'" if folder else ""
+        if engine_id == "standard":
+            inst_prompt = combine_trigger_and_prompt(trigger, prompt)
+            prompt_str = f" · Instance Prompt: '{inst_prompt}'" if inst_prompt else ""
+        else:
+            effective_trigger = trigger or prompt
+            trigger_str = repr(effective_trigger) if effective_trigger else "(none)"
+            prompt_str = ""
+        return f"Model: {model_id} · Engine: {engine} · Epochs: {epochs} · Batch: {batch} · LR: {lr:g} · Rank: {rank} · Trigger: {trigger_str}{prompt_str}{folder_str}"
 
-        from gui.src.components.dialogs.tag_review_dialog import TagReviewDialog
-
-        # Note: self.prompt_edit holds a full instance-prompt string (e.g.
-        # "1girl, style of my_char"), not a single trigger token like
-        # HybridCaptioner's trigger concept — reusing it here would risk
-        # duplicating content already covered by the WD tags. Leave the
-        # caption trigger unset; the user can add one via the dialog's
-        # "Add tag" field if they want a unique activation token.
-        TagReviewDialog(image_paths, parent=self).exec()

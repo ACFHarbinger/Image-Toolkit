@@ -56,9 +56,27 @@ class UnifiedTrainTab(BaseGenerativeTab):
         main_layout.addWidget(self.stack)
 
         # Connect signal
-        self.model_selector.currentIndexChanged.connect(self.stack.setCurrentIndex)
+        self.model_selector.currentIndexChanged.connect(self._on_architecture_changed)
+        for subtab in (self.anything_tab, self.r3gan_tab, self.basic_gan_tab):
+            sig = getattr(subtab, "effective_config_changed", None)
+            if sig is not None and hasattr(sig, "connect"):
+                sig.connect(self.notify_effective_config_changed)
 
         self.setLayout(main_layout)
+
+    def _on_architecture_changed(self, index: int) -> None:
+        self.stack.setCurrentIndex(index)
+        active = self.stack.currentWidget()
+        if active and hasattr(active, "apply_disclosure_tier"):
+            active.apply_disclosure_tier(self._active_disclosure_tier)
+        self.notify_effective_config_changed()
+
+    def get_effective_config_summary(self) -> str:
+        active = self.stack.currentWidget()
+        if active and hasattr(active, "get_effective_config_summary"):
+            return active.get_effective_config_summary()
+        return super().get_effective_config_summary()
+
 
     def collect(self) -> dict:
         active_widget = self.stack.currentWidget()
@@ -86,3 +104,25 @@ class UnifiedTrainTab(BaseGenerativeTab):
         data[SELECTED_MODEL_KEY] = "anything"
         data["sub_config"] = self.anything_tab.get_default_config()
         return data
+
+    def apply_pinned_run(self, run: object) -> None:
+        """Load a pinned run's effective config into the visible trainer (#732)."""
+        config = getattr(run, "config", None)
+        if isinstance(config, dict) and config:
+            self.set_config(config)
+
+    def apply_imported_paths(self, paths: tuple[str, ...]) -> None:
+        self.model_selector.setCurrentIndex(0)
+        self.anything_tab.apply_imported_paths(paths)
+
+    def disposal_ready(self) -> bool:
+        return all(
+            not callable(ready := getattr(tab, "disposal_ready", None)) or ready()
+            for tab in (self.anything_tab, self.r3gan_tab, self.basic_gan_tab)
+        )
+
+    def prepare_dispose(self) -> None:
+        for tab in (self.anything_tab, self.r3gan_tab, self.basic_gan_tab):
+            prepare = getattr(tab, "prepare_dispose", None)
+            if callable(prepare):
+                prepare()
