@@ -41,6 +41,7 @@ from gui.src.tabs.models.dl_workspace_components import (
     GuidedOnboardingCard,
     ProgressiveDisclosureControl,
 )
+from gui.src.tabs.models.guidance_diff_widget import GuidanceDiffWidget
 from gui.src.tabs.models.upscale_handoff import UpscaleRunner
 
 _DESTINATIONS = (
@@ -209,6 +210,21 @@ class DeepLearningWorkspaceHost(QWidget):
 
     def unpin_run(self, run_id: str) -> None:
         self._spine.unpin(run_id)
+
+    def generate_selection(self):
+        """(prompt_id, workflow, surface_mode) of the Generate filmstrip selection.
+
+        Duck-typed so Review never imports the Generate surface (#752).
+        None when nothing (selectable) is selected.
+        """
+        page = self._pages.get("generate")
+        surface = getattr(page, "_comfy_surface", None)
+        strip = getattr(surface, "_filmstrip", None)
+        record = strip.selected_record() if strip is not None else None
+        workflow = getattr(record, "workflow", None) if record is not None else None
+        if not isinstance(workflow, dict):
+            return None
+        return (record.prompt_id, workflow, getattr(record, "surface_mode", None))
 
     def pin_current_form(self) -> PinnedRun | None:
         """Snapshot the visible form into a run card and pin it.
@@ -493,6 +509,21 @@ class _ReviewToolsPage(QWidget):
         self._upscaler.finished.connect(self._on_upscale_finished)
         self._upscaler.error.connect(self._on_upscale_error)
 
+        load_row = QHBoxLayout()
+        self._load_selection_btn = QPushButton("Load selected Generate run")
+        self._load_selection_btn.setObjectName("dl_guidance_load_btn")
+        self._load_selection_btn.setToolTip("Use the Generate filmstrip selection as the critiqued run (#752)")
+        self._load_selection_btn.clicked.connect(self._on_load_generate_selection)
+        load_row.addWidget(self._load_selection_btn)
+        load_row.addStretch()
+        layout.addLayout(load_row)
+        from gui.src.modules.comfy_workspace_controller import ComfyWorkspaceController
+
+        _controller = ComfyWorkspaceController.instance()
+        self._guidance = GuidanceDiffWidget(controller=_controller, manager=_controller.manager)
+        self._guidance.setObjectName("dl_guidance_diff")
+        layout.addWidget(self._guidance)
+
         self.set_compare_paths([])
 
         self._stack = QStackedWidget()
@@ -555,6 +586,23 @@ class _ReviewToolsPage(QWidget):
     def _on_upscale_error(self, message: str) -> None:
         self._upscale_btn.setEnabled(True)
         self._upscale_status.setText(message)
+
+    def show_guidance(self, *, workflow, validation, source_prompt_id=None, source_mode=None) -> None:
+        """Render validated suggestions (#750/#753 produce these; #754 reads the outcome)."""
+        self._guidance.set_guidance(
+            workflow=workflow,
+            validation=validation,
+            source_prompt_id=source_prompt_id,
+            source_mode=source_mode,
+        )
+
+    def _on_load_generate_selection(self) -> None:
+        selection = self._host.generate_selection()
+        if selection is None:
+            self._guidance.note("Select a run in Generate's filmstrip first.")
+            return
+        prompt_id, workflow, mode = selection
+        self._guidance.set_source(prompt_id, workflow, mode)
 
 
 class _RunsPage(QWidget):
