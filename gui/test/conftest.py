@@ -85,6 +85,7 @@ def _mock_model_tree():
         "backend.src.models.tuning.lo_ra_tuner",
         "backend.src.models.wrappers.basic_wrapper",
         "backend.src.models.wrappers.birefnet_wrapper",
+        "backend.src.models.wrappers.esrgan_wrapper",
         "backend.src.models.wrappers.gan_wrapper",
         "backend.src.models.wrappers.loftr_wrapper",
         "backend.src.models.wrappers.sd3_wrapper",

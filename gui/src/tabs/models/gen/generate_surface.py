@@ -10,9 +10,11 @@ from __future__ import annotations
 import contextlib
 import inspect
 import json
+import os
 import queue
 import threading
 from dataclasses import dataclass
+from types import SimpleNamespace
 
 from backend.src.comfy_matrix import (
     AXES,
@@ -27,6 +29,7 @@ from backend.src.comfy_matrix import (
     run_matrix_sweep,
     try_admit,
 )
+from backend.src.constants import LOCAL_SOURCE_PATH
 from backend.src.constants.comfy import ServerState
 from PySide6.QtCore import QBuffer, QByteArray, QIODevice, QSize, Qt, Signal
 from PySide6.QtGui import QIcon, QImage, QImageReader, QPixmap
@@ -49,6 +52,7 @@ from gui.src.tabs.models.gen.comfy_generate_tab import (
     ComfyUITab,
     plan_guided_workflow,
 )
+from gui.src.tabs.models.upscale_handoff import UpscaleRunner, decode_image_bytes
 
 _MODES = ("guided", "graph", "matrix")
 
@@ -167,6 +171,10 @@ class OutputFilmstrip(QWidget):
             return None
         return self._records.get(self._selected_id)
 
+    def select(self, prompt_id: str) -> None:
+        if prompt_id in self._records:
+            self._choose(prompt_id)
+
     def _choose(self, prompt_id: str) -> None:
         self._selected_id = prompt_id
         self._rebuild()
@@ -188,23 +196,28 @@ class OutputFilmstrip(QWidget):
             self._grids.addWidget(self._grid(key, records))
 
     def _enqueue(self, record) -> None:
-        if self._fetcher is None:
-            return
         prompt_id = record.prompt_id
         if prompt_id in self._thumbs or prompt_id in self._pending:
             return
-        filename, subfolder, kind = _first_output(record)
-        if not filename:
-            return
+        local = getattr(record, "local_output_path", None)
+        if isinstance(local, str) and local:
+            job = ("local", prompt_id, local)
+        else:
+            if self._fetcher is None:
+                return
+            filename, subfolder, kind = _first_output(record)
+            if not filename:
+                return
+            job = ("remote", prompt_id, filename, subfolder, kind)
         self._pending.add(prompt_id)
         self._ensure_worker()
         try:
-            self._jobs.put_nowait((prompt_id, filename, subfolder, kind))
+            self._jobs.put_nowait(job)
         except queue.Full:
             with contextlib.suppress(queue.Empty):
                 expired, *_ = self._jobs.get_nowait()
                 self._pending.discard(expired)
-            self._jobs.put_nowait((prompt_id, filename, subfolder, kind))
+            self._jobs.put_nowait(job)
 
     def _ensure_worker(self) -> None:
         if self._worker is not None and self._worker.is_alive():
@@ -215,24 +228,31 @@ class OutputFilmstrip(QWidget):
     def _pump(self) -> None:
         while not self._stop.is_set():
             try:
-                prompt_id, filename, subfolder, kind = self._jobs.get(timeout=0.2)
+                job = self._jobs.get(timeout=0.2)
             except queue.Empty:
                 continue
-            data = None
-            fetcher = self._fetcher
-            if fetcher is not None and prompt_id in self._records:
-                try:
-                    data = fetcher(filename, subfolder, kind)
-                except Exception:
-                    data = None
-            self._pending.discard(prompt_id)
-            if isinstance(data, (bytes, bytearray)) and data and not self._stop.is_set():
-                image = _decode_thumbnail(bytes(data))
-                if not image.isNull() and not self._stop.is_set():
+            prompt_id = job[1]
+            image = QImage()
+            if job[0] == "local":
+                if prompt_id in self._records:
+                    image = _decode_thumbnail_file(job[2])
+            else:
+                _tag, _pid, filename, subfolder, kind = job
+                data = None
+                fetcher = self._fetcher
+                if fetcher is not None and prompt_id in self._records:
                     try:
-                        self.thumb_ready.emit(prompt_id, image)
-                    except RuntimeError:
-                        return  # View destroyed while the fetch was in flight.
+                        data = fetcher(filename, subfolder, kind)
+                    except Exception:
+                        data = None
+                if isinstance(data, (bytes, bytearray)) and data:
+                    image = _decode_thumbnail(bytes(data))
+            self._pending.discard(prompt_id)
+            if not image.isNull() and not self._stop.is_set():
+                try:
+                    self.thumb_ready.emit(prompt_id, image)
+                except RuntimeError:
+                    return  # View destroyed while the fetch was in flight.
 
     def _apply_thumb(self, prompt_id: str, image: QImage) -> None:
         if prompt_id not in self._records or image.isNull():
@@ -269,8 +289,34 @@ class OutputFilmstrip(QWidget):
         return host
 
 
+def _decode_thumbnail_file(path: str) -> QImage:
+    """72px thumbnail decoded from a local file without a full-res read.
+
+    Server-fetched bytes go through :func:`_decode_thumbnail` (2MB cap);
+    upscaled 4x files routinely exceed that, so local records decode via
+    ``QImageReader`` scaling instead. Returns null on any failure.
+    """
+    try:
+        reader = QImageReader(path)
+        size = reader.size()
+        if not size.isValid() or size.width() * size.height() > 64_000_000:
+            return QImage()
+        reader.setScaledSize(size.scaled(72, 72, Qt.AspectRatioMode.KeepAspectRatio))
+        image = reader.read()
+    except Exception:
+        return QImage()
+    if image.isNull():
+        return image
+    return image.scaled(72, 72, Qt.AspectRatioMode.KeepAspectRatio,
+                        Qt.TransformationMode.SmoothTransformation)
+
+
 def _cell_text(record) -> str:
     paths = output_paths(record)
+    if not paths:
+        local = getattr(record, "local_output_path", None)
+        if isinstance(local, str) and local:
+            paths = (local,)
     path = paths[0] if paths else "no output"
     status = getattr(record, "status", "")
     mode = getattr(record, "surface_mode", None) or ""
@@ -413,9 +459,13 @@ class GenerateSurface(QWidget):
         self.guided = ComfyUITab(enable_manager=enable_manager, controller=self._controller)
         self.graph = GraphDraft()
         self._filmstrip = OutputFilmstrip()
-        fetcher = _manager_view_fetcher(self._manager)
-        if fetcher is not None:
-            self._filmstrip.set_view_fetcher(fetcher)
+        self._view_fetch = _manager_view_fetcher(self._manager)
+        if self._view_fetch is not None:
+            self._filmstrip.set_view_fetcher(self._view_fetch)
+        self._upscaler = UpscaleRunner(self)
+        self._upscaler.finished.connect(self._on_upscale_finished)
+        self._upscaler.error.connect(self._on_upscale_error)
+        self._upscale_source_id: str | None = None
         self._build_ui()
         _attach_graph_actions(self)
         self._matrix_status.connect(self._matrix_message.setText)
@@ -427,6 +477,17 @@ class GenerateSurface(QWidget):
         root = QVBoxLayout(self)
         root.setContentsMargins(8, 8, 8, 8)
         root.addLayout(self._mode_row())
+        upscale_row = QHBoxLayout()
+        self._upscale_btn = QPushButton("Upscale selected")
+        self._upscale_btn.setObjectName("generate_upscale_selected")
+        self._upscale_btn.setToolTip("Upscale the filmstrip selection with Real-ESRGAN anime_6B (#749)")
+        self._upscale_btn.clicked.connect(self._on_upscale_selected)
+        self._upscale_message = QLabel("")
+        self._upscale_message.setWordWrap(True)
+        self._upscale_message.setObjectName("generate_upscale_status")
+        upscale_row.addWidget(self._upscale_btn)
+        upscale_row.addWidget(self._upscale_message, stretch=1)
+        root.addLayout(upscale_row)
         root.addWidget(self._filmstrip)
         self._stack = QStackedWidget()
         self._stack.addWidget(self.guided)
@@ -616,6 +677,77 @@ class GenerateSurface(QWidget):
             self.graph.error.setText("Select a run in the filmstrip first.")
             return
         self.graph.load_record(record)
+
+    def _on_upscale_selected(self) -> None:
+        """Snapshot the filmstrip selection locally and upscale it (#749)."""
+        record = self._filmstrip.selected_record()
+        if record is None:
+            self._upscale_message.setText("Select a run in the filmstrip first.")
+            return
+        local = getattr(record, "local_output_path", None)
+        if isinstance(local, str) and local and os.path.isfile(local):
+            self._upscale_source_id = record.prompt_id
+            self._start_upscale_files([local])
+            return
+        if self._view_fetch is None:
+            self._upscale_message.setText("Output fetch is unavailable for this run.")
+            return
+        filename, subfolder, kind = _first_output(record)
+        if not filename:
+            self._upscale_message.setText("Selected run has no downloadable output.")
+            return
+        try:
+            data = self._view_fetch(filename, subfolder, kind)
+        except Exception as exc:
+            self._upscale_message.setText(f"Could not fetch output: {exc}")
+            return
+        if decode_image_bytes(data) is None:
+            self._upscale_message.setText("Could not decode the selected output.")
+            return
+        snap_dir = os.path.join(LOCAL_SOURCE_PATH, "Generated")
+        os.makedirs(snap_dir, exist_ok=True)
+        snapshot = os.path.join(snap_dir, f"{record.prompt_id}.png")
+        try:
+            with open(snapshot, "wb") as handle:
+                handle.write(bytes(data))
+        except OSError as exc:
+            self._upscale_message.setText(f"Could not save output snapshot: {exc}")
+            return
+        self._upscale_source_id = record.prompt_id
+        self._start_upscale_files([snapshot])
+
+    def _start_upscale_files(self, paths: list) -> None:
+        self._upscale_message.setText(f"Upscaling {len(paths)} file(s)…")
+        self._upscale_btn.setEnabled(False)
+        self._upscaler.start(paths)
+
+    def _on_upscale_finished(self, outputs) -> None:
+        self._upscale_btn.setEnabled(True)
+        source = self._upscale_source_id
+        self._upscale_source_id = None
+        if not outputs:
+            self._upscale_message.setText("Upscale finished with no output.")
+            return
+        for path in outputs:
+            prompt_id = (
+                f"{source}_upscaled"
+                if isinstance(source, str) and source
+                else os.path.basename(path)
+            )
+            self._filmstrip.upsert(SimpleNamespace(
+                prompt_id=prompt_id,
+                status="upscaled",
+                surface_mode="upscale",
+                outputs=(),
+                workflow=None,
+                local_output_path=path,
+            ))
+            self._filmstrip.select(prompt_id)
+        self._upscale_message.setText(f"Upscaled → {os.path.basename(outputs[-1])}")
+
+    def _on_upscale_error(self, message: str) -> None:
+        self._upscale_btn.setEnabled(True)
+        self._upscale_message.setText(message)
 
     def _on_queue_graph(self) -> None:
         try:
