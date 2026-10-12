@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
     QDoubleSpinBox,
     QFileDialog,
     QFormLayout,
+    QGroupBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -23,6 +24,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QSpinBox,
     QSplitter,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -160,14 +162,18 @@ def resolve_imported_dataset(
     paths: tuple[str, ...],
     *,
     staging_root: Path | None = None,
+    exclusions: frozenset[str] | None = None,
 ) -> ImportedDataset:
     """Map a handoff to the exact files training and Review Tags will see.
 
-    A single directory stays folder-wide (Extractor / Browse). Explicit
-    files are the training set: the parent is reused only when it contains
-    nothing else, otherwise the selection is staged so siblings and other
-    directories cannot leak in. Missing or non-image paths are dropped
-    before any symlink is created.
+    A single directory stays folder-wide (Extractor / Browse) unless
+    *exclusions* are set — excluded files must not remain visible to a
+    folder-scoped training run, so the kept images fall through to the
+    explicit-selection staging path below. Explicit file selections are the
+    training set: the parent is reused only when it contains nothing else,
+    otherwise the selection is staged so siblings and other directories
+    cannot leak in. Missing or non-image paths are dropped before any
+    symlink is created.
     """
     if not paths:
         return ImportedDataset(None, (), "selection", False)
@@ -175,9 +181,13 @@ def resolve_imported_dataset(
     resolved = [Path(item) for item in paths]
     if len(resolved) == 1 and resolved[0].is_dir():
         images = _image_paths_under(resolved[0])
-        return ImportedDataset(str(resolved[0]), tuple(str(p) for p in images), "folder", False)
+        if not exclusions:
+            return ImportedDataset(str(resolved[0]), tuple(str(p) for p in images), "folder", False)
+        resolved = [p for p in images if str(p.resolve()) not in exclusions]
 
     unique = _existing_images(resolved)
+    if exclusions:
+        unique = [p for p in unique if str(p.resolve()) not in exclusions]
     if not unique:
         return ImportedDataset(None, (), "selection", False)
 
@@ -203,17 +213,25 @@ def dataset_folder_from_paths(
 class DatasetPrepareWorker(BaseQThreadWorker):
     """Scan and stage a Library/Browse handoff off the GUI thread."""
 
-    def __init__(self, paths: tuple[str, ...], staging_root: Path | None) -> None:
+    def __init__(
+        self,
+        paths: tuple[str, ...],
+        staging_root: Path | None,
+        exclusions: frozenset[str] | None = None,
+    ) -> None:
         super().__init__()
         self._paths = paths
         self._staging_root = staging_root
+        self._exclusions = exclusions
         self.result: ImportedDataset | None = None
         self.discarded = False
         self.review_only = False
         self.trigger: str | None = None
 
     def _execute(self) -> object:
-        self.result = resolve_imported_dataset(self._paths, staging_root=self._staging_root)
+        self.result = resolve_imported_dataset(
+            self._paths, staging_root=self._staging_root, exclusions=self._exclusions
+        )
         return self.result
 
     def cleanup_unclaimed(self) -> None:
@@ -243,6 +261,8 @@ class LoRATrainTab(BaseGenerativeTab):
         self._leased_staging_dir: str | None = None
         self._applied_train_dir: str | None = None
         self._dataset_worker: DatasetPrepareWorker | None = None
+        self._advisor_exclusions: set[str] = set()
+        self._dataset_source_folder: str | None = None
         self.init_ui()
         self.update_status_signal.connect(self.handle_status_update)
         self.training_finished_signal.connect(self.handle_training_finished)
@@ -386,13 +406,44 @@ class LoRATrainTab(BaseGenerativeTab):
 
         form_host = QWidget()
         form_host.setLayout(layout)
+        from gui.src.components.dialogs.dataset_advisor_panel import AdvisorPanel
         from gui.src.components.dialogs.tag_review_panel import TagReviewPanel
+        from gui.src.components.virtual_gallery.widget import VirtualGallery
+
+        # #744: contact sheet under the form on the left; Advisor and Review
+        # Tags share the right side as tabs (the panel object is unchanged).
+        self._gallery = VirtualGallery()
+        gallery_box = QGroupBox("Dataset Contact Sheet")
+        gallery_layout = QVBoxLayout(gallery_box)
+        gallery_layout.setContentsMargins(4, 4, 4, 4)
+        gallery_layout.addWidget(self._gallery)
+        left_split = QSplitter(Qt.Orientation.Vertical)
+        left_split.addWidget(form_host)
+        left_split.addWidget(gallery_box)
+        left_split.setStretchFactor(0, 3)
+        left_split.setStretchFactor(1, 2)
 
         self._review_panel = TagReviewPanel(modal_chrome=False)
         self._review_panel.review_saved.connect(self._on_review_saved)
+
+        self._advisor_panel = AdvisorPanel()
+        self._advisor_panel.exclude_requested.connect(self._on_advisor_exclude)
+        self._advisor_panel.restore_requested.connect(self._on_advisor_restore)
+        self._advisor_panel.selection_requested.connect(self._on_advisor_selection)
+        self._advisor_panel.review_tags_requested.connect(self._on_advisor_review_tags)
+        self._advisor_panel.set_training_guard(self._training_running)
+        self._right_tabs = QTabWidget()
+        self._right_tabs.addTab(self._advisor_panel, "Advisor")
+        self._right_tabs.addTab(self._review_panel, "Review Tags")
+        self._update_advisor_hydra_availability()
+        self.engine_combo.currentIndexChanged.connect(
+            lambda *_: self._update_advisor_hydra_availability()
+        )
+        self.trigger_edit.textChanged.connect(self._on_trigger_for_advisor)
+
         splitter = QSplitter(Qt.Orientation.Horizontal)
-        splitter.addWidget(form_host)
-        splitter.addWidget(self._review_panel)
+        splitter.addWidget(left_split)
+        splitter.addWidget(self._right_tabs)
         splitter.setStretchFactor(0, 3)
         splitter.setStretchFactor(1, 2)
         root = QVBoxLayout()
@@ -701,6 +752,10 @@ class LoRATrainTab(BaseGenerativeTab):
             f"training.max_train_epochs={epochs}",
             f"optimizer.unet_lr={learning_rate}",
         ]
+        # #744: advisor-queued Hydra overrides (e.g. pipeline.run_captioning=true).
+        for fragment in self._advisor_panel.hydra_overrides():
+            if fragment not in cmd:
+                cmd.append(fragment)
         try:
             self._lycoris_process = subprocess.Popen(
                 cmd,
@@ -760,12 +815,18 @@ class LoRATrainTab(BaseGenerativeTab):
     def _start_dataset_worker(self, paths: tuple[str, ...], *, review_only: bool = False) -> None:
         from gui.src.helpers.worker_teardown import stop_worker
 
+        if len(paths) == 1 and Path(paths[0]).is_dir():
+            self._dataset_source_folder = paths[0]
         previous = self._dataset_worker
         if previous is not None:
             previous.discarded = True
             stop_worker(previous, join=False)
         self.status_label.setText("Preparing dataset…")
-        worker = DatasetPrepareWorker(paths, self._staging_root)
+        worker = DatasetPrepareWorker(
+            paths,
+            self._staging_root,
+            exclusions=frozenset(self._advisor_exclusions) if self._advisor_exclusions else None,
+        )
         worker.review_only = review_only
         worker.trigger = self.trigger_edit.text().strip() or None
         worker.finished.connect(self._on_dataset_prepared)
@@ -790,6 +851,7 @@ class LoRATrainTab(BaseGenerativeTab):
             if not imported.source_paths:
                 self.status_label.setText("No usable images in that selection.")
                 return
+            self._right_tabs.setCurrentWidget(self._review_panel)
             self._review_panel.start_review(
                 [Path(p) for p in imported.source_paths], trigger=sender.trigger,
             )
@@ -820,6 +882,11 @@ class LoRATrainTab(BaseGenerativeTab):
             self.status_label.setText(f"Dataset folder: {count} image(s)")
         else:
             self.status_label.setText(f"Dataset: {count} selected image(s)")
+        self._gallery.set_paths(list(imported.source_paths))
+        self._advisor_panel.set_images(
+            list(imported.source_paths), self.trigger_edit.text().strip()
+        )
+        self._advisor_panel.set_exclusion_count(len(self._advisor_exclusions))
 
     def _on_dataset_path_edited(self) -> None:
         current = self.data_dir_edit.text().strip()
@@ -844,6 +911,49 @@ class LoRATrainTab(BaseGenerativeTab):
         # dir). Restaging here would rmtree a directory a live job may own.
         return
 
+    # --- Dataset advisor (#744) ---
+
+    def _update_advisor_hydra_availability(self, *_args) -> None:
+        if not hasattr(self, "_advisor_panel"):
+            return
+        engine = self.engine_combo.currentData() if hasattr(self, "engine_combo") else "standard"
+        available = engine != "standard" and not getattr(sys, "frozen", False)
+        self._advisor_panel.set_hydra_available(available)
+
+    def _on_trigger_for_advisor(self, *_args) -> None:
+        if hasattr(self, "_advisor_panel"):
+            self._advisor_panel.refresh_trigger(self.trigger_edit.text().strip())
+
+    def _on_advisor_selection(self, paths: list) -> None:
+        self._gallery.clear_selection()
+        present = [p for p in paths if p in set(self._dataset_paths)]
+        if present:
+            self._gallery.set_selected(present)
+            self._gallery.jump_to_path(present[0])
+
+    def _on_advisor_review_tags(self) -> None:
+        self._right_tabs.setCurrentWidget(self._review_panel)
+        self._review_tags()
+
+    def _on_advisor_exclude(self, paths: list) -> None:
+        self._advisor_exclusions.update(str(Path(p).resolve()) for p in paths)
+        self._restage_for_advisor()
+
+    def _on_advisor_restore(self) -> None:
+        self._advisor_exclusions.clear()
+        self._restage_for_advisor()
+
+    def _restage_for_advisor(self) -> None:
+        source = self._dataset_source_folder or self._applied_train_dir
+        if not source:
+            return
+        if self._training_running() or self._review_running():
+            self.status_label.setText(
+                "Cannot change the dataset while training or tag review is running."
+            )
+            return
+        self._start_dataset_worker((source,))
+
     def _clear_staging(self) -> None:
         if not self._staging_dir:
             return
@@ -863,6 +973,7 @@ class LoRATrainTab(BaseGenerativeTab):
             return
         self._disposing = True
         self._review_panel.stop_review(join=False)
+        self._advisor_panel.stop()
         if self._dataset_worker is not None:
             self._dataset_worker.discarded = True
             stop_worker(self._dataset_worker, join=False)
@@ -925,5 +1036,10 @@ class LoRATrainTab(BaseGenerativeTab):
             effective_trigger = trigger or prompt
             trigger_str = repr(effective_trigger) if effective_trigger else "(none)"
             prompt_str = ""
-        return f"Model: {model_id} · Engine: {engine} · Epochs: {epochs} · Batch: {batch} · LR: {lr:g} · Rank: {rank} · Trigger: {trigger_str}{prompt_str}{folder_str}"
+        overrides = ""
+        if hasattr(self, "_advisor_panel"):
+            pending = self._advisor_panel.hydra_overrides()
+            if pending:
+                overrides = f" · Advisor overrides: {' '.join(pending)}"
+        return f"Model: {model_id} · Engine: {engine} · Epochs: {epochs} · Batch: {batch} · LR: {lr:g} · Rank: {rank} · Trigger: {trigger_str}{prompt_str}{folder_str}{overrides}"
 
