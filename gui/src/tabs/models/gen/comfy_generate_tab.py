@@ -181,6 +181,11 @@ class ComfyUITab(QWidget):
         self._controller = controller or ComfyWorkspaceController.instance()
         self._manager = self._controller.manager
         self.enable_manager = enable_manager
+        # Pre-flight validation state (#738): per-mode issue lists, computed
+        # from the manager's cached /object_info once the server is Ready.
+        self._issues_by_mode: dict[str, list] = {}
+        self._validation_pending = False
+        self._validation_unavailable = False
         self._init_ui()
         self._log_signal.connect(self._append_log)
         self._workflow_finished.connect(self._on_workflow_finished)
@@ -188,6 +193,7 @@ class ComfyUITab(QWidget):
         self._controller.busy_changed.connect(self._refresh_server)
         self._controller.log_line.connect(self._append_log)
         self._controller.error.connect(self._on_service_error)
+        self._controller.object_info_changed.connect(self._on_object_info)
         self._refresh_server()
 
     # ------------------------------------------------------------------
@@ -282,6 +288,7 @@ class ComfyUITab(QWidget):
         self._base_ckpt_edit.setToolTip(
             "Must already exist under ComfyUI/models/checkpoints/. Not downloaded by this app."
         )
+        self._base_ckpt_edit.textChanged.connect(lambda _t: self._on_validation_param_changed(all_modes=True))
         ckpt_row.addWidget(self._base_ckpt_edit, stretch=1)
         wf_layout.addLayout(ckpt_row)
 
@@ -294,6 +301,7 @@ class ComfyUITab(QWidget):
             "IP-Adapter checkpoints under ComfyUI/models/ipadapter/. "
             "Not downloaded by this app -- place the file yourself."
         )
+        self._extra_ckpt_edit.textChanged.connect(lambda _t: self._on_validation_param_changed())
         extra_ckpt_row.addWidget(self._extra_ckpt_edit, stretch=1)
         wf_layout.addLayout(extra_ckpt_row)
 
@@ -328,6 +336,11 @@ class ComfyUITab(QWidget):
 
         queue_row = QHBoxLayout()
         queue_row.addStretch()
+        self._validation_label = QLabel()
+        self._validation_label.setToolTip(
+            "Pre-flight check of the selected mode against the running ComfyUI server"
+        )
+        queue_row.addWidget(self._validation_label)
         self._queue_btn = QPushButton("Queue Workflow")
         self._queue_btn.setToolTip(
             "Upload the control/reference image and submit the curated workflow "
@@ -389,11 +402,21 @@ class ComfyUITab(QWidget):
             else "Disconnect without stopping the external server"
         )
         self._open_btn.setEnabled(ready)
-        self._queue_btn.setEnabled(ready and not busy)
         self._url_label.setText(self._manager.url if active else "—")
         self._status_label.setText(f"Server: {state}")
         if ready:
             self._port_spin.setValue(self._manager.port)
+            # /object_info is warmed off-thread at Ready; until it lands the
+            # Queue button waits in its checking state.
+            self._validation_pending = (
+                not self._validation_unavailable
+                and self._manager.get_object_info() is None
+            )
+        else:
+            self._validation_pending = False
+            self._validation_unavailable = False
+            self._issues_by_mode = {}
+        self._update_queue_state()
 
     @Slot(str)
     def _on_service_error(self, message: str) -> None:
@@ -402,7 +425,92 @@ class ComfyUITab(QWidget):
 
     @Slot()
     def _on_workflow_finished(self) -> None:
-        self._queue_btn.setEnabled(self._controller.server_state == ServerState.READY)
+        self._update_queue_state()
+
+    # ------------------------------------------------------------------
+    # Pre-flight validation (#738)
+    # ------------------------------------------------------------------
+
+    def _workflow_for_mode(self, mode: str) -> dict:
+        cfg = WORKFLOW_MODES[mode]
+        # Only the current mode reads the live extra-checkpoint field; other
+        # modes validate against their defaults (switching modes revalidates).
+        extra = (self._extra_ckpt_edit.text().strip()
+                 if mode == self._mode_combo.currentData()
+                 else cfg["extra_default"])
+        return build_workflow(
+            mode,
+            base_checkpoint=self._base_ckpt_edit.text().strip(),
+            extra_checkpoint=extra,
+            positive_prompt="",
+            negative_prompt="",
+            image_filename="placeholder.png",
+        )
+
+    def _revalidate(self, modes: list[str]) -> None:
+        if self._controller.server_state != ServerState.READY:
+            return
+        if self._manager.get_object_info() is None:
+            return  # warmup still in flight; object_info_changed retriggers
+        for mode in modes:
+            try:
+                self._issues_by_mode[mode] = list(
+                    self._manager.validate_template(self._workflow_for_mode(mode))
+                )
+            except RuntimeError:
+                self._validation_unavailable = True
+                self._issues_by_mode = {}
+                break
+        self._update_queue_state()
+
+    def _on_validation_param_changed(self, *, all_modes: bool = False) -> None:
+        if self._controller.server_state != ServerState.READY:
+            return
+        self._revalidate(list(WORKFLOW_MODES) if all_modes else [self._mode_combo.currentData()])
+
+    def _on_object_info(self, info) -> None:
+        self._validation_pending = False
+        if info is None:
+            # Fetch failed after retries: keep Queue usable (status quo ante)
+            # and say so, rather than blocking generation on a hiccup.
+            self._validation_unavailable = True
+            self._issues_by_mode = {}
+            self._append_log(
+                "[workflow] Pre-flight validation unavailable: "
+                "/object_info did not respond.\n"
+            )
+        else:
+            self._validation_unavailable = False
+            self._revalidate(list(WORKFLOW_MODES))
+        self._update_queue_state()
+
+    def _update_queue_state(self) -> None:
+        mode = self._mode_combo.currentData()
+        ready = (self._controller.server_state == ServerState.READY
+                 and not self._controller.busy)
+        if not ready:
+            self._queue_btn.setEnabled(False)
+            self._validation_label.setText("")
+            return
+        issues = self._issues_by_mode.get(mode, [])
+        if self._validation_pending:
+            self._queue_btn.setEnabled(False)
+            self._validation_label.setText("Checking workflow compatibility…")
+            return
+        if issues:
+            self._queue_btn.setEnabled(False)
+            text = issues[0].message
+            if len(issues) > 1:
+                text += f" (+{len(issues) - 1} more)"
+            self._validation_label.setText(text)
+            self._queue_btn.setToolTip("\n".join(issue.message for issue in issues))
+            return
+        self._queue_btn.setEnabled(True)
+        self._validation_label.setText("" if self._validation_unavailable else "Ready")
+        self._queue_btn.setToolTip(
+            "Upload the control/reference image and submit the curated workflow "
+            "to the running ComfyUI server"
+        )
 
     # ------------------------------------------------------------------
     # ControlNet / IP-Adapter workflow handlers (Content Gen §1.4)
@@ -414,6 +522,7 @@ class ComfyUITab(QWidget):
         self._extra_ckpt_label.setText(cfg["extra_label"])
         self._extra_ckpt_edit.setText(cfg["extra_default"])
         self._image_label.setText(cfg["image_label"])
+        self._revalidate([mode])
 
     def _on_browse_image(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
@@ -443,6 +552,13 @@ class ComfyUITab(QWidget):
         extra_checkpoint = self._extra_ckpt_edit.text().strip()
         positive_prompt = self._prompt_edit.text()
         negative_prompt = self._negative_prompt_edit.text()
+
+        issues = self._issues_by_mode.get(mode)
+        if issues:
+            self._log_signal.emit(
+                f"[workflow] Blocked by pre-flight validation: {issues[0].message}\n"
+            )
+            return
 
         manager = self._manager
         log = self._controller._publish_log

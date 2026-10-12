@@ -18,6 +18,12 @@ from pathlib import Path
 from backend.src.constants.comfy import ServerState
 from backend.src.constants.models import DEFAULT_HOST, DEFAULT_PORT
 from backend.src.models.core.comfy_provenance import ComfyRunRecord, RunTracker
+from backend.src.models.core.comfy_validation import (
+    TemplateIssue,
+)
+from backend.src.models.core.comfy_validation import (
+    validate_template as _validate_template,
+)
 
 COMFYUI_DIR = Path(__file__).parents[4] / "vendor" / "ComfyUI"
 
@@ -56,6 +62,13 @@ class ComfyUIManager:
         self._poll_interval = PROVENANCE_POLL_INTERVAL
         self._poll_stop = threading.Event()
         self._poll_thread: threading.Thread | None = None
+        # Pre-flight validation (#738): /object_info fetched off-thread at
+        # Ready, cached until the server leaves Ready.
+        self._object_info: dict | None = None
+        self._object_info_lock = threading.Lock()
+        self._object_info_listeners: list[Callable[[dict | None], None]] = []
+        self._object_info_thread: threading.Thread | None = None
+        self._object_info_stop = threading.Event()
 
     @property
     def state(self) -> ServerState:
@@ -90,8 +103,10 @@ class ComfyUIManager:
         self._state = state
         if state == ServerState.READY:
             self._start_provenance_poller()
+            self._start_object_info_warmup()
         else:
             self._stop_provenance_poller()
+            self._clear_object_info()
         for listener in tuple(self._state_listeners):
             listener(state)
 
@@ -328,6 +343,94 @@ class ComfyUIManager:
             with self._provenance_lock:
                 self._runs.observe_snapshot(queue_info, history, first=first)
             first = False
+
+    # ------------------------------------------------------------------
+    # Pre-flight validation (#738)
+    #
+    # /object_info is the expensive half of template validation, so it is
+    # fetched once per Ready transition on a worker thread and cached until
+    # the server leaves Ready. validate_template() itself is pure CPU + a
+    # local models-dir listing, safe to call from the GUI thread.
+    # ------------------------------------------------------------------
+
+    def subscribe_object_info(self, listener: Callable[[dict | None], None]) -> None:
+        """Get the cached /object_info once fetched at Ready. Called on a
+        worker thread; a None argument means the fetch failed (fail open)."""
+        self._object_info_listeners.append(listener)
+
+    def get_object_info(self) -> dict | None:
+        with self._object_info_lock:
+            return self._object_info
+
+    def validate_template(
+        self,
+        template: dict,
+        *,
+        object_info: dict | None = None,
+        models_root: Path | None = None,
+    ) -> list[TemplateIssue]:
+        """Check one API-format workflow graph before it is queued.
+
+        Node types/inputs are checked against /object_info (cached at Ready;
+        pass *object_info* to validate against a recording instead, e.g. the
+        pinned fixture in backend/test/fixtures). Referenced model files are
+        checked under *models_root* (default COMFYUI_DIR/models) when the
+        node's /object_info spec declares no choice list for the input.
+        """
+        if object_info is None:
+            object_info = self.get_object_info()
+        if object_info is None:
+            raise RuntimeError(
+                "No /object_info available — validate once the server is Ready."
+            )
+        if models_root is None:
+            models_root = COMFYUI_DIR / "models"
+        return _validate_template(template, object_info, models_root=models_root)
+
+    def _start_object_info_warmup(self) -> None:
+        with self._object_info_lock:
+            if (self._object_info_thread is not None
+                    and self._object_info_thread.is_alive()):
+                return
+            # Each warmup gets its own stop event so a restart can never
+            # resurrect one that is still winding down.
+            stop = threading.Event()
+            self._object_info_stop = stop
+            self._object_info_thread = threading.Thread(
+                target=self._fetch_object_info,
+                args=(stop,),
+                daemon=True,
+                name="comfy-object-info",
+            )
+            self._object_info_thread.start()
+
+    def _clear_object_info(self) -> None:
+        self._object_info_stop.set()
+        thread = self._object_info_thread
+        if thread is not None and thread is not threading.current_thread():
+            thread.join(timeout=0.5)
+        with self._object_info_lock:
+            self._object_info = None
+
+    def _fetch_object_info(self, stop: threading.Event) -> None:
+        info: dict | None = None
+        for attempt in range(3):
+            if stop.is_set():
+                return
+            try:
+                info = self._get_json("/object_info", timeout=10)
+                break
+            except (OSError, ValueError):
+                if stop.wait(1.0 * (attempt + 1)):
+                    return
+        # Re-check under the lock: a state change away from Ready may have
+        # landed while the fetch was in flight.
+        with self._object_info_lock:
+            if stop.is_set():
+                return
+            self._object_info = info
+        for listener in tuple(self._object_info_listeners):
+            listener(info)
 
     # ------------------------------------------------------------------
     # Workflow JSON launch path (Content Gen §1.4 / issue #35)

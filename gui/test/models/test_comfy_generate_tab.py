@@ -8,6 +8,7 @@ guard rails (server-not-running, no-image-selected) plus its happy path
 with the ComfyUIManager network calls mocked out.
 """
 
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -201,3 +202,105 @@ class TestBrowseImage:
             mock_dialog.call_args.kwargs["options"]
             == QFileDialog.Option.DontUseNativeDialog
         )
+
+
+class TestPreFlightValidation:
+    """#738: Queue button reflects validate_template() per guided mode."""
+
+    def _issue(self, message, node_id="8", input_name="control_net_name"):
+        # Duck-typed stand-in for backend TemplateIssue (gui/test conftest
+        # mocks backend.src.models.core.*, so the real dataclass can't load).
+        return SimpleNamespace(
+            node_id=node_id, input_name=input_name,
+            code="missing_file", message=message,
+        )
+
+    def _go_ready(self, tab, *, object_info, issues=()):
+        manager = tab._controller.manager
+        manager.state = ServerState.READY
+        manager.get_object_info.return_value = object_info
+        manager.validate_template.return_value = list(issues)
+        tab._controller.server_state_changed.emit(ServerState.READY)
+
+    def test_queue_waits_while_object_info_pending(self, tab):
+        self._go_ready(tab, object_info=None)
+        assert not tab._queue_btn.isEnabled()
+        assert tab._validation_label.text() == "Checking workflow compatibility…"
+
+    def test_queue_ready_when_no_issues(self, tab):
+        self._go_ready(tab, object_info={"KSampler": {}})
+        tab._controller.object_info_changed.emit({"KSampler": {}})
+        assert tab._queue_btn.isEnabled()
+        assert tab._validation_label.text() == "Ready"
+
+    def test_queue_blocked_with_missing_file_message(self, tab):
+        issue = self._issue(
+            "missing file 'never_downloaded.pth' (input 'control_net_name' of node '8')",
+            node_id="8",
+        )
+        self._go_ready(tab, object_info={"ControlNetLoader": {}}, issues=[issue])
+        tab._controller.object_info_changed.emit({"ControlNetLoader": {}})
+        assert not tab._queue_btn.isEnabled()
+        assert tab._validation_label.text().startswith("missing file")
+        assert issue.message in tab._queue_btn.toolTip()
+
+    def test_multiple_issues_label_counts_the_rest(self, tab):
+        issues = [
+            self._issue("missing file 'a.pth'"),
+            self._issue("missing file 'b.safetensors'", node_id="1", input_name="ckpt_name"),
+        ]
+        self._go_ready(tab, object_info={"x": {}}, issues=issues)
+        tab._controller.object_info_changed.emit({"x": {}})
+        assert tab._validation_label.text() == "missing file 'a.pth' (+1 more)"
+
+    def test_fetch_failure_fails_open(self, tab):
+        self._go_ready(tab, object_info=None)
+        tab._controller.object_info_changed.emit(None)
+        assert tab._queue_btn.isEnabled()
+        assert tab._validation_label.text() == ""
+        assert "Pre-flight validation unavailable" in tab._log_view.toPlainText()
+
+    def test_mode_switch_revalidates_with_mode_defaults(self, tab):
+        self._go_ready(tab, object_info={"x": {}})
+        tab._controller.object_info_changed.emit({"x": {}})
+        assert tab._queue_btn.isEnabled()
+
+        tab._controller.manager.validate_template.return_value = [self._issue("missing file 'x'")]
+        idx = tab._mode_combo.findData("ipadapter_reference")
+        tab._mode_combo.setCurrentIndex(idx)
+
+        assert not tab._queue_btn.isEnabled()
+        assert tab._validation_label.text() == "missing file 'x'"
+        validated = tab._controller.manager.validate_template.call_args[0][0]
+        assert validated["3"]["inputs"]["ipadapter_file"] == "ip-adapter-plus_sdxl_vit-h.safetensors"
+
+    def test_base_checkpoint_edit_revalidates_all_modes(self, tab):
+        self._go_ready(tab, object_info={"x": {}})
+        tab._controller.object_info_changed.emit({"x": {}})
+        tab._controller.manager.validate_template.reset_mock()
+        tab._base_ckpt_edit.setText("animagine_xl.safetensors")
+        assert tab._controller.manager.validate_template.call_count == len(WORKFLOW_MODES)
+
+    def test_queue_click_blocked_when_issues_cached(self, tab):
+        self._go_ready(tab, object_info={"x": {}}, issues=[self._issue("missing file 'a.pth'")])
+        tab._controller.object_info_changed.emit({"x": {}})
+        tab._image_edit.setText("/tmp/control.png")
+        tab._controller.run_http_action = MagicMock()
+
+        logs = []
+        tab._log_signal.connect(logs.append)
+        tab._on_queue_workflow_clicked()
+
+        tab._controller.run_http_action.assert_not_called()
+        assert any("Blocked by pre-flight validation" in line for line in logs)
+
+    def test_leaving_ready_clears_cached_issues(self, tab):
+        self._go_ready(tab, object_info={"x": {}}, issues=[self._issue("missing file 'a.pth'")])
+        tab._controller.object_info_changed.emit({"x": {}})
+        assert not tab._queue_btn.isEnabled()
+
+        tab._controller.manager.state = ServerState.STOPPED
+        tab._controller.server_state_changed.emit(ServerState.STOPPED)
+        assert not tab._queue_btn.isEnabled()
+        assert tab._validation_label.text() == ""
+        assert tab._issues_by_mode == {}

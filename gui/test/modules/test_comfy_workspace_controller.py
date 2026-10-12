@@ -29,6 +29,15 @@ class Manager:
     def subscribe_runs(self, listener):
         self.runs_listener = listener
 
+    def subscribe_object_info(self, listener):
+        pass
+
+    def get_object_info(self):
+        return {}
+
+    def validate_template(self, template, **kwargs):
+        return []
+
     def set_state(self, state):
         self.state = state
         self.listener(state)

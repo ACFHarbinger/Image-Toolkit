@@ -63,3 +63,25 @@ runs, because both are only HTTP history.
   controller forwards to `run_record_changed` for #739/#752).
 - `get_run(prompt_id)` / `runs()` read captured records at any time,
   including after Stop.
+
+## Pre-flight validation (#738)
+
+`ComfyUIManager.validate_template(template)` checks a curated workflow
+before Queue: node `class_type`s and their inputs are verified against
+`GET /object_info`, and model-file inputs (`ckpt_name`,
+`control_net_name`, `ipadapter_file`, …) are verified against the
+server's file choice lists, or against the model folders under
+`COMFYUI_DIR/models` when the node's spec declares a plain widget instead
+of a choice list.
+
+`/object_info` is the expensive half, so the manager fetches it on a
+worker thread at Ready, caches it until the server leaves Ready, and
+notifies `subscribe_object_info` listeners — a `None` argument after
+retries means unavailable and callers fail open. The controller forwards
+this as `object_info_changed`. Queue buttons (legacy tab today, #739's
+Guided|Graph surface next) validate `build_workflow(mode, …)` per guided
+mode on that signal, cache the issues per mode, and stay disabled showing
+the first `TemplateIssue` while any issue is present; checkpoint field
+edits revalidate. Tests validate against a recorded `/object_info` pinned
+to the vendored `vendor/ComfyUI` revision
+(`backend/test/fixtures/comfy_object_info.json`; re-record on bump).

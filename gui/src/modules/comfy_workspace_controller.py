@@ -37,6 +37,7 @@ class ComfyWorkspaceController(QObject):
     log_line = Signal(str)
     browser_opened = Signal(str)
     run_record_changed = Signal(object)
+    object_info_changed = Signal(object)
     _instance: ComfyWorkspaceController | None = None
     tier = "external-only"
 
@@ -66,6 +67,11 @@ class ComfyWorkspaceController(QObject):
         subscribe_runs = getattr(self.manager, "subscribe_runs", None)
         if subscribe_runs is not None:
             subscribe_runs(self._publish_run)
+        # Pre-flight validation cache (#738): fetched on a worker thread at
+        # Ready; None after retries means unavailable (GUI fails open).
+        subscribe_object_info = getattr(self.manager, "subscribe_object_info", None)
+        if subscribe_object_info is not None:
+            subscribe_object_info(self._publish_object_info)
         self._timer = QTimer(self)
         self._timer.setInterval(2000)
         self._timer.timeout.connect(self._probe)
@@ -90,6 +96,10 @@ class ComfyWorkspaceController(QObject):
     def _publish_run(self, record) -> None:
         if not self._closed:
             self.run_record_changed.emit(record)
+
+    def _publish_object_info(self, info) -> None:
+        if not self._closed:
+            self.object_info_changed.emit(info)
 
     def _submit(self, action: Callable[[], object]) -> bool:
         if self._closed or self.busy:
