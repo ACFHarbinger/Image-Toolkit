@@ -113,11 +113,40 @@ class DiagnosticsLogger:
             if epoch is not None:
                 event["epoch"] = int(epoch)
             event.update(metrics)
-            try:
-                self._jsonl.write(json.dumps(event, default=float) + "\n")
-                self._jsonl.flush()
-            except (OSError, ValueError, TypeError):
-                pass  # a dead sink must never kill the training loop
+            self._write_jsonl(event)
+
+    def save_sample(self, image, step: int, epoch: Optional[int] = None) -> Optional[str]:
+        """Persist one sample grid beside the JSONL sink (run-relative
+        ``samples/step-NNNNNN.png``) and mirror it as a JSONL event.
+
+        Checkpoint tournaments (#747) and the live panel (#742) read these
+        grids back; a dead sink or disk error returns None and never
+        raises into the training loop. Same contract as #779's copy so
+        either side of the integration merge behaves identically.
+        """
+        if self._jsonl is None:
+            return None
+        relative = f"samples/step-{int(step):06d}.png"
+        dest = Path(self._jsonl.name).resolve().parent / relative
+        try:
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            image.save(dest)
+        except OSError:
+            return None
+        event = {"step": int(step), "ts": time.time(), "sample": relative}
+        if epoch is not None:
+            event["epoch"] = int(epoch)
+        self._write_jsonl(event)
+        return relative
+
+    def _write_jsonl(self, event: dict) -> None:
+        if self._jsonl is None:
+            return
+        try:
+            self._jsonl.write(json.dumps(event, default=float) + "\n")
+            self._jsonl.flush()
+        except (OSError, ValueError, TypeError):
+            pass  # a dead sink must never kill the training loop
 
     def log_grad_norm(self, model: nn.Module, step: int, prefix: str = "grad") -> float:
         if self.log_grad_every <= 0 or step % self.log_grad_every != 0:
@@ -161,8 +190,17 @@ class DiagnosticsLogger:
         step: int,
         seed: int = 42,
         tag: str = "sample",
+        epoch: Optional[int] = None,
+        generator=None,
     ):
-        gen = torch.Generator("cuda").manual_seed(seed)
+        """Generate a fixed-prompt/fixed-seed grid and persist it.
+
+        The same prompts + seed at every call make grids across
+        checkpoints comparable, which is what blind tournament pairing
+        (#747) depends on. *generator* exists so tests can inject a CPU
+        generator; production uses the fixed-seed CUDA generator.
+        """
+        gen = generator if generator is not None else torch.Generator("cuda").manual_seed(seed)
         with torch.inference_mode():
             imgs = pipe(
                 prompt=prompts,
@@ -171,6 +209,7 @@ class DiagnosticsLogger:
                 generator=gen,
             ).images
         grid = grid_to_pil(imgs)
+        self.save_sample(grid, step, epoch=epoch)
         if self.tb:
             t = torch.tensor(np.asarray(grid)).permute(2, 0, 1)
             self.tb.add_image(tag, t, step)

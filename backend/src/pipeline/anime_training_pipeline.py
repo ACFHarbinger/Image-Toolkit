@@ -346,11 +346,10 @@ def _build_tuner(cfg: DictConfig):
         use_ema=bool(train_cfg.get("use_ema", False)),
         output_dir=str(cfg.get("output_dir", "output_lora")),
         save_every_n_epochs=int(train_cfg.get("save_every_n_epochs", 1)),
-        use_wandb=bool(cfg.get("logging", {}).get("use_wandb", False)),
-        wandb_project=str(
-            cfg.get("logging", {}).get("wandb_project", "anime-diffusion")
-        ),
-        use_tensorboard=bool(cfg.get("logging", {}).get("use_tensorboard", True)),
+        # #741 removed the dead use_wandb/wandb_project/use_tensorboard
+        # fields from LoRATunerConfig — passing them here raised a
+        # constructor TypeError that killed every pipeline run (caught in
+        # Codex's Gate D review; the Hydra logging.* tree is separate).
         validation_prompts=list(cfg.get("validation_prompts", [])),
     )
 

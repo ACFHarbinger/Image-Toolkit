@@ -95,3 +95,96 @@ def test_unwritable_sink_does_not_prevent_training(tmp_path):
     logger.log_step(1, loss=0.5)
     logger.close()
     assert parent.read_text() == "keep"
+
+
+# ---------------------------------------------------------------------------
+# #747: sample-grid persistence (the material checkpoint tournaments pair up)
+# ---------------------------------------------------------------------------
+
+def test_save_sample_writes_grid_and_event(tmp_path):
+    from PIL import Image
+
+    logger = write_events(tmp_path)
+    rel = logger.save_sample(Image.new("RGB", (8, 8), "red"), step=5, epoch=2)
+    logger.close()
+    assert rel == "samples/step-000005.png"
+    assert (tmp_path / "samples" / "step-000005.png").exists()
+    events = [json.loads(line) for line in (tmp_path / "events.jsonl").read_text().splitlines()]
+    assert events[-1]["step"] == 5
+    assert events[-1]["sample"] == rel
+    assert events[-1]["epoch"] == 2
+
+
+def test_save_sample_epoch_absent_when_not_given(tmp_path):
+    from PIL import Image
+
+    logger = write_events(tmp_path)
+    logger.save_sample(Image.new("RGB", (8, 8)), step=1)
+    logger.close()
+    event = json.loads((tmp_path / "events.jsonl").read_text().splitlines()[-1])
+    assert "epoch" not in event
+
+
+def test_save_sample_without_jsonl_is_noop(tmp_path):
+    from PIL import Image
+
+    logger = DiagnosticsLogger(run_name="legacy", use_tensorboard=False, use_wandb=False)
+    assert logger.save_sample(Image.new("RGB", (8, 8)), step=1, epoch=0) is None
+    logger.close()
+    assert not (tmp_path / "samples").exists()
+
+
+def test_save_sample_disk_error_never_raises(tmp_path, monkeypatch):
+    from PIL import Image
+
+    def boom(*args, **kwargs):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(Image.Image, "save", boom)
+    logger = write_events(tmp_path)
+    assert logger.save_sample(Image.new("RGB", (8, 8)), step=1) is None
+    logger.log_step(2, loss=0.1)  # the training loop keeps going
+    logger.close()
+    assert json.loads((tmp_path / "events.jsonl").read_text())["step"] == 2
+
+
+def test_log_sample_grid_persists_fixed_prompt_grid(tmp_path):
+    import torch
+    from PIL import Image
+
+    calls = {}
+
+    class FakePipe:
+        def __call__(self, **kwargs):
+            calls.update(kwargs)
+            return type("Out", (), {"images": [Image.new("RGB", (8, 8)) for _ in kwargs["prompt"]]})()
+
+        def set_progress_bar_config(self, **kwargs):
+            pass
+
+    logger = write_events(tmp_path)
+    gen = torch.Generator().manual_seed(1)  # injected CPU generator — no CUDA in tests
+    logger.log_sample_grid(FakePipe(), ["a cat", "a dog"], 9, seed=42, epoch=1, generator=gen)
+    logger.close()
+    assert (tmp_path / "samples" / "step-000009.png").exists()
+    assert calls["prompt"] == ["a cat", "a dog"]
+    assert calls["num_inference_steps"] == 30
+    assert calls["guidance_scale"] == 6.0
+    assert calls["generator"] is gen  # fixed-seed determinism is the whole point
+    events = [json.loads(line) for line in (tmp_path / "events.jsonl").read_text().splitlines()]
+    assert events[-1]["sample"] == "samples/step-000009.png"
+    assert events[-1]["epoch"] == 1
+
+
+def test_log_sample_grid_without_run_dir_does_not_write_disk(tmp_path):
+    import torch
+    from PIL import Image
+
+    class FakePipe:
+        def __call__(self, **kwargs):
+            return type("Out", (), {"images": [Image.new("RGB", (8, 8))]})()
+
+    logger = DiagnosticsLogger(run_name="legacy", use_tensorboard=False, use_wandb=False)
+    logger.log_sample_grid(FakePipe(), ["a cat"], 3, generator=torch.Generator().manual_seed(1))
+    logger.close()
+    assert not (tmp_path / "samples").exists()
