@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
 
 from gui.src.components.prompt_edit import PromptEdit
 from gui.src.components.prompt_vocabulary import default_vocabulary, model_prefix_for
+from gui.src.tabs.models.upscale_handoff import UpscaleRunner, latest_output_paths
 
 from ....classes.base.base_generative_tab import (
     TIER_ADVANCED,
@@ -153,9 +154,17 @@ class LoRAGenerateTab(BaseGenerativeTab):
         self.cancel_btn = QPushButton("Cancel")
         self.gen_btn.clicked.connect(self.start_generation_thread)
         self.cancel_btn.clicked.connect(self.cancel_generation)
+        self.upscale_btn = QPushButton("Upscale Output")
+        self.upscale_btn.setObjectName("lora_upscale_btn")
+        self.upscale_btn.setToolTip("Upscale the latest output with Real-ESRGAN anime_6B (#749)")
+        self.upscale_btn.clicked.connect(self.start_upscale)
+        self._upscaler = UpscaleRunner(self)
+        self._upscaler.finished.connect(self.handle_upscale_finished)
+        self._upscaler.error.connect(self.handle_upscale_error)
 
         button_layout.addWidget(self.gen_btn)
         button_layout.addWidget(self.cancel_btn)
+        button_layout.addWidget(self.upscale_btn)
         layout.addRow(button_container)
         self.cancel_btn.setEnabled(False)
         self.setLayout(layout)
@@ -335,6 +344,32 @@ class LoRAGenerateTab(BaseGenerativeTab):
             QMessageBox.warning(self, "Result", message)
         else:
             QMessageBox.critical(self, "Error", message)
+
+    def start_upscale(self) -> bool:
+        """Upscale the latest output file(s) on the shared GPU admission (#749)."""
+        paths = latest_output_paths(
+            self.widgets["output_filename"].text(), self.batch_size_box.value()
+        )
+        if not paths:
+            QMessageBox.information(
+                self,
+                "Upscale",
+                "Generate an image first — no output file found to upscale.",
+            )
+            return False
+        self.upscale_btn.setEnabled(False)
+        self._upscaler.start(paths)
+        return True
+
+    @Slot(list)
+    def handle_upscale_finished(self, outputs):
+        self.upscale_btn.setEnabled(True)
+        QMessageBox.information(self, "Upscale", "Upscaled:\n" + "\n".join(outputs))
+
+    @Slot(str)
+    def handle_upscale_error(self, message):
+        self.upscale_btn.setEnabled(True)
+        QMessageBox.critical(self, "Upscale Error", message)
 
     @Slot(str, str, str, str, str, int, float, int)
     def generate_from_qml(

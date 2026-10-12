@@ -41,6 +41,7 @@ from gui.src.tabs.models.dl_workspace_components import (
     GuidedOnboardingCard,
     ProgressiveDisclosureControl,
 )
+from gui.src.tabs.models.upscale_handoff import UpscaleRunner
 
 _DESTINATIONS = (
     ("train", "Train"),
@@ -476,6 +477,22 @@ class _ReviewToolsPage(QWidget):
         self._compare_layout = QVBoxLayout(self._compare_host)
         self._compare_layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self._compare_host, stretch=1)
+
+        upscale_row = QHBoxLayout()
+        self._upscale_btn = QPushButton("Send to Upscale")
+        self._upscale_btn.setObjectName("dl_review_upscale_btn")
+        self._upscale_btn.setToolTip("Upscale the first compared image with Real-ESRGAN anime_6B (#749)")
+        self._upscale_btn.clicked.connect(self._on_upscale)
+        self._upscale_status = QLabel("")
+        self._upscale_status.setWordWrap(True)
+        self._upscale_status.setObjectName("dl_review_upscale_status")
+        upscale_row.addWidget(self._upscale_btn)
+        upscale_row.addWidget(self._upscale_status, stretch=1)
+        layout.addLayout(upscale_row)
+        self._upscaler = UpscaleRunner(self)
+        self._upscaler.finished.connect(self._on_upscale_finished)
+        self._upscaler.error.connect(self._on_upscale_error)
+
         self.set_compare_paths([])
 
         self._stack = QStackedWidget()
@@ -512,6 +529,32 @@ class _ReviewToolsPage(QWidget):
         view = ImageCompareWindow(paths, parent=self._compare_host, embedded=True)
         view.setObjectName("dl_compare_view")
         self._compare_layout.addWidget(view)
+
+    def _on_upscale(self) -> None:
+        """Upscale the focused (first) compared image on the shared admission (#749)."""
+        paths = list(getattr(self, "_compare_paths", ()))
+        if not paths:
+            self._upscale_status.setText("No output to upscale — pin an image first.")
+            return
+        self._upscale_btn.setEnabled(False)
+        self._upscale_status.setText(f"Upscaling {os.path.basename(paths[0])}…")
+        self._upscaler.start([paths[0]])
+
+    def _on_upscale_finished(self, outputs) -> None:
+        self._upscale_btn.setEnabled(True)
+        if not outputs:
+            self._upscale_status.setText("Upscale finished with no output.")
+            return
+        paths = list(getattr(self, "_compare_paths", ()))
+        for path in outputs:
+            if path not in paths:
+                paths.append(path)
+        self.set_compare_paths(paths)
+        self._upscale_status.setText(f"Upscaled → {os.path.basename(outputs[-1])}")
+
+    def _on_upscale_error(self, message: str) -> None:
+        self._upscale_btn.setEnabled(True)
+        self._upscale_status.setText(message)
 
 
 class _RunsPage(QWidget):
