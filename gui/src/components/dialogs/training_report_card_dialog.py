@@ -10,7 +10,7 @@ from backend.src.core.training_report import (
     STATUS_WARN,
     ReportCard,
 )
-from PySide6.QtCore import QUrl
+from PySide6.QtCore import QUrl, Signal
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import QDialog, QHBoxLayout, QLabel, QPushButton, QVBoxLayout
 
@@ -26,7 +26,17 @@ _STATUS_DOTS = {STATUS_GOOD: "●", STATUS_WARN: "●", STATUS_BAD: "●", STATU
 class TrainingReportCardDialog(QDialog):
     """Renders a ReportCard: one row per verdict plus the suggestion banner."""
 
-    def __init__(self, card: ReportCard, *, run_dir: str = "", parent=None) -> None:
+    # #743: fired by "View Rank Chart" when the run has adapter artifacts.
+    rank_chart_requested = Signal()
+
+    def __init__(
+        self,
+        card: ReportCard,
+        *,
+        run_dir: str = "",
+        rank_chart_available: bool = False,
+        parent=None,
+    ) -> None:
         super().__init__(parent)
         self.setWindowTitle("Training Report Card")
         self.setModal(False)
@@ -52,6 +62,11 @@ class TrainingReportCardDialog(QDialog):
 
         buttons = QHBoxLayout()
         buttons.addStretch()
+        if rank_chart_available:
+            rank_btn = QPushButton("View Rank Chart")
+            rank_btn.setToolTip("Effective rank vs chosen rank across checkpoints (#743)")
+            rank_btn.clicked.connect(self.rank_chart_requested.emit)
+            buttons.addWidget(rank_btn)
         if run_dir:
             open_btn = QPushButton("Open Run Folder")
             open_btn.setToolTip(run_dir)

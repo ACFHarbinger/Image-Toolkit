@@ -254,17 +254,87 @@ class DatasetPrepareWorker(BaseQThreadWorker):
             ).start()
 
 
+def _rank_utilization_for_run(run_dir: str):
+    """#743: RankUtilization for the #746 card, from the run's checkpoints.
+
+    Pure-type validation guards against the GUI test mock tree — a fake
+    rank_history result degrades to (None, availability) instead of
+    poisoning the card.
+    """
+    from backend.src.core.adapter_reports import RankHistoryReport
+    from backend.src.core.training_report import RankUtilization
+    from backend.src.core.training_runs import read_run_record
+
+    record = read_run_record(run_dir)
+    if record is None:
+        return None, False
+    lora_path = str(record.get("lora_path") or "")
+    if not lora_path:
+        return None, False
+    output = Path(lora_path)
+    if output.is_file():
+        output = output.parent
+    try:
+        from backend.src.models.hooks.adapter_geometry import rank_history
+
+        report = rank_history(output)
+    except Exception:
+        # Artifacts may still chart fine; the chart worker re-tries.
+        return None, True
+    if not isinstance(report, RankHistoryReport):
+        return None, True
+    available = bool(report.snapshots)
+    latest = report.latest()
+    utilization = latest.utilization() if latest is not None else None
+    return (utilization if isinstance(utilization, RankUtilization) else None), available
+
+
 class TrainingReportWorker(BaseQThreadWorker):
     def __init__(self, run_dir: str, findings) -> None:
         super().__init__()
         self.run_dir = run_dir
         self.findings = findings
+        self.rank = None
+        self.rank_available = False
 
     def _execute(self):
         from backend.src.core.training_report import generate_training_report
         from backend.src.core.training_runs import iter_events
 
-        return generate_training_report(iter_events(self.run_dir), dataset_findings=self.findings)
+        self.rank, self.rank_available = _rank_utilization_for_run(self.run_dir)
+        return generate_training_report(
+            iter_events(self.run_dir),
+            rank_utilization=self.rank,
+            dataset_findings=self.findings,
+        )
+
+
+class AdapterRankWorker(BaseQThreadWorker):
+    """#743: rank history for the chart dialog, off the GUI thread."""
+
+    def __init__(self, run_dir: str) -> None:
+        super().__init__()
+        self.run_dir = run_dir
+        self.record = None
+
+    def _execute(self) -> object:
+        from backend.src.core.adapter_reports import RankHistoryReport
+        from backend.src.core.training_runs import read_run_record
+
+        self.record = read_run_record(self.run_dir) or {}
+        lora_path = str((self.record or {}).get("lora_path") or "")
+        if not lora_path:
+            return RankHistoryReport(output_dir="", note="run has no adapter artifact")
+        output = Path(lora_path)
+        if output.is_file():
+            output = output.parent
+        try:
+            from backend.src.models.hooks.adapter_geometry import rank_history
+
+            report = rank_history(output)
+        except Exception as exc:
+            report = RankHistoryReport(output_dir=str(output), note=f"rank analysis failed: {exc}")
+        return report if isinstance(report, RankHistoryReport) else None
 
 
 class LoRATrainTab(BaseGenerativeTab):
@@ -613,10 +683,46 @@ class LoRATrainTab(BaseGenerativeTab):
             return
         from gui.src.components.dialogs.training_report_card_dialog import TrainingReportCardDialog
 
-        dialog = TrainingReportCardDialog(card, run_dir=worker.run_dir, parent=self)
+        dialog = TrainingReportCardDialog(
+            card, run_dir=worker.run_dir, parent=self,
+            rank_chart_available=worker.rank_available,
+        )
+        dialog.rank_chart_requested.connect(lambda: self._open_rank_chart(worker.run_dir))
         dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         dialog.show()
         self._report_card_dialog = dialog
+
+    def _open_rank_chart(self, run_dir: str) -> None:
+        """#743: compute rank history off-thread, then open the chart."""
+        if self._disposing or getattr(self, "_rank_worker", None) is not None:
+            return
+        worker = AdapterRankWorker(run_dir)
+        worker.finished.connect(self._on_rank_history_ready)
+        self._rank_worker = worker
+        retain_until_stopped(worker)
+        worker.start()
+
+    @Slot(object)
+    def _on_rank_history_ready(self, report: object) -> None:
+        worker = self.sender()
+        if worker is not getattr(self, "_rank_worker", None):
+            return
+        self._rank_worker = None
+        if self._disposing:
+            return
+        from backend.src.core.adapter_reports import RankHistoryReport
+
+        from gui.src.components.dialogs.adapter_rank_chart_dialog import AdapterRankChartDialog
+
+        if not isinstance(report, RankHistoryReport):
+            QMessageBox.information(self, "Adapter Geometry", "No adapter checkpoints found for this run.")
+            return
+        dialog = AdapterRankChartDialog(
+            report, run_dir=worker.run_dir, record=worker.record, parent=self
+        )
+        dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        dialog.show()
+        self._rank_chart_dialog = dialog
 
     def _restore_start_after_training(self) -> None:
         if self._disposing:
