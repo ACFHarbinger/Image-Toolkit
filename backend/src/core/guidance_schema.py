@@ -26,13 +26,19 @@ Pure/torch-free on purpose: #752 (Diff & Apply) and #753 (evidence,
 abstention) import this without touching the mocked models tree, and
 schema adherence is CI-checkable without any live model call. Unknown
 top-level keys are tolerated so #753 can extend v1.
+
+#753's v1 extension (all optional, parsed tolerantly — malformed values
+are dropped, never a parse failure): each change may carry ``evidence[]``
+(:class:`EvidenceRef`) and a 0–1 ``confidence``; the response may carry
+top-level ``needs[]`` (abstention: what to capture before re-trying) and
+a free-text ``diagnosis``.
 """
 from __future__ import annotations
 
 import hashlib
 import json
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -79,12 +85,32 @@ class Verdict:
 
 
 @dataclass(frozen=True)
+class EvidenceRef:
+    """#753: one measured signal behind a suggestion.
+
+    ``kind`` names the artifact family (``tournament``, ``advisor_finding``,
+    ``run_record``, ``training_metric``, ``ocr``, ``vlm``); ``ref`` carries
+    its ids (run_id, checkpoint key, finding id, …); ``summary`` is a
+    one-liner the renderer shows — ``guidance_evidence.resolve`` replaces
+    it with the real measured value when the artifact is on disk.
+    """
+
+    kind: str
+    ref: dict[str, Any] = field(default_factory=dict)
+    summary: str = ""
+
+
+@dataclass(frozen=True)
 class ParamChange:
     node_id: str
     input_name: str  # wire key: "input"
     from_value: Any  # wire key: "from"
     to_value: Any  # wire key: "to"
     reason: str = ""
+    # #753 extensions (optional in v1): what measured signals back this
+    # change, and how confident the advisor is (0–1).
+    evidence: tuple[EvidenceRef, ...] = ()
+    confidence: float | None = None
 
 
 @dataclass(frozen=True)
@@ -94,6 +120,8 @@ class ModelSwap:
     from_value: Any
     to_value: Any
     reason: str = ""
+    evidence: tuple[EvidenceRef, ...] = ()
+    confidence: float | None = None
 
 
 @dataclass(frozen=True)
@@ -103,6 +131,11 @@ class GuidanceResponse:
     workflow_param_changes: tuple[ParamChange, ...] = ()
     model_swap: ModelSwap | None = None
     dataset_guidance: str | None = None
+    # #753 abstention extension: what the advisor needs before it will
+    # guess again. Non-empty needs with no actionable changes = the
+    # first-class "insufficient evidence" output.
+    needs: tuple[str, ...] = ()
+    diagnosis: str | None = None
 
 
 @dataclass(frozen=True)
@@ -169,6 +202,40 @@ def _extract_json(payload: str) -> str:
     return payload.strip()
 
 
+def _evidence_refs(raw: Any) -> tuple[EvidenceRef, ...]:
+    """#753: parse per-change evidence tolerantly — a malformed entry is
+    dropped, never a reason to reject an otherwise-valid response (the
+    hard failures live in the validators)."""
+    if not isinstance(raw, list):
+        return ()
+    refs: list[EvidenceRef] = []
+    for entry in raw:
+        if not isinstance(entry, dict):
+            continue
+        kind = entry.get("kind")
+        if not isinstance(kind, str) or not kind:
+            continue
+        ref = entry.get("ref") if isinstance(entry.get("ref"), dict) else {}
+        summary = entry.get("summary", "")
+        refs.append(
+            EvidenceRef(
+                kind=kind,
+                ref=dict(ref),
+                summary=summary if isinstance(summary, str) else str(summary),
+            )
+        )
+    return tuple(refs)
+
+
+def _confidence_value(raw: Any) -> float | None:
+    """0–1 float or None; anything else is ignored, not an error."""
+    if isinstance(raw, bool):
+        return None
+    if isinstance(raw, (int, float)):
+        return max(0.0, min(1.0, float(raw)))
+    return None
+
+
 def _change(data: Any, errors: list[str], kind: type) -> Any | None:
     if not isinstance(data, dict):
         errors.append(f"{kind.__name__} entry is not an object")
@@ -191,6 +258,8 @@ def _change(data: Any, errors: list[str], kind: type) -> Any | None:
         from_value=data["from"],
         to_value=data["to"],
         reason=reason if isinstance(reason, str) else str(reason),
+        evidence=_evidence_refs(data.get("evidence")),
+        confidence=_confidence_value(data.get("confidence")),
     )
 
 
@@ -235,6 +304,18 @@ def parse_guidance_response(payload: Any) -> ParsedGuidance:
     if guidance is not None and not isinstance(guidance, str):
         errors.append("dataset_guidance must be a string or null")
 
+    # #753 abstention fields — parsed tolerantly like evidence; a
+    # non-list ``needs`` is ignored rather than failing the response.
+    raw_needs = data.get("needs")
+    needs = (
+        tuple(str(n) for n in raw_needs if isinstance(n, str) and str(n).strip())
+        if isinstance(raw_needs, list)
+        else ()
+    )
+    diagnosis = data.get("diagnosis")
+    if diagnosis is not None and not isinstance(diagnosis, str):
+        diagnosis = str(diagnosis)
+
     if errors:
         return ParsedGuidance(ok=False, errors=tuple(errors))
     return ParsedGuidance(
@@ -245,6 +326,8 @@ def parse_guidance_response(payload: Any) -> ParsedGuidance:
             workflow_param_changes=tuple(changes),
             model_swap=swap,
             dataset_guidance=guidance,
+            needs=needs,
+            diagnosis=diagnosis,
         ),
     )
 
