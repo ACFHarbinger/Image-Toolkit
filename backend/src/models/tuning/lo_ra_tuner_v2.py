@@ -468,7 +468,7 @@ class LoRATunerV2:
                 prog.set_postfix({"loss": loss.detach().item(), "step": global_step})
 
                 if diagnostics is not None:
-                    diagnostics.log_step(global_step, loss=loss.detach().item())
+                    diagnostics.log_step(global_step, epoch=epoch, loss=loss.detach().item())
 
                 if global_step >= total_steps:
                     break

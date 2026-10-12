@@ -199,3 +199,14 @@ def test_unload_clears_model(tiny_wrapper):
     assert tiny_wrapper.loaded
     tiny_wrapper.unload()
     assert not tiny_wrapper.loaded
+
+
+def test_unload_releases_shared_model_cache():
+    wrapper = ESRGANWrapper(device="cpu")
+    model = object()
+    wrapper._model = model
+    key = (wrapper.model_name, wrapper.num_block, wrapper.device)
+    ESRGANWrapper._models[key] = model
+    wrapper.unload()
+    assert not wrapper.loaded
+    assert key not in ESRGANWrapper._models

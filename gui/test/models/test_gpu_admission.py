@@ -56,7 +56,8 @@ def test_lora_training_refuses_when_admission_is_held():
         )
     finally:
         gpu_lease.release("matrix")
-    status, message = tab.training_finished_signal.emit.call_args[0]
+    status, message, run_dir = tab.training_finished_signal.emit.call_args[0]
+    assert run_dir == ""
     assert status == "error"
     assert "matrix" in message
     assert gpu_lease.owner is None
