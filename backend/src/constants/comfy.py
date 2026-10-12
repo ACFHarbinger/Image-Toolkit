@@ -14,3 +14,13 @@ class ViewState(StrEnum):
     LOADING = "Loading"
     DISPLAYED = "Displayed"
     RENDERER_FAILED = "RendererFailed"
+
+
+class RunStatus(StrEnum):
+    """Lifecycle of a captured ComfyUI prompt run (#737)."""
+
+    PENDING = "Pending"
+    RUNNING = "Running"
+    COMPLETED = "Completed"
+    FAILED = "Failed"
+    INTERRUPTED = "Interrupted"

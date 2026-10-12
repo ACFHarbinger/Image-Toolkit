@@ -17,6 +17,7 @@ from pathlib import Path
 
 from backend.src.constants.comfy import ServerState
 from backend.src.constants.models import DEFAULT_HOST, DEFAULT_PORT
+from backend.src.models.core.comfy_provenance import ComfyRunRecord, RunTracker
 
 COMFYUI_DIR = Path(__file__).parents[4] / "vendor" / "ComfyUI"
 
@@ -26,6 +27,10 @@ COMFYUI_DIR = Path(__file__).parents[4] / "vendor" / "ComfyUI"
 # menu option produces, and the same format already used by the personal
 # reference pipeline at configs/workflow_api.json.
 WORKFLOWS_DIR = Path(__file__).parents[4] / "configs" / "comfy_workflows"
+
+# /history window per poll; matches the tracker's baseline record limit.
+HISTORY_POLL_ITEMS = 64
+PROVENANCE_POLL_INTERVAL = 2.0
 
 
 class ComfyUIManager:
@@ -43,6 +48,14 @@ class ComfyUIManager:
         self._logs: queue.Queue[str] = queue.Queue(maxsize=1024)
         self._state_listeners: list[Callable[[ServerState], None]] = []
         self._log_listeners: list[Callable[[str], None]] = []
+        # Run-provenance capture (#737): pure tracker + poller thread that
+        # is driven by server state, never by any view.
+        self._runs = RunTracker()
+        self._provenance_lock = threading.Lock()
+        self._poller_lock = threading.Lock()
+        self._poll_interval = PROVENANCE_POLL_INTERVAL
+        self._poll_stop = threading.Event()
+        self._poll_thread: threading.Thread | None = None
 
     @property
     def state(self) -> ServerState:
@@ -58,10 +71,27 @@ class ComfyUIManager:
     def subscribe_log(self, listener: Callable[[str], None]) -> None:
         self._log_listeners.append(listener)
 
+    def subscribe_runs(self, listener: Callable[[ComfyRunRecord], None]) -> None:
+        """Get every run-record create/update. Called on a worker thread;
+        GUI consumers must marshal (queued signal or equivalent)."""
+        self._runs.subscribe(listener)
+
+    def get_run(self, prompt_id: str) -> ComfyRunRecord | None:
+        with self._provenance_lock:
+            return self._runs.get(prompt_id)
+
+    def runs(self) -> tuple[ComfyRunRecord, ...]:
+        with self._provenance_lock:
+            return self._runs.snapshot()
+
     def _set_state(self, state: ServerState) -> None:
         if state == self._state:
             return
         self._state = state
+        if state == ServerState.READY:
+            self._start_provenance_poller()
+        else:
+            self._stop_provenance_poller()
         for listener in tuple(self._state_listeners):
             listener(state)
 
@@ -248,6 +278,58 @@ class ComfyUIManager:
                 continue
 
     # ------------------------------------------------------------------
+    # Run provenance (#737)
+    #
+    # /queue + /history are polled whenever the server is Ready so the
+    # executed API-format graph, inputs, and outputs are captured as run
+    # records regardless of how the user drove the server (app queue call
+    # or their own browser). Capture stops with the poller on any state
+    # change away from Ready; records already captured stay queryable.
+    # ------------------------------------------------------------------
+
+    def _get_json(self, path: str, timeout: float = 5.0) -> dict:
+        with urllib.request.urlopen(f"{self.url}{path}", timeout=timeout) as response:
+            return json.loads(response.read(8 * 1024 * 1024))
+
+    def _start_provenance_poller(self) -> None:
+        with self._poller_lock:
+            if self._poll_thread is not None and self._poll_thread.is_alive():
+                return
+            # Each poller gets its own stop event so a restart can never
+            # resurrect a poller that is still winding down.
+            stop = threading.Event()
+            self._poll_stop = stop
+            self._poll_thread = threading.Thread(
+                target=self._poll_provenance,
+                args=(stop,),
+                daemon=True,
+                name="comfy-provenance",
+            )
+            self._poll_thread.start()
+
+    def _stop_provenance_poller(self) -> None:
+        with self._poller_lock:
+            thread = self._poll_thread
+            self._poll_thread = None
+            self._poll_stop.set()
+        if thread is not None and thread is not threading.current_thread():
+            thread.join(timeout=0.5)
+
+    def _poll_provenance(self, stop: threading.Event) -> None:
+        first = True
+        while not stop.wait(self._poll_interval):
+            try:
+                queue_info = self._get_json("/queue")
+                history = self._get_json(f"/history?max_items={HISTORY_POLL_ITEMS}")
+            except (OSError, ValueError):
+                # Transient failures retry on the next tick; state changes
+                # away from Ready stop this thread via the event.
+                continue
+            with self._provenance_lock:
+                self._runs.observe_snapshot(queue_info, history, first=first)
+            first = False
+
+    # ------------------------------------------------------------------
     # Workflow JSON launch path (Content Gen §1.4 / issue #35)
     #
     # The pre-existing manager only started/stopped the ComfyUI server and
@@ -341,4 +423,7 @@ class ComfyUIManager:
         except urllib.error.HTTPError as exc:
             detail = exc.read().decode("utf-8", errors="replace")
             raise RuntimeError(f"ComfyUI rejected the workflow: {detail}") from exc
-        return result["prompt_id"]
+        prompt_id = result["prompt_id"]
+        with self._provenance_lock:
+            self._runs.record_submitted(prompt_id, workflow, client_id)
+        return prompt_id

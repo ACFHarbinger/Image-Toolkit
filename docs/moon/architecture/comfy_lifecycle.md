@@ -39,3 +39,27 @@ is drained independently of the tab and displayed with a bounded history.
 For #737, provenance polling stays in the manager and is independent of
 browser state. For #739, reuse this coordinator rather than launching a
 second server or tying stop() to a disposable destination page.
+
+## Run provenance (#737)
+
+Capture is a manager-side poller with no view coupling: whenever the
+server is Ready, `/queue` and `/history?max_items=64` are polled off the
+GUI thread and diffed by prompt id into bounded run records (executed
+API-format graph, client id, outputs, terminal status, partial flag).
+Any state change away from Ready stops the poller; records survive and
+capture resumes on the next Ready without duplicating known ids. Runs the
+user drives from an external browser are captured exactly like app-queued
+runs, because both are only HTTP history.
+
+- First successful poll baselines: the newest `BASELINE_RECORD_LIMIT`
+  (32) history entries become records; older ids are marked seen and
+  never re-emitted.
+- `queue_workflow()` creates an optimistic Pending record immediately;
+  the server-echoed graph from history is the provenance truth.
+- A queued id that leaves the queue without ever reaching history closes
+  as Interrupted with `partial=True` after a two-poll grace period.
+- `subscribe_runs(listener)` is invoked on every record create/update
+  from a worker thread — GUI consumers must marshal (the workspace
+  controller forwards to `run_record_changed` for #739/#752).
+- `get_run(prompt_id)` / `runs()` read captured records at any time,
+  including after Stop.

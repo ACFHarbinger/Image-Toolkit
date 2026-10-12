@@ -36,6 +36,7 @@ class ComfyWorkspaceController(QObject):
     error = Signal(str)
     log_line = Signal(str)
     browser_opened = Signal(str)
+    run_record_changed = Signal(object)
     _instance: ComfyWorkspaceController | None = None
     tier = "external-only"
 
@@ -59,6 +60,12 @@ class ComfyWorkspaceController(QObject):
         self._closed = False
         self.manager.subscribe_state(self._publish_state)
         self.manager.subscribe_log(self._publish_log)
+        # Run records arrive on the provenance poller or queue-worker thread;
+        # emitting here hands them to GUI-thread receivers via queued
+        # connections (#737, consumed by #739/#752).
+        subscribe_runs = getattr(self.manager, "subscribe_runs", None)
+        if subscribe_runs is not None:
+            subscribe_runs(self._publish_run)
         self._timer = QTimer(self)
         self._timer.setInterval(2000)
         self._timer.timeout.connect(self._probe)
@@ -79,6 +86,10 @@ class ComfyWorkspaceController(QObject):
     def _publish_log(self, line: str) -> None:
         if not self._closed:
             self.log_line.emit(line)
+
+    def _publish_run(self, record) -> None:
+        if not self._closed:
+            self.run_record_changed.emit(record)
 
     def _submit(self, action: Callable[[], object]) -> bool:
         if self._closed or self.busy:

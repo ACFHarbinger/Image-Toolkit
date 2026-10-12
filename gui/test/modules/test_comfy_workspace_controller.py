@@ -18,12 +18,16 @@ class Manager:
         self.stops = 0
         self.starts = 0
         self.listener = lambda state: None
+        self.runs_listener = lambda record: None
 
     def subscribe_state(self, listener):
         self.listener = listener
 
     def subscribe_log(self, listener):
         pass
+
+    def subscribe_runs(self, listener):
+        self.runs_listener = listener
 
     def set_state(self, state):
         self.state = state
@@ -127,3 +131,21 @@ def test_http_action_runs_off_ui_thread(controller):
     assert controller.run_http_action(lambda: seen.append(threading.get_ident()))
     settle(controller)
     assert seen and seen[0] != ui_thread
+
+
+def test_run_records_are_forwarded_as_signal(controller):
+    record = object()
+    received = []
+    controller.run_record_changed.connect(received.append)
+    controller.manager.runs_listener(record)
+    qt_test.qWait(10)
+    assert received == [record]
+
+
+def test_shutdown_stops_run_forwarding(controller):
+    received = []
+    controller.run_record_changed.connect(received.append)
+    controller.shutdown()
+    controller.manager.runs_listener(object())
+    qt_test.qWait(10)
+    assert received == []
