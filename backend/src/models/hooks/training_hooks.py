@@ -113,11 +113,37 @@ class DiagnosticsLogger:
             if epoch is not None:
                 event["epoch"] = int(epoch)
             event.update(metrics)
-            try:
-                self._jsonl.write(json.dumps(event, default=float) + "\n")
-                self._jsonl.flush()
-            except (OSError, ValueError, TypeError):
-                pass  # a dead sink must never kill the training loop
+            self._write_jsonl(event)
+
+    def save_sample(self, image, step: int, epoch: Optional[int] = None) -> Optional[str]:
+        """Write one fixed-seed sample beside the JSONL sink (#742).
+
+        The event records a run-relative path. A dead sink or disk error
+        returns None and does not raise into the training loop.
+        """
+        if self._jsonl is None:
+            return None
+        relative = f"samples/step-{int(step):06d}.png"
+        dest = Path(self._jsonl.name).resolve().parent / relative
+        try:
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            image.save(dest)
+        except OSError:
+            return None
+        event = {"step": int(step), "ts": time.time(), "sample": relative}
+        if epoch is not None:
+            event["epoch"] = int(epoch)
+        self._write_jsonl(event)
+        return relative
+
+    def _write_jsonl(self, event: dict) -> None:
+        if self._jsonl is None:
+            return
+        try:
+            self._jsonl.write(json.dumps(event, default=float) + "\n")
+            self._jsonl.flush()
+        except (OSError, ValueError, TypeError):
+            pass  # a dead sink must never kill the training loop
 
     def log_grad_norm(self, model: nn.Module, step: int, prefix: str = "grad") -> float:
         if self.log_grad_every <= 0 or step % self.log_grad_every != 0:
@@ -171,6 +197,7 @@ class DiagnosticsLogger:
                 generator=gen,
             ).images
         grid = grid_to_pil(imgs)
+        self.save_sample(grid, step)
         if self.tb:
             t = torch.tensor(np.asarray(grid)).permute(2, 0, 1)
             self.tb.add_image(tag, t, step)
