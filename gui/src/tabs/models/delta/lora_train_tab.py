@@ -1,4 +1,7 @@
+import contextlib
+import os
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -40,6 +43,7 @@ from PySide6.QtWidgets import (
 from gui.src.components.prompt_edit import PromptEdit
 from gui.src.components.prompt_vocabulary import default_vocabulary, model_prefix_for
 from gui.src.helpers.base import BaseQThreadWorker
+from gui.src.tabs.models.delta.live_training_panel import LiveTrainingPanel
 
 from ....classes.base.base_generative_tab import (
     TIER_ADVANCED,
@@ -65,6 +69,21 @@ _TRAINING_ENGINES = [
 
 
 _DATASET_IMAGE_EXTS = frozenset({".png", ".jpg", ".jpeg", ".webp", ".bmp"})
+
+
+def _signal_process_group(proc, sig: int) -> bool:
+    """Signal the LyCORIS session. False means the caller should use ``terminate``."""
+    if proc is None or proc.poll() is not None:
+        return True
+    pid = getattr(proc, "pid", None)
+    # MagicMock pid is not a session id. bool is an int subclass and is not a pid.
+    if isinstance(pid, bool) or not isinstance(pid, int) or pid <= 0:
+        return False
+    try:
+        os.killpg(pid, sig)
+    except OSError:
+        return False
+    return True
 
 
 class ImportedDataset(NamedTuple):
@@ -239,6 +258,7 @@ class LoRATrainTab(BaseGenerativeTab):
     # --- Define Signals for Thread-Safe Communication ---
     update_status_signal = Signal(str)
     training_finished_signal = Signal(str, str)
+    run_directory_ready = Signal(str)
 
     def __init__(self):
         super().__init__()
@@ -253,9 +273,11 @@ class LoRATrainTab(BaseGenerativeTab):
         self._leased_staging_dir: str | None = None
         self._applied_train_dir: str | None = None
         self._dataset_worker: DatasetPrepareWorker | None = None
+        self._group_kill_timer: QTimer | None = None
         self.init_ui()
         self.update_status_signal.connect(self.handle_status_update)
         self.training_finished_signal.connect(self.handle_training_finished)
+        self.run_directory_ready.connect(self._live_panel.follow)
 
     def init_ui(self):
         layout = QFormLayout()
@@ -392,6 +414,8 @@ class LoRATrainTab(BaseGenerativeTab):
         self.cancel_btn.setEnabled(False)
         self.status_label = QLabel("Ready")
         layout.addRow(self.status_label)
+        self._live_panel = LiveTrainingPanel()
+        layout.addRow(self._live_panel)
 
 
         form_host = QWidget()
@@ -439,8 +463,12 @@ class LoRATrainTab(BaseGenerativeTab):
         self.prompt_edit.set_meter_model_id("" if is_gan else model_id)
 
     def cancel_training(self):
-        if self._lycoris_process is not None:
-            self._lycoris_process.terminate()
+        proc = self._lycoris_process
+        if proc is not None:
+            # The child is its own session, so this does not signal the GUI.
+            if not _signal_process_group(proc, signal.SIGTERM):
+                proc.terminate()
+            self._arm_group_kill(proc)
         else:
             model_id = self.model_selector.currentData()
             if model_id == "animegan_v2":
@@ -449,6 +477,27 @@ class LoRATrainTab(BaseGenerativeTab):
                 LoRATuner.cancel_process()
         self.cancel_btn.setEnabled(False)
         self.handle_status_update("Cancellation requested...")
+
+    def _arm_group_kill(self, proc) -> None:
+        """SIGKILL only if SIGTERM has not exited the session. Tests stop this timer."""
+        pid = getattr(proc, "pid", None)
+        if isinstance(pid, bool) or not isinstance(pid, int) or pid <= 0:
+            return
+        if self._group_kill_timer is not None:
+            self._group_kill_timer.stop()
+        timer = QTimer(self)
+        timer.setSingleShot(True)
+
+        def _escalate() -> None:
+            if proc.poll() is not None:
+                return
+            if not _signal_process_group(proc, signal.SIGKILL):
+                with contextlib.suppress(OSError):
+                    proc.kill()
+
+        timer.timeout.connect(_escalate)
+        self._group_kill_timer = timer
+        timer.start(2000)
 
     # --- Config Methods ---
     def collect(self) -> dict:
@@ -546,6 +595,7 @@ class LoRATrainTab(BaseGenerativeTab):
         self.train_btn.setEnabled(False)
         self.cancel_btn.setEnabled(True)
         self.status_label.setText("Initializing Training...")
+        self._live_panel.begin(int(self.widgets["epochs"].value()))
         params = self.collect()  # Use collect instead of get_params for consistency
 
         config = {
@@ -583,6 +633,8 @@ class LoRATrainTab(BaseGenerativeTab):
             run_dir = self._create_run_record(
                 params, data_dir, model_id, rank, prompt, output_name, engine, trigger,
             )
+            if run_dir is not None:
+                self.run_directory_ready.emit(str(run_dir))
             self._run_training_admitted(
                 params, data_dir, model_id, rank, prompt, output_name, engine, trigger,
                 run_dir=run_dir,
@@ -799,6 +851,7 @@ class LoRATrainTab(BaseGenerativeTab):
                 stderr=subprocess.STDOUT,
                 text=True,
                 bufsize=1,
+                start_new_session=True,
             )
             assert self._lycoris_process.stdout is not None
             for line in self._lycoris_process.stdout:
