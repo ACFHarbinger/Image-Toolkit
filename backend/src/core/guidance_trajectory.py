@@ -19,7 +19,9 @@ tournament votes.
 from __future__ import annotations
 
 import json
+import os
 import re
+import tempfile
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
@@ -136,11 +138,11 @@ class GuidanceTrajectory:
             if isinstance(item, dict)
         ) if isinstance(raw, list) else ()
         max_steps = data.get("max_steps", MAX_STORED_STEPS)
-        if not isinstance(max_steps, int) or max_steps < 2:
+        if type(max_steps) is not int or not 2 <= max_steps <= MAX_STORED_STEPS:
             max_steps = MAX_STORED_STEPS
         return cls(
             root_prompt_id=str(data.get("root_prompt_id") or ""),
-            steps=steps,
+            steps=truncate_steps(steps, max_steps),
             max_steps=max_steps,
         )
 
@@ -178,7 +180,8 @@ def truncate_steps(
     max_steps: int = MAX_STORED_STEPS,
 ) -> tuple[TrajectoryStep, ...]:
     """Keep the first feedback and the latest state; drop the middle."""
-    if max_steps < 2 or len(steps) <= max_steps:
+    max_steps = max(2, min(MAX_STORED_STEPS, max_steps))
+    if len(steps) <= max_steps:
         return steps
     return (steps[0],) + steps[-(max_steps - 1) :]
 
@@ -220,6 +223,8 @@ def record_verdict(
             if step.variant_prompt_id == variant_prompt_id:
                 idx = i
                 break
+        else:
+            return traj
     step = traj.steps[idx]
     updated = replace(step, verdict=verdict)
     extra = (feedback or "").strip()
@@ -287,9 +292,14 @@ def trajectory_sidecar_path(directory: str | Path, root_prompt_id: str) -> Path:
 def save_trajectory(path: str | Path, traj: GuidanceTrajectory) -> Path:
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
-    tmp = target.with_name(target.name + ".tmp")
-    tmp.write_text(json.dumps(traj.to_dict(), indent=2), encoding="utf-8")
-    tmp.replace(target)
+    descriptor, name = tempfile.mkstemp(dir=target.parent, prefix=target.name, suffix=".tmp")
+    tmp = Path(name)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+            json.dump(traj.to_dict(), handle, indent=2)
+        tmp.replace(target)
+    finally:
+        tmp.unlink(missing_ok=True)
     return target
 
 

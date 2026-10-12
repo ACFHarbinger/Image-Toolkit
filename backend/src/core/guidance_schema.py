@@ -37,8 +37,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import re
+from collections import Counter
 from dataclasses import dataclass, field
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
 
@@ -231,7 +234,7 @@ def _confidence_value(raw: Any) -> float | None:
     """0–1 float or None; anything else is ignored, not an error."""
     if isinstance(raw, bool):
         return None
-    if isinstance(raw, (int, float)):
+    if isinstance(raw, (int, float)) and math.isfinite(raw):
         return max(0.0, min(1.0, float(raw)))
     return None
 
@@ -278,11 +281,11 @@ def parse_guidance_response(payload: Any) -> ParsedGuidance:
         return ParsedGuidance(ok=False, errors=("response is not a JSON object",))
 
     version = data.get("schema_version")
-    if version != SCHEMA_VERSION:
+    if type(version) is not int or version != SCHEMA_VERSION:
         errors.append(f"schema_version must be {SCHEMA_VERSION}, got {version!r}")
 
     wf_hash = data.get("workflow_hash")
-    if not isinstance(wf_hash, str) or len(wf_hash) != 64:
+    if not isinstance(wf_hash, str) or re.fullmatch(r"[0-9a-f]{64}", wf_hash) is None:
         errors.append("workflow_hash missing or not a sha256 hex digest")
 
     changes: list[ParamChange] = []
@@ -343,8 +346,8 @@ def _coerce_equal(claimed: Any, current: Any) -> bool:
         return _as_bool(claimed) is current
     if isinstance(current, (int, float)):
         try:
-            return float(claimed) == float(current)
-        except (TypeError, ValueError):
+            return Decimal(str(claimed)) == Decimal(str(current))
+        except (TypeError, ValueError, InvalidOperation):
             return False
     if isinstance(current, (list, tuple)):
         try:
@@ -374,14 +377,61 @@ def _model_family(input_name: str) -> str:
     return "checkpoints"
 
 
+
+def _is_asset_input(input_name: str) -> bool:
+    return any(marker in input_name.lower() for marker, _family in _INPUT_FAMILY)
+
+
 def _asset_installed(name: Any, family: str, models_root: Path | None) -> bool:
     if models_root is None or not isinstance(name, str) or not name:
         return False
     folder = models_root / family
     if not folder.is_dir():
         return False
-    target = Path(name).name.lower()
-    return any(path.name.lower() == target for path in folder.rglob("*") if path.is_file())
+    relative = Path(name)
+    if relative.is_absolute() or ".." in relative.parts:
+        return False
+    return (folder / relative).is_file()
+
+
+
+def _typed_destination(current: Any, proposed: Any) -> Any:
+    if isinstance(current, bool):
+        value = _as_bool(proposed)
+        if value is None:
+            raise ValueError("destination must be boolean")
+        return value
+    if isinstance(current, (int, float)):
+        if isinstance(proposed, bool):
+            raise ValueError("boolean is not a numeric destination")
+        if isinstance(current, int):
+            try:
+                integer = Decimal(str(proposed))
+                if not integer.is_finite() or integer != integer.to_integral_value():
+                    raise ValueError("destination must be a finite integer")
+                return int(integer)
+            except InvalidOperation as exc:
+                raise ValueError("destination must be an integer") from exc
+        value = float(proposed)
+        if not math.isfinite(value):
+            raise ValueError("destination must be finite")
+        return value
+    if isinstance(current, str) and isinstance(proposed, str):
+        return proposed
+    raise ValueError("only scalar input changes are supported")
+
+
+
+def _numeric_verdict(change: ParamChange | ModelSwap, destination: Any) -> SuggestionVerdict:
+    bounds = NUMERIC_BOUNDS.get(change.input_name)
+    if bounds is not None:
+        try:
+            value = float(destination)
+        except (TypeError, ValueError, OverflowError):
+            return SuggestionVerdict(change, Verdict.OUT_OF_RANGE, f"{change.input_name} must be numeric")
+        if not bounds[0] <= value <= bounds[1]:
+            return SuggestionVerdict(change, Verdict.OUT_OF_RANGE, f"{change.input_name}={value} outside {bounds}")
+    return SuggestionVerdict(change, Verdict.VALID)
 
 
 def validate_guidance(
@@ -401,6 +451,8 @@ def validate_guidance(
         )
 
     hallucination = False
+    changes = response.workflow_param_changes + ((response.model_swap,) if response.model_swap else ())
+    counts = Counter((c.node_id, c.input_name) for c in changes)
 
     def check(change: ParamChange | ModelSwap) -> SuggestionVerdict:
         nonlocal hallucination
@@ -414,7 +466,13 @@ def validate_guidance(
             return SuggestionVerdict(
                 change, Verdict.INVALID_INPUT, f"input {change.input_name!r} not on node {change.node_id}"
             )
+        if counts[(change.node_id, change.input_name)] > 1:
+            return SuggestionVerdict(change, Verdict.INVALID_INPUT, "duplicate input change")
         current = inputs[change.input_name]
+        try:
+            destination = _typed_destination(current, change.to_value)
+        except (TypeError, ValueError, OverflowError) as exc:
+            return SuggestionVerdict(change, Verdict.OUT_OF_RANGE, str(exc))
         if not _coerce_equal(change.from_value, current):
             hallucination = True
             return SuggestionVerdict(
@@ -422,7 +480,10 @@ def validate_guidance(
                 Verdict.FROM_MISMATCH,
                 f"claimed from {change.from_value!r} but real value is {current!r}",
             )
-        if isinstance(change, ModelSwap):
+        asset_input = isinstance(current, str) and _is_asset_input(change.input_name)
+        if isinstance(change, ModelSwap) and not asset_input:
+            return SuggestionVerdict(change, Verdict.INVALID_INPUT, "model swap requires a model-name input")
+        if isinstance(change, ModelSwap) or asset_input:
             if not _asset_installed(change.to_value, _model_family(change.input_name), models_root):
                 return SuggestionVerdict(
                     change,
@@ -430,17 +491,7 @@ def validate_guidance(
                     f"{change.to_value!r} is not installed — proposed installation required",
                 )
             return SuggestionVerdict(change, Verdict.VALID)
-        bounds = NUMERIC_BOUNDS.get(change.input_name)
-        if bounds is not None:
-            try:
-                value = float(change.to_value)
-            except (TypeError, ValueError):
-                return SuggestionVerdict(change, Verdict.OUT_OF_RANGE, f"{change.input_name} must be numeric")
-            if not bounds[0] <= value <= bounds[1]:
-                return SuggestionVerdict(
-                    change, Verdict.OUT_OF_RANGE, f"{change.input_name}={value} outside {bounds}"
-                )
-        return SuggestionVerdict(change, Verdict.VALID)
+        return _numeric_verdict(change, destination)
 
     for change in response.workflow_param_changes:
         verdicts.append(check(change))
@@ -472,7 +523,7 @@ def apply_validated(
     Returns None when there is nothing safe to apply."""
     if not isinstance(workflow, dict):
         return None
-    if validation.stale or validation.hallucination_flagged:
+    if validation.stale or validation.hallucination_flagged or workflow_hash(workflow) != validation.response.workflow_hash:
         return None
     changes = validation.valid_changes()
     if not changes:
@@ -485,7 +536,12 @@ def apply_validated(
         inputs = node.setdefault("inputs", {})
         if change.input_name not in inputs:
             return None
-        inputs[change.input_name] = change.to_value
+        if not _coerce_equal(change.from_value, inputs[change.input_name]):
+            return None
+        try:
+            inputs[change.input_name] = _typed_destination(inputs[change.input_name], change.to_value)
+        except (TypeError, ValueError, OverflowError):
+            return None
     return patched
 
 

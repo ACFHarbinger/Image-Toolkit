@@ -145,9 +145,9 @@ def _validated(**change_over):
 def test_confidence_for_change_reads_validation():
     change, validation = _validated(confidence=0.9)
     score = ge.confidence_for_change(change, validation)
-    # Verified premise + confident advisor but zero corroborating evidence:
+    # Advisor self-confidence is not corroborating evidence:
     # honestly medium, not high (Qwen's rubric reserves high for agreement).
-    assert score == pytest.approx(0.76)
+    assert score == pytest.approx(0.7)
     assert ge.confidence_band(score).name == "medium"
 
 
@@ -282,3 +282,32 @@ def test_needs_pick_list(tmp_path):
     )
     assert ge.needs_pick_list(needs, refs) == (str(img),)
     assert ge.needs_pick_list((), refs) == ()
+
+
+def test_invented_evidence_cannot_raise_confidence():
+    from dataclasses import replace
+
+    change, validation = _validated()
+    fake = replace(change, confidence=1.0,
+                   evidence=tuple(EvidenceRef(kind=k) for k in ("madeup", "vlm", "ocr", "training_metric")))
+    assert ge.confidence_for_change(fake, validation) == ge.confidence_for_change(change, validation)
+
+
+def test_evidence_paths_do_not_import_directories_or_iterate_strings(tmp_path):
+    ref = EvidenceRef(kind="advisor_finding", ref={"paths": str(tmp_path)})
+    assert ge.needs_pick_list(("more",), (ref,)) == ()
+    ref = EvidenceRef(kind="advisor_finding", ref={"paths": [str(tmp_path)]})
+    assert ge.needs_pick_list(("more",), (ref,)) == ()
+
+
+def test_missing_checkpoint_does_not_silently_resolve_to_leader(run_with_tournament):
+    result = ge.resolve_evidence(
+        EvidenceRef(kind="tournament", ref={"run_id": run_with_tournament.name, "checkpoint": "missing"}),
+        runs_root=run_with_tournament.parent,
+    )
+    assert result.stale
+
+
+def test_run_reference_cannot_escape_runs_root(tmp_path):
+    result = ge.resolve_evidence(EvidenceRef(kind="run_record", ref={"run_id": "../elsewhere"}), runs_root=tmp_path)
+    assert result.stale and not result.target_dir

@@ -337,6 +337,11 @@ class ChatVlmAdvisor:
         return VlmObservation(self.name, parse_observations(content), None)
 
     def _refuse(self, path: Path, approved: bool) -> str | None:
+        parsed = urllib.parse.urlparse(self.endpoint)
+        if parsed.scheme not in {"http", "https"} or not parsed.hostname or parsed.username or parsed.password:
+            return "Endpoint must be an HTTP(S) URL without credentials."
+        if self.placement == "cloud" and not _is_loopback(parsed.hostname.lower()) and parsed.scheme != "https":
+            return "Cloud endpoints require HTTPS."
         if not path.is_file():
             return "Image file is missing."
         if path.stat().st_size > MAX_IMAGE_BYTES:
@@ -425,13 +430,17 @@ def _request_parts(advisor: ChatVlmAdvisor, path: Path, note: str) -> tuple[dict
         return payload, headers
     if advisor._api_key:
         headers["Authorization"] = f"Bearer {advisor._api_key}"
+    with Image.open(path) as image:
+        mime = Image.MIME.get(image.format)
+    if mime not in {"image/png", "image/jpeg", "image/webp", "image/gif"}:
+        raise ValueError("Unsupported image format.")
     payload = {
         "model": advisor.model,
         "messages": [{
             "role": "user",
             "content": [
                 {"type": "text", "text": prompt},
-                {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{encoded}"}},
+                {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{encoded}"}},
             ],
         }],
     }
@@ -469,7 +478,13 @@ def _message_content(payload: dict, placement: str) -> str:
 def _urllib_transport(request: _VlmHttpRequest) -> dict:
     body = json.dumps(request.payload).encode("utf-8")
     outgoing = urllib.request.Request(request.url, data=body, headers=request.headers, method="POST")
-    with urllib.request.urlopen(outgoing, timeout=60) as response:  # noqa: S310
+    # Approval covers one endpoint, never a redirect or an implicit proxy.
+    class NoRedirect(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, req, fp, code, msg, headers, newurl):
+            raise urllib.error.URLError("VLM redirects are not allowed.")
+
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
+    with opener.open(outgoing, timeout=60) as response:
         raw = response.read(1_000_000)
     return json.loads(raw.decode("utf-8"))
 

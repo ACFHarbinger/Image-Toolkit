@@ -16,7 +16,7 @@ from backend.src.core.guidance_vision import (
     run_vlm,
     vlm_api_key_from_vault,
 )
-from PySide6.QtCore import QObject, Signal
+from PySide6.QtCore import QObject, Qt, Signal
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -34,8 +34,8 @@ _CLOUD_ENDPOINT = "https://api.openai.com"
 
 
 class _VisionBus(QObject):
-    ocr_done = Signal(str, str)
-    vlm_done = Signal(str, str)
+    ocr_done = Signal(int, str, str)
+    vlm_done = Signal(int, str, str)
 
 
 class ReviewVisionPanel(QWidget):
@@ -51,7 +51,10 @@ class ReviewVisionPanel(QWidget):
         self._thread: threading.Thread | None = None
         self._leaves = False
         self._previewed = False
-        self._bus = _VisionBus(self)
+        self._bus = _VisionBus()
+        self._closed = threading.Event()
+        closed = self._closed
+        self.destroyed.connect(lambda *_: closed.set())
         self._bus.ocr_done.connect(self._show_ocr)
         self._bus.vlm_done.connect(self._show_vlm)
         self._build()
@@ -119,9 +122,21 @@ class ReviewVisionPanel(QWidget):
         self._status.setObjectName("dl_review_vision_status")
         self._status.setWordWrap(True)
         root.addWidget(self._status)
+        for label in self.findChildren(QLabel):
+            label.setTextFormat(Qt.TextFormat.PlainText)
+        for field in (self._endpoint, self._model, self._note):
+            field.textChanged.connect(self._invalidate_approval)
+        self._sync_run()
+
+    def _invalidate_approval(self, *_args) -> None:
+        self._previewed = False
+        self._approve.setChecked(False)
         self._sync_run()
 
     def set_image(self, path: str | None) -> None:
+        self._generation += 1
+        self._ocr_text.clear()
+        self._vlm_text.clear()
         self._image = path or None
         self._approve.setChecked(False)
         self._leaves = False
@@ -199,7 +214,7 @@ class ReviewVisionPanel(QWidget):
             "placement": self._placement.currentData(),
             "endpoint": self._endpoint.text().strip(),
             "model": self._model.text().strip(),
-            "api_key": vlm_api_key_from_vault(self._vault) if self._placement.currentData() == "cloud" else None,
+            "api_key": None,
         }
 
     def _worker(self, snapshot: dict) -> None:
@@ -209,20 +224,22 @@ class ReviewVisionPanel(QWidget):
                 result = run_ocr(self._ocr, snapshot["image"])
                 text = "" if result.unavailable else f"{result.text}\n({len(result.boxes)} boxes)"
                 detail = result.unavailable or ""
-                if generation == self._generation:
-                    self._bus.ocr_done.emit(text, detail)
+                if generation == self._generation and not self._closed.is_set():
+                    self._bus.ocr_done.emit(generation, text, detail)
                 return
+            if snapshot["placement"] == "cloud":
+                snapshot["api_key"] = vlm_api_key_from_vault(self._vault)
             advisor = self._advisor_for(snapshot)
             result = run_vlm(
                 advisor, snapshot["image"], note=snapshot["note"], approved=snapshot["approved"],
             )
             text = "" if result.unavailable else "\n".join(result.observations)
             detail = result.unavailable or ""
-            if generation == self._generation:
-                self._bus.vlm_done.emit(text, detail)
+            if generation == self._generation and not self._closed.is_set():
+                self._bus.vlm_done.emit(generation, text, detail)
         except Exception as exc:
-            if generation == self._generation:
-                self._bus.vlm_done.emit("", str(exc)[:300])
+            if generation == self._generation and not self._closed.is_set():
+                self._bus.vlm_done.emit(generation, "", str(exc)[:300])
 
     def _advisor_for(self, snapshot: dict):
         if self._advisor_factory is not None:
@@ -239,11 +256,14 @@ class ReviewVisionPanel(QWidget):
     def _make_advisor(self):
         return self._advisor_for(self._snapshot("vlm", self._generation))
 
-    def _show_ocr(self, text: str, detail: str) -> None:
+    def _show_ocr(self, generation: int, text: str, detail: str) -> None:
+        if generation != self._generation:
+            return
         self._ocr_text.setPlainText(text)
         self._status.setText(detail or "OCR finished.")
 
-    def _show_vlm(self, text: str, detail: str) -> None:
-        if text:
-            self._vlm_text.setPlainText(text)
+    def _show_vlm(self, generation: int, text: str, detail: str) -> None:
+        if generation != self._generation:
+            return
+        self._vlm_text.setPlainText(text)
         self._status.setText(detail or "VLM finished.")

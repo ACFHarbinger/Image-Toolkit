@@ -97,6 +97,8 @@ def test_row_extras_badge_and_chips(q_app, tmp_path):
         "evidence": (EvidenceRef(kind="ocr", ref={}, summary="reads 8.5"),),
     })()
     row = EvidenceRowExtras(change, None)
+    row._thread.join(2)
+    q_app.processEvents()
     # One uncorroborated model-reported signal, no verified premise: the
     # rubric's exact 0.5 → honestly "might", i.e. medium, not low.
     assert "Medium" in row.badge.text()
@@ -133,6 +135,8 @@ def test_abstention_panel_send_dispatches_intent(q_app, tmp_path):
     needs = ("more variety",)
     evidence = (EvidenceRef(kind="advisor_finding", ref={"paths": [str(img)]}),)
     panel = AbstentionPanel(needs=needs, evidence=evidence, event_hub=FakeHub())
+    panel._thread.join(2)
+    q_app.processEvents()
     assert panel._send_btn.isEnabled()
     got = []
     panel.pick_list_requested.connect(got.append)
@@ -150,6 +154,8 @@ def test_abstention_panel_emits_without_hub(q_app, tmp_path):
     img.write_bytes(b"")
     evidence = (EvidenceRef(kind="advisor_finding", ref={"paths": [str(img)]}),)
     panel = AbstentionPanel(needs=("x",), evidence=evidence)
+    panel._thread.join(2)
+    q_app.processEvents()
     got = []
     panel.pick_list_requested.connect(got.append)
     panel._send_btn.click()

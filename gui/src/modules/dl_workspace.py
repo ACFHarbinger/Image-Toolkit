@@ -107,7 +107,8 @@ def create_dl_workspace(context: ModuleContext | None) -> DeepLearningWorkspaceH
     event_hub = getattr(context, "event_hub", None)
     pref_store = getattr(context, "preference_store", None)
     try:
-        host = DeepLearningWorkspaceHost(event_hub=event_hub, preference_store=pref_store)
+        host = DeepLearningWorkspaceHost(event_hub=event_hub, preference_store=pref_store,
+                                         vault_manager=getattr(context, "services", {}).get("vault_manager"))
     except TypeError:
         host = DeepLearningWorkspaceHost(event_hub=event_hub)
     return DeepLearningWorkspaceHandle(host)

@@ -236,3 +236,44 @@ def test_vault_reader_returns_only_a_string_key():
 def test_observations_are_capped_lines():
     assert parse_observations(" a \n\n b ") == ("a", "b")
     assert parse_observations(None) == ()
+
+
+def test_cloud_payload_uses_actual_image_mime(tmp_path):
+    image = tmp_path / "misleading.png"
+    Image.new("RGB", (4, 4)).save(image, format="JPEG")
+    requests = []
+    advisor = ChatVlmAdvisor(placement="cloud", endpoint="https://example.com", model="model",
+                             api_key="key", transport=lambda request: requests.append(request) or
+                             {"choices": [{"message": {"content": "photo"}}]})
+    assert advisor.observe(image, approved=True).unavailable is None
+    url = requests[0].payload["messages"][0]["content"][1]["image_url"]["url"]
+    assert url.startswith("data:image/jpeg;base64,")
+
+
+def test_local_redirect_cannot_send_to_another_host(tmp_path):
+    import threading
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+
+    class Redirect(BaseHTTPRequestHandler):
+        def do_POST(self):
+            self.send_response(302)
+            self.send_header("Location", "https://example.invalid/collect")
+            self.end_headers()
+
+        def log_message(self, *_args):
+            pass
+
+    server = HTTPServer(("127.0.0.1", 0), Redirect)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    image = tmp_path / "image.png"
+    _png(image)
+    try:
+        advisor = ChatVlmAdvisor(placement="local", endpoint=f"http://127.0.0.1:{server.server_port}",
+                                 model="model", admit=lambda _: None, release=lambda _: None)
+        result = advisor.observe(image)
+        assert "redirect" in result.unavailable.lower()
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(2)

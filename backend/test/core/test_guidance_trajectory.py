@@ -169,3 +169,17 @@ def test_trajectory_from_record_ignores_non_dicts():
     raw = GuidanceTrajectory(root_prompt_id="p0").to_dict()
     loaded = trajectory_from_record(type("R", (), {"guidance_trajectory": raw})())
     assert loaded.root_prompt_id == "p0"
+
+
+def test_unknown_variant_cannot_vote_on_latest():
+    trajectory = GuidanceTrajectory("root", (_step(1),))
+    assert record_verdict(trajectory, "better", variant_prompt_id="missing") == trajectory
+
+
+def test_loaded_trajectory_is_bounded_even_if_limit_is_untrusted():
+    data = {"root_prompt_id": "root", "max_steps": 1000,
+            "steps": [_step(i).to_dict() for i in range(20)]}
+    trajectory = GuidanceTrajectory.from_dict(data)
+    assert len(trajectory.steps) == MAX_STORED_STEPS
+    assert trajectory.steps[0].variant_prompt_id == "v0"
+    assert trajectory.latest.variant_prompt_id == "v19"

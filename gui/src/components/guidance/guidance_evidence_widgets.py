@@ -15,9 +15,11 @@ integration.
 """
 from __future__ import annotations
 
+import threading
+
 from backend.src.core import guidance_evidence as ge
 from backend.src.core.guidance_schema import GuidanceValidation, ModelSwap, ParamChange
-from PySide6.QtCore import Qt, QUrl, Signal
+from PySide6.QtCore import QObject, Qt, QUrl, Signal
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QToolButton, QVBoxLayout, QWidget
 
@@ -38,7 +40,7 @@ class ConfidenceBadge(QLabel):
         band = ge.confidence_band(score)
         self.setText(f"● {band.label}")
         self.setStyleSheet(f"color: {band.color}; font-weight: bold;")
-        self.setToolTip(f"calibrated score {score:.2f}" + (f" — {band.hint}" if band.hint else ""))
+        self.setToolTip(f"heuristic score {score:.2f}" + (f" — {band.hint}" if band.hint else ""))
 
     def set_band(self, band: ge.ConfidenceBand) -> None:
         self.setText(f"● {band.label}")
@@ -102,6 +104,10 @@ class EvidenceChipBar(QWidget):
         return [btn.text() for btn in self._buttons]
 
 
+class _EvidenceBus(QObject):
+    done = Signal(object)
+
+
 class EvidenceRowExtras(QWidget):
     """The #753 payload for one suggestion row: confidence badge left,
     evidence chips right. Hosts (the Diff & Apply widget) embed this
@@ -124,10 +130,28 @@ class EvidenceRowExtras(QWidget):
         self.badge = ConfidenceBadge(parent=self)
         self.badge.set_score(ge.confidence_for_change(change, validation))
         row.addWidget(self.badge)
-        resolved = tuple(ge.resolve_evidence(ref, runs_root=runs_root) for ref in change.evidence)
-        self.chips = EvidenceChipBar(resolved, parent=self)
+        self.chips = EvidenceChipBar(parent=self)
         self.chips.paths_requested.connect(self.paths_requested)
         row.addWidget(self.chips, stretch=1)
+        self._change = change
+        self._validation = validation
+        self._bus = _EvidenceBus()
+        self._bus.done.connect(self._resolved)
+        bus = self._bus
+
+        def resolve():
+            try:
+                result = tuple(ge.resolve_evidence(ref, runs_root=runs_root) for ref in change.evidence)
+            except (OSError, ValueError, TypeError, KeyError):
+                result = ()
+            bus.done.emit(result)
+
+        self._thread = threading.Thread(target=resolve, daemon=True, name="guidance-evidence")
+        self._thread.start()
+
+    def _resolved(self, resolved):
+        self.chips.set_resolved(resolved)
+        self.badge.set_score(ge.confidence_for_change(self._change, self._validation, resolved=resolved))
 
 
 class AbstentionPanel(QWidget):
@@ -153,7 +177,7 @@ class AbstentionPanel(QWidget):
     ) -> None:
         super().__init__(parent)
         self._hub = event_hub
-        self._paths = ge.needs_pick_list(needs, evidence)
+        self._paths = ()
 
         root = QVBoxLayout(self)
         root.setContentsMargins(6, 6, 6, 6)
@@ -184,6 +208,26 @@ class AbstentionPanel(QWidget):
         self._send_btn.setStyleSheet("border: 1px solid #5a5a5a; border-radius: 6px; padding: 3px 8px;")
         self._send_btn.clicked.connect(self._send)
         root.addWidget(self._send_btn, alignment=Qt.AlignmentFlag.AlignLeft)
+        for label in self.findChildren(QLabel):
+            label.setTextFormat(Qt.TextFormat.PlainText)
+        self._bus = _EvidenceBus()
+        self._bus.done.connect(self._set_paths)
+        bus = self._bus
+
+        def resolve_paths():
+            try:
+                paths = ge.needs_pick_list(needs, evidence)
+            except OSError:
+                paths = ()
+            bus.done.emit(paths)
+
+        self._thread = threading.Thread(target=resolve_paths, daemon=True, name="guidance-pick-list")
+        self._thread.start()
+
+    def _set_paths(self, paths):
+        self._paths = paths
+        self._pick_label.setText(self._pick_text())
+        self._send_btn.setEnabled(bool(paths))
 
     def _pick_text(self) -> str:
         if not self._paths:

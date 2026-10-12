@@ -98,3 +98,33 @@ def test_review_page_hosts_the_ocr_action(q_app):
     assert page.findChild(QPushButton, "dl_review_ocr_btn") is not None
     assert page.findChild(QLabel, "dl_review_vlm_preview") is not None
     page.deleteLater()
+
+
+@pytest.mark.parametrize("field", ["_endpoint", "_model", "_note"])
+def test_edit_after_approval_requires_new_preview(tmp_path, q_app, field):
+    panel = _panel(tmp_path)
+    panel._placement.setCurrentIndex(1)
+    panel.preview_departure()
+    panel._approve.setChecked(True)
+    getattr(panel, field).setText("changed")
+    assert not panel._approve.isChecked()
+    assert not panel._vlm_btn.isEnabled()
+    panel.deleteLater()
+
+
+def test_queued_result_for_previous_image_is_ignored(tmp_path, q_app):
+    panel = _panel(tmp_path)
+    panel.read_text()
+    panel._thread.join(2)
+    panel.set_image("different.png")
+    q_app.processEvents()
+    assert panel._ocr_text.toPlainText() == ""
+    panel.deleteLater()
+
+
+def test_preview_does_not_read_vault(tmp_path, q_app):
+    panel = _panel(tmp_path)
+    panel._placement.setCurrentIndex(1)
+    panel._vault.load_account_credentials = lambda: pytest.fail("vault read on GUI thread")
+    panel.preview_departure()
+    panel.deleteLater()

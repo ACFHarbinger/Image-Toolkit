@@ -117,7 +117,8 @@ def test_review_hosts_overlay_under_compare_canvas(q_app, tmp_path):
         assert not overlay.isHidden()
         overlay.findChild(QPushButton, "dl_what_changed_verdict_same").click()
         payload = page.advisor_trajectory()
-        assert payload["steps"][0]["verdict"] == "same"
+        assert payload["steps"][0]["verdict"] is None
+        assert not overlay.findChild(QPushButton, "dl_what_changed_verdict_same").isEnabled()
         page.set_compare_paths([])
         assert page.findChild(WhatChangedOverlay, "dl_what_changed") is overlay
         assert page.findChild(QLabel, "dl_compare_empty") is not None

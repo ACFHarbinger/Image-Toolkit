@@ -59,6 +59,7 @@ class ResolvedEvidence:
     detail: str = ""
     target_dir: str = ""  # openable folder (run dir, dataset dir)
     paths: tuple[str, ...] = ()  # importable image paths (advisor findings)
+    verified: bool = False
     stale: bool = False  # the artifact is gone — say so, don't invent data
 
 
@@ -132,6 +133,8 @@ def count_contradictions(evidence: tuple[EvidenceRef, ...]) -> int:
 def confidence_for_change(
     change: ParamChange | ModelSwap,
     validation: GuidanceValidation | None = None,
+    *,
+    resolved: tuple[ResolvedEvidence, ...] = (),
 ) -> float:
     """Calibrated confidence for one suggestion row, blended with any
     advisor-provided score carried on the change itself."""
@@ -149,10 +152,10 @@ def confidence_for_change(
                 break
     return compute_confidence(
         verified=verified,
-        evidence=change.evidence,
+        evidence=tuple(item.ref for item in resolved if item.verified and not item.stale),
         contradictions=count_contradictions(change.evidence),
         flagged=flagged,
-        advisor_score=change.confidence,
+        advisor_score=None,
     )
 
 
@@ -169,9 +172,7 @@ def resolve_evidence(
     if ref.kind == KIND_RUN_RECORD:
         return _resolve_run_record(ref, runs_root=runs_root)
     if ref.kind == KIND_ADVISOR_FINDING:
-        paths = tuple(
-            str(p) for p in (ref.ref.get("paths") or ()) if isinstance(p, str) and Path(p).exists()
-        )
+        paths = _image_paths(ref.ref.get("paths"))
         title = f"Dataset advisor: {ref.ref.get('category', 'finding')}"
         detail = ref.summary or "Prefiltered dataset finding from Gate D.4."
         if not paths:
@@ -184,17 +185,22 @@ def resolve_evidence(
             title=f"{label} read: {ref.summary}" if ref.summary else f"{label} read",
             detail="Model-reported signal — no local artifact to inspect yet.",
         )
-    # training_metric and unknown kinds: summary-only, never stale.
-    return ResolvedEvidence(ref=ref, title=ref.summary or f"{ref.kind} signal")
+    return ResolvedEvidence(ref=ref, title=ref.summary or f"{ref.kind} signal",
+                            detail="Unverified advisor claim; no artifact resolver.", stale=True)
 
 
 def _run_dir_for(ref: EvidenceRef, runs_root: Path | str | None) -> Path | None:
+    from backend.src.core.training_runs import default_runs_root
+
+    root = Path(runs_root) if runs_root is not None else default_runs_root()
     explicit = ref.ref.get("run_dir")
     if isinstance(explicit, str) and explicit:
-        return Path(explicit)
+        candidate = Path(explicit).resolve()
+        return candidate if candidate.is_relative_to(root.resolve()) else None
     run_id = ref.ref.get("run_id")
-    if isinstance(run_id, str) and run_id and runs_root is not None:
-        return Path(runs_root) / run_id
+    if isinstance(run_id, str) and run_id:
+        candidate = (root / run_id).resolve()
+        return candidate if candidate.is_relative_to(root.resolve()) else None
     return None
 
 
@@ -215,15 +221,18 @@ def _resolve_tournament(ref: EvidenceRef, *, runs_root: Path | str | None) -> Re
     leader = rows[0]
     checkpoint = ref.ref.get("checkpoint")
     focus = next((r for r in rows if r.key == checkpoint), None)
+    if checkpoint and focus is None:
+        return ResolvedEvidence(ref=ref, title="Tournament checkpoint missing", stale=True)
     shown = focus or leader
     note = f" over {state.history and len(state.history) or 0} blind comparisons"
     title = f"Blind tournament: {shown.label} at ELO {shown.rating:.0f} ±{shown.margin:.0f}{note}"
     if state.promoted:
-        title += f" — promoted: {state.promoted['label']}"
+        title += f" — promoted: {state.promoted.get('label', 'unknown')}"
     return ResolvedEvidence(
         ref=ref,
         title=title,
-        detail=ref.summary or "Grounded preference signal from Gate D.7 (#747).",
+        detail="Grounded preference signal from Gate D.7 (#747).",
+        verified=True,
         target_dir=str(run_dir),
     )
 
@@ -246,7 +255,8 @@ def _resolve_run_record(ref: EvidenceRef, *, runs_root: Path | str | None) -> Re
     return ResolvedEvidence(
         ref=ref,
         title=f"Run {record.get('run_id', run_dir.name)} ({status}, trigger: {trigger})",
-        detail=ref.summary or "Training run record from Gate D.1 (#741).",
+        detail="Training run record from Gate D.1 (#741).",
+        verified=True,
         target_dir=str(run_dir),
     )
 
@@ -291,8 +301,16 @@ def needs_pick_list(needs: tuple[str, ...], evidence: tuple[EvidenceRef, ...]) -
     seen: set[str] = set()
     paths: list[str] = []
     for ref in evidence:
-        for raw in ref.ref.get("paths") or ():
-            if isinstance(raw, str) and raw not in seen and Path(raw).exists():
+        for raw in _image_paths(ref.ref.get("paths")):
+            if raw not in seen:
                 seen.add(raw)
                 paths.append(raw)
     return tuple(paths)
+
+
+def _image_paths(raw) -> tuple[str, ...]:
+    if not isinstance(raw, (list, tuple)):
+        return ()
+    return tuple(p for p in raw if isinstance(p, str)
+                 and Path(p).suffix.lower() in {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif"}
+                 and Path(p).is_file())

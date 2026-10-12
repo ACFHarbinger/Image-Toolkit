@@ -15,7 +15,10 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import threading
+import uuid
+from copy import deepcopy
 
 from backend.src.comfy_matrix import gpu_lease, try_admit
 from backend.src.constants import LOCAL_SOURCE_PATH
@@ -26,13 +29,15 @@ from backend.src.core.guidance_schema import (
     apply_validated,
 )
 from backend.src.core.guidance_trajectory import (
+    GuidanceTrajectory,
+    append_step,
     bind_variant,
     build_requeue_trajectory,
     load_existing_trajectory,
     save_trajectory,
     trajectory_sidecar_path,
 )
-from PySide6.QtCore import Signal
+from PySide6.QtCore import QObject, Qt, Signal
 from PySide6.QtWidgets import (
     QCheckBox,
     QHBoxLayout,
@@ -42,6 +47,8 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+
+from gui.src.components.guidance.guidance_evidence_widgets import AbstentionPanel, EvidenceRowExtras
 
 GUIDANCE_OWNER = "guidance"
 VARIANT_LABEL = "assistant-suggested"
@@ -55,9 +62,9 @@ def write_variant_file(patched: dict, *, source_id: str | None, directory: str |
     """Write *patched* to a new workflow file; never touches the source run."""
     target_dir = directory or variant_workflow_dir()
     os.makedirs(target_dir, exist_ok=True)
-    stem = source_id if isinstance(source_id, str) and source_id else "workflow"
-    path = os.path.join(target_dir, f"{stem}_variant.json")
-    with open(path, "w", encoding="utf-8") as handle:
+    stem = re.sub(r"[^A-Za-z0-9_-]", "_", source_id or "workflow")[:100]
+    path = os.path.join(target_dir, f"{stem}_variant_{uuid.uuid4().hex}.json")
+    with open(path, "x", encoding="utf-8") as handle:
         json.dump(patched, handle, indent=2)
     return path
 
@@ -91,12 +98,19 @@ def _short(value, limit: int = 60) -> str:
     return text if len(text) <= limit else text[: limit - 1] + "…"
 
 
+class _SubmissionBus(QObject):
+    queued = Signal(str)
+    trajectory = Signal(object)
+    error = Signal(str)
+
+
 class GuidanceDiffWidget(QWidget):
     """Per-row diff list + re-queue for one validated guidance response."""
 
     variant_queued = Signal(str)
     trajectory_updated = Signal(object)
     guidance_error = Signal(str)
+    paths_requested = Signal(tuple)
 
     def __init__(self, controller=None, manager=None, variant_dir: str | None = None, parent=None) -> None:
         super().__init__(parent)
@@ -107,12 +121,16 @@ class GuidanceDiffWidget(QWidget):
         self._validation: GuidanceValidation | None = None
         self._source_id: str | None = None
         self._source_mode: str | None = None
+        self._busy = False
         self._feedback = ""
-        self._pending_trajectory = None
         self._toggles: list[QCheckBox] = []
         self._toggle_verdicts: list = []
         self._summaries: list[str] = []
         self._submit_thread: threading.Thread | None = None
+        self._bus = _SubmissionBus()
+        self._bus.queued.connect(self.variant_queued)
+        self._bus.trajectory.connect(self.trajectory_updated)
+        self._bus.error.connect(self.guidance_error)
         self._build_ui()
         self.variant_queued.connect(self._on_variant_queued)
         self.guidance_error.connect(self._on_guidance_error)
@@ -169,7 +187,10 @@ class GuidanceDiffWidget(QWidget):
         source_mode: str | None = None,
     ) -> None:
         """Render *validation* against *workflow*; arms re-queue when safe."""
-        self._workflow = workflow
+        if self._busy:
+            self.note("Wait for the current variant before changing the guidance source.")
+            return
+        self._workflow = deepcopy(workflow)
         self._validation = validation
         self._source_id = source_prompt_id
         self._source_mode = source_mode
@@ -177,13 +198,18 @@ class GuidanceDiffWidget(QWidget):
 
     def set_source(self, source_prompt_id: str, workflow: dict, source_mode: str | None = None) -> None:
         """Remember the critiqued run while validated suggestions are pending."""
-        self._workflow = workflow
+        if self._busy:
+            self.note("Wait for the current variant before changing the guidance source.")
+            return
+        self._workflow = deepcopy(workflow)
         self._validation = None
         self._source_id = source_prompt_id
         self._source_mode = source_mode
         self._render()
 
     def clear_guidance(self) -> None:
+        if self._busy:
+            return
         self._workflow = None
         self._validation = None
         self._source_id = None
@@ -240,6 +266,16 @@ class GuidanceDiffWidget(QWidget):
             self._banner.setVisible(False)
         for verdict in validation.verdicts:
             self._add_row(verdict)
+            extras = EvidenceRowExtras(verdict.change, validation)
+            extras.paths_requested.connect(self.paths_requested)
+            self._rows.addWidget(extras)
+        if validation.response.needs:
+            panel = AbstentionPanel(
+                validation.response.needs, validation.response.diagnosis or "",
+                tuple(ref for v in validation.verdicts for ref in v.change.evidence),
+            )
+            panel.pick_list_requested.connect(self.paths_requested)
+            self._rows.addWidget(panel)
         if not validation.verdicts:
             self._rows.addWidget(QLabel("No suggestions in this response."))
         dataset = validation.response.dataset_guidance
@@ -282,9 +318,12 @@ class GuidanceDiffWidget(QWidget):
         self._rows.addWidget(label)
 
     def _refresh_requeue_state(self) -> None:
+        for label in self.findChildren(QLabel):
+            label.setTextFormat(Qt.TextFormat.PlainText)
         validation = self._validation
         if (
-            validation is None
+            self._busy
+            or validation is None
             or validation.stale
             or validation.hallucination_flagged
         ):
@@ -295,6 +334,8 @@ class GuidanceDiffWidget(QWidget):
     # ── Re-queue ──────────────────────────────────────────────────────
 
     def _on_requeue(self) -> None:
+        if self._busy:
+            return
         if self._controller is None or self._manager is None:
             self._status.setText("Queueing is unavailable here.")
             return
@@ -312,67 +353,70 @@ class GuidanceDiffWidget(QWidget):
         if patched is None:
             self._status.setText("Nothing safe to apply — refusing to queue.")
             return
-        try:
-            path = write_variant_file(
-                patched, source_id=self._source_id, directory=self._variant_dir
-            )
-        except OSError as exc:
-            self._status.setText(f"Could not write variant workflow: {exc}")
-            return
         meta: dict = {"parent_prompt_id": self._source_id, "variant_label": VARIANT_LABEL}
         if self._source_mode:
             meta["surface_mode"] = self._source_mode
         traj = build_requeue_trajectory(
-            existing=load_existing_trajectory(self._manager, self._source_id),
+            existing=None,
             parent_prompt_id=self._source_id,
             selected=selected,
             feedback=self._feedback,
         )
         meta["guidance_trajectory"] = traj.to_dict()
-        self._pending_trajectory = traj
-        self._persist_sidecar(traj)
-        self._status.setText(f"Queueing variant ({os.path.basename(path)})…")
+        self._busy = True
+        self._status.setText("Queueing variant…")
         self._requeue_btn.setEnabled(False)
         if not self._controller.run_http_action(lambda: self._submit_variant(patched, meta)):
+            self._busy = False
             self._status.setText("Server is busy or not ready.")
             self._refresh_requeue_state()
 
     def _submit_variant(self, patched: dict, meta: dict) -> None:
         refusal = try_admit(GUIDANCE_OWNER)
         if refusal:
-            self.guidance_error.emit(refusal)
+            self._bus.error.emit(refusal)
             return
         try:
+            existing = load_existing_trajectory(self._manager, meta["parent_prompt_id"])
+            pending = GuidanceTrajectory.from_dict(meta["guidance_trajectory"])
+            if pending.latest is None:
+                raise ValueError("No guidance step to queue.")
+            traj = append_step(existing, pending.latest)
+            meta["guidance_trajectory"] = traj.to_dict()
+            write_variant_file(patched, source_id=meta["parent_prompt_id"], directory=self._variant_dir)
             prompt_id = self._manager.queue_workflow(patched, run_meta=meta)
             cancel = getattr(self._controller, "_cancel", None)
-            self._manager.wait_for_run(prompt_id, cancel=cancel)
-        except Exception as exc:
-            self.guidance_error.emit(str(exc))
-            return
-        finally:
-            gpu_lease.release(GUIDANCE_OWNER)
-        self.variant_queued.emit(prompt_id)
-
-    def _on_variant_queued(self, prompt_id: str) -> None:
-        self._status.setText(f"Queued assistant-suggested variant — prompt_id={prompt_id}")
-        pending = self._pending_trajectory
-        if pending is not None:
-            traj = bind_variant(pending, prompt_id)
-            self._pending_trajectory = traj
+            completed = self._manager.wait_for_run(prompt_id, cancel=cancel)
+            traj = bind_variant(traj, prompt_id)
             updater = getattr(self._manager, "update_run_meta", None)
             if callable(updater):
                 updater(prompt_id, {"guidance_trajectory": traj.to_dict()})
             self._persist_sidecar(traj)
-            self.trajectory_updated.emit(traj)
+            if not completed:
+                self._bus.error.emit(f"Variant {prompt_id} did not complete; inspect the run status.")
+                return
+            self._bus.trajectory.emit(traj)
+        except Exception as exc:
+            self._bus.error.emit(str(exc))
+            return
+        finally:
+            gpu_lease.release(GUIDANCE_OWNER)
+        self._bus.queued.emit(prompt_id)
+
+    def _on_variant_queued(self, prompt_id: str) -> None:
+        self._status.setText(f"Queued assistant-suggested variant — prompt_id={prompt_id}")
+        self._busy = False
         self._refresh_requeue_state()
 
     def _persist_sidecar(self, traj) -> None:
         directory = self._variant_dir or variant_workflow_dir()
         try:
-            save_trajectory(trajectory_sidecar_path(directory, traj.root_prompt_id), traj)
+            variant_id = traj.latest.variant_prompt_id if traj.latest else None
+            save_trajectory(trajectory_sidecar_path(directory, variant_id or traj.root_prompt_id), traj)
         except OSError:
             return
 
     def _on_guidance_error(self, message: str) -> None:
+        self._busy = False
         self._status.setText(message)
         self._refresh_requeue_state()

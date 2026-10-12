@@ -14,7 +14,7 @@ from backend.src.core.guidance_trajectory import (
     record_verdict,
     should_steer_structural,
 )
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
@@ -104,6 +104,8 @@ class WhatChangedOverlay(QWidget):
         self._hint.setWordWrap(True)
         self._hint.setVisible(False)
         root.addWidget(self._hint)
+        for label in self.findChildren(QLabel):
+            label.setTextFormat(Qt.TextFormat.PlainText)
 
     def trajectory(self) -> GuidanceTrajectory | None:
         return self._trajectory
@@ -125,8 +127,8 @@ class WhatChangedOverlay(QWidget):
         self._trajectory = traj
         latest = traj.latest if traj is not None else None
         self._variant_id = variant_prompt_id or (latest.variant_prompt_id if latest else None)
-        if latest is not None and latest.feedback and not self._feedback.text().strip():
-            self._feedback.setText(latest.feedback)
+        selected = self._selected_step()
+        self._feedback.setText(selected.feedback if selected else "")
         self._refresh()
 
     def clear(self) -> None:
@@ -136,7 +138,7 @@ class WhatChangedOverlay(QWidget):
         self._refresh()
 
     def _on_verdict(self, verdict: str) -> None:
-        if verdict not in VERDICTS or self._trajectory is None:
+        if verdict not in VERDICTS or self._trajectory is None or not self._variant_id or self._selected_step() is None:
             return
         self._trajectory = record_verdict(
             self._trajectory,
@@ -147,9 +149,14 @@ class WhatChangedOverlay(QWidget):
         self.verdict_chosen.emit(verdict)
         self._refresh()
 
+    def _selected_step(self):
+        if self._trajectory is None:
+            return None
+        return next((step for step in self._trajectory.steps if step.variant_prompt_id == self._variant_id), None)
+
     def _refresh(self) -> None:
         traj = self._trajectory
-        latest = traj.latest if traj is not None else None
+        latest = self._selected_step()
         if traj is None or latest is None:
             self._baseline.setText("Baseline")
             self._variant.setText("Variant (assistant-suggested)")
@@ -178,6 +185,6 @@ class WhatChangedOverlay(QWidget):
         self._hint.setVisible(should_steer_structural(traj))
         current = latest.verdict
         for key, button in self._buttons.items():
-            button.setEnabled(True)
+            button.setEnabled(bool(self._variant_id))
             button.setDown(key == current)
         self.show()

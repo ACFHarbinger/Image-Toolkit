@@ -42,8 +42,8 @@ from gui.src.tabs.models.dl_workspace_components import (
     GuidedOnboardingCard,
     ProgressiveDisclosureControl,
 )
-from gui.src.tabs.models.review_vision_tools import ReviewVisionPanel
 from gui.src.tabs.models.guidance_diff_widget import GuidanceDiffWidget
+from gui.src.tabs.models.review_vision_tools import ReviewVisionPanel
 from gui.src.tabs.models.upscale_handoff import UpscaleRunner
 
 _DESTINATIONS = (
@@ -62,8 +62,10 @@ class DeepLearningWorkspaceHost(QWidget):
         event_hub: EventHub | None = None,
         preference_store: PreferenceStore | None = None,
         parent: QWidget | None = None,
+        vault_manager=None,
     ) -> None:
         super().__init__(parent)
+        self._vault_manager = vault_manager
         self._event_hub = event_hub
         self._preference_store = preference_store or PreferenceStore.instance()
         self._pages: dict[str, QWidget] = {}
@@ -514,7 +516,7 @@ class _ReviewToolsPage(QWidget):
         self._upscaler.finished.connect(self._on_upscale_finished)
         self._upscaler.error.connect(self._on_upscale_error)
 
-        self._vision = ReviewVisionPanel()
+        self._vision = ReviewVisionPanel(vault=getattr(host, "_vault_manager", None))
         layout.addWidget(self._vision)
         load_row = QHBoxLayout()
         self._load_selection_btn = QPushButton("Load selected Generate run")
@@ -528,6 +530,7 @@ class _ReviewToolsPage(QWidget):
 
         _controller = ComfyWorkspaceController.instance()
         self._guidance = GuidanceDiffWidget(controller=_controller, manager=_controller.manager)
+        self._guidance.paths_requested.connect(self._send_guidance_paths)
         self._guidance.setObjectName("dl_guidance_diff")
         layout.addWidget(self._guidance)
         self._what_changed.feedback_changed.connect(self._guidance.set_feedback)
@@ -556,6 +559,7 @@ class _ReviewToolsPage(QWidget):
         self._vision.set_image(paths[0] if paths else None)
         if getattr(self, "_compare_paths", None) == paths:
             return
+        self._what_changed.clear()
         self._compare_paths = list(paths)
         self._clear_compare_view()
         if not paths:
@@ -578,8 +582,14 @@ class _ReviewToolsPage(QWidget):
             widget.setParent(None)
             widget.deleteLater()
 
+    def _send_guidance_paths(self, paths) -> None:
+        self._host._on_import_paths(ImportPathsIntent(module_id="dl.train", paths=tuple(paths), origin="guidance"))
+
     def _on_trajectory_updated(self, traj) -> None:
         self._what_changed.set_trajectory(traj)
+        for button in self._what_changed._buttons.values():
+            button.setEnabled(False)
+            button.setToolTip("Variant comparison outputs must be loaded before recording a verdict.")
 
     def advisor_trajectory(self):
         """Payload for the next advisor call (#750): trajectory, not just now."""

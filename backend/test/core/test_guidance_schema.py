@@ -251,3 +251,56 @@ def test_verdict_valid_property():
     change = ParamChange("1", "steps", 25, 30)
     assert SuggestionVerdict(change, Verdict.VALID).valid
     assert not SuggestionVerdict(change, Verdict.INVALID_NODE).valid
+
+
+def test_apply_rechecks_hash_after_validation():
+    workflow = {"1": {"inputs": {"steps": 10}}}
+    validation = validate_guidance(_response(workflow, [ParamChange("1", "steps", 10, 20)]), workflow)
+    workflow["1"]["inputs"]["steps"] = 12
+    assert apply_validated(workflow, validation) is None
+
+
+@pytest.mark.parametrize("value", [2.5, True, float("nan"), {}, ["2", 0]])
+def test_destination_cannot_change_scalar_type(value):
+    workflow = {"1": {"inputs": {"steps": 10}}}
+    validation = validate_guidance(_response(workflow, [ParamChange("1", "steps", 10, value)]), workflow)
+    assert not validation.valid_changes()
+
+
+def test_numeric_string_is_applied_as_integer():
+    workflow = {"1": {"inputs": {"steps": 10}}}
+    validation = validate_guidance(_response(workflow, [ParamChange("1", "steps", 10, "20")]), workflow)
+    assert type(apply_validated(workflow, validation)["1"]["inputs"]["steps"]) is int
+
+
+def test_duplicate_changes_are_rejected():
+    workflow = {"1": {"inputs": {"steps": 10}}}
+    changes = [ParamChange("1", "steps", 10, 20), ParamChange("1", "steps", 10, 30)]
+    assert not validate_guidance(_response(workflow, changes), workflow).valid_changes()
+
+
+def test_param_change_cannot_bypass_model_asset_check(tmp_path):
+    folder = tmp_path / "checkpoints"
+    folder.mkdir()
+    (folder / "model.safetensors").touch()
+    workflow = {"1": {"inputs": {"ckpt_name": "old.safetensors"}}}
+    for target in ("missing/model.safetensors", "../model.safetensors"):
+        change = ParamChange("1", "ckpt_name", "old.safetensors", target)
+        validation = validate_guidance(_response(workflow, [change]), workflow, models_root=tmp_path)
+        assert validation.verdicts[0].status == Verdict.MISSING_ASSET
+        assert apply_validated(workflow, validation) is None
+
+
+def test_sampler_name_is_not_a_model_asset():
+    workflow = {"1": {"inputs": {"sampler_name": "euler"}}}
+    change = ParamChange("1", "sampler_name", "euler", "dpmpp_2m")
+    validation = validate_guidance(_response(workflow, [change]), workflow)
+    assert apply_validated(workflow, validation)["1"]["inputs"]["sampler_name"] == "dpmpp_2m"
+
+
+def test_seed_integer_precision_is_preserved():
+    seed = 9007199254740993
+    workflow = {"1": {"inputs": {"seed": seed}}}
+    change = ParamChange("1", "seed", str(seed), str(seed + 2))
+    validation = validate_guidance(_response(workflow, [change]), workflow)
+    assert apply_validated(workflow, validation)["1"]["inputs"]["seed"] == seed + 2

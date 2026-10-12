@@ -362,3 +362,44 @@ def test_filmstrip_cell_shows_variant_label(q_app):
         variant_label="assistant-suggested",
     )
     assert "[assistant-suggested]" in _cell_text(record)
+
+
+def test_variant_paths_are_unique_and_contained(tmp_path):
+    first = Path(write_variant_file({"a": 1}, source_id="../escape", directory=str(tmp_path)))
+    second = Path(write_variant_file({"a": 2}, source_id="../escape", directory=str(tmp_path)))
+    assert first.parent == second.parent == tmp_path
+    assert first != second
+    assert json.loads(first.read_text()) == {"a": 1}
+
+
+def test_failed_variant_does_not_emit_success(q_app, tmp_path):
+    from unittest.mock import MagicMock
+
+    from backend.src.constants.comfy import ServerState
+
+    manager, controller = MagicMock(), MagicMock()
+    manager.queue_workflow.return_value = "failed-pid"
+    manager.wait_for_run.return_value = False
+    controller.server_state = ServerState.READY
+    controller.run_http_action.side_effect = lambda action: action() or True
+    widget = GuidanceDiffWidget(controller=controller, manager=manager, variant_dir=str(tmp_path))
+    workflow, validation = _ok_validation()
+    widget.set_guidance(workflow=workflow, validation=validation, source_prompt_id="p")
+    successes = []
+    widget.variant_queued.connect(successes.append)
+    widget._on_requeue()
+    assert not successes
+    assert "did not complete" in widget._status.text()
+    assert not widget._busy
+    widget.deleteLater()
+
+
+def test_checkbox_cannot_reenable_pending_submission(q_app):
+    widget = GuidanceDiffWidget()
+    workflow, validation = _ok_validation()
+    widget.set_guidance(workflow=workflow, validation=validation)
+    widget._busy = True
+    widget.valid_toggles()[0].setChecked(False)
+    widget.valid_toggles()[0].setChecked(True)
+    assert not widget._requeue_btn.isEnabled()
+    widget.deleteLater()
