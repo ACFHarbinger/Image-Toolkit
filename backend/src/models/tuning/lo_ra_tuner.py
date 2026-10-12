@@ -41,6 +41,13 @@ from backend.src.constants import (  # noqa: F401
 from backend.src.constants import (  # noqa: F401
     TE_ATTN_TARGETS as TE_ATTN_TARGETS,
 )
+from backend.src.models.tuning.sample_grids import (
+    build_sampling_pipe as _build_sampling_pipe,
+)
+from backend.src.models.tuning.sample_grids import (
+    default_sample_prompts as _default_sample_prompts,
+)
+from backend.src.models.tuning.sample_grids import sampling_state
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +92,7 @@ class LoRATuner:
         print("[CANCELLED] LoRA process cancellation requested.")
 
     def __init__(
-        self, model_id="OnomaAIResearch/Illustrious-XL-v2.0", output_dir="output_lora"
+        self, model_id="OnomaAIResearch/Illustrious-XL-v2.0", output_dir="output_lora", model_revision=None
     ):
         _ensure_heavy_imports()
         self.output_dir = output_dir
@@ -117,28 +124,28 @@ class LoRATuner:
 
         # 1. Load Tokenizers and Encoders
         self.tokenizer_one = CLIPTokenizer.from_pretrained(
-            model_id, subfolder="tokenizer"
+            model_id, subfolder="tokenizer", revision=model_revision
         )
         self.text_encoder_one = CLIPTextModel.from_pretrained(
-            model_id, subfolder="text_encoder"
+            model_id, subfolder="text_encoder", revision=model_revision
         )
 
         if self.is_sdxl:
             # SDXL needs a second set
             self.tokenizer_two = CLIPTokenizer.from_pretrained(
-                model_id, subfolder="tokenizer_2"
+                model_id, subfolder="tokenizer_2", revision=model_revision
             )
             self.text_encoder_two = CLIPTextModelWithProjection.from_pretrained(
-                model_id, subfolder="text_encoder_2"
+                model_id, subfolder="text_encoder_2", revision=model_revision
             )
             self.text_encoder_two.requires_grad_(False)
             self.text_encoder_two.to(self.accelerator.device)
 
         # 2. Load VAE and UNet
-        self.vae = AutoencoderKL.from_pretrained(model_id, subfolder="vae")
-        self.unet = UNet2DConditionModel.from_pretrained(model_id, subfolder="unet")
+        self.vae = AutoencoderKL.from_pretrained(model_id, subfolder="vae", revision=model_revision)
+        self.unet = UNet2DConditionModel.from_pretrained(model_id, subfolder="unet", revision=model_revision)
         self.noise_scheduler = DDPMScheduler.from_pretrained(
-            model_id, subfolder="scheduler"
+            model_id, subfolder="scheduler", revision=model_revision
         )
 
         self.text_encoder_one.requires_grad_(False)
@@ -178,6 +185,7 @@ class LoRATuner:
                         if f.lower().endswith((".png", ".jpg", ".jpeg")):
                             self.image_paths.append(os.path.join(root, f))
 
+                self.image_paths.sort()
                 if len(self.image_paths) == 0:
                     print(f"WARNING: No images found in {root_dir}")
 
@@ -284,6 +292,9 @@ class LoRATuner:
         batch_size=2,
         pruned_tags=None,
         diagnostics=None,
+        sample_grids=True,
+        sample_prompts=None,
+        sample_seed=42,
     ):
         # SDXL usually trains at 1024, but we can respect the input resolution (likely 512 or 1024)
         # Note: If training SDXL at 512, results may be blurry unless adjusted.
@@ -420,6 +431,40 @@ class LoRATuner:
         print("Training finished. Saving model...")
         self.unet = self.accelerator.unwrap_model(self.unet)
         self.unet.save_pretrained(self.output_dir)
+        # #747/#742: one fixed-prompt/seed grid for the final artifact (V1
+        # keeps no per-epoch checkpoints, so there is only this one).
+        if sample_grids and not self.is_cancelled:
+            self._maybe_sample_grid(instance_prompt, diagnostics, global_step, epochs - 1,
+                                    prompts=sample_prompts, seed=sample_seed)
+
+    def _maybe_sample_grid(self, trigger, diagnostics, step: int, epoch: int, *, prompts=None, seed=42) -> None:
+        """Persist a fixed-prompt/seed sample grid beside the run's
+        events.jsonl via DiagnosticsLogger. Fail-soft: anything short of a
+        working pipeline degrades to no grid, never a dead training run."""
+        if not getattr(getattr(self, "accelerator", None), "is_main_process", True):
+            return
+        if diagnostics is None or getattr(diagnostics, "_jsonl", None) is None:
+            return
+        pipe = None
+        try:
+            with sampling_state(self.unet, self.vae, self.text_encoder_one, getattr(self, "text_encoder_two", None)):
+                prompts = list(prompts) if prompts else _default_sample_prompts(trigger)
+                pipe = _build_sampling_pipe(
+                    is_sdxl=self.is_sdxl,
+                    vae=self.vae,
+                    text_encoder_one=self.text_encoder_one,
+                    text_encoder_two=getattr(self, "text_encoder_two", None),
+                    tokenizer_one=self.tokenizer_one,
+                    tokenizer_two=getattr(self, "tokenizer_two", None),
+                    unet=self.unet,
+                    noise_scheduler=self.noise_scheduler,
+                )
+                pipe.set_progress_bar_config(disable=True)
+                diagnostics.log_sample_grid(pipe, prompts, step=step, seed=seed, epoch=epoch)
+        except Exception:
+            logger.warning("final sample grid failed; continuing", exc_info=True)
+        finally:
+            pipe = None
 
     # In backend/src/models/lora_diffusion.py
 
