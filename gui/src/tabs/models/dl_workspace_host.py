@@ -41,6 +41,7 @@ from gui.src.tabs.models.dl_workspace_components import (
     GuidedOnboardingCard,
     ProgressiveDisclosureControl,
 )
+from gui.src.tabs.models.review_vision_tools import ReviewVisionPanel
 from gui.src.tabs.models.upscale_handoff import UpscaleRunner
 
 _DESTINATIONS = (
@@ -493,6 +494,9 @@ class _ReviewToolsPage(QWidget):
         self._upscaler.finished.connect(self._on_upscale_finished)
         self._upscaler.error.connect(self._on_upscale_error)
 
+        self._vision = ReviewVisionPanel()
+        layout.addWidget(self._vision)
+
         self.set_compare_paths([])
 
         self._stack = QStackedWidget()
@@ -512,6 +516,7 @@ class _ReviewToolsPage(QWidget):
         from gui.src.windows.image_compare_window import ImageCompareWindow
 
         self.empty_state.setVisible(not paths)
+        self._vision.set_image(paths[0] if paths else None)
         if getattr(self, "_compare_paths", None) == paths:
             return
         self._compare_paths = list(paths)
