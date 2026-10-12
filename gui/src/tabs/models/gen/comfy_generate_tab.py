@@ -2,7 +2,7 @@ import copy
 import json
 from pathlib import Path
 
-from backend.src.comfy_matrix import apply_node_overrides, gpu_lease, merge_sampler_overrides
+from backend.src.comfy_matrix import apply_node_overrides, gpu_lease, merge_sampler_overrides, try_admit
 from backend.src.constants.comfy import ServerState
 from PySide6.QtCore import Signal, Slot
 from PySide6.QtGui import QTextCursor
@@ -92,6 +92,19 @@ WORKFLOW_MODES = {
         "extra_label": "IP-Adapter Checkpoint:",
         "image_label": "Reference Image:",
     },
+    "lora": {
+        "label": "LoRA",
+        "template": "lora_generate.json",
+        "checkpoint_node": "1",
+        "positive_node": "3",
+        "negative_node": "4",
+        "image_node": None,
+        "extra_node": "2",
+        "extra_key": "lora_name",
+        "extra_default": "anime_lora.safetensors",
+        "extra_label": "LoRA file:",
+        "image_label": "No control image for LoRA.",
+    },
 }
 
 
@@ -135,9 +148,11 @@ def plan_guided_workflow(
         cfg["checkpoint_node"]: {"ckpt_name": base_checkpoint},
         cfg["positive_node"]: {"text": positive_prompt},
         cfg["negative_node"]: {"text": negative_prompt},
-        cfg["image_node"]: {"image": image_filename},
-        cfg["extra_node"]: {cfg["extra_key"]: extra_checkpoint},
     }
+    if cfg.get("image_node"):
+        overrides[cfg["image_node"]] = {"image": image_filename}
+    if cfg.get("extra_node"):
+        overrides[cfg["extra_node"]] = {cfg["extra_key"]: extra_checkpoint}
     overrides = merge_sampler_overrides(
         template, overrides, seed=seed, width=width, height=height,
     )
@@ -182,12 +197,16 @@ def _queue_workflow(
     positive_prompt, negative_prompt, *, seed=None, width=None, height=None,
     run_meta=None,
 ) -> None:
-    if not gpu_lease.try_acquire("guided"):
-        log(f"[workflow] GPU lease is held by {gpu_lease.owner}.\n")
+    refusal = try_admit("guided")
+    if refusal:
+        log(f"[workflow] {refusal}\n")
         return
     try:
-        log(f"[workflow] Uploading {image_path}…\n")
-        uploaded_name = manager.upload_image(image_path)
+        cfg = WORKFLOW_MODES[mode]
+        uploaded_name = image_path
+        if cfg.get("image_node"):
+            log(f"[workflow] Uploading {image_path}…\n")
+            uploaded_name = manager.upload_image(image_path)
 
         workflow, overrides = plan_guided_workflow(
             mode,
@@ -460,7 +479,9 @@ class ComfyUITab(QWidget):
         self._controller.stop()
 
     def _on_open_browser(self) -> None:
-        self._controller.open_external()
+        if self._controller.open_external():
+            gpu_lease.note_external_browser(True)
+            self._append_log(f"[workflow] {gpu_lease.scope_text()}\n")
 
     def _refresh_server(self, *_args) -> None:
         state = self._controller.server_state
@@ -599,6 +620,9 @@ class ComfyUITab(QWidget):
         self._extra_ckpt_label.setText(cfg["extra_label"])
         self._extra_ckpt_edit.setText(cfg["extra_default"])
         self._image_label.setText(cfg["image_label"])
+        needs_image = bool(cfg.get("image_node"))
+        self._image_edit.setEnabled(needs_image)
+        self._browse_btn.setEnabled(needs_image)
         self._revalidate([mode])
 
     def _on_browse_image(self) -> None:
@@ -619,12 +643,11 @@ class ComfyUITab(QWidget):
             )
             return
 
+        mode = self._mode_combo.currentData()
         image_path = self._image_edit.text().strip()
-        if not image_path:
+        if WORKFLOW_MODES[mode].get("image_node") and not image_path:
             self._log_signal.emit("[workflow] No control/reference image selected.\n")
             return
-
-        mode = self._mode_combo.currentData()
         base_checkpoint = self._base_ckpt_edit.text().strip()
         extra_checkpoint = self._extra_ckpt_edit.text().strip()
         positive_prompt = self._prompt_edit.text()

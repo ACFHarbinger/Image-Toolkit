@@ -82,15 +82,43 @@ AXES: dict[str, AxisSpec] = {
 class SweepResult:
     prompt_ids: tuple[str, ...]
     parent_prompt_id: str | None
-    stopped: str | None = None  # "cap" | "lease" | "stop" | "pressure"
+    stopped: str | None = None  # "cap" | "lease" | "stop" | "pressure" | "thermal" | "execution"
+
+
+# Stop a sweep when a GPU sensor reports at least this temperature.
+THERMAL_CEILING_C = 85.0
+VIEW_BYTE_CAP = 2_000_000
 
 
 class GpuLease:
-    """One holder at a time. A matrix sweep keeps it across every cell."""
+    """In-process admission: one holder at a time.
+
+    Comfy submissions, training, and other model jobs share this object.
+    A matrix sweep keeps it until each cell's execution returns. Comfy's
+    browser queue is not visible here, so ``machine_wide`` stays false.
+    """
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
         self.owner: str | None = None
+        self.external_browser = False
+
+    @property
+    def machine_wide(self) -> bool:
+        return False
+
+    def note_external_browser(self, active: bool = True) -> None:
+        self.external_browser = bool(active)
+
+    def scope_text(self) -> str:
+        if self.external_browser:
+            browser = " A Comfy browser session is open and can submit work this admission cannot see."
+        else:
+            browser = " Comfy browser jobs are outside this admission."
+        return (
+            "In-process jobs share one GPU admission "
+            "(Comfy queues, training, and other model jobs)." + browser
+        )
 
     def try_acquire(self, owner: str) -> bool:
         if not self._lock.acquire(blocking=False):
@@ -106,6 +134,14 @@ class GpuLease:
 
 
 gpu_lease = GpuLease()
+
+
+def try_admit(owner: str, lease: GpuLease | None = None) -> str | None:
+    """Acquire *lease* for *owner*. Return a refusal message when it is busy."""
+    holder = lease or gpu_lease
+    if holder.try_acquire(owner):
+        return None
+    return f"GPU admission is held by {holder.owner or 'another job'}."
 
 
 def apply_node_overrides(workflow: dict, overrides: dict | None) -> dict:
@@ -223,10 +259,11 @@ def check_cell_count(count: int) -> str | None:
 def cost_estimate(count: int, steps: int | None = None) -> str:
     steps_bit = f" × {steps} steps" if steps else ""
     return (
-        f"{count} cells{steps_bit}. One GPU lease for the whole sweep. "
+        f"{count} cells{steps_bit}. {gpu_lease.scope_text()} "
         f"Cell cap {CELL_CAP}. Cells queue at {PREVIEW_EDGE}px. "
         "Promote restores the guided width and height. "
-        "Stops between cells if VRAM is tight."
+        f"Stops between cells if free VRAM is under {int(VRAM_FREE_FLOOR * 100)}% "
+        f"or GPU temperature reaches {int(THERMAL_CEILING_C)}C."
     )
 
 
@@ -319,6 +356,76 @@ def _under_pressure(pressure_check: Callable[[], bool] | None) -> bool:
         return False
 
 
+def read_gpu_temperature_c() -> float | None:
+    """NVIDIA sensor in Celsius, or None when no reading is available."""
+    import shutil
+    import subprocess
+
+    if shutil.which("nvidia-smi") is None:
+        return None
+    try:
+        output = subprocess.check_output(
+            ["nvidia-smi", "--query-gpu=temperature.gpu", "--format=csv,noheader,nounits"],
+            text=True,
+            timeout=2,
+        )
+    except Exception:
+        return None
+    line = output.strip().splitlines()[0].strip() if output.strip() else ""
+    try:
+        return float(line.split()[0])
+    except (IndexError, ValueError):
+        return None
+
+
+def thermal_pressure(
+    read_celsius: Callable[[], float | None] | None = None,
+    ceiling: float = THERMAL_CEILING_C,
+) -> bool:
+    """True when a temperature reading reaches *ceiling*. A missing sensor is not pressure."""
+    reader = read_celsius or read_gpu_temperature_c
+    try:
+        value = reader()
+    except Exception:
+        return False
+    if value is None:
+        return False
+    try:
+        temperature = float(value)
+    except (TypeError, ValueError):
+        return False
+    if not math.isfinite(temperature):
+        return False
+    return temperature >= ceiling
+
+
+def _under_thermal(thermal_check: Callable[[], bool] | None) -> bool:
+    check = thermal_pressure if thermal_check is None else thermal_check
+    try:
+        return bool(check())
+    except Exception:
+        return False
+
+
+def fetch_comfy_view(
+    base_url: str,
+    filename: str,
+    subfolder: str = "",
+    kind: str = "output",
+    limit: int = VIEW_BYTE_CAP,
+) -> bytes:
+    """GET ComfyUI ``/view``. Callers run this off the GUI thread."""
+    from urllib.parse import urlencode
+    from urllib.request import urlopen
+
+    query = urlencode({"filename": filename, "subfolder": subfolder or "", "type": kind})
+    with urlopen(f"{base_url.rstrip('/')}/view?{query}", timeout=5) as response:
+        data = response.read(limit)
+    if not isinstance(data, (bytes, bytearray)):
+        raise ValueError("Comfy /view did not return bytes.")
+    return bytes(data)
+
+
 def run_matrix_sweep(
     *,
     workflow: dict,
@@ -332,6 +439,7 @@ def run_matrix_sweep(
     parent_prompt_id: str | None = None,
     stop_check: Callable[[], bool] | None = None,
     pressure_check: Callable[[], bool] | None = None,
+    thermal_check: Callable[[], bool] | None = None,
     lease: GpuLease | None = None,
     lease_owner: str = "matrix",
 ) -> SweepResult:
@@ -348,6 +456,9 @@ def run_matrix_sweep(
         for value in values:
             if stop_check is not None and stop_check():
                 stopped = "stop"
+                break
+            if _under_thermal(thermal_check):
+                stopped = "thermal"
                 break
             if _under_pressure(pressure_check):
                 stopped = "pressure"

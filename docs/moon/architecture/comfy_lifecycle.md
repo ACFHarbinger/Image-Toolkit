@@ -104,18 +104,27 @@ those fields. `output_paths` is the captured filenames. The filmstrip
 listens to `run_record_changed`.
 
 Matrix mode picks one axis (seed, CFG, steps, LoRA weight, ControlNet
-strength) and 3–9 values, hard-capped at 25. `run_matrix_sweep` loops
-`queue_workflow` and waits for terminal `/history/{prompt_id}` after each
-submission. Failed, deleted, or disconnected jobs stop the sweep. Cells share `parent_prompt_id` (the first prompt) and
-render at 512px. One `GpuLease` covers the whole sweep; a guided or
-graph queue cannot take it until the sweep releases it. Stop between
-cells is a flag checked before every cell, including the first. VRAM pressure
-(CUDA free memory under 15%) stops the same way; CPU-only sessions do
-not count as pressure. **Promote cell to run** clones the selected
-workflow at the guided width and height and queues that single prompt
-with `surface_mode="promoted"`.
+strength) and 3–9 values, hard-capped at 25. An axis stays disabled
+unless the swept workflow contains its node. The guided LoRA mode uses
+`configs/comfy_workflows/lora_generate.json` (`LoraLoader` strength_model).
+**Sweep the graph draft** uses the external-graph JSON instead, so a
+loaded LoRA graph is reachable without the template. `run_matrix_sweep`
+loops `queue_workflow` and waits for terminal `/history/{prompt_id}` after
+each submission. Failed, deleted, or disconnected jobs stop the sweep.
+Cells share `parent_prompt_id` (the first prompt) and render at 512px.
+Stop between cells is a flag checked before every cell, including the
+first. The same gate stops on VRAM pressure (CUDA free memory under 15%;
+CPU-only sessions are not pressure) or thermal pressure (GPU temperature
+at or above 85C; a missing sensor is not pressure). **Promote cell to
+run** clones the selected workflow at the guided width and height and
+queues that single prompt with `surface_mode="promoted"`.
 
-The lease currently coordinates only these Comfy submission paths, not
-training jobs or an external browser. Thermal monitoring and image thumbnails
-are not implemented; #739/#740 remain incomplete on those points. Shutdown
-or disconnection stops waiting without interrupting an external server's job.
+`GpuLease` / `gpu_lease` is in-process admission shared by Comfy
+guided, graph, matrix, and promote submissions and by LoRA training,
+LoRA generation, GAN training, and CBIR training. `machine_wide` is
+false: opening the system browser notes an external session, and that
+queue is not observable. The filmstrip is a scrollable strip plus a
+scrollable matrix grid. Output thumbnails are fetched from Comfy `/view`
+on a worker thread, capped at 2MB and at the 200-record retention.
+Shutdown or disconnection stops waiting without interrupting an external
+server's job.

@@ -10,12 +10,21 @@ from backend.src.comfy_matrix import (
     UnknownWorkflowNodeError,
     apply_node_overrides,
     check_cell_count,
+    fetch_comfy_view,
+    gpu_lease,
     parse_graph_submission,
     prepare_sweep,
     promote_cell,
     run_matrix_sweep,
+    thermal_pressure,
+    try_admit,
 )
 from backend.src.models.core.comfy_manager import ComfyUIManager
+
+
+@pytest.fixture(autouse=True)
+def _no_live_thermal_sensor(monkeypatch):
+    monkeypatch.setattr("backend.src.comfy_matrix.read_gpu_temperature_c", lambda: None)
 
 
 def _controlnet() -> dict:
@@ -237,3 +246,93 @@ def test_stop_waits_for_current_cell_before_releasing_lease():
     assert results[0].stopped == "stop"
     assert queued == ["cell"]
     assert lease.try_acquire("after")
+
+
+def test_thermal_stop_runs_before_the_next_cell_and_releases():
+    lease = GpuLease()
+    readings = iter([False, True])
+    result = run_matrix_sweep(
+        wait_for_completion=lambda _pid: True,
+        workflow=_controlnet(),
+        axis="seed",
+        values=[1, 2, 3],
+        queue=lambda _workflow, _meta: "hot",
+        pressure_check=lambda: False,
+        thermal_check=lambda: next(readings),
+        lease=lease,
+    )
+    assert result.prompt_ids == ("hot",)
+    assert result.stopped == "thermal"
+    assert lease.try_acquire("after")
+    lease.release("after")
+
+
+def test_thermal_signal_ignores_a_missing_or_cool_sensor():
+    assert thermal_pressure(lambda: None) is False
+    assert thermal_pressure(lambda: 40) is False
+    assert thermal_pressure(lambda: float("nan")) is False
+    assert thermal_pressure(lambda: 85) is True
+
+
+def test_shared_admission_is_not_machine_wide():
+    lease = GpuLease()
+    lease.note_external_browser(True)
+    assert lease.machine_wide is False
+    assert "browser" in lease.scope_text().lower()
+    assert try_admit("lora-train", lease) is None
+    assert try_admit("matrix", lease) == "GPU admission is held by lora-train."
+    lease.release("lora-train")
+    assert try_admit("matrix", lease) is None
+    lease.release("matrix")
+
+
+def test_lora_template_sweeps_strength_model():
+    workflow = ComfyUIManager.load_workflow("lora_generate.json")
+    captured = []
+
+    def queue(cell, _meta):
+        captured.append(cell)
+        return f"p{len(captured)}"
+
+    result = run_matrix_sweep(
+        wait_for_completion=lambda _pid: True,
+        workflow=workflow,
+        axis="lora_weight",
+        values=[0.2, 0.5, 0.8],
+        queue=queue,
+        preview_edge=512,
+        pressure_check=lambda: False,
+        thermal_check=lambda: False,
+        lease=GpuLease(),
+    )
+    assert result.stopped is None
+    assert captured[0]["2"]["inputs"]["strength_model"] == 0.2
+    assert captured[2]["2"]["inputs"]["strength_model"] == 0.8
+    assert captured[0]["5"]["inputs"]["width"] == 512
+    assert "LoraLoader" in workflow["2"]["class_type"]
+
+
+def test_fetch_view_requests_the_output_bytes(monkeypatch):
+    seen = {}
+
+    class _Body:
+        def read(self, limit):
+            seen["limit"] = limit
+            return b"png-bytes"
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+    def _open(url, timeout=0):
+        seen["url"] = url
+        seen["timeout"] = timeout
+        return _Body()
+
+    monkeypatch.setattr("urllib.request.urlopen", _open)
+    assert fetch_comfy_view("http://127.0.0.1:8188", "cat.png", "out") == b"png-bytes"
+    assert seen["url"].endswith("/view?filename=cat.png&subfolder=out&type=output")
+    assert seen["limit"] == 2_000_000
+    assert gpu_lease.machine_wide is False

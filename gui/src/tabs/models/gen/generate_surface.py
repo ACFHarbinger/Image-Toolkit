@@ -7,29 +7,37 @@ queues one existing ``queue_workflow`` per cell on one GPU lease (#740).
 """
 from __future__ import annotations
 
+import inspect
 import json
+import queue
 import threading
 from dataclasses import dataclass
 
 from backend.src.comfy_matrix import (
+    AXES,
     AxisNotInWorkflow,
     UnknownWorkflowNodeError,
     build_promoted_submission,
+    find_node_id,
     gpu_lease,
     output_paths,
     parse_graph_submission,
     prepare_sweep,
     run_matrix_sweep,
+    try_admit,
 )
 from backend.src.constants.comfy import ServerState
-from PySide6.QtCore import Signal
+from PySide6.QtCore import QSize, Qt, Signal
+from PySide6.QtGui import QIcon, QPixmap
 from PySide6.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QPlainTextEdit,
     QPushButton,
+    QScrollArea,
     QStackedWidget,
     QVBoxLayout,
     QWidget,
@@ -63,9 +71,11 @@ def _sweep_status(result) -> str:
     count = len(result.prompt_ids)
     if result.stopped == "lease":
         holder = gpu_lease.owner or "another job"
-        return f"GPU lease is held by {holder}."
+        return f"GPU admission is held by {holder}."
     if result.stopped == "cap":
         return "Sweep exceeds the cell cap."
+    if result.stopped == "thermal":
+        return f"Stopped between cells under thermal pressure after {count} cell(s)."
     if result.stopped == "pressure":
         return f"Stopped between cells under VRAM pressure after {count} cell(s)."
     if result.stopped == "stop":
@@ -84,8 +94,30 @@ def _clear_layout(layout) -> None:
             widget.deleteLater()
 
 
+def _scroll(name: str, horizontal: bool) -> tuple[QScrollArea, QWidget, QHBoxLayout | QVBoxLayout]:
+    host = QWidget()
+    layout = QHBoxLayout(host) if horizontal else QVBoxLayout(host)
+    layout.setContentsMargins(0, 0, 0, 0)
+    scroll = QScrollArea()
+    scroll.setObjectName(name)
+    scroll.setWidgetResizable(True)
+    scroll.setWidget(host)
+    if horizontal:
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll.setMinimumHeight(120)
+    else:
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll.setMinimumHeight(140)
+    return scroll, host, layout
+
+
 class OutputFilmstrip(QWidget):
-    """One strip for guided and graph runs. Matrix cells share a grid."""
+    """Scrollable strip and matrix grid. Thumbnails load off the GUI thread."""
+
+    thumb_ready = Signal(str, bytes)
+    _KEEP = 200
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -93,12 +125,24 @@ class OutputFilmstrip(QWidget):
         self._records: dict[str, object] = {}
         self._order: list[str] = []
         self._selected_id: str | None = None
+        self._thumbs: dict[str, QPixmap] = {}
+        self._pending: set[str] = set()
+        self._fetcher = None
+        self._jobs: queue.Queue = queue.Queue()
+        self._stop = threading.Event()
+        self._worker: threading.Thread | None = None
+        self.thumb_ready.connect(self._apply_thumb)
+        self.destroyed.connect(lambda *_args: self._stop.set())
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
-        self._strip = QHBoxLayout()
-        self._grids = QVBoxLayout()
-        root.addLayout(self._strip)
-        root.addLayout(self._grids)
+        strip_scroll, _strip_host, self._strip = _scroll("generate_filmstrip_scroll", True)
+        grid_scroll, _grid_host, self._grids = _scroll("generate_matrix_scroll", False)
+        root.addWidget(strip_scroll)
+        root.addWidget(grid_scroll)
+
+    def set_view_fetcher(self, fetcher) -> None:
+        """``fetcher(filename, subfolder) -> bytes`` runs on a worker thread."""
+        self._fetcher = fetcher
 
     def upsert(self, record) -> None:
         prompt_id = getattr(record, "prompt_id", None)
@@ -107,11 +151,14 @@ class OutputFilmstrip(QWidget):
         if prompt_id not in self._records:
             self._order.append(prompt_id)
         self._records[prompt_id] = record
-        while len(self._order) > 200:
+        while len(self._order) > self._KEEP:
             expired = self._order.pop(0)
             self._records.pop(expired, None)
+            self._thumbs.pop(expired, None)
+            self._pending.discard(expired)
             if self._selected_id == expired:
                 self._selected_id = None
+        self._enqueue(record)
         self._rebuild()
 
     def selected_record(self):
@@ -139,12 +186,64 @@ class OutputFilmstrip(QWidget):
         for key, records in groups.items():
             self._grids.addWidget(self._grid(key, records))
 
+    def _enqueue(self, record) -> None:
+        if self._fetcher is None:
+            return
+        prompt_id = record.prompt_id
+        if prompt_id in self._thumbs or prompt_id in self._pending:
+            return
+        filename, subfolder = _first_output(record)
+        if not filename:
+            return
+        self._pending.add(prompt_id)
+        self._ensure_worker()
+        self._jobs.put((prompt_id, filename, subfolder))
+
+    def _ensure_worker(self) -> None:
+        if self._worker is not None and self._worker.is_alive():
+            return
+        self._worker = threading.Thread(target=self._pump, name="filmstrip-thumbs", daemon=True)
+        self._worker.start()
+
+    def _pump(self) -> None:
+        while not self._stop.is_set():
+            try:
+                prompt_id, filename, subfolder = self._jobs.get(timeout=0.2)
+            except queue.Empty:
+                continue
+            data = None
+            fetcher = self._fetcher
+            if fetcher is not None and prompt_id in self._records:
+                try:
+                    data = fetcher(filename, subfolder)
+                except Exception:
+                    data = None
+            self._pending.discard(prompt_id)
+            if isinstance(data, (bytes, bytearray)) and data and not self._stop.is_set():
+                self.thumb_ready.emit(prompt_id, bytes(data))
+
+    def _apply_thumb(self, prompt_id: str, data: bytes) -> None:
+        if prompt_id not in self._records or len(data) > 2_000_000:
+            return
+        pixmap = QPixmap()
+        if not pixmap.loadFromData(data):
+            return
+        self._thumbs[prompt_id] = pixmap
+        while len(self._thumbs) > self._KEEP:
+            self._thumbs.pop(next(iter(self._thumbs)), None)
+        button = self.findChild(QPushButton, f"filmstrip_{prompt_id}")
+        if button is not None:
+            _set_thumb(button, pixmap)
+
     def _cell(self, record) -> QPushButton:
         prompt_id = record.prompt_id
         button = QPushButton(_cell_text(record))
         button.setCheckable(True)
         button.setChecked(prompt_id == self._selected_id)
         button.setObjectName(f"filmstrip_{prompt_id}")
+        thumb = self._thumbs.get(prompt_id)
+        if thumb is not None:
+            _set_thumb(button, thumb)
         button.clicked.connect(lambda _=False, pid=prompt_id: self._choose(pid))
         return button
 
@@ -168,6 +267,34 @@ def _cell_text(record) -> str:
     axis = getattr(record, "sweep_axis", None)
     extra = f" {axis}={record.sweep_value}" if axis else ""
     return f"{record.prompt_id} {status}{extra} {path} {mode}".strip()
+
+
+def _first_output(record) -> tuple[str, str]:
+    for item in getattr(record, "outputs", ()) or ():
+        filename = getattr(item, "filename", None)
+        if isinstance(filename, str) and filename:
+            subfolder = getattr(item, "subfolder", "") or ""
+            return filename, subfolder if isinstance(subfolder, str) else ""
+    return "", ""
+
+
+def _set_thumb(button: QPushButton, pixmap: QPixmap) -> None:
+    button.setIcon(QIcon(pixmap))
+    button.setIconSize(QSize(72, 72))
+
+
+def _manager_view_fetcher(manager):
+    method = getattr(type(manager), "fetch_view", None)
+    if not inspect.isfunction(method):
+        return None
+
+    def fetch(filename: str, subfolder: str):
+        try:
+            return method(manager, filename, subfolder)
+        except Exception:
+            return None
+
+    return fetch
 
 
 class GraphDraft(QWidget):
@@ -239,6 +366,8 @@ class MatrixJob:
     height: int
     axis: str
     values: tuple
+    workflow: dict | None = None
+    template_name: str | None = None
 
 
 class GenerateSurface(QWidget):
@@ -258,6 +387,9 @@ class GenerateSurface(QWidget):
         self.guided = ComfyUITab(enable_manager=enable_manager, controller=self._controller)
         self.graph = GraphDraft()
         self._filmstrip = OutputFilmstrip()
+        fetcher = _manager_view_fetcher(self._manager)
+        if fetcher is not None:
+            self._filmstrip.set_view_fetcher(fetcher)
         self._build_ui()
         _attach_graph_actions(self)
         self._matrix_status.connect(self._matrix_message.setText)
@@ -293,9 +425,15 @@ class GenerateSurface(QWidget):
         page = QWidget()
         layout = QVBoxLayout(page)
         layout.addWidget(QLabel(
-            "One axis, 3–9 values, one GPU lease. Cells queue through the existing "
-            "workflow API at preview size. Promote clones the selected cell at the guided size."
+            "One axis, 3–9 values, shared in-process GPU admission. "
+            "Cells queue through the existing workflow API at preview size. "
+            "An axis stays disabled until this workflow has its node. "
+            "Promote clones the selected cell at the guided size."
         ))
+        self._use_graph = QCheckBox("Sweep the graph draft")
+        self._use_graph.setObjectName("generate_matrix_use_graph")
+        self._use_graph.toggled.connect(lambda _checked: self._sync_matrix_axes())
+        layout.addWidget(self._use_graph)
         axis_row = QHBoxLayout()
         axis_row.addWidget(QLabel("Axis:"))
         self._axis = QComboBox()
@@ -336,8 +474,63 @@ class GenerateSurface(QWidget):
         buttons.addStretch()
         layout.addLayout(buttons)
         layout.addStretch()
-        self._refresh_estimate()
+        self.guided._mode_combo.currentIndexChanged.connect(lambda _i: self._sync_matrix_axes())
+        self.graph.editor.textChanged.connect(self._on_graph_text_for_matrix)
+        self._sync_matrix_axes()
         return page
+
+    def _on_graph_text_for_matrix(self) -> None:
+        if self._use_graph.isChecked():
+            self._sync_matrix_axes()
+
+    def _graph_workflow(self) -> tuple[dict | None, str]:
+        try:
+            value = json.loads(self.graph.editor.toPlainText() or "")
+        except json.JSONDecodeError as exc:
+            return None, f"Graph JSON is not valid: {exc.msg}"
+        if not isinstance(value, dict):
+            return None, "Graph JSON must be an object."
+        return value, ""
+
+    def _matrix_source_workflow(self) -> tuple[dict | None, str]:
+        if self._use_graph.isChecked():
+            return self._graph_workflow()
+        fields = self._guided_fields()
+        try:
+            workflow, _overrides = plan_guided_workflow(
+                fields["mode"],
+                base_checkpoint=fields["base_checkpoint"],
+                extra_checkpoint=fields["extra_checkpoint"],
+                positive_prompt=fields["positive_prompt"],
+                negative_prompt=fields["negative_prompt"],
+                image_filename="placeholder.png",
+                seed=fields["seed"],
+                width=fields["width"],
+                height=fields["height"],
+            )
+        except (UnknownWorkflowNodeError, AxisNotInWorkflow, ValueError) as exc:
+            return None, str(exc)
+        return workflow, ""
+
+    def _sync_matrix_axes(self) -> None:
+        workflow, error = self._matrix_source_workflow()
+        first = -1
+        model = self._axis.model()
+        for index in range(self._axis.count()):
+            key = self._axis.itemData(index)
+            enabled = workflow is not None and find_node_id(workflow, AXES[key].class_types) is not None
+            item = model.item(index)
+            if item is not None:
+                item.setEnabled(enabled)
+            if enabled and first < 0:
+                first = index
+        current = model.item(self._axis.currentIndex())
+        if current is not None and not current.isEnabled() and first >= 0:
+            self._axis.setCurrentIndex(first)
+        if error:
+            self._matrix_message.setText(error)
+            return
+        self._refresh_estimate()
 
     def _load_existing_runs(self) -> None:
         snapshot = getattr(self._manager, "runs", None)
@@ -386,6 +579,9 @@ class GenerateSurface(QWidget):
     def _on_open_browser(self) -> None:
         if not self._controller.open_external():
             self.graph.error.setText("Could not open the system browser.")
+            return
+        gpu_lease.note_external_browser(True)
+        self.graph.error.setText(gpu_lease.scope_text())
 
     def _on_load_graph(self) -> None:
         record = self._filmstrip.selected_record()
@@ -411,8 +607,9 @@ class GenerateSurface(QWidget):
             self.graph.error.setText("Server is busy or not ready.")
 
     def _queue_graph(self, workflow: dict, meta: dict) -> None:
-        if not gpu_lease.try_acquire("graph"):
-            self._controller._publish_log(f"[workflow] GPU lease is held by {gpu_lease.owner}.\n")
+        refusal = try_admit("graph")
+        if refusal:
+            self._controller._publish_log(f"[workflow] {refusal}\n")
             return
         try:
             issue = _template_issue(self._manager, workflow)
@@ -433,26 +630,21 @@ class GenerateSurface(QWidget):
         if self._controller.server_state != ServerState.READY:
             self._matrix_message.setText("ComfyUI server is not running.")
             return
+        fields = self._guided_fields()
+        source, error = self._matrix_source_workflow()
+        if error or source is None:
+            self._matrix_message.setText(error or "This workflow cannot be swept.")
+            return
+        axis = self._axis.currentData()
+        if find_node_id(source, AXES[axis].class_types) is None:
+            self._matrix_message.setText(str(AxisNotInWorkflow(axis, AXES[axis].class_types)))
+            return
         image = self.guided._image_edit.text().strip()
-        if not image:
+        needs_image = not self._use_graph.isChecked() and bool(WORKFLOW_MODES[fields["mode"]].get("image_node"))
+        if needs_image and not image:
             self._matrix_message.setText("No control/reference image selected.")
             return
-        fields = self._guided_fields()
-        try:
-            preview, _overrides = plan_guided_workflow(
-                fields["mode"],
-                base_checkpoint=fields["base_checkpoint"],
-                extra_checkpoint=fields["extra_checkpoint"],
-                positive_prompt=fields["positive_prompt"],
-                negative_prompt=fields["negative_prompt"],
-                image_filename="placeholder.png",
-                seed=fields["seed"],
-                width=fields["width"],
-                height=fields["height"],
-            )
-        except (UnknownWorkflowNodeError, AxisNotInWorkflow, ValueError) as exc:
-            self._matrix_message.setText(str(exc))
-            return
+        preview = source
         issue = _template_issue(self._manager, preview)
         if issue:
             self._matrix_message.setText(issue)
@@ -469,6 +661,8 @@ class GenerateSurface(QWidget):
             height=fields["height"],
             axis=self._axis.currentData(),
             values=tuple(values),
+            workflow=source if self._use_graph.isChecked() else None,
+            template_name="graph" if self._use_graph.isChecked() else None,
         )
         self._sweep_stop.clear()
         if not self._controller.run_http_action(lambda: self._finish_matrix(job)):
@@ -481,27 +675,35 @@ class GenerateSurface(QWidget):
         if isValid(self) and not self._controller._closed:
             self._matrix_status.emit(result)
 
-    def _run_matrix_job(self, job: MatrixJob, pressure_check=None) -> str:
+    def _run_matrix_job(self, job: MatrixJob, pressure_check=None, thermal_check=None) -> str:
         log = self._controller._publish_log
         try:
-            log(f"[workflow] Uploading {job.image_path}…\n")
-            uploaded = self._manager.upload_image(job.image_path)
-            workflow, overrides = plan_guided_workflow(
-                job.mode,
-                base_checkpoint=job.base_checkpoint,
-                extra_checkpoint=job.extra_checkpoint,
-                positive_prompt=job.positive_prompt,
-                negative_prompt=job.negative_prompt,
-                image_filename=uploaded,
-                seed=job.seed,
-                width=job.width,
-                height=job.height,
-            )
+            if job.workflow is not None:
+                workflow = job.workflow
+                overrides = {}
+                template = job.template_name or "graph"
+            else:
+                cfg = WORKFLOW_MODES[job.mode]
+                uploaded = "placeholder.png"
+                if cfg.get("image_node"):
+                    log(f"[workflow] Uploading {job.image_path}…\n")
+                    uploaded = self._manager.upload_image(job.image_path)
+                workflow, overrides = plan_guided_workflow(
+                    job.mode,
+                    base_checkpoint=job.base_checkpoint,
+                    extra_checkpoint=job.extra_checkpoint,
+                    positive_prompt=job.positive_prompt,
+                    negative_prompt=job.negative_prompt,
+                    image_filename=uploaded,
+                    seed=job.seed,
+                    width=job.width,
+                    height=job.height,
+                )
+                template = cfg["template"]
             issue = _template_issue(self._manager, workflow)
             if issue:
                 log(f"[workflow] Blocked by pre-flight validation: {issue}\n")
                 return issue
-            template = WORKFLOW_MODES[job.mode]["template"]
             result = run_matrix_sweep(
                 workflow=workflow,
                 axis=job.axis,
@@ -514,6 +716,7 @@ class GenerateSurface(QWidget):
                 base_overrides=overrides,
                 stop_check=lambda: self._sweep_stop.is_set() or self._controller._cancel.is_set(),
                 pressure_check=pressure_check,
+                thermal_check=thermal_check,
             )
         except Exception as exc:
             log(f"[workflow] Error: {exc}\n")
@@ -540,8 +743,9 @@ class GenerateSurface(QWidget):
             self._matrix_message.setText("Server is busy or not ready.")
 
     def _queue_promoted(self, workflow, width: int, height: int, parent, template) -> None:
-        if not gpu_lease.try_acquire("promoted"):
-            self._controller._publish_log(f"[workflow] GPU lease is held by {gpu_lease.owner}.\n")
+        refusal = try_admit("promoted")
+        if refusal:
+            self._controller._publish_log(f"[workflow] {refusal}\n")
             return
         try:
             queued, meta = build_promoted_submission(

@@ -305,6 +305,15 @@ class ComfyUIManager:
         with urllib.request.urlopen(f"{self.url}{path}", timeout=timeout) as response:
             return json.loads(response.read(8 * 1024 * 1024))
 
+    def fetch_view(self, filename: str, subfolder: str = "") -> bytes | None:
+        """Bounded ``/view`` bytes for a captured output. Failures return None."""
+        from backend.src.comfy_matrix import fetch_comfy_view
+
+        try:
+            return fetch_comfy_view(self.url, filename, subfolder)
+        except Exception:
+            return None
+
     def _start_provenance_poller(self) -> None:
         with self._poller_lock:
             if self._poll_thread is not None and self._poll_thread.is_alive():

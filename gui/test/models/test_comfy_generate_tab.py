@@ -35,13 +35,14 @@ def tab(q_app):
 
 
 class TestModeSelection:
-    def test_mode_combo_has_all_four_modes(self, tab):
+    def test_mode_combo_lists_guided_workflows(self, tab):
         keys = [tab._mode_combo.itemData(i) for i in range(tab._mode_combo.count())]
         assert keys == [
             "controlnet_pose",
             "controlnet_depth",
             "controlnet_canny",
             "ipadapter_reference",
+            "lora",
         ]
 
     def test_default_mode_prefills_pose_controlnet_checkpoint(self, tab):

@@ -1,15 +1,27 @@
 """Guided | Graph surface and matrix sweeps (#739, #740)."""
+import base64
+import threading
+import time
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
 from backend.src.constants.comfy import ServerState
-from PySide6.QtWidgets import QPushButton, QWidget
+from PySide6.QtWidgets import QPushButton, QScrollArea, QWidget
 
 from gui.src.modules.comfy_workspace_controller import ComfyWorkspaceController
 from gui.src.tabs.models.gen.generate_surface import GenerateSurface, MatrixJob
 
 pytestmark = pytest.mark.gui
+
+_PNG = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+)
+
+
+@pytest.fixture(autouse=True)
+def _no_live_thermal_sensor(monkeypatch):
+    monkeypatch.setattr("backend.src.comfy_matrix.read_gpu_temperature_c", lambda: None)
 
 
 @pytest.fixture
@@ -174,6 +186,94 @@ def test_filmstrip_bounds_record_retention(surface, monkeypatch):
         strip.upsert(SimpleNamespace(prompt_id=str(index)))
     assert len(strip._records) == len(strip._order) == 200
     assert "0" not in strip._records
+
+
+def test_lora_axis_is_disabled_until_a_loader_exists(surface):
+    surface.set_mode("matrix")
+    lora_index = surface._axis.findData("lora_weight")
+    assert not surface._axis.model().item(lora_index).isEnabled()
+    surface.guided._mode_combo.setCurrentIndex(surface.guided._mode_combo.findData("lora"))
+    assert surface._axis.model().item(lora_index).isEnabled()
+    control = surface._axis.findData("controlnet_strength")
+    assert not surface._axis.model().item(control).isEnabled()
+
+    surface._use_graph.setChecked(True)
+    surface.graph.editor.setPlainText(
+        '{"9": {"class_type": "LoraLoader", "inputs": {"strength_model": 1}},'
+        ' "4": {"class_type": "EmptyLatentImage", "inputs": {"width": 64, "height": 64}},'
+        ' "5": {"class_type": "KSampler", "inputs": {"seed": 1}}}'
+    )
+    assert surface._axis.model().item(lora_index).isEnabled()
+    assert not surface._axis.model().item(control).isEnabled()
+
+
+def test_lora_template_queues_strength_without_an_image(surface):
+    captured = []
+
+    def _queue(workflow, run_meta=None):
+        captured.append(workflow)
+        return f"p{len(captured)}"
+
+    surface._manager.queue_workflow.side_effect = _queue
+    message = surface._run_matrix_job(MatrixJob(
+        mode="lora",
+        image_path="",
+        base_checkpoint="base.safetensors",
+        extra_checkpoint="anime.safetensors",
+        positive_prompt="p",
+        negative_prompt="n",
+        seed=1,
+        width=1024,
+        height=1024,
+        axis="lora_weight",
+        values=(0.2, 0.5, 0.8),
+    ), pressure_check=lambda: False, thermal_check=lambda: False)
+    assert message.startswith("Completed 3 cells")
+    assert captured[0]["2"]["inputs"]["strength_model"] == 0.2
+    assert captured[0]["2"]["inputs"]["lora_name"] == "anime.safetensors"
+    assert captured[0]["5"]["inputs"]["width"] == 512
+    surface._manager.upload_image.assert_not_called()
+
+
+def test_filmstrip_loads_a_thumbnail_off_the_gui_thread(surface, q_app):
+    calls = []
+
+    def fetch(filename, subfolder):
+        calls.append((filename, subfolder, threading.current_thread() is not threading.main_thread()))
+        return _PNG
+
+    surface._filmstrip.set_view_fetcher(fetch)
+    assert surface.findChild(QScrollArea, "generate_filmstrip_scroll") is not None
+    assert surface.findChild(QScrollArea, "generate_matrix_scroll") is not None
+    surface._filmstrip.upsert(SimpleNamespace(
+        prompt_id="g1",
+        status="Completed",
+        surface_mode="guided",
+        outputs=(SimpleNamespace(filename="cat.png", subfolder="out"),),
+        sweep_axis=None,
+    ))
+    button = surface.findChild(QPushButton, "filmstrip_g1")
+    deadline = time.monotonic() + 2
+    while time.monotonic() < deadline and (button is None or button.icon().isNull()):
+        q_app.processEvents()
+        time.sleep(0.02)
+        button = surface.findChild(QPushButton, "filmstrip_g1")
+    assert calls == [("cat.png", "out", True)]
+    assert button is not None and not button.icon().isNull()
+
+
+def test_open_browser_notes_an_unobservable_session(surface, monkeypatch):
+    from backend.src.comfy_matrix import gpu_lease
+
+    monkeypatch.setattr(surface._controller, "open_external", lambda: True)
+    gpu_lease.note_external_browser(False)
+    surface._on_open_browser()
+    try:
+        assert gpu_lease.external_browser is True
+        assert gpu_lease.machine_wide is False
+        assert "browser" in surface.graph.error.text().lower()
+    finally:
+        gpu_lease.note_external_browser(False)
 
 
 def test_new_tab_validates_cached_inventory(surface):

@@ -1,3 +1,4 @@
+from backend.src.comfy_matrix import gpu_lease, try_admit
 from PySide6.QtCore import Signal
 
 from gui.src.helpers.base import BaseQThreadWorker
@@ -26,6 +27,15 @@ class TrainingWorker(BaseQThreadWorker):
         self._should_stop = False  # standardised cancellation flag (item 2.7)
 
     def _execute(self) -> object:
+        refusal = try_admit("gan-train")
+        if refusal:
+            raise RuntimeError(refusal)
+        try:
+            return self._train_gan()
+        finally:
+            gpu_lease.release("gan-train")
+
+    def _train_gan(self) -> object:
         import torch
         from backend.src.models.core.gan import GAN
         from torch.utils.data import DataLoader
