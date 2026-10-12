@@ -14,6 +14,11 @@ import tempfile
 if "PYTEST_IT_CONFIG_HOME" not in os.environ:
     os.environ["PYTEST_IT_CONFIG_HOME"] = tempfile.mkdtemp(prefix="it-test-config-")
 os.environ["XDG_CONFIG_HOME"] = os.environ["PYTEST_IT_CONFIG_HOME"]
+# Training run records (#741) live under IMAGE_TOOLKIT_DIR by default; the
+# env override keeps any test that launches (or stubs) a training run from
+# writing to the user's real home. Session-wide, same rationale as above.
+if "ITK_TRAINING_RUNS_ROOT" not in os.environ:
+    os.environ["ITK_TRAINING_RUNS_ROOT"] = tempfile.mkdtemp(prefix="it-test-runs-")
 # Must precede any PySide6 import. Headless runners abort inside
 # QApplication() unless a platform plugin is selected first. See #656.
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -80,6 +85,7 @@ def _mock_model_tree():
         "backend.src.models.core.gan",
         "backend.src.models.core.siamese_network",
         "backend.src.models.full_finetune",
+        "backend.src.models.hooks",
         "backend.src.models.lora_diffusion",
         "backend.src.models.stable_diffusion",
         "backend.src.models.tuning.lo_ra_tuner",
