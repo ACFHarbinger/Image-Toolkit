@@ -1,6 +1,7 @@
 import os
 import threading
 
+from backend.src.comfy_matrix import gpu_lease, try_admit
 from backend.src.constants import LOCAL_SOURCE_PATH
 from backend.src.models.tuning.lo_ra_tuner import LoRATuner
 from backend.src.models.wrappers.gan_wrapper import GanWrapper
@@ -277,6 +278,10 @@ class LoRAGenerateTab(BaseGenerativeTab):
         guidance,
         input_image,
     ):
+        refusal = try_admit("lora-generate")
+        if refusal:
+            self.generation_finished_signal.emit("error", refusal)
+            return
         gan = None
         try:
             if model_id == "animegan_v2":
@@ -312,8 +317,11 @@ class LoRAGenerateTab(BaseGenerativeTab):
         except Exception as e:
             self.generation_finished_signal.emit("error", str(e))
         finally:
-            if gan is not None:
-                gan.unload()
+            try:
+                if gan is not None:
+                    gan.unload()
+            finally:
+                gpu_lease.release("lora-generate")
 
     @Slot(str, str)
     def handle_generation_finished(self, status_type, message):

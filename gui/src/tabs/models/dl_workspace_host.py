@@ -149,14 +149,18 @@ class DeepLearningWorkspaceHost(QWidget):
             return page
         if route_key == "generate":
             from gui.src.modules.context import ModuleContext, ModuleServices
+            from gui.src.tabs.models.gen.generate_surface import GenerateSurface
 
             context = ModuleContext(
                 event_hub=self._event_hub or EventHub(self),
                 services=ModuleServices(),
             )
             tab = build_tab("ml.generation", context)
+            comfy = GenerateSurface()
             self._generate_tab = tab
-            page = _GenerateDestinationPage(tab, preference_store=self._preference_store)
+            page = _GenerateDestinationPage(
+                tab, preference_store=self._preference_store, comfy_surface=comfy,
+            )
             self._generate_page = page
             return page
         if route_key == "review":
@@ -333,9 +337,11 @@ class _GenerateDestinationPage(QWidget):
         tab: QWidget,
         preference_store: PreferenceStore | None = None,
         parent: QWidget | None = None,
+        comfy_surface: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self.tab = tab
+        self._comfy_surface = comfy_surface
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(6)
@@ -361,7 +367,28 @@ class _GenerateDestinationPage(QWidget):
         controls_row.addWidget(self.disclosure)
         layout.addLayout(controls_row)
 
-        layout.addWidget(tab, stretch=1)
+        if comfy_surface is None:
+            self._body = None
+            layout.addWidget(tab, stretch=1)
+        else:
+            switch = QHBoxLayout()
+            self._models_btn = QPushButton("Models")
+            self._comfy_btn = QPushButton("Comfy")
+            self._models_btn.setObjectName("dl_generate_models")
+            self._comfy_btn.setObjectName("dl_generate_comfy")
+            self._models_btn.setCheckable(True)
+            self._comfy_btn.setCheckable(True)
+            self._models_btn.clicked.connect(lambda: self._show_generate_body("models"))
+            self._comfy_btn.clicked.connect(lambda: self._show_generate_body("comfy"))
+            switch.addWidget(self._models_btn)
+            switch.addWidget(self._comfy_btn)
+            switch.addStretch()
+            layout.addLayout(switch)
+            self._body = QStackedWidget()
+            self._body.addWidget(tab)
+            self._body.addWidget(comfy_surface)
+            layout.addWidget(self._body, stretch=1)
+            self._show_generate_body("comfy")
 
         # Wire connections
         if hasattr(tab, "apply_disclosure_tier"):
@@ -370,17 +397,36 @@ class _GenerateDestinationPage(QWidget):
         if hasattr(tab, "effective_config_changed") and hasattr(tab, "get_effective_config_summary"):
             self.config_bar.connect_tab(tab)
 
+    def _show_generate_body(self, which: str) -> None:
+        comfy = which == "comfy" and self._comfy_surface is not None
+        if self._body is not None:
+            self._body.setCurrentWidget(self._comfy_surface if comfy else self.tab)
+        if hasattr(self, "_models_btn"):
+            self._models_btn.setChecked(not comfy)
+            self._comfy_btn.setChecked(comfy)
+        # The model summary describes the checkpoint form, not the Comfy draft.
+        self.config_bar.setVisible(not comfy)
+        self.disclosure.setVisible(not comfy)
+
+    def _visible_generate_body(self) -> QWidget:
+        if self._body is None:
+            return self.tab
+        current = self._body.currentWidget()
+        return current if current is not None else self.tab
+
     def collect(self) -> dict:
-        collect_fn = getattr(self.tab, "collect", None)
+        target = self._visible_generate_body()
+        collect_fn = getattr(target, "collect", None)
         return collect_fn() if callable(collect_fn) else {}
 
     def set_config(self, config: dict) -> None:
-        set_fn = getattr(self.tab, "set_config", None)
+        set_fn = getattr(self._visible_generate_body(), "set_config", None)
         if callable(set_fn):
             set_fn(config)
 
     def apply_pinned_run(self, run) -> None:
-        apply_fn = getattr(self.tab, "apply_pinned_run", None)
+        target = self._visible_generate_body()
+        apply_fn = getattr(target, "apply_pinned_run", None)
         if callable(apply_fn):
             apply_fn(run)
 

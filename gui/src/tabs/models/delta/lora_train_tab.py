@@ -6,6 +6,7 @@ import threading
 from pathlib import Path
 from typing import NamedTuple
 
+from backend.src.comfy_matrix import gpu_lease, try_admit
 from backend.src.constants import LOCAL_SOURCE_PATH, ROOT_DIR
 from backend.src.models.tuning.lo_ra_tuner import LoRATuner
 from backend.src.models.wrappers.gan_wrapper import GanWrapper
@@ -553,6 +554,28 @@ class LoRATrainTab(BaseGenerativeTab):
         thread.start()
 
     def run_training(
+        self,
+        params,
+        data_dir,
+        model_id,
+        rank,
+        prompt,
+        output_name,
+        engine="standard",
+        trigger="",
+    ):
+        refusal = try_admit("lora-train")
+        if refusal:
+            self.training_finished_signal.emit("error", refusal)
+            return
+        try:
+            self._run_training_admitted(
+                params, data_dir, model_id, rank, prompt, output_name, engine, trigger,
+            )
+        finally:
+            gpu_lease.release("lora-train")
+
+    def _run_training_admitted(
         self,
         params,
         data_dir,

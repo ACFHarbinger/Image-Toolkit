@@ -214,11 +214,17 @@ def test_dl_workspace_host_train_and_generate_pages(q_app):
     active_subtab = host._train_page.tab.stack.currentWidget()
     assert active_subtab.widgets["epochs"].isHidden() is True
 
-    # Generate route
+    # Generate route opens the Comfy surface; Models stays one click away.
     host.activate_route("generate")
     assert host._stack.currentWidget() is host._generate_page
     gen_onboarding = host.findChild(GuidedOnboardingCard, "dl_onboarding_generate")
     assert gen_onboarding is not None
+    comfy_btn = host.findChild(QPushButton, "dl_generate_comfy")
+    models_btn = host.findChild(QPushButton, "dl_generate_models")
+    assert comfy_btn is not None and comfy_btn.isChecked()
+    assert models_btn is not None
+    models_btn.click()
+    assert host._generate_page._body.currentWidget() is host._generate_tab
 
 
 def test_dl_workspace_host_runs_page_empty_state_and_navigation(q_app):

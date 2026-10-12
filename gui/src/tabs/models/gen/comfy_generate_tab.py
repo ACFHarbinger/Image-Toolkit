@@ -1,11 +1,11 @@
 import copy
 import json
-import threading
 from pathlib import Path
 
-from backend.src.models.core.comfy_manager import ComfyUIManager
-from PySide6.QtCore import QUrl, Signal, Slot
-from PySide6.QtGui import QDesktopServices, QTextCursor
+from backend.src.comfy_matrix import apply_node_overrides, gpu_lease, merge_sampler_overrides, try_admit
+from backend.src.constants.comfy import ServerState
+from PySide6.QtCore import Signal, Slot
+from PySide6.QtGui import QTextCursor
 from PySide6.QtWidgets import (
     QComboBox,
     QFileDialog,
@@ -23,15 +23,12 @@ from PySide6.QtWidgets import (
 
 from gui.src.components.prompt_edit import PromptEdit
 from gui.src.components.prompt_vocabulary import default_vocabulary
+from gui.src.modules.comfy_workspace_controller import ComfyWorkspaceController
 
-from ....theming.theme_api import color, qss
+from ....theming.theme_api import qss
 
-# QWebEngineView is intentionally NOT used here.
-# Chromium (QtWebEngine) loads native libstdc++ via Vulkan/GBM at first render,
-# which causes an RTTI __dynamic_cast SIGSEGV when JPype's JVM is already running
-# in the same process — identical to the GTK/QFileDialog crash. The URL is opened
-# in the system browser instead, which has no in-process library conflict.
-
+# #729's accepted v1 tier is external-only: the wallpaper application event
+# filter still collides with WebEngine native QObject wrapping.
 
 # Content Gen §1.4 (issue #35) — ControlNet + IP-Adapter workflow modes.
 #
@@ -95,6 +92,19 @@ WORKFLOW_MODES = {
         "extra_label": "IP-Adapter Checkpoint:",
         "image_label": "Reference Image:",
     },
+    "lora": {
+        "label": "LoRA",
+        "template": "lora_generate.json",
+        "checkpoint_node": "1",
+        "positive_node": "3",
+        "negative_node": "4",
+        "image_node": None,
+        "extra_node": "2",
+        "extra_key": "lora_name",
+        "extra_default": "anime_lora.safetensors",
+        "extra_label": "LoRA file:",
+        "image_label": "No control image for LoRA.",
+    },
 }
 
 
@@ -115,6 +125,40 @@ def _load_workflow_template(name: str) -> dict:
         return json.load(fh)
 
 
+def plan_guided_workflow(
+    mode: str,
+    *,
+    base_checkpoint: str,
+    extra_checkpoint: str,
+    positive_prompt: str,
+    negative_prompt: str,
+    image_filename: str,
+    seed: int | None = None,
+    width: int | None = None,
+    height: int | None = None,
+) -> tuple[dict, dict]:
+    """Return ``(workflow, overrides)`` for one guided submission.
+
+    The override map is what ``apply_node_overrides`` merged. Unknown node
+    ids raise ``UnknownWorkflowNodeError`` instead of being dropped.
+    """
+    cfg = WORKFLOW_MODES[mode]
+    template = copy.deepcopy(_load_workflow_template(cfg["template"]))
+    overrides = {
+        cfg["checkpoint_node"]: {"ckpt_name": base_checkpoint},
+        cfg["positive_node"]: {"text": positive_prompt},
+        cfg["negative_node"]: {"text": negative_prompt},
+    }
+    if cfg.get("image_node"):
+        overrides[cfg["image_node"]] = {"image": image_filename}
+    if cfg.get("extra_node"):
+        overrides[cfg["extra_node"]] = {cfg["extra_key"]: extra_checkpoint}
+    overrides = merge_sampler_overrides(
+        template, overrides, seed=seed, width=width, height=height,
+    )
+    return apply_node_overrides(template, overrides), overrides
+
+
 def build_workflow(
     mode: str,
     *,
@@ -123,6 +167,9 @@ def build_workflow(
     positive_prompt: str,
     negative_prompt: str,
     image_filename: str,
+    seed: int | None = None,
+    width: int | None = None,
+    height: int | None = None,
 ) -> dict:
     """Load the curated template for *mode* and apply the GUI's parameter
     overrides (base checkpoint, prompts, extra ControlNet/IP-Adapter
@@ -131,21 +178,63 @@ def build_workflow(
     Pure function (no Qt / no network) so it can be exercised directly in
     tests without a running ComfyUI server or QApplication.
     """
-    cfg = WORKFLOW_MODES[mode]
-    workflow = copy.deepcopy(_load_workflow_template(cfg["template"]))
-    overrides = {
-        cfg["checkpoint_node"]: {"ckpt_name": base_checkpoint},
-        cfg["positive_node"]: {"text": positive_prompt},
-        cfg["negative_node"]: {"text": negative_prompt},
-        cfg["image_node"]: {"image": image_filename},
-        cfg["extra_node"]: {cfg["extra_key"]: extra_checkpoint},
-    }
-    for node_id, node_overrides in overrides.items():
-        node = workflow.get(node_id)
-        if node is None:
-            continue
-        node.setdefault("inputs", {}).update(node_overrides)
+    workflow, _overrides = plan_guided_workflow(
+        mode,
+        base_checkpoint=base_checkpoint,
+        extra_checkpoint=extra_checkpoint,
+        positive_prompt=positive_prompt,
+        negative_prompt=negative_prompt,
+        image_filename=image_filename,
+        seed=seed,
+        width=width,
+        height=height,
+    )
     return workflow
+
+
+def _queue_workflow(
+    manager, log, mode, image_path, base_checkpoint, extra_checkpoint,
+    positive_prompt, negative_prompt, *, seed=None, width=None, height=None,
+    run_meta=None, cancel=None,
+) -> None:
+    refusal = try_admit("guided")
+    if refusal:
+        log(f"[workflow] {refusal}\n")
+        return
+    try:
+        cfg = WORKFLOW_MODES[mode]
+        uploaded_name = image_path
+        if cfg.get("image_node"):
+            log(f"[workflow] Uploading {image_path}…\n")
+            uploaded_name = manager.upload_image(image_path)
+
+        workflow, overrides = plan_guided_workflow(
+            mode,
+            base_checkpoint=base_checkpoint,
+            extra_checkpoint=extra_checkpoint,
+            positive_prompt=positive_prompt,
+            negative_prompt=negative_prompt,
+            image_filename=uploaded_name,
+            seed=seed,
+            width=width,
+            height=height,
+        )
+        meta = {
+            "surface_mode": "guided",
+            "template_name": WORKFLOW_MODES[mode]["template"],
+            "applied_overrides": overrides,
+        }
+        if run_meta:
+            meta.update(run_meta)
+
+        log(f"[workflow] Queuing {WORKFLOW_MODES[mode]['label']}…\n")
+        prompt_id = manager.queue_workflow(workflow, run_meta=meta)
+        log(f"[workflow] Queued — prompt_id={prompt_id}\n")
+        manager.wait_for_run(prompt_id, cancel=cancel)
+    except Exception as exc:
+        log(f"[workflow] Error: {exc}\n")
+    finally:
+        gpu_lease.release("guided")
 
 
 class ComfyUITab(QWidget):
@@ -153,19 +242,30 @@ class ComfyUITab(QWidget):
     Manages the ComfyUI server subprocess and opens its web UI in the system browser.
     """
 
-    _status_signal = Signal(str, str)  # (text, css-colour)
-    _server_ready_signal = Signal(str)  # server URL
     _log_signal = Signal(str)  # one log line
+    _workflow_finished = Signal()
 
-    def __init__(self, enable_manager=False) -> None:
+    def __init__(self, enable_manager=False, controller=None) -> None:
         super().__init__()
-        self._manager = ComfyUIManager.instance()
+        self._controller = controller or ComfyWorkspaceController.instance()
+        self._manager = self._controller.manager
         self.enable_manager = enable_manager
-        self._log_thread: threading.Thread | None = None
+        # Pre-flight validation state (#738): per-mode issue lists, computed
+        # from the manager's cached /object_info once the server is Ready.
+        self._issues_by_mode: dict[str, list] = {}
+        self._validation_pending = False
+        self._validation_unavailable = False
         self._init_ui()
-        self._status_signal.connect(self._on_status)
-        self._server_ready_signal.connect(self._on_server_ready)
         self._log_signal.connect(self._append_log)
+        self._workflow_finished.connect(self._on_workflow_finished)
+        self._controller.server_state_changed.connect(self._refresh_server)
+        self._controller.busy_changed.connect(self._refresh_server)
+        self._controller.log_line.connect(self._append_log)
+        self._controller.error.connect(self._on_service_error)
+        self._controller.object_info_changed.connect(self._on_object_info)
+        self._refresh_server()
+        if self._manager.get_object_info() is not None:
+            self._on_object_info(self._manager.get_object_info())
 
     # ------------------------------------------------------------------
     # UI construction
@@ -186,6 +286,10 @@ class ComfyUITab(QWidget):
         self._start_btn.setToolTip("Launch the ComfyUI HTTP server")
         self._start_btn.clicked.connect(self._on_start_clicked)
         ctrl_layout.addWidget(self._start_btn)
+        self._connect_btn = QPushButton("Connect Existing")
+        self._connect_btn.setToolTip("Connect to ComfyUI already running on the selected local port")
+        self._connect_btn.clicked.connect(lambda: self._controller.connect(self._port_spin.value()))
+        ctrl_layout.addWidget(self._connect_btn)
 
         self._stop_btn = QPushButton("Stop Server")
         self._stop_btn.setFixedWidth(120)
@@ -220,8 +324,8 @@ class ComfyUITab(QWidget):
         self._url_label.setStyleSheet(qss("comfy_url_label"))
         browser_layout.addWidget(self._url_label, stretch=1)
 
-        self._open_btn = QPushButton("Open in Browser")
-        self._open_btn.setFixedWidth(140)
+        self._open_btn = QPushButton("Open in External Browser")
+        self._open_btn.setMinimumWidth(180)
         self._open_btn.setEnabled(False)
         self._open_btn.setToolTip(
             "Open the ComfyUI interface in your default web browser"
@@ -230,6 +334,9 @@ class ComfyUITab(QWidget):
         browser_layout.addWidget(self._open_btn)
 
         root.addWidget(browser_frame)
+        tier_hint = QLabel("ComfyUI opens in your system browser. Server controls remain available here.")
+        tier_hint.setWordWrap(True)
+        root.addWidget(tier_hint)
 
         # --- ControlNet / IP-Adapter workflow panel (Content Gen §1.4) ---
         wf_group = QGroupBox("ControlNet / IP-Adapter Workflow")
@@ -252,6 +359,7 @@ class ComfyUITab(QWidget):
         self._base_ckpt_edit.setToolTip(
             "Must already exist under ComfyUI/models/checkpoints/. Not downloaded by this app."
         )
+        self._base_ckpt_edit.textChanged.connect(lambda _t: self._on_validation_param_changed(all_modes=True))
         ckpt_row.addWidget(self._base_ckpt_edit, stretch=1)
         wf_layout.addLayout(ckpt_row)
 
@@ -264,6 +372,7 @@ class ComfyUITab(QWidget):
             "IP-Adapter checkpoints under ComfyUI/models/ipadapter/. "
             "Not downloaded by this app -- place the file yourself."
         )
+        self._extra_ckpt_edit.textChanged.connect(lambda _t: self._on_validation_param_changed())
         extra_ckpt_row.addWidget(self._extra_ckpt_edit, stretch=1)
         wf_layout.addLayout(extra_ckpt_row)
 
@@ -296,8 +405,37 @@ class ComfyUITab(QWidget):
         neg_prompt_row.addWidget(self._negative_prompt_edit, stretch=1)
         wf_layout.addLayout(neg_prompt_row)
 
+        size_row = QHBoxLayout()
+        size_row.addWidget(QLabel("Seed:"))
+        self._seed_spin = QSpinBox()
+        self._seed_spin.setRange(0, 2**31 - 1)
+        self._seed_spin.setValue(0)
+        self._seed_spin.setObjectName("comfy_guided_seed")
+        size_row.addWidget(self._seed_spin)
+        size_row.addWidget(QLabel("Width:"))
+        self._width_spin = QSpinBox()
+        self._width_spin.setRange(64, 2048)
+        self._width_spin.setSingleStep(64)
+        self._width_spin.setValue(1024)
+        self._width_spin.setObjectName("comfy_guided_width")
+        size_row.addWidget(self._width_spin)
+        size_row.addWidget(QLabel("Height:"))
+        self._height_spin = QSpinBox()
+        self._height_spin.setRange(64, 2048)
+        self._height_spin.setSingleStep(64)
+        self._height_spin.setValue(1024)
+        self._height_spin.setObjectName("comfy_guided_height")
+        size_row.addWidget(self._height_spin)
+        size_row.addStretch()
+        wf_layout.addLayout(size_row)
+
         queue_row = QHBoxLayout()
         queue_row.addStretch()
+        self._validation_label = QLabel()
+        self._validation_label.setToolTip(
+            "Pre-flight check of the selected mode against the running ComfyUI server"
+        )
+        queue_row.addWidget(self._validation_label)
         self._queue_btn = QPushButton("Queue Workflow")
         self._queue_btn.setToolTip(
             "Upload the control/reference image and submit the curated workflow "
@@ -325,6 +463,7 @@ class ComfyUITab(QWidget):
 
         self._log_view = QTextEdit()
         self._log_view.setReadOnly(True)
+        self._log_view.document().setMaximumBlockCount(2000)
         self._log_view.setStyleSheet(qss("comfy_log_text"))
         log_layout.addWidget(self._log_view)
 
@@ -335,28 +474,142 @@ class ComfyUITab(QWidget):
     # ------------------------------------------------------------------
 
     def _on_start_clicked(self) -> None:
-        self._start_btn.setEnabled(False)
-        self._port_spin.setEnabled(False)
-        self._open_btn.setEnabled(False)
-        self._log_view.clear()
-        self._status_signal.emit("Starting…", color("accent_hover"))
-        port = self._port_spin.value()
-        threading.Thread(
-            target=self._start_worker, args=(port, self.enable_manager), daemon=True
-        ).start()
+        self._controller.start(self._port_spin.value(), self.enable_manager)
 
     def _on_stop_clicked(self) -> None:
-        self._manager.stop()
-        self._stop_btn.setEnabled(False)
-        self._open_btn.setEnabled(False)
-        self._start_btn.setEnabled(True)
-        self._port_spin.setEnabled(True)
-        self._url_label.setText("—")
-        self._url_label.setStyleSheet(qss("comfy_url_label"))
-        self._status_signal.emit("Server: stopped", color("muted_text"))
+        self._controller.stop()
 
     def _on_open_browser(self) -> None:
-        QDesktopServices.openUrl(QUrl(self._manager.url))
+        if self._controller.open_external():
+            gpu_lease.note_external_browser(True)
+            self._append_log(f"[workflow] {gpu_lease.scope_text()}\n")
+
+    def _refresh_server(self, *_args) -> None:
+        state = self._controller.server_state
+        if not isinstance(state, ServerState):
+            state = ServerState.STOPPED
+        busy = self._controller.busy
+        ready = state == ServerState.READY
+        active = state != ServerState.STOPPED
+        self._start_btn.setEnabled(not busy and not active)
+        self._connect_btn.setEnabled(not busy and not active)
+        self._port_spin.setEnabled(not busy and not active)
+        self._stop_btn.setEnabled(active or busy)
+        self._stop_btn.setText("Stop Server" if self._manager.owns_server else "Disconnect")
+        self._stop_btn.setToolTip(
+            "Stop the server launched by Image Toolkit" if self._manager.owns_server
+            else "Disconnect without stopping the external server"
+        )
+        self._open_btn.setEnabled(ready)
+        self._url_label.setText(self._manager.url if active else "—")
+        self._status_label.setText(f"Server: {state}")
+        if ready:
+            self._port_spin.setValue(self._manager.port)
+            # /object_info is warmed off-thread at Ready; until it lands the
+            # Queue button waits in its checking state.
+            self._validation_pending = (
+                not self._validation_unavailable
+                and self._manager.get_object_info() is None
+            )
+        else:
+            self._validation_pending = False
+            self._validation_unavailable = False
+            self._issues_by_mode = {}
+        self._update_queue_state()
+
+    @Slot(str)
+    def _on_service_error(self, message: str) -> None:
+        self._append_log(f"[comfy-manager] {message}\n")
+        self._status_label.setText(message)
+
+    @Slot()
+    def _on_workflow_finished(self) -> None:
+        self._update_queue_state()
+
+    # ------------------------------------------------------------------
+    # Pre-flight validation (#738)
+    # ------------------------------------------------------------------
+
+    def _workflow_for_mode(self, mode: str) -> dict:
+        cfg = WORKFLOW_MODES[mode]
+        # Only the current mode reads the live extra-checkpoint field; other
+        # modes validate against their defaults (switching modes revalidates).
+        extra = (self._extra_ckpt_edit.text().strip()
+                 if mode == self._mode_combo.currentData()
+                 else cfg["extra_default"])
+        return build_workflow(
+            mode,
+            base_checkpoint=self._base_ckpt_edit.text().strip(),
+            extra_checkpoint=extra,
+            positive_prompt="",
+            negative_prompt="",
+            image_filename="placeholder.png",
+        )
+
+    def _revalidate(self, modes: list[str]) -> None:
+        if self._controller.server_state != ServerState.READY:
+            return
+        if self._manager.get_object_info() is None:
+            return  # warmup still in flight; object_info_changed retriggers
+        for mode in modes:
+            try:
+                self._issues_by_mode[mode] = list(
+                    self._manager.validate_template(self._workflow_for_mode(mode))
+                )
+            except RuntimeError:
+                self._validation_unavailable = True
+                self._issues_by_mode = {}
+                break
+        self._update_queue_state()
+
+    def _on_validation_param_changed(self, *, all_modes: bool = False) -> None:
+        if self._controller.server_state != ServerState.READY:
+            return
+        self._revalidate(list(WORKFLOW_MODES) if all_modes else [self._mode_combo.currentData()])
+
+    def _on_object_info(self, info) -> None:
+        self._validation_pending = False
+        if info is None:
+            # Fetch failed after retries: keep Queue usable (status quo ante)
+            # and say so, rather than blocking generation on a hiccup.
+            self._validation_unavailable = True
+            self._issues_by_mode = {}
+            self._append_log(
+                "[workflow] Pre-flight validation unavailable: "
+                "/object_info did not respond.\n"
+            )
+        else:
+            self._validation_unavailable = False
+            self._revalidate(list(WORKFLOW_MODES))
+        self._update_queue_state()
+
+    def _update_queue_state(self) -> None:
+        mode = self._mode_combo.currentData()
+        ready = (self._controller.server_state == ServerState.READY
+                 and not self._controller.busy)
+        if not ready:
+            self._queue_btn.setEnabled(False)
+            self._validation_label.setText("")
+            return
+        issues = self._issues_by_mode.get(mode, [])
+        if self._validation_pending:
+            self._queue_btn.setEnabled(False)
+            self._validation_label.setText("Checking workflow compatibility…")
+            return
+        if issues:
+            self._queue_btn.setEnabled(False)
+            text = issues[0].message
+            if len(issues) > 1:
+                text += f" (+{len(issues) - 1} more)"
+            self._validation_label.setText(text)
+            self._queue_btn.setToolTip("\n".join(issue.message for issue in issues))
+            return
+        self._queue_btn.setEnabled(True)
+        self._validation_label.setText("" if self._validation_unavailable else "Ready")
+        self._queue_btn.setToolTip(
+            "Upload the control/reference image and submit the curated workflow "
+            "to the running ComfyUI server"
+        )
 
     # ------------------------------------------------------------------
     # ControlNet / IP-Adapter workflow handlers (Content Gen §1.4)
@@ -368,6 +621,10 @@ class ComfyUITab(QWidget):
         self._extra_ckpt_label.setText(cfg["extra_label"])
         self._extra_ckpt_edit.setText(cfg["extra_default"])
         self._image_label.setText(cfg["image_label"])
+        needs_image = bool(cfg.get("image_node"))
+        self._image_edit.setEnabled(needs_image)
+        self._browse_btn.setEnabled(needs_image)
+        self._revalidate([mode])
 
     def _on_browse_image(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
@@ -381,36 +638,41 @@ class ComfyUITab(QWidget):
             self._image_edit.setText(path)
 
     def _on_queue_workflow_clicked(self) -> None:
-        if not self._manager.is_running:
+        if self._controller.server_state != ServerState.READY:
             self._log_signal.emit(
                 "[workflow] ComfyUI server is not running — start it first.\n"
             )
             return
 
+        mode = self._mode_combo.currentData()
         image_path = self._image_edit.text().strip()
-        if not image_path:
+        if WORKFLOW_MODES[mode].get("image_node") and not image_path:
             self._log_signal.emit("[workflow] No control/reference image selected.\n")
             return
-
-        mode = self._mode_combo.currentData()
         base_checkpoint = self._base_ckpt_edit.text().strip()
         extra_checkpoint = self._extra_ckpt_edit.text().strip()
         positive_prompt = self._prompt_edit.text()
         negative_prompt = self._negative_prompt_edit.text()
 
-        self._queue_btn.setEnabled(False)
-        threading.Thread(
-            target=self._queue_workflow_worker,
-            args=(
-                mode,
-                image_path,
-                base_checkpoint,
-                extra_checkpoint,
-                positive_prompt,
-                negative_prompt,
-            ),
-            daemon=True,
-        ).start()
+        issues = self._issues_by_mode.get(mode)
+        if issues:
+            self._log_signal.emit(
+                f"[workflow] Blocked by pre-flight validation: {issues[0].message}\n"
+            )
+            return
+
+        manager = self._manager
+        log = self._controller._publish_log
+        seed = self._seed_spin.value()
+        width = self._width_spin.value()
+        height = self._height_spin.value()
+        args = (mode, image_path, base_checkpoint, extra_checkpoint, positive_prompt, negative_prompt)
+        self._controller.run_http_action(
+            lambda: _queue_workflow(
+                manager, log, *args, seed=seed, width=width, height=height,
+                cancel=self._controller._cancel,
+            )
+        )
 
     def _queue_workflow_worker(
         self,
@@ -422,73 +684,16 @@ class ComfyUITab(QWidget):
         negative_prompt: str,
     ) -> None:
         try:
-            self._log_signal.emit(f"[workflow] Uploading {image_path}…\n")
-            uploaded_name = self._manager.upload_image(image_path)
-
-            workflow = build_workflow(
-                mode,
-                base_checkpoint=base_checkpoint,
-                extra_checkpoint=extra_checkpoint,
-                positive_prompt=positive_prompt,
-                negative_prompt=negative_prompt,
-                image_filename=uploaded_name,
+            _queue_workflow(
+                self._manager, self._log_signal.emit, mode, image_path,
+                base_checkpoint, extra_checkpoint, positive_prompt, negative_prompt,
             )
-
-            self._log_signal.emit(f"[workflow] Queuing {WORKFLOW_MODES[mode]['label']}…\n")
-            prompt_id = self._manager.queue_workflow(workflow)
-            self._log_signal.emit(f"[workflow] Queued — prompt_id={prompt_id}\n")
-        except Exception as exc:
-            self._log_signal.emit(f"[workflow] Error: {exc}\n")
         finally:
-            self._queue_btn.setEnabled(True)
-
-    # ------------------------------------------------------------------
-    # Background workers
-    # ------------------------------------------------------------------
-
-    def _start_worker(self, port: int, enable_manager: bool = False) -> None:
-        try:
-            actual_port = self._manager.start(port, enable_manager=enable_manager)
-            self._log_signal.emit(f"[comfy-manager] Starting on port {actual_port}…\n")
-
-            self._log_thread = threading.Thread(target=self._stream_logs, daemon=True)
-            self._log_thread.start()
-
-            ready = self._manager.wait_until_ready(timeout=120.0)
-            if ready:
-                self._server_ready_signal.emit(self._manager.url)
-            else:
-                self._status_signal.emit(
-                    "Timed out — check the log for errors", color("danger")
-                )
-                self._start_btn.setEnabled(True)
-                self._port_spin.setEnabled(True)
-        except Exception as exc:
-            self._status_signal.emit(f"Error: {exc}", color("danger"))
-            self._log_signal.emit(f"[comfy-manager] {exc}\n")
-            self._start_btn.setEnabled(True)
-            self._port_spin.setEnabled(True)
-
-    def _stream_logs(self) -> None:
-        for line in self._manager.iter_log_lines():
-            self._log_signal.emit(line)
+            self._workflow_finished.emit()
 
     # ------------------------------------------------------------------
     # Slots
     # ------------------------------------------------------------------
-
-    @Slot(str, str)
-    def _on_status(self, text: str, colour: str) -> None:
-        self._status_label.setText(text)
-        self._status_label.setStyleSheet(qss("status_color_dynamic", STATUS_COLOR=colour))
-
-    @Slot(str)
-    def _on_server_ready(self, url: str) -> None:
-        self._stop_btn.setEnabled(True)
-        self._open_btn.setEnabled(True)
-        self._url_label.setText(url)
-        self._url_label.setStyleSheet(qss("comfy_url_label"))
-        self._status_signal.emit(f"Running at {url}", color("success"))
 
     @Slot(str)
     def _append_log(self, line: str) -> None:
@@ -502,5 +707,5 @@ class ComfyUITab(QWidget):
     # ------------------------------------------------------------------
 
     def closeEvent(self, event) -> None:
-        self._manager.stop()
+        # The app-level controller owns the service, not this disposable view.
         super().closeEvent(event)

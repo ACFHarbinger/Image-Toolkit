@@ -8,6 +8,7 @@ from __future__ import annotations
 import threading
 from pathlib import Path
 
+from backend.src.comfy_matrix import gpu_lease, try_admit
 from PySide6.QtWidgets import QMessageBox
 
 from ._tab_bound import TabBoundController
@@ -56,6 +57,10 @@ class CBIRTrainWorkerController(TabBoundController):
         )
 
         def _run() -> None:
+            refusal = try_admit("cbir-train")
+            if refusal:
+                self.sig_done.emit("error", refusal)
+                return
             try:
                 tuner.train()
                 # Auto-populate checkpoint path on success
@@ -68,6 +73,8 @@ class CBIRTrainWorkerController(TabBoundController):
                     self.sig_done.emit("cancel", "Training cancelled by user.")
                 else:
                     self.sig_done.emit("error", str(exc))
+            finally:
+                gpu_lease.release("cbir-train")
 
         train_thread = threading.Thread(target=_run, daemon=True)
         self._train_thread = train_thread
