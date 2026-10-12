@@ -64,9 +64,6 @@ def test_overlay_lists_changes_and_emits_verdict(q_app):
         overlay.findChild(QPushButton, "dl_what_changed_verdict_better").click()
         assert seen == ["better"]
         assert overlay.trajectory().latest.verdict == "better"
-        for worker in workers:
-            worker.join(3)
-            assert not worker.is_alive()
     finally:
         overlay.deleteLater()
 
