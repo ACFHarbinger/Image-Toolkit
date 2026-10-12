@@ -13,13 +13,30 @@ def pair_cache_dir(directory: str | None = None) -> str:
     return directory or os.path.join(LOCAL_SOURCE_PATH, "Generated", "compare_pairs")
 
 
+class _PairBus(QObject):
+    loaded = Signal(object)
+    failed = Signal(int, str)
+    persisted = Signal()
+    persist_failed = Signal(str)
+
+
 class ComparisonPairLoader(QObject):
     """Fetch the provenance-bound pair off the UI thread."""
 
     loaded = Signal(object)
-    failed = Signal(str)
+    failed = Signal(int, str)
     persisted = Signal()
     persist_failed = Signal(str)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._bus = _PairBus()
+        self._bus.loaded.connect(self.loaded)
+        self._bus.failed.connect(self.failed)
+        self._bus.persisted.connect(self.persisted)
+        self._bus.persist_failed.connect(self.persist_failed)
+        self._persist_lock = threading.Lock()
+        self._persist_revisions = {}
 
     def start(
         self,
@@ -30,10 +47,10 @@ class ComparisonPairLoader(QObject):
         generation: int,
         cache_dir: str | None = None,
         fetch=None,
-    ) -> None:
+    ) -> threading.Thread | None:
         getter = getattr(manager, "get_run", None)
         if not callable(getter):
-            self.failed.emit("missing run record")
+            self._bus.failed.emit(generation, "missing run record")
             return
         fetch_fn = fetch
         if fetch_fn is None:
@@ -52,6 +69,7 @@ class ComparisonPairLoader(QObject):
             name="guidance-pair-load",
         )
         thread.start()
+        return thread
 
     def persist(
         self,
@@ -59,14 +77,17 @@ class ComparisonPairLoader(QObject):
         traj,
         variant_prompt_id: str | None,
         persist_sidecar=None,
-    ) -> None:
+    ) -> threading.Thread:
+        revision = self._persist_revisions.get(variant_prompt_id, 0) + 1
+        self._persist_revisions[variant_prompt_id] = revision
         thread = threading.Thread(
             target=self._persist,
-            args=(manager, traj, variant_prompt_id, persist_sidecar),
+            args=(manager, traj, variant_prompt_id, persist_sidecar, revision),
             daemon=True,
             name="guidance-verdict-persist",
         )
         thread.start()
+        return thread
 
     def _load(self, getter, fetch, parent_id, variant_id, generation, cache_dir) -> None:
         try:
@@ -80,17 +101,20 @@ class ComparisonPairLoader(QObject):
                 generation=generation,
             )
         except PairLoadError as exc:
-            self.failed.emit(str(exc))
+            self._bus.failed.emit(generation, str(exc))
             return
         except Exception as exc:
-            self.failed.emit(str(exc))
+            self._bus.failed.emit(generation, str(exc))
             return
-        self.loaded.emit(pair)
+        self._bus.loaded.emit(pair)
 
-    def _persist(self, manager, traj, variant_prompt_id, persist_sidecar) -> None:
+    def _persist(self, manager, traj, variant_prompt_id, persist_sidecar, revision=None) -> None:
         try:
-            persist_verdict(manager, traj, variant_prompt_id, persist_sidecar)
+            with self._persist_lock:
+                if revision is not None and revision != self._persist_revisions.get(variant_prompt_id):
+                    return
+                persist_verdict(manager, traj, variant_prompt_id, persist_sidecar)
         except Exception as exc:
-            self.persist_failed.emit(str(exc))
+            self._bus.persist_failed.emit(str(exc))
             return
-        self.persisted.emit()
+        self._bus.persisted.emit()

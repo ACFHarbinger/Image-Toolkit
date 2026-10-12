@@ -64,6 +64,9 @@ def test_overlay_lists_changes_and_emits_verdict(q_app):
         overlay.findChild(QPushButton, "dl_what_changed_verdict_better").click()
         assert seen == ["better"]
         assert overlay.trajectory().latest.verdict == "better"
+        for worker in workers:
+            worker.join(3)
+            assert not worker.is_alive()
     finally:
         overlay.deleteLater()
 
@@ -144,6 +147,8 @@ def test_bound_pair_loads_parent_and_variant_then_enables_voting(q_app, tmp_path
         ),
         "v1": SimpleNamespace(
             prompt_id="v1",
+            workflow={"6": {"inputs": {"cfg": 6.0}}},
+            surface_mode="guided",
             parent_prompt_id="p0",
             local_output_path=str(variant),
             outputs=(),
@@ -154,6 +159,10 @@ def test_bound_pair_loads_parent_and_variant_then_enables_voting(q_app, tmp_path
     page = _ReviewToolsPage(host=MagicMock(), preference_store=None)
     page._guidance._manager = manager
     page._pair_cache_dir = str(tmp_path / "cache")
+    page._guidance._variant_dir = str(tmp_path / "variants")
+    persist = page._pair_loader.persist
+    workers = []
+    page._pair_loader.persist = lambda *args: workers.append(persist(*args))
     page._pair_loader.start = lambda *_args, **_kwargs: None
     overlay = page.findChild(WhatChangedOverlay, "dl_what_changed")
     try:
@@ -166,6 +175,11 @@ def test_bound_pair_loads_parent_and_variant_then_enables_voting(q_app, tmp_path
         view = page.findChild(ImageCompareWindow, "dl_compare_view")
         assert view is not None
         assert page._compare_paths == [str(parent), str(variant)]
+        assert page._vision._image == str(variant)
+        assert page._guidance._source_id == "v1"
+        assert page._guidance._workflow["6"]["inputs"]["cfg"] == 6.0
+        page._on_pair_failed(page._pair_generation - 1, "old failure")
+        assert overlay.findChild(QPushButton, "dl_what_changed_verdict_better").isEnabled()
         stale = BoundPair("p0", "v1", str(parent), str(variant), generation=page._pair_generation - 1)
         page._what_changed.set_voting_enabled(False)
         page._on_pair_loaded(stale)
@@ -175,6 +189,9 @@ def test_bound_pair_loads_parent_and_variant_then_enables_voting(q_app, tmp_path
         )
         overlay.findChild(QPushButton, "dl_what_changed_verdict_better").click()
         assert overlay.trajectory().latest.verdict == "better"
+        for worker in workers:
+            worker.join(3)
+            assert not worker.is_alive()
         page.set_compare_paths([str(parent)])
         assert overlay.trajectory() is None
         assert not overlay.findChild(QPushButton, "dl_what_changed_verdict_better").isEnabled()
@@ -199,3 +216,60 @@ def test_pair_loader_persists_verdict_off_caller(q_app, tmp_path):
     assert written[0][0] == "v1"
     assert sidecars
     assert done == [True]
+
+
+def test_pair_worker_can_finish_after_loader_is_deleted(q_app, tmp_path, monkeypatch):
+    import threading
+
+    import shiboken6
+    from gui.src.components.guidance.pair_loader import ComparisonPairLoader
+
+    entered, release = threading.Event(), threading.Event()
+    failures = []
+    monkeypatch.setattr(threading, "excepthook", lambda args: failures.append(args.exc_value))
+
+    class Manager:
+        def get_run(self, _prompt_id):
+            entered.set()
+            assert release.wait(2)
+            return None
+
+    loader = ComparisonPairLoader()
+    thread = loader.start(Manager(), parent_prompt_id="p", variant_prompt_id="v",
+                          generation=1, cache_dir=str(tmp_path))
+    assert entered.wait(2)
+    shiboken6.delete(loader)
+    release.set()
+    thread.join(3)
+    assert not thread.is_alive() and not failures
+
+
+def test_verdict_persistence_cannot_finish_in_reverse_order(q_app):
+    import threading
+
+    from backend.src.core.guidance_trajectory import record_verdict
+    from gui.src.components.guidance.pair_loader import ComparisonPairLoader
+
+    entered, release, second_written = threading.Event(), threading.Event(), threading.Event()
+    saved = []
+
+    class Manager:
+        def update_run_meta(self, _prompt_id, meta):
+            verdict = meta["guidance_trajectory"]["steps"][-1]["verdict"]
+            if verdict == "better":
+                entered.set()
+                assert release.wait(2)
+            else:
+                second_written.set()
+            saved.append(verdict)
+
+    loader = ComparisonPairLoader()
+    first = loader.persist(Manager(), record_verdict(_traj(), "better"), "v1")
+    assert entered.wait(2)
+    second = loader.persist(Manager(), record_verdict(_traj(), "worse"), "v1")
+    second_written.wait(0.05)
+    release.set()
+    first.join(3)
+    second.join(3)
+    assert saved[-1] == "worse"
+    loader.deleteLater()

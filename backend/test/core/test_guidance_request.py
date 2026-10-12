@@ -51,7 +51,7 @@ def test_prompt_uses_captured_scalars_and_labels_the_note_as_data():
     digest = workflow_hash(WF)
     rows = scalar_inputs(WF)
     assert rows[0]["inputs"]["enabled"] is True
-    assert rows[0]["inputs"]["caption"] == "x" * 500
+    assert rows[0]["inputs"]["caption"] == "x" * 600
     assert "samples" not in rows[0]["inputs"]
     assert "drift" not in rows[0]["inputs"]
     fake = "ab" * 32
@@ -141,3 +141,17 @@ def test_cloud_without_approval_is_not_sent():
     empty = run_suggestion(workflow=WF, raw_reply="  ")
     assert empty.sent is False
     assert "no guidance" in empty.unavailable
+
+
+def test_request_does_not_share_mutable_workflow():
+    workflow = {"1": {"inputs": {"steps": 10}}}
+    request = build_guidance_request(workflow=workflow)
+    workflow["1"]["inputs"]["steps"] = 20
+    assert request.workflow["1"]["inputs"]["steps"] == 10
+
+
+def test_oversized_request_is_refused_not_silently_truncated():
+    import pytest
+
+    with pytest.raises(ValueError, match="request limit"):
+        build_guidance_request(workflow={"1": {"inputs": {"text": "x" * 100_001}}})

@@ -1,8 +1,10 @@
 """Provenance-bound parent/variant pair identity (#754 hold)."""
 import os
+from io import BytesIO
 from types import SimpleNamespace
 
 import pytest
+from PIL import Image
 
 from backend.src.core.guidance_pair import (
     BoundPair,
@@ -87,8 +89,8 @@ def test_contained_path_refuses_escape(tmp_path):
 def test_load_comparison_pair_uses_existing_local_files(tmp_path):
     parent_file = tmp_path / "parent.png"
     variant_file = tmp_path / "variant.png"
-    parent_file.write_bytes(b"p")
-    variant_file.write_bytes(b"v")
+    Image.new("RGB", (4, 4)).save(parent_file)
+    Image.new("RGB", (4, 4)).save(variant_file)
     pair = load_comparison_pair(
         parent_record=_record("p0", path=str(parent_file)),
         variant_record=_record("v1", parent="p0", path=str(variant_file)),
@@ -108,7 +110,9 @@ def test_load_comparison_pair_fetches_missing_remote(tmp_path):
 
     def fetch(filename, subfolder, kind):
         fetched.append((filename, subfolder, kind))
-        return b"png-bytes"
+        image = BytesIO()
+        Image.new("RGB", (4, 4)).save(image, format="PNG")
+        return image.getvalue()
 
     pair = load_comparison_pair(
         parent_record=_record(
@@ -163,3 +167,31 @@ def test_persist_verdict_updates_record_and_sidecar():
     assert written[0][0] == "v1"
     assert written[0][1]["guidance_trajectory"]["root_prompt_id"] == "p0"
     assert sidecars == [traj]
+
+
+def test_unknown_selected_variant_cannot_fall_back_to_latest():
+    assert pair_ids_from_trajectory(_traj(), "not-in-history") is None
+
+
+def test_cache_identity_includes_unsanitized_ids_and_output_fields(tmp_path):
+    from backend.src.core.guidance_pair import OutputSpec, materialize_output
+
+    specs = [
+        OutputSpec("a/b", None, "out.png", "folder", "output"),
+        OutputSpec("a_b", None, "out.png", "folder", "output"),
+        OutputSpec("a_b", None, "out.png", "another", "output"),
+        OutputSpec("a_b", None, "out.png", "another", "temp"),
+    ]
+    paths = [materialize_output(spec, cache_dir=tmp_path, fetch=lambda *_: b"x") for spec in specs]
+    assert len(set(paths)) == len(specs)
+
+
+def test_corrupt_outputs_cannot_enable_comparison(tmp_path):
+    path = tmp_path / "not-an-image.png"
+    path.write_text("upstream error")
+    with pytest.raises(PairLoadError, match="unreadable"):
+        load_comparison_pair(
+            parent_record=_record("p", path=str(path)),
+            variant_record=_record("v", parent="p", path=str(path)),
+            expected_parent="p", expected_variant="v", cache_dir=tmp_path, generation=1,
+        )

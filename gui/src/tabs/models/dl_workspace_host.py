@@ -19,6 +19,7 @@ from copy import deepcopy
 from PySide6.QtCore import QObject, QSize, Signal
 from PySide6.QtWidgets import (
     QButtonGroup,
+    QCheckBox,
     QHBoxLayout,
     QLabel,
     QListWidget,
@@ -509,6 +510,9 @@ class _ReviewToolsPage(QWidget):
         self._pair_loader = ComparisonPairLoader(self)
         self._pair_loader.loaded.connect(self._on_pair_loaded)
         self._pair_loader.failed.connect(self._on_pair_failed)
+        self._pair_loader.persist_failed.connect(self._on_verdict_persist_failed)
+        self._pair_loader.persisted.connect(self._on_verdict_persisted)
+        self._verdict_pending = False
         self._pair_generation = 0
         self._bound_pair = None
         self._pair_cache_dir: str | None = None
@@ -544,6 +548,14 @@ class _ReviewToolsPage(QWidget):
         load_row.addWidget(self._load_selection_btn)
         load_row.addWidget(self._suggest_btn)
         load_row.addStretch()
+        self._suggest_approve = QCheckBox(
+            "Also approve sending workflow values, local OCR text, and feedback/history for suggestions."
+        )
+        self._suggest_approval_key = None
+        self._suggest_approve.toggled.connect(self._approve_suggestion_payload)
+        layout.addWidget(self._suggest_approve)
+        for field in (self._vision._endpoint, self._vision._model, self._vision._note):
+            field.textChanged.connect(lambda *_: self._suggest_approve.setChecked(False))
         self._suggest_generation = 0
         self._suggest_context: dict[int, tuple] = {}
         self._suggest_thread: threading.Thread | None = None
@@ -562,6 +574,7 @@ class _ReviewToolsPage(QWidget):
         self._guidance.setObjectName("dl_guidance_diff")
         layout.addWidget(self._guidance)
         self._what_changed.feedback_changed.connect(self._guidance.set_feedback)
+        self._what_changed.feedback_changed.connect(lambda *_: self._suggest_approve.setChecked(False))
         self._what_changed.verdict_chosen.connect(self._on_guidance_verdict)
         self._guidance.trajectory_updated.connect(self._on_trajectory_updated)
 
@@ -589,6 +602,7 @@ class _ReviewToolsPage(QWidget):
         from gui.src.windows.image_compare_window import ImageCompareWindow
 
         self.empty_state.setVisible(not paths)
+        self._invalidate_suggestion()
         self._vision.set_image(paths[0] if paths else None)
         if getattr(self, "_compare_paths", None) == paths:
             return
@@ -623,11 +637,14 @@ class _ReviewToolsPage(QWidget):
         self._what_changed.set_voting_enabled(False)
 
     def prepare_dispose(self) -> None:
+        self._suggest_closed.set()
+        self._invalidate_suggestion()
         self._invalidate_pair_load()
 
     def _on_trajectory_updated(self, traj) -> None:
         from backend.src.core.guidance_pair import pair_ids_from_trajectory
 
+        self._invalidate_suggestion()
         self._invalidate_pair_load()
         self._what_changed.set_trajectory(traj)
         refs = pair_ids_from_trajectory(traj, self._what_changed.variant_id())
@@ -656,10 +673,28 @@ class _ReviewToolsPage(QWidget):
             return
         self._bound_pair = bound
         self._replace_compare_view(bound.paths)
+        record = self._guidance._manager.get_run(bound.variant_prompt_id)
+        workflow = getattr(record, "workflow", None)
+        if isinstance(workflow, dict):
+            self._guidance.set_source(bound.variant_prompt_id, workflow, getattr(record, "surface_mode", None))
+        self._vision.set_image(bound.variant_path)
         self._what_changed.set_voting_enabled(True)
 
-    def _on_pair_failed(self, _message: str) -> None:
+    def _on_pair_failed(self, generation: int, message: str) -> None:
+        if generation != self._pair_generation:
+            return
+        self._bound_pair = None
         self._what_changed.set_voting_enabled(False)
+        self._guidance.note(f"Comparison unavailable: {message}")
+
+    def _on_verdict_persisted(self):
+        self._verdict_pending = False
+        if self._bound_pair is not None:
+            self._what_changed.set_voting_enabled(True)
+
+    def _on_verdict_persist_failed(self, message: str) -> None:
+        self._on_verdict_persisted()
+        self._guidance.note(f"Could not save verdict: {message}")
 
     def advisor_trajectory(self):
         """Payload for the next advisor call (#750): trajectory, not just now."""
@@ -677,11 +712,22 @@ class _ReviewToolsPage(QWidget):
             return
         if not pair_matches_trajectory(bound, traj, self._what_changed.variant_id()):
             return
+        from functools import partial
+
+        from backend.src.core.guidance_trajectory import save_trajectory, trajectory_sidecar_path
+
+        from gui.src.tabs.models.guidance_diff_widget import variant_workflow_dir
+
+        path = trajectory_sidecar_path(
+            self._guidance._variant_dir or variant_workflow_dir(), self._what_changed.variant_id()
+        )
+        self._verdict_pending = True
+        self._what_changed.set_voting_enabled(False)
         self._pair_loader.persist(
             self._guidance._manager,
             traj,
             self._what_changed.variant_id(),
-            getattr(self._guidance, "_persist_sidecar", None),
+            partial(save_trajectory, path),
         )
 
     def _on_upscale(self) -> None:
@@ -710,8 +756,34 @@ class _ReviewToolsPage(QWidget):
         self._upscale_btn.setEnabled(True)
         self._upscale_status.setText(message)
 
+    def _invalidate_suggestion(self):
+        self._suggest_generation += 1
+        self._suggest_context.clear()
+        self._suggest_approve.setChecked(False)
+
+    def _suggestion_key(self):
+        from backend.src.core.guidance_schema import workflow_hash
+        return (
+            self._guidance._source_id, workflow_hash(self._guidance._workflow),
+            self._vision._generation, self._vision._image,
+            self._vision._endpoint.text(), self._vision._model.text(), self._vision._note.text(),
+            self._vision._placement.currentData(), repr(self.advisor_trajectory()), self._what_changed.feedback(),
+        )
+
+    def _approve_suggestion_payload(self, checked):
+        self._suggest_approval_key = self._suggestion_key() if checked else None
+
     def suggest_from_workflow(self) -> None:
         """Request → parse → validate → Diff & Apply, using the captured workflow."""
+        if self._suggest_closed.is_set() or self._guidance._busy or self._verdict_pending:
+            self._guidance.note("Wait for the current variant before requesting suggestions.")
+            return
+        expected_variant = self._what_changed.variant_id()
+        if expected_variant and (
+            self._bound_pair is None or self._guidance._source_id != expected_variant
+        ):
+            self._guidance.note("Load the matching variant workflow and comparison before another suggestion.")
+            return
         workflow = getattr(self._guidance, "_workflow", None)
         prompt_id = getattr(self._guidance, "_source_id", None)
         mode = getattr(self._guidance, "_source_mode", None)
@@ -721,6 +793,7 @@ class _ReviewToolsPage(QWidget):
                 self._guidance.note("Select a run in Generate's filmstrip first.")
                 return
             prompt_id, workflow, mode = selection
+            self._guidance.set_source(prompt_id, workflow, mode)
         image = self._vision._image
         if not image:
             self._guidance.note("Pin an image before asking for suggestions.")
@@ -737,15 +810,19 @@ class _ReviewToolsPage(QWidget):
         if leaves and not (self._vision._previewed and approved):
             self._guidance.note("Cloud analysis needs an explicit send approval.")
             return
+        key = self._suggestion_key()
+        if leaves and (not self._suggest_approve.isChecked() or self._suggest_approval_key != key):
+            self._guidance.note("Approve sending workflow, OCR and history for this suggestion first.")
+            return
         self._suggest_generation += 1
-        self._suggest_context[self._suggest_generation] = (prompt_id, mode)
+        self._suggest_context[self._suggest_generation] = (prompt_id, mode, key)
         snapshot = {
             "generation": self._suggest_generation,
             "workflow": deepcopy(workflow),
             "prompt_id": prompt_id,
             "mode": mode,
             "image": image,
-            "note": self._vision._note.text(),
+            "note": self._vision._note.text() + "\nReview feedback: " + self._what_changed.feedback(),
             "trajectory": self.advisor_trajectory(),
             "approved": approved,
             "leaves": leaves,
@@ -771,6 +848,8 @@ class _ReviewToolsPage(QWidget):
         error = ""
         try:
             ocr = run_ocr(self._vision._ocr, snapshot["image"])
+            if self._suggest_closed.is_set() or snapshot["generation"] != self._suggest_generation:
+                return
             ocr_text = None if ocr.unavailable else ocr.text
             request = build_guidance_request(
                 workflow=snapshot["workflow"],
@@ -789,21 +868,31 @@ class _ReviewToolsPage(QWidget):
                     "model": snapshot["model"],
                     "api_key": vlm_api_key_from_vault(self._vision._vault) if snapshot["leaves"] else None,
                 })
+                if self._suggest_closed.is_set() or snapshot["generation"] != self._suggest_generation:
+                    return
                 reply = advisor.complete(
                     snapshot["image"], prompt=request.prompt, approved=snapshot["approved"],
                 )
                 if reply.unavailable:
                     outcome = GuidanceOutcome(request, "", None, None, False, reply.unavailable)
                 else:
-                    outcome = interpret_guidance(reply.text, snapshot["workflow"], request)
+                    getter = getattr(self._guidance._manager, "get_object_info", None)
+                    object_info = getter() if callable(getter) else None
+                    outcome = interpret_guidance(
+                        reply.text, snapshot["workflow"], request,
+                        object_info=object_info if isinstance(object_info, dict) else None,
+                    )
         except Exception as exc:
             error = str(exc)[:300]
         if snapshot["generation"] == self._suggest_generation and not self._suggest_closed.is_set():
             self._suggest_bus.finished.emit(snapshot["generation"], outcome, error)
 
     def _on_suggestion(self, generation: int, outcome, error: str) -> None:
-        prompt_id, mode = self._suggest_context.pop(generation, (None, None))
-        if generation != self._suggest_generation:
+        context = self._suggest_context.pop(generation, None)
+        if context is None or self._suggest_closed.is_set():
+            return
+        prompt_id, mode, key = context
+        if generation != self._suggest_generation or key != self._suggestion_key():
             return
         if error or outcome is None:
             self._guidance.note(error or "Suggestion failed.")
@@ -833,6 +922,12 @@ class _ReviewToolsPage(QWidget):
         if selection is None:
             self._guidance.note("Select a run in Generate's filmstrip first.")
             return
+        if self._guidance._busy:
+            self._guidance.note("Wait for the current variant before changing the source.")
+            return
+        self._invalidate_suggestion()
+        self._invalidate_pair_load()
+        self._what_changed.clear()
         prompt_id, workflow, mode = selection
         self._guidance.set_source(prompt_id, workflow, mode)
 

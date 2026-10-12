@@ -1,5 +1,7 @@
 # Gate E review — #750–#754
 
+Follow-up: [2026-10-13 review](2026-10-13-gate-e-followup-review.md) addresses the two wiring holds below.
+
 **Not ready to declare Gate E complete.** Integration fixes are on
 `review/dl-gate-e`; two end-to-end connections remain missing.
 

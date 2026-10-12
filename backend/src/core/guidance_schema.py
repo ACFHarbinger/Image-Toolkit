@@ -385,7 +385,7 @@ def _is_asset_input(input_name: str) -> bool:
 def _asset_installed(name: Any, family: str, models_root: Path | None) -> bool:
     if models_root is None or not isinstance(name, str) or not name:
         return False
-    folder = models_root / family
+    folder = Path(models_root) / family
     if not folder.is_dir():
         return False
     relative = Path(name)
@@ -434,11 +434,25 @@ def _numeric_verdict(change: ParamChange | ModelSwap, destination: Any) -> Sugge
     return SuggestionVerdict(change, Verdict.VALID)
 
 
+
+def _asset_available(change, node, models_root, object_info):
+    if isinstance(object_info, dict):
+        info = object_info.get(node.get("class_type"), {})
+        inputs = info.get("input", {}) if isinstance(info, dict) else {}
+        for section in ("required", "optional"):
+            fields = inputs.get(section, {}) if isinstance(inputs, dict) else {}
+            declaration = fields.get(change.input_name) if isinstance(fields, dict) else None
+            if isinstance(declaration, (list, tuple)) and declaration and isinstance(declaration[0], list):
+                return change.to_value in declaration[0]
+    return _asset_installed(change.to_value, _model_family(change.input_name), models_root)
+
+
 def validate_guidance(
     response: GuidanceResponse,
     workflow: Any,
     *,
     models_root: Path | str | None = None,
+    object_info: dict | None = None,
 ) -> GuidanceValidation:
     """Run both hard validators + asset + bounds checks against the
     *executed* workflow graph. Nothing is trusted from the advisor."""
@@ -484,7 +498,7 @@ def validate_guidance(
         if isinstance(change, ModelSwap) and not asset_input:
             return SuggestionVerdict(change, Verdict.INVALID_INPUT, "model swap requires a model-name input")
         if isinstance(change, ModelSwap) or asset_input:
-            if not _asset_installed(change.to_value, _model_family(change.input_name), models_root):
+            if not _asset_available(change, node, models_root, object_info):
                 return SuggestionVerdict(
                     change,
                     Verdict.MISSING_ASSET,

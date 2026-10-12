@@ -304,3 +304,11 @@ def test_seed_integer_precision_is_preserved():
     change = ParamChange("1", "seed", str(seed), str(seed + 2))
     validation = validate_guidance(_response(workflow, [change]), workflow)
     assert apply_validated(workflow, validation)["1"]["inputs"]["seed"] == seed + 2
+
+
+def test_model_swap_uses_connected_server_asset_choices():
+    workflow = {"1": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": "old.safetensors"}}}
+    info = {"CheckpointLoaderSimple": {"input": {"required": {"ckpt_name": [["new.safetensors"]]}}}}
+    response = _response(workflow, [], swap=ModelSwap("1", "ckpt_name", "old.safetensors", "new.safetensors"))
+    validation = validate_guidance(response, workflow, object_info=info)
+    assert apply_validated(workflow, validation)["1"]["inputs"]["ckpt_name"] == "new.safetensors"

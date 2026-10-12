@@ -151,3 +151,96 @@ def test_unparsed_advisor_text_is_a_note_and_not_a_validation(q_app):
     finally:
         page.deleteLater()
         q_app.processEvents()
+
+
+def test_completed_response_cannot_replace_new_source(q_app):
+    page, _host, _seen = _page()
+    page._guidance.set_source("old", WF, "guided")
+    page._vision.set_image("old.png")
+    page.suggest_from_workflow()
+    page._suggest_thread.join(5)
+    page._guidance.set_source("new", WF, "guided")
+    q_app.processEvents()
+    assert page._guidance._source_id == "new"
+    assert page._guidance._validation is None
+    page.deleteLater()
+
+
+def test_completed_response_cannot_follow_a_changed_image(q_app):
+    page, _host, _seen = _page()
+    page._guidance.set_source("p", WF)
+    page._vision.set_image("old.png")
+    page.suggest_from_workflow()
+    page._suggest_thread.join(5)
+    page._vision.set_image("new.png")
+    q_app.processEvents()
+    assert page._guidance._validation is None
+    page.deleteLater()
+
+
+def test_cloud_image_approval_does_not_authorize_workflow_disclosure(q_app):
+    page, _host, seen = _page()
+    page._guidance.set_source("p", WF)
+    page._vision.set_image("image.png")
+    page._vision._placement.setCurrentIndex(1)
+    page._vision._previewed = True
+    page._vision._approve.setChecked(True)
+    page.suggest_from_workflow()
+    assert page._suggest_thread is None
+    assert seen.get("calls", 0) == 0
+    assert "workflow, OCR and history" in page._guidance._status.text()
+    page._suggest_approve.setChecked(True)
+    page.suggest_from_workflow()
+    _finish(page, q_app)
+    assert seen["calls"] == 1
+    page.deleteLater()
+
+
+def test_payload_approval_does_not_follow_changed_source(q_app):
+    page, _host, seen = _page()
+    page._guidance.set_source("old", WF)
+    page._vision.set_image("image.png")
+    page._vision._placement.setCurrentIndex(1)
+    page._vision._previewed = True
+    page._vision._approve.setChecked(True)
+    page._suggest_approve.setChecked(True)
+    page._guidance.set_source("new", WF)
+    page.suggest_from_workflow()
+    assert page._suggest_thread is None and not seen
+    page.deleteLater()
+
+
+def test_disposal_discards_completed_suggestion(q_app):
+    page, _host, _seen = _page()
+    page._guidance.set_source("p", WF)
+    page._vision.set_image("image.png")
+    page.suggest_from_workflow()
+    page._suggest_thread.join(5)
+    page.prepare_dispose()
+    q_app.processEvents()
+    assert page._guidance._validation is None
+    page.deleteLater()
+
+
+def test_disposal_during_ocr_prevents_a_new_model_call(q_app):
+    import threading
+
+    page, _host, seen = _page()
+    entered, release = threading.Event(), threading.Event()
+
+    class BlockingOcr(_Ocr):
+        def read(self, image_path, *, region=None):
+            entered.set()
+            assert release.wait(2)
+            return super().read(image_path, region=region)
+
+    page._vision._ocr = BlockingOcr()
+    page._guidance.set_source("p", WF)
+    page._vision.set_image("image.png")
+    page.suggest_from_workflow()
+    assert entered.wait(2)
+    page.prepare_dispose()
+    release.set()
+    _finish(page, q_app)
+    assert seen.get("calls", 0) == 0
+    page.deleteLater()

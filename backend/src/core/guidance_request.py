@@ -10,6 +10,7 @@ that same source is stripped. Advisor prose stays a model claim.
 from __future__ import annotations
 
 import json
+from copy import deepcopy
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
@@ -86,6 +87,8 @@ def build_guidance_request(
     ocr_text: str | None = None,
     trajectory: dict | None = None,
 ) -> GuidanceRequest:
+    workflow = deepcopy(workflow)
+    trajectory = deepcopy(trajectory)
     digest = workflow_hash(workflow)
     artifact: tuple[EvidenceRef, ...] = ()
     measured = ocr_text.strip() if isinstance(ocr_text, str) else ""
@@ -103,7 +106,7 @@ def build_guidance_request(
         trajectory=trajectory if isinstance(trajectory, dict) else None,
     )
     if len(prompt) > _PROMPT_CAP:
-        prompt = prompt[:_PROMPT_CAP]
+        raise ValueError("Captured workflow and history exceed the guidance request limit.")
     return GuidanceRequest(
         prompt=prompt,
         workflow=workflow,
@@ -113,13 +116,13 @@ def build_guidance_request(
     )
 
 
-def interpret_guidance(raw: str, workflow: dict, request: GuidanceRequest, *, models_root: Path | None = None) -> GuidanceOutcome:
+def interpret_guidance(raw: str, workflow: dict, request: GuidanceRequest, *, models_root: Path | None = None, object_info: dict | None = None) -> GuidanceOutcome:
     """Parse advisor text and validate it against the captured *workflow*."""
     parsed = parse_guidance_response(raw)
     if not parsed.ok or parsed.response is None:
         return GuidanceOutcome(request, raw, parsed, None, True, _parse_error(parsed))
     stamped = _stamp_artifacts(parsed.response, request.artifact_evidence)
-    validation = validate_guidance(stamped, workflow, models_root=models_root)
+    validation = validate_guidance(stamped, workflow, models_root=models_root, object_info=object_info)
     return GuidanceOutcome(request, raw, parsed, validation, True, None)
 
 
@@ -180,7 +183,7 @@ def _scalar(value: Any) -> Any:
     if isinstance(value, float):
         return value if value == value and abs(value) != float("inf") else None
     if isinstance(value, str):
-        return value[:500]
+        return value
     return None
 
 

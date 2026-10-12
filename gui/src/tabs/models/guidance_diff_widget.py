@@ -395,13 +395,13 @@ class GuidanceDiffWidget(QWidget):
             if not completed:
                 self._bus.error.emit(f"Variant {prompt_id} did not complete; inspect the run status.")
                 return
-            self._bus.trajectory.emit(traj)
         except Exception as exc:
             self._bus.error.emit(str(exc))
             return
         finally:
             gpu_lease.release(GUIDANCE_OWNER)
         self._bus.queued.emit(prompt_id)
+        self._bus.trajectory.emit(traj)
 
     def _on_variant_queued(self, prompt_id: str) -> None:
         self._status.setText(f"Queued assistant-suggested variant — prompt_id={prompt_id}")

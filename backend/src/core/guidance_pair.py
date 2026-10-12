@@ -7,8 +7,11 @@ whose identity or files no longer match.
 """
 from __future__ import annotations
 
+import hashlib
+import json
 import os
 import re
+import tempfile
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -61,7 +64,7 @@ def pair_ids_from_trajectory(traj: Any, variant_prompt_id: str | None = None) ->
             (step for step in steps if getattr(step, "variant_prompt_id", None) == variant_prompt_id),
             None,
         )
-    step = selected or getattr(traj, "latest", None)
+    step = selected if variant_prompt_id else getattr(traj, "latest", None)
     if step is None:
         return None
     parent = str(getattr(step, "parent_prompt_id", "") or "")
@@ -151,7 +154,9 @@ def materialize_output(
         return path if exists(path) else None
     if fetch is None or not spec.filename:
         return None
-    target = contained_path(cache_dir, spec.prompt_id, spec.filename)
+    identity = json.dumps([spec.prompt_id, spec.filename, spec.subfolder, spec.kind])
+    key = hashlib.sha256(identity.encode()).hexdigest()
+    target = contained_path(cache_dir, key, _safe_part(spec.filename))
     if target is None:
         return None
     if exists(str(target)):
@@ -160,9 +165,14 @@ def materialize_output(
     if not isinstance(data, (bytes, bytearray)) or not data:
         return None
     target.parent.mkdir(parents=True, exist_ok=True)
-    tmp = target.with_name(target.name + ".tmp")
-    tmp.write_bytes(bytes(data))
-    tmp.replace(target)
+    descriptor, name = tempfile.mkstemp(dir=target.parent, suffix=".tmp")
+    tmp = Path(name)
+    try:
+        with os.fdopen(descriptor, "wb") as handle:
+            handle.write(data)
+        tmp.replace(target)
+    finally:
+        tmp.unlink(missing_ok=True)
     return str(target)
 
 
@@ -197,6 +207,13 @@ def load_comparison_pair(
         raise PairLoadError("outputs unavailable")
     if not exists(parent_path) or not exists(variant_path):
         raise PairLoadError("outputs deleted")
+    for spec, path in ((parent_spec, parent_path), (variant_spec, variant_path)):
+        try:
+            _verify_image(path)
+        except PairLoadError:
+            if not spec.local_path:
+                Path(path).unlink(missing_ok=True)
+            raise
     return BoundPair(
         parent_prompt_id=expected_parent,
         variant_prompt_id=expected_variant,
@@ -238,3 +255,15 @@ def persist_verdict(
         updater(variant_prompt_id, payload)
     if callable(persist_sidecar):
         persist_sidecar(traj)
+
+
+def _verify_image(path: str) -> None:
+    from PIL import Image
+
+    try:
+        with Image.open(path) as image:
+            if image.width * image.height > 64_000_000:
+                raise PairLoadError("comparison image exceeds 64 megapixels")
+            image.verify()
+    except (OSError, ValueError, Image.DecompressionBombError) as exc:
+        raise PairLoadError(f"comparison image is unreadable: {Path(path).name}") from exc
