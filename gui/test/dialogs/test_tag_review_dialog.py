@@ -172,4 +172,4 @@ def test_stop_review_does_not_join_a_running_worker(q_app):
     stop.assert_called_once_with(worker, join=False)
     assert panel._worker is None
     assert panel._retained_workers == [worker]
-    worker.finished.connect.assert_called_once()
+    worker.finished.connect.assert_not_called()

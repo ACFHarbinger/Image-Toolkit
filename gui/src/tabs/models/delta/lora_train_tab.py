@@ -9,7 +9,7 @@ from typing import NamedTuple
 from backend.src.constants import LOCAL_SOURCE_PATH, ROOT_DIR
 from backend.src.models.tuning.lo_ra_tuner import LoRATuner
 from backend.src.models.wrappers.gan_wrapper import GanWrapper
-from PySide6.QtCore import Qt, Signal, Slot
+from PySide6.QtCore import Qt, QTimer, Signal, Slot
 from PySide6.QtWidgets import (
     QComboBox,
     QDoubleSpinBox,
@@ -26,9 +26,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from gui.src.helpers.base import BaseQThreadWorker
 from gui.src.components.prompt_edit import PromptEdit
 from gui.src.components.prompt_vocabulary import default_vocabulary, model_prefix_for
+from gui.src.helpers.base import BaseQThreadWorker
 
 from ....classes.base.base_generative_tab import (
     TIER_ADVANCED,
@@ -206,9 +206,22 @@ class DatasetPrepareWorker(BaseQThreadWorker):
         super().__init__()
         self._paths = paths
         self._staging_root = staging_root
+        self.result: ImportedDataset | None = None
+        self.discarded = False
+        self.review_only = False
+        self.trigger: str | None = None
 
     def _execute(self) -> object:
-        return resolve_imported_dataset(self._paths, staging_root=self._staging_root)
+        self.result = resolve_imported_dataset(self._paths, staging_root=self._staging_root)
+        return self.result
+
+    def cleanup_unclaimed(self) -> None:
+        result = self.result
+        if self.discarded and result is not None and result.staged and result.train_dir:
+            threading.Thread(
+                target=shutil.rmtree, args=(result.train_dir,), kwargs={"ignore_errors": True},
+                daemon=True, name="itk-unused-dataset-cleanup",
+            ).start()
 
 
 class LoRATrainTab(BaseGenerativeTab):
@@ -220,6 +233,7 @@ class LoRATrainTab(BaseGenerativeTab):
         super().__init__()
         self.last_browsed_scan_dir = LOCAL_SOURCE_PATH
         self._lycoris_process: subprocess.Popen | None = None
+        self._disposing = False
         self._training_thread: threading.Thread | None = None
         self._dataset_paths: tuple[str, ...] = ()
         self._dataset_scope = "folder"
@@ -386,8 +400,8 @@ class LoRATrainTab(BaseGenerativeTab):
         self.setLayout(root)
 
     def browse_dataset(self):
-        if self._training_running():
-            self.status_label.setText("Cannot replace the dataset while training is running.")
+        if self._training_running() or self._review_running():
+            self.status_label.setText("Cannot replace the dataset while training or tag review is running.")
             return
         directory = QFileDialog.getExistingDirectory(
             self,
@@ -437,6 +451,8 @@ class LoRATrainTab(BaseGenerativeTab):
         return data
 
     def set_config(self, config: dict):
+        if self._disposing or self._training_running() or self._review_running():
+            return
         super().set_config(config)
         if "trigger_prompt" in config:
             self.prompt_edit.setText(config["trigger_prompt"])
@@ -446,18 +462,13 @@ class LoRATrainTab(BaseGenerativeTab):
             self.rank_box.setValue(config["lora_rank"])
         saved_paths = tuple(config.get("dataset_paths") or ())
         if saved_paths and config.get("dataset_scope") == "selection":
-            imported = resolve_imported_dataset(saved_paths, staging_root=self._staging_root)
-            if imported.train_dir is not None:
-                self._apply_resolved(imported)
+            self.apply_imported_paths(saved_paths)
         elif "dataset_folder" in config:
-            self.data_dir_edit.setText(config["dataset_folder"])
-            self._dataset_scope = str(config.get("dataset_scope") or "folder")
-            if not saved_paths:
-                folder = Path(config["dataset_folder"])
-                if folder.is_dir():
-                    saved_paths = tuple(str(p) for p in _image_paths_under(folder))
-            self._dataset_paths = saved_paths
-            self._applied_train_dir = config["dataset_folder"]
+            folder = config["dataset_folder"]
+            self.data_dir_edit.setText(folder)
+            self._dataset_scope = "folder"
+            self._dataset_paths = ()
+            self.apply_imported_paths((folder,) if folder else ())
 
     def get_default_config(self) -> dict:
         defaults = super().get_default_config()
@@ -480,9 +491,9 @@ class LoRATrainTab(BaseGenerativeTab):
 
     @Slot(str, str)
     def handle_training_finished(self, status_type, message):
-        self._training_thread = None
-        self._leased_staging_dir = None
-        self.train_btn.setEnabled(True)
+        if self._disposing:
+            return
+        self._restore_start_after_training()
         self.cancel_btn.setEnabled(False)
         LoRATuner.is_cancelled = False
         GanWrapper.is_cancelled = False
@@ -496,6 +507,21 @@ class LoRATrainTab(BaseGenerativeTab):
             self.status_label.setText("Error occurred.")
             QMessageBox.critical(self, "Error", message)
 
+    def _restore_start_after_training(self) -> None:
+        if self._disposing:
+            return
+        if self._training_running():
+            QTimer.singleShot(25, self, self._restore_start_after_training)
+            return
+        self._training_thread = None
+        self._leased_staging_dir = None
+        self.train_btn.setEnabled(True)
+
+    def _review_running(self) -> bool:
+        panel = self._review_panel
+        workers = [panel._worker, *panel._retained_workers]
+        return any(worker is not None and worker.isRunning() for worker in workers)
+
     def _training_running(self) -> bool:
         thread = self._training_thread
         if thread is not None and thread.is_alive():
@@ -504,7 +530,7 @@ class LoRATrainTab(BaseGenerativeTab):
         return process is not None and process.poll() is None
 
     def start_training_thread(self):
-        if self._training_running():
+        if self._disposing or self._dataset_worker is not None or self._training_running() or self._review_running():
             return
         self.train_btn.setEnabled(False)
         self.cancel_btn.setEnabled(True)
@@ -701,42 +727,60 @@ class LoRATrainTab(BaseGenerativeTab):
         SafetensorsInspectorDialog(path=path, parent=self).exec()
 
     def apply_imported_paths(self, paths: tuple[str, ...]) -> None:
-        if self._training_running():
-            self.status_label.setText("Cannot replace the dataset while training is running.")
+        if self._disposing:
+            return
+        if self._training_running() or self._review_running():
+            self.status_label.setText("Cannot replace the dataset while training or tag review is running.")
             return
         self._start_dataset_worker(paths)
 
-    def _start_dataset_worker(self, paths: tuple[str, ...]) -> None:
+    def _start_dataset_worker(self, paths: tuple[str, ...], *, review_only: bool = False) -> None:
         from gui.src.helpers.worker_teardown import stop_worker
 
         previous = self._dataset_worker
-        if previous is not None and previous.isRunning():
+        if previous is not None:
+            previous.discarded = True
             stop_worker(previous, join=False)
         self.status_label.setText("Preparing dataset…")
         worker = DatasetPrepareWorker(paths, self._staging_root)
+        worker.review_only = review_only
+        worker.trigger = self.trigger_edit.text().strip() or None
         worker.finished.connect(self._on_dataset_prepared)
         self._dataset_worker = worker
         worker.start()
+        from gui.src.helpers.worker_retention import retain_until_stopped
+        retain_until_stopped(worker, worker.cleanup_unclaimed)
 
     @Slot(object)
     def _on_dataset_prepared(self, imported) -> None:
         sender = self.sender()
-        if sender is not None and sender is not self._dataset_worker:
+        if self._disposing or (sender is not None and sender is not self._dataset_worker):
             return
+        self._dataset_worker = None
         if not isinstance(imported, ImportedDataset):
+            self.status_label.setText("Dataset preparation failed.")
             return
         if imported.train_dir is None:
             self.status_label.setText("No usable images in that selection.")
             return
+        if sender is not None and sender.review_only:
+            if not imported.source_paths:
+                self.status_label.setText("No usable images in that selection.")
+                return
+            self._review_panel.start_review(
+                [Path(p) for p in imported.source_paths], trigger=sender.trigger,
+            )
+            return
         self._apply_resolved(imported)
 
     def _apply_resolved(self, imported: ImportedDataset) -> None:
-        if self._training_running():
+        if self._training_running() or self._review_running():
             if imported.staged and imported.train_dir:
                 shutil.rmtree(imported.train_dir, ignore_errors=True)
             self.status_label.setText("Cannot replace the dataset while training is running.")
             return
-        self._clear_staging()
+        if imported.train_dir != self._staging_dir:
+            self._clear_staging()
         if imported.staged:
             self._staging_dir = imported.train_dir
         self._dataset_scope = imported.scope
@@ -745,6 +789,7 @@ class LoRATrainTab(BaseGenerativeTab):
         self.data_dir_edit.blockSignals(True)
         self.data_dir_edit.setText(imported.train_dir or "")
         self.data_dir_edit.blockSignals(False)
+        self.notify_effective_config_changed()
         if imported.train_dir:
             self.last_browsed_scan_dir = imported.train_dir
         count = len(imported.source_paths)
@@ -757,7 +802,7 @@ class LoRATrainTab(BaseGenerativeTab):
         current = self.data_dir_edit.text().strip()
         if current == (self._applied_train_dir or ""):
             return
-        if self._training_running():
+        if self._training_running() or self._review_running():
             self.data_dir_edit.blockSignals(True)
             self.data_dir_edit.setText(self._applied_train_dir or "")
             self.data_dir_edit.blockSignals(False)
@@ -779,25 +824,36 @@ class LoRATrainTab(BaseGenerativeTab):
     def _clear_staging(self) -> None:
         if not self._staging_dir:
             return
-        if self._staging_dir == self._leased_staging_dir and self._training_running():
+        if self._review_running() or (self._staging_dir == self._leased_staging_dir and self._training_running()):
             return
         shutil.rmtree(self._staging_dir, ignore_errors=True)
         self._staging_dir = None
+
+    def disposal_ready(self) -> bool:
+        return not self._training_running()
 
     def prepare_dispose(self) -> None:
         """Nonblocking cancel used by workspace disposal (no closeEvent)."""
         from gui.src.helpers.worker_teardown import stop_worker
 
+        if self._disposing:
+            return
+        self._disposing = True
         self._review_panel.stop_review(join=False)
         if self._dataset_worker is not None:
+            self._dataset_worker.discarded = True
             stop_worker(self._dataset_worker, join=False)
         self.cancel_training()
         thread = self._training_thread
         leased = self._leased_staging_dir
         staging = self._staging_dir
-        if thread is not None and thread.is_alive():
+        review_workers = tuple(self._review_panel._retained_workers)
+        if (thread is not None and thread.is_alive()) or any(w.isRunning() for w in review_workers):
             def _cleanup_after_job() -> None:
-                thread.join()
+                if thread is not None:
+                    thread.join()
+                for worker in review_workers:
+                    worker.wait()
                 for directory in {leased, staging}:
                     if directory:
                         shutil.rmtree(directory, ignore_errors=True)
@@ -817,17 +873,13 @@ class LoRATrainTab(BaseGenerativeTab):
         super().closeEvent(event)
 
     def _review_tags(self) -> None:
-        data_dir = self.data_dir_edit.text().strip()
-        image_paths = _image_paths_under(Path(data_dir)) if data_dir else []
-        if not image_paths:
-            QMessageBox.warning(
-                self, "Review Tags", "Select a valid dataset first."
-            )
+        if self._disposing or self._dataset_worker is not None or self._training_running() or self._review_running():
             return
-
-        trigger = self.trigger_edit.text().strip() or None
-        self._review_panel.set_trigger(trigger)
-        self._review_panel.start_review(image_paths, trigger=trigger)
+        data_dir = self.data_dir_edit.text().strip()
+        if not data_dir:
+            QMessageBox.warning(self, "Review Tags", "Select a valid dataset first.")
+            return
+        self._start_dataset_worker((data_dir,), review_only=True)
 
     def get_effective_config_summary(self) -> str:
         """Return resolved one-line config to run (#731)."""

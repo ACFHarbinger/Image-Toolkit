@@ -7,6 +7,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from PySide6.QtCore import QTimer
+
 from gui.src.preferences import PreferenceStore, PrefKeys
 
 from .catalog import ModuleCatalog, RouteDescriptor, WorkspaceDescriptor
@@ -15,6 +17,8 @@ from .runtime import ModuleHandle
 
 if TYPE_CHECKING:
     from .context import ModuleContext
+
+_pending_disposals: dict[int, tuple[Any, QTimer]] = {}
 
 DL_WORKSPACE_ID = "dl"
 # module_id, route_key, title
@@ -73,7 +77,26 @@ class DeepLearningWorkspaceHandle(ModuleHandle):
         if callable(prepare):
             prepare()
         dispose = getattr(host, "deleteLater", None)
-        if callable(dispose):
+        ready = getattr(host, "disposal_ready", None)
+        if callable(dispose) and callable(ready) and not ready():
+            # Training still emits through widgets owned by this host.
+            timer = QTimer()
+            timer.setInterval(25)
+            key = id(host)
+
+            def finish_disposal() -> None:
+                if not ready():
+                    return
+                timer.stop()
+                _pending_disposals.pop(key, None)
+                dispose()
+                timer.deleteLater()
+
+            timer.timeout.connect(finish_disposal)
+            _pending_disposals[key] = (host, timer)
+            host.hide()
+            timer.start()
+        elif callable(dispose):
             dispose()
 
 

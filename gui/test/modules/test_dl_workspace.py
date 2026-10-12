@@ -235,6 +235,7 @@ def test_review_tags_uses_exact_selection_not_siblings(q_app, tmp_path):
 
     with patch.object(tab._review_panel, "start_review") as start:
         tab._review_tags()
+        _wait_dataset(tab)
 
     start.assert_called_once()
     reviewed = start.call_args.args[0]
@@ -446,6 +447,7 @@ def test_review_tags_follows_edited_dataset_path(q_app, tmp_path):
 
     with patch.object(tab._review_panel, "start_review") as start:
         tab._review_tags()
+        _wait_dataset(tab)
 
     start.assert_called_once()
     assert start.call_args.args[0] == [new_image]

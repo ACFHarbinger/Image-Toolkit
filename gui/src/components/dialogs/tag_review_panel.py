@@ -64,7 +64,8 @@ class TagReviewPanel(QWidget):
     ) -> None:
         if self._worker is not None and self._worker.isRunning():
             return
-        if any(worker.isRunning() for worker in self._retained_workers):
+        self._retained_workers = [w for w in self._retained_workers if not w.wait(0)]
+        if self._retained_workers:
             return
         self.stop_review(join=False)
         self._trigger = trigger or None
@@ -116,15 +117,10 @@ class TagReviewPanel(QWidget):
             with contextlib.suppress(RuntimeError):
                 worker.wait(1)
             return
-        self._retained_workers.append(worker)
-        worker.finished.connect(lambda *_args, w=worker: self._release_retained(w))
+        from gui.src.helpers.worker_retention import retain_until_stopped
 
-    def _release_retained(self, worker: TagReviewWorker) -> None:
-        # ``finished`` is emitted at the end of ``run()``, so the thread has
-        # returned. Wait (already done) then drop the owning reference.
-        with contextlib.suppress(RuntimeError):
-            worker.wait(1)
-        self._retained_workers = [item for item in self._retained_workers if item is not worker]
+        self._retained_workers.append(worker)
+        retain_until_stopped(worker)
 
     def closeEvent(self, event) -> None:
         self.stop_review(join=False)
@@ -319,7 +315,17 @@ class TagReviewPanel(QWidget):
             if self._trigger and self._trigger not in tags:
                 tags = [self._trigger] + tags
             caption = ", ".join(tags)
-            Path(path).with_suffix(".txt").write_text(caption, encoding="utf-8")
+            image = Path(path)
+            sidecar = image.with_suffix(".txt")
+            source_sidecar = image.resolve().with_suffix(".txt")
+            source_sidecar.write_text(caption, encoding="utf-8")
+            # Staged images point at originals; new captions must survive
+            # stage cleanup and also remain visible to the training loader.
+            if sidecar != source_sidecar and not sidecar.is_symlink():
+                if sidecar.exists():
+                    sidecar.write_text(caption, encoding="utf-8")
+                else:
+                    sidecar.symlink_to(source_sidecar)
             written += 1
         if self._modal_chrome:
             QMessageBox.information(self, "Tag Review", f"Saved {written} caption file(s).")

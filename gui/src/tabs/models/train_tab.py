@@ -115,6 +115,12 @@ class UnifiedTrainTab(BaseGenerativeTab):
         self.model_selector.setCurrentIndex(0)
         self.anything_tab.apply_imported_paths(paths)
 
+    def disposal_ready(self) -> bool:
+        return all(
+            not callable(ready := getattr(tab, "disposal_ready", None)) or ready()
+            for tab in (self.anything_tab, self.r3gan_tab, self.basic_gan_tab)
+        )
+
     def prepare_dispose(self) -> None:
         for tab in (self.anything_tab, self.r3gan_tab, self.basic_gan_tab):
             prepare = getattr(tab, "prepare_dispose", None)

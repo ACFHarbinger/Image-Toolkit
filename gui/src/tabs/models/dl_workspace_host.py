@@ -167,6 +167,10 @@ class DeepLearningWorkspaceHost(QWidget):
         self._runs_page = page
         return page
 
+    def disposal_ready(self) -> bool:
+        ready = getattr(self._train_tab, "disposal_ready", None)
+        return not callable(ready) or ready()
+
     def prepare_dispose(self) -> None:
         """Cancel child workers before deleteLater skips closeEvent."""
         seen: set[int] = set()

@@ -159,3 +159,60 @@ def test_model_change_preserves_simple_disclosure(q_app):
     tab.update_ui_visibility()
     assert tab.lora_group.isHidden()
     tab.deleteLater()
+
+
+def test_training_payload_preserves_live_dataset_lease(q_app, tmp_path, monkeypatch):
+    from gui.src.tabs.models.delta.lora_train_tab import LoRATrainTab
+
+    tab = LoRATrainTab()
+    thread = Mock()
+    thread.is_alive.return_value = True
+    tab._training_thread = thread
+    tab._staging_dir = tab._leased_staging_dir = str(tmp_path)
+    monkeypatch.setattr("gui.src.tabs.models.delta.lora_train_tab.QMessageBox.information", lambda *args: None)
+    tab.handle_training_finished("success", "finished payload")
+    tab._clear_staging()
+    assert tab._training_thread is thread
+    assert tmp_path.is_dir()
+    thread.is_alive.return_value = False
+    tab._restore_start_after_training()
+    tab._staging_dir = None
+    tab.deleteLater()
+
+
+def test_tagging_also_protects_staged_dataset(q_app, tmp_path):
+    from gui.src.tabs.models.delta.lora_train_tab import LoRATrainTab
+
+    tab = LoRATrainTab()
+    worker = Mock()
+    worker.isRunning.return_value = True
+    tab._review_panel._worker = worker
+    tab._staging_dir = str(tmp_path)
+    tab._clear_staging()
+    assert tmp_path.is_dir()
+    tab.apply_imported_paths(("replacement",))
+    assert tab._dataset_worker is None
+    tab._review_panel._worker = None
+    tab._staging_dir = None
+    tab.deleteLater()
+
+
+def test_new_staged_caption_survives_stage_cleanup(q_app, tmp_path):
+    import shutil
+
+    from gui.src.components.dialogs.tag_review_panel import TagReviewPanel
+
+    original = tmp_path / "original.png"
+    original.write_bytes(b"image")
+    stage = tmp_path / "stage"
+    stage.mkdir()
+    staged = stage / "renamed.png"
+    staged.symlink_to(original)
+    panel = TagReviewPanel()
+    panel._on_result(str(staged), [("cat", 1.0, "general", True)])
+    panel._on_tagging_finished()
+    panel._save_all()
+    assert staged.with_suffix(".txt").read_text() == "cat"
+    shutil.rmtree(stage)
+    assert original.with_suffix(".txt").read_text() == "cat"
+    panel.deleteLater()
