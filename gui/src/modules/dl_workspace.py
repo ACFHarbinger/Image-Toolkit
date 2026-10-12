@@ -67,6 +67,11 @@ class DeepLearningWorkspaceHandle(ModuleHandle):
         self._disposed = True
         host = self._host
         self._host = None
+        if host is None:
+            return
+        prepare = getattr(host, "prepare_dispose", None)
+        if callable(prepare):
+            prepare()
         dispose = getattr(host, "deleteLater", None)
         if callable(dispose):
             dispose()

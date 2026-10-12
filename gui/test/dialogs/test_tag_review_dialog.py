@@ -149,10 +149,27 @@ def test_tag_review_reentry_does_not_replace_running_worker(tmp_path, q_app):
 def test_stop_review_tears_down_worker(q_app):
     panel = TagReviewPanel()
     worker = MagicMock()
+    worker.isRunning.return_value = False
     panel._worker = worker
 
     with patch("gui.src.helpers.worker_teardown.stop_worker") as stop:
         panel.stop_review()
 
-    stop.assert_called_once_with(worker)
+    stop.assert_called_once_with(worker, join=False)
     assert panel._worker is None
+    assert panel._retained_workers == []
+
+
+def test_stop_review_does_not_join_a_running_worker(q_app):
+    panel = TagReviewPanel()
+    worker = MagicMock()
+    worker.isRunning.return_value = True
+    panel._worker = worker
+
+    with patch("gui.src.helpers.worker_teardown.stop_worker") as stop:
+        panel.stop_review()
+
+    stop.assert_called_once_with(worker, join=False)
+    assert panel._worker is None
+    assert panel._retained_workers == [worker]
+    worker.finished.connect.assert_called_once()

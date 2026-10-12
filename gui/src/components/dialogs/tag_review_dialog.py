@@ -42,7 +42,7 @@ class TagReviewDialog(QDialog):
         )
 
     def closeEvent(self, event) -> None:
-        self._panel.stop_review()
+        self._panel.stop_review(join=False)
         super().closeEvent(event)
 
     def __getattr__(self, name):

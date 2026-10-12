@@ -50,6 +50,7 @@ class TagReviewPanel(QWidget):
         self._current_idx = 0
         self._checkboxes: List[QCheckBox] = []
         self._worker: TagReviewWorker | None = None
+        self._retained_workers: list[TagReviewWorker] = []
         self._failed = False
         self._build_ui()
 
@@ -63,7 +64,9 @@ class TagReviewPanel(QWidget):
     ) -> None:
         if self._worker is not None and self._worker.isRunning():
             return
-        self.stop_review()
+        if any(worker.isRunning() for worker in self._retained_workers):
+            return
+        self.stop_review(join=False)
         self._trigger = trigger or None
         self._entries = {}
         self._order = []
@@ -91,26 +94,40 @@ class TagReviewPanel(QWidget):
     def set_trigger(self, trigger: str | None) -> None:
         self._trigger = trigger or None
 
-    def stop_review(self) -> None:
-        """Cancel an in-flight tagger and drop it before this panel dies."""
+    def stop_review(self, *, join: bool = False) -> None:
+        """Cancel an in-flight tagger. GUI close/dispose must pass join=False."""
         from gui.src.helpers.worker_teardown import stop_worker
 
         worker = self._worker
         self._worker = None
-        if worker is not None:
-            for signal, slot in (
-                (worker.sig_progress, self._on_progress),
-                (worker.sig_result, self._on_result),
-                (worker.sig_item_error, self._on_item_error),
-                (worker.finished, self._on_tagging_finished),
-                (worker.error, self._on_error),
-            ):
-                with contextlib.suppress(RuntimeError, TypeError):
-                    signal.disconnect(slot)
-        stop_worker(worker)
+        if worker is None:
+            return
+        for signal, slot in (
+            (worker.sig_progress, self._on_progress),
+            (worker.sig_result, self._on_result),
+            (worker.sig_item_error, self._on_item_error),
+            (worker.finished, self._on_tagging_finished),
+            (worker.error, self._on_error),
+        ):
+            with contextlib.suppress(RuntimeError, TypeError):
+                signal.disconnect(slot)
+        stop_worker(worker, join=join)
+        if join or not worker.isRunning():
+            with contextlib.suppress(RuntimeError):
+                worker.wait(1)
+            return
+        self._retained_workers.append(worker)
+        worker.finished.connect(lambda *_args, w=worker: self._release_retained(w))
+
+    def _release_retained(self, worker: TagReviewWorker) -> None:
+        # ``finished`` is emitted at the end of ``run()``, so the thread has
+        # returned. Wait (already done) then drop the owning reference.
+        with contextlib.suppress(RuntimeError):
+            worker.wait(1)
+        self._retained_workers = [item for item in self._retained_workers if item is not worker]
 
     def closeEvent(self, event) -> None:
-        self.stop_review()
+        self.stop_review(join=False)
         super().closeEvent(event)
 
     def _build_ui(self) -> None:

@@ -90,3 +90,9 @@ class UnifiedTrainTab(BaseGenerativeTab):
     def apply_imported_paths(self, paths: tuple[str, ...]) -> None:
         self.model_selector.setCurrentIndex(0)
         self.anything_tab.apply_imported_paths(paths)
+
+    def prepare_dispose(self) -> None:
+        for tab in (self.anything_tab, self.r3gan_tab, self.basic_gan_tab):
+            prepare = getattr(tab, "prepare_dispose", None)
+            if callable(prepare):
+                prepare()

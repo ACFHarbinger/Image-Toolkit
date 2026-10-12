@@ -100,6 +100,21 @@ class DeepLearningWorkspaceHost(QWidget):
             return _ReviewToolsPage()
         return _RunsPlaceholderPage()
 
+    def prepare_dispose(self) -> None:
+        """Cancel child workers before deleteLater skips closeEvent."""
+        seen: set[int] = set()
+        pages = list(self._pages.values())
+        if self._train_tab is not None:
+            pages.append(self._train_tab)
+        for page in pages:
+            marker = id(page)
+            if marker in seen:
+                continue
+            seen.add(marker)
+            prepare = getattr(page, "prepare_dispose", None)
+            if callable(prepare):
+                prepare()
+
     def _on_import_paths(self, intent: ImportPathsIntent) -> None:
         if intent.module_id not in {"dl", "dl.train", "ml.training"}:
             return
