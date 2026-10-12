@@ -305,6 +305,18 @@ class ComfyUIManager:
         with urllib.request.urlopen(f"{self.url}{path}", timeout=timeout) as response:
             return json.loads(response.read(8 * 1024 * 1024))
 
+    def fetch_output(self, filename: str, subfolder: str = "", kind: str = "output") -> bytes:
+        """Fetch original bytes off-thread; previews must not become upscale inputs."""
+        from urllib.parse import urlencode
+
+        query = urlencode({"filename": filename, "subfolder": subfolder, "type": kind})
+        limit = 64 * 1024 * 1024
+        with urllib.request.urlopen(f"{self.url}/view?{query}", timeout=30) as response:
+            data = response.read(limit + 1)
+        if len(data) > limit:
+            raise ValueError("Output exceeds the 64 MiB download limit.")
+        return data
+
     def fetch_view(self, filename: str, subfolder: str = "", kind: str = "output") -> bytes | None:
         """Bounded ``/view`` bytes for a captured output. Failures return None."""
         from backend.src.comfy_matrix import fetch_comfy_view

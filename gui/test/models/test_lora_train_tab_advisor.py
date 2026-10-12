@@ -150,3 +150,34 @@ def test_exclude_restage_and_restore_roundtrip(tab, tmp_path):
     tab._on_advisor_restore()
     assert _wait_for(lambda: tab._staging_dir is None and len(tab._dataset_paths) == 4)
     assert not tab._advisor_exclusions
+
+
+def test_explicit_selection_restore_never_switches_to_previous_folder(tab, tmp_path):
+    old = tmp_path / "old"
+    old.mkdir()
+    _img(old / "old.png")
+    tab.apply_imported_paths((str(old),))
+    assert _wait_for(lambda: tab._dataset_worker is None)
+    selected = tmp_path / "selection"
+    selected.mkdir()
+    a = _img(selected / "a.png")
+    b = _img(selected / "b.png", color=(1, 2, 3))
+    _img(selected / "unselected.png")
+    tab.apply_imported_paths((str(a), str(b)))
+    assert _wait_for(lambda: tab._dataset_worker is None)
+    tab._on_advisor_exclude([str(b)])
+    assert _wait_for(lambda: tab._dataset_worker is None)
+    assert tab._dataset_paths == (str(a),)
+    tab._on_advisor_restore()
+    assert _wait_for(lambda: tab._dataset_worker is None)
+    assert set(tab._dataset_paths) == {str(a), str(b)}
+
+
+def test_excluding_all_images_clears_training_input(tab, tmp_path):
+    a = _img(tmp_path / "only.png")
+    tab.apply_imported_paths((str(a),))
+    assert _wait_for(lambda: tab._dataset_worker is None)
+    tab._on_advisor_exclude([str(a)])
+    assert _wait_for(lambda: tab._dataset_worker is None)
+    assert not tab.data_dir_edit.text()
+    assert not tab._dataset_paths

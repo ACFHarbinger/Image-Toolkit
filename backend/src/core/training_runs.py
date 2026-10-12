@@ -22,6 +22,7 @@ import json
 import os
 import re
 import time
+import uuid
 from datetime import datetime
 from pathlib import Path
 
@@ -51,12 +52,12 @@ def default_runs_root() -> Path:
 def new_run_id(output_name: str, now: datetime | None = None) -> str:
     now = now or datetime.now()
     safe = re.sub(r"[^A-Za-z0-9_-]+", "-", (output_name or "").strip()).strip("-")
-    return f"{now:%Y%m%d-%H%M%S}-{safe or 'lora'}"
+    return f"{now:%Y%m%d-%H%M%S}-{safe or 'lora'}-{uuid.uuid4().hex[:8]}"
 
 
 def create_run_dir(runs_root: Path, run_id: str) -> Path:
     run_dir = Path(runs_root) / run_id
-    run_dir.mkdir(parents=True, exist_ok=True)
+    run_dir.mkdir(parents=True, exist_ok=False)
     return run_dir
 
 

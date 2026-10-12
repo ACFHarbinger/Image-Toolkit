@@ -85,3 +85,13 @@ def test_grad_norm_reaches_jsonl(tmp_path):
     assert events[-1]["step"] == 1
     assert events[-1]["grad/total"] == pytest.approx(total)
     assert total > 0
+
+
+def test_unwritable_sink_does_not_prevent_training(tmp_path):
+    parent = tmp_path / "not-a-directory"
+    parent.write_text("keep")
+    logger = DiagnosticsLogger(run_name="test", use_tensorboard=False, use_wandb=False,
+                               jsonl_path=str(parent / "events.jsonl"))
+    logger.log_step(1, loss=0.5)
+    logger.close()
+    assert parent.read_text() == "keep"

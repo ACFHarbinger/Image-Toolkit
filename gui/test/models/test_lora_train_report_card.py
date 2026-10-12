@@ -41,6 +41,11 @@ def _write_run(tmp_path, monkeypatch, losses, run_id="cardrun"):
 
 
 def _shown_card(tab):
+    from PySide6.QtTest import QTest
+    for _ in range(100):
+        if getattr(tab, "_report_worker", None) is None:
+            break
+        QTest.qWait(20)
     dialog = getattr(tab, "_report_card_dialog", None)
     return dialog
 
@@ -92,7 +97,7 @@ def test_advisor_findings_feed_the_suggestion(tab, tmp_path, monkeypatch):
         category="duplicates", severity="warning",
         title="2 identical files", paths=("a", "b"),
     )
-    tab._advisor_panel = SimpleNamespace(findings=lambda: [finding])
+    monkeypatch.setattr(tab._advisor_panel, "findings", lambda: [finding])
 
     tab.training_finished_signal.emit("success", "done", run_dir)
 

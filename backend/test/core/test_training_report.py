@@ -213,3 +213,25 @@ def test_events_skip_garbage_and_missing_loss():
 def test_degenerate_inputs_do_not_raise(events):
     card = generate_training_report(events)
     assert card.step_count == len(events)
+
+
+def test_short_run_can_show_improvement():
+    card = generate_training_report([{"loss": 1.0}, {"loss": 0.1}])
+    assert "down" in card.verdicts[0].headline
+    assert "0%" not in card.verdicts[0].headline
+
+
+def test_bad_steps_and_nonfinite_losses_do_not_crash_report():
+    card = generate_training_report([
+        {"loss": 1.0, "step": None}, {"loss": float("nan")},
+        {"loss": float("inf")}, {"loss": 0.5, "step": 1},
+    ])
+    assert card.step_count == 3
+    assert card.verdicts[0].status == "bad"
+
+
+def test_sparse_validation_is_compared_to_matching_training_steps():
+    events = [{"step": i, "loss": 1.0, "val_loss": 1.0} for i in range(2)]
+    events.extend({"step": i, "loss": 0.01} for i in range(2, 50))
+    card = generate_training_report(events)
+    assert card.verdicts[1].status == "good"

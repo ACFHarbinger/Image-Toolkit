@@ -1,5 +1,6 @@
 import os
 import threading
+from types import SimpleNamespace
 
 from backend.src.comfy_matrix import gpu_lease, try_admit
 from backend.src.constants import LOCAL_SOURCE_PATH
@@ -167,6 +168,11 @@ class LoRAGenerateTab(BaseGenerativeTab):
         button_layout.addWidget(self.upscale_btn)
         layout.addRow(button_container)
         self.cancel_btn.setEnabled(False)
+        from gui.src.tabs.models.gen.generate_surface import OutputFilmstrip
+
+        self._output_filmstrip = OutputFilmstrip(self)
+        self._output_filmstrip.setObjectName("lora_output_filmstrip")
+        layout.addRow(self._output_filmstrip)
         self.setLayout(layout)
 
 
@@ -357,14 +363,23 @@ class LoRAGenerateTab(BaseGenerativeTab):
                 "Generate an image first — no output file found to upscale.",
             )
             return False
+        self._show_output_paths(paths, "generated")
         self.upscale_btn.setEnabled(False)
         self._upscaler.start(paths)
         return True
 
+    def _show_output_paths(self, paths, status: str) -> None:
+        for path in paths:
+            self._output_filmstrip.upsert(SimpleNamespace(
+                prompt_id=path, status=status, surface_mode="upscale" if status == "upscaled" else "guided",
+                outputs=(), local_output_path=path, workflow=None,
+            ))
+            self._output_filmstrip.select(path)
+
     @Slot(list)
     def handle_upscale_finished(self, outputs):
         self.upscale_btn.setEnabled(True)
-        QMessageBox.information(self, "Upscale", "Upscaled:\n" + "\n".join(outputs))
+        self._show_output_paths(outputs, "upscaled")
 
     @Slot(str)
     def handle_upscale_error(self, message):

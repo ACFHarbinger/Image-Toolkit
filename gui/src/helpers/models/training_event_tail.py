@@ -28,10 +28,10 @@ class _TailRead(BaseQThreadWorker):
         events: list[dict] = []
         if not self._path.is_file():
             return (self._offset, events)
-        with open(self._path, encoding="utf-8") as fh:
+        with open(self._path, "rb") as fh:
             fh.seek(self._offset)
             data = fh.read()
-        end = data.rfind("\n")
+        end = data.rfind(b"\n")
         if end < 0:
             return (self._offset, events)  # no complete line yet
         for line in data[:end].splitlines():
@@ -40,11 +40,11 @@ class _TailRead(BaseQThreadWorker):
                 continue
             try:
                 event = json.loads(line)
-            except json.JSONDecodeError:
+            except (json.JSONDecodeError, UnicodeDecodeError):
                 continue
             if isinstance(event, dict):
                 events.append(event)
-        return (self._offset + len(data[: end + 1].encode("utf-8")), events)
+        return (self._offset + len(data[: end + 1]), events)
 
 
 class TrainingEventTail(QObject):
@@ -58,6 +58,9 @@ class TrainingEventTail(QObject):
         self._run_dir: Path | None = None
         self._offset = 0
         self._busy = False
+        self._generation = 0
+        self._worker = None
+        self._dirty = False
         self._stopped = False
         self._watcher = QFileSystemWatcher(self)
         self._watcher.directoryChanged.connect(self._on_changed)
@@ -73,6 +76,7 @@ class TrainingEventTail(QObject):
 
     def stop(self) -> None:
         self._stopped = True
+        self._generation += 1
         for path in self._watcher.directories() + self._watcher.files():
             self._watcher.removePath(path)
         self._run_dir = None
@@ -80,14 +84,20 @@ class TrainingEventTail(QObject):
     @Slot()
     @Slot(str)
     def _on_changed(self, *_args) -> None:
-        if self._stopped or self._busy or self._run_dir is None:
+        if self._stopped or self._run_dir is None:
+            return
+        if self._busy:
+            self._dirty = True
             return
         events_file = self._run_dir / EVENTS_FILE_NAME
         fpath = str(events_file)
         if events_file.is_file() and fpath not in self._watcher.files():
             self._watcher.addPath(fpath)
         self._busy = True
+        self._dirty = False
         worker = _TailRead(events_file, self._offset)
+        worker.generation = self._generation
+        self._worker = worker
         worker.finished.connect(self._on_read)
         worker.error.connect(self._on_error)
         retain_until_stopped(worker)
@@ -96,6 +106,10 @@ class TrainingEventTail(QObject):
     @Slot(object)
     def _on_read(self, payload: object) -> None:
         self._busy = False
+        worker = self.sender()
+        if worker is not None and worker.generation != self._generation:
+            self._on_changed()
+            return
         if self._stopped or not isinstance(payload, tuple):
             return
         offset, events = payload
@@ -106,7 +120,7 @@ class TrainingEventTail(QObject):
         # QFileSystemWatcher can coalesce rapid fileChanged events; re-read
         # only when the last read actually advanced, so an idle file never
         # spins a worker loop.
-        if advanced:
+        if advanced or self._dirty:
             self._on_changed()
 
     @Slot(object)

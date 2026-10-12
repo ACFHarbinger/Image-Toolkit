@@ -17,6 +17,7 @@ module has no dependency on when #744 merges.
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from typing import Any, Iterable, Sequence
 
@@ -61,10 +62,11 @@ class ReportCard:
         return all(v.status != STATUS_BAD for v in self.verdicts)
 
 
-def _extract_series(events: Iterable[dict]) -> tuple[list[int], list[float], list[float]]:
+def _extract_series(events: Iterable[dict]) -> tuple[list[int], list[float], list[float], int]:
     steps: list[int] = []
     losses: list[float] = []
     val_losses: list[float] = []
+    nonfinite = 0
     for event in events:
         if not isinstance(event, dict):
             continue
@@ -75,14 +77,21 @@ def _extract_series(events: Iterable[dict]) -> tuple[list[int], list[float], lis
             value = float(loss)
         except (TypeError, ValueError):
             continue
-        steps.append(int(event.get("step", len(steps))))
+        if not math.isfinite(value):
+            nonfinite += 1
+            continue
+        try:
+            step = int(event.get("step", len(steps)))
+        except (TypeError, ValueError, OverflowError):
+            continue
+        steps.append(step)
         losses.append(value)
         val = event.get("val_loss", event.get("validation_loss"))
         try:
             val_losses.append(float(val))
         except (TypeError, ValueError):
             val_losses.append(float("nan"))
-    return steps, losses, val_losses
+    return steps, losses, val_losses, nonfinite
 
 
 def _smooth(values: Sequence[float], alpha: float = _SMOOTH_ALPHA) -> list[float]:
@@ -94,7 +103,7 @@ def _smooth(values: Sequence[float], alpha: float = _SMOOTH_ALPHA) -> list[float
 
 def _tail_head(values: Sequence[float]) -> tuple[float, float]:
     """(head mean, tail mean) over the first/last ~20% of the series."""
-    window = max(2, int(len(values) * 0.2)) if len(values) >= 5 else len(values)
+    window = max(1, int(len(values) * 0.2))
     head = sum(values[:window]) / window
     tail_values = values[-window:]
     tail = sum(tail_values) / len(tail_values)
@@ -131,10 +140,12 @@ def _overfit_verdict(
     question = "Is it overfitting?"
     parts: list[tuple[str, str, str]] = []  # (status, headline, detail)
 
-    usable_vals = [v for v in val_losses if v == v]  # NaN-filter
+    pairs = [(train, val) for train, val in zip(losses, val_losses, strict=True)
+             if math.isfinite(val)]
+    usable_vals = [val for _, val in pairs]
     if len(usable_vals) >= 2:
-        _, tail_train = _tail_head(_smooth(losses))
-        val_window = max(2, int(len(usable_vals) * 0.2)) if len(usable_vals) >= 5 else len(usable_vals)
+        _, tail_train = _tail_head([train for train, _ in pairs])
+        val_window = max(1, int(len(usable_vals) * 0.2))
         tail_val = sum(usable_vals[-val_window:]) / val_window
         if tail_train > 1e-12:
             # Overfitting = validation pulling away from training.
@@ -222,7 +233,7 @@ def _suggestion(
     if len(losses) >= 2:
         smoothed = _smooth(losses)
         head, tail = _tail_head(smoothed)
-        if tail > head:
+        if tail > head and head > 1e-12:
             return ReportVerdict(question, STATUS_BAD,
                                  f"Loss went up {_fmt_pct((tail - head) / head)} — lower the learning rate",
                                  "Diverged runs rarely recover; LR 3–10× lower is the usual fix")
@@ -267,12 +278,17 @@ def generate_training_report(
     Pure: no I/O, no model, safe on the GUI thread. `dataset_findings` is
     duck-typed (AdvisorFinding-shaped) so both #744 merge orders work.
     """
-    steps, losses, val_losses = _extract_series(events)
+    steps, losses, val_losses, nonfinite = _extract_series(events)
     learn = _learn_verdict(losses)
     overfit = _overfit_verdict(losses, val_losses, rank_utilization)
     suggestion = _suggestion(losses, steps, rank_utilization, dataset_findings)
+    if nonfinite:
+        learn = ReportVerdict("Did it learn?", STATUS_BAD, "Non-finite loss recorded",
+                              f"{nonfinite} logged loss value(s) were NaN or infinity")
+        suggestion = ReportVerdict("What to try next", STATUS_BAD,
+                                   "Check numerical stability before using these weights")
     return ReportCard(
         verdicts=(learn, overfit),
         suggestion=suggestion,
-        step_count=len(losses),
+        step_count=len(losses) + nonfinite,
     )

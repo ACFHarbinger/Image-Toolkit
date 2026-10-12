@@ -42,6 +42,7 @@ from PySide6.QtWidgets import (
 from gui.src.components.prompt_edit import PromptEdit
 from gui.src.components.prompt_vocabulary import default_vocabulary, model_prefix_for
 from gui.src.helpers.base import BaseQThreadWorker
+from gui.src.helpers.worker_retention import retain_until_stopped
 
 from ....classes.base.base_generative_tab import (
     TIER_ADVANCED,
@@ -253,6 +254,19 @@ class DatasetPrepareWorker(BaseQThreadWorker):
             ).start()
 
 
+class TrainingReportWorker(BaseQThreadWorker):
+    def __init__(self, run_dir: str, findings) -> None:
+        super().__init__()
+        self.run_dir = run_dir
+        self.findings = findings
+
+    def _execute(self):
+        from backend.src.core.training_report import generate_training_report
+        from backend.src.core.training_runs import iter_events
+
+        return generate_training_report(iter_events(self.run_dir), dataset_findings=self.findings)
+
+
 class LoRATrainTab(BaseGenerativeTab):
     # --- Define Signals for Thread-Safe Communication ---
     update_status_signal = Signal(str)
@@ -275,6 +289,7 @@ class LoRATrainTab(BaseGenerativeTab):
         self._dataset_worker: DatasetPrepareWorker | None = None
         self._advisor_exclusions: set[str] = set()
         self._dataset_source_folder: str | None = None
+        self._dataset_source_paths: tuple[str, ...] = ()
         self.init_ui()
         self.update_status_signal.connect(self.handle_status_update)
         self.training_finished_signal.connect(self.handle_training_finished)
@@ -553,7 +568,7 @@ class LoRATrainTab(BaseGenerativeTab):
     def handle_status_update(self, text):
         self.status_label.setText(text)
 
-    @Slot(str, str)
+    @Slot(str, str, str)
     def handle_training_finished(self, status_type, message, run_dir: str = ""):
         if self._disposing:
             return
@@ -576,25 +591,32 @@ class LoRATrainTab(BaseGenerativeTab):
 
     def _show_report_card(self, run_dir: str) -> bool:
         """Generate the #746 card from the run's events and show it."""
-        try:
-            from backend.src.core.training_report import generate_training_report
-            from backend.src.core.training_runs import iter_events
-
-            panel = getattr(self, "_advisor_panel", None)
-            findings = panel.findings() if panel is not None and hasattr(panel, "findings") else []
-            card = generate_training_report(iter_events(run_dir), dataset_findings=findings)
-        except Exception:
-            return False
-        if card.step_count == 0:
-            return False
-        from gui.src.components.dialogs.training_report_card_dialog import (
-            TrainingReportCardDialog,
-        )
-
-        dialog = TrainingReportCardDialog(card, run_dir=run_dir, parent=self)
-        dialog.show()  # non-modal summary panel (#746)
-        self._report_card_dialog = dialog  # keep a reference; user closes it
+        panel = getattr(self, "_advisor_panel", None)
+        findings = panel.findings() if panel is not None and hasattr(panel, "findings") else []
+        worker = TrainingReportWorker(run_dir, findings)
+        worker.finished.connect(self._on_report_ready)
+        self._report_worker = worker
+        retain_until_stopped(worker)
+        worker.start()
         return True
+
+    @Slot(object)
+    def _on_report_ready(self, card) -> None:
+        worker = self.sender()
+        if worker is not getattr(self, "_report_worker", None):
+            return
+        self._report_worker = None
+        if self._disposing:
+            return
+        if card is None or card.step_count == 0:
+            QMessageBox.information(self, "Success", "Training finished and weights saved.")
+            return
+        from gui.src.components.dialogs.training_report_card_dialog import TrainingReportCardDialog
+
+        dialog = TrainingReportCardDialog(card, run_dir=worker.run_dir, parent=self)
+        dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        dialog.show()
+        self._report_card_dialog = dialog
 
     def _restore_start_after_training(self) -> None:
         if self._disposing:
@@ -705,16 +727,20 @@ class LoRATrainTab(BaseGenerativeTab):
     ) -> None:
         if run_dir is None:
             return
-        finish_run(
-            run_dir,
-            status,
-            lora_path=self._resolve_lora_path(output_name, engine),
-            error=error,
-        )
+        try:
+            finish_run(
+                run_dir, status,
+                lora_path=self._resolve_lora_path(output_name, engine), error=error,
+            )
+        except OSError as exc:
+            self.update_status_signal.emit(f"Could not finalize run record: {exc}")
 
     @staticmethod
     def _resolve_lora_path(output_name: str, engine: str) -> str:
-        out = Path(output_name or "output_lora").resolve()
+        out = Path(output_name or "output_lora")
+        if engine != "standard" and not out.is_absolute():
+            out = ROOT_DIR / out
+        out = out.resolve()
         if engine != "standard":
             weights = out / "lora_weights.safetensors"
             return str(weights if weights.is_file() else out)
@@ -846,6 +872,8 @@ class LoRATrainTab(BaseGenerativeTab):
                 "Error: LyCORIS training spawns the source checkout's Hydra "
                 "dispatcher and is not available in the packaged build."
             )
+            self._finish_run_record(run_dir, STATUS_ERROR, output_name, engine,
+                                    error="LyCORIS training requires a source checkout.")
             self.training_finished_signal.emit(
                 "error", "LyCORIS training requires a source checkout.", str(run_dir or "")
             )
@@ -937,11 +965,13 @@ class LoRATrainTab(BaseGenerativeTab):
             return
         self._start_dataset_worker(paths)
 
-    def _start_dataset_worker(self, paths: tuple[str, ...], *, review_only: bool = False) -> None:
+    def _start_dataset_worker(self, paths: tuple[str, ...], *, review_only: bool = False, advisor_restage: bool = False) -> None:
         from gui.src.helpers.worker_teardown import stop_worker
 
-        if len(paths) == 1 and Path(paths[0]).is_dir():
-            self._dataset_source_folder = paths[0]
+        if not review_only and not advisor_restage:
+            self._dataset_source_paths = paths
+            self._advisor_exclusions.clear()
+            self._dataset_source_folder = None
         previous = self._dataset_worker
         if previous is not None:
             previous.discarded = True
@@ -970,6 +1000,8 @@ class LoRATrainTab(BaseGenerativeTab):
             self.status_label.setText("Dataset preparation failed.")
             return
         if imported.train_dir is None:
+            if sender is not None and not sender.review_only:
+                self._apply_resolved(imported)
             self.status_label.setText("No usable images in that selection.")
             return
         if sender is not None and sender.review_only:
@@ -1061,15 +1093,19 @@ class LoRATrainTab(BaseGenerativeTab):
         self._review_tags()
 
     def _on_advisor_exclude(self, paths: list) -> None:
+        if self._training_running() or self._review_running():
+            return
         self._advisor_exclusions.update(str(Path(p).resolve()) for p in paths)
         self._restage_for_advisor()
 
     def _on_advisor_restore(self) -> None:
+        if self._training_running() or self._review_running():
+            return
         self._advisor_exclusions.clear()
         self._restage_for_advisor()
 
     def _restage_for_advisor(self) -> None:
-        source = self._dataset_source_folder or self._applied_train_dir
+        source = self._dataset_source_paths
         if not source:
             return
         if self._training_running() or self._review_running():
@@ -1077,7 +1113,7 @@ class LoRATrainTab(BaseGenerativeTab):
                 "Cannot change the dataset while training or tag review is running."
             )
             return
-        self._start_dataset_worker((source,))
+        self._start_dataset_worker(source, advisor_restage=True)
 
     def _clear_staging(self) -> None:
         if not self._staging_dir:

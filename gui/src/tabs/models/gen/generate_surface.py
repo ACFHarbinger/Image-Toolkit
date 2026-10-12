@@ -52,7 +52,7 @@ from gui.src.tabs.models.gen.comfy_generate_tab import (
     ComfyUITab,
     plan_guided_workflow,
 )
-from gui.src.tabs.models.upscale_handoff import UpscaleRunner, decode_image_bytes
+from gui.src.tabs.models.upscale_handoff import UpscaleRunner
 
 _MODES = ("guided", "graph", "matrix")
 
@@ -215,7 +215,7 @@ class OutputFilmstrip(QWidget):
             self._jobs.put_nowait(job)
         except queue.Full:
             with contextlib.suppress(queue.Empty):
-                expired, *_ = self._jobs.get_nowait()
+                _tag, expired, *_ = self._jobs.get_nowait()
                 self._pending.discard(expired)
             self._jobs.put_nowait(job)
 
@@ -696,25 +696,13 @@ class GenerateSurface(QWidget):
         if not filename:
             self._upscale_message.setText("Selected run has no downloadable output.")
             return
-        try:
-            data = self._view_fetch(filename, subfolder, kind)
-        except Exception as exc:
-            self._upscale_message.setText(f"Could not fetch output: {exc}")
-            return
-        if decode_image_bytes(data) is None:
-            self._upscale_message.setText("Could not decode the selected output.")
-            return
-        snap_dir = os.path.join(LOCAL_SOURCE_PATH, "Generated")
-        os.makedirs(snap_dir, exist_ok=True)
-        snapshot = os.path.join(snap_dir, f"{record.prompt_id}.png")
-        try:
-            with open(snapshot, "wb") as handle:
-                handle.write(bytes(data))
-        except OSError as exc:
-            self._upscale_message.setText(f"Could not save output snapshot: {exc}")
-            return
         self._upscale_source_id = record.prompt_id
-        self._start_upscale_files([snapshot])
+        self._upscale_btn.setEnabled(False)
+        self._upscale_message.setText("Downloading original and upscaling…")
+        self._upscaler.start_remote(
+            self._manager.fetch_output, filename, subfolder, kind,
+            os.path.join(LOCAL_SOURCE_PATH, "Generated"),
+        )
 
     def _start_upscale_files(self, paths: list) -> None:
         self._upscale_message.setText(f"Upscaling {len(paths)} file(s)…")

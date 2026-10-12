@@ -47,14 +47,19 @@ def embed_paths(paths, progress=None, cancel=None):
     from backend.src.core.similarity import get_embedder
 
     embedder = get_embedder("mobileclip")
+    if embedder is None:
+        raise RuntimeError("No embedding backend is available.")
     embeddings = {}
-    for start in range(0, len(paths), 64):
-        if cancel is not None and cancel():
-            break
-        embeddings.update(embedder.embed_batch(paths[start:start + 64]))
-        if progress is not None:
-            progress(min(start + 64, len(paths)), len(paths))
-    return embeddings
+    try:
+        for start in range(0, len(paths), 64):
+            if cancel is not None and cancel():
+                break
+            embeddings.update(embedder.embed_batch(paths[start:start + 64]))
+            if progress is not None:
+                progress(min(start + 64, len(paths)), len(paths))
+        return embeddings
+    finally:
+        embedder.unload()
 
 
 class AdvisorScanWorker(BaseQThreadWorker):
@@ -126,7 +131,6 @@ class AdvisorPanel(QWidget):
         self._training_guard = lambda: False
         self._scan_worker: AdvisorScanWorker | None = None
         self._cluster_worker: AdvisorClusterWorker | None = None
-        self._retained: list[BaseQThreadWorker] = []
         self._build_ui()
 
     # ------------------------------------------------------------------
@@ -291,6 +295,9 @@ class AdvisorPanel(QWidget):
         self._token += 1
         self._images = tuple(images)
         self._trigger = trigger
+        self._findings = []
+        self._summary = None
+        self._render()
         self._start_scan()
 
     def refresh_trigger(self, trigger: str) -> None:
@@ -342,13 +349,11 @@ class AdvisorPanel(QWidget):
         previous = self._scan_worker
         if previous is not None:
             stop_worker(previous, join=False)
-        self._token += 1
         worker = AdvisorScanWorker(self._token, self._images, self._trigger, self._hash_cache)
         worker.finished.connect(self._on_scan_finished)
         worker.error.connect(self._on_worker_error)
         self._scan_worker = worker
         worker.start()
-        self._retained.append(worker)
         retain_until_stopped(worker)
 
     def _on_cluster_clicked(self) -> None:
@@ -359,18 +364,17 @@ class AdvisorPanel(QWidget):
         if not self._images:
             self.summary_label.setText("Load a dataset before clustering.")
             return
-        self._token += 1
         worker = AdvisorClusterWorker(self._token, self._images)
         worker.finished.connect(self._on_cluster_finished)
         worker.error.connect(self._on_worker_error)
-        worker.progress.connect(lambda done, total: self._progress_show(done, total))
+        worker.progress.connect(self._progress_show)
         self._cluster_worker = worker
         worker.start()
-        self._retained.append(worker)
         retain_until_stopped(worker)
         self.cluster_btn.setText("Cancel")
         self._update_cluster_enabled()
 
+    @Slot(int, int)
     def _progress_show(self, done: int, total: int) -> None:
         self.progress.setMaximum(max(total, 1))
         self.progress.setValue(done)
@@ -387,7 +391,7 @@ class AdvisorPanel(QWidget):
         token, report = payload
         if token != self._token:
             return
-        self._findings = list(report.findings)
+        self._findings = list(report.findings) + [f for f in self._findings if f.category == "diversity"]
         self._summary = report.summary
         self._render()
 
@@ -411,6 +415,8 @@ class AdvisorPanel(QWidget):
     @Slot(object)
     def _on_worker_error(self, exc) -> None:
         sender = self.sender()
+        if sender not in (self._scan_worker, self._cluster_worker):
+            return
         if sender is self._scan_worker:
             self._scan_worker = None
             self.progress.setVisible(False)

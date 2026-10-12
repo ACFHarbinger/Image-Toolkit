@@ -305,3 +305,15 @@ def test_lora_generate_tab_swapped_fields_collect(q_app):
     tab.set_config({"prompt": "1boy", "neg_prompt": "worst quality"})
     assert tab.prompt_edit.text() == "1boy"
     assert tab.neg_prompt_edit.text() == "worst quality"
+
+
+def test_trigger_vocabulary_excludes_failed_and_running_training(tmp_path):
+    import json
+
+    from gui.src.components.prompt_vocabulary import RunRecordStore
+
+    for status in ("running", "error", "cancel", "success"):
+        directory = tmp_path / status
+        directory.mkdir()
+        (directory / "record.json").write_text(json.dumps({"status": status, "trigger_word": status}))
+    assert RunRecordStore((str(tmp_path),)).trigger_tokens() == ["success"]

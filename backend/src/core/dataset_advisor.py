@@ -99,15 +99,16 @@ def _frame_group(filename: str) -> str:
 def _probe(path: Path) -> tuple[str | None, tuple[int, int] | None]:
     """Exact sha256 + header-only dimensions; (None, None) when unreadable."""
     try:
-        data = path.read_bytes()
+        with path.open("rb") as stream:
+            digest = hashlib.file_digest(stream, "sha256").hexdigest()
     except OSError:
         return None, None
     try:
         with Image.open(path) as image:
             dims = image.size
     except Exception:
-        return hashlib.sha256(data).hexdigest(), None
-    return hashlib.sha256(data).hexdigest(), dims
+        return digest, None
+    return digest, dims
 
 
 def _detail(paths: Sequence[str]) -> str:
@@ -303,7 +304,7 @@ def _read_captions(paths: Iterable[Path]) -> dict[Path, str]:
         sidecar = path.with_suffix(".txt")
         try:
             text = sidecar.read_text(encoding="utf-8").strip() if sidecar.is_file() else ""
-        except OSError:
+        except (OSError, UnicodeError):
             text = ""
         captions[path] = text
     return captions

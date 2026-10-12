@@ -239,7 +239,7 @@ class RunRecordStore:
                 except (OSError, json.JSONDecodeError) as exc:
                     logger.info("skipping unreadable run record %s: %s", path, exc)
                     continue
-                if isinstance(record, dict):
+                if isinstance(record, dict) and record.get("status") in (None, "success"):
                     out.append(record)
         return out
 

@@ -272,3 +272,62 @@ def test_review_upscale_finished_appends_result(q_app, tmp_path):
     page._on_upscale_finished([str(out)])
     assert page._compare_paths == [str(src), str(out)]
     page.deleteLater()
+
+
+@pytest.mark.parametrize("width", [1, 2, 3, 5, 7])
+def test_decoder_handles_qimage_row_padding(q_app, width):
+    image = uh.decode_image_bytes(_png_bytes(width=width, height=3))
+    assert image.shape == (3, width, 3)
+    assert tuple(image[0, 0]) == (64, 32, 16)
+
+
+def test_upscale_does_not_overwrite_existing_output(tmp_path):
+    source = tmp_path / "image.png"
+    source.write_bytes(_png_bytes())
+    output = tmp_path / "image_upscaled_4x.png"
+    output.write_bytes(b"keep")
+    with pytest.raises(FileExistsError):
+        uh.run_upscale_file(str(source), str(output))
+    assert output.read_bytes() == b"keep"
+    assert uh.upscaled_output_path(str(source)).endswith("_upscaled_4x_2.png")
+
+
+def test_remote_upscale_fetches_off_thread_and_uses_png_snapshot(q_app, tmp_path, monkeypatch):
+    from PySide6.QtTest import QTest
+
+    calls = []
+    runner = uh.UpscaleRunner()
+    done = []
+    runner.finished.connect(done.extend)
+
+    def fetch(*args):
+        calls.append(threading.current_thread() is not threading.main_thread())
+        return _png_bytes(width=5)
+
+    def upscale(src, dst):
+        with open(src, "rb") as stream:
+            assert uh.decode_image_bytes(stream.read()).shape == (6, 5, 3)
+        return dst
+
+    monkeypatch.setattr(uh, "run_upscale_file", upscale)
+    worker = runner.start_remote(fetch, "a.png", "", "temp", str(tmp_path))
+    worker.join(2)
+    QTest.qWait(50)
+    assert calls == [True] and done
+    runner.deleteLater()
+
+
+def test_lora_upscale_result_appears_beside_its_source(q_app, tmp_path):
+    from gui.src.tabs.models.gen.lora_generate_tab import LoRAGenerateTab
+
+    tab = LoRAGenerateTab()
+    source = tmp_path / "source.png"
+    output = tmp_path / "source_upscaled_4x.png"
+    source.write_bytes(_png_bytes())
+    output.write_bytes(_png_bytes())
+    tab._show_output_paths([str(source)], "generated")
+    tab.handle_upscale_finished([str(output)])
+    strip = tab._output_filmstrip
+    assert strip.selected_record().local_output_path == str(output)
+    assert set(strip._records) == {str(source), str(output)}
+    tab.deleteLater()

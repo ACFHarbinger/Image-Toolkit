@@ -93,3 +93,38 @@ def test_stop_prevents_further_emissions(tmp_path, tail):
     _append(run_dir / "events.jsonl", [{"step": 1, "loss": 0.1}])
     qt_test.qWait(200)
     assert received == []
+
+
+def test_restart_ignores_old_inflight_read(tmp_path, tail, monkeypatch):
+    import threading
+
+    from gui.src.helpers.models.training_event_tail import _TailRead
+
+    old = tmp_path / "old"
+    new = tmp_path / "new"
+    old.mkdir()
+    new.mkdir()
+    _append(old / "events.jsonl", [{"step": 1, "loss": 99}])
+    _append(new / "events.jsonl", [{"step": 2, "loss": 0.1}])
+    entered = threading.Event()
+    release = threading.Event()
+    original = _TailRead._execute
+
+    def blocked(worker):
+        result = original(worker)
+        if worker._path.parent == old:
+            entered.set()
+            assert release.wait(3)
+        return result
+
+    monkeypatch.setattr(_TailRead, "_execute", blocked)
+    received = []
+    tail.events.connect(received.extend)
+    tail.start(old)
+    try:
+        assert entered.wait(1)
+        tail.start(new)
+    finally:
+        release.set()
+    assert wait_for(lambda: bool(received))
+    assert received == [{"step": 2, "loss": 0.1}]

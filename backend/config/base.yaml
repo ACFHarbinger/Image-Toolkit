@@ -56,6 +56,7 @@ data:
 
 # ── Logging ─────────────────────────────────────────────────────────────────
 logging:
+  run_dir: ""
   use_tensorboard: true
   use_wandb: false
   wandb_project: anime-diffusion

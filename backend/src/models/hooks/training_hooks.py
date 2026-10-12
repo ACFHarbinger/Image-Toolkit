@@ -94,9 +94,11 @@ class DiagnosticsLogger:
         # step so a watcher sees events as they happen.
         self._jsonl = None
         if jsonl_path:
-            Path(jsonl_path).parent.mkdir(parents=True, exist_ok=True)
-            # Long-lived append handle; closed in close() (noqa: SIM115).
-            self._jsonl = open(jsonl_path, "a", encoding="utf-8")  # noqa: SIM115
+            try:
+                Path(jsonl_path).parent.mkdir(parents=True, exist_ok=True)
+                self._jsonl = open(jsonl_path, "a", encoding="utf-8")  # noqa: SIM115
+            except OSError:
+                log.warning("Training event sink could not be opened", exc_info=True)
 
     # ------------------------------------------------------------------
     def log_step(self, step: int, epoch: Optional[int] = None, **metrics):
@@ -114,7 +116,7 @@ class DiagnosticsLogger:
             try:
                 self._jsonl.write(json.dumps(event, default=float) + "\n")
                 self._jsonl.flush()
-            except (OSError, ValueError):
+            except (OSError, ValueError, TypeError):
                 pass  # a dead sink must never kill the training loop
 
     def log_grad_norm(self, model: nn.Module, step: int, prefix: str = "grad") -> float:

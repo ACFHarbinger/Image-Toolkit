@@ -35,8 +35,8 @@ def test_default_root_reads_image_toolkit_dir_at_call_time(monkeypatch, tmp_path
 
 def test_new_run_id_sanitizes_and_stamps():
     run_id = new_run_id("My Char/Lora! v2", now=datetime(2026, 10, 12, 13, 14, 15))
-    assert run_id == "20261012-131415-My-Char-Lora-v2"
-    assert new_run_id("", now=datetime(2026, 10, 12)) == "20261012-000000-lora"
+    assert run_id.startswith("20261012-131415-My-Char-Lora-v2-")
+    assert new_run_id("", now=datetime(2026, 10, 12)).startswith("20261012-000000-lora-")
 
 
 def test_start_run_writes_kimi_contract_keys(tmp_path):
@@ -121,3 +121,25 @@ def test_record_and_events_layout_matches_promptedit_contract(tmp_path):
     assert len(found) == 1
     record = json.loads(found[0].read_text())
     assert record["trigger_word"] == "tok"
+
+
+def test_repeated_runs_have_distinct_ids_and_cannot_overwrite(tmp_path):
+    import pytest
+
+    now = datetime(2026, 10, 12)
+    assert new_run_id("same", now) != new_run_id("same", now)
+    args = dict(runs_root=tmp_path, run_id="same", output_name="x", engine="standard", model_id="m")
+    run = start_run(**args)
+    finish_run(run, STATUS_SUCCESS)
+    with pytest.raises(FileExistsError):
+        start_run(**args)
+    assert read_run_record(run)["status"] == STATUS_SUCCESS
+
+
+def test_hydra_accepts_gui_run_directory_override(tmp_path):
+    from hydra import compose, initialize_config_dir
+
+    config_dir = str(Path(__file__).resolve().parents[2] / "config")
+    with initialize_config_dir(config_dir=config_dir, version_base="1.3"):
+        config = compose(config_name="base", overrides=[f"logging.run_dir={tmp_path}"])
+    assert config.logging.run_dir == str(tmp_path)

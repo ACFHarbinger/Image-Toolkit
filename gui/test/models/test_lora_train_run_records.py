@@ -178,3 +178,15 @@ def test_run_record_json_is_valid_and_atomic(tab, _runs_root):
     record = json.loads((run_dir / RECORD_FILE_NAME).read_text())
     assert record["status"] == "success"
     assert not (run_dir / (RECORD_FILE_NAME + ".tmp")).exists()
+
+
+def test_finish_record_failure_does_not_hide_training_success(tab):
+    tuner_cls = _fake_lora_tuner()
+    results = []
+    tab.training_finished_signal.connect(lambda *args: results.append(args))
+    with patch(f"{MODULE}.LoRATuner", tuner_cls), \
+         patch(f"{MODULE}.DiagnosticsLogger", _FakeDiagnostics), \
+         patch(f"{MODULE}.finish_run", side_effect=OSError("disk full")):
+        tab.run_training(params={}, data_dir="data", model_id="model", rank=4,
+                         prompt="p", output_name="output", engine="standard")
+    assert results and results[-1][0] == "success"

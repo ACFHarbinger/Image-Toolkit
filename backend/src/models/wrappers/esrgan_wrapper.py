@@ -175,10 +175,6 @@ class ESRGANWrapper(ModelWrapper):
     def loaded(self) -> bool:
         return self._model is not None
 
-    def unload(self) -> None:
-        self._model = None
-        super().unload()
-
     @staticmethod
     def _load_state_dict(repo_id: str) -> dict:
         from huggingface_hub import hf_hub_download
@@ -224,6 +220,13 @@ class ESRGANWrapper(ModelWrapper):
         model = model.to(self.device)
         ESRGANWrapper._models[key] = model
         self._model = model
+
+    def unload(self) -> None:
+        key = (self.model_name, self.num_block, self.device)
+        if ESRGANWrapper._models.get(key) is self._model:
+            ESRGANWrapper._models.pop(key, None)
+        self._model = None
+        super().unload()
 
     @lazy_load
     def upscale(self, image: np.ndarray) -> np.ndarray:
