@@ -1,7 +1,9 @@
+import contextlib
 import copy
 import json
 import mimetypes
 import os
+import queue
 import socket
 import subprocess
 import sys
@@ -10,8 +12,10 @@ import time
 import urllib.error
 import urllib.request
 import uuid
+from collections.abc import Callable
 from pathlib import Path
 
+from backend.src.constants.comfy import ServerState
 from backend.src.constants.models import DEFAULT_HOST, DEFAULT_PORT
 
 COMFYUI_DIR = Path(__file__).parents[4] / "vendor" / "ComfyUI"
@@ -34,6 +38,58 @@ class ComfyUIManager:
         self._process: subprocess.Popen | None = None
         self._port: int = DEFAULT_PORT
         self._host: str = DEFAULT_HOST
+        self._state = ServerState.STOPPED
+        self._attached = False
+        self._logs: queue.Queue[str] = queue.Queue(maxsize=1024)
+        self._state_listeners: list[Callable[[ServerState], None]] = []
+        self._log_listeners: list[Callable[[str], None]] = []
+
+    @property
+    def state(self) -> ServerState:
+        return self._state
+
+    @property
+    def owns_server(self) -> bool:
+        return self._process is not None
+
+    def subscribe_state(self, listener: Callable[[ServerState], None]) -> None:
+        self._state_listeners.append(listener)
+
+    def subscribe_log(self, listener: Callable[[str], None]) -> None:
+        self._log_listeners.append(listener)
+
+    def _set_state(self, state: ServerState) -> None:
+        if state == self._state:
+            return
+        self._state = state
+        for listener in tuple(self._state_listeners):
+            listener(state)
+
+    def connect(self, port: int = DEFAULT_PORT) -> bool:
+        """Attach to a loopback server without acquiring process ownership."""
+        if self.owns_server:
+            raise RuntimeError("Stop the app-owned server before connecting to another server.")
+        if not 1 <= port <= 65535:
+            raise ValueError("Invalid ComfyUI port")
+        self._port = port
+        self._attached = True
+        self._set_state(ServerState.STARTING)
+        return self.refresh_state()
+
+    def refresh_state(self, *, publish: bool = True) -> bool:
+        if not self._attached and not self.is_running:
+            if self._state != ServerState.STOPPED:
+                self._set_state(ServerState.DISCONNECTED)
+            return False
+        try:
+            with urllib.request.urlopen(f"{self.url}/system_stats", timeout=1) as response:
+                stats = json.loads(response.read(1024 * 1024))
+            ready = isinstance(stats, dict) and "system" in stats and "devices" in stats
+        except (OSError, ValueError):
+            ready = False
+        if publish:
+            self._set_state(ServerState.READY if ready else ServerState.DISCONNECTED)
+        return ready
 
     # ------------------------------------------------------------------
     # Singleton access
@@ -94,8 +150,12 @@ class ComfyUIManager:
                 "Connect to an already-running ComfyUI server instead."
             )
 
+        if not 1 <= port <= 65535:
+            raise ValueError("Invalid ComfyUI port")
         if self.is_running:
             return self._port
+        if self._attached:
+            raise RuntimeError("Disconnect the external server before starting a managed server.")
 
         if self._port_in_use(port):
             port = self._find_free_port(port + 1)
@@ -112,16 +172,32 @@ class ComfyUIManager:
         if enable_manager:
             cmd.append("--enable-manager")
 
-        self._process = subprocess.Popen(
-            cmd,
-            cwd=str(COMFYUI_DIR),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            env={**os.environ,
-                 "HF_HUB_DISABLE_TELEMETRY": "1",
-                 "DO_NOT_TRACK": "1"},
-        )
+        self._set_state(ServerState.STARTING)
+        try:
+            self._process = subprocess.Popen(
+                cmd,
+                cwd=str(COMFYUI_DIR),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                env={**os.environ,
+                     "HF_HUB_DISABLE_TELEMETRY": "1",
+                     "DO_NOT_TRACK": "1"},
+            )
+        except Exception:
+            self._set_state(ServerState.DISCONNECTED)
+            raise
+        process = self._process
+
+        def drain() -> None:
+            if process.stdout is not None:
+                for line in process.stdout:
+                    with contextlib.suppress(queue.Full):
+                        self._logs.put_nowait(line)
+                    for listener in tuple(self._log_listeners):
+                        listener(line)
+
+        threading.Thread(target=drain, daemon=True, name="comfy-server-log").start()
         return self._port
 
     def stop(self) -> None:
@@ -134,28 +210,42 @@ class ComfyUIManager:
                 self._process.kill()
                 self._process.wait()
         self._process = None
+        self._attached = False
+        self._set_state(ServerState.STOPPED)
 
     # ------------------------------------------------------------------
     # Readiness / log streaming
     # ------------------------------------------------------------------
 
-    def wait_until_ready(self, timeout: float = 90.0) -> bool:
-        """Block until the HTTP server responds or *timeout* seconds elapse."""
+    def wait_until_ready(
+        self, timeout: float = 90.0, cancel: threading.Event | None = None,
+    ) -> bool:
+        """Probe off the GUI thread; cancellation never terminates an external server."""
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
-            if not self.is_running:
+            if cancel is not None and cancel.is_set():
                 return False
-            try:
-                urllib.request.urlopen(self.url, timeout=1)
+            if not self.is_running and not self._attached:
+                self._set_state(ServerState.DISCONNECTED)
+                return False
+            if self.refresh_state(publish=False):
+                self._set_state(ServerState.READY)
                 return True
-            except Exception:
+            if cancel is not None:
+                if cancel.wait(0.5):
+                    return False
+            else:
                 time.sleep(0.5)
+        self._set_state(ServerState.DISCONNECTED)
         return False
 
     def iter_log_lines(self):
         """Yield lines from the server's stdout (blocks per line)."""
-        if self._process and self._process.stdout:
-            yield from self._process.stdout
+        while self.is_running or not self._logs.empty():
+            try:
+                yield self._logs.get(timeout=0.25)
+            except queue.Empty:
+                continue
 
     # ------------------------------------------------------------------
     # Workflow JSON launch path (Content Gen §1.4 / issue #35)

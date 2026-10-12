@@ -11,7 +11,9 @@ with the ComfyUIManager network calls mocked out.
 from unittest.mock import MagicMock, patch
 
 import pytest
+from backend.src.constants.comfy import ServerState
 
+from gui.src.modules.comfy_workspace_controller import ComfyWorkspaceController
 from gui.src.tabs.models.gen.comfy_generate_tab import (
     WORKFLOW_MODES,
     ComfyUITab,
@@ -23,7 +25,12 @@ pytestmark = pytest.mark.gui
 
 @pytest.fixture
 def tab(q_app):
-    return ComfyUITab()
+    manager = MagicMock(state=ServerState.STOPPED, owns_server=False, port=8188, url="http://127.0.0.1:8188")
+    controller = ComfyWorkspaceController(manager=manager)
+    widget = ComfyUITab(controller=controller)
+    yield widget
+    widget.close()
+    controller.shutdown()
 
 
 class TestModeSelection:
@@ -115,6 +122,7 @@ class TestQueueWorkflowHandler:
         tab._manager.upload_image.assert_not_called()
 
     def test_queue_blocked_when_no_image_selected(self, tab):
+        tab._controller.manager.state = ServerState.READY
         tab._manager = MagicMock(is_running=True)
         tab._image_edit.setText("")
 

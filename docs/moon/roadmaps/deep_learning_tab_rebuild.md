@@ -68,7 +68,8 @@ Raising the tier to sandboxed-opt-in or full-embed needs, in order: a
 scoped fix that narrows the wallpaper filter instead of removing it,
 GPU-load and frozen-build (`ImageToolkit.spec`) validation, and a
 ten-clean-launch pass — none of which have run yet. Tracked as follow-up
-under #729, which stays open.
+under #729, which stays open. Server ownership, independent states and the
+shared coordinator are documented in the [ComfyUI lifecycle contract](../architecture/comfy_lifecycle.md).
 
 **Training analysis starts as wiring, not new ML code (Gate D).**
 `backend/src/models/hooks/training_hooks.py` already ships
