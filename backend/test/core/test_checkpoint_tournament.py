@@ -207,7 +207,7 @@ def test_attach_state_resumes_ratings_and_prunes_stale_keys(tmp_path):
     ]
     merged = attach_state(tmp_path, fresh)
     # x beat y (1516) then lost to z: 1516 + 32·(0 − E(1516,1500)) ≈ 1499.26
-    assert merged.entries["x"].rating == pytest.approx(1499.2637, abs=1e-3)
+    assert merged.entries["x"].rating == pytest.approx(1516.0)
     assert merged.entries["y"].rating == pytest.approx(1484.0)
     assert merged.entries["w"].rating == ct.ELO_START  # new checkpoint
     played = {frozenset((h["a"], h["b"])) for h in merged.history}
@@ -328,13 +328,13 @@ def test_discover_sample_grids_missing_dir(tmp_path):
     assert discover_sample_grids(run_dir) == []
 
 
-def test_associate_sample_latest_at_or_before_epoch_end():
+def test_associate_sample_requires_exact_epoch_end():
     grids = [SampleGrid(path=f"/s/{s}.png", step=s) for s in (5, 12, 20)]
     upper = {0: 10, 1: 20}
     e0 = associate_sample(CheckpointInfo(key="epoch-0000", label="e0", path="/c", epoch=0), grids, upper)
     e1 = associate_sample(CheckpointInfo(key="epoch-0001", label="e1", path="/c", epoch=1), grids, upper)
     final = associate_sample(CheckpointInfo(key="final", label="f", path="/c", epoch=None), grids, upper)
-    assert e0.step == 5
+    assert e0 is None
     assert e1.step == 20
     assert final.step == 20
 
@@ -357,9 +357,9 @@ def test_epoch_upper_steps_uses_event_epochs():
     assert ct._epoch_upper_steps(events, 2) == {0: 10, 1: 20}
 
 
-def test_epoch_upper_steps_even_split_fallback_without_epoch_tags():
+def test_epoch_upper_steps_does_not_guess_without_tags():
     events = [{"step": 10}, {"step": 50}, {"step": 100}]
-    assert ct._epoch_upper_steps(events, 2) == {0: 50, 1: 100}
+    assert ct._epoch_upper_steps(events, 2) == {}
 
 
 def test_build_entries_end_to_end(tmp_path):
@@ -376,10 +376,10 @@ def test_build_entries_end_to_end(tmp_path):
     _add_checkpoint(out, 1)
     entries = build_entries(run_dir)
     by_key = {e.key: e for e in entries}
-    assert set(by_key) == {"epoch-0000", "epoch-0001", "final"}
+    assert set(by_key) == {"epoch-0000", "epoch-0001"}
     assert by_key["epoch-0000"].sample_path.endswith("step-000020.png")
     assert by_key["epoch-0001"].sample_path.endswith("step-000030.png")
-    assert by_key["final"].sample_path.endswith("step-000030.png")
+    assert len({entry.sample_path for entry in entries}) == len(entries)
 
 
 def test_build_entries_without_grids_is_empty(tmp_path):
@@ -392,7 +392,7 @@ def test_build_entries_without_grids_is_empty(tmp_path):
 def test_build_entries_needs_two(tmp_path):
     run_dir, out = _make_run(tmp_path, with_final_file=False, with_samples=[10])
     _add_checkpoint(out, 0)
-    assert len(build_entries(run_dir)) == 1  # one checkpoint + one grid ≠ a tournament
+    assert build_entries(run_dir) == []  # untagged samples cannot identify a checkpoint
 
 
 def test_sanitize_label_strips_control_chars():

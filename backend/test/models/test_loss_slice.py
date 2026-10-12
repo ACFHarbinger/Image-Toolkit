@@ -99,3 +99,35 @@ def test_slice_result_round_trips(tmp_path):
     assert loaded == result
     assert loaded.label.startswith("1-D slice")
     assert LossSliceResult.from_json_file(tmp_path / "missing.json") is None
+
+
+def test_attention_sequence_is_perturbed_with_matching_dtype():
+    module = nn.Linear(4, 3).double()
+    x = torch.ones(2, 5, 4, dtype=torch.float64)
+    hook = RankOnePerturbation(2, torch.ones(3), torch.ones(4), .5)
+    result = hook(module, (x,), module(x))
+    assert torch.allclose(result, module(x) + 4)
+    assert result.dtype == x.dtype
+
+
+def test_eval_batch_freezes_sdxl_conditioning_and_noise():
+    from types import SimpleNamespace as NS
+
+    from backend.src.models.hooks.loss_slice import build_eval_batches
+    class Distribution:
+        def sample(self, generator):
+            return torch.randn((1, 4, 2, 2), generator=generator)
+    tuner = NS(
+        accelerator=NS(device=torch.device("cpu")),
+        vae=NS(dtype=torch.float32, config=NS(scaling_factor=1),
+               encode=lambda px: NS(latent_dist=Distribution())),
+        cfg=NS(prediction_type="epsilon"), is_sdxl=True,
+        noise_scheduler=NS(config=NS(num_train_timesteps=100), add_noise=lambda x, n, t: x + n),
+        encode_prompt_sdxl=lambda prompts: (torch.ones(1, 77, 8), torch.ones(1, 8)),
+    )
+    inputs = [(torch.ones(1, 3, 16, 32), ["fixed"])]
+    first = build_eval_batches(tuner, inputs)[0]
+    second = build_eval_batches(tuner, inputs)[0]
+    assert torch.equal(first["noisy_latents"], second["noisy_latents"])
+    assert first["added_cond_kwargs"]["time_ids"].tolist() == [[16, 32, 0, 0, 16, 32]]
+    assert first["added_cond_kwargs"]["text_embeds"].shape == (1, 8)

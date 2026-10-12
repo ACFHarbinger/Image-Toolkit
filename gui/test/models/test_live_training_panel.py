@@ -45,7 +45,7 @@ def test_ingest_fills_epoch_sparkline_and_scrub_highlight(tmp_path, q_app):
 
         epoch = panel.findChild(QProgressBar, "live_training_epoch")
         spark = panel.findChild(QWidget, "live_training_sparkline")
-        assert epoch.value() == 2
+        assert epoch.value() == 3
         assert epoch.maximum() == 5
         assert "loss" in spark.text()
         assert panel.findChild(QPushButton, "checkpoint_10") is not None
@@ -105,3 +105,27 @@ def tab_factory():
         return LoRATrainTab()
 
     return _make
+
+
+def test_thumbnail_survives_next_sample_and_old_run_results_are_ignored(tmp_path, q_app):
+    import time
+    panel = LiveTrainingPanel()
+    try:
+        panel.begin(2)
+        panel.follow(str(tmp_path))
+        _png(tmp_path / "one.png")
+        _png(tmp_path / "two.png")
+        panel.ingest([{"step": 1, "sample": "one.png"}])
+        deadline = time.monotonic() + 2
+        while 1 not in panel._icons and time.monotonic() < deadline:
+            q_app.processEvents()
+            time.sleep(.01)
+        assert 1 in panel._icons
+        panel.ingest([{"step": 2, "sample": "two.png"}])
+        assert not panel.findChild(QPushButton, "checkpoint_1").icon().isNull()
+        old_generation = panel._generation
+        panel.begin(2)
+        panel._apply_thumb(old_generation, 1, b"stale")
+        assert panel._icons == {}
+    finally:
+        panel.shutdown()

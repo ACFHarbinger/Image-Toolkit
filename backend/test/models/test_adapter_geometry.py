@@ -154,3 +154,14 @@ def test_principal_direction_explicit_module(tmp_path):
     assert spec.module == "unet.small"
     with pytest.raises(ValueError, match="not present"):
         principal_direction(path, module="unet.absent")
+
+
+def test_zero_adapter_has_zero_effective_rank(tmp_path):
+    from safetensors.torch import save_file
+
+    from backend.src.models.hooks.adapter_geometry import checkpoint_rank_snapshot
+    path = tmp_path / "adapter_model.safetensors"
+    save_file({"layer.lora_A.weight": torch.ones(2, 4),
+               "layer.lora_B.weight": torch.zeros(3, 2)}, str(path))
+    report = checkpoint_rank_snapshot("zero", path)
+    assert report.rows[0].effective == 0

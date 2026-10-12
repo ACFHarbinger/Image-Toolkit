@@ -22,7 +22,7 @@ from gui.src.components.dialogs.training_report_card_dialog import (
 pytestmark = pytest.mark.gui
 
 
-def _make_run(tmp_path: Path, *, n_checkpoints: int = 2, n_grids: int = 3) -> Path:
+def _make_run(tmp_path: Path, *, n_checkpoints: int = 3, n_grids: int = 3) -> Path:
     out = tmp_path / "out"
     out.mkdir()
     final = out / "demo.safetensors"
@@ -46,7 +46,7 @@ def _make_run(tmp_path: Path, *, n_checkpoints: int = 2, n_grids: int = 3) -> Pa
     events = [
         {"step": 10, "epoch": 0, "loss": 0.4},
         {"step": 20, "epoch": 1, "loss": 0.3},
-        {"step": 30, "epoch": 1, "loss": 0.2},
+        {"step": 30, "epoch": 2, "loss": 0.2},
     ]
     (run_dir / "events.jsonl").write_text(
         "\n".join(json.dumps(e) for e in events) + "\n", encoding="utf-8"
@@ -104,7 +104,7 @@ def test_pane_headers_never_leak_filenames(dialog):
 # ---------------------------------------------------------------------------
 
 def test_voting_updates_standings_and_persists(dialog, run_dir):
-    assert dialog._table.rowCount() == 3  # epoch 0000, epoch 0001, final
+    assert dialog._table.rowCount() == 3  # three epochs; final shares the last grid and is excluded
     assert not dialog._promote_btn.isEnabled()  # no votes yet
     _click(dialog, "← A wins")
     assert (run_dir / ct.STATE_FILE_NAME).exists()

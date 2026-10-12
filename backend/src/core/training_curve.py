@@ -67,8 +67,7 @@ def step_at_ratio(points: list[tuple[int, float]], ratio: float) -> int | None:
     if not points:
         return None
     clamped = min(1.0, max(0.0, float(ratio)))
-    index = min(len(points) - 1, int(clamped * (len(points) - 1)))
-    return points[index][0]
+    return round(points[0][0] + clamped * (points[-1][0] - points[0][0]))
 
 
 def checkpoint_index(steps: list[int], cursor: int) -> int | None:

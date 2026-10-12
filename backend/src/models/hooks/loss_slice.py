@@ -45,10 +45,10 @@ class RankOnePerturbation:
 
     def __call__(self, module: Any, args, output) -> torch.Tensor | None:
         x = args[0] if args else None
-        if x is None or x.dim() != 2 or x.shape[-1] != self.v1.shape[-1]:
+        if x is None or x.dim() < 2 or x.shape[-1] != self.v1.shape[-1]:
             return None
-        gain = self.alpha * self.sigma * (x @ self.v1)
-        return output + gain.unsqueeze(-1) * self.u1
+        gain = self.alpha * self.sigma * (x @ self.v1.to(x))
+        return output + gain.unsqueeze(-1) * self.u1.to(output)
 
 
 def compute_loss_slice(
@@ -97,27 +97,28 @@ def load_tuner_for_slice(config: dict | Any) -> Any:
             base_model_path=str(config.get("model_id", "")),
             output_dir=str(config.get("output_name", "output_lora")),
             rank=int(config.get("rank", 16)),
+            snr_gamma=None,
+            gradient_checkpointing=False,
         )
-    return LoRATunerV2(config)
+    tuner = LoRATunerV2(config)
+    return tuner
 
 
 def inject_checkpoint(tuner: Any, checkpoint_path: str) -> None:
     """Apply a saved adapter (peft safetensors or LyCORIS weights) to the
     freshly built tuner. py_compile-verified only; no live GPU run."""
-    from peft import set_peft_model_state_dict
-    from safetensors.torch import load_file
+    from pathlib import Path
 
-    if tuner.lycoris_net is not None:
-        tuner.lycoris_net.load_weights(str(checkpoint_path))
-        return
-    state = load_file(str(checkpoint_path))
-    # get_peft_model_state_dict strips the "base_model.model." prefix;
-    # set_peft_model_state_dict expects it back.
-    if not any(k.startswith("base_model.model.") for k in state):
-        state = {f"base_model.model.{k}": v for k, v in state.items()}
-    set_peft_model_state_dict(tuner.unet, state)
+    from peft import PeftModel
+
+    path = Path(checkpoint_path)
+    if not (path.parent / "adapter_config.json").is_file():
+        raise ValueError("Loss slices require a PEFT checkpoint with adapter_config.json; this format is unsupported.")
+    tuner.unet = PeftModel.from_pretrained(tuner.unet, str(path.parent), is_trainable=False)
+    tuner.unet.to(tuner.accelerator.device).eval()
 
 
+@torch.inference_mode()
 def build_eval_batches(
     tuner: Any,
     batches: Sequence[tuple[torch.Tensor, Sequence[str]]],
@@ -131,14 +132,16 @@ def build_eval_batches(
     frozen here (latents, noise, timesteps, prompt embeds, target), so
     the α-sweep measures only the perturbation.
     """
+    if not batches:
+        raise ValueError("No evaluation images available")
     prepared: list[dict[str, Any]] = []
     for index, (pixels, prompts) in enumerate(batches):
-        generator = torch.Generator().manual_seed(seed + index)
+        generator = torch.Generator(device=tuner.accelerator.device).manual_seed(seed + index)
         with torch.no_grad():
-            px = pixels.to(dtype=tuner.vae.dtype)
-            latents = tuner.vae.encode(px).latent_dist.sample()
+            px = pixels.to(device=tuner.accelerator.device, dtype=tuner.vae.dtype)
+            latents = tuner.vae.encode(px).latent_dist.sample(generator=generator)
             latents = latents * tuner.vae.config.scaling_factor
-        noise = torch.randn(latents.shape, generator=generator, device=latents.device)
+        noise = torch.randn(latents.shape, generator=generator, device=latents.device, dtype=latents.dtype)
         bsz = latents.shape[0]
         timesteps = torch.randint(
             0, tuner.noise_scheduler.config.num_train_timesteps,
@@ -152,7 +155,10 @@ def build_eval_batches(
         )
         added_cond_kwargs = None
         if tuner.is_sdxl:
-            prompt_embeds, _pooled = tuner.encode_prompt_sdxl(list(prompts))
+            prompt_embeds, pooled = tuner.encode_prompt_sdxl(list(prompts))
+            h, w = pixels.shape[-2:]
+            time_ids = torch.tensor([[h, w, 0, 0, h, w]] * bsz, device=latents.device, dtype=prompt_embeds.dtype)
+            added_cond_kwargs = {"text_embeds": pooled, "time_ids": time_ids}
         else:
             inputs = tuner.tokenizer_one(
                 list(prompts), padding="max_length", max_length=77, truncation=True, return_tensors="pt"
@@ -190,9 +196,13 @@ def run_diffusion_loss_slice(
     if direction is None:
         direction = principal_direction(checkpoint_path, direction_module)
     spec, u1, v1 = direction
-    target = _resolve_module(tuner.unet, spec.module)
+    root = tuner.unet.get_base_model() if hasattr(tuner.unet, "get_base_model") else tuner.unet
+    target = _resolve_module(root, spec.module)
     if target is None:
         raise ValueError(f"module {spec.module!r} not found in the loaded model")
+
+    if not eval_batches:
+        raise ValueError("No evaluation batches available")
 
     def diffusion_loss() -> float:
         total = 0.0

@@ -23,7 +23,6 @@ from gui.src.components.dialogs.adapter_rank_chart_dialog import (
     AdapterRankChartDialog,
 )
 from gui.src.components.dialogs.training_report_card_dialog import TrainingReportCardDialog
-from gui.src.helpers.base import BaseQThreadWorker
 from PySide6.QtTest import QTest as qt_test
 from PySide6.QtWidgets import QPushButton, QTabWidget
 
@@ -121,11 +120,13 @@ def test_slice_button_requires_confirmation(q_app, tmp_path):
 
 
 def test_slice_lease_held_through_run_and_released(q_app, tmp_path):
-    class _StubWorker(BaseQThreadWorker):
-        def __init__(self, run_dir, checkpoint, record, num_points):
-            super().__init__()
+    from gui.src.components.dialogs.adapter_rank_chart_dialog import LossSliceWorker
 
-        def _execute(self) -> object:
+    class _StubWorker(LossSliceWorker):
+        def __init__(self, run_dir, checkpoint, record, num_points):
+            super().__init__(run_dir, checkpoint, record, num_points)
+
+        def _compute(self) -> object:
             return None  # degrades to "no result" without touching diffusers
 
     dialog = AdapterRankChartDialog(_report(), run_dir=str(tmp_path), record={})

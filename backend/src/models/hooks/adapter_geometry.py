@@ -15,7 +15,9 @@ so no adapter config is needed.
 """
 from __future__ import annotations
 
+import json
 import logging
+import math
 import re
 from pathlib import Path
 
@@ -58,6 +60,8 @@ def _split_module(key: str) -> tuple[str, str] | None:
 def load_adapter_deltas(path: str | Path) -> dict[str, tuple[torch.Tensor, torch.Tensor]]:
     """Module key -> (A, B) tensors (low-rank factors of ΔW = B @ A)."""
     state = load_file(str(path))
+    config_path = Path(path).parent / "adapter_config.json"
+    config = json.loads(config_path.read_text()) if config_path.is_file() else {}
     modules: dict[str, dict[str, torch.Tensor]] = {}
     for key, tensor in state.items():
         parts = _split_module(key)
@@ -70,7 +74,16 @@ def load_adapter_deltas(path: str | Path) -> dict[str, tuple[torch.Tensor, torch
         a = factors.get("lora_A", factors.get("lora_down"))
         b = factors.get("lora_B", factors.get("lora_up"))
         if a is not None and b is not None and a.dim() == 2:
-            out[module] = (a, b)
+            rank = a.shape[0]
+            alpha = config.get("lora_alpha", rank)
+            for suffix, value in config.get("alpha_pattern", {}).items():
+                if module == suffix or module.endswith("." + suffix):
+                    alpha = value
+            intrinsic_alpha = state.get(module + ".alpha")
+            if intrinsic_alpha is not None:
+                alpha = float(intrinsic_alpha)
+            scale = float(alpha) / (math.sqrt(rank) if config.get("use_rslora") else rank)
+            out[module] = (a, b * scale)
     return out
 
 
@@ -79,14 +92,16 @@ def _module_rows(deltas: dict[str, tuple[torch.Tensor, torch.Tensor]]) -> list[M
     for module in sorted(deltas):
         a, b = deltas[module]
         try:
-            sv = torch.linalg.svdvals(b @ a)
+            _, rb = torch.linalg.qr(b, mode="reduced")
+            _, ra = torch.linalg.qr(a.T, mode="reduced")
+            sv = torch.linalg.svdvals(rb @ ra.T)
         except Exception as exc:  # pragma: no cover - malformed tensors
             log.debug("svdvals failed for %s: %s", module, exc)
             continue
         energy = sv.float() ** 2
         total = energy.sum().clamp(min=1e-12)
         cumvar = energy.cumsum(0) / total
-        effective = int((cumvar < RANK_ENERGY_THRESHOLD).sum().item()) + 1
+        effective = 0 if float(energy.sum()) == 0 else int((cumvar < RANK_ENERGY_THRESHOLD).sum().item()) + 1
         rows.append(
             ModuleRankRow(
                 module=module,
@@ -161,12 +176,14 @@ def principal_direction(
     deltas = load_adapter_deltas(adapter_path)
     if not deltas:
         raise ValueError(f"no LoRA/LyCORIS factors found in {adapter_path}")
-    key = module or max(deltas, key=lambda k: float(torch.linalg.matrix_norm(deltas[k][1] @ deltas[k][0])))
+    key = module or max(deltas, key=lambda k: float(torch.trace((deltas[k][1].T @ deltas[k][1]) @ (deltas[k][0] @ deltas[k][0].T))))
     if key not in deltas:
         raise ValueError(f"module {module!r} not present in {adapter_path}")
     a, b = deltas[key]
-    delta_w = b @ a
-    u, sv, vh = torch.linalg.svd(delta_w, full_matrices=False)
+    qb, rb = torch.linalg.qr(b, mode="reduced")
+    qa, ra = torch.linalg.qr(a.T, mode="reduced")
+    uc, sv, vhc = torch.linalg.svd(rb @ ra.T, full_matrices=False)
+    u, vh = qb @ uc, vhc @ qa.T
     sigma = float(sv[0])
     energy_fraction = float(sv[0] ** 2 / (sv.float() ** 2).sum().clamp(min=1e-12))
     spec = DirectionSpec(

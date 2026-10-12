@@ -263,7 +263,10 @@ def load_state(run_dir: Path | str) -> TournamentState | None:
         return None
     if not isinstance(data, dict):
         return None
-    return state_from_dict(data)
+    try:
+        return state_from_dict(data)
+    except (TypeError, ValueError, KeyError, AttributeError):
+        return None
 
 
 def attach_state(run_dir: Path | str, entries: list[TournamentEntry]) -> TournamentState:
@@ -278,25 +281,16 @@ def attach_state(run_dir: Path | str, entries: list[TournamentEntry]) -> Tournam
     if old is None:
         return TournamentState(run_id=run_id, entries={e.key: e for e in entries})
     by_key = {e.key: e for e in entries}
-    for key, entry in by_key.items():
-        prev = old.entries.get(key)
-        if prev is not None:
-            entry.rating = prev.rating
-            entry.games = prev.games
-            entry.wins = prev.wins
-            entry.ties = prev.ties
-    alive = set(by_key)
-    history = [
-        h
-        for h in old.history
-        if h.get("a") in alive and h.get("b") in alive
-    ]
-    return TournamentState(
-        run_id=old.run_id or run_id,
-        entries=by_key,
-        history=history,
-        promoted=old.promoted if old.promoted and old.promoted.get("key") in alive else None,
-    )
+    stable = {key for key, entry in by_key.items() if key in old.entries
+              and entry.checkpoint_path == old.entries[key].checkpoint_path
+              and entry.sample_path == old.entries[key].sample_path}
+    state = TournamentState(run_id=run_id, entries=by_key)
+    for history in old.history:
+        if history.get("a") in stable and history.get("b") in stable:
+            record_result(state, history["a"], history["b"], history.get("result"), ts=history.get("ts"))
+    if old.promoted and old.promoted.get("key") in stable and len(state.history) == len(old.history):
+        state.promoted = old.promoted
+    return state
 
 
 def promote(state: TournamentState, key: str, *, ts: float | None = None) -> dict:
@@ -335,7 +329,8 @@ def read_output_dir(run_dir: Path | str) -> Path | None:
         raw = record.get("lora_path")
     if not raw:
         return None
-    return Path(str(raw)).expanduser()
+    path = Path(str(raw)).expanduser()
+    return path.parent if path.is_file() else path
 
 
 def discover_checkpoints(run_dir: Path | str) -> list[CheckpointInfo]:
@@ -396,9 +391,7 @@ def discover_sample_grids(run_dir: Path | str) -> list[SampleGrid]:
 
 
 def _epoch_upper_steps(events: list[dict], n_epochs: int) -> dict[int, int]:
-    """Max step per epoch, for mapping a checkpoint to a sample grid.
-    Falls back to an even split of the highest seen step when the events
-    carry no epoch tags (old runs, or sinks that dropped them)."""
+    """Max observed step per epoch; missing identity must never be guessed."""
     tagged: dict[int, int] = {}
     top = 0
     for ev in events:
@@ -409,11 +402,7 @@ def _epoch_upper_steps(events: list[dict], n_epochs: int) -> dict[int, int]:
         epoch = ev.get("epoch")
         if isinstance(epoch, int):
             tagged[epoch] = max(tagged.get(epoch, 0), step)
-    if tagged and len(tagged) >= n_epochs:
-        return tagged
-    if top <= 0 or n_epochs <= 0:
-        return tagged
-    return {e: ((e + 1) * top) // n_epochs for e in range(n_epochs)}
+    return tagged
 
 
 def associate_sample(
@@ -421,14 +410,11 @@ def associate_sample(
     grids: list[SampleGrid],
     epoch_upper: dict[int, int],
 ) -> SampleGrid | None:
-    """The grid logged closest to (at or before) the checkpoint's last step
-    — the sample a user would have eyeballed for that checkpoint."""
+    """Only an exact checkpoint step is suitable for a blind comparison."""
     if not grids:
         return None
-    if info.epoch is None or info.epoch not in epoch_upper:
-        return grids[-1]
-    limit = epoch_upper[info.epoch]
-    candidates = [g for g in grids if g.step <= limit]
+    limit = max(epoch_upper.values(), default=-1) if info.epoch is None else epoch_upper.get(info.epoch, -1)
+    candidates = [g for g in grids if g.step == limit]
     return candidates[-1] if candidates else None
 
 
@@ -451,7 +437,7 @@ def build_entries(
     entries: list[TournamentEntry] = []
     for info in checkpoints:
         grid = associate_sample(info, grids, epoch_upper)
-        if grid is None:
+        if grid is None or any(entry.sample_path == grid.path for entry in entries):
             continue
         entries.append(
             TournamentEntry(

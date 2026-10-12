@@ -64,6 +64,25 @@ class LossSliceWorker(BaseQThreadWorker):
         self.num_points = num_points
 
     def _execute(self) -> object:
+        error = None
+        result = None
+        try:
+            result = self._compute()
+        except Exception as exc:
+            error = str(exc)
+        finally:
+            import gc
+
+            import torch
+            gc.collect()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+            gpu_lease.release(_SLICE_LEASE_OWNER)
+        if error is not None:
+            raise RuntimeError(error)
+        return result
+
+    def _compute(self) -> object:
         from backend.src.core.adapter_reports import LossSliceResult
         from backend.src.models.hooks.loss_slice import (
             build_eval_batches,
@@ -74,9 +93,14 @@ class LossSliceWorker(BaseQThreadWorker):
 
         config = dict(self.record.get("config") or {})
         config.setdefault("model_id", self.record.get("model_id", ""))
+        config["snr_gamma"] = None
+        batches = _eval_batches(self.record, count=_EVAL_IMAGES)
+        if not batches:
+            raise ValueError("The original dataset is unavailable; choose an accessible evaluation dataset first.")
+        if not (Path(self.checkpoint).parent / "adapter_config.json").is_file():
+            raise ValueError("Select a PEFT checkpoint with adapter_config.json; this adapter format is unsupported.")
         tuner = load_tuner_for_slice(config)
         inject_checkpoint(tuner, self.checkpoint)
-        batches = _eval_batches(self.record, count=_EVAL_IMAGES)
         prepared = build_eval_batches(tuner, batches)
         result = run_diffusion_loss_slice(
             tuner,
@@ -97,13 +121,16 @@ def _eval_batches(record: dict, count: int):
     from PIL import Image
 
     data_dir = str((record.get("config") or {}).get("data_dir") or "")
+    if not data_dir or not Path(data_dir).is_dir():
+        return []
     trigger = str(record.get("trigger_word") or "")
     paths = [p for p in sorted(Path(data_dir).glob("*")) if p.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp"}]
     batches = []
     for path in paths[:count]:
-        image = Image.open(path).convert("RGB").resize((512, 512))
+        with Image.open(path) as source:
+            image = source.convert("RGB").resize((512, 512))
         pixels = torch.from_numpy(_np_array(image)).permute(2, 0, 1).unsqueeze(0).float() / 127.5 - 1.0
-        batches.append((pixels, [f"{trigger}, 1girl, masterpiece" if trigger else "1girl, masterpiece"]))
+        batches.append((pixels, [str(record.get("instance_prompt") or trigger)]))
     return batches
 
 
@@ -241,7 +268,8 @@ class AdapterRankChartDialog(QDialog):
     def _on_compute_slice(self) -> None:
         if self._slice_worker is not None:
             return
-        latest = self._report.latest()
+        selected = self._delta_combo.currentIndex()
+        latest = self._report.snapshots[selected] if 0 <= selected < len(self._report.snapshots) else self._report.latest()
         if latest is None:
             QMessageBox.information(self, "Loss Slice", "No adapter checkpoint available to slice.")
             return
@@ -249,7 +277,8 @@ class AdapterRankChartDialog(QDialog):
         cost = (
             f"{num_points} loss evaluations over up to {_EVAL_IMAGES} eval images "
             f"(≈{num_points * _EVAL_IMAGES} forward passes, no sampling) plus one "
-            "base-model load. This holds the GPU until it finishes."
+            "base-model load. This holds the GPU until it finishes. "
+            "Uses the checkpoint selected in Per-Layer ΔW. Only PEFT adapters with a saved config are supported."
         )
         answer = QMessageBox.question(self, "Compute Loss Slice", cost + "\n\nProceed?")
         if answer != QMessageBox.StandardButton.Yes:
@@ -268,7 +297,6 @@ class AdapterRankChartDialog(QDialog):
         worker.start()
 
     def _release_slice_lease(self) -> None:
-        gpu_lease.release(_SLICE_LEASE_OWNER)
         self._slice_worker = None
         self._slice_btn.setEnabled(True)
 
@@ -299,7 +327,7 @@ class AdapterRankChartDialog(QDialog):
         holder.layout().addWidget(canvas)
         axes = figure.add_subplot(111)
         axes.plot(list(result.alphas), list(result.losses), marker="o")
-        axes.axvline(1.0, color="#8a8a8a", linestyle=":", label="checkpoint")
+        axes.axvline(0.0, color="#8a8a8a", linestyle=":", label="checkpoint")
         axes.set_xlabel("α (perturbation along leading ΔW direction)")
         axes.set_ylabel("fixed-noise loss (eval subset)")
         axes.legend(fontsize=7)

@@ -21,7 +21,7 @@ from backend.src.core.training_curve import (
     step_at_ratio,
 )
 from PySide6.QtCore import QBuffer, QIODevice, QSize, Qt, Signal
-from PySide6.QtGui import QColor, QIcon, QImage, QPainter, QPen, QPixmap
+from PySide6.QtGui import QColor, QIcon, QImageReader, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
@@ -154,6 +154,8 @@ class LiveTrainingPanel(QWidget):
         self._compare: ImageCompareWindow | None = None
         self._jobs: queue.Queue = queue.Queue()
         self._pending: set[int] = set()
+        self._icons = {}
+        self._jobs_lock = threading.Lock()
         self._generation = 0
         self._worker: threading.Thread | None = None
         self._tail = TrainingEventTail(self)
@@ -201,6 +203,7 @@ class LiveTrainingPanel(QWidget):
         self._events.clear()
         self._shots.clear()
         self._known.clear()
+        self._icons.clear()
         self._pending.clear()
         self._highlight = None
         self._run_dir = None
@@ -230,6 +233,7 @@ class LiveTrainingPanel(QWidget):
             self._spark.push(loss)
         epoch = latest_epoch(self._events)
         if epoch is not None:
+            epoch += 1  # Training events use zero-based epoch indices.
             if epoch > self._epoch.maximum():
                 self._epoch.setMaximum(epoch)
             self._epoch.setValue(min(epoch, self._epoch.maximum()))
@@ -267,6 +271,9 @@ class LiveTrainingPanel(QWidget):
         for shot in self._shots:
             button = QPushButton(f"step {shot.step}")
             button.setObjectName(f"checkpoint_{shot.step}")
+            if shot.step in self._icons:
+                button.setIcon(self._icons[shot.step])
+                button.setIconSize(QSize(_THUMB, _THUMB))
             button.setCheckable(True)
             button.setChecked(self._highlight is not None and self._shots[self._highlight].step == shot.step)
             button.clicked.connect(lambda _checked=False, value=shot.step: self.highlight_step(value))
@@ -310,46 +317,54 @@ class LiveTrainingPanel(QWidget):
         if step in self._pending or len(self._pending) >= _PENDING_CAP:
             return
         self._pending.add(step)
-        self._jobs.put((step, path))
-        if self._worker is None or not self._worker.is_alive():
-            self._worker = threading.Thread(target=self._pump, name="training-thumbs", daemon=True)
-            self._worker.start()
+        with self._jobs_lock:
+            self._jobs.put((self._generation, step, path))
+            if self._worker is None:
+                self._worker = threading.Thread(target=self._pump, name="training-thumbs", daemon=True)
+                self._worker.start()
 
     def _pump(self) -> None:
-        generation = self._generation
-        while generation == self._generation:
-            try:
-                step, path = self._jobs.get(timeout=0.2)
-            except queue.Empty:
-                continue
-            self._pending.discard(step)
+        while True:
+            with self._jobs_lock:
+                try:
+                    generation, step, path = self._jobs.get_nowait()
+                except queue.Empty:
+                    self._worker = None
+                    return
             if generation != self._generation:
-                return
+                continue
             data = _scaled_png(path)
-            if data and generation == self._generation:
-                self._thumbs.ready.emit(step, data)
+            if generation == self._generation:
+                self._thumbs.ready.emit(generation, step, data or b"")
 
-    def _apply_thumb(self, step: int, data: bytes) -> None:
+    def _apply_thumb(self, generation: int, step: int, data: bytes) -> None:
+        if generation != self._generation:
+            return
+        self._pending.discard(step)
         pixmap = QPixmap()
         if not pixmap.loadFromData(data):
             return
         button = self.findChild(QPushButton, f"checkpoint_{step}")
         if button is not None:
-            button.setIcon(QIcon(pixmap))
+            self._icons[step] = QIcon(pixmap)
+            button.setIcon(self._icons[step])
             button.setIconSize(QSize(_THUMB, _THUMB))
 
 
 class _ThumbBus(QWidget):
     """Qt signal owner so thumbnail bytes hop back to the GUI thread."""
 
-    ready = Signal(int, bytes)
+    ready = Signal(int, int, bytes)
 
 
 def _scaled_png(path: Path) -> bytes | None:
-    image = QImage(str(path))
-    if image.isNull():
+    reader = QImageReader(str(path))
+    size = reader.size()
+    if not size.isValid() or size.width() * size.height() > _MAX_PIXELS:
         return None
-    if image.width() * image.height() > _MAX_PIXELS:
+    reader.setScaledSize(size.scaled(_THUMB, _THUMB, Qt.AspectRatioMode.KeepAspectRatio))
+    image = reader.read()
+    if image.isNull():
         return None
     scaled = image.scaled(
         _THUMB, _THUMB, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation,
