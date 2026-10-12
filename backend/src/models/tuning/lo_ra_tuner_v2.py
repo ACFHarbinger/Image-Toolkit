@@ -22,6 +22,8 @@ FullFineTuner lives in backend/src/models/full_finetune.py.
 
 from __future__ import annotations
 
+import contextlib
+import logging
 import os
 import random
 from dataclasses import dataclass
@@ -58,6 +60,15 @@ from backend.src.constants import (  # noqa: F401
     TE_ATTN_TARGETS as TE_ATTN_TARGETS,
 )
 from backend.src.models.tuning.lo_ra_tuner_config import LoRATunerConfig
+from backend.src.models.tuning.sample_grids import (
+    build_sampling_pipe as _build_sampling_pipe,
+)
+from backend.src.models.tuning.sample_grids import (
+    default_sample_prompts as _default_sample_prompts,
+)
+from backend.src.models.tuning.sample_grids import sampling_state
+
+log = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Optional dependencies
@@ -365,6 +376,7 @@ class LoRATunerV2:
     # ------------------------------------------------------------------
     def train(self, dataloader: DataLoader, diagnostics=None):
         cfg = self.cfg
+        self._last_sampled_step = None
         self.build_adapters()
         optimizer = self.build_optimizer()
 
@@ -473,14 +485,17 @@ class LoRATunerV2:
                 if global_step >= total_steps:
                     break
 
-            # Save checkpoint every N epochs
+            # Save checkpoint every N epochs, then sample it: the grid is
+            # what blind checkpoint tournaments (#747) pair up later.
             if (epoch + 1) % cfg.save_every_n_epochs == 0:
                 self._save_checkpoint(epoch)
+                self._maybe_sample_grid(diagnostics, global_step, epoch)
 
             if global_step >= total_steps:
                 break
 
         self._save_final()
+        self._maybe_sample_grid(diagnostics, global_step, epoch)
         print(f"[LoRATunerV2] Training complete. Output: {cfg.output_dir}")
 
     # ------------------------------------------------------------------
@@ -503,6 +518,51 @@ class LoRATunerV2:
 
             state = get_peft_model_state_dict(unwrapped)
             sf.save_file(state, Path(self.cfg.output_dir) / "lora_weights.safetensors")
+
+    def _maybe_sample_grid(self, diagnostics, step: int, epoch: int) -> None:
+        """#747/#742: emit a fixed-prompt/seed grid at a checkpoint point.
+
+        Fail-soft by contract: no run dir, the ``sample_grids`` opt-out, or
+        any sampling failure degrades to no grid — training never dies for
+        a diagnostic. Grids land beside ``events.jsonl`` through
+        ``DiagnosticsLogger.save_sample``.
+        """
+        cfg = self.cfg
+        if not getattr(self.accelerator, "is_main_process", True):
+            return
+        if getattr(self, "_last_sampled_step", None) == step:
+            return
+        if diagnostics is None or not cfg.sample_grids:
+            return
+        if getattr(diagnostics, "_jsonl", None) is None:
+            return  # no run record — nothing to write beside
+        pipe = None
+        try:
+            unet = self.accelerator.unwrap_model(self.unet)
+            with sampling_state(unet, self.vae, self.text_encoder_one, getattr(self, "text_encoder_two", None)):
+                prompts = list(cfg.validation_prompts) or _default_sample_prompts("")
+                pipe = _build_sampling_pipe(
+                    is_sdxl=self.is_sdxl,
+                    vae=self.vae,
+                    text_encoder_one=self.text_encoder_one,
+                    text_encoder_two=self.text_encoder_two,
+                    tokenizer_one=self.tokenizer_one,
+                    tokenizer_two=self.tokenizer_two,
+                    unet=unet,
+                    noise_scheduler=self.noise_scheduler,
+                    prediction_type=cfg.prediction_type,
+                )
+                pipe.set_progress_bar_config(disable=True)
+                diagnostics.log_sample_grid(
+                    pipe, prompts, step=step, seed=cfg.validation_seed, epoch=epoch
+                )
+                self._last_sampled_step = step
+        except Exception:
+            log.warning("checkpoint sample grid failed; continuing", exc_info=True)
+        finally:
+            pipe = None
+            with contextlib.suppress(Exception):
+                torch.cuda.empty_cache()
 
     def _ids_to_prompts(self, input_ids) -> list[str]:
         if input_ids is None:

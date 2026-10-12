@@ -346,12 +346,9 @@ def _build_tuner(cfg: DictConfig):
         use_ema=bool(train_cfg.get("use_ema", False)),
         output_dir=str(cfg.get("output_dir", "output_lora")),
         save_every_n_epochs=int(train_cfg.get("save_every_n_epochs", 1)),
-        use_wandb=bool(cfg.get("logging", {}).get("use_wandb", False)),
-        wandb_project=str(
-            cfg.get("logging", {}).get("wandb_project", "anime-diffusion")
-        ),
-        use_tensorboard=bool(cfg.get("logging", {}).get("use_tensorboard", True)),
         validation_prompts=list(cfg.get("validation_prompts", [])),
+        validation_seed=int(cfg.get("validation_seed", cfg.get("seed", 42))),
+        sample_grids=bool(train_cfg.get("sample_grids", True)),
     )
 
     stage = str(train_cfg.get("stage", "lora"))

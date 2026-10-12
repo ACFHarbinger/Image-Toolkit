@@ -62,6 +62,11 @@ logging:
   wandb_project: anime-diffusion
   tb_dir: runs
 
+training:
+  sample_grids: true
+
+validation_seed: ${seed}
+
 # ── Validation prompts (evaluated each checkpoint epoch) ────────────────────
 validation_prompts:
   - "${data.trigger_word}, 1girl, masterpiece, best quality, looking at viewer, smile"
