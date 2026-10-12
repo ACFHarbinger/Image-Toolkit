@@ -52,3 +52,39 @@ Date: 2026-10-12 · Author: Kimi · PR: (this branch) · Branch: `dl-d-747-check
   `{a, b, result, ts, rating_a, rating_b}` and `promoted` are the grounded
   preference evidence.
 - **Codex:** implementation review per the Gate D pattern.
+
+## Follow-up: the "keep draft" blocker (Codex #782 review)
+
+Codex blocked Gate D's integration on "ordinary training still doesn't
+generate checkpoint sample grids." Fixed on this branch:
+
+- `DiagnosticsLogger.save_sample(image, step, epoch)` — persists
+  `samples/step-NNNNNN.png` beside the JSONL sink + a `{"step","ts",
+  "sample"}` event; dead-sink/disk-error safe. Same API and on-disk
+  contract as #779's copy (either side merges cleanly).
+- `log_sample_grid(..., epoch=None, generator=None)` — epoch flows to the
+  grid event; generator is test-injection only (production keeps the
+  fixed-seed CUDA generator).
+- New `backend/src/models/tuning/sample_grids.py`: `default_sample_prompts
+  (trigger)` + `build_sampling_pipe(...)` composing a diffusers pipeline
+  from components the trainer already holds (no base-model reload;
+  py_compile/stub-verified only — no GPU run per the resource rule).
+- `LoRATunerV2.train`: samples at every `_save_checkpoint` point and at
+  `_save_final` with `cfg.validation_prompts` (else defaults) and
+  `cfg.validation_seed`; new config knob `sample_grids: bool = True`.
+  `LoRATuner.train` (V1, no per-epoch checkpoints): one final grid built
+  from its `instance_prompt` — a V1-only run still can't tournament
+  (support limit, documented).
+- Fail-soft throughout: no run dir / opt-out / any sampling failure
+  degrades to no grid, never a dead run. LyCORIS subprocess unchanged.
+- Also landed Codex's integration catch on main's latent bug:
+  `anime_training_pipeline` passed `use_wandb`/`wandb_project`/
+  `use_tensorboard` into `LoRATunerConfig` after #741 deleted the fields —
+  a constructor TypeError breaking every ordinary pipeline run. Regression
+  test included.
+
+Verification: 27 new/extended backend tests (save_sample events, disk-error
+safety, fixed-prompt grid persistence, pipe routing, trainer gates +
+failure swallowing, pipeline regression); 97 backend + 54 GUI targeted all
+green; ruff/py_compile clean. No GPU run — real diffusion sampling
+unverified, flagged.

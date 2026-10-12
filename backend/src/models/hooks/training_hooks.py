@@ -187,8 +187,17 @@ class DiagnosticsLogger:
         step: int,
         seed: int = 42,
         tag: str = "sample",
+        epoch: Optional[int] = None,
+        generator=None,
     ):
-        gen = torch.Generator("cuda").manual_seed(seed)
+        """Generate a fixed-prompt/fixed-seed grid and persist it.
+
+        The same prompts + seed at every call make grids across
+        checkpoints comparable, which is what blind tournament pairing
+        (#747) depends on. *generator* exists so tests can inject a CPU
+        generator; production uses the fixed-seed CUDA generator.
+        """
+        gen = generator if generator is not None else torch.Generator("cuda").manual_seed(seed)
         with torch.inference_mode():
             imgs = pipe(
                 prompt=prompts,
@@ -197,7 +206,7 @@ class DiagnosticsLogger:
                 generator=gen,
             ).images
         grid = grid_to_pil(imgs)
-        self.save_sample(grid, step)
+        self.save_sample(grid, step, epoch=epoch)
         if self.tb:
             t = torch.tensor(np.asarray(grid)).permute(2, 0, 1)
             self.tb.add_image(tag, t, step)
