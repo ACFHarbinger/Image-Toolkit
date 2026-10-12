@@ -113,11 +113,37 @@ class DiagnosticsLogger:
             if epoch is not None:
                 event["epoch"] = int(epoch)
             event.update(metrics)
-            try:
-                self._jsonl.write(json.dumps(event, default=float) + "\n")
-                self._jsonl.flush()
-            except (OSError, ValueError, TypeError):
-                pass  # a dead sink must never kill the training loop
+            self._write_jsonl(event)
+
+    def save_sample(self, image, step: int, epoch: Optional[int] = None) -> Optional[str]:
+        """Write one fixed-seed sample beside the JSONL sink (#742).
+
+        The event records a run-relative path. A dead sink or disk error
+        returns None and does not raise into the training loop.
+        """
+        if self._jsonl is None:
+            return None
+        relative = f"samples/step-{int(step):06d}.png"
+        dest = Path(self._jsonl.name).resolve().parent / relative
+        try:
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            image.save(dest)
+        except OSError:
+            return None
+        event = {"step": int(step), "ts": time.time(), "sample": relative}
+        if epoch is not None:
+            event["epoch"] = int(epoch)
+        self._write_jsonl(event)
+        return relative
+
+    def _write_jsonl(self, event: dict) -> None:
+        if self._jsonl is None:
+            return
+        try:
+            self._jsonl.write(json.dumps(event, default=float) + "\n")
+            self._jsonl.flush()
+        except (OSError, ValueError, TypeError):
+            pass  # a dead sink must never kill the training loop
 
     def log_grad_norm(self, model: nn.Module, step: int, prefix: str = "grad") -> float:
         if self.log_grad_every <= 0 or step % self.log_grad_every != 0:
@@ -161,16 +187,30 @@ class DiagnosticsLogger:
         step: int,
         seed: int = 42,
         tag: str = "sample",
+        epoch: Optional[int] = None,
+        generator=None,
     ):
-        gen = torch.Generator("cuda").manual_seed(seed)
+        """Generate a fixed-prompt/fixed-seed grid and persist it.
+
+        The same prompts + seed at every call make grids across
+        checkpoints comparable, which is what blind tournament pairing
+        (#747) depends on. *generator* exists so tests can inject a CPU
+        generator; production uses a fixed-seed generator on the pipeline device.
+        """
+        device = getattr(pipe, "_execution_device", "cpu")
+        gen = generator if generator is not None else torch.Generator(device).manual_seed(seed)
+        imgs = []
+        # Training weights/optimizer stay resident: batch only one prompt at a time.
         with torch.inference_mode():
-            imgs = pipe(
-                prompt=prompts,
-                num_inference_steps=30,
-                guidance_scale=6.0,
-                generator=gen,
-            ).images
+            for prompt in prompts:
+                imgs.extend(pipe(
+                    prompt=[prompt],
+                    num_inference_steps=30,
+                    guidance_scale=6.0,
+                    generator=gen,
+                ).images)
         grid = grid_to_pil(imgs)
+        self.save_sample(grid, step, epoch=epoch)
         if self.tb:
             t = torch.tensor(np.asarray(grid)).permute(2, 0, 1)
             self.tb.add_image(tag, t, step)

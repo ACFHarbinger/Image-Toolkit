@@ -172,8 +172,7 @@ def test_lycoris_training_nonzero_exit_emits_error_signal(tab):
 
 
 def test_lycoris_training_negative_returncode_is_treated_as_cancel(tab):
-    """A negative returncode means the process was killed by a signal --
-    i.e. cancel_training()'s proc.terminate() call, not a real failure."""
+    """A negative returncode means the process was killed by a signal, not a real failure."""
     fake_proc = MagicMock()
     fake_proc.stdout = iter([])
     fake_proc.wait.return_value = -15  # SIGTERM
@@ -189,11 +188,44 @@ def test_lycoris_training_negative_returncode_is_treated_as_cancel(tab):
     assert signals[0][0] == "cancel"
 
 
-def test_cancel_training_terminates_lycoris_subprocess_when_active(tab):
+def test_lycoris_popen_starts_its_own_session(tab):
     fake_proc = MagicMock()
+    fake_proc.stdout = iter([])
+    fake_proc.wait.return_value = 0
+    with patch(
+        "gui.src.tabs.models.delta.lora_train_tab.subprocess.Popen",
+        return_value=fake_proc,
+    ) as mock_popen:
+        tab._run_lycoris_training("/d", "m", "p", "o", "locon")
+    assert mock_popen.call_args.kwargs["start_new_session"] is True
+
+
+def test_cancel_falls_back_to_terminate_without_a_pid(tab):
+    fake_proc = MagicMock()
+    fake_proc.poll.return_value = None
+    fake_proc.pid = None
     tab._lycoris_process = fake_proc
     tab.cancel_training()
     fake_proc.terminate.assert_called_once()
+    assert tab._group_kill_timer is None
+
+
+def test_cancel_training_terminates_lycoris_subprocess_when_active(tab, monkeypatch):
+    import signal
+
+    fake_proc = MagicMock()
+    fake_proc.poll.return_value = None
+    fake_proc.pid = 4242
+    tab._lycoris_process = fake_proc
+    killed = []
+    monkeypatch.setattr(
+        "gui.src.tabs.models.delta.lora_train_tab.os.killpg",
+        lambda pid, sig: killed.append((pid, sig)),
+    )
+    tab.cancel_training()
+    assert killed == [(4242, signal.SIGTERM)]
+    fake_proc.terminate.assert_not_called()
+    tab._group_kill_timer.stop()
 
 
 def test_collect_persists_model_and_engine_ids_not_labels(tab):

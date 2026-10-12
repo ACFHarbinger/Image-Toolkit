@@ -95,6 +95,10 @@ class LoRATunerConfig:
     # Validation
     validation_prompts: list[str] = field(default_factory=list)
     validation_seed: int = 42
+    # #747: persist a fixed-prompt/seed sample grid at every checkpoint
+    # save (the material blind checkpoint tournaments pair up). Off-switch
+    # for runs where the extra sampling cost isn't worth it.
+    sample_grids: bool = True
 
     # Logging: the dead use_wandb/wandb_project/use_tensorboard fields were
     # removed (#741) — nothing consumed them; the Hydra logging.* tree is a
