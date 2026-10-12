@@ -70,9 +70,9 @@ runs, because both are only HTTP history.
 before Queue: node `class_type`s and their inputs are verified against
 `GET /object_info`, and model-file inputs (`ckpt_name`,
 `control_net_name`, `ipadapter_file`, …) are verified against the
-server's file choice lists, or against the model folders under
-`COMFYUI_DIR/models` when the node's spec declares a plain widget instead
-of a choice list.
+server's file choice lists. A caller may supply `models_root` for local
+fallback checks off the GUI thread. Attached servers may use another
+installation or extra model paths; GUI validation never scans local disk.
 
 `/object_info` is the expensive half, so the manager fetches it on a
 worker thread at Ready, caches it until the server leaves Ready, and
@@ -105,11 +105,17 @@ listens to `run_record_changed`.
 
 Matrix mode picks one axis (seed, CFG, steps, LoRA weight, ControlNet
 strength) and 3–9 values, hard-capped at 25. `run_matrix_sweep` loops
-`queue_workflow`. Cells share `parent_prompt_id` (the first prompt) and
+`queue_workflow` and waits for terminal `/history/{prompt_id}` after each
+submission. Failed, deleted, or disconnected jobs stop the sweep. Cells share `parent_prompt_id` (the first prompt) and
 render at 512px. One `GpuLease` covers the whole sweep; a guided or
 graph queue cannot take it until the sweep releases it. Stop between
-cells is a flag checked before each cell after the first. VRAM pressure
+cells is a flag checked before every cell, including the first. VRAM pressure
 (CUDA free memory under 15%) stops the same way; CPU-only sessions do
 not count as pressure. **Promote cell to run** clones the selected
 workflow at the guided width and height and queues that single prompt
 with `surface_mode="promoted"`.
+
+The lease currently coordinates only these Comfy submission paths, not
+training jobs or an external browser. Thermal monitoring and image thumbnails
+are not implemented; #739/#740 remain incomplete on those points. Shutdown
+or disconnection stops waiting without interrupting an external server's job.

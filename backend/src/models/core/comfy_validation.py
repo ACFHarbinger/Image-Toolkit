@@ -161,7 +161,11 @@ def validate_template(
                                         f"node '{node_ref}' is not an object"))
             continue
         class_type = node.get("class_type")
-        inputs = node.get("inputs") or {}
+        inputs = node.get("inputs", {})
+        if not isinstance(inputs, dict):
+            issues.append(TemplateIssue(node_ref, None, MISSING_INPUT,
+                                        f"node '{node_ref}' inputs must be an object"))
+            continue
         spec: dict[str, Any] | None = None
         if object_info is not None:
             info = object_info.get(class_type) if isinstance(class_type, str) else None

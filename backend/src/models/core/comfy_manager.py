@@ -14,7 +14,7 @@ import uuid
 from collections.abc import Callable
 from pathlib import Path
 
-from backend.src.constants.comfy import ServerState
+from backend.src.constants.comfy import RunStatus, ServerState
 from backend.src.constants.models import DEFAULT_HOST, DEFAULT_PORT
 from backend.src.models.core.comfy_provenance import ComfyRunRecord, RunTracker
 from backend.src.models.core.comfy_validation import (
@@ -56,7 +56,7 @@ class ComfyUIManager:
         # Run-provenance capture (#737): pure tracker + poller thread that
         # is driven by server state, never by any view.
         self._runs = RunTracker()
-        self._provenance_lock = threading.Lock()
+        self._provenance_lock = threading.RLock()
         self._poller_lock = threading.Lock()
         self._poll_interval = PROVENANCE_POLL_INTERVAL
         self._poll_stop = threading.Event()
@@ -340,6 +340,8 @@ class ComfyUIManager:
                 # away from Ready stop this thread via the event.
                 continue
             with self._provenance_lock:
+                if stop.is_set():
+                    return
                 self._runs.observe_snapshot(queue_info, history, first=first)
             first = False
 
@@ -349,7 +351,7 @@ class ComfyUIManager:
     # /object_info is the expensive half of template validation, so it is
     # fetched once per Ready transition on a worker thread and cached until
     # the server leaves Ready. validate_template() itself is pure CPU + a
-    # local models-dir listing, safe to call from the GUI thread.
+    # server inventory only by default, safe to call from the GUI thread.
     # ------------------------------------------------------------------
 
     def subscribe_object_info(self, listener: Callable[[dict | None], None]) -> None:
@@ -373,8 +375,9 @@ class ComfyUIManager:
         Node types/inputs are checked against /object_info (cached at Ready;
         pass *object_info* to validate against a recording instead, e.g. the
         pinned fixture in backend/test/fixtures). Referenced model files are
-        checked under *models_root* (default COMFYUI_DIR/models) when the
-        node's /object_info spec declares no choice list for the input.
+        checked under an explicit *models_root* when the node declares no
+        choice list. Disk fallback is opt-in and must run off the GUI thread;
+        an attached server may use a different model directory.
         """
         if object_info is None:
             object_info = self.get_object_info()
@@ -382,8 +385,6 @@ class ComfyUIManager:
             raise RuntimeError(
                 "No /object_info available — validate once the server is Ready."
             )
-        if models_root is None:
-            models_root = COMFYUI_DIR / "models"
         return _validate_template(template, object_info, models_root=models_root)
 
     def _start_object_info_warmup(self) -> None:
@@ -406,6 +407,7 @@ class ComfyUIManager:
     def _clear_object_info(self) -> None:
         self._object_info_stop.set()
         thread = self._object_info_thread
+        self._object_info_thread = None
         if thread is not None and thread is not threading.current_thread():
             thread.join(timeout=0.5)
         with self._object_info_lock:
@@ -430,6 +432,41 @@ class ComfyUIManager:
             self._object_info = info
         for listener in tuple(self._object_info_listeners):
             listener(info)
+
+    def wait_for_run(self, prompt_id: str, *, cancel: threading.Event | None = None) -> bool:
+        """Wait off-thread for terminal history, not a /prompt ACK.
+
+        Lost connections and shutdown abort the remaining sweep, without
+        interrupting external work or mistaking queue absence for success.
+        """
+        from urllib.parse import quote
+
+        absent = 0
+        while cancel is None or not cancel.is_set():
+            if self.state != ServerState.READY:
+                return False
+            history = self._get_json(f"/history/{quote(prompt_id, safe='')}")
+            if prompt_id in history:
+                with self._provenance_lock:
+                    self._runs.observe_history(history)
+                    record = self._runs.get(prompt_id)
+                return record is not None and record.status == RunStatus.COMPLETED
+            queue_info = self._get_json("/queue")
+            active = any(
+                isinstance(item, (list, tuple)) and len(item) > 1 and item[1] == prompt_id
+                for key in ("queue_running", "queue_pending")
+                for item in queue_info.get(key, [])
+            )
+            absent = 0 if active else absent + 1
+            if absent >= 2:
+                # History is read first each cycle; a finish between the two
+                # HTTP requests gets another history lookup before giving up.
+                return False
+            if cancel is not None:
+                cancel.wait(0.25)
+            else:
+                time.sleep(0.25)
+        return False
 
     # ------------------------------------------------------------------
     # Workflow JSON launch path (Content Gen §1.4 / issue #35)

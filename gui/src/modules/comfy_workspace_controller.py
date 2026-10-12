@@ -133,6 +133,9 @@ class ComfyWorkspaceController(QObject):
         """Serialize HTTP submissions with lifecycle changes, off the GUI thread."""
         if self.server_state != ServerState.READY:
             return False
+        if self.busy or self._closed:
+            return False
+        self._cancel.clear()
         return self._submit(action)
 
     def start(self, port: int = 8188, enable_manager: bool = False) -> None:

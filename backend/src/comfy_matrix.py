@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import copy
 import json
+import math
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -55,7 +56,7 @@ def _parse_float(text: str) -> float:
         value = float(text)
     except ValueError as exc:
         raise ValueError(f"Could not read number {text!r}.") from exc
-    if value != value:  # NaN
+    if not math.isfinite(value):
         raise ValueError(f"Could not read number {text!r}.")
     return value
 
@@ -117,8 +118,9 @@ def apply_node_overrides(workflow: dict, overrides: dict | None) -> dict:
         if not isinstance(node, dict):
             missing.append(key)
             continue
-        if isinstance(node_overrides, dict):
-            node.setdefault("inputs", {}).update(node_overrides)
+        if not isinstance(node_overrides, dict) or not isinstance(node.get("inputs", {}), dict):
+            raise ValueError(f"Overrides and inputs for node '{key}' must be objects.")
+        node.setdefault("inputs", {}).update(node_overrides)
     if missing:
         raise UnknownWorkflowNodeError(missing)
     return result
@@ -148,6 +150,8 @@ def merge_sampler_overrides(
         node_id = find_node_id(workflow, KSAMPLER_TYPES)
         if node_id is None:
             raise AxisNotInWorkflow("seed", KSAMPLER_TYPES)
+        if "seed" in sampler_inputs and workflow[node_id]["class_type"] == "KSamplerAdvanced":
+            sampler_inputs["noise_seed"] = sampler_inputs.pop("seed")
         merged.setdefault(node_id, {}).update(sampler_inputs)
     latent_inputs = _present(width=width, height=height)
     if latent_inputs:
@@ -244,9 +248,14 @@ def cell_overrides(workflow: dict, axis: str, value, preview_edge: int | None) -
     node_id = find_node_id(workflow, spec.class_types)
     if node_id is None:
         raise AxisNotInWorkflow(axis, spec.class_types)
-    overrides: dict = {node_id: {spec.input_name: value}}
+    input_name = spec.input_name
+    if axis == "seed" and workflow[node_id]["class_type"] == "KSamplerAdvanced":
+        input_name = "noise_seed"
+    overrides: dict = {node_id: {input_name: value}}
     if preview_edge is not None:
         latent = find_node_id(workflow, LATENT_TYPES)
+        if latent is None:
+            raise AxisNotInWorkflow("preview size", LATENT_TYPES)
         if latent is not None:
             overrides[latent] = {"width": preview_edge, "height": preview_edge}
     return overrides
@@ -316,6 +325,7 @@ def run_matrix_sweep(
     axis: str,
     values: list,
     queue: Callable[[dict, dict], str],
+    wait_for_completion: Callable[[str], bool],
     template_name: str | None = None,
     base_overrides: dict | None = None,
     preview_edge: int | None = PREVIEW_EDGE,
@@ -325,7 +335,7 @@ def run_matrix_sweep(
     lease: GpuLease | None = None,
     lease_owner: str = "matrix",
 ) -> SweepResult:
-    """Queue one ``queue_workflow`` per value. No new execution engine."""
+    """Submit and await each cell under one lease, checking limits between jobs."""
     if len(values) > CELL_CAP:
         return SweepResult((), parent_prompt_id, "cap")
     holder = lease or gpu_lease
@@ -335,11 +345,11 @@ def run_matrix_sweep(
     parent = parent_prompt_id
     stopped: str | None = None
     try:
-        for index, value in enumerate(values):
-            if index and stop_check is not None and stop_check():
+        for value in values:
+            if stop_check is not None and stop_check():
                 stopped = "stop"
                 break
-            if index and _under_pressure(pressure_check):
+            if _under_pressure(pressure_check):
                 stopped = "pressure"
                 break
             extra = cell_overrides(workflow, axis, value, preview_edge)
@@ -357,6 +367,11 @@ def run_matrix_sweep(
             prompt_ids.append(prompt_id)
             if parent is None:
                 parent = prompt_id
+            # Submission only acknowledges a queued job. Keep the lease until
+            # execution finishes before checking pressure or submitting another.
+            if not wait_for_completion(prompt_id):
+                stopped = "execution"
+                break
     finally:
         holder.release(lease_owner)
     return SweepResult(tuple(prompt_ids), parent, stopped)

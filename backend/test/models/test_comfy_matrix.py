@@ -66,6 +66,7 @@ def test_sweep_queues_each_value_under_one_parent():
         return f"c{len(captured) - 1}"
 
     result = run_matrix_sweep(
+        wait_for_completion=lambda _pid: True,
         workflow=_controlnet(),
         axis="seed",
         values=[1, 2, 3],
@@ -88,6 +89,7 @@ def test_sweep_queues_each_value_under_one_parent():
 def test_sweep_stops_between_cells_on_pressure_and_releases_the_lease():
     lease = GpuLease()
     result = run_matrix_sweep(
+        wait_for_completion=lambda _pid: True,
         workflow=_controlnet(),
         axis="controlnet_strength",
         values=[0.2, 0.5, 0.8],
@@ -95,7 +97,7 @@ def test_sweep_stops_between_cells_on_pressure_and_releases_the_lease():
         pressure_check=lambda: True,
         lease=lease,
     )
-    assert result.prompt_ids == ("only",)
+    assert result.prompt_ids == ()
     assert result.stopped == "pressure"
     assert lease.try_acquire("next")
     lease.release("next")
@@ -104,6 +106,7 @@ def test_sweep_stops_between_cells_on_pressure_and_releases_the_lease():
 def test_sweep_stop_flag_and_missing_axis():
     lease = GpuLease()
     stopped = run_matrix_sweep(
+        wait_for_completion=lambda _pid: True,
         workflow=_controlnet(),
         axis="cfg",
         values=[4.0, 5.0, 6.0],
@@ -113,11 +116,12 @@ def test_sweep_stop_flag_and_missing_axis():
         lease=lease,
     )
     assert stopped.stopped == "stop"
-    assert stopped.prompt_ids == ("x",)
+    assert stopped.prompt_ids == ()
 
     with pytest.raises(Exception, match="LoraLoader"):
         run_matrix_sweep(
-            workflow=_controlnet(),
+            wait_for_completion=lambda _pid: True,
+        workflow=_controlnet(),
             axis="lora_weight",
             values=[0.2, 0.5, 0.8],
             queue=lambda _workflow, _meta: "nope",
@@ -130,6 +134,7 @@ def test_sweep_stop_flag_and_missing_axis():
 def test_cap_refuses_before_queue():
     queued = []
     result = run_matrix_sweep(
+        wait_for_completion=lambda _pid: True,
         workflow=_controlnet(),
         axis="steps",
         values=list(range(CELL_CAP + 1)),
@@ -153,6 +158,7 @@ def test_second_lease_holder_is_refused():
     lease = GpuLease()
     assert lease.try_acquire("matrix")
     blocked = run_matrix_sweep(
+        wait_for_completion=lambda _pid: True,
         workflow=_controlnet(),
         axis="seed",
         values=[1, 2, 3],
@@ -163,3 +169,71 @@ def test_second_lease_holder_is_refused():
     assert blocked.stopped == "lease"
     assert blocked.prompt_ids == ()
     lease.release("matrix")
+
+
+def test_sweep_waits_for_execution_and_keeps_lease():
+    lease = GpuLease()
+    events = []
+
+    def queue(workflow, meta):
+        prompt_id = str(workflow["5"]["inputs"]["seed"])
+        events.append(("queue", prompt_id))
+        return prompt_id
+
+    def wait(prompt_id):
+        assert not lease.try_acquire("other")
+        events.append(("finish", prompt_id))
+        return prompt_id != "2"
+
+    result = run_matrix_sweep(
+        workflow=_controlnet(), axis="seed", values=[1, 2, 3], queue=queue,
+        wait_for_completion=wait, pressure_check=lambda: False, lease=lease,
+    )
+    assert events == [("queue", "1"), ("finish", "1"), ("queue", "2"), ("finish", "2")]
+    assert result.stopped == "execution"
+    assert lease.try_acquire("after")
+
+
+@pytest.mark.parametrize("overrides", ['{"1": []}', '{"1": {"seed": 2}}'])
+def test_malformed_graph_inputs_are_visible_errors(overrides):
+    with pytest.raises(ValueError, match="must be objects"):
+        parse_graph_submission('{"1": {"inputs": []}}', overrides)
+
+
+def test_stop_waits_for_current_cell_before_releasing_lease():
+    import threading
+
+    lease = GpuLease()
+    running = threading.Event()
+    finish = threading.Event()
+    stop = threading.Event()
+    queued = []
+    results = []
+
+    def wait(_prompt_id):
+        running.set()
+        assert finish.wait(2)
+        return True
+
+    def run():
+        results.append(run_matrix_sweep(
+            workflow=_controlnet(), axis="seed", values=[1, 2, 3],
+            queue=lambda _graph, _meta: queued.append("cell") or "cell",
+            wait_for_completion=wait, stop_check=stop.is_set,
+            pressure_check=lambda: False, lease=lease,
+        ))
+
+    worker = threading.Thread(target=run)
+    worker.start()
+    try:
+        assert running.wait(1)
+        stop.set()
+        assert not lease.try_acquire("other")
+        assert queued == ["cell"]
+    finally:
+        finish.set()
+        worker.join(2)
+    assert not worker.is_alive()
+    assert results[0].stopped == "stop"
+    assert queued == ["cell"]
+    assert lease.try_acquire("after")

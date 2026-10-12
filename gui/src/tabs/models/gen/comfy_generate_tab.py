@@ -244,6 +244,8 @@ class ComfyUITab(QWidget):
         self._controller.error.connect(self._on_service_error)
         self._controller.object_info_changed.connect(self._on_object_info)
         self._refresh_server()
+        if self._manager.get_object_info() is not None:
+            self._on_object_info(self._manager.get_object_info())
 
     # ------------------------------------------------------------------
     # UI construction

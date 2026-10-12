@@ -123,7 +123,7 @@ def test_matrix_job_queues_three_cells_and_promote_uses_full_size(surface):
         axis="seed",
         values=(1, 2, 3),
     ), pressure_check=lambda: False)
-    assert message.startswith("Queued 3 cells")
+    assert message.startswith("Completed 3 cells")
     assert _queue.calls[0][1]["surface_mode"] == "matrix"
     assert _queue.calls[0][0]["4"]["inputs"]["width"] == 512
     assert _queue.calls[2][1]["parent_prompt_id"] == "c0"
@@ -165,3 +165,26 @@ def test_lora_axis_on_controlnet_template_is_visible(surface):
     ))
     assert "LoraLoader" in message
     surface._manager.queue_workflow.assert_not_called()
+
+
+def test_filmstrip_bounds_record_retention(surface, monkeypatch):
+    strip = surface._filmstrip
+    monkeypatch.setattr(strip, "_rebuild", lambda: None)
+    for index in range(205):
+        strip.upsert(SimpleNamespace(prompt_id=str(index)))
+    assert len(strip._records) == len(strip._order) == 200
+    assert "0" not in strip._records
+
+
+def test_new_tab_validates_cached_inventory(surface):
+    from gui.src.tabs.models.gen.comfy_generate_tab import ComfyUITab
+
+    surface._manager.state = ServerState.READY
+    surface._manager.get_object_info.return_value = {"cached": {}}
+    surface._manager.validate_template.return_value = [SimpleNamespace(message="Missing model")]
+    tab = ComfyUITab(controller=surface._controller)
+    try:
+        assert not tab._queue_btn.isEnabled()
+        assert "Missing model" in tab._validation_label.text()
+    finally:
+        tab.close()

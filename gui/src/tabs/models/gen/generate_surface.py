@@ -70,7 +70,9 @@ def _sweep_status(result) -> str:
         return f"Stopped between cells under VRAM pressure after {count} cell(s)."
     if result.stopped == "stop":
         return f"Stopped between cells after {count} cell(s)."
-    return f"Queued {count} cells. Parent {result.parent_prompt_id}."
+    if result.stopped == "execution":
+        return f"Sweep stopped after {count} cell(s): execution failed or connection closed."
+    return f"Completed {count} cells. Parent {result.parent_prompt_id}."
 
 
 def _clear_layout(layout) -> None:
@@ -79,6 +81,7 @@ def _clear_layout(layout) -> None:
         widget = item.widget()
         if widget is not None:
             widget.setParent(None)
+            widget.deleteLater()
 
 
 class OutputFilmstrip(QWidget):
@@ -104,6 +107,11 @@ class OutputFilmstrip(QWidget):
         if prompt_id not in self._records:
             self._order.append(prompt_id)
         self._records[prompt_id] = record
+        while len(self._order) > 200:
+            expired = self._order.pop(0)
+            self._records.pop(expired, None)
+            if self._selected_id == expired:
+                self._selected_id = None
         self._rebuild()
 
     def selected_record(self):
@@ -246,6 +254,7 @@ class GenerateSurface(QWidget):
         self._manager = self._controller.manager
         self._mode = "guided"
         self._sweep_stop = threading.Event()
+        self.destroyed.connect(lambda *_args, event=self._sweep_stop: event.set())
         self.guided = ComfyUITab(enable_manager=enable_manager, controller=self._controller)
         self.graph = GraphDraft()
         self._filmstrip = OutputFilmstrip()
@@ -406,6 +415,9 @@ class GenerateSurface(QWidget):
             self._controller._publish_log(f"[workflow] GPU lease is held by {gpu_lease.owner}.\n")
             return
         try:
+            issue = _template_issue(self._manager, workflow)
+            if issue:
+                raise ValueError(issue)
             prompt_id = self._manager.queue_workflow(workflow, run_meta=meta)
             self._controller._publish_log(f"[workflow] Queued graph — prompt_id={prompt_id}\n")
         except Exception as exc:
@@ -463,7 +475,11 @@ class GenerateSurface(QWidget):
             self._matrix_message.setText("Server is busy or not ready.")
 
     def _finish_matrix(self, job: MatrixJob) -> None:
-        self._matrix_status.emit(self._run_matrix_job(job))
+        from shiboken6 import isValid
+
+        result = self._run_matrix_job(job)
+        if isValid(self) and not self._controller._closed:
+            self._matrix_status.emit(result)
 
     def _run_matrix_job(self, job: MatrixJob, pressure_check=None) -> str:
         log = self._controller._publish_log
@@ -491,9 +507,12 @@ class GenerateSurface(QWidget):
                 axis=job.axis,
                 values=list(job.values),
                 queue=lambda cell, meta: self._manager.queue_workflow(cell, run_meta=meta),
+                wait_for_completion=lambda pid: self._manager.wait_for_run(
+                    pid, cancel=self._controller._cancel,
+                ),
                 template_name=template,
                 base_overrides=overrides,
-                stop_check=self._sweep_stop.is_set,
+                stop_check=lambda: self._sweep_stop.is_set() or self._controller._cancel.is_set(),
                 pressure_check=pressure_check,
             )
         except Exception as exc:

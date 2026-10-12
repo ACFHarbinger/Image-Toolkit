@@ -229,3 +229,39 @@ def test_warmup_race_with_state_change(endpoint, monkeypatch):
     event.set()
     manager._set_state(ServerState.STOPPED)
     assert manager.get_object_info() is None
+
+
+def test_malformed_inputs_are_reported(object_info):
+    graph = {"1": {"class_type": "KSampler", "inputs": ["bad"]}}
+    issues = validate_template(graph, object_info)
+    assert len(issues) == 1
+    assert "must be an object" in issues[0].message
+
+
+def test_reconnect_starts_new_warmup_while_old_request_is_blocked():
+    manager = ComfyUIManager()
+    entered = threading.Event()
+    release = threading.Event()
+    calls = []
+
+    def get_json(*args, **kwargs):
+        calls.append(1)
+        if len(calls) == 1:
+            entered.set()
+            assert release.wait(3)
+            return {"old": {}}
+        return {"new": {}}
+
+    manager._get_json = get_json
+    manager._start_object_info_warmup()
+    old = manager._object_info_thread
+    try:
+        assert entered.wait(1)
+        manager._clear_object_info()
+        manager._start_object_info_warmup()
+        manager._object_info_thread.join(1)
+        assert manager.get_object_info() == {"new": {}}
+    finally:
+        release.set()
+        old.join(1)
+        manager._clear_object_info()

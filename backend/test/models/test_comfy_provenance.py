@@ -398,3 +398,70 @@ def test_disconnect_stops_capture_and_reconnect_resumes_it(stub, manager):
     assert len([r for r in manager.runs() if r.prompt_id == "net-1"]) == 1
     # Everything captured before the blip is still there exactly once.
     assert len(manager.runs()) == len(kept)
+
+
+def test_late_history_corrects_inferred_interruption():
+    tracker = RunTracker()
+    tracker.record_submitted("late", {"optimistic": 1}, None)
+    tracker.observe_snapshot({}, {}, first=False)
+    tracker.observe_snapshot({}, {}, first=False)
+    assert tracker.get("late").status is RunStatus.INTERRUPTED
+    tracker.observe_snapshot({}, {"late": history_entry(
+        1, "late", status=success_status(), graph={"executed": 2},
+        outputs=image_output("result.png"),
+    )}, first=False)
+    record = tracker.get("late")
+    assert record.status is RunStatus.COMPLETED
+    assert record.workflow == {"executed": 2}
+    assert record.output_paths == ("result.png",)
+    assert not record.partial
+    tracker.record_submitted("late", {"optimistic": 1}, None,
+                             run_meta={"surface_mode": "guided"})
+    assert tracker.get("late").workflow == {"executed": 2}
+    assert tracker.get("late").surface_mode == "guided"
+
+
+def test_vanishing_requires_consecutive_absences():
+    tracker = RunTracker()
+    tracker.record_submitted("p", {}, None)
+    tracker.observe_queue({})
+    tracker.observe_queue({"queue_running": [queue_item(1, "p")]})
+    tracker.observe_queue({})
+    assert tracker.get("p").status is RunStatus.RUNNING
+
+
+def test_provenance_does_not_share_mutable_graphs():
+    graph = {"1": {"inputs": {"seed": 1}}}
+    tracker = RunTracker()
+    tracker.record_submitted("p", graph, None)
+    graph["1"]["inputs"]["seed"] = 2
+    record = tracker.get("p")
+    assert record.workflow["1"]["inputs"]["seed"] == 1
+    record.workflow.clear()
+    assert tracker.get("p").workflow
+
+
+def test_wait_for_run_waits_for_history_after_queue_ack():
+    manager = ComfyUIManager()
+    manager._state = ServerState.READY
+    terminal = {"p": history_entry(1, "p", status=success_status())}
+    responses = iter([{}, {"queue_running": [queue_item(1, "p")]}, terminal])
+    paths = []
+
+    def get_json(path):
+        paths.append(path)
+        return next(responses)
+
+    manager._get_json = get_json
+    assert manager.wait_for_run("p")
+    assert paths == ["/history/p", "/queue", "/history/p"]
+
+
+def test_wait_for_run_stops_when_pending_prompt_is_deleted():
+    manager = ComfyUIManager()
+    manager._state = ServerState.READY
+    manager._get_json = lambda _path: {}
+    assert manager.wait_for_run("deleted") is False
+    cancel = threading.Event()
+    cancel.set()
+    assert manager.wait_for_run("cancelled", cancel=cancel) is False

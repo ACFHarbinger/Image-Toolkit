@@ -118,7 +118,7 @@ def _record_updates(old: ComfyRunRecord, **changes: Any) -> ComfyRunRecord:
 def _queue_item_graph(item: Any) -> dict | None:
     if isinstance(item, (list, tuple)) and len(item) > _QUEUE_ITEM_PROMPT:
         graph = item[_QUEUE_ITEM_PROMPT]
-        return graph if isinstance(graph, dict) else None
+        return copy.deepcopy(graph) if isinstance(graph, dict) else None
     return None
 
 
@@ -208,10 +208,10 @@ class RunTracker:
         self._listeners.append(listener)
 
     def get(self, prompt_id: str) -> ComfyRunRecord | None:
-        return self._records.get(prompt_id)
+        return copy.deepcopy(self._records.get(prompt_id))
 
     def snapshot(self) -> tuple[ComfyRunRecord, ...]:
-        return tuple(self._records[p_id] for p_id in self._order if p_id in self._records)
+        return tuple(copy.deepcopy(self._records[p_id]) for p_id in self._order if p_id in self._records)
 
     def record_submitted(
         self,
@@ -227,8 +227,8 @@ class RunTracker:
                 prompt_id,
                 _record_updates(
                     self._records[prompt_id],
-                    workflow=workflow,
-                    client_id=client_id,
+                    **({"workflow": copy.deepcopy(workflow), "client_id": client_id}
+                       if self._records[prompt_id].source == "submitted" else {}),
                     **meta,
                 ),
             )
@@ -237,7 +237,7 @@ class RunTracker:
             ComfyRunRecord(
                 prompt_id=prompt_id,
                 status=RunStatus.PENDING,
-                workflow=workflow,
+                workflow=copy.deepcopy(workflow),
                 client_id=client_id,
                 source="submitted",
                 **meta,
@@ -318,12 +318,12 @@ class RunTracker:
                 self._apply_history_entry(prompt_id, entry)
 
     def observe_snapshot(self, queue: Any, history: Any, *, first: bool) -> None:
-        """One poll cycle: queue first (in-flight state), then history."""
-        self.observe_queue(queue)
+        """Reconcile history before inferring cancellation from queue absence."""
         if first and not self._has_baseline:
             self.baseline_history(history)
         else:
             self.observe_history(history)
+        self.observe_queue(queue)
 
     # -- internals ----------------------------------------------------------
 
@@ -350,15 +350,17 @@ class RunTracker:
                 )
             )
             return
-        if record.status not in (RunStatus.COMPLETED, RunStatus.FAILED, RunStatus.INTERRUPTED):
-            changes: dict[str, Any] = {
-                "status": status,
-                "outputs": outputs,
-                "partial": record.partial or partial,
-                "source": record.source if record.source == "submitted" else "history",
-            }
-            if graph is not None:
-                changes["workflow"] = graph
+        changes: dict[str, Any] = {
+            "status": status,
+            "outputs": outputs,
+            "partial": partial or graph is None,
+            "source": "history",
+        }
+        if graph is not None:
+            changes["workflow"] = graph
+        if client_id is not None:
+            changes["client_id"] = client_id
+        if any(getattr(record, key) != value for key, value in changes.items()):
             self._update(prompt_id, _record_updates(record, **changes))
         self._vanishing.pop(prompt_id, None)
 
@@ -368,6 +370,7 @@ class RunTracker:
         partial, not stuck in Running forever."""
         for prompt_id in list(self._vanishing):
             if prompt_id in active:
+                self._vanishing.pop(prompt_id, None)
                 continue
             record = self._records.get(prompt_id)
             if record is None or record.status in (
@@ -414,7 +417,7 @@ class RunTracker:
 
     def _notify(self, record: ComfyRunRecord) -> None:
         for listener in tuple(self._listeners):
-            listener(record)
+            listener(copy.deepcopy(record))
 
 
 def _iter_queue_items(items: Any):
