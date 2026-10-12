@@ -50,6 +50,7 @@ class WhatChangedOverlay(QWidget):
         self.setObjectName("dl_what_changed")
         self._trajectory: GuidanceTrajectory | None = None
         self._variant_id: str | None = None
+        self._voting_allowed = False
         self._build_ui()
         self.hide()
 
@@ -134,11 +135,26 @@ class WhatChangedOverlay(QWidget):
     def clear(self) -> None:
         self._trajectory = None
         self._variant_id = None
+        self._voting_allowed = False
         self._feedback.clear()
         self._refresh()
 
+    def variant_id(self) -> str | None:
+        return self._variant_id
+
+    def set_voting_enabled(self, enabled: bool) -> None:
+        """Host enables this only after the provenance-bound pair is on the canvas."""
+        self._voting_allowed = bool(enabled)
+        self._refresh()
+
     def _on_verdict(self, verdict: str) -> None:
-        if verdict not in VERDICTS or self._trajectory is None or not self._variant_id or self._selected_step() is None:
+        if (
+            not self._voting_allowed
+            or verdict not in VERDICTS
+            or self._trajectory is None
+            or not self._variant_id
+            or self._selected_step() is None
+        ):
             return
         self._trajectory = record_verdict(
             self._trajectory,
@@ -184,7 +200,11 @@ class WhatChangedOverlay(QWidget):
         self._expected.setText(f"Expected: {latest.expected}" if latest.expected else "")
         self._hint.setVisible(should_steer_structural(traj))
         current = latest.verdict
+        can_vote = self._voting_allowed and bool(self._variant_id)
         for key, button in self._buttons.items():
-            button.setEnabled(bool(self._variant_id))
+            button.setEnabled(can_vote)
             button.setDown(key == current)
+            button.setToolTip(
+                "" if can_vote else "Variant comparison outputs must be loaded before recording a verdict."
+            )
         self.show()

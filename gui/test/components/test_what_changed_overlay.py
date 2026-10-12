@@ -53,6 +53,7 @@ def test_overlay_lists_changes_and_emits_verdict(q_app):
     overlay = WhatChangedOverlay()
     try:
         overlay.set_trajectory(_traj())
+        overlay.set_voting_enabled(True)
         assert overlay.isVisible()
         assert "cfg: 8.5 → 6.0 (node #3)" in overlay.findChild(QLabel, "dl_what_changed_changes").text()
         assert "Expected:" in overlay.findChild(QLabel, "dl_what_changed_expected").text()
@@ -124,3 +125,77 @@ def test_review_hosts_overlay_under_compare_canvas(q_app, tmp_path):
         assert page.findChild(QLabel, "dl_compare_empty") is not None
     finally:
         page.deleteLater()
+
+
+def test_bound_pair_loads_parent_and_variant_then_enables_voting(q_app, tmp_path):
+    from types import SimpleNamespace
+
+    from backend.src.core.guidance_pair import BoundPair
+    from gui.src.tabs.models.dl_workspace_host import _ReviewToolsPage
+
+    parent = _png(tmp_path, "parent.png")
+    variant = _png(tmp_path, "variant.png")
+    records = {
+        "p0": SimpleNamespace(
+            prompt_id="p0",
+            parent_prompt_id=None,
+            local_output_path=str(parent),
+            outputs=(),
+        ),
+        "v1": SimpleNamespace(
+            prompt_id="v1",
+            parent_prompt_id="p0",
+            local_output_path=str(variant),
+            outputs=(),
+        ),
+    }
+    manager = MagicMock()
+    manager.get_run.side_effect = records.get
+    page = _ReviewToolsPage(host=MagicMock(), preference_store=None)
+    page._guidance._manager = manager
+    page._pair_cache_dir = str(tmp_path / "cache")
+    page._pair_loader.start = lambda *_args, **_kwargs: None
+    overlay = page.findChild(WhatChangedOverlay, "dl_what_changed")
+    try:
+        page._on_trajectory_updated(_traj())
+        assert not overlay.findChild(QPushButton, "dl_what_changed_verdict_better").isEnabled()
+        page._pair_loader._load(
+            manager.get_run, None, "p0", "v1", page._pair_generation, page._pair_cache_dir
+        )
+        assert overlay.findChild(QPushButton, "dl_what_changed_verdict_better").isEnabled()
+        view = page.findChild(ImageCompareWindow, "dl_compare_view")
+        assert view is not None
+        assert page._compare_paths == [str(parent), str(variant)]
+        stale = BoundPair("p0", "v1", str(parent), str(variant), generation=page._pair_generation - 1)
+        page._what_changed.set_voting_enabled(False)
+        page._on_pair_loaded(stale)
+        assert not overlay.findChild(QPushButton, "dl_what_changed_verdict_better").isEnabled()
+        page._on_pair_loaded(
+            BoundPair("p0", "v1", str(parent), str(variant), generation=page._pair_generation)
+        )
+        overlay.findChild(QPushButton, "dl_what_changed_verdict_better").click()
+        assert overlay.trajectory().latest.verdict == "better"
+        page.set_compare_paths([str(parent)])
+        assert overlay.trajectory() is None
+        assert not overlay.findChild(QPushButton, "dl_what_changed_verdict_better").isEnabled()
+    finally:
+        page.deleteLater()
+
+
+def test_pair_loader_persists_verdict_off_caller(q_app, tmp_path):
+    from gui.src.components.guidance.pair_loader import ComparisonPairLoader
+
+    written = []
+    sidecars = []
+
+    class Manager:
+        def update_run_meta(self, prompt_id, meta):
+            written.append((prompt_id, meta))
+
+    loader = ComparisonPairLoader()
+    done = []
+    loader.persisted.connect(lambda: done.append(True))
+    loader._persist(Manager(), _traj(), "v1", sidecars.append)
+    assert written[0][0] == "v1"
+    assert sidecars
+    assert done == [True]

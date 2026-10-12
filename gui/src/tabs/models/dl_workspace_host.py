@@ -29,6 +29,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from gui.src.components.guidance.pair_loader import ComparisonPairLoader
 from gui.src.components.guidance.what_changed_overlay import WhatChangedOverlay
 from gui.src.modules.events import EventHub, ImportPathsIntent
 from gui.src.modules.tab_factory import build_tab
@@ -505,6 +506,13 @@ class _ReviewToolsPage(QWidget):
         self._what_changed = WhatChangedOverlay(self._compare_host)
         self._what_changed.setObjectName("dl_what_changed")
         self._compare_layout.addWidget(self._what_changed)
+        self._pair_loader = ComparisonPairLoader(self)
+        self._pair_loader.loaded.connect(self._on_pair_loaded)
+        self._pair_loader.failed.connect(self._on_pair_failed)
+        self._pair_generation = 0
+        self._bound_pair = None
+        self._pair_cache_dir: str | None = None
+        self._pair_fetch = None
         layout.addWidget(self._compare_host, stretch=1)
 
         upscale_row = QHBoxLayout()
@@ -573,13 +581,17 @@ class _ReviewToolsPage(QWidget):
 
     def set_compare_paths(self, paths: list[str]) -> None:
         """Show *paths* in the shared pan/zoom/A-B/diff view."""
+        self._invalidate_pair_load()
+        self._what_changed.clear()
+        self._replace_compare_view(paths)
+
+    def _replace_compare_view(self, paths: list[str]) -> None:
         from gui.src.windows.image_compare_window import ImageCompareWindow
 
         self.empty_state.setVisible(not paths)
         self._vision.set_image(paths[0] if paths else None)
         if getattr(self, "_compare_paths", None) == paths:
             return
-        self._what_changed.clear()
         self._compare_paths = list(paths)
         self._clear_compare_view()
         if not paths:
@@ -605,11 +617,49 @@ class _ReviewToolsPage(QWidget):
     def _send_guidance_paths(self, paths) -> None:
         self._host._on_import_paths(ImportPathsIntent(module_id="dl.train", paths=tuple(paths), origin="guidance"))
 
+    def _invalidate_pair_load(self) -> None:
+        self._pair_generation += 1
+        self._bound_pair = None
+        self._what_changed.set_voting_enabled(False)
+
+    def prepare_dispose(self) -> None:
+        self._invalidate_pair_load()
+
     def _on_trajectory_updated(self, traj) -> None:
+        from backend.src.core.guidance_pair import pair_ids_from_trajectory
+
+        self._invalidate_pair_load()
         self._what_changed.set_trajectory(traj)
-        for button in self._what_changed._buttons.values():
-            button.setEnabled(False)
-            button.setToolTip("Variant comparison outputs must be loaded before recording a verdict.")
+        refs = pair_ids_from_trajectory(traj, self._what_changed.variant_id())
+        if refs is None:
+            return
+        generation = self._pair_generation
+        self._pair_loader.start(
+            self._guidance._manager,
+            parent_prompt_id=refs.parent_prompt_id,
+            variant_prompt_id=refs.variant_prompt_id,
+            generation=generation,
+            cache_dir=self._pair_cache_dir,
+            fetch=self._pair_fetch,
+        )
+
+    def _on_pair_loaded(self, bound) -> None:
+        from backend.src.core.guidance_pair import pair_files_alive, pair_matches_trajectory
+
+        if bound.generation != self._pair_generation:
+            return
+        traj = self._what_changed.trajectory()
+        if not pair_matches_trajectory(bound, traj, self._what_changed.variant_id()):
+            return
+        if not pair_files_alive(bound):
+            self._what_changed.set_voting_enabled(False)
+            return
+        self._bound_pair = bound
+        self._replace_compare_view(bound.paths)
+        self._what_changed.set_voting_enabled(True)
+
+    def _on_pair_failed(self, _message: str) -> None:
+        self._what_changed.set_voting_enabled(False)
 
     def advisor_trajectory(self):
         """Payload for the next advisor call (#750): trajectory, not just now."""
@@ -619,18 +669,20 @@ class _ReviewToolsPage(QWidget):
         return format_for_advisor(traj) if traj is not None else None
 
     def _on_guidance_verdict(self, _verdict: str) -> None:
+        from backend.src.core.guidance_pair import pair_matches_trajectory
+
         traj = self._what_changed.trajectory()
-        if traj is None:
+        bound = self._bound_pair
+        if traj is None or bound is None:
             return
-        payload = {"guidance_trajectory": traj.to_dict()}
-        latest = traj.latest
-        variant_id = latest.variant_prompt_id if latest is not None else None
-        updater = getattr(self._guidance._manager, "update_run_meta", None)
-        if callable(updater) and variant_id:
-            updater(variant_id, payload)
-        persist = getattr(self._guidance, "_persist_sidecar", None)
-        if callable(persist):
-            persist(traj)
+        if not pair_matches_trajectory(bound, traj, self._what_changed.variant_id()):
+            return
+        self._pair_loader.persist(
+            self._guidance._manager,
+            traj,
+            self._what_changed.variant_id(),
+            getattr(self._guidance, "_persist_sidecar", None),
+        )
 
     def _on_upscale(self) -> None:
         """Upscale the focused (first) compared image on the shared admission (#749)."""
