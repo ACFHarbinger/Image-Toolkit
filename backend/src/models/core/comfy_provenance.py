@@ -12,6 +12,7 @@ ComfyUI sessions produce fully captured, reviewable runs.
 """
 from __future__ import annotations
 
+import copy
 import time
 from collections import deque
 from dataclasses import dataclass, field, replace
@@ -64,8 +65,48 @@ class ComfyRunRecord:
     execution_time: float | None = None
     partial: bool = False  # provenance was incomplete; do not trust silently
     source: str = "history"  # "submitted" | "queue" | "history"
+    # #739/#740: which Generate surface queued the prompt, and the overrides
+    # apply_overrides actually merged. History updates must keep these.
+    surface_mode: str | None = None  # "guided" | "graph" | "matrix" | "promoted"
+    template_name: str | None = None
+    applied_overrides: dict | None = None
+    parent_prompt_id: str | None = None
+    sweep_axis: str | None = None
+    sweep_value: str | None = None
     first_seen: float = field(default_factory=time.time)
     last_updated: float = field(default_factory=time.time)
+
+    @property
+    def output_paths(self) -> tuple[str, ...]:
+        paths: list[str] = []
+        for item in self.outputs:
+            name = item.filename
+            if item.subfolder:
+                name = f"{item.subfolder}/{name}"
+            paths.append(name)
+        return tuple(paths)
+
+
+_SURFACE_FIELDS = (
+    "surface_mode",
+    "template_name",
+    "applied_overrides",
+    "parent_prompt_id",
+    "sweep_axis",
+    "sweep_value",
+)
+
+
+def _surface_fields(meta: dict | None) -> dict:
+    if not isinstance(meta, dict):
+        return {}
+    picked: dict = {}
+    for key in _SURFACE_FIELDS:
+        if key not in meta:
+            continue
+        value = meta[key]
+        picked[key] = copy.deepcopy(value) if isinstance(value, dict) else value
+    return picked
 
 
 def _record_updates(old: ComfyRunRecord, **changes: Any) -> ComfyRunRecord:
@@ -172,12 +213,24 @@ class RunTracker:
     def snapshot(self) -> tuple[ComfyRunRecord, ...]:
         return tuple(self._records[p_id] for p_id in self._order if p_id in self._records)
 
-    def record_submitted(self, prompt_id: str, workflow: dict, client_id: str | None) -> None:
+    def record_submitted(
+        self,
+        prompt_id: str,
+        workflow: dict,
+        client_id: str | None,
+        run_meta: dict | None = None,
+    ) -> None:
         """Optimistic record from our own /prompt submission."""
+        meta = _surface_fields(run_meta)
         if prompt_id in self._records:
             self._update(
                 prompt_id,
-                _record_updates(self._records[prompt_id], workflow=workflow, client_id=client_id),
+                _record_updates(
+                    self._records[prompt_id],
+                    workflow=workflow,
+                    client_id=client_id,
+                    **meta,
+                ),
             )
             return
         self._create(
@@ -187,6 +240,7 @@ class RunTracker:
                 workflow=workflow,
                 client_id=client_id,
                 source="submitted",
+                **meta,
             )
         )
 

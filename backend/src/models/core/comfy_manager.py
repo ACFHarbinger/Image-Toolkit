@@ -1,5 +1,4 @@
 import contextlib
-import copy
 import json
 import mimetypes
 import os
@@ -466,17 +465,13 @@ class ComfyUIManager:
 
         *overrides* maps node id (string, matching the workflow JSON's own
         keys) to a dict of ``{input_name: value}`` to merge into that
-        node's ``"inputs"``. Unknown node ids are ignored rather than
-        raising, so the same override dict can be reused across workflow
-        templates that don't all define every node.
+        node's ``"inputs"``. Unknown node ids raise
+        ``UnknownWorkflowNodeError`` (#739) — they used to be ignored,
+        which hid bad guided/graph patches.
         """
-        result = copy.deepcopy(workflow)
-        for node_id, node_overrides in (overrides or {}).items():
-            node = result.get(node_id)
-            if node is None:
-                continue
-            node.setdefault("inputs", {}).update(node_overrides)
-        return result
+        from backend.src.comfy_matrix import apply_node_overrides
+
+        return apply_node_overrides(workflow, overrides)
 
     def upload_image(self, image_path: str) -> str:
         """Upload a local image to the running ComfyUI server's input
@@ -505,7 +500,13 @@ class ComfyUIManager:
             result = json.loads(resp.read().decode("utf-8"))
         return result.get("name", src.name)
 
-    def queue_workflow(self, workflow: dict, client_id: str | None = None) -> str:
+    def queue_workflow(
+        self,
+        workflow: dict,
+        client_id: str | None = None,
+        *,
+        run_meta: dict | None = None,
+    ) -> str:
         """Submit a workflow (API-format prompt graph) to the running
         ComfyUI server's ``/prompt`` endpoint. Returns the server's
         ``prompt_id``.
@@ -528,5 +529,5 @@ class ComfyUIManager:
             raise RuntimeError(f"ComfyUI rejected the workflow: {detail}") from exc
         prompt_id = result["prompt_id"]
         with self._provenance_lock:
-            self._runs.record_submitted(prompt_id, workflow, client_id)
+            self._runs.record_submitted(prompt_id, workflow, client_id, run_meta=run_meta)
         return prompt_id

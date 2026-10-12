@@ -47,6 +47,42 @@ def image_output(filename):
 # ---------------------------------------------------------------------------
 
 
+def test_surface_metadata_survives_history_and_exposes_output_paths():
+    tracker = RunTracker()
+    overrides = {"5": {"seed": 1}}
+    tracker.record_submitted(
+        "p-meta",
+        {"1": {"inputs": {"seed": 1}}},
+        client_id="app",
+        run_meta={
+            "surface_mode": "guided",
+            "template_name": "controlnet_generate.json",
+            "applied_overrides": overrides,
+            "sweep_axis": None,
+        },
+    )
+    overrides["5"]["seed"] = 99
+    assert tracker.get("p-meta").applied_overrides["5"]["seed"] == 1
+    tracker.observe_history(
+        {
+            "p-meta": history_entry(
+                4,
+                "p-meta",
+                status=success_status(),
+                outputs=image_output("out.png"),
+                graph={"nodes": "server"},
+            )
+        }
+    )
+    record = tracker.get("p-meta")
+    assert record.status is RunStatus.COMPLETED
+    assert record.workflow == {"nodes": "server"}
+    assert record.surface_mode == "guided"
+    assert record.template_name == "controlnet_generate.json"
+    assert record.applied_overrides == {"5": {"seed": 1}}
+    assert record.output_paths == ("out.png",)
+
+
 def test_submitted_record_lifecycle_through_queue_and_history():
     tracker = RunTracker()
     seen = []

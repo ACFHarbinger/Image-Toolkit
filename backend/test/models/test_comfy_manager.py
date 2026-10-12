@@ -73,11 +73,12 @@ class TestApplyOverrides:
         ComfyUIManager.apply_overrides(workflow, {"1": {"ckpt_name": "changed.safetensors"}})
         assert workflow["1"]["inputs"]["ckpt_name"] == original_ckpt
 
-    def test_unknown_node_id_in_overrides_is_ignored(self):
+    def test_unknown_node_id_in_overrides_is_a_visible_error(self):
+        from backend.src.comfy_matrix import UnknownWorkflowNodeError
+
         workflow = ComfyUIManager.load_workflow("controlnet_generate.json")
-        # Must not raise even though node "999" doesn't exist.
-        result = ComfyUIManager.apply_overrides(workflow, {"999": {"foo": "bar"}})
-        assert "999" not in result
+        with pytest.raises(UnknownWorkflowNodeError, match="999"):
+            ComfyUIManager.apply_overrides(workflow, {"999": {"foo": "bar"}})
 
     def test_empty_overrides_returns_equivalent_copy(self):
         workflow = ComfyUIManager.load_workflow("ipadapter_generate.json")

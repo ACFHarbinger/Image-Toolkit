@@ -2,6 +2,7 @@ import copy
 import json
 from pathlib import Path
 
+from backend.src.comfy_matrix import apply_node_overrides, gpu_lease, merge_sampler_overrides
 from backend.src.constants.comfy import ServerState
 from PySide6.QtCore import Signal, Slot
 from PySide6.QtGui import QTextCursor
@@ -111,6 +112,38 @@ def _load_workflow_template(name: str) -> dict:
         return json.load(fh)
 
 
+def plan_guided_workflow(
+    mode: str,
+    *,
+    base_checkpoint: str,
+    extra_checkpoint: str,
+    positive_prompt: str,
+    negative_prompt: str,
+    image_filename: str,
+    seed: int | None = None,
+    width: int | None = None,
+    height: int | None = None,
+) -> tuple[dict, dict]:
+    """Return ``(workflow, overrides)`` for one guided submission.
+
+    The override map is what ``apply_node_overrides`` merged. Unknown node
+    ids raise ``UnknownWorkflowNodeError`` instead of being dropped.
+    """
+    cfg = WORKFLOW_MODES[mode]
+    template = copy.deepcopy(_load_workflow_template(cfg["template"]))
+    overrides = {
+        cfg["checkpoint_node"]: {"ckpt_name": base_checkpoint},
+        cfg["positive_node"]: {"text": positive_prompt},
+        cfg["negative_node"]: {"text": negative_prompt},
+        cfg["image_node"]: {"image": image_filename},
+        cfg["extra_node"]: {cfg["extra_key"]: extra_checkpoint},
+    }
+    overrides = merge_sampler_overrides(
+        template, overrides, seed=seed, width=width, height=height,
+    )
+    return apply_node_overrides(template, overrides), overrides
+
+
 def build_workflow(
     mode: str,
     *,
@@ -119,6 +152,9 @@ def build_workflow(
     positive_prompt: str,
     negative_prompt: str,
     image_filename: str,
+    seed: int | None = None,
+    width: int | None = None,
+    height: int | None = None,
 ) -> dict:
     """Load the curated template for *mode* and apply the GUI's parameter
     overrides (base checkpoint, prompts, extra ControlNet/IP-Adapter
@@ -127,45 +163,58 @@ def build_workflow(
     Pure function (no Qt / no network) so it can be exercised directly in
     tests without a running ComfyUI server or QApplication.
     """
-    cfg = WORKFLOW_MODES[mode]
-    workflow = copy.deepcopy(_load_workflow_template(cfg["template"]))
-    overrides = {
-        cfg["checkpoint_node"]: {"ckpt_name": base_checkpoint},
-        cfg["positive_node"]: {"text": positive_prompt},
-        cfg["negative_node"]: {"text": negative_prompt},
-        cfg["image_node"]: {"image": image_filename},
-        cfg["extra_node"]: {cfg["extra_key"]: extra_checkpoint},
-    }
-    for node_id, node_overrides in overrides.items():
-        node = workflow.get(node_id)
-        if node is None:
-            continue
-        node.setdefault("inputs", {}).update(node_overrides)
+    workflow, _overrides = plan_guided_workflow(
+        mode,
+        base_checkpoint=base_checkpoint,
+        extra_checkpoint=extra_checkpoint,
+        positive_prompt=positive_prompt,
+        negative_prompt=negative_prompt,
+        image_filename=image_filename,
+        seed=seed,
+        width=width,
+        height=height,
+    )
     return workflow
 
 
 def _queue_workflow(
     manager, log, mode, image_path, base_checkpoint, extra_checkpoint,
-    positive_prompt, negative_prompt,
+    positive_prompt, negative_prompt, *, seed=None, width=None, height=None,
+    run_meta=None,
 ) -> None:
+    if not gpu_lease.try_acquire("guided"):
+        log(f"[workflow] GPU lease is held by {gpu_lease.owner}.\n")
+        return
     try:
         log(f"[workflow] Uploading {image_path}…\n")
         uploaded_name = manager.upload_image(image_path)
 
-        workflow = build_workflow(
+        workflow, overrides = plan_guided_workflow(
             mode,
             base_checkpoint=base_checkpoint,
             extra_checkpoint=extra_checkpoint,
             positive_prompt=positive_prompt,
             negative_prompt=negative_prompt,
             image_filename=uploaded_name,
+            seed=seed,
+            width=width,
+            height=height,
         )
+        meta = {
+            "surface_mode": "guided",
+            "template_name": WORKFLOW_MODES[mode]["template"],
+            "applied_overrides": overrides,
+        }
+        if run_meta:
+            meta.update(run_meta)
 
         log(f"[workflow] Queuing {WORKFLOW_MODES[mode]['label']}…\n")
-        prompt_id = manager.queue_workflow(workflow)
+        prompt_id = manager.queue_workflow(workflow, run_meta=meta)
         log(f"[workflow] Queued — prompt_id={prompt_id}\n")
     except Exception as exc:
         log(f"[workflow] Error: {exc}\n")
+    finally:
+        gpu_lease.release("guided")
 
 
 class ComfyUITab(QWidget):
@@ -334,6 +383,30 @@ class ComfyUITab(QWidget):
         neg_prompt_row.addWidget(self._negative_prompt_edit, stretch=1)
         wf_layout.addLayout(neg_prompt_row)
 
+        size_row = QHBoxLayout()
+        size_row.addWidget(QLabel("Seed:"))
+        self._seed_spin = QSpinBox()
+        self._seed_spin.setRange(0, 2**31 - 1)
+        self._seed_spin.setValue(0)
+        self._seed_spin.setObjectName("comfy_guided_seed")
+        size_row.addWidget(self._seed_spin)
+        size_row.addWidget(QLabel("Width:"))
+        self._width_spin = QSpinBox()
+        self._width_spin.setRange(64, 2048)
+        self._width_spin.setSingleStep(64)
+        self._width_spin.setValue(1024)
+        self._width_spin.setObjectName("comfy_guided_width")
+        size_row.addWidget(self._width_spin)
+        size_row.addWidget(QLabel("Height:"))
+        self._height_spin = QSpinBox()
+        self._height_spin.setRange(64, 2048)
+        self._height_spin.setSingleStep(64)
+        self._height_spin.setValue(1024)
+        self._height_spin.setObjectName("comfy_guided_height")
+        size_row.addWidget(self._height_spin)
+        size_row.addStretch()
+        wf_layout.addLayout(size_row)
+
         queue_row = QHBoxLayout()
         queue_row.addStretch()
         self._validation_label = QLabel()
@@ -389,6 +462,8 @@ class ComfyUITab(QWidget):
 
     def _refresh_server(self, *_args) -> None:
         state = self._controller.server_state
+        if not isinstance(state, ServerState):
+            state = ServerState.STOPPED
         busy = self._controller.busy
         ready = state == ServerState.READY
         active = state != ServerState.STOPPED
@@ -562,8 +637,15 @@ class ComfyUITab(QWidget):
 
         manager = self._manager
         log = self._controller._publish_log
+        seed = self._seed_spin.value()
+        width = self._width_spin.value()
+        height = self._height_spin.value()
         args = (mode, image_path, base_checkpoint, extra_checkpoint, positive_prompt, negative_prompt)
-        self._controller.run_http_action(lambda: _queue_workflow(manager, log, *args))
+        self._controller.run_http_action(
+            lambda: _queue_workflow(
+                manager, log, *args, seed=seed, width=width, height=height,
+            )
+        )
 
     def _queue_workflow_worker(
         self,

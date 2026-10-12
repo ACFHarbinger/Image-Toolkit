@@ -78,10 +78,38 @@ of a choice list.
 worker thread at Ready, caches it until the server leaves Ready, and
 notifies `subscribe_object_info` listeners — a `None` argument after
 retries means unavailable and callers fail open. The controller forwards
-this as `object_info_changed`. Queue buttons (legacy tab today, #739's
-Guided|Graph surface next) validate `build_workflow(mode, …)` per guided
-mode on that signal, cache the issues per mode, and stay disabled showing
-the first `TemplateIssue` while any issue is present; checkpoint field
-edits revalidate. Tests validate against a recorded `/object_info` pinned
-to the vendored `vendor/ComfyUI` revision
+this as `object_info_changed`. Queue buttons validate `build_workflow(mode, …)`
+per guided mode on that signal, cache the issues per mode, and stay
+disabled showing the first `TemplateIssue` while any issue is present;
+checkpoint field edits revalidate. Tests validate against a recorded
+`/object_info` pinned to the vendored `vendor/ComfyUI` revision
 (`backend/test/fixtures/comfy_object_info.json`; re-record on bump).
+
+## Generate surface (#739, #740)
+
+`GenerateSurface` is the Comfy tab (`ml.comfyui`) and the workspace
+Generate destination's Comfy page. A Guided | Graph | Matrix switch sits
+above one filmstrip. Guided is `build_workflow()` / `plan_guided_workflow()`.
+Graph does not embed WebEngine: **Open in External Browser** is the
+canvas, and a local JSON draft plus a node-override field queue through
+the same `/prompt` path. Switching modes does not write the draft.
+`GraphDraft.replace_text` refuses while the draft is dirty, so loading a
+selected run cannot silently drop unsaved edits.
+
+`ComfyUIManager.apply_overrides` raises `UnknownWorkflowNodeError` for
+unknown node ids. The graph pane shows that message on the override
+field. Run records carry `surface_mode`, `template_name`, and
+`applied_overrides` (the map that was merged). History updates keep
+those fields. `output_paths` is the captured filenames. The filmstrip
+listens to `run_record_changed`.
+
+Matrix mode picks one axis (seed, CFG, steps, LoRA weight, ControlNet
+strength) and 3–9 values, hard-capped at 25. `run_matrix_sweep` loops
+`queue_workflow`. Cells share `parent_prompt_id` (the first prompt) and
+render at 512px. One `GpuLease` covers the whole sweep; a guided or
+graph queue cannot take it until the sweep releases it. Stop between
+cells is a flag checked before each cell after the first. VRAM pressure
+(CUDA free memory under 15%) stops the same way; CPU-only sessions do
+not count as pressure. **Promote cell to run** clones the selected
+workflow at the guided width and height and queues that single prompt
+with `surface_mode="promoted"`.
