@@ -152,11 +152,11 @@ def test_log_sample_grid_persists_fixed_prompt_grid(tmp_path):
     import torch
     from PIL import Image
 
-    calls = {}
+    calls = []
 
     class FakePipe:
         def __call__(self, **kwargs):
-            calls.update(kwargs)
+            calls.append(kwargs)
             return type("Out", (), {"images": [Image.new("RGB", (8, 8)) for _ in kwargs["prompt"]]})()
 
         def set_progress_bar_config(self, **kwargs):
@@ -167,10 +167,10 @@ def test_log_sample_grid_persists_fixed_prompt_grid(tmp_path):
     logger.log_sample_grid(FakePipe(), ["a cat", "a dog"], 9, seed=42, epoch=1, generator=gen)
     logger.close()
     assert (tmp_path / "samples" / "step-000009.png").exists()
-    assert calls["prompt"] == ["a cat", "a dog"]
-    assert calls["num_inference_steps"] == 30
-    assert calls["guidance_scale"] == 6.0
-    assert calls["generator"] is gen  # fixed-seed determinism is the whole point
+    assert [call["prompt"] for call in calls] == [["a cat"], ["a dog"]]
+    assert calls[0]["num_inference_steps"] == 30
+    assert calls[0]["guidance_scale"] == 6.0
+    assert calls[0]["generator"] is gen  # fixed-seed determinism is the whole point
     events = [json.loads(line) for line in (tmp_path / "events.jsonl").read_text().splitlines()]
     assert events[-1]["sample"] == "samples/step-000009.png"
     assert events[-1]["epoch"] == 1
@@ -188,3 +188,25 @@ def test_log_sample_grid_without_run_dir_does_not_write_disk(tmp_path):
     logger.log_sample_grid(FakePipe(), ["a cat"], 3, generator=torch.Generator().manual_seed(1))
     logger.close()
     assert not (tmp_path / "samples").exists()
+
+
+def test_grid_samples_one_prompt_at_a_time_on_pipeline_device(tmp_path):
+    from types import SimpleNamespace
+
+    import torch
+    from PIL import Image
+    calls = []
+    class Pipe:
+        _execution_device = torch.device("cpu")
+        def __call__(self, **kwargs):
+            assert len(kwargs["prompt"]) == 1
+            calls.append((kwargs["prompt"][0], kwargs["generator"].initial_seed()))
+            return SimpleNamespace(images=[Image.new("RGB", (8, 8))])
+    logger = DiagnosticsLogger(run_name="serial", use_tensorboard=False, use_wandb=False,
+                               jsonl_path=str(tmp_path / "events.jsonl"))
+    try:
+        logger.log_sample_grid(Pipe(), ["first", "second"], step=1, seed=123)
+    finally:
+        logger.close()
+    assert calls == [("first", 123), ("second", 123)]
+    assert (tmp_path / "samples/step-000001.png").is_file()

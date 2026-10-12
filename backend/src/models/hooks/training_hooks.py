@@ -195,16 +195,20 @@ class DiagnosticsLogger:
         The same prompts + seed at every call make grids across
         checkpoints comparable, which is what blind tournament pairing
         (#747) depends on. *generator* exists so tests can inject a CPU
-        generator; production uses the fixed-seed CUDA generator.
+        generator; production uses a fixed-seed generator on the pipeline device.
         """
-        gen = generator if generator is not None else torch.Generator("cuda").manual_seed(seed)
+        device = getattr(pipe, "_execution_device", "cpu")
+        gen = generator if generator is not None else torch.Generator(device).manual_seed(seed)
+        imgs = []
+        # Training weights/optimizer stay resident: batch only one prompt at a time.
         with torch.inference_mode():
-            imgs = pipe(
-                prompt=prompts,
-                num_inference_steps=30,
-                guidance_scale=6.0,
-                generator=gen,
-            ).images
+            for prompt in prompts:
+                imgs.extend(pipe(
+                    prompt=[prompt],
+                    num_inference_steps=30,
+                    guidance_scale=6.0,
+                    generator=gen,
+                ).images)
         grid = grid_to_pil(imgs)
         self.save_sample(grid, step, epoch=epoch)
         if self.tb:

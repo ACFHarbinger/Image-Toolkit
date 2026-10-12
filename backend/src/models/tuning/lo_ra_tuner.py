@@ -47,6 +47,7 @@ from backend.src.models.tuning.sample_grids import (
 from backend.src.models.tuning.sample_grids import (
     default_sample_prompts as _default_sample_prompts,
 )
+from backend.src.models.tuning.sample_grids import sampling_state
 
 logger = logging.getLogger(__name__)
 
@@ -291,6 +292,9 @@ class LoRATuner:
         batch_size=2,
         pruned_tags=None,
         diagnostics=None,
+        sample_grids=True,
+        sample_prompts=None,
+        sample_seed=42,
     ):
         # SDXL usually trains at 1024, but we can respect the input resolution (likely 512 or 1024)
         # Note: If training SDXL at 512, results may be blurry unless adjusted.
@@ -429,34 +433,38 @@ class LoRATuner:
         self.unet.save_pretrained(self.output_dir)
         # #747/#742: one fixed-prompt/seed grid for the final artifact (V1
         # keeps no per-epoch checkpoints, so there is only this one).
-        self._maybe_sample_grid(instance_prompt, diagnostics, global_step, epochs - 1)
+        if sample_grids and not self.is_cancelled:
+            self._maybe_sample_grid(instance_prompt, diagnostics, global_step, epochs - 1,
+                                    prompts=sample_prompts, seed=sample_seed)
 
-    def _maybe_sample_grid(self, trigger, diagnostics, step: int, epoch: int) -> None:
+    def _maybe_sample_grid(self, trigger, diagnostics, step: int, epoch: int, *, prompts=None, seed=42) -> None:
         """Persist a fixed-prompt/seed sample grid beside the run's
         events.jsonl via DiagnosticsLogger. Fail-soft: anything short of a
         working pipeline degrades to no grid, never a dead training run."""
+        if not getattr(getattr(self, "accelerator", None), "is_main_process", True):
+            return
         if diagnostics is None or getattr(diagnostics, "_jsonl", None) is None:
             return
+        pipe = None
         try:
-            was_training = self.unet.training
-            self.unet.eval()
-            prompts = _default_sample_prompts(trigger)
-            pipe = _build_sampling_pipe(
-                is_sdxl=self.is_sdxl,
-                vae=self.vae,
-                text_encoder_one=self.text_encoder_one,
-                text_encoder_two=getattr(self, "text_encoder_two", None),
-                tokenizer_one=self.tokenizer_one,
-                tokenizer_two=getattr(self, "tokenizer_two", None),
-                unet=self.unet,
-                noise_scheduler=self.noise_scheduler,
-            )
-            pipe.set_progress_bar_config(disable=True)
-            diagnostics.log_sample_grid(pipe, prompts, step=step, seed=42, epoch=epoch)
-            if was_training:
-                self.unet.train()
+            with sampling_state(self.unet, self.vae, self.text_encoder_one, getattr(self, "text_encoder_two", None)):
+                prompts = list(prompts) if prompts else _default_sample_prompts(trigger)
+                pipe = _build_sampling_pipe(
+                    is_sdxl=self.is_sdxl,
+                    vae=self.vae,
+                    text_encoder_one=self.text_encoder_one,
+                    text_encoder_two=getattr(self, "text_encoder_two", None),
+                    tokenizer_one=self.tokenizer_one,
+                    tokenizer_two=getattr(self, "tokenizer_two", None),
+                    unet=self.unet,
+                    noise_scheduler=self.noise_scheduler,
+                )
+                pipe.set_progress_bar_config(disable=True)
+                diagnostics.log_sample_grid(pipe, prompts, step=step, seed=seed, epoch=epoch)
         except Exception:
             logger.warning("final sample grid failed; continuing", exc_info=True)
+        finally:
+            pipe = None
 
     # In backend/src/models/lora_diffusion.py
 

@@ -10,6 +10,7 @@ prompts and the same noise.
 from __future__ import annotations
 
 import logging
+from contextlib import contextmanager
 
 log = logging.getLogger(__name__)
 
@@ -53,9 +54,9 @@ def build_sampling_pipe(
     )
 
     if prediction_type == "v_prediction":
-        scheduler = DPMSolverMultistepScheduler.from_config(noise_scheduler.config)
+        scheduler = DPMSolverMultistepScheduler.from_config(noise_scheduler.config, prediction_type=prediction_type)
     else:
-        scheduler = DDPMScheduler.from_config(noise_scheduler.config)
+        scheduler = DDPMScheduler.from_config(noise_scheduler.config, prediction_type=prediction_type)
 
     if is_sdxl:
         return StableDiffusionXLPipeline(
@@ -66,7 +67,6 @@ def build_sampling_pipe(
             tokenizer_2=tokenizer_two,
             unet=unet,
             scheduler=scheduler,
-            requires_safety_checker=False,
         )
     return StableDiffusionPipeline(
         vae=vae,
@@ -78,3 +78,34 @@ def build_sampling_pipe(
         feature_extractor=None,
         requires_safety_checker=False,
     )
+
+
+@contextmanager
+def sampling_state(*components):
+    """Sampling shares training modules; restore modes, dtypes and RNG on failure too."""
+    import random
+
+    import numpy as np
+    import torch
+
+    modules = {module for component in components if isinstance(component, torch.nn.Module)
+               for module in component.modules()}
+    modes = [(module, module.training) for module in modules]
+    tensors = {tensor for module in modules
+               for tensor in (*module.parameters(recurse=False), *module.buffers(recurse=False))}
+    dtypes = [(tensor, tensor.dtype) for tensor in tensors]
+    devices = sorted({tensor.device.index for tensor in tensors if tensor.is_cuda})
+    python_state, numpy_state = random.getstate(), np.random.get_state()
+    try:
+        with torch.random.fork_rng(devices=devices):
+            for module, _ in modes:
+                module.training = False
+            yield
+    finally:
+        for tensor, dtype in dtypes:
+            if tensor.dtype != dtype:
+                tensor.data = tensor.data.to(dtype=dtype)
+        for module, training in modes:
+            module.training = training
+        random.setstate(python_state)
+        np.random.set_state(numpy_state)

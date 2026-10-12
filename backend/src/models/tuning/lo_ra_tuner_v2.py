@@ -66,6 +66,7 @@ from backend.src.models.tuning.sample_grids import (
 from backend.src.models.tuning.sample_grids import (
     default_sample_prompts as _default_sample_prompts,
 )
+from backend.src.models.tuning.sample_grids import sampling_state
 
 log = logging.getLogger(__name__)
 
@@ -375,6 +376,7 @@ class LoRATunerV2:
     # ------------------------------------------------------------------
     def train(self, dataloader: DataLoader, diagnostics=None):
         cfg = self.cfg
+        self._last_sampled_step = None
         self.build_adapters()
         optimizer = self.build_optimizer()
 
@@ -493,7 +495,7 @@ class LoRATunerV2:
                 break
 
         self._save_final()
-        self._maybe_sample_grid(diagnostics, global_step, epochs - 1)
+        self._maybe_sample_grid(diagnostics, global_step, epoch)
         print(f"[LoRATunerV2] Training complete. Output: {cfg.output_dir}")
 
     # ------------------------------------------------------------------
@@ -526,35 +528,39 @@ class LoRATunerV2:
         ``DiagnosticsLogger.save_sample``.
         """
         cfg = self.cfg
+        if not getattr(self.accelerator, "is_main_process", True):
+            return
+        if getattr(self, "_last_sampled_step", None) == step:
+            return
         if diagnostics is None or not cfg.sample_grids:
             return
         if getattr(diagnostics, "_jsonl", None) is None:
             return  # no run record — nothing to write beside
+        pipe = None
         try:
             unet = self.accelerator.unwrap_model(self.unet)
-            was_training = unet.training
-            unet.eval()
-            prompts = list(cfg.validation_prompts) or _default_sample_prompts("")
-            pipe = _build_sampling_pipe(
-                is_sdxl=self.is_sdxl,
-                vae=self.vae,
-                text_encoder_one=self.text_encoder_one,
-                text_encoder_two=self.text_encoder_two,
-                tokenizer_one=self.tokenizer_one,
-                tokenizer_two=self.tokenizer_two,
-                unet=unet,
-                noise_scheduler=self.noise_scheduler,
-                prediction_type=cfg.prediction_type,
-            )
-            pipe.set_progress_bar_config(disable=True)
-            diagnostics.log_sample_grid(
-                pipe, prompts, step=step, seed=cfg.validation_seed, epoch=epoch
-            )
-            if was_training:
-                unet.train()
+            with sampling_state(unet, self.vae, self.text_encoder_one, getattr(self, "text_encoder_two", None)):
+                prompts = list(cfg.validation_prompts) or _default_sample_prompts("")
+                pipe = _build_sampling_pipe(
+                    is_sdxl=self.is_sdxl,
+                    vae=self.vae,
+                    text_encoder_one=self.text_encoder_one,
+                    text_encoder_two=self.text_encoder_two,
+                    tokenizer_one=self.tokenizer_one,
+                    tokenizer_two=self.tokenizer_two,
+                    unet=unet,
+                    noise_scheduler=self.noise_scheduler,
+                    prediction_type=cfg.prediction_type,
+                )
+                pipe.set_progress_bar_config(disable=True)
+                diagnostics.log_sample_grid(
+                    pipe, prompts, step=step, seed=cfg.validation_seed, epoch=epoch
+                )
+                self._last_sampled_step = step
         except Exception:
             log.warning("checkpoint sample grid failed; continuing", exc_info=True)
         finally:
+            pipe = None
             with contextlib.suppress(Exception):
                 torch.cuda.empty_cache()
 

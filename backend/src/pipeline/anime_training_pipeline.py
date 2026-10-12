@@ -347,6 +347,8 @@ def _build_tuner(cfg: DictConfig):
         output_dir=str(cfg.get("output_dir", "output_lora")),
         save_every_n_epochs=int(train_cfg.get("save_every_n_epochs", 1)),
         validation_prompts=list(cfg.get("validation_prompts", [])),
+        validation_seed=int(cfg.get("validation_seed", cfg.get("seed", 42))),
+        sample_grids=bool(train_cfg.get("sample_grids", True)),
     )
 
     stage = str(train_cfg.get("stage", "lora"))

@@ -3,6 +3,7 @@ checkpoint points — the wiring Codex's Gate D review flagged as missing."""
 from types import SimpleNamespace
 
 import pytest
+import torch
 
 from backend.src.models.tuning.lo_ra_tuner_v2 import LoRATunerV2
 
@@ -38,7 +39,7 @@ def _fake_v2(**cfg_over):
     return SimpleNamespace(
         cfg=cfg,
         accelerator=SimpleNamespace(unwrap_model=lambda m: m),
-        unet=SimpleNamespace(training=True, eval=lambda: None, train=lambda: None),
+        unet=torch.nn.Linear(2, 2),
         vae=object(),
         text_encoder_one=object(),
         text_encoder_two=None,
@@ -51,7 +52,7 @@ def _fake_v2(**cfg_over):
 
 def _fake_v1(**over):
     base = dict(
-        unet=SimpleNamespace(training=False, eval=lambda: None, train=lambda: None),
+        unet=torch.nn.Linear(2, 2).eval(),
         vae=object(),
         text_encoder_one=object(),
         tokenizer_one=object(),
@@ -121,7 +122,9 @@ def test_v2_without_run_dir_skips(v2_pipe):
 
 def test_v2_sampling_failure_never_raises(v2_pipe):
     diag = _FakeDiagnostics(fail=True)
-    LoRATunerV2._maybe_sample_grid(_fake_v2(), diag, step=1, epoch=0)  # logged, swallowed
+    tuner = _fake_v2()
+    LoRATunerV2._maybe_sample_grid(tuner, diag, step=1, epoch=0)
+    assert tuner.unet.training
 
 
 # ---------------------------------------------------------------------------
@@ -188,3 +191,40 @@ def test_pipeline_builds_tuner_config_without_dead_logging_kwargs(monkeypatch, t
     assert built.validation_prompts == ["fixed prompt"]
     assert built.sample_grids is True
     assert built.unet_lr == pytest.approx(2e-4)
+
+
+def test_v2_does_not_resample_final_at_same_checkpoint_step(v2_pipe):
+    tuner, diag = _fake_v2(), _FakeDiagnostics()
+    LoRATunerV2._maybe_sample_grid(tuner, diag, step=12, epoch=2)
+    LoRATunerV2._maybe_sample_grid(tuner, diag, step=12, epoch=2)
+    assert len(diag.calls) == 1
+
+
+def test_v2_non_main_rank_does_not_write_samples(v2_pipe):
+    tuner, diag = _fake_v2(), _FakeDiagnostics()
+    tuner.accelerator.is_main_process = False
+    LoRATunerV2._maybe_sample_grid(tuner, diag, step=12, epoch=2)
+    assert diag.calls == []
+
+
+def test_v1_uses_experiment_prompt_suite_and_seed(v1_pipe):
+    from backend.src.models.tuning.lo_ra_tuner import LoRATuner
+    diag = _FakeDiagnostics()
+    LoRATuner._maybe_sample_grid(_fake_v1(), "unused", diag, step=3, epoch=0,
+                                prompts=["frozen prompt"], seed=123)
+    assert diag.calls == [(["frozen prompt"], {"step": 3, "seed": 123, "epoch": 0})]
+
+
+def test_hydra_sample_opt_out_and_seed_reach_tuner_config(monkeypatch):
+    from pathlib import Path
+
+    from hydra import compose, initialize_config_dir
+
+    from backend.src.pipeline import anime_training_pipeline as pipeline
+    config_dir = Path(pipeline.__file__).resolve().parents[2] / "config"
+    with initialize_config_dir(config_dir=str(config_dir), version_base=None):
+        cfg = compose(config_name="base", overrides=["training.sample_grids=false", "seed=123"])
+    monkeypatch.setattr(pipeline, "LoRATunerV2", lambda config: config)
+    built = pipeline._build_tuner(cfg)
+    assert built.sample_grids is False
+    assert built.validation_seed == 123

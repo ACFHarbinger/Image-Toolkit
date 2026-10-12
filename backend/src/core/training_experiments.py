@@ -67,6 +67,7 @@ def estimate(details: dict, field: str, values: list) -> str:
     return (f"{len(values)} sequential runs · {count} training images · approximately {steps} optimizer steps. "
             f"Dataset copy: {details['bytes'] / 2**20:.1f} MiB, plus {len(values)} adapter outputs. "
             "One base-model load per run; GPU memory depends on model, rank and batch size. "
+            "Final preview sampling adds 30 denoising steps per prompt per run. "
             "Wall time is unknown. Training loss is not a held-out quality score.")
 
 
@@ -253,7 +254,8 @@ def train_child(folder: Path, run_dir: Path) -> None:
     try:
         tuner.train(data_dir=config["data_dir"], instance_prompt=manifest["instance_prompt"],
                     epochs=int(config["epochs"]), batch_size=int(config["batch_size"]),
-                    learning_rate=float(config["learning_rate"]), diagnostics=diagnostics)
+                    learning_rate=float(config["learning_rate"]), diagnostics=diagnostics,
+                    sample_prompts=manifest["prompt_suite"], sample_seed=manifest["seed"])
     finally:
         diagnostics.close()
 
