@@ -85,7 +85,7 @@ class LoRATuner:
         print("[CANCELLED] LoRA process cancellation requested.")
 
     def __init__(
-        self, model_id="OnomaAIResearch/Illustrious-XL-v2.0", output_dir="output_lora"
+        self, model_id="OnomaAIResearch/Illustrious-XL-v2.0", output_dir="output_lora", model_revision=None
     ):
         _ensure_heavy_imports()
         self.output_dir = output_dir
@@ -117,28 +117,28 @@ class LoRATuner:
 
         # 1. Load Tokenizers and Encoders
         self.tokenizer_one = CLIPTokenizer.from_pretrained(
-            model_id, subfolder="tokenizer"
+            model_id, subfolder="tokenizer", revision=model_revision
         )
         self.text_encoder_one = CLIPTextModel.from_pretrained(
-            model_id, subfolder="text_encoder"
+            model_id, subfolder="text_encoder", revision=model_revision
         )
 
         if self.is_sdxl:
             # SDXL needs a second set
             self.tokenizer_two = CLIPTokenizer.from_pretrained(
-                model_id, subfolder="tokenizer_2"
+                model_id, subfolder="tokenizer_2", revision=model_revision
             )
             self.text_encoder_two = CLIPTextModelWithProjection.from_pretrained(
-                model_id, subfolder="text_encoder_2"
+                model_id, subfolder="text_encoder_2", revision=model_revision
             )
             self.text_encoder_two.requires_grad_(False)
             self.text_encoder_two.to(self.accelerator.device)
 
         # 2. Load VAE and UNet
-        self.vae = AutoencoderKL.from_pretrained(model_id, subfolder="vae")
-        self.unet = UNet2DConditionModel.from_pretrained(model_id, subfolder="unet")
+        self.vae = AutoencoderKL.from_pretrained(model_id, subfolder="vae", revision=model_revision)
+        self.unet = UNet2DConditionModel.from_pretrained(model_id, subfolder="unet", revision=model_revision)
         self.noise_scheduler = DDPMScheduler.from_pretrained(
-            model_id, subfolder="scheduler"
+            model_id, subfolder="scheduler", revision=model_revision
         )
 
         self.text_encoder_one.requires_grad_(False)
@@ -178,6 +178,7 @@ class LoRATuner:
                         if f.lower().endswith((".png", ".jpg", ".jpeg")):
                             self.image_paths.append(os.path.join(root, f))
 
+                self.image_paths.sort()
                 if len(self.image_paths) == 0:
                     print(f"WARNING: No images found in {root_dir}")
 

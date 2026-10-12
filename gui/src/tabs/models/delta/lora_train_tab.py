@@ -738,9 +738,17 @@ class LoRATrainTab(BaseGenerativeTab):
         )
         dialog.rank_chart_requested.connect(lambda: self._open_rank_chart(worker.run_dir))
         dialog.start_tournament_requested.connect(self._open_checkpoint_tournament)
+        dialog.experiment_requested.connect(self._open_experiment)
         dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         dialog.show()
         self._report_card_dialog = dialog
+
+    @Slot(str)
+    def _open_experiment(self, run_dir: str) -> None:
+        from gui.src.components.dialogs.training_experiment_dialog import TrainingExperimentDialog
+        dialog = TrainingExperimentDialog(run_dir, parent=self)
+        dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        dialog.show()
 
     def _open_rank_chart(self, run_dir: str) -> None:
         """#743: compute rank history off-thread, then open the chart."""

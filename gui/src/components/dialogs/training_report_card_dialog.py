@@ -26,6 +26,7 @@ _STATUS_DOTS = {STATUS_GOOD: "●", STATUS_WARN: "●", STATUS_BAD: "●", STATU
 class TrainingReportCardDialog(QDialog):
     """Renders a ReportCard: one row per verdict plus the suggestion banner."""
 
+    experiment_requested = Signal(str)
     start_tournament_requested = Signal(str)
     # #743: fired by "View Rank Chart" when the run has adapter artifacts.
     rank_chart_requested = Signal()
@@ -69,6 +70,9 @@ class TrainingReportCardDialog(QDialog):
             rank_btn.clicked.connect(self.rank_chart_requested.emit)
             buttons.addWidget(rank_btn)
         if run_dir:
+            experiment_btn = QPushButton("Experiment from this run…")
+            experiment_btn.clicked.connect(lambda: self.experiment_requested.emit(run_dir))
+            buttons.addWidget(experiment_btn)
             if self._tournament_inputs_available(run_dir):
                 tournament_btn = QPushButton("Start Tournament…")
                 tournament_btn.setToolTip(
