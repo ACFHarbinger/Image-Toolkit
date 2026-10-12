@@ -6,26 +6,26 @@
 
 | Path | Code | Comments | Docstrings | Total |
 |---|---:|---:|---:|---:|
-| `gui/src/tabs/models/delta/lora_train_tab.py` | 1019 | 34 | 35 | 1088 |
+| `gui/src/tabs/models/delta/lora_train_tab.py` | 1180 | 37 | 48 | 1265 |
 | `gui/src/tabs/models/gen/generate_surface.py` | 873 | 0 | 18 | 891 |
 | `gui/src/tabs/models/gen/comfy_generate_tab.py` | 572 | 51 | 13 | 636 |
 | `gui/src/tabs/models/dl_workspace_host.py` | 521 | 5 | 22 | 548 |
 | `gui/src/windows/settings/_credentials.py` | 500 | 32 | 14 | 546 |
 | `gui/src/tabs/core/image_extractor_subtab.py` | 487 | 31 | 40 | 558 |
 | `gui/src/helpers/web/cloud/local_dir_sync_worker.py` | 475 | 58 | 69 | 602 |
+| `backend/src/models/tuning/lo_ra_tuner_v2.py` | 473 | 51 | 28 | 552 |
 | `gui/src/windows/image_compare_window.py` | 473 | 18 | 8 | 499 |
 | `gui/src/classes/base/gallery_base.py` | 470 | 115 | 100 | 685 |
 | `gui/src/components/virtual_gallery/virtual_gallery_view.py` | 468 | 60 | 44 | 572 |
 | `gui/src/windows/authentication/login_window.py` | 467 | 112 | 30 | 609 |
 | `backend/src/database/unified/search_repo.py` | 464 | 30 | 72 | 566 |
+| `backend/src/models/tuning/lo_ra_tuner.py` | 462 | 50 | 21 | 533 |
 | `gui/src/tabs/core/wallpaper_tab/graph/wallpaper_graph_scene.py` | 456 | 22 | 29 | 507 |
 | `gui/src/tabs/core/extractor_tab/_media_player.py` | 439 | 114 | 29 | 582 |
 | `gui/src/components/dialogs/asp_advanced_config_dialog.py` | 437 | 21 | 8 | 466 |
 | `gui/src/tabs/web/reverse_search_tab.py` | 434 | 45 | 21 | 500 |
 | `gui/src/windows/settings/_reset_state.py` | 432 | 16 | 17 | 465 |
 | `gui/src/helpers/core/_queue_extraction_process.py` | 429 | 7 | 29 | 465 |
-| `backend/src/models/tuning/lo_ra_tuner_v2.py` | 423 | 50 | 22 | 495 |
-| `backend/src/models/tuning/lo_ra_tuner.py` | 423 | 48 | 18 | 489 |
 | `gui/src/windows/image_preview_window.py` | 417 | 68 | 42 | 527 |
 | `backend/src/models/core/comfy_manager.py` | 410 | 65 | 45 | 520 |
 | `gui/src/windows/settings/_appearance.py` | 400 | 31 | 18 | 449 |
@@ -52,8 +52,8 @@
 | `gui/src/tabs/web/drive_sync_tab/sync_data_subtab/widget.py` | 344 | 26 | 13 | 383 |
 | `backend/src/utils/display/slideshow_daemon.py` | 343 | 32 | 33 | 408 |
 | `backend/src/models/core/comfy_provenance.py` | 342 | 13 | 31 | 386 |
+| `backend/src/core/checkpoint_tournament.py` | 338 | 11 | 41 | 390 |
 | `gui/src/tabs/core/extractor_tab/_extraction_history.py` | 337 | 27 | 21 | 385 |
 | `gui/src/tabs/core/protos/extractor_tab.py` | 334 | 0 | 7 | 341 |
-| `backend/src/pipeline/anime_training_pipeline.py` | 333 | 41 | 36 | 410 |
 | `gui/src/tabs/core/extractor_tab/_queue_processing.py` | 333 | 55 | 23 | 411 |
-| **TOTALS** | **94742** | **6451** | **9858** | **111051** |
+| **TOTALS** | **97303** | **6488** | **10084** | **113875** |
