@@ -283,6 +283,7 @@ class LoRATuner:
         learning_rate=1e-4,
         batch_size=2,
         pruned_tags=None,
+        diagnostics=None,
     ):
         # SDXL usually trains at 1024, but we can respect the input resolution (likely 512 or 1024)
         # Note: If training SDXL at 512, results may be blurry unless adjusted.
@@ -315,6 +316,7 @@ class LoRATuner:
 
         print(f"Starting training with batch size {batch_size}...")
 
+        global_step = 0
         for epoch in range(epochs):
             if self.is_cancelled:
                 break
@@ -411,6 +413,9 @@ class LoRATuner:
 
                 progress_bar.update(1)
                 progress_bar.set_postfix({"loss": loss.detach().item()})
+                global_step += 1
+                if diagnostics is not None:
+                    diagnostics.log_step(global_step, epoch=epoch, loss=loss.detach().item())
 
         print("Training finished. Saving model...")
         self.unet = self.accelerator.unwrap_model(self.unet)

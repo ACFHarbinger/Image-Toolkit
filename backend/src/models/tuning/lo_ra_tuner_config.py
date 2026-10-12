@@ -96,10 +96,9 @@ class LoRATunerConfig:
     validation_prompts: list[str] = field(default_factory=list)
     validation_seed: int = 42
 
-    # Logging
-    use_wandb: bool = False
-    wandb_project: str = "anime-diffusion"
-    use_tensorboard: bool = True
+    # Logging: the dead use_wandb/wandb_project/use_tensorboard fields were
+    # removed (#741) — nothing consumed them; the Hydra logging.* tree is a
+    # separate config consumed by anime_training_pipeline.
 
 # ===========================================================================
 # LoRATunerV2

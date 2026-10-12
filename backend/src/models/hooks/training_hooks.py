@@ -16,7 +16,11 @@ grid_to_pil           — compose a list of PIL images into a contact sheet
 
 from __future__ import annotations
 
+import contextlib
+import json
 import logging
+import time
+from pathlib import Path
 from typing import Callable, Optional
 
 import numpy as np
@@ -70,6 +74,7 @@ class DiagnosticsLogger:
         use_tensorboard: bool = True,
         tb_dir: str = "runs",
         log_grad_every: int = 25,
+        jsonl_path: Optional[str] = None,
     ):
         self.run_name = run_name
         self.log_grad_every = log_grad_every
@@ -83,14 +88,36 @@ class DiagnosticsLogger:
         if use_wandb and _WANDB_OK:
             self.wb = wandb.init(project=project, name=run_name)
 
+        # Plain-JSONL mirror of every log_step (#741): TB's protobuf is
+        # awkward to read back into a Qt chart; one JSON line per step
+        # makes live tailing and post-hoc charting trivial. Flushed per
+        # step so a watcher sees events as they happen.
+        self._jsonl = None
+        if jsonl_path:
+            try:
+                Path(jsonl_path).parent.mkdir(parents=True, exist_ok=True)
+                self._jsonl = open(jsonl_path, "a", encoding="utf-8")  # noqa: SIM115
+            except OSError:
+                log.warning("Training event sink could not be opened", exc_info=True)
+
     # ------------------------------------------------------------------
-    def log_step(self, step: int, **metrics):
+    def log_step(self, step: int, epoch: Optional[int] = None, **metrics):
         self._step = step
         if self.tb:
             for k, v in metrics.items():
                 self.tb.add_scalar(k, float(v), step)
         if self.wb:
             self.wb.log({k: float(v) for k, v in metrics.items()}, step=step)
+        if self._jsonl:
+            event = {"step": int(step), "ts": time.time()}
+            if epoch is not None:
+                event["epoch"] = int(epoch)
+            event.update(metrics)
+            try:
+                self._jsonl.write(json.dumps(event, default=float) + "\n")
+                self._jsonl.flush()
+            except (OSError, ValueError, TypeError):
+                pass  # a dead sink must never kill the training loop
 
     def log_grad_norm(self, model: nn.Module, step: int, prefix: str = "grad") -> float:
         if self.log_grad_every <= 0 or step % self.log_grad_every != 0:
@@ -155,6 +182,10 @@ class DiagnosticsLogger:
             self.tb.close()
         if self.wb:
             self.wb.finish()
+        if self._jsonl:
+            with contextlib.suppress(OSError):
+                self._jsonl.close()
+            self._jsonl = None
 
 # ---------------------------------------------------------------------------
 # CrossAttnRecorder

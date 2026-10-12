@@ -163,3 +163,28 @@ class TestQueueWorkflow:
             side_effect=http_error,
         ), pytest.raises(RuntimeError, match="ComfyUI rejected the workflow"):
             manager.queue_workflow(workflow)
+
+
+def test_fetch_output_uses_original_bytes_and_captured_directory(monkeypatch):
+    from urllib.parse import parse_qs, urlsplit
+
+    manager = ComfyUIManager()
+    seen = []
+
+    class Response:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+        def read(self, limit):
+            return b"original-image-bytes"
+
+    def open_url(url, **kwargs):
+        seen.append(parse_qs(urlsplit(url).query))
+        return Response()
+
+    monkeypatch.setattr("urllib.request.urlopen", open_url)
+    assert manager.fetch_output("original.png", "folder", "temp") == b"original-image-bytes"
+    assert seen == [{"filename": ["original.png"], "subfolder": ["folder"], "type": ["temp"]}]

@@ -8,6 +8,16 @@ from typing import NamedTuple
 
 from backend.src.comfy_matrix import gpu_lease, try_admit
 from backend.src.constants import LOCAL_SOURCE_PATH, ROOT_DIR
+from backend.src.core.training_runs import (
+    STATUS_CANCEL,
+    STATUS_ERROR,
+    STATUS_SUCCESS,
+    default_runs_root,
+    finish_run,
+    new_run_id,
+    start_run,
+)
+from backend.src.models.hooks import DiagnosticsLogger
 from backend.src.models.tuning.lo_ra_tuner import LoRATuner
 from backend.src.models.wrappers.gan_wrapper import GanWrapper
 from PySide6.QtCore import Qt, QTimer, Signal, Slot
@@ -16,6 +26,7 @@ from PySide6.QtWidgets import (
     QDoubleSpinBox,
     QFileDialog,
     QFormLayout,
+    QGroupBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -23,6 +34,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QSpinBox,
     QSplitter,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -30,6 +42,7 @@ from PySide6.QtWidgets import (
 from gui.src.components.prompt_edit import PromptEdit
 from gui.src.components.prompt_vocabulary import default_vocabulary, model_prefix_for
 from gui.src.helpers.base import BaseQThreadWorker
+from gui.src.helpers.worker_retention import retain_until_stopped
 
 from ....classes.base.base_generative_tab import (
     TIER_ADVANCED,
@@ -160,14 +173,18 @@ def resolve_imported_dataset(
     paths: tuple[str, ...],
     *,
     staging_root: Path | None = None,
+    exclusions: frozenset[str] | None = None,
 ) -> ImportedDataset:
     """Map a handoff to the exact files training and Review Tags will see.
 
-    A single directory stays folder-wide (Extractor / Browse). Explicit
-    files are the training set: the parent is reused only when it contains
-    nothing else, otherwise the selection is staged so siblings and other
-    directories cannot leak in. Missing or non-image paths are dropped
-    before any symlink is created.
+    A single directory stays folder-wide (Extractor / Browse) unless
+    *exclusions* are set — excluded files must not remain visible to a
+    folder-scoped training run, so the kept images fall through to the
+    explicit-selection staging path below. Explicit file selections are the
+    training set: the parent is reused only when it contains nothing else,
+    otherwise the selection is staged so siblings and other directories
+    cannot leak in. Missing or non-image paths are dropped before any
+    symlink is created.
     """
     if not paths:
         return ImportedDataset(None, (), "selection", False)
@@ -175,9 +192,13 @@ def resolve_imported_dataset(
     resolved = [Path(item) for item in paths]
     if len(resolved) == 1 and resolved[0].is_dir():
         images = _image_paths_under(resolved[0])
-        return ImportedDataset(str(resolved[0]), tuple(str(p) for p in images), "folder", False)
+        if not exclusions:
+            return ImportedDataset(str(resolved[0]), tuple(str(p) for p in images), "folder", False)
+        resolved = [p for p in images if str(p.resolve()) not in exclusions]
 
     unique = _existing_images(resolved)
+    if exclusions:
+        unique = [p for p in unique if str(p.resolve()) not in exclusions]
     if not unique:
         return ImportedDataset(None, (), "selection", False)
 
@@ -203,17 +224,25 @@ def dataset_folder_from_paths(
 class DatasetPrepareWorker(BaseQThreadWorker):
     """Scan and stage a Library/Browse handoff off the GUI thread."""
 
-    def __init__(self, paths: tuple[str, ...], staging_root: Path | None) -> None:
+    def __init__(
+        self,
+        paths: tuple[str, ...],
+        staging_root: Path | None,
+        exclusions: frozenset[str] | None = None,
+    ) -> None:
         super().__init__()
         self._paths = paths
         self._staging_root = staging_root
+        self._exclusions = exclusions
         self.result: ImportedDataset | None = None
         self.discarded = False
         self.review_only = False
         self.trigger: str | None = None
 
     def _execute(self) -> object:
-        self.result = resolve_imported_dataset(self._paths, staging_root=self._staging_root)
+        self.result = resolve_imported_dataset(
+            self._paths, staging_root=self._staging_root, exclusions=self._exclusions
+        )
         return self.result
 
     def cleanup_unclaimed(self) -> None:
@@ -225,10 +254,25 @@ class DatasetPrepareWorker(BaseQThreadWorker):
             ).start()
 
 
+class TrainingReportWorker(BaseQThreadWorker):
+    def __init__(self, run_dir: str, findings) -> None:
+        super().__init__()
+        self.run_dir = run_dir
+        self.findings = findings
+
+    def _execute(self):
+        from backend.src.core.training_report import generate_training_report
+        from backend.src.core.training_runs import iter_events
+
+        return generate_training_report(iter_events(self.run_dir), dataset_findings=self.findings)
+
+
 class LoRATrainTab(BaseGenerativeTab):
     # --- Define Signals for Thread-Safe Communication ---
     update_status_signal = Signal(str)
-    training_finished_signal = Signal(str, str)
+    # run_dir (#741) is the third payload: the report card (#746) reads
+    # the run's events.jsonl when a success carries one ("" otherwise).
+    training_finished_signal = Signal(str, str, str)
 
     def __init__(self):
         super().__init__()
@@ -243,6 +287,9 @@ class LoRATrainTab(BaseGenerativeTab):
         self._leased_staging_dir: str | None = None
         self._applied_train_dir: str | None = None
         self._dataset_worker: DatasetPrepareWorker | None = None
+        self._advisor_exclusions: set[str] = set()
+        self._dataset_source_folder: str | None = None
+        self._dataset_source_paths: tuple[str, ...] = ()
         self.init_ui()
         self.update_status_signal.connect(self.handle_status_update)
         self.training_finished_signal.connect(self.handle_training_finished)
@@ -386,13 +433,44 @@ class LoRATrainTab(BaseGenerativeTab):
 
         form_host = QWidget()
         form_host.setLayout(layout)
+        from gui.src.components.dialogs.dataset_advisor_panel import AdvisorPanel
         from gui.src.components.dialogs.tag_review_panel import TagReviewPanel
+        from gui.src.components.virtual_gallery.widget import VirtualGallery
+
+        # #744: contact sheet under the form on the left; Advisor and Review
+        # Tags share the right side as tabs (the panel object is unchanged).
+        self._gallery = VirtualGallery()
+        gallery_box = QGroupBox("Dataset Contact Sheet")
+        gallery_layout = QVBoxLayout(gallery_box)
+        gallery_layout.setContentsMargins(4, 4, 4, 4)
+        gallery_layout.addWidget(self._gallery)
+        left_split = QSplitter(Qt.Orientation.Vertical)
+        left_split.addWidget(form_host)
+        left_split.addWidget(gallery_box)
+        left_split.setStretchFactor(0, 3)
+        left_split.setStretchFactor(1, 2)
 
         self._review_panel = TagReviewPanel(modal_chrome=False)
         self._review_panel.review_saved.connect(self._on_review_saved)
+
+        self._advisor_panel = AdvisorPanel()
+        self._advisor_panel.exclude_requested.connect(self._on_advisor_exclude)
+        self._advisor_panel.restore_requested.connect(self._on_advisor_restore)
+        self._advisor_panel.selection_requested.connect(self._on_advisor_selection)
+        self._advisor_panel.review_tags_requested.connect(self._on_advisor_review_tags)
+        self._advisor_panel.set_training_guard(self._training_running)
+        self._right_tabs = QTabWidget()
+        self._right_tabs.addTab(self._advisor_panel, "Advisor")
+        self._right_tabs.addTab(self._review_panel, "Review Tags")
+        self._update_advisor_hydra_availability()
+        self.engine_combo.currentIndexChanged.connect(
+            lambda *_: self._update_advisor_hydra_availability()
+        )
+        self.trigger_edit.textChanged.connect(self._on_trigger_for_advisor)
+
         splitter = QSplitter(Qt.Orientation.Horizontal)
-        splitter.addWidget(form_host)
-        splitter.addWidget(self._review_panel)
+        splitter.addWidget(left_split)
+        splitter.addWidget(self._right_tabs)
         splitter.setStretchFactor(0, 3)
         splitter.setStretchFactor(1, 2)
         root = QVBoxLayout()
@@ -490,8 +568,8 @@ class LoRATrainTab(BaseGenerativeTab):
     def handle_status_update(self, text):
         self.status_label.setText(text)
 
-    @Slot(str, str)
-    def handle_training_finished(self, status_type, message):
+    @Slot(str, str, str)
+    def handle_training_finished(self, status_type, message, run_dir: str = ""):
         if self._disposing:
             return
         self._restore_start_after_training()
@@ -500,13 +578,45 @@ class LoRATrainTab(BaseGenerativeTab):
         GanWrapper.is_cancelled = False
         if status_type == "success":
             self.status_label.setText(message)
-            QMessageBox.information(self, "Success", message)
+            # #746: the report card replaces the plain success box when the
+            # run recorded events; failures degrade back to the old box.
+            if not (run_dir and self._show_report_card(run_dir)):
+                QMessageBox.information(self, "Success", message)
         elif status_type == "cancel":
             self.status_label.setText("Stopped.")
             QMessageBox.warning(self, "Result", message)
         else:
             self.status_label.setText("Error occurred.")
             QMessageBox.critical(self, "Error", message)
+
+    def _show_report_card(self, run_dir: str) -> bool:
+        """Generate the #746 card from the run's events and show it."""
+        panel = getattr(self, "_advisor_panel", None)
+        findings = panel.findings() if panel is not None and hasattr(panel, "findings") else []
+        worker = TrainingReportWorker(run_dir, findings)
+        worker.finished.connect(self._on_report_ready)
+        self._report_worker = worker
+        retain_until_stopped(worker)
+        worker.start()
+        return True
+
+    @Slot(object)
+    def _on_report_ready(self, card) -> None:
+        worker = self.sender()
+        if worker is not getattr(self, "_report_worker", None):
+            return
+        self._report_worker = None
+        if self._disposing:
+            return
+        if card is None or card.step_count == 0:
+            QMessageBox.information(self, "Success", "Training finished and weights saved.")
+            return
+        from gui.src.components.dialogs.training_report_card_dialog import TrainingReportCardDialog
+
+        dialog = TrainingReportCardDialog(card, run_dir=worker.run_dir, parent=self)
+        dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        dialog.show()
+        self._report_card_dialog = dialog
 
     def _restore_start_after_training(self) -> None:
         if self._disposing:
@@ -566,14 +676,75 @@ class LoRATrainTab(BaseGenerativeTab):
     ):
         refusal = try_admit("lora-train")
         if refusal:
-            self.training_finished_signal.emit("error", refusal)
+            self.training_finished_signal.emit("error", refusal, "")
             return
+        run_dir = None
         try:
+            run_dir = self._create_run_record(
+                params, data_dir, model_id, rank, prompt, output_name, engine, trigger,
+            )
             self._run_training_admitted(
                 params, data_dir, model_id, rank, prompt, output_name, engine, trigger,
+                run_dir=run_dir,
             )
         finally:
             gpu_lease.release("lora-train")
+
+    def _create_run_record(
+        self, params, data_dir, model_id, rank, prompt, output_name, engine, trigger,
+    ) -> Path | None:
+        """Run record + events dir for this training launch (#741).
+
+        Worker-thread context (file I/O off the GUI thread). A failure to
+        record must never block training itself, so it degrades to None and
+        the run proceeds unrecorded with a status note.
+        """
+        trigger_word = (trigger or "").strip()
+        try:
+            return start_run(
+                runs_root=default_runs_root(),
+                run_id=new_run_id(output_name),
+                output_name=output_name,
+                engine=engine or "standard",
+                model_id=model_id or "",
+                trigger_word=trigger_word,
+                instance_prompt=combine_trigger_and_prompt(trigger_word, prompt),
+                config={
+                    "rank": rank,
+                    "epochs": int(params.get("epochs", 5)),
+                    "batch_size": int(params.get("batch_size", 1)),
+                    "learning_rate": float(params.get("learning_rate", 1e-4)),
+                    "data_dir": data_dir,
+                    "output_name": output_name,
+                },
+            )
+        except OSError as exc:
+            self.update_status_signal.emit(f"Run recording unavailable: {exc}")
+            return None
+
+    def _finish_run_record(
+        self, run_dir: Path | None, status: str, output_name: str, engine: str, error: str | None = None,
+    ) -> None:
+        if run_dir is None:
+            return
+        try:
+            finish_run(
+                run_dir, status,
+                lora_path=self._resolve_lora_path(output_name, engine), error=error,
+            )
+        except OSError as exc:
+            self.update_status_signal.emit(f"Could not finalize run record: {exc}")
+
+    @staticmethod
+    def _resolve_lora_path(output_name: str, engine: str) -> str:
+        out = Path(output_name or "output_lora")
+        if engine != "standard" and not out.is_absolute():
+            out = ROOT_DIR / out
+        out = out.resolve()
+        if engine != "standard":
+            weights = out / "lora_weights.safetensors"
+            return str(weights if weights.is_file() else out)
+        return str(out)
 
     def _run_training_admitted(
         self,
@@ -585,6 +756,7 @@ class LoRATrainTab(BaseGenerativeTab):
         output_name,
         engine="standard",
         trigger="",
+        run_dir: Path | None = None,
     ):
         trigger_word = (trigger or "").strip()
         instance_prompt = combine_trigger_and_prompt(trigger_word, prompt)
@@ -599,10 +771,12 @@ class LoRATrainTab(BaseGenerativeTab):
                 batch_size=int(params.get("batch_size", 1)),
                 learning_rate=float(params.get("learning_rate", 1e-4)),
                 rank=rank,
+                run_dir=run_dir,
             )
             return
 
         gan = None
+        diagnostics = None
         try:
             if model_id == "animegan_v2":
                 self.update_status_signal.emit("Starting GAN Fine-tuning...")
@@ -618,6 +792,15 @@ class LoRATrainTab(BaseGenerativeTab):
                 self.update_status_signal.emit(
                     f"Loading Diffusion Model: {model_id}..."
                 )
+                if run_dir is not None:
+                    # #741: in-process JSONL event sink; TB/W&B stay off on
+                    # the GUI path (events.jsonl is the analysis contract).
+                    diagnostics = DiagnosticsLogger(
+                        run_name=Path(run_dir).name,
+                        use_tensorboard=False,
+                        use_wandb=False,
+                        jsonl_path=str(Path(run_dir) / "events.jsonl"),
+                    )
                 tuner = LoRATuner(model_id=model_id, output_dir=output_name)
                 tuner.configure_lora(rank=rank)
                 self.update_status_signal.emit("Training started...")
@@ -627,21 +810,27 @@ class LoRATrainTab(BaseGenerativeTab):
                     epochs=params.get("epochs", 5),
                     learning_rate=params.get("learning_rate", 1e-4),
                     batch_size=params.get("batch_size", 1),
+                    diagnostics=diagnostics,
                 )
                 is_cancelled = LoRATuner.is_cancelled
 
             if is_cancelled:
+                self._finish_run_record(run_dir, STATUS_CANCEL, output_name, engine)
                 self.training_finished_signal.emit(
-                    "cancel", "Training process was stopped by the user."
+                    "cancel", "Training process was stopped by the user.", str(run_dir or "")
                 )
             else:
+                self._finish_run_record(run_dir, STATUS_SUCCESS, output_name, engine)
                 self.training_finished_signal.emit(
-                    "success", "Training finished and weights saved."
+                    "success", "Training finished and weights saved.", str(run_dir or "")
                 )
         except Exception as e:
             self.update_status_signal.emit(f"Error: {str(e)}")
-            self.training_finished_signal.emit("error", str(e))
+            self._finish_run_record(run_dir, STATUS_ERROR, output_name, engine, error=str(e))
+            self.training_finished_signal.emit("error", str(e), str(run_dir or ""))
         finally:
+            if diagnostics is not None:
+                diagnostics.close()
             if gan is not None:
                 gan.unload()
 
@@ -657,6 +846,7 @@ class LoRATrainTab(BaseGenerativeTab):
         batch_size: int = 1,
         learning_rate: float = 1e-4,
         rank: int = 4,
+        run_dir: Path | None = None,
     ) -> None:
         """Content Gen §1.3: LyCORIS (LoCon/LoHa/LoKr) training.
 
@@ -682,8 +872,10 @@ class LoRATrainTab(BaseGenerativeTab):
                 "Error: LyCORIS training spawns the source checkout's Hydra "
                 "dispatcher and is not available in the packaged build."
             )
+            self._finish_run_record(run_dir, STATUS_ERROR, output_name, engine,
+                                    error="LyCORIS training requires a source checkout.")
             self.training_finished_signal.emit(
-                "error", "LyCORIS training requires a source checkout."
+                "error", "LyCORIS training requires a source checkout.", str(run_dir or "")
             )
             return
         cmd = [
@@ -701,6 +893,14 @@ class LoRATrainTab(BaseGenerativeTab):
             f"training.max_train_epochs={epochs}",
             f"optimizer.unet_lr={learning_rate}",
         ]
+        if run_dir is not None:
+            # #741: the subprocess writes its own events.jsonl into the run
+            # dir (same contract as the in-process path) — no stdout parsing.
+            cmd.append(f"logging.run_dir={run_dir}")
+        # #744: advisor-queued Hydra overrides (e.g. pipeline.run_captioning=true).
+        for fragment in self._advisor_panel.hydra_overrides():
+            if fragment not in cmd:
+                cmd.append(fragment)
         try:
             self._lycoris_process = subprocess.Popen(
                 cmd,
@@ -718,21 +918,29 @@ class LoRATrainTab(BaseGenerativeTab):
             returncode = self._lycoris_process.wait()
 
             if returncode == 0:
+                self._finish_run_record(run_dir, STATUS_SUCCESS, output_name, engine)
                 self.training_finished_signal.emit(
-                    "success", "LyCORIS training finished and weights saved."
+                    "success", "LyCORIS training finished and weights saved.", str(run_dir or "")
                 )
             elif returncode < 0:
                 # Negative = killed by signal (terminate()/Cancel button).
+                self._finish_run_record(run_dir, STATUS_CANCEL, output_name, engine)
                 self.training_finished_signal.emit(
-                    "cancel", "Training process was stopped by the user."
+                    "cancel", "Training process was stopped by the user.", str(run_dir or "")
                 )
             else:
+                self._finish_run_record(
+                    run_dir, STATUS_ERROR, output_name, engine,
+                    error=f"Training process exited with code {returncode}.",
+                )
                 self.training_finished_signal.emit(
-                    "error", f"Training process exited with code {returncode}."
+                    "error", f"Training process exited with code {returncode}.",
+                    str(run_dir or ""),
                 )
         except Exception as e:
             self.update_status_signal.emit(f"Error: {str(e)}")
-            self.training_finished_signal.emit("error", str(e))
+            self._finish_run_record(run_dir, STATUS_ERROR, output_name, engine, error=str(e))
+            self.training_finished_signal.emit("error", str(e), str(run_dir or ""))
         finally:
             self._lycoris_process = None
 
@@ -757,15 +965,23 @@ class LoRATrainTab(BaseGenerativeTab):
             return
         self._start_dataset_worker(paths)
 
-    def _start_dataset_worker(self, paths: tuple[str, ...], *, review_only: bool = False) -> None:
+    def _start_dataset_worker(self, paths: tuple[str, ...], *, review_only: bool = False, advisor_restage: bool = False) -> None:
         from gui.src.helpers.worker_teardown import stop_worker
 
+        if not review_only and not advisor_restage:
+            self._dataset_source_paths = paths
+            self._advisor_exclusions.clear()
+            self._dataset_source_folder = None
         previous = self._dataset_worker
         if previous is not None:
             previous.discarded = True
             stop_worker(previous, join=False)
         self.status_label.setText("Preparing dataset…")
-        worker = DatasetPrepareWorker(paths, self._staging_root)
+        worker = DatasetPrepareWorker(
+            paths,
+            self._staging_root,
+            exclusions=frozenset(self._advisor_exclusions) if self._advisor_exclusions else None,
+        )
         worker.review_only = review_only
         worker.trigger = self.trigger_edit.text().strip() or None
         worker.finished.connect(self._on_dataset_prepared)
@@ -784,12 +1000,15 @@ class LoRATrainTab(BaseGenerativeTab):
             self.status_label.setText("Dataset preparation failed.")
             return
         if imported.train_dir is None:
+            if sender is not None and not sender.review_only:
+                self._apply_resolved(imported)
             self.status_label.setText("No usable images in that selection.")
             return
         if sender is not None and sender.review_only:
             if not imported.source_paths:
                 self.status_label.setText("No usable images in that selection.")
                 return
+            self._right_tabs.setCurrentWidget(self._review_panel)
             self._review_panel.start_review(
                 [Path(p) for p in imported.source_paths], trigger=sender.trigger,
             )
@@ -820,6 +1039,11 @@ class LoRATrainTab(BaseGenerativeTab):
             self.status_label.setText(f"Dataset folder: {count} image(s)")
         else:
             self.status_label.setText(f"Dataset: {count} selected image(s)")
+        self._gallery.set_paths(list(imported.source_paths))
+        self._advisor_panel.set_images(
+            list(imported.source_paths), self.trigger_edit.text().strip()
+        )
+        self._advisor_panel.set_exclusion_count(len(self._advisor_exclusions))
 
     def _on_dataset_path_edited(self) -> None:
         current = self.data_dir_edit.text().strip()
@@ -844,6 +1068,53 @@ class LoRATrainTab(BaseGenerativeTab):
         # dir). Restaging here would rmtree a directory a live job may own.
         return
 
+    # --- Dataset advisor (#744) ---
+
+    def _update_advisor_hydra_availability(self, *_args) -> None:
+        if not hasattr(self, "_advisor_panel"):
+            return
+        engine = self.engine_combo.currentData() if hasattr(self, "engine_combo") else "standard"
+        available = engine != "standard" and not getattr(sys, "frozen", False)
+        self._advisor_panel.set_hydra_available(available)
+
+    def _on_trigger_for_advisor(self, *_args) -> None:
+        if hasattr(self, "_advisor_panel"):
+            self._advisor_panel.refresh_trigger(self.trigger_edit.text().strip())
+
+    def _on_advisor_selection(self, paths: list) -> None:
+        self._gallery.clear_selection()
+        present = [p for p in paths if p in set(self._dataset_paths)]
+        if present:
+            self._gallery.set_selected(present)
+            self._gallery.jump_to_path(present[0])
+
+    def _on_advisor_review_tags(self) -> None:
+        self._right_tabs.setCurrentWidget(self._review_panel)
+        self._review_tags()
+
+    def _on_advisor_exclude(self, paths: list) -> None:
+        if self._training_running() or self._review_running():
+            return
+        self._advisor_exclusions.update(str(Path(p).resolve()) for p in paths)
+        self._restage_for_advisor()
+
+    def _on_advisor_restore(self) -> None:
+        if self._training_running() or self._review_running():
+            return
+        self._advisor_exclusions.clear()
+        self._restage_for_advisor()
+
+    def _restage_for_advisor(self) -> None:
+        source = self._dataset_source_paths
+        if not source:
+            return
+        if self._training_running() or self._review_running():
+            self.status_label.setText(
+                "Cannot change the dataset while training or tag review is running."
+            )
+            return
+        self._start_dataset_worker(source, advisor_restage=True)
+
     def _clear_staging(self) -> None:
         if not self._staging_dir:
             return
@@ -863,6 +1134,7 @@ class LoRATrainTab(BaseGenerativeTab):
             return
         self._disposing = True
         self._review_panel.stop_review(join=False)
+        self._advisor_panel.stop()
         if self._dataset_worker is not None:
             self._dataset_worker.discarded = True
             stop_worker(self._dataset_worker, join=False)
@@ -925,5 +1197,10 @@ class LoRATrainTab(BaseGenerativeTab):
             effective_trigger = trigger or prompt
             trigger_str = repr(effective_trigger) if effective_trigger else "(none)"
             prompt_str = ""
-        return f"Model: {model_id} · Engine: {engine} · Epochs: {epochs} · Batch: {batch} · LR: {lr:g} · Rank: {rank} · Trigger: {trigger_str}{prompt_str}{folder_str}"
+        overrides = ""
+        if hasattr(self, "_advisor_panel"):
+            pending = self._advisor_panel.hydra_overrides()
+            if pending:
+                overrides = f" · Advisor overrides: {' '.join(pending)}"
+        return f"Model: {model_id} · Engine: {engine} · Epochs: {epochs} · Batch: {batch} · LR: {lr:g} · Rank: {rank} · Trigger: {trigger_str}{prompt_str}{folder_str}{overrides}"
 

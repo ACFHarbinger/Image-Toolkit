@@ -458,11 +458,16 @@ def main(cfg: DictConfig) -> None:
 
     # ── Stage 7: Diagnostics logger ──────────────────────────────────────
     run_name = str(_resolve(cfg, "run_name", "anime_run"))
+    run_dir = str(_resolve(cfg, "logging.run_dir", "")).strip()
     diagnostics = DiagnosticsLogger(
         run_name=run_name,
         use_wandb=bool(_resolve(cfg, "logging.use_wandb", False)),
         use_tensorboard=bool(_resolve(cfg, "logging.use_tensorboard", True)),
         tb_dir=str(_resolve(cfg, "logging.tb_dir", "runs")),
+        # #741: when the GUI forwards logging.run_dir, the subprocess
+        # writes the same events.jsonl the in-process path writes, so
+        # both launch paths share one event contract.
+        jsonl_path=f"{run_dir}/events.jsonl" if run_dir else None,
     )
 
     # ── Train ─────────────────────────────────────────────────────────────
