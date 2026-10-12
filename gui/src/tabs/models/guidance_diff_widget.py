@@ -25,6 +25,13 @@ from backend.src.core.guidance_schema import (
     Verdict,
     apply_validated,
 )
+from backend.src.core.guidance_trajectory import (
+    bind_variant,
+    build_requeue_trajectory,
+    load_existing_trajectory,
+    save_trajectory,
+    trajectory_sidecar_path,
+)
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -88,6 +95,7 @@ class GuidanceDiffWidget(QWidget):
     """Per-row diff list + re-queue for one validated guidance response."""
 
     variant_queued = Signal(str)
+    trajectory_updated = Signal(object)
     guidance_error = Signal(str)
 
     def __init__(self, controller=None, manager=None, variant_dir: str | None = None, parent=None) -> None:
@@ -99,6 +107,8 @@ class GuidanceDiffWidget(QWidget):
         self._validation: GuidanceValidation | None = None
         self._source_id: str | None = None
         self._source_mode: str | None = None
+        self._feedback = ""
+        self._pending_trajectory = None
         self._toggles: list[QCheckBox] = []
         self._toggle_verdicts: list = []
         self._summaries: list[str] = []
@@ -106,6 +116,10 @@ class GuidanceDiffWidget(QWidget):
         self._build_ui()
         self.variant_queued.connect(self._on_variant_queued)
         self.guidance_error.connect(self._on_guidance_error)
+
+    def set_feedback(self, text: str) -> None:
+        """Original user complaint carried into the next trajectory step (#754)."""
+        self._feedback = text.strip() if isinstance(text, str) else ""
 
     # ── UI ────────────────────────────────────────────────────────────
 
@@ -308,6 +322,15 @@ class GuidanceDiffWidget(QWidget):
         meta: dict = {"parent_prompt_id": self._source_id, "variant_label": VARIANT_LABEL}
         if self._source_mode:
             meta["surface_mode"] = self._source_mode
+        traj = build_requeue_trajectory(
+            existing=load_existing_trajectory(self._manager, self._source_id),
+            parent_prompt_id=self._source_id,
+            selected=selected,
+            feedback=self._feedback,
+        )
+        meta["guidance_trajectory"] = traj.to_dict()
+        self._pending_trajectory = traj
+        self._persist_sidecar(traj)
         self._status.setText(f"Queueing variant ({os.path.basename(path)})…")
         self._requeue_btn.setEnabled(False)
         if not self._controller.run_http_action(lambda: self._submit_variant(patched, meta)):
@@ -332,7 +355,23 @@ class GuidanceDiffWidget(QWidget):
 
     def _on_variant_queued(self, prompt_id: str) -> None:
         self._status.setText(f"Queued assistant-suggested variant — prompt_id={prompt_id}")
+        pending = self._pending_trajectory
+        if pending is not None:
+            traj = bind_variant(pending, prompt_id)
+            self._pending_trajectory = traj
+            updater = getattr(self._manager, "update_run_meta", None)
+            if callable(updater):
+                updater(prompt_id, {"guidance_trajectory": traj.to_dict()})
+            self._persist_sidecar(traj)
+            self.trajectory_updated.emit(traj)
         self._refresh_requeue_state()
+
+    def _persist_sidecar(self, traj) -> None:
+        directory = self._variant_dir or variant_workflow_dir()
+        try:
+            save_trajectory(trajectory_sidecar_path(directory, traj.root_prompt_id), traj)
+        except OSError:
+            return
 
     def _on_guidance_error(self, message: str) -> None:
         self._status.setText(message)

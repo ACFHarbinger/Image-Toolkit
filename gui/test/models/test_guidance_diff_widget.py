@@ -205,6 +205,11 @@ def test_requeue_submits_patch_with_variant_meta(q_app, tmp_path, monkeypatch):
         written = list(tmp_path.glob("pid1_variant*.json"))
         assert len(written) == 1
         assert json.loads(written[0].read_text()) == patched
+        traj = meta["guidance_trajectory"]
+        assert traj["root_prompt_id"] == "pid1"
+        assert traj["steps"][0]["applied"][0]["input_name"] == "cfg"
+        assert traj["steps"][0]["applied"][0]["to"] == 9.0
+        assert list(tmp_path.glob("*_trajectory.json"))
     finally:
         widget.deleteLater()
 
