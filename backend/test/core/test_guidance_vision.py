@@ -238,6 +238,31 @@ def test_observations_are_capped_lines():
     assert parse_observations(None) == ()
 
 
+def test_complete_returns_raw_json_without_splitting_lines(tmp_path):
+    image = tmp_path / "in.png"
+    _png(image)
+    body = '{"schema_version": 1}\n{"extra": false}'
+    seen = {}
+
+    def transport(request):
+        seen["content"] = request.payload["messages"][0]["content"]
+        return {"message": {"content": body}}
+
+    advisor = ChatVlmAdvisor(
+        placement="local",
+        endpoint="http://127.0.0.1:11434",
+        model="llava",
+        transport=transport,
+        admit=lambda _owner: None,
+        release=lambda _owner: None,
+    )
+    reply = advisor.complete(image, prompt="Return one JSON object")
+    assert reply.unavailable is None
+    assert reply.text == body
+    assert seen["content"] == "Return one JSON object"
+    assert advisor.observe(image).observations == ('{"schema_version": 1}', '{"extra": false}')
+
+
 def test_cloud_payload_uses_actual_image_mime(tmp_path):
     image = tmp_path / "misleading.png"
     Image.new("RGB", (4, 4)).save(image, format="JPEG")

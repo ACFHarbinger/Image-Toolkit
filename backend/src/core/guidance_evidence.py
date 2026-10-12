@@ -178,6 +178,14 @@ def resolve_evidence(
         if not paths:
             return ResolvedEvidence(ref=ref, title=title, detail=detail, stale=True)
         return ResolvedEvidence(ref=ref, title=title, detail=detail, paths=paths)
+    if ref.kind == KIND_OCR and ref.ref.get("source") == "local":
+        summary = ref.summary or "no text"
+        return ResolvedEvidence(
+            ref=ref,
+            title=f"Local OCR: {summary}",
+            detail="Measured on this machine from the pinned image. Not a model claim.",
+            verified=True,
+        )
     if ref.kind in (KIND_OCR, KIND_VLM):
         label = ref.kind.upper()
         return ResolvedEvidence(

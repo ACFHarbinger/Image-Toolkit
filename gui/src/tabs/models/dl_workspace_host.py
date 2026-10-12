@@ -13,8 +13,10 @@ Equipped with:
 from __future__ import annotations
 
 import os
+import threading
+from copy import deepcopy
 
-from PySide6.QtCore import QSize
+from PySide6.QtCore import QObject, QSize, Signal
 from PySide6.QtWidgets import (
     QButtonGroup,
     QHBoxLayout,
@@ -452,6 +454,10 @@ class _GenerateDestinationPage(QWidget):
             apply_fn(run)
 
 
+class _SuggestBus(QObject):
+    finished = Signal(int, object, str)
+
+
 class _ReviewToolsPage(QWidget):
     """Review destination with onboarding, empty state, and evaluation/inference tools (#731, #735)."""
 
@@ -523,8 +529,22 @@ class _ReviewToolsPage(QWidget):
         self._load_selection_btn.setObjectName("dl_guidance_load_btn")
         self._load_selection_btn.setToolTip("Use the Generate filmstrip selection as the critiqued run (#752)")
         self._load_selection_btn.clicked.connect(self._on_load_generate_selection)
+        self._suggest_btn = QPushButton("Suggest workflow changes")
+        self._suggest_btn.setObjectName("dl_guidance_suggest_btn")
+        self._suggest_btn.setToolTip("Request a schema suggestion, validate it, and show it here")
+        self._suggest_btn.clicked.connect(self.suggest_from_workflow)
         load_row.addWidget(self._load_selection_btn)
+        load_row.addWidget(self._suggest_btn)
         load_row.addStretch()
+        self._suggest_generation = 0
+        self._suggest_context: dict[int, tuple] = {}
+        self._suggest_thread: threading.Thread | None = None
+        self._suggest_closed = threading.Event()
+        closed = self._suggest_closed
+        self.destroyed.connect(lambda *_: closed.set())
+        # Unparented: a deleted page must not own the object the worker emits on.
+        self._suggest_bus = _SuggestBus()
+        self._suggest_bus.finished.connect(self._on_suggestion)
         layout.addLayout(load_row)
         from gui.src.modules.comfy_workspace_controller import ComfyWorkspaceController
 
@@ -637,6 +657,115 @@ class _ReviewToolsPage(QWidget):
     def _on_upscale_error(self, message: str) -> None:
         self._upscale_btn.setEnabled(True)
         self._upscale_status.setText(message)
+
+    def suggest_from_workflow(self) -> None:
+        """Request → parse → validate → Diff & Apply, using the captured workflow."""
+        workflow = getattr(self._guidance, "_workflow", None)
+        prompt_id = getattr(self._guidance, "_source_id", None)
+        mode = getattr(self._guidance, "_source_mode", None)
+        if not isinstance(workflow, dict):
+            selection = self._host.generate_selection()
+            if selection is None:
+                self._guidance.note("Select a run in Generate's filmstrip first.")
+                return
+            prompt_id, workflow, mode = selection
+        image = self._vision._image
+        if not image:
+            self._guidance.note("Pin an image before asking for suggestions.")
+            return
+        if self._suggest_thread is not None and self._suggest_thread.is_alive():
+            self._guidance.note("A suggestion is already running.")
+            return
+        vision_thread = getattr(self._vision, "_thread", None)
+        if vision_thread is not None and vision_thread.is_alive():
+            self._guidance.note("A review read is already running.")
+            return
+        leaves = self._vision._placement.currentData() == "cloud"
+        approved = bool(self._vision._approve.isChecked())
+        if leaves and not (self._vision._previewed and approved):
+            self._guidance.note("Cloud analysis needs an explicit send approval.")
+            return
+        self._suggest_generation += 1
+        self._suggest_context[self._suggest_generation] = (prompt_id, mode)
+        snapshot = {
+            "generation": self._suggest_generation,
+            "workflow": deepcopy(workflow),
+            "prompt_id": prompt_id,
+            "mode": mode,
+            "image": image,
+            "note": self._vision._note.text(),
+            "trajectory": self.advisor_trajectory(),
+            "approved": approved,
+            "leaves": leaves,
+            "placement": self._vision._placement.currentData(),
+            "endpoint": self._vision._endpoint.text().strip(),
+            "model": self._vision._model.text().strip(),
+        }
+        self._guidance.note("Requesting validated suggestions…")
+        self._suggest_thread = threading.Thread(
+            target=self._suggest_worker, args=(snapshot,), name="guidance-suggest", daemon=True,
+        )
+        self._suggest_thread.start()
+
+    def _suggest_worker(self, snapshot: dict) -> None:
+        from backend.src.core.guidance_request import (
+            GuidanceOutcome,
+            build_guidance_request,
+            interpret_guidance,
+        )
+        from backend.src.core.guidance_vision import run_ocr, vlm_api_key_from_vault
+
+        outcome: GuidanceOutcome | None = None
+        error = ""
+        try:
+            ocr = run_ocr(self._vision._ocr, snapshot["image"])
+            ocr_text = None if ocr.unavailable else ocr.text
+            request = build_guidance_request(
+                workflow=snapshot["workflow"],
+                note=snapshot["note"],
+                ocr_text=ocr_text,
+                trajectory=snapshot["trajectory"],
+            )
+            if snapshot["leaves"] and not snapshot["approved"]:
+                outcome = GuidanceOutcome(
+                    request, "", None, None, False, "Cloud analysis needs an explicit send approval.",
+                )
+            else:
+                advisor = self._vision._advisor_for({
+                    "placement": snapshot["placement"],
+                    "endpoint": snapshot["endpoint"],
+                    "model": snapshot["model"],
+                    "api_key": vlm_api_key_from_vault(self._vision._vault) if snapshot["leaves"] else None,
+                })
+                reply = advisor.complete(
+                    snapshot["image"], prompt=request.prompt, approved=snapshot["approved"],
+                )
+                if reply.unavailable:
+                    outcome = GuidanceOutcome(request, "", None, None, False, reply.unavailable)
+                else:
+                    outcome = interpret_guidance(reply.text, snapshot["workflow"], request)
+        except Exception as exc:
+            error = str(exc)[:300]
+        if snapshot["generation"] == self._suggest_generation and not self._suggest_closed.is_set():
+            self._suggest_bus.finished.emit(snapshot["generation"], outcome, error)
+
+    def _on_suggestion(self, generation: int, outcome, error: str) -> None:
+        prompt_id, mode = self._suggest_context.pop(generation, (None, None))
+        if generation != self._suggest_generation:
+            return
+        if error or outcome is None:
+            self._guidance.note(error or "Suggestion failed.")
+            return
+        if outcome.validation is None:
+            self._guidance.note(outcome.unavailable or "Advisor response was not valid guidance.")
+            return
+        self.show_guidance(
+            workflow=outcome.request.workflow,
+            validation=outcome.validation,
+            source_prompt_id=prompt_id,
+            source_mode=mode,
+        )
+        self._guidance.note(outcome.evidence_note())
 
     def show_guidance(self, *, workflow, validation, source_prompt_id=None, source_mode=None) -> None:
         """Render validated suggestions (#750/#753 produce these; #754 reads the outcome)."""
