@@ -8,6 +8,16 @@ from typing import NamedTuple
 
 from backend.src.comfy_matrix import gpu_lease, try_admit
 from backend.src.constants import LOCAL_SOURCE_PATH, ROOT_DIR
+from backend.src.core.training_runs import (
+    STATUS_CANCEL,
+    STATUS_ERROR,
+    STATUS_SUCCESS,
+    default_runs_root,
+    finish_run,
+    new_run_id,
+    start_run,
+)
+from backend.src.models.hooks import DiagnosticsLogger
 from backend.src.models.tuning.lo_ra_tuner import LoRATuner
 from backend.src.models.wrappers.gan_wrapper import GanWrapper
 from PySide6.QtCore import Qt, QTimer, Signal, Slot
@@ -568,12 +578,69 @@ class LoRATrainTab(BaseGenerativeTab):
         if refusal:
             self.training_finished_signal.emit("error", refusal)
             return
+        run_dir = None
         try:
+            run_dir = self._create_run_record(
+                params, data_dir, model_id, rank, prompt, output_name, engine, trigger,
+            )
             self._run_training_admitted(
                 params, data_dir, model_id, rank, prompt, output_name, engine, trigger,
+                run_dir=run_dir,
             )
         finally:
             gpu_lease.release("lora-train")
+
+    def _create_run_record(
+        self, params, data_dir, model_id, rank, prompt, output_name, engine, trigger,
+    ) -> Path | None:
+        """Run record + events dir for this training launch (#741).
+
+        Worker-thread context (file I/O off the GUI thread). A failure to
+        record must never block training itself, so it degrades to None and
+        the run proceeds unrecorded with a status note.
+        """
+        trigger_word = (trigger or "").strip()
+        try:
+            return start_run(
+                runs_root=default_runs_root(),
+                run_id=new_run_id(output_name),
+                output_name=output_name,
+                engine=engine or "standard",
+                model_id=model_id or "",
+                trigger_word=trigger_word,
+                instance_prompt=combine_trigger_and_prompt(trigger_word, prompt),
+                config={
+                    "rank": rank,
+                    "epochs": int(params.get("epochs", 5)),
+                    "batch_size": int(params.get("batch_size", 1)),
+                    "learning_rate": float(params.get("learning_rate", 1e-4)),
+                    "data_dir": data_dir,
+                    "output_name": output_name,
+                },
+            )
+        except OSError as exc:
+            self.update_status_signal.emit(f"Run recording unavailable: {exc}")
+            return None
+
+    def _finish_run_record(
+        self, run_dir: Path | None, status: str, output_name: str, engine: str, error: str | None = None,
+    ) -> None:
+        if run_dir is None:
+            return
+        finish_run(
+            run_dir,
+            status,
+            lora_path=self._resolve_lora_path(output_name, engine),
+            error=error,
+        )
+
+    @staticmethod
+    def _resolve_lora_path(output_name: str, engine: str) -> str:
+        out = Path(output_name or "output_lora").resolve()
+        if engine != "standard":
+            weights = out / "lora_weights.safetensors"
+            return str(weights if weights.is_file() else out)
+        return str(out)
 
     def _run_training_admitted(
         self,
@@ -585,6 +652,7 @@ class LoRATrainTab(BaseGenerativeTab):
         output_name,
         engine="standard",
         trigger="",
+        run_dir: Path | None = None,
     ):
         trigger_word = (trigger or "").strip()
         instance_prompt = combine_trigger_and_prompt(trigger_word, prompt)
@@ -599,10 +667,12 @@ class LoRATrainTab(BaseGenerativeTab):
                 batch_size=int(params.get("batch_size", 1)),
                 learning_rate=float(params.get("learning_rate", 1e-4)),
                 rank=rank,
+                run_dir=run_dir,
             )
             return
 
         gan = None
+        diagnostics = None
         try:
             if model_id == "animegan_v2":
                 self.update_status_signal.emit("Starting GAN Fine-tuning...")
@@ -618,6 +688,15 @@ class LoRATrainTab(BaseGenerativeTab):
                 self.update_status_signal.emit(
                     f"Loading Diffusion Model: {model_id}..."
                 )
+                if run_dir is not None:
+                    # #741: in-process JSONL event sink; TB/W&B stay off on
+                    # the GUI path (events.jsonl is the analysis contract).
+                    diagnostics = DiagnosticsLogger(
+                        run_name=Path(run_dir).name,
+                        use_tensorboard=False,
+                        use_wandb=False,
+                        jsonl_path=str(Path(run_dir) / "events.jsonl"),
+                    )
                 tuner = LoRATuner(model_id=model_id, output_dir=output_name)
                 tuner.configure_lora(rank=rank)
                 self.update_status_signal.emit("Training started...")
@@ -627,21 +706,27 @@ class LoRATrainTab(BaseGenerativeTab):
                     epochs=params.get("epochs", 5),
                     learning_rate=params.get("learning_rate", 1e-4),
                     batch_size=params.get("batch_size", 1),
+                    diagnostics=diagnostics,
                 )
                 is_cancelled = LoRATuner.is_cancelled
 
             if is_cancelled:
+                self._finish_run_record(run_dir, STATUS_CANCEL, output_name, engine)
                 self.training_finished_signal.emit(
                     "cancel", "Training process was stopped by the user."
                 )
             else:
+                self._finish_run_record(run_dir, STATUS_SUCCESS, output_name, engine)
                 self.training_finished_signal.emit(
                     "success", "Training finished and weights saved."
                 )
         except Exception as e:
             self.update_status_signal.emit(f"Error: {str(e)}")
+            self._finish_run_record(run_dir, STATUS_ERROR, output_name, engine, error=str(e))
             self.training_finished_signal.emit("error", str(e))
         finally:
+            if diagnostics is not None:
+                diagnostics.close()
             if gan is not None:
                 gan.unload()
 
@@ -657,6 +742,7 @@ class LoRATrainTab(BaseGenerativeTab):
         batch_size: int = 1,
         learning_rate: float = 1e-4,
         rank: int = 4,
+        run_dir: Path | None = None,
     ) -> None:
         """Content Gen §1.3: LyCORIS (LoCon/LoHa/LoKr) training.
 
@@ -701,6 +787,10 @@ class LoRATrainTab(BaseGenerativeTab):
             f"training.max_train_epochs={epochs}",
             f"optimizer.unet_lr={learning_rate}",
         ]
+        if run_dir is not None:
+            # #741: the subprocess writes its own events.jsonl into the run
+            # dir (same contract as the in-process path) — no stdout parsing.
+            cmd.append(f"logging.run_dir={run_dir}")
         try:
             self._lycoris_process = subprocess.Popen(
                 cmd,
@@ -718,20 +808,27 @@ class LoRATrainTab(BaseGenerativeTab):
             returncode = self._lycoris_process.wait()
 
             if returncode == 0:
+                self._finish_run_record(run_dir, STATUS_SUCCESS, output_name, engine)
                 self.training_finished_signal.emit(
                     "success", "LyCORIS training finished and weights saved."
                 )
             elif returncode < 0:
                 # Negative = killed by signal (terminate()/Cancel button).
+                self._finish_run_record(run_dir, STATUS_CANCEL, output_name, engine)
                 self.training_finished_signal.emit(
                     "cancel", "Training process was stopped by the user."
                 )
             else:
+                self._finish_run_record(
+                    run_dir, STATUS_ERROR, output_name, engine,
+                    error=f"Training process exited with code {returncode}.",
+                )
                 self.training_finished_signal.emit(
                     "error", f"Training process exited with code {returncode}."
                 )
         except Exception as e:
             self.update_status_signal.emit(f"Error: {str(e)}")
+            self._finish_run_record(run_dir, STATUS_ERROR, output_name, engine, error=str(e))
             self.training_finished_signal.emit("error", str(e))
         finally:
             self._lycoris_process = None

@@ -62,17 +62,22 @@ def test_standard_engine_uses_legacy_lora_tuner_path(tab):
 
 def test_lycoris_engine_forwards_form_controls(tab):
     """#726: run_training must forward the visible epochs/batch/LR/rank
-    controls into the LyCORIS launcher."""
+    controls into the LyCORIS launcher. #741 additionally threads a run_dir
+    (the training-run record); its concrete value is time-dependent."""
     with patch.object(tab, "_run_lycoris_training") as mock_lycoris:
         tab.run_training(
             params={"epochs": 9, "batch_size": 2, "learning_rate": 2e-4},
             data_dir="/tmp/data", model_id="some/model",
             rank=16, prompt="trigger", output_name="out", engine="loha",
         )
-    mock_lycoris.assert_called_once_with(
-        "/tmp/data", "some/model", "trigger", "out", "loha",
-        epochs=9, batch_size=2, learning_rate=2e-4, rank=16,
-    )
+    assert mock_lycoris.call_count == 1
+    args, kwargs = mock_lycoris.call_args
+    assert args == ("/tmp/data", "some/model", "trigger", "out", "loha")
+    assert kwargs["epochs"] == 9
+    assert kwargs["batch_size"] == 2
+    assert kwargs["learning_rate"] == 2e-4
+    assert kwargs["rank"] == 16
+    assert kwargs["run_dir"] is not None
 
 
 @pytest.mark.parametrize("engine", ["locon", "loha", "lokr"])
@@ -277,10 +282,14 @@ def test_lycoris_run_training_uses_dedicated_trigger_not_prompt(tab):
             rank=16, prompt="1girl, style of my_char", trigger="my_char",
             output_name="out", engine="loha",
         )
-    mock_lycoris.assert_called_once_with(
-        "/tmp/data", "some/model", "my_char", "out", "loha",
-        epochs=9, batch_size=2, learning_rate=2e-4, rank=16,
-    )
+    assert mock_lycoris.call_count == 1
+    args, kwargs = mock_lycoris.call_args
+    assert args == ("/tmp/data", "some/model", "my_char", "out", "loha")
+    assert kwargs["epochs"] == 9
+    assert kwargs["batch_size"] == 2
+    assert kwargs["learning_rate"] == 2e-4
+    assert kwargs["rank"] == 16
+    assert kwargs["run_dir"] is not None
 
 
 def test_lycoris_command_uses_dedicated_trigger_word(tab):

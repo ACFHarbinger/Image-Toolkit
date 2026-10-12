@@ -160,10 +160,15 @@ def model_prefix_for(model_id: str) -> str | None:
     return None
 
 
-def default_vocabulary(run_dirs: tuple[str, ...] = ()) -> VocabularyProvider:
+def default_vocabulary(run_dirs: tuple[str, ...] | None = None) -> VocabularyProvider:
     """Production PromptEdit wiring (#733): library corpus first (ranked by
     real usage), WD14 canonical list as fallback, run records for trigger
-    chips + train-time negatives once Gate D defines the store."""
+    chips + train-time negatives — since #741 the default reads the real
+    training-runs root, so trained trigger words surface as chips."""
+    if run_dirs is None:
+        from backend.src.core.training_runs import default_runs_root
+
+        run_dirs = (str(default_runs_root()),)
     return CompositeVocabulary(
         [DbVocabulary(), Wd14FallbackVocabulary(), RunRecordStore(run_dirs)]
     )
