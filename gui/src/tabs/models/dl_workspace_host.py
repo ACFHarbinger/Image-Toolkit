@@ -27,6 +27,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from gui.src.components.guidance.what_changed_overlay import WhatChangedOverlay
 from gui.src.modules.events import EventHub, ImportPathsIntent
 from gui.src.modules.tab_factory import build_tab
 from gui.src.preferences import PreferenceStore, PrefKeys
@@ -493,6 +494,9 @@ class _ReviewToolsPage(QWidget):
         self._compare_host.setMinimumHeight(280)
         self._compare_layout = QVBoxLayout(self._compare_host)
         self._compare_layout.setContentsMargins(0, 0, 0, 0)
+        self._what_changed = WhatChangedOverlay(self._compare_host)
+        self._what_changed.setObjectName("dl_what_changed")
+        self._compare_layout.addWidget(self._what_changed)
         layout.addWidget(self._compare_host, stretch=1)
 
         upscale_row = QHBoxLayout()
@@ -526,6 +530,9 @@ class _ReviewToolsPage(QWidget):
         self._guidance = GuidanceDiffWidget(controller=_controller, manager=_controller.manager)
         self._guidance.setObjectName("dl_guidance_diff")
         layout.addWidget(self._guidance)
+        self._what_changed.feedback_changed.connect(self._guidance.set_feedback)
+        self._what_changed.verdict_chosen.connect(self._on_guidance_verdict)
+        self._guidance.trajectory_updated.connect(self._on_trajectory_updated)
 
         self.set_compare_paths([])
 
@@ -550,20 +557,50 @@ class _ReviewToolsPage(QWidget):
         if getattr(self, "_compare_paths", None) == paths:
             return
         self._compare_paths = list(paths)
-        while self._compare_layout.count():
-            item = self._compare_layout.takeAt(0)
-            widget = item.widget()
-            if widget is not None:
-                widget.setParent(None)
-                widget.deleteLater()
+        self._clear_compare_view()
         if not paths:
             empty = QLabel("Pin an image to compare it.")
             empty.setObjectName("dl_compare_empty")
-            self._compare_layout.addWidget(empty)
+            self._compare_layout.insertWidget(0, empty)
             return
         view = ImageCompareWindow(paths, parent=self._compare_host, embedded=True)
         view.setObjectName("dl_compare_view")
-        self._compare_layout.addWidget(view)
+        self._compare_layout.insertWidget(0, view)
+
+    def _clear_compare_view(self) -> None:
+        """Replace the compare view/empty label without disposing the overlay."""
+        for index in range(self._compare_layout.count() - 1, -1, -1):
+            item = self._compare_layout.itemAt(index)
+            widget = item.widget() if item is not None else None
+            if widget is None or widget is self._what_changed:
+                continue
+            self._compare_layout.takeAt(index)
+            widget.setParent(None)
+            widget.deleteLater()
+
+    def _on_trajectory_updated(self, traj) -> None:
+        self._what_changed.set_trajectory(traj)
+
+    def advisor_trajectory(self):
+        """Payload for the next advisor call (#750): trajectory, not just now."""
+        from backend.src.core.guidance_trajectory import format_for_advisor
+
+        traj = self._what_changed.trajectory()
+        return format_for_advisor(traj) if traj is not None else None
+
+    def _on_guidance_verdict(self, _verdict: str) -> None:
+        traj = self._what_changed.trajectory()
+        if traj is None:
+            return
+        payload = {"guidance_trajectory": traj.to_dict()}
+        latest = traj.latest
+        variant_id = latest.variant_prompt_id if latest is not None else None
+        updater = getattr(self._guidance._manager, "update_run_meta", None)
+        if callable(updater) and variant_id:
+            updater(variant_id, payload)
+        persist = getattr(self._guidance, "_persist_sidecar", None)
+        if callable(persist):
+            persist(traj)
 
     def _on_upscale(self) -> None:
         """Upscale the focused (first) compared image on the shared admission (#749)."""

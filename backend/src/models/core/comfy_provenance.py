@@ -76,6 +76,8 @@ class ComfyRunRecord:
     # #752: human-readable origin tag for re-queued runs (e.g. the
     # assistant-suggested variant label). Rendered, never acted on.
     variant_label: str | None = None
+    # #754: bounded guidance conversation (applied patches + verdicts).
+    guidance_trajectory: dict | None = None
     first_seen: float = field(default_factory=time.time)
     last_updated: float = field(default_factory=time.time)
 
@@ -98,6 +100,7 @@ _SURFACE_FIELDS = (
     "sweep_axis",
     "sweep_value",
     "variant_label",
+    "guidance_trajectory",
 )
 
 
@@ -109,7 +112,9 @@ def _surface_fields(meta: dict | None) -> dict:
         if key not in meta:
             continue
         value = meta[key]
-        picked[key] = copy.deepcopy(value) if isinstance(value, dict) else value
+        picked[key] = (
+            copy.deepcopy(value) if isinstance(value, (dict, list)) else value
+        )
     return picked
 
 
@@ -213,6 +218,17 @@ class RunTracker:
 
     def get(self, prompt_id: str) -> ComfyRunRecord | None:
         return copy.deepcopy(self._records.get(prompt_id))
+
+    def update_surface(self, prompt_id: str, run_meta: dict | None) -> ComfyRunRecord | None:
+        """Patch surface fields on an existing record (verdicts, trajectory)."""
+        record = self._records.get(prompt_id)
+        if record is None:
+            return None
+        meta = _surface_fields(run_meta)
+        if not meta:
+            return copy.deepcopy(record)
+        self._update(prompt_id, _record_updates(record, **meta))
+        return self.get(prompt_id)
 
     def snapshot(self) -> tuple[ComfyRunRecord, ...]:
         return tuple(copy.deepcopy(self._records[p_id]) for p_id in self._order if p_id in self._records)

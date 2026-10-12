@@ -92,6 +92,11 @@ class ComfyUIManager:
         with self._provenance_lock:
             return self._runs.get(prompt_id)
 
+    def update_run_meta(self, prompt_id: str, run_meta: dict | None) -> ComfyRunRecord | None:
+        """Update surface fields on a captured run (guidance trajectory / verdicts)."""
+        with self._provenance_lock:
+            return self._runs.update_surface(prompt_id, run_meta)
+
     def runs(self) -> tuple[ComfyRunRecord, ...]:
         with self._provenance_lock:
             return self._runs.snapshot()
