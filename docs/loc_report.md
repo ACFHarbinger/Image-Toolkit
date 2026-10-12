@@ -6,12 +6,12 @@
 
 | Path | Code | Comments | Docstrings | Total |
 |---|---:|---:|---:|---:|
-| `gui/src/tabs/models/delta/lora_train_tab.py` | 785 | 22 | 26 | 833 |
-| `gui/src/tabs/models/gen/generate_surface.py` | 767 | 0 | 12 | 779 |
+| `gui/src/tabs/models/delta/lora_train_tab.py` | 1019 | 34 | 35 | 1088 |
+| `gui/src/tabs/models/gen/generate_surface.py` | 873 | 0 | 18 | 891 |
 | `gui/src/tabs/models/gen/comfy_generate_tab.py` | 572 | 51 | 13 | 636 |
+| `gui/src/tabs/models/dl_workspace_host.py` | 521 | 5 | 22 | 548 |
 | `gui/src/windows/settings/_credentials.py` | 500 | 32 | 14 | 546 |
 | `gui/src/tabs/core/image_extractor_subtab.py` | 487 | 31 | 40 | 558 |
-| `gui/src/tabs/models/dl_workspace_host.py` | 484 | 5 | 21 | 510 |
 | `gui/src/helpers/web/cloud/local_dir_sync_worker.py` | 475 | 58 | 69 | 602 |
 | `gui/src/windows/image_compare_window.py` | 473 | 18 | 8 | 499 |
 | `gui/src/classes/base/gallery_base.py` | 470 | 115 | 100 | 685 |
@@ -25,11 +25,12 @@
 | `gui/src/windows/settings/_reset_state.py` | 432 | 16 | 17 | 465 |
 | `gui/src/helpers/core/_queue_extraction_process.py` | 429 | 7 | 29 | 465 |
 | `backend/src/models/tuning/lo_ra_tuner_v2.py` | 423 | 50 | 22 | 495 |
-| `backend/src/models/tuning/lo_ra_tuner.py` | 418 | 48 | 18 | 484 |
+| `backend/src/models/tuning/lo_ra_tuner.py` | 423 | 48 | 18 | 489 |
 | `gui/src/windows/image_preview_window.py` | 417 | 68 | 42 | 527 |
-| `backend/src/models/core/comfy_manager.py` | 401 | 65 | 44 | 510 |
+| `backend/src/models/core/comfy_manager.py` | 410 | 65 | 45 | 520 |
 | `gui/src/windows/settings/_appearance.py` | 400 | 31 | 18 | 449 |
 | `gui/src/windows/main/_session_recovery.py` | 400 | 31 | 28 | 459 |
+| `gui/src/tabs/models/gen/lora_generate_tab.py` | 395 | 16 | 3 | 414 |
 | `gui/src/classes/base/_gallery_presentation.py` | 394 | 21 | 21 | 436 |
 | `gui/src/styles/background_canvas.py` | 387 | 3 | 18 | 408 |
 | `gui/src/components/dialogs/thumbnail_file_picker.py` | 386 | 4 | 7 | 397 |
@@ -40,10 +41,11 @@
 | `backend/src/core/wallpaper/_kde.py` | 372 | 103 | 31 | 506 |
 | `gui/src/windows/settings/_profile_management.py` | 371 | 34 | 18 | 423 |
 | `backend/src/core/vault_manager.py` | 368 | 31 | 77 | 476 |
+| `gui/src/components/dialogs/dataset_advisor_panel.py` | 367 | 12 | 16 | 395 |
+| `backend/src/core/dataset_advisor.py` | 365 | 9 | 31 | 405 |
 | `gui/src/components/virtual_gallery/virtual_gallery_model.py` | 365 | 48 | 81 | 494 |
 | `gui/src/tabs/core/extractor_tab/_extraction_workers.py` | 355 | 11 | 9 | 375 |
 | `backend/src/models/tuning/cbir_tuner.py` | 352 | 32 | 76 | 460 |
-| `gui/src/tabs/models/gen/lora_generate_tab.py` | 351 | 16 | 2 | 369 |
 | `gui/src/tabs/core/extractor_tab/_queue_panel.py` | 346 | 36 | 32 | 414 |
 | `gui/src/windows/main/main_window.py` | 346 | 55 | 4 | 405 |
 | `gui/src/windows/settings/settings_window.py` | 345 | 28 | 10 | 383 |
@@ -52,8 +54,6 @@
 | `backend/src/models/core/comfy_provenance.py` | 342 | 13 | 31 | 386 |
 | `gui/src/tabs/core/extractor_tab/_extraction_history.py` | 337 | 27 | 21 | 385 |
 | `gui/src/tabs/core/protos/extractor_tab.py` | 334 | 0 | 7 | 341 |
+| `backend/src/pipeline/anime_training_pipeline.py` | 333 | 41 | 36 | 410 |
 | `gui/src/tabs/core/extractor_tab/_queue_processing.py` | 333 | 55 | 23 | 411 |
-| `backend/src/pipeline/anime_training_pipeline.py` | 331 | 38 | 36 | 405 |
-| `gui/src/helpers/core/duplicate_scan_worker.py` | 331 | 42 | 33 | 406 |
-| `gui/src/components/widgets/resource_simulator_dashboard.py` | 328 | 2 | 7 | 337 |
-| **TOTALS** | **92866** | **6403** | **9703** | **108972** |
+| **TOTALS** | **94742** | **6451** | **9858** | **111051** |
