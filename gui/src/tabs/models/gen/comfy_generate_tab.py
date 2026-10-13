@@ -4,7 +4,7 @@ from pathlib import Path
 
 from backend.src.comfy_matrix import apply_node_overrides, gpu_lease, merge_sampler_overrides, try_admit
 from backend.src.constants.comfy import ServerState
-from PySide6.QtCore import Signal, Slot
+from PySide6.QtCore import QUrl, Signal, Slot
 from PySide6.QtGui import QTextCursor
 from PySide6.QtWidgets import (
     QComboBox,
@@ -334,7 +334,13 @@ class ComfyUITab(QWidget):
         browser_layout.addWidget(self._open_btn)
 
         root.addWidget(browser_frame)
-        tier_hint = QLabel("ComfyUI opens in your system browser. Server controls remain available here.")
+        self._web_container = QWidget()
+        self._web_container.setMinimumHeight(420)
+        self._web_layout = QVBoxLayout(self._web_container)
+        self._web_layout.setContentsMargins(0, 0, 0, 0)
+        self._web_view = None
+        root.addWidget(self._web_container, stretch=1)
+        tier_hint = QLabel("ComfyUI runs inside this tab while the server is ready. Open in External Browser stays available.")
         tier_hint.setWordWrap(True)
         root.addWidget(tier_hint)
 
@@ -502,6 +508,7 @@ class ComfyUITab(QWidget):
         )
         self._open_btn.setEnabled(ready)
         self._url_label.setText(self._manager.url if active else "—")
+        self._sync_web_view(ready)
         self._status_label.setText(f"Server: {state}")
         if ready:
             self._port_spin.setValue(self._manager.port)
@@ -706,6 +713,33 @@ class ComfyUITab(QWidget):
     # Cleanup
     # ------------------------------------------------------------------
 
+    def _sync_web_view(self, ready: bool) -> None:
+        if ready and self._web_view is None:
+            self._mount_web_view()
+        elif not ready and self._web_view is not None:
+            self._unmount_web_view()
+
+    def _mount_web_view(self) -> None:
+        try:
+            from PySide6.QtWebEngineWidgets import QWebEngineView
+        except ImportError:
+            self._append_log("[workflow] Embedded view unavailable; use Open in External Browser.\n")
+            return
+        view = QWebEngineView(self._web_container)
+        self._web_layout.addWidget(view)
+        view.load(QUrl(self._manager.url))
+        self._web_view = view
+
+    def _unmount_web_view(self) -> None:
+        view = self._web_view
+        self._web_view = None
+        self._web_layout.removeWidget(view)
+        view.stop()
+        view.setUrl(QUrl("about:blank"))
+        view.deleteLater()
+
     def closeEvent(self, event) -> None:
         # The app-level controller owns the service, not this disposable view.
+        if self._web_view is not None:
+            self._unmount_web_view()
         super().closeEvent(event)

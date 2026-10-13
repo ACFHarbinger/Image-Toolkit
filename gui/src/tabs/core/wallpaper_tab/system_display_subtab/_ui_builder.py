@@ -11,7 +11,6 @@ from typing import TYPE_CHECKING, Optional
 
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import (
-    QApplication,
     QCheckBox,
     QComboBox,
     QGridLayout,
@@ -57,16 +56,7 @@ class SystemDisplayUIBuilder(TabBoundController):
 
         self.tab.setAcceptDrops(True)
 
-        app = QApplication.instance()
-        if app is not None:
-            self_widget = self.tab
-            app.installEventFilter(self_widget)
-            # Nothing calls removeEventFilter on a plain deleteLater()/GC
-            # teardown (only close() runs closeEvent), so also drop the
-            # app-wide filter the moment the C++ object is destroyed --
-            # otherwise every subsequent event in the whole app routes
-            # through a dead wrapper and the UI stops responding to clicks.
-            self_widget.destroyed.connect(lambda *_a, _app=app, _obj=self_widget: _app.removeEventFilter(_obj))
+        self.main_scroll_area.viewport().installEventFilter(self.tab)
         self.main_scroll_area.viewport().setAcceptDrops(True)
 
         layout_group = self.create_monitor_layout_section("Monitor Layout (Drag to Reorder, Drop images/videos to set)")
