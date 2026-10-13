@@ -235,3 +235,47 @@ def test_sparse_validation_is_compared_to_matching_training_steps():
     events.extend({"step": i, "loss": 0.01} for i in range(2, 50))
     card = generate_training_report(events)
     assert card.verdicts[1].status == "good"
+
+
+# ---------------------------------------------------------------------------
+# #756: Generalization Gauge (sharpness verdict from hessian/trace series)
+# ---------------------------------------------------------------------------
+
+
+def _gauge_run(losses, traces):
+    events = _run(losses)
+    for i, trace in enumerate(traces):
+        events.append({"step": 500 * (i + 1), "epoch": i + 1, "ts": 2000.0 + i,
+                       "hessian/trace": trace})
+    return events
+
+
+def test_no_hessian_data_keeps_three_question_card():
+    card = generate_training_report(_run([1.0, 0.8, 0.6, 0.5, 0.4, 0.3, 0.25, 0.2]))
+    assert len(card.verdicts) == 2  # learn + overfit, no sharpness row
+
+
+def test_rising_trace_warns_sharpening():
+    events = _gauge_run([1.0, 0.8, 0.6, 0.5, 0.4, 0.3, 0.25, 0.2], [10.0, 18.0])
+    card = generate_training_report(events)
+    sharp = card.verdicts[2]
+    assert sharp.question == "Sharp or flat?"
+    assert sharp.status == STATUS_WARN
+    assert "sharpening" in sharp.detail
+
+
+def test_falling_trace_is_flattening():
+    events = _gauge_run([1.0, 0.8, 0.6, 0.5, 0.4, 0.3, 0.25, 0.2], [20.0, 9.0])
+    card = generate_training_report(events)
+    sharp = card.verdicts[2]
+    assert sharp.status == STATUS_GOOD
+    assert "flattening" in sharp.detail
+
+
+def test_stable_trace_is_good_and_single_point_is_absent():
+    events = _gauge_run([1.0, 0.8, 0.6, 0.5, 0.4, 0.3, 0.25, 0.2], [10.0, 10.5])
+    card = generate_training_report(events)
+    assert card.verdicts[2].status == STATUS_GOOD
+
+    single = _gauge_run([1.0, 0.8, 0.6, 0.5, 0.4, 0.3, 0.25, 0.2], [10.0])
+    assert len(generate_training_report(single).verdicts) == 2

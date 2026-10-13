@@ -108,7 +108,7 @@ def hutchinson_trace(
         if gz is None:
             per_vector.append(0.0)
             continue
-        hvp = torch.autograd.grad(gz, live, allow_unused=True)
+        hvp = torch.autograd.grad(gz, live, allow_unused=True, retain_graph=True)
         terms = [
             (z * h).sum().item() for z, h in zip(probes, hvp, strict=True) if h is not None
         ]
