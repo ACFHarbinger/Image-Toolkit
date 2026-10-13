@@ -349,6 +349,7 @@ def _build_tuner(cfg: DictConfig):
         validation_prompts=list(cfg.get("validation_prompts", [])),
         validation_seed=int(cfg.get("validation_seed", cfg.get("seed", 42))),
         sample_grids=bool(train_cfg.get("sample_grids", True)),
+        hessian_vectors=int(train_cfg.get("hessian_vectors", 5)),
     )
 
     stage = str(train_cfg.get("stage", "lora"))
