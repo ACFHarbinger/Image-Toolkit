@@ -7,7 +7,7 @@
 | Path | Code | Comments | Docstrings | Total |
 |---|---:|---:|---:|---:|
 | `gui/src/tabs/models/delta/lora_train_tab.py` | 1180 | 37 | 48 | 1265 |
-| `gui/src/tabs/models/gen/generate_surface.py` | 875 | 0 | 18 | 893 |
+| `gui/src/tabs/models/gen/generate_surface.py` | 872 | 0 | 18 | 890 |
 | `gui/src/tabs/models/dl_workspace_host.py` | 853 | 6 | 30 | 889 |
 | `gui/src/tabs/models/gen/comfy_generate_tab.py` | 615 | 49 | 13 | 677 |
 | `gui/src/windows/settings/_credentials.py` | 500 | 32 | 14 | 546 |
@@ -56,4 +56,4 @@
 | `gui/src/tabs/web/drive_sync_tab/sync_data_subtab/widget.py` | 344 | 26 | 13 | 383 |
 | `backend/src/utils/display/slideshow_daemon.py` | 343 | 32 | 33 | 408 |
 | `backend/src/core/checkpoint_tournament.py` | 338 | 11 | 41 | 390 |
-| **TOTALS** | **100450** | **6506** | **10329** | **117285** |
+| **TOTALS** | **100447** | **6506** | **10329** | **117282** |
