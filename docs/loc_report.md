@@ -9,7 +9,7 @@
 | `gui/src/tabs/models/delta/lora_train_tab.py` | 1180 | 37 | 48 | 1265 |
 | `gui/src/tabs/models/gen/generate_surface.py` | 875 | 0 | 18 | 893 |
 | `gui/src/tabs/models/dl_workspace_host.py` | 853 | 6 | 30 | 889 |
-| `gui/src/tabs/models/gen/comfy_generate_tab.py` | 603 | 51 | 13 | 667 |
+| `gui/src/tabs/models/gen/comfy_generate_tab.py` | 615 | 49 | 13 | 677 |
 | `gui/src/windows/settings/_credentials.py` | 500 | 32 | 14 | 546 |
 | `gui/src/tabs/core/image_extractor_subtab.py` | 487 | 31 | 40 | 558 |
 | `gui/src/helpers/web/cloud/local_dir_sync_worker.py` | 475 | 58 | 69 | 602 |
@@ -56,4 +56,4 @@
 | `gui/src/tabs/web/drive_sync_tab/sync_data_subtab/widget.py` | 344 | 26 | 13 | 383 |
 | `backend/src/utils/display/slideshow_daemon.py` | 343 | 32 | 33 | 408 |
 | `backend/src/core/checkpoint_tournament.py` | 338 | 11 | 41 | 390 |
-| **TOTALS** | **100438** | **6508** | **10329** | **117275** |
+| **TOTALS** | **100450** | **6506** | **10329** | **117285** |
