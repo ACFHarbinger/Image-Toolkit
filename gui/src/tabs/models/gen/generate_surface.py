@@ -75,8 +75,7 @@ def _template_issue(manager, workflow) -> str | None:
 def _sweep_status(result) -> str:
     count = len(result.prompt_ids)
     if result.stopped == "lease":
-        holder = gpu_lease.owner or "another job"
-        return f"GPU admission is held by {holder}."
+        return gpu_lease.refusal_text()
     if result.stopped == "cap":
         return "Sweep exceeds the cell cap."
     if result.stopped == "thermal":
