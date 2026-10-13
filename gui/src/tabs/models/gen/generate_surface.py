@@ -322,7 +322,9 @@ def _cell_text(record) -> str:
     mode = getattr(record, "surface_mode", None) or ""
     axis = getattr(record, "sweep_axis", None)
     extra = f" {axis}={record.sweep_value}" if axis else ""
-    return f"{record.prompt_id} {status}{extra} {path} {mode}".strip()
+    variant = getattr(record, "variant_label", None)
+    tag = f" [{variant}]" if isinstance(variant, str) and variant else ""
+    return f"{record.prompt_id} {status}{extra} {path} {mode}{tag}".strip()
 
 
 def _first_output(record) -> tuple[str, str, str]:
