@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any, Optional
 
 from PySide6.QtCore import QObject, QTimer, Signal
@@ -36,6 +37,7 @@ class TelemetryStatusBar(QStatusBar):
         *,
         coalesce_interval_ms: int = 0,
         sample_interval_ms: int = 3000,
+        lease_snapshot: Optional[Callable[[], Any]] = None,
     ) -> None:
         super().__init__(parent)
         self.setSizeGripEnabled(False)
@@ -45,6 +47,10 @@ class TelemetryStatusBar(QStatusBar):
         self._subscriptions: list[EventSubscription] = []
         self._coalesce_interval_ms = coalesce_interval_ms
         self._pending_fact_values: dict[str, Any] = {}
+        self._lease_snapshot = lease_snapshot
+        self._vram_allocated: Optional[float] = None
+        self._vram_total: Optional[float] = None
+        self._gpu_cpu_mode = False
 
         self._coalesce_timer = QTimer(self)
         self._coalesce_timer.setSingleShot(True)
@@ -232,12 +238,53 @@ class TelemetryStatusBar(QStatusBar):
             self.task_chip.setStyleSheet(qss("telemetry_task_idle"))
 
     def set_vram_status(self, allocated_gb: Optional[float], total_gb: Optional[float]) -> None:
-        if allocated_gb is not None and total_gb is not None:
-            self.gpu_chip.setText(f'⚡ VRAM: {allocated_gb:.1f}/{total_gb:.1f} GB')
-        elif allocated_gb is not None:
-            self.gpu_chip.setText(f'⚡ VRAM: {allocated_gb:.1f} GB')
+        self._vram_allocated = allocated_gb
+        self._vram_total = total_gb
+        self._gpu_cpu_mode = False
+        self._refresh_gpu_chip()
+
+    def _read_lease_snapshot(self) -> Any:
+        if self._lease_snapshot is not None:
+            try:
+                return self._lease_snapshot()
+            except Exception:
+                return None
+        try:
+            from backend.src.comfy_matrix import gpu_lease
+
+            return gpu_lease.snapshot()
+        except Exception:
+            return None
+
+    def _refresh_gpu_chip(self) -> None:
+        snap = self._read_lease_snapshot()
+        owner = getattr(snap, "owner", None)
+        if self._gpu_cpu_mode:
+            text = '⚡ CPU Mode'
+        elif self._vram_allocated is not None and self._vram_total is not None:
+            text = f'⚡ VRAM: {self._vram_allocated:.1f}/{self._vram_total:.1f} GB'
+        elif self._vram_allocated is not None:
+            text = f'⚡ VRAM: {self._vram_allocated:.1f} GB'
         else:
-            self.gpu_chip.setText('⚡ VRAM: --')
+            text = '⚡ VRAM: --'
+        if owner:
+            text += f' · {owner}'
+        self.gpu_chip.setText(text)
+
+        tip = ['GPU Compute & VRAM telemetry']
+        if snap is not None:
+            profile = getattr(snap, "profile", None)
+            if profile:
+                tip.append(f'Admission: {profile}')
+            if owner:
+                tip.append(f'Holder: {owner}')
+            estimated = getattr(snap, "estimated_gb", None)
+            if estimated is not None:
+                tip.append(f'Estimated: {estimated:.1f} GB')
+            peak = getattr(snap, "measured_peak_gb", None)
+            if peak is not None:
+                tip.append(f'Measured peak: {peak:.1f} GB')
+        self.gpu_chip.setToolTip('\n'.join(tip))
 
     def _sample_telemetry(self) -> None:
         if self._disposed:
@@ -251,9 +298,11 @@ class TelemetryStatusBar(QStatusBar):
                 total = torch.cuda.get_device_properties(0).total_memory / (1024**3)
                 self.set_vram_status(alloc, total)
             else:
-                self.gpu_chip.setText('⚡ CPU Mode')
+                self._gpu_cpu_mode = True
+                self._refresh_gpu_chip()
         except Exception:
-            self.gpu_chip.setText('⚡ CPU Mode')
+            self._gpu_cpu_mode = True
+            self._refresh_gpu_chip()
 
         # Database service via ModuleContext (non-widget service)
         if self._context is not None and self._context.services.has(LIBRARY_DATABASE_SERVICE):
