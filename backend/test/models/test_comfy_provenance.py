@@ -465,3 +465,87 @@ def test_wait_for_run_stops_when_pending_prompt_is_deleted():
     cancel = threading.Event()
     cancel.set()
     assert manager.wait_for_run("cancelled", cancel=cancel) is False
+
+
+def test_variant_label_meta_passthrough():
+    """#752: re-queued runs carry a render-only origin label plus the parent link."""
+    tracker = RunTracker()
+    tracker.record_submitted(
+        "p-var",
+        {"1": {"inputs": {}}},
+        client_id="c",
+        run_meta={"parent_prompt_id": "p-orig", "variant_label": "assistant-suggested"},
+    )
+    record = tracker.get("p-var")
+    assert record.parent_prompt_id == "p-orig"
+    assert record.variant_label == "assistant-suggested"
+
+
+def test_variant_label_defaults_to_none():
+    tracker = RunTracker()
+    tracker.record_submitted("p-plain", {"1": {}}, client_id="c")
+    assert tracker.get("p-plain").variant_label is None
+
+
+def test_guidance_trajectory_survives_history_and_surface_update():
+    """#754: conversation memory is a surface field; verdicts patch it later."""
+    tracker = RunTracker()
+    traj = {
+        "root_prompt_id": "p-orig",
+        "steps": [
+            {
+                "parent_prompt_id": "p-orig",
+                "variant_prompt_id": "p-var",
+                "feedback": "too sharp",
+                "expected": "softer",
+                "applied": [
+                    {
+                        "node_id": "6",
+                        "input_name": "cfg",
+                        "from": 8.5,
+                        "to": 6.0,
+                        "reason": "softer",
+                    }
+                ],
+                "verdict": None,
+            }
+        ],
+        "max_steps": 5,
+    }
+    tracker.record_submitted(
+        "p-var",
+        {"6": {"inputs": {"cfg": 6.0}}},
+        client_id="c",
+        run_meta={
+            "parent_prompt_id": "p-orig",
+            "variant_label": "assistant-suggested",
+            "guidance_trajectory": traj,
+        },
+    )
+    traj["steps"][0]["verdict"] = "tampered"
+    assert tracker.get("p-var").guidance_trajectory["steps"][0]["verdict"] is None
+    tracker.observe_history(
+        {
+            "p-var": history_entry(
+                1,
+                "p-var",
+                status=success_status(),
+                outputs=image_output("var.png"),
+            )
+        }
+    )
+    record = tracker.get("p-var")
+    assert record.status is RunStatus.COMPLETED
+    assert record.guidance_trajectory["root_prompt_id"] == "p-orig"
+    updated = tracker.update_surface(
+        "p-var",
+        {
+            "guidance_trajectory": {
+                **record.guidance_trajectory,
+                "steps": [{**record.guidance_trajectory["steps"][0], "verdict": "better"}],
+            }
+        },
+    )
+    assert updated.guidance_trajectory["steps"][0]["verdict"] == "better"
+    assert tracker.get("missing") is None
+    assert tracker.update_surface("missing", {"guidance_trajectory": traj}) is None
