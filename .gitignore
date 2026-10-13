@@ -435,6 +435,7 @@ models/wd14/
 outputs/**/*.log
 outputs/**/*.yaml
 backend/benchmark/output/*.json
+backend/benchmark/managers/output/
 
 # Build directories
 /**/Image_Toolkit.egg-info
