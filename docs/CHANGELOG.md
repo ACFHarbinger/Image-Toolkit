@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Changed
 
+- Generate surface: removed the Guided/Graph/Matrix button row, the 'Upscale selected' row and the filmstrip from above the ComfyUI server. The Guided/Graph/Matrix buttons now sit at the bottom of the tab, below the server section. The filmstrip and upscale code stay in place but are hidden, so the run-record feed still works. Files: `gui/src/tabs/models/gen/generate_surface.py`.
 - ComfyUI tab: the embedded ComfyUI view is now the top of the tab, with the server controls (Start Server, Connect Existing, Stop/Disconnect, Port) and the server status below it. A splitter between the view and the controls lets the user drag to make the embedded ComfyUI section taller or shorter. The view's minimum height is 120px. The workflow form and server log sit below the controls in the lower pane. Files: `gui/src/tabs/models/gen/comfy_generate_tab.py`.
 - Removed the stale `#729 external-only` comment at the top of `comfy_generate_tab.py`. The embedded view is now the default behaviour.
 

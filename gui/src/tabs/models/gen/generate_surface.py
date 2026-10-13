@@ -478,8 +478,6 @@ class GenerateSurface(QWidget):
     def _build_ui(self) -> None:
         root = QVBoxLayout(self)
         root.setContentsMargins(8, 8, 8, 8)
-        root.addLayout(self._mode_row())
-        upscale_row = QHBoxLayout()
         self._upscale_btn = QPushButton("Upscale selected")
         self._upscale_btn.setObjectName("generate_upscale_selected")
         self._upscale_btn.setToolTip("Upscale the filmstrip selection with Real-ESRGAN anime_6B (#749)")
@@ -487,15 +485,14 @@ class GenerateSurface(QWidget):
         self._upscale_message = QLabel("")
         self._upscale_message.setWordWrap(True)
         self._upscale_message.setObjectName("generate_upscale_status")
-        upscale_row.addWidget(self._upscale_btn)
-        upscale_row.addWidget(self._upscale_message, stretch=1)
-        root.addLayout(upscale_row)
-        root.addWidget(self._filmstrip)
+        self._filmstrip.setParent(self)
+        self._filmstrip.hide()
         self._stack = QStackedWidget()
         self._stack.addWidget(self.guided)
         self._stack.addWidget(self.graph)
         self._stack.addWidget(self._matrix_page())
         root.addWidget(self._stack, stretch=1)
+        root.addLayout(self._mode_row())
 
     def _mode_row(self) -> QHBoxLayout:
         row = QHBoxLayout()
