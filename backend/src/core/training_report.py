@@ -114,6 +114,50 @@ def _fmt_pct(fraction: float) -> str:
     return f"{fraction * 100:.0f}%"
 
 
+def _extract_hessian(events: Iterable[dict]) -> tuple[list[int], list[float]]:
+    """Hessian-trace series from events.jsonl (#756 Generalization Gauge)."""
+    steps: list[int] = []
+    traces: list[float] = []
+    for event in events:
+        if not isinstance(event, dict):
+            continue
+        trace = event.get("hessian/trace")
+        try:
+            value = float(trace)
+        except (TypeError, ValueError):
+            continue
+        if not math.isfinite(value):
+            continue
+        steps.append(int(event.get("step", len(steps))))
+        traces.append(value)
+    return steps, traces
+
+
+def _sharpness_verdict(traces: Sequence[float]) -> ReportVerdict | None:
+    """#756 Generalization Gauge: a rising adapter-space Hessian trace
+    means a sharpening (brittle, overfitting-prone) minimum; a falling or
+    low one a flatter, more generalizable one. None when the run logged
+    no gauge — the card stays unchanged."""
+    question = "Sharp or flat?"
+    if len(traces) < 2:
+        return None
+    first, last = traces[0], traces[-1]
+    if first <= 0:
+        return None
+    change = (last - first) / first
+    headline = f"Hessian trace {change:+.0%} across checkpoints ({first:.3g} → {last:.3g})"
+    if change >= 0.25:
+        return ReportVerdict(question, STATUS_WARN, headline,
+                             "The minimum is sharpening — higher overfitting risk; "
+                             "prefer the earlier checkpoints")
+    if change <= -0.25:
+        return ReportVerdict(question, STATUS_GOOD, headline,
+                             "The minimum is flattening — the later checkpoints "
+                             "should generalize better")
+    return ReportVerdict(question, STATUS_GOOD, headline,
+                         "Curvature is roughly stable across checkpoints")
+
+
 def _learn_verdict(losses: Sequence[float]) -> ReportVerdict:
     question = "Did it learn?"
     if len(losses) < 2:
@@ -278,17 +322,22 @@ def generate_training_report(
     Pure: no I/O, no model, safe on the GUI thread. `dataset_findings` is
     duck-typed (AdvisorFinding-shaped) so both #744 merge orders work.
     """
+    events = list(events)
     steps, losses, val_losses, nonfinite = _extract_series(events)
     learn = _learn_verdict(losses)
     overfit = _overfit_verdict(losses, val_losses, rank_utilization)
     suggestion = _suggestion(losses, steps, rank_utilization, dataset_findings)
+    sharpness = _sharpness_verdict(_extract_hessian(events)[1])
     if nonfinite:
         learn = ReportVerdict("Did it learn?", STATUS_BAD, "Non-finite loss recorded",
                               f"{nonfinite} logged loss value(s) were NaN or infinity")
         suggestion = ReportVerdict("What to try next", STATUS_BAD,
                                    "Check numerical stability before using these weights")
+    verdicts = (learn, overfit)
+    if sharpness is not None:
+        verdicts += (sharpness,)
     return ReportCard(
-        verdicts=(learn, overfit),
+        verdicts=verdicts,
         suggestion=suggestion,
         step_count=len(losses) + nonfinite,
     )
