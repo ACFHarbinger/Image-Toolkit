@@ -59,6 +59,10 @@ from backend.src.constants import (  # noqa: F401
 from backend.src.constants import (  # noqa: F401
     TE_ATTN_TARGETS as TE_ATTN_TARGETS,
 )
+from backend.src.models.hooks.hessian_trace import (
+    freeze_eval_batch,
+    hutchinson_trace,
+)
 from backend.src.models.tuning.lo_ra_tuner_config import LoRATunerConfig
 from backend.src.models.tuning.sample_grids import (
     build_sampling_pipe as _build_sampling_pipe,
@@ -377,6 +381,7 @@ class LoRATunerV2:
     def train(self, dataloader: DataLoader, diagnostics=None):
         cfg = self.cfg
         self._last_sampled_step = None
+        self._frozen_eval = None  # #756: frozen at the first checkpoint
         self.build_adapters()
         optimizer = self.build_optimizer()
 
@@ -490,6 +495,10 @@ class LoRATunerV2:
             if (epoch + 1) % cfg.save_every_n_epochs == 0:
                 self._save_checkpoint(epoch)
                 self._maybe_sample_grid(diagnostics, global_step, epoch)
+                self._maybe_hessian_trace(
+                    diagnostics, global_step, epoch, latents,
+                    encoder_hidden_states, added_cond_kwargs,
+                )
 
             if global_step >= total_steps:
                 break
@@ -518,6 +527,68 @@ class LoRATunerV2:
 
             state = get_peft_model_state_dict(unwrapped)
             sf.save_file(state, Path(self.cfg.output_dir) / "lora_weights.safetensors")
+
+    def _maybe_hessian_trace(
+        self, diagnostics, step: int, epoch: int, latents,
+        encoder_hidden_states, added_cond_kwargs,
+    ) -> None:
+        """#756: Generalization Gauge at a checkpoint point.
+
+        Hutchinson trace of the loss Hessian on the adapter parameters,
+        5 Rademacher probes against a validation batch frozen at the
+        first checkpoint (same latents/noise/timesteps afterwards, so
+        the trace series is comparable). Fail-soft by contract: no
+        diagnostics, the ``hessian_vectors=0`` off-switch, or any
+        failure degrades to no gauge — training never dies for a
+        diagnostic. ``autograd.grad`` never writes ``.grad``, so the
+        training state is preserved by construction.
+        """
+        cfg = self.cfg
+        if diagnostics is None or cfg.hessian_vectors <= 0:
+            return
+        if not getattr(self.accelerator, "is_main_process", True):
+            return
+        try:
+            if self._frozen_eval is None:
+                self._frozen_eval = freeze_eval_batch(
+                    latents=latents,
+                    encoder_hidden_states=encoder_hidden_states,
+                    added_cond_kwargs=added_cond_kwargs,
+                    num_train_timesteps=self.noise_scheduler.config.num_train_timesteps,
+                    seed=cfg.validation_seed,
+                    device=self.accelerator.device,
+                    add_noise=self.noise_scheduler.add_noise,
+                    get_velocity=(
+                        self.noise_scheduler.get_velocity
+                        if cfg.prediction_type == "v_prediction" else None
+                    ),
+                )
+            frozen = self._frozen_eval
+
+            def frozen_loss() -> torch.Tensor:
+                noisy = self.noise_scheduler.add_noise(frozen.latents, frozen.noise, frozen.timesteps)
+                model_pred = self.unet(
+                    noisy, frozen.timesteps, frozen.encoder_hidden_states,
+                    added_cond_kwargs=frozen.added_cond_kwargs,
+                ).sample
+                return self.compute_loss(model_pred, frozen.target, frozen.timesteps)
+
+            params = [p for p in self.unet.parameters() if p.requires_grad]
+            report = hutchinson_trace(
+                frozen_loss, params,
+                num_vectors=cfg.hessian_vectors, seed=cfg.validation_seed,
+                batch_size=frozen.batch_size,
+            )
+            if not report.finite:
+                log.warning("Hessian trace non-finite at step %s — skipped", step)
+                return
+            diagnostics.log_step(
+                step,
+                epoch=epoch,
+                **{"hessian/trace": report.trace, "hessian/param": report.trace_per_param},
+            )
+        except Exception as exc:  # fail-soft: a diagnostic must never kill training
+            log.warning("Hessian trace failed at step %s: %s", step, exc)
 
     def _maybe_sample_grid(self, diagnostics, step: int, epoch: int) -> None:
         """#747/#742: emit a fixed-prompt/seed grid at a checkpoint point.
