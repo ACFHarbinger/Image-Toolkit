@@ -7,9 +7,9 @@
 | Path | Code | Comments | Docstrings | Total |
 |---|---:|---:|---:|---:|
 | `gui/src/tabs/models/delta/lora_train_tab.py` | 1180 | 37 | 48 | 1265 |
-| `gui/src/tabs/models/gen/generate_surface.py` | 873 | 0 | 18 | 891 |
+| `gui/src/tabs/models/gen/generate_surface.py` | 875 | 0 | 18 | 893 |
+| `gui/src/tabs/models/dl_workspace_host.py` | 853 | 6 | 30 | 889 |
 | `gui/src/tabs/models/gen/comfy_generate_tab.py` | 572 | 51 | 13 | 636 |
-| `gui/src/tabs/models/dl_workspace_host.py` | 521 | 5 | 22 | 548 |
 | `gui/src/windows/settings/_credentials.py` | 500 | 32 | 14 | 546 |
 | `gui/src/tabs/core/image_extractor_subtab.py` | 487 | 31 | 40 | 558 |
 | `gui/src/helpers/web/cloud/local_dir_sync_worker.py` | 475 | 58 | 69 | 602 |
@@ -27,7 +27,9 @@
 | `gui/src/windows/settings/_reset_state.py` | 432 | 16 | 17 | 465 |
 | `gui/src/helpers/core/_queue_extraction_process.py` | 429 | 7 | 29 | 465 |
 | `gui/src/windows/image_preview_window.py` | 417 | 68 | 42 | 527 |
-| `backend/src/models/core/comfy_manager.py` | 410 | 65 | 45 | 520 |
+| `backend/src/core/guidance_schema.py` | 415 | 20 | 58 | 493 |
+| `backend/src/models/core/comfy_manager.py` | 413 | 65 | 46 | 524 |
+| `backend/src/core/guidance_vision.py` | 403 | 1 | 25 | 429 |
 | `gui/src/windows/settings/_appearance.py` | 400 | 31 | 18 | 449 |
 | `gui/src/windows/main/_session_recovery.py` | 400 | 31 | 28 | 459 |
 | `gui/src/tabs/models/gen/lora_generate_tab.py` | 395 | 16 | 3 | 414 |
@@ -44,16 +46,14 @@
 | `gui/src/components/dialogs/dataset_advisor_panel.py` | 367 | 12 | 16 | 395 |
 | `backend/src/core/dataset_advisor.py` | 365 | 9 | 31 | 405 |
 | `gui/src/components/virtual_gallery/virtual_gallery_model.py` | 365 | 48 | 81 | 494 |
+| `backend/src/models/core/comfy_provenance.py` | 357 | 16 | 32 | 405 |
 | `gui/src/tabs/core/extractor_tab/_extraction_workers.py` | 355 | 11 | 9 | 375 |
 | `backend/src/models/tuning/cbir_tuner.py` | 352 | 32 | 76 | 460 |
+| `gui/src/tabs/models/guidance_diff_widget.py` | 351 | 4 | 21 | 376 |
 | `gui/src/tabs/core/extractor_tab/_queue_panel.py` | 346 | 36 | 32 | 414 |
 | `gui/src/windows/main/main_window.py` | 346 | 55 | 4 | 405 |
 | `gui/src/windows/settings/settings_window.py` | 345 | 28 | 10 | 383 |
 | `gui/src/tabs/web/drive_sync_tab/sync_data_subtab/widget.py` | 344 | 26 | 13 | 383 |
 | `backend/src/utils/display/slideshow_daemon.py` | 343 | 32 | 33 | 408 |
-| `backend/src/models/core/comfy_provenance.py` | 342 | 13 | 31 | 386 |
 | `backend/src/core/checkpoint_tournament.py` | 338 | 11 | 41 | 390 |
-| `gui/src/tabs/core/extractor_tab/_extraction_history.py` | 337 | 27 | 21 | 385 |
-| `gui/src/tabs/core/protos/extractor_tab.py` | 334 | 0 | 7 | 341 |
-| `gui/src/tabs/core/extractor_tab/_queue_processing.py` | 333 | 55 | 23 | 411 |
-| **TOTALS** | **97303** | **6488** | **10084** | **113875** |
+| **TOTALS** | **100418** | **6517** | **10329** | **117264** |
