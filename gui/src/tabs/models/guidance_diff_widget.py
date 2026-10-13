@@ -111,6 +111,7 @@ class GuidanceDiffWidget(QWidget):
     trajectory_updated = Signal(object)
     guidance_error = Signal(str)
     paths_requested = Signal(tuple)
+    node_highlight_requested = Signal(str)
 
     def __init__(self, controller=None, manager=None, variant_dir: str | None = None, parent=None) -> None:
         super().__init__(parent)
@@ -294,6 +295,9 @@ class GuidanceDiffWidget(QWidget):
         )
         self._summaries.append(summary)
         if verdict.status == Verdict.VALID:
+            row_widget = QWidget()
+            row_layout = QHBoxLayout(row_widget)
+            row_layout.setContentsMargins(0, 0, 0, 0)
             box = QCheckBox(summary)
             box.setChecked(True)
             box.setObjectName(f"guidance_apply_{change.node_id}_{change.input_name}")
@@ -301,7 +305,14 @@ class GuidanceDiffWidget(QWidget):
             box.toggled.connect(lambda _checked: self._refresh_requeue_state())
             self._toggles.append(box)
             self._toggle_verdicts.append(verdict)
-            self._rows.addWidget(box)
+            focus_btn = QPushButton("Focus")
+            focus_btn.setObjectName(f"guidance_focus_{change.node_id}_{change.input_name}")
+            focus_btn.setToolTip(f"Highlight node {change.node_id} in embedded ComfyUI graph (#755)")
+            focus_btn.setFixedWidth(54)
+            focus_btn.clicked.connect(lambda _=False, nid=change.node_id: self.node_highlight_requested.emit(str(nid)))
+            row_layout.addWidget(box, stretch=1)
+            row_layout.addWidget(focus_btn)
+            self._rows.addWidget(row_widget)
             if change.reason:
                 reason = QLabel(change.reason)
                 reason.setWordWrap(True)

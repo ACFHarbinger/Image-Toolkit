@@ -1,3 +1,4 @@
+import contextlib
 import copy
 import json
 from pathlib import Path
@@ -27,6 +28,7 @@ from gui.src.components.prompt_vocabulary import default_vocabulary
 from gui.src.modules.comfy_workspace_controller import ComfyWorkspaceController
 
 from ....theming.theme_api import qss
+from .comfy_bridge import ComfyBridge
 
 # Content Gen §1.4 (issue #35) — ControlNet + IP-Adapter workflow modes.
 #
@@ -253,7 +255,25 @@ class ComfyUITab(QWidget):
         self._issues_by_mode: dict[str, list] = {}
         self._validation_pending = False
         self._validation_unavailable = False
+        self._web_channel = None
+        self._bridge: ComfyBridge | None = None
+        self._syncing_param = False
         self._init_ui()
+        self._base_ckpt_edit.textChanged.connect(
+            lambda _t: self._sync_guided_param_to_graph("checkpoint_node", "ckpt_name", self._base_ckpt_edit.text().strip())
+        )
+        self._extra_ckpt_edit.textChanged.connect(
+            lambda _t: self._sync_guided_param_to_graph("extra_node", None, self._extra_ckpt_edit.text().strip())
+        )
+        self._prompt_edit.promptChanged.connect(
+            lambda text: self._sync_guided_param_to_graph("positive_node", "text", text)
+        )
+        self._negative_prompt_edit.promptChanged.connect(
+            lambda text: self._sync_guided_param_to_graph("negative_node", "text", text)
+        )
+        self._image_edit.textChanged.connect(
+            lambda _t: self._sync_guided_param_to_graph("image_node", "image", self._image_edit.text().strip())
+        )
         self._log_signal.connect(self._append_log)
         self._workflow_finished.connect(self._on_workflow_finished)
         self._controller.server_state_changed.connect(self._refresh_server)
@@ -642,6 +662,7 @@ class ComfyUITab(QWidget):
         self._image_edit.setEnabled(needs_image)
         self._browse_btn.setEnabled(needs_image)
         self._revalidate([mode])
+        self._sync_all_guided_params()
 
     def _on_browse_image(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
@@ -723,6 +744,81 @@ class ComfyUITab(QWidget):
     # Cleanup
     # ------------------------------------------------------------------
 
+    def highlight_node(self, node_id: str | int) -> bool:
+        """Highlight node in embedded ComfyUI graph via QWebChannel (#755)."""
+        if self._bridge is None:
+            return False
+        self._bridge.highlight_node(node_id)
+        return True
+
+    def _sync_guided_param_to_graph(self, mode_node_key: str, widget_key: str | None, value: object) -> None:
+        if self._syncing_param or self._bridge is None:
+            return
+        mode = self._mode_combo.currentData()
+        cfg = WORKFLOW_MODES.get(mode)
+        if not cfg:
+            return
+        node_id = cfg.get(mode_node_key)
+        if not node_id:
+            return
+        if widget_key is None:
+            widget_key = cfg.get("extra_key")
+        if not widget_key:
+            return
+        self._bridge.sync_param(node_id, widget_key, value)
+
+    def _sync_all_guided_params(self) -> None:
+        if self._bridge is None:
+            return
+        mode = self._mode_combo.currentData()
+        cfg = WORKFLOW_MODES.get(mode)
+        if not cfg:
+            return
+        self._sync_guided_param_to_graph("checkpoint_node", "ckpt_name", self._base_ckpt_edit.text().strip())
+        self._sync_guided_param_to_graph("positive_node", "text", self._prompt_edit.text())
+        self._sync_guided_param_to_graph("negative_node", "text", self._negative_prompt_edit.text())
+        if cfg.get("extra_node"):
+            self._sync_guided_param_to_graph("extra_node", cfg.get("extra_key"), self._extra_ckpt_edit.text().strip())
+        if cfg.get("image_node") and self._image_edit.text().strip():
+            self._sync_guided_param_to_graph("image_node", "image", self._image_edit.text().strip())
+
+    @Slot(str, str, str)
+    def _on_param_changed_from_graph(self, node_id: str, widget_name: str, raw_value: str) -> None:
+        if self._syncing_param:
+            return
+        mode = self._mode_combo.currentData()
+        cfg = WORKFLOW_MODES.get(mode)
+        if not cfg:
+            return
+        self._syncing_param = True
+        try:
+            val = raw_value
+            with contextlib.suppress(Exception):
+                val = json.loads(raw_value)
+            val_str = str(val) if not isinstance(val, str) else val
+
+            if str(node_id) == str(cfg.get("checkpoint_node")) and widget_name.lower() == "ckpt_name":
+                if self._base_ckpt_edit.text() != val_str:
+                    self._base_ckpt_edit.setText(val_str)
+            elif str(node_id) == str(cfg.get("positive_node")) and widget_name.lower() == "text":
+                if self._prompt_edit.text() != val_str:
+                    self._prompt_edit.setText(val_str)
+            elif str(node_id) == str(cfg.get("negative_node")) and widget_name.lower() == "text":
+                if self._negative_prompt_edit.text() != val_str:
+                    self._negative_prompt_edit.setText(val_str)
+            elif cfg.get("extra_node") and str(node_id) == str(cfg.get("extra_node")) and widget_name.lower() == str(cfg.get("extra_key", "")).lower():
+                if self._extra_ckpt_edit.text() != val_str:
+                    self._extra_ckpt_edit.setText(val_str)
+            elif (
+                cfg.get("image_node")
+                and str(node_id) == str(cfg.get("image_node"))
+                and widget_name.lower() == "image"
+                and self._image_edit.text() != val_str
+            ):
+                self._image_edit.setText(val_str)
+        finally:
+            self._syncing_param = False
+
     def _sync_web_view(self, ready: bool) -> None:
         if ready and self._web_view is None:
             self._mount_web_view()
@@ -732,21 +828,36 @@ class ComfyUITab(QWidget):
     def _mount_web_view(self) -> None:
         try:
             from PySide6.QtWebEngineWidgets import QWebEngineView
+
+            from .comfy_bridge import setup_comfy_web_channel
         except ImportError:
             self._append_log("[workflow] Embedded view unavailable; use Open in External Browser.\n")
             return
         view = QWebEngineView(self._web_container)
         self._web_layout.addWidget(view)
+        try:
+            self._web_channel, self._bridge = setup_comfy_web_channel(view)
+            self._bridge.param_changed_in_graph.connect(self._on_param_changed_from_graph)
+            self._bridge.bridge_ready.connect(self._sync_all_guided_params)
+            self._bridge.log_message.connect(lambda msg: self._append_log(f"[bridge] {msg}\n"))
+        except Exception as exc:
+            self._append_log(f"[bridge] Channel setup error: {exc}\n")
         view.load(QUrl(self._manager.url))
         self._web_view = view
 
     def _unmount_web_view(self) -> None:
         view = self._web_view
         self._web_view = None
-        self._web_layout.removeWidget(view)
-        view.stop()
-        view.setUrl(QUrl("about:blank"))
-        view.deleteLater()
+        if self._web_channel is not None and self._bridge is not None:
+            with contextlib.suppress(Exception):
+                self._web_channel.deregisterObject(self._bridge)
+            self._web_channel = None
+        self._bridge = None
+        if view is not None:
+            self._web_layout.removeWidget(view)
+            view.stop()
+            view.setUrl(QUrl("about:blank"))
+            view.deleteLater()
 
     def closeEvent(self, event) -> None:
         # The app-level controller owns the service, not this disposable view.

@@ -635,6 +635,13 @@ class GenerateSurface(QWidget):
     def mode(self) -> str:
         return self._mode
 
+    def highlight_node(self, node_id: str | int) -> bool:
+        """Delegate node highlighting to ComfyUITab (#755)."""
+        self.set_mode("guided")
+        if hasattr(self.guided, "highlight_node"):
+            return self.guided.highlight_node(node_id)
+        return False
+
     def set_mode(self, mode: str) -> None:
         """Show another pane. Does not write the graph draft or the guided form."""
         if mode not in _MODES:
