@@ -4,7 +4,7 @@ from pathlib import Path
 
 from backend.src.comfy_matrix import apply_node_overrides, gpu_lease, merge_sampler_overrides, try_admit
 from backend.src.constants.comfy import ServerState
-from PySide6.QtCore import QUrl, Signal, Slot
+from PySide6.QtCore import Qt, QUrl, Signal, Slot
 from PySide6.QtGui import QTextCursor
 from PySide6.QtWidgets import (
     QComboBox,
@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QPushButton,
     QSpinBox,
+    QSplitter,
     QTextEdit,
     QVBoxLayout,
     QWidget,
@@ -26,9 +27,6 @@ from gui.src.components.prompt_vocabulary import default_vocabulary
 from gui.src.modules.comfy_workspace_controller import ComfyWorkspaceController
 
 from ....theming.theme_api import qss
-
-# #729's accepted v1 tier is external-only: the wallpaper application event
-# filter still collides with WebEngine native QObject wrapping.
 
 # Content Gen §1.4 (issue #35) — ControlNet + IP-Adapter workflow modes.
 #
@@ -275,6 +273,10 @@ class ComfyUITab(QWidget):
         root = QVBoxLayout(self)
         root.setContentsMargins(8, 8, 8, 8)
         root.setSpacing(8)
+        lower = QWidget()
+        lower_layout = QVBoxLayout(lower)
+        lower_layout.setContentsMargins(0, 0, 0, 0)
+        lower_layout.setSpacing(8)
 
         # --- Server control bar ---
         ctrl_group = QGroupBox("ComfyUI Server")
@@ -312,7 +314,7 @@ class ComfyUITab(QWidget):
         self._status_label.setStyleSheet(qss("comfy_status_label"))
         ctrl_layout.addWidget(self._status_label)
 
-        root.addWidget(ctrl_group)
+        lower_layout.addWidget(ctrl_group)
 
         # --- Open-in-browser panel ---
         browser_frame = QFrame()
@@ -335,14 +337,13 @@ class ComfyUITab(QWidget):
 
         root.addWidget(browser_frame)
         self._web_container = QWidget()
-        self._web_container.setMinimumHeight(420)
+        self._web_container.setMinimumHeight(120)
         self._web_layout = QVBoxLayout(self._web_container)
         self._web_layout.setContentsMargins(0, 0, 0, 0)
         self._web_view = None
-        root.addWidget(self._web_container, stretch=1)
         tier_hint = QLabel("ComfyUI runs inside this tab while the server is ready. Open in External Browser stays available.")
         tier_hint.setWordWrap(True)
-        root.addWidget(tier_hint)
+        lower_layout.addWidget(tier_hint)
 
         # --- ControlNet / IP-Adapter workflow panel (Content Gen §1.4) ---
         wf_group = QGroupBox("ControlNet / IP-Adapter Workflow")
@@ -451,7 +452,7 @@ class ComfyUITab(QWidget):
         queue_row.addWidget(self._queue_btn)
         wf_layout.addLayout(queue_row)
 
-        root.addWidget(wf_group)
+        lower_layout.addWidget(wf_group)
         self._on_mode_changed(self._mode_combo.currentIndex())
 
         # --- Log panel ---
@@ -473,7 +474,16 @@ class ComfyUITab(QWidget):
         self._log_view.setStyleSheet(qss("comfy_log_text"))
         log_layout.addWidget(self._log_view)
 
-        root.addWidget(log_group, stretch=1)
+        lower_layout.addWidget(log_group, stretch=1)
+
+        splitter = QSplitter(Qt.Orientation.Vertical)
+        splitter.setChildrenCollapsible(False)
+        splitter.addWidget(self._web_container)
+        splitter.addWidget(lower)
+        splitter.setStretchFactor(0, 3)
+        splitter.setStretchFactor(1, 2)
+        splitter.setSizes([520, 380])
+        root.addWidget(splitter, stretch=1)
 
     # ------------------------------------------------------------------
     # Button handlers
