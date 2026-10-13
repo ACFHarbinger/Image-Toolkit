@@ -66,7 +66,7 @@ class TestComfyBridgeQObject:
         requested = []
         bridge.sync_param_requested.connect(lambda nid, param, val: requested.append((nid, param, val)))
         bridge.sync_param(1, "ckpt_name", "v1-5-pruned.safetensors")
-        assert requested == [("1", "ckpt_name", "v1-5-pruned.safetensors")]
+        assert requested == [("1", "ckpt_name", '"v1-5-pruned.safetensors"')]
 
         # Test object/numeric serialization
         bridge.sync_param(3, "cfg", 7.5)
@@ -77,7 +77,7 @@ class TestComfyBridgeQObject:
         requested = []
         bridge.set_image_requested.connect(lambda nid, img: requested.append((nid, img)))
         bridge.set_image_node(9, "pose.png")
-        assert requested == [("9", "pose.png")]
+        assert requested == [("9", '"pose.png"')]
 
     def test_js_to_python_notifications(self, q_app):
         bridge = ComfyBridge()
@@ -106,16 +106,20 @@ class TestComfyBridgeQObject:
 
 class TestSetupComfyWebChannel:
     def test_setup_registers_object_and_injects_script(self, q_app):
+        import shiboken6
         from PySide6.QtWebEngineWidgets import QWebEngineView
 
         view = QWebEngineView()
-        channel, bridge = setup_comfy_web_channel(view)
-
-        assert bridge is not None
-        assert channel is not None
-        assert "comfyBridge" in channel.registeredObjects()
-        scripts = view.page().scripts().toList()
-        assert any(s.name() == "comfy_bridge" for s in scripts)
+        try:
+            channel, bridge = setup_comfy_web_channel(view, allowed_url="http://127.0.0.1:8188")
+            assert bridge is not None
+            assert "comfyBridge" in channel.registeredObjects()
+            scripts = view.page().scripts().toList()
+            assert any(s.name() == "comfy_bridge" for s in scripts)
+        finally:
+            view.page().setWebChannel(None)
+            shiboken6.delete(view)
+            q_app.processEvents()
 
 
 class TestComfyUITabBridge:
@@ -155,7 +159,7 @@ class TestComfyUITabBridge:
         assert tab._extra_ckpt_edit.text() == "control_canny.pth"
 
         tab._on_param_changed_from_graph("9", "image", "/path/to/pose.png")
-        assert tab._image_edit.text() == "/path/to/pose.png"
+        assert tab._image_edit.text() != "/path/to/pose.png"
 
     def test_guided_ui_changes_sync_to_bridge(self, tab):
         mock_bridge = MagicMock()
@@ -174,7 +178,7 @@ class TestComfyUITabBridge:
         mock_bridge.sync_param.assert_any_call("8", "control_net_name", "extra_weights.pth")
 
         tab._image_edit.setText("/tmp/ref.png")
-        mock_bridge.sync_param.assert_any_call("9", "image", "/tmp/ref.png")
+        assert not any(call.args[1] == "image" for call in mock_bridge.sync_param.call_args_list)
 
     def test_mode_switch_syncs_all_parameters(self, tab):
         mock_bridge = MagicMock()
@@ -183,11 +187,9 @@ class TestComfyUITabBridge:
         idx = tab._mode_combo.findData("ipadapter_reference")
         tab._mode_combo.setCurrentIndex(idx)
 
-        # ipadapter_reference: checkpoint_node: 1, positive_node: 6, negative_node: 7, extra_node: 3 (ipadapter_file)
-        mock_bridge.sync_param.assert_any_call("1", "ckpt_name", tab._base_ckpt_edit.text().strip())
-        mock_bridge.sync_param.assert_any_call("6", "text", tab._prompt_edit.text())
-        mock_bridge.sync_param.assert_any_call("7", "text", tab._negative_prompt_edit.text())
-        mock_bridge.sync_param.assert_any_call("3", "ipadapter_file", tab._extra_ckpt_edit.text().strip())
+        mock_bridge.bind_template.assert_called_once()
+        assert mock_bridge.bind_template.call_args.args[0]["3"]["class_type"]
+        mock_bridge.sync_param.assert_not_called()
 
 
 class TestGuidanceFocusButton:
@@ -265,3 +267,66 @@ class TestGuidanceFocusButton:
         assert res is True
         assert host._current_route == "generate"
         mock_comfy.highlight_node.assert_called_once_with("3")
+
+
+def test_bridge_preserves_json_looking_prompt_strings(q_app):
+    import json
+
+    bridge = ComfyBridge()
+    sent = []
+    bridge.sync_param_requested.connect(lambda _node, _widget, value: sent.append(value))
+    for value in ("true", "123", "null", "[1,2]", '{"key":"value"}'):
+        bridge.sync_param("1", "text", value)
+        assert json.loads(sent[-1]) == value
+
+
+def test_bridge_blocks_parameter_traffic_after_cross_origin_navigation(q_app):
+    bridge = ComfyBridge(origin_check=lambda: False)
+    sent, received = [], []
+    bridge.sync_param_requested.connect(lambda *args: sent.append(args))
+    bridge.param_changed_in_graph.connect(lambda *args: received.append(args))
+    bridge.sync_param("1", "text", "private")
+    bridge.notifyParamChanged("1", "text", '"remote"')
+    assert not sent and not received
+
+
+def test_javascript_sync_requires_matching_graph_and_preserves_strings():
+    import json
+    import shutil
+    import subprocess
+
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("Node.js required for the bridge behavior harness")
+    source = get_comfy_bridge_js()
+    harness = """
+const assert = require('node:assert/strict');
+global.window = {app: null};
+global.document = {readyState: "complete"};
+global.setTimeout = function() {};
+global.setInterval = function() {};
+let calls = 0;
+const widget = {name: "text", value: "existing", callback() { calls++; }};
+const item = {id: 1, type: "Text", inputs: [], widgets: [widget], widgets_values: ["existing"]};
+const graph = {_nodes: [item], getNodeById(id) {return this._nodes.find(n => String(n.id)===String(id));}, setDirtyCanvas() {}};
+window.app = {graph, canvas: {}};
+eval(SOURCE);
+const helper = window.comfyBridgeHelper;
+assert.equal(helper.setNodeWidgetValue("1", "text", '"no"'), false);
+helper.bindTemplate(JSON.stringify({"1": {class_type: "Text", inputs: {text: "default"}}}));
+assert.equal(widget.value, "existing"); // Binding must not push defaults.
+assert.equal(helper.setNodeWidgetValue("1", "text", '"123"'), true);
+assert.equal(widget.value, "123");
+item.type = "Unrelated";
+assert.equal(helper.setNodeWidgetValue("1", "text", '"bad"'), false);
+assert.equal(widget.value, "123");
+item.type = "Text";
+helper.initGraphHooks();
+helper.initGraphHooks();
+const before = calls;
+widget.callback("value");
+assert.equal(calls, before + 1);
+"""
+    result = subprocess.run([node, "-"], input=harness.replace("SOURCE", json.dumps(source)),
+                            text=True, capture_output=True, timeout=10)
+    assert result.returncode == 0, result.stderr

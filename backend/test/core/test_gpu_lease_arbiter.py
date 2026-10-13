@@ -93,9 +93,9 @@ def test_unknown_device_skips_the_estimate_check():
 
 def test_release_records_measured_peak():
     lease = GpuLeaseArbiter(peak_reader=lambda: 3.25)
-    assert lease.try_acquire("guided", estimated_gb=4.0)
+    assert lease.try_acquire("lora-train", estimated_gb=4.0)
     assert lease.snapshot().estimated_gb == 4.0
-    lease.release("guided")
+    lease.release("lora-train")
     snap = lease.snapshot()
     assert snap.owner is None
     assert snap.measured_peak_gb == 3.25
@@ -188,3 +188,62 @@ def test_comfy_matrix_try_admit_keeps_busy_text_and_uses_arbiter_refusals():
     assert message is not None
     assert "browser" in message.lower()
     assert conservative.owner is None
+
+
+def test_snapshot_does_not_probe_cuda_on_the_calling_thread():
+    calls = []
+    lease = GpuLeaseArbiter(device_probe=lambda: calls.append(True) or 16)
+    assert lease.snapshot().device_total_gb is None
+    assert not calls
+
+
+def test_comfy_peak_is_not_the_local_torch_peak():
+    lease = GpuLeaseArbiter(peak_reader=lambda: 12)
+    assert lease.try_acquire("guided")
+    lease.release("guided")
+    assert lease.snapshot().measured_peak_gb is None
+
+
+def test_embedded_browser_occupancy_survives_another_view_closing():
+    lease = GpuLeaseArbiter(profile=PROFILE_CONSERVATIVE)
+    lease.note_embedded_view("one", True)
+    lease.note_embedded_view("two", True)
+    lease.note_embedded_view("one", False)
+    assert not lease.try_acquire("train")
+    lease.note_embedded_view("two", False)
+    assert lease.try_acquire("train")
+    lease.release("train")
+
+
+def test_concurrent_duplicate_release_reads_peak_once():
+    import threading
+
+    entered, proceed = threading.Event(), threading.Event()
+    calls, failures = [], []
+
+    def peak():
+        calls.append(True)
+        entered.set()
+        assert proceed.wait(2)
+        return 1
+
+    lease = GpuLeaseArbiter(peak_reader=peak)
+    assert lease.try_acquire("train")
+
+    def release():
+        try:
+            lease.release("train")
+        except Exception as error:
+            failures.append(error)
+
+    one = threading.Thread(target=release)
+    two = threading.Thread(target=release)
+    one.start()
+    assert entered.wait(2)
+    two.start()
+    proceed.set()
+    one.join(3)
+    two.join(3)
+    assert not failures and len(calls) == 1
+    assert lease.try_acquire("next")
+    lease.release("next")

@@ -6,8 +6,8 @@ Estimates the trace of the loss Hessian on the *adapter* parameters
     trace(H) ≈ (1/m) Σ_i z_iᵀ H z_i,   z_ij ∈ {-1, +1}
 
 each term computed exactly via a Hessian-vector product (double
-backward). High trace ⇒ a sharp, brittle minimum (overfitting risk);
-low trace ⇒ a flatter, more generalizable one. It complements #748's
+backward). This estimates curvature on fixed training inputs, not
+held-out generalization. It complements #748's
 1-D loss slice: the slice shows the shape along one direction, this is
 a scalar curvature gauge over the whole adapter space.
 
@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import logging
 import math
+from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any, Callable, Sequence
 
@@ -63,16 +64,45 @@ class HessianTraceReport:
 def rademacher_probes(params: Sequence[torch.Tensor], num_vectors: int, seed: int) -> list[list[torch.Tensor]]:
     """Deterministic ±1 probe vectors, one list of tensors per probe,
     matching each parameter's shape/dtype/device."""
-    generator = torch.Generator(device=params[0].device if params else "cpu")
-    generator.manual_seed(seed)
-    probes: list[list[torch.Tensor]] = []
+    return list(_iter_probes(params, num_vectors, seed))
+
+
+def _iter_probes(params, num_vectors, seed):
+    generators = {}
+    for p in params:
+        if p.device not in generators:
+            generators[p.device] = torch.Generator(device=p.device).manual_seed(seed)
     for _ in range(num_vectors):
-        vectors = []
-        for p in params:
-            draws = torch.rand(p.shape, generator=generator, device=p.device)
-            vectors.append((torch.round(draws) * 2 - 1).to(p.dtype))
-        probes.append(vectors)
-    return probes
+        yield [torch.randint(0, 2, p.shape, generator=generators[p.device], device=p.device,
+                             dtype=torch.int8).to(p.dtype).mul_(2).sub_(1) for p in params]
+
+
+@contextmanager
+def diagnostic_eval(model, seed):
+    """Preserve RNG and mixed module modes even when the diagnostic fails."""
+    modes = [(module, module.training) for module in model.modules()]
+    devices = sorted({p.device.index for p in model.parameters() if p.device.type == "cuda"})
+    with torch.random.fork_rng(devices=devices):
+        torch.random.default_generator.manual_seed(seed)
+        for device in devices:
+            with torch.cuda.device(device):
+                torch.cuda.manual_seed(seed)
+        try:
+            model.eval()
+            yield
+        finally:
+            for module, training in modes:
+                module.training = training
+
+
+def _freeze_tree(value):
+    if isinstance(value, torch.Tensor):
+        return value.detach().clone()
+    if isinstance(value, dict):
+        return {key: _freeze_tree(item) for key, item in value.items()}
+    if isinstance(value, (tuple, list)):
+        return type(value)(_freeze_tree(item) for item in value)
+    return value
 
 
 def hutchinson_trace(
@@ -97,12 +127,13 @@ def hutchinson_trace(
         )
 
     loss = loss_fn()
-    grads = torch.autograd.grad(loss, live, create_graph=True, allow_unused=True)
+    grads = (torch.autograd.grad(loss, live, create_graph=True, allow_unused=True)
+             if loss.requires_grad else (None,) * len(live))
 
     per_vector: list[float] = []
-    for probes in rademacher_probes(live, num_vectors, seed):
+    for probes in _iter_probes(live, num_vectors, seed):
         weighted = [
-            (z * g).sum() for z, g in zip(probes, grads, strict=True) if g is not None
+            (z * g).sum() for z, g in zip(probes, grads, strict=True) if g is not None and g.requires_grad
         ]
         gz = sum(weighted) if weighted else None
         if gz is None:
@@ -131,7 +162,7 @@ def hutchinson_trace(
 
 @dataclass(frozen=True)
 class FrozenEvalBatch:
-    """A validation batch frozen for the whole run: the same latents,
+    """A training batch frozen for the whole run: the same latents,
     conditioning, noise, and timesteps at every checkpoint, so the trace
     series is comparable across checkpoints by construction."""
 
@@ -174,7 +205,7 @@ def freeze_eval_batch(
         timesteps=timesteps,
         target=target.detach().clone(),
         encoder_hidden_states=encoder_hidden_states.detach().clone(),
-        added_cond_kwargs=added_cond_kwargs,
+        added_cond_kwargs=_freeze_tree(added_cond_kwargs),
         batch_size=int(latents.shape[0]),
     )
 

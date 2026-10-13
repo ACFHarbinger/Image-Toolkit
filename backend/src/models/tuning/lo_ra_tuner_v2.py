@@ -410,6 +410,7 @@ class LoRATunerV2:
         prepared = self.accelerator.prepare(*trainables)
         self.unet, optimizer, dataloader, lr_scheduler = prepared
 
+        latents = encoder_hidden_states = added_cond_kwargs = None
         global_step = 0
         print(f"[LoRATunerV2] Training: {epochs} epochs × {num_update_steps_per_epoch} steps = {total_steps} total")
 
@@ -535,7 +536,7 @@ class LoRATunerV2:
         """#756: Generalization Gauge at a checkpoint point.
 
         Hutchinson trace of the loss Hessian on the adapter parameters,
-        5 Rademacher probes against a validation batch frozen at the
+        Opt-in Rademacher probes against a training batch frozen at the
         first checkpoint (same latents/noise/timesteps afterwards, so
         the trace series is comparable). Fail-soft by contract: no
         diagnostics, the ``hessian_vectors=0`` off-switch, or any
@@ -544,7 +545,7 @@ class LoRATunerV2:
         training state is preserved by construction.
         """
         cfg = self.cfg
-        if diagnostics is None or cfg.hessian_vectors <= 0:
+        if diagnostics is None or cfg.hessian_vectors <= 0 or latents is None:
             return
         if not getattr(self.accelerator, "is_main_process", True):
             return
@@ -567,18 +568,25 @@ class LoRATunerV2:
 
             def frozen_loss() -> torch.Tensor:
                 noisy = self.noise_scheduler.add_noise(frozen.latents, frozen.noise, frozen.timesteps)
-                model_pred = self.unet(
+                model_pred = model(
                     noisy, frozen.timesteps, frozen.encoder_hidden_states,
                     added_cond_kwargs=frozen.added_cond_kwargs,
                 ).sample
                 return self.compute_loss(model_pred, frozen.target, frozen.timesteps)
 
-            params = [p for p in self.unet.parameters() if p.requires_grad]
-            report = hutchinson_trace(
-                frozen_loss, params,
-                num_vectors=cfg.hessian_vectors, seed=cfg.validation_seed,
-                batch_size=frozen.batch_size,
-            )
+            from torch.nn.attention import SDPBackend, sdpa_kernel
+
+            from backend.src.models.hooks.hessian_trace import diagnostic_eval
+
+            model = self.accelerator.unwrap_model(self.unet)
+            params = [p for p in model.parameters() if p.requires_grad]
+            # Unwrapped eval avoids DDP collectives and reentrant checkpointing.
+            with diagnostic_eval(model, cfg.validation_seed), sdpa_kernel(SDPBackend.MATH), self.accelerator.autocast():
+                report = hutchinson_trace(
+                    frozen_loss, params,
+                    num_vectors=cfg.hessian_vectors, seed=cfg.validation_seed,
+                    batch_size=frozen.batch_size,
+                )
             if not report.finite:
                 log.warning("Hessian trace non-finite at step %s — skipped", step)
                 return

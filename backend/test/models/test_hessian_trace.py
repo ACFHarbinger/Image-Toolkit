@@ -159,3 +159,40 @@ def test_report_dataclass_shape():
     assert not HessianTraceReport(
         trace=float("nan"), per_vector=(), num_vectors=0, param_count=0, batch_size=0, seed=0,
     ).finite
+
+
+def test_linear_and_constant_losses_have_zero_curvature():
+    parameter = nn.Parameter(torch.ones(3))
+    assert hutchinson_trace(lambda: parameter.sum(), [parameter]).trace == 0
+    assert hutchinson_trace(lambda: torch.tensor(3.0), [parameter]).trace == 0
+
+
+def test_frozen_conditioning_does_not_share_tensors():
+    nested = {"text_embeds": torch.ones(2, 3, requires_grad=True),
+              "time_ids": [torch.ones(2, 6)]}
+    frozen = freeze_eval_batch(
+        latents=torch.ones(2, 1), encoder_hidden_states=torch.ones(2, 3),
+        added_cond_kwargs=nested, num_train_timesteps=10, seed=1, device="cpu",
+        add_noise=lambda *args: None,
+    )
+    nested["text_embeds"].data.zero_()
+    nested["time_ids"][0].zero_()
+    assert frozen.added_cond_kwargs["text_embeds"].sum() == 6
+    assert not frozen.added_cond_kwargs["text_embeds"].requires_grad
+    assert frozen.added_cond_kwargs["time_ids"][0].sum() == 12
+
+
+def test_diagnostic_restores_rng_and_each_module_mode_on_failure():
+    from backend.src.models.hooks.hessian_trace import diagnostic_eval
+
+    model = nn.Sequential(nn.Linear(2, 2), nn.Dropout())
+    model.train()
+    model[0].eval()
+    modes = [module.training for module in model.modules()]
+    before = torch.random.get_rng_state().clone()
+    with pytest.raises(RuntimeError), diagnostic_eval(model, 42):
+        assert not any(module.training for module in model.modules())
+        torch.rand(4)
+        raise RuntimeError("diagnostic failure")
+    assert torch.equal(torch.random.get_rng_state(), before)
+    assert [module.training for module in model.modules()] == modes

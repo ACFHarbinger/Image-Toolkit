@@ -655,6 +655,7 @@ class ComfyUITab(QWidget):
     def _on_mode_changed(self, _index: int) -> None:
         mode = self._mode_combo.currentData()
         cfg = WORKFLOW_MODES[mode]
+        self._syncing_param = True
         self._extra_ckpt_label.setText(cfg["extra_label"])
         self._extra_ckpt_edit.setText(cfg["extra_default"])
         self._image_label.setText(cfg["image_label"])
@@ -662,6 +663,7 @@ class ComfyUITab(QWidget):
         self._image_edit.setEnabled(needs_image)
         self._browse_btn.setEnabled(needs_image)
         self._revalidate([mode])
+        self._syncing_param = False
         self._sync_all_guided_params()
 
     def _on_browse_image(self) -> None:
@@ -765,6 +767,9 @@ class ComfyUITab(QWidget):
             widget_key = cfg.get("extra_key")
         if not widget_key:
             return
+        if widget_key == "image":
+            # Local paths need upload_image's returned server token, not direct widget sync.
+            return
         self._bridge.sync_param(node_id, widget_key, value)
 
     def _sync_all_guided_params(self) -> None:
@@ -774,13 +779,7 @@ class ComfyUITab(QWidget):
         cfg = WORKFLOW_MODES.get(mode)
         if not cfg:
             return
-        self._sync_guided_param_to_graph("checkpoint_node", "ckpt_name", self._base_ckpt_edit.text().strip())
-        self._sync_guided_param_to_graph("positive_node", "text", self._prompt_edit.text())
-        self._sync_guided_param_to_graph("negative_node", "text", self._negative_prompt_edit.text())
-        if cfg.get("extra_node"):
-            self._sync_guided_param_to_graph("extra_node", cfg.get("extra_key"), self._extra_ckpt_edit.text().strip())
-        if cfg.get("image_node") and self._image_edit.text().strip():
-            self._sync_guided_param_to_graph("image_node", "image", self._image_edit.text().strip())
+        self._bridge.bind_template(_load_workflow_template(cfg["template"]))
 
     @Slot(str, str, str)
     def _on_param_changed_from_graph(self, node_id: str, widget_name: str, raw_value: str) -> None:
@@ -806,16 +805,13 @@ class ComfyUITab(QWidget):
             elif str(node_id) == str(cfg.get("negative_node")) and widget_name.lower() == "text":
                 if self._negative_prompt_edit.text() != val_str:
                     self._negative_prompt_edit.setText(val_str)
-            elif cfg.get("extra_node") and str(node_id) == str(cfg.get("extra_node")) and widget_name.lower() == str(cfg.get("extra_key", "")).lower():
-                if self._extra_ckpt_edit.text() != val_str:
-                    self._extra_ckpt_edit.setText(val_str)
             elif (
-                cfg.get("image_node")
-                and str(node_id) == str(cfg.get("image_node"))
-                and widget_name.lower() == "image"
-                and self._image_edit.text() != val_str
+                cfg.get("extra_node") and str(node_id) == str(cfg.get("extra_node"))
+                and widget_name.lower() == str(cfg.get("extra_key", "")).lower()
+                and self._extra_ckpt_edit.text() != val_str
             ):
-                self._image_edit.setText(val_str)
+                self._extra_ckpt_edit.setText(val_str)
+
         finally:
             self._syncing_param = False
 
@@ -836,7 +832,7 @@ class ComfyUITab(QWidget):
         view = QWebEngineView(self._web_container)
         self._web_layout.addWidget(view)
         try:
-            self._web_channel, self._bridge = setup_comfy_web_channel(view)
+            self._web_channel, self._bridge = setup_comfy_web_channel(view, allowed_url=self._manager.url)
             self._bridge.param_changed_in_graph.connect(self._on_param_changed_from_graph)
             self._bridge.bridge_ready.connect(self._sync_all_guided_params)
             self._bridge.log_message.connect(lambda msg: self._append_log(f"[bridge] {msg}\n"))
@@ -844,10 +840,14 @@ class ComfyUITab(QWidget):
             self._append_log(f"[bridge] Channel setup error: {exc}\n")
         view.load(QUrl(self._manager.url))
         self._web_view = view
+        from backend.src.comfy_matrix import gpu_lease
+        gpu_lease.note_embedded_view(str(id(self)), True)
 
     def _unmount_web_view(self) -> None:
         view = self._web_view
         self._web_view = None
+        from backend.src.comfy_matrix import gpu_lease
+        gpu_lease.note_embedded_view(str(id(self)), False)
         if self._web_channel is not None and self._bridge is not None:
             with contextlib.suppress(Exception):
                 self._web_channel.deregisterObject(self._bridge)

@@ -14,6 +14,13 @@
     window._comfyBridgeInjected = true;
 
     var bridge = null;
+    var moduleApp = null;
+    var expectedTemplate = null;
+    var hookedGraph = null;
+    // ComfyUI can expose app only through its ES module.
+    if (!window.app) {
+        import("/scripts/app.js").then(function(module) { moduleApp = module.app; }).catch(function() {});
+    }
     var pendingHighlight = null;
     var pendingParamSync = [];
 
@@ -25,12 +32,12 @@
     }
 
     function getGraph() {
-        var app = window.app;
+        var app = window.app || moduleApp;
         return (app && app.graph) ? app.graph : (window.graph || null);
     }
 
     function getCanvas() {
-        var app = window.app;
+        var app = window.app || moduleApp;
         if (app && app.canvas) return app.canvas;
         if (window.LGraphCanvas && window.LGraphCanvas.active_canvas) {
             return window.LGraphCanvas.active_canvas;
@@ -53,6 +60,36 @@
             });
         }
         return node || null;
+    }
+
+    function matchesTemplate(graph) {
+        if (!graph || !expectedTemplate || !Array.isArray(graph._nodes)) return false;
+        var ids = Object.keys(expectedTemplate);
+        if (ids.length !== graph._nodes.length) return false;
+        return ids.every(function(id) {
+            var spec = expectedTemplate[id];
+            var node = findNode(graph, id);
+            if (!node || (node.comfyClass || node.type) !== spec.class_type) return false;
+            return Object.keys(spec.inputs || {}).every(function(name) {
+                var value = spec.inputs[name];
+                var input = (node.inputs || []).find(function(item) { return item.name === name; });
+                if (!Array.isArray(value)) return !input || input.link == null;
+                if (!input || input.link == null || !graph.links) return false;
+                var link = typeof graph.links.get === "function" ? graph.links.get(input.link) : graph.links[input.link];
+                return link && String(link.origin_id) === String(value[0]) && link.origin_slot === value[1];
+            });
+        });
+    }
+
+    function bindTemplate(raw) {
+        try { expectedTemplate = JSON.parse(raw); } catch (e) { expectedTemplate = null; }
+        var graph = getGraph();
+        if (!matchesTemplate(graph) || !bridge) return;
+        graph._nodes.forEach(function(node) {
+            (node.widgets || []).forEach(function(widget) {
+                if (widget && widget.name) bridge.notifyParamChanged(String(node.id), widget.name, JSON.stringify(widget.value));
+            });
+        });
     }
 
     function highlightNode(nodeId) {
@@ -84,8 +121,8 @@
                 var s = canvas.ds.scale || 1.0;
                 var nw = (node.size && node.size[0]) ? node.size[0] : 120;
                 var nh = (node.size && node.size[1]) ? node.size[1] : 80;
-                canvas.ds.offset[0] = (w / 2) - (node.pos[0] + nw / 2) * s;
-                canvas.ds.offset[1] = (h / 2) - (node.pos[1] + nh / 2) * s;
+                canvas.ds.offset[0] = (w / 2) / s - (node.pos[0] + nw / 2);
+                canvas.ds.offset[1] = (h / 2) / s - (node.pos[1] + nh / 2);
             }
 
             // 2. Select node
@@ -142,6 +179,7 @@
                 return false;
             }
 
+            if (!matchesTemplate(graph)) return false;
             var node = findNode(graph, nodeId);
             if (!node) {
                 log("setNodeWidgetValue: node " + nodeId + " not found");
@@ -204,11 +242,11 @@
     }
 
     function hookNode(node) {
-        if (!node || !Array.isArray(node.widgets) || node._bridgeHooked) return;
-        node._bridgeHooked = true;
+        if (!node || !Array.isArray(node.widgets)) return;
 
         node.widgets.forEach(function(widget) {
-            if (!widget) return;
+            if (!widget || widget._bridgeHooked) return;
+            widget._bridgeHooked = true;
             var origCallback = widget.callback;
             widget.callback = function(value) {
                 try {
@@ -218,11 +256,9 @@
                 } catch (e) {
                     console.error("[comfy_bridge] original widget callback error:", e);
                 }
-                if (!window._bridgeUpdating && bridge && typeof bridge.notifyParamChanged === "function") {
+                if (!window._bridgeUpdating && matchesTemplate(getGraph()) && bridge && typeof bridge.notifyParamChanged === "function") {
                     try {
-                        var vStr = (typeof value === "object" && value !== null)
-                            ? JSON.stringify(value)
-                            : String(value);
+                        var vStr = JSON.stringify(value);
                         bridge.notifyParamChanged(String(node.id), String(widget.name), vStr);
                     } catch (e) {
                         console.error("[comfy_bridge] notifyParamChanged error:", e);
@@ -244,6 +280,9 @@
         if (!graph) return false;
 
         hookAllNodes(graph);
+        if (hookedGraph === graph) return true;
+        hookedGraph = graph;
+        if (expectedTemplate) bindTemplate(JSON.stringify(expectedTemplate));
 
         var origOnNodeAdded = graph.onNodeAdded;
         graph.onNodeAdded = function(node) {
@@ -287,6 +326,9 @@
             log("QWebChannel connected to comfyBridge");
 
             if (bridge) {
+                if (bridge.bind_template_requested) {
+                    bridge.bind_template_requested.connect(bindTemplate);
+                }
                 if (bridge.highlight_node_requested) {
                     bridge.highlight_node_requested.connect(function(nodeId) {
                         highlightNode(nodeId);
@@ -308,13 +350,7 @@
                 }
             }
 
-            var pollCount = 0;
-            var pollTimer = setInterval(function() {
-                pollCount++;
-                if (initGraphHooks() || pollCount > 80) {
-                    clearInterval(pollTimer);
-                }
-            }, 250);
+            setInterval(initGraphHooks, 250);
         });
     }
 
@@ -324,7 +360,9 @@
         findNode: findNode,
         initGraphHooks: initGraphHooks,
         getGraph: getGraph,
-        getCanvas: getCanvas
+        getCanvas: getCanvas,
+        bindTemplate: bindTemplate,
+        matchesTemplate: matchesTemplate
     };
 
     if (document.readyState === "complete" || document.readyState === "interactive") {

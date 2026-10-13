@@ -261,21 +261,21 @@ def test_rising_trace_warns_sharpening():
     sharp = card.verdicts[2]
     assert sharp.question == "Sharp or flat?"
     assert sharp.status == STATUS_WARN
-    assert "sharpening" in sharp.detail
+    assert "curvature increased" in sharp.detail
 
 
 def test_falling_trace_is_flattening():
     events = _gauge_run([1.0, 0.8, 0.6, 0.5, 0.4, 0.3, 0.25, 0.2], [20.0, 9.0])
     card = generate_training_report(events)
     sharp = card.verdicts[2]
-    assert sharp.status == STATUS_GOOD
-    assert "flattening" in sharp.detail
+    assert sharp.status == STATUS_INFO
+    assert "does not establish generalization" in sharp.detail
 
 
 def test_stable_trace_is_good_and_single_point_is_absent():
     events = _gauge_run([1.0, 0.8, 0.6, 0.5, 0.4, 0.3, 0.25, 0.2], [10.0, 10.5])
     card = generate_training_report(events)
-    assert card.verdicts[2].status == STATUS_GOOD
+    assert card.verdicts[2].status == STATUS_INFO
 
     single = _gauge_run([1.0, 0.8, 0.6, 0.5, 0.4, 0.3, 0.25, 0.2], [10.0])
     assert len(generate_training_report(single).verdicts) == 2

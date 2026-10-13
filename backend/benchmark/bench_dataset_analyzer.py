@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import shutil
 import sys
 import time
@@ -151,7 +152,8 @@ def _generate_dataset(root: Path, count: int) -> list[str]:
         paths.append(str(junk))
 
     manifest = {
-        "version": 1, "count": len(paths), "normal": normal,
+        "files": sorted(p.name for p in root.iterdir() if p.is_file()),
+        "version": 2, "count": len(paths), "normal": normal,
         "bytes": sum(p.stat().st_size for p in root.iterdir() if p.is_file()),
     }
     (root / _FIXTURE_MARKER).write_text(json.dumps(manifest), encoding="utf-8")
@@ -160,19 +162,37 @@ def _generate_dataset(root: Path, count: int) -> list[str]:
 
 def _setup(data_dir: Path, count: int, regenerate: bool) -> None:
     global _FIXTURE_SUMMARY, _ALL_PATHS
+    data_dir = data_dir.expanduser().resolve()
+    allowed = (Path.home() / "Downloads" / "Data" / "Tests").resolve()
+    if data_dir == allowed or not data_dir.is_relative_to(allowed):
+        raise ValueError("Fixture directory must be a child of ~/Downloads/Data/Tests.")
+    if count < _FIXTURE_FILES + 20:
+        raise ValueError("count must leave at least 20 normal images for duplicate fixtures")
     marker = data_dir / _FIXTURE_MARKER
-    if regenerate and data_dir.is_dir():
-        shutil.rmtree(data_dir)
-    if marker.is_file():
+    if data_dir.exists() and any(data_dir.iterdir()):
+        if not marker.is_file():
+            raise ValueError("Refusing to modify a non-fixture directory.")
         manifest = json.loads(marker.read_text(encoding="utf-8"))
-        if manifest.get("count") == count:
-            _FIXTURE_SUMMARY = manifest
-            _ALL_PATHS = [
-                str(p) for p in sorted(data_dir.iterdir())
-                if p.suffix in {".png", ".jpg", ".jpeg", ".webp"} and p.is_file()
-            ]
+        paths = [str(p) for p in sorted(data_dir.iterdir())
+                 if p.suffix in {".png", ".jpg", ".jpeg", ".webp"} and p.is_file()]
+        if not regenerate and manifest.get("count") == count and len(paths) == count:
+            _FIXTURE_SUMMARY, _ALL_PATHS = manifest, paths
+            _WARM_CACHE.clear()
             return
-        shutil.rmtree(data_dir)
+        owned = manifest.get("files")
+        if manifest.get("version") != 2 or not isinstance(owned, list):
+            raise ValueError("Legacy fixture cannot be removed automatically; choose an empty directory.")
+        actual = {p.name for p in data_dir.iterdir()}
+        if actual != set(owned) | {_FIXTURE_MARKER}:
+            raise ValueError("Fixture contains unrecognized files; refusing regeneration.")
+        if any(not isinstance(name, str) or Path(name).name != name or
+               not re.fullmatch(r"(?:img|dup|scene|extreme|broken)_[0-9_]+\.(?:png|jpg|webp|txt)", name)
+               for name in owned):
+            raise ValueError("Invalid fixture manifest.")
+        for name in owned:
+            (data_dir / name).unlink()
+        marker.unlink()
+    _WARM_CACHE.clear()
     started = time.perf_counter()
     _ALL_PATHS = _generate_dataset(data_dir, count)
     _FIXTURE_SUMMARY = json.loads(marker.read_text(encoding="utf-8"))
@@ -183,16 +203,13 @@ def _setup(data_dir: Path, count: int, regenerate: bool) -> None:
 # shared across iterations — the panel's re-scan after a trigger-token edit.
 _WARM_CACHE: dict = {}
 
-runner = BenchmarkManager("Dataset Analyzer (Gate D.4 deterministic checks)")
 
 
-@runner.benchmark("scan_cold_no_hash_cache", iterations=3, warmup=0)
 def bench_scan_cold() -> None:
     """Full scan, hash cache disabled: every file re-hashed + probed."""
     dataset_advisor.scan_dataset(_ALL_PATHS, trigger=TRIGGER)
 
 
-@runner.benchmark("scan_warm_hash_cache", iterations=5, warmup=1)
 def bench_scan_warm() -> None:
     """Panel re-scan path: mtime/size-validated cache skips re-hashing."""
     dataset_advisor.scan_dataset(_ALL_PATHS, trigger=TRIGGER, hash_cache=_WARM_CACHE)
@@ -238,12 +255,12 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--data-dir", type=Path, default=_DEFAULT_DATA_DIR)
     parser.add_argument("--count", type=int, default=1200,
-                        help="total image files incl. fixed fixtures (must exceed 1074)")
+                        help="total image files including 64 fixed fixtures (minimum 84)")
     parser.add_argument("--regenerate", action="store_true")
     parser.add_argument("--save", action="store_true", help="write JSON report")
     args = parser.parse_args()
-    if args.count <= _FIXTURE_FILES:
-        parser.error(f"--count must exceed {_FIXTURE_FILES} fixed fixture files")
+    if args.count < _FIXTURE_FILES + 20:
+        parser.error(f"--count must be at least {_FIXTURE_FILES + 20}")
 
     _setup(args.data_dir, args.count, args.regenerate)
     total_bytes = _FIXTURE_SUMMARY["bytes"]
@@ -252,6 +269,9 @@ def main() -> None:
     print(f"dataset: {_FIXTURE_SUMMARY['count']} files, "
           f"{total_bytes / 1e9:.2f} GB ({gen_note})")
 
+    runner = BenchmarkManager("Dataset Analyzer (Gate D.4 deterministic checks)")
+    runner.benchmark("scan_no_hash_cache", iterations=3, warmup=0)(bench_scan_cold)
+    runner.benchmark("scan_warm_hash_cache", iterations=5, warmup=1)(bench_scan_warm)
     runner.run()
 
     breakdown = _phase_breakdown()
@@ -264,7 +284,7 @@ def main() -> None:
           f"  findings={breakdown['findings']}")
 
     if args.save:
-        out = runner.save_json()
+        out = runner.save_json(args.data_dir.resolve().parent / (args.data_dir.name + "-results.json"))
         print(f"\nreport saved: {out}")
         payload = json.loads(Path(out).read_text(encoding="utf-8"))
         payload["dataset"] = _FIXTURE_SUMMARY

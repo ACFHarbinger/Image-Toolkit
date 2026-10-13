@@ -61,6 +61,7 @@ class ComfyBridge(QObject):
     """Bidirectional QWebChannel bridge object registered as 'comfyBridge'."""
 
     # Python -> JS signals
+    bind_template_requested = Signal(str)
     highlight_node_requested = Signal(str)
     sync_param_requested = Signal(str, str, str)  # (node_id, widget_name, value_json)
     set_image_requested = Signal(str, str)        # (node_id, image_filename)
@@ -72,9 +73,10 @@ class ComfyBridge(QObject):
     param_changed_in_graph = Signal(str, str, str)  # (node_id, widget_name, raw_value)
     log_message = Signal(str)
 
-    def __init__(self, parent: QObject | None = None) -> None:
+    def __init__(self, parent: QObject | None = None, origin_check=None) -> None:
         super().__init__(parent)
         self._is_ready = False
+        self._origin_check = origin_check or (lambda: True)
 
     @property
     def is_ready(self) -> bool:
@@ -97,7 +99,8 @@ class ComfyBridge(QObject):
 
     @Slot(str, str, str)
     def notifyParamChanged(self, node_id: str, widget_name: str, value: str) -> None:
-        self.param_changed_in_graph.emit(node_id, widget_name, value)
+        if self._origin_check():
+            self.param_changed_in_graph.emit(node_id, widget_name, value)
 
     @Slot(str)
     def log(self, message: str) -> None:
@@ -111,16 +114,23 @@ class ComfyBridge(QObject):
 
     def sync_param(self, node_id: str | int, widget_name: str, value: object) -> None:
         """Update widget_name on node_id in the graph canvas."""
-        val_str = json.dumps(value) if not isinstance(value, str) else value
+        if not self._origin_check():
+            return
+        val_str = json.dumps(value)
         self.sync_param_requested.emit(str(node_id), str(widget_name), val_str)
+
+    def bind_template(self, workflow: dict) -> None:
+        if self._origin_check():
+            self.bind_template_requested.emit(json.dumps(workflow))
 
     def set_image_node(self, node_id: str | int, image_filename: str) -> None:
         """Set the image parameter on a LoadImage node."""
-        self.set_image_requested.emit(str(node_id), str(image_filename))
+        if self._origin_check():
+            self.set_image_requested.emit(str(node_id), json.dumps(image_filename))
 
 
 def setup_comfy_web_channel(
-    view: QWebEngineView, bridge: ComfyBridge | None = None
+    view: QWebEngineView, bridge: ComfyBridge | None = None, *, allowed_url: str | None = None
 ) -> tuple[QWebChannel, ComfyBridge]:
     """Register QWebChannel and inject comfy_bridge.js into the view's page.
 
@@ -130,7 +140,15 @@ def setup_comfy_web_channel(
     if not WEB_ENGINE_AVAILABLE:
         raise RuntimeError("QtWebEngine or QtWebChannel is not available.")
 
-    bridge = bridge or ComfyBridge(view)
+    from urllib.parse import urlsplit
+
+    def origin(url):
+        value = urlsplit(url)
+        return value.scheme, value.hostname, value.port or (443 if value.scheme == "https" else 80)
+
+    expected = origin(allowed_url) if allowed_url else None
+    bridge = bridge or ComfyBridge(view, origin_check=lambda: expected is not None and
+                                   origin(view.url().toString()) == expected)
     channel = QWebChannel(view)
     channel.registerObject("comfyBridge", bridge)
 

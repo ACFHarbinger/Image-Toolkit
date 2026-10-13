@@ -128,16 +128,17 @@ def _extract_hessian(events: Iterable[dict]) -> tuple[list[int], list[float]]:
             continue
         if not math.isfinite(value):
             continue
-        steps.append(int(event.get("step", len(steps))))
+        try:
+            step = int(event.get("step", len(steps)))
+        except (TypeError, ValueError, OverflowError):
+            continue
+        steps.append(step)
         traces.append(value)
     return steps, traces
 
 
 def _sharpness_verdict(traces: Sequence[float]) -> ReportVerdict | None:
-    """#756 Generalization Gauge: a rising adapter-space Hessian trace
-    means a sharpening (brittle, overfitting-prone) minimum; a falling or
-    low one a flatter, more generalizable one. None when the run logged
-    no gauge — the card stays unchanged."""
+    """Describe estimated curvature changes without inferring generalization."""
     question = "Sharp or flat?"
     if len(traces) < 2:
         return None
@@ -148,14 +149,13 @@ def _sharpness_verdict(traces: Sequence[float]) -> ReportVerdict | None:
     headline = f"Hessian trace {change:+.0%} across checkpoints ({first:.3g} → {last:.3g})"
     if change >= 0.25:
         return ReportVerdict(question, STATUS_WARN, headline,
-                             "The minimum is sharpening — higher overfitting risk; "
-                             "prefer the earlier checkpoints")
+                             "Estimated adapter curvature increased on the fixed training batch; "
+                             "compare held-out quality before choosing a checkpoint")
     if change <= -0.25:
-        return ReportVerdict(question, STATUS_GOOD, headline,
-                             "The minimum is flattening — the later checkpoints "
-                             "should generalize better")
-    return ReportVerdict(question, STATUS_GOOD, headline,
-                         "Curvature is roughly stable across checkpoints")
+        return ReportVerdict(question, STATUS_INFO, headline,
+                             "Estimated adapter curvature decreased; this alone does not establish generalization")
+    return ReportVerdict(question, STATUS_INFO, headline,
+                         "Estimated adapter curvature is roughly stable across checkpoints")
 
 
 def _learn_verdict(losses: Sequence[float]) -> ReportVerdict:

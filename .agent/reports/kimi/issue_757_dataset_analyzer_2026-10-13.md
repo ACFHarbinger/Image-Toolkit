@@ -1,3 +1,8 @@
+> Review correction: “cold” below means no application hash cache, not cold OS/storage caches.
+> Files were generated/reused before scanning; no cache eviction was measured.
+> These timings support deferring native code on this synthetic corpus, not a universal C++ speedup ceiling.
+> Codex did not rerun this benchmark. Fresh runs require the AGENTS.md Codex/Harbinger authorization chain.
+
 # #757 — C++ dataset analyzer: benchmark-first verdict (NOT NEEDED)
 
 Date: 2026-10-13. Owner: Kimi. Branch: `dl-757-dataset-analyzer`.
