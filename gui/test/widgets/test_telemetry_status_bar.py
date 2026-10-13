@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import threading
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
@@ -43,6 +44,27 @@ class TestTelemetryStatusBar:
         bar.set_vram_status(allocated_gb=5.5, total_gb=16.0)
         assert "5.5/16.0 GB" in bar.gpu_chip.text()
 
+        bar.dispose()
+
+    def test_gpu_chip_shows_lease_holder_on_existing_chip(self, q_app):
+        snap = SimpleNamespace(
+            owner="lora-train",
+            profile="conservative",
+            estimated_gb=4.0,
+            measured_peak_gb=3.2,
+            device_total_gb=16.0,
+            external_browser=False,
+            kind="train",
+        )
+        bar = TelemetryStatusBar(sample_interval_ms=0, lease_snapshot=lambda: snap)
+        bar.set_vram_status(allocated_gb=5.5, total_gb=16.0)
+        assert "5.5/16.0 GB" in bar.gpu_chip.text()
+        assert "lora-train" in bar.gpu_chip.text()
+        tip = bar.gpu_chip.toolTip()
+        assert "conservative" in tip
+        assert "Holder: lora-train" in tip
+        assert "Estimated: 4.0 GB" in tip
+        assert "Measured peak: 3.2 GB" in tip
         bar.dispose()
 
     def test_event_hub_telemetry_fact(self, q_app):
