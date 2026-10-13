@@ -8,9 +8,17 @@ from __future__ import annotations
 import copy
 import json
 import math
-import threading
 from collections.abc import Callable
 from dataclasses import dataclass
+
+from backend.src.core.gpu_lease_arbiter import (
+    PROFILE_BALANCED,
+    GpuLeaseArbiter,
+    cuda_device_total_gb,
+    cuda_peak_gb,
+    profile_from_env,
+    release_unused_cuda_blocks,
+)
 
 CELL_MIN = 3
 CELL_MAX = 9
@@ -90,58 +98,47 @@ THERMAL_CEILING_C = 85.0
 VIEW_BYTE_CAP = 2_000_000
 
 
-class GpuLease:
+class GpuLease(GpuLeaseArbiter):
     """In-process admission: one holder at a time.
 
     Comfy submissions, training, and other model jobs share this object.
     A matrix sweep keeps it until each cell's execution returns. Comfy's
     browser queue is not visible here, so ``machine_wide`` stays false.
+
+    Occupancy the mutex cannot cover (estimated vs device VRAM, conservative
+    vs balanced profiles, a noted Comfy browser session) lives on
+    ``GpuLeaseArbiter``. ``empty_cache`` on the process lease only runs on a
+    job-kind transition and is not a general VRAM fix.
     """
 
-    def __init__(self) -> None:
-        self._lock = threading.Lock()
-        self.owner: str | None = None
-        self.external_browser = False
 
-    @property
-    def machine_wide(self) -> bool:
-        return False
-
-    def note_external_browser(self, active: bool = True) -> None:
-        self.external_browser = bool(active)
-
-    def scope_text(self) -> str:
-        if self.external_browser:
-            browser = " A Comfy browser session is open and can submit work this admission cannot see."
-        else:
-            browser = " Comfy browser jobs are outside this admission."
-        return (
-            "In-process jobs share one GPU admission "
-            "(Comfy queues, training, and other model jobs)." + browser
-        )
-
-    def try_acquire(self, owner: str) -> bool:
-        if not self._lock.acquire(blocking=False):
-            return False
-        self.owner = owner
-        return True
-
-    def release(self, owner: str) -> None:
-        if self.owner != owner:
-            return
-        self.owner = None
-        self._lock.release()
+def _startup_profile() -> str:
+    try:
+        return profile_from_env()
+    except ValueError:
+        return PROFILE_BALANCED
 
 
-gpu_lease = GpuLease()
+gpu_lease = GpuLease(
+    profile=_startup_profile(),
+    empty_cache=release_unused_cuda_blocks,
+    peak_reader=cuda_peak_gb,
+    device_probe=cuda_device_total_gb,
+)
 
 
-def try_admit(owner: str, lease: GpuLease | None = None) -> str | None:
-    """Acquire *lease* for *owner*. Return a refusal message when it is busy."""
+def try_admit(
+    owner: str,
+    lease: GpuLease | None = None,
+    *,
+    estimated_gb: float | None = None,
+    kind: str | None = None,
+) -> str | None:
+    """Acquire *lease* for *owner*. Return a refusal message when it cannot."""
     holder = lease or gpu_lease
-    if holder.try_acquire(owner):
+    if holder.try_acquire(owner, estimated_gb=estimated_gb, kind=kind):
         return None
-    return f"GPU admission is held by {holder.owner or 'another job'}."
+    return holder.refusal_text()
 
 
 def apply_node_overrides(workflow: dict, overrides: dict | None) -> dict:
