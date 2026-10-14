@@ -8,6 +8,7 @@ We try all known names in descending preference order.
 """
 
 import logging
+import re
 import shutil
 from typing import Optional
 
@@ -16,6 +17,48 @@ import base  # Native extension
 from backend.src.constants.core import _QDBUS_CANDIDATES
 
 logger = logging.getLogger(__name__)
+
+
+# After a plasmashell restart, Plasma's scripting ``currentActivity()`` can
+# come back empty, and ``desktops()`` -- which only lists the current
+# activity's containments -- then returns nothing even though the desktop
+# containments still exist (``desktopsForActivity()`` lists them). Every
+# script's ``desktops()`` call is routed through this fallback: the current
+# activity first, then the activity with one desktop per screen. Containments
+# are ordered by screen, or by id when ``screen`` reads -1 (the same
+# desktop-index <-> output-index correspondence ``desktops()`` gives).
+_DESKTOPS_FALLBACK_JS = """
+function itkDesktops() {
+    var ds = desktops();
+    if (ds.length) return ds;
+    var acts = [];
+    try { var cur = currentActivity(); if (cur) acts.push(cur); } catch (e) {}
+    try {
+        var all = activities();
+        for (var k = 0; k < all.length; k++) if (acts.indexOf(all[k]) < 0) acts.push(all[k]);
+    } catch (e) {}
+    var found = [];
+    for (var a = 0; a < acts.length; a++) {
+        var da = [];
+        try { da = desktopsForActivity(acts[a]); } catch (e) {}
+        if (da.length === screenCount) { found = da; break; }
+        if (!found.length && da.length) found = da;
+    }
+    var out = [];
+    for (var j = 0; j < found.length; j++) out.push(found[j]);
+    var byScreen = out.every(function (c) { return c.screen >= 0; });
+    out.sort(function (x, y) { return byScreen ? x.screen - y.screen : x.id - y.id; });
+    return out;
+}
+"""
+_DESKTOPS_CALL = re.compile(r"(?<![\w.])desktops\(\)")
+
+
+def with_desktops_fallback(script: str) -> str:
+    """Route ``desktops()`` calls in *script* through ``itkDesktops()``."""
+    if not _DESKTOPS_CALL.search(script):
+        return script
+    return _DESKTOPS_FALLBACK_JS + _DESKTOPS_CALL.sub("itkDesktops()", script)
 
 
 def find_qdbus_binary() -> Optional[str]:
@@ -65,6 +108,7 @@ def evaluate_kde_script_with_fallback(qdbus: Optional[str], script: str) -> str:
 
     Returns the script output string.
     """
+    script = with_desktops_fallback(script)
     if qdbus:
         try:
             return base.evaluate_kde_script(qdbus, script)
@@ -85,4 +129,5 @@ __all__ = [
     "find_qdbus_binary",
     "evaluate_kde_script_dbus_python",
     "evaluate_kde_script_with_fallback",
+    "with_desktops_fallback",
 ]

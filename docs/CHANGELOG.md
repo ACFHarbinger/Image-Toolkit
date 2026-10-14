@@ -19,6 +19,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
+- KDE: setting a wallpaper after restarting plasmashell failed with "monitor N has no valid KDE desktop/screen". After the restart Plasma's scripting `currentActivity()` is empty, so `desktops()` returned no containments. Every Plasma script now resolves desktops through a fallback that uses `desktopsForActivity()` (the current activity first, then the activity with one desktop per screen), ordered by screen, or by containment id when `screen` reads -1. File: `backend/src/core/wallpaper/_dbus.py`. Tests: `backend/test/image/test_wallpaper_kde_dbus_fallback.py`.
+
 - `matplotlib` is now a declared GUI dependency (the adapter-rank and training-experiment chart dialogs import it; it was only in the backend `benchmark` group, so clean installs and CI lacked it). CI also fetches the pinned `submodules/ASP` commit again (it was never pushed; now merged in ASP #62), and `uv.lock` matches the workspace. The hidden Generate upscale button and status label are parented to the surface again.
 
 - LoRA V2 training: `full_bf16` now loads the frozen base in bf16 (it was declared in profiles but unused); `seed` now seeds training RNGs (noise/timesteps were unseeded); and `adamw8bit` without bitsandbytes falls back to torch AdamW with a warning, where it used to abort every default-config run. Files: `backend/src/models/tuning/lo_ra_tuner_v2.py`, `lo_ra_tuner_config.py`, `backend/src/pipeline/anime_training_pipeline.py`. Tests: `backend/test/models/test_tuner_precision_seed.py`.
