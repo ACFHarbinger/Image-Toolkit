@@ -55,5 +55,5 @@
 | `gui/src/windows/settings/settings_window.py` | 345 | 28 | 10 | 383 |
 | `gui/src/tabs/web/drive_sync_tab/sync_data_subtab/widget.py` | 344 | 26 | 13 | 383 |
 | `backend/src/utils/display/slideshow_daemon.py` | 343 | 32 | 33 | 408 |
-| `backend/src/core/checkpoint_tournament.py` | 338 | 11 | 41 | 390 |
-| **TOTALS** | **101564** | **6527** | **10424** | **118515** |
+| `backend/src/pipeline/anime_training_pipeline.py` | 338 | 42 | 36 | 416 |
+| **TOTALS** | **101580** | **6528** | **10430** | **118538** |
