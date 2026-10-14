@@ -33,4 +33,9 @@ Fix: `buckets_for_resolution()` scales the bucket set to `training.resolution`, 
 
 ## Verdict
 
-The gauge works in a real training loop on GPU: it logs per checkpoint, covers exactly the adapter parameters, stays finite, and the report card renders it. It fails soft when memory runs out. **Keep `hessian_vectors` opt-in (default 0):** it fits at 256px, but not at 512px on a 12 GB laptop with fp32 weights. Follow-ups: bf16 model loading (H4) would likely bring 512px within budget.
+The gauge works in a real training loop on GPU: it logs per checkpoint, covers exactly the adapter parameters, stays finite, and the report card renders it. It fails soft when memory runs out. **Keep `hessian_vectors` opt-in (default 0):** it fits at 256px, but not at 512px on a 12 GB laptop with fp32 weights. ## Follow-up: H2/H3/H4 fixed, then 512px rerun (arms E/F)
+
+- **H4 `full_bf16`** now loads the frozen UNet/VAE/text encoders in bf16 (UNet 1.60 GiB instead of ~3.2). peft keeps adapters fp32.
+- **H2:** `adamw8bit` without bitsandbytes now falls back to torch AdamW with a warning instead of dying. Confirmed in the arm E log.
+- **H3:** the configured `seed` now seeds training (`accelerate.utils.set_seed`). Two identical runs (E/F) give identical losses for the first steps, then differ around the 4th significant digit (0.17612 vs 0.17615), which is nondeterministic GPU backward kernels, not RNG.
+- **512px with bf16 still runs out of memory** under the 9.28 GiB cap (8.84 GiB allocated vs 8.89 fp32). The failing allocation is a 512 MiB fp32 attention matrix (4096 tokens² × 8 heads). The gauge's double backward through MATH-SDPA attention is bound by activations, not weights. **This corrects the earlier expectation that bf16 would make 512px fit.** Fitting 512px would need a different HVP method (e.g. finite-difference HVP, which allows fused attention) or a downsampled frozen batch. That's a design decision, so I'm not doing it here.

@@ -34,6 +34,7 @@ import safetensors.torch as sf
 import torch
 import torch.nn.functional as F
 from accelerate import Accelerator
+from accelerate.utils import set_seed
 from diffusers import (
     AutoencoderKL,
     DDPMScheduler,
@@ -121,6 +122,8 @@ class LoRATunerV2:
             mixed_precision=cfg.mixed_precision,
         )
 
+        if cfg.seed is not None:
+            set_seed(cfg.seed)
         print(f"[LoRATunerV2] Loading base model: {cfg.base_model_path}")
         self.is_sdxl = self._detect_sdxl(cfg.base_model_path)
         self._load_components()
@@ -139,26 +142,27 @@ class LoRATunerV2:
 
     def _load_components(self):
         cfg = self.cfg
+        dtype = {"torch_dtype": torch.bfloat16} if cfg.full_bf16 else {}
         self.tokenizer_one = CLIPTokenizer.from_pretrained(
             cfg.base_model_path, subfolder="tokenizer"
         )
         self.text_encoder_one = CLIPTextModel.from_pretrained(
-            cfg.base_model_path, subfolder="text_encoder"
+            cfg.base_model_path, subfolder="text_encoder", **dtype
         )
         if self.is_sdxl:
             self.tokenizer_two = CLIPTokenizer.from_pretrained(
                 cfg.base_model_path, subfolder="tokenizer_2"
             )
             self.text_encoder_two = CLIPTextModelWithProjection.from_pretrained(
-                cfg.base_model_path, subfolder="text_encoder_2"
+                cfg.base_model_path, subfolder="text_encoder_2", **dtype
             )
         else:
             self.tokenizer_two = None
             self.text_encoder_two = None
 
-        self.vae = AutoencoderKL.from_pretrained(cfg.base_model_path, subfolder="vae")
+        self.vae = AutoencoderKL.from_pretrained(cfg.base_model_path, subfolder="vae", **dtype)
         self.unet = UNet2DConditionModel.from_pretrained(
-            cfg.base_model_path, subfolder="unet"
+            cfg.base_model_path, subfolder="unet", **dtype
         )
 
         # Scheduler: handle v-prediction
@@ -278,12 +282,13 @@ class LoRATunerV2:
         params = self._param_groups
         name = self.cfg.optimizer_type.lower()
 
+        if name == "adamw8bit" and not _BNB_OK:
+            log.warning("bitsandbytes not installed; adamw8bit falls back to torch AdamW")
+            name = "adamw"
         if name == "adamw":
             return torch.optim.AdamW(params, weight_decay=self.cfg.weight_decay,
                                      betas=(0.9, 0.999), eps=1e-8)
         if name == "adamw8bit":
-            if not _BNB_OK:
-                raise ImportError("bitsandbytes is required for adamw8bit")
             return bnb.optim.AdamW8bit(params, weight_decay=self.cfg.weight_decay,
                                        betas=(0.9, 0.999), eps=1e-8)
         if name == "lion":
