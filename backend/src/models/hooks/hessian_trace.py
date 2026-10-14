@@ -218,3 +218,71 @@ __all__ = [
     "hutchinson_trace",
     "rademacher_probes",
 ]
+
+
+def run_checkpoint_gauge(
+    tuner, diagnostics, step: int, epoch: int, latents,
+    encoder_hidden_states, added_cond_kwargs,
+) -> None:
+    """#756: Generalization Gauge at a checkpoint point.
+
+    Hutchinson trace of the loss Hessian on the adapter parameters,
+    Opt-in Rademacher probes against a training batch frozen at the
+    first checkpoint (same latents/noise/timesteps afterwards, so
+    the trace series is comparable). Fail-soft by contract: no
+    diagnostics, the ``hessian_vectors=0`` off-switch, or any
+    failure degrades to no gauge — training never dies for a
+    diagnostic. ``autograd.grad`` never writes ``.grad``, so the
+    training state is preserved by construction.
+    """
+    cfg = tuner.cfg
+    if diagnostics is None or cfg.hessian_vectors <= 0 or latents is None:
+        return
+    if not getattr(tuner.accelerator, "is_main_process", True):
+        return
+    try:
+        if tuner._frozen_eval is None:
+            tuner._frozen_eval = freeze_eval_batch(
+                latents=latents,
+                encoder_hidden_states=encoder_hidden_states,
+                added_cond_kwargs=added_cond_kwargs,
+                num_train_timesteps=tuner.noise_scheduler.config.num_train_timesteps,
+                seed=cfg.validation_seed,
+                device=tuner.accelerator.device,
+                add_noise=tuner.noise_scheduler.add_noise,
+                get_velocity=(
+                    tuner.noise_scheduler.get_velocity
+                    if cfg.prediction_type == "v_prediction" else None
+                ),
+            )
+        frozen = tuner._frozen_eval
+
+        def frozen_loss() -> torch.Tensor:
+            noisy = tuner.noise_scheduler.add_noise(frozen.latents, frozen.noise, frozen.timesteps)
+            model_pred = model(
+                noisy, frozen.timesteps, frozen.encoder_hidden_states,
+                added_cond_kwargs=frozen.added_cond_kwargs,
+            ).sample
+            return tuner.compute_loss(model_pred, frozen.target, frozen.timesteps)
+
+        from torch.nn.attention import SDPBackend, sdpa_kernel
+
+        model = tuner.accelerator.unwrap_model(tuner.unet)
+        params = [p for p in model.parameters() if p.requires_grad]
+        # Unwrapped eval avoids DDP collectives and reentrant checkpointing.
+        with diagnostic_eval(model, cfg.validation_seed), sdpa_kernel(SDPBackend.MATH), tuner.accelerator.autocast():
+            report = hutchinson_trace(
+                frozen_loss, params,
+                num_vectors=cfg.hessian_vectors, seed=cfg.validation_seed,
+                batch_size=frozen.batch_size,
+            )
+        if not report.finite:
+            log.warning("Hessian trace non-finite at step %s — skipped", step)
+            return
+        diagnostics.log_step(
+            step,
+            epoch=epoch,
+            **{"hessian/trace": report.trace, "hessian/param": report.trace_per_param},
+        )
+    except Exception as exc:  # fail-soft: a diagnostic must never kill training
+        log.warning("Hessian trace failed at step %s: %s", step, exc)

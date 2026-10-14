@@ -7,36 +7,45 @@ import pytest
 from backend.benchmark import bench_dataset_analyzer as bench
 
 
+@pytest.fixture
+def fixture_dir(tmp_path, monkeypatch):
+    """A child of a fake ~/Downloads/Data/Tests, so the root guard passes."""
+    monkeypatch.setattr(bench.Path, "home", classmethod(lambda cls: tmp_path))
+    child = tmp_path / "Downloads" / "Data" / "Tests" / "bench"
+    child.mkdir(parents=True)
+    return child
+
+
 def test_refuses_regeneration_outside_test_root(tmp_path):
     with pytest.raises(ValueError, match="child"):
         bench._setup(Path("/"), 1200, True)
 
 
-def test_refuses_unmarked_directory(tmp_path):
-    important = tmp_path / "keep.txt"
+def test_refuses_unmarked_directory(fixture_dir):
+    important = fixture_dir / "keep.txt"
     important.write_text("user data")
     with pytest.raises(ValueError, match="non-fixture"):
-        bench._setup(tmp_path, 1200, True)
+        bench._setup(fixture_dir, 1200, True)
     assert important.read_text() == "user data"
 
 
-def test_refuses_unknown_files_even_with_marker(tmp_path):
-    (tmp_path / bench._FIXTURE_MARKER).write_text(json.dumps(
+def test_refuses_unknown_files_even_with_marker(fixture_dir):
+    (fixture_dir / bench._FIXTURE_MARKER).write_text(json.dumps(
         {"version": 2, "count": 1200, "files": ["img_0000.jpg"]}))
-    (tmp_path / "img_0000.jpg").write_bytes(b"fixture")
-    important = tmp_path / "notes.txt"
+    (fixture_dir / "img_0000.jpg").write_bytes(b"fixture")
+    important = fixture_dir / "notes.txt"
     important.write_text("keep")
     with pytest.raises(ValueError, match="unrecognized"):
-        bench._setup(tmp_path, 1200, True)
+        bench._setup(fixture_dir, 1200, True)
     assert important.is_file()
 
 
-def test_legacy_marker_does_not_authorize_deletion(tmp_path):
-    (tmp_path / bench._FIXTURE_MARKER).write_text(json.dumps({"version": 1, "count": 1200}))
+def test_legacy_marker_does_not_authorize_deletion(fixture_dir):
+    (fixture_dir / bench._FIXTURE_MARKER).write_text(json.dumps({"version": 1, "count": 1200}))
     with pytest.raises(ValueError, match="Legacy"):
-        bench._setup(tmp_path, 1200, True)
+        bench._setup(fixture_dir, 1200, True)
 
 
-def test_count_leaves_enough_images_for_twenty_duplicates(tmp_path):
+def test_count_leaves_enough_images_for_twenty_duplicates(fixture_dir):
     with pytest.raises(ValueError, match="20 normal"):
-        bench._setup(tmp_path, 70, False)
+        bench._setup(fixture_dir, 70, False)
