@@ -198,7 +198,7 @@ class TestComfyUITabBridge:
         tab._extra_ckpt_edit.setText("extra_weights.pth")
         mock_bridge.sync_param.assert_any_call("8", "control_net_name", "extra_weights.pth")
 
-        # Non-file string/token is synced directly via set_image_node
+        tab._server_tokens.add("existing_token.png")
         tab._image_edit.setText("existing_token.png")
         mock_bridge.set_image_node.assert_called_with("9", "existing_token.png")
 
@@ -237,6 +237,28 @@ class TestComfyUITabBridge:
         tab._manager.upload_image.assert_not_called()
         submitted = tab._manager.queue_workflow.call_args[0][0]
         assert submitted["9"]["inputs"]["image"] == "server_uploaded_pose.png"
+
+    def test_stale_upload_does_not_replace_new_selection(self, tab):
+        tab._bridge = MagicMock()
+        tab._image_edit.setText("new.png")
+        request = tab._image_request
+        tab._on_image_uploaded((request - 1, "9", "old.png", "old-token.png"))
+        tab._bridge.set_image_node.assert_not_called()
+        assert "old.png" not in tab._local_to_token
+
+    def test_closed_tab_ignores_upload_completion(self, tab):
+        tab._image_edit.setText("old.png")
+        request = tab._image_request
+        tab.close()
+        tab._on_image_uploaded((request, "9", "old.png", "old-token.png"))
+        assert not tab._local_to_token
+
+    def test_graph_token_is_reused_when_queuing(self, tab):
+        from unittest.mock import patch
+        tab._on_param_changed_from_graph("9", "image", "remote-only.png")
+        with patch("gui.src.tabs.models.gen.comfy_generate_tab._queue_workflow") as queue:
+            tab._queue_workflow_worker("controlnet_pose", "remote-only.png", "base", "extra", "p", "n")
+        assert queue.call_args.kwargs["uploaded_image"] == "remote-only.png"
 
     def test_mode_switch_syncs_all_parameters(self, tab):
         mock_bridge = MagicMock()
@@ -384,7 +406,7 @@ assert.equal(calls, before + 1);
     assert result.returncode == 0, result.stderr
 
 
-def test_live_comfy_frontend_integration(q_app):
+def test_mock_frontend_webengine_integration(q_app):
     """Validate bridge behavior against a live running ComfyUI frontend structure (#755)."""
     html_page = """<!DOCTYPE html>
 <html>

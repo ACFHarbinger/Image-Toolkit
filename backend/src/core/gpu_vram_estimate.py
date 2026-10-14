@@ -1,9 +1,8 @@
 """Job-parameter VRAM estimates for GpuLeaseArbiter admission (#758).
 
-These are estimates, not measurements. Weights use published fp16
-footprints for the models this app actually launches; activations scale
-with resolution, batch, and rank. After a run the arbiter records
-measured peak separately.
+These uncalibrated heuristics are not memory-fit guarantees. Rounded fp16
+weight assumptions do not cover all loader dtypes, model families, or custom
+workflow nodes. After a local run the arbiter records measured peak separately.
 """
 from __future__ import annotations
 
@@ -33,7 +32,7 @@ DEFAULT_TILE = 400
 def _positive_int(value: Any, default: int) -> int:
     try:
         number = int(value)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return default
     return number if number > 0 else default
 
@@ -67,6 +66,17 @@ def workflow_latent_size(workflow: dict | None) -> tuple[int, int]:
             _positive_int(inputs.get("height"), 512),
         )
     return (512, 512)
+
+
+def workflow_batch_size(workflow: dict | None) -> int:
+    batches = [
+        _positive_int(node.get("inputs", {}).get("batch_size"), 1)
+        for node in (workflow or {}).values()
+        if isinstance(node, dict)
+        and node.get("class_type") in {"EmptyLatentImage", "EmptySD3LatentImage"}
+        and isinstance(node.get("inputs"), dict)
+    ]
+    return max(batches, default=1)
 
 
 def workflow_family(workflow: dict | None, checkpoint: str | None = None) -> str:
@@ -129,7 +139,7 @@ def estimate_job_gb(owner: str, **job: Any) -> float:
         if width is None or height is None:
             width, height = workflow_latent_size(job.get("workflow"))
         family = workflow_family(job.get("workflow"), job.get("checkpoint") or job.get("model_id"))
-        return diffusion_gb(family=family, width=width, height=height, batch=job.get("batch", 1))
+        return diffusion_gb(family=family, width=width, height=height, batch=job.get("batch", workflow_batch_size(job.get("workflow"))))
     if owner == "lora-generate":
         return diffusion_gb(
             family=family,
@@ -144,7 +154,9 @@ def estimate_job_gb(owner: str, **job: Any) -> float:
         return diffusion_gb(family=family, width=512, height=512, batch=1, extra_gb=extra)
     if owner == "upscale":
         tile = _positive_int(job.get("tile_size"), DEFAULT_TILE)
-        return _finite_gb(WEIGHT_GB["esrgan"] + (tile * tile) / REF_PIXELS * 1.6)
+        # ESRGANWrapper keeps the entire fp32 RGB input on the device while tiling.
+        input_gb = _positive_int(job.get("width"), tile) * _positive_int(job.get("height"), tile) * 12 / 1024**3
+        return _finite_gb(WEIGHT_GB["esrgan"] + (tile * tile) / REF_PIXELS * 1.6 + input_gb)
     if owner == "gan-train":
         return _finite_gb(WEIGHT_GB["gan"] + 0.7 + _positive_int(job.get("batch_size"), 1) * 0.08)
     if owner == "cbir-train":

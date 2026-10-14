@@ -176,7 +176,7 @@ def _clip_max_length(tokenizer) -> int:
     raw = getattr(tokenizer, "model_max_length", 77)
     try:
         limit = int(raw)
-    except (OverflowError, ValueError):
+    except (TypeError, OverflowError, ValueError):
         return 77
     return min(limit, 77) if limit > 0 else 77
 

@@ -55,11 +55,11 @@ def test_comfy_estimate_reads_latent_and_checkpoint():
     assert guided > preview
 
 
-def test_upscale_estimate_is_tile_bounded():
+def test_upscale_estimate_accounts_for_resident_full_image():
     tile = estimate_job_gb("upscale", tile_size=400)
     huge = estimate_job_gb("upscale", width=8000, height=4000, tile_size=400)
     assert 0.8 <= tile <= 2.5
-    assert huge == tile
+    assert huge > tile
 
 
 def test_every_production_owner_returns_a_positive_estimate():
@@ -102,3 +102,10 @@ def test_diffusion_gb_is_deterministic():
     assert diffusion_gb(family="sd15", width=512, height=512) == diffusion_gb(
         family="sd15", width=512, height=512
     )
+
+
+def test_workflow_batch_size_affects_admission_estimate():
+    workflow = {"1": {"class_type": "EmptyLatentImage", "inputs": {"width": 512, "height": 512, "batch_size": 1}}}
+    single = estimate_job_gb("graph", workflow=workflow)
+    workflow["1"]["inputs"]["batch_size"] = 8
+    assert estimate_job_gb("graph", workflow=workflow) > single

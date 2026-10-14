@@ -37,16 +37,17 @@ from .comfy_bridge import ComfyBridge
 class ImageUploadWorker(BaseQThreadWorker):
     """Off-thread worker to upload a local image to ComfyUI server (#755)."""
 
-    def __init__(self, manager, local_path: str, node_id: str) -> None:
+    def __init__(self, manager, local_path: str, node_id: str, request: int) -> None:
         super().__init__()
         self._manager = manager
         self._local_path = local_path
         self._node_id = node_id
+        self._request = request
 
-    def _execute(self) -> tuple[str, str, str]:
+    def _execute(self) -> tuple[int, str, str, str]:
         # Returns (node_id, local_path, server_token)
         server_token = self._manager.upload_image(self._local_path)
-        return (self._node_id, self._local_path, server_token)
+        return (self._request, self._node_id, self._local_path, server_token)
 
 # Content Gen §1.4 (issue #35) — ControlNet + IP-Adapter workflow modes.
 #
@@ -284,6 +285,8 @@ class ComfyUITab(QWidget):
         self._web_channel = None
         self._bridge: ComfyBridge | None = None
         self._syncing_param = False
+        self._image_request = 0
+        self._server_tokens: set[str] = set()
         self._local_to_token: dict[str, str] = {}
         self._token_to_local: dict[str, str] = {}
         self._init_ui()
@@ -681,6 +684,7 @@ class ComfyUITab(QWidget):
     # ------------------------------------------------------------------
 
     def _on_mode_changed(self, _index: int) -> None:
+        self._image_request += 1
         mode = self._mode_combo.currentData()
         cfg = WORKFLOW_MODES[mode]
         self._syncing_param = True
@@ -734,7 +738,7 @@ class ComfyUITab(QWidget):
         seed = self._seed_spin.value()
         width = self._width_spin.value()
         height = self._height_spin.value()
-        uploaded_image = self._local_to_token.get(image_path)
+        uploaded_image = self._local_to_token.get(image_path) or (image_path if image_path in self._server_tokens else None)
         args = (mode, image_path, base_checkpoint, extra_checkpoint, positive_prompt, negative_prompt)
         self._controller.run_http_action(
             lambda: _queue_workflow(
@@ -753,7 +757,7 @@ class ComfyUITab(QWidget):
         negative_prompt: str,
     ) -> None:
         try:
-            uploaded_image = self._local_to_token.get(image_path)
+            uploaded_image = self._local_to_token.get(image_path) or (image_path if image_path in self._server_tokens else None)
             _queue_workflow(
                 self._manager, self._log_signal.emit, mode, image_path,
                 base_checkpoint, extra_checkpoint, positive_prompt, negative_prompt,
@@ -804,6 +808,7 @@ class ComfyUITab(QWidget):
         self._bridge.sync_param(node_id, widget_key, value)
 
     def _handle_image_param_sync(self, node_id: str, image_path: str) -> None:
+        self._image_request += 1
         if not image_path:
             return
         if image_path in self._local_to_token:
@@ -815,22 +820,30 @@ class ComfyUITab(QWidget):
             if not self._manager.is_running and self._controller.server_state != ServerState.READY:
                 return
 
-            def _on_upload_done(result: tuple[str, str, str] | None) -> None:
-                if not result:
-                    return
-                nid, local_p, token = result
-                self._local_to_token[local_p] = token
-                self._token_to_local[token] = local_p
-                if self._bridge and self._bridge.is_ready:
-                    self._bridge.set_image_node(nid, token)
-
-            worker = ImageUploadWorker(self._manager, image_path, str(node_id))
-            worker.finished.connect(_on_upload_done)
-            worker.error.connect(lambda exc: self._append_log(f"[bridge] Image upload failed: {exc}\n"))
+            worker = ImageUploadWorker(self._manager, image_path, str(node_id), self._image_request)
+            worker.finished.connect(self._on_image_uploaded)
+            worker.error.connect(self._on_image_upload_error)
             worker.start()
             retain_until_stopped(worker)
-        else:
+        elif image_path in self._server_tokens:
             self._bridge.set_image_node(node_id, image_path)
+
+    @Slot(object)
+    def _on_image_uploaded(self, result) -> None:
+        if not result:
+            return
+        request, node_id, local_path, token = result
+        if request != self._image_request or self._image_edit.text().strip() != local_path:
+            return
+        self._local_to_token[local_path] = token
+        self._token_to_local[token] = local_path
+        self._server_tokens.add(token)
+        if self._bridge and self._bridge.is_ready:
+            self._bridge.set_image_node(node_id, token)
+
+    @Slot(object)
+    def _on_image_upload_error(self, exc) -> None:
+        self._append_log(f"[bridge] Image upload failed: {exc}\n")
 
     def _sync_all_guided_params(self) -> None:
         if self._bridge is None or not self._bridge.is_ready:
@@ -877,6 +890,8 @@ class ComfyUITab(QWidget):
                 and str(node_id) == str(cfg.get("image_node"))
                 and widget_name.lower() == "image"
             ):
+                self._image_request += 1
+                self._server_tokens.add(val_str)
                 local_path = self._token_to_local.get(val_str, val_str)
                 if self._image_edit.text() != local_path:
                     self._image_edit.setText(local_path)
@@ -914,6 +929,10 @@ class ComfyUITab(QWidget):
                 gpu_lease.note_embedded_view(str(id(self)), True)
 
     def _unmount_web_view(self) -> None:
+        self._image_request += 1
+        self._local_to_token.clear()
+        self._token_to_local.clear()
+        self._server_tokens.clear()
         view = self._web_view
         self._web_view = None
         with contextlib.suppress(Exception):
@@ -939,6 +958,5 @@ class ComfyUITab(QWidget):
 
     def closeEvent(self, event) -> None:
         # The app-level controller owns the service, not this disposable view.
-        if self._web_view is not None:
-            self._unmount_web_view()
+        self._unmount_web_view()
         super().closeEvent(event)

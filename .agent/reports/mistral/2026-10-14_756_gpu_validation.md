@@ -62,8 +62,8 @@ Trace magnitude at the probe point: 26.71 over 6.78M params
    now with numbers: the gauge needs ~7.3 GiB of transient memory over
    the resident model at 512px/batch-1 (SD1.5 fp32). It does not fit a
    12 GB laptop next to training; it plausibly fits 24 GB desktops for
-   SD1.5, but **SDXL cannot fit anywhere as long as the trainer loads
-   fp32** (Finding H4). Runtime cost is modest (~1.4 s/checkpoint at
+   SD1.5, but SDXL fp32 exceeded this laptop's capacity (Finding H4);
+   larger devices were not measured. Runtime cost is modest (~1.4 s/checkpoint at
    256px, 5 probes) — memory, not time, is the constraint.
 2. **The gauge machinery itself validates green on GPU:** correct
    events, exact adapter coverage, grad-state preservation, exact
@@ -92,9 +92,10 @@ Trace magnitude at the probe point: 26.71 over 6.78M params
   config flags are declared in profiles but **consumed by nothing** —
   the trainer loads fp32, so SDXL cannot even load on a 12 GB GPU
   (OOM at model move; 10.9 GiB allocated for fp32 weights alone).
-- **H5:** `lo_ra_tuner_v2`'s `log.warning` (fail-soft gauge errors) does
-  not reach the hydra job log — in the arm A run the OOM was silent
-  except for the missing events.
+- **H5 (Codex correction):** `train_a.log` contains explicit Hessian OOM
+  warnings at steps 6 and 12 (lines 175 and 178). The claim that the
+  warning did not reach the Hydra job log is contradicted by that artifact;
+  GUI visibility was not verified.
 
 Artifacts: run logs, events.jsonl, VRAM samples under
 `~/Downloads/Data/Tests/dl-756-gpu-val-data/`; validation worktree
