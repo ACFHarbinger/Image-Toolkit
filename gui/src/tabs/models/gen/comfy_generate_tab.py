@@ -25,10 +25,27 @@ from PySide6.QtWidgets import (
 
 from gui.src.components.prompt_edit import PromptEdit
 from gui.src.components.prompt_vocabulary import default_vocabulary
+from gui.src.helpers.base import BaseQThreadWorker
+from gui.src.helpers.worker_retention import retain_until_stopped
 from gui.src.modules.comfy_workspace_controller import ComfyWorkspaceController
 
 from ....theming.theme_api import qss
 from .comfy_bridge import ComfyBridge
+
+
+class ImageUploadWorker(BaseQThreadWorker):
+    """Off-thread worker to upload a local image to ComfyUI server (#755)."""
+
+    def __init__(self, manager, local_path: str, node_id: str) -> None:
+        super().__init__()
+        self._manager = manager
+        self._local_path = local_path
+        self._node_id = node_id
+
+    def _execute(self) -> tuple[str, str, str]:
+        # Returns (node_id, local_path, server_token)
+        server_token = self._manager.upload_image(self._local_path)
+        return (self._node_id, self._local_path, server_token)
 
 # Content Gen §1.4 (issue #35) — ControlNet + IP-Adapter workflow modes.
 #
@@ -195,7 +212,7 @@ def build_workflow(
 def _queue_workflow(
     manager, log, mode, image_path, base_checkpoint, extra_checkpoint,
     positive_prompt, negative_prompt, *, seed=None, width=None, height=None,
-    run_meta=None, cancel=None,
+    run_meta=None, cancel=None, uploaded_image=None,
 ) -> None:
     refusal = try_admit("guided")
     if refusal:
@@ -203,8 +220,8 @@ def _queue_workflow(
         return
     try:
         cfg = WORKFLOW_MODES[mode]
-        uploaded_name = image_path
-        if cfg.get("image_node"):
+        uploaded_name = uploaded_image or image_path
+        if cfg.get("image_node") and not uploaded_image:
             log(f"[workflow] Uploading {image_path}…\n")
             uploaded_name = manager.upload_image(image_path)
 
@@ -258,6 +275,8 @@ class ComfyUITab(QWidget):
         self._web_channel = None
         self._bridge: ComfyBridge | None = None
         self._syncing_param = False
+        self._local_to_token: dict[str, str] = {}
+        self._token_to_local: dict[str, str] = {}
         self._init_ui()
         self._base_ckpt_edit.textChanged.connect(
             lambda _t: self._sync_guided_param_to_graph("checkpoint_node", "ckpt_name", self._base_ckpt_edit.text().strip())
@@ -706,11 +725,12 @@ class ComfyUITab(QWidget):
         seed = self._seed_spin.value()
         width = self._width_spin.value()
         height = self._height_spin.value()
+        uploaded_image = self._local_to_token.get(image_path)
         args = (mode, image_path, base_checkpoint, extra_checkpoint, positive_prompt, negative_prompt)
         self._controller.run_http_action(
             lambda: _queue_workflow(
                 manager, log, *args, seed=seed, width=width, height=height,
-                cancel=self._controller._cancel,
+                cancel=self._controller._cancel, uploaded_image=uploaded_image,
             )
         )
 
@@ -724,9 +744,11 @@ class ComfyUITab(QWidget):
         negative_prompt: str,
     ) -> None:
         try:
+            uploaded_image = self._local_to_token.get(image_path)
             _queue_workflow(
                 self._manager, self._log_signal.emit, mode, image_path,
                 base_checkpoint, extra_checkpoint, positive_prompt, negative_prompt,
+                uploaded_image=uploaded_image,
             )
         finally:
             self._workflow_finished.emit()
@@ -768,12 +790,41 @@ class ComfyUITab(QWidget):
         if not widget_key:
             return
         if widget_key == "image":
-            # Local paths need upload_image's returned server token, not direct widget sync.
+            self._handle_image_param_sync(str(node_id), str(value or "").strip())
             return
         self._bridge.sync_param(node_id, widget_key, value)
 
+    def _handle_image_param_sync(self, node_id: str, image_path: str) -> None:
+        if not image_path:
+            return
+        if image_path in self._local_to_token:
+            token = self._local_to_token[image_path]
+            self._bridge.set_image_node(node_id, token)
+            return
+
+        if Path(image_path).is_file():
+            if not self._manager.is_running and self._controller.server_state != ServerState.READY:
+                return
+
+            def _on_upload_done(result: tuple[str, str, str] | None) -> None:
+                if not result:
+                    return
+                nid, local_p, token = result
+                self._local_to_token[local_p] = token
+                self._token_to_local[token] = local_p
+                if self._bridge and self._bridge.is_ready:
+                    self._bridge.set_image_node(nid, token)
+
+            worker = ImageUploadWorker(self._manager, image_path, str(node_id))
+            worker.finished.connect(_on_upload_done)
+            worker.error.connect(lambda exc: self._append_log(f"[bridge] Image upload failed: {exc}\n"))
+            worker.start()
+            retain_until_stopped(worker)
+        else:
+            self._bridge.set_image_node(node_id, image_path)
+
     def _sync_all_guided_params(self) -> None:
-        if self._bridge is None:
+        if self._bridge is None or not self._bridge.is_ready:
             return
         mode = self._mode_combo.currentData()
         cfg = WORKFLOW_MODES.get(mode)
@@ -806,12 +857,20 @@ class ComfyUITab(QWidget):
                 if self._negative_prompt_edit.text() != val_str:
                     self._negative_prompt_edit.setText(val_str)
             elif (
-                cfg.get("extra_node") and str(node_id) == str(cfg.get("extra_node"))
+                cfg.get("extra_node")
+                and str(node_id) == str(cfg.get("extra_node"))
                 and widget_name.lower() == str(cfg.get("extra_key", "")).lower()
                 and self._extra_ckpt_edit.text() != val_str
             ):
                 self._extra_ckpt_edit.setText(val_str)
-
+            elif (
+                cfg.get("image_node")
+                and str(node_id) == str(cfg.get("image_node"))
+                and widget_name.lower() == "image"
+            ):
+                local_path = self._token_to_local.get(val_str, val_str)
+                if self._image_edit.text() != local_path:
+                    self._image_edit.setText(local_path)
         finally:
             self._syncing_param = False
 
@@ -840,14 +899,18 @@ class ComfyUITab(QWidget):
             self._append_log(f"[bridge] Channel setup error: {exc}\n")
         view.load(QUrl(self._manager.url))
         self._web_view = view
-        from backend.src.comfy_matrix import gpu_lease
-        gpu_lease.note_embedded_view(str(id(self)), True)
+        with contextlib.suppress(Exception):
+            from backend.src.comfy_matrix import gpu_lease
+            if hasattr(gpu_lease, "note_embedded_view"):
+                gpu_lease.note_embedded_view(str(id(self)), True)
 
     def _unmount_web_view(self) -> None:
         view = self._web_view
         self._web_view = None
-        from backend.src.comfy_matrix import gpu_lease
-        gpu_lease.note_embedded_view(str(id(self)), False)
+        with contextlib.suppress(Exception):
+            from backend.src.comfy_matrix import gpu_lease
+            if hasattr(gpu_lease, "note_embedded_view"):
+                gpu_lease.note_embedded_view(str(id(self)), False)
         if self._web_channel is not None and self._bridge is not None:
             with contextlib.suppress(Exception):
                 self._web_channel.deregisterObject(self._bridge)
@@ -856,8 +919,14 @@ class ComfyUITab(QWidget):
         if view is not None:
             self._web_layout.removeWidget(view)
             view.stop()
-            view.setUrl(QUrl("about:blank"))
-            view.deleteLater()
+            page = view.page()
+            if page is not None:
+                with contextlib.suppress(Exception):
+                    page.setWebChannel(None)
+            import shiboken6
+
+            if shiboken6.isValid(view):
+                shiboken6.delete(view)
 
     def closeEvent(self, event) -> None:
         # The app-level controller owns the service, not this disposable view.
