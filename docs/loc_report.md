@@ -56,4 +56,4 @@
 | `gui/src/windows/settings/settings_window.py` | 345 | 28 | 10 | 383 |
 | `gui/src/tabs/web/drive_sync_tab/sync_data_subtab/widget.py` | 344 | 26 | 13 | 383 |
 | `backend/src/utils/display/slideshow_daemon.py` | 343 | 32 | 33 | 408 |
-| **TOTALS** | **101798** | **6533** | **10448** | **118779** |
+| **TOTALS** | **101830** | **6541** | **10449** | **118820** |
