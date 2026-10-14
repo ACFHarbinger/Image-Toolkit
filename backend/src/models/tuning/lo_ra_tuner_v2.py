@@ -59,6 +59,7 @@ from backend.src.constants import (  # noqa: F401
 from backend.src.constants import (  # noqa: F401
     TE_ATTN_TARGETS as TE_ATTN_TARGETS,
 )
+from backend.src.models.hooks.hessian_trace import run_checkpoint_gauge
 from backend.src.models.tuning.lo_ra_tuner_config import LoRATunerConfig
 from backend.src.models.tuning.sample_grids import (
     build_sampling_pipe as _build_sampling_pipe,
@@ -377,6 +378,7 @@ class LoRATunerV2:
     def train(self, dataloader: DataLoader, diagnostics=None):
         cfg = self.cfg
         self._last_sampled_step = None
+        self._frozen_eval = None  # #756: frozen at the first checkpoint
         self.build_adapters()
         optimizer = self.build_optimizer()
 
@@ -405,6 +407,7 @@ class LoRATunerV2:
         prepared = self.accelerator.prepare(*trainables)
         self.unet, optimizer, dataloader, lr_scheduler = prepared
 
+        latents = encoder_hidden_states = added_cond_kwargs = None
         global_step = 0
         print(f"[LoRATunerV2] Training: {epochs} epochs × {num_update_steps_per_epoch} steps = {total_steps} total")
 
@@ -490,6 +493,10 @@ class LoRATunerV2:
             if (epoch + 1) % cfg.save_every_n_epochs == 0:
                 self._save_checkpoint(epoch)
                 self._maybe_sample_grid(diagnostics, global_step, epoch)
+                self._maybe_hessian_trace(
+                    diagnostics, global_step, epoch, latents,
+                    encoder_hidden_states, added_cond_kwargs,
+                )
 
             if global_step >= total_steps:
                 break
@@ -518,6 +525,16 @@ class LoRATunerV2:
 
             state = get_peft_model_state_dict(unwrapped)
             sf.save_file(state, Path(self.cfg.output_dir) / "lora_weights.safetensors")
+
+    def _maybe_hessian_trace(
+        self, diagnostics, step: int, epoch: int, latents,
+        encoder_hidden_states, added_cond_kwargs,
+    ) -> None:
+        """#756: Generalization Gauge at a checkpoint (see ``run_checkpoint_gauge``)."""
+        run_checkpoint_gauge(
+            self, diagnostics, step, epoch, latents,
+            encoder_hidden_states, added_cond_kwargs,
+        )
 
     def _maybe_sample_grid(self, diagnostics, step: int, epoch: int) -> None:
         """#747/#742: emit a fixed-prompt/seed grid at a checkpoint point.

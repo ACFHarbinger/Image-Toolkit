@@ -11,6 +11,7 @@ from typing import NamedTuple
 
 from backend.src.comfy_matrix import gpu_lease, try_admit
 from backend.src.constants import LOCAL_SOURCE_PATH, ROOT_DIR
+from backend.src.core.gpu_vram_estimate import estimate_job_gb
 from backend.src.core.training_runs import (
     STATUS_CANCEL,
     STATUS_ERROR,
@@ -872,7 +873,15 @@ class LoRATrainTab(BaseGenerativeTab):
         engine="standard",
         trigger="",
     ):
-        refusal = try_admit("lora-train")
+        refusal = try_admit(
+            "lora-train",
+            estimated_gb=estimate_job_gb(
+                "lora-train",
+                model_id=model_id,
+                rank=rank,
+                batch_size=(params or {}).get("batch_size", 1),
+            ),
+        )
         if refusal:
             self.training_finished_signal.emit("error", refusal, "")
             return

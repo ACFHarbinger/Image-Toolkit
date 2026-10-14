@@ -135,6 +135,16 @@ class DeepLearningWorkspaceHost(QWidget):
         self._sync_run_cards()
         self._show_compare()
 
+    def highlight_node(self, node_id: str | int, switch_route: bool = True) -> bool:
+        """Forward node highlight request to GenerateSurface / ComfyUITab (#755)."""
+        if switch_route:
+            self.activate_route("generate")
+        if self._generate_page is not None:
+            comfy = getattr(self._generate_page, "_comfy", None)
+            if comfy is not None and hasattr(comfy, "highlight_node"):
+                return comfy.highlight_node(node_id)
+        return False
+
     def _ensure_page(self, route_key: str) -> QWidget:
         existing = self._pages.get(route_key)
         if existing is not None:
@@ -577,6 +587,7 @@ class _ReviewToolsPage(QWidget):
         self._what_changed.feedback_changed.connect(lambda *_: self._suggest_approve.setChecked(False))
         self._what_changed.verdict_chosen.connect(self._on_guidance_verdict)
         self._guidance.trajectory_updated.connect(self._on_trajectory_updated)
+        self._guidance.node_highlight_requested.connect(self._host.highlight_node)
 
         self.set_compare_paths([])
 

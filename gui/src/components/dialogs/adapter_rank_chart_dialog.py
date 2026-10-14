@@ -18,6 +18,7 @@ from backend.src.core.adapter_reports import (
     LossSliceResult,
     RankHistoryReport,
 )
+from backend.src.core.gpu_vram_estimate import estimate_job_gb
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
@@ -283,7 +284,10 @@ class AdapterRankChartDialog(QDialog):
         answer = QMessageBox.question(self, "Compute Loss Slice", cost + "\n\nProceed?")
         if answer != QMessageBox.StandardButton.Yes:
             return
-        refusal = try_admit(_SLICE_LEASE_OWNER)
+        refusal = try_admit(
+            _SLICE_LEASE_OWNER,
+            estimated_gb=estimate_job_gb(_SLICE_LEASE_OWNER),
+        )
         if refusal:
             QMessageBox.warning(self, "GPU Busy", refusal)
             return

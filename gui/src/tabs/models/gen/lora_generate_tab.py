@@ -4,6 +4,7 @@ from types import SimpleNamespace
 
 from backend.src.comfy_matrix import gpu_lease, try_admit
 from backend.src.constants import LOCAL_SOURCE_PATH
+from backend.src.core.gpu_vram_estimate import estimate_job_gb
 from backend.src.models.tuning.lo_ra_tuner import LoRATuner
 from backend.src.models.wrappers.gan_wrapper import GanWrapper
 from PySide6.QtCore import Signal, Slot
@@ -293,7 +294,14 @@ class LoRAGenerateTab(BaseGenerativeTab):
         guidance,
         input_image,
     ):
-        refusal = try_admit("lora-generate")
+        refusal = try_admit(
+            "lora-generate",
+            estimated_gb=estimate_job_gb(
+                "lora-generate",
+                model_id=model_id,
+                batch_size=batch_size,
+            ),
+        )
         if refusal:
             self.generation_finished_signal.emit("error", refusal)
             return

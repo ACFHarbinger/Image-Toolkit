@@ -31,6 +31,7 @@ from backend.src.comfy_matrix import (
 )
 from backend.src.constants import LOCAL_SOURCE_PATH
 from backend.src.constants.comfy import ServerState
+from backend.src.core.gpu_vram_estimate import estimate_job_gb
 from PySide6.QtCore import QBuffer, QByteArray, QIODevice, QSize, Qt, Signal
 from PySide6.QtGui import QIcon, QImage, QImageReader, QPixmap
 from PySide6.QtWidgets import (
@@ -75,8 +76,7 @@ def _template_issue(manager, workflow) -> str | None:
 def _sweep_status(result) -> str:
     count = len(result.prompt_ids)
     if result.stopped == "lease":
-        holder = gpu_lease.owner or "another job"
-        return f"GPU admission is held by {holder}."
+        return gpu_lease.refusal_text()
     if result.stopped == "cap":
         return "Sweep exceeds the cell cap."
     if result.stopped == "thermal":
@@ -635,6 +635,13 @@ class GenerateSurface(QWidget):
     def mode(self) -> str:
         return self._mode
 
+    def highlight_node(self, node_id: str | int) -> bool:
+        """Delegate node highlighting to ComfyUITab (#755)."""
+        self.set_mode("guided")
+        if hasattr(self.guided, "highlight_node"):
+            return self.guided.highlight_node(node_id)
+        return False
+
     def set_mode(self, mode: str) -> None:
         """Show another pane. Does not write the graph draft or the guided form."""
         if mode not in _MODES:
@@ -753,7 +760,10 @@ class GenerateSurface(QWidget):
             self.graph.error.setText("Server is busy or not ready.")
 
     def _queue_graph(self, workflow: dict, meta: dict) -> None:
-        refusal = try_admit("graph")
+        refusal = try_admit(
+            "graph",
+            estimated_gb=estimate_job_gb("graph", workflow=workflow),
+        )
         if refusal:
             self._controller._publish_log(f"[workflow] {refusal}\n")
             return
@@ -892,7 +902,10 @@ class GenerateSurface(QWidget):
             self._matrix_message.setText("Server is busy or not ready.")
 
     def _queue_promoted(self, workflow, width: int, height: int, parent, template) -> None:
-        refusal = try_admit("promoted")
+        refusal = try_admit(
+            "promoted",
+            estimated_gb=estimate_job_gb("promoted", width=width, height=height, workflow=workflow),
+        )
         if refusal:
             self._controller._publish_log(f"[workflow] {refusal}\n")
             return

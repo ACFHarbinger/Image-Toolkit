@@ -100,6 +100,10 @@ class LoRATunerConfig:
     # for runs where the extra sampling cost isn't worth it.
     sample_grids: bool = True
 
+    # #756: Hutchinson Hessian-trace probes per checkpoint (0 disables the
+    # curvature diagnostic). Disabled until GPU memory cost is validated.
+    hessian_vectors: int = 0
+
     # Logging: the dead use_wandb/wandb_project/use_tensorboard fields were
     # removed (#741) — nothing consumed them; the Hydra logging.* tree is a
     # separate config consumed by anime_training_pipeline.

@@ -39,6 +39,33 @@ def test_lora_training_holds_and_releases_admission(monkeypatch):
     gpu_lease.release("after-train")
 
 
+def test_lora_training_supplies_a_vram_estimate(monkeypatch):
+    from gui.src.tabs.models.delta import lora_train_tab as mod
+
+    seen = {}
+
+    def _admit(owner, lease=None, *, estimated_gb=None, kind=None):
+        seen["owner"] = owner
+        seen["estimated_gb"] = estimated_gb
+        return None
+
+    monkeypatch.setattr(mod, "try_admit", _admit)
+    monkeypatch.setattr(mod.LoRATrainTab, "_run_training_admitted", lambda *a, **k: None)
+    tab = MagicMock()
+    mod.LoRATrainTab.run_training(
+        tab,
+        params={"epochs": 1, "learning_rate": 1e-4, "batch_size": 2},
+        data_dir="data",
+        model_id="stabilityai/stable-diffusion-xl-base-1.0",
+        rank=16,
+        prompt="p",
+        output_name="out",
+    )
+    assert seen["owner"] == "lora-train"
+    assert seen["estimated_gb"] is not None
+    assert seen["estimated_gb"] > 8.0
+
+
 def test_lora_training_refuses_when_admission_is_held():
     from gui.src.tabs.models.delta import lora_train_tab as mod
 

@@ -169,6 +169,18 @@ class AspectRatioBucketSampler(Sampler):
 # ---------------------------------------------------------------------------
 # LoRADatasetV2 — SDXL bucketing + BiRefNet + BaSiC + augmentations
 # ---------------------------------------------------------------------------
+def _clip_max_length(tokenizer) -> int:
+    """CLIP's 77-token cap. Some tokenizer_2 configs carry the "no max
+    length" sentinel (1e30 float), which overflows the fast tokenizer's
+    int truncation (#756 validation found this on SD1.5-family repos)."""
+    raw = getattr(tokenizer, "model_max_length", 77)
+    try:
+        limit = int(raw)
+    except (TypeError, OverflowError, ValueError):
+        return 77
+    return min(limit, 77) if limit > 0 else 77
+
+
 class LoRADatasetV2(Dataset):
     """
     Parameters
@@ -287,7 +299,7 @@ class LoRADatasetV2(Dataset):
         ids1 = self.tok1(
             caption,
             padding="max_length",
-            max_length=self.tok1.model_max_length,
+            max_length=_clip_max_length(self.tok1),
             truncation=True,
             return_tensors="pt",
         ).input_ids[0]
@@ -305,7 +317,7 @@ class LoRADatasetV2(Dataset):
             ids2 = self.tok2(
                 caption,
                 padding="max_length",
-                max_length=self.tok2.model_max_length,
+                max_length=_clip_max_length(self.tok2),
                 truncation=True,
                 return_tensors="pt",
             ).input_ids[0]
