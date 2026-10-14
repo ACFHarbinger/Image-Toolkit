@@ -19,7 +19,9 @@ Run standalone:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import os
 import re
 import shutil
 import sys
@@ -215,6 +217,65 @@ def bench_scan_warm() -> None:
     dataset_advisor.scan_dataset(_ALL_PATHS, trigger=TRIGGER, hash_cache=_WARM_CACHE)
 
 
+def _fixture_files() -> list[Path]:
+    """Every image plus its caption sidecar: all bytes a scan touches."""
+    files = [Path(p) for p in _ALL_PATHS]
+    return files + [f.with_suffix(".txt") for f in files if f.with_suffix(".txt").is_file()]
+
+
+def _evict_page_cache() -> None:
+    """Drop the fixture's clean pages from the OS page cache (no root needed).
+
+    POSIX_FADV_DONTNEED on unmodified files releases their cached pages, so the
+    next scan reads from storage. Verify with ``fincore`` when it matters.
+    """
+    for path in _fixture_files():
+        fd = os.open(path, os.O_RDONLY)
+        try:
+            os.posix_fadvise(fd, 0, 0, os.POSIX_FADV_DONTNEED)
+        finally:
+            os.close(fd)
+
+
+def _scan_page_cold(iterations: int) -> list[float]:
+    """Full scans with no hash cache and an evicted page cache."""
+    times = []
+    for _ in range(iterations):
+        _evict_page_cache()
+        started = time.perf_counter()
+        dataset_advisor.scan_dataset(_ALL_PATHS, trigger=TRIGGER)
+        times.append(time.perf_counter() - started)
+    return times
+
+
+def _native_floor() -> dict:
+    """Work a native analyzer cannot remove: reading the bytes and OpenSSL sha256.
+
+    hashlib's sha256 is OpenSSL's, which a C++ module would also call, so
+    ``scan - (read + sha256)`` bounds what native code could save. The bound is
+    generous: it assumes native header probing, captions, and grouping are free.
+    Measured with a warm page cache to match the warm-storage scan it is
+    compared against.
+    """
+    paths = [Path(p) for p in _ALL_PATHS]
+    for path in paths:  # warm the page cache
+        path.read_bytes()
+    read_sec = sha_sec = 0.0
+    for path in paths:
+        started = time.perf_counter()
+        data = path.read_bytes()
+        read_sec += time.perf_counter() - started
+        started = time.perf_counter()
+        hashlib.sha256(data).digest()
+        sha_sec += time.perf_counter() - started
+    started = time.perf_counter()
+    dataset_advisor.scan_dataset(_ALL_PATHS, trigger=TRIGGER)
+    scan_sec = time.perf_counter() - started
+    floor = read_sec + sha_sec
+    return {"read_sec": read_sec, "sha256_sec": sha_sec, "floor_sec": floor,
+            "scan_warm_storage_sec": scan_sec,
+            "max_native_saving_sec": max(scan_sec - floor, 0.0)}
+
 def _phase_breakdown() -> dict:
     """One cold scan with module functions wrapped in timers, attributing
     wall time to hashing/probing, caption reading, duplicate grouping, and
@@ -274,6 +335,15 @@ def main() -> None:
     runner.benchmark("scan_warm_hash_cache", iterations=5, warmup=1)(bench_scan_warm)
     runner.run()
 
+    page_cold = _scan_page_cold(3)
+    print("\nscan, no hash cache, page cache evicted: "
+          + ", ".join(f"{t:.3f}s" for t in page_cold)
+          + f" (avg {sum(page_cold) / len(page_cold):.3f}s)")
+    floor = _native_floor()
+    print(f"native floor (read + OpenSSL sha256): {floor['floor_sec']:.3f}s "
+          f"(read {floor['read_sec']:.3f}s, sha256 {floor['sha256_sec']:.3f}s) "
+          f"vs scan {floor['scan_warm_storage_sec']:.3f}s "
+          f"-> native saves at most {floor['max_native_saving_sec']:.3f}s")
     breakdown = _phase_breakdown()
     per_image_ms = breakdown["total"] / len(_ALL_PATHS) * 1000
     print("\nphase attribution (one cold scan):")
@@ -290,6 +360,8 @@ def main() -> None:
         payload["dataset"] = _FIXTURE_SUMMARY
         payload["phase_breakdown_sec"] = breakdown
         payload["per_image_ms_cold"] = per_image_ms
+        payload["scan_page_cache_evicted_sec"] = page_cold
+        payload["native_floor"] = floor
         Path(out).write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
 

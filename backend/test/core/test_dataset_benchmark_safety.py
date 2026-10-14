@@ -49,3 +49,15 @@ def test_legacy_marker_does_not_authorize_deletion(fixture_dir):
 def test_count_leaves_enough_images_for_twenty_duplicates(fixture_dir):
     with pytest.raises(ValueError, match="20 normal"):
         bench._setup(fixture_dir, 70, False)
+
+
+def test_native_floor_bounds_saving_on_tiny_fixture(fixture_dir, monkeypatch):
+    image = fixture_dir / "img_0000.png"
+    from PIL import Image
+    Image.new("RGB", (8, 8)).save(image)
+    image.with_suffix(".txt").write_text("ohwx, solo")
+    monkeypatch.setattr(bench, "_ALL_PATHS", [str(image)])
+    bench._evict_page_cache()
+    floor = bench._native_floor()
+    assert floor["floor_sec"] == floor["read_sec"] + floor["sha256_sec"]
+    assert floor["max_native_saving_sec"] >= 0.0
