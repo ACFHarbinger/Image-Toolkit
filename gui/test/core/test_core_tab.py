@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, mock_open, patch
 import cv2
 import pytest
 from PySide6.QtCore import QObject, QTimer, Signal
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QApplication, QDialog, QWidget
 
 from gui.src.tabs.core.convert_tab import ConvertTab
@@ -93,6 +94,29 @@ class TestWallpaperTab:
         tab = WallpaperTab(db_tab_ref=MagicMock())
         assert len(tab.monitor_display._monitors) == 1
         assert tab.monitor_display._monitors[0].name == "Display1"
+
+    def test_background_color_setting_for_image_and_slideshow(self, q_app, mock_deps):
+        tab = WallpaperTab(db_tab_ref=MagicMock())
+        sd = tab.system_display
+        tab.show()
+        for kind, shown in (("Image", True), ("Slideshow", True), ("Smart Video", False),
+                            ("Smart Video Slideshow", False), ("Solid Color", False)):
+            sd.background_type_combo.setCurrentText(kind)
+            assert sd.background_color_widget.isVisible() is shown, kind
+            assert sd._background_color_for_apply() == (sd.background_color_hex if shown else None)
+        sd.background_type_combo.setCurrentText("Image")
+        with patch(
+            "gui.src.tabs.core.wallpaper_tab.system_display_subtab._style_selectors.QColorDialog.getColor",
+            return_value=QColor("#336699"),
+        ):
+            sd.select_background_color()
+        assert sd.background_color_hex == "#336699"
+        assert sd.collect()["background_color_hex"] == "#336699"
+        sd.set_config({"background_color_hex": "#AABBCC"})
+        assert sd.background_color_hex == "#AABBCC"
+        sd.set_config({"background_color_hex": "not-a-color"})
+        assert sd.background_color_hex == "#000000"
+        tab.close()
 
     def test_forwards_search_and_tray_apis_to_system_display(self, q_app, mock_deps):
         tab = WallpaperTab(db_tab_ref=MagicMock())

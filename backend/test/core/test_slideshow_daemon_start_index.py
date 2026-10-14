@@ -28,7 +28,7 @@ def test_slideshow_daemon_starts_at_active_wallpaper(tmp_path, monkeypatch):
 
     applied = []
 
-    def fake_apply(monitor_state, de, qdbus, raw_style, monitors):
+    def fake_apply(monitor_state, de, qdbus, raw_style, monitors, **_kw):
         applied.append(dict(monitor_state))
 
     monkeypatch.setattr(slideshow_daemon, "DAEMON_CONFIG_PATH", config_path)
@@ -68,7 +68,7 @@ def test_slideshow_daemon_reverse_sequential_starts_at_active(tmp_path, monkeypa
 
     applied = []
 
-    def fake_apply(monitor_state, de, qdbus, raw_style, monitors):
+    def fake_apply(monitor_state, de, qdbus, raw_style, monitors, **_kw):
         applied.append(dict(monitor_state))
 
     monkeypatch.setattr(slideshow_daemon, "DAEMON_CONFIG_PATH", config_path)

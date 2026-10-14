@@ -50,6 +50,18 @@ class _GNOMEWallpaperMixin:
             raise RuntimeError(f"Error setting GNOME solid color: {e}") from e
 
     @staticmethod
+    def _set_background_color_gnome(color_hex: str):
+        """Color GNOME shows around an image that does not cover the screen."""
+        try:
+            for key, value in (("primary-color", color_hex), ("color-shading-type", "solid")):
+                subprocess.run(
+                    ["gsettings", "set", "org.gnome.desktop.background", key, value],
+                    check=True,
+                )
+        except Exception as e:
+            raise RuntimeError(f"Error setting GNOME background color: {e}") from e
+
+    @staticmethod
     def _set_wallpaper_gnome_spanned(
         path_map: Dict[str, str], monitors: List[Monitor], style_name: str
     ):

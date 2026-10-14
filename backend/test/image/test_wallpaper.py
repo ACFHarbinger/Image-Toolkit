@@ -115,6 +115,26 @@ class TestWallpaperManager:
         assert args[0] == "/usr/bin/qdbus"
         assert "org.kde.image" in args[1]
 
+    def test_set_wallpaper_kde_writes_background_color(self, mock_base):
+        """The image background color fills what Keep Proportions/Center leave
+        uncovered; Blur is turned off so the color actually shows."""
+        from src.core.wallpaper._kde import _KDEWallpaperMixin
+
+        mock_base.evaluate_kde_script.return_value = ""
+        _KDEWallpaperMixin._set_wallpaper_kde(
+            {"0": "/path/to/img.jpg"}, "Scaled, Keep Proportions", "qdbus", background_color="#336699"
+        )
+        script = mock_base.evaluate_kde_script.call_args[0][1]
+        assert 'd.writeConfig("Color", "#336699")' in script
+        assert 'd.writeConfig("Blur", false)' in script
+
+        _KDEWallpaperMixin._set_wallpaper_kde({"0": "/path/to/img.jpg"}, "Fill", "qdbus")
+        assert 'writeConfig("Color"' not in mock_base.evaluate_kde_script.call_args[0][1]
+
+    def test_apply_wallpaper_rejects_malformed_background_color(self):
+        with pytest.raises(ValueError, match="RRGGBB"):
+            WallpaperManager.apply_wallpaper({"0": "/x.jpg"}, [], "Fill", "qdbus", background_color="red")
+
     def test_set_wallpaper_kde_write_does_not_regate_on_screen_by_default(
         self, mock_base
     ):

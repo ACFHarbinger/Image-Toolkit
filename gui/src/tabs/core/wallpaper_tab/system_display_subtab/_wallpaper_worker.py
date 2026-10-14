@@ -130,6 +130,7 @@ class SystemDisplayWallpaperWorkerController(TabBoundController):
                 self.monitors,
                 self.qdbus,
                 wallpaper_style=style_to_use,
+                background_color=self._background_color_for_apply(),
             )
             self.current_wallpaper_worker = worker
             relay = _WallpaperWorkerCompletionRelay(worker_serial, ui_locked, self.tab)

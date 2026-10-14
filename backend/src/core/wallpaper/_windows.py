@@ -109,6 +109,28 @@ class _WindowsWallpaperMixin:
             raise RuntimeError(f"Error setting Windows solid color wallpaper: {e}") from e
 
     @staticmethod
+    def _set_background_color_windows(color_hex: str):
+        """Desktop color Windows shows around a wallpaper that does not cover
+        the screen (Fit/Center): persisted in the registry and applied live."""
+        try:
+            color_hex = color_hex.lstrip("#")
+            r, g, b = tuple(int(color_hex[i : i + 2], 16) for i in (0, 2, 4))
+            key_colors = winreg.OpenKey(
+                winreg.HKEY_CURRENT_USER,
+                "Control Panel\\Colors",
+                0,
+                winreg.KEY_SET_VALUE,
+            )
+            winreg.SetValueEx(key_colors, "Background", 0, winreg.REG_SZ, f"{r} {g} {b}")
+            winreg.CloseKey(key_colors)
+            COLOR_DESKTOP = 1
+            elements = (ctypes.c_int * 1)(COLOR_DESKTOP)
+            colors = (ctypes.c_ulong * 1)(r | (g << 8) | (b << 16))
+            ctypes.windll.user32.SetSysColors(1, elements, colors)
+        except Exception as e:
+            raise RuntimeError(f"Error setting Windows background color: {e}") from e
+
+    @staticmethod
     def _set_wallpaper_windows_single(image_path: str, style_name: str):
         if Path(image_path).suffix.lower() in SUPPORTED_VIDEO_FORMATS:
             raise ValueError("Video wallpapers not supported on Windows natively.")
