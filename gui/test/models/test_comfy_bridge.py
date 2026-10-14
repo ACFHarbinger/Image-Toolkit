@@ -1,8 +1,16 @@
 """Unit tests for ComfyBridge, comfy_bridge.js injection, and parameter sync (#755)."""
+import http.server
+import json
+import shutil
+import subprocess
+import threading
 from unittest.mock import MagicMock
 
 import pytest
+import shiboken6
 from backend.src.constants.comfy import ServerState
+from PySide6.QtCore import QEventLoop, QTimer, QUrl
+from PySide6.QtWebEngineWidgets import QWebEngineView
 
 from gui.src.modules.comfy_workspace_controller import ComfyWorkspaceController
 from gui.src.tabs.models.gen.comfy_bridge import (
@@ -66,18 +74,26 @@ class TestComfyBridgeQObject:
         requested = []
         bridge.sync_param_requested.connect(lambda nid, param, val: requested.append((nid, param, val)))
         bridge.sync_param(1, "ckpt_name", "v1-5-pruned.safetensors")
-        assert requested == [("1", "ckpt_name", "v1-5-pruned.safetensors")]
+        assert requested == [("1", "ckpt_name", '"v1-5-pruned.safetensors"')]
 
         # Test object/numeric serialization
         bridge.sync_param(3, "cfg", 7.5)
         assert requested[-1] == ("3", "cfg", "7.5")
+
+    def test_bind_template_emits_signal(self, q_app):
+        bridge = ComfyBridge()
+        requested = []
+        bridge.bind_template_requested.connect(requested.append)
+        bridge.bind_template({"1": {"class_type": "CheckpointLoaderSimple"}})
+        assert len(requested) == 1
+        assert "CheckpointLoaderSimple" in requested[0]
 
     def test_set_image_node_emits_signal(self, q_app):
         bridge = ComfyBridge()
         requested = []
         bridge.set_image_requested.connect(lambda nid, img: requested.append((nid, img)))
         bridge.set_image_node(9, "pose.png")
-        assert requested == [("9", "pose.png")]
+        assert requested == [("9", '"pose.png"')]
 
     def test_js_to_python_notifications(self, q_app):
         bridge = ComfyBridge()
@@ -106,16 +122,18 @@ class TestComfyBridgeQObject:
 
 class TestSetupComfyWebChannel:
     def test_setup_registers_object_and_injects_script(self, q_app):
-        from PySide6.QtWebEngineWidgets import QWebEngineView
-
         view = QWebEngineView()
-        channel, bridge = setup_comfy_web_channel(view)
-
-        assert bridge is not None
-        assert channel is not None
-        assert "comfyBridge" in channel.registeredObjects()
-        scripts = view.page().scripts().toList()
-        assert any(s.name() == "comfy_bridge" for s in scripts)
+        try:
+            channel, bridge = setup_comfy_web_channel(view, allowed_url="http://127.0.0.1:8188")
+            assert bridge is not None
+            assert channel is not None
+            assert "comfyBridge" in channel.registeredObjects()
+            scripts = view.page().scripts().toList()
+            assert any(s.name() == "comfy_bridge" for s in scripts)
+        finally:
+            view.page().setWebChannel(None)
+            shiboken6.delete(view)
+            q_app.processEvents()
 
 
 class TestComfyUITabBridge:
@@ -127,6 +145,7 @@ class TestComfyUITabBridge:
         yield widget
         widget.close()
         controller.shutdown()
+        q_app.processEvents()
 
     def test_highlight_node_without_bridge_fails_open(self, tab):
         # When bridge is not mounted, returns False without crashing
@@ -154,8 +173,14 @@ class TestComfyUITabBridge:
         tab._on_param_changed_from_graph("8", "control_net_name", "control_canny.pth")
         assert tab._extra_ckpt_edit.text() == "control_canny.pth"
 
-        tab._on_param_changed_from_graph("9", "image", "/path/to/pose.png")
+        # Mapped server token maps back to local path
+        tab._token_to_local["uploaded_pose.png"] = "/path/to/pose.png"
+        tab._on_param_changed_from_graph("9", "image", "uploaded_pose.png")
         assert tab._image_edit.text() == "/path/to/pose.png"
+
+        # Unmapped server token displays the token string directly
+        tab._on_param_changed_from_graph("9", "image", "raw_server_token.png")
+        assert tab._image_edit.text() == "raw_server_token.png"
 
     def test_guided_ui_changes_sync_to_bridge(self, tab):
         mock_bridge = MagicMock()
@@ -173,8 +198,45 @@ class TestComfyUITabBridge:
         tab._extra_ckpt_edit.setText("extra_weights.pth")
         mock_bridge.sync_param.assert_any_call("8", "control_net_name", "extra_weights.pth")
 
-        tab._image_edit.setText("/tmp/ref.png")
-        mock_bridge.sync_param.assert_any_call("9", "image", "/tmp/ref.png")
+        # Non-file string/token is synced directly via set_image_node
+        tab._image_edit.setText("existing_token.png")
+        mock_bridge.set_image_node.assert_called_with("9", "existing_token.png")
+
+    def test_async_image_upload_and_token_mapping(self, tab, tmp_path, q_app):
+        mock_bridge = MagicMock()
+        tab._bridge = mock_bridge
+        tab._manager.is_running = True
+        tab._manager.upload_image.return_value = "server_uploaded_pose.png"
+
+        img_file = tmp_path / "local_pose.png"
+        img_file.write_bytes(b"mock_png_bytes")
+
+        # Trigger async image upload via textChanged
+        tab._image_edit.setText(str(img_file))
+
+        # Spin event loop briefly for QThread worker to complete
+        loop = QEventLoop()
+        QTimer.singleShot(200, loop.quit)
+        loop.exec()
+
+        tab._manager.upload_image.assert_called_once_with(str(img_file))
+        assert tab._local_to_token[str(img_file)] == "server_uploaded_pose.png"
+        assert tab._token_to_local["server_uploaded_pose.png"] == str(img_file)
+        mock_bridge.set_image_node.assert_called_with("9", "server_uploaded_pose.png")
+
+        # Reverse sync: graph reports server token -> UI shows local path
+        tab._on_param_changed_from_graph("9", "image", "server_uploaded_pose.png")
+        assert tab._image_edit.text() == str(img_file)
+
+        # Queue worker reuses cached token without redundant upload
+        tab._manager.upload_image.reset_mock()
+        tab._manager.queue_workflow.return_value = "prompt-123"
+        tab._queue_workflow_worker(
+            "controlnet_pose", str(img_file), "base.safetensors", "cn.pth", "pos", "neg",
+        )
+        tab._manager.upload_image.assert_not_called()
+        submitted = tab._manager.queue_workflow.call_args[0][0]
+        assert submitted["9"]["inputs"]["image"] == "server_uploaded_pose.png"
 
     def test_mode_switch_syncs_all_parameters(self, tab):
         mock_bridge = MagicMock()
@@ -183,11 +245,9 @@ class TestComfyUITabBridge:
         idx = tab._mode_combo.findData("ipadapter_reference")
         tab._mode_combo.setCurrentIndex(idx)
 
-        # ipadapter_reference: checkpoint_node: 1, positive_node: 6, negative_node: 7, extra_node: 3 (ipadapter_file)
-        mock_bridge.sync_param.assert_any_call("1", "ckpt_name", tab._base_ckpt_edit.text().strip())
-        mock_bridge.sync_param.assert_any_call("6", "text", tab._prompt_edit.text())
-        mock_bridge.sync_param.assert_any_call("7", "text", tab._negative_prompt_edit.text())
-        mock_bridge.sync_param.assert_any_call("3", "ipadapter_file", tab._extra_ckpt_edit.text().strip())
+        mock_bridge.bind_template.assert_called_once()
+        assert mock_bridge.bind_template.call_args.args[0]["3"]["class_type"]
+        mock_bridge.sync_param.assert_not_called()
 
 
 class TestGuidanceFocusButton:
@@ -265,3 +325,205 @@ class TestGuidanceFocusButton:
         assert res is True
         assert host._current_route == "generate"
         mock_comfy.highlight_node.assert_called_once_with("3")
+
+
+def test_bridge_preserves_json_looking_prompt_strings(q_app):
+    bridge = ComfyBridge()
+    sent = []
+    bridge.sync_param_requested.connect(lambda _node, _widget, value: sent.append(value))
+    for value in ("true", "123", "null", "[1,2]", '{"key":"value"}'):
+        bridge.sync_param("1", "text", value)
+        assert json.loads(sent[-1]) == value
+
+
+def test_bridge_blocks_parameter_traffic_after_cross_origin_navigation(q_app):
+    bridge = ComfyBridge(origin_check=lambda: False)
+    sent, received = [], []
+    bridge.sync_param_requested.connect(lambda *args: sent.append(args))
+    bridge.param_changed_in_graph.connect(lambda *args: received.append(args))
+    bridge.sync_param("1", "text", "private")
+    bridge.notifyParamChanged("1", "text", '"remote"')
+    assert not sent and not received
+
+
+def test_javascript_sync_requires_matching_graph_and_preserves_strings():
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("Node.js required for the bridge behavior harness")
+    source = get_comfy_bridge_js()
+    harness = """
+const assert = require('node:assert/strict');
+global.window = {app: null};
+global.document = {readyState: "complete"};
+global.setTimeout = function() {};
+global.setInterval = function() {};
+let calls = 0;
+const widget = {name: "text", value: "existing", callback() { calls++; }};
+const item = {id: 1, type: "Text", inputs: [], widgets: [widget], widgets_values: ["existing"]};
+const graph = {_nodes: [item], getNodeById(id) {return this._nodes.find(n => String(n.id)===String(id));}, setDirtyCanvas() {}};
+window.app = {graph, canvas: {}};
+eval(SOURCE);
+const helper = window.comfyBridgeHelper;
+assert.equal(helper.setNodeWidgetValue("1", "text", '"no"'), false);
+helper.bindTemplate(JSON.stringify({"1": {class_type: "Text", inputs: {text: "default"}}}));
+assert.equal(widget.value, "existing"); // Binding must not push defaults.
+assert.equal(helper.setNodeWidgetValue("1", "text", '"123"'), true);
+assert.equal(widget.value, "123");
+item.type = "Unrelated";
+assert.equal(helper.setNodeWidgetValue("1", "text", '"bad"'), false);
+assert.equal(widget.value, "123");
+item.type = "Text";
+helper.initGraphHooks();
+helper.initGraphHooks();
+const before = calls;
+widget.callback("value");
+assert.equal(calls, before + 1);
+"""
+    result = subprocess.run([node, "-"], input=harness.replace("SOURCE", json.dumps(source)),
+                            text=True, capture_output=True, timeout=10)
+    assert result.returncode == 0, result.stderr
+
+
+def test_live_comfy_frontend_integration(q_app):
+    """Validate bridge behavior against a live running ComfyUI frontend structure (#755)."""
+    html_page = """<!DOCTYPE html>
+<html>
+<head>
+  <script type="module">
+    import { app } from "./scripts/app.js";
+    window.app = app;
+  </script>
+</head>
+<body><h1>ComfyUI Live Canvas</h1></body>
+</html>"""
+
+    app_module_js = """
+let selectedNode = null;
+const textWidget = { name: "ckpt_name", value: "initial_model.safetensors", callback(v) {} };
+const imgWidget = { name: "image", value: "initial_pose.png", callback(v) {} };
+const node1 = { id: 1, type: "CheckpointLoaderSimple", comfyClass: "CheckpointLoaderSimple",
+                widgets: [textWidget], widgets_values: ["initial_model.safetensors"], inputs: [] };
+const node9 = { id: 9, type: "LoadImage", comfyClass: "LoadImage",
+                widgets: [imgWidget], widgets_values: ["initial_pose.png"], inputs: [] };
+const graph = {
+  _nodes: [node1, node9],
+  getNodeById(id) { return this._nodes.find(n => String(n.id) === String(id)); },
+  setDirtyCanvas() {}
+};
+const canvas = {
+  canvas: { width: 800, height: 600 },
+  ds: { scale: 1.0, offset: [0, 0] },
+  selectNode(n) { selectedNode = n; }
+};
+export const app = { graph, canvas };
+window.getTestSelectedNodeId = () => selectedNode ? selectedNode.id : null;
+"""
+
+    uploaded_files = []
+
+    class MockFrontendHandler(http.server.SimpleHTTPRequestHandler):
+        def do_GET(self):
+            if self.path in ("/", "/index.html"):
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html")
+                self.end_headers()
+                self.wfile.write(html_page.encode("utf-8"))
+            elif self.path == "/scripts/app.js":
+                self.send_response(200)
+                self.send_header("Content-Type", "application/javascript")
+                self.end_headers()
+                self.wfile.write(app_module_js.encode("utf-8"))
+            else:
+                self.send_response(404)
+                self.end_headers()
+
+        def do_POST(self):
+            if self.path == "/upload/image":
+                length = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(length)
+                uploaded_files.append(body)
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"name": "server_synced_token.png"}).encode("utf-8"))
+            else:
+                self.send_response(404)
+                self.end_headers()
+
+        def log_message(self, *args):
+            pass
+
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), MockFrontendHandler)
+    port = server.server_address[1]
+    server_thread = threading.Thread(target=server.serve_forever, daemon=True)
+    server_thread.start()
+
+    view = QWebEngineView()
+    url = f"http://127.0.0.1:{port}"
+    try:
+        channel, bridge = setup_comfy_web_channel(view, allowed_url=url)
+        loop = QEventLoop()
+        bridge.bridge_ready.connect(loop.quit)
+        QTimer.singleShot(4000, loop.quit)
+        view.load(QUrl(url))
+        loop.exec()
+
+        assert bridge.is_ready is True
+
+        def spin(ms=250):
+            lp = QEventLoop()
+            QTimer.singleShot(ms, lp.quit)
+            lp.exec()
+
+        # 1. Bind matching template topology:
+        bridge.bind_template({
+            "1": {"class_type": "CheckpointLoaderSimple", "inputs": {}},
+            "9": {"class_type": "LoadImage", "inputs": {}},
+        })
+        spin(200)
+
+        # 2. Highlight node 1
+        bridge.highlight_node("1")
+        spin(200)
+
+        # 3. Synchronize parameter:
+        bridge.sync_param("1", "ckpt_name", "updated_model.safetensors")
+        spin(200)
+
+        # 4. Set image node:
+        bridge.set_image_node("9", "server_synced_token.png")
+        spin(200)
+
+        # 5. Verify values in browser DOM/JS
+        result_js = {}
+
+        def check_js(res):
+            if res:
+                result_js.update(json.loads(res))
+            loop2.quit()
+
+        loop2 = QEventLoop()
+        view.page().runJavaScript(
+            """JSON.stringify((() => {
+                const g = window.app.graph;
+                const n1 = g.getNodeById(1);
+                const n9 = g.getNodeById(9);
+                return {
+                    node1_val: n1.widgets[0].value,
+                    node9_val: n9.widgets[0].value,
+                    selected: window.getTestSelectedNodeId()
+                };
+            })())""",
+            check_js,
+        )
+        QTimer.singleShot(3000, loop2.quit)
+        loop2.exec()
+
+        assert result_js.get("node1_val") == "updated_model.safetensors"
+        assert result_js.get("node9_val") == "server_synced_token.png"
+        assert result_js.get("selected") == 1
+    finally:
+        view.page().setWebChannel(None)
+        shiboken6.delete(view)
+        q_app.processEvents()
+        server.shutdown()
