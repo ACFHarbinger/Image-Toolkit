@@ -92,6 +92,170 @@
         });
     }
 
+    function loadTemplate(raw) {
+        try {
+            var workflow = (typeof raw === "string") ? JSON.parse(raw) : raw;
+            if (!workflow || typeof workflow !== "object") {
+                log("loadTemplate: invalid workflow payload");
+                if (bridge && typeof bridge.notifyTemplateLoaded === "function") {
+                    bridge.notifyTemplateLoaded(false);
+                }
+                return false;
+            }
+
+            expectedTemplate = workflow;
+            var app = window.app || moduleApp;
+            var loaded = false;
+
+            if (app && typeof app.loadApiJson === "function") {
+                try {
+                    app.loadApiJson(workflow);
+                    loaded = true;
+                } catch (e) {
+                    log("app.loadApiJson error: " + e);
+                }
+            } else if (app && typeof app.loadGraphData === "function" && workflow.nodes) {
+                try {
+                    app.loadGraphData(workflow);
+                    loaded = true;
+                } catch (e) {
+                    log("app.loadGraphData error: " + e);
+                }
+            }
+
+            if (!loaded) {
+                var graph = getGraph();
+                if (graph) {
+                    if (typeof graph.clear === "function") {
+                        graph.clear();
+                    } else if (Array.isArray(graph._nodes)) {
+                        graph._nodes = [];
+                    }
+                    if (typeof graph.getNodeById !== "function") {
+                        graph.getNodeById = function(id) {
+                            return (this._nodes || []).find(function(n) { return n && String(n.id) === String(id); });
+                        };
+                    }
+                    var linkId = 1;
+                    var links = {};
+                    var createdNodes = {};
+                    var ids = Object.keys(workflow);
+                    ids.forEach(function(id) {
+                        var spec = workflow[id];
+                        if (!spec || typeof spec !== "object") return;
+                        var numId = Number(id);
+                        var nodeId = isNaN(numId) ? id : numId;
+                        var node = null;
+                        if (window.LiteGraph && typeof window.LiteGraph.createNode === "function") {
+                            try {
+                                node = window.LiteGraph.createNode(spec.class_type);
+                            } catch (e) {}
+                        }
+                        if (!node) {
+                            node = {
+                                id: nodeId,
+                                type: spec.class_type,
+                                comfyClass: spec.class_type,
+                                title: (spec._meta && spec._meta.title) ? spec._meta.title : spec.class_type,
+                                inputs: [],
+                                widgets: [],
+                                widgets_values: []
+                            };
+                        } else {
+                            node.id = nodeId;
+                            if (spec._meta && spec._meta.title) node.title = spec._meta.title;
+                        }
+                        createdNodes[id] = node;
+                        if (typeof graph.add === "function") {
+                            graph.add(node);
+                        } else if (Array.isArray(graph._nodes)) {
+                            graph._nodes.push(node);
+                        }
+                    });
+
+                    ids.forEach(function(id) {
+                        var spec = workflow[id];
+                        var node = createdNodes[id];
+                        if (!node || !spec) return;
+                        var inputs = spec.inputs || {};
+                        Object.keys(inputs).forEach(function(name) {
+                            var val = inputs[name];
+                            if (Array.isArray(val)) {
+                                var link = {
+                                    id: linkId++,
+                                    origin_id: val[0],
+                                    origin_slot: val[1],
+                                    target_id: node.id,
+                                    target_slot: node.inputs ? node.inputs.length : 0
+                                };
+                                links[link.id] = link;
+                                if (!node.inputs) node.inputs = [];
+                                var existingInput = node.inputs.find(function(inp) { return inp && inp.name === name; });
+                                if (existingInput) {
+                                    existingInput.link = link.id;
+                                } else {
+                                    node.inputs.push({ name: name, link: link.id });
+                                }
+                            } else {
+                                if (!node.widgets) node.widgets = [];
+                                var w = node.widgets.find(function(widget) { return widget && widget.name === name; });
+                                if (w) {
+                                    w.value = val;
+                                } else {
+                                    node.widgets.push({ name: name, value: val });
+                                }
+                                if (Array.isArray(node.widgets_values)) {
+                                    node.widgets_values.push(val);
+                                }
+                            }
+                        });
+                    });
+
+                    if (typeof graph.links === "object" && graph.links !== null) {
+                        if (typeof graph.links.set === "function") {
+                            Object.keys(links).forEach(function(k) { graph.links.set(Number(k), links[k]); });
+                        } else {
+                            Object.assign(graph.links, links);
+                        }
+                    } else {
+                        graph.links = links;
+                    }
+                    loaded = true;
+                }
+            }
+
+            var g = getGraph();
+            var c = getCanvas();
+            if (g) {
+                initGraphHooks();
+                if (typeof g.setDirtyCanvas === "function") {
+                    g.setDirtyCanvas(true, true);
+                }
+            }
+            if (c) {
+                if (typeof c.setDirty === "function") {
+                    c.setDirty(true, true);
+                }
+                if (typeof c.draw === "function") {
+                    c.draw(true, true);
+                }
+            }
+
+            bindTemplate(typeof raw === "string" ? raw : JSON.stringify(workflow));
+            log("Loaded template into canvas (" + Object.keys(workflow).length + " nodes)");
+            if (bridge && typeof bridge.notifyTemplateLoaded === "function") {
+                bridge.notifyTemplateLoaded(true);
+            }
+            return true;
+        } catch (err) {
+            log("Error loading template: " + err);
+            if (bridge && typeof bridge.notifyTemplateLoaded === "function") {
+                bridge.notifyTemplateLoaded(false);
+            }
+            return false;
+        }
+    }
+
     function highlightNode(nodeId) {
         try {
             var graph = getGraph();
@@ -329,6 +493,9 @@
                 if (bridge.bind_template_requested) {
                     bridge.bind_template_requested.connect(bindTemplate);
                 }
+                if (bridge.load_template_requested) {
+                    bridge.load_template_requested.connect(loadTemplate);
+                }
                 if (bridge.highlight_node_requested) {
                     bridge.highlight_node_requested.connect(function(nodeId) {
                         highlightNode(nodeId);
@@ -362,7 +529,8 @@
         getGraph: getGraph,
         getCanvas: getCanvas,
         bindTemplate: bindTemplate,
-        matchesTemplate: matchesTemplate
+        matchesTemplate: matchesTemplate,
+        loadTemplate: loadTemplate
     };
 
     if (document.readyState === "complete" || document.readyState === "interactive") {

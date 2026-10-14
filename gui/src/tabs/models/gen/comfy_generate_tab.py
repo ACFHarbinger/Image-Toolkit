@@ -185,6 +185,13 @@ class ComfyUITab(ComfyValidationMixin, ComfyBridgeSyncMixin, QWidget):
             self._mode_combo.addItem(cfg["label"], key)
         self._mode_combo.currentIndexChanged.connect(self._on_mode_changed)
         mode_row.addWidget(self._mode_combo, stretch=1)
+        self._load_template_btn = QPushButton("Load into Canvas")
+        self._load_template_btn.setEnabled(False)
+        self._load_template_btn.setToolTip(
+            "Load the active mode workflow template into the embedded ComfyUI canvas"
+        )
+        self._load_template_btn.clicked.connect(self._on_load_template_clicked)
+        mode_row.addWidget(self._load_template_btn)
         wf_layout.addLayout(mode_row)
 
         ckpt_row = QHBoxLayout()
@@ -344,6 +351,7 @@ class ComfyUITab(ComfyValidationMixin, ComfyBridgeSyncMixin, QWidget):
             else "Disconnect without stopping the external server"
         )
         self._open_btn.setEnabled(ready)
+        self._load_template_btn.setEnabled(ready)
         self._url_label.setText(self._manager.url if active else "—")
         self._sync_web_view(ready)
         self._status_label.setText(f"Server: {state}")
@@ -542,4 +550,17 @@ class ComfyUITab(ComfyValidationMixin, ComfyBridgeSyncMixin, QWidget):
                     self._image_edit.setText(local_path)
         finally:
             self._syncing_param = False
+
+    @Slot()
+    def _on_load_template_clicked(self) -> None:
+        if not self.load_mode_template_into_canvas():
+            self._append_log("[workflow] Embedded ComfyUI canvas is not ready.\n")
+
+    @Slot(bool)
+    def _on_template_loaded(self, success: bool) -> None:
+        if success:
+            self._append_log("[bridge] Template loaded into canvas successfully.\n")
+        else:
+            self._append_log("[bridge] Failed to load template into canvas.\n")
+
 

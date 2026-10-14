@@ -306,3 +306,55 @@ class TestPreFlightValidation:
         assert not tab._queue_btn.isEnabled()
         assert tab._validation_label.text() == ""
         assert tab._issues_by_mode == {}
+
+
+class TestLoadModeTemplateAction:
+    def test_load_template_btn_initial_state(self, tab):
+        assert not tab._load_template_btn.isEnabled()
+        assert tab._load_template_btn.text() == "Load into Canvas"
+
+    def test_load_template_btn_enabled_when_server_ready(self, tab):
+        tab._controller.manager.state = ServerState.READY
+        tab._controller.server_state_changed.emit(ServerState.READY)
+        assert tab._load_template_btn.isEnabled()
+
+        tab._controller.manager.state = ServerState.STOPPED
+        tab._controller.server_state_changed.emit(ServerState.STOPPED)
+        assert not tab._load_template_btn.isEnabled()
+
+    def test_load_mode_template_into_canvas_delegates_to_bridge(self, tab):
+        mock_bridge = MagicMock(is_ready=True)
+        tab._bridge = mock_bridge
+        res = tab.load_mode_template_into_canvas()
+        assert res is True
+        mock_bridge.load_template.assert_called_once()
+        loaded = mock_bridge.load_template.call_args.args[0]
+        assert "1" in loaded
+        assert "Loading" in tab._log_view.toPlainText()
+
+    def test_load_mode_template_into_canvas_explicit_mode(self, tab):
+        mock_bridge = MagicMock(is_ready=True)
+        tab._bridge = mock_bridge
+        res = tab.load_mode_template_into_canvas("lora")
+        assert res is True
+        mock_bridge.load_template.assert_called_once()
+        loaded = mock_bridge.load_template.call_args.args[0]
+        assert loaded["2"]["class_type"] == "LoraLoader"
+
+    def test_load_mode_template_fails_open_without_bridge(self, tab):
+        tab._bridge = None
+        assert not tab.load_mode_template_into_canvas()
+
+    def test_load_template_button_click_triggers_load(self, tab):
+        mock_bridge = MagicMock(is_ready=True)
+        tab._bridge = mock_bridge
+        tab._load_template_btn.setEnabled(True)
+        tab._load_template_btn.click()
+        mock_bridge.load_template.assert_called_once()
+
+    def test_on_template_loaded_logs_notification(self, tab):
+        tab._on_template_loaded(True)
+        assert "successfully" in tab._log_view.toPlainText()
+        tab._on_template_loaded(False)
+        assert "Failed" in tab._log_view.toPlainText()
+
