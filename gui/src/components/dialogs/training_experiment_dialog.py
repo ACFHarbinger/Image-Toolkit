@@ -6,6 +6,7 @@ from pathlib import Path
 
 from backend.src.comfy_matrix import gpu_lease, try_admit
 from backend.src.core import training_experiments as experiments
+from backend.src.core.gpu_vram_estimate import estimate_job_gb
 from PySide6.QtCore import Qt, Signal, Slot
 from PySide6.QtWidgets import (
     QComboBox,
@@ -126,7 +127,17 @@ class TrainingExperimentDialog(QDialog):
         values = experiments.parse_values(self.field.currentText(), self.values.text())
         if QMessageBox.question(self, "Launch experiment", self.estimate.text() + "\n\nStart these runs?") != QMessageBox.StandardButton.Yes:
             return
-        refusal = try_admit(OWNER)
+        record = (self._details or {}).get("record") or {}
+        config = record.get("config") if isinstance(record.get("config"), dict) else {}
+        refusal = try_admit(
+            OWNER,
+            estimated_gb=estimate_job_gb(
+                OWNER,
+                model_id=record.get("model_id") or config.get("model_id"),
+                rank=config.get("rank", 4),
+                batch_size=config.get("batch_size", 1),
+            ),
+        )
         if refusal:
             QMessageBox.warning(self, "GPU busy", refusal)
             return

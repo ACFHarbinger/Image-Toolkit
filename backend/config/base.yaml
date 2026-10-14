@@ -64,6 +64,7 @@ logging:
 
 training:
   sample_grids: true
+  hessian_vectors: 0
 
 validation_seed: ${seed}
 

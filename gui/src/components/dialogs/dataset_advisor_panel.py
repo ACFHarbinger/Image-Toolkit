@@ -21,6 +21,7 @@ from backend.src.core.dataset_advisor import (
     analyze_diversity,
     scan_dataset,
 )
+from backend.src.core.gpu_vram_estimate import estimate_job_gb
 from PySide6.QtCore import Signal, Slot
 from PySide6.QtWidgets import (
     QFrame,
@@ -92,7 +93,10 @@ class AdvisorClusterWorker(BaseQThreadWorker):
         self._images = tuple(images)
 
     def _execute(self):
-        refusal = try_admit("dataset-advisor")
+        refusal = try_admit(
+            "dataset-advisor",
+            estimated_gb=estimate_job_gb("dataset-advisor"),
+        )
         if refusal:
             raise RuntimeError(refusal)
         try:

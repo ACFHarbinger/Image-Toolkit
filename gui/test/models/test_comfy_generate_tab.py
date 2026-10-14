@@ -32,6 +32,7 @@ def tab(q_app):
     yield widget
     widget.close()
     controller.shutdown()
+    q_app.processEvents()
 
 
 class TestModeSelection:
