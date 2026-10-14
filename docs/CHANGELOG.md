@@ -17,6 +17,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
+- LoRA V2 training: `full_bf16` now loads the frozen base in bf16 (it was declared in profiles but unused); `seed` now seeds training RNGs (noise/timesteps were unseeded); and `adamw8bit` without bitsandbytes falls back to torch AdamW with a warning, where it used to abort every default-config run. Files: `backend/src/models/tuning/lo_ra_tuner_v2.py`, `lo_ra_tuner_config.py`, `backend/src/pipeline/anime_training_pipeline.py`. Tests: `backend/test/models/test_tuner_precision_seed.py`.
+
 - LoRA V2 training ignored `training.resolution`: every image was bucketed to the SDXL ~1 MP set, so SD1.5 runs set to 512 trained at ~1024². Buckets now scale to the configured resolution, with sides rounded to 64; the default 1024 is unchanged. Files: `backend/src/models/data/lora_dataset.py`, `backend/src/pipeline/anime_training_pipeline.py`. Tests: `backend/test/models/test_lora_buckets.py`.
 
 - `_wait_for_browser_access`: restored 120-second deadline for the login-pending path (broken by the verification-pause rewrite). Headless sessions now fail immediately on a CAPTCHA challenge instead of waiting for a deadline. Two existing tests updated to match the new headless and resume semantics.

@@ -68,6 +68,11 @@ class LoRATunerConfig:
     gradient_accumulation_steps: int = 1
     gradient_checkpointing: bool = True
     mixed_precision: str = "bf16"          # 'no','fp16','bf16'
+    # Load the frozen base (UNet, VAE, text encoders) in bf16. peft keeps
+    # adapter weights fp32. Halves base-weight VRAM (needed for SDXL on 12 GB).
+    full_bf16: bool = False
+    # Seeds Python/NumPy/torch RNGs (noise, timesteps, adapter init) when set.
+    seed: Optional[int] = None
     max_train_steps: Optional[int] = 2000
     max_train_epochs: Optional[int] = None
 
