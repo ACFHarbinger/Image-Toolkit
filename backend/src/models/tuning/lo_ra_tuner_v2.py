@@ -69,6 +69,14 @@ from backend.src.models.tuning.sample_grids import (
     default_sample_prompts as _default_sample_prompts,
 )
 from backend.src.models.tuning.sample_grids import sampling_state
+from backend.src.models.tuning.train_caches import (
+    LatentCache,
+    TextEncoderOutputCache,
+    cached_conditioning,
+    deterministic_captions,
+    enable_attention_backend,
+    offload_to_cpu,
+)
 
 log = logging.getLogger(__name__)
 
@@ -378,14 +386,83 @@ class LoRATunerV2:
         return torch.cat([embeds1, out2.hidden_states[-2]], dim=-1), out2.text_embeds
 
     # ------------------------------------------------------------------
+    # Memory caches (#756 H4): profile flags finally consumed
+    # ------------------------------------------------------------------
+    def _build_train_caches(self, dataloader) -> None:
+        """Build the latent / text-encoder caches the profiles promise.
+
+        Heavy lifting lives in train_caches.py; off-mode leaves every
+        per-step path below byte-identical to the uncached behaviour.
+        """
+        cfg = self.cfg
+        dataset = getattr(dataloader, "dataset", None)
+        if dataset is None or not hasattr(dataset, "samples"):
+            return
+        if cfg.cache_latents:
+            self._latent_cache = LatentCache(
+                dataset,
+                encode_fn=self._encode_pixels_to_latents,
+                images_dir=dataset.samples[0].image_path.parent,
+                base_model=cfg.base_model_path,
+                to_disk=cfg.cache_latents_to_disk,
+                device=self.accelerator.device,
+                dtype=self.vae.dtype,
+            )
+            self._latent_cache.build()
+            offload_to_cpu(self.vae)
+        if cfg.cache_text_encoder_outputs:
+            if cfg.train_text_encoder_one or cfg.train_text_encoder_two:
+                log.info("Text encoders are being trained; TE-output caching skipped")
+            else:
+                self._te_cache = TextEncoderOutputCache(
+                    deterministic_captions(dataset), embed_fn=self._encode_caption
+                )
+                self._te_dropout = float(getattr(dataset, "caption_dropout", 0.0))
+                offload_to_cpu(self.text_encoder_one)
+                if getattr(self, "text_encoder_two", None) is not None:
+                    offload_to_cpu(self.text_encoder_two)
+
+    def _step_latents(self, batch) -> torch.Tensor:
+        """Step latents: cache lookup when cached, else a live VAE encode."""
+        with torch.no_grad():
+            if self._latent_cache is not None:
+                return self._latent_cache.lookup(batch["sample_index"])
+            px = batch["pixel_values"].to(dtype=self.vae.dtype)
+            latents = self.vae.encode(px).latent_dist.sample()
+            return latents * self.vae.config.scaling_factor
+
+    def _encode_pixels_to_latents(self, pixels: torch.Tensor) -> torch.Tensor:
+        with torch.no_grad():
+            px = pixels.to(device=self.accelerator.device, dtype=self.vae.dtype)
+            latents = self.vae.encode(px).latent_dist.sample()
+            return latents * self.vae.config.scaling_factor
+
+    def _encode_caption(self, caption: str):
+        with torch.no_grad():
+            if self.is_sdxl:
+                embeds, pooled = self.encode_prompt_sdxl([caption])
+                return embeds[0], pooled[0]
+            tok = self.tokenizer_one(
+                caption, padding="max_length",
+                max_length=self.tokenizer_one.model_max_length,
+                truncation=True, return_tensors="pt",
+            )
+            ids = tok.input_ids.to(self.text_encoder_one.device)
+            return self.text_encoder_one(ids)[0][0]
+
+    # ------------------------------------------------------------------
     # Training loop
     # ------------------------------------------------------------------
     def train(self, dataloader: DataLoader, diagnostics=None):
         cfg = self.cfg
         self._last_sampled_step = None
         self._frozen_eval = None  # #756: frozen at the first checkpoint
+        self._latent_cache = None
+        self._te_cache = None
         self.build_adapters()
         optimizer = self.build_optimizer()
+        enable_attention_backend(self.unet, cfg.xformers)
+        self._build_train_caches(dataloader)
 
         num_update_steps_per_epoch = max(
             len(dataloader) // cfg.gradient_accumulation_steps, 1
@@ -425,11 +502,7 @@ class LoRATunerV2:
 
             for batch in prog:
                 with self.accelerator.accumulate(self.unet):
-                    # Encode images to latents
-                    with torch.no_grad():
-                        px = batch["pixel_values"].to(dtype=self.vae.dtype)
-                        latents = self.vae.encode(px).latent_dist.sample()
-                        latents = latents * self.vae.config.scaling_factor
+                    latents = self._step_latents(batch)
 
                     noise = torch.randn_like(latents)
                     if cfg.noise_offset > 0:
@@ -449,9 +522,15 @@ class LoRATunerV2:
                     else:
                         target = noise
 
-                    # Text conditioning
+                    # Text conditioning (cached, or per-step encoders)
                     added_cond_kwargs = None
-                    if self.is_sdxl:
+                    if self._te_cache is not None:
+                        encoder_hidden_states, added_cond_kwargs = cached_conditioning(
+                            self._te_cache, batch["sample_index"],
+                            dropout=self._te_dropout, is_sdxl=self.is_sdxl,
+                            batch=batch, bsz=bsz, device=latents.device,
+                        )
+                    elif self.is_sdxl:
                         prompt_embeds, pooled = self.encode_prompt_sdxl(
                             batch.get("prompt", [""] * bsz)
                             if "prompt" in batch
