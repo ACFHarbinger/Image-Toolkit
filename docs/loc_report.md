@@ -11,7 +11,7 @@
 | `gui/src/tabs/models/dl_workspace_host.py` | 862 | 6 | 31 | 899 |
 | `gui/src/tabs/models/gen/comfy_generate_tab.py` | 803 | 50 | 15 | 868 |
 | `gui/src/windows/settings/_credentials.py` | 500 | 32 | 14 | 546 |
-| `backend/src/models/tuning/lo_ra_tuner_v2.py` | 488 | 51 | 29 | 568 |
+| `backend/src/models/tuning/lo_ra_tuner_v2.py` | 493 | 51 | 29 | 573 |
 | `gui/src/tabs/core/image_extractor_subtab.py` | 487 | 31 | 40 | 558 |
 | `gui/src/helpers/web/cloud/local_dir_sync_worker.py` | 475 | 58 | 69 | 602 |
 | `gui/src/windows/image_compare_window.py` | 473 | 18 | 8 | 499 |
@@ -55,5 +55,5 @@
 | `gui/src/windows/settings/settings_window.py` | 345 | 28 | 10 | 383 |
 | `gui/src/tabs/web/drive_sync_tab/sync_data_subtab/widget.py` | 344 | 26 | 13 | 383 |
 | `backend/src/utils/display/slideshow_daemon.py` | 343 | 32 | 33 | 408 |
-| `backend/src/pipeline/anime_training_pipeline.py` | 338 | 42 | 36 | 416 |
-| **TOTALS** | **101580** | **6528** | **10430** | **118538** |
+| `backend/src/pipeline/anime_training_pipeline.py` | 340 | 42 | 36 | 418 |
+| **TOTALS** | **101589** | **6531** | **10430** | **118550** |
