@@ -217,6 +217,7 @@ __all__ = [
     "freeze_eval_batch",
     "hutchinson_trace",
     "rademacher_probes",
+    "run_checkpoint_gauge",
 ]
 
 
