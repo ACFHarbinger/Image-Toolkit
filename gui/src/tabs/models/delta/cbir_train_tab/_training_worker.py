@@ -9,6 +9,7 @@ import threading
 from pathlib import Path
 
 from backend.src.comfy_matrix import gpu_lease, try_admit
+from backend.src.core.gpu_vram_estimate import estimate_job_gb
 from PySide6.QtWidgets import QMessageBox
 
 from ._tab_bound import TabBoundController
@@ -57,7 +58,10 @@ class CBIRTrainWorkerController(TabBoundController):
         )
 
         def _run() -> None:
-            refusal = try_admit("cbir-train")
+            refusal = try_admit(
+                "cbir-train",
+                estimated_gb=estimate_job_gb("cbir-train", batch_size=config.get("batch_size", 64)),
+            )
             if refusal:
                 self.sig_done.emit("error", refusal)
                 return

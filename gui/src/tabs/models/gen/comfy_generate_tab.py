@@ -4,6 +4,7 @@ from pathlib import Path
 
 from backend.src.comfy_matrix import apply_node_overrides, gpu_lease, merge_sampler_overrides, try_admit
 from backend.src.constants.comfy import ServerState
+from backend.src.core.gpu_vram_estimate import estimate_job_gb
 from PySide6.QtCore import Qt, QUrl, Signal, Slot
 from PySide6.QtGui import QTextCursor
 from PySide6.QtWidgets import (
@@ -195,7 +196,15 @@ def _queue_workflow(
     positive_prompt, negative_prompt, *, seed=None, width=None, height=None,
     run_meta=None, cancel=None,
 ) -> None:
-    refusal = try_admit("guided")
+    refusal = try_admit(
+        "guided",
+        estimated_gb=estimate_job_gb(
+            "guided",
+            width=width,
+            height=height,
+            checkpoint=base_checkpoint,
+        ),
+    )
     if refusal:
         log(f"[workflow] {refusal}\n")
         return
@@ -739,6 +748,7 @@ class ComfyUITab(QWidget):
         self._web_layout.addWidget(view)
         view.load(QUrl(self._manager.url))
         self._web_view = view
+        gpu_lease.note_embedded_view(str(id(self)), True)
 
     def _unmount_web_view(self) -> None:
         view = self._web_view
@@ -747,6 +757,7 @@ class ComfyUITab(QWidget):
         view.stop()
         view.setUrl(QUrl("about:blank"))
         view.deleteLater()
+        gpu_lease.note_embedded_view(str(id(self)), False)
 
     def closeEvent(self, event) -> None:
         # The app-level controller owns the service, not this disposable view.

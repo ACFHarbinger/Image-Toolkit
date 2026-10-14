@@ -19,6 +19,7 @@ from backend.src.core.gpu_lease_arbiter import (
     profile_from_env,
     release_unused_cuda_blocks,
 )
+from backend.src.core.gpu_vram_estimate import estimate_job_gb
 
 CELL_MIN = 3
 CELL_MAX = 9
@@ -447,7 +448,16 @@ def run_matrix_sweep(
     if len(values) > CELL_CAP:
         return SweepResult((), parent_prompt_id, "cap")
     holder = lease or gpu_lease
-    if not holder.try_acquire(lease_owner):
+    edge = preview_edge or PREVIEW_EDGE
+    if not holder.try_acquire(
+        lease_owner,
+        estimated_gb=estimate_job_gb(
+            lease_owner,
+            workflow=workflow,
+            width=edge,
+            height=edge,
+        ),
+    ):
         return SweepResult((), parent_prompt_id, "lease")
     prompt_ids: list[str] = []
     parent = parent_prompt_id

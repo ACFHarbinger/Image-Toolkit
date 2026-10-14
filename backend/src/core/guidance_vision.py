@@ -505,8 +505,9 @@ def _urllib_transport(request: _VlmHttpRequest) -> dict:
 
 def _default_admit(owner: str) -> str | None:
     from backend.src.comfy_matrix import try_admit
+    from backend.src.core.gpu_vram_estimate import estimate_job_gb
 
-    return try_admit(owner)
+    return try_admit(owner, estimated_gb=estimate_job_gb(owner))
 
 
 def _default_release(owner: str) -> None:
