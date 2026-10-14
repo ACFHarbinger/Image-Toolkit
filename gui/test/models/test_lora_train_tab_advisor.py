@@ -60,7 +60,9 @@ def test_exclusions_force_staging_and_hide_excluded_files(tmp_path):
     c = _img(tmp_path / "c.png", color=(3, 3, 3))
     excluded = frozenset({str(b.resolve())})
 
-    imported = resolve_imported_dataset((str(tmp_path),), exclusions=excluded)
+    imported = resolve_imported_dataset(
+        (str(tmp_path),), exclusions=excluded, staging_root=tmp_path / "staging"
+    )
 
     assert imported.staged, "folder scope would let training see excluded files"
     assert set(imported.source_paths) == {str(a), str(c)}

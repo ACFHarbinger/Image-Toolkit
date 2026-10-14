@@ -179,6 +179,14 @@ def _no_blocking_dialogs(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _isolate_dataset_staging(tmp_path, monkeypatch):
+    """The LoRA train tab stages selection datasets under ~/Downloads/Data/Tests
+    by default; tests that never pass a staging root leaked one
+    ``itk-train-dataset-*`` dir per run there. Stage inside the test's tmp dir."""
+    monkeypatch.setenv("IMAGE_TOOLKIT_STAGING_ROOT", str(tmp_path / "staging"))
+
+
+@pytest.fixture(autouse=True)
 def _stub_monitor_detection(monkeypatch):
     """``screeninfo.get_monitors()`` opens an X / hardware connection and
     hangs on a headless CI runner (no ``$DISPLAY``). Give every wallpaper-tab

@@ -111,8 +111,19 @@ def _unique_staged_name(src: Path, used_names: set[str], used_stems: set[str]) -
     return name
 
 
+def default_staging_root() -> Path:
+    """Where selection datasets are staged when the caller gives no root.
+
+    ``IMAGE_TOOLKIT_STAGING_ROOT`` overrides it (the GUI test suite points it
+    at each test's tmp dir, so tests never leave staged dirs in the real
+    location).
+    """
+    override = os.environ.get("IMAGE_TOOLKIT_STAGING_ROOT")
+    return Path(override) if override else Path.home() / "Downloads" / "Data" / "Tests"
+
+
 def _stage_images(unique: list[Path], staging_root: Path | None) -> Path | None:
-    staging_root = staging_root or Path.home() / "Downloads" / "Data" / "Tests"
+    staging_root = staging_root or default_staging_root()
     staging_root.mkdir(parents=True, exist_ok=True)
     staging = Path(tempfile.mkdtemp(prefix="itk-train-dataset-", dir=str(staging_root)))
     used_names: set[str] = set()
