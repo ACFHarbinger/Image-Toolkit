@@ -1,10 +1,9 @@
 """Embedded ComfyUI view and QWebChannel bridge sync for ComfyUITab (#755)."""
 import contextlib
-import json
 from pathlib import Path
 
 from backend.src.constants.comfy import ServerState
-from PySide6.QtCore import QUrl, Slot
+from PySide6.QtCore import QUrl
 
 from gui.src.helpers.worker_retention import retain_until_stopped
 
@@ -61,22 +60,6 @@ class ComfyBridgeSyncMixin:
         elif image_path in self._server_tokens:
             self._bridge.set_image_node(node_id, image_path)
 
-    @Slot(object)
-    def _on_image_uploaded(self, result) -> None:
-        if not result:
-            return
-        request, node_id, local_path, token = result
-        if request != self._image_request or self._image_edit.text().strip() != local_path:
-            return
-        self._local_to_token[local_path] = token
-        self._token_to_local[token] = local_path
-        self._server_tokens.add(token)
-        if self._bridge and self._bridge.is_ready:
-            self._bridge.set_image_node(node_id, token)
-
-    @Slot(object)
-    def _on_image_upload_error(self, exc) -> None:
-        self._append_log(f"[bridge] Image upload failed: {exc}\n")
 
     def _sync_all_guided_params(self) -> None:
         if self._bridge is None or not self._bridge.is_ready:
@@ -87,49 +70,6 @@ class ComfyBridgeSyncMixin:
             return
         self._bridge.bind_template(_load_workflow_template(cfg["template"]))
 
-    @Slot(str, str, str)
-    def _on_param_changed_from_graph(self, node_id: str, widget_name: str, raw_value: str) -> None:
-        if self._syncing_param:
-            return
-        mode = self._mode_combo.currentData()
-        cfg = WORKFLOW_MODES.get(mode)
-        if not cfg:
-            return
-        self._syncing_param = True
-        try:
-            val = raw_value
-            with contextlib.suppress(Exception):
-                val = json.loads(raw_value)
-            val_str = str(val) if not isinstance(val, str) else val
-
-            if str(node_id) == str(cfg.get("checkpoint_node")) and widget_name.lower() == "ckpt_name":
-                if self._base_ckpt_edit.text() != val_str:
-                    self._base_ckpt_edit.setText(val_str)
-            elif str(node_id) == str(cfg.get("positive_node")) and widget_name.lower() == "text":
-                if self._prompt_edit.text() != val_str:
-                    self._prompt_edit.setText(val_str)
-            elif str(node_id) == str(cfg.get("negative_node")) and widget_name.lower() == "text":
-                if self._negative_prompt_edit.text() != val_str:
-                    self._negative_prompt_edit.setText(val_str)
-            elif (
-                cfg.get("extra_node")
-                and str(node_id) == str(cfg.get("extra_node"))
-                and widget_name.lower() == str(cfg.get("extra_key", "")).lower()
-                and self._extra_ckpt_edit.text() != val_str
-            ):
-                self._extra_ckpt_edit.setText(val_str)
-            elif (
-                cfg.get("image_node")
-                and str(node_id) == str(cfg.get("image_node"))
-                and widget_name.lower() == "image"
-            ):
-                self._image_request += 1
-                self._server_tokens.add(val_str)
-                local_path = self._token_to_local.get(val_str, val_str)
-                if self._image_edit.text() != local_path:
-                    self._image_edit.setText(local_path)
-        finally:
-            self._syncing_param = False
 
     def _sync_web_view(self, ready: bool) -> None:
         if ready and self._web_view is None:

@@ -22,6 +22,8 @@ from gui.src.tabs.models.delta.lora_train_tab import LoRATrainTab
 pytestmark = pytest.mark.gui
 
 MODULE = "gui.src.tabs.models.delta.lora_train_tab"
+# Run-record bookkeeping lives in the runs mixin since the LoC split.
+RUNS_MODULE = "gui.src.tabs.models.delta._lora_train_runs"
 
 
 class _FakeDiagnostics:
@@ -155,7 +157,7 @@ def test_record_failure_never_blocks_training(tab, _runs_root):
     tuner_cls = _fake_lora_tuner()
     with patch(f"{MODULE}.LoRATuner", tuner_cls), \
          patch(f"{MODULE}.DiagnosticsLogger", _FakeDiagnostics), \
-         patch(f"{MODULE}.start_run", side_effect=OSError("disk full")):
+         patch(f"{RUNS_MODULE}.start_run", side_effect=OSError("disk full")):
         tab.run_training(
             params={}, data_dir="/tmp/data", model_id="some/model", rank=4,
             prompt="p", output_name="out", engine="standard",
@@ -186,7 +188,7 @@ def test_finish_record_failure_does_not_hide_training_success(tab):
     tab.training_finished_signal.connect(lambda *args: results.append(args))
     with patch(f"{MODULE}.LoRATuner", tuner_cls), \
          patch(f"{MODULE}.DiagnosticsLogger", _FakeDiagnostics), \
-         patch(f"{MODULE}.finish_run", side_effect=OSError("disk full")):
+         patch(f"{RUNS_MODULE}.finish_run", side_effect=OSError("disk full")):
         tab.run_training(params={}, data_dir="data", model_id="model", rank=4,
                          prompt="p", output_name="output", engine="standard")
     assert results and results[-1][0] == "success"

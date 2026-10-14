@@ -74,7 +74,7 @@ def test_train_tab_hosts_the_panel_and_resets_it_when_training_starts(tab_factor
     assert tab.findChild(QWidget, "live_training_panel") is not None
     monkeypatch.setattr(
         "gui.src.tabs.models.delta.lora_train_tab.try_admit",
-        lambda _owner: "GPU admission is held by other.",
+        lambda _owner, **_kw: "GPU admission is held by other.",
     )
     tab.widgets["epochs"].setValue(7)
     tab.start_training_thread()
@@ -90,7 +90,7 @@ def test_run_training_announces_the_run_directory(tab_factory, tmp_path, monkeyp
     tab = tab_factory()
     seen = []
     tab.run_directory_ready.connect(seen.append)
-    monkeypatch.setattr("gui.src.tabs.models.delta.lora_train_tab.try_admit", lambda _owner: None)
+    monkeypatch.setattr("gui.src.tabs.models.delta.lora_train_tab.try_admit", lambda _owner, **_kw: None)
     monkeypatch.setattr("gui.src.tabs.models.delta.lora_train_tab.gpu_lease.release", lambda *_a, **_k: None)
     monkeypatch.setattr(tab, "_create_run_record", lambda *_a, **_k: tmp_path)
     monkeypatch.setattr(tab, "_run_training_admitted", lambda *_a, **_k: None)

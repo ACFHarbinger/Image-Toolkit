@@ -219,7 +219,7 @@ def test_cancel_training_terminates_lycoris_subprocess_when_active(tab, monkeypa
     tab._lycoris_process = fake_proc
     killed = []
     monkeypatch.setattr(
-        "gui.src.tabs.models.delta.lora_train_tab.os.killpg",
+        "gui.src.tabs.models.delta.lora_dataset_staging.os.killpg",
         lambda pid, sig: killed.append((pid, sig)),
     )
     tab.cancel_training()

@@ -1,3 +1,5 @@
+import contextlib
+import json
 
 from backend.src.comfy_matrix import gpu_lease
 from backend.src.constants.comfy import ServerState
@@ -25,6 +27,7 @@ from gui.src.modules.comfy_workspace_controller import ComfyWorkspaceController
 
 from ....theming.theme_api import qss
 from ._comfy_bridge_sync import ComfyBridgeSyncMixin
+from ._comfy_validation import ComfyValidationMixin
 from .comfy_bridge import ComfyBridge
 from .comfy_workflows import (  # noqa: F401  re-exported for callers and tests
     WORKFLOW_MODES,
@@ -36,13 +39,14 @@ from .comfy_workflows import (  # noqa: F401  re-exported for callers and tests
 )
 
 
-class ComfyUITab(ComfyBridgeSyncMixin, QWidget):
+class ComfyUITab(ComfyValidationMixin, ComfyBridgeSyncMixin, QWidget):
     """
     Manages the ComfyUI server subprocess and opens its web UI in the system browser.
     """
 
     _log_signal = Signal(str)  # one log line
     _workflow_finished = Signal()
+
 
     def __init__(self, enable_manager=False, controller=None) -> None:
         super().__init__()
@@ -370,86 +374,6 @@ class ComfyUITab(ComfyBridgeSyncMixin, QWidget):
     # Pre-flight validation (#738)
     # ------------------------------------------------------------------
 
-    def _workflow_for_mode(self, mode: str) -> dict:
-        cfg = WORKFLOW_MODES[mode]
-        # Only the current mode reads the live extra-checkpoint field; other
-        # modes validate against their defaults (switching modes revalidates).
-        extra = (self._extra_ckpt_edit.text().strip()
-                 if mode == self._mode_combo.currentData()
-                 else cfg["extra_default"])
-        return build_workflow(
-            mode,
-            base_checkpoint=self._base_ckpt_edit.text().strip(),
-            extra_checkpoint=extra,
-            positive_prompt="",
-            negative_prompt="",
-            image_filename="placeholder.png",
-        )
-
-    def _revalidate(self, modes: list[str]) -> None:
-        if self._controller.server_state != ServerState.READY:
-            return
-        if self._manager.get_object_info() is None:
-            return  # warmup still in flight; object_info_changed retriggers
-        for mode in modes:
-            try:
-                self._issues_by_mode[mode] = list(
-                    self._manager.validate_template(self._workflow_for_mode(mode))
-                )
-            except RuntimeError:
-                self._validation_unavailable = True
-                self._issues_by_mode = {}
-                break
-        self._update_queue_state()
-
-    def _on_validation_param_changed(self, *, all_modes: bool = False) -> None:
-        if self._controller.server_state != ServerState.READY:
-            return
-        self._revalidate(list(WORKFLOW_MODES) if all_modes else [self._mode_combo.currentData()])
-
-    def _on_object_info(self, info) -> None:
-        self._validation_pending = False
-        if info is None:
-            # Fetch failed after retries: keep Queue usable (status quo ante)
-            # and say so, rather than blocking generation on a hiccup.
-            self._validation_unavailable = True
-            self._issues_by_mode = {}
-            self._append_log(
-                "[workflow] Pre-flight validation unavailable: "
-                "/object_info did not respond.\n"
-            )
-        else:
-            self._validation_unavailable = False
-            self._revalidate(list(WORKFLOW_MODES))
-        self._update_queue_state()
-
-    def _update_queue_state(self) -> None:
-        mode = self._mode_combo.currentData()
-        ready = (self._controller.server_state == ServerState.READY
-                 and not self._controller.busy)
-        if not ready:
-            self._queue_btn.setEnabled(False)
-            self._validation_label.setText("")
-            return
-        issues = self._issues_by_mode.get(mode, [])
-        if self._validation_pending:
-            self._queue_btn.setEnabled(False)
-            self._validation_label.setText("Checking workflow compatibility…")
-            return
-        if issues:
-            self._queue_btn.setEnabled(False)
-            text = issues[0].message
-            if len(issues) > 1:
-                text += f" (+{len(issues) - 1} more)"
-            self._validation_label.setText(text)
-            self._queue_btn.setToolTip("\n".join(issue.message for issue in issues))
-            return
-        self._queue_btn.setEnabled(True)
-        self._validation_label.setText("" if self._validation_unavailable else "Ready")
-        self._queue_btn.setToolTip(
-            "Upload the control/reference image and submit the curated workflow "
-            "to the running ComfyUI server"
-        )
 
     # ------------------------------------------------------------------
     # ControlNet / IP-Adapter workflow handlers (Content Gen §1.4)
@@ -557,3 +481,65 @@ class ComfyUITab(ComfyBridgeSyncMixin, QWidget):
         # The app-level controller owns the service, not this disposable view.
         self._unmount_web_view()
         super().closeEvent(event)
+
+    @Slot(object)
+    def _on_image_uploaded(self, result) -> None:
+        if not result:
+            return
+        request, node_id, local_path, token = result
+        if request != self._image_request or self._image_edit.text().strip() != local_path:
+            return
+        self._local_to_token[local_path] = token
+        self._token_to_local[token] = local_path
+        self._server_tokens.add(token)
+        if self._bridge and self._bridge.is_ready:
+            self._bridge.set_image_node(node_id, token)
+
+    @Slot(object)
+    def _on_image_upload_error(self, exc) -> None:
+        self._append_log(f"[bridge] Image upload failed: {exc}\n")
+
+    @Slot(str, str, str)
+    def _on_param_changed_from_graph(self, node_id: str, widget_name: str, raw_value: str) -> None:
+        if self._syncing_param:
+            return
+        mode = self._mode_combo.currentData()
+        cfg = WORKFLOW_MODES.get(mode)
+        if not cfg:
+            return
+        self._syncing_param = True
+        try:
+            val = raw_value
+            with contextlib.suppress(Exception):
+                val = json.loads(raw_value)
+            val_str = str(val) if not isinstance(val, str) else val
+
+            if str(node_id) == str(cfg.get("checkpoint_node")) and widget_name.lower() == "ckpt_name":
+                if self._base_ckpt_edit.text() != val_str:
+                    self._base_ckpt_edit.setText(val_str)
+            elif str(node_id) == str(cfg.get("positive_node")) and widget_name.lower() == "text":
+                if self._prompt_edit.text() != val_str:
+                    self._prompt_edit.setText(val_str)
+            elif str(node_id) == str(cfg.get("negative_node")) and widget_name.lower() == "text":
+                if self._negative_prompt_edit.text() != val_str:
+                    self._negative_prompt_edit.setText(val_str)
+            elif (
+                cfg.get("extra_node")
+                and str(node_id) == str(cfg.get("extra_node"))
+                and widget_name.lower() == str(cfg.get("extra_key", "")).lower()
+                and self._extra_ckpt_edit.text() != val_str
+            ):
+                self._extra_ckpt_edit.setText(val_str)
+            elif (
+                cfg.get("image_node")
+                and str(node_id) == str(cfg.get("image_node"))
+                and widget_name.lower() == "image"
+            ):
+                self._image_request += 1
+                self._server_tokens.add(val_str)
+                local_path = self._token_to_local.get(val_str, val_str)
+                if self._image_edit.text() != local_path:
+                    self._image_edit.setText(local_path)
+        finally:
+            self._syncing_param = False
+
