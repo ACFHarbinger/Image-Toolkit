@@ -31,6 +31,7 @@ from backend.src.comfy_matrix import (
 )
 from backend.src.constants import LOCAL_SOURCE_PATH
 from backend.src.constants.comfy import ServerState
+from backend.src.core.gpu_vram_estimate import estimate_job_gb
 from PySide6.QtCore import QBuffer, QByteArray, QIODevice, QSize, Qt, Signal
 from PySide6.QtGui import QIcon, QImage, QImageReader, QPixmap
 from PySide6.QtWidgets import (
@@ -759,7 +760,10 @@ class GenerateSurface(QWidget):
             self.graph.error.setText("Server is busy or not ready.")
 
     def _queue_graph(self, workflow: dict, meta: dict) -> None:
-        refusal = try_admit("graph")
+        refusal = try_admit(
+            "graph",
+            estimated_gb=estimate_job_gb("graph", workflow=workflow),
+        )
         if refusal:
             self._controller._publish_log(f"[workflow] {refusal}\n")
             return
@@ -898,7 +902,10 @@ class GenerateSurface(QWidget):
             self._matrix_message.setText("Server is busy or not ready.")
 
     def _queue_promoted(self, workflow, width: int, height: int, parent, template) -> None:
-        refusal = try_admit("promoted")
+        refusal = try_admit(
+            "promoted",
+            estimated_gb=estimate_job_gb("promoted", width=width, height=height, workflow=workflow),
+        )
         if refusal:
             self._controller._publish_log(f"[workflow] {refusal}\n")
             return

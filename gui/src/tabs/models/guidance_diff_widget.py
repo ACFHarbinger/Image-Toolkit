@@ -22,6 +22,7 @@ from copy import deepcopy
 
 from backend.src.comfy_matrix import gpu_lease, try_admit
 from backend.src.constants import LOCAL_SOURCE_PATH
+from backend.src.core.gpu_vram_estimate import estimate_job_gb
 from backend.src.core.guidance_schema import (
     GuidanceValidation,
     ModelSwap,
@@ -383,7 +384,10 @@ class GuidanceDiffWidget(QWidget):
             self._refresh_requeue_state()
 
     def _submit_variant(self, patched: dict, meta: dict) -> None:
-        refusal = try_admit(GUIDANCE_OWNER)
+        refusal = try_admit(
+            GUIDANCE_OWNER,
+            estimated_gb=estimate_job_gb(GUIDANCE_OWNER, workflow=patched),
+        )
         if refusal:
             self._bus.error.emit(refusal)
             return

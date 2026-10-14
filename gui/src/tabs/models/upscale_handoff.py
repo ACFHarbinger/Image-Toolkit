@@ -20,6 +20,7 @@ import threading
 from pathlib import Path
 
 from backend.src.comfy_matrix import gpu_lease, try_admit
+from backend.src.core.gpu_vram_estimate import estimate_job_gb, image_size
 from PySide6.QtCore import QObject, Signal
 
 UPSCALE_OWNER = "upscale"
@@ -90,7 +91,15 @@ def run_upscale_file(input_path: str, output_path: str) -> str:
     """
     if Path(input_path).resolve() == Path(output_path).resolve():
         raise ValueError("Upscale output must not replace its source.")
-    refusal = try_admit(UPSCALE_OWNER)
+    size = image_size(input_path)
+    refusal = try_admit(
+        UPSCALE_OWNER,
+        estimated_gb=estimate_job_gb(
+            UPSCALE_OWNER,
+            width=None if size is None else size[0],
+            height=None if size is None else size[1],
+        ),
+    )
     if refusal:
         raise RuntimeError(refusal)
     try:

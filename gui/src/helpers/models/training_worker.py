@@ -1,4 +1,5 @@
 from backend.src.comfy_matrix import gpu_lease, try_admit
+from backend.src.core.gpu_vram_estimate import estimate_job_gb
 from PySide6.QtCore import Signal
 
 from gui.src.helpers.base import BaseQThreadWorker
@@ -27,7 +28,10 @@ class TrainingWorker(BaseQThreadWorker):
         self._should_stop = False  # standardised cancellation flag (item 2.7)
 
     def _execute(self) -> object:
-        refusal = try_admit("gan-train")
+        refusal = try_admit(
+            "gan-train",
+            estimated_gb=estimate_job_gb("gan-train", batch_size=self.batch_size),
+        )
         if refusal:
             raise RuntimeError(refusal)
         try:
