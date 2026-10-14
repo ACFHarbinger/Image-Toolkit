@@ -21,6 +21,7 @@ dependencies = [
     "torchvision>=0.24.1",
     "scipy>=1.16.3",
     "scikit-learn>=1.8.0",
+    "matplotlib>=3.10.8",  # chart dialogs (adapter rank, training experiment)
     "imagehash>=4.3.2",
     "comtypes>=1.4.13",
     "typing-extensions>=4.12",
