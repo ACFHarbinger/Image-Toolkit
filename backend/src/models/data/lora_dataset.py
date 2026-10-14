@@ -74,12 +74,31 @@ class _LoRADataset(Dataset):
 # SDXL aspect-ratio bucket definitions (kohya canonical set at ~1 MP)
 # ---------------------------------------------------------------------------
 
+def buckets_for_resolution(resolution: int, step: int = 64) -> tuple[tuple[int, int], ...]:
+    """SDXL_BUCKETS scaled to ``resolution`` (the square bucket's side).
+
+    Each side is rounded to a multiple of ``step``. 1024 returns the
+    canonical set unchanged; 512 gives SD1.5-sized buckets.
+    """
+    scale = resolution / 1024
+    scaled = []
+    for w, h in SDXL_BUCKETS:
+        bucket = (max(step, round(w * scale / step) * step), max(step, round(h * scale / step) * step))
+        if bucket not in scaled:
+            scaled.append(bucket)
+    return tuple(scaled)
+
+
 def closest_bucket(w: int, h: int, buckets=SDXL_BUCKETS) -> tuple[int, int]:
-    """Return the SDXL bucket whose aspect ratio is closest to w/h."""
+    """Return the bucket whose aspect ratio is closest to w/h.
+
+    Ties go to the bucket nearest the set's square area (its first entry).
+    """
     ar = w / max(h, 1)
+    area = buckets[0][0] * buckets[0][1]
     return min(
         buckets,
-        key=lambda b: (abs(b[0] / b[1] - ar), abs(b[0] * b[1] - 1024 * 1024)),
+        key=lambda b: (abs(b[0] / b[1] - ar), abs(b[0] * b[1] - area)),
     )
 
 # ---------------------------------------------------------------------------
