@@ -12,6 +12,7 @@ for the deleteOrphaned crash class documented in
 from __future__ import annotations
 
 import os
+import re
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict
@@ -25,6 +26,9 @@ from ._tab_bound import TabBoundController
 
 if TYPE_CHECKING:
     from ...protos.system_display_subtab import SystemDisplaySubTabHostProtocol
+
+
+from ._style_selectors import DEFAULT_BACKGROUND_COLOR
 
 
 class SystemDisplayConfigController(TabBoundController):
@@ -50,6 +54,7 @@ class SystemDisplayConfigController(TabBoundController):
             "use_video_runtime_interval": self.chk_video_runtime_interval.isChecked(),
             "background_type": self.background_type,
             "solid_color_hex": self.solid_color_hex,
+            "background_color_hex": self.background_color_hex,
             "playback_order": self.playback_order_combo.currentText(),
             "monitor_order": monitor_order,
             "monitor_layout": monitor_layout,
@@ -69,6 +74,7 @@ class SystemDisplayConfigController(TabBoundController):
             "use_video_runtime_interval": False,
             "background_type": "Image",
             "solid_color_hex": color("window_bg"),
+            "background_color_hex": DEFAULT_BACKGROUND_COLOR,
             "monitor_order": [],
             "monitor_layout": [],
         }
@@ -134,6 +140,12 @@ class SystemDisplayConfigController(TabBoundController):
                 self.solid_color_hex = config.get("solid_color_hex", color("window_bg"))
                 self.solid_color_preview.setStyleSheet(
                     qss("dynamic_color_preview", BG_COLOR=self.solid_color_hex)
+                )
+            if "background_color_hex" in config:
+                value = str(config.get("background_color_hex") or DEFAULT_BACKGROUND_COLOR)
+                self.background_color_hex = value if re.fullmatch(r"#[0-9A-Fa-f]{6}", value) else DEFAULT_BACKGROUND_COLOR
+                self.background_color_preview.setStyleSheet(
+                    qss("dynamic_color_preview", BG_COLOR=self.background_color_hex)
                 )
             if "background_type" in config:
                 self.background_type_combo.setCurrentText(config.get("background_type", "Image"))

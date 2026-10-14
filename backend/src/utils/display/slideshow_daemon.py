@@ -235,6 +235,7 @@ def run() -> None:  # noqa: C901
     interval: int = int(config.get("interval_seconds", 30))
     playback_order: str = config.get("playback_order", "Sequential")
     raw_style: str = config.get("style", "Scaled, Keep Proportions")
+    background_color: str | None = config.get("background_color")
     use_video_runtime: bool = bool(config.get("use_video_runtime_interval", False))
 
     current_paths: dict = config.get("current_paths", {})
@@ -289,7 +290,7 @@ def run() -> None:  # noqa: C901
     if _was_locked:
         logging.info("Session is locked on startup — deferring first wallpaper apply to unlock.")
     else:
-        _apply_all(monitor_state, de, qdbus, raw_style, monitors)
+        _apply_all(monitor_state, de, qdbus, raw_style, monitors, background_color=background_color)
     if use_video_runtime:
         interval = _runtime_interval(monitor_state, interval)
         logging.info(f"Video-runtime interval: {interval}s")
@@ -315,7 +316,7 @@ def run() -> None:  # noqa: C901
                 # the user sees the right image without waiting another full
                 # interval, then reset elapsed so the next advance is on time.
                 logging.info("Session unlocked — applying wallpaper and resetting timer.")
-                _apply_all(monitor_state, de, qdbus, raw_style, monitors)
+                _apply_all(monitor_state, de, qdbus, raw_style, monitors, background_color=background_color)
                 _update_config_paths(monitor_state, interval, use_video_runtime)
                 elapsed = 0.0
             _was_locked = False
@@ -356,13 +357,14 @@ def run() -> None:  # noqa: C901
                 interval = decision["interval"]
                 use_video_runtime = decision["use_video_runtime"]
                 raw_style = decision["style"]
+                background_color = gui_cfg.get("background_color")
                 # monitor_queues / playback_order stay locked at start time.
 
             # ---- Advance wallpapers when timer fires ----------------------
             if elapsed >= interval:
                 elapsed = 0.0
                 _advance_all(monitor_state)
-                _apply_all(monitor_state, de, qdbus, raw_style, monitors)
+                _apply_all(monitor_state, de, qdbus, raw_style, monitors, background_color=background_color)
                 if use_video_runtime:
                     interval = _runtime_interval(monitor_state, interval)
                     logging.info(f"Video-runtime interval: {interval}s")
@@ -410,7 +412,15 @@ def _advance_all(monitor_state: dict) -> None:
                 break
 
 
-def _apply_all(monitor_state: dict, de: str, qdbus: str | None, raw_style: str, monitors: list) -> None:
+def _apply_all(
+    monitor_state: dict,
+    de: str,
+    qdbus: str | None,
+    raw_style: str,
+    monitors: list,
+    *,
+    background_color: str | None = None,
+) -> None:
     path_map = {}
     for mid, state in monitor_state.items():
         path = state["paths"][state["index"]]
@@ -421,7 +431,9 @@ def _apply_all(monitor_state: dict, de: str, qdbus: str | None, raw_style: str, 
         return
 
     try:
-        WallpaperManager.apply_wallpaper(path_map, monitors, raw_style, qdbus)
+        WallpaperManager.apply_wallpaper(
+            path_map, monitors, raw_style, qdbus, background_color=background_color
+        )
     except Exception as exc:
         logging.error(f"Failed to apply wallpaper: {exc}")
 

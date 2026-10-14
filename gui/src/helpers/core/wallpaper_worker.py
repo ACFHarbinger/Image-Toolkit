@@ -29,6 +29,7 @@ class WallpaperWorker(BaseQRunnableWorker):
         monitors: List[Monitor],
         qdbus: Optional[str] = None,
         wallpaper_style: str = "Fill",
+        background_color: Optional[str] = None,
     ):
         super().__init__()
         if WallpaperManager is None:
@@ -38,6 +39,8 @@ class WallpaperWorker(BaseQRunnableWorker):
         self.path_map = path_map
         self.monitors = monitors
         self.wallpaper_style = wallpaper_style  # Store the selected style
+        # "#RRGGBB" for screen areas the image leaves uncovered; None = unchanged.
+        self.background_color = background_color
         self.is_running = True
         # Alias so tooling that checks for the standardised pattern (2.7) works.
         self._should_stop = False
@@ -75,7 +78,11 @@ class WallpaperWorker(BaseQRunnableWorker):
         try:
             # --- Main Task ---
             WallpaperManager.apply_wallpaper(
-                self.path_map, self.monitors, self.wallpaper_style, self.qdbus
+                self.path_map,
+                self.monitors,
+                self.wallpaper_style,
+                self.qdbus,
+                background_color=self.background_color,
             )
 
             if not self.is_running:

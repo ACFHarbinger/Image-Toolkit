@@ -211,6 +211,7 @@ class SystemDisplayDaemonController(TabBoundController):
                 self.background_type == "Smart Video Slideshow" and self.chk_video_runtime_interval.isChecked()
             ),
             "style": style_to_use,
+            "background_color": self._background_color_for_apply(),
             "monitor_queues": locked_queues,
             "current_paths": self.monitor_image_paths,
             "monitor_current_indices": self.monitor_current_index,
@@ -269,6 +270,7 @@ class SystemDisplayDaemonController(TabBoundController):
                 self.background_type == "Smart Video Slideshow" and self.chk_video_runtime_interval.isChecked()
             ),
             "style": style_to_use,
+            "background_color": self._background_color_for_apply(),
             "monitor_queues": self.monitor_slideshow_queues,
             "current_paths": self.monitor_image_paths,
             "monitor_current_indices": self.monitor_current_index,

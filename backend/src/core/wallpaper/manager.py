@@ -6,6 +6,7 @@ Uses the 'base' native extension for Linux commands.
 import logging
 import os
 import platform
+import re
 import shutil
 from pathlib import Path
 from typing import Dict, List, Mapping, Optional, Union
@@ -73,8 +74,20 @@ class WallpaperManager(_WindowsWallpaperMixin, _KDEWallpaperMixin, _GNOMEWallpap
         monitors: Union[List[Monitor], int],
         style_name: str,
         qdbus: Optional[str] = None,
+        background_color: Optional[str] = None,
     ):
+        """Apply *path_map* to the monitors.
+
+        ``background_color`` ("#RRGGBB") fills whatever the image does not
+        cover (e.g. "Scaled, Keep Proportions" or "Center"). ``None`` leaves
+        the desktop's current background color unchanged. It does not apply
+        to video wallpapers or the SolidColor style.
+        """
         system = platform.system()
+        if background_color is not None and not re.fullmatch(r"#[0-9A-Fa-f]{6}", background_color):
+            raise ValueError(f"background_color must be '#RRGGBB', got {background_color!r}")
+        if style_name.startswith("SmartVideoWallpaper"):
+            background_color = None
         if style_name == "SolidColor":
             color_hex = path_map.get(str(0), "#000000")
             if system == "Windows":
@@ -98,6 +111,8 @@ class WallpaperManager(_WindowsWallpaperMixin, _KDEWallpaperMixin, _GNOMEWallpap
             return
 
         if system == "Windows":
+            if background_color:
+                WallpaperManager._set_background_color_windows(background_color)
             if WallpaperManager.COM_AVAILABLE and isinstance(monitors, list):
                 WallpaperManager._set_wallpaper_windows_multi(
                     path_map, monitors, style_name
@@ -130,7 +145,7 @@ class WallpaperManager(_WindowsWallpaperMixin, _KDEWallpaperMixin, _GNOMEWallpap
 
                 try:
                     WallpaperManager._set_wallpaper_kde(
-                        mapped_path_map, style_name, qdbus
+                        mapped_path_map, style_name, qdbus, background_color=background_color
                     )
                 except Exception as e:
                     # plasma-apply-wallpaperimage only understands static
@@ -184,6 +199,8 @@ class WallpaperManager(_WindowsWallpaperMixin, _KDEWallpaperMixin, _GNOMEWallpap
                 ):
                     return
 
+                if background_color:
+                    WallpaperManager._set_background_color_gnome(background_color)
                 if style_name == "Spanned" and isinstance(monitors, list):
                     WallpaperManager._set_wallpaper_gnome_spanned(
                         path_map, monitors, style_name

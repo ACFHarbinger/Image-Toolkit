@@ -249,6 +249,24 @@ class SystemDisplayUIBuilder(TabBoundController):
         style_layout.addWidget(self.video_style_label)
         style_layout.addWidget(self.video_style_combo)
 
+        # Color for screen areas the image leaves uncovered (e.g. "Scaled,
+        # Keep Proportions" or "Center"); shown for Image and Slideshow.
+        self.background_color_widget = QWidget()
+        bg_layout = QHBoxLayout(self.background_color_widget)
+        bg_layout.setContentsMargins(0, 0, 0, 0)
+        bg_layout.addWidget(QLabel("Background:"))
+        self.background_color_preview = QLabel(" ")
+        self.background_color_preview.setObjectName("wallpaper_background_color_preview")
+        self.background_color_preview.setFixedSize(20, 20)
+        self.background_color_preview.setStyleSheet(qss("dynamic_color_preview", BG_COLOR=self.background_color_hex))
+        self.background_color_preview.setToolTip("Fills any part of the screen the wallpaper does not cover.")
+        bg_layout.addWidget(self.background_color_preview)
+        btn_background_color = QPushButton("Select Color...")
+        btn_background_color.setObjectName("wallpaper_background_color_btn")
+        btn_background_color.clicked.connect(self.select_background_color)
+        bg_layout.addWidget(btn_background_color)
+        style_layout.addWidget(self.background_color_widget)
+
         self.playback_order_label = QLabel("Order:")
         style_layout.addWidget(self.playback_order_label)
         self.playback_order_combo = QComboBox()

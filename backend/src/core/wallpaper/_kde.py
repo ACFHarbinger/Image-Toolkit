@@ -175,7 +175,9 @@ class _KDEWallpaperMixin:
         return mapping
 
     @staticmethod
-    def _set_wallpaper_kde(path_map: Dict[str, str], style_name: str, qdbus: str):  # noqa: C901
+    def _set_wallpaper_kde(  # noqa: C901
+        path_map: Dict[str, str], style_name: str, qdbus: str, background_color: Optional[str] = None
+    ):
         video_fill_mode = 2
         video_mode_active = False
 
@@ -225,6 +227,14 @@ class _KDEWallpaperMixin:
         # even though we already know, by position, which real monitor it
         # is. Only gate on ``d.screen`` when the caller actually trusts it.
         screen_check = "d.screen >= 0" if USE_OS_DISPLAY_MAPPING else "true"
+
+        # org.kde.image paints "Color" wherever the image leaves the screen
+        # uncovered; "Blur" (a blurred copy of the image) would hide it.
+        background_js = (
+            f'd.writeConfig("Color", "{background_color}"); d.writeConfig("Blur", false); '
+            if background_color
+            else ""
+        )
 
         script_parts = []
         video_config_parts = []
@@ -391,7 +401,7 @@ class _KDEWallpaperMixin:
                 )
             else:
                 script_parts.append(
-                    f'{{ var d = desktops()[{i}]; if (d && {screen_check}) {{ d.wallpaperPlugin = "org.kde.image"; d.currentConfigGroup = Array("Wallpaper", "org.kde.image", "General"); d.writeConfig("Image", "{file_uri}"); d.writeConfig("FillMode", {fill_mode}); d.reloadConfig(); }} else {{ print("ERROR: monitor {i} has no valid KDE desktop/screen."); }} }}'
+                    f'{{ var d = desktops()[{i}]; if (d && {screen_check}) {{ d.wallpaperPlugin = "org.kde.image"; d.currentConfigGroup = Array("Wallpaper", "org.kde.image", "General"); d.writeConfig("Image", "{file_uri}"); d.writeConfig("FillMode", {fill_mode}); {background_js}d.reloadConfig(); }} else {{ print("ERROR: monitor {i} has no valid KDE desktop/screen."); }} }}'
                 )
 
         if not script_parts:

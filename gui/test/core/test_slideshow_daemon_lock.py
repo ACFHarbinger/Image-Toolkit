@@ -97,6 +97,9 @@ def test_sync_daemon_config_keeps_locked_queues(q_app, tmp_path, monkeypatch):
             self.playback_order_combo = MagicMock()
             self.playback_order_combo.currentText.return_value = "Sequential"
 
+        def _background_color_for_apply(self):
+            return "#123456"
+
     monkeypatch.setattr(
         "gui.src.tabs.core.wallpaper_tab.system_display_subtab._daemon.DAEMON_CONFIG_PATH",
         path,
@@ -105,6 +108,7 @@ def test_sync_daemon_config_keeps_locked_queues(q_app, tmp_path, monkeypatch):
     saved = json.loads(path.read_text())
     assert saved["monitor_queues"] == {"0": ["/locked.jpg"]}
     assert saved["interval_seconds"] == 30
+    assert saved["background_color"] == "#123456"
 
 
 def test_write_daemon_config_atomic_leaves_no_partial_file(tmp_path, monkeypatch):

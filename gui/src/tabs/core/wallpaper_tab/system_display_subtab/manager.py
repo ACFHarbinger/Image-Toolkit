@@ -13,7 +13,7 @@ from ._config import SystemDisplayConfigController
 from ._daemon import SystemDisplayDaemonController
 from ._lifecycle import SystemDisplayLifecycleController
 from ._slideshow import SystemDisplaySlideshowController
-from ._style_selectors import SystemDisplayStyleSelectorsController
+from ._style_selectors import DEFAULT_BACKGROUND_COLOR, SystemDisplayStyleSelectorsController
 from ._ui_builder import SystemDisplayUIBuilder
 from ._wallpaper_worker import SystemDisplayWallpaperWorkerController
 
@@ -96,6 +96,8 @@ class SystemDisplaySubTab(WallpaperCommonBase):
 
         self.wallpaper_style: str = "Fill"
         self.video_style: str = "Scaled and Cropped"
+        # Fills screen areas an image leaves uncovered (Image/Slideshow types).
+        self.background_color_hex: str = DEFAULT_BACKGROUND_COLOR
 
         self._build_ui()
 
@@ -163,6 +165,8 @@ class SystemDisplaySubTab(WallpaperCommonBase):
     _on_video_runtime_interval_toggled = _delegate("style_selectors_controller", "_on_video_runtime_interval_toggled")
     _update_background_type = _delegate("style_selectors_controller", "_update_background_type")
     select_solid_color = _delegate("style_selectors_controller", "select_solid_color")
+    select_background_color = _delegate("style_selectors_controller", "select_background_color")
+    _background_color_for_apply = _delegate("style_selectors_controller", "_background_color_for_apply")
 
     _build_ui = _delegate("ui_builder", "_build_ui")
     _build_background_type_row = _delegate("ui_builder", "_build_background_type_row")

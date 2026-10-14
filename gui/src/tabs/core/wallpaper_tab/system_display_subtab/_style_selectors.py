@@ -17,6 +17,10 @@ from PySide6.QtWidgets import QColorDialog
 from .....theming.theme_api import qss
 from ._tab_bound import TabBoundController
 
+# Background types whose images can leave part of the screen uncovered.
+BACKGROUND_COLOR_TYPES = ("Image", "Slideshow")
+DEFAULT_BACKGROUND_COLOR = "#000000"
+
 if TYPE_CHECKING:
     from ...protos.system_display_subtab import SystemDisplaySubTabHostProtocol
 
@@ -78,6 +82,7 @@ class SystemDisplayStyleSelectorsController(TabBoundController):
         if hasattr(self, "btn_skip_wallpapers"):
             self.btn_skip_wallpapers.setVisible(True)
         self.solid_color_widget.setVisible(is_solid_color)
+        self.background_color_widget.setVisible(type_name in BACKGROUND_COLOR_TYPES)
 
         self.chk_video_runtime_interval.setVisible(is_video_slideshow)
         if not is_video_slideshow:
@@ -126,6 +131,23 @@ class SystemDisplayStyleSelectorsController(TabBoundController):
                 qss("dynamic_color_preview", BG_COLOR=self.solid_color_hex)
             )
             self.check_all_monitors_set()
+
+
+    @Slot()
+    def select_background_color(self: "SystemDisplaySubTabHostProtocol"):
+        color = QColorDialog.getColor(
+            QColor(self.background_color_hex), self.tab, "Select Wallpaper Background Color"
+        )
+        if color.isValid():
+            self.background_color_hex = color.name().upper()
+            self.background_color_preview.setStyleSheet(
+                qss("dynamic_color_preview", BG_COLOR=self.background_color_hex)
+            )
+            self._sync_daemon_config()
+
+    def _background_color_for_apply(self: "SystemDisplaySubTabHostProtocol") -> Optional[str]:
+        """The background color to send with an apply, or None for types it does not affect."""
+        return self.background_color_hex if self.background_type in BACKGROUND_COLOR_TYPES else None
 
 
 __all__ = ["SystemDisplayStyleSelectorsController"]
