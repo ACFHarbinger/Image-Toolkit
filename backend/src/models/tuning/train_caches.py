@@ -129,11 +129,10 @@ class LatentCache:
                 if path is not None:
                     with contextlib.suppress(OSError):
                         np.savez(path, latent=latent.detach().cpu().float().numpy())
-        if pending:
-            log.info(
-                "Latent cache: %d disk hits, %d encoded%s",
-                self.disk_hits, self.encoded, " (persisted)" if self._cache_dir else "",
-            )
+        log.info(
+            "Latent cache: %d disk hits, %d encoded%s",
+            self.disk_hits, self.encoded, " (persisted)" if self._cache_dir else "",
+        )
 
     def lookup(self, indices: Sequence[int]) -> torch.Tensor:
         return torch.stack([self._latents[int(i)] for i in indices])
