@@ -6,12 +6,9 @@
 
 | Path | Code | Comments | Docstrings | Total |
 |---|---:|---:|---:|---:|
-| `gui/src/tabs/models/delta/lora_train_tab.py` | 1189 | 37 | 48 | 1274 |
-| `gui/src/tabs/models/gen/generate_surface.py` | 883 | 0 | 19 | 902 |
-| `gui/src/tabs/models/dl_workspace_host.py` | 862 | 6 | 31 | 899 |
-| `gui/src/tabs/models/gen/comfy_generate_tab.py` | 803 | 50 | 15 | 868 |
 | `gui/src/windows/settings/_credentials.py` | 500 | 32 | 14 | 546 |
 | `backend/src/models/tuning/lo_ra_tuner_v2.py` | 493 | 51 | 29 | 573 |
+| `gui/src/tabs/models/delta/lora_train_tab.py` | 489 | 13 | 6 | 508 |
 | `gui/src/tabs/core/image_extractor_subtab.py` | 487 | 31 | 40 | 558 |
 | `gui/src/helpers/web/cloud/local_dir_sync_worker.py` | 475 | 58 | 69 | 602 |
 | `gui/src/windows/image_compare_window.py` | 473 | 18 | 8 | 499 |
@@ -21,9 +18,12 @@
 | `backend/src/database/unified/search_repo.py` | 464 | 30 | 72 | 566 |
 | `backend/src/models/tuning/lo_ra_tuner.py` | 462 | 50 | 21 | 533 |
 | `gui/src/tabs/core/wallpaper_tab/graph/wallpaper_graph_scene.py` | 456 | 22 | 29 | 507 |
+| `gui/src/tabs/models/review_tools_page.py` | 455 | 1 | 8 | 464 |
+| `gui/src/tabs/models/gen/comfy_generate_tab.py` | 453 | 27 | 3 | 483 |
 | `gui/src/tabs/core/extractor_tab/_media_player.py` | 439 | 114 | 29 | 582 |
 | `gui/src/components/dialogs/asp_advanced_config_dialog.py` | 437 | 21 | 8 | 466 |
 | `gui/src/tabs/web/reverse_search_tab.py` | 434 | 45 | 21 | 500 |
+| `gui/src/tabs/models/dl_workspace_host.py` | 434 | 5 | 24 | 463 |
 | `gui/src/windows/settings/_reset_state.py` | 432 | 16 | 17 | 465 |
 | `gui/src/helpers/core/_queue_extraction_process.py` | 429 | 7 | 29 | 465 |
 | `gui/src/windows/image_preview_window.py` | 417 | 68 | 42 | 527 |
@@ -33,6 +33,7 @@
 | `gui/src/tabs/models/gen/lora_generate_tab.py` | 403 | 16 | 3 | 422 |
 | `gui/src/windows/settings/_appearance.py` | 400 | 31 | 18 | 449 |
 | `gui/src/windows/main/_session_recovery.py` | 400 | 31 | 28 | 459 |
+| `gui/src/tabs/models/gen/generate_surface.py` | 399 | 2 | 11 | 412 |
 | `gui/src/classes/base/_gallery_presentation.py` | 394 | 21 | 21 | 436 |
 | `backend/src/comfy_matrix.py` | 388 | 4 | 25 | 417 |
 | `gui/src/styles/background_canvas.py` | 387 | 3 | 18 | 408 |
@@ -55,5 +56,4 @@
 | `gui/src/windows/settings/settings_window.py` | 345 | 28 | 10 | 383 |
 | `gui/src/tabs/web/drive_sync_tab/sync_data_subtab/widget.py` | 344 | 26 | 13 | 383 |
 | `backend/src/utils/display/slideshow_daemon.py` | 343 | 32 | 33 | 408 |
-| `backend/src/pipeline/anime_training_pipeline.py` | 340 | 42 | 36 | 418 |
-| **TOTALS** | **101589** | **6531** | **10430** | **118550** |
+| **TOTALS** | **101798** | **6533** | **10448** | **118779** |
