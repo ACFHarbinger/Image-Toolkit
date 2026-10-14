@@ -174,6 +174,45 @@ def test_release_unused_cuda_blocks_is_a_no_op_without_torch():
     release_unused_cuda_blocks()
 
 
+def test_snapshot_does_not_probe_cuda():
+    calls: list[int] = []
+    lease = GpuLeaseArbiter(device_probe=lambda: calls.append(1) or 16.0)
+    snap = lease.snapshot()
+    assert calls == []
+    assert snap.device_total_gb is None
+
+
+def test_conservative_refuses_an_embedded_comfy_view():
+    lease = GpuLeaseArbiter(profile=PROFILE_CONSERVATIVE, device_total_gb=16.0)
+    lease.note_embedded_view("comfy-tab", True)
+    assert lease.try_acquire("lora-train") is False
+    assert "browser" in lease.refusal_text().lower()
+    lease.note_embedded_view("comfy-tab", False)
+    assert lease.try_acquire("lora-train")
+    lease.release("lora-train")
+
+
+def test_comfy_release_does_not_use_this_process_torch_peak():
+    lease = GpuLeaseArbiter(peak_reader=lambda: 9.9)
+    assert lease.try_acquire("guided", estimated_gb=4.0)
+    lease.release("guided")
+    assert lease.snapshot().measured_peak_gb is None
+    assert lease.try_acquire("lora-train")
+    lease.release("lora-train")
+    assert lease.snapshot().measured_peak_gb == 9.9
+
+
+def test_stale_release_does_not_unlock_the_next_owner():
+    lease = GpuLeaseArbiter()
+    assert lease.try_acquire("lora-train")
+    lease.release("lora-train")
+    assert lease.try_acquire("matrix")
+    lease.release("lora-train")
+    assert lease.owner == "matrix"
+    assert lease.try_acquire("guided") is False
+    lease.release("matrix")
+
+
 def test_comfy_matrix_try_admit_keeps_busy_text_and_uses_arbiter_refusals():
     from backend.src.comfy_matrix import GpuLease, try_admit
 

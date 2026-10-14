@@ -32,6 +32,10 @@ KIND_TRAIN = "train"
 KIND_GENERATE = "generate"
 KIND_OTHER = "other"
 
+# Comfy HTTP jobs run in another process. This process's torch peak is
+# not their occupancy and must not be recorded as if it were.
+COMFY_OWNERS = frozenset({"matrix", "guided", "graph", "promoted", "guidance"})
+
 _PROFILE_ENV = "IMAGE_TOOLKIT_GPU_PROFILE"
 
 
@@ -191,8 +195,11 @@ class GpuLeaseArbiter:
         else:
             self._embedded_views.discard(owner)
 
+    def _unknown_comfy_occupancy(self) -> bool:
+        return self._external_browser or bool(self._embedded_views)
+
     def scope_text(self) -> str:
-        if self._external_browser or self._embedded_views:
+        if self._unknown_comfy_occupancy():
             browser = " A Comfy browser session is open and can submit work this admission cannot see."
         else:
             browser = " Comfy browser jobs are outside this admission."
@@ -202,13 +209,14 @@ class GpuLeaseArbiter:
         )
 
     def snapshot(self) -> GpuLeaseSnapshot:
+        # Do not probe CUDA from a GUI snapshot path.
         return GpuLeaseSnapshot(
             owner=self._owner,
             profile=self._profile,
             estimated_gb=self._estimated_gb,
             measured_peak_gb=self._measured_peak_gb,
             device_total_gb=self._device_total_gb,
-            external_browser=self._external_browser or bool(self._embedded_views),
+            external_browser=self._unknown_comfy_occupancy(),
             kind=self._kind,
         )
 
@@ -217,8 +225,15 @@ class GpuLeaseArbiter:
             return self._last_refusal
         return f"GPU admission is held by {self._owner or 'another job'}."
 
-    def try_acquire(self, owner: str, *, estimated_gb=None, kind=None) -> bool:
+    def try_acquire(
+        self,
+        owner: str,
+        *,
+        estimated_gb: float | None = None,
+        kind: str | None = None,
+    ) -> bool:
         if not self._transition.acquire(blocking=False):
+            self._last_refusal = f"GPU admission is held by {self._owner or 'another job'}."
             return False
         try:
             return self._try_acquire(owner, estimated_gb=estimated_gb, kind=kind)
@@ -234,7 +249,7 @@ class GpuLeaseArbiter:
     ) -> bool:
         self._last_refusal = None
         estimate = _finite_gb(estimated_gb)
-        if self._profile == PROFILE_CONSERVATIVE and (self._external_browser or self._embedded_views):
+        if self._profile == PROFILE_CONSERVATIVE and self._unknown_comfy_occupancy():
             self._last_refusal = (
                 "GPU admission refused: a Comfy browser session is open (conservative profile)."
             )
@@ -242,7 +257,9 @@ class GpuLeaseArbiter:
         if self._owner is not None:
             self._last_refusal = f"GPU admission is held by {self._owner}."
             return False
-        device = self._resolve_device_total() if self._profile == PROFILE_CONSERVATIVE and estimate is not None else None
+        device = None
+        if self._profile == PROFILE_CONSERVATIVE and estimate is not None:
+            device = self._resolve_device_total()
         if self._profile == PROFILE_CONSERVATIVE and estimate is not None and device is not None:
             ceiling = CONSERVATIVE_VRAM_FRACTION * device
             if estimate > ceiling:
@@ -272,7 +289,7 @@ class GpuLeaseArbiter:
         if self._owner != owner:
             return
         peak = _finite_gb(measured_peak_gb)
-        if peak is None and self._peak_reader is not None and owner not in {"matrix", "guided", "graph", "promoted", "guidance"}:
+        if peak is None and self._peak_reader is not None and owner not in COMFY_OWNERS:
             try:
                 peak = _finite_gb(self._peak_reader())
             except Exception:
@@ -299,6 +316,7 @@ class GpuLeaseArbiter:
 
 
 __all__ = [
+    "COMFY_OWNERS",
     "CONSERVATIVE_VRAM_FRACTION",
     "KIND_GENERATE",
     "KIND_OTHER",
