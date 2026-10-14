@@ -62,3 +62,31 @@ class TestEvaluateKdeScriptWithFallback:
                 side_effect=ImportError("no dbus-python"),
             ), pytest.raises(RuntimeError, match="qdbus6.*dbus-python"):
                 evaluate_kde_script_with_fallback("qdbus6", "script")
+
+
+class TestDesktopsFallback:
+    """After a plasmashell restart ``currentActivity()`` can be empty, so
+    ``desktops()`` returns nothing and every write failed with "monitor N
+    has no valid KDE desktop/screen". Scripts now go through itkDesktops(),
+    which falls back to desktopsForActivity()."""
+
+    def test_desktops_calls_are_routed_through_the_fallback(self):
+        from src.core.wallpaper._dbus import with_desktops_fallback
+
+        out = with_desktops_fallback("var d = desktops()[1]; var n = desktops().length;")
+        assert "function itkDesktops()" in out
+        assert "desktopsForActivity(" in out
+        assert out.endswith("var d = itkDesktops()[1]; var n = itkDesktops().length;")
+
+    def test_scripts_without_desktops_are_unchanged(self):
+        from src.core.wallpaper._dbus import with_desktops_fallback
+
+        script = "print(screenCount); var x = obj.desktops();"
+        assert with_desktops_fallback(script) == script
+
+    def test_evaluate_sends_the_rewritten_script(self):
+        with patch("src.core.wallpaper._dbus.base") as mock_base:
+            mock_base.evaluate_kde_script.return_value = ""
+            evaluate_kde_script_with_fallback("qdbus6", "desktops()[0].reloadConfig();")
+        sent = mock_base.evaluate_kde_script.call_args.args[1]
+        assert sent.endswith("itkDesktops()[0].reloadConfig();")
