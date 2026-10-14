@@ -46,7 +46,12 @@ from backend.src.models.data.captioner import (
     HybridCaptioner,
     WD14Tagger,
 )
-from backend.src.models.data.lora_dataset import AspectRatioBucketSampler, BucketSample, LoRADatasetV2
+from backend.src.models.data.lora_dataset import (
+    AspectRatioBucketSampler,
+    BucketSample,
+    LoRADatasetV2,
+    buckets_for_resolution,
+)
 
 # --- Relocated Nested Imports ---
 from backend.src.models.data.video_frame_extractor import VideoFrameExtractor, _phash64
@@ -276,8 +281,11 @@ def _build_dataset(image_paths: list[Path], cfg: DictConfig):
         with contextlib.suppress(Exception):
             basic = BaSiCWrapper()
 
+    # Bucket at the configured resolution; SDXL_BUCKETS alone forced ~1 MP.
+    buckets = buckets_for_resolution(int(train_cfg.get("resolution", 1024)))
     samples = [
-        BucketSample.from_path(p, trigger=trigger) for p in image_paths if p.exists()
+        BucketSample.from_path(p, trigger=trigger, buckets=buckets)
+        for p in image_paths if p.exists()
     ]
     augs = default_anime_augmentations()
 
